@@ -10,7 +10,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import type { PracticeStackParamList } from '@/types';
 // DEFERRED: import { PracticeScreen, StabilizeRitualScreen, EvolveScreen } from '@/screens/practice'; — restore post-launch
-import { PracticeScreen, EvolveScreen } from '@/screens/practice';
+import { PracticeScreen, EvolveScreen, ThreadStrengthDetailScreen } from '@/screens/practice';
 import {
   ActivationScreen,
   BreathingAnimation,
@@ -66,6 +66,7 @@ export const PracticeStackNavigator: React.FC<PracticeStackNavigatorProps> = ({ 
           }}
         >
           <Stack.Screen name="PracticeHome" component={PracticeScreen} />
+          <Stack.Screen name="ThreadStrengthDetail" component={ThreadStrengthDetailScreen} />
           <Stack.Screen name="Evolve" component={EvolveScreen} />
           <Stack.Screen
             name="ChargeSetup"

@@ -24,4 +24,3 @@ export const SPLASH_PHASES = {
  * head-brain-anchor production artwork from the supplied prototype.
  */
 export const SPLASH_LOGO_ASSET = require('../../../assets/anchor-gold.png');
-

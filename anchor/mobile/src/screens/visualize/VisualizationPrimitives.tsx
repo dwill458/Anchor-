@@ -11,8 +11,13 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { SvgXml } from 'react-native-svg';
 
-import { typography } from '@/theme';
+import { colors as themeColors, typography } from '@/theme';
 import type { VisualizeSegmentState } from './visualizePresentation';
+
+const colors = {
+  ...themeColors,
+  gold: themeColors.practiceMode.visualize.primary,
+};
 
 type LensProps = {
   size: number;
@@ -129,14 +134,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     backgroundColor: 'rgba(68,128,182,0.18)',
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.18)',
+    borderColor: 'rgba(120,180,209,0.18)',
   },
   lens: {
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.78)',
+    borderColor: 'rgba(120,180,209,0.78)',
   },
   lensInset: {
     overflow: 'hidden',

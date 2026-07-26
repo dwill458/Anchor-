@@ -18,6 +18,7 @@ import { AnchorLargeWidget } from './AnchorLargeWidget';
 export function renderAnchorWidgetByName(
   widgetName: WidgetName | string,
   snapshot: WidgetSnapshot,
+  /** Launcher-reported widget size (dp), when known — keeps the 4×4 heatmap cells square. */
   dimensions?: { width: number; height: number }
 ): React.ReactElement {
   const today = localDateString(new Date());
@@ -48,7 +49,9 @@ export function renderAnchorWidgetByName(
           focusSessions={snapshot.focusSessions ?? 0}
           deepPrimeSessions={snapshot.deepPrimeSessions ?? 0}
           visualizeSessions={snapshot.visualizeSessions ?? 0}
+          releaseSessions={snapshot.releaseSessions ?? 0}
           deepPrimePercent={snapshot.deepPrimePercent ?? 0}
+          constancyPercent={snapshot.constancyPercent ?? 0}
           longestStreak={snapshot.longestStreak ?? 0}
           sensitivityLabel={snapshot.sensitivityLabel ?? 'Balanced'}
           sensitivityNote={snapshot.sensitivityNote ?? '1 grace day before decay begins.'}

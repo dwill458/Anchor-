@@ -18,7 +18,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import { PracticeCompletionService } from "@/services/PracticeCompletionService";
 import { AnalyticsEvents, AnalyticsService } from "@/services/AnalyticsService";
-import { colors, typography } from "@/theme";
+import { colors as themeColors, typography } from "@/theme";
 import { getVisualizationLensSize } from './visualizePresentation';
 import {
   VisualizationAnchorLens,
@@ -27,6 +27,11 @@ import {
 } from './VisualizationPrimitives';
 
 type Props = NativeStackScreenProps<RootStackParamList, "VisualizeCompletion">;
+
+const colors = {
+  ...themeColors,
+  gold: themeColors.practiceMode.visualize.primary,
+};
 
 export const VisualizeCompletionScreen: React.FC<Props> = ({
   navigation,
@@ -238,7 +243,7 @@ const styles = StyleSheet.create({
     padding: 17,
     backgroundColor: "rgba(5,17,31,.66)",
     borderWidth: 1,
-    borderColor: "rgba(212,175,55,.18)",
+    borderColor: "rgba(120,180,209,.18)",
   },
   actionLabel: {
     color: colors.gold,

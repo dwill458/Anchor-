@@ -31,7 +31,7 @@ import { ChevronRight, Share2, Zap } from 'lucide-react-native';
 import { MoreRitualsSheet, RitualType } from '@/components/MoreRitualsSheet';
 import { useToast } from '@/components/ToastProvider';
 import { usePracticeEntry } from '@/hooks/usePracticeEntry';
-import { ENABLE_MERCH, ENABLE_VISUALIZE } from '@/config';
+import { ENABLE_MERCH } from '@/config';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSessionStore } from '@/stores/sessionStore';
@@ -1656,40 +1656,6 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
             </TouchableOpacity>
           )}
         </FadeUp>
-
-        {ENABLE_VISUALIZE && !anchor.isReleased ? (
-          <FadeUp delay={250} animate={shouldAnimateIntro}>
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel="Prepare a Visualize practice"
-              style={s.primaryCtaCard}
-              activeOpacity={0.8}
-              onPress={() => {
-                AnalyticsService.track(AnalyticsEvents.VISUALIZE_SELECTED, {
-                  anchor_id: anchor.id,
-                  source: 'anchor_detail',
-                });
-                startPractice({
-                  mode: 'visualize',
-                  anchorId: anchor.id,
-                  source: 'anchor_detail',
-                });
-              }}
-            >
-              <View style={s.primaryCtaGradient}>
-                <View style={s.primaryCtaLeft}>
-                  <Text style={s.primaryCtaLabel}>
-                    Mental rehearsal · 1, 3, or 5 min
-                  </Text>
-                  <Text style={s.primaryCtaTitle}>Visualize</Text>
-                </View>
-                <View style={s.primaryCtaArrow}>
-                  <ChevronRight size={18} color={colors.gold} />
-                </View>
-              </View>
-            </TouchableOpacity>
-          </FadeUp>
-        ) : null}
 
         {/* DEFERRED: Direct ritual entry points live on Practice — restore the secondary ritual sheet here only if the detail screen regains mode-launch responsibilities. */}
 

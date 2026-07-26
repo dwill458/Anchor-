@@ -10,7 +10,7 @@
  * renderers, which run in a headless JS context.
  */
 
-export type WidgetPracticeType = 'focus' | 'deep_prime' | 'visualize';
+export type WidgetPracticeType = 'focus' | 'deep_prime' | 'visualize' | 'release';
 
 export interface WidgetHistoryDay {
   /** Local YYYY-MM-DD */
@@ -19,11 +19,9 @@ export interface WidgetHistoryDay {
   level: 0 | 1 | 2 | 3;
   /** True when the day included a reinforce ("Deep Prime") session */
   deep: boolean;
-  /**
-   * The latest completed canonical practice mode for the day. Intensity is
-   * always based on the total count, while this determines the cell color.
-   */
+  /** Latest completed mode for the day; used for heatmap coloring. */
   mode?: WidgetPracticeType;
+  dominantMode?: 'deep_prime' | 'visualize' | 'focus' | 'release' | null;
 }
 
 export interface WidgetWeekDay {
@@ -31,7 +29,8 @@ export interface WidgetWeekDay {
   date: string;
   hasFocus: boolean;
   hasDeep: boolean;
-  hasVisualize: boolean;
+  hasVisualize?: boolean;
+  dominantMode?: 'deep_prime' | 'visualize' | 'focus' | 'release' | null;
   isToday: boolean;
   isFuture: boolean;
 }
@@ -40,9 +39,14 @@ export interface WidgetSnapshot {
   /** The active anchor represented by the widget, if one exists. */
   anchorId: string | null;
   anchorName: string;
-  /** The saved SVG fallback for the selected anchor. */
+  /** The selected anchor's deterministic sigil SVG. */
   sigilSvg: string | null;
-  /** Locally cached final raster artwork, when an enhancement was selected. */
+  /**
+   * The anchor's finalized enhanced raster image URL, when one exists.
+   * Widgets render this over the SVG fallback when present. This is a
+   * remote URL, not a locally cached file — the widget renderer falls back
+   * to `sigilSvg` if it can't load it.
+   */
   artworkImageUri: string | null;
   /** Source selected from the anchor's saved visual lineage. */
   artworkSource: 'enhanced_image' | 'reinforced_svg' | 'base_svg' | 'fallback';
@@ -57,7 +61,10 @@ export interface WidgetSnapshot {
   focusSessions: number;
   deepPrimeSessions: number;
   visualizeSessions: number;
+  releaseSessions: number;
   deepPrimePercent: number;
+  /** % of the trailing 30 days with at least one session — matches the Thread Strength sheet's CONSTANCY stat. */
+  constancyPercent: number;
   longestStreak: number;
   sensitivityLabel: string;
   sensitivityNote: string;
@@ -126,7 +133,9 @@ export function createEmptyWidgetSnapshot(): WidgetSnapshot {
     focusSessions: 0,
     deepPrimeSessions: 0,
     visualizeSessions: 0,
+    releaseSessions: 0,
     deepPrimePercent: 0,
+    constancyPercent: 0,
     longestStreak: 0,
     sensitivityLabel: 'Balanced',
     sensitivityNote: '1 grace day before decay begins.',

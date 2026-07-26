@@ -31,7 +31,14 @@ jest.mock('react-native-reanimated', () => {
       return ref.current;
     },
     useAnimatedStyle: (factory: () => unknown) => factory(),
-    withTiming: (value: number) => value,
+    withTiming: (
+      value: number,
+      _config?: unknown,
+      callback?: (finished: boolean) => void
+    ) => {
+      callback?.(true);
+      return value;
+    },
     runOnJS: (callback: (...args: any[]) => any) => callback,
     useReducedMotion: () => false,
     interpolate: (value: number) => value,
@@ -105,6 +112,7 @@ describe('SwipeableTabContainer', () => {
 
     expect(screen.getByTestId('tab-page-0').props.pointerEvents).toBe('none');
     expect(screen.getByTestId('tab-page-1').props.pointerEvents).toBe('auto');
+    expect(sharedValues[0]?.value).toBe(1);
   });
 
   it('ignores a stale pan after a tab-button selection changes activeIndex', () => {

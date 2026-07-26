@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -9,47 +9,60 @@ import {
   View,
   type StyleProp,
   type ViewStyle,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
-import type { StackNavigationProp } from '@react-navigation/stack';
-import { Canvas, RadialGradient, Rect, vec } from '@shopify/react-native-skia';
-import Svg, { Path } from 'react-native-svg';
-import { useTabNavigation } from '@/contexts/TabNavigationContext';
-import { OptimizedImage, PremiumAnchorGlow, SigilSvg } from '@/components/common';
-import { useAnchorStore } from '@/stores/anchorStore';
-import { useAuthStore } from '@/stores/authStore';
-import { useSessionStore } from '@/stores/sessionStore';
-import { useSettingsStore } from '@/stores/settingsStore';
-import { useAudio } from '@/hooks/useAudio';
-import { useNotificationController } from '@/hooks/useNotificationController';
-import { DailyReminderPrompt } from '@/components/notifications';
-import { AnalyticsService } from '@/services/AnalyticsService';
-import { FrictionAnalytics } from '@/services/FrictionAnalytics';
-import { PracticeCompletionService } from '@/services/PracticeCompletionService';
-import { colors, spacing, typography } from '@/theme';
-import type { RootStackParamList } from '@/types';
-import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
-import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
-import { buildRecoveredChargeState } from '@/utils/anchorPriming';
-import { createPracticeEventId } from '@/utils/primingAnalytics';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import {
+  useNavigation,
+  useRoute,
+  type RouteProp,
+} from "@react-navigation/native";
+import type { StackNavigationProp } from "@react-navigation/stack";
+import { Canvas, RadialGradient, Rect, vec } from "@shopify/react-native-skia";
+import Svg, { Path } from "react-native-svg";
+import { useTabNavigation } from "@/contexts/TabNavigationContext";
+import {
+  OptimizedImage,
+  PremiumAnchorGlow,
+  SigilSvg,
+} from "@/components/common";
+import { useAnchorStore } from "@/stores/anchorStore";
+import { useAuthStore } from "@/stores/authStore";
+import { useSessionStore } from "@/stores/sessionStore";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { useAudio } from "@/hooks/useAudio";
+import { useNotificationController } from "@/hooks/useNotificationController";
+import { useReduceMotionEnabled } from "@/hooks/useReduceMotionEnabled";
+import { DailyReminderPrompt } from "@/components/notifications";
+import { AnalyticsService } from "@/services/AnalyticsService";
+import { FrictionAnalytics } from "@/services/FrictionAnalytics";
+import { PracticeCompletionService } from "@/services/PracticeCompletionService";
+import { colors, spacing, typography } from "@/theme";
+import type { RootStackParamList } from "@/types";
+import { navigateToVaultDestination } from "@/navigation/firstAnchorGate";
+import { queueProgressionMilestonesFromStores } from "@/utils/progressionMilestones";
+import { buildRecoveredChargeState } from "@/utils/anchorPriming";
+import { createPracticeEventId } from "@/utils/primingAnalytics";
+import { logger } from "@/utils/logger";
 import {
   DEFAULT_SESSION_AUDIO_DEFAULTS,
   resolveSessionAudioConfiguration,
-} from '@/types/sessionAudio';
+} from "@/types/sessionAudio";
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const SYMBOL_SIZE = Math.min(SCREEN_WIDTH * 0.65, 256);
 const RING_ONE_SIZE = SYMBOL_SIZE + 48;
 const RING_TWO_SIZE = SYMBOL_SIZE + 96;
 const THREAD_TRACK_WIDTH = 120;
 
-type FirstPrimeCompleteRouteProp = RouteProp<RootStackParamList, 'FirstPrimeComplete'>;
+type FirstPrimeCompleteRouteProp = RouteProp<
+  RootStackParamList,
+  "FirstPrimeComplete"
+>;
 type FirstPrimeCompleteNavigationProp = StackNavigationProp<
   RootStackParamList,
-  'FirstPrimeComplete'
+  "FirstPrimeComplete"
 >;
 
 const FadeUp: React.FC<{
@@ -63,7 +76,9 @@ const FadeUp: React.FC<{
   });
 
   return (
-    <Animated.View style={[style, { opacity: animation, transform: [{ translateY }] }]}>
+    <Animated.View
+      style={[style, { opacity: animation, transform: [{ translateY }] }]}
+    >
       {children}
     </Animated.View>
   );
@@ -83,18 +98,25 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
     returnTo,
   } = route.params;
   const fallbackCompletionEventIdRef = useRef(createPracticeEventId());
-  const completionEventId = routeCompletionEventId ?? fallbackCompletionEventIdRef.current;
+  const completionEventId =
+    routeCompletionEventId ?? fallbackCompletionEventIdRef.current;
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const updateAnchor = useAnchorStore((state) => state.updateAnchor);
-  const incrementTotalPrimes = useAnchorStore((state) => state.incrementTotalPrimes);
-  const recordPrimeSession = useAnchorStore((state) => state.recordPrimeSession);
+  const incrementTotalPrimes = useAnchorStore(
+    (state) => state.incrementTotalPrimes,
+  );
+  const recordPrimeSession = useAnchorStore(
+    (state) => state.recordPrimeSession,
+  );
   const recordSession = useSessionStore((state) => state.recordSession);
   const primeSessionAudioDefaults = useSettingsStore(
     (state) =>
-      state.sessionAudioDefaults?.deep_prime ?? DEFAULT_SESSION_AUDIO_DEFAULTS.deep_prime
+      state.sessionAudioDefaults?.deep_prime ??
+      DEFAULT_SESSION_AUDIO_DEFAULTS.deep_prime,
   );
   const { playSound } = useAudio();
+  const reduceMotion = useReduceMotionEnabled();
   const { handlePrimeComplete, notifState } = useNotificationController();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
@@ -102,6 +124,10 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
   const hasRecordedRef = useRef(false);
   const reminderShownRef = useRef(false);
   const [reminderCardVisible, setReminderCardVisible] = useState(false);
+  const [completionState, setCompletionState] = useState<
+    "saving" | "ready" | "error"
+  >("saving");
+  const [completionAttempt, setCompletionAttempt] = useState(0);
 
   const glowBreath = useRef(new Animated.Value(0)).current;
   const ringSpinA = useRef(new Animated.Value(0)).current;
@@ -119,18 +145,18 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
   const cardAnim = useRef(new Animated.Value(0)).current;
   const footerAnim = useRef(new Animated.Value(0)).current;
 
-  const symbolSvg = anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg ?? '';
-  const intentionText = anchor?.intentionText?.trim() || 'Your anchor is set.';
+  const symbolSvg = anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg ?? "";
+  const intentionText = anchor?.intentionText?.trim() || "Your anchor is set.";
   const targetFillPercent = Math.min(100, Math.max(8, threadStrength * 8));
   const targetFillWidth = (THREAD_TRACK_WIDTH * targetFillPercent) / 100;
 
   const ringRotateA = ringSpinA.interpolate({
     inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
+    outputRange: ["0deg", "360deg"],
   });
   const ringRotateB = ringSpinB.interpolate({
     inputRange: [0, 1],
-    outputRange: ['0deg', '-360deg'],
+    outputRange: ["0deg", "-360deg"],
   });
   const pulseScale = ringPulse.interpolate({
     inputRange: [0, 0.5, 1],
@@ -155,7 +181,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
         },
       ],
     }),
-    [glowBreath]
+    [glowBreath],
   );
   const glowTwoStyle = useMemo(
     () => ({
@@ -172,71 +198,110 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
         },
       ],
     }),
-    [glowBreath]
+    [glowBreath],
   );
 
   useEffect(() => {
+    let active = true;
     if (!hasRecordedRef.current) {
       hasRecordedRef.current = true;
       const sessionState = useSessionStore.getState();
-      const alreadyRecorded =
-        sessionState.sessionLog.some(session => session.id === completionEventId) ||
-        sessionState.primingHistory.some(session => session.id === completionEventId);
+      const alreadyRecorded = sessionState.practiceHistory.some(
+        (session) => session.id === completionEventId,
+      );
 
-      if (!alreadyRecorded) {
-        // Count the very first priming session toward lifetime Total Primes.
-        const currentActivationCount =
-          useAnchorStore.getState().getAnchorById(anchorId)?.activationCount ?? 0;
-        const recoveredChargeState = buildRecoveredChargeState(anchor, new Date());
-        updateAnchor(anchorId, {
-          ...recoveredChargeState,
-          activationCount: currentActivationCount + 1,
-          lastActivatedAt: new Date(),
-        });
-        incrementTotalPrimes();
-        recordPrimeSession();
+      void (async () => {
+        try {
+          if (!alreadyRecorded) {
+            const audioConfiguration =
+              routeAudioConfiguration ??
+              resolveSessionAudioConfiguration(primeSessionAudioDefaults);
+            const completedAt = new Date().toISOString();
+            const recordedEventId = recordSession({
+              idempotencyKey: completionEventId,
+              anchorId,
+              type: "reinforce",
+              durationSeconds,
+              mode:
+                audioConfiguration.backgroundAudio === "ambient" ||
+                audioConfiguration.guidanceVoice !== "none"
+                  ? "ambient"
+                  : "silent",
+              audioConfiguration,
+              completedAt,
+            });
+            await PracticeCompletionService.queueLegacyCompletion({
+              id: recordedEventId,
+              anchorId,
+              anchorLocalId: anchor?.localId,
+              practiceMode: "deep_prime",
+              durationSeconds,
+              completedAt,
+              guidanceVoice: audioConfiguration.guidanceVoice,
+              backgroundAudio: audioConfiguration.backgroundAudio,
+              source:
+                returnTo === "practice" ? "practice_screen" : "anchor_detail",
+            });
 
-        const audioConfiguration =
-          routeAudioConfiguration ?? resolveSessionAudioConfiguration(primeSessionAudioDefaults);
-        const completedAt = new Date().toISOString();
-        const recordedEventId = recordSession({
-          idempotencyKey: completionEventId,
-          anchorId,
-          type: 'reinforce',
-          durationSeconds,
-          mode:
-            audioConfiguration.backgroundAudio === 'ambient' ||
-            audioConfiguration.guidanceVoice !== 'none'
-              ? 'ambient'
-              : 'silent',
-          audioConfiguration,
-          completedAt,
-        });
-        void PracticeCompletionService.queueLegacyCompletion({
-          id: recordedEventId,
-          anchorId,
-          anchorLocalId: anchor?.localId,
-          practiceMode: 'deep_prime',
-          durationSeconds,
-          completedAt,
-          guidanceVoice: audioConfiguration.guidanceVoice,
-          backgroundAudio: audioConfiguration.backgroundAudio,
-        });
-        void handlePrimeComplete();
-        FrictionAnalytics.completeFlow('activation', {
-          anchor_id: anchorId,
-          result: 'first_prime_completed',
-          session_count: sessionCount,
-        });
-        AnalyticsService.track('first_prime_completed', {
-          anchor_id: anchorId,
-          intention_id: anchor?.id ?? anchorId,
-          session_count: sessionCount,
-          timestamp: new Date().toISOString(),
-        });
-      }
-      // Safe to retry after a crash between the session write and award write.
-      void queueProgressionMilestonesFromStores({ sourceEventId: completionEventId });
+            // Award product progress only after the history entry is durable.
+            const currentActivationCount =
+              useAnchorStore.getState().getAnchorById(anchorId)
+                ?.activationCount ?? 0;
+            const recoveredChargeState = buildRecoveredChargeState(
+              anchor,
+              new Date(),
+            );
+            updateAnchor(anchorId, {
+              ...recoveredChargeState,
+              activationCount: currentActivationCount + 1,
+              lastActivatedAt: new Date(),
+            });
+            incrementTotalPrimes();
+            recordPrimeSession();
+            await handlePrimeComplete();
+            FrictionAnalytics.completeFlow("activation", {
+              anchor_id: anchorId,
+              result: "first_prime_completed",
+              session_count: sessionCount,
+            });
+            AnalyticsService.track("first_prime_completed", {
+              anchor_id: anchorId,
+              intention_id: anchor?.id ?? anchorId,
+              session_count: sessionCount,
+              timestamp: new Date().toISOString(),
+            });
+          }
+          // Safe to retry after a crash between the session write and award write.
+          await queueProgressionMilestonesFromStores({
+            sourceEventId: completionEventId,
+          });
+          if (active) setCompletionState("ready");
+        } catch {
+          hasRecordedRef.current = false;
+          logger.warn(
+            "[FirstPrimeCompleteScreen] Completion persistence deferred",
+          );
+          if (active) setCompletionState("error");
+        }
+      })();
+    }
+
+    if (reduceMotion) {
+      [
+        checkAnim,
+        headlineAnim,
+        symbolAnim,
+        pillAnim,
+        barAnim,
+        dividerAnim,
+        cardAnim,
+        footerAnim,
+      ].forEach((animation) => animation.setValue(1));
+      threadFill.setValue(targetFillWidth);
+      playSound("prime-complete");
+      return () => {
+        active = false;
+      };
     }
 
     const entranceAnimations = [
@@ -314,7 +379,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
           easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
-      ])
+      ]),
     );
     const spinLoopA = Animated.loop(
       Animated.timing(ringSpinA, {
@@ -322,7 +387,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
         duration: 40000,
         easing: Easing.linear,
         useNativeDriver: true,
-      })
+      }),
     );
     const spinLoopB = Animated.loop(
       Animated.timing(ringSpinB, {
@@ -330,7 +395,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
         duration: 60000,
         easing: Easing.linear,
         useNativeDriver: true,
-      })
+      }),
     );
     const footerBlinkLoop = Animated.loop(
       Animated.sequence([
@@ -346,7 +411,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
           easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
-      ])
+      ]),
     );
 
     glowLoop.start();
@@ -367,7 +432,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
           easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
-      ])
+      ]),
     );
 
     const pulseTimer = setTimeout(() => {
@@ -388,10 +453,11 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
     }, 2500);
 
     const soundTimer = setTimeout(() => {
-      playSound('prime-complete');
+      playSound("prime-complete");
     }, 2500);
 
     return () => {
+      active = false;
       clearTimeout(pulseTimer);
       clearTimeout(barTimer);
       clearTimeout(footerBlinkTimer);
@@ -404,13 +470,16 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
     };
   }, [
     anchor?.id,
+    anchor?.localId,
     anchorId,
     barAnim,
     cardAnim,
     checkAnim,
     completionEventId,
+    completionAttempt,
     primeSessionAudioDefaults,
     routeAudioConfiguration,
+    returnTo,
     dividerAnim,
     durationSeconds,
     footerAnim,
@@ -423,6 +492,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
     handlePrimeComplete,
     recordPrimeSession,
     recordSession,
+    reduceMotion,
     ringPulse,
     ringSpinA,
     ringSpinB,
@@ -434,35 +504,41 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
   ]);
 
   const performDismiss = () => {
-    if (returnTo === 'practice') {
+    if (returnTo === "practice") {
       const nav = navigation as unknown as { popToTop?: () => void };
       nav.popToTop?.();
       navigateToPractice();
       return;
     }
 
-    if (returnTo === 'detail') {
-      navigation.replace('AnchorDetail', { anchorId });
+    if (returnTo === "detail") {
+      navigation.replace("AnchorDetail", { anchorId });
       return;
     }
 
     // First-time flow: show save gate before sanctuary for unauthenticated users
     if (!isAuthenticated && anchor) {
-      navigation.replace('SaveProgress', { anchor });
+      navigation.replace("SaveProgress", { anchor });
       return;
     }
 
-    navigateToVaultDestination(navigation, 'replace');
+    navigateToVaultDestination(navigation, "reset");
   };
 
   // Fallback moment: if the user skipped the first-anchor reminder card and
   // notification permission is still undetermined, offer it once here before
   // returning to the Sanctuary.
   const shouldShowFallbackReminder =
-    notifState?.notificationPermissionStatus === 'undetermined' &&
+    notifState?.notificationPermissionStatus === "undetermined" &&
     !notifState?.fallbackReminderPromptCompleted;
 
   const handleDismiss = () => {
+    if (completionState === "saving") return;
+    if (completionState === "error") {
+      setCompletionState("saving");
+      setCompletionAttempt((value) => value + 1);
+      return;
+    }
     if (shouldShowFallbackReminder && !reminderShownRef.current) {
       reminderShownRef.current = true;
       setReminderCardVisible(true);
@@ -478,7 +554,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
 
   if (!anchor) {
     return (
-      <SafeAreaView style={styles.fallbackSafeArea} edges={['top', 'bottom']}>
+      <SafeAreaView style={styles.fallbackSafeArea} edges={["top", "bottom"]}>
         <Pressable style={styles.fallbackContainer} onPress={handleDismiss}>
           <Text style={styles.fallbackText}>Saved to Sanctuary.</Text>
         </Pressable>
@@ -489,43 +565,60 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#3E2C5B', '#1A1228', '#080C10']}
+        colors={["#3A321D", "#1A1710", "#080C10"]}
         locations={[0, 0.38, 0.76]}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
 
-      <Animated.View style={[styles.glowOne, glowOneStyle]} pointerEvents="none">
+      <Animated.View
+        style={[styles.glowOne, glowOneStyle]}
+        pointerEvents="none"
+      >
         <Canvas style={StyleSheet.absoluteFill}>
           <Rect x={0} y={0} width={800} height={800}>
             <RadialGradient
               c={vec(400, 400)}
               r={400}
-              colors={['rgba(62,44,91,0.85)', 'rgba(62,44,91,0.3)', 'rgba(62,44,91,0)']}
+              colors={[
+                "rgba(212,175,55,0.34)",
+                "rgba(212,175,55,0.12)",
+                "rgba(212,175,55,0)",
+              ]}
             />
           </Rect>
         </Canvas>
       </Animated.View>
-      <Animated.View style={[styles.glowTwo, glowTwoStyle]} pointerEvents="none">
+      <Animated.View
+        style={[styles.glowTwo, glowTwoStyle]}
+        pointerEvents="none"
+      >
         <Canvas style={StyleSheet.absoluteFill}>
           <Rect x={0} y={0} width={500} height={500}>
             <RadialGradient
               c={vec(250, 250)}
               r={250}
-              colors={['rgba(212,175,55,0.45)', 'rgba(212,175,55,0.1)', 'rgba(212,175,55,0)']}
+              colors={[
+                "rgba(212,175,55,0.45)",
+                "rgba(212,175,55,0.1)",
+                "rgba(212,175,55,0)",
+              ]}
             />
           </Rect>
         </Canvas>
       </Animated.View>
 
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
         <Pressable style={styles.pressable} onPress={handleDismiss}>
           <FadeUp animation={checkAnim} style={styles.checkBlock}>
             <View style={styles.checkCircle}>
               <Animated.View
                 pointerEvents="none"
-                style={[styles.checkPulseRing, { opacity: pulseOpacity, transform: [{ scale: pulseScale }] }]}
+                style={[
+                  styles.checkPulseRing,
+                  { opacity: pulseOpacity, transform: [{ scale: pulseScale }] },
+                ]}
               />
               <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
                 <Path
@@ -542,7 +635,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
           <FadeUp animation={headlineAnim} style={styles.headlineBlock}>
             <Text style={styles.headline}>First thread laid.</Text>
             <Text style={styles.subhead}>
-              Repetition carves the groove.{'\n'}
+              Repetition carves the groove.{"\n"}
               Return tomorrow. The pattern builds.
             </Text>
           </FadeUp>
@@ -551,11 +644,19 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
             <View style={styles.symbolWrap}>
               <Animated.View
                 pointerEvents="none"
-                style={[styles.dashedRing, styles.dashedRingInner, { transform: [{ rotate: ringRotateA }] }]}
+                style={[
+                  styles.dashedRing,
+                  styles.dashedRingInner,
+                  { transform: [{ rotate: ringRotateA }] },
+                ]}
               />
               <Animated.View
                 pointerEvents="none"
-                style={[styles.dashedRing, styles.dashedRingOuter, { transform: [{ rotate: ringRotateB }] }]}
+                style={[
+                  styles.dashedRing,
+                  styles.dashedRingOuter,
+                  { transform: [{ rotate: ringRotateB }] },
+                ]}
               />
               <View style={styles.symbolDisc}>
                 <View style={styles.symbolGlow}>
@@ -563,7 +664,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
                     size={SYMBOL_SIZE}
                     state="charged"
                     variant="ritual"
-                    reduceMotionEnabled={false}
+                    reduceMotionEnabled={reduceMotion}
                   />
                 </View>
                 {anchor.enhancedImageUrl ? (
@@ -573,7 +674,11 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
                     resizeMode="cover"
                   />
                 ) : (
-                  <SigilSvg xml={symbolSvg} width={SYMBOL_SIZE * 0.78} height={SYMBOL_SIZE * 0.78} />
+                  <SigilSvg
+                    xml={symbolSvg}
+                    width={SYMBOL_SIZE * 0.78}
+                    height={SYMBOL_SIZE * 0.78}
+                  />
                 )}
               </View>
             </View>
@@ -612,9 +717,21 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
           </FadeUp>
 
           <FadeUp animation={footerAnim} style={styles.footer}>
-            <Text style={styles.footerText}>Saved to Sanctuary.</Text>
-            <Animated.Text style={[styles.footerHint, { opacity: footerBlink }]}>
-              Tap anywhere to continue
+            <Text style={styles.footerText}>
+              {completionState === "ready"
+                ? "Saved to Sanctuary."
+                : completionState === "error"
+                  ? "Could not save your practice."
+                  : "Saving your practice…"}
+            </Text>
+            <Animated.Text
+              style={[styles.footerHint, { opacity: footerBlink }]}
+            >
+              {completionState === "ready"
+                ? "Tap anywhere to continue"
+                : completionState === "error"
+                  ? "Tap anywhere to retry"
+                  : "Please wait"}
             </Animated.Text>
           </FadeUp>
         </Pressable>
@@ -639,20 +756,20 @@ const styles = StyleSheet.create({
   },
   pressable: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
     paddingHorizontal: 32,
   },
   glowOne: {
-    position: 'absolute',
+    position: "absolute",
     top: -150,
-    alignSelf: 'center',
+    alignSelf: "center",
     width: 800,
     height: 800,
   },
   glowTwo: {
-    position: 'absolute',
+    position: "absolute",
     top: 50,
-    alignSelf: 'center',
+    alignSelf: "center",
     width: 500,
     height: 500,
   },
@@ -664,24 +781,24 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 24,
     borderWidth: 1.5,
-    borderColor: 'rgba(212,175,55,0.5)',
-    backgroundColor: 'rgba(212,175,55,0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: "rgba(212,175,55,0.5)",
+    backgroundColor: "rgba(212,175,55,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   checkPulseRing: {
-    position: 'absolute',
+    position: "absolute",
     top: -6,
     right: -6,
     bottom: -6,
     left: -6,
     borderRadius: 30,
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.15)',
+    borderColor: "rgba(212,175,55,0.15)",
   },
   headlineBlock: {
     marginTop: 16,
-    alignItems: 'center',
+    alignItems: "center",
   },
   headline: {
     fontFamily: typography.fonts.heading,
@@ -689,7 +806,7 @@ const styles = StyleSheet.create({
     lineHeight: 34,
     color: colors.bone,
     letterSpacing: 1.12,
-    textAlign: 'center',
+    textAlign: "center",
   },
   subhead: {
     marginTop: 10,
@@ -697,9 +814,9 @@ const styles = StyleSheet.create({
     fontFamily: typography.fonts.bodySerifItalic,
     fontSize: 16,
     lineHeight: 24,
-    color: 'rgba(245,245,220,0.55)',
+    color: "rgba(245,245,220,0.55)",
     letterSpacing: 0.32,
-    textAlign: 'center',
+    textAlign: "center",
   },
   symbolSection: {
     marginTop: 24,
@@ -707,38 +824,38 @@ const styles = StyleSheet.create({
   symbolWrap: {
     width: RING_TWO_SIZE,
     height: RING_TWO_SIZE,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   dashedRing: {
-    position: 'absolute',
+    position: "absolute",
     borderRadius: 999,
     borderWidth: 1,
-    borderStyle: 'dashed',
+    borderStyle: "dashed",
   },
   dashedRingInner: {
     width: RING_ONE_SIZE,
     height: RING_ONE_SIZE,
-    borderColor: 'rgba(212,175,55,0.2)',
+    borderColor: "rgba(212,175,55,0.2)",
   },
   dashedRingOuter: {
     width: RING_TWO_SIZE,
     height: RING_TWO_SIZE,
-    borderColor: 'rgba(212,175,55,0.08)',
+    borderColor: "rgba(212,175,55,0.08)",
   },
   symbolDisc: {
     width: SYMBOL_SIZE,
     height: SYMBOL_SIZE,
     borderRadius: SYMBOL_SIZE / 2,
     borderWidth: 1.5,
-    borderColor: 'rgba(212,175,55,0.35)',
-    backgroundColor: 'rgba(10, 8, 20, 0.88)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
+    borderColor: "rgba(212,175,55,0.35)",
+    backgroundColor: "rgba(10, 8, 20, 0.88)",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
   },
   symbolGlow: {
-    position: 'absolute',
+    position: "absolute",
     width: SYMBOL_SIZE * 1.5,
     height: SYMBOL_SIZE * 1.5,
   },
@@ -749,41 +866,41 @@ const styles = StyleSheet.create({
   },
   sessionPill: {
     marginTop: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   sessionLabel: {
     fontFamily: typography.fonts.headingSemiBold,
     fontSize: 10,
-    color: 'rgba(212,175,55,0.5)',
+    color: "rgba(212,175,55,0.5)",
     letterSpacing: 1.9,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
   },
   sessionDot: {
     width: 3,
     height: 3,
     borderRadius: 1.5,
     marginHorizontal: 8,
-    backgroundColor: 'rgba(212,175,55,0.3)',
+    backgroundColor: "rgba(212,175,55,0.3)",
   },
   sessionCount: {
     fontFamily: typography.fonts.headingSemiBold,
     fontSize: 10,
     color: colors.gold,
     letterSpacing: 1,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
   },
   threadWrap: {
     marginTop: 10,
     width: THREAD_TRACK_WIDTH,
-    alignItems: 'center',
+    alignItems: "center",
   },
   threadTrack: {
     width: THREAD_TRACK_WIDTH,
     height: 2,
     borderRadius: 1,
-    backgroundColor: 'rgba(212,175,55,0.1)',
-    overflow: 'hidden',
+    backgroundColor: "rgba(212,175,55,0.1)",
+    overflow: "hidden",
   },
   threadFill: {
     height: 2,
@@ -795,9 +912,9 @@ const styles = StyleSheet.create({
     fontFamily: typography.fonts.bodySerif,
     fontSize: 11,
     lineHeight: 14,
-    color: 'rgba(212,175,55,0.35)',
+    color: "rgba(212,175,55,0.35)",
     letterSpacing: 0.4,
-    textAlign: 'center',
+    textAlign: "center",
   },
   dividerWrap: {
     marginTop: 24,
@@ -805,62 +922,62 @@ const styles = StyleSheet.create({
   divider: {
     width: 1,
     height: 20,
-    backgroundColor: 'rgba(212,175,55,0.2)',
+    backgroundColor: "rgba(212,175,55,0.2)",
   },
   card: {
     marginTop: 16,
-    width: '100%',
+    width: "100%",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.14)',
-    backgroundColor: 'rgba(212,175,55,0.03)',
+    borderColor: "rgba(212,175,55,0.14)",
+    backgroundColor: "rgba(212,175,55,0.03)",
     paddingHorizontal: 24,
     paddingVertical: 16,
-    alignItems: 'center',
-    overflow: 'hidden',
+    alignItems: "center",
+    overflow: "hidden",
   },
   cardAccent: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: 'rgba(212,175,55,0.3)',
+    backgroundColor: "rgba(212,175,55,0.3)",
   },
   cardEyebrow: {
     marginBottom: 10,
     fontFamily: typography.fonts.headingSemiBold,
     fontSize: 9,
-    color: 'rgba(212,175,55,0.4)',
+    color: "rgba(212,175,55,0.4)",
     letterSpacing: 1.8,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
   },
   cardIntention: {
     fontFamily: typography.fonts.bodySerifItalic,
     fontSize: 19,
     lineHeight: 28,
     color: colors.bone,
-    textAlign: 'center',
+    textAlign: "center",
   },
   footer: {
-    marginTop: 'auto',
+    marginTop: "auto",
     marginBottom: 24,
-    alignItems: 'center',
+    alignItems: "center",
   },
   footerText: {
     fontFamily: typography.fonts.bodySerif,
     fontSize: 13,
     lineHeight: 20,
-    color: 'rgba(245,245,220,0.3)',
+    color: "rgba(245,245,220,0.3)",
     letterSpacing: 0.65,
   },
   footerHint: {
     marginTop: 16,
     fontFamily: typography.fonts.heading,
     fontSize: 9,
-    color: 'rgba(212,175,55,0.25)',
+    color: "rgba(212,175,55,0.25)",
     letterSpacing: 1.8,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
   },
   fallbackSafeArea: {
     flex: 1,
@@ -868,14 +985,14 @@ const styles = StyleSheet.create({
   },
   fallbackContainer: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: spacing.xl,
   },
   fallbackText: {
     color: colors.bone,
     fontFamily: typography.fonts.bodySerif,
     fontSize: 18,
-    textAlign: 'center',
+    textAlign: "center",
   },
 });

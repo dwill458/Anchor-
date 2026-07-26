@@ -24,6 +24,7 @@ const mockSetCurrentAnchor = jest.fn((id?: string) => {
 let mockAnchors: any[] = [];
 let mockCurrentAnchorId: string | undefined;
 let mockSessionLog: any[] = [];
+let mockPracticeHistory: any[] = [];
 let mockThreadStrength = 10;
 let mockTotalSessionsCount = 0;
 let mockLastPrimedAt: string | null = null;
@@ -39,6 +40,10 @@ const mockSettingsState: any = {
   defaultActivation: { mode: 'silent', unit: 'seconds', value: 30 },
   defaultCharge: { mode: 'ritual', preset: '5m', customMinutes: undefined },
   dailyPracticeGoal: 3,
+  threadStrengthSensitivity: 'balanced',
+  restDays: [],
+  primeSessionDuration: 120,
+  focusSessionDuration: 30,
   sessionAudioDefaults: {
     focus: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
     deep_prime: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
@@ -86,8 +91,8 @@ jest.mock('@/stores/anchorStore', () => ({
 jest.mock('@/stores/authStore', () => ({
   useAuthStore: (selector: any) =>
     selector
-      ? selector({ user: { stabilizeStreakDays: 2, lastStabilizeAt: new Date().toISOString() } })
-      : { user: { stabilizeStreakDays: 2, lastStabilizeAt: new Date().toISOString() } },
+      ? selector({ user: { id: 'u1', stabilizeStreakDays: 2, lastStabilizeAt: new Date().toISOString() } })
+      : { user: { id: 'u1', stabilizeStreakDays: 2, lastStabilizeAt: new Date().toISOString() } },
 }));
 
 jest.mock('@/stores/sessionStore', () => ({
@@ -95,6 +100,8 @@ jest.mock('@/stores/sessionStore', () => ({
     const state = {
       todayPractice: { sessionsCount: 0, totalSeconds: 0, date: '2026-02-21' },
       sessionLog: mockSessionLog,
+      practiceHistory: mockPracticeHistory,
+      primingHistory: [],
       threadStrength: mockThreadStrength,
       totalSessionsCount: mockTotalSessionsCount,
       lastPrimedAt: mockLastPrimedAt,
@@ -154,6 +161,19 @@ function localDateString(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+function canonicalEvent(id: string, mode: 'deep_prime' | 'visualize' | 'focus' | 'release') {
+  const completedAt = new Date().toISOString();
+  return {
+    id, accountId: 'u1', anchorId: 'a4', anchorLocalId: 'a4', anchorServerId: 'a4',
+    practiceMode: mode, plannedDurationSeconds: 60, completedDurationSeconds: 60,
+    completionStatus: 'completed', startedAt: completedAt, completedAt,
+    localDateKey: localDateString(new Date()), timeZone: 'UTC', utcOffsetMinutesAtCompletion: 0,
+    completionSource: 'practice_screen', schemaVersion: 2, legacyType: null,
+    guidanceVoice: 'none', backgroundAudio: 'off', sceneSnapshot: null,
+    nextAction: null, clientVersion: 'test', syncState: 'synced',
+  };
+}
+
 describe('PracticeScreen', () => {
   beforeEach(() => {
     (AsyncStorage.getItem as jest.Mock).mockResolvedValue('1');
@@ -172,9 +192,11 @@ describe('PracticeScreen', () => {
     mockSettingsState.defaultCharge.mode = 'ritual';
     mockSettingsState.defaultCharge.preset = '5m';
     mockSettingsState.defaultCharge.customMinutes = undefined;
+    mockSettingsState.primeSessionDuration = 120;
     mockSettingsState.dailyPracticeGoal = 3;
     mockAnchors = [];
     mockSessionLog = [];
+    mockPracticeHistory = [];
     mockThreadStrength = 10;
     mockTotalSessionsCount = 0;
     mockLastPrimedAt = null;
@@ -192,7 +214,7 @@ describe('PracticeScreen', () => {
     expect(screen.getByText('Practice')).toBeTruthy();
     expect(screen.getByText('Return to the symbol. Keep the thread.')).toBeTruthy();
     expect(screen.getByText("TODAY'S GOAL")).toBeTruthy();
-    expect(screen.getByText('0 / 3')).toBeTruthy();
+    expect(screen.getByText('0 of 3 sessions complete')).toBeTruthy();
     expect(screen.getByText('3 sessions remaining today')).toBeTruthy();
     expect(screen.getByText('Restore Thread')).toBeTruthy();
     expect(screen.getByText('Focus Session · 10–60 sec to restore')).toBeTruthy();
@@ -214,10 +236,14 @@ describe('PracticeScreen', () => {
   it('uses one hero Pressable for center, text, subtitle, and arrow taps', async () => {
     mockThreadStrength = 80;
     mockAnchors = [buildAnchor('hero-anchor', 'Hero target')];
+    // buildAnchor defaults to an already-primed anchor, so Deep Prime skips
+    // the Choose Your Prime setup screen and starts the ritual directly.
     const targetExpectation = {
       anchorId: 'hero-anchor',
+      ritualType: 'ritual',
+      durationSeconds: 120,
+      audioConfiguration: { guidanceVoice: 'female', backgroundAudio: 'ambient', source: 'default' },
       returnTo: 'practice',
-      initialDuration: 'deep',
       source: 'practice_hero',
     };
 
@@ -238,7 +264,7 @@ describe('PracticeScreen', () => {
 
       await waitFor(() => {
         expect(mockNavigateToPractice).toHaveBeenCalledTimes(1);
-        expect(mockNavigateToPractice).toHaveBeenCalledWith('ChargeSetup', targetExpectation);
+        expect(mockNavigateToPractice).toHaveBeenCalledWith('Ritual', targetExpectation);
       });
       expect(mockNavigateToVault).not.toHaveBeenCalled();
       expect(mockNavigate).not.toHaveBeenCalledWith('AnchorDetail', expect.anything());
@@ -261,10 +287,12 @@ describe('PracticeScreen', () => {
     await waitFor(() => {
       expect(mockNavigateToPractice).toHaveBeenCalledTimes(1);
     });
-    expect(mockNavigateToPractice).toHaveBeenCalledWith('ChargeSetup', {
+    expect(mockNavigateToPractice).toHaveBeenCalledWith('Ritual', {
       anchorId: 'rapid-anchor',
+      ritualType: 'ritual',
+      durationSeconds: 120,
+      audioConfiguration: { guidanceVoice: 'female', backgroundAudio: 'ambient', source: 'default' },
       returnTo: 'practice',
-      initialDuration: 'deep',
       source: 'practice_hero',
     });
     expect(mockNavigateToVault).not.toHaveBeenCalled();
@@ -279,15 +307,35 @@ describe('PracticeScreen', () => {
 
     await waitFor(() => {
       expect(mockNavigateToPractice).toHaveBeenCalledTimes(1);
-      expect(mockNavigateToPractice).toHaveBeenCalledWith('ChargeSetup', {
+      expect(mockNavigateToPractice).toHaveBeenCalledWith('Ritual', {
         anchorId: 'card-anchor',
+        ritualType: 'ritual',
+        durationSeconds: 120,
+        audioConfiguration: { guidanceVoice: 'female', backgroundAudio: 'ambient', source: 'default' },
         returnTo: 'practice',
-        initialDuration: 'deep',
         source: 'practice_deep_prime_card',
       });
     });
     expect(mockNavigateToVault).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalledWith('AnchorDetail', expect.anything());
+  });
+
+  it('shows the Choose Your Prime setup screen for an anchor that has never been primed', async () => {
+    mockAnchors = [
+      buildAnchor('unprimed-anchor', 'Fresh anchor', { isCharged: false, activationCount: 0 }),
+    ];
+    const screen = render(<PracticeScreen />);
+
+    fireEvent.press(screen.getByTestId('practice-deep-prime-card'));
+
+    await waitFor(() => {
+      expect(mockNavigateToPractice).toHaveBeenCalledWith('ChargeSetup', {
+        anchorId: 'unprimed-anchor',
+        returnTo: 'practice',
+        initialDuration: 'deep',
+        source: 'practice_deep_prime_card',
+      });
+    });
   });
 
   it('shows all created anchors from home list in the selector', async () => {
@@ -298,7 +346,7 @@ describe('PracticeScreen', () => {
     ];
 
     const screen = render(<PracticeScreen />);
-    fireEvent.press(screen.getByLabelText('Change current anchor'));
+    fireEvent.press(screen.getByLabelText('Current anchor, Anchor One. Double tap to choose another anchor.'));
 
     await waitFor(() => {
       expect(screen.getByLabelText('Select Anchor One')).toBeTruthy();
@@ -314,7 +362,7 @@ describe('PracticeScreen', () => {
     ];
 
     const screen = render(<PracticeScreen />);
-    fireEvent.press(screen.getByLabelText('Change current anchor'));
+    fireEvent.press(screen.getByLabelText('Current anchor, Anchor One. Double tap to choose another anchor.'));
     fireEvent.press(screen.getByLabelText('Select Anchor Two'));
 
     await waitFor(() => {
@@ -325,17 +373,19 @@ describe('PracticeScreen', () => {
     });
   });
 
-  it('routes generic deep-prime entry through ChargeSetup from practice', async () => {
+  it('routes generic deep-prime entry directly into the ritual for an already-primed anchor', async () => {
     mockAnchors = [buildAnchor('a99', 'Build consistency')];
     const screen = render(<PracticeScreen />);
 
     fireEvent.press(screen.getByText('DEEP PRIME'));
 
     await waitFor(() => {
-      expect(mockNavigateToPractice).toHaveBeenCalledWith('ChargeSetup', {
+      expect(mockNavigateToPractice).toHaveBeenCalledWith('Ritual', {
         anchorId: 'a99',
+        ritualType: 'ritual',
+        durationSeconds: 120,
+        audioConfiguration: { guidanceVoice: 'female', backgroundAudio: 'ambient', source: 'default' },
         returnTo: 'practice',
-        initialDuration: 'deep',
         source: 'practice_deep_prime_card',
       });
     });
@@ -400,28 +450,31 @@ describe('PracticeScreen', () => {
     fireEvent.press(screen.getByText('DEEP PRIME'));
 
     await waitFor(() => {
-      expect(mockNavigateToPractice).toHaveBeenCalledWith('ChargeSetup', {
+      expect(mockNavigateToPractice).toHaveBeenCalledWith('Ritual', {
         anchorId: 'a2',
+        ritualType: 'ritual',
+        durationSeconds: 120,
+        audioConfiguration: { guidanceVoice: 'female', backgroundAudio: 'ambient', source: 'default' },
         returnTo: 'practice',
-        initialDuration: 'deep',
         source: 'practice_deep_prime_card',
       });
     });
   });
 
   it('uses the default deep charge duration from settings', async () => {
-    mockSettingsState.defaultCharge.preset = 'custom';
-    mockSettingsState.defaultCharge.customMinutes = 14;
+    mockSettingsState.primeSessionDuration = 14 * 60;
     mockAnchors = [buildAnchor('a77', 'Steady growth')];
     const screen = render(<PracticeScreen />);
 
     fireEvent.press(screen.getByText('DEEP PRIME'));
 
     await waitFor(() => {
-      expect(mockNavigateToPractice).toHaveBeenCalledWith('ChargeSetup', {
+      expect(mockNavigateToPractice).toHaveBeenCalledWith('Ritual', {
         anchorId: 'a77',
+        ritualType: 'ritual',
+        durationSeconds: 14 * 60,
+        audioConfiguration: { guidanceVoice: 'female', backgroundAudio: 'ambient', source: 'default' },
         returnTo: 'practice',
-        initialDuration: 'deep',
         source: 'practice_deep_prime_card',
       });
     });
@@ -495,63 +548,25 @@ describe('PracticeScreen', () => {
 
   it('shows partial progress toward the daily goal from activate and reinforce sessions', async () => {
     mockAnchors = [buildAnchor('a4', 'Keep the thread')];
-    mockSessionLog = [
-      {
-        id: 's1',
-        anchorId: 'a4',
-        type: 'activate',
-        durationSeconds: 30,
-        mode: 'silent',
-        completedAt: new Date().toISOString(),
-      },
-      {
-        id: 's2',
-        anchorId: 'a4',
-        type: 'reinforce',
-        durationSeconds: 300,
-        mode: 'silent',
-        completedAt: new Date().toISOString(),
-      },
-    ];
+    mockPracticeHistory = [canonicalEvent('s1', 'focus'), canonicalEvent('s2', 'deep_prime')];
 
     const screen = render(<PracticeScreen />);
 
-    expect(screen.getByText('2 / 3')).toBeTruthy();
+    expect(screen.getByText('2 of 3 sessions complete')).toBeTruthy();
     expect(screen.getByText('1 session remaining today')).toBeTruthy();
   });
 
   it('shows a terminal state when the daily goal is complete', async () => {
     mockAnchors = [buildAnchor('a5', 'Finish strong')];
-    mockSessionLog = [
-      {
-        id: 's1',
-        anchorId: 'a5',
-        type: 'activate',
-        durationSeconds: 30,
-        mode: 'silent',
-        completedAt: new Date().toISOString(),
-      },
-      {
-        id: 's2',
-        anchorId: 'a5',
-        type: 'reinforce',
-        durationSeconds: 300,
-        mode: 'silent',
-        completedAt: new Date().toISOString(),
-      },
-      {
-        id: 's3',
-        anchorId: 'a5',
-        type: 'activate',
-        durationSeconds: 30,
-        mode: 'silent',
-        completedAt: new Date().toISOString(),
-      },
+    mockPracticeHistory = [
+      canonicalEvent('s1', 'focus'),
+      canonicalEvent('s2', 'deep_prime'),
+      canonicalEvent('s3', 'release'),
     ];
 
     const screen = render(<PracticeScreen />);
 
-    expect(screen.getByText('3 / 3')).toBeTruthy();
+    expect(screen.getByText('3 of 3 sessions complete')).toBeTruthy();
     expect(screen.getByText('Goal complete for today')).toBeTruthy();
   });
 
@@ -562,10 +577,11 @@ describe('PracticeScreen', () => {
     fireEvent.press(screen.getByLabelText('Practice mode help'));
 
     await waitFor(() => {
-      expect(screen.getByText('Three Modes to Prime')).toBeTruthy();
-      expect(screen.getByText('Imprint')).toBeTruthy();
+      expect(screen.getByText('Four Ways to Practice')).toBeTruthy();
+      expect(screen.getByText('Focus Session')).toBeTruthy();
       expect(screen.getByText('Deep Prime')).toBeTruthy();
-      expect(screen.getByText('Seal')).toBeTruthy();
+      expect(screen.getByText('Visualize')).toBeTruthy();
+      expect(screen.getByText('Release')).toBeTruthy();
       expect(screen.getByText('Got It')).toBeTruthy();
     });
   });

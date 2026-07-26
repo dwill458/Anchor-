@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as Haptics from 'expo-haptics';
 import { StatusBar } from 'expo-status-bar';
 import {
-  Alert,
   Animated,
   Easing,
   Pressable,
@@ -31,14 +30,19 @@ import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { trackSessionStartedWithAudio } from '@/services/SessionAudioAnalytics';
 import { resolveSessionAudioPlan } from '@/services/SessionAudioManifest';
 import { getVisualizeSessionAudioManifest } from '@/services/visualizeAudioManifest';
-import { colors, typography } from '@/theme';
+import { colors as themeColors, typography } from '@/theme';
 import { safeHaptics } from '@/utils/haptics';
+import { ConfirmModal } from '@/screens/rituals/components/ConfirmModal';
+
+const colors = {
+  ...themeColors,
+  gold: themeColors.practiceMode.visualize.primary,
+};
 import { VisualizeAnchorField } from './VisualizeAnchorField';
 import {
   VISUALIZE_PHASE_PRESENTATION,
   getVisualizationLensSize,
   getVisualizePresentationPhase,
-  getVisualizeSceneCue,
   getVisualizeSegmentState,
 } from './visualizePresentation';
 import {
@@ -144,6 +148,8 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
   const startedAnalyticsRef = useRef(false);
   const exitingRef = useRef(false);
   const exitPromptOpenRef = useRef(false);
+  const pendingNavigateRef = useRef<(() => void) | null>(null);
+  const [showExitModal, setShowExitModal] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [feedback, setFeedback] = useState<'Paused' | 'Resumed' | null>(null);
   const controlsOpacity = useRef(new Animated.Value(1)).current;
@@ -158,7 +164,6 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
     async ({ startedAt, completedAt }: { startedAt: string; completedAt: string }) => {
       if (completionRef.current) return;
       completionRef.current = true;
-
       let syncOutcome: 'queued' | 'failed' | 'not_recorded' = 'not_recorded';
       if (anchor && accountId) {
         try {
@@ -172,6 +177,7 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
             guidanceVoice,
             backgroundAudio,
             sceneSnapshot: sceneText,
+            source: route.params.source,
           });
           syncOutcome = 'queued';
         } catch {
@@ -260,6 +266,8 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
       started_at: startedAt,
     });
     trackSessionStartedWithAudio(audioPlan);
+    // Engine start is deliberately one-shot for this route instance.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     anchorId,
     audioPlan,
@@ -275,18 +283,20 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
       anchorId,
       sessionId: sessionIdRef.current,
       durationSeconds,
+      source: route.params.source,
       sceneText,
     });
-  }, [anchorId, durationSeconds, engine.state, navigation, sceneText]);
+  }, [anchorId, durationSeconds, engine.state, navigation, route.params.source, sceneText]);
 
   useEffect(() => {
     if (engine.state !== 'running') {
       setControlsVisible(true);
       return;
     }
+    if (!controlsVisible) return;
     const timer = setTimeout(() => setControlsVisible(false), 4_500);
     return () => clearTimeout(timer);
-  }, [engine.state]);
+  }, [controlsVisible, engine.state]);
 
   useEffect(() => {
     Animated.timing(controlsOpacity, {
@@ -371,6 +381,8 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
 
   const continueAfterExitPrompt = useCallback(() => {
     exitPromptOpenRef.current = false;
+    setShowExitModal(false);
+    pendingNavigateRef.current = null;
     engine.resume();
   }, [engine.resume]);
 
@@ -379,6 +391,7 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
       if (exitingRef.current) return;
       exitingRef.current = true;
       exitPromptOpenRef.current = false;
+      setShowExitModal(false);
       engine.endEarly();
       void sessionAudio.fadeOutAndStop().finally(navigateAfterStop);
     },
@@ -386,28 +399,16 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
   );
 
   const showEarlyExitPrompt = useCallback(
-    (navigateAfterStop: () => void) => {
+    (navigateAfterStop?: () => void) => {
       if (exitingRef.current || exitPromptOpenRef.current) return;
       exitPromptOpenRef.current = true;
+      if (navigateAfterStop) {
+        pendingNavigateRef.current = navigateAfterStop;
+      }
       engine.pause('exit_prompt');
-      Alert.alert(
-        'End visualization?',
-        'Your progress in this session will not be recorded.',
-        [
-          {
-            text: 'Continue Session',
-            style: 'cancel',
-            onPress: continueAfterExitPrompt,
-          },
-          {
-            text: 'End Session',
-            style: 'destructive',
-            onPress: () => confirmEarlyEnd(navigateAfterStop),
-          },
-        ],
-      );
+      setShowExitModal(true);
     },
-    [confirmEarlyEnd, continueAfterExitPrompt, engine.pause],
+    [engine.pause],
   );
 
   useEffect(() => {
@@ -471,25 +472,25 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
     0,
     engine.schedule.findIndex((phase) => phase.id === engine.phase.id),
   );
-  const sceneCue = getVisualizeSceneCue(sceneText);
-  const showFullScene = engine.phase.id === 'see' && engine.elapsedSeconds < 8;
   const sigilSvg = anchor.reinforcedSigilSvg || anchor.baseSigilSvg || '';
   const heroSize = getVisualizationLensSize('practice', window.width);
   const phaseLabel = `PHASE ${currentPhaseIndex + 1} OF ${engine.schedule.length} · ${presentation.title}`;
 
   return (
-    <Pressable
-      style={styles.container}
-      onPress={() => setControlsVisible((value) => !value)}
-    >
+    <View style={styles.container}>
       <StatusBar hidden={immersive} style="light" />
       {immersive ? <KeepAwake /> : null}
       <LinearGradient
         colors={presentation.gradient}
         style={StyleSheet.absoluteFill}
       />
+      <Pressable
+        accessibilityLabel="Toggle controls"
+        style={StyleSheet.absoluteFill}
+        onPress={() => setControlsVisible((value) => !value)}
+      />
 
-      <SafeAreaView edges={['top', 'bottom']} style={styles.safe}>
+      <SafeAreaView edges={['top', 'bottom']} style={styles.safe} pointerEvents="box-none">
         <Animated.View
           pointerEvents={controlsVisible ? 'auto' : 'none'}
           style={[styles.topControls, { opacity: controlsOpacity }]}
@@ -552,18 +553,15 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
             />
           </View>
           <View style={styles.sceneCue}>
-            <Text style={styles.sceneLabel}>{showFullScene ? 'SCENE' : 'SCENE CUE'}</Text>
+            <Text style={styles.sceneLabel}>SCENE</Text>
             <Text
               accessibilityLiveRegion="polite"
-              numberOfLines={showFullScene ? 3 : 1}
+              numberOfLines={4}
               ellipsizeMode="tail"
-              style={showFullScene ? styles.sceneFull : styles.sceneTitle}
+              style={styles.sceneFull}
             >
-              {showFullScene ? sceneText : sceneCue.title}
+              {sceneText}
             </Text>
-            {!showFullScene ? (
-              <Text style={styles.sceneQualities}>{sceneCue.qualities}</Text>
-            ) : null}
           </View>
         </Animated.View>
 
@@ -666,7 +664,20 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
           </Animated.View>
         </Animated.View>
       ) : null}
-    </Pressable>
+
+      <ConfirmModal
+        visible={showExitModal}
+        title="End visualization?"
+        body="Your progress in this session will not be recorded."
+        primaryCtaLabel="Continue Session"
+        secondaryCtaLabel="End Session"
+        onPrimary={continueAfterExitPrompt}
+        onSecondary={() => {
+          const navAction = pendingNavigateRef.current || (() => navigation.goBack());
+          confirmEarlyEnd(navAction);
+        }}
+      />
+    </View>
   );
 };
 
@@ -750,14 +761,6 @@ const styles = StyleSheet.create({
     fontSize: 9,
     letterSpacing: 2,
   },
-  sceneTitle: {
-    color: 'rgba(226,241,249,.78)',
-    fontFamily: typography.fonts.heading,
-    fontSize: 14,
-    lineHeight: 19,
-    textAlign: 'center',
-    marginTop: 4,
-  },
   sceneFull: {
     color: 'rgba(226,241,249,.78)',
     fontFamily: typography.fonts.body,
@@ -765,13 +768,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     textAlign: 'center',
     marginTop: 4,
-  },
-  sceneQualities: {
-    color: 'rgba(169,209,231,.56)',
-    fontFamily: typography.fonts.body,
-    fontSize: 10,
-    letterSpacing: 0.7,
-    marginTop: 3,
   },
   bottomControls: {
     paddingHorizontal: 28,

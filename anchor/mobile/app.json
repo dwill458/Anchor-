@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Anchor",
+    "name": "Anchor: Visual Goal Setting",
     "slug": "anchor",
     "scheme": "anchor",
     "version": "1.1.2",
@@ -121,7 +121,7 @@
         "monochromeImage": "./assets/anchor-monochrome.png"
       },
       "package": "com.anchorintentions.app",
-      "versionCode": 31,
+      "versionCode": 32,
       "googleServicesFile": "./google-services.json",
       "edgeToEdgeEnabled": true,
       "blockedPermissions": [

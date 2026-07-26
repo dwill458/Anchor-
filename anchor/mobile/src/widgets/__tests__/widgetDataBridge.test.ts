@@ -21,6 +21,8 @@ import {
 import { buildPrimingHistoryEntry, localDateString } from '@/utils/primingAnalytics';
 import type { PrimingHistoryEntry } from '@/utils/primingAnalytics';
 import type { Anchor } from '@/types';
+import { buildThreadStrengthSnapshot } from '@/utils/practiceMetrics';
+import type { PracticeMode, PracticeSessionRecord } from '@/types/practice';
 
 // Fixed local "now": Sunday 2026-07-05 at noon
 const NOW = new Date(2026, 6, 5, 12, 0, 0);
@@ -330,6 +332,96 @@ describe('buildWidgetSnapshot', () => {
     expect(snapshot.anchorTotalSessions).toBe(0);
     expect(snapshot.anchorDayStreak).toBe(0);
     expect(snapshot.anchorDeepPrimeSessions).toBe(0);
+  });
+});
+
+function practiceEvent(
+  id: string,
+  mode: PracticeMode,
+  completedAt: string,
+  overrides: Partial<PracticeSessionRecord> = {}
+): PracticeSessionRecord {
+  return {
+    id,
+    accountId: 'account-1',
+    anchorId: 'a',
+    anchorLocalId: 'a',
+    anchorServerId: 'a',
+    practiceMode: mode,
+    plannedDurationSeconds: 60,
+    completedDurationSeconds: 60,
+    completionStatus: 'completed',
+    startedAt: new Date(new Date(completedAt).getTime() - 60_000).toISOString(),
+    completedAt,
+    localDateKey: completedAt.slice(0, 10),
+    timeZone: 'UTC',
+    utcOffsetMinutesAtCompletion: 0,
+    completionSource: 'practice_screen',
+    schemaVersion: 2,
+    legacyType: null,
+    guidanceVoice: 'none',
+    backgroundAudio: 'off',
+    sceneSnapshot: null,
+    nextAction: null,
+    clientVersion: 'test',
+    syncState: 'synced',
+    ...overrides,
+  };
+}
+
+describe('buildWidgetSnapshot — canonical ledger accounts', () => {
+  const baseInputs = {
+    anchors: [
+      makeAnchor({
+        id: 'a',
+        intentionText: 'Deep work every morning',
+        baseSigilSvg: '<svg viewBox="0 0 100 100"><path stroke="currentColor" /></svg>',
+      }),
+    ],
+    currentAnchorId: 'a',
+    lastGraceDayUsedAt: null,
+    now: NOW,
+  };
+
+  it('mirrors the Thread Strength sheet exactly for a signed-in account', () => {
+    const events = [
+      practiceEvent('e1', 'focus', '2026-07-01T09:00:00.000Z'),
+      practiceEvent('e2', 'deep_prime', '2026-07-02T09:00:00.000Z'),
+      practiceEvent('e3', 'focus', '2026-07-04T09:00:00.000Z'),
+      practiceEvent('e4', 'visualize', '2026-07-05T09:00:00.000Z'),
+    ];
+    const snapshot = buildWidgetSnapshot({
+      ...baseInputs,
+      primingHistory: [],
+      practiceHistory: events,
+      accountId: 'account-1',
+      lastPrimedAt: '2026-07-05',
+      threadStrengthSensitivity: 'balanced',
+    });
+
+    const expected = buildThreadStrengthSnapshot({
+      events,
+      accountId: 'account-1',
+      dailyGoal: 3,
+      sensitivity: 'balanced',
+      restDays: [],
+      now: NOW,
+    });
+
+    expect(snapshot.threadStrength).toBe(expected.score);
+    expect(snapshot.totalSessions).toBe(expected.totalSessions);
+    expect(snapshot.constancyPercent).toBe(expected.constancyPercent);
+    expect(snapshot.longestStreak).toBe(expected.primeRecordDays);
+    expect(snapshot.deepPrimePercent).toBe(expected.deepPrimePercent);
+    expect(snapshot.deepPrimeSessions).toBe(
+      expected.sessionBreakdown.find((row) => row.mode === 'deep_prime')?.count ?? 0
+    );
+    expect(snapshot.focusSessions).toBe(
+      expected.sessionBreakdown.find((row) => row.mode === 'focus')?.count ?? 0
+    );
+    expect(snapshot.visualizeSessions).toBe(
+      expected.sessionBreakdown.find((row) => row.mode === 'visualize')?.count ?? 0
+    );
   });
 });
 

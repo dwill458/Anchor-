@@ -16,9 +16,14 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from '
 import { WebView } from 'react-native-webview';
 import type { WebViewMessageEvent } from 'react-native-webview';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
-import { colors, spacing, typography } from '@/theme';
+import { colors as themeColors, spacing, typography } from '@/theme';
 import { logger } from '@/utils/logger';
 import { burnRitualWebViewHtml } from './burnRitualWebViewHtml';
+
+const colors = {
+  ...themeColors,
+  gold: themeColors.practiceMode.release.primary,
+};
 
 type CommitStatus = 'pending' | 'success' | 'error';
 type OverlayState = 'animating' | 'syncing' | 'success' | 'error';
@@ -745,7 +750,7 @@ const styles = StyleSheet.create({
     height: 1,
     marginTop: spacing.md,
     marginBottom: spacing.md,
-    backgroundColor: 'rgba(201,168,76,0.45)',
+    backgroundColor: 'rgba(200,135,90,0.45)',
   },
   resultSubtitle: {
     fontFamily: 'CrimsonPro-Italic',

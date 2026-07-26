@@ -256,4 +256,40 @@ describe('useVisualizeSessionAudio', () => {
     expect(mockTrackAmbientAudioLoadFailed).toHaveBeenCalled();
     expect(mockTrackGuidedAudioLoadFailed).toHaveBeenCalled();
   });
+
+  it('does not trigger onInterruption from delayed status updates after an intentional pause', () => {
+    const plan = makePlan('none', 'ambient');
+    const { rerender } = renderHook(
+      props => useVisualizeSessionAudio(props),
+      { initialProps: { plan, manifest, elapsedMs: 1_000, isActive: true, isCompleting: false, isComplete: false, onInterruption } },
+    );
+    const ambient = createdPlayers[0];
+    act(() => ambient.options.onStatus({ playing: true, didJustFinish: false }));
+
+    // Intentionally pause the session
+    rerender({ plan, manifest, elapsedMs: 1_000, isActive: false, isCompleting: false, isComplete: false, onInterruption });
+    // Resume the session
+    rerender({ plan, manifest, elapsedMs: 1_000, isActive: true, isCompleting: false, isComplete: false, onInterruption });
+
+    // Delayed status callback from native pause arrives after resume
+    act(() => ambient.options.onStatus({ playing: false, didJustFinish: false }));
+    expect(onInterruption).not.toHaveBeenCalled();
+  });
+
+  it('skips ambient seekTo on resume when playback position is already in sync', () => {
+    const plan = makePlan('none', 'ambient');
+    const { rerender } = renderHook(
+      props => useVisualizeSessionAudio(props),
+      { initialProps: { plan, manifest, elapsedMs: 2_000, isActive: true, isCompleting: false, isComplete: false, onInterruption } },
+    );
+    const ambient = createdPlayers[0];
+    ambient.seekTo.mockClear();
+    ambient.getCurrentTime.mockReturnValue(2.0);
+
+    // Pause and resume with same position
+    rerender({ plan, manifest, elapsedMs: 2_000, isActive: false, isCompleting: false, isComplete: false, onInterruption });
+    rerender({ plan, manifest, elapsedMs: 2_000, isActive: true, isCompleting: false, isComplete: false, onInterruption });
+
+    expect(ambient.seekTo).not.toHaveBeenCalled();
+  });
 });

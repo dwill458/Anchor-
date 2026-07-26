@@ -107,7 +107,6 @@ const OrbLayer: React.FC<{
         },
       ]}
       pointerEvents="none"
-      renderToHardwareTextureAndroid={true}
     />
   );
 };

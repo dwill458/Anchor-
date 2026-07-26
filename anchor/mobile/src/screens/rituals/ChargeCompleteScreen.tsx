@@ -301,7 +301,7 @@ export const ChargeCompleteScreen: React.FC = () => {
       reflectionWord,
       completedAt,
     });
-    void PracticeCompletionService.queueLegacyCompletion({
+    await PracticeCompletionService.queueLegacyCompletion({
       id: recordedEventId,
       anchorId,
       anchorLocalId: anchor?.localId,
@@ -310,6 +310,7 @@ export const ChargeCompleteScreen: React.FC = () => {
       completedAt,
       guidanceVoice: audioConfiguration.guidanceVoice,
       backgroundAudio: audioConfiguration.backgroundAudio,
+      source: returnTo === 'practice' ? 'practice_screen' : 'anchor_detail',
     });
 
     await queueProgressionMilestonesFromStores({ sourceEventId: recordedEventId });

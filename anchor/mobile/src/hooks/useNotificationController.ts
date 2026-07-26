@@ -44,6 +44,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { logger } from '@/utils/logger';
+import { buildThreadStrengthSnapshot, selectCanonicalPracticeEvents } from '@/utils/practiceMetrics';
 
 type NotificationStateWithSyncMetadata = SyncedNotificationState;
 
@@ -88,9 +89,26 @@ export const useNotificationController = () => {
     const now = new Date();
     const sessionState = useSessionStore.getState();
     const anchorState = useAnchorStore.getState();
-
-    const currentPrimes = countDailyGoalCompletions(sessionState.sessionLog, now);
-    const latestPrime = sessionState.primingHistory[0]?.completedAt ?? state.last_prime_at;
+    const settingsState = useSettingsStore.getState();
+    const accountId = useAuthStore.getState().user?.id ?? null;
+    const hasCanonicalLedger = Array.isArray(sessionState.practiceHistory) && Boolean(accountId);
+    const canonicalEvents = hasCanonicalLedger
+      ? selectCanonicalPracticeEvents(sessionState.practiceHistory, accountId, now)
+      : [];
+    const metrics = buildThreadStrengthSnapshot({
+      events: sessionState.practiceHistory,
+      accountId,
+      dailyGoal: dailyPracticeGoal,
+      sensitivity: settingsState.threadStrengthSensitivity,
+      restDays: settingsState.restDays,
+      now,
+    });
+    const currentPrimes = hasCanonicalLedger
+      ? metrics.todayGoal.completed
+      : countDailyGoalCompletions(sessionState.sessionLog, now);
+    const latestPrime = hasCanonicalLedger
+      ? canonicalEvents[canonicalEvents.length - 1]?.completedAt ?? state.last_prime_at
+      : sessionState.lastSession?.completedAt ?? state.last_prime_at;
     const unfinishedAnchorReminders = { ...(state.unfinishedAnchorReminders ?? {}) };
     anchorState.anchors.forEach((anchor) => {
       if (anchor.isCharged || anchor.isReleased || anchor.archivedAt) {
@@ -116,23 +134,26 @@ export const useNotificationController = () => {
       current_primes: Math.max(state.current_primes, currentPrimes),
       total_primes_this_week: Math.max(
         state.total_primes_this_week,
-        sessionState.primingHistory.filter(
-          (entry) => entry.weekStart === state.week_started_at
-        ).length
+        hasCanonicalLedger
+          ? metrics.currentWeek.reduce((sum, day) => sum + day.count, 0)
+          : sessionState.sessionLog.filter((entry) => {
+              const completedAt = new Date(entry.completedAt);
+              return !Number.isNaN(completedAt.getTime()) && now.getTime() - completedAt.getTime() < 7 * 86_400_000;
+            }).length
       ),
       total_primes_all_time: Math.max(
         state.total_primes_all_time,
         anchorState.totalPrimes,
-        sessionState.totalSessionsCount
+        hasCanonicalLedger ? metrics.totalSessions : sessionState.totalSessionsCount
       ),
       primed_today:
         state.primed_today ||
         currentPrimes > 0 ||
-        sessionState.lastPrimedAt === localDateString(now),
+        canonicalEvents.some((entry) => entry.localDateKey === localDateString(now)),
       last_prime_at: latestPrime,
       has_reached_goal_today:
         state.has_reached_goal_today || currentPrimes >= dailyPracticeGoal,
-      threadStrength: sessionState.threadStrength,
+      threadStrength: hasCanonicalLedger ? metrics.score : sessionState.threadStrength,
       unfinishedAnchorReminders,
     };
   }, [dailyPracticeGoal]);
@@ -177,12 +198,26 @@ export const useNotificationController = () => {
   const buildRuleContext = useCallback((): NotificationRuleContext => {
     const sessionState = useSessionStore.getState();
     const anchorState = useAnchorStore.getState();
+    const settingsState = useSettingsStore.getState();
+    const accountId = useAuthStore.getState().user?.id ?? null;
+    const now = new Date();
+    const hasCanonicalLedger = Array.isArray(sessionState.practiceHistory) && Boolean(accountId);
+    const metrics = buildThreadStrengthSnapshot({
+      events: sessionState.practiceHistory,
+      accountId,
+      dailyGoal: settingsState.dailyPracticeGoal,
+      sensitivity: settingsState.threadStrengthSensitivity,
+      restDays: settingsState.restDays,
+      now,
+    });
 
     return {
-      now: new Date(),
+      now,
       sessionLog: sessionState.sessionLog,
-      totalSessionsCount: sessionState.totalSessionsCount,
-      threadStrength: sessionState.threadStrength,
+      practiceHistory: sessionState.practiceHistory,
+      accountId,
+      totalSessionsCount: hasCanonicalLedger ? metrics.totalSessions : sessionState.totalSessionsCount,
+      threadStrength: hasCanonicalLedger ? metrics.score : sessionState.threadStrength,
       anchors: anchorState.anchors,
     };
   }, []);

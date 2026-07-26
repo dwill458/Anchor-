@@ -1172,7 +1172,7 @@ export const RitualScreen: React.FC = () => {
       return;
     }
 
-    navigateToVaultDestination(navigation);
+    navigateToVaultDestination(navigation, 'reset');
   }, [anchor, anchorId, clearDeepTimerInterval, fadeOutDeepPrimeAudio, isPendingFirstAnchor, navigateToPractice, navigation, returnTo]);
 
   const continueFromSeal = useCallback(async () => {
@@ -1306,7 +1306,7 @@ export const RitualScreen: React.FC = () => {
         audioConfiguration: sessionAudioPlan.configuration,
         completedAt,
       });
-      void PracticeCompletionService.queueLegacyCompletion({
+      await PracticeCompletionService.queueLegacyCompletion({
         id: completionEventId,
         anchorId,
         anchorLocalId: anchor?.localId,
@@ -1315,6 +1315,7 @@ export const RitualScreen: React.FC = () => {
         completedAt,
         guidanceVoice: sessionAudioPlan.configuration.guidanceVoice,
         backgroundAudio: sessionAudioPlan.configuration.backgroundAudio,
+        source: returnTo === 'practice' ? 'practice_screen' : 'anchor_detail',
       });
       await queueProgressionMilestonesFromStores({ sourceEventId: completionEventId });
       await handlePrimeComplete();
@@ -1398,7 +1399,7 @@ export const RitualScreen: React.FC = () => {
       completedAt,
       reflectionWord,
     });
-    void PracticeCompletionService.queueLegacyCompletion({
+    await PracticeCompletionService.queueLegacyCompletion({
       id: completionEventId,
       anchorId,
       anchorLocalId: anchor?.localId,
@@ -1407,6 +1408,7 @@ export const RitualScreen: React.FC = () => {
       completedAt,
       guidanceVoice: sessionAudioPlan.configuration.guidanceVoice,
       backgroundAudio: sessionAudioPlan.configuration.backgroundAudio,
+      source: returnTo === 'practice' ? 'practice_screen' : 'anchor_detail',
     });
 
     await queueProgressionMilestonesFromStores({ sourceEventId: completionEventId });
@@ -2755,10 +2757,10 @@ export const RitualScreen: React.FC = () => {
           visible={showExitWarning}
           title="Exit Practice?"
           body="You will need to start over if you leave now."
-          primaryCtaLabel="Exit"
-          secondaryCtaLabel="Stay"
-          onPrimary={exitRitual}
-          onSecondary={() => setShowExitWarning(false)}
+          primaryCtaLabel="Keep Practicing"
+          secondaryCtaLabel="Exit"
+          onPrimary={() => setShowExitWarning(false)}
+          onSecondary={exitRitual}
         />
       </View>
     </RitualScaffold>

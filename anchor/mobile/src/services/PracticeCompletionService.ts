@@ -1,17 +1,26 @@
-import Constants from "expo-constants";
+import Constants from 'expo-constants';
 
-import { apiClient } from "@/services/ApiClient";
-import { useSessionStore } from "@/stores/sessionStore";
+import { AnalyticsService } from '@/services/AnalyticsService';
+import { apiClient } from '@/services/ApiClient';
+import { isBackendAnchorId } from '@/services/BackendAnchorService';
+import { useAuthStore } from '@/stores/authStore';
 import {
   readSecureValue,
   writeSecureValue,
-} from "@/stores/encryptedPersistStorage";
-import type { PracticeSessionRecord } from "@/types/practice";
-import type { BackgroundAudioMode, GuidanceVoice } from "@/types/sessionAudio";
-import type { Anchor } from "@/types";
-import { logger } from "@/utils/logger";
-import { useAuthStore } from "@/stores/authStore";
-import { isBackendAnchorId } from "@/services/BackendAnchorService";
+} from '@/stores/encryptedPersistStorage';
+import { useSessionStore } from '@/stores/sessionStore';
+import type { Anchor } from '@/types';
+import type {
+  PracticeCompletionSource,
+  PracticeMode,
+  PracticeSessionRecord,
+} from '@/types/practice';
+import type { BackgroundAudioMode, GuidanceVoice } from '@/types/sessionAudio';
+import { logger } from '@/utils/logger';
+import {
+  getCompletionTimeContext,
+  PRACTICE_SESSION_SCHEMA_VERSION,
+} from '@/utils/practiceTime';
 
 const queueKey = (accountId: string) =>
   `anchor:practice-write-queue:${accountId}`;
@@ -21,6 +30,26 @@ const nextActionQueueKey = (accountId: string) =>
 interface NextActionWrite {
   sessionId: string;
   nextAction: string | null;
+}
+
+export interface CompletePracticeSessionInput {
+  sessionId: string;
+  accountId: string;
+  anchorId: string | null;
+  anchorLocalId?: string | null;
+  anchorServerId?: string | null;
+  mode: PracticeMode;
+  startedAt: string;
+  completedAt?: string;
+  plannedDurationSeconds: number;
+  actualDurationSeconds: number;
+  source: PracticeCompletionSource;
+  guidanceVoice: GuidanceVoice;
+  backgroundAudio: BackgroundAudioMode;
+  sceneSnapshot?: string | null;
+  nextAction?: string | null;
+  legacyType?: string | null;
+  metadata?: Record<string, unknown>;
 }
 
 async function readQueue(accountId: string): Promise<PracticeSessionRecord[]> {
@@ -66,70 +95,138 @@ function serverPayload(session: PracticeSessionRecord) {
   return payload;
 }
 
+function buildRecord(input: CompletePracticeSessionInput): PracticeSessionRecord {
+  const completedAt = new Date(input.completedAt ?? new Date().toISOString());
+  const context = getCompletionTimeContext(completedAt);
+  return {
+    id: input.sessionId,
+    accountId: input.accountId,
+    anchorId: input.anchorId,
+    anchorLocalId: input.anchorLocalId ?? input.anchorId,
+    anchorServerId: input.anchorServerId ?? input.anchorId,
+    practiceMode: input.mode,
+    plannedDurationSeconds: Math.max(
+      1,
+      Math.round(input.plannedDurationSeconds),
+    ),
+    completedDurationSeconds: Math.max(
+      1,
+      Math.round(input.actualDurationSeconds),
+    ),
+    completionStatus: 'completed',
+    startedAt: input.startedAt,
+    completedAt: completedAt.toISOString(),
+    ...context,
+    completionSource: input.source,
+    schemaVersion: PRACTICE_SESSION_SCHEMA_VERSION,
+    legacyType: input.legacyType ?? null,
+    guidanceVoice: input.guidanceVoice,
+    backgroundAudio: input.backgroundAudio,
+    sceneSnapshot: input.sceneSnapshot ?? null,
+    nextAction: input.nextAction ?? null,
+    clientVersion: Constants.expoConfig?.version ?? null,
+    metadata: input.metadata,
+    syncState: 'pending',
+  };
+}
+
 export const PracticeCompletionService = {
+  async completePracticeSession(
+    input: CompletePracticeSessionInput,
+    options: { mirrorLegacySession?: boolean; flushImmediately?: boolean } = {},
+  ): Promise<{ record: PracticeSessionRecord; duplicate: boolean }> {
+    const currentAccountId = useAuthStore.getState().user?.id;
+    if (!currentAccountId || currentAccountId !== input.accountId) {
+      throw new Error('Practice completion account does not match the active account.');
+    }
+
+    const existing = useSessionStore
+      .getState()
+      .practiceHistory.find((event) => event.id === input.sessionId);
+    if (existing) {
+      AnalyticsService.track('practice_duplicate_prevented', {
+        mode: existing.practiceMode,
+        source: input.source,
+        session_id: input.sessionId,
+      });
+      return { record: existing, duplicate: true };
+    }
+
+    const record = buildRecord(input);
+    await this.queueCanonicalCompletion(
+      record,
+      options.mirrorLegacySession === true,
+      options.flushImmediately !== false,
+    );
+    AnalyticsService.track('practice_session_completed', {
+      mode: record.practiceMode,
+      source: record.completionSource,
+      session_id: record.id,
+      planned_duration_seconds: record.plannedDurationSeconds,
+      actual_duration_seconds: record.completedDurationSeconds,
+      local_date_key: record.localDateKey,
+      sync_outcome: 'queued',
+    });
+    return { record, duplicate: false };
+  },
+
   async queueLegacyCompletion(params: {
     id: string;
     anchorId: string;
     anchorLocalId?: string | null;
-    practiceMode: "focus" | "deep_prime" | "stabilize";
+    practiceMode: 'focus' | 'deep_prime';
     durationSeconds: number;
     completedAt: string;
     guidanceVoice: GuidanceVoice;
     backgroundAudio: BackgroundAudioMode;
+    source?: PracticeCompletionSource;
   }): Promise<void> {
-    const accountId =
-      typeof useAuthStore.getState === "function"
-        ? useAuthStore.getState()?.user?.id
-        : undefined;
+    const accountId = useAuthStore.getState?.()?.user?.id;
     if (!accountId) return;
     const completedAtMs = new Date(params.completedAt).getTime();
-    const record: PracticeSessionRecord = {
-      id: params.id,
+    await this.completePracticeSession({
+      sessionId: params.id,
       accountId,
       anchorId: isBackendAnchorId(params.anchorId) ? params.anchorId : null,
       anchorLocalId: params.anchorLocalId ?? params.anchorId,
       anchorServerId: isBackendAnchorId(params.anchorId)
         ? params.anchorId
         : null,
-      practiceMode: params.practiceMode,
-      plannedDurationSeconds: Math.max(1, Math.round(params.durationSeconds)),
-      completedDurationSeconds: Math.max(1, Math.round(params.durationSeconds)),
-      completionStatus: "completed",
+      mode: params.practiceMode,
+      plannedDurationSeconds: params.durationSeconds,
+      actualDurationSeconds: params.durationSeconds,
       startedAt: new Date(
         completedAtMs - params.durationSeconds * 1000,
       ).toISOString(),
       completedAt: params.completedAt,
+      source: params.source ?? 'unknown',
+      legacyType:
+        params.practiceMode === 'deep_prime' ? 'reinforce' : 'activate',
       guidanceVoice: params.guidanceVoice,
       backgroundAudio: params.backgroundAudio,
-      sceneSnapshot: null,
-      nextAction: null,
-      clientVersion: Constants.expoConfig?.version ?? null,
-      syncState: "pending",
-    };
-    await this.queueCanonicalCompletion(record, false);
+    });
   },
 
   async queueCanonicalCompletion(
     record: PracticeSessionRecord,
-    recordLocally = false,
+    mirrorLegacySession = false,
+    flushImmediately = true,
   ): Promise<void> {
-    if (recordLocally) useSessionStore.getState().recordPracticeSession(record);
-    else
-      useSessionStore.setState((state) => ({
-        practiceHistory: state.practiceHistory.some(
-          (item) => item.id === record.id,
-        )
-          ? state.practiceHistory
-          : [record, ...state.practiceHistory].sort(
-              (a, b) =>
-                new Date(b.completedAt).getTime() -
-                new Date(a.completedAt).getTime(),
-            ),
-      }));
+    const currentAccountId = useAuthStore.getState().user?.id;
+    if (!currentAccountId || currentAccountId !== record.accountId) {
+      throw new Error('Cannot queue practice history for an inactive account.');
+    }
+
     const queue = await readQueue(record.accountId);
-    if (!queue.some((item) => item.id === record.id))
+    if (!queue.some((item) => item.id === record.id)) {
       await writeQueue(record.accountId, [...queue, record]);
-    void this.flush(record.accountId);
+    }
+    if (mirrorLegacySession) {
+      useSessionStore.getState().recordPracticeSession(record);
+    } else {
+      useSessionStore.getState().appendCanonicalPracticeSession(record);
+    }
+    if (flushImmediately) void this.flush(record.accountId);
   },
 
   async commitVisualizeCompletion(params: {
@@ -142,48 +239,82 @@ export const PracticeCompletionService = {
     guidanceVoice: GuidanceVoice;
     backgroundAudio: BackgroundAudioMode;
     sceneSnapshot: string;
+    source?: PracticeCompletionSource;
   }): Promise<PracticeSessionRecord> {
-    const record: PracticeSessionRecord = {
-      id: params.id,
-      accountId: params.accountId,
-      anchorId: isBackendAnchorId(params.anchor.id) ? params.anchor.id : null,
-      anchorLocalId: params.anchor.localId ?? params.anchor.id,
-      anchorServerId: isBackendAnchorId(params.anchor.id)
-        ? params.anchor.id
-        : null,
-      practiceMode: "visualize",
-      plannedDurationSeconds: params.durationSeconds,
-      completedDurationSeconds: params.durationSeconds,
-      completionStatus: "completed",
-      startedAt: params.startedAt,
-      completedAt: params.completedAt ?? new Date().toISOString(),
-      guidanceVoice: params.guidanceVoice,
-      backgroundAudio: params.backgroundAudio,
-      sceneSnapshot: params.sceneSnapshot,
-      nextAction: null,
-      clientVersion: Constants.expoConfig?.version ?? null,
-      syncState: "pending",
-    };
+    const result = await this.completePracticeSession(
+      {
+        sessionId: params.id,
+        accountId: params.accountId,
+        anchorId: isBackendAnchorId(params.anchor.id) ? params.anchor.id : null,
+        anchorLocalId: params.anchor.localId ?? params.anchor.id,
+        anchorServerId: isBackendAnchorId(params.anchor.id)
+          ? params.anchor.id
+          : null,
+        mode: 'visualize',
+        plannedDurationSeconds: params.durationSeconds,
+        actualDurationSeconds: params.durationSeconds,
+        startedAt: params.startedAt,
+        completedAt: params.completedAt,
+        source: params.source ?? 'practice_screen',
+        guidanceVoice: params.guidanceVoice,
+        backgroundAudio: params.backgroundAudio,
+        sceneSnapshot: params.sceneSnapshot,
+      },
+      { mirrorLegacySession: true },
+    );
+    return result.record;
+  },
 
-    // Commit progression/history before attempting any network operation.
-    await this.queueCanonicalCompletion(record, true);
-    return record;
+  async commitReleaseCompletion(params: {
+    id: string;
+    accountId: string;
+    anchor: Anchor;
+    startedAt: string;
+    completedAt?: string;
+    durationSeconds: number;
+    source?: PracticeCompletionSource;
+  }): Promise<PracticeSessionRecord> {
+    const result = await this.completePracticeSession(
+      {
+        sessionId: params.id,
+        accountId: params.accountId,
+        anchorId: isBackendAnchorId(params.anchor.id) ? params.anchor.id : null,
+        anchorLocalId: params.anchor.localId ?? params.anchor.id,
+        anchorServerId: isBackendAnchorId(params.anchor.id)
+          ? params.anchor.id
+          : null,
+        mode: 'release',
+        plannedDurationSeconds: params.durationSeconds,
+        actualDurationSeconds: params.durationSeconds,
+        startedAt: params.startedAt,
+        completedAt: params.completedAt,
+        source: params.source ?? 'practice_screen',
+        legacyType: 'burn',
+        guidanceVoice: 'none',
+        backgroundAudio: 'off',
+      },
+      // Keep the durable local event queued while the destructive server burn
+      // runs. The caller flushes with the same stable ID after cleanup.
+      { flushImmediately: false },
+    );
+    return result.record;
   },
 
   async flush(accountId: string): Promise<void> {
+    if (useAuthStore.getState().user?.id !== accountId) return;
     const queue = await readQueue(accountId);
     const remaining: PracticeSessionRecord[] = [];
     for (const session of queue) {
       try {
-        await apiClient.post("/api/practice/sessions", serverPayload(session));
-        useSessionStore.setState((state) => ({
-          practiceHistory: state.practiceHistory.map((item) =>
-            item.id === session.id ? { ...item, syncState: "synced" } : item,
-          ),
-        }));
-      } catch (error) {
-        remaining.push({ ...session, syncState: "failed" });
-        logger.warn("[PracticeCompletionService] Practice sync deferred");
+        await apiClient.post('/api/practice/sessions', serverPayload(session));
+        useSessionStore.getState().markPracticeSessionSynced(session.id);
+      } catch {
+        remaining.push({ ...session, syncState: 'failed' });
+        AnalyticsService.track('practice_sync_failed', {
+          mode: session.practiceMode,
+          session_id: session.id,
+        });
+        logger.warn('[PracticeCompletionService] Practice sync deferred');
       }
     }
     await writeQueue(accountId, remaining);
@@ -208,21 +339,21 @@ export const PracticeCompletionService = {
     sessionId: string;
     nextAction: string | null;
   }): Promise<void> {
+    if (useAuthStore.getState().user?.id !== params.accountId) {
+      throw new Error('Cannot update practice history for an inactive account.');
+    }
     const nextAction = params.nextAction?.trim() || null;
     if (nextAction && nextAction.length > 240) {
-      throw new Error("Next action must be 240 characters or fewer.");
+      throw new Error('Next action must be 240 characters or fewer.');
     }
-    useSessionStore.setState((state) => ({
-      practiceHistory: state.practiceHistory.map((item) =>
-        item.id === params.sessionId ? { ...item, nextAction } : item,
-      ),
-    }));
+    useSessionStore.getState().updatePracticeSessionNextAction(
+      params.sessionId,
+      nextAction,
+    );
     try {
       await apiClient.patch(
         `/api/practice/sessions/${encodeURIComponent(params.sessionId)}/next-action`,
-        {
-          nextAction,
-        },
+        { nextAction },
       );
     } catch {
       const queue = await readNextActionQueue(params.accountId);

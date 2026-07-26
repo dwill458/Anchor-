@@ -30,7 +30,7 @@ import Animated, {
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pause, Play } from 'lucide-react-native';
-import { colors, spacing, typography } from '@/theme';
+import { colors as themeColors, spacing, typography } from '@/theme';
 import { OptimizedImage } from '@/components/common';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { useAudio } from '@/hooks/useAudio';
@@ -65,6 +65,11 @@ import type {
 } from '@/types/sessionAudio';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
+
+const colors = {
+  ...themeColors,
+  gold: themeColors.practiceMode.focus.primary,
+};
 
 const SEAL_HOLD_MS = 2500;
 const BREATH_INHALE = 4;   // seconds
@@ -141,12 +146,12 @@ const OrbitRings: React.FC<OrbitRingsProps> = ({ radius, pausedDim, reduceMotion
     <View style={{ position: 'absolute', top: '50%', left: '50%', marginTop: -sz / 2, marginLeft: -sz / 2, width: sz, height: sz }} pointerEvents="none">
       <Animated.View style={[StyleSheet.absoluteFill, style1]}>
         <Svg width={sz} height={sz}>
-          <Circle cx={cx} cy={cx} r={radius + 12} stroke="rgba(212,175,55,0.22)" strokeWidth={1} fill="none" strokeDasharray="4 8" />
+          <Circle cx={cx} cy={cx} r={radius + 12} stroke="rgba(173,153,210,0.22)" strokeWidth={1} fill="none" strokeDasharray="4 8" />
         </Svg>
       </Animated.View>
       <Animated.View style={[StyleSheet.absoluteFill, style2]}>
         <Svg width={sz} height={sz}>
-          <Circle cx={cx} cy={cx} r={radius + 24} stroke="rgba(212,175,55,0.15)" strokeWidth={1} fill="none" strokeDasharray="2 6" />
+          <Circle cx={cx} cy={cx} r={radius + 24} stroke="rgba(173,153,210,0.15)" strokeWidth={1} fill="none" strokeDasharray="2 6" />
         </Svg>
       </Animated.View>
     </View>
@@ -269,6 +274,7 @@ const AnchorHero: React.FC<AnchorHeroProps> = ({ anchorImageUri, size }) => {
 // Close button — matches prototype's circular glass pill
 const CloseButton: React.FC<{ onPress: () => void; testID?: string }> = ({ onPress, testID }) => (
   <Pressable onPress={onPress} style={styles.closeBtn} testID={testID}
+    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
     accessibilityRole="button" accessibilityLabel="Dismiss focus session">
     <Text style={styles.closeBtnIcon}>✕</Text>
   </Pressable>
@@ -961,7 +967,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
             ) : null}
             <Pressable onPress={handleBegin} style={[styles.beginBtn, isCompactLayout && styles.beginBtnCompact]} disabled={isBeginningSession}>
               <LinearGradient
-                colors={[colors.gold, '#8a6f23']}
+                colors={[colors.gold, '#675880']}
                 style={[
                   styles.beginBtnGradient,
                   isCompactLayout && styles.beginBtnGradientCompact,
@@ -1240,7 +1246,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 32,
     letterSpacing: 0.5,
-    textShadowColor: 'rgba(212,175,55,0.2)',
+    textShadowColor: 'rgba(173,153,210,0.2)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 8,
   },
@@ -1254,8 +1260,8 @@ const styles = StyleSheet.create({
     padding: 24,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.15)',
-    backgroundColor: 'rgba(212,175,55,0.03)',
+    borderColor: 'rgba(173,153,210,0.15)',
+    backgroundColor: 'rgba(173,153,210,0.03)',
   },
   haloRingCompact: {
     padding: 18,
@@ -1264,7 +1270,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.3)',
+    borderColor: 'rgba(173,153,210,0.3)',
     backgroundColor: 'rgba(12,16,24,0.6)',
   },
   haloInnerCompact: {
@@ -1342,7 +1348,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     borderColor: GOLD_LINE,
-    backgroundColor: 'rgba(212,175,55,0.05)',
+    backgroundColor: 'rgba(173,153,210,0.05)',
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
@@ -1426,8 +1432,8 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.3)',
-    backgroundColor: 'rgba(212,175,55,0.08)',
+    borderColor: 'rgba(173,153,210,0.3)',
+    backgroundColor: 'rgba(173,153,210,0.08)',
     marginBottom: spacing.xs,
   },
   intentionLabelText: {

@@ -42,7 +42,7 @@ import {
   SessionConfigurationPill,
   SessionConfigurationSheet,
 } from "@/components/practice/SessionConfiguration";
-import { colors, spacing, typography } from "@/theme";
+import { colors as themeColors, spacing, typography } from "@/theme";
 import type { SessionAudioDefaults } from "@/types/sessionAudio";
 import { MicroTeachCard } from "@/components/teaching";
 import { useTeachingGate } from "@/utils/useTeachingGate";
@@ -51,6 +51,11 @@ import { getVisualizationLensSize, shouldPinPreparationCta } from "./visualizePr
 import { VisualizationAnchorLens, VisualizationPrimaryButton } from './VisualizationPrimitives';
 
 type Props = NativeStackScreenProps<RootStackParamList, "VisualizePreparation">;
+
+const colors = {
+  ...themeColors,
+  gold: themeColors.practiceMode.visualize.primary,
+};
 
 export const VisualizePreparationScreen: React.FC<Props> = ({
   navigation,
@@ -385,6 +390,12 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
       sceneText: sceneText.trim(),
       guidanceVoice: audio.guidanceVoice,
       backgroundAudio: audio.backgroundAudio,
+      source:
+        route.params.source === 'anchor_detail'
+          ? 'anchor_detail'
+          : route.params.source === 'deep_link' || route.params.source === 'paywall_resume'
+            ? 'deep_link'
+            : 'practice_screen',
     });
   };
 
@@ -659,11 +670,11 @@ const styles = StyleSheet.create({
   sceneCard: {
     marginTop: 14,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 16,
     borderRadius: 25,
     backgroundColor: "rgba(5,17,31,.72)",
     borderWidth: 1,
-    borderColor: "rgba(212,175,55,.2)",
+    borderColor: "rgba(120,180,209,.2)",
   },
   sceneLabel: {
     color: colors.gold,
@@ -680,13 +691,15 @@ const styles = StyleSheet.create({
   },
   sceneHeaderLabel: { marginBottom: 0 },
   sceneInput: {
-    minHeight: 68,
-    maxHeight: 92,
+    minHeight: 104,
+    maxHeight: 170,
     color: "#F5F0DF",
     fontFamily: typography.fonts.body,
     fontSize: 16,
     lineHeight: 24,
     textAlignVertical: "top",
+    paddingTop: 8,
+    paddingBottom: 8,
   },
   count: {
     color: "rgba(255,255,255,.35)",
@@ -709,9 +722,9 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 8,
     borderRadius: 13,
-    backgroundColor: "rgba(212,175,55,.06)",
+    backgroundColor: "rgba(120,180,209,.06)",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(212,175,55,.18)",
+    borderColor: "rgba(120,180,209,.18)",
   },
   textButtonLabel: {
     color: colors.gold,
@@ -732,7 +745,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 12,
-    backgroundColor: "rgba(212,175,55,.1)",
+    backgroundColor: "rgba(120,180,209,.1)",
   },
   saveSceneText: { color: colors.gold, fontSize: 11 },
   locked: { alignItems: "center", paddingVertical: 12, gap: 6 },
@@ -774,6 +787,6 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     backgroundColor: "rgba(5,14,27,.94)",
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(212,175,55,.18)",
+    borderTopColor: "rgba(120,180,209,.18)",
   },
 });

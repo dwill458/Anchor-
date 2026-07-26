@@ -72,9 +72,11 @@ async function readSecureMeta(name: string): Promise<SecureChunkMeta | null> {
 async function clearSecureChunks(name: string): Promise<void> {
   const existingMeta = await readSecureMeta(name);
   if (existingMeta) {
-    for (let i = 0; i < existingMeta.chunks; i += 1) {
-      await SecureStore.deleteItemAsync(secureStoreKey(secureChunkKey(name, i)));
-    }
+    await Promise.all(
+      Array.from({ length: existingMeta.chunks }, (_, i) =>
+        SecureStore.deleteItemAsync(secureStoreKey(secureChunkKey(name, i)))
+      )
+    );
   }
   await SecureStore.deleteItemAsync(secureStoreKey(secureMetaKey(name)));
 }
@@ -126,17 +128,80 @@ async function migrateLegacyAsyncStorageValue(name: string): Promise<string | nu
   }
 }
 
+async function performWrite(name: string, value: string): Promise<void> {
+  try {
+    await writeSecureValue(name, value);
+    // Ensure no plaintext legacy value remains once encrypted write succeeds.
+    await AsyncStorage.removeItem(name);
+  } catch (error) {
+    logger.error(`Failed to write encrypted store key ${name}, falling back to AsyncStorage`, error);
+    // Fall back so the state is not silently lost on restart.
+    await AsyncStorage.setItem(name, value);
+  }
+}
+
+/**
+ * Zustand's persist middleware calls `setItem` on every `set()` to a
+ * persisted store, even when the change doesn't touch a persisted field
+ * (e.g. a loading flag). For stores whose persisted slice embeds large data
+ * (anchor SVG/image payloads), that can mean re-encrypting and rewriting the
+ * entire chunked blob to SecureStore multiple times a second. Debouncing
+ * coalesces bursts of writes to the same key into a single actual write, and
+ * skipping identical consecutive values avoids re-writing unchanged data.
+ */
+const WRITE_DEBOUNCE_MS = 400;
+const pendingWrites = new Map<
+  string,
+  { value: string; timer: ReturnType<typeof setTimeout>; resolvers: Array<() => void> }
+>();
+const lastWrittenValue = new Map<string, string>();
+
+function scheduleWrite(name: string, value: string): Promise<void> {
+  if (lastWrittenValue.get(name) === value) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    const existing = pendingWrites.get(name);
+    if (existing) {
+      clearTimeout(existing.timer);
+      existing.value = value;
+      existing.resolvers.push(resolve);
+      existing.timer = setTimeout(() => void flushWrite(name), WRITE_DEBOUNCE_MS);
+      return;
+    }
+
+    pendingWrites.set(name, {
+      value,
+      resolvers: [resolve],
+      timer: setTimeout(() => void flushWrite(name), WRITE_DEBOUNCE_MS),
+    });
+  });
+}
+
+async function flushWrite(name: string): Promise<void> {
+  const entry = pendingWrites.get(name);
+  if (!entry) return;
+  pendingWrites.delete(name);
+
+  await performWrite(name, entry.value);
+  lastWrittenValue.set(name, entry.value);
+  entry.resolvers.forEach((resolve) => resolve());
+}
+
 /**
  * Encrypted persisted storage using expo-secure-store.
  *
  * - Supports payloads larger than platform key-value limits by chunking.
  * - Migrates legacy unencrypted AsyncStorage blobs on first read.
+ * - Debounces and de-duplicates writes (see `scheduleWrite`).
  */
 export const encryptedPersistStorage: AsyncStateStorage = {
   getItem: async (name: string): Promise<string | null> => {
     try {
       const secureValue = await readSecureValue(name);
       if (secureValue != null) {
+        lastWrittenValue.set(name, secureValue);
         return secureValue;
       }
 
@@ -148,18 +213,17 @@ export const encryptedPersistStorage: AsyncStateStorage = {
   },
 
   setItem: async (name: string, value: string): Promise<void> => {
-    try {
-      await writeSecureValue(name, value);
-      // Ensure no plaintext legacy value remains once encrypted write succeeds.
-      await AsyncStorage.removeItem(name);
-    } catch (error) {
-      logger.error(`Failed to write encrypted store key ${name}, falling back to AsyncStorage`, error);
-      // Fall back so the state is not silently lost on restart.
-      await AsyncStorage.setItem(name, value);
-    }
+    await scheduleWrite(name, value);
   },
 
   removeItem: async (name: string): Promise<void> => {
+    const pending = pendingWrites.get(name);
+    if (pending) {
+      clearTimeout(pending.timer);
+      pendingWrites.delete(name);
+      pending.resolvers.forEach((resolve) => resolve());
+    }
+    lastWrittenValue.delete(name);
     await clearSecureChunks(name);
     await AsyncStorage.removeItem(name);
   },

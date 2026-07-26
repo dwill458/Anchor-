@@ -110,6 +110,15 @@ export const AnchorSelectorSheet: React.FC<AnchorSelectorSheetProps> = ({
     />
   ), [selectedAnchorId, nextRituals, onSelect]);
 
+  const getItemLayout = React.useCallback(
+    (_data: ArrayLike<Anchor> | null | undefined, index: number) => ({
+      length: 64,
+      offset: 64 * index,
+      index,
+    }),
+    []
+  );
+
   return (
     <Modal
       animationType={Platform.OS === 'android' ? 'none' : 'fade'}
@@ -145,9 +154,10 @@ export const AnchorSelectorSheet: React.FC<AnchorSelectorSheetProps> = ({
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={<Text style={styles.emptyText}>No anchors found.</Text>}
             renderItem={renderItem}
+            getItemLayout={getItemLayout}
             removeClippedSubviews={Platform.OS === 'android'}
-            maxToRenderPerBatch={5}
-            windowSize={7}
+            maxToRenderPerBatch={6}
+            windowSize={5}
             initialNumToRender={8}
           />
         </View>
