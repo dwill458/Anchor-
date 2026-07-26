@@ -43,7 +43,6 @@ import {
   VISUALIZE_PHASE_PRESENTATION,
   getVisualizationLensSize,
   getVisualizePresentationPhase,
-  getVisualizeSceneCue,
   getVisualizeSegmentState,
 } from './visualizePresentation';
 import {
@@ -473,8 +472,6 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
     0,
     engine.schedule.findIndex((phase) => phase.id === engine.phase.id),
   );
-  const sceneCue = getVisualizeSceneCue(sceneText);
-  const showFullScene = engine.phase.id === 'see' && engine.elapsedSeconds < 8;
   const sigilSvg = anchor.reinforcedSigilSvg || anchor.baseSigilSvg || '';
   const heroSize = getVisualizationLensSize('practice', window.width);
   const phaseLabel = `PHASE ${currentPhaseIndex + 1} OF ${engine.schedule.length} · ${presentation.title}`;
@@ -556,18 +553,15 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
             />
           </View>
           <View style={styles.sceneCue}>
-            <Text style={styles.sceneLabel}>{showFullScene ? 'SCENE' : 'SCENE CUE'}</Text>
+            <Text style={styles.sceneLabel}>SCENE</Text>
             <Text
               accessibilityLiveRegion="polite"
-              numberOfLines={showFullScene ? 3 : 1}
+              numberOfLines={4}
               ellipsizeMode="tail"
-              style={showFullScene ? styles.sceneFull : styles.sceneTitle}
+              style={styles.sceneFull}
             >
-              {showFullScene ? sceneText : sceneCue.title}
+              {sceneText}
             </Text>
-            {!showFullScene ? (
-              <Text style={styles.sceneQualities}>{sceneCue.qualities}</Text>
-            ) : null}
           </View>
         </Animated.View>
 
@@ -767,14 +761,6 @@ const styles = StyleSheet.create({
     fontSize: 9,
     letterSpacing: 2,
   },
-  sceneTitle: {
-    color: 'rgba(226,241,249,.78)',
-    fontFamily: typography.fonts.heading,
-    fontSize: 14,
-    lineHeight: 19,
-    textAlign: 'center',
-    marginTop: 4,
-  },
   sceneFull: {
     color: 'rgba(226,241,249,.78)',
     fontFamily: typography.fonts.body,
@@ -782,13 +768,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     textAlign: 'center',
     marginTop: 4,
-  },
-  sceneQualities: {
-    color: 'rgba(169,209,231,.56)',
-    fontFamily: typography.fonts.body,
-    fontSize: 10,
-    letterSpacing: 0.7,
-    marginTop: 3,
   },
   bottomControls: {
     paddingHorizontal: 28,

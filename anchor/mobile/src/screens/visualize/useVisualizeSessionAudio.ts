@@ -65,6 +65,7 @@ export function useVisualizeSessionAudio(params: {
   const earlyExitInProgressRef = useRef(false);
   const mountedRef = useRef(true);
   const generationRef = useRef(0);
+  const resumedAtRef = useRef(0);
 
   isActiveRef.current = params.isActive;
 
@@ -360,12 +361,15 @@ export function useVisualizeSessionAudio(params: {
           onStatus: (status) => {
             if (!isCurrent(generation)) return;
             if (status.playing) ambientWasPlayingRef.current = true;
+            const isWithinResumeGracePeriod =
+              resumedAtRef.current > 0 && Date.now() - resumedAtRef.current < 750;
             if (
               ambientWasPlayingRef.current &&
               !status.playing &&
               !status.didJustFinish &&
               isActiveRef.current &&
-              !intentionalPauseRef.current
+              !intentionalPauseRef.current &&
+              !isWithinResumeGracePeriod
             ) {
               ambientWasPlayingRef.current = false;
               params.onInterruption();
@@ -426,6 +430,7 @@ export function useVisualizeSessionAudio(params: {
     }
 
     intentionalPauseRef.current = false;
+    resumedAtRef.current = Date.now();
     if (!previousActiveRef.current) {
       const resting = getVisualizeAmbientRestingVolume(
         params.plan.shouldPlayVoice,
