@@ -32,13 +32,29 @@ const IS_ANDROID = Platform.OS === 'android';
 const DEFAULT_LIGHT_COLOR = '#D4AF37';
 const CUSTOM_NOTIFICATION_SOUND = 'notification.wav';
 
+/**
+ * Android channel ids are versioned. Android freezes a channel's importance and
+ * sound the moment it is first created — later `setNotificationChannelAsync`
+ * calls with a higher importance are ignored for the lifetime of the install.
+ * The `-v2` suffix creates fresh channels so existing installs pick up the
+ * corrected importance levels; `LEGACY_NOTIFICATION_CHANNELS` are deleted so the
+ * user's notification settings screen does not accumulate dead entries.
+ */
 export const NOTIFICATION_CHANNELS = {
-  DAILY_REMINDERS: 'daily-reminders',
-  DAILY_GOAL_CHECKPOINTS: 'daily-goal-checkpoints',
-  RITUAL_REMINDERS: 'ritual-reminders',
-  STREAK_PROTECTION: 'streak-protection',
-  WEEKLY_SUMMARY: 'weekly-summary',
+  DAILY_REMINDERS: 'daily-reminders-v2',
+  DAILY_GOAL_CHECKPOINTS: 'daily-goal-checkpoints-v2',
+  RITUAL_REMINDERS: 'ritual-reminders-v2',
+  STREAK_PROTECTION: 'streak-protection-v2',
+  WEEKLY_SUMMARY: 'weekly-summary-v2',
 };
+
+const LEGACY_NOTIFICATION_CHANNELS = [
+  'daily-reminders',
+  'daily-goal-checkpoints',
+  'ritual-reminders',
+  'streak-protection',
+  'weekly-summary',
+];
 
 export const NOTIFICATION_IDS = {
   DAILY_REMINDER: 'daily-reminder-id',
@@ -107,6 +123,7 @@ class NotificationService {
   private mockEnabled = false;
   private mockScheduled = new Map<string, MockScheduledNotification>();
   private mockCounter = 0;
+  private androidChannelSetup: Promise<void> | null = null;
 
   /**
    * Enable in-memory mock scheduling for tests and previews.
@@ -132,9 +149,7 @@ class NotificationService {
   async hasPermissions(): Promise<boolean> {
     this.lastError = null;
     try {
-      if (IS_ANDROID) {
-        await this.ensureAndroidChannels();
-      }
+      await this.ensureAndroidChannels();
 
       const status = await Notifications.getPermissionsAsync();
       return this.hasGrantedPermissions(status);
@@ -156,9 +171,7 @@ class NotificationService {
   async requestPermissions(): Promise<boolean> {
     this.lastError = null;
     try {
-      if (IS_ANDROID) {
-        await this.ensureAndroidChannels();
-      }
+      await this.ensureAndroidChannels();
 
       const existingStatus = await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
@@ -273,13 +286,10 @@ class NotificationService {
         sound: CUSTOM_NOTIFICATION_SOUND,
         data: this.buildPayload('daily_reminder'),
       },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
-        hour: parsed.hour,
-        minute: parsed.minute,
-        repeats: true,
-        channelId: NOTIFICATION_CHANNELS.DAILY_REMINDERS,
-      },
+      trigger: this.buildDailyTrigger(
+        parsed,
+        NOTIFICATION_CHANNELS.DAILY_REMINDERS
+      ),
     });
   }
 
@@ -410,13 +420,10 @@ class NotificationService {
         sound: CUSTOM_NOTIFICATION_SOUND,
         data: this.buildPayload('streak_protection'),
       },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
-        hour: 20,
-        minute: 0,
-        repeats: true,
-        channelId: NOTIFICATION_CHANNELS.STREAK_PROTECTION,
-      },
+      trigger: this.buildDailyTrigger(
+        { hour: 20, minute: 0 },
+        NOTIFICATION_CHANNELS.STREAK_PROTECTION
+      ),
     });
   }
 
@@ -455,11 +462,10 @@ class NotificationService {
         data: this.buildPayload('weekly_summary'),
       },
       trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+        type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
         weekday: normalizedDay + 1,
         hour: parsed.hour,
         minute: parsed.minute,
-        repeats: true,
         channelId: NOTIFICATION_CHANNELS.WEEKLY_SUMMARY,
       },
     });
@@ -523,6 +529,12 @@ class NotificationService {
     anchorId?: string;
     milestone?: string;
     deepLink?: string;
+    /**
+     * Index within a series of reminders for the same category. Occurrence 0
+     * keeps the original identifier so previously scheduled reminders are
+     * replaced rather than duplicated.
+     */
+    occurrence?: number;
   }): Promise<string | null> {
     if (!(options.fireDate instanceof Date) || Number.isNaN(options.fireDate.getTime())) {
       this.recordError(
@@ -534,7 +546,11 @@ class NotificationService {
       return null;
     }
 
-    const identifier = this.buildSmartNotificationId(options.category, options.anchorId);
+    const identifier = this.buildSmartNotificationId(
+      options.category,
+      options.anchorId,
+      options.occurrence
+    );
     await this.cancelReminder(identifier);
 
     return this.scheduleNotification({
@@ -561,9 +577,25 @@ class NotificationService {
 
   async cancelSmartNotification(
     category: NotificationCategory,
+    anchorId?: string,
+    occurrence?: number
+  ): Promise<void> {
+    await this.cancelReminder(this.buildSmartNotificationId(category, anchorId, occurrence));
+  }
+
+  /**
+   * Cancel every occurrence of a repeating smart notification series.
+   */
+  async cancelSmartNotificationSeries(
+    category: NotificationCategory,
+    occurrences: number,
     anchorId?: string
   ): Promise<void> {
-    await this.cancelReminder(this.buildSmartNotificationId(category, anchorId));
+    const cancellations: Promise<void>[] = [];
+    for (let occurrence = 0; occurrence < occurrences; occurrence += 1) {
+      cancellations.push(this.cancelSmartNotification(category, anchorId, occurrence));
+    }
+    await Promise.all(cancellations);
   }
 
   async cancelNotification(id: string): Promise<void> {
@@ -686,6 +718,21 @@ class NotificationService {
   }
 
   private async ensureAndroidChannels(): Promise<void> {
+    if (!IS_ANDROID) {
+      return;
+    }
+
+    // Channel creation is idempotent but hits the bridge five times, and every
+    // schedule call funnels through here. Cache the work per app session.
+    this.androidChannelSetup ??= this.createAndroidChannels().catch((error) => {
+      this.androidChannelSetup = null;
+      throw error;
+    });
+
+    await this.androidChannelSetup;
+  }
+
+  private async createAndroidChannels(): Promise<void> {
     try {
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.DAILY_REMINDERS, {
         name: 'Daily Reminders',
@@ -697,7 +744,7 @@ class NotificationService {
 
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.DAILY_GOAL_CHECKPOINTS, {
         name: 'Daily Goal Checkpoints',
-        importance: Notifications.AndroidImportance.DEFAULT,
+        importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: DEFAULT_LIGHT_COLOR,
         sound: CUSTOM_NOTIFICATION_SOUND,
@@ -705,7 +752,7 @@ class NotificationService {
 
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.RITUAL_REMINDERS, {
         name: 'Prime Reminders',
-        importance: Notifications.AndroidImportance.DEFAULT,
+        importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: DEFAULT_LIGHT_COLOR,
         sound: CUSTOM_NOTIFICATION_SOUND,
@@ -713,17 +760,19 @@ class NotificationService {
 
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.STREAK_PROTECTION, {
         name: 'Thread Strength',
-        importance: Notifications.AndroidImportance.DEFAULT,
+        importance: Notifications.AndroidImportance.HIGH,
         lightColor: DEFAULT_LIGHT_COLOR,
         sound: CUSTOM_NOTIFICATION_SOUND,
       });
 
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.WEEKLY_SUMMARY, {
         name: 'Weekly Summary',
-        importance: Notifications.AndroidImportance.LOW,
+        importance: Notifications.AndroidImportance.DEFAULT,
         lightColor: DEFAULT_LIGHT_COLOR,
         sound: CUSTOM_NOTIFICATION_SOUND,
       });
+
+      await this.deleteLegacyAndroidChannels();
     } catch (error) {
       throw new ServiceError(
         'notifications/permission-request-failed',
@@ -731,6 +780,19 @@ class NotificationService {
         error
       );
     }
+  }
+
+  private async deleteLegacyAndroidChannels(): Promise<void> {
+    await Promise.all(
+      LEGACY_NOTIFICATION_CHANNELS.map(async (channelId) => {
+        try {
+          await Notifications.deleteNotificationChannelAsync(channelId);
+        } catch (error) {
+          // A channel that was never created is not an error worth surfacing.
+          logger.warn(`[NotificationService] Failed to delete legacy channel "${channelId}"`, error);
+        }
+      })
+    );
   }
 
   private recordError(error: ServiceError): void {
@@ -800,8 +862,13 @@ class NotificationService {
     return `${NOTIFICATION_IDS.DAILY_GOAL_CHECKPOINT_PREFIX}:${milestone}`;
   }
 
-  private buildSmartNotificationId(category: NotificationCategory, anchorId?: string): string {
-    return `${NOTIFICATION_IDS.SMART_PREFIX}:${category}${anchorId ? `:${anchorId}` : ''}`;
+  private buildSmartNotificationId(
+    category: NotificationCategory,
+    anchorId?: string,
+    occurrence?: number
+  ): string {
+    const base = `${NOTIFICATION_IDS.SMART_PREFIX}:${category}${anchorId ? `:${anchorId}` : ''}`;
+    return occurrence ? `${base}#${occurrence}` : base;
   }
 
   private mapCategoryToLegacyType(category: NotificationCategory): NotificationType {
@@ -953,12 +1020,23 @@ class NotificationService {
 
     const parsed = this.parseTime(time);
     if (!parsed) return null;
+    return this.buildDailyTrigger(parsed, NOTIFICATION_CHANNELS.RITUAL_REMINDERS);
+  }
+
+  /**
+   * Repeating daily trigger. `CALENDAR` triggers are iOS-only — expo-notifications
+   * rejects them on Android with "Trigger of type: calendar is not supported on
+   * Android", so every repeating reminder must use `DAILY`/`WEEKLY` instead.
+   */
+  private buildDailyTrigger(
+    time: { hour: number; minute: number },
+    channelId: string
+  ): NotificationTriggerInput {
     return {
-      type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
-      hour: parsed.hour,
-      minute: parsed.minute,
-      repeats: true,
-      channelId: NOTIFICATION_CHANNELS.RITUAL_REMINDERS,
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
+      hour: time.hour,
+      minute: time.minute,
+      channelId,
     };
   }
 
@@ -1012,9 +1090,7 @@ class NotificationService {
     }
 
     try {
-      if (IS_ANDROID) {
-        await this.ensureAndroidChannels();
-      }
+      await this.ensureAndroidChannels();
 
       return await Notifications.scheduleNotificationAsync(request);
     } catch (error: any) {
