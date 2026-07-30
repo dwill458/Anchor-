@@ -5,7 +5,7 @@ import { SubscriptionStatus } from '@/types';
 import { AnalyticsService, AnalyticsEvents } from '@/services/AnalyticsService';
 
 const TRIAL_DURATION_DAYS = 7;
-export type PreferredPlanId = 'monthly' | 'annual' | 'lifetime';
+export type PreferredPlanId = 'monthly' | 'annual';
 
 /** Derive days remaining from a stored ISO trialStartDate string. */
 function computeDaysRemaining(trialStartDate: string | null): number {

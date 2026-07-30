@@ -10,8 +10,8 @@ const mockTrack = jest.fn();
 const mockSetPreferredPlanId = jest.fn();
 const mockApplyServerEntitlement = jest.fn();
 const mockRefreshServerEntitlement = jest.fn();
-let mockPreferredPlanId: 'monthly' | 'annual' | 'lifetime' = 'annual';
-let mockRouteParams: { preferredPlanId?: 'monthly' | 'annual' | 'lifetime'; source?: 'post_trial' | 'gated_feature' } | undefined;
+let mockPreferredPlanId: 'monthly' | 'annual' = 'annual';
+let mockRouteParams: { preferredPlanId?: 'monthly' | 'annual'; source?: 'post_trial' | 'gated_feature' } | undefined;
 
 let mockAnchorState: {
   anchors: Anchor[];
@@ -152,17 +152,6 @@ const buildLiveOfferingMetadata = () => ({
     pricePerYearString: '$59.99',
     currencyCode: 'USD',
   },
-  lifetime: {
-    planId: 'lifetime' as const,
-    packageId: '$rc_lifetime',
-    price: 149.99,
-    priceString: '$149.99',
-    pricePerMonth: null,
-    pricePerMonthString: null,
-    pricePerYear: null,
-    pricePerYearString: null,
-    currencyCode: 'USD',
-  },
 });
 
 describe('PaywallScreen', () => {
@@ -214,12 +203,12 @@ describe('PaywallScreen', () => {
     alertSpy.mockRestore();
   });
 
-  it('renders monthly, annual, and lifetime plans plus the CTA', async () => {
+  it('renders monthly and annual plans plus the CTA', async () => {
     render(<PaywallScreen />);
 
     expect(screen.getByText('Monthly')).toBeTruthy();
     expect(screen.getByText('Annual')).toBeTruthy();
-    expect(screen.getByText('Lifetime')).toBeTruthy();
+    expect(screen.queryByText('Lifetime')).toBeNull();
     await waitFor(() => {
       expect(screen.getByText('Continue my practice')).toBeTruthy();
     });

@@ -6,7 +6,6 @@ jest.mock('@/config', () => ({
   REVENUECAT_ANNUAL_PACKAGE_ID: '$rc_annual',
   REVENUECAT_DEFAULT_PACKAGE_ID: 'test_package',
   REVENUECAT_ENTITLEMENT_ID: 'pro',
-  REVENUECAT_LIFETIME_PACKAGE_ID: '$rc_lifetime',
   REVENUECAT_MONTHLY_PACKAGE_ID: '$rc_monthly',
 }));
 
@@ -215,7 +214,7 @@ describe('RevenueCatService', () => {
     expect(status.isSubscribed).toBe(true);
   });
 
-  it('returns monthly, annual, and lifetime display metadata from current offerings', async () => {
+  it('returns monthly and annual display metadata from current offerings', async () => {
     mockPurchases.getOfferings.mockResolvedValueOnce({
       current: {
         availablePackages: [
@@ -245,15 +244,6 @@ describe('RevenueCatService', () => {
               currencyCode: 'USD',
             },
           },
-          {
-            identifier: '$rc_lifetime',
-            product: {
-              identifier: 'anchor_lifetime',
-              price: 149.99,
-              priceString: '$149.99',
-              currencyCode: 'USD',
-            },
-          },
         ],
       },
     });
@@ -277,13 +267,6 @@ describe('RevenueCatService', () => {
       price: 59.99,
       priceString: '$59.99',
       pricePerMonthString: '$5.00',
-      currencyCode: 'USD',
-    });
-    expect(metadata.lifetime).toMatchObject({
-      planId: 'lifetime',
-      packageId: '$rc_lifetime',
-      price: 149.99,
-      priceString: '$149.99',
       currencyCode: 'USD',
     });
   });

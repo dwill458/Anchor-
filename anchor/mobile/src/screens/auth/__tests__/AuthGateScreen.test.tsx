@@ -68,12 +68,12 @@ describe('AuthGateScreen', () => {
     mockPendingForgeResumeTarget = 'CreateAnchor';
   });
 
-  it('shows monthly, annual, and lifetime plans', () => {
+  it('shows only monthly and annual plans', () => {
     render(<AuthGateScreen />);
 
     expect(screen.getAllByText('Monthly').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Annual').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Lifetime').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Lifetime')).toBeNull();
   });
 
   it('loads live annual pricing metadata when available', async () => {
