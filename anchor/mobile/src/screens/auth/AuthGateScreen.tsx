@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ZenBackground } from '@/components/common';
 import {
   REVENUECAT_ANNUAL_PACKAGE_ID,
+  REVENUECAT_LIFETIME_PACKAGE_ID,
   REVENUECAT_MONTHLY_PACKAGE_ID,
 } from '@/config';
 import revenueCatService, {
@@ -59,6 +60,13 @@ const FALLBACK_PLAN_VALUES = {
     subtitle: '$5/mo · best value',
     packageId: REVENUECAT_ANNUAL_PACKAGE_ID,
   },
+  lifetime: {
+    label: 'Lifetime',
+    // The live RevenueCat offering supplies the price. Do not invent one here.
+    amount: 'One time',
+    subtitle: 'Unlock Anchor for life',
+    packageId: REVENUECAT_LIFETIME_PACKAGE_ID,
+  },
 } satisfies Record<PlanId, {
   label: string;
   amount: string;
@@ -80,6 +88,16 @@ function buildPlanOptions(metadata: RevenueCatOfferingDisplayMetadata): PlanDisp
           ? `${livePlan.pricePerMonthString}/mo · best value`
           : fallback.subtitle,
         badge: 'BEST VALUE',
+      };
+    }
+
+    if (id === 'lifetime') {
+      return {
+        id,
+        label: fallback.label,
+        amount: livePlan?.priceString ?? fallback.amount,
+        subtitle: livePlan?.priceString ? 'one-time purchase' : fallback.subtitle,
+        badge: 'LIFETIME ACCESS',
       };
     }
 

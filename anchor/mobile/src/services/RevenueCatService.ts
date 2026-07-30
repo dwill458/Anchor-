@@ -3,6 +3,7 @@ import {
   REVENUECAT_API_KEY,
   REVENUECAT_ANNUAL_PACKAGE_ID,
   REVENUECAT_ENTITLEMENT_ID,
+  REVENUECAT_LIFETIME_PACKAGE_ID,
   REVENUECAT_MONTHLY_PACKAGE_ID,
 } from '@/config';
 import { isLocalTrialActive, useSubscriptionStore } from '@/stores/subscriptionStore';
@@ -112,7 +113,7 @@ interface RevenueCatPurchases {
 /** Callback type for CustomerInfo update listeners. */
 export type CustomerInfoUpdateListener = (customerInfo: CustomerInfo) => void;
 
-export type RevenueCatPlanId = 'monthly' | 'annual';
+export type RevenueCatPlanId = 'monthly' | 'annual' | 'lifetime';
 
 export interface RevenueCatPlanDisplayMetadata {
   planId: RevenueCatPlanId;
@@ -343,7 +344,8 @@ class RevenueCatService {
       const packageIds = new Set((offering.availablePackages ?? []).map((pkg) => pkg.identifier));
       return (
         packageIds.has(REVENUECAT_MONTHLY_PACKAGE_ID) ||
-        packageIds.has(REVENUECAT_ANNUAL_PACKAGE_ID)
+        packageIds.has(REVENUECAT_ANNUAL_PACKAGE_ID) ||
+        packageIds.has(REVENUECAT_LIFETIME_PACKAGE_ID)
       );
     });
 
@@ -503,12 +505,17 @@ class RevenueCatService {
       const annualPackage = availablePackages.find(
         (pkg) => pkg.identifier === REVENUECAT_ANNUAL_PACKAGE_ID
       );
+      const lifetimePackage = availablePackages.find(
+        (pkg) => pkg.identifier === REVENUECAT_LIFETIME_PACKAGE_ID
+      );
       const metadata: RevenueCatOfferingDisplayMetadata = {};
       const monthlyMetadata = buildPlanMetadata('monthly', REVENUECAT_MONTHLY_PACKAGE_ID, monthlyPackage);
       const annualMetadata = buildPlanMetadata('annual', REVENUECAT_ANNUAL_PACKAGE_ID, annualPackage);
+      const lifetimeMetadata = buildPlanMetadata('lifetime', REVENUECAT_LIFETIME_PACKAGE_ID, lifetimePackage);
 
       if (monthlyMetadata) metadata.monthly = monthlyMetadata;
       if (annualMetadata) metadata.annual = annualMetadata;
+      if (lifetimeMetadata) metadata.lifetime = lifetimeMetadata;
 
       return metadata;
     } catch (error) {

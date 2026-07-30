@@ -213,7 +213,7 @@ export interface User {
 
 export type AuthScreenContext = 'onboarding' | 'first_anchor_gate' | 'save_progress' | 'paywall';
 export type AuthScreenInitialTab = 'signin' | 'signup';
-export type AuthPreferredPlanId = 'monthly' | 'annual';
+export type AuthPreferredPlanId = 'monthly' | 'annual' | 'lifetime';
 
 export interface AuthScreenParams {
   context?: AuthScreenContext;
