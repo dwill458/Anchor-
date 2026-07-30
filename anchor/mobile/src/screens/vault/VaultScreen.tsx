@@ -252,7 +252,15 @@ export const VaultScreen: React.FC = () => {
   // explicitly recognizes recent Galaxy flagships (including the S24 Ultra),
   // instead of relying solely on display resolution.
   const performanceTier = useAppPerformanceTier();
-  const shouldReduceMotion = reduceMotionEnabled || !isVaultTabActive;
+  // The accessibility preference, and nothing else. Tab visibility must not be
+  // folded in here: children read this as "motion is off" and respond by
+  // resetting their shared values, so a flag that flips on every tab press
+  // replays the whole screen's intro animation each time the user returns.
+  const shouldReduceMotion = reduceMotionEnabled;
+  // Visibility-driven pause for ambient motion. Only safe to pass to animations
+  // that stop where they are and resume from there — never to anything that
+  // snaps back to a starting value.
+  const pauseAmbientMotion = reduceMotionEnabled || !isVaultTabActive;
   const toast = useToast();
   const { shouldShow, dismiss } = useWeeklySummaryTrigger();
   const [now, setNow] = useState(() => new Date());
@@ -334,8 +342,10 @@ export const VaultScreen: React.FC = () => {
     return () => registerTabNav(0, null);
   }, [navigation, registerTabNav]);
 
+  // Pausing leaves both values where they are, so returning to the tab resumes
+  // the motion instead of snapping it back to the start.
   useEffect(() => {
-    if (shouldReduceMotion) {
+    if (pauseAmbientMotion) {
       cancelAnimation(orbitRotation);
       cancelAnimation(pulseDotOpacity);
       return;
@@ -354,7 +364,7 @@ export const VaultScreen: React.FC = () => {
       cancelAnimation(orbitRotation);
       cancelAnimation(pulseDotOpacity);
     };
-  }, [shouldReduceMotion, orbitRotation, pulseDotOpacity]);
+  }, [pauseAmbientMotion, orbitRotation, pulseDotOpacity]);
 
   const orbitRingStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${orbitRotation.value}deg` }],
@@ -590,7 +600,10 @@ export const VaultScreen: React.FC = () => {
     <View style={styles.container}>
       <ZenBackground variant="sanctuary" showOrbs={isVaultTabActive} showGrain showVignette />
       {performanceTier === 'high' && (
-        <AtmosphericOrbs reduceMotionEnabled={shouldReduceMotion} />
+        <AtmosphericOrbs
+          reduceMotionEnabled={shouldReduceMotion}
+          paused={!isVaultTabActive}
+        />
       )}
 
       <SafeAreaView style={styles.safeArea} edges={['top']}>
