@@ -111,6 +111,12 @@ export const SettingsScreen: React.FC = () => {
     toggleNotifications,
     updateNotificationPreferences,
   } = useNotificationController();
+  // The preference alone is not enough: it defaults to on, so without checking
+  // the OS permission the row reads "enabled" while nothing can be delivered
+  // and the user is never offered the permission prompt.
+  const notificationsActive =
+    (notifState?.notification_enabled ?? true) &&
+    notifState?.notificationPermissionStatus === 'granted';
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const profileEmail = useAuthStore((state) => state.profileData?.user?.email?.trim() ?? '');
@@ -548,9 +554,13 @@ export const SettingsScreen: React.FC = () => {
 
             <SettingsRow
               title="Notifications"
-              subtitle="Enable calm practice reminders"
+              subtitle={
+                notificationsActive
+                  ? 'Enable calm practice reminders'
+                  : 'Reminders need notification permission'
+              }
               type="toggle"
-              toggleValue={notifState?.notification_enabled ?? true}
+              toggleValue={notificationsActive}
               onToggle={(value) => {
                 void (async () => {
                   if (!value) {
@@ -560,10 +570,22 @@ export const SettingsScreen: React.FC = () => {
 
                   const granted = await NotificationService.requestPermissions();
                   if (!granted) {
-                    const message =
-                      NotificationService.getLastError()?.message ??
-                      'Please enable notifications in your device settings.';
-                    Alert.alert('Notification Permission Required', message);
+                    const permanentlyDenied =
+                      (await NotificationService.getPermissionStatus()) === 'denied';
+
+                    Alert.alert(
+                      'Notification Permission Required',
+                      permanentlyDenied
+                        ? 'Anchor cannot show reminders until notifications are turned on for the app in your device settings.'
+                        : NotificationService.getLastError()?.message ??
+                          'Please enable notifications in your device settings.',
+                      permanentlyDenied
+                        ? [
+                            { text: 'Not now', style: 'cancel' },
+                            { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+                          ]
+                        : undefined
+                    );
                     return;
                   }
 
@@ -571,9 +593,9 @@ export const SettingsScreen: React.FC = () => {
                 })();
               }}
               disabled={isLoading}
-              showDivider={!(notifState?.notification_enabled ?? true)}
+              showDivider={!notificationsActive}
             />
-            {notifState?.notification_enabled ? (
+            {notificationsActive ? (
               <>
                 <SettingsRow
                   title="Daily Prime Reminder"

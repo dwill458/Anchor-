@@ -3,9 +3,12 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNotificationController } from '../useNotificationController';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { NOTIFICATION_STATE_STORAGE_KEY } from '@/services/NotificationState';
+import { PENDING_SMART_NOTIFICATION_STORAGE_KEY } from '@/services/notifications/pendingNotificationStore';
 
 const mockScheduleSmartNotification = jest.fn();
 const mockCancelSmartNotification = jest.fn();
+const mockCancelSmartNotificationSeries = jest.fn();
 const mockCancelNotification = jest.fn();
 const mockCancelWeeklySummary = jest.fn();
 const mockGetPermissionStatus = jest.fn();
@@ -22,6 +25,8 @@ jest.mock('@/services/NotificationService', () => ({
   default: {
     scheduleSmartNotification: (...args: unknown[]) => mockScheduleSmartNotification(...args),
     cancelSmartNotification: (...args: unknown[]) => mockCancelSmartNotification(...args),
+    cancelSmartNotificationSeries: (...args: unknown[]) =>
+      mockCancelSmartNotificationSeries(...args),
     cancelNotification: (...args: unknown[]) => mockCancelNotification(...args),
     cancelWeeklySummary: (...args: unknown[]) => mockCancelWeeklySummary(...args),
     getPermissionStatus: (...args: unknown[]) => mockGetPermissionStatus(...args),
@@ -87,6 +92,24 @@ type AsyncStorageMock = {
 
 const asyncStorage = AsyncStorage as unknown as AsyncStorageMock;
 
+// Several stores share the AsyncStorage mock, so the notification state has to
+// be looked up by key rather than by taking the most recent write.
+const readSavedNotificationState = (): Record<string, unknown> => {
+  const call = asyncStorage.setItem.mock.calls
+    .filter(([key]) => key === NOTIFICATION_STATE_STORAGE_KEY)
+    .at(-1);
+
+  return JSON.parse(call?.[1] ?? '{}');
+};
+
+const readPendingNotification = (): Record<string, unknown> | null => {
+  const call = asyncStorage.setItem.mock.calls
+    .filter(([key]) => key === PENDING_SMART_NOTIFICATION_STORAGE_KEY)
+    .at(-1);
+
+  return call ? JSON.parse(call[1]) : null;
+};
+
 const createSessionState = (overrides: Record<string, unknown> = {}) => ({
   sessionLog: [],
   totalSessionsCount: 0,
@@ -116,6 +139,7 @@ describe('useNotificationController', () => {
     mockRequestPermissions.mockResolvedValue(true);
     mockScheduleSmartNotification.mockResolvedValue('smart-id');
     mockCancelSmartNotification.mockResolvedValue(undefined);
+    mockCancelSmartNotificationSeries.mockResolvedValue(undefined);
     mockCancelNotification.mockResolvedValue(undefined);
     mockCancelWeeklySummary.mockResolvedValue(undefined);
     mockSyncNotificationStateToServer.mockResolvedValue(null);
@@ -135,7 +159,7 @@ describe('useNotificationController', () => {
     await waitFor(() => expect(result.current.isInitialized).toBe(true));
 
     expect(mockScheduleSmartNotification).not.toHaveBeenCalled();
-    const savedState = JSON.parse(asyncStorage.setItem.mock.calls.at(-1)?.[1] ?? '{}');
+    const savedState = readSavedNotificationState();
     expect(savedState).toMatchObject({
       dailyPrimeEnabled: true,
       dailyPrimeTime: '21:00',
@@ -173,6 +197,93 @@ describe('useNotificationController', () => {
         category: 'daily_prime',
       })
     );
+  });
+
+  it('queues a horizon of daily prime reminders so they survive the app not being opened', async () => {
+    mockGetPermissionStatus.mockResolvedValue('granted');
+    mockSessionStoreGetState.mockReturnValue(createSessionState({ threadStrength: 80 }));
+
+    const { result } = renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+
+    // Only the first scheduling pass is asserted: the AsyncStorage mock is
+    // stateless, so a later pass does not see the pending record it wrote.
+    const dailyPrimeCalls = mockScheduleSmartNotification.mock.calls
+      .map(([options]) => options as { category: string; occurrence?: number; fireDate: Date })
+      .filter((options) => options.category === 'daily_prime')
+      .slice(0, 7);
+
+    expect(dailyPrimeCalls.map((options) => options.occurrence)).toEqual([
+      undefined,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+    ]);
+
+    const [first, second] = dailyPrimeCalls;
+    expect(second.fireDate.getTime() - first.fireDate.getTime()).toBe(24 * 60 * 60 * 1000);
+  });
+
+  it('records the queued reminder so a re-run does not cancel it', async () => {
+    mockGetPermissionStatus.mockResolvedValue('granted');
+    mockSessionStoreGetState.mockReturnValue(createSessionState({ threadStrength: 80 }));
+
+    const { result } = renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+
+    const pending = readPendingNotification();
+    expect(pending).toMatchObject({
+      identifier: 'smart-id',
+      category: 'daily_prime',
+    });
+
+    // A second controller instance (another screen mounting) must leave the
+    // queued reminder in place rather than cancelling and re-evaluating it.
+    asyncStorage.getItem.mockImplementation((key: string) =>
+      Promise.resolve(
+        key === PENDING_SMART_NOTIFICATION_STORAGE_KEY ? JSON.stringify(pending) : null
+      )
+    );
+    mockScheduleSmartNotification.mockClear();
+    mockCancelSmartNotificationSeries.mockClear();
+
+    const second = renderHook(() => useNotificationController());
+    await waitFor(() => expect(second.result.current.isInitialized).toBe(true));
+
+    expect(mockCancelSmartNotificationSeries).not.toHaveBeenCalled();
+    expect(mockScheduleSmartNotification).not.toHaveBeenCalled();
+  });
+
+  it('re-arms the next reminder once the queued one has fired', async () => {
+    mockGetPermissionStatus.mockResolvedValue('granted');
+    mockSessionStoreGetState.mockReturnValue(createSessionState({ threadStrength: 80 }));
+    asyncStorage.getItem.mockImplementation((key: string) =>
+      Promise.resolve(
+        key === PENDING_SMART_NOTIFICATION_STORAGE_KEY
+          ? JSON.stringify({
+              identifier: 'smart-id',
+              category: 'daily_prime',
+              // Fired two hours ago, so it is outside the one-per-hour cap.
+              fireDate: '2026-06-24T13:00:00.000Z',
+            })
+          : null
+      )
+    );
+
+    const { result } = renderHook(() => useNotificationController());
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+
+    expect(mockScheduleSmartNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ category: 'daily_prime' })
+    );
+    expect(readSavedNotificationState()).toMatchObject({
+      lastNotificationSentAt: { daily_prime: '2026-06-24T13:00:00.000Z' },
+    });
   });
 
   it('schedules the next-day daily prime after a Focus Session was completed today', async () => {
@@ -233,7 +344,7 @@ describe('useNotificationController', () => {
       });
     });
 
-    const savedState = JSON.parse(asyncStorage.setItem.mock.calls.at(-1)?.[1] ?? '{}');
+    const savedState = readSavedNotificationState();
     expect(savedState).toMatchObject({
       dailyPrimeTime: '08:00',
       notificationTone: 'direct',
@@ -271,7 +382,7 @@ describe('useNotificationController', () => {
     expect(status).toBe('granted');
     expect(mockRequestPermissions).toHaveBeenCalled();
 
-    const savedState = JSON.parse(asyncStorage.setItem.mock.calls.at(-1)?.[1] ?? '{}');
+    const savedState = readSavedNotificationState();
     expect(savedState).toMatchObject({
       notificationPermissionStatus: 'granted',
       notification_enabled: true,
@@ -292,7 +403,7 @@ describe('useNotificationController', () => {
     });
 
     expect(status).toBe('denied');
-    const savedState = JSON.parse(asyncStorage.setItem.mock.calls.at(-1)?.[1] ?? '{}');
+    const savedState = readSavedNotificationState();
     expect(savedState).toMatchObject({
       notificationPermissionStatus: 'denied',
       notification_enabled: false,
@@ -308,7 +419,7 @@ describe('useNotificationController', () => {
       await result.current.completeReminderPrompt('first_anchor');
     });
 
-    const savedState = JSON.parse(asyncStorage.setItem.mock.calls.at(-1)?.[1] ?? '{}');
+    const savedState = readSavedNotificationState();
     expect(savedState.firstAnchorReminderPromptCompleted).toBe(true);
   });
 

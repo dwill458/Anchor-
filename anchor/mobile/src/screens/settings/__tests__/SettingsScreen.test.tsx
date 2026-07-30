@@ -11,6 +11,7 @@ const mockToggleWeaver = jest.fn(() => Promise.resolve());
 const mockUpdateNotificationPreferences = jest.fn(() => Promise.resolve());
 const mockNotifState = {
   notification_enabled: true,
+  notificationPermissionStatus: 'granted',
   active_hours_start: 8,
   active_hours_end: 21,
   sovereign_rank: false,
@@ -252,6 +253,7 @@ describe('SettingsScreen', () => {
 
   it('renders Phase 1 notification controls and updates preferences', async () => {
     mockNotifState.notification_enabled = true;
+    mockNotifState.notificationPermissionStatus = 'granted';
     const screen = render(<SettingsScreen />);
 
     expect(screen.getByText('Daily Prime Reminder')).toBeTruthy();
