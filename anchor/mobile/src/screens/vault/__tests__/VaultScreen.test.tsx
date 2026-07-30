@@ -23,6 +23,7 @@ let mockHasActiveEntitlement = true;
 let mockPendingFirstAnchorDraft: { tempAnchorId: string } | null = null;
 let mockPerformanceTier: 'high' | 'medium' | 'low' = 'high';
 let mockReduceMotionEnabled = true;
+let mockActiveTabIndex: number | null = 0;
 const mockSetPendingForgeResumeTarget = jest.fn();
 
 jest.mock('@/stores/anchorStore', () => ({
@@ -66,7 +67,7 @@ jest.mock('@/hooks/useTrialStatus', () => ({
 jest.mock('@/contexts/TabNavigationContext', () => ({
     useTabNavigation: () => ({
         registerTabNav: jest.fn(),
-        activeTabIndex: 0,
+        activeTabIndex: mockActiveTabIndex,
     }),
 }));
 
@@ -103,9 +104,20 @@ jest.mock('@/screens/vault/components/SanctuaryHeader', () => ({
 }));
 
 jest.mock('@/screens/vault/components/AtmosphericOrbs', () => ({
-    AtmosphericOrbs: ({ reduceMotionEnabled }: { reduceMotionEnabled: boolean }) => {
+    AtmosphericOrbs: ({
+        reduceMotionEnabled,
+        paused,
+    }: {
+        reduceMotionEnabled: boolean;
+        paused?: boolean;
+    }) => {
         const { Text } = require('react-native');
-        return <Text testID="atmospheric-orbs">{reduceMotionEnabled ? 'static' : 'animated'}</Text>;
+        return (
+            <>
+                <Text testID="atmospheric-orbs">{reduceMotionEnabled ? 'static' : 'animated'}</Text>
+                <Text testID="atmospheric-orbs-paused">{paused ? 'paused' : 'running'}</Text>
+            </>
+        );
     },
 }));
 
@@ -155,6 +167,7 @@ describe('VaultScreen', () => {
         mockIsAuthenticated = true;
         mockHasActiveEntitlement = true;
         mockPendingFirstAnchorDraft = null;
+        mockActiveTabIndex = 0;
         mockPerformanceTier = 'high';
         mockReduceMotionEnabled = true;
     });
@@ -187,6 +200,40 @@ describe('VaultScreen', () => {
         render(<VaultScreen />);
         expect(screen.getByText(/FORGE YOUR FIRST ANCHOR/)).toBeTruthy();
         expect(screen.getByLabelText('Forge your first anchor')).toBeTruthy();
+    });
+
+    // Leaving the tab used to be reported to children as "reduce motion", which
+    // they answer by resetting their shared values — so returning to the
+    // Sanctuary replayed the entire intro. Off-screen must pause, not reset.
+    describe('ambient motion while the tab is off-screen', () => {
+        it('pauses ambient motion without claiming reduced motion', () => {
+            mockReduceMotionEnabled = false;
+            mockActiveTabIndex = 1;
+
+            render(<VaultScreen />);
+
+            expect(screen.getByTestId('atmospheric-orbs').props.children).toBe('animated');
+            expect(screen.getByTestId('atmospheric-orbs-paused').props.children).toBe('paused');
+        });
+
+        it('resumes ambient motion when the tab is active', () => {
+            mockReduceMotionEnabled = false;
+            mockActiveTabIndex = 0;
+
+            render(<VaultScreen />);
+
+            expect(screen.getByTestId('atmospheric-orbs').props.children).toBe('animated');
+            expect(screen.getByTestId('atmospheric-orbs-paused').props.children).toBe('running');
+        });
+
+        it('still reports reduced motion when the user has asked for it', () => {
+            mockReduceMotionEnabled = true;
+            mockActiveTabIndex = 0;
+
+            render(<VaultScreen />);
+
+            expect(screen.getByTestId('atmospheric-orbs').props.children).toBe('static');
+        });
     });
 
     it('renders anchor grid when anchors exist', () => {
