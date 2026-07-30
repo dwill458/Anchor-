@@ -117,6 +117,10 @@ const PLAN_DESCRIPTORS = {
     tier: 'Annual',
     per: 'per year',
   },
+  lifetime: {
+    tier: 'Lifetime',
+    per: 'one-time purchase',
+  },
 } satisfies Record<PlanId, {
   tier: string;
   per: string;
@@ -127,7 +131,7 @@ const PURCHASE_UNAVAILABLE_MESSAGE =
   'Purchases are temporarily unavailable. Please try again later or restore an existing subscription.';
 
 function hasAvailableStorePlan(metadata: RevenueCatOfferingDisplayMetadata): boolean {
-  return (['monthly', 'annual'] as const).some((planId) => {
+  return (['monthly', 'annual', 'lifetime'] as const).some((planId) => {
     const plan = metadata[planId];
     return Boolean(plan?.packageId && plan.price != null);
   });
@@ -217,6 +221,7 @@ function buildPlanDisplay(
 function buildPlans(metadata: RevenueCatOfferingDisplayMetadata): Record<PlanId, PlanDisplay> {
   const monthly = buildPlanDisplay('monthly', metadata);
   const annual = buildPlanDisplay('annual', metadata);
+  const lifetime = buildPlanDisplay('lifetime', metadata);
   const monthlyYear = monthly.priceValue != null ? monthly.priceValue * 12 : null;
   const hasComparableLivePrices =
     monthly.isAvailable &&
@@ -238,6 +243,10 @@ function buildPlans(metadata: RevenueCatOfferingDisplayMetadata): Record<PlanId,
         ? formatCurrency(monthlyYear, annual.currencyCode)
         : null,
       badge: savings != null ? `Best value · save ${savings}%` : null,
+    },
+    lifetime: {
+      ...lifetime,
+      badge: lifetime.isAvailable ? 'One payment · yours for life' : null,
     },
   };
 }
@@ -369,6 +378,7 @@ function PlanCard({
       testID={`paywall-plan-${plan.id}`}
       style={({ pressed }) => [
         styles.plan,
+        plan.id === 'lifetime' && styles.lifetimePlan,
         selected && styles.planSelected,
         isPlanUnavailable && styles.planUnavailable,
         pressed && styles.planPressed,
@@ -477,7 +487,13 @@ export const PaywallScreen: React.FC = () => {
       return;
     }
 
-    const availablePlanId = plans.annual.isAvailable ? 'annual' : plans.monthly.isAvailable ? 'monthly' : null;
+    const availablePlanId = plans.annual.isAvailable
+      ? 'annual'
+      : plans.monthly.isAvailable
+        ? 'monthly'
+        : plans.lifetime.isAvailable
+          ? 'lifetime'
+          : null;
     if (availablePlanId) {
       setSelectedPlanId(availablePlanId);
       setPreferredPlanId(availablePlanId);
@@ -699,13 +715,19 @@ export const PaywallScreen: React.FC = () => {
       : PAYWALL_EXPERIMENT.perDayPrice && selectedPlan.priceValue
         ? selectedPlanId === 'annual'
           ? `less than ${formatCurrency(selectedPlan.priceValue / 365, selectedPlan.currencyCode)} / day · cancel anytime`
-          : `about ${formatCurrency(selectedPlan.priceValue / 30, selectedPlan.currencyCode)} / day · cancel anytime`
-        : `then ${selectedPlan.priceLabel} / ${selectedPlanId === 'annual' ? 'year' : 'month'} · cancel anytime`;
+          : selectedPlanId === 'monthly'
+            ? `about ${formatCurrency(selectedPlan.priceValue / 30, selectedPlan.currencyCode)} / day · cancel anytime`
+            : `${selectedPlan.priceLabel} once · yours for life`
+        : selectedPlanId === 'lifetime'
+          ? `${selectedPlan.priceLabel} once · yours for life`
+          : `then ${selectedPlan.priceLabel} / ${selectedPlanId === 'annual' ? 'year' : 'month'} · cancel anytime`;
   const ctaLabel = isStoreLoading
     ? 'Loading plans...'
     : isPurchaseUnavailable
       ? 'Purchases unavailable'
-      : sourceCopy?.cta ?? 'Continue my practice';
+      : selectedPlanId === 'lifetime'
+        ? 'Unlock for life'
+        : sourceCopy?.cta ?? 'Continue my practice';
 
   return (
     <View style={styles.root}>
@@ -792,6 +814,12 @@ export const PaywallScreen: React.FC = () => {
                 storeAvailability={storeAvailability}
                 onPress={handleSelectPlan}
               />
+              <PlanCard
+                plan={plans.lifetime}
+                selected={selectedPlanId === 'lifetime'}
+                storeAvailability={storeAvailability}
+                onPress={handleSelectPlan}
+              />
             </View>
 
             {PAYWALL_EXPERIMENT.showScarcity ? (
@@ -834,7 +862,11 @@ export const PaywallScreen: React.FC = () => {
               </LinearGradient>
             </Pressable>
             <Text style={styles.ctaSub}>{ctaSub}</Text>
-            <Text style={styles.trust}>Cancel anytime · Your anchors stay · Secure</Text>
+            <Text style={styles.trust}>
+              {selectedPlanId === 'lifetime'
+                ? 'One-time purchase · Your anchors stay · Secure'
+                : 'Cancel anytime · Your anchors stay · Secure'}
+            </Text>
             <View style={styles.links}>
               <Pressable
                 onPress={handleRestorePurchase}
@@ -1078,11 +1110,13 @@ const styles = StyleSheet.create({
   },
   plans: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
     width: '100%',
   },
   plan: {
     flex: 1,
+    flexBasis: '46%',
     minHeight: 132,
     borderRadius: 16,
     paddingVertical: 15,
@@ -1092,6 +1126,9 @@ const styles = StyleSheet.create({
     borderColor: withAlpha(colors.white, 0.1),
     backgroundColor: withAlpha(colors.bone, 0.025),
     overflow: 'hidden',
+  },
+  lifetimePlan: {
+    flexBasis: '100%',
   },
   planSelected: {
     borderColor: withAlpha(colors.gold, 0.65),

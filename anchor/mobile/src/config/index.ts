@@ -29,6 +29,8 @@ export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
 export const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
 export const REVENUECAT_MONTHLY_PACKAGE_ID = '$rc_monthly';
 export const REVENUECAT_ANNUAL_PACKAGE_ID = '$rc_annual';
+// RevenueCat's reserved package identifier for a one-time, non-consumable purchase.
+export const REVENUECAT_LIFETIME_PACKAGE_ID = '$rc_lifetime';
 const platformRevenueCatApiKey =
   Platform.OS === 'ios'
     ? readOptionalPublicEnv(process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY)
@@ -41,7 +43,11 @@ export const REVENUECAT_ENTITLEMENT_ID = process.env.EXPO_PUBLIC_REVENUECAT_ENTI
 export const REVENUECAT_DEFAULT_PACKAGE_ID =
   process.env.EXPO_PUBLIC_REVENUECAT_DEFAULT_PACKAGE_ID ?? REVENUECAT_MONTHLY_PACKAGE_ID;
 export const REVENUECAT_DEFAULT_PLAN_ID =
-  REVENUECAT_DEFAULT_PACKAGE_ID === REVENUECAT_ANNUAL_PACKAGE_ID ? 'annual' : 'monthly';
+  REVENUECAT_DEFAULT_PACKAGE_ID === REVENUECAT_LIFETIME_PACKAGE_ID
+    ? 'lifetime'
+    : REVENUECAT_DEFAULT_PACKAGE_ID === REVENUECAT_ANNUAL_PACKAGE_ID
+      ? 'annual'
+      : 'monthly';
 
 const expectedRevenueCatApiKeyPrefix =
   Platform.OS === 'ios' ? 'appl_' : Platform.OS === 'android' ? 'goog_' : '';
@@ -117,6 +123,7 @@ export const Config = {
   SUPABASE_ANON_KEY,
   REVENUECAT_MONTHLY_PACKAGE_ID,
   REVENUECAT_ANNUAL_PACKAGE_ID,
+  REVENUECAT_LIFETIME_PACKAGE_ID,
   REVENUECAT_API_KEY,
   REVENUECAT_ENTITLEMENT_ID,
   REVENUECAT_DEFAULT_PACKAGE_ID,
