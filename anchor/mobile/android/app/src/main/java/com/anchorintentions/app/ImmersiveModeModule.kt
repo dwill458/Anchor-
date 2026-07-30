@@ -1,6 +1,8 @@
 package com.anchorintentions.app
 
-import android.view.View
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
@@ -16,13 +18,12 @@ class ImmersiveModeModule(
   fun enter() {
     val activity = reactContext.currentActivity ?: return
     activity.runOnUiThread {
-      activity.window.decorView.systemUiVisibility =
-        View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
-          View.SYSTEM_UI_FLAG_FULLSCREEN or
-          View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-          View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
-          View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or
-          View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+      val window = activity.window ?: return@runOnUiThread
+      WindowCompat.setDecorFitsSystemWindows(window, false)
+      val controller = WindowInsetsControllerCompat(window, window.decorView)
+      controller.hide(WindowInsetsCompat.Type.systemBars())
+      controller.systemBarsBehavior =
+        WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
   }
 
@@ -30,7 +31,9 @@ class ImmersiveModeModule(
   fun exit() {
     val activity = reactContext.currentActivity ?: return
     activity.runOnUiThread {
-      activity.window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+      val window = activity.window ?: return@runOnUiThread
+      val controller = WindowInsetsControllerCompat(window, window.decorView)
+      controller.show(WindowInsetsCompat.Type.systemBars())
     }
   }
 }

@@ -31,6 +31,9 @@ type OverlayState = 'animating' | 'syncing' | 'success' | 'error';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const DEFAULT_ERROR_MESSAGE = "Couldn't complete release. Try again.";
 const MAX_INJECTED_IMAGE_DATA_URI_BYTES = 450_000;
+const REMOTE_ARTWORK_RESOLUTION_TIMEOUT_MS = 8_000;
+const BURN_START_WATCHDOG_MS = REMOTE_ARTWORK_RESOLUTION_TIMEOUT_MS + 1_000;
+const BURN_COMPLETION_WATCHDOG_MS = 7_000;
 const BURN_SIGIL_SIZE = Math.min(SCREEN_WIDTH * 0.58, 240);
 const BURN_NATIVE_ARTWORK_SIZE = BURN_SIGIL_SIZE * 0.82;
 const ALLOWED_WEBVIEW_SCHEMES = ['about:blank', 'data:'];
@@ -154,28 +157,36 @@ const encodeArrayBufferToBase64 = (buffer: ArrayBuffer): string => {
 };
 
 const readRemoteUriAsDataUri = async (uri: string): Promise<string> => {
-  const response = await fetch(uri);
-  if (!response.ok) {
-    throw new Error(`Burn artwork request failed with ${response.status}`);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REMOTE_ARTWORK_RESOLUTION_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(uri, { signal: controller.signal });
+
+    if (!response.ok) {
+      throw new Error(`Burn artwork request failed with ${response.status}`);
+    }
+
+    const contentLength = Number(response.headers.get('content-length') ?? 0);
+    if (contentLength > MAX_INJECTED_IMAGE_DATA_URI_BYTES) {
+      return uri;
+    }
+
+    const responseContentType = response.headers.get('content-type') || '';
+    const contentType = responseContentType.startsWith('image/')
+      ? responseContentType
+      : inferMimeTypeFromUri(uri);
+    const buffer = await response.arrayBuffer();
+    if (buffer.byteLength > MAX_INJECTED_IMAGE_DATA_URI_BYTES) {
+      return uri;
+    }
+
+    const base64 = encodeArrayBufferToBase64(buffer);
+
+    return `data:${contentType};base64,${base64}`;
+  } finally {
+    clearTimeout(timeout);
   }
-
-  const contentLength = Number(response.headers.get('content-length') ?? 0);
-  if (contentLength > MAX_INJECTED_IMAGE_DATA_URI_BYTES) {
-    return uri;
-  }
-
-  const responseContentType = response.headers.get('content-type') || '';
-  const contentType = responseContentType.startsWith('image/')
-    ? responseContentType
-    : inferMimeTypeFromUri(uri);
-  const buffer = await response.arrayBuffer();
-  if (buffer.byteLength > MAX_INJECTED_IMAGE_DATA_URI_BYTES) {
-    return uri;
-  }
-
-  const base64 = encodeArrayBufferToBase64(buffer);
-
-  return `data:${contentType};base64,${base64}`;
 };
 
 const resolveWebViewImageUri = async (uri: string): Promise<string> => {
@@ -276,7 +287,10 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
         }
       } catch {
         if (!isCancelled) {
-          setResolvedWebViewSigilUri(sigilUri);
+          // A remote artwork request may stall on a captive or flaky network.
+          // The ceremony must remain finishable, so use the already-available
+          // SVG rather than handing the same stalled URL to the WebView.
+          setResolvedWebViewSigilUri(fallbackSigilUri ?? sigilUri);
           setIsWebViewSigilReady(true);
         }
       }
@@ -289,7 +303,7 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [sigilUri]);
+  }, [fallbackSigilUri, sigilUri]);
 
   const clearTimers = useCallback(() => {
     timersRef.current.forEach((timer) => clearTimeout(timer));
@@ -388,6 +402,17 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
     };
   }, [clearTimers, runInitialCommit]);
 
+  useEffect(() => {
+    // Artwork resolution and WebView loading happen independently from the
+    // destructive commit. If either never finishes, surface the result rather
+    // than leaving a released sigil behind an inert animation screen.
+    queueTimer(() => {
+      if (startInjectedRef.current || animationCompleteRef.current) return;
+      logger.warn('[BurnAnimationOverlay] Burn start watchdog fired');
+      handleAnimationComplete();
+    }, BURN_START_WATCHDOG_MS);
+  }, [handleAnimationComplete, queueTimer]);
+
   const showCancelRitualDialog = useCallback((onConfirm: () => void) => {
     Alert.alert(
       'Cancel Practice?',
@@ -468,10 +493,18 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
       buildStartScript({
         cmd: 'start',
         sigilUri: resolvedWebViewSigilUri,
-        fallbackSigilUri: hasEnhancedArtwork ? undefined : fallbackSigilUri,
+        fallbackSigilUri,
         isCharged,
       })
     );
+
+    // The WebView normally posts burnComplete after 5.8s. This fallback covers
+    // a bridge message that is lost after the visual has actually started.
+    queueTimer(() => {
+      if (animationCompleteRef.current) return;
+      logger.warn('[BurnAnimationOverlay] Burn completion watchdog fired');
+      handleAnimationComplete();
+    }, BURN_COMPLETION_WATCHDOG_MS);
   }, [
     fallbackSigilUri,
     hasEnhancedArtwork,
@@ -481,6 +514,7 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
     nativeArtworkOpacity,
     nativeArtworkScale,
     nativeArtworkTranslateY,
+    handleAnimationComplete,
     queueTimer,
     reduceMotionEnabled,
     resolvedWebViewSigilUri,

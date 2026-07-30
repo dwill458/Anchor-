@@ -73,25 +73,39 @@ export const BurningRitualScreen: React.FC = () => {
         throw new Error('Release history could not be tied to this account and anchor.');
       }
 
-      const elapsedSeconds = Math.max(
-        1,
-        Math.round(
-          (Date.now() - new Date(releaseStartedAtRef.current).getTime()) / 1000,
-        ),
-      );
-      // Durably persist the canonical release before the server deletes its
-      // anchor relation. Retrying this callback reuses the same event ID.
-      await PracticeCompletionService.commitReleaseCompletion({
-        id: releaseEventIdRef.current,
-        accountId,
-        anchor: releaseAnchorSnapshot,
-        startedAt: releaseStartedAtRef.current,
-        durationSeconds: elapsedSeconds,
-        source: 'anchor_detail',
-      });
+      // Captured up front (via the ref) so the completion record has full
+      // anchor context even once the server deletes the anchor relation, but
+      // only actually committed — durably persisted, and counted toward
+      // Thread Strength — once the burn is confirmed. Retrying this callback
+      // reuses the same event ID.
+      const commitRelease = () => {
+        const elapsedSeconds = Math.max(
+          1,
+          Math.round(
+            (Date.now() - new Date(releaseStartedAtRef.current).getTime()) / 1000,
+          ),
+        );
+        return PracticeCompletionService.commitReleaseCompletion({
+          id: releaseEventIdRef.current,
+          accountId,
+          anchor: releaseAnchorSnapshot,
+          startedAt: releaseStartedAtRef.current,
+          durationSeconds: elapsedSeconds,
+          source: 'anchor_detail',
+        });
+      };
 
       try {
         await post(`/api/anchors/${anchorId}/burn`, {});
+        // The burn is already confirmed by the server. Keep ledger persistence
+        // best-effort so a local storage problem cannot make a released sigil
+        // look like a failed ritual.
+        void commitRelease().catch((error) => {
+          ErrorTrackingService.captureException(
+            error instanceof Error ? error : new Error('Failed to record release completion'),
+            { screen: 'BurningRitualScreen', action: 'record_release_completion' }
+          );
+        });
       } catch (error) {
         const msg = error instanceof Error ? error.message : '';
         // 404 = anchor already deleted (e.g. previous attempt succeeded but response was lost)
@@ -111,17 +125,39 @@ export const BurningRitualScreen: React.FC = () => {
           );
           throw error;
         }
-        // Anchor is confirmed gone from server — fall through to local release
+        // Anchor is confirmed gone from server. Record the completion without
+        // allowing storage latency to block the already-completed ritual.
+        void commitRelease().catch((commitError) => {
+          ErrorTrackingService.captureException(
+            commitError instanceof Error
+              ? commitError
+              : new Error('Failed to record already-released completion'),
+            { screen: 'BurningRitualScreen', action: 'record_release_completion' }
+          );
+        });
       }
     }
 
     // Local update happens for everyone
     releaseAnchor(anchorId);
     if (accountId) void PracticeCompletionService.flush(accountId);
-    await queueProgressionMilestonesFromStores({
+
+    // These side effects are retryable bookkeeping. They must not keep the
+    // success screen behind a slow storage or notification sync operation.
+    void queueProgressionMilestonesFromStores({
       sourceEventId: releaseEventIdRef.current,
+    }).catch((error) => {
+      ErrorTrackingService.captureException(
+        error instanceof Error ? error : new Error('Failed to queue release milestones'),
+        { screen: 'BurningRitualScreen', action: 'queue_release_milestones' }
+      );
     });
-    await handleSigilVaulted();
+    void handleSigilVaulted().catch((error) => {
+      ErrorTrackingService.captureException(
+        error instanceof Error ? error : new Error('Failed to update release notifications'),
+        { screen: 'BurningRitualScreen', action: 'update_release_notifications' }
+      );
+    });
     AnalyticsService.track(AnalyticsEvents.BURN_COMPLETED, { anchor_id: anchorId });
     FrictionAnalytics.completeFlow('burn_release', {
       anchor_id: anchorId,

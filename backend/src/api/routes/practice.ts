@@ -96,11 +96,15 @@ const PracticeSessionSchema = z
     completionStatus: z.literal('completed'),
     startedAt: IsoDateSchema,
     completedAt: IsoDateSchema,
-    localDateKey: LocalDateKeySchema,
-    timeZone: TimeZoneSchema,
-    utcOffsetMinutesAtCompletion: z.number().int().min(-840).max(840),
-    completionSource: z.enum(COMPLETION_SOURCES),
-    schemaVersion: z.number().int().min(1).max(100),
+    // Optional: clients released before the canonical practice ledger
+    // (commit 7cb8f97) never sent these. Defaulted/derived in
+    // normalizeLegacySessionInput() rather than rejected, so already-installed
+    // apps don't 400 forever on every completion until their user updates.
+    localDateKey: LocalDateKeySchema.optional(),
+    timeZone: TimeZoneSchema.optional(),
+    utcOffsetMinutesAtCompletion: z.number().int().min(-840).max(840).optional(),
+    completionSource: z.enum(COMPLETION_SOURCES).optional(),
+    schemaVersion: z.number().int().min(1).max(100).optional(),
     legacyType: z.string().trim().min(1).max(100).nullable().optional(),
     guidanceVoice: z.enum(GUIDANCE_VOICES),
     backgroundAudio: z.enum(BACKGROUND_AUDIO_MODES),
@@ -172,33 +176,28 @@ async function getAuthenticatedUser(req: AuthRequest): Promise<AuthenticatedPrac
   return user;
 }
 
-function assertValidCompletedSession(input: z.infer<typeof PracticeSessionSchema>): void {
-  const startedAt = new Date(input.startedAt);
-  const completedAt = new Date(input.completedAt);
-  if (completedAt < startedAt || completedAt.getTime() > Date.now() + 5 * 60 * 1000) {
-    throw new AppError('Invalid practice timestamps', 400, 'VALIDATION_ERROR');
-  }
-  if (input.completedDurationSeconds > input.plannedDurationSeconds + 5) {
-    throw new AppError('Completed duration exceeds the planned session', 400, 'VALIDATION_ERROR');
-  }
-  const localParts = new Intl.DateTimeFormat('en-US', {
-    timeZone: input.timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(completedAt);
-  const part = (type: Intl.DateTimeFormatPartTypes): string | undefined =>
-    localParts.find(value => value.type === type)?.value;
-  const expectedLocalDateKey = `${part('year')}-${part('month')}-${part('day')}`;
-  if (input.localDateKey !== expectedLocalDateKey) {
-    throw new AppError(
-      'Local practice date does not match completion timezone',
-      400,
-      'VALIDATION_ERROR'
-    );
-  }
+type PracticeSessionInput = z.infer<typeof PracticeSessionSchema>;
+type NormalizedPracticeSessionInput = Omit<
+  PracticeSessionInput,
+  | 'localDateKey'
+  | 'timeZone'
+  | 'utcOffsetMinutesAtCompletion'
+  | 'completionSource'
+  | 'schemaVersion'
+> & {
+  localDateKey: string;
+  timeZone: string;
+  utcOffsetMinutesAtCompletion: number;
+  completionSource: (typeof COMPLETION_SOURCES)[number];
+  schemaVersion: number;
+};
+
+function computeLocalDateContext(
+  completedAt: Date,
+  timeZone: string
+): { localDateKey: string; utcOffsetMinutes: number } {
   const wallClockParts = new Intl.DateTimeFormat('en-US', {
-    timeZone: input.timeZone,
+    timeZone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -207,17 +206,60 @@ function assertValidCompletedSession(input: z.infer<typeof PracticeSessionSchema
     second: '2-digit',
     hourCycle: 'h23',
   }).formatToParts(completedAt);
-  const wallPart = (type: Intl.DateTimeFormatPartTypes): number =>
+  const part = (type: Intl.DateTimeFormatPartTypes): number =>
     Number(wallClockParts.find(value => value.type === type)?.value);
+  const localDateKey = `${String(part('year')).padStart(4, '0')}-${String(part('month')).padStart(2, '0')}-${String(part('day')).padStart(2, '0')}`;
   const wallClockAsUtc = Date.UTC(
-    wallPart('year'),
-    wallPart('month') - 1,
-    wallPart('day'),
-    wallPart('hour'),
-    wallPart('minute'),
-    wallPart('second')
+    part('year'),
+    part('month') - 1,
+    part('day'),
+    part('hour'),
+    part('minute'),
+    part('second')
   );
-  const expectedOffset = Math.round((wallClockAsUtc - completedAt.getTime()) / 60_000);
+  const utcOffsetMinutes = Math.round((wallClockAsUtc - completedAt.getTime()) / 60_000);
+  return { localDateKey, utcOffsetMinutes };
+}
+
+// Clients released before the canonical practice ledger (commit 7cb8f97)
+// never sent localDateKey/timeZone/utcOffsetMinutesAtCompletion/
+// completionSource/schemaVersion. Derive/default them here instead of
+// rejecting, so already-installed apps can keep syncing completions until
+// their user updates.
+function normalizeLegacySessionInput(input: PracticeSessionInput): NormalizedPracticeSessionInput {
+  const timeZone = input.timeZone ?? 'UTC';
+  const derived =
+    input.localDateKey === undefined || input.utcOffsetMinutesAtCompletion === undefined
+      ? computeLocalDateContext(new Date(input.completedAt), timeZone)
+      : null;
+  return {
+    ...input,
+    timeZone,
+    localDateKey: input.localDateKey ?? derived!.localDateKey,
+    utcOffsetMinutesAtCompletion: input.utcOffsetMinutesAtCompletion ?? derived!.utcOffsetMinutes,
+    completionSource: input.completionSource ?? 'unknown',
+    schemaVersion: input.schemaVersion ?? 1,
+  };
+}
+
+function assertValidCompletedSession(input: NormalizedPracticeSessionInput): void {
+  const startedAt = new Date(input.startedAt);
+  const completedAt = new Date(input.completedAt);
+  if (completedAt < startedAt || completedAt.getTime() > Date.now() + 5 * 60 * 1000) {
+    throw new AppError('Invalid practice timestamps', 400, 'VALIDATION_ERROR');
+  }
+  if (input.completedDurationSeconds > input.plannedDurationSeconds + 5) {
+    throw new AppError('Completed duration exceeds the planned session', 400, 'VALIDATION_ERROR');
+  }
+  const { localDateKey: expectedLocalDateKey, utcOffsetMinutes: expectedOffset } =
+    computeLocalDateContext(completedAt, input.timeZone);
+  if (input.localDateKey !== expectedLocalDateKey) {
+    throw new AppError(
+      'Local practice date does not match completion timezone',
+      400,
+      'VALIDATION_ERROR'
+    );
+  }
   if (input.utcOffsetMinutesAtCompletion !== expectedOffset) {
     throw new AppError(
       'Practice time-zone offset does not match completion timezone',
@@ -242,7 +284,7 @@ function assertValidCompletedSession(input: z.infer<typeof PracticeSessionSchema
 
 function immutableSessionMatches(
   existing: PracticeSession,
-  input: z.infer<typeof PracticeSessionSchema>
+  input: NormalizedPracticeSessionInput
 ): boolean {
   const expectedServerAnchorSnapshot = input.anchorServerId ?? input.anchorId;
   const anchorRelationMatches =
@@ -273,7 +315,7 @@ function immutableSessionMatches(
 
 router.post('/sessions', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const input = validate(PracticeSessionSchema, req.body ?? {});
+    const input = normalizeLegacySessionInput(validate(PracticeSessionSchema, req.body ?? {}));
     assertValidCompletedSession(input);
     const user = await getAuthenticatedUser(req);
     if (input.practiceMode === 'visualize') await requireVisualizeAccess(user);

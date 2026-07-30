@@ -98,13 +98,16 @@ function dayDifference(fromExclusive: string, toInclusive: string): number {
 
 function countDecayEligibleDays(
   fromExclusive: string,
-  toInclusive: string,
+  toExclusive: string,
   restDays: readonly number[],
 ): number {
   const rest = new Set(restDays);
   let count = 0;
-  const days = dayDifference(fromExclusive, toInclusive);
-  for (let offset = 1; offset <= days; offset += 1) {
+  // Excludes toExclusive itself: it's either the day of the next practice
+  // (not a missed day) or the still-in-progress current day (not yet missed),
+  // so only the fully-elapsed days strictly between the two count toward decay.
+  const days = dayDifference(fromExclusive, toExclusive);
+  for (let offset = 1; offset < days; offset += 1) {
     const day = parseDateKey(addDays(fromExclusive, offset)).getUTCDay();
     if (!rest.has(day)) count += 1;
   }
