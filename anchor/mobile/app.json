@@ -116,7 +116,7 @@
     "android": {
       "allowBackup": false,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/anchor-adaptive-foreground-v2.png",
+        "foregroundImage": "./assets/anchor-adaptive-foreground-v3.png",
         "backgroundColor": "#260A4C",
         "monochromeImage": "./assets/anchor-monochrome.png"
       },
@@ -160,6 +160,7 @@
         }
       ],
       "./plugins/withFirebaseFrameworkFix",
+      "./plugins/withAndroidSplashIconBackground",
       "@react-native-firebase/app",
       "expo-apple-authentication",
       "@sentry/react-native/expo",
@@ -167,12 +168,12 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/anchor-gold.png",
-          "imageWidth": 200,
+          "image": "./assets/anchor-splash-logo.png",
+          "imageWidth": 160,
           "resizeMode": "contain",
           "backgroundColor": "#080C10",
           "dark": {
-            "image": "./assets/anchor-gold.png",
+            "image": "./assets/anchor-splash-logo.png",
             "backgroundColor": "#080C10"
           }
         }
