@@ -29,7 +29,12 @@ export const widgetTaskHandler: WidgetTaskHandler = async (props) => {
     case 'WIDGET_UPDATE':
     case 'WIDGET_RESIZED': {
       const snapshot = await readWidgetSnapshot();
-      props.renderWidget(renderAnchorWidgetByName(props.widgetInfo.widgetName, snapshot));
+      props.renderWidget(
+        renderAnchorWidgetByName(props.widgetInfo.widgetName, snapshot, {
+          width: props.widgetInfo.width,
+          height: props.widgetInfo.height,
+        })
+      );
       break;
     }
     case 'WIDGET_DELETED':

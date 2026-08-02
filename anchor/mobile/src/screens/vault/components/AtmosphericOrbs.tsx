@@ -27,6 +27,8 @@ interface OrbProps {
   motion: OrbMotion;
   mountDelay: number;
   reduceMotionEnabled: boolean;
+  /** Stop the drift while the orb is off-screen, without disturbing its state. */
+  paused?: boolean;
 }
 
 const Orb: React.FC<OrbProps> = ({
@@ -37,19 +39,22 @@ const Orb: React.FC<OrbProps> = ({
   motion,
   mountDelay,
   reduceMotionEnabled,
+  paused = false,
 }) => {
   const t = useSharedValue(0);
   const mountProgress = useSharedValue(reduceMotionEnabled ? 1 : 0);
 
+  // The entrance plays once per mount and is deliberately not keyed on the
+  // motion flags. `mountProgress` drives opacity, so re-running this drops the
+  // orb to fully transparent and fades it back in — which, on a screen whose
+  // motion flag used to flip with tab visibility, read as the whole Sanctuary
+  // reloading every time the user came back to it.
   useEffect(() => {
     if (reduceMotionEnabled) {
-      cancelAnimation(t);
-      t.value = 0;
       mountProgress.value = 1;
       return;
     }
 
-    mountProgress.value = 0;
     mountProgress.value = withDelay(
       mountDelay,
       withTiming(1, {
@@ -57,9 +62,32 @@ const Orb: React.FC<OrbProps> = ({
         easing: Easing.out(Easing.cubic),
       })
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- entrance is mount-only
+  }, []);
 
+  // Honour the accessibility setting being turned on mid-session by settling
+  // the orb at rest rather than mid-fade.
+  useEffect(() => {
+    if (reduceMotionEnabled) {
+      cancelAnimation(mountProgress);
+      mountProgress.value = 1;
+    }
+  }, [mountProgress, reduceMotionEnabled]);
+
+  useEffect(() => {
+    if (reduceMotionEnabled || paused) {
+      // Leave `t` where it stopped so resuming continues the drift.
+      cancelAnimation(t);
+      return;
+    }
+
+    // Each repetition restarts from `origin`, and the drift is read through
+    // `Math.sin`, so travelling exactly 2π per cycle makes the wrap invisible
+    // from wherever the previous pause left off.
+    const origin = t.value % (Math.PI * 2);
+    t.value = origin;
     t.value = withRepeat(
-      withTiming(Math.PI * 2, {
+      withTiming(origin + Math.PI * 2, {
         duration: motion.duration,
         easing: Easing.linear,
       }),
@@ -70,7 +98,7 @@ const Orb: React.FC<OrbProps> = ({
     return () => {
       cancelAnimation(t);
     };
-  }, [mountDelay, motion.duration, mountProgress, reduceMotionEnabled, t]);
+  }, [motion.duration, paused, reduceMotionEnabled, t]);
 
   const animatedStyle = useAnimatedStyle(() => {
     const p = reduceMotionEnabled ? 0 : (Math.sin(t.value + motion.phase) + 1) / 2;
@@ -103,9 +131,14 @@ const Orb: React.FC<OrbProps> = ({
 
 interface AtmosphericOrbsProps {
   reduceMotionEnabled: boolean;
+  /** Stop the drift while the host screen is off-screen. */
+  paused?: boolean;
 }
 
-export const AtmosphericOrbs: React.FC<AtmosphericOrbsProps> = ({ reduceMotionEnabled }) => {
+export const AtmosphericOrbs: React.FC<AtmosphericOrbsProps> = ({
+  reduceMotionEnabled,
+  paused = false,
+}) => {
   return (
     <View pointerEvents="none" style={styles.container}>
       <Orb
@@ -116,6 +149,7 @@ export const AtmosphericOrbs: React.FC<AtmosphericOrbsProps> = ({ reduceMotionEn
         motion={{ translateX: 18, translateY: 14, scale: 0.07, duration: 9000, phase: 0 }}
         mountDelay={0}
         reduceMotionEnabled={reduceMotionEnabled}
+        paused={paused}
       />
       <Orb
         id="orb-2"
@@ -125,6 +159,7 @@ export const AtmosphericOrbs: React.FC<AtmosphericOrbsProps> = ({ reduceMotionEn
         motion={{ translateX: -12, translateY: 18, scale: 0.05, duration: 11000, phase: 1.3 }}
         mountDelay={50}
         reduceMotionEnabled={reduceMotionEnabled}
+        paused={paused}
       />
       <Orb
         id="orb-3"
@@ -134,6 +169,7 @@ export const AtmosphericOrbs: React.FC<AtmosphericOrbsProps> = ({ reduceMotionEn
         motion={{ translateX: 22, translateY: -12, scale: 0.09, duration: 13000, phase: 2.1 }}
         mountDelay={100}
         reduceMotionEnabled={reduceMotionEnabled}
+        paused={paused}
       />
     </View>
   );

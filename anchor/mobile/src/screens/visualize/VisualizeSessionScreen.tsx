@@ -1,12 +1,7 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import * as Haptics from 'expo-haptics';
+import { StatusBar } from 'expo-status-bar';
 import {
-  Alert,
   Animated,
   Easing,
   Pressable,
@@ -14,226 +9,292 @@ import {
   Text,
   useWindowDimensions,
   View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Pause, Play, X } from "lucide-react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { useKeepAwake } from "expo-keep-awake";
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useKeepAwake } from 'expo-keep-awake';
+import { Pause, Play, X } from 'lucide-react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import type { RootStackParamList } from "@/types";
-import { useAnchorStore } from "@/stores/anchorStore";
-import { useAuthStore } from "@/stores/authStore";
-import { useSettingsStore } from "@/stores/settingsStore";
-import { usePerformanceTier } from "@/hooks/usePerformanceTier";
-import { useReduceMotionEnabled } from "@/hooks/useReduceMotionEnabled";
-import { PracticeCompletionService } from "@/services/PracticeCompletionService";
-import { AnalyticsEvents, AnalyticsService } from "@/services/AnalyticsService";
-import { resolveSessionAudioPlan } from "@/services/SessionAudioManifest";
-import { getVisualizeSessionAudioManifest } from "@/services/visualizeAudioManifest";
-import { colors as themeColors, typography } from "@/theme";
-import { safeHaptics } from "@/utils/haptics";
+import type { RootStackParamList } from '@/types';
+import { useAnchorStore } from '@/stores/anchorStore';
+import { useAuthStore } from '@/stores/authStore';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { usePerformanceTier } from '@/hooks/usePerformanceTier';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
+import { useTeachingGate } from '@/utils/useTeachingGate';
+import { useRecordOnShow } from '@/components/teaching/useRecordOnShow';
+import type { TeachingContent } from '@/constants/teaching';
+import { PracticeCompletionService } from '@/services/PracticeCompletionService';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
+import { trackSessionStartedWithAudio } from '@/services/SessionAudioAnalytics';
+import { resolveSessionAudioPlan } from '@/services/SessionAudioManifest';
+import { getVisualizeSessionAudioManifest } from '@/services/visualizeAudioManifest';
+import { colors as themeColors, typography } from '@/theme';
+import { safeHaptics } from '@/utils/haptics';
+import { ConfirmModal } from '@/screens/rituals/components/ConfirmModal';
 
 const colors = {
   ...themeColors,
   gold: themeColors.practiceMode.visualize.primary,
 };
-import { VisualizeAnchorField } from "./VisualizeAnchorField";
+import { VisualizeAnchorField } from './VisualizeAnchorField';
 import {
   VISUALIZE_PHASE_PRESENTATION,
   getVisualizationLensSize,
   getVisualizePresentationPhase,
   getVisualizeSegmentState,
-} from "./visualizePresentation";
-import { VisualizationAnchorLens, VisualizationPhaseProgress } from './VisualizationPrimitives';
-import { useVisualizeSessionAudio } from "./useVisualizeSessionAudio";
-import { useVisualizeSessionEngine } from "./useVisualizeSessionEngine";
+} from './visualizePresentation';
+import {
+  VisualizationAnchorLens,
+  VisualizationPhaseProgress,
+} from './VisualizationPrimitives';
+import { PromptPresenter } from './PromptPresenter';
+import { useVisualizeImmersiveMode } from './useVisualizeImmersiveMode';
+import { useVisualizeSessionAudio } from './useVisualizeSessionAudio';
+import { useVisualizeSessionEngine } from './useVisualizeSessionEngine';
 
-type Props = NativeStackScreenProps<RootStackParamList, "VisualizeSession">;
+type Props = NativeStackScreenProps<RootStackParamList, 'VisualizeSession'>;
 
 const KeepAwake: React.FC = () => {
-  useKeepAwake("visualize-session");
+  useKeepAwake('visualize-session');
   return null;
 };
 
-const formatTime = (seconds: number) =>
-  `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+const formatTime = (seconds: number): string =>
+  `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+
+const VisualizeControlsHint: React.FC<{
+  teaching: TeachingContent | null;
+  reduceMotion: boolean;
+}> = ({ teaching, reduceMotion }) => {
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useRecordOnShow(teaching, 'visualize_session');
+
+  useEffect(() => {
+    if (!teaching) return;
+    let fadeTimer: ReturnType<typeof setTimeout> | null = null;
+    opacity.stopAnimation();
+    opacity.setValue(reduceMotion ? 1 : 0);
+    if (reduceMotion) {
+      fadeTimer = setTimeout(() => opacity.setValue(0), 2_600);
+    } else {
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 360,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+      fadeTimer = setTimeout(() => {
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: 420,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: true,
+        }).start();
+      }, 2_600);
+    }
+    return () => {
+      if (fadeTimer) clearTimeout(fadeTimer);
+      opacity.stopAnimation();
+    };
+  }, [opacity, reduceMotion, teaching]);
+
+  if (!teaching) return null;
+
+  return (
+    <Animated.View
+      accessible
+      accessibilityLabel={teaching.copy}
+      accessibilityLiveRegion="polite"
+      pointerEvents="none"
+      style={[styles.controlsHint, { opacity }]}
+    >
+      <View style={styles.controlsHintDot} />
+      <Text style={styles.controlsHintText}>{teaching.copy}</Text>
+    </Animated.View>
+  );
+};
 
 export const VisualizeSessionScreen: React.FC<Props> = ({
   navigation,
   route,
 }) => {
   const window = useWindowDimensions();
-  const anchor = useAnchorStore((state) =>
-    state.getAnchorById(route.params.anchorId),
-  );
+  const {
+    anchorId,
+    durationSeconds,
+    sceneText,
+    guidanceVoice,
+    backgroundAudio,
+  } = route.params;
+  const anchor = useAnchorStore((state) => state.getAnchorById(anchorId));
   const accountId = useAuthStore((state) => state.user?.id ?? null);
   const hapticIntensity = useSettingsStore((state) => state.hapticIntensity);
   const reduceMotion = useReduceMotionEnabled();
   const performanceTier = usePerformanceTier();
+  const controlsHint = useTeachingGate({
+    screenId: 'visualize_session',
+    candidateIds: ['visualize_controls_hint'],
+  });
+
   const sessionIdRef = useRef(
-    `visualize:${accountId ?? "guest"}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`,
+    `visualize:${accountId ?? 'guest'}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`,
   );
   const completionRef = useRef(false);
+  const completionCueRef = useRef(false);
+  const completionTransitionStartedRef = useRef(false);
+  const startedAnalyticsRef = useRef(false);
   const exitingRef = useRef(false);
   const exitPromptOpenRef = useRef(false);
+  const pendingNavigateRef = useRef<(() => void) | null>(null);
+  const [showExitModal, setShowExitModal] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [feedback, setFeedback] = useState<'Paused' | 'Resumed' | null>(null);
   const controlsOpacity = useRef(new Animated.Value(1)).current;
-  const [displayPhase, setDisplayPhase] = useState(
-    getVisualizePresentationPhase("arrive"),
-  );
-  const [feedback, setFeedback] = useState<"Paused" | "Resumed" | null>(null);
-  const copyOpacity = useRef(new Animated.Value(1)).current;
-  const copyTranslateY = useRef(new Animated.Value(0)).current;
-  const phaseReveal = useRef(new Animated.Value(1)).current;
-  const directiveReveal = useRef(new Animated.Value(1)).current;
-  const sceneReveal = useRef(new Animated.Value(1)).current;
-  const audioWave = useRef(new Animated.Value(0)).current;
-  const iconReveal = useRef(new Animated.Value(1)).current;
   const feedbackOpacity = useRef(new Animated.Value(0)).current;
-  const phaseTransitionRef = useRef<Animated.CompositeAnimation | null>(null);
+  const activeCopyOpacity = useRef(new Animated.Value(1)).current;
+  const completionOpacity = useRef(new Animated.Value(0)).current;
+  const completionScale = useRef(new Animated.Value(0.94)).current;
+  const completionAnchorScale = useRef(new Animated.Value(0.86)).current;
+  const completionAnchorTranslateY = useRef(new Animated.Value(16)).current;
 
   const complete = useCallback(
-    async ({
-      startedAt,
-      completedAt,
-    }: {
-      startedAt: string;
-      completedAt: string;
-    }) => {
-      if (!anchor || !accountId || completionRef.current) return;
+    async ({ startedAt, completedAt }: { startedAt: string; completedAt: string }) => {
+      if (completionRef.current) return;
       completionRef.current = true;
-      await PracticeCompletionService.commitVisualizeCompletion({
-        id: sessionIdRef.current,
-        accountId,
-        anchor,
-        durationSeconds: route.params.durationSeconds,
-        startedAt,
-        completedAt,
-        guidanceVoice: route.params.guidanceVoice,
-        backgroundAudio: route.params.backgroundAudio,
-        sceneSnapshot: route.params.sceneText,
-        source: route.params.source,
+      let syncOutcome: 'queued' | 'failed' | 'not_recorded' = 'not_recorded';
+      if (anchor && accountId) {
+        try {
+          await PracticeCompletionService.commitVisualizeCompletion({
+            id: sessionIdRef.current,
+            accountId,
+            anchor,
+            durationSeconds,
+            startedAt,
+            completedAt,
+            guidanceVoice,
+            backgroundAudio,
+            sceneSnapshot: sceneText,
+            source: route.params.source,
+          });
+          syncOutcome = 'queued';
+        } catch {
+          // The local queue is the source of truth for the completion screen;
+          // analytics still records a failed sync without blocking the ritual.
+          syncOutcome = 'failed';
+        }
+      }
+
+      AnalyticsService.track(AnalyticsEvents.PRACTICE_SESSION_COMPLETED, {
+        practice_mode: 'visualize',
+        session_id: sessionIdRef.current,
+        anchor_id: anchor?.id ?? anchorId,
+        duration_seconds: durationSeconds,
+        guidance_voice: guidanceVoice,
+        background_audio: backgroundAudio,
+        sync_outcome: syncOutcome,
+        completed_at: completedAt,
       });
-    },
-    [accountId, anchor, route.params],
+    }, [
+      accountId,
+      anchor,
+      anchorId,
+      backgroundAudio,
+      durationSeconds,
+      guidanceVoice,
+      sceneText,
+    ],
   );
 
   const engine = useVisualizeSessionEngine({
-    durationSeconds: route.params.durationSeconds,
+    durationSeconds,
     hapticsEnabled: hapticIntensity > 0,
     onComplete: complete,
   });
-  const lastRuntimePhaseRef = useRef(engine.phase.id);
 
   const audioPlan = useMemo(
     () =>
       resolveSessionAudioPlan({
-        sessionType: "visualize",
-        durationSeconds: route.params.durationSeconds,
+        sessionType: 'visualize',
+        durationSeconds,
         configuration: {
-          guidanceVoice: route.params.guidanceVoice,
-          backgroundAudio: route.params.backgroundAudio,
-          source: "session_override",
+          guidanceVoice,
+          backgroundAudio,
+          source: 'session_override',
         },
       }),
-    [
-      route.params.backgroundAudio,
-      route.params.durationSeconds,
-      route.params.guidanceVoice,
-    ],
+    [backgroundAudio, durationSeconds, guidanceVoice],
   );
-  const visualizeAudioManifest = useMemo(
-    () => getVisualizeSessionAudioManifest(route.params.durationSeconds),
-    [route.params.durationSeconds],
+  const audioManifest = useMemo(
+    () => getVisualizeSessionAudioManifest(durationSeconds),
+    [durationSeconds],
   );
   const handleAudioInterruption = useCallback(
-    () => engine.pause("audio_interruption"),
+    () => engine.pause('audio_interruption'),
     [engine.pause],
   );
   const sessionAudio = useVisualizeSessionAudio({
     plan: audioPlan,
-    manifest: visualizeAudioManifest,
+    manifest: audioManifest,
     elapsedMs: engine.elapsedMs,
-    isActive: engine.state === "running",
-    isComplete:
-      engine.state === "completing" ||
-      engine.state === "completed",
+    isActive: engine.state === 'running',
+    isCompleting: engine.state === 'completing',
+    isComplete: engine.state === 'completed',
     onInterruption: handleAudioInterruption,
   });
-  const { fadeOutAndStop } = sessionAudio;
 
-  const continueAfterExitPrompt = useCallback(() => {
-    exitPromptOpenRef.current = false;
-    engine.resume();
-  }, [engine.resume]);
-
-  const confirmEarlyEnd = useCallback((navigateAfterStop: () => void) => {
-    if (exitingRef.current) return;
-    exitingRef.current = true;
-    exitPromptOpenRef.current = false;
-    engine.endEarly();
-    void fadeOutAndStop().finally(navigateAfterStop);
-  }, [engine.endEarly, fadeOutAndStop]);
-
-  const showEarlyExitPrompt = useCallback((navigateAfterStop: () => void) => {
-    if (exitingRef.current || exitPromptOpenRef.current) return;
-    exitPromptOpenRef.current = true;
-    engine.pause("exit_prompt");
-    Alert.alert(
-      "End visualization?",
-      "Your progress in this session will not be recorded.",
-      [
-        {
-          text: "Continue Session",
-          style: "cancel",
-          onPress: continueAfterExitPrompt,
-        },
-        {
-          text: "End Session",
-          style: "destructive",
-          onPress: () => confirmEarlyEnd(navigateAfterStop),
-        },
-      ],
-    );
-  }, [confirmEarlyEnd, continueAfterExitPrompt, engine.pause]);
+  const immersive =
+    engine.state === 'running' ||
+    engine.state === 'paused' ||
+    engine.state === 'completing';
+  useVisualizeImmersiveMode(immersive);
 
   useEffect(() => {
+    if (startedAnalyticsRef.current) return;
+    startedAnalyticsRef.current = true;
     engine.start();
+    const startedAt = new Date().toISOString();
     AnalyticsService.track(AnalyticsEvents.PRACTICE_SESSION_STARTED, {
-      practice_mode: "visualize",
+      practice_mode: 'visualize',
       session_id: sessionIdRef.current,
-      anchor_id: route.params.anchorId,
-      duration_seconds: route.params.durationSeconds,
-      guidance_voice: route.params.guidanceVoice,
-      background_audio: route.params.backgroundAudio,
-      started_at: new Date().toISOString(),
+      anchor_id: anchorId,
+      duration_seconds: durationSeconds,
+      guidance_voice: guidanceVoice,
+      background_audio: backgroundAudio,
+      started_at: startedAt,
     });
+    trackSessionStartedWithAudio(audioPlan);
     // Engine start is deliberately one-shot for this route instance.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (engine.state !== "completed") return;
-    navigation.replace("VisualizeCompletion", {
-      anchorId: route.params.anchorId,
-      sessionId: sessionIdRef.current,
-      durationSeconds: route.params.durationSeconds,
-      source: route.params.source,
-    });
   }, [
-    engine.state,
-    navigation,
-    route.params.anchorId,
-    route.params.durationSeconds,
+    anchorId,
+    audioPlan,
+    backgroundAudio,
+    durationSeconds,
+    engine.start,
+    guidanceVoice,
   ]);
 
   useEffect(() => {
-    if (engine.state !== "running") {
+    if (engine.state !== 'completed') return;
+    navigation.replace('VisualizeCompletion', {
+      anchorId,
+      sessionId: sessionIdRef.current,
+      durationSeconds,
+      source: route.params.source,
+      sceneText,
+    });
+  }, [anchorId, durationSeconds, engine.state, navigation, route.params.source, sceneText]);
+
+  useEffect(() => {
+    if (engine.state !== 'running') {
       setControlsVisible(true);
       return;
     }
-    const timer = setTimeout(() => setControlsVisible(false), 4000);
+    if (!controlsVisible) return;
+    const timer = setTimeout(() => setControlsVisible(false), 4_500);
     return () => clearTimeout(timer);
   }, [controlsVisible, engine.state]);
 
@@ -246,151 +307,116 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
   }, [controlsOpacity, controlsVisible, reduceMotion]);
 
   useEffect(() => {
-    if (lastRuntimePhaseRef.current === engine.phase.id) return;
-    lastRuntimePhaseRef.current = engine.phase.id;
-    const nextPhase = getVisualizePresentationPhase(engine.phase.id);
-    phaseTransitionRef.current?.stop();
-
-    if (reduceMotion) {
-      setDisplayPhase(nextPhase);
-      copyOpacity.setValue(1);
-      copyTranslateY.setValue(0);
-      phaseReveal.setValue(1);
-      directiveReveal.setValue(1);
-      sceneReveal.setValue(1);
+    if (engine.state !== 'completing' || completionTransitionStartedRef.current) {
       return;
     }
+    completionTransitionStartedRef.current = true;
+    if (hapticIntensity > 0 && !completionCueRef.current) {
+      completionCueRef.current = true;
+      void safeHaptics.notification(Haptics.NotificationFeedbackType.Success);
+    }
 
-    const transition = Animated.sequence([
-      Animated.parallel([
-        Animated.timing(copyOpacity, {
-          toValue: 0,
-          duration: 130,
-          easing: Easing.in(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.timing(copyTranslateY, {
-          toValue: -7,
-          duration: 130,
-          easing: Easing.in(Easing.cubic),
-          useNativeDriver: true,
-        }),
-      ]),
-      Animated.delay(20),
+    const animation = Animated.parallel([
+      Animated.timing(activeCopyOpacity, {
+        toValue: 0,
+        duration: reduceMotion ? 0 : 420,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(completionOpacity, {
+        toValue: 1,
+        duration: reduceMotion ? 0 : 620,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(completionScale, {
+        toValue: 1,
+        duration: reduceMotion ? 0 : 760,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(completionAnchorScale, {
+        toValue: 1,
+        duration: reduceMotion ? 0 : 760,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(completionAnchorTranslateY, {
+        toValue: 0,
+        duration: reduceMotion ? 0 : 760,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
     ]);
+    animation.start();
 
-    transition.start(({ finished }) => {
-      if (!finished) return;
-      setDisplayPhase(nextPhase);
-      copyOpacity.setValue(1);
-      copyTranslateY.setValue(7);
-      phaseReveal.setValue(0);
-      directiveReveal.setValue(0);
-      sceneReveal.setValue(0);
-
-      phaseTransitionRef.current = Animated.parallel([
-        Animated.timing(copyTranslateY, {
-          toValue: 0,
-          duration: 520,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.stagger(85, [
-          Animated.timing(phaseReveal, {
-            toValue: 1,
-            duration: 220,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }),
-          Animated.timing(directiveReveal, {
-            toValue: 1,
-            duration: 260,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }),
-          Animated.timing(sceneReveal, {
-            toValue: 1,
-            duration: 260,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }),
-        ]),
+    let cancelled = false;
+    const settleCompletion = async () => {
+      await Promise.allSettled([
+        engine.completionPromise ?? Promise.resolve(),
+        sessionAudio.finishCompletion(),
       ]);
-      phaseTransitionRef.current.start();
-    });
-    phaseTransitionRef.current = transition;
+      await new Promise<void>((resolve) => setTimeout(resolve, reduceMotion ? 120 : 820));
+      if (!cancelled) engine.markCompleted();
+    };
+    void settleCompletion();
 
-    return () => transition.stop();
+    return () => {
+      cancelled = true;
+      animation.stop();
+    };
   }, [
-    copyOpacity,
-    copyTranslateY,
-    directiveReveal,
-    engine.phase.id,
-    phaseReveal,
+    completionOpacity,
+    completionScale,
+    activeCopyOpacity,
+    completionAnchorScale,
+    completionAnchorTranslateY,
+    engine.completionPromise,
+    engine.markCompleted,
+    engine.state,
+    hapticIntensity,
     reduceMotion,
-    sceneReveal,
+    sessionAudio.finishCompletion,
   ]);
 
-  useEffect(() => {
-    audioWave.stopAnimation();
-    if (reduceMotion || engine.state !== "running") {
-      audioWave.setValue(0);
-      return;
-    }
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(audioWave, {
-          toValue: 1,
-          duration: 620,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(audioWave, {
-          toValue: 0,
-          duration: 620,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    animation.start();
-    return () => animation.stop();
-  }, [audioWave, engine.state, reduceMotion]);
+  const continueAfterExitPrompt = useCallback(() => {
+    exitPromptOpenRef.current = false;
+    setShowExitModal(false);
+    pendingNavigateRef.current = null;
+    engine.resume();
+  }, [engine.resume]);
 
-  useEffect(() => {
-    iconReveal.stopAnimation();
-    if (reduceMotion) {
-      iconReveal.setValue(1);
-      return;
-    }
-    iconReveal.setValue(0);
-    Animated.timing(iconReveal, {
-      toValue: 1,
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  }, [engine.state, iconReveal, reduceMotion]);
+  const confirmEarlyEnd = useCallback(
+    (navigateAfterStop: () => void) => {
+      if (exitingRef.current) return;
+      exitingRef.current = true;
+      exitPromptOpenRef.current = false;
+      setShowExitModal(false);
+      engine.endEarly();
+      void sessionAudio.fadeOutAndStop().finally(navigateAfterStop);
+    },
+    [engine.endEarly, sessionAudio.fadeOutAndStop],
+  );
 
-  useEffect(
-    () => () => {
-      phaseTransitionRef.current?.stop();
-      audioWave.stopAnimation();
-      iconReveal.stopAnimation();
-      feedbackOpacity.stopAnimation();
-    }, [
-      audioWave,
-      feedbackOpacity,
-      iconReveal,
-    ],
+  const showEarlyExitPrompt = useCallback(
+    (navigateAfterStop?: () => void) => {
+      if (exitingRef.current || exitPromptOpenRef.current) return;
+      exitPromptOpenRef.current = true;
+      if (navigateAfterStop) {
+        pendingNavigateRef.current = navigateAfterStop;
+      }
+      engine.pause('exit_prompt');
+      setShowExitModal(true);
+    },
+    [engine.pause],
   );
 
   useEffect(() => {
-    const unsubscribe = navigation.addListener("beforeRemove", (event) => {
+    const unsubscribe = navigation.addListener('beforeRemove', (event) => {
       if (
         exitingRef.current ||
-        engine.state === "completed" ||
-        engine.state === "completing"
+        engine.state === 'completed' ||
+        engine.state === 'completing'
       ) {
         return;
       }
@@ -400,16 +426,14 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
     return unsubscribe;
   }, [engine.state, navigation, showEarlyExitPrompt]);
 
-  const requestEarlyEnd = () => {
-    showEarlyExitPrompt(() => navigation.goBack());
-  };
-
-  const togglePlayback = () => {
-    const willResume = engine.state === "paused";
+  const togglePlayback = useCallback(() => {
+    if (engine.state === 'completing' || engine.state === 'completed') return;
+    const willResume = engine.state === 'paused';
     if (hapticIntensity > 0) void safeHaptics.selection();
-    willResume ? engine.resume() : engine.pause();
+    if (willResume) engine.resume();
+    else engine.pause();
     setControlsVisible(true);
-    setFeedback(willResume ? "Resumed" : "Paused");
+    setFeedback(willResume ? 'Resumed' : 'Paused');
     feedbackOpacity.stopAnimation();
     feedbackOpacity.setValue(0);
     Animated.sequence([
@@ -427,33 +451,48 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
     ]).start(({ finished }) => {
       if (finished) setFeedback(null);
     });
-  };
+  }, [
+    engine.pause,
+    engine.resume,
+    engine.state,
+    feedbackOpacity,
+    hapticIntensity,
+    reduceMotion,
+  ]);
+
+  const requestEarlyEnd = useCallback(() => {
+    showEarlyExitPrompt(() => navigation.goBack());
+  }, [navigation, showEarlyExitPrompt]);
 
   if (!anchor || !accountId) return <View style={styles.container} />;
-  const currentPresentationPhase = getVisualizePresentationPhase(
-    engine.phase.id,
+
+  const currentPresentationPhase = getVisualizePresentationPhase(engine.phase.id);
+  const presentation = VISUALIZE_PHASE_PRESENTATION[currentPresentationPhase];
+  const currentPhaseIndex = Math.max(
+    0,
+    engine.schedule.findIndex((phase) => phase.id === engine.phase.id),
   );
-  const presentation = VISUALIZE_PHASE_PRESENTATION[displayPhase];
-  const currentPhaseIndex = engine.schedule.findIndex(
-    (phase) => phase.id === engine.phase.id,
-  );
-  const sigilSvg = anchor.reinforcedSigilSvg || anchor.baseSigilSvg || "";
+  const sigilSvg = anchor.reinforcedSigilSvg || anchor.baseSigilSvg || '';
   const heroSize = getVisualizationLensSize('practice', window.width);
   const phaseLabel = `PHASE ${currentPhaseIndex + 1} OF ${engine.schedule.length} · ${presentation.title}`;
 
   return (
-    <Pressable
-      style={styles.container}
-      onPress={() => setControlsVisible((value) => !value)}
-    >
-      {engine.state === "running" ? <KeepAwake /> : null}
+    <View style={styles.container}>
+      <StatusBar hidden={immersive} style="light" />
+      {immersive ? <KeepAwake /> : null}
       <LinearGradient
-        colors={VISUALIZE_PHASE_PRESENTATION[currentPresentationPhase].gradient}
+        colors={presentation.gradient}
         style={StyleSheet.absoluteFill}
       />
-      <SafeAreaView style={styles.safe}>
+      <Pressable
+        accessibilityLabel="Toggle controls"
+        style={StyleSheet.absoluteFill}
+        onPress={() => setControlsVisible((value) => !value)}
+      />
+
+      <SafeAreaView edges={['top', 'bottom']} style={styles.safe} pointerEvents="box-none">
         <Animated.View
-          pointerEvents={controlsVisible ? "auto" : "none"}
+          pointerEvents={controlsVisible ? 'auto' : 'none'}
           style={[styles.topControls, { opacity: controlsOpacity }]}
         >
           <Pressable
@@ -465,7 +504,7 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
             }}
             style={styles.circleButton}
           >
-            <X color="#F4EDD8" size={19} />
+            <X color="#E7F1F8" size={19} strokeWidth={2.2} />
           </Pressable>
           <Text
             accessibilityLabel={`${engine.remainingSeconds} seconds remaining`}
@@ -476,282 +515,285 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
           <View style={styles.circleButton} />
         </Animated.View>
 
-        <VisualizationPhaseProgress
-          label={phaseLabel}
-          segmentStates={engine.schedule.map((_, index) =>
-            getVisualizeSegmentState(index, currentPhaseIndex),
-          )}
-        />
+        <View style={styles.progressWrap}>
+          <VisualizationPhaseProgress
+            label={phaseLabel}
+            segmentStates={engine.schedule.map((_, index) =>
+              getVisualizeSegmentState(index, currentPhaseIndex),
+            )}
+          />
+        </View>
 
         <View style={styles.stage}>
           <VisualizeAnchorField
             phase={currentPresentationPhase}
             phaseProgress={engine.phaseProgress}
             totalProgress={engine.totalProgress}
-            active={engine.state === "running"}
+            active={engine.state === 'running'}
             reduceMotion={reduceMotion}
             performanceTier={performanceTier}
             heroSize={heroSize}
             compact={window.height < 720}
           >
-            <VisualizationAnchorLens size={heroSize} imageUrl={anchor.enhancedImageUrl} svg={sigilSvg} />
+            <VisualizationAnchorLens
+              size={heroSize}
+              imageUrl={anchor.enhancedImageUrl}
+              svg={sigilSvg}
+            />
           </VisualizeAnchorField>
         </View>
 
-        <Animated.View
-          style={[
-            styles.copy,
-            {
-              opacity: copyOpacity,
-              transform: [{ translateY: copyTranslateY }],
-            },
-          ]}
-        >
-          <Animated.View
-            style={[styles.directiveHaze, { opacity: directiveReveal }]}
-          >
-            <Animated.Text style={[styles.phaseTitle, { opacity: phaseReveal }]}>
-              {presentation.title}
-            </Animated.Text>
-            <Text accessibilityLiveRegion="polite" style={styles.cue}>
-              {engine.currentCue?.text ?? presentation.supportingInstruction}
+        <Animated.View style={[styles.copy, { opacity: activeCopyOpacity }]}>
+          <View style={styles.directiveCard}>
+            <Text style={styles.phaseTitle}>{presentation.title}</Text>
+            <PromptPresenter
+              prompt={engine.currentPrompt}
+              fallbackText={presentation.supportingInstruction}
+              fallbackId={`phase:${engine.phase.id}`}
+            />
+          </View>
+          <View style={styles.sceneCue}>
+            <Text style={styles.sceneLabel}>SCENE</Text>
+            <Text
+              accessibilityLiveRegion="polite"
+              numberOfLines={4}
+              ellipsizeMode="tail"
+              style={styles.sceneFull}
+            >
+              {sceneText}
             </Text>
+          </View>
+        </Animated.View>
+
+        {engine.state !== 'completing' && engine.state !== 'completed' ? (
+          <Animated.View
+            pointerEvents={controlsVisible ? 'auto' : 'none'}
+            style={[styles.bottomControls, { opacity: controlsOpacity }]}
+          >
+            <View style={styles.audioControlField}>
+              {feedback ? (
+                <Animated.Text
+                  accessibilityLiveRegion="polite"
+                  style={[styles.audioFeedback, { opacity: feedbackOpacity }]}
+                >
+                  {feedback}
+                </Animated.Text>
+              ) : null}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  engine.state === 'paused'
+                    ? 'Resume visualization'
+                    : 'Pause visualization'
+                }
+                accessibilityState={{ disabled: engine.state === 'preparing' }}
+                disabled={engine.state === 'preparing'}
+                onPress={(event) => {
+                  event.stopPropagation();
+                  togglePlayback();
+                }}
+                style={({ pressed }) => [
+                  styles.pauseButton,
+                  pressed && styles.pauseButtonPressed,
+                ]}
+              >
+                {engine.state === 'paused' ? (
+                  <Play color="#071321" size={22} strokeWidth={2.7} />
+                ) : (
+                  <Pause color="#071321" size={22} strokeWidth={2.7} />
+                )}
+              </Pressable>
+            </View>
+            <View
+              accessibilityLabel={`${Math.round(engine.totalProgress * 100)} percent complete`}
+              style={styles.totalTrack}
+            >
+              <View
+                style={[
+                  styles.totalFill,
+                  { width: `${engine.totalProgress * 100}%` },
+                ]}
+              />
+            </View>
           </Animated.View>
-          <Animated.Text
-            numberOfLines={4}
-            ellipsizeMode="tail"
+        ) : null}
+
+        <VisualizeControlsHint
+          teaching={controlsHint}
+          reduceMotion={reduceMotion}
+        />
+      </SafeAreaView>
+
+      {engine.state === 'completing' ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.completionLayer, { opacity: completionOpacity }]}
+        >
+          <LinearGradient
+            colors={['rgba(3,13,28,.06)', 'rgba(5,28,58,.82)', 'rgba(4,13,28,.98)']}
+            style={StyleSheet.absoluteFill}
+          />
+          <Animated.View
             style={[
-              styles.sceneSupport,
+              styles.completionAnchor,
               {
-                opacity: sceneReveal,
                 transform: [
-                  {
-                    scale: sceneReveal.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0.985, 1],
-                    }),
-                  },
+                  { translateY: completionAnchorTranslateY },
+                  { scale: completionAnchorScale },
                 ],
               },
             ]}
           >
-            {route.params.sceneText}
-          </Animated.Text>
+            <VisualizationAnchorLens
+              size={Math.round(heroSize * 0.7)}
+              imageUrl={anchor.enhancedImageUrl}
+              svg={sigilSvg}
+            />
+          </Animated.View>
+          <Animated.View
+            style={[
+              styles.completionCopy,
+              { transform: [{ scale: completionScale }] },
+            ]}
+          >
+            <Text style={styles.completionEyebrow}>VISUALIZATION COMPLETE</Text>
+            <Text style={styles.completionTitle}>SCENE REHEARSED</Text>
+            <Text style={styles.completionSubtitle}>
+              The response is yours to return to.
+            </Text>
+          </Animated.View>
         </Animated.View>
+      ) : null}
 
-        <Animated.View
-          pointerEvents={controlsVisible ? "auto" : "none"}
-          style={[styles.bottomControls, { opacity: controlsOpacity }]}
-        >
-          <View style={styles.audioControlField}>
-            {feedback ? (
-              <Animated.Text
-                accessibilityLiveRegion="polite"
-                style={[styles.audioFeedback, { opacity: feedbackOpacity }]}
-              >
-                {feedback}
-              </Animated.Text>
-            ) : null}
-            <Animated.View
-              style={[
-                styles.audioWaveRing,
-                {
-                  opacity: audioWave.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.12, 0.34],
-                  }),
-                  transform: [
-                    {
-                      scale: audioWave.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0.92, 1.1],
-                      }),
-                    },
-                  ],
-                },
-              ]}
-            />
-            <View style={styles.waveform} pointerEvents="none">
-              {[0.58, 1, 0.72].map((height, index) => (
-                <Animated.View
-                  key={`audio-wave-${index}`}
-                  style={[
-                    styles.waveBar,
-                    {
-                      height: 15 * height,
-                      transform: [
-                        {
-                          scaleY: audioWave.interpolate({
-                            inputRange: [0, 1],
-                            outputRange:
-                              index === 1 ? [0.5, 1] : [0.72, 1.12],
-                          }),
-                        },
-                      ],
-                    },
-                  ]}
-                />
-              ))}
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={
-                engine.state === "paused"
-                  ? "Resume visualization"
-                  : "Pause visualization"
-              }
-              accessibilityState={{ disabled: engine.state === "completing" }}
-              disabled={engine.state === "completing"}
-              onPress={(event) => {
-                event.stopPropagation();
-                togglePlayback();
-              }}
-              style={styles.pauseButton}
-            >
-              <Animated.View
-                style={{
-                  opacity: iconReveal,
-                  transform: [
-                    {
-                      scale: iconReveal.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0.82, 1],
-                      }),
-                    },
-                  ],
-                }}
-              >
-                {engine.state === "paused" ? (
-                  <Play color="#071321" fill="#071321" size={22} />
-                ) : (
-                  <Pause color="#071321" fill="#071321" size={22} />
-                )}
-              </Animated.View>
-            </Pressable>
-          </View>
-          <View style={styles.totalTrack}>
-            <View
-              style={[
-                styles.totalFill,
-                { width: `${engine.totalProgress * 100}%` },
-              ]}
-            />
-          </View>
-        </Animated.View>
-      </SafeAreaView>
-    </Pressable>
+      <ConfirmModal
+        visible={showExitModal}
+        title="End visualization?"
+        body="Your progress in this session will not be recorded."
+        primaryCtaLabel="Continue Session"
+        secondaryCtaLabel="End Session"
+        onPrimary={continueAfterExitPrompt}
+        onSecondary={() => {
+          const navAction = pendingNavigateRef.current || (() => navigation.goBack());
+          confirmEarlyEnd(navAction);
+        }}
+      />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#06101F" },
-  safe: { flex: 1 },
+  container: {
+    flex: 1,
+    backgroundColor: '#06101F',
+  },
+  safe: {
+    flex: 1,
+  },
   topControls: {
-    height: 62,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    height: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
   },
   circleButton: {
     width: 42,
     height: 42,
     borderRadius: 21,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(2,10,20,.36)",
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(2,10,20,.4)',
+    borderWidth: 1,
+    borderColor: 'rgba(204,231,249,.1)',
   },
   time: {
-    color: "#F4EDD8",
+    color: '#DCECF8',
     fontFamily: typography.fonts.body,
-    fontVariant: ["tabular-nums"],
+    fontVariant: ['tabular-nums'],
     fontSize: 14,
+    letterSpacing: 0.8,
+  },
+  progressWrap: {
+    paddingHorizontal: 24,
+    marginTop: 3,
   },
   stage: {
     flex: 1,
-    minHeight: 228,
-    alignItems: "center",
-    justifyContent: "center",
+    minHeight: 218,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   copy: {
-    minHeight: 202,
-    paddingHorizontal: 30,
-    alignItems: "center",
-    justifyContent: "flex-start",
+    minHeight: 190,
+    paddingHorizontal: 26,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  directiveCard: {
+    width: '100%',
+    minHeight: 98,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(6,17,31,.54)',
+    borderWidth: 1,
+    borderColor: 'rgba(170,220,248,.16)',
   },
   phaseTitle: {
-    color: colors.gold,
+    color: '#74C7F5',
     fontFamily: typography.fonts.heading,
     fontSize: 12,
     letterSpacing: 2.7,
     marginBottom: 7,
   },
-  directiveHaze: {
-    width: "100%",
-    marginTop: 14,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    borderRadius: 25,
-    backgroundColor: "rgba(6,17,31,.46)",
-    borderWidth: 1,
-    borderColor: "rgba(224,237,248,.1)",
-  },
-  cue: {
-    color: "#F4EDD8",
-    fontFamily: typography.fonts.body,
-    fontSize: 16,
-    lineHeight: 23,
-    textAlign: "center",
-  },
-  sceneSupport: {
-    color: "rgba(244,237,216,.78)",
-    fontFamily: typography.fonts.body,
-    fontSize: 14,
-    lineHeight: 22,
-    textAlign: "center",
+  sceneCue: {
+    alignItems: 'center',
+    justifyContent: 'center',
     marginTop: 12,
+    minHeight: 48,
+    paddingHorizontal: 12,
+  },
+  sceneLabel: {
+    color: 'rgba(162,211,240,.68)',
+    fontFamily: typography.fonts.body,
+    fontSize: 9,
+    letterSpacing: 2,
+  },
+  sceneFull: {
+    color: 'rgba(226,241,249,.78)',
+    fontFamily: typography.fonts.body,
+    fontSize: 13,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginTop: 4,
   },
   bottomControls: {
     paddingHorizontal: 28,
-    paddingBottom: 14,
-    alignItems: "center",
+    paddingBottom: 12,
+    alignItems: 'center',
     gap: 10,
   },
   audioControlField: {
     width: 78,
     height: 78,
     borderRadius: 39,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(8,21,37,.45)",
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(8,21,37,.5)',
     borderWidth: 1,
-    borderColor: "rgba(224,232,240,.09)",
-  },
-  audioWaveRing: {
-    position: "absolute",
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    borderWidth: 1,
-    borderColor: "rgba(120,180,209,.58)",
-  },
-  waveform: {
-    position: "absolute",
-    bottom: -2,
-    height: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-  },
-  waveBar: {
-    width: 2,
-    borderRadius: 1,
-    backgroundColor: "rgba(226,199,105,.72)",
+    borderColor: 'rgba(159,213,244,.18)',
+    shadowColor: '#51B7ED',
+    shadowOpacity: 0.16,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 3,
   },
   audioFeedback: {
-    position: "absolute",
+    position: 'absolute',
     top: -24,
-    color: "rgba(244,237,216,.72)",
+    color: 'rgba(219,237,247,.76)',
     fontFamily: typography.fonts.body,
     fontSize: 11,
     letterSpacing: 0.5,
@@ -760,16 +802,82 @@ const styles = StyleSheet.create({
     width: 58,
     height: 58,
     borderRadius: 29,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#70C9F4',
+  },
+  pauseButtonPressed: {
+    opacity: 0.78,
+    transform: [{ scale: 0.97 }],
   },
   totalTrack: {
-    width: "100%",
+    width: '100%',
     height: 3,
     borderRadius: 2,
-    backgroundColor: "rgba(255,255,255,.12)",
-    overflow: "hidden",
+    backgroundColor: 'rgba(191,225,244,.2)',
+    overflow: 'hidden',
   },
-  totalFill: { height: "100%", backgroundColor: colors.gold },
+  totalFill: {
+    height: '100%',
+    backgroundColor: '#65C1F0',
+  },
+  controlsHint: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 92,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  controlsHintDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    marginRight: 7,
+    backgroundColor: '#78C9F1',
+  },
+  controlsHintText: {
+    color: 'rgba(218,237,247,.66)',
+    fontFamily: typography.fonts.body,
+    fontSize: 11,
+    letterSpacing: 0.35,
+  },
+  completionLayer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  completionCopy: {
+    alignItems: 'center',
+    paddingHorizontal: 28,
+    marginTop: 210,
+  },
+  completionAnchor: {
+    position: 'absolute',
+    top: '16%',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  completionEyebrow: {
+    color: '#77C8F1',
+    fontFamily: typography.fonts.body,
+    fontSize: 10,
+    letterSpacing: 2.7,
+  },
+  completionTitle: {
+    color: '#F4EDD8',
+    fontFamily: typography.fonts.heading,
+    fontSize: 29,
+    letterSpacing: 1.4,
+    marginTop: 10,
+  },
+  completionSubtitle: {
+    color: 'rgba(225,239,247,.68)',
+    fontFamily: typography.fonts.body,
+    fontSize: 14,
+    lineHeight: 21,
+    marginTop: 9,
+  },
 });

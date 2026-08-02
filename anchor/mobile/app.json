@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Anchor",
+    "name": "Anchor: Visual Goal Setting",
     "slug": "anchor",
     "scheme": "anchor",
     "version": "1.1.2",
@@ -13,9 +13,9 @@
     "icon": "./assets/anchor-icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./assets/anchor-gold.png",
+      "image": "./assets/anchor-splash-artwork.jpg",
       "resizeMode": "contain",
-      "backgroundColor": "#080C10"
+      "backgroundColor": "#0F1419"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -31,13 +31,8 @@
       "supportsTablet": false,
       "usesAppleSignIn": true,
       "bundleIdentifier": "com.anchorintentions.app",
-      "buildNumber": "12",
+      "buildNumber": "16",
       "googleServicesFile": "./GoogleService-Info.plist",
-      "entitlements": {
-        "com.apple.security.application-groups": [
-          "group.com.anchorintentions.app.widget"
-        ]
-      },
       "infoPlist": {
         "NSCameraUsageDescription": "Anchor uses your camera so you can take a profile photo.",
         "NSFaceIDUsageDescription": "Anchor uses Face ID to keep your anchors secure.",
@@ -121,7 +116,7 @@
         "monochromeImage": "./assets/anchor-monochrome.png"
       },
       "package": "com.anchorintentions.app",
-      "versionCode": 31,
+      "versionCode": 38,
       "googleServicesFile": "./google-services.json",
       "edgeToEdgeEnabled": true,
       "blockedPermissions": [
@@ -154,6 +149,10 @@
       [
         "expo-build-properties",
         {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
+          },
           "ios": {
             "useFrameworks": "static"
           }
@@ -171,10 +170,10 @@
           "image": "./assets/anchor-splash-logo.png",
           "imageWidth": 160,
           "resizeMode": "contain",
-          "backgroundColor": "#080C10",
+          "backgroundColor": "#0F1419",
           "dark": {
             "image": "./assets/anchor-splash-logo.png",
-            "backgroundColor": "#080C10"
+            "backgroundColor": "#0F1419"
           }
         }
       ],
@@ -211,12 +210,6 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "Allow Anchor to suggest your local priming preset when you are near a saved place."
-        }
-      ],
-      [
-        "@bacons/apple-targets",
-        {
-          "appleTeamId": "GZAHS664L8"
         }
       ],
       [

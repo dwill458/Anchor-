@@ -34,6 +34,7 @@ export interface WeeklyActivityDay {
   label: string;
   localDateKey: string;
   count: number;
+  byMode: Record<PracticeMode, number>;
   isToday: boolean;
   isFuture: boolean;
 }
@@ -97,13 +98,16 @@ function dayDifference(fromExclusive: string, toInclusive: string): number {
 
 function countDecayEligibleDays(
   fromExclusive: string,
-  toInclusive: string,
+  toExclusive: string,
   restDays: readonly number[],
 ): number {
   const rest = new Set(restDays);
   let count = 0;
-  const days = dayDifference(fromExclusive, toInclusive);
-  for (let offset = 1; offset <= days; offset += 1) {
+  // Excludes toExclusive itself: it's either the day of the next practice
+  // (not a missed day) or the still-in-progress current day (not yet missed),
+  // so only the fully-elapsed days strictly between the two count toward decay.
+  const days = dayDifference(fromExclusive, toExclusive);
+  for (let offset = 1; offset < days; offset += 1) {
     const day = parseDateKey(addDays(fromExclusive, offset)).getUTCDay();
     if (!rest.has(day)) count += 1;
   }
@@ -135,8 +139,14 @@ export function selectCanonicalPracticeEvents(
   const latestAllowed = now.getTime() + FUTURE_CLOCK_SKEW_MS;
   return events
     .filter((event) => {
+      // 'legacy' marks pre-redesign entries that predate account-scoped
+      // tracking and haven't yet been rebound by hydrateFromBackend. They can
+      // only survive under the account that's currently signed in — sign-out
+      // resets the whole session store — so treat them as this account's own
+      // until rebinding catches up, instead of hiding them from Thread
+      // Strength until a network rehydrate happens to run.
       if (
-        event.accountId !== accountId ||
+        (event.accountId !== accountId && event.accountId !== "legacy") ||
         event.completionStatus !== "completed" ||
         seen.has(event.id) ||
         !PRACTICE_MODES.includes(event.practiceMode) ||
@@ -346,10 +356,12 @@ export function buildThreadStrengthSnapshot(params: {
   ];
   const currentWeek = labels.map((label, index) => {
     const date = addDays(currentMonday, index);
+    const dayAggregate = daily.get(date);
     return {
       label,
       localDateKey: date,
-      count: daily.get(date)?.total ?? 0,
+      count: dayAggregate?.total ?? 0,
+      byMode: dayAggregate?.byMode ?? emptyModeCounts(),
       isToday: date === today,
       isFuture: date > today,
     };

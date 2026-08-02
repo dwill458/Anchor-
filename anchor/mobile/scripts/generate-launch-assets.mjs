@@ -32,7 +32,7 @@ const assets = path.join(mobileRoot, 'assets');
 const res = path.join(mobileRoot, 'android/app/src/main/res');
 
 /** Splash window + splash icon plate colour. Must match `splashscreen_background`. */
-const SPLASH_BACKGROUND = '#080C10';
+const SPLASH_BACKGROUND = '#0F1419';
 
 /**
  * Fraction of the 108dp canvas the full-colour artwork covers. Slightly wider

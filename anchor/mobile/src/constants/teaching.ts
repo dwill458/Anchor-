@@ -328,6 +328,19 @@ export const TEACHINGS: Record<string, TeachingContent> = {
     cooldownMs: 0,
   },
 
+  visualize_controls_hint: {
+    teachingId: 'visualize_controls_hint',
+    screen: 'visualize_session',
+    trigger: 'first_time',
+    guideOnly: true,
+    tier: 'both',
+    copy: 'Tap anywhere for controls',
+    pattern: 'bottom_hint',
+    tone: 'grounding',
+    maxShows: 1,
+    cooldownMs: 0,
+  },
+
   // The three practice modes — rendered as stacked blocks in the modes
   // explainer sheet. Ungated (shown on demand via an info chip).
   mode_prime_v1: {

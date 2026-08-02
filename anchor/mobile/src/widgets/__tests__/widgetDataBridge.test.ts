@@ -9,6 +9,7 @@
 import {
   buildWidgetHistory,
   buildWidgetSnapshot,
+  normalizeWidgetPracticeType,
   selectWidgetAnchorName,
 } from '../widgetDataBridge';
 import { getWidgetPrimeAnchorId, isWidgetPracticeDeepLink } from '../WidgetDeepLinkHandler';
@@ -20,6 +21,8 @@ import {
 import { buildPrimingHistoryEntry, localDateString } from '@/utils/primingAnalytics';
 import type { PrimingHistoryEntry } from '@/utils/primingAnalytics';
 import type { Anchor } from '@/types';
+import { buildThreadStrengthSnapshot } from '@/utils/practiceMetrics';
+import type { PracticeMode, PracticeSessionRecord } from '@/types/practice';
 
 // Fixed local "now": Sunday 2026-07-05 at noon
 const NOW = new Date(2026, 6, 5, 12, 0, 0);
@@ -77,21 +80,21 @@ describe('buildWidgetHistory', () => {
     const history = buildWidgetHistory(entries, NOW);
     const byDate = new Map(history.map((day) => [day.date, day]));
 
-    expect(byDate.get('2026-07-05')).toEqual({ date: '2026-07-05', level: 1, deep: false });
-    expect(byDate.get('2026-07-04')).toEqual({ date: '2026-07-04', level: 2, deep: false });
-    expect(byDate.get('2026-07-01')).toEqual({ date: '2026-07-01', level: 3, deep: false });
+    expect(byDate.get('2026-07-05')).toEqual({ date: '2026-07-05', level: 1, deep: false, mode: 'focus' });
+    expect(byDate.get('2026-07-04')).toEqual({ date: '2026-07-04', level: 2, deep: false, mode: 'focus' });
+    expect(byDate.get('2026-07-01')).toEqual({ date: '2026-07-01', level: 3, deep: false, mode: 'focus' });
     expect(byDate.get('2026-07-03')).toEqual({ date: '2026-07-03', level: 0, deep: false });
   });
 
   it('flags days containing a reinforce session as deep', () => {
     const entries = [
-      primeEntry('2026-07-04', 'reinforce'),
+      { ...primeEntry('2026-07-04', 'reinforce'), completedAt: '2026-07-04T10:30:00.000' },
       primeEntry('2026-07-04', 'activate', 'b'),
     ];
     const history = buildWidgetHistory(entries, NOW);
     const day = history.find((d) => d.date === '2026-07-04');
 
-    expect(day).toEqual({ date: '2026-07-04', level: 2, deep: true });
+    expect(day).toEqual({ date: '2026-07-04', level: 2, deep: true, mode: 'deep_prime' });
   });
 
   it('ignores sessions older than the trailing window', () => {
@@ -169,8 +172,84 @@ describe('buildWidgetSnapshot', () => {
     expect(snapshot.anchorName).toBe('Deep work every morning');
     expect(snapshot.anchorId).toBe('a');
     expect(snapshot.sigilSvg).toContain('currentColor');
+    expect(snapshot.artworkSource).toBe('base_svg');
+    expect(snapshot.artworkVersion).toContain('user-1:a:');
     expect(snapshot.history).toHaveLength(WIDGET_HISTORY_DAYS);
     expect(snapshot.streak).toBe(0);
+  });
+
+  it('prefers the final reinforced SVG and changes the artwork version when it changes', () => {
+    const first = buildWidgetSnapshot({
+      ...baseInputs,
+      anchors: [makeAnchor({
+        id: 'a',
+        baseSigilSvg: '<svg viewBox="0 0 10 10"><path id="base" /></svg>',
+        reinforcedSigilSvg: '<svg viewBox="0 0 10 10"><path id="final" /></svg>',
+      })],
+      primingHistory: [],
+      lastPrimedAt: null,
+    });
+    const changed = buildWidgetSnapshot({
+      ...baseInputs,
+      anchors: [makeAnchor({
+        id: 'a',
+        baseSigilSvg: '<svg viewBox="0 0 10 10"><path id="base" /></svg>',
+        reinforcedSigilSvg: '<svg viewBox="0 0 10 10"><path id="final-v2" /></svg>',
+      })],
+      primingHistory: [],
+      lastPrimedAt: null,
+    });
+
+    expect(first.sigilSvg).toContain('final');
+    expect(first.sigilSvg).not.toContain('base');
+    expect(first.artworkSource).toBe('reinforced_svg');
+    expect(changed.artworkVersion).not.toBe(first.artworkVersion);
+  });
+
+  it('prefers a finalized enhanced image while retaining its saved SVG as a graceful fallback', () => {
+    const snapshot = buildWidgetSnapshot({
+      ...baseInputs,
+      anchors: [makeAnchor({
+        id: 'a',
+        reinforcedSigilSvg: '<svg viewBox="0 0 10 10"><path id="final" /></svg>',
+        enhancedImageUrl: 'https://example.com/final-anchor.png',
+      })],
+      primingHistory: [],
+      lastPrimedAt: null,
+    });
+
+    expect(snapshot.artworkSource).toBe('enhanced_image');
+    expect(snapshot.artworkImageUri).toBe('https://example.com/final-anchor.png');
+    expect(snapshot.sigilSvg).toContain('final');
+  });
+
+  it('treats Visualize and legacy aliases as independent practice types', () => {
+    expect(normalizeWidgetPracticeType('focus_session')).toBe('focus');
+    expect(normalizeWidgetPracticeType('deepPrime')).toBe('deep_prime');
+    expect(normalizeWidgetPracticeType('visualization')).toBe('visualize');
+    expect(normalizeWidgetPracticeType('visualize_mode')).toBe('visualize');
+
+    const visualize = {
+      ...primeEntry('2026-07-05', 'activate'),
+      id: 'visualize-session',
+      type: 'visualization',
+      practiceMode: 'visualize',
+      completedAt: '2026-07-05T10:30:00.000',
+    } as unknown as PrimingHistoryEntry;
+    const snapshot = buildWidgetSnapshot({
+      ...baseInputs,
+      primingHistory: [primeEntry('2026-07-05', 'activate'), visualize],
+      lastPrimedAt: '2026-07-05',
+    });
+
+    expect(snapshot.totalSessions).toBe(2);
+    expect(snapshot.focusSessions).toBe(1);
+    expect(snapshot.visualizeSessions).toBe(1);
+    expect(snapshot.currentWeek.find((day) => day.date === '2026-07-05')).toMatchObject({
+      hasFocus: true,
+      hasVisualize: true,
+    });
+    expect(snapshot.history[snapshot.history.length - 1]).toMatchObject({ level: 2, mode: 'visualize' });
   });
 
   it('mirrors Thread Strength summary values into the large-widget snapshot', () => {
@@ -253,6 +332,96 @@ describe('buildWidgetSnapshot', () => {
     expect(snapshot.anchorTotalSessions).toBe(0);
     expect(snapshot.anchorDayStreak).toBe(0);
     expect(snapshot.anchorDeepPrimeSessions).toBe(0);
+  });
+});
+
+function practiceEvent(
+  id: string,
+  mode: PracticeMode,
+  completedAt: string,
+  overrides: Partial<PracticeSessionRecord> = {}
+): PracticeSessionRecord {
+  return {
+    id,
+    accountId: 'account-1',
+    anchorId: 'a',
+    anchorLocalId: 'a',
+    anchorServerId: 'a',
+    practiceMode: mode,
+    plannedDurationSeconds: 60,
+    completedDurationSeconds: 60,
+    completionStatus: 'completed',
+    startedAt: new Date(new Date(completedAt).getTime() - 60_000).toISOString(),
+    completedAt,
+    localDateKey: completedAt.slice(0, 10),
+    timeZone: 'UTC',
+    utcOffsetMinutesAtCompletion: 0,
+    completionSource: 'practice_screen',
+    schemaVersion: 2,
+    legacyType: null,
+    guidanceVoice: 'none',
+    backgroundAudio: 'off',
+    sceneSnapshot: null,
+    nextAction: null,
+    clientVersion: 'test',
+    syncState: 'synced',
+    ...overrides,
+  };
+}
+
+describe('buildWidgetSnapshot — canonical ledger accounts', () => {
+  const baseInputs = {
+    anchors: [
+      makeAnchor({
+        id: 'a',
+        intentionText: 'Deep work every morning',
+        baseSigilSvg: '<svg viewBox="0 0 100 100"><path stroke="currentColor" /></svg>',
+      }),
+    ],
+    currentAnchorId: 'a',
+    lastGraceDayUsedAt: null,
+    now: NOW,
+  };
+
+  it('mirrors the Thread Strength sheet exactly for a signed-in account', () => {
+    const events = [
+      practiceEvent('e1', 'focus', '2026-07-01T09:00:00.000Z'),
+      practiceEvent('e2', 'deep_prime', '2026-07-02T09:00:00.000Z'),
+      practiceEvent('e3', 'focus', '2026-07-04T09:00:00.000Z'),
+      practiceEvent('e4', 'visualize', '2026-07-05T09:00:00.000Z'),
+    ];
+    const snapshot = buildWidgetSnapshot({
+      ...baseInputs,
+      primingHistory: [],
+      practiceHistory: events,
+      accountId: 'account-1',
+      lastPrimedAt: '2026-07-05',
+      threadStrengthSensitivity: 'balanced',
+    });
+
+    const expected = buildThreadStrengthSnapshot({
+      events,
+      accountId: 'account-1',
+      dailyGoal: 3,
+      sensitivity: 'balanced',
+      restDays: [],
+      now: NOW,
+    });
+
+    expect(snapshot.threadStrength).toBe(expected.score);
+    expect(snapshot.totalSessions).toBe(expected.totalSessions);
+    expect(snapshot.constancyPercent).toBe(expected.constancyPercent);
+    expect(snapshot.longestStreak).toBe(expected.primeRecordDays);
+    expect(snapshot.deepPrimePercent).toBe(expected.deepPrimePercent);
+    expect(snapshot.deepPrimeSessions).toBe(
+      expected.sessionBreakdown.find((row) => row.mode === 'deep_prime')?.count ?? 0
+    );
+    expect(snapshot.focusSessions).toBe(
+      expected.sessionBreakdown.find((row) => row.mode === 'focus')?.count ?? 0
+    );
+    expect(snapshot.visualizeSessions).toBe(
+      expected.sessionBreakdown.find((row) => row.mode === 'visualize')?.count ?? 0
+    );
   });
 });
 

@@ -273,7 +273,7 @@ const DeepEmberDot: React.FC<{ particle: EmberParticle; reduceMotionEnabled: boo
 export const RitualScreen: React.FC = () => {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const navigation = useNavigation<RitualNavigationProp>();
-  const { navigateToPractice } = useTabNavigation();
+  const { navigateToPractice, navigateToPaywall } = useTabNavigation();
   const route = useRoute<RitualRouteProp>();
   const {
     anchorId,
@@ -360,7 +360,6 @@ export const RitualScreen: React.FC = () => {
       return;
     }
 
-    const parentNavigation = navigation.getParent?.();
     const task = InteractionManager.runAfterInteractions(() => {
       navigation.goBack();
       requestAnimationFrame(() => {
@@ -370,15 +369,7 @@ export const RitualScreen: React.FC = () => {
           tier: primeSessionAccess.tier,
         });
 
-        if (parentNavigation?.navigate) {
-          parentNavigation.navigate('Paywall', {
-            source: 'free_weekly_sessions_used',
-            preferredPlanId: 'annual',
-          });
-          return;
-        }
-
-        navigation.navigate('Paywall', {
+        navigateToPaywall({
           source: 'free_weekly_sessions_used',
           preferredPlanId: 'annual',
         });
@@ -386,7 +377,7 @@ export const RitualScreen: React.FC = () => {
     });
 
     return () => task.cancel();
-  }, [isAnchorMissing, navigation, primeSessionAccess.deep.isAllowed]);
+  }, [isAnchorMissing, navigateToPaywall, navigation, primeSessionAccess.deep.isAllowed]);
 
   useEffect(() => {
     const task = InteractionManager.runAfterInteractions(() => {
@@ -1181,7 +1172,7 @@ export const RitualScreen: React.FC = () => {
       return;
     }
 
-    navigateToVaultDestination(navigation);
+    navigateToVaultDestination(navigation, 'reset');
   }, [anchor, anchorId, clearDeepTimerInterval, fadeOutDeepPrimeAudio, isPendingFirstAnchor, navigateToPractice, navigation, returnTo]);
 
   const continueFromSeal = useCallback(async () => {
@@ -2766,10 +2757,10 @@ export const RitualScreen: React.FC = () => {
           visible={showExitWarning}
           title="Exit Practice?"
           body="You will need to start over if you leave now."
-          primaryCtaLabel="Exit"
-          secondaryCtaLabel="Stay"
-          onPrimary={exitRitual}
-          onSecondary={() => setShowExitWarning(false)}
+          primaryCtaLabel="Keep Practicing"
+          secondaryCtaLabel="Exit"
+          onPrimary={() => setShowExitWarning(false)}
+          onSecondary={exitRitual}
         />
       </View>
     </RitualScaffold>

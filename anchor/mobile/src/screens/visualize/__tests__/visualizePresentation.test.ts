@@ -2,6 +2,7 @@ import {
   VISUALIZE_PHASE_PRESENTATION,
   getVisualizationLensSize,
   getVisualizePresentationPhase,
+  getVisualizeSceneCue,
   getVisualizeSegmentState,
   shouldPinPreparationCta,
 } from '../visualizePresentation';
@@ -9,7 +10,7 @@ import {
 describe('Visualize presentation', () => {
   it('maps the stable audio timeline onto the five requested visual phases', () => {
     expect(
-      ['arrive', 'see', 'feel', 'seal', 'return'].map((phase) =>
+      ['see', 'feel', 'choose', 'rehearse', 'seal'].map((phase) =>
         getVisualizePresentationPhase(
           phase as Parameters<typeof getVisualizePresentationPhase>[0],
         ),
@@ -38,6 +39,17 @@ describe('Visualize presentation', () => {
       'upcoming',
       'upcoming',
     ]);
+  });
+
+  it('condenses the full scene into a readable active-session cue', () => {
+    expect(
+      getVisualizeSceneCue(
+        'I stay present in a meaningful conversation, listen fully, and respond with honesty and care.',
+      ),
+    ).toEqual({
+      title: 'Meaningful Conversation',
+      qualities: 'Present · Listening · Honest',
+    });
   });
 
   it('pins the entrance CTA only when measured content overflows and the keyboard is closed', () => {

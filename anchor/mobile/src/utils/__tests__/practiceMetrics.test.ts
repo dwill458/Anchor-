@@ -1,6 +1,7 @@
 import {
   aggregatePracticeByDay,
   buildThreadStrengthSnapshot,
+  calculateThreadStrengthScore,
   selectCanonicalPracticeEvents,
 } from "../practiceMetrics";
 import {
@@ -66,6 +67,22 @@ describe("canonical practice metrics", () => {
       now,
     );
     expect(selected.map((row) => row.id)).toEqual(["same"]);
+  });
+
+  it("treats un-rebound 'legacy' entries as belonging to the signed-in account", () => {
+    const selected = selectCanonicalPracticeEvents(
+      [
+        event("legacy-1", "deep_prime", "2026-07-20T10:00:00.000Z", {
+          accountId: "legacy",
+        }),
+        event("other-account", "release", "2026-07-21T11:00:00.000Z", {
+          accountId: "account-2",
+        }),
+      ],
+      "account-1",
+      now,
+    );
+    expect(selected.map((row) => row.id)).toEqual(["legacy-1"]);
   });
 
   it("uses the persisted local day and the latest completion to break a dominant-mode tie", () => {
@@ -149,5 +166,66 @@ describe("canonical practice metrics", () => {
     expect(snapshot.todayGoal).toEqual(
       expect.objectContaining({ completed: 1, remaining: 2 }),
     );
+  });
+});
+
+describe("calculateThreadStrengthScore decay", () => {
+  it("never decays a consecutive daily streak, even under strict sensitivity", () => {
+    const events = [
+      event("d1", "deep_prime", "2026-07-01T10:00:00.000Z"),
+      event("d2", "deep_prime", "2026-07-02T10:00:00.000Z"),
+      event("d3", "deep_prime", "2026-07-03T10:00:00.000Z"),
+    ];
+    const score = calculateThreadStrengthScore(
+      events,
+      "2026-07-03",
+      "strict",
+      [],
+    );
+    // 50 + 40 (day1) clamps at 100 by day2 with zero missed days in between —
+    // a real gap-day decay (the pre-fix bug) would have knocked 30 off here.
+    expect(score).toBe(100);
+  });
+
+  it("still decays for a genuinely skipped day between sessions", () => {
+    const events = [
+      event("d1", "deep_prime", "2026-07-01T10:00:00.000Z"),
+      // 2026-07-02 skipped
+      event("d2", "deep_prime", "2026-07-03T10:00:00.000Z"),
+    ];
+    const score = calculateThreadStrengthScore(
+      events,
+      "2026-07-03",
+      "strict",
+      [],
+    );
+    // 50 + 40 = 90, then one missed day (07-02) costs 30 under strict, then +40 clamps at 100.
+    expect(score).toBe(100);
+
+    const partialEvents = [
+      event("d1", "focus", "2026-07-01T10:00:00.000Z"),
+      event("d2", "focus", "2026-07-03T10:00:00.000Z"),
+    ];
+    const partialScore = calculateThreadStrengthScore(
+      partialEvents,
+      "2026-07-03",
+      "strict",
+      [],
+    );
+    // 50 + 25 = 75, minus 30 for the one skipped day, plus 25 = 70.
+    expect(partialScore).toBe(70);
+  });
+
+  it("does not decay the still-in-progress current day when there is no session yet today", () => {
+    const events = [event("d1", "deep_prime", "2026-07-01T10:00:00.000Z")];
+    const score = calculateThreadStrengthScore(
+      events,
+      "2026-07-02",
+      "strict",
+      [],
+    );
+    // Only one calendar day has elapsed since the last practice (today is
+    // still in progress), so there is no fully-missed day yet.
+    expect(score).toBe(90);
   });
 });

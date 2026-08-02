@@ -16,7 +16,16 @@
       "Bash(du -sh backend/node_modules)",
       "Bash(du -sh ai-service)",
       "Bash(du -sh anchor/mobile/android)",
-      "Bash(du -sh anchor/mobile/.expo)"
+      "Bash(du -sh anchor/mobile/.expo)",
+      "Bash(git -C /e/Projects/Anchor log --oneline -10 -- anchor/mobile/android)",
+      "Bash(find /c/Users/dwill/AppData/Local/Temp -iname \"*.png\" -mmin -180 2>/dev/null | head -50)",
+      "Read(//c/Users/dwill/AppData/Local/Temp/**)",
+      "Read(//c/Users/dwill/Downloads/Branding-Design/**)",
+      "Bash(xargs -I{} sh -c 'stat -c \"%Y %n\" \"{}\" 2>/dev/null')",
+      "Read(//c/Users/dwill/Downloads/Anchor-App/**)",
+      "Read(//e/downloads/**)",
+      "Bash(gh api *)",
+      "Bash(adb devices *)"
     ]
   }
 }

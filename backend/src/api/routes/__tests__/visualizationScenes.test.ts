@@ -20,21 +20,21 @@ const mockRequireAccess = jest.fn();
 jest.mock('../../../services/PracticeAccessService', () => ({
   requireVisualizeAccess: (...args: unknown[]) => mockRequireAccess(...args),
 }));
+const mockGenerateSuggestions = jest.fn();
 jest.mock('../../../services/VisualizationSceneService', () => {
   const actual = jest.requireActual('../../../services/VisualizationSceneService');
   return {
     ...actual,
-    generateVisualizationSceneSuggestions: jest.fn().mockResolvedValue({
-      suggestions: [
-        'I pause and choose calmly.',
-        'I respond with steady attention.',
-        'I follow through without rushing.',
-      ],
-      source: 'deterministic_fallback',
-      version: 'scene-v1',
-    }),
+    generateVisualizationSceneSuggestions: (...args: unknown[]) =>
+      mockGenerateSuggestions(...args),
   };
 });
+
+const SUGGESTIONS = [
+  'I pause and choose calmly.',
+  'I respond with steady attention.',
+  'I follow through without rushing.',
+];
 
 import { authMiddleware } from '../../middleware/auth';
 import visualizationSceneRouter from '../visualizationScenes';
@@ -83,6 +83,16 @@ describe('visualization scene routes', () => {
       category: 'custom',
     });
     mockRequireAccess.mockResolvedValue(undefined);
+    mockGenerateSuggestions.mockResolvedValue({
+      suggestions: SUGGESTIONS,
+      source: 'deterministic_fallback',
+      version: 'scene-v1',
+      fallbackReason: 'provider_not_configured',
+      model: null,
+      latencyMs: 3,
+      rawCandidateCount: 0,
+      validCandidateCount: 0,
+    });
     mockPrisma.visualizationScene.findFirst.mockResolvedValue(null);
     mockPrisma.visualizationScene.findUnique.mockResolvedValue(scene);
     mockPrisma.visualizationScene.create.mockResolvedValue(scene);
@@ -127,6 +137,61 @@ describe('visualization scene routes', () => {
       .send({});
     expect(generated.status).toBe(200);
     expect(generated.body.data.suggestions).toHaveLength(3);
+  });
+
+  it('propagates fallbackReason and candidate counts to the client', async () => {
+    mockGenerateSuggestions.mockResolvedValue({
+      suggestions: SUGGESTIONS,
+      source: 'deterministic_fallback',
+      version: 'scene-v1',
+      fallbackReason: 'insufficient_valid_scenes',
+      model: 'gemini-2.0-flash',
+      latencyMs: 812,
+      rawCandidateCount: 3,
+      validCandidateCount: 2,
+    });
+
+    const response = await request(app)
+      .post('/api/anchors/anchor-1/visualization-scene/suggestions')
+      .send({});
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.source).toBe('deterministic_fallback');
+    expect(response.body.data.fallbackReason).toBe('insufficient_valid_scenes');
+    expect(response.body.data.model).toBe('gemini-2.0-flash');
+    expect(response.body.data.latencyMs).toBe(812);
+    expect(response.body.data.rawCandidateCount).toBe(3);
+    expect(response.body.data.validCandidateCount).toBe(2);
+  });
+
+  it('nulls fallbackReason when the provider succeeded', async () => {
+    mockGenerateSuggestions.mockResolvedValue({
+      suggestions: SUGGESTIONS,
+      source: 'gemini',
+      version: 'scene-v1',
+      fallbackReason: null,
+      model: 'gemini-2.0-flash',
+      latencyMs: 640,
+      rawCandidateCount: 3,
+      validCandidateCount: 3,
+    });
+
+    const response = await request(app)
+      .post('/api/anchors/anchor-1/visualization-scene/suggestions')
+      .send({});
+
+    expect(response.body.data.source).toBe('gemini');
+    expect(response.body.data.fallbackReason).toBeNull();
+  });
+
+  it('never leaks intention or scene text into the diagnostic envelope', async () => {
+    const response = await request(app)
+      .post('/api/anchors/anchor-1/visualization-scene/suggestions')
+      .send({});
+
+    const { suggestions, ...diagnostics } = response.body.data;
+    expect(suggestions).toHaveLength(3);
+    expect(JSON.stringify(diagnostics)).not.toContain('Act calmly');
   });
 
   it('does not overwrite a scene that wins a concurrent update', async () => {

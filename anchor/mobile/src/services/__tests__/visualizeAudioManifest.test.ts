@@ -5,15 +5,15 @@ import {
 } from '../visualizeAudioManifest';
 
 const EXPECTED_TIMESTAMPS = {
-  60: [1, 5, 11, 15, 21, 28, 32, 39, 45, 50, 55],
-  180: [2, 8, 17, 22, 25, 31, 37, 48, 55, 61, 68, 81, 88, 94, 100, 110, 120, 131, 139, 147, 153, 160, 167, 172, 176],
-  300: [3, 11, 21, 28, 34, 38, 42, 50, 58, 70, 78, 87, 98, 109, 117, 125, 134, 142, 154, 161, 168, 176, 186, 197, 208, 218, 227, 237, 247, 256, 266, 274, 281, 287, 292],
+  60: [1.5, 13.5, 24.5, 36, 52],
+  180: [2, 19, 38, 54, 69, 84, 99, 117, 135, 155, 171],
+  300: [3, 20, 38, 60, 77, 94, 110, 127, 144, 160, 181, 204, 230, 255, 273, 290],
 } as const;
 
 describe('visualizeAudioManifest', () => {
   it('contains every unique canonical cue at the exact timestamp', () => {
-    expect(VISUALIZE_CUES).toHaveLength(71);
-    expect(new Set(VISUALIZE_CUES.map(cue => cue.id)).size).toBe(71);
+    expect(VISUALIZE_CUES).toHaveLength(32);
+    expect(new Set(VISUALIZE_CUES.map(cue => cue.id)).size).toBe(32);
     for (const durationSeconds of [60, 180, 300] as const) {
       expect(VISUALIZE_AUDIO_MANIFEST[durationSeconds].cues.map(cue => cue.startSeconds))
         .toEqual(EXPECTED_TIMESTAMPS[durationSeconds]);
@@ -37,20 +37,23 @@ describe('visualizeAudioManifest', () => {
 
   it('shares exact phase boundaries and duration-specific ambient tracks', () => {
     expect(VISUALIZE_PHASE_BOUNDARIES[60].map(phase => [phase.startSeconds, phase.endSeconds]))
-      .toEqual([[0, 10], [10, 27], [27, 44], [44, 54], [54, 60]]);
+      .toEqual([[0, 12], [12, 23], [23, 34], [34, 50], [50, 60]]);
     expect(VISUALIZE_PHASE_BOUNDARIES[180].map(phase => [phase.startSeconds, phase.endSeconds]))
-      .toEqual([[0, 29], [29, 79], [79, 129], [129, 158], [158, 180]]);
+      .toEqual([[0, 35], [35, 65], [65, 95], [95, 150], [150, 180]]);
     expect(VISUALIZE_PHASE_BOUNDARIES[300].map(phase => [phase.startSeconds, phase.endSeconds]))
-      .toEqual([[0, 48], [48, 132], [132, 216], [216, 264], [264, 300]]);
+      .toEqual([[0, 55], [55, 105], [105, 155], [155, 250], [250, 300]]);
     for (const durationSeconds of [60, 180, 300] as const) {
       expect(VISUALIZE_AUDIO_MANIFEST[durationSeconds].ambient.durationSeconds).toBe(durationSeconds);
       expect(VISUALIZE_AUDIO_MANIFEST[durationSeconds].ambient.asset).toBeTruthy();
     }
+    expect(VISUALIZE_AUDIO_MANIFEST[60].ambient.loop).toBe(false);
+    expect(VISUALIZE_AUDIO_MANIFEST[180].ambient.loop).toBe(true);
+    expect(VISUALIZE_AUDIO_MANIFEST[300].ambient.loop).toBe(true);
   });
 
-  it('documents the verified same-script substitution instead of hiding the mismatch', () => {
-    const cue = VISUALIZE_CUES.find(item => item.id === 'VIZ_1M_ARRIVE_01');
-    expect(cue?.developmentValidation.female).toBe('verified_same_script_substitution');
+  it('keeps the new prompt IDs aligned to their five phase owners', () => {
+    const cue = VISUALIZE_CUES.find(item => item.id === 'visualize-60-see-1');
+    expect(cue?.phase).toBe('see');
     expect(cue?.developmentValidation.male).toBe('verified');
   });
 });

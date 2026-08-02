@@ -20,7 +20,7 @@ const billingRefreshLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => (req as AuthRequest).user?.uid || ipKeyGenerator(req.ip ?? ''),
+  keyGenerator: req => (req as AuthRequest).user?.uid || ipKeyGenerator(req.ip ?? ''),
   message: {
     success: false,
     error: {

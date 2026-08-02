@@ -35,15 +35,9 @@ import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
 import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
 import {
-  SessionAudioOverrideSheet,
-  VoiceAndSoundSummaryRow,
-} from '@/components/settings/SessionAudioOverrideSheet';
-import { persistSessionAudioDefaults } from '@/services/SessionAudioPreferencesService';
-import {
   DEFAULT_SESSION_AUDIO_DEFAULTS,
   formatCompactSessionAudioSummary,
   resolveSessionAudioConfiguration,
-  type SessionAudioDefaults,
 } from '@/types/sessionAudio';
 
 type ChargeSetupRouteProp = RouteProp<RootStackParamList, 'ChargeSetup'>;
@@ -133,7 +127,7 @@ const formatPresetDuration = (seconds: number): string =>
 export const ChargeSetupScreen: React.FC = () => {
   const navigation = useNavigation<ChargeSetupNavigationProp>();
   const route = useRoute<ChargeSetupRouteProp>();
-  const { navigateToPractice } = useTabNavigation();
+  const { navigateToPractice, navigateToPaywall } = useTabNavigation();
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const {
@@ -167,10 +161,6 @@ export const ChargeSetupScreen: React.FC = () => {
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [enhancedArtworkFailed, setEnhancedArtworkFailed] = useState(false);
-  const [audioOverrides, setAudioOverrides] = useState<
-    Partial<Record<DurationChoice, SessionAudioDefaults>>
-  >({});
-  const [showAudioOverride, setShowAudioOverride] = useState(false);
 
   const isNavigatingRef = useRef(false);
   const hasAutoStartedRef = useRef(false);
@@ -335,8 +325,7 @@ export const ChargeSetupScreen: React.FC = () => {
       const durationOverride = locationPreset?.durationSeconds ?? config.durationSeconds;
       const sessionType = choice === 'quick' ? 'focus' : 'deep_prime';
       const defaultAudio = sessionAudioDefaults[sessionType];
-      const audioOverride = audioOverrides[choice] ?? locationPreset?.audioConfiguration;
-      const audioConfiguration = resolveSessionAudioConfiguration(defaultAudio, audioOverride);
+      const audioConfiguration = resolveSessionAudioConfiguration(defaultAudio, locationPreset?.audioConfiguration);
       if (choice === 'quick') {
         navigation.replace('ActivationRitual', {
           anchorId,
@@ -355,7 +344,7 @@ export const ChargeSetupScreen: React.FC = () => {
         });
       }
     },
-    [anchorId, audioOverrides, getLocationPresetForChoice, navigation, returnTo, sessionAudioDefaults]
+    [anchorId, getLocationPresetForChoice, navigation, returnTo, sessionAudioDefaults]
   );
 
   const handleBeginRitual = useCallback(
@@ -369,7 +358,7 @@ export const ChargeSetupScreen: React.FC = () => {
           remaining_weekly_free_sessions: allowance.remaining,
           tier: primeSessionAccess.tier,
         });
-        navigation.navigate('Paywall', {
+        navigateToPaywall({
           source: 'free_weekly_sessions_used',
           preferredPlanId: 'annual',
         });
@@ -427,6 +416,7 @@ export const ChargeSetupScreen: React.FC = () => {
       getLocationPresetForChoice,
       isTransitioning,
       navigateToRitual,
+      navigateToPaywall,
       navigation,
       primeSessionAccess.deep,
       primeSessionAccess.focus,
@@ -465,7 +455,7 @@ export const ChargeSetupScreen: React.FC = () => {
     if (isTransitioning) return;
     if (autoStartOnSelection) {
       // Came from creation flow — navigate to Vault so the new anchor is visible
-      navigateToVaultDestination(navigation);
+      navigateToVaultDestination(navigation, 'reset');
     } else {
       navigation.goBack();
     }
@@ -494,28 +484,10 @@ export const ChargeSetupScreen: React.FC = () => {
       return;
     }
 
-    navigateToVaultDestination(navigation, 'replace');
+    navigateToVaultDestination(navigation, 'reset');
   }, [anchor, anchorId, fromOnboarding, isTransitioning, navigateToPractice, navigation, returnTo]);
 
   const activeLocationPreset = getLocationPresetForChoice(selectedDuration);
-  const activeSessionType = selectedDuration === 'quick' ? 'focus' : 'deep_prime';
-  const activeDurationSeconds =
-    activeLocationPreset?.durationSeconds ?? chargeConfigByChoice[selectedDuration].durationSeconds;
-  const activeAudioValue =
-    audioOverrides[selectedDuration] ??
-    activeLocationPreset?.audioConfiguration ??
-    sessionAudioDefaults[activeSessionType];
-
-  const handleAudioOverrideConfirm = useCallback(
-    (value: SessionAudioDefaults, makeDefault: boolean) => {
-      setAudioOverrides((current) => ({ ...current, [selectedDuration]: value }));
-      setShowAudioOverride(false);
-      if (makeDefault) {
-        void persistSessionAudioDefaults(activeSessionType, value).catch(() => undefined);
-      }
-    },
-    [activeSessionType, selectedDuration]
-  );
 
   if (!anchorId || !anchor) {
     return (
@@ -544,7 +516,7 @@ export const ChargeSetupScreen: React.FC = () => {
   }));
 
   return (
-    <View style={styles.screen}>
+    <View testID="deep-prime-entry" style={styles.screen}>
       <View style={[styles.heroSection, { height: heroHeight }]}>
         {/* Background gradient */}
         <LinearGradient
@@ -698,11 +670,6 @@ export const ChargeSetupScreen: React.FC = () => {
                 </TouchableOpacity>
               ))}
             </View>
-
-            <VoiceAndSoundSummaryRow
-              value={activeAudioValue}
-              onPress={() => setShowAudioOverride(true)}
-            />
           </View>
 
           <View style={[styles.bottomActions, isCompactLayout && styles.bottomActionsCompact]}>
@@ -747,14 +714,6 @@ export const ChargeSetupScreen: React.FC = () => {
         DEFERRED: old ChargeSetupScreen UI — remove post-launch
         <ScrollView>{legacy ChargedGlowCanvas/PremiumAnchorGlow prime-selection layout}</ScrollView>
       */}
-      <SessionAudioOverrideSheet
-        visible={showAudioOverride}
-        sessionType={activeSessionType}
-        durationSeconds={activeDurationSeconds}
-        initialValue={activeAudioValue}
-        onCancel={() => setShowAudioOverride(false)}
-        onConfirm={handleAudioOverrideConfirm}
-      />
     </View>
   );
 };

@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import { FlexWidget, OverlapWidget, SvgWidget, TextWidget } from 'react-native-android-widget';
+import { FlexWidget, ImageWidget, OverlapWidget, SvgWidget, TextWidget } from 'react-native-android-widget';
 import {
   addDays,
   localDateString,
@@ -47,6 +47,8 @@ interface AnchorLargeWidgetProps {
   primed: boolean;
   anchorName: string;
   sigilSvg: string | null;
+  /** Final exported/rasterized visual when the selected anchor has one. */
+  artworkImageUri: string | null;
   streak: number;
   threadStrength: number;
   totalSessions: number;
@@ -55,6 +57,8 @@ interface AnchorLargeWidgetProps {
   visualizeSessions: number;
   releaseSessions: number;
   deepPrimePercent: number;
+  /** % of the trailing 30 days with a session — identical to the Thread Strength sheet's CONSTANCY stat. */
+  constancyPercent: number;
   longestStreak: number;
   sensitivityLabel: string;
   sensitivityNote: string;
@@ -62,6 +66,10 @@ interface AnchorLargeWidgetProps {
   history: WidgetHistoryDay[];
   /** Local YYYY-MM-DD used as "today" for grid placement */
   today: string;
+  /** Launcher-reported widget width (dp) — keeps heatmap cells square instead of stretched. */
+  widgetWidth?: number;
+  /** Launcher-reported widget height (dp) — keeps the history section balanced. */
+  widgetHeight?: number;
 }
 
 /** radial-gradient(120% 60% at 82% -6%, rgba(62,44,91,0.24), transparent 60%) — both states */
@@ -77,17 +85,27 @@ function buildPurpleAuraSvg(): string {
   );
 }
 
-// Keep this aspect ratio close to the dedicated SvgWidget below. Android uses
-// FIT_CENTER for SVGs; a tall canvas was shrinking the entire calendar to fit
-// vertically and leaving most of the lower card empty.
-const CELL = 17;
-const GAP = 4;
+// The SvgWidget below renders with scaleToFill (a non-uniform stretch), so
+// picking a cell size whose grid aspect ratio is close to the actual
+// available width keeps cells roughly square instead of visibly stretched.
+const MIN_CELL = 13;
+const MAX_CELL = 19;
+const GAP = 3;
 const CELL_RADIUS = 4;
 const MONTH_LABEL_HEIGHT = 13;
-const GRID_WIDTH = WIDGET_HISTORY_WEEKS * CELL + (WIDGET_HISTORY_WEEKS - 1) * GAP;
-const GRID_HEIGHT = MONTH_LABEL_HEIGHT + 7 * CELL + 6 * GAP;
-const HEATMAP_RENDER_HEIGHT = 130;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function heatmapSizing(availableWidth = 320): { cell: number; gridWidth: number; gridHeight: number } {
+  const cell = Math.max(
+    MIN_CELL,
+    Math.min(MAX_CELL, Math.floor((availableWidth - (WIDGET_HISTORY_WEEKS - 1) * GAP) / WIDGET_HISTORY_WEEKS))
+  );
+  return {
+    cell,
+    gridWidth: WIDGET_HISTORY_WEEKS * cell + (WIDGET_HISTORY_WEEKS - 1) * GAP,
+    gridHeight: MONTH_LABEL_HEIGHT + 7 * cell + 6 * GAP,
+  };
+}
 
 function buildStrengthRingSvg(value: number): string {
   const clamped = Math.max(0, Math.min(100, Math.round(value)));
@@ -182,8 +200,10 @@ function WeekDot({ day }: { day: WidgetWeekDay }) {
 export function buildHeatmapSvg(
   history: WidgetHistoryDay[],
   today: string,
-  primed: boolean
+  primed: boolean,
+  availableWidth?: number
 ): string {
+  const { cell: CELL, gridWidth: GRID_WIDTH, gridHeight: GRID_HEIGHT } = heatmapSizing(availableWidth);
   const todayDate = parseLocalDateString(today);
   if (!todayDate) {
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${GRID_WIDTH} ${GRID_HEIGHT}"></svg>`;
@@ -226,12 +246,14 @@ export function buildHeatmapSvg(
 
       let fill: string;
       if (isToday) {
-        // Spec: today's cell is level-3 gold when primed, empty when not —
-        // regardless of raw session counts.
-        fill = primed ? HEAT_GOLD[3] : HEAT_GOLD[0];
+        fill = day?.mode === 'visualize'
+          ? HEAT_VISUALIZE[day.level || 1]
+          : primed ? HEAT_GOLD[3] : HEAT_GOLD[0];
       } else if (day && day.level > 0) {
         const level = day.level as 1 | 2 | 3;
-        fill = day.dominantMode === 'focus'
+        fill = day.mode === 'visualize'
+          ? HEAT_VISUALIZE[level]
+          : day.dominantMode === 'focus'
           ? HEAT_FOCUS[level]
           : day.dominantMode === 'visualize'
             ? HEAT_VISUALIZE[level]
@@ -279,6 +301,7 @@ export function AnchorLargeWidget({
   primed,
   anchorName,
   sigilSvg,
+  artworkImageUri,
   streak,
   threadStrength,
   totalSessions,
@@ -287,13 +310,21 @@ export function AnchorLargeWidget({
   visualizeSessions,
   releaseSessions,
   deepPrimePercent,
+  constancyPercent,
   longestStreak,
   sensitivityLabel,
   sensitivityNote,
   currentWeek,
   history,
   today,
+  widgetWidth,
+  widgetHeight,
 }: AnchorLargeWidgetProps) {
+  const contentWidth = Math.max(1, (widgetWidth ?? 344) - 24);
+  const availableHeight = widgetHeight ?? 344;
+  // Keep the calendar as the flexible section. The old 118dp floor left the
+  // 4×4 card visually empty on launchers that report a compact height.
+  const heatmapHeight = Math.max(164, Math.min(232, availableHeight - 176));
   const glyphSvg = colorizeAnchorSigilSvg(sigilSvg, primed ? GOLD : DIM_GLYPH) ?? buildGlyphSvg({
     strokeWidth: 5.4,
     stroke: primed ? GOLD : DIM_GLYPH,
@@ -331,10 +362,21 @@ export function AnchorLargeWidget({
       >
         {/* ── Header: anchor identity + the same strength signal as the sheet ── */}
         <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center' }}>
-          <SvgWidget
-            svg={glyphSvg}
-            style={{ width: 26, height: 29, marginRight: 10 }}
-          />
+          {artworkImageUri ? (
+            <ImageWidget
+              image={artworkImageUri as `data:image${string}`}
+              imageWidth={34}
+              imageHeight={34}
+              radius={17}
+              resizeMode="contain"
+              style={{ width: 34, height: 34, marginRight: 10 }}
+            />
+          ) : (
+            <SvgWidget
+              svg={glyphSvg}
+              style={{ width: 34, height: 34, marginRight: 10 }}
+            />
+          )}
           <FlexWidget style={{ flex: 1, flexDirection: 'column' }}>
             <TextWidget
               text={anchorName}
@@ -401,7 +443,7 @@ export function AnchorLargeWidget({
         >
           <Metric value={String(totalSessions)} label="TOTAL SESSIONS" />
           <FlexWidget style={{ width: 1, height: 19, backgroundColor: '#FFFFFF12' }} />
-          <Metric value={String(streak)} label="CONSTANCY" />
+          <Metric value={`${constancyPercent}%`} label="CONSTANCY" />
           <FlexWidget style={{ width: 1, height: 19, backgroundColor: '#FFFFFF12' }} />
           <Metric value={String(longestStreak)} label="PRIME RECORD" />
           <FlexWidget style={{ width: 1, height: 19, backgroundColor: '#FFFFFF12' }} />
@@ -474,12 +516,13 @@ export function AnchorLargeWidget({
           </FlexWidget>
         ) : null}
 
-        {/* ── Session history ── */}
+        {/* ── Session history — flexes to fill whatever room is left on the card ── */}
         <FlexWidget
           style={{
             width: 'match_parent',
             flexDirection: 'column',
-            height: 146,
+            flex: 1,
+            height: 0,
             justifyContent: 'flex-start',
             marginTop: 5,
             marginBottom: 5,
@@ -496,9 +539,9 @@ export function AnchorLargeWidget({
             />
           </FlexWidget>
           <SvgWidget
-            svg={buildHeatmapSvg(history, today, primed)}
+            svg={buildHeatmapSvg(history, today, primed, contentWidth)}
             scaleToFill
-            style={{ width: 'match_parent', height: HEATMAP_RENDER_HEIGHT }}
+            style={{ width: 'match_parent', height: 'match_parent' }}
           />
         </FlexWidget>
 

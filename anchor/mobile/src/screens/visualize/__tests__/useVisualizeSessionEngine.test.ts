@@ -15,23 +15,23 @@ jest.mock('@/services/AnalyticsService', () => ({
 }));
 
 describe('useVisualizeSessionEngine', () => {
-  let now = 1_000_000;
-  let dateNowSpy: jest.SpyInstance;
+  let monotonicNow = 0;
+  let wallClockNow = 1_000_000;
 
   beforeEach(() => {
     jest.useFakeTimers();
     mockTrack.mockReset();
-    now = 1_000_000;
-    dateNowSpy = jest.spyOn(Date, 'now').mockImplementation(() => now);
+    monotonicNow = 0;
+    wallClockNow = 1_000_000;
   });
 
   afterEach(() => {
-    dateNowSpy.mockRestore();
     jest.useRealTimers();
   });
 
   const advanceClock = (milliseconds: number) => {
-    now += milliseconds;
+    monotonicNow += milliseconds;
+    wallClockNow += milliseconds;
     act(() => {
       jest.advanceTimersByTime(Math.max(100, milliseconds));
     });
@@ -44,17 +44,19 @@ describe('useVisualizeSessionEngine', () => {
         durationSeconds: 60,
         hapticsEnabled: false,
         onComplete,
+        clock: () => monotonicNow,
+        wallClock: () => wallClockNow,
       }),
     );
 
     act(() => result.current.start());
-    expect(result.current.phase.id).toBe('arrive');
-
-    advanceClock(10_100);
     expect(result.current.phase.id).toBe('see');
 
-    advanceClock(17_000);
+    advanceClock(12_100);
     expect(result.current.phase.id).toBe('feel');
+
+    advanceClock(11_000);
+    expect(result.current.phase.id).toBe('choose');
     expect(onComplete).not.toHaveBeenCalled();
     unmount();
   });
@@ -65,6 +67,8 @@ describe('useVisualizeSessionEngine', () => {
         durationSeconds: 60,
         hapticsEnabled: false,
         onComplete: jest.fn(),
+        clock: () => monotonicNow,
+        wallClock: () => wallClockNow,
       }),
     );
 
@@ -97,21 +101,30 @@ describe('useVisualizeSessionEngine', () => {
         durationSeconds: 60,
         hapticsEnabled: false,
         onComplete,
+        clock: () => monotonicNow,
+        wallClock: () => wallClockNow,
       }),
     );
 
     act(() => result.current.start());
-    now += 60_000;
+    monotonicNow += 60_000;
+    wallClockNow += 60_000;
     await act(async () => {
       jest.advanceTimersByTime(60_000);
       await Promise.resolve();
     });
 
     expect(onComplete).toHaveBeenCalledTimes(1);
-    expect(result.current.state).toBe('completed');
+    expect(result.current.state).toBe('completing');
     expect(result.current.remainingSeconds).toBe(0);
 
-    now += 5_000;
+    await act(async () => {
+      await result.current.completionPromise;
+      result.current.markCompleted();
+    });
+    expect(result.current.state).toBe('completed');
+
+    monotonicNow += 5_000;
     act(() => jest.advanceTimersByTime(5_000));
     expect(onComplete).toHaveBeenCalledTimes(1);
     unmount();

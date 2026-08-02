@@ -10,6 +10,8 @@
  * renderers, which run in a headless JS context.
  */
 
+export type WidgetPracticeType = 'focus' | 'deep_prime' | 'visualize' | 'release';
+
 export interface WidgetHistoryDay {
   /** Local YYYY-MM-DD */
   date: string;
@@ -17,6 +19,8 @@ export interface WidgetHistoryDay {
   level: 0 | 1 | 2 | 3;
   /** True when the day included a reinforce ("Deep Prime") session */
   deep: boolean;
+  /** Latest completed mode for the day; used for heatmap coloring. */
+  mode?: WidgetPracticeType;
   dominantMode?: 'deep_prime' | 'visualize' | 'focus' | 'release' | null;
 }
 
@@ -25,6 +29,7 @@ export interface WidgetWeekDay {
   date: string;
   hasFocus: boolean;
   hasDeep: boolean;
+  hasVisualize?: boolean;
   dominantMode?: 'deep_prime' | 'visualize' | 'focus' | 'release' | null;
   isToday: boolean;
   isFuture: boolean;
@@ -36,6 +41,17 @@ export interface WidgetSnapshot {
   anchorName: string;
   /** The selected anchor's deterministic sigil SVG. */
   sigilSvg: string | null;
+  /**
+   * The anchor's finalized enhanced raster image URL, when one exists.
+   * Widgets render this over the SVG fallback when present. This is a
+   * remote URL, not a locally cached file — the widget renderer falls back
+   * to `sigilSvg` if it can't load it.
+   */
+  artworkImageUri: string | null;
+  /** Source selected from the anchor's saved visual lineage. */
+  artworkSource: 'enhanced_image' | 'reinforced_svg' | 'base_svg' | 'fallback';
+  /** Account-scoped source version used to invalidate stale widget snapshots. */
+  artworkVersion: string | null;
   primedToday: boolean;
   /** "Day Thread" count shown on the large widget */
   streak: number;
@@ -47,6 +63,8 @@ export interface WidgetSnapshot {
   visualizeSessions: number;
   releaseSessions: number;
   deepPrimePercent: number;
+  /** % of the trailing 30 days with at least one session — matches the Thread Strength sheet's CONSTANCY stat. */
+  constancyPercent: number;
   longestStreak: number;
   sensitivityLabel: string;
   sensitivityNote: string;
@@ -105,6 +123,9 @@ export function createEmptyWidgetSnapshot(): WidgetSnapshot {
     anchorId: null,
     anchorName: WIDGET_FALLBACK_ANCHOR_NAME,
     sigilSvg: null,
+    artworkImageUri: null,
+    artworkSource: 'fallback',
+    artworkVersion: null,
     primedToday: false,
     streak: 0,
     threadStrength: 0,
@@ -114,6 +135,7 @@ export function createEmptyWidgetSnapshot(): WidgetSnapshot {
     visualizeSessions: 0,
     releaseSessions: 0,
     deepPrimePercent: 0,
+    constancyPercent: 0,
     longestStreak: 0,
     sensitivityLabel: 'Balanced',
     sensitivityNote: '1 grace day before decay begins.',

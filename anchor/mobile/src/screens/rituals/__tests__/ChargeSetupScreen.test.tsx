@@ -5,6 +5,7 @@ import { ChargeSetupScreen } from '../ChargeSetupScreen';
 // Mock navigation
 const mockNavigate = jest.fn();
 const mockReplace = jest.fn();
+const mockReset = jest.fn();
 const mockPopToTop = jest.fn();
 const mockSetDefaultCharge = jest.fn();
 let mockLocationPrimingSuggestion: any = null;
@@ -26,6 +27,7 @@ jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({
     navigate: mockNavigate,
     replace: mockReplace,
+    reset: mockReset,
     goBack: jest.fn(),
     popToTop: mockPopToTop,
   }),
@@ -151,6 +153,7 @@ describe('ChargeSetupScreen', () => {
   beforeEach(() => {
     mockNavigate.mockClear();
     mockReplace.mockClear();
+    mockReset.mockClear();
     mockPopToTop.mockClear();
     Object.keys(mockRouteParams).forEach((key) => delete mockRouteParams[key]);
     Object.assign(mockRouteParams, { anchorId: 'anchor-123' });
@@ -220,7 +223,10 @@ describe('ChargeSetupScreen', () => {
     render(<ChargeSetupScreen />);
     fireEvent.press(screen.getByLabelText('Prime later'));
 
-    expect(mockReplace).toHaveBeenCalledWith('Vault');
+    expect(mockReset).toHaveBeenCalledWith({
+      index: 0,
+      routes: [{ name: 'Vault' }],
+    });
   });
 
   it('starts the selected path immediately in auto-start mode', () => {

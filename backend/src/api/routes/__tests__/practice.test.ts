@@ -331,6 +331,35 @@ describe('canonical practice sessions', () => {
     expect(retry.body.idempotent).toBe(true);
   });
 
+  it('accepts a pre-ledger legacy payload missing localDateKey/timeZone/utcOffset/completionSource/schemaVersion', async () => {
+    const legacyCompletedAt = new Date().toISOString();
+    const legacyBody = {
+      id: 'legacy-client-session-1',
+      anchorId: 'anchor-1',
+      anchorLocalId: 'local-anchor-1',
+      anchorServerId: 'anchor-1',
+      practiceMode: 'focus',
+      plannedDurationSeconds: 30,
+      completedDurationSeconds: 30,
+      completionStatus: 'completed',
+      startedAt: new Date(Date.now() - 30_000).toISOString(),
+      completedAt: legacyCompletedAt,
+      guidanceVoice: 'none',
+      backgroundAudio: 'off',
+      sceneSnapshot: null,
+      nextAction: null,
+      clientVersion: '1.1.0',
+    };
+
+    const response = await request(app).post('/api/practice/sessions').send(legacyBody);
+
+    expect(response.status).toBe(201);
+    expect(response.body.data.completionSource).toBe('unknown');
+    expect(response.body.data.schemaVersion).toBe(1);
+    expect(response.body.data.timeZone).toBe('UTC');
+    expect(response.body.data.localDateKey).toBe(legacyCompletedAt.slice(0, 10));
+  });
+
   it('returns conflict when an id is reused with incompatible immutable data', async () => {
     mockPrisma.practiceSession.findUnique.mockResolvedValue({
       ...body,

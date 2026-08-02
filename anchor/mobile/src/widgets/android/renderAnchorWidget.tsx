@@ -17,7 +17,9 @@ import { AnchorLargeWidget } from './AnchorLargeWidget';
 
 export function renderAnchorWidgetByName(
   widgetName: WidgetName | string,
-  snapshot: WidgetSnapshot
+  snapshot: WidgetSnapshot,
+  /** Launcher-reported widget size (dp), when known — keeps the 4×4 heatmap cells square. */
+  dimensions?: { width: number; height: number }
 ): React.ReactElement {
   const today = localDateString(new Date());
   const primed = snapshot.lastPrimedDate === today;
@@ -40,6 +42,7 @@ export function renderAnchorWidgetByName(
           primed={primed}
           anchorName={snapshot.anchorName}
           sigilSvg={snapshot.sigilSvg}
+          artworkImageUri={snapshot.artworkImageUri}
           streak={snapshot.streak}
           threadStrength={snapshot.threadStrength ?? 0}
           totalSessions={snapshot.totalSessions ?? 0}
@@ -48,12 +51,15 @@ export function renderAnchorWidgetByName(
           visualizeSessions={snapshot.visualizeSessions ?? 0}
           releaseSessions={snapshot.releaseSessions ?? 0}
           deepPrimePercent={snapshot.deepPrimePercent ?? 0}
+          constancyPercent={snapshot.constancyPercent ?? 0}
           longestStreak={snapshot.longestStreak ?? 0}
           sensitivityLabel={snapshot.sensitivityLabel ?? 'Balanced'}
           sensitivityNote={snapshot.sensitivityNote ?? '1 grace day before decay begins.'}
           currentWeek={snapshot.currentWeek ?? []}
           history={snapshot.history}
           today={today}
+          widgetWidth={dimensions?.width}
+          widgetHeight={dimensions?.height}
         />
       );
     case 'AnchorSmallWidget':
@@ -63,6 +69,7 @@ export function renderAnchorWidgetByName(
           primed={primed}
           anchorId={snapshot.anchorId}
           sigilSvg={snapshot.sigilSvg}
+          artworkImageUri={snapshot.artworkImageUri}
         />
       );
   }

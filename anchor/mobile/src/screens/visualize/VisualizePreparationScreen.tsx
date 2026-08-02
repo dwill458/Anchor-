@@ -26,11 +26,16 @@ import type { RootStackParamList } from "@/types";
 import { useAnchorStore } from "@/stores/anchorStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { useVisualizationSceneStore } from "@/stores/visualizationSceneStore";
+import {
+  normalizeSuggestionIndex,
+  useVisualizationSceneStore,
+} from "@/stores/visualizationSceneStore";
 import { useTrialStatus } from "@/hooks/useTrialStatus";
 import VisualizationSceneService, {
   normalizeVisualizationSceneText,
   validateVisualizationSceneText,
+  visualizationLatencyBucket,
+  type GenerateResult,
 } from "@/services/VisualizationSceneService";
 import { AnalyticsEvents, AnalyticsService } from "@/services/AnalyticsService";
 import {
@@ -41,6 +46,7 @@ import { colors as themeColors, spacing, typography } from "@/theme";
 import type { SessionAudioDefaults } from "@/types/sessionAudio";
 import { MicroTeachCard } from "@/components/teaching";
 import { useTeachingGate } from "@/utils/useTeachingGate";
+import { useTabNavigation } from "@/contexts/TabNavigationContext";
 import { getVisualizationLensSize, shouldPinPreparationCta } from "./visualizePresentation";
 import { VisualizationAnchorLens, VisualizationPrimaryButton } from './VisualizationPrimitives';
 
@@ -57,6 +63,7 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
 }) => {
   const window = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const { navigateToPaywall } = useTabNavigation();
   const anchor = useAnchorStore((state) =>
     state.getAnchorById(route.params.anchorId),
   );
@@ -85,6 +92,18 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
       (anchor?.localId ? state.suggestions[anchor.localId] : undefined) ??
       [],
   );
+  const suggestionIndex = useVisualizationSceneStore((state) =>
+    normalizeSuggestionIndex(
+      state.selectedSuggestionIndex[route.params.anchorId] ??
+        (anchor?.localId
+          ? state.selectedSuggestionIndex[anchor.localId]
+          : undefined),
+      state.suggestions[route.params.anchorId]?.length ??
+        (anchor?.localId
+          ? (state.suggestions[anchor.localId]?.length ?? 0)
+          : 0),
+    ),
+  );
   const [duration, setDuration] = useState<60 | 180 | 300>(
     recentDuration ?? defaultDuration,
   );
@@ -96,7 +115,6 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [configVisible, setConfigVisible] = useState(false);
-  const [suggestionIndex, setSuggestionIndex] = useState(0);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [viewportHeight, setViewportHeight] = useState(0);
   const [contentHeight, setContentHeight] = useState(0);
@@ -118,9 +136,62 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
   );
   const hasUnsavedChanges =
     !!scene && normalizeVisualizationSceneText(sceneText) !== savedSceneText;
+  /** The suggestion the user is currently positioned on, not the first ever generated. */
+  const selectedSuggestion = suggestions[suggestionIndex] ?? null;
+  const canRotate = suggestions.length > 1;
+  const canRestoreSuggestion =
+    !!selectedSuggestion &&
+    normalizeVisualizationSceneText(sceneText) !==
+      normalizeVisualizationSceneText(selectedSuggestion);
   const artworkSize = getVisualizationLensSize('entrance', window.width);
   const compactHeight = window.height < 780;
   const stickyButtonHeight = 52 + 10 + insets.bottom;
+
+  // Lets a background upgrade check whether the user has touched the text
+  // without re-running the load effect on every keystroke.
+  const sceneTextRef = useRef(sceneText);
+  useEffect(() => {
+    sceneTextRef.current = sceneText;
+  }, [sceneText]);
+
+  /** Diagnostic properties only — no intention text, no scene text. */
+  const trackGeneration = useCallback(
+    (anchorId: string, result: GenerateResult): void => {
+      const diagnosticProps = {
+        anchor_id: anchorId,
+        source: result.diagnostics.source,
+        fallback_reason: result.diagnostics.fallbackReason,
+        prompt_version: result.diagnostics.promptVersion,
+        model: result.diagnostics.model,
+        latency_ms: result.diagnostics.latencyMs,
+        latency_bucket: visualizationLatencyBucket(result.diagnostics.latencyMs),
+        raw_candidate_count: result.diagnostics.rawCandidateCount,
+        valid_candidate_count: result.diagnostics.validCandidateCount,
+      };
+      AnalyticsService.track(AnalyticsEvents.VISUALIZE_SCENE_GENERATED, {
+        ...diagnosticProps,
+        version: result.scene.generationVersion,
+        fallback: result.fallbackUsed,
+      });
+      if (!result.fallbackUsed) return;
+      AnalyticsService.track(
+        AnalyticsEvents.VISUALIZE_SCENE_FALLBACK_USED,
+        diagnosticProps,
+      );
+      // A transport-level failure is a distinct signal from the provider
+      // running and producing unusable output.
+      if (
+        result.diagnostics.fallbackReason === "client_request_failed" ||
+        result.diagnostics.fallbackReason === "feature_disabled"
+      ) {
+        AnalyticsService.track(
+          AnalyticsEvents.VISUALIZE_SCENE_GENERATION_FAILED,
+          diagnosticProps,
+        );
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     AnalyticsService.track(AnalyticsEvents.VISUALIZE_PREPARATION_VIEWED, {
@@ -134,27 +205,58 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
     let active = true;
     void (async () => {
       const loaded = await VisualizationSceneService.load(anchor, accountId);
-      const result = loaded
-        ? null
-        : await VisualizationSceneService.generate(anchor, accountId);
+      const upgrading = VisualizationSceneService.shouldAttemptSceneUpgrade(
+        anchor,
+        loaded,
+      );
+      if (!VisualizationSceneService.getSuggestions(anchor).length || upgrading) {
+        AnalyticsService.track(
+          AnalyticsEvents.VISUALIZE_SCENE_GENERATION_REQUESTED,
+          { anchor_id: anchor.id, upgrade: upgrading },
+        );
+      }
+      // Cache-first. A provisional deterministic batch still renders straight
+      // away; any upgrade runs behind it rather than blocking the screen.
+      const outcome = await VisualizationSceneService.ensureBatch(
+        anchor,
+        accountId,
+        loaded,
+      );
       if (!active) return;
-      const resolved = loaded ?? result?.scene;
-      setSceneText(resolved?.currentText ?? "");
-      if (result) {
-        AnalyticsService.track(AnalyticsEvents.VISUALIZE_SCENE_GENERATED, {
+
+      const cachedSelection = () =>
+        VisualizationSceneService.getSuggestions(anchor)[
+          VisualizationSceneService.getSelectedIndex(anchor)
+        ] ?? "";
+
+      const applyResult = (result: GenerateResult): void => {
+        setSceneText(result.scene.currentText);
+        trackGeneration(anchor.id, result);
+      };
+
+      if (outcome.kind === "generated") {
+        applyResult(outcome.result);
+      } else {
+        const initialText = loaded?.currentText ?? cachedSelection();
+        setSceneText(initialText);
+        AnalyticsService.track(AnalyticsEvents.VISUALIZE_SCENE_BATCH_CACHED, {
           anchor_id: anchor.id,
-          source: result.scene.generationSource,
-          version: result.scene.generationVersion,
-          fallback: result.fallbackUsed,
+          cached: true,
+          scene_count: VisualizationSceneService.getSuggestions(anchor).length,
+          upgrading,
         });
-        if (result.fallbackUsed) {
-          AnalyticsService.track(
-            AnalyticsEvents.VISUALIZE_SCENE_FALLBACK_USED,
-            {
-              anchor_id: anchor.id,
-              source: result.scene.generationSource,
-            },
-          );
+
+        if (outcome.upgrade) {
+          void outcome.upgrade.then((result) => {
+            if (!active) return;
+            // Adopt the upgraded scene only if the user has not touched the
+            // text meanwhile — a late response must never overwrite an edit.
+            if (sceneTextRef.current !== initialText) {
+              trackGeneration(anchor.id, result);
+              return;
+            }
+            applyResult(result);
+          });
         }
       }
       setLoading(false);
@@ -162,13 +264,10 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
     return () => {
       active = false;
     };
-  }, [
-    accountId,
-    anchor,
-    hasActiveEntitlement,
-    route.params.anchorId,
-    subscriptionStatus,
-  ]);
+    // Keyed on anchor.id, not the anchor object: a store update elsewhere must
+    // not remount this effect and trigger a second generation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountId, anchor?.id, hasActiveEntitlement]);
 
   useEffect(() => {
     if (scene && !sceneText) setSceneText(scene.currentText);
@@ -228,25 +327,23 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
     setSaving(false);
   }, [anchor, hasUnsavedChanges, scene, sceneText, validationError]);
 
-  const tryAnother = useCallback(async () => {
-    if (!anchor || !accountId) return;
-    AnalyticsService.track(AnalyticsEvents.VISUALIZE_SUGGESTION_REQUESTED, {
-      anchor_id: anchor.id,
-    });
-    let next = suggestions[suggestionIndex + 1];
-    if (!next) {
-      const generated = await VisualizationSceneService.generate(
-        anchor,
-        accountId,
-      );
-      next = generated.suggestions[0];
-      setSuggestionIndex(0);
-    } else {
-      setSuggestionIndex((value) => value + 1);
-    }
-    setSceneText(next);
+  /**
+   * Local rotation only. Never calls generate() and never touches the network:
+   * the batch is already persisted, so this works offline and costs nothing.
+   */
+  const rotateScene = useCallback(() => {
+    if (!anchor) return;
+    const { text, index, count } = VisualizationSceneService.rotate(anchor);
+    if (!text) return;
+    setSceneText(text);
     setError(null);
-  }, [accountId, anchor, suggestionIndex, suggestions]);
+    AnalyticsService.track(AnalyticsEvents.VISUALIZE_SCENE_ROTATED, {
+      anchor_id: anchor.id,
+      scene_position: index + 1,
+      scene_count: count,
+      scene_char_count: text.length,
+    });
+  }, [anchor]);
 
   if (!anchor) return <View style={styles.container} />;
 
@@ -274,7 +371,7 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
         anchor_id: anchor.id,
         tier: subscriptionStatus,
       });
-      navigation.navigate("Paywall", {
+      navigateToPaywall({
         source: "gated_feature",
         preferredPlanId: "annual",
         resumeTarget: { kind: "visualize_prepare", anchorId: anchor.id },
@@ -410,28 +507,46 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
                   </Text>
                 ) : null}
                 <View style={styles.sceneActions}>
-                  <Pressable
-                    onPress={() => void tryAnother()}
-                    style={styles.sceneActionButton}
-                  >
-                    <RefreshCw color={colors.gold} size={14} />
-                    <Text style={styles.textButtonLabel}>Try Another</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => {
-                      if (scene) {
-                        setSceneText(scene.originalSuggestion);
+                  {canRotate ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Another scene, ${suggestionIndex + 1} of ${suggestions.length}`}
+                      onPress={rotateScene}
+                      style={styles.sceneActionButton}
+                      testID="visualize-another-scene"
+                    >
+                      <RefreshCw color={colors.gold} size={14} />
+                      <Text style={styles.textButtonLabel}>Another Scene</Text>
+                      <Text style={styles.scenePosition}>
+                        {suggestionIndex + 1} / {suggestions.length}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                  {canRestoreSuggestion ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => {
+                        if (!selectedSuggestion) return;
+                        setSceneText(selectedSuggestion);
+                        setError(null);
                         AnalyticsService.track(
-                          AnalyticsEvents.VISUALIZE_ORIGINAL_RESTORED,
-                          { anchor_id: anchor.id },
+                          AnalyticsEvents.VISUALIZE_SCENE_RESTORED,
+                          {
+                            anchor_id: anchor.id,
+                            scene_position: suggestionIndex + 1,
+                            scene_count: suggestions.length,
+                          },
                         );
-                      }
-                    }}
-                    style={styles.sceneActionButton}
-                  >
-                    <RotateCcw color={colors.gold} size={14} />
-                    <Text style={styles.textButtonLabel}>Restore Original</Text>
-                  </Pressable>
+                      }}
+                      style={styles.sceneActionButton}
+                      testID="visualize-restore-suggested"
+                    >
+                      <RotateCcw color={colors.gold} size={14} />
+                      <Text style={styles.textButtonLabel}>
+                        Restore Suggested Scene
+                      </Text>
+                    </Pressable>
+                  ) : null}
                 </View>
                 {hasUnsavedChanges ? (
                   <Pressable
@@ -555,7 +670,7 @@ const styles = StyleSheet.create({
   sceneCard: {
     marginTop: 14,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 16,
     borderRadius: 25,
     backgroundColor: "rgba(5,17,31,.72)",
     borderWidth: 1,
@@ -576,13 +691,15 @@ const styles = StyleSheet.create({
   },
   sceneHeaderLabel: { marginBottom: 0 },
   sceneInput: {
-    minHeight: 68,
-    maxHeight: 92,
+    minHeight: 104,
+    maxHeight: 170,
     color: "#F5F0DF",
     fontFamily: typography.fonts.body,
     fontSize: 16,
     lineHeight: 24,
     textAlignVertical: "top",
+    paddingTop: 8,
+    paddingBottom: 8,
   },
   count: {
     color: "rgba(255,255,255,.35)",
@@ -613,6 +730,12 @@ const styles = StyleSheet.create({
     color: colors.gold,
     fontFamily: typography.fonts.body,
     fontSize: 11,
+  },
+  scenePosition: {
+    color: "rgba(212,175,55,.45)",
+    fontFamily: typography.fonts.body,
+    fontSize: 10,
+    fontVariant: ["tabular-nums"],
   },
   saveScene: {
     marginTop: 4,

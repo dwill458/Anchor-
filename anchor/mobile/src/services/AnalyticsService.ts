@@ -255,6 +255,31 @@ class Analytics {
   }
 
   /**
+   * Track lifecycle telemetry without attaching the identified user field.
+   * Splash/startup events must remain free of personal information.
+   */
+  trackAnonymous(eventName: string, properties?: Record<string, any>): void {
+    if (!this.enabled) return;
+
+    const event: AnalyticsEvent = {
+      name: eventName,
+      properties: {
+        app_version: appVersion,
+        platform: Platform.OS,
+        ...sanitizeAnalyticsProperties(properties),
+        timestamp: new Date().toISOString(),
+      },
+      timestamp: new Date(),
+    };
+
+    logger.info('[Analytics] Track anonymous', event);
+
+    this.safelyCallPostHog('capture anonymous', () => {
+      this.posthog.capture(eventName, event.properties);
+    });
+  }
+
+  /**
    * Track screen view
    */
   screen(screenName: string, properties?: Record<string, any>): void {
@@ -341,6 +366,10 @@ export const AnalyticsEvents = {
   // App lifecycle
   APP_OPENED: 'app_opened',
   APP_BACKGROUNDED: 'app_backgrounded',
+  SPLASH_STARTED: 'splash_started',
+  SPLASH_COMPLETED: 'splash_completed',
+  SPLASH_SKIPPED_REDUCE_MOTION: 'splash_skipped_reduce_motion',
+  SPLASH_STARTUP_WAITED: 'splash_startup_waited',
 
   // Authentication
   SIGN_UP_STARTED: 'sign_up_started',
@@ -414,8 +443,13 @@ export const AnalyticsEvents = {
   VISUALIZE_PRO_LOCK_VIEWED: 'visualize_pro_lock_viewed',
   VISUALIZE_TRIAL_CTA_SELECTED: 'visualize_trial_cta_selected',
   VISUALIZE_PREPARATION_VIEWED: 'visualize_preparation_viewed',
+  VISUALIZE_SCENE_GENERATION_REQUESTED: 'visualize_scene_generation_requested',
   VISUALIZE_SCENE_GENERATED: 'visualize_scene_generated',
+  VISUALIZE_SCENE_GENERATION_FAILED: 'visualize_scene_generation_failed',
   VISUALIZE_SCENE_FALLBACK_USED: 'visualize_scene_fallback_used',
+  VISUALIZE_SCENE_BATCH_CACHED: 'visualize_scene_batch_cached',
+  VISUALIZE_SCENE_ROTATED: 'visualize_scene_rotated',
+  VISUALIZE_SCENE_RESTORED: 'visualize_scene_restored',
   VISUALIZE_SCENE_EDITED: 'visualize_scene_edited',
   VISUALIZE_SUGGESTION_REQUESTED: 'visualize_suggestion_requested',
   VISUALIZE_ORIGINAL_RESTORED: 'visualize_original_restored',

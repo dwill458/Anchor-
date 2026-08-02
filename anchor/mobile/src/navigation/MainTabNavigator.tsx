@@ -38,6 +38,7 @@ import VisualizationSceneService from '@/services/VisualizationSceneService';
 import { TEACHINGS } from '@/constants/teaching';
 import { WidgetDeepLinkHandler } from '@/widgets/WidgetDeepLinkHandler';
 import { ResumeTargetHandler } from './ResumeTargetHandler';
+import { WIDGETS_ENABLED } from '@/config';
 import type { RootStackParamList } from '@/types';
 import type { RootNavigatorParamList } from './RootNavigator';
 
@@ -312,7 +313,7 @@ export const MainTabNavigator: React.FC = () => {
       activeIndex={activeIndex}
     >
       {/* Routes the home screen widget CTA (anchor://practice) to the Practice tab */}
-      <WidgetDeepLinkHandler />
+      {WIDGETS_ENABLED && <WidgetDeepLinkHandler />}
       <ResumeTargetHandler />
       <View style={styles.container}>
         <SwipeableTabContainer

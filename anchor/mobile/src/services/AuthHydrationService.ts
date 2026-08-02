@@ -384,6 +384,78 @@ function readCanonicalPracticeSessions(
   });
 }
 
+/**
+ * Accounts whose practice history predates the canonical practice ledger
+ * (commit 7cb8f97) have real sessions in legacy activations/charges that the
+ * backend export never backfilled into `practiceSessions`. Thread Strength
+ * reads exclusively from canonical `practiceHistory`, so without this those
+ * accounts' export-restored history is permanently invisible there even
+ * though `primingHistory` (legacy) has it. Mirrors the on-device v3->v4
+ * persist migration in sessionStore.ts, but for server-restored data that
+ * never went through that local migration.
+ *
+ * Focus/Deep Prime sessions recorded after the ledger shipped are
+ * dual-written to both `practiceSession` and the legacy activation/charge
+ * tables (see backend practice.ts), so they surface in `entries` too. Id
+ * dedup can't catch that — the two rows have different ids for the same
+ * event — so this matches the same anchor/type within a few seconds of an
+ * existing canonical entry, the same proximity check
+ * `mergeLegacyAndCanonicalHistory` uses in the other direction.
+ */
+function synthesizeCanonicalFromLegacyPriming(
+  entries: PrimingHistoryEntry[],
+  accountId: string,
+  existingCanonical: PracticeSessionRecord[],
+): PracticeSessionRecord[] {
+  const legacyTypeOf = (mode: PracticeSessionRecord["practiceMode"]) =>
+    mode === "deep_prime" ? "reinforce" : mode === "visualize" ? "visualize" : "activate";
+  return entries.flatMap((entry) => {
+    const hasCanonicalCounterpart = existingCanonical.some(
+      (candidate) =>
+        candidate.anchorId === entry.anchorId &&
+        legacyTypeOf(candidate.practiceMode) === entry.type &&
+        Math.abs(
+          new Date(candidate.completedAt).getTime() -
+            new Date(entry.completedAt).getTime(),
+        ) <= 5000,
+    );
+    if (hasCanonicalCounterpart) return [];
+    const practiceMode =
+      entry.type === "reinforce"
+        ? "deep_prime"
+        : entry.type === "visualize"
+          ? "visualize"
+          : "focus";
+    const durationSeconds =
+      entry.type === "reinforce" ? 120 : entry.type === "visualize" ? 180 : 30;
+    return [
+      {
+        id: entry.id,
+        accountId,
+        anchorId: entry.anchorId,
+        anchorLocalId: null,
+        anchorServerId: entry.anchorId,
+        practiceMode,
+        plannedDurationSeconds: durationSeconds,
+        completedDurationSeconds: durationSeconds,
+        completionStatus: "completed" as const,
+        startedAt: entry.completedAt,
+        completedAt: entry.completedAt,
+        ...getCompletionTimeContext(new Date(entry.completedAt)),
+        completionSource: "restored" as const,
+        schemaVersion: PRACTICE_SESSION_SCHEMA_VERSION,
+        legacyType: entry.type,
+        guidanceVoice: "none" as const,
+        backgroundAudio: "off" as const,
+        sceneSnapshot: null,
+        nextAction: null,
+        clientVersion: null,
+        syncState: "synced" as const,
+      },
+    ];
+  });
+}
+
 function readVisualizationScenes(
   value: unknown,
   accountId: string,
@@ -715,6 +787,14 @@ class AuthHydrationService {
           exportAccount?.practiceSessions,
           resolvedUserId,
         );
+        canonicalPracticeHistory = [
+          ...canonicalPracticeHistory,
+          ...synthesizeCanonicalFromLegacyPriming(
+            primingHistory,
+            resolvedUserId,
+            canonicalPracticeHistory,
+          ),
+        ];
         primingHistory = mergeLegacyAndCanonicalHistory(
           primingHistory,
           canonicalPracticeHistory,
@@ -978,10 +1058,18 @@ class AuthHydrationService {
           ...burnedPractice.charges,
         ],
       );
-      const canonicalPracticeHistory = readCanonicalPracticeSessions(
+      let canonicalPracticeHistory = readCanonicalPracticeSessions(
         exportAccount?.practiceSessions,
         initiatingUserId,
       );
+      canonicalPracticeHistory = [
+        ...canonicalPracticeHistory,
+        ...synthesizeCanonicalFromLegacyPriming(
+          legacyPrimingHistory,
+          initiatingUserId,
+          canonicalPracticeHistory,
+        ),
+      ];
       const sceneStore = useVisualizationSceneStore.getState();
       sceneStore.bindAccount(initiatingUserId);
       readVisualizationScenes(
@@ -1008,6 +1096,7 @@ class AuthHydrationService {
         user?.totalActivations ?? 0,
         primingHistory.length,
         exportedLifetimeCount,
+        canonicalPracticeHistory.length,
       );
 
       if (totalActivations === 0) {

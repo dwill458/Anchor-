@@ -110,9 +110,18 @@ temp/
 *.tmp
 .cache/
 .codex-remote-attachments/
-graphify-out/cache/
-graphify-out/.graphify_*
-graphify-out/manifest.json
+# Generated graphify output. Patterns are unanchored so they match the nested
+# graphify-out/ directories too; the reports under the root graphify-out/ are
+# committed deliberately and stay tracked.
+**/graphify-out/cache/
+**/graphify-out/.graphify_*
+**/graphify-out/manifest.json
+anchor/mobile/graphify-out/
+
+# Throwaway git worktrees created inside the repo for PR review.
+.pr-worktree/
+.codex-pr-worktree/
+.tmp-pr-*/
 
 # ----------------------------------------------------------------------------
 # Logs
@@ -133,3 +142,6 @@ pnpm-debug.log*
 *.tgz
 .next/
 backend/uploads/
+
+# Claude Code scheduler session state (per-machine, not shareable)
+.claude/scheduled_tasks.lock

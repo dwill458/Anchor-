@@ -16,7 +16,28 @@ describe('buildHeatmapSvg', () => {
     expect(svg).toContain('>May</text>');
     expect(svg).toContain('>Jun</text>');
     expect(svg).toContain('>Jul</text>');
-    expect(svg).toContain('viewBox="-3 -3 380 162"');
-    expect(svg).toContain('x="0" y="13" width="17" height="17"');
+    expect(svg).toContain('viewBox="-3 -3 309 135"');
+    expect(svg).toContain('x="0" y="13" width="14" height="14"');
+  });
+
+  it('uses the most recent mode color for mixed-mode days while preserving total intensity', () => {
+    const svg = buildHeatmapSvg(
+      [{ date: '2026-07-30', level: 2, deep: true, mode: 'visualize' }],
+      '2026-07-31',
+      false
+    );
+
+    expect(svg).toContain('fill="#2C5F99"');
+  });
+
+  it('shrinks cells to fit a narrower widget width instead of leaving the default cell size', () => {
+    const wide = buildHeatmapSvg([], '2026-07-31', false, 320);
+    const narrow = buildHeatmapSvg([], '2026-07-31', false, 260);
+
+    const wideViewBox = wide.match(/viewBox="([^"]+)"/)?.[1];
+    const narrowViewBox = narrow.match(/viewBox="([^"]+)"/)?.[1];
+
+    expect(wideViewBox).not.toBe(narrowViewBox);
+    expect(narrow).toContain('x="0" y="13" width="13"');
   });
 });

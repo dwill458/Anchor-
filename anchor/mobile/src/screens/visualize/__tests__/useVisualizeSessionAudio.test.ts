@@ -106,25 +106,25 @@ describe('useVisualizeSessionAudio', () => {
     const plan = makePlan('female', 'ambient');
     const { rerender } = renderHook(
       props => useVisualizeSessionAudio(props),
-      { initialProps: { plan, manifest, elapsedMs: 0, isActive: false, isComplete: false, onInterruption } },
+      { initialProps: { plan, manifest, elapsedMs: 0, isActive: false, isCompleting: false, isComplete: false, onInterruption } },
     );
     expect(createdPlayers).toHaveLength(2); // ambient + first cue preloaded
 
-    rerender({ plan, manifest, elapsedMs: 0, isActive: true, isComplete: false, onInterruption });
+    rerender({ plan, manifest, elapsedMs: 0, isActive: true, isCompleting: false, isComplete: false, onInterruption });
     expect(createdPlayers[0].play).toHaveBeenCalledTimes(1);
-    rerender({ plan, manifest, elapsedMs: 1_000, isActive: true, isComplete: false, onInterruption });
+    rerender({ plan, manifest, elapsedMs: 2_000, isActive: true, isCompleting: false, isComplete: false, onInterruption });
     expect(createdPlayers[1].play).toHaveBeenCalledTimes(1);
     expect(createdPlayers).toHaveLength(3); // next cue progressively preloaded
 
-    rerender({ plan, manifest, elapsedMs: 1_500, isActive: false, isComplete: false, onInterruption });
+    rerender({ plan, manifest, elapsedMs: 2_500, isActive: false, isCompleting: false, isComplete: false, onInterruption });
     expect(createdPlayers[0].pause).toHaveBeenCalled();
     expect(createdPlayers[1].pause).toHaveBeenCalled();
-    rerender({ plan, manifest, elapsedMs: 1_500, isActive: true, isComplete: false, onInterruption });
-    expect(createdPlayers[0].seekTo).toHaveBeenCalledWith(1.5);
+    rerender({ plan, manifest, elapsedMs: 2_500, isActive: true, isCompleting: false, isComplete: false, onInterruption });
+    expect(createdPlayers[0].seekTo).toHaveBeenCalledWith(2.5);
     expect(createdPlayers[1].play).toHaveBeenCalledTimes(2); // resume, not replay from zero
 
     act(() => createdPlayers[1].options.onFinish());
-    rerender({ plan, manifest, elapsedMs: 5_000, isActive: true, isComplete: false, onInterruption });
+    rerender({ plan, manifest, elapsedMs: 14_000, isActive: true, isCompleting: false, isComplete: false, onInterruption });
     expect(createdPlayers[2].play).toHaveBeenCalledTimes(1);
     expect(createdPlayers[1].play).toHaveBeenCalledTimes(2);
   });
@@ -133,16 +133,18 @@ describe('useVisualizeSessionAudio', () => {
     const plan = makePlan('female', 'ambient');
     const { result, rerender } = renderHook(
       props => useVisualizeSessionAudio(props),
-      { initialProps: { plan, manifest, elapsedMs: 1_000, isActive: true, isComplete: false, onInterruption } },
+      { initialProps: { plan, manifest, elapsedMs: 1_500, isActive: true, isCompleting: false, isComplete: false, onInterruption } },
     );
-    rerender({ plan, manifest, elapsedMs: 60_000, isActive: false, isComplete: true, onInterruption });
+    rerender({ plan, manifest, elapsedMs: 60_000, isActive: false, isCompleting: true, isComplete: false, onInterruption });
+    act(() => jest.advanceTimersByTime(1_000));
     expect(createdPlayers.some(player => player.stop.mock.calls.length > 0)).toBe(true);
 
     const second = renderHook(() => useVisualizeSessionAudio({
       plan,
       manifest,
-      elapsedMs: 2_000,
+      elapsedMs: 1_500,
       isActive: true,
+      isCompleting: false,
       isComplete: false,
       onInterruption,
     }));
@@ -159,15 +161,15 @@ describe('useVisualizeSessionAudio', () => {
     const plan = makePlan('female', 'ambient');
     const { rerender } = renderHook(
       props => useVisualizeSessionAudio(props),
-      { initialProps: { plan, manifest, elapsedMs: 1_000, isActive: true, isComplete: false, onInterruption } },
+      { initialProps: { plan, manifest, elapsedMs: 1_500, isActive: true, isCompleting: false, isComplete: false, onInterruption } },
     );
     const ambient = createdPlayers[0];
 
     act(() => jest.advanceTimersByTime(200));
     expect(ambient.setVolume).toHaveBeenLastCalledWith(0.21);
 
-    rerender({ plan, manifest, elapsedMs: 1_500, isActive: false, isComplete: false, onInterruption });
-    rerender({ plan, manifest, elapsedMs: 1_500, isActive: true, isComplete: false, onInterruption });
+    rerender({ plan, manifest, elapsedMs: 1_500, isActive: false, isCompleting: false, isComplete: false, onInterruption });
+    rerender({ plan, manifest, elapsedMs: 1_500, isActive: true, isCompleting: false, isComplete: false, onInterruption });
 
     expect(ambient.setVolume).toHaveBeenLastCalledWith(0.21);
   });
@@ -179,6 +181,7 @@ describe('useVisualizeSessionAudio', () => {
       manifest,
       elapsedMs: 2_000,
       isActive: true,
+      isCompleting: false,
       isComplete: false,
       onInterruption,
     }));
@@ -202,6 +205,7 @@ describe('useVisualizeSessionAudio', () => {
       manifest,
       elapsedMs: 0,
       isActive: true,
+      isCompleting: false,
       isComplete: false,
       onInterruption,
     }));
@@ -219,6 +223,7 @@ describe('useVisualizeSessionAudio', () => {
       manifest,
       elapsedMs: 2_000,
       isActive: true,
+      isCompleting: false,
       isComplete: false,
       onInterruption,
     }));
@@ -244,10 +249,47 @@ describe('useVisualizeSessionAudio', () => {
       manifest,
       elapsedMs: 1_000,
       isActive: true,
+      isCompleting: false,
       isComplete: false,
       onInterruption,
     }))).not.toThrow();
     expect(mockTrackAmbientAudioLoadFailed).toHaveBeenCalled();
     expect(mockTrackGuidedAudioLoadFailed).toHaveBeenCalled();
+  });
+
+  it('does not trigger onInterruption from delayed status updates after an intentional pause', () => {
+    const plan = makePlan('none', 'ambient');
+    const { rerender } = renderHook(
+      props => useVisualizeSessionAudio(props),
+      { initialProps: { plan, manifest, elapsedMs: 1_000, isActive: true, isCompleting: false, isComplete: false, onInterruption } },
+    );
+    const ambient = createdPlayers[0];
+    act(() => ambient.options.onStatus({ playing: true, didJustFinish: false }));
+
+    // Intentionally pause the session
+    rerender({ plan, manifest, elapsedMs: 1_000, isActive: false, isCompleting: false, isComplete: false, onInterruption });
+    // Resume the session
+    rerender({ plan, manifest, elapsedMs: 1_000, isActive: true, isCompleting: false, isComplete: false, onInterruption });
+
+    // Delayed status callback from native pause arrives after resume
+    act(() => ambient.options.onStatus({ playing: false, didJustFinish: false }));
+    expect(onInterruption).not.toHaveBeenCalled();
+  });
+
+  it('skips ambient seekTo on resume when playback position is already in sync', () => {
+    const plan = makePlan('none', 'ambient');
+    const { rerender } = renderHook(
+      props => useVisualizeSessionAudio(props),
+      { initialProps: { plan, manifest, elapsedMs: 2_000, isActive: true, isCompleting: false, isComplete: false, onInterruption } },
+    );
+    const ambient = createdPlayers[0];
+    ambient.seekTo.mockClear();
+    ambient.getCurrentTime.mockReturnValue(2.0);
+
+    // Pause and resume with same position
+    rerender({ plan, manifest, elapsedMs: 2_000, isActive: false, isCompleting: false, isComplete: false, onInterruption });
+    rerender({ plan, manifest, elapsedMs: 2_000, isActive: true, isCompleting: false, isComplete: false, onInterruption });
+
+    expect(ambient.seekTo).not.toHaveBeenCalled();
   });
 });
