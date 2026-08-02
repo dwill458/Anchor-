@@ -71,7 +71,11 @@ export const ENABLE_GOOGLE_SIGN_IN = process.env.EXPO_PUBLIC_ENABLE_GOOGLE_SIGN_
 export const ENABLE_LEGACY_SUPABASE_SYNC =
   process.env.EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC === 'true';
 export const ENABLE_MERCH = process.env.EXPO_PUBLIC_ENABLE_MERCH === 'true';
-export const ENABLE_VISUALIZE = process.env.EXPO_PUBLIC_ENABLE_VISUALIZE === 'true';
+// Visualize ships in the 1.1.2 native binary. EAS Update can publish without
+// build-profile booleans, so a missing value must not remove the mode from an
+// otherwise compatible OTA bundle. Set this to "false" only for an explicit
+// production rollback.
+export const ENABLE_VISUALIZE = process.env.EXPO_PUBLIC_ENABLE_VISUALIZE !== 'false';
 // Widgets aren't ready for this release — keep the native surface built but
 // disable the JS-side sync/task-handler/deep-link wiring until they are.
 export const WIDGETS_ENABLED = process.env.EXPO_PUBLIC_ENABLE_WIDGETS === 'true';

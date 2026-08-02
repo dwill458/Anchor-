@@ -37,4 +37,24 @@ describe('config google auth defaults', () => {
       expect(config.GOOGLE_IOS_CLIENT_ID).toBe('ios-client-id');
     });
   });
+
+  it('keeps Visualize enabled when an OTA does not inject its build-profile flag', () => {
+    delete process.env.EXPO_PUBLIC_ENABLE_VISUALIZE;
+
+    jest.isolateModules(() => {
+      const config = require('../index');
+
+      expect(config.ENABLE_VISUALIZE).toBe(true);
+    });
+  });
+
+  it('allows Visualize to be explicitly disabled', () => {
+    process.env.EXPO_PUBLIC_ENABLE_VISUALIZE = 'false';
+
+    jest.isolateModules(() => {
+      const config = require('../index');
+
+      expect(config.ENABLE_VISUALIZE).toBe(false);
+    });
+  });
 });
