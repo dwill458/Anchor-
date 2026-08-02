@@ -3,8 +3,10 @@ import {
   Alert,
   Linking,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -28,6 +30,7 @@ import { SettingsSectionBlock } from '@/components/settings/SettingsSectionBlock
 import { useTeachingStore } from '@/stores/teachingStore';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import NotificationService from '@/services/NotificationService';
+import { buildNotificationDiagnosticsText } from '@/services/notifications/notificationDiagnostics';
 import revenueCatService from '@/services/RevenueCatService';
 import { useNotificationController } from '../../hooks/useNotificationController';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
@@ -117,6 +120,41 @@ export const SettingsScreen: React.FC = () => {
   const notificationsActive =
     (notifState?.notification_enabled ?? true) &&
     notifState?.notificationPermissionStatus === 'granted';
+  const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
+  const [diagnosticsReport, setDiagnosticsReport] = useState<string | null>(null);
+
+  const handleShowNotificationDiagnostics = useCallback(async () => {
+    setDiagnosticsLoading(true);
+    try {
+      setDiagnosticsReport(await buildNotificationDiagnosticsText());
+    } finally {
+      setDiagnosticsLoading(false);
+    }
+  }, []);
+
+  const handleSendTestNotification = useCallback(async () => {
+    const granted = await NotificationService.requestPermissions();
+    if (!granted) {
+      Alert.alert(
+        'Notification Permission Required',
+        'Anchor cannot deliver a test until notifications are turned on for the app.'
+      );
+      return;
+    }
+
+    const identifier = await NotificationService.scheduleDeveloperTestNotification(
+      'daily_reminder',
+      10
+    );
+
+    Alert.alert(
+      identifier ? 'Test Scheduled' : 'Test Failed',
+      identifier
+        ? 'A test reminder will arrive in about 10 seconds. Leave the app to confirm it shows in the notification tray.'
+        : NotificationService.getLastError()?.message ??
+          'The notification could not be scheduled.'
+    );
+  }, []);
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const profileEmail = useAuthStore((state) => state.profileData?.user?.email?.trim() ?? '');
@@ -670,10 +708,20 @@ export const SettingsScreen: React.FC = () => {
                   type="chevron"
                   onPress={cycleNotificationTone}
                   disabled={isLoading}
-                  showDivider={false}
                 />
               </>
             ) : null}
+            {/* Always available, including release builds: when reminders do not
+                arrive there is nothing to inspect in logs or on the server, and
+                the developer tools are gated behind __DEV__. */}
+            <SettingsRow
+              title="Notification Diagnostics"
+              subtitle="Check why reminders are or aren't arriving"
+              type="chevron"
+              onPress={handleShowNotificationDiagnostics}
+              disabled={isLoading || diagnosticsLoading}
+              showDivider={false}
+            />
           </SettingsSectionBlock>
 
           {/* Appearance section removed */}
@@ -943,6 +991,43 @@ export const SettingsScreen: React.FC = () => {
           </Pressable>
         </Pressable>
       </Modal>
+      <Modal
+        visible={diagnosticsReport !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDiagnosticsReport(null)}
+      >
+        <Pressable style={styles.hourPickerOverlay} onPress={() => setDiagnosticsReport(null)}>
+          <Pressable style={styles.diagnosticsCard} onPress={() => {}}>
+            <Text style={styles.hourPickerTitle}>Notification Diagnostics</Text>
+            <ScrollView style={styles.diagnosticsScroll}>
+              <Text selectable style={styles.diagnosticsText}>
+                {diagnosticsReport}
+              </Text>
+            </ScrollView>
+            <View style={styles.diagnosticsActions}>
+              <TouchableOpacity
+                style={styles.diagnosticsButton}
+                onPress={() => void handleSendTestNotification()}
+                accessibilityRole="button"
+              >
+                <Text style={styles.diagnosticsButtonText}>Send test (10s)</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.diagnosticsButton}
+                onPress={() => {
+                  if (diagnosticsReport) {
+                    void Share.share({ message: diagnosticsReport });
+                  }
+                }}
+                accessibilityRole="button"
+              >
+                <Text style={styles.diagnosticsButtonText}>Share report</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 };
@@ -1042,6 +1127,42 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(212,175,55,0.18)',
     backgroundColor: '#101822',
     paddingVertical: 20,
+  },
+  diagnosticsCard: {
+    maxHeight: '80%',
+    marginHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.18)',
+    backgroundColor: '#101822',
+    paddingVertical: 20,
+  },
+  diagnosticsScroll: {
+    paddingHorizontal: 20,
+  },
+  diagnosticsText: {
+    color: 'rgba(255,255,255,0.85)',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  diagnosticsActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+  diagnosticsButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.35)',
+  },
+  diagnosticsButtonText: {
+    color: colors.gold,
+    fontSize: 13,
   },
   hourPickerTitle: {
     paddingHorizontal: 20,
