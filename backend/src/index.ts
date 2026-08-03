@@ -21,6 +21,7 @@ import orderRoutes from './api/routes/orders';
 import contentRoutes from './api/routes/content';
 import billingRoutes from './api/routes/billing';
 import courseRoutes from './api/routes/courses';
+import coursePlanRoutes from './api/routes/coursePlans';
 import reflectionRoutes from './api/routes/reflections';
 import { errorHandler, notFoundHandler } from './api/middleware/errorHandler';
 import { logger } from './utils/logger';
@@ -328,6 +329,7 @@ app.use('/api/practice', practiceRoutes);
 // Chart / Workstream A routes. The route handlers remain protected by auth and
 // server-side default-off feature flags.
 app.use('/api/courses', courseRoutes);
+app.use('/api/course-plans', coursePlanRoutes);
 app.use('/api/reflections', reflectionRoutes);
 
 // AI Enhancement routes (Phase 2)

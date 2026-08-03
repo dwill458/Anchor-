@@ -26,6 +26,13 @@ export function requireChartWriteEnabled(): void {
   }
 }
 
+export function requireChartPlannerEnabled(): void {
+  const flags = getChartFeatureFlags();
+  if (!flags.chart_enabled || !flags.chart_ai_planner_enabled) {
+    throw new AppError('Chart planning is currently disabled', 403, 'FEATURE_DISABLED');
+  }
+}
+
 export function requireChartReflectionWritesEnabled(): void {
   const flags = getChartFeatureFlags();
   if (!flags.chart_enabled || !flags.chart_write_enabled || !flags.chart_reflections_enabled) {
