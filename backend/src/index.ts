@@ -20,6 +20,8 @@ import visualizationSceneRoutes from './api/routes/visualizationScenes';
 import orderRoutes from './api/routes/orders';
 import contentRoutes from './api/routes/content';
 import billingRoutes from './api/routes/billing';
+import courseRoutes from './api/routes/courses';
+import reflectionRoutes from './api/routes/reflections';
 import { errorHandler, notFoundHandler } from './api/middleware/errorHandler';
 import { logger } from './utils/logger';
 import { env } from './config/env';
@@ -32,6 +34,30 @@ dotenv.config();
 
 const sentryEnabled = Boolean(env.SENTRY_DSN);
 
+const SENSITIVE_SENTRY_KEYS = new Set([
+  'description',
+  'title',
+  'intention',
+  'intentiontext',
+  'anchorintention',
+  'body',
+  'structuredcontent',
+  'reflection',
+  'reflectionbody',
+  'whathelped',
+  'whatlearned',
+  'extractedthemes',
+  'themes',
+  'theme',
+  'skipreason',
+  'waypointtitle',
+  'waypointdescription',
+  'requestbody',
+  'rawbody',
+  'payload',
+  'resulttext',
+]);
+
 function scrubSensitiveSentryData<T extends Record<string, unknown> | undefined>(value: T): T {
   if (!value) {
     return value;
@@ -39,6 +65,10 @@ function scrubSensitiveSentryData<T extends Record<string, unknown> | undefined>
 
   for (const key of Object.keys(value)) {
     const normalizedKey = key.toLowerCase();
+    if (SENSITIVE_SENTRY_KEYS.has(normalizedKey)) {
+      value[key] = '[REDACTED]';
+      continue;
+    }
     if (
       normalizedKey === 'authorization' ||
       normalizedKey === 'cookie' ||
@@ -85,8 +115,10 @@ if (sentryEnabled) {
         scrubSensitiveSentryData(event.request.headers as Record<string, unknown>);
       }
 
-      if (event.request?.data && typeof event.request.data === 'object') {
-        scrubSensitiveSentryData(event.request.data as Record<string, unknown>);
+      // Request bodies may contain private Anchor/Reflection text under an
+      // unknown client-defined key. Never send raw request data to Sentry.
+      if (event.request?.data) {
+        delete event.request.data;
       }
 
       if (typeof event.request?.query_string === 'string') {
@@ -292,6 +324,11 @@ app.use('/api/anchors', anchorRoutes);
 
 // Practice routes
 app.use('/api/practice', practiceRoutes);
+
+// Chart / Workstream A routes. The route handlers remain protected by auth and
+// server-side default-off feature flags.
+app.use('/api/courses', courseRoutes);
+app.use('/api/reflections', reflectionRoutes);
 
 // AI Enhancement routes (Phase 2)
 app.use('/api/ai', aiRoutes);

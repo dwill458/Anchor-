@@ -13,6 +13,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "prisma:push": "prisma db push",
+    "chart:purge": "ts-node src/scripts/purgeChartData.ts",
+    "chart:verify-db": "ts-node src/scripts/verifyChartDatabase.ts",
     "test": "jest",
     "test:watch": "jest --watch",
     "lint": "eslint \"src/**/*.ts\" --ignore-pattern \"src/**/*.test.ts\" --ignore-pattern \"src/**/__tests__/**\"",

@@ -40,6 +40,7 @@ const mockPrisma = {
   charge: { create: jest.fn(), findFirst: jest.fn() },
   activation: { create: jest.fn(), findFirst: jest.fn() },
   burnedAnchor: { create: jest.fn() },
+  courseAnchorLink: { findMany: jest.fn(), update: jest.fn() },
   anchorVariationPool: {
     updateMany: jest.fn(),
   },
@@ -155,6 +156,7 @@ beforeEach(() => {
   (mockPrisma.anchorVariationPool.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
   (mockPrisma.charge.findFirst as jest.Mock).mockResolvedValue(null);
   (mockPrisma.activation.findFirst as jest.Mock).mockResolvedValue(null);
+  (mockPrisma.courseAnchorLink.findMany as jest.Mock).mockResolvedValue([]);
   mockGetRevenueCatAccess.mockResolvedValue(null);
 });
 

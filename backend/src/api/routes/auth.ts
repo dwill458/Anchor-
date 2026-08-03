@@ -14,6 +14,7 @@ import { prisma } from '../../lib/prisma';
 import { getFirebaseAdmin } from '../../config/firebase';
 import { hasCompedAccess } from '../../utils/compedAccess';
 import { logger } from '../../utils/logger';
+import { getChartFeatureFlags } from '../../config/chartFlags';
 
 const router = Router();
 
@@ -592,6 +593,7 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response, next: 
       data: {
         ...serializeUser(user),
         settings: userRecord.settings,
+        chartFlags: getChartFeatureFlags(),
       },
     });
   } catch (error) {
@@ -645,6 +647,7 @@ router.get(
           fcmToken: true,
           apnsToken: true,
           notificationsEnabled: true,
+          chartSchemaVersion: true,
           settings: true,
         },
       });
@@ -664,6 +667,11 @@ router.get(
         syncQueue,
         burnedAnchors,
         flaggedContent,
+        courses,
+        waypoints,
+        courseAnchorLinks,
+        reflections,
+        courseEvents,
       ] = await Promise.all([
         // Progression-critical sections fail the whole export instead of
         // returning a deceptively complete v2 payload with missing history.
@@ -725,6 +733,53 @@ router.get(
             }),
           []
         ),
+        getExportSection(
+          'courses',
+          exportContext,
+          () =>
+            prisma.course.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' } }),
+          []
+        ),
+        getExportSection(
+          'waypoints',
+          exportContext,
+          () =>
+            prisma.waypoint.findMany({
+              where: { userId: user.id },
+              orderBy: [{ courseId: 'asc' }, { position: 'asc' }],
+            }),
+          []
+        ),
+        getExportSection(
+          'courseAnchorLinks',
+          exportContext,
+          () =>
+            prisma.courseAnchorLink.findMany({
+              where: { userId: user.id },
+              orderBy: { createdAt: 'desc' },
+            }),
+          []
+        ),
+        getExportSection(
+          'reflections',
+          exportContext,
+          () =>
+            prisma.reflection.findMany({
+              where: { userId: user.id },
+              orderBy: { createdAt: 'desc' },
+            }),
+          []
+        ),
+        getExportSection(
+          'courseEvents',
+          exportContext,
+          () =>
+            prisma.courseEvent.findMany({
+              where: { userId: user.id },
+              orderBy: [{ recordedAt: 'desc' }, { id: 'desc' }],
+            }),
+          []
+        ),
       ]);
       const { passwordHash: _passwordHash, ...exportedUser } = user as typeof user & {
         passwordHash?: string | null;
@@ -733,9 +788,9 @@ router.get(
       res.json({
         success: true,
         data: {
-          // v3 adds canonical practice sessions and account-scoped scenes while
-          // retaining every v2 field for older clients.
-          exportVersion: 3,
+          // v4 adds the complete Chart foundation while retaining every
+          // previous export section for older clients.
+          exportVersion: 4,
           exportedAt: new Date().toISOString(),
           account: {
             ...exportedUser,
@@ -745,6 +800,11 @@ router.get(
             practiceSessions,
             visualizationScenes,
             orders,
+            courses,
+            waypoints,
+            courseAnchorLinks,
+            reflections,
+            courseEvents,
           },
           burnedAnchors,
           flaggedContent,
@@ -1058,6 +1118,11 @@ router.delete(
         await tx.syncQueue.deleteMany({
           where: { userId: user.id },
         });
+        // Chart has both direct and nested ownership paths. Explicit deletes
+        // make account deletion auditable even if a future relation changes.
+        await tx.reflection.deleteMany({ where: { userId: user.id } });
+        await tx.aIPlanProposal.deleteMany({ where: { userId: user.id } });
+        await tx.course.deleteMany({ where: { userId: user.id } });
         await tx.user.delete({
           where: { id: user.id },
         });
