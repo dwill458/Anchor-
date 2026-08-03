@@ -4,6 +4,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { useCourseStore } from '@/stores/courseStore';
+import { chartApiClient } from '@/services/ChartApiClient';
 import type { ChartStackParamList } from '@/types/chart';
 import { ChartButton, ChartCard, ChartScreenFrame, ReadOnlyNotice } from './chartUi';
 
@@ -33,6 +34,7 @@ export const CourseSetupScreen: React.FC = () => {
   const route = useRoute<SetupRoute>();
   const store = useCourseStore();
   const createKey = useRef(keyFor('course-create')).current;
+  const plannerKey = useRef(keyFor('plan-generate')).current;
   const [destinationText, setDestinationText] = useState('');
   const [waypoints, setWaypoints] = useState<DraftWaypoint[]>([]);
   const [saving, setSaving] = useState(false);
@@ -96,10 +98,46 @@ export const CourseSetupScreen: React.FC = () => {
     }
   };
 
+  const generatePlan = async () => {
+    const destination = destinationText.trim();
+    if (destination.length < 1 || destination.length > 140) {
+      setFieldError('Enter a destination before generating a plan.');
+      return;
+    }
+    if (store.offline || !store.flags.chart_ai_planner_enabled) {
+      setFieldError(store.offline ? 'You are offline. Plan generation is unavailable.' : 'AI planning is currently unavailable.');
+      return;
+    }
+    setFieldError(null);
+    setSaving(true);
+    try {
+      const result = await chartApiClient.generateCoursePlan({
+        destinationText: destination,
+        idempotencyKey: plannerKey,
+      });
+      navigation.navigate('AIPlanReview', {
+        courseId: null,
+        proposalId: result.data.proposalId,
+      });
+    } catch {
+      setFieldError('The suggested plan could not be generated. Try again when you are ready.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <ChartScreenFrame title="Plot Your Course" subtitle="Set a destination, then give it a path.">
       <ChartCard>
-        <Text style={{ color: '#D4AF37', fontFamily: 'Inter-SemiBold', fontSize: 13 }}>DESTINATION</Text>
+        <Text
+          style={{
+            color: '#D4AF37',
+            fontFamily: 'Inter-SemiBold',
+            fontSize: 13,
+          }}
+        >
+          DESTINATION
+        </Text>
         <TextInput
           value={destinationText}
           onChangeText={setDestinationText}
@@ -110,12 +148,35 @@ export const CourseSetupScreen: React.FC = () => {
           accessibilityLabel="Course destination"
           multiline
         />
-        <Text style={{ color: '#9E9E9E', fontFamily: 'Inter-Regular', fontSize: 12 }}>{destinationText.length}/140</Text>
+        <Text
+          style={{
+            color: '#9E9E9E',
+            fontFamily: 'Inter-Regular',
+            fontSize: 12,
+          }}
+        >
+          {destinationText.length}/140
+        </Text>
       </ChartCard>
 
       <ChartCard>
-        <Text style={{ color: '#D4AF37', fontFamily: 'Inter-SemiBold', fontSize: 13 }}>WAYPOINTS · {waypoints.length}/7</Text>
-        <Text style={{ color: '#C0C0C0', fontFamily: 'Inter-Regular', fontSize: 14, lineHeight: 20 }}>
+        <Text
+          style={{
+            color: '#D4AF37',
+            fontFamily: 'Inter-SemiBold',
+            fontSize: 13,
+          }}
+        >
+          WAYPOINTS · {waypoints.length}/7
+        </Text>
+        <Text
+          style={{
+            color: '#C0C0C0',
+            fontFamily: 'Inter-Regular',
+            fontSize: 14,
+            lineHeight: 20,
+          }}
+        >
           Add the steps that make the destination real. The server will determine lifecycle state after publishing.
         </Text>
         {waypoints.map((waypoint, index) => (
@@ -141,11 +202,37 @@ export const CourseSetupScreen: React.FC = () => {
             />
           </View>
         ))}
-        <ChartButton label="Add waypoint" secondary onPress={addWaypoint} disabled={waypoints.length >= 7 || store.readOnly} hint={store.readOnly ? 'Chart changes are currently disabled.' : undefined} />
+        <ChartButton
+          label="Add waypoint"
+          secondary
+          onPress={addWaypoint}
+          disabled={waypoints.length >= 7 || store.readOnly}
+          hint={store.readOnly ? 'Chart changes are currently disabled.' : undefined}
+        />
       </ChartCard>
 
-      {fieldError ? <Text accessibilityLiveRegion="assertive" style={{ color: '#FFB1B1', fontFamily: 'Inter-Regular', fontSize: 14 }}>{fieldError}</Text> : null}
+      {fieldError ? (
+        <Text
+          accessibilityLiveRegion="assertive"
+          style={{
+            color: '#FFB1B1',
+            fontFamily: 'Inter-Regular',
+            fontSize: 14,
+          }}
+        >
+          {fieldError}
+        </Text>
+      ) : null}
       {store.readOnly ? <ReadOnlyNotice reason={store.offline ? 'You are offline. Course setup is disabled until you reconnect.' : 'Course setup is currently read-only.'} /> : null}
+      {store.flags.chart_ai_planner_enabled ? (
+        <ChartButton
+          label="Generate suggested plan"
+          secondary
+          onPress={() => void generatePlan()}
+          disabled={saving || store.offline}
+          hint="Creates a proposal for review. It will not change your Course."
+        />
+      ) : null}
       <ChartButton label="Save draft" onPress={() => void save(false)} disabled={saving || store.readOnly} />
       <ChartButton label="Publish Course" secondary onPress={() => void save(true)} disabled={saving || store.readOnly || waypoints.length === 0} />
     </ChartScreenFrame>
