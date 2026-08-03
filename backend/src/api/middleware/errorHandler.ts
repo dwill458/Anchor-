@@ -13,11 +13,18 @@ import { logger } from '../../utils/logger';
 export class AppError extends Error {
   statusCode: number;
   code: string;
+  meta?: Record<string, unknown>;
 
-  constructor(message: string, statusCode: number = 500, code: string = 'ERROR') {
+  constructor(
+    message: string,
+    statusCode: number = 500,
+    code: string = 'ERROR',
+    meta?: Record<string, unknown>
+  ) {
     super(message);
     this.statusCode = statusCode;
     this.code = code;
+    this.meta = meta;
     this.name = 'AppError';
   }
 }
@@ -38,10 +45,12 @@ export const errorHandler = (
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _next: NextFunction
 ): void => {
-  // Log error for debugging
-  logger.error('Request error', err, {
+  // Keep request-error telemetry structural. Error messages and stacks can
+  // contain user-authored Chart text through validation/database errors.
+  logger.error('Request error', undefined, {
     path: req.path,
     method: req.method,
+    code: err instanceof AppError ? err.code : 'INTERNAL_SERVER_ERROR',
   });
 
   // Default to 500 server error
@@ -63,6 +72,7 @@ export const errorHandler = (
       code: string;
       message: string;
       stack?: string;
+      details?: Record<string, unknown>;
     };
   } = {
     success: false,
@@ -71,6 +81,10 @@ export const errorHandler = (
       message,
     },
   };
+
+  if (err instanceof AppError && err.meta) {
+    response.error.details = err.meta;
+  }
 
   if (process.env.EXPOSE_ERROR_STACK === 'true' || process.env.NODE_ENV === 'development') {
     response.error.stack = err.stack;

@@ -17,6 +17,12 @@ export interface EnvConfig {
   COMPED_ACCESS_EMAILS?: string; // Comma/space-separated list of comped account emails
   ENABLE_MERCH: boolean;
   ENABLE_VISUALIZE: boolean;
+  ENABLE_CHART: boolean;
+  ENABLE_CHART_WRITE: boolean;
+  ENABLE_CHART_AI_PLANNER: boolean;
+  ENABLE_CHART_REFLECTIONS: boolean;
+  ENABLE_CHART_NOTIFICATIONS: boolean;
+  ENABLE_CHART_EXISTING_USER_INTRO: boolean;
   EXPOSE_ERROR_STACK: boolean;
 
   // Auth (Optional - for future Firebase Admin integration)
@@ -224,6 +230,33 @@ export function validateEnv(): EnvConfig {
       ),
       ENABLE_MERCH: validateBoolean('ENABLE_MERCH', process.env.ENABLE_MERCH, false),
       ENABLE_VISUALIZE: validateBoolean('ENABLE_VISUALIZE', process.env.ENABLE_VISUALIZE, false),
+      // Chart is deliberately default-off until Workstream G enables it.
+      ENABLE_CHART: validateBoolean('ENABLE_CHART', process.env.ENABLE_CHART, false),
+      ENABLE_CHART_WRITE: validateBoolean(
+        'ENABLE_CHART_WRITE',
+        process.env.ENABLE_CHART_WRITE,
+        false
+      ),
+      ENABLE_CHART_AI_PLANNER: validateBoolean(
+        'ENABLE_CHART_AI_PLANNER',
+        process.env.ENABLE_CHART_AI_PLANNER,
+        false
+      ),
+      ENABLE_CHART_REFLECTIONS: validateBoolean(
+        'ENABLE_CHART_REFLECTIONS',
+        process.env.ENABLE_CHART_REFLECTIONS,
+        false
+      ),
+      ENABLE_CHART_NOTIFICATIONS: validateBoolean(
+        'ENABLE_CHART_NOTIFICATIONS',
+        process.env.ENABLE_CHART_NOTIFICATIONS,
+        false
+      ),
+      ENABLE_CHART_EXISTING_USER_INTRO: validateBoolean(
+        'ENABLE_CHART_EXISTING_USER_INTRO',
+        process.env.ENABLE_CHART_EXISTING_USER_INTRO,
+        false
+      ),
       EXPOSE_ERROR_STACK: validateBoolean(
         'EXPOSE_ERROR_STACK',
         process.env.EXPOSE_ERROR_STACK,

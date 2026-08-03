@@ -32,6 +32,7 @@ model User {
   updatedAt              DateTime  @updatedAt
   lastSeenAt             DateTime?
   hasCompletedOnboarding Boolean   @default(false)
+  chartSchemaVersion     Int       @default(0) @map("chart_schema_version")
 
   // Stats
   totalAnchorsCreated  Int       @default(0)
@@ -48,16 +49,19 @@ model User {
   notificationsEnabled Boolean   @default(true) @map("notifications_enabled")
 
   // Relations
-  anchors        Anchor[]
-  activations    Activation[]
-  charges        Charge[]
-  orders         Order[]
-  settings       UserSettings?
-  burnedAnchors  BurnedAnchor[]
-  practiceSessions PracticeSession[]
+  anchors             Anchor[]
+  activations         Activation[]
+  charges             Charge[]
+  orders              Order[]
+  settings            UserSettings?
+  burnedAnchors       BurnedAnchor[]
+  practiceSessions    PracticeSession[]
   visualizationScenes VisualizationScene[]
-  flaggedContent FlaggedContent[]
-  syncQueue      SyncQueue[]
+  flaggedContent      FlaggedContent[]
+  syncQueue           SyncQueue[]
+  courses             Course[]
+  reflections         Reflection[]
+  proposals           AIPlanProposal[]
 
   @@map("users")
 }
@@ -155,10 +159,11 @@ model Anchor {
   updatedAt DateTime @updatedAt
 
   // Relations
-  activations Activation[]
-  charges     Charge[]
-  practiceSessions PracticeSession[]
+  activations        Activation[]
+  charges            Charge[]
+  practiceSessions   PracticeSession[]
   visualizationScene VisualizationScene?
+  courseAnchorLinks  CourseAnchorLink[]
 
   @@index([userId])
   @@index([userId, isArchived]) // covers all vault queries (always filter isArchived=false)
@@ -247,38 +252,265 @@ model Charge {
 // Canonical practice history. Legacy Activation/Charge rows remain in place
 // for backward compatibility and are merged during account restoration.
 model PracticeSession {
-  id                       String   @id
-  userId                   String
-  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  anchorId                 String?
-  anchor                   Anchor?  @relation(fields: [anchorId], references: [id], onDelete: SetNull)
-  anchorLocalId            String?  @map("anchor_local_id")
-  anchorServerIdSnapshot   String?  @map("anchor_server_id_snapshot")
-  practiceMode             String   @map("practice_mode")
-  plannedDurationSeconds   Int      @map("planned_duration_seconds")
-  completedDurationSeconds Int      @map("completed_duration_seconds")
-  completionStatus         String   @default("completed") @map("completion_status")
-  startedAt                DateTime @map("started_at")
-  completedAt              DateTime @map("completed_at")
-  localDateKey             String   @map("local_date_key")
-  timeZone                 String   @map("time_zone")
-  utcOffsetMinutesAtCompletion Int  @map("utc_offset_minutes_at_completion")
-  completionSource         String   @map("completion_source")
-  schemaVersion            Int      @default(2) @map("schema_version")
-  legacyType               String?  @map("legacy_type")
-  guidanceVoice            String   @map("guidance_voice")
-  backgroundAudio          String   @map("background_audio")
-  sceneSnapshot            String?  @db.Text @map("scene_snapshot")
-  nextAction               String?  @db.Text @map("next_action")
-  clientVersion            String?  @map("client_version")
-  metadata                 Json?
-  createdAt                DateTime @default(now()) @map("created_at")
-  updatedAt                DateTime @updatedAt @map("updated_at")
+  id                           String   @id
+  userId                       String
+  user                         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anchorId                     String?
+  anchor                       Anchor?  @relation(fields: [anchorId], references: [id], onDelete: SetNull)
+  anchorLocalId                String?  @map("anchor_local_id")
+  anchorServerIdSnapshot       String?  @map("anchor_server_id_snapshot")
+  practiceMode                 String   @map("practice_mode")
+  plannedDurationSeconds       Int      @map("planned_duration_seconds")
+  completedDurationSeconds     Int      @map("completed_duration_seconds")
+  completionStatus             String   @default("completed") @map("completion_status")
+  startedAt                    DateTime @map("started_at")
+  completedAt                  DateTime @map("completed_at")
+  localDateKey                 String   @map("local_date_key")
+  timeZone                     String   @map("time_zone")
+  utcOffsetMinutesAtCompletion Int      @map("utc_offset_minutes_at_completion")
+  completionSource             String   @map("completion_source")
+  schemaVersion                Int      @default(2) @map("schema_version")
+  legacyType                   String?  @map("legacy_type")
+  guidanceVoice                String   @map("guidance_voice")
+  backgroundAudio              String   @map("background_audio")
+  sceneSnapshot                String?  @map("scene_snapshot") @db.Text
+  nextAction                   String?  @map("next_action") @db.Text
+  clientVersion                String?  @map("client_version")
+  metadata                     Json?
+  createdAt                    DateTime @default(now()) @map("created_at")
+  updatedAt                    DateTime @updatedAt @map("updated_at")
+
+  // Optional Chart context. These are soft references by contract: practice
+  // history must survive Course deletion and therefore has no foreign keys.
+  courseId            String? @map("course_id")
+  waypointId          String? @map("waypoint_id")
+  practiceEntrySource String? @map("practice_entry_source")
 
   @@index([userId, completedAt])
   @@index([userId, practiceMode])
   @@index([userId, anchorId])
+  @@index([courseId, completedAt])
   @@map("practice_sessions")
+}
+
+// ============================================================================
+// Chart — Courses, Waypoints, Reflections, Events, and AI proposals
+// ============================================================================
+
+enum CourseStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum CourseAnchorRole {
+  DESTINATION
+  WAYPOINT_PRIMARY
+}
+
+enum ReflectionSource {
+  POST_PRACTICE
+  MANUAL_COURSE
+  WAYPOINT_COMPLETION
+  COURSE_COMPLETION
+  ANCHOR_RELEASE
+}
+
+enum ReflectionPromptType {
+  HOW_DO_YOU_FEEL_NOW
+  WHAT_CAME_UP
+  WHAT_STOOD_OUT
+  WHAT_FELT_STRONGEST
+  COURSE_STATUS
+  WAYPOINT_COMPLETION
+  FINAL_REFLECTION
+}
+
+enum ReflectionMood {
+  CALM
+  FOCUSED
+  ENERGIZED
+  UNCHANGED
+  DISTRACTED
+}
+
+enum CourseEventType {
+  COURSE_CREATED
+  DESTINATION_CHANGED
+  WAYPOINT_ADDED
+  WAYPOINT_REORDERED
+  DESTINATION_ANCHOR_LINKED
+  WAYPOINT_ANCHOR_LINKED
+  PRACTICE_COMPLETED
+  REFLECTION_ADDED
+  WAYPOINT_REACHED
+  WAYPOINT_SKIPPED
+  WAYPOINT_CANCELLED
+  WAYPOINT_BLOCKED
+  WAYPOINT_UNBLOCKED
+  COURSE_COMPLETED
+  COURSE_ARCHIVED
+  COURSE_RESTORED
+}
+
+model Course {
+  id     String @id @default(uuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  destinationText       String       @map("destination_text") @db.VarChar(140)
+  status                CourseStatus @default(DRAFT)
+  currentWaypointId     String?      @unique @map("current_waypoint_id")
+  currentWaypoint       Waypoint?    @relation("CourseCurrentWaypoint", fields: [currentWaypointId], references: [id], onDelete: SetNull)
+  version               Int          @default(1)
+  createdFromProposalId String?      @map("created_from_proposal_id")
+  plottedAt             DateTime     @default(now()) @map("plotted_at")
+  completedAt           DateTime?    @map("completed_at")
+  archivedAt            DateTime?    @map("archived_at")
+  deletedAt             DateTime?    @map("deleted_at")
+  createdAt             DateTime     @default(now()) @map("created_at")
+  updatedAt             DateTime     @updatedAt @map("updated_at")
+  idempotencyKey        String?      @unique @map("idempotency_key")
+  schemaVersion         Int          @default(1) @map("schema_version")
+
+  waypoints   Waypoint[]
+  anchorLinks CourseAnchorLink[]
+  events      CourseEvent[]
+  reflections Reflection[]
+  proposals   AIPlanProposal[]
+
+  @@index([userId, status])
+  @@index([userId, deletedAt])
+  @@index([userId, updatedAt])
+  @@map("courses")
+}
+
+model Waypoint {
+  id                          String    @id @default(uuid())
+  userId                      String    @map("user_id")
+  courseId                    String    @map("course_id")
+  course                      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  position                    Int
+  title                       String    @db.VarChar(60)
+  description                 String?   @db.VarChar(400)
+  reachedAt                   DateTime? @map("reached_at")
+  skippedAt                   DateTime? @map("skipped_at")
+  cancelledAt                 DateTime? @map("cancelled_at")
+  supportingPracticeSessionId String?   @map("supporting_practice_session_id")
+  createdAt                   DateTime  @default(now()) @map("created_at")
+  updatedAt                   DateTime  @updatedAt @map("updated_at")
+
+  currentForCourse Course?            @relation("CourseCurrentWaypoint")
+  anchorLinks      CourseAnchorLink[]
+  events           CourseEvent[]
+  reflections      Reflection[]
+
+  @@unique([courseId, position])
+  @@index([courseId, reachedAt])
+  @@index([userId])
+  @@map("waypoints")
+}
+
+model CourseAnchorLink {
+  id             String           @id @default(uuid())
+  userId         String           @map("user_id")
+  courseId       String           @map("course_id")
+  course         Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  waypointId     String?          @map("waypoint_id")
+  waypoint       Waypoint?        @relation(fields: [waypointId], references: [id], onDelete: Cascade)
+  anchorId       String?          @map("anchor_id")
+  anchor         Anchor?          @relation(fields: [anchorId], references: [id], onDelete: SetNull)
+  role           CourseAnchorRole
+  anchorSnapshot Json             @map("anchor_snapshot")
+  linkedAt       DateTime         @default(now()) @map("linked_at")
+  unlinkedAt     DateTime?        @map("unlinked_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  @@index([courseId, role, unlinkedAt])
+  @@index([waypointId, unlinkedAt])
+  @@index([anchorId])
+  @@index([userId])
+  @@map("course_anchor_links")
+}
+
+model Reflection {
+  id                 String               @id @default(uuid())
+  userId             String               @map("user_id")
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  source             ReflectionSource
+  promptType         ReflectionPromptType @map("prompt_type")
+  promptVersion      Int                  @default(1) @map("prompt_version")
+  body               String?              @db.VarChar(1000)
+  structuredContent  Json?                @map("structured_content")
+  moodBefore         ReflectionMood?      @map("mood_before")
+  moodAfter          ReflectionMood?      @map("mood_after")
+  practiceSessionId  String?              @map("practice_session_id")
+  anchorId           String?              @map("anchor_id")
+  courseId           String?              @map("course_id")
+  course             Course?              @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  waypointId         String?              @map("waypoint_id")
+  waypoint           Waypoint?            @relation(fields: [waypointId], references: [id], onDelete: Cascade)
+  aiConsentGrantedAt DateTime?            @map("ai_consent_granted_at")
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
+  deletedAt          DateTime?            @map("deleted_at")
+  idempotencyKey     String               @unique @map("idempotency_key")
+  schemaVersion      Int                  @default(1) @map("schema_version")
+
+  @@index([userId, createdAt])
+  @@index([courseId, createdAt])
+  @@index([waypointId, createdAt])
+  @@index([practiceSessionId])
+  @@map("reflections")
+}
+
+model CourseEvent {
+  id               String          @id @default(uuid())
+  userId           String          @map("user_id")
+  courseId         String          @map("course_id")
+  course           Course          @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  waypointId       String?         @map("waypoint_id")
+  waypoint         Waypoint?       @relation(fields: [waypointId], references: [id], onDelete: Cascade)
+  eventType        CourseEventType @map("event_type")
+  sourceEntityType String?         @map("source_entity_type")
+  sourceEntityId   String?         @map("source_entity_id")
+  snapshot         Json?
+  occurredAt       DateTime        @map("occurred_at")
+  recordedAt       DateTime        @default(now()) @map("recorded_at")
+  idempotencyKey   String          @unique @map("idempotency_key")
+  eventVersion     Int             @default(1) @map("event_version")
+
+  @@index([courseId, recordedAt])
+  @@index([waypointId, recordedAt])
+  @@index([userId])
+  @@map("course_events")
+}
+
+model AIPlanProposal {
+  id                        String    @id @default(uuid())
+  userId                    String    @map("user_id")
+  user                      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId                  String?   @map("course_id")
+  course                    Course?   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  baseCourseVersion         Int?      @map("base_course_version")
+  plannerVersion            String    @map("planner_version")
+  modelVersion              String    @map("model_version")
+  inputHash                 String    @map("input_hash")
+  destinationInterpretation String    @map("destination_interpretation") @db.VarChar(280)
+  waypoints                 Json
+  generationSource          String    @map("generation_source")
+  fallbackReason            String?   @map("fallback_reason")
+  status                    String    @default("PENDING")
+  createdAt                 DateTime  @default(now()) @map("created_at")
+  expiresAt                 DateTime  @map("expires_at")
+  acceptedAt                DateTime? @map("accepted_at")
+  idempotencyKey            String    @unique @map("idempotency_key")
+
+  @@index([userId, createdAt])
+  @@index([courseId, status])
+  @@map("ai_plan_proposals")
 }
 
 model VisualizationScene {
@@ -287,8 +519,8 @@ model VisualizationScene {
   user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   anchorId           String   @unique
   anchor             Anchor   @relation(fields: [anchorId], references: [id], onDelete: Cascade)
-  currentText        String   @db.Text @map("current_text")
-  originalSuggestion String   @db.Text @map("original_suggestion")
+  currentText        String   @map("current_text") @db.Text
+  originalSuggestion String   @map("original_suggestion") @db.Text
   generationSource   String   @map("generation_source")
   generationVersion  String   @map("generation_version")
   clientUpdatedAt    DateTime @map("client_updated_at")
@@ -381,15 +613,15 @@ model UserSettings {
   streakProtection     Boolean @default(true)
 
   // Defaults
-  defaultChargeDuration Int    @default(300) // seconds
-  focusSessionMode      String @default("quick")
-  focusSessionDuration  Int    @default(30) // seconds
-  focusSessionAudio     String @default("ambient")
-  primeSessionDuration  Int    @default(120) // seconds
-  primeSessionAudio     String @default("ambient")
-  sessionAudioDefaults  Json   @default("{\"focus\":{\"guidanceVoice\":\"female\",\"backgroundAudio\":\"ambient\"},\"deep_prime\":{\"guidanceVoice\":\"female\",\"backgroundAudio\":\"ambient\"},\"visualize\":{\"guidanceVoice\":\"female\",\"backgroundAudio\":\"ambient\"}}")
-  visualizeSessionDuration Int @default(180)
-  hapticIntensity       Int    @default(3) // 1-5 scale
+  defaultChargeDuration    Int    @default(300) // seconds
+  focusSessionMode         String @default("quick")
+  focusSessionDuration     Int    @default(30) // seconds
+  focusSessionAudio        String @default("ambient")
+  primeSessionDuration     Int    @default(120) // seconds
+  primeSessionAudio        String @default("ambient")
+  sessionAudioDefaults     Json   @default("{\"focus\":{\"guidanceVoice\":\"female\",\"backgroundAudio\":\"ambient\"},\"deep_prime\":{\"guidanceVoice\":\"female\",\"backgroundAudio\":\"ambient\"},\"visualize\":{\"guidanceVoice\":\"female\",\"backgroundAudio\":\"ambient\"}}")
+  visualizeSessionDuration Int    @default(180)
+  hapticIntensity          Int    @default(3) // 1-5 scale
 
   // UI Preferences
   vaultViewType String @default("grid") // 'grid' or 'list'

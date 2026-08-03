@@ -22,8 +22,10 @@ import { useTabNavigation } from "@/contexts/TabNavigationContext";
 import { usePracticeEntry } from "@/hooks/usePracticeEntry";
 import { useAnchorStore } from "@/stores/anchorStore";
 import { ENABLE_VISUALIZE } from "@/config";
-
-let initialUrlConsumed = false;
+import { useAuthStore } from "@/stores/authStore";
+import { resolveChartFeatureFlags } from "@/types/chart";
+import { claimInitialDeepLink, parseChartDeepLink, resetInitialDeepLinkClaimForTests } from "@/navigation/chartDeepLinks";
+import { useNavigationResumeStore } from "@/stores/navigationResumeStore";
 
 export function isWidgetPracticeDeepLink(
   url: string | null | undefined,
@@ -67,14 +69,46 @@ export function getVisualizeAnchorId(
 }
 
 export function WidgetDeepLinkHandler(): null {
-  const { navigateToPractice } = useTabNavigation();
+  const { navigateToPractice, navigateToChart, navigateToVault } = useTabNavigation();
   const { startPractice } = usePracticeEntry();
   const navigateToPracticeRef = useRef(navigateToPractice);
   navigateToPracticeRef.current = navigateToPractice;
   const startPracticeRef = useRef(startPractice);
   startPracticeRef.current = startPractice;
+  const navigateToChartRef = useRef(navigateToChart);
+  navigateToChartRef.current = navigateToChart;
+  const navigateToVaultRef = useRef(navigateToVault);
+  navigateToVaultRef.current = navigateToVault;
 
   const handleUrl = (url: string | null | undefined) => {
+    const chartTarget = parseChartDeepLink(url);
+    if (chartTarget) {
+      const flags = resolveChartFeatureFlags(useAuthStore.getState().user?.chartFlags);
+      if (!flags.chart_enabled) {
+        navigateToVaultRef.current();
+        return;
+      }
+      if (chartTarget.kind === 'chart_home') {
+        navigateToChartRef.current();
+      } else if (chartTarget.kind === 'course') {
+        navigateToChartRef.current('CourseDetails', { courseId: chartTarget.courseId });
+      } else if (chartTarget.kind === 'log') {
+        navigateToChartRef.current('CourseLog', { courseId: chartTarget.courseId });
+      } else {
+        // Keep the exact target through auth/paywall boundaries even when the
+        // Chart stack is not currently mounted.
+        useNavigationResumeStore.getState().setTarget({
+          kind: 'chart_waypoint',
+          courseId: chartTarget.courseId,
+          waypointId: chartTarget.waypointId,
+        });
+        navigateToChartRef.current('WaypointDetail', {
+          courseId: chartTarget.courseId,
+          waypointId: chartTarget.waypointId,
+        });
+      }
+      return;
+    }
     const visualizeAnchorId = getVisualizeAnchorId(url);
     if (visualizeAnchorId) {
       if (!ENABLE_VISUALIZE) {
@@ -114,8 +148,7 @@ export function WidgetDeepLinkHandler(): null {
   };
 
   useEffect(() => {
-    if (!initialUrlConsumed) {
-      initialUrlConsumed = true;
+    if (claimInitialDeepLink()) {
       void Linking.getInitialURL().then((url) => {
         handleUrl(url);
       });
@@ -132,5 +165,5 @@ export function WidgetDeepLinkHandler(): null {
 
 /** Test-only: allows re-consuming the initial URL between tests. */
 export function __resetWidgetDeepLinkForTests(): void {
-  initialUrlConsumed = false;
+  resetInitialDeepLinkClaimForTests();
 }

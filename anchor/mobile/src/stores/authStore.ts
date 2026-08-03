@@ -32,6 +32,8 @@ import { useSubscriptionStore, computeDaysRemaining } from '@/stores/subscriptio
 import { useTeachingStore } from '@/stores/teachingStore';
 import { useForgeMomentStore } from '@/stores/forgeMomentStore';
 import { useVisualizationSceneStore } from '@/stores/visualizationSceneStore';
+import { purgeChartCacheForAccount, useCourseStore } from '@/stores/courseStore';
+import { useNavigationResumeStore } from '@/stores/navigationResumeStore';
 import { calculateStreak } from '@/utils/streakHelpers';
 import {
   createDeveloperMasterUser,
@@ -431,6 +433,9 @@ export const useAuthStore = create<AuthState>()(
 
       // Actions
       setUser: (user) => {
+        if (get().user?.id !== (user?.id ?? null)) {
+          useCourseStore.getState().bindAccount(user?.id ?? null);
+        }
         applyUserToSubscriptionStore(user);
         useProfileStore.getState().syncFromUser(user);
         set((state) => {
@@ -462,6 +467,9 @@ export const useAuthStore = create<AuthState>()(
         }),
 
       setSession: (user, token) => {
+        if (get().user?.id !== user.id) {
+          useCourseStore.getState().bindAccount(user.id);
+        }
         applyUserToSubscriptionStore(user);
         useProfileStore.getState().syncFromUser(user);
         set((state) => {
@@ -1039,6 +1047,9 @@ export const useAuthStore = create<AuthState>()(
         useVisualizationSceneStore.getState().clearActiveAccount();
         useProfileStore.getState().resetProfile();
         useSettingsStore.getState().bindSessionAudioDefaultsOwner(null);
+        useCourseStore.getState().clearAccount(userId);
+        useNavigationResumeStore.getState().setTarget(null);
+        useNavigationResumeStore.getState().setChartDeepLink(null);
         set({
           user: null,
           token: null,
@@ -1055,6 +1066,7 @@ export const useAuthStore = create<AuthState>()(
         // Do not clear anchor-subscription-override-storage on account sign-out.
         void Promise.all([
           clearNotificationSession(),
+          ...(userId ? [purgeChartCacheForAccount(userId)] : []),
           encryptedPersistStorage.removeItem(ANCHOR_VAULT_STORAGE_KEY),
           encryptedPersistStorage.removeItem(ANCHOR_SESSION_STORAGE_KEY),
           encryptedPersistStorage.removeItem(CACHED_USER_KEY),

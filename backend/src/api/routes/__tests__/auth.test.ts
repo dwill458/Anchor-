@@ -65,6 +65,12 @@ const mockPrisma = {
     findMany: jest.fn(),
     deleteMany: jest.fn(),
   },
+  course: { findMany: jest.fn(), deleteMany: jest.fn() },
+  waypoint: { findMany: jest.fn() },
+  courseAnchorLink: { findMany: jest.fn() },
+  reflection: { findMany: jest.fn(), deleteMany: jest.fn() },
+  courseEvent: { findMany: jest.fn() },
+  aIPlanProposal: { deleteMany: jest.fn() },
 };
 
 jest.mock('../../../lib/prisma', () => ({
@@ -495,7 +501,7 @@ describe('GET /api/auth/me/export', () => {
       orderBy: { createdAt: 'desc' },
     });
     expect(res.body.data.account.passwordHash).toBeUndefined();
-    expect(res.body.data.exportVersion).toBe(3);
+    expect(res.body.data.exportVersion).toBe(4);
     expect(res.body.data.account.practiceSessions).toEqual([
       expect.objectContaining({ id: 'session-1' }),
     ]);
@@ -548,7 +554,7 @@ describe('GET /api/auth/me/export', () => {
     expect(res.body.error.code).toBe('EXPORT_ERROR');
   });
 
-  it('exports only the authenticated account burned-anchor snapshots while retaining v2 fields in v3', async () => {
+  it('exports only the authenticated account burned-anchor snapshots while retaining prior fields in v4', async () => {
     const burnedAnchor = {
       id: 'burned-1',
       originalAnchorId: 'anchor-1',
@@ -596,7 +602,7 @@ describe('GET /api/auth/me/export', () => {
     const res = await request(buildApp()).get('/api/auth/me/export');
 
     expect(res.status).toBe(200);
-    expect(res.body.data.exportVersion).toBe(3);
+    expect(res.body.data.exportVersion).toBe(4);
     expect(mockPrisma.burnedAnchor.findMany).toHaveBeenCalledWith({
       where: { userId: 'db-user-1' },
       orderBy: { burnedAt: 'desc' },
