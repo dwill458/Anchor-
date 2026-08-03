@@ -14,6 +14,7 @@ import type {
   PracticeCompletionSource,
   PracticeMode,
   PracticeSessionRecord,
+  ChartPracticeContext,
 } from '@/types/practice';
 import type { BackgroundAudioMode, GuidanceVoice } from '@/types/sessionAudio';
 import { logger } from '@/utils/logger';
@@ -50,6 +51,7 @@ export interface CompletePracticeSessionInput {
   nextAction?: string | null;
   legacyType?: string | null;
   metadata?: Record<string, unknown>;
+  chartContext?: ChartPracticeContext;
 }
 
 async function readQueue(accountId: string): Promise<PracticeSessionRecord[]> {
@@ -125,6 +127,9 @@ function buildRecord(input: CompletePracticeSessionInput): PracticeSessionRecord
     sceneSnapshot: input.sceneSnapshot ?? null,
     nextAction: input.nextAction ?? null,
     clientVersion: Constants.expoConfig?.version ?? null,
+    courseId: input.chartContext?.courseId ?? null,
+    waypointId: input.chartContext?.waypointId ?? null,
+    practiceEntrySource: input.chartContext?.practiceEntrySource ?? null,
     metadata: input.metadata,
     syncState: 'pending',
   };
@@ -180,6 +185,7 @@ export const PracticeCompletionService = {
     guidanceVoice: GuidanceVoice;
     backgroundAudio: BackgroundAudioMode;
     source?: PracticeCompletionSource;
+    chartContext?: ChartPracticeContext;
   }): Promise<void> {
     const accountId = useAuthStore.getState?.()?.user?.id;
     if (!accountId) return;
@@ -204,6 +210,7 @@ export const PracticeCompletionService = {
         params.practiceMode === 'deep_prime' ? 'reinforce' : 'activate',
       guidanceVoice: params.guidanceVoice,
       backgroundAudio: params.backgroundAudio,
+      chartContext: params.chartContext,
     });
   },
 

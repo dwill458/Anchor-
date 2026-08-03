@@ -9,7 +9,7 @@ import type {
   SessionAudioDefaultsByType,
 } from './sessionAudio';
 export * from './sessionAudio';
-import type { PracticeEntrySource } from './practice';
+import type { ChartPracticeContext, PracticeEntryMode, PracticeEntrySource } from './practice';
 export * from './chart';
 import type { ChartFeatureFlags } from './chart';
 
@@ -501,6 +501,13 @@ export type PaywallSource =
 
 export type NavigationResumeTarget =
   | { kind: 'visualize_prepare'; anchorId: string }
+  | {
+    kind: 'chart_practice';
+    anchorId: string;
+    mode: PracticeEntryMode;
+    source: PracticeEntrySource;
+    chartContext: ChartPracticeContext;
+  }
   | { kind: 'chart_ai_plan'; destinationText: string }
   | { kind: 'chart_waypoint'; courseId: string; waypointId: string };
 
@@ -865,6 +872,8 @@ export type RootStackParamList = {
     audioModeOverride?: 'silent' | 'ambient';
     returnTo?: 'vault' | 'practice' | 'detail' | 'reinforce';
     initialDuration?: 'quick' | 'deep';
+    source?: PracticeEntrySource;
+    practiceContext?: ChartPracticeContext;
   };
 
   // Phase 3: Burning Ritual
@@ -875,6 +884,7 @@ export type RootStackParamList = {
     enhancedImageUrl?: string;
     returnTo?: 'vault' | 'practice' | 'detail';
     source?: PracticeEntrySource;
+    practiceContext?: ChartPracticeContext;
   };
 
   BurningRitual: {
@@ -992,6 +1002,7 @@ export type PracticeStackParamList = {
     returnTo?: 'practice';
     initialDuration?: 'quick' | 'deep';
     source?: PracticeEntrySource;
+    practiceContext?: ChartPracticeContext;
   };
   ManualReinforcement:
     | {

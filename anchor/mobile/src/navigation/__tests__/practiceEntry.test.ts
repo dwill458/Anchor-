@@ -1,4 +1,4 @@
-import { startPractice } from '../practiceEntry';
+import { normalizeChartPracticeContext, startPractice } from '../practiceEntry';
 import type { PracticeEntryMode } from '@/types/practice';
 
 const anchor = {
@@ -123,5 +123,49 @@ describe('startPractice', () => {
     expect(startPractice({ mode: 'deepPrime', anchorId: anchor.id, source: 'practice_hero' }, dependencies)).toBe(false);
     expect(dependencies.navigateToPaywall).toHaveBeenCalledTimes(1);
     expect(dependencies.navigateToPractice).not.toHaveBeenCalled();
+  });
+
+  it('normalizes Chart context into the canonical focus route and preserves it for paywall resume', () => {
+    const chartContext = {
+      courseId: 'course-1',
+      waypointId: 'waypoint-1',
+      accountId: 'user-1',
+      practiceEntrySource: 'chart_waypoint_detail',
+      reflectionText: 'must never cross this boundary',
+    };
+    const dependencies = buildDependencies();
+
+    expect(startPractice({
+      mode: 'focus', anchorId: anchor.id, source: 'chart_waypoint_detail', chartContext,
+    }, dependencies)).toBe(true);
+    expect(dependencies.navigateToPractice).toHaveBeenCalledWith(expect.objectContaining({
+      route: 'ActivationRitual',
+      params: expect.objectContaining({
+        practiceContext: {
+          courseId: 'course-1', waypointId: 'waypoint-1', accountId: 'user-1',
+          practiceEntrySource: 'chart_waypoint_detail',
+          returnTarget: { route: 'WaypointDetail', courseId: 'course-1', waypointId: 'waypoint-1' },
+        },
+      }),
+    }));
+
+    const denied = buildDependencies({
+      primeSessionAccess: { ...access, focus: { ...access.focus, isAllowed: false, remaining: 0 } },
+    });
+    expect(startPractice({
+      mode: 'focus', anchorId: anchor.id, source: 'chart_waypoint_detail', chartContext,
+    }, denied)).toBe(false);
+    expect(denied.navigateToPaywall).toHaveBeenCalledWith(expect.objectContaining({
+      resumeTarget: expect.objectContaining({ kind: 'chart_practice', chartContext: expect.objectContaining({ courseId: 'course-1' }) }),
+    }));
+  });
+
+  it('rejects malformed Chart context and strips unknown fields from valid context', () => {
+    expect(normalizeChartPracticeContext({ courseId: 'c', waypointId: 'w', accountId: 'a', practiceEntrySource: 'chart_waypoint_detail', notes: 'private' }))
+      .toEqual(expect.not.objectContaining({ notes: expect.anything() }));
+    expect(startPractice({
+      mode: 'focus', anchorId: anchor.id, source: 'chart_waypoint_detail',
+      chartContext: { courseId: 'c', waypointId: 'w', accountId: 'a', practiceEntrySource: 'wrong' },
+    }, buildDependencies())).toBe(false);
   });
 });

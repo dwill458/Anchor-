@@ -71,4 +71,22 @@ describe('PracticeCompletionService', () => {
     ).rejects.toThrow('active account');
     expect(useSessionStore.getState().practiceHistory).toEqual([]);
   });
+
+  it('persists nullable Chart context on the existing canonical ledger without a second record', async () => {
+    useAuthStore.setState({ user: { id: 'account-chart' } as any });
+    const result = await PracticeCompletionService.completePracticeSession({
+      ...input('account-chart', 'chart-session'),
+      chartContext: {
+        courseId: 'course-1', waypointId: 'waypoint-1', accountId: 'account-chart',
+        practiceEntrySource: 'chart_waypoint_detail',
+        returnTarget: { route: 'WaypointDetail', courseId: 'course-1', waypointId: 'waypoint-1' },
+      },
+    }, { flushImmediately: false });
+
+    expect(result.duplicate).toBe(false);
+    expect(useSessionStore.getState().practiceHistory).toEqual([expect.objectContaining({
+      id: 'chart-session', courseId: 'course-1', waypointId: 'waypoint-1',
+      practiceEntrySource: 'chart_waypoint_detail',
+    })]);
+  });
 });
