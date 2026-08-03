@@ -72,6 +72,9 @@ export const ENABLE_LEGACY_SUPABASE_SYNC =
   process.env.EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC === 'true';
 export const ENABLE_MERCH = process.env.EXPO_PUBLIC_ENABLE_MERCH === 'true';
 export const ENABLE_VISUALIZE = process.env.EXPO_PUBLIC_ENABLE_VISUALIZE === 'true';
+// Chart is deliberately default-off. The server flag is consumed separately
+// by the Course store and can only make this build more restrictive.
+export const ENABLE_CHART = process.env.EXPO_PUBLIC_ENABLE_CHART === 'true';
 // Widgets aren't ready for this release — keep the native surface built but
 // disable the JS-side sync/task-handler/deep-link wiring until they are.
 export const WIDGETS_ENABLED = process.env.EXPO_PUBLIC_ENABLE_WIDGETS === 'true';
@@ -127,6 +130,7 @@ export const Config = {
   ENABLE_LEGACY_SUPABASE_SYNC,
   ENABLE_MERCH,
   ENABLE_VISUALIZE,
+  ENABLE_CHART,
   WIDGETS_ENABLED,
   IOS_BUNDLE_ID,
   ANDROID_PACKAGE_NAME,
