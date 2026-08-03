@@ -13,6 +13,13 @@ const SECURE_META_SUFFIX = '__secure_meta';
 const SECURE_CHUNK_PREFIX = '__secure_chunk_';
 const SECURE_CHUNK_SIZE = 1800;
 const SECURE_STORE_KEY_PATTERN = /^[A-Za-z0-9._-]+$/;
+// Reflection drafts and Course Log pages can contain private writing. Unlike
+// general UI caches, they must never degrade to plaintext persistence.
+const SECURE_ONLY_PREFIXES = ['anchor:chart:reflection-drafts:', 'anchor:chart:log:'];
+
+function requiresSecureOnly(name: string): boolean {
+  return SECURE_ONLY_PREFIXES.some((prefix) => name.startsWith(prefix));
+}
 
 /**
  * Android SecureStore accepts only alphanumeric characters plus `.`, `-`, and
@@ -134,6 +141,10 @@ async function performWrite(name: string, value: string): Promise<void> {
     // Ensure no plaintext legacy value remains once encrypted write succeeds.
     await AsyncStorage.removeItem(name);
   } catch (error) {
+    if (requiresSecureOnly(name)) {
+      logger.error(`Failed to write secure-only store key ${name}`, error);
+      throw error;
+    }
     logger.error(`Failed to write encrypted store key ${name}, falling back to AsyncStorage`, error);
     // Fall back so the state is not silently lost on restart.
     await AsyncStorage.setItem(name, value);
@@ -152,7 +163,11 @@ async function performWrite(name: string, value: string): Promise<void> {
 const WRITE_DEBOUNCE_MS = 400;
 const pendingWrites = new Map<
   string,
-  { value: string; timer: ReturnType<typeof setTimeout>; resolvers: Array<() => void> }
+  {
+    value: string;
+    timer: ReturnType<typeof setTimeout>;
+    resolvers: Array<{ resolve: () => void; reject: (error: unknown) => void }>;
+  }
 >();
 const lastWrittenValue = new Map<string, string>();
 
@@ -161,19 +176,19 @@ function scheduleWrite(name: string, value: string): Promise<void> {
     return Promise.resolve();
   }
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const existing = pendingWrites.get(name);
     if (existing) {
       clearTimeout(existing.timer);
       existing.value = value;
-      existing.resolvers.push(resolve);
+      existing.resolvers.push({ resolve, reject });
       existing.timer = setTimeout(() => void flushWrite(name), WRITE_DEBOUNCE_MS);
       return;
     }
 
     pendingWrites.set(name, {
       value,
-      resolvers: [resolve],
+      resolvers: [{ resolve, reject }],
       timer: setTimeout(() => void flushWrite(name), WRITE_DEBOUNCE_MS),
     });
   });
@@ -184,9 +199,13 @@ async function flushWrite(name: string): Promise<void> {
   if (!entry) return;
   pendingWrites.delete(name);
 
-  await performWrite(name, entry.value);
-  lastWrittenValue.set(name, entry.value);
-  entry.resolvers.forEach((resolve) => resolve());
+  try {
+    await performWrite(name, entry.value);
+    lastWrittenValue.set(name, entry.value);
+    entry.resolvers.forEach(({ resolve }) => resolve());
+  } catch (error) {
+    entry.resolvers.forEach(({ reject }) => reject(error));
+  }
 }
 
 /**
@@ -208,6 +227,7 @@ export const encryptedPersistStorage: AsyncStateStorage = {
       return await migrateLegacyAsyncStorageValue(name);
     } catch (error) {
       logger.error(`Failed to read encrypted store key ${name}`, error);
+      if (requiresSecureOnly(name)) return null;
       return await AsyncStorage.getItem(name);
     }
   },
@@ -221,7 +241,7 @@ export const encryptedPersistStorage: AsyncStateStorage = {
     if (pending) {
       clearTimeout(pending.timer);
       pendingWrites.delete(name);
-      pending.resolvers.forEach((resolve) => resolve());
+      pending.resolvers.forEach(({ resolve }) => resolve());
     }
     lastWrittenValue.delete(name);
     await clearSecureChunks(name);

@@ -32,6 +32,53 @@ export type ReflectionMood =
   | 'UNCHANGED'
   | 'DISTRACTED';
 
+export type ReflectionStructuredContent = {
+  whatHelped?: string;
+  whatLearned?: string;
+};
+
+/** Canonical Reflection shape returned by the Workstream A API. */
+export type ReflectionRecord = {
+  id: string;
+  source: ReflectionSource;
+  promptType: ReflectionPromptType;
+  promptVersion: number;
+  body: string | null;
+  structuredContent: ReflectionStructuredContent | null;
+  moodBefore: ReflectionMood | null;
+  moodAfter: ReflectionMood | null;
+  practiceSessionId: string | null;
+  anchorId: string | null;
+  courseId: string | null;
+  waypointId: string | null;
+  aiConsentGrantedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+  idempotencyKey: string;
+  schemaVersion: number;
+};
+
+export type CreateReflectionRequest = {
+  idempotencyKey: string;
+  source: ReflectionSource;
+  promptType: ReflectionPromptType;
+  promptVersion: number;
+  body?: string;
+  structuredContent?: ReflectionStructuredContent;
+  moodBefore?: ReflectionMood;
+  moodAfter?: ReflectionMood;
+  practiceSessionId?: string;
+  anchorId?: string;
+  courseId?: string;
+  waypointId?: string;
+};
+
+export type UpdateReflectionRequest = Pick<
+  Partial<CreateReflectionRequest>,
+  'body' | 'structuredContent' | 'moodAfter'
+> & { aiConsentGranted?: boolean };
+
 export type WaypointState =
   | 'UPCOMING'
   | 'CURRENT'
@@ -133,13 +180,7 @@ export type CourseLogEntry = {
   occurredAt: string;
   recordedAt: string;
   snapshot: Record<string, string | number> | null;
-  reflection: {
-    id: string;
-    promptType: string;
-    body: string | null;
-    structuredContent: object | null;
-    moodAfter: string | null;
-  } | null;
+  reflection: Pick<ReflectionRecord, 'id' | 'promptType' | 'body' | 'structuredContent' | 'moodAfter'> | null;
   practiceSession: {
     id: string;
     practiceMode: string;
@@ -220,7 +261,10 @@ export type ChartStackParamList = {
     courseId?: string;
     waypointId?: string;
     practiceSessionId?: string;
+    anchorId?: string;
+    promptVersion?: number;
     draftKey?: string;
+    reflectionId?: string;
   };
   CourseDetails: { courseId: string };
   CourseCompletion: { courseId: string };

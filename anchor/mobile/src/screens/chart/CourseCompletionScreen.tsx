@@ -46,6 +46,7 @@ export const CourseCompletionScreen: React.FC = () => {
         allowLeaveRef.current = true;
         navigation.replace('CompletedJourney', { courseId: course.id });
       }} />
+      <ChartButton label="Add Reflection" secondary disabled={!store.flags.chart_reflections_enabled} onPress={() => navigation.navigate('ReflectionComposer', { source: 'COURSE_COMPLETION', promptType: 'FINAL_REFLECTION', promptVersion: 1, courseId: course.id, draftKey: `course:${course.id}:completion` })} />
       <ChartButton label="Plot What Comes Next" secondary onPress={() => {
         allowLeaveRef.current = true;
         navigation.replace('CourseSetup');
