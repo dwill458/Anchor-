@@ -5,8 +5,11 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { useAuthStore } from '@/stores/authStore';
 import { useCourseStore } from '@/stores/courseStore';
+import { startReflectionQueueSync } from '@/services/ReflectionService';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import type { ChartStackParamList, CourseDetail, CourseSummary } from '@/types/chart';
+import { CourseMap } from './components/CourseMap';
 import {
   ChartButton,
   ChartCard,
@@ -53,6 +56,7 @@ export const ChartHomeScreen: React.FC = () => {
   const authOffline = useAuthStore((state) => state.isOfflineMode);
   const { registerTabNav } = useTabNavigation();
   const store = useCourseStore();
+  const reducedMotion = useReduceMotionEnabled();
 
   useEffect(() => {
     if (!accountId) return;
@@ -60,6 +64,8 @@ export const ChartHomeScreen: React.FC = () => {
     store.bindAccount(accountId);
     void store.hydrateAndRefresh(accountId);
   }, [accountId, serverFlags, store.bindAccount, store.hydrateAndRefresh, store.setFeatureFlags]);
+
+  useEffect(() => startReflectionQueueSync(), []);
 
   useEffect(() => {
     // ChartHome is the stack root, so its navigation object is the correct
@@ -246,7 +252,17 @@ export const ChartHomeScreen: React.FC = () => {
               </ChartCard>
               <ChartCard>
                 <Text style={{ color: '#D4AF37', fontFamily: 'Inter-SemiBold', fontSize: 13 }}>ROUTE MAP</Text>
-                <Text style={{ color: '#9E9E9E', fontFamily: 'Inter-Regular', fontSize: 14 }}>Visual route map placeholder. The linear list below is the comprehension surface.</Text>
+                <CourseMap
+                  courseId={course.id}
+                  destinationText={course.destinationText}
+                  waypoints={detail.waypoints}
+                  currentWaypointId={detail.currentWaypointId}
+                  reachedCount={course.reachedCount}
+                  completed={false}
+                  reducedMotion={reducedMotion}
+                  onWaypointPress={(waypointId) => navigation.navigate('WaypointDetail', { courseId: course.id, waypointId })}
+                />
+                <Text style={{ color: '#9E9E9E', fontFamily: 'Inter-Regular', fontSize: 12 }}>The linear list below is the comprehension surface.</Text>
               </ChartCard>
               <ChartCard>
                 <Text style={{ color: '#D4AF37', fontFamily: 'Inter-SemiBold', fontSize: 13 }}>COURSE LOG</Text>

@@ -12,6 +12,8 @@ import {
   CourseEditorScreen,
   CourseSetupScreen,
   WaypointDetailScreen,
+  CourseLogScreen,
+  ReflectionComposerScreen,
 } from '@/screens/chart';
 
 const Stack = createNativeStackNavigator<ChartStackParamList>();
@@ -50,10 +52,10 @@ export const ChartStackNavigator: React.FC<ChartStackNavigatorProps> = ({ onRout
         component={WaypointDetailScreen}
         options={{ presentation: 'formSheet', gestureDirection: 'vertical' }}
       />
-      <Stack.Screen name="CourseLog" component={ChartPlaceholderScreen} />
+      <Stack.Screen name="CourseLog" component={CourseLogScreen} />
       <Stack.Screen
         name="ReflectionComposer"
-        component={ChartPlaceholderScreen}
+        component={ReflectionComposerScreen}
         options={{ presentation: 'formSheet', gestureDirection: 'vertical' }}
       />
       <Stack.Screen

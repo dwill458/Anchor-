@@ -6,3 +6,5 @@ export { default as CourseDetailsScreen } from './CourseDetailsScreen';
 export { default as CompletedJourneyScreen } from './CompletedJourneyScreen';
 export { default as CourseCompletionScreen } from './CourseCompletionScreen';
 export { default as ChartPlaceholderScreen } from './ChartPlaceholderScreen';
+export { default as CourseLogScreen } from './CourseLogScreen';
+export { default as ReflectionComposerScreen } from './ReflectionComposerScreen';

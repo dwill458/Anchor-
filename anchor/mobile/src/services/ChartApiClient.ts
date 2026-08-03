@@ -10,6 +10,7 @@ import type {
   LinkAnchorRequest,
   ReorderWaypointsRequest,
   AddWaypointRequest,
+  CourseLogEntry,
 } from '@/types/chart';
 
 export type ChartApiResult<T> = {
@@ -203,6 +204,19 @@ export class ChartApiClient {
           data: { expectedCourseVersion },
         },
       ),
+    );
+  }
+
+  getCourseLog(
+    courseId: string,
+    options: { cursor?: string; limit?: number } = {},
+    signal?: AbortSignal,
+  ): Promise<ChartApiResult<CourseLogEntry[]>> {
+    return this.unwrap(() =>
+      apiClient.get(`/api/courses/${encodePath(courseId)}/log`, {
+        ...this.requestConfig(signal),
+        params: { limit: options.limit ?? 25, ...(options.cursor ? { cursor: options.cursor } : {}) },
+      }),
     );
   }
 }
