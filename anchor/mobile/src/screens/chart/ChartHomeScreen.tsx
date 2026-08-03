@@ -5,6 +5,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { useAuthStore } from '@/stores/authStore';
 import { useCourseStore } from '@/stores/courseStore';
+import { startReflectionQueueSync } from '@/services/ReflectionService';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import type { ChartStackParamList, CourseDetail, CourseSummary } from '@/types/chart';
 import {
@@ -60,6 +61,8 @@ export const ChartHomeScreen: React.FC = () => {
     store.bindAccount(accountId);
     void store.hydrateAndRefresh(accountId);
   }, [accountId, serverFlags, store.bindAccount, store.hydrateAndRefresh, store.setFeatureFlags]);
+
+  useEffect(() => startReflectionQueueSync(), []);
 
   useEffect(() => {
     // ChartHome is the stack root, so its navigation object is the correct

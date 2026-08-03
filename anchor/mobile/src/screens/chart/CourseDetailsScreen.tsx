@@ -66,6 +66,7 @@ export const CourseDetailsScreen: React.FC = () => {
       {course.status === 'ACTIVE' || course.status === 'DRAFT' ? (
         <ChartButton label="Edit Course" onPress={() => navigation.navigate('CourseEditor', { courseId: course.id })} />
       ) : null}
+      <ChartButton label="Add Reflection" secondary disabled={!store.flags.chart_reflections_enabled} onPress={() => navigation.navigate('ReflectionComposer', { source: 'MANUAL_COURSE', promptType: 'COURSE_STATUS', promptVersion: 1, courseId: course.id, draftKey: `course:${course.id}:manual` })} />
       {course.status !== 'ARCHIVED' ? <ChartButton label="Archive Course" secondary onPress={archive} disabled={store.readOnly} /> : null}
       {course.status === 'ARCHIVED' ? <ChartButton label="Restore Course" onPress={restore} disabled={store.readOnly} /> : null}
       <ChartButton label="Delete Course" destructive secondary onPress={remove} disabled={store.readOnly} />
