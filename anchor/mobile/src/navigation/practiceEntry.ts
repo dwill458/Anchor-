@@ -3,6 +3,7 @@ import {
   PRACTICE_ENTRY_MODES,
   type PracticeEntryMode,
   type PracticeEntrySource,
+  type ChartPracticeContext,
 } from '@/types/practice';
 import type { PrimeSessionAccessSnapshot } from '@/hooks/usePrimeSessionAccess';
 import type {
@@ -18,6 +19,32 @@ export interface StartPracticeRequest {
   intention?: string;
   sigilSvg?: string;
   enhancedImageUrl?: string;
+  /** Untrusted at this boundary so deep links/resume state cannot smuggle data. */
+  chartContext?: unknown;
+}
+
+const isSafeIdentifier = (value: unknown): value is string =>
+  typeof value === 'string' && value.trim().length > 0 && value.trim().length <= 200;
+
+/** Keeps only the frozen, non-sensitive Chart routing fields. */
+export function normalizeChartPracticeContext(value: unknown): ChartPracticeContext | null {
+  if (!value || typeof value !== 'object') return null;
+  const input = value as Record<string, unknown>;
+  if (
+    !isSafeIdentifier(input.courseId) ||
+    !isSafeIdentifier(input.waypointId) ||
+    !isSafeIdentifier(input.accountId) ||
+    input.practiceEntrySource !== 'chart_waypoint_detail'
+  ) return null;
+  const courseId = input.courseId.trim();
+  const waypointId = input.waypointId.trim();
+  return {
+    courseId,
+    waypointId,
+    accountId: input.accountId.trim(),
+    practiceEntrySource: 'chart_waypoint_detail',
+    returnTarget: { route: 'WaypointDetail', courseId, waypointId },
+  };
 }
 
 export type PracticeEntryTarget =
@@ -80,6 +107,8 @@ export function startPractice(
   if (!anchor || anchor.isReleased || anchor.archivedAt) {
     return false;
   }
+  const chartContext = normalizeChartPracticeContext(request.chartContext);
+  if (request.chartContext != null && !chartContext) return false;
 
   if (request.mode === 'deepPrime' && !dependencies.primeSessionAccess.deep.isAllowed) {
     dependencies.onEntitlementDenied?.({
@@ -91,6 +120,9 @@ export function startPractice(
     dependencies.navigateToPaywall({
       source: 'free_weekly_sessions_used',
       preferredPlanId: 'annual',
+      resumeTarget: chartContext ? {
+        kind: 'chart_practice', anchorId, mode: request.mode, source: request.source, chartContext,
+      } : undefined,
     });
     return false;
   }
@@ -105,6 +137,9 @@ export function startPractice(
     dependencies.navigateToPaywall({
       source: 'free_weekly_sessions_used',
       preferredPlanId: 'annual',
+      resumeTarget: chartContext ? {
+        kind: 'chart_practice', anchorId, mode: request.mode, source: request.source, chartContext,
+      } : undefined,
     });
     return false;
   }
@@ -158,6 +193,7 @@ export function startPractice(
           audioConfiguration,
           returnTo: 'practice',
           source: request.source,
+          practiceContext: chartContext ?? undefined,
         },
       };
       break;

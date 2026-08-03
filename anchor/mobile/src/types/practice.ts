@@ -55,7 +55,26 @@ export type PracticeEntrySource =
   | 'sanctuary_prime_anchor'
   | 'widget'
   | 'shortcut'
-  | 'evolve';
+  | 'evolve'
+  | 'chart'
+  | 'chart_waypoint_detail';
+
+/**
+ * Minimal, account-scoped Chart context that is allowed to cross the existing
+ * practice navigation boundary. This is deliberately identifiers only: it is
+ * persisted on the canonical PracticeSession, never used as a Course cache.
+ */
+export interface ChartPracticeContext {
+  courseId: string;
+  waypointId: string;
+  practiceEntrySource: 'chart_waypoint_detail';
+  accountId: string;
+  returnTarget: {
+    route: 'WaypointDetail';
+    courseId: string;
+    waypointId: string;
+  };
+}
 
 /** Existing product weighting: Deep Prime compounds faster than base practice. */
 export const PRACTICE_THREAD_STRENGTH_GAINS: Readonly<
@@ -138,6 +157,9 @@ export interface PracticeSessionRecord {
   sceneSnapshot: string | null;
   nextAction: string | null;
   clientVersion: string | null;
+  courseId?: string | null;
+  waypointId?: string | null;
+  practiceEntrySource?: PracticeEntrySource | null;
   metadata?: Record<string, unknown>;
   syncState: PracticeSessionSyncState;
 }

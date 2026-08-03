@@ -7,6 +7,8 @@ import { useCourseStore } from '@/stores/courseStore';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
+import { usePracticeEntry } from '@/hooks/usePracticeEntry';
+import { resolveChartFeatureFlags } from '@/types/chart';
 import { AnchorSelectorSheet } from '@/screens/practice/components/AnchorSelectorSheet';
 import type { Anchor } from '@/types';
 import type { ChartStackParamList } from '@/types/chart';
@@ -26,6 +28,8 @@ export const WaypointDetailScreen: React.FC = () => {
   const activeAnchors = useAnchorStore((state) => state.getActiveAnchors());
   const subscriptionStatus = useAuthStore((state) => state.user?.subscriptionStatus ?? 'free');
   const { navigateToVault } = useTabNavigation();
+  const { startPractice, isNavigationLocked } = usePracticeEntry();
+  const accountId = useAuthStore((state) => state.user?.id ?? null);
   const course = store.activeCourse?.id === route.params.courseId ? store.activeCourse : null;
   const waypoint = course?.waypoints.find((item) => item.id === route.params.waypointId);
   const [selectorVisible, setSelectorVisible] = useState(false);
@@ -72,6 +76,43 @@ export const WaypointDetailScreen: React.FC = () => {
   };
 
   const isBlocked = waypoint.state === 'BLOCKED';
+  const launchWaypointPractice = async () => {
+    if (!accountId || !resolveChartFeatureFlags(useAuthStore.getState().user?.chartFlags).chart_enabled) {
+      Alert.alert('Practice unavailable', 'Chart practice is not available right now.');
+      return;
+    }
+    // Re-fetch before crossing the practice boundary. Course state—not a
+    // stale screen—is authoritative for current waypoint and live link checks.
+    const fresh = await store.fetchCourseDetail(course.id);
+    const freshWaypoint = fresh?.waypoints.find((item) => item.id === waypoint.id);
+    const linkedAnchorId = freshWaypoint?.anchorLink?.anchorId;
+    const linkedAnchor = linkedAnchorId
+      ? activeAnchors.find((item) => item.id === linkedAnchorId)
+      : undefined;
+    if (
+      !fresh ||
+      fresh.currentWaypointId !== waypoint.id ||
+      freshWaypoint?.state !== 'CURRENT' ||
+      !linkedAnchor ||
+      linkedAnchor.isReleased ||
+      linkedAnchor.archivedAt ||
+      linkedAnchor.userId !== accountId
+    ) {
+      Alert.alert('Practice unavailable', 'This waypoint or its linked Anchor changed. Refresh the Chart and try again.');
+      return;
+    }
+    startPractice({
+      mode: 'focus',
+      anchorId: linkedAnchor.id,
+      source: 'chart_waypoint_detail',
+      chartContext: {
+        courseId: fresh.id,
+        waypointId: freshWaypoint.id,
+        practiceEntrySource: 'chart_waypoint_detail',
+        accountId,
+      },
+    });
+  };
   return (
     <>
       <ChartScreenFrame title="Waypoint detail" subtitle={`Position ${waypoint.position}`}>
@@ -84,6 +125,9 @@ export const WaypointDetailScreen: React.FC = () => {
           <Text style={{ color: '#D4AF37', fontFamily: 'Inter-SemiBold', fontSize: 13 }}>LINKED ANCHOR</Text>
           <Text style={{ color: '#F5F5DC', fontFamily: 'Inter-Regular', fontSize: 15 }}>{waypoint.anchorLink?.snapshot.intentionText ?? 'No Anchor linked'}</Text>
           {isBlocked ? <Text style={{ color: '#FFB1B1', fontFamily: 'Inter-Regular', fontSize: 14 }}>Blocked because the linked Anchor is unavailable.</Text> : null}
+          {waypoint.state === 'CURRENT' && waypoint.anchorLink?.anchorAvailable ? (
+            <ChartButton label="Practice with this Anchor" onPress={() => void launchWaypointPractice()} disabled={isNavigationLocked || store.loading} />
+          ) : null}
           <ChartButton label="Link an Existing Anchor" onPress={() => setSelectorVisible(true)} disabled={store.readOnly} />
           {subscriptionStatus === 'free' ? (
             <ChartButton label="Create a New Anchor" secondary onPress={() => Alert.alert('Anchor creation unavailable', 'Link an existing Anchor first, or upgrade to create a new one.')} />

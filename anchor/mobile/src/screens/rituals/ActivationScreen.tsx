@@ -63,13 +63,15 @@ import {
 import { persistSessionAudioDefaults } from '@/services/SessionAudioPreferencesService';
 import { resolveSessionAudioPlan } from '@/services/SessionAudioManifest';
 import { PracticeCompletionService } from '@/services/PracticeCompletionService';
+import { useCourseStore } from '@/stores/courseStore';
+import { resolveChartFeatureFlags } from '@/types/chart';
 
 type ActivationRouteProp = RouteProp<RootStackParamList, 'ActivationRitual'>;
 type ActivationNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ActivationRitual'>;
 
 export const ActivationScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { navigateToPractice, navigateToPaywall } = useTabNavigation();
+  const { navigateToPractice, navigateToPaywall, navigateToChart } = useTabNavigation();
   const route = useRoute<ActivationRouteProp>();
   const {
     anchorId,
@@ -78,7 +80,9 @@ export const ActivationScreen: React.FC = () => {
     audioConfiguration,
     audioModeOverride,
     returnTo,
+    practiceContext,
   } = route.params;
+  const activeAccountId = useAuthStore((state) => state.user?.id ?? null);
   const toast = useToast();
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
@@ -601,9 +605,38 @@ export const ActivationScreen: React.FC = () => {
       guidanceVoice: focusSessionAudioPlan.configuration.guidanceVoice,
       backgroundAudio: focusSessionAudioPlan.configuration.backgroundAudio,
       source: returnTo === 'practice' ? 'practice_screen' : 'anchor_detail',
+      chartContext: practiceContext,
     });
     void recordReviewSignal('focus_session_completed');
     await queueProgressionMilestonesFromStores({ sourceEventId: completionEventId });
+
+    if (practiceContext && activeAccountId === practiceContext.accountId) {
+      const freshCourse = await useCourseStore.getState().fetchCourseDetail(practiceContext.courseId);
+      const flags = resolveChartFeatureFlags(useAuthStore.getState().user?.chartFlags);
+      if (useAuthStore.getState().user?.id === practiceContext.accountId && flags.chart_enabled && freshCourse) {
+        const returnWaypointId = freshCourse.currentWaypointId && freshCourse.waypoints.some((item) => item.id === freshCourse.currentWaypointId)
+          ? freshCourse.currentWaypointId
+          : practiceContext.waypointId;
+        if (freshCourse.waypoints.some((item) => item.id === returnWaypointId)) {
+          if (typeof navigation.popToTop === 'function') navigation.popToTop();
+          navigateToChart('WaypointDetail', { courseId: freshCourse.id, waypointId: returnWaypointId });
+          if (flags.chart_reflections_enabled) {
+            navigateToChart('ReflectionComposer', {
+              source: 'POST_PRACTICE',
+              promptType: 'HOW_DO_YOU_FEEL_NOW',
+              promptVersion: 1,
+              courseId: practiceContext.courseId,
+              waypointId: practiceContext.waypointId,
+              practiceSessionId: completionEventId,
+              anchorId,
+            });
+          }
+          return;
+        }
+      }
+      // A removed/disabled Chart falls back to the canonical Practice landing;
+      // completion was already committed and must never be retried here.
+    }
 
     if (returnTo === 'practice') {
       if (typeof navigation.popToTop === 'function') {
@@ -632,16 +665,19 @@ export const ActivationScreen: React.FC = () => {
     }
   }, [
     anchor,
+    activeAccountId,
     anchorId,
     activationDurationSeconds,
     isPendingFirstAnchor,
     logActivationInBackground,
     navigateToPractice,
+    navigateToChart,
     navigation,
     recordSession,
     handlePrimeComplete,
     focusSessionAudioPlan,
     returnTo,
+    practiceContext,
     scheduleReviewRequestAfterHomeReturn,
   ]);
 

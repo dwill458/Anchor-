@@ -7,6 +7,7 @@ import { useNavigationResumeStore } from "@/stores/navigationResumeStore";
 import { ENABLE_VISUALIZE } from "@/config";
 import { useAuthStore } from "@/stores/authStore";
 import { resolveChartFeatureFlags } from "@/types/chart";
+import { useCourseStore } from '@/stores/courseStore';
 
 export const ResumeTargetHandler: React.FC = () => {
   const { navigateToPractice, navigateToChart, navigateToVault } = useTabNavigation();
@@ -55,6 +56,39 @@ export const ResumeTargetHandler: React.FC = () => {
       navigateToChart('WaypointDetail', {
         courseId: target.courseId,
         waypointId: target.waypointId,
+      });
+      return;
+    }
+    if (target.kind === 'chart_practice') {
+      const accountId = useAuthStore.getState().user?.id;
+      if (
+        accountId !== target.chartContext.accountId ||
+        !resolveChartFeatureFlags(useAuthStore.getState().user?.chartFlags).chart_enabled
+      ) {
+        navigateToVault();
+        return;
+      }
+      void useCourseStore.getState().fetchCourseDetail(target.chartContext.courseId).then((course) => {
+        const waypoint = course?.waypoints.find((item) => item.id === target.chartContext.waypointId);
+        if (
+          useAuthStore.getState().user?.id !== target.chartContext.accountId ||
+          !waypoint ||
+          course?.currentWaypointId !== waypoint.id ||
+          waypoint.state !== 'CURRENT' ||
+          waypoint.anchorLink?.anchorId !== target.anchorId
+        ) {
+          navigateToChart('WaypointDetail', {
+            courseId: target.chartContext.courseId,
+            waypointId: course?.currentWaypointId ?? target.chartContext.waypointId,
+          });
+          return;
+        }
+        startPractice({
+          mode: target.mode,
+          anchorId: target.anchorId,
+          source: target.source,
+          chartContext: target.chartContext,
+        });
       });
       return;
     }
