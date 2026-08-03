@@ -19,6 +19,8 @@ import {
 } from '../../types/practice';
 import { validateVisualizationScene } from '../../services/VisualizationSceneService';
 import { requireVisualizeAccess } from '../../services/PracticeAccessService';
+import { courseEventService } from '../../services/CourseEventService';
+import { PRACTICE_ENTRY_SOURCES, type PracticeEntrySource } from '../../types/chart';
 
 const router = Router();
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -32,6 +34,10 @@ const COMPLETION_SOURCES = [
   'restored',
   'unknown',
 ] as const;
+const PRACTICE_ENTRY_SOURCE_VALUES = [...PRACTICE_ENTRY_SOURCES] as [
+  PracticeEntrySource,
+  ...PracticeEntrySource[],
+];
 
 type AuthenticatedPracticeUser = Prisma.UserGetPayload<{
   select: {
@@ -112,6 +118,9 @@ const PracticeSessionSchema = z
     nextAction: z.string().trim().min(1).max(NEXT_ACTION_MAX_LENGTH).nullable().optional(),
     clientVersion: z.string().max(100).nullable().optional(),
     metadata: z.record(z.unknown()).optional(),
+    courseId: z.string().min(1).max(200).nullable().optional(),
+    waypointId: z.string().min(1).max(200).nullable().optional(),
+    practiceEntrySource: z.enum(PRACTICE_ENTRY_SOURCE_VALUES).nullable().optional(),
   })
   .strict();
 
@@ -309,7 +318,13 @@ function immutableSessionMatches(
     existing.legacyType === (input.legacyType ?? null) &&
     existing.guidanceVoice === input.guidanceVoice &&
     existing.backgroundAudio === input.backgroundAudio &&
-    existing.sceneSnapshot === (input.sceneSnapshot ?? null)
+    existing.sceneSnapshot === (input.sceneSnapshot ?? null) &&
+    // Prisma returns null for nullable Chart columns, while older test/client
+    // fixtures may omit columns that were added after the session was written.
+    // Treat both representations as the same immutable value.
+    (existing.courseId ?? null) === (input.courseId ?? null) &&
+    (existing.waypointId ?? null) === (input.waypointId ?? null) &&
+    (existing.practiceEntrySource ?? null) === (input.practiceEntrySource ?? null)
   );
 }
 
@@ -327,6 +342,43 @@ router.post('/sessions', async (req: AuthRequest, res: Response, next: NextFunct
       }
       res.json({ success: true, data: existing, idempotent: true });
       return;
+    }
+
+    if (input.waypointId && !input.courseId) {
+      throw new AppError('Waypoint context requires a Course', 422, 'PRACTICE_SESSION_INVALID');
+    }
+    if (input.courseId) {
+      const referencedCourse = await prisma.course.findUnique({
+        where: { id: input.courseId },
+        select: { id: true, userId: true },
+      });
+      if (!referencedCourse)
+        throw new AppError('Course context is invalid', 422, 'PRACTICE_SESSION_INVALID');
+      if (referencedCourse.userId !== user.id) {
+        throw new AppError(
+          'Course context belongs to another account',
+          403,
+          'PRACTICE_SESSION_ACCOUNT_MISMATCH'
+        );
+      }
+      if (input.waypointId) {
+        const referencedWaypoint = await prisma.waypoint.findUnique({
+          where: { id: input.waypointId },
+          select: { id: true, userId: true, courseId: true },
+        });
+        if (!referencedWaypoint)
+          throw new AppError('Waypoint context is invalid', 422, 'PRACTICE_SESSION_INVALID');
+        if (referencedWaypoint.userId !== user.id) {
+          throw new AppError(
+            'Waypoint context belongs to another account',
+            403,
+            'PRACTICE_SESSION_ACCOUNT_MISMATCH'
+          );
+        }
+        if (referencedWaypoint.courseId !== input.courseId) {
+          throw new AppError('Waypoint context is invalid', 422, 'PRACTICE_SESSION_INVALID');
+        }
+      }
     }
 
     let relationAnchorId: string | null = null;
@@ -370,8 +422,27 @@ router.post('/sessions', async (req: AuthRequest, res: Response, next: NextFunct
           nextAction: input.nextAction ?? null,
           clientVersion: input.clientVersion ?? null,
           metadata: input.metadata as Prisma.InputJsonValue | undefined,
+          courseId: input.courseId ?? null,
+          waypointId: input.waypointId ?? null,
+          practiceEntrySource: input.practiceEntrySource ?? null,
         },
       });
+      if (input.courseId) {
+        await courseEventService.append(tx, {
+          userId: user.id,
+          courseId: input.courseId,
+          waypointId: input.waypointId ?? null,
+          eventType: 'PRACTICE_COMPLETED',
+          sourceEntityType: 'PracticeSession',
+          sourceEntityId: session.id,
+          snapshot: {
+            practiceMode: input.practiceMode,
+            durationSeconds: input.completedDurationSeconds,
+          },
+          occurredAt: new Date(input.completedAt),
+          idempotencyKey: `chart:practice-completed:${session.id}`,
+        });
+      }
       // Focus/Deep Prime retain their existing legacy activation/charge writes
       // during compatibility. Visualize has no legacy row, so it owns the
       // compatibility counters here.

@@ -18,6 +18,7 @@ import { BackendAnalyticsService } from '../../services/AnalyticsService';
 import { getRevenueCatAccess } from '../../services/RevenueCatEntitlementService';
 import { logger } from '../../utils/logger';
 import { resolveStoredAssetUrl } from '../../services/StorageService';
+import { courseService } from '../../services/CourseService';
 
 // Whitelist of columns that may be used in ORDER BY to prevent injection
 const ALLOWED_ORDER_BY = [
@@ -1074,12 +1075,33 @@ router.put('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
     if (isShared !== undefined) allowedUpdates.isShared = Boolean(isShared);
     if (sharedAt !== undefined) allowedUpdates.sharedAt = sharedAt ? new Date(sharedAt) : null;
 
-    // Verify ownership then update in a single round-trip using updateMany
-    // (returns count=0 if the anchor doesn't exist or isn't owned by this user)
-    const result = await prisma.anchor.updateMany({
-      where: { id, userId },
-      data: allowedUpdates,
-    });
+    // Archiving is an Anchor-owned lifecycle operation, but closing Chart
+    // links must commit atomically with it. Other edits retain the existing
+    // single-statement path.
+    const result =
+      allowedUpdates.isArchived === true
+        ? await prisma.$transaction(
+            async tx => {
+              const updated = await tx.anchor.updateMany({
+                where: { id, userId },
+                data: allowedUpdates,
+              });
+              if (updated.count > 0) {
+                await courseService.closeLinksForUnavailableAnchor(
+                  tx,
+                  userId,
+                  id,
+                  'ANCHOR_RELEASED'
+                );
+              }
+              return updated;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+          )
+        : await prisma.anchor.updateMany({
+            where: { id, userId },
+            data: allowedUpdates,
+          });
 
     if (result.count === 0) {
       throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
@@ -1111,14 +1133,22 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next: NextFunction
     const { id } = req.params;
     const userId = req.dbUser!.id;
 
-    // Verify ownership and archive in one round-trip
-    const result = await prisma.anchor.updateMany({
-      where: { id, userId },
-      data: {
-        isArchived: true,
-        archivedAt: new Date(),
+    const result = await prisma.$transaction(
+      async tx => {
+        const updated = await tx.anchor.updateMany({
+          where: { id, userId },
+          data: {
+            isArchived: true,
+            archivedAt: new Date(),
+          },
+        });
+        if (updated.count > 0) {
+          await courseService.closeLinksForUnavailableAnchor(tx, userId, id, 'ANCHOR_RELEASED');
+        }
+        return updated;
       },
-    });
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    );
 
     if (result.count === 0) {
       throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
@@ -1459,6 +1489,16 @@ router.post('/:id/burn', async (req: AuthRequest, res: Response, next: NextFunct
             throw new AppError('Anchor is already archived', 400, 'ALREADY_ARCHIVED');
           }
 
+          // Chart link closure is part of the same serializable lifecycle
+          // transaction. The live Anchor is deleted below, so snapshots must
+          // be refreshed and current waypoints blocked before the FK nulls it.
+          await courseService.closeLinksForUnavailableAnchor(
+            tx,
+            userId,
+            anchor.id,
+            'ANCHOR_RELEASED'
+          );
+
           // 1. Create entry in burned_anchors
           const burnedAnchor = await tx.burnedAnchor.create({
             data: {
@@ -1536,7 +1576,11 @@ router.post('/:id/burn', async (req: AuthRequest, res: Response, next: NextFunct
       next(error);
       return;
     }
-    logger.error('[Anchors] Burn error', error instanceof Error ? error : new Error(String(error)));
+    // Burn failures are logged structurally; database error strings can echo
+    // private Anchor or Chart text and are not safe telemetry.
+    logger.error('[Anchors] Burn error', undefined, {
+      code: error instanceof AppError ? error.code : 'BURN_ERROR',
+    });
     next(new AppError('Failed to burn anchor', 500, 'BURN_ERROR'));
   }
 });

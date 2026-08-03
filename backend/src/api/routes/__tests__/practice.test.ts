@@ -30,6 +30,9 @@ const mockPrisma = {
     create: jest.fn(),
     update: jest.fn(),
   },
+  course: { findUnique: jest.fn() },
+  waypoint: { findUnique: jest.fn() },
+  courseEvent: { findUnique: jest.fn(), create: jest.fn() },
   $transaction: jest.fn(),
 };
 
@@ -329,6 +332,52 @@ describe('canonical practice sessions', () => {
     const retry = await request(app).post('/api/practice/sessions').send(body);
     expect(retry.status).toBe(200);
     expect(retry.body.idempotent).toBe(true);
+  });
+
+  it('accepts Chart context and emits exactly one PRACTICE_COMPLETED event across retries', async () => {
+    const chartBody = {
+      ...body,
+      id: 'chart-session-1',
+      courseId: 'course-1',
+      waypointId: 'waypoint-1',
+      practiceEntrySource: 'chart_waypoint_detail',
+    };
+    mockPrisma.course.findUnique.mockResolvedValue({ id: 'course-1', userId: MOCK_DB_USER.id });
+    mockPrisma.waypoint.findUnique.mockResolvedValue({
+      id: 'waypoint-1',
+      userId: MOCK_DB_USER.id,
+      courseId: 'course-1',
+    });
+    mockPrisma.courseEvent.findUnique.mockResolvedValue(null);
+    mockPrisma.courseEvent.create.mockResolvedValue({ id: 'chart-event-1' });
+
+    const created = await request(app).post('/api/practice/sessions').send(chartBody);
+    expect(created.status).toBe(201);
+    expect(mockPrisma.practiceSession.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          courseId: 'course-1',
+          waypointId: 'waypoint-1',
+          practiceEntrySource: 'chart_waypoint_detail',
+        }),
+      })
+    );
+    expect(mockPrisma.courseEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ eventType: 'PRACTICE_COMPLETED' }),
+      })
+    );
+
+    mockPrisma.practiceSession.findUnique.mockResolvedValue({
+      ...chartBody,
+      userId: MOCK_DB_USER.id,
+      anchorServerIdSnapshot: chartBody.anchorServerId,
+      startedAt: new Date(chartBody.startedAt),
+      completedAt: new Date(chartBody.completedAt),
+    });
+    const retry = await request(app).post('/api/practice/sessions').send(chartBody);
+    expect(retry.status).toBe(200);
+    expect(mockPrisma.courseEvent.create).toHaveBeenCalledTimes(1);
   });
 
   it('accepts a pre-ledger legacy payload missing localDateKey/timeZone/utcOffset/completionSource/schemaVersion', async () => {
