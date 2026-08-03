@@ -7,7 +7,7 @@
 
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import { AuthService } from './AuthService';
-import type { ApiResponse } from '@/types';
+import type { ApiResponse, ChartFeatureFlags } from '@/types';
 import { API_URL } from '@/config';
 import { monitoringConfig } from '@/config/monitoring';
 import { ErrorSeverity, ErrorTrackingService } from './ErrorTrackingService';
@@ -43,7 +43,8 @@ export class ApiClientError extends Error {
   constructor(
     message: string,
     public readonly code?: string,
-    public readonly status?: number
+    public readonly status?: number,
+    public readonly details?: Record<string, unknown>
   ) {
     super(message);
     this.name = 'ApiClientError';
@@ -220,7 +221,11 @@ apiClient.interceptors.response.use(
     }
 
     if (apiMessage) {
-      throw new ApiClientError(apiMessage, apiCode, error.response.status);
+      const apiDetails =
+        apiError && typeof apiError === 'object' && 'details' in apiError && apiError.details
+          ? (apiError.details as Record<string, unknown>)
+          : undefined;
+      throw new ApiClientError(apiMessage, apiCode, error.response.status, apiDetails);
     }
 
     // Handle HTTP status codes
@@ -299,8 +304,10 @@ import { redactAnchors } from '@/utils/privacyHelpers';
  *
  * @returns User profile with stats fields
  */
-export async function fetchUserProfile(): Promise<User> {
-  const response = await apiClient.get<ApiResponse<User>>('/api/auth/me');
+export async function fetchUserProfile(): Promise<User & { chartFlags?: ChartFeatureFlags }> {
+  const response = await apiClient.get<
+    ApiResponse<User & { chartFlags?: ChartFeatureFlags }>
+  >('/api/auth/me');
   if (!response.data.success || !response.data.data) {
     throw new Error(response.data.error?.message || 'Failed to fetch profile');
   }

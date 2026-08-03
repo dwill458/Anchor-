@@ -10,6 +10,8 @@ import type {
 } from './sessionAudio';
 export * from './sessionAudio';
 import type { PracticeEntrySource } from './practice';
+export * from './chart';
+import type { ChartFeatureFlags } from './chart';
 
 // ============================================================================
 // Core Domain Types
@@ -209,6 +211,8 @@ export interface User {
   // backward-compat with backends that predate the column.
   trialStartedAt?: string;
   isTrialExpired?: boolean;
+  /** Server-driven Chart flags from /api/auth/me. Defaults off when absent. */
+  chartFlags?: ChartFeatureFlags;
 }
 
 export type AuthScreenContext = 'onboarding' | 'first_anchor_gate' | 'save_progress' | 'paywall';
@@ -495,6 +499,11 @@ export type PaywallSource =
   | 'free_weekly_sessions_used'
   | 'premium_practice_locked';
 
+export type NavigationResumeTarget =
+  | { kind: 'visualize_prepare'; anchorId: string }
+  | { kind: 'chart_ai_plan'; destinationText: string }
+  | { kind: 'chart_waypoint'; courseId: string; waypointId: string };
+
 export interface GeneratedVariation {
   variationId?: string;
   imageUrl: string;
@@ -600,7 +609,7 @@ export type RootStackParamList = {
     | {
       source?: PaywallSource;
       preferredPlanId?: AuthPreferredPlanId;
-      resumeTarget?: { kind: 'visualize_prepare'; anchorId: string };
+      resumeTarget?: NavigationResumeTarget;
     }
     | undefined;
   CreateAnchor: undefined;

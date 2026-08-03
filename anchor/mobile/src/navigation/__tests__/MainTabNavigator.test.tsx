@@ -31,6 +31,10 @@ jest.mock('../PracticeStackNavigator', () => ({
   PracticeStackNavigator: () => null,
 }));
 
+jest.mock('../ChartStackNavigator', () => ({
+  ChartStackNavigator: () => null,
+}));
+
 jest.mock('../../screens/discover', () => ({
   DiscoverScreen: () => null,
 }));
@@ -99,6 +103,20 @@ describe('CustomTabBar', () => {
 
     expect(onTabPress).toHaveBeenNthCalledWith(1, 1);
     expect(onTabPress).toHaveBeenNthCalledWith(2, 0);
+  });
+
+  it('keeps Chart hidden by default and exposes it as the third tab when enabled', () => {
+    const onTabPress = jest.fn();
+    const disabled = render(<CustomTabBar activeIndex={0} onTabPress={onTabPress} />);
+    expect(disabled.queryByText('CHART')).toBeNull();
+
+    disabled.unmount();
+    const enabled = render(<CustomTabBar activeIndex={2} onTabPress={onTabPress} chartEnabled />);
+    fireEvent.press(enabled.getByText('CHART'));
+
+    expect(onTabPress).toHaveBeenCalledWith(2);
+    expect(enabled.getByLabelText('Chart')).toBeTruthy();
+    expect(enabled.getByTestId('tab-indicator-chart')).toBeTruthy();
   });
 
   it('renders only the active tab indicator and applies the requested bar chrome', () => {

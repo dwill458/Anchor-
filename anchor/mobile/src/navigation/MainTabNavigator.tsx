@@ -14,7 +14,7 @@ import { AppState, View, Text, StyleSheet, Pressable } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Home, Zap } from 'lucide-react-native';
+import { Home, Zap, Compass } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -24,6 +24,7 @@ import * as Haptics from 'expo-haptics';
 
 import { VaultStackNavigator } from './VaultStackNavigator';
 import { PracticeStackNavigator } from './PracticeStackNavigator';
+import { ChartStackNavigator } from './ChartStackNavigator';
 import { SwipeableTabContainer } from '../components/transitions/SwipeableTabContainer';
 import { TabNavigationProvider } from '../contexts/TabNavigationContext';
 import { colors } from '@/theme';
@@ -40,6 +41,7 @@ import { WidgetDeepLinkHandler } from '@/widgets/WidgetDeepLinkHandler';
 import { ResumeTargetHandler } from './ResumeTargetHandler';
 import { WIDGETS_ENABLED } from '@/config';
 import type { RootStackParamList } from '@/types';
+import { resolveChartFeatureFlags } from '@/types/chart';
 import type { RootNavigatorParamList } from './RootNavigator';
 
 // ─── Tab Button ───────────────────────────────────────────────────────────────
@@ -48,12 +50,16 @@ interface TabButtonProps {
   onPress: () => void;
   children: React.ReactNode;
   showDivider?: boolean;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 }
 
 const TabButton: React.FC<TabButtonProps> = ({
   onPress,
   children,
   showDivider = false,
+  accessibilityLabel,
+  accessibilityHint,
 }) => {
   const scale = useSharedValue(1);
 
@@ -76,6 +82,8 @@ const TabButton: React.FC<TabButtonProps> = ({
       onPressOut={handlePressOut}
       onPress={onPress}
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
       style={[styles.tabButton, showDivider && styles.tabButtonDivider]}
     >
       <Animated.View style={[animatedStyle, styles.tabContent]}>
@@ -90,6 +98,7 @@ const TabButton: React.FC<TabButtonProps> = ({
 interface CustomTabBarProps {
   activeIndex: number;
   onTabPress: (index: number) => void;
+  chartEnabled?: boolean;
 }
 
 const GOLD = '#D4AF37';
@@ -97,7 +106,7 @@ const INACTIVE_COLOR = 'rgba(192,192,192,0.3)';
 const TAB_ICON_SIZE = 22;
 const TAB_ICON_STROKE_WIDTH = 1.8;
 
-const TABS = [
+export const TABS = [
   {
     index: 0,
     label: 'SANCTUARY',
@@ -124,29 +133,29 @@ const TABS = [
       />
     ),
   },
-  // DEFERRED: Discovery tab — reintroduce post-launch Phase 3.
-  // {
-  //   label: 'DISCOVER',
-  //   icon: (active: boolean) => (
-  //     <Compass
-  //       color={active ? GOLD : INACTIVE_COLOR}
-  //       size={TAB_ICON_SIZE}
-  //       strokeWidth={TAB_ICON_STROKE_WIDTH}
-  //       fill="none"
-  //       testID="tab-icon-discover"
-  //     />
-  //   ),
-  // },
+  {
+    index: 2,
+    label: 'CHART',
+    icon: (active: boolean) => (
+      <Compass
+        color={active ? GOLD : INACTIVE_COLOR}
+        size={TAB_ICON_SIZE}
+        strokeWidth={TAB_ICON_STROKE_WIDTH}
+        fill="none"
+        testID="tab-icon-chart"
+      />
+    ),
+  },
 ];
-
-const ACTIVE_TAB_COUNT = TABS.length;
 
 export const CustomTabBar: React.FC<CustomTabBarProps> = ({
   activeIndex,
   onTabPress,
+  chartEnabled = false,
 }) => {
   const insets = useSafeAreaInsets();
-  const isCompactTabSet = ACTIVE_TAB_COUNT < 3;
+  const visibleTabs = TABS.filter((tab) => tab.index !== 2 || chartEnabled);
+  const isCompactTabSet = visibleTabs.length < 3;
 
   return (
     <View
@@ -157,13 +166,15 @@ export const CustomTabBar: React.FC<CustomTabBarProps> = ({
       ]}
       testID="custom-tab-bar"
     >
-      {TABS.map((tab, index) => {
+      {visibleTabs.map((tab, index) => {
         const isActive = activeIndex === tab.index;
         return (
           <TabButton
             key={tab.index}
             onPress={() => onTabPress(tab.index)}
-            showDivider={index < TABS.length - 1}
+            showDivider={index < visibleTabs.length - 1}
+            accessibilityLabel={tab.label === 'CHART' ? 'Chart' : tab.label[0] + tab.label.slice(1).toLowerCase()}
+            accessibilityHint={tab.label === 'CHART' ? 'Where am I going?' : `Open ${tab.label.toLowerCase()}`}
           >
             <View style={styles.col}>
               {isActive && (
@@ -175,6 +186,9 @@ export const CustomTabBar: React.FC<CustomTabBarProps> = ({
               <View style={styles.iconWrap}>{tab.icon(isActive)}</View>
               <Text
                 style={[styles.colLabel, isActive && styles.colLabelActive]}
+                allowFontScaling
+                numberOfLines={1}
+                adjustsFontSizeToFit
               >
                 {tab.label}
               </Text>
@@ -198,6 +212,8 @@ export const MainTabNavigator: React.FC = () => {
   const shouldRedirectToCreation = useAuthStore(
     (state) => state.shouldRedirectToCreation,
   );
+  const serverChartFlags = useAuthStore((state) => state.user?.chartFlags);
+  const chartEnabled = resolveChartFeatureFlags(serverChartFlags).chart_enabled;
   const hasCheckedAutoOpen = useRef(false);
   const autoOpenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toast = useToast();
@@ -208,6 +224,7 @@ export const MainTabNavigator: React.FC = () => {
   );
   const [practiceRouteName, setPracticeRouteName] =
     React.useState('PracticeHome');
+  const [chartRouteName, setChartRouteName] = React.useState('ChartHome');
 
   const flushPracticeWrites = useCallback(() => {
     const accountId = useAuthStore.getState().user?.id;
@@ -231,8 +248,18 @@ export const MainTabNavigator: React.FC = () => {
   }, [shouldRedirectToCreation]);
 
   const handleIndexChange = useCallback((index: number) => {
+    if (!chartEnabled && index === 2) {
+      setActiveIndex(0);
+      return;
+    }
     setActiveIndex(index);
-  }, []);
+  }, [chartEnabled]);
+
+  React.useEffect(() => {
+    if (!chartEnabled && activeIndex === 2) setActiveIndex(0);
+  }, [activeIndex, chartEnabled]);
+
+  const displayActiveIndex = chartEnabled ? activeIndex : Math.min(activeIndex, 1);
 
   // Practice owns an independent navigation container, so its local navigation
   // object cannot resolve RootNavigator's Paywall route. Keep that boundary in
@@ -245,10 +272,10 @@ export const MainTabNavigator: React.FC = () => {
   );
 
   const isTabBarVisible = React.useMemo(() => {
-    if (activeIndex === 0) return vaultRouteName === 'Vault';
-    if (activeIndex === 1) return practiceRouteName === 'PracticeHome';
-    return false;
-  }, [activeIndex, vaultRouteName, practiceRouteName]);
+    if (displayActiveIndex === 0) return vaultRouteName === 'Vault';
+    if (displayActiveIndex === 1) return practiceRouteName === 'PracticeHome';
+    return chartRouteName === 'ChartHome';
+  }, [displayActiveIndex, vaultRouteName, practiceRouteName, chartRouteName]);
 
   // Auto-open daily anchor
   React.useEffect(() => {
@@ -310,28 +337,28 @@ export const MainTabNavigator: React.FC = () => {
     <TabNavigationProvider
       onIndexChange={handleIndexChange}
       onNavigateToPaywall={handlePaywallNavigation}
-      activeIndex={activeIndex}
+      activeIndex={displayActiveIndex}
     >
       {/* Routes the home screen widget CTA (anchor://practice) to the Practice tab */}
       {WIDGETS_ENABLED && <WidgetDeepLinkHandler />}
       <ResumeTargetHandler />
       <View style={styles.container}>
         <SwipeableTabContainer
-          activeIndex={activeIndex}
+          activeIndex={displayActiveIndex}
           onIndexChange={handleIndexChange}
-          tabCount={ACTIVE_TAB_COUNT}
+          tabCount={chartEnabled ? 3 : 2}
           swipeEnabled={isTabBarVisible}
         >
           <VaultStackNavigator onRouteChange={setVaultRouteName} />
           <PracticeStackNavigator onRouteChange={setPracticeRouteName} />
-          {/* DEFERRED: Discovery tab — reintroduce post-launch Phase 3. */}
-          {/* <DiscoverScreen /> */}
+          {chartEnabled ? <ChartStackNavigator onRouteChange={setChartRouteName} /> : null}
         </SwipeableTabContainer>
 
         {isTabBarVisible && (
           <CustomTabBar
-            activeIndex={activeIndex}
+            activeIndex={displayActiveIndex}
             onTabPress={handleIndexChange}
+            chartEnabled={chartEnabled}
           />
         )}
       </View>
