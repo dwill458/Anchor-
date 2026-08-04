@@ -241,4 +241,3 @@ describe('ChartCapabilityService (Workstream G)', () => {
     });
   });
 });
-
