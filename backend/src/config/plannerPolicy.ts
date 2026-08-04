@@ -91,12 +91,7 @@ function optionalCap(name: string, fallback: number): number | null {
 }
 
 function isValidConfig(config: PlannerQuotaConfig): boolean {
-  const caps = [
-    config.trialLifetimeCap,
-    config.proDailyCap,
-    config.freeCap,
-    config.expiredCap,
-  ];
+  const caps = [config.trialLifetimeCap, config.proDailyCap, config.freeCap, config.expiredCap];
   if (!caps.every(cap => Number.isSafeInteger(cap) && cap >= 0)) return false;
   // Unentitled states carry no allowance under F1; a non-zero value here would
   // mean the configuration no longer expresses the frozen policy.

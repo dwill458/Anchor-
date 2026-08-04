@@ -81,9 +81,7 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
     const user = await resolveUser(req);
     requireChartInitialized(user.chartSchemaVersion, false);
     const input = validate(GenerateSchema, req.body ?? {});
-    res
-      .status(201)
-      .json({ success: true, data: await coursePlannerService.generate(user, input) });
+    res.status(201).json({ success: true, data: await coursePlannerService.generate(user, input) });
   } catch (error) {
     next(error);
   }

@@ -43,12 +43,7 @@ function denialError(reason: PlannerDenialReason, quota?: PlannerQuotaState): Ap
   };
   switch (reason) {
     case 'quota_exhausted':
-      return new AppError(
-        'Plan generation limit reached',
-        403,
-        'PLANNER_QUOTA_EXCEEDED',
-        meta
-      );
+      return new AppError('Plan generation limit reached', 403, 'PLANNER_QUOTA_EXCEEDED', meta);
     case 'not_entitled':
     case 'entitlement_expired':
       return new AppError('Plan generation is not available', 403, 'PLANNER_NOT_ENTITLED', meta);
@@ -289,9 +284,7 @@ export class CoursePlannerService {
       userId,
       plannerVersion: PLANNER_VERSION,
       modelVersion:
-        generationSource === 'gemini'
-          ? resolvePlannerModel()
-          : PLANNER_DETERMINISTIC_MODEL_VERSION,
+        generationSource === 'gemini' ? resolvePlannerModel() : PLANNER_DETERMINISTIC_MODEL_VERSION,
       inputHash,
       destinationInterpretation: plan.destinationInterpretation,
       waypoints: waypoints as unknown as Prisma.InputJsonValue,
