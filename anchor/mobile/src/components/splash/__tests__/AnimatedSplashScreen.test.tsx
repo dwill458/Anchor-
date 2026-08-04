@@ -28,11 +28,11 @@ jest.mock('react-native-reanimated', () => {
 });
 
 describe('AnimatedSplashScreen', () => {
-  it('renders the reference wordmark and subtitle without starting early', () => {
+  it('renders the full-screen launch artwork without starting early', () => {
     const onComplete = jest.fn();
     const onRootLayout = jest.fn();
     const onLogoReady = jest.fn();
-    const { getByTestId, getByText } = render(
+    const { getByTestId } = render(
       <AnimatedSplashScreen
         active={false}
         reduceMotionEnabled={false}
@@ -43,16 +43,13 @@ describe('AnimatedSplashScreen', () => {
     );
 
     expect(getByTestId('animated-splash')).toBeTruthy();
-    expect(getByTestId('splash-logo')).toBeTruthy();
-    expect(getByText('ANCHOR')).toBeTruthy();
-    expect(getByText('VISUAL GOAL SETTING')).toBeTruthy();
+    expect(getByTestId('splash-artwork')).toBeTruthy();
     expect(onComplete).not.toHaveBeenCalled();
 
     fireEvent(getByTestId('animated-splash'), 'layout');
-    fireEvent(getByTestId('splash-logo'), 'load');
+    fireEvent(getByTestId('splash-artwork'), 'load');
 
     expect(onRootLayout).toHaveBeenCalledTimes(1);
     expect(onLogoReady).toHaveBeenCalledTimes(1);
   });
 });
-
