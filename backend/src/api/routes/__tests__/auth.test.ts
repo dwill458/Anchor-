@@ -457,6 +457,49 @@ describe('GET /api/auth/me', () => {
     expect(res.body.data.settings).toBeDefined();
   });
 
+  it('returns only the exact safe Chart capability projection', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+      ...MOCK_DB_USER,
+      // Canary values prove the route does not accidentally project billing or
+      // provider state while adding account-authoritative Chart decisions.
+      subscriptionId: 'private-subscription-canary',
+      plannerModel: 'private-provider-model-canary',
+      plannerApiKey: 'private-provider-key-canary',
+      rolloutBucket: 17,
+      settings: MOCK_SETTINGS,
+    });
+
+    const res = await request(buildApp()).get('/api/auth/me');
+
+    expect(res.status).toBe(200);
+    expect(Object.keys(res.body.data.chartCapabilities).sort()).toEqual([
+      'canAcceptExistingChartPlan',
+      'canCompleteExistingCourse',
+      'canCreateAnchor',
+      'canCreateManualCourse',
+      'canCreateOrEditReflections',
+      'canEditCourse',
+      'canGenerateChartPlan',
+      'canRetrieveOwnedChartPlan',
+      'canViewChart',
+      'canViewOwnedCourseHistory',
+      'chartAiPlannerEnabled',
+      'chartEnabled',
+      'chartReflectionsEnabled',
+      'plannerQuota',
+    ].sort());
+    expect(Object.keys(res.body.data.chartCapabilities.plannerQuota).sort()).toEqual([
+      'eligible',
+      'limit',
+      'reason',
+      'remaining',
+      'resetAt',
+    ]);
+    expect(JSON.stringify(res.body.data.chartCapabilities)).not.toMatch(
+      /private-subscription-canary|private-provider-model-canary|private-provider-key-canary|rolloutBucket/i
+    );
+  });
+
   it('returns 404 when user does not exist', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(null);
 

@@ -25,6 +25,7 @@ import coursePlanRoutes from './api/routes/coursePlans';
 import reflectionRoutes from './api/routes/reflections';
 import { errorHandler, notFoundHandler } from './api/middleware/errorHandler';
 import { logger } from './utils/logger';
+import { scrubSentryEvent } from './utils/sentryPrivacy';
 import { env } from './config/env';
 import { prisma } from './lib/prisma';
 
@@ -35,71 +36,6 @@ dotenv.config();
 
 const sentryEnabled = Boolean(env.SENTRY_DSN);
 
-const SENSITIVE_SENTRY_KEYS = new Set([
-  'description',
-  'title',
-  'intention',
-  'intentiontext',
-  'anchorintention',
-  'body',
-  'structuredcontent',
-  'reflection',
-  'reflectionbody',
-  'whathelped',
-  'whatlearned',
-  'extractedthemes',
-  'themes',
-  'theme',
-  'skipreason',
-  'waypointtitle',
-  'waypointdescription',
-  'requestbody',
-  'rawbody',
-  'payload',
-  'resulttext',
-]);
-
-function scrubSensitiveSentryData<T extends Record<string, unknown> | undefined>(value: T): T {
-  if (!value) {
-    return value;
-  }
-
-  for (const key of Object.keys(value)) {
-    const normalizedKey = key.toLowerCase();
-    if (SENSITIVE_SENTRY_KEYS.has(normalizedKey)) {
-      value[key] = '[REDACTED]';
-      continue;
-    }
-    if (
-      normalizedKey === 'authorization' ||
-      normalizedKey === 'cookie' ||
-      normalizedKey === 'set-cookie' ||
-      normalizedKey === 'x-api-key'
-    ) {
-      delete value[key];
-      continue;
-    }
-
-    const nested = value[key];
-    if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
-      scrubSensitiveSentryData(nested as Record<string, unknown>);
-    }
-  }
-
-  return value;
-}
-
-function scrubSensitiveString(value: string | undefined): string | undefined {
-  if (!value) {
-    return value;
-  }
-
-  return value
-    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[redacted-email]')
-    .replace(/Bearer\s+[A-Za-z0-9\-._~+/]+=*/gi, 'Bearer [redacted]')
-    .replace(/(?:(?:token|secret|password|authorization)=)[^&\s]+/gi, '$1[redacted]');
-}
-
 if (sentryEnabled) {
   Sentry.init({
     dsn: env.SENTRY_DSN,
@@ -107,42 +43,7 @@ if (sentryEnabled) {
     sendDefaultPii: false,
     tracesSampleRate: env.SENTRY_TRACES_SAMPLE_RATE,
     integrations: [Sentry.expressIntegration()],
-    beforeSend(event) {
-      if (event.user) {
-        event.user = event.user.id ? { id: event.user.id } : undefined;
-      }
-
-      if (event.request?.headers) {
-        scrubSensitiveSentryData(event.request.headers as Record<string, unknown>);
-      }
-
-      // Request bodies may contain private Anchor/Reflection text under an
-      // unknown client-defined key. Never send raw request data to Sentry.
-      if (event.request?.data) {
-        delete event.request.data;
-      }
-
-      if (typeof event.request?.query_string === 'string') {
-        event.request.query_string = scrubSensitiveString(event.request.query_string);
-      }
-
-      if (event.extra) {
-        scrubSensitiveSentryData(event.extra as Record<string, unknown>);
-      }
-
-      if (event.message) {
-        event.message = scrubSensitiveString(event.message);
-      }
-
-      if (event.exception?.values) {
-        event.exception.values = event.exception.values.map(value => ({
-          ...value,
-          value: scrubSensitiveString(value.value),
-        }));
-      }
-
-      return event;
-    },
+    beforeSend: scrubSentryEvent,
   });
 }
 
