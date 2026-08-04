@@ -21,6 +21,14 @@ const mockPlanner = {
 };
 jest.mock('../../../services/CoursePlannerService', () => ({ coursePlannerService: mockPlanner }));
 
+// The route resolves capabilities server-side on every planner request. This
+// suite tests the route boundary, so the projection is stubbed here and covered
+// on its own in `services/__tests__/ChartCapabilityService.test.ts`.
+const mockGetChartCapabilities = jest.fn();
+jest.mock('../../../services/ChartCapabilityService', () => ({
+  getChartCapabilities: (...args: unknown[]) => mockGetChartCapabilities(...args),
+}));
+
 import { authMiddleware } from '../../middleware/auth';
 import {
   requireChartInitialized,
@@ -60,6 +68,12 @@ describe('Chart plan route boundary', () => {
     mockedPlannerEnabled.mockImplementation(() => undefined);
     mockedWriteEnabled.mockImplementation(() => undefined);
     mockedInitialized.mockImplementation(() => undefined);
+    mockGetChartCapabilities.mockResolvedValue({
+      canGenerateChartPlan: true,
+      canRetrieveOwnedChartPlan: true,
+      canAcceptExistingChartPlan: true,
+      plannerQuota: { eligible: true, limit: 3, remaining: 2, resetAt: null, reason: null },
+    });
   });
 
   it('strictly rejects unknown planner input without invoking the planner', async () => {
@@ -170,14 +184,21 @@ describe('Chart plan route boundary', () => {
   });
 
   it('serves safe quota state without exposing subscription internals', async () => {
-    mockPlanner.getQuota.mockResolvedValue({
-      eligible: true,
-      entitlement: 'trial',
-      limit: 3,
-      remaining: 2,
-      used: 1,
-      resetAt: null,
-      reason: null,
+    // Quota is projected by ChartCapabilityService so /auth/me and this route
+    // can never disagree about what the account is allowed to do.
+    mockGetChartCapabilities.mockResolvedValue({
+      canGenerateChartPlan: true,
+      canRetrieveOwnedChartPlan: true,
+      canAcceptExistingChartPlan: true,
+      plannerQuota: {
+        eligible: true,
+        entitlement: 'trial',
+        limit: 3,
+        remaining: 2,
+        used: 1,
+        resetAt: null,
+        reason: null,
+      },
     });
 
     const response = await request(buildApp()).get('/api/course-plans/quota');
@@ -196,20 +217,79 @@ describe('Chart plan route boundary', () => {
   });
 
   it('routes the literal quota path to quota rather than to proposal retrieval', async () => {
-    mockPlanner.getQuota.mockResolvedValue({
-      eligible: false,
-      entitlement: 'expired',
-      limit: 0,
-      remaining: 0,
-      used: 0,
-      resetAt: null,
-      reason: 'entitlement_expired',
+    mockGetChartCapabilities.mockResolvedValue({
+      canGenerateChartPlan: false,
+      canRetrieveOwnedChartPlan: true,
+      canAcceptExistingChartPlan: true,
+      plannerQuota: {
+        eligible: false,
+        entitlement: 'expired',
+        limit: 0,
+        remaining: 0,
+        used: 0,
+        resetAt: null,
+        reason: 'entitlement_expired',
+      },
     });
 
-    await request(buildApp()).get('/api/course-plans/quota');
+    const response = await request(buildApp()).get('/api/course-plans/quota');
 
+    // `quota` must not be captured as a proposal id by GET /:proposalId.
+    expect(response.status).toBe(200);
+    expect(response.body.data.reason).toBe('entitlement_expired');
     expect(mockPlanner.get).not.toHaveBeenCalled();
-    expect(mockPlanner.getQuota).toHaveBeenCalledTimes(1);
+  });
+
+  // ── Workstream G: capability projection gates every planner route ──────────
+
+  it('denies generation when the account capability withholds it', async () => {
+    mockGetChartCapabilities.mockResolvedValue({
+      canGenerateChartPlan: false,
+      canRetrieveOwnedChartPlan: true,
+      canAcceptExistingChartPlan: true,
+      plannerQuota: {
+        eligible: false,
+        limit: 0,
+        remaining: 0,
+        resetAt: null,
+        reason: 'not_entitled',
+      },
+    });
+
+    const response = await request(buildApp())
+      .post('/api/course-plans')
+      .send({ destinationText: 'Complete a portfolio', idempotencyKey: 'plan-1' });
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe('PLANNER_UNAVAILABLE');
+    expect(mockPlanner.generate).not.toHaveBeenCalled();
+  });
+
+  it('keeps retrieval and acceptance of owned proposals available after entitlement loss', async () => {
+    // F1: losing entitlement must not strand a proposal the account already owns.
+    mockGetChartCapabilities.mockResolvedValue({
+      canGenerateChartPlan: false,
+      canRetrieveOwnedChartPlan: true,
+      canAcceptExistingChartPlan: true,
+      plannerQuota: {
+        eligible: false,
+        limit: 0,
+        remaining: 0,
+        resetAt: null,
+        reason: 'entitlement_expired',
+      },
+    });
+    mockPlanner.get.mockResolvedValue({ proposalId: 'proposal-1' });
+    mockPlanner.accept.mockResolvedValue({ courseId: 'course-1' });
+
+    expect((await request(buildApp()).get('/api/course-plans/proposal-1')).status).toBe(200);
+    expect(
+      (
+        await request(buildApp())
+          .post('/api/course-plans/proposal-1/accept')
+          .send({ idempotencyKey: 'accept-1' })
+      ).status
+    ).toBe(200);
   });
 
   it('keeps the hourly rate limiter separate from the entitlement cap', async () => {
