@@ -41,6 +41,16 @@ const unavailableQuota: ChartCapabilities['plannerQuota'] = {
   reason: 'planner_disabled',
 };
 
+function safeQuota(quota: PlannerQuotaState): ChartCapabilities['plannerQuota'] {
+  return {
+    eligible: quota.eligible,
+    limit: quota.limit,
+    remaining: quota.remaining,
+    resetAt: quota.resetAt,
+    reason: quota.reason,
+  };
+}
+
 export async function getChartCapabilities(user: ChartCapabilityUser): Promise<ChartCapabilities> {
   const flags = getChartFeatureFlags();
   const chartEnabled = flags.chart_enabled && isAccountInChartRollout(user.id);
@@ -48,7 +58,12 @@ export async function getChartCapabilities(user: ChartCapabilityUser): Promise<C
   const canWrite = canViewChart && flags.chart_write_enabled;
   const plannerConfigured = resolvePlannerQuotaConfig() !== null && Boolean(resolvePlannerApiKey());
   const plannerEligible = canViewChart && flags.chart_ai_planner_enabled && plannerConfigured;
-  const quota = plannerEligible ? await evaluatePlannerQuota(prisma, user) : unavailableQuota;
+  const quota = plannerEligible
+    ? // `evaluatePlannerQuota` also returns the resolved entitlement and the raw
+      // usage counter. Those are server-side inputs to the decision, not part of
+      // it, so narrow to the display-only fields before this reaches /auth/me.
+      safeQuota(await evaluatePlannerQuota(prisma, user))
+    : unavailableQuota;
 
   return {
     chartEnabled,

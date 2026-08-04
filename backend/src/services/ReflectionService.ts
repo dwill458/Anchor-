@@ -135,7 +135,7 @@ export class ReflectionService {
       courseId: string | null;
       waypointId: string | null;
     }
-  ) {
+  ): Promise<Prisma.ReflectionGetPayload<Prisma.ReflectionDefaultArgs>> {
     return prisma.$transaction(async tx => {
       const reflection = await tx.reflection.create({
         data: {
