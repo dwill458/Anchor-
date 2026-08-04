@@ -222,6 +222,39 @@ function eventKey(prefix: string, idempotencyKey: string): string {
   return `chart:${prefix}:${idempotencyKey}`;
 }
 
+/**
+ * `CourseEvent.idempotencyKey` is globally unique and is derived from a
+ * client-supplied string, so a replay pre-read can return an event belonging to
+ * another account, Course, waypoint, or operation. Reusing such a row would leak
+ * a foreign event id and report a transition that never happened, so every
+ * replay path re-verifies ownership before returning a replayed result. This is
+ * the same guard `CourseEventService.append` applies, hoisted so the paths that
+ * short-circuit before `append` cannot skip it.
+ */
+function assertReplayOwnership(
+  existing: {
+    userId: string;
+    courseId: string;
+    waypointId: string | null;
+    eventType: CourseEventType;
+  },
+  expected: {
+    userId: string;
+    courseId: string;
+    waypointId: string;
+    eventType: CourseEventType;
+  }
+): void {
+  if (
+    existing.userId !== expected.userId ||
+    existing.courseId !== expected.courseId ||
+    existing.waypointId !== expected.waypointId ||
+    existing.eventType !== expected.eventType
+  ) {
+    throw new AppError('Idempotency key has already been used', 409, 'IDEMPOTENCY_CONFLICT');
+  }
+}
+
 async function findCourse(
   client: CourseClient,
   userId: string,
@@ -785,6 +818,12 @@ export class CourseService {
       const reachedKey = eventKey('waypoint-complete', `${input.idempotencyKey}:reached`);
       const existing = await tx.courseEvent.findUnique({ where: { idempotencyKey: reachedKey } });
       if (existing) {
+        assertReplayOwnership(existing, {
+          userId,
+          courseId,
+          waypointId,
+          eventType: CourseEventType.WAYPOINT_REACHED,
+        });
         const replayRow = await findCourse(tx, userId, courseId);
         const completed = assertWaypointBelongs(replayRow, waypointId);
         const next = replayRow.currentWaypointId
@@ -985,14 +1024,12 @@ export class CourseService {
         where: { idempotencyKey: eventKeyValue },
       });
       if (existing) {
-        if (
-          existing.userId !== userId ||
-          existing.courseId !== courseId ||
-          existing.waypointId !== waypointId ||
-          existing.eventType !== CourseEventType.WAYPOINT_CANCELLED
-        ) {
-          throw new AppError('Idempotency key has already been used', 409, 'IDEMPOTENCY_CONFLICT');
-        }
+        assertReplayOwnership(existing, {
+          userId,
+          courseId,
+          waypointId,
+          eventType: CourseEventType.WAYPOINT_CANCELLED,
+        });
         return projection(await findCourse(tx, userId, courseId));
       }
 
@@ -1057,7 +1094,10 @@ export class CourseService {
       const existing = await tx.courseEvent.findUnique({
         where: { idempotencyKey: eventKeyValue },
       });
-      if (existing) return projection(await findCourse(tx, userId, courseId));
+      if (existing) {
+        assertReplayOwnership(existing, { userId, courseId, waypointId, eventType });
+        return projection(await findCourse(tx, userId, courseId));
+      }
       assertExpectedVersion(row, expectedVersion);
       assertCourseActive(row);
       ensureNoCorruption(row);
