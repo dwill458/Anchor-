@@ -363,6 +363,72 @@ async function getExportSection<T>(
   }
 }
 
+const REFLECTION_EXPORT_KEYS = [
+  'id',
+  'userId',
+  'source',
+  'promptType',
+  'promptVersion',
+  'body',
+  'structuredContent',
+  'moodBefore',
+  'moodAfter',
+  'practiceSessionId',
+  'anchorId',
+  'courseId',
+  'waypointId',
+  'aiConsentGrantedAt',
+  'createdAt',
+  'updatedAt',
+  'deletedAt',
+  'idempotencyKey',
+  'schemaVersion',
+] as const;
+
+const AI_PROPOSAL_EXPORT_KEYS = [
+  'id',
+  'userId',
+  'courseId',
+  'baseCourseVersion',
+  'plannerVersion',
+  'modelVersion',
+  'inputHash',
+  'destinationInterpretation',
+  'waypoints',
+  'generationSource',
+  'fallbackReason',
+  'status',
+  'createdAt',
+  'expiresAt',
+  'acceptedAt',
+  'idempotencyKey',
+] as const;
+
+function projectExportFields(value: unknown, keys: readonly string[]): Record<string, unknown> {
+  if (!value || typeof value !== 'object') return {};
+  const record = value as Record<string, unknown>;
+  return Object.fromEntries(keys.filter(key => key in record).map(key => [key, record[key]]));
+}
+
+function serializeReflectionForExport(value: unknown): Record<string, unknown> {
+  const reflection = projectExportFields(value, REFLECTION_EXPORT_KEYS);
+  // A deleted Reflection remains a neutral tombstone for sync/audit purposes;
+  // its freeform body and structured content must not be resurrected by export.
+  if (reflection.deletedAt) {
+    reflection.body = null;
+    reflection.structuredContent = null;
+    reflection.moodBefore = null;
+    reflection.moodAfter = null;
+  }
+  return reflection;
+}
+
+function serializeAiProposalForExport(value: unknown): Record<string, unknown> {
+  // Keep the normalized proposal needed to reconstruct the user's Chart data,
+  // while excluding any future raw prompt/provider response/credential fields.
+  return projectExportFields(value, AI_PROPOSAL_EXPORT_KEYS);
+}
+
 /**
  * POST /api/auth/sync
  *
@@ -797,6 +863,12 @@ router.get(
           []
         ),
       ]);
+      const exportedReflections = (Array.isArray(reflections) ? reflections : []).map(
+        serializeReflectionForExport
+      );
+      const exportedAiPlanProposals = (Array.isArray(aiPlanProposals) ? aiPlanProposals : []).map(
+        serializeAiProposalForExport
+      );
       const { passwordHash: _passwordHash, ...exportedUser } = user as typeof user & {
         passwordHash?: string | null;
       };
@@ -819,9 +891,9 @@ router.get(
             courses,
             waypoints,
             courseAnchorLinks,
-            reflections,
+            reflections: exportedReflections,
             courseEvents,
-            aiPlanProposals,
+            aiPlanProposals: exportedAiPlanProposals,
           },
           burnedAnchors,
           flaggedContent,

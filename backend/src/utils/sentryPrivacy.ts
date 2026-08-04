@@ -130,34 +130,39 @@ export function scrubSensitiveString(value: string | undefined): string | undefi
 }
 
 /** Apply the complete event-level policy used by the Sentry beforeSend hook. */
-export function scrubSentryEvent<T extends Record<string, any>>(event: T): T {
-  const candidate = event as Record<string, any>;
+export function scrubSentryEvent<T extends object>(event: T): T {
+  const candidate = event as Record<string, unknown>;
+  const request = candidate.request as Record<string, unknown> | undefined;
+  const exception = candidate.exception as Record<string, unknown> | undefined;
 
-  if (candidate.user) {
-    candidate.user = candidate.user.id ? { id: candidate.user.id } : undefined;
+  if (candidate.user && typeof candidate.user === 'object') {
+    const user = candidate.user as Record<string, unknown>;
+    candidate.user = user.id ? { id: user.id } : undefined;
   }
 
-  if (candidate.request?.headers) {
-    scrubSensitiveSentryData(candidate.request.headers);
+  if (request?.headers && typeof request.headers === 'object') {
+    scrubSensitiveSentryData(request.headers as Record<string, unknown>);
   }
 
   // Request bodies may contain private text under unknown client-defined keys.
-  if (candidate.request?.data) delete candidate.request.data;
+  if (request?.data) delete request.data;
 
-  if (typeof candidate.request?.query_string === 'string') {
-    candidate.request.query_string = scrubSensitiveString(candidate.request.query_string);
+  if (typeof request?.query_string === 'string') {
+    request.query_string = scrubSensitiveString(request.query_string);
   }
 
-  if (candidate.extra) scrubSensitiveSentryData(candidate.extra);
+  if (candidate.extra && typeof candidate.extra === 'object') {
+    scrubSensitiveSentryData(candidate.extra as Record<string, unknown>);
+  }
   // Error messages can contain Zod values, provider output, or user text.
   // Preserve the event/category fields while dropping the freeform string.
   if (candidate.message) candidate.message = '[REDACTED]';
 
-  if (candidate.exception?.values) {
-    candidate.exception.values = candidate.exception.values.map((value: Record<string, any>) => ({
-      ...value,
-      value: '[REDACTED]',
-    }));
+  if (exception?.values && Array.isArray(exception.values)) {
+    exception.values = exception.values.map(value => {
+      const exceptionValue = value as Record<string, unknown>;
+      return { ...exceptionValue, value: '[REDACTED]' };
+    });
   }
 
   return event;

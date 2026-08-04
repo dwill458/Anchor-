@@ -5,9 +5,8 @@
  * analytics provider. These pin its recursive behaviour, its fail-closed path,
  * and the shape of the Chart event catalog.
  *
- * Note the catalog is currently declarative: no Chart event has a call site
- * yet. The last test pins that, so wiring one becomes a deliberate change that
- * has to bring its own property review rather than arriving unnoticed.
+ * Production call sites use the same typed boundary and stable operation keys;
+ * this suite pins the shared sanitizer and deduplication contract beneath them.
  */
 
 import {

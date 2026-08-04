@@ -11,8 +11,16 @@ describe('Reflection privacy boundary', () => {
 
   it('does not route reflection content through logs, analytics, breadcrumbs, or notification APIs', () => {
     const source = sources.join('\n');
-    expect(source).not.toMatch(/AnalyticsService|track\(|addBreadcrumb|captureException|notification/i);
+    expect(source).not.toMatch(/addBreadcrumb|captureException|notification/i);
     expect(source).not.toMatch(/console\.(log|warn|error)/);
+
+    // Reflection lifecycle analytics are allowed only through the typed safe
+    // boundary. Content fields must never become event properties.
+    const analyticsCalls = source.match(/trackChartEventOnce\([\s\S]*?\);/g) ?? [];
+    expect(analyticsCalls.length).toBeGreaterThan(0);
+    for (const call of analyticsCalls) {
+      expect(call).not.toMatch(/\b(body|structuredContent|whatHelped|whatLearned|moodBefore|moodAfter)\s*:/i);
+    }
   });
 
   it('keeps private persistence behind the encrypted storage adapter', () => {

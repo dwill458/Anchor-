@@ -31,7 +31,7 @@ const ALL_ON = {
   GOOGLE_API_KEY: 'test-planner-key',
 };
 
-type Entitlement = 'free' | 'trial' | 'pro' | 'expired' | 'comped';
+type Entitlement = 'free' | 'trial' | 'pro' | 'expired' | 'comped' | 'unknown';
 
 function accountFor(entitlement: Entitlement, chartSchemaVersion = 1) {
   const base = {
@@ -115,6 +115,14 @@ describe('ChartCapabilityService (Workstream G)', () => {
       expect(capabilities.plannerQuota.limit).toBeGreaterThan(0);
     });
 
+    it('fails closed when entitlement cannot be resolved', async () => {
+      const capabilities = await capabilitiesFor('unknown');
+      expect(capabilities.canViewChart).toBe(true);
+      expect(capabilities.canGenerateChartPlan).toBe(false);
+      expect(capabilities.plannerQuota.eligible).toBe(false);
+      expect(capabilities.plannerQuota.limit).toBe(0);
+    });
+
     it('keeps existing work usable after entitlement expires but blocks generation', async () => {
       const capabilities = await capabilitiesFor('expired');
       expect(capabilities.canGenerateChartPlan).toBe(false);
@@ -190,6 +198,21 @@ describe('ChartCapabilityService (Workstream G)', () => {
       expect(capabilities.chartAiPlannerEnabled).toBe(false);
       expect(capabilities.canGenerateChartPlan).toBe(false);
       expect(capabilities.canViewChart).toBe(true);
+    });
+
+    it('reports the planner unavailable when quota configuration is malformed', async () => {
+      const capabilities = await capabilitiesFor('pro', {
+        CHART_PLANNER_TRIAL_LIFETIME_CAP: 'not-a-number',
+      });
+      expect(capabilities.chartAiPlannerEnabled).toBe(false);
+      expect(capabilities.canGenerateChartPlan).toBe(false);
+      expect(capabilities.plannerQuota).toEqual({
+        eligible: false,
+        limit: 0,
+        remaining: 0,
+        resetAt: null,
+        reason: 'planner_disabled',
+      });
     });
 
     it('does not consult the provider or quota while the planner is unavailable', async () => {
