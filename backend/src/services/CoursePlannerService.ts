@@ -249,6 +249,10 @@ export class CoursePlannerService {
     const config = resolvePlannerQuotaConfig();
     if (!config) throw denialError('quota_config_unavailable');
 
+    // A missing credential is deployment configuration failure, never a
+    // provider response. Do not create a fallback proposal or spend quota.
+    if (!resolvePlannerApiKey()) throw denialError('provider_unavailable');
+
     const quota = await evaluatePlannerQuota(prisma, user, now, config);
     if (!quota.eligible) {
       throw denialError(quota.reason ?? 'quota_config_unavailable', quota);

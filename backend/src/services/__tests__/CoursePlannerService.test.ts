@@ -477,10 +477,13 @@ describe('provider boundary and privacy', () => {
   it('does not reach the provider when no server-side key is configured', async () => {
     delete mockEnv.GOOGLE_API_KEY;
 
-    const proposal = await service.generate(user(), INPUT, NOW);
+    await expect(service.generate(user(), INPUT, NOW)).rejects.toMatchObject({
+      code: 'PLANNER_UNAVAILABLE',
+    });
 
     expect(mockGenerateContent).not.toHaveBeenCalled();
-    expect(proposal.generationSource).toBe('deterministic_fallback');
+    expect(mockPrisma.aIPlanProposal.create).not.toHaveBeenCalled();
+    expect(mockPrisma.aIPlanProposal.count).not.toHaveBeenCalled();
   });
 
   it('never returns the raw provider payload or prompt', async () => {

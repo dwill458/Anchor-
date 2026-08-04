@@ -70,7 +70,7 @@ const mockPrisma = {
   courseAnchorLink: { findMany: jest.fn() },
   reflection: { findMany: jest.fn(), deleteMany: jest.fn() },
   courseEvent: { findMany: jest.fn() },
-  aIPlanProposal: { deleteMany: jest.fn() },
+  aIPlanProposal: { findMany: jest.fn(), deleteMany: jest.fn() },
 };
 
 jest.mock('../../../lib/prisma', () => ({

@@ -22,6 +22,7 @@ const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type PlannerDenialReason =
   | 'planner_disabled'
+  | 'provider_unavailable'
   | 'quota_config_unavailable'
   | 'entitlement_unavailable'
   | 'not_entitled'

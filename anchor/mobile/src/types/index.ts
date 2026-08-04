@@ -11,7 +11,7 @@ import type {
 export * from './sessionAudio';
 import type { ChartPracticeContext, PracticeEntryMode, PracticeEntrySource } from './practice';
 export * from './chart';
-import type { ChartFeatureFlags } from './chart';
+import type { ChartCapabilities, ChartFeatureFlags } from './chart';
 
 // ============================================================================
 // Core Domain Types
@@ -213,6 +213,8 @@ export interface User {
   isTrialExpired?: boolean;
   /** Server-driven Chart flags from /api/auth/me. Defaults off when absent. */
   chartFlags?: ChartFeatureFlags;
+  /** Server-authoritative Chart decisions; absent/unknown is treated as denied. */
+  chartCapabilities?: ChartCapabilities;
 }
 
 export type AuthScreenContext = 'onboarding' | 'first_anchor_gate' | 'save_progress' | 'paywall';

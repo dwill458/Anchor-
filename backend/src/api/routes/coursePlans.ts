@@ -8,6 +8,7 @@ import {
   requireChartWriteEnabled,
 } from '../../config/chartFlags';
 import { coursePlannerService } from '../../services/CoursePlannerService';
+import { getChartCapabilities } from '../../services/ChartCapabilityService';
 import { AppError } from '../middleware/errorHandler';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { prisma } from '../../lib/prisma';
@@ -80,6 +81,9 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
     requireChartPlannerEnabled();
     const user = await resolveUser(req);
     requireChartInitialized(user.chartSchemaVersion, false);
+    if (!(await getChartCapabilities(user)).canGenerateChartPlan) {
+      throw new AppError('Plan generation is unavailable', 403, 'PLANNER_UNAVAILABLE');
+    }
     const input = validate(GenerateSchema, req.body ?? {});
     res.status(201).json({ success: true, data: await coursePlannerService.generate(user, input) });
   } catch (error) {
@@ -96,7 +100,7 @@ router.get('/quota', async (req: AuthRequest, res: Response, next: NextFunction)
     requireChartPlannerEnabled();
     const user = await resolveUser(req);
     requireChartInitialized(user.chartSchemaVersion, false);
-    const quota = await coursePlannerService.getQuota(user);
+    const quota = (await getChartCapabilities(user)).plannerQuota;
     res.json({
       success: true,
       data: {
@@ -114,9 +118,11 @@ router.get('/quota', async (req: AuthRequest, res: Response, next: NextFunction)
 
 router.get('/:proposalId', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    requireChartPlannerEnabled();
     const user = await resolveUser(req);
     requireChartInitialized(user.chartSchemaVersion, false);
+    if (!(await getChartCapabilities(user)).canRetrieveOwnedChartPlan) {
+      throw new AppError('Chart is currently unavailable', 403, 'FEATURE_DISABLED');
+    }
     res.json({
       success: true,
       data: await coursePlannerService.get(user.id, req.params.proposalId),
@@ -128,10 +134,12 @@ router.get('/:proposalId', async (req: AuthRequest, res: Response, next: NextFun
 
 router.post('/:proposalId/accept', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    requireChartPlannerEnabled();
     requireChartWriteEnabled();
     const user = await resolveUser(req);
     requireChartInitialized(user.chartSchemaVersion);
+    if (!(await getChartCapabilities(user)).canAcceptExistingChartPlan) {
+      throw new AppError('Chart is currently unavailable', 403, 'FEATURE_DISABLED');
+    }
     const input = validate(AcceptSchema, req.body ?? {});
     res.json({
       success: true,

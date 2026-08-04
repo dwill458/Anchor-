@@ -5,6 +5,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { useAuthStore } from '@/stores/authStore';
 import { useCourseStore } from '@/stores/courseStore';
+import { canViewChart } from '@/types/chart';
 import { startReflectionQueueSync } from '@/services/ReflectionService';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
@@ -53,17 +54,18 @@ export const ChartHomeScreen: React.FC = () => {
   const navigation = useNavigation<ChartNavigation>();
   const accountId = useAuthStore((state) => state.user?.id ?? null);
   const serverFlags = useAuthStore((state) => state.user?.chartFlags);
+  const chartCapabilities = useAuthStore((state) => state.user?.chartCapabilities);
   const authOffline = useAuthStore((state) => state.isOfflineMode);
   const { registerTabNav } = useTabNavigation();
   const store = useCourseStore();
   const reducedMotion = useReduceMotionEnabled();
 
   useEffect(() => {
-    if (!accountId) return;
+    if (!accountId || !canViewChart(serverFlags, chartCapabilities)) return;
     store.setFeatureFlags(serverFlags);
     store.bindAccount(accountId);
     void store.hydrateAndRefresh(accountId);
-  }, [accountId, serverFlags, store.bindAccount, store.hydrateAndRefresh, store.setFeatureFlags]);
+  }, [accountId, serverFlags, chartCapabilities, store.bindAccount, store.hydrateAndRefresh, store.setFeatureFlags]);
 
   useEffect(() => startReflectionQueueSync(), []);
 

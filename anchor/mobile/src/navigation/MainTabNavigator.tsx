@@ -41,7 +41,7 @@ import { WidgetDeepLinkHandler } from '@/widgets/WidgetDeepLinkHandler';
 import { ResumeTargetHandler } from './ResumeTargetHandler';
 import { WIDGETS_ENABLED } from '@/config';
 import type { RootStackParamList } from '@/types';
-import { resolveChartFeatureFlags } from '@/types/chart';
+import { canViewChart } from '@/types/chart';
 import type { RootNavigatorParamList } from './RootNavigator';
 
 // ─── Tab Button ───────────────────────────────────────────────────────────────
@@ -213,7 +213,8 @@ export const MainTabNavigator: React.FC = () => {
     (state) => state.shouldRedirectToCreation,
   );
   const serverChartFlags = useAuthStore((state) => state.user?.chartFlags);
-  const chartEnabled = resolveChartFeatureFlags(serverChartFlags).chart_enabled;
+  const chartCapabilities = useAuthStore((state) => state.user?.chartCapabilities);
+  const chartEnabled = canViewChart(serverChartFlags, chartCapabilities);
   const hasCheckedAutoOpen = useRef(false);
   const autoOpenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toast = useToast();

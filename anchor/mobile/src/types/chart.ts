@@ -252,6 +252,24 @@ export type ChartFeatureFlags = {
   chart_existing_user_intro_enabled: boolean;
 };
 
+/** Safe server capability projection from /api/auth/me. Never authorize from a cached value. */
+export type ChartCapabilities = {
+  chartEnabled: boolean;
+  chartReflectionsEnabled: boolean;
+  chartAiPlannerEnabled: boolean;
+  canViewChart: boolean;
+  canCreateManualCourse: boolean;
+  canEditCourse: boolean;
+  canCompleteExistingCourse: boolean;
+  canGenerateChartPlan: boolean;
+  canRetrieveOwnedChartPlan: boolean;
+  canAcceptExistingChartPlan: boolean;
+  canCreateAnchor: boolean;
+  canCreateOrEditReflections: boolean;
+  canViewOwnedCourseHistory: boolean;
+  plannerQuota: Pick<CoursePlanQuota, 'eligible' | 'limit' | 'remaining' | 'resetAt' | 'reason'>;
+};
+
 export type ChartResponseEnvelope<T> = {
   success: boolean;
   data?: T;
@@ -321,4 +339,13 @@ export function resolveChartFeatureFlags(serverFlags?: Partial<ChartFeatureFlags
     chart_notifications_enabled: buildEnabled && server.chart_notifications_enabled === true,
     chart_existing_user_intro_enabled: buildEnabled && server.chart_existing_user_intro_enabled === true,
   };
+}
+
+/** A missing capability projection is deliberately denied, including during refresh failures. */
+export function canViewChart(
+  serverFlags?: Partial<ChartFeatureFlags> | null,
+  capabilities?: Partial<ChartCapabilities> | null,
+  buildEnabled = process.env.EXPO_PUBLIC_ENABLE_CHART === 'true'
+): boolean {
+  return resolveChartFeatureFlags(serverFlags, buildEnabled).chart_enabled && capabilities?.canViewChart === true;
 }
