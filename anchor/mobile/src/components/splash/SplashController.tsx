@@ -52,13 +52,24 @@ export const SplashController: React.FC<SplashControllerProps> = ({
   }, [active, logoReady, nativeHidden, rootReady, startupReady]);
 
   useEffect(() => {
-    if (!startupReady || !rootReady || !logoReady || nativeHidden) {
+    if (!rootReady || !logoReady || nativeHidden) {
       return undefined;
     }
 
     let cancelled = false;
 
     const releaseNativeSplash = async () => {
+      // Image load + layout alone do not guarantee a committed native frame.
+      // Wait one frame so the in-app artwork is already visible when the OS
+      // launch surface disappears.
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => resolve());
+      });
+
+      if (cancelled) {
+        return;
+      }
+
       try {
         await SplashScreen.hideAsync();
       } catch (error) {
@@ -70,11 +81,6 @@ export const SplashController: React.FC<SplashControllerProps> = ({
       }
 
       setNativeHidden(true);
-      requestAnimationFrame(() => {
-        if (!cancelled) {
-          setActive(true);
-        }
-      });
     };
 
     void releaseNativeSplash();
@@ -82,7 +88,7 @@ export const SplashController: React.FC<SplashControllerProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [logoReady, nativeHidden, requestSplashRemoval, rootReady, startupReady]);
+  }, [logoReady, nativeHidden, rootReady]);
 
   useEffect(() => {
     if (!active || hasStartedAnalytics.current) {
