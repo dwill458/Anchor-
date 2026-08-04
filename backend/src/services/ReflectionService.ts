@@ -104,31 +104,39 @@ export class ReflectionService {
     assertPromptAndMoodRules(input);
     const content = assertContent(input);
     if (!content) return null;
-    const existing = await prisma.reflection.findUnique({
-      where: { idempotencyKey: input.idempotencyKey },
-    });
-    if (existing) {
-      if (existing.userId !== userId)
-        throw new AppError(
-          'Reflection idempotency key has already been used',
-          409,
-          'IDEMPOTENCY_CONFLICT'
-        );
-      // Tombstones are authoritative. Never resurrect destroyed text on a
-      // delayed replay of the original request.
-      if (existing.deletedAt) return reflectionResponse(existing);
-      if (!this.matches(existing, userId, input, content)) {
-        throw new AppError(
-          'Reflection idempotency key has already been used',
-          409,
-          'IDEMPOTENCY_CONFLICT'
-        );
-      }
-      return reflectionResponse(existing);
-    }
+    const replay = await this.replayExisting(userId, input, content);
+    if (replay) return replay;
 
     const relationship = await this.validateRelationships(userId, input);
-    const created = await prisma.$transaction(async tx => {
+    try {
+      return reflectionResponse(await this.insert(userId, input, content, relationship));
+    } catch (error) {
+      // A concurrent retry of the same queued reflection won the unique index.
+      // That is the idempotent outcome, not a failure, so resolve to its row.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002' &&
+        (error.meta?.target as string[] | undefined)?.includes('idempotency_key')
+      ) {
+        const raced = await this.replayExisting(userId, input, content);
+        if (raced) return raced;
+      }
+      throw error;
+    }
+  }
+
+  private async insert(
+    userId: string,
+    input: ReflectionInput,
+    content: { body: string | undefined; structuredContent: StructuredContent | undefined },
+    relationship: {
+      practiceSessionId: string | null;
+      anchorId: string | null;
+      courseId: string | null;
+      waypointId: string | null;
+    }
+  ) {
+    return prisma.$transaction(async tx => {
       const reflection = await tx.reflection.create({
         data: {
           id: randomUUID(),
@@ -137,9 +145,12 @@ export class ReflectionService {
           promptType: input.promptType,
           promptVersion: input.promptVersion,
           body: content.body ?? null,
+          // DbNull writes a SQL NULL. JsonNull would write the JSON scalar
+          // `null`, which is not NULL to `structured_content IS NULL`, so
+          // `reflections_exactly_one_content_check` rejects the row.
           structuredContent: content.structuredContent
             ? (content.structuredContent as Prisma.InputJsonValue)
-            : Prisma.JsonNull,
+            : Prisma.DbNull,
           moodBefore: input.moodBefore ?? null,
           moodAfter: input.moodAfter ?? null,
           practiceSessionId: relationship.practiceSessionId,
@@ -165,7 +176,41 @@ export class ReflectionService {
       }
       return reflection;
     });
-    return reflectionResponse(created);
+  }
+
+  /**
+   * Resolves a replay of an already stored idempotency key, or null when the
+   * key is genuinely new. Called before the insert and again if a concurrent
+   * retry wins the unique index, so simultaneous retries of one queued
+   * reflection resolve to the same row instead of failing.
+   */
+  private async replayExisting(
+    userId: string,
+    input: ReflectionInput,
+    content: { body: string | undefined; structuredContent: StructuredContent | undefined }
+  ): Promise<Record<string, unknown> | null> {
+    const existing = await prisma.reflection.findUnique({
+      where: { idempotencyKey: input.idempotencyKey },
+    });
+    if (!existing) return null;
+    if (existing.userId !== userId) {
+      throw new AppError(
+        'Reflection idempotency key has already been used',
+        409,
+        'IDEMPOTENCY_CONFLICT'
+      );
+    }
+    // Tombstones are authoritative. Never resurrect destroyed text on a
+    // delayed replay of the original request.
+    if (existing.deletedAt) return reflectionResponse(existing);
+    if (!this.matches(existing, userId, input, content)) {
+      throw new AppError(
+        'Reflection idempotency key has already been used',
+        409,
+        'IDEMPOTENCY_CONFLICT'
+      );
+    }
+    return reflectionResponse(existing);
   }
 
   async update(
@@ -209,7 +254,7 @@ export class ReflectionService {
           ? {
               structuredContent: structuredContent
                 ? (structuredContent as Prisma.InputJsonValue)
-                : Prisma.JsonNull,
+                : Prisma.DbNull,
             }
           : {}),
         ...(input.moodAfter !== undefined ? { moodAfter: input.moodAfter ?? null } : {}),
@@ -222,9 +267,22 @@ export class ReflectionService {
   }
 
   async delete(userId: string, reflectionId: string): Promise<void> {
+    const existing = await prisma.reflection.findFirst({
+      where: { id: reflectionId, userId, deletedAt: null },
+      select: { promptType: true },
+    });
+    if (!existing) throw new AppError('Reflection not found', 404, 'REFLECTION_NOT_FOUND');
+    // `reflections_exactly_one_content_check` and `reflections_prompt_content_check`
+    // require exactly one content column to stay populated and to match the
+    // prompt type, so a tombstone empties the content in place. Nulling both
+    // columns is rejected by the schema and would fail the delete outright.
+    const erased =
+      existing.promptType === 'WAYPOINT_COMPLETION'
+        ? { body: null, structuredContent: {} as Prisma.InputJsonValue }
+        : { body: '', structuredContent: Prisma.DbNull };
     const result = await prisma.reflection.updateMany({
       where: { id: reflectionId, userId, deletedAt: null },
-      data: { deletedAt: new Date(), body: null, structuredContent: Prisma.JsonNull },
+      data: { deletedAt: new Date(), ...erased },
     });
     if (result.count === 0) throw new AppError('Reflection not found', 404, 'REFLECTION_NOT_FOUND');
   }
