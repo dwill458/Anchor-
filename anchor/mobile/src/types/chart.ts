@@ -243,6 +243,22 @@ export type LinkAnchorRequest = {
   acknowledgedReuse?: boolean;
 };
 
+export type CompleteWaypointRequest = {
+  idempotencyKey: string;
+  expectedCourseVersion: number;
+  supportingPracticeSessionId?: string;
+};
+
+export type CompleteWaypointResponse = {
+  course: CourseSummary;
+  completedWaypoint: WaypointSummary;
+  nextWaypoint: WaypointSummary | null;
+  courseCompleted: boolean;
+  completionEventId: string;
+  replayed: boolean;
+  reflectionId?: string;
+};
+
 export type ChartFeatureFlags = {
   chart_enabled: boolean;
   chart_write_enabled: boolean;

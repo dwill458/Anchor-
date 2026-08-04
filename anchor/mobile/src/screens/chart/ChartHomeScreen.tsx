@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { Text, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RouteProp } from '@react-navigation/native';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { useAuthStore } from '@/stores/authStore';
 import { useCourseStore } from '@/stores/courseStore';
@@ -9,6 +10,7 @@ import { canViewChart } from '@/types/chart';
 import { startReflectionQueueSync } from '@/services/ReflectionService';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
+import { AnalyticsEvents, trackChartEventOnce } from '@/services/AnalyticsService';
 import type { ChartStackParamList, CourseDetail, CourseSummary } from '@/types/chart';
 import { CourseMap } from './components/CourseMap';
 import {
@@ -23,6 +25,7 @@ import {
 } from './chartUi';
 
 type ChartNavigation = NativeStackNavigationProp<ChartStackParamList>;
+type ChartHomeRoute = RouteProp<ChartStackParamList, 'ChartHome'>;
 
 function errorCopy(code: string | null): string {
   switch (code) {
@@ -52,6 +55,7 @@ const DestinationAnchor: React.FC<{ course: CourseDetail | CourseSummary }> = ({
 
 export const ChartHomeScreen: React.FC = () => {
   const navigation = useNavigation<ChartNavigation>();
+  const route = useRoute<ChartHomeRoute>();
   const accountId = useAuthStore((state) => state.user?.id ?? null);
   const serverFlags = useAuthStore((state) => state.user?.chartFlags);
   const chartCapabilities = useAuthStore((state) => state.user?.chartCapabilities);
@@ -59,6 +63,21 @@ export const ChartHomeScreen: React.FC = () => {
   const { registerTabNav } = useTabNavigation();
   const store = useCourseStore();
   const reducedMotion = useReduceMotionEnabled();
+
+  useEffect(() => {
+    if (!accountId || serverFlags == null) return;
+    if (canViewChart(serverFlags, chartCapabilities)) {
+      trackChartEventOnce(AnalyticsEvents.CHART_TAB_VIEWED, accountId, route.key, {
+        entry_source: 'chart_tab',
+      });
+    } else {
+      trackChartEventOnce(AnalyticsEvents.CHART_UNAVAILABLE_VIEWED, accountId, route.key, {
+        entry_source: 'chart_tab',
+        error_category: 'feature_unavailable',
+        offline: authOffline,
+      });
+    }
+  }, [accountId, authOffline, chartCapabilities, route.key, serverFlags]);
 
   useEffect(() => {
     if (!accountId || !canViewChart(serverFlags, chartCapabilities)) return;
@@ -191,6 +210,20 @@ export const ChartHomeScreen: React.FC = () => {
   const isCompleted = course.status === 'COMPLETED';
   const isArchived = course.status === 'ARCHIVED';
   const currentWaypoint = detail?.waypoints.find((waypoint) => waypoint.id === detail.currentWaypointId);
+
+  useEffect(() => {
+    if (!accountId || !course) return;
+    trackChartEventOnce(AnalyticsEvents.COURSE_VIEWED, accountId, course.id, {
+      course_state: course.status,
+      waypoint_count: course.waypointCount,
+    });
+    if (course.needsRepair) {
+      trackChartEventOnce(AnalyticsEvents.CHART_UNAVAILABLE_VIEWED, accountId, `repair:${course.id}`, {
+        course_state: course.status,
+        error_category: 'repair_required',
+      });
+    }
+  }, [accountId, course]);
 
   return (
     <ChartScreenFrame title="Chart" subtitle="Where am I going?">

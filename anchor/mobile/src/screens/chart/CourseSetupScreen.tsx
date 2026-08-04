@@ -4,7 +4,9 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { useCourseStore } from '@/stores/courseStore';
+import { useAuthStore } from '@/stores/authStore';
 import { chartApiClient, getChartErrorCode } from '@/services/ChartApiClient';
+import { AnalyticsEvents, trackChartEventOnce } from '@/services/AnalyticsService';
 import type { ChartStackParamList, CoursePlanQuota } from '@/types/chart';
 import { ChartButton, ChartCard, ChartScreenFrame, ReadOnlyNotice } from './chartUi';
 
@@ -68,6 +70,7 @@ export const CourseSetupScreen: React.FC = () => {
   const navigation = useNavigation<Navigation>();
   const route = useRoute<SetupRoute>();
   const store = useCourseStore();
+  const accountId = useAuthStore((state) => state.user?.id ?? null);
   const createKey = useRef(keyFor('course-create')).current;
   const plannerKey = useRef(keyFor('plan-generate')).current;
   const [destinationText, setDestinationText] = useState('');
@@ -77,6 +80,14 @@ export const CourseSetupScreen: React.FC = () => {
   const [quota, setQuota] = useState<CoursePlanQuota | null>(null);
 
   const plannerSurfaceVisible = store.flags.chart_ai_planner_enabled;
+
+  useEffect(() => {
+    if (!accountId) return;
+    trackChartEventOnce(AnalyticsEvents.COURSE_SETUP_STARTED, accountId, route.key, {
+      entry_source: route.params?.fromProposalId ? 'planner_proposal' : 'chart_home',
+      from_proposal: Boolean(route.params?.fromProposalId),
+    });
+  }, [accountId, route.key, route.params?.fromProposalId]);
 
   const loadQuota = useCallback(async () => {
     if (!plannerSurfaceVisible || store.offline) {
@@ -123,6 +134,10 @@ export const CourseSetupScreen: React.FC = () => {
     }
     setFieldError(null);
     setSaving(true);
+    trackChartEventOnce(AnalyticsEvents.MANUAL_COURSE_CREATION_REQUESTED, accountId, createKey, {
+      entry_source: route.params?.fromProposalId ? 'planner_proposal' : 'manual_setup',
+      from_proposal: Boolean(route.params?.fromProposalId),
+    });
     const course = await store.createManualCourse({
       idempotencyKey: createKey,
       destinationText: destination,
@@ -137,6 +152,12 @@ export const CourseSetupScreen: React.FC = () => {
       setFieldError(store.errorCode === 'ACTIVE_COURSE_EXISTS' ? 'An active Course already exists. Archive it before publishing another.' : 'The Course could not be saved.');
       return;
     }
+    trackChartEventOnce(AnalyticsEvents.MANUAL_COURSE_CREATED, accountId, course.id, {
+      course_state: course.status,
+      waypoint_count: course.waypointCount,
+      from_proposal: Boolean(route.params?.fromProposalId),
+      server_confirmed: true,
+    });
     let next = course;
     if (publish) {
       const published = await store.publishCourse(course.id, course.version);
@@ -167,6 +188,10 @@ export const CourseSetupScreen: React.FC = () => {
     }
     setFieldError(null);
     setSaving(true);
+    trackChartEventOnce(AnalyticsEvents.CHART_PLANNER_GENERATION_REQUESTED, accountId, plannerKey, {
+      entry_source: 'course_setup',
+      offline: false,
+    });
     try {
       const result = await chartApiClient.generateCoursePlan({
         destinationText: destination,
@@ -176,10 +201,42 @@ export const CourseSetupScreen: React.FC = () => {
         courseId: null,
         proposalId: result.data.proposalId,
       });
+      const fallback = result.data.generationSource === 'deterministic_fallback';
+      trackChartEventOnce(
+        fallback ? AnalyticsEvents.CHART_PLANNER_FALLBACK_USED : AnalyticsEvents.CHART_PLANNER_GENERATION_SUCCEEDED,
+        accountId,
+        result.data.proposalId,
+        {
+          generation_source: result.data.generationSource,
+          fallback_used: fallback,
+          server_confirmed: true,
+        },
+      );
     } catch (cause) {
       // The server owns this decision. The client only restates it; it never
       // re-derives eligibility or a remaining count of its own.
-      setFieldError(planDenialMessage(getChartErrorCode(cause)));
+      const code = getChartErrorCode(cause);
+      const denialReason = code === 'PLANNER_QUOTA_EXCEEDED'
+        ? 'quota_exhausted'
+        : code === 'PLANNER_NOT_ENTITLED'
+          ? 'not_entitled'
+          : 'planner_unavailable';
+      trackChartEventOnce(AnalyticsEvents.CHART_PLANNER_GENERATION_DENIED, accountId, plannerKey, {
+        denial_reason: denialReason,
+        error_category: code ?? 'unknown',
+        quota_remaining: quota?.remaining,
+        quota_limit: quota?.limit,
+        server_confirmed: true,
+      });
+      if (code === 'PLANNER_QUOTA_EXCEEDED') {
+        trackChartEventOnce(AnalyticsEvents.CHART_PLANNER_QUOTA_REACHED, accountId, plannerKey, {
+          denial_reason: 'quota_exhausted',
+          quota_remaining: 0,
+          quota_limit: quota?.limit,
+          server_confirmed: true,
+        });
+      }
+      setFieldError(planDenialMessage(code));
       void loadQuota();
     } finally {
       setSaving(false);

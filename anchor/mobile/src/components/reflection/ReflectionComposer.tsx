@@ -13,6 +13,7 @@ import { useCourseStore } from '@/stores/courseStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useReflectionDraftStore, type ReflectionDraft } from '@/stores/reflectionDraftStore';
 import { draftToCreateRequest, isReflectionNetworkError, reflectionService } from '@/services/ReflectionService';
+import { AnalyticsEvents, trackChartEventOnce } from '@/services/AnalyticsService';
 import { ChartButton, ChartCard, ReadOnlyNotice } from '@/screens/chart/chartUi';
 import { colors, spacing, typography } from '@/theme';
 import type {
@@ -173,10 +174,20 @@ export const ReflectionComposer: React.FC<ReflectionComposerProps> = (props) => 
       return;
     }
     setError('Saved on this device. It will sync when you’re back online.');
+    trackChartEventOnce(AnalyticsEvents.REFLECTION_SAVED, accountId, props.draftKey, {
+      entry_source: props.source,
+      offline: true,
+      server_confirmed: false,
+      has_reflection: true,
+    });
   };
 
   const save = async () => {
     setError(null);
+    trackChartEventOnce(AnalyticsEvents.REFLECTION_SAVE_REQUESTED, accountId, props.draftKey, {
+      entry_source: props.source,
+      offline,
+    });
     if (!validate() || !draft) return;
     setSaving(true);
     try {
@@ -191,6 +202,12 @@ export const ReflectionComposer: React.FC<ReflectionComposerProps> = (props) => 
           ...(moodAfter ? { moodAfter } : {}),
         });
         props.onSaved(reflection);
+        trackChartEventOnce(AnalyticsEvents.REFLECTION_SAVED, accountId, props.initialReflection.id, {
+          entry_source: props.source,
+          offline: false,
+          server_confirmed: true,
+          has_reflection: true,
+        });
         return;
       }
       if (offline) {
@@ -200,11 +217,22 @@ export const ReflectionComposer: React.FC<ReflectionComposerProps> = (props) => 
       const reflection = await reflectionService.create(draftToCreateRequest(draft));
       await draftStore.remove(props.draftKey);
       props.onSaved(reflection);
+      trackChartEventOnce(AnalyticsEvents.REFLECTION_SAVED, accountId, reflection.id, {
+        entry_source: props.source,
+        offline: false,
+        server_confirmed: true,
+        has_reflection: true,
+      });
     } catch (caught) {
       await saveDraft();
       if (isReflectionNetworkError(caught) && !props.initialReflection) {
         await queueOffline();
       } else {
+        trackChartEventOnce(AnalyticsEvents.REFLECTION_SAVE_FAILED, accountId, props.draftKey, {
+          entry_source: props.source,
+          offline,
+          error_category: offline ? 'offline' : isReflectionNetworkError(caught) ? 'network' : 'server',
+        });
         setError('Your writing is still here. Please try again when you’re ready.');
       }
     } finally {

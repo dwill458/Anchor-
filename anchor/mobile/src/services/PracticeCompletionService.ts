@@ -1,6 +1,10 @@
 import Constants from 'expo-constants';
 
-import { AnalyticsService } from '@/services/AnalyticsService';
+import {
+  AnalyticsEvents,
+  AnalyticsService,
+  trackChartEventOnce,
+} from '@/services/AnalyticsService';
 import { apiClient } from '@/services/ApiClient';
 import { isBackendAnchorId } from '@/services/BackendAnchorService';
 import { useAuthStore } from '@/stores/authStore';
@@ -315,6 +319,19 @@ export const PracticeCompletionService = {
       try {
         await apiClient.post('/api/practice/sessions', serverPayload(session));
         useSessionStore.getState().markPracticeSessionSynced(session.id);
+        if (
+          session.courseId &&
+          session.waypointId &&
+          session.practiceEntrySource === 'chart_waypoint_detail'
+        ) {
+          trackChartEventOnce(AnalyticsEvents.CHART_PRACTICE_COMPLETED, accountId, session.id, {
+            entry_source: 'waypoint_detail',
+            practice_mode: session.practiceMode,
+            duration_bucket: session.completedDurationSeconds < 120 ? 'short' : session.completedDurationSeconds < 600 ? 'medium' : 'long',
+            server_confirmed: true,
+            offline: false,
+          });
+        }
       } catch {
         remaining.push({ ...session, syncState: 'failed' });
         AnalyticsService.track('practice_sync_failed', {

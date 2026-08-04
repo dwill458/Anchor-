@@ -9,6 +9,8 @@ import type {
   EditWaypointRequest,
   LinkAnchorRequest,
   ReorderWaypointsRequest,
+  CompleteWaypointRequest,
+  CompleteWaypointResponse,
   AddWaypointRequest,
   CourseLogEntry,
   CoursePlanProposal,
@@ -110,6 +112,21 @@ export class ChartApiClient {
 
   reorderWaypoints(courseId: string, request: ReorderWaypointsRequest, signal?: AbortSignal): Promise<ChartApiResult<CourseDetail>> {
     return this.unwrap(() => apiClient.post(`/api/courses/${encodePath(courseId)}/waypoints/reorder`, request, this.requestConfig(signal)));
+  }
+
+  completeWaypoint(
+    courseId: string,
+    waypointId: string,
+    request: CompleteWaypointRequest,
+    signal?: AbortSignal,
+  ): Promise<ChartApiResult<CompleteWaypointResponse>> {
+    return this.unwrap(() =>
+      apiClient.post(
+        `/api/courses/${encodePath(courseId)}/waypoints/${encodePath(waypointId)}/complete`,
+        request,
+        this.requestConfig(signal),
+      ),
+    );
   }
 
   linkAnchor(courseId: string, request: LinkAnchorRequest, signal?: AbortSignal): Promise<ChartApiResult<CourseDetail>> {

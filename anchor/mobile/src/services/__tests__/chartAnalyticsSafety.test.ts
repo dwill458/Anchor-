@@ -10,9 +10,14 @@
  * has to bring its own property review rather than arriving unnoticed.
  */
 
-import fs from 'fs';
-import path from 'path';
-import { AnalyticsEvents, sanitizeAnalyticsProperties } from '../AnalyticsService';
+import {
+  AnalyticsEvents,
+  AnalyticsService,
+  resetChartAnalyticsDeduplication,
+  sanitizeAnalyticsProperties,
+  sanitizeChartAnalyticsProperties,
+  trackChartEventOnce,
+} from '../AnalyticsService';
 
 const chartEventNames = Object.entries(AnalyticsEvents)
   .filter(([key]) => /^(CHART_|COURSE_|MANUAL_COURSE_|WAYPOINT_|DESTINATION_|REFLECTION_)/.test(key))
@@ -116,30 +121,40 @@ describe('Chart analytics safety (Workstream G)', () => {
       expect(AnalyticsEvents.PRACTICE_SESSION_COMPLETED).toBe('practice_session_completed');
     });
 
-    it('is not wired to any emitter yet, so no Chart event can fire', () => {
-      // If this fails, a Chart event gained a call site: review its properties
-      // against the frozen catalog and replace this with emission tests.
-      const root = path.resolve(__dirname, '..', '..');
-      const offenders: string[] = [];
+    it('keeps the Chart property surface typed and fail-closed', () => {
+      const canary = 'chart-privacy-canary';
+      expect(
+        sanitizeChartAnalyticsProperties({
+          waypoint_state: 'CURRENT',
+          waypoint_count: 3,
+          destination_text: canary,
+          planner_input: canary,
+          arbitrary_text: canary,
+          nested: { error_category: 'network' },
+        }),
+      ).toEqual({ waypoint_state: 'CURRENT', waypoint_count: 3 });
+    });
 
-      const walk = (dir: string): void => {
-        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-          const full = path.join(dir, entry.name);
-          if (entry.isDirectory()) {
-            if (entry.name !== '__tests__') walk(full);
-            continue;
-          }
-          if (!/\.tsx?$/.test(entry.name)) continue;
-          if (full.endsWith(path.join('services', 'AnalyticsService.ts'))) continue;
-          const text = fs.readFileSync(full, 'utf8');
-          if (/AnalyticsEvents\.(CHART_|COURSE_|MANUAL_COURSE_|WAYPOINT_|DESTINATION_|REFLECTION_)/.test(text)) {
-            offenders.push(path.relative(root, full));
-          }
-        }
-      };
+    it('deduplicates by account, event, and stable operation key', () => {
+      const track = jest.spyOn(AnalyticsService, 'track').mockImplementation(() => undefined);
+      resetChartAnalyticsDeduplication();
 
-      walk(root);
-      expect(offenders).toEqual([]);
+      expect(trackChartEventOnce(AnalyticsEvents.WAYPOINT_COMPLETED, 'account-a', 'event-1', {
+        waypoint_state: 'REACHED',
+        server_confirmed: true,
+      })).toBe(true);
+      expect(trackChartEventOnce(AnalyticsEvents.WAYPOINT_COMPLETED, 'account-a', 'event-1', {
+        waypoint_state: 'REACHED',
+        server_confirmed: true,
+      })).toBe(false);
+      expect(trackChartEventOnce(AnalyticsEvents.WAYPOINT_COMPLETED, 'account-b', 'event-1', {
+        waypoint_state: 'REACHED',
+        server_confirmed: true,
+      })).toBe(true);
+      expect(track).toHaveBeenCalledTimes(2);
+      expect(track.mock.calls[0][1]).toEqual({ waypoint_state: 'REACHED', server_confirmed: true });
+
+      track.mockRestore();
     });
   });
 });

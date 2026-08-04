@@ -4,6 +4,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { useAuthStore } from '@/stores/authStore';
+import { AnalyticsEvents, trackChartEventOnce } from '@/services/AnalyticsService';
 import { useCourseLogStore } from '@/stores/courseLogStore';
 import type { ChartStackParamList, CourseLogEntry } from '@/types/chart';
 import { ChartButton, ChartCard, ChartScreenFrame, formatDate } from './chartUi';
@@ -18,6 +19,12 @@ export const CourseLogScreen: React.FC = () => {
   const route = useRoute<Route>();
   const accountId = useAuthStore((state) => state.user?.id ?? null);
   const store = useCourseLogStore();
+  useEffect(() => {
+    if (!accountId) return;
+    trackChartEventOnce(AnalyticsEvents.COURSE_LOG_VIEWED, accountId, route.key, {
+      entry_source: route.params.waypointId ? 'waypoint_detail' : 'course_detail',
+    });
+  }, [accountId, route.key, route.params.waypointId]);
   useEffect(() => { void store.bind(accountId, route.params.courseId); }, [accountId, route.params.courseId]);
   const entries = useMemo(() => route.params.waypointId ? store.entries.filter((entry) => entry.waypointId === route.params.waypointId) : store.entries, [route.params.waypointId, store.entries]);
   return (

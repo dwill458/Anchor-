@@ -4,6 +4,8 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { useCourseStore } from '@/stores/courseStore';
+import { useAuthStore } from '@/stores/authStore';
+import { AnalyticsEvents, trackChartEventOnce } from '@/services/AnalyticsService';
 import type { ChartStackParamList } from '@/types/chart';
 import { ChartButton, ChartCard, ChartScreenFrame } from './chartUi';
 
@@ -14,6 +16,7 @@ export const CourseCompletionScreen: React.FC = () => {
   const navigation = useNavigation<Navigation>();
   const route = useRoute<CompletionRoute>();
   const store = useCourseStore();
+  const accountId = useAuthStore((state) => state.user?.id ?? null);
   const course = store.activeCourse?.id === route.params.courseId ? store.activeCourse : null;
   const allowLeaveRef = React.useRef(false);
 
@@ -31,6 +34,15 @@ export const CourseCompletionScreen: React.FC = () => {
     }
     if (!course) void store.fetchCourseDetail(route.params.courseId);
   }, [course, navigation, route.params.courseId, store.fetchCourseDetail]);
+
+  useEffect(() => {
+    if (!accountId || !course || course.status !== 'COMPLETED') return;
+    trackChartEventOnce(AnalyticsEvents.COURSE_COMPLETED, accountId, course.id, {
+      course_state: course.status,
+      waypoint_count: course.waypointCount,
+      server_confirmed: true,
+    });
+  }, [accountId, course]);
 
   if (!course || course.status !== 'COMPLETED') {
     return <ChartScreenFrame title="Course complete"><ChartCard><Text style={{ color: '#C0C0C0' }}>Verifying the Course state…</Text></ChartCard></ChartScreenFrame>;

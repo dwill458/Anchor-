@@ -5,6 +5,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { chartApiClient, getChartErrorCode } from '@/services/ChartApiClient';
 import { useCourseStore } from '@/stores/courseStore';
+import { useAuthStore } from '@/stores/authStore';
+import { AnalyticsEvents, trackChartEventOnce } from '@/services/AnalyticsService';
 import type { ChartStackParamList, CoursePlanProposal } from '@/types/chart';
 import {
   ChartButton,
@@ -27,6 +29,7 @@ export const AIPlanReviewScreen: React.FC = () => {
   const navigation = useNavigation<Navigation>();
   const route = useRoute<ReviewRoute>();
   const store = useCourseStore();
+  const accountId = useAuthStore((state) => state.user?.id ?? null);
   const acceptKey = useRef(keyFor()).current;
   const [proposal, setProposal] = useState<CoursePlanProposal | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,6 +49,10 @@ export const AIPlanReviewScreen: React.FC = () => {
         route.params.proposalId,
       );
       setProposal(result.data);
+      trackChartEventOnce(AnalyticsEvents.CHART_PLANNER_PROPOSAL_VIEWED, accountId, result.data.proposalId, {
+        generation_source: result.data.generationSource,
+        fallback_used: result.data.generationSource === 'deterministic_fallback',
+      });
     } catch (cause) {
       const code = getChartErrorCode(cause);
       setError(
@@ -67,7 +74,11 @@ export const AIPlanReviewScreen: React.FC = () => {
     setAccepting(true);
     setError(null);
     try {
-      await chartApiClient.acceptCoursePlan(proposal.proposalId, acceptKey);
+      const result = await chartApiClient.acceptCoursePlan(proposal.proposalId, acceptKey);
+      trackChartEventOnce(AnalyticsEvents.CHART_PLANNER_PROPOSAL_ACCEPTED, accountId, proposal.proposalId, {
+        course_state: result.data.status,
+        server_confirmed: true,
+      });
       await store.refresh();
       navigation.navigate('ChartHome');
     } catch (cause) {
@@ -183,7 +194,12 @@ export const AIPlanReviewScreen: React.FC = () => {
           <ChartButton
             label="Back without changes"
             secondary
-            onPress={() => navigation.goBack()}
+            onPress={() => {
+              trackChartEventOnce(AnalyticsEvents.CHART_PLANNER_PROPOSAL_DISMISSED, accountId, proposal?.proposalId ?? route.params.proposalId, {
+                error_category: 'user_dismissed',
+              });
+              navigation.goBack();
+            }}
             disabled={accepting}
           />
         </>

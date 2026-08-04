@@ -6,6 +6,8 @@ import type {
   ChartFeatureFlags,
   CourseDetail,
   CourseSummary,
+  CompleteWaypointRequest,
+  CompleteWaypointResponse,
   CreateCourseRequest,
   EditWaypointRequest,
   LinkAnchorRequest,
@@ -55,6 +57,11 @@ type CourseStoreState = {
     request: { expectedCourseVersion: number; destinationText?: string },
   ) => Promise<CourseDetail | null>;
   publishCourse: (courseId: string, expectedCourseVersion: number) => Promise<CourseDetail | null>;
+  completeWaypoint: (
+    courseId: string,
+    waypointId: string,
+    request: CompleteWaypointRequest,
+  ) => Promise<CompleteWaypointResponse | null>;
   archiveCourse: (courseId: string, expectedCourseVersion: number) => Promise<CourseDetail | null>;
   restoreCourse: (courseId: string, expectedCourseVersion: number) => Promise<CourseDetail | null>;
   deleteCourse: (courseId: string, expectedCourseVersion: number) => Promise<boolean>;
@@ -442,6 +449,29 @@ export const useCourseStore = create<CourseStoreState>((set, get) => ({
       if (get().accountId !== accountId) return null;
       setAuthoritativeCourse(set, accountId, result.data);
       await persistCurrentState(get);
+      return result.data;
+    } catch (error) {
+      const conflict = getConflictCourse(error);
+      if (conflict) setAuthoritativeCourse(set, accountId, conflict);
+      set({ errorCode: getChartErrorCode(error) ?? 'NETWORK' });
+      return null;
+    }
+  },
+
+  completeWaypoint: async (courseId, waypointId, request) => {
+    const unavailable = mutationUnavailable(get);
+    if (unavailable) {
+      set({ errorCode: unavailable });
+      return null;
+    }
+    const accountId = get().accountId;
+    if (!accountId) return null;
+    try {
+      const result = await chartApiClient.completeWaypoint(courseId, waypointId, request);
+      if (get().accountId !== accountId) return null;
+      // The completion response proves the mutation; fetch the full detail
+      // projection so the local map/list never invents the next state.
+      await get().fetchCourseDetail(courseId);
       return result.data;
     } catch (error) {
       const conflict = getConflictCourse(error);

@@ -8,6 +8,7 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { usePracticeEntry } from '@/hooks/usePracticeEntry';
+import { AnalyticsEvents, trackChartEventOnce } from '@/services/AnalyticsService';
 import { resolveChartFeatureFlags } from '@/types/chart';
 import { AnchorSelectorSheet } from '@/screens/practice/components/AnchorSelectorSheet';
 import type { Anchor } from '@/types';
@@ -34,6 +35,8 @@ export const WaypointDetailScreen: React.FC = () => {
   const waypoint = course?.waypoints.find((item) => item.id === route.params.waypointId);
   const [selectorVisible, setSelectorVisible] = useState(false);
   const requestKey = useRef(linkKey()).current;
+  const completionKey = useRef(linkKey()).current;
+  const [completing, setCompleting] = useState(false);
 
   useEffect(() => {
     if (!course) void store.fetchCourseDetail(route.params.courseId);
@@ -44,11 +47,24 @@ export const WaypointDetailScreen: React.FC = () => {
     if (!course && store.errorCode === 'COURSE_NOT_FOUND') navigation.replace('ChartHome');
   }, [course, navigation, store.errorCode, waypoint]);
 
+  useEffect(() => {
+    if (!accountId || !course || !waypoint) return;
+    trackChartEventOnce(AnalyticsEvents.WAYPOINT_VIEWED, accountId, route.key, {
+      course_state: course.status,
+      waypoint_state: waypoint.state,
+      waypoint_position: waypoint.position,
+    });
+  }, [accountId, course, route.key, waypoint]);
+
   if (!course || !waypoint) {
     return <ChartScreenFrame title="Waypoint" subtitle="Loading the latest waypoint…"><ChartCard><Text style={{ color: '#C0C0C0' }}>The waypoint is being verified.</Text></ChartCard></ChartScreenFrame>;
   }
 
   const selectAnchor = async (anchor: Anchor, acknowledgedReuse = false) => {
+    trackChartEventOnce(AnalyticsEvents.WAYPOINT_ANCHOR_ACTION_SELECTED, accountId, `${route.key}:${anchor.id}`, {
+      entry_source: acknowledgedReuse ? 'reuse_confirmed' : 'waypoint_detail',
+      waypoint_state: waypoint?.state,
+    });
     const existing = [course.destinationAnchorLink, ...course.waypoints.map((item) => item.anchorLink)]
       .find((link) => link?.anchorId === anchor.id && link.id !== waypoint.anchorLink?.id);
     if (existing && !acknowledgedReuse) {
@@ -73,6 +89,36 @@ export const WaypointDetailScreen: React.FC = () => {
     });
     setSelectorVisible(false);
     if (!result) return;
+  };
+
+  const complete = async () => {
+    if (!accountId || completing || waypoint.state !== 'CURRENT') return;
+    trackChartEventOnce(AnalyticsEvents.WAYPOINT_COMPLETION_STARTED, accountId, completionKey, {
+      course_state: course.status,
+      waypoint_state: waypoint.state,
+    });
+    setCompleting(true);
+    const result = await store.completeWaypoint(course.id, waypoint.id, {
+      idempotencyKey: completionKey,
+      expectedCourseVersion: course.version,
+    });
+    setCompleting(false);
+    if (!result) return;
+    trackChartEventOnce(AnalyticsEvents.WAYPOINT_COMPLETED, accountId, result.completionEventId, {
+      course_state: result.course.status,
+      waypoint_state: 'REACHED',
+      server_confirmed: true,
+    });
+    if (result.courseCompleted) {
+      trackChartEventOnce(AnalyticsEvents.COURSE_COMPLETED, accountId, result.course.id, {
+        course_state: 'COMPLETED',
+        waypoint_count: result.course.waypointCount,
+        server_confirmed: true,
+      });
+      navigation.replace('CourseCompletion', { courseId: course.id });
+      return;
+    }
+    navigation.replace('ChartHome');
   };
 
   const isBlocked = waypoint.state === 'BLOCKED';
@@ -101,7 +147,7 @@ export const WaypointDetailScreen: React.FC = () => {
       Alert.alert('Practice unavailable', 'This waypoint or its linked Anchor changed. Refresh the Chart and try again.');
       return;
     }
-    startPractice({
+    const started = startPractice({
       mode: 'focus',
       anchorId: linkedAnchor.id,
       source: 'chart_waypoint_detail',
@@ -112,6 +158,14 @@ export const WaypointDetailScreen: React.FC = () => {
         accountId,
       },
     });
+    if (started) {
+      trackChartEventOnce(AnalyticsEvents.CHART_PRACTICE_STARTED, accountId, `${fresh.id}:${freshWaypoint.id}`, {
+        entry_source: 'waypoint_detail',
+        practice_mode: 'focus',
+        course_state: fresh.status,
+        waypoint_state: freshWaypoint.state,
+      });
+    }
   };
   return (
     <>
@@ -127,6 +181,9 @@ export const WaypointDetailScreen: React.FC = () => {
           {isBlocked ? <Text style={{ color: '#FFB1B1', fontFamily: 'Inter-Regular', fontSize: 14 }}>Blocked because the linked Anchor is unavailable.</Text> : null}
           {waypoint.state === 'CURRENT' && waypoint.anchorLink?.anchorAvailable ? (
             <ChartButton label="Practice with this Anchor" onPress={() => void launchWaypointPractice()} disabled={isNavigationLocked || store.loading} />
+          ) : null}
+          {waypoint.state === 'CURRENT' ? (
+            <ChartButton label={completing ? 'Completing…' : 'Mark waypoint complete'} secondary onPress={() => void complete()} disabled={completing || store.readOnly || isBlocked} />
           ) : null}
           <ChartButton label="Link an Existing Anchor" onPress={() => setSelectorVisible(true)} disabled={store.readOnly} />
           {subscriptionStatus === 'free' ? (
