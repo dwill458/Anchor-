@@ -101,7 +101,15 @@ const SENSITIVE_PROPERTY_KEYS = new Set([
   'modeloutput',
   'model_output',
   'notes',
+  // Generic carriers of user-authored text. `body` is the Reflection content
+  // field name and `title`/`description` are the Waypoint ones, so an event
+  // that forwards a record verbatim must not slip them through unqualified.
+  'body',
+  'title',
+  'description',
+  'summary',
   'message',
+  'errormessage',
   'navigationparams',
   'navigation_params',
   'params',
