@@ -12,21 +12,33 @@ function writeIfChanged(filePath, next) {
   }
 }
 
+// Package tarballs may use CRLF on Windows while patch-package writes LF.
+// Match semantic snippets in a canonical form so the expected patched state
+// is recognized regardless of line ending; only an actual patch rewrites it.
+function canonicalize(content) {
+  return content.replace(/\r\n/g, '\n');
+}
+
 function replaceExact(content, before, after, label) {
-  if (content.includes(after)) {
+  const canonicalContent = canonicalize(content);
+  const canonicalBefore = canonicalize(before);
+  const canonicalAfter = canonicalize(after);
+  if (canonicalContent.includes(canonicalAfter)) {
     return content;
   }
-  if (!content.includes(before)) {
+  if (!canonicalContent.includes(canonicalBefore)) {
     throw new Error(`Expected snippet not found for ${label}`);
   }
-  return content.replace(before, after);
+  return canonicalContent.replace(canonicalBefore, canonicalAfter);
 }
 
 function removeExact(content, snippet, label) {
-  if (!content.includes(snippet)) {
+  const canonicalContent = canonicalize(content);
+  const canonicalSnippet = canonicalize(snippet);
+  if (!canonicalContent.includes(canonicalSnippet)) {
     return content;
   }
-  return content.replace(snippet, '');
+  return canonicalContent.replace(canonicalSnippet, '');
 }
 
 function patchReactNative(root) {
@@ -314,4 +326,11 @@ function main() {
   console.log('Applied Android dependency patches for EAS builds.');
 }
 
-main();
+// Keep the postinstall behavior, while making the exact replacement contract
+// independently testable. `patch-package` may have already applied the same
+// transformation; replaceExact treats that expected end state as success.
+if (require.main === module) {
+  main();
+}
+
+module.exports = { main, patchExpoDevLauncher, patchReactNative, removeExact, replaceExact };
