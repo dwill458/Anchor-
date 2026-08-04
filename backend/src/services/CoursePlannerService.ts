@@ -4,12 +4,58 @@ import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { AppError } from '../api/middleware/errorHandler';
 import { prisma } from '../lib/prisma';
+import {
+  PLANNER_DETERMINISTIC_MODEL_VERSION,
+  PLANNER_PROPOSAL_TTL_MS,
+  PLANNER_VERSION,
+  capForEntitlement,
+  resolvePlannerApiKey,
+  resolvePlannerMaxAttempts,
+  resolvePlannerModel,
+  resolvePlannerQuotaConfig,
+  resolvePlannerTemperature,
+  resolvePlannerTimeoutMs,
+} from '../config/plannerPolicy';
+import {
+  countPersistedProposals,
+  evaluatePlannerQuota,
+  type PlannerDenialReason,
+  type PlannerEntitlementUser,
+  type PlannerQuotaState,
+} from './PlannerEntitlementService';
 import type { CourseDetail, CoursePlanProposal } from '../types/chart';
 import { courseService, createPublishedCourseFromProposal } from './CourseService';
 
-const PLANNER_VERSION = '1';
-const PROVIDER_MODEL = 'gemini-2.0-flash';
-const PROPOSAL_TTL_MS = 30 * 60 * 1000;
+/**
+ * Maps a typed denial to a safe client error. Nothing user-authored and no
+ * provider detail is carried in the message or the meta.
+ */
+function denialError(reason: PlannerDenialReason, quota?: PlannerQuotaState): AppError {
+  const meta = {
+    reason,
+    ...(quota
+      ? {
+          limit: quota.limit,
+          remaining: quota.remaining,
+          ...(quota.resetAt ? { resetAt: quota.resetAt } : {}),
+        }
+      : {}),
+  };
+  switch (reason) {
+    case 'quota_exhausted':
+      return new AppError(
+        'Plan generation limit reached',
+        403,
+        'PLANNER_QUOTA_EXCEEDED',
+        meta
+      );
+    case 'not_entitled':
+    case 'entitlement_expired':
+      return new AppError('Plan generation is not available', 403, 'PLANNER_NOT_ENTITLED', meta);
+    default:
+      return new AppError('Plan generation is unavailable', 403, 'PLANNER_UNAVAILABLE', meta);
+  }
+}
 
 const ModelPlanSchema = z
   .object({
@@ -115,20 +161,22 @@ function toProposal(row: {
 }
 
 async function generateWithProvider(destination: string): Promise<ModelPlan> {
-  const apiKey = process.env.GOOGLE_API_KEY?.trim();
+  const apiKey = resolvePlannerApiKey();
   if (!apiKey) throw new Error('provider_unavailable');
 
   const client = new GoogleGenAI({ apiKey });
+  const timeoutMs = resolvePlannerTimeoutMs();
+  const maxAttempts = resolvePlannerMaxAttempts();
   let lastError: unknown;
-  // One retry only: provider retries stay inside this single user action.
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  // Provider retries stay inside this single user action.
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     try {
       const response = await Promise.race([
         client.models.generateContent({
-          model: PROVIDER_MODEL,
+          model: resolvePlannerModel(),
           contents: [{ role: 'user', parts: [{ text: destination }] }],
           config: {
-            temperature: 0.2,
+            temperature: resolvePlannerTemperature(),
             responseMimeType: 'application/json',
             systemInstruction:
               'Return only JSON with destinationInterpretation and one to seven ordered waypoint objects. ' +
@@ -137,7 +185,7 @@ async function generateWithProvider(destination: string): Promise<ModelPlan> {
           },
         }),
         new Promise<never>((_resolve, reject) =>
-          setTimeout(() => reject(new Error('provider_timeout')), 8_000)
+          setTimeout(() => reject(new Error('provider_timeout')), timeoutMs)
         ),
       ]);
       const text = response.text;
@@ -170,16 +218,29 @@ async function serializable<T>(work: (tx: Prisma.TransactionClient) => Promise<T
 }
 
 export class CoursePlannerService {
+  /**
+   * Safe quota state for display. Never authorizes anything on its own — the
+   * client may render this, but only `generate` decides.
+   */
+  async getQuota(user: PlannerEntitlementUser, now: Date = new Date()): Promise<PlannerQuotaState> {
+    return evaluatePlannerQuota(prisma, user, now);
+  }
+
   async generate(
-    userId: string,
-    input: { destinationText: string; idempotencyKey: string }
+    user: PlannerEntitlementUser,
+    input: { destinationText: string; idempotencyKey: string },
+    now: Date = new Date()
   ): Promise<CoursePlanProposal> {
+    const userId = user.id;
     const destination = normalizeDestination(input.destinationText);
     if (!destination || destination.length > 140) {
       throw new AppError('Planner input is invalid', 400, 'VALIDATION_ERROR');
     }
     const inputHash = digest(destination);
     const idempotencyKey = scopedKey(userId, input.idempotencyKey);
+
+    // Replaying an existing proposal is not a new generation action and must
+    // never consume a second quota unit, so this precedes every gate below.
     const existing = await prisma.aIPlanProposal.findUnique({ where: { idempotencyKey } });
     if (existing) {
       if (existing.userId !== userId || existing.inputHash !== inputHash) {
@@ -188,12 +249,28 @@ export class CoursePlannerService {
       return toProposal(existing);
     }
 
+    // Fail closed before the provider is reachable. Missing or malformed quota
+    // configuration is never "unlimited", and a rate limiter is not a cap.
+    const config = resolvePlannerQuotaConfig();
+    if (!config) throw denialError('quota_config_unavailable');
+
+    const quota = await evaluatePlannerQuota(prisma, user, now, config);
+    if (!quota.eligible) {
+      throw denialError(quota.reason ?? 'quota_config_unavailable', quota);
+    }
+    // `quota.entitlement` is non-null whenever `eligible` is true.
+    const entitlement = quota.entitlement!;
+    const limit = capForEntitlement(config, entitlement);
+
     let plan: ModelPlan;
     let generationSource = 'gemini';
     let fallbackReason: string | null = null;
     try {
       plan = await generateWithProvider(destination);
     } catch (error) {
+      // A provider failure before persistence consumes nothing; the user still
+      // receives a valid deterministic proposal, which does consume one unit
+      // once it is persisted below.
       plan = fallbackPlan(destination);
       generationSource = 'deterministic_fallback';
       fallbackReason =
@@ -208,25 +285,46 @@ export class CoursePlannerService {
       description: waypoint.description,
     }));
     const createdAt = new Date();
+    const data = {
+      userId,
+      plannerVersion: PLANNER_VERSION,
+      modelVersion:
+        generationSource === 'gemini'
+          ? resolvePlannerModel()
+          : PLANNER_DETERMINISTIC_MODEL_VERSION,
+      inputHash,
+      destinationInterpretation: plan.destinationInterpretation,
+      waypoints: waypoints as unknown as Prisma.InputJsonValue,
+      generationSource,
+      fallbackReason,
+      status: 'PENDING',
+      createdAt,
+      expiresAt: new Date(createdAt.getTime() + PLANNER_PROPOSAL_TTL_MS),
+      idempotencyKey,
+    };
+
     try {
-      const proposal = await prisma.aIPlanProposal.create({
-        data: {
-          userId,
-          plannerVersion: PLANNER_VERSION,
-          modelVersion: generationSource === 'gemini' ? PROVIDER_MODEL : 'deterministic-v1',
-          inputHash,
-          destinationInterpretation: plan.destinationInterpretation,
-          waypoints: waypoints as unknown as Prisma.InputJsonValue,
-          generationSource,
-          fallbackReason,
-          status: 'PENDING',
-          createdAt,
-          expiresAt: new Date(createdAt.getTime() + PROPOSAL_TTL_MS),
-          idempotencyKey,
-        },
+      // Re-count and insert under one serializable transaction so concurrent
+      // distinct requests cannot both take the final remaining slot. The
+      // pre-check above only avoids a pointless provider call; this is the
+      // enforcement point.
+      const proposal = await serializable(async tx => {
+        const used = await countPersistedProposals(tx, userId, entitlement, now);
+        if (used >= limit) {
+          throw denialError('quota_exhausted', {
+            ...quota,
+            eligible: false,
+            used,
+            remaining: 0,
+            reason: 'quota_exhausted',
+          });
+        }
+        return tx.aIPlanProposal.create({ data });
       });
       return toProposal(proposal);
     } catch (error) {
+      // A concurrent duplicate of the same idempotency key resolves to the one
+      // proposal that won, consuming a single unit in total.
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         const replay = await prisma.aIPlanProposal.findUnique({ where: { idempotencyKey } });
         if (replay && replay.userId === userId && replay.inputHash === inputHash)

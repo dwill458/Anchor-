@@ -42,11 +42,31 @@ function validate<T>(schema: z.ZodType<T>, value: unknown): T {
   return parsed.data;
 }
 
-async function resolveUser(req: AuthRequest): Promise<{ id: string; chartSchemaVersion: number }> {
+interface PlannerRouteUser {
+  id: string;
+  chartSchemaVersion: number;
+  isComped: boolean;
+  subscriptionStatus: string;
+  subscriptionId: string | null;
+  trialStartedAt: Date | null;
+}
+
+/**
+ * Entitlement inputs are read from the database on every request. Entitlement
+ * and quota are never taken from the client.
+ */
+async function resolveUser(req: AuthRequest): Promise<PlannerRouteUser> {
   if (!req.user?.uid) throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
   const user = await prisma.user.findUnique({
     where: { authUid: req.user.uid },
-    select: { id: true, chartSchemaVersion: true },
+    select: {
+      id: true,
+      chartSchemaVersion: true,
+      isComped: true,
+      subscriptionStatus: true,
+      subscriptionId: true,
+      trialStartedAt: true,
+    },
   });
   if (!user) throw new AppError('User not found', 404, 'USER_NOT_FOUND');
   return user;
@@ -63,7 +83,32 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
     const input = validate(GenerateSchema, req.body ?? {});
     res
       .status(201)
-      .json({ success: true, data: await coursePlannerService.generate(user.id, input) });
+      .json({ success: true, data: await coursePlannerService.generate(user, input) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * Safe, display-only quota state. Registered before `/:proposalId` so the
+ * literal path is not captured as a proposal id.
+ */
+router.get('/quota', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    requireChartPlannerEnabled();
+    const user = await resolveUser(req);
+    requireChartInitialized(user.chartSchemaVersion, false);
+    const quota = await coursePlannerService.getQuota(user);
+    res.json({
+      success: true,
+      data: {
+        eligible: quota.eligible,
+        limit: quota.limit,
+        remaining: quota.remaining,
+        resetAt: quota.resetAt,
+        reason: quota.reason,
+      },
+    });
   } catch (error) {
     next(error);
   }

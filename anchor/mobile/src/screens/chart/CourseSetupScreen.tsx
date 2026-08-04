@@ -1,11 +1,11 @@
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { useCourseStore } from '@/stores/courseStore';
-import { chartApiClient } from '@/services/ChartApiClient';
-import type { ChartStackParamList } from '@/types/chart';
+import { chartApiClient, getChartErrorCode } from '@/services/ChartApiClient';
+import type { ChartStackParamList, CoursePlanQuota } from '@/types/chart';
 import { ChartButton, ChartCard, ChartScreenFrame, ReadOnlyNotice } from './chartUi';
 
 type Navigation = NativeStackNavigationProp<ChartStackParamList, 'CourseSetup'>;
@@ -29,6 +29,41 @@ function keyFor(prefix: string): string {
   return `chart-${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/**
+ * Restates a server decision. Every branch is driven by a typed code or a safe
+ * denial reason — never by a client-side entitlement or quota calculation.
+ */
+function planDenialMessage(code: string | undefined): string {
+  switch (code) {
+    case 'PLANNER_QUOTA_EXCEEDED':
+      return 'You have used all of your suggested plans for now. You can still build a Course yourself.';
+    case 'PLANNER_NOT_ENTITLED':
+      return 'Suggested plans are not available on your current plan. You can still build a Course yourself.';
+    case 'PLANNER_UNAVAILABLE':
+    case 'FEATURE_DISABLED':
+      return 'Suggested plans are unavailable right now. You can still build a Course yourself.';
+    default:
+      return 'The suggested plan could not be generated. Try again when you are ready.';
+  }
+}
+
+function quotaNotice(quota: CoursePlanQuota): string | null {
+  if (quota.eligible) {
+    return quota.remaining === 1
+      ? '1 suggested plan left.'
+      : `${quota.remaining} suggested plans left.`;
+  }
+  switch (quota.reason) {
+    case 'quota_exhausted':
+      return 'No suggested plans left right now.';
+    case 'not_entitled':
+    case 'entitlement_expired':
+      return 'Suggested plans are not available on your current plan.';
+    default:
+      return 'Suggested plans are unavailable right now.';
+  }
+}
+
 export const CourseSetupScreen: React.FC = () => {
   const navigation = useNavigation<Navigation>();
   const route = useRoute<SetupRoute>();
@@ -39,6 +74,28 @@ export const CourseSetupScreen: React.FC = () => {
   const [waypoints, setWaypoints] = useState<DraftWaypoint[]>([]);
   const [saving, setSaving] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const [quota, setQuota] = useState<CoursePlanQuota | null>(null);
+
+  const plannerSurfaceVisible = store.flags.chart_ai_planner_enabled;
+
+  const loadQuota = useCallback(async () => {
+    if (!plannerSurfaceVisible || store.offline) {
+      setQuota(null);
+      return;
+    }
+    try {
+      const result = await chartApiClient.getCoursePlanQuota();
+      setQuota(result.data);
+    } catch {
+      // Unknown quota is not permission to generate; the button stays enabled
+      // only so the server can answer, and the server still decides.
+      setQuota(null);
+    }
+  }, [plannerSurfaceVisible, store.offline]);
+
+  useEffect(() => {
+    void loadQuota();
+  }, [loadQuota]);
 
   const addWaypoint = () => {
     if (waypoints.length >= 7) return;
@@ -119,8 +176,11 @@ export const CourseSetupScreen: React.FC = () => {
         courseId: null,
         proposalId: result.data.proposalId,
       });
-    } catch {
-      setFieldError('The suggested plan could not be generated. Try again when you are ready.');
+    } catch (cause) {
+      // The server owns this decision. The client only restates it; it never
+      // re-derives eligibility or a remaining count of its own.
+      setFieldError(planDenialMessage(getChartErrorCode(cause)));
+      void loadQuota();
     } finally {
       setSaving(false);
     }
@@ -224,14 +284,26 @@ export const CourseSetupScreen: React.FC = () => {
         </Text>
       ) : null}
       {store.readOnly ? <ReadOnlyNotice reason={store.offline ? 'You are offline. Course setup is disabled until you reconnect.' : 'Course setup is currently read-only.'} /> : null}
-      {store.flags.chart_ai_planner_enabled ? (
-        <ChartButton
-          label="Generate suggested plan"
-          secondary
-          onPress={() => void generatePlan()}
-          disabled={saving || store.offline}
-          hint="Creates a proposal for review. It will not change your Course."
-        />
+      {plannerSurfaceVisible ? (
+        <ChartCard>
+          {quota ? (
+            <Text
+              accessibilityLabel="Suggested plan availability"
+              style={{ color: '#C0C0C0', fontFamily: 'Inter-Regular', fontSize: 13 }}
+            >
+              {quotaNotice(quota)}
+            </Text>
+          ) : null}
+          <ChartButton
+            label="Generate suggested plan"
+            secondary
+            onPress={() => void generatePlan()}
+            // A server-reported ineligibility disables the control, but the
+            // server re-decides on every request either way.
+            disabled={saving || store.offline || quota?.eligible === false}
+            hint="Creates a proposal for review. It will not change your Course."
+          />
+        </ChartCard>
       ) : null}
       <ChartButton label="Save draft" onPress={() => void save(false)} disabled={saving || store.readOnly} />
       <ChartButton label="Publish Course" secondary onPress={() => void save(true)} disabled={saving || store.readOnly || waypoints.length === 0} />

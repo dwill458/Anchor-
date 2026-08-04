@@ -186,6 +186,28 @@ export type GenerateCoursePlanRequest = {
   idempotencyKey: string;
 };
 
+/** Safe denial reasons returned by the server (Phase 0 amendment F1). */
+export type CoursePlanDenialReason =
+  | 'planner_disabled'
+  | 'quota_config_unavailable'
+  | 'entitlement_unavailable'
+  | 'not_entitled'
+  | 'entitlement_expired'
+  | 'quota_exhausted';
+
+/**
+ * Display-only quota state. The server alone authorizes generation; this
+ * describes a decision the server already made and never stands in for it.
+ */
+export type CoursePlanQuota = {
+  eligible: boolean;
+  limit: number;
+  remaining: number;
+  /** ISO timestamp for windowed caps; null for lifetime and zero caps. */
+  resetAt: string | null;
+  reason: CoursePlanDenialReason | null;
+};
+
 export type UpdateCourseRequest = {
   expectedCourseVersion: number;
   destinationText?: string;

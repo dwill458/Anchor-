@@ -12,6 +12,7 @@ import type {
   AddWaypointRequest,
   CourseLogEntry,
   CoursePlanProposal,
+  CoursePlanQuota,
   GenerateCoursePlanRequest,
 } from '@/types/chart';
 
@@ -142,6 +143,11 @@ export class ChartApiClient {
 
   generateCoursePlan(request: GenerateCoursePlanRequest, signal?: AbortSignal): Promise<ChartApiResult<CoursePlanProposal>> {
     return this.unwrap(() => apiClient.post('/api/course-plans', request, this.requestConfig(signal)));
+  }
+
+  /** Display-only. The server still decides on every generate call. */
+  getCoursePlanQuota(signal?: AbortSignal): Promise<ChartApiResult<CoursePlanQuota>> {
+    return this.unwrap(() => apiClient.get('/api/course-plans/quota', this.requestConfig(signal)));
   }
 
   getCoursePlan(proposalId: string, signal?: AbortSignal): Promise<ChartApiResult<CoursePlanProposal>> {
