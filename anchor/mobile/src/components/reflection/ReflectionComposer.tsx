@@ -45,7 +45,18 @@ export type ReflectionComposerProps = {
 const createIdempotencyKey = () => `reflection-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
 const clean = (value?: string) => value?.trim() || undefined;
 
-function draftFromProps(props: ReflectionComposerProps, accountId: string, idempotencyKey: string): ReflectionDraft {
+/**
+ * The identity fields a draft is built from. Memoizing on these scalars rather
+ * than on the props object keeps the draft stable across ordinary rerenders —
+ * `props` is a new object every render, so depending on it recomputed the draft
+ * (and re-ran the autosave effect) on every keystroke and every error render.
+ */
+type ReflectionDraftIdentity = Pick<
+  ReflectionComposerProps,
+  'source' | 'promptType' | 'promptVersion' | 'practiceSessionId' | 'anchorId' | 'courseId' | 'waypointId' | 'draftKey'
+>;
+
+function draftFromProps(props: ReflectionDraftIdentity, accountId: string, idempotencyKey: string): ReflectionDraft {
   const relationships = props.source === 'POST_PRACTICE'
     ? { ...(props.practiceSessionId ? { practiceSessionId: props.practiceSessionId } : {}), ...(props.anchorId ? { anchorId: props.anchorId } : {}) }
     : props.source === 'WAYPOINT_COMPLETION'
@@ -78,10 +89,11 @@ export const ReflectionComposer: React.FC<ReflectionComposerProps> = (props) => 
   const [structured, setStructured] = useState<ReflectionStructuredContent>(initial?.structuredContent ?? {});
   const [moodAfter, setMoodAfter] = useState<ReflectionMood | undefined>(initial?.moodAfter ?? undefined);
   const [moodBefore, setMoodBefore] = useState<ReflectionMood | undefined>(initial?.moodBefore ?? undefined);
-  const [idempotencyKey] = useState(() => initial?.idempotencyKey ?? createIdempotencyKey());
+  const [idempotencyKey, setIdempotencyKey] = useState(() => initial?.idempotencyKey ?? createIdempotencyKey());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const loadedDraft = useRef(false);
+  const { source, promptType, promptVersion, practiceSessionId, anchorId, courseId, waypointId, draftKey } = props;
 
   useEffect(() => { void draftStore.bindAccount(accountId); }, [accountId]);
   useEffect(() => {
@@ -93,13 +105,20 @@ export const ReflectionComposer: React.FC<ReflectionComposerProps> = (props) => 
     setStructured(draft.structuredContent ?? {});
     setMoodBefore(draft.moodBefore);
     setMoodAfter(draft.moodAfter);
+    // Adopt the stored replay key so a queued reflection surviving a restart is
+    // resumed rather than re-created under a second key.
+    setIdempotencyKey(draft.idempotencyKey);
   }, [accountId, draftStore.drafts, draftStore.hydrated, initial, props.draftKey]);
 
   const hasWriting = Boolean(clean(body) || clean(structured.whatHelped) || clean(structured.whatLearned) || moodAfter || moodBefore);
   const isStructured = props.promptType === 'WAYPOINT_COMPLETION';
   const draft = useMemo(() => {
     if (!accountId) return null;
-    const next = draftFromProps(props, accountId, idempotencyKey);
+    const next = draftFromProps(
+      { source, promptType, promptVersion, practiceSessionId, anchorId, courseId, waypointId, draftKey },
+      accountId,
+      idempotencyKey,
+    );
     return {
       ...next,
       ...(clean(body) ? { body } : {}),
@@ -107,7 +126,7 @@ export const ReflectionComposer: React.FC<ReflectionComposerProps> = (props) => 
       ...(moodBefore ? { moodBefore } : {}),
       ...(moodAfter ? { moodAfter } : {}),
     };
-  }, [accountId, body, idempotencyKey, isStructured, moodAfter, moodBefore, props, structured]);
+  }, [accountId, anchorId, body, courseId, draftKey, idempotencyKey, isStructured, moodAfter, moodBefore, practiceSessionId, promptType, promptVersion, source, structured, waypointId]);
 
   // encryptedPersistStorage coalesces these writes; typing is persisted as a draft,
   // never submitted or queued unless the person explicitly chooses Save.
@@ -141,6 +160,21 @@ export const ReflectionComposer: React.FC<ReflectionComposerProps> = (props) => 
     return true;
   };
 
+  /**
+   * Queue, then confirm the queued record is actually on disk before telling
+   * the person it is safe. Claiming a durable save the store did not make is
+   * how writing was lost.
+   */
+  const queueOffline = async () => {
+    if (!draft) return;
+    await reflectionService.queueExplicitCreate(draft);
+    if (!reflectionService.isQueued(props.draftKey)) {
+      setError('Your writing is still here. Please try again when you’re ready.');
+      return;
+    }
+    setError('Saved on this device. It will sync when you’re back online.');
+  };
+
   const save = async () => {
     setError(null);
     if (!validate() || !draft) return;
@@ -160,8 +194,7 @@ export const ReflectionComposer: React.FC<ReflectionComposerProps> = (props) => 
         return;
       }
       if (offline) {
-        await reflectionService.queueExplicitCreate(draft);
-        setError('Saved on this device. It will sync when you’re back online.');
+        await queueOffline();
         return;
       }
       const reflection = await reflectionService.create(draftToCreateRequest(draft));
@@ -170,8 +203,7 @@ export const ReflectionComposer: React.FC<ReflectionComposerProps> = (props) => 
     } catch (caught) {
       await saveDraft();
       if (isReflectionNetworkError(caught) && !props.initialReflection) {
-        await reflectionService.queueExplicitCreate(draft);
-        setError('Saved on this device. It will sync when you’re back online.');
+        await queueOffline();
       } else {
         setError('Your writing is still here. Please try again when you’re ready.');
       }

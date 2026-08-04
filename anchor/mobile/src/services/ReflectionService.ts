@@ -45,12 +45,18 @@ export class ReflectionService {
     }
   }
 
+  /**
+   * Queueing is a single atomic store transition, not a content write with a
+   * state field set on it. `upsert` deliberately cannot move a draft into the
+   * queue, so no rerender or autosave can undo this.
+   */
   async queueExplicitCreate(draft: ReflectionDraft): Promise<void> {
-    await useReflectionDraftStore.getState().upsert({
-      ...draft,
-      saveState: 'queued',
-      updatedAt: new Date().toISOString(),
-    });
+    await useReflectionDraftStore.getState().markQueued(draft.draftKey, draft);
+  }
+
+  /** True once the draft is durably stored as `queued` and safe to promise. */
+  isQueued(draftKey: string): boolean {
+    return useReflectionDraftStore.getState().drafts[draftKey]?.saveState === 'queued';
   }
 
   async flushQueuedCreates(accountId: string): Promise<void> {
