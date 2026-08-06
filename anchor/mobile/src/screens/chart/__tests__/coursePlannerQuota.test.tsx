@@ -149,7 +149,7 @@ describe('CourseSetupScreen — planner quota presentation', () => {
     await waitFor(() => expect(mockGenerateCoursePlan).toHaveBeenCalledTimes(1));
   });
 
-  it('sends only the destination and an idempotency key', async () => {
+  it('sends the destination, a key, and a consent opt-in — never personal text', async () => {
     mockGenerateCoursePlan.mockResolvedValue({ data: { proposalId: 'proposal-1' } });
 
     const screen = render(<CourseSetupScreen />);
@@ -160,8 +160,16 @@ describe('CourseSetupScreen — planner quota presentation', () => {
 
     await waitFor(() => expect(mockGenerateCoursePlan).toHaveBeenCalledTimes(1));
     const request = mockGenerateCoursePlan.mock.calls[0][0];
-    expect(Object.keys(request).sort()).toEqual(['destinationText', 'idempotencyKey']);
+    // The client never ships Anchor or reflection content itself. It sends a
+    // flag; the server reads the account's own rows and applies the consent
+    // filter, so a compromised client cannot widen what the planner sees.
+    expect(Object.keys(request).sort()).toEqual([
+      'destinationText',
+      'idempotencyKey',
+      'includeReflections',
+    ]);
     expect(request.destinationText).toBe('Complete a portfolio');
+    expect(request.includeReflections).toBe(true);
   });
 
   it('reuses one idempotency key across repeated taps on the same screen', async () => {

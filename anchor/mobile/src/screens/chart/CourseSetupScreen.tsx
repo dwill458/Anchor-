@@ -196,6 +196,9 @@ export const CourseSetupScreen: React.FC = () => {
       const result = await chartApiClient.generateCoursePlan({
         destinationText: destination,
         idempotencyKey: plannerKey,
+        // Anchors are always used as context; reflections only where the user
+        // granted consent on the reflection itself.
+        includeReflections: true,
       });
       navigation.navigate('AIPlanReview', {
         courseId: null,

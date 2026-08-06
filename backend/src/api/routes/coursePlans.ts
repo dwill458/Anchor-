@@ -17,7 +17,13 @@ import { redisClient } from '../../lib/redis';
 const router = Router();
 const IdempotencyKey = z.string().trim().min(1).max(200);
 const GenerateSchema = z
-  .object({ destinationText: z.string().trim().min(1).max(140), idempotencyKey: IdempotencyKey })
+  .object({
+    destinationText: z.string().trim().min(1).max(140),
+    idempotencyKey: IdempotencyKey,
+    // Opts into the caller's own consented reflections. It cannot widen the
+    // pool past consent: the query filters on aiConsentGrantedAt regardless.
+    includeReflections: z.boolean().optional(),
+  })
   .strict();
 const AcceptSchema = z.object({ idempotencyKey: IdempotencyKey }).strict();
 const plannerLimiterStore =

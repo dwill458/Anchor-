@@ -22,11 +22,30 @@ export const PLANNER_DETERMINISTIC_MODEL_VERSION = 'deterministic-v1';
 
 // ── Provider configuration ───────────────────────────────────────────────────
 
-/** Unchanged from Workstream F; only its location moved out of business logic. */
-export const PLANNER_DEFAULT_MODEL = 'gemini-2.0-flash';
+/**
+ * `gemini-2.0-flash` — the Workstream F default — was retired by Google and
+ * returns 404 NOT_FOUND on generateContent while still appearing in the /models
+ * listing. Every planner call failed that way and was silently absorbed by the
+ * deterministic fallback, so the planner looked like it was working while no
+ * model ever ran. The floating alias survives the next retirement; a pinned id
+ * would not. This matches VISUALIZATION_SCENE_DEFAULT_MODEL.
+ */
+export const PLANNER_DEFAULT_MODEL = 'gemini-flash-latest';
 export const PLANNER_DEFAULT_TIMEOUT_MS = 8_000;
 export const PLANNER_DEFAULT_MAX_ATTEMPTS = 2;
 export const PLANNER_DEFAULT_TEMPERATURE = 0.2;
+
+// ── Planner context ──────────────────────────────────────────────────────────
+
+/**
+ * Caps on the personal context sent to the provider. Bounded so the prompt
+ * stays small and so a large vault cannot turn one plan request into a bulk
+ * disclosure of the user's writing.
+ */
+export const PLANNER_MAX_ANCHOR_CONTEXT = 5;
+export const PLANNER_MAX_REFLECTION_CONTEXT = 5;
+export const PLANNER_ANCHOR_INTENTION_MAX_CHARS = 200;
+export const PLANNER_REFLECTION_MAX_CHARS = 400;
 
 export function resolvePlannerModel(): string {
   return process.env.CHART_PLANNER_MODEL?.trim() || PLANNER_DEFAULT_MODEL;

@@ -42,6 +42,10 @@ const mockPrisma = {
     update: jest.fn(),
     count: jest.fn(),
   },
+  // Planning context. Both default to empty in beforeEach, so every case that
+  // predates context still describes a plan built from the destination alone.
+  anchor: { findMany: jest.fn() },
+  reflection: { findMany: jest.fn() },
   $transaction: jest.fn(),
 };
 jest.mock('../../lib/prisma', () => ({ prisma: mockPrisma }));
@@ -124,6 +128,8 @@ beforeEach(() => {
   for (const key of QUOTA_ENV_KEYS) delete process.env[key];
   mockEnv.GOOGLE_API_KEY = 'test-key';
   mockGetRevenueCatAccess.mockResolvedValue(null);
+  mockPrisma.anchor.findMany.mockResolvedValue([]);
+  mockPrisma.reflection.findMany.mockResolvedValue([]);
   mockPrisma.aIPlanProposal.findUnique.mockResolvedValue(null);
   mockPrisma.aIPlanProposal.count.mockResolvedValue(0);
   mockPrisma.aIPlanProposal.create.mockImplementation(async ({ data }: any) =>
@@ -449,15 +455,85 @@ describe('acceptance', () => {
   });
 });
 
+/** The text of the single user turn sent to the provider. */
+function providerPrompt(): string {
+  return mockGenerateContent.mock.calls[0][0].contents[0].parts[0].text as string;
+}
+
 describe('provider boundary and privacy', () => {
-  it('sends only the destination and never Chart or reflection content', async () => {
+  it('sends the destination, labelled as untrusted data', async () => {
     await service.generate(user(), INPUT, NOW);
 
-    const request = mockGenerateContent.mock.calls[0][0];
-    expect(request.contents).toEqual([
-      { role: 'user', parts: [{ text: 'Complete a portfolio' }] },
+    expect(providerPrompt()).toContain('Destination (untrusted): "Complete a portfolio"');
+    // The retired gemini-2.0-flash 404s on generateContent; the floating alias
+    // is what keeps the planner from silently serving fallbacks forever.
+    expect(mockGenerateContent.mock.calls[0][0].model).toBe('gemini-flash-latest');
+  });
+
+  it('grounds the plan in the account’s live Anchors', async () => {
+    mockPrisma.anchor.findMany.mockResolvedValue([
+      { intentionText: 'I finish what I start', category: 'creativity' },
     ]);
-    expect(request.model).toBe('gemini-2.0-flash');
+
+    await service.generate(user(), INPUT, NOW);
+
+    expect(mockPrisma.anchor.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: 'user-1', isArchived: false } })
+    );
+    expect(providerPrompt()).toContain('Anchors (untrusted)');
+    expect(providerPrompt()).toContain('I finish what I start');
+  });
+
+  it('never reads reflections unless the request opts in', async () => {
+    await service.generate(user(), INPUT, NOW);
+
+    expect(mockPrisma.reflection.findMany).not.toHaveBeenCalled();
+    expect(providerPrompt()).not.toContain('Reflections (untrusted)');
+  });
+
+  it('reads only consented, undeleted reflections when the request opts in', async () => {
+    await service.generate(user(), { ...INPUT, includeReflections: true }, NOW);
+
+    expect(mockPrisma.reflection.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 'user-1', deletedAt: null, aiConsentGrantedAt: { not: null } },
+      })
+    );
+  });
+
+  it('sends consented reflection text as untrusted planning context', async () => {
+    mockPrisma.reflection.findMany.mockResolvedValue([
+      { promptType: 'COURSE_STATUS', body: 'I keep stalling on outreach.', structuredContent: null },
+    ]);
+
+    await service.generate(user(), { ...INPUT, includeReflections: true }, NOW);
+
+    expect(providerPrompt()).toContain('Reflections (untrusted)');
+    expect(providerPrompt()).toContain('I keep stalling on outreach.');
+    expect(providerPrompt()).toContain('Never quote them');
+  });
+
+  it('contributes nothing for a tombstoned reflection whose text was nulled out', async () => {
+    mockPrisma.reflection.findMany.mockResolvedValue([
+      { promptType: 'COURSE_STATUS', body: null, structuredContent: null },
+    ]);
+
+    await service.generate(user(), { ...INPUT, includeReflections: true }, NOW);
+
+    expect(providerPrompt()).not.toContain('Reflections (untrusted)');
+  });
+
+  it('reads no personal context when the request is denied before generation', async () => {
+    process.env.CHART_PLANNER_PRO_DAILY_CAP = 'not-a-number';
+
+    // Malformed configuration fails closed as unavailable, not as a quota hit.
+    await expect(
+      service.generate(proUser(), { ...INPUT, includeReflections: true }, NOW)
+    ).rejects.toMatchObject({ code: 'PLANNER_UNAVAILABLE' });
+
+    expect(mockPrisma.anchor.findMany).not.toHaveBeenCalled();
+    expect(mockPrisma.reflection.findMany).not.toHaveBeenCalled();
+    expect(mockGenerateContent).not.toHaveBeenCalled();
   });
 
   it('reads model, temperature, and timeout from centralized configuration', async () => {

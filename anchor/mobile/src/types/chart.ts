@@ -184,6 +184,12 @@ export type CoursePlanProposal = {
 export type GenerateCoursePlanRequest = {
   destinationText: string;
   idempotencyKey: string;
+  /**
+   * Opts into the account's own consented reflections as planning context.
+   * The server filters on `aiConsentGrantedAt` regardless, so this can never
+   * widen the pool past what the user has granted.
+   */
+  includeReflections?: boolean;
 };
 
 /** Safe denial reasons returned by the server (Phase 0 amendment F1). */
