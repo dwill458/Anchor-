@@ -9,6 +9,8 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { usePracticeEntry } from '@/hooks/usePracticeEntry';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
+import { AnalyticsEvents, trackChartEventOnce } from '@/services/AnalyticsService';
+import { resolveChartFeatureFlags } from '@/types/chart';
 import { AnchorSelectorSheet } from '@/screens/practice/components/AnchorSelectorSheet';
 import type { Anchor } from '@/types';
 import type { PracticeEntryMode } from '@/types/practice';
@@ -36,6 +38,8 @@ export const WaypointDetailScreen: React.FC = () => {
   const store = useCourseStore();
   const activeAnchors = useAnchorStore((state) => state.getActiveAnchors());
   const subscriptionStatus = useAuthStore((state) => state.user?.subscriptionStatus ?? 'free');
+  // Analytics dedupe is per account; a null id means no event is emitted.
+  const accountId = useAuthStore((state) => state.user?.id ?? null);
   const { navigateToVault } = useTabNavigation();
   const { startPractice, isNavigationLocked } = usePracticeEntry();
   const course = store.activeCourse?.id === route.params.courseId ? store.activeCourse : null;
@@ -143,6 +147,36 @@ export const WaypointDetailScreen: React.FC = () => {
     const result = await store.cancelWaypoint(course.id, waypoint.id, { idempotencyKey: actionKey('cancel'), expectedCourseVersion: course.version });
     if (!result) setActionError('This waypoint could not be removed. Refresh and try again.');
     else navigation.replace('ChartHome');
+  };
+
+  const complete = async () => {
+    if (!accountId || completing || waypoint.state !== 'CURRENT') return;
+    trackChartEventOnce(AnalyticsEvents.WAYPOINT_COMPLETION_STARTED, accountId, completionKey, {
+      course_state: course.status,
+      waypoint_state: waypoint.state,
+    });
+    setCompleting(true);
+    const result = await store.completeWaypoint(course.id, waypoint.id, {
+      idempotencyKey: completionKey,
+      expectedCourseVersion: course.version,
+    });
+    setCompleting(false);
+    if (!result) return;
+    trackChartEventOnce(AnalyticsEvents.WAYPOINT_COMPLETED, accountId, result.completionEventId, {
+      course_state: result.course.status,
+      waypoint_state: 'REACHED',
+      server_confirmed: true,
+    });
+    if (result.courseCompleted) {
+      trackChartEventOnce(AnalyticsEvents.COURSE_COMPLETED, accountId, result.course.id, {
+        course_state: 'COMPLETED',
+        waypoint_count: result.course.waypointCount,
+        server_confirmed: true,
+      });
+      navigation.replace('CourseCompletion', { courseId: course.id });
+      return;
+    }
+    navigation.replace('ChartHome');
   };
 
   const isBlocked = waypoint.state === 'BLOCKED';

@@ -23,6 +23,10 @@ export interface EnvConfig {
   ENABLE_CHART_REFLECTIONS: boolean;
   ENABLE_CHART_NOTIFICATIONS: boolean;
   ENABLE_CHART_EXISTING_USER_INTRO: boolean;
+  /** Account rollout percentage for Chart. Defaults to zero so Chart remains dark. */
+  CHART_ROLLOUT_PERCENT: number;
+  /** Emergency server-side Chart kill switch. */
+  CHART_KILL_SWITCH: boolean;
   EXPOSE_ERROR_STACK: boolean;
 
   // Auth (Optional - for future Firebase Admin integration)
@@ -109,6 +113,18 @@ function validateNumber(key: string, value: unknown, defaultValue: number): numb
     throw new EnvValidationError(`Environment variable ${key} must be a number`);
   }
 
+  return parsed;
+}
+
+function validatePercentage(key: string, value: unknown, defaultValue: number): number {
+  if (value === undefined || value === null || value === '') return defaultValue;
+  if (typeof value !== 'string' || !/^\d+$/.test(value.trim())) {
+    throw new EnvValidationError(`Environment variable ${key} must be an integer from 0 to 100`);
+  }
+  const parsed = Number(value.trim());
+  if (!Number.isSafeInteger(parsed) || parsed < 0 || parsed > 100) {
+    throw new EnvValidationError(`Environment variable ${key} must be an integer from 0 to 100`);
+  }
   return parsed;
 }
 
@@ -257,6 +273,12 @@ export function validateEnv(): EnvConfig {
         process.env.ENABLE_CHART_EXISTING_USER_INTRO,
         false
       ),
+      CHART_ROLLOUT_PERCENT: validatePercentage(
+        'CHART_ROLLOUT_PERCENT',
+        process.env.CHART_ROLLOUT_PERCENT,
+        0
+      ),
+      CHART_KILL_SWITCH: validateBoolean('CHART_KILL_SWITCH', process.env.CHART_KILL_SWITCH, false),
       EXPOSE_ERROR_STACK: validateBoolean(
         'EXPOSE_ERROR_STACK',
         process.env.EXPOSE_ERROR_STACK,

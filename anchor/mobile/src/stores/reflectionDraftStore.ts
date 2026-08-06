@@ -38,10 +38,21 @@ type ReflectionDraftState = {
   drafts: Record<string, ReflectionDraft>;
   handledOfferKeys: string[];
   bindAccount: (accountId: string | null) => Promise<void>;
+  /**
+   * Ordinary content autosave. Merges over the stored record and never changes
+   * queue state, retry accounting, or the replay key — those belong to the
+   * explicit transitions below.
+   */
   upsert: (draft: ReflectionDraft) => Promise<void>;
   remove: (draftKey: string) => Promise<void>;
-  markQueued: (draftKey: string) => Promise<void>;
+  /**
+   * The one atomic transition into the send queue. Pass the composer's draft so
+   * the newest content and the queued state are written together; an already
+   * stored replay key is always retained.
+   */
+  markQueued: (draftKey: string, draft?: ReflectionDraft) => Promise<void>;
   markFailed: (draftKey: string) => Promise<void>;
+  scheduleRetry: (draftKey: string) => Promise<void>;
   tombstoneByIdempotencyKey: (idempotencyKey: string) => Promise<void>;
   markOfferHandled: (offerKey: string) => Promise<void>;
   clearAccount: (accountId?: string | null) => Promise<void>;
@@ -68,6 +79,32 @@ async function persist(accountId: string, drafts: Record<string, ReflectionDraft
   await encryptedPersistStorage.setItem(reflectionDraftStorageKey(accountId), JSON.stringify(value));
 }
 
+/**
+ * A content write carries the person's current writing; it must not carry queue
+ * state. Merging keeps `saveState`, `retryCount`, and `idempotencyKey` from the
+ * stored record so a rerender cannot silently downgrade a durable `queued`
+ * reflection back to `draft` or mint a second replay key for it.
+ */
+function mergeContent(existing: ReflectionDraft, incoming: ReflectionDraft): ReflectionDraft {
+  return {
+    ...incoming,
+    saveState: existing.saveState,
+    retryCount: existing.retryCount,
+    idempotencyKey: existing.idempotencyKey,
+    ...(existing.tombstoned ? { tombstoned: true } : {}),
+  };
+}
+
+type DraftSet = (partial: Partial<ReflectionDraftState>) => void;
+type DraftGet = () => ReflectionDraftState;
+
+/** Unconditional record write. Only the explicit transitions above use it. */
+async function writeDraft(set: DraftSet, get: DraftGet, draft: ReflectionDraft): Promise<void> {
+  const drafts = { ...get().drafts, [draft.draftKey]: draft };
+  set({ drafts });
+  await persist(draft.accountId, drafts, get().handledOfferKeys);
+}
+
 export const useReflectionDraftStore = create<ReflectionDraftState>((set, get) => ({
   accountId: null,
   hydrated: false,
@@ -79,13 +116,18 @@ export const useReflectionDraftStore = create<ReflectionDraftState>((set, get) =
       set({ accountId: null, hydrated: false, drafts: {}, handledOfferKeys: [] });
       return;
     }
+    // Re-binding the account already loaded would drop hydrated drafts on the
+    // floor and re-read encrypted storage for nothing.
+    if (get().accountId === accountId && get().hydrated) return;
     // Clear synchronously before awaiting I/O so another account never sees a prior draft.
     set({ accountId, hydrated: false, drafts: {}, handledOfferKeys: [] });
     try {
       const raw = await encryptedPersistStorage.getItem(reflectionDraftStorageKey(accountId));
       if (get().accountId !== accountId) return;
       const parsed = raw ? JSON.parse(raw) as PersistedDrafts : null;
-      set({ drafts: toRecord(normalize(parsed, accountId)), handledOfferKeys: Array.isArray(parsed?.handledOfferKeys) ? parsed!.handledOfferKeys.filter((key): key is string => typeof key === 'string') : [], hydrated: true });
+      // A draft written while this read was in flight is newer than what storage
+      // returned, so hydration merges under it rather than replacing it.
+      set({ drafts: { ...toRecord(normalize(parsed, accountId)), ...get().drafts }, handledOfferKeys: Array.isArray(parsed?.handledOfferKeys) ? parsed!.handledOfferKeys.filter((key): key is string => typeof key === 'string') : [], hydrated: true });
     } catch {
       if (get().accountId === accountId) set({ hydrated: true });
     }
@@ -93,9 +135,9 @@ export const useReflectionDraftStore = create<ReflectionDraftState>((set, get) =
 
   upsert: async (draft) => {
     if (get().accountId !== draft.accountId || draft.tombstoned) return;
-    const drafts = { ...get().drafts, [draft.draftKey]: draft };
-    set({ drafts });
-    await persist(draft.accountId, drafts, get().handledOfferKeys);
+    const existing = get().drafts[draft.draftKey];
+    if (existing?.tombstoned) return;
+    await writeDraft(set, get, existing ? mergeContent(existing, draft) : draft);
   },
 
   remove: async (draftKey) => {
@@ -106,19 +148,44 @@ export const useReflectionDraftStore = create<ReflectionDraftState>((set, get) =
     await persist(accountId, drafts, get().handledOfferKeys);
   },
 
-  markQueued: async (draftKey) => {
-    const draft = get().drafts[draftKey];
-    if (!draft) return;
-    await get().upsert({ ...draft, saveState: 'queued', updatedAt: new Date().toISOString() });
+  markQueued: async (draftKey, draft) => {
+    const accountId = get().accountId;
+    if (!accountId) return;
+    const existing = get().drafts[draftKey];
+    if (existing?.tombstoned) return;
+    const base = existing ? (draft ? mergeContent(existing, draft) : existing) : draft;
+    if (!base || base.accountId !== accountId) return;
+    await writeDraft(set, get, {
+      ...base,
+      draftKey,
+      saveState: 'queued',
+      // An explicit Save is a fresh send request, so the retry budget resets;
+      // the replay key never does, or the server would see a second create.
+      retryCount: 0,
+      idempotencyKey: existing?.idempotencyKey ?? base.idempotencyKey,
+      updatedAt: new Date().toISOString(),
+    });
   },
 
   markFailed: async (draftKey) => {
     const draft = get().drafts[draftKey];
     if (!draft) return;
-    await get().upsert({
+    await writeDraft(set, get, {
       ...draft,
       saveState: 'failed',
       retryCount: Math.min(draft.retryCount + 1, 3),
+      updatedAt: new Date().toISOString(),
+    });
+  },
+
+  scheduleRetry: async (draftKey) => {
+    const draft = get().drafts[draftKey];
+    if (!draft) return;
+    const retryCount = Math.min(draft.retryCount + 1, 3);
+    await writeDraft(set, get, {
+      ...draft,
+      saveState: retryCount >= 3 ? 'failed' : 'queued',
+      retryCount,
       updatedAt: new Date().toISOString(),
     });
   },

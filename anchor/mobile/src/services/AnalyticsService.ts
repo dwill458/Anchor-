@@ -63,6 +63,24 @@ const SENSITIVE_PROPERTY_KEYS = new Set([
   'intention',
   'intentiontext',
   'intention_text',
+  'destination',
+  'destinationtext',
+  'destination_text',
+  'waypointtitle',
+  'waypoint_title',
+  'waypointdescription',
+  'waypoint_description',
+  'reflection',
+  'reflectiontext',
+  'reflection_text',
+  'whathelped',
+  'what_helped',
+  'whatlearned',
+  'what_learned',
+  'anchortext',
+  'anchor_text',
+  'anchorsnapshot',
+  'anchor_snapshot',
   'scene',
   'scene_text',
   'scenesnapshot',
@@ -76,7 +94,54 @@ const SENSITIVE_PROPERTY_KEYS = new Set([
   'prompt',
   'ai_prompt',
   'generated_prompt',
+  'providerprompt',
+  'provider_prompt',
+  'providerresponse',
+  'provider_response',
+  'plannerinput',
+  'planner_input',
+  'planneroutput',
+  'planner_output',
+  'visualizationscene',
+  'visualization_scene',
+  'navigationcontext',
+  'navigation_context',
+  'courselog',
+  'course_log',
+  'rawapiresponse',
+  'raw_api_response',
+  'subscriptionid',
+  'subscription_id',
+  'billingproviderid',
+  'billing_provider_id',
+  'providermodel',
+  'provider_model',
+  'providerkeystate',
+  'provider_key_state',
+  'rollouthash',
+  'rollout_hash',
+  'rawbucket',
+  'raw_bucket',
+  'anchorintention',
+  'anchor_intention',
+  'rawoutput',
+  'raw_output',
+  'modeloutput',
+  'model_output',
+  'notes',
+  // Generic carriers of user-authored text. `body` is the Reflection content
+  // field name and `title`/`description` are the Waypoint ones, so an event
+  // that forwards a record verbatim must not slip them through unqualified.
+  'body',
+  'title',
+  'description',
+  'summary',
   'message',
+  'errormessage',
+  'navigationparams',
+  'navigation_params',
+  'params',
+  'error',
   'error_message',
   'image',
   'image_url',
@@ -106,6 +171,67 @@ const readPublicEnv = (value: string | undefined): string => value?.trim() ?? ''
 
 const appVersion = Constants.expoConfig?.version ?? 'unknown';
 
+const chartDeduplicationKeys = new Set<string>();
+
+export type ChartAnalyticsProperties = Partial<{
+  entry_source: string;
+  practice_mode: string;
+  course_state: string;
+  waypoint_state: string;
+  waypoint_count: number;
+  waypoint_position: number;
+  duration_bucket: string;
+  fallback_used: boolean;
+  offline: boolean;
+  quota_remaining: number;
+  quota_limit: number;
+  denial_reason: string;
+  error_category: string;
+  server_confirmed: boolean;
+  generation_source: string;
+  from_proposal: boolean;
+  has_reflection: boolean;
+}>;
+
+const CHART_SAFE_PROPERTY_KEYS = new Set<keyof ChartAnalyticsProperties>([
+  'entry_source',
+  'practice_mode',
+  'course_state',
+  'waypoint_state',
+  'waypoint_count',
+  'waypoint_position',
+  'duration_bucket',
+  'fallback_used',
+  'offline',
+  'quota_remaining',
+  'quota_limit',
+  'denial_reason',
+  'error_category',
+  'server_confirmed',
+  'generation_source',
+  'from_proposal',
+  'has_reflection',
+]);
+
+export function resetChartAnalyticsDeduplication(): void {
+  chartDeduplicationKeys.clear();
+}
+
+export function sanitizeChartAnalyticsProperties(
+  properties?: Record<string, unknown>,
+): ChartAnalyticsProperties | undefined {
+  const sanitized = sanitizeAnalyticsProperties(properties) as Record<string, unknown> | undefined;
+  if (!sanitized) return undefined;
+
+  return Object.entries(sanitized).reduce<ChartAnalyticsProperties>((safe, [key, value]) => {
+    if (!CHART_SAFE_PROPERTY_KEYS.has(key as keyof ChartAnalyticsProperties)) return safe;
+    if (value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      safe[key as keyof ChartAnalyticsProperties] = value as never;
+    }
+    return safe;
+  }, {});
+}
+
 const sanitizeAnalyticsValue = (value: unknown): unknown => {
   if (Array.isArray(value)) {
     return value.map(sanitizeAnalyticsValue);
@@ -134,7 +260,13 @@ export const sanitizeAnalyticsProperties = (
     return undefined;
   }
 
-  return sanitizeAnalyticsValue(properties) as Record<string, any>;
+  try {
+    return sanitizeAnalyticsValue(properties) as Record<string, any>;
+  } catch {
+    // Analytics is optional; an unexpected value must not become a privacy
+    // bypass. Sending no properties is safer than attempting recovery.
+    return {};
+  }
 };
 
 class Analytics {
@@ -336,10 +468,11 @@ class Analytics {
    * Reset analytics (on logout)
    */
   reset(): void {
-    if (!this.enabled) return;
-
     this.userId = null;
     this.userProperties = {};
+    resetChartAnalyticsDeduplication();
+
+    if (!this.enabled) return;
 
     logger.info('[Analytics] Reset');
 
@@ -379,6 +512,34 @@ export const AnalyticsService = new Analytics();
 
 // Export event names for consistency
 export const AnalyticsEvents = {
+  // Chart funnel. Properties must be the safe enums/counts documented in the
+  // Chart contract; never attach user-authored Course or reflection text.
+  CHART_TAB_VIEWED: 'chart_tab_viewed',
+  COURSE_SETUP_STARTED: 'course_setup_started',
+  MANUAL_COURSE_CREATION_REQUESTED: 'manual_course_creation_requested',
+  MANUAL_COURSE_CREATED: 'manual_course_created',
+  COURSE_VIEWED: 'course_viewed',
+  WAYPOINT_VIEWED: 'waypoint_viewed',
+  WAYPOINT_ANCHOR_ACTION_SELECTED: 'waypoint_anchor_action_selected',
+  CHART_PRACTICE_STARTED: 'chart_practice_started',
+  CHART_PRACTICE_COMPLETED: 'chart_practice_completed',
+  POST_PRACTICE_REFLECTION_OPENED: 'post_practice_reflection_opened',
+  REFLECTION_SAVED: 'reflection_saved',
+  REFLECTION_SAVE_REQUESTED: 'reflection_save_requested',
+  REFLECTION_SAVE_FAILED: 'reflection_save_failed',
+  COURSE_LOG_VIEWED: 'course_log_viewed',
+  WAYPOINT_COMPLETION_STARTED: 'waypoint_completion_started',
+  WAYPOINT_COMPLETED: 'waypoint_completed',
+  COURSE_COMPLETED: 'course_completed',
+  CHART_PLANNER_GENERATION_REQUESTED: 'chart_planner_generation_requested',
+  CHART_PLANNER_GENERATION_SUCCEEDED: 'chart_planner_generation_succeeded',
+  CHART_PLANNER_FALLBACK_USED: 'chart_planner_fallback_used',
+  CHART_PLANNER_GENERATION_DENIED: 'chart_planner_generation_denied',
+  CHART_PLANNER_PROPOSAL_VIEWED: 'chart_planner_proposal_viewed',
+  CHART_PLANNER_PROPOSAL_ACCEPTED: 'chart_planner_proposal_accepted',
+  CHART_PLANNER_PROPOSAL_DISMISSED: 'chart_planner_proposal_dismissed',
+  CHART_PLANNER_QUOTA_REACHED: 'chart_planner_quota_reached',
+  CHART_UNAVAILABLE_VIEWED: 'chart_unavailable_viewed',
   // App lifecycle
   APP_OPENED: 'app_opened',
   APP_BACKGROUNDED: 'app_backgrounded',
@@ -529,3 +690,23 @@ export const AnalyticsEvents = {
   FLOW_ERROR: 'flow_error',
   FLOW_COMPLETED: 'flow_completed',
 } as const;
+
+/**
+ * Chart events use a narrow property whitelist and a stable operation key.
+ * The key is intentionally not sent as a property: it is only the local
+ * de-duplication boundary for retries, replay, remounts, and account changes.
+ */
+export function trackChartEventOnce(
+  eventName: string,
+  accountId: string | null | undefined,
+  operationKey: string,
+  properties?: Record<string, unknown>,
+): boolean {
+  if (!accountId || !operationKey) return false;
+  const deduplicationKey = `${accountId}:${eventName}:${operationKey}`;
+  if (chartDeduplicationKeys.has(deduplicationKey)) return false;
+  if (chartDeduplicationKeys.size >= 4096) chartDeduplicationKeys.clear();
+  chartDeduplicationKeys.add(deduplicationKey);
+  AnalyticsService.track(eventName, sanitizeChartAnalyticsProperties(properties));
+  return true;
+}

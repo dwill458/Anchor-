@@ -12,10 +12,11 @@ export * from './sessionAudio';
 import type {
   ChartPracticeContext,
   ChartPracticeMode,
+  PracticeEntryMode,
   PracticeEntrySource,
 } from './practice';
 export * from './chart';
-import type { ChartFeatureFlags } from './chart';
+import type { ChartCapabilities, ChartFeatureFlags } from './chart';
 
 // ============================================================================
 // Core Domain Types
@@ -217,6 +218,8 @@ export interface User {
   isTrialExpired?: boolean;
   /** Server-driven Chart flags from /api/auth/me. Defaults off when absent. */
   chartFlags?: ChartFeatureFlags;
+  /** Server-authoritative Chart decisions; absent/unknown is treated as denied. */
+  chartCapabilities?: ChartCapabilities;
 }
 
 export type AuthScreenContext = 'onboarding' | 'first_anchor_gate' | 'save_progress' | 'paywall';
@@ -505,6 +508,8 @@ export type PaywallSource =
 
 export type NavigationResumeTarget =
   | { kind: 'visualize_prepare'; anchorId: string }
+  // A Chart-launched session resumes to its waypoint, not by auto-restarting
+  // the session: after a purchase the user should choose to begin again.
   | { kind: 'chart_ai_plan'; destinationText: string }
   | { kind: 'chart_waypoint'; courseId: string; waypointId: string };
 
@@ -908,6 +913,7 @@ export type RootStackParamList = {
     enhancedImageUrl?: string;
     returnTo?: 'vault' | 'practice' | 'detail';
     source?: PracticeEntrySource;
+    practiceContext?: ChartPracticeContext;
   };
 
   BurningRitual: {

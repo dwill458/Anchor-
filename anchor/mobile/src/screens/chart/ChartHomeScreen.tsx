@@ -2,16 +2,19 @@ import React, { useCallback, useEffect, useMemo } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ArrowUpRight, Bell, BookOpen, ChevronDown, CircleAlert, Eye, Link2, MoreHorizontal, RefreshCw, Sparkles, Zap } from 'lucide-react-native';
 import Svg, { Circle, Defs, G, Path, RadialGradient, Stop } from 'react-native-svg';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RouteProp } from '@react-navigation/native';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { useAuthStore } from '@/stores/authStore';
 import { useCourseStore } from '@/stores/courseStore';
 import { useCourseLogStore } from '@/stores/courseLogStore';
 import { startReflectionQueueSync } from '@/services/ReflectionService';
+import { AnalyticsEvents, trackChartEventOnce } from '@/services/AnalyticsService';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import type { ChartPracticeMode } from '@/types/practice';
+import { canViewChart } from '@/types/chart';
 import type { ChartStackParamList, CourseDetail, CourseSummary, WaypointSummary } from '@/types/chart';
 import { colors, typography } from '@/theme';
 import { CourseMap } from './components/CourseMap';
@@ -30,6 +33,7 @@ import {
 } from './chartUi';
 
 type ChartNavigation = NativeStackNavigationProp<ChartStackParamList>;
+type ChartHomeRoute = RouteProp<ChartStackParamList, 'ChartHome'>;
 
 // The Phase 0 mockup includes this editorial line, while the current Course
 // response does not carry a separate current-waypoint narrative field.
@@ -143,8 +147,10 @@ const DestinationAnchor: React.FC<{ course: CourseDetail | CourseSummary }> = ({
 
 export const ChartHomeScreen: React.FC = () => {
   const navigation = useNavigation<ChartNavigation>();
+  const route = useRoute<ChartHomeRoute>();
   const accountId = useAuthStore((state) => state.user?.id ?? null);
   const serverFlags = useAuthStore((state) => state.user?.chartFlags);
+  const chartCapabilities = useAuthStore((state) => state.user?.chartCapabilities);
   const authOffline = useAuthStore((state) => state.isOfflineMode);
   const { registerTabNav } = useTabNavigation();
   const store = useCourseStore();
@@ -152,11 +158,28 @@ export const ChartHomeScreen: React.FC = () => {
   const reducedMotion = useReduceMotionEnabled();
 
   useEffect(() => {
-    if (!accountId) return;
+    if (!accountId || serverFlags == null) return;
+    if (canViewChart(serverFlags, chartCapabilities)) {
+      trackChartEventOnce(AnalyticsEvents.CHART_TAB_VIEWED, accountId, route.key, {
+        entry_source: 'chart_tab',
+      });
+    } else {
+      trackChartEventOnce(AnalyticsEvents.CHART_UNAVAILABLE_VIEWED, accountId, route.key, {
+        entry_source: 'chart_tab',
+        error_category: 'feature_unavailable',
+        offline: authOffline,
+      });
+    }
+  }, [accountId, authOffline, chartCapabilities, route.key, serverFlags]);
+
+  useEffect(() => {
+    if (!accountId || !canViewChart(serverFlags, chartCapabilities)) return;
     store.setFeatureFlags(serverFlags);
     store.bindAccount(accountId);
     void store.hydrateAndRefresh(accountId);
-  }, [accountId, serverFlags, store.bindAccount, store.hydrateAndRefresh, store.setFeatureFlags]);
+  }, [accountId, serverFlags, chartCapabilities, store.bindAccount, store.hydrateAndRefresh, store.setFeatureFlags]);
+
+  useEffect(() => startReflectionQueueSync(), []);
 
   useEffect(() => startReflectionQueueSync(), []);
 
@@ -245,6 +268,20 @@ export const ChartHomeScreen: React.FC = () => {
       launchMode: mode,
     });
   };
+
+  useEffect(() => {
+    if (!accountId || !course) return;
+    trackChartEventOnce(AnalyticsEvents.COURSE_VIEWED, accountId, course.id, {
+      course_state: course.status,
+      waypoint_count: course.waypointCount,
+    });
+    if (course.needsRepair) {
+      trackChartEventOnce(AnalyticsEvents.CHART_UNAVAILABLE_VIEWED, accountId, `repair:${course.id}`, {
+        course_state: course.status,
+        error_category: 'repair_required',
+      });
+    }
+  }, [accountId, course]);
 
   return (
     <ChartScreenFrame

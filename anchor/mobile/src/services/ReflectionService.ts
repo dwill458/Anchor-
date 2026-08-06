@@ -3,7 +3,6 @@ import { apiClient, ApiClientError } from './ApiClient';
 import { useAuthStore } from '@/stores/authStore';
 import { useReflectionDraftStore, type ReflectionDraft } from '@/stores/reflectionDraftStore';
 import { useCourseStore } from '@/stores/courseStore';
-import { PracticeCompletionService } from './PracticeCompletionService';
 import type {
   CreateReflectionRequest,
   ReflectionRecord,
@@ -46,8 +45,18 @@ export class ReflectionService {
     }
   }
 
+  /**
+   * Queueing is a single atomic store transition, not a content write with a
+   * state field set on it. `upsert` deliberately cannot move a draft into the
+   * queue, so no rerender or autosave can undo this.
+   */
   async queueExplicitCreate(draft: ReflectionDraft): Promise<void> {
-    await useReflectionDraftStore.getState().markQueued(draft.draftKey);
+    await useReflectionDraftStore.getState().markQueued(draft.draftKey, draft);
+  }
+
+  /** True once the draft is durably stored as `queued` and safe to promise. */
+  isQueued(draftKey: string): boolean {
+    return useReflectionDraftStore.getState().drafts[draftKey]?.saveState === 'queued';
   }
 
   async flushQueuedCreates(accountId: string): Promise<void> {
@@ -55,9 +64,6 @@ export class ReflectionService {
     if (!useCourseStore.getState().flags.chart_reflections_enabled) return;
     const state = useReflectionDraftStore.getState();
     if (state.accountId !== accountId) return;
-    // POST_PRACTICE reflections depend on the canonical practice-session row;
-    // preserve that ordering during reconnect replay as well as direct saves.
-    await PracticeCompletionService.flush(accountId);
     for (const draft of Object.values(state.drafts)) {
       if (draft.saveState !== 'queued' || draft.tombstoned || draft.retryCount >= 3) continue;
       try {
@@ -70,7 +76,7 @@ export class ReflectionService {
           continue;
         }
         if (isReflectionNetworkError(error)) {
-          await useReflectionDraftStore.getState().markFailed(draft.draftKey);
+          await useReflectionDraftStore.getState().scheduleRetry(draft.draftKey);
           continue;
         }
         // An account/auth failure must not be replayed against a changed account.

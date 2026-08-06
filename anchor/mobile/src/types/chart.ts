@@ -11,28 +11,11 @@ import type { ChartPracticeCompletionHandoff } from './practice';
 export type CourseStatus = 'DRAFT' | 'ACTIVE' | 'COMPLETED' | 'ARCHIVED';
 export type CourseAnchorRole = 'DESTINATION' | 'WAYPOINT_PRIMARY';
 
-export type ReflectionSource =
-  | 'POST_PRACTICE'
-  | 'MANUAL_COURSE'
-  | 'WAYPOINT_COMPLETION'
-  | 'COURSE_COMPLETION'
-  | 'ANCHOR_RELEASE';
+export type ReflectionSource = 'POST_PRACTICE' | 'MANUAL_COURSE' | 'WAYPOINT_COMPLETION' | 'COURSE_COMPLETION' | 'ANCHOR_RELEASE';
 
-export type ReflectionPromptType =
-  | 'HOW_DO_YOU_FEEL_NOW'
-  | 'WHAT_CAME_UP'
-  | 'WHAT_STOOD_OUT'
-  | 'WHAT_FELT_STRONGEST'
-  | 'COURSE_STATUS'
-  | 'WAYPOINT_COMPLETION'
-  | 'FINAL_REFLECTION';
+export type ReflectionPromptType = 'HOW_DO_YOU_FEEL_NOW' | 'WHAT_CAME_UP' | 'WHAT_STOOD_OUT' | 'WHAT_FELT_STRONGEST' | 'COURSE_STATUS' | 'WAYPOINT_COMPLETION' | 'FINAL_REFLECTION';
 
-export type ReflectionMood =
-  | 'CALM'
-  | 'FOCUSED'
-  | 'ENERGIZED'
-  | 'UNCHANGED'
-  | 'DISTRACTED';
+export type ReflectionMood = 'CALM' | 'FOCUSED' | 'ENERGIZED' | 'UNCHANGED' | 'DISTRACTED';
 
 export type ReflectionStructuredContent = {
   whatHelped?: string;
@@ -144,12 +127,7 @@ export type WaypointSummary = {
 };
 
 export type CourseObservation = {
-  type:
-    | 'PRACTICE_COUNT_WEEK'
-    | 'PRACTICE_STREAK'
-    | 'THEME_REPEAT'
-    | 'WAYPOINT_DURATION'
-    | 'REFLECTION_GAP';
+  type: 'PRACTICE_COUNT_WEEK' | 'PRACTICE_STREAK' | 'THEME_REPEAT' | 'WAYPOINT_DURATION' | 'REFLECTION_GAP';
   text: string;
 };
 
@@ -196,6 +174,55 @@ export type CreateCourseRequest = {
   destinationText: string;
   waypoints?: Array<{ title: string; description?: string }>;
   fromProposalId?: string;
+};
+
+/** A server-validated, review-only Course suggestion. */
+export type CoursePlanProposal = {
+  proposalId: string;
+  courseId: string | null;
+  baseCourseVersion: number | null;
+  plannerVersion: string;
+  modelVersion: string;
+  inputHash: string;
+  generationSource: 'gemini' | 'deterministic_fallback';
+  fallbackReason: string | null;
+  destinationInterpretation: string;
+  waypoints: Array<{ clientKey: string; title: string; description: string }>;
+  createdAt: string;
+  expiresAt: string;
+};
+
+export type GenerateCoursePlanRequest = {
+  destinationText: string;
+  idempotencyKey: string;
+  /**
+   * Opts into the account's own consented reflections as planning context.
+   * The server filters on `aiConsentGrantedAt` regardless, so this can never
+   * widen the pool past what the user has granted.
+   */
+  includeReflections?: boolean;
+};
+
+/** Safe denial reasons returned by the server (Phase 0 amendment F1). */
+export type CoursePlanDenialReason =
+  | 'planner_disabled'
+  | 'quota_config_unavailable'
+  | 'entitlement_unavailable'
+  | 'not_entitled'
+  | 'entitlement_expired'
+  | 'quota_exhausted';
+
+/**
+ * Display-only quota state. The server alone authorizes generation; this
+ * describes a decision the server already made and never stands in for it.
+ */
+export type CoursePlanQuota = {
+  eligible: boolean;
+  limit: number;
+  remaining: number;
+  /** ISO timestamp for windowed caps; null for lifetime and zero caps. */
+  resetAt: string | null;
+  reason: CoursePlanDenialReason | null;
 };
 
 export type UpdateCourseRequest = {
@@ -296,6 +323,24 @@ export type ChartFeatureFlags = {
   chart_existing_user_intro_enabled: boolean;
 };
 
+/** Safe server capability projection from /api/auth/me. Never authorize from a cached value. */
+export type ChartCapabilities = {
+  chartEnabled: boolean;
+  chartReflectionsEnabled: boolean;
+  chartAiPlannerEnabled: boolean;
+  canViewChart: boolean;
+  canCreateManualCourse: boolean;
+  canEditCourse: boolean;
+  canCompleteExistingCourse: boolean;
+  canGenerateChartPlan: boolean;
+  canRetrieveOwnedChartPlan: boolean;
+  canAcceptExistingChartPlan: boolean;
+  canCreateAnchor: boolean;
+  canCreateOrEditReflections: boolean;
+  canViewOwnedCourseHistory: boolean;
+  plannerQuota: Pick<CoursePlanQuota, 'eligible' | 'limit' | 'remaining' | 'resetAt' | 'reason'>;
+};
+
 export type ChartResponseEnvelope<T> = {
   success: boolean;
   data?: T;
@@ -367,10 +412,7 @@ export const DEFAULT_CHART_FEATURE_FLAGS: ChartFeatureFlags = {
   chart_existing_user_intro_enabled: false,
 };
 
-export function resolveChartFeatureFlags(
-  serverFlags?: Partial<ChartFeatureFlags> | null,
-  buildEnabled = process.env.EXPO_PUBLIC_ENABLE_CHART === 'true',
-): ChartFeatureFlags {
+export function resolveChartFeatureFlags(serverFlags?: Partial<ChartFeatureFlags> | null, buildEnabled = process.env.EXPO_PUBLIC_ENABLE_CHART === 'true'): ChartFeatureFlags {
   const server = serverFlags ?? DEFAULT_CHART_FEATURE_FLAGS;
   return {
     chart_enabled: buildEnabled && server.chart_enabled === true,
@@ -378,7 +420,15 @@ export function resolveChartFeatureFlags(
     chart_ai_planner_enabled: buildEnabled && server.chart_ai_planner_enabled === true,
     chart_reflections_enabled: buildEnabled && server.chart_reflections_enabled === true,
     chart_notifications_enabled: buildEnabled && server.chart_notifications_enabled === true,
-    chart_existing_user_intro_enabled:
-      buildEnabled && server.chart_existing_user_intro_enabled === true,
+    chart_existing_user_intro_enabled: buildEnabled && server.chart_existing_user_intro_enabled === true,
   };
+}
+
+/** A missing capability projection is deliberately denied, including during refresh failures. */
+export function canViewChart(
+  serverFlags?: Partial<ChartFeatureFlags> | null,
+  capabilities?: Partial<ChartCapabilities> | null,
+  buildEnabled = process.env.EXPO_PUBLIC_ENABLE_CHART === 'true'
+): boolean {
+  return resolveChartFeatureFlags(serverFlags, buildEnabled).chart_enabled && capabilities?.canViewChart === true;
 }

@@ -4,6 +4,8 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { useCourseStore } from '@/stores/courseStore';
+import { useAuthStore } from '@/stores/authStore';
+import { AnalyticsEvents, trackChartEventOnce } from '@/services/AnalyticsService';
 import { useToast } from '@/components/ToastProvider';
 import { colors } from '@/theme';
 import type { ChartStackParamList } from '@/types/chart';
@@ -16,6 +18,7 @@ export const CourseDetailsScreen: React.FC = () => {
   const navigation = useNavigation<Navigation>();
   const route = useRoute<DetailsRoute>();
   const store = useCourseStore();
+  const accountId = useAuthStore((state) => state.user?.id ?? null);
   const { error: showError } = useToast();
   const course = store.activeCourse?.id === route.params.courseId
     ? store.activeCourse
@@ -24,6 +27,14 @@ export const CourseDetailsScreen: React.FC = () => {
   useEffect(() => {
     if (!course || !('waypoints' in course)) void store.fetchCourseDetail(route.params.courseId);
   }, [course, route.params.courseId, store.fetchCourseDetail]);
+
+  useEffect(() => {
+    if (!accountId || !course) return;
+    trackChartEventOnce(AnalyticsEvents.COURSE_VIEWED, accountId, course.id, {
+      course_state: course.status,
+      waypoint_count: course.waypointCount,
+    });
+  }, [accountId, course]);
 
   useEffect(() => {
     if (store.errorCode === 'COURSE_NOT_FOUND') {

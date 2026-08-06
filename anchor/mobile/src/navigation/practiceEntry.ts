@@ -3,6 +3,7 @@ import {
   PRACTICE_ENTRY_MODES,
   isChartPracticeContext,
   isChartPracticeEntrySource,
+  normalizeChartPracticeContext,
   type ChartPracticeContext,
   type PracticeEntryMode,
   type PracticeEntrySource,
@@ -97,7 +98,9 @@ export function startPractice(
   // Chart owns Course links and snapshots, not the Anchor life cycle. Release
   // burns an Anchor, so it is not reachable from a Chart entry point.
   if (isChartEntry && request.mode === 'release') return false;
-  const chartContext = request.chartContext;
+  // Rebuilt, not forwarded: only the three frozen routing fields cross into
+  // navigation params, whatever else the caller's object carried.
+  const chartContext = normalizeChartPracticeContext(request.chartContext);
   // Chart is not a tab a session can be popped back to, so the return contract
   // is carried in params and resolved by resolvePracticeReturnTarget().
   const returnTo = chartContext ? ('chart' as const) : ('practice' as const);

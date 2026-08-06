@@ -85,6 +85,7 @@ export const ActivationScreen: React.FC = () => {
     chartContext,
     practiceMode,
   } = route.params;
+  const activeAccountId = useAuthStore((state) => state.user?.id ?? null);
   const toast = useToast();
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
@@ -654,6 +655,7 @@ export const ActivationScreen: React.FC = () => {
     }
   }, [
     anchor,
+    activeAccountId,
     anchorId,
     activationDurationSeconds,
     chartContext,

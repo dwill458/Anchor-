@@ -140,6 +140,26 @@ export const isChartPracticeContext = (
   );
 };
 
+/**
+ * Rebuilds the context from scratch with only the three frozen routing fields.
+ *
+ * Validation alone is not enough at this boundary: deep links and restored
+ * resume state are untrusted input, and passing the caller's object straight
+ * through would carry any extra keys it happened to hold — destination text, a
+ * waypoint title, reflection text — into navigation params. Constructing a new
+ * object makes that structurally impossible rather than merely unlikely.
+ */
+export const normalizeChartPracticeContext = (
+  value: unknown,
+): ChartPracticeContext | null =>
+  isChartPracticeContext(value)
+    ? {
+        courseId: value.courseId,
+        waypointId: value.waypointId,
+        courseVersion: value.courseVersion,
+      }
+    : null;
+
 /** Existing product weighting: Deep Prime compounds faster than base practice. */
 export const PRACTICE_THREAD_STRENGTH_GAINS: Readonly<
   Record<PracticeMode, number>
