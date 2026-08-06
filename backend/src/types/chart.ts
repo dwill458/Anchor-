@@ -207,7 +207,6 @@ export type CompleteWaypointRequest = {
   idempotencyKey: string;
   expectedCourseVersion: number;
   reflection?: {
-    body?: string;
     structuredContent?: { whatHelped?: string; whatLearned?: string };
     moodAfter?: ReflectionMood;
     promptType: 'WAYPOINT_COMPLETION';

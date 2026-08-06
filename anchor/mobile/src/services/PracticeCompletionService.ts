@@ -11,10 +11,13 @@ import {
 import { useSessionStore } from '@/stores/sessionStore';
 import type { Anchor } from '@/types';
 import type {
+  ChartPracticeContext,
   PracticeCompletionSource,
+  PracticeEntrySource,
   PracticeMode,
   PracticeSessionRecord,
 } from '@/types/practice';
+import { isChartPracticeContext, isChartPracticeEntrySource } from '@/types/practice';
 import type { BackgroundAudioMode, GuidanceVoice } from '@/types/sessionAudio';
 import { logger } from '@/utils/logger';
 import {
@@ -50,6 +53,13 @@ export interface CompletePracticeSessionInput {
   nextAction?: string | null;
   legacyType?: string | null;
   metadata?: Record<string, unknown>;
+  /**
+   * Chart attribution for a Course-launched session. This is the same canonical
+   * PracticeSession as any other completion — Chart adds context columns, it
+   * does not get a parallel record.
+   */
+  chartContext?: ChartPracticeContext;
+  practiceEntrySource?: PracticeEntrySource;
 }
 
 async function readQueue(accountId: string): Promise<PracticeSessionRecord[]> {
@@ -95,9 +105,37 @@ function serverPayload(session: PracticeSessionRecord) {
   return payload;
 }
 
+/**
+ * Chart columns are only written when the entry source is a Chart source and
+ * the context is well-formed. Anything else stores nulls, so a malformed or
+ * mismatched context degrades to an ordinary practice session instead of
+ * failing the completion or fabricating Course attribution the server would
+ * reject with PRACTICE_SESSION_INVALID.
+ */
+function resolveChartColumns(input: CompletePracticeSessionInput): {
+  courseId: string | null;
+  waypointId: string | null;
+  practiceEntrySource: PracticeEntrySource | null;
+} {
+  const entrySource = input.practiceEntrySource ?? null;
+  const context = input.chartContext;
+  if (
+    !isChartPracticeEntrySource(entrySource ?? undefined) ||
+    !isChartPracticeContext(context)
+  ) {
+    return { courseId: null, waypointId: null, practiceEntrySource: entrySource };
+  }
+  return {
+    courseId: context.courseId,
+    waypointId: context.waypointId,
+    practiceEntrySource: entrySource,
+  };
+}
+
 function buildRecord(input: CompletePracticeSessionInput): PracticeSessionRecord {
   const completedAt = new Date(input.completedAt ?? new Date().toISOString());
   const context = getCompletionTimeContext(completedAt);
+  const chart = resolveChartColumns(input);
   return {
     id: input.sessionId,
     accountId: input.accountId,
@@ -126,6 +164,9 @@ function buildRecord(input: CompletePracticeSessionInput): PracticeSessionRecord
     nextAction: input.nextAction ?? null,
     clientVersion: Constants.expoConfig?.version ?? null,
     metadata: input.metadata,
+    courseId: chart.courseId,
+    waypointId: chart.waypointId,
+    practiceEntrySource: chart.practiceEntrySource,
     syncState: 'pending',
   };
 }
@@ -166,6 +207,15 @@ export const PracticeCompletionService = {
       actual_duration_seconds: record.completedDurationSeconds,
       local_date_key: record.localDateKey,
       sync_outcome: 'queued',
+      // Opaque IDs only. Destination text, waypoint titles, and reflection
+      // bodies never enter analytics.
+      ...(record.courseId
+        ? {
+          course_id: record.courseId,
+          waypoint_id: record.waypointId,
+          practice_entry_source: record.practiceEntrySource,
+        }
+        : {}),
     });
     return { record, duplicate: false };
   },
@@ -180,11 +230,13 @@ export const PracticeCompletionService = {
     guidanceVoice: GuidanceVoice;
     backgroundAudio: BackgroundAudioMode;
     source?: PracticeCompletionSource;
-  }): Promise<void> {
+    chartContext?: ChartPracticeContext;
+    practiceEntrySource?: PracticeEntrySource;
+  }): Promise<PracticeSessionRecord | null> {
     const accountId = useAuthStore.getState?.()?.user?.id;
-    if (!accountId) return;
+    if (!accountId) return null;
     const completedAtMs = new Date(params.completedAt).getTime();
-    await this.completePracticeSession({
+    const result = await this.completePracticeSession({
       sessionId: params.id,
       accountId,
       anchorId: isBackendAnchorId(params.anchorId) ? params.anchorId : null,
@@ -204,7 +256,10 @@ export const PracticeCompletionService = {
         params.practiceMode === 'deep_prime' ? 'reinforce' : 'activate',
       guidanceVoice: params.guidanceVoice,
       backgroundAudio: params.backgroundAudio,
+      chartContext: params.chartContext,
+      practiceEntrySource: params.practiceEntrySource,
     });
+    return result.record;
   },
 
   async queueCanonicalCompletion(
@@ -240,6 +295,8 @@ export const PracticeCompletionService = {
     backgroundAudio: BackgroundAudioMode;
     sceneSnapshot: string;
     source?: PracticeCompletionSource;
+    chartContext?: ChartPracticeContext;
+    practiceEntrySource?: PracticeEntrySource;
   }): Promise<PracticeSessionRecord> {
     const result = await this.completePracticeSession(
       {
@@ -259,6 +316,8 @@ export const PracticeCompletionService = {
         guidanceVoice: params.guidanceVoice,
         backgroundAudio: params.backgroundAudio,
         sceneSnapshot: params.sceneSnapshot,
+        chartContext: params.chartContext,
+        practiceEntrySource: params.practiceEntrySource,
       },
       { mirrorLegacySession: true },
     );

@@ -44,7 +44,28 @@ export const PRACTICE_ENTRY_MODES = [
 ] as const;
 export type PracticeEntryMode = (typeof PRACTICE_ENTRY_MODES)[number];
 
-/** Stable source labels used to audit every practice entry point. */
+/** Practice modes Chart may launch. Release remains an Anchor-owned action. */
+export type ChartPracticeMode = Exclude<PracticeEntryMode, 'release'>;
+
+/**
+ * Successful completion data returned to the originating Chart waypoint.
+ * Abandoned sessions intentionally carry no handoff, so they can never open a
+ * post-practice Reflection.
+ */
+export interface ChartPracticeCompletionHandoff {
+  outcome: 'completed';
+  practiceSessionId: string;
+  practiceMode: ChartPracticeMode;
+  anchorId: string;
+}
+
+/**
+ * Stable source labels used to audit every practice entry point.
+ *
+ * This union mirrors `PracticeEntrySource` in backend/src/types/chart.ts. The
+ * backend validates `practiceEntrySource` against the same list, so a value
+ * added here must exist there too or the session write is rejected.
+ */
 export type PracticeEntrySource =
   | 'practice_hero'
   | 'practice_deep_prime_card'
@@ -55,7 +76,69 @@ export type PracticeEntrySource =
   | 'sanctuary_prime_anchor'
   | 'widget'
   | 'shortcut'
-  | 'evolve';
+  | 'evolve'
+  | 'chart'
+  | 'chart_waypoint_detail';
+
+export const PRACTICE_ENTRY_SOURCES = [
+  'practice_hero',
+  'practice_deep_prime_card',
+  'practice_focus_card',
+  'practice_visualize_card',
+  'practice_release_card',
+  'anchor_detail',
+  'sanctuary_prime_anchor',
+  'widget',
+  'shortcut',
+  'evolve',
+  'chart',
+  'chart_waypoint_detail',
+] as const satisfies readonly PracticeEntrySource[];
+
+/** Chart entry sources. Only these may carry a `ChartPracticeContext`. */
+export const CHART_PRACTICE_ENTRY_SOURCES = [
+  'chart',
+  'chart_waypoint_detail',
+] as const satisfies readonly PracticeEntrySource[];
+
+export type ChartPracticeEntrySource =
+  (typeof CHART_PRACTICE_ENTRY_SOURCES)[number];
+
+export const isChartPracticeEntrySource = (
+  value: PracticeEntrySource | undefined,
+): value is ChartPracticeEntrySource =>
+  value === 'chart' || value === 'chart_waypoint_detail';
+
+/**
+ * Course context attached to a Chart-launched practice session.
+ *
+ * `courseVersion` is the expected Course version observed when the session was
+ * launched. It is carried so a later waypoint completion can send
+ * `expectedCourseVersion` without re-reading a possibly-stale cache. It is
+ * deliberately NOT persisted server-side: `Course.version` is authoritative and
+ * a session is immutable history, so a stored copy would only ever go stale.
+ */
+export interface ChartPracticeContext {
+  courseId: string;
+  waypointId: string;
+  courseVersion: number;
+}
+
+export const isChartPracticeContext = (
+  value: unknown,
+): value is ChartPracticeContext => {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<ChartPracticeContext>;
+  return (
+    typeof candidate.courseId === 'string' &&
+    candidate.courseId.length > 0 &&
+    typeof candidate.waypointId === 'string' &&
+    candidate.waypointId.length > 0 &&
+    typeof candidate.courseVersion === 'number' &&
+    Number.isInteger(candidate.courseVersion) &&
+    candidate.courseVersion >= 1
+  );
+};
 
 /** Existing product weighting: Deep Prime compounds faster than base practice. */
 export const PRACTICE_THREAD_STRENGTH_GAINS: Readonly<
@@ -139,6 +222,14 @@ export interface PracticeSessionRecord {
   nextAction: string | null;
   clientVersion: string | null;
   metadata?: Record<string, unknown>;
+  /**
+   * Chart context, present only for Chart-launched sessions. These live on the
+   * record (not only in memory) so the encrypted offline retry queue replays
+   * them verbatim — the backend treats them as immutable session fields.
+   */
+  courseId?: string | null;
+  waypointId?: string | null;
+  practiceEntrySource?: PracticeEntrySource | null;
   syncState: PracticeSessionSyncState;
 }
 

@@ -5,6 +5,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { ReflectionComposer } from '@/components/reflection/ReflectionComposer';
 import { useCourseLogStore } from '@/stores/courseLogStore';
+import { useAuthStore } from '@/stores/authStore';
 import type { ChartStackParamList, ReflectionRecord } from '@/types/chart';
 import { ChartCard, ChartScreenFrame } from './chartUi';
 
@@ -15,6 +16,7 @@ export const ReflectionComposerScreen: React.FC = () => {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const logStore = useCourseLogStore();
+  const accountId = useAuthStore((state) => state.user?.id ?? null);
   const cached = route.params.reflectionId ? logStore.findReflection(route.params.reflectionId) : null;
   // Course Log intentionally exposes only display-safe reflection fields. The edit request itself
   // permits only body, structured content, mood, and consent, so this local envelope is never sent.
@@ -56,7 +58,17 @@ export const ReflectionComposerScreen: React.FC = () => {
     anchorId={route.params.anchorId}
     draftKey={route.params.draftKey ?? `reflection:${route.params.practiceSessionId ?? route.params.courseId ?? 'new'}:${route.params.promptType}`}
     initialReflection={initialReflection}
-    onSaved={() => { void logStore.refresh(); navigation.goBack(); }}
+    autoPresented={route.params.autoPresented}
+    onSaved={() => {
+      void (async () => {
+        if (accountId && route.params.courseId) {
+          await logStore.bind(accountId, route.params.courseId);
+        } else {
+          await logStore.refresh();
+        }
+        navigation.goBack();
+      })();
+    }}
     onSkipped={() => navigation.goBack()}
     onDeleted={() => {
       if (route.params.reflectionId) logStore.markReflectionDeleted(route.params.reflectionId);

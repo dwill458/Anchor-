@@ -39,6 +39,7 @@ import {
   formatCompactSessionAudioSummary,
   resolveSessionAudioConfiguration,
 } from '@/types/sessionAudio';
+import { useChartPracticeReturn } from '@/hooks/useChartPracticeReturn';
 
 type ChargeSetupRouteProp = RouteProp<RootStackParamList, 'ChargeSetup'>;
 type ChargeSetupNavigationProp = StackNavigationProp<RootStackParamList, 'ChargeSetup'>;
@@ -128,6 +129,7 @@ export const ChargeSetupScreen: React.FC = () => {
   const navigation = useNavigation<ChargeSetupNavigationProp>();
   const route = useRoute<ChargeSetupRouteProp>();
   const { navigateToPractice, navigateToPaywall } = useTabNavigation();
+  const returnToChart = useChartPracticeReturn(navigation);
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const {
@@ -136,6 +138,9 @@ export const ChargeSetupScreen: React.FC = () => {
     autoStartOnSelection = false,
     initialDuration,
     fromOnboarding = false,
+    source,
+    chartContext,
+    practiceMode,
   } = route.params || {};
 
   const chargeSetupTeaching = useTeachingGate({
@@ -333,6 +338,9 @@ export const ChargeSetupScreen: React.FC = () => {
           durationOverride,
           audioConfiguration,
           returnTo,
+          source,
+          chartContext,
+          practiceMode,
         });
       } else {
         navigation.replace('Ritual', {
@@ -341,10 +349,13 @@ export const ChargeSetupScreen: React.FC = () => {
           durationSeconds: durationOverride,
           audioConfiguration,
           returnTo,
+          source,
+          chartContext,
+          practiceMode,
         });
       }
     },
-    [anchorId, getLocationPresetForChoice, navigation, returnTo, sessionAudioDefaults]
+    [anchorId, chartContext, getLocationPresetForChoice, navigation, practiceMode, returnTo, sessionAudioDefaults, source]
   );
 
   const handleBeginRitual = useCallback(
@@ -453,18 +464,21 @@ export const ChargeSetupScreen: React.FC = () => {
 
   const handleBack = useCallback(() => {
     if (isTransitioning) return;
+    if (returnToChart({ returnTo, anchorId, chartContext })) return;
     if (autoStartOnSelection) {
       // Came from creation flow — navigate to Vault so the new anchor is visible
       navigateToVaultDestination(navigation, 'reset');
     } else {
       navigation.goBack();
     }
-  }, [isTransitioning, navigation, autoStartOnSelection]);
+  }, [anchorId, autoStartOnSelection, chartContext, isTransitioning, navigation, returnTo, returnToChart]);
 
   const handlePrimeLater = useCallback(() => {
     if (isTransitioning || !anchorId) return;
 
     void safeHaptics.selection();
+
+    if (returnToChart({ returnTo, anchorId, chartContext })) return;
 
     if (fromOnboarding && anchor) {
       navigation.replace('SaveProgress', { anchor });
@@ -485,7 +499,7 @@ export const ChargeSetupScreen: React.FC = () => {
     }
 
     navigateToVaultDestination(navigation, 'reset');
-  }, [anchor, anchorId, fromOnboarding, isTransitioning, navigateToPractice, navigation, returnTo]);
+  }, [anchor, anchorId, chartContext, fromOnboarding, isTransitioning, navigateToPractice, navigation, returnTo, returnToChart]);
 
   const activeLocationPreset = getLocationPresetForChoice(selectedDuration);
 

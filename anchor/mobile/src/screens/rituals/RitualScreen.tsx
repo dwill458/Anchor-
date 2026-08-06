@@ -80,6 +80,9 @@ import { resolveSessionAudioPlan } from '@/services/SessionAudioManifest';
 import { trackSessionStartedWithAudio } from '@/services/SessionAudioAnalytics';
 import { stopVoicePreview } from '@/services/VoicePreviewService';
 import { persistSessionAudioDefaults } from '@/services/SessionAudioPreferencesService';
+import { resolvePracticeCompletionSource } from '@/navigation/practiceReturn';
+import { useChartPracticeReturn } from '@/hooks/useChartPracticeReturn';
+import type { ChartPracticeCompletionHandoff } from '@/types/practice';
 
 // Single source of truth: derive each segment's width from the global progressAnim,
 // which is already wall-clock-driven by useRitualController + the progressAnim effect.
@@ -274,6 +277,7 @@ export const RitualScreen: React.FC = () => {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const navigation = useNavigation<RitualNavigationProp>();
   const { navigateToPractice, navigateToPaywall } = useTabNavigation();
+  const returnToChart = useChartPracticeReturn(navigation);
   const route = useRoute<RitualRouteProp>();
   const {
     anchorId,
@@ -283,6 +287,9 @@ export const RitualScreen: React.FC = () => {
     audioConfiguration,
     audioModeOverride,
     returnTo,
+    source,
+    chartContext,
+    practiceMode,
   } = route.params;
   const isMountedRef = useRef(true);
   const isCompletingRef = useRef(false);
@@ -1146,11 +1153,13 @@ export const RitualScreen: React.FC = () => {
     pendingPostPrimeFlowId,
   ]);
 
-  const exitRitual = useCallback(async () => {
+  const exitRitual = useCallback(async (practiceReturn?: ChartPracticeCompletionHandoff) => {
     exitingRef.current = true;
     setShowExitWarning(false);
     clearDeepTimerInterval();
     await fadeOutDeepPrimeAudio();
+
+    if (returnToChart({ returnTo, anchorId, chartContext, practiceReturn })) return;
 
     if (returnTo === 'practice') {
       if (typeof navigation.popToTop === 'function') {
@@ -1173,7 +1182,7 @@ export const RitualScreen: React.FC = () => {
     }
 
     navigateToVaultDestination(navigation, 'reset');
-  }, [anchor, anchorId, clearDeepTimerInterval, fadeOutDeepPrimeAudio, isPendingFirstAnchor, navigateToPractice, navigation, returnTo]);
+  }, [anchor, anchorId, chartContext, clearDeepTimerInterval, fadeOutDeepPrimeAudio, isPendingFirstAnchor, navigateToPractice, navigation, returnTo, returnToChart]);
 
   const continueFromSeal = useCallback(async () => {
     if (hasFinalizedRef.current) {
@@ -1287,6 +1296,9 @@ export const RitualScreen: React.FC = () => {
         completionEventId: completionEventIdRef.current,
         audioConfiguration: sessionAudioPlan.configuration,
         returnTo,
+        source,
+        chartContext,
+        practiceMode,
       });
       return;
     }
@@ -1306,7 +1318,7 @@ export const RitualScreen: React.FC = () => {
         audioConfiguration: sessionAudioPlan.configuration,
         completedAt,
       });
-      await PracticeCompletionService.queueLegacyCompletion({
+      const canonicalRecord = await PracticeCompletionService.queueLegacyCompletion({
         id: completionEventId,
         anchorId,
         anchorLocalId: anchor?.localId,
@@ -1315,11 +1327,18 @@ export const RitualScreen: React.FC = () => {
         completedAt,
         guidanceVoice: sessionAudioPlan.configuration.guidanceVoice,
         backgroundAudio: sessionAudioPlan.configuration.backgroundAudio,
-        source: returnTo === 'practice' ? 'practice_screen' : 'anchor_detail',
+        source: resolvePracticeCompletionSource(returnTo),
+        chartContext,
+        practiceEntrySource: source,
       });
       await queueProgressionMilestonesFromStores({ sourceEventId: completionEventId });
       await handlePrimeComplete();
-      await exitRitual();
+      await exitRitual(canonicalRecord ? {
+        outcome: 'completed',
+        practiceSessionId: canonicalRecord.id,
+        practiceMode: practiceMode ?? 'deepPrime',
+        anchorId,
+      } : undefined);
       return;
     }
 
@@ -1330,11 +1349,15 @@ export const RitualScreen: React.FC = () => {
       completionEventId: completionEventIdRef.current,
       audioConfiguration: sessionAudioPlan.configuration,
       returnTo,
+      source,
+      chartContext,
+      practiceMode,
     });
   }, [
     anchor?.chargeCount,
     anchor?.firstChargedAt,
     anchorId,
+    chartContext,
     config.totalDurationSeconds,
     enqueuePendingFirstAnchorMutation,
     exitRitual,
@@ -1343,11 +1366,13 @@ export const RitualScreen: React.FC = () => {
     isFirstPrimeForAnchor,
     isPendingFirstAnchor,
     navigation,
+    practiceMode,
     resolvedSessionAudio,
     recordSession,
     returnTo,
     ritualType,
     sessionAudioPlan,
+    source,
     updateAnchor,
   ]);
 
@@ -1399,7 +1424,7 @@ export const RitualScreen: React.FC = () => {
       completedAt,
       reflectionWord,
     });
-    await PracticeCompletionService.queueLegacyCompletion({
+    const canonicalRecord = await PracticeCompletionService.queueLegacyCompletion({
       id: completionEventId,
       anchorId,
       anchorLocalId: anchor?.localId,
@@ -1408,13 +1433,20 @@ export const RitualScreen: React.FC = () => {
       completedAt,
       guidanceVoice: sessionAudioPlan.configuration.guidanceVoice,
       backgroundAudio: sessionAudioPlan.configuration.backgroundAudio,
-      source: returnTo === 'practice' ? 'practice_screen' : 'anchor_detail',
+      source: resolvePracticeCompletionSource(returnTo),
+      chartContext,
+      practiceEntrySource: source,
     });
 
     await queueProgressionMilestonesFromStores({ sourceEventId: completionEventId });
     await handlePrimeComplete();
-    exitRitual();
-  }, [anchorId, config.totalDurationSeconds, sessionAudioPlan, recordSession, handlePrimeComplete, exitRitual]);
+    await exitRitual(canonicalRecord ? {
+      outcome: 'completed',
+      practiceSessionId: canonicalRecord.id,
+      practiceMode: practiceMode ?? 'deepPrime',
+      anchorId,
+    } : undefined);
+  }, [anchor?.localId, anchorId, chartContext, config.totalDurationSeconds, sessionAudioPlan, recordSession, handlePrimeComplete, exitRitual, practiceMode, returnTo, source]);
 
   useEffect(() => {
     if (typeof navigation.addListener !== 'function') return () => undefined;
@@ -2749,10 +2781,11 @@ export const RitualScreen: React.FC = () => {
         />
         <CompletionModal
           visible={showCompletion}
-          sessionType="reinforce"
-          anchor={anchor}
-          onDone={handleCompletionDone}
-        />
+        sessionType="reinforce"
+        anchor={anchor}
+        onDone={handleCompletionDone}
+        collectReflection={returnTo !== 'chart'}
+      />
         <ConfirmModal
           visible={showExitWarning}
           title="Exit Practice?"

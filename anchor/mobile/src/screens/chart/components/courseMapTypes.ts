@@ -13,6 +13,7 @@ export type CourseMapProps = {
   reachedCount: number;
   completed: boolean;
   reducedMotion?: boolean;
+  orientation?: 'vertical' | 'horizontal';
   onWaypointPress: (waypointId: string) => void;
   /**
    * Committed server transition. Supplied by later integration work once a

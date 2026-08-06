@@ -748,8 +748,11 @@ export class CourseService {
       if (row.currentWaypointId !== waypointId)
         throw new AppError('Waypoint is not current', 409, 'WAYPOINT_NOT_CURRENT');
       const activeLink = activeLinkForWaypoint(row, waypointId);
-      const anchor = anchorFromLink(activeLink);
-      const blockedReason = deriveBlockedReason(activeLink, anchor);
+      // The guard must read the same link the projection reads, otherwise the
+      // server can refuse a transition the client was never shown as blocked
+      // (or allow one it was). See D10.
+      const stateLink = stateLinkForWaypoint(row, waypointId);
+      const blockedReason = deriveBlockedReason(stateLink, anchorFromLink(stateLink));
       if (blockedReason) throw new AppError('Waypoint is blocked', 409, 'WAYPOINT_BLOCKED');
 
       if (input.supportingPracticeSessionId) {
@@ -992,10 +995,8 @@ export class CourseService {
         throw new AppError('Waypoint transition is invalid', 409, 'WAYPOINT_TRANSITION_INVALID');
       if (row.currentWaypointId !== waypointId)
         throw new AppError('Waypoint is not current', 409, 'WAYPOINT_NOT_CURRENT');
-      const blockedReason = deriveBlockedReason(
-        activeLinkForWaypoint(row, waypointId),
-        anchorFromLink(activeLinkForWaypoint(row, waypointId))
-      );
+      const skipStateLink = stateLinkForWaypoint(row, waypointId);
+      const blockedReason = deriveBlockedReason(skipStateLink, anchorFromLink(skipStateLink));
       if (blockedReason) throw new AppError('Waypoint is blocked', 409, 'WAYPOINT_BLOCKED');
       const next = selectNextWaypoint(row.waypoints, waypoint.position);
       const completed = !next;
@@ -1082,12 +1083,16 @@ export class CourseService {
         );
       if (input.replaceLinkId && (!activeLink || activeLink.id !== input.replaceLinkId))
         throw new AppError('Anchor link is invalid', 422, 'ANCHOR_LINK_INVALID');
-      const wasBlocked = waypoint
-        ? deriveBlockedReason(
-            activeLinkForWaypoint(row, waypoint.id),
-            anchorFromLink(activeLinkForWaypoint(row, waypoint.id))
-          ) !== null
-        : false;
+      // WAYPOINT_UNBLOCKED may only be emitted where a WAYPOINT_BLOCKED could
+      // have been: on the current waypoint, and only when a prior link exists to
+      // have been broken. Deriving this from the active link alone made the
+      // first-ever link on a current waypoint log "Waypoint is available again."
+      // for a waypoint that was never blocked. See D10.
+      const priorStateLink = waypoint ? stateLinkForWaypoint(row, waypoint.id) : null;
+      const wasBlocked =
+        waypoint !== null &&
+        row.currentWaypointId === waypoint.id &&
+        deriveBlockedReason(priorStateLink, anchorFromLink(priorStateLink)) !== null;
       if (input.replaceLinkId && activeLink) {
         const oldAnchor = activeLink.anchor;
         await tx.courseAnchorLink.update({

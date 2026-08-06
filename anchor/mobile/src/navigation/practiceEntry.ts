@@ -1,6 +1,9 @@
 import type { Anchor, PracticeStackParamList, RootStackParamList } from '@/types';
 import {
   PRACTICE_ENTRY_MODES,
+  isChartPracticeContext,
+  isChartPracticeEntrySource,
+  type ChartPracticeContext,
   type PracticeEntryMode,
   type PracticeEntrySource,
 } from '@/types/practice';
@@ -18,6 +21,12 @@ export interface StartPracticeRequest {
   intention?: string;
   sigilSvg?: string;
   enhancedImageUrl?: string;
+  /**
+   * Course/waypoint context for a Chart-launched session. Only accepted for a
+   * Chart `source`; supplying it from any other surface is rejected so a
+   * non-Chart entry point cannot attribute a session to a Course.
+   */
+  chartContext?: ChartPracticeContext;
 }
 
 export type PracticeEntryTarget =
@@ -76,10 +85,42 @@ export function startPractice(
     return false;
   }
 
+  // Chart context and a Chart source are inseparable in both directions: a
+  // Chart entry without valid context cannot attribute the session, and a
+  // non-Chart entry must never claim Course attribution.
+  const isChartEntry = isChartPracticeEntrySource(request.source);
+  if (request.chartContext !== undefined) {
+    if (!isChartEntry || !isChartPracticeContext(request.chartContext)) return false;
+  } else if (isChartEntry) {
+    return false;
+  }
+  // Chart owns Course links and snapshots, not the Anchor life cycle. Release
+  // burns an Anchor, so it is not reachable from a Chart entry point.
+  if (isChartEntry && request.mode === 'release') return false;
+  const chartContext = request.chartContext;
+  // Chart is not a tab a session can be popped back to, so the return contract
+  // is carried in params and resolved by resolvePracticeReturnTarget().
+  const returnTo = chartContext ? ('chart' as const) : ('practice' as const);
+  const chartParams = chartContext
+    ? { chartContext, practiceMode: request.mode as Exclude<PracticeEntryMode, 'release'> }
+    : {};
+
   const anchor = dependencies.getAnchorById(anchorId);
   if (!anchor || anchor.isReleased || anchor.archivedAt) {
     return false;
   }
+
+  /**
+   * Chart-launched sessions must come back to the waypoint that launched them
+   * after a successful purchase, not to the Practice tab.
+   */
+  const resumeTarget = chartContext
+    ? ({
+      kind: 'chart_waypoint',
+      courseId: chartContext.courseId,
+      waypointId: chartContext.waypointId,
+    } as const)
+    : undefined;
 
   if (request.mode === 'deepPrime' && !dependencies.primeSessionAccess.deep.isAllowed) {
     dependencies.onEntitlementDenied?.({
@@ -91,6 +132,7 @@ export function startPractice(
     dependencies.navigateToPaywall({
       source: 'free_weekly_sessions_used',
       preferredPlanId: 'annual',
+      ...(resumeTarget ? { resumeTarget } : {}),
     });
     return false;
   }
@@ -105,6 +147,7 @@ export function startPractice(
     dependencies.navigateToPaywall({
       source: 'free_weekly_sessions_used',
       preferredPlanId: 'annual',
+      ...(resumeTarget ? { resumeTarget } : {}),
     });
     return false;
   }
@@ -113,7 +156,7 @@ export function startPractice(
     dependencies.navigateToPaywall({
       source: 'premium_practice_locked',
       preferredPlanId: 'annual',
-      resumeTarget: { kind: 'visualize_prepare', anchorId },
+      resumeTarget: resumeTarget ?? { kind: 'visualize_prepare', anchorId },
     });
     return false;
   }
@@ -134,17 +177,19 @@ export function startPractice(
             ritualType: 'ritual',
             durationSeconds: request.durationSeconds,
             audioConfiguration,
-            returnTo: 'practice',
+            returnTo,
             source: request.source,
+            ...chartParams,
           },
         }
         : {
           route: 'ChargeSetup',
           params: {
             anchorId,
-            returnTo: 'practice',
+            returnTo,
             initialDuration: 'deep',
             source: request.source,
+            ...chartParams,
           },
         };
       break;
@@ -156,15 +201,16 @@ export function startPractice(
           activationType: 'visual',
           durationOverride: request.durationSeconds ?? dependencies.defaultFocusDurationSeconds,
           audioConfiguration,
-          returnTo: 'practice',
+          returnTo,
           source: request.source,
+          ...chartParams,
         },
       };
       break;
     case 'visualize':
       target = {
         route: 'VisualizePreparation',
-        params: { anchorId, source: request.source },
+        params: { anchorId, returnTo, source: request.source, ...chartParams },
       };
       break;
     case 'release':

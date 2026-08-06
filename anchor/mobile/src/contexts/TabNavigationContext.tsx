@@ -46,7 +46,7 @@ interface TabNavigationContextValue {
   ) => void;
   /** Open the root-level paywall from either tab's independent stack. */
   navigateToPaywall: (params?: RootStackParamList['Paywall']) => void;
-  /** Switch to Chart and optionally push a Chart route. */
+  /** Switch to Chart and optionally navigate to a Chart route. */
   navigateToChart: <RouteName extends keyof ChartStackParamList>(
     screen?: RouteName,
     params?: ChartStackParamList[RouteName]
@@ -87,7 +87,7 @@ export const TabNavigationProvider: React.FC<TabNavigationProviderProps> = ({
     if (tabIndex === 2 && nav && pendingChartRouteRef.current) {
       const pending = pendingChartRouteRef.current;
       pendingChartRouteRef.current = null;
-      nav.push(pending.screen, pending.params);
+      nav.navigate(pending.screen, pending.params);
     }
   }, []);
 
@@ -137,7 +137,9 @@ export const TabNavigationProvider: React.FC<TabNavigationProviderProps> = ({
       if (screen) {
         const chartNavigation = tabNavRefs.current[2];
         if (chartNavigation) {
-          chartNavigation.push(screen, params);
+          // Reuse the originating Chart route when practice hands control back;
+          // a push here would duplicate WaypointDetail on every completion.
+          chartNavigation.navigate(screen, params);
         } else {
           pendingChartRouteRef.current = { screen: String(screen), params };
         }

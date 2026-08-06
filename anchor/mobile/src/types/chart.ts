@@ -6,6 +6,8 @@
  * own waypoint lifecycle.
  */
 
+import type { ChartPracticeCompletionHandoff } from './practice';
+
 export type CourseStatus = 'DRAFT' | 'ACTIVE' | 'COMPLETED' | 'ARCHIVED';
 export type CourseAnchorRole = 'DESTINATION' | 'WAYPOINT_PRIMARY';
 
@@ -221,6 +223,60 @@ export type ReorderWaypointsRequest = {
   orderedWaypointIds: string[];
 };
 
+export type SkipWaypointRequest = {
+  idempotencyKey: string;
+  expectedCourseVersion: number;
+  reason?: string;
+};
+
+export type CancelWaypointRequest = {
+  idempotencyKey: string;
+  expectedCourseVersion: number;
+};
+
+/**
+ * Waypoint completion, with its optional completion reflection inline.
+ *
+ * The reflection is part of this request — not a follow-up POST — because the
+ * server commits WAYPOINT_REACHED, the pointer advance, the Reflection row, and
+ * REFLECTION_ADDED in one serializable transaction. Splitting them could orphan
+ * a reflection or show completion before the server confirmed it.
+ */
+export type CompleteWaypointRequest = {
+  idempotencyKey: string;
+  expectedCourseVersion: number;
+  reflection?: {
+    /**
+     * The ceremony's two optional prompts. There is no freeform `body`: the
+     * server stores `body: null` for a completion reflection, so a body field
+     * would be accepted and then dropped.
+     */
+    structuredContent?: ReflectionStructuredContent;
+    moodAfter?: ReflectionMood;
+    promptType: 'WAYPOINT_COMPLETION';
+    promptVersion: number;
+    /** Distinct from the completion key; scopes the reflection's own replay. */
+    idempotencyKey: string;
+  };
+  supportingPracticeSessionId?: string;
+};
+
+/**
+ * The completion response is authoritative and complete: the refreshed Course
+ * summary, both waypoint summaries, and the new pointer. A client that gets a
+ * 200 here does not need to refetch the Course before rendering.
+ * `replayed: true` means the idempotency key had already been committed.
+ */
+export type CompleteWaypointResponse = {
+  course: CourseSummary;
+  completedWaypoint: WaypointSummary;
+  nextWaypoint: WaypointSummary | null;
+  courseCompleted: boolean;
+  completionEventId: string;
+  replayed: boolean;
+  reflectionId?: string;
+};
+
 export type LinkAnchorRequest = {
   idempotencyKey: string;
   expectedCourseVersion: number;
@@ -253,7 +309,12 @@ export type ChartStackParamList = {
   CourseSetup: { fromProposalId?: string } | undefined;
   CourseEditor: { courseId: string };
   AIPlanReview: { courseId: string | null; proposalId: string };
-  WaypointDetail: { courseId: string; waypointId: string };
+  WaypointDetail: {
+    courseId: string;
+    waypointId: string;
+    practiceReturn?: ChartPracticeCompletionHandoff;
+    launchMode?: import('./practice').ChartPracticeMode;
+  };
   CourseLog: { courseId: string; waypointId?: string };
   ReflectionComposer: {
     source: ReflectionSource;
@@ -265,6 +326,7 @@ export type ChartStackParamList = {
     promptVersion?: number;
     draftKey?: string;
     reflectionId?: string;
+    autoPresented?: boolean;
   };
   CourseDetails: { courseId: string };
   CourseCompletion: { courseId: string };
@@ -283,7 +345,13 @@ export type ChartErrorCode =
   | 'ENTITLEMENT_REQUIRED'
   | 'VALIDATION_ERROR'
   | 'NETWORK'
-  | 'OFFLINE';
+  | 'OFFLINE'
+  /**
+   * Client-only. The cached Course is older than CHART_STALE_AFTER_MS, so its
+   * `version` cannot safely be sent as `expectedCourseVersion`. Never returned
+   * by the server.
+   */
+  | 'STALE';
 
 export const CHART_CACHE_KEY_PREFIX = 'anchor:chart:course:';
 export const CHART_LOG_CACHE_KEY_PREFIX = 'anchor:chart:log:';

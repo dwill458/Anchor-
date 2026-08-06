@@ -20,6 +20,7 @@ import { PracticeCompletionService } from "@/services/PracticeCompletionService"
 import { AnalyticsEvents, AnalyticsService } from "@/services/AnalyticsService";
 import { colors as themeColors, typography } from "@/theme";
 import { getVisualizationLensSize } from './visualizePresentation';
+import { useChartPracticeReturn } from '@/hooks/useChartPracticeReturn';
 import {
   VisualizationAnchorLens,
   VisualizationPhaseProgress,
@@ -38,6 +39,7 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
   route,
 }) => {
   const window = useWindowDimensions();
+  const returnToChart = useChartPracticeReturn(navigation);
   const anchor = useAnchorStore((state) =>
     state.getAnchorById(route.params.anchorId),
   );
@@ -57,6 +59,23 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
     [route.params.durationSeconds],
   );
   const lensSize = getVisualizationLensSize('completion', window.width);
+  const isChartReturn = route.params.returnTo === 'chart';
+
+  const handleChartReturn = () => {
+    returnToChart({
+      returnTo: route.params.returnTo,
+      anchorId: route.params.anchorId,
+      chartContext: route.params.chartContext,
+      ...(completedSession ? {
+        practiceReturn: {
+          outcome: 'completed' as const,
+          practiceSessionId: completedSession.id,
+          practiceMode: route.params.practiceMode ?? 'visualize',
+          anchorId: route.params.anchorId,
+        },
+      } : {}),
+    });
+  };
 
   const saveNextAction = async () => {
     if (!accountId || !nextAction.trim()) return;
@@ -144,7 +163,11 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
           ) : null}
 
           <View style={styles.actionSection}>
-            <VisualizationPrimaryButton
+            {isChartReturn ? <VisualizationPrimaryButton
+              label="RETURN TO WAYPOINT"
+              onPress={handleChartReturn}
+            /> : <>
+              <VisualizationPrimaryButton
               label="PRACTICE AGAIN"
               onPress={() => {
               AnalyticsService.track(
@@ -156,8 +179,8 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
                 source: "practice_again",
               });
               }}
-            />
-          <Pressable
+              />
+              <Pressable
             onPress={() => {
               AnalyticsService.track(
                 AnalyticsEvents.VISUALIZE_RETURN_TO_SANCTUARY_SELECTED,
@@ -168,7 +191,8 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
             style={styles.secondary}
           >
             <Text style={styles.secondaryText}>RETURN TO SANCTUARY</Text>
-          </Pressable>
+              </Pressable>
+            </>}
           </View>
         </ScrollView>
       </SafeAreaView>

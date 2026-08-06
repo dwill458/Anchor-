@@ -6,7 +6,6 @@ const readyOptions = {
   fontsReady: true,
   settingsHydrated: true,
   authRestorationSettled: true,
-  essentialDataSettled: true,
   primeOnLaunchResolved: true,
 };
 
@@ -15,13 +14,19 @@ describe('useAppStartup', () => {
     jest.useRealTimers();
   });
 
-  it('requires every startup dependency before becoming ready', () => {
+  it('requires the app-shell dependencies before becoming ready', () => {
     const { result } = renderHook(() =>
-      useAppStartup({ ...readyOptions, essentialDataSettled: false })
+      useAppStartup({ ...readyOptions, authRestorationSettled: false })
     );
 
     expect(result.current.isReady).toBe(false);
     expect(result.current.status).toBe('pending');
+  });
+
+  it('does not wait for account data hydration after auth is settled', () => {
+    const { result } = renderHook(() => useAppStartup(readyOptions));
+
+    expect(result.current.isReady).toBe(true);
   });
 
   it('allows safe hydration failures to continue', () => {

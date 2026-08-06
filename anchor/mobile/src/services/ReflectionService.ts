@@ -3,6 +3,7 @@ import { apiClient, ApiClientError } from './ApiClient';
 import { useAuthStore } from '@/stores/authStore';
 import { useReflectionDraftStore, type ReflectionDraft } from '@/stores/reflectionDraftStore';
 import { useCourseStore } from '@/stores/courseStore';
+import { PracticeCompletionService } from './PracticeCompletionService';
 import type {
   CreateReflectionRequest,
   ReflectionRecord,
@@ -54,6 +55,9 @@ export class ReflectionService {
     if (!useCourseStore.getState().flags.chart_reflections_enabled) return;
     const state = useReflectionDraftStore.getState();
     if (state.accountId !== accountId) return;
+    // POST_PRACTICE reflections depend on the canonical practice-session row;
+    // preserve that ordering during reconnect replay as well as direct saves.
+    await PracticeCompletionService.flush(accountId);
     for (const draft of Object.values(state.drafts)) {
       if (draft.saveState !== 'queued' || draft.tombstoned || draft.retryCount >= 3) continue;
       try {

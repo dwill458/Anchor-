@@ -111,6 +111,47 @@ function applyReverseForward(serial, deviceName) {
   }
 }
 
+// Read the ports currently reverse-forwarded for a device.
+// Returns null when the list cannot be read, so callers can skip rather than guess.
+function getActiveForwards(serial) {
+  try {
+    const out = execSync(`"${ADB_PATH}" -s ${serial} reverse --list`, {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const ports = new Set();
+    for (const line of out.split('\n')) {
+      const match = line.match(/tcp:(\d+)\s+tcp:(\d+)/);
+      if (match) ports.add(parseInt(match[1], 10));
+    }
+    return ports;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Forwards can be dropped without the device ever disconnecting — an adb server
+// restart or another tool cycling `adb reverse` wipes them silently. Re-apply any
+// that went missing so a still-connected device does not sit there unreachable.
+function reapplyMissingForwards(serial, deviceName) {
+  const active = getActiveForwards(serial);
+  if (!active) return;
+
+  const missing = targetPorts.filter(port => !active.has(port));
+  if (missing.length === 0) return;
+
+  console.log(`\n${COLORS.bright}${COLORS.magenta}[♻ RESTORE]${COLORS.reset} Forwards missing on ${COLORS.bright}${deviceName}${COLORS.reset} — re-applying...`);
+  for (const port of missing) {
+    try {
+      execSync(`"${ADB_PATH}" -s ${serial} reverse tcp:${port} tcp:${port}`);
+      console.log(`  ${COLORS.green}✔${COLORS.reset} Port ${COLORS.bright}${port}${COLORS.reset} restored`);
+    } catch (err) {
+      console.log(`  ${COLORS.red}✘${COLORS.reset} Failed to restore port ${COLORS.bright}${port}${COLORS.reset}: ${err.message.split('\n')[0]}`);
+    }
+  }
+  console.log('');
+}
+
 // Print header
 function printHeader() {
   console.clear();
@@ -126,6 +167,11 @@ function printHeader() {
 
 let lastKnownIp = null;
 let wifiReconnectAttempts = 0;
+
+// Verifying forwards costs an `adb reverse --list` per device, so do it every
+// few polls rather than every one.
+const VERIFY_EVERY_N_POLLS = 5;
+let verifyTick = 0;
 
 function getDeviceIp(serial) {
   try {
@@ -240,11 +286,16 @@ function checkDevices() {
     }
 
     // Handle connected/newly detected devices
+    verifyTick++;
+    const shouldVerify = verifyTick % VERIFY_EVERY_N_POLLS === 0;
     for (const serial of currentDevices.keys()) {
       if (!knownDevices.has(serial)) {
         const deviceName = getDeviceMetadata(serial);
         knownDevices.set(serial, deviceName);
         applyReverseForward(serial, deviceName);
+      } else if (shouldVerify) {
+        // Already-known device: confirm its forwards are still bound
+        reapplyMissingForwards(serial, knownDevices.get(serial));
       }
     }
 

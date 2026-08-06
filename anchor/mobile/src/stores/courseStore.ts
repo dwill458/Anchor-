@@ -2,14 +2,18 @@ import { create } from 'zustand';
 import { encryptedPersistStorage } from './encryptedPersistStorage';
 import { chartApiClient, getChartErrorCode, getConflictCourse, isChartAbortError } from '@/services/ChartApiClient';
 import type {
+  CancelWaypointRequest,
   ChartErrorCode,
   ChartFeatureFlags,
+  CompleteWaypointRequest,
+  CompleteWaypointResponse,
   CourseDetail,
   CourseSummary,
   CreateCourseRequest,
   EditWaypointRequest,
   LinkAnchorRequest,
   ReorderWaypointsRequest,
+  SkipWaypointRequest,
 } from '@/types/chart';
 import {
   CHART_CACHE_KEY_PREFIX,
@@ -76,6 +80,27 @@ type CourseStoreState = {
   reorderWaypoints: (
     courseId: string,
     request: ReorderWaypointsRequest,
+  ) => Promise<CourseDetail | null>;
+  /**
+   * The waypoint transitions. These go through the same `mutationUnavailable`
+   * chokepoint as every other Course mutation, so they fail closed offline,
+   * stale, migrating, needing repair, or flag-off — a reach must never be
+   * attempted with an `expectedCourseVersion` read from a stale cache.
+   */
+  completeWaypoint: (
+    courseId: string,
+    waypointId: string,
+    request: CompleteWaypointRequest,
+  ) => Promise<CompleteWaypointResponse | null>;
+  skipWaypoint: (
+    courseId: string,
+    waypointId: string,
+    request: SkipWaypointRequest,
+  ) => Promise<CourseDetail | null>;
+  cancelWaypoint: (
+    courseId: string,
+    waypointId: string,
+    request: CancelWaypointRequest,
   ) => Promise<CourseDetail | null>;
   linkAnchor: (courseId: string, request: LinkAnchorRequest) => Promise<CourseDetail | null>;
   unlinkAnchor: (
@@ -195,12 +220,23 @@ async function persistCurrentState(get: () => CourseStoreState): Promise<void> {
   });
 }
 
+/**
+ * The single gate every Course mutation passes through.
+ *
+ * Order matters only for which code the caller sees; any non-null result blocks
+ * the mutation. `stale` is included because every mutation carries
+ * `expectedCourseVersion`: sending a version read more than
+ * CHART_STALE_AFTER_MS ago is how a client races a change made elsewhere, and
+ * the frozen contract requires mutations to wait for authoritative data rather
+ * than gamble on a stale version.
+ */
 function mutationUnavailable(get: () => CourseStoreState): ChartErrorCode | null {
   const state = get();
   if (!state.flags.chart_write_enabled) return 'FEATURE_DISABLED';
   if (state.offline) return 'OFFLINE';
   if (state.migrationRequired) return 'MIGRATION_REQUIRED';
   if (state.activeCourse?.needsRepair) return 'VALIDATION_ERROR';
+  if (state.stale) return 'STALE';
   return null;
 }
 
@@ -575,6 +611,94 @@ export const useCourseStore = create<CourseStoreState>((set, get) => ({
     if (!accountId) return null;
     try {
       const result = await chartApiClient.reorderWaypoints(courseId, request);
+      if (get().accountId !== accountId) return null;
+      setAuthoritativeCourse(set, accountId, result.data);
+      await persistCurrentState(get);
+      return result.data;
+    } catch (error) {
+      const conflict = getConflictCourse(error);
+      if (conflict) setAuthoritativeCourse(set, accountId, conflict);
+      set({ errorCode: getChartErrorCode(error) ?? 'NETWORK' });
+      return null;
+    }
+  },
+
+  completeWaypoint: async (courseId, waypointId, request) => {
+    const unavailable = mutationUnavailable(get);
+    if (unavailable) {
+      set({ errorCode: unavailable });
+      return null;
+    }
+    const accountId = get().accountId;
+    if (!accountId) return null;
+    try {
+      const result = await chartApiClient.completeWaypoint(courseId, waypointId, request);
+      if (get().accountId !== accountId) return null;
+      // D3: the completion response is Course-authoritative — refreshed summary,
+      // new pointer, and both affected waypoint summaries — so a 200 needs no
+      // Course refetch. It carries a CourseSummary rather than a CourseDetail,
+      // so the two returned waypoints are merged over the cached list. That is
+      // only sound when the cache holds this same Course; if it does not, fall
+      // back to a refetch rather than inventing a waypoint list.
+      const cached = get().activeCourse;
+      if (cached?.id === result.data.course.id) {
+        setAuthoritativeCourse(set, accountId, {
+          ...result.data.course,
+          waypoints: cached.waypoints.map(waypoint => {
+            if (waypoint.id === result.data.completedWaypoint.id) {
+              return result.data.completedWaypoint;
+            }
+            if (result.data.nextWaypoint && waypoint.id === result.data.nextWaypoint.id) {
+              return result.data.nextWaypoint;
+            }
+            return waypoint;
+          }),
+        });
+        await persistCurrentState(get);
+      } else {
+        await get().fetchCourseDetail(courseId);
+      }
+      return result.data;
+    } catch (error) {
+      const conflict = getConflictCourse(error);
+      if (conflict) setAuthoritativeCourse(set, accountId, conflict);
+      set({ errorCode: getChartErrorCode(error) ?? 'NETWORK' });
+      return null;
+    }
+  },
+
+  skipWaypoint: async (courseId, waypointId, request) => {
+    const unavailable = mutationUnavailable(get);
+    if (unavailable) {
+      set({ errorCode: unavailable });
+      return null;
+    }
+    const accountId = get().accountId;
+    if (!accountId) return null;
+    try {
+      const result = await chartApiClient.skipWaypoint(courseId, waypointId, request);
+      if (get().accountId !== accountId) return null;
+      setAuthoritativeCourse(set, accountId, result.data);
+      await persistCurrentState(get);
+      return result.data;
+    } catch (error) {
+      const conflict = getConflictCourse(error);
+      if (conflict) setAuthoritativeCourse(set, accountId, conflict);
+      set({ errorCode: getChartErrorCode(error) ?? 'NETWORK' });
+      return null;
+    }
+  },
+
+  cancelWaypoint: async (courseId, waypointId, request) => {
+    const unavailable = mutationUnavailable(get);
+    if (unavailable) {
+      set({ errorCode: unavailable });
+      return null;
+    }
+    const accountId = get().accountId;
+    if (!accountId) return null;
+    try {
+      const result = await chartApiClient.cancelWaypoint(courseId, waypointId, request);
       if (get().accountId !== accountId) return null;
       setAuthoritativeCourse(set, accountId, result.data);
       await persistCurrentState(get);

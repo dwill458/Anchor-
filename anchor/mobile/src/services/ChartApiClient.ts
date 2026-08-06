@@ -11,6 +11,10 @@ import type {
   ReorderWaypointsRequest,
   AddWaypointRequest,
   CourseLogEntry,
+  CancelWaypointRequest,
+  CompleteWaypointRequest,
+  CompleteWaypointResponse,
+  SkipWaypointRequest,
 } from '@/types/chart';
 
 export type ChartApiResult<T> = {
@@ -169,6 +173,60 @@ export class ChartApiClient {
   ): Promise<ChartApiResult<CourseDetail>> {
     return this.unwrap(() =>
       apiClient.post(`/api/courses/${encodePath(courseId)}/waypoints/reorder`, request, this.requestConfig(signal)),
+    );
+  }
+
+  /**
+   * The single client operation for reaching a waypoint.
+   *
+   * Completion and its optional completion reflection travel in one request so
+   * the server can commit both in one transaction — a separate reflection POST
+   * could be orphaned if the app died between the two calls. `idempotencyKey`
+   * must be stable across retries of the same user intent, and
+   * `expectedCourseVersion` must come from an authoritative (non-stale) read.
+   */
+  completeWaypoint(
+    courseId: string,
+    waypointId: string,
+    request: CompleteWaypointRequest,
+    signal?: AbortSignal,
+  ): Promise<ChartApiResult<CompleteWaypointResponse>> {
+    return this.unwrap(() =>
+      apiClient.post(
+        `/api/courses/${encodePath(courseId)}/waypoints/${encodePath(waypointId)}/complete`,
+        request,
+        this.requestConfig(signal),
+      ),
+    );
+  }
+
+  skipWaypoint(
+    courseId: string,
+    waypointId: string,
+    request: SkipWaypointRequest,
+    signal?: AbortSignal,
+  ): Promise<ChartApiResult<CourseDetail>> {
+    return this.unwrap(() =>
+      apiClient.post(
+        `/api/courses/${encodePath(courseId)}/waypoints/${encodePath(waypointId)}/skip`,
+        request,
+        this.requestConfig(signal),
+      ),
+    );
+  }
+
+  cancelWaypoint(
+    courseId: string,
+    waypointId: string,
+    request: CancelWaypointRequest,
+    signal?: AbortSignal,
+  ): Promise<ChartApiResult<CourseDetail>> {
+    return this.unwrap(() =>
+      apiClient.post(
+        `/api/courses/${encodePath(courseId)}/waypoints/${encodePath(waypointId)}/cancel`,
+        request,
+        this.requestConfig(signal),
+      ),
     );
   }
 

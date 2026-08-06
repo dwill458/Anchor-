@@ -69,7 +69,10 @@ const CompleteSchema = z
     expectedCourseVersion: CourseVersion,
     reflection: z
       .object({
-        body: z.string().max(1000).optional(),
+        // No freeform `body`. The waypoint ceremony is exactly two structured
+        // optional prompts (whatHelped / whatLearned), and the service stores
+        // `body: null`. Accepting a body here would 200 while silently
+        // discarding the user's text.
         structuredContent: z
           .object({
             whatHelped: z.string().max(1000).optional(),

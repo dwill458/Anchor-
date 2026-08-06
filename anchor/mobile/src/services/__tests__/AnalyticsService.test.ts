@@ -181,5 +181,62 @@ describe('AnalyticsService', () => {
         },
       });
     });
+
+    /**
+     * Decision D7 — the privacy half.
+     *
+     * The Chart event taxonomy is still awaiting approval, but the rule that
+     * governs it is not: Chart analytics may carry opaque IDs only. Course
+     * destinations, waypoint titles, and reflection content are user-authored
+     * and must never leave the device. This asserts the rule holds regardless of
+     * which event names are eventually approved.
+     */
+    it('strips every Chart free-text property while keeping opaque IDs', () => {
+      expect(
+        sanitizeAnalyticsProperties({
+          course_id: 'course-chart-phase0',
+          waypoint_id: 'wp-current',
+          course_version: 7,
+          waypoint_state: 'CURRENT',
+          destination_text: 'Anchor has ten thousand users',
+          destinationText: 'Anchor has ten thousand users',
+          destination: 'Anchor has ten thousand users',
+          waypoint_title: '1K USERS',
+          waypointTitle: '1K USERS',
+          reflection: 'private reflection',
+          reflection_body: 'private body',
+          reflectionBody: 'private body',
+          structured_content: { whatHelped: 'private' },
+          structuredContent: { whatHelped: 'private' },
+          what_helped: 'private',
+          whatHelped: 'private',
+        })
+      ).toEqual({
+        course_id: 'course-chart-phase0',
+        waypoint_id: 'wp-current',
+        course_version: 7,
+        waypoint_state: 'CURRENT',
+      });
+    });
+
+    it('strips Chart free text nested inside a practice-session payload', () => {
+      expect(
+        sanitizeAnalyticsProperties({
+          source: 'chart_waypoint_detail',
+          chart_context: {
+            course_id: 'course-chart-phase0',
+            waypoint_id: 'wp-current',
+            destination_text: 'Anchor has ten thousand users',
+            waypoint_title: '1K USERS',
+          },
+        })
+      ).toEqual({
+        source: 'chart_waypoint_detail',
+        chart_context: {
+          course_id: 'course-chart-phase0',
+          waypoint_id: 'wp-current',
+        },
+      });
+    });
   });
 });

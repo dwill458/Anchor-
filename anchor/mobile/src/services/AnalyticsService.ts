@@ -84,6 +84,22 @@ const SENSITIVE_PROPERTY_KEYS = new Set([
   'svg',
   'base64',
   'uri',
+  // Chart free-text. Course destinations, waypoint titles, and reflections are
+  // user-authored content; only opaque IDs may leave the device.
+  'destination_text',
+  'destinationtext',
+  'destination',
+  'waypoint_title',
+  'waypointtitle',
+  'reflection',
+  'reflection_body',
+  'reflectionbody',
+  'structured_content',
+  'structuredcontent',
+  'what_helped',
+  'whathelped',
+  'what_learned',
+  'whatlearned',
 ]);
 
 const readPublicEnv = (value: string | undefined): string => value?.trim() ?? '';

@@ -13,6 +13,7 @@ import { useCourseStore } from '@/stores/courseStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useReflectionDraftStore, type ReflectionDraft } from '@/stores/reflectionDraftStore';
 import { draftToCreateRequest, isReflectionNetworkError, reflectionService } from '@/services/ReflectionService';
+import { PracticeCompletionService } from '@/services/PracticeCompletionService';
 import { ChartButton, ChartCard, ReadOnlyNotice } from '@/screens/chart/chartUi';
 import { colors, spacing, typography } from '@/theme';
 import type {
@@ -163,6 +164,12 @@ export const ReflectionComposer: React.FC<ReflectionComposerProps> = (props) => 
         await reflectionService.queueExplicitCreate(draft);
         setError('Saved on this device. It will sync when you’re back online.');
         return;
+      }
+      if (props.source === 'POST_PRACTICE') {
+        // The server derives Course/Waypoint attribution from the canonical
+        // practice session. Give that durable record ordering priority over
+        // the dependent reflection request.
+        await PracticeCompletionService.flush(draft.accountId);
       }
       const reflection = await reflectionService.create(draftToCreateRequest(draft));
       await draftStore.remove(props.draftKey);

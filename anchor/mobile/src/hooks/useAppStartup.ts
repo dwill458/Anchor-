@@ -14,7 +14,6 @@ interface UseAppStartupOptions {
   fontsReady: boolean;
   settingsHydrated: boolean;
   authRestorationSettled: boolean;
-  essentialDataSettled: boolean;
   primeOnLaunchResolved: boolean;
   safeFailure?: boolean;
   fatalFailure?: boolean;
@@ -31,7 +30,6 @@ export const useAppStartup = ({
   fontsReady,
   settingsHydrated,
   authRestorationSettled,
-  essentialDataSettled,
   primeOnLaunchResolved,
   safeFailure = false,
   fatalFailure = false,
@@ -42,7 +40,6 @@ export const useAppStartup = ({
     fontsReady &&
     settingsHydrated &&
     authRestorationSettled &&
-    essentialDataSettled &&
     primeOnLaunchResolved;
   const safeToFailOpen = authRestorationSettled && primeOnLaunchResolved;
 

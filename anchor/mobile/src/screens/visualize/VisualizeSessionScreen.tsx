@@ -33,6 +33,8 @@ import { getVisualizeSessionAudioManifest } from '@/services/visualizeAudioManif
 import { colors as themeColors, typography } from '@/theme';
 import { safeHaptics } from '@/utils/haptics';
 import { ConfirmModal } from '@/screens/rituals/components/ConfirmModal';
+import { useChartPracticeReturn } from '@/hooks/useChartPracticeReturn';
+import { resolvePracticeCompletionSource } from '@/navigation/practiceReturn';
 
 const colors = {
   ...themeColors,
@@ -122,12 +124,17 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
   route,
 }) => {
   const window = useWindowDimensions();
+  const returnToChart = useChartPracticeReturn(navigation);
   const {
     anchorId,
     durationSeconds,
     sceneText,
     guidanceVoice,
     backgroundAudio,
+    returnTo,
+    chartContext,
+    practiceMode,
+    practiceEntrySource,
   } = route.params;
   const anchor = useAnchorStore((state) => state.getAnchorById(anchorId));
   const accountId = useAuthStore((state) => state.user?.id ?? null);
@@ -142,6 +149,7 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
   const sessionIdRef = useRef(
     `visualize:${accountId ?? 'guest'}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`,
   );
+  const canonicalSessionIdRef = useRef<string | null>(null);
   const completionRef = useRef(false);
   const completionCueRef = useRef(false);
   const completionTransitionStartedRef = useRef(false);
@@ -167,7 +175,7 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
       let syncOutcome: 'queued' | 'failed' | 'not_recorded' = 'not_recorded';
       if (anchor && accountId) {
         try {
-          await PracticeCompletionService.commitVisualizeCompletion({
+          const canonicalRecord = await PracticeCompletionService.commitVisualizeCompletion({
             id: sessionIdRef.current,
             accountId,
             anchor,
@@ -177,8 +185,13 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
             guidanceVoice,
             backgroundAudio,
             sceneSnapshot: sceneText,
-            source: route.params.source,
+            source: returnTo === 'chart'
+              ? resolvePracticeCompletionSource(returnTo)
+              : route.params.source,
+            chartContext,
+            practiceEntrySource,
           });
+          canonicalSessionIdRef.current = canonicalRecord.id;
           syncOutcome = 'queued';
         } catch {
           // The local queue is the source of truth for the completion screen;
@@ -205,6 +218,9 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
       durationSeconds,
       guidanceVoice,
       sceneText,
+      chartContext,
+      practiceEntrySource,
+      returnTo,
     ],
   );
 
@@ -281,12 +297,16 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
     if (engine.state !== 'completed') return;
     navigation.replace('VisualizeCompletion', {
       anchorId,
-      sessionId: sessionIdRef.current,
+      sessionId: canonicalSessionIdRef.current ?? sessionIdRef.current,
       durationSeconds,
       source: route.params.source,
       sceneText,
+      practiceEntrySource,
+      returnTo,
+      chartContext,
+      practiceMode,
     });
-  }, [anchorId, durationSeconds, engine.state, navigation, route.params.source, sceneText]);
+  }, [anchorId, chartContext, durationSeconds, engine.state, navigation, practiceEntrySource, practiceMode, returnTo, route.params.source, sceneText]);
 
   useEffect(() => {
     if (engine.state !== 'running') {
@@ -421,10 +441,14 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
         return;
       }
       event.preventDefault();
-      showEarlyExitPrompt(() => navigation.dispatch(event.data.action));
+      showEarlyExitPrompt(() => {
+        if (!returnToChart({ returnTo, anchorId, chartContext })) {
+          navigation.dispatch(event.data.action);
+        }
+      });
     });
     return unsubscribe;
-  }, [engine.state, navigation, showEarlyExitPrompt]);
+  }, [anchorId, chartContext, engine.state, navigation, returnTo, returnToChart, showEarlyExitPrompt]);
 
   const togglePlayback = useCallback(() => {
     if (engine.state === 'completing' || engine.state === 'completed') return;
@@ -461,8 +485,10 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
   ]);
 
   const requestEarlyEnd = useCallback(() => {
-    showEarlyExitPrompt(() => navigation.goBack());
-  }, [navigation, showEarlyExitPrompt]);
+    showEarlyExitPrompt(() => {
+      if (!returnToChart({ returnTo, anchorId, chartContext })) navigation.goBack();
+    });
+  }, [anchorId, chartContext, navigation, returnTo, returnToChart, showEarlyExitPrompt]);
 
   if (!anchor || !accountId) return <View style={styles.container} />;
 

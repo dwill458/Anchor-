@@ -52,6 +52,57 @@ export type CourseMapGeometry = {
   destinationSegment: SegmentGeometry | null;
 };
 
+/** Horizontal editorial route used by the Chart home visual reference. */
+export function computeHorizontalCourseMapGeometry(waypointCount: number): CourseMapGeometry {
+  const count = Math.max(0, Math.floor(waypointCount));
+  const xPositions = [62, 196, 342, 486, 618];
+  const yPositions = [138, 108, 122, 82, 54];
+  const width = Math.max(680, count > 5 ? 618 + (count - 5) * 128 : 680);
+  const height = 196;
+  const nodes: NodeGeometry[] = [];
+
+  for (let i = 0; i < count; i += 1) {
+    const x = xPositions[i] ?? xPositions[xPositions.length - 1] + (i - xPositions.length + 1) * 128;
+    const y = yPositions[i] ?? 54 + ((i - yPositions.length + 1) % 2 === 0 ? 28 : -6);
+    nodes.push({ index: i, x, y, side: i % 2 === 0 ? 'right' : 'left' });
+  }
+
+  const segments: SegmentGeometry[] = [];
+  for (let i = 0; i < count - 1; i += 1) {
+    const from = nodes[i];
+    const to = nodes[i + 1];
+    segments.push({
+      fromIndex: i,
+      toIndex: i + 1,
+      x1: from.x,
+      y1: from.y,
+      x2: to.x,
+      y2: to.y,
+      controlX: (from.x + to.x) / 2,
+      controlY: (from.y + to.y) / 2 - 8,
+    });
+  }
+
+  const last = nodes[nodes.length - 1] ?? null;
+  const destination = last
+    ? { x: Math.min(width - 42, last.x + 80), y: 38 }
+    : { x: 620, y: 52 };
+  const destinationSegment = last
+    ? {
+        fromIndex: last.index,
+        toIndex: null,
+        x1: last.x,
+        y1: last.y,
+        x2: destination.x,
+        y2: destination.y,
+        controlX: (last.x + destination.x) / 2,
+        controlY: (last.y + destination.y) / 2,
+      }
+    : null;
+
+  return { width, height, nodes, segments, destination, destinationSegment };
+}
+
 function quadraticControlPoint(y1: number, y2: number): number {
   return (y1 + y2) / 2;
 }

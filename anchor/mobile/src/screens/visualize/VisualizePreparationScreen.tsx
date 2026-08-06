@@ -47,6 +47,7 @@ import type { SessionAudioDefaults } from "@/types/sessionAudio";
 import { MicroTeachCard } from "@/components/teaching";
 import { useTeachingGate } from "@/utils/useTeachingGate";
 import { useTabNavigation } from "@/contexts/TabNavigationContext";
+import { useChartPracticeReturn } from "@/hooks/useChartPracticeReturn";
 import { getVisualizationLensSize, shouldPinPreparationCta } from "./visualizePresentation";
 import { VisualizationAnchorLens, VisualizationPrimaryButton } from './VisualizationPrimitives';
 
@@ -64,6 +65,7 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
   const window = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { navigateToPaywall } = useTabNavigation();
+  const returnToChart = useChartPracticeReturn(navigation);
   const anchor = useAnchorStore((state) =>
     state.getAnchorById(route.params.anchorId),
   );
@@ -396,7 +398,22 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
           : route.params.source === 'deep_link' || route.params.source === 'paywall_resume'
             ? 'deep_link'
             : 'practice_screen',
+      ...(route.params.source === 'chart' || route.params.source === 'chart_waypoint_detail'
+        ? { practiceEntrySource: route.params.source }
+        : {}),
+      returnTo: route.params.returnTo,
+      chartContext: route.params.chartContext,
+      practiceMode: route.params.practiceMode,
     });
+  };
+
+  const handleBack = () => {
+    if (returnToChart({
+      returnTo: route.params.returnTo,
+      anchorId: route.params.anchorId,
+      chartContext: route.params.chartContext,
+    })) return;
+    navigation.goBack();
   };
 
   const beginCta = (
@@ -421,7 +438,7 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Go back"
-            onPress={() => navigation.goBack()}
+            onPress={handleBack}
             style={styles.iconButton}
           >
             <ArrowLeft color={colors.gold} size={20} />

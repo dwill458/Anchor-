@@ -229,7 +229,6 @@ export default function App() {
   const routeNameRef = useRef<string | undefined>(undefined);
   const screenTraceRef = useRef<PerformanceTrace | null>(null);
   const [settingsHydrated, setSettingsHydrated] = React.useState(false);
-  const [essentialDataSettled, setEssentialDataSettled] = React.useState(false);
   const [startupSafeFailure, setStartupSafeFailure] = React.useState(false);
   const [analyticsPreferenceHydrated, setAnalyticsPreferenceHydrated] = React.useState(() =>
     useSettingsStore.persist.hasHydrated()
@@ -288,7 +287,6 @@ export default function App() {
     fontsReady: fontsLoaded || Boolean(fontLoadError),
     settingsHydrated,
     authRestorationSettled: initialAuthResolved,
-    essentialDataSettled,
     primeOnLaunchResolved: launchStateResolved,
     safeFailure: startupSafeFailure || Boolean(fontLoadError),
   });
@@ -417,7 +415,6 @@ export default function App() {
           store.signOut();
         }
         store.setLoading(false);
-        setEssentialDataSettled(true);
         return;
       }
 
@@ -432,7 +429,6 @@ export default function App() {
         if (!session) {
           store.signOut();
           store.setLoading(false);
-          setEssentialDataSettled(true);
           return;
         }
 
@@ -440,6 +436,9 @@ export default function App() {
         store.setOfflineMode(false);
         store.setLoading(false);
 
+        // The authenticated shell can safely render as soon as the trusted
+        // session is established. This refresh reconciles account-owned data
+        // in the background and retains its owner checks inside the service.
         try {
           await AuthHydrationService.hydrateAuthenticatedData({
             skipAnchorRefresh: Boolean(useAuthStore.getState().pendingFirstAnchorDraft),
@@ -447,10 +446,6 @@ export default function App() {
         } catch (hydrationError) {
           logger.warn('Authenticated session restored, but data hydration failed', hydrationError);
           setStartupSafeFailure(true);
-        } finally {
-          if (isActive && currentVersion === authStateVersion) {
-            setEssentialDataSettled(true);
-          }
         }
       } catch (error) {
         if (!isActive || currentVersion !== authStateVersion) {
@@ -467,7 +462,6 @@ export default function App() {
             store.setSession(cached, token);
             store.setOfflineMode(true);
             store.setLoading(false);
-            setEssentialDataSettled(true);
             logger.warn('Network unreachable — restored session from cache (offline mode)');
             return;
           }
@@ -477,7 +471,6 @@ export default function App() {
         store.signOut();
         store.setLoading(false);
         setStartupSafeFailure(true);
-        setEssentialDataSettled(true);
       }
     });
 
@@ -752,7 +745,19 @@ export default function App() {
   }, []);
 
   if (!appIsReady) {
-    return <View style={styles.fontLoadingFallback} />;
+    return (
+      <SafeAreaProvider>
+        <View style={styles.fontLoadingFallback}>
+          <StatusBar style="light" backgroundColor="transparent" translucent />
+          <SplashController
+            startupReady={false}
+            startupOutcome={startup.outcome}
+            startupStartedAt={startupStartedAtRef.current}
+            authState={user?.id ? 'signed_in' : 'signed_out'}
+          />
+        </View>
+      </SafeAreaProvider>
+    );
   }
 
   return (

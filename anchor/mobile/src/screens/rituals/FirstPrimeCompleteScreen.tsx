@@ -48,6 +48,8 @@ import {
   DEFAULT_SESSION_AUDIO_DEFAULTS,
   resolveSessionAudioConfiguration,
 } from "@/types/sessionAudio";
+import { resolvePracticeCompletionSource } from "@/navigation/practiceReturn";
+import { useChartPracticeReturn } from "@/hooks/useChartPracticeReturn";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -87,6 +89,7 @@ const FadeUp: React.FC<{
 export const FirstPrimeCompleteScreen: React.FC = () => {
   const navigation = useNavigation<FirstPrimeCompleteNavigationProp>();
   const { navigateToPractice } = useTabNavigation();
+  const returnToChart = useChartPracticeReturn(navigation);
   const route = useRoute<FirstPrimeCompleteRouteProp>();
   const {
     anchorId,
@@ -96,10 +99,14 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
     completionEventId: routeCompletionEventId,
     audioConfiguration: routeAudioConfiguration,
     returnTo,
+    source,
+    chartContext,
+    practiceMode,
   } = route.params;
   const fallbackCompletionEventIdRef = useRef(createPracticeEventId());
   const completionEventId =
     routeCompletionEventId ?? fallbackCompletionEventIdRef.current;
+  const canonicalSessionIdRef = useRef<string | null>(null);
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const updateAnchor = useAnchorStore((state) => state.updateAnchor);
@@ -209,6 +216,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
       const alreadyRecorded = sessionState.practiceHistory.some(
         (session) => session.id === completionEventId,
       );
+      if (alreadyRecorded) canonicalSessionIdRef.current = completionEventId;
 
       void (async () => {
         try {
@@ -230,7 +238,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
               audioConfiguration,
               completedAt,
             });
-            await PracticeCompletionService.queueLegacyCompletion({
+            const canonicalRecord = await PracticeCompletionService.queueLegacyCompletion({
               id: recordedEventId,
               anchorId,
               anchorLocalId: anchor?.localId,
@@ -239,9 +247,11 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
               completedAt,
               guidanceVoice: audioConfiguration.guidanceVoice,
               backgroundAudio: audioConfiguration.backgroundAudio,
-              source:
-                returnTo === "practice" ? "practice_screen" : "anchor_detail",
+              source: resolvePracticeCompletionSource(returnTo),
+              chartContext,
+              practiceEntrySource: source,
             });
+            canonicalSessionIdRef.current = canonicalRecord?.id ?? null;
 
             // Award product progress only after the history entry is durable.
             const currentActivationCount =
@@ -476,10 +486,12 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
     cardAnim,
     checkAnim,
     completionEventId,
+    chartContext,
     completionAttempt,
     primeSessionAudioDefaults,
     routeAudioConfiguration,
     returnTo,
+    source,
     dividerAnim,
     durationSeconds,
     footerAnim,
@@ -504,6 +516,20 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
   ]);
 
   const performDismiss = () => {
+    if (returnToChart({
+      returnTo,
+      anchorId,
+      chartContext,
+      ...(canonicalSessionIdRef.current ? {
+        practiceReturn: {
+          outcome: 'completed' as const,
+          practiceSessionId: canonicalSessionIdRef.current,
+          practiceMode: practiceMode ?? 'deepPrime',
+          anchorId,
+        },
+      } : {}),
+    })) return;
+
     if (returnTo === "practice") {
       const nav = navigation as unknown as { popToTop?: () => void };
       nav.popToTop?.();

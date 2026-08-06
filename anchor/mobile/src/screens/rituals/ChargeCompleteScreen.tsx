@@ -50,6 +50,8 @@ import {
   DEFAULT_SESSION_AUDIO_DEFAULTS,
   resolveSessionAudioConfiguration,
 } from '@/types/sessionAudio';
+import { resolvePracticeCompletionSource } from '@/navigation/practiceReturn';
+import { useChartPracticeReturn } from '@/hooks/useChartPracticeReturn';
 
 const { width } = Dimensions.get('window');
 const SYMBOL_SIZE = Math.min(width * 0.42, 180);
@@ -63,6 +65,7 @@ type ChargeCompleteNavigationProp = StackNavigationProp<
 export const ChargeCompleteScreen: React.FC = () => {
   const navigation = useNavigation<ChargeCompleteNavigationProp>();
   const { navigateToPractice } = useTabNavigation();
+  const returnToChart = useChartPracticeReturn(navigation);
   const route = useRoute<ChargeCompleteRouteProp>();
   const {
     anchorId,
@@ -70,6 +73,9 @@ export const ChargeCompleteScreen: React.FC = () => {
     completionEventId: routeCompletionEventId,
     audioConfiguration: routeAudioConfiguration,
     returnTo,
+    source,
+    chartContext,
+    practiceMode,
   } = route.params;
   const fallbackCompletionEventIdRef = useRef(createPracticeEventId());
   const completionEventId = routeCompletionEventId ?? fallbackCompletionEventIdRef.current;
@@ -105,6 +111,10 @@ export const ChargeCompleteScreen: React.FC = () => {
 
   useEffect(() => {
     async function checkEligibility() {
+      if (returnTo === 'chart') {
+        InteractionManager.runAfterInteractions(() => setShowCompletion(true));
+        return;
+      }
       const shouldOffer = await isPostPrimeTraceEligible();
       if (shouldOffer) {
         setShowPostPrimeTrace(true);
@@ -120,7 +130,7 @@ export const ChargeCompleteScreen: React.FC = () => {
       }
     }
     checkEligibility();
-  }, [traceDefaultEnabled]);
+  }, [returnTo, traceDefaultEnabled]);
 
   const handleSkipPostPrimeTrace = () => {
     setShowPostPrimeTrace(false);
@@ -301,7 +311,7 @@ export const ChargeCompleteScreen: React.FC = () => {
       reflectionWord,
       completedAt,
     });
-    await PracticeCompletionService.queueLegacyCompletion({
+    const canonicalRecord = await PracticeCompletionService.queueLegacyCompletion({
       id: recordedEventId,
       anchorId,
       anchorLocalId: anchor?.localId,
@@ -310,7 +320,9 @@ export const ChargeCompleteScreen: React.FC = () => {
       completedAt,
       guidanceVoice: audioConfiguration.guidanceVoice,
       backgroundAudio: audioConfiguration.backgroundAudio,
-      source: returnTo === 'practice' ? 'practice_screen' : 'anchor_detail',
+      source: resolvePracticeCompletionSource(returnTo),
+      chartContext,
+      practiceEntrySource: source,
     });
 
     await queueProgressionMilestonesFromStores({ sourceEventId: recordedEventId });
@@ -318,6 +330,17 @@ export const ChargeCompleteScreen: React.FC = () => {
     handlePrimeComplete();
 
     setShowCompletion(false);
+    if (canonicalRecord && returnToChart({
+      returnTo,
+      anchorId,
+      chartContext,
+      practiceReturn: {
+        outcome: 'completed',
+        practiceSessionId: canonicalRecord.id,
+        practiceMode: practiceMode ?? 'deepPrime',
+        anchorId,
+      },
+    })) return;
     setCompletionDone(true);
   };
 
@@ -414,6 +437,7 @@ export const ChargeCompleteScreen: React.FC = () => {
         sessionType="reinforce"
         anchor={anchor}
         onDone={handleCompletionDone}
+        collectReflection={returnTo !== 'chart'}
       />
     </>
   );

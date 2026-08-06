@@ -63,6 +63,8 @@ import {
 import { persistSessionAudioDefaults } from '@/services/SessionAudioPreferencesService';
 import { resolveSessionAudioPlan } from '@/services/SessionAudioManifest';
 import { PracticeCompletionService } from '@/services/PracticeCompletionService';
+import { resolvePracticeCompletionSource } from '@/navigation/practiceReturn';
+import { useChartPracticeReturn } from '@/hooks/useChartPracticeReturn';
 
 type ActivationRouteProp = RouteProp<RootStackParamList, 'ActivationRitual'>;
 type ActivationNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ActivationRitual'>;
@@ -70,6 +72,7 @@ type ActivationNavigationProp = NativeStackNavigationProp<RootStackParamList, 'A
 export const ActivationScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { navigateToPractice, navigateToPaywall } = useTabNavigation();
+  const returnToChart = useChartPracticeReturn(navigation);
   const route = useRoute<ActivationRouteProp>();
   const {
     anchorId,
@@ -78,6 +81,9 @@ export const ActivationScreen: React.FC = () => {
     audioConfiguration,
     audioModeOverride,
     returnTo,
+    source,
+    chartContext,
+    practiceMode,
   } = route.params;
   const toast = useToast();
 
@@ -498,6 +504,8 @@ export const ActivationScreen: React.FC = () => {
     setShowExitWarning(false);
     await focusSessionExitAudioHandlerRef.current?.();
 
+    if (returnToChart({ returnTo, anchorId, chartContext })) return;
+
     if (returnTo === 'practice') {
       if (typeof navigation.popToTop === 'function') {
         navigation.popToTop();
@@ -523,7 +531,7 @@ export const ActivationScreen: React.FC = () => {
     }
 
     navigation.goBack();
-  }, [anchor, anchorId, isPendingFirstAnchor, navigateToPractice, navigation, returnTo]);
+  }, [anchor, anchorId, chartContext, isPendingFirstAnchor, navigateToPractice, navigation, returnTo, returnToChart]);
 
   const promptExitSession = useCallback(() => {
     setShowExitWarning(true);
@@ -591,7 +599,7 @@ export const ActivationScreen: React.FC = () => {
       reflectionWord,
       completedAt,
     });
-    await PracticeCompletionService.queueLegacyCompletion({
+    const canonicalRecord = await PracticeCompletionService.queueLegacyCompletion({
       id: completionEventId,
       anchorId,
       anchorLocalId: anchor?.localId,
@@ -600,10 +608,24 @@ export const ActivationScreen: React.FC = () => {
       completedAt,
       guidanceVoice: focusSessionAudioPlan.configuration.guidanceVoice,
       backgroundAudio: focusSessionAudioPlan.configuration.backgroundAudio,
-      source: returnTo === 'practice' ? 'practice_screen' : 'anchor_detail',
+      source: resolvePracticeCompletionSource(returnTo),
+      chartContext,
+      practiceEntrySource: source,
     });
     void recordReviewSignal('focus_session_completed');
     await queueProgressionMilestonesFromStores({ sourceEventId: completionEventId });
+
+    if (canonicalRecord && returnToChart({
+      returnTo,
+      anchorId,
+      chartContext,
+      practiceReturn: {
+        outcome: 'completed',
+        practiceSessionId: canonicalRecord.id,
+        practiceMode: practiceMode ?? 'focus',
+        anchorId,
+      },
+    })) return;
 
     if (returnTo === 'practice') {
       if (typeof navigation.popToTop === 'function') {
@@ -634,6 +656,7 @@ export const ActivationScreen: React.FC = () => {
     anchor,
     anchorId,
     activationDurationSeconds,
+    chartContext,
     isPendingFirstAnchor,
     logActivationInBackground,
     navigateToPractice,
@@ -641,8 +664,11 @@ export const ActivationScreen: React.FC = () => {
     recordSession,
     handlePrimeComplete,
     focusSessionAudioPlan,
+    practiceMode,
     returnTo,
+    returnToChart,
     scheduleReviewRequestAfterHomeReturn,
+    source,
   ]);
 
   if (isAnchorMissing) {
@@ -697,6 +723,7 @@ export const ActivationScreen: React.FC = () => {
         onDone={handleCompletionDone}
         teachingLine={sealWhisperTeaching?.copy}
         teachingId={sealWhisperTeaching?.teachingId}
+        collectReflection={returnTo !== 'chart'}
       />
       <ConfirmModal
         visible={showExitWarning}

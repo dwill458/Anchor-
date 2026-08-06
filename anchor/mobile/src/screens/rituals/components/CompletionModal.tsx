@@ -58,6 +58,8 @@ interface CompletionModalProps {
   /** Seal Whisper (Pattern 5): shown between headline and chip row, auto-fades after 5s. */
   teachingLine?: string;
   teachingId?: string;
+  /** Chart follows with the shared ReflectionComposer, so it must not ask twice. */
+  collectReflection?: boolean;
 }
 
 export const CompletionModal: React.FC<CompletionModalProps> = ({
@@ -67,6 +69,7 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
   onDone,
   teachingLine,
   teachingId,
+  collectReflection = true,
 }) => {
   const [selectedWord, setSelectedWord] = useState<string | undefined>(undefined);
   const [customWord, setCustomWord] = useState('');
@@ -233,10 +236,10 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
 
           {/* Headline */}
           <Text style={[styles.headline, { color: accentColor }]}>{headline}</Text>
-          <Text style={styles.subhead}>One word to seal it</Text>
+          {collectReflection ? <Text style={styles.subhead}>One word to seal it</Text> : null}
 
           {/* Seal Whisper (Pattern 5) */}
-          {teachingLine ? (
+          {collectReflection && teachingLine ? (
             <Animated.Text
               style={[styles.sealWhisper, sealWhisperStyle]}
               accessibilityRole="text"
@@ -246,7 +249,7 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
           ) : null}
 
           {/* Suggestion chips */}
-          <View style={styles.chipsRow}>
+          {collectReflection ? <View style={styles.chipsRow}>
             {SUGGESTION_WORDS.map((word) => {
               const isActive = word === selectedWord;
               return (
@@ -263,10 +266,10 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
                 </TouchableOpacity>
               );
             })}
-          </View>
+          </View> : null}
 
           {/* Optional text input */}
-          <TextInput
+          {collectReflection ? <TextInput
             style={styles.input}
             placeholder="or type your own…"
             placeholderTextColor={colors.text.tertiary}
@@ -279,7 +282,7 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
             editable={!isSubmitting}
             returnKeyType="done"
             onSubmitEditing={handleDone}
-          />
+          /> : null}
 
           {/* CTAs */}
           <TouchableOpacity
@@ -292,10 +295,10 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
             accessibilityState={{ disabled: isSubmitting }}
             testID="completion-modal-done"
           >
-            <Text style={styles.doneButtonText}>Done</Text>
+            <Text style={styles.doneButtonText}>{collectReflection ? 'Done' : 'Continue'}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
+          {collectReflection ? <TouchableOpacity
             onPress={() => handleSubmit(undefined)}
             disabled={isSubmitting}
             activeOpacity={0.7}
@@ -305,7 +308,7 @@ export const CompletionModal: React.FC<CompletionModalProps> = ({
             style={[styles.skipButton, isSubmitting && styles.ctaDisabled]}
           >
             <Text style={styles.skipText}>Skip</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> : null}
         </Animated.View>
       </KeyboardAvoidingView>
     </View>
