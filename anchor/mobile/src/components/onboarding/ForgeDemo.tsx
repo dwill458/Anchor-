@@ -86,10 +86,6 @@ export const ForgeDemo: React.FC<ForgeDemoProps> = ({ isActive, onForgeComplete 
           />
         </Animated.View>
 
-        <View style={styles.confirmationBadge} accessible={false}>
-          <Text style={styles.confirmationBadgeText}>✓ YOUR ANCHOR</Text>
-        </View>
-
         <TouchableOpacity
           onPress={handleForge}
           activeOpacity={0.75}
@@ -109,7 +105,7 @@ const styles = StyleSheet.create({
   container: {
     width: 320,
     height: 320,
-    borderRadius: 4,
+    borderRadius: 18,
     overflow: 'hidden',
   },
   forge: {
@@ -117,7 +113,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 20, 25, 0.85)',
     borderWidth: 1,
     borderColor: 'rgba(212,175,55,0.2)',
-    borderRadius: 4,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -143,29 +139,13 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
   },
-  confirmationBadge: {
-    position: 'absolute',
-    bottom: 62,
-    backgroundColor: 'rgba(62,44,91,0.86)',
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.28)',
-    borderRadius: 14,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  confirmationBadgeText: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: 8,
-    letterSpacing: 1.1,
-    color: '#D4AF37',
-  },
   forgeBtn: {
     position: 'absolute',
     bottom: 20,
     paddingHorizontal: 20,
     paddingVertical: 8,
     backgroundColor: '#D4AF37',
-    borderRadius: 6,
+    borderRadius: 12,
     shadowColor: '#D4AF37',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,

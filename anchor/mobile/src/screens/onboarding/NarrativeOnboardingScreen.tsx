@@ -17,7 +17,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { useAuthStore } from '@/stores/authStore';
 import { ForgeDemo } from '@/components/onboarding/ForgeDemo';
@@ -480,12 +480,15 @@ const FinalVisual: React.FC<{ reduceMotion: boolean }> = ({ reduceMotion }) => {
 // Corner accents + ornament
 // ---------------------------------------------------------------------------
 
-const CornerAccents: React.FC = () => (
+const CornerAccents: React.FC<{ topOffset: number; bottomOffset: number }> = ({
+  topOffset,
+  bottomOffset,
+}) => (
   <>
-    <View style={[styles.corner, styles.cornerTL]} />
-    <View style={[styles.corner, styles.cornerTR]} />
-    <View style={[styles.corner, styles.cornerBL]} />
-    <View style={[styles.corner, styles.cornerBR]} />
+    <View style={[styles.corner, styles.cornerTL, { top: topOffset }]} />
+    <View style={[styles.corner, styles.cornerTR, { top: topOffset }]} />
+    <View style={[styles.corner, styles.cornerBL, { bottom: bottomOffset }]} />
+    <View style={[styles.corner, styles.cornerBR, { bottom: bottomOffset }]} />
   </>
 );
 
@@ -504,6 +507,7 @@ const Ornament: React.FC = () => (
 export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
   const { completeOnboarding, setShouldRedirectToCreation, setIsGuest } = useAuthStore();
   const reduceMotion = useReduceMotionEnabled();
+  const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const isShortScreen = isShortPhoneViewport(height);
   const isCompactLayout = isCompactPhoneViewport(width, height);
@@ -597,7 +601,10 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
     <SafeAreaView style={styles.container}>
       <AmbientBleed />
 
-      <CornerAccents />
+      <CornerAccents
+        topOffset={insets.top + 68}
+        bottomOffset={insets.bottom + 104}
+      />
 
       {/* Returning-user sign-in — only visible on the very first slide */}
       {currentSlide === 0 && (
@@ -773,11 +780,11 @@ const visual = {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background.primary },
   ambientBleed: { position: 'absolute', top: 0, left: 0, right: 0, height: '55%', zIndex: 0 },
-  corner: { position: 'absolute', width: 20, height: 20, opacity: 0.3, zIndex: 5 },
-  cornerTL: { top: 96, left: 20, borderTopWidth: 1, borderLeftWidth: 1, borderColor: colors.gold },
-  cornerTR: { top: 96, right: 20, borderTopWidth: 1, borderRightWidth: 1, borderColor: colors.gold },
-  cornerBL: { bottom: 120, left: 20, borderBottomWidth: 1, borderLeftWidth: 1, borderColor: colors.gold },
-  cornerBR: { bottom: 120, right: 20, borderBottomWidth: 1, borderRightWidth: 1, borderColor: colors.gold },
+  corner: { position: 'absolute', width: 24, height: 24, opacity: 0.26, zIndex: 5 },
+  cornerTL: { left: 36, borderTopWidth: 1, borderLeftWidth: 1, borderColor: withAlpha(colors.gold, 0.8) },
+  cornerTR: { right: 36, borderTopWidth: 1, borderRightWidth: 1, borderColor: withAlpha(colors.gold, 0.8) },
+  cornerBL: { left: 36, borderBottomWidth: 1, borderLeftWidth: 1, borderColor: withAlpha(colors.gold, 0.8) },
+  cornerBR: { right: 36, borderBottomWidth: 1, borderRightWidth: 1, borderColor: withAlpha(colors.gold, 0.8) },
   signInBtn: { position: 'absolute', top: 54, left: 20, zIndex: 20, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, borderWidth: 1, borderColor: withAlpha(colors.gold, 0.55), backgroundColor: withAlpha(colors.gold, 0.08) },
   signInBtnText: { fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE + 1, letterSpacing: 1.8, color: colors.gold },
   skipBtn: { position: 'absolute', top: 54, right: 20, zIndex: 20, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, borderWidth: 1, borderColor: withAlpha(colors.bone, 0.18), backgroundColor: withAlpha(colors.bone, 0.05) },

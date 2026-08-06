@@ -87,16 +87,24 @@ export const MicroTeachCard: React.FC<MicroTeachCardProps> = ({
 
   return (
     <Animated.View style={[{ opacity }, style]}>
-      <GlassCard contentStyle={styles.content}>
+      <GlassCard
+        contentStyle={styles.content}
+        intensity={12}
+        borderColor={colors.sanctuary.goldBorder}
+        backgroundColor={colors.sanctuary.purpleCard}
+        androidFallbackColor={colors.sanctuary.purpleCard}
+        showInnerGlow={false}
+      >
         <View style={styles.header}>
           {teaching.title ? <Text style={styles.title}>{teaching.title}</Text> : <View />}
           <Pressable
             onPress={handleDismiss}
-            hitSlop={10}
+            style={styles.dismissButton}
+            hitSlop={8}
             accessibilityRole="button"
             accessibilityLabel="Dismiss"
           >
-            <X color={colors.text.tertiary} size={16} />
+            <X color={colors.text.secondary} size={16} />
           </Pressable>
         </View>
         <Text style={styles.body}>{teaching.copy}</Text>
@@ -117,24 +125,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  dismissButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.sanctuary.goldBorder,
+    backgroundColor: colors.sanctuary.goldBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     fontFamily: typography.fontFamily.serifSemiBold,
     fontSize: typography.fontSize.md,
-    color: colors.gold,
+    color: colors.sanctuary.goldBright,
+    letterSpacing: 0.2,
   },
   body: {
     fontFamily: typography.fontFamily.sans,
     fontSize: typography.fontSize.sm,
-    lineHeight: 21,
-    color: colors.text.secondary,
+    lineHeight: 22,
+    color: colors.text.primary,
+    letterSpacing: 0.1,
   },
   secondary: {
     marginTop: spacing.xs,
     fontFamily: typography.fontFamily.sans,
     fontSize: typography.fontSize.xs,
     lineHeight: 18,
-    color: colors.text.tertiary,
+    color: colors.text.secondary,
   },
 });
