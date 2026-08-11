@@ -1014,7 +1014,7 @@ class AuthHydrationService {
    * directly, so screens that show progress never depend solely on launch-time
    * hydration. Returns true when server progression was restored.
    */
-  async rehydrateSessionFromExport(): Promise<boolean> {
+  async rehydrateSessionFromExport(options?: { throwOnError?: boolean }): Promise<boolean> {
     try {
       const initiatingUserId = useAuthStore.getState().user?.id;
       if (!initiatingUserId) return false;
@@ -1119,6 +1119,7 @@ class AuthHydrationService {
         "[AuthHydrationService] Session rehydrate from export failed",
         error,
       );
+      if (options?.throwOnError) throw error;
       return false;
     }
   }

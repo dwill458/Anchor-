@@ -39,6 +39,10 @@ interface TabNavigationContextValue {
     screen?: RouteName,
     params?: RootStackParamList[RouteName]
   ) => void;
+  /** Return to the Vault root, clearing a stale detail route first. */
+  navigateToSanctuary: () => void;
+  /** Return across tabs to one canonical Anchor Detail, without stacking duplicates. */
+  returnToAnchorDetail: (anchorId: string) => void;
   /** Switch to Practice tab, optionally pushing a route on PracticeStack. */
   navigateToPractice: <RouteName extends keyof PracticeStackParamList>(
     screen?: RouteName,
@@ -108,6 +112,23 @@ export const TabNavigationProvider: React.FC<TabNavigationProviderProps> = ({
     [onIndexChange],
   );
 
+  const navigateToSanctuary = useCallback(() => {
+    // A tab switch alone preserves the off-screen Vault stack. That is useful
+    // for ordinary Detail returns, but a completed release must never reveal a
+    // stale Anchor Detail after its Anchor has been released.
+    tabNavRefs.current[0]?.popToTop();
+    onIndexChange(0);
+  }, [onIndexChange]);
+
+  const returnToAnchorDetail = useCallback((anchorId: string) => {
+    const vaultNavigation = tabNavRefs.current[0];
+    // Detail is a cross-tab return destination, not another level of the
+    // Vault history. Replace any off-screen Detail with the canonical route.
+    vaultNavigation?.popToTop();
+    vaultNavigation?.push('AnchorDetail', { anchorId });
+    onIndexChange(0);
+  }, [onIndexChange]);
+
   const navigateToPractice = useCallback(
     <RouteName extends keyof PracticeStackParamList>(
       screen?: RouteName,
@@ -116,7 +137,12 @@ export const TabNavigationProvider: React.FC<TabNavigationProviderProps> = ({
       if (screen) {
         const practiceNavigation = tabNavRefs.current[1];
         if (practiceNavigation) {
-          practiceNavigation.push(screen, params);
+          if (screen === 'PracticeHome') {
+            practiceNavigation.popToTop();
+            practiceNavigation.navigate(screen, params);
+          } else {
+            practiceNavigation.push(screen, params);
+          }
         } else {
           pendingPracticeRouteRef.current = { screen: String(screen), params };
         }
@@ -153,6 +179,8 @@ export const TabNavigationProvider: React.FC<TabNavigationProviderProps> = ({
     <TabNavigationContext.Provider
       value={{
         navigateToVault,
+        navigateToSanctuary,
+        returnToAnchorDetail,
         navigateToPractice,
         navigateToChart,
         navigateToPaywall: onNavigateToPaywall,

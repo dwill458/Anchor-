@@ -71,7 +71,8 @@ type ActivationNavigationProp = NativeStackNavigationProp<RootStackParamList, 'A
 
 export const ActivationScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { navigateToPractice, navigateToPaywall } = useTabNavigation();
+  const { navigateToPractice, navigateToPaywall, navigateToVault, returnToAnchorDetail: canonicalReturnToAnchorDetail } = useTabNavigation();
+  const returnToAnchorDetail = canonicalReturnToAnchorDetail ?? ((anchorDetailId: string) => navigateToVault('AnchorDetail', { anchorId: anchorDetailId }));
   const returnToChart = useChartPracticeReturn(navigation);
   const route = useRoute<ActivationRouteProp>();
   const {
@@ -81,6 +82,7 @@ export const ActivationScreen: React.FC = () => {
     audioConfiguration,
     audioModeOverride,
     returnTo,
+    returnTarget,
     source,
     chartContext,
     practiceMode,
@@ -507,6 +509,12 @@ export const ActivationScreen: React.FC = () => {
 
     if (returnToChart({ returnTo, anchorId, chartContext })) return;
 
+    if (returnTarget?.kind === 'anchorDetail') {
+      navigation.popToTop?.();
+      returnToAnchorDetail(returnTarget.anchorId);
+      return;
+    }
+
     if (returnTo === 'practice') {
       if (typeof navigation.popToTop === 'function') {
         navigation.popToTop();
@@ -518,7 +526,7 @@ export const ActivationScreen: React.FC = () => {
     }
 
     if (returnTo === 'detail') {
-      navigation.navigate('AnchorDetail', { anchorId });
+      returnToAnchorDetail(anchorId);
       return;
     }
 
@@ -532,7 +540,7 @@ export const ActivationScreen: React.FC = () => {
     }
 
     navigation.goBack();
-  }, [anchor, anchorId, chartContext, isPendingFirstAnchor, navigateToPractice, navigation, returnTo, returnToChart]);
+  }, [anchor, anchorId, chartContext, isPendingFirstAnchor, navigateToPractice, navigateToVault, navigation, returnTarget, returnTo, returnToChart]);
 
   const promptExitSession = useCallback(() => {
     setShowExitWarning(true);
@@ -628,6 +636,12 @@ export const ActivationScreen: React.FC = () => {
       },
     })) return;
 
+    if (returnTarget?.kind === 'anchorDetail') {
+      navigation.popToTop?.();
+      returnToAnchorDetail(returnTarget.anchorId);
+      return;
+    }
+
     if (returnTo === 'practice') {
       if (typeof navigation.popToTop === 'function') {
         navigation.popToTop();
@@ -642,7 +656,7 @@ export const ActivationScreen: React.FC = () => {
         returnTo: 'detail',
       });
     } else if (returnTo === 'detail') {
-      navigation.navigate('AnchorDetail', { anchorId });
+      returnToAnchorDetail(anchorId);
     } else if (returnTo === 'vault') {
       if (isPendingFirstAnchor && anchor) {
         navigation.replace('SaveProgress', { anchor });
@@ -662,11 +676,13 @@ export const ActivationScreen: React.FC = () => {
     isPendingFirstAnchor,
     logActivationInBackground,
     navigateToPractice,
+    navigateToVault,
     navigation,
     recordSession,
     handlePrimeComplete,
     focusSessionAudioPlan,
     practiceMode,
+    returnTarget,
     returnTo,
     returnToChart,
     scheduleReviewRequestAfterHomeReturn,

@@ -34,7 +34,7 @@ import { PracticeCompletionService } from '@/services/PracticeCompletionService'
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useRitualController } from '@/hooks/useRitualController';
-import { getRitualConfig } from '@/config/ritualConfigs';
+import { getPracticeDeepPrimeConfig, getRitualConfig } from '@/config/ritualConfigs';
 import { apiClient } from '@/services/ApiClient';
 import { AuthService } from '@/services/AuthService';
 import BackendAnchorService, { isBackendAnchorId } from '@/services/BackendAnchorService';
@@ -276,7 +276,14 @@ const DeepEmberDot: React.FC<{ particle: EmberParticle; reduceMotionEnabled: boo
 export const RitualScreen: React.FC = () => {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const navigation = useNavigation<RitualNavigationProp>();
-  const { navigateToPractice, navigateToPaywall } = useTabNavigation();
+  const { navigateToPractice, navigateToPaywall, navigateToVault, returnToAnchorDetail: canonicalReturnToAnchorDetail } = useTabNavigation();
+  const returnToAnchorDetail = useCallback((anchorDetailId: string) => {
+    if (canonicalReturnToAnchorDetail) {
+      canonicalReturnToAnchorDetail(anchorDetailId);
+      return;
+    }
+    navigateToVault?.('AnchorDetail', { anchorId: anchorDetailId });
+  }, [canonicalReturnToAnchorDetail, navigateToVault]);
   const returnToChart = useChartPracticeReturn(navigation);
   const route = useRoute<RitualRouteProp>();
   const {
@@ -287,6 +294,8 @@ export const RitualScreen: React.FC = () => {
     audioConfiguration,
     audioModeOverride,
     returnTo,
+    returnTarget,
+    flowVariant,
     source,
     chartContext,
     practiceMode,
@@ -399,8 +408,10 @@ export const RitualScreen: React.FC = () => {
     ((ritualType === 'focus' || ritualType === 'quick')
       ? focusSessionDuration
       : primeSessionDuration);
-  const config = getRitualConfig(ritualType, resolvedDurationSeconds);
   const isDeepRitual = ritualType === 'ritual' || ritualType === 'deep';
+  const config = isDeepRitual && flowVariant === 'practice'
+    ? getPracticeDeepPrimeConfig(resolvedDurationSeconds)
+    : getRitualConfig(ritualType, resolvedDurationSeconds);
   const sessionAudioType = isDeepRitual ? 'deep_prime' : 'focus';
   const [resolvedSessionAudio, setResolvedSessionAudio] =
     useState<SessionAudioConfiguration>(() =>
@@ -499,6 +510,16 @@ export const RitualScreen: React.FC = () => {
     manageSessionAudioExternally: isDeepRitual,
     audioConfiguration: resolvedSessionAudio,
   });
+  const phaseGuidanceInstruction = useMemo(() => {
+    const timeline = state.currentPhase?.guidanceTimeline;
+    if (!timeline?.length) return state.currentInstruction;
+    const fraction = Math.max(
+      0,
+      state.phaseElapsed / Math.max(1, state.currentPhase?.durationSeconds ?? 1),
+    );
+    const activeGuidance = timeline.filter((item) => item.at <= fraction);
+    return activeGuidance[activeGuidance.length - 1]?.text ?? timeline[0]?.text ?? '';
+  }, [state.currentInstruction, state.currentPhase, state.phaseElapsed]);
   const {
     fadeOutAndStop: fadeOutDeepPrimeAudio,
     hasVoiceGuidance: shouldHideDeepPrimeGuidanceText,
@@ -995,10 +1016,10 @@ export const RitualScreen: React.FC = () => {
   ]);
 
   useEffect(() => {
-    if (state.currentInstruction === displayedInstruction) return;
+    if (phaseGuidanceInstruction === displayedInstruction) return;
 
     if (reduceMotionEnabled) {
-      setDisplayedInstruction(state.currentInstruction);
+      setDisplayedInstruction(phaseGuidanceInstruction);
       return;
     }
 
@@ -1007,7 +1028,7 @@ export const RitualScreen: React.FC = () => {
       duration: 300,
       useNativeDriver: true,
     }).start(() => {
-      setDisplayedInstruction(state.currentInstruction);
+      setDisplayedInstruction(phaseGuidanceInstruction);
 
       Animated.timing(instructionFadeAnim, {
         toValue: 1,
@@ -1016,7 +1037,7 @@ export const RitualScreen: React.FC = () => {
       }).start();
     });
   }, [
-    state.currentInstruction,
+    phaseGuidanceInstruction,
     displayedInstruction,
     reduceMotionEnabled,
     instructionFadeAnim,
@@ -1161,6 +1182,12 @@ export const RitualScreen: React.FC = () => {
 
     if (returnToChart({ returnTo, anchorId, chartContext, practiceReturn })) return;
 
+    if (returnTarget?.kind === 'anchorDetail') {
+      navigation.popToTop?.();
+      returnToAnchorDetail(returnTarget.anchorId);
+      return;
+    }
+
     if (returnTo === 'practice') {
       if (typeof navigation.popToTop === 'function') {
         navigation.popToTop();
@@ -1170,7 +1197,7 @@ export const RitualScreen: React.FC = () => {
     }
 
     if (returnTo === 'detail') {
-      navigation.navigate('AnchorDetail', { anchorId });
+      returnToAnchorDetail(anchorId);
       return;
     }
 
@@ -1182,7 +1209,7 @@ export const RitualScreen: React.FC = () => {
     }
 
     navigateToVaultDestination(navigation, 'reset');
-  }, [anchor, anchorId, chartContext, clearDeepTimerInterval, fadeOutDeepPrimeAudio, isPendingFirstAnchor, navigateToPractice, navigation, returnTo, returnToChart]);
+  }, [anchor, anchorId, chartContext, clearDeepTimerInterval, fadeOutDeepPrimeAudio, isPendingFirstAnchor, navigateToPractice, navigation, returnTarget, returnTo, returnToChart, returnToAnchorDetail]);
 
   const continueFromSeal = useCallback(async () => {
     if (hasFinalizedRef.current) {
@@ -1296,6 +1323,7 @@ export const RitualScreen: React.FC = () => {
         completionEventId: completionEventIdRef.current,
         audioConfiguration: sessionAudioPlan.configuration,
         returnTo,
+        returnTarget,
         source,
         chartContext,
         practiceMode,
@@ -1349,6 +1377,7 @@ export const RitualScreen: React.FC = () => {
       completionEventId: completionEventIdRef.current,
       audioConfiguration: sessionAudioPlan.configuration,
       returnTo,
+      returnTarget,
       source,
       chartContext,
       practiceMode,
@@ -1367,6 +1396,7 @@ export const RitualScreen: React.FC = () => {
     isPendingFirstAnchor,
     navigation,
     practiceMode,
+    returnTarget,
     resolvedSessionAudio,
     recordSession,
     returnTo,

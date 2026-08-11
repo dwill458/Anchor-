@@ -44,6 +44,24 @@ export const PRACTICE_ENTRY_MODES = [
 ] as const;
 export type PracticeEntryMode = (typeof PRACTICE_ENTRY_MODES)[number];
 
+/**
+ * Serializable destination carried through a practice flow.  Practice lives
+ * in an independent navigation container, so an Anchor-detail destination
+ * needs more than the legacy `returnTo: 'detail'` string to cross back into
+ * the Vault stack safely.
+ */
+export type PracticeFlowReturnTarget =
+  | { kind: 'practice' }
+  | { kind: 'chart' }
+  | { kind: 'sanctuary' }
+  | { kind: 'anchorDetail'; anchorId: string };
+
+export type WeaveRange = '4w' | '12w' | '6m' | '1y';
+
+export type WeaveScope =
+  | { kind: 'all' }
+  | { kind: 'anchor'; anchorId: string };
+
 /** Practice modes Chart may launch. Release remains an Anchor-owned action. */
 export type ChartPracticeMode = Exclude<PracticeEntryMode, 'release'>;
 

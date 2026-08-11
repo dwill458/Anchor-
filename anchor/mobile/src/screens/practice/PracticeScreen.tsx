@@ -19,7 +19,8 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
+import type { RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from "@react-navigation/stack";
 import { Eye, Flame, Zap, ChevronRight } from "lucide-react-native";
 import Animated, {
@@ -129,6 +130,7 @@ export const PracticeScreen: React.FC = () => {
   useNotificationController();
 
   const navigation = useNavigation<PracticeNavigationProp>();
+  const route = useRoute<RouteProp<PracticeStackParamList, 'PracticeHome'>>();
   const { navigateToPaywall, registerTabNav, activeTabIndex } = useTabNavigation();
   const isPracticeTabActive = activeTabIndex == null ? true : activeTabIndex === 1;
   const insets = useSafeAreaInsets();
@@ -209,6 +211,13 @@ export const PracticeScreen: React.FC = () => {
         }),
     [anchors],
   );
+
+  useEffect(() => {
+    const requestedAnchorId = route.params?.anchorId;
+    if (requestedAnchorId && selectableAnchors.some((anchor) => anchor.id === requestedAnchorId)) {
+      setCurrentAnchor(requestedAnchorId);
+    }
+  }, [route.params?.anchorId, selectableAnchors, setCurrentAnchor]);
 
   const mostRecentAnchor = useMemo(() => {
     if (selectableAnchors.length === 0) return undefined;
@@ -901,6 +910,27 @@ export const PracticeScreen: React.FC = () => {
                 runMode('burn', undefined, 'practice_release_card');
               }}
             />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Open The Weave"
+              accessibilityHint="View your completed practice history"
+              onPress={() => {
+                navigation.navigate('TheWeave', {
+                  origin: 'practice',
+                  originAnchorId: selectedAnchor?.id,
+                  initialScope: selectedAnchor ? { kind: 'anchor', anchorId: selectedAnchor.id } : { kind: 'all' },
+                });
+              }}
+              style={styles.weaveEntry}
+              testID="practice-open-weave"
+            >
+              <View>
+                <Text style={styles.weaveEntryEyebrow}>PRACTICE HISTORY</Text>
+                <Text style={styles.weaveEntryTitle}>The Weave</Text>
+                <Text style={styles.weaveEntryText}>See the threads your returns have made.</Text>
+              </View>
+              <ChevronRight size={18} color={colors.gold} />
+            </Pressable>
           </Animated.View>
         </Animated.ScrollView>
       </SafeAreaView>
@@ -961,6 +991,36 @@ const styles = StyleSheet.create({
   },
   portalsWrap: {
     gap: spacing.sm,
+  },
+  weaveEntry: {
+    minHeight: 76,
+    marginTop: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(212,175,55,0.24)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  weaveEntryEyebrow: {
+    color: 'rgba(242,223,168,0.56)',
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 8,
+    letterSpacing: 2,
+  },
+  weaveEntryTitle: {
+    color: colors.gold,
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 18,
+    marginTop: 3,
+  },
+  weaveEntryText: {
+    color: 'rgba(245,245,241,0.58)',
+    fontFamily: typography.fontFamily.bodySerifItalic,
+    fontSize: 13,
+    marginTop: 2,
   },
   ctaPressable: {
     marginBottom: spacing.md,

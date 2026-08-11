@@ -128,7 +128,8 @@ const formatPresetDuration = (seconds: number): string =>
 export const ChargeSetupScreen: React.FC = () => {
   const navigation = useNavigation<ChargeSetupNavigationProp>();
   const route = useRoute<ChargeSetupRouteProp>();
-  const { navigateToPractice, navigateToPaywall } = useTabNavigation();
+  const { navigateToPractice, navigateToPaywall, navigateToVault, returnToAnchorDetail: canonicalReturnToAnchorDetail } = useTabNavigation();
+  const returnToAnchorDetail = canonicalReturnToAnchorDetail ?? ((anchorDetailId: string) => navigateToVault('AnchorDetail', { anchorId: anchorDetailId }));
   const returnToChart = useChartPracticeReturn(navigation);
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
@@ -141,7 +142,11 @@ export const ChargeSetupScreen: React.FC = () => {
     source,
     chartContext,
     practiceMode,
+    returnTarget,
+    flowVariant,
+    initialDurationSeconds,
   } = route.params || {};
+  const isPracticeFlow = flowVariant === 'practice';
 
   const chargeSetupTeaching = useTeachingGate({
     screenId: 'charge_setup',
@@ -160,6 +165,9 @@ export const ChargeSetupScreen: React.FC = () => {
   );
 
   const [selectedDuration, setSelectedDuration] = useState<DurationChoice>(initialDuration ?? 'quick');
+  const [deepPracticeDurationSeconds, setDeepPracticeDurationSeconds] = useState<120 | 300 | 600>(() =>
+    initialDurationSeconds != null && initialDurationSeconds >= 450 ? 600 : initialDurationSeconds != null && initialDurationSeconds >= 210 ? 300 : 120,
+  );
   const [hasManuallySelectedDuration, setHasManuallySelectedDuration] = useState(false);
   const [locationPrimingSuggestion, setLocationPrimingSuggestion] =
     useState<LocationPrimingSuggestion | null>(null);
@@ -327,7 +335,8 @@ export const ChargeSetupScreen: React.FC = () => {
     (choice: DurationChoice) => {
       const config = chargeConfigByChoice[choice];
       const locationPreset = getLocationPresetForChoice(choice);
-      const durationOverride = locationPreset?.durationSeconds ?? config.durationSeconds;
+      const durationOverride = locationPreset?.durationSeconds ??
+        (choice === 'deep' && isPracticeFlow ? deepPracticeDurationSeconds : config.durationSeconds);
       const sessionType = choice === 'quick' ? 'focus' : 'deep_prime';
       const defaultAudio = sessionAudioDefaults[sessionType];
       const audioConfiguration = resolveSessionAudioConfiguration(defaultAudio, locationPreset?.audioConfiguration);
@@ -338,6 +347,8 @@ export const ChargeSetupScreen: React.FC = () => {
           durationOverride,
           audioConfiguration,
           returnTo,
+          returnTarget,
+          flowVariant,
           source,
           chartContext,
           practiceMode,
@@ -349,13 +360,15 @@ export const ChargeSetupScreen: React.FC = () => {
           durationSeconds: durationOverride,
           audioConfiguration,
           returnTo,
+          returnTarget,
+          flowVariant,
           source,
           chartContext,
           practiceMode,
         });
       }
     },
-    [anchorId, chartContext, getLocationPresetForChoice, navigation, practiceMode, returnTo, sessionAudioDefaults, source]
+    [anchorId, chartContext, deepPracticeDurationSeconds, flowVariant, getLocationPresetForChoice, isPracticeFlow, navigation, practiceMode, returnTarget, returnTo, sessionAudioDefaults, source]
   );
 
   const handleBeginRitual = useCallback(
@@ -381,7 +394,7 @@ export const ChargeSetupScreen: React.FC = () => {
       isNavigatingRef.current = true;
       setIsTransitioning(true);
 
-      if (!locationPreset) {
+      if (!locationPreset && !isPracticeFlow) {
         setDefaultCharge({
           mode: config.mode,
           preset: config.preset,
@@ -429,6 +442,7 @@ export const ChargeSetupScreen: React.FC = () => {
       navigateToRitual,
       navigateToPaywall,
       navigation,
+      isPracticeFlow,
       primeSessionAccess.deep,
       primeSessionAccess.focus,
       selectedDuration,
@@ -493,13 +507,19 @@ export const ChargeSetupScreen: React.FC = () => {
       return;
     }
 
+    if (returnTarget?.kind === 'anchorDetail') {
+      navigation.popToTop();
+      returnToAnchorDetail(returnTarget.anchorId);
+      return;
+    }
+
     if (returnTo === 'detail') {
-      navigation.replace('AnchorDetail', { anchorId });
+      returnToAnchorDetail(anchorId);
       return;
     }
 
     navigateToVaultDestination(navigation, 'reset');
-  }, [anchor, anchorId, chartContext, fromOnboarding, isTransitioning, navigateToPractice, navigation, returnTo, returnToChart]);
+  }, [anchor, anchorId, chartContext, fromOnboarding, isTransitioning, navigateToPractice, navigateToVault, navigation, returnTarget, returnTo, returnToChart]);
 
   const activeLocationPreset = getLocationPresetForChoice(selectedDuration);
 
@@ -684,6 +704,22 @@ export const ChargeSetupScreen: React.FC = () => {
                 </TouchableOpacity>
               ))}
             </View>
+            {isPracticeFlow && selectedDuration === 'deep' ? (
+              <View style={styles.practiceDurationRow} accessibilityRole="radiogroup">
+                {([120, 300, 600] as const).map((seconds) => (
+                  <TouchableOpacity
+                    key={seconds}
+                    onPress={() => setDeepPracticeDurationSeconds(seconds)}
+                    accessibilityRole="radio"
+                    accessibilityLabel={`Deep Prime ${seconds / 60} minutes`}
+                    accessibilityState={{ selected: deepPracticeDurationSeconds === seconds }}
+                    style={[styles.practiceDurationOption, deepPracticeDurationSeconds === seconds && styles.practiceDurationOptionSelected]}
+                  >
+                    <Text style={[styles.practiceDurationText, deepPracticeDurationSeconds === seconds && styles.practiceDurationTextSelected]}>{seconds / 60} min</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : null}
           </View>
 
           <View style={[styles.bottomActions, isCompactLayout && styles.bottomActionsCompact]}>
@@ -977,6 +1013,27 @@ const styles = StyleSheet.create({
   cardsRowCompact: {
     gap: 8,
   },
+  practiceDurationRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 10,
+    marginTop: 16,
+  },
+  practiceDurationOption: {
+    minWidth: 72,
+    minHeight: 44,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,.24)',
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  practiceDurationOptionSelected: {
+    borderColor: '#D4AF37',
+    backgroundColor: 'rgba(212,175,55,.12)',
+  },
+  practiceDurationText: { color: 'rgba(245,245,241,.58)', fontSize: 12 },
+  practiceDurationTextSelected: { color: '#F0CB6A', fontWeight: '700' },
   durationCard: {
     flex: 1,
     position: 'relative',

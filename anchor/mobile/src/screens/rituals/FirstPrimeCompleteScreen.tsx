@@ -88,7 +88,8 @@ const FadeUp: React.FC<{
 
 export const FirstPrimeCompleteScreen: React.FC = () => {
   const navigation = useNavigation<FirstPrimeCompleteNavigationProp>();
-  const { navigateToPractice } = useTabNavigation();
+  const { navigateToPractice, navigateToVault, returnToAnchorDetail: canonicalReturnToAnchorDetail } = useTabNavigation();
+  const returnToAnchorDetail = canonicalReturnToAnchorDetail ?? ((anchorId: string) => navigateToVault('AnchorDetail', { anchorId }));
   const returnToChart = useChartPracticeReturn(navigation);
   const route = useRoute<FirstPrimeCompleteRouteProp>();
   const {
@@ -99,6 +100,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
     completionEventId: routeCompletionEventId,
     audioConfiguration: routeAudioConfiguration,
     returnTo,
+    returnTarget,
     source,
     chartContext,
     practiceMode,
@@ -530,6 +532,13 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
       } : {}),
     })) return;
 
+    if (returnTarget?.kind === 'anchorDetail') {
+      const nav = navigation as unknown as { popToTop?: () => void };
+      nav.popToTop?.();
+      returnToAnchorDetail(returnTarget.anchorId);
+      return;
+    }
+
     if (returnTo === "practice") {
       const nav = navigation as unknown as { popToTop?: () => void };
       nav.popToTop?.();
@@ -538,7 +547,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
     }
 
     if (returnTo === "detail") {
-      navigation.replace("AnchorDetail", { anchorId });
+      returnToAnchorDetail(anchorId);
       return;
     }
 

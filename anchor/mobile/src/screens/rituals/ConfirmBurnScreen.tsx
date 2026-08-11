@@ -51,8 +51,9 @@ const IS_TEST_ENV = Boolean(process.env.JEST_WORKER_ID);
 export const ConfirmBurnScreen: React.FC = () => {
   const route = useRoute<ConfirmBurnRouteProp>();
   const navigation = useNavigation<ConfirmBurnNavigationProp>();
-  const { navigateToVault } = useTabNavigation();
-  const { anchorId, intention, sigilSvg, enhancedImageUrl, returnTo, source } = route.params;
+  const { navigateToVault, returnToAnchorDetail: canonicalReturnToAnchorDetail } = useTabNavigation();
+  const returnToAnchorDetail = canonicalReturnToAnchorDetail ?? ((anchorId: string) => navigateToVault('AnchorDetail', { anchorId }));
+  const { anchorId, intention, sigilSvg, enhancedImageUrl, returnTo, returnTarget, source } = route.params;
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const { recordShown } = useTeachingStore();
   const { hasActiveEntitlement } = useTrialStatus();
@@ -129,6 +130,15 @@ export const ConfirmBurnScreen: React.FC = () => {
 
   const activeTeaching = currentStep === 'reflect' ? reflectTeaching : releaseTeaching;
 
+  const leaveToOrigin = useCallback(() => {
+    if (returnTarget?.kind === 'anchorDetail') {
+      navigation.popToTop?.();
+      returnToAnchorDetail(returnTarget.anchorId);
+      return;
+    }
+    navigation.goBack();
+  }, [navigation, returnTarget, returnToAnchorDetail]);
+
   const sigilNode = useMemo(() => {
     if (resolvedEnhancedImageUrl) {
       return (
@@ -168,9 +178,9 @@ export const ConfirmBurnScreen: React.FC = () => {
         anchor_id: anchorId,
       });
       isLeavingRef.current = true;
-      navigation.goBack();
+      leaveToOrigin();
     });
-  }, [anchorId, confirmLeave, currentStep, navigation]);
+  }, [anchorId, confirmLeave, currentStep, leaveToOrigin]);
 
   const handleContinue = () => {
     if (!isAuthVerified) return;
@@ -207,6 +217,7 @@ export const ConfirmBurnScreen: React.FC = () => {
       sigilSvg: resolvedSigilSvg,
       enhancedImageUrl: resolvedEnhancedImageUrl,
       ...(returnTo ? { returnTo } : {}),
+      ...(returnTarget ? { returnTarget } : {}),
       ...(source ? { source } : {}),
     });
   };

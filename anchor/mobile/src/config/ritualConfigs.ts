@@ -22,6 +22,8 @@ export interface RitualPhase {
   hapticIntervalMs: number;
   /** Haptic style for regular pulses */
   hapticStyle: Haptics.ImpactFeedbackStyle;
+  /** Locked fraction-of-phase guidance used by Wave 2 Deep Priming. */
+  guidanceTimeline?: Array<{ at: number; text: string; teaching?: boolean }>;
 }
 
 export interface RitualConfig {
@@ -463,6 +465,48 @@ function generateCustomRitualConfig(
       phases,
     };
   }
+}
+
+/**
+ * Wave 2's Deep Priming language. Keep this separate from the existing ritual
+ * config because first-anchor Prime remains a Wave 1 contract with its own
+ * established presentation and copy.
+ */
+export function getPracticeDeepPrimeConfig(durationSeconds: number): RitualConfig {
+  const total = Math.max(120, Math.min(600, Math.round(durationSeconds)));
+  // Locked Screen 12 pacing: arrive, observe, deepen, hold, carry forward.
+  const weights = [0.15, 0.2, 0.3, 0.25, 0.1];
+  const phaseDurations = weights.map((weight) => Math.max(1, Math.round(total * weight)));
+  // The Screen 12 reference gives rounding remainder to Deepen, never Return.
+  phaseDurations[2] += total - phaseDurations.reduce((sum, value) => sum + value, 0);
+  const phaseGuidance = [
+    [{ at: 0, text: 'Let your breathing slow.' }, { at: 0.5, text: 'Allow your attention to arrive here.' }],
+    [{ at: 0, text: 'Notice the Anchor without trying to interpret it.' }, { at: 0.32, text: 'Let your eyes follow its form.' }, { at: 0.62, text: 'Notice where your attention naturally returns.' }, { at: 0.84, text: 'You don’t need to decode it. Let the form become familiar.', teaching: true }],
+    [{ at: 0, text: 'Let everything outside the form become quieter.' }, { at: 0.55, text: 'When your attention wanders, return to the Anchor.' }],
+    [{ at: 0, text: 'Stay with the form.' }, { at: 0.16, text: '' }],
+    [{ at: 0, text: 'Let your attention widen again.' }, { at: 0.5, text: 'Carry the Anchor with you.' }],
+  ];
+  const titles = ['Settle', 'Observe', 'Deepen', 'Hold', 'Return'];
+  return {
+    id: `practice_deep_prime_${total}s`,
+    name: 'Deep Priming',
+    totalDurationSeconds: total,
+    sealDurationSeconds: 3,
+    sealHoldDurationMs: 2800,
+    sealSuccessHaptic: Haptics.NotificationFeedbackType.Success,
+    phases: titles.map((title, index) => ({
+      number: index + 1,
+      title,
+      durationSeconds: phaseDurations[index],
+      instructions: phaseGuidance[index].map((item) => item.text),
+      guidanceTimeline: phaseGuidance[index],
+      // The controller owns time/haptics; Deep Priming's on-screen wording is
+      // driven by the locked timeline above, with this as a safe fallback.
+      instructionRotationMs: Math.max(1000, phaseDurations[index] * 1000),
+      hapticIntervalMs: Math.max(9000, Math.round((phaseDurations[index] * 1000) / 2)),
+      hapticStyle: index < 3 ? Haptics.ImpactFeedbackStyle.Light : Haptics.ImpactFeedbackStyle.Medium,
+    })),
+  };
 }
 
 /**

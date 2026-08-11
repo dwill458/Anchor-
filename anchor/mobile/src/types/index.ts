@@ -14,6 +14,8 @@ import type {
   ChartPracticeMode,
   PracticeEntryMode,
   PracticeEntrySource,
+  PracticeFlowReturnTarget,
+  WeaveScope,
 } from './practice';
 export * from './chart';
 import type { ChartCapabilities, ChartFeatureFlags } from './chart';
@@ -507,7 +509,7 @@ export type PaywallSource =
   | 'premium_practice_locked';
 
 export type NavigationResumeTarget =
-  | { kind: 'visualize_prepare'; anchorId: string }
+  | { kind: 'visualize_prepare'; anchorId: string; returnTarget?: PracticeFlowReturnTarget }
   // A Chart-launched session resumes to its waypoint, not by auto-restarting
   // the session: after a purchase the user should choose to begin again.
   | { kind: 'chart_ai_plan'; destinationText: string }
@@ -600,7 +602,8 @@ export type RootStackParamList = {
   VisualizePreparation: {
     anchorId: string;
     source?: string;
-    returnTo?: 'practice' | 'chart';
+    returnTo?: 'practice' | 'chart' | 'detail' | 'vault';
+    returnTarget?: PracticeFlowReturnTarget;
     chartContext?: ChartPracticeContext;
     practiceMode?: ChartPracticeMode;
   };
@@ -612,7 +615,8 @@ export type RootStackParamList = {
     backgroundAudio: 'ambient' | 'off';
     source?: 'practice_screen' | 'anchor_detail' | 'deep_link';
     practiceEntrySource?: PracticeEntrySource;
-    returnTo?: 'practice' | 'chart';
+    returnTo?: 'practice' | 'chart' | 'detail' | 'vault';
+    returnTarget?: PracticeFlowReturnTarget;
     chartContext?: ChartPracticeContext;
     practiceMode?: ChartPracticeMode;
   };
@@ -623,7 +627,8 @@ export type RootStackParamList = {
     source?: 'practice_screen' | 'anchor_detail' | 'deep_link';
     sceneText?: string;
     practiceEntrySource?: PracticeEntrySource;
-    returnTo?: 'practice' | 'chart';
+    returnTo?: 'practice' | 'chart' | 'detail' | 'vault';
+    returnTarget?: PracticeFlowReturnTarget;
     chartContext?: ChartPracticeContext;
     practiceMode?: ChartPracticeMode;
   };
@@ -761,9 +766,9 @@ export type RootStackParamList = {
     enhancedImageUrl?: string;
     reinforcementMetadata?: ReinforcementMetadata;
     enhancementMetadata?: EnhancementMetadata;
+  };
   /** Canonical first-time bridge from a saved Anchor to Sanctuary/practice. */
   PrimeYourAnchor: { anchorId: string };
-  };
 
   // DEFERRED: Mantra feature removed from launch flow — reintroduce in v1.1.
   // MantraCreation: {
@@ -841,6 +846,10 @@ export type RootStackParamList = {
   ChargeSetup: {
     anchorId: string;
     returnTo?: 'vault' | 'practice' | 'detail' | 'chart';
+    returnTarget?: PracticeFlowReturnTarget;
+    /** Keeps Wave 1 Prime presentation independent from Wave 2 Practice. */
+    flowVariant?: 'first_anchor_prime' | 'practice';
+    initialDurationSeconds?: number;
     autoStartOnSelection?: boolean;
     initialDuration?: 'quick' | 'deep';
     fromOnboarding?: boolean;
@@ -864,6 +873,8 @@ export type RootStackParamList = {
     /** @deprecated Compatibility for location presets saved before Voice & Sound v2. */
     audioModeOverride?: 'silent' | 'ambient';
     returnTo?: 'vault' | 'practice' | 'detail' | 'chart';
+    returnTarget?: PracticeFlowReturnTarget;
+    flowVariant?: 'first_anchor_prime' | 'practice';
     source?: PracticeEntrySource;
     chartContext?: ChartPracticeContext;
     practiceMode?: ChartPracticeMode;
@@ -875,6 +886,7 @@ export type RootStackParamList = {
     completionEventId?: string;
     audioConfiguration?: SessionAudioConfiguration;
     returnTo?: 'vault' | 'practice' | 'detail' | 'chart';
+    returnTarget?: PracticeFlowReturnTarget;
     source?: PracticeEntrySource;
     chartContext?: ChartPracticeContext;
     practiceMode?: ChartPracticeMode;
@@ -887,6 +899,7 @@ export type RootStackParamList = {
     completionEventId?: string;
     audioConfiguration?: SessionAudioConfiguration;
     returnTo?: 'vault' | 'practice' | 'detail' | 'chart';
+    returnTarget?: PracticeFlowReturnTarget;
     source?: PracticeEntrySource;
     chartContext?: ChartPracticeContext;
     practiceMode?: ChartPracticeMode;
@@ -901,6 +914,8 @@ export type RootStackParamList = {
     /** @deprecated Compatibility for location presets saved before Voice & Sound v2. */
     audioModeOverride?: 'silent' | 'ambient';
     returnTo?: 'vault' | 'practice' | 'detail' | 'reinforce' | 'chart';
+    returnTarget?: PracticeFlowReturnTarget;
+    flowVariant?: 'first_anchor_prime' | 'practice';
     initialDuration?: 'quick' | 'deep';
     source?: PracticeEntrySource;
     chartContext?: ChartPracticeContext;
@@ -914,6 +929,7 @@ export type RootStackParamList = {
     sigilSvg: string;
     enhancedImageUrl?: string;
     returnTo?: 'vault' | 'practice' | 'detail';
+    returnTarget?: PracticeFlowReturnTarget;
     source?: PracticeEntrySource;
     practiceContext?: ChartPracticeContext;
   };
@@ -924,6 +940,7 @@ export type RootStackParamList = {
     sigilSvg: string;
     enhancedImageUrl?: string;
     returnTo?: 'vault' | 'practice' | 'detail';
+    returnTarget?: PracticeFlowReturnTarget;
     source?: PracticeEntrySource;
   };
 
@@ -978,13 +995,22 @@ export type RootStackParamList = {
 };
 
 export type PracticeStackParamList = {
-  PracticeHome: undefined;
+  PracticeHome: { anchorId?: string } | undefined;
+  TheWeave: {
+    origin: 'practice' | 'anchorDetail';
+    /** Never changes when scope changes; it controls Back from Anchor Detail. */
+    originAnchorId?: string;
+    initialScope?: WeaveScope;
+  };
   ThreadStrengthDetail: undefined;
   // DEFERRED: StabilizeRitual: { anchorId: string }; — restore post-launch
   Evolve: undefined;
   ChargeSetup: {
     anchorId: string;
-    returnTo?: 'practice' | 'chart';
+    returnTo?: 'practice' | 'chart' | 'detail' | 'vault';
+    returnTarget?: PracticeFlowReturnTarget;
+    flowVariant?: 'first_anchor_prime' | 'practice';
+    initialDurationSeconds?: number;
     autoStartOnSelection?: boolean;
     initialDuration?: 'quick' | 'deep';
     fromOnboarding?: boolean;
@@ -1006,7 +1032,9 @@ export type PracticeStackParamList = {
     mantraAudioEnabled?: boolean;
     audioConfiguration?: SessionAudioConfiguration;
     audioModeOverride?: 'silent' | 'ambient';
-    returnTo?: 'practice' | 'chart';
+    returnTo?: 'practice' | 'chart' | 'detail' | 'vault';
+    returnTarget?: PracticeFlowReturnTarget;
+    flowVariant?: 'first_anchor_prime' | 'practice';
     source?: PracticeEntrySource;
     chartContext?: ChartPracticeContext;
     practiceMode?: ChartPracticeMode;
@@ -1017,7 +1045,8 @@ export type PracticeStackParamList = {
     durationSeconds?: number;
     completionEventId?: string;
     audioConfiguration?: SessionAudioConfiguration;
-    returnTo?: 'practice' | 'chart';
+    returnTo?: 'practice' | 'chart' | 'detail' | 'vault';
+    returnTarget?: PracticeFlowReturnTarget;
     chartContext?: ChartPracticeContext;
     source?: PracticeEntrySource;
     practiceMode?: ChartPracticeMode;
@@ -1029,7 +1058,8 @@ export type PracticeStackParamList = {
     durationSeconds: number;
     completionEventId?: string;
     audioConfiguration?: SessionAudioConfiguration;
-    returnTo?: 'practice' | 'chart';
+    returnTo?: 'practice' | 'chart' | 'detail' | 'vault';
+    returnTarget?: PracticeFlowReturnTarget;
     chartContext?: ChartPracticeContext;
     source?: PracticeEntrySource;
     practiceMode?: ChartPracticeMode;
@@ -1040,7 +1070,9 @@ export type PracticeStackParamList = {
     durationOverride?: number;
     audioConfiguration?: SessionAudioConfiguration;
     audioModeOverride?: 'silent' | 'ambient';
-    returnTo?: 'practice' | 'chart';
+    returnTo?: 'practice' | 'chart' | 'detail' | 'vault';
+    returnTarget?: PracticeFlowReturnTarget;
+    flowVariant?: 'first_anchor_prime' | 'practice';
     initialDuration?: 'quick' | 'deep';
     source?: PracticeEntrySource;
     chartContext?: ChartPracticeContext;
@@ -1064,7 +1096,8 @@ export type PracticeStackParamList = {
   VisualizePreparation: {
     anchorId: string;
     source?: PracticeEntrySource;
-    returnTo?: 'practice' | 'chart';
+    returnTo?: 'practice' | 'chart' | 'detail' | 'vault';
+    returnTarget?: PracticeFlowReturnTarget;
     chartContext?: ChartPracticeContext;
     practiceMode?: ChartPracticeMode;
   };
@@ -1077,6 +1110,7 @@ export type PracticeStackParamList = {
     source?: 'practice_screen' | 'anchor_detail' | 'deep_link';
     practiceEntrySource?: PracticeEntrySource;
     returnTo?: 'practice' | 'chart';
+    returnTarget?: PracticeFlowReturnTarget;
     chartContext?: ChartPracticeContext;
     practiceMode?: ChartPracticeMode;
   };
@@ -1088,6 +1122,7 @@ export type PracticeStackParamList = {
     source?: 'practice_screen' | 'anchor_detail' | 'deep_link';
     practiceEntrySource?: PracticeEntrySource;
     returnTo?: 'practice' | 'chart';
+    returnTarget?: PracticeFlowReturnTarget;
     chartContext?: ChartPracticeContext;
     practiceMode?: ChartPracticeMode;
   };
@@ -1096,7 +1131,8 @@ export type PracticeStackParamList = {
     intention: string;
     sigilSvg: string;
     enhancedImageUrl?: string;
-    returnTo?: 'practice';
+    returnTo?: 'practice' | 'detail' | 'vault';
+    returnTarget?: PracticeFlowReturnTarget;
     source?: PracticeEntrySource;
   };
   BurningRitual: {
@@ -1104,7 +1140,8 @@ export type PracticeStackParamList = {
     intention: string;
     sigilSvg: string;
     enhancedImageUrl?: string;
-    returnTo?: 'practice';
+    returnTo?: 'practice' | 'detail' | 'vault';
+    returnTarget?: PracticeFlowReturnTarget;
     source?: PracticeEntrySource;
   };
 };

@@ -28,11 +28,12 @@ import {
   VisualizePreparationScreen,
   VisualizeSessionScreen,
 } from '@/screens/visualize';
+import { TheWeaveScreen } from '@/screens/weave';
 
 const Stack = createNativeStackNavigator<PracticeStackParamList>();
 
 interface PracticeStackNavigatorProps {
-  onRouteChange?: (routeName: string) => void;
+  onRouteChange?: (routeName: string, params?: unknown) => void;
 }
 
 export const PracticeStackNavigator: React.FC<PracticeStackNavigatorProps> = ({ onRouteChange }) => {
@@ -49,11 +50,11 @@ export const PracticeStackNavigator: React.FC<PracticeStackNavigatorProps> = ({ 
         ref={navigationRef}
         onReady={() => {
           const routeName = navigationRef.getCurrentRoute()?.name;
-          if (routeName) onRouteChange?.(routeName);
+          if (routeName) onRouteChange?.(routeName, navigationRef.getCurrentRoute()?.params);
         }}
         onStateChange={() => {
           const routeName = navigationRef.getCurrentRoute()?.name;
-          if (routeName) onRouteChange?.(routeName);
+          if (routeName) onRouteChange?.(routeName, navigationRef.getCurrentRoute()?.params);
         }}
       >
         <Stack.Navigator
@@ -66,6 +67,7 @@ export const PracticeStackNavigator: React.FC<PracticeStackNavigatorProps> = ({ 
           }}
         >
           <Stack.Screen name="PracticeHome" component={PracticeScreen} />
+          <Stack.Screen name="TheWeave" component={TheWeaveScreen} />
           <Stack.Screen name="ThreadStrengthDetail" component={ThreadStrengthDetailScreen} />
           <Stack.Screen name="Evolve" component={EvolveScreen} />
           <Stack.Screen

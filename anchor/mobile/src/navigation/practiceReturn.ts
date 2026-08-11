@@ -1,6 +1,7 @@
 import type {
   ChartPracticeCompletionHandoff,
   ChartPracticeContext,
+  PracticeFlowReturnTarget,
 } from '@/types/practice';
 
 /**
@@ -27,6 +28,8 @@ export type PracticeReturnTarget =
 
 export interface ResolvePracticeReturnArgs {
   returnTo?: 'practice' | 'chart' | 'detail' | 'vault' | 'reinforce';
+  /** Preferred serializable target for flows crossing independent tab stacks. */
+  returnTarget?: PracticeFlowReturnTarget;
   anchorId?: string;
   chartContext?: ChartPracticeContext;
   /**
@@ -51,11 +54,27 @@ export function resolvePracticeReturnTarget(
 ): PracticeReturnTarget {
   const {
     returnTo,
+    returnTarget,
     anchorId,
     chartContext,
     chartEnabled = true,
     practiceReturn,
   } = args;
+
+  if (returnTarget) {
+    switch (returnTarget.kind) {
+      case 'practice':
+        return { kind: 'practice_home' };
+      case 'sanctuary':
+        return { kind: 'vault' };
+      case 'anchorDetail':
+        return { kind: 'anchor_detail', anchorId: returnTarget.anchorId };
+      case 'chart':
+        // A non-Chart source cannot fabricate waypoint context.  Preserve the
+        // safe chart-home fallback used by the legacy contract.
+        return chartEnabled ? { kind: 'chart_home' } : { kind: 'practice_home' };
+    }
+  }
 
   if (returnTo === 'chart') {
     if (!chartEnabled) return { kind: 'practice_home' };

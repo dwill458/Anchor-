@@ -34,6 +34,7 @@ import { colors as themeColors, typography } from '@/theme';
 import { safeHaptics } from '@/utils/haptics';
 import { ConfirmModal } from '@/screens/rituals/components/ConfirmModal';
 import { useChartPracticeReturn } from '@/hooks/useChartPracticeReturn';
+import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { resolvePracticeCompletionSource } from '@/navigation/practiceReturn';
 
 const colors = {
@@ -125,6 +126,9 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
 }) => {
   const window = useWindowDimensions();
   const returnToChart = useChartPracticeReturn(navigation);
+  const { navigateToSanctuary: canonicalNavigateToSanctuary, navigateToVault, returnToAnchorDetail: canonicalReturnToAnchorDetail } = useTabNavigation();
+  const navigateToSanctuary = canonicalNavigateToSanctuary ?? (() => navigateToVault());
+  const returnToAnchorDetail = canonicalReturnToAnchorDetail ?? ((anchorDetailId: string) => navigateToVault('AnchorDetail', { anchorId: anchorDetailId }));
   const {
     anchorId,
     durationSeconds,
@@ -132,6 +136,7 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
     guidanceVoice,
     backgroundAudio,
     returnTo,
+    returnTarget,
     chartContext,
     practiceMode,
     practiceEntrySource,
@@ -221,6 +226,7 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
       chartContext,
       practiceEntrySource,
       returnTo,
+      returnTarget,
     ],
   );
 
@@ -303,10 +309,11 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
       sceneText,
       practiceEntrySource,
       returnTo,
+      returnTarget,
       chartContext,
       practiceMode,
     });
-  }, [anchorId, chartContext, durationSeconds, engine.state, navigation, practiceEntrySource, practiceMode, returnTo, route.params.source, sceneText]);
+  }, [anchorId, chartContext, durationSeconds, engine.state, navigation, practiceEntrySource, practiceMode, returnTarget, returnTo, route.params.source, sceneText]);
 
   useEffect(() => {
     if (engine.state !== 'running') {
@@ -443,12 +450,22 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
       event.preventDefault();
       showEarlyExitPrompt(() => {
         if (!returnToChart({ returnTo, anchorId, chartContext })) {
+          if (returnTarget?.kind === 'anchorDetail') {
+            navigation.popToTop();
+            returnToAnchorDetail(returnTarget.anchorId);
+            return;
+          }
+          if (returnTarget?.kind === 'sanctuary') {
+            navigation.popToTop();
+            navigateToSanctuary();
+            return;
+          }
           navigation.dispatch(event.data.action);
         }
       });
     });
     return unsubscribe;
-  }, [anchorId, chartContext, engine.state, navigation, returnTo, returnToChart, showEarlyExitPrompt]);
+  }, [anchorId, chartContext, engine.state, navigateToSanctuary, navigation, returnTarget, returnTo, returnToChart, returnToAnchorDetail, showEarlyExitPrompt]);
 
   const togglePlayback = useCallback(() => {
     if (engine.state === 'completing' || engine.state === 'completed') return;
@@ -486,9 +503,21 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
 
   const requestEarlyEnd = useCallback(() => {
     showEarlyExitPrompt(() => {
-      if (!returnToChart({ returnTo, anchorId, chartContext })) navigation.goBack();
+      if (!returnToChart({ returnTo, anchorId, chartContext })) {
+        if (returnTarget?.kind === 'anchorDetail') {
+          navigation.popToTop();
+          returnToAnchorDetail(returnTarget.anchorId);
+          return;
+        }
+        if (returnTarget?.kind === 'sanctuary') {
+          navigation.popToTop();
+          navigateToSanctuary();
+          return;
+        }
+        navigation.goBack();
+      }
     });
-  }, [anchorId, chartContext, navigation, returnTo, returnToChart, showEarlyExitPrompt]);
+  }, [anchorId, chartContext, navigateToSanctuary, navigation, returnTarget, returnTo, returnToChart, returnToAnchorDetail, showEarlyExitPrompt]);
 
   if (!anchor || !accountId) return <View style={styles.container} />;
 

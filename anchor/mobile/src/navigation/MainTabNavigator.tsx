@@ -225,6 +225,7 @@ export const MainTabNavigator: React.FC = () => {
   );
   const [practiceRouteName, setPracticeRouteName] =
     React.useState('PracticeHome');
+  const [practiceRouteParams, setPracticeRouteParams] = React.useState<unknown>(undefined);
   const [chartRouteName, setChartRouteName] = React.useState('ChartHome');
 
   const flushPracticeWrites = useCallback(() => {
@@ -274,7 +275,13 @@ export const MainTabNavigator: React.FC = () => {
 
   const isTabBarVisible = React.useMemo(() => {
     if (displayActiveIndex === 0) return vaultRouteName === 'Vault';
-    if (displayActiveIndex === 1) return practiceRouteName === 'PracticeHome';
+    if (displayActiveIndex === 1) {
+      // The reference keeps primary chrome on a Practice-origin Weave, but an
+      // Anchor Detail-origin Weave behaves like a focused detail surface.
+      const weaveOrigin = (practiceRouteParams as { origin?: unknown } | undefined)?.origin;
+      return practiceRouteName === 'PracticeHome' ||
+        (practiceRouteName === 'TheWeave' && weaveOrigin === 'practice');
+    }
     return chartRouteName === 'ChartHome';
   }, [displayActiveIndex, vaultRouteName, practiceRouteName, chartRouteName]);
 
@@ -351,7 +358,12 @@ export const MainTabNavigator: React.FC = () => {
           swipeEnabled={isTabBarVisible}
         >
           <VaultStackNavigator onRouteChange={setVaultRouteName} />
-          <PracticeStackNavigator onRouteChange={setPracticeRouteName} />
+          <PracticeStackNavigator
+            onRouteChange={(name, params) => {
+              setPracticeRouteName(name);
+              setPracticeRouteParams(params);
+            }}
+          />
           {chartEnabled ? <ChartStackNavigator onRouteChange={setChartRouteName} /> : null}
         </SwipeableTabContainer>
 

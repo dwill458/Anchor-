@@ -7,6 +7,7 @@ import {
   type ChartPracticeContext,
   type PracticeEntryMode,
   type PracticeEntrySource,
+  type PracticeFlowReturnTarget,
 } from '@/types/practice';
 import type { PrimeSessionAccessSnapshot } from '@/hooks/usePrimeSessionAccess';
 import type {
@@ -22,6 +23,8 @@ export interface StartPracticeRequest {
   intention?: string;
   sigilSvg?: string;
   enhancedImageUrl?: string;
+  /** Explicit cross-tab destination preserved through session and paywall flows. */
+  returnTarget?: PracticeFlowReturnTarget;
   /**
    * Course/waypoint context for a Chart-launched session. Only accepted for a
    * Chart `source`; supplying it from any other surface is rejected so a
@@ -103,7 +106,19 @@ export function startPractice(
   const chartContext = normalizeChartPracticeContext(request.chartContext);
   // Chart is not a tab a session can be popped back to, so the return contract
   // is carried in params and resolved by resolvePracticeReturnTarget().
-  const returnTo = chartContext ? ('chart' as const) : ('practice' as const);
+  const returnTarget: PracticeFlowReturnTarget = chartContext
+    ? { kind: 'chart' }
+    : request.returnTarget ??
+      (request.source === 'anchor_detail'
+        ? { kind: 'anchorDetail', anchorId }
+        : { kind: 'practice' });
+  const returnTo = chartContext
+    ? ('chart' as const)
+    : returnTarget.kind === 'anchorDetail'
+      ? ('detail' as const)
+      : returnTarget.kind === 'sanctuary'
+        ? ('vault' as const)
+        : ('practice' as const);
   const chartParams = chartContext
     ? { chartContext, practiceMode: request.mode as Exclude<PracticeEntryMode, 'release'> }
     : {};
@@ -159,7 +174,11 @@ export function startPractice(
     dependencies.navigateToPaywall({
       source: 'premium_practice_locked',
       preferredPlanId: 'annual',
-      resumeTarget: resumeTarget ?? { kind: 'visualize_prepare', anchorId },
+      resumeTarget: resumeTarget ?? {
+        kind: 'visualize_prepare',
+        anchorId,
+        ...(returnTarget.kind !== 'practice' ? { returnTarget } : {}),
+      },
     });
     return false;
   }
@@ -172,29 +191,19 @@ export function startPractice(
   let target: PracticeEntryTarget;
   switch (request.mode) {
     case 'deepPrime':
-      target = request.durationSeconds != null
-        ? {
-          route: 'Ritual',
-          params: {
-            anchorId,
-            ritualType: 'ritual',
-            durationSeconds: request.durationSeconds,
-            audioConfiguration,
-            returnTo,
-            source: request.source,
-            ...chartParams,
-          },
-        }
-        : {
-          route: 'ChargeSetup',
-          params: {
-            anchorId,
-            returnTo,
-            initialDuration: 'deep',
-            source: request.source,
-            ...chartParams,
-          },
-        };
+      target = {
+        route: 'ChargeSetup',
+        params: {
+          anchorId,
+          returnTo,
+          returnTarget,
+          initialDuration: 'deep',
+          initialDurationSeconds: request.durationSeconds,
+          flowVariant: 'practice',
+          source: request.source,
+          ...chartParams,
+        },
+      };
       break;
     case 'focus':
       target = {
@@ -205,6 +214,8 @@ export function startPractice(
           durationOverride: request.durationSeconds ?? dependencies.defaultFocusDurationSeconds,
           audioConfiguration,
           returnTo,
+          returnTarget,
+          flowVariant: 'practice',
           source: request.source,
           ...chartParams,
         },
@@ -213,7 +224,7 @@ export function startPractice(
     case 'visualize':
       target = {
         route: 'VisualizePreparation',
-        params: { anchorId, returnTo, source: request.source, ...chartParams },
+        params: { anchorId, returnTo, returnTarget, source: request.source, ...chartParams },
       };
       break;
     case 'release':
@@ -224,7 +235,10 @@ export function startPractice(
           intention: getAnchorIntention(anchor, request),
           sigilSvg: request.sigilSvg ?? anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg ?? '',
           enhancedImageUrl: request.enhancedImageUrl ?? anchor.enhancedImageUrl,
-          returnTo: 'practice',
+          // Chart releases are rejected above; narrow the legacy route string
+          // here so the destructive flow can never receive Chart context.
+          returnTo: returnTo === 'chart' ? 'practice' : returnTo,
+          returnTarget,
           source: request.source,
         },
       };

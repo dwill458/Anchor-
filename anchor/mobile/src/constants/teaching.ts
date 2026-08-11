@@ -71,6 +71,21 @@ export interface TeachingContent {
 
 export const TEACHINGS: Record<string, TeachingContent> = {
 
+  // ── The Weave ───────────────────────────────────────────────────────────────
+
+  weave_intro_v1: {
+    teachingId: 'weave_intro_v1',
+    screen: 'the_weave',
+    trigger: 'first_time',
+    guideOnly: false,
+    tier: 'both',
+    copy: 'Each completed return becomes a thread. Tap a node to see the practice it holds.',
+    pattern: 'inline_whisper',
+    tone: 'grounding',
+    maxShows: 1,
+    cooldownMs: 0,
+  },
+
   // ── IntentionInput ──────────────────────────────────────────────────────────
 
   intention_input_first_time_v1: {

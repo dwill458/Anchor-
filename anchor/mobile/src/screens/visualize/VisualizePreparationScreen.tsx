@@ -64,7 +64,8 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
 }) => {
   const window = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const { navigateToPaywall } = useTabNavigation();
+  const { navigateToPaywall, navigateToVault, returnToAnchorDetail: canonicalReturnToAnchorDetail } = useTabNavigation();
+  const returnToAnchorDetail = canonicalReturnToAnchorDetail ?? ((anchorId: string) => navigateToVault('AnchorDetail', { anchorId }));
   const returnToChart = useChartPracticeReturn(navigation);
   const anchor = useAnchorStore((state) =>
     state.getAnchorById(route.params.anchorId),
@@ -402,6 +403,7 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
         ? { practiceEntrySource: route.params.source }
         : {}),
       returnTo: route.params.returnTo,
+      returnTarget: route.params.returnTarget,
       chartContext: route.params.chartContext,
       practiceMode: route.params.practiceMode,
     });
@@ -413,6 +415,11 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
       anchorId: route.params.anchorId,
       chartContext: route.params.chartContext,
     })) return;
+    if (route.params.returnTarget?.kind === 'anchorDetail') {
+      navigation.popToTop();
+      returnToAnchorDetail(route.params.returnTarget.anchorId);
+      return;
+    }
     navigation.goBack();
   };
 

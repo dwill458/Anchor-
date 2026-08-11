@@ -21,6 +21,7 @@ import { AnalyticsEvents, AnalyticsService } from "@/services/AnalyticsService";
 import { colors as themeColors, typography } from "@/theme";
 import { getVisualizationLensSize } from './visualizePresentation';
 import { useChartPracticeReturn } from '@/hooks/useChartPracticeReturn';
+import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import {
   VisualizationAnchorLens,
   VisualizationPhaseProgress,
@@ -40,6 +41,9 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
 }) => {
   const window = useWindowDimensions();
   const returnToChart = useChartPracticeReturn(navigation);
+  const { navigateToSanctuary: canonicalNavigateToSanctuary, navigateToVault, returnToAnchorDetail: canonicalReturnToAnchorDetail } = useTabNavigation();
+  const navigateToSanctuary = canonicalNavigateToSanctuary ?? (() => navigateToVault());
+  const returnToAnchorDetail = canonicalReturnToAnchorDetail ?? ((anchorId: string) => navigateToVault('AnchorDetail', { anchorId }));
   const anchor = useAnchorStore((state) =>
     state.getAnchorById(route.params.anchorId),
   );
@@ -60,6 +64,22 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
   );
   const lensSize = getVisualizationLensSize('completion', window.width);
   const isChartReturn = route.params.returnTo === 'chart';
+  const returnLabel = route.params.returnTarget?.kind === 'anchorDetail'
+    ? 'RETURN TO ANCHOR'
+    : route.params.returnTarget?.kind === 'sanctuary'
+      ? 'RETURN TO SANCTUARY'
+      : 'RETURN TO PRACTICE';
+
+  const returnToOrigin = () => {
+    navigation.popToTop();
+    if (route.params.returnTarget?.kind === 'anchorDetail') {
+      returnToAnchorDetail(route.params.returnTarget.anchorId);
+      return;
+    }
+    if (route.params.returnTarget?.kind === 'sanctuary') {
+      navigateToSanctuary();
+    }
+  };
 
   const handleChartReturn = () => {
     returnToChart({
@@ -177,6 +197,8 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
               navigation.replace("VisualizePreparation", {
                 anchorId: route.params.anchorId,
                 source: "practice_again",
+                returnTo: route.params.returnTo,
+                returnTarget: route.params.returnTarget,
               });
               }}
               />
@@ -186,11 +208,11 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
                 AnalyticsEvents.VISUALIZE_RETURN_TO_SANCTUARY_SELECTED,
                 { anchor_id: route.params.anchorId },
               );
-              navigation.popToTop();
+              returnToOrigin();
             }}
             style={styles.secondary}
           >
-            <Text style={styles.secondaryText}>RETURN TO SANCTUARY</Text>
+            <Text style={styles.secondaryText}>{returnLabel}</Text>
               </Pressable>
             </>}
           </View>

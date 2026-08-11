@@ -31,8 +31,10 @@ import { ChevronRight, Share2, Zap } from 'lucide-react-native';
 import { MoreRitualsSheet, RitualType } from '@/components/MoreRitualsSheet';
 import { useToast } from '@/components/ToastProvider';
 import { usePracticeEntry } from '@/hooks/usePracticeEntry';
+import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { ENABLE_MERCH } from '@/config';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
@@ -48,6 +50,8 @@ import { colors, spacing, typography } from '@/theme';
 import { MicroTeachHintRow, MicroTeachInfoChip } from '@/components/teaching';
 import { useTeachingGate } from '@/utils/useTeachingGate';
 import { calculateStreak } from '@/utils/streakHelpers';
+import { selectCanonicalPracticeEvents } from '@/utils/practiceMetrics';
+import { eventMatchesAnchor, formatWeaveDuration } from '@/screens/weave/weaveData';
 import Reanimated, {
   Easing as ReanimatedEasing,
   cancelAnimation,
@@ -647,6 +651,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const isReducedEffectsDevice = perfTier !== 'high';
   const shouldAnimateIntro = perfTier === 'high';
   const { startPractice } = usePracticeEntry();
+  const { navigateToPractice } = useTabNavigation();
   const toast = useToast();
   const anchorReuseTeaching = useTeachingGate({
     screenId: 'anchor_detail',
@@ -656,7 +661,8 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const removeAnchor = useAnchorStore((state) => state.removeAnchor);
   const defaultActivation = useSettingsStore((s) => s.defaultActivation);
   const setDefaultActivation = useSettingsStore((s) => s.setDefaultActivation);
-  const sessionLog = useSessionStore((s) => s.sessionLog);
+  const practiceHistory = useSessionStore((s) => s.practiceHistory);
+  const accountId = useAuthStore((s) => s.user?.id ?? null);
   const [isReady, setIsReady] = useState(false);
   const [activeDuration, setActiveDuration] = useState('30s');
   const [primerVisible, setPrimerVisible] = useState(false);
@@ -754,16 +760,18 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         totalPrimingSessions: 0,
         lastPrimedAt: null,
         weekHistory: [false, false, false, false, false, false, false],
+        practiceDays: 0,
+        activeWeeks: 0,
+        practicedSeconds: 0,
+        modeCounts: { focus: 0, visualize: 0, deep_prime: 0, release: 0 },
+        recentSessions: [],
       };
     }
 
     const currentWeekKey = isoWeekKey(new Date());
-    const primingSessions = sessionLog
-      .filter(
-        (entry) =>
-          entry.anchorId === anchorId &&
-          (entry.type === 'activate' || entry.type === 'reinforce'),
-      )
+    const anchorAliases = [anchorId, sourceAnchor?.id, sourceAnchor?.localId];
+    const primingSessions = selectCanonicalPracticeEvents(practiceHistory, accountId)
+      .filter((entry) => eventMatchesAnchor(entry, anchorAliases))
       .sort(
         (a, b) =>
           new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime(),
@@ -797,8 +805,13 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         ? localDateString(new Date(primingSessions[0].completedAt))
         : null,
       weekHistory: weekHistoryForAnchor,
+      practiceDays: new Set(primingSessions.map((entry) => entry.localDateKey)).size,
+      activeWeeks: new Set(primingSessions.map((entry) => isoWeekKey(new Date(entry.completedAt)))).size,
+      practicedSeconds: primingSessions.reduce((total, entry) => total + Math.max(0, entry.completedDurationSeconds || 0), 0),
+      modeCounts: primingSessions.reduce((counts, entry) => ({ ...counts, [entry.practiceMode]: counts[entry.practiceMode] + 1 }), { focus: 0, visualize: 0, deep_prime: 0, release: 0 }),
+      recentSessions: primingSessions.slice(0, 3),
     };
-  }, [anchorId, sessionLog]);
+  }, [accountId, anchorId, practiceHistory, sourceAnchor?.id, sourceAnchor?.localId]);
   const threadStrengthValue = resolveAnchorStrengthPct({
     storedStrength: sourceAnchor?.threadStrength ?? null,
     totalSessions: anchorPractice.totalPrimingSessions,
@@ -1045,6 +1058,15 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
     if (anchorId) {
       startPractice({ mode: 'deepPrime', anchorId, source: 'anchor_detail' });
     }
+  };
+
+  const handleOpenWeave = () => {
+    if (!anchorId) return;
+    navigateToPractice('TheWeave', {
+      origin: 'anchorDetail',
+      originAnchorId: anchorId,
+      initialScope: { kind: 'anchor', anchorId },
+    });
   };
 
   const handleMoreRitualsPress = () => {
@@ -1621,6 +1643,36 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
             </TouchableOpacity>
           </FadeUp>
         </View>
+
+        <FadeUp delay={205} animate={shouldAnimateIntro}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Open this anchor's Weave"
+            accessibilityHint="View completed practice history for this anchor"
+            testID="anchor-detail-open-weave"
+            activeOpacity={0.82}
+            onPress={handleOpenWeave}
+            style={s.weavePreview}
+          >
+            <View style={s.weavePreviewCopy}>
+              <Text style={s.weavePreviewEyebrow}>PRACTICE HISTORY</Text>
+              <Text style={s.weavePreviewTitle}>The Weave</Text>
+              <Text style={s.weavePreviewText}>
+                {anchorPractice.totalPrimingSessions > 0
+                  ? `${anchorPractice.totalPrimingSessions} completed returns, held in one thread.`
+                  : 'Your completed returns will gather here.'}
+              </Text>
+              <View style={s.weavePreviewMetrics}>
+                <Text style={s.weavePreviewMetric}>{anchorPractice.practiceDays} days</Text>
+                <Text style={s.weavePreviewMetric}>{anchorPractice.activeWeeks} weeks</Text>
+                <Text style={s.weavePreviewMetric}>{formatWeaveDuration(anchorPractice.practicedSeconds)}</Text>
+              </View>
+              <Text style={s.weavePreviewMix}>Practice mix · Focus {anchorPractice.modeCounts.focus} · Visualize {anchorPractice.modeCounts.visualize} · Deep Prime {anchorPractice.modeCounts.deep_prime}</Text>
+              {anchorPractice.recentSessions[0] ? <Text style={s.weavePreviewRecent}>Recent · {anchorPractice.recentSessions[0].practiceMode.replace('_', ' ')} · {localDateString(new Date(anchorPractice.recentSessions[0].completedAt))}</Text> : null}
+            </View>
+            <ChevronRight size={20} color={colors.gold} />
+          </TouchableOpacity>
+        </FadeUp>
 
         {/* ── PRIMARY CTA ── */}
         <FadeUp delay={220} animate={shouldAnimateIntro}>
@@ -2781,6 +2833,42 @@ const s = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: 'transparent',
   },
+  weavePreview: {
+    marginTop: spacing.md,
+    minHeight: 112,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(212,175,55,0.22)',
+  },
+  weavePreviewCopy: { flex: 1, paddingRight: spacing.sm },
+  weavePreviewEyebrow: {
+    color: 'rgba(242,223,168,0.56)',
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 8,
+    letterSpacing: 2,
+  },
+  weavePreviewTitle: {
+    color: colors.gold,
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 18,
+    marginTop: 3,
+  },
+  weavePreviewText: {
+    color: 'rgba(245,245,241,0.58)',
+    fontFamily: typography.fontFamily.bodySerifItalic,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 3,
+  },
+  weavePreviewMetrics: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm },
+  weavePreviewMetric: { color: 'rgba(242,223,168,0.65)', fontFamily: typography.fontFamily.sans, fontSize: 9, letterSpacing: 0.7 },
+  weavePreviewMix: { color: 'rgba(245,245,241,0.55)', fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 11, lineHeight: 16, marginTop: spacing.xs },
+  weavePreviewRecent: { color: 'rgba(245,245,241,0.48)', fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 11, marginTop: spacing.xs },
   primaryCtaGradient: {
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,

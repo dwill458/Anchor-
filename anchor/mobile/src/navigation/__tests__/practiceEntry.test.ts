@@ -74,7 +74,10 @@ describe('startPractice', () => {
       params: {
         anchorId: anchor.id,
         returnTo: 'practice',
+        returnTarget: { kind: 'practice' },
         initialDuration: 'deep',
+        initialDurationSeconds: undefined,
+        flowVariant: 'practice',
         source: 'practice_hero',
       },
     });
@@ -95,6 +98,25 @@ describe('startPractice', () => {
     expect(routes).toEqual(['ActivationRitual', 'VisualizePreparation', 'ConfirmBurn']);
     expect(routes).not.toContain('Sanctuary');
     expect(routes).not.toContain('AnchorDetail');
+  });
+
+  it('preserves an Anchor Detail destination through every entry target', () => {
+    const dependencies = buildDependencies();
+    const returnTarget = { kind: 'anchorDetail' as const, anchorId: anchor.id };
+
+    expect(startPractice({
+      mode: 'focus',
+      anchorId: anchor.id,
+      source: 'anchor_detail',
+      returnTarget,
+    }, dependencies)).toBe(true);
+
+    expect(dependencies.navigateToPractice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        route: 'ActivationRitual',
+        params: expect.objectContaining({ returnTo: 'detail', returnTarget }),
+      }),
+    );
   });
 
   it('validates the anchor and mode before making any navigation call', () => {

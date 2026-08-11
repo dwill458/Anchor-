@@ -64,7 +64,8 @@ type ChargeCompleteNavigationProp = StackNavigationProp<
 
 export const ChargeCompleteScreen: React.FC = () => {
   const navigation = useNavigation<ChargeCompleteNavigationProp>();
-  const { navigateToPractice } = useTabNavigation();
+  const { navigateToPractice, navigateToVault, returnToAnchorDetail: canonicalReturnToAnchorDetail } = useTabNavigation();
+  const returnToAnchorDetail = canonicalReturnToAnchorDetail ?? ((anchorId: string) => navigateToVault('AnchorDetail', { anchorId }));
   const returnToChart = useChartPracticeReturn(navigation);
   const route = useRoute<ChargeCompleteRouteProp>();
   const {
@@ -73,6 +74,7 @@ export const ChargeCompleteScreen: React.FC = () => {
     completionEventId: routeCompletionEventId,
     audioConfiguration: routeAudioConfiguration,
     returnTo,
+    returnTarget,
     source,
     chartContext,
     practiceMode,
@@ -260,12 +262,16 @@ export const ChargeCompleteScreen: React.FC = () => {
       return;
     }
 
-    if (returnTo === 'practice') {
+    if (returnTarget?.kind === 'anchorDetail') {
+      const nav = navigation as unknown as { popToTop?: () => void };
+      nav.popToTop?.();
+      returnToAnchorDetail(returnTarget.anchorId);
+    } else if (returnTo === 'practice') {
       const nav = navigation as unknown as { popToTop?: () => void };
       nav.popToTop?.();
       navigateToPractice();
     } else if (returnTo === 'detail') {
-      navigation.navigate('AnchorDetail', { anchorId });
+      returnToAnchorDetail(anchorId);
     } else {
       navigateToVaultDestination(navigation, 'reset');
     }

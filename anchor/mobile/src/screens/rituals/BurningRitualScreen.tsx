@@ -31,7 +31,8 @@ type BurningRitualNavigationProp = StackNavigationProp<RootStackParamList, 'Burn
 export const BurningRitualScreen: React.FC = () => {
   const route = useRoute<BurningRitualRouteProp>();
   const navigation = useNavigation<BurningRitualNavigationProp>();
-  const { navigateToVault, navigateToPractice } = useTabNavigation();
+  const { navigateToSanctuary: canonicalNavigateToSanctuary, navigateToVault } = useTabNavigation();
+  const navigateToSanctuary = canonicalNavigateToSanctuary ?? (() => navigateToVault());
   const releaseAnchor = useAnchorStore((state) => state.releaseAnchor);
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -210,12 +211,10 @@ export const BurningRitualScreen: React.FC = () => {
     } else {
       navigation.goBack();
     }
-    if (returnTo === 'practice') {
-      navigateToPractice();
-      return;
-    }
-    navigateToVault();
-  }, [navigation, navigateToPractice, navigateToVault, returnTo]);
+    // Releasing is final for this Anchor: completion always returns to
+    // Sanctuary, never to a stale Practice or Detail route.
+    navigateToSanctuary();
+  }, [navigation, navigateToSanctuary]);
 
   const handleReturnToAnchor = useCallback(() => {
     navigation.goBack();
