@@ -35,6 +35,7 @@ import {
 } from '@/constants/traceHints';
 import { stableIndex } from '@/utils/hash';
 import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
+import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
 
 type ManualReinforcementRouteProp = RouteProp<RootStackParamList, 'ManualReinforcement'>;
 type ManualReinforcementNavigationProp = StackNavigationProp<
@@ -396,12 +397,13 @@ export default function ManualReinforcementScreen() {
       return;
     }
 
-    navigation.navigate('LockStructure', {
+    useFirstAnchorFlowStore.getState().updateDraft({ traceSvg: reinforcedSvg });
+    navigation.navigate('StyleSelection', {
       intentionText,
       category,
       distilledLetters,
       baseSigilSvg,
-      reinforcedSigilSvg: undefined,
+      reinforcedSigilSvg: reinforcedSvg,
       structureVariant,
       reinforcementMetadata: {
         completed: true,
@@ -420,7 +422,8 @@ export default function ManualReinforcementScreen() {
       return;
     }
 
-    navigation.navigate('LockStructure', {
+    useFirstAnchorFlowStore.getState().updateDraft({ traceSvg: undefined });
+    navigation.navigate('StyleSelection', {
       intentionText,
       category,
       distilledLetters,

@@ -16,6 +16,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/types';
 import { useAuthStore } from '@/stores/authStore';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
 import { useAudio } from '@/hooks/useAudio';
 import { colors } from '@/theme';
 import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
@@ -49,6 +50,13 @@ export default function LetterDistillationScreen({ route, navigation }: Props) {
   const localAnchorCount = useAnchorStore((state) => state.anchors.length);
   const isCompactLayout = isCompactPhoneViewport(width, height);
   const isShortLayout = isShortPhoneViewport(height);
+
+  useEffect(() => {
+    useFirstAnchorFlowStore.getState().updateDraft({
+      originalIntention: intentionText,
+      distilledLetters,
+    });
+  }, [distilledLetters, intentionText]);
 
   // Step 2: unique alphabetic letters from raw intention (spaces removed, vowels kept)
   const step2Letters = useMemo(() => {
@@ -164,7 +172,7 @@ export default function LetterDistillationScreen({ route, navigation }: Props) {
     hasNavigatedRef.current = true;
     clearStageTimers();
 
-    navigation.navigate('SigilSelection', {
+    navigation.navigate('StructureForge', {
       intentionText,
       category,
       distilledLetters: step4Letters,

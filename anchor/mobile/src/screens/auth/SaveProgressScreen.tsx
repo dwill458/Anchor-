@@ -38,6 +38,7 @@ import type { Anchor, RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
 import { logger } from '@/utils/logger';
+import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 
@@ -320,7 +321,7 @@ export const SaveProgressScreen: React.FC = () => {
       }
 
       if (!pendingFirstAnchorDraft) {
-        navigation.replace('Vault');
+        navigation.replace('PrimeYourAnchor', { anchorId: anchor.id });
         return;
       }
 
@@ -332,7 +333,8 @@ export const SaveProgressScreen: React.FC = () => {
       void (async () => {
         const didFinalize = await finalizePendingFirstAnchorDraft();
         if (!cancelled && didFinalize) {
-          navigation.replace('Vault');
+          useFirstAnchorFlowStore.getState().clearDraft();
+          navigation.replace('PrimeYourAnchor', { anchorId: anchor.id });
         }
       })();
 
@@ -370,7 +372,8 @@ export const SaveProgressScreen: React.FC = () => {
     clearPendingFirstAnchorError();
     const didFinalize = await finalizePendingFirstAnchorDraft();
     if (didFinalize) {
-      navigation.replace('Vault');
+      useFirstAnchorFlowStore.getState().clearDraft();
+      navigation.replace('PrimeYourAnchor', { anchorId: anchor.id });
     }
   };
 

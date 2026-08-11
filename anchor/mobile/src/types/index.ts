@@ -761,6 +761,8 @@ export type RootStackParamList = {
     enhancedImageUrl?: string;
     reinforcementMetadata?: ReinforcementMetadata;
     enhancementMetadata?: EnhancementMetadata;
+  /** Canonical first-time bridge from a saved Anchor to Sanctuary/practice. */
+  PrimeYourAnchor: { anchorId: string };
   };
 
   // DEFERRED: Mantra feature removed from launch flow — reintroduce in v1.1.

@@ -1,7 +1,7 @@
 /**
  * NarrativeOnboardingScreen — visual goal setting introduction
  *
- * 5-screen Cognitive Priming Utility onboarding flow.
+ * Six-screen Anchor 1.5 onboarding flow.
  */
 
 import React, { useState, useRef, useCallback } from 'react';
@@ -11,13 +11,14 @@ import {
   Image,
   StyleSheet,
   TouchableOpacity,
+  TextInput,
   Animated,
   Easing,
   Platform,
   useWindowDimensions,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { useAuthStore } from '@/stores/authStore';
 import { ForgeDemo } from '@/components/onboarding/ForgeDemo';
@@ -29,6 +30,7 @@ import { colors, typography } from '@/theme';
 import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
 import { getOnboardingProgressPercent } from '@/utils/onboardingProgress';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
+import { useFirstAnchorFlowStore, type OnboardingUseCase } from '@/stores/firstAnchorFlowStore';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const anchorLogoOfficial = require('../../assets/images/anchor-visual-goal-setting-logo.png') as number;
 
@@ -62,7 +64,7 @@ interface OnboardingSlide {
   label: string;
   headline: string;
   body: string;
-  visual: 'orbits' | 'signal' | 'forge' | 'usecases' | 'final';
+  visual: 'orbits' | 'signal' | 'personalize' | 'forge' | 'usecases' | 'final';
   cta: string;
 }
 
@@ -85,23 +87,31 @@ const SLIDES: OnboardingSlide[] = [
   },
   {
     id: 2,
-    label: '03 / THE MECHANISM',
+    label: '03 / MAKE IT YOURS',
+    headline: 'WHAT DO YOU WANT\nTO RETURN TO?',
+    body: 'A name and one real-life context help Anchor meet you with the right kind of focus.',
+    visual: 'personalize',
+    cta: 'Next',
+  },
+  {
+    id: 3,
+    label: '04 / THE MECHANISM',
     headline: 'ANCHOR TURNS YOUR\nINTENTION INTO A\nPERSONAL **VISUAL CUE.**',
     body: 'This is visual goal setting made personal. Your words become a unique symbol you can return to at a glance.',
     visual: 'forge',
     cta: 'Next',
   },
   {
-    id: 3,
-    label: '04 / THE PRACTICE',
+    id: 4,
+    label: '05 / THE PRACTICE',
     headline: 'USE IT BEFORE THE\n**MOMENTS THAT MATTER.**',
     body: 'Not a reminder. A primer. Return to your Anchor before deep work, training, or any moment that demands your full attention.',
     visual: 'usecases',
     cta: 'Next',
   },
   {
-    id: 4,
-    label: '05 / BEGIN',
+    id: 5,
+    label: '06 / BEGIN',
     headline: 'CREATE YOUR FIRST\n**ANCHOR NOW.**',
     body: 'Start with one intention. Turn it into a visual anchor you can practice with and return to throughout your day.',
     visual: 'final',
@@ -480,12 +490,15 @@ const FinalVisual: React.FC<{ reduceMotion: boolean }> = ({ reduceMotion }) => {
 // Corner accents + ornament
 // ---------------------------------------------------------------------------
 
-const CornerAccents: React.FC = () => (
+const CornerAccents: React.FC<{ topOffset: number; bottomOffset: number }> = ({
+  topOffset,
+  bottomOffset,
+}) => (
   <>
-    <View style={[styles.corner, styles.cornerTL]} />
-    <View style={[styles.corner, styles.cornerTR]} />
-    <View style={[styles.corner, styles.cornerBL]} />
-    <View style={[styles.corner, styles.cornerBR]} />
+    <View style={[styles.corner, styles.cornerTL, { top: topOffset }]} />
+    <View style={[styles.corner, styles.cornerTR, { top: topOffset }]} />
+    <View style={[styles.corner, styles.cornerBL, { bottom: bottomOffset }]} />
+    <View style={[styles.corner, styles.cornerBR, { bottom: bottomOffset }]} />
   </>
 );
 
@@ -504,6 +517,7 @@ const Ornament: React.FC = () => (
 export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
   const { completeOnboarding, setShouldRedirectToCreation, setIsGuest } = useAuthStore();
   const reduceMotion = useReduceMotionEnabled();
+  const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const isShortScreen = isShortPhoneViewport(height);
   const isCompactLayout = isCompactPhoneViewport(width, height);
@@ -513,6 +527,12 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
   const visualAreaHeight = isCompactLayout ? Math.round(height * (isShortScreen ? 0.34 : 0.37)) : 370;
 
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [name, setName] = useState(
+    () => useFirstAnchorFlowStore.getState().draft?.onboardingName ?? ''
+  );
+  const [selectedUseCase, setSelectedUseCase] = useState<OnboardingUseCase | undefined>(
+    () => useFirstAnchorFlowStore.getState().draft?.onboardingUseCase
+  );
   const slideOpacity = useRef(new Animated.Value(1)).current;
   const transitioning = useRef(false);
 
@@ -543,7 +563,11 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
     if (currentSlide < TOTAL - 1) {
       goToSlide(currentSlide + 1);
     } else {
-      // Slide 4 — complete onboarding, redirect to first anchor creation
+      useFirstAnchorFlowStore.getState().updateDraft({
+        onboardingName: name.trim() || undefined,
+        onboardingUseCase: selectedUseCase,
+      });
+      // Complete onboarding and redirect to canonical first-anchor creation.
       setShouldRedirectToCreation(true);
       completeOnboarding();
       // RootNavigator switches to Main automatically on hasCompletedOnboarding change
@@ -573,7 +597,52 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
     switch (slide.visual) {
       case 'orbits':    return wrapSmall(<OrbitsVisual reduceMotion={reduceMotion} />);
       case 'signal':    return wrapSmall(<SignalVisual reduceMotion={reduceMotion} />);
-      case 'forge':     return <ForgeDemo isActive={currentSlide === 2} />;
+      case 'personalize': return (
+        <View style={[styles.personalizeCard, { width: contentWidth }]}>
+          <Text style={styles.personalizeLabel}>YOUR NAME <Text style={styles.optional}>OPTIONAL</Text></Text>
+          <TextInput
+            value={name}
+            onChangeText={(value) => {
+              setName(value);
+              useFirstAnchorFlowStore.getState().updateDraft({ onboardingName: value.trim() || undefined });
+            }}
+            placeholder="What should we call you?"
+            placeholderTextColor="rgba(135, 147, 157, 0.72)"
+            maxLength={48}
+            autoCapitalize="words"
+            accessibilityLabel="Your name"
+            style={styles.nameInput}
+          />
+          <Text style={styles.personalizeLabel}>A MOMENT THAT MATTERS</Text>
+          <View accessibilityRole="radiogroup" style={styles.useCaseChoices}>
+            {[
+              ['deep_work', 'Deep work'],
+              ['physical', 'Training'],
+              ['high_stakes', 'High stakes'],
+              ['personal', 'Personal life'],
+            ].map(([value, label]) => {
+              const useCase = value as OnboardingUseCase;
+              const selected = selectedUseCase === useCase;
+              return (
+                <TouchableOpacity
+                  key={useCase}
+                  onPress={() => {
+                    setSelectedUseCase(useCase);
+                    useFirstAnchorFlowStore.getState().updateDraft({ onboardingUseCase: useCase });
+                  }}
+                  accessibilityRole="radio"
+                  accessibilityLabel={label}
+                  accessibilityState={{ selected }}
+                  style={[styles.useCaseChoice, selected && styles.useCaseChoiceSelected]}
+                >
+                  <Text style={[styles.useCaseChoiceText, selected && styles.useCaseChoiceTextSelected]}>{label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      );
+      case 'forge':     return <ForgeDemo isActive={currentSlide === 3} />;
       case 'usecases':  return (
         <View style={[styles.useCasesWrapper, { width: contentWidth }]}>
           {USE_CASES.map((item, i) => (
@@ -581,7 +650,7 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
               key={item.label}
               item={item}
               index={i}
-              isActive={currentSlide === 3}
+              isActive={currentSlide === 4}
             />
           ))}
         </View>
@@ -597,7 +666,10 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
     <SafeAreaView style={styles.container}>
       <AmbientBleed />
 
-      <CornerAccents />
+      <CornerAccents
+        topOffset={insets.top + 68}
+        bottomOffset={insets.bottom + 104}
+      />
 
       {/* Returning-user sign-in — only visible on the very first slide */}
       {currentSlide === 0 && (
@@ -773,11 +845,11 @@ const visual = {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background.primary },
   ambientBleed: { position: 'absolute', top: 0, left: 0, right: 0, height: '55%', zIndex: 0 },
-  corner: { position: 'absolute', width: 20, height: 20, opacity: 0.3, zIndex: 5 },
-  cornerTL: { top: 96, left: 20, borderTopWidth: 1, borderLeftWidth: 1, borderColor: colors.gold },
-  cornerTR: { top: 96, right: 20, borderTopWidth: 1, borderRightWidth: 1, borderColor: colors.gold },
-  cornerBL: { bottom: 120, left: 20, borderBottomWidth: 1, borderLeftWidth: 1, borderColor: colors.gold },
-  cornerBR: { bottom: 120, right: 20, borderBottomWidth: 1, borderRightWidth: 1, borderColor: colors.gold },
+  corner: { position: 'absolute', width: 24, height: 24, opacity: 0.26, zIndex: 5 },
+  cornerTL: { left: 36, borderTopWidth: 1, borderLeftWidth: 1, borderColor: withAlpha(colors.gold, 0.8) },
+  cornerTR: { right: 36, borderTopWidth: 1, borderRightWidth: 1, borderColor: withAlpha(colors.gold, 0.8) },
+  cornerBL: { left: 36, borderBottomWidth: 1, borderLeftWidth: 1, borderColor: withAlpha(colors.gold, 0.8) },
+  cornerBR: { right: 36, borderBottomWidth: 1, borderRightWidth: 1, borderColor: withAlpha(colors.gold, 0.8) },
   signInBtn: { position: 'absolute', top: 54, left: 20, zIndex: 20, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, borderWidth: 1, borderColor: withAlpha(colors.gold, 0.55), backgroundColor: withAlpha(colors.gold, 0.08) },
   signInBtnText: { fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE + 1, letterSpacing: 1.8, color: colors.gold },
   skipBtn: { position: 'absolute', top: 54, right: 20, zIndex: 20, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, borderWidth: 1, borderColor: withAlpha(colors.bone, 0.18), backgroundColor: withAlpha(colors.bone, 0.05) },
@@ -791,6 +863,41 @@ const styles = StyleSheet.create({
   textArea: { flex: 1, paddingHorizontal: 36, paddingBottom: 4 },
   textAreaCompact: { paddingHorizontal: 24 },
   useCasesWrapper: { gap: 10, alignSelf: 'center' },
+  personalizeCard: {
+    alignSelf: 'center',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(217, 179, 108, 0.20)',
+    backgroundColor: 'rgba(15, 20, 25, 0.72)',
+    padding: 18,
+    gap: 11,
+  },
+  personalizeLabel: { color: colors.anchor15.ash, fontFamily: typography.fontFamily.ritual, fontSize: 9, letterSpacing: 1.65 },
+  optional: { color: 'rgba(135, 147, 157, 0.62)', fontFamily: typography.fontFamily.instrument, fontSize: 9, letterSpacing: 0 },
+  nameInput: {
+    minHeight: 48,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(244, 239, 230, 0.13)',
+    color: colors.anchor15.bone,
+    backgroundColor: 'rgba(244, 239, 230, 0.035)',
+    fontFamily: typography.fontFamily.voice,
+    fontSize: 18,
+  },
+  useCaseChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  useCaseChoice: {
+    minHeight: 38,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    borderRadius: 19,
+    borderWidth: 1,
+    borderColor: 'rgba(244, 239, 230, 0.12)',
+    backgroundColor: 'rgba(244, 239, 230, 0.025)',
+  },
+  useCaseChoiceSelected: { borderColor: 'rgba(242, 223, 168, 0.58)', backgroundColor: 'rgba(217, 179, 108, 0.12)' },
+  useCaseChoiceText: { color: colors.anchor15.ash, fontFamily: typography.fontFamily.instrument, fontSize: 12 },
+  useCaseChoiceTextSelected: { color: colors.anchor15.giltBright, fontFamily: typography.fontFamily.instrumentSemiBold },
   ornament: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
   ornamentLine: { flex: 1, borderBottomWidth: 1, borderBottomColor: withAlpha(colors.gold, 0.3) },
   ornamentDiamond: { width: 5, height: 5, backgroundColor: colors.gold, opacity: 0.6, transform: [{ rotate: '45deg' }] },

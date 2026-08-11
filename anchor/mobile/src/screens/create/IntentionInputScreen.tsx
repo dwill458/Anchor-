@@ -33,6 +33,7 @@ import { useEntitlements } from '@/hooks/useEntitlements';
 import { getAnchorCreationLimitCopy } from '@/utils/entitlements';
 import { useAuthStore } from '@/stores/authStore';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
 
 const { height } = Dimensions.get('window');
 
@@ -53,6 +54,8 @@ export default function IntentionInputScreen() {
     const entitlements = useEntitlements();
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
     const anchorCount = useAnchorStore((state) => state.anchors.length);
+    const updateFirstAnchorDraft = useFirstAnchorFlowStore((state) => state.updateDraft);
+    const initializedFromDraftRef = useRef(false);
 
     // Teaching: Undertone state
     const [undertoneText, setUndertoneText] = useState<string | null>(null);
@@ -123,7 +126,10 @@ export default function IntentionInputScreen() {
 
     useFocusEffect(
         React.useCallback(() => {
-            setIntention('');
+            if (!initializedFromDraftRef.current) {
+                setIntention(useFirstAnchorFlowStore.getState().draft?.originalIntention ?? '');
+                initializedFromDraftRef.current = true;
+            }
             setDelayedCanSubmit(false);
             setIsFocused(false);
             setUndertoneText(null);
@@ -260,6 +266,11 @@ export default function IntentionInputScreen() {
 
             const distillation = distillIntention(intention);
             const category = detectCategoryFromText(intention);
+            updateFirstAnchorDraft({
+                originalIntention: intention,
+                distilledLetters: distillation.finalLetters,
+                generationStatus: 'idle',
+            });
             navigation.navigate('LetterDistillation', {
                 intentionText: intention,
                 category,

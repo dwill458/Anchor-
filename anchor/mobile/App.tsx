@@ -30,6 +30,11 @@ import {
   CrimsonPro_400Regular,
   CrimsonPro_400Regular_Italic,
 } from '@expo-google-fonts/crimson-pro';
+import {
+  EBGaramond_400Regular,
+  EBGaramond_400Regular_Italic,
+  EBGaramond_500Medium,
+} from '@expo-google-fonts/eb-garamond';
 import { RootNavigator } from './src/navigation';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { ToastProvider } from './src/components/ToastProvider';
@@ -280,6 +285,9 @@ export default function App() {
     'Inter-SemiBold': Inter_600SemiBold,
     'CrimsonPro-Regular': CrimsonPro_400Regular,
     'CrimsonPro-Italic': CrimsonPro_400Regular_Italic,
+    'EBGaramond-Regular': EBGaramond_400Regular,
+    'EBGaramond-Italic': EBGaramond_400Regular_Italic,
+    'EBGaramond-Medium': EBGaramond_500Medium,
     'CormorantGaramond-Regular': CrimsonPro_400Regular,
     'CormorantGaramond-Italic': CrimsonPro_400Regular_Italic,
   });

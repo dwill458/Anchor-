@@ -144,7 +144,7 @@ describe('SaveProgressScreen', () => {
     });
   });
 
-  it('finalizes the pending first anchor and enters the Vault once authenticated', async () => {
+  it('finalizes the pending first anchor and enters Prime once authenticated', async () => {
     mockAuthState = {
       ...mockAuthState,
       isAuthenticated: true,
@@ -154,11 +154,11 @@ describe('SaveProgressScreen', () => {
     render(<SaveProgressScreen />);
 
     await waitFor(() => expect(mockFinalize).toHaveBeenCalled());
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('Vault'));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('PrimeYourAnchor', { anchorId: 'anchor-1' }));
     expect(mockNavigate).not.toHaveBeenCalledWith('SignUp', expect.anything());
   });
 
-  it('drops an authenticated user with no pending draft straight into the Vault', () => {
+  it('drops an authenticated user with no pending draft straight into Prime', () => {
     mockAuthState = {
       ...mockAuthState,
       isAuthenticated: true,
@@ -167,7 +167,7 @@ describe('SaveProgressScreen', () => {
 
     render(<SaveProgressScreen />);
 
-    expect(mockReplace).toHaveBeenCalledWith('Vault');
+    expect(mockReplace).toHaveBeenCalledWith('PrimeYourAnchor', { anchorId: 'anchor-1' });
     expect(mockFinalize).not.toHaveBeenCalled();
   });
 });

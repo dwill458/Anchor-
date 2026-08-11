@@ -32,6 +32,8 @@ import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import PostAuthFlowService from '../../services/PostAuthFlowService';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 import type { AuthScreenParams, RootStackParamList } from '@/types';
+import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
+import { useProfileStore } from '@/stores/profileStore';
 
 type SignUpScreenNavigationProp = StackNavigationProp<RootStackParamList, 'SignUp'>;
 
@@ -41,7 +43,9 @@ interface SignUpScreenProps {
 }
 
 export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route }) => {
-  const [name, setName] = useState('');
+  const [name, setName] = useState(
+    () => useFirstAnchorFlowStore.getState().draft?.onboardingName ?? ''
+  );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -139,6 +143,13 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
       preserveCompletedOnboarding: shouldCompleteOnboardingAfterAuth,
       launchTrialPurchase: false,
     });
+
+    // The onboarding name is private device state until the user explicitly
+    // creates an account. Keep the confirmed value in the local profile; do
+    // not invent a new backend field for it.
+    if (context === 'save_progress' && name.trim()) {
+      useProfileStore.getState().updateProfile({ name: name.trim() });
+    }
 
     const shouldRouteThroughFirstAnchorGate = Boolean(
       useAuthStore.getState().pendingFirstAnchorDraft
