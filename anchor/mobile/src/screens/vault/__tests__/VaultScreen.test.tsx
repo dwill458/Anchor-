@@ -209,7 +209,7 @@ describe('VaultScreen', () => {
         }];
         render(<VaultScreen />);
         expect(screen.getByText('Hero: Build focus')).toBeTruthy();
-        expect(screen.getByLabelText('Create new anchor')).toBeTruthy();
+        expect(screen.getAllByLabelText('Create new anchor').length).toBeGreaterThan(0);
     });
 
     it('shows skeleton loader while loading', () => {
@@ -272,7 +272,8 @@ describe('VaultScreen', () => {
             updatedAt: new Date(),
         }];
         render(<VaultScreen />);
-        fireEvent.press(screen.getByLabelText('Create new anchor'));
+        expect(screen.getByText('CREATE NEW ANCHOR →')).toBeTruthy();
+        fireEvent.press(screen.getByText('CREATE NEW ANCHOR →'));
         expect(mockNavigate).toHaveBeenCalledWith('CreateAnchor');
     });
 
@@ -342,7 +343,7 @@ describe('VaultScreen', () => {
         }];
 
         render(<VaultScreen />);
-        fireEvent.press(screen.getByLabelText('Create new anchor'));
+        fireEvent.press(screen.getByText('CREATE NEW ANCHOR →'));
 
         expect(mockNavigate).toHaveBeenCalledWith('CreateAnchor');
     });
@@ -361,7 +362,7 @@ describe('VaultScreen', () => {
         }];
 
         render(<VaultScreen />);
-        fireEvent.press(screen.getByLabelText('Create new anchor'));
+        fireEvent.press(screen.getByText('CREATE NEW ANCHOR →'));
 
         expect(mockNavigate).toHaveBeenCalledWith('Paywall', {
             source: 'create_anchor_free_locked',

@@ -150,4 +150,38 @@ describe('LoginScreen', () => {
       );
     });
   });
+
+  it('renders Sign in CTA and shows email validation error', async () => {
+    const screen = render(
+      <LoginScreen
+        navigation={mockNavigation as never}
+        route={{ params: { initialTab: 'signin' } }}
+      />
+    );
+
+    expect(screen.getByText('Sign in →')).toBeTruthy();
+    fireEvent.press(screen.getByText('Sign in →'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Please enter a valid email address.')).toBeTruthy();
+    });
+  });
+
+  it('renders Create account CTA and shows password error on short password', async () => {
+    const screen = render(
+      <LoginScreen
+        navigation={mockNavigation as never}
+        route={{ params: { initialTab: 'signup' } }}
+      />
+    );
+
+    expect(screen.getByText('Create account →')).toBeTruthy();
+    fireEvent.changeText(screen.getByPlaceholderText('you@example.com'), 'test@example.com');
+    fireEvent.changeText(screen.getByPlaceholderText('At least 8 characters'), '123');
+    fireEvent.press(screen.getByText('Create account →'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Password must be at least 8 characters.')).toBeTruthy();
+    });
+  });
 });
