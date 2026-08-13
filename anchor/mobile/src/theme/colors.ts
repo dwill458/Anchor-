@@ -24,6 +24,8 @@ export const colors = {
     bone: '#F4EFE6',
     ash: '#87939D',
     hairline: 'rgba(244, 239, 230, 0.10)',
+    hairlineGold: 'rgba(217, 179, 108, 0.12)',
+    goldLine: 'rgba(217, 179, 108, 0.28)',
     goldHairline: 'rgba(217, 179, 108, 0.30)',
     purpleAtmosphere: '#3D2060',
   },

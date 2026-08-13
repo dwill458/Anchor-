@@ -64,7 +64,7 @@ describe('IntentionInputScreen', () => {
     it('stub: renders correctly', () => {
         render(<IntentionInputScreen />);
         expect(screen.getByText('What are you anchoring right now?')).toBeTruthy();
-        expect(screen.getByText('Continue')).toBeTruthy();
+        expect(screen.getByText('Continue →')).toBeTruthy();
     });
 
     it('stub: disables Continue button when input is empty', () => {

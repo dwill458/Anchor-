@@ -1,31 +1,39 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     View,
     Text,
     TextInput,
-    TouchableOpacity,
+    Pressable,
     StyleSheet,
     ScrollView,
     KeyboardAvoidingView,
     Platform,
-    Animated,
-    Dimensions,
-    Easing,
-    AccessibilityInfo,
+    Modal,
     Alert,
     Keyboard,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Circle, Defs, RadialGradient as SvgRadialGradient, Stop } from 'react-native-svg';
+import Animated, {
+    Easing,
+    cancelAnimation,
+    useAnimatedStyle,
+    useSharedValue,
+    withRepeat,
+    withTiming,
+} from 'react-native-reanimated';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types';
 import { distillIntention } from '@/utils/sigil/distillation';
 import { detectCategoryFromText } from '@/utils/categoryDetection';
-import { colors, spacing, typography } from '@/theme';
-import { ZenBackground, UndertoneLine } from '@/components/common';
+import { colors, typography } from '@/theme';
+import { BackChevronIcon, CloseIcon } from '@/components/icons';
 import { useTeachingGate } from '@/utils/useTeachingGate';
 import { useTeachingStore } from '@/stores/teachingStore';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { TEACHINGS } from '@/constants/teaching';
 import { useIntentionValidation } from '@/hooks/useIntentionValidation';
@@ -35,9 +43,87 @@ import { useAuthStore } from '@/stores/authStore';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
 
-const { height } = Dimensions.get('window');
-
 type NavigationProp = StackNavigationProp<RootStackParamList, 'CreateAnchor'>;
+
+const gilt = colors.anchor15.gilt;
+const giltBright = colors.anchor15.giltBright;
+const ash = colors.anchor15.ash;
+const bone = colors.anchor15.bone;
+const boneSoft = 'rgba(244, 239, 230, 0.68)';
+const boneFaint = 'rgba(244, 239, 230, 0.42)';
+const goldLine = colors.anchor15.goldLine;
+const hairlineGold = colors.anchor15.hairlineGold;
+const maxChars = 100;
+
+type PrincipleRow = {
+    key: string;
+    label: string;
+    desc: string;
+    attn?: boolean;
+};
+
+const SHEET_ITEMS = [
+    { label: 'Short', title: 'One intention. One direction.' },
+    {
+        label: 'Present',
+        title: "Write from the state you're choosing, not the state you're escaping.",
+        example: {
+            insteadOf: '"I don\'t want to procrastinate."',
+            tryText: '"I begin important work immediately."',
+        },
+    },
+    { label: 'Felt', title: 'Use words that feel personally meaningful.' },
+];
+
+function GoldGlow() {
+    return (
+        <View pointerEvents="none" style={styles.glowWrap}>
+            <Svg width={340} height={340}>
+                <Defs>
+                    <SvgRadialGradient id="setIntentionGlow" cx="50%" cy="50%" r="50%">
+                        <Stop offset="0%" stopColor={gilt} stopOpacity={0.09} />
+                        <Stop offset="68%" stopColor={gilt} stopOpacity={0} />
+                    </SvgRadialGradient>
+                </Defs>
+                <Circle cx={170} cy={170} r={170} fill="url(#setIntentionGlow)" />
+            </Svg>
+        </View>
+    );
+}
+
+function PulsingBadge({ isNew, reduceMotion }: { isNew: boolean; reduceMotion: boolean }) {
+    const pulse = useSharedValue(0);
+
+    useEffect(() => {
+        if (!isNew || reduceMotion) {
+            cancelAnimation(pulse);
+            pulse.value = 0;
+            return;
+        }
+        pulse.value = withRepeat(
+            withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.sin) }),
+            -1,
+            true
+        );
+        return () => cancelAnimation(pulse);
+    }, [isNew, reduceMotion, pulse]);
+
+    const animatedStyle = useAnimatedStyle(() => ({
+        opacity: 0.7 + pulse.value * 0.3,
+    }));
+
+    return (
+        <Animated.View
+            style={[
+                styles.principlesQ,
+                isNew && styles.principlesQNew,
+                isNew && animatedStyle,
+            ]}
+        >
+            <Text style={[styles.principlesQText, isNew && styles.principlesQTextNew]}>?</Text>
+        </Animated.View>
+    );
+}
 
 export default function IntentionInputScreen() {
     const navigation = useNavigation<NavigationProp>();
@@ -47,9 +133,9 @@ export default function IntentionInputScreen() {
     const scrollViewRef = useRef<ScrollView>(null);
     const textInputRef = useRef<TextInput>(null);
     const [intention, setIntention] = useState('');
-    const [placeholder, setPlaceholder] = useState('');
     const [isFocused, setIsFocused] = useState(false);
     const [delayedCanSubmit, setDelayedCanSubmit] = useState(false);
+    const [sheetOpen, setSheetOpen] = useState(false);
     const intentionValidation = useIntentionValidation(intention);
     const entitlements = useEntitlements();
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -57,72 +143,12 @@ export default function IntentionInputScreen() {
     const updateFirstAnchorDraft = useFirstAnchorFlowStore((state) => state.updateDraft);
     const initializedFromDraftRef = useRef(false);
 
-    // Teaching: Undertone state
-    const [undertoneText, setUndertoneText] = useState<string | null>(null);
-    const undertoneOpacity = useRef(new Animated.Value(0)).current;
-    const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const firstTimeShownRef = useRef(false);
-    const hesitationShownRef = useRef(false);
+    const reduceMotion = useReduceMotionEnabled();
 
-    // Reduced motion
-    const [reduceMotion, setReduceMotion] = useState(false);
-
-    const fadeAnim = useRef(new Animated.Value(0)).current;
-    const focusAnim = useRef(new Animated.Value(0)).current;
-
-    // Teaching gate — evaluated once per render cycle; gates enforce lifetime limits
-    const firstTimeTeaching = useTeachingGate({
+    const principlesTeaching = useTeachingGate({
         screenId: 'intention_input',
-        candidateIds: ['intention_input_first_time_v1'],
+        candidateIds: ['intention_input_principles_v1'],
     });
-    const hesitationTeaching = useTeachingGate({
-        screenId: 'intention_input',
-        candidateIds: ['intention_input_hesitation_v1'],
-    });
-
-    const showUndertone = (text: string, teachingId: string) => {
-        const content = TEACHINGS[teachingId];
-        setUndertoneText(text);
-        recordShown(teachingId, 'inline_whisper', content?.maxShows ?? 1);
-        AnalyticsService.track('teaching_shown', {
-            teaching_id: teachingId,
-            pattern: 'inline_whisper',
-            screen: 'intention_input',
-            trigger: content?.trigger ?? 'first_time',
-            guide_mode: true,
-        });
-        // Respect reduced motion preference
-        if (reduceMotion) {
-            undertoneOpacity.setValue(1);
-        } else {
-            Animated.timing(undertoneOpacity, {
-                toValue: 1,
-                duration: 400,
-                useNativeDriver: true,
-            }).start();
-        }
-    };
-
-    const PLACEHOLDER_POOL = [
-        "Stay focused during training",
-        "Respond calmly under pressure",
-        "Be present with my family",
-        "Trust my decisions",
-        "Listen before reacting"
-    ];
-
-    // Entrance animation + random placeholder
-    useEffect(() => {
-        const randomIndex = Math.floor(Math.random() * PLACEHOLDER_POOL.length);
-        setPlaceholder(`e.g. ${PLACEHOLDER_POOL[randomIndex]}`);
-
-        Animated.timing(fadeAnim, {
-            toValue: 1,
-            duration: 800,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-        }).start();
-    }, []);
 
     useFocusEffect(
         React.useCallback(() => {
@@ -132,40 +158,8 @@ export default function IntentionInputScreen() {
             }
             setDelayedCanSubmit(false);
             setIsFocused(false);
-            setUndertoneText(null);
-
-            if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-
-            undertoneOpacity.setValue(0);
-            focusAnim.setValue(0);
-
-            return () => {
-                if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-            };
-        }, [focusAnim, idleTimerRef, undertoneOpacity])
+        }, [])
     );
-
-    // Cleanup idle timer on unmount
-    useEffect(() => () => {
-        if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    }, []);
-
-    // Check reduced motion accessibility setting on mount
-    useEffect(() => {
-        AccessibilityInfo.isReduceMotionEnabled().then((v) => setReduceMotion(v));
-    }, []);
-
-    // Subtle focus glow animation
-    useEffect(() => {
-        Animated.timing(focusAnim, {
-            toValue: isFocused ? 1 : 0,
-            duration: 400,
-            easing: isFocused ? Easing.out(Easing.cubic) : Easing.in(Easing.cubic),
-            useNativeDriver: false,
-        }).start();
-    }, [isFocused]);
-
-    const maxChars = 100;
 
     // 300ms delay before enabling CTA
     useEffect(() => {
@@ -179,16 +173,6 @@ export default function IntentionInputScreen() {
 
     const handleFocus = () => {
         setIsFocused(true);
-        // First-time undertone: show after 1.2s of focus with no keystrokes
-        if (firstTimeTeaching && !firstTimeShownRef.current) {
-            idleTimerRef.current = setTimeout(() => {
-                if (firstTimeTeaching && !firstTimeShownRef.current) {
-                    firstTimeShownRef.current = true;
-                    showUndertone(firstTimeTeaching.copy, firstTimeTeaching.teachingId);
-                }
-            }, 1200);
-        }
-        // Scroll to end of ScrollView to make sure text box is visible above the keyboard
         setTimeout(() => {
             scrollViewRef.current?.scrollToEnd({ animated: true });
         }, 150);
@@ -197,8 +181,6 @@ export default function IntentionInputScreen() {
     const restoreLayoutAfterKeyboard = React.useCallback(() => {
         textInputRef.current?.blur();
         setIsFocused(false);
-        if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-
         requestAnimationFrame(() => {
             scrollViewRef.current?.scrollTo({ y: 0, animated: true });
         });
@@ -209,29 +191,25 @@ export default function IntentionInputScreen() {
         return () => subscription.remove();
     }, [restoreLayoutAfterKeyboard]);
 
-    const handleBlur = () => {
-        setIsFocused(false);
-        if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    };
+    const handleBlur = () => setIsFocused(false);
 
     const handleIntentionChange = (text: string) => {
         if (text.length <= maxChars) {
             setIntention(text);
+        }
+    };
 
-            // Reset idle timer on every keystroke
-            if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-
-            // Dismiss first-time timer (user is typing, no longer idle)
-            // Schedule hesitation hint after 8s idle (only if user has typed something)
-            if (isFocused && hesitationTeaching && !hesitationShownRef.current && text.length > 0) {
-                idleTimerRef.current = setTimeout(() => {
-                    if (hesitationTeaching && !hesitationShownRef.current) {
-                        hesitationShownRef.current = true;
-                        showUndertone(hesitationTeaching.copy, hesitationTeaching.teachingId);
-                    }
-                }, 8000);
-            }
-
+    const openPrinciplesSheet = () => {
+        setSheetOpen(true);
+        if (principlesTeaching) {
+            recordShown(principlesTeaching.teachingId, 'inline_whisper', principlesTeaching.maxShows ?? 1);
+            AnalyticsService.track('teaching_shown', {
+                teaching_id: principlesTeaching.teachingId,
+                pattern: 'inline_whisper',
+                screen: 'intention_input',
+                trigger: principlesTeaching.trigger,
+                guide_mode: true,
+            });
         }
     };
 
@@ -279,22 +257,48 @@ export default function IntentionInputScreen() {
         }
     };
 
-    const inputBorderColor = focusAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: ['rgba(212, 175, 55, 0.15)', 'rgba(212, 175, 55, 0.4)']
-    });
+    const guidanceText = intentionValidation.guidanceText;
+
+    const principleRows: PrincipleRow[] = [
+        { key: 'short', label: 'Short', desc: 'One clear direction.' },
+        {
+            key: 'present',
+            label: 'Present',
+            desc: guidanceText || "Write from the state you're choosing.",
+            attn: Boolean(guidanceText),
+        },
+        { key: 'felt', label: 'Felt', desc: 'Use words that matter to you.' },
+    ];
 
     return (
         <View style={styles.container}>
             <StatusBar style="light" />
-            <ZenBackground />
+            <LinearGradient
+                colors={[colors.anchor15.creationTop, colors.anchor15.creationBottom, colors.anchor15.navy]}
+                locations={[0, 0.44, 1]}
+                style={StyleSheet.absoluteFill}
+            />
+            <GoldGlow />
 
             <SafeAreaView style={styles.safeArea}>
                 <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + spacing.sm : 0}
+                    keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
                     style={styles.keyboardView}
                 >
+                    <View style={styles.topBar}>
+                        <Pressable
+                            onPress={() => navigation.goBack()}
+                            hitSlop={8}
+                            style={({ pressed }) => [styles.backBtn, pressed && styles.backBtnPressed]}
+                            accessibilityRole="button"
+                            accessibilityLabel="Back"
+                        >
+                            <BackChevronIcon size={16} color={boneSoft} />
+                        </Pressable>
+                        <Text style={styles.stepTag}>Step 1 of 2</Text>
+                    </View>
+
                     <ScrollView
                         ref={scrollViewRef}
                         style={styles.scrollView}
@@ -304,93 +308,178 @@ export default function IntentionInputScreen() {
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
                     >
-                        {/* Title Section */}
-                        <Animated.View style={[
-                            styles.titleSection,
-                            isFocused && styles.titleSectionFocused,
-                            { opacity: fadeAnim }
-                        ]}>
-                            <Text style={[styles.title, isFocused && styles.titleFocused]}>
-                                What are you anchoring right now?
+                        <View style={styles.textZone}>
+                            <View style={styles.eyebrowRow}>
+                                <View style={styles.eyebrowRule} />
+                                <Text style={styles.eyebrow}>Set your intention</Text>
+                            </View>
+                            <Text style={styles.title}>
+                                What are you <Text style={styles.titleEm}>anchoring</Text> right now?
                             </Text>
-                            {!isFocused && (
-                                <Text style={styles.subtitle}>
-                                    Write a short, clear intention.{'\n'}One sentence is enough.
-                                </Text>
-                            )}
-                        </Animated.View>
+                            <Text style={styles.body}>Write one clear intention.</Text>
+                        </View>
 
-                        {/* Intention Input */}
-                        <Animated.View style={[styles.section, { opacity: fadeAnim }]}>
-                            <Animated.View style={[styles.inputContainer, { borderColor: inputBorderColor }]}>
+                        <View style={styles.inputBody}>
+                            <Text style={styles.fieldLabel}>Your intention</Text>
+                            <View
+                                style={[styles.textareaWrap, isFocused && styles.textareaWrapFocused]}
+                            >
                                 <TextInput
                                     ref={textInputRef}
-                                    style={styles.textInput}
+                                    style={styles.textarea}
                                     value={intention}
                                     onChangeText={handleIntentionChange}
                                     onFocus={handleFocus}
                                     onBlur={handleBlur}
-                                    placeholder={placeholder}
-                                    placeholderTextColor={'rgba(192, 192, 192, 0.4)'}
+                                    placeholder="I am fully present with my work."
+                                    placeholderTextColor={boneFaint}
                                     multiline
                                     maxLength={maxChars}
                                     autoCapitalize="sentences"
-                                    autoCorrect={true}
+                                    autoCorrect
                                     returnKeyType="none"
                                     blurOnSubmit={false}
                                     enablesReturnKeyAutomatically={false}
-                                    selectionColor={colors.gold}
+                                    selectionColor={gilt}
                                     accessibilityLabel="What are you anchoring right now?"
                                 />
-                            </Animated.View>
+                            </View>
 
-                            {/* Reassurance Micro-copy */}
-                            <Text style={styles.microCopy}>
-                                You can refine or release this later.
-                            </Text>
-
-                            {/* Undertone (Pattern 1) — prioritized display: guidance > teaching > default */}
-                            {intentionValidation.guidanceText ? (
-                                <View style={styles.undertoneRow}>
-                                    <UndertoneLine text={intentionValidation.guidanceText} variant="emphasis" />
-                                </View>
-                            ) : undertoneText ? (
-                                <Animated.View style={[styles.undertoneRow, { opacity: undertoneOpacity }]}>
-                                    <UndertoneLine text={undertoneText} variant="default" />
-                                </Animated.View>
-                            ) : (
-                                <View style={styles.undertoneRow}>
-                                    <UndertoneLine text="Short. Present. Felt." variant="default" />
+                            {intention.length === 0 && (
+                                <View style={styles.exampleTeach}>
+                                    <View style={styles.exampleLine}>
+                                        <Text style={styles.exampleTag}>Instead of </Text>
+                                        <Text style={styles.exampleQuote}>
+                                            &ldquo;I want to stop getting distracted.&rdquo;
+                                        </Text>
+                                    </View>
+                                    <View style={styles.exampleLine}>
+                                        <Text style={styles.exampleTag}>&rarr; </Text>
+                                        <Text style={styles.exampleGood}>
+                                            &ldquo;I am fully present with my work.&rdquo;
+                                        </Text>
+                                    </View>
                                 </View>
                             )}
-                        </Animated.View>
 
+                            <View style={styles.principles}>
+                                <Pressable
+                                    onPress={openPrinciplesSheet}
+                                    style={styles.principlesToggle}
+                                    hitSlop={{ top: 10, bottom: 10, left: 4, right: 4 }}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Short, present, felt — learn more"
+                                >
+                                    <Text style={styles.principlesToggleText}>Short &middot; Present &middot; Felt</Text>
+                                    <PulsingBadge isNew={Boolean(principlesTeaching)} reduceMotion={reduceMotion} />
+                                </Pressable>
+
+                                {principleRows.map((row) => (
+                                    <View key={row.key} style={styles.principleRow}>
+                                        <View style={[styles.principleCheck, row.attn && styles.principleCheckAttn]}>
+                                            <Text style={[styles.principleCheckText, row.attn && styles.principleCheckTextAttn]}>
+                                                &#10003;
+                                            </Text>
+                                        </View>
+                                        <View style={styles.principleBody}>
+                                            <Text style={styles.principleLabel}>{row.label}</Text>
+                                            <Text style={[styles.principleDesc, row.attn && styles.principleDescAttn]}>
+                                                {row.desc}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                ))}
+                            </View>
+                        </View>
                     </ScrollView>
 
-                    {/* Continue Button */}
-                    <Animated.View style={[styles.continueContainer, { opacity: fadeAnim }]}>
-                        <TouchableOpacity
+                    <View style={[styles.bottomBar, { paddingBottom: 24 + insets.bottom }]}>
+                        <Pressable
                             onPress={handleContinue}
-                            activeOpacity={0.8}
                             disabled={!delayedCanSubmit}
-                            style={[
-                                styles.continueButton,
-                                !delayedCanSubmit && styles.continueButtonDisabled
+                            style={({ pressed }) => [
+                                styles.nextBtn,
+                                !delayedCanSubmit && styles.nextBtnDisabled,
+                                pressed && delayedCanSubmit && styles.nextBtnPressed,
                             ]}
                             accessibilityRole="button"
                             accessibilityLabel="Continue"
                             accessibilityState={{ disabled: !delayedCanSubmit }}
                         >
-                            <Text style={[
-                                styles.continueText,
-                                !delayedCanSubmit && styles.continueTextDisabled
-                            ]}>
-                                Continue
-                            </Text>
-                        </TouchableOpacity>
-                    </Animated.View>
+                            <Text style={styles.nextBtnText}>Continue &rarr;</Text>
+                        </Pressable>
+                    </View>
                 </KeyboardAvoidingView>
             </SafeAreaView>
+
+            <Modal
+                transparent
+                visible={sheetOpen}
+                animationType="slide"
+                onRequestClose={() => setSheetOpen(false)}
+                accessibilityViewIsModal
+            >
+                <Pressable
+                    style={styles.sheetBackdrop}
+                    onPress={() => setSheetOpen(false)}
+                    accessibilityLabel="Dismiss"
+                >
+                    <Pressable
+                        style={{ width: '100%' }}
+                        onPress={(event) => event.stopPropagation()}
+                    >
+                        <LinearGradient
+                            colors={['#1A222B', '#10151B']}
+                            style={[styles.sheet, { paddingBottom: 40 + insets.bottom }]}
+                        >
+                            <View style={styles.sheetHandle} />
+                            <Pressable
+                                onPress={() => setSheetOpen(false)}
+                                hitSlop={8}
+                                style={styles.sheetClose}
+                                accessibilityRole="button"
+                                accessibilityLabel="Close"
+                            >
+                                <CloseIcon size={12} color={boneFaint} />
+                            </Pressable>
+                            <Text style={styles.sheetTitle}>Short &middot; Present &middot; Felt</Text>
+
+                            {SHEET_ITEMS.map((item, index) => (
+                                <View
+                                    key={item.label}
+                                    style={[styles.sheetItem, index === 0 && styles.sheetItemFirst]}
+                                >
+                                    <Text style={styles.sheetItemLabel}>{item.label}</Text>
+                                    <Text style={styles.sheetItemTitle}>{item.title}</Text>
+                                    {item.example && (
+                                        <View style={styles.sheetExample}>
+                                            <View style={styles.sheetExampleRow}>
+                                                <Text style={styles.sheetExTag}>Instead of</Text>
+                                                <Text style={styles.sheetExText}>{item.example.insteadOf}</Text>
+                                            </View>
+                                            <View style={styles.sheetExampleRow}>
+                                                <Text style={[styles.sheetExTag, styles.sheetExTagGood]}>Try</Text>
+                                                <Text style={[styles.sheetExText, styles.sheetExTextGood]}>
+                                                    {item.example.tryText}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                    )}
+                                </View>
+                            ))}
+
+                            <Pressable
+                                onPress={() => setSheetOpen(false)}
+                                style={({ pressed }) => [styles.sheetDismiss, pressed && styles.nextBtnPressed]}
+                                accessibilityRole="button"
+                                accessibilityLabel="Got it"
+                            >
+                                <Text style={styles.sheetDismissText}>Got it</Text>
+                            </Pressable>
+                        </LinearGradient>
+                    </Pressable>
+                </Pressable>
+            </Modal>
         </View>
     );
 }
@@ -398,108 +487,398 @@ export default function IntentionInputScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: colors.navy,
+        backgroundColor: colors.anchor15.navy,
+        overflow: 'hidden',
     },
     safeArea: {
         flex: 1,
     },
+    glowWrap: {
+        position: 'absolute',
+        top: -100,
+        right: -100,
+        width: 340,
+        height: 340,
+    },
     keyboardView: {
         flex: 1,
         justifyContent: 'space-between',
+    },
+    topBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 24,
+        paddingTop: 14,
+        paddingBottom: 12,
+    },
+    backBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: hairlineGold,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    backBtnPressed: {
+        borderColor: goldLine,
+    },
+    stepTag: {
+        fontFamily: typography.fontFamily.ritual,
+        fontSize: 10,
+        fontWeight: '500',
+        letterSpacing: 2,
+        color: ash,
+        textTransform: 'uppercase',
     },
     scrollView: {
         flex: 1,
     },
     scrollContent: {
         flexGrow: 1,
-        paddingHorizontal: spacing.xl,
-        paddingBottom: spacing.lg,  // 24px — breathing room above CTA when keyboard open
+        paddingBottom: 24,
     },
-    titleSection: {
-        paddingTop: height * 0.15,
-        paddingBottom: spacing.xl,
+    textZone: {
+        paddingHorizontal: 28,
+        marginTop: 20,
     },
-    titleSectionFocused: {
-        paddingTop: Platform.OS === 'ios' ? spacing.md : spacing.sm,
-        paddingBottom: spacing.sm,
+    eyebrowRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        marginBottom: 14,
+    },
+    eyebrowRule: {
+        width: 20,
+        height: 1,
+        backgroundColor: goldLine,
+    },
+    eyebrow: {
+        fontFamily: typography.fontFamily.ritual,
+        fontSize: 11,
+        fontWeight: '500',
+        letterSpacing: 2.2,
+        color: ash,
+        textTransform: 'uppercase',
     },
     title: {
-        ...typography.heading,
-        fontSize: 34,
-        lineHeight: 44,
-        color: colors.gold,
-        marginBottom: spacing.lg,
-        letterSpacing: 0.3,
+        fontFamily: typography.fontFamily.voiceItalic,
+        fontStyle: 'italic',
+        fontWeight: '500',
+        fontSize: 27,
+        lineHeight: 34,
+        color: bone,
+        letterSpacing: 0.15,
+        marginBottom: 14,
     },
-    titleFocused: {
-        fontSize: 22,
-        lineHeight: 28,
-        marginBottom: spacing.xs,
+    titleEm: {
+        fontFamily: typography.fontFamily.voice,
+        fontStyle: 'normal',
+        color: giltBright,
     },
-    subtitle: {
-        ...typography.body,
-        fontSize: 17,
-        lineHeight: 28,
-        color: colors.text.secondary,
-        opacity: 0.85,
+    body: {
+        fontFamily: typography.fontFamily.instrument,
+        fontSize: 16,
+        color: boneSoft,
+        lineHeight: 25.6,
     },
-    section: {
-        marginBottom: spacing.xl,
+    inputBody: {
+        paddingHorizontal: 28,
+        marginTop: 24,
     },
-    inputContainer: {
+    fieldLabel: {
+        fontFamily: typography.fontFamily.ritual,
+        fontSize: 10,
+        fontWeight: '500',
+        letterSpacing: 2.4,
+        color: ash,
+        textTransform: 'uppercase',
+        marginBottom: 8,
+    },
+    textareaWrap: {
         borderWidth: 1,
-        borderColor: 'rgba(212, 175, 55, 0.15)',
-        backgroundColor: 'rgba(26, 26, 29, 0.3)',
-        padding: spacing.lg,
-        minHeight: 140,
+        borderColor: 'rgba(217, 179, 108, 0.4)',
+        backgroundColor: 'rgba(244, 239, 230, 0.055)',
+        borderRadius: 14,
+        minHeight: 132,
     },
-    textInput: {
-        ...typography.body,
-        fontSize: 17,
-        color: colors.text.primary,
+    textareaWrapFocused: {
+        borderColor: 'rgba(217, 179, 108, 0.65)',
+        backgroundColor: 'rgba(244, 239, 230, 0.08)',
+    },
+    textarea: {
+        fontFamily: typography.fontFamily.voiceItalic,
+        fontStyle: 'italic',
+        fontSize: 20,
         lineHeight: 28,
-        minHeight: 90,
-        paddingTop: spacing.xs,
-        paddingBottom: spacing.xs,
-        paddingHorizontal: 0,
+        color: bone,
+        padding: 16,
+        minHeight: 132,
         textAlignVertical: 'top',
     },
-    microCopy: {
-        ...typography.body,
-        fontSize: 13,
-        color: colors.text.tertiary,
-        marginTop: spacing.lg,
-        letterSpacing: 0.3,
-        opacity: 0.7,
-        textAlign: 'left',
+    exampleTeach: {
+        marginTop: 16,
+        gap: 4,
     },
-    undertoneRow: {
-        marginTop: spacing.sm,  // 8px
+    exampleLine: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
     },
-    continueContainer: {
-        paddingHorizontal: spacing.xl,
-        paddingBottom: spacing.xxl,
-        paddingTop: spacing.md,
+    exampleTag: {
+        fontFamily: typography.fontFamily.instrument,
+        fontSize: 12.5,
+        lineHeight: 18,
+        color: ash,
     },
-    continueButton: {
-        backgroundColor: colors.gold,
+    exampleQuote: {
+        fontFamily: typography.fontFamily.voiceItalic,
+        fontStyle: 'italic',
+        fontSize: 12.5,
+        lineHeight: 18,
+        color: boneFaint,
+    },
+    exampleGood: {
+        fontFamily: typography.fontFamily.voiceItalic,
+        fontStyle: 'italic',
+        fontSize: 12.5,
+        lineHeight: 18,
+        color: giltBright,
+    },
+    principles: {
+        marginTop: 18,
+        paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: hairlineGold,
+    },
+    principlesToggle: {
+        flexDirection: 'row',
         alignItems: 'center',
+        gap: 7,
+        minHeight: 24,
+    },
+    principlesToggleText: {
+        fontFamily: typography.fontFamily.ritual,
+        fontSize: 9.5,
+        fontWeight: '500',
+        letterSpacing: 1.14,
+        color: ash,
+        textTransform: 'uppercase',
+    },
+    principlesQ: {
+        width: 16,
+        height: 16,
         borderRadius: 8,
-        paddingVertical: spacing.md + 2,
-        paddingHorizontal: spacing.lg,
+        borderWidth: 1,
+        borderColor: goldLine,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    continueButtonDisabled: {
-        backgroundColor: 'rgba(192, 192, 192, 0.15)',
-        opacity: 0.5,
+    principlesQNew: {
+        borderColor: gilt,
     },
-    continueText: {
-        ...typography.heading,
-        fontSize: 17,
-        color: colors.navy,
-        letterSpacing: 0.5,
+    principlesQText: {
+        fontFamily: typography.fontFamily.instrument,
+        fontSize: 10,
+        color: gilt,
+    },
+    principlesQTextNew: {
+        color: giltBright,
+    },
+    principleRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 10,
+        marginTop: 13,
+    },
+    principleCheck: {
+        width: 15,
+        height: 15,
+        borderRadius: 7.5,
+        borderWidth: 1,
+        borderColor: goldLine,
+        marginTop: 2,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    principleCheckAttn: {
+        borderColor: giltBright,
+        backgroundColor: 'rgba(217, 179, 108, 0.12)',
+    },
+    principleCheckText: {
+        fontSize: 9,
+        color: gilt,
+    },
+    principleCheckTextAttn: {
+        color: giltBright,
+    },
+    principleBody: {
+        flex: 1,
+    },
+    principleLabel: {
+        fontFamily: typography.fontFamily.ritual,
+        fontSize: 10,
+        fontWeight: '500',
+        letterSpacing: 1.8,
+        color: gilt,
+        textTransform: 'uppercase',
+        marginBottom: 3,
+    },
+    principleDesc: {
+        fontFamily: typography.fontFamily.voiceItalic,
+        fontStyle: 'italic',
+        fontSize: 13,
+        lineHeight: 17.5,
+        color: boneSoft,
+    },
+    principleDescAttn: {
+        color: giltBright,
+    },
+    bottomBar: {
+        paddingHorizontal: 28,
+        paddingTop: 18,
+        alignItems: 'center',
+    },
+    nextBtn: {
+        width: '100%',
+        height: 56,
+        borderRadius: 999,
+        backgroundColor: 'rgba(217, 179, 108, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(217, 179, 108, 0.34)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    nextBtnPressed: {
+        backgroundColor: 'rgba(217, 179, 108, 0.16)',
+        borderColor: 'rgba(217, 179, 108, 0.48)',
+    },
+    nextBtnDisabled: {
+        opacity: 0.36,
+    },
+    nextBtnText: {
+        fontFamily: typography.fontFamily.ritualSemiBold,
         fontWeight: '600',
+        fontSize: 14,
+        letterSpacing: 2.52,
+        color: giltBright,
+        textTransform: 'uppercase',
     },
-    continueTextDisabled: {
-        color: 'rgba(255, 255, 255, 0.3)',
+    sheetBackdrop: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(6, 9, 13, 0.7)',
+    },
+    sheet: {
+        borderTopLeftRadius: 26,
+        borderTopRightRadius: 26,
+        borderTopWidth: 1,
+        borderColor: goldLine,
+        paddingHorizontal: 26,
+        paddingTop: 14,
+    },
+    sheetHandle: {
+        width: 36,
+        height: 4,
+        borderRadius: 99,
+        backgroundColor: 'rgba(244, 239, 230, 0.18)',
+        alignSelf: 'center',
+        marginBottom: 20,
+    },
+    sheetClose: {
+        position: 'absolute',
+        top: 14,
+        right: 20,
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: hairlineGold,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    sheetTitle: {
+        fontFamily: typography.fontFamily.ritual,
+        fontSize: 11,
+        letterSpacing: 2.42,
+        textTransform: 'uppercase',
+        color: ash,
+        textAlign: 'center',
+        marginBottom: 18,
+    },
+    sheetItem: {
+        paddingVertical: 15,
+        borderTopWidth: 1,
+        borderTopColor: hairlineGold,
+    },
+    sheetItemFirst: {
+        borderTopWidth: 0,
+        paddingTop: 0,
+    },
+    sheetItemLabel: {
+        fontFamily: typography.fontFamily.ritualSemiBold,
+        fontSize: 11,
+        fontWeight: '600',
+        letterSpacing: 2.2,
+        color: gilt,
+        textTransform: 'uppercase',
+        marginBottom: 7,
+    },
+    sheetItemTitle: {
+        fontFamily: typography.fontFamily.voiceItalic,
+        fontStyle: 'italic',
+        fontSize: 16,
+        lineHeight: 22.7,
+        color: bone,
+    },
+    sheetExample: {
+        marginTop: 12,
+        gap: 8,
+    },
+    sheetExampleRow: {
+        flexDirection: 'row',
+        alignItems: 'baseline',
+        gap: 10,
+    },
+    sheetExTag: {
+        fontFamily: typography.fontFamily.instrument,
+        fontSize: 10.5,
+        fontWeight: '500',
+        letterSpacing: 0.63,
+        textTransform: 'uppercase',
+        color: ash,
+        width: 56,
+    },
+    sheetExTagGood: {
+        color: gilt,
+    },
+    sheetExText: {
+        fontFamily: typography.fontFamily.voiceItalic,
+        fontStyle: 'italic',
+        fontSize: 14,
+        color: boneFaint,
+        flex: 1,
+    },
+    sheetExTextGood: {
+        color: giltBright,
+    },
+    sheetDismiss: {
+        width: '100%',
+        height: 48,
+        borderRadius: 999,
+        marginTop: 22,
+        backgroundColor: 'rgba(217, 179, 108, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(217, 179, 108, 0.34)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    sheetDismissText: {
+        fontFamily: typography.fontFamily.ritualSemiBold,
+        fontWeight: '600',
+        fontSize: 13,
+        letterSpacing: 2.08,
+        color: giltBright,
+        textTransform: 'uppercase',
     },
 });
