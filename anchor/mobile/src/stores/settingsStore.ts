@@ -130,7 +130,7 @@ const normalizeRestDayPolicy = (value: unknown): RestDayPolicy =>
   value === 'neutral' ? 'neutral' : 'build';
 
 const normalizeReduceMotionPreference = (value: unknown): ReduceMotionPreference =>
-  value === 'on' || value === 'off' ? value : 'system';
+  value === 'on' ? 'on' : 'off';
 
 const deriveFocusSessionDuration = (persistedState: any): number => {
   if (typeof persistedState?.focusSessionDuration === 'number') {
@@ -411,7 +411,7 @@ export interface SettingsState {
   theme: 'zen_architect' | 'dark' | 'light';
   accentColor: string; // Hex color code
   vaultView: 'grid' | 'list';
-  /** Ambient-animation preference. 'system' follows the OS reduce-motion flag. */
+  /** Ambient-animation preference. New installs default to 'off'; 'system' is legacy-only. */
   reduceMotion: ReduceMotionPreference;
 
   // Audio & Haptics
@@ -553,7 +553,7 @@ const DEFAULT_SETTINGS = {
   theme: 'zen_architect' as const,
   accentColor: '#D4AF37',
   vaultView: 'grid' as const,
-  reduceMotion: 'system' as ReduceMotionPreference,
+  reduceMotion: 'off' as ReduceMotionPreference,
   mantraVoice: 'generated' as const,
   generatedVoiceStyle: 'calm' as const,
   hapticIntensity: 70,

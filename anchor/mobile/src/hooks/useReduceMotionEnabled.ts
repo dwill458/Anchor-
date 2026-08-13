@@ -41,7 +41,7 @@ export const useSystemReduceMotionEnabled = (): boolean => {
  * is the only way for those users to get ambient animation back.
  */
 export const useReduceMotionEnabled = (): boolean => {
-  const preference = useSettingsStore((state) => state.reduceMotion ?? 'system');
+  const preference = useSettingsStore((state) => state.reduceMotion ?? 'off');
   const systemReduceMotionEnabled = useSystemReduceMotionEnabled();
 
   if (preference === 'system') {
