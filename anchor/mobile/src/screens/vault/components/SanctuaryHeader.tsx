@@ -4,13 +4,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { User } from 'lucide-react-native';
 import { colors } from '@/theme';
+import { withAlpha } from '@/utils/color';
 
 interface SanctuaryHeaderProps {
   reduceMotionEnabled: boolean;
-  /** Optional greeting line shown above the SANCTUARY title, e.g. "Good morning, Deon" */
+  /** Time-aware greeting, e.g. "Good evening, Deontrez" */
   greeting?: string;
 }
 
+// Anchor 1.5 Sanctuary Home: no screen title — just the greeting and the
+// profile avatar. See 09 Sanctuary Home.html.
 export const SanctuaryHeader: React.FC<SanctuaryHeaderProps> = ({ reduceMotionEnabled, greeting }) => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
@@ -20,20 +23,10 @@ export const SanctuaryHeader: React.FC<SanctuaryHeaderProps> = ({ reduceMotionEn
   }, [navigation]);
 
   return (
-    <View style={[styles.container, { paddingRight: Math.max(8, insets.right + 6) }]}>
-      <View style={styles.titleBlock}>
-        {greeting ? (
-          <Text style={styles.greeting} numberOfLines={1}>{greeting}</Text>
-        ) : null}
-        <Text
-          style={styles.title}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          minimumFontScale={0.84}
-        >
-          SANCTUARY
-        </Text>
-      </View>
+    <View style={[styles.container, { paddingRight: Math.max(20, insets.right + 6) }]}>
+      {greeting ? (
+        <Text style={styles.greeting} numberOfLines={1}>{greeting}</Text>
+      ) : <View style={styles.greetingSpacer} />}
       <Pressable
         style={styles.settingsButton}
         onPress={handleOpenProfile}
@@ -43,7 +36,7 @@ export const SanctuaryHeader: React.FC<SanctuaryHeaderProps> = ({ reduceMotionEn
         <View style={styles.settingsMeasureTarget}>
           <View style={styles.settingsInnerGlow} />
           <View style={styles.settingsInnerRing}>
-            <User size={17} color={colors.sanctuary.goldBright} />
+            <User size={17} color={colors.anchor15.giltBright} />
           </View>
         </View>
       </Pressable>
@@ -53,45 +46,29 @@ export const SanctuaryHeader: React.FC<SanctuaryHeaderProps> = ({ reduceMotionEn
 
 const styles = StyleSheet.create({
   container: {
-    paddingLeft: 22,
-    paddingTop: 6,
+    paddingLeft: 20,
+    paddingTop: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  titleBlock: {
-    flex: 1,
-    paddingRight: 8,
+    alignItems: 'center',
   },
   greeting: {
-    fontFamily: 'CormorantGaramond-Italic',
-    fontSize: 13,
-    color: 'rgba(192,192,192,0.45)',
-    letterSpacing: 0.5,
-    marginBottom: 3,
+    flex: 1,
+    paddingRight: 8,
+    fontFamily: 'EBGaramond-Regular',
+    fontSize: 17,
+    color: withAlpha(colors.anchor15.bone, 0.68),
   },
-  title: {
-    fontFamily: 'Cinzel-SemiBold',
-    fontSize: 26,
-    color: colors.bone,
-    letterSpacing: 2.6,
-    lineHeight: 32,
+  greetingSpacer: {
+    flex: 1,
   },
   settingsButton: {
     width: 44,
     height: 44,
     marginLeft: 10,
     borderRadius: 22,
-    backgroundColor: 'rgba(20, 14, 32, 0.72)',
-    borderWidth: 1,
-    borderColor: 'rgba(201,168,76,0.42)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: 'rgba(201,168,76,0.92)',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 5,
   },
   settingsMeasureTarget: {
     width: 44,
@@ -102,17 +79,16 @@ const styles = StyleSheet.create({
   },
   settingsInnerGlow: {
     position: 'absolute',
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(201,168,76,0.1)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: withAlpha(colors.anchor15.gilt, 0.12),
   },
   settingsInnerRing: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(201,168,76,0.28)',
     alignItems: 'center',
     justifyContent: 'center',
   },
