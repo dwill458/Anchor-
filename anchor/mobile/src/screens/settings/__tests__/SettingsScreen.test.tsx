@@ -182,7 +182,7 @@ describe('SettingsScreen', () => {
     expect(screen.getAllByText('Not signed in').length).toBeGreaterThan(0);
     expect(screen.getByText('Sign In')).toBeTruthy();
     expect(screen.getByText('Create or reconnect your account')).toBeTruthy();
-    expect(screen.queryByText('Danger Zone')).toBeNull();
+      expect(screen.queryByText('DANGER / ACCOUNT ACTIONS')).toBeNull();
     expect(screen.queryByText('Delete Account')).toBeNull();
 
     fireEvent.press(screen.getByTestId('settings-row-Sign In'));
@@ -192,7 +192,7 @@ describe('SettingsScreen', () => {
     });
   });
 
-  it('renders the Danger Zone and Delete Account option for authenticated users', () => {
+  it('renders the account actions and Delete Account option for authenticated users', () => {
     mockAuthStoreState.user = {
       id: 'user-1',
       email: 'member@anchor.test',
@@ -201,12 +201,11 @@ describe('SettingsScreen', () => {
 
     const screen = render(<SettingsScreen />);
 
-    expect(screen.getByText('Danger Zone')).toBeTruthy();
+    expect(screen.getByText('DANGER / ACCOUNT ACTIONS')).toBeTruthy();
     expect(screen.getByText('Delete Account')).toBeTruthy();
   });
 
   it('shows the correct subscription warning when Delete Account is pressed', () => {
-    const spyAlert = jest.spyOn(Alert, 'alert');
     mockAuthStoreState.user = {
       id: 'user-1',
       email: 'member@anchor.test',
@@ -216,17 +215,15 @@ describe('SettingsScreen', () => {
     const screen = render(<SettingsScreen />);
     fireEvent.press(screen.getByTestId('settings-row-Delete Account'));
 
-    expect(spyAlert).toHaveBeenCalledWith(
-      'Delete Account',
-      expect.stringContaining('Deleting your account will not cancel active subscriptions. Please cancel any active subscriptions through your App Store or Google Play account to prevent future billing.'),
-      expect.any(Array)
-    );
+    expect(screen.getByText('Delete your account?')).toBeTruthy();
+    expect(screen.getByText(/Deleting your account will not cancel active subscriptions/)).toBeTruthy();
+    expect(screen.getByLabelText('Delete Account')).toBeTruthy();
   });
 
   it('requests permission before enabling notifications', async () => {
     const screen = render(<SettingsScreen />);
 
-    fireEvent.press(screen.getByTestId('settings-row-Notifications'));
+    fireEvent.press(screen.getByTestId('settings-row-Practice Reminders'));
 
     await waitFor(() => {
       expect(mockRequestPermissions).toHaveBeenCalled();
@@ -242,7 +239,7 @@ describe('SettingsScreen', () => {
 
     const screen = render(<SettingsScreen />);
 
-    fireEvent.press(screen.getByTestId('settings-row-Notifications'));
+    fireEvent.press(screen.getByTestId('settings-row-Practice Reminders'));
 
     await waitFor(() => {
       expect(mockRequestPermissions).toHaveBeenCalled();
@@ -257,7 +254,7 @@ describe('SettingsScreen', () => {
     expect(screen.getByText('Daily Prime Reminder')).toBeTruthy();
     expect(screen.getByText('Thread Strength Alerts')).toBeTruthy();
     expect(screen.getByText('Unfinished Anchor Reminders')).toBeTruthy();
-    expect(screen.getByText('Weekly Progress Recap')).toBeTruthy();
+    expect(screen.getByText('Weekly Recap')).toBeTruthy();
     expect(screen.getByText('Milestone Celebrations')).toBeTruthy();
     expect(screen.getByText('Notification Tone')).toBeTruthy();
 
@@ -274,7 +271,7 @@ describe('SettingsScreen', () => {
     });
   });
 
-  describe('Restore Purchase', () => {
+  describe('Restore Purchases', () => {
     const trialStatus = (hasActiveEntitlement: boolean) => ({
       isInTrial: false,
       isSubscribed: hasActiveEntitlement,
@@ -288,7 +285,7 @@ describe('SettingsScreen', () => {
       mockRestorePurchases.mockResolvedValueOnce(trialStatus(true));
 
       const screen = render(<SettingsScreen />);
-      fireEvent.press(screen.getByTestId('settings-row-Restore Purchase'));
+      fireEvent.press(screen.getByTestId('settings-row-Restore Purchases'));
 
       await waitFor(() => {
         expect(mockRestorePurchases).toHaveBeenCalled();
@@ -304,7 +301,7 @@ describe('SettingsScreen', () => {
       mockRestorePurchases.mockResolvedValueOnce(trialStatus(false));
 
       const screen = render(<SettingsScreen />);
-      fireEvent.press(screen.getByTestId('settings-row-Restore Purchase'));
+      fireEvent.press(screen.getByTestId('settings-row-Restore Purchases'));
 
       await waitFor(() => {
         expect(spyAlert).toHaveBeenCalledWith(
@@ -321,7 +318,7 @@ describe('SettingsScreen', () => {
       );
 
       const screen = render(<SettingsScreen />);
-      fireEvent.press(screen.getByTestId('settings-row-Restore Purchase'));
+      fireEvent.press(screen.getByTestId('settings-row-Restore Purchases'));
 
       await waitFor(() => {
         expect(spyAlert).toHaveBeenCalledWith(

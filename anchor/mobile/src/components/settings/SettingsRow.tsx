@@ -62,6 +62,15 @@ export const SettingsRow: React.FC<SettingsRowProps> = (props) => {
     modern && props.type === 'toggle' && onToggle
       ? () => onToggle(!toggleValue)
       : props.onPress;
+  const accessibilityRole = modern
+    ? props.type === 'toggle'
+      ? 'switch'
+      : onPress
+        ? 'button'
+        : undefined
+    : onPress
+      ? 'button'
+      : undefined;
 
   const renderRight = () => {
     if (props.rightElement) {
@@ -101,6 +110,15 @@ export const SettingsRow: React.FC<SettingsRowProps> = (props) => {
     <Pressable
       onPress={onPress}
       disabled={disabled || !onPress}
+      accessibilityRole={accessibilityRole}
+      accessibilityLabel={title}
+      accessibilityState={{
+        disabled: disabled || !onPress,
+        ...(modern && props.type === 'toggle'
+          ? { checked: toggleValue }
+          : {}),
+      }}
+      accessibilityValue={value ? { text: value } : undefined}
       style={({ pressed }) => [
         styles.touchable,
         style,
