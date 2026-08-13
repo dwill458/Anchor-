@@ -1,86 +1,148 @@
 import React from 'react';
 import { Animated } from 'react-native';
-import { render, screen } from '@testing-library/react-native';
+import { render, screen, fireEvent, act, within } from '@testing-library/react-native';
 import LetterDistillationScreen from '../LetterDistillationScreen';
 
-let mockAuthAnchorCount = 0;
-let mockLocalAnchorCount = 0;
-let mockTotalAnchorsCreated = 0;
-const mockPlaySound = jest.fn();
+let mockReduceMotion = false;
+const mockUpdateDraft = jest.fn();
 
 jest.mock('expo-linear-gradient', () => ({
   LinearGradient: ({ children }: { children?: React.ReactNode }) => children ?? null,
 }));
 
-jest.mock('@/stores/authStore', () => ({
-  useAuthStore: (selector: (state: Record<string, unknown>) => unknown) =>
-    selector({
-      user: mockTotalAnchorsCreated > 0 ? { totalAnchorsCreated: mockTotalAnchorsCreated } : null,
-      anchorCount: mockAuthAnchorCount,
-    }),
+jest.mock('@/hooks/useReduceMotionEnabled', () => ({
+  useReduceMotionEnabled: () => mockReduceMotion,
 }));
 
-jest.mock('@/stores/anchorStore', () => ({
-  useAnchorStore: (selector: (state: Record<string, unknown>) => unknown) =>
-    selector({
-      anchors: Array.from({ length: mockLocalAnchorCount }, (_, index) => ({ id: `anchor-${index}` })),
-    }),
-}));
-
-jest.mock('@/hooks/useAudio', () => ({
-  useAudio: () => ({
-    playSound: mockPlaySound,
-  }),
+jest.mock('@/stores/firstAnchorFlowStore', () => ({
+  useFirstAnchorFlowStore: {
+    getState: () => ({ updateDraft: mockUpdateDraft }),
+  },
 }));
 
 describe('LetterDistillationScreen', () => {
   const navigation = {
     navigate: jest.fn(),
+    goBack: jest.fn(),
   } as any;
 
   const route = {
     params: {
-      intentionText: 'Stay grounded',
-      distilledLetters: ['S', 'T', 'Y', 'G', 'R', 'N', 'D'],
+      intentionText: 'I lead my team with confidence',
+      distilledLetters: ['L', 'D', 'M', 'Y', 'T', 'W', 'H', 'C', 'N', 'F'],
       category: 'custom',
     },
   } as any;
 
   beforeEach(() => {
     navigation.navigate.mockClear();
-    mockPlaySound.mockClear();
-    mockAuthAnchorCount = 0;
-    mockLocalAnchorCount = 0;
-    mockTotalAnchorsCreated = 0;
+    navigation.goBack.mockClear();
+    mockUpdateDraft.mockClear();
+    mockReduceMotion = false;
     jest.useFakeTimers();
-    const animation = () => ({
-      start: jest.fn((cb?: () => void) => cb?.()),
-      stop: jest.fn(),
-    });
-    jest.spyOn(Animated, 'timing').mockReturnValue(animation() as any);
-    jest.spyOn(Animated, 'sequence').mockReturnValue(animation() as any);
-    jest.spyOn(Animated, 'parallel').mockReturnValue(animation() as any);
-    jest.spyOn(Animated, 'loop').mockReturnValue(animation() as any);
   });
 
   afterEach(() => {
-    jest.runOnlyPendingTimers();
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
     jest.clearAllTimers();
-    jest.restoreAllMocks();
     jest.useRealTimers();
   });
 
-  it('shows skip for returning users with locally stored anchors', () => {
-    mockLocalAnchorCount = 1;
-
+  it('shows the submitted intention in the quote card', () => {
     render(<LetterDistillationScreen navigation={navigation} route={route} />);
 
-    expect(screen.getByRole('button', { name: 'Skip to final stage' })).toBeTruthy();
+    expect(screen.getByText('“I lead my team with confidence”')).toBeTruthy();
   });
 
-  it('hides skip for first-time users', () => {
+  it('shows the title, body copy and "The Essential Form" label', () => {
     render(<LetterDistillationScreen navigation={navigation} route={route} />);
 
-    expect(screen.queryByRole('button', { name: 'Skip to final stage' })).toBeNull();
+    expect(screen.getByText('Intention')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'We remove repetition and reduce your intention to its essential letters. These become the foundation of your Anchor.'
+      )
+    ).toBeTruthy();
+    expect(screen.getByText('The Essential Form')).toBeTruthy();
+  });
+
+  it('renders the canonical distilled letters after the reduction settles', () => {
+    render(<LetterDistillationScreen navigation={navigation} route={route} />);
+
+    act(() => {
+      jest.advanceTimersByTime(1320);
+    });
+
+    const resultLayer = within(screen.getByTestId('distill-result-layer'));
+    for (const letter of route.params.distilledLetters) {
+      expect(resultLayer.getByText(letter)).toBeTruthy();
+    }
+  });
+
+  it('does not navigate automatically once the reduction settles', () => {
+    render(<LetterDistillationScreen navigation={navigation} route={route} />);
+
+    act(() => {
+      jest.advanceTimersByTime(5000);
+    });
+
+    expect(navigation.navigate).not.toHaveBeenCalled();
+  });
+
+  it('settles quickly when reduced motion is enabled', () => {
+    mockReduceMotion = true;
+    render(<LetterDistillationScreen navigation={navigation} route={route} />);
+
+    act(() => {
+      jest.advanceTimersByTime(260);
+    });
+
+    expect(screen.getByText('The Essential Form')).toBeTruthy();
+    const resultLayer = within(screen.getByTestId('distill-result-layer'));
+    for (const letter of route.params.distilledLetters) {
+      expect(resultLayer.getByText(letter)).toBeTruthy();
+    }
+  });
+
+  it('opens and dismisses the "How does this work?" sheet', () => {
+    render(<LetterDistillationScreen navigation={navigation} route={route} />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'How does this work?' }));
+    expect(screen.getByText('How Distillation Works')).toBeTruthy();
+    expect(screen.getByText('CONFIDENCE → C · N · F · D')).toBeTruthy();
+
+    fireEvent.press(screen.getByRole('button', { name: 'Got it' }));
+    expect(screen.queryByText('How Distillation Works')).toBeNull();
+  });
+
+  it('returns to Set Intention on back press', () => {
+    render(<LetterDistillationScreen navigation={navigation} route={route} />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Back' }));
+
+    expect(navigation.goBack).toHaveBeenCalled();
+  });
+
+  it('navigates to StructureForge with the canonical params on Choose Your Structure', () => {
+    render(<LetterDistillationScreen navigation={navigation} route={route} />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Choose Your Structure' }));
+
+    expect(navigation.navigate).toHaveBeenCalledWith('StructureForge', {
+      intentionText: route.params.intentionText,
+      category: route.params.category,
+      distilledLetters: route.params.distilledLetters,
+    });
+  });
+
+  it('saves the intention and canonical letters to the first-anchor draft', () => {
+    render(<LetterDistillationScreen navigation={navigation} route={route} />);
+
+    expect(mockUpdateDraft).toHaveBeenCalledWith({
+      originalIntention: route.params.intentionText,
+      distilledLetters: route.params.distilledLetters,
+    });
   });
 });

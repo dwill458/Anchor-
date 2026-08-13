@@ -159,6 +159,60 @@ export function distillIntention(intentionText: string): DistillationResult {
 }
 
 /**
+ * A single character prepared for the word-grouped reduction animation.
+ */
+export interface DistillationRenderChar {
+  /** Uppercased display character (non-alphabetic characters are passed through as-is) */
+  char: string;
+  /** Whether this character survives distillation (first-occurrence consonant) */
+  keep: boolean;
+}
+
+/**
+ * A word broken into characters for the word-grouped reduction animation.
+ */
+export interface DistillationRenderWord {
+  chars: DistillationRenderChar[];
+}
+
+/**
+ * Break an intention into words and mark which characters survive distillation.
+ *
+ * Walks the same first-occurrence-consonant rule as {@link distillIntention}, in the
+ * same left-to-right order, so `chars.filter(c => c.keep)` flattened across every word
+ * always matches `distillIntention(intentionText).finalLetters` exactly. Kept separate
+ * from `distillIntention` because the reduction animation needs word grouping and
+ * per-character keep flags that the flat letter list can't express. Characters are
+ * uppercased for display, matching the distilled letters they fade toward.
+ *
+ * @example
+ * buildDistillationRenderWords("I lead")
+ * // [{ chars: [{ char: 'I', keep: false }] },
+ * //  { chars: [{ char: 'L', keep: true }, { char: 'E', keep: false }, { char: 'A', keep: false }, { char: 'D', keep: true }] }]
+ */
+export function buildDistillationRenderWords(intentionText: string): DistillationRenderWord[] {
+  const words = intentionText.trim().split(/\s+/).filter(Boolean);
+  const seen = new Set<number>();
+
+  return words.map((word) => ({
+    chars: Array.from(word).map((char) => {
+      const upperCode = toUpperAlphaCode(char.charCodeAt(0));
+      if (upperCode == null) {
+        return { char, keep: false };
+      }
+
+      const upperChar = String.fromCharCode(upperCode);
+      if (isVowelCode(upperCode) || seen.has(upperCode)) {
+        return { char: upperChar, keep: false };
+      }
+
+      seen.add(upperCode);
+      return { char: upperChar, keep: true };
+    }),
+  }));
+}
+
+/**
  * Get a human-readable summary of the distillation process
  *
  * @param result - The distillation result
