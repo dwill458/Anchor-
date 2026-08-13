@@ -3,7 +3,7 @@
  *
  * Plain circular chips (sigil/image only) with a two-line name/category
  * label underneath. The current anchor gets a gilt highlight ring; the row
- * ends with a dashed "New anchor" chip. See `09 Sanctuary Home.html`.
+ * ends with a gilt outlined "New anchor" chip. See `09 Sanctuary Home.html`.
  */
 
 import React from 'react';
@@ -240,20 +240,26 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   addChip: {
+    backgroundColor: withAlpha(colors.anchor15.gilt, 0.05),
     borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: withAlpha(colors.anchor15.gilt, 0.28),
+    borderColor: withAlpha(colors.anchor15.gilt, 0.62),
+    shadowColor: colors.anchor15.gilt,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 3,
   },
   addPlus: {
-    fontSize: 20,
-    lineHeight: 22,
-    color: withAlpha(colors.anchor15.gilt, 0.75),
+    fontFamily: 'Inter-Regular',
+    fontSize: 28,
+    lineHeight: 30,
+    color: colors.anchor15.giltBright,
     fontWeight: '300',
   },
   addLabel: {
     fontFamily: 'EBGaramond-Regular',
-    fontSize: 13,
-    color: withAlpha(colors.anchor15.bone, 0.42),
+    fontSize: 14,
+    color: withAlpha(colors.anchor15.bone, 0.78),
     textAlign: 'center',
   },
 });
