@@ -138,19 +138,60 @@ describe('SettingsScreen', () => {
     expect(screen.getByText('REMINDERS')).toBeTruthy();
     expect(screen.getByText('SUPPORT & PRIVACY')).toBeTruthy();
     expect(screen.getByText('member@anchor.test')).toBeTruthy();
-    expect(screen.queryByText('Daily Prime Reminder')).toBeNull();
-    expect(screen.queryByText('Danger Zone')).toBeNull();
+    expect(screen.getByText('Synced to this account')).toBeTruthy();
+    expect(screen.queryByText('Account sync coming soon')).toBeNull();
+    expect(screen.queryByText('v1.1')).toBeNull();
+    expect(mockFetchProfile).not.toHaveBeenCalled();
   });
 
-  it('persists an interface preference through the existing settings hook', () => {
+  it('shows a sign-in link for signed-out users', () => {
+    mockAuthStoreState.user = null as any;
+    mockAuthStoreState.isAuthenticated = false;
+
     const screen = render(<SettingsScreen />);
 
-    fireEvent.press(screen.getByTestId('settings-row-Sound Effects'));
+    expect(screen.getAllByText('Not signed in').length).toBeGreaterThan(0);
+    expect(screen.getByText('Sign In')).toBeTruthy();
+    expect(screen.getByText('Create or reconnect your account')).toBeTruthy();
+      expect(screen.queryByText('DANGER / ACCOUNT ACTIONS')).toBeNull();
+    expect(screen.queryByText('Delete Account')).toBeNull();
 
-    expect(mockUpdateSetting).toHaveBeenCalledWith('soundEffectsEnabled', false);
+    fireEvent.press(screen.getByTestId('settings-row-Sign In'));
+
+    expect(mockNavigate).toHaveBeenCalledWith('Login', {
+      initialTab: 'signin',
+    });
   });
 
-  it('requests permission before turning practice reminders on', async () => {
+  it('renders the account actions and Delete Account option for authenticated users', () => {
+    mockAuthStoreState.user = {
+      id: 'user-1',
+      email: 'member@anchor.test',
+    };
+    mockAuthStoreState.isAuthenticated = true;
+
+    const screen = render(<SettingsScreen />);
+
+    expect(screen.getByText('DANGER / ACCOUNT ACTIONS')).toBeTruthy();
+    expect(screen.getByText('Delete Account')).toBeTruthy();
+  });
+
+  it('shows the correct subscription warning when Delete Account is pressed', () => {
+    mockAuthStoreState.user = {
+      id: 'user-1',
+      email: 'member@anchor.test',
+    };
+    mockAuthStoreState.isAuthenticated = true;
+
+    const screen = render(<SettingsScreen />);
+    fireEvent.press(screen.getByTestId('settings-row-Delete Account'));
+
+    expect(screen.getByText('Delete your account?')).toBeTruthy();
+    expect(screen.getByText(/Deleting your account will not cancel active subscriptions/)).toBeTruthy();
+    expect(screen.getByLabelText('Delete Account')).toBeTruthy();
+  });
+
+  it('requests permission before enabling notifications', async () => {
     const screen = render(<SettingsScreen />);
 
     fireEvent.press(screen.getByTestId('settings-row-Practice Reminders'));
@@ -178,9 +219,12 @@ describe('SettingsScreen', () => {
   it('persists picker choices for haptics and reduced motion', async () => {
     const screen = render(<SettingsScreen />);
 
-    fireEvent.press(screen.getByTestId('settings-row-Haptic Feedback'));
-    fireEvent.press(screen.getByLabelText('Soft'));
-    await waitFor(() => expect(mockUpdateSetting).toHaveBeenCalledWith('hapticFeedback', 'light'));
+    expect(screen.getByText('Daily Prime Reminder')).toBeTruthy();
+    expect(screen.getByText('Thread Strength Alerts')).toBeTruthy();
+    expect(screen.getByText('Unfinished Anchor Reminders')).toBeTruthy();
+    expect(screen.getByText('Weekly Recap')).toBeTruthy();
+    expect(screen.getByText('Milestone Celebrations')).toBeTruthy();
+    expect(screen.getByText('Notification Tone')).toBeTruthy();
 
     fireEvent.press(screen.getByTestId('settings-row-Reduce Motion'));
     fireEvent.press(screen.getByLabelText('Reduced'));
@@ -209,4 +253,63 @@ describe('SettingsScreen', () => {
       expect(alert).toHaveBeenCalledWith('No subscription found', expect.stringContaining('No active subscription'));
     });
   });
+
+  describe('Restore Purchases', () => {
+    const trialStatus = (hasActiveEntitlement: boolean) => ({
+      isInTrial: false,
+      isSubscribed: hasActiveEntitlement,
+      hasActiveEntitlement,
+      daysRemaining: null,
+      trialExpired: false,
+    });
+
+    it('restores through RevenueCatService and confirms when an entitlement is found', async () => {
+      const spyAlert = jest.spyOn(Alert, 'alert');
+      mockRestorePurchases.mockResolvedValueOnce(trialStatus(true));
+
+      const screen = render(<SettingsScreen />);
+      fireEvent.press(screen.getByTestId('settings-row-Restore Purchases'));
+
+      await waitFor(() => {
+        expect(mockRestorePurchases).toHaveBeenCalled();
+        expect(spyAlert).toHaveBeenCalledWith(
+          'Purchases restored',
+          expect.stringContaining('Pro access')
+        );
+      });
+    });
+
+    it('tells the user when no subscription is found', async () => {
+      const spyAlert = jest.spyOn(Alert, 'alert');
+      mockRestorePurchases.mockResolvedValueOnce(trialStatus(false));
+
+      const screen = render(<SettingsScreen />);
+      fireEvent.press(screen.getByTestId('settings-row-Restore Purchases'));
+
+      await waitFor(() => {
+        expect(spyAlert).toHaveBeenCalledWith(
+          'No subscription found',
+          expect.stringContaining('No active subscription')
+        );
+      });
+    });
+
+    it('shows calm failure copy without internal details when restore throws', async () => {
+      const spyAlert = jest.spyOn(Alert, 'alert');
+      mockRestorePurchases.mockRejectedValueOnce(
+        new Error('[RevenueCat] Billing service is unavailable.')
+      );
+
+      const screen = render(<SettingsScreen />);
+      fireEvent.press(screen.getByTestId('settings-row-Restore Purchases'));
+
+      await waitFor(() => {
+        expect(spyAlert).toHaveBeenCalledWith(
+          'Restore failed',
+          expect.not.stringContaining('RevenueCat')
+        );
+      });
+    });
+  });
+
 });

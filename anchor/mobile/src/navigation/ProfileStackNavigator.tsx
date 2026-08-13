@@ -9,8 +9,20 @@ import React from 'react';
 import { Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { ProfileScreen } from '../screens/profile';
-import { SettingsScreen, SessionDefaultsScreen } from '../screens/settings';
+import {
+  ProfileScreen,
+  SettingsScreen,
+  SessionDefaultsScreen,
+  DailyPracticeGoalScreen,
+  ThreadStrengthScreen,
+  RestDaysScreen,
+  ThemeSelectionScreen,
+  AccentColorScreen,
+  VaultViewScreen,
+  HapticIntensityScreen,
+  DataPrivacyScreen,
+} from '../screens/profile';
+import { HapticFeedbackScreen } from '../screens/settings';
 import { LoginScreen } from '../screens/auth';
 import type { AuthScreenParams } from '@/types';
 
@@ -31,6 +43,16 @@ export const ProfileStackNavigator: React.FC = () => {
           headerShown: false,
           animation: 'slide_from_right',
           gestureEnabled: Platform.OS === 'ios',
+          headerStyle: {
+            backgroundColor: '#080C10',
+          },
+          headerShadowVisible: false,
+          headerTintColor: '#D9B36C',
+          headerTitleStyle: {
+            fontFamily: 'Cinzel-Regular',
+            fontSize: 15,
+          },
+          headerBackTitleVisible: false,
           contentStyle: { backgroundColor: '#080C10' },
         }}
       >
