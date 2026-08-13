@@ -68,7 +68,7 @@ describe('StructureForgeScreen', () => {
     it('stub: navigates to ManualReinforcement after selection', () => {
         render(<StructureForgeScreen />);
         fireEvent.press(screen.getByLabelText('Focused structure'));
-        fireEvent.press(screen.getByLabelText('Begin Forging'));
+        fireEvent.press(screen.getByLabelText('Continue'));
         expect(mockNavigate).toHaveBeenCalledWith('ManualReinforcement', expect.objectContaining({
             intentionText: 'Test Intention',
             category: 'health',
