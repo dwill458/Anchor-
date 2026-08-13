@@ -1,200 +1,173 @@
-import React, { useCallback } from 'react';
+import React from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
-import { colors, spacing, typography } from '@/theme';
+import { LockKeyhole } from 'lucide-react-native';
+import { typography } from '@/theme';
 
-type PortalVariant = 'charge' | 'stabilize' | 'visualize' | 'burn';
+type PortalVariant = 'focus' | 'visualize' | 'deepPrime' | 'release';
 
 interface ModePortalTileProps {
   variant: PortalVariant;
   title: string;
   meaning: string;
   durationHint: string;
-  durationNode?: React.ReactNode;
-  icon: React.ReactNode;
+  icon?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   onPress: () => void;
   badge?: string;
   testID?: string;
   disabled?: boolean;
+  selected?: boolean;
+  locked?: boolean;
 }
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const MODE_COLORS: Record<PortalVariant, string> = {
+  focus: '#AD99D2',
+  visualize: '#78B4D1',
+  deepPrime: '#F0CB6A',
+  release: '#C8875A',
+};
 
+/**
+ * A selectable practice tool, deliberately separate from its launch CTA. The
+ * continuous axis makes the four tools read as one ritual sequence without
+ * implying that it is a progress meter.
+ */
 export const ModePortalTile: React.FC<ModePortalTileProps> = ({
   variant,
   title,
   meaning,
   durationHint,
-  durationNode,
   icon,
   style,
   onPress,
   badge,
   testID,
   disabled = false,
+  selected = false,
+  locked = false,
 }) => {
-  const pressed = useSharedValue(0);
-  const isFeatured = variant === 'charge';
-  const isBurn = variant === 'burn';
-
-  const handlePressIn = useCallback(() => {
-    pressed.value = withTiming(1, {
-      duration: 120,
-      easing: Easing.out(Easing.cubic),
-    });
-  }, [pressed]);
-
-  const handlePressOut = useCallback(() => {
-    pressed.value = withTiming(0, {
-      duration: 200,
-      easing: Easing.out(Easing.cubic),
-    });
-  }, [pressed]);
-
-  const animatedCard = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 - pressed.value * 0.015 }],
-  }));
-
-  const dotStyle = useAnimatedStyle(() => ({
-    opacity: 0.44 + pressed.value * 0.56,
-    transform: [{ scale: 1 + pressed.value * 0.2 }],
-  }));
+  const modeColor = MODE_COLORS[variant];
 
   return (
-    <AnimatedPressable
+    <Pressable
       testID={testID}
       onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
       accessibilityRole="button"
-      accessibilityState={{ disabled }}
+      accessibilityLabel={`${title}${locked ? ', locked' : ''}`}
+      accessibilityState={{ disabled, selected }}
       disabled={disabled}
       hitSlop={8}
-      pointerEvents={disabled ? 'none' : 'auto'}
-      style={[styles.pressable, style, animatedCard]}
+      style={({ pressed }) => [styles.pressable, style, pressed && !disabled && styles.pressed]}
     >
-      <View pointerEvents="none" style={[styles.card, isFeatured ? styles.cardFeatured : styles.cardSecondary, isBurn && styles.cardBurn]}>
-        <View pointerEvents="none" style={styles.topRow}>
-          <View pointerEvents="none" style={[styles.iconWrap, isFeatured ? styles.iconFeatured : styles.iconSecondary]}>{icon}</View>
-          {badge ? <Text style={styles.badge}>{badge}</Text> : <Animated.View style={[styles.dot, dotStyle]} />}
+      <View pointerEvents="none" style={styles.axisLine} />
+      <View
+        pointerEvents="none"
+        style={[
+          styles.node,
+          { borderColor: modeColor },
+          selected && { backgroundColor: modeColor, shadowColor: modeColor },
+          locked && !selected && styles.lockedNode,
+        ]}
+      />
+      <View
+        pointerEvents="none"
+        style={[
+          styles.content,
+          selected && styles.contentSelected,
+          variant === 'release' && selected && styles.releaseSelected,
+        ]}
+      >
+        <View style={styles.header}>
+          <View style={styles.titleRow}>
+            <Text style={[styles.title, selected && { color: modeColor }, locked && styles.titleLocked]}>{title}</Text>
+            {locked ? <LockKeyhole size={12} color="rgba(242,223,168,0.52)" /> : null}
+          </View>
+          <View style={styles.meta}>
+            {badge ? <Text style={[styles.badge, selected && { borderColor: modeColor, color: modeColor }]}>{badge}</Text> : null}
+            {icon ? <View style={styles.icon}>{icon}</View> : null}
+          </View>
         </View>
-        <Text style={isFeatured ? styles.titleFeatured : styles.titleSecondary}>{title}</Text>
-        <Text style={isFeatured ? styles.meaningFeatured : styles.meaningSecondary}>{meaning}</Text>
-        <Text style={isFeatured ? styles.durationFeatured : styles.durationSecondary}>{durationNode ?? durationHint}</Text>
+        <Text style={[styles.duration, selected && { color: modeColor }]}>{durationHint}</Text>
+        {selected ? <Text style={styles.meaning}>{meaning}</Text> : null}
       </View>
-    </AnimatedPressable>
+    </Pressable>
   );
 };
 
 const styles = StyleSheet.create({
   pressable: {
-    borderRadius: 18,
+    minHeight: 68,
+    paddingLeft: 32,
+    position: 'relative',
   },
-  card: {
-    borderWidth: 1,
-    overflow: 'hidden',
+  pressed: { opacity: 0.82 },
+  axisLine: {
+    position: 'absolute',
+    left: 10,
+    top: 0,
+    bottom: 0,
+    width: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(242,223,168,0.22)',
   },
-  cardFeatured: {
-    minHeight: 160,
-    backgroundColor: colors.practice.cardFeaturedSurface,
-    borderColor: colors.practice.cardFeaturedBorder,
-    borderRadius: 18,
-    padding: spacing.lg,
+  node: {
+    position: 'absolute',
+    top: 20,
+    left: 4,
+    width: 13,
+    height: 13,
+    borderRadius: 7,
+    borderWidth: 1.5,
+    backgroundColor: '#080C10',
   },
-  cardSecondary: {
-    minHeight: 132,
-    backgroundColor: colors.practice.cardSecondarySurface,
-    borderColor: colors.practice.cardSecondaryBorder,
-    borderRadius: 12,
-    padding: spacing.md,
+  lockedNode: { borderColor: 'rgba(242,223,168,0.34)' },
+  content: {
+    minHeight: 68,
+    paddingTop: 15,
+    paddingBottom: 13,
+    paddingHorizontal: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(242,223,168,0.1)',
   },
-  cardBurn: {
-    borderColor: '#2a1a1a',
+  contentSelected: {
+    marginBottom: 3,
+    backgroundColor: 'rgba(242,223,168,0.045)',
+    borderBottomColor: 'rgba(242,223,168,0.25)',
   },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.md,
-  },
-  iconWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  iconFeatured: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.practice.cardIconSurface,
-    borderColor: colors.practice.cardIconBorder,
-  },
-  iconSecondary: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
-    backgroundColor: colors.practice.cardIconSecondarySurface,
-    borderColor: colors.practice.cardIconSecondaryBorder,
-  },
-  dot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: colors.practice.cardDotSurface,
-    borderWidth: 1,
-    borderColor: colors.practice.cardDotBorder,
-  },
-  badge: { color: colors.gold, fontFamily: typography.fontFamily.sans, fontSize: 9, letterSpacing: 1.2, borderWidth: 1, borderColor: colors.practice.cardIconBorder, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4 },
-  titleFeatured: {
+  releaseSelected: { backgroundColor: 'rgba(200,135,90,0.055)' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  titleRow: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  title: {
+    color: 'rgba(244,237,216,0.66)',
     fontFamily: typography.fontFamily.serifSemiBold,
-    fontSize: 16,
-    letterSpacing: 1.3,
-    color: colors.gold,
-    marginBottom: spacing.xs + 2,
+    fontSize: 15,
+    letterSpacing: 1.15,
   },
-  titleSecondary: {
-    fontFamily: typography.fontFamily.serifSemiBold,
-    fontSize: 11,
-    letterSpacing: 1.5,
-    color: colors.bone,
-    opacity: 0.85,
-    marginBottom: spacing.xs + 1,
+  titleLocked: { color: 'rgba(244,237,216,0.45)' },
+  meta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  icon: { opacity: 0.78 },
+  badge: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(242,223,168,0.35)',
+    borderRadius: 999,
+    color: 'rgba(242,223,168,0.58)',
+    fontFamily: typography.fontFamily.sansBold,
+    fontSize: 8,
+    letterSpacing: 1.1,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
   },
-  meaningFeatured: {
+  duration: {
+    marginTop: 4,
+    color: 'rgba(242,223,168,0.42)',
     fontFamily: typography.fontFamily.sans,
-    fontSize: 14,
-    lineHeight: 21,
-    color: colors.silver,
-    fontStyle: 'italic',
-    marginBottom: spacing.sm + 2,
+    fontSize: 9,
+    letterSpacing: 1.25,
   },
-  meaningSecondary: {
-    fontFamily: typography.fontFamily.sans,
-    fontSize: 12,
-    lineHeight: 17,
-    color: colors.silver,
-    fontStyle: 'italic',
-    marginBottom: spacing.sm,
-    opacity: 0.8,
-  },
-  durationFeatured: {
-    fontFamily: typography.fontFamily.serif,
-    fontSize: 11,
-    letterSpacing: 1.5,
-    color: colors.bronze,
-    textTransform: 'uppercase',
-  },
-  durationSecondary: {
-    fontFamily: typography.fontFamily.serif,
-    fontSize: 10,
-    letterSpacing: 1.2,
-    color: colors.bronze,
-    textTransform: 'uppercase',
+  meaning: {
+    marginTop: 10,
+    color: 'rgba(244,237,216,0.71)',
+    fontFamily: typography.fontFamily.bodySerifItalic,
+    fontSize: 15,
+    lineHeight: 20,
   },
 });

@@ -14,6 +14,10 @@ function anchorName(anchor?: Anchor) {
   return anchor?.intentionText?.trim() || 'Select an anchor';
 }
 
+function anchorMetadata(anchor?: Anchor) {
+  return anchor?.category?.trim() || 'Personal Anchor';
+}
+
 export const PracticeOverviewCard: React.FC<{
   anchor?: Anchor;
   snapshot: ThreadStrengthSnapshot;
@@ -45,6 +49,7 @@ export const PracticeOverviewCard: React.FC<{
           <View style={styles.anchorCopy}>
             <Text style={styles.eyebrow}>CURRENT ANCHOR</Text>
             <View style={styles.anchorNameRow}><Text style={styles.anchorName} numberOfLines={1}>{anchorName(anchor)}</Text><ChevronDown size={12} color="rgba(245,240,232,0.5)" /></View>
+            <Text style={styles.anchorMetadata} numberOfLines={1}>{anchorMetadata(anchor)}</Text>
           </View>
         </Pressable>
         <View style={styles.total}><Text style={styles.totalValue}>{snapshot.totalSessions}</Text><Text style={styles.eyebrow}>TOTAL SESSIONS</Text></View>
@@ -84,6 +89,7 @@ const styles = StyleSheet.create({
   anchorCopy: { flex: 1, minWidth: 0 },
   anchorNameRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   anchorName: { flexShrink: 1, fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 16, color: colors.bone },
+  anchorMetadata: { marginTop: 2, fontFamily: typography.fontFamily.sans, fontSize: 9, letterSpacing: 0.8, color: 'rgba(245,240,232,0.38)', textTransform: 'uppercase' },
   eyebrow: { fontFamily: typography.fontFamily.sansBold, fontSize: 9, letterSpacing: 1, color: 'rgba(245,240,232,0.32)' },
   total: { alignItems: 'flex-end' },
   totalValue: { fontFamily: typography.fontFamily.serifBold, fontSize: 30, lineHeight: 32, color: colors.gold },
