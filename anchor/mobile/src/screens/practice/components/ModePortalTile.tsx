@@ -1,14 +1,7 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
 import { LockKeyhole } from 'lucide-react-native';
 import { typography } from '@/theme';
-import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 
 type PortalVariant = 'focus' | 'visualize' | 'deepPrime' | 'release';
 
@@ -34,9 +27,6 @@ const MODE_COLORS: Record<PortalVariant, string> = {
   release: '#C8875A',
 };
 
-const FADE_DURATION = 200;
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
 /**
  * A selectable practice tool, deliberately separate from its launch CTA. The
  * continuous axis makes the four tools read as one ritual sequence without
@@ -57,29 +47,9 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
   locked = false,
 }) => {
   const modeColor = MODE_COLORS[variant];
-  const reduceMotion = useReduceMotionEnabled();
-
-  // The meaning text's height is font- and content-dependent, so it is left
-  // to natural Yoga layout rather than measured and animated by hand —
-  // measuring it on JS mount races the async custom-font load (the
-  // fallback-font measurement is shorter than the real one, and nothing
-  // re-measures once the font swaps in), which clips/overlaps the text.
-  // Only the reveal is animated, as a plain opacity fade.
-  const fadeProgress = useSharedValue(selected ? 1 : 0);
-
-  useEffect(() => {
-    fadeProgress.value = withTiming(selected ? 1 : 0, {
-      duration: reduceMotion ? 0 : FADE_DURATION,
-      easing: Easing.out(Easing.cubic),
-    });
-  }, [selected, fadeProgress, reduceMotion]);
-
-  const meaningFadeStyle = useAnimatedStyle(() => ({
-    opacity: fadeProgress.value,
-  }));
 
   return (
-    <AnimatedPressable
+    <Pressable
       testID={testID}
       onPress={onPress}
       accessibilityRole="button"
@@ -87,11 +57,7 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
       accessibilityState={{ disabled, selected }}
       disabled={disabled}
       hitSlop={8}
-      style={({ pressed }: { pressed: boolean }) => [
-        styles.pressable,
-        style,
-        pressed && !disabled && styles.pressed,
-      ]}
+      style={({ pressed }) => [styles.pressable, style, pressed && !disabled && styles.pressed]}
     >
       <View pointerEvents="none" style={styles.axisLine} />
       <View
@@ -99,7 +65,7 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
         style={[
           styles.node,
           { borderColor: modeColor },
-          selected && { backgroundColor: modeColor, shadowColor: modeColor, shadowOpacity: 0.58, shadowRadius: 9, elevation: 4 },
+          selected && { backgroundColor: modeColor, shadowColor: modeColor },
           locked && !selected && styles.lockedNode,
         ]}
       />
@@ -122,27 +88,22 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
           </View>
         </View>
         <Text style={[styles.duration, selected && { color: modeColor }]}>{durationHint}</Text>
-
-        {selected ? (
-          <Animated.View style={meaningFadeStyle}>
-            <Text style={styles.meaning}>{meaning}</Text>
-          </Animated.View>
-        ) : null}
+        {selected ? <Text style={styles.meaning}>{meaning}</Text> : null}
       </View>
-    </AnimatedPressable>
+    </Pressable>
   );
 };
 
 const styles = StyleSheet.create({
   pressable: {
-    minHeight: 64,
+    minHeight: 68,
     paddingLeft: 32,
     position: 'relative',
   },
   pressed: { opacity: 0.82 },
   axisLine: {
     position: 'absolute',
-    left: 9,
+    left: 10,
     top: 0,
     bottom: 0,
     width: StyleSheet.hairlineWidth,
@@ -150,35 +111,35 @@ const styles = StyleSheet.create({
   },
   node: {
     position: 'absolute',
-    top: 19,
-    left: 3,
-    width: 14,
-    height: 14,
+    top: 20,
+    left: 4,
+    width: 13,
+    height: 13,
     borderRadius: 7,
     borderWidth: 1.5,
     backgroundColor: '#080C10',
   },
   lockedNode: { borderColor: 'rgba(242,223,168,0.34)' },
   content: {
-    minHeight: 64,
-    paddingTop: 14,
-    paddingBottom: 12,
-    paddingLeft: 14,
-    paddingRight: 2,
+    minHeight: 68,
+    paddingTop: 15,
+    paddingBottom: 13,
+    paddingHorizontal: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(242,223,168,0.1)',
   },
   contentSelected: {
-    paddingBottom: 15,
-    borderBottomColor: 'rgba(242,223,168,0.22)',
+    marginBottom: 3,
+    backgroundColor: 'rgba(242,223,168,0.045)',
+    borderBottomColor: 'rgba(242,223,168,0.25)',
   },
-  releaseSelected: {},
+  releaseSelected: { backgroundColor: 'rgba(200,135,90,0.055)' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   titleRow: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 7 },
   title: {
     color: 'rgba(244,237,216,0.66)',
     fontFamily: typography.fontFamily.serifSemiBold,
-    fontSize: 14,
+    fontSize: 15,
     letterSpacing: 1.15,
   },
   titleLocked: { color: 'rgba(244,237,216,0.45)' },
@@ -203,7 +164,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1.25,
   },
   meaning: {
-    marginTop: 9,
+    marginTop: 10,
     color: 'rgba(244,237,216,0.71)',
     fontFamily: typography.fontFamily.bodySerifItalic,
     fontSize: 15,

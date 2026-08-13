@@ -11,7 +11,7 @@ export type PracticeMode = (typeof PRACTICE_MODES)[number];
 export const PRACTICE_MODE_LABELS: Readonly<Record<PracticeMode, string>> = {
   deep_prime: 'Deep Prime',
   visualize: 'Visualize',
-  focus: 'Focus Session',
+  focus: 'Focus',
   release: 'Release',
 };
 
