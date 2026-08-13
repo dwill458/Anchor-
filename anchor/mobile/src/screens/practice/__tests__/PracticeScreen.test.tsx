@@ -222,20 +222,20 @@ describe('PracticeScreen', () => {
     mockAnalyticsTrack.mockClear();
   });
 
-  it('renders the updated primary CTA and current mode labels', async () => {
+  it('renders the compact anchor selector, mode list, and selected-mode CTA', async () => {
     mockAnchors = [buildAnchor('a1', 'Focus on clarity')];
     const screen = render(<PracticeScreen />);
 
     expect(screen.getByText('Practice')).toBeTruthy();
     expect(screen.getByText('Return to the symbol. Keep the thread.')).toBeTruthy();
-    expect(screen.getByText("TODAY'S GOAL")).toBeTruthy();
-    expect(screen.getByText('0 of 3 sessions complete')).toBeTruthy();
-    expect(screen.getByText('3 sessions remaining today')).toBeTruthy();
-    expect(screen.getByText('Restore Thread')).toBeTruthy();
-    expect(screen.getByText('Focus Session · 10–60 sec to restore')).toBeTruthy();
+    expect(screen.getByText('CURRENT ANCHOR')).toBeTruthy();
+    expect(screen.getByText('Focus on clarity')).toBeTruthy();
+    expect(screen.getByText('Choose your practice')).toBeTruthy();
     expect(screen.getByText('DEEP PRIME')).toBeTruthy();
     expect(screen.getByText('FOCUS')).toBeTruthy();
     expect(screen.getByText('RELEASE')).toBeTruthy();
+    expect(screen.getByText('BEGIN DEEP PRIME →')).toBeTruthy();
+    expect(screen.getByText('THE WEAVE')).toBeTruthy();
   });
 
   it('opens anchor selector when the selected practice CTA has no anchor', async () => {
@@ -249,54 +249,37 @@ describe('PracticeScreen', () => {
     });
   });
 
-  it('uses one hero Pressable for center, text, subtitle, and arrow taps', async () => {
-    mockThreadStrength = 80;
+  it('routes the selected Focus mode through the canonical entry', async () => {
     mockAnchors = [buildAnchor('hero-anchor', 'Hero target')];
-    const targetExpectation = chargeSetupExpectation('hero-anchor', 'practice_hero', 120);
+    const screen = render(<PracticeScreen />);
+    fireEvent.press(screen.getByTestId('practice-focus-card'));
+    fireEvent.press(screen.getByTestId('practice-selected-mode-cta'));
 
-    const tapTargets = [
-      'practice-hero-deep-prime',
-      "TODAY'S PRACTICE",
-      'Begin Priming',
-      'Deep Prime · 2 min to custom',
-      'practice-hero-deep-prime-arrow',
-    ];
-
-    for (const target of tapTargets) {
-      mockNavigateToPractice.mockClear();
-      const screen = render(<PracticeScreen />);
-      fireEvent.press(
-        target.startsWith('practice-') ? screen.getByTestId(target) : screen.getByText(target)
-      );
-
-      await waitFor(() => {
-        expect(mockNavigateToPractice).toHaveBeenCalledTimes(1);
-        expect(mockNavigateToPractice).toHaveBeenCalledWith('ChargeSetup', targetExpectation);
-      });
-      expect(mockNavigateToVault).not.toHaveBeenCalled();
-      expect(mockNavigate).not.toHaveBeenCalledWith('AnchorDetail', expect.anything());
-      screen.unmount();
-    }
+    await waitFor(() => {
+      expect(mockNavigateToPractice).toHaveBeenCalledWith('ActivationRitual', expect.objectContaining({
+        anchorId: 'hero-anchor',
+        source: 'practice_focus_card',
+      }));
+    });
   });
 
-  it('locks the hero and smaller Deep Prime card against repeated navigation', async () => {
-    mockThreadStrength = 80;
+  it('locks the selected Deep Prime CTA against repeated navigation', async () => {
     mockAnchors = [buildAnchor('rapid-anchor', 'Rapid target')];
     const screen = render(<PracticeScreen />);
-    const hero = screen.getByTestId('practice-hero-deep-prime');
+    const cta = screen.getByTestId('practice-selected-mode-cta');
 
-    fireEvent.press(hero);
-    fireEvent.press(hero);
-    fireEvent.press(hero);
-    fireEvent.press(hero);
-    fireEvent.press(hero);
+    fireEvent.press(cta);
+    fireEvent.press(cta);
+    fireEvent.press(cta);
+    fireEvent.press(cta);
+    fireEvent.press(cta);
 
     await waitFor(() => {
       expect(mockNavigateToPractice).toHaveBeenCalledTimes(1);
     });
     expect(mockNavigateToPractice).toHaveBeenCalledWith(
       'ChargeSetup',
-      chargeSetupExpectation('rapid-anchor', 'practice_hero', 120),
+      chargeSetupExpectation('rapid-anchor', 'practice_deep_prime_card', 120),
     );
     expect(mockNavigateToVault).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalledWith('AnchorDetail', expect.anything());
@@ -373,12 +356,12 @@ describe('PracticeScreen', () => {
     });
   });
 
-  it('opens The Weave scoped to the current Anchor from the history summary', () => {
+  it('opens The Weave scoped to the current Anchor from the history entry', () => {
     mockCurrentAnchorId = 'weave-anchor';
     mockAnchors = [buildAnchor('weave-anchor', 'Track my returns')];
     const screen = render(<PracticeScreen />);
 
-    fireEvent.press(screen.getByLabelText(/Thread Strength .* Opens practice details/));
+    fireEvent.press(screen.getByTestId('practice-open-weave'));
 
     expect(mockNavigate).toHaveBeenCalledWith('TheWeave', {
       origin: 'practice',
@@ -402,7 +385,7 @@ describe('PracticeScreen', () => {
     });
   });
 
-  it('uses a location preset from the primary CTA without exposing place data in analytics', async () => {
+  it('keeps a location suggestion from displacing the selected mode CTA', async () => {
     mockAnchors = [buildAnchor('a66', 'Practice at the studio')];
     mockLocationPrimingSuggestion = {
       distanceMeters: 12,
@@ -418,33 +401,8 @@ describe('PracticeScreen', () => {
     };
     const screen = render(<PracticeScreen />);
 
-    await waitFor(() => {
-      expect(screen.getByText('Prime at Studio')).toBeTruthy();
-      expect(screen.getByText('Focus Session · 1 min')).toBeTruthy();
-    });
-
-    fireEvent.press(screen.getByText('Prime at Studio'));
-
-    await waitFor(() => {
-      expect(mockNavigateToPractice).toHaveBeenCalledWith('ActivationRitual', expect.objectContaining({
-        anchorId: 'a66',
-        activationType: 'visual',
-        durationOverride: 60,
-        audioConfiguration: {
-          guidanceVoice: 'none',
-          backgroundAudio: 'off',
-          source: 'session_override',
-        },
-        returnTo: 'practice',
-        source: 'practice_hero',
-      }));
-    });
-    expect(mockAnalyticsTrack).toHaveBeenCalledWith('charge_started', {
-      source: 'practice_location_preset',
-      location_preset_applied: true,
-      session_type: 'focus',
-      duration_seconds: 60,
-    });
+    await waitFor(() => expect(screen.getByText('BEGIN DEEP PRIME →')).toBeTruthy());
+    expect(screen.queryByText('Prime at Studio')).toBeNull();
   });
 
   it('routes ritual flow using the anchor selected in current-anchor selector', async () => {
@@ -485,7 +443,7 @@ describe('PracticeScreen', () => {
     });
   });
 
-  it('uses the primary CTA to quick-restart the last ritual type for the selected anchor', async () => {
+  it('keeps an existing session history from changing the selected practice mode', async () => {
     mockAnchors = [buildAnchor('a55', 'Stay steady')];
     mockSessionLog = [
       {
@@ -499,22 +457,7 @@ describe('PracticeScreen', () => {
     ];
 
     const screen = render(<PracticeScreen />);
-    fireEvent.press(screen.getByText('Restore Thread'));
-
-    await waitFor(() => {
-      expect(mockNavigateToPractice).toHaveBeenCalledWith('ActivationRitual', expect.objectContaining({
-        anchorId: 'a55',
-        activationType: 'visual',
-        durationOverride: 30,
-        audioConfiguration: {
-          guidanceVoice: 'female',
-          backgroundAudio: 'ambient',
-          source: 'default',
-        },
-        returnTo: 'practice',
-        source: 'practice_hero',
-      }));
-    });
+    expect(screen.getByText('BEGIN DEEP PRIME →')).toBeTruthy();
   });
 
   it('uses burn fallbacks when launching release from practice', async () => {
@@ -543,38 +486,16 @@ describe('PracticeScreen', () => {
     });
   });
 
-  it('shows focus-session sub-copy after the user has already primed today', async () => {
+  it('expands Focus copy when Focus is selected', async () => {
     mockAnchors = [buildAnchor('a3', 'Keep momentum')];
     mockLastPrimedAt = localDateString(new Date());
 
     const screen = render(<PracticeScreen />);
 
-    expect(screen.getByText('Focus Session · 10–60 sec')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('practice-focus-card'));
+    expect(screen.getByText('Return your attention to the Anchor.')).toBeTruthy();
   });
 
-  it('shows partial progress toward the daily goal from activate and reinforce sessions', async () => {
-    mockAnchors = [buildAnchor('a4', 'Keep the thread')];
-    mockPracticeHistory = [canonicalEvent('s1', 'focus'), canonicalEvent('s2', 'deep_prime')];
-
-    const screen = render(<PracticeScreen />);
-
-    expect(screen.getByText('2 of 3 sessions complete')).toBeTruthy();
-    expect(screen.getByText('1 session remaining today')).toBeTruthy();
-  });
-
-  it('shows a terminal state when the daily goal is complete', async () => {
-    mockAnchors = [buildAnchor('a5', 'Finish strong')];
-    mockPracticeHistory = [
-      canonicalEvent('s1', 'focus'),
-      canonicalEvent('s2', 'deep_prime'),
-      canonicalEvent('s3', 'release'),
-    ];
-
-    const screen = render(<PracticeScreen />);
-
-    expect(screen.getByText('3 of 3 sessions complete')).toBeTruthy();
-    expect(screen.getByText('Goal complete for today')).toBeTruthy();
-  });
 
   it('opens teaching sheet from info icon', async () => {
     mockAnchors = [buildAnchor('a1', 'Calm focus')];
