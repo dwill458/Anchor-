@@ -8,6 +8,7 @@ import {
   distillIntention,
   getDistillationSummary,
   validateIntention,
+  buildDistillationRenderWords,
   DistillationResult,
 } from './distillation';
 
@@ -254,6 +255,44 @@ describe('getDistillationSummary', () => {
     const summary = getDistillationSummary(result);
 
     expect(summary).toContain('T S');
+  });
+});
+
+describe('buildDistillationRenderWords', () => {
+  it('groups characters by word and uppercases them for display', () => {
+    const words = buildDistillationRenderWords('Close the deal');
+
+    expect(words).toHaveLength(3);
+    expect(words[0].chars.map((c) => c.char)).toEqual(['C', 'L', 'O', 'S', 'E']);
+  });
+
+  it('marks the HTML reference example CONFIDENCE -> C, N, F, D', () => {
+    const words = buildDistillationRenderWords('CONFIDENCE');
+    const kept = words.flatMap((w) => w.chars.filter((c) => c.keep).map((c) => c.char));
+
+    expect(kept).toEqual(['C', 'N', 'F', 'D']);
+  });
+
+  it('matches distillIntention finalLetters exactly for the same input', () => {
+    const cases = ['Close the deal', 'Find inner peace', 'Launch my startup', 'I lead my team with confidence'];
+
+    for (const phrase of cases) {
+      const words = buildDistillationRenderWords(phrase);
+      const kept = words
+        .flatMap((w) => w.chars.filter((c) => c.keep).map((c) => c.char.toUpperCase()));
+
+      expect(kept).toEqual(distillIntention(phrase).finalLetters);
+    }
+  });
+
+  it('marks vowels and repeated consonants as not-kept', () => {
+    const words = buildDistillationRenderWords('banana');
+
+    expect(words[0].chars.map((c) => c.keep)).toEqual([true, false, true, false, false, false]);
+  });
+
+  it('returns an empty array for an empty string', () => {
+    expect(buildDistillationRenderWords('')).toEqual([]);
   });
 });
 

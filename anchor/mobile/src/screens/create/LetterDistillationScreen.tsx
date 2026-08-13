@@ -1,55 +1,207 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
+  Modal,
+  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Circle, Defs, RadialGradient as SvgRadialGradient, Stop } from 'react-native-svg';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/types';
-import { useAuthStore } from '@/stores/authStore';
-import { useAnchorStore } from '@/stores/anchorStore';
 import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
-import { useAudio } from '@/hooks/useAudio';
-import { colors } from '@/theme';
-import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
+import { buildDistillationRenderWords } from '@/utils/sigil/distillation';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
+import { safeHaptics } from '@/utils/haptics';
+import { colors, typography } from '@/theme';
+import { BackChevronIcon, CloseIcon } from '@/components/icons';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'LetterDistillation'>;
   route: RouteProp<RootStackParamList, 'LetterDistillation'>;
 };
 
-type StageStyle = 'sentence' | 'spaced' | 'large' | 'glyph';
+type Stage = 'full' | 'reducing' | 'settled';
 
-interface Stage {
-  phase: string;
-  label: string;
-  subtitle: string;
-  text: string;
-  style: StageStyle;
-  duration: number;
-  typeSpeed: number;
+const gilt = colors.anchor15.gilt;
+const giltBright = colors.anchor15.giltBright;
+const ash = colors.anchor15.ash;
+const bone = colors.anchor15.bone;
+const boneSoft = 'rgba(244, 239, 230, 0.68)';
+const boneFaint = 'rgba(244, 239, 230, 0.42)';
+const goldLine = colors.anchor15.goldLine;
+const hairlineGold = colors.anchor15.hairlineGold;
+
+const REDUCING_DELAY_MS = 480;
+const SETTLE_DELAY_MS = 1320;
+const REDUCED_MOTION_SETTLE_DELAY_MS = 260;
+const CHAR_STAGGER_MS = 16;
+
+function HeroGlow() {
+  return (
+    <View pointerEvents="none" style={styles.heroGlowWrap}>
+      <Svg width={280} height={280}>
+        <Defs>
+          <SvgRadialGradient id="distillHeroGlow" cx="50%" cy="45%" r="55%">
+            <Stop offset="0%" stopColor={gilt} stopOpacity={0.12} />
+            <Stop offset="68%" stopColor={gilt} stopOpacity={0} />
+          </SvgRadialGradient>
+        </Defs>
+        <Circle cx={140} cy={140} r={140} fill="url(#distillHeroGlow)" />
+      </Svg>
+    </View>
+  );
 }
 
-const VOWELS = new Set(['A', 'E', 'I', 'O', 'U']);
+function TopGlow() {
+  return (
+    <View pointerEvents="none" style={styles.topGlowWrap}>
+      <Svg width={340} height={340}>
+        <Defs>
+          <SvgRadialGradient id="distillTopGlow" cx="50%" cy="50%" r="50%">
+            <Stop offset="0%" stopColor={gilt} stopOpacity={0.09} />
+            <Stop offset="68%" stopColor={gilt} stopOpacity={0} />
+          </SvgRadialGradient>
+        </Defs>
+        <Circle cx={170} cy={170} r={170} fill="url(#distillTopGlow)" />
+      </Svg>
+    </View>
+  );
+}
+
+function DistillChar({
+  char,
+  keep,
+  delayMs,
+  active,
+  reduceMotion,
+}: {
+  char: string;
+  keep: boolean;
+  delayMs: number;
+  active: boolean;
+  reduceMotion: boolean;
+}) {
+  const progress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!active) {
+      progress.setValue(0);
+      return;
+    }
+
+    const anim = Animated.timing(progress, {
+      toValue: 1,
+      duration: reduceMotion ? 300 : 500,
+      delay: reduceMotion ? 0 : delayMs,
+      easing: Easing.linear,
+      useNativeDriver: false,
+    });
+    anim.start();
+    return () => anim.stop();
+  }, [active, delayMs, progress, reduceMotion]);
+
+  const opacity = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, keep ? 1 : 0.16],
+  });
+  const scale = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, reduceMotion ? 1 : keep ? 1.08 : 0.85],
+  });
+  const color = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [boneSoft, keep ? giltBright : boneSoft],
+  });
+
+  return (
+    <Animated.Text
+      style={[
+        styles.distillChar,
+        { opacity, color, transform: [{ scale }] },
+      ]}
+    >
+      {char}
+    </Animated.Text>
+  );
+}
+
+function HowSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <Modal
+      transparent
+      visible={visible}
+      animationType="slide"
+      onRequestClose={onClose}
+      accessibilityViewIsModal
+    >
+      <Pressable style={styles.sheetBackdrop} onPress={onClose} accessibilityLabel="Dismiss">
+        <Pressable style={{ width: '100%' }} onPress={(event) => event.stopPropagation()}>
+          <LinearGradient colors={['#1A222B', '#10151B']} style={[styles.sheet, { paddingBottom: 40 + insets.bottom }]}>
+            <View style={styles.sheetHandle} />
+            <Pressable
+              onPress={onClose}
+              hitSlop={8}
+              style={styles.sheetClose}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+            >
+              <CloseIcon size={12} color={boneFaint} />
+            </Pressable>
+            <Text style={styles.sheetTitle}>How Distillation Works</Text>
+
+            <View style={[styles.sheetItem, styles.sheetItemFirst]}>
+              <Text style={styles.sheetItemTitle}>
+                Anchor reduces your written intention by removing repeated elements and simplifying the
+                phrase into a smaller set of letters.
+              </Text>
+            </View>
+            <View style={styles.sheetItem}>
+              <Text style={styles.sheetItemTitle}>
+                Those letters become the raw material used to build your structure.
+              </Text>
+            </View>
+
+            <View style={styles.sheetExample}>
+              <View style={styles.sheetExampleRow}>
+                <Text style={styles.sheetExTagGood}>Example</Text>
+                <Text style={styles.sheetExTextGood}>CONFIDENCE &rarr; C &middot; N &middot; F &middot; D</Text>
+              </View>
+            </View>
+
+            <Pressable
+              onPress={onClose}
+              style={({ pressed }) => [styles.sheetDismiss, pressed && styles.nextBtnPressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Got it"
+            >
+              <Text style={styles.sheetDismissText}>Got it</Text>
+            </Pressable>
+          </LinearGradient>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
 
 export default function LetterDistillationScreen({ route, navigation }: Props) {
   const { intentionText, distilledLetters, category } = route.params;
-  const { width, height } = useWindowDimensions();
-  const { user, anchorCount } = useAuthStore((state) => ({
-    user: state.user,
-    anchorCount: state.anchorCount,
-  }));
-  const localAnchorCount = useAnchorStore((state) => state.anchors.length);
-  const isCompactLayout = isCompactPhoneViewport(width, height);
-  const isShortLayout = isShortPhoneViewport(height);
+  const insets = useSafeAreaInsets();
+  const reduceMotion = useReduceMotionEnabled();
+
+  const [stage, setStage] = useState<Stage>('full');
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  const renderWords = useMemo(() => buildDistillationRenderWords(intentionText), [intentionText]);
 
   useEffect(() => {
     useFirstAnchorFlowStore.getState().updateDraft({
@@ -58,636 +210,558 @@ export default function LetterDistillationScreen({ route, navigation }: Props) {
     });
   }, [distilledLetters, intentionText]);
 
-  // Step 2: unique alphabetic letters from raw intention (spaces removed, vowels kept)
-  const step2Letters = useMemo(() => {
-    const seen = new Set<string>();
-    const result: string[] = [];
-    for (const char of intentionText.toUpperCase()) {
-      if (char === ' ') continue;
-      if (/[A-Z]/.test(char) && !seen.has(char)) {
-        seen.add(char);
-        result.push(char);
-      }
-    }
-    return result;
-  }, [intentionText]);
+  useEffect(() => {
+    const timers: ReturnType<typeof setTimeout>[] = [];
 
-  // Step 3: consonants only — vowels filtered from step2
-  const step3Letters = useMemo(
-    () => step2Letters.filter((letter) => !VOWELS.has(letter)),
-    [step2Letters]
-  );
-
-  // Step 4 / seed: canonical final set from the distillation route param
-  const step4Letters = useMemo(
-    () => distilledLetters.map((letter) => letter.toUpperCase()),
-    [distilledLetters]
-  );
-
-  const stages = useMemo<Stage[]>(
-    () => [
-      {
-        phase: 'Intention',
-        label: 'YOUR INTENTION',
-        subtitle: 'What you seek to anchor',
-        text: intentionText.toUpperCase(),
-        style: 'sentence',
-        duration: 1600,
-        typeSpeed: 20,
-      },
-      {
-        phase: 'Removing the Inessential',
-        label: 'UNIQUE LETTERS',
-        subtitle: 'Each letter, once',
-        text: step2Letters.join(' '),
-        style: 'spaced',
-        duration: 1200,
-        typeSpeed: 30,
-      },
-      {
-        phase: 'Distilling Consonants',
-        label: 'CONSONANTS REMAIN',
-        subtitle: 'Vowels dissolve into silence',
-        text: step3Letters.join(' '),
-        style: 'spaced',
-        duration: 1200,
-        typeSpeed: 40,
-      },
-      {
-        phase: 'Converging Symbol',
-        label: 'THE SEED LETTERS',
-        subtitle: 'Your anchor takes form',
-        text: step4Letters.join(' '),
-        style: 'large',
-        duration: 1400,
-        typeSpeed: 55,
-      },
-      {
-        phase: 'Crystallising',
-        label: 'FORGING',
-        subtitle: 'Letters becoming form',
-        text: '✦',
-        style: 'glyph',
-        duration: 0,
-        typeSpeed: 180,
-      },
-    ],
-    [intentionText, step2Letters, step3Letters, step4Letters]
-  );
-
-  const [currentStage, setCurrentStage] = useState(0);
-  const [displayedText, setDisplayedText] = useState('');
-  const { playSound } = useAudio();
-
-  const fadeAnim = useRef(new Animated.Value(1)).current;
-  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const stageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hasNavigatedRef = useRef(false);
-  const didPlayRevealCueRef = useRef(false);
-
-  const orb1TranslateY = useRef(new Animated.Value(0)).current;
-  const orb2TranslateY = useRef(new Animated.Value(0)).current;
-  const orb3Scale = useRef(new Animated.Value(1)).current;
-
-  const isReturningUser =
-    Math.max(user?.totalAnchorsCreated ?? 0, anchorCount ?? 0, localAnchorCount) > 0;
-  const showSkip = isReturningUser && currentStage < stages.length - 1;
-
-  const clearStageTimers = useCallback(() => {
-    if (typingTimer.current) {
-      clearTimeout(typingTimer.current);
-      typingTimer.current = null;
-    }
-    if (stageTimer.current) {
-      clearTimeout(stageTimer.current);
-      stageTimer.current = null;
-    }
-  }, []);
-
-  const navigateToSelection = useCallback(() => {
-    if (hasNavigatedRef.current) {
-      return;
+    if (reduceMotion) {
+      timers.push(setTimeout(() => setStage('settled'), REDUCED_MOTION_SETTLE_DELAY_MS));
+    } else {
+      timers.push(setTimeout(() => setStage('reducing'), REDUCING_DELAY_MS));
+      timers.push(
+        setTimeout(() => {
+          setStage('settled');
+          void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
+        }, SETTLE_DELAY_MS)
+      );
     }
 
-    hasNavigatedRef.current = true;
-    clearStageTimers();
+    return () => timers.forEach(clearTimeout);
+  }, [reduceMotion]);
 
+  const entranceOpacity = useRef(new Animated.Value(0)).current;
+  const entranceTranslateX = useRef(new Animated.Value(26)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(entranceOpacity, {
+        toValue: 1,
+        duration: 360,
+        easing: Easing.bezier(0.22, 0.82, 0.44, 1),
+        useNativeDriver: true,
+      }),
+      Animated.timing(entranceTranslateX, {
+        toValue: 0,
+        duration: 360,
+        easing: Easing.bezier(0.22, 0.82, 0.44, 1),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [entranceOpacity, entranceTranslateX]);
+
+  const phraseLayerOpacity = useRef(new Animated.Value(1)).current;
+  const resultLayerOpacity = useRef(new Animated.Value(0)).current;
+  const eyebrowOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const duration = reduceMotion ? 300 : 550;
+    const settled = stage === 'settled';
+
+    Animated.timing(phraseLayerOpacity, {
+      toValue: settled ? 0 : 1,
+      duration,
+      easing: Easing.linear,
+      useNativeDriver: true,
+    }).start();
+    Animated.timing(resultLayerOpacity, {
+      toValue: settled ? 1 : 0,
+      duration,
+      easing: Easing.linear,
+      useNativeDriver: true,
+    }).start();
+    Animated.timing(eyebrowOpacity, {
+      toValue: settled ? 1 : 0,
+      duration,
+      easing: Easing.linear,
+      useNativeDriver: true,
+    }).start();
+  }, [eyebrowOpacity, phraseLayerOpacity, reduceMotion, resultLayerOpacity, stage]);
+
+  const charsShown = stage === 'reducing' || stage === 'settled';
+
+  const handleChooseStructure = () => {
     navigation.navigate('StructureForge', {
       intentionText,
       category,
-      distilledLetters: step4Letters,
+      distilledLetters,
     });
-  }, [category, clearStageTimers, intentionText, navigation, step4Letters]);
-
-  const goToStage = useCallback(
-    (idx: number) => {
-      if (idx < 0 || idx >= stages.length || idx === currentStage) {
-        return;
-      }
-
-      clearStageTimers();
-
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 260,
-        useNativeDriver: true,
-      }).start(({ finished }) => {
-        if (!finished) {
-          return;
-        }
-
-        setCurrentStage(idx);
-        setDisplayedText('');
-
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 260,
-          useNativeDriver: true,
-        }).start();
-      });
-    },
-    [clearStageTimers, currentStage, fadeAnim, stages.length]
-  );
-
-  const skipAll = useCallback(() => {
-    goToStage(stages.length - 1);
-  }, [goToStage, stages.length]);
-
-  useEffect(() => {
-    const orb1Loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(orb1TranslateY, {
-          toValue: 14,
-          duration: 7000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(orb1TranslateY, {
-          toValue: -14,
-          duration: 7000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    );
-
-    const orb2Loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(orb2TranslateY, {
-          toValue: -10,
-          duration: 9000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(orb2TranslateY, {
-          toValue: 10,
-          duration: 9000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    );
-
-    const orb3Loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(orb3Scale, {
-          toValue: 1.3,
-          duration: 6000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(orb3Scale, {
-          toValue: 1,
-          duration: 6000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    );
-
-    orb1Loop.start();
-    orb2Loop.start();
-    orb3Loop.start();
-
-    return () => {
-      orb1Loop.stop();
-      orb2Loop.stop();
-      orb3Loop.stop();
-    };
-  }, [orb1TranslateY, orb2TranslateY, orb3Scale]);
-
-  useEffect(() => {
-    clearStageTimers();
-    setDisplayedText('');
-    didPlayRevealCueRef.current = currentStage !== stages.length - 1;
-
-    const stage = stages[currentStage];
-    let index = 0;
-    const shouldPlayLetterCue = currentStage > 0 && currentStage < stages.length - 1;
-
-    const typeNext = () => {
-      if (index <= stage.text.length) {
-        const nextCharacter = index > 0 ? stage.text[index - 1] : '';
-
-        setDisplayedText(stage.text.slice(0, index));
-
-        if (shouldPlayLetterCue && nextCharacter.trim()) {
-          void playSound('letter-drop');
-          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
-
-        if (
-          currentStage === stages.length - 1 &&
-          index === stage.text.length &&
-          !didPlayRevealCueRef.current
-        ) {
-          didPlayRevealCueRef.current = true;
-          void playSound('forge-seal');
-          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-        }
-
-        index += 1;
-        typingTimer.current = setTimeout(typeNext, stage.typeSpeed);
-        return;
-      }
-
-      if (currentStage === stages.length - 1) {
-        stageTimer.current = setTimeout(navigateToSelection, 1200);
-        return;
-      }
-
-      stageTimer.current = setTimeout(() => {
-        goToStage(currentStage + 1);
-      }, stage.duration);
-    };
-
-    typeNext();
-
-    return clearStageTimers;
-  }, [clearStageTimers, currentStage, goToStage, navigateToSelection, playSound, stages]);
-
-  useEffect(() => clearStageTimers, [clearStageTimers]);
-
-  const activeStage = stages[currentStage];
-
-  const textStyle = (() => {
-    switch (activeStage.style) {
-      case 'spaced':
-        return [styles.textSpaced, isCompactLayout && styles.textSpacedCompact];
-      case 'large':
-        return [styles.textLarge, isCompactLayout && styles.textLargeCompact];
-      case 'glyph':
-        return [styles.textGlyph, isCompactLayout && styles.textGlyphCompact];
-      case 'sentence':
-      default:
-        return [styles.textSentence, isCompactLayout && styles.textSentenceCompact];
-    }
-  })();
+  };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <View style={styles.container}>
-        <LinearGradient
-          colors={['#0a0c14', '#100f1f', '#0a0c14']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[colors.anchor15.creationTop, colors.anchor15.creationBottom, colors.anchor15.navy]}
+        locations={[0, 0.44, 1]}
+        style={StyleSheet.absoluteFill}
+      />
+      <TopGlow />
 
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.orbOne,
-            {
-              transform: [{ translateY: orb1TranslateY }],
-            },
-          ]}
-        />
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.orbTwo,
-            {
-              transform: [{ translateY: orb2TranslateY }],
-            },
-          ]}
-        />
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.orbThree,
-            {
-              transform: [{ scale: orb3Scale }],
-            },
-          ]}
-        />
-
-        {showSkip ? (
-          <TouchableOpacity
-            style={[styles.skipButton, isCompactLayout && styles.skipButtonCompact]}
-            onPress={skipAll}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel="Skip to final stage"
-          >
-            <Text style={styles.skipText}>Skip ›</Text>
-          </TouchableOpacity>
-        ) : null}
-
+      <SafeAreaView style={styles.safeArea}>
         <Animated.View
           style={[
             styles.content,
-            isCompactLayout && styles.contentCompact,
-            isShortLayout && styles.contentShort,
-            { opacity: fadeAnim },
+            { opacity: entranceOpacity, transform: [{ translateX: entranceTranslateX }] },
           ]}
         >
-          <View style={[styles.topZone, isCompactLayout && styles.topZoneCompact]}>
-            <Text style={[styles.stepCounter, isCompactLayout && styles.stepCounterCompact]}>
-              Step {currentStage + 1} of {stages.length}
-            </Text>
-            <Text style={[styles.phaseName, isCompactLayout && styles.phaseNameCompact]}>
-              {activeStage.phase}
-            </Text>
-            <View style={[styles.phaseDivider, isCompactLayout && styles.phaseDividerCompact]} />
+          <View style={styles.topBar}>
+            <Pressable
+              onPress={() => navigation.goBack()}
+              hitSlop={8}
+              style={({ pressed }) => [styles.backBtn, pressed && styles.backBtnPressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+            >
+              <BackChevronIcon size={16} color={boneSoft} />
+            </Pressable>
+            <View style={{ width: 36 }} />
           </View>
 
-          <View style={[styles.centerZone, isCompactLayout && styles.centerZoneCompact]}>
-            <Text style={[styles.stageLabel, isCompactLayout && styles.stageLabelCompact]}>
-              {activeStage.label}
-            </Text>
-            <Text style={[styles.mainTextBase, textStyle]}>{displayedText}</Text>
-            <Text style={[styles.stageSubtitle, isCompactLayout && styles.stageSubtitleCompact]}>
-              {activeStage.subtitle}
-            </Text>
-          </View>
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <Text style={styles.topEyebrow}>Your Intention</Text>
 
-          <View style={[styles.bottomZone, isCompactLayout && styles.bottomZoneCompact]}>
-            <View style={styles.dots}>
-              {stages.map((_, index) => {
-                const isActive = index === currentStage;
-                const isPassed = index < currentStage;
-
-                return (
-                  <TouchableOpacity
-                    key={`dot-${index}`}
-                    onPress={() => goToStage(index)}
-                    style={[
-                      styles.dot,
-                      isActive && styles.dotActive,
-                      isPassed && styles.dotPassed,
-                      !isActive && !isPassed && styles.dotFuture,
-                    ]}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Go to stage ${index + 1}`}
-                  />
-                );
-              })}
+            <View style={styles.quoteCard}>
+              <Text style={styles.quoteText}>&ldquo;{intentionText}&rdquo;</Text>
             </View>
-            <Text style={[styles.settleText, isCompactLayout && styles.settleTextCompact]}>
-              {currentStage < stages.length - 1 ? 'Let it settle' : 'Your anchor awaits'}
-            </Text>
+
+            <View style={styles.textZone}>
+              <Text style={styles.title}>
+                Distilling Your <Text style={styles.titleEm}>Intention</Text>
+              </Text>
+              <Text style={styles.body}>
+                We remove repetition and reduce your intention to its essential letters. These become the
+                foundation of your Anchor.
+              </Text>
+            </View>
+
+            <View style={styles.heroSection}>
+              <View style={styles.hero}>
+                <HeroGlow />
+
+                <Animated.View
+                  pointerEvents={stage === 'settled' ? 'none' : 'auto'}
+                  style={[styles.heroLayer, { opacity: phraseLayerOpacity }]}
+                >
+                  <View style={styles.phrase}>
+                    {renderWords.map((word, wi) => (
+                      <View style={styles.word} key={`word-${wi}`}>
+                        {word.chars.map((c, ci) => (
+                          <DistillChar
+                            key={`char-${wi}-${ci}`}
+                            char={c.char}
+                            keep={c.keep}
+                            delayMs={(wi * 5 + ci) * CHAR_STAGGER_MS}
+                            active={charsShown}
+                            reduceMotion={reduceMotion}
+                          />
+                        ))}
+                      </View>
+                    ))}
+                  </View>
+                </Animated.View>
+
+                <Animated.View
+                  pointerEvents={stage === 'settled' ? 'auto' : 'none'}
+                  style={[styles.heroLayer, { opacity: resultLayerOpacity }]}
+                  testID="distill-result-layer"
+                >
+                  <View style={styles.letters}>
+                    {distilledLetters.map((ch, i) => (
+                      <React.Fragment key={`letter-${i}`}>
+                        {i > 0 && <Text style={styles.dot}>&middot;</Text>}
+                        <Text style={styles.letter}>{ch}</Text>
+                      </React.Fragment>
+                    ))}
+                  </View>
+                </Animated.View>
+              </View>
+
+              <Animated.Text style={[styles.eyebrowResult, { opacity: eyebrowOpacity }]}>
+                The Essential Form
+              </Animated.Text>
+            </View>
+
+            <View style={styles.aboutRow}>
+              <Pressable
+                onPress={() => setSheetOpen(true)}
+                style={styles.aboutToggle}
+                hitSlop={{ top: 10, bottom: 10, left: 4, right: 4 }}
+                accessibilityRole="button"
+                accessibilityLabel="How does this work?"
+              >
+                <Text style={styles.aboutToggleText}>How does this work?</Text>
+                <View style={styles.principlesQ}>
+                  <Text style={styles.principlesQText}>?</Text>
+                </View>
+              </Pressable>
+            </View>
+          </ScrollView>
+
+          <View style={[styles.bottomBar, { paddingBottom: 24 + insets.bottom }]}>
+            <Text style={styles.nextHint}>Next, choose how these letters become a structure.</Text>
+            <Pressable
+              onPress={handleChooseStructure}
+              style={({ pressed }) => [styles.nextBtn, pressed && styles.nextBtnPressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Choose Your Structure"
+            >
+              <Text style={styles.nextBtnText}>Choose Your Structure &rarr;</Text>
+            </Pressable>
           </View>
         </Animated.View>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+
+      <HowSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#0a0c14',
-  },
   container: {
     flex: 1,
+    backgroundColor: colors.anchor15.navy,
     overflow: 'hidden',
-    backgroundColor: '#0a0c14',
+  },
+  safeArea: {
+    flex: 1,
+  },
+  topGlowWrap: {
+    position: 'absolute',
+    top: -100,
+    right: -100,
+    width: 340,
+    height: 340,
   },
   content: {
     flex: 1,
-    paddingTop: 70,
-    paddingBottom: 44,
-    paddingHorizontal: 28,
-    justifyContent: 'space-between',
   },
-  contentCompact: {
-    paddingTop: 54,
-    paddingBottom: 28,
-    paddingHorizontal: 22,
-  },
-  contentShort: {
-    paddingTop: 48,
-    paddingBottom: 22,
-  },
-  skipButton: {
-    position: 'absolute',
-    top: 56,
-    right: 28,
-    zIndex: 10,
-    backgroundColor: 'rgba(212,175,55,0.07)',
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.18)',
-    borderRadius: 20,
-    paddingVertical: 7,
-    paddingHorizontal: 16,
-  },
-  skipButtonCompact: {
-    top: 46,
-    right: 22,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-  },
-  skipText: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: 9,
-    letterSpacing: 3,
-    color: 'rgba(212,175,55,0.55)',
-    textTransform: 'uppercase',
-  },
-  topZone: {
-    alignItems: 'center',
-  },
-  topZoneCompact: {
-    marginBottom: 4,
-  },
-  stepCounter: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: 9,
-    letterSpacing: 6,
-    color: colors.gold,
-    textTransform: 'uppercase',
-    opacity: 0.65,
-    marginBottom: 10,
-  },
-  stepCounterCompact: {
-    fontSize: 8,
-    letterSpacing: 4.5,
-    marginBottom: 8,
-  },
-  phaseName: {
-    fontFamily: 'CrimsonPro-Italic',
-    fontSize: 21,
-    letterSpacing: 0.5,
-    color: '#e8e0d4',
-  },
-  phaseNameCompact: {
-    fontSize: 18,
-  },
-  phaseDivider: {
-    width: 40,
-    height: 1,
-    backgroundColor: colors.gold,
-    opacity: 0.5,
-    marginTop: 14,
-  },
-  phaseDividerCompact: {
-    width: 32,
-    marginTop: 12,
-  },
-  centerZone: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 18,
-  },
-  centerZoneCompact: {
-    gap: 14,
-  },
-  stageLabel: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: 9,
-    letterSpacing: 5,
-    color: colors.gold,
-    textTransform: 'uppercase',
-    opacity: 0.55,
-  },
-  stageLabelCompact: {
-    fontSize: 8,
-    letterSpacing: 4,
-  },
-  mainTextBase: {
-    textAlign: 'center',
-  },
-  textSentence: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: 14,
-    letterSpacing: 3,
-    color: '#c8bfb3',
-    lineHeight: 28,
-    maxWidth: 300,
-  },
-  textSentenceCompact: {
-    fontSize: 12,
-    lineHeight: 22,
-    letterSpacing: 2.2,
-    maxWidth: 260,
-  },
-  textSpaced: {
-    fontFamily: 'Courier',
-    fontSize: 22,
-    letterSpacing: 8,
-    color: '#e8e0d4',
-  },
-  textSpacedCompact: {
-    fontSize: 18,
-    letterSpacing: 6,
-  },
-  textLarge: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: 34,
-    letterSpacing: 16,
-    color: '#D4AF37',
-  },
-  textLargeCompact: {
-    fontSize: 28,
-    letterSpacing: 10,
-  },
-  textGlyph: {
-    fontSize: 80,
-    color: '#D4AF37',
-    letterSpacing: 0,
-  },
-  textGlyphCompact: {
-    fontSize: 64,
-  },
-  stageSubtitle: {
-    fontFamily: 'CrimsonPro-Italic',
-    fontSize: 14,
-    letterSpacing: 1,
-    color: '#8a7f74',
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  stageSubtitleCompact: {
-    fontSize: 12.5,
-    marginTop: 4,
-  },
-  bottomZone: {
-    alignItems: 'center',
-    gap: 18,
-  },
-  bottomZoneCompact: {
-    gap: 14,
-  },
-  dots: {
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingTop: 14,
+    paddingBottom: 12,
   },
-  dot: {
-    height: 6,
-    borderRadius: 3,
-    width: 6,
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: hairlineGold,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  dotActive: {
-    width: 28,
-    backgroundColor: '#D4AF37',
+  backBtnPressed: {
+    borderColor: goldLine,
   },
-  dotPassed: {
-    backgroundColor: 'rgba(212,175,55,0.35)',
+  scrollView: {
+    flex: 1,
   },
-  dotFuture: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 12,
   },
-  settleText: {
-    fontFamily: 'CrimsonPro-Italic',
-    fontSize: 13,
-    letterSpacing: 2,
-    color: '#5a5450',
+  topEyebrow: {
+    fontFamily: typography.fontFamily.ritual,
+    fontSize: 11,
+    fontWeight: '500',
+    letterSpacing: 2.2,
+    color: ash,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  quoteCard: {
+    marginTop: 14,
+    marginHorizontal: 28,
+    padding: 16,
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    backgroundColor: 'rgba(244, 239, 230, 0.035)',
+    borderWidth: 1,
+    borderColor: hairlineGold,
+  },
+  quoteText: {
+    fontFamily: typography.fontFamily.voiceItalic,
+    fontStyle: 'italic',
+    fontSize: 19,
+    lineHeight: 26.6,
+    color: bone,
     textAlign: 'center',
   },
-  settleTextCompact: {
-    fontSize: 12,
-    letterSpacing: 1.5,
+  textZone: {
+    paddingHorizontal: 28,
+    marginTop: 22,
   },
-  orbOne: {
-    position: 'absolute',
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    top: -60,
-    right: -70,
-    backgroundColor: 'rgba(62,44,91,0.5)',
+  title: {
+    fontFamily: typography.fontFamily.voiceItalic,
+    fontStyle: 'italic',
+    fontWeight: '500',
+    fontSize: 27,
+    lineHeight: 34,
+    color: bone,
+    letterSpacing: 0.15,
+    marginBottom: 14,
   },
-  orbTwo: {
-    position: 'absolute',
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    bottom: 80,
-    left: -60,
-    backgroundColor: 'rgba(212,175,55,0.08)',
+  titleEm: {
+    fontFamily: typography.fontFamily.voice,
+    fontStyle: 'normal',
+    color: giltBright,
   },
-  orbThree: {
+  body: {
+    fontFamily: typography.fontFamily.instrument,
+    fontSize: 16,
+    color: boneSoft,
+    lineHeight: 25.6,
+  },
+  heroSection: {
+    paddingHorizontal: 28,
+    marginTop: 22,
+  },
+  hero: {
+    position: 'relative',
+    height: 196,
+    borderRadius: 20,
+    backgroundColor: 'rgba(15, 20, 25, 0.55)',
+    borderWidth: 1,
+    borderColor: hairlineGold,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroGlowWrap: {
     position: 'absolute',
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    top: '50%',
+    top: -18,
     left: '50%',
-    marginTop: -80,
-    marginLeft: -80,
-    backgroundColor: 'rgba(212,175,55,0.04)',
+    marginLeft: -140,
+  },
+  heroLayer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  phrase: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    maxWidth: 280,
+    rowGap: 9,
+  },
+  word: {
+    flexDirection: 'row',
+    marginRight: 5,
+  },
+  distillChar: {
+    fontFamily: typography.fontFamily.ritual,
+    fontSize: 14,
+    fontWeight: '500',
+    letterSpacing: 0.28,
+    color: boneSoft,
+  },
+  letters: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'baseline',
+    maxWidth: 300,
+    columnGap: 3,
+    rowGap: 6,
+  },
+  letter: {
+    fontFamily: typography.fontFamily.ritual,
+    fontWeight: '500',
+    fontSize: 32,
+    letterSpacing: 0.96,
+    color: giltBright,
+  },
+  dot: {
+    fontFamily: typography.fontFamily.ritual,
+    fontSize: 17,
+    color: ash,
+    opacity: 0.65,
+  },
+  eyebrowResult: {
+    textAlign: 'center',
+    fontFamily: typography.fontFamily.ritual,
+    fontSize: 10,
+    fontWeight: '500',
+    letterSpacing: 2.4,
+    color: ash,
+    textTransform: 'uppercase',
+    marginTop: 14,
+  },
+  aboutRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 16,
+  },
+  aboutToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  aboutToggleText: {
+    fontFamily: typography.fontFamily.instrument,
+    fontSize: 11,
+    color: ash,
+  },
+  principlesQ: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: goldLine,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  principlesQText: {
+    fontFamily: typography.fontFamily.instrument,
+    fontSize: 10,
+    color: gilt,
+  },
+  bottomBar: {
+    paddingHorizontal: 28,
+    paddingTop: 18,
+    alignItems: 'center',
+    gap: 16,
+  },
+  nextHint: {
+    fontFamily: typography.fontFamily.instrument,
+    fontSize: 13,
+    color: ash,
+    textAlign: 'center',
+    lineHeight: 18.2,
+  },
+  nextBtn: {
+    width: '100%',
+    height: 56,
+    borderRadius: 999,
+    backgroundColor: 'rgba(217, 179, 108, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(217, 179, 108, 0.34)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nextBtnPressed: {
+    backgroundColor: 'rgba(217, 179, 108, 0.16)',
+    borderColor: 'rgba(217, 179, 108, 0.48)',
+  },
+  nextBtnText: {
+    fontFamily: typography.fontFamily.ritualSemiBold,
+    fontWeight: '600',
+    fontSize: 14,
+    letterSpacing: 2.52,
+    color: giltBright,
+    textTransform: 'uppercase',
+  },
+  sheetBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(6, 9, 13, 0.7)',
+  },
+  sheet: {
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    borderTopWidth: 1,
+    borderColor: goldLine,
+    paddingHorizontal: 26,
+    paddingTop: 14,
+  },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 99,
+    backgroundColor: 'rgba(244, 239, 230, 0.18)',
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  sheetClose: {
+    position: 'absolute',
+    top: 14,
+    right: 20,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: hairlineGold,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetTitle: {
+    fontFamily: typography.fontFamily.ritual,
+    fontSize: 11,
+    letterSpacing: 2.42,
+    textTransform: 'uppercase',
+    color: ash,
+    textAlign: 'center',
+    marginBottom: 18,
+  },
+  sheetItem: {
+    paddingVertical: 15,
+    borderTopWidth: 1,
+    borderTopColor: hairlineGold,
+  },
+  sheetItemFirst: {
+    borderTopWidth: 0,
+    paddingTop: 0,
+  },
+  sheetItemTitle: {
+    fontFamily: typography.fontFamily.voiceItalic,
+    fontStyle: 'italic',
+    fontSize: 16,
+    lineHeight: 22.7,
+    color: bone,
+  },
+  sheetExample: {
+    marginTop: 4,
+    gap: 8,
+  },
+  sheetExampleRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 10,
+  },
+  sheetExTagGood: {
+    fontFamily: typography.fontFamily.instrument,
+    fontSize: 10.5,
+    fontWeight: '500',
+    letterSpacing: 0.63,
+    textTransform: 'uppercase',
+    color: gilt,
+    width: 56,
+  },
+  sheetExTextGood: {
+    fontFamily: typography.fontFamily.voiceItalic,
+    fontStyle: 'italic',
+    fontSize: 14,
+    color: giltBright,
+    flex: 1,
+  },
+  sheetDismiss: {
+    width: '100%',
+    height: 48,
+    borderRadius: 999,
+    marginTop: 22,
+    backgroundColor: 'rgba(217, 179, 108, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(217, 179, 108, 0.34)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetDismissText: {
+    fontFamily: typography.fontFamily.ritualSemiBold,
+    fontWeight: '600',
+    fontSize: 13,
+    letterSpacing: 2.08,
+    color: giltBright,
+    textTransform: 'uppercase',
   },
 });
