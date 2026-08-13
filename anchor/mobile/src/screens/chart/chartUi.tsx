@@ -1,5 +1,7 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronRight, LockKeyhole, RefreshCw } from 'lucide-react-native';
 import { colors, spacing, typography } from '@/theme';
 import type { CourseStatus, WaypointSummary } from '@/types/chart';
@@ -9,13 +11,24 @@ export const ChartScreenFrame: React.FC<{
   subtitle?: string;
   children: React.ReactNode;
   scroll?: boolean;
-}> = ({ title, subtitle, children, scroll = true }) => {
+  headerActions?: React.ReactNode;
+  headerTopInset?: number;
+}> = ({ title, subtitle, children, scroll = true, headerActions, headerTopInset = 0 }) => {
+  const insets = useSafeAreaInsets();
   const content = (
-    <View style={styles.content}>
-      <Text style={styles.screenTitle} accessibilityRole="header">
-        {title}
-      </Text>
-      {subtitle ? <Text style={styles.screenSubtitle}>{subtitle}</Text> : null}
+    <View style={[styles.content, !scroll && styles.contentFixed]}>
+      <View
+        testID="chart-screen-header"
+        style={[styles.titleRow, { marginTop: Math.max(insets.top, 0) + headerTopInset }]}
+      >
+        <View style={styles.titleCopy}>
+          <Text style={styles.screenTitle} accessibilityRole="header">
+            {title}
+          </Text>
+          {subtitle ? <Text style={styles.screenSubtitle}>{subtitle}</Text> : null}
+        </View>
+        {headerActions ? <View style={styles.headerActions}>{headerActions}</View> : null}
+      </View>
       {children}
     </View>
   );

@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
-import { Text, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ArrowUpRight, BookOpen, ChevronDown, CircleAlert, Eye, Link2, MoreHorizontal, RefreshCw, Sparkles, Zap } from 'lucide-react-native';
+import Svg, { Circle, Defs, G, Path, RadialGradient, Stop } from 'react-native-svg';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { useAuthStore } from '@/stores/authStore';
@@ -22,6 +24,21 @@ import {
 } from './chartUi';
 
 type ChartNavigation = NativeStackNavigationProp<ChartStackParamList>;
+type ChartHomeRoute = RouteProp<ChartStackParamList, 'ChartHome'>;
+
+const PRACTICE_MODES: Array<{ mode: ChartPracticeMode; label: string; description: string; color: string; icon: React.ReactNode }> = [
+  { mode: 'focus', label: 'FOCUS', description: 'Lock onto the Anchor', color: colors.gold, icon: <Zap size={15} color={colors.gold} /> },
+  { mode: 'visualize', label: 'VISUALIZE', description: 'See the outcome clearly', color: '#78B4D1', icon: <Eye size={15} color="#78B4D1" /> },
+  { mode: 'deepPrime', label: 'DEEP PRIME', description: 'Go deeper', color: '#AD99D2', icon: <Sparkles size={15} color="#AD99D2" /> },
+];
+
+const EMPTY_STARS: Array<[number, number, number]> = [
+  [18, 54, 0.8], [48, 116, 0.65], [82, 186, 0.7], [126, 78, 0.55], [154, 228, 0.75],
+  [206, 52, 0.6], [242, 144, 0.75], [286, 92, 0.65], [332, 182, 0.8], [370, 48, 0.55],
+  [24, 314, 0.65], [66, 386, 0.75], [112, 344, 0.55], [178, 410, 0.8], [224, 362, 0.6],
+  [274, 438, 0.7], [316, 328, 0.55], [362, 398, 0.75], [42, 506, 0.6], [98, 570, 0.7],
+  [168, 536, 0.55], [232, 612, 0.75], [302, 548, 0.65], [354, 638, 0.55], [16, 688, 0.7],
+];
 
 function errorCopy(code: string | null): string {
   switch (code) {
@@ -39,6 +56,79 @@ function errorCopy(code: string | null): string {
       return 'Chart could not refresh. Try again.';
   }
 }
+
+function formatShortDate(value: string | null | undefined): string {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function logEntryText(entry: { eventType: string; practiceSession?: { practiceMode: string } | null; reflection?: { body?: string | null; structuredContent?: { whatHelped?: string; whatLearned?: string } | null } | null }): { meta: string; text: string } {
+  const mode = entry.practiceSession?.practiceMode?.replace(/_/g, ' ').toUpperCase();
+  const structured = entry.reflection?.structuredContent;
+  const reflectionText = entry.reflection?.body?.trim() || structured?.whatHelped?.trim() || structured?.whatLearned?.trim();
+  return {
+    meta: `${entry.eventType.replace(/_/g, ' ')}${mode ? ` · ${mode}` : ''}`,
+    text: reflectionText || 'A Course update was recorded here.',
+  };
+}
+
+const EmptyChartArt: React.FC = () => (
+  <View style={styles.emptyArt} pointerEvents="none">
+    <Svg width="100%" height="100%" viewBox="0 0 390 720" preserveAspectRatio="none" style={styles.emptyStarfield}>
+      {EMPTY_STARS.map(([cx, cy, r]) => <Circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={r} fill="rgba(245,240,232,0.3)" opacity={0.5} />)}
+    </Svg>
+    <Svg width={380} height={380} viewBox="0 0 380 380" style={styles.emptyGlowSvg}>
+      <Defs>
+        <RadialGradient id="emptyChartGlow" cx="50%" cy="50%" r="50%">
+          <Stop offset="0%" stopColor="#3E2C5B" stopOpacity={0.3} />
+          <Stop offset="68%" stopColor="#3E2C5B" stopOpacity={0} />
+          <Stop offset="100%" stopColor="#3E2C5B" stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Circle cx="190" cy="190" r="190" fill="url(#emptyChartGlow)" />
+    </Svg>
+    <Svg width={322} height={72} viewBox="0 0 322 72" style={styles.emptyRouteSvg}>
+      <G>
+        <Path d="M 5 46 L 80 28 L 160 51 L 240 22 L 317 34" fill="none" stroke="rgba(245,240,232,0.14)" strokeWidth="1" strokeDasharray="3 6" strokeLinecap="round" />
+        <Circle cx="5" cy="46" r="4.5" fill="none" stroke="rgba(245,240,232,0.22)" strokeWidth="1" />
+        <Circle cx="80" cy="28" r="4.5" fill="none" stroke="rgba(245,240,232,0.22)" strokeWidth="1" />
+        <Circle cx="160" cy="51" r="4.5" fill="none" stroke="rgba(245,240,232,0.22)" strokeWidth="1" />
+        <Circle cx="240" cy="22" r="4.5" fill="none" stroke="rgba(245,240,232,0.22)" strokeWidth="1" />
+        <Circle cx="317" cy="34" r="4.5" fill="none" stroke="rgba(245,240,232,0.22)" strokeWidth="1" />
+      </G>
+    </Svg>
+  </View>
+);
+
+const AnchorArt: React.FC<{ waypoint: WaypointSummary }> = ({ waypoint }) => {
+  const imageUrl = waypoint.anchorLink?.snapshot.enhancedImageUrl;
+  return (
+    <View style={styles.anchorArt}>
+      <View style={styles.anchorGlow} />
+      <View style={styles.anchorRing}>
+        {imageUrl ? <Image source={{ uri: imageUrl }} style={styles.anchorImage} /> : <Text style={styles.anchorPlaceholder}>Anchor</Text>}
+      </View>
+    </View>
+  );
+};
+
+const PracticeModeButton: React.FC<{
+  mode: (typeof PRACTICE_MODES)[number];
+  disabled: boolean;
+  onPress: () => void;
+}> = ({ mode, disabled, onPress }) => (
+  <Pressable
+    onPress={onPress}
+    disabled={disabled}
+    accessibilityRole="button"
+    accessibilityLabel={`${mode.label}: ${mode.description}`}
+    style={({ pressed }) => [styles.practiceMode, disabled && styles.disabled, pressed && styles.pressed]}
+  >
+    {mode.icon}
+    <Text style={[styles.practiceModeLabel, { color: mode.color }]}>{mode.label}</Text>
+  </Pressable>
+);
 
 const DestinationAnchor: React.FC<{ course: CourseDetail | CourseSummary }> = ({ course }) => (
   <View>
@@ -64,8 +154,6 @@ export const ChartHomeScreen: React.FC = () => {
     store.bindAccount(accountId);
     void store.hydrateAndRefresh(accountId);
   }, [accountId, serverFlags, store.bindAccount, store.hydrateAndRefresh, store.setFeatureFlags]);
-
-  useEffect(() => startReflectionQueueSync(), []);
 
   useEffect(() => {
     // ChartHome is the stack root, so its navigation object is the correct
@@ -191,22 +279,18 @@ export const ChartHomeScreen: React.FC = () => {
   const currentWaypoint = detail?.waypoints.find((waypoint) => waypoint.id === detail.currentWaypointId);
 
   return (
-    <ChartScreenFrame title="Chart" subtitle="Where am I going?">
-      {store.errorCode ? (
-        <View style={{ padding: 12, borderRadius: 12, backgroundColor: 'rgba(255,110,110,0.12)' }} accessibilityLiveRegion="assertive">
-          <Text style={{ color: '#FFB1B1', fontFamily: 'Inter-Regular', fontSize: 13 }}>{errorCopy(store.errorCode)}</Text>
-        </View>
-      ) : null}
-      <ChartSyncNotice lastSyncedAt={store.lastSyncedAt} offline={offline} onRetry={retry} />
-      {needsRepair ? (
-        <ChartCard emphasis>
-          <Text style={{ color: '#FFB1B1', fontFamily: 'Inter-SemiBold', fontSize: 18 }}>Chart needs attention</Text>
-          <Text style={{ color: '#C0C0C0', fontFamily: 'Inter-Regular', fontSize: 15, lineHeight: 22 }}>
-            This Course has a structural issue on the server. Nothing was silently selected or repaired on this device.
-          </Text>
-          <ChartButton label="Retry and refetch" onPress={retry} disabled={store.refreshing} />
-        </ChartCard>
-      ) : null}
+    <ChartScreenFrame
+        title="CHART"
+        subtitle="Know where you’re going."
+        headerActions={
+          <View style={styles.headerActions}>
+            <ChartIconButton label="Chart menu" icon={<MoreHorizontal size={17} color={colors.gold} />} onPress={openCourse} />
+          </View>
+      }
+    >
+      {store.errorCode ? <View style={styles.inlineNotice}><CircleAlert size={15} color="#F0A0A0" /><Text accessibilityLiveRegion="assertive" style={styles.inlineNoticeText}>{errorCopy(store.errorCode)}</Text><Pressable onPress={retry} accessibilityRole="button"><RefreshCw size={15} color={colors.gold} /></Pressable></View> : null}
+      {offline || store.stale ? <ChartSyncNotice lastSyncedAt={store.lastSyncedAt} offline={offline} onRetry={retry} /> : null}
+
       {isDraft ? (
         <ChartCard emphasis>
           <ChartStatusPill status="DRAFT" />
@@ -218,28 +302,47 @@ export const ChartHomeScreen: React.FC = () => {
       ) : null}
       {isActive ? (
         <>
-          <ChartCard emphasis>
-            <Text style={{ color: '#9E9E9E', fontFamily: 'Inter-Regular', fontSize: 12, letterSpacing: 1 }}>CURRENT WAYPOINT</Text>
-            <Text style={{ color: '#F5F5DC', fontFamily: 'Cinzel-SemiBold', fontSize: 29 }}>{currentWaypoint?.title ?? 'Awaiting the next step'}</Text>
-            <Text style={{ color: '#C0C0C0', fontFamily: 'Inter-Regular', fontSize: 15, lineHeight: 22 }}>
-              {currentWaypoint?.state === 'BLOCKED'
-                ? 'Blocked — the linked Anchor is unavailable.'
-                : 'What must become true next?'}
-            </Text>
-            {currentWaypoint ? (
-              <ChartButton label="Open current waypoint" onPress={() => navigation.navigate('WaypointDetail', { courseId: course.id, waypointId: currentWaypoint.id })} />
-            ) : null}
-          </ChartCard>
-          {detail ? (
-            <>
-              <ChartCard>
-                <Text style={{ color: '#D4AF37', fontFamily: 'Inter-SemiBold', fontSize: 13 }}>WAYPOINT ANCHOR</Text>
-                <Text style={{ color: '#F5F5DC', fontFamily: 'Inter-Regular', fontSize: 15 }}>
-                  {currentWaypoint?.anchorLink?.snapshot.intentionText ?? 'No Anchor linked'}
-                </Text>
-                {currentWaypoint?.state === 'BLOCKED' ? (
-                  <ChartButton label="Link an Existing Anchor" secondary onPress={() => navigation.navigate('WaypointDetail', { courseId: course.id, waypointId: currentWaypoint.id })} disabled={store.readOnly} hint={disabledReason} />
-                ) : null}
+          <ChartSection style={styles.courseHeaderSection}>
+            <ChartKicker>CURRENT COURSE</ChartKicker>
+            <Pressable onPress={openCourse} accessibilityRole="button" accessibilityLabel="Open current course details" style={styles.courseTitleRow}>
+              <Text style={styles.courseTitle}>{course.destinationText.toUpperCase()}</Text>
+              <ChevronDown size={16} color={colors.gold} />
+            </Pressable>
+            <View style={styles.courseMetaRow}>
+              <View style={styles.activeDestination}><View style={styles.activeDot} /><Text style={styles.metaGold}>Active destination</Text></View>
+              <ChartGhostButton label="Course details" icon={<Link2 size={12} color={colors.gold} />} onPress={openCourse} color={colors.gold} />
+            </View>
+          </ChartSection>
+
+          <ChartSection style={styles.routeSection}>
+            <CourseMap
+              courseId={course.id}
+              destinationText={course.destinationText}
+              waypoints={detail.waypoints}
+              currentWaypointId={detail.currentWaypointId}
+              reachedCount={course.reachedCount}
+              completed={false}
+              reducedMotion={reducedMotion}
+              orientation="horizontal"
+              onWaypointPress={(waypointId) => navigation.navigate('WaypointDetail', { courseId: course.id, waypointId })}
+            />
+            <Text style={styles.progress}>{course.reachedCount} of {course.waypointCount} waypoints reached</Text>
+          </ChartSection>
+
+          {currentWaypoint ? (
+            <ChartSection style={styles.currentSection}>
+              <ChartKicker color={currentWaypoint.state === 'BLOCKED' ? colors.warning : colors.practiceMode.focus.primary}>CURRENT WAYPOINT</ChartKicker>
+              <View style={styles.currentTitleRow}><Text style={styles.currentTitle}>{currentWaypoint.title}</Text><View style={[styles.currentBadge, currentWaypoint.state === 'BLOCKED' && styles.blockedBadge]}><View style={[styles.currentBadgeDot, currentWaypoint.state === 'BLOCKED' && styles.blockedDot]} /><Text style={[styles.currentBadgeText, currentWaypoint.state === 'BLOCKED' && styles.blockedText]}>{currentWaypoint.state === 'BLOCKED' ? 'BLOCKED' : 'CURRENT'}</Text></View></View>
+              {currentWaypoint.state === 'BLOCKED' ? <Text style={styles.currentDescription}>This waypoint is blocked because its linked Anchor is unavailable.</Text> : currentWaypoint.description ? <Text style={styles.currentDescription}>{currentWaypoint.description}</Text> : null}
+
+              <ChartKicker style={styles.subKicker}>LINKED ANCHOR</ChartKicker>
+              <ChartCard style={styles.anchorCard}>
+                <AnchorArt waypoint={currentWaypoint} />
+                <View style={styles.anchorCopy}>
+                  <Text style={styles.anchorQuote}>“{currentWaypoint.anchorLink?.snapshot.intentionText ?? 'No Anchor linked yet'}”</Text>
+                  <Text style={styles.anchorMeta}>{currentWaypoint.anchorLink?.anchorAvailable ? 'LINKED ANCHOR' : currentWaypoint.state === 'BLOCKED' ? 'ANCHOR UNAVAILABLE' : 'LINK AN ANCHOR TO PRACTICE'}</Text>
+                </View>
+                <ArrowUpRight size={15} color={colors.gold} />
               </ChartCard>
               <ChartCard>
                 <Text style={{ color: '#D4AF37', fontFamily: 'Inter-SemiBold', fontSize: 13 }}>PRACTICE</Text>
