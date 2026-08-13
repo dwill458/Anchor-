@@ -1,5 +1,5 @@
 import React from 'react';
-import { Animated } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { render, screen, fireEvent, act, within } from '@testing-library/react-native';
 import LetterDistillationScreen from '../LetterDistillationScreen';
 
@@ -72,13 +72,49 @@ describe('LetterDistillationScreen', () => {
     render(<LetterDistillationScreen navigation={navigation} route={route} />);
 
     act(() => {
-      jest.advanceTimersByTime(1320);
+      jest.advanceTimersByTime(1400);
     });
 
     const resultLayer = within(screen.getByTestId('distill-result-layer'));
     for (const letter of route.params.distilledLetters) {
       expect(resultLayer.getByText(letter)).toBeTruthy();
     }
+  });
+
+  it('keeps only the visible hero layer in the accessibility tree', () => {
+    render(<LetterDistillationScreen navigation={navigation} route={route} />);
+
+    expect(screen.getByTestId('distill-phrase-layer').props.accessibilityElementsHidden).toBe(false);
+    expect(screen.getByTestId('distill-result-layer', { includeHiddenElements: true }).props.accessibilityElementsHidden).toBe(true);
+
+    act(() => {
+      jest.advanceTimersByTime(1400);
+    });
+
+    expect(screen.getByTestId('distill-phrase-layer', { includeHiddenElements: true }).props.accessibilityElementsHidden).toBe(true);
+    expect(screen.getByTestId('distill-result-layer', { includeHiddenElements: true }).props.accessibilityElementsHidden).toBe(false);
+  });
+
+  it('waits for the final character reduction before settling long intentions', () => {
+    const longRoute = {
+      params: {
+        ...route.params,
+        intentionText: 'b'.repeat(100),
+        distilledLetters: ['B'],
+      },
+    } as any;
+
+    render(<LetterDistillationScreen navigation={navigation} route={longRoute} />);
+
+    act(() => {
+      jest.advanceTimersByTime(1320);
+    });
+    expect(screen.getByTestId('distill-result-layer', { includeHiddenElements: true }).props.accessibilityElementsHidden).toBe(true);
+
+    act(() => {
+      jest.advanceTimersByTime(1244);
+    });
+    expect(screen.getByTestId('distill-result-layer').props.accessibilityElementsHidden).toBe(false);
   });
 
   it('does not navigate automatically once the reduction settles', () => {
@@ -104,6 +140,14 @@ describe('LetterDistillationScreen', () => {
     for (const letter of route.params.distilledLetters) {
       expect(resultLayer.getByText(letter)).toBeTruthy();
     }
+  });
+
+  it('skips the entrance slide when reduced motion is enabled', () => {
+    mockReduceMotion = true;
+    render(<LetterDistillationScreen navigation={navigation} route={route} />);
+
+    const contentStyle = StyleSheet.flatten(screen.getByTestId('distill-content').props.style);
+    expect(contentStyle.transform).toEqual([{ translateX: 0 }]);
   });
 
   it('opens and dismisses the "How does this work?" sheet', () => {
@@ -146,3 +190,4 @@ describe('LetterDistillationScreen', () => {
     });
   });
 });
+
