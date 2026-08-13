@@ -114,6 +114,19 @@ export const TEACHINGS: Record<string, TeachingContent> = {
     cooldownMs: 0,
   },
 
+  intention_input_principles_v1: {
+    teachingId: 'intention_input_principles_v1',
+    screen: 'intention_input',
+    trigger: 'first_time',
+    guideOnly: false,
+    tier: 'both',
+    copy: 'Tap to see what makes an intention short, present, and felt.',
+    pattern: 'inline_whisper',
+    tone: 'grounding',
+    maxShows: 1,
+    cooldownMs: 0,
+  },
+
   // ── Activation / Charge ─────────────────────────────────────────────────────
 
   activation_ground_note_v1: {
