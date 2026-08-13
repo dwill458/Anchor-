@@ -36,6 +36,7 @@ import {
 import { stableIndex } from '@/utils/hash';
 import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
 import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 
 type ManualReinforcementRouteProp = RouteProp<RootStackParamList, 'ManualReinforcement'>;
 type ManualReinforcementNavigationProp = StackNavigationProp<
@@ -89,6 +90,7 @@ export default function ManualReinforcementScreen() {
   const recordTraceSkipped = useSettingsStore((state) => state.recordTraceSkipped);
   const resetTraceSkipStreak = useSettingsStore((state) => state.resetTraceSkipStreak);
   const setTraceDefaultEnabled = useSettingsStore((state) => state.setTraceDefaultEnabled);
+  const reduceMotion = useReduceMotionEnabled();
 
   const isPostPrimeTrace = route.params.source === 'post_prime_trace';
   const postPrimeAnchor = getAnchorById(
@@ -121,7 +123,7 @@ export default function ManualReinforcementScreen() {
   const isShortLayout = isShortPhoneViewport(height);
   const canvasSize = Math.min(
     width - (isCompactLayout ? 40 : 48),
-    height * (isCompactLayout ? 0.42 : isShortLayout ? 0.46 : 0.5)
+    height * (isCompactLayout ? 0.39 : isShortLayout ? 0.41 : 0.44)
   );
 
   // Drawing state
@@ -134,6 +136,8 @@ export default function ManualReinforcementScreen() {
   const [canvasReady, setCanvasReady] = useState(false);
   const [showSkipModal, setShowSkipModal] = useState(false);
   const [showTraceDefaultPrompt, setShowTraceDefaultPrompt] = useState(false);
+  const [showAboutTracing, setShowAboutTracing] = useState(false);
+  const [showStructureSet, setShowStructureSet] = useState(false);
   const pendingSkipTimeSpentMsRef = useRef<number | null>(null);
   const startTime = useRef(Date.now());
 
@@ -381,7 +385,7 @@ export default function ManualReinforcementScreen() {
     `.trim();
   };
 
-  const handleComplete = () => {
+  const completeTrace = useCallback(() => {
     const timeSpentMs = Date.now() - startTime.current;
     const reinforcedSvg = strokesToSvg();
     resetTraceSkipStreak();
@@ -414,6 +418,26 @@ export default function ManualReinforcementScreen() {
         completedAt: new Date(),
       },
     });
+  }, [
+    baseSigilSvg,
+    category,
+    distilledLetters,
+    fidelityScore,
+    intentionText,
+    isPostPrimeTrace,
+    navigation,
+    resetTraceSkipStreak,
+    resolvePostPrimeTrace,
+    setUserFlag,
+    exhaustTraceHint,
+    strokeCount,
+    structureVariant,
+  ]);
+
+  const handleComplete = () => {
+    if (strokeCount === 0) return;
+    setShowStructureSet(true);
+    setTimeout(completeTrace, reduceMotion ? 0 : 520);
   };
 
   const continueAfterSkip = useCallback((timeSpentMs: number) => {
@@ -449,9 +473,7 @@ export default function ManualReinforcementScreen() {
     structureVariant,
   ]);
 
-  const handleSkip = () => {
-    setShowSkipModal(true);
-  };
+  const handleSkip = () => handleConfirmSkip();
 
   const handleConfirmSkip = () => {
     const timeSpentMs = Date.now() - startTime.current;
@@ -552,14 +574,27 @@ export default function ManualReinforcementScreen() {
 
       {/* Header */}
       <View style={[styles.header, isCompactLayout && styles.headerCompact]}>
+        <View style={styles.topRow}>
+          <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Go back">
+            <Text style={styles.backText}>←</Text>
+          </Pressable>
+          {!isPostPrimeTrace ? (
+            <Pressable onPress={() => setShowAboutTracing(true)} accessibilityRole="button" accessibilityLabel="About tracing">
+              <Text style={styles.aboutText}>About</Text>
+            </Pressable>
+          ) : <View style={styles.topSpacer} />}
+        </View>
+        {!isPostPrimeTrace ? <Text style={styles.contextLabel}>STRUCTURE</Text> : null}
+        <Text style={[styles.sectionLabel, isCompactLayout && styles.sectionLabelCompact]}>Structure</Text>
         <Text style={[styles.title, isCompactLayout && styles.titleCompact]}>
-          {isPostPrimeTrace ? 'Trace to deepen' : 'Trace Your Structure'}
+          {isPostPrimeTrace ? 'Trace to deepen' : 'Trace your structure'}
         </Text>
         <Text style={[styles.subtitle, isCompactLayout && styles.subtitleCompact]}>
-          {isPostPrimeTrace
-            ? 'Refine and deepen'
-            : 'Move slowly over the lines. Let your hand remember.'}
+          {isPostPrimeTrace ? 'Refine and deepen' : 'Follow the form once before it becomes your Anchor.'}
         </Text>
+        {!isPostPrimeTrace && shouldShowFirstTimeHint ? (
+          <Text style={styles.teachingText}>Tracing is optional. It doesn’t make one Anchor stronger than another.</Text>
+        ) : null}
       </View>
 
       {/* Drawing Canvas */}
@@ -607,10 +642,11 @@ export default function ManualReinforcementScreen() {
           </View>
         </GestureDetector>
 
+        {!hasStartedDrawing && !isPostPrimeTrace ? <Text style={styles.emptyPrompt}>Trace anywhere on the form.</Text> : null}
         {!isPostPrimeTrace ? (
           <View style={styles.hintOverlay}>
             <View style={[styles.hintLine, { width: canvasSize }]}>
-              <UndertoneLine text={hintState.hint.copy} variant="default" />
+              <UndertoneLine text="Move slowly along the gold lines. Overlap is okay." variant="default" />
             </View>
           </View>
         ) : null}
@@ -641,10 +677,10 @@ export default function ManualReinforcementScreen() {
             onPress={handleClearAll}
             disabled={strokes.length === 0}
             accessibilityRole="button"
-            accessibilityLabel="Start over"
+            accessibilityLabel="Clear"
             accessibilityState={{ disabled: strokes.length === 0 }}
           >
-            <Text style={styles.controlButtonText}>Start Over</Text>
+            <Text style={styles.controlButtonText}>Clear</Text>
           </TouchableOpacity>
         </View>
 
@@ -653,11 +689,11 @@ export default function ManualReinforcementScreen() {
           onPress={handleComplete}
           disabled={strokeCount === 0}
           accessibilityRole="button"
-          accessibilityLabel={isPostPrimeTrace ? 'Complete trace' : 'Lock Structure'}
+          accessibilityLabel={isPostPrimeTrace ? 'Complete trace' : 'Continue'}
           accessibilityState={{ disabled: strokeCount === 0 }}
         >
           <Text style={styles.completeButtonText}>
-            {isPostPrimeTrace ? 'Complete trace' : 'Lock Structure'}
+            {isPostPrimeTrace ? 'Complete trace' : 'Continue →'}
           </Text>
         </TouchableOpacity>
 
@@ -666,11 +702,11 @@ export default function ManualReinforcementScreen() {
           onPress={handleSkip}
           disabled={showTraceDefaultPrompt}
           accessibilityRole="button"
-          accessibilityLabel={isPostPrimeTrace ? 'Skip' : 'Continue without tracing'}
+          accessibilityLabel={isPostPrimeTrace ? 'Skip' : 'Skip Tracing'}
           accessibilityState={{ disabled: showTraceDefaultPrompt }}
         >
           <Text style={styles.skipButtonText}>
-            {isPostPrimeTrace ? 'Skip' : 'Continue without tracing'}
+            {isPostPrimeTrace ? 'Skip' : 'Skip Tracing'}
           </Text>
         </TouchableOpacity>
 
@@ -748,6 +784,25 @@ export default function ManualReinforcementScreen() {
           </View>
         </View>
       )}
+      {showAboutTracing ? (
+        <View style={styles.modalRoot}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setShowAboutTracing(false)} />
+          <View style={styles.modalOverlay} pointerEvents="box-none">
+            <View style={styles.modalContent} accessibilityViewIsModal={true}>
+              <Text style={styles.modalTitle}>About Tracing</Text>
+              <Text style={styles.modalBody}>Tracing is optional. It doesn’t make one Anchor stronger than another.{`\n\n`}It gives you a moment to move through the form before it becomes your Anchor.</Text>
+              <TouchableOpacity style={styles.modalPrimaryButton} onPress={() => setShowAboutTracing(false)} accessibilityRole="button" accessibilityLabel="Got it">
+                <Text style={styles.modalPrimaryButtonText}>Got it</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      ) : null}
+      {showStructureSet ? (
+        <View style={styles.structureSetOverlay} accessibilityViewIsModal={true}>
+          <Text style={styles.structureSetText}>Structure Set</Text>
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -762,6 +817,13 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     marginBottom: spacing.md,
   },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
+  topSpacer: { width: 42 },
+  backText: { color: colors.gold, fontFamily: typography.fonts.heading, fontSize: 24, lineHeight: 28 },
+  aboutText: { color: colors.text.secondary, fontFamily: typography.fonts.body, fontSize: 13 },
+  contextLabel: { color: colors.text.tertiary, fontFamily: typography.fonts.mono, fontSize: 10, letterSpacing: 1.8, textTransform: 'uppercase', marginBottom: spacing.xs },
+  sectionLabel: { color: colors.gold, fontFamily: typography.fonts.headingSemiBold, fontSize: 11, letterSpacing: 1.8, textTransform: 'uppercase', marginBottom: spacing.xs },
+  sectionLabelCompact: { fontSize: 10 },
   headerCompact: {
     paddingTop: spacing.sm,
     marginBottom: spacing.sm,
@@ -771,7 +833,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     color: colors.gold,
     marginBottom: spacing.xs,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   titleCompact: {
     fontSize: 24,
@@ -780,7 +842,7 @@ const styles = StyleSheet.create({
     fontFamily: typography.fonts.body,
     fontSize: typography.sizes.body2,
     color: colors.text.tertiary,
-    textAlign: 'center',
+    textAlign: 'left',
     lineHeight: 20,
   },
   subtitleCompact: {
@@ -792,6 +854,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xxl,
     position: 'relative',
   },
+  teachingText: { marginTop: spacing.sm, color: colors.text.tertiary, fontFamily: typography.fonts.body, fontSize: 13, lineHeight: 19, maxWidth: 340 },
+  emptyPrompt: { position: 'absolute', color: 'rgba(245,245,220,0.58)', fontFamily: typography.fonts.bodySerifItalic, fontSize: 15, zIndex: 2 },
   canvasContainerCompact: {
     marginBottom: spacing.xl + spacing.xs,
   },
@@ -1001,4 +1065,6 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: '#9B9B9B',
   },
+  structureSetOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 110, backgroundColor: 'rgba(8, 11, 15, 0.94)', alignItems: 'center', justifyContent: 'center' },
+  structureSetText: { fontFamily: typography.fonts.headingSemiBold, color: colors.gold, fontSize: 22, letterSpacing: 2 },
 });

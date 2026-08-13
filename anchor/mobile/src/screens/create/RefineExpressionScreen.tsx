@@ -13,16 +13,15 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { ArrowLeft, LockKeyhole, Sparkles } from 'lucide-react-native';
+import { ArrowLeft, Sparkles } from 'lucide-react-native';
 import { safeHaptics } from '@/utils/haptics';
 import type { RootStackParamList, SigilVariant } from '@/types';
 import { colors, spacing, typography } from '@/theme';
-import { ZenBackground } from '@/components/common';
+import { SigilSvg, ZenBackground } from '@/components/common';
 import { API_URL } from '@/config';
 import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
 import { RefineStyleCard } from './components/RefineStyleCard';
 import {
-  REFINE_STYLE_FILTERS,
   REFINE_STYLES,
   coreStyles,
   featuredStyles,
@@ -48,8 +47,6 @@ type ForwardNavigationPayload = RootStackParamList['AIGenerating'] & {
   structureType?: string;
   selectedStyle: RefineStyleOption;
 };
-
-const FILTERED_SECTION_COPY = 'Showing finishes that match the selected library view.';
 
 const isSigilVariant = (value: string | undefined): value is SigilVariant =>
   value === 'dense' || value === 'balanced' || value === 'minimal';
@@ -99,6 +96,14 @@ export default function RefineExpressionScreen() {
   const sigilSvg = params.sigilSvg ?? params.reinforcedSigilSvg ?? params.baseSigilSvg;
   const structureType = params.structureType ?? params.structureVariant;
   const category = params.category ?? 'custom';
+  const flowDraft = useFirstAnchorFlowStore((state) => state.draft);
+  const structureName = flowDraft?.structure === 'drawn'
+    ? 'Drawn'
+    : structureType === 'dense'
+      ? 'Contained'
+      : structureType === 'minimal'
+        ? 'Raw'
+        : 'Focused';
 
   const recommendedStyles = useMemo(
     () => getRecommendedStyles(category, intention),
@@ -108,7 +113,9 @@ export default function RefineExpressionScreen() {
   const [selectedStyleId, setSelectedStyleId] = useState(
     recommendedStyles[0]?.id ?? featuredStyles[0]?.id ?? REFINE_STYLES[0].id
   );
-  const [activeFilter, setActiveFilter] = useState<RefineStyleFilter>('all');
+  const activeFilter: RefineStyleFilter = 'all';
+  const [activeExploreTab, setActiveExploreTab] = useState<'week' | 'core' | 'seasonal' | 'all'>('week');
+  const [showStyleTeaching, setShowStyleTeaching] = useState(true);
   const [ambientColor, setAmbientColor] = useState(getAmbientStyle(recommendedStyles[0] ?? featuredStyles[0]));
 
   const ambientOpacity = useSharedValue(1);
@@ -175,6 +182,11 @@ export default function RefineExpressionScreen() {
 
     return () => clearTimeout(timeout);
   }, [ambientOpacity, ctaTextOpacity, selectedStyleOption]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowStyleTeaching(false), 3600);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleStyleSelect = useCallback((style: RefineStyleOption) => {
     if (style.id === selectedStyleId) return;
@@ -284,7 +296,7 @@ export default function RefineExpressionScreen() {
           >
             <ArrowLeft size={18} color={colors.gold} strokeWidth={1.8} />
           </Pressable>
-          <Text style={styles.eyebrow}>EMBELLISH</Text>
+          <Text style={styles.eyebrow}>STYLE</Text>
           <View style={styles.headerSpacer} />
         </View>
 
@@ -296,27 +308,51 @@ export default function RefineExpressionScreen() {
           ]}
         >
           <View style={styles.introBlock}>
-            <Text style={styles.title}>Refine Expression</Text>
-            <Text style={styles.primaryCopy}>Adjust the finish. The structure remains unchanged.</Text>
-            <Text style={styles.secondaryCopy}>
-              Styles change the finish, not the meaning. Choose what holds your attention.
-            </Text>
+            <Text style={styles.title}>Refine Style</Text>
+            <Text style={styles.primaryCopy}>Choose how your Anchor will be visually treated during generation.</Text>
+            <Text style={styles.microLine}>Same structure. New style.</Text>
+          </View>
 
-            <View style={styles.lockNote}>
-              <LockKeyhole size={12} color="rgba(212, 175, 55, 0.72)" strokeWidth={1.8} />
-              <Text style={styles.lockText}>Structure locked • visual refinement only</Text>
+          <View style={styles.structureHero}>
+            <Text style={styles.structureHeroLabel}>Your Structure</Text>
+            <View style={styles.structureGlyph}>
+              {sigilSvg ? <SigilSvg xml={sigilSvg} width={116} height={116} color={colors.gold} /> : null}
             </View>
+            <Text style={styles.structureName}>{structureName}</Text>
+            <Text style={styles.structureLocked}>Structure selected · appearance only changes from here</Text>
           </View>
 
-          <View style={styles.libraryCount}>
-            <Sparkles size={13} color={colors.gold} strokeWidth={1.7} />
-            <Text style={styles.libraryCountText}>{REFINE_STYLES.length} launch styles</Text>
-          </View>
+          {showStyleTeaching ? <View style={styles.styleTeaching}>
+            <Text style={styles.styleTeachingTitle}>Style changes the appearance, not the meaning.</Text>
+            <Text style={styles.styleTeachingCopy}>Your structure stays the same through generation.</Text>
+          </View> : null}
 
-          {!isFilteredView && visibleFeaturedStyles.length > 0 ? (
+          {visibleRecommendedStyles.length > 0 ? (
+            <View style={styles.section}>
+              <SectionHeader title="Recommended" copy="Choices that work well with your structure." />
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recommendedRail}>
+                {visibleRecommendedStyles.map((style, index) => (
+                  <RefineStyleCard key={`recommended-${style.id}`} option={style} index={index} isSelected={selectedStyleId === style.id} onSelect={handleStyleSelect} variant="recommended" badgeLabel="Recommended" style={{ width: recommendedCardWidth }} />
+                ))}
+              </ScrollView>
+            </View>
+          ) : null}
+
+          <View style={styles.exploreHeader}><Text style={styles.exploreTitle}>Explore More</Text></View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.exploreTabs}>
+            {([
+              ['week', 'This Week'], ['core', 'Core'], ['seasonal', 'Seasonal'], ['all', 'All Styles →'],
+            ] as const).map(([value, label]) => (
+              <Pressable key={value} onPress={() => setActiveExploreTab(value)} style={[styles.exploreTab, activeExploreTab === value && styles.exploreTabActive]} accessibilityRole="button" accessibilityState={{ selected: activeExploreTab === value }}>
+                <Text style={[styles.exploreTabText, activeExploreTab === value && styles.exploreTabTextActive]}>{label}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+
+          {(activeExploreTab === 'week' || activeExploreTab === 'all') && !isFilteredView && visibleFeaturedStyles.length > 0 ? (
             <View style={styles.section}>
               <SectionHeader
-                title="This Week’s Styles"
+                title="This Week"
                 copy="A curated set of limited finishes available now."
                 meta={`${featuredStyles.length} rotating`}
               />
@@ -342,28 +378,6 @@ export default function RefineExpressionScreen() {
             </View>
           ) : null}
 
-          <View style={styles.filterWrap}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContent}>
-              {REFINE_STYLE_FILTERS.map((filter) => {
-                const isActive = activeFilter === filter.value;
-
-                return (
-                  <Pressable
-                    key={filter.value}
-                    onPress={() => setActiveFilter(filter.value)}
-                    style={[styles.filterChip, isActive && styles.filterChipActive]}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: isActive }}
-                  >
-                    <Text style={[styles.filterText, isActive && styles.filterTextActive]}>
-                      {filter.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
-
           {!hasVisibleSections ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyTitle}>No matching styles</Text>
@@ -373,44 +387,12 @@ export default function RefineExpressionScreen() {
 
           {isFilteredView && filteredStyles.length > 0 ? (
             <View style={styles.section}>
-              <SectionHeader
-                title="Filtered Styles"
-                copy={FILTERED_SECTION_COPY}
-                meta={`${filteredStyles.length} shown`}
-              />
+              <SectionHeader title="All Styles" copy="Every available finish for your Anchor." meta={`${filteredStyles.length} shown`} />
               {renderGrid(filteredStyles, 'filtered')}
             </View>
           ) : (
             <>
-              {visibleRecommendedStyles.length > 0 ? (
-                <View style={styles.section}>
-                  <SectionHeader
-                    title="Recommended for This Anchor"
-                    copy="Chosen to match the tone and structure of your anchor."
-                    meta={`${visibleRecommendedStyles.length} selected`}
-                  />
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.recommendedRail}
-                  >
-                    {visibleRecommendedStyles.map((style, index) => (
-                      <RefineStyleCard
-                        key={`recommended-${style.id}`}
-                        option={style}
-                        index={index}
-                        isSelected={selectedStyleId === style.id}
-                        onSelect={handleStyleSelect}
-                        variant="recommended"
-                        badgeLabel="Recommended"
-                        style={{ width: recommendedCardWidth }}
-                      />
-                    ))}
-                  </ScrollView>
-                </View>
-              ) : null}
-
-              {visibleCoreStyles.length > 0 ? (
+              {(activeExploreTab === 'core' || activeExploreTab === 'all') && visibleCoreStyles.length > 0 ? (
                 <View style={styles.section}>
                   <SectionHeader
                     title="Core Styles"
@@ -421,12 +403,11 @@ export default function RefineExpressionScreen() {
                 </View>
               ) : null}
 
-              {visibleSeasonalStyles.length > 0 ? (
+              {(activeExploreTab === 'seasonal' || activeExploreTab === 'all') && visibleSeasonalStyles.length > 0 ? (
                 <View style={styles.section}>
                   <SectionHeader
-                    title="Seasonal Collection"
-                    copy="Special finishes available for a limited time."
-                    meta="Summer / Lunar"
+                    title="Seasonal"
+                    copy="Finishes that leave when the season turns."
                     seasonal
                   />
 
@@ -434,8 +415,8 @@ export default function RefineExpressionScreen() {
                     <View style={styles.seasonalPanelHeader}>
                       <Sparkles size={18} color="#CBB8E8" strokeWidth={1.6} />
                       <View style={styles.seasonalTextBlock}>
-                        <Text style={styles.seasonalCollectionName}>Current Drops</Text>
-                        <Text style={styles.seasonalUntil}>Available through Sep 21</Text>
+                        <Text style={styles.seasonalCollectionName}>Lunar Collection</Text>
+                        <Text style={styles.seasonalUntil}>Finishes that leave when the season turns.</Text>
                       </View>
                     </View>
                     {renderGrid(visibleSeasonalStyles, 'seasonal')}
@@ -458,7 +439,7 @@ export default function RefineExpressionScreen() {
           <View style={[styles.bottomContent, { paddingBottom: insets.bottom + spacing.md }]}>
             <View style={styles.ctaPanel}>
               <Animated.Text style={[styles.microcopy, ctaTextAnimatedStyle]}>
-                Emotion softens form.
+                Same structure. New style.
               </Animated.Text>
 
               <Animated.Text style={[styles.selectedLabel, ctaTextAnimatedStyle]} numberOfLines={1}>
@@ -470,7 +451,7 @@ export default function RefineExpressionScreen() {
                 onPress={handleRefineAnchor}
                 style={styles.ctaOuter}
                 accessibilityRole="button"
-                accessibilityLabel="Refine Anchor"
+                accessibilityLabel="Generate Anchor"
               >
                 <LinearGradient
                   colors={[colors.gold, colors.refineExpression.ctaMid, colors.refineExpression.ctaEnd]}
@@ -478,7 +459,7 @@ export default function RefineExpressionScreen() {
                   end={{ x: 1, y: 0.5 }}
                   style={styles.ctaButton}
                 >
-                  <Text style={styles.ctaText}>Refine Anchor</Text>
+                  <Text style={styles.ctaText}>Generate Anchor →</Text>
                 </LinearGradient>
               </Pressable>
             </View>
@@ -546,6 +527,22 @@ const styles = StyleSheet.create({
     lineHeight: 23,
     color: colors.text.secondary,
   },
+  microLine: { fontFamily: typography.fonts.headingSemiBold, fontSize: 10, letterSpacing: 1.5, color: colors.gold, textTransform: 'uppercase', marginTop: spacing.xs },
+  structureHero: { alignItems: 'center', marginTop: spacing.xl, paddingHorizontal: spacing.lg },
+  structureHeroLabel: { fontFamily: typography.fonts.headingSemiBold, fontSize: 10, letterSpacing: 1.8, color: colors.text.tertiary, textTransform: 'uppercase' },
+  structureGlyph: { marginTop: spacing.md, width: 148, height: 148, borderRadius: 74, borderWidth: 1, borderColor: 'rgba(212,175,55,0.26)', backgroundColor: 'rgba(18,29,37,0.78)', alignItems: 'center', justifyContent: 'center' },
+  structureName: { marginTop: spacing.sm, fontFamily: typography.fonts.headingSemiBold, fontSize: 12, letterSpacing: 1.7, color: colors.gold, textTransform: 'uppercase' },
+  structureLocked: { marginTop: spacing.xs, fontFamily: typography.fonts.body, fontSize: 11, color: colors.text.tertiary, textAlign: 'center' },
+  styleTeaching: { marginHorizontal: spacing.lg, marginTop: spacing.lg, paddingVertical: spacing.sm, alignItems: 'center' },
+  styleTeachingTitle: { fontFamily: typography.fonts.headingSemiBold, fontSize: 13, color: colors.gold, textAlign: 'center' },
+  styleTeachingCopy: { fontFamily: typography.fonts.body, fontSize: 11.5, color: colors.text.tertiary, textAlign: 'center', marginTop: 4 },
+  exploreHeader: { marginTop: spacing.xl, paddingHorizontal: spacing.lg },
+  exploreTitle: { fontFamily: typography.fonts.headingSemiBold, fontSize: 19, color: colors.text.primary, letterSpacing: 0.8 },
+  exploreTabs: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.lg },
+  exploreTab: { paddingBottom: 7, borderBottomWidth: 1.5, borderBottomColor: 'transparent' },
+  exploreTabActive: { borderBottomColor: colors.gold },
+  exploreTabText: { fontFamily: typography.fonts.headingSemiBold, fontSize: 10, letterSpacing: 1.1, color: colors.text.tertiary, textTransform: 'uppercase' },
+  exploreTabTextActive: { color: colors.gold },
   secondaryCopy: {
     maxWidth: 330,
     fontFamily: typography.fonts.body,

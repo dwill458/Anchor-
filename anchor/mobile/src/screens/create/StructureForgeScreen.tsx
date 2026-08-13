@@ -403,7 +403,7 @@ export default function StructureForgeScreen() {
             onPress={handleBeginForging}
             disabled={!selectedConfig}
             accessibilityRole="button"
-            accessibilityLabel={isManualStructureSelected ? 'Draw Your Anchor' : 'Begin Forging'}
+            accessibilityLabel={isManualStructureSelected ? 'Draw Your Anchor' : 'Continue'}
           >
             {isManualStructureSelected ? (
               <View style={[styles.ctaButton, styles.manualCtaButton]}>
@@ -416,7 +416,7 @@ export default function StructureForgeScreen() {
                 end={{ x: 1, y: 0.5 }}
                 style={[styles.ctaButton, !selectedConfig && styles.ctaButtonDisabled, isCompactLayout && styles.ctaButtonCompact]}
               >
-                <Text style={styles.ctaText}>Begin Forging</Text>
+                <Text style={styles.ctaText}>Continue →</Text>
               </LinearGradient>
             )}
           </Pressable>

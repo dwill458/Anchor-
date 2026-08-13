@@ -32,7 +32,7 @@ const IS_ANDROID = Platform.OS === 'android';
 
 // Canvas size - reduced height to ensure controls clear system navigation
 const CANVAS_WIDTH = SCREEN_WIDTH - 24;
-const CANVAS_HEIGHT = SCREEN_HEIGHT * 0.58;
+const CANVAS_HEIGHT = SCREEN_HEIGHT * 0.36;
 
 // Brush types
 const BRUSH_TYPES = [
@@ -123,6 +123,7 @@ export default function ManualForgeScreen() {
   const [activeToolTab, setActiveToolTab] = useState<ToolTab>('brush');
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showToolsModal, setShowToolsModal] = useState(false);
+  const [showAboutDrawing, setShowAboutDrawing] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const toolsPanelAnim = useRef(new Animated.Value(1)).current;
@@ -400,7 +401,17 @@ export default function ManualForgeScreen() {
 
       // A drawn structure goes directly into Refine Style; generation changes
       // appearance, never the geometry the user just made.
-      useFirstAnchorFlowStore.getState().updateDraft({ drawingSvg: sigilSvg, structure: 'drawn' });
+      useFirstAnchorFlowStore.getState().updateDraft({
+        drawingSvg: sigilSvg,
+        drawingStrokes: strokes.map((stroke) => ({
+          ...stroke,
+          points: stroke.points.map(({ x, y }) => ({
+            x: Number((x / CANVAS_WIDTH).toFixed(5)),
+            y: Number((y / CANVAS_HEIGHT).toFixed(5)),
+          })),
+        })),
+        structure: 'drawn',
+      });
       navigation.navigate('StyleSelection', {
         intentionText,
         category,
@@ -435,25 +446,15 @@ export default function ManualForgeScreen() {
           </TouchableOpacity>
 
           <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>
-              {isFromScratch ? 'Forge from Scratch' : 'Manual Forge'}
-            </Text>
-            <Text style={styles.headerSubtitle}>
-              {isFromScratch ? 'Create Your Sacred Symbol' : 'Trace Your Foundation'}
-            </Text>
+            <Text style={styles.headerSubtitle}>Step 2 of 2</Text>
           </View>
 
           <TouchableOpacity
-            onPress={handleSave}
+            onPress={() => setShowAboutDrawing(true)}
             style={[styles.headerButton, styles.saveButton]}
             activeOpacity={0.7}
           >
-            <LinearGradient
-              colors={[colors.gold, colors.bronze]}
-              style={styles.saveButtonGradient}
-            >
-              <Text style={styles.saveIcon}>✓</Text>
-            </LinearGradient>
+            <Text style={styles.headerAbout}>About</Text>
           </TouchableOpacity>
         </View>
 
@@ -464,29 +465,33 @@ export default function ManualForgeScreen() {
           {IS_ANDROID ? (
             <View style={[styles.instructionsCard, styles.cardAndroid]}>
               <View style={styles.instructionsContent}>
-                <Text style={styles.instructionsTitle}>
-                  Draw using: {distilledLetters.join(' ')}
-                </Text>
-                <Text style={styles.instructionsText}>
-                  Merge and overlap into your unique symbol
-                </Text>
+                <Text style={styles.ritualLabel}>Structure</Text>
+                <Text style={styles.drawTitle}>Draw your structure</Text>
+                <Text style={styles.instructionsText}>Use the distilled letters to create your own structure.</Text>
+                <Text style={styles.teachingCopy}>Overlap, simplify, and combine them into a form that feels right to you.</Text>
               </View>
               <View style={styles.instructionsBorder} />
             </View>
           ) : (
             <BlurView intensity={12} tint="dark" style={styles.instructionsCard}>
               <View style={styles.instructionsContent}>
-                <Text style={styles.instructionsTitle}>
-                  Draw using: {distilledLetters.join(' ')}
-                </Text>
-                <Text style={styles.instructionsText}>
-                  Merge and overlap into your unique symbol
-                </Text>
+                <Text style={styles.ritualLabel}>Structure</Text>
+                <Text style={styles.drawTitle}>Draw your structure</Text>
+                <Text style={styles.instructionsText}>Use the distilled letters to create your own structure.</Text>
+                <Text style={styles.teachingCopy}>Overlap, simplify, and combine them into a form that feels right to you.</Text>
               </View>
               <View style={styles.instructionsBorder} />
             </BlurView>
           )}
         </Animated.View>
+
+        <View style={styles.sourceLetters}>
+          <Text style={styles.sourceLabel}>Source Letters</Text>
+          <Text style={styles.sourceValue}>{distilledLetters.join(' ')}</Text>
+          <Text style={styles.sourceCopy}>Use these as the raw material for your structure.</Text>
+          <Text style={styles.firstUseCopy}>You don’t need to draw every letter perfectly.</Text>
+          <Text style={styles.firstUseSubline}>Drawing changes the form, not the strength of your Anchor.</Text>
+        </View>
 
         {/* Canvas */}
         <View style={styles.canvasContainer}>
@@ -504,6 +509,7 @@ export default function ManualForgeScreen() {
                 </View>
               )}
               {showGrid && <GridOverlay />}
+              {strokes.length === 0 ? <Text style={styles.emptyCanvasPrompt}>Begin anywhere.</Text> : null}
               <View {...panResponder.panHandlers} style={styles.drawingArea}>
                 <Svg width={CANVAS_WIDTH} height={CANVAS_HEIGHT}>
                   {/* Render all strokes with symmetry */}
@@ -571,6 +577,7 @@ export default function ManualForgeScreen() {
                 </View>
               )}
               {showGrid && <GridOverlay />}
+              {strokes.length === 0 ? <Text style={styles.emptyCanvasPrompt}>Begin anywhere.</Text> : null}
               <View {...panResponder.panHandlers} style={styles.drawingArea}>
                 <Svg width={CANVAS_WIDTH} height={CANVAS_HEIGHT}>
                   {strokes.map((stroke, index) => {
@@ -631,7 +638,7 @@ export default function ManualForgeScreen() {
               style={[styles.quickActionButton, showGrid && styles.quickActionActive]}
               activeOpacity={0.7}
             >
-              <Text style={styles.quickActionIcon}>⊞</Text>
+              <Text style={styles.quickActionIcon}>Guides</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -640,7 +647,7 @@ export default function ManualForgeScreen() {
               activeOpacity={0.7}
               disabled={strokes.length === 0}
             >
-              <Text style={styles.quickActionIcon}>↶</Text>
+              <Text style={styles.quickActionIcon}>Undo</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -649,7 +656,7 @@ export default function ManualForgeScreen() {
               activeOpacity={0.7}
               disabled={redoStack.length === 0}
             >
-              <Text style={styles.quickActionIcon}>↷</Text>
+              <Text style={styles.quickActionIcon}>Redo</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -658,9 +665,22 @@ export default function ManualForgeScreen() {
               activeOpacity={0.7}
               disabled={strokes.length === 0}
             >
-              <Text style={styles.quickActionIcon}>✕</Text>
+              <Text style={styles.quickActionIcon}>Clear</Text>
             </TouchableOpacity>
           </View>
+          <TouchableOpacity
+            onPress={handleSave}
+            style={[styles.useStructureButton, strokes.length === 0 && styles.actionDisabled]}
+            disabled={strokes.length === 0}
+            accessibilityRole="button"
+            accessibilityLabel="Use This Structure"
+            accessibilityState={{ disabled: strokes.length === 0 }}
+          >
+            <Text style={styles.useStructureText}>Use This Structure →</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleBack} accessibilityRole="button" accessibilityLabel="Back to structure options">
+            <Text style={styles.backToOptions}>Back to structure options</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Floating Tools Button */}
@@ -688,9 +708,9 @@ export default function ManualForgeScreen() {
         <View style={styles.modalOverlay}>
           <BlurView intensity={20} tint="dark" style={styles.modalBlur}>
             <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Save Your Anchor?</Text>
+              <Text style={styles.modalTitle}>Structure Set</Text>
               <Text style={styles.modalText}>
-                This will finalize your custom sigil and move to the next step.
+                Your drawn structure is ready for its visual treatment.
               </Text>
 
               <View style={styles.modalActions}>
@@ -711,12 +731,24 @@ export default function ManualForgeScreen() {
                     colors={[colors.gold, colors.bronze]}
                     style={styles.modalButtonGradient}
                   >
-                    <Text style={styles.modalButtonText}>Save & Continue</Text>
+                    <Text style={styles.modalButtonText}>Continue →</Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
             </View>
           </BlurView>
+        </View>
+      </Modal>
+
+      <Modal visible={showAboutDrawing} transparent animationType="fade" onRequestClose={() => setShowAboutDrawing(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent} accessibilityViewIsModal={true}>
+            <Text style={styles.modalTitle}>About Drawing</Text>
+            <Text style={styles.modalText}>You don’t need to draw every letter perfectly.{`\n\n`}Drawing changes the form, not the strength of your Anchor.</Text>
+            <TouchableOpacity onPress={() => setShowAboutDrawing(false)} style={[styles.modalButton, styles.modalButtonPrimary]} accessibilityRole="button" accessibilityLabel="Got it">
+              <Text style={styles.modalButtonText}>Got it</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Modal>
 
@@ -1154,6 +1186,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     marginTop: 2,
   },
+  headerAbout: { color: colors.gold, fontSize: 12, fontWeight: '600' },
   instructionsContainer: {
     paddingHorizontal: 16,
     paddingTop: 0,
@@ -1180,6 +1213,15 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     letterSpacing: 0.3,
   },
+  ritualLabel: { color: colors.gold, fontSize: 10, fontWeight: '700', letterSpacing: 1.6, textTransform: 'uppercase', marginBottom: 4 },
+  drawTitle: { color: colors.bone, fontSize: 25, lineHeight: 29, fontWeight: '600', marginBottom: 4 },
+  teachingCopy: { color: 'rgba(245,245,220,0.62)', fontSize: 12, lineHeight: 17, marginTop: 6 },
+  sourceLetters: { marginHorizontal: 16, marginTop: 8, marginBottom: 4, padding: 12, borderWidth: 1, borderColor: 'rgba(212,175,55,0.18)', borderRadius: 12, backgroundColor: 'rgba(15,20,25,0.5)' },
+  sourceLabel: { color: colors.gold, fontSize: 10, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase' },
+  sourceValue: { color: colors.bone, fontSize: 20, letterSpacing: 5, marginTop: 5 },
+  sourceCopy: { color: colors.silver, opacity: 0.72, fontSize: 11, lineHeight: 16, marginTop: 5 },
+  firstUseCopy: { color: colors.gold, fontSize: 12, marginTop: 10, fontWeight: '600' },
+  firstUseSubline: { color: colors.silver, opacity: 0.7, fontSize: 11, lineHeight: 15, marginTop: 2 },
   instructionsText: {
     fontSize: 11,
     color: colors.silver,
@@ -1208,6 +1250,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
+  emptyCanvasPrompt: { position: 'absolute', alignSelf: 'center', top: '48%', color: 'rgba(245,245,220,0.56)', fontSize: 15, fontStyle: 'italic', zIndex: 1, pointerEvents: 'none' },
   canvasAndroid: {
     backgroundColor: colors.charcoal,
   },
@@ -1253,7 +1296,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   quickActionButton: {
-    width: 44,
+    minWidth: 64,
     height: 44,
     borderRadius: 22,
     backgroundColor: 'rgba(26, 26, 29, 0.8)',
@@ -1270,9 +1313,13 @@ const styles = StyleSheet.create({
     opacity: 0.3,
   },
   quickActionIcon: {
-    fontSize: 20,
+    fontSize: 11,
     color: colors.gold,
+    fontWeight: '600',
   },
+  useStructureButton: { marginTop: 14, minHeight: 52, alignSelf: 'stretch', marginHorizontal: 16, borderRadius: 26, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.gold },
+  useStructureText: { color: colors.charcoal, fontSize: 14, fontWeight: '700', letterSpacing: 0.6 },
+  backToOptions: { color: colors.silver, opacity: 0.8, fontSize: 12, textAlign: 'center', marginTop: 10 },
   toolsPanel: {
     paddingHorizontal: 16,
     paddingTop: 8,
