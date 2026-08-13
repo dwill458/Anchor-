@@ -11,7 +11,7 @@ import {
   Modal,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
@@ -98,10 +98,12 @@ type ToolTab = 'brush' | 'color' | 'effects' | 'layers';
 export default function ManualForgeScreen() {
   const navigation = useNavigation<ManualForgeNavigationProp>();
   const route = useRoute<ManualForgeRouteProp>();
+  const insets = useSafeAreaInsets();
+  const flowDraft = useFirstAnchorFlowStore((state) => state.draft);
 
   // Params
-  const intentionText = route.params?.intentionText || (route.params as any)?.intention || 'Manifest destiny';
-  const distilledLetters = route.params?.distilledLetters || ['M', 'N', 'F', 'S', 'T', 'D', 'S', 'T', 'N', 'Y'];
+  const intentionText = route.params?.intentionText || (route.params as any)?.intention || flowDraft?.originalIntention || '';
+  const distilledLetters = route.params?.distilledLetters || flowDraft?.distilledLetters || [];
   const category = route.params?.category;
   const baseSigilSvg = route.params?.sigilSvg; // Optional background sigil for tracing mode
   const isFromScratch = route.params?.isFromScratch ?? !baseSigilSvg; // Blank canvas mode if true
@@ -124,6 +126,11 @@ export default function ManualForgeScreen() {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showToolsModal, setShowToolsModal] = useState(false);
   const [showAboutDrawing, setShowAboutDrawing] = useState(false);
+  const [showClearConfirmation, setShowClearConfirmation] = useState(false);
+
+  const persistedStrokes = useFirstAnchorFlowStore((state) => state.draft?.drawingStrokes);
+  const hasHydratedDrawing = useRef(false);
+  const [flowHydrated, setFlowHydrated] = useState(() => useFirstAnchorFlowStore.persist.hasHydrated());
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const toolsPanelAnim = useRef(new Animated.Value(1)).current;
@@ -159,6 +166,38 @@ export default function ManualForgeScreen() {
       useNativeDriver: true,
     }).start();
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = useFirstAnchorFlowStore.persist.onFinishHydration(() => setFlowHydrated(true));
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (!flowHydrated || hasHydratedDrawing.current) return;
+    const restored = persistedStrokes?.map((stroke) => ({
+      ...stroke,
+      points: stroke.points.map((point) => ({
+        x: point.x * CANVAS_WIDTH,
+        y: point.y * CANVAS_HEIGHT,
+      })),
+    }));
+    if (restored?.length) setStrokes(restored);
+    hasHydratedDrawing.current = true;
+  }, [flowHydrated, persistedStrokes]);
+
+  useEffect(() => {
+    if (!hasHydratedDrawing.current || strokes.length === 0) return;
+    useFirstAnchorFlowStore.getState().updateDraft({
+      drawingStrokes: strokes.map((stroke) => ({
+        ...stroke,
+        points: stroke.points.map(({ x, y }) => ({
+          x: Number((x / CANVAS_WIDTH).toFixed(5)),
+          y: Number((y / CANVAS_HEIGHT).toFixed(5)),
+        })),
+      })),
+      structure: 'drawn',
+    });
+  }, [strokes]);
 
   // Pan responder for drawing with symmetry support
   const panResponder = useRef(
@@ -224,10 +263,24 @@ export default function ManualForgeScreen() {
     }
   };
 
-  const handleClear = () => {
+  const clearDrawing = () => {
     setStrokes([]);
     setCurrentStroke([]);
     setRedoStack([]);
+    setShowClearConfirmation(false);
+    useFirstAnchorFlowStore.getState().updateDraft({
+      drawingSvg: undefined,
+      drawingStrokes: [],
+      structure: 'drawn',
+    });
+  };
+
+  const handleClear = () => {
+    if (strokes.length > 1) {
+      setShowClearConfirmation(true);
+      return;
+    }
+    clearDrawing();
   };
 
   const handleSave = () => {
@@ -240,13 +293,12 @@ export default function ManualForgeScreen() {
 
   const handleBack = () => {
     if (strokes.length > 0) {
-      // Show confirmation if there are unsaved changes
       Alert.alert(
-        'Discard Changes?',
-        'You have unsaved work. Are you sure you want to leave?',
+        'Leave your structure?',
+        'Your drawing is saved in this flow and will be here when you return.',
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Discard', style: 'destructive', onPress: () => navigation.goBack() }
+          { text: 'Leave', onPress: () => navigation.goBack() }
         ]
       );
     } else {
@@ -280,12 +332,10 @@ export default function ManualForgeScreen() {
 
       return topPath + bottomPath + ' Z';
     } else if (brushType === 'pencil') {
-      // Pencil adds tiny jitter for a sketchy feel
+      // Keep the path deterministic so re-renders never alter user geometry.
       let path = `M ${points[0].x} ${points[0].y}`;
       for (let i = 1; i < points.length; i++) {
-        const jitterX = (Math.random() - 0.5) * 0.8;
-        const jitterY = (Math.random() - 0.5) * 0.8;
-        path += ` L ${points[i].x + jitterX} ${points[i].y + jitterY}`;
+        path += ` L ${points[i].x} ${points[i].y}`;
       }
       return path;
     } else {
@@ -435,6 +485,12 @@ export default function ManualForgeScreen() {
       <ZenBackground orbOpacity={0.08} />
 
       <SafeAreaView style={styles.safeArea}>
+        <ScrollView
+          style={styles.drawScroll}
+          contentContainerStyle={[styles.drawScrollContent, { paddingBottom: insets.bottom + 150 }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
@@ -453,6 +509,8 @@ export default function ManualForgeScreen() {
             onPress={() => setShowAboutDrawing(true)}
             style={[styles.headerButton, styles.saveButton]}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="About Drawing"
           >
             <Text style={styles.headerAbout}>About</Text>
           </TouchableOpacity>
@@ -509,8 +567,9 @@ export default function ManualForgeScreen() {
                 </View>
               )}
               {showGrid && <GridOverlay />}
+              {showGrid && <View style={styles.guideCircle} pointerEvents="none" />}
               {strokes.length === 0 ? <Text style={styles.emptyCanvasPrompt}>Begin anywhere.</Text> : null}
-              <View {...panResponder.panHandlers} style={styles.drawingArea}>
+              <View testID="manual-drawing-area" {...panResponder.panHandlers} style={styles.drawingArea}>
                 <Svg width={CANVAS_WIDTH} height={CANVAS_HEIGHT}>
                   {/* Render all strokes with symmetry */}
                   {strokes.map((stroke, index) => {
@@ -577,8 +636,9 @@ export default function ManualForgeScreen() {
                 </View>
               )}
               {showGrid && <GridOverlay />}
+              {showGrid && <View style={styles.guideCircle} pointerEvents="none" />}
               {strokes.length === 0 ? <Text style={styles.emptyCanvasPrompt}>Begin anywhere.</Text> : null}
-              <View {...panResponder.panHandlers} style={styles.drawingArea}>
+              <View testID="manual-drawing-area" {...panResponder.panHandlers} style={styles.drawingArea}>
                 <Svg width={CANVAS_WIDTH} height={CANVAS_HEIGHT}>
                   {strokes.map((stroke, index) => {
                     const symmetryStrokes = getSymmetryStrokes(stroke);
@@ -637,6 +697,9 @@ export default function ManualForgeScreen() {
               onPress={() => setShowGrid(!showGrid)}
               style={[styles.quickActionButton, showGrid && styles.quickActionActive]}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Guides"
+              accessibilityState={{ selected: showGrid }}
             >
               <Text style={styles.quickActionIcon}>Guides</Text>
             </TouchableOpacity>
@@ -646,6 +709,9 @@ export default function ManualForgeScreen() {
               style={[styles.quickActionButton, strokes.length === 0 && styles.actionDisabled]}
               activeOpacity={0.7}
               disabled={strokes.length === 0}
+              accessibilityRole="button"
+              accessibilityLabel="Undo"
+              accessibilityState={{ disabled: strokes.length === 0 }}
             >
               <Text style={styles.quickActionIcon}>Undo</Text>
             </TouchableOpacity>
@@ -655,6 +721,9 @@ export default function ManualForgeScreen() {
               style={[styles.quickActionButton, redoStack.length === 0 && styles.actionDisabled]}
               activeOpacity={0.7}
               disabled={redoStack.length === 0}
+              accessibilityRole="button"
+              accessibilityLabel="Redo"
+              accessibilityState={{ disabled: redoStack.length === 0 }}
             >
               <Text style={styles.quickActionIcon}>Redo</Text>
             </TouchableOpacity>
@@ -664,23 +733,48 @@ export default function ManualForgeScreen() {
               style={[styles.quickActionButton, strokes.length === 0 && styles.actionDisabled]}
               activeOpacity={0.7}
               disabled={strokes.length === 0}
+              accessibilityRole="button"
+              accessibilityLabel="Clear"
+              accessibilityState={{ disabled: strokes.length === 0 }}
             >
               <Text style={styles.quickActionIcon}>Clear</Text>
             </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            onPress={handleSave}
-            style={[styles.useStructureButton, strokes.length === 0 && styles.actionDisabled]}
-            disabled={strokes.length === 0}
-            accessibilityRole="button"
-            accessibilityLabel="Use This Structure"
-            accessibilityState={{ disabled: strokes.length === 0 }}
+          {showClearConfirmation && (
+            <View style={styles.clearConfirmation}>
+              <Text style={styles.clearConfirmationText}>Clear all strokes?</Text>
+              <View style={styles.clearConfirmationActions}>
+                <TouchableOpacity onPress={() => setShowClearConfirmation(false)} accessibilityRole="button" accessibilityLabel="Keep drawing">
+                  <Text style={styles.clearConfirmationCancel}>Keep</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={clearDrawing} accessibilityRole="button" accessibilityLabel="Confirm clear">
+                  <Text style={styles.clearConfirmationConfirm}>Clear</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        </View>
+        </ScrollView>
+
+        <View style={[styles.bottomDock, { paddingBottom: insets.bottom + 8 }]}>
+          <LinearGradient
+            colors={['rgba(8, 11, 15, 0)', colors.navy]}
+            style={styles.bottomDockGradient}
           >
-            <Text style={styles.useStructureText}>Use This Structure →</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleBack} accessibilityRole="button" accessibilityLabel="Back to structure options">
-            <Text style={styles.backToOptions}>Back to structure options</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleSave}
+              style={[styles.useStructureButton, strokes.length === 0 && styles.actionDisabled]}
+              disabled={strokes.length === 0}
+              accessibilityRole="button"
+              accessibilityLabel="Use This Structure"
+              accessibilityState={{ disabled: strokes.length === 0 }}
+            >
+              <Text style={styles.useStructureText}>Use This Structure →</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleBack} accessibilityRole="button" accessibilityLabel="Back to structure options">
+              <Text style={styles.backToOptions}>Back to structure options</Text>
+            </TouchableOpacity>
+          </LinearGradient>
         </View>
 
         {/* Floating Tools Button */}
@@ -740,13 +834,16 @@ export default function ManualForgeScreen() {
         </View>
       </Modal>
 
-      <Modal visible={showAboutDrawing} transparent animationType="fade" onRequestClose={() => setShowAboutDrawing(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent} accessibilityViewIsModal={true}>
-            <Text style={styles.modalTitle}>About Drawing</Text>
-            <Text style={styles.modalText}>You don’t need to draw every letter perfectly.{`\n\n`}Drawing changes the form, not the strength of your Anchor.</Text>
-            <TouchableOpacity onPress={() => setShowAboutDrawing(false)} style={[styles.modalButton, styles.modalButtonPrimary]} accessibilityRole="button" accessibilityLabel="Got it">
-              <Text style={styles.modalButtonText}>Got it</Text>
+      <Modal visible={showAboutDrawing} transparent animationType="slide" onRequestClose={() => setShowAboutDrawing(false)}>
+        <View style={styles.aboutDrawingOverlay}>
+          <TouchableOpacity style={styles.aboutDrawingBackdrop} onPress={() => setShowAboutDrawing(false)} activeOpacity={1} />
+          <View style={styles.aboutDrawingSheet} accessibilityViewIsModal={true}>
+            <View style={styles.aboutDrawingHandle} />
+            <Text style={styles.aboutDrawingEyebrow}>About Drawing</Text>
+            <Text style={styles.aboutDrawingTitle}>Your hand gives the structure its meaning.</Text>
+            <Text style={styles.aboutDrawingText}>You don’t need to draw every letter perfectly.{`\n\n`}Drawing changes the form, not the strength of your Anchor.</Text>
+            <TouchableOpacity onPress={() => setShowAboutDrawing(false)} style={styles.aboutDrawingClose} accessibilityRole="button" accessibilityLabel="Got it">
+              <Text style={styles.aboutDrawingCloseText}>Got it</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1133,6 +1230,12 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
+  drawScroll: {
+    flex: 1,
+  },
+  drawScrollContent: {
+    paddingBottom: 16,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1237,8 +1340,8 @@ const styles = StyleSheet.create({
   },
   canvasContainer: {
     alignItems: 'center',
-    paddingTop: 0,
-    paddingBottom: 4,
+    paddingTop: 4,
+    paddingBottom: 12,
   },
   canvas: {
     width: CANVAS_WIDTH,
@@ -1290,13 +1393,26 @@ const styles = StyleSheet.create({
     marginTop: -4,
     pointerEvents: 'none',
   },
+  guideCircle: {
+    position: 'absolute',
+    width: Math.min(CANVAS_WIDTH, CANVAS_HEIGHT) * 0.62,
+    height: Math.min(CANVAS_WIDTH, CANVAS_HEIGHT) * 0.62,
+    left: (CANVAS_WIDTH - Math.min(CANVAS_WIDTH, CANVAS_HEIGHT) * 0.62) / 2,
+    top: (CANVAS_HEIGHT - Math.min(CANVAS_WIDTH, CANVAS_HEIGHT) * 0.62) / 2,
+    borderRadius: Math.min(CANVAS_WIDTH, CANVAS_HEIGHT) * 0.31,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(212, 175, 55, 0.16)',
+    pointerEvents: 'none',
+  },
   quickActions: {
     flexDirection: 'row',
     gap: 8,
     marginTop: 12,
   },
   quickActionButton: {
-    minWidth: 64,
+    flex: 1,
+    minWidth: 0,
     height: 44,
     borderRadius: 22,
     backgroundColor: 'rgba(26, 26, 29, 0.8)',
@@ -1317,7 +1433,49 @@ const styles = StyleSheet.create({
     color: colors.gold,
     fontWeight: '600',
   },
-  useStructureButton: { marginTop: 14, minHeight: 52, alignSelf: 'stretch', marginHorizontal: 16, borderRadius: 26, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.gold },
+  clearConfirmation: {
+    marginTop: 10,
+    marginHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.24)',
+    backgroundColor: 'rgba(15,20,25,0.92)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  clearConfirmationText: {
+    color: colors.silver,
+    fontSize: 12,
+  },
+  clearConfirmationActions: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  clearConfirmationCancel: {
+    color: colors.silver,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  clearConfirmationConfirm: {
+    color: colors.gold,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  bottomDock: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  bottomDockGradient: {
+    paddingTop: 34,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  useStructureButton: { minHeight: 52, alignSelf: 'stretch', borderRadius: 26, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.gold },
   useStructureText: { color: colors.charcoal, fontSize: 14, fontWeight: '700', letterSpacing: 0.6 },
   backToOptions: { color: colors.silver, opacity: 0.8, fontSize: 12, textAlign: 'center', marginTop: 10 },
   toolsPanel: {
@@ -1583,6 +1741,69 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.silver,
+  },
+  aboutDrawingOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(5, 8, 12, 0.72)',
+  },
+  aboutDrawingBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  aboutDrawingSheet: {
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 30,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    backgroundColor: colors.charcoal,
+    borderTopWidth: 1,
+    borderColor: 'rgba(212,175,55,0.24)',
+  },
+  aboutDrawingHandle: {
+    alignSelf: 'center',
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(245,245,220,0.22)',
+    marginBottom: 18,
+  },
+  aboutDrawingEyebrow: {
+    color: colors.silver,
+    fontSize: 10,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+  },
+  aboutDrawingTitle: {
+    marginTop: 14,
+    color: colors.bone,
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  aboutDrawingText: {
+    marginTop: 10,
+    color: colors.silver,
+    fontSize: 15,
+    lineHeight: 23,
+    textAlign: 'center',
+  },
+  aboutDrawingClose: {
+    marginTop: 20,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aboutDrawingCloseText: {
+    color: colors.gold,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.2,
   },
   // Floating Tools Button
   floatingToolsButton: {
