@@ -1,5 +1,13 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
+
+jest.mock('react-native-reanimated', () => {
+  const Reanimated = require('react-native-reanimated/mock');
+  Reanimated.default.call = () => {};
+  Reanimated.useReducedMotion = () => true;
+  return Reanimated;
+});
+
 import { CoursePlotting } from '../CoursePlotting';
 
 describe('CoursePlotting', () => {
@@ -24,5 +32,12 @@ describe('CoursePlotting', () => {
     );
 
     expect(screen.getByText('Almost there…')).toBeTruthy();
+  });
+
+  it('renders the completed route artwork immediately when Reduce Motion is enabled', () => {
+    const screen = render(<CoursePlotting destination="Build a steadier creative practice" />);
+
+    expect(screen.UNSAFE_getAllByType('Path' as any)).toHaveLength(8);
+    expect(screen.UNSAFE_getAllByType('Circle' as any)).toHaveLength(17);
   });
 });

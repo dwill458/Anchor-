@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, useWindowDimensions } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
+  withSequence,
   withTiming,
   Easing,
 } from 'react-native-reanimated';
@@ -48,7 +49,9 @@ const DRAWN_ICON_XML = `
 type StructureOption = {
   type: StructureCardType;
   label: string;
+  traits: string;
   description: string;
+  teaching: string;
   icon: StructureCardType;
   isManual?: boolean;
 };
@@ -57,25 +60,33 @@ const STRUCTURES: StructureOption[] = [
   {
     type: 'focused',
     label: 'Focused',
-    description: 'Clear paths,\nsteady center',
+    traits: 'Balanced · Directed · Precise',
+    description: 'A structured form built around a clear center.',
+    teaching: 'Balanced geometry · Defined center',
     icon: 'focused',
   },
   {
     type: 'ritual',
     label: 'Contained',
-    description: 'Bounded form,\namplified force',
+    traits: 'Enclosed · Compact · Dense',
+    description: 'Your form held within a defined boundary.',
+    teaching: 'Enclosed geometry · Bounded form',
     icon: 'ritual',
   },
   {
     type: 'raw',
     label: 'Raw',
-    description: 'Open lines,\nfree energy',
+    traits: 'Open · Minimal · Unrestricted',
+    description: 'Less framing. More of the original form remains visible.',
+    teaching: 'Open geometry · Minimal constraint',
     icon: 'raw',
   },
   {
     type: 'drawn',
     label: 'Drawn',
-    description: 'Your hand,\nyour form',
+    traits: 'Personal · Manual · Freeform',
+    description: 'Create the form yourself.',
+    teaching: 'Your hand · Your form',
     icon: 'drawn',
     isManual: true,
   },
@@ -118,10 +129,20 @@ export default function StructureForgeScreen() {
   const previewGlowSize = isCompactLayout ? 164 : isShortLayout ? 174 : 186;
   const previewCoreSize = isCompactLayout ? 188 : isShortLayout ? 204 : 220;
 
-  // Selection is intentional: do not silently make a first-anchor decision for
-  // someone. This matches the teaching copy and keeps a resumed draft explicit.
+  // Selection is explicit, but a resumed first-anchor draft should restore the
+  // user's last choice instead of making them repeat it.
+  const savedStructure = useFirstAnchorFlowStore((state) => state.draft?.structure);
   const [selectedStructure, setSelectedStructure] = useState<StructureCardType | null>(null);
+  const [showAboutStructures, setShowAboutStructures] = useState(false);
   const glowOpacity = useSharedValue(0.7);
+  const previewFlashOpacity = useSharedValue(0);
+
+  const draftToCard: Record<FirstAnchorStructure, StructureCardType> = {
+    balanced: 'focused',
+    compact: 'ritual',
+    minimal: 'raw',
+    drawn: 'drawn',
+  };
 
   useEffect(() => {
     glowOpacity.value = withRepeat(
@@ -130,6 +151,20 @@ export default function StructureForgeScreen() {
       true
     );
   }, [glowOpacity]);
+
+  useEffect(() => {
+    if (savedStructure) {
+      setSelectedStructure(draftToCard[savedStructure]);
+    }
+  }, [savedStructure]);
+
+  useEffect(() => {
+    if (!selectedStructure) return;
+    previewFlashOpacity.value = withSequence(
+      withTiming(0.72, { duration: 120 }),
+      withTiming(0, { duration: 420 })
+    );
+  }, [previewFlashOpacity, selectedStructure]);
 
   const { tier } = classifyToTierPreliminary(intention);
 
@@ -140,6 +175,10 @@ export default function StructureForgeScreen() {
 
   const previewGlowStyle = useAnimatedStyle(() => ({
     opacity: glowOpacity.value,
+  }));
+
+  const previewFlashStyle = useAnimatedStyle(() => ({
+    opacity: previewFlashOpacity.value,
   }));
 
   const selectedConfig = useMemo(
@@ -167,6 +206,18 @@ export default function StructureForgeScreen() {
 
   const selectedVariantSvg = selectedConfig ? getStructureIconXml(selectedConfig) : '';
   const isManualStructureSelected = selectedConfig?.isManual === true;
+
+  const handleSelectStructure = (structure: StructureCardType) => {
+    setSelectedStructure(structure);
+    const selectedDraftStructure: FirstAnchorStructure = structure === 'focused'
+      ? 'balanced'
+      : structure === 'ritual'
+        ? 'compact'
+        : structure === 'raw'
+          ? 'minimal'
+          : 'drawn';
+    useFirstAnchorFlowStore.getState().updateDraft({ structure: selectedDraftStructure });
+  };
 
   const navigateToTraceStructure = () => {
     if (!selectedStructure || !selectedConfig || isManualStructureSelected) return;
@@ -252,19 +303,24 @@ export default function StructureForgeScreen() {
               <Text style={styles.forgeText}>Forge</Text>
             </View>
           */}
+          <Text style={styles.stepIndicator}>Step 2 of 2</Text>
           <View style={styles.headerSpacer} />
         </View>
 
         <View style={[styles.titleBlock, { paddingHorizontal: horizontalPadding }, isCompactLayout && styles.titleBlockCompact]}>
-          <Text style={[styles.title, isCompactLayout && styles.titleCompact]}>Choose Your{`\n`}Structure</Text>
+          <Text style={styles.eyebrow}>Structure</Text>
+          <Text style={[styles.title, isCompactLayout && styles.titleCompact]}>Choose your structure</Text>
           <Text style={[styles.subtitle, isCompactLayout && styles.subtitleCompact]}>
-            Select a frame that resonates with your intention.
+            Choose how your Anchor takes form.
+          </Text>
+          <Text style={styles.supportingCopy}>
+            Structure changes the form, not the intention. There is no stronger choice.
           </Text>
           <MicroTeachInline teaching={structureTeaching} screenId="structure_forge" />
         </View>
 
         <View style={[styles.intentionTag, { marginHorizontal: horizontalPadding }]}>
-          <Text style={styles.intentionLabel}>Anchor</Text>
+          <Text style={styles.intentionLabel}>Anchoring</Text>
           <View style={styles.intentionDivider} />
           <Text
             style={[
@@ -311,17 +367,23 @@ export default function StructureForgeScreen() {
             ]}
             pointerEvents="none"
           />
+          <Animated.View style={[styles.previewFlash, previewFlashStyle]} pointerEvents="none" />
           <View style={[styles.previewCenter, { width: previewSize, height: previewSize }]}>
             {selectedVariantSvg ? (
               <SigilSvg xml={selectedVariantSvg} width={previewSize} height={previewSize} color={colors.gold} />
             ) : null}
           </View>
-          <Text style={styles.previewWatermark}>PREVIEW</Text>
+          <Text style={styles.previewWatermark}>Preview</Text>
         </View>
 
         <Text style={[styles.sectionLabel, { paddingHorizontal: horizontalPadding }, isCompactLayout && styles.sectionLabelCompact]}>
           Available Structures
         </Text>
+
+        <View style={[styles.quoteRow, { marginHorizontal: horizontalPadding }]}>
+          <View style={styles.quoteBar} />
+          <Text style={styles.quoteText}>“Choose the form that can hold focus, not decoration.”</Text>
+        </View>
 
         <View style={[styles.structureRow, { paddingHorizontal: horizontalPadding }]}>
           {STRUCTURES.map((structure) => {
@@ -339,7 +401,7 @@ export default function StructureForgeScreen() {
                   isCompactLayout && styles.structureCardCompact,
                   { width: structureCardWidth },
                 ]}
-                onPress={() => setSelectedStructure(structure.type)}
+                onPress={() => handleSelectStructure(structure.type)}
                 accessibilityRole="button"
                 accessibilityLabel={`${structure.label} structure`}
                 accessibilityState={{ selected: isSelected }}
@@ -364,13 +426,27 @@ export default function StructureForgeScreen() {
                 <Text style={[styles.cardName, isCompactLayout && styles.cardNameCompact]}>
                   {structure.label}
                 </Text>
+                <Text style={[styles.cardTraits, isCompactLayout && styles.cardTraitsCompact]}>
+                  {structure.traits}
+                </Text>
                 <Text style={[styles.cardDescription, isCompactLayout && styles.cardDescriptionCompact]}>
                   {structure.description}
                 </Text>
+                <Text style={styles.cardTeaching}>{structure.teaching}</Text>
               </Pressable>
             );
           })}
         </View>
+
+        <Pressable
+          style={[styles.aboutStructuresLink, { marginHorizontal: horizontalPadding }]}
+          onPress={() => setShowAboutStructures(true)}
+          accessibilityRole="button"
+          accessibilityLabel="About structures"
+        >
+          <Text style={styles.aboutStructuresText}>About structures</Text>
+          <Text style={styles.aboutStructuresChevron}>⌄</Text>
+        </Pressable>
 
         <Text style={[styles.activeHint, { paddingHorizontal: horizontalPadding }, isCompactLayout && styles.activeHintCompact]}>
           {selectedConfig ? `${selectedConfig.label} selected` : 'Choose a structure to continue'}
@@ -403,11 +479,11 @@ export default function StructureForgeScreen() {
             onPress={handleBeginForging}
             disabled={!selectedConfig}
             accessibilityRole="button"
-            accessibilityLabel={isManualStructureSelected ? 'Draw Your Anchor' : 'Begin Forging'}
+            accessibilityLabel={isManualStructureSelected ? 'Draw Your Anchor' : 'Continue'}
           >
             {isManualStructureSelected ? (
               <View style={[styles.ctaButton, styles.manualCtaButton]}>
-                <Text style={[styles.ctaText, styles.manualCtaText]}>Draw Your Anchor</Text>
+                <Text style={[styles.ctaText, styles.manualCtaText]}>Draw Your Anchor →</Text>
               </View>
             ) : (
               <LinearGradient
@@ -416,12 +492,34 @@ export default function StructureForgeScreen() {
                 end={{ x: 1, y: 0.5 }}
                 style={[styles.ctaButton, !selectedConfig && styles.ctaButtonDisabled, isCompactLayout && styles.ctaButtonCompact]}
               >
-                <Text style={styles.ctaText}>Begin Forging</Text>
+                <Text style={styles.ctaText}>Continue →</Text>
               </LinearGradient>
             )}
           </Pressable>
         </LinearGradient>
       </View>
+
+      <Modal
+        visible={showAboutStructures}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAboutStructures(false)}
+      >
+        <View style={styles.sheetOverlay}>
+          <Pressable style={styles.sheetBackdrop} onPress={() => setShowAboutStructures(false)} />
+          <View style={styles.aboutSheet} accessibilityViewIsModal>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetEyebrow}>About structures</Text>
+            <Text style={styles.sheetTitle}>The structure holds the intention.</Text>
+            <Text style={styles.sheetBody}>
+              Each choice changes the shape and framing of your Anchor, never its meaning or strength. Choose the form that can hold focus, not decoration.
+            </Text>
+            <Pressable style={styles.sheetClose} onPress={() => setShowAboutStructures(false)} accessibilityRole="button" accessibilityLabel="Close about structures">
+              <Text style={styles.sheetCloseText}>Done</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -445,6 +543,17 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 36,
     height: 36,
+  },
+  stepIndicator: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    fontFamily: typography.fonts.heading,
+    fontSize: 10,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    color: colors.forgeScreen.textMuted,
   },
   backButton: {
     width: 36,
@@ -490,12 +599,20 @@ const styles = StyleSheet.create({
   titleBlockCompact: {
     paddingTop: spacing.sm,
   },
+  eyebrow: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 10,
+    letterSpacing: 2.5,
+    textTransform: 'uppercase',
+    color: colors.forgeScreen.textMuted,
+    marginBottom: spacing.sm,
+  },
   title: {
     fontFamily: typography.fonts.heading,
-    fontSize: 28,
-    lineHeight: 32,
-    color: colors.gold,
-    textShadowColor: rgba(colors.gold, 0.3),
+    fontSize: 27,
+    lineHeight: 34,
+    color: colors.bone,
+    textShadowColor: rgba(colors.gold, 0.2),
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 40,
   },
@@ -514,6 +631,14 @@ const styles = StyleSheet.create({
   subtitleCompact: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  supportingCopy: {
+    marginTop: spacing.sm,
+    fontFamily: typography.fonts.body,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: colors.forgeScreen.textMuted,
+    maxWidth: 340,
   },
   intentionTag: {
     marginTop: spacing.sm + spacing.xs / 2,
@@ -573,6 +698,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     backgroundColor: rgba(colors.gold, 0.18),
   },
+  previewFlash: {
+    position: 'absolute',
+    inset: 0,
+    backgroundColor: rgba(colors.gold, 0.18),
+  },
   previewCenter: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -598,6 +728,25 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm + spacing.xs,
     fontSize: 9,
     letterSpacing: 2.5,
+  },
+  quoteRow: {
+    marginTop: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: spacing.sm,
+  },
+  quoteBar: {
+    width: 2,
+    borderRadius: 1,
+    backgroundColor: colors.gold,
+  },
+  quoteText: {
+    flex: 1,
+    fontFamily: typography.fonts.body,
+    fontSize: 13,
+    lineHeight: 18,
+    fontStyle: 'italic',
+    color: rgba(colors.white, 0.62),
   },
   structureRow: {
     paddingTop: spacing.sm + spacing.xs,
@@ -677,6 +826,18 @@ const styles = StyleSheet.create({
   cardNameCompact: {
     fontSize: 10.5,
   },
+  cardTraits: {
+    fontFamily: typography.fonts.body,
+    fontSize: 10.5,
+    lineHeight: 14,
+    textAlign: 'center',
+    color: rgba(colors.gold, 0.84),
+    marginBottom: spacing.xs,
+  },
+  cardTraitsCompact: {
+    fontSize: 9.5,
+    lineHeight: 12,
+  },
   cardDescription: {
     fontFamily: typography.fonts.body,
     fontSize: 10,
@@ -687,6 +848,34 @@ const styles = StyleSheet.create({
   cardDescriptionCompact: {
     fontSize: 9,
     lineHeight: 12,
+  },
+  cardTeaching: {
+    fontFamily: typography.fonts.body,
+    fontSize: 9.5,
+    lineHeight: 13,
+    textAlign: 'center',
+    color: rgba(colors.white, 0.42),
+    marginTop: spacing.xs,
+  },
+  aboutStructuresLink: {
+    marginTop: spacing.lg,
+    minHeight: 44,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.forgeScreen.glassBorder,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  aboutStructuresText: {
+    fontFamily: typography.fonts.body,
+    fontSize: 12,
+    color: colors.forgeScreen.textMuted,
+  },
+  aboutStructuresChevron: {
+    fontSize: 18,
+    color: colors.gold,
+    lineHeight: 18,
   },
   activeHint: {
     marginTop: spacing.sm,
@@ -756,5 +945,70 @@ const styles = StyleSheet.create({
   },
   manualCtaText: {
     color: '#D4AF37',
+  },
+  sheetOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(5, 8, 12, 0.72)',
+  },
+  sheetBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  aboutSheet: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xl,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    backgroundColor: colors.charcoal,
+    borderTopWidth: 1,
+    borderColor: colors.forgeScreen.glassBorder,
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: rgba(colors.white, 0.22),
+    marginBottom: spacing.lg,
+  },
+  sheetEyebrow: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 10,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+    color: colors.forgeScreen.textMuted,
+  },
+  sheetTitle: {
+    marginTop: spacing.md,
+    fontFamily: typography.fonts.heading,
+    fontSize: 22,
+    lineHeight: 28,
+    textAlign: 'center',
+    color: colors.bone,
+  },
+  sheetBody: {
+    marginTop: spacing.sm,
+    fontFamily: typography.fonts.body,
+    fontSize: 15,
+    lineHeight: 23,
+    textAlign: 'center',
+    color: colors.forgeScreen.textMuted,
+  },
+  sheetClose: {
+    marginTop: spacing.lg,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetCloseText: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 12,
+    letterSpacing: 1.2,
+    color: colors.gold,
   },
 });

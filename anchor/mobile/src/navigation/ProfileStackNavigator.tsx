@@ -6,12 +6,9 @@
  */
 
 import React from 'react';
-import { Pressable, StyleSheet, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { useNavigation } from '@react-navigation/native';
-import { X } from 'lucide-react-native';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { SettingsIcon } from '@/components/icons';
 import {
   ProfileScreen,
   SettingsScreen,
@@ -28,7 +25,6 @@ import {
 import { HapticFeedbackScreen } from '../screens/settings';
 import { LoginScreen } from '../screens/auth';
 import type { AuthScreenParams } from '@/types';
-import { colors } from '@/theme';
 
 export type ProfileStackParamList = {
   Profile: undefined;
@@ -57,8 +53,6 @@ export type ProfileStackParamList = {
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
 
 export const ProfileStackNavigator: React.FC = () => {
-  const rootNavigation = useNavigation<any>();
-
   return (
     <ErrorBoundary>
       <Stack.Navigator
@@ -70,7 +64,7 @@ export const ProfileStackNavigator: React.FC = () => {
             backgroundColor: '#080C10',
           },
           headerShadowVisible: false,
-          headerTintColor: colors.gold,
+          headerTintColor: '#D9B36C',
           headerTitleStyle: {
             fontFamily: 'Cinzel-Regular',
             fontSize: 15,
@@ -82,36 +76,12 @@ export const ProfileStackNavigator: React.FC = () => {
         <Stack.Screen
           name="Profile"
           component={ProfileScreen}
-          options={({ navigation }) => ({
-            headerTitle: 'Profile',
-            headerLeft: () => (
-              <Pressable
-                onPress={() => rootNavigation.goBack()}
-                hitSlop={12}
-                accessibilityRole="button"
-                accessibilityLabel="Close"
-                style={styles.closeButton}
-              >
-                <X color={colors.gold} size={22} />
-              </Pressable>
-            ),
-            headerRight: () => (
-              <Pressable
-                onPress={() => navigation.navigate('Settings')}
-                hitSlop={12}
-                accessibilityRole="button"
-                accessibilityLabel="Settings"
-                style={styles.navButton}
-              >
-                <SettingsIcon size={17} color={colors.gold} glow={false} />
-              </Pressable>
-            ),
-          })}
+          options={{ headerShown: false }}
         />
         <Stack.Screen
           name="Settings"
           component={SettingsScreen}
-          options={{ headerTitle: 'Settings' }}
+          options={{ headerShown: false }}
         />
         <Stack.Screen
           name="SessionDefaults"
@@ -193,14 +163,3 @@ export const ProfileStackNavigator: React.FC = () => {
     </ErrorBoundary>
   );
 };
-
-const styles = StyleSheet.create({
-  closeButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  navButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-});

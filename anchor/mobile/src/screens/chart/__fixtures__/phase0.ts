@@ -28,7 +28,7 @@ import type {
 export const FIXTURE_ACCOUNT_ID = 'acct-chart-phase0';
 export const FIXTURE_COURSE_ID = 'course-chart-phase0';
 export const FIXTURE_COURSE_VERSION = 7;
-export const FIXTURE_DESTINATION = 'Anchor has ten thousand users';
+export const FIXTURE_DESTINATION = 'Build a steadier creative practice';
 export const FIXTURE_PLOTTED_AT = '2026-03-04T10:00:00.000Z';
 export const FIXTURE_NOW = '2026-08-04T15:00:00.000Z';
 
@@ -43,11 +43,11 @@ export const WAYPOINT_IDS = {
 } as const;
 
 const WAYPOINT_TITLES: Record<string, string> = {
-  [WAYPOINT_IDS.start]: 'START',
-  [WAYPOINT_IDS.hundred]: '100 USERS',
-  [WAYPOINT_IDS.current]: '1K USERS',
-  [WAYPOINT_IDS.fiveK]: '5K USERS',
-  [WAYPOINT_IDS.tenK]: '10K USERS',
+  [WAYPOINT_IDS.start]: 'BEGIN',
+  [WAYPOINT_IDS.hundred]: 'FIND A RHYTHM',
+  [WAYPOINT_IDS.current]: 'DEEPEN THE PRACTICE',
+  [WAYPOINT_IDS.fiveK]: 'SUSTAIN THE RHYTHM',
+  [WAYPOINT_IDS.tenK]: 'INTEGRATE THE PRACTICE',
 };
 
 const WAYPOINT_ORDER = [

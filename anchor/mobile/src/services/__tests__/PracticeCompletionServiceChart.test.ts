@@ -240,7 +240,7 @@ describe('PracticeCompletionService — Chart analytics privacy', () => {
     expect(properties.practice_entry_source).toBe('chart_waypoint_detail');
 
     const serialized = JSON.stringify(properties);
-    expect(serialized).not.toContain('Anchor has ten thousand users');
+    expect(serialized).not.toContain('Build a steadier creative practice');
     expect(serialized).not.toContain('intention');
     expect(serialized).not.toContain('reflection');
     expect(serialized).not.toContain('destination');

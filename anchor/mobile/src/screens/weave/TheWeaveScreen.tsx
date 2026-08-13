@@ -4,7 +4,6 @@ import {
   Dimensions,
   Modal,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,6 +15,7 @@ import type { RouteProp } from '@react-navigation/native';
 import { ArrowLeft, ChevronDown, Info, X } from 'lucide-react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { useReducedMotion } from 'react-native-reanimated';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { PracticeStackParamList } from '@/types';
 import {
@@ -32,6 +32,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { calculateThreadStrengthScore, selectCanonicalPracticeEvents } from '@/utils/practiceMetrics';
 import { localDateKey } from '@/utils/practiceTime';
 import { colors, typography } from '@/theme';
+import { ZenBackground } from '@/components/common';
 import AuthHydrationService from '@/services/AuthHydrationService';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { useTeachingGate } from '@/utils/useTeachingGate';
@@ -219,7 +220,8 @@ export const TheWeaveScreen: React.FC = () => {
 
   return (
     <View style={styles.root}>
-      <SafeAreaView style={styles.safe}>
+      <ZenBackground variant="practice" showGrain showVignette performanceTier="medium" />
+      <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.header}>
           <Pressable accessibilityRole="button" accessibilityLabel={`Back to ${route.params.origin === 'anchorDetail' ? 'Anchor' : 'Practice'}`} onPress={leave} style={styles.backButton}>
             <ArrowLeft color={colors.gold} size={20} />
@@ -379,11 +381,11 @@ const SheetOption = ({ label, detail, selected, onPress }: { label: string; deta
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#080B0F' }, safe: { flex: 1 },
-  header: { minHeight: 58, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(242,223,168,.12)' },
+  header: { minHeight: 54, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(242,223,168,.12)' },
   backButton: { minWidth: 88, height: 44, flexDirection: 'row', alignItems: 'center', gap: 5 }, backLabel: { color: colors.gold, fontFamily: typography.fontFamily.serif, fontSize: 13 }, aboutButton: { minWidth: 76, height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }, aboutLabel: { color: colors.gold, fontFamily: typography.fontFamily.serif, fontSize: 13 }, eyebrow: { color: 'rgba(242,223,168,.55)', fontFamily: typography.fontFamily.sans, fontSize: 8, letterSpacing: 2.2, textAlign: 'center' }, titleBlock: { marginTop: 25 }, title: { color: '#F4EDD8', fontFamily: typography.fontFamily.serifSemiBold, fontSize: 25, letterSpacing: 1.2, textAlign: 'center', marginTop: 5 },
-  content: { paddingHorizontal: 20, paddingBottom: 38 }, intro: { color: 'rgba(244,237,216,.66)', fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 16, lineHeight: 23, textAlign: 'center', marginTop: 7, marginHorizontal: 12 }, teachingCard: { marginTop: 18, padding: 13, flexDirection: 'row', gap: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(242,223,168,.22)', backgroundColor: 'rgba(242,223,168,.035)' }, teachingCopy: { flex: 1 }, teachingTitle: { color: '#F4EDD8', fontFamily: typography.fontFamily.serifSemiBold, fontSize: 14 }, teachingText: { color: 'rgba(244,237,216,.62)', fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 13, lineHeight: 17, marginTop: 4 },
+  content: { paddingHorizontal: 20, paddingBottom: 38 }, intro: { color: 'rgba(244,237,216,.66)', fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 16, lineHeight: 23, textAlign: 'center', marginTop: 7, marginHorizontal: 12 }, teachingCard: { marginTop: 18, padding: 13, flexDirection: 'row', gap: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(242,223,168,.18)', backgroundColor: 'rgba(8,11,15,.34)' }, teachingCopy: { flex: 1 }, teachingTitle: { color: '#F4EDD8', fontFamily: typography.fontFamily.serifSemiBold, fontSize: 14 }, teachingText: { color: 'rgba(244,237,216,.62)', fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 13, lineHeight: 17, marginTop: 4 },
   controls: { flexDirection: 'row', gap: 12, marginTop: 22 }, control: { flex: 1, minHeight: 58, position: 'relative', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(242,223,168,.25)', paddingBottom: 8 }, controlLabel: { color: 'rgba(242,223,168,.48)', fontSize: 8, letterSpacing: 1.8, marginBottom: 5 }, controlValue: { color: '#F4EDD8', fontFamily: typography.fontFamily.serif, fontSize: 13, paddingRight: 22 }, controlChevron: { position: 'absolute', right: 0, bottom: 8 },
-  plotSummary: { position: 'absolute', opacity: 0, height: 1, width: 1 }, plot: { height: PLOT_HEIGHT, marginTop: 26, position: 'relative', alignSelf: 'center' }, nodeTarget: { width: 44, height: 44, borderRadius: 22, position: 'absolute' }, axis: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 5, paddingHorizontal: 3 }, axisLabel: { color: 'rgba(242,223,168,.4)', fontSize: 8 }, axisNow: { color: 'rgba(242,223,168,.65)', fontFamily: typography.fontFamily.sans, fontSize: 7, letterSpacing: 1.1 }, legend: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginTop: 12 }, legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 }, legendDot: { width: 5, height: 5, borderRadius: 3 }, legendText: { color: 'rgba(244,237,216,.58)', fontSize: 9 },
+  plotSummary: { position: 'absolute', opacity: 0, height: 1, width: 1 }, plot: { height: PLOT_HEIGHT, marginTop: 24, position: 'relative', alignSelf: 'center' }, nodeTarget: { width: 44, height: 44, borderRadius: 22, position: 'absolute' }, axis: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 5, paddingHorizontal: 3 }, axisLabel: { color: 'rgba(242,223,168,.4)', fontSize: 8 }, axisNow: { color: 'rgba(242,223,168,.65)', fontFamily: typography.fontFamily.sans, fontSize: 7, letterSpacing: 1.1 }, legend: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginTop: 11 }, legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 }, legendDot: { width: 5, height: 5, borderRadius: 3 }, legendText: { color: 'rgba(244,237,216,.58)', fontSize: 9 },
   statusBlock: { paddingVertical: 56, paddingHorizontal: 18, alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(242,223,168,.16)' }, statusTitle: { color: '#F4EDD8', fontFamily: typography.fontFamily.serifSemiBold, fontSize: 18, textAlign: 'center', marginTop: 10 }, statusText: { color: 'rgba(244,237,216,.58)', fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 8 }, retryButton: { minHeight: 44, marginTop: 16, paddingHorizontal: 18, justifyContent: 'center', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(242,223,168,.42)' }, retryText: { color: colors.gold, fontFamily: typography.fontFamily.sans, fontSize: 10, letterSpacing: 1.6, textTransform: 'uppercase' }, cachedLabel: { color: 'rgba(242,223,168,.6)', fontSize: 10, textAlign: 'center', marginTop: 18 },
   rule: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(242,223,168,.16)', marginTop: 24 }, metrics: { flexDirection: 'row', flexWrap: 'wrap', paddingTop: 17, rowGap: 18 }, metric: { width: '33.333%', alignItems: 'center', paddingHorizontal: 3 }, metricValue: { color: '#F4EDD8', fontFamily: typography.fontFamily.serifSemiBold, fontSize: 18, textAlign: 'center' }, metricLabel: { color: 'rgba(242,223,168,.48)', fontSize: 7.5, letterSpacing: 1.1, textAlign: 'center', marginTop: 4 },
   sectionLabel: { color: 'rgba(242,223,168,.62)', fontFamily: typography.fontFamily.sans, fontSize: 9, letterSpacing: 2.1, marginTop: 17, marginBottom: 13 }, mixRow: { flexDirection: 'row', alignItems: 'center', minHeight: 28, gap: 9 }, mixName: { width: 92, fontFamily: typography.fontFamily.serif, fontSize: 12 }, mixTrack: { flex: 1, height: 1, backgroundColor: 'rgba(242,223,168,.15)' }, mixFill: { height: 2 }, mixCount: { width: 20, color: 'rgba(244,237,216,.58)', fontSize: 11, textAlign: 'right' }, activityRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(242,223,168,.08)' }, activityDot: { width: 6, height: 6, borderRadius: 3, marginRight: 10 }, activityCopy: { flex: 1 }, activityTitle: { color: '#F4EDD8', fontFamily: typography.fontFamily.serif, fontSize: 13 }, activityDetail: { color: 'rgba(242,223,168,.5)', fontSize: 10, marginTop: 2 }, emptyRecent: { color: 'rgba(244,237,216,.55)', fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 14, paddingBottom: 8 }, insightButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }, insightText: { flex: 1, color: 'rgba(244,237,216,.68)', fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 15, lineHeight: 22, paddingBottom: 12 },

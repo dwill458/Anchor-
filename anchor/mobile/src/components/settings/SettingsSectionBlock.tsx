@@ -4,18 +4,20 @@ import { StyleSheet, View, type ViewStyle } from 'react-native';
 interface SettingsSectionBlockProps {
   children: React.ReactNode;
   isDev?: boolean;
+  flat?: boolean;
   style?: ViewStyle;
 }
 
 export const SettingsSectionBlock: React.FC<SettingsSectionBlockProps> = ({
   children,
   isDev = false,
+  flat = false,
   style,
 }) => (
   <View
     style={[
       styles.base,
-      isDev ? styles.devBlock : styles.defaultBlock,
+      flat ? styles.flatBlock : isDev ? styles.devBlock : styles.defaultBlock,
       style,
     ]}
   >
@@ -38,5 +40,11 @@ const styles = StyleSheet.create({
   devBlock: {
     backgroundColor: 'rgba(74,222,128,0.04)',
     borderColor: 'rgba(74,222,128,0.2)',
+  },
+  flatBlock: {
+    marginHorizontal: 0,
+    borderRadius: 0,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
   },
 });
