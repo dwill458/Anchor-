@@ -173,7 +173,12 @@ describe('CourseSetupScreen — planner quota presentation', () => {
   });
 
   it('reuses one idempotency key across repeated taps on the same screen', async () => {
-    mockGenerateCoursePlan.mockResolvedValue({ data: { proposalId: 'proposal-1' } });
+    // A successful generation runs the plotting ceremony and then leaves for
+    // the proposal, so the reachable repeat is a retry after a failure — which
+    // is also the case where key reuse actually protects the quota.
+    mockGenerateCoursePlan
+      .mockRejectedValueOnce(new Error('planner unavailable'))
+      .mockResolvedValue({ data: { proposalId: 'proposal-1' } });
 
     const screen = render(<CourseSetupScreen />);
     await waitFor(() => expect(mockGetCoursePlanQuota).toHaveBeenCalled());
@@ -182,8 +187,8 @@ describe('CourseSetupScreen — planner quota presentation', () => {
     fireEvent.press(screen.getByLabelText('Generate suggested plan'));
     await waitFor(() => expect(mockGenerateCoursePlan).toHaveBeenCalledTimes(1));
 
-    // The button is briefly disabled while the first request is in flight, so
-    // retry until the second tap is actually accepted.
+    // The button is disabled while the first request is in flight, so retry
+    // until the second tap is actually accepted.
     await waitFor(() => {
       fireEvent.press(screen.getByLabelText('Generate suggested plan'));
       expect(mockGenerateCoursePlan).toHaveBeenCalledTimes(2);

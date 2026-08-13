@@ -7,17 +7,32 @@ import {
   Animated,
   StyleSheet,
 } from 'react-native';
+import { colors, typography } from '@/theme';
 
 const forgeRevealAsset = require('../../../assets/onboarding_anchor.png') as number;
+const palette = colors.anchor15;
+
+const withAlpha = (hex: string, alpha: number): string => {
+  const value = parseInt(hex.replace('#', ''), 16);
+  const red = (value >> 16) & 255;
+  const green = (value >> 8) & 255;
+  const blue = value & 255;
+  return `rgba(${red},${green},${blue},${alpha})`;
+};
 
 interface ForgeDemoProps {
   isActive: boolean;
+  intention?: string;
   onForgeComplete?: () => void;
 }
 
 type Phase = 'idle' | 'forging' | 'complete';
 
-export const ForgeDemo: React.FC<ForgeDemoProps> = ({ isActive, onForgeComplete }) => {
+export const ForgeDemo: React.FC<ForgeDemoProps> = ({
+  isActive,
+  intention = 'Deep work for 4 hours',
+  onForgeComplete,
+}) => {
   const [phase, setPhase] = useState<Phase>('idle');
   const intentionOpacity = useRef(new Animated.Value(1)).current;
   const anchorOpacity = useRef(new Animated.Value(0)).current;
@@ -74,7 +89,7 @@ export const ForgeDemo: React.FC<ForgeDemoProps> = ({ isActive, onForgeComplete 
     <View style={styles.container}>
       <View style={styles.forge}>
         <Animated.Text style={[styles.intentionText, { opacity: intentionOpacity }]}>
-          "Deep work for 4 hours"
+          &quot;{intention}&quot;
         </Animated.Text>
 
         <Animated.View style={[styles.anchorWrap, { opacity: anchorOpacity }]}>
@@ -85,10 +100,6 @@ export const ForgeDemo: React.FC<ForgeDemoProps> = ({ isActive, onForgeComplete 
             accessible={false}
           />
         </Animated.View>
-
-        <View style={styles.confirmationBadge} accessible={false}>
-          <Text style={styles.confirmationBadgeText}>✓ YOUR ANCHOR</Text>
-        </View>
 
         <TouchableOpacity
           onPress={handleForge}
@@ -109,15 +120,15 @@ const styles = StyleSheet.create({
   container: {
     width: 320,
     height: 320,
-    borderRadius: 4,
+    borderRadius: 18,
     overflow: 'hidden',
   },
   forge: {
     flex: 1,
-    backgroundColor: 'rgba(15, 20, 25, 0.85)',
+    backgroundColor: withAlpha(palette.navy, 0.85),
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.2)',
-    borderRadius: 4,
+    borderColor: withAlpha(palette.gilt, 0.2),
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -127,10 +138,10 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     textAlign: 'center',
-    fontFamily: 'Georgia',
+    fontFamily: typography.fonts.bodySerifItalic,
     fontSize: 14,
     fontStyle: 'italic',
-    color: '#C0C0C0',
+    color: palette.ash,
     letterSpacing: 0.7,
   },
   anchorWrap: {
@@ -143,51 +154,35 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
   },
-  confirmationBadge: {
-    position: 'absolute',
-    bottom: 62,
-    backgroundColor: 'rgba(62,44,91,0.86)',
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.28)',
-    borderRadius: 14,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  confirmationBadgeText: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: 8,
-    letterSpacing: 1.1,
-    color: '#D4AF37',
-  },
   forgeBtn: {
     position: 'absolute',
     bottom: 20,
     paddingHorizontal: 20,
     paddingVertical: 8,
-    backgroundColor: '#D4AF37',
-    borderRadius: 6,
-    shadowColor: '#D4AF37',
+    backgroundColor: palette.gilt,
+    borderRadius: 12,
+    shadowColor: palette.gilt,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 6,
   },
   forgeBtnDone: {
-    backgroundColor: 'rgba(212,175,55,0.15)',
+    backgroundColor: withAlpha(palette.gilt, 0.15),
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.3)',
+    borderColor: withAlpha(palette.gilt, 0.3),
     shadowOpacity: 0,
     elevation: 0,
   },
   forgeBtnText: {
-    fontFamily: 'Georgia',
+    fontFamily: typography.fonts.heading,
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 3,
-    color: '#0F1419',
+    color: palette.ink,
     textTransform: 'uppercase',
   },
   forgeBtnTextDone: {
-    color: '#D4AF37',
+    color: palette.gilt,
   },
 });

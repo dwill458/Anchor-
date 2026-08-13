@@ -9,6 +9,8 @@ import { chartApiClient, getChartErrorCode } from '@/services/ChartApiClient';
 import { AnalyticsEvents, trackChartEventOnce } from '@/services/AnalyticsService';
 import type { ChartStackParamList, CoursePlanQuota } from '@/types/chart';
 import { ChartButton, ChartCard, ChartScreenFrame, ReadOnlyNotice } from './chartUi';
+import { CoursePlotting } from './components/CoursePlotting';
+import { MOTION } from './chartTokens';
 
 type Navigation = NativeStackNavigationProp<ChartStackParamList, 'CourseSetup'>;
 type SetupRoute = RouteProp<ChartStackParamList, 'CourseSetup'>;
@@ -29,6 +31,24 @@ const inputStyle = {
 
 function keyFor(prefix: string): string {
   return `chart-${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/**
+ * Holds until the plotting ceremony has had its full run. The pending timer is
+ * parked on `timer` so unmounting clears it rather than orphaning it.
+ */
+function settleCeremony(
+  startedAt: number,
+  timer: React.MutableRefObject<ReturnType<typeof setTimeout> | null>,
+): Promise<void> {
+  const remaining = MOTION.plottingCeremony - (Date.now() - startedAt);
+  if (remaining <= 0) return Promise.resolve();
+  return new Promise((resolve) => {
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      resolve();
+    }, remaining);
+  });
 }
 
 /**
@@ -78,6 +98,17 @@ export const CourseSetupScreen: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [quota, setQuota] = useState<CoursePlanQuota | null>(null);
+  const [plotting, setPlotting] = useState(false);
+  const mounted = useRef(true);
+  const ceremonyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      if (ceremonyTimer.current) clearTimeout(ceremonyTimer.current);
+    };
+  }, []);
 
   const plannerSurfaceVisible = store.flags.chart_ai_planner_enabled;
 
@@ -188,6 +219,8 @@ export const CourseSetupScreen: React.FC = () => {
     }
     setFieldError(null);
     setSaving(true);
+    setPlotting(true);
+    const ceremonyStartedAt = Date.now();
     trackChartEventOnce(AnalyticsEvents.CHART_PLANNER_GENERATION_REQUESTED, accountId, plannerKey, {
       entry_source: 'course_setup',
       offline: false,
@@ -200,6 +233,11 @@ export const CourseSetupScreen: React.FC = () => {
         // granted consent on the reflection itself.
         includeReflections: true,
       });
+      // The plotting ceremony is choreography, not a spinner. Let it finish its
+      // run before the proposal replaces it, so a fast server does not produce
+      // a flash. A slow server simply means no extra wait.
+      await settleCeremony(ceremonyStartedAt, ceremonyTimer);
+      if (!mounted.current) return;
       navigation.navigate('AIPlanReview', {
         courseId: null,
         proposalId: result.data.proposalId,
@@ -242,11 +280,16 @@ export const CourseSetupScreen: React.FC = () => {
       setFieldError(planDenialMessage(code));
       void loadQuota();
     } finally {
-      setSaving(false);
+      if (mounted.current) {
+        setPlotting(false);
+        setSaving(false);
+      }
     }
   };
 
-  return (
+  // The ceremony covers the form rather than replacing it, so the in-flight
+  // request keeps its idempotency key and no second generation can be started.
+  const setupForm = (
     <ChartScreenFrame title="Plot Your Course" subtitle="Set a destination, then give it a path.">
       <ChartCard>
         <Text
@@ -368,6 +411,17 @@ export const CourseSetupScreen: React.FC = () => {
       <ChartButton label="Save draft" onPress={() => void save(false)} disabled={saving || store.readOnly} />
       <ChartButton label="Publish Course" secondary onPress={() => void save(true)} disabled={saving || store.readOnly || waypoints.length === 0} />
     </ChartScreenFrame>
+  );
+
+  if (!plotting) return setupForm;
+
+  return (
+    <View style={{ flex: 1 }}>
+      <View style={{ flex: 1 }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        {setupForm}
+      </View>
+      <CoursePlotting destination={destinationText.trim()} />
+    </View>
   );
 };
 

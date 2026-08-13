@@ -1,8 +1,11 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronRight, LockKeyhole, RefreshCw } from 'lucide-react-native';
 import { colors, spacing, typography } from '@/theme';
 import type { CourseStatus, WaypointSummary } from '@/types/chart';
+import { C, CARD_GRADIENT, F, GOLD_GRADIENT, ls } from './chartTokens';
+import { Ico } from './components/Ico';
 
 export const ChartScreenFrame: React.FC<{
   title: string;
@@ -68,14 +71,37 @@ export const ChartButton: React.FC<{
       pressed && !disabled && styles.buttonPressed,
     ]}
   >
+    {!secondary && !destructive ? (
+      <LinearGradient
+        colors={[...GOLD_GRADIENT]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+    ) : null}
     <Text style={[styles.buttonText, secondary && styles.buttonTextSecondary, destructive && styles.buttonTextDestructive]}>
       {label}
     </Text>
   </Pressable>
 );
 
+/** The prototype's 165° card wash sits behind the content, not on the border. */
+const CardWash: React.FC = () => (
+  <LinearGradient
+    colors={[...CARD_GRADIENT]}
+    start={{ x: 0.18, y: 0 }}
+    end={{ x: 0.82, y: 1 }}
+    style={StyleSheet.absoluteFill}
+    pointerEvents="none"
+  />
+);
+
 export const ChartCard: React.FC<{ children: React.ReactNode; emphasis?: boolean; style?: object }> = ({ children, emphasis, style }) => (
-  <View style={[styles.card, emphasis && styles.cardEmphasis, style]}>{children}</View>
+  <View style={[styles.card, emphasis && styles.cardEmphasis, style]}>
+    {emphasis ? null : <CardWash />}
+    {children}
+  </View>
 );
 
 export const ChartSection: React.FC<{ children: React.ReactNode; style?: object }> = ({ children, style }) => (
@@ -99,7 +125,25 @@ export const ChartKicker: React.FC<{ children: React.ReactNode; color?: string; 
 );
 
 export const ChartPanel: React.FC<{ children: React.ReactNode; style?: object }> = ({ children, style }) => (
-  <View style={[styles.panel, style]}>{children}</View>
+  <View style={[styles.panel, style]}>
+    <CardWash />
+    {children}
+  </View>
+);
+
+/** Hairline rule. `centered` is the ceremony variant that fades at both ends. */
+export const ChartHair: React.FC<{ centered?: boolean; style?: object }> = ({ centered = false, style }) => (
+  <LinearGradient
+    colors={
+      centered
+        ? ['transparent', 'rgba(212,175,55,0.35)', 'transparent']
+        : ['rgba(212,175,55,0.16)', 'rgba(212,175,55,0.03)', 'transparent']
+    }
+    locations={centered ? [0, 0.5, 1] : [0, 0.7, 1]}
+    start={{ x: 0, y: 0 }}
+    end={{ x: 1, y: 0 }}
+    style={[{ height: 1 }, style]}
+  />
 );
 
 export const ChartGhostButton: React.FC<{
@@ -121,6 +165,76 @@ export const ChartGhostButton: React.FC<{
     <Text style={[styles.ghostText, { color }]}>{label}</Text>
   </Pressable>
 );
+
+/**
+ * Waypoint status token. Status is never carried by colour alone — each state
+ * has a distinct glyph (check / filled dot / hollow dot / star) beside its
+ * label, matching the prototype's `StatusTag`.
+ */
+export const ChartStatusTag: React.FC<{
+  status: string;
+  /**
+   * Presentation-only. Per PHASE_0_CONTRACT_FREEZE the destination is a
+   * Course-level marker, not a peer waypoint state, so it arrives as a flag.
+   */
+  isDestination?: boolean;
+  fontSize?: number;
+  em?: number;
+  style?: object;
+}> = ({ status, isDestination = false, fontSize = 9.5, em = 0.14, style }) => {
+  const key = status.toUpperCase();
+  const M = isDestination
+    ? { t: 'Destination', c: C.gold }
+    : key === 'REACHED'
+      ? { t: 'Reached', c: 'rgba(212,175,55,0.75)' }
+      : key === 'PLOTTED'
+        ? { t: 'Plotted', c: 'rgba(212,175,55,0.75)' }
+        : key === 'CURRENT'
+          ? { t: 'Current', c: C.lav }
+          : key === 'BLOCKED'
+            ? { t: 'Blocked', c: C.danger }
+            : key === 'SKIPPED'
+              ? { t: 'Skipped', c: C.boneFaint }
+              : key === 'CANCELLED'
+                ? { t: 'Cancelled', c: C.boneFaint }
+                : { t: 'Upcoming', c: C.boneFaint };
+
+  const dot = 6 * (fontSize / 9.5);
+  const past = !isDestination && (key === 'REACHED' || key === 'PLOTTED');
+  const hollow = !isDestination && !past && key !== 'CURRENT';
+
+  return (
+    <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 5 }, style]}>
+      {isDestination ? <Ico k="star" s={fontSize} c={M.c} /> : null}
+      {past ? <Ico k="check" s={fontSize} c={M.c} w={1.6} /> : null}
+      {!isDestination && key === 'CURRENT' ? (
+        <View
+          style={{
+            width: dot,
+            height: dot,
+            borderRadius: dot / 2,
+            backgroundColor: M.c,
+            shadowColor: M.c,
+            shadowOpacity: 0.9,
+            shadowRadius: 4,
+            shadowOffset: { width: 0, height: 0 },
+          }}
+        />
+      ) : null}
+      {hollow ? (
+        <View
+          style={{ width: dot, height: dot, borderRadius: dot / 2, borderWidth: 1, borderColor: M.c }}
+        />
+      ) : null}
+      <Text
+        numberOfLines={1}
+        style={{ fontFamily: F.bSemi, fontSize, letterSpacing: ls(fontSize, em), color: M.c }}
+      >
+        {M.t.toUpperCase()}
+      </Text>
+    </View>
+  );
+};
 
 export const ChartStatusPill: React.FC<{ status: CourseStatus | string }> = ({ status }) => (
   <View style={styles.statusPill}>
@@ -234,7 +348,7 @@ const styles = StyleSheet.create({
   screenTitle: { fontFamily: typography.fonts.headingBold, fontSize: 21, letterSpacing: 2.9, color: colors.bone },
   screenSubtitle: { fontFamily: typography.fonts.body, fontSize: 11.5, lineHeight: 16, color: 'rgba(245,240,232,0.32)', marginTop: 4 },
   kicker: { fontFamily: typography.fonts.headingSemiBold, fontSize: 9.5, lineHeight: 13, letterSpacing: 2.1, color: 'rgba(212,175,55,0.62)', textTransform: 'uppercase' },
-  panel: { borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.065)', backgroundColor: 'rgba(255,255,255,0.018)', overflow: 'hidden', position: 'relative' },
+  panel: { borderRadius: 16, borderWidth: 1, borderColor: C.cardBorder, overflow: 'hidden', position: 'relative' },
   ghostButton: { minHeight: 34, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 6 },
   ghostPressed: { opacity: 0.68 },
   ghostText: { fontFamily: typography.fonts.body, fontSize: 11.5, letterSpacing: 0.2 },
@@ -243,10 +357,11 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.065)',
-    backgroundColor: 'rgba(255,255,255,0.018)',
+    borderColor: C.cardBorder,
     padding: 16,
     gap: spacing.sm,
+    overflow: 'hidden',
+    position: 'relative',
   },
   cardEmphasis: { borderColor: 'rgba(212,175,55,0.24)', backgroundColor: 'rgba(20,26,35,0.74)' },
   iconButton: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(212,175,55,0.14)', backgroundColor: 'rgba(255,255,255,0.015)' },
@@ -256,7 +371,8 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#D4AF37',
+    backgroundColor: C.gold,
+    overflow: 'hidden',
     shadowColor: colors.gold,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.22,

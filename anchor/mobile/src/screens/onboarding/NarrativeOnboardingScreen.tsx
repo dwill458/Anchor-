@@ -8,7 +8,6 @@ import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
-  Image,
   StyleSheet,
   TouchableOpacity,
   TextInput,
@@ -17,13 +16,10 @@ import {
   Platform,
   useWindowDimensions,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
+import { SvgXml } from 'react-native-svg';
 import { useAuthStore } from '@/stores/authStore';
-import { ForgeDemo } from '@/components/onboarding/ForgeDemo';
-import { UseCaseCard } from '@/components/onboarding/UseCaseCard';
-import type { UseCaseItem } from '@/components/onboarding/UseCaseCard';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { OnboardingStackParamList } from '@/types';
 import { colors, typography } from '@/theme';
@@ -31,8 +27,8 @@ import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
 import { getOnboardingProgressPercent } from '@/utils/onboardingProgress';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { useFirstAnchorFlowStore, type OnboardingUseCase } from '@/stores/firstAnchorFlowStore';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const anchorLogoOfficial = require('../../assets/images/anchor-visual-goal-setting-logo.png') as number;
+import { ForgeDemo } from '@/components/onboarding/ForgeDemo';
+import { generateTrueSigil } from '@/utils/sigil/traditional-generator';
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'Welcome'>;
 
@@ -42,6 +38,8 @@ const DETAIL_FONT_SIZE = typography.fontSize.xs - 1;
 const MICRO_FONT_SIZE = typography.fontSize.xs - 3;
 const BODY_FONT_SIZE = typography.fontSize.md + 1;
 const BUTTON_FONT_SIZE = typography.fontSize.xs + 1;
+const palette = colors.anchor15;
+const LEGACY_FINAL_ANCHOR = generateTrueSigil('Deep work for 4 hours', undefined, 'balanced').svg;
 
 const withAlpha = (hex: string, alpha: number): string => {
   const normalized = hex.replace('#', '');
@@ -64,65 +62,71 @@ interface OnboardingSlide {
   label: string;
   headline: string;
   body: string;
-  visual: 'orbits' | 'signal' | 'personalize' | 'forge' | 'usecases' | 'final';
+  visual: 'orbits' | 'signal' | 'personalize' | 'forge' | 'practice' | 'final';
   cta: string;
 }
 
 const SLIDES: OnboardingSlide[] = [
   {
     id: 0,
-    label: '01 / THE PROBLEM',
-    headline: 'YOUR GOALS GET\n**LOST IN THE NOISE.**',
-    body: 'Even a clear intention can fade once the day begins. Without something visible to return to, distraction takes over.',
+    label: 'The Problem',
+    headline: 'Your brain has **unfinished business.**',
+    body: 'Every intention you keep carrying competes for your attention. Anchor gives it somewhere to live.',
     visual: 'orbits',
-    cta: 'Next',
+    cta: 'NEXT',
   },
   {
     id: 1,
-    label: '02 / THE GAP',
-    headline: 'THE GOAL ISN’T THE\nPROBLEM. **THE CUE IS.**',
-    body: 'You know what you want. What’s missing is a visual cue you can return to before doubt or distraction takes over.',
+    label: 'The Gap',
+    headline: 'You have the **will.** Not the trigger.',
+    body: 'The intention is there. What’s missing is a cue you can return to — on command.',
     visual: 'signal',
-    cta: 'Next',
+    cta: 'NEXT',
   },
   {
     id: 2,
-    label: '03 / MAKE IT YOURS',
-    headline: 'WHAT DO YOU WANT\nTO RETURN TO?',
-    body: 'A name and one real-life context help Anchor meet you with the right kind of focus.',
+    label: 'Make it yours',
+    headline: 'Let’s build something **specific to you.**',
+    body: '',
     visual: 'personalize',
-    cta: 'Next',
+    cta: 'CONTINUE',
   },
   {
     id: 3,
-    label: '04 / THE MECHANISM',
-    headline: 'ANCHOR TURNS YOUR\nINTENTION INTO A\nPERSONAL **VISUAL CUE.**',
-    body: 'This is visual goal setting made personal. Your words become a unique symbol you can return to at a glance.',
+    label: 'The Mechanism',
+    headline: 'A symbol becomes a **command.**',
+    body: 'Anchor turns your intention into a distinct visual cue.\n\nReturning to it strengthens the association between the symbol and the direction you’ve chosen.',
     visual: 'forge',
-    cta: 'Next',
+    cta: 'NEXT',
   },
   {
     id: 4,
-    label: '05 / THE PRACTICE',
-    headline: 'USE IT BEFORE THE\n**MOMENTS THAT MATTER.**',
-    body: 'Not a reminder. A primer. Return to your Anchor before deep work, training, or any moment that demands your full attention.',
-    visual: 'usecases',
-    cta: 'Next',
+    label: 'The Practice',
+    headline: '10 seconds. **Every time.**',
+    body: 'Return before the moment that matters — or whenever you need to reconnect with where you’re going.',
+    visual: 'practice',
+    cta: 'NEXT',
   },
   {
     id: 5,
-    label: '06 / BEGIN',
-    headline: 'CREATE YOUR FIRST\n**ANCHOR NOW.**',
-    body: 'Start with one intention. Turn it into a visual anchor you can practice with and return to throughout your day.',
+    label: 'Ready',
+    headline: 'Forge your first **anchor.**',
+    body: 'Set your intention and seal it.',
     visual: 'final',
-    cta: 'CREATE YOUR FIRST ANCHOR →',
+    cta: 'FORGE YOUR FIRST ANCHOR →',
   },
 ];
 
-const USE_CASES: UseCaseItem[] = [
-  { label: 'DEEP WORK', description: 'Before a focused work session', iconType: 'code' },
-  { label: 'PHYSICAL', description: 'Before training or pursuing a new personal best', iconType: 'lift' },
-  { label: 'HIGH STAKES', description: 'Before a pitch, presentation, or interview', iconType: 'pitch' },
+const PERSONALIZATION_OPTIONS: Array<{
+  value: OnboardingUseCase;
+  label: string;
+  tags: string;
+  forgeLabel: string;
+}> = [
+  { value: 'deep_work', label: 'FOCUS', tags: 'Work · Study · Create', forgeLabel: 'Focus' },
+  { value: 'physical', label: 'PERFORMANCE', tags: 'Train · Compete · Execute', forgeLabel: 'Performance' },
+  { value: 'high_stakes', label: 'GROWTH', tags: 'Build · Progress · Achieve', forgeLabel: 'Growth' },
+  { value: 'personal', label: 'PERSONAL', tags: 'Something uniquely yours', forgeLabel: 'Personal' },
 ];
 
 const TOTAL = SLIDES.length;
@@ -145,8 +149,8 @@ const AmbientBleed: React.FC = () => (
     <Svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
       <Defs>
         <RadialGradient id="narrative-onboarding-ambient-bleed" cx="50%" cy="38%" r="60%">
-          <Stop offset="0%" stopColor={colors.deepPurple} stopOpacity={0.18} />
-          <Stop offset="100%" stopColor={colors.deepPurple} stopOpacity={0} />
+          <Stop offset="0%" stopColor={palette.steel} stopOpacity={0.2} />
+          <Stop offset="100%" stopColor={palette.ink} stopOpacity={0} />
         </RadialGradient>
       </Defs>
       <Rect width="100%" height="100%" fill="url(#narrative-onboarding-ambient-bleed)" />
@@ -158,11 +162,31 @@ const AmbientBleed: React.FC = () => (
 // Visual sub-components
 // ---------------------------------------------------------------------------
 
+/** The same restrained geometric mark used by the HTML reference. */
+const SigilMark: React.FC<{ size?: number; color?: string }> = ({
+  size = 80,
+  color = colors.anchor15.gilt,
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 200 200" fill="none" accessible={false}>
+    {[20, 35, 50, 65, 80].map((radius) => (
+      <Circle key={radius} cx="100" cy="100" r={radius} stroke={color} strokeWidth="0.8" opacity={0.3} />
+    ))}
+    <Path
+      d="M58 62 L142 62 L72 148"
+      stroke={color}
+      strokeWidth="6.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path d="M58 62 Q62 74 66 84" stroke={color} strokeWidth="3" strokeLinecap="round" opacity={0.7} />
+    <Circle cx="100" cy="100" r="13" stroke={color} strokeWidth="1.8" opacity={0.5} />
+  </Svg>
+);
+
 const OrbitsVisual: React.FC<{ reduceMotion: boolean }> = ({ reduceMotion }) => {
   const rot1 = useRef(new Animated.Value(0)).current;
   const rot2 = useRef(new Animated.Value(0)).current;
   const rot3 = useRef(new Animated.Value(0)).current;
-  const logoLight = useRef(new Animated.Value(0.55)).current;
   const words = ['CLARITY', 'DRIVE'];
   const wordAnims = useRef(words.map(() => new Animated.Value(0))).current;
 
@@ -171,7 +195,6 @@ const OrbitsVisual: React.FC<{ reduceMotion: boolean }> = ({ reduceMotion }) => 
       rot1.setValue(0);
       rot2.setValue(0);
       rot3.setValue(0);
-      logoLight.setValue(0.7);
       wordAnims.forEach((animation) => animation.setValue(0.1));
       return undefined;
     }
@@ -190,12 +213,6 @@ const OrbitsVisual: React.FC<{ reduceMotion: boolean }> = ({ reduceMotion }) => 
       makeOrbit(rot1, 24000),
       makeOrbit(rot2, 18000, true),
       makeOrbit(rot3, 14000),
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(logoLight, { toValue: 1, duration: 2200, easing: EASE_IN_OUT, useNativeDriver: true }),
-          Animated.timing(logoLight, { toValue: 0.5, duration: 2200, easing: EASE_IN_OUT, useNativeDriver: true }),
-        ])
-      ),
     ];
 
     wordAnims.forEach((anim, i) => {
@@ -211,7 +228,7 @@ const OrbitsVisual: React.FC<{ reduceMotion: boolean }> = ({ reduceMotion }) => 
 
     animations.forEach((animation) => animation.start());
     return () => animations.forEach((animation) => animation.stop());
-  }, [logoLight, reduceMotion, rot1, rot2, rot3, wordAnims]);
+  }, [reduceMotion, rot1, rot2, rot3, wordAnims]);
 
   const spin = (val: Animated.Value) =>
     val.interpolate({ inputRange: [-1, 1], outputRange: ['-360deg', '360deg'] });
@@ -248,15 +265,7 @@ const OrbitsVisual: React.FC<{ reduceMotion: boolean }> = ({ reduceMotion }) => 
 
       <View style={visual.orbits.center}>
         <View style={visual.orbits.logoAtmosphere} />
-        <Image
-          source={anchorLogoOfficial}
-          style={visual.orbits.logo}
-          resizeMode="contain"
-          accessible
-          accessibilityRole="image"
-          accessibilityLabel="Anchor visual goal setting logo"
-        />
-        <Animated.View pointerEvents="none" style={[visual.orbits.logoLight, { opacity: logoLight }]} />
+        <SigilMark size={92} />
       </View>
 
       {words.map((word, i) => (
@@ -287,158 +296,106 @@ const OrbitsVisual: React.FC<{ reduceMotion: boolean }> = ({ reduceMotion }) => 
 };
 
 const SignalVisual: React.FC<{ reduceMotion: boolean }> = ({ reduceMotion }) => {
-  const haloOpacity = useRef(new Animated.Value(0.5)).current;
-  const outerOrbitRotation = useRef(new Animated.Value(0)).current;
-  const innerOrbitRotation = useRef(new Animated.Value(0)).current;
-  const glowScale = useRef(new Animated.Value(0.85)).current;
-  const glowOpacity = useRef(new Animated.Value(0.6)).current;
-  const coronaScale = useRef(new Animated.Value(0.9)).current;
-  const coronaOpacity = useRef(new Animated.Value(0.3)).current;
-  const seedOpacity = useRef(new Animated.Value(0.4)).current;
+  const rotation = useRef(new Animated.Value(0)).current;
+  const pulse = useRef(new Animated.Value(0.72)).current;
 
   React.useEffect(() => {
     if (reduceMotion) {
-      haloOpacity.setValue(0.7);
-      outerOrbitRotation.setValue(0);
-      innerOrbitRotation.setValue(0);
-      glowScale.setValue(1);
-      glowOpacity.setValue(0.7);
-      coronaScale.setValue(1);
-      coronaOpacity.setValue(0.45);
-      seedOpacity.setValue(0.75);
+      rotation.setValue(0);
+      pulse.setValue(0.82);
       return undefined;
     }
 
-    const animations = [
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(haloOpacity, { toValue: 1, duration: 3000, easing: EASE_IN_OUT, useNativeDriver: true }),
-          Animated.timing(haloOpacity, { toValue: 0.5, duration: 3000, easing: EASE_IN_OUT, useNativeDriver: true }),
-        ])
-      ),
-      Animated.loop(
-        Animated.timing(outerOrbitRotation, { toValue: 1, duration: 50000, easing: Easing.linear, useNativeDriver: true })
-      ),
-      Animated.loop(
-        Animated.timing(innerOrbitRotation, { toValue: 1, duration: 70000, easing: Easing.linear, useNativeDriver: true })
-      ),
-      Animated.loop(
-        Animated.sequence([
-          Animated.parallel([
-            Animated.timing(glowScale, { toValue: 1.2, duration: 2500, easing: EASE_IN_OUT, useNativeDriver: true }),
-            Animated.timing(glowOpacity, { toValue: 1, duration: 2500, easing: EASE_IN_OUT, useNativeDriver: true }),
-          ]),
-          Animated.parallel([
-            Animated.timing(glowScale, { toValue: 0.85, duration: 2500, easing: EASE_IN_OUT, useNativeDriver: true }),
-            Animated.timing(glowOpacity, { toValue: 0.6, duration: 2500, easing: EASE_IN_OUT, useNativeDriver: true }),
-          ]),
-        ])
-      ),
-      Animated.loop(
-        Animated.sequence([
-          Animated.parallel([
-            Animated.timing(coronaScale, { toValue: 1.1, duration: 2500, easing: EASE_IN_OUT, useNativeDriver: true }),
-            Animated.timing(coronaOpacity, { toValue: 0.7, duration: 2500, easing: EASE_IN_OUT, useNativeDriver: true }),
-          ]),
-          Animated.parallel([
-            Animated.timing(coronaScale, { toValue: 0.9, duration: 2500, easing: EASE_IN_OUT, useNativeDriver: true }),
-            Animated.timing(coronaOpacity, { toValue: 0.3, duration: 2500, easing: EASE_IN_OUT, useNativeDriver: true }),
-          ]),
-        ])
-      ),
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(seedOpacity, { toValue: 1, duration: 2500, easing: EASE_IN_OUT, useNativeDriver: true }),
-          Animated.timing(seedOpacity, { toValue: 0.4, duration: 2500, easing: EASE_IN_OUT, useNativeDriver: true }),
-        ])
-      ),
-    ];
+    const rotate = Animated.loop(
+      Animated.timing(rotation, {
+        toValue: 1,
+        duration: 24000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    );
+    const breathe = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 1800, easing: EASE_IN_OUT, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.72, duration: 1800, easing: EASE_IN_OUT, useNativeDriver: true }),
+      ])
+    );
+    rotate.start();
+    breathe.start();
+    return () => {
+      rotate.stop();
+      breathe.stop();
+    };
+  }, [pulse, reduceMotion, rotation]);
 
-    animations.forEach((animation) => animation.start());
-
-    return () => animations.forEach((animation) => animation.stop());
-  }, [coronaOpacity, coronaScale, glowOpacity, glowScale, haloOpacity, innerOrbitRotation, outerOrbitRotation, reduceMotion, seedOpacity]);
-
-  const outerSpin = outerOrbitRotation.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-  const innerSpin = innerOrbitRotation.interpolate({ inputRange: [0, 1], outputRange: ['360deg', '0deg'] });
+  const spin = rotation.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
 
   return (
     <View style={visual.signal.container} accessible={false}>
-      <Animated.View style={[visual.signal.ambientHalo, { opacity: haloOpacity }]}>
-        <Svg width="100%" height="100%" viewBox="0 0 380 380">
-          <Defs>
-            <RadialGradient id="narrative-onboarding-void-halo" cx="50%" cy="50%" r="50%">
-              <Stop offset="0%" stopColor={colors.deepPurple} stopOpacity={0.07} />
-              <Stop offset="100%" stopColor={colors.deepPurple} stopOpacity={0} />
-            </RadialGradient>
-          </Defs>
-          <Rect width="380" height="380" fill="url(#narrative-onboarding-void-halo)" />
-        </Svg>
+      <Animated.View style={[visual.signal.ring, { transform: [{ rotate: spin }] }]}>
+        <View style={visual.signal.ringDot} />
       </Animated.View>
-
-      <Animated.View style={[visual.signal.outerOrbit, { transform: [{ rotate: outerSpin }] }]}>
-        <View style={visual.signal.outerOrbitDot} />
-      </Animated.View>
-
-      <Animated.View style={[visual.signal.innerOrbit, { transform: [{ rotate: innerSpin }] }]} />
-
-      <View style={visual.signal.voidShell}>
-        <View style={visual.signal.voidClip}>
-          <Svg style={visual.signal.gradientFill} width="100%" height="100%" viewBox="0 0 218 218">
-            <Defs>
-              <RadialGradient id="narrative-onboarding-void-body" cx="50%" cy="50%" r="62%">
-                <Stop offset="0%" stopColor={colors.deepPurple} stopOpacity={0.12} />
-                <Stop offset="55%" stopColor={colors.deepPurple} stopOpacity={0.5} />
-                <Stop offset="100%" stopColor={colors.background.primary} stopOpacity={0.92} />
-              </RadialGradient>
-            </Defs>
-            <Rect width="218" height="218" fill="url(#narrative-onboarding-void-body)" />
-          </Svg>
-
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              visual.signal.glowBloom,
-              {
-                opacity: glowOpacity,
-                transform: [{ scale: glowScale }],
-              },
-            ]}
-          >
-            <Svg style={visual.signal.gradientFill} width="100%" height="100%" viewBox="0 0 90 90">
-              <Defs>
-                <RadialGradient id="narrative-onboarding-void-glow" cx="50%" cy="45%" r="60%">
-                  <Stop offset="0%" stopColor={colors.gold} stopOpacity={0.12} />
-                  <Stop offset="35%" stopColor={colors.deepPurple} stopOpacity={0.15} />
-                  <Stop offset="60%" stopColor={colors.deepPurple} stopOpacity={0.08} />
-                  <Stop offset="100%" stopColor={colors.deepPurple} stopOpacity={0} />
-                </RadialGradient>
-              </Defs>
-              <Rect width="90" height="90" fill="url(#narrative-onboarding-void-glow)" />
-            </Svg>
-            <BlurView intensity={24} tint="dark" style={visual.signal.glowBlur} />
-          </Animated.View>
-
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              visual.signal.corona,
-              {
-                opacity: coronaOpacity,
-                transform: [{ scale: coronaScale }],
-              },
-            ]}
-          />
-
-          <Animated.View pointerEvents="none" style={[visual.signal.seed, { opacity: seedOpacity }]} />
-        </View>
+      <Animated.View style={[visual.signal.innerRing, { opacity: pulse }]} />
+      <View style={visual.signal.core}>
+        <Text style={visual.signal.coreText}>{'THE\nTRIGGER'}</Text>
       </View>
     </View>
   );
 };
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const successAnchor = require('../../../assets/success_anchor_onboarding.png') as number;
+const getForgeLabel = (useCase?: OnboardingUseCase): string =>
+  PERSONALIZATION_OPTIONS.find((option) => option.value === useCase)?.forgeLabel ?? 'Focus';
+
+const getForgeIntention = (useCase?: OnboardingUseCase): string => {
+  switch (useCase) {
+    case 'physical': return 'Execute under pressure';
+    case 'high_stakes': return 'Build the next version';
+    case 'personal': return 'Come back to myself';
+    case 'deep_work':
+    default: return 'Deep work for 4 hours';
+  }
+};
+
+const CycleVisual: React.FC<{ reduceMotion: boolean; useCase?: OnboardingUseCase }> = ({
+  reduceMotion,
+  useCase,
+}) => {
+  const rotation = useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    rotation.setValue(0);
+    if (reduceMotion) return undefined;
+
+    const animation = Animated.loop(
+      Animated.timing(rotation, {
+        toValue: 1,
+        duration: 22000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [reduceMotion, rotation]);
+
+  const spin = rotation.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+
+  return (
+    <View style={visual.practice.container} accessible={false}>
+      <Animated.View style={[visual.practice.orbit, { transform: [{ rotate: spin }] }]}>
+        <View style={visual.practice.orbitDot} />
+      </Animated.View>
+      <View style={visual.practice.ring} />
+      <Text style={[visual.practice.label, visual.practice.labelTop]}>Create</Text>
+      <Text style={[visual.practice.label, visual.practice.labelLeft]}>Return</Text>
+      <Text style={[visual.practice.label, visual.practice.labelRight]}>Reinforce</Text>
+      <View style={visual.practice.core}>
+        <SigilMark size={58} />
+        <Text style={visual.practice.coreTag}>{getForgeLabel(useCase)}</Text>
+      </View>
+    </View>
+  );
+};
 
 const FinalVisual: React.FC<{ reduceMotion: boolean }> = ({ reduceMotion }) => {
   const pulse = useRef(new Animated.Value(1)).current;
@@ -477,7 +434,7 @@ const FinalVisual: React.FC<{ reduceMotion: boolean }> = ({ reduceMotion }) => {
         <View style={visual.final.ringDot} />
       </Animated.View>
       <Animated.View style={{ transform: [{ scale: pulse }] }}>
-        <Image source={successAnchor} style={{ width: 200, height: 200, borderRadius: 100 }} resizeMode="contain" accessible={false} />
+        <SvgXml xml={LEGACY_FINAL_ANCHOR} width={154} height={154} color={palette.gilt} />
       </Animated.View>
       <View style={visual.final.badge}>
         <Text style={visual.final.badgeText}>1 INTENTION → 1 ANCHOR</Text>
@@ -560,6 +517,8 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
   );
 
   const handleCTA = () => {
+    if (currentSlide === 2 && (!name.trim() || !selectedUseCase)) return;
+
     if (currentSlide < TOTAL - 1) {
       goToSlide(currentSlide + 1);
     } else {
@@ -599,29 +558,24 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
       case 'signal':    return wrapSmall(<SignalVisual reduceMotion={reduceMotion} />);
       case 'personalize': return (
         <View style={[styles.personalizeCard, { width: contentWidth }]}>
-          <Text style={styles.personalizeLabel}>YOUR NAME <Text style={styles.optional}>OPTIONAL</Text></Text>
+          <Text style={styles.personalizeLabel}>YOUR NAME</Text>
           <TextInput
             value={name}
             onChangeText={(value) => {
               setName(value);
               useFirstAnchorFlowStore.getState().updateDraft({ onboardingName: value.trim() || undefined });
             }}
-            placeholder="What should we call you?"
+            placeholder="Enter your name…"
             placeholderTextColor="rgba(135, 147, 157, 0.72)"
             maxLength={48}
             autoCapitalize="words"
             accessibilityLabel="Your name"
             style={styles.nameInput}
           />
-          <Text style={styles.personalizeLabel}>A MOMENT THAT MATTERS</Text>
+          <Text style={styles.personalizeLabel}>WHAT WILL YOU USE ANCHOR FOR?</Text>
           <View accessibilityRole="radiogroup" style={styles.useCaseChoices}>
-            {[
-              ['deep_work', 'Deep work'],
-              ['physical', 'Training'],
-              ['high_stakes', 'High stakes'],
-              ['personal', 'Personal life'],
-            ].map(([value, label]) => {
-              const useCase = value as OnboardingUseCase;
+            {PERSONALIZATION_OPTIONS.map(({ value, label, tags }) => {
+              const useCase = value;
               const selected = selectedUseCase === useCase;
               return (
                 <TouchableOpacity
@@ -635,31 +589,30 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
                   accessibilityState={{ selected }}
                   style={[styles.useCaseChoice, selected && styles.useCaseChoiceSelected]}
                 >
-                  <Text style={[styles.useCaseChoiceText, selected && styles.useCaseChoiceTextSelected]}>{label}</Text>
+                  <Text style={[styles.useCaseChoiceLabel, selected && styles.useCaseChoiceLabelSelected]}>{label}</Text>
+                  <Text style={[styles.useCaseChoiceTags, selected && styles.useCaseChoiceTagsSelected]}>{tags}</Text>
                 </TouchableOpacity>
               );
             })}
           </View>
         </View>
       );
-      case 'forge':     return <ForgeDemo isActive={currentSlide === 3} />;
-      case 'usecases':  return (
-        <View style={[styles.useCasesWrapper, { width: contentWidth }]}>
-          {USE_CASES.map((item, i) => (
-            <UseCaseCard
-              key={item.label}
-              item={item}
-              index={i}
-              isActive={currentSlide === 4}
-            />
-          ))}
-        </View>
-      );
+      case 'forge':     return <ForgeDemo isActive={currentSlide === 3} intention={getForgeIntention(selectedUseCase)} />;
+      case 'practice':  return <CycleVisual reduceMotion={reduceMotion} useCase={selectedUseCase} />;
       case 'final':     return wrapSmall(<FinalVisual reduceMotion={reduceMotion} />);
     }
   };
 
   const slide = SLIDES[currentSlide];
+  const displayName = name.trim() || 'You';
+  const isCTAUnavailable = currentSlide === 2 && (!name.trim() || !selectedUseCase);
+  const displayedBody = slide.body
+    ? currentSlide === 3 || currentSlide === 4
+      ? `${displayName}, ${slide.body}`
+      : currentSlide === TOTAL - 1 && selectedUseCase
+        ? `${getForgeLabel(selectedUseCase)} — ${slide.body.charAt(0).toLowerCase()}${slide.body.slice(1)}`
+        : slide.body
+    : '';
   const slideProgressPercent = getOnboardingProgressPercent(currentSlide, TOTAL);
 
   return (
@@ -730,11 +683,15 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
             adjustsFontSizeToFit
             minimumFontScale={0.9}
           >
-            {renderHeadline(slide.headline)}
+            {currentSlide === TOTAL - 1
+              ? <><Text>{displayName},{`\n`}</Text>{renderHeadline(slide.headline)}</>
+              : renderHeadline(slide.headline)}
           </Text>
-          <Text style={[styles.body, isCompactLayout && styles.bodyCompact]}>
-            {slide.body}
-          </Text>
+          {displayedBody ? (
+            <Text style={[styles.body, isCompactLayout && styles.bodyCompact]}>
+              {displayedBody}
+            </Text>
+          ) : null}
         </View>
       </Animated.View>
 
@@ -779,14 +736,15 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
         </View>
 
         <TouchableOpacity
-          style={styles.ctaBtn}
+          style={[styles.ctaBtn, isCTAUnavailable && styles.ctaBtnDisabled]}
           onPress={handleCTA}
+          disabled={isCTAUnavailable}
           activeOpacity={0.85}
           accessibilityRole="button"
           accessibilityLabel={slide.cta}
         >
           <Text
-            style={styles.ctaText}
+            style={[styles.ctaText, isCTAUnavailable && styles.ctaTextDisabled]}
             numberOfLines={1}
             adjustsFontSizeToFit
             minimumFontScale={0.8}
@@ -806,35 +764,39 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
 const visual = {
   orbits: StyleSheet.create({
     container: { width: 320, height: 320, alignItems: 'center', justifyContent: 'center', position: 'relative' } as const,
-    ring: { position: 'absolute', borderWidth: 1, borderColor: colors.gold } as const,
-    dot: { position: 'absolute', width: 6, height: 6, borderRadius: 3, backgroundColor: colors.gold, top: -3, left: '50%', marginLeft: -3, shadowColor: colors.gold, shadowOpacity: 0.8, shadowRadius: 4, shadowOffset: { width: 0, height: 0 } } as const,
+    ring: { position: 'absolute', borderWidth: 1, borderColor: palette.gilt } as const,
+    dot: { position: 'absolute', width: 6, height: 6, borderRadius: 3, backgroundColor: palette.gilt, top: -3, left: '50%', marginLeft: -3, shadowColor: palette.gilt, shadowOpacity: 0.8, shadowRadius: 4, shadowOffset: { width: 0, height: 0 } } as const,
     center: { position: 'absolute', alignItems: 'center', justifyContent: 'center', width: 176, height: 176 } as const,
-    logoAtmosphere: { position: 'absolute', width: 166, height: 166, borderRadius: 83, backgroundColor: withAlpha(colors.deepPurple, 0.52), shadowColor: colors.deepPurple, shadowOpacity: 0.85, shadowRadius: 32, shadowOffset: { width: 0, height: 0 }, elevation: 4 } as const,
-    logo: { width: 160, height: 160, zIndex: 1 } as const,
-    logoLight: { position: 'absolute', width: 16, height: 16, borderRadius: 8, backgroundColor: colors.gold, zIndex: 2, shadowColor: colors.gold, shadowOpacity: 0.9, shadowRadius: 12, shadowOffset: { width: 0, height: 0 }, elevation: 8 } as const,
-    word: { position: 'absolute', fontFamily: typography.fonts.heading, fontSize: DETAIL_FONT_SIZE, color: colors.gold, letterSpacing: 1.5 } as const,
+    logoAtmosphere: { position: 'absolute', width: 166, height: 166, borderRadius: 83, backgroundColor: withAlpha(palette.steel, 0.62), shadowColor: palette.ink, shadowOpacity: 0.7, shadowRadius: 32, shadowOffset: { width: 0, height: 0 }, elevation: 4 } as const,
+    word: { position: 'absolute', fontFamily: typography.fonts.heading, fontSize: DETAIL_FONT_SIZE, color: palette.gilt, letterSpacing: 1.5 } as const,
   }),
   signal: StyleSheet.create({
     container: { width: 320, height: 320, position: 'relative', alignItems: 'center', justifyContent: 'center' } as const,
-    ambientHalo: { position: 'absolute', width: 380, height: 380, borderRadius: 190 } as const,
-    outerOrbit: { position: 'absolute', width: 296, height: 296, borderRadius: 148, borderWidth: 1, borderStyle: 'dashed', borderColor: withAlpha(colors.gold, 0.14), alignItems: 'center' } as const,
-    outerOrbitDot: { position: 'absolute', top: -2.5, width: 5, height: 5, borderRadius: 2.5, backgroundColor: colors.gold, shadowColor: colors.gold, shadowRadius: 6, shadowOpacity: 0.6, shadowOffset: { width: 0, height: 0 }, elevation: 4 } as const,
-    innerOrbit: { position: 'absolute', width: 270, height: 270, borderRadius: 135, borderWidth: 1, borderColor: withAlpha(colors.gold, 0.05) } as const,
-    voidShell: { width: 218, height: 218, borderRadius: 109, borderWidth: 1, borderColor: withAlpha(colors.gold, 0.1), shadowColor: colors.charcoal, shadowOffset: { width: 0, height: 30 }, shadowOpacity: 0.5, shadowRadius: 70, elevation: 12 } as const,
-    voidClip: { flex: 1, borderRadius: 109, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: withAlpha(colors.background.primary, 0.82) } as const,
-    gradientFill: { ...StyleSheet.absoluteFillObject } as const,
-    glowBloom: { position: 'absolute', width: 90, height: 90, borderRadius: 45, overflow: 'hidden' } as const,
-    glowBlur: { ...StyleSheet.absoluteFillObject, borderRadius: 45 } as const,
-    corona: { position: 'absolute', width: 72, height: 72, borderRadius: 36, borderWidth: 1, borderColor: withAlpha(colors.gold, 0.1) } as const,
-    seed: { position: 'absolute', width: 4, height: 4, borderRadius: 2, backgroundColor: withAlpha(colors.gold, 0.5), shadowColor: colors.gold, shadowRadius: 10, shadowOpacity: 0.3, shadowOffset: { width: 0, height: 0 }, elevation: 2 } as const,
+    ring: { position: 'absolute', width: 270, height: 270, borderRadius: 135, borderWidth: 1, borderStyle: 'dashed', borderColor: withAlpha(palette.gilt, 0.18), alignItems: 'center' } as const,
+    ringDot: { position: 'absolute', top: -3, width: 6, height: 6, borderRadius: 3, backgroundColor: palette.gilt, shadowColor: palette.gilt, shadowRadius: 6, shadowOpacity: 0.6, shadowOffset: { width: 0, height: 0 }, elevation: 4 } as const,
+    innerRing: { position: 'absolute', width: 228, height: 228, borderRadius: 114, borderWidth: 1, borderColor: withAlpha(palette.gilt, 0.12) } as const,
+    core: { width: 142, height: 142, borderRadius: 71, borderWidth: 1, borderColor: withAlpha(palette.gilt, 0.22), backgroundColor: withAlpha(palette.veil, 0.92), alignItems: 'center', justifyContent: 'center', shadowColor: palette.ink, shadowOpacity: 0.6, shadowRadius: 30, shadowOffset: { width: 0, height: 18 }, elevation: 8 } as const,
+    coreText: { fontFamily: typography.fonts.heading, fontSize: DETAIL_FONT_SIZE - 1, letterSpacing: 2.1, lineHeight: 16, color: palette.giltBright, textAlign: 'center' } as const,
+  }),
+  practice: StyleSheet.create({
+    container: { width: 320, height: 320, alignItems: 'center', justifyContent: 'center', position: 'relative' } as const,
+    orbit: { position: 'absolute', width: 256, height: 256, borderRadius: 128, borderWidth: 1, borderColor: withAlpha(palette.gilt, 0.18), alignItems: 'center' } as const,
+    orbitDot: { position: 'absolute', top: -3, width: 6, height: 6, borderRadius: 3, backgroundColor: palette.gilt, shadowColor: palette.gilt, shadowOpacity: 0.8, shadowRadius: 5, shadowOffset: { width: 0, height: 0 }, elevation: 4 } as const,
+    ring: { position: 'absolute', width: 192, height: 192, borderRadius: 96, borderWidth: 1, borderColor: withAlpha(palette.gilt, 0.12) } as const,
+    label: { position: 'absolute', fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE + 1, letterSpacing: 1.4, color: withAlpha(palette.giltBright, 0.82), textTransform: 'uppercase' } as const,
+    labelTop: { top: 20 } as const,
+    labelLeft: { left: 14, top: 155 } as const,
+    labelRight: { right: 8, top: 155 } as const,
+    core: { width: 118, height: 118, borderRadius: 59, backgroundColor: withAlpha(palette.veil, 0.94), borderWidth: 1, borderColor: withAlpha(palette.gilt, 0.22), alignItems: 'center', justifyContent: 'center' } as const,
+    coreTag: { marginTop: 2, fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE, letterSpacing: 1.3, color: palette.gilt, textTransform: 'uppercase' } as const,
   }),
   final: StyleSheet.create({
     container: { width: 320, height: 320, alignItems: 'center', justifyContent: 'center', position: 'relative' } as const,
-    glow: { position: 'absolute', width: 280, height: 280, borderRadius: 140, backgroundColor: withAlpha(colors.gold, 0.08) } as const,
-    ring: { position: 'absolute', width: 280, height: 280, borderRadius: 140, borderWidth: 1, borderColor: withAlpha(colors.gold, 0.2) } as const,
-    ringDot: { position: 'absolute', width: 8, height: 8, borderRadius: 4, backgroundColor: colors.gold, top: -4, left: '50%', marginLeft: -4, shadowColor: colors.gold, shadowOpacity: 0.9, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } } as const,
-    badge: { position: 'absolute', bottom: -3, alignSelf: 'center', backgroundColor: withAlpha(colors.deepPurple, 0.9), borderWidth: 1, borderColor: withAlpha(colors.gold, 0.3), borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5 } as const,
-    badgeText: { fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE, letterSpacing: 1.1, color: colors.gold } as const,
+    glow: { position: 'absolute', width: 280, height: 280, borderRadius: 140, backgroundColor: withAlpha(palette.gilt, 0.06) } as const,
+    ring: { position: 'absolute', width: 280, height: 280, borderRadius: 140, borderWidth: 1, borderColor: withAlpha(palette.gilt, 0.2) } as const,
+    ringDot: { position: 'absolute', width: 8, height: 8, borderRadius: 4, backgroundColor: palette.gilt, top: -4, left: '50%', marginLeft: -4, shadowColor: palette.gilt, shadowOpacity: 0.9, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } } as const,
+    badge: { position: 'absolute', bottom: -3, alignSelf: 'center', backgroundColor: withAlpha(palette.steel, 0.96), borderWidth: 1, borderColor: withAlpha(palette.gilt, 0.3), borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5 } as const,
+    badgeText: { fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE, letterSpacing: 1.1, color: palette.gilt } as const,
   }),
 };
 
@@ -843,26 +805,25 @@ const visual = {
 // ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background.primary },
+  container: { flex: 1, backgroundColor: palette.navy },
   ambientBleed: { position: 'absolute', top: 0, left: 0, right: 0, height: '55%', zIndex: 0 },
   corner: { position: 'absolute', width: 24, height: 24, opacity: 0.26, zIndex: 5 },
-  cornerTL: { left: 36, borderTopWidth: 1, borderLeftWidth: 1, borderColor: withAlpha(colors.gold, 0.8) },
-  cornerTR: { right: 36, borderTopWidth: 1, borderRightWidth: 1, borderColor: withAlpha(colors.gold, 0.8) },
-  cornerBL: { left: 36, borderBottomWidth: 1, borderLeftWidth: 1, borderColor: withAlpha(colors.gold, 0.8) },
-  cornerBR: { right: 36, borderBottomWidth: 1, borderRightWidth: 1, borderColor: withAlpha(colors.gold, 0.8) },
-  signInBtn: { position: 'absolute', top: 54, left: 20, zIndex: 20, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, borderWidth: 1, borderColor: withAlpha(colors.gold, 0.55), backgroundColor: withAlpha(colors.gold, 0.08) },
-  signInBtnText: { fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE + 1, letterSpacing: 1.8, color: colors.gold },
-  skipBtn: { position: 'absolute', top: 54, right: 20, zIndex: 20, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, borderWidth: 1, borderColor: withAlpha(colors.bone, 0.18), backgroundColor: withAlpha(colors.bone, 0.05) },
-  skipText: { fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE + 1, letterSpacing: 2, color: colors.silver },
-  devSkipBtn: { position: 'absolute', top: 92, alignSelf: 'center', zIndex: 20, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(255,90,90,0.5)', backgroundColor: 'rgba(255,90,90,0.08)' },
-  devSkipBtnText: { fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE, letterSpacing: 1.5, color: '#FF5A5A' },
+  cornerTL: { left: 36, borderTopWidth: 1, borderLeftWidth: 1, borderColor: withAlpha(palette.gilt, 0.8) },
+  cornerTR: { right: 36, borderTopWidth: 1, borderRightWidth: 1, borderColor: withAlpha(palette.gilt, 0.8) },
+  cornerBL: { left: 36, borderBottomWidth: 1, borderLeftWidth: 1, borderColor: withAlpha(palette.gilt, 0.8) },
+  cornerBR: { right: 36, borderBottomWidth: 1, borderRightWidth: 1, borderColor: withAlpha(palette.gilt, 0.8) },
+  signInBtn: { position: 'absolute', top: 54, left: 20, zIndex: 20, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, borderWidth: 1, borderColor: withAlpha(palette.gilt, 0.55), backgroundColor: withAlpha(palette.gilt, 0.08) },
+  signInBtnText: { fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE + 1, letterSpacing: 1.8, color: palette.gilt },
+  skipBtn: { position: 'absolute', top: 54, right: 20, zIndex: 20, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, borderWidth: 1, borderColor: withAlpha(palette.bone, 0.18), backgroundColor: withAlpha(palette.bone, 0.05) },
+  skipText: { fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE + 1, letterSpacing: 2, color: palette.ash },
+  devSkipBtn: { position: 'absolute', top: 92, alignSelf: 'center', zIndex: 20, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', borderColor: withAlpha(palette.ash, 0.36), backgroundColor: withAlpha(palette.ash, 0.06) },
+  devSkipBtnText: { fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE, letterSpacing: 1.5, color: palette.ash },
   slideContent: { flex: 1, paddingTop: 44 },
   slideContentCompact: { paddingTop: 32 },
   slideContentShort: { paddingTop: 28 },
   visualArea: { height: 370, alignItems: 'center', justifyContent: 'center' },
   textArea: { flex: 1, paddingHorizontal: 36, paddingBottom: 4 },
   textAreaCompact: { paddingHorizontal: 24 },
-  useCasesWrapper: { gap: 10, alignSelf: 'center' },
   personalizeCard: {
     alignSelf: 'center',
     borderRadius: 18,
@@ -873,7 +834,6 @@ const styles = StyleSheet.create({
     gap: 11,
   },
   personalizeLabel: { color: colors.anchor15.ash, fontFamily: typography.fontFamily.ritual, fontSize: 9, letterSpacing: 1.65 },
-  optional: { color: 'rgba(135, 147, 157, 0.62)', fontFamily: typography.fontFamily.instrument, fontSize: 9, letterSpacing: 0 },
   nameInput: {
     minHeight: 48,
     paddingHorizontal: 14,
@@ -887,37 +847,44 @@ const styles = StyleSheet.create({
   },
   useCaseChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   useCaseChoice: {
-    minHeight: 38,
+    width: '48%',
+    minHeight: 72,
     justifyContent: 'center',
-    paddingHorizontal: 12,
-    borderRadius: 19,
+    alignItems: 'flex-start',
+    paddingHorizontal: 13,
+    paddingVertical: 11,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: 'rgba(244, 239, 230, 0.12)',
     backgroundColor: 'rgba(244, 239, 230, 0.025)',
   },
   useCaseChoiceSelected: { borderColor: 'rgba(242, 223, 168, 0.58)', backgroundColor: 'rgba(217, 179, 108, 0.12)' },
-  useCaseChoiceText: { color: colors.anchor15.ash, fontFamily: typography.fontFamily.instrument, fontSize: 12 },
-  useCaseChoiceTextSelected: { color: colors.anchor15.giltBright, fontFamily: typography.fontFamily.instrumentSemiBold },
+  useCaseChoiceLabel: { color: colors.anchor15.gilt, fontFamily: typography.fontFamily.ritual, fontSize: 10, letterSpacing: 1.4, marginBottom: 6 },
+  useCaseChoiceLabelSelected: { color: colors.anchor15.giltBright },
+  useCaseChoiceTags: { color: colors.anchor15.ash, fontFamily: typography.fontFamily.voiceItalic, fontSize: 12, lineHeight: 15 },
+  useCaseChoiceTagsSelected: { color: colors.anchor15.giltBright },
   ornament: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
-  ornamentLine: { flex: 1, borderBottomWidth: 1, borderBottomColor: withAlpha(colors.gold, 0.3) },
-  ornamentDiamond: { width: 5, height: 5, backgroundColor: colors.gold, opacity: 0.6, transform: [{ rotate: '45deg' }] },
-  label: { fontFamily: typography.fonts.heading, fontSize: LABEL_FONT_SIZE, letterSpacing: 2.5, color: colors.gold, textTransform: 'uppercase', marginBottom: 14, opacity: 0.8 },
-  headline: { fontFamily: typography.fonts.headingSemiBold, fontSize: typography.sizes.h2, color: colors.bone, lineHeight: typography.lineHeights.h2, marginBottom: 18, letterSpacing: -0.2 },
+  ornamentLine: { flex: 1, borderBottomWidth: 1, borderBottomColor: withAlpha(palette.gilt, 0.3) },
+  ornamentDiamond: { width: 5, height: 5, backgroundColor: palette.gilt, opacity: 0.6, transform: [{ rotate: '45deg' }] },
+  label: { fontFamily: typography.fonts.heading, fontSize: LABEL_FONT_SIZE, letterSpacing: 2.5, color: palette.gilt, textTransform: 'uppercase', marginBottom: 14, opacity: 0.8 },
+  headline: { fontFamily: typography.fonts.headingSemiBold, fontSize: typography.sizes.h2, color: palette.bone, lineHeight: typography.lineHeights.h2, marginBottom: 18, letterSpacing: -0.2 },
   headlineCompact: { fontSize: 26, lineHeight: 32, marginBottom: 12 },
-  headlineGold: { color: colors.gold, fontFamily: typography.fonts.headingSemiBold },
-  body: { fontFamily: typography.fontFamily.sans, fontSize: BODY_FONT_SIZE, color: colors.silver, lineHeight: 27, letterSpacing: 0.2 },
+  headlineGold: { color: palette.giltBright, fontFamily: typography.fonts.headingSemiBold },
+  body: { fontFamily: typography.fontFamily.sans, fontSize: BODY_FONT_SIZE, color: palette.ash, lineHeight: 27, letterSpacing: 0.2 },
   bodyCompact: { fontSize: BODY_FONT_SIZE, lineHeight: 24 },
   footer: { paddingHorizontal: 36, paddingBottom: Platform.OS === 'android' ? 24 : 12, alignItems: 'center', gap: 24 },
   footerShort: { paddingBottom: Platform.OS === 'android' ? 16 : 12, gap: 16 },
   footerCompact: { paddingHorizontal: 24, gap: 18 },
   progressGroup: { width: '100%', gap: 7 },
-  progressTrack: { width: '100%', height: 3, borderRadius: 2, backgroundColor: withAlpha(colors.bone, 0.14), overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: 2, backgroundColor: colors.gold },
-  progressText: { alignSelf: 'center', fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE, letterSpacing: 1.8, color: withAlpha(colors.bone, 0.5) },
+  progressTrack: { width: '100%', height: 3, borderRadius: 2, backgroundColor: withAlpha(palette.bone, 0.14), overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 2, backgroundColor: palette.gilt },
+  progressText: { alignSelf: 'center', fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE, letterSpacing: 1.8, color: withAlpha(palette.bone, 0.5) },
   dots: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   dot: { height: 6, borderRadius: 3 },
-  dotActive: { width: 24, backgroundColor: colors.gold },
-  dotInactive: { width: 6, backgroundColor: withAlpha(colors.bone, 0.2) },
-  ctaBtn: { width: '100%', height: 56, backgroundColor: colors.gold, borderRadius: 12, alignItems: 'center', justifyContent: 'center', shadowColor: colors.gold, shadowOpacity: 0.35, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 8 },
-  ctaText: { fontFamily: typography.fonts.headingSemiBold, fontSize: BUTTON_FONT_SIZE, letterSpacing: 2, color: colors.navy, textTransform: 'uppercase' },
+  dotActive: { width: 24, backgroundColor: palette.gilt },
+  dotInactive: { width: 6, backgroundColor: withAlpha(palette.bone, 0.2) },
+  ctaBtn: { width: '100%', height: 56, backgroundColor: palette.gilt, borderRadius: 12, alignItems: 'center', justifyContent: 'center', shadowColor: palette.gilt, shadowOpacity: 0.28, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 8 },
+  ctaBtnDisabled: { backgroundColor: withAlpha(palette.bone, 0.04), borderWidth: 1, borderColor: withAlpha(palette.bone, 0.12), shadowOpacity: 0, elevation: 0 },
+  ctaText: { fontFamily: typography.fonts.headingSemiBold, fontSize: BUTTON_FONT_SIZE, letterSpacing: 2, color: palette.ink, textTransform: 'uppercase' },
+  ctaTextDisabled: { color: withAlpha(palette.ash, 0.56) },
 });

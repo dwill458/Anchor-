@@ -42,7 +42,8 @@ export const ResumeTargetHandler: React.FC = () => {
         startPractice({
           mode: "visualize",
           anchorId: target.anchorId,
-          source: "shortcut",
+          source: target.returnTarget?.kind === 'anchorDetail' ? 'anchor_detail' : 'shortcut',
+          returnTarget: target.returnTarget,
         });
         return;
       }
