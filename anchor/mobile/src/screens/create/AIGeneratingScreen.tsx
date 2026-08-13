@@ -27,6 +27,7 @@ import { PerformanceMonitoring } from '@/services/PerformanceMonitoring';
 import { AuthService } from '@/services/AuthService';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
+import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
 
 const IS_ANDROID = Platform.OS === 'android';
 
@@ -624,6 +625,8 @@ export default function AIGeneratingScreen() {
       return;
     }
 
+    useFirstAnchorFlowStore.getState().updateDraft({ generationStatus: 'generating' });
+
     // First anchor is part of the onboarding flow — bypass auth and entitlement checks.
     // The account-creation gate is shown after the first prime ritual, before Sanctuary.
     const isFirstAnchor = anchorCount === 0;
@@ -756,6 +759,7 @@ export default function AIGeneratingScreen() {
       }
 
       setProgress(100);
+      useFirstAnchorFlowStore.getState().updateDraft({ generationStatus: 'complete' });
 
       navigationTimeoutRef.current = setTimeout(() => {
         if (!isMountedRef.current) {
@@ -790,6 +794,7 @@ export default function AIGeneratingScreen() {
       }
 
       setProgress(0);
+      useFirstAnchorFlowStore.getState().updateDraft({ generationStatus: 'error' });
 
       let errorMessage = 'Failed to enhance anchor. Please try again.';
       let errorCode = 'ai_generation_failed';

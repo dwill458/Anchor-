@@ -1,6 +1,9 @@
 /**
- * AnchorStack — Horizontal scroll row of anchors.
- * Shows enhanced images when available, intention text as the label.
+ * AnchorStack — Anchor 1.5 "Your anchors" horizontal chip row.
+ *
+ * Plain circular chips (sigil/image only) with a two-line name/category
+ * label underneath. The current anchor gets a gilt highlight ring; the row
+ * ends with a dashed "New anchor" chip. See `09 Sanctuary Home.html`.
  */
 
 import React from 'react';
@@ -13,27 +16,32 @@ import {
   View,
 } from 'react-native';
 import { colors } from '@/theme';
+import { withAlpha } from '@/utils/color';
 import type { Anchor } from '@/types';
-import { hasIgnited, isAnchorReleased } from '../utils/anchorStateHelpers';
+import { formatCategory, isAnchorReleased } from '../utils/anchorStateHelpers';
 import { AnchorArtworkThumbnail } from './AnchorArtworkThumbnail';
 
-const CARD_WIDTH = 80;
-const CARD_GAP = 10;
+const CHIP_SIZE = 60;
+const CARD_WIDTH = 76;
+const CARD_GAP = 14;
+
+function shortName(intentionText: string): string {
+  return intentionText.length > 14
+    ? intentionText.slice(0, 12).trimEnd() + '…'
+    : intentionText;
+}
 
 // ─── StackCard ────────────────────────────────────────────────────────────────
 
 interface StackCardProps {
   anchor: Anchor;
+  isActive: boolean;
   onPress: (id: string) => void;
 }
 
-const StackCard = React.memo<StackCardProps>(({ anchor, onPress }) => {
+const StackCard = React.memo<StackCardProps>(({ anchor, isActive, onPress }) => {
   const imageUrl = anchor.enhancedImageUrl;
   const sigilXml = anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg;
-  // Truncate intention to ~18 chars so it fits the narrow card
-  const label = anchor.intentionText.length > 18
-    ? anchor.intentionText.slice(0, 16).trimEnd() + '…'
-    : anchor.intentionText;
 
   return (
     <TouchableOpacity
@@ -41,22 +49,39 @@ const StackCard = React.memo<StackCardProps>(({ anchor, onPress }) => {
       onPress={() => onPress(anchor.id)}
       activeOpacity={0.7}
       accessibilityRole="button"
-      accessibilityLabel={anchor.intentionText}
+      accessibilityLabel={`${anchor.intentionText}, ${formatCategory(anchor.category)}`}
     >
-      <View style={styles.sigilThumb}>
+      <View style={[styles.chip, isActive ? styles.chipActive : styles.chipInactive]}>
         <AnchorArtworkThumbnail
           imageUrl={imageUrl}
           sigilXml={sigilXml}
           imageStyle={styles.thumbImage}
           fallbackStyle={styles.sigilFallback}
-          fallbackSize={36}
+          fallbackSize={30}
         />
       </View>
-      <Text style={styles.cardLabel} numberOfLines={2}>{label}</Text>
-      <View style={[styles.statusDot, hasIgnited(anchor) ? styles.dotCharged : styles.dotUncharged]} />
+      <Text style={styles.cardName} numberOfLines={1}>{shortName(anchor.intentionText)}</Text>
+      <Text style={styles.cardCategory} numberOfLines={1}>{formatCategory(anchor.category)}</Text>
     </TouchableOpacity>
   );
 });
+
+// ─── AddCard ──────────────────────────────────────────────────────────────────
+
+const AddCard: React.FC<{ onPress: () => void }> = ({ onPress }) => (
+  <TouchableOpacity
+    style={styles.stackCard}
+    onPress={onPress}
+    activeOpacity={0.7}
+    accessibilityRole="button"
+    accessibilityLabel="Create new anchor"
+  >
+    <View style={[styles.chip, styles.addChip]}>
+      <Text style={styles.addPlus}>+</Text>
+    </View>
+    <Text style={styles.addLabel} numberOfLines={1}>New anchor</Text>
+  </TouchableOpacity>
+);
 
 const StackCardSeparator = () => <View style={styles.itemSeparator} />;
 
@@ -64,6 +89,7 @@ const StackCardSeparator = () => <View style={styles.itemSeparator} />;
 
 export interface AnchorStackProps {
   anchors: Anchor[];
+  primaryAnchorId?: string | null;
   onAnchorPress: (id: string) => void;
   onAddPress: () => void;
   onViewAll: () => void;
@@ -71,8 +97,9 @@ export interface AnchorStackProps {
 
 export const AnchorStack: React.FC<AnchorStackProps> = ({
   anchors,
+  primaryAnchorId,
   onAnchorPress,
-  onAddPress: _onAddPress,
+  onAddPress,
   onViewAll,
 }) => {
   const visibleAnchors = React.useMemo(
@@ -85,28 +112,31 @@ export const AnchorStack: React.FC<AnchorStackProps> = ({
   }, [onAnchorPress]);
 
   const renderItem = React.useCallback(
-    ({ item }: { item: Anchor }) => <StackCard anchor={item} onPress={handlePress} />,
-    [handlePress],
+    ({ item }: { item: Anchor }) => (
+      <StackCard anchor={item} isActive={item.id === primaryAnchorId} onPress={handlePress} />
+    ),
+    [handlePress, primaryAnchorId],
   );
 
   const keyExtractor = React.useCallback((item: Anchor) => item.id, []);
 
-  const getItemLayout = React.useCallback(
-    (_: ArrayLike<Anchor> | null | undefined, index: number) => ({
-      length: CARD_WIDTH + CARD_GAP,
-      offset: (CARD_WIDTH + CARD_GAP) * index,
-      index,
-    }),
-    [],
+  const renderFooter = React.useCallback(
+    () => (
+      <>
+        <StackCardSeparator />
+        <AddCard onPress={onAddPress} />
+      </>
+    ),
+    [onAddPress],
   );
 
   return (
     <View style={styles.container}>
       {/* Section header */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionLabel}>YOUR ANCHORS</Text>
+        <Text style={styles.sectionLabel}>Your anchors</Text>
         <TouchableOpacity onPress={onViewAll} activeOpacity={0.6}>
-          <Text style={styles.sectionLink}>View all →</Text>
+          <Text style={styles.sectionLink}>All Anchors →</Text>
         </TouchableOpacity>
       </View>
 
@@ -117,9 +147,9 @@ export const AnchorStack: React.FC<AnchorStackProps> = ({
         renderItem={renderItem}
         keyExtractor={keyExtractor}
         ItemSeparatorComponent={StackCardSeparator}
+        ListFooterComponent={renderFooter}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
-        getItemLayout={getItemLayout}
         initialNumToRender={6}
         maxToRenderPerBatch={6}
         windowSize={5}
@@ -133,7 +163,7 @@ export const AnchorStack: React.FC<AnchorStackProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    gap: 6,
+    gap: 12,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -142,99 +172,88 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontFamily: 'Cinzel-Regular',
-    fontSize: 9,
+    fontSize: 11,
     letterSpacing: 2.2,
-    color: 'rgba(212,175,55,0.38)',
     textTransform: 'uppercase',
+    color: colors.anchor15.ash,
   },
   sectionLink: {
-    fontFamily: 'CormorantGaramond-Italic',
+    fontFamily: 'Inter-Regular',
     fontSize: 12,
-    color: 'rgba(192,192,192,0.4)',
+    color: colors.anchor15.gilt,
   },
   scrollContent: {
     paddingRight: 2,
+    alignItems: 'flex-start',
   },
   itemSeparator: {
     width: CARD_GAP,
   },
   stackCard: {
     width: CARD_WIDTH,
-    backgroundColor: 'rgba(255,255,255,0.025)',
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.08)',
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 6,
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
-  sigilThumb: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  chip: {
+    width: CHIP_SIZE,
+    height: CHIP_SIZE,
+    borderRadius: CHIP_SIZE / 2,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#0b1015',
+  },
+  chipActive: {
+    borderWidth: 1.5,
+    borderColor: colors.anchor15.gilt,
+    shadowColor: colors.anchor15.gilt,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  chipInactive: {
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.2)',
-    backgroundColor: '#0d1117',
+    borderColor: withAlpha(colors.anchor15.ash, 0.16),
   },
   thumbImage: {
-    width: 48,
-    height: 48,
+    width: CHIP_SIZE,
+    height: CHIP_SIZE,
   },
   sigilFallback: {
-    width: 48,
-    height: 48,
+    width: CHIP_SIZE,
+    height: CHIP_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cardLabel: {
-    fontFamily: 'CormorantGaramond-Italic',
-    fontSize: 10,
-    color: 'rgba(192,192,192,0.65)',
+  cardName: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: 13,
+    color: colors.anchor15.bone,
     textAlign: 'center',
-    lineHeight: 13,
   },
-  statusDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
+  cardCategory: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 10,
+    color: withAlpha(colors.anchor15.ash, 0.7),
+    textTransform: 'uppercase',
+    textAlign: 'center',
   },
-  dotCharged: {
-    backgroundColor: colors.gold,
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  dotUncharged: {
-    backgroundColor: 'rgba(192,192,192,0.2)',
-  },
-  addCard: {
-    width: 68,
-    backgroundColor: 'rgba(212,175,55,0.03)',
+  addChip: {
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: 'rgba(212,175,55,0.12)',
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
-    paddingVertical: 12,
+    borderColor: withAlpha(colors.anchor15.gilt, 0.28),
   },
   addPlus: {
-    fontSize: 17,
-    color: 'rgba(212,175,55,0.35)',
-    lineHeight: 20,
+    fontSize: 20,
+    lineHeight: 22,
+    color: withAlpha(colors.anchor15.gilt, 0.75),
+    fontWeight: '300',
   },
   addLabel: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: 7,
-    letterSpacing: 1.4,
-    color: 'rgba(212,175,55,0.28)',
-    textTransform: 'uppercase',
+    fontFamily: 'EBGaramond-Regular',
+    fontSize: 13,
+    color: withAlpha(colors.anchor15.bone, 0.42),
+    textAlign: 'center',
   },
 });

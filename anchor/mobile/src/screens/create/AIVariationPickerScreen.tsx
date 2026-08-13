@@ -39,6 +39,7 @@ import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { PerformanceMonitoring } from '@/services/PerformanceMonitoring';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import { isCompactPhoneViewport } from '@/utils/layout';
+import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
 const MAX_VISIBLE_VARIATIONS = 2;
 const ROMAN_NUMERALS = ['I', 'II'] as const;
 const FORM_LABELS = ['Form I', 'Form II'] as const;
@@ -243,6 +244,10 @@ export const AIVariationPickerScreen: React.FC = () => {
         reuseRequestId: reuseRequestId || undefined,
         reusedFromPool: selectedVariation.reusedFromPool || false,
       };
+
+      useFirstAnchorFlowStore.getState().updateDraft({
+        selectedExpressionId: selectedVariation.variationId || `form-${selectedIndex + 1}`,
+      });
 
       // Store heavy inline images in temp store to avoid nav param size limits
       if (selectedVariation.isHeavyInline) {

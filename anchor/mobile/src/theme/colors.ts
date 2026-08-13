@@ -7,6 +7,26 @@
  */
 
 export const colors = {
+  /**
+   * Locked Anchor 1.5 editorial system. Keep these semantic tokens separate
+   * from the legacy surface aliases while screens migrate one by one.
+   */
+  anchor15: {
+    ink: '#080B0F',
+    navy: '#0F1419',
+    veil: '#161D25',
+    steel: '#1E2A33',
+    creationTop: '#18202A',
+    creationBottom: '#121820',
+    gilt: '#D9B36C',
+    giltBright: '#F2DFA8',
+    classicGold: '#D4AF37',
+    bone: '#F4EFE6',
+    ash: '#87939D',
+    hairline: 'rgba(244, 239, 230, 0.10)',
+    goldHairline: 'rgba(217, 179, 108, 0.30)',
+    purpleAtmosphere: '#3D2060',
+  },
   // Primary Colors
   charcoal: '#1A1A1D',
   navy: '#0F1419',
@@ -69,15 +89,15 @@ export const colors = {
 
   // Sanctuary screen-specific palette
   sanctuary: {
-    gold: '#c9a84c',
-    goldBright: '#f0cb6a',
-    goldDim: '#6a5428',
-    goldBorder: 'rgba(201,168,76,0.28)',
-    purpleBg: '#09060f',
-    purpleCard: 'rgba(18,12,32,0.92)',
-    purpleBorder: 'rgba(120,80,200,0.15)',
-    tabBg: 'rgba(12,8,22,0.92)',
-    tabBorder: 'rgba(120,80,200,0.12)',
+    gold: '#D9B36C',
+    goldBright: '#F2DFA8',
+    goldDim: '#6E592F',
+    goldBorder: 'rgba(217,179,108,0.28)',
+    purpleBg: '#080B0F',
+    purpleCard: 'rgba(15,20,25,0.92)',
+    purpleBorder: 'rgba(217,179,108,0.15)',
+    tabBg: 'rgba(15,20,25,0.92)',
+    tabBorder: 'rgba(217,179,108,0.12)',
     textSecondary: 'rgba(200,185,155,0.55)',
     textDim: 'rgba(180,165,135,0.3)',
   },
@@ -122,9 +142,9 @@ export const colors = {
 
   // Choose Structure / Structure Forge screen palette
   forgeScreen: {
-    gradientTop: '#1A1028',
-    gradientBottom: '#1B1A2E',
-    orbPurple: '#6B3FA0',
+    gradientTop: '#18202A',
+    gradientBottom: '#121820',
+    orbPurple: '#3D2060',
     glassBg: 'rgba(255, 255, 255, 0.05)',
     glassBorder: 'rgba(212, 175, 55, 0.2)',
     forgeBadgeBg: 'rgba(212, 175, 55, 0.12)',

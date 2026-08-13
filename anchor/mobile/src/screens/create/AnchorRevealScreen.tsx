@@ -37,6 +37,7 @@ import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
 import type { ApiResponse, Anchor } from '@/types';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { getAnchorCreationLimitCopy } from '@/utils/entitlements';
+import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
 
 type AnchorRevealRouteProp = RouteProp<RootStackParamList, 'AnchorReveal'>;
 type AnchorRevealNavigationProp = StackNavigationProp<RootStackParamList, 'AnchorReveal'>;
@@ -48,6 +49,7 @@ export const AnchorRevealScreen: React.FC = () => {
     const { width: screenWidth, height: screenHeight } = useWindowDimensions();
     const guideMode = useSettingsStore((state) => state.guideMode);
     const addAnchor = useAnchorStore((state) => state.addAnchor);
+    const setCurrentAnchor = useAnchorStore((state) => state.setCurrentAnchor);
     const incrementAnchorCount = useAuthStore((state) => state.incrementAnchorCount);
     const wallpaperPromptSeen = useAuthStore((state) => state.wallpaperPromptSeen);
     const authUser = useAuthStore((state) => state.user);
@@ -135,7 +137,41 @@ export const AnchorRevealScreen: React.FC = () => {
         navigation.goBack();
     };
 
-    const navigateAfterSave = (anchorId: string, isGuestFirstAnchor: boolean) => {
+    const navigateAfterSave = (
+        anchorId: string,
+        isGuestFirstAnchor: boolean,
+        isFirstAnchor: boolean,
+    ) => {
+        if (isGuestFirstAnchor) {
+            // The creation record already exists locally. Passing it through is
+            // more reliable than rereading a persisted store during the same
+            // render turn, particularly immediately after a cold-start restore.
+            const savedAnchor: Anchor = {
+                id: anchorId,
+                userId: authUser?.id || 'user-local',
+                intentionText,
+                category,
+                distilledLetters,
+                baseSigilSvg,
+                reinforcedSigilSvg,
+                structureVariant,
+                reinforcementMetadata,
+                enhancementMetadata,
+                enhancedImageUrl: enhancedImageUrl || undefined,
+                isCharged: false,
+                activationCount: 0,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            };
+            navigation.replace('SaveProgress', { anchor: savedAnchor });
+            return;
+        }
+
+        if (isFirstAnchor) {
+            navigation.replace('PrimeYourAnchor', { anchorId });
+            return;
+        }
+
         if (!wallpaperPromptSeen) {
             navigation.replace('WallpaperPrompt', {
                 anchorId,
@@ -159,13 +195,14 @@ export const AnchorRevealScreen: React.FC = () => {
         const pending = pendingNavRef.current;
         pendingNavRef.current = null;
         if (pending) {
-            navigateAfterSave(pending.anchorId, pending.isGuestFirstAnchor);
+            navigateAfterSave(pending.anchorId, pending.isGuestFirstAnchor, false);
         }
     };
 
     const handleContinue = async () => {
         if (isSaving || creationInFlightRef.current) return;
         const isGuestFirstAnchor = !isAuthenticated && existingAnchorCount === 0;
+        const isFirstAnchor = existingAnchorCount === 0;
         if (!isGuestFirstAnchor && !entitlements.canCreateAnchor) {
             const reason = entitlements.anchorCreationLimitReason;
             if (!reason) return;
@@ -312,7 +349,7 @@ export const AnchorRevealScreen: React.FC = () => {
             // Continue with local fallback — don't block the user
         }
 
-        addAnchor({
+        const createdAnchor: Anchor = {
             id: anchorId,
             userId: authUser?.id || 'user-local',
             intentionText,
@@ -331,7 +368,9 @@ export const AnchorRevealScreen: React.FC = () => {
             activationCount: 0,
             createdAt: new Date(),
             updatedAt: new Date(),
-        });
+        };
+        addAnchor(createdAnchor);
+        setCurrentAnchor?.(anchorId);
         incrementAnchorCount();
         AnalyticsService.track(AnalyticsEvents.ANCHOR_CREATION_COMPLETED, {
             anchor_id: anchorId,
@@ -350,7 +389,7 @@ export const AnchorRevealScreen: React.FC = () => {
         FrictionAnalytics.completeFlow('anchor_creation', {
             is_first_anchor: isGuestFirstAnchor,
             category,
-            next_step: wallpaperPromptSeen ? 'charge_setup' : 'wallpaper_prompt',
+            next_step: isGuestFirstAnchor ? 'save_progress' : isFirstAnchor ? 'prime_your_anchor' : 'creation_complete',
         });
         void handleAnchorSaved();
 
@@ -359,9 +398,10 @@ export const AnchorRevealScreen: React.FC = () => {
 
         // First-anchor moment: offer a calm daily-reminder card before moving on.
         // We surface it once unless this device has already denied permission.
-        const isFirstAnchor = existingAnchorCount === 0;
+        // First creation now moves directly to the Save Progress / Prime
+        // continuation. The optional reminder remains a returning-user affordance.
         const shouldShowReminder =
-            isFirstAnchor && await canOfferFirstAnchorReminder();
+            !isFirstAnchor && await canOfferFirstAnchorReminder();
 
         if (shouldShowReminder) {
             pendingNavRef.current = { anchorId, isGuestFirstAnchor };
@@ -369,7 +409,10 @@ export const AnchorRevealScreen: React.FC = () => {
             return;
         }
 
-        navigateAfterSave(anchorId, isGuestFirstAnchor);
+        if (!isGuestFirstAnchor) {
+            useFirstAnchorFlowStore.getState().clearDraft();
+        }
+        navigateAfterSave(anchorId, isGuestFirstAnchor, isFirstAnchor);
     };
 
     return (

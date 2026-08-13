@@ -33,6 +33,7 @@ import {
   SealAnchorScreen,
   ChargeCompleteScreen,
   FirstPrimeCompleteScreen,
+  PrimeYourAnchorScreen,
 } from '../screens/rituals';
 import {
   AuthGateScreen,
@@ -211,6 +212,11 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
         name="AnchorReveal"
         component={AnchorRevealScreen}
         options={{ headerShown: false, animation: 'fade_from_bottom' }}
+      />
+      <Stack.Screen
+        name="PrimeYourAnchor"
+        component={PrimeYourAnchorScreen}
+        options={{ headerShown: false, animation: 'fade_from_bottom', gestureEnabled: false }}
       />
       <Stack.Screen
         name="WallpaperPrompt"

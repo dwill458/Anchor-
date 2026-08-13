@@ -9,7 +9,7 @@ import {
 import { logger } from "@/utils/logger";
 
 export const VISUALIZATION_SCENE_MAX_LENGTH = 180;
-export const VISUALIZATION_SCENE_VERSION = "scene-v1";
+export const VISUALIZATION_SCENE_VERSION = "scene-v3";
 
 const FALLBACKS: Record<string, string> = {
   career:

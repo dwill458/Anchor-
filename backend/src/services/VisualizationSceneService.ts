@@ -3,14 +3,11 @@ import { env } from '../config/env';
 import { logger } from '../utils/logger';
 
 export const VISUALIZATION_SCENE_MAX_LENGTH = 180;
-// Bumped from scene-v1 when the prompt gained its first-person requirement.
+// Bumped when the prompt/model changed so previously terminal upgrades can retry.
 // Clients treat a version change as grounds to retry a previously terminal
 // upgrade, so anchors stranded by the retired-model outage become eligible again.
-export const VISUALIZATION_SCENE_VERSION = 'scene-v2';
-// `gemini-2.0-flash` was retired by Google and returns 404 NOT_FOUND on
-// generateContent, while still appearing in the /models listing. The floating
-// alias survives the next retirement; a pinned id would not.
-export const VISUALIZATION_SCENE_DEFAULT_MODEL = 'gemini-flash-latest';
+export const VISUALIZATION_SCENE_VERSION = 'scene-v3';
+export const VISUALIZATION_SCENE_DEFAULT_MODEL = 'gemini-3.5-flash-lite';
 
 /**
  * Diagnostic-only. Never rendered; classifies why a batch fell back to canned text.

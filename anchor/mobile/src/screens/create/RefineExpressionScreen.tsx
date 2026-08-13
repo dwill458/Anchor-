@@ -19,6 +19,7 @@ import type { RootStackParamList, SigilVariant } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { ZenBackground } from '@/components/common';
 import { API_URL } from '@/config';
+import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
 import { RefineStyleCard } from './components/RefineStyleCard';
 import {
   REFINE_STYLE_FILTERS,
@@ -180,12 +181,17 @@ export default function RefineExpressionScreen() {
 
     void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
     setSelectedStyleId(style.id);
+    useFirstAnchorFlowStore.getState().updateDraft({ selectedStyleId: style.id });
   }, [selectedStyleId]);
 
   const handleRefineAnchor = useCallback(() => {
     // Wake Railway before the real request arrives so cold-start latency does not
     // block the AI call that fires shortly after navigation.
     void fetch(`${API_URL}/health`).catch(() => {});
+    useFirstAnchorFlowStore.getState().updateDraft({
+      selectedStyleId: selectedStyleOption.id,
+      generationStatus: 'generating',
+    });
 
     const payload: ForwardNavigationPayload = {
       intention,

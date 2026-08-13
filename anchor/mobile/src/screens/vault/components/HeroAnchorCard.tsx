@@ -1,11 +1,12 @@
 /**
- * HeroAnchorCard — Circular hero display for the primary anchor.
+ * HeroAnchorCard — Anchor 1.5 Sanctuary hero stage.
  *
- * Shows the sigil/image inside a large circle (matching the AnchorReveal screen)
- * with a gold ring border, glow backdrop, and text info below.
+ * Circular sigil stage plus a centered Thread Strength read-out (state badge,
+ * strength number, anchor title, category). The whole region is one tap
+ * target into Anchor Detail. See `09 Sanctuary Home.html`.
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   Dimensions,
   Image,
@@ -22,37 +23,77 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import { SvgXml } from 'react-native-svg';
+import Svg, { Defs, RadialGradient, Rect, Stop, SvgXml } from 'react-native-svg';
 import { colors } from '@/theme';
-import type { Anchor, AnchorCategory } from '@/types';
-import { hasIgnited } from '../utils/anchorStateHelpers';
+import { withAlpha } from '@/utils/color';
+import type { Anchor } from '@/types';
+import { formatCategory } from '../utils/anchorStateHelpers';
+import { useSessionStore } from '@/stores/sessionStore';
+import { calculateStreak } from '@/utils/streakHelpers';
+import { isoWeekKey } from '@/utils/primingAnalytics';
+import { resolveAnchorStrengthPct } from '@/components/ThreadStrengthSheet';
+import { getThreadState } from '@/screens/practice/components/ThreadStrengthBlock';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const H_PAD = 28;
-// Scale circle to ~38% of screen height so everything fits without scrolling
-const CIRCLE_SIZE = Math.min(SCREEN_WIDTH - H_PAD * 2 - 40, Math.round(SCREEN_HEIGHT * 0.32));
+// ~189/335 of the mockup's 375pt baseline, capped so it doesn't balloon on
+// tablets/large phones (spec: cap rather than stretch on large screens).
+const CIRCLE_SIZE = Math.min(Math.round((SCREEN_WIDTH - H_PAD * 2) * 0.6), 210);
 
-function formatCategory(cat: AnchorCategory): string {
-  const labels: Record<AnchorCategory, string> = {
-    desire: 'Desire',
-    health: 'Health',
-    career: 'Career',
-    relationships: 'Relationships',
-    creativity: 'Creativity',
-    spirituality: 'Spirituality',
-    abundance: 'Abundance',
-    family: 'Family',
-    learning: 'Learning',
-    adventure: 'Adventure',
-    custom: 'Custom',
-  };
-  return labels[cat] ?? 'Custom';
+const STATE_BADGE: Record<ReturnType<typeof getThreadState>, string> = {
+  strong: 'TEMPERED',
+  recover: 'RENEWED',
+  fading: 'FADING',
+};
+
+function localDateString(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function anchorDisplayName(anchor: Anchor): string {
-  return `${formatCategory(anchor.category)} Anchor`;
+/** Per-anchor Thread Strength, mirroring AnchorDetailScreen's derivation. */
+function useAnchorThreadStrength(anchor: Anchor): { pct: number; lastPrimedAt: string | null } {
+  const sessionLog = useSessionStore((s) => s.sessionLog);
+
+  return useMemo(() => {
+    const currentWeekKey = isoWeekKey(new Date());
+    const primingSessions = sessionLog
+      .filter(
+        (entry) =>
+          entry.anchorId === anchor.id &&
+          (entry.type === 'activate' || entry.type === 'reinforce'),
+      )
+      .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime());
+
+    const weekHistory = [false, false, false, false, false, false, false];
+    primingSessions.forEach((entry) => {
+      const date = new Date(entry.completedAt);
+      if (Number.isNaN(date.getTime()) || isoWeekKey(date) !== currentWeekKey) return;
+      weekHistory[(date.getDay() + 6) % 7] = true;
+    });
+
+    const currentStreak = calculateStreak(
+      primingSessions.map((entry) => ({ createdAt: entry.completedAt })),
+    ).currentStreak;
+
+    const lastPrimedAt = primingSessions[0]
+      ? localDateString(new Date(primingSessions[0].completedAt))
+      : null;
+
+    const pct = resolveAnchorStrengthPct({
+      storedStrength: anchor.threadStrength ?? null,
+      totalSessions: primingSessions.length,
+      currentStreak,
+      thisWeekDays: weekHistory.map((primed) => ({
+        day: '',
+        type: primed ? 'focus' : 'empty',
+        isToday: false,
+      })),
+    });
+
+    return { pct, lastPrimedAt };
+  }, [anchor.id, anchor.threadStrength, sessionLog]);
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -70,6 +111,8 @@ const HeroAnchorCardInner: React.FC<HeroAnchorCardProps> = ({
 }) => {
   const imageUrl = anchor.enhancedImageUrl;
   const sigilSvg = anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg;
+  const { pct: strengthPct, lastPrimedAt } = useAnchorThreadStrength(anchor);
+  const threadState = getThreadState(strengthPct, lastPrimedAt);
 
   // ── Glow breathe ────────────────────────────────────────────────────────────
   const glowOpacity = useSharedValue(0.5);
@@ -112,15 +155,24 @@ const HeroAnchorCardInner: React.FC<HeroAnchorCardProps> = ({
       onPressOut={onPressOut}
       activeOpacity={1}
       accessibilityRole="button"
-      accessibilityLabel={`${anchorDisplayName(anchor)}: ${anchor.intentionText}`}
+      accessibilityLabel={`${anchor.intentionText}, ${formatCategory(anchor.category)}. Thread Strength ${strengthPct}, ${STATE_BADGE[threadState]}.`}
     >
       <Animated.View style={[styles.heroWrap, cardStyle]}>
-        {/* ── Circle image/sigil ── */}
+        {/* ── Circle sigil stage ── */}
         <View style={styles.circleOuter}>
-          {/* Glow behind circle */}
           <Animated.View style={[styles.glowBackdrop, glowStyle]} />
 
           <View style={styles.circleClip}>
+            <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE} style={StyleSheet.absoluteFill}>
+              <Defs>
+                <RadialGradient id="hero-stage" cx="42%" cy="34%" r="70%">
+                  <Stop offset="0%" stopColor="#233440" stopOpacity={0.85} />
+                  <Stop offset="100%" stopColor="#090D11" stopOpacity={0.94} />
+                </RadialGradient>
+              </Defs>
+              <Rect x={0} y={0} width={CIRCLE_SIZE} height={CIRCLE_SIZE} fill="url(#hero-stage)" />
+            </Svg>
+
             {imageUrl ? (
               <Image
                 source={{ uri: imageUrl }}
@@ -132,29 +184,19 @@ const HeroAnchorCardInner: React.FC<HeroAnchorCardProps> = ({
                 <SvgXml xml={sigilSvg} width={CIRCLE_SIZE * 0.55} height={CIRCLE_SIZE * 0.55} />
               </View>
             )}
-            {/* Inner glow ring overlay */}
             <View style={styles.innerGlowRing} pointerEvents="none" />
           </View>
-
-          {/* Charged badge */}
-          {hasIgnited(anchor) && (
-            <View style={styles.chargedBadge}>
-              <View style={styles.badgeDot} />
-              <Text style={styles.badgeText}>PRIMED</Text>
-            </View>
-          )}
         </View>
 
-        {/* ── Text info below circle ── */}
+        {/* ── Thread Strength read-out ── */}
         <View style={styles.textInfo}>
-          <Text style={styles.intention} numberOfLines={1}>
-            &ldquo;{anchor.intentionText}&rdquo;
+          <Text style={styles.stateBadge}>{STATE_BADGE[threadState]}</Text>
+          <Text style={styles.strengthNumber}>{strengthPct}</Text>
+          <Text style={styles.strengthEyebrow}>Thread Strength</Text>
+          <Text style={styles.anchorTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+            {anchor.intentionText}
           </Text>
-          <View style={styles.nameRow}>
-            <View style={styles.categoryTag}>
-              <Text style={styles.categoryLabel}>{formatCategory(anchor.category)}</Text>
-            </View>
-          </View>
+          <Text style={styles.anchorCategory}>{formatCategory(anchor.category)}</Text>
         </View>
       </Animated.View>
     </TouchableOpacity>
@@ -180,7 +222,7 @@ const styles = StyleSheet.create({
     width: CIRCLE_SIZE + 30,
     height: CIRCLE_SIZE + 30,
     borderRadius: (CIRCLE_SIZE + 30) / 2,
-    backgroundColor: 'rgba(212,175,55,0.08)',
+    backgroundColor: withAlpha(colors.anchor15.gilt, 0.08),
   },
   circleClip: {
     width: CIRCLE_SIZE,
@@ -188,8 +230,10 @@ const styles = StyleSheet.create({
     borderRadius: CIRCLE_SIZE / 2,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.3)',
+    borderColor: withAlpha(colors.anchor15.gilt, 0.2),
     backgroundColor: '#0d1117',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   circleImage: {
     width: '100%',
@@ -200,89 +244,55 @@ const styles = StyleSheet.create({
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0d1117',
   },
   innerGlowRing: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: CIRCLE_SIZE / 2,
     borderWidth: 2,
-    borderColor: 'rgba(212,175,55,0.1)',
-  },
-  chargedBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(8,12,16,0.62)',
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.58)',
-    borderRadius: 20,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.22,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  badgeDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: colors.gold,
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  badgeText: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: 9,
-    letterSpacing: 1.8,
-    color: colors.gold,
-    textShadowColor: 'rgba(0,0,0,0.45)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-    textTransform: 'uppercase',
+    borderColor: withAlpha(colors.anchor15.gilt, 0.1),
   },
   textInfo: {
-    marginTop: 12,
+    marginTop: 16,
     alignItems: 'center',
     width: '100%',
   },
-  intention: {
-    fontFamily: 'CormorantGaramond-Italic',
+  stateBadge: {
+    fontFamily: 'Cinzel-SemiBold',
     fontSize: 13,
-    color: 'rgba(192,192,192,0.55)',
-    marginBottom: 4,
+    letterSpacing: 2.34,
+    color: colors.anchor15.giltBright,
+    marginBottom: 6,
   },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+  strengthNumber: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 34,
+    lineHeight: 38,
+    letterSpacing: -0.68,
+    color: colors.anchor15.gilt,
   },
-  anchorName: {
-    fontFamily: 'Cinzel-Medium',
-    fontSize: 16,
-    color: colors.bone,
-    letterSpacing: 0.8,
-  },
-  categoryTag: {
-    backgroundColor: 'rgba(62,44,91,0.6)',
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.15)',
-    borderRadius: 4,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-  },
-  categoryLabel: {
+  strengthEyebrow: {
+    marginTop: 4,
     fontFamily: 'Cinzel-Regular',
-    fontSize: 9,
-    letterSpacing: 1.5,
-    color: 'rgba(212,175,55,0.7)',
+    fontSize: 9.5,
+    letterSpacing: 2.09,
     textTransform: 'uppercase',
+    color: withAlpha(colors.anchor15.gilt, 0.55),
+  },
+  anchorTitle: {
+    marginTop: 12,
+    fontFamily: 'Cinzel-SemiBold',
+    fontSize: 22,
+    letterSpacing: 2.2,
+    textTransform: 'uppercase',
+    color: colors.anchor15.bone,
+    textAlign: 'center',
+  },
+  anchorCategory: {
+    marginTop: 6,
+    fontFamily: 'Cinzel-Regular',
+    fontSize: 11,
+    letterSpacing: 2.2,
+    textTransform: 'uppercase',
+    color: colors.anchor15.ash,
   },
 });

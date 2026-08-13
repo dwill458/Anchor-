@@ -6,6 +6,7 @@ import { AnchorRevealScreen } from '../AnchorRevealScreen';
 const mockReplace = jest.fn();
 const mockPost = jest.fn();
 const mockAddAnchor = jest.fn();
+const mockSetCurrentAnchor = jest.fn();
 const mockIncrementAnchorCount = jest.fn();
 const mockHandleAnchorSaved = jest.fn();
 const mockCanOfferFirstAnchorReminder = jest.fn();
@@ -52,7 +53,7 @@ jest.mock('@/components/notifications', () => ({
 }));
 
 jest.mock('@/stores/anchorStore', () => ({
-    useAnchorStore: (selector: any) => selector({ addAnchor: mockAddAnchor }),
+    useAnchorStore: (selector: any) => selector({ addAnchor: mockAddAnchor, setCurrentAnchor: mockSetCurrentAnchor }),
     useTempStore: (selector: any) =>
         selector({ tempEnhancedImage: null, setTempEnhancedImage: jest.fn() }),
 }));
@@ -146,6 +147,7 @@ describe('AnchorRevealScreen', () => {
         mockReplace.mockClear();
         mockPost.mockReset();
         mockAddAnchor.mockClear();
+        mockSetCurrentAnchor.mockClear();
         mockIncrementAnchorCount.mockClear();
         mockHandleAnchorSaved.mockClear();
         mockCanOfferFirstAnchorReminder.mockReset();
@@ -159,33 +161,18 @@ describe('AnchorRevealScreen', () => {
         jest.restoreAllMocks();
     });
 
-    it('does not start another create request while reminder eligibility is pending', async () => {
-        let resolveEligibility!: (value: boolean) => void;
-        mockCanOfferFirstAnchorReminder.mockImplementation(
-            () => new Promise<boolean>((resolve) => { resolveEligibility = resolve; })
-        );
-
+    it('does not start another first-anchor create request and continues to Prime', async () => {
         render(<AnchorRevealScreen />);
 
         fireEvent.press(screen.getByTestId('begin-priming-button'));
-
-        await waitFor(() => {
-            expect(mockCanOfferFirstAnchorReminder).toHaveBeenCalledTimes(1);
-        });
-
         const continueButton = screen.getByTestId('begin-priming-button');
         fireEvent.press(continueButton);
-        expect(mockPost).toHaveBeenCalledTimes(1);
-        expect(mockAddAnchor).toHaveBeenCalledTimes(1);
-
-        await act(async () => {
-            resolveEligibility(false);
-        });
 
         await waitFor(() => {
-            expect(mockReplace).toHaveBeenCalledWith('ChargeSetup', expect.objectContaining({
-                anchorId: 'anchor-1',
-            }));
+            expect(mockPost).toHaveBeenCalledTimes(1);
+            expect(mockAddAnchor).toHaveBeenCalledTimes(1);
+            expect(mockReplace).toHaveBeenCalledWith('PrimeYourAnchor', { anchorId: 'anchor-1' });
         });
+        expect(mockCanOfferFirstAnchorReminder).not.toHaveBeenCalled();
     });
 });

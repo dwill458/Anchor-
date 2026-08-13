@@ -144,9 +144,9 @@ export const AtmosphericOrbs: React.FC<AtmosphericOrbsProps> = ({
       <Orb
         id="orb-1"
         size={320}
-        color="rgba(70,35,150,0.28)"
+        color="rgba(217,179,108,0.09)"
         style={styles.orb1}
-        motion={{ translateX: 18, translateY: 14, scale: 0.07, duration: 9000, phase: 0 }}
+        motion={{ translateX: 10, translateY: 8, scale: 0.03, duration: 12000, phase: 0 }}
         mountDelay={0}
         reduceMotionEnabled={reduceMotionEnabled}
         paused={paused}
@@ -154,20 +154,10 @@ export const AtmosphericOrbs: React.FC<AtmosphericOrbsProps> = ({
       <Orb
         id="orb-2"
         size={260}
-        color="rgba(201,168,76,0.07)"
+        color="rgba(217,179,108,0.06)"
         style={styles.orb2}
-        motion={{ translateX: -12, translateY: 18, scale: 0.05, duration: 11000, phase: 1.3 }}
+        motion={{ translateX: -8, translateY: 10, scale: 0.03, duration: 14000, phase: 1.3 }}
         mountDelay={50}
-        reduceMotionEnabled={reduceMotionEnabled}
-        paused={paused}
-      />
-      <Orb
-        id="orb-3"
-        size={380}
-        color="rgba(50,15,110,0.22)"
-        style={styles.orb3}
-        motion={{ translateX: 22, translateY: -12, scale: 0.09, duration: 13000, phase: 2.1 }}
-        mountDelay={100}
         reduceMotionEnabled={reduceMotionEnabled}
         paused={paused}
       />
@@ -184,15 +174,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
   orb1: {
-    top: -80,
-    left: -80,
-  },
-  orb2: {
-    top: 80,
+    top: -100,
     right: -90,
   },
-  orb3: {
+  orb2: {
     bottom: 60,
-    left: -120,
+    left: -110,
   },
 });
