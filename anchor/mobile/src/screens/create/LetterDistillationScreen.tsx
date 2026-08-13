@@ -40,9 +40,10 @@ const goldLine = colors.anchor15.goldLine;
 const hairlineGold = colors.anchor15.hairlineGold;
 
 const REDUCING_DELAY_MS = 480;
-const SETTLE_DELAY_MS = 1320;
+const MIN_SETTLE_DELAY_MS = 1320;
 const REDUCED_MOTION_SETTLE_DELAY_MS = 260;
 const CHAR_STAGGER_MS = 16;
+const CHAR_REDUCTION_DURATION_MS = 500;
 
 function HeroGlow() {
   return (
@@ -210,6 +211,16 @@ export default function LetterDistillationScreen({ route, navigation }: Props) {
     });
   }, [distilledLetters, intentionText]);
 
+  const settleDelayMs = useMemo(() => {
+    const characterCount = renderWords.reduce((count, word) => count + word.chars.length, 0);
+    const finalCharacterDelay = Math.max(0, characterCount - 1) * CHAR_STAGGER_MS;
+
+    return Math.max(
+      MIN_SETTLE_DELAY_MS,
+      REDUCING_DELAY_MS + finalCharacterDelay + CHAR_REDUCTION_DURATION_MS,
+    );
+  }, [renderWords]);
+
   useEffect(() => {
     const timers: ReturnType<typeof setTimeout>[] = [];
 
@@ -221,17 +232,27 @@ export default function LetterDistillationScreen({ route, navigation }: Props) {
         setTimeout(() => {
           setStage('settled');
           void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
-        }, SETTLE_DELAY_MS)
+        }, settleDelayMs)
       );
     }
 
     return () => timers.forEach(clearTimeout);
-  }, [reduceMotion]);
+  }, [reduceMotion, settleDelayMs]);
 
   const entranceOpacity = useRef(new Animated.Value(0)).current;
-  const entranceTranslateX = useRef(new Animated.Value(26)).current;
+  const entranceTranslateX = useRef(new Animated.Value(reduceMotion ? 0 : 26)).current;
 
   useEffect(() => {
+    if (reduceMotion) {
+      entranceTranslateX.setValue(0);
+      Animated.timing(entranceOpacity, {
+        toValue: 1,
+        duration: 180,
+        useNativeDriver: true,
+      }).start();
+      return;
+    }
+
     Animated.parallel([
       Animated.timing(entranceOpacity, {
         toValue: 1,
@@ -246,7 +267,7 @@ export default function LetterDistillationScreen({ route, navigation }: Props) {
         useNativeDriver: true,
       }),
     ]).start();
-  }, [entranceOpacity, entranceTranslateX]);
+  }, [entranceOpacity, entranceTranslateX, reduceMotion]);
 
   const phraseLayerOpacity = useRef(new Animated.Value(1)).current;
   const resultLayerOpacity = useRef(new Animated.Value(0)).current;
@@ -286,6 +307,8 @@ export default function LetterDistillationScreen({ route, navigation }: Props) {
     });
   };
 
+  let flattenedCharIndex = 0;
+
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -297,6 +320,7 @@ export default function LetterDistillationScreen({ route, navigation }: Props) {
 
       <SafeAreaView style={styles.safeArea}>
         <Animated.View
+          testID="distill-content"
           style={[
             styles.content,
             { opacity: entranceOpacity, transform: [{ translateX: entranceTranslateX }] },
@@ -342,28 +366,40 @@ export default function LetterDistillationScreen({ route, navigation }: Props) {
 
                 <Animated.View
                   pointerEvents={stage === 'settled' ? 'none' : 'auto'}
+                  accessibilityElementsHidden={stage === 'settled'}
+                  importantForAccessibility={stage === 'settled' ? 'no-hide-descendants' : 'auto'}
                   style={[styles.heroLayer, { opacity: phraseLayerOpacity }]}
+                  testID="distill-phrase-layer"
                 >
                   <View style={styles.phrase}>
-                    {renderWords.map((word, wi) => (
-                      <View style={styles.word} key={`word-${wi}`}>
-                        {word.chars.map((c, ci) => (
-                          <DistillChar
-                            key={`char-${wi}-${ci}`}
-                            char={c.char}
-                            keep={c.keep}
-                            delayMs={(wi * 5 + ci) * CHAR_STAGGER_MS}
-                            active={charsShown}
-                            reduceMotion={reduceMotion}
-                          />
-                        ))}
-                      </View>
-                    ))}
+                    {renderWords.map((word, wi) => {
+                      return (
+                        <View style={styles.word} key={`word-${wi}`}>
+                          {word.chars.map((c, ci) => {
+                            const delayMs = flattenedCharIndex * CHAR_STAGGER_MS;
+                            flattenedCharIndex += 1;
+
+                            return (
+                              <DistillChar
+                                key={`char-${wi}-${ci}`}
+                                char={c.char}
+                                keep={c.keep}
+                                delayMs={delayMs}
+                                active={charsShown}
+                                reduceMotion={reduceMotion}
+                              />
+                            );
+                          })}
+                        </View>
+                      );
+                    })}
                   </View>
                 </Animated.View>
 
                 <Animated.View
                   pointerEvents={stage === 'settled' ? 'auto' : 'none'}
+                  accessibilityElementsHidden={stage !== 'settled'}
+                  importantForAccessibility={stage !== 'settled' ? 'no-hide-descendants' : 'auto'}
                   style={[styles.heroLayer, { opacity: resultLayerOpacity }]}
                   testID="distill-result-layer"
                 >
@@ -765,3 +801,4 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
 });
+
