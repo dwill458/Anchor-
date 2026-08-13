@@ -244,8 +244,8 @@ describe('PracticeScreen', () => {
     fireEvent.press(screen.getByTestId('practice-selected-mode-cta'));
 
     await waitFor(() => {
-      expect(screen.getAllByText('Choose your anchor').length).toBeGreaterThan(0);
-      expect(screen.getByPlaceholderText('Search anchors')).toBeTruthy();
+      expect(screen.getByText('CHOOSE YOUR ANCHOR')).toBeTruthy();
+      expect(screen.getByPlaceholderText('Search your anchors')).toBeTruthy();
     });
   });
 
@@ -504,11 +504,13 @@ describe('PracticeScreen', () => {
     fireEvent.press(screen.getByLabelText('Practice mode help'));
 
     await waitFor(() => {
-      expect(screen.getByText('Four Ways to Practice')).toBeTruthy();
-      expect(screen.getByText('Focus Session')).toBeTruthy();
-      expect(screen.getByText('Deep Prime')).toBeTruthy();
-      expect(screen.getByText('Visualize')).toBeTruthy();
-      expect(screen.getByText('Release')).toBeTruthy();
+      expect(screen.getByText('CHOOSE WHAT YOU NEED')).toBeTruthy();
+      expect(screen.getByText('Each practice strengthens your anchor differently.')).toBeTruthy();
+      expect(screen.getByText('FOCUS SESSION')).toBeTruthy();
+      expect(screen.getByText('Stay with it longer.')).toBeTruthy();
+      expect(screen.getByText('See the outcome before it happens.')).toBeTruthy();
+      expect(screen.getByText('Come back to what matters.')).toBeTruthy();
+      expect(screen.getByText('Close the loop.')).toBeTruthy();
       expect(screen.getByText('Got It')).toBeTruthy();
     });
   });

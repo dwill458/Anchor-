@@ -792,6 +792,24 @@ function renderActiveState({
         </TouchableOpacity>
       </Animated2.View>
 
+      {/* ── Create New Anchor CTA ── */}
+      <Animated2.View
+        entering={getFadeUp(550, shouldReduceMotion)}
+        style={styles.createBtnWrap}
+      >
+        <TouchableOpacity
+          style={styles.createBtn}
+          onPress={handleCreateAnchor}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Create new anchor"
+        >
+          <Text style={styles.createBtnText}>
+            CREATE NEW ANCHOR →
+          </Text>
+        </TouchableOpacity>
+      </Animated2.View>
+
       <View style={styles.sectionDivider} />
 
       {/* ── Anchor stack — shows ALL anchors, current one highlighted ── */}
@@ -1027,6 +1045,32 @@ const styles = StyleSheet.create({
     fontSize: 13,
     letterSpacing: 0.78,
     color: colors.anchor15.giltBright,
+  },
+  createBtnWrap: {
+    marginTop: 10,
+    marginHorizontal: H_PAD,
+  },
+  createBtn: {
+    height: 48,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: withAlpha(colors.anchor15.gilt, 0.28),
+    backgroundColor: 'rgba(15,20,25,0.6)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.anchor15.gilt,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  createBtnText: {
+    fontFamily: 'Cinzel-SemiBold',
+    fontSize: 12,
+    letterSpacing: 1.2,
+    color: colors.anchor15.gilt,
+    textTransform: 'uppercase',
   },
   sectionDivider: {
     marginTop: 26,
