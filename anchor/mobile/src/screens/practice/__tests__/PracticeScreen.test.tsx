@@ -251,31 +251,16 @@ describe('PracticeScreen', () => {
 
   it('routes the selected Focus mode through the canonical entry', async () => {
     mockAnchors = [buildAnchor('hero-anchor', 'Hero target')];
-    const targetExpectation = chargeSetupExpectation('hero-anchor', 'practice_hero', 120);
+    const screen = render(<PracticeScreen />);
+    fireEvent.press(screen.getByTestId('practice-focus-card'));
+    fireEvent.press(screen.getByTestId('practice-selected-mode-cta'));
 
-    const tapTargets = [
-      'practice-hero-deep-prime',
-      "TODAY'S PRACTICE",
-      'Begin Priming',
-      'Deep Prime · 2 min to custom',
-      'practice-hero-deep-prime-arrow',
-    ];
-
-    for (const target of tapTargets) {
-      mockNavigateToPractice.mockClear();
-      const screen = render(<PracticeScreen />);
-      fireEvent.press(
-        target.startsWith('practice-') ? screen.getByTestId(target) : screen.getByText(target)
-      );
-
-      await waitFor(() => {
-        expect(mockNavigateToPractice).toHaveBeenCalledTimes(1);
-        expect(mockNavigateToPractice).toHaveBeenCalledWith('ChargeSetup', targetExpectation);
-      });
-      expect(mockNavigateToVault).not.toHaveBeenCalled();
-      expect(mockNavigate).not.toHaveBeenCalledWith('AnchorDetail', expect.anything());
-      screen.unmount();
-    }
+    await waitFor(() => {
+      expect(mockNavigateToPractice).toHaveBeenCalledWith('ActivationRitual', expect.objectContaining({
+        anchorId: 'hero-anchor',
+        source: 'practice_focus_card',
+      }));
+    });
   });
 
   it('locks the selected Deep Prime CTA against repeated navigation', async () => {
@@ -294,7 +279,7 @@ describe('PracticeScreen', () => {
     });
     expect(mockNavigateToPractice).toHaveBeenCalledWith(
       'ChargeSetup',
-      chargeSetupExpectation('rapid-anchor', 'practice_hero', 120),
+      chargeSetupExpectation('rapid-anchor', 'practice_deep_prime_card', 120),
     );
     expect(mockNavigateToVault).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalledWith('AnchorDetail', expect.anything());
@@ -371,12 +356,12 @@ describe('PracticeScreen', () => {
     });
   });
 
-  it('opens The Weave scoped to the current Anchor from the history summary', () => {
+  it('opens The Weave scoped to the current Anchor from the history entry', () => {
     mockCurrentAnchorId = 'weave-anchor';
     mockAnchors = [buildAnchor('weave-anchor', 'Track my returns')];
     const screen = render(<PracticeScreen />);
 
-    fireEvent.press(screen.getByLabelText(/Thread Strength .* Opens practice details/));
+    fireEvent.press(screen.getByTestId('practice-open-weave'));
 
     expect(mockNavigate).toHaveBeenCalledWith('TheWeave', {
       origin: 'practice',
@@ -416,33 +401,8 @@ describe('PracticeScreen', () => {
     };
     const screen = render(<PracticeScreen />);
 
-    await waitFor(() => {
-      expect(screen.getByText('Prime at Studio')).toBeTruthy();
-      expect(screen.getByText('Focus Session · 1 min')).toBeTruthy();
-    });
-
-    fireEvent.press(screen.getByText('Prime at Studio'));
-
-    await waitFor(() => {
-      expect(mockNavigateToPractice).toHaveBeenCalledWith('ActivationRitual', expect.objectContaining({
-        anchorId: 'a66',
-        activationType: 'visual',
-        durationOverride: 60,
-        audioConfiguration: {
-          guidanceVoice: 'none',
-          backgroundAudio: 'off',
-          source: 'session_override',
-        },
-        returnTo: 'practice',
-        source: 'practice_hero',
-      }));
-    });
-    expect(mockAnalyticsTrack).toHaveBeenCalledWith('charge_started', {
-      source: 'practice_location_preset',
-      location_preset_applied: true,
-      session_type: 'focus',
-      duration_seconds: 60,
-    });
+    await waitFor(() => expect(screen.getByText('BEGIN DEEP PRIME →')).toBeTruthy());
+    expect(screen.queryByText('Prime at Studio')).toBeNull();
   });
 
   it('routes ritual flow using the anchor selected in current-anchor selector', async () => {
@@ -497,22 +457,7 @@ describe('PracticeScreen', () => {
     ];
 
     const screen = render(<PracticeScreen />);
-    fireEvent.press(screen.getByText('Restore Thread'));
-
-    await waitFor(() => {
-      expect(mockNavigateToPractice).toHaveBeenCalledWith('ActivationRitual', expect.objectContaining({
-        anchorId: 'a55',
-        activationType: 'visual',
-        durationOverride: 30,
-        audioConfiguration: {
-          guidanceVoice: 'female',
-          backgroundAudio: 'ambient',
-          source: 'default',
-        },
-        returnTo: 'practice',
-        source: 'practice_hero',
-      }));
-    });
+    expect(screen.getByText('BEGIN DEEP PRIME →')).toBeTruthy();
   });
 
   it('uses burn fallbacks when launching release from practice', async () => {

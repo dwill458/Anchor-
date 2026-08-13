@@ -814,19 +814,6 @@ export const PracticeScreen: React.FC = () => {
           <Animated.View style={threadStyle}>
             <PracticeOverviewCard
               anchor={selectedAnchor}
-              snapshot={practiceMetrics}
-              onOpenDetails={() => {
-                AnalyticsService.track(AnalyticsEvents.THREAD_STRENGTH_OPENED, {
-                  source: "practice_screen",
-                });
-                navigation.navigate('TheWeave', {
-                  origin: 'practice',
-                  originAnchorId: selectedAnchor?.id,
-                  initialScope: selectedAnchor
-                    ? { kind: 'anchor', anchorId: selectedAnchor.id }
-                    : { kind: 'all' },
-                });
-              }}
               onOpenAnchor={() => {
                 markInteraction();
                 setPendingMode(null);
@@ -1031,27 +1018,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(240,203,106,0.56)',
     backgroundColor: 'rgba(240,203,106,0.035)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  selectedModeCtaRelease: {
-    borderColor: 'rgba(200,135,90,0.6)',
-    backgroundColor: 'rgba(200,135,90,0.08)',
-  },
-  selectedModeCtaPressed: { opacity: 0.78 },
-  selectedModeCtaText: {
-    color: colors.gold,
-    fontFamily: typography.fontFamily.sansBold,
-    fontSize: 10,
-    letterSpacing: 1.7,
-  },
-  selectedModeCta: {
-    minHeight: 52,
-    marginLeft: 32,
-    marginTop: spacing.md,
-    borderWidth: 1,
-    borderColor: 'rgba(240,203,106,0.56)',
-    backgroundColor: 'rgba(240,203,106,0.09)',
     alignItems: 'center',
     justifyContent: 'center',
   },

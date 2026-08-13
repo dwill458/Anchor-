@@ -11,13 +11,13 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { ArrowLeft, Sparkles } from 'lucide-react-native';
 import { safeHaptics } from '@/utils/haptics';
 import type { RootStackParamList, SigilVariant } from '@/types';
 import { colors, spacing, typography } from '@/theme';
-import { SigilSvg, ZenBackground } from '@/components/common';
+import { SigilSvg } from '@/components/common';
 import { API_URL } from '@/config';
 import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
 import { RefineStyleCard } from './components/RefineStyleCard';
@@ -55,14 +55,14 @@ const normalizeSigilVariant = (value: string | undefined): SigilVariant =>
   isSigilVariant(value) ? value : 'balanced';
 
 const getAmbientStyle = (style: RefineStyleOption) => {
-  if (style.paletteLane.includes('aurora')) return 'rgba(92, 72, 154, 0.08)';
-  if (style.paletteLane.includes('ember') || style.paletteLane.includes('solar')) return 'rgba(212, 123, 55, 0.06)';
-  if (style.paletteLane.includes('moon') || style.paletteLane.includes('silver')) return 'rgba(150, 142, 186, 0.07)';
+  if (style.paletteLane.includes('aurora')) return 'rgba(61, 104, 118, 0.045)';
+  if (style.paletteLane.includes('ember') || style.paletteLane.includes('solar')) return 'rgba(212, 123, 55, 0.045)';
+  if (style.paletteLane.includes('moon') || style.paletteLane.includes('silver')) return 'rgba(135, 151, 165, 0.04)';
   if (style.paletteLane.includes('gold')) return 'rgba(212, 175, 55, 0.05)';
   if (style.category === 'Organic') return 'rgba(70, 84, 78, 0.05)';
   if (style.category === 'Geometric' || style.category === 'Minimal') return 'rgba(245, 245, 220, 0.035)';
 
-  return 'rgba(62, 44, 91, 0.07)';
+  return 'rgba(217, 179, 108, 0.025)';
 };
 
 const SectionHeader = ({
@@ -90,6 +90,7 @@ export default function RefineExpressionScreen() {
   const navigation = useNavigation<StyleSelectionNavigationProp>();
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
+  const reduceMotion = useReducedMotion();
 
   const params = (route.params ?? {}) as StyleSelectionParams;
   const intention = (params.intention ?? params.intentionText ?? '').trim();
@@ -114,8 +115,8 @@ export default function RefineExpressionScreen() {
     recommendedStyles[0]?.id ?? featuredStyles[0]?.id ?? REFINE_STYLES[0].id
   );
   const activeFilter: RefineStyleFilter = 'all';
-  const [activeExploreTab, setActiveExploreTab] = useState<'week' | 'core' | 'seasonal' | 'all'>('week');
-  const [showStyleTeaching, setShowStyleTeaching] = useState(true);
+  const [activeExploreTab, setActiveExploreTab] = useState<'week' | 'core' | 'seasonal' | 'all'>('all');
+  const [isGenerating, setIsGenerating] = useState(false);
   const [ambientColor, setAmbientColor] = useState(getAmbientStyle(recommendedStyles[0] ?? featuredStyles[0]));
 
   const ambientOpacity = useSharedValue(1);
@@ -171,6 +172,12 @@ export default function RefineExpressionScreen() {
   }));
 
   useEffect(() => {
+    if (reduceMotion) {
+      setAmbientColor(getAmbientStyle(selectedStyleOption));
+      ambientOpacity.value = 1;
+      ctaTextOpacity.value = 1;
+      return;
+    }
     ambientOpacity.value = withTiming(0, { duration: 120 });
     ctaTextOpacity.value = withTiming(0, { duration: 90 });
 
@@ -181,12 +188,7 @@ export default function RefineExpressionScreen() {
     }, 100);
 
     return () => clearTimeout(timeout);
-  }, [ambientOpacity, ctaTextOpacity, selectedStyleOption]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setShowStyleTeaching(false), 3600);
-    return () => clearTimeout(timer);
-  }, []);
+  }, [ambientOpacity, ctaTextOpacity, reduceMotion, selectedStyleOption]);
 
   const handleStyleSelect = useCallback((style: RefineStyleOption) => {
     if (style.id === selectedStyleId) return;
@@ -197,6 +199,8 @@ export default function RefineExpressionScreen() {
   }, [selectedStyleId]);
 
   const handleRefineAnchor = useCallback(() => {
+    if (isGenerating) return;
+    setIsGenerating(true);
     // Wake Railway before the real request arrives so cold-start latency does not
     // block the AI call that fires shortly after navigation.
     void fetch(`${API_URL}/health`).catch(() => {});
@@ -233,6 +237,7 @@ export default function RefineExpressionScreen() {
     selectedStyleOption,
     sigilSvg,
     structureType,
+    isGenerating,
   ]);
 
   const renderGrid = useCallback(
@@ -276,7 +281,8 @@ export default function RefineExpressionScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <View style={styles.container}>
-        <ZenBackground variant="creation" orbOpacity={0.1} animationDuration={800} />
+        <LinearGradient colors={['#18202A', '#121820', '#080B0F']} locations={[0, 0.44, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
+        <View style={styles.atmosphericGlow} pointerEvents="none" />
 
         <Animated.View
           pointerEvents="none"
@@ -304,7 +310,7 @@ export default function RefineExpressionScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: insets.bottom + 196 },
+            { paddingBottom: insets.bottom + 154 },
           ]}
         >
           <View style={styles.introBlock}>
@@ -322,10 +328,10 @@ export default function RefineExpressionScreen() {
             <Text style={styles.structureLocked}>Structure selected · appearance only changes from here</Text>
           </View>
 
-          {showStyleTeaching ? <View style={styles.styleTeaching}>
+          <View style={styles.styleTeaching}>
             <Text style={styles.styleTeachingTitle}>Style changes the appearance, not the meaning.</Text>
             <Text style={styles.styleTeachingCopy}>Your structure stays the same through generation.</Text>
-          </View> : null}
+          </View>
 
           {visibleRecommendedStyles.length > 0 ? (
             <View style={styles.section}>
@@ -413,7 +419,7 @@ export default function RefineExpressionScreen() {
 
                   <View style={styles.seasonalPanel}>
                     <View style={styles.seasonalPanelHeader}>
-                      <Sparkles size={18} color="#CBB8E8" strokeWidth={1.6} />
+                      <Sparkles size={18} color={colors.gold} strokeWidth={1.6} />
                       <View style={styles.seasonalTextBlock}>
                         <Text style={styles.seasonalCollectionName}>Lunar Collection</Text>
                         <Text style={styles.seasonalUntil}>Finishes that leave when the season turns.</Text>
@@ -449,7 +455,9 @@ export default function RefineExpressionScreen() {
 
               <Pressable
                 onPress={handleRefineAnchor}
-                style={styles.ctaOuter}
+                disabled={isGenerating}
+                accessibilityState={{ disabled: isGenerating }}
+                style={[styles.ctaOuter, isGenerating && styles.ctaOuterDisabled]}
                 accessibilityRole="button"
                 accessibilityLabel="Generate Anchor"
               >
@@ -477,6 +485,15 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+  },
+  atmosphericGlow: {
+    position: 'absolute',
+    width: 360,
+    height: 360,
+    borderRadius: 180,
+    top: -178,
+    left: -118,
+    backgroundColor: 'rgba(217, 179, 108, 0.055)',
   },
   topBar: {
     paddingHorizontal: spacing.lg,
@@ -613,7 +630,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   sectionTitleSeasonal: {
-    color: '#CBB8E8',
+    color: colors.gold,
   },
   sectionMeta: {
     fontFamily: typography.fonts.mono,
@@ -695,8 +712,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: 'rgba(156, 134, 196, 0.24)',
-    backgroundColor: 'rgba(16, 10, 28, 0.68)',
+    borderColor: 'rgba(212, 175, 55, 0.18)',
+    backgroundColor: 'rgba(16, 21, 28, 0.5)',
     paddingVertical: spacing.md,
     overflow: 'hidden',
   },
@@ -718,7 +735,7 @@ const styles = StyleSheet.create({
   seasonalUntil: {
     fontFamily: typography.fonts.bodySerifItalic,
     fontSize: 12.5,
-    color: 'rgba(203, 184, 232, 0.7)',
+    color: colors.text.secondary,
   },
   emptyState: {
     marginHorizontal: spacing.lg,
@@ -752,25 +769,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: 150,
+    height: 132,
   },
   bottomContent: {
     paddingHorizontal: spacing.lg,
   },
-  ctaPanel: {
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.22)',
-    backgroundColor: 'rgba(16, 21, 28, 0.86)',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
-    shadowColor: colors.black,
-    shadowOpacity: 0.45,
-    shadowRadius: 28,
-    shadowOffset: { width: 0, height: 14 },
-    elevation: 12,
-  },
+  ctaPanel: { paddingTop: spacing.sm, paddingBottom: spacing.xs },
   microcopy: {
     fontFamily: typography.fonts.bodySerifItalic,
     fontSize: 14,
@@ -797,13 +801,14 @@ const styles = StyleSheet.create({
   ctaOuter: {
     borderRadius: 999,
     shadowColor: colors.gold,
-    shadowOpacity: 0.28,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
+    shadowOpacity: 0.14,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 5,
   },
+  ctaOuterDisabled: { opacity: 0.66 },
   ctaButton: {
-    height: 52,
+    height: 50,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
