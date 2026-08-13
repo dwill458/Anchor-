@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronRight, LockKeyhole, RefreshCw } from 'lucide-react-native';
 import { colors, spacing, typography } from '@/theme';
@@ -15,9 +16,13 @@ export const ChartScreenFrame: React.FC<{
   headerActions?: React.ReactNode;
   headerTopInset?: number;
 }> = ({ title, subtitle, children, scroll = true, headerActions, headerTopInset = 0 }) => {
+  const insets = useSafeAreaInsets();
   const content = (
     <View style={[styles.content, !scroll && styles.contentFixed]}>
-      <View style={[styles.titleRow, headerTopInset ? { marginTop: headerTopInset } : null]}>
+      <View
+        testID="chart-screen-header"
+        style={[styles.titleRow, { marginTop: Math.max(insets.top, 0) + headerTopInset }]}
+      >
         <View style={styles.titleCopy}>
           <Text style={styles.screenTitle} accessibilityRole="header">
             {title}

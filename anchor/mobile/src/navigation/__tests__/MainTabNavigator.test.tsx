@@ -105,18 +105,14 @@ describe('CustomTabBar', () => {
     expect(onTabPress).toHaveBeenNthCalledWith(2, 0);
   });
 
-  it('keeps Chart hidden by default and exposes it as the third tab when enabled', () => {
+  it('always exposes Chart as the third tab', () => {
     const onTabPress = jest.fn();
-    const disabled = render(<CustomTabBar activeIndex={0} onTabPress={onTabPress} />);
-    expect(disabled.queryByText('CHART')).toBeNull();
-
-    disabled.unmount();
-    const enabled = render(<CustomTabBar activeIndex={2} onTabPress={onTabPress} chartEnabled />);
-    fireEvent.press(enabled.getByText('CHART'));
+    const screen = render(<CustomTabBar activeIndex={2} onTabPress={onTabPress} />);
+    fireEvent.press(screen.getByText('CHART'));
 
     expect(onTabPress).toHaveBeenCalledWith(2);
-    expect(enabled.getByLabelText('Chart')).toBeTruthy();
-    expect(enabled.getByTestId('tab-indicator-chart')).toBeTruthy();
+    expect(screen.getByLabelText('Chart')).toBeTruthy();
+    expect(screen.getByTestId('tab-indicator-chart')).toBeTruthy();
   });
 
   it('renders only the active tab indicator and applies the requested bar chrome', () => {
@@ -132,8 +128,6 @@ describe('CustomTabBar', () => {
       backgroundColor: '#080C10',
       borderTopColor: 'rgba(212,175,55,0.08)',
       borderTopWidth: 1,
-      justifyContent: 'space-evenly',
-      paddingHorizontal: 18,
       paddingTop: 14,
       paddingBottom: 0,
       height: 82,

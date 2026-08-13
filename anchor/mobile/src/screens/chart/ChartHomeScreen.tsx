@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { ArrowUpRight, Bell, BookOpen, ChevronDown, CircleAlert, Eye, Link2, MoreHorizontal, RefreshCw, Sparkles, Zap } from 'lucide-react-native';
+import { ArrowUpRight, BookOpen, ChevronDown, CircleAlert, Eye, Link2, MoreHorizontal, RefreshCw, Sparkles, Zap } from 'lucide-react-native';
 import Svg, { Circle, Defs, G, Path, RadialGradient, Stop } from 'react-native-svg';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -35,10 +35,6 @@ import {
 type ChartNavigation = NativeStackNavigationProp<ChartStackParamList>;
 type ChartHomeRoute = RouteProp<ChartStackParamList, 'ChartHome'>;
 
-// The Phase 0 mockup includes this editorial line, while the current Course
-// response does not carry a separate current-waypoint narrative field.
-const FALLBACK_CURRENT_COPY = 'Build enough awareness and value that the first thousand people choose to make Anchor part of their practice.';
-
 const PRACTICE_MODES: Array<{ mode: ChartPracticeMode; label: string; description: string; color: string; icon: React.ReactNode }> = [
   { mode: 'focus', label: 'FOCUS', description: 'Lock onto the Anchor', color: colors.gold, icon: <Zap size={15} color={colors.gold} /> },
   { mode: 'visualize', label: 'VISUALIZE', description: 'See the outcome clearly', color: '#78B4D1', icon: <Eye size={15} color="#78B4D1" /> },
@@ -66,9 +62,9 @@ function errorCopy(code: string | null): string {
 }
 
 function formatShortDate(value: string | null | undefined): string {
-  if (!value) return 'Jul 18';
+  if (!value) return '—';
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? 'Jul 18' : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 function logEntryText(entry: { eventType: string; practiceSession?: { practiceMode: string } | null; reflection?: { body?: string | null; structuredContent?: { whatHelped?: string; whatLearned?: string } | null } | null }): { meta: string; text: string } {
@@ -181,8 +177,6 @@ export const ChartHomeScreen: React.FC = () => {
 
   useEffect(() => startReflectionQueueSync(), []);
 
-  useEffect(() => startReflectionQueueSync(), []);
-
   useEffect(() => {
     registerTabNav(2, navigation);
     return () => registerTabNav(2, null);
@@ -285,13 +279,12 @@ export const ChartHomeScreen: React.FC = () => {
 
   return (
     <ChartScreenFrame
-      title="CHART"
-      subtitle="Know where you’re going."
-      headerActions={
-        <View style={styles.headerActions}>
-          <ChartIconButton label="Chart notifications" icon={<Bell size={15} color={colors.gold} />} />
-          <ChartIconButton label="Chart menu" icon={<MoreHorizontal size={17} color={colors.gold} />} onPress={openCourse} />
-        </View>
+        title="CHART"
+        subtitle="Know where you’re going."
+        headerActions={
+          <View style={styles.headerActions}>
+            <ChartIconButton label="Chart menu" icon={<MoreHorizontal size={17} color={colors.gold} />} onPress={openCourse} />
+          </View>
       }
     >
       {store.errorCode ? <View style={styles.inlineNotice}><CircleAlert size={15} color="#F0A0A0" /><Text accessibilityLiveRegion="assertive" style={styles.inlineNoticeText}>{errorCopy(store.errorCode)}</Text><Pressable onPress={retry} accessibilityRole="button"><RefreshCw size={15} color={colors.gold} /></Pressable></View> : null}
@@ -340,15 +333,14 @@ export const ChartHomeScreen: React.FC = () => {
             <ChartSection style={styles.currentSection}>
               <ChartKicker color={currentWaypoint.state === 'BLOCKED' ? colors.warning : colors.practiceMode.focus.primary}>CURRENT WAYPOINT</ChartKicker>
               <View style={styles.currentTitleRow}><Text style={styles.currentTitle}>{currentWaypoint.title}</Text><View style={[styles.currentBadge, currentWaypoint.state === 'BLOCKED' && styles.blockedBadge]}><View style={[styles.currentBadgeDot, currentWaypoint.state === 'BLOCKED' && styles.blockedDot]} /><Text style={[styles.currentBadgeText, currentWaypoint.state === 'BLOCKED' && styles.blockedText]}>{currentWaypoint.state === 'BLOCKED' ? 'BLOCKED' : 'CURRENT'}</Text></View></View>
-              <Text style={styles.currentDescription}>{currentWaypoint.state === 'BLOCKED' ? 'This waypoint is blocked because its linked Anchor is unavailable.' : currentWaypoint.description ?? FALLBACK_CURRENT_COPY}</Text>
-              <Text style={styles.currentMeta}>Current since {formatShortDate(currentWaypoint.reachedAt)} · 3 anchored sessions this week</Text>
+              {currentWaypoint.state === 'BLOCKED' ? <Text style={styles.currentDescription}>This waypoint is blocked because its linked Anchor is unavailable.</Text> : currentWaypoint.description ? <Text style={styles.currentDescription}>{currentWaypoint.description}</Text> : null}
 
               <ChartKicker style={styles.subKicker}>LINKED ANCHOR</ChartKicker>
               <ChartCard style={styles.anchorCard}>
                 <AnchorArt waypoint={currentWaypoint} />
                 <View style={styles.anchorCopy}>
                   <Text style={styles.anchorQuote}>“{currentWaypoint.anchorLink?.snapshot.intentionText ?? 'No Anchor linked yet'}”</Text>
-                  <Text style={styles.anchorMeta}>{currentWaypoint.anchorLink?.anchorAvailable ? 'LINKED TO 1K USERS' : currentWaypoint.state === 'BLOCKED' ? 'ANCHOR UNAVAILABLE' : 'LINK AN ANCHOR TO PRACTICE'}</Text>
+                  <Text style={styles.anchorMeta}>{currentWaypoint.anchorLink?.anchorAvailable ? 'LINKED ANCHOR' : currentWaypoint.state === 'BLOCKED' ? 'ANCHOR UNAVAILABLE' : 'LINK AN ANCHOR TO PRACTICE'}</Text>
                 </View>
                 <ArrowUpRight size={15} color={colors.gold} />
               </ChartCard>

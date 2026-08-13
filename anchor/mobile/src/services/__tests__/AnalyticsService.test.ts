@@ -198,11 +198,11 @@ describe('AnalyticsService', () => {
           waypoint_id: 'wp-current',
           course_version: 7,
           waypoint_state: 'CURRENT',
-          destination_text: 'Anchor has ten thousand users',
-          destinationText: 'Anchor has ten thousand users',
-          destination: 'Anchor has ten thousand users',
-          waypoint_title: '1K USERS',
-          waypointTitle: '1K USERS',
+          destination_text: 'Build a steadier creative practice',
+          destinationText: 'Build a steadier creative practice',
+          destination: 'Build a steadier creative practice',
+          waypoint_title: 'DEEPEN THE PRACTICE',
+          waypointTitle: 'DEEPEN THE PRACTICE',
           reflection: 'private reflection',
           reflection_body: 'private body',
           reflectionBody: 'private body',
@@ -226,8 +226,8 @@ describe('AnalyticsService', () => {
           chart_context: {
             course_id: 'course-chart-phase0',
             waypoint_id: 'wp-current',
-            destination_text: 'Anchor has ten thousand users',
-            waypoint_title: '1K USERS',
+            destination_text: 'Build a steadier creative practice',
+            waypoint_title: 'DEEPEN THE PRACTICE',
           },
         })
       ).toEqual({

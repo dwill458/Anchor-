@@ -29,7 +29,7 @@ import {
 const anchor = {
   id: 'anchor-current',
   userId: 'user-1',
-  intentionText: 'Anchor has ten thousand users',
+  intentionText: 'Build a steadier creative practice',
   category: 'career',
   distilledLetters: [],
   baseSigilSvg: '<svg />',
@@ -175,7 +175,7 @@ describe('startPractice — Chart context survives route construction', () => {
     });
   });
 
-  it('carries context into the deep prime setup and direct ritual routes', () => {
+  it('carries context into Deep Prime setup for default and explicit durations', () => {
     const setup = buildDependencies();
     startPractice(
       { mode: 'deepPrime', anchorId: anchor.id, source: 'chart', chartContext },
@@ -198,7 +198,7 @@ describe('startPractice — Chart context survives route construction', () => {
       direct,
     );
     expect(direct.navigateToPractice).toHaveBeenCalledWith({
-      route: 'Ritual',
+      route: 'ChargeSetup',
       params: expect.objectContaining({ returnTo: 'chart', chartContext }),
     });
   });
@@ -285,17 +285,17 @@ describe('startPractice — Chart context and source are inseparable', () => {
     expect(dependencies.navigateToPractice).not.toHaveBeenCalled();
   });
 
-  it('leaves non-Chart entries byte-identical to before', () => {
+  it('keeps non-Chart Deep Prime entries on the shared setup route', () => {
     const dependencies = buildDependencies();
     startPractice({ mode: 'deepPrime', anchorId: anchor.id, source: 'practice_hero' }, dependencies);
     expect(dependencies.navigateToPractice).toHaveBeenCalledWith({
       route: 'ChargeSetup',
-      params: {
+      params: expect.objectContaining({
         anchorId: anchor.id,
         returnTo: 'practice',
         initialDuration: 'deep',
         source: 'practice_hero',
-      },
+      }),
     });
   });
 });
@@ -355,7 +355,11 @@ describe('startPractice — entitlement denial preserves the Chart return target
     expect(dependencies.navigateToPaywall).toHaveBeenCalledWith({
       source: 'premium_practice_locked',
       preferredPlanId: 'annual',
-      resumeTarget: { kind: 'visualize_prepare', anchorId: anchor.id },
+      resumeTarget: {
+        kind: 'visualize_prepare',
+        anchorId: anchor.id,
+        returnTarget: { kind: 'anchorDetail', anchorId: anchor.id },
+      },
     });
   });
 
