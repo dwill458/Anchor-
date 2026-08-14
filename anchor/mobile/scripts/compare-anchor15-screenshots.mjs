@@ -4,8 +4,8 @@
  * Usage:
  *   npm run test:anchor15:visual -- --reference path/to/reference --actual path/to/native
  *
- * Captures use a 393 × 852 dp viewport at the same pixel density. The command
- * resizes only when explicitly asked with --width/--height, then flags a screen
+ * Captures use a 390 × 844 dp viewport at the same pixel density. The command
+ * normalizes to that baseline unless explicitly asked with --width/--height, then flags a screen
  * when more than 4% of pixels differ by more than 12 RGB values. Keep reference
  * and native captures at the same density to enforce the design spec's ±4 dp
  * layout and ±1 dp typography review targets.
@@ -23,6 +23,8 @@ const SCREENS = [
   '28-trace-structure',
   '06-refine-style',
   '30-generate',
+  '16-profile',
+  '17-settings',
   '29-select-expression',
   '22-save-progress',
   '26-sign-in',
@@ -45,8 +47,8 @@ const outputDir = args.get('out') ?? 'artifacts/anchor15-visual-diff';
 const allowMissing = args.has('allow-missing');
 const maxChangedRatio = Number(args.get('max-changed-ratio') ?? 0.04);
 const pixelThreshold = Number(args.get('pixel-threshold') ?? 12);
-const width = args.has('width') ? Number(args.get('width')) : undefined;
-const height = args.has('height') ? Number(args.get('height')) : undefined;
+const width = args.has('width') ? Number(args.get('width')) : 390;
+const height = args.has('height') ? Number(args.get('height')) : 844;
 
 if (!referenceDir || !actualDir) {
   console.error('Pass --reference <directory> and --actual <directory>.');

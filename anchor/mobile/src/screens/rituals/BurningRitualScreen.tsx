@@ -17,7 +17,6 @@ import { useToast } from '@/components/ToastProvider';
 import { resolveBurnArtworkUri } from './utils/resolveBurnArtworkUri';
 import { AuthService } from '@/services/AuthService';
 import { useNotificationController } from '../../hooks/useNotificationController';
-import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
 import {
   JOURNEY_MILESTONE_IDS,
   JOURNEY_TEACHING_CONTENT_ID_BY_MILESTONE,
@@ -142,16 +141,8 @@ export const BurningRitualScreen: React.FC = () => {
     releaseAnchor(anchorId);
     if (accountId) void PracticeCompletionService.flush(accountId);
 
-    // These side effects are retryable bookkeeping. They must not keep the
+    // This side effect is retryable bookkeeping. It must not keep the
     // success screen behind a slow storage or notification sync operation.
-    void queueProgressionMilestonesFromStores({
-      sourceEventId: releaseEventIdRef.current,
-    }).catch((error) => {
-      ErrorTrackingService.captureException(
-        error instanceof Error ? error : new Error('Failed to queue release milestones'),
-        { screen: 'BurningRitualScreen', action: 'queue_release_milestones' }
-      );
-    });
     void handleSigilVaulted().catch((error) => {
       ErrorTrackingService.captureException(
         error instanceof Error ? error : new Error('Failed to update release notifications'),

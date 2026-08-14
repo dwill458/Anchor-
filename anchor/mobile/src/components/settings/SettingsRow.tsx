@@ -7,7 +7,7 @@ import {
   Switch,
   type ViewStyle,
 } from 'react-native';
-import { LucideIcon } from 'lucide-react-native';
+import { ChevronRight, LucideIcon } from 'lucide-react-native';
 import { colors } from '@/theme';
 
 interface LegacySettingsRowProps {
@@ -53,9 +53,11 @@ export const SettingsRow: React.FC<SettingsRowProps> = (props) => {
   const showDivider = props.showDivider ?? true;
   const isDev = modern ? props.isDev ?? false : false;
   const accentColor = isDev ? '#4ade80' : colors.gold;
-  const titleColor = modern ? props.titleColor ?? (isDev ? '#4ade80' : colors.bone) : colors.bone;
-  const subtitleColor = isDev ? 'rgba(74,222,128,0.6)' : '#8896a8';
-  const dividerColor = isDev ? 'rgba(74,222,128,0.2)' : 'rgba(212,175,55,0.15)';
+  const titleColor = modern
+    ? props.titleColor ?? (isDev ? '#4ade80' : colors.anchor15.bone)
+    : colors.bone;
+  const subtitleColor = isDev ? 'rgba(74,222,128,0.6)' : colors.anchor15.ash;
+  const dividerColor = isDev ? 'rgba(74,222,128,0.2)' : colors.anchor15.hairline;
   const onToggle = modern ? props.onToggle : undefined;
   const toggleValue = modern ? props.toggleValue ?? false : false;
   const onPress =
@@ -75,7 +77,7 @@ export const SettingsRow: React.FC<SettingsRowProps> = (props) => {
     if (props.type === 'chevron') {
       return (
         <View style={styles.right}>
-          <Text style={styles.chevron}>›</Text>
+          <ChevronRight color={colors.anchor15.ash} size={16} strokeWidth={1.35} />
         </View>
       );
     }
@@ -108,20 +110,20 @@ export const SettingsRow: React.FC<SettingsRowProps> = (props) => {
         disabled ? styles.disabled : null,
       ]}
     >
-      <View style={styles.container}>
+      <View style={[styles.container, modern && styles.modernContainer]}>
         <View style={styles.left}>
           {Icon ? <Icon color={colors.gold} size={20} style={styles.icon} /> : null}
-          <View style={styles.textContainer}>
-            <Text style={[styles.title, { color: titleColor }]} numberOfLines={2}>
+          <View style={[styles.textContainer, modern && styles.modernTextContainer]}>
+            <Text style={[styles.title, modern && styles.modernTitle, { color: titleColor }]} numberOfLines={2}>
               {title}
             </Text>
             {subtitle ? (
-              <Text style={[styles.subtitle, { color: subtitleColor }]} numberOfLines={2}>
+              <Text style={[styles.subtitle, modern && styles.modernSubtitle, { color: subtitleColor }]} numberOfLines={2}>
                 {subtitle}
               </Text>
             ) : null}
             {value ? (
-              <Text style={[styles.value, { color: accentColor }]} numberOfLines={2}>
+              <Text style={[styles.value, modern && styles.modernValue, { color: accentColor }]} numberOfLines={2}>
                 {value}
               </Text>
             ) : null}
@@ -130,7 +132,7 @@ export const SettingsRow: React.FC<SettingsRowProps> = (props) => {
 
         {renderRight()}
       </View>
-      {showDivider ? <View style={[styles.divider, { backgroundColor: dividerColor }]} /> : null}
+      {showDivider ? <View style={[styles.divider, modern && styles.modernDivider, { backgroundColor: dividerColor }]} /> : null}
     </Pressable>
   );
 };
@@ -152,6 +154,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
   },
+  modernContainer: {
+    minHeight: 56,
+    paddingHorizontal: 0,
+    paddingVertical: 9,
+  },
   left: {
     flex: 1,
     flexDirection: 'row',
@@ -164,10 +171,20 @@ const styles = StyleSheet.create({
   textContainer: {
     flex: 1,
   },
+  modernTextContainer: {
+    paddingRight: 6,
+  },
   title: {
     fontSize: 14,
     fontFamily: 'Inter-Regular',
     lineHeight: 18,
+  },
+  modernTitle: {
+    fontFamily: 'Cinzel-SemiBold',
+    fontSize: 12,
+    letterSpacing: 1.15,
+    lineHeight: 17,
+    textTransform: 'uppercase',
   },
   subtitle: {
     marginTop: 3,
@@ -175,11 +192,23 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     lineHeight: 16,
   },
+  modernSubtitle: {
+    marginTop: 4,
+    fontFamily: 'Inter-Regular',
+    fontSize: 12,
+    lineHeight: 17,
+  },
   value: {
     marginTop: 3,
     fontSize: 12,
     fontFamily: 'Inter-Regular',
     lineHeight: 16,
+  },
+  modernValue: {
+    marginTop: 4,
+    fontFamily: 'Inter-Regular',
+    fontSize: 12,
+    lineHeight: 17,
   },
   right: {
     marginLeft: 12,
@@ -195,5 +224,9 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     marginLeft: 20,
     marginRight: 20,
+  },
+  modernDivider: {
+    marginLeft: 0,
+    marginRight: 0,
   },
 });

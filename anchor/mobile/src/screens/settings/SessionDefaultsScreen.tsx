@@ -391,6 +391,8 @@ export const SessionDefaultsScreen: React.FC = () => {
           <View style={styles.headerSpacer} />
         </View>
 
+        <Text style={styles.screenSubtitle}>Duration • Voice • Audio</Text>
+
         <View style={styles.tabTrack}>
           <Animated.View
             pointerEvents="none"
@@ -416,9 +418,7 @@ export const SessionDefaultsScreen: React.FC = () => {
             onPress={() => setActiveTab('focus')}
             style={styles.tabButton}
           >
-            <Text style={[styles.tabButtonText, activeTab === 'focus' && styles.tabButtonTextActive]}>
-              ⚡ Focus
-            </Text>
+            <Text style={[styles.tabButtonText, activeTab === 'focus' && styles.tabButtonTextActive]}>Focus</Text>
           </TouchableOpacity>
           <TouchableOpacity
             activeOpacity={0.8}
@@ -427,9 +427,7 @@ export const SessionDefaultsScreen: React.FC = () => {
             onPress={() => setActiveTab('prime')}
             style={styles.tabButton}
           >
-            <Text style={[styles.tabButtonText, activeTab === 'prime' && styles.tabButtonTextActive]}>
-              ◎ Prime
-            </Text>
+            <Text style={[styles.tabButtonText, activeTab === 'prime' && styles.tabButtonTextActive]}>Prime</Text>
           </TouchableOpacity>
           <TouchableOpacity
             activeOpacity={0.8}
@@ -438,9 +436,7 @@ export const SessionDefaultsScreen: React.FC = () => {
             onPress={() => setActiveTab('visualize')}
             style={styles.tabButton}
           >
-            <Text style={[styles.tabButtonText, activeTab === 'visualize' && styles.tabButtonTextActive]}>
-              ◇ Visualize
-            </Text>
+            <Text style={[styles.tabButtonText, activeTab === 'visualize' && styles.tabButtonTextActive]}>Visualize</Text>
           </TouchableOpacity>
         </View>
 
@@ -629,7 +625,7 @@ export const SessionDefaultsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F1419',
+    backgroundColor: colors.anchor15.ink,
   },
   safeArea: {
     flex: 1,
@@ -638,79 +634,90 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingTop: 8,
-    paddingBottom: 20,
+    height: 54,
+    paddingHorizontal: 10,
+    paddingVertical: 0,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
-    color: colors.gold,
-    fontSize: 19,
-    letterSpacing: 1.2,
-    fontFamily: typography.fonts.heading,
+    color: colors.anchor15.ash,
+    fontSize: 12,
+    letterSpacing: 2,
+    fontFamily: typography.fontFamily.ritual,
+    textTransform: 'uppercase',
   },
   headerSpacer: {
-    width: 40,
+    width: 44,
+  },
+  screenSubtitle: {
+    color: colors.anchor15.ash,
+    fontFamily: typography.fontFamily.instrument,
+    fontSize: 11,
+    letterSpacing: 0.3,
+    textAlign: 'center',
+    marginTop: 2,
+    marginBottom: 12,
   },
   tabTrack: {
-    marginHorizontal: 24,
-    marginBottom: 28,
-    padding: 4,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.14)',
-    backgroundColor: '#1C2530',
+    marginHorizontal: 20,
+    marginBottom: 22,
+    padding: 0,
+    borderRadius: 0,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.anchor15.hairline,
     flexDirection: 'row',
   },
   tabPill: {
     position: 'absolute',
-    top: 4,
-    left: 4,
-    height: 46,
-    borderRadius: 10,
-    backgroundColor: colors.gold,
+    bottom: 0,
+    left: 0,
+    height: 1,
+    borderRadius: 0,
+    backgroundColor: colors.anchor15.gilt,
   },
   tabButton: {
     flex: 1,
-    height: 46,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,
   },
   tabButtonText: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 12,
-    letterSpacing: 1.2,
-    color: 'rgba(192,192,192,0.75)',
+    fontFamily: typography.fontFamily.ritualSemiBold,
+    fontSize: 10,
+    letterSpacing: 1.25,
+    textTransform: 'uppercase',
+    color: colors.anchor15.ash,
   },
   tabButtonTextActive: {
-    color: '#0F1419',
+    color: colors.anchor15.giltBright,
   },
   scrollContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 24,
+    paddingHorizontal: 20,
+    paddingBottom: 30,
   },
   section: {
     marginBottom: 4,
   },
   sectionLabel: {
-    color: colors.gold,
+    color: colors.anchor15.ash,
     fontSize: 10,
     letterSpacing: 2,
     textTransform: 'uppercase',
-    fontFamily: typography.fonts.headingSemiBold,
+    fontFamily: typography.fontFamily.ritual,
     marginBottom: 6,
   },
   sectionDescription: {
-    color: 'rgba(192,192,192,0.72)',
-    fontSize: 15,
+    color: 'rgba(244,239,230,0.72)',
+    fontSize: 16,
     lineHeight: 22,
-    fontFamily: typography.fonts.bodySerifItalic,
+    fontFamily: typography.fontFamily.voiceItalic,
+    fontStyle: 'italic',
     marginBottom: 14,
   },
   focusDurationGrid: {
@@ -725,40 +732,42 @@ const styles = StyleSheet.create({
   },
   durationButton: {
     minWidth: '47%',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.28)',
-    backgroundColor: '#1C2530',
-    paddingVertical: 14,
+    borderRadius: 0,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.anchor15.hairline,
+    backgroundColor: 'transparent',
+    minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
   durationButtonText: {
-    color: colors.bone,
-    fontSize: 13,
-    letterSpacing: 0.6,
-    fontFamily: typography.fonts.heading,
+    color: colors.anchor15.bone,
+    fontSize: 11,
+    letterSpacing: 1,
+    fontFamily: typography.fontFamily.ritualSemiBold,
+    textTransform: 'uppercase',
   },
   selectedButton: {
-    borderColor: colors.gold,
-    backgroundColor: 'rgba(212,175,55,0.12)',
+    borderColor: colors.anchor15.gilt,
+    backgroundColor: 'rgba(217,179,108,0.08)',
   },
   selectedButtonText: {
-    color: colors.gold,
+    color: colors.anchor15.giltBright,
   },
   disabledButton: {
     opacity: 0.55,
   },
   sectionDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(212,175,55,0.08)',
+    backgroundColor: colors.anchor15.hairline,
     marginVertical: 24,
   },
   placeAudioLabel: {
-    color: colors.gold,
-    fontFamily: typography.fonts.heading,
-    fontSize: 13,
-    letterSpacing: 0.7,
+    color: colors.anchor15.ash,
+    fontFamily: typography.fontFamily.ritual,
+    fontSize: 10,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
     marginBottom: 2,
     marginTop: 8,
   },
@@ -770,55 +779,57 @@ const styles = StyleSheet.create({
   },
   placeToggle: {
     minWidth: 58,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.28)',
-    backgroundColor: '#1C2530',
+    borderRadius: 0,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.anchor15.hairline,
+    backgroundColor: 'transparent',
     paddingHorizontal: 12,
     paddingVertical: 10,
     alignItems: 'center',
   },
   placeToggleText: {
-    color: colors.bone,
-    fontSize: 11,
-    letterSpacing: 0.8,
-    fontFamily: typography.fonts.heading,
+    color: colors.anchor15.bone,
+    fontSize: 10,
+    letterSpacing: 1,
+    fontFamily: typography.fontFamily.ritualSemiBold,
+    textTransform: 'uppercase',
   },
   addPlaceButton: {
     marginTop: 4,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.28)',
-    backgroundColor: '#1C2530',
-    paddingHorizontal: 14,
-    paddingVertical: 13,
+    borderRadius: 0,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.anchor15.hairline,
+    backgroundColor: 'transparent',
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
   },
   addPlaceButtonText: {
-    color: colors.bone,
-    fontSize: 12,
-    letterSpacing: 0.8,
-    fontFamily: typography.fonts.heading,
+    color: colors.anchor15.bone,
+    fontSize: 10,
+    letterSpacing: 1.1,
+    fontFamily: typography.fontFamily.ritualSemiBold,
+    textTransform: 'uppercase',
   },
   placeStatusText: {
     marginTop: 10,
-    color: 'rgba(192,192,192,0.72)',
+    color: colors.anchor15.ash,
     fontSize: 13,
     lineHeight: 18,
-    fontFamily: typography.fonts.bodySerifItalic,
+    fontFamily: typography.fontFamily.voiceItalic,
+    fontStyle: 'italic',
   },
   placesList: {
     marginTop: 14,
     gap: 12,
   },
   placeCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.18)',
-    backgroundColor: 'rgba(28,37,48,0.78)',
+    borderRadius: 0,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.anchor15.hairline,
+    backgroundColor: 'transparent',
     padding: 14,
     gap: 12,
   },
@@ -837,17 +848,17 @@ const styles = StyleSheet.create({
   placeNameInput: {
     flex: 1,
     paddingVertical: 0,
-    color: colors.bone,
+    color: colors.anchor15.bone,
     fontSize: 16,
-    fontFamily: typography.fonts.heading,
+    fontFamily: typography.fontFamily.ritualSemiBold,
   },
   placeIconButton: {
     width: 34,
     height: 34,
-    borderRadius: 17,
+    borderRadius: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: 'rgba(217,179,108,0.06)',
   },
   placeControlsRow: {
     flexDirection: 'row',
@@ -856,25 +867,25 @@ const styles = StyleSheet.create({
   },
   placeChip: {
     minWidth: 58,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.28)',
-    backgroundColor: '#15202A',
+    borderRadius: 0,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.anchor15.hairline,
+    backgroundColor: 'transparent',
     paddingVertical: 11,
     alignItems: 'center',
   },
   placeChipText: {
-    color: colors.bone,
+    color: colors.anchor15.bone,
     fontSize: 11,
     letterSpacing: 0.8,
-    fontFamily: typography.fonts.heading,
+    fontFamily: typography.fontFamily.ritualSemiBold,
   },
   radiusRow: {
     flex: 1,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.2)',
-    backgroundColor: '#15202A',
+    borderRadius: 0,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.anchor15.hairline,
+    backgroundColor: 'transparent',
     paddingHorizontal: 12,
     paddingVertical: 10,
     flexDirection: 'row',
@@ -885,10 +896,10 @@ const styles = StyleSheet.create({
   radiusInput: {
     minWidth: 48,
     paddingVertical: 0,
-    color: colors.bone,
+    color: colors.anchor15.bone,
     fontSize: 15,
     textAlign: 'center',
-    fontFamily: typography.fonts.heading,
+    fontFamily: typography.fontFamily.ritualSemiBold,
   },
   placeSegmentRow: {
     flexDirection: 'row',
@@ -901,10 +912,10 @@ const styles = StyleSheet.create({
   },
   customRow: {
     marginTop: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.28)',
-    backgroundColor: '#1C2530',
+    borderRadius: 0,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.anchor15.hairline,
+    backgroundColor: 'transparent',
     paddingHorizontal: 14,
     paddingVertical: 12,
     flexDirection: 'row',
@@ -912,9 +923,10 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   customLabel: {
-    color: 'rgba(192,192,192,0.72)',
+    color: colors.anchor15.ash,
     fontSize: 14,
-    fontFamily: typography.fonts.bodySerifItalic,
+    fontFamily: typography.fontFamily.voiceItalic,
+    fontStyle: 'italic',
   },
   customInput: {
     minWidth: 52,
@@ -926,41 +938,42 @@ const styles = StyleSheet.create({
   },
   infoCard: {
     marginTop: 8,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(62,44,91,0.6)',
-    backgroundColor: 'rgba(62,44,91,0.35)',
+    borderRadius: 0,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.anchor15.hairline,
+    backgroundColor: 'rgba(217,179,108,0.035)',
     padding: 16,
   },
   infoTitle: {
-    color: colors.gold,
+    color: colors.anchor15.ash,
     fontSize: 11,
     letterSpacing: 1.2,
     textTransform: 'uppercase',
-    fontFamily: typography.fonts.headingSemiBold,
+    fontFamily: typography.fontFamily.ritual,
     marginBottom: 8,
   },
   infoBody: {
-    color: 'rgba(192,192,192,0.75)',
+    color: 'rgba(244,239,230,0.72)',
     fontSize: 15,
     lineHeight: 22,
-    fontFamily: typography.fonts.bodySerifItalic,
+    fontFamily: typography.fontFamily.voiceItalic,
+    fontStyle: 'italic',
   },
   footer: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingBottom: 16,
   },
   saveButton: {
-    borderRadius: 14,
+    borderRadius: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
+    minHeight: 48,
   },
   saveButtonText: {
-    color: '#0F1419',
+    color: colors.anchor15.ink,
     fontSize: 13,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
-    fontFamily: typography.fonts.headingSemiBold,
+    fontFamily: typography.fontFamily.ritualSemiBold,
   },
 });

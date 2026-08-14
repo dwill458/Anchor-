@@ -893,30 +893,6 @@ export type RootStackParamList = {
   // ═══════════════════════════════════════════════════
   Settings: undefined;
   SessionDefaults: undefined;
-  DailyPracticeGoal: undefined;
-  ThreadStrength: undefined;
-  RestDays: undefined;
-  // DEFERRED: replaced by SessionDefaultsScreen — remove post-launch.
-  DefaultCharge: undefined;
-  // DEFERRED: replaced by SessionDefaultsScreen — remove post-launch.
-  DefaultActivation: undefined;
-  // DEFERRED: replaced by SessionDefaultsScreen — remove post-launch.
-  PrimingDefaults: undefined;
-  // DEFERRED: replaced by SessionDefaultsScreen — remove post-launch.
-  DefaultFocusMode: undefined;
-
-  // Appearance Settings
-  ThemeSelection: undefined;
-  AccentColor: undefined;
-  VaultView: undefined;
-
-  // Audio & Haptics Settings
-  MantraVoice: undefined;
-  VoiceStyle: undefined;
-  HapticFeedback: undefined;
-
-  // Data & Privacy Settings
-  DataPrivacy: undefined;
 
   // Deferred merch flow. Kept typed while ENABLE_MERCH gates production access.
   ProductSelection: {
@@ -939,7 +915,7 @@ export type RootStackParamList = {
 };
 
 export type PracticeStackParamList = {
-  PracticeHome: undefined;
+  PracticeHome: { anchorId?: string } | undefined;
   ThreadStrengthDetail: undefined;
   // DEFERRED: StabilizeRitual: { anchorId: string }; — restore post-launch
   Evolve: undefined;

@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useEffect } from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import Animated, {
   Easing,
@@ -6,87 +6,128 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { colors, spacing, typography } from '@/theme';
+import { LockKeyhole } from 'lucide-react-native';
+import { typography } from '@/theme';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 
-type PortalVariant = 'charge' | 'stabilize' | 'visualize' | 'burn';
+type PortalVariant = 'focus' | 'visualize' | 'deepPrime' | 'release';
 
 interface ModePortalTileProps {
   variant: PortalVariant;
   title: string;
   meaning: string;
   durationHint: string;
-  durationNode?: React.ReactNode;
-  icon: React.ReactNode;
+  icon?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   onPress: () => void;
   badge?: string;
   testID?: string;
   disabled?: boolean;
+  selected?: boolean;
+  locked?: boolean;
 }
 
+const MODE_COLORS: Record<PortalVariant, string> = {
+  focus: '#AD99D2',
+  visualize: '#78B4D1',
+  deepPrime: '#F0CB6A',
+  release: '#C8875A',
+};
+
+const FADE_DURATION = 200;
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+/**
+ * A selectable practice tool, deliberately separate from its launch CTA. The
+ * continuous axis makes the four tools read as one ritual sequence without
+ * implying that it is a progress meter.
+ */
 export const ModePortalTile: React.FC<ModePortalTileProps> = ({
   variant,
   title,
   meaning,
   durationHint,
-  durationNode,
   icon,
   style,
   onPress,
   badge,
   testID,
   disabled = false,
+  selected = false,
+  locked = false,
 }) => {
-  const pressed = useSharedValue(0);
-  const isFeatured = variant === 'charge';
-  const isBurn = variant === 'burn';
+  const modeColor = MODE_COLORS[variant];
+  const reduceMotion = useReduceMotionEnabled();
 
-  const handlePressIn = useCallback(() => {
-    pressed.value = withTiming(1, {
-      duration: 120,
+  // The meaning text's height is font- and content-dependent, so it is left
+  // to natural Yoga layout rather than measured and animated by hand —
+  // measuring it on JS mount races the async custom-font load (the
+  // fallback-font measurement is shorter than the real one, and nothing
+  // re-measures once the font swaps in), which clips/overlaps the text.
+  // Only the reveal is animated, as a plain opacity fade.
+  const fadeProgress = useSharedValue(selected ? 1 : 0);
+
+  useEffect(() => {
+    fadeProgress.value = withTiming(selected ? 1 : 0, {
+      duration: reduceMotion ? 0 : FADE_DURATION,
       easing: Easing.out(Easing.cubic),
     });
-  }, [pressed]);
+  }, [selected, fadeProgress, reduceMotion]);
 
-  const handlePressOut = useCallback(() => {
-    pressed.value = withTiming(0, {
-      duration: 200,
-      easing: Easing.out(Easing.cubic),
-    });
-  }, [pressed]);
-
-  const animatedCard = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 - pressed.value * 0.015 }],
-  }));
-
-  const dotStyle = useAnimatedStyle(() => ({
-    opacity: 0.44 + pressed.value * 0.56,
-    transform: [{ scale: 1 + pressed.value * 0.2 }],
+  const meaningFadeStyle = useAnimatedStyle(() => ({
+    opacity: fadeProgress.value,
   }));
 
   return (
     <AnimatedPressable
       testID={testID}
       onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
       accessibilityRole="button"
-      accessibilityState={{ disabled }}
+      accessibilityLabel={`${title}${locked ? ', locked' : ''}`}
+      accessibilityState={{ disabled, selected }}
       disabled={disabled}
       hitSlop={8}
-      pointerEvents={disabled ? 'none' : 'auto'}
-      style={[styles.pressable, style, animatedCard]}
+      style={({ pressed }: { pressed: boolean }) => [
+        styles.pressable,
+        style,
+        pressed && !disabled && styles.pressed,
+      ]}
     >
-      <View pointerEvents="none" style={[styles.card, isFeatured ? styles.cardFeatured : styles.cardSecondary, isBurn && styles.cardBurn]}>
-        <View pointerEvents="none" style={styles.topRow}>
-          <View pointerEvents="none" style={[styles.iconWrap, isFeatured ? styles.iconFeatured : styles.iconSecondary]}>{icon}</View>
-          {badge ? <Text style={styles.badge}>{badge}</Text> : <Animated.View style={[styles.dot, dotStyle]} />}
+      <View pointerEvents="none" style={styles.axisLine} />
+      <View
+        pointerEvents="none"
+        style={[
+          styles.node,
+          { borderColor: modeColor },
+          selected && { backgroundColor: modeColor, shadowColor: modeColor, shadowOpacity: 0.58, shadowRadius: 9, elevation: 4 },
+          locked && !selected && styles.lockedNode,
+        ]}
+      />
+      <View
+        pointerEvents="none"
+        style={[
+          styles.content,
+          selected && styles.contentSelected,
+          variant === 'release' && selected && styles.releaseSelected,
+        ]}
+      >
+        <View style={styles.header}>
+          <View style={styles.titleRow}>
+            <Text style={[styles.title, selected && { color: modeColor }, locked && styles.titleLocked]}>{title}</Text>
+            {locked ? <LockKeyhole size={12} color="rgba(242,223,168,0.52)" /> : null}
+          </View>
+          <View style={styles.meta}>
+            {badge ? <Text style={[styles.badge, selected && { borderColor: modeColor, color: modeColor }]}>{badge}</Text> : null}
+            {icon ? <View style={styles.icon}>{icon}</View> : null}
+          </View>
         </View>
-        <Text style={isFeatured ? styles.titleFeatured : styles.titleSecondary}>{title}</Text>
-        <Text style={isFeatured ? styles.meaningFeatured : styles.meaningSecondary}>{meaning}</Text>
-        <Text style={isFeatured ? styles.durationFeatured : styles.durationSecondary}>{durationNode ?? durationHint}</Text>
+        <Text style={[styles.duration, selected && { color: modeColor }]}>{durationHint}</Text>
+
+        {selected ? (
+          <Animated.View style={meaningFadeStyle}>
+            <Text style={styles.meaning}>{meaning}</Text>
+          </Animated.View>
+        ) : null}
       </View>
     </AnimatedPressable>
   );
@@ -94,107 +135,78 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
 
 const styles = StyleSheet.create({
   pressable: {
-    borderRadius: 18,
+    minHeight: 64,
+    paddingLeft: 32,
+    position: 'relative',
   },
-  card: {
-    borderWidth: 1,
-    overflow: 'hidden',
+  pressed: { opacity: 0.82 },
+  axisLine: {
+    position: 'absolute',
+    left: 9,
+    top: 0,
+    bottom: 0,
+    width: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(242,223,168,0.22)',
   },
-  cardFeatured: {
-    minHeight: 160,
-    backgroundColor: colors.practice.cardFeaturedSurface,
-    borderColor: colors.practice.cardFeaturedBorder,
-    borderRadius: 18,
-    padding: spacing.lg,
+  node: {
+    position: 'absolute',
+    top: 19,
+    left: 3,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1.5,
+    backgroundColor: '#080C10',
   },
-  cardSecondary: {
-    minHeight: 132,
-    backgroundColor: colors.practice.cardSecondarySurface,
-    borderColor: colors.practice.cardSecondaryBorder,
-    borderRadius: 12,
-    padding: spacing.md,
+  lockedNode: { borderColor: 'rgba(242,223,168,0.34)' },
+  content: {
+    minHeight: 64,
+    paddingTop: 14,
+    paddingBottom: 12,
+    paddingLeft: 14,
+    paddingRight: 2,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(242,223,168,0.1)',
   },
-  cardBurn: {
-    borderColor: '#2a1a1a',
+  contentSelected: {
+    paddingBottom: 15,
+    borderBottomColor: 'rgba(242,223,168,0.22)',
   },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.md,
-  },
-  iconWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  iconFeatured: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.practice.cardIconSurface,
-    borderColor: colors.practice.cardIconBorder,
-  },
-  iconSecondary: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
-    backgroundColor: colors.practice.cardIconSecondarySurface,
-    borderColor: colors.practice.cardIconSecondaryBorder,
-  },
-  dot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: colors.practice.cardDotSurface,
-    borderWidth: 1,
-    borderColor: colors.practice.cardDotBorder,
-  },
-  badge: { color: colors.gold, fontFamily: typography.fontFamily.sans, fontSize: 9, letterSpacing: 1.2, borderWidth: 1, borderColor: colors.practice.cardIconBorder, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4 },
-  titleFeatured: {
+  releaseSelected: {},
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  titleRow: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  title: {
+    color: 'rgba(244,237,216,0.66)',
     fontFamily: typography.fontFamily.serifSemiBold,
-    fontSize: 16,
-    letterSpacing: 1.3,
-    color: colors.gold,
-    marginBottom: spacing.xs + 2,
-  },
-  titleSecondary: {
-    fontFamily: typography.fontFamily.serifSemiBold,
-    fontSize: 11,
-    letterSpacing: 1.5,
-    color: colors.bone,
-    opacity: 0.85,
-    marginBottom: spacing.xs + 1,
-  },
-  meaningFeatured: {
-    fontFamily: typography.fontFamily.sans,
     fontSize: 14,
-    lineHeight: 21,
-    color: colors.silver,
-    fontStyle: 'italic',
-    marginBottom: spacing.sm + 2,
+    letterSpacing: 1.15,
   },
-  meaningSecondary: {
+  titleLocked: { color: 'rgba(244,237,216,0.45)' },
+  meta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  icon: { opacity: 0.78 },
+  badge: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(242,223,168,0.35)',
+    borderRadius: 999,
+    color: 'rgba(242,223,168,0.58)',
+    fontFamily: typography.fontFamily.sansBold,
+    fontSize: 8,
+    letterSpacing: 1.1,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
+  duration: {
+    marginTop: 4,
+    color: 'rgba(242,223,168,0.42)',
     fontFamily: typography.fontFamily.sans,
-    fontSize: 12,
-    lineHeight: 17,
-    color: colors.silver,
-    fontStyle: 'italic',
-    marginBottom: spacing.sm,
-    opacity: 0.8,
+    fontSize: 9,
+    letterSpacing: 1.25,
   },
-  durationFeatured: {
-    fontFamily: typography.fontFamily.serif,
-    fontSize: 11,
-    letterSpacing: 1.5,
-    color: colors.bronze,
-    textTransform: 'uppercase',
-  },
-  durationSecondary: {
-    fontFamily: typography.fontFamily.serif,
-    fontSize: 10,
-    letterSpacing: 1.2,
-    color: colors.bronze,
-    textTransform: 'uppercase',
+  meaning: {
+    marginTop: 9,
+    color: 'rgba(244,237,216,0.71)',
+    fontFamily: typography.fontFamily.bodySerifItalic,
+    fontSize: 15,
+    lineHeight: 20,
   },
 });

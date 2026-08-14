@@ -145,40 +145,6 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationCategory, NotificationTe
       ['sessionCount', 'threadStrength']
     ),
   ],
-  milestone: [
-    makeTemplate(
-      'milestone_direct_7_sessions',
-      'milestone',
-      'direct',
-      '{milestoneLabel}',
-      'The thread is holding.',
-      ['milestoneLabel']
-    ),
-    makeTemplate(
-      'milestone_encouraging_7_sessions',
-      'milestone',
-      'encouraging',
-      '{milestoneLabel}',
-      'Your practice is becoming real progress.',
-      ['milestoneLabel']
-    ),
-    makeTemplate(
-      'milestone_reflective_7_sessions',
-      'milestone',
-      'reflective',
-      '{milestoneLabel}',
-      'A pattern is taking shape.',
-      ['milestoneLabel']
-    ),
-    makeTemplate(
-      'milestone_performance_7_sessions',
-      'milestone',
-      'performance',
-      '{milestoneLabel}',
-      'Progress logged. Momentum confirmed.',
-      ['milestoneLabel']
-    ),
-  ],
 };
 
 export const getAllNotificationCopy = (): string[] =>

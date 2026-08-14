@@ -6,7 +6,6 @@ import { localDateString } from '@/services/DailyGoalNudgeService';
 import type {
   LastNotificationSentAt,
   NotificationCategory,
-  NotificationMilestone,
   NotificationPermissionStatus,
   UnfinishedAnchorReminderMap,
 } from './notificationTypes';
@@ -27,9 +26,7 @@ export interface NotificationRuleState {
   threadStrengthThreshold: number;
   unfinishedAnchorRemindersEnabled: boolean;
   weeklyRecapEnabled: boolean;
-  milestoneNotificationsEnabled: boolean;
   lastNotificationSentAt?: LastNotificationSentAt;
-  sentMilestones?: NotificationMilestone[];
   unfinishedAnchorReminders?: UnfinishedAnchorReminderMap;
 }
 
@@ -47,7 +44,6 @@ export interface NotificationRuleResult {
   category: NotificationCategory;
   eligible: boolean;
   anchorId?: string;
-  milestone?: NotificationMilestone;
   fireDate?: Date;
   variables?: Record<string, string | number>;
   reason?: string;
@@ -319,65 +315,11 @@ export function evaluateWeeklyRecap(
   };
 }
 
-export function detectMilestone(
-  totalSessionsCount: number,
-  threadStrength: number,
-  sentMilestones: NotificationMilestone[] = []
-): NotificationMilestone | null {
-  const candidates: NotificationMilestone[] = [];
-  if (totalSessionsCount >= 3) candidates.push('sessions_3');
-  if (totalSessionsCount >= 7) candidates.push('sessions_7');
-  if (totalSessionsCount >= 30) candidates.push('sessions_30');
-  if (threadStrength >= 100) candidates.push('thread_strength_100');
-
-  return candidates.find((candidate) => !sentMilestones.includes(candidate)) ?? null;
-}
-
-export function getMilestoneLabel(milestone: NotificationMilestone): string {
-  switch (milestone) {
-    case 'sessions_3':
-      return '3 sessions completed';
-    case 'sessions_7':
-      return '7 sessions completed';
-    case 'sessions_30':
-      return '30 sessions completed';
-    case 'thread_strength_100':
-      return 'Thread Strength reached 100%';
-  }
-}
-
-export function evaluateMilestone(
-  state: NotificationRuleState,
-  context: NotificationRuleContext
-): NotificationRuleResult {
-  const milestone = detectMilestone(
-    context.totalSessionsCount,
-    context.threadStrength,
-    state.sentMilestones
-  );
-  const fireDate = new Date(context.now.getTime() + SOON_MS);
-  const eligible = Boolean(
-    milestone &&
-    state.milestoneNotificationsEnabled &&
-    canSendCategory(state, 'milestone', context.now, fireDate)
-  );
-
-  return {
-    category: 'milestone',
-    eligible,
-    milestone: milestone ?? undefined,
-    fireDate: eligible ? fireDate : undefined,
-    variables: milestone ? { milestoneLabel: getMilestoneLabel(milestone) } : undefined,
-    reason: eligible ? undefined : 'milestone_ineligible',
-  };
-}
-
 export function evaluateNotificationRules(
   state: NotificationRuleState,
   context: NotificationRuleContext
 ): NotificationRuleResult[] {
   return [
-    evaluateMilestone(state, context),
     evaluateThreadStrength(state, context),
     evaluateUnfinishedAnchor(state, context),
     evaluateWeeklyRecap(state, context),
