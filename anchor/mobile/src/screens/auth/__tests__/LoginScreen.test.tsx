@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert } from 'react-native';
+import { Alert, Animated } from 'react-native';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { AuthService } from '@/services/AuthService';
@@ -7,6 +7,7 @@ import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { LoginScreen } from '../LoginScreen';
 
 const mockSetPreferredPlanId = jest.fn();
+let mockReduceMotionEnabled = false;
 const mockNavigation = {
   replace: jest.fn(),
   navigate: jest.fn(),
@@ -69,9 +70,14 @@ jest.mock('@/navigation/firstAnchorGate', () => ({
   navigateToVaultDestination: jest.fn(),
 }));
 
+jest.mock('@/hooks/useReduceMotionEnabled', () => ({
+  useReduceMotionEnabled: () => mockReduceMotionEnabled,
+}));
+
 describe('LoginScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockReduceMotionEnabled = false;
   });
 
   it('sends a password reset email for the entered address', async () => {
@@ -149,5 +155,24 @@ describe('LoginScreen', () => {
         expect.objectContaining({ provider: 'apple' })
       );
     });
+  });
+
+  it('labels auth controls and removes ambient animation when reduced motion is enabled', () => {
+    mockReduceMotionEnabled = true;
+    const timingSpy = jest.spyOn(Animated, 'timing');
+
+    const screen = render(
+      <LoginScreen
+        navigation={mockNavigation as never}
+        route={{ params: { initialTab: 'signin' }}}
+      />
+    );
+
+    expect(screen.getByLabelText('EMAIL')).toBeTruthy();
+    expect(screen.getByLabelText('PASSWORD')).toBeTruthy();
+    expect(screen.getByLabelText('Show password')).toBeTruthy();
+    expect(screen.getByLabelText('Sign in or sign up')).toBeTruthy();
+    expect(timingSpy).not.toHaveBeenCalled();
+    timingSpy.mockRestore();
   });
 });
