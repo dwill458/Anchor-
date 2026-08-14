@@ -1,7 +1,14 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { LockKeyhole } from 'lucide-react-native';
 import { typography } from '@/theme';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 
 type PortalVariant = 'focus' | 'visualize' | 'deepPrime' | 'release';
 
@@ -27,6 +34,9 @@ const MODE_COLORS: Record<PortalVariant, string> = {
   release: '#C8875A',
 };
 
+const FADE_DURATION = 200;
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 /**
  * A selectable practice tool, deliberately separate from its launch CTA. The
  * continuous axis makes the four tools read as one ritual sequence without
@@ -47,9 +57,29 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
   locked = false,
 }) => {
   const modeColor = MODE_COLORS[variant];
+  const reduceMotion = useReduceMotionEnabled();
+
+  // The meaning text's height is font- and content-dependent, so it is left
+  // to natural Yoga layout rather than measured and animated by hand —
+  // measuring it on JS mount races the async custom-font load (the
+  // fallback-font measurement is shorter than the real one, and nothing
+  // re-measures once the font swaps in), which clips/overlaps the text.
+  // Only the reveal is animated, as a plain opacity fade.
+  const fadeProgress = useSharedValue(selected ? 1 : 0);
+
+  useEffect(() => {
+    fadeProgress.value = withTiming(selected ? 1 : 0, {
+      duration: reduceMotion ? 0 : FADE_DURATION,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [selected, fadeProgress, reduceMotion]);
+
+  const meaningFadeStyle = useAnimatedStyle(() => ({
+    opacity: fadeProgress.value,
+  }));
 
   return (
-    <Pressable
+    <AnimatedPressable
       testID={testID}
       onPress={onPress}
       accessibilityRole="button"
@@ -57,7 +87,11 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
       accessibilityState={{ disabled, selected }}
       disabled={disabled}
       hitSlop={8}
-      style={({ pressed }) => [styles.pressable, style, pressed && !disabled && styles.pressed]}
+      style={({ pressed }: { pressed: boolean }) => [
+        styles.pressable,
+        style,
+        pressed && !disabled && styles.pressed,
+      ]}
     >
       <View pointerEvents="none" style={styles.axisLine} />
       <View
@@ -88,9 +122,14 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
           </View>
         </View>
         <Text style={[styles.duration, selected && { color: modeColor }]}>{durationHint}</Text>
-        {selected ? <Text style={styles.meaning}>{meaning}</Text> : null}
+
+        {selected ? (
+          <Animated.View style={meaningFadeStyle}>
+            <Text style={styles.meaning}>{meaning}</Text>
+          </Animated.View>
+        ) : null}
       </View>
-    </Pressable>
+    </AnimatedPressable>
   );
 };
 
@@ -130,7 +169,6 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(242,223,168,0.1)',
   },
   contentSelected: {
-    minHeight: 88,
     paddingBottom: 15,
     borderBottomColor: 'rgba(242,223,168,0.22)',
   },
