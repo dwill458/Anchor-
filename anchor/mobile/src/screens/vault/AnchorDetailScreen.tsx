@@ -19,6 +19,7 @@ import {
   Image,
   Alert,
   Modal,
+  Pressable,
   Share,
   Platform,
 } from 'react-native';
@@ -27,7 +28,7 @@ import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, isToday } from 'date-fns';
 import { SvgXml } from 'react-native-svg';
-import { ChevronRight, Share2, Zap } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Info, MoreHorizontal, Share2, X, Zap } from 'lucide-react-native';
 import { MoreRitualsSheet, RitualType } from '@/components/MoreRitualsSheet';
 import { useToast } from '@/components/ToastProvider';
 import { usePracticeEntry } from '@/hooks/usePracticeEntry';
@@ -69,6 +70,7 @@ import {
   ZenBackground,
 } from '@/components/common';
 import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { resolveBurnArtworkUri } from '@/screens/rituals/utils/resolveBurnArtworkUri';
 import { ExportAnchorSheet } from '@/components/ExportAnchorSheet';
 import {
@@ -647,9 +649,10 @@ const MiniWeekTrack = ({ weekHistory, lastPrimedAt }) => {
 const AnchorDetailsScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const perfTier = useAppPerformanceTier();
+  const reduceMotionEnabled = useReduceMotionEnabled();
   const isLowPerfDevice = perfTier === 'low';
   const isReducedEffectsDevice = perfTier !== 'high';
-  const shouldAnimateIntro = perfTier === 'high';
+  const shouldAnimateIntro = perfTier === 'high' && !reduceMotionEnabled;
   const { startPractice } = usePracticeEntry();
   const { navigateToPractice } = useTabNavigation();
   const toast = useToast();
@@ -659,6 +662,8 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   });
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const removeAnchor = useAnchorStore((state) => state.removeAnchor);
+  const isAnchorStoreLoading = useAnchorStore((state) => state.isLoading);
+  const anchorStoreError = useAnchorStore((state) => state.error);
   const defaultActivation = useSettingsStore((s) => s.defaultActivation);
   const setDefaultActivation = useSettingsStore((s) => s.setDefaultActivation);
   const practiceHistory = useSessionStore((s) => s.practiceHistory);
@@ -680,6 +685,9 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
   const [threadStrengthSheetVisible, setThreadStrengthSheetVisible] =
     useState(false);
+  const [detailOptionsVisible, setDetailOptionsVisible] = useState(false);
+  const [distilledFormSheetVisible, setDistilledFormSheetVisible] = useState(false);
+  const [weaveInfoSheetVisible, setWeaveInfoSheetVisible] = useState(false);
   const [showShareCard, setShowShareCard] = useState(false);
   const [shareFormat, setShareFormat] = useState<'square' | 'stories'>(
     'square',
@@ -828,7 +836,8 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const divineGlowActive = Boolean(anchor.charged || anchor.today === 'Primed');
   const freezeDetailChrome =
     Platform.OS === 'android' && isScrollActiveRef.current;
-  const pauseExpensiveEffects = freezeDetailChrome || isReducedEffectsDevice;
+  const pauseExpensiveEffects =
+    freezeDetailChrome || isReducedEffectsDevice || reduceMotionEnabled;
   const enableDetailChromeGlow =
     Platform.OS !== 'android' && perfTier === 'high';
   const glowAnimationsActive = divineGlowActive && !pauseExpensiveEffects;
@@ -1298,6 +1307,66 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
       );
     }
   };
+
+  return (
+    <AnchorDetailEditorialPage
+      anchor={anchor}
+      hasAnchor={Boolean(sourceAnchor)}
+      isLoading={Boolean(isAnchorStoreLoading)}
+      loadError={anchorStoreError}
+      insets={insets}
+      perfTier={perfTier}
+      reduceMotionEnabled={reduceMotionEnabled}
+      resolvedSigilSvg={resolvedSigilSvg}
+      anchorPractice={anchorPractice}
+      threadStrengthValue={threadStrengthValue}
+      isExporting={isExporting}
+      isShareCardLoading={isShareCardLoading}
+      pendingExportAction={pendingExportAction}
+      anchorCardRef={anchorCardRef}
+      showOptions={detailOptionsVisible}
+      showDistilledForm={distilledFormSheetVisible}
+      showWeaveInfo={weaveInfoSheetVisible}
+      showThreadStrength={threadStrengthSheetVisible}
+      showExportSheet={showExportSheet}
+      showConfirmDelete={confirmDeleteVisible}
+      showConfirmRelease={confirmUnchargedBurnVisible}
+      showShareCard={showShareCard}
+      shareCardRef={shareCardRef}
+      shareFormat={shareFormat}
+      onBack={() => navigation?.goBack()}
+      onOpenOptions={() => setDetailOptionsVisible(true)}
+      onCloseOptions={() => setDetailOptionsVisible(false)}
+      onOpenDistilledForm={() => setDistilledFormSheetVisible(true)}
+      onCloseDistilledForm={() => setDistilledFormSheetVisible(false)}
+      onOpenWeaveInfo={() => setWeaveInfoSheetVisible(true)}
+      onCloseWeaveInfo={() => setWeaveInfoSheetVisible(false)}
+      onOpenThreadStrength={() => setThreadStrengthSheetVisible(true)}
+      onCloseThreadStrength={() => setThreadStrengthSheetVisible(false)}
+      onOpenWeave={handleOpenWeave}
+      onPractice={handlePracticePress}
+      onShare={handleShareAnchor}
+      onSetWallpaper={handleSetWallpaper}
+      onSavePng={() => setShowExportSheet(true)}
+      onCloseExport={() => setShowExportSheet(false)}
+      onRelease={() => {
+        setDetailOptionsVisible(false);
+        handleBurn();
+      }}
+      onDelete={() => {
+        setDetailOptionsVisible(false);
+        handleDelete();
+      }}
+      onCloseDelete={() => setConfirmDeleteVisible(false)}
+      onConfirmDelete={confirmDeleteAnchor}
+      onCloseRelease={() => setConfirmUnchargedBurnVisible(false)}
+      onConfirmRelease={executeBurn}
+      onShareCardRendered={() => {
+        shareCardRenderedRef.current = true;
+        setShareCardRendered(true);
+      }}
+    />
+  );
 
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
@@ -3084,4 +3153,588 @@ const s = StyleSheet.create({
     color: 'rgba(255,255,255,0.25)',
     letterSpacing: 0.3,
   },
+});
+
+const EDITORIAL_MODE_META = {
+  focus: { label: 'Focus', color: '#D9B36C' },
+  deep_prime: { label: 'Deep Prime', color: '#A7B9B1' },
+  visualize: { label: 'Visualize', color: '#8AB9D5' },
+  release: { label: 'Release', color: '#C8875A' },
+};
+
+const threadStateFor = (value: number) => {
+  if (value >= 80) return 'Well held';
+  if (value >= 55) return 'In practice';
+  if (value >= 30) return 'Taking shape';
+  return 'Just beginning';
+};
+
+const modeLabel = (mode: string) =>
+  EDITORIAL_MODE_META[mode]?.label ?? String(mode).replace(/_/g, ' ');
+
+const modeColor = (mode: string) =>
+  EDITORIAL_MODE_META[mode]?.color ?? colors.anchor15.ash;
+
+const strengthExplanation = (sessions: number) => {
+  if (sessions === 0) {
+    return 'Your Thread Strength will begin to take shape with your first completed Practice.';
+  }
+  if (sessions === 1) {
+    return 'One completed Practice has begun a thread you can return to.';
+  }
+  return `${sessions} completed sessions are held in this Anchor’s thread.`;
+};
+
+const EditorialRule = ({ style }: { style?: object }) => (
+  <View pointerEvents="none" style={[editorial.rule, style]} />
+);
+
+const EditorialInfoButton = ({ label, onPress }: { label: string; onPress: () => void }) => (
+  <Pressable
+    accessibilityRole="button"
+    accessibilityLabel={label}
+    accessibilityHint="Opens a short explanation"
+    hitSlop={8}
+    onPress={onPress}
+    style={({ pressed }) => [editorial.infoButton, pressed && editorial.pressed]}
+  >
+    <Info size={13} color={colors.anchor15.gilt} strokeWidth={1.5} />
+  </Pressable>
+);
+
+const EditorialSheet = ({
+  visible,
+  title,
+  children,
+  onClose,
+  reduceMotionEnabled,
+}: {
+  visible: boolean;
+  title: string;
+  children: React.ReactNode;
+  onClose: () => void;
+  reduceMotionEnabled: boolean;
+}) => (
+  <Modal
+    transparent
+    visible={visible}
+    animationType={reduceMotionEnabled ? 'none' : 'slide'}
+    onRequestClose={onClose}
+    accessibilityViewIsModal
+  >
+    <Pressable
+      accessibilityLabel={`Close ${title}`}
+      onPress={onClose}
+      style={editorial.sheetScrim}
+    >
+      <Pressable onPress={(event) => event.stopPropagation()} style={editorial.sheet}>
+        <View style={editorial.sheetHandle} />
+        <View style={editorial.sheetHeader}>
+          <Text style={editorial.sheetTitle}>{title}</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            onPress={onClose}
+            style={editorial.sheetClose}
+          >
+            <X size={18} color={colors.anchor15.ash} strokeWidth={1.5} />
+          </Pressable>
+        </View>
+        {children}
+      </Pressable>
+    </Pressable>
+  </Modal>
+);
+
+const EditorialWeavePreview = ({ anchorPractice, onPress }: any) => {
+  const modes = Object.keys(EDITORIAL_MODE_META);
+  const total = Math.max(1, anchorPractice.totalPrimingSessions);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Open The Weave. ${anchorPractice.totalPrimingSessions} completed sessions for this Anchor.`}
+      accessibilityHint="Shows this Anchor’s completed Practice history"
+      onPress={onPress}
+      style={({ pressed }) => [editorial.weaveEntry, pressed && editorial.pressed]}
+      testID="anchor-detail-open-weave"
+    >
+      <View style={editorial.weaveHeadingRow}>
+        <Text style={editorial.sectionEyebrow}>THE WEAVE</Text>
+        <ChevronRight size={17} color={colors.anchor15.gilt} strokeWidth={1.4} />
+      </View>
+      <View style={editorial.weaveCanvas} accessible={false}>
+        {modes.map((mode, index) => {
+          const count = anchorPractice.modeCounts[mode] ?? 0;
+          const length = count ? Math.max(18, Math.round((count / total) * 100)) : 12;
+          return (
+            <View key={mode} style={[editorial.weaveLane, { top: 18 + index * 20 }]}>
+              <View style={editorial.weaveLaneTrack} />
+              <View
+                style={[
+                  editorial.weaveLaneFill,
+                  { width: `${length}%`, backgroundColor: modeColor(mode) },
+                ]}
+              />
+              {Array.from({ length: Math.min(count, 6) }).map((_, dotIndex) => (
+                <View
+                  key={`${mode}-${dotIndex}`}
+                  style={[
+                    editorial.weaveNode,
+                    {
+                      left: `${Math.min(90, 12 + ((dotIndex + 1) * 72) / (Math.min(count, 6) + 1))}%`,
+                      backgroundColor: modeColor(mode),
+                    },
+                  ]}
+                />
+              ))}
+            </View>
+          );
+        })}
+        {anchorPractice.totalPrimingSessions === 0 ? (
+          <Text style={editorial.weaveEmpty}>Your first completed Practice will appear here.</Text>
+        ) : null}
+      </View>
+      <View style={editorial.weaveFooter}>
+        <Text style={editorial.weaveMeta}>
+          {anchorPractice.totalPrimingSessions} {anchorPractice.totalPrimingSessions === 1 ? 'session' : 'sessions'} · Thread Strength {anchorPractice.threadStrengthValue}
+        </Text>
+        <Text style={editorial.weaveLink}>VIEW THE WEAVE →</Text>
+      </View>
+    </Pressable>
+  );
+};
+
+const AnchorDetailEditorialPage = (props: any) => {
+  const {
+    anchor,
+    hasAnchor,
+    isLoading,
+    loadError,
+    insets,
+    perfTier,
+    reduceMotionEnabled,
+    resolvedSigilSvg,
+    anchorPractice,
+    threadStrengthValue,
+    isExporting,
+    isShareCardLoading,
+    pendingExportAction,
+    anchorCardRef,
+    showOptions,
+    showDistilledForm,
+    showWeaveInfo,
+    showThreadStrength,
+    showExportSheet,
+    showConfirmDelete,
+    showConfirmRelease,
+    showShareCard,
+    shareCardRef,
+    shareFormat,
+    onBack,
+    onOpenOptions,
+    onCloseOptions,
+    onOpenDistilledForm,
+    onCloseDistilledForm,
+    onOpenWeaveInfo,
+    onCloseWeaveInfo,
+    onOpenThreadStrength,
+    onCloseThreadStrength,
+    onOpenWeave,
+    onPractice,
+    onShare,
+    onSetWallpaper,
+    onSavePng,
+    onCloseExport,
+    onRelease,
+    onDelete,
+    onCloseDelete,
+    onConfirmDelete,
+    onCloseRelease,
+    onConfirmRelease,
+    onShareCardRendered,
+  } = props;
+  const threadState = threadStateFor(threadStrengthValue);
+  const hasHistory = anchorPractice.totalPrimingSessions > 0;
+  const isCachedOffline = Boolean(loadError && hasAnchor);
+
+  const statusTitle = isLoading
+    ? 'Gathering your Anchor'
+    : loadError
+      ? 'This Anchor is unavailable right now'
+      : 'Anchor not found';
+  const statusBody = isLoading
+    ? 'Your saved intention and Practice history are being prepared.'
+    : loadError
+      ? 'Reconnect, then return to Sanctuary and try again.'
+      : 'This Anchor may have been released or removed.';
+
+  return (
+    <View style={editorial.root}>
+      <StatusBar barStyle="light-content" />
+      <ZenBackground
+        variant="sanctuary"
+        showOrbs={perfTier === 'high' && !reduceMotionEnabled}
+        showGrain
+        showVignette
+        performanceTier={perfTier}
+      />
+      <View style={[editorial.header, { paddingTop: insets.top + 2 }]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Back to Sanctuary"
+          onPress={onBack}
+          style={({ pressed }) => [editorial.headerControl, editorial.backControl, pressed && editorial.pressed]}
+        >
+          <ChevronLeft size={19} color={colors.anchor15.giltBright} strokeWidth={1.45} />
+          <Text style={editorial.backLabel}>Sanctuary</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Anchor options"
+          onPress={onOpenOptions}
+          style={({ pressed }) => [editorial.headerControl, editorial.optionsControl, pressed && editorial.pressed]}
+        >
+          <MoreHorizontal size={21} color={colors.anchor15.ash} strokeWidth={1.45} />
+        </Pressable>
+      </View>
+
+      {!hasAnchor ? (
+        <View style={editorial.statusWrap} accessibilityRole={loadError ? 'alert' : undefined}>
+          <View style={editorial.statusRule} />
+          <Text style={editorial.statusTitle}>{statusTitle}</Text>
+          <Text style={editorial.statusBody}>{statusBody}</Text>
+          <Pressable accessibilityRole="button" onPress={onBack} style={editorial.statusAction}>
+            <Text style={editorial.statusActionText}>BACK TO SANCTUARY</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <>
+          <ScrollView
+            contentContainerStyle={[editorial.scroll, { paddingBottom: insets.bottom + 128 }]}
+            showsVerticalScrollIndicator={false}
+          >
+            {isCachedOffline ? (
+              <Text accessibilityRole="alert" style={editorial.cachedLabel}>
+                Showing saved Anchor details while offline.
+              </Text>
+            ) : null}
+
+            <FadeUp animate={!reduceMotionEnabled}>
+              <View style={editorial.heroArtworkWrap} accessible accessibilityLabel={`${anchor.name} Anchor artwork`}>
+                <View pointerEvents="none" style={editorial.heroHalo} />
+                <View pointerEvents="none" style={editorial.heroRing} />
+                <View style={editorial.heroArtwork}>
+                  {anchor.sigilUri ? (
+                    <Image source={{ uri: anchor.sigilUri }} style={editorial.heroImage} resizeMode="cover" />
+                  ) : resolvedSigilSvg ? (
+                    <SigilSvg xml={resolvedSigilSvg} width={122} height={122} color={colors.anchor15.giltBright} />
+                  ) : (
+                    <Text style={editorial.heroFallbackMark}>{anchor.name?.slice(0, 1)?.toUpperCase() ?? 'A'}</Text>
+                  )}
+                </View>
+              </View>
+
+              <View style={editorial.identity}>
+                <Text numberOfLines={3} style={editorial.anchorName}>{anchor.name}</Text>
+                <Text style={editorial.category}>{anchor.category}</Text>
+                <Text style={editorial.intention}>“{anchor.intention}”</Text>
+              </View>
+            </FadeUp>
+
+            <FadeUp delay={80} animate={!reduceMotionEnabled}>
+              <View style={editorial.formSection}>
+                <View style={editorial.centeredLabelRow}>
+                  <Text style={editorial.sectionEyebrow}>DISTILLED FORM</Text>
+                  <EditorialInfoButton label="About Distilled Form" onPress={onOpenDistilledForm} />
+                </View>
+                <View style={editorial.lettersRow}>
+                  {anchor.distilled.length ? anchor.distilled.map((letter: string, index: number) => (
+                    <React.Fragment key={`${letter}-${index}`}>
+                      {index > 0 ? <View style={editorial.letterDot} /> : null}
+                      <Text style={editorial.letter}>{letter}</Text>
+                    </React.Fragment>
+                  )) : <Text style={editorial.emptyForm}>No distilled form was saved for this Anchor.</Text>}
+                </View>
+              </View>
+
+              <View style={editorial.strengthSection}>
+                <View style={editorial.centeredLabelRow}>
+                  <Text style={editorial.sectionEyebrow}>THREAD STRENGTH</Text>
+                  <EditorialInfoButton label="About Thread Strength" onPress={onOpenThreadStrength} />
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Thread Strength ${threadStrengthValue} out of 100. ${threadState}.`}
+                  accessibilityHint="Opens an explanation of this Anchor’s Thread Strength"
+                  onPress={onOpenThreadStrength}
+                  style={({ pressed }) => [editorial.strengthContent, pressed && editorial.pressed]}
+                  testID="anchor-thread-strength-row"
+                >
+                  <View style={editorial.strengthNumberRow}>
+                    <Text testID="anchor-detail-streak-value" style={editorial.strengthNumber}>{threadStrengthValue}</Text>
+                    <Text style={editorial.strengthOutOf}>/ 100</Text>
+                  </View>
+                  <View style={editorial.threadStateRow}>
+                    <View style={editorial.stateRule} />
+                    <Text style={editorial.threadState}>{threadState}</Text>
+                    <View style={editorial.stateRule} />
+                  </View>
+                  <Text style={editorial.strengthExplanation}>{strengthExplanation(anchorPractice.totalPrimingSessions)}</Text>
+                </Pressable>
+              </View>
+            </FadeUp>
+
+            <EditorialRule style={editorial.firstRule} />
+
+            <View style={editorial.weaveSection}>
+              <View style={editorial.weaveTopLine}>
+                <Text style={editorial.weaveIntro}>A living record of the Practice you return to.</Text>
+                <EditorialInfoButton label="About The Weave" onPress={onOpenWeaveInfo} />
+              </View>
+              <EditorialWeavePreview
+                anchorPractice={{ ...anchorPractice, threadStrengthValue }}
+                onPress={onOpenWeave}
+              />
+            </View>
+
+            <EditorialRule />
+
+            <View style={editorial.metricsSection}>
+              <Text style={editorial.sectionEyebrow}>PRACTICE HISTORY</Text>
+              <View style={editorial.metricsRow}>
+                <View style={editorial.metric}>
+                  <Text style={editorial.metricValue}>{anchorPractice.practiceDays}</Text>
+                  <Text style={editorial.metricLabel}>PRACTICE DAYS</Text>
+                </View>
+                <View style={editorial.metric}>
+                  <Text style={editorial.metricValue}>{anchorPractice.activeWeeks}</Text>
+                  <Text style={editorial.metricLabel}>ACTIVE WEEKS</Text>
+                </View>
+                <View style={editorial.metric}>
+                  <Text style={editorial.metricValue}>{formatWeaveDuration(anchorPractice.practicedSeconds)}</Text>
+                  <Text style={editorial.metricLabel}>PRACTICED</Text>
+                </View>
+              </View>
+              <View style={editorial.mixSection}>
+                <Text style={editorial.sectionEyebrow}>PRACTICE MIX</Text>
+                {hasHistory ? Object.keys(EDITORIAL_MODE_META).map((mode) => {
+                  const count = anchorPractice.modeCounts[mode] ?? 0;
+                  const percent = Math.round((count / anchorPractice.totalPrimingSessions) * 100);
+                  return (
+                    <View key={mode} style={editorial.mixRow}>
+                      <Text style={[editorial.mixName, { color: modeColor(mode) }]}>{modeLabel(mode)}</Text>
+                      <View style={editorial.mixTrack}><View style={[editorial.mixFill, { width: `${percent}%`, backgroundColor: modeColor(mode) }]} /></View>
+                      <Text style={editorial.mixValue}>{count}</Text>
+                    </View>
+                  );
+                }) : <Text style={editorial.lowHistoryCopy}>A mix appears after a few completed Practice sessions.</Text>}
+              </View>
+            </View>
+
+            <EditorialRule />
+
+            <View style={editorial.activitySection}>
+              <Text style={editorial.sectionEyebrow}>RECENT ACTIVITY</Text>
+              {hasHistory ? anchorPractice.recentSessions.map((session: any, index: number) => (
+                <View key={session.id ?? `${session.completedAt}-${index}`} style={[editorial.activityRow, index > 0 && editorial.activityRowRule]}>
+                  <View style={[editorial.activityDot, { backgroundColor: modeColor(session.practiceMode) }]} />
+                  <View style={editorial.activityCopy}>
+                    <Text style={editorial.activityTitle}>{modeLabel(session.practiceMode)}</Text>
+                    <Text style={editorial.activityMeta}>{formatDate(session.completedAt, 'MMM d')} · {formatWeaveDuration(session.completedDurationSeconds ?? 0)}</Text>
+                  </View>
+                </View>
+              )) : <Text style={editorial.lowHistoryCopy}>Your completed returns will appear here.</Text>}
+            </View>
+
+            <EditorialRule />
+
+            <View style={editorial.utilitySection}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Share Anchor" onPress={onShare} disabled={isShareCardLoading} style={({ pressed }) => [editorial.utilityRow, (pressed || isShareCardLoading) && editorial.pressed]} testID="anchor-detail-share-button">
+                <Text style={editorial.utilityText}>{isShareCardLoading ? 'SHARING ANCHOR…' : 'SHARE ANCHOR'}</Text>
+                <ChevronRight size={17} color={colors.anchor15.ash} strokeWidth={1.4} />
+              </Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="Set Anchor as wallpaper" onPress={onSetWallpaper} disabled={isExporting} style={({ pressed }) => [editorial.utilityRow, (pressed || isExporting) && editorial.pressed]} testID="anchor-detail-set-wallpaper-button">
+                <Text style={editorial.utilityText}>{isExporting ? 'OPENING WALLPAPER…' : 'SET AS WALLPAPER'}</Text>
+                <ChevronRight size={17} color={colors.anchor15.ash} strokeWidth={1.4} />
+              </Pressable>
+            </View>
+
+            <View style={editorial.releaseSection}>
+              <EditorialRule style={editorial.releaseRule} />
+              {anchor.isReleased ? (
+                <Text style={editorial.releasedText}>Released {anchor.releasedAt ?? 'previously'}</Text>
+              ) : (
+                <Pressable accessibilityRole="button" accessibilityLabel="Release Anchor" onPress={onRelease} style={({ pressed }) => [editorial.releaseRow, pressed && editorial.pressed]}>
+                  <Text style={editorial.releaseText}>RELEASE ANCHOR</Text>
+                  <ChevronRight size={17} color="rgba(200,135,96,0.8)" strokeWidth={1.4} />
+                </Pressable>
+              )}
+              <Text style={editorial.createdDate}>Created {anchor.createdAt}</Text>
+            </View>
+          </ScrollView>
+
+          <View pointerEvents="box-none" style={[editorial.floatingCtaWrap, { paddingBottom: insets.bottom + 16 }]}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={anchor.isReleased ? 'Anchor released' : 'Practice this Anchor'}
+              accessibilityState={{ disabled: Boolean(anchor.isReleased) }}
+              disabled={anchor.isReleased}
+              onPress={onPractice}
+              style={({ pressed }) => [editorial.floatingCta, (pressed || anchor.isReleased) && editorial.pressed]}
+            >
+              <Text style={editorial.floatingCtaText}>{anchor.isReleased ? 'ANCHOR RELEASED' : 'PRACTICE THIS ANCHOR →'}</Text>
+            </Pressable>
+          </View>
+        </>
+      )}
+
+      <EditorialSheet visible={showOptions} title="Anchor options" onClose={onCloseOptions} reduceMotionEnabled={reduceMotionEnabled}>
+        <Pressable accessibilityRole="button" onPress={() => { onCloseOptions(); onShare(); }} style={editorial.optionRow}><Text style={editorial.optionText}>Share Anchor</Text><ChevronRight size={17} color={colors.anchor15.ash} /></Pressable>
+        <Pressable accessibilityRole="button" onPress={() => { onCloseOptions(); onSetWallpaper(); }} style={editorial.optionRow}><Text style={editorial.optionText}>Set as Wallpaper</Text><ChevronRight size={17} color={colors.anchor15.ash} /></Pressable>
+        <Pressable accessibilityRole="button" onPress={() => { onCloseOptions(); onSavePng(); }} style={editorial.optionRow}><Text style={editorial.optionText}>Save PNG</Text><ChevronRight size={17} color={colors.anchor15.ash} /></Pressable>
+        {!anchor.isReleased ? <Pressable accessibilityRole="button" onPress={onRelease} style={editorial.optionRow}><Text style={editorial.optionRelease}>Release Anchor</Text><ChevronRight size={17} color="rgba(200,135,96,0.8)" /></Pressable> : null}
+        {!anchor.isReleased ? <Pressable accessibilityRole="button" onPress={onDelete} style={[editorial.optionRow, editorial.optionDelete]}><Text style={editorial.optionDeleteText}>Delete Anchor</Text></Pressable> : null}
+      </EditorialSheet>
+
+      <EditorialSheet visible={showDistilledForm} title="Distilled Form" onClose={onCloseDistilledForm} reduceMotionEnabled={reduceMotionEnabled}>
+        <Text style={editorial.sheetBody}>Your intention was distilled into its essential letters before this Anchor took form.</Text>
+        <Text style={editorial.sheetBody}>Those letters remain a quiet part of the Anchor you return to.</Text>
+      </EditorialSheet>
+
+      <EditorialSheet visible={showWeaveInfo} title="The Weave" onClose={onCloseWeaveInfo} reduceMotionEnabled={reduceMotionEnabled}>
+        <Text style={editorial.sheetBody}>Each completed Practice becomes a point in this Anchor’s history. The Weave shows the rhythm of those returns over time.</Text>
+      </EditorialSheet>
+
+      {pendingExportAction ? (
+        <View
+          ref={anchorCardRef}
+          collapsable={false}
+          style={editorial.captureTarget}
+        >
+          <View style={editorial.captureArtwork}>
+            {anchor.sigilUri ? <Image source={{ uri: anchor.sigilUri }} style={editorial.captureImage} resizeMode="cover" /> : resolvedSigilSvg ? <SigilSvg xml={resolvedSigilSvg} width={720} height={720} color={colors.anchor15.giltBright} /> : <Text style={editorial.captureMark}>{anchor.name?.slice(0, 1)?.toUpperCase() ?? 'A'}</Text>}
+          </View>
+          <Text style={editorial.captureIntention}>{anchor.intention}</Text>
+          <Text style={editorial.captureWordmark}>ANCHOR</Text>
+        </View>
+      ) : null}
+
+      <ThreadStrengthSheet visible={showThreadStrength} onClose={onCloseThreadStrength} anchorId={anchor.id} />
+      <ConfirmUnchargedBurnSheet visible={showConfirmRelease} onConfirm={onConfirmRelease} onCancel={onCloseRelease} intentionText={anchor.intention} />
+      <ConfirmDeleteAnchorSheet visible={showConfirmDelete} intentionText={anchor.intention} onBurnInstead={onRelease} onDelete={onConfirmDelete} onCancel={onCloseDelete} />
+      <ExportAnchorSheet isVisible={showExportSheet} onClose={onCloseExport} sigilSvg={anchor.baseSigilSvg} sigilUri={anchor.sigilUri} intention={anchor.intention} onExportComplete={(uri) => logger.info('[AnchorDetail] Anchor exported', { uri })} />
+      {showShareCard ? <ShareCardRenderer ref={shareCardRef} anchorSVG={anchor.baseSigilSvg} artworkUri={anchor.sigilUri ?? anchor.enhancedImageUrl} intention={anchor.intention} daysPrimed={anchorPractice.currentStreak} format={shareFormat} onRenderReady={onShareCardRendered} /> : null}
+    </View>
+  );
+};
+
+const editorial = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.anchor15.ink },
+  pressed: { opacity: 0.7 },
+  header: { minHeight: 60, paddingHorizontal: 14, paddingBottom: 7, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerControl: { minHeight: 44, minWidth: 44, justifyContent: 'center', alignItems: 'center' },
+  backControl: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', paddingRight: 12 },
+  backLabel: { color: colors.anchor15.bone, fontFamily: typography.fontFamily.instrument, fontSize: 13, marginLeft: 1 },
+  optionsControl: { alignItems: 'flex-end', paddingRight: 4 },
+  statusWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 34 },
+  statusRule: { width: 44, height: StyleSheet.hairlineWidth, backgroundColor: colors.anchor15.gilt, marginBottom: 22 },
+  statusTitle: { color: colors.anchor15.bone, fontFamily: typography.fontFamily.voice, fontSize: 26, lineHeight: 31, textAlign: 'center' },
+  statusBody: { maxWidth: 270, color: colors.anchor15.ash, fontFamily: typography.fontFamily.voiceItalic, fontSize: 16, lineHeight: 22, textAlign: 'center', marginTop: 10 },
+  statusAction: { minHeight: 44, marginTop: 25, justifyContent: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.anchor15.gilt },
+  statusActionText: { color: colors.anchor15.giltBright, fontFamily: typography.fontFamily.ritual, fontSize: 10, letterSpacing: 1.8 },
+  scroll: { paddingHorizontal: 22, paddingTop: 2 },
+  cachedLabel: { color: colors.anchor15.ash, fontFamily: typography.fontFamily.instrument, fontSize: 11, lineHeight: 16, textAlign: 'center', marginBottom: 14 },
+  heroArtworkWrap: { width: 150, height: 150, alignSelf: 'center', alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+  heroHalo: { position: 'absolute', width: 190, height: 190, borderRadius: 95, backgroundColor: 'rgba(217,179,108,0.10)' },
+  heroRing: { position: 'absolute', width: 150, height: 150, borderRadius: 75, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(217,179,108,0.30)' },
+  heroArtwork: { width: 132, height: 132, borderRadius: 66, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.anchor15.veil, borderWidth: 1, borderColor: 'rgba(217,179,108,0.20)' },
+  heroImage: { width: '100%', height: '100%' },
+  heroFallbackMark: { color: colors.anchor15.giltBright, fontFamily: typography.fontFamily.ritual, fontSize: 44, lineHeight: 50 },
+  identity: { alignItems: 'center', marginTop: 25 },
+  anchorName: { maxWidth: '100%', color: colors.anchor15.bone, fontFamily: typography.fontFamily.ritualSemiBold, fontSize: 27, lineHeight: 33, letterSpacing: 2.1, textAlign: 'center', textTransform: 'uppercase' },
+  category: { color: colors.anchor15.gilt, fontFamily: typography.fontFamily.ritual, fontSize: 10, letterSpacing: 2.3, textAlign: 'center', textTransform: 'uppercase', marginTop: 8 },
+  intention: { maxWidth: 324, color: 'rgba(244,239,230,0.67)', fontFamily: typography.fontFamily.voiceItalic, fontSize: 18, lineHeight: 26, textAlign: 'center', marginTop: 15 },
+  centeredLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
+  sectionEyebrow: { color: 'rgba(242,223,168,0.75)', fontFamily: typography.fontFamily.ritual, fontSize: 10, letterSpacing: 2.1, textTransform: 'uppercase' },
+  infoButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginHorizontal: -10 },
+  formSection: { marginTop: 31, paddingBottom: 18, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.anchor15.hairline },
+  lettersRow: { minHeight: 34, marginTop: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 11 },
+  letter: { color: colors.anchor15.giltBright, fontFamily: typography.fontFamily.ritualSemiBold, fontSize: 17, letterSpacing: 1 },
+  letterDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: 'rgba(217,179,108,0.48)' },
+  emptyForm: { color: colors.anchor15.ash, fontFamily: typography.fontFamily.voiceItalic, fontSize: 14, textAlign: 'center' },
+  strengthSection: { marginTop: 29 },
+  strengthContent: { alignItems: 'center', paddingTop: 5 },
+  strengthNumberRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 2 },
+  strengthNumber: { color: colors.anchor15.bone, fontFamily: typography.fontFamily.instrument, fontSize: 60, fontWeight: '200', letterSpacing: -3, lineHeight: 67, fontVariant: ['tabular-nums'] },
+  strengthOutOf: { color: 'rgba(135,147,157,0.66)', fontFamily: typography.fontFamily.instrument, fontSize: 11, letterSpacing: 1, marginLeft: 10 },
+  threadStateRow: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 7 },
+  stateRule: { width: 14, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(217,179,108,0.54)' },
+  threadState: { color: colors.anchor15.giltBright, fontFamily: typography.fontFamily.ritualSemiBold, fontSize: 11, letterSpacing: 2.3, textTransform: 'uppercase' },
+  strengthExplanation: { maxWidth: 285, color: 'rgba(244,239,230,0.58)', fontFamily: typography.fontFamily.voiceItalic, fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 10 },
+  rule: { height: StyleSheet.hairlineWidth, backgroundColor: colors.anchor15.hairline, marginTop: 27 },
+  firstRule: { marginTop: 28 },
+  weaveSection: { marginTop: 21 },
+  weaveTopLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 },
+  weaveIntro: { flex: 1, color: 'rgba(244,239,230,0.52)', fontFamily: typography.fontFamily.voiceItalic, fontSize: 14, lineHeight: 19, paddingRight: 4 },
+  weaveEntry: { paddingTop: 4 },
+  weaveHeadingRow: { minHeight: 32, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  weaveCanvas: { height: 100, overflow: 'hidden', backgroundColor: 'rgba(30,42,51,0.34)', borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(217,179,108,0.12)', marginTop: 7 },
+  weaveLane: { position: 'absolute', left: 14, right: 14, height: 12, justifyContent: 'center' },
+  weaveLaneTrack: { height: StyleSheet.hairlineWidth, width: '100%', backgroundColor: 'rgba(244,239,230,0.09)' },
+  weaveLaneFill: { position: 'absolute', height: 1.5, opacity: 0.88 },
+  weaveNode: { position: 'absolute', width: 5, height: 5, borderRadius: 3, marginLeft: -2.5 },
+  weaveEmpty: { position: 'absolute', left: 18, right: 18, top: 40, color: 'rgba(244,239,230,0.48)', fontFamily: typography.fontFamily.voiceItalic, fontSize: 14, textAlign: 'center' },
+  weaveFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 9 },
+  weaveMeta: { flex: 1, color: 'rgba(244,239,230,0.66)', fontFamily: typography.fontFamily.instrument, fontSize: 11 },
+  weaveLink: { color: colors.anchor15.giltBright, fontFamily: typography.fontFamily.ritualSemiBold, fontSize: 9, letterSpacing: 1.25, marginLeft: 10 },
+  metricsSection: { marginTop: 18 },
+  metricsRow: { flexDirection: 'row', paddingTop: 17 },
+  metric: { flex: 1, alignItems: 'center', paddingHorizontal: 4 },
+  metricValue: { color: colors.anchor15.bone, fontFamily: typography.fontFamily.instrument, fontSize: 18, lineHeight: 22, textAlign: 'center' },
+  metricLabel: { color: 'rgba(135,147,157,0.82)', fontFamily: typography.fontFamily.ritual, fontSize: 7.5, letterSpacing: 1.2, textAlign: 'center', marginTop: 4 },
+  mixSection: { marginTop: 28 },
+  mixRow: { flexDirection: 'row', alignItems: 'center', minHeight: 29, gap: 9 },
+  mixName: { width: 83, fontFamily: typography.fontFamily.instrument, fontSize: 12 },
+  mixTrack: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(244,239,230,0.12)' },
+  mixFill: { height: 2, marginTop: -0.5 },
+  mixValue: { width: 18, color: colors.anchor15.ash, fontFamily: typography.fontFamily.instrument, fontSize: 11, textAlign: 'right' },
+  lowHistoryCopy: { color: 'rgba(244,239,230,0.52)', fontFamily: typography.fontFamily.voiceItalic, fontSize: 15, lineHeight: 21, marginTop: 10 },
+  activitySection: { marginTop: 18 },
+  activityRow: { minHeight: 47, flexDirection: 'row', alignItems: 'center' },
+  activityRowRule: { borderTopWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(244,239,230,0.08)' },
+  activityDot: { width: 5, height: 5, borderRadius: 3, marginRight: 11 },
+  activityCopy: { flex: 1 },
+  activityTitle: { color: 'rgba(244,239,230,0.88)', fontFamily: typography.fontFamily.instrument, fontSize: 13 },
+  activityMeta: { color: colors.anchor15.ash, fontFamily: typography.fontFamily.voiceItalic, fontSize: 13, marginTop: 2 },
+  utilitySection: { marginTop: 5 },
+  utilityRow: { minHeight: 47, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  utilityText: { color: colors.anchor15.giltBright, fontFamily: typography.fontFamily.ritualSemiBold, fontSize: 11, letterSpacing: 1.65, textTransform: 'uppercase' },
+  releaseSection: { marginTop: 23 },
+  releaseRule: { marginTop: 0, backgroundColor: 'rgba(217,179,108,0.14)' },
+  releaseRow: { minHeight: 51, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  releaseText: { color: 'rgba(200,135,96,0.86)', fontFamily: typography.fontFamily.ritualSemiBold, fontSize: 11, letterSpacing: 1.65, textTransform: 'uppercase' },
+  releasedText: { minHeight: 51, color: 'rgba(200,135,96,0.74)', fontFamily: typography.fontFamily.voiceItalic, fontSize: 15, paddingTop: 15 },
+  createdDate: { color: 'rgba(135,147,157,0.68)', fontFamily: typography.fontFamily.instrument, fontSize: 11, marginTop: 1 },
+  floatingCtaWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 22, paddingTop: 38, backgroundColor: 'rgba(15,20,25,0.91)' },
+  floatingCta: { minHeight: 54, alignItems: 'center', justifyContent: 'center', borderRadius: 27, borderWidth: 1, borderColor: 'rgba(217,179,108,0.38)', backgroundColor: 'rgba(217,179,108,0.09)' },
+  floatingCtaText: { color: colors.anchor15.giltBright, fontFamily: typography.fontFamily.ritualSemiBold, fontSize: 12, letterSpacing: 1.65 },
+  sheetScrim: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.62)' },
+  sheet: { backgroundColor: colors.anchor15.veil, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.anchor15.goldHairline, paddingHorizontal: 22, paddingBottom: 30 },
+  sheetHandle: { width: 34, height: 3, borderRadius: 3, alignSelf: 'center', backgroundColor: 'rgba(244,239,230,0.28)', marginTop: 11 },
+  sheetHeader: { minHeight: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.anchor15.hairline },
+  sheetTitle: { color: colors.anchor15.bone, fontFamily: typography.fontFamily.voice, fontSize: 22, lineHeight: 27 },
+  sheetClose: { width: 44, height: 44, alignItems: 'flex-end', justifyContent: 'center' },
+  sheetBody: { color: 'rgba(244,239,230,0.7)', fontFamily: typography.fontFamily.voiceItalic, fontSize: 17, lineHeight: 24, marginTop: 17 },
+  optionRow: { minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(244,239,230,0.08)' },
+  optionText: { color: colors.anchor15.bone, fontFamily: typography.fontFamily.instrument, fontSize: 15 },
+  optionRelease: { color: 'rgba(200,135,96,0.9)', fontFamily: typography.fontFamily.instrument, fontSize: 15 },
+  optionDelete: { borderBottomWidth: 0 },
+  optionDeleteText: { color: '#E8B7A4', fontFamily: typography.fontFamily.instrument, fontSize: 15 },
+  captureTarget: { position: 'absolute', left: -9999, width: 1170, height: 2532, backgroundColor: colors.anchor15.navy, alignItems: 'center', justifyContent: 'center' },
+  captureArtwork: { width: 720, height: 720, borderRadius: 360, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.anchor15.veil },
+  captureImage: { width: '100%', height: '100%' },
+  captureMark: { color: colors.anchor15.giltBright, fontFamily: typography.fontFamily.ritual, fontSize: 240 },
+  captureIntention: { width: 920, color: colors.anchor15.bone, fontFamily: typography.fontFamily.voiceItalic, fontSize: 42, lineHeight: 56, textAlign: 'center', marginTop: 48 },
+  captureWordmark: { color: colors.anchor15.gilt, fontFamily: typography.fontFamily.ritual, fontSize: 26, letterSpacing: 9, textAlign: 'center', marginTop: 24, marginBottom: 80 },
 });

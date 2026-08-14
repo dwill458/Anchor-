@@ -184,6 +184,20 @@ const SigilMark: React.FC<{ size?: number; color?: string }> = ({
   </Svg>
 );
 
+/** Soft radial gold glow behind the anchor mark — no hard circle edge. */
+const OrbitGlow: React.FC = () => (
+  <Svg width={190} height={190} viewBox="0 0 190 190" style={visual.orbits.glowSvg} accessible={false}>
+    <Defs>
+      <RadialGradient id="onboarding-orbit-anchor-glow" cx="50%" cy="50%" r="50%">
+        <Stop offset="0%" stopColor={palette.gilt} stopOpacity={0.3} />
+        <Stop offset="55%" stopColor={palette.gilt} stopOpacity={0.1} />
+        <Stop offset="100%" stopColor={palette.gilt} stopOpacity={0} />
+      </RadialGradient>
+    </Defs>
+    <Circle cx="95" cy="95" r="95" fill="url(#onboarding-orbit-anchor-glow)" />
+  </Svg>
+);
+
 const OrbitsVisual: React.FC<{ reduceMotion: boolean }> = ({ reduceMotion }) => {
   const rot1 = useRef(new Animated.Value(0)).current;
   const rot2 = useRef(new Animated.Value(0)).current;
@@ -265,7 +279,7 @@ const OrbitsVisual: React.FC<{ reduceMotion: boolean }> = ({ reduceMotion }) => 
       ))}
 
       <View style={visual.orbits.center}>
-        <View style={visual.orbits.logoAtmosphere} />
+        <OrbitGlow />
         <Image
           source={goldAnchor}
           style={visual.orbits.logo}
@@ -780,7 +794,7 @@ const visual = {
     ring: { position: 'absolute', borderWidth: 1, borderColor: palette.gilt } as const,
     dot: { position: 'absolute', width: 6, height: 6, borderRadius: 3, backgroundColor: palette.gilt, top: -3, left: '50%', marginLeft: -3, shadowColor: palette.gilt, shadowOpacity: 0.8, shadowRadius: 4, shadowOffset: { width: 0, height: 0 } } as const,
     center: { position: 'absolute', alignItems: 'center', justifyContent: 'center', width: 176, height: 176 } as const,
-    logoAtmosphere: { position: 'absolute', width: 166, height: 166, borderRadius: 83, backgroundColor: withAlpha(palette.steel, 0.62), shadowColor: palette.ink, shadowOpacity: 0.7, shadowRadius: 32, shadowOffset: { width: 0, height: 0 }, elevation: 4 } as const,
+    glowSvg: { position: 'absolute' } as const,
     logo: { width: 160, height: 160, zIndex: 1 } as const,
     word: { position: 'absolute', fontFamily: typography.fonts.heading, fontSize: DETAIL_FONT_SIZE, color: palette.gilt, letterSpacing: 1.5 } as const,
   }),
