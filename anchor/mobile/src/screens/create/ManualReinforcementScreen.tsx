@@ -3,20 +3,25 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
-  Alert,
   Pressable,
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import Svg, { Path, G, SvgXml } from 'react-native-svg';
+import Svg, { Path, SvgXml } from 'react-native-svg';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
-import { runOnJS } from 'react-native-reanimated';
+import Animated, {
+  runOnJS,
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
 import { RootStackParamList, AnchorCategory, SigilVariant } from '@/types';
-import { colors, spacing, typography } from '@/theme';
-import { ZenBackground, UndertoneLine } from '@/components/common';
+import { colors, typography } from '@/theme';
+import { ZenBackground } from '@/components/common';
+import { BackChevronIcon, CloseIcon } from '@/components/icons';
 import { useAuthStore } from '@/stores/authStore';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAudio } from '@/hooks/useAudio';
@@ -34,7 +39,7 @@ import {
   type TraceHintVariant,
 } from '@/constants/traceHints';
 import { stableIndex } from '@/utils/hash';
-import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
+import { isCompactPhoneViewport } from '@/utils/layout';
 import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 
@@ -44,11 +49,19 @@ type ManualReinforcementNavigationProp = StackNavigationProp<
   'ManualReinforcement'
 >;
 
-const STROKE_WIDTH = 3;
-const GLOW_DISTANCE = 20; // Distance in pixels to trigger glow effect
 const HESITATION_DELAY_MS = 5000;
 const UNDO_SPAM_WINDOW_MS = 15000;
 const UNDO_SPAM_THRESHOLD = 2;
+
+const gilt = colors.anchor15.gilt;
+const giltBright = colors.anchor15.giltBright;
+const ash = colors.anchor15.ash;
+const bone = colors.anchor15.bone;
+const boneSoft = 'rgba(244, 239, 230, 0.68)';
+const boneFaint = 'rgba(244, 239, 230, 0.42)';
+const goldLine = colors.anchor15.goldLine;
+const hairlineGold = colors.anchor15.hairlineGold;
+const hairline = colors.anchor15.hairline;
 
 interface Point {
   x: number;
@@ -65,6 +78,23 @@ interface TraceHintState {
   trigger: TraceHintTrigger;
 }
 
+function IconUndo({ color }: { color: string }) {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+      <Path d="M9 7L4 12l5 5" stroke={color} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M4 12h11a5 5 0 010 10h-1" stroke={color} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function IconClear({ color }: { color: string }) {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+      <Path d="M5 6h14M9 6V4h6v2m-8 0 1 14h8l1-14" stroke={color} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 /**
  * ManualReinforcementScreen
  *
@@ -73,7 +103,8 @@ interface TraceHintState {
  * User traces over the faint base structure to "reinforce" it with their
  * intentional energy. Implements soft constraints with real-time feedback:
  * - Glow effect when strokes are close to the base structure
- * - Fidelity score tracking (overlap percentage)
+ * - Fidelity score tracking (overlap percentage) drives the guide's brighten-
+ *   as-you-go feedback
  * - Option to skip (with encouragement)
  *
  * Next: LockStructureScreen (structure confirmation & celebration)
@@ -120,11 +151,12 @@ export default function ManualReinforcementScreen() {
       ? activePostPrimeFlow.flowId
       : null;
   const isCompactLayout = isCompactPhoneViewport(width, height);
-  const isShortLayout = isShortPhoneViewport(height);
+  const horizontalPadding = isCompactLayout ? 22 : 28;
   const canvasSize = Math.min(
-    width - (isCompactLayout ? 40 : 48),
-    height * (isCompactLayout ? 0.39 : isShortLayout ? 0.41 : 0.44)
+    width - horizontalPadding * 2,
+    height * (isCompactLayout ? 0.38 : 0.44)
   );
+  const liveStrokeWidth = Math.max(4, (canvasSize / 300) * 5.5);
 
   // Drawing state
   const [strokes, setStrokes] = useState<Stroke[]>([]);
@@ -134,7 +166,7 @@ export default function ManualReinforcementScreen() {
   const [strokeCount, setStrokeCount] = useState(0);
   const [hasStartedDrawing, setHasStartedDrawing] = useState(false);
   const [canvasReady, setCanvasReady] = useState(false);
-  const [showSkipModal, setShowSkipModal] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showTraceDefaultPrompt, setShowTraceDefaultPrompt] = useState(false);
   const [showAboutTracing, setShowAboutTracing] = useState(false);
   const [showStructureSet, setShowStructureSet] = useState(false);
@@ -375,7 +407,7 @@ export default function ManualReinforcementScreen() {
   // Convert user strokes to SVG string
   const strokesToSvg = (): string => {
     const paths = strokes.map(
-      (stroke) => `<path d="${stroke.pathData}" stroke="#D4AF37" stroke-width="${STROKE_WIDTH}" fill="none" />`
+      (stroke) => `<path d="${stroke.pathData}" stroke="#D9B36C" stroke-width="${liveStrokeWidth}" fill="none" />`
     );
 
     return `
@@ -434,8 +466,11 @@ export default function ManualReinforcementScreen() {
     structureVariant,
   ]);
 
+  const [continuing, setContinuing] = useState(false);
+
   const handleComplete = () => {
-    if (strokeCount === 0) return;
+    if (strokeCount === 0 || continuing) return;
+    setContinuing(true);
     setShowStructureSet(true);
     setTimeout(completeTrace, reduceMotion ? 0 : 520);
   };
@@ -473,12 +508,9 @@ export default function ManualReinforcementScreen() {
     structureVariant,
   ]);
 
-  const handleSkip = () => handleConfirmSkip();
-
-  const handleConfirmSkip = () => {
+  const handleSkip = () => {
+    if (continuing || showTraceDefaultPrompt) return;
     const timeSpentMs = Date.now() - startTime.current;
-    setShowSkipModal(false);
-
     const nextSkipStreak = recordTraceSkipped();
 
     if (nextSkipStreak === 3) {
@@ -487,15 +519,9 @@ export default function ManualReinforcementScreen() {
       return;
     }
 
+    setContinuing(true);
     continueAfterSkip(timeSpentMs);
   };
-
-  const handleCancelSkip = () => {
-    setShowSkipModal(false);
-  };
-
-  // DEFERRED: the confirmed-skip path now branches to the inline adaptive
-  // tracing prompt after each streak of 3 before continuing.
 
   const handleDisableTraceDefault = () => {
     const timeSpentMs = pendingSkipTimeSpentMsRef.current ?? Date.now() - startTime.current;
@@ -504,6 +530,7 @@ export default function ManualReinforcementScreen() {
     setTraceDefaultEnabled(false);
     resetTraceSkipStreak();
     AnalyticsService.track('trace_default_disabled', { source: 'adaptive_prompt' });
+    setContinuing(true);
     continueAfterSkip(timeSpentMs);
   };
 
@@ -512,6 +539,7 @@ export default function ManualReinforcementScreen() {
     pendingSkipTimeSpentMsRef.current = null;
     setShowTraceDefaultPrompt(false);
     resetTraceSkipStreak();
+    setContinuing(true);
     continueAfterSkip(timeSpentMs);
   };
 
@@ -533,538 +561,763 @@ export default function ManualReinforcementScreen() {
     }
   };
 
-  const handleClearAll = () => {
-    Alert.alert('Clear All Strokes?', 'This will remove all your tracing progress.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Start Over',
-        style: 'destructive',
-        onPress: () => {
-          setStrokes([]);
-          setStrokeCount(0);
-          setFidelityScore(0);
-        },
-      },
-    ]);
+  const clearAllConfirmed = () => {
+    setStrokes([]);
+    setStrokeCount(0);
+    setFidelityScore(0);
+    setShowClearConfirm(false);
   };
+
+  // Clearing a single (or zero) stroke happens directly; two or more strokes
+  // require the inline confirmation row before they're discarded.
+  const requestClear = () => {
+    if (strokes.length >= 2) {
+      setShowClearConfirm(true);
+    } else {
+      clearAllConfirmed();
+    }
+  };
+
+  const cancelClear = () => setShowClearConfirm(false);
+
+  // Guide brightens toward Bright Gilt as the fidelity/coverage estimate rises.
+  const guideResolvedOpacity = useSharedValue(0);
+  useEffect(() => {
+    guideResolvedOpacity.value = withTiming(showStructureSet ? 1 : fidelityScore / 100, {
+      duration: reduceMotion ? 0 : 450,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [fidelityScore, showStructureSet, reduceMotion, guideResolvedOpacity]);
+  const guideResolvedStyle = useAnimatedStyle(() => ({ opacity: guideResolvedOpacity.value }));
+
+  const touchGlowOpacity = useSharedValue(0);
+  useEffect(() => {
+    touchGlowOpacity.value = withTiming(isDrawing ? 1 : 0, { duration: reduceMotion ? 0 : 150 });
+  }, [isDrawing, reduceMotion, touchGlowOpacity]);
+  const touchGlowStyle = useAnimatedStyle(() => ({ opacity: touchGlowOpacity.value }));
+  const touchPos = currentStroke.length > 0 ? currentStroke[currentStroke.length - 1] : null;
 
   if (isPostPrimeTrace && !postPrimeAnchor) {
     return (
-      <SafeAreaView style={styles.container}>
-        <ZenBackground />
-        <View style={styles.missingAnchorWrap}>
-          <Text style={styles.title}>Trace unavailable</Text>
-          <Text style={styles.subtitle}>We couldn&apos;t load your anchor for retracing.</Text>
-          <TouchableOpacity
-            style={styles.completeButton}
-            onPress={() => resolvePostPrimeTrace('skipped')}
-            accessibilityRole="button"
-            accessibilityLabel="Return"
-          >
-            <Text style={styles.completeButtonText}>Return</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+      <View style={styles.container}>
+        <ZenBackground variant="sanctuary" />
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.missingAnchorWrap}>
+            <Text style={styles.title}>Trace unavailable</Text>
+            <Text style={styles.body}>We couldn&apos;t load your anchor for retracing.</Text>
+            <Pressable
+              style={({ pressed }) => [styles.nextBtn, pressed && styles.nextBtnPressed]}
+              onPress={() => resolvePostPrimeTrace('skipped')}
+              accessibilityRole="button"
+              accessibilityLabel="Return"
+            >
+              <Text style={styles.nextBtnText}>Return</Text>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ZenBackground />
-
-      {/* Header */}
-      <View style={[styles.header, isCompactLayout && styles.headerCompact]}>
-        <View style={styles.topRow}>
-          <Pressable onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Go back">
-            <Text style={styles.backText}>←</Text>
-          </Pressable>
-          {!isPostPrimeTrace ? (
-            <Pressable onPress={() => setShowAboutTracing(true)} accessibilityRole="button" accessibilityLabel="About tracing">
-              <Text style={styles.aboutText}>About</Text>
-            </Pressable>
-          ) : <View style={styles.topSpacer} />}
-        </View>
-        {!isPostPrimeTrace ? <Text style={styles.contextLabel}>STRUCTURE</Text> : null}
-        <Text style={[styles.sectionLabel, isCompactLayout && styles.sectionLabelCompact]}>Structure</Text>
-        <Text style={[styles.title, isCompactLayout && styles.titleCompact]}>
-          {isPostPrimeTrace ? 'Trace to deepen' : 'Trace your structure'}
-        </Text>
-        <Text style={[styles.subtitle, isCompactLayout && styles.subtitleCompact]}>
-          {isPostPrimeTrace ? 'Refine and deepen' : 'Follow the form once before it becomes your Anchor.'}
-        </Text>
-        {!isPostPrimeTrace && shouldShowFirstTimeHint ? (
-          <Text style={styles.teachingText}>Tracing is optional. It doesn’t make one Anchor stronger than another.</Text>
-        ) : null}
-      </View>
-
-      {/* Drawing Canvas */}
-      <View style={[styles.canvasContainer, isCompactLayout && styles.canvasContainerCompact]}>
-        <GestureDetector gesture={panGesture}>
-          <View
-            style={[styles.canvas, isCompactLayout && styles.canvasCompact, { width: canvasSize, height: canvasSize }]}
-            onLayout={() => {
-              if (!canvasReady) {
-                setCanvasReady(true);
-              }
-            }}
-          >
-            <Svg width={canvasSize} height={canvasSize} style={styles.svg}>
-              {/* Base structure (faint underlay) */}
-              <G opacity={0.3}>
-                <SvgXml xml={baseSigilSvg} width="100%" height="100%" color="#D4AF37" />
-              </G>
-
-              {/* Completed strokes */}
-              {strokes.map((stroke, index) => (
-                <Path
-                  key={index}
-                  d={stroke.pathData}
-                  stroke="rgba(212, 175, 55, 0.85)"
-                  strokeWidth={STROKE_WIDTH + 1}
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              ))}
-
-              {/* Current stroke being drawn */}
-              {currentStroke.length > 0 && (
-                <Path
-                  d={pointsToPathData(currentStroke)}
-                  stroke="rgba(212, 175, 55, 0.85)"
-                  strokeWidth={STROKE_WIDTH + 1}
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              )}
-            </Svg>
-          </View>
-        </GestureDetector>
-
-        {!hasStartedDrawing && !isPostPrimeTrace ? <Text style={styles.emptyPrompt}>Trace anywhere on the form.</Text> : null}
-        {!isPostPrimeTrace ? (
-          <View style={styles.hintOverlay}>
-            <View style={[styles.hintLine, { width: canvasSize }]}>
-              <UndertoneLine text="Move slowly along the gold lines. Overlap is okay." variant="default" />
-            </View>
-          </View>
-        ) : null}
-      </View>
-
-      {/* Control Buttons */}
-      <View
-        style={[
-          styles.controls,
-          isCompactLayout && styles.controlsCompact,
-          { paddingBottom: Math.max(insets.bottom, spacing.lg) },
-        ]}
-      >
-        <View style={styles.controlRow}>
-          <TouchableOpacity
-            style={[styles.controlButton, styles.secondaryButton]}
-            onPress={handleClearLast}
-            disabled={strokes.length === 0}
-            accessibilityRole="button"
-            accessibilityLabel="Undo"
-            accessibilityState={{ disabled: strokes.length === 0 }}
-          >
-            <Text style={styles.controlButtonText}>Undo</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.controlButton, styles.secondaryButton]}
-            onPress={handleClearAll}
-            disabled={strokes.length === 0}
-            accessibilityRole="button"
-            accessibilityLabel="Clear"
-            accessibilityState={{ disabled: strokes.length === 0 }}
-          >
-            <Text style={styles.controlButtonText}>Clear</Text>
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity
-          style={[styles.completeButton, isCompactLayout && styles.completeButtonCompact]}
-          onPress={handleComplete}
-          disabled={strokeCount === 0}
-          accessibilityRole="button"
-          accessibilityLabel={isPostPrimeTrace ? 'Complete trace' : 'Continue'}
-          accessibilityState={{ disabled: strokeCount === 0 }}
-        >
-          <Text style={styles.completeButtonText}>
-            {isPostPrimeTrace ? 'Complete trace' : 'Continue →'}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.skipButton, isCompactLayout && styles.skipButtonCompact]}
-          onPress={handleSkip}
-          disabled={showTraceDefaultPrompt}
-          accessibilityRole="button"
-          accessibilityLabel={isPostPrimeTrace ? 'Skip' : 'Skip Tracing'}
-          accessibilityState={{ disabled: showTraceDefaultPrompt }}
-        >
-          <Text style={styles.skipButtonText}>
-            {isPostPrimeTrace ? 'Skip' : 'Skip Tracing'}
-          </Text>
-        </TouchableOpacity>
-
-        {showTraceDefaultPrompt ? (
-          <View style={styles.traceDefaultPrompt}>
-            <Text style={styles.traceDefaultPromptText}>
-              Skip tracing by default? You can turn it back on in Settings.
-            </Text>
-            <View style={styles.traceDefaultPromptActions}>
-              <TouchableOpacity
-                style={styles.traceDefaultPromptPrimary}
-                onPress={handleDisableTraceDefault}
-                accessibilityRole="button"
-                accessibilityLabel="Yes, skip by default"
-              >
-                <Text style={styles.traceDefaultPromptPrimaryText}>
-                  Yes, skip by default
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.traceDefaultPromptSecondary}
-                onPress={handleKeepTraceDefault}
-                accessibilityRole="button"
-                accessibilityLabel="No, keep asking"
-              >
-                <Text style={styles.traceDefaultPromptSecondaryText}>No, keep asking</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ) : null}
-      </View>
-
-      {/* Skip Confirmation Modal */}
-      {showSkipModal && (
-        <View style={styles.modalRoot}>
+    <View style={styles.container}>
+      <ZenBackground variant="sanctuary" />
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.topBar}>
           <Pressable
-            style={styles.modalBackdrop}
-            onPress={handleCancelSkip}
+            style={({ pressed }) => [styles.backBtn, pressed && styles.backBtnPressed]}
+            onPress={() => navigation.goBack()}
+            hitSlop={8}
             accessibilityRole="button"
-            accessibilityLabel="Dismiss confirmation"
-          />
-          <View style={styles.modalOverlay} pointerEvents="box-none">
-            <View style={styles.modalContent} accessibilityViewIsModal={true}>
-              <Text style={styles.modalTitle}>
-                {isPostPrimeTrace ? 'Skip Trace?' : 'Continue Without Tracing'}
-              </Text>
-              <Text style={styles.modalBody}>
-                {isPostPrimeTrace
-                  ? 'You can return to your reflection without tracing again.'
-                  : "Some find tracing deepens their focus. It's completely optional."}
-              </Text>
+            accessibilityLabel="Back to structure options"
+          >
+            <BackChevronIcon size={16} color={boneSoft} />
+          </Pressable>
+          <Text style={styles.stepTag}>{isPostPrimeTrace ? 'Trace' : 'Structure'}</Text>
+        </View>
 
-              <TouchableOpacity
-                style={styles.modalPrimaryButton}
-                onPress={handleCancelSkip}
-                accessibilityRole="button"
-                accessibilityLabel={isPostPrimeTrace ? 'Keep Tracing' : 'Stay and Trace'}
-              >
-                <Text style={styles.modalPrimaryButtonText}>
-                  {isPostPrimeTrace ? 'Keep Tracing' : 'Stay and Trace'}
-                </Text>
-              </TouchableOpacity>
+        <View
+          style={[styles.scrollContent, { paddingHorizontal: horizontalPadding, paddingBottom: insets.bottom + 12 }]}
+        >
+          <View style={styles.textZone}>
+            <View style={styles.eyebrowRow}>
+              <View style={styles.eyebrowRule} />
+              <Text style={styles.eyebrow}>Structure</Text>
+            </View>
+            <Text style={styles.title}>
+              {isPostPrimeTrace ? 'Trace to deepen' : 'Trace your structure'}
+            </Text>
+            <Text style={styles.body}>
+              {isPostPrimeTrace ? 'Refine and deepen.' : 'Follow the form once before it becomes your Anchor.'}
+            </Text>
+          </View>
 
-              <TouchableOpacity
-                style={styles.modalSecondaryButton}
-                onPress={handleConfirmSkip}
-                accessibilityRole="button"
-                accessibilityLabel={isPostPrimeTrace ? 'Skip' : 'Continue'}
+          {!isPostPrimeTrace && shouldShowFirstTimeHint ? (
+            <View style={styles.teachBanner}>
+              <Text style={styles.teachBannerText}>
+                Tracing is optional. It doesn&rsquo;t make one Anchor stronger than another.
+              </Text>
+            </View>
+          ) : null}
+
+          <View style={[styles.canvasFrame, { width: canvasSize, height: canvasSize }]}>
+            <View style={styles.canvasGlow} pointerEvents="none" />
+
+            {/* Faint base guide — the real generated structure, not a placeholder */}
+            <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+              <View style={{ opacity: 0.32 }}>
+                <SvgXml xml={baseSigilSvg} width="100%" height="100%" color={gilt} />
+              </View>
+              <Animated.View style={[StyleSheet.absoluteFillObject, guideResolvedStyle]}>
+                <SvgXml xml={baseSigilSvg} width="100%" height="100%" color={giltBright} />
+              </Animated.View>
+            </View>
+
+            <GestureDetector gesture={panGesture}>
+              <View
+                style={styles.canvasTouchSurface}
+                onLayout={() => {
+                  if (!canvasReady) {
+                    setCanvasReady(true);
+                  }
+                }}
               >
-                <Text style={styles.modalSecondaryButtonText}>
-                  {isPostPrimeTrace ? 'Skip' : 'Continue'}
-                </Text>
-              </TouchableOpacity>
+                <Svg width={canvasSize} height={canvasSize} style={styles.svg}>
+                  {strokes.map((stroke, index) => (
+                    <React.Fragment key={index}>
+                      <Path
+                        d={stroke.pathData}
+                        stroke={giltBright}
+                        strokeOpacity={0.35}
+                        strokeWidth={liveStrokeWidth + 6}
+                        fill="none"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <Path
+                        d={stroke.pathData}
+                        stroke={giltBright}
+                        strokeWidth={liveStrokeWidth}
+                        fill="none"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </React.Fragment>
+                  ))}
+
+                  {currentStroke.length > 0 && (
+                    <React.Fragment>
+                      <Path
+                        d={pointsToPathData(currentStroke)}
+                        stroke={giltBright}
+                        strokeOpacity={0.35}
+                        strokeWidth={liveStrokeWidth + 6}
+                        fill="none"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <Path
+                        d={pointsToPathData(currentStroke)}
+                        stroke={giltBright}
+                        strokeWidth={liveStrokeWidth}
+                        fill="none"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </React.Fragment>
+                  )}
+                </Svg>
+              </View>
+            </GestureDetector>
+
+            {touchPos ? (
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.touchGlow,
+                  touchGlowStyle,
+                  { left: touchPos.x - 23, top: touchPos.y - 23 },
+                ]}
+              />
+            ) : null}
+
+            {!hasStartedDrawing && !isPostPrimeTrace ? (
+              <Text style={styles.emptyPrompt} pointerEvents="none">Trace anywhere on the form.</Text>
+            ) : null}
+
+            <View style={[styles.structureSetLabel, showStructureSet && styles.structureSetLabelVisible]} pointerEvents="none">
+              <Text style={styles.structureSetText}>Structure Set</Text>
             </View>
           </View>
+
+          {!isPostPrimeTrace ? (
+            <View style={styles.headerTeachRow}>
+              <Text style={styles.headerTeach}>
+                Move slowly along the gold lines. Overlap is okay.{' '}
+              </Text>
+              <Pressable
+                onPress={() => setShowAboutTracing(true)}
+                hitSlop={14}
+                style={styles.principlesQ}
+                accessibilityRole="button"
+                accessibilityLabel="About tracing"
+              >
+                <Text style={styles.principlesQText}>?</Text>
+              </Pressable>
+            </View>
+          ) : null}
+
+          <View style={styles.toolRow}>
+            <Pressable
+              style={styles.toolBtn}
+              onPress={handleClearLast}
+              disabled={strokes.length === 0}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel="Undo last trace stroke"
+              accessibilityState={{ disabled: strokes.length === 0 }}
+            >
+              <IconUndo color={strokes.length === 0 ? boneFaint : boneSoft} />
+              <Text style={[styles.toolLabel, strokes.length === 0 && styles.toolLabelDisabled]}>Undo</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.toolBtn}
+              onPress={requestClear}
+              disabled={strokes.length === 0}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel="Clear tracing"
+              accessibilityState={{ disabled: strokes.length === 0 }}
+            >
+              <IconClear color={strokes.length === 0 ? boneFaint : boneSoft} />
+              <Text style={[styles.toolLabel, strokes.length === 0 && styles.toolLabelDisabled]}>Clear</Text>
+            </Pressable>
+          </View>
+
+          {showClearConfirm ? (
+            <View style={styles.clearConfirm}>
+              <Text style={styles.clearConfirmText}>Clear your tracing?</Text>
+              <View style={styles.clearConfirmActions}>
+                <Pressable onPress={cancelClear} hitSlop={14} accessibilityRole="button" accessibilityLabel="Cancel">
+                  <Text style={styles.clearConfirmActionText}>Cancel</Text>
+                </Pressable>
+                <Pressable onPress={clearAllConfirmed} hitSlop={14} accessibilityRole="button" accessibilityLabel="Clear">
+                  <Text style={[styles.clearConfirmActionText, styles.clearConfirmDanger]}>Clear</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
+
+          {showTraceDefaultPrompt ? (
+            <View style={styles.traceDefaultPrompt}>
+              <Text style={styles.traceDefaultPromptText}>
+                Skip tracing by default? You can turn it back on in Settings.
+              </Text>
+              <View style={styles.traceDefaultPromptActions}>
+                <Pressable
+                  style={({ pressed }) => [styles.nextBtnSmall, pressed && styles.nextBtnPressed]}
+                  onPress={handleDisableTraceDefault}
+                  accessibilityRole="button"
+                  accessibilityLabel="Yes, skip by default"
+                >
+                  <Text style={styles.nextBtnSmallText}>Yes, skip by default</Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleKeepTraceDefault}
+                  accessibilityRole="button"
+                  accessibilityLabel="No, keep asking"
+                  style={styles.traceDefaultPromptSecondary}
+                >
+                  <Text style={styles.traceDefaultPromptSecondaryText}>No, keep asking</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
+
+          <View style={{ flex: 1 }} />
+
+          <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 18) }]}>
+            <Pressable
+              onPress={handleComplete}
+              disabled={strokeCount === 0 || continuing}
+              style={({ pressed }) => [
+                styles.nextBtn,
+                (strokeCount === 0 || continuing) && styles.nextBtnDisabled,
+                pressed && strokeCount > 0 && !continuing && styles.nextBtnPressed,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={isPostPrimeTrace ? 'Complete trace' : 'Continue'}
+              accessibilityState={{ disabled: strokeCount === 0 || continuing }}
+            >
+              <Text style={styles.nextBtnText}>
+                {isPostPrimeTrace ? 'Complete trace' : 'Continue →'}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={handleSkip}
+              disabled={showTraceDefaultPrompt || continuing}
+              hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={isPostPrimeTrace ? 'Skip' : 'Skip Tracing'}
+              accessibilityState={{ disabled: showTraceDefaultPrompt || continuing }}
+              style={styles.skipLink}
+            >
+              <Text style={styles.skipLinkText}>
+                {isPostPrimeTrace ? 'Skip' : 'Skip Tracing'}
+              </Text>
+            </Pressable>
+          </View>
         </View>
-      )}
+      </SafeAreaView>
+
       {showAboutTracing ? (
-        <View style={styles.modalRoot}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setShowAboutTracing(false)} />
-          <View style={styles.modalOverlay} pointerEvents="box-none">
-            <View style={styles.modalContent} accessibilityViewIsModal={true}>
-              <Text style={styles.modalTitle}>About Tracing</Text>
-              <Text style={styles.modalBody}>Tracing is optional. It doesn’t make one Anchor stronger than another.{`\n\n`}It gives you a moment to move through the form before it becomes your Anchor.</Text>
-              <TouchableOpacity style={styles.modalPrimaryButton} onPress={() => setShowAboutTracing(false)} accessibilityRole="button" accessibilityLabel="Got it">
-                <Text style={styles.modalPrimaryButtonText}>Got it</Text>
-              </TouchableOpacity>
+        <View style={styles.sheetRoot}>
+          <Pressable style={styles.sheetBackdrop} onPress={() => setShowAboutTracing(false)} accessibilityLabel="Dismiss" />
+          <View style={[styles.sheet, { paddingBottom: insets.bottom + 40 }]} accessibilityViewIsModal>
+            <View style={styles.sheetHandle} />
+            <Pressable
+              onPress={() => setShowAboutTracing(false)}
+              hitSlop={8}
+              style={styles.sheetClose}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+            >
+              <CloseIcon size={12} color={boneFaint} />
+            </Pressable>
+            <Text style={styles.sheetTitle}>About Tracing</Text>
+            <View style={[styles.sheetItem, styles.sheetItemFirst]}>
+              <Text style={styles.sheetItemTitle}>
+                Tracing is optional. It doesn&rsquo;t make one Anchor stronger than another.
+              </Text>
             </View>
+            <View style={styles.sheetItem}>
+              <Text style={styles.sheetItemTitle}>
+                It gives you a moment to move through the form before it becomes your Anchor.
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => setShowAboutTracing(false)}
+              style={({ pressed }) => [styles.sheetDismiss, pressed && styles.nextBtnPressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Got it"
+            >
+              <Text style={styles.sheetDismissText}>Got it</Text>
+            </Pressable>
           </View>
         </View>
       ) : null}
-      {showStructureSet ? (
-        <View style={styles.structureSetOverlay} accessibilityViewIsModal={true}>
-          <Text style={styles.structureSetText}>Structure Set</Text>
-        </View>
-      ) : null}
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: colors.anchor15.navy,
   },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    marginBottom: spacing.md,
+  safeArea: {
+    flex: 1,
   },
-  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
-  topSpacer: { width: 42 },
-  backText: { color: colors.gold, fontFamily: typography.fonts.heading, fontSize: 24, lineHeight: 28 },
-  aboutText: { color: colors.text.secondary, fontFamily: typography.fonts.body, fontSize: 13 },
-  contextLabel: { color: colors.text.tertiary, fontFamily: typography.fonts.mono, fontSize: 10, letterSpacing: 1.8, textTransform: 'uppercase', marginBottom: spacing.xs },
-  sectionLabel: { color: colors.gold, fontFamily: typography.fonts.headingSemiBold, fontSize: 11, letterSpacing: 1.8, textTransform: 'uppercase', marginBottom: spacing.xs },
-  sectionLabelCompact: { fontSize: 10 },
-  headerCompact: {
-    paddingTop: spacing.sm,
-    marginBottom: spacing.sm,
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingTop: 14,
+    paddingBottom: 12,
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: hairlineGold,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backBtnPressed: {
+    borderColor: goldLine,
+  },
+  stepTag: {
+    fontFamily: typography.fontFamily.ritual,
+    fontSize: 10,
+    fontWeight: '500',
+    letterSpacing: 2,
+    color: ash,
+    textTransform: 'uppercase',
+  },
+  scrollContent: {
+    flex: 1,
+  },
+  textZone: {
+    marginTop: 12,
+  },
+  eyebrowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 14,
+  },
+  eyebrowRule: {
+    width: 20,
+    height: 1,
+    backgroundColor: goldLine,
+  },
+  eyebrow: {
+    fontFamily: typography.fontFamily.ritual,
+    fontSize: 11,
+    fontWeight: '500',
+    letterSpacing: 2.2,
+    color: ash,
+    textTransform: 'uppercase',
   },
   title: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 28,
-    color: colors.gold,
-    marginBottom: spacing.xs,
-    textAlign: 'left',
+    fontFamily: typography.fontFamily.voiceItalic,
+    fontStyle: 'italic',
+    fontWeight: '500',
+    fontSize: 25,
+    lineHeight: 32,
+    color: bone,
+    letterSpacing: 0.15,
+    marginBottom: 14,
   },
-  titleCompact: {
-    fontSize: 24,
+  body: {
+    fontFamily: typography.fontFamily.instrument,
+    fontSize: 16,
+    color: boneSoft,
+    lineHeight: 25.6,
   },
-  subtitle: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body2,
-    color: colors.text.tertiary,
-    textAlign: 'left',
-    lineHeight: 20,
+  teachBanner: {
+    marginTop: 14,
+    padding: 13,
+    borderRadius: 12,
+    backgroundColor: 'rgba(217, 179, 108, 0.07)',
+    borderWidth: 1,
+    borderColor: hairline,
   },
-  subtitleCompact: {
-    fontSize: 14,
-    lineHeight: 18,
+  teachBannerText: {
+    fontFamily: typography.fontFamily.instrument,
+    fontSize: 12.5,
+    lineHeight: 19.4,
+    color: boneSoft,
   },
-  canvasContainer: {
-    alignItems: 'center',
-    marginBottom: spacing.xxl,
+  canvasFrame: {
+    alignSelf: 'center',
+    marginTop: 16,
+    borderRadius: 20,
+    backgroundColor: '#0A0F14',
+    borderWidth: 1,
+    borderColor: 'rgba(217, 179, 108, 0.32)',
+    overflow: 'hidden',
     position: 'relative',
   },
-  teachingText: { marginTop: spacing.sm, color: colors.text.tertiary, fontFamily: typography.fonts.body, fontSize: 13, lineHeight: 19, maxWidth: 340 },
-  emptyPrompt: { position: 'absolute', color: 'rgba(245,245,220,0.58)', fontFamily: typography.fonts.bodySerifItalic, fontSize: 15, zIndex: 2 },
-  canvasContainerCompact: {
-    marginBottom: spacing.xl + spacing.xs,
+  canvasGlow: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.anchor15.steel,
+    opacity: 0.28,
   },
-  canvas: {
-    backgroundColor: colors.background.card,
-    borderRadius: spacing.md,
-    borderWidth: 2,
-    borderColor: colors.gold,
-    overflow: 'hidden',
-  },
-  canvasCompact: {
-    borderRadius: spacing.sm + 2,
+  canvasTouchSurface: {
+    ...StyleSheet.absoluteFillObject,
   },
   svg: {
     backgroundColor: 'transparent',
   },
-  hintOverlay: {
+  touchGlow: {
     position: 'absolute',
-    bottom: -spacing.lg - 8,
-    left: 0,
-    right: 0,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: 'rgba(242, 223, 168, 0.28)',
+  },
+  emptyPrompt: {
+    position: 'absolute',
+    left: 24,
+    right: 24,
+    top: '46%',
+    textAlign: 'center',
+    color: boneFaint,
+    fontFamily: typography.fontFamily.voiceItalic,
+    fontStyle: 'italic',
+    fontSize: 15,
+  },
+  structureSetLabel: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
-    pointerEvents: 'none',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(8, 13, 19, 0.35)',
+    opacity: 0,
   },
-  hintLine: {
-    paddingHorizontal: spacing.sm,
+  structureSetLabelVisible: {
+    opacity: 1,
   },
-  controls: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
+  structureSetText: {
+    fontFamily: typography.fontFamily.ritualSemiBold,
+    fontWeight: '600',
+    fontSize: 12,
+    letterSpacing: 2.88,
+    textTransform: 'uppercase',
+    color: giltBright,
   },
-  controlsCompact: {
-    paddingHorizontal: spacing.md + 4,
+  headerTeachRow: {
+    marginTop: 12,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  controlRow: {
+  headerTeach: {
+    fontFamily: typography.fontFamily.instrument,
+    fontSize: 12.5,
+    lineHeight: 19.4,
+    color: ash,
+    textAlign: 'center',
+  },
+  principlesQ: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: goldLine,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  principlesQText: {
+    fontFamily: typography.fontFamily.instrument,
+    fontSize: 10,
+    color: gilt,
+  },
+  toolRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: spacing.md,
-    gap: spacing.md,
+    gap: 8,
+    marginTop: 16,
   },
-  controlButton: {
+  toolBtn: {
     flex: 1,
-    height: 44,
-    borderRadius: spacing.sm,
-    justifyContent: 'center',
+    minHeight: 44,
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    borderRadius: 12,
   },
-  secondaryButton: {
-    backgroundColor: colors.background.card,
+  toolLabel: {
+    fontFamily: typography.fontFamily.ritual,
+    fontSize: 9,
+    fontWeight: '500',
+    letterSpacing: 1.26,
+    textTransform: 'uppercase',
+    color: boneSoft,
+  },
+  toolLabelDisabled: {
+    color: boneFaint,
+  },
+  clearConfirm: {
+    marginTop: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: 'rgba(15, 20, 25, 0.9)',
     borderWidth: 1,
-    borderColor: colors.navy,
-  },
-  controlButtonText: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body2,
-    color: colors.text.secondary,
-    fontWeight: '600',
-  },
-  completeButton: {
-    height: 56,
-    borderRadius: spacing.sm,
-    justifyContent: 'center',
+    borderColor: goldLine,
+    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.gold,
-    marginBottom: spacing.sm,
+    justifyContent: 'space-between',
   },
-  completeButtonCompact: {
-    height: 52,
+  clearConfirmText: {
+    fontFamily: typography.fontFamily.instrument,
+    fontSize: 13,
+    color: boneSoft,
   },
-  completeButtonText: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body1,
+  clearConfirmActions: {
+    flexDirection: 'row',
+    gap: 14,
+  },
+  clearConfirmActionText: {
+    fontFamily: typography.fontFamily.ritualSemiBold,
+    fontSize: 10,
     fontWeight: '600',
-    color: colors.charcoal,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    color: ash,
   },
-  skipButton: {
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: spacing.sm,
-  },
-  skipButtonCompact: {
-    height: 42,
-  },
-  skipButtonText: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body2,
-    color: colors.text.secondary,
+  clearConfirmDanger: {
+    color: giltBright,
   },
   traceDefaultPrompt: {
-    marginTop: spacing.md,
-    borderRadius: spacing.sm,
+    marginTop: 14,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.28)',
+    borderColor: goldLine,
     backgroundColor: 'rgba(10, 13, 18, 0.86)',
-    padding: spacing.md,
+    padding: 16,
   },
   traceDefaultPromptText: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body2,
-    lineHeight: 20,
-    color: colors.bone,
+    fontFamily: typography.fontFamily.instrument,
+    fontSize: 13,
+    lineHeight: 19,
+    color: bone,
     textAlign: 'center',
-    marginBottom: spacing.md,
+    marginBottom: 14,
   },
   traceDefaultPromptActions: {
-    gap: spacing.sm,
+    gap: 8,
   },
-  traceDefaultPromptPrimary: {
+  nextBtnSmall: {
     minHeight: 44,
-    borderRadius: spacing.sm,
-    backgroundColor: colors.gold,
+    borderRadius: 999,
+    backgroundColor: 'rgba(217, 179, 108, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(217, 179, 108, 0.34)',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: 16,
   },
-  traceDefaultPromptPrimaryText: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body2,
+  nextBtnSmallText: {
+    fontFamily: typography.fontFamily.ritualSemiBold,
     fontWeight: '600',
-    color: colors.charcoal,
+    fontSize: 12,
+    letterSpacing: 1.2,
+    color: giltBright,
+    textTransform: 'uppercase',
   },
   traceDefaultPromptSecondary: {
-    minHeight: 40,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.md,
   },
   traceDefaultPromptSecondaryText: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body2,
-    color: colors.text.secondary,
+    fontFamily: typography.fontFamily.instrument,
+    fontSize: 13,
+    color: ash,
+  },
+  bottomBar: {
+    paddingTop: 18,
+    alignItems: 'center',
+    gap: 4,
+  },
+  nextBtn: {
+    width: '100%',
+    height: 56,
+    borderRadius: 999,
+    backgroundColor: 'rgba(217, 179, 108, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(217, 179, 108, 0.34)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nextBtnPressed: {
+    backgroundColor: 'rgba(217, 179, 108, 0.16)',
+    borderColor: 'rgba(217, 179, 108, 0.48)',
+  },
+  nextBtnDisabled: {
+    opacity: 0.36,
+  },
+  nextBtnText: {
+    fontFamily: typography.fontFamily.ritualSemiBold,
+    fontWeight: '600',
+    fontSize: 14,
+    letterSpacing: 2.52,
+    color: giltBright,
+    textTransform: 'uppercase',
+  },
+  skipLink: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  skipLinkText: {
+    fontFamily: typography.fontFamily.instrument,
+    fontSize: 12.5,
+    color: ash,
   },
   missingAnchorWrap: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: 28,
+    gap: 12,
   },
-  modalRoot: {
+  sheetRoot: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 100,
-    elevation: 100,
+    justifyContent: 'flex-end',
   },
-  modalBackdrop: {
+  sheetBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(20, 20, 30, 0.95)',
+    backgroundColor: 'rgba(6, 9, 13, 0.7)',
   },
-  modalOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
+  sheet: {
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    borderTopWidth: 1,
+    borderColor: goldLine,
+    backgroundColor: colors.anchor15.veil,
+    paddingHorizontal: 26,
+    paddingTop: 14,
+  },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 99,
+    backgroundColor: 'rgba(244, 239, 230, 0.18)',
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  sheetClose: {
+    position: 'absolute',
+    top: 14,
+    right: 20,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: hairlineGold,
     alignItems: 'center',
-    padding: spacing.lg,
+    justifyContent: 'center',
   },
-  modalContent: {
-    backgroundColor: 'rgba(40, 40, 50, 1)',
-    borderRadius: 16,
-    padding: 32,
+  sheetTitle: {
+    fontFamily: typography.fontFamily.ritual,
+    fontSize: 11,
+    letterSpacing: 2.42,
+    textTransform: 'uppercase',
+    color: ash,
+    textAlign: 'center',
+    marginBottom: 18,
+  },
+  sheetItem: {
+    paddingVertical: 15,
+    borderTopWidth: 1,
+    borderTopColor: hairlineGold,
+  },
+  sheetItemFirst: {
+    borderTopWidth: 0,
+    paddingTop: 0,
+  },
+  sheetItemTitle: {
+    fontFamily: typography.fontFamily.voiceItalic,
+    fontStyle: 'italic',
+    fontSize: 16,
+    lineHeight: 22.7,
+    color: bone,
+  },
+  sheetDismiss: {
     width: '100%',
-    maxWidth: 400,
+    height: 48,
+    borderRadius: 999,
+    marginTop: 22,
+    backgroundColor: 'rgba(217, 179, 108, 0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.2)',
-  },
-  modalTitle: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 20,
-    color: '#E8E8E8',
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  modalBody: {
-    fontFamily: typography.fonts.body,
-    fontSize: 15,
-    color: '#9B9B9B',
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 24,
-  },
-  modalPrimaryButton: {
-    backgroundColor: colors.gold,
-    height: 52,
-    borderRadius: 8,
-    justifyContent: 'center',
+    borderColor: 'rgba(217, 179, 108, 0.34)',
     alignItems: 'center',
-    marginBottom: 12,
+    justifyContent: 'center',
   },
-  modalPrimaryButtonText: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body1,
+  sheetDismissText: {
+    fontFamily: typography.fontFamily.ritualSemiBold,
     fontWeight: '600',
-    color: '#1A1A1A',
+    fontSize: 13,
+    letterSpacing: 2.08,
+    color: giltBright,
+    textTransform: 'uppercase',
   },
-  modalSecondaryButton: {
-    backgroundColor: 'transparent',
-    height: 52,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalSecondaryButtonText: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body1,
-    fontWeight: '400',
-    color: '#9B9B9B',
-  },
-  structureSetOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 110, backgroundColor: 'rgba(8, 11, 15, 0.94)', alignItems: 'center', justifyContent: 'center' },
-  structureSetText: { fontFamily: typography.fonts.headingSemiBold, color: colors.gold, fontSize: 22, letterSpacing: 2 },
 });
