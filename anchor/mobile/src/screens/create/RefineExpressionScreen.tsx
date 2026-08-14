@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -11,25 +11,43 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { ArrowLeft, Sparkles } from 'lucide-react-native';
+import { ArrowLeft } from 'lucide-react-native';
 import { safeHaptics } from '@/utils/haptics';
 import type { RootStackParamList, SigilVariant } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { SigilSvg } from '@/components/common';
 import { API_URL } from '@/config';
 import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
-import { RefineStyleCard } from './components/RefineStyleCard';
 import {
+  RefineBadgeView,
+  RefineFeatCard,
+  RefineGlyph,
+  RefineHeroCard,
+  RefineStyleCard,
+  StructureHeroGlyph,
+} from './components/RefineStyleCard';
+import {
+  FAMILY_FILTERS,
   REFINE_STYLES,
+  RefineStyleFamily,
+  RefineStyleOption,
+  allStyles,
   coreStyles,
+  familyStyles,
   featuredStyles,
-  getFilteredStyles,
   getRecommendedStyles,
+  heroStyle,
+  railStyles,
   seasonalStyles,
-  type RefineStyleFilter,
-  type RefineStyleOption,
 } from './constants/refineStyles';
 
 type StyleSelectionRouteProp = RouteProp<RootStackParamList, 'StyleSelection'>;
@@ -54,36 +72,14 @@ const isSigilVariant = (value: string | undefined): value is SigilVariant =>
 const normalizeSigilVariant = (value: string | undefined): SigilVariant =>
   isSigilVariant(value) ? value : 'balanced';
 
-const getAmbientStyle = (style: RefineStyleOption) => {
-  if (style.paletteLane.includes('aurora')) return 'rgba(61, 104, 118, 0.045)';
-  if (style.paletteLane.includes('ember') || style.paletteLane.includes('solar')) return 'rgba(212, 123, 55, 0.045)';
-  if (style.paletteLane.includes('moon') || style.paletteLane.includes('silver')) return 'rgba(135, 151, 165, 0.04)';
-  if (style.paletteLane.includes('gold')) return 'rgba(212, 175, 55, 0.05)';
-  if (style.category === 'Organic') return 'rgba(70, 84, 78, 0.05)';
-  if (style.category === 'Geometric' || style.category === 'Minimal') return 'rgba(245, 245, 220, 0.035)';
+const EXPLORE_TABS = [
+  { id: 'week', label: 'This Week' },
+  { id: 'core', label: 'Core' },
+  { id: 'seasonal', label: 'Seasonal' },
+  { id: 'all', label: 'All Styles →' },
+] as const;
 
-  return 'rgba(217, 179, 108, 0.025)';
-};
-
-const SectionHeader = ({
-  title,
-  copy,
-  meta,
-  seasonal,
-}: {
-  title: string;
-  copy: string;
-  meta?: string;
-  seasonal?: boolean;
-}) => (
-  <View style={styles.sectionHeader}>
-    <View style={styles.sectionTitleRow}>
-      <Text style={[styles.sectionTitle, seasonal && styles.sectionTitleSeasonal]}>{title}</Text>
-      {meta ? <Text style={styles.sectionMeta}>{meta}</Text> : null}
-    </View>
-    <Text style={styles.sectionCopy}>{copy}</Text>
-  </View>
-);
+type ExploreTabId = (typeof EXPLORE_TABS)[number]['id'];
 
 export default function RefineExpressionScreen() {
   const route = useRoute<StyleSelectionRouteProp>();
@@ -98,97 +94,81 @@ export default function RefineExpressionScreen() {
   const structureType = params.structureType ?? params.structureVariant;
   const category = params.category ?? 'custom';
   const flowDraft = useFirstAnchorFlowStore((state) => state.draft);
-  const structureName = flowDraft?.structure === 'drawn'
-    ? 'Drawn'
+
+  const structureId = flowDraft?.structure === 'drawn'
+    ? 'drawn'
     : structureType === 'dense'
-      ? 'Contained'
+      ? 'contained'
       : structureType === 'minimal'
-        ? 'Raw'
-        : 'Focused';
+        ? 'raw'
+        : 'focused';
+
+  const structureLabel =
+    structureId === 'drawn'
+      ? 'Drawn'
+      : structureId === 'contained'
+        ? 'Contained'
+        : structureId === 'raw'
+          ? 'Raw'
+          : 'Focused';
 
   const recommendedStyles = useMemo(
     () => getRecommendedStyles(category, intention),
     [category, intention]
   );
 
-  const [selectedStyleId, setSelectedStyleId] = useState(
+  const [selectedStyleId, setSelectedStyleId] = useState<string>(
     recommendedStyles[0]?.id ?? featuredStyles[0]?.id ?? REFINE_STYLES[0].id
   );
-  const activeFilter: RefineStyleFilter = 'all';
-  const [activeExploreTab, setActiveExploreTab] = useState<'week' | 'core' | 'seasonal' | 'all'>('all');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [ambientColor, setAmbientColor] = useState(getAmbientStyle(recommendedStyles[0] ?? featuredStyles[0]));
 
-  const ambientOpacity = useSharedValue(1);
-  const ctaTextOpacity = useSharedValue(1);
+  const [exploreTab, setExploreTab] = useState<ExploreTabId | null>(null);
+  const [exploreFamily, setExploreFamily] = useState<RefineStyleFamily | 'All'>('All');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isTeachVisible, setIsTeachVisible] = useState(false);
+
+  const taughtRef = useRef(false);
+  const teachTimer = useRef<NodeJS.Timeout | null>(null);
+  const genTimer = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (teachTimer.current) clearTimeout(teachTimer.current);
+      if (genTimer.current) clearTimeout(genTimer.current);
+    };
+  }, []);
+
+  const teachOpacity = useSharedValue(0);
+  const teachHeight = useSharedValue(0);
+
+  const spinRotation = useSharedValue(0);
 
   const selectedStyleOption = useMemo(
-    () => REFINE_STYLES.find((style) => style.id === selectedStyleId) ?? REFINE_STYLES[0],
+    () => REFINE_STYLES.find((s) => s.id === selectedStyleId) ?? REFINE_STYLES[0],
     [selectedStyleId]
   );
 
-  const filteredStyles = useMemo(() => getFilteredStyles(activeFilter), [activeFilter]);
-  const isFilteredView = activeFilter !== 'all';
-  const filteredIds = useMemo(() => new Set(filteredStyles.map((style) => style.id)), [filteredStyles]);
-
-  const visibleFeaturedStyles = useMemo(
-    () => (isFilteredView ? featuredStyles.filter((style) => filteredIds.has(style.id)) : featuredStyles),
-    [filteredIds, isFilteredView]
-  );
-
-  const visibleRecommendedStyles = useMemo(
-    () => (isFilteredView ? recommendedStyles.filter((style) => filteredIds.has(style.id)) : recommendedStyles),
-    [filteredIds, isFilteredView, recommendedStyles]
-  );
-
-  const visibleCoreStyles = useMemo(
-    () => (isFilteredView ? coreStyles.filter((style) => filteredIds.has(style.id)) : coreStyles),
-    [filteredIds, isFilteredView]
-  );
-
-  const visibleSeasonalStyles = useMemo(
-    () => (isFilteredView ? seasonalStyles.filter((style) => filteredIds.has(style.id)) : seasonalStyles),
-    [filteredIds, isFilteredView]
-  );
-
-  const hasVisibleSections =
-    visibleFeaturedStyles.length > 0 ||
-    visibleRecommendedStyles.length > 0 ||
-    visibleCoreStyles.length > 0 ||
-    visibleSeasonalStyles.length > 0;
-
-  const gridGap = spacing.sm;
-  const gridCardWidth = Math.floor((screenWidth - spacing.lg * 2 - gridGap) / 2);
-  const seasonalCardWidth = Math.floor((screenWidth - spacing.lg * 2 - spacing.md * 2 - gridGap) / 2);
-  const featuredCardWidth = Math.min(286, Math.max(238, screenWidth * 0.72));
-  const recommendedCardWidth = Math.min(244, Math.max(212, screenWidth * 0.58));
-
-  const ambientAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: ambientOpacity.value,
-  }));
-
-  const ctaTextAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: ctaTextOpacity.value,
-  }));
-
+  // Spin animation for generating indicator
   useEffect(() => {
-    if (reduceMotion) {
-      setAmbientColor(getAmbientStyle(selectedStyleOption));
-      ambientOpacity.value = 1;
-      ctaTextOpacity.value = 1;
-      return;
+    if (isGenerating && !reduceMotion) {
+      spinRotation.value = withRepeat(
+        withTiming(360, { duration: 900, easing: Easing.linear }),
+        -1,
+        false
+      );
+    } else {
+      spinRotation.value = 0;
     }
-    ambientOpacity.value = withTiming(0, { duration: 120 });
-    ctaTextOpacity.value = withTiming(0, { duration: 90 });
+  }, [isGenerating, reduceMotion, spinRotation]);
 
-    const timeout = setTimeout(() => {
-      setAmbientColor(getAmbientStyle(selectedStyleOption));
-      ambientOpacity.value = withTiming(1, { duration: 360, easing: Easing.inOut(Easing.ease) });
-      ctaTextOpacity.value = withTiming(1, { duration: 180 });
-    }, 100);
+  const animatedSpinStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${spinRotation.value}deg` }],
+  }));
 
-    return () => clearTimeout(timeout);
-  }, [ambientOpacity, ctaTextOpacity, reduceMotion, selectedStyleOption]);
+  const animatedTeachStyle = useAnimatedStyle(() => ({
+    opacity: teachOpacity.value,
+    maxHeight: teachHeight.value,
+    marginTop: teachHeight.value > 0 ? 18 : 0,
+  }));
 
   const handleStyleSelect = useCallback((style: RefineStyleOption) => {
     if (style.id === selectedStyleId) return;
@@ -196,14 +176,52 @@ export default function RefineExpressionScreen() {
     void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
     setSelectedStyleId(style.id);
     useFirstAnchorFlowStore.getState().updateDraft({ selectedStyleId: style.id });
-  }, [selectedStyleId]);
+
+    // First-use teaching animation trigger
+    if (!taughtRef.current) {
+      taughtRef.current = true;
+      setIsTeachVisible(true);
+
+      if (reduceMotion) {
+        teachOpacity.value = 1;
+        teachHeight.value = 60;
+      } else {
+        teachOpacity.value = withTiming(1, { duration: 360 });
+        teachHeight.value = withTiming(60, { duration: 360 });
+      }
+
+      if (teachTimer.current) clearTimeout(teachTimer.current);
+      teachTimer.current = setTimeout(() => {
+        setIsTeachVisible(false);
+        if (reduceMotion) {
+          teachOpacity.value = 0;
+          teachHeight.value = 0;
+        } else {
+          teachOpacity.value = withTiming(0, { duration: 300 });
+          teachHeight.value = withTiming(0, { duration: 300 });
+        }
+      }, 2400);
+    }
+  }, [reduceMotion, selectedStyleId, teachHeight, teachOpacity]);
+
+  const handleTabPress = useCallback((tabId: ExploreTabId) => {
+    void safeHaptics.selection();
+    setExploreTab((prev) => (prev === tabId ? null : tabId));
+  }, []);
+
+  const handleFamilyPress = useCallback((family: RefineStyleFamily | 'All') => {
+    void safeHaptics.selection();
+    setExploreFamily(family);
+  }, []);
 
   const handleRefineAnchor = useCallback(() => {
     if (isGenerating) return;
     setIsGenerating(true);
-    // Wake Railway before the real request arrives so cold-start latency does not
-    // block the AI call that fires shortly after navigation.
+    void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Warm Railway server before transition
     void fetch(`${API_URL}/health`).catch(() => {});
+
     useFirstAnchorFlowStore.getState().updateDraft({
       selectedStyleId: selectedStyleOption.id,
       generationStatus: 'generating',
@@ -224,255 +242,297 @@ export default function RefineExpressionScreen() {
       reinforcementMetadata: params.reinforcementMetadata,
     };
 
-    navigation.navigate('AIGenerating', payload);
+    const delayMs = reduceMotion ? 400 : 900;
+    if (genTimer.current) clearTimeout(genTimer.current);
+    genTimer.current = setTimeout(() => {
+      navigation.navigate('AIGenerating', payload);
+    }, delayMs);
   }, [
     category,
     intention,
+    isGenerating,
     navigation,
     params.distilledLetters,
     params.reinforcementMetadata,
     params.reinforcedSigilSvg,
     params.structureType,
     params.structureVariant,
+    reduceMotion,
     selectedStyleOption,
     sigilSvg,
     structureType,
-    isGenerating,
   ]);
 
-  const renderGrid = useCallback(
-    (stylesToRender: RefineStyleOption[], variant: 'core' | 'seasonal' | 'filtered' = 'core') => {
-      const renderCard = (style: RefineStyleOption, index: number) => (
-        <View key={style.id} style={[styles.gridItem, { width: variant === 'seasonal' ? seasonalCardWidth : gridCardWidth }]}>
-          <RefineStyleCard
-            option={style}
-            index={index}
-            isSelected={selectedStyleId === style.id}
-            onSelect={handleStyleSelect}
-            variant={variant}
-          />
-        </View>
-      );
+  // Card dimensions for 2-column grid
+  const gridGap = 12;
+  const gridPadding = spacing.lg;
+  const cardWidth = Math.floor((screenWidth - gridPadding * 2 - gridGap) / 2);
 
-      if (variant === 'seasonal') {
-        const seasonalRows: RefineStyleOption[][] = [];
-
-        for (let index = 0; index < stylesToRender.length; index += 2) {
-          seasonalRows.push(stylesToRender.slice(index, index + 2));
-        }
-
-        return (
-          <View style={styles.seasonalGrid}>
-            {seasonalRows.map((row, rowIndex) => (
-              <View key={`seasonal-row-${rowIndex}`} style={styles.seasonalRow}>
-                {row.map((style, columnIndex) => renderCard(style, rowIndex * 2 + columnIndex))}
-                {row.length === 1 ? <View style={[styles.gridItem, { width: seasonalCardWidth }]} /> : null}
-              </View>
-            ))}
+  const renderStyleGrid = (stylesToRender: RefineStyleOption[], variant: 'core' | 'recommended' | 'seasonal' | 'filtered' = 'core') => {
+    return (
+      <View style={styles.grid}>
+        {stylesToRender.map((style, index) => (
+          <View key={style.id} style={{ width: cardWidth }}>
+            <RefineStyleCard
+              option={style}
+              index={index}
+              isSelected={selectedStyleId === style.id}
+              onSelect={handleStyleSelect}
+              variant={variant}
+              structureId={structureId}
+              structureLabel={structureLabel}
+            />
           </View>
-        );
-      }
+        ))}
+      </View>
+    );
+  };
 
-      return <View style={styles.grid}>{stylesToRender.map(renderCard)}</View>;
-    },
-    [gridCardWidth, handleStyleSelect, seasonalCardWidth, selectedStyleId]
-  );
+  const allFilteredStyles = useMemo(() => {
+    if (exploreFamily === 'All') return allStyles;
+    return familyStyles(exploreFamily);
+  }, [exploreFamily]);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.container}>
-        <LinearGradient colors={['#18202A', '#121820', '#080B0F']} locations={[0, 0.44, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
+        {/* Ambient background field */}
+        <LinearGradient
+          colors={['#18202A', '#121820', colors.anchor15.navy]}
+          locations={[0, 0.44, 1]}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
         <View style={styles.atmosphericGlow} pointerEvents="none" />
 
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            StyleSheet.absoluteFill,
-            { backgroundColor: ambientColor },
-            ambientAnimatedStyle,
-          ]}
-        />
-
+        {/* Top Bar */}
         <View style={styles.topBar}>
           <Pressable
             onPress={() => navigation.goBack()}
             style={styles.backButton}
             accessibilityRole="button"
-            accessibilityLabel="Go back"
+            accessibilityLabel="Back to Style"
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <ArrowLeft size={18} color={colors.gold} strokeWidth={1.8} />
+            <ArrowLeft size={16} color={colors.anchor15.ash} strokeWidth={1.8} />
+            <Text style={styles.backText}>Style</Text>
           </Pressable>
-          <Text style={styles.eyebrow}>STYLE</Text>
-          <View style={styles.headerSpacer} />
+
+          <View style={styles.topDots} pointerEvents="none">
+            <View style={styles.topDot} />
+            <View style={styles.topDot} />
+            <View style={styles.topDot} />
+          </View>
         </View>
 
+        {/* Scroll Body */}
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: insets.bottom + 154 },
+            { paddingBottom: insets.bottom + 140 },
           ]}
         >
-          <View style={styles.introBlock}>
+          {/* Header Intro Block */}
+          <View style={styles.headerBlock}>
+            <Text style={styles.eyebrow}>STYLE</Text>
             <Text style={styles.title}>Refine Style</Text>
-            <Text style={styles.primaryCopy}>Choose how your Anchor will be visually treated during generation.</Text>
-            <Text style={styles.microLine}>Same structure. New style.</Text>
+            <Text style={styles.lead}>
+              Choose how your Anchor will be visually treated during generation.
+            </Text>
+            <Text style={styles.microline}>Same structure. New style.</Text>
           </View>
 
-          <View style={styles.structureHero}>
-            <Text style={styles.structureHeroLabel}>Your Structure</Text>
-            <View style={styles.structureGlyph}>
-              {sigilSvg ? <SigilSvg xml={sigilSvg} width={116} height={116} color={colors.gold} /> : null}
+          {/* Your Structure Continuity Hero */}
+          <View style={styles.structHero}>
+            <Text style={styles.structHeroLabel}>YOUR STRUCTURE</Text>
+            <View style={styles.structHeroGlyph}>
+              {sigilSvg ? (
+                <SigilSvg xml={sigilSvg} width={104} height={104} color={colors.anchor15.gilt} />
+              ) : (
+                <StructureHeroGlyph id={structureId} size={104} />
+              )}
             </View>
-            <Text style={styles.structureName}>{structureName}</Text>
-            <Text style={styles.structureLocked}>Structure selected · appearance only changes from here</Text>
+            <Text style={styles.structHeroName}>{structureLabel}</Text>
           </View>
 
-          <View style={styles.styleTeaching}>
-            <Text style={styles.styleTeachingTitle}>Style changes the appearance, not the meaning.</Text>
-            <Text style={styles.styleTeachingCopy}>Your structure stays the same through generation.</Text>
-          </View>
+          {/* First-Use Microteaching */}
+          <Animated.View style={[styles.teachContainer, animatedTeachStyle]}>
+            <Text style={styles.teachLine1}>Style changes the appearance, not the meaning.</Text>
+            <Text style={styles.teachLine2}>Your structure stays the same through generation.</Text>
+          </Animated.View>
 
-          {visibleRecommendedStyles.length > 0 ? (
+          {/* Recommended Section */}
+          {recommendedStyles.length > 0 ? (
             <View style={styles.section}>
-              <SectionHeader title="Recommended" copy="Choices that work well with your structure." />
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recommendedRail}>
-                {visibleRecommendedStyles.map((style, index) => (
-                  <RefineStyleCard key={`recommended-${style.id}`} option={style} index={index} isSelected={selectedStyleId === style.id} onSelect={handleStyleSelect} variant="recommended" badgeLabel="Recommended" style={{ width: recommendedCardWidth }} />
-                ))}
-              </ScrollView>
+              <View style={styles.sectionHd}>
+                <Text style={styles.sectionTitle}>RECOMMENDED</Text>
+              </View>
+              <Text style={styles.sectionSub}>Choices that work well with your structure.</Text>
+              {renderStyleGrid(recommendedStyles, 'recommended')}
             </View>
           ) : null}
 
-          <View style={styles.exploreHeader}><Text style={styles.exploreTitle}>Explore More</Text></View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.exploreTabs}>
-            {([
-              ['week', 'This Week'], ['core', 'Core'], ['seasonal', 'Seasonal'], ['all', 'All Styles →'],
-            ] as const).map(([value, label]) => (
-              <Pressable key={value} onPress={() => setActiveExploreTab(value)} style={[styles.exploreTab, activeExploreTab === value && styles.exploreTabActive]} accessibilityRole="button" accessibilityState={{ selected: activeExploreTab === value }}>
-                <Text style={[styles.exploreTabText, activeExploreTab === value && styles.exploreTabTextActive]}>{label}</Text>
-              </Pressable>
-            ))}
-          </ScrollView>
+          {/* Explore More Section */}
+          <View style={styles.section}>
+            <View style={styles.sectionHd}>
+              <Text style={styles.sectionTitle}>EXPLORE MORE</Text>
+            </View>
 
-          {(activeExploreTab === 'week' || activeExploreTab === 'all') && !isFilteredView && visibleFeaturedStyles.length > 0 ? (
-            <View style={styles.section}>
-              <SectionHeader
-                title="This Week"
-                copy="A curated set of limited finishes available now."
-                meta={`${featuredStyles.length} rotating`}
-              />
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.featuredRail}
-                snapToInterval={featuredCardWidth + spacing.md}
-                decelerationRate="fast"
-              >
-                {visibleFeaturedStyles.map((style, index) => (
-                  <RefineStyleCard
-                    key={style.id}
-                    option={style}
-                    index={index}
-                    isSelected={selectedStyleId === style.id}
+            {/* Explore Tabs */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.exploreTabsRow}
+            >
+              {EXPLORE_TABS.map((t) => {
+                const isActive = exploreTab === t.id;
+                return (
+                  <Pressable
+                    key={t.id}
+                    onPress={() => handleTabPress(t.id)}
+                    style={[styles.exploreTabChip, isActive && styles.exploreTabChipActive]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${t.label} tab`}
+                    accessibilityState={{ selected: isActive }}
+                  >
+                    <Text style={[styles.exploreTabChipText, isActive && styles.exploreTabChipTextActive]}>
+                      {t.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            {/* Explore Panels */}
+            {exploreTab === 'week' ? (
+              <View style={styles.explorePanel}>
+                <Text style={styles.sectionSub}>A curated set of limited finishes available now.</Text>
+                {heroStyle ? (
+                  <RefineHeroCard
+                    option={heroStyle}
+                    isSelected={selectedStyleId === heroStyle.id}
                     onSelect={handleStyleSelect}
-                    variant="featured"
-                    style={{ width: featuredCardWidth }}
                   />
-                ))}
-              </ScrollView>
-            </View>
-          ) : null}
+                ) : null}
 
-          {!hasVisibleSections ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>No matching styles</Text>
-              <Text style={styles.emptyCopy}>Try another library filter.</Text>
-            </View>
-          ) : null}
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.featuredRail}
+                >
+                  {railStyles.map((style) => (
+                    <RefineFeatCard
+                      key={style.id}
+                      option={style}
+                      isSelected={selectedStyleId === style.id}
+                      onSelect={handleStyleSelect}
+                    />
+                  ))}
+                </ScrollView>
+              </View>
+            ) : null}
 
-          {isFilteredView && filteredStyles.length > 0 ? (
-            <View style={styles.section}>
-              <SectionHeader title="All Styles" copy="Every available finish for your Anchor." meta={`${filteredStyles.length} shown`} />
-              {renderGrid(filteredStyles, 'filtered')}
-            </View>
-          ) : (
-            <>
-              {(activeExploreTab === 'core' || activeExploreTab === 'all') && visibleCoreStyles.length > 0 ? (
-                <View style={styles.section}>
-                  <SectionHeader
-                    title="Core Styles"
-                    copy="Permanent finishes available any time."
-                    meta={`${coreStyles.length} evergreen`}
-                  />
-                  {renderGrid(visibleCoreStyles)}
-                </View>
-              ) : null}
+            {exploreTab === 'core' ? (
+              <View style={styles.explorePanel}>
+                <Text style={styles.sectionSub}>Permanent finishes available any time.</Text>
+                {renderStyleGrid(coreStyles, 'core')}
+              </View>
+            ) : null}
 
-              {(activeExploreTab === 'seasonal' || activeExploreTab === 'all') && visibleSeasonalStyles.length > 0 ? (
-                <View style={styles.section}>
-                  <SectionHeader
-                    title="Seasonal"
-                    copy="Finishes that leave when the season turns."
-                    seasonal
-                  />
-
-                  <View style={styles.seasonalPanel}>
-                    <View style={styles.seasonalPanelHeader}>
-                      <Sparkles size={18} color={colors.gold} strokeWidth={1.6} />
-                      <View style={styles.seasonalTextBlock}>
-                        <Text style={styles.seasonalCollectionName}>Lunar Collection</Text>
-                        <Text style={styles.seasonalUntil}>Finishes that leave when the season turns.</Text>
-                      </View>
-                    </View>
-                    {renderGrid(visibleSeasonalStyles, 'seasonal')}
+            {exploreTab === 'seasonal' ? (
+              <View style={styles.explorePanel}>
+                <View style={styles.seasonalHd}>
+                  <View style={styles.seasonalGlyph}>
+                    <RefineGlyph name="lunar" size={24} color={colors.anchor15.gilt} />
+                  </View>
+                  <View style={styles.seasonalHdText}>
+                    <Text style={styles.seasonalName}>Lunar Collection</Text>
+                    <Text style={styles.seasonalNote}>Finishes that leave when the season turns.</Text>
                   </View>
                 </View>
-              ) : null}
-            </>
-          )}
+                {renderStyleGrid(seasonalStyles, 'seasonal')}
+              </View>
+            ) : null}
+
+            {exploreTab === 'all' ? (
+              <View style={styles.explorePanel}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.familyFiltersRow}
+                >
+                  {(['All', ...FAMILY_FILTERS] as const).map((fam) => {
+                    const isFamActive = exploreFamily === fam;
+                    const displayLabel = fam === 'All' ? 'All' : fam.charAt(0) + fam.slice(1).toLowerCase();
+                    return (
+                      <Pressable
+                        key={fam}
+                        onPress={() => handleFamilyPress(fam)}
+                        style={[styles.familyChip, isFamActive && styles.familyChipActive]}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${displayLabel} family filter`}
+                        accessibilityState={{ selected: isFamActive }}
+                      >
+                        <Text style={[styles.familyChipText, isFamActive && styles.familyChipTextActive]}>
+                          {displayLabel}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+
+                {renderStyleGrid(allFilteredStyles, 'filtered')}
+              </View>
+            ) : null}
+          </View>
         </ScrollView>
 
-        <View style={styles.bottomBar} pointerEvents="box-none">
+        {/* Sticky Bottom CTA Bar */}
+        <View style={styles.ctaBar} pointerEvents="box-none">
           <LinearGradient
-            colors={['rgba(15, 20, 25, 0)', 'rgba(15, 20, 25, 0.88)', colors.navy]}
-            start={{ x: 0.5, y: 0 }}
-            end={{ x: 0.5, y: 1 }}
-            style={styles.bottomFade}
+            colors={['rgba(15,20,25,0)', 'rgba(15,20,25,0.7)', colors.anchor15.navy]}
+            locations={[0, 0.46, 1]}
+            style={StyleSheet.absoluteFill}
             pointerEvents="none"
           />
 
-          <View style={[styles.bottomContent, { paddingBottom: insets.bottom + spacing.md }]}>
-            <View style={styles.ctaPanel}>
-              <Animated.Text style={[styles.microcopy, ctaTextAnimatedStyle]}>
-                Same structure. New style.
-              </Animated.Text>
-
-              <Animated.Text style={[styles.selectedLabel, ctaTextAnimatedStyle]} numberOfLines={1}>
-                <Text style={styles.selectedPrefix}>Selected Style: </Text>
-                <Text style={styles.selectedValue}>{selectedStyleOption.displayName}</Text>
-              </Animated.Text>
-
-              <Pressable
-                onPress={handleRefineAnchor}
-                disabled={isGenerating}
-                accessibilityState={{ disabled: isGenerating }}
-                style={[styles.ctaOuter, isGenerating && styles.ctaOuterDisabled]}
-                accessibilityRole="button"
-                accessibilityLabel="Generate Anchor"
-              >
-                <LinearGradient
-                  colors={[colors.gold, colors.refineExpression.ctaMid, colors.refineExpression.ctaEnd]}
-                  start={{ x: 0, y: 0.5 }}
-                  end={{ x: 1, y: 0.5 }}
-                  style={styles.ctaButton}
-                >
-                  <Text style={styles.ctaText}>Generate Anchor →</Text>
-                </LinearGradient>
-              </Pressable>
+          <View style={[styles.ctaContent, { paddingBottom: insets.bottom + 16 }]}>
+            <View style={styles.selectedRow}>
+              <View style={styles.selectedSwatch} />
+              <Text style={styles.selectedPrefix}>SELECTED STYLE: </Text>
+              <Text style={styles.selectedValue}>{selectedStyleOption.displayName}</Text>
             </View>
+
+            <Pressable
+              onPress={handleRefineAnchor}
+              disabled={isGenerating}
+              accessibilityRole="button"
+              accessibilityLabel="Generate Anchor"
+              style={[styles.ctaButton, isGenerating && styles.ctaButtonDisabled]}
+            >
+              <Text style={styles.ctaButtonText}>GENERATE ANCHOR →</Text>
+            </Pressable>
           </View>
         </View>
+
+        {/* Generation Transition Overlay */}
+        {isGenerating ? (
+          <View style={styles.generationOverlay}>
+            <View style={styles.genComboRow}>
+              <Text style={styles.genComboText}>{structureLabel}</Text>
+              <Text style={styles.genComboSep}>·</Text>
+              <Text style={styles.genComboText}>{selectedStyleOption.displayName}</Text>
+            </View>
+
+            <Text style={styles.genArrow}>↓</Text>
+
+            <View style={styles.genCreatingRow}>
+              <Animated.View style={[styles.genRing, animatedSpinStyle]} />
+              <Text style={styles.genCreatingText}>CREATING YOUR ANCHOR</Text>
+            </View>
+          </View>
+        ) : null}
       </View>
     </SafeAreaView>
   );
@@ -481,343 +541,404 @@ export default function RefineExpressionScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.navy,
+    backgroundColor: colors.anchor15.navy,
   },
   container: {
     flex: 1,
+    backgroundColor: colors.anchor15.navy,
   },
   atmosphericGlow: {
     position: 'absolute',
-    width: 360,
-    height: 360,
-    borderRadius: 180,
-    top: -178,
-    left: -118,
-    backgroundColor: 'rgba(217, 179, 108, 0.055)',
+    top: -140,
+    left: -90,
+    width: 400,
+    height: 400,
+    borderRadius: 200,
+    backgroundColor: 'rgba(217, 179, 108, 0.075)',
   },
+
+  // Top Bar
   topBar: {
+    height: 44,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xs,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    zIndex: 10,
   },
   backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(245, 245, 220, 0.04)',
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.24)',
+    gap: 7,
+    height: 44,
+    paddingRight: 12,
+  },
+  backText: {
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 13,
+    color: colors.anchor15.ash,
+  },
+  topDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    width: 44,
+    height: 44,
+    justifyContent: 'flex-end',
+  },
+  topDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: colors.anchor15.ash,
+  },
+
+  // Scroll Body
+  scrollContent: {
+    paddingTop: 14,
+  },
+
+  // Header Block
+  headerBlock: {
+    paddingHorizontal: spacing.lg,
   },
   eyebrow: {
-    flex: 1,
-    textAlign: 'center',
-    fontFamily: typography.fonts.headingSemiBold,
+    fontFamily: typography.fontFamily.serifSemiBold,
     fontSize: 11,
-    letterSpacing: 3.2,
-    color: colors.gold,
-  },
-  headerSpacer: {
-    width: 36,
-  },
-  scrollContent: {
-    paddingTop: spacing.sm,
-  },
-  introBlock: {
-    paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
+    fontWeight: '500',
+    letterSpacing: 2.2,
+    color: colors.anchor15.ash,
+    textTransform: 'uppercase',
   },
   title: {
-    fontFamily: typography.fonts.headingSemiBold,
-    fontSize: 30,
-    lineHeight: 36,
-    color: colors.text.primary,
-    letterSpacing: 0.3,
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 28,
+    lineHeight: 32,
+    fontWeight: '600',
+    color: colors.anchor15.bone,
+    letterSpacing: 0.28,
+    marginTop: 8,
   },
-  primaryCopy: {
-    maxWidth: 330,
-    fontFamily: typography.fonts.bodySerifItalic,
+  lead: {
+    fontFamily: typography.fontFamily.voiceItalic,
     fontSize: 17,
-    lineHeight: 23,
-    color: colors.text.secondary,
+    lineHeight: 24,
+    color: 'rgba(244, 239, 230, 0.68)',
+    marginTop: 10,
+    maxWidth: 320,
   },
-  microLine: { fontFamily: typography.fonts.headingSemiBold, fontSize: 10, letterSpacing: 1.5, color: colors.gold, textTransform: 'uppercase', marginTop: spacing.xs },
-  structureHero: { alignItems: 'center', marginTop: spacing.xl, paddingHorizontal: spacing.lg },
-  structureHeroLabel: { fontFamily: typography.fonts.headingSemiBold, fontSize: 10, letterSpacing: 1.8, color: colors.text.tertiary, textTransform: 'uppercase' },
-  structureGlyph: { marginTop: spacing.md, width: 148, height: 148, borderRadius: 74, borderWidth: 1, borderColor: 'rgba(212,175,55,0.26)', backgroundColor: 'rgba(18,29,37,0.78)', alignItems: 'center', justifyContent: 'center' },
-  structureName: { marginTop: spacing.sm, fontFamily: typography.fonts.headingSemiBold, fontSize: 12, letterSpacing: 1.7, color: colors.gold, textTransform: 'uppercase' },
-  structureLocked: { marginTop: spacing.xs, fontFamily: typography.fonts.body, fontSize: 11, color: colors.text.tertiary, textAlign: 'center' },
-  styleTeaching: { marginHorizontal: spacing.lg, marginTop: spacing.lg, paddingVertical: spacing.sm, alignItems: 'center' },
-  styleTeachingTitle: { fontFamily: typography.fonts.headingSemiBold, fontSize: 13, color: colors.gold, textAlign: 'center' },
-  styleTeachingCopy: { fontFamily: typography.fonts.body, fontSize: 11.5, color: colors.text.tertiary, textAlign: 'center', marginTop: 4 },
-  exploreHeader: { marginTop: spacing.xl, paddingHorizontal: spacing.lg },
-  exploreTitle: { fontFamily: typography.fonts.headingSemiBold, fontSize: 19, color: colors.text.primary, letterSpacing: 0.8 },
-  exploreTabs: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: spacing.lg },
-  exploreTab: { paddingBottom: 7, borderBottomWidth: 1.5, borderBottomColor: 'transparent' },
-  exploreTabActive: { borderBottomColor: colors.gold },
-  exploreTabText: { fontFamily: typography.fonts.headingSemiBold, fontSize: 10, letterSpacing: 1.1, color: colors.text.tertiary, textTransform: 'uppercase' },
-  exploreTabTextActive: { color: colors.gold },
-  secondaryCopy: {
-    maxWidth: 330,
-    fontFamily: typography.fonts.body,
-    fontSize: 13,
-    lineHeight: 20,
-    color: 'rgba(192, 192, 192, 0.72)',
-  },
-  lockNote: {
-    marginTop: spacing.xs,
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(245, 245, 220, 0.1)',
-    backgroundColor: 'rgba(245, 245, 220, 0.035)',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  lockText: {
-    fontFamily: typography.fonts.mono,
-    fontSize: 9,
-    letterSpacing: 1.6,
-    color: 'rgba(245, 245, 220, 0.68)',
+  microline: {
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 10.5,
+    fontWeight: '600',
+    letterSpacing: 1.58,
+    color: colors.anchor15.gilt,
     textTransform: 'uppercase',
+    marginTop: 18,
   },
-  libraryCount: {
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.lg,
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
+
+  // Your Structure Hero
+  structHero: {
+    marginTop: 26,
     alignItems: 'center',
-    gap: spacing.sm,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.24)',
-    backgroundColor: 'rgba(212, 175, 55, 0.09)',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  libraryCountText: {
-    fontFamily: typography.fonts.mono,
-    fontSize: 9,
-    letterSpacing: 1.6,
-    color: colors.gold,
-    textTransform: 'uppercase',
-  },
-  section: {
-    marginTop: spacing.xl,
-  },
-  sectionHeader: {
     paddingHorizontal: spacing.lg,
-    gap: spacing.xs,
   },
-  sectionTitleRow: {
+  structHeroLabel: {
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 10.5,
+    fontWeight: '600',
+    letterSpacing: 1.89,
+    color: colors.anchor15.ash,
+    textTransform: 'uppercase',
+  },
+  structHeroGlyph: {
+    width: 148,
+    height: 148,
+    borderRadius: 74,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(217, 179, 108, 0.22)',
+    backgroundColor: '#141D24',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  structHeroName: {
+    marginTop: 14,
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 1.92,
+    color: colors.anchor15.giltBright,
+    textTransform: 'uppercase',
+  },
+
+  // First-Use Microteaching
+  teachContainer: {
+    marginHorizontal: spacing.lg,
+    overflow: 'hidden',
+    alignItems: 'center',
+  },
+  teachLine1: {
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.anchor15.giltBright,
+    letterSpacing: 0.26,
+    textAlign: 'center',
+  },
+  teachLine2: {
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 11.5,
+    color: colors.anchor15.ash,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+
+  // Sections
+  section: {
+    marginTop: 32,
+  },
+  sectionHd: {
+    paddingHorizontal: spacing.lg,
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
-    gap: spacing.md,
   },
   sectionTitle: {
-    flex: 1,
-    fontFamily: typography.fonts.headingSemiBold,
-    fontSize: 19,
-    lineHeight: 24,
-    color: colors.text.primary,
-    letterSpacing: 0.8,
-  },
-  sectionTitleSeasonal: {
-    color: colors.gold,
-  },
-  sectionMeta: {
-    fontFamily: typography.fonts.mono,
-    fontSize: 8.5,
-    letterSpacing: 1.4,
-    color: 'rgba(245, 245, 220, 0.38)',
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.anchor15.bone,
+    letterSpacing: 1.5,
     textTransform: 'uppercase',
   },
-  sectionCopy: {
-    maxWidth: 330,
-    fontFamily: typography.fonts.bodySerifItalic,
+  sectionSub: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: 6,
+    fontFamily: typography.fontFamily.voiceItalic,
     fontSize: 14,
     lineHeight: 20,
-    color: colors.text.secondary,
+    color: 'rgba(244, 239, 230, 0.55)',
+    maxWidth: 330,
   },
-  featuredRail: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.xs,
-    gap: spacing.md,
-  },
-  filterWrap: {
-    marginTop: spacing.xl,
-  },
-  filterContent: {
-    paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
-  },
-  filterChip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(245, 245, 220, 0.1)',
-    backgroundColor: 'rgba(245, 245, 220, 0.035)',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  filterChipActive: {
-    borderColor: 'rgba(212, 175, 55, 0.62)',
-    backgroundColor: 'rgba(212, 175, 55, 0.14)',
-  },
-  filterText: {
-    fontFamily: typography.fonts.body,
-    fontSize: 12,
-    color: 'rgba(245, 245, 220, 0.68)',
-  },
-  filterTextActive: {
-    fontFamily: typography.fonts.bodyBold,
-    color: colors.text.primary,
-  },
-  recommendedRail: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    gap: spacing.md,
-  },
+
+  // 2-Column Grid
   grid: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
+    paddingTop: 16,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    rowGap: spacing.sm,
-    columnGap: spacing.sm,
+    gap: 12,
   },
-  seasonalGrid: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    rowGap: spacing.md,
-  },
-  seasonalRow: {
-    width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  gridItem: {
-    flexGrow: 0,
-    flexShrink: 0,
-  },
-  seasonalPanel: {
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.md,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.18)',
-    backgroundColor: 'rgba(16, 21, 28, 0.5)',
-    paddingVertical: spacing.md,
-    overflow: 'hidden',
-  },
-  seasonalPanelHeader: {
-    paddingHorizontal: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  seasonalTextBlock: {
-    gap: 2,
-  },
-  seasonalCollectionName: {
-    fontFamily: typography.fonts.headingSemiBold,
-    fontSize: 13,
-    color: colors.text.primary,
-    letterSpacing: 0.8,
-  },
-  seasonalUntil: {
-    fontFamily: typography.fonts.bodySerifItalic,
-    fontSize: 12.5,
-    color: colors.text.secondary,
-  },
-  emptyState: {
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.xl,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(245, 245, 220, 0.08)',
-    backgroundColor: 'rgba(245, 245, 220, 0.03)',
-    padding: spacing.lg,
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  emptyTitle: {
-    fontFamily: typography.fonts.headingSemiBold,
-    fontSize: 17,
-    color: colors.text.primary,
-  },
-  emptyCopy: {
-    fontFamily: typography.fonts.bodySerifItalic,
-    fontSize: 14,
-    color: colors.text.secondary,
-  },
-  bottomBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  bottomFade: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 132,
-  },
-  bottomContent: {
+
+  // Explore Tabs
+  exploreTabsRow: {
     paddingHorizontal: spacing.lg,
+    paddingTop: 16,
+    gap: 20,
   },
-  ctaPanel: { paddingTop: spacing.sm, paddingBottom: spacing.xs },
-  microcopy: {
-    fontFamily: typography.fonts.bodySerifItalic,
-    fontSize: 14,
-    color: colors.text.secondary,
-    textAlign: 'center',
+  exploreTabChip: {
+    paddingBottom: 7,
+    borderBottomWidth: 1.5,
+    borderBottomColor: 'transparent',
   },
-  selectedLabel: {
-    marginTop: spacing.xs,
-    marginBottom: spacing.md,
-    textAlign: 'center',
+  exploreTabChipActive: {
+    borderBottomColor: colors.anchor15.gilt,
   },
-  selectedPrefix: {
-    fontFamily: typography.fonts.mono,
-    fontSize: 10,
-    letterSpacing: 1.2,
-    color: 'rgba(245, 245, 220, 0.5)',
+  exploreTabChipText: {
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 11,
+    fontWeight: '500',
+    letterSpacing: 1.43,
+    color: colors.anchor15.ash,
+    textTransform: 'uppercase',
   },
-  selectedValue: {
-    fontFamily: typography.fonts.headingSemiBold,
-    fontSize: 12,
-    color: colors.gold,
-    letterSpacing: 0.6,
+  exploreTabChipTextActive: {
+    color: colors.anchor15.giltBright,
   },
-  ctaOuter: {
-    borderRadius: 999,
-    shadowColor: colors.gold,
-    shadowOpacity: 0.14,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 5,
+  explorePanel: {
+    marginTop: 6,
   },
-  ctaOuterDisabled: { opacity: 0.66 },
-  ctaButton: {
-    height: 50,
-    borderRadius: 999,
+
+  // Featured Rail
+  featuredRail: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: 16,
+    paddingBottom: 4,
+    gap: 12,
+  },
+
+  // Seasonal Panel
+  seasonalHd: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginHorizontal: spacing.lg,
+    marginTop: 16,
+  },
+  seasonalGlyph: {
+    width: 24,
+    height: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  ctaText: {
-    fontFamily: typography.fonts.headingSemiBold,
+  seasonalHdText: {
+    gap: 1,
+  },
+  seasonalName: {
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 12.5,
+    fontWeight: '600',
+    letterSpacing: 0.75,
+    color: colors.anchor15.bone,
+  },
+  seasonalNote: {
+    fontFamily: typography.fontFamily.voiceItalic,
+    fontSize: 12.5,
+    color: colors.anchor15.ash,
+  },
+
+  // Family Filters Row
+  familyFiltersRow: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: 8,
+    gap: 16,
+  },
+  familyChip: {
+    paddingBottom: 6,
+    borderBottomWidth: 1.5,
+    borderBottomColor: 'transparent',
+  },
+  familyChipActive: {
+    borderBottomColor: colors.anchor15.gilt,
+  },
+  familyChipText: {
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 11,
+    fontWeight: '500',
+    letterSpacing: 1.2,
+    color: colors.anchor15.ash,
+    textTransform: 'uppercase',
+  },
+  familyChipTextActive: {
+    color: colors.anchor15.giltBright,
+  },
+
+  // Sticky Bottom CTA Bar
+  ctaBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 20,
+    paddingTop: 36,
+  },
+  ctaContent: {
+    paddingHorizontal: spacing.lg,
+  },
+  selectedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  selectedSwatch: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: colors.anchor15.gilt,
+    shadowColor: colors.anchor15.gilt,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.55,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  selectedPrefix: {
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 11,
+    letterSpacing: 0.88,
+    color: colors.anchor15.ash,
+    textTransform: 'uppercase',
+  },
+  selectedValue: {
+    fontFamily: typography.fontFamily.serifSemiBold,
     fontSize: 13,
-    letterSpacing: 2.4,
-    color: colors.refineExpression.ctaText,
+    fontWeight: '600',
+    letterSpacing: 0.39,
+    color: colors.anchor15.giltBright,
+  },
+  ctaButton: {
+    width: '100%',
+    height: 54,
+    borderRadius: 999,
+    backgroundColor: 'rgba(217, 179, 108, 0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(217, 179, 108, 0.34)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ctaButtonDisabled: {
+    opacity: 0.5,
+  },
+  ctaButtonText: {
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 2.24,
+    color: colors.anchor15.giltBright,
+    textTransform: 'uppercase',
+  },
+
+  // Generation Transition Overlay
+  generationOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(11, 16, 21, 0.94)',
+    zIndex: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 18,
+  },
+  genComboRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  genComboText: {
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: 1.2,
+    color: colors.anchor15.giltBright,
+    textTransform: 'uppercase',
+  },
+  genComboSep: {
+    color: 'rgba(217, 179, 108, 0.34)',
+    fontSize: 16,
+  },
+  genArrow: {
+    fontSize: 18,
+    color: 'rgba(217, 179, 108, 0.34)',
+  },
+  genCreatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  genRing: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1.5,
+    borderColor: 'rgba(217, 179, 108, 0.34)',
+    borderTopColor: colors.anchor15.gilt,
+  },
+  genCreatingText: {
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 12,
+    fontWeight: '500',
+    letterSpacing: 1.92,
+    color: colors.anchor15.ash,
     textTransform: 'uppercase',
   },
 });

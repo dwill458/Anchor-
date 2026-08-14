@@ -25,6 +25,7 @@ const mockZenBackgroundProps = jest.fn();
 const mockDel = jest.fn();
 const mockRemoveAnchor = jest.fn();
 let mockPerfTier: 'high' | 'medium' | 'low' = 'high';
+let mockReduceMotionEnabled = false;
 const mockAnchor = {
     id: 'anchor-123',
     intentionText: 'Test Intention',
@@ -57,6 +58,9 @@ jest.mock('expo-media-library', () => ({
 }));
 jest.mock('@/hooks/useAppPerformanceTier', () => ({
     useAppPerformanceTier: () => mockPerfTier,
+}));
+jest.mock('@/hooks/useReduceMotionEnabled', () => ({
+    useReduceMotionEnabled: () => mockReduceMotionEnabled,
 }));
 jest.mock('@/components/common', () => {
     const React = require('react');
@@ -268,6 +272,7 @@ describe('AnchorDetailScreen', () => {
         mockDel.mockReset();
         mockRemoveAnchor.mockReset();
         mockPerfTier = 'high';
+        mockReduceMotionEnabled = false;
         mockAnchor.enhancedImageUrl = undefined;
         mockAnchor.sigilUri = undefined;
         mockAnchor.isCharged = false;
@@ -287,32 +292,33 @@ describe('AnchorDetailScreen', () => {
         jest.spyOn(Sharing, 'shareAsync').mockResolvedValue(undefined);
     });
 
-    it('stub: renders anchor name and symbol', () => {
+    it('renders the Anchor 1.5 editorial identity', () => {
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
-        expect(screen.getByText('ANCHOR DETAILS')).toBeTruthy();
-        expect(screen.getByText('CURRENT ANCHOR')).toBeTruthy();
+        expect(screen.getByText('Sanctuary')).toBeTruthy();
+        expect(screen.getByText('DISTILLED FORM')).toBeTruthy();
+        expect(screen.getByText('THREAD STRENGTH')).toBeTruthy();
         expect(screen.getAllByText('Test Intention').length).toBeGreaterThan(0);
     });
 
-    it('stub: Open Practice button navigates to Practice', () => {
+    it('opens Practice for this Anchor from the floating CTA', () => {
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
-        fireEvent.press(screen.getByText('Open Practice'));
+        fireEvent.press(screen.getByText('PRACTICE THIS ANCHOR →'));
         expect(mockNavigateToPractice).toHaveBeenCalled();
     });
 
-    it('stub: shows the new priming CTA copy', () => {
+    it('uses customer-facing Practice terminology', () => {
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
-        expect(screen.getByText('Ready to prime?')).toBeTruthy();
-        expect(screen.getByText('Open Practice')).toBeTruthy();
-        expect(screen.queryByText('Visualize')).toBeNull();
+        expect(screen.getByText('PRACTICE HISTORY')).toBeTruthy();
+        expect(screen.getByText('PRACTICE MIX')).toBeTruthy();
+        expect(screen.getByText('RECENT ACTIVITY')).toBeTruthy();
+        expect(screen.queryByText('Ready to prime?')).toBeNull();
     });
 
-    it('stub: shows the compact priming stats', () => {
+    it('shows Thread Strength with its real-history summary', () => {
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
-        expect(screen.getByText('Dormant')).toBeTruthy();
-        expect(screen.getByText('Thread Strength')).toBeTruthy();
-        expect(screen.getByText('Each return strengthens the signal.')).toBeTruthy();
-        expect(screen.getByTestId('anchor-detail-streak-value').props.children[0]).toBe(1);
+        expect(screen.getByText('THREAD STRENGTH')).toBeTruthy();
+        expect(screen.getByText('Your Thread Strength will begin to take shape with your first completed Practice.')).toBeTruthy();
+        expect(screen.getByTestId('anchor-detail-streak-value')).toBeTruthy();
     });
 
     it('opens the per-anchor thread strength sheet from the stats row', () => {
@@ -336,19 +342,37 @@ describe('AnchorDetailScreen', () => {
         await waitFor(() => {
             expect(mockZenBackgroundProps).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    variant: 'practice',
+                    variant: 'sanctuary',
                     showOrbs: false,
                 })
             );
         });
     });
 
-    it('renders wallpaper and png export actions', () => {
+    it('keeps the accessible editorial controls while reduced motion is enabled', async () => {
+        mockReduceMotionEnabled = true;
+
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
-        expect(screen.getByText('WALLPAPER & EXPORT')).toBeTruthy();
-        expect(screen.getByText('SHARE MY ANCHOR')).toBeTruthy();
+
+        expect(screen.getByLabelText('Back to Sanctuary')).toBeTruthy();
+        expect(screen.getByLabelText('Anchor options')).toBeTruthy();
+        expect(screen.getByLabelText('About Distilled Form')).toBeTruthy();
+        expect(screen.getByLabelText('About Thread Strength')).toBeTruthy();
+
+        await waitFor(() => {
+            expect(mockZenBackgroundProps).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    showOrbs: false,
+                })
+            );
+        });
+    });
+
+    it('renders the required share and wallpaper utility rows', () => {
+        render(<AnchorDetailScreen navigation={navigation} route={route} />);
+        expect(screen.getByText('SHARE ANCHOR')).toBeTruthy();
         expect(screen.getByText('SET AS WALLPAPER')).toBeTruthy();
-        expect(screen.getByText('SAVE PNG')).toBeTruthy();
+        expect(screen.getByText('RELEASE ANCHOR')).toBeTruthy();
     });
 
     it('does not render the physical anchor CTA when merch is disabled', () => {
@@ -359,7 +383,7 @@ describe('AnchorDetailScreen', () => {
 
     it('shares a branded anchor card from the detail screen', async () => {
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
-        fireEvent.press(screen.getByText('SHARE MY ANCHOR'));
+        fireEvent.press(screen.getByText('SHARE ANCHOR'));
 
         await waitFor(() => {
             expect(mockCaptureRef).toHaveBeenCalled();
@@ -386,7 +410,7 @@ describe('AnchorDetailScreen', () => {
         mockAnchor.sigilUri = 'https://example.com/legacy-share-card.png';
 
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
-        fireEvent.press(screen.getByText('SHARE MY ANCHOR'));
+        fireEvent.press(screen.getByText('SHARE ANCHOR'));
 
         await waitFor(() => {
             expect(mockShareCardRendererProps).toHaveBeenCalledWith(
@@ -412,9 +436,10 @@ describe('AnchorDetailScreen', () => {
 
     it('downloads png from the detail screen', async () => {
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
-        fireEvent.press(screen.getByText('SAVE PNG'));
+        fireEvent.press(screen.getByLabelText('Anchor options'));
+        fireEvent.press(screen.getByText('Save PNG'));
         await waitFor(() => {
-            expect(screen.getByText('SAVE PNG')).toBeTruthy();
+            expect(screen.queryByText('Save PNG')).toBeNull();
         });
         expect(Share.share).not.toHaveBeenCalled();
     });
@@ -422,6 +447,7 @@ describe('AnchorDetailScreen', () => {
     it('shows the delete action in production and recommends burn & release first', async () => {
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
 
+        fireEvent.press(screen.getByLabelText('Anchor options'));
         fireEvent.press(screen.getByText('Delete Anchor'));
 
         expect(screen.getByText('Burn & Release is the proper practice.')).toBeTruthy();
