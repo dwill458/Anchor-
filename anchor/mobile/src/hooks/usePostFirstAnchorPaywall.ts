@@ -1,7 +1,7 @@
 /**
  * usePostFirstAnchorPaywall
  *
- * Triggers the AuthGate paywall the moment a user saves their **first** anchor
+ * Triggers the canonical Paywall the moment a user saves their **first** anchor
  * while they are not yet authenticated and have no active subscription
  * entitlement.
  *
@@ -17,8 +17,8 @@
  *
  * RevenueCat Pro check wiring
  * ---------------------------
- * Before rendering AuthGateScreen you can add a listener in that screen's
- * parent to skip the paywall for already-subscribed users:
+ * The hook reads the existing entitlement store, so it never opens the
+ * canonical Paywall for an already-subscribed user:
  *
  * @example — in your root navigator or home screen:
  * ```tsx
@@ -40,7 +40,7 @@
  * export default function VaultScreen() {
  *   const navigation = useNavigation();
  *
- *   // Trigger paywall after first anchor if the user is not authenticated.
+ *   // Trigger the canonical paywall after first anchor if the user is not authenticated.
  *   usePostFirstAnchorPaywall();
  *
  *   // Also listen for real-time entitlement changes (subscription cancelled, etc.)
@@ -48,7 +48,7 @@
  *     return revenueCatService.addCustomerInfoUpdateListener((info) => {
  *       const hasPro = revenueCatService.checkHasProEntitlement(info);
  *       if (!hasPro) {
- *         navigation.navigate('AuthGate');
+ *         navigation.navigate('Paywall', { source: 'post_trial' });
  *       }
  *     });
  *   }, [navigation]);
@@ -109,6 +109,9 @@ export function usePostFirstAnchorPaywall(): void {
     }
 
     hasTriggeredRef.current = true;
-    navigation.navigate('AuthGate');
+    navigation.navigate('Paywall', {
+      source: 'post_trial',
+      preferredPlanId: 'annual',
+    });
   }, [anchorCount, isAuthenticated, hasActiveEntitlement, navigation]);
 }

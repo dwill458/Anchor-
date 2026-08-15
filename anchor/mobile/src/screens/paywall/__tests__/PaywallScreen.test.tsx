@@ -22,6 +22,15 @@ let mockProgressionData: {
   forgedCount: number;
   totalPrimes: number;
 };
+let mockTrialState = {
+  isTrialActive: false,
+  isSubscribed: false,
+  hasExpired: true,
+  trialExpired: true,
+  hasActiveEntitlement: false,
+  daysRemaining: 0,
+  subscriptionStatus: 'expired',
+};
 
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
@@ -55,15 +64,7 @@ jest.mock('@/hooks/useReduceMotionEnabled', () => ({
 }));
 
 jest.mock('@/hooks/useTrialStatus', () => ({
-  useTrialStatus: () => ({
-    isTrialActive: false,
-    isSubscribed: false,
-    hasExpired: true,
-    trialExpired: true,
-    hasActiveEntitlement: false,
-    daysRemaining: 0,
-    subscriptionStatus: 'expired',
-  }),
+  useTrialStatus: () => mockTrialState,
 }));
 
 jest.mock('@/services/AnalyticsService', () => ({
@@ -183,6 +184,15 @@ describe('PaywallScreen', () => {
       forgedCount: 4,
       totalPrimes: 11,
     };
+    mockTrialState = {
+      isTrialActive: false,
+      isSubscribed: false,
+      hasExpired: true,
+      trialExpired: true,
+      hasActiveEntitlement: false,
+      daysRemaining: 0,
+      subscriptionStatus: 'expired',
+    };
 
     jest.mocked(revenueCatService.getOfferingDisplayMetadata).mockReset();
     jest
@@ -221,7 +231,7 @@ describe('PaywallScreen', () => {
     expect(screen.getByTestId('paywall-plan-monthly').props.accessibilityState.selected).toBe(false);
     expect(
       StyleSheet.flatten(screen.getByTestId('paywall-plan-check-annual').props.style).backgroundColor
-    ).toBe('#f0cb6a');
+    ).toBe('#F0CB6A');
   });
 
   it('uses the preferred plan from navigation params', () => {
@@ -407,6 +417,33 @@ describe('PaywallScreen', () => {
       );
     });
     expect(alertSpy.mock.calls[0][1]).not.toContain('RevenueCat dashboard');
+    expect(screen.getByText(/Purchases are temporarily unavailable/)).toBeTruthy();
+  });
+
+  it('keeps a restore failure visible and retryable', async () => {
+    jest.mocked(revenueCatService.restorePurchases).mockRejectedValueOnce(new Error('offline'));
+
+    render(<PaywallScreen />);
+    fireEvent.press(screen.getByLabelText('Restore purchase'));
+
+    await waitFor(() => expect(screen.getByText(/Check your connection/)).toBeTruthy());
+    expect(mockReset).not.toHaveBeenCalled();
+  });
+
+  it('shows the confirmed-access state without starting a purchase', () => {
+    mockTrialState = {
+      ...mockTrialState,
+      isSubscribed: true,
+      hasActiveEntitlement: true,
+      subscriptionStatus: 'pro',
+    };
+
+    render(<PaywallScreen />);
+
+    expect(screen.getByText(/access is active/)).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Access active'));
+    expect(revenueCatService.purchasePackageByIdentifier).not.toHaveBeenCalled();
+    expect(mockGoBack).toHaveBeenCalled();
   });
 
   it('renders the most reinforced active anchor as the hero', () => {
@@ -469,10 +506,11 @@ describe('PaywallScreen', () => {
     expect(screen.getByText('Prime record')).toBeTruthy();
   });
 
-  it('frames the expired-trial decision as retaining access, not losing stored work', () => {
+  it('uses the approved calm trial-ended copy', () => {
     render(<PaywallScreen />);
 
-    expect(screen.getByText(/Your anchors and progress are safe/)).toBeTruthy();
+    expect(screen.getByText('Your trial has ended')).toBeTruthy();
+    expect(screen.getByText(/Continue with the complete Anchor experience/)).toBeTruthy();
     expect(screen.getByText(/Keep it within reach as you/)).toBeTruthy();
   });
 

@@ -308,7 +308,10 @@ export default function ReturningIntentionScreen() {
             if (anchorCount >= 1 && !isAuthenticated) {
                 setPendingForgeIntent(intention);
                 setPendingForgeResumeTarget('CreateAnchor');
-                navigation.navigate('AuthGate');
+                navigation.navigate('Paywall', {
+                    source: 'create_anchor_free_locked',
+                    preferredPlanId: 'annual',
+                });
                 return;
             }
 

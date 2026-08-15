@@ -110,7 +110,7 @@ describe('ReturningIntentionScreen', () => {
     expect(mockClearPendingForgeIntent).toHaveBeenCalled();
   });
 
-  it('routes unauthenticated users to auth gate and preserves the typed intention', () => {
+  it('routes unauthenticated users to the canonical paywall and preserves the typed intention', () => {
     mockIsAuthenticated = false;
     render(<ReturningIntentionScreen />);
 
@@ -121,7 +121,10 @@ describe('ReturningIntentionScreen', () => {
 
     expect(mockSetPendingForgeIntent).toHaveBeenCalledWith('Hold steady');
     expect(mockSetPendingForgeResumeTarget).toHaveBeenCalledWith('CreateAnchor');
-    expect(mockNavigate).toHaveBeenCalledWith('AuthGate');
+    expect(mockNavigate).toHaveBeenCalledWith('Paywall', {
+      source: 'create_anchor_free_locked',
+      preferredPlanId: 'annual',
+    });
   });
 
   it('routes authenticated users without entitlement to paywall', () => {

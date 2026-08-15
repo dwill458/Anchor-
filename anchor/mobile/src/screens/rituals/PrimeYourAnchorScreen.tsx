@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
@@ -6,7 +6,9 @@ import { StatusBar } from 'expo-status-bar';
 
 import { Anchor15PrimaryButton, Anchor15Screen, Anchor15TextButton } from '@/components/anchor15';
 import { SigilSvg } from '@/components/common';
+import { DailyReminderPrompt } from '@/components/notifications';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useNotificationController } from '@/hooks/useNotificationController';
 import { colors, typography } from '@/theme';
 import type { RootStackParamList } from '@/types';
 
@@ -28,6 +30,31 @@ export function PrimeYourAnchorScreen() {
   const route = useRoute<PrimeRoute>();
   const anchor = useAnchorStore((state) => state.getAnchorById(route.params.anchorId));
   const [selectedMode, setSelectedMode] = useState<FirstPracticeMode>('focus');
+  const { canOfferFirstAnchorReminder } = useNotificationController();
+  const [reminderVisible, setReminderVisible] = useState(false);
+  const pendingActionRef = useRef<(() => void) | null>(null);
+
+  // This screen is the single first-anchor destination reached after saving an
+  // Anchor (guest or signed-in), so it is the only remaining chance to ask for
+  // notification permission before the user leaves the creation flow. Without
+  // this, notificationPermissionStatus stays 'undetermined' forever and every
+  // reminder rule silently refuses to schedule.
+  const runWithReminderGate = useCallback(async (action: () => void) => {
+    const shouldOffer = await canOfferFirstAnchorReminder();
+    if (shouldOffer) {
+      pendingActionRef.current = action;
+      setReminderVisible(true);
+      return;
+    }
+    action();
+  }, [canOfferFirstAnchorReminder]);
+
+  const handleReminderDismiss = useCallback(() => {
+    setReminderVisible(false);
+    const action = pendingActionRef.current;
+    pendingActionRef.current = null;
+    action?.();
+  }, []);
 
   const sigil = useMemo(
     () => anchor?.reinforcedSigilSvg || anchor?.baseSigilSvg || '',
@@ -48,22 +75,28 @@ export function PrimeYourAnchorScreen() {
   }
 
   const beginSelectedPractice = () => {
-    if (selectedMode === 'focus') {
-      navigation.replace('ActivationRitual', {
-        anchorId: anchor.id,
-        activationType: 'visual',
-        durationOverride: 60,
-        returnTo: 'vault',
-      });
-      return;
-    }
+    void runWithReminderGate(() => {
+      if (selectedMode === 'focus') {
+        navigation.replace('ActivationRitual', {
+          anchorId: anchor.id,
+          activationType: 'visual',
+          durationOverride: 60,
+          returnTo: 'vault',
+        });
+        return;
+      }
 
-    navigation.replace('ChargeSetup', {
-      anchorId: anchor.id,
-      initialDuration: 'deep',
-      returnTo: 'vault',
-      fromOnboarding: true,
+      navigation.replace('ChargeSetup', {
+        anchorId: anchor.id,
+        initialDuration: 'deep',
+        returnTo: 'vault',
+        fromOnboarding: true,
+      });
     });
+  };
+
+  const practiceLater = () => {
+    void runWithReminderGate(() => navigation.replace('Vault'));
   };
 
   return (
@@ -119,11 +152,17 @@ export function PrimeYourAnchorScreen() {
           />
           <Anchor15TextButton
             label="Practice later"
-            onPress={() => navigation.replace('Vault')}
+            onPress={practiceLater}
             accessibilityHint="Return to Sanctuary without starting a session"
           />
         </View>
       </View>
+
+      <DailyReminderPrompt
+        visible={reminderVisible}
+        variant="first_anchor"
+        onDismiss={handleReminderDismiss}
+      />
     </Anchor15Screen>
   );
 }

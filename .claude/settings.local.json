@@ -25,7 +25,11 @@
       "Read(//c/Users/dwill/Downloads/Anchor-App/**)",
       "Read(//e/downloads/**)",
       "Bash(gh api *)",
-      "Bash(adb devices *)"
+      "Bash(adb devices *)",
+      "Read(//e/downloads//**)",
+      "Bash(powershell -Command \"Get-ChildItem 'E:\\\\downloads' | Select-Object Name\")",
+      "Bash(powershell -Command \"python --version\")",
+      "Bash(cp \"/e/downloads/anchor_mockups/package/09 Sanctuary Home.html\" \"/c/Users/dwill/AppData/Local/Temp/claude/C--Users-dwill--gemini-antigravity-scratch-Anchor/604b5510-06a6-45e7-8fb9-6feaa20833de/scratchpad/09_sanctuary_home.html\" && echo done)"
     ]
   }
 }

@@ -6,6 +6,8 @@ const mockNavigate = jest.fn();
 const mockReplace = jest.fn();
 const mockTrack = jest.fn();
 const mockWarn = jest.fn();
+const mockAuthServiceSignOut = jest.fn().mockResolvedValue(undefined);
+const mockClearFirstAnchorDraft = jest.fn();
 const mockAnchor = {
   id: 'anchor-1',
   userId: 'user-local',
@@ -53,6 +55,14 @@ jest.mock('@/stores/authStore', () => ({
   useAuthStore: (selector: (s: Record<string, unknown>) => unknown) => selector(mockAuthState),
 }));
 
+jest.mock('@/services/AuthService', () => ({
+  AuthService: { signOut: (...args: unknown[]) => mockAuthServiceSignOut(...args) },
+}));
+
+jest.mock('@/stores/firstAnchorFlowStore', () => ({
+  useFirstAnchorFlowStore: { getState: () => ({ clearDraft: mockClearFirstAnchorDraft }) },
+}));
+
 jest.mock('@/hooks/useReduceMotionEnabled', () => ({
   useReduceMotionEnabled: () => true,
 }));
@@ -96,12 +106,11 @@ describe('SaveProgressScreen', () => {
   it('renders the prototype copy and forged intention', () => {
     const { getByText } = render(<SaveProgressScreen />);
 
-    expect(getByText('SAVE YOUR ANCHOR')).toBeTruthy();
-    expect(getByText(/YOUR FIRST ANCHOR/)).toBeTruthy();
-    expect(getByText(/You made this\. Create a free account to keep it synced/i)).toBeTruthy();
-    expect(getByText('FORGED JUST NOW')).toBeTruthy();
+    expect(getByText('Keep Your Anchor')).toBeTruthy();
+    expect(getByText('Your First Anchor')).toBeTruthy();
+    expect(getByText(/Create a free account to keep this Anchor and continue your Practice/i)).toBeTruthy();
     expect(getByText('Listen before reacting')).toBeTruthy();
-    expect(getByText('SAVE MY ANCHOR')).toBeTruthy();
+    expect(getByText('Continue with Email')).toBeTruthy();
     expect(getByText('I already have an account')).toBeTruthy();
   });
 
@@ -115,10 +124,10 @@ describe('SaveProgressScreen', () => {
     });
   });
 
-  it('navigates to SignUp with the anchor id when Save My Anchor is pressed', () => {
+  it('navigates to SignUp with the anchor id when the save CTA is pressed', () => {
     const { getByText } = render(<SaveProgressScreen />);
 
-    fireEvent.press(getByText('SAVE MY ANCHOR'));
+    fireEvent.press(getByText('Continue with Email'));
 
     expect(mockTrack).toHaveBeenCalledWith('save_progress_save_tapped', {
       anchor_id: 'anchor-1',
@@ -169,5 +178,55 @@ describe('SaveProgressScreen', () => {
 
     expect(mockReplace).toHaveBeenCalledWith('PrimeYourAnchor', { anchorId: 'anchor-1' });
     expect(mockFinalize).not.toHaveBeenCalled();
+  });
+
+  it('keeps the artwork visible while authenticated finalization is loading', () => {
+    mockAuthState = {
+      ...mockAuthState,
+      isAuthenticated: true,
+      pendingFirstAnchorDraft: { tempAnchorId: 'anchor-1' },
+      isFinalizingPendingFirstAnchor: true,
+    };
+
+    const { getByTestId, getByText } = render(<SaveProgressScreen />);
+
+    expect(getByTestId('save-progress-anchor-artwork')).toBeTruthy();
+    expect(getByText('Saving your Anchor…')).toBeTruthy();
+  });
+
+  it('retries a failed authenticated finalization without losing the artwork', async () => {
+    const clearError = jest.fn();
+    mockAuthState = {
+      ...mockAuthState,
+      isAuthenticated: true,
+      pendingFirstAnchorDraft: { tempAnchorId: 'anchor-1' },
+      pendingFirstAnchorError: 'We could not save this Anchor. It is still here.',
+      clearPendingFirstAnchorError: clearError,
+    };
+
+    const { getByTestId } = render(<SaveProgressScreen />);
+    expect(getByTestId('save-progress-anchor-artwork')).toBeTruthy();
+    fireEvent.press(getByTestId('save-progress-retry-cta'));
+
+    await waitFor(() => expect(clearError).toHaveBeenCalled());
+    await waitFor(() => expect(mockFinalize).toHaveBeenCalled());
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('PrimeYourAnchor', { anchorId: 'anchor-1' }));
+  });
+
+  it('allows account switching after a failed handoff', async () => {
+    const storeSignOut = jest.fn().mockResolvedValue(undefined);
+    mockAuthState = {
+      ...mockAuthState,
+      isAuthenticated: true,
+      pendingFirstAnchorDraft: { tempAnchorId: 'anchor-1' },
+      pendingFirstAnchorError: 'Please try again.',
+      signOut: storeSignOut,
+    };
+
+    const { getByTestId } = render(<SaveProgressScreen />);
+    fireEvent.press(getByTestId('save-progress-switch-account'));
+
+    await waitFor(() => expect(mockAuthServiceSignOut).toHaveBeenCalled());
+    await waitFor(() => expect(storeSignOut).toHaveBeenCalled());
   });
 });

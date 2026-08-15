@@ -86,11 +86,11 @@ const PAYWALL_EXPERIMENT = {
 
 const HEADLINES: Record<HeadlineId, { eyebrow: string; titleA: string; titleB: string; titleEm: string; sub: string }> = {
   loss: {
-    eyebrow: 'Your free trial has ended',
-    titleA: "Don't lose access",
-    titleB: 'to what you',
-    titleEm: 'built.',
-    sub: 'Your anchors and progress are safe. Continue to keep your practice within reach when you need it.',
+    eyebrow: 'Your trial has ended',
+    titleA: 'Keep your practice',
+    titleB: '',
+    titleEm: 'going.',
+    sub: 'Continue with the complete Anchor experience whenever you’re ready.',
   },
   momentum: {
     eyebrow: 'Seven days complete',
@@ -404,7 +404,7 @@ export const PaywallScreen: React.FC = () => {
   const primeStreak = useAnchorStore((state) => state.primeStreak);
   const { forgedCount, totalPrimes } = useProgressionData();
   const reduceMotion = useReduceMotionEnabled();
-  const { daysRemaining, subscriptionStatus } = useTrialStatus();
+  const { daysRemaining, subscriptionStatus, hasActiveEntitlement } = useTrialStatus();
 
   const preferredPlanId = useSubscriptionStore((state) => state.preferredPlanId);
   const setPreferredPlanId = useSubscriptionStore((state) => state.setPreferredPlanId);
@@ -415,6 +415,7 @@ export const PaywallScreen: React.FC = () => {
   const [storeAvailability, setStoreAvailability] = useState<StoreAvailability>('loading');
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const introOpacity = useRef(new Animated.Value(reduceMotion ? 1 : 0)).current;
   const introTranslate = useRef(new Animated.Value(reduceMotion ? 0 : 16)).current;
@@ -517,6 +518,7 @@ export const PaywallScreen: React.FC = () => {
 
     setSelectedPlanId(plan);
     setPreferredPlanId(plan);
+    setStatusMessage(null);
     AnalyticsService.track('paywall_plan_selected', { plan });
     FrictionAnalytics.stepCompleted('paywall', 'plan_selection', { plan });
   }, [plans, setPreferredPlanId, storeAvailability]);
@@ -535,17 +537,20 @@ export const PaywallScreen: React.FC = () => {
       return;
     }
     if (isPurchaseUnavailable) {
+      setStatusMessage(PURCHASE_UNAVAILABLE_MESSAGE);
       Alert.alert(PURCHASE_UNAVAILABLE_TITLE, PURCHASE_UNAVAILABLE_MESSAGE);
       return;
     }
 
     const packageId = selectedPlan.packageId;
     if (!packageId) {
+      setStatusMessage(PURCHASE_UNAVAILABLE_MESSAGE);
       Alert.alert(PURCHASE_UNAVAILABLE_TITLE, PURCHASE_UNAVAILABLE_MESSAGE);
       return;
     }
 
     setIsPurchasing(true);
+    setStatusMessage(null);
     AnalyticsService.track('paywall_cta_tapped', {
       source,
       plan: selectedPlanId,
@@ -577,7 +582,9 @@ export const PaywallScreen: React.FC = () => {
         product_id: packageId,
       });
       logger.error('[PaywallScreen] Purchase failed', error);
-      Alert.alert('Purchase could not be completed', getSafePurchaseErrorMessage(error));
+      const message = getSafePurchaseErrorMessage(error);
+      setStatusMessage(message);
+      Alert.alert('Purchase could not be completed', message);
       setIsPurchasing(false);
       return;
     }
@@ -590,10 +597,9 @@ export const PaywallScreen: React.FC = () => {
           plan: selectedPlanId,
           product_id: packageId,
         });
-        Alert.alert(
-          'Purchase is still being confirmed',
-          'Your purchase was completed, but access is still being confirmed. Your receipt is safe. Try again in a moment, or restore purchases.'
-        );
+        const message = 'Your purchase was completed, but access is still being confirmed. Your receipt is safe. Try again in a moment, or restore purchases.';
+        setStatusMessage(message);
+        Alert.alert('Purchase is still being confirmed', message);
         return;
       }
 
@@ -623,10 +629,9 @@ export const PaywallScreen: React.FC = () => {
         product_id: packageId,
       });
       logger.error('[PaywallScreen] Billing confirmation failed after purchase', error);
-      Alert.alert(
-        'Purchase is still being confirmed',
-        'Your purchase was completed, but we could not confirm access yet. Your receipt is safe. Try again in a moment, or restore purchases.'
-      );
+      const message = 'Your purchase was completed, but we could not confirm access yet. Your receipt is safe. Try again in a moment, or restore purchases.';
+      setStatusMessage(message);
+      Alert.alert('Purchase is still being confirmed', message);
     } finally {
       setIsPurchasing(false);
     }
@@ -645,6 +650,7 @@ export const PaywallScreen: React.FC = () => {
   const handleRestorePurchase = useCallback(async () => {
     if (isPurchasing || isRestoring) return;
     setIsRestoring(true);
+    setStatusMessage(null);
     AnalyticsService.track('paywall_restore_tapped', { source });
     FrictionAnalytics.stepCompleted('paywall', 'restore_cta', { source });
 
@@ -655,10 +661,9 @@ export const PaywallScreen: React.FC = () => {
         source,
       });
       logger.error('[PaywallScreen] Restore failed', error);
-      Alert.alert(
-        'Restore failed',
-        'We could not restore purchases right now. Check your connection and try again.'
-      );
+      const message = 'We could not restore purchases right now. Check your connection and try again.';
+      setStatusMessage(message);
+      Alert.alert('Restore failed', message);
       setIsRestoring(false);
       return;
     }
@@ -667,7 +672,9 @@ export const PaywallScreen: React.FC = () => {
       const access = await refreshServerEntitlement();
       if (!access.hasActiveEntitlement) {
         FrictionAnalytics.flowBlocked('paywall', 'restore', 'no_subscription_found', { source });
-        Alert.alert('No subscription found', 'No active subscription was found for this account.');
+        const message = 'No active subscription was found for this account.';
+        setStatusMessage(message);
+        Alert.alert('No subscription found', message);
         return;
       }
 
@@ -683,16 +690,17 @@ export const PaywallScreen: React.FC = () => {
         source,
       });
       logger.error('[PaywallScreen] Billing confirmation failed after restore', error);
-      Alert.alert(
-        'Restore is still being confirmed',
-        'Your restore was completed, but we could not confirm access yet. Try again in a moment.'
-      );
+      const message = 'Your restore was completed, but we could not confirm access yet. Try again in a moment.';
+      setStatusMessage(message);
+      Alert.alert('Restore is still being confirmed', message);
     } finally {
       setIsRestoring(false);
     }
   }, [applyServerEntitlement, isPurchasing, isRestoring, navigation, source]);
 
-  const ctaSub = isStoreLoading
+  const ctaSub = hasActiveEntitlement
+    ? 'Your subscription is confirmed on this account.'
+    : isStoreLoading
     ? 'Loading current App Store pricing...'
     : isPurchaseUnavailable
       ? 'Purchases are temporarily unavailable. Restore is still available.'
@@ -701,7 +709,9 @@ export const PaywallScreen: React.FC = () => {
           ? `less than ${formatCurrency(selectedPlan.priceValue / 365, selectedPlan.currencyCode)} / day · cancel anytime`
           : `about ${formatCurrency(selectedPlan.priceValue / 30, selectedPlan.currencyCode)} / day · cancel anytime`
         : `then ${selectedPlan.priceLabel} / ${selectedPlanId === 'annual' ? 'year' : 'month'} · cancel anytime`;
-  const ctaLabel = isStoreLoading
+  const ctaLabel = hasActiveEntitlement
+    ? 'Access active'
+    : isStoreLoading
     ? 'Loading plans...'
     : isPurchaseUnavailable
       ? 'Purchases unavailable'
@@ -710,7 +720,7 @@ export const PaywallScreen: React.FC = () => {
   return (
     <View style={styles.root}>
       <LinearGradient
-        colors={['#07040C', '#100820', colors.black]}
+        colors={[colors.anchor15.creationTop, colors.anchor15.navy, colors.anchor15.ink]}
         locations={[0, 0.46, 1]}
         style={StyleSheet.absoluteFillObject}
       />
@@ -750,9 +760,9 @@ export const PaywallScreen: React.FC = () => {
               <Text style={styles.title}>{sourceCopy.title}</Text>
             ) : (
               <Text style={styles.title}>
-                {headline.titleA}
-                {'\n'}
-                {headline.titleB ? `${headline.titleB} ` : ''}
+                {headline.titleB
+                  ? `${headline.titleA}\n${headline.titleB} `
+                  : `${headline.titleA} `}
                 <Text style={styles.titleEm}>{headline.titleEm}</Text>
               </Text>
             )}
@@ -800,21 +810,21 @@ export const PaywallScreen: React.FC = () => {
           </ScrollView>
 
           <LinearGradient
-            colors={['rgba(8,12,16,0)', colors.black, colors.black]}
+            colors={['rgba(8,11,15,0)', colors.anchor15.ink, colors.anchor15.ink]}
             locations={[0, 0.28, 1]}
             style={styles.footer}
           >
             <Pressable
-              onPress={handlePurchase}
+              onPress={hasActiveEntitlement ? handleDismiss : handlePurchase}
               accessibilityRole="button"
               accessibilityLabel={
                 isPurchasing
                   ? 'Completing purchase and confirming access'
-                  : isPurchaseUnavailable || isStoreLoading
+                  : hasActiveEntitlement || isPurchaseUnavailable || isStoreLoading
                   ? ctaLabel
                   : `Continue my practice, ${selectedPlan.tier} selected`
               }
-              disabled={isPurchasing || isRestoring || isPurchaseUnavailable}
+              disabled={isPurchasing || isRestoring || (!hasActiveEntitlement && isPurchaseUnavailable)}
               style={({ pressed }) => [styles.ctaPressable, pressed && styles.ctaPressed]}
             >
               <LinearGradient
@@ -834,6 +844,16 @@ export const PaywallScreen: React.FC = () => {
               </LinearGradient>
             </Pressable>
             <Text style={styles.ctaSub}>{ctaSub}</Text>
+            {hasActiveEntitlement ? (
+              <Text style={styles.accessConfirmed} accessibilityLiveRegion="polite" testID="paywall-access-confirmed">
+                Your Anchor Pro access is active.
+              </Text>
+            ) : null}
+            {statusMessage ? (
+              <Text style={styles.statusMessage} accessibilityLiveRegion="polite" testID="paywall-status-message">
+                {statusMessage}
+              </Text>
+            ) : null}
             <Text style={styles.trust}>Cancel anytime · Your anchors stay · Secure</Text>
             <View style={styles.links}>
               <Pressable
@@ -883,7 +903,7 @@ export const PaywallScreen: React.FC = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.black,
+    backgroundColor: colors.anchor15.ink,
   },
   safeArea: {
     flex: 1,
@@ -895,7 +915,7 @@ const styles = StyleSheet.create({
     borderRadius: 130,
     top: 80,
     left: -110,
-    backgroundColor: withAlpha(colors.deepPurple, 0.24),
+    backgroundColor: withAlpha(colors.anchor15.steel, 0.42),
   },
   bgOrbBottom: {
     position: 'absolute',
@@ -904,7 +924,7 @@ const styles = StyleSheet.create({
     borderRadius: 110,
     right: -90,
     bottom: 180,
-    backgroundColor: withAlpha(colors.gold, 0.06),
+    backgroundColor: withAlpha(colors.anchor15.classicGold, 0.045),
   },
   closeButton: {
     position: 'absolute',
@@ -943,7 +963,7 @@ const styles = StyleSheet.create({
     width: 168,
     height: 168,
     borderRadius: 84,
-    backgroundColor: withAlpha(colors.gold, 0.1),
+    backgroundColor: withAlpha(colors.anchor15.classicGold, 0.065),
   },
   sigilRing: {
     position: 'absolute',
@@ -966,15 +986,15 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#100820',
+    backgroundColor: colors.anchor15.navy,
     borderWidth: 1,
     borderColor: withAlpha(colors.gold, 0.3),
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.purple,
-    shadowOpacity: 0.5,
-    shadowRadius: 30,
-    elevation: 6,
+    shadowColor: colors.anchor15.ink,
+    shadowOpacity: 0.26,
+    shadowRadius: 14,
+    elevation: 2,
   },
   sigilImage: {
     width: 104,
@@ -1012,7 +1032,7 @@ const styles = StyleSheet.create({
     color: colors.sanctuary.goldBright,
   },
   sub: {
-    fontFamily: typography.fonts.bodySerifItalic,
+    fontFamily: typography.fontFamily.voiceItalic,
     fontSize: 16,
     lineHeight: 23,
     color: withAlpha(colors.bone, 0.62),
@@ -1023,7 +1043,7 @@ const styles = StyleSheet.create({
   recap: {
     flexDirection: 'row',
     marginTop: 18,
-    borderRadius: 14,
+    borderRadius: 10,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: withAlpha(colors.gold, 0.28),
@@ -1057,7 +1077,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   recapFoot: {
-    fontFamily: typography.fonts.bodySerifItalic,
+    fontFamily: typography.fontFamily.voiceItalic,
     fontSize: 13,
     color: withAlpha(colors.bone, 0.55),
     textAlign: 'center',
@@ -1084,7 +1104,7 @@ const styles = StyleSheet.create({
   plan: {
     flex: 1,
     minHeight: 132,
-    borderRadius: 16,
+    borderRadius: 10,
     paddingVertical: 15,
     paddingHorizontal: 10,
     alignItems: 'center',
@@ -1096,10 +1116,6 @@ const styles = StyleSheet.create({
   planSelected: {
     borderColor: withAlpha(colors.gold, 0.65),
     backgroundColor: withAlpha(colors.gold, 0.08),
-    shadowColor: colors.gold,
-    shadowOpacity: 0.12,
-    shadowRadius: 30,
-    elevation: 5,
   },
   planUnavailable: {
     opacity: 0.5,
@@ -1134,8 +1150,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   planCheckSelected: {
-    backgroundColor: colors.sanctuary.goldBright,
-    borderColor: colors.sanctuary.goldBright,
+    backgroundColor: colors.practiceMode.deepPrime.bright,
+    borderColor: colors.practiceMode.deepPrime.bright,
   },
   planTier: {
     fontFamily: typography.fonts.heading,
@@ -1157,7 +1173,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   planPriceSelected: {
-    color: colors.sanctuary.goldBright,
+    color: colors.practiceMode.deepPrime.bright,
   },
   planPer: {
     fontFamily: typography.fonts.mono,
@@ -1168,14 +1184,14 @@ const styles = StyleSheet.create({
     marginTop: 7,
   },
   planStrike: {
-    fontFamily: typography.fonts.bodySerif,
+    fontFamily: typography.fontFamily.voice,
     fontSize: 11,
     color: withAlpha(colors.bone, 0.45),
     marginTop: 8,
     textAlign: 'center',
   },
   priceComparison: {
-    fontFamily: typography.fonts.bodySerifItalic,
+    fontFamily: typography.fontFamily.voiceItalic,
     fontSize: 13,
     color: withAlpha(colors.bone, 0.54),
     textAlign: 'center',
@@ -1195,7 +1211,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     paddingHorizontal: 24,
-    paddingTop: 34,
+    paddingTop: 30,
     paddingBottom: 12,
   },
   ctaPressable: {
@@ -1210,8 +1226,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: colors.gold,
-    shadowOpacity: 0.28,
-    shadowRadius: 20,
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
     elevation: 8,
   },
@@ -1238,7 +1254,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   ctaSub: {
-    fontFamily: typography.fonts.bodySerifItalic,
+    fontFamily: typography.fontFamily.voiceItalic,
     fontSize: 13.5,
     color: withAlpha(colors.bone, 0.62),
     textAlign: 'center',
@@ -1251,7 +1267,7 @@ const styles = StyleSheet.create({
     color: withAlpha(colors.bone, 0.28),
     textTransform: 'uppercase',
     textAlign: 'center',
-    marginTop: 10,
+    marginTop: 9,
   },
   links: {
     flexDirection: 'row',
@@ -1261,7 +1277,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   linkText: {
-    fontFamily: typography.fonts.bodySerif,
+    fontFamily: typography.fontFamily.voice,
     fontSize: 13,
     color: withAlpha(colors.bone, 0.48),
   },
@@ -1276,15 +1292,32 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   legalLinkText: {
-    fontFamily: typography.fonts.bodySerif,
+    fontFamily: typography.fontFamily.voice,
     fontSize: 12,
     color: withAlpha(colors.bone, 0.4),
     textDecorationLine: 'underline',
   },
   legalDivider: {
-    fontFamily: typography.fonts.bodySerif,
+    fontFamily: typography.fontFamily.voice,
     fontSize: 12,
     color: withAlpha(colors.bone, 0.3),
+  },
+  accessConfirmed: {
+    fontFamily: typography.fonts.mono,
+    fontSize: 9,
+    letterSpacing: 1.1,
+    color: withAlpha(colors.anchor15.giltBright, 0.8),
+    textTransform: 'uppercase',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  statusMessage: {
+    fontFamily: typography.fonts.body,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: withAlpha(colors.anchor15.bone, 0.7),
+    textAlign: 'center',
+    marginTop: 8,
   },
 });
 

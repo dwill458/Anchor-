@@ -24,6 +24,7 @@ const SCREENS = [
   '06-refine-style',
   '30-generate',
   '29-select-expression',
+  '21-paywall',
   '22-save-progress',
   '26-sign-in',
   '25-prime-your-anchor',
@@ -47,6 +48,12 @@ const maxChangedRatio = Number(args.get('max-changed-ratio') ?? 0.04);
 const pixelThreshold = Number(args.get('pixel-threshold') ?? 12);
 const width = args.has('width') ? Number(args.get('width')) : undefined;
 const height = args.has('height') ? Number(args.get('height')) : undefined;
+const selectedScreens = args.has('screens')
+  ? String(args.get('screens'))
+      .split(',')
+      .map((screen) => screen.trim())
+      .filter(Boolean)
+  : SCREENS;
 
 if (!referenceDir || !actualDir) {
   console.error('Pass --reference <directory> and --actual <directory>.');
@@ -56,7 +63,7 @@ if (!referenceDir || !actualDir) {
 fs.mkdirSync(outputDir, { recursive: true });
 let failures = 0;
 
-for (const screen of SCREENS) {
+for (const screen of selectedScreens) {
   const reference = path.join(referenceDir, `${screen}.png`);
   const actual = path.join(actualDir, `${screen}.png`);
   if (!fs.existsSync(reference) || !fs.existsSync(actual)) {

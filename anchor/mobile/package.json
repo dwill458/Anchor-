@@ -5,6 +5,7 @@
   "scripts": {
     "start": "expo start",
     "start:clean": "expo start -c",
+    "preandroid": "node ../../scripts/adb-reverse-once.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
