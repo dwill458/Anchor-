@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { User } from 'lucide-react-native';
+import { Plus, User } from 'lucide-react-native';
 import { colors } from '@/theme';
 import { withAlpha } from '@/utils/color';
 
@@ -10,11 +10,14 @@ interface SanctuaryHeaderProps {
   reduceMotionEnabled: boolean;
   /** Time-aware greeting, e.g. "Good evening, Deontrez" */
   greeting?: string;
+  onCreateAnchor?: () => void;
 }
 
-// Anchor 1.5 Sanctuary Home: no screen title — just the greeting and the
-// profile avatar. See 09 Sanctuary Home.html.
-export const SanctuaryHeader: React.FC<SanctuaryHeaderProps> = ({ reduceMotionEnabled, greeting }) => {
+export const SanctuaryHeader: React.FC<SanctuaryHeaderProps> = ({
+  reduceMotionEnabled,
+  greeting,
+  onCreateAnchor,
+}) => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
 
@@ -22,24 +25,50 @@ export const SanctuaryHeader: React.FC<SanctuaryHeaderProps> = ({ reduceMotionEn
     navigation.navigate('Settings');
   }, [navigation]);
 
+  const handleCreate = useCallback(() => {
+    if (onCreateAnchor) {
+      onCreateAnchor();
+    } else {
+      navigation.navigate('CreateAnchor');
+    }
+  }, [onCreateAnchor, navigation]);
+
   return (
     <View style={[styles.container, { paddingRight: Math.max(20, insets.right + 6) }]}>
       {greeting ? (
-        <Text style={styles.greeting} numberOfLines={1}>{greeting}</Text>
-      ) : <View style={styles.greetingSpacer} />}
-      <Pressable
-        style={styles.settingsButton}
-        onPress={handleOpenProfile}
-        accessibilityRole="button"
-        accessibilityLabel="Profile"
-      >
-        <View style={styles.settingsMeasureTarget}>
-          <View style={styles.settingsInnerGlow} />
-          <View style={styles.settingsInnerRing}>
-            <User size={17} color={colors.anchor15.giltBright} />
+        <Text style={styles.greeting} numberOfLines={1}>
+          {greeting}
+        </Text>
+      ) : (
+        <View style={styles.greetingSpacer} />
+      )}
+      <View style={styles.actionsRow}>
+        {/* Create Anchor (+) Button */}
+        <Pressable
+          style={styles.iconButton}
+          onPress={handleCreate}
+          accessibilityRole="button"
+          accessibilityLabel="Create anchor"
+        >
+          <View style={styles.buttonTarget}>
+            <View style={styles.createInnerBorder} />
+            <Plus size={16} color={colors.anchor15.gilt} strokeWidth={1.6} />
           </View>
-        </View>
-      </Pressable>
+        </Pressable>
+
+        {/* Profile Button */}
+        <Pressable
+          style={styles.iconButton}
+          onPress={handleOpenProfile}
+          accessibilityRole="button"
+          accessibilityLabel="Profile"
+        >
+          <View style={styles.buttonTarget}>
+            <View style={styles.profileInnerBorder} />
+            <User size={17} color={colors.anchor15.gilt} strokeWidth={1.5} />
+          </View>
+        </Pressable>
+      </View>
     </View>
   );
 };
@@ -57,39 +86,45 @@ const styles = StyleSheet.create({
     paddingRight: 8,
     fontFamily: 'EBGaramond-Regular',
     fontSize: 17,
+    fontStyle: 'italic',
     color: withAlpha(colors.anchor15.bone, 0.68),
   },
   greetingSpacer: {
     flex: 1,
   },
-  settingsButton: {
+  actionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  iconButton: {
     width: 44,
     height: 44,
-    marginLeft: 10,
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  settingsMeasureTarget: {
+  buttonTarget: {
     width: 44,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
-  settingsInnerGlow: {
+  createInnerBorder: {
+    position: 'absolute',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: withAlpha(colors.anchor15.gilt, 0.28),
+  },
+  profileInnerBorder: {
     position: 'absolute',
     width: 44,
     height: 44,
     borderRadius: 22,
     borderWidth: 1,
     borderColor: withAlpha(colors.anchor15.gilt, 0.12),
-  },
-  settingsInnerRing: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

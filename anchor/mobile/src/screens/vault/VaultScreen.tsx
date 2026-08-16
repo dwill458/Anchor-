@@ -515,7 +515,10 @@ export const VaultScreen: React.FC = () => {
       anchor_count: anchors.length,
       is_first_anchor: anchors.length === 0,
     });
-    navigation.push(anchors.length === 0 ? 'FirstAnchorCreation' : 'CreateAnchor');
+    // The Sanctuary create CTA should always open the redesigned intention
+    // screen. Keep the legacy returning-user route available to other flows
+    // that still depend on it.
+    navigation.push('FirstAnchorCreation');
   }, [anchors.length, entitlements, isAuthenticated, navigation]);
 
   const handleAnchorPress = useCallback(
@@ -578,6 +581,7 @@ export const VaultScreen: React.FC = () => {
             <SanctuaryHeader
               reduceMotionEnabled={shouldReduceMotion}
               greeting={greeting}
+              onCreateAnchor={handleCreateAnchor}
             />
           </Animated2.View>
 
@@ -739,32 +743,9 @@ function renderActiveState({
 
   return (
     <>
-      {/* ── Context bar ── */}
-      <Animated2.View
-        entering={getFadeUp(250, shouldReduceMotion)}
-        style={styles.contextBar}
-      >
-        <View>
-          <Text style={styles.ctxSubLabel}>ACTIVE ANCHOR</Text>
-          {/* DEFERRED: removed duplicate intention — intention shown below medallion, remove post-launch */}
-        </View>
-        <MicroTeachInfoChip
-          teachingIds="vault_intro_first_time_v1"
-          screenId="vault"
-          label="What's an anchor?"
-          sheetTitle="What's an anchor?"
-        />
-      </Animated2.View>
-
-      <MicroTeachCard
-        teaching={vaultTeaching}
-        screenId="vault"
-        style={styles.vaultTeachingCard}
-      />
-
       {/* ── Hero card ── */}
       <Animated2.View
-        entering={getFadeUp(350, shouldReduceMotion)}
+        entering={getFadeUp(250, shouldReduceMotion)}
         style={styles.heroWrap}
       >
         <HeroAnchorCard
@@ -1005,7 +986,7 @@ const styles = StyleSheet.create({
     marginHorizontal: H_PAD,
   },
   heroWrap: {
-    marginTop: 10,
+    marginTop: 6,
     marginHorizontal: H_PAD,
   },
   activateBtnWrap: {
@@ -1029,15 +1010,15 @@ const styles = StyleSheet.create({
     color: colors.anchor15.giltBright,
   },
   sectionDivider: {
-    marginTop: 26,
+    marginTop: 18,
     marginHorizontal: H_PAD,
     height: 1,
     backgroundColor: withAlpha(colors.anchor15.gilt, 0.12),
   },
   stackWrap: {
-    marginTop: 18,
+    marginTop: 14,
     marginHorizontal: H_PAD,
-    marginBottom: 24,
+    marginBottom: 18,
   },
 });
 

@@ -166,6 +166,11 @@ export interface DistillationRenderChar {
   char: string;
   /** Whether this character survives distillation (first-occurrence consonant) */
   keep: boolean;
+  /**
+   * Which pass of the staged reduction animation drops this character:
+   * `1` for vowels (and non-letters), `2` for repeated consonants, `null` when kept.
+   */
+  removalStep: 1 | 2 | null;
 }
 
 /**
@@ -185,10 +190,14 @@ export interface DistillationRenderWord {
  * per-character keep flags that the flat letter list can't express. Characters are
  * uppercased for display, matching the distilled letters they fade toward.
  *
+ * Each character also carries the `removalStep` that drops it, so the animation can play
+ * the two reductions as separate passes instead of collapsing them into one fade.
+ *
  * @example
  * buildDistillationRenderWords("I lead")
- * // [{ chars: [{ char: 'I', keep: false }] },
- * //  { chars: [{ char: 'L', keep: true }, { char: 'E', keep: false }, { char: 'A', keep: false }, { char: 'D', keep: true }] }]
+ * // [{ chars: [{ char: 'I', keep: false, removalStep: 1 }] },
+ * //  { chars: [{ char: 'L', keep: true, removalStep: null }, { char: 'E', keep: false, removalStep: 1 },
+ * //            { char: 'A', keep: false, removalStep: 1 }, { char: 'D', keep: true, removalStep: null }] }]
  */
 export function buildDistillationRenderWords(intentionText: string): DistillationRenderWord[] {
   const words = intentionText.trim().split(/\s+/).filter(Boolean);
@@ -198,16 +207,20 @@ export function buildDistillationRenderWords(intentionText: string): Distillatio
     chars: Array.from(word).map((char) => {
       const upperCode = toUpperAlphaCode(char.charCodeAt(0));
       if (upperCode == null) {
-        return { char, keep: false };
+        return { char, keep: false, removalStep: 1 as const };
       }
 
       const upperChar = String.fromCharCode(upperCode);
-      if (isVowelCode(upperCode) || seen.has(upperCode)) {
-        return { char: upperChar, keep: false };
+      if (isVowelCode(upperCode)) {
+        return { char: upperChar, keep: false, removalStep: 1 as const };
+      }
+
+      if (seen.has(upperCode)) {
+        return { char: upperChar, keep: false, removalStep: 2 as const };
       }
 
       seen.add(upperCode);
-      return { char: upperChar, keep: true };
+      return { char: upperChar, keep: true, removalStep: null };
     }),
   }));
 }

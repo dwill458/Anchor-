@@ -30,9 +30,10 @@ import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IS_ANDROID = Platform.OS === 'android';
 
-// Canvas size - reduced height to ensure controls clear system navigation
-const CANVAS_WIDTH = SCREEN_WIDTH - 24;
-const CANVAS_HEIGHT = SCREEN_HEIGHT * 0.36;
+// The redesign uses a square, breathing canvas instead of the legacy stretched
+// drawing area. Keep the internal coordinate system stable for persisted drafts.
+const CANVAS_WIDTH = Math.max(280, SCREEN_WIDTH - 44);
+const CANVAS_HEIGHT = CANVAS_WIDTH;
 
 // Brush types
 const BRUSH_TYPES = [
@@ -482,7 +483,7 @@ export default function ManualForgeScreen() {
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      <ZenBackground orbOpacity={0.08} />
+      <ZenBackground variant="sanctuary" orbOpacity={0.35} />
 
       <SafeAreaView style={styles.safeArea}>
         <ScrollView
@@ -516,31 +517,12 @@ export default function ManualForgeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Instructions Card */}
+        {/* Compact teaching banner from the Draw Your Structure redesign */}
         <Animated.View
-          style={[styles.instructionsContainer, { opacity: fadeAnim }]}
+          style={[styles.teachBanner, { opacity: fadeAnim }]}
         >
-          {IS_ANDROID ? (
-            <View style={[styles.instructionsCard, styles.cardAndroid]}>
-              <View style={styles.instructionsContent}>
-                <Text style={styles.ritualLabel}>Structure</Text>
-                <Text style={styles.drawTitle}>Draw your structure</Text>
-                <Text style={styles.instructionsText}>Use the distilled letters to create your own structure.</Text>
-                <Text style={styles.teachingCopy}>Overlap, simplify, and combine them into a form that feels right to you.</Text>
-              </View>
-              <View style={styles.instructionsBorder} />
-            </View>
-          ) : (
-            <BlurView intensity={12} tint="dark" style={styles.instructionsCard}>
-              <View style={styles.instructionsContent}>
-                <Text style={styles.ritualLabel}>Structure</Text>
-                <Text style={styles.drawTitle}>Draw your structure</Text>
-                <Text style={styles.instructionsText}>Use the distilled letters to create your own structure.</Text>
-                <Text style={styles.teachingCopy}>Overlap, simplify, and combine them into a form that feels right to you.</Text>
-              </View>
-              <View style={styles.instructionsBorder} />
-            </BlurView>
-          )}
+          <Text style={styles.teachBannerText}>Your hand gives the structure its meaning.</Text>
+          <Text style={styles.teachBannerSubtext}>Overlap, simplify, and combine the letters into a form that feels right to you.</Text>
         </Animated.View>
 
         <View style={styles.sourceLetters}>
@@ -623,7 +605,7 @@ export default function ManualForgeScreen() {
               {showGrid && <View style={styles.centerDot} />}
             </View>
           ) : (
-            <BlurView intensity={8} tint="dark" style={styles.canvas}>
+            <View style={styles.canvas}>
               {/* Background sigil for tracing mode */}
               {!isFromScratch && baseSigilSvg && (
                 <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -688,7 +670,7 @@ export default function ManualForgeScreen() {
                 </Svg>
               </View>
               {showGrid && <View style={styles.centerDot} />}
-            </BlurView>
+            </View>
           )}
 
           {/* Quick Actions Bar */}
@@ -701,7 +683,7 @@ export default function ManualForgeScreen() {
               accessibilityLabel="Guides"
               accessibilityState={{ selected: showGrid }}
             >
-              <Text style={styles.quickActionIcon}>Guides</Text>
+              <Text style={[styles.quickActionIcon, showGrid && styles.quickActionIconActive]}>Guides</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -777,19 +759,6 @@ export default function ManualForgeScreen() {
           </LinearGradient>
         </View>
 
-        {/* Floating Tools Button */}
-        <TouchableOpacity
-          onPress={() => setShowToolsModal(true)}
-          style={styles.floatingToolsButton}
-          activeOpacity={0.85}
-        >
-          <LinearGradient
-            colors={[colors.gold, colors.bronze]}
-            style={styles.floatingButtonGradient}
-          >
-            <Text style={styles.floatingButtonIcon}>🎨</Text>
-          </LinearGradient>
-        </TouchableOpacity>
       </SafeAreaView>
 
       {/* Save Confirmation Modal */}
@@ -1225,7 +1194,7 @@ function GridOverlay() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.navy,
+    backgroundColor: colors.anchor15.navy,
   },
   safeArea: {
     flex: 1,
@@ -1234,15 +1203,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   drawScrollContent: {
-    paddingBottom: 16,
+    paddingBottom: 20,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 20,
-    paddingBottom: 12,
+    paddingHorizontal: 22,
+    paddingTop: 10,
+    paddingBottom: 14,
   },
   headerButton: {
     width: 44,
@@ -1250,7 +1219,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 22,
-    backgroundColor: 'rgba(26, 26, 29, 0.6)',
+    backgroundColor: 'rgba(15, 20, 25, 0.34)',
+    borderWidth: 1,
+    borderColor: 'rgba(217, 179, 108, 0.16)',
   },
   saveButton: {
     backgroundColor: 'transparent',
@@ -1266,7 +1237,7 @@ const styles = StyleSheet.create({
   },
   headerIcon: {
     fontSize: 22,
-    color: colors.gold,
+    color: colors.anchor15.bone,
   },
   saveIcon: {
     fontSize: 24,
@@ -1284,12 +1255,41 @@ const styles = StyleSheet.create({
     fontFamily: 'System', // Using System as reliable fallback
   },
   headerSubtitle: {
+    fontFamily: 'Cinzel-Regular',
     fontSize: 11,
-    color: colors.silver,
-    opacity: 0.7,
-    marginTop: 2,
+    color: colors.anchor15.ash,
+    letterSpacing: 2.4,
+    textTransform: 'uppercase',
   },
-  headerAbout: { color: colors.gold, fontSize: 12, fontWeight: '600' },
+  headerAbout: {
+    color: colors.anchor15.gilt,
+    fontFamily: 'Cinzel-SemiBold',
+    fontSize: 11,
+    letterSpacing: 1.2,
+  },
+  teachBanner: {
+    marginHorizontal: 22,
+    marginTop: 2,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(217, 179, 108, 0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(217, 179, 108, 0.14)',
+    gap: 4,
+  },
+  teachBannerText: {
+    color: 'rgba(244, 239, 230, 0.82)',
+    fontFamily: 'Inter-Regular',
+    fontSize: 12.5,
+    lineHeight: 19,
+  },
+  teachBannerSubtext: {
+    color: colors.anchor15.ash,
+    fontFamily: 'Inter-Regular',
+    fontSize: 12,
+    lineHeight: 18,
+  },
   instructionsContainer: {
     paddingHorizontal: 16,
     paddingTop: 0,
@@ -1319,12 +1319,12 @@ const styles = StyleSheet.create({
   ritualLabel: { color: colors.gold, fontSize: 10, fontWeight: '700', letterSpacing: 1.6, textTransform: 'uppercase', marginBottom: 4 },
   drawTitle: { color: colors.bone, fontSize: 25, lineHeight: 29, fontWeight: '600', marginBottom: 4 },
   teachingCopy: { color: 'rgba(245,245,220,0.62)', fontSize: 12, lineHeight: 17, marginTop: 6 },
-  sourceLetters: { marginHorizontal: 16, marginTop: 8, marginBottom: 4, padding: 12, borderWidth: 1, borderColor: 'rgba(212,175,55,0.18)', borderRadius: 12, backgroundColor: 'rgba(15,20,25,0.5)' },
-  sourceLabel: { color: colors.gold, fontSize: 10, fontWeight: '700', letterSpacing: 1.4, textTransform: 'uppercase' },
-  sourceValue: { color: colors.bone, fontSize: 20, letterSpacing: 5, marginTop: 5 },
-  sourceCopy: { color: colors.silver, opacity: 0.72, fontSize: 11, lineHeight: 16, marginTop: 5 },
-  firstUseCopy: { color: colors.gold, fontSize: 12, marginTop: 10, fontWeight: '600' },
-  firstUseSubline: { color: colors.silver, opacity: 0.7, fontSize: 11, lineHeight: 15, marginTop: 2 },
+  sourceLetters: { marginHorizontal: 22, marginTop: 10, marginBottom: 4, padding: 14, borderWidth: 1, borderColor: 'rgba(217,179,108,0.14)', borderRadius: 14, backgroundColor: 'rgba(9,13,17,0.55)' },
+  sourceLabel: { color: colors.anchor15.gilt, fontFamily: 'Cinzel-SemiBold', fontSize: 10, letterSpacing: 1.8, textTransform: 'uppercase' },
+  sourceValue: { color: colors.anchor15.bone, fontFamily: 'Cinzel-Regular', fontSize: 17, letterSpacing: 4, marginTop: 8, textAlign: 'center' },
+  sourceCopy: { color: colors.anchor15.ash, fontFamily: 'Inter-Regular', fontSize: 11.5, lineHeight: 17, marginTop: 8, textAlign: 'center' },
+  firstUseCopy: { color: colors.anchor15.giltBright, fontFamily: 'Inter-SemiBold', fontSize: 12, marginTop: 10, textAlign: 'center' },
+  firstUseSubline: { color: colors.anchor15.ash, fontFamily: 'Inter-Regular', fontSize: 11, lineHeight: 16, marginTop: 2, textAlign: 'center' },
   instructionsText: {
     fontSize: 11,
     color: colors.silver,
@@ -1340,18 +1340,23 @@ const styles = StyleSheet.create({
   },
   canvasContainer: {
     alignItems: 'center',
-    paddingTop: 4,
-    paddingBottom: 12,
+    paddingTop: 8,
+    paddingBottom: 8,
   },
   canvas: {
     width: CANVAS_WIDTH,
     height: CANVAS_HEIGHT,
     borderRadius: 20,
-    borderWidth: 2,
-    borderColor: 'rgba(212, 175, 55, 0.3)',
-    backgroundColor: 'rgba(15, 20, 25, 0.95)',
+    borderWidth: 1,
+    borderColor: 'rgba(217, 179, 108, 0.32)',
+    backgroundColor: '#0A0F14',
     overflow: 'hidden',
     position: 'relative',
+    shadowColor: '#000000',
+    shadowOpacity: 0.45,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
   },
   emptyCanvasPrompt: { position: 'absolute', alignSelf: 'center', top: '48%', color: 'rgba(245,245,220,0.56)', fontSize: 15, fontStyle: 'italic', zIndex: 1, pointerEvents: 'none' },
   canvasAndroid: {
@@ -1408,30 +1413,32 @@ const styles = StyleSheet.create({
   quickActions: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 12,
+    marginTop: 14,
+    paddingHorizontal: 8,
   },
   quickActionButton: {
     flex: 1,
     minWidth: 0,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(26, 26, 29, 0.8)',
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.2)',
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
   quickActionActive: {
-    borderColor: colors.gold,
-    backgroundColor: 'rgba(212, 175, 55, 0.15)',
+    backgroundColor: 'rgba(244, 239, 230, 0.04)',
   },
   actionDisabled: {
     opacity: 0.3,
   },
   quickActionIcon: {
-    fontSize: 11,
-    color: colors.gold,
-    fontWeight: '600',
+    fontFamily: 'Cinzel-Medium',
+    fontSize: 9,
+    color: 'rgba(244, 239, 230, 0.58)',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+  },
+  quickActionIconActive: {
+    color: colors.anchor15.giltBright,
   },
   clearConfirmation: {
     marginTop: 10,

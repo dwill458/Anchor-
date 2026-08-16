@@ -291,6 +291,20 @@ describe('buildDistillationRenderWords', () => {
     expect(words[0].chars.map((c) => c.keep)).toEqual([true, false, true, false, false, false]);
   });
 
+  it('tags vowels as step 1 and repeated consonants as step 2', () => {
+    const words = buildDistillationRenderWords('banana');
+
+    // B A N A N A -> B kept, A vowel, N kept, A vowel, N repeat, A vowel
+    expect(words[0].chars.map((c) => c.removalStep)).toEqual([null, 1, null, 1, 2, 1]);
+  });
+
+  it('tags non-letter characters as step 1 so they drop with the vowels', () => {
+    const words = buildDistillationRenderWords("don't");
+
+    // D O N ' T -> the apostrophe drops in the same pass as the vowel
+    expect(words[0].chars.map((c) => c.removalStep)).toEqual([null, 1, null, 1, null]);
+  });
+
   it('returns an empty array for an empty string', () => {
     expect(buildDistillationRenderWords('')).toEqual([]);
   });

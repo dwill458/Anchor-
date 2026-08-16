@@ -68,11 +68,27 @@ describe('LetterDistillationScreen', () => {
     expect(screen.getByText('The Essential Form')).toBeTruthy();
   });
 
+  it('walks through the three reduction steps in order', () => {
+    render(<LetterDistillationScreen navigation={navigation} route={route} />);
+
+    expect(screen.getByText(/Step 1 of 3 · Removing Vowels/)).toBeTruthy();
+
+    act(() => {
+      jest.advanceTimersByTime(2400);
+    });
+    expect(screen.getByText(/Step 2 of 3 · Removing Repeated Letters/)).toBeTruthy();
+
+    act(() => {
+      jest.advanceTimersByTime(1500);
+    });
+    expect(screen.getByText(/Step 3 of 3 · Essential Letters/)).toBeTruthy();
+  });
+
   it('renders the canonical distilled letters after the reduction settles', () => {
     render(<LetterDistillationScreen navigation={navigation} route={route} />);
 
     act(() => {
-      jest.advanceTimersByTime(1400);
+      jest.advanceTimersByTime(3900);
     });
 
     const resultLayer = within(screen.getByTestId('distill-result-layer'));
@@ -88,7 +104,7 @@ describe('LetterDistillationScreen', () => {
     expect(screen.getByTestId('distill-result-layer', { includeHiddenElements: true }).props.accessibilityElementsHidden).toBe(true);
 
     act(() => {
-      jest.advanceTimersByTime(1400);
+      jest.advanceTimersByTime(3900);
     });
 
     expect(screen.getByTestId('distill-phrase-layer', { includeHiddenElements: true }).props.accessibilityElementsHidden).toBe(true);
@@ -107,24 +123,67 @@ describe('LetterDistillationScreen', () => {
     render(<LetterDistillationScreen navigation={navigation} route={longRoute} />);
 
     act(() => {
-      jest.advanceTimersByTime(1320);
+      jest.advanceTimersByTime(3500);
     });
     expect(screen.getByTestId('distill-result-layer', { includeHiddenElements: true }).props.accessibilityElementsHidden).toBe(true);
 
     act(() => {
-      jest.advanceTimersByTime(1244);
+      jest.advanceTimersByTime(100);
     });
     expect(screen.getByTestId('distill-result-layer').props.accessibilityElementsHidden).toBe(false);
   });
 
-  it('does not navigate automatically once the reduction settles', () => {
+  it('auto-proceeds to StructureForge three seconds after the letters settle', () => {
     render(<LetterDistillationScreen navigation={navigation} route={route} />);
+
+    act(() => {
+      jest.advanceTimersByTime(3900);
+    });
+    expect(navigation.navigate).not.toHaveBeenCalled();
+
+    act(() => {
+      jest.advanceTimersByTime(3000);
+    });
+    expect(navigation.navigate).toHaveBeenCalledTimes(1);
+    expect(navigation.navigate).toHaveBeenCalledWith('StructureForge', {
+      intentionText: route.params.intentionText,
+      category: route.params.category,
+      distilledLetters: route.params.distilledLetters,
+    });
+  });
+
+  it('suspends the auto-proceed countdown while the explainer sheet is open', () => {
+    render(<LetterDistillationScreen navigation={navigation} route={route} />);
+
+    act(() => {
+      jest.advanceTimersByTime(3900);
+    });
+    fireEvent.press(screen.getByRole('button', { name: 'How does this work?' }));
+
+    act(() => {
+      jest.advanceTimersByTime(10000);
+    });
+    expect(navigation.navigate).not.toHaveBeenCalled();
+
+    fireEvent.press(screen.getByRole('button', { name: 'Got it' }));
+    act(() => {
+      jest.advanceTimersByTime(3000);
+    });
+    expect(navigation.navigate).toHaveBeenCalledTimes(1);
+  });
+
+  it('only navigates once when the button is pressed before the countdown finishes', () => {
+    render(<LetterDistillationScreen navigation={navigation} route={route} />);
+
+    act(() => {
+      jest.advanceTimersByTime(3900);
+    });
+    fireEvent.press(screen.getByRole('button', { name: 'Choose Your Structure' }));
 
     act(() => {
       jest.advanceTimersByTime(5000);
     });
-
-    expect(navigation.navigate).not.toHaveBeenCalled();
+    expect(navigation.navigate).toHaveBeenCalledTimes(1);
   });
 
   it('settles quickly when reduced motion is enabled', () => {
@@ -132,7 +191,7 @@ describe('LetterDistillationScreen', () => {
     render(<LetterDistillationScreen navigation={navigation} route={route} />);
 
     act(() => {
-      jest.advanceTimersByTime(260);
+      jest.advanceTimersByTime(520);
     });
 
     expect(screen.getByText('The Essential Form')).toBeTruthy();

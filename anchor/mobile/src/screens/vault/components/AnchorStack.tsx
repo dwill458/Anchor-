@@ -3,7 +3,7 @@
  *
  * Plain circular chips (sigil/image only) with a two-line name/category
  * label underneath. The current anchor gets a gilt highlight ring; the row
- * ends with a gilt outlined "New anchor" chip. See `09 Sanctuary Home.html`.
+ * ends with a gilt outlined "New anchor" chip. Matches `Sanctuary Home (Standalone).html`.
  */
 
 import React from 'react';
@@ -15,15 +15,17 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { colors } from '@/theme';
+import Svg, { Path } from 'react-native-svg';
+import { colors, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
 import type { Anchor } from '@/types';
 import { formatCategory, isAnchorReleased } from '../utils/anchorStateHelpers';
-import { AnchorArtworkThumbnail } from './AnchorArtworkThumbnail';
+import { MedallionCoin } from './MedallionCoin';
+import { NewAnchorTile } from './NewAnchorTile';
 
 const CHIP_SIZE = 60;
-const CARD_WIDTH = 76;
-const CARD_GAP = 14;
+const CARD_WIDTH = 72;
+const CARD_GAP = 18;
 
 function shortName(intentionText: string): string {
   return intentionText.length > 14
@@ -52,36 +54,31 @@ const StackCard = React.memo<StackCardProps>(({ anchor, isActive, onPress }) => 
       accessibilityLabel={`${anchor.intentionText}, ${formatCategory(anchor.category)}`}
     >
       <View style={[styles.chip, isActive ? styles.chipActive : styles.chipInactive]}>
-        <AnchorArtworkThumbnail
+        <MedallionCoin
+          size={CHIP_SIZE}
           imageUrl={imageUrl}
           sigilXml={sigilXml}
-          imageStyle={styles.thumbImage}
-          fallbackStyle={styles.sigilFallback}
-          fallbackSize={30}
+          showGlow={false}
+          reduceMotionEnabled={true}
         />
       </View>
-      <Text style={styles.cardName} numberOfLines={1}>{shortName(anchor.intentionText)}</Text>
-      <Text style={styles.cardCategory} numberOfLines={1}>{formatCategory(anchor.category)}</Text>
+      <View style={styles.cardLabels}>
+        <Text
+          style={[
+            styles.cardName,
+            { color: isActive ? colors.anchor15.bone : 'rgba(244,239,230,0.8)' },
+          ]}
+          numberOfLines={1}
+        >
+          {shortName(anchor.intentionText)}
+        </Text>
+        <Text style={styles.cardCategory} numberOfLines={1}>
+          {formatCategory(anchor.category)}
+        </Text>
+      </View>
     </TouchableOpacity>
   );
 });
-
-// ─── AddCard ──────────────────────────────────────────────────────────────────
-
-const AddCard: React.FC<{ onPress: () => void }> = ({ onPress }) => (
-  <TouchableOpacity
-    style={styles.stackCard}
-    onPress={onPress}
-    activeOpacity={0.7}
-    accessibilityRole="button"
-    accessibilityLabel="Create new anchor"
-  >
-    <View style={[styles.chip, styles.addChip]}>
-      <Text style={styles.addPlus}>+</Text>
-    </View>
-    <Text style={styles.addLabel} numberOfLines={1}>New anchor</Text>
-  </TouchableOpacity>
-);
 
 const StackCardSeparator = () => <View style={styles.itemSeparator} />;
 
@@ -107,15 +104,18 @@ export const AnchorStack: React.FC<AnchorStackProps> = ({
     [anchors]
   );
 
-  const handlePress = React.useCallback((id: string) => {
-    onAnchorPress(id);
-  }, [onAnchorPress]);
+  const handlePress = React.useCallback(
+    (id: string) => {
+      onAnchorPress(id);
+    },
+    [onAnchorPress]
+  );
 
   const renderItem = React.useCallback(
     ({ item }: { item: Anchor }) => (
       <StackCard anchor={item} isActive={item.id === primaryAnchorId} onPress={handlePress} />
     ),
-    [handlePress, primaryAnchorId],
+    [handlePress, primaryAnchorId]
   );
 
   const keyExtractor = React.useCallback((item: Anchor) => item.id, []);
@@ -124,37 +124,57 @@ export const AnchorStack: React.FC<AnchorStackProps> = ({
     () => (
       <>
         <StackCardSeparator />
-        <AddCard onPress={onAddPress} />
+        <NewAnchorTile onPress={onAddPress} />
       </>
     ),
-    [onAddPress],
+    [onAddPress]
   );
 
   return (
     <View style={styles.container}>
       {/* Section header */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionLabel}>Your anchors</Text>
+        <Text style={styles.sectionLabel}>YOUR ANCHORS</Text>
         <TouchableOpacity onPress={onViewAll} activeOpacity={0.6}>
           <Text style={styles.sectionLink}>All Anchors →</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Scroll row */}
-      <FlatList
-        horizontal
-        data={visibleAnchors}
-        renderItem={renderItem}
-        keyExtractor={keyExtractor}
-        ItemSeparatorComponent={StackCardSeparator}
-        ListFooterComponent={renderFooter}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-        initialNumToRender={6}
-        maxToRenderPerBatch={6}
-        windowSize={5}
-        removeClippedSubviews={Platform.OS === 'android'}
-      />
+      {/* Zero anchor empty state vs Horizontal Scroll Rail */}
+      {visibleAnchors.length === 0 ? (
+        <TouchableOpacity
+          onPress={onAddPress}
+          activeOpacity={0.8}
+          style={styles.emptyCreateButton}
+          accessibilityRole="button"
+          accessibilityLabel="Create New Anchor"
+        >
+          <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="M12 4v16M4 12h16"
+              stroke="#D4AF37"
+              strokeWidth={1.8}
+              strokeLinecap="round"
+            />
+          </Svg>
+          <Text style={styles.emptyCreateLabel}>CREATE NEW ANCHOR</Text>
+        </TouchableOpacity>
+      ) : (
+        <FlatList
+          horizontal
+          data={visibleAnchors}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
+          ItemSeparatorComponent={StackCardSeparator}
+          ListFooterComponent={renderFooter}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          initialNumToRender={6}
+          maxToRenderPerBatch={6}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
+        />
+      )}
     </View>
   );
 };
@@ -163,7 +183,7 @@ export const AnchorStack: React.FC<AnchorStackProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    gap: 12,
+    gap: 14,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -180,11 +200,13 @@ const styles = StyleSheet.create({
   sectionLink: {
     fontFamily: 'Inter-Regular',
     fontSize: 12,
+    letterSpacing: 0.24,
     color: colors.anchor15.gilt,
   },
   scrollContent: {
-    paddingRight: 2,
+    paddingRight: 10,
     alignItems: 'flex-start',
+    paddingBottom: 10,
   },
   itemSeparator: {
     width: CARD_GAP,
@@ -192,7 +214,7 @@ const styles = StyleSheet.create({
   stackCard: {
     width: CARD_WIDTH,
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   chip: {
     width: CHIP_SIZE,
@@ -216,50 +238,43 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: withAlpha(colors.anchor15.ash, 0.16),
   },
-  thumbImage: {
-    width: CHIP_SIZE,
-    height: CHIP_SIZE,
-  },
-  sigilFallback: {
-    width: CHIP_SIZE,
-    height: CHIP_SIZE,
+  cardLabels: {
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 1,
+    width: '100%',
   },
   cardName: {
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: 'Inter-Regular',
     fontSize: 13,
-    color: colors.anchor15.bone,
+    fontWeight: '500',
     textAlign: 'center',
   },
   cardCategory: {
     fontFamily: 'Inter-Regular',
     fontSize: 10,
+    letterSpacing: 0.6,
     color: withAlpha(colors.anchor15.ash, 0.7),
     textTransform: 'uppercase',
     textAlign: 'center',
   },
-  addChip: {
-    backgroundColor: withAlpha(colors.anchor15.gilt, 0.05),
+  emptyCreateButton: {
+    height: 56,
+    borderRadius: 999,
     borderWidth: 1,
-    borderColor: withAlpha(colors.anchor15.gilt, 0.62),
-    shadowColor: colors.anchor15.gilt,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
-    elevation: 3,
+    borderColor: '#D4AF37',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: 'transparent',
+    marginTop: 4,
   },
-  addPlus: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 28,
-    lineHeight: 30,
-    color: colors.anchor15.giltBright,
-    fontWeight: '300',
-  },
-  addLabel: {
-    fontFamily: 'EBGaramond-Regular',
-    fontSize: 14,
-    color: withAlpha(colors.anchor15.bone, 0.78),
-    textAlign: 'center',
+  emptyCreateLabel: {
+    fontFamily: typography.fontFamily.ritualSemiBold || 'Cinzel-SemiBold',
+    fontSize: 13,
+    letterSpacing: 0.78, // 0.06em
+    color: '#D4AF37',
+    textTransform: 'uppercase',
   },
 });
+

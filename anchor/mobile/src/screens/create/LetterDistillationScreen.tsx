@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -28,7 +28,20 @@ type Props = {
   route: RouteProp<RootStackParamList, 'LetterDistillation'>;
 };
 
-type Stage = 'full' | 'reducing' | 'settled';
+/**
+ * The reduction plays as three readable passes: vowels drop, then repeated letters drop,
+ * then the surviving letters resolve on their own and the flow advances itself.
+ */
+type Stage = 'full' | 'vowels' | 'duplicates' | 'settled';
+
+const STAGE_ORDER: Record<Stage, number> = {
+  full: 0,
+  vowels: 1,
+  duplicates: 2,
+  settled: 3,
+};
+
+const STEP_LABELS = ['Removing Vowels', 'Removing Repeated Letters', 'Essential Letters'];
 
 const gilt = colors.anchor15.gilt;
 const giltBright = colors.anchor15.giltBright;
@@ -39,11 +52,17 @@ const boneFaint = 'rgba(244, 239, 230, 0.42)';
 const goldLine = colors.anchor15.goldLine;
 const hairlineGold = colors.anchor15.hairlineGold;
 
-const REDUCING_DELAY_MS = 480;
-const MIN_SETTLE_DELAY_MS = 1320;
-const REDUCED_MOTION_SETTLE_DELAY_MS = 260;
-const CHAR_STAGGER_MS = 16;
-const CHAR_REDUCTION_DURATION_MS = 500;
+/** Beat before the first pass starts, so the phrase is readable in full. */
+const FIRST_STEP_DELAY_MS = 700;
+/** Beat after a pass finishes, so the intermediate result is readable. */
+const STEP_HOLD_MS = 900;
+const CHAR_STAGGER_MS = 26;
+/** Long intentions compress their stagger so a pass never outstays its welcome. */
+const MAX_STEP_STAGGER_SPAN_MS = 620;
+const CHAR_REDUCTION_DURATION_MS = 460;
+const REDUCED_MOTION_STEP_MS = 260;
+/** How long the essential letters hold before the flow advances itself. */
+const AUTO_PROCEED_DELAY_MS = 3000;
 
 function HeroGlow() {
   return (
@@ -79,18 +98,21 @@ function TopGlow() {
 
 function DistillChar({
   char,
-  keep,
+  removalStep,
   delayMs,
-  active,
+  stage,
   reduceMotion,
 }: {
   char: string;
-  keep: boolean;
+  removalStep: 1 | 2 | null;
   delayMs: number;
-  active: boolean;
+  stage: Stage;
   reduceMotion: boolean;
 }) {
   const progress = useRef(new Animated.Value(0)).current;
+  const keep = removalStep === null;
+  // Removed characters animate when their own pass arrives; survivors light up at the end.
+  const active = keep ? stage === 'settled' : removalStep <= STAGE_ORDER[stage];
 
   useEffect(() => {
     if (!active) {
@@ -100,9 +122,9 @@ function DistillChar({
 
     const anim = Animated.timing(progress, {
       toValue: 1,
-      duration: reduceMotion ? 300 : 500,
+      duration: reduceMotion ? 200 : CHAR_REDUCTION_DURATION_MS,
       delay: reduceMotion ? 0 : delayMs,
-      easing: Easing.linear,
+      easing: Easing.out(Easing.quad),
       useNativeDriver: false,
     });
     anim.start();
@@ -111,11 +133,11 @@ function DistillChar({
 
   const opacity = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: [1, keep ? 1 : 0.16],
+    outputRange: [1, keep ? 1 : 0.14],
   });
   const scale = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: [1, reduceMotion ? 1 : keep ? 1.08 : 0.85],
+    outputRange: [1, reduceMotion ? 1 : keep ? 1.08 : 0.82],
   });
   const color = progress.interpolate({
     inputRange: [0, 1],
@@ -211,33 +233,71 @@ export default function LetterDistillationScreen({ route, navigation }: Props) {
     });
   }, [distilledLetters, intentionText]);
 
-  const settleDelayMs = useMemo(() => {
-    const characterCount = renderWords.reduce((count, word) => count + word.chars.length, 0);
-    const finalCharacterDelay = Math.max(0, characterCount - 1) * CHAR_STAGGER_MS;
+  /**
+   * Per-character stagger delays plus the wall-clock moment each pass begins. Both passes are
+   * staggered independently so a vowel late in a long phrase does not inherit a huge delay from
+   * the characters before it, and the span of each pass is capped for very long intentions.
+   */
+  const timeline = useMemo(() => {
+    let vowelCount = 0;
+    let duplicateCount = 0;
+    for (const word of renderWords) {
+      for (const char of word.chars) {
+        if (char.removalStep === 1) vowelCount += 1;
+        else if (char.removalStep === 2) duplicateCount += 1;
+      }
+    }
 
-    return Math.max(
-      MIN_SETTLE_DELAY_MS,
-      REDUCING_DELAY_MS + finalCharacterDelay + CHAR_REDUCTION_DURATION_MS,
-    );
+    const staggerFor = (count: number) =>
+      count > 1 ? Math.min(CHAR_STAGGER_MS, MAX_STEP_STAGGER_SPAN_MS / (count - 1)) : 0;
+    const vowelStagger = staggerFor(vowelCount);
+    const duplicateStagger = staggerFor(duplicateCount);
+
+    let vowelIndex = 0;
+    let duplicateIndex = 0;
+    const words = renderWords.map((word) => ({
+      chars: word.chars.map((char) => {
+        if (char.removalStep === 1) {
+          return { ...char, delayMs: vowelIndex++ * vowelStagger };
+        }
+        if (char.removalStep === 2) {
+          return { ...char, delayMs: duplicateIndex++ * duplicateStagger };
+        }
+        return { ...char, delayMs: 0 };
+      }),
+    }));
+
+    const stepDuration = (count: number, staggerMs: number) =>
+      count === 0 ? 0 : (count - 1) * staggerMs + CHAR_REDUCTION_DURATION_MS;
+
+    const vowelsAt = FIRST_STEP_DELAY_MS;
+    const duplicatesAt = vowelsAt + stepDuration(vowelCount, vowelStagger) + STEP_HOLD_MS;
+    const settledAt =
+      duplicatesAt + stepDuration(duplicateCount, duplicateStagger) + STEP_HOLD_MS;
+
+    return { words, vowelsAt, duplicatesAt, settledAt };
   }, [renderWords]);
 
   useEffect(() => {
     const timers: ReturnType<typeof setTimeout>[] = [];
 
     if (reduceMotion) {
-      timers.push(setTimeout(() => setStage('settled'), REDUCED_MOTION_SETTLE_DELAY_MS));
+      setStage('vowels');
+      timers.push(setTimeout(() => setStage('duplicates'), REDUCED_MOTION_STEP_MS));
+      timers.push(setTimeout(() => setStage('settled'), REDUCED_MOTION_STEP_MS * 2));
     } else {
-      timers.push(setTimeout(() => setStage('reducing'), REDUCING_DELAY_MS));
+      timers.push(setTimeout(() => setStage('vowels'), timeline.vowelsAt));
+      timers.push(setTimeout(() => setStage('duplicates'), timeline.duplicatesAt));
       timers.push(
         setTimeout(() => {
           setStage('settled');
           void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
-        }, settleDelayMs)
+        }, timeline.settledAt)
       );
     }
 
     return () => timers.forEach(clearTimeout);
-  }, [reduceMotion, settleDelayMs]);
+  }, [reduceMotion, timeline]);
 
   const entranceOpacity = useRef(new Animated.Value(0)).current;
   const entranceTranslateX = useRef(new Animated.Value(reduceMotion ? 0 : 26)).current;
@@ -297,17 +357,71 @@ export default function LetterDistillationScreen({ route, navigation }: Props) {
     }).start();
   }, [eyebrowOpacity, phraseLayerOpacity, reduceMotion, resultLayerOpacity, stage]);
 
-  const charsShown = stage === 'reducing' || stage === 'settled';
+  const currentStep = stage === 'duplicates' ? 2 : stage === 'settled' ? 3 : 1;
+  const stepLabelOpacity = useRef(new Animated.Value(1)).current;
 
-  const handleChooseStructure = () => {
+  useEffect(() => {
+    stepLabelOpacity.setValue(0);
+    const anim = Animated.timing(stepLabelOpacity, {
+      toValue: 1,
+      duration: reduceMotion ? 120 : 280,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    });
+    anim.start();
+    return () => anim.stop();
+  }, [currentStep, reduceMotion, stepLabelOpacity]);
+
+  const proceededRef = useRef(false);
+
+  const handleChooseStructure = useCallback(() => {
+    if (proceededRef.current) {
+      return;
+    }
+    proceededRef.current = true;
+
     navigation.navigate('StructureForge', {
       intentionText,
       category,
       distilledLetters,
     });
-  };
+  }, [category, distilledLetters, intentionText, navigation]);
 
-  let flattenedCharIndex = 0;
+  // Step 3 holds the essential letters, then advances on its own. The countdown is suspended
+  // while the "How does this work?" sheet is open so the flow never moves under the reader.
+  const autoProceedPending = stage === 'settled' && !sheetOpen;
+
+  useEffect(() => {
+    if (!autoProceedPending) {
+      return;
+    }
+
+    const timer = setTimeout(handleChooseStructure, AUTO_PROCEED_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [autoProceedPending, handleChooseStructure]);
+
+  const autoProgress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!autoProceedPending) {
+      autoProgress.setValue(0);
+      return;
+    }
+
+    const anim = Animated.timing(autoProgress, {
+      toValue: 1,
+      duration: AUTO_PROCEED_DELAY_MS,
+      easing: Easing.linear,
+      useNativeDriver: false,
+    });
+    anim.start();
+    return () => anim.stop();
+  }, [autoProceedPending, autoProgress]);
+
+  const autoProgressWidth = autoProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
 
   return (
     <View style={styles.container}>
@@ -361,6 +475,31 @@ export default function LetterDistillationScreen({ route, navigation }: Props) {
             </View>
 
             <View style={styles.heroSection}>
+              <View style={styles.stepper} testID="distill-stepper">
+                <View style={styles.stepPips}>
+                  {[1, 2, 3].map((step) => (
+                    <View
+                      key={`pip-${step}`}
+                      style={[
+                        styles.stepPip,
+                        step === currentStep && styles.stepPipCurrent,
+                        step < currentStep && styles.stepPipDone,
+                      ]}
+                    />
+                  ))}
+                </View>
+                <Animated.Text
+                  style={[
+                    styles.stepLabel,
+                    currentStep === 3 && styles.stepLabelFinal,
+                    { opacity: stepLabelOpacity },
+                  ]}
+                  accessibilityLiveRegion="polite"
+                >
+                  Step {currentStep} of 3 &middot; {STEP_LABELS[currentStep - 1]}
+                </Animated.Text>
+              </View>
+
               <View style={styles.hero}>
                 <HeroGlow />
 
@@ -372,27 +511,20 @@ export default function LetterDistillationScreen({ route, navigation }: Props) {
                   testID="distill-phrase-layer"
                 >
                   <View style={styles.phrase}>
-                    {renderWords.map((word, wi) => {
-                      return (
-                        <View style={styles.word} key={`word-${wi}`}>
-                          {word.chars.map((c, ci) => {
-                            const delayMs = flattenedCharIndex * CHAR_STAGGER_MS;
-                            flattenedCharIndex += 1;
-
-                            return (
-                              <DistillChar
-                                key={`char-${wi}-${ci}`}
-                                char={c.char}
-                                keep={c.keep}
-                                delayMs={delayMs}
-                                active={charsShown}
-                                reduceMotion={reduceMotion}
-                              />
-                            );
-                          })}
-                        </View>
-                      );
-                    })}
+                    {timeline.words.map((word, wi) => (
+                      <View style={styles.word} key={`word-${wi}`}>
+                        {word.chars.map((c, ci) => (
+                          <DistillChar
+                            key={`char-${wi}-${ci}`}
+                            char={c.char}
+                            removalStep={c.removalStep}
+                            delayMs={c.delayMs}
+                            stage={stage}
+                            reduceMotion={reduceMotion}
+                          />
+                        ))}
+                      </View>
+                    ))}
                   </View>
                 </Animated.View>
 
@@ -436,13 +568,22 @@ export default function LetterDistillationScreen({ route, navigation }: Props) {
           </ScrollView>
 
           <View style={[styles.bottomBar, { paddingBottom: 24 + insets.bottom }]}>
-            <Text style={styles.nextHint}>Next, choose how these letters become a structure.</Text>
+            <Text style={styles.nextHint}>
+              {stage === 'settled'
+                ? 'Continuing to your structure…'
+                : 'Next, choose how these letters become a structure.'}
+            </Text>
             <Pressable
               onPress={handleChooseStructure}
               style={({ pressed }) => [styles.nextBtn, pressed && styles.nextBtnPressed]}
               accessibilityRole="button"
               accessibilityLabel="Choose Your Structure"
             >
+              <Animated.View
+                pointerEvents="none"
+                testID="distill-auto-progress"
+                style={[styles.nextBtnProgress, { width: autoProgressWidth }]}
+              />
               <Text style={styles.nextBtnText}>Choose Your Structure &rarr;</Text>
             </Pressable>
           </View>
@@ -556,6 +697,40 @@ const styles = StyleSheet.create({
   heroSection: {
     paddingHorizontal: 28,
     marginTop: 22,
+  },
+  stepper: {
+    alignItems: 'center',
+    gap: 9,
+    marginBottom: 14,
+  },
+  stepPips: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  stepPip: {
+    width: 18,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: 'rgba(244, 239, 230, 0.16)',
+  },
+  stepPipDone: {
+    backgroundColor: 'rgba(217, 179, 108, 0.4)',
+  },
+  stepPipCurrent: {
+    width: 28,
+    backgroundColor: giltBright,
+  },
+  stepLabel: {
+    fontFamily: typography.fontFamily.ritual,
+    fontSize: 10,
+    fontWeight: '500',
+    letterSpacing: 1.9,
+    color: ash,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+  },
+  stepLabelFinal: {
+    color: giltBright,
   },
   hero: {
     position: 'relative',
@@ -685,6 +860,14 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(217, 179, 108, 0.34)',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  nextBtnProgress: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(217, 179, 108, 0.14)',
   },
   nextBtnPressed: {
     backgroundColor: 'rgba(217, 179, 108, 0.16)',

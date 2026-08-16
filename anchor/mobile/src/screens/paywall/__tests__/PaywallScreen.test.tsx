@@ -221,7 +221,7 @@ describe('PaywallScreen', () => {
     expect(screen.getByTestId('paywall-plan-monthly').props.accessibilityState.selected).toBe(false);
     expect(
       StyleSheet.flatten(screen.getByTestId('paywall-plan-check-annual').props.style).backgroundColor
-    ).toBe('#f0cb6a');
+    ).toBe('#F2DFA8');
   });
 
   it('uses the preferred plan from navigation params', () => {

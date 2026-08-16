@@ -260,7 +260,7 @@ describe('VaultScreen', () => {
         expect(screen.getByText(/Hero: Anchor/)).toBeTruthy();
     });
 
-    it('tapping persistent create button navigates to create anchor', () => {
+    it('tapping persistent create button opens the redesigned intention screen', () => {
         mockAnchors = [{
             id: 'a1',
             intentionText: 'Build focus',
@@ -273,7 +273,7 @@ describe('VaultScreen', () => {
         }];
         render(<VaultScreen />);
         fireEvent.press(screen.getByLabelText('Create new anchor'));
-        expect(mockNavigate).toHaveBeenCalledWith('CreateAnchor');
+        expect(mockNavigate).toHaveBeenCalledWith('FirstAnchorCreation');
     });
 
     it('hides released anchors from Sanctuary content', () => {
@@ -344,7 +344,7 @@ describe('VaultScreen', () => {
         render(<VaultScreen />);
         fireEvent.press(screen.getByLabelText('Create new anchor'));
 
-        expect(mockNavigate).toHaveBeenCalledWith('CreateAnchor');
+        expect(mockNavigate).toHaveBeenCalledWith('FirstAnchorCreation');
     });
 
     it('routes authenticated users without entitlement to the paywall', () => {

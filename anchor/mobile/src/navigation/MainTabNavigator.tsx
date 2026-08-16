@@ -9,15 +9,26 @@
  * TabNavigationContext (replaces navigation.getParent() pattern).
  */
 
-import React, { useCallback, useRef } from 'react';
-import { AppState, View, Text, StyleSheet, Pressable } from 'react-native';
+import React, { useCallback, useRef, useState, useEffect } from 'react';
+import {
+  AppState,
+  Dimensions,
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  type LayoutChangeEvent,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Zap, Compass } from 'lucide-react-native';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -27,7 +38,7 @@ import { PracticeStackNavigator } from './PracticeStackNavigator';
 import { ChartStackNavigator } from './ChartStackNavigator';
 import { SwipeableTabContainer } from '../components/transitions/SwipeableTabContainer';
 import { TabNavigationProvider } from '../contexts/TabNavigationContext';
-import { colors } from '@/theme';
+import { colors, typography } from '@/theme';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -40,69 +51,16 @@ import { TEACHINGS } from '@/constants/teaching';
 import { WidgetDeepLinkHandler } from '@/widgets/WidgetDeepLinkHandler';
 import { ResumeTargetHandler } from './ResumeTargetHandler';
 import { WIDGETS_ENABLED } from '@/config';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import type { RootStackParamList } from '@/types';
 import type { RootNavigatorParamList } from './RootNavigator';
 
-// ─── Tab Button ───────────────────────────────────────────────────────────────
+// ─── Floating Glass Capsule Tab Bar ──────────────────────────────────────────
 
-interface TabButtonProps {
-  onPress: () => void;
-  children: React.ReactNode;
-  showDivider?: boolean;
-  accessibilityLabel?: string;
-  accessibilityHint?: string;
-}
-
-const TabButton: React.FC<TabButtonProps> = ({
-  onPress,
-  children,
-  showDivider = false,
-  accessibilityLabel,
-  accessibilityHint,
-}) => {
-  const scale = useSharedValue(1);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const handlePressIn = () => {
-    scale.value = withTiming(0.92, { duration: 100 });
-    safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
-  };
-
-  const handlePressOut = () => {
-    scale.value = withTiming(1, { duration: 220 });
-  };
-
-  return (
-    <Pressable
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      accessibilityHint={accessibilityHint}
-      style={[styles.tabButton, showDivider && styles.tabButtonDivider]}
-    >
-      <Animated.View style={[animatedStyle, styles.tabContent]}>
-        {children}
-      </Animated.View>
-    </Pressable>
-  );
-};
-
-// ─── Tab Bar ──────────────────────────────────────────────────────────────────
-
-interface CustomTabBarProps {
-  activeIndex: number;
-  onTabPress: (index: number) => void;
-}
-
-const GOLD = '#D4AF37';
-const INACTIVE_COLOR = 'rgba(192,192,192,0.3)';
-const TAB_ICON_SIZE = 22;
-const TAB_ICON_STROKE_WIDTH = 1.8;
+export const ACTIVE_COLOR = '#E8E8E8';
+export const INACTIVE_COLOR = 'rgba(192, 192, 192, 0.45)';
+export const TAB_ICON_SIZE = 22;
+export const TAB_ICON_STROKE_WIDTH = 1.5;
 
 export const TABS = [
   {
@@ -110,7 +68,7 @@ export const TABS = [
     label: 'SANCTUARY',
     icon: (active: boolean) => (
       <Home
-        color={active ? GOLD : INACTIVE_COLOR}
+        color={active ? ACTIVE_COLOR : INACTIVE_COLOR}
         size={TAB_ICON_SIZE}
         strokeWidth={TAB_ICON_STROKE_WIDTH}
         fill="none"
@@ -123,7 +81,7 @@ export const TABS = [
     label: 'PRACTICE',
     icon: (active: boolean) => (
       <Zap
-        color={active ? GOLD : INACTIVE_COLOR}
+        color={active ? ACTIVE_COLOR : INACTIVE_COLOR}
         size={TAB_ICON_SIZE}
         strokeWidth={TAB_ICON_STROKE_WIDTH}
         fill="none"
@@ -136,7 +94,7 @@ export const TABS = [
     label: 'CHART',
     icon: (active: boolean) => (
       <Compass
-        color={active ? GOLD : INACTIVE_COLOR}
+        color={active ? ACTIVE_COLOR : INACTIVE_COLOR}
         size={TAB_ICON_SIZE}
         strokeWidth={TAB_ICON_STROKE_WIDTH}
         fill="none"
@@ -146,50 +104,158 @@ export const TABS = [
   },
 ];
 
+export interface CustomTabBarProps {
+  activeIndex: number;
+  onTabPress: (index: number) => void;
+}
+
 export const CustomTabBar: React.FC<CustomTabBarProps> = ({
   activeIndex,
   onTabPress,
 }) => {
   const insets = useSafeAreaInsets();
+  const reduceMotionEnabled = useReduceMotionEnabled();
+  const initialWidth = Math.max(0, Dimensions.get('window').width - 40);
+  const [barWidth, setBarWidth] = useState(initialWidth);
+  const navTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const initialTabWidth = initialWidth > 0 ? initialWidth / TABS.length : 0;
+  const pillX = useSharedValue(initialTabWidth > 0 ? activeIndex * initialTabWidth + 6 : 0);
+  const pillWidth = useSharedValue(initialTabWidth > 0 ? initialTabWidth - 12 : 0);
+
+  const handleLayout = (e: LayoutChangeEvent) => {
+    const width = e.nativeEvent.layout.width;
+    if (width > 0 && width !== barWidth) {
+      setBarWidth(width);
+      const tabWidth = width / TABS.length;
+      pillWidth.value = tabWidth - 12;
+      pillX.value = activeIndex * tabWidth + 6;
+    }
+  };
+
+  useEffect(() => {
+    if (barWidth > 0) {
+      const tabWidth = barWidth / TABS.length;
+      const targetX = activeIndex * tabWidth + 6;
+      pillWidth.value = tabWidth - 12;
+      if (reduceMotionEnabled) {
+        pillX.value = targetX;
+      } else {
+        pillX.value = withSpring(targetX, {
+          damping: 18,
+          stiffness: 150,
+          mass: 0.8,
+        });
+      }
+    }
+  }, [activeIndex, barWidth, reduceMotionEnabled, pillX, pillWidth]);
+
+  const animatedPillStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: pillX.value }],
+    width: pillWidth.value,
+  }));
+
+  const handleTabPress = (tabIndex: number) => {
+    safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
+    if (barWidth > 0) {
+      const tabWidth = barWidth / TABS.length;
+      const targetX = tabIndex * tabWidth + 6;
+      if (reduceMotionEnabled) {
+        pillX.value = targetX;
+      } else {
+        pillX.value = withSpring(targetX, {
+          damping: 18,
+          stiffness: 150,
+          mass: 0.8,
+        });
+      }
+    }
+
+    const delay = reduceMotionEnabled ? 0 : 460;
+    if (delay > 0) {
+      if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current);
+      navTimeoutRef.current = setTimeout(() => {
+        onTabPress(tabIndex);
+      }, delay);
+    } else {
+      onTabPress(tabIndex);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (navTimeoutRef.current) {
+        clearTimeout(navTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <View
       style={[
-        styles.bar,
-        { height: 82 + Math.max(insets.bottom, 0) },
+        styles.bottomNavContainer,
+        { bottom: Math.max(46, insets.bottom + 12) },
       ]}
+      onLayout={handleLayout}
       testID="custom-tab-bar"
     >
-      {TABS.map((tab, index) => {
-        const isActive = activeIndex === tab.index;
-        return (
-          <TabButton
-            key={tab.index}
-            onPress={() => onTabPress(tab.index)}
-            showDivider={index < TABS.length - 1}
-            accessibilityLabel={tab.label === 'CHART' ? 'Chart' : tab.label[0] + tab.label.slice(1).toLowerCase()}
-            accessibilityHint={tab.label === 'CHART' ? 'Where am I going?' : `Open ${tab.label.toLowerCase()}`}
-          >
-            <View style={styles.col}>
-              {isActive && (
-                <View
-                  style={styles.activeIndicator}
-                  testID={`tab-indicator-${tab.label.toLowerCase()}`}
-                />
-              )}
-              <View style={styles.iconWrap}>{tab.icon(isActive)}</View>
-              <Text
-                style={[styles.colLabel, isActive && styles.colLabelActive]}
-                allowFontScaling
-                numberOfLines={1}
-                adjustsFontSizeToFit
-              >
-                {tab.label}
-              </Text>
-            </View>
-          </TabButton>
-        );
-      })}
+      <BlurView intensity={26} tint="dark" style={StyleSheet.absoluteFillObject} />
+      <LinearGradient
+        colors={['rgba(255, 255, 255, 0.09)', 'rgba(255, 255, 255, 0.02)', 'rgba(0, 0, 0, 0.06)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
+      <View style={styles.capsuleBorder} pointerEvents="none" />
+
+      {/* Animated Sliding Silver Pill */}
+      {barWidth > 0 && (
+        <Animated.View
+          style={[styles.pillContainer, animatedPillStyle]}
+          pointerEvents="none"
+          testID={`tab-indicator-${TABS[activeIndex]?.label.toLowerCase()}`}
+        >
+          <LinearGradient
+            colors={['rgba(255, 255, 255, 0.32)', 'rgba(255, 255, 255, 0.05)', 'rgba(192, 192, 192, 0.14)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={StyleSheet.absoluteFillObject}
+          />
+          <View style={styles.pillBorder} />
+        </Animated.View>
+      )}
+
+      {/* Tab Buttons */}
+      <View style={styles.tabsRow}>
+        {TABS.map((tab) => {
+          const isActive = activeIndex === tab.index;
+          const color = isActive ? ACTIVE_COLOR : INACTIVE_COLOR;
+          return (
+            <Pressable
+              key={tab.index}
+              onPress={() => handleTabPress(tab.index)}
+              accessibilityRole="button"
+              accessibilityLabel={tab.label === 'CHART' ? 'Chart' : tab.label[0] + tab.label.slice(1).toLowerCase()}
+              accessibilityHint={tab.label === 'CHART' ? 'Where am I going?' : `Open ${tab.label.toLowerCase()}`}
+              accessibilityState={{ selected: isActive }}
+              style={styles.tabButton}
+            >
+              <View style={[styles.tabContent, isActive && styles.tabContentActive]}>
+                <View style={styles.iconWrap}>{tab.icon(isActive)}</View>
+                <Text
+                  style={[
+                    styles.tabLabel,
+                    { color },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {tab.label}
+                </Text>
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 };
@@ -359,77 +425,84 @@ export const MainTabNavigator: React.FC = () => {
   );
 };
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background.primary,
   },
-  // ─── Tab bar (column segment design) ────────────────────────────────────────
-  bar: {
-    flexDirection: 'row',
-    backgroundColor: '#080C10',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(212,175,55,0.08)',
-    alignItems: 'stretch',
-    paddingTop: 14,
-    paddingBottom: 0,
-    height: 82,
+  bottomNavContainer: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    height: 64,
+    borderRadius: 32,
+    overflow: 'hidden',
+    zIndex: 50,
+    backgroundColor: 'rgba(16, 21, 27, 0.5)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.55,
+    shadowRadius: 40,
+    elevation: 8,
   },
-  barCompact: {
+  capsuleBorder: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 32,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+  },
+  pillContainer: {
+    position: 'absolute',
+    top: 6,
+    bottom: 6,
+    borderRadius: 999,
+    overflow: 'hidden',
+    shadowColor: '#C0C0C0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  pillBorder: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.32)',
+  },
+  tabsRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-evenly',
-    paddingHorizontal: 18,
   },
   tabButton: {
     flex: 1,
-    alignItems: 'stretch',
-  },
-  tabButtonDivider: {
-    borderRightWidth: StyleSheet.hairlineWidth,
-    borderRightColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  tabContent: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  col: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    gap: 5,
-    position: 'relative',
-  },
-  activeIndicator: {
-    position: 'absolute',
-    top: -14,
-    width: 28,
-    height: 2,
-    backgroundColor: '#D4AF37',
-    borderRadius: 1,
-    alignSelf: 'center',
-    shadowColor: '#D4AF37',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 6,
-    elevation: 4,
-    zIndex: 2,
-  },
-  iconWrap: {
-    width: 30,
-    height: 30,
+    height: 64,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 2,
   },
-  colLabel: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: 7.5,
-    letterSpacing: 1.35,
-    color: 'rgba(255, 255, 255, 0.35)',
-    zIndex: 2,
+  tabContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
   },
-  colLabelActive: {
-    color: 'rgba(212, 175, 55, 0.6)',
+  tabContentActive: {
+    transform: [{ translateY: -1 }, { scale: 1.05 }],
+  },
+  iconWrap: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabLabel: {
+    fontFamily: typography.fontFamily.ritual || 'Cinzel-Regular',
+    fontSize: 9,
+    fontWeight: '500',
+    letterSpacing: 1.08, // 0.12em
+    textTransform: 'uppercase',
   },
 });

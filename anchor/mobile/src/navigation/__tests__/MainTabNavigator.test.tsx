@@ -53,6 +53,16 @@ jest.mock('@/theme', () => ({
       primary: '#000000',
     },
   },
+  typography: {
+    fontFamily: {
+      ritual: 'Cinzel-Regular',
+      sans: 'Inter-Regular',
+    },
+  },
+}));
+
+jest.mock('@/hooks/useReduceMotionEnabled', () => ({
+  useReduceMotionEnabled: jest.fn(() => false),
 }));
 
 jest.mock('@/stores/settingsStore', () => ({
@@ -94,14 +104,24 @@ function parseIconProps(node: { props: { children: string } }) {
 }
 
 describe('CustomTabBar', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('maps the Sanctuary and Practice buttons to their matching tab indices', () => {
     const onTabPress = jest.fn();
     const { getByText } = render(<CustomTabBar activeIndex={0} onTabPress={onTabPress} />);
 
     fireEvent.press(getByText('PRACTICE'));
-    fireEvent.press(getByText('SANCTUARY'));
-
+    jest.advanceTimersByTime(500);
     expect(onTabPress).toHaveBeenNthCalledWith(1, 1);
+
+    fireEvent.press(getByText('SANCTUARY'));
+    jest.advanceTimersByTime(500);
     expect(onTabPress).toHaveBeenNthCalledWith(2, 0);
   });
 
@@ -109,6 +129,7 @@ describe('CustomTabBar', () => {
     const onTabPress = jest.fn();
     const screen = render(<CustomTabBar activeIndex={2} onTabPress={onTabPress} />);
     fireEvent.press(screen.getByText('CHART'));
+    jest.advanceTimersByTime(500);
 
     expect(onTabPress).toHaveBeenCalledWith(2);
     expect(screen.getByLabelText('Chart')).toBeTruthy();
@@ -125,23 +146,12 @@ describe('CustomTabBar', () => {
 
     const flattenedStyle = StyleSheet.flatten(getByTestId('custom-tab-bar').props.style);
     expect(flattenedStyle).toMatchObject({
-      backgroundColor: '#080C10',
-      borderTopColor: 'rgba(212,175,55,0.08)',
-      borderTopWidth: 1,
-      paddingTop: 14,
-      paddingBottom: 0,
-      height: 82,
-    });
-
-    const indicatorStyle = StyleSheet.flatten(getByTestId('tab-indicator-sanctuary').props.style);
-    expect(indicatorStyle).toMatchObject({
-      width: 28,
-      height: 2,
-      backgroundColor: '#D4AF37',
-      shadowColor: '#D4AF37',
-      shadowOpacity: 1,
-      shadowRadius: 6,
-      elevation: 4,
+      backgroundColor: 'rgba(16, 21, 27, 0.5)',
+      height: 64,
+      borderRadius: 32,
+      position: 'absolute',
+      left: 20,
+      right: 20,
     });
   });
 
@@ -149,16 +159,16 @@ describe('CustomTabBar', () => {
     const { getByTestId } = render(<CustomTabBar activeIndex={0} onTabPress={jest.fn()} />);
 
     expect(parseIconProps(getByTestId('tab-icon-sanctuary'))).toMatchObject({
-      color: '#D4AF37',
+      color: '#E8E8E8',
       size: 22,
-      strokeWidth: 1.8,
+      strokeWidth: 1.5,
       fill: 'none',
     });
 
     expect(parseIconProps(getByTestId('tab-icon-practice'))).toMatchObject({
-      color: 'rgba(192,192,192,0.3)',
+      color: 'rgba(192, 192, 192, 0.45)',
       size: 22,
-      strokeWidth: 1.8,
+      strokeWidth: 1.5,
       fill: 'none',
     });
   });
