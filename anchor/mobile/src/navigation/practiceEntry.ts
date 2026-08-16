@@ -191,22 +191,37 @@ export function startPractice(
   let target: PracticeEntryTarget;
   switch (request.mode) {
     case 'deepPrime':
-      target = {
-        route: 'ChargeSetup',
-        params: {
-          anchorId,
-          returnTo,
-          returnTarget,
-          initialDuration: 'deep',
-          initialDurationSeconds: request.durationSeconds,
-          // When a duration is already known (returning user), skip the picker
-          // and begin the session immediately.
-          autoStartOnSelection: request.durationSeconds != null,
-          flowVariant: 'practice',
-          source: request.source,
-          ...chartParams,
-        },
-      };
+      if (request.durationSeconds != null) {
+        // Charged anchor — skip the duration picker and go straight to the session.
+        target = {
+          route: 'Ritual',
+          params: {
+            anchorId,
+            ritualType: 'deep',
+            durationSeconds: request.durationSeconds,
+            audioConfiguration,
+            returnTo,
+            returnTarget,
+            flowVariant: 'practice',
+            source: request.source,
+            ...chartParams,
+          },
+        };
+      } else {
+        // First prime — show ChargeSetup so the user can choose a duration.
+        target = {
+          route: 'ChargeSetup',
+          params: {
+            anchorId,
+            returnTo,
+            returnTarget,
+            initialDuration: 'deep',
+            flowVariant: 'practice',
+            source: request.source,
+            ...chartParams,
+          },
+        };
+      }
       break;
     case 'focus':
       target = {
