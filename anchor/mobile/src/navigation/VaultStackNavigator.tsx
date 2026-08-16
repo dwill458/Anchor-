@@ -193,10 +193,16 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
         component={ManualForgeScreen}
         options={{ title: 'Forge Your Anchor', headerShown: false }}
       />
+      {/*
+        Refine Expression already shows its own "creating your anchor" beat before it
+        hands off here. A sliding push would put that beat and this screen on-screen at
+        once, reading as two generation screens; swap instantly so the hand-off is
+        continuous.
+      */}
       <Stack.Screen
         name="AIGenerating"
         component={AIGeneratingScreen}
-        options={{ title: 'Generating...', headerShown: false }}
+        options={{ title: 'Generating...', headerShown: false, animation: 'none' }}
       />
       <Stack.Screen
         name="AIVariationPicker"

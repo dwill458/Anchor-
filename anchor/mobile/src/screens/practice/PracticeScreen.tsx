@@ -782,6 +782,13 @@ export const PracticeScreen: React.FC = () => {
     };
   }, [latestAnchorSession, selectedAnchor]);
 
+  const selectedModeColor: Record<PracticeToolMode, string> = {
+    quickActivate: '#AD99D2',
+    visualize: '#78B4D1',
+    charge: '#F0CB6A',
+    burn: '#C8875A',
+  };
+
   return (
     <View style={styles.container}>
       <ZenBackground
@@ -889,11 +896,19 @@ export const PracticeScreen: React.FC = () => {
               }}
               style={({ pressed }) => [
                 styles.selectedModeCta,
+                { borderColor: selectedModeColor[selectedMode] },
                 selectedMode === 'burn' && styles.selectedModeCtaRelease,
                 pressed && styles.selectedModeCtaPressed,
               ]}
             >
-              <Text style={styles.selectedModeCtaText}>{practiceCtaLabel}</Text>
+              <Text
+                style={[
+                  styles.selectedModeCtaText,
+                  { color: selectedMode === 'burn' ? '#C8875A' : '#F2DFA8' },
+                ]}
+              >
+                {practiceCtaLabel}
+              </Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
@@ -1016,12 +1031,13 @@ const styles = StyleSheet.create({
     paddingLeft: 0,
   },
   selectedModeCta: {
-    minHeight: 52,
-    marginLeft: 32,
+    minHeight: 54,
+    width: '100%',
+    borderRadius: 999,
     marginTop: spacing.lg,
     borderWidth: 1,
     borderColor: 'rgba(240,203,106,0.56)',
-    backgroundColor: 'rgba(240,203,106,0.035)',
+    backgroundColor: 'rgba(217,179,108,0.10)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1031,9 +1047,10 @@ const styles = StyleSheet.create({
   },
   selectedModeCtaPressed: { opacity: 0.78 },
   selectedModeCtaText: {
-    color: colors.gold,
-    fontFamily: typography.fontFamily.sansBold,
-    fontSize: 10,
-    letterSpacing: 1.7,
+    color: '#F2DFA8',
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 13,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
   },
 });

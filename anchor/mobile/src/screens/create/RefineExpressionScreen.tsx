@@ -7,7 +7,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { RouteProp, useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -136,6 +136,23 @@ export default function RefineExpressionScreen() {
       if (genTimer.current) clearTimeout(genTimer.current);
     };
   }, []);
+
+  // The overlay is a hand-off beat into AIGenerating, not a lasting state. Clear it
+  // whenever this screen is focused again — after "Go Back" on a generation error, or a
+  // swipe dismiss — otherwise the user returns to a frozen spinner over a dead CTA.
+  // The blur cleanup cancels a hand-off still in flight so a back-swipe during the beat
+  // can't push AIGenerating after the fact.
+  useFocusEffect(
+    useCallback(() => {
+      setIsGenerating(false);
+      return () => {
+        if (genTimer.current) {
+          clearTimeout(genTimer.current);
+          genTimer.current = null;
+        }
+      };
+    }, [])
+  );
 
   const teachOpacity = useSharedValue(0);
   const teachHeight = useSharedValue(0);

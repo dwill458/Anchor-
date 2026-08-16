@@ -121,4 +121,20 @@ describe('ModePortalTile', () => {
     const screen = render(<ModePortalTile {...defaultProps} selected={false} />);
     expect(screen.getByTestId('tile-focus').props.accessibilityLabel).toBe('FOCUS');
   });
+
+  it('renders release variant with proper accessibility and text', () => {
+    const screen = render(
+      <ModePortalTile
+        {...defaultProps}
+        variant="release"
+        title="RELEASE"
+        meaning="Close the loop when this Anchor has completed its work."
+        durationHint="45 SEC–2 MIN"
+        selected
+      />,
+    );
+    expect(screen.getByText('RELEASE')).toBeTruthy();
+    expect(screen.getByText('45 SEC–2 MIN')).toBeTruthy();
+    expect(screen.getByText('Close the loop when this Anchor has completed its work.')).toBeTruthy();
+  });
 });

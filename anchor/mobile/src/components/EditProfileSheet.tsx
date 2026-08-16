@@ -263,8 +263,8 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                     onFocus={() => setFocusedField('name')}
                     onBlur={() => setFocusedField(null)}
                     placeholder="Your name"
-                    placeholderTextColor={withAlpha(colors.silver, 0.42)}
-                    selectionColor={colors.gold}
+                    placeholderTextColor={withAlpha(colors.anchor15.ash, 0.62)}
+                    selectionColor={colors.anchor15.giltBright}
                     style={styles.input}
                   />
                   <Text style={styles.counterText}>{name.length}/24</Text>
@@ -289,8 +289,8 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                     onFocus={() => setFocusedField('axiom')}
                     onBlur={() => setFocusedField(null)}
                     placeholder="Build in silence."
-                    placeholderTextColor={withAlpha(colors.silver, 0.42)}
-                    selectionColor={colors.gold}
+                    placeholderTextColor={withAlpha(colors.anchor15.ash, 0.62)}
+                    selectionColor={colors.anchor15.giltBright}
                     style={[styles.input, axiom.trim().length > 0 ? styles.axiomInput : null]}
                   />
                   <Text style={styles.counterText}>{axiom.length}/40</Text>
@@ -332,7 +332,7 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                 >
                   <Text style={styles.dropdownValue}>{timezone}</Text>
                   <ChevronDown
-                    color={colors.gold}
+                    color={colors.anchor15.gilt}
                     size={16}
                     style={{
                       transform: [{ rotate: timezoneOpen ? '180deg' : '0deg' }],
@@ -377,7 +377,7 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
 const styles = StyleSheet.create({
   modalRoot: {
     flex: 1,
-    justifyContent: 'flex-end',
+    backgroundColor: colors.anchor15.ink,
   },
   keyboardAvoiding: {
     flex: 1,
@@ -385,16 +385,12 @@ const styles = StyleSheet.create({
   },
   backdropTint: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: withAlpha(colors.black, 0.8),
+    backgroundColor: withAlpha(colors.anchor15.ink, 0.82),
   },
   sheet: {
     height: '100%',
-    backgroundColor: colors.black,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderWidth: 1,
-    borderBottomWidth: 0,
-    borderColor: withAlpha(colors.gold, 0.15),
+    backgroundColor: colors.anchor15.ink,
+    borderWidth: 0,
     overflow: 'hidden',
   },
   topShimmer: {
@@ -403,110 +399,109 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1,
-    backgroundColor: withAlpha(colors.gold, 0.34),
+    backgroundColor: colors.anchor15.goldLine,
   },
   handle: {
-    alignSelf: 'center',
-    width: 36,
-    height: 3,
-    borderRadius: 999,
-    backgroundColor: withAlpha(colors.white, 0.13),
-    marginTop: 14,
-    marginBottom: 14,
+    display: 'none',
   },
   headerRow: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
+    minHeight: 64,
+    paddingHorizontal: 22,
+    paddingTop: 10,
+    paddingBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.anchor15.hairlineGold,
   },
   cancelLabel: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body2,
-    color: withAlpha(colors.silver, 0.62),
+    fontFamily: typography.fontFamily.instrument,
+    fontSize: 11,
+    letterSpacing: 0.35,
+    color: colors.anchor15.ash,
   },
   title: {
-    fontFamily: typography.fonts.heading,
+    fontFamily: typography.fontFamily.ritual,
     fontSize: 11,
-    letterSpacing: 2.8,
-    color: colors.gold,
+    letterSpacing: 2.2,
+    color: colors.anchor15.gilt,
   },
   savePill: {
-    minWidth: 72,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: colors.gold,
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   savePillText: {
-    fontFamily: typography.fonts.heading,
+    fontFamily: typography.fontFamily.instrumentSemiBold,
     fontSize: 11,
-    color: colors.black,
-    letterSpacing: 0.5,
+    color: colors.anchor15.giltBright,
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xxl,
+    paddingHorizontal: 22,
+    paddingTop: 26,
+    paddingBottom: 42,
   },
   avatarSection: {
     alignItems: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: 34,
   },
   photoHint: {
-    marginTop: spacing.sm,
-    fontFamily: typography.fonts.bodySerifItalic,
+    marginTop: 10,
+    fontFamily: typography.fontFamily.voiceItalic,
     fontSize: 11,
-    color: withAlpha(colors.silver, 0.35),
+    color: withAlpha(colors.anchor15.ash, 0.72),
   },
   fieldBlock: {
-    marginBottom: spacing.xl,
+    marginBottom: 28,
   },
   fieldLabel: {
-    fontFamily: typography.fonts.heading,
+    fontFamily: typography.fontFamily.ritual,
     fontSize: 9,
-    letterSpacing: 2.4,
-    color: colors.gold,
+    letterSpacing: 2.1,
+    color: colors.anchor15.ash,
     marginBottom: 6,
   },
   fieldHint: {
-    fontFamily: typography.fonts.bodySerifItalic,
+    fontFamily: typography.fontFamily.voiceItalic,
     fontSize: 11,
-    color: withAlpha(colors.silver, 0.38),
+    color: withAlpha(colors.anchor15.ash, 0.78),
     marginBottom: 12,
   },
   textField: {
-    minHeight: 52,
-    borderRadius: 12,
+    minHeight: 54,
+    borderRadius: 4,
     borderWidth: 1,
-    borderColor: withAlpha(colors.white, 0.08),
-    backgroundColor: withAlpha(colors.white, 0.04),
-    paddingHorizontal: spacing.md,
+    borderColor: colors.anchor15.hairline,
+    backgroundColor: colors.anchor15.navy,
+    paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: 8,
   },
   textFieldFocused: {
-    borderColor: withAlpha(colors.gold, 0.28),
+    borderColor: colors.anchor15.goldLine,
   },
   input: {
     flex: 1,
     minHeight: 48,
-    color: colors.bone,
-    fontFamily: typography.fonts.bodySerif,
+    color: colors.anchor15.bone,
+    fontFamily: typography.fontFamily.voice,
     fontSize: 16,
   },
   axiomInput: {
-    fontFamily: typography.fonts.bodySerifItalic,
+    fontFamily: typography.fontFamily.voiceItalic,
   },
   counterText: {
-    fontFamily: typography.fonts.body,
+    fontFamily: typography.fontFamily.instrument,
     fontSize: 10,
-    color: withAlpha(colors.silver, 0.28),
+    color: withAlpha(colors.anchor15.ash, 0.7),
   },
   markGrid: {
     flexDirection: 'row',
@@ -514,52 +509,52 @@ const styles = StyleSheet.create({
     gap: 9,
   },
   dropdownTrigger: {
-    minHeight: 52,
-    borderRadius: 12,
+    minHeight: 54,
+    borderRadius: 4,
     borderWidth: 1,
-    borderColor: withAlpha(colors.white, 0.08),
-    backgroundColor: withAlpha(colors.white, 0.04),
-    paddingHorizontal: spacing.md,
+    borderColor: colors.anchor15.hairline,
+    backgroundColor: colors.anchor15.navy,
+    paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   dropdownTriggerOpen: {
-    borderColor: withAlpha(colors.gold, 0.3),
+    borderColor: colors.anchor15.goldLine,
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
   },
   dropdownValue: {
     flex: 1,
-    color: colors.bone,
-    fontFamily: typography.fonts.bodySerif,
+    color: colors.anchor15.bone,
+    fontFamily: typography.fontFamily.voice,
     fontSize: 14,
     marginRight: spacing.sm,
   },
   dropdownList: {
     borderWidth: 1,
     borderTopWidth: 0,
-    borderColor: withAlpha(colors.gold, 0.18),
+    borderColor: colors.anchor15.goldLine,
     borderBottomLeftRadius: 12,
     borderBottomRightRadius: 12,
-    backgroundColor: withAlpha(colors.black, 0.96),
+    backgroundColor: colors.anchor15.navy,
     maxHeight: 180,
   },
   dropdownItem: {
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: 14,
     paddingVertical: 11,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: withAlpha(colors.white, 0.04),
+    borderBottomColor: colors.anchor15.hairline,
   },
   dropdownItemSelected: {
-    backgroundColor: withAlpha(colors.gold, 0.07),
+    backgroundColor: withAlpha(colors.anchor15.gilt, 0.10),
   },
   dropdownItemText: {
-    fontFamily: typography.fonts.bodySerif,
+    fontFamily: typography.fontFamily.voice,
     fontSize: 13,
-    color: withAlpha(colors.silver, 0.75),
+    color: withAlpha(colors.anchor15.ash, 0.9),
   },
   dropdownItemTextSelected: {
-    color: colors.gold,
+    color: colors.anchor15.giltBright,
   },
 });

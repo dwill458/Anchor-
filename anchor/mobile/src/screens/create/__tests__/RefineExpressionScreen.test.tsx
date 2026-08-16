@@ -14,6 +14,7 @@ jest.mock('@react-navigation/native', () => {
       navigate: mockNavigate,
       goBack: mockGoBack,
     }),
+    useFocusEffect: (effect: any) => require('react').useEffect(effect, [effect]),
     useRoute: () => ({
       params: {
         intention: 'I cultivate inner calm and deep focus',
@@ -140,6 +141,44 @@ describe('RefineExpressionScreen', () => {
         selectedStyle: expect.any(Object),
       })
     );
+    jest.useRealTimers();
+  });
+
+  it('clears the generation overlay when the screen is focused again', () => {
+    jest.useFakeTimers();
+    const { unmount } = render(<RefineExpressionScreen />);
+
+    act(() => {
+      fireEvent.press(screen.getByRole('button', { name: 'Generate Anchor' }));
+    });
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('AIGenerating', expect.any(Object));
+    unmount();
+
+    // Coming back from AIGenerating ("Go Back" after an error) refocuses the screen.
+    render(<RefineExpressionScreen />);
+    expect(screen.queryByText('CREATING YOUR ANCHOR')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Generate Anchor' }).props.accessibilityState)
+      .not.toMatchObject({ disabled: true });
+    jest.useRealTimers();
+  });
+
+  it('does not hand off to AIGenerating if the screen blurs during the transition beat', () => {
+    jest.useFakeTimers();
+    const { unmount } = render(<RefineExpressionScreen />);
+
+    act(() => {
+      fireEvent.press(screen.getByRole('button', { name: 'Generate Anchor' }));
+    });
+    // Back-swipe before the 900ms beat elapses.
+    unmount();
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+
+    expect(mockNavigate).not.toHaveBeenCalled();
     jest.useRealTimers();
   });
 

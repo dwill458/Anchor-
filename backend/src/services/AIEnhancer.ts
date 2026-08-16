@@ -476,7 +476,9 @@ export async function enhanceSigilWithControlNet(
       ] as const;
       const mockUrls = Array.from({ length: numVariations }, (_, i) => {
         const [backgroundColor, shapeColor] = mockPalette[i % mockPalette.length];
-        return `https://api.dicebear.com/7.x/shapes/png?seed=${request.userId}-${request.styleChoice}-${i + 1}&backgroundColor=${backgroundColor}&shape1Color=${shapeColor}`;
+        // size=256 is the API's effective max for this endpoint — still far
+        // sharper than the 128px default it silently falls back to otherwise.
+        return `https://api.dicebear.com/7.x/shapes/png?seed=${request.userId}-${request.styleChoice}-${i + 1}&backgroundColor=${backgroundColor}&shape1Color=${shapeColor}&size=256`;
       });
 
       // Mock structure scores (all passing in mock mode)
