@@ -384,6 +384,7 @@ describe('AnchorDetailScreen', () => {
     it('shares a branded anchor card from the detail screen', async () => {
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
         fireEvent.press(screen.getByText('SHARE ANCHOR'));
+        fireEvent.press(screen.getByText('SHARE MY ANCHOR'));
 
         await waitFor(() => {
             expect(mockCaptureRef).toHaveBeenCalled();
@@ -411,6 +412,7 @@ describe('AnchorDetailScreen', () => {
 
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
         fireEvent.press(screen.getByText('SHARE ANCHOR'));
+        fireEvent.press(screen.getByText('SHARE MY ANCHOR'));
 
         await waitFor(() => {
             expect(mockShareCardRendererProps).toHaveBeenCalledWith(
@@ -418,6 +420,16 @@ describe('AnchorDetailScreen', () => {
                     artworkUri: 'https://example.com/legacy-share-card.png',
                 })
             );
+        });
+    });
+
+    it('navigates directly to The Weave when tapping the weave preview', async () => {
+        render(<AnchorDetailScreen navigation={navigation} route={route} />);
+        fireEvent.press(screen.getByText('VIEW THE WEAVE →'));
+        expect(navigation.navigate).toHaveBeenCalledWith('TheWeave', {
+            origin: 'anchorDetail',
+            originAnchorId: 'anchor-1',
+            initialScope: { kind: 'anchor', anchorId: 'anchor-1' },
         });
     });
 

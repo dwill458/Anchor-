@@ -14,7 +14,7 @@ import { colors } from '@/theme';
 import type { PerformanceTier } from '@/hooks/usePerformanceTier';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 
-type ZenBackgroundVariant = 'default' | 'sanctuary' | 'practice' | 'creation';
+type ZenBackgroundVariant = 'default' | 'sanctuary' | 'practice' | 'weave' | 'creation';
 
 type OrbPreset = {
   id: string;
@@ -34,6 +34,7 @@ type OrbPreset = {
 
 interface ZenBackgroundProps {
   variant?: ZenBackgroundVariant;
+  orbColor?: string;
   showOrbs?: boolean;
   orbOpacity?: number;
   animationDuration?: number;
@@ -113,6 +114,7 @@ const OrbLayer: React.FC<{
 
 export const ZenBackground: React.FC<ZenBackgroundProps> = ({
   variant = 'default',
+  orbColor,
   showOrbs = true,
   orbOpacity = 1,
   animationDuration = 800,
@@ -168,37 +170,53 @@ export const ZenBackground: React.FC<ZenBackgroundProps> = ({
 
     if (variant === 'practice') {
       return {
-        gradient: ['#070A10', '#0A0F17', '#130F1E', '#090D14'] as const,
+        // Anchor 1.5 Practice: creationTop -> mid -> navy with mode aura orb
+        gradient: [colors.anchor15.creationTop, '#121820', colors.anchor15.navy] as const,
+        gradientLocations: [0, 0.44, 1] as const,
+        gradientVertical: true,
         orbPresets: [
           {
             id: 'p1',
-            size: 250,
-            top: -90,
-            right: -70,
-            color: 'rgba(114, 78, 172, 0.65)',
-            opacity: 0.17,
-            driftX: 9,
-            driftY: 12,
-            scale: 0.04,
-            duration: 18000,
-            phase: 0.4,
-          },
-          {
-            id: 'p2',
-            size: 210,
-            bottom: 90,
-            left: -70,
-            color: 'rgba(212, 175, 55, 0.42)',
-            opacity: 0.08,
-            driftX: -8,
-            driftY: 10,
+            size: 340,
+            top: -110,
+            right: -100,
+            color: orbColor || 'rgba(217, 179, 108, 0.16)',
+            opacity: 0.35,
+            driftX: 6,
+            driftY: 4,
             scale: 0.03,
-            duration: 22000,
-            phase: 1.8,
+            duration: 16000,
+            phase: 0.2,
           },
         ] as OrbPreset[],
-        grainOpacity: 0.045,
-        vignetteStrength: 0.9,
+        grainOpacity: 0.05,
+        vignetteStrength: 0.2,
+      };
+    }
+
+    if (variant === 'weave') {
+      return {
+        // Anchor 1.5 The Weave: creationTop -> mid -> navy with top-left gold aura
+        gradient: [colors.anchor15.creationTop, '#121820', colors.anchor15.navy] as const,
+        gradientLocations: [0, 0.44, 1] as const,
+        gradientVertical: true,
+        orbPresets: [
+          {
+            id: 'w1',
+            size: 400,
+            top: -140,
+            left: -90,
+            color: 'rgba(217, 179, 108, 0.14)',
+            opacity: 0.5,
+            driftX: 4,
+            driftY: 4,
+            scale: 0.02,
+            duration: 18000,
+            phase: 0.1,
+          },
+        ] as OrbPreset[],
+        grainOpacity: 0.05,
+        vignetteStrength: 0.15,
       };
     }
 
@@ -271,7 +289,7 @@ export const ZenBackground: React.FC<ZenBackgroundProps> = ({
       grainOpacity: 0.04,
       vignetteStrength: 0.76,
     };
-  }, [variant]);
+  }, [variant, orbColor]);
 
   const visibleOrbs = useMemo(() => {
     if (!isAndroid) return palette.orbPresets;

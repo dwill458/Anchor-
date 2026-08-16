@@ -8,6 +8,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { VaultScreen, AnchorDetailScreen } from '../screens/vault';
+import { TheWeaveScreen } from '../screens/weave';
 import {
   IntentionInputScreen,
   ReturningIntentionScreen,
@@ -131,6 +132,11 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
       <Stack.Screen
         name="AnchorDetail"
         component={AnchorDetailScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="TheWeave"
+        component={TheWeaveScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen name="VisualizePreparation" component={VisualizePreparationScreen} options={{ headerShown: false }} />

@@ -599,6 +599,11 @@ export type RootStackParamList = {
   SaveProgress: { anchor: Anchor };
   TrialSignUp: undefined;
   AnchorDetail: { anchorId: string };
+  TheWeave: {
+    origin?: 'practice' | 'anchorDetail' | 'sanctuary' | 'chart';
+    originAnchorId?: string;
+    initialScope?: WeaveScope;
+  };
   VisualizePreparation: {
     anchorId: string;
     source?: string;

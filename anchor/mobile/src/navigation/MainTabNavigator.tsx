@@ -330,7 +330,7 @@ export const MainTabNavigator: React.FC = () => {
         (practiceRouteName === 'TheWeave' && weaveOrigin === 'practice');
     }
     return chartRouteName === 'ChartHome';
-  }, [activeIndex, vaultRouteName, practiceRouteName, chartRouteName]);
+  }, [activeIndex, vaultRouteName, practiceRouteName, practiceRouteParams, chartRouteName]);
 
   // Auto-open daily anchor
   React.useEffect(() => {
@@ -388,6 +388,19 @@ export const MainTabNavigator: React.FC = () => {
     };
   }, [flushPracticeWrites, toast]);
 
+  const handleVaultRouteChange = useCallback((name: string) => {
+    setVaultRouteName(name);
+  }, []);
+
+  const handlePracticeRouteChange = useCallback((name: string, params?: unknown) => {
+    setPracticeRouteName(name);
+    setPracticeRouteParams(params);
+  }, []);
+
+  const handleChartRouteChange = useCallback((name: string) => {
+    setChartRouteName(name);
+  }, []);
+
   return (
     <TabNavigationProvider
       onIndexChange={handleIndexChange}
@@ -404,14 +417,9 @@ export const MainTabNavigator: React.FC = () => {
           tabCount={3}
           swipeEnabled={isTabBarVisible}
         >
-          <VaultStackNavigator onRouteChange={setVaultRouteName} />
-          <PracticeStackNavigator
-            onRouteChange={(name, params) => {
-              setPracticeRouteName(name);
-              setPracticeRouteParams(params);
-            }}
-          />
-          <ChartStackNavigator onRouteChange={setChartRouteName} />
+          <VaultStackNavigator onRouteChange={handleVaultRouteChange} />
+          <PracticeStackNavigator onRouteChange={handlePracticeRouteChange} />
+          <ChartStackNavigator onRouteChange={handleChartRouteChange} />
         </SwipeableTabContainer>
 
         {isTabBarVisible && (

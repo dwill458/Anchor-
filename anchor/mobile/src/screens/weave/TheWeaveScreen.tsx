@@ -10,9 +10,9 @@ import {
   View,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
-import { ArrowLeft, ChevronDown, Info, X } from 'lucide-react-native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { ChevronDown, ChevronLeft, Info, X } from 'lucide-react-native';
 import Animated, {
   Easing,
   interpolate,
@@ -156,7 +156,7 @@ export const TheWeaveScreen: React.FC = () => {
   const weaveTeaching = useTeachingGate({ screenId: 'the_weave', candidateIds: ['weave_intro_v1'] });
   const recordTeachingShown = useTeachingStore((state) => state.recordShown);
   const [showTeaching, setShowTeaching] = useState(Boolean(weaveTeaching));
-  const bottomPadding = 64 + Math.max(46, insets.bottom + 12) + 20;
+  const bottomPadding = 64 + Math.max(46, insets.bottom + 12) + 64;
   const anchorNames = useMemo(
     () => {
       const names = new Map<string, string>();
@@ -265,12 +265,14 @@ export const TheWeaveScreen: React.FC = () => {
   }, [recordTeachingShown, showTeaching, weaveTeaching]);
 
   const leave = () => {
-    if (route.params.origin === 'anchorDetail' && originAnchorId) {
-      navigation.popToTop();
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    if (route.params?.origin === 'anchorDetail' && originAnchorId) {
       returnToAnchorDetail(originAnchorId);
       return;
     }
-    navigation.popToTop();
     navigateToPractice();
   };
 
@@ -286,15 +288,26 @@ export const TheWeaveScreen: React.FC = () => {
 
   return (
     <View style={styles.root}>
-      <ZenBackground variant="practice" showGrain showVignette performanceTier="medium" />
+      <ZenBackground variant="weave" showGrain showVignette performanceTier="medium" />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.header}>
-          <Pressable accessibilityRole="button" accessibilityLabel={`Back to ${route.params.origin === 'anchorDetail' ? 'Anchor' : 'Practice'}`} onPress={leave} style={styles.backButton}>
-            <ArrowLeft color={colors.gold} size={20} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Back to ${route.params.origin === 'anchorDetail' ? 'Anchor' : 'Practice'}`}
+            onPress={leave}
+            style={styles.backButton}
+          >
+            <ChevronLeft color="#87939D" size={18} />
             <Text style={styles.backLabel}>{route.params.origin === 'anchorDetail' ? 'Anchor' : 'Practice'}</Text>
           </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel="About The Weave" onPress={() => setSheet('about')} style={styles.aboutButton} testID="weave-about">
-            <Text style={styles.aboutLabel}>About</Text><Info color={colors.gold} size={16} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="About The Weave"
+            onPress={() => setSheet('about')}
+            style={styles.aboutButton}
+            testID="weave-about"
+          >
+            <Info color="rgba(217,179,108,0.7)" size={18} />
           </Pressable>
         </View>
 
@@ -304,18 +317,42 @@ export const TheWeaveScreen: React.FC = () => {
             <Text style={styles.title}>THE WEAVE</Text>
             <Text style={styles.intro}>What you have been reinforcing.</Text>
           </View>
-          {showTeaching && weaveTeaching ? <View style={styles.teachingCard} accessibilityRole="alert"><View style={styles.teachingCopy}><Text style={styles.teachingTitle}>How to read the weave</Text><Text style={styles.teachingText}>{weaveTeaching.copy}</Text></View><Pressable accessibilityRole="button" accessibilityLabel="Dismiss weave introduction" onPress={() => setShowTeaching(false)} hitSlop={10}><X color={colors.gold} size={16} /></Pressable></View> : null}
+          {showTeaching && weaveTeaching ? (
+            <View style={styles.teachingCard} accessibilityRole="alert">
+              <View style={styles.teachingCopy}>
+                <Text style={styles.teachingTitle}>How to read the weave</Text>
+                <Text style={styles.teachingText}>{weaveTeaching.copy}</Text>
+              </View>
+              <Pressable accessibilityRole="button" accessibilityLabel="Dismiss weave introduction" onPress={() => setShowTeaching(false)} hitSlop={10}>
+                <X color={colors.gold} size={16} />
+              </Pressable>
+            </View>
+          ) : null}
 
           <View style={styles.controls}>
-            <Pressable accessibilityRole="button" accessibilityLabel={`Scope: ${scopeLabel(scope, anchorNames)}`} onPress={() => setSheet('scope')} style={styles.control}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Scope: ${scopeLabel(scope, anchorNames)}`}
+              onPress={() => setSheet('scope')}
+              style={styles.control}
+            >
               <Text style={styles.controlLabel}>SCOPE</Text>
-              <Text style={styles.controlValue} numberOfLines={1} ellipsizeMode="tail">{scopeLabel(scope, anchorNames)}</Text>
-              <ChevronDown color={colors.gold} size={15} style={styles.controlChevron} />
+              <Text style={styles.controlValueScope} numberOfLines={1} ellipsizeMode="tail">
+                {scopeLabel(scope, anchorNames)}
+              </Text>
+              <ChevronDown color="#87939D" size={14} style={styles.controlChevron} />
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel={`Range: ${WEAVE_RANGE_CONFIG[range].label}`} onPress={() => setSheet('range')} style={styles.control}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Range: ${WEAVE_RANGE_CONFIG[range].label}`}
+              onPress={() => setSheet('range')}
+              style={styles.control}
+            >
               <Text style={styles.controlLabel}>RANGE</Text>
-              <Text style={styles.controlValue}>{WEAVE_RANGE_CONFIG[range].label}</Text>
-              <ChevronDown color={colors.gold} size={15} style={styles.controlChevron} />
+              <Text style={styles.controlValueRange}>
+                {WEAVE_RANGE_CONFIG[range].label}
+              </Text>
+              <ChevronDown color="rgba(217,179,108,0.7)" size={14} style={styles.controlChevron} />
             </Pressable>
           </View>
 
@@ -329,13 +366,17 @@ export const TheWeaveScreen: React.FC = () => {
             <View style={styles.statusBlock} accessibilityRole="alert">
               <Text style={styles.statusTitle}>History unavailable offline</Text>
               <Text style={styles.statusText}>Reconnect to refresh this Anchor’s practice history.</Text>
-              <Pressable accessibilityRole="button" accessibilityLabel="Retry loading practice history" onPress={() => void retryHistory()} style={styles.retryButton}><Text style={styles.retryText}>Retry</Text></Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="Retry loading practice history" onPress={() => void retryHistory()} style={styles.retryButton}>
+                <Text style={styles.retryText}>Retry</Text>
+              </Pressable>
             </View>
           ) : historyStatus === 'error' && data.events.length === 0 ? (
             <View style={styles.statusBlock} accessibilityRole="alert">
               <Text style={styles.statusTitle}>We couldn’t refresh the weave.</Text>
               <Text style={styles.statusText}>Your practice is safe. Try again when the connection is steady.</Text>
-              <Pressable accessibilityRole="button" accessibilityLabel="Retry loading practice history" onPress={() => void retryHistory()} style={styles.retryButton}><Text style={styles.retryText}>Retry</Text></Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="Retry loading practice history" onPress={() => void retryHistory()} style={styles.retryButton}>
+                <Text style={styles.retryText}>Retry</Text>
+              </Pressable>
             </View>
           ) : noConfirmedHistory ? (
             <View style={styles.statusBlock}>
@@ -349,7 +390,24 @@ export const TheWeaveScreen: React.FC = () => {
               <Animated.View style={[styles.plot, { width }, animatedPlotStyle]} accessible={false}>
                 <Animated.View style={[{ width, height: PLOT_HEIGHT, overflow: 'hidden' }, animatedRevealStyle]}>
                   <Svg width={width} height={PLOT_HEIGHT} accessible={false}>
-                    {weaveSegments.map((segment) => <React.Fragment key={segment.id}><Path d={segment.path} stroke="#080B0F" strokeOpacity={0.95} strokeWidth={segment.strokeWidth + 2.5} fill="none" /><Path d={segment.path} stroke={MODE_COLORS[segment.mode]} strokeOpacity={segment.opacity} strokeWidth={segment.strokeWidth} fill="none" /></React.Fragment>)}
+                    {weaveSegments.map((segment) => (
+                      <React.Fragment key={segment.id}>
+                        <Path
+                          d={segment.path}
+                          stroke="#080D12"
+                          strokeOpacity={0.75}
+                          strokeWidth={segment.strokeWidth + 2}
+                          fill="none"
+                        />
+                        <Path
+                          d={segment.path}
+                          stroke={MODE_COLORS[segment.mode]}
+                          strokeOpacity={segment.opacity}
+                          strokeWidth={segment.strokeWidth}
+                          fill="none"
+                        />
+                      </React.Fragment>
+                    ))}
                     {data.nodes.map((node) => {
                       const position = geometry.nodePositions[node.id];
                       if (!position) return null;
@@ -365,14 +423,16 @@ export const TheWeaveScreen: React.FC = () => {
                               cy={position.top}
                               r={glowRadius}
                               fill={MODE_COLORS[node.mode]}
-                              opacity={reduceMotion ? 0.08 : (isSelected ? 0.28 : 0.16)}
+                              opacity={reduceMotion ? 0.08 : (isSelected ? 0.24 : 0.12)}
                             />
                           )}
                           <Circle
                             cx={position.left}
                             cy={position.top}
                             r={position.radius}
-                            fill={MODE_COLORS[node.mode]}
+                            fill={isSelected ? '#F4EFE6' : MODE_COLORS[node.mode]}
+                            stroke={isSelected ? MODE_COLORS[node.mode] : undefined}
+                            strokeWidth={isSelected ? 1.5 : 0}
                             opacity={reduceMotion ? 0.92 : 1}
                           />
                         </React.Fragment>
@@ -397,9 +457,20 @@ export const TheWeaveScreen: React.FC = () => {
                   );
                 })}
               </Animated.View>
-              <View style={styles.axis} accessible={false}>{ticks.map((tick, index) => <Text key={`${tick}:${index}`} style={tick === 'NOW' ? styles.axisNow : styles.axisLabel}>{tick}</Text>)}</View>
+              <View style={styles.axis} accessible={false}>
+                {ticks.map((tick, index) => (
+                  <Text key={`${tick}:${index}`} style={tick === 'NOW' ? styles.axisNow : styles.axisLabel}>
+                    {tick}
+                  </Text>
+                ))}
+              </View>
               <View style={styles.legend}>
-                {MODE_ORDER.map((mode) => <View key={mode} style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: MODE_COLORS[mode] }]} /><Text style={styles.legendText}>{PRACTICE_MODE_LABELS[mode]}</Text></View>)}
+                {MODE_ORDER.map((mode) => (
+                  <View key={mode} style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: MODE_COLORS[mode] }]} />
+                    <Text style={styles.legendText}>{PRACTICE_MODE_LABELS[mode]}</Text>
+                  </View>
+                ))}
               </View>
             </>
           )}
@@ -413,19 +484,23 @@ export const TheWeaveScreen: React.FC = () => {
                 accessibilityRole="summary"
                 accessibilityLabel={`Thread Strength ${strength} out of 100, ${getThreadStrengthState(strength).label}`}
               >
-                <Text style={styles.strengthStateLabel}>{getThreadStrengthState(strength).label}</Text>
+                <Text style={styles.strengthHeroLabel}>THREAD STRENGTH</Text>
                 <View style={styles.strengthScoreRow}>
                   <Text style={styles.strengthScore}>{strength}</Text>
-                  <Text style={styles.strengthMax}>/100</Text>
+                  <Text style={styles.strengthMax}>/ 100</Text>
                 </View>
-                <Text style={styles.strengthHeroLabel}>THREAD STRENGTH</Text>
+                <View style={styles.strengthStateRow}>
+                  <View style={styles.strengthStateDash} />
+                  <Text style={styles.strengthStateLabel}>{getThreadStrengthState(strength).label}</Text>
+                  <View style={styles.strengthStateDash} />
+                </View>
                 <Text style={styles.strengthContext}>{getThreadStrengthState(strength).description}</Text>
               </View>
             </Animated.View>
           ) : null}
 
           <View style={styles.rule} />
-          <View style={styles.metrics}>
+          <View style={styles.metricsGrid}>
             <Metric label="SESSIONS" value={`${data.metrics.sessions}`} />
             <Metric label="PRACTICE DAYS" value={`${data.metrics.practiceDays}`} />
             <Metric label="ACTIVE WEEKS" value={`${data.metrics.activeWeeks}`} />
@@ -437,17 +512,46 @@ export const TheWeaveScreen: React.FC = () => {
           {MODE_ORDER.map((mode) => {
             const count = data.metrics.modeCounts[mode];
             const fraction = data.metrics.sessions ? Math.round((count / data.metrics.sessions) * 100) : 0;
-            return <View key={mode} style={styles.mixRow}><Text style={[styles.mixName, { color: MODE_COLORS[mode] }]}>{PRACTICE_MODE_LABELS[mode]}</Text><View style={styles.mixTrack}><View style={[styles.mixFill, { width: `${fraction}%`, backgroundColor: MODE_COLORS[mode] }]} /></View><Text style={styles.mixCount}>{count}</Text></View>;
+            return (
+              <View key={mode} style={styles.mixRow}>
+                <View style={[styles.mixDot, { backgroundColor: MODE_COLORS[mode] }]} />
+                <Text style={styles.mixName}>{PRACTICE_MODE_LABELS[mode]}</Text>
+                <View style={styles.mixTrack}>
+                  <View
+                    style={[
+                      styles.mixFill,
+                      { width: `${fraction}%`, backgroundColor: MODE_COLORS[mode] },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.mixPercent}>{fraction}%</Text>
+              </View>
+            );
           })}
 
           <View style={styles.rule} />
           <Text style={styles.sectionLabel}>RECENT ACTIVITY</Text>
-          {recentEvents.length ? recentEvents.map((event) => <View key={event.id} style={styles.activityRow}><View style={[styles.activityDot, { backgroundColor: MODE_COLORS[event.practiceMode] }]} /><View style={styles.activityCopy}><Text style={styles.activityTitle}>{PRACTICE_MODE_LABELS[event.practiceMode]}</Text><Text style={styles.activityDetail}>{displayDate(event.localDateKey)} · {formatWeaveDuration(event.completedDurationSeconds)}</Text></View></View>) : <Text style={styles.emptyRecent}>Your completed returns will appear here.</Text>}
+          {recentEvents.length ? (
+            recentEvents.map((event) => (
+              <View key={event.id} style={styles.activityRow}>
+                <View style={[styles.activityDot, { backgroundColor: MODE_COLORS[event.practiceMode] }]} />
+                <View style={styles.activityCopy}>
+                  <Text style={styles.activityTitle}>{PRACTICE_MODE_LABELS[event.practiceMode]}</Text>
+                  <Text style={styles.activityDetail}>
+                    {displayDate(event.localDateKey)} · {formatWeaveDuration(event.completedDurationSeconds)}
+                  </Text>
+                </View>
+              </View>
+            ))
+          ) : (
+            <Text style={styles.emptyRecent}>Your completed returns will appear here.</Text>
+          )}
 
           <View style={styles.rule} />
           <Text style={styles.sectionLabel}>INSIGHTS</Text>
           <Pressable accessibilityRole="button" accessibilityLabel="Open weave insights" onPress={() => setSheet('about')} style={styles.insightButton}>
-            <Text style={styles.insightText}>{mostPracticedMode ? `Most often, you return through ${PRACTICE_MODE_LABELS[mostPracticedMode]}.` : 'Insights deepen after eight completed sessions.'}</Text><ChevronDown color={colors.gold} size={16} />
+            <Text style={styles.insightText}>{mostPracticedMode ? `Most often, you return through ${PRACTICE_MODE_LABELS[mostPracticedMode]}.` : 'Insights deepen after eight completed sessions.'}</Text>
+            <ChevronDown color={colors.gold} size={16} />
           </Pressable>
         </ScrollView>
       </SafeAreaView>
@@ -455,21 +559,56 @@ export const TheWeaveScreen: React.FC = () => {
       <Modal visible={sheet !== null} transparent animationType={reduceMotion ? 'none' : 'slide'} onRequestClose={() => setSheet(null)}>
         <Pressable style={styles.scrim} onPress={() => setSheet(null)} accessibilityLabel="Close sheet">
           <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
-            <View style={styles.sheetHeader}><Text style={styles.sheetTitle}>{sheet === 'scope' ? 'Choose scope' : sheet === 'range' ? 'Choose range' : sheet === 'about' ? 'About The Weave' : 'Practice detail'}</Text><Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => setSheet(null)} style={styles.closeButton}><X color={colors.gold} size={18} /></Pressable></View>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>
+                {sheet === 'scope' ? 'Choose scope' : sheet === 'range' ? 'Choose range' : sheet === 'about' ? 'About The Weave' : 'Practice detail'}
+              </Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={() => setSheet(null)} style={styles.closeButton}>
+                <X color={colors.gold} size={18} />
+              </Pressable>
+            </View>
             {sheet === 'scope' ? (
               <>
                 <SheetOption label="All Practice" selected={scope.kind === 'all'} onPress={() => { setScope({ kind: 'all' }); setSheet(null); }} />
-                {anchors.map((anchor) => <SheetOption key={anchor.id} label={anchor.intentionText || 'Untitled Anchor'} detail={`${anchor.isReleased || anchor.archivedAt ? 'Released · ' : ''}${anchorThreadStrength.get(anchor.id) ?? 0} Thread Strength`} selected={scope.kind === 'anchor' && scope.anchorId === anchor.id} onPress={() => { setScope({ kind: 'anchor', anchorId: anchor.id }); setSheet(null); }} />)}
+                {anchors.map((anchor) => (
+                  <SheetOption
+                    key={anchor.id}
+                    label={anchor.intentionText || 'Untitled Anchor'}
+                    detail={`${anchor.isReleased || anchor.archivedAt ? 'Released · ' : ''}${anchorThreadStrength.get(anchor.id) ?? 0} Thread Strength`}
+                    selected={scope.kind === 'anchor' && scope.anchorId === anchor.id}
+                    onPress={() => { setScope({ kind: 'anchor', anchorId: anchor.id }); setSheet(null); }}
+                  />
+                ))}
               </>
             ) : sheet === 'range' ? (
-              <View style={styles.rangeGrid}>{(Object.keys(WEAVE_RANGE_CONFIG) as WeaveRange[]).map((value) => <Pressable key={value} accessibilityRole="radio" accessibilityState={{ selected: range === value }} onPress={() => { setRange(value); setSheet(null); }} style={[styles.rangeCell, range === value && styles.rangeCellSelected]}><Text style={[styles.rangeCellText, range === value && styles.rangeCellTextSelected]}>{WEAVE_RANGE_CONFIG[value].label}</Text></Pressable>)}</View>
+              <View style={styles.rangeGrid}>
+                {(Object.keys(WEAVE_RANGE_CONFIG) as WeaveRange[]).map((value) => (
+                  <Pressable
+                    key={value}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: range === value }}
+                    onPress={() => { setRange(value); setSheet(null); }}
+                    style={[styles.rangeCell, range === value && styles.rangeCellSelected]}
+                  >
+                    <Text style={[styles.rangeCellText, range === value && styles.rangeCellTextSelected]}>
+                      {WEAVE_RANGE_CONFIG[value].label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
             ) : sheet === 'about' ? (
               <View style={styles.aboutSheetBody}>
-                <Text style={styles.aboutSheetLead}>Every completed return becomes a node. The four threads cross as the density and rhythm of your practice changes.</Text>
+                <Text style={styles.aboutSheetLead}>
+                  Every completed return becomes a node. The four threads cross as the density and rhythm of your practice changes.
+                </Text>
                 <Text style={styles.aboutSheetHeading}>Reading the threads</Text>
-                <Text style={styles.aboutSheetText}>Brighter, wider lines show modes you have practiced more often in this range. Larger nodes gather multiple completed sessions from the same period.</Text>
+                <Text style={styles.aboutSheetText}>
+                  Brighter, wider lines show modes you have practiced more often in this range. Larger nodes gather multiple completed sessions from the same period.
+                </Text>
                 <Text style={styles.aboutSheetHeading}>Insights</Text>
-                <Text style={styles.aboutSheetText}>{mostPracticedMode ? `Your strongest recurring mode in this view is ${PRACTICE_MODE_LABELS[mostPracticedMode]}.` : 'After eight completed sessions, The Weave begins to name the mode you return through most often.'}</Text>
+                <Text style={styles.aboutSheetText}>
+                  {mostPracticedMode ? `Your strongest recurring mode in this view is ${PRACTICE_MODE_LABELS[mostPracticedMode]}.` : 'After eight completed sessions, The Weave begins to name the mode you return through most often.'}
+                </Text>
               </View>
             ) : selectedNode ? (
               <View style={styles.nodeSheetBody}>
@@ -486,26 +625,578 @@ export const TheWeaveScreen: React.FC = () => {
   );
 };
 
-const Metric = ({ label, value }: { label: string; value: string }) => <View style={styles.metric}><Text style={styles.metricValue}>{value}</Text><Text style={styles.metricLabel}>{label}</Text></View>;
-const SheetOption = ({ label, detail, selected, onPress }: { label: string; detail?: string; selected: boolean; onPress: () => void }) => <Pressable accessibilityRole="radio" accessibilityState={{ selected }} onPress={onPress} style={styles.sheetOption}><View><Text style={styles.sheetOptionText}>{label}</Text>{detail ? <Text style={styles.sheetOptionDetail}>{detail}</Text> : null}</View><View style={[styles.radio, selected && styles.radioSelected]} /></Pressable>;
+const Metric = ({ label, value }: { label: string; value: string }) => (
+  <View style={styles.metricCard}>
+    <Text style={styles.metricValue}>{value}</Text>
+    <Text style={styles.metricLabel}>{label}</Text>
+  </View>
+);
+
+const SheetOption = ({ label, detail, selected, onPress }: { label: string; detail?: string; selected: boolean; onPress: () => void }) => (
+  <Pressable accessibilityRole="radio" accessibilityState={{ selected }} onPress={onPress} style={styles.sheetOption}>
+    <View>
+      <Text style={styles.sheetOptionText}>{label}</Text>
+      {detail ? <Text style={styles.sheetOptionDetail}>{detail}</Text> : null}
+    </View>
+    <View style={[styles.radio, selected && styles.radioSelected]} />
+  </Pressable>
+);
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#080B0F' }, safe: { flex: 1 },
-  header: { minHeight: 54, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(242,223,168,.12)' },
-  backButton: { minWidth: 88, height: 44, flexDirection: 'row', alignItems: 'center', gap: 5 }, backLabel: { color: colors.gold, fontFamily: typography.fontFamily.serif, fontSize: 13 }, aboutButton: { minWidth: 76, height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }, aboutLabel: { color: colors.gold, fontFamily: typography.fontFamily.serif, fontSize: 13 }, eyebrow: { color: 'rgba(242,223,168,.55)', fontFamily: typography.fontFamily.sans, fontSize: 8, letterSpacing: 2.2, textAlign: 'center' }, titleBlock: { marginTop: 25 }, title: { color: '#F4EDD8', fontFamily: typography.fontFamily.serifSemiBold, fontSize: 25, letterSpacing: 1.2, textAlign: 'center', marginTop: 5 },
-  content: { paddingHorizontal: 20, paddingBottom: 38 }, intro: { color: 'rgba(244,237,216,.66)', fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 16, lineHeight: 23, textAlign: 'center', marginTop: 7, marginHorizontal: 12 }, teachingCard: { marginTop: 18, padding: 13, flexDirection: 'row', gap: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(242,223,168,.18)', backgroundColor: 'rgba(8,11,15,.34)' }, teachingCopy: { flex: 1 }, teachingTitle: { color: '#F4EDD8', fontFamily: typography.fontFamily.serifSemiBold, fontSize: 14 }, teachingText: { color: 'rgba(244,237,216,.62)', fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 13, lineHeight: 17, marginTop: 4 },
-  controls: { flexDirection: 'row', gap: 12, marginTop: 22 }, control: { flex: 1, minHeight: 58, position: 'relative', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(242,223,168,.25)', paddingBottom: 8 }, controlLabel: { color: 'rgba(242,223,168,.48)', fontSize: 8, letterSpacing: 1.8, marginBottom: 5 }, controlValue: { color: '#F4EDD8', fontFamily: typography.fontFamily.serif, fontSize: 13, paddingRight: 22, flexShrink: 1, minWidth: 0 }, controlChevron: { position: 'absolute', right: 0, bottom: 8 },
-  plotSummary: { position: 'absolute', opacity: 0, height: 1, width: 1 }, plot: { height: PLOT_HEIGHT, marginTop: 24, position: 'relative', alignSelf: 'center' }, nodeTarget: { width: 44, height: 44, borderRadius: 22, position: 'absolute' }, axis: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 5, paddingHorizontal: 3 }, axisLabel: { color: 'rgba(242,223,168,.4)', fontSize: 8 }, axisNow: { color: 'rgba(242,223,168,.65)', fontFamily: typography.fontFamily.sans, fontSize: 7, letterSpacing: 1.1 }, legend: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginTop: 11 }, legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 }, legendDot: { width: 5, height: 5, borderRadius: 3 }, legendText: { color: 'rgba(244,237,216,.58)', fontSize: 9 },
-  statusBlock: { paddingVertical: 56, paddingHorizontal: 18, alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(242,223,168,.16)' }, statusTitle: { color: '#F4EDD8', fontFamily: typography.fontFamily.serifSemiBold, fontSize: 18, textAlign: 'center', marginTop: 10 }, statusText: { color: 'rgba(244,237,216,.58)', fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 8 }, retryButton: { minHeight: 44, marginTop: 16, paddingHorizontal: 18, justifyContent: 'center', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(242,223,168,.42)' }, retryText: { color: colors.gold, fontFamily: typography.fontFamily.sans, fontSize: 10, letterSpacing: 1.6, textTransform: 'uppercase' }, cachedLabel: { color: 'rgba(242,223,168,.6)', fontSize: 10, textAlign: 'center', marginTop: 18 },
-  rule: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(242,223,168,.16)', marginTop: 24 },
-  strengthHero: { alignItems: 'center', paddingTop: 20, paddingBottom: 6 },
-  strengthStateLabel: { color: colors.gold, fontFamily: typography.fontFamily.sans, fontSize: 10, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 },
-  strengthScoreRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center' },
-  strengthScore: { color: '#F4EDD8', fontFamily: typography.fontFamily.serifSemiBold, fontSize: 56, letterSpacing: 1.2, lineHeight: 62 },
-  strengthMax: { color: 'rgba(242,223,168,.45)', fontFamily: typography.fontFamily.serif, fontSize: 18, marginLeft: 4 },
-  strengthHeroLabel: { color: 'rgba(242,223,168,.5)', fontFamily: typography.fontFamily.sans, fontSize: 8, letterSpacing: 1.8, marginTop: 4, textTransform: 'uppercase' },
-  strengthContext: { color: 'rgba(244,237,216,.65)', fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 8, marginHorizontal: 16 },
-  metrics: { flexDirection: 'row', flexWrap: 'wrap', paddingTop: 17, rowGap: 18 }, metric: { width: '25%', alignItems: 'center', paddingHorizontal: 2 }, metricValue: { color: '#F4EDD8', fontFamily: typography.fontFamily.serifSemiBold, fontSize: 18, textAlign: 'center' }, metricLabel: { color: 'rgba(242,223,168,.48)', fontSize: 7.5, letterSpacing: 1.1, textAlign: 'center', marginTop: 4 },
-  sectionLabel: { color: 'rgba(242,223,168,.62)', fontFamily: typography.fontFamily.sans, fontSize: 9, letterSpacing: 2.1, marginTop: 17, marginBottom: 13 }, mixRow: { flexDirection: 'row', alignItems: 'center', minHeight: 28, gap: 9 }, mixName: { width: 92, fontFamily: typography.fontFamily.serif, fontSize: 12 }, mixTrack: { flex: 1, height: 1, backgroundColor: 'rgba(242,223,168,.15)' }, mixFill: { height: 2 }, mixCount: { width: 20, color: 'rgba(244,237,216,.58)', fontSize: 11, textAlign: 'right' }, activityRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(242,223,168,.08)' }, activityDot: { width: 6, height: 6, borderRadius: 3, marginRight: 10 }, activityCopy: { flex: 1 }, activityTitle: { color: '#F4EDD8', fontFamily: typography.fontFamily.serif, fontSize: 13 }, activityDetail: { color: 'rgba(242,223,168,.5)', fontSize: 10, marginTop: 2 }, emptyRecent: { color: 'rgba(244,237,216,.55)', fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 14, paddingBottom: 8 }, insightButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }, insightText: { flex: 1, color: 'rgba(244,237,216,.68)', fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 15, lineHeight: 22, paddingBottom: 12 },
-  scrim: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,.56)' }, sheet: { backgroundColor: '#11161C', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingBottom: 28, maxHeight: '72%' }, sheetHeader: { minHeight: 62, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(242,223,168,.13)' }, sheetTitle: { color: '#F4EDD8', fontFamily: typography.fontFamily.serifSemiBold, fontSize: 18 }, closeButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }, sheetOption: { minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(242,223,168,.08)' }, sheetOptionText: { maxWidth: SCREEN_WIDTH - 105, color: '#F4EDD8', fontFamily: typography.fontFamily.serif, fontSize: 15 }, sheetOptionDetail: { color: 'rgba(242,223,168,.48)', fontSize: 10, marginTop: 2 }, radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: 'rgba(242,223,168,.35)' }, radioSelected: { borderWidth: 5, borderColor: colors.gold }, rangeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingTop: 18 }, rangeCell: { width: '47%', minHeight: 68, justifyContent: 'center', alignItems: 'center', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(242,223,168,.24)' }, rangeCellSelected: { borderColor: colors.gold, backgroundColor: 'rgba(242,223,168,.08)' }, rangeCellText: { color: 'rgba(244,237,216,.68)', fontFamily: typography.fontFamily.serif, fontSize: 15 }, rangeCellTextSelected: { color: colors.gold }, aboutSheetBody: { paddingTop: 22 }, aboutSheetLead: { color: '#F4EDD8', fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 17, lineHeight: 24 }, aboutSheetHeading: { color: 'rgba(242,223,168,.64)', fontFamily: typography.fontFamily.sans, fontSize: 9, letterSpacing: 1.9, marginTop: 21 }, aboutSheetText: { color: 'rgba(244,237,216,.68)', fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 15, lineHeight: 21, marginTop: 7 }, nodeSheetBody: { paddingTop: 22 }, nodeMode: { fontFamily: typography.fontFamily.sans, fontSize: 10, letterSpacing: 1.8, textTransform: 'uppercase' }, nodeDate: { color: '#F4EDD8', fontFamily: typography.fontFamily.serifSemiBold, fontSize: 21, marginTop: 7 }, nodeSummary: { color: 'rgba(244,237,216,.7)', fontSize: 14, marginTop: 7 }, nodeAnchor: { color: 'rgba(242,223,168,.6)', fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 14, marginTop: 12 },
+  root: { flex: 1, backgroundColor: '#0F1419' },
+  safe: { flex: 1 },
+  header: {
+    minHeight: 54,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(217,179,108,0.11)',
+  },
+  backButton: {
+    minWidth: 88,
+    height: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  backLabel: {
+    color: '#87939D',
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 14,
+  },
+  aboutButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  content: {
+    paddingHorizontal: 20,
+    paddingBottom: 38,
+  },
+  titleBlock: {
+    marginTop: 22,
+    alignItems: 'center',
+  },
+  eyebrow: {
+    color: '#87939D',
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 11,
+    letterSpacing: 2.2,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+  },
+  title: {
+    color: '#F4EFE6',
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 28,
+    letterSpacing: 2.0,
+    textAlign: 'center',
+    marginTop: 6,
+    textTransform: 'uppercase',
+  },
+  intro: {
+    color: 'rgba(135,147,157,0.95)',
+    fontFamily: typography.fontFamily.bodySerifItalic,
+    fontSize: 16,
+    lineHeight: 22,
+    textAlign: 'center',
+    marginTop: 6,
+    marginHorizontal: 16,
+  },
+  teachingCard: {
+    marginTop: 18,
+    padding: 14,
+    flexDirection: 'row',
+    gap: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(217,179,108,0.18)',
+    backgroundColor: 'rgba(18,24,32,0.6)',
+    borderRadius: 8,
+  },
+  teachingCopy: { flex: 1 },
+  teachingTitle: {
+    color: '#F4EFE6',
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 14,
+    letterSpacing: 1.0,
+  },
+  teachingText: {
+    color: 'rgba(244,239,230,0.65)',
+    fontFamily: typography.fontFamily.bodySerifItalic,
+    fontSize: 14,
+    lineHeight: 19,
+    marginTop: 4,
+  },
+  controls: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 22,
+  },
+  control: {
+    flex: 1,
+    minHeight: 56,
+    position: 'relative',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(217,179,108,0.18)',
+    paddingBottom: 8,
+  },
+  controlLabel: {
+    color: '#87939D',
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 10,
+    letterSpacing: 2.0,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  controlValueScope: {
+    color: '#F4EFE6',
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 15,
+    letterSpacing: 1.0,
+    textTransform: 'uppercase',
+    paddingRight: 20,
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  controlValueRange: {
+    color: '#F2DFA8',
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 12,
+    letterSpacing: 2.0,
+    textTransform: 'uppercase',
+    paddingRight: 20,
+  },
+  controlChevron: {
+    position: 'absolute',
+    right: 0,
+    bottom: 8,
+  },
+  plotSummary: { position: 'absolute', opacity: 0, height: 1, width: 1 },
+  plot: {
+    height: PLOT_HEIGHT,
+    marginTop: 24,
+    position: 'relative',
+    alignSelf: 'center',
+  },
+  nodeTarget: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    position: 'absolute',
+  },
+  axis: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingHorizontal: 4,
+  },
+  axisLabel: {
+    color: 'rgba(135,147,157,0.6)',
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  axisNow: {
+    color: 'rgba(217,179,108,0.7)',
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    fontWeight: '600',
+  },
+  legend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 14,
+    marginTop: 14,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
+  legendText: {
+    color: 'rgba(135,147,157,0.85)',
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 11,
+  },
+  statusBlock: {
+    paddingVertical: 56,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(217,179,108,0.12)',
+  },
+  statusTitle: {
+    color: '#F4EFE6',
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 18,
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  statusText: {
+    color: 'rgba(244,239,230,0.58)',
+    fontFamily: typography.fontFamily.bodySerifItalic,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  retryButton: {
+    minHeight: 44,
+    marginTop: 16,
+    paddingHorizontal: 18,
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(217,179,108,0.42)',
+    borderRadius: 999,
+  },
+  retryText: {
+    color: colors.gold,
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 11,
+    letterSpacing: 1.8,
+    textTransform: 'uppercase',
+  },
+  cachedLabel: {
+    color: 'rgba(217,179,108,0.6)',
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 10,
+    textAlign: 'center',
+    marginTop: 18,
+  },
+  rule: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(217,179,108,0.12)',
+    marginTop: 26,
+  },
+  strengthHero: {
+    alignItems: 'center',
+    paddingTop: 22,
+    paddingBottom: 6,
+  },
+  strengthHeroLabel: {
+    color: '#87939D',
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 11,
+    letterSpacing: 2.2,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+  },
+  strengthScoreRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'center',
+  },
+  strengthScore: {
+    color: '#F4EFE6',
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 58,
+    fontWeight: '200',
+    letterSpacing: -2,
+    lineHeight: 64,
+  },
+  strengthMax: {
+    color: 'rgba(135,147,157,0.6)',
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 12,
+    marginLeft: 6,
+  },
+  strengthStateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 6,
+  },
+  strengthStateDash: {
+    width: 14,
+    height: 1,
+    backgroundColor: 'rgba(217,179,108,0.5)',
+  },
+  strengthStateLabel: {
+    color: '#F2DFA8',
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 12,
+    letterSpacing: 2.6,
+    textTransform: 'uppercase',
+  },
+  strengthContext: {
+    color: 'rgba(244,239,230,0.55)',
+    fontFamily: typography.fontFamily.bodySerifItalic,
+    fontSize: 16,
+    lineHeight: 22,
+    textAlign: 'center',
+    marginTop: 12,
+    marginHorizontal: 16,
+  },
+  metricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingTop: 18,
+    rowGap: 18,
+  },
+  metricCard: {
+    width: '46%',
+    paddingVertical: 4,
+  },
+  metricValue: {
+    color: '#F4EFE6',
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 32,
+    fontWeight: '200',
+    letterSpacing: -0.5,
+    lineHeight: 36,
+  },
+  metricLabel: {
+    color: '#87939D',
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 10,
+    letterSpacing: 2.0,
+    textTransform: 'uppercase',
+    marginTop: 5,
+  },
+  sectionLabel: {
+    color: '#87939D',
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 11,
+    letterSpacing: 2.2,
+    textTransform: 'uppercase',
+    marginTop: 20,
+    marginBottom: 14,
+  },
+  mixRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 28,
+    gap: 10,
+  },
+  mixDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  mixName: {
+    width: 86,
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 13,
+    color: 'rgba(244,239,230,0.82)',
+  },
+  mixTrack: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(135,147,157,0.14)',
+  },
+  mixFill: {
+    height: 1.5,
+    opacity: 0.85,
+  },
+  mixPercent: {
+    width: 36,
+    color: 'rgba(244,239,230,0.7)',
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 12,
+    textAlign: 'right',
+  },
+  activityRow: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(217,179,108,0.08)',
+  },
+  activityDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    marginRight: 10,
+  },
+  activityCopy: { flex: 1 },
+  activityTitle: {
+    color: 'rgba(244,239,230,0.86)',
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 13,
+  },
+  activityDetail: {
+    color: 'rgba(135,147,157,0.9)',
+    fontFamily: typography.fontFamily.bodySerifItalic,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  emptyRecent: {
+    color: 'rgba(244,239,230,0.55)',
+    fontFamily: typography.fontFamily.bodySerifItalic,
+    fontSize: 14,
+    paddingBottom: 8,
+  },
+  insightButton: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  insightText: {
+    flex: 1,
+    color: 'rgba(244,239,230,0.68)',
+    fontFamily: typography.fontFamily.bodySerifItalic,
+    fontSize: 15,
+    lineHeight: 22,
+    paddingBottom: 12,
+  },
+  scrim: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  sheet: {
+    backgroundColor: '#161D25',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: 'rgba(217,179,108,0.15)',
+    paddingHorizontal: 20,
+    paddingBottom: 28,
+    maxHeight: '72%',
+  },
+  sheetHeader: {
+    minHeight: 62,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(217,179,108,0.13)',
+  },
+  sheetTitle: {
+    color: '#F4EFE6',
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 17,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  closeButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetOption: {
+    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(217,179,108,0.08)',
+  },
+  sheetOptionText: {
+    maxWidth: SCREEN_WIDTH - 105,
+    color: '#F4EFE6',
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 14,
+  },
+  sheetOptionDetail: {
+    color: 'rgba(217,179,108,0.6)',
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  radio: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: 'rgba(217,179,108,0.35)',
+  },
+  radioSelected: {
+    borderWidth: 5,
+    borderColor: colors.gold,
+  },
+  rangeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    paddingTop: 18,
+  },
+  rangeCell: {
+    width: '47%',
+    minHeight: 68,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(217,179,108,0.24)',
+    borderRadius: 8,
+  },
+  rangeCellSelected: {
+    borderColor: colors.gold,
+    backgroundColor: 'rgba(217,179,108,0.08)',
+  },
+  rangeCellText: {
+    color: 'rgba(244,239,230,0.68)',
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 14,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+  },
+  rangeCellTextSelected: {
+    color: colors.gold,
+  },
+  aboutSheetBody: { paddingTop: 22 },
+  aboutSheetLead: {
+    color: '#F4EFE6',
+    fontFamily: typography.fontFamily.bodySerifItalic,
+    fontSize: 17,
+    lineHeight: 24,
+  },
+  aboutSheetHeading: {
+    color: '#87939D',
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 11,
+    letterSpacing: 2.0,
+    textTransform: 'uppercase',
+    marginTop: 21,
+  },
+  aboutSheetText: {
+    color: 'rgba(244,239,230,0.68)',
+    fontFamily: typography.fontFamily.bodySerifItalic,
+    fontSize: 15,
+    lineHeight: 21,
+    marginTop: 7,
+  },
+  nodeSheetBody: { paddingTop: 22 },
+  nodeMode: {
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 11,
+    letterSpacing: 2.0,
+    textTransform: 'uppercase',
+  },
+  nodeDate: {
+    color: '#F4EFE6',
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 20,
+    marginTop: 7,
+  },
+  nodeSummary: {
+    color: 'rgba(244,239,230,0.7)',
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 13,
+    marginTop: 7,
+  },
+  nodeAnchor: {
+    color: 'rgba(217,179,108,0.75)',
+    fontFamily: typography.fontFamily.bodySerifItalic,
+    fontSize: 14,
+    marginTop: 12,
+  },
 });

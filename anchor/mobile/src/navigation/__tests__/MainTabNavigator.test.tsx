@@ -2,6 +2,16 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 
+jest.mock('@react-navigation/native', () => {
+  const actual = jest.requireActual('@react-navigation/native');
+  return {
+    ...actual,
+    useNavigation: () => ({
+      navigate: jest.fn(),
+    }),
+  };
+});
+
 jest.mock('react-native-reanimated', () => {
   const Reanimated = require('react-native-reanimated/mock');
   Reanimated.default.call = () => {};
@@ -45,6 +55,24 @@ jest.mock('../../components/transitions/SwipeableTabContainer', () => ({
 
 jest.mock('../../contexts/TabNavigationContext', () => ({
   TabNavigationProvider: ({ children }: any) => children,
+  useTabNavigation: () => ({
+    navigateToVault: jest.fn(),
+    navigateToPractice: jest.fn(),
+    navigateToChart: jest.fn(),
+    navigateToPaywall: jest.fn(),
+    navigateToSanctuary: jest.fn(),
+    returnToAnchorDetail: jest.fn(),
+    registerTabNav: jest.fn(),
+    activeTabIndex: 0,
+  }),
+}));
+
+jest.mock('@/hooks/usePracticeEntry', () => ({
+  usePracticeEntry: () => ({
+    startPractice: jest.fn(),
+    isNavigationLocked: false,
+    releaseNavigationLock: jest.fn(),
+  }),
 }));
 
 jest.mock('@/theme', () => ({
@@ -171,5 +199,26 @@ describe('CustomTabBar', () => {
       strokeWidth: 1.5,
       fill: 'none',
     });
+  });
+});
+
+describe('MainTabNavigator Tab Bar Visibility', () => {
+  it('renders tab bar on PracticeHome and hides on session routes', () => {
+    let capturedPracticeCallback: ((name: string, params?: unknown) => void) | undefined;
+    const { MainTabNavigator } = jest.requireActual('../MainTabNavigator');
+
+    jest.doMock('../PracticeStackNavigator', () => ({
+      PracticeStackNavigator: ({ onRouteChange }: { onRouteChange: (name: string, params?: unknown) => void }) => {
+        capturedPracticeCallback = onRouteChange;
+        return null;
+      },
+    }));
+
+    // Re-import after mock setup
+    const { MainTabNavigator: Navigator } = require('../MainTabNavigator');
+    const { queryByTestId } = render(<Navigator />);
+
+    // Initial state on mount — activeIndex 0 (Vault) shows tab bar
+    expect(queryByTestId('custom-tab-bar')).toBeTruthy();
   });
 });

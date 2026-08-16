@@ -793,6 +793,7 @@ export const PracticeScreen: React.FC = () => {
     <View style={styles.container}>
       <ZenBackground
         variant="practice"
+        orbColor={selectedModeColor[selectedMode]}
         showOrbs={isPracticeTabActive}
         showGrain
         showVignette
@@ -827,6 +828,7 @@ export const PracticeScreen: React.FC = () => {
                 setSelectorVisible(true);
               }}
             />
+            <View style={styles.cardDivider} />
           </Animated.View>
 
           <Animated.View pointerEvents="box-none" style={[styles.portalsWrap, portalsStyle]}>
@@ -884,6 +886,29 @@ export const PracticeScreen: React.FC = () => {
                 chooseMode('burn');
               }}
             />
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Open The Weave. Thread ${practiceMetrics.score} ${threadState}`}
+              accessibilityHint="View your completed practice history"
+              onPress={() => {
+                navigation.navigate('TheWeave', {
+                  origin: 'practice',
+                  originAnchorId: selectedAnchor?.id,
+                  initialScope: selectedAnchor ? { kind: 'anchor', anchorId: selectedAnchor.id } : { kind: 'all' },
+                });
+              }}
+              style={styles.weaveEntry}
+              testID="practice-open-weave"
+            >
+              <View style={styles.weaveRow}>
+                <Text style={styles.weaveTitle}>THE WEAVE</Text>
+                <Text style={styles.weaveDot}>·</Text>
+                <Text style={styles.weaveMeta}>Thread {practiceMetrics.score} · {threadState}</Text>
+              </View>
+              <ChevronRight size={14} color="#8B839B" />
+            </Pressable>
+
             <Pressable
               testID="practice-selected-mode-cta"
               accessibilityRole="button"
@@ -910,27 +935,6 @@ export const PracticeScreen: React.FC = () => {
                 {practiceCtaLabel}
               </Text>
             </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Open The Weave"
-              accessibilityHint="View your completed practice history"
-              onPress={() => {
-                navigation.navigate('TheWeave', {
-                  origin: 'practice',
-                  originAnchorId: selectedAnchor?.id,
-                  initialScope: selectedAnchor ? { kind: 'anchor', anchorId: selectedAnchor.id } : { kind: 'all' },
-                });
-              }}
-              style={styles.weaveEntry}
-              testID="practice-open-weave"
-            >
-              <View>
-                <Text style={styles.weaveEntryEyebrow}>PRACTICE HISTORY</Text>
-                <Text style={styles.weaveEntryTitle}>THE WEAVE</Text>
-                <Text style={styles.weaveEntryText}>See the threads your returns have made.</Text>
-              </View>
-              <ChevronRight size={18} color={colors.gold} />
-            </Pressable>
           </Animated.View>
         </Animated.ScrollView>
       </SafeAreaView>
@@ -947,16 +951,6 @@ export const PracticeScreen: React.FC = () => {
           setPendingSource(null);
         }}
       />
-
-      {/* DEFERRED: previous practice teaching sheet retained for rollback — remove post-launch.
-      <InfoSheet
-        visible={infoVisible}
-        onClose={() => {
-          setInfoVisible(false);
-          markInteraction();
-        }}
-      />
-      */}
 
       <ConfirmUnchargedBurnSheet
         visible={confirmUnchargedBurnVisible}
@@ -979,7 +973,7 @@ export const PracticeScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background.primary,
+    backgroundColor: '#0F1419',
   },
   safeArea: {
     flex: 1,
@@ -987,51 +981,61 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingTop: spacing.xs,
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   portalsWrap: {
     gap: 0,
   },
   weaveEntry: {
-    minHeight: 70,
-    marginTop: spacing.lg,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: 2,
+    minHeight: 52,
+    marginTop: spacing.md,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: 4,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(212,175,55,0.24)',
+    borderColor: 'rgba(217,179,108,0.12)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  weaveEntryEyebrow: {
-    color: 'rgba(242,223,168,0.56)',
-    fontFamily: typography.fontFamily.sans,
-    fontSize: 8,
-    letterSpacing: 2,
+  weaveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  weaveEntryTitle: {
-    color: colors.gold,
+  weaveTitle: {
+    color: '#F2DFA8',
     fontFamily: typography.fontFamily.serifSemiBold,
-    fontSize: 17,
-    marginTop: 3,
-  },
-  weaveEntryText: {
-    color: 'rgba(245,245,241,0.58)',
-    fontFamily: typography.fontFamily.bodySerifItalic,
     fontSize: 13,
-    marginTop: 2,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+  },
+  weaveDot: {
+    color: 'rgba(217,179,108,0.35)',
+    fontSize: 14,
+  },
+  weaveMeta: {
+    color: 'rgba(244,239,230,0.7)',
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 12,
+    letterSpacing: 0.2,
+  },
+  cardDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(217,179,108,0.12)',
+    marginTop: 14,
   },
   sectionLabel: {
-    fontFamily: typography.fontFamily.serif,
-    fontSize: 10,
-    letterSpacing: 3,
-    textTransform: "uppercase",
-    color: "rgba(212,175,55,0.6)",
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 11,
+    letterSpacing: 2.2,
+    textTransform: 'uppercase',
+    color: '#8B839B',
+    marginTop: 4,
     marginBottom: spacing.xs,
     paddingLeft: 0,
   },
   selectedModeCta: {
-    minHeight: 54,
+    height: 56,
     width: '100%',
     borderRadius: 999,
     marginTop: spacing.lg,
@@ -1049,8 +1053,8 @@ const styles = StyleSheet.create({
   selectedModeCtaText: {
     color: '#F2DFA8',
     fontFamily: typography.fontFamily.serifSemiBold,
-    fontSize: 13,
-    letterSpacing: 2,
+    fontSize: 15,
+    letterSpacing: 2.2,
     textTransform: 'uppercase',
   },
 });

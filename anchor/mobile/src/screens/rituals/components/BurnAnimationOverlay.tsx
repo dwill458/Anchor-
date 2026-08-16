@@ -618,11 +618,11 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
     }
   }, [isRetrying, onCommitBurn, transitionToError, transitionToSuccess]);
 
-  const title = overlayState === 'error' ? "Couldn't complete release." : 'It Is Done';
+  const title = overlayState === 'error' ? "Couldn't complete release." : 'This Anchor is complete.';
   const subtitle =
     overlayState === 'error'
       ? errorMessage || DEFAULT_ERROR_MESSAGE
-      : 'The intention has served its purpose. The symbol returns to silence.';
+      : 'The Anchor can end.\nWhat you practiced stays with you.';
 
   return (
     <View style={styles.screen}>

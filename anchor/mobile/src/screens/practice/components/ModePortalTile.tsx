@@ -39,8 +39,8 @@ const MODE_COLORS: Record<PortalVariant, string> = {
 };
 
 const ANIMATION_DURATION = 240;
-const AXIS_X = 16;
-const NODE_Y = 20;
+const AXIS_X = 26;
+const NODE_Y = 22;
 
 /**
  * A selectable practice tool, deliberately separate from its launch CTA. The
@@ -91,6 +91,7 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
       hitSlop={8}
       style={({ pressed }) => [
         styles.pressable,
+        variant === 'release' && styles.releasePressable,
         style,
         pressed && !disabled && styles.pressed,
       ]}
@@ -105,8 +106,8 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
               backgroundColor: modeColor,
               borderColor: modeColor,
               shadowColor: modeColor,
-              shadowOpacity: 0.65,
-              shadowRadius: 8,
+              shadowOpacity: 0.75,
+              shadowRadius: 10,
               elevation: 4,
             },
             locked && !selected && styles.lockedNode,
@@ -125,21 +126,19 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
       >
         <View style={styles.header}>
           <View style={styles.titleRow}>
-            <Text style={[styles.title, selected && { color: modeColor }, locked && styles.titleLocked]}>
+            {icon ? <View style={styles.iconSlot}>{icon}</View> : null}
+            <Text style={[styles.title, selected && styles.titleSelected, locked && styles.titleLocked]}>
               {title}
             </Text>
-            {locked ? <LockKeyhole size={12} color="rgba(242,223,168,0.52)" /> : null}
-          </View>
-          <View style={styles.meta}>
-            {badge ? (
-              <Text style={[styles.badge, selected && { borderColor: modeColor, color: modeColor }]}>
-                {badge}
-              </Text>
+            {locked || badge ? (
+              <View style={styles.proLockRow}>
+                {locked ? <LockKeyhole size={11} color="rgba(139,131,155,0.9)" /> : null}
+                <Text style={styles.proBadgeText}>{badge ?? 'Pro'}</Text>
+              </View>
             ) : null}
-            {icon ? <View style={styles.icon}>{icon}</View> : null}
           </View>
+          <Text style={[styles.duration, selected && styles.durationSelected]}>{durationHint}</Text>
         </View>
-        <Text style={[styles.duration, selected && { color: modeColor }]}>{durationHint}</Text>
 
         {selected ? (
           <Animated.View
@@ -159,6 +158,9 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: '100%',
   },
+  releasePressable: {
+    marginTop: 14,
+  },
   pressed: {
     opacity: 0.82,
   },
@@ -168,7 +170,7 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(242,223,168,0.14)',
+    backgroundColor: 'rgba(217,179,108,0.12)',
   },
   axisLine: {
     position: 'absolute',
@@ -177,7 +179,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: 1.5,
     marginLeft: -0.75,
-    backgroundColor: 'rgba(242,223,168,0.18)',
+    backgroundColor: 'rgba(139,131,155,0.22)',
   },
   nodeContainer: {
     position: 'absolute',
@@ -191,19 +193,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   node: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    width: 13,
+    height: 13,
+    borderRadius: 6.5,
     borderWidth: 0,
-    backgroundColor: '#080C10',
+    backgroundColor: '#0F1419',
   },
   lockedNode: {
     width: 10,
     height: 10,
     borderRadius: 5,
     borderWidth: 1.5,
-    borderColor: 'rgba(242,223,168,0.34)',
-    backgroundColor: '#080C10',
+    borderColor: 'rgba(139,131,155,0.4)',
+    backgroundColor: 'transparent',
   },
   unselectedNode: {
     width: 8,
@@ -214,14 +216,15 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingTop: 12,
-    paddingBottom: 12,
-    paddingLeft: 46,
-    paddingRight: 4,
+    paddingBottom: 14,
+    paddingLeft: AXIS_X + 24,
+    paddingRight: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(242,223,168,0.1)',
+    borderBottomColor: 'rgba(217,179,108,0.10)',
   },
   contentSelected: {
-    borderBottomColor: 'rgba(242,223,168,0.22)',
+    paddingBottom: 16,
+    borderBottomColor: 'rgba(217,179,108,0.18)',
   },
   header: {
     flexDirection: 'row',
@@ -230,52 +233,52 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   titleRow: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-  title: {
-    color: 'rgba(244,237,216,0.66)',
-    fontFamily: typography.fontFamily.serifSemiBold,
-    fontSize: 14,
-    letterSpacing: 1.5,
-  },
-  titleLocked: {
-    color: 'rgba(244,237,216,0.45)',
-  },
-  meta: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  icon: {
-    opacity: 0.78,
+  title: {
+    color: 'rgba(244,239,230,0.62)',
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 1.8,
+    textTransform: 'uppercase',
   },
-  badge: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(242,223,168,0.35)',
-    borderRadius: 999,
-    color: 'rgba(242,223,168,0.58)',
-    fontFamily: typography.fontFamily.sansBold,
-    fontSize: 8,
-    letterSpacing: 1.1,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
+  titleSelected: {
+    color: '#F4EFE6',
+  },
+  titleLocked: {
+    color: 'rgba(244,239,230,0.45)',
+  },
+  iconSlot: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  proLockRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  proBadgeText: {
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 12,
+    color: 'rgba(139,131,155,0.9)',
   },
   duration: {
-    marginTop: 4,
-    color: 'rgba(242,223,168,0.42)',
     fontFamily: typography.fontFamily.sans,
-    fontSize: 9,
-    letterSpacing: 1.25,
+    fontSize: 12,
+    letterSpacing: 0.2,
+    color: '#8B839B',
+  },
+  durationSelected: {
+    color: 'rgba(244,239,230,0.7)',
   },
   meaning: {
-    marginTop: 8,
-    color: 'rgba(244,237,216,0.71)',
+    marginTop: 10,
+    color: 'rgba(244,239,230,0.68)',
     fontFamily: typography.fontFamily.bodySerifItalic,
-    fontSize: 15,
-    lineHeight: 20,
+    fontSize: 17,
+    lineHeight: 24,
   },
 });

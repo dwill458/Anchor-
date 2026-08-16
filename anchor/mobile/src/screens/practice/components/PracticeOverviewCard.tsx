@@ -7,8 +7,8 @@ import { colors, typography } from '@/theme';
 import type { Anchor } from '@/types';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 
-function anchorName(anchor?: Anchor) {
-  return anchor?.intentionText?.trim() || 'Select an anchor';
+function anchorDisplayName(anchor?: Anchor) {
+  return (anchor as { identityAnchor?: string })?.identityAnchor || anchor?.intentionText?.trim() || 'Select an anchor';
 }
 
 function anchorMetadata(anchor?: Anchor) {
@@ -24,32 +24,97 @@ export const PracticeOverviewCard: React.FC<{
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Current anchor, ${anchorName(anchor)}. Double tap to choose another anchor.`}
+      accessibilityLabel={`Current anchor, ${anchorDisplayName(anchor)}. Double tap to choose another anchor.`}
       accessibilityHint="Double tap to choose another anchor for practice."
       onPress={onOpenAnchor}
       style={({ pressed }) => [styles.card, pressed && !reduceMotion && styles.pressed]}
     >
       <View style={styles.sigil}>
-        {anchor?.enhancedImageUrl ? <OptimizedImage uri={anchor.enhancedImageUrl} style={styles.image} resizeMode="cover" /> : sigil ? <SigilSvg xml={sigil} width={30} height={30} /> : <Text style={styles.fallback}>◈</Text>}
+        {anchor?.enhancedImageUrl ? (
+          <OptimizedImage uri={anchor.enhancedImageUrl} style={styles.image} resizeMode="cover" />
+        ) : sigil ? (
+          <SigilSvg xml={sigil} width={30} height={30} />
+        ) : (
+          <Text style={styles.fallback}>◈</Text>
+        )}
       </View>
       <View style={styles.anchorCopy}>
         <Text style={styles.eyebrow}>CURRENT ANCHOR</Text>
-        <View style={styles.anchorNameRow}><Text style={styles.anchorName} numberOfLines={1}>{anchorName(anchor)}</Text><ChevronDown size={12} color="rgba(245,240,232,0.5)" /></View>
-        <Text style={styles.anchorMetadata} numberOfLines={1}>{anchorMetadata(anchor)}</Text>
+        <Text style={styles.anchorName} numberOfLines={1}>
+          {anchorDisplayName(anchor)}
+        </Text>
+        <View style={styles.metadataRow}>
+          <Text style={styles.anchorMetadata} numberOfLines={1}>
+            {anchorMetadata(anchor)}
+          </Text>
+          <ChevronDown size={11} color="rgba(139,131,155,0.85)" />
+        </View>
       </View>
     </Pressable>
   );
 };
 
 const styles = StyleSheet.create({
-  card: { minHeight: 62, paddingVertical: 9, flexDirection: 'row', alignItems: 'center', gap: 11, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(242,223,168,0.18)' },
-  pressed: { opacity: 0.78 },
-  sigil: { width: 44, height: 44, borderRadius: 22, flexShrink: 0, overflow: 'hidden', backgroundColor: 'rgba(10,14,20,0.9)', borderWidth: 1, borderColor: 'rgba(212,175,55,0.32)', alignItems: 'center', justifyContent: 'center' },
-  image: { width: 44, height: 44 },
-  fallback: { color: colors.gold, fontSize: 20 },
-  anchorCopy: { flex: 1, minWidth: 0 },
-  anchorNameRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  anchorName: { flexShrink: 1, fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 16, color: colors.bone },
-  anchorMetadata: { marginTop: 2, fontFamily: typography.fontFamily.sans, fontSize: 9, letterSpacing: 0.8, color: 'rgba(245,240,232,0.38)', textTransform: 'uppercase' },
-  eyebrow: { fontFamily: typography.fontFamily.sansBold, fontSize: 8, letterSpacing: 1.5, color: 'rgba(245,240,232,0.44)' },
+  card: {
+    minHeight: 64,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  pressed: {
+    opacity: 0.78,
+  },
+  sigil: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    flexShrink: 0,
+    overflow: 'hidden',
+    backgroundColor: '#121820',
+    borderWidth: 1,
+    borderColor: 'rgba(139,131,155,0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  image: {
+    width: 44,
+    height: 44,
+  },
+  fallback: {
+    color: colors.gold,
+    fontSize: 20,
+  },
+  anchorCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  eyebrow: {
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 11,
+    letterSpacing: 2.2,
+    color: '#8B839B',
+    textTransform: 'uppercase',
+    marginBottom: 3,
+  },
+  anchorName: {
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 19,
+    letterSpacing: 1.2,
+    color: '#F4EFE6',
+    textTransform: 'uppercase',
+  },
+  metadataRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 3,
+  },
+  anchorMetadata: {
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 12,
+    letterSpacing: 0.3,
+    color: 'rgba(139,131,155,0.85)',
+  },
 });
+

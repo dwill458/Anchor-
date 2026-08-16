@@ -351,7 +351,7 @@ export const MedallionCoin: React.FC<MedallionCoinProps> = ({
           <View style={[styles.symbolSlot, { width: symbolSize, height: symbolSize }]}>
             {showImage ? (
               <Image
-                source={{ uri: imageUrl }}
+                source={{ uri: imageUrl ?? undefined }}
                 style={[styles.symbolImage, { width: symbolSize, height: symbolSize, borderRadius: symbolSize / 2 }]}
                 resizeMode="cover"
                 onError={() => setFailedImageUrl(imageUrl ?? null)}

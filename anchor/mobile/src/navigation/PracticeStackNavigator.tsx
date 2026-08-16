@@ -39,10 +39,6 @@ interface PracticeStackNavigatorProps {
 export const PracticeStackNavigator: React.FC<PracticeStackNavigatorProps> = ({ onRouteChange }) => {
   const navigationRef = useNavigationContainerRef<PracticeStackParamList>();
 
-  React.useEffect(() => {
-    onRouteChange?.('PracticeHome');
-  }, [onRouteChange]);
-
   return (
     <ErrorBoundary>
       <NavigationContainer
@@ -58,6 +54,18 @@ export const PracticeStackNavigator: React.FC<PracticeStackNavigatorProps> = ({ 
         }}
       >
         <Stack.Navigator
+          screenListeners={{
+            state: (event) => {
+              const state = event.data.state as {
+                index: number;
+                routes: Array<{ name: string; params?: unknown }>;
+              } | undefined;
+              const route = state?.routes?.[state.index];
+              if (route?.name) {
+                onRouteChange?.(route.name, route.params);
+              }
+            },
+          }}
           screenOptions={{
             headerShown: false,
             animation: 'slide_from_right',
