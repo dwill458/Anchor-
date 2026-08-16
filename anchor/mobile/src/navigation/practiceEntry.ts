@@ -199,6 +199,9 @@ export function startPractice(
           returnTarget,
           initialDuration: 'deep',
           initialDurationSeconds: request.durationSeconds,
+          // When a duration is already known (returning user), skip the picker
+          // and begin the session immediately.
+          autoStartOnSelection: request.durationSeconds != null,
           flowVariant: 'practice',
           source: request.source,
           ...chartParams,

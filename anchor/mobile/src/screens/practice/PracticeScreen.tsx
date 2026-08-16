@@ -21,7 +21,7 @@ import {
 import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import type { RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from "@react-navigation/stack";
-import { Eye, Flame, Zap, ChevronRight } from "lucide-react-native";
+import { ChevronRight, Eye, Flame, Target, Zap } from "lucide-react-native";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -867,7 +867,7 @@ export const PracticeScreen: React.FC = () => {
               title="DEEP PRIME"
               meaning="Spend longer building your connection to the Anchor."
               durationHint="2–10 MIN"
-              icon={<Zap size={14} color="#F0CB6A" />}
+              icon={<Target size={14} color="#F0CB6A" />}
               selected={selectedMode === 'charge'}
               onPress={() => {
                 chooseMode('charge');

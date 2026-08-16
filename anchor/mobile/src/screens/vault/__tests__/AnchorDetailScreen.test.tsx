@@ -428,8 +428,8 @@ describe('AnchorDetailScreen', () => {
         fireEvent.press(screen.getByText('VIEW THE WEAVE →'));
         expect(navigation.navigate).toHaveBeenCalledWith('TheWeave', {
             origin: 'anchorDetail',
-            originAnchorId: 'anchor-1',
-            initialScope: { kind: 'anchor', anchorId: 'anchor-1' },
+            originAnchorId: 'anchor-123',
+            initialScope: { kind: 'anchor', anchorId: 'anchor-123' },
         });
     });
 
