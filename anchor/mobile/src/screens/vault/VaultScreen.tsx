@@ -57,7 +57,7 @@ import { useTeachingGate } from '@/utils/useTeachingGate';
 import type { TeachingContent } from '@/constants/teaching';
 import { withAlpha } from '@/utils/color';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
-import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
+import { useAppPerformanceTier, type PerformanceTier } from '@/hooks/useAppPerformanceTier';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { WeeklySummaryModal } from '@/components/WeeklySummaryModal'; import { useWeeklySummaryTrigger } from '@/hooks/useWeeklySummaryTrigger';
 import { VaultGridModal } from './components/VaultGridModal';
@@ -602,6 +602,7 @@ export const VaultScreen: React.FC = () => {
                 anchors: sanctuaryAnchors,
                 primaryAnchor: primaryAnchor!,
                 shouldReduceMotion,
+                performanceTier,
                 pulseDotStyle,
                 handleHeroPress,
                 handleActivate,
@@ -716,6 +717,7 @@ interface ActiveStateProps {
   anchors: Anchor[];
   primaryAnchor: Anchor;
   shouldReduceMotion: boolean;
+  performanceTier: PerformanceTier;
   pulseDotStyle: ReturnType<typeof useAnimatedStyle>;
   handleHeroPress: () => void;
   handleActivate: () => void;
@@ -730,6 +732,7 @@ function renderActiveState({
   anchors,
   primaryAnchor,
   shouldReduceMotion,
+  performanceTier,
   pulseDotStyle,
   handleHeroPress,
   handleActivate,
@@ -752,6 +755,7 @@ function renderActiveState({
           anchor={primaryAnchor}
           onPress={handleHeroPress}
           reduceMotionEnabled={shouldReduceMotion}
+          performanceTier={performanceTier}
         />
       </Animated2.View>
 

@@ -513,14 +513,18 @@ export default function ManualForgeScreen() {
             accessibilityRole="button"
             accessibilityLabel="About Drawing"
           >
-            <Text style={styles.headerAbout}>About</Text>
+            <Text style={styles.headerInfoMark}>!</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Compact teaching banner from the Draw Your Structure redesign */}
+        {/* Editorial teaching card from the Draw Your Structure redesign */}
         <Animated.View
           style={[styles.teachBanner, { opacity: fadeAnim }]}
         >
+          <View style={styles.teachBannerHeader}>
+            <Text style={styles.teachBannerEyebrow}>Draw with intention</Text>
+            <View style={styles.teachBannerRule} />
+          </View>
           <Text style={styles.teachBannerText}>Your hand gives the structure its meaning.</Text>
           <Text style={styles.teachBannerSubtext}>Overlap, simplify, and combine the letters into a form that feels right to you.</Text>
         </Animated.View>
@@ -1261,34 +1265,52 @@ const styles = StyleSheet.create({
     letterSpacing: 2.4,
     textTransform: 'uppercase',
   },
-  headerAbout: {
-    color: colors.anchor15.gilt,
+  headerInfoMark: {
+    color: colors.anchor15.giltBright,
     fontFamily: 'Cinzel-SemiBold',
-    fontSize: 11,
-    letterSpacing: 1.2,
+    fontSize: 19,
+    lineHeight: 22,
+    textAlign: 'center',
   },
   teachBanner: {
     marginHorizontal: 22,
-    marginTop: 2,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: 'rgba(217, 179, 108, 0.07)',
+    marginTop: 4,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    borderRadius: 18,
+    backgroundColor: 'rgba(30, 42, 51, 0.34)',
     borderWidth: 1,
-    borderColor: 'rgba(217, 179, 108, 0.14)',
-    gap: 4,
+    borderColor: 'rgba(217, 179, 108, 0.2)',
+    gap: 8,
+  },
+  teachBannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  teachBannerEyebrow: {
+    color: colors.anchor15.gilt,
+    fontFamily: 'Cinzel-Regular',
+    fontSize: 9,
+    letterSpacing: 2.1,
+    textTransform: 'uppercase',
+  },
+  teachBannerRule: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(217, 179, 108, 0.22)',
   },
   teachBannerText: {
-    color: 'rgba(244, 239, 230, 0.82)',
-    fontFamily: 'Inter-Regular',
-    fontSize: 12.5,
-    lineHeight: 19,
+    color: colors.anchor15.bone,
+    fontFamily: 'EBGaramond-Regular',
+    fontSize: 20,
+    lineHeight: 25,
   },
   teachBannerSubtext: {
     color: colors.anchor15.ash,
     fontFamily: 'Inter-Regular',
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 11.5,
+    lineHeight: 17,
   },
   instructionsContainer: {
     paddingHorizontal: 16,

@@ -19,6 +19,18 @@ describe('The Weave geometry', () => {
     expect(geometry.nodePositions['focus-1'].radius).toBeGreaterThan(geometry.nodePositions['visualize-1'].radius);
   });
 
+  it('derives per-segment opacity and stroke width from bucket activity', () => {
+    const geometry = buildWeaveGeometry({ modes, nodesByMode: nodesByMode(), bucketCount: 4, width: 350, height: 228 });
+    const focusStrand = geometry.strands.find((s) => s.mode === 'focus')!;
+    // bucket 1 has sessionCount: 3, bucket 3 has 0
+    // segment 0 connects bucket 0 -> 1 (active)
+    // segment 2 connects bucket 2 -> 3 (inactive for focus)
+    expect(focusStrand.segments[0].strokeWidth).toBeGreaterThan(focusStrand.segments[2].strokeWidth);
+    expect(focusStrand.segments[0].opacity).toBeGreaterThan(focusStrand.segments[2].opacity);
+    expect(focusStrand.segments[0].strokeWidth).toBeLessThanOrEqual(1.7);
+    expect(focusStrand.segments[2].strokeWidth).toBeGreaterThanOrEqual(0.75);
+  });
+
   it('is deterministic for the same canonical nodes', () => {
     const args = { modes, nodesByMode: nodesByMode(), bucketCount: 4, width: 350, height: 228 };
     expect(buildWeaveGeometry(args)).toEqual(buildWeaveGeometry(args));

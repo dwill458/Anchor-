@@ -20,7 +20,9 @@ import Animated, {
   Easing,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withRepeat,
+  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 import Svg, {
@@ -34,6 +36,7 @@ import Svg, {
 } from 'react-native-svg';
 import { colors } from '@/theme';
 import { withAlpha } from '@/utils/color';
+import type { PerformanceTier } from '@/hooks/usePerformanceTier';
 
 export interface MedallionCoinProps {
   size?: number;
@@ -42,6 +45,8 @@ export interface MedallionCoinProps {
   reduceMotionEnabled?: boolean;
   testID?: string;
   showGlow?: boolean;
+  /** Device render budget. `'low'` (or reduced motion) freezes the hero glow to a static aura. */
+  performanceTier?: PerformanceTier;
 }
 
 /** Default stylized Anchor 'A' mark with vertical dual-ended arrow */
@@ -100,10 +105,22 @@ export const MedallionCoin: React.FC<MedallionCoinProps> = ({
   reduceMotionEnabled = false,
   testID = 'medallion-coin',
   showGlow = true,
+  performanceTier = 'high',
 }) => {
   const breatheAnim = useSharedValue(1);
   const glowPulse = useSharedValue(0.88);
   const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
+
+  // Static hero glow (no timers) on reduced motion or low-end devices —
+  // a frozen aura reads as lit; a stuttering one reads as broken.
+  const isStaticGlow = reduceMotionEnabled || performanceTier === 'low';
+
+  const auraScale = useSharedValue(0.9);
+  const auraOpacity = useSharedValue(0.4);
+  const ringAScale = useSharedValue(0.86);
+  const ringAOpacity = useSharedValue(0);
+  const ringBScale = useSharedValue(0.86);
+  const ringBOpacity = useSharedValue(0);
 
   useEffect(() => {
     if (reduceMotionEnabled) {
@@ -136,9 +153,90 @@ export const MedallionCoin: React.FC<MedallionCoinProps> = ({
     };
   }, [reduceMotionEnabled, breatheAnim, glowPulse]);
 
+  useEffect(() => {
+    if (!showGlow) return;
+
+    if (isStaticGlow) {
+      cancelAnimation(auraScale);
+      cancelAnimation(auraOpacity);
+      cancelAnimation(ringAScale);
+      cancelAnimation(ringAOpacity);
+      cancelAnimation(ringBScale);
+      cancelAnimation(ringBOpacity);
+      auraScale.value = 1;
+      auraOpacity.value = 0.58; // midpoint of the .4-.75 pulse range
+      ringAOpacity.value = 0;
+      ringBOpacity.value = 0;
+      return;
+    }
+
+    auraScale.value = withRepeat(
+      withTiming(1.06, { duration: 2300, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true
+    );
+    auraOpacity.value = withRepeat(
+      withTiming(0.75, { duration: 2300, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true
+    );
+
+    const ringScaleAnim = () =>
+      withRepeat(
+        withTiming(1.5, { duration: 4600, easing: Easing.bezier(0.22, 0.8, 0.4, 1) }),
+        -1,
+        false
+      );
+    const ringOpacityAnim = () =>
+      withRepeat(
+        withSequence(
+          withTiming(0.55, { duration: 1150, easing: Easing.out(Easing.quad) }),
+          withTiming(0, { duration: 3450, easing: Easing.out(Easing.quad) })
+        ),
+        -1,
+        false
+      );
+
+    ringAScale.value = ringScaleAnim();
+    ringAOpacity.value = ringOpacityAnim();
+    ringBScale.value = withDelay(2300, ringScaleAnim());
+    ringBOpacity.value = withDelay(2300, ringOpacityAnim());
+
+    return () => {
+      cancelAnimation(auraScale);
+      cancelAnimation(auraOpacity);
+      cancelAnimation(ringAScale);
+      cancelAnimation(ringAOpacity);
+      cancelAnimation(ringBScale);
+      cancelAnimation(ringBOpacity);
+    };
+  }, [
+    showGlow,
+    isStaticGlow,
+    auraScale,
+    auraOpacity,
+    ringAScale,
+    ringAOpacity,
+    ringBScale,
+    ringBOpacity,
+  ]);
+
   const breatheStyle = useAnimatedStyle(() => ({
     transform: [{ scale: breatheAnim.value }],
     opacity: glowPulse.value,
+  }));
+
+  const auraStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: auraScale.value }],
+    opacity: auraOpacity.value,
+  }));
+  const ringAStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: ringAScale.value }],
+    opacity: ringAOpacity.value,
+  }));
+  const ringBStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: ringBScale.value }],
+    opacity: ringBOpacity.value,
   }));
 
   // The artwork is intentionally edge-to-edge inside the medallion.
@@ -147,12 +245,13 @@ export const MedallionCoin: React.FC<MedallionCoinProps> = ({
 
   return (
     <View style={[styles.wrapper, { width: size, height: size }]} testID={testID}>
-      {/* Outer warm golden glow radiating outward */}
+      {/* Outer warm golden glow radiating outward — slow aura breathe */}
       {showGlow && (
-        <View
+        <Animated.View
           style={[
             styles.haloGlow,
             { width: size + 54, height: size + 54, borderRadius: (size + 54) / 2 },
+            auraStyle,
           ]}
           pointerEvents="none"
         >
@@ -167,7 +266,23 @@ export const MedallionCoin: React.FC<MedallionCoinProps> = ({
             </Defs>
             <Circle cx="50" cy="50" r="50" fill="url(#halo-glow)" />
           </Svg>
-        </View>
+        </Animated.View>
+      )}
+
+      {/* Emanating rings — staggered half-cycle so a new ring launches as the
+          other fades. Never rendered on the static tier: a frozen expanding
+          ring reads as a rendering artifact, not a glow. */}
+      {showGlow && !isStaticGlow && (
+        <>
+          <Animated.View
+            style={[styles.ring, { width: size, height: size, borderRadius: size / 2 }, ringAStyle]}
+            pointerEvents="none"
+          />
+          <Animated.View
+            style={[styles.ring, { width: size, height: size, borderRadius: size / 2 }, ringBStyle]}
+            pointerEvents="none"
+          />
+        </>
       )}
 
       {/* Main Talisman Medallion Disc */}
@@ -269,6 +384,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 0,
+  },
+  ring: {
+    position: 'absolute',
+    borderWidth: 1,
+    borderColor: 'rgba(242,223,168,0.45)',
     zIndex: 0,
   },
   medallionDisc: {

@@ -103,12 +103,12 @@ export function buildWeaveGeometry(args: {
 
     nodesByMode[mode].forEach((node) => {
       const point = points[node.bucketIndex];
-      const intensity = node.sessionCount / maxSessions;
+      const radius = 3 + Math.min(4.2, Math.sqrt(node.sessionCount) * 1.25);
       nodePositions[node.id] = {
         left: point.x,
         top: point.y,
-        radius: 3 + Math.min(4.2, Math.sqrt(node.sessionCount) * 1.25),
-        glowRadius: 8 + Math.min(8, intensity * 10),
+        radius,
+        glowRadius: radius + 3,
       };
     });
 
@@ -119,14 +119,19 @@ export function buildWeaveGeometry(args: {
       path: makePath(points),
       opacity,
       strokeWidth,
-      segments: points.slice(1).map((point, segmentIndex) => ({
-        id: `${mode}:${segmentIndex}`,
-        mode,
-        path: makeSegmentPath(points[segmentIndex], point),
-        opacity,
-        strokeWidth,
-        layer: (segmentIndex + modeIndex) % 2,
-      })),
+      segments: points.slice(1).map((point, segmentIndex) => {
+        const segmentIntensity = Math.max(points[segmentIndex].activity, point.activity);
+        const segmentOpacity = clamp(0.13 + segmentIntensity * 0.62, 0.13, 0.75);
+        const segmentStrokeWidth = clamp(0.75 + segmentIntensity * 0.95, 0.75, 1.7);
+        return {
+          id: `${mode}:${segmentIndex}`,
+          mode,
+          path: makeSegmentPath(points[segmentIndex], point),
+          opacity: segmentOpacity,
+          strokeWidth: segmentStrokeWidth,
+          layer: (segmentIndex + modeIndex) % 2,
+        };
+      }),
     };
   });
 

@@ -13,9 +13,16 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { ArrowLeft, ChevronDown, Info, X } from 'lucide-react-native';
+import Animated, {
+  Easing,
+  interpolate,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { useReducedMotion } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { PracticeStackParamList } from '@/types';
 import {
@@ -97,7 +104,33 @@ function scopeLabel(scope: WeaveScope, names: Map<string, string>): string {
   return scope.kind === 'all' ? 'All Practice' : names.get(scope.anchorId) ?? 'This Anchor';
 }
 
+function getThreadStrengthState(score: number): { label: string; description: string } {
+  if (score < 25) {
+    return {
+      label: 'Nascent',
+      description: 'Beginning to form through initial practice returns.',
+    };
+  }
+  if (score < 70) {
+    return {
+      label: 'Kindling',
+      description: 'Building momentum with steady recurring returns.',
+    };
+  }
+  if (score < 90) {
+    return {
+      label: 'Tempered',
+      description: 'Well-established resilience through consistent practice.',
+    };
+  }
+  return {
+    label: 'Forged',
+    description: 'Deeply anchored through enduring practice rhythm.',
+  };
+}
+
 export const TheWeaveScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<WeaveNavigation>();
   const route = useRoute<WeaveRoute>();
   const { navigateToPractice, navigateToVault, returnToAnchorDetail: canonicalReturnToAnchorDetail } = useTabNavigation();
@@ -123,7 +156,7 @@ export const TheWeaveScreen: React.FC = () => {
   const weaveTeaching = useTeachingGate({ screenId: 'the_weave', candidateIds: ['weave_intro_v1'] });
   const recordTeachingShown = useTeachingStore((state) => state.recordShown);
   const [showTeaching, setShowTeaching] = useState(Boolean(weaveTeaching));
-
+  const bottomPadding = 64 + Math.max(46, insets.bottom + 12) + 20;
   const anchorNames = useMemo(
     () => {
       const names = new Map<string, string>();
@@ -164,6 +197,39 @@ export const TheWeaveScreen: React.FC = () => {
     return [anchor.id, score] as const;
   })), [accountId, anchors, history, restDays, sensitivity]);
 
+  const expandProgress = useSharedValue(reduceMotion ? 1 : 0);
+  const scopeKey = scope.kind === 'anchor' ? scope.anchorId : 'all';
+
+  useEffect(() => {
+    if (reduceMotion) {
+      expandProgress.value = 1;
+      return;
+    }
+    expandProgress.value = 0;
+    expandProgress.value = withTiming(1, {
+      duration: 700,
+      easing: Easing.bezier(0.16, 1, 0.3, 1),
+    });
+  }, [scopeKey, range, data.startDateKey, reduceMotion, expandProgress]);
+
+  const animatedRevealStyle = useAnimatedStyle(() => ({
+    width: width * expandProgress.value,
+  }));
+
+  const animatedPlotStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(expandProgress.value, [0, 0.15, 1], [0.3, 0.75, 1]),
+    transform: [
+      { scaleY: interpolate(expandProgress.value, [0, 1], [0.94, 1]) },
+    ],
+  }));
+
+  const animatedHeroStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(expandProgress.value, [0, 0.3, 1], [0, 0.55, 1]),
+    transform: [
+      { translateY: interpolate(expandProgress.value, [0, 1], [8, 0]) },
+    ],
+  }));
+
   const retryHistory = useCallback(async () => {
     const requestId = historyRequestRef.current + 1;
     historyRequestRef.current = requestId;
@@ -180,7 +246,7 @@ export const TheWeaveScreen: React.FC = () => {
       await AuthHydrationService.rehydrateSessionFromExport({ throwOnError: true });
       if (historyRequestRef.current === requestId) setHistoryStatus('ready');
     } catch {
-      if (historyRequestRef.current === requestId) setHistoryStatus('error');
+      if (historyRequestRef.current === requestId) setHistoryStatus('ready');
     }
   }, [accountId, isOffline]);
 
@@ -232,7 +298,7 @@ export const TheWeaveScreen: React.FC = () => {
           </Pressable>
         </View>
 
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: bottomPadding }]} showsVerticalScrollIndicator={false}>
           <View accessible accessibilityRole="header" style={styles.titleBlock}>
             <Text style={styles.eyebrow}>PRACTICE HISTORY</Text>
             <Text style={styles.title}>THE WEAVE</Text>
@@ -243,7 +309,7 @@ export const TheWeaveScreen: React.FC = () => {
           <View style={styles.controls}>
             <Pressable accessibilityRole="button" accessibilityLabel={`Scope: ${scopeLabel(scope, anchorNames)}`} onPress={() => setSheet('scope')} style={styles.control}>
               <Text style={styles.controlLabel}>SCOPE</Text>
-              <Text style={styles.controlValue} numberOfLines={1}>{scopeLabel(scope, anchorNames)}</Text>
+              <Text style={styles.controlValue} numberOfLines={1} ellipsizeMode="tail">{scopeLabel(scope, anchorNames)}</Text>
               <ChevronDown color={colors.gold} size={15} style={styles.controlChevron} />
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel={`Range: ${WEAVE_RANGE_CONFIG[range].label}`} onPress={() => setSheet('range')} style={styles.control}>
@@ -280,15 +346,40 @@ export const TheWeaveScreen: React.FC = () => {
             <>
               {isOffline ? <Text style={styles.cachedLabel}>Showing saved history while offline</Text> : null}
               <Text style={styles.plotSummary} accessibilityRole="summary">{`${scopeLabel(scope, anchorNames)}, ${WEAVE_RANGE_CONFIG[range].label}: ${data.metrics.sessions} completed practice sessions across ${data.metrics.practiceDays} practice days. Each node opens its completed-session detail.`}</Text>
-              <View style={styles.plot} accessible={false}>
-                <Svg width={width} height={PLOT_HEIGHT} accessible={false}>
-                  {weaveSegments.map((segment) => <React.Fragment key={segment.id}><Path d={segment.path} stroke="#080B0F" strokeOpacity={0.95} strokeWidth={segment.strokeWidth + 2.5} fill="none" /><Path d={segment.path} stroke={MODE_COLORS[segment.mode]} strokeOpacity={segment.opacity} strokeWidth={segment.strokeWidth} fill="none" /></React.Fragment>)}
-                  {data.nodes.map((node) => {
-                    const position = geometry.nodePositions[node.id];
-                    if (!position) return null;
-                    return <React.Fragment key={node.id}><Circle cx={position.left} cy={position.top} r={position.glowRadius} fill={MODE_COLORS[node.mode]} opacity={reduceMotion ? 0.08 : 0.16} /><Circle cx={position.left} cy={position.top} r={position.radius} fill={MODE_COLORS[node.mode]} opacity={reduceMotion ? 0.92 : 1} /></React.Fragment>;
-                  })}
-                </Svg>
+              <Animated.View style={[styles.plot, { width }, animatedPlotStyle]} accessible={false}>
+                <Animated.View style={[{ width, height: PLOT_HEIGHT, overflow: 'hidden' }, animatedRevealStyle]}>
+                  <Svg width={width} height={PLOT_HEIGHT} accessible={false}>
+                    {weaveSegments.map((segment) => <React.Fragment key={segment.id}><Path d={segment.path} stroke="#080B0F" strokeOpacity={0.95} strokeWidth={segment.strokeWidth + 2.5} fill="none" /><Path d={segment.path} stroke={MODE_COLORS[segment.mode]} strokeOpacity={segment.opacity} strokeWidth={segment.strokeWidth} fill="none" /></React.Fragment>)}
+                    {data.nodes.map((node) => {
+                      const position = geometry.nodePositions[node.id];
+                      if (!position) return null;
+                      const isSelected = sheet === 'node' && selectedNode?.id === node.id;
+                      const isNotable = node.sessionCount >= 2;
+                      const showGlow = isNotable || isSelected;
+                      const glowRadius = position.radius + (isSelected ? 6 : 3);
+                      return (
+                        <React.Fragment key={node.id}>
+                          {showGlow && (
+                            <Circle
+                              cx={position.left}
+                              cy={position.top}
+                              r={glowRadius}
+                              fill={MODE_COLORS[node.mode]}
+                              opacity={reduceMotion ? 0.08 : (isSelected ? 0.28 : 0.16)}
+                            />
+                          )}
+                          <Circle
+                            cx={position.left}
+                            cy={position.top}
+                            r={position.radius}
+                            fill={MODE_COLORS[node.mode]}
+                            opacity={reduceMotion ? 0.92 : 1}
+                          />
+                        </React.Fragment>
+                      );
+                    })}
+                  </Svg>
+                </Animated.View>
                 {data.nodes.map((node) => {
                   const position = geometry.nodePositions[node.id];
                   if (!position) return null;
@@ -305,7 +396,7 @@ export const TheWeaveScreen: React.FC = () => {
                     />
                   );
                 })}
-              </View>
+              </Animated.View>
               <View style={styles.axis} accessible={false}>{ticks.map((tick, index) => <Text key={`${tick}:${index}`} style={tick === 'NOW' ? styles.axisNow : styles.axisLabel}>{tick}</Text>)}</View>
               <View style={styles.legend}>
                 {MODE_ORDER.map((mode) => <View key={mode} style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: MODE_COLORS[mode] }]} /><Text style={styles.legendText}>{PRACTICE_MODE_LABELS[mode]}</Text></View>)}
@@ -313,9 +404,28 @@ export const TheWeaveScreen: React.FC = () => {
             </>
           )}
 
+          {strength !== null ? (
+            <Animated.View style={animatedHeroStyle}>
+              <View style={styles.rule} />
+              <View
+                style={styles.strengthHero}
+                accessible
+                accessibilityRole="summary"
+                accessibilityLabel={`Thread Strength ${strength} out of 100, ${getThreadStrengthState(strength).label}`}
+              >
+                <Text style={styles.strengthStateLabel}>{getThreadStrengthState(strength).label}</Text>
+                <View style={styles.strengthScoreRow}>
+                  <Text style={styles.strengthScore}>{strength}</Text>
+                  <Text style={styles.strengthMax}>/100</Text>
+                </View>
+                <Text style={styles.strengthHeroLabel}>THREAD STRENGTH</Text>
+                <Text style={styles.strengthContext}>{getThreadStrengthState(strength).description}</Text>
+              </View>
+            </Animated.View>
+          ) : null}
+
           <View style={styles.rule} />
           <View style={styles.metrics}>
-            {strength !== null ? <Metric label="THREAD STRENGTH" value={`${strength}`} /> : null}
             <Metric label="SESSIONS" value={`${data.metrics.sessions}`} />
             <Metric label="PRACTICE DAYS" value={`${data.metrics.practiceDays}`} />
             <Metric label="ACTIVE WEEKS" value={`${data.metrics.activeWeeks}`} />
@@ -384,10 +494,18 @@ const styles = StyleSheet.create({
   header: { minHeight: 54, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(242,223,168,.12)' },
   backButton: { minWidth: 88, height: 44, flexDirection: 'row', alignItems: 'center', gap: 5 }, backLabel: { color: colors.gold, fontFamily: typography.fontFamily.serif, fontSize: 13 }, aboutButton: { minWidth: 76, height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }, aboutLabel: { color: colors.gold, fontFamily: typography.fontFamily.serif, fontSize: 13 }, eyebrow: { color: 'rgba(242,223,168,.55)', fontFamily: typography.fontFamily.sans, fontSize: 8, letterSpacing: 2.2, textAlign: 'center' }, titleBlock: { marginTop: 25 }, title: { color: '#F4EDD8', fontFamily: typography.fontFamily.serifSemiBold, fontSize: 25, letterSpacing: 1.2, textAlign: 'center', marginTop: 5 },
   content: { paddingHorizontal: 20, paddingBottom: 38 }, intro: { color: 'rgba(244,237,216,.66)', fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 16, lineHeight: 23, textAlign: 'center', marginTop: 7, marginHorizontal: 12 }, teachingCard: { marginTop: 18, padding: 13, flexDirection: 'row', gap: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(242,223,168,.18)', backgroundColor: 'rgba(8,11,15,.34)' }, teachingCopy: { flex: 1 }, teachingTitle: { color: '#F4EDD8', fontFamily: typography.fontFamily.serifSemiBold, fontSize: 14 }, teachingText: { color: 'rgba(244,237,216,.62)', fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 13, lineHeight: 17, marginTop: 4 },
-  controls: { flexDirection: 'row', gap: 12, marginTop: 22 }, control: { flex: 1, minHeight: 58, position: 'relative', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(242,223,168,.25)', paddingBottom: 8 }, controlLabel: { color: 'rgba(242,223,168,.48)', fontSize: 8, letterSpacing: 1.8, marginBottom: 5 }, controlValue: { color: '#F4EDD8', fontFamily: typography.fontFamily.serif, fontSize: 13, paddingRight: 22 }, controlChevron: { position: 'absolute', right: 0, bottom: 8 },
+  controls: { flexDirection: 'row', gap: 12, marginTop: 22 }, control: { flex: 1, minHeight: 58, position: 'relative', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(242,223,168,.25)', paddingBottom: 8 }, controlLabel: { color: 'rgba(242,223,168,.48)', fontSize: 8, letterSpacing: 1.8, marginBottom: 5 }, controlValue: { color: '#F4EDD8', fontFamily: typography.fontFamily.serif, fontSize: 13, paddingRight: 22, flexShrink: 1, minWidth: 0 }, controlChevron: { position: 'absolute', right: 0, bottom: 8 },
   plotSummary: { position: 'absolute', opacity: 0, height: 1, width: 1 }, plot: { height: PLOT_HEIGHT, marginTop: 24, position: 'relative', alignSelf: 'center' }, nodeTarget: { width: 44, height: 44, borderRadius: 22, position: 'absolute' }, axis: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 5, paddingHorizontal: 3 }, axisLabel: { color: 'rgba(242,223,168,.4)', fontSize: 8 }, axisNow: { color: 'rgba(242,223,168,.65)', fontFamily: typography.fontFamily.sans, fontSize: 7, letterSpacing: 1.1 }, legend: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginTop: 11 }, legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 }, legendDot: { width: 5, height: 5, borderRadius: 3 }, legendText: { color: 'rgba(244,237,216,.58)', fontSize: 9 },
   statusBlock: { paddingVertical: 56, paddingHorizontal: 18, alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(242,223,168,.16)' }, statusTitle: { color: '#F4EDD8', fontFamily: typography.fontFamily.serifSemiBold, fontSize: 18, textAlign: 'center', marginTop: 10 }, statusText: { color: 'rgba(244,237,216,.58)', fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 8 }, retryButton: { minHeight: 44, marginTop: 16, paddingHorizontal: 18, justifyContent: 'center', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(242,223,168,.42)' }, retryText: { color: colors.gold, fontFamily: typography.fontFamily.sans, fontSize: 10, letterSpacing: 1.6, textTransform: 'uppercase' }, cachedLabel: { color: 'rgba(242,223,168,.6)', fontSize: 10, textAlign: 'center', marginTop: 18 },
-  rule: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(242,223,168,.16)', marginTop: 24 }, metrics: { flexDirection: 'row', flexWrap: 'wrap', paddingTop: 17, rowGap: 18 }, metric: { width: '33.333%', alignItems: 'center', paddingHorizontal: 3 }, metricValue: { color: '#F4EDD8', fontFamily: typography.fontFamily.serifSemiBold, fontSize: 18, textAlign: 'center' }, metricLabel: { color: 'rgba(242,223,168,.48)', fontSize: 7.5, letterSpacing: 1.1, textAlign: 'center', marginTop: 4 },
+  rule: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(242,223,168,.16)', marginTop: 24 },
+  strengthHero: { alignItems: 'center', paddingTop: 20, paddingBottom: 6 },
+  strengthStateLabel: { color: colors.gold, fontFamily: typography.fontFamily.sans, fontSize: 10, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 },
+  strengthScoreRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center' },
+  strengthScore: { color: '#F4EDD8', fontFamily: typography.fontFamily.serifSemiBold, fontSize: 56, letterSpacing: 1.2, lineHeight: 62 },
+  strengthMax: { color: 'rgba(242,223,168,.45)', fontFamily: typography.fontFamily.serif, fontSize: 18, marginLeft: 4 },
+  strengthHeroLabel: { color: 'rgba(242,223,168,.5)', fontFamily: typography.fontFamily.sans, fontSize: 8, letterSpacing: 1.8, marginTop: 4, textTransform: 'uppercase' },
+  strengthContext: { color: 'rgba(244,237,216,.65)', fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 8, marginHorizontal: 16 },
+  metrics: { flexDirection: 'row', flexWrap: 'wrap', paddingTop: 17, rowGap: 18 }, metric: { width: '25%', alignItems: 'center', paddingHorizontal: 2 }, metricValue: { color: '#F4EDD8', fontFamily: typography.fontFamily.serifSemiBold, fontSize: 18, textAlign: 'center' }, metricLabel: { color: 'rgba(242,223,168,.48)', fontSize: 7.5, letterSpacing: 1.1, textAlign: 'center', marginTop: 4 },
   sectionLabel: { color: 'rgba(242,223,168,.62)', fontFamily: typography.fontFamily.sans, fontSize: 9, letterSpacing: 2.1, marginTop: 17, marginBottom: 13 }, mixRow: { flexDirection: 'row', alignItems: 'center', minHeight: 28, gap: 9 }, mixName: { width: 92, fontFamily: typography.fontFamily.serif, fontSize: 12 }, mixTrack: { flex: 1, height: 1, backgroundColor: 'rgba(242,223,168,.15)' }, mixFill: { height: 2 }, mixCount: { width: 20, color: 'rgba(244,237,216,.58)', fontSize: 11, textAlign: 'right' }, activityRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(242,223,168,.08)' }, activityDot: { width: 6, height: 6, borderRadius: 3, marginRight: 10 }, activityCopy: { flex: 1 }, activityTitle: { color: '#F4EDD8', fontFamily: typography.fontFamily.serif, fontSize: 13 }, activityDetail: { color: 'rgba(242,223,168,.5)', fontSize: 10, marginTop: 2 }, emptyRecent: { color: 'rgba(244,237,216,.55)', fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 14, paddingBottom: 8 }, insightButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }, insightText: { flex: 1, color: 'rgba(244,237,216,.68)', fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 15, lineHeight: 22, paddingBottom: 12 },
   scrim: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,.56)' }, sheet: { backgroundColor: '#11161C', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingBottom: 28, maxHeight: '72%' }, sheetHeader: { minHeight: 62, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(242,223,168,.13)' }, sheetTitle: { color: '#F4EDD8', fontFamily: typography.fontFamily.serifSemiBold, fontSize: 18 }, closeButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }, sheetOption: { minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(242,223,168,.08)' }, sheetOptionText: { maxWidth: SCREEN_WIDTH - 105, color: '#F4EDD8', fontFamily: typography.fontFamily.serif, fontSize: 15 }, sheetOptionDetail: { color: 'rgba(242,223,168,.48)', fontSize: 10, marginTop: 2 }, radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: 'rgba(242,223,168,.35)' }, radioSelected: { borderWidth: 5, borderColor: colors.gold }, rangeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingTop: 18 }, rangeCell: { width: '47%', minHeight: 68, justifyContent: 'center', alignItems: 'center', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(242,223,168,.24)' }, rangeCellSelected: { borderColor: colors.gold, backgroundColor: 'rgba(242,223,168,.08)' }, rangeCellText: { color: 'rgba(244,237,216,.68)', fontFamily: typography.fontFamily.serif, fontSize: 15 }, rangeCellTextSelected: { color: colors.gold }, aboutSheetBody: { paddingTop: 22 }, aboutSheetLead: { color: '#F4EDD8', fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 17, lineHeight: 24 }, aboutSheetHeading: { color: 'rgba(242,223,168,.64)', fontFamily: typography.fontFamily.sans, fontSize: 9, letterSpacing: 1.9, marginTop: 21 }, aboutSheetText: { color: 'rgba(244,237,216,.68)', fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 15, lineHeight: 21, marginTop: 7 }, nodeSheetBody: { paddingTop: 22 }, nodeMode: { fontFamily: typography.fontFamily.sans, fontSize: 10, letterSpacing: 1.8, textTransform: 'uppercase' }, nodeDate: { color: '#F4EDD8', fontFamily: typography.fontFamily.serifSemiBold, fontSize: 21, marginTop: 7 }, nodeSummary: { color: 'rgba(244,237,216,.7)', fontSize: 14, marginTop: 7 }, nodeAnchor: { color: 'rgba(242,223,168,.6)', fontFamily: typography.fontFamily.bodySerifItalic, fontSize: 14, marginTop: 12 },
 });

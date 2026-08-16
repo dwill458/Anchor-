@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { requireOptionalNativeModule } from 'expo-modules-core';
-import { ChevronDown } from 'lucide-react-native';
+import { Check, ChevronDown, X } from 'lucide-react-native';
 import { colors, spacing, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
 import { detectTimezoneLabel, TIMEZONE_OPTIONS, type ProfileMono, type StoredProfile } from '@/stores/profileStore';
@@ -45,14 +45,6 @@ function getImagePickerModule(): ImagePickerModule | null {
     return null;
   }
 }
-
-const FieldLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <Text style={styles.fieldLabel}>{children}</Text>
-);
-
-const FieldHint: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <Text style={styles.fieldHint}>{children}</Text>
-);
 
 export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
   open,
@@ -216,17 +208,15 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
               },
             ]}
           >
-            <View style={styles.topShimmer} />
-            <View style={styles.handle} />
-
             <View style={styles.headerRow}>
-              <Pressable hitSlop={8} onPress={onClose}>
-                <Text style={styles.cancelLabel}>Cancel</Text>
+              <Pressable hitSlop={10} onPress={onClose} style={styles.headerButton}>
+                <X color={colors.anchor15.ash} size={18} strokeWidth={1.5} />
               </Pressable>
-              <Text style={styles.title}>EDIT PROFILE</Text>
-              <Pressable hitSlop={8} onPress={() => void handleSave()} style={styles.savePill}>
-                <Text style={styles.savePillText}>Save</Text>
-              </Pressable>
+              <View style={styles.headerTitleGroup}>
+                <Text style={styles.headerKicker}>SANCTUARY / PROFILE</Text>
+                <Text style={styles.title}>EDIT YOUR SIGNAL</Text>
+              </View>
+              <View style={styles.headerButtonPlaceholder} />
             </View>
 
             <ScrollView
@@ -235,27 +225,42 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              <View style={styles.avatarSection}>
-                <ProfileAvatar
-                  size={84}
-                  name={displayName}
-                  mono={mono}
-                  photoUri={photo}
-                  badgeSize={26}
-                  onPress={handlePhotoPress}
-                  onBadgePress={handlePhotoPress}
-                />
-                <Text style={styles.photoHint}>Tap to upload photo</Text>
+              <View style={styles.previewBlock}>
+                <View style={styles.previewCopy}>
+                  <Text style={styles.previewEyebrow}>YOUR SIGNAL</Text>
+                  <Text style={styles.previewName}>{displayName}</Text>
+                  <Text style={styles.previewAxiom} numberOfLines={2}>
+                    {axiom.trim() || 'A quiet place to return to.'}
+                  </Text>
+                  <Text style={styles.previewMeta}>This is how you appear in Anchor.</Text>
+                </View>
+                <Pressable onPress={handlePhotoPress} style={styles.previewAvatarButton}>
+                  <ProfileAvatar
+                    size={92}
+                    name={displayName}
+                    mono={mono}
+                    photoUri={photo}
+                    badgeSize={26}
+                    onPress={handlePhotoPress}
+                    onBadgePress={handlePhotoPress}
+                  />
+                  <Text style={styles.photoHint}>Change image</Text>
+                </Pressable>
               </View>
 
-              <View style={styles.fieldBlock}>
-                <FieldLabel>DISPLAY NAME</FieldLabel>
-                <View
-                  style={[
-                    styles.textField,
-                    focusedField === 'name' ? styles.textFieldFocused : null,
-                  ]}
-                >
+              <View style={styles.rule} />
+
+              <View style={styles.sectionHeading}>
+                <Text style={styles.sectionIndex}>01</Text>
+                <View style={styles.sectionHeadingCopy}>
+                  <Text style={styles.sectionTitle}>IDENTITY</Text>
+                  <Text style={styles.sectionDescription}>The name you return to.</Text>
+                </View>
+              </View>
+
+              <View style={styles.inputRow}>
+                <Text style={styles.inputLabel}>NAME</Text>
+                <View style={[styles.inputControl, focusedField === 'name' ? styles.inputControlFocused : null]}>
                   <TextInput
                     value={name}
                     onChangeText={setName}
@@ -271,17 +276,19 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                 </View>
               </View>
 
-              <View style={styles.fieldBlock}>
-                <FieldLabel>OPERATING PRINCIPLE</FieldLabel>
-                <FieldHint>One line. Your personal axiom. Shown beneath your name.</FieldHint>
-                <View
-                  style={[
-                    styles.textField,
-                    focusedField === 'axiom' || axiom.trim().length > 0
-                      ? styles.textFieldFocused
-                      : null,
-                  ]}
-                >
+              <View style={styles.rule} />
+
+              <View style={styles.sectionHeading}>
+                <Text style={styles.sectionIndex}>02</Text>
+                <View style={styles.sectionHeadingCopy}>
+                  <Text style={styles.sectionTitle}>AXIOM</Text>
+                  <Text style={styles.sectionDescription}>One sentence for the way forward.</Text>
+                </View>
+              </View>
+
+              <View style={[styles.axiomPanel, focusedField === 'axiom' ? styles.axiomPanelFocused : null]}>
+                <Text style={styles.quoteMark}>“</Text>
+                <View style={styles.axiomControl}>
                   <TextInput
                     value={axiom}
                     onChangeText={setAxiom}
@@ -291,15 +298,29 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                     placeholder="Build in silence."
                     placeholderTextColor={withAlpha(colors.anchor15.ash, 0.62)}
                     selectionColor={colors.anchor15.giltBright}
-                    style={[styles.input, axiom.trim().length > 0 ? styles.axiomInput : null]}
+                    style={styles.axiomInput}
+                    multiline
+                    numberOfLines={2}
                   />
                   <Text style={styles.counterText}>{axiom.length}/40</Text>
                 </View>
               </View>
 
-              <View style={styles.fieldBlock}>
-                <FieldLabel>DEFAULT AVATAR</FieldLabel>
-                <FieldHint>Shown when no photo is set · choose the placeholder avatar you want</FieldHint>
+              <View style={styles.rule} />
+
+              <View style={styles.sectionHeading}>
+                <Text style={styles.sectionIndex}>03</Text>
+                <View style={styles.sectionHeadingCopy}>
+                  <Text style={styles.sectionTitle}>YOUR MARK</Text>
+                  <Text style={styles.sectionDescription}>The quiet symbol that stands in for you.</Text>
+                </View>
+              </View>
+
+              <View style={styles.markPanel}>
+                <View style={styles.markPanelHeader}>
+                  <Text style={styles.markPanelLabel}>PLACEHOLDER AVATAR</Text>
+                  <Text style={styles.markPanelValue}>{mono === 'initial' ? 'INITIAL' : 'SIGIL'}</Text>
+                </View>
                 <View style={styles.markGrid}>
                   <ProfileAvatarMarkCell
                     mono="initial"
@@ -320,9 +341,21 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                 </View>
               </View>
 
-              <View style={styles.fieldBlock}>
-                <FieldLabel>TIMEZONE</FieldLabel>
-                <FieldHint>Auto-detected · used for Constancy accuracy</FieldHint>
+              <View style={styles.rule} />
+
+              <View style={styles.sectionHeading}>
+                <Text style={styles.sectionIndex}>04</Text>
+                <View style={styles.sectionHeadingCopy}>
+                  <Text style={styles.sectionTitle}>CONSTANCY</Text>
+                  <Text style={styles.sectionDescription}>Keep your practice aligned to local time.</Text>
+                </View>
+              </View>
+
+              <View style={styles.timezonePanel}>
+                <View style={styles.timezoneLabelGroup}>
+                  <Text style={styles.inputLabel}>TIMEZONE</Text>
+                  <Text style={styles.timezoneHint}>Used for streak accuracy</Text>
+                </View>
                 <Pressable
                   onPress={() => setTimezoneOpen((value) => !value)}
                   style={[
@@ -366,7 +399,22 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                   </ScrollView>
                 ) : null}
               </View>
+
+              <View style={styles.footerNote}>
+                <Check color={colors.anchor15.gilt} size={15} strokeWidth={1.5} />
+                <Text style={styles.footerNoteText}>Your profile is private to your Anchor.</Text>
+              </View>
             </ScrollView>
+
+            <View style={styles.footer}>
+              <Pressable
+                onPress={() => void handleSave()}
+                style={({ pressed }) => [styles.saveButton, pressed && styles.saveButtonPressed]}
+              >
+                <Text style={styles.saveButtonText}>SAVE CHANGES</Text>
+                <Text style={styles.saveButtonArrow}>↗</Text>
+              </Pressable>
+            </View>
           </Animated.View>
         </KeyboardAvoidingView>
       </View>
@@ -405,88 +453,260 @@ const styles = StyleSheet.create({
     display: 'none',
   },
   headerRow: {
-    minHeight: 64,
+    minHeight: 72,
     paddingHorizontal: 22,
-    paddingTop: 10,
-    paddingBottom: 10,
+    paddingTop: 12,
+    paddingBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.anchor15.hairlineGold,
   },
-  cancelLabel: {
+  headerButton: {
+    width: 36,
+    height: 36,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  headerButtonPlaceholder: {
+    width: 36,
+    height: 36,
+  },
+  headerTitleGroup: {
+    alignItems: 'center',
+    gap: 3,
+  },
+  headerKicker: {
     fontFamily: typography.fontFamily.instrument,
-    fontSize: 11,
-    letterSpacing: 0.35,
-    color: colors.anchor15.ash,
+    fontSize: 9,
+    letterSpacing: 1.6,
+    color: withAlpha(colors.anchor15.ash, 0.7),
   },
   title: {
     fontFamily: typography.fontFamily.ritual,
-    fontSize: 11,
-    letterSpacing: 2.2,
-    color: colors.anchor15.gilt,
-  },
-  savePill: {
-    minWidth: 44,
-    minHeight: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  savePillText: {
-    fontFamily: typography.fontFamily.instrumentSemiBold,
-    fontSize: 11,
+    fontSize: 12,
+    letterSpacing: 2.5,
     color: colors.anchor15.giltBright,
-    letterSpacing: 0.9,
-    textTransform: 'uppercase',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 22,
-    paddingTop: 26,
-    paddingBottom: 42,
+    paddingTop: 18,
+    paddingBottom: 12,
   },
-  avatarSection: {
+  previewBlock: {
+    minHeight: 148,
+    paddingTop: 18,
+    paddingBottom: 8,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 34,
+    justifyContent: 'space-between',
+    gap: 18,
+  },
+  previewCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  previewEyebrow: {
+    fontFamily: typography.fontFamily.ritual,
+    fontSize: 9,
+    letterSpacing: 2.3,
+    color: colors.anchor15.ash,
+    marginBottom: 10,
+  },
+  previewName: {
+    fontFamily: typography.fontFamily.ritual,
+    fontSize: 26,
+    letterSpacing: 0.3,
+    color: colors.anchor15.bone,
+    marginBottom: 5,
+  },
+  previewAxiom: {
+    fontFamily: typography.fontFamily.voiceItalic,
+    fontSize: 16,
+    lineHeight: 20,
+    color: withAlpha(colors.anchor15.bone, 0.75),
+  },
+  previewMeta: {
+    fontFamily: typography.fontFamily.instrument,
+    fontSize: 9,
+    letterSpacing: 0.25,
+    color: withAlpha(colors.anchor15.ash, 0.65),
+    marginTop: 10,
+  },
+  previewAvatarButton: {
+    alignItems: 'center',
   },
   photoHint: {
-    marginTop: 10,
+    marginTop: 8,
+    fontFamily: typography.fontFamily.instrument,
+    fontSize: 9,
+    letterSpacing: 0.5,
+    color: colors.anchor15.gilt,
+    textTransform: 'uppercase',
+  },
+  rule: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.anchor15.hairlineGold,
+    marginVertical: 20,
+  },
+  sectionHeading: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 16,
+  },
+  sectionIndex: {
+    fontFamily: typography.fontFamily.instrument,
+    fontSize: 10,
+    letterSpacing: 0.8,
+    color: colors.anchor15.gilt,
+    paddingTop: 1,
+  },
+  sectionHeadingCopy: {
+    flex: 1,
+  },
+  sectionTitle: {
+    fontFamily: typography.fontFamily.ritual,
+    fontSize: 12,
+    letterSpacing: 2.2,
+    color: colors.anchor15.bone,
+    marginBottom: 4,
+  },
+  sectionDescription: {
+    fontFamily: typography.fontFamily.voiceItalic,
+    fontSize: 12,
+    color: withAlpha(colors.anchor15.ash, 0.82),
+  },
+  inputRow: {
+    gap: 8,
+  },
+  inputLabel: {
+    fontFamily: typography.fontFamily.instrumentSemiBold,
+    fontSize: 9,
+    letterSpacing: 1.6,
+    color: colors.anchor15.ash,
+  },
+  inputControl: {
+    minHeight: 54,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: colors.anchor15.hairline,
+    backgroundColor: colors.anchor15.navy,
+    borderRadius: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  inputControlFocused: {
+    borderColor: colors.anchor15.goldLine,
+  },
+  axiomPanel: {
+    minHeight: 108,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: colors.anchor15.hairline,
+    backgroundColor: colors.anchor15.navy,
+    borderRadius: 4,
+    flexDirection: 'row',
+    gap: 6,
+  },
+  axiomPanelFocused: {
+    borderColor: colors.anchor15.goldLine,
+  },
+  quoteMark: {
+    fontFamily: typography.fontFamily.voice,
+    fontSize: 28,
+    lineHeight: 30,
+    color: colors.anchor15.gilt,
+  },
+  axiomControl: {
+    flex: 1,
+    minWidth: 0,
+  },
+  markPanel: {
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.anchor15.hairline,
+    backgroundColor: withAlpha(colors.anchor15.navy, 0.72),
+    borderRadius: 4,
+  },
+  markPanelHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  markPanelLabel: {
+    fontFamily: typography.fontFamily.instrumentSemiBold,
+    fontSize: 9,
+    letterSpacing: 1.3,
+    color: colors.anchor15.ash,
+  },
+  markPanelValue: {
+    fontFamily: typography.fontFamily.instrument,
+    fontSize: 9,
+    letterSpacing: 1,
+    color: colors.anchor15.gilt,
+  },
+  timezonePanel: {
+    gap: 10,
+  },
+  timezoneLabelGroup: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+  },
+  timezoneHint: {
     fontFamily: typography.fontFamily.voiceItalic,
     fontSize: 11,
     color: withAlpha(colors.anchor15.ash, 0.72),
   },
-  fieldBlock: {
-    marginBottom: 28,
-  },
-  fieldLabel: {
-    fontFamily: typography.fontFamily.ritual,
-    fontSize: 9,
-    letterSpacing: 2.1,
-    color: colors.anchor15.ash,
-    marginBottom: 6,
-  },
-  fieldHint: {
-    fontFamily: typography.fontFamily.voiceItalic,
-    fontSize: 11,
-    color: withAlpha(colors.anchor15.ash, 0.78),
-    marginBottom: 12,
-  },
-  textField: {
-    minHeight: 54,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: colors.anchor15.hairline,
-    backgroundColor: colors.anchor15.navy,
-    paddingHorizontal: 14,
+  footerNote: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginTop: 28,
+    marginBottom: 18,
   },
-  textFieldFocused: {
-    borderColor: colors.anchor15.goldLine,
+  footerNoteText: {
+    fontFamily: typography.fontFamily.voiceItalic,
+    fontSize: 11,
+    color: withAlpha(colors.anchor15.ash, 0.72),
+  },
+  footer: {
+    paddingHorizontal: 22,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 18 : 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.anchor15.hairlineGold,
+    backgroundColor: colors.anchor15.ink,
+  },
+  saveButton: {
+    minHeight: 52,
+    paddingHorizontal: 18,
+    borderRadius: 4,
+    backgroundColor: colors.anchor15.gilt,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  saveButtonPressed: {
+    opacity: 0.78,
+  },
+  saveButtonText: {
+    fontFamily: typography.fontFamily.instrumentSemiBold,
+    fontSize: 11,
+    letterSpacing: 1.5,
+    color: colors.anchor15.ink,
+  },
+  saveButtonArrow: {
+    fontFamily: typography.fontFamily.instrument,
+    fontSize: 21,
+    color: colors.anchor15.ink,
   },
   input: {
     flex: 1,

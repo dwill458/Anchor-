@@ -27,6 +27,7 @@ import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { colors } from '@/theme';
 import { withAlpha } from '@/utils/color';
 import type { Anchor } from '@/types';
+import type { PerformanceTier } from '@/hooks/usePerformanceTier';
 import { formatCategory } from '../utils/anchorStateHelpers';
 import { useSessionStore } from '@/stores/sessionStore';
 import { calculateStreak } from '@/utils/streakHelpers';
@@ -144,12 +145,14 @@ export interface HeroAnchorCardProps {
   anchor: Anchor;
   onPress: () => void;
   reduceMotionEnabled?: boolean;
+  performanceTier?: PerformanceTier;
 }
 
 const HeroAnchorCardInner: React.FC<HeroAnchorCardProps> = ({
   anchor,
   onPress,
   reduceMotionEnabled = false,
+  performanceTier = 'high',
 }) => {
   const imageUrl = anchor.enhancedImageUrl;
   const sigilSvg = anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg;
@@ -212,6 +215,7 @@ const HeroAnchorCardInner: React.FC<HeroAnchorCardProps> = ({
               imageUrl={imageUrl}
               sigilXml={sigilSvg}
               reduceMotionEnabled={reduceMotionEnabled}
+              performanceTier={performanceTier}
             />
           </View>
         </View>
