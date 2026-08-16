@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import Animated, {
   Easing,
+  FadeIn,
+  FadeOut,
   interpolate,
-  runOnJS,
+  LinearTransition,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -62,49 +64,14 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
   const modeColor = MODE_COLORS[variant];
   const reduceMotion = useReduceMotionEnabled();
 
-  const [isRendered, setIsRendered] = useState(selected);
-  const [measuredHeight, setMeasuredHeight] = useState(selected ? 52 : 0);
   const progress = useSharedValue(selected ? 1 : 0);
 
   useEffect(() => {
-    if (selected) {
-      setIsRendered(true);
-      if (measuredHeight === 0) {
-        setMeasuredHeight(52);
-      }
-      progress.value = withTiming(1, {
-        duration: reduceMotion ? 0 : ANIMATION_DURATION,
-        easing: Easing.bezier(0.22, 1, 0.36, 1),
-      });
-    } else {
-      progress.value = withTiming(
-        0,
-        {
-          duration: reduceMotion ? 0 : 200,
-          easing: Easing.bezier(0.22, 1, 0.36, 1),
-        },
-        (finished) => {
-          if (finished) {
-            runOnJS(setIsRendered)(false);
-          }
-        },
-      );
-    }
-  }, [selected, reduceMotion, progress, measuredHeight]);
-
-  const accordionStyle = useAnimatedStyle(() => {
-    if (measuredHeight > 0) {
-      return {
-        height: interpolate(progress.value, [0, 1], [0, measuredHeight]),
-        opacity: progress.value,
-        overflow: 'hidden',
-      };
-    }
-    return {
-      opacity: progress.value,
-      overflow: 'hidden',
-    };
-  });
+    progress.value = withTiming(selected ? 1 : 0, {
+      duration: reduceMotion ? 0 : ANIMATION_DURATION,
+      easing: Easing.bezier(0.22, 1, 0.36, 1),
+    });
+  }, [selected, reduceMotion, progress]);
 
   const nodeAnimatedStyle = useAnimatedStyle(() => {
     const scale = interpolate(progress.value, [0, 1], [locked ? 0.8 : 0.65, 1]);
@@ -148,7 +115,8 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
           ]}
         />
       </View>
-      <View
+      <Animated.View
+        layout={reduceMotion ? undefined : LinearTransition.duration(ANIMATION_DURATION).easing(Easing.bezier(0.22, 1, 0.36, 1))}
         pointerEvents="none"
         style={[
           styles.content,
@@ -173,21 +141,15 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
         </View>
         <Text style={[styles.duration, selected && { color: modeColor }]}>{durationHint}</Text>
 
-        {isRendered ? (
-          <Animated.View style={accordionStyle}>
-            <View
-              onLayout={(e) => {
-                const h = e.nativeEvent.layout.height;
-                if (h > 0 && Math.abs(h - measuredHeight) > 1) {
-                  setMeasuredHeight(h);
-                }
-              }}
-            >
-              <Text style={styles.meaning}>{meaning}</Text>
-            </View>
+        {selected ? (
+          <Animated.View
+            entering={reduceMotion ? undefined : FadeIn.duration(200).easing(Easing.bezier(0.22, 1, 0.36, 1))}
+            exiting={reduceMotion ? undefined : FadeOut.duration(160).easing(Easing.bezier(0.22, 1, 0.36, 1))}
+          >
+            <Text style={styles.meaning}>{meaning}</Text>
           </Animated.View>
         ) : null}
-      </View>
+      </Animated.View>
     </Pressable>
   );
 };
