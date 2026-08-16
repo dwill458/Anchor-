@@ -31,6 +31,7 @@ import { AnalyticsService } from '@/services/AnalyticsService';
 import { TEACHINGS } from '@/constants/teaching';
 import { useAuthStore } from '@/stores/authStore';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { getAnchorCreationLimitCopy } from '@/utils/entitlements';
 import { analyzeIntention, detectGibberish, getGuidanceText } from '@/utils/intentionPatterns';
@@ -49,6 +50,7 @@ export default function ReturningIntentionScreen() {
     const clearPendingForgeIntent = useAuthStore((state) => state.clearPendingForgeIntent);
     const setPendingForgeResumeTarget = useAuthStore((state) => state.setPendingForgeResumeTarget);
     const anchorCount = useAnchorStore((state) => state.anchors.length);
+    const startAnchorDraft = useFirstAnchorFlowStore((state) => state.startAnchorDraft);
     const entitlements = useEntitlements();
 
     const scrollViewRef = useRef<ScrollView>(null);
@@ -345,6 +347,11 @@ export default function ReturningIntentionScreen() {
 
             const distillation = distillIntention(intention);
             const category = detectCategoryFromText(intention);
+            startAnchorDraft({
+                originalIntention: intention,
+                distilledLetters: distillation.finalLetters,
+                generationStatus: 'idle',
+            });
             navigation.navigate('LetterDistillation', {
                 intentionText: intention,
                 category,

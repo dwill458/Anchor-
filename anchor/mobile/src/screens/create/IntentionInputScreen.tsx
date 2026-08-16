@@ -140,8 +140,7 @@ export default function IntentionInputScreen() {
     const entitlements = useEntitlements();
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
     const anchorCount = useAnchorStore((state) => state.anchors.length);
-    const updateFirstAnchorDraft = useFirstAnchorFlowStore((state) => state.updateDraft);
-    const initializedFromDraftRef = useRef(false);
+    const startFirstAnchorDraft = useFirstAnchorFlowStore((state) => state.startAnchorDraft);
 
     const reduceMotion = useReduceMotionEnabled();
 
@@ -150,12 +149,14 @@ export default function IntentionInputScreen() {
         candidateIds: ['intention_input_principles_v1'],
     });
 
+    // The field always opens empty — the example lives in the placeholder so it can be typed
+    // over rather than erased. Clearing on every focus (not just on mount) is what makes this
+    // hold when the flow is abandoned rather than completed: backing out of a failed
+    // enhancement pops down to this screen still mounted, so without the reset the previous
+    // intention would be sitting here waiting to be deleted. Matches ReturningIntentionScreen.
     useFocusEffect(
         React.useCallback(() => {
-            if (!initializedFromDraftRef.current) {
-                setIntention(useFirstAnchorFlowStore.getState().draft?.originalIntention ?? '');
-                initializedFromDraftRef.current = true;
-            }
+            setIntention('');
             setDelayedCanSubmit(false);
             setIsFocused(false);
         }, [])
@@ -244,7 +245,7 @@ export default function IntentionInputScreen() {
 
             const distillation = distillIntention(intention);
             const category = detectCategoryFromText(intention);
-            updateFirstAnchorDraft({
+            startFirstAnchorDraft({
                 originalIntention: intention,
                 distilledLetters: distillation.finalLetters,
                 generationStatus: 'idle',

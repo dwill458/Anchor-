@@ -30,6 +30,13 @@ export interface FirstAnchorFlowDraft {
 type FirstAnchorFlowState = {
   draft: FirstAnchorFlowDraft | null;
   updateDraft: (updates: Omit<Partial<FirstAnchorFlowDraft>, 'updatedAt'>) => void;
+  /**
+   * Begin a fresh Anchor. Unlike {@link FirstAnchorFlowState.updateDraft}, this replaces the
+   * draft rather than merging into it, so an abandoned attempt can never leak its structure,
+   * drawing, or style into the next one. Onboarding identity is not part of any single Anchor,
+   * so it is carried across.
+   */
+  startAnchorDraft: (updates: Omit<Partial<FirstAnchorFlowDraft>, 'updatedAt'>) => void;
   clearDraft: () => void;
 };
 
@@ -43,6 +50,15 @@ export const useFirstAnchorFlowStore = create<FirstAnchorFlowState>()(
         set((state) => ({
           draft: {
             ...state.draft,
+            ...updates,
+            updatedAt: new Date().toISOString(),
+          },
+        })),
+      startAnchorDraft: (updates) =>
+        set((state) => ({
+          draft: {
+            onboardingName: state.draft?.onboardingName,
+            onboardingUseCase: state.draft?.onboardingUseCase,
             ...updates,
             updatedAt: new Date().toISOString(),
           },

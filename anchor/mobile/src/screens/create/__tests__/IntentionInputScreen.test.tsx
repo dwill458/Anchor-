@@ -1,13 +1,19 @@
 import React from 'react';
 import { render, cleanup, fireEvent, screen, act } from '@testing-library/react-native';
 import IntentionInputScreen from '../IntentionInputScreen';
+import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
 
-// Mock navigation
+// Mock navigation. The focus callback is captured so tests can refocus the screen the way
+// backing out of a later step does, without unmounting it.
 const mockNavigate = jest.fn();
+let mockFocusEffectCallback: (() => void) | null = null;
 jest.mock('@react-navigation/native', () => ({
     ...jest.requireActual('@react-navigation/native'),
     useNavigation: () => ({ navigate: mockNavigate, goBack: jest.fn() }),
-    useFocusEffect: (effect: any) => require('react').useEffect(effect, [effect]),
+    useFocusEffect: (effect: any) => {
+        mockFocusEffectCallback = effect;
+        require('react').useEffect(effect, [effect]);
+    },
     useRoute: () => ({ params: {} }),
 }));
 
@@ -51,6 +57,7 @@ jest.mock('@/components/common', () => ({
 describe('IntentionInputScreen', () => {
     beforeEach(() => {
         mockNavigate.mockClear();
+        useFirstAnchorFlowStore.getState().clearDraft();
         jest.useFakeTimers();
     });
 
@@ -100,6 +107,56 @@ describe('IntentionInputScreen', () => {
         expect(mockNavigate).toHaveBeenCalledWith('LetterDistillation', expect.objectContaining({
             intentionText: 'Stay calm under pressure',
         }));
+    });
+
+    it('opens with an empty field and an example placeholder, even after an abandoned draft', () => {
+        useFirstAnchorFlowStore.getState().updateDraft({
+            originalIntention: 'An intention from an abandoned attempt',
+        });
+
+        render(<IntentionInputScreen />);
+
+        const input = screen.getByLabelText('What are you anchoring right now?');
+        expect(input.props.value).toBe('');
+        expect(input.props.placeholder).toBe('I am fully present with my work.');
+    });
+
+    it('clears the field when refocused after backing out of a failed flow', () => {
+        render(<IntentionInputScreen />);
+        const input = screen.getByLabelText('What are you anchoring right now?');
+        fireEvent.changeText(input, 'csbfbf');
+        expect(input.props.value).toBe('csbfbf');
+
+        // Backing out of a failed enhancement pops down to this screen, still mounted.
+        act(() => { mockFocusEffectCallback?.(); });
+
+        expect(screen.getByLabelText('What are you anchoring right now?').props.value).toBe('');
+    });
+
+    it('replaces an abandoned draft rather than merging into it on submit', () => {
+        useFirstAnchorFlowStore.getState().updateDraft({
+            onboardingName: 'Dana',
+            originalIntention: 'An intention from an abandoned attempt',
+            structure: 'compact',
+            selectedStyleId: 'ember',
+            drawingSvg: '<svg />',
+        });
+
+        render(<IntentionInputScreen />);
+        fireEvent.changeText(
+            screen.getByLabelText('What are you anchoring right now?'),
+            'Stay calm under pressure'
+        );
+        act(() => { jest.advanceTimersByTime(500); });
+        fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+
+        const draft = useFirstAnchorFlowStore.getState().draft;
+        expect(draft?.originalIntention).toBe('Stay calm under pressure');
+        expect(draft?.structure).toBeUndefined();
+        expect(draft?.selectedStyleId).toBeUndefined();
+        expect(draft?.drawingSvg).toBeUndefined();
+        // Onboarding identity is not part of any one Anchor, so it survives.
+        expect(draft?.onboardingName).toBe('Dana');
     });
 
     it.each([
