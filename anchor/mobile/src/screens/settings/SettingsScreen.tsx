@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation, CommonActions } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ArrowLeft } from 'lucide-react-native';
 
@@ -293,16 +293,6 @@ export const SettingsScreen: React.FC = () => {
     });
   }, [reveal]);
 
-  const resetToOnboarding = useCallback(() => {
-    const rootNavigation = navigation.getParent() as any;
-    (rootNavigation ?? navigation).dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [{ name: 'Onboarding' }],
-      }),
-    );
-  }, [navigation]);
-
   const handleSignOut = useCallback(() => {
     setConfirmationKind('signOut');
   }, []);
@@ -327,8 +317,7 @@ export const SettingsScreen: React.FC = () => {
 
     await signOut();
     setHasCompletedOnboarding(false);
-    resetToOnboarding();
-  }, [resetToOnboarding, setHasCompletedOnboarding, signOut]);
+  }, [setHasCompletedOnboarding, signOut]);
 
   const handleDeleteAccount = useCallback(() => {
     setConfirmationKind('deleteAccount');
@@ -357,8 +346,7 @@ export const SettingsScreen: React.FC = () => {
 
     await signOut();
     setHasCompletedOnboarding(false);
-    resetToOnboarding();
-  }, [resetToOnboarding, setHasCompletedOnboarding, signOut]);
+  }, [setHasCompletedOnboarding, signOut]);
 
   const handleResetTeachingTips = useCallback(() => {
     setConfirmationKind('resetTips');

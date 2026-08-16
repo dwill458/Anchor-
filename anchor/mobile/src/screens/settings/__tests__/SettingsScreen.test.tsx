@@ -220,6 +220,28 @@ describe('SettingsScreen', () => {
     expect(screen.getByLabelText('Delete Account')).toBeTruthy();
   });
 
+  it('signs the user out and clears onboarding state when Sign Out is confirmed', async () => {
+    const { AuthService } = require('@/services/AuthService');
+    mockAuthStoreState.user = {
+      id: 'user-1',
+      email: 'member@anchor.test',
+    };
+    mockAuthStoreState.isAuthenticated = true;
+
+    const screen = render(<SettingsScreen />);
+    fireEvent.press(screen.getByTestId('settings-row-Sign Out'));
+
+    expect(screen.getByText('Sign out of Anchor?')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Sign Out'));
+
+    await waitFor(() => {
+      expect(AuthService.signOut).toHaveBeenCalled();
+      expect(mockAuthStoreState.signOut).toHaveBeenCalled();
+      expect(mockAuthStoreState.setHasCompletedOnboarding).toHaveBeenCalledWith(false);
+    });
+  });
+
   it('requests permission before enabling notifications', async () => {
     const screen = render(<SettingsScreen />);
 
