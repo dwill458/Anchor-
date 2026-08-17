@@ -38,6 +38,7 @@ import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { calculateThreadStrengthScore, selectCanonicalPracticeEvents } from '@/utils/practiceMetrics';
 import { localDateKey } from '@/utils/practiceTime';
+import { getThreadStrengthState } from '@/utils/threadStrength';
 import { colors, typography } from '@/theme';
 import { ZenBackground } from '@/components/common';
 import AuthHydrationService from '@/services/AuthHydrationService';
@@ -102,31 +103,6 @@ function axisTicks(range: WeaveRange, startDateKey: string): string[] {
 
 function scopeLabel(scope: WeaveScope, names: Map<string, string>): string {
   return scope.kind === 'all' ? 'All Practice' : names.get(scope.anchorId) ?? 'This Anchor';
-}
-
-function getThreadStrengthState(score: number): { label: string; description: string } {
-  if (score < 25) {
-    return {
-      label: 'Nascent',
-      description: 'Beginning to form through initial practice returns.',
-    };
-  }
-  if (score < 70) {
-    return {
-      label: 'Kindling',
-      description: 'Building momentum with steady recurring returns.',
-    };
-  }
-  if (score < 90) {
-    return {
-      label: 'Tempered',
-      description: 'Well-established resilience through consistent practice.',
-    };
-  }
-  return {
-    label: 'Forged',
-    description: 'Deeply anchored through enduring practice rhythm.',
-  };
 }
 
 export const TheWeaveScreen: React.FC = () => {

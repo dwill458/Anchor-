@@ -129,7 +129,7 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
       style={[styles.avatarFrame, { width: size, height: size, borderRadius: size / 2 }]}
     >
       <LinearGradient
-        colors={[withAlpha(colors.purple, 0.95), withAlpha(colors.black, 0.98)]}
+        colors={[withAlpha(colors.anchor15.steel, 0.95), withAlpha(colors.black, 0.98)]}
         start={{ x: 0.25, y: 0.18 }}
         end={{ x: 0.78, y: 1 }}
         style={[

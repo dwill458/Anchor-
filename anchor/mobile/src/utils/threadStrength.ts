@@ -26,3 +26,33 @@ export function calculateThreadDecay(
   return 30 + Math.max(0, normalizedMissedDays - decayStartDay) * 15;
 }
 
+export interface ThreadStrengthStateInfo {
+  label: string;
+  description: string;
+}
+
+export function getThreadStrengthState(score: number): ThreadStrengthStateInfo {
+  if (score < 25) {
+    return {
+      label: 'Nascent',
+      description: 'Beginning to form through initial practice returns.',
+    };
+  }
+  if (score < 70) {
+    return {
+      label: 'Kindling',
+      description: 'Building momentum with steady recurring returns.',
+    };
+  }
+  if (score < 90) {
+    return {
+      label: 'Tempered',
+      description: 'Well-established resilience through consistent practice.',
+    };
+  }
+  return {
+    label: 'Forged',
+    description: 'Deeply anchored through enduring practice rhythm.',
+  };
+}
+

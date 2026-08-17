@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -24,13 +24,15 @@ import { persistProfilePhoto } from '@/services/ProfileMediaService';
 import { apiClient } from '@/services/ApiClient';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
-import { useProfileStore } from '@/stores/profileStore';
+import { EMPTY_AXIOM, useProfileStore } from '@/stores/profileStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { colors, typography } from '@/theme';
 import type { ApiResponse, User } from '@/types';
 import { logger } from '@/utils/logger';
-
-const EMPTY_AXIOM = 'A quiet return to what matters.';
+import { calculateThreadStrengthScore, selectCanonicalPracticeEvents } from '@/utils/practiceMetrics';
+import { localDateKey } from '@/utils/practiceTime';
+import { getThreadStrengthState } from '@/utils/threadStrength';
 
 export const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
@@ -39,6 +41,9 @@ export const ProfileScreen: React.FC = () => {
   const setUser = useAuthStore((state) => state.setUser);
   const anchors = useAnchorStore((state) => state.anchors);
   const totalSessionsCount = useSessionStore((state) => state.totalSessionsCount);
+  const practiceHistory = useSessionStore((state) => state.practiceHistory);
+  const threadStrengthSensitivity = useSettingsStore((state) => state.threadStrengthSensitivity);
+  const restDays = useSettingsStore((state) => state.restDays);
   const activeAnchors = useProgressionData().activeAnchors;
   const {
     name,
@@ -73,6 +78,21 @@ export const ProfileScreen: React.FC = () => {
         })
       : '—';
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
+
+  const threadStrengthScore = useMemo(() => {
+    const events = selectCanonicalPracticeEvents(practiceHistory, user?.id ?? null);
+    if (events.length === 0) {
+      return null;
+    }
+    return calculateThreadStrengthScore(
+      events,
+      localDateKey(new Date()),
+      threadStrengthSensitivity,
+      restDays,
+    );
+  }, [practiceHistory, restDays, threadStrengthSensitivity, user?.id]);
+  const threadStrengthState =
+    threadStrengthScore !== null ? getThreadStrengthState(threadStrengthScore) : null;
 
   const handleClose = () => {
     const parent = navigation.getParent();
@@ -183,6 +203,30 @@ export const ProfileScreen: React.FC = () => {
             </View>
           </View>
 
+          <View style={styles.statsRow}>
+            <View style={styles.statBlock}>
+              <Text style={styles.statValue}>{activeAnchors}</Text>
+              <Text style={styles.statLabel}>Active Anchors</Text>
+            </View>
+            <View style={styles.statBlock}>
+              <Text style={styles.statValue}>{totalSessionsCount}</Text>
+              <Text style={styles.statLabel}>Sessions</Text>
+            </View>
+          </View>
+
+          {threadStrengthState ? (
+            <View
+              style={styles.strengthBadge}
+              accessibilityLabel={`Thread Strength ${threadStrengthScore} out of 100, ${threadStrengthState.label}`}
+            >
+              <View style={styles.strengthDot} />
+              <Text style={styles.strengthLabel}>
+                {`Thread Strength · ${threadStrengthState.label}`}
+              </Text>
+              <Text style={styles.strengthMeta}>{threadStrengthScore}</Text>
+            </View>
+          ) : null}
+
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Edit Profile"
@@ -191,13 +235,6 @@ export const ProfileScreen: React.FC = () => {
           >
             <Text style={styles.editLabel}>Edit Profile</Text>
           </Pressable>
-
-          <View style={styles.rule} />
-
-          <Text style={styles.eyebrow}>Your practice</Text>
-          <Text style={styles.practiceSummary}>
-            {`${activeAnchors} active Anchors · ${totalSessionsCount} sessions`}
-          </Text>
 
           <View style={styles.rule} />
 

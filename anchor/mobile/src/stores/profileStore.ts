@@ -5,6 +5,8 @@ import type { User } from '@/types';
 
 export const PROFILE_STORAGE_KEY = 'anchor-profile-storage';
 
+export const EMPTY_AXIOM = 'A quiet return to what matters.';
+
 export const TIMEZONE_OPTIONS = [
   'UTC−12',
   'UTC−11',
