@@ -3,12 +3,9 @@ import { View, Text, StyleSheet, ScrollView, Pressable, Modal, useWindowDimensio
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle, Path, G } from 'react-native-svg';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  useAnimatedProps,
-  withRepeat,
   withSequence,
   withTiming,
   Easing,
@@ -118,109 +115,6 @@ const rgba = (hex: string, alpha: number): string => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
-// ── Morph preview — the same layered vocabulary (rings / boundary / triangle /
-// center dot / drawn path) cross-fades between structures instead of swapping
-// a static icon. Only opacity + numeric SVG attrs are animated (no transform),
-// which keeps it safe on both platforms.
-type PreviewKey = StructureCardType | 'none';
-
-type PreviewState = {
-  ringsOpacity: number;
-  boundaryOpacity: number;
-  boundaryScale: number;
-  boundaryWidth: number;
-  triangleOpacity: number;
-  dotOpacity: number;
-  drawnOpacity: number;
-};
-
-const PREVIEW_STATES: Record<PreviewKey, PreviewState> = {
-  focused: { ringsOpacity: 0.5, boundaryOpacity: 0, boundaryScale: 0.85, boundaryWidth: 2, triangleOpacity: 1, dotOpacity: 1, drawnOpacity: 0 },
-  ritual: { ringsOpacity: 0, boundaryOpacity: 0.65, boundaryScale: 1, boundaryWidth: 4.5, triangleOpacity: 1, dotOpacity: 1, drawnOpacity: 0 },
-  raw: { ringsOpacity: 0.12, boundaryOpacity: 0, boundaryScale: 1.16, boundaryWidth: 1.5, triangleOpacity: 1, dotOpacity: 0.28, drawnOpacity: 0 },
-  drawn: { ringsOpacity: 0, boundaryOpacity: 0, boundaryScale: 1, boundaryWidth: 2, triangleOpacity: 0, dotOpacity: 0, drawnOpacity: 1 },
-  none: { ringsOpacity: 0.22, boundaryOpacity: 0, boundaryScale: 1, boundaryWidth: 2, triangleOpacity: 0, dotOpacity: 0, drawnOpacity: 0 },
-};
-
-// Triangle vertices scaled around the 100,100 center per structure — precomputed
-// so the shape reads correctly the instant a structure is selected while
-// opacity still animates the actual cross-fade.
-const TRIANGLE_D: Record<StructureType, string> = {
-  focused: 'M58 62 L142 62 L72 148',
-  ritual: 'M67.24 70.36 L132.76 70.36 L78.16 137.44',
-  raw: 'M49.6 54.4 L150.4 54.4 L66.4 157.6',
-};
-
-const DRAWN_PATH_D = 'M55 145 L125 75 L145 95 L75 165 L52 168 Z';
-
-const AnimatedG = Animated.createAnimatedComponent(G);
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-const AnimatedPath = Animated.createAnimatedComponent(Path);
-
-function MorphPreview({ active, size, reduceMotion }: { active: PreviewKey; size: number; reduceMotion: boolean }) {
-  const target = PREVIEW_STATES[active];
-  const ringsOpacity = useSharedValue(target.ringsOpacity);
-  const boundaryOpacity = useSharedValue(target.boundaryOpacity);
-  const boundaryR = useSharedValue(90 * target.boundaryScale);
-  const boundaryWidth = useSharedValue(target.boundaryWidth);
-  const triangleOpacity = useSharedValue(target.triangleOpacity);
-  const dotOpacity = useSharedValue(target.dotOpacity);
-  const drawnOpacity = useSharedValue(target.drawnOpacity);
-
-  useEffect(() => {
-    const cfg = { duration: reduceMotion ? 0 : 550, easing: Easing.out(Easing.cubic) };
-    ringsOpacity.value = withTiming(target.ringsOpacity, cfg);
-    boundaryOpacity.value = withTiming(target.boundaryOpacity, cfg);
-    boundaryR.value = withTiming(90 * target.boundaryScale, cfg);
-    boundaryWidth.value = withTiming(target.boundaryWidth, cfg);
-    triangleOpacity.value = withTiming(target.triangleOpacity, cfg);
-    dotOpacity.value = withTiming(target.dotOpacity, cfg);
-    drawnOpacity.value = withTiming(target.drawnOpacity, cfg);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, reduceMotion]);
-
-  const ringsProps = useAnimatedProps(() => ({ opacity: ringsOpacity.value }));
-  const boundaryProps = useAnimatedProps(() => ({
-    opacity: boundaryOpacity.value,
-    r: boundaryR.value,
-    strokeWidth: boundaryWidth.value,
-  }));
-  const triangleProps = useAnimatedProps(() => ({ opacity: triangleOpacity.value }));
-  const dotProps = useAnimatedProps(() => ({ opacity: dotOpacity.value }));
-  const drawnProps = useAnimatedProps(() => ({ opacity: drawnOpacity.value }));
-
-  const triangleKey: StructureType = active === 'ritual' || active === 'raw' ? active : 'focused';
-
-  return (
-    <Svg width={size} height={size} viewBox="0 0 200 200" fill="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <AnimatedG animatedProps={ringsProps}>
-        {[20, 35, 50, 65, 80].map((r) => (
-          <Circle key={r} cx={100} cy={100} r={r} stroke={gilt} strokeWidth={0.8} />
-        ))}
-      </AnimatedG>
-      <AnimatedCircle cx={100} cy={100} stroke={gilt} animatedProps={boundaryProps} />
-      <AnimatedPath
-        d={TRIANGLE_D[triangleKey]}
-        stroke={giltBright}
-        strokeWidth={6.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        animatedProps={triangleProps}
-      />
-      <AnimatedCircle cx={100} cy={100} r={13} stroke={gilt} strokeWidth={1.8} animatedProps={dotProps} />
-      <AnimatedPath
-        d={DRAWN_PATH_D}
-        stroke={giltBright}
-        strokeWidth={4}
-        strokeDasharray="6 7"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        animatedProps={drawnProps}
-      />
-    </Svg>
-  );
-}
-
 export default function StructureForgeScreen() {
   const navigation = useNavigation<StructureForgeNavigationProp>();
   const route = useRoute<StructureForgeRouteProp>();
@@ -251,6 +145,8 @@ export default function StructureForgeScreen() {
   const [teachingId, setTeachingId] = useState<StructureCardType | null>(null);
   const [showAboutStructures, setShowAboutStructures] = useState(false);
   const previewFlashOpacity = useSharedValue(0);
+  const previewSigilScale = useSharedValue(1);
+  const previewSigilOpacity = useSharedValue(1);
   const teachZoneProgress = useSharedValue(0); // 0 = teach label, 1 = selected caption
   const teachTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -289,6 +185,10 @@ export default function StructureForgeScreen() {
 
   const previewFlashStyle = useAnimatedStyle(() => ({
     opacity: previewFlashOpacity.value,
+  }));
+  const previewSigilAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: previewSigilScale.value }],
+    opacity: previewSigilOpacity.value,
   }));
   const teachLabelStyle = useAnimatedStyle(() => ({ opacity: 1 - teachZoneProgress.value }));
   const selectedCaptionStyle = useAnimatedStyle(() => ({ opacity: teachZoneProgress.value }));
@@ -338,6 +238,16 @@ export default function StructureForgeScreen() {
           withTiming(0.85, { duration: 130 }),
           withTiming(0, { duration: 470 })
         );
+      if (!reduceMotion) {
+        previewSigilScale.value = withSequence(
+          withTiming(0.92, { duration: 90, easing: Easing.out(Easing.quad) }),
+          withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) })
+        );
+        previewSigilOpacity.value = withSequence(
+          withTiming(0.35, { duration: 90, easing: Easing.out(Easing.quad) }),
+          withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) })
+        );
+      }
       if (teachTimerRef.current) clearTimeout(teachTimerRef.current);
       teachTimerRef.current = setTimeout(() => setTeachingId(null), 1800);
     }
@@ -400,7 +310,14 @@ export default function StructureForgeScreen() {
     navigateToTraceStructure();
   };
 
-  const morphActive: PreviewKey = selectedStructure ?? 'none';
+  const previewXml = useMemo(() => {
+    if (selectedStructure) {
+      return selectedStructure === 'drawn'
+        ? DRAWN_ICON_XML
+        : variantByStructure[selectedStructure as StructureType] ?? '';
+    }
+    return variantByStructure.focused ?? '';
+  }, [selectedStructure, variantByStructure]);
 
   return (
     <View style={styles.container}>
@@ -450,7 +367,22 @@ export default function StructureForgeScreen() {
           <View style={[styles.previewCard, { height: previewCanvasHeight }]}>
             <View style={styles.previewGlow} pointerEvents="none" />
             <Animated.View style={[styles.previewFlash, previewFlashStyle]} pointerEvents="none" />
-            <MorphPreview active={morphActive} size={previewSize} reduceMotion={reduceMotion} />
+            <Animated.View
+              style={[
+                styles.previewSigilWrap,
+                { width: previewSize, height: previewSize },
+                previewSigilAnimatedStyle,
+              ]}
+            >
+              {previewXml ? (
+                <SigilSvg
+                  xml={previewXml}
+                  width={previewSize}
+                  height={previewSize}
+                  color={selectedStructure ? giltBright : gilt}
+                />
+              ) : null}
+            </Animated.View>
             <Text style={styles.previewTag}>Preview</Text>
           </View>
 
@@ -765,6 +697,10 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     borderRadius: 20,
     backgroundColor: rgba(gilt, 0.4),
+  },
+  previewSigilWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   previewTag: {
     position: 'absolute',

@@ -85,4 +85,11 @@ describe('StructureForgeScreen', () => {
             isFromScratch: true,
         }));
     });
+
+    it('renders and syncs preview to selected structure', () => {
+        render(<StructureForgeScreen />);
+        expect(screen.getByText('Preview')).toBeTruthy();
+        fireEvent.press(screen.getByLabelText('Contained structure'));
+        expect(screen.getByText('Contained selected')).toBeTruthy();
+    });
 });
