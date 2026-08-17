@@ -1663,6 +1663,10 @@ describe('Waypoint skip', () => {
   it('replays a committed skip without a second mutation', async () => {
     mockPrisma.courseEvent.findUnique.mockResolvedValue({
       id: 'event-skip',
+      userId: USER_ID,
+      courseId: COURSE_ID,
+      waypointId: WP.current,
+      eventType: CourseEventType.WAYPOINT_SKIPPED,
       idempotencyKey: 'chart:waypoint-transition:skip-1',
     });
     mockPrisma.course.findFirst.mockResolvedValue(courseRow());

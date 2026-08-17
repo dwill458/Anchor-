@@ -22,6 +22,14 @@ jest.mock('../../../config/chartFlags', () => ({
   requireChartReflectionWritesEnabled: jest.fn(),
 }));
 
+// Route tests exercise request validation and response contracts. The
+// server-authoritative capability projection is covered separately; stub it
+// here so the route fixture represents an account with Chart access enabled.
+const mockGetChartCapabilities = jest.fn();
+jest.mock('../../../services/ChartCapabilityService', () => ({
+  getChartCapabilities: (...args: unknown[]) => mockGetChartCapabilities(...args),
+}));
+
 const mockCourseService = {
   initializeChartForUser: jest.fn(),
   listCourses: jest.fn(),
@@ -96,6 +104,11 @@ beforeEach(() => {
   mockedWriteEnabled.mockImplementation(() => undefined);
   mockedInitialized.mockImplementation(() => undefined);
   mockedReflectionWrites.mockImplementation(() => undefined);
+  mockGetChartCapabilities.mockResolvedValue({
+    canViewChart: true,
+    canEditCourse: true,
+    canCreateOrEditReflections: true,
+  });
   mockCourseService.completeWaypoint.mockResolvedValue({
     course: { id: COURSE_ID, version: 8, currentWaypointId: 'wp-5k' },
     completedWaypoint: { id: WAYPOINT_ID, state: 'REACHED' },
@@ -471,7 +484,14 @@ describe('Ownership resolution', () => {
 
     expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
       where: { authUid: 'firebase-user-1' },
-      select: { id: true, chartSchemaVersion: true },
+      select: {
+        id: true,
+        chartSchemaVersion: true,
+        isComped: true,
+        subscriptionStatus: true,
+        subscriptionId: true,
+        trialStartedAt: true,
+      },
     });
     expect(mockCourseService.getCourse).toHaveBeenCalledWith('user-1', COURSE_ID);
   });

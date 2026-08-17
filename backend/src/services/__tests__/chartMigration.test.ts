@@ -18,9 +18,14 @@ const ROLLBACK_PATH = join(
   __dirname,
   '../../../prisma/migrations/ROLLBACK_20260802000000_add_chart_backend_foundation.sql',
 );
+const DEV_ROLLBACK_PATH = join(
+  __dirname,
+  '../../../prisma/migrations/DEV_ONLY_DESTRUCTIVE_ROLLBACK_20260802000000_add_chart_backend_foundation.sql',
+);
 
 const migration = readFileSync(join(MIGRATION_DIR, 'migration.sql'), 'utf8');
 const rollback = readFileSync(ROLLBACK_PATH, 'utf8');
+const devRollback = readFileSync(DEV_ROLLBACK_PATH, 'utf8');
 const schema = readFileSync(join(__dirname, '../../../prisma/schema.prisma'), 'utf8');
 
 const CHART_TABLES = [
@@ -171,42 +176,56 @@ describe('Chart migration — deletion behavior matches the burn contract', () =
   });
 });
 
-describe('Chart migration — rollback is complete', () => {
-  it('drops every table the migration created', () => {
+describe('Chart migration — rollback safety', () => {
+  it('refuses a destructive production rollback', () => {
+    expect(rollback).toMatch(/RAISE\s+EXCEPTION/i);
+    expect(rollback).not.toMatch(/DROP\s+TABLE/i);
+    expect(rollback).not.toMatch(/DROP\s+COLUMN/i);
+    expect(rollback).not.toMatch(/DELETE\s+FROM/i);
+  });
+
+  it('keeps the destructive rollback explicitly disposable and guarded', () => {
+    expect(devRollback).toMatch(/DISPOSABLE DEVELOPMENT DATABASES ONLY/i);
+    expect(devRollback).toMatch(/NEVER RUN THIS IN PRODUCTION/i);
+    expect(devRollback).toMatch(/RAISE\s+EXCEPTION/i);
+    expect(devRollback).toContain("current_setting('anchor.chart_destructive_rollback', true)");
+  });
+
+  it('drops every table the disposable rollback migration created', () => {
     for (const table of CHART_TABLES) {
-      expect(rollback).toContain(`DROP TABLE IF EXISTS "${table}"`);
+      expect(devRollback).toContain(`DROP TABLE IF EXISTS "${table}"`);
     }
   });
 
-  it('drops every enum the migration created', () => {
+  it('drops every enum the disposable rollback migration created', () => {
     for (const enumName of CHART_ENUMS) {
-      expect(rollback).toContain(`DROP TYPE IF EXISTS "${enumName}"`);
+      expect(devRollback).toContain(`DROP TYPE IF EXISTS "${enumName}"`);
     }
   });
 
-  it('drops every column the migration added to existing tables', () => {
-    expect(rollback).toContain('DROP COLUMN IF EXISTS "course_id"');
-    expect(rollback).toContain('DROP COLUMN IF EXISTS "waypoint_id"');
-    expect(rollback).toContain('DROP COLUMN IF EXISTS "practice_entry_source"');
-    expect(rollback).toContain('DROP COLUMN IF EXISTS "chart_schema_version"');
+  it('drops every column the disposable rollback migration added to existing tables', () => {
+    expect(devRollback).toContain('DROP COLUMN IF EXISTS "course_id"');
+    expect(devRollback).toContain('DROP COLUMN IF EXISTS "waypoint_id"');
+    expect(devRollback).toContain('DROP COLUMN IF EXISTS "practice_entry_source"');
+    expect(devRollback).toContain('DROP COLUMN IF EXISTS "chart_schema_version"');
   });
 
-  it('drops the added index', () => {
-    expect(rollback).toContain(
+  it('drops the added index in the disposable rollback migration', () => {
+    expect(devRollback).toContain(
       'DROP INDEX IF EXISTS "practice_sessions_course_id_completed_at_idx"',
     );
   });
 
-  it('touches nothing outside Chart', () => {
+  it('touches no unrelated tables', () => {
     // A rollback that dropped anchors/users/practice_sessions would destroy
     // pre-Chart production data.
     for (const table of ['anchors', 'users', 'practice_sessions', 'activations']) {
-      expect(rollback).not.toContain(`DROP TABLE IF EXISTS "${table}"`);
+      expect(devRollback).not.toContain(`DROP TABLE IF EXISTS "${table}"`);
     }
   });
 
-  it('is idempotent so a partial rollback can be re-run', () => {
-    const destructive = rollback
+  it('is idempotent so a disposable rollback can be re-run', () => {
+    const destructive = devRollback
       .split('\n')
       .filter(line => /^\s*(DROP|ALTER TABLE .*DROP)/i.test(line));
     expect(destructive.length).toBeGreaterThan(0);
