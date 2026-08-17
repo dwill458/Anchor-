@@ -136,6 +136,34 @@ lerna-debug.log*
 pnpm-debug.log*
 
 # ----------------------------------------------------------------------------
+# Python
+# ----------------------------------------------------------------------------
+.venv/
+__pycache__/
+*.pyc
+
+# ----------------------------------------------------------------------------
+# Scraped/decompiled reference dumps and one-off extraction scripts
+# ----------------------------------------------------------------------------
+anchor/mobile/artifacts/anchor15-reference-source/package/extracted_06/
+anchor/mobile/artifacts/anchor15-reference-source/package/src_extracted/
+anchor/mobile/artifacts/anchor15-reference-source/package/index.html
+anchor/mobile/artifacts/anchor15-reference-source/package/[0-9]* [A-Za-z]*.html
+anchor/mobile/artifacts/profile-edit-revision/
+anchor/mobile/scripts/bundler_script_0.js
+anchor/mobile/scripts/dump_bundler_js.py
+anchor/mobile/scripts/dump_manifest.py
+anchor/mobile/scripts/extract_gzip.py
+anchor/mobile/scripts/inspect_extracted.py
+anchor/mobile/scripts/unpack_html.py
+design/extracted/
+doc_spec_extracted.txt
+extracted_manifest.json
+extracted_sanctuary.html
+scripts/extract_bundles.py
+scripts/extract_css.py
+
+# ----------------------------------------------------------------------------
 # Misc
 # ----------------------------------------------------------------------------
 .turbo/
