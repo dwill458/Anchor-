@@ -46,16 +46,32 @@ export function isTerminal(
   return Boolean(waypoint.reachedAt || waypoint.skippedAt || waypoint.cancelledAt);
 }
 
+/**
+ * Decision D10 (see docs/chart/PHASE_0_D10_DECISION.md).
+ *
+ * `BLOCKED` means an Anchor link that once existed has stopped being usable. It
+ * does not mean "not set up yet". A waypoint that has never had a primary
+ * Anchor link is therefore not blocked — it is simply un-anchored, and its
+ * current-ness is decided by `Course.currentWaypointId` alone.
+ *
+ * The caller must pass the waypoint's *state* link: the active primary link if
+ * one is open, otherwise the most recently closed one. A closed link is what
+ * carries the historical blocked reason after an unlink or a burn/release, and
+ * it is also the only thing that distinguishes those two cases from a waypoint
+ * that was never linked at all. Passing only the active link makes every one of
+ * the three collapse into `null` and derives the wrong answer.
+ */
 export function deriveBlockedReason(
-  activeLink: ActiveLink,
+  stateLink: ActiveLink,
   anchor: AvailableAnchor
 ): BlockedReason | null {
-  if (activeLink?.unlinkedAt) {
-    const snapshot = activeLink.anchorSnapshot as Partial<AnchorSnapshot> | null;
+  if (!stateLink) return null;
+  if (stateLink.unlinkedAt) {
+    const snapshot = stateLink.anchorSnapshot as Partial<AnchorSnapshot> | null;
     return snapshot?.releasedAtUnlink ? 'ANCHOR_RELEASED' : 'ANCHOR_UNLINKED';
   }
-  if (activeLink?.anchorId == null) {
-    return activeLink ? 'ANCHOR_DELETED' : 'ANCHOR_UNLINKED';
+  if (stateLink.anchorId == null) {
+    return 'ANCHOR_DELETED';
   }
   if (!anchor || anchor.isArchived) {
     return 'ANCHOR_RELEASED';
@@ -199,9 +215,18 @@ export function buildWaypointSummary(
   };
 }
 
+/**
+ * Whether the waypoint has a usable Anchor right now.
+ *
+ * Since D10 this is strictly stronger than "not blocked": a never-linked
+ * waypoint is not blocked, but it still has no Anchor to practice against. Any
+ * surface gating practice must use this, not the absence of a blocked reason.
+ */
 export function hasAvailablePrimaryAnchor(
   activeLink: ActiveLink,
   anchor: AvailableAnchor
 ): boolean {
-  return deriveBlockedReason(activeLink, anchor) === null;
+  return Boolean(
+    activeLink && !activeLink.unlinkedAt && activeLink.anchorId && anchor && !anchor.isArchived
+  );
 }

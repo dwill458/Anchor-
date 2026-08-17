@@ -15,6 +15,7 @@ import { getFirebaseAdmin } from '../../config/firebase';
 import { hasCompedAccess } from '../../utils/compedAccess';
 import { logger } from '../../utils/logger';
 import { getChartFeatureFlags } from '../../config/chartFlags';
+import { getChartCapabilities } from '../../services/ChartCapabilityService';
 
 const router = Router();
 
@@ -362,6 +363,72 @@ async function getExportSection<T>(
   }
 }
 
+const REFLECTION_EXPORT_KEYS = [
+  'id',
+  'userId',
+  'source',
+  'promptType',
+  'promptVersion',
+  'body',
+  'structuredContent',
+  'moodBefore',
+  'moodAfter',
+  'practiceSessionId',
+  'anchorId',
+  'courseId',
+  'waypointId',
+  'aiConsentGrantedAt',
+  'createdAt',
+  'updatedAt',
+  'deletedAt',
+  'idempotencyKey',
+  'schemaVersion',
+] as const;
+
+const AI_PROPOSAL_EXPORT_KEYS = [
+  'id',
+  'userId',
+  'courseId',
+  'baseCourseVersion',
+  'plannerVersion',
+  'modelVersion',
+  'inputHash',
+  'destinationInterpretation',
+  'waypoints',
+  'generationSource',
+  'fallbackReason',
+  'status',
+  'createdAt',
+  'expiresAt',
+  'acceptedAt',
+  'idempotencyKey',
+] as const;
+
+function projectExportFields(value: unknown, keys: readonly string[]): Record<string, unknown> {
+  if (!value || typeof value !== 'object') return {};
+  const record = value as Record<string, unknown>;
+  return Object.fromEntries(keys.filter(key => key in record).map(key => [key, record[key]]));
+}
+
+function serializeReflectionForExport(value: unknown): Record<string, unknown> {
+  const reflection = projectExportFields(value, REFLECTION_EXPORT_KEYS);
+  // A deleted Reflection remains a neutral tombstone for sync/audit purposes;
+  // its freeform body and structured content must not be resurrected by export.
+  if (reflection.deletedAt) {
+    reflection.body = null;
+    reflection.structuredContent = null;
+    reflection.moodBefore = null;
+    reflection.moodAfter = null;
+  }
+  return reflection;
+}
+
+function serializeAiProposalForExport(value: unknown): Record<string, unknown> {
+  // Keep the normalized proposal needed to reconstruct the user's Chart data,
+  // while excluding any future raw prompt/provider response/credential fields.
+  return projectExportFields(value, AI_PROPOSAL_EXPORT_KEYS);
+}
+
 /**
  * POST /api/auth/sync
  *
@@ -587,6 +654,7 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response, next: 
 
     const isComped = await syncCompedFlag(userRecord);
     const user = { ...userRecord, isComped };
+    const chartCapabilities = await getChartCapabilities(user);
 
     res.json({
       success: true,
@@ -594,6 +662,9 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response, next: 
         ...serializeUser(user),
         settings: userRecord.settings,
         chartFlags: getChartFeatureFlags(),
+        // Additive, account-authoritative decisions. Legacy clients keep using
+        // chartFlags; no billing/provider internals leave the server.
+        chartCapabilities,
       },
     });
   } catch (error) {
@@ -672,6 +743,7 @@ router.get(
         courseAnchorLinks,
         reflections,
         courseEvents,
+        aiPlanProposals,
       ] = await Promise.all([
         // Progression-critical sections fail the whole export instead of
         // returning a deceptively complete v2 payload with missing history.
@@ -780,7 +852,23 @@ router.get(
             }),
           []
         ),
+        getExportSection(
+          'aiPlanProposals',
+          exportContext,
+          () =>
+            prisma.aIPlanProposal.findMany({
+              where: { userId: user.id },
+              orderBy: { createdAt: 'desc' },
+            }),
+          []
+        ),
       ]);
+      const exportedReflections = (Array.isArray(reflections) ? reflections : []).map(
+        serializeReflectionForExport
+      );
+      const exportedAiPlanProposals = (Array.isArray(aiPlanProposals) ? aiPlanProposals : []).map(
+        serializeAiProposalForExport
+      );
       const { passwordHash: _passwordHash, ...exportedUser } = user as typeof user & {
         passwordHash?: string | null;
       };
@@ -803,8 +891,9 @@ router.get(
             courses,
             waypoints,
             courseAnchorLinks,
-            reflections,
+            reflections: exportedReflections,
             courseEvents,
+            aiPlanProposals: exportedAiPlanProposals,
           },
           burnedAnchors,
           flaggedContent,

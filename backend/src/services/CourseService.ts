@@ -222,6 +222,39 @@ function eventKey(prefix: string, idempotencyKey: string): string {
   return `chart:${prefix}:${idempotencyKey}`;
 }
 
+/**
+ * `CourseEvent.idempotencyKey` is globally unique and is derived from a
+ * client-supplied string, so a replay pre-read can return an event belonging to
+ * another account, Course, waypoint, or operation. Reusing such a row would leak
+ * a foreign event id and report a transition that never happened, so every
+ * replay path re-verifies ownership before returning a replayed result. This is
+ * the same guard `CourseEventService.append` applies, hoisted so the paths that
+ * short-circuit before `append` cannot skip it.
+ */
+function assertReplayOwnership(
+  existing: {
+    userId: string;
+    courseId: string;
+    waypointId: string | null;
+    eventType: CourseEventType;
+  },
+  expected: {
+    userId: string;
+    courseId: string;
+    waypointId: string;
+    eventType: CourseEventType;
+  }
+): void {
+  if (
+    existing.userId !== expected.userId ||
+    existing.courseId !== expected.courseId ||
+    existing.waypointId !== expected.waypointId ||
+    existing.eventType !== expected.eventType
+  ) {
+    throw new AppError('Idempotency key has already been used', 409, 'IDEMPOTENCY_CONFLICT');
+  }
+}
+
 async function findCourse(
   client: CourseClient,
   userId: string,
@@ -269,6 +302,80 @@ async function runSerializable<T>(work: (tx: TxClient) => Promise<T>): Promise<T
     }
   }
   throw new AppError('Chart transaction could not be serialized', 409, 'SYNC_CONFLICT');
+}
+
+/**
+ * The only Course creation primitive used by accepted planning proposals.
+ * Keeping this beside manual Course creation makes proposal acceptance use the
+ * same server-owned records, pointer rules, and immutable event stream.
+ */
+export async function createPublishedCourseFromProposal(
+  tx: TxClient,
+  input: {
+    userId: string;
+    proposalId: string;
+    idempotencyKey: string;
+    destinationText: string;
+    waypoints: Array<{ title: string; description: string }>;
+  }
+): Promise<CourseDetail> {
+  const existing = await findCourseByIdempotency(tx, input.userId, input.idempotencyKey);
+  if (existing) return projection(existing);
+
+  const active = await tx.course.findFirst({
+    where: { userId: input.userId, status: CourseStatus.ACTIVE, deletedAt: null },
+    select: { id: true },
+  });
+  if (active) throw new AppError('An active Course already exists', 409, 'ACTIVE_COURSE_EXISTS');
+
+  const courseId = randomUUID();
+  const waypointRows = input.waypoints.map((waypoint, index) => ({
+    id: randomUUID(),
+    courseId,
+    userId: input.userId,
+    position: (index + 1) * 100,
+    title: waypoint.title,
+    description: waypoint.description || null,
+  }));
+  if (waypointRows.length === 0) {
+    throw new AppError('A Course needs a waypoint', 422, 'WAYPOINT_NOT_FOUND');
+  }
+
+  const created = await tx.course.create({
+    data: {
+      id: courseId,
+      userId: input.userId,
+      destinationText: input.destinationText,
+      status: CourseStatus.ACTIVE,
+      currentWaypointId: waypointRows[0].id,
+      idempotencyKey: input.idempotencyKey,
+      createdFromProposalId: input.proposalId,
+      schemaVersion: 1,
+    },
+  });
+  for (const waypoint of waypointRows) await tx.waypoint.create({ data: waypoint });
+
+  await courseEventService.append(tx, {
+    userId: input.userId,
+    courseId,
+    eventType: CourseEventType.COURSE_CREATED,
+    sourceEntityType: 'Course',
+    sourceEntityId: courseId,
+    idempotencyKey: eventKey('course-created', input.idempotencyKey),
+  });
+  for (const waypoint of waypointRows) {
+    await courseEventService.append(tx, {
+      userId: input.userId,
+      courseId,
+      waypointId: waypoint.id,
+      eventType: CourseEventType.WAYPOINT_ADDED,
+      sourceEntityType: 'Waypoint',
+      sourceEntityId: waypoint.id,
+      snapshot: { waypointTitle: waypoint.title },
+      idempotencyKey: eventKey(`waypoint-added:${waypoint.id}`, input.idempotencyKey),
+    });
+  }
+  return projection(await findCourse(tx, input.userId, created.id));
 }
 
 export class CourseService {
@@ -711,6 +818,12 @@ export class CourseService {
       const reachedKey = eventKey('waypoint-complete', `${input.idempotencyKey}:reached`);
       const existing = await tx.courseEvent.findUnique({ where: { idempotencyKey: reachedKey } });
       if (existing) {
+        assertReplayOwnership(existing, {
+          userId,
+          courseId,
+          waypointId,
+          eventType: CourseEventType.WAYPOINT_REACHED,
+        });
         const replayRow = await findCourse(tx, userId, courseId);
         const completed = assertWaypointBelongs(replayRow, waypointId);
         const next = replayRow.currentWaypointId
@@ -748,8 +861,11 @@ export class CourseService {
       if (row.currentWaypointId !== waypointId)
         throw new AppError('Waypoint is not current', 409, 'WAYPOINT_NOT_CURRENT');
       const activeLink = activeLinkForWaypoint(row, waypointId);
-      const anchor = anchorFromLink(activeLink);
-      const blockedReason = deriveBlockedReason(activeLink, anchor);
+      // The guard must read the same link the projection reads, otherwise the
+      // server can refuse a transition the client was never shown as blocked
+      // (or allow one it was). See D10.
+      const stateLink = stateLinkForWaypoint(row, waypointId);
+      const blockedReason = deriveBlockedReason(stateLink, anchorFromLink(stateLink));
       if (blockedReason) throw new AppError('Waypoint is blocked', 409, 'WAYPOINT_BLOCKED');
 
       if (input.supportingPracticeSessionId) {
@@ -911,14 +1027,12 @@ export class CourseService {
         where: { idempotencyKey: eventKeyValue },
       });
       if (existing) {
-        if (
-          existing.userId !== userId ||
-          existing.courseId !== courseId ||
-          existing.waypointId !== waypointId ||
-          existing.eventType !== CourseEventType.WAYPOINT_CANCELLED
-        ) {
-          throw new AppError('Idempotency key has already been used', 409, 'IDEMPOTENCY_CONFLICT');
-        }
+        assertReplayOwnership(existing, {
+          userId,
+          courseId,
+          waypointId,
+          eventType: CourseEventType.WAYPOINT_CANCELLED,
+        });
         return projection(await findCourse(tx, userId, courseId));
       }
 
@@ -983,7 +1097,10 @@ export class CourseService {
       const existing = await tx.courseEvent.findUnique({
         where: { idempotencyKey: eventKeyValue },
       });
-      if (existing) return projection(await findCourse(tx, userId, courseId));
+      if (existing) {
+        assertReplayOwnership(existing, { userId, courseId, waypointId, eventType });
+        return projection(await findCourse(tx, userId, courseId));
+      }
       assertExpectedVersion(row, expectedVersion);
       assertCourseActive(row);
       ensureNoCorruption(row);
@@ -992,10 +1109,8 @@ export class CourseService {
         throw new AppError('Waypoint transition is invalid', 409, 'WAYPOINT_TRANSITION_INVALID');
       if (row.currentWaypointId !== waypointId)
         throw new AppError('Waypoint is not current', 409, 'WAYPOINT_NOT_CURRENT');
-      const blockedReason = deriveBlockedReason(
-        activeLinkForWaypoint(row, waypointId),
-        anchorFromLink(activeLinkForWaypoint(row, waypointId))
-      );
+      const skipStateLink = stateLinkForWaypoint(row, waypointId);
+      const blockedReason = deriveBlockedReason(skipStateLink, anchorFromLink(skipStateLink));
       if (blockedReason) throw new AppError('Waypoint is blocked', 409, 'WAYPOINT_BLOCKED');
       const next = selectNextWaypoint(row.waypoints, waypoint.position);
       const completed = !next;
@@ -1082,12 +1197,16 @@ export class CourseService {
         );
       if (input.replaceLinkId && (!activeLink || activeLink.id !== input.replaceLinkId))
         throw new AppError('Anchor link is invalid', 422, 'ANCHOR_LINK_INVALID');
-      const wasBlocked = waypoint
-        ? deriveBlockedReason(
-            activeLinkForWaypoint(row, waypoint.id),
-            anchorFromLink(activeLinkForWaypoint(row, waypoint.id))
-          ) !== null
-        : false;
+      // WAYPOINT_UNBLOCKED may only be emitted where a WAYPOINT_BLOCKED could
+      // have been: on the current waypoint, and only when a prior link exists to
+      // have been broken. Deriving this from the active link alone made the
+      // first-ever link on a current waypoint log "Waypoint is available again."
+      // for a waypoint that was never blocked. See D10.
+      const priorStateLink = waypoint ? stateLinkForWaypoint(row, waypoint.id) : null;
+      const wasBlocked =
+        waypoint !== null &&
+        row.currentWaypointId === waypoint.id &&
+        deriveBlockedReason(priorStateLink, anchorFromLink(priorStateLink)) !== null;
       if (input.replaceLinkId && activeLink) {
         const oldAnchor = activeLink.anchor;
         await tx.courseAnchorLink.update({

@@ -70,7 +70,7 @@ const mockPrisma = {
   courseAnchorLink: { findMany: jest.fn() },
   reflection: { findMany: jest.fn(), deleteMany: jest.fn() },
   courseEvent: { findMany: jest.fn() },
-  aIPlanProposal: { deleteMany: jest.fn() },
+  aIPlanProposal: { findMany: jest.fn(), deleteMany: jest.fn() },
 };
 
 jest.mock('../../../lib/prisma', () => ({
@@ -457,6 +457,49 @@ describe('GET /api/auth/me', () => {
     expect(res.body.data.settings).toBeDefined();
   });
 
+  it('returns only the exact safe Chart capability projection', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+      ...MOCK_DB_USER,
+      // Canary values prove the route does not accidentally project billing or
+      // provider state while adding account-authoritative Chart decisions.
+      subscriptionId: 'private-subscription-canary',
+      plannerModel: 'private-provider-model-canary',
+      plannerApiKey: 'private-provider-key-canary',
+      rolloutBucket: 17,
+      settings: MOCK_SETTINGS,
+    });
+
+    const res = await request(buildApp()).get('/api/auth/me');
+
+    expect(res.status).toBe(200);
+    expect(Object.keys(res.body.data.chartCapabilities).sort()).toEqual([
+      'canAcceptExistingChartPlan',
+      'canCompleteExistingCourse',
+      'canCreateAnchor',
+      'canCreateManualCourse',
+      'canCreateOrEditReflections',
+      'canEditCourse',
+      'canGenerateChartPlan',
+      'canRetrieveOwnedChartPlan',
+      'canViewChart',
+      'canViewOwnedCourseHistory',
+      'chartAiPlannerEnabled',
+      'chartEnabled',
+      'chartReflectionsEnabled',
+      'plannerQuota',
+    ].sort());
+    expect(Object.keys(res.body.data.chartCapabilities.plannerQuota).sort()).toEqual([
+      'eligible',
+      'limit',
+      'reason',
+      'remaining',
+      'resetAt',
+    ]);
+    expect(JSON.stringify(res.body.data.chartCapabilities)).not.toMatch(
+      /private-subscription-canary|private-provider-model-canary|private-provider-key-canary|rolloutBucket/i
+    );
+  });
+
   it('returns 404 when user does not exist', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(null);
 
@@ -531,6 +574,81 @@ describe('GET /api/auth/me/export', () => {
     expect(res.body.data.account.anchors).toEqual([{ id: 'anchor-1' }]);
     expect(res.body.data.account.orders).toEqual([]);
     expect(res.body.data.account.passwordHash).toBeUndefined();
+  });
+
+  it('exports Chart entities while neutralizing deleted Reflection text and provider internals', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+      ...MOCK_DB_USER,
+      passwordHash: 'private-password-hash',
+      settings: MOCK_SETTINGS,
+    });
+    (mockPrisma.anchor.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.activation.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.charge.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.practiceSession.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.visualizationScene.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.order.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.syncQueue.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.burnedAnchor.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.flaggedContent.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.course.findMany as jest.Mock).mockResolvedValue([
+      { id: 'course-1', destinationText: 'course destination canary' },
+    ]);
+    (mockPrisma.waypoint.findMany as jest.Mock).mockResolvedValue([
+      { id: 'waypoint-1', title: 'waypoint title canary' },
+    ]);
+    (mockPrisma.courseAnchorLink.findMany as jest.Mock).mockResolvedValue([
+      { id: 'link-1', anchorSnapshot: { intentionText: 'anchor snapshot canary' } },
+    ]);
+    (mockPrisma.reflection.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'reflection-deleted',
+        body: 'deleted reflection canary',
+        structuredContent: { whatHelped: 'deleted structured canary' },
+        deletedAt: new Date('2026-08-01T00:00:00.000Z'),
+      },
+      { id: 'reflection-active', body: 'active reflection canary', deletedAt: null },
+    ]);
+    (mockPrisma.courseEvent.findMany as jest.Mock).mockResolvedValue([
+      { id: 'event-1', eventType: 'COURSE_CREATED' },
+    ]);
+    (mockPrisma.aIPlanProposal.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'proposal-1',
+        destinationInterpretation: 'normalized planner result',
+        waypoints: [{ title: 'normalized waypoint' }],
+        rawPrompt: 'raw planner prompt canary',
+        rawResponse: 'raw planner response canary',
+        providerApiKey: 'provider credential canary',
+      },
+    ]);
+
+    const res = await request(buildApp()).get('/api/auth/me/export');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.exportVersion).toBe(4);
+    expect(res.body.data.account.courses).toHaveLength(1);
+    expect(res.body.data.account.waypoints).toHaveLength(1);
+    expect(res.body.data.account.courseAnchorLinks).toHaveLength(1);
+    expect(res.body.data.account.courseEvents).toHaveLength(1);
+    expect(res.body.data.account.aiPlanProposals).toEqual([
+      expect.objectContaining({ destinationInterpretation: 'normalized planner result' }),
+    ]);
+    const deleted = res.body.data.account.reflections.find(
+      (reflection: { id: string }) => reflection.id === 'reflection-deleted'
+    );
+    expect(deleted).toEqual(
+      expect.objectContaining({ body: null, structuredContent: null, deletedAt: expect.any(String) })
+    );
+    expect(res.body.data.account.reflections).toEqual(
+      expect.arrayContaining([expect.objectContaining({ body: 'active reflection canary' })])
+    );
+    const serialized = JSON.stringify(res.body.data);
+    expect(serialized).not.toContain('raw planner prompt canary');
+    expect(serialized).not.toContain('raw planner response canary');
+    expect(serialized).not.toContain('provider credential canary');
+    expect(serialized).not.toContain('deleted reflection canary');
+    expect(serialized).not.toContain('deleted structured canary');
   });
 
   it('fails closed when a progression-critical export section is unavailable', async () => {
@@ -976,6 +1094,18 @@ describe('DELETE /api/auth/me', () => {
       },
     });
     expect(mockPrisma.burnedAnchor.deleteMany).toHaveBeenCalledWith({
+      where: { userId: 'db-user-1' },
+    });
+    expect(mockPrisma.syncQueue.deleteMany).toHaveBeenCalledWith({
+      where: { userId: 'db-user-1' },
+    });
+    expect(mockPrisma.reflection.deleteMany).toHaveBeenCalledWith({
+      where: { userId: 'db-user-1' },
+    });
+    expect(mockPrisma.aIPlanProposal.deleteMany).toHaveBeenCalledWith({
+      where: { userId: 'db-user-1' },
+    });
+    expect(mockPrisma.course.deleteMany).toHaveBeenCalledWith({
       where: { userId: 'db-user-1' },
     });
     expect(mockPrisma.user.delete).toHaveBeenCalledWith(
