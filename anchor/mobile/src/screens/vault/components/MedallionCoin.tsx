@@ -414,9 +414,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 2,
   },
-  symbolImage: {
-    opacity: 0.85,
-  },
+  symbolImage: {},
   glossSheen: {
     ...StyleSheet.absoluteFillObject,
     borderWidth: 1,

@@ -19,11 +19,15 @@ import Svg, { Path } from 'react-native-svg';
 import { colors, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
 import type { Anchor } from '@/types';
+import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
+import { BakedGlow, RingGlowCanvas } from '@/components/common';
 import { formatCategory, isAnchorReleased } from '../utils/anchorStateHelpers';
 import { MedallionCoin } from './MedallionCoin';
 import { NewAnchorTile } from './NewAnchorTile';
 
 const CHIP_SIZE = 60;
+const GLOW_SIZE = 88; // overflows the chip by 14px each side, matching ThreadStrengthBlock's ring-to-glow ratio
 const CARD_WIDTH = 72;
 const CARD_GAP = 18;
 
@@ -44,6 +48,10 @@ interface StackCardProps {
 const StackCard = React.memo<StackCardProps>(({ anchor, isActive, onPress }) => {
   const imageUrl = anchor.enhancedImageUrl;
   const sigilXml = anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg;
+  const perfTier = useAppPerformanceTier();
+  const reduceMotionEnabled = useReduceMotionEnabled();
+  const showGlowPulse = isActive && perfTier === 'high' && !reduceMotionEnabled;
+  const showStaticGlow = isActive && perfTier === 'medium';
 
   return (
     <TouchableOpacity
@@ -53,14 +61,34 @@ const StackCard = React.memo<StackCardProps>(({ anchor, isActive, onPress }) => 
       accessibilityRole="button"
       accessibilityLabel={`${anchor.intentionText}, ${formatCategory(anchor.category)}`}
     >
-      <View style={[styles.chip, isActive ? styles.chipActive : styles.chipInactive]}>
-        <MedallionCoin
-          size={CHIP_SIZE}
-          imageUrl={imageUrl}
-          sigilXml={sigilXml}
-          showGlow={false}
-          reduceMotionEnabled={true}
-        />
+      <View style={styles.chipWrap}>
+        {showGlowPulse ? (
+          <RingGlowCanvas
+            size={GLOW_SIZE}
+            color={colors.anchor15.giltBright}
+            intensity={0.85}
+            reduceMotionEnabled={reduceMotionEnabled}
+            tier={perfTier}
+          />
+        ) : null}
+        {showStaticGlow ? (
+          <BakedGlow
+            size={GLOW_SIZE}
+            color={colors.anchor15.giltBright}
+            baseOpacity={0.32}
+            peakOpacity={0.32}
+            reduceMotionEnabled={true}
+          />
+        ) : null}
+        <View style={[styles.chip, isActive ? styles.chipActive : styles.chipInactive]}>
+          <MedallionCoin
+            size={CHIP_SIZE}
+            imageUrl={imageUrl}
+            sigilXml={sigilXml}
+            showGlow={false}
+            reduceMotionEnabled={true}
+          />
+        </View>
       </View>
       <View style={styles.cardLabels}>
         <Text
@@ -215,6 +243,12 @@ const styles = StyleSheet.create({
     width: CARD_WIDTH,
     alignItems: 'center',
     gap: 8,
+  },
+  chipWrap: {
+    width: GLOW_SIZE,
+    height: GLOW_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   chip: {
     width: CHIP_SIZE,
