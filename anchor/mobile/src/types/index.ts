@@ -948,6 +948,7 @@ export type RootStackParamList = {
     returnTarget?: PracticeFlowReturnTarget;
     source?: PracticeEntrySource;
   };
+  WeeklyReview: undefined;
 
   // ═══════════════════════════════════════════════════
   // PROFILE & SETTINGS
@@ -1149,6 +1150,8 @@ export type PracticeStackParamList = {
     returnTarget?: PracticeFlowReturnTarget;
     source?: PracticeEntrySource;
   };
+  /** Weekly digest screen. No params — defaults to last completed week. */
+  WeeklyReview: undefined;
 };
 
 export type MainTabParamList = {

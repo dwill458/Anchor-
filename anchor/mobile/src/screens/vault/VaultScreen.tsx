@@ -60,7 +60,7 @@ import { withAlpha } from '@/utils/color';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useAppPerformanceTier, type PerformanceTier } from '@/hooks/useAppPerformanceTier';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { WeeklySummaryModal } from '@/components/WeeklySummaryModal'; import { useWeeklySummaryTrigger } from '@/hooks/useWeeklySummaryTrigger';
+import { useWeeklySummaryTrigger } from '@/hooks/useWeeklySummaryTrigger';
 import { VaultGridModal } from './components/VaultGridModal';
 import { hasIgnited, isAnchorReleased } from './utils/anchorStateHelpers';
 import { useEntitlements } from '@/hooks/useEntitlements';
@@ -263,6 +263,13 @@ export const VaultScreen: React.FC = () => {
   const shouldReduceMotion = reduceMotionEnabled || !isVaultTabActive;
   const toast = useToast();
   const { shouldShow, dismiss } = useWeeklySummaryTrigger();
+
+  useEffect(() => {
+    if (shouldShow) {
+      dismiss();
+      navigation.navigate('WeeklyReview');
+    }
+  }, [shouldShow, dismiss, navigation]);
   const [now, setNow] = useState(() => new Date());
   const [gridVisible, setGridVisible] = useState(false);
   const [nextAnchorCursor, setNextAnchorCursor] = useState<string | null>(null);
@@ -304,28 +311,6 @@ export const VaultScreen: React.FC = () => {
     [now, profileName, profileTimezone, user?.displayName]
   );
 
-  // Weekly Thread Review "Release" routes into the existing burn/release flow.
-  const handleReleaseFromReview = useCallback(
-    (anchorId: string) => {
-      const anchor = anchors.find(
-        (item) => item.id === anchorId || item.localId === anchorId
-      );
-      if (!anchor) {
-        return;
-      }
-
-      dismiss();
-      startPractice({
-        mode: 'release',
-        anchorId: anchor.id,
-        source: 'shortcut',
-        intention: anchor.intentionText,
-        sigilSvg: anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg ?? '',
-        enhancedImageUrl: anchor.enhancedImageUrl ?? undefined,
-      });
-    },
-    [anchors, dismiss, startPractice]
-  );
 
   // ── Empty-state orbit animation ───────────────────────────────────────────────
   const orbitRotation = useSharedValue(0);
@@ -627,11 +612,6 @@ export const VaultScreen: React.FC = () => {
               })}
         </ScrollView>
       </SafeAreaView>
-      <WeeklySummaryModal
-        visible={shouldShow}
-        onDismiss={dismiss}
-        onReleaseAnchor={handleReleaseFromReview}
-      />
       <VaultGridModal
         visible={gridVisible}
         onDismiss={() => setGridVisible(false)}

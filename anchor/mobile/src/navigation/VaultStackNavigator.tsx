@@ -9,6 +9,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { VaultScreen, AnchorDetailScreen } from '../screens/vault';
 import { TheWeaveScreen } from '../screens/weave';
+import { WeeklyReviewScreen } from '../screens/WeeklyReviewScreen';
 import {
   IntentionInputScreen,
   ReturningIntentionScreen,
@@ -283,6 +284,11 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
           name="BurningRitual"
           component={BurningRitualScreen}
           options={{ title: 'Releasing...', headerShown: false, animation: 'fade_from_bottom' }}
+        />
+        <Stack.Screen
+          name="WeeklyReview"
+          component={WeeklyReviewScreen}
+          options={{ headerShown: false, animation: 'slide_from_bottom' }}
         />
       </Stack.Navigator>
     </ErrorBoundary>

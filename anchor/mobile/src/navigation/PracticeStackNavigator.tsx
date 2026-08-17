@@ -29,6 +29,7 @@ import {
   VisualizeSessionScreen,
 } from '@/screens/visualize';
 import { TheWeaveScreen } from '@/screens/weave';
+import { WeeklyReviewScreen } from '@/screens/WeeklyReviewScreen';
 
 const Stack = createNativeStackNavigator<PracticeStackParamList>();
 
@@ -137,6 +138,11 @@ export const PracticeStackNavigator: React.FC<PracticeStackNavigatorProps> = ({ 
             name="ConfirmBurn"
             component={ConfirmBurnScreen}
             options={{ headerShown: false, animation: 'fade_from_bottom' }}
+          />
+          <Stack.Screen
+            name="WeeklyReview"
+            component={WeeklyReviewScreen}
+            options={{ animation: 'slide_from_bottom' }}
           />
           <Stack.Screen
             name="BurningRitual"
