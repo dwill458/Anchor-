@@ -48,6 +48,7 @@ import type { PracticeStackParamList } from '@/types';
 import type { PracticeMode } from '@/types/practice';
 import { useCourseStore } from '@/stores/courseStore';
 import { SigilSvg } from '@/components/common/SigilSvg';
+import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useWeeklyReview, MAX_WEEK_OFFSET, type WeeklyReviewData } from '@/hooks/useWeeklyReview';
 import type { CourseDetail, WaypointSummary } from '@/types/chart';
 
@@ -206,6 +207,21 @@ function ErrorBanner({ onRetry }: { onRetry: () => void }) {
 }
 
 // ─── Section header ───────────────────────────────────────────────────────────
+
+function TopBackBar({ onBack }: { onBack: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Return to Sanctuary"
+      onPress={onBack}
+      style={styles.topBackBar}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+    >
+      <ChevronLeft size={18} color={C.lightGold} />
+      <Text style={styles.topBackText}>Sanctuary</Text>
+    </Pressable>
+  );
+}
 
 function SectionHeader({ label }: { label: string }) {
   return <Text style={styles.sectionEyebrow}>{label}</Text>;
@@ -983,14 +999,14 @@ function QuietWeekLayout({
   insets,
   reducedMotion,
   onPractice,
-  onNavigate,
+  onSanctuary,
 }: {
   data: WeeklyReviewData;
   activeCourse: CourseDetail | null;
   insets: ReturnType<typeof useSafeAreaInsets>;
   reducedMotion: boolean;
   onPractice: (anchorId: string) => void;
-  onNavigate: (dest: 'sanctuary' | 'chart') => void;
+  onSanctuary: () => void;
 }) {
   const anchor = data.recommendedAnchor;
   const currentWaypoint = activeCourse?.currentWaypointId
@@ -1006,9 +1022,10 @@ function QuietWeekLayout({
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={{ paddingTop: insets.top + 16, paddingBottom: insets.bottom + 32 }}
+      contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 32 }}
       showsVerticalScrollIndicator={false}
     >
+      <TopBackBar onBack={onSanctuary} />
       <View style={styles.sectionPad}>
         <Text style={styles.eyebrow}>WEEK IN REVIEW</Text>
         <Text style={styles.title}>Your Week, Woven</Text>
@@ -1070,6 +1087,14 @@ function QuietWeekLayout({
             </View>
           </View>
         )}
+
+        <TouchableOpacity
+          onPress={onSanctuary}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={[styles.carrySecondaryWrap, { marginTop: 16 }]}
+        >
+          <Text style={styles.carrySecondary}>Return to Sanctuary</Text>
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
@@ -1098,9 +1123,10 @@ function FirstWeekLayout({
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={{ paddingTop: insets.top + 16, paddingBottom: insets.bottom + 32 }}
+      contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 32 }}
       showsVerticalScrollIndicator={false}
     >
+      <TopBackBar onBack={onSanctuary} />
       <Animated.View style={[styles.sectionPad, fadeStyle]}>
         <Text style={styles.eyebrow}>WEEK IN REVIEW</Text>
         <Text style={styles.title}>Your Week, Woven</Text>
@@ -1145,6 +1171,8 @@ export function WeeklyReviewScreen() {
   const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion() ?? false;
 
+  const { navigateToSanctuary, navigateToChart } = useTabNavigation();
+
   const [weekOffset, setWeekOffset] = useState(1); // Default: last completed week
   const [showError, setShowError] = useState(false);
 
@@ -1183,16 +1211,20 @@ export function WeeklyReviewScreen() {
   }, [navigation]);
 
   const handleSanctuary = useCallback(() => {
-    navigation.getParent()?.navigate('Sanctuary' as never);
-  }, [navigation]);
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigateToSanctuary();
+    }
+  }, [navigation, navigateToSanctuary]);
 
   const handleViewChart = useCallback(() => {
-    navigation.getParent()?.navigate('Chart' as never);
-  }, [navigation]);
+    navigateToChart();
+  }, [navigateToChart]);
 
   const handleSetDestination = useCallback(() => {
-    navigation.getParent()?.navigate('Chart' as never);
-  }, [navigation]);
+    navigateToChart();
+  }, [navigateToChart]);
 
   // ── Quiet Week ────────────────────────────────────────────────────────────
   if (data.state === 'none') {
@@ -1203,7 +1235,7 @@ export function WeeklyReviewScreen() {
         insets={insets}
         reducedMotion={reducedMotion}
         onPractice={handlePractice}
-        onNavigate={(dest) => dest === 'chart' ? handleViewChart() : handleSanctuary()}
+        onSanctuary={handleSanctuary}
       />
     );
   }
@@ -1230,6 +1262,7 @@ export function WeeklyReviewScreen() {
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" />
+      <TopBackBar onBack={handleSanctuary} />
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
@@ -1346,6 +1379,19 @@ const styles = StyleSheet.create({
   },
   sectionPad: {
     paddingHorizontal: SECTION_PAD,
+  },
+  topBackBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SECTION_PAD,
+    paddingVertical: 10,
+    minHeight: 44,
+    gap: 4,
+  },
+  topBackText: {
+    fontFamily: FONTS.inst,
+    fontSize: 13,
+    color: C.lightGold,
   },
 
   // Accessibility: visually hidden but readable by screen readers
