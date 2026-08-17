@@ -307,7 +307,8 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   const defaultDurationSeconds = useSettingsStore((state) => state.focusSessionDuration ?? 30);
   const arrivePhaseEnabled = useSettingsStore((state) => state.arrivePhaseEnabled ?? true);
   const reduceIntentionVisibility = useSettingsStore((state) => state.reduceIntentionVisibility ?? false);
-  const resolvedDurationSeconds = durationSeconds ?? defaultDurationSeconds;
+  const [selectedDurationSeconds, setSelectedDurationSeconds] = useState<number | null>(null);
+  const resolvedDurationSeconds = selectedDurationSeconds ?? durationSeconds ?? defaultDurationSeconds;
   const reduceMotionEnabled = useReduceMotionEnabled();
   const shouldUseArrivePhase =
     arrivePhaseEnabled && resolvedDurationSeconds > 0;
@@ -962,12 +963,13 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
             {onAudioConfigurationChange ? (
               <VoiceAndSoundSummaryRow
                 value={audioConfiguration}
+                sessionType="focus"
                 onPress={() => setShowAudioOverride(true)}
               />
             ) : null}
             <Pressable onPress={handleBegin} style={[styles.beginBtn, isCompactLayout && styles.beginBtnCompact]} disabled={isBeginningSession}>
               <LinearGradient
-                colors={[colors.gold, '#675880']}
+                colors={['#AD99D2', '#675880']}
                 style={[
                   styles.beginBtnGradient,
                   isCompactLayout && styles.beginBtnGradientCompact,
@@ -986,10 +988,17 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
             visible={showAudioOverride}
             sessionType="focus"
             durationSeconds={resolvedDurationSeconds}
+            durationOptions={[10, 30, 60]}
+            onDurationChange={(newDuration) => {
+              setSelectedDurationSeconds(newDuration);
+            }}
             initialValue={audioConfiguration}
             onCancel={() => setShowAudioOverride(false)}
-            onConfirm={(value, makeDefault) => {
+            onConfirm={(value, makeDefault, newDuration) => {
               setShowAudioOverride(false);
+              if (newDuration) {
+                setSelectedDurationSeconds(newDuration);
+              }
               onAudioConfigurationChange(value, makeDefault);
             }}
           />
