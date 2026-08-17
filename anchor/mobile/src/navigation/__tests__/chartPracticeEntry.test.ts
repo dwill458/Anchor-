@@ -198,7 +198,7 @@ describe('startPractice — Chart context survives route construction', () => {
       direct,
     );
     expect(direct.navigateToPractice).toHaveBeenCalledWith({
-      route: 'ChargeSetup',
+      route: 'Ritual',
       params: expect.objectContaining({ returnTo: 'chart', chartContext }),
     });
   });

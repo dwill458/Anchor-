@@ -2,14 +2,11 @@ export type NotificationCategory =
   | 'daily_prime'
   | 'thread_strength'
   | 'unfinished_anchor'
-  | 'weekly_recap'
-  | 'milestone';
+  | 'weekly_recap';
 
 export type NotificationTone = 'direct' | 'encouraging' | 'reflective' | 'performance';
 
 export type NotificationPermissionStatus = 'undetermined' | 'granted' | 'denied';
-
-export type NotificationMilestone = 'sessions_3' | 'sessions_7' | 'sessions_30' | 'thread_strength_100';
 
 export interface NotificationTemplate {
   id: string;

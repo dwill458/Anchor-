@@ -12,7 +12,6 @@ import {
   normalizeNotificationState,
   NOTIFICATION_STATE_STORAGE_KEY,
 } from '@/services/NotificationState';
-import { isSovereign } from '@/services/NotificationPriority';
 import {
   countDailyGoalCompletions,
   localDateString,
@@ -29,7 +28,6 @@ import {
 } from '@/services/notifications/notificationSelector';
 import type {
   NotificationCategory,
-  NotificationMilestone,
   NotificationTone,
 } from '@/services/notifications/notificationTypes';
 import {
@@ -49,7 +47,6 @@ import { buildThreadStrengthSnapshot, selectCanonicalPracticeEvents } from '@/ut
 type NotificationStateWithSyncMetadata = SyncedNotificationState;
 
 const SMART_NOTIFICATION_PRIORITY: NotificationCategory[] = [
-  'milestone',
   'thread_strength',
   'unfinished_anchor',
   'weekly_recap',
@@ -257,12 +254,6 @@ export const useNotificationController = () => {
       };
     }
 
-    if (result.category === 'milestone' && result.milestone) {
-      next.sentMilestones = Array.from(
-        new Set([...(state.sentMilestones ?? []), result.milestone as NotificationMilestone])
-      );
-    }
-
     if (result.category === 'unfinished_anchor' && result.anchorId) {
       next.unfinishedAnchorReminders = {
         ...(state.unfinishedAnchorReminders ?? {}),
@@ -318,7 +309,6 @@ export const useNotificationController = () => {
       body: rendered.body,
       fireDate: result.fireDate,
       anchorId: result.anchorId,
-      milestone: result.milestone,
     });
 
     if (notificationId) {
@@ -342,12 +332,6 @@ export const useNotificationController = () => {
       state.last_app_open_at = new Date().toISOString();
       state.app_opened_in_last_5_days = true;
 
-      if (
-        !state.sovereign_rank &&
-        isSovereign(state.total_primes_all_time, state.alchemist_milestones_count)
-      ) {
-        state.sovereign_rank = true;
-      }
 
       state = await scheduleSmartNotifications(state);
       await saveState(state);
@@ -413,12 +397,6 @@ export const useNotificationController = () => {
       // Derive goal status from current store-backed prime counts
       state.has_reached_goal_today = state.current_primes >= state.goal_primes;
 
-      if (
-        !state.sovereign_rank &&
-        isSovereign(state.total_primes_all_time, state.alchemist_milestones_count)
-      ) {
-        state.sovereign_rank = true;
-      }
 
       state = await scheduleSmartNotifications(state);
       await saveState(state);
@@ -448,19 +426,10 @@ export const useNotificationController = () => {
   const handleSigilVaulted = useCallback(async () => {
     try {
       const state = reconcile(await loadState());
-      state.sigil_in_vault = true;
-      state.alchemist_milestones_count += 1;
       state.current_primes = 0;
       state.has_reached_goal_today = false;
       state.has_entered_burn_flow = false;
       state.sigil_in_vault = false;
-
-      if (
-        !state.sovereign_rank &&
-        isSovereign(state.total_primes_all_time, state.alchemist_milestones_count)
-      ) {
-        state.sovereign_rank = true;
-      }
 
       await saveState(state);
       const syncedState = await syncStateToServer(state);
@@ -575,7 +544,6 @@ export const useNotificationController = () => {
     | 'threadStrengthThreshold'
     | 'unfinishedAnchorRemindersEnabled'
     | 'weeklyRecapEnabled'
-    | 'milestoneNotificationsEnabled'
     | 'notificationTone'
   >>) => {
     try {

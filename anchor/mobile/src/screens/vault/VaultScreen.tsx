@@ -16,7 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SvgXml } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -211,6 +211,12 @@ const getFadeUp = (delay: number, disabled: boolean) => {
 
 export const VaultScreen: React.FC = () => {
   const navigation = useNavigation<VaultScreenNavigationProp>();
+  const insets = useSafeAreaInsets();
+  // Matches CustomTabBar's own layout math (MainTabNavigator.tsx): a 64pt-tall
+  // floating capsule positioned at Math.max(46, insets.bottom + 12) from the
+  // bottom. Scroll content needs at least that much clearance plus a margin so
+  // the anchor row isn't hidden behind it on devices with tall gesture insets.
+  const tabBarClearance = 64 + Math.max(46, insets.bottom + 12) + 32;
   const { registerTabNav, activeTabIndex, navigateToPractice } = useTabNavigation();
   const { startPractice } = usePracticeEntry();
   const isVaultTabActive = activeTabIndex == null ? true : activeTabIndex === 0;
@@ -574,7 +580,7 @@ export const VaultScreen: React.FC = () => {
         <ScrollView
           style={styles.scrollArea}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarClearance }]}
         >
           {/* ── Header ── */}
           <Animated2.View entering={getFadeUp(100, shouldReduceMotion)}>

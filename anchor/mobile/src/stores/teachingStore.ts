@@ -2,7 +2,7 @@
  * Teaching Store
  *
  * Persistent state for the Micro-Teaching System.
- * Tracks which teachings have been shown, milestones queued, and
+ * Tracks which teachings have been shown and
  * explicit behavioral flags that drive teaching triggers.
  *
  * Key: 'anchor-teaching-storage' | schemaVersion: 2
@@ -36,8 +36,6 @@ export interface TeachingState {
    * showCounts[id] >= content.maxShows (and maxShows > 0).
    */
   exhaustedIds: Record<string, true>;
-  /** IDs of milestone teachings waiting to be shown. Drained 1 per 10s on AppState active. */
-  pendingMilestones: string[];
   /** ISO timestamp of last Veil Card shown. Pattern-level 24h cooldown. */
   lastVeilCardAt: string | null;
   /** Deterministic behavioral flags — explicit booleans, never derived from counts. */
@@ -56,8 +54,6 @@ export interface TeachingState {
   isExhausted: (id: string) => boolean;
   isOnCooldown: (id: string, cooldownMs: number) => boolean;
   isSessionSeen: (id: string) => boolean;
-  queueMilestone: (id: string) => void;
-  dequeueMilestone: () => string | undefined;
   clearSessionSeen: () => void;
   reset: () => void;
   setUserFlag: (flag: keyof TeachingUserFlags, value: boolean) => void;
@@ -71,7 +67,6 @@ const createInitialTeachingState = () => ({
   showCounts: {},
   lastShownAt: {},
   exhaustedIds: {},
-  pendingMilestones: [],
   lastVeilCardAt: null,
   userFlags: {
     hasCreatedFirstAnchor: false,
@@ -128,24 +123,6 @@ export const useTeachingStore = create<TeachingState>()(
       },
 
       isSessionSeen: (id) => get().sessionSeenIds.includes(id),
-
-      queueMilestone: (id) => {
-        set((state) => {
-          // Don't queue if already exhausted or already pending
-          if (id in state.exhaustedIds || state.pendingMilestones.includes(id)) {
-            return state;
-          }
-          return { pendingMilestones: [...state.pendingMilestones, id] };
-        });
-      },
-
-      dequeueMilestone: () => {
-        const { pendingMilestones } = get();
-        if (pendingMilestones.length === 0) return undefined;
-        const [first, ...rest] = pendingMilestones;
-        set({ pendingMilestones: rest });
-        return first;
-      },
 
       clearSessionSeen: () => {
         set({ sessionSeenIds: [], sessionSeenPatterns: [] });
@@ -210,7 +187,6 @@ export const useTeachingStore = create<TeachingState>()(
         showCounts: state.showCounts,
         lastShownAt: state.lastShownAt,
         exhaustedIds: state.exhaustedIds,
-        pendingMilestones: state.pendingMilestones,
         lastVeilCardAt: state.lastVeilCardAt,
         userFlags: state.userFlags,
         traceHintSeenCounts: state.traceHintSeenCounts,

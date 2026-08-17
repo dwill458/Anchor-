@@ -5,26 +5,15 @@ import { useSessionStore } from '@/stores/sessionStore';
 import type { Anchor } from '@/types';
 import {
   DEPTH_TIERS,
-  MARK_TIERS,
-  RANK_TIERS,
   formatDepthGuidance,
-  formatRankGuidance,
   getAnchorDepthProgress,
-  getCurrentRank,
   getDeepestPracticeAnchor,
   getDepthRequirementStatuses,
-  getMarkProgress,
-  getNextMark,
-  getNextRankProgress,
   getPracticeDays,
-  getRankRequirementStatuses,
   getReleasedAnchorCount,
   getTotalPrimes,
   type AnchorPrimeStats,
   type DepthName,
-  type MarkName,
-  type RankMetrics,
-  type RankName,
   type RequirementStatus,
 } from '@/utils/progression';
 
@@ -67,31 +56,7 @@ export interface ProgressionData {
   releasedAnchors: number;
   hasAnchors: boolean;
   forgedCount: number;
-  rank: {
-    currentName: RankName;
-    color: string;
-    description: string;
-    progress: number;
-    guidance: string;
-    isMax: boolean;
-    tiers: TierDetail<RankName>[];
-  };
   deepestPractice: DeepestPracticeDisplay | EmptyDeepestPracticeDisplay;
-  nextMark: {
-    name: MarkName;
-    subtitle: string;
-    current: number;
-    required: number;
-    progress: number;
-    earned: boolean;
-    tiers: Array<{
-      name: MarkName;
-      subtitle: string;
-      threshold: number;
-      isCurrent: boolean;
-      isReached: boolean;
-    }>;
-  };
 }
 
 function buildAnchorTitle(anchor: Anchor): string {
@@ -105,20 +70,6 @@ function buildAnchorTitle(anchor: Anchor): string {
   }
 
   return `${trimmed.slice(0, 45).trimEnd()}...`;
-}
-
-function buildRankTierDetails(metrics: RankMetrics, currentName: RankName) {
-  return RANK_TIERS.map((tier) => {
-    const requirements = getRankRequirementStatuses(tier, metrics);
-    return {
-      name: tier.name,
-      color: tier.color,
-      description: tier.description,
-      isCurrent: tier.name === currentName,
-      isReached: requirements.every((requirement) => requirement.met),
-      requirements,
-    };
-  });
 }
 
 function buildDepthTierDetails(stats: AnchorPrimeStats, currentName: DepthName) {
@@ -149,19 +100,8 @@ export function useProgressionData(): ProgressionData {
     const activeAnchors = anchors.filter(
       (anchor) => !anchor.isReleased && !anchor.releasedAt && !anchor.archivedAt
     ).length;
-    const metrics: RankMetrics = {
-      totalPrimes,
-      practiceDays,
-      releasedAnchors,
-    };
-
-    const rankState = getCurrentRank(metrics);
-    const rankProgress = getNextRankProgress(metrics);
-    const rankTiers = buildRankTierDetails(metrics, rankState.tier.name);
 
     const deepest = getDeepestPracticeAnchor(anchors, primingHistory, timezone);
-    const markState = getNextMark(practiceDays);
-    const markProgress = getMarkProgress(practiceDays);
 
     const deepestPractice = deepest
       ? {
@@ -199,33 +139,7 @@ export function useProgressionData(): ProgressionData {
       releasedAnchors,
       hasAnchors: anchors.length > 0,
       forgedCount: anchors.length,
-      rank: {
-        currentName: rankState.tier.name,
-        color: rankState.tier.color,
-        description: rankState.tier.description,
-        progress: rankProgress.progress,
-        guidance: formatRankGuidance(rankProgress, anchors.length > 0),
-        isMax: rankProgress.nextTier == null,
-        tiers: rankTiers,
-      },
       deepestPractice,
-      nextMark: {
-        name: markState.current.name,
-        subtitle: markState.earned
-          ? `${markState.current.name} forged`
-          : markState.current.subtitle,
-        current: markProgress.current,
-        required: markProgress.required,
-        progress: markProgress.progress,
-        earned: markProgress.earned,
-        tiers: MARK_TIERS.map((tier) => ({
-          name: tier.name,
-          subtitle: tier.subtitle,
-          threshold: tier.threshold,
-          isCurrent: tier.name === markState.current.name,
-          isReached: practiceDays >= tier.threshold,
-        })),
-      },
     };
   }, [anchors, primingHistory, storedTotalPrimes, timezone]);
 }

@@ -17,11 +17,6 @@ import { useToast } from '@/components/ToastProvider';
 import { resolveBurnArtworkUri } from './utils/resolveBurnArtworkUri';
 import { AuthService } from '@/services/AuthService';
 import { useNotificationController } from '../../hooks/useNotificationController';
-import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
-import {
-  JOURNEY_MILESTONE_IDS,
-  JOURNEY_TEACHING_CONTENT_ID_BY_MILESTONE,
-} from '@/constants/milestones';
 import { PracticeCompletionService } from '@/services/PracticeCompletionService';
 import { createPracticeEventId } from '@/utils/primingAnalytics';
 
@@ -37,7 +32,7 @@ export const BurningRitualScreen: React.FC = () => {
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const accountId = useAuthStore((state) => state.user?.id ?? null);
-  const { setUserFlag, queueMilestone, recordShown, userFlags } = useTeachingStore();
+  const { setUserFlag, recordShown, userFlags } = useTeachingStore();
   const toast = useToast();
   const { handleBurnFlowEntered, handleSigilVaulted } = useNotificationController();
 
@@ -145,14 +140,6 @@ export const BurningRitualScreen: React.FC = () => {
 
     // These side effects are retryable bookkeeping. They must not keep the
     // success screen behind a slow storage or notification sync operation.
-    void queueProgressionMilestonesFromStores({
-      sourceEventId: releaseEventIdRef.current,
-    }).catch((error) => {
-      ErrorTrackingService.captureException(
-        error instanceof Error ? error : new Error('Failed to queue release milestones'),
-        { screen: 'BurningRitualScreen', action: 'queue_release_milestones' }
-      );
-    });
     void handleSigilVaulted().catch((error) => {
       ErrorTrackingService.captureException(
         error instanceof Error ? error : new Error('Failed to update release notifications'),
@@ -168,9 +155,6 @@ export const BurningRitualScreen: React.FC = () => {
     // Set first-burn flag (once)
     if (!userFlags.hasCompletedFirstBurn) {
       setUserFlag('hasCompletedFirstBurn', true);
-      queueMilestone(
-        JOURNEY_TEACHING_CONTENT_ID_BY_MILESTONE[JOURNEY_MILESTONE_IDS.firstRelease]
-      );
     }
 
     // Post-burn Signal Pulse — fires for ALL users on every burn ([both])
@@ -199,7 +183,6 @@ export const BurningRitualScreen: React.FC = () => {
     handleSigilVaulted,
     userFlags.hasCompletedFirstBurn,
     setUserFlag,
-    queueMilestone,
     toast,
     ashLineTeaching,
     recordShown,

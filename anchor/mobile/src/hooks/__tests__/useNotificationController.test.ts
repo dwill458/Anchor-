@@ -143,7 +143,6 @@ describe('useNotificationController', () => {
       threadStrengthThreshold: 70,
       unfinishedAnchorRemindersEnabled: true,
       weeklyRecapEnabled: false,
-      milestoneNotificationsEnabled: true,
       notificationTone: 'encouraging',
       notificationPermissionStatus: 'undetermined',
     });

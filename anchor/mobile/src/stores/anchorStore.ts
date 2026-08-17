@@ -15,10 +15,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { getAdjustedDateString } from '@/utils/dateUtils';
 import { logger } from '@/utils/logger';
 import { useVisualizationSceneStore } from './visualizationSceneStore';
-import {
-  JOURNEY_MILESTONE_IDS,
-  JOURNEY_TEACHING_CONTENT_ID_BY_MILESTONE,
-} from '@/constants/milestones';
+
 
 const normalizeDate = (value?: Date | string): Date | undefined => {
   if (!value) return undefined;
@@ -120,12 +117,9 @@ export const useAnchorStore = create<AnchorState>()(
 
       addAnchor: (anchor) => {
         const teaching = useTeachingStore.getState();
-        // Set first-anchor flag once; queue M1 milestone
+        // Set first-anchor flag once
         if (!teaching.userFlags.hasCreatedFirstAnchor) {
           teaching.setUserFlag('hasCreatedFirstAnchor', true);
-          teaching.queueMilestone(
-            JOURNEY_TEACHING_CONTENT_ID_BY_MILESTONE[JOURNEY_MILESTONE_IDS.firstAnchor]
-          );
         }
         set((state) => ({
           anchors: [anchor, ...state.anchors], // Add to beginning (most recent first)

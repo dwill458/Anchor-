@@ -19,7 +19,6 @@ const mockNavigateToPractice = jest.fn();
 const mockNavigateToVaultDestination = jest.fn();
 const mockUpdateAnchor = jest.fn();
 const mockRecordSession = jest.fn();
-const mockQueueProgressionMilestones = jest.fn();
 
 const createMockManagedPlayer = () => ({
   pause: jest.fn(),
@@ -146,10 +145,6 @@ jest.mock('@/services/ApiClient', () => ({
 jest.mock('@/utils/postPrimeTraceEligibility', () => ({
   isPostPrimeTraceEligible: jest.fn().mockResolvedValue(false),
   markPostPrimeTraceAttemptStarted: jest.fn().mockResolvedValue(undefined),
-}));
-jest.mock('@/utils/progressionMilestones', () => ({
-  queueProgressionMilestonesFromStores: (...args: any[]) =>
-    mockQueueProgressionMilestones(...args),
 }));
 jest.mock('@/navigation/firstAnchorGate', () => ({
   navigateToVaultDestination: (...args: any[]) => mockNavigateToVaultDestination(...args),
@@ -286,8 +281,6 @@ describe('RitualScreen', () => {
     mockUpdateAnchor.mockReset();
     mockUpdateAnchor.mockResolvedValue(undefined);
     mockRecordSession.mockReset();
-    mockQueueProgressionMilestones.mockReset();
-    mockQueueProgressionMilestones.mockResolvedValue(undefined);
 
     mockAnchor = createMockAnchor({
       id: 'test-anchor-id',
@@ -341,7 +334,7 @@ describe('RitualScreen', () => {
 
     const { getByText, queryByText, unmount } = render(<RitualScreen />);
 
-    fireEvent.press(getByText(/Begin priming/i));
+    fireEvent.press(getByText(/Begin/i));
 
     await waitFor(() => expect(getByText(/breathwork/i)).toBeTruthy());
     expect(queryByText('Breathe in')).toBeNull();
@@ -405,13 +398,13 @@ describe('RitualScreen', () => {
   it('renders the active Deep Prime sigil at the Focus Session hero size', async () => {
     const { getByText, getByTestId } = render(<RitualScreen />);
 
-    fireEvent.press(getByText(/Begin priming/i));
+    fireEvent.press(getByText(/Begin/i));
 
     await waitFor(() => expect(getByText(/breathwork/i)).toBeTruthy());
     expect(getByTestId('sigil-svg').props.style).toEqual(
       expect.objectContaining({
-        width: 280,
-        height: 280,
+        width: 212,
+        height: 212,
       })
     );
   });
@@ -432,7 +425,7 @@ describe('RitualScreen', () => {
 
     const { getByText, getByTestId, queryByTestId, unmount } = render(<RitualScreen />);
 
-    fireEvent.press(getByText(/Begin priming/i));
+    fireEvent.press(getByText(/Begin/i));
     dateNowSpy.mockReturnValue(now + 30_500);
 
     await waitFor(() => expect(getByTestId('deep-prime-seal')).toBeTruthy(), {
@@ -455,7 +448,6 @@ describe('RitualScreen', () => {
         durationSeconds: 30,
       })
     );
-    expect(mockQueueProgressionMilestones).toHaveBeenCalledTimes(1);
     expect(mockHandlePrimeComplete).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(mockNavigateToPractice).toHaveBeenCalledTimes(1), {
       timeout: 2000,
@@ -469,7 +461,7 @@ describe('RitualScreen', () => {
   it('pauses, resumes, and cleans up immersive Deep Prime audio on exit', async () => {
     const { getByLabelText, getByText } = render(<RitualScreen />);
 
-    fireEvent.press(getByText(/Begin priming/i));
+    fireEvent.press(getByText(/Begin/i));
 
     await waitFor(() => expect(mockPrimeAmbientPlayer.play).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(mockPrimeOpeningPlayer.play).toHaveBeenCalledTimes(1));
@@ -518,7 +510,7 @@ describe('RitualScreen', () => {
 
     const { getByLabelText, getByText } = render(<RitualScreen />);
 
-    fireEvent.press(getByText(/Begin priming/i));
+    fireEvent.press(getByText(/Begin/i));
 
     // Abandon the session before it completes.
     fireEvent.press(getByLabelText('Exit practice'));
@@ -553,7 +545,7 @@ describe('RitualScreen', () => {
 
     const { getByText, unmount } = render(<RitualScreen />);
 
-    fireEvent.press(getByText(/Begin priming/i));
+    fireEvent.press(getByText(/Begin/i));
 
     await waitFor(() => expect(mockPrime5mOpeningPlayer.play).toHaveBeenCalledTimes(1));
 
@@ -645,7 +637,7 @@ describe('RitualScreen', () => {
 
     const { getByText, unmount } = render(<RitualScreen />);
 
-    fireEvent.press(getByText(/Begin priming/i));
+    fireEvent.press(getByText(/Begin/i));
 
     await waitFor(() => expect(mockPrime10mOpeningPlayer.play).toHaveBeenCalledTimes(1));
 
@@ -763,7 +755,7 @@ describe('RitualScreen', () => {
 
     const { getByText, unmount } = render(<RitualScreen />);
 
-    fireEvent.press(getByText(/Begin priming/i));
+    fireEvent.press(getByText(/Begin/i));
 
     await waitFor(() => expect(mockPrime15mOpeningPlayer.play).toHaveBeenCalledTimes(1));
 

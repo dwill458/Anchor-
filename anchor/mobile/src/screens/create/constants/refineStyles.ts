@@ -4,7 +4,7 @@ export type RefineStyleSectionType = 'featured' | 'core' | 'seasonal';
 
 export type RefineStyleFamily =
   | 'LUMINOUS'
-  | 'MYSTIC'
+  | 'SYMBOLIC'
   | 'ORGANIC'
   | 'GEOMETRIC'
   | 'MODERN'
@@ -44,7 +44,7 @@ export type RefineStyleFilter =
   | 'core'
   | 'seasonal'
   | 'luminous'
-  | 'mystic'
+  | 'symbolic'
   | 'organic'
   | 'geometric'
   | 'modern';
@@ -79,7 +79,7 @@ export interface RefineStyleOption {
 }
 
 export const COLLECTION_FILTERS = ['All', 'Featured', 'Core', 'Seasonal'] as const;
-export const FAMILY_FILTERS: RefineStyleFamily[] = ['LUMINOUS', 'MYSTIC', 'ORGANIC', 'GEOMETRIC', 'MODERN'];
+export const FAMILY_FILTERS: RefineStyleFamily[] = ['LUMINOUS', 'SYMBOLIC', 'ORGANIC', 'GEOMETRIC', 'MODERN'];
 
 // ── Single Source of Truth Style Catalog ──────────────────────────────────────
 export const REFINE_STYLES: RefineStyleOption[] = [
@@ -160,7 +160,7 @@ export const REFINE_STYLES: RefineStyleOption[] = [
     name: 'Sacred Geometry',
     displayName: 'Sacred Geometry',
     generationStyle: 'sacred_geometry',
-    family: 'MYSTIC',
+    family: 'SYMBOLIC',
     category: 'core',
     glyph: 'sacred',
     description: 'Structured symbolic precision.',
@@ -230,12 +230,12 @@ export const REFINE_STYLES: RefineStyleOption[] = [
     name: 'Cosmic',
     displayName: 'Cosmic',
     generationStyle: 'cosmic',
-    family: 'MYSTIC',
+    family: 'SYMBOLIC',
     category: 'core',
     glyph: 'cosmic',
-    description: 'Orbital celestial energy.',
-    shortDescription: 'Deep-space atmosphere and orbital energy.',
-    tags: ['Celestial', 'Expansive', 'Orbital'],
+    description: 'Deep indigo tone with radiating burst lines.',
+    shortDescription: 'Deep indigo atmosphere with radiating structure.',
+    tags: ['Indigo', 'Radiant', 'Layered'],
     isCore: true,
     isFeatured: false,
     isSeasonal: false,
@@ -322,7 +322,7 @@ export const REFINE_STYLES: RefineStyleOption[] = [
     name: 'Resonance Rings',
     displayName: 'Resonance Rings',
     generationStyle: 'resonance_rings',
-    family: 'MYSTIC',
+    family: 'SYMBOLIC',
     category: 'core',
     glyph: 'resonance',
     description: 'Pulses radiating through layered rings.',
@@ -371,9 +371,9 @@ export const REFINE_STYLES: RefineStyleOption[] = [
     family: 'GEOMETRIC',
     category: 'core',
     glyph: 'celestial',
-    description: 'Constellation-inspired symmetry.',
-    shortDescription: 'Observatory geometry and star-map symmetry.',
-    tags: ['Symmetrical', 'Observatory', 'Constellation'],
+    description: 'Delicate dot-and-line grid pattern.',
+    shortDescription: 'Observatory geometry and precise grid symmetry.',
+    tags: ['Symmetrical', 'Observatory', 'Precise'],
     isCore: true,
     isFeatured: false,
     isSeasonal: false,
@@ -538,7 +538,7 @@ export const REFINE_STYLES: RefineStyleOption[] = [
     name: 'Halo Drift',
     displayName: 'Halo Drift',
     generationStyle: 'solar_halo',
-    family: 'MYSTIC',
+    family: 'SYMBOLIC',
     category: 'featured',
     glyph: 'halo',
     description: 'A slow ring of light orbiting the form.',
@@ -588,7 +588,7 @@ export const REFINE_STYLES: RefineStyleOption[] = [
     name: 'Midnight Bloom',
     displayName: 'Midnight Bloom',
     generationStyle: 'velvet_ember',
-    family: 'MYSTIC',
+    family: 'SYMBOLIC',
     category: 'seasonal',
     glyph: 'bloom',
     description: 'Petals opening in deep, quiet dark.',

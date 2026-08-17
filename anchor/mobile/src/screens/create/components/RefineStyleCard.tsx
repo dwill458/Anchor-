@@ -361,8 +361,6 @@ export function RefineStyleCard({
         )}
       </View>
 
-      {!isOriginal ? <Text style={styles.sampleTag}>STYLE SAMPLE</Text> : null}
-
       <Text style={styles.cardName} numberOfLines={2}>
         {option.displayName}
       </Text>
@@ -421,7 +419,6 @@ export const RefineFeatCard: React.FC<{
         />
       </View>
 
-      <Text style={styles.sampleTag}>STYLE SAMPLE</Text>
       <Text style={styles.featCardName} numberOfLines={1}>
         {option.displayName}
       </Text>
@@ -461,9 +458,8 @@ export const RefineHeroCard: React.FC<{
     transform: [{ scale: breatheScale.value }],
   }));
 
-  const badges: RefineBadge[] = [];
-  if (option.isSeasonal) badges.push({ type: 'seasonal', label: 'Seasonal Drop' });
-  if (option.isLimited && option.badge) badges.push(option.badge);
+  const heroBadge: RefineBadge | undefined =
+    option.badge ?? (option.isSeasonal ? { type: 'seasonal', label: 'Seasonal Drop' } : undefined);
 
   return (
     <Pressable
@@ -484,20 +480,17 @@ export const RefineHeroCard: React.FC<{
       </Animated.View>
 
       <View style={styles.heroBody}>
-        {badges.length > 0 ? (
+        {heroBadge ? (
           <View style={styles.heroBadgesRow}>
-            {badges.map((b, i) => (
-              <RefineBadgeView key={i} type={b.type} label={b.label} />
-            ))}
+            <RefineBadgeView type={heroBadge.type} label={heroBadge.label} />
           </View>
         ) : null}
 
         <Text style={styles.heroName}>{option.displayName}</Text>
 
-        <View style={styles.heroCatRow}>
-          <RefineBadgeView type="core" label={option.family} />
-          <RefineBadgeView type="gold" label="Featured" />
-        </View>
+        <Text style={styles.cardCat} numberOfLines={1}>
+          {option.family}
+        </Text>
 
         <Text style={styles.heroDesc} numberOfLines={2}>
           {option.description}
@@ -547,13 +540,14 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(217, 179, 108, 0.18)',
   },
   cardSelected: {
+    borderWidth: 1,
     borderColor: colors.anchor15.gilt,
     backgroundColor: 'rgba(30, 42, 51, 0.36)',
     shadowColor: colors.anchor15.gilt,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.14,
-    shadowRadius: 16,
-    elevation: 3,
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
+    elevation: 1,
   },
   checkCircle: {
     position: 'absolute',

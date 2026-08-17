@@ -3,40 +3,22 @@ import type { Anchor } from '@/types';
 import type { PrimingHistoryEntry } from '@/utils/primingAnalytics';
 import { toProgressionLocalDateString } from '@/utils/progressionTimezone';
 
-export type RankName =
-  | 'Initiate'
-  | 'Practitioner'
-  | 'Architect'
-  | 'Sovereign';
 export type DepthName =
   | 'Surface'
   | 'Grounded'
   | 'Rooted'
   | 'Embedded'
   | 'Embodied';
-export type MarkName =
-  | 'First Return Mark'
-  | 'Steady Thread Mark'
-  | 'Discipline Mark'
-  | 'Constancy Mark';
 
-type RankRequirementKey = 'totalPrimes' | 'practiceDays' | 'releasedAnchors';
 type DepthRequirementKey = 'primes' | 'practiceDays' | 'deepPrimes';
 
 export interface RequirementStatus {
-  key: RankRequirementKey | DepthRequirementKey;
+  key: DepthRequirementKey;
   label: string;
   shortLabel: string;
   current: number;
   required: number;
   met: boolean;
-}
-
-export interface RankTier {
-  name: RankName;
-  color: string;
-  description: string;
-  requirements: Partial<Record<RankRequirementKey, number>>;
 }
 
 export interface DepthTier {
@@ -46,35 +28,11 @@ export interface DepthTier {
   requirements: Partial<Record<DepthRequirementKey, number>>;
 }
 
-export interface MarkTier {
-  name: MarkName;
-  threshold: number;
-  subtitle: string;
-}
-
-export interface RankMetrics {
-  totalPrimes: number;
-  practiceDays: number;
-  releasedAnchors: number;
-}
-
 export interface AnchorPrimeStats {
   primes: number;
   practiceDays: number;
   deepPrimes: number;
   lastPracticedAt?: Date;
-}
-
-export interface RankState {
-  tier: RankTier;
-  requirements: RequirementStatus[];
-}
-
-export interface RankProgressState {
-  currentTier: RankTier;
-  nextTier: RankTier | null;
-  progress: number;
-  unmetRequirements: RequirementStatus[];
 }
 
 export interface DepthState {
@@ -96,18 +54,6 @@ export interface DeepestPracticeAnchorState {
   progress: DepthProgressState;
 }
 
-export interface MarkState {
-  current: MarkTier;
-  earned: boolean;
-}
-
-export interface MarkProgressState {
-  current: number;
-  required: number;
-  progress: number;
-  earned: boolean;
-}
-
 interface NormalizedProgressionSession {
   id: string;
   anchorId: string;
@@ -118,46 +64,6 @@ interface NormalizedProgressionSession {
 }
 
 const DUPLICATE_WINDOW_MS = 5_000;
-
-export const RANK_TIERS: RankTier[] = [
-  {
-    name: 'Initiate',
-    color: colors.silver,
-    description: 'You started where most people only intend.',
-    requirements: {},
-  },
-  {
-    name: 'Practitioner',
-    color: colors.gold,
-    description: 'You returned enough times for change to notice.',
-    requirements: {
-      totalPrimes: 10,
-      practiceDays: 3,
-    },
-  },
-  {
-    name: 'Architect',
-    color: '#C0A060',
-    description:
-      'You build with intention. The pattern is working through you.',
-    requirements: {
-      totalPrimes: 50,
-      practiceDays: 14,
-      releasedAnchors: 1,
-    },
-  },
-  {
-    name: 'Sovereign',
-    color: '#E8D5A0',
-    description:
-      'The practice is no longer something you do. It informs how you move.',
-    requirements: {
-      totalPrimes: 200,
-      practiceDays: 60,
-      releasedAnchors: 3,
-    },
-  },
-];
 
 export const DEPTH_TIERS: DepthTier[] = [
   {
@@ -209,39 +115,16 @@ export const DEPTH_TIERS: DepthTier[] = [
   },
 ];
 
-export const MARK_TIERS: MarkTier[] = [
-  {
-    name: 'First Return Mark',
-    threshold: 3,
-    subtitle: 'Forged at 3 practice days',
-  },
-  {
-    name: 'Steady Thread Mark',
-    threshold: 7,
-    subtitle: 'Forged at 7 practice days',
-  },
-  {
-    name: 'Discipline Mark',
-    threshold: 30,
-    subtitle: 'Forged at 30 practice days',
-  },
-  {
-    name: 'Constancy Mark',
-    threshold: 100,
-    subtitle: 'Forged at 100 practice days',
-  },
-];
-
 function buildRequirementStatus(
-  key: RankRequirementKey | DepthRequirementKey,
+  key: DepthRequirementKey,
   current: number,
   required: number
 ): RequirementStatus {
   switch (key) {
-    case 'totalPrimes':
+    case 'primes':
       return {
         key,
-        label: 'Total Primes',
+        label: 'Primes on this Anchor',
         shortLabel: 'primes',
         current,
         required,
@@ -256,24 +139,6 @@ function buildRequirementStatus(
         required,
         met: current >= required,
       };
-    case 'releasedAnchors':
-      return {
-        key,
-        label: 'Released Anchors',
-        shortLabel: 'releases',
-        current,
-        required,
-        met: current >= required,
-      };
-    case 'primes':
-      return {
-        key,
-        label: 'Primes on this Anchor',
-        shortLabel: 'primes',
-        current,
-        required,
-        met: current >= required,
-      };
     case 'deepPrimes':
       return {
         key,
@@ -284,23 +149,6 @@ function buildRequirementStatus(
         met: current >= required,
       };
   }
-}
-
-export function getRankRequirementStatuses(
-  tier: RankTier,
-  metrics: RankMetrics
-): RequirementStatus[] {
-  return (Object.entries(tier.requirements) as Array<
-    [RankRequirementKey, number]
-  >).map(([key, required]) => {
-    const current =
-      key === 'totalPrimes'
-        ? metrics.totalPrimes
-        : key === 'practiceDays'
-          ? metrics.practiceDays
-          : metrics.releasedAnchors;
-    return buildRequirementStatus(key, current, required);
-  });
 }
 
 export function getDepthRequirementStatuses(
@@ -336,7 +184,7 @@ function averageProgress(requirements: RequirementStatus[]): number {
   return ratios.reduce((sum, ratio) => sum + ratio, 0) / ratios.length;
 }
 
-function findCurrentTier<T extends RankTier | DepthTier>(
+function findCurrentTier<T extends DepthTier>(
   tiers: T[],
   requirementsBuilder: (tier: T) => RequirementStatus[]
 ): { tier: T; requirements: RequirementStatus[] } {
@@ -351,7 +199,7 @@ function findCurrentTier<T extends RankTier | DepthTier>(
   return { tier: tiers[0], requirements: requirementsBuilder(tiers[0]) };
 }
 
-function findNextTier<T extends RankTier | DepthTier>(
+function findNextTier<T extends DepthTier>(
   tiers: T[],
   currentName: T['name']
 ): T | null {
@@ -463,31 +311,6 @@ export function getReleasedAnchorCount(anchors: Anchor[]): number {
   ).length;
 }
 
-export function getCurrentRank(metrics: RankMetrics): RankState {
-  return findCurrentTier(RANK_TIERS, (tier) =>
-    getRankRequirementStatuses(tier, metrics)
-  );
-}
-
-export function getNextRankProgress(metrics: RankMetrics): RankProgressState {
-  const current = getCurrentRank(metrics);
-  const nextTier = findNextTier(RANK_TIERS, current.tier.name);
-  const unmetRequirements = nextTier
-    ? getRankRequirementStatuses(nextTier, metrics).filter(
-        (requirement) => !requirement.met
-      )
-    : [];
-
-  return {
-    currentTier: current.tier,
-    nextTier,
-    progress: nextTier
-      ? averageProgress(getRankRequirementStatuses(nextTier, metrics))
-      : 1,
-    unmetRequirements,
-  };
-}
-
 export function getAnchorPrimeStats(
   anchorId: string,
   practiceSessions: PrimingHistoryEntry[],
@@ -595,56 +418,6 @@ export function getDeepestPracticeAnchor(
   return candidates[0] ?? null;
 }
 
-export function getNextMark(practiceDays: number): MarkState {
-  const current =
-    MARK_TIERS.find((tier) => practiceDays < tier.threshold) ??
-    MARK_TIERS[MARK_TIERS.length - 1];
-
-  return {
-    current,
-    earned: practiceDays >= current.threshold,
-  };
-}
-
-export function getMarkProgress(practiceDays: number): MarkProgressState {
-  const { current, earned } = getNextMark(practiceDays);
-  const currentValue = Math.min(practiceDays, current.threshold);
-
-  return {
-    current: currentValue,
-    required: current.threshold,
-    progress: earned ? 1 : currentValue / current.threshold,
-    earned,
-  };
-}
-
-export function getEarnedRankNames(metrics: RankMetrics): RankName[] {
-  return RANK_TIERS.filter((tier) =>
-    meetsAllRequirements(getRankRequirementStatuses(tier, metrics))
-  ).map((tier) => tier.name);
-}
-
-export function getEarnedMarkNames(practiceDays: number): MarkName[] {
-  return MARK_TIERS.filter((tier) => practiceDays >= tier.threshold).map(
-    (tier) => tier.name
-  );
-}
-
-export function formatRankGuidance(
-  progress: RankProgressState,
-  hasAnchors: boolean
-): string {
-  if (!hasAnchors) {
-    return 'Forge your first Anchor to begin.';
-  }
-
-  if (!progress.nextTier) {
-    return 'Highest rank reached';
-  }
-
-  return formatRequirementGuidance(progress.unmetRequirements, progress.nextTier.name);
-}
-
 export function formatDepthGuidance(progress: DepthProgressState): string {
   if (!progress.nextTier) {
     return 'Maximum depth reached';
@@ -685,10 +458,6 @@ function formatRequirementGuidance(
 
     if (requirement.key === 'practiceDays') {
       return `${remaining} ${remaining === 1 ? 'practice day' : options?.practiceDaysLabel ?? 'practice days'}`;
-    }
-
-    if (requirement.key === 'releasedAnchors') {
-      return `${remaining} ${remaining === 1 ? 'release' : 'releases'}`;
     }
 
     if (requirement.key === 'deepPrimes') {

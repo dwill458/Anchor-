@@ -4,11 +4,7 @@ import {
   formatDepthGuidance,
   getAnchorDepth,
   getAnchorDepthProgress,
-  getCurrentRank,
   getDeepestPracticeAnchor,
-  getMarkProgress,
-  getNextMark,
-  getNextRankProgress,
   getPracticeDays,
 } from '../progression';
 
@@ -40,74 +36,6 @@ function createPrimingEntry(
 }
 
 describe('progression selectors', () => {
-  describe('rank qualification', () => {
-    it('requires all metrics for multi-gate ranks', () => {
-      expect(
-        getCurrentRank({
-          totalPrimes: 0,
-          practiceDays: 0,
-          releasedAnchors: 0,
-        }).tier.name
-      ).toBe('Initiate');
-
-      expect(
-        getCurrentRank({
-          totalPrimes: 10,
-          practiceDays: 2,
-          releasedAnchors: 0,
-        }).tier.name
-      ).toBe('Initiate');
-
-      expect(
-        getCurrentRank({
-          totalPrimes: 10,
-          practiceDays: 3,
-          releasedAnchors: 0,
-        }).tier.name
-      ).toBe('Practitioner');
-
-      expect(
-        getCurrentRank({
-          totalPrimes: 50,
-          practiceDays: 14,
-          releasedAnchors: 0,
-        }).tier.name
-      ).toBe('Practitioner');
-
-      expect(
-        getCurrentRank({
-          totalPrimes: 50,
-          practiceDays: 14,
-          releasedAnchors: 1,
-        }).tier.name
-      ).toBe('Architect');
-    });
-
-    it('averages requirement progress toward the next rank', () => {
-      const progress = getNextRankProgress({
-        totalPrimes: 5,
-        practiceDays: 1,
-        releasedAnchors: 0,
-      });
-
-      expect(progress.currentTier.name).toBe('Initiate');
-      expect(progress.nextTier?.name).toBe('Practitioner');
-      expect(progress.progress).toBeCloseTo((5 / 10 + 1 / 3) / 2, 4);
-    });
-
-    it('fills to one at the highest rank', () => {
-      const progress = getNextRankProgress({
-        totalPrimes: 200,
-        practiceDays: 60,
-        releasedAnchors: 3,
-      });
-
-      expect(progress.currentTier.name).toBe('Sovereign');
-      expect(progress.nextTier).toBeNull();
-      expect(progress.progress).toBe(1);
-    });
-  });
-
   describe('anchor depth qualification', () => {
     it('qualifies tiers from per-anchor primes, days, and Deep Primes', () => {
       expect(
@@ -241,24 +169,7 @@ describe('progression selectors', () => {
     });
   });
 
-  describe('mark ladder and practice day counting', () => {
-    it('selects the next mark within reach and the earned max state', () => {
-      expect(getNextMark(0).current.name).toBe('First Return Mark');
-      expect(getNextMark(4).current.name).toBe('Steady Thread Mark');
-      expect(getNextMark(29).current.name).toBe('Discipline Mark');
-      expect(getNextMark(100).current.name).toBe('Constancy Mark');
-      expect(getNextMark(100).earned).toBe(true);
-    });
-
-    it('tracks mark progress against the current threshold', () => {
-      expect(getMarkProgress(4)).toEqual({
-        current: 4,
-        required: 7,
-        progress: 4 / 7,
-        earned: false,
-      });
-    });
-
+  describe('practice day counting', () => {
     it('deduplicates multiple sessions on the same local day with an IANA timezone', () => {
       const sessions = [
         createPrimingEntry('1', {

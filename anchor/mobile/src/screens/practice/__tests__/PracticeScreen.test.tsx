@@ -183,10 +183,15 @@ const chargeSetupExpectation = (
   anchorId,
   returnTo: 'practice',
   returnTarget: { kind: 'practice' },
-  initialDuration: 'deep',
-  initialDurationSeconds,
+  durationSeconds: initialDurationSeconds,
   flowVariant: 'practice',
   source,
+  ritualType: 'deep',
+  audioConfiguration: {
+    backgroundAudio: 'ambient',
+    guidanceVoice: 'female',
+    source: 'default',
+  },
 });
 
 describe('PracticeScreen', () => {
@@ -278,7 +283,7 @@ describe('PracticeScreen', () => {
       expect(mockNavigateToPractice).toHaveBeenCalledTimes(1);
     });
     expect(mockNavigateToPractice).toHaveBeenCalledWith(
-      'ChargeSetup',
+      'Ritual',
       chargeSetupExpectation('rapid-anchor', 'practice_deep_prime_card', 120),
     );
     expect(mockNavigateToVault).not.toHaveBeenCalled();
@@ -296,7 +301,7 @@ describe('PracticeScreen', () => {
     await waitFor(() => {
       expect(mockNavigateToPractice).toHaveBeenCalledTimes(1);
       expect(mockNavigateToPractice).toHaveBeenCalledWith(
-        'ChargeSetup',
+        'Ritual',
         chargeSetupExpectation('card-anchor', 'practice_deep_prime_card', 120),
       );
     });
@@ -314,10 +319,14 @@ describe('PracticeScreen', () => {
     fireEvent.press(screen.getByTestId('practice-selected-mode-cta'));
 
     await waitFor(() => {
-      expect(mockNavigateToPractice).toHaveBeenCalledWith(
-        'ChargeSetup',
-        chargeSetupExpectation('unprimed-anchor', 'practice_deep_prime_card', undefined),
-      );
+      expect(mockNavigateToPractice).toHaveBeenCalledWith('ChargeSetup', {
+        anchorId: 'unprimed-anchor',
+        flowVariant: 'practice',
+        initialDuration: 'deep',
+        returnTarget: { kind: 'practice' },
+        returnTo: 'practice',
+        source: 'practice_deep_prime_card',
+      });
     });
   });
 
@@ -379,7 +388,7 @@ describe('PracticeScreen', () => {
 
     await waitFor(() => {
       expect(mockNavigateToPractice).toHaveBeenCalledWith(
-        'ChargeSetup',
+        'Ritual',
         chargeSetupExpectation('a99', 'practice_deep_prime_card', 120),
       );
     });
@@ -421,7 +430,7 @@ describe('PracticeScreen', () => {
 
     await waitFor(() => {
       expect(mockNavigateToPractice).toHaveBeenCalledWith(
-        'ChargeSetup',
+        'Ritual',
         chargeSetupExpectation('a2', 'practice_deep_prime_card', 120),
       );
     });
@@ -437,7 +446,7 @@ describe('PracticeScreen', () => {
 
     await waitFor(() => {
       expect(mockNavigateToPractice).toHaveBeenCalledWith(
-        'ChargeSetup',
+        'Ritual',
         chargeSetupExpectation('a77', 'practice_deep_prime_card', 14 * 60),
       );
     });

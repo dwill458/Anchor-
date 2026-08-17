@@ -22,6 +22,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Pause, Play } from 'lucide-react-native';
 import Svg, {
   Circle,
 } from 'react-native-svg';
@@ -62,7 +63,6 @@ import {
 } from '@/utils/postPrimeTraceEligibility';
 import { useMissingAnchorRedirect } from './utils/useMissingAnchorRedirect';
 import { useDeepPrimeSessionAudio } from './hooks/useDeepPrimeSessionAudio';
-import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
 import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
 import { createPracticeEventId } from '@/utils/primingAnalytics';
 import {
@@ -185,13 +185,6 @@ const formatMSS = (seconds: number) => {
   const mins = Math.floor(clamped / 60);
   const secs = clamped % 60;
   return `${mins}:${String(secs).padStart(2, '0')}`;
-};
-
-const formatLandingTime = (seconds: number) => {
-  const clamped = Math.max(0, seconds);
-  const mins = Math.floor(clamped / 60);
-  const secs = clamped % 60;
-  return `${mins}M ${String(secs).padStart(2, '0')}S`;
 };
 
 const makeDeepEmbers = (count: number): EmberParticle[] =>
@@ -344,30 +337,32 @@ export const RitualScreen: React.FC = () => {
   const [sealBreathLabel, setSealBreathLabel] = useState<'Inhale' | 'Exhale'>('Inhale');
   const [showSealContinue, setShowSealContinue] = useState(false);
   const isCompactHeight = screenHeight <= 880;
-  const deepHeroSize = Math.min(Math.round(screenWidth * 0.68), 280);
-  const deepLandingHeroSize = Math.round(deepHeroSize * (isCompactHeight ? 0.74 : 0.78));
-  const deepLandingOrbitSolidSize = deepLandingHeroSize * 1.02;
-  const deepLandingOrbitDashOuterSize = deepLandingHeroSize * 1.16;
-  const deepLandingOrbitDotOuterSize = deepLandingHeroSize * 1.28;
-  const deepLandingOrbitDashInnerSize = deepLandingHeroSize * 1.34;
+  // Give the sigil more presence in both states while keeping the orbit system
+  // visible as a breathing frame around it.
+  const deepHeroSize = Math.min(Math.round(screenWidth * 0.54), 212);
+  const deepLandingHeroSize = Math.min(Math.round(screenWidth * 0.57), 222);
+  const deepLandingOrbitSolidSize = Math.min(Math.round(screenWidth * 0.59), 232);
+  const deepLandingOrbitDashOuterSize = Math.min(Math.round(screenWidth * 0.69), 270);
+  const deepLandingOrbitDotOuterSize = Math.min(Math.round(screenWidth * 0.79), 310);
+  const deepLandingOrbitDashInnerSize = Math.min(Math.round(screenWidth * 0.86), 336);
   const deepLandingStageSize = deepLandingOrbitDashInnerSize;
   const deepRingRadius = deepHeroSize / 2 + 22;
   const deepSealSvgSize = deepRingRadius * 2 + RING_STROKE_WIDTH * 4;
   const deepSealCenter = deepSealSvgSize / 2;
   const deepSealCircumference = 2 * Math.PI * deepRingRadius;
-  const deepStageSize = deepHeroSize;
-  const deepAuraOuterSize = deepHeroSize * 1.55;
-  const deepAuraInnerSize = deepHeroSize * 1.25;
-  const deepOrbitSolidSize = deepHeroSize * 1.02;
-  const deepOrbitDashOuterSize = deepHeroSize * 1.16;
-  const deepOrbitDotOuterSize = deepHeroSize * 1.26;
-  const deepOrbitDashInnerSize = deepHeroSize * 1.34;
-  const deepOrbRingOuterSize = deepHeroSize * 1.3;
-  const deepOrbRingInnerSize = deepHeroSize * 1.14;
-  const deepOrbScale = deepHeroSize / 240;
-  const deepPulseOuterSize = deepHeroSize * 1.1;
-  const deepPulseInnerSize = deepHeroSize * 0.96;
-  const deepEmberHaloSize = deepHeroSize * 0.94;
+  const deepStageSize = Math.min(Math.round(screenWidth * 0.86), 336);
+  const deepAuraOuterSize = Math.min(Math.round(screenWidth * 0.73), 286);
+  const deepAuraInnerSize = Math.min(Math.round(screenWidth * 0.59), 232);
+  const deepOrbitSolidSize = Math.min(Math.round(screenWidth * 0.59), 232);
+  const deepOrbitDashOuterSize = Math.min(Math.round(screenWidth * 0.69), 270);
+  const deepOrbitDotOuterSize = Math.min(Math.round(screenWidth * 0.79), 310);
+  const deepOrbitDashInnerSize = Math.min(Math.round(screenWidth * 0.86), 336);
+  const deepOrbRingOuterSize = Math.min(Math.round(screenWidth * 0.82), 320);
+  const deepOrbRingInnerSize = Math.min(Math.round(screenWidth * 0.72), 280);
+  const deepOrbScale = deepHeroSize / 184;
+  const deepPulseOuterSize = Math.min(Math.round(screenWidth * 0.62), 244);
+  const deepPulseInnerSize = Math.min(Math.round(screenWidth * 0.55), 214);
+  const deepEmberHaloSize = Math.min(Math.round(screenWidth * 0.56), 220);
 
   useMissingAnchorRedirect(!isAnchorMissing, navigation);
 
@@ -1359,7 +1354,6 @@ export const RitualScreen: React.FC = () => {
         chartContext,
         practiceEntrySource: source,
       });
-      await queueProgressionMilestonesFromStores({ sourceEventId: completionEventId });
       await handlePrimeComplete();
       await exitRitual(canonicalRecord ? {
         outcome: 'completed',
@@ -1468,7 +1462,6 @@ export const RitualScreen: React.FC = () => {
       practiceEntrySource: source,
     });
 
-    await queueProgressionMilestonesFromStores({ sourceEventId: completionEventId });
     await handlePrimeComplete();
     await exitRitual(canonicalRecord ? {
       outcome: 'completed',
@@ -1776,8 +1769,8 @@ export const RitualScreen: React.FC = () => {
           <>
             <View pointerEvents="none" style={styles.deepBackgroundLayer}>
               <LinearGradient
-                colors={['#2A1008', '#0E0A04', '#050309']}
-                locations={[0, 0.42, 1]}
+                colors={['#050309', '#080407', '#100706', '#241007']}
+                locations={[0, 0.46, 0.78, 1]}
                 style={StyleSheet.absoluteFill}
               />
               <Animated.View
@@ -1822,7 +1815,6 @@ export const RitualScreen: React.FC = () => {
                   >
                     <Text style={styles.deepCloseIcon}>×</Text>
                   </TouchableOpacity>
-                  <Text style={styles.landingTopBarTitle}>A N C H O R</Text>
                   <View style={styles.deepHeaderSpacer} />
                 </View>
 
@@ -1832,16 +1824,6 @@ export const RitualScreen: React.FC = () => {
                     isCompactHeight ? styles.landingCenterContentCompact : null,
                   ]}
                 >
-                  <Text style={styles.landingTitle}>DEEP PRIMING</Text>
-                  <Text
-                    style={[
-                      styles.landingTimeText,
-                      isCompactHeight ? styles.landingTimeTextCompact : null,
-                    ]}
-                  >
-                    {formatLandingTime(config.totalDurationSeconds)}
-                  </Text>
-
                   <View
                     style={[
                       styles.landingSigilWrapper,
@@ -1954,6 +1936,11 @@ export const RitualScreen: React.FC = () => {
                     </View>
                   </View>
 
+                  <Text style={styles.landingAnchorTitle}>"{anchor.intentionText}"</Text>
+                  <Text style={styles.landingDescription}>
+                    Spend longer with the Anchor through guided{`\n`}attention.
+                  </Text>
+
                   <View
                     style={[
                       styles.landingTimelineRow,
@@ -1961,51 +1948,23 @@ export const RitualScreen: React.FC = () => {
                     ]}
                   >
                     {config.phases.map((p, i) => (
-                      <View
-                        key={i}
-                        style={[
-                          styles.landingTimelineBox,
-                          isCompactHeight ? styles.landingTimelineBoxCompact : null,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.landingTimelineNum,
-                            isCompactHeight ? styles.landingTimelineNumCompact : null,
-                          ]}
-                        >
-                          0{i + 1}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.landingTimelineText,
-                            isCompactHeight ? styles.landingTimelineTextCompact : null,
-                          ]}
-                        >
-                          {p.title}
-                        </Text>
-                      </View>
+                      <React.Fragment key={`${p.title}-${i}`}>
+                        <View style={styles.landingTimelineItem}>
+                          <View style={styles.landingTimelineDot} />
+                          <Text
+                            style={[
+                              styles.landingTimelineText,
+                              isCompactHeight ? styles.landingTimelineTextCompact : null,
+                            ]}
+                          >
+                            {p.title}
+                          </Text>
+                        </View>
+                        {i < config.phases.length - 1 ? <View style={styles.landingTimelineConnector} /> : null}
+                      </React.Fragment>
                     ))}
                   </View>
-
-                  {!reduceIntentionVisibility && anchor.intentionText ? (
-                    <View
-                      style={[
-                        styles.landingIntentionWrap,
-                        isCompactHeight ? styles.landingIntentionWrapCompact : null,
-                      ]}
-                    >
-                      <Text style={styles.landingIntentionLabel}>INTENTION</Text>
-                      <Text
-                        style={[
-                          styles.landingIntentionText,
-                          isCompactHeight ? styles.landingIntentionTextCompact : null,
-                        ]}
-                      >
-                        "{anchor.intentionText}"
-                      </Text>
-                    </View>
-                  ) : null}
+                  <Text style={styles.landingHint}>Guidance becomes quieter as the session deepens.</Text>
                 </View>
 
                 <View
@@ -2016,6 +1975,7 @@ export const RitualScreen: React.FC = () => {
                 >
                   <VoiceAndSoundSummaryRow
                     value={resolvedSessionAudio}
+                    sessionType="deep_prime"
                     onPress={() => setShowAudioOverride(true)}
                   />
                   <Pressable onPress={handleBeginPriming} style={styles.landingBeginBtn}>
@@ -2025,7 +1985,7 @@ export const RitualScreen: React.FC = () => {
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 1 }}
                     >
-                      <Text style={styles.landingBeginBtnText}>Begin priming  →</Text>
+                      <Text style={styles.landingBeginBtnText}>Begin Deep Prime →</Text>
                     </LinearGradient>
                   </Pressable>
                   <Text style={styles.landingFooterText}>
@@ -2085,21 +2045,13 @@ export const RitualScreen: React.FC = () => {
               >
                 <Text style={styles.deepCloseIcon}>×</Text>
               </TouchableOpacity>
-              <View style={styles.deepPhasePill}>
-                <Text style={styles.deepPhasePillText}>{phaseLabelForDeep}</Text>
-              </View>
+              <Text style={styles.deepPhaseCounterText}>{phaseLabelForDeep.toUpperCase()}</Text>
               <View style={styles.deepHeaderSpacer} />
             </Animated.View>
 
             {!state.isSealPhase ? (
               <View style={[styles.deepPhaseLabelWrap, isCompactHeight ? styles.deepPhaseLabelWrapCompact : null]}>
                 <Text style={styles.deepPhaseLabelText}>{deepPhaseName}</Text>
-                <LinearGradient
-                  colors={['rgba(212,175,55,0)', 'rgba(212,175,55,0.42)', 'rgba(212,175,55,0)']}
-                  start={{ x: 0, y: 0.5 }}
-                  end={{ x: 1, y: 0.5 }}
-                  style={styles.deepPhaseDivider}
-                />
               </View>
             ) : null}
 
@@ -2488,39 +2440,14 @@ export const RitualScreen: React.FC = () => {
               ]}
             >
               {!state.isSealPhase && (
-                <View style={[styles.deepTimerRow, isCompactHeight ? styles.deepTimerRowCompact : null]}>
-                  <View
-                    style={[
-                      styles.deepPhaseTimerPill,
-                      isCompactHeight ? styles.deepTimerPillCompact : null,
-                    ]}
-                  >
-                    <Text style={styles.deepTimerLabelEmber}>THIS PHASE</Text>
-                    <Text
-                      style={[
-                        styles.deepTimerDigitsEmber,
-                        isCompactHeight ? styles.deepTimerDigitsCompact : null,
-                      ]}
-                    >
-                      {deepPhaseTime}
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.deepTotalTimerPill,
-                      isCompactHeight ? styles.deepTimerPillCompact : null,
-                    ]}
-                  >
-                    <Text style={styles.deepTimerLabelGold}>TOTAL LEFT</Text>
-                    <Text
-                      style={[
-                        styles.deepTimerDigitsGold,
-                        isCompactHeight ? styles.deepTimerDigitsCompact : null,
-                      ]}
-                    >
-                      {deepTotalTime}
-                    </Text>
-                  </View>
+                <View style={styles.deepRemainingRow}>
+                  <Text style={[
+                    styles.deepRemainingDigits,
+                    isCompactHeight ? styles.deepRemainingDigitsCompact : null,
+                  ]}>
+                    {deepTotalTime}
+                  </Text>
+                  <Text style={styles.deepRemainingLabel}>REMAINING</Text>
                 </View>
               )}
               {!state.isSealPhase ? (
@@ -2530,7 +2457,14 @@ export const RitualScreen: React.FC = () => {
                   style={styles.deepPauseButton}
                   disabled={state.isSealComplete}
                 >
-                  <Text style={styles.deepPauseText}>{deepPauseLabel}</Text>
+                  <View style={styles.deepPauseContent}>
+                    {state.isActive ? (
+                      <Pause color="rgba(245,240,232,0.72)" size={14} strokeWidth={1.7} />
+                    ) : (
+                      <Play color="rgba(245,240,232,0.72)" size={14} strokeWidth={1.7} />
+                    )}
+                    <Text style={styles.deepPauseText}>{state.isActive ? 'Pause' : 'Resume'}</Text>
+                  </View>
                 </TouchableOpacity>
               ) : null}
             </Animated.View>
@@ -2844,7 +2778,7 @@ const styles = StyleSheet.create({
     top: -56,
     left: -90,
     borderRadius: 170,
-    backgroundColor: 'rgba(200,120,30,0.20)',
+    backgroundColor: 'rgba(200,120,30,0.08)',
     shadowColor: '#C8581A',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.28,
@@ -2857,7 +2791,7 @@ const styles = StyleSheet.create({
     right: -60,
     bottom: 76,
     borderRadius: 130,
-    backgroundColor: 'rgba(180,60,20,0.18)',
+    backgroundColor: 'rgba(180,60,20,0.10)',
     shadowColor: '#D4AF37',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.14,
@@ -2935,22 +2869,11 @@ const styles = StyleSheet.create({
     fontWeight: '300',
     marginTop: -1,
   },
-  deepPhasePill: {
-    minHeight: 36,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.24)',
-    backgroundColor: 'rgba(212,175,55,0.04)',
-    paddingHorizontal: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deepPhasePillText: {
-    fontSize: 10,
+  deepPhaseCounterText: {
+    fontSize: 11,
     fontFamily: typography.fonts.mono,
-    color: 'rgba(245,240,232,0.7)',
-    letterSpacing: 1.8,
-    textTransform: 'uppercase',
+    color: 'rgba(245,240,232,0.58)',
+    letterSpacing: 2.2,
   },
   deepHeaderSpacer: {
     width: 32,
@@ -2964,10 +2887,10 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   deepPhaseLabelText: {
-    fontSize: 15,
+    fontSize: 20,
     fontFamily: typography.fonts.heading,
-    letterSpacing: 5,
-    color: '#D4AF37',
+    letterSpacing: 6,
+    color: 'rgba(212,175,55,0.9)',
     textTransform: 'uppercase',
   },
   deepPhaseDivider: {
@@ -3364,6 +3287,29 @@ const styles = StyleSheet.create({
   deepTimerDigitsCompact: {
     fontSize: 18,
   },
+  deepRemainingRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+  },
+  deepRemainingDigits: {
+    fontSize: 28,
+    fontFamily: typography.fonts.mono,
+    color: '#F0D060',
+    letterSpacing: 0.8,
+    textShadowColor: 'rgba(212,175,55,0.3)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 12,
+  },
+  deepRemainingDigitsCompact: {
+    fontSize: 24,
+  },
+  deepRemainingLabel: {
+    fontSize: 10,
+    fontFamily: typography.fonts.mono,
+    color: 'rgba(245,240,232,0.4)',
+    letterSpacing: 2.4,
+  },
   deepPauseButton: {
     borderRadius: 999,
     borderWidth: 1,
@@ -3371,6 +3317,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     paddingVertical: 10,
     backgroundColor: 'rgba(245,240,232,0.04)',
+  },
+  deepPauseContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   deepPauseText: {
     fontSize: 13,
@@ -3595,38 +3546,33 @@ const styles = StyleSheet.create({
   landingContent: {
     flex: 1,
   },
-  landingTopBarTitle: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 14,
-    letterSpacing: 6,
-    color: 'rgba(245,240,232,0.8)',
-    textAlign: 'center',
-  },
   landingCenterContent: {
     flex: 1,
     alignItems: 'center',
-    paddingTop: 8,
+    justifyContent: 'center',
+    paddingTop: 0,
+    paddingHorizontal: 18,
   },
   landingCenterContentCompact: {
-    paddingTop: 4,
+    paddingTop: 0,
   },
-  landingTitle: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 14,
-    color: '#D4AF37',
-    letterSpacing: 4,
+  landingAnchorTitle: {
+    fontFamily: typography.fonts.bodySerifItalic,
+    fontSize: 20,
+    lineHeight: 28,
+    color: 'rgba(245,240,232,0.88)',
+    textAlign: 'center',
+    letterSpacing: 0.2,
+    marginTop: 10,
+    paddingHorizontal: 28,
   },
-  landingTimeText: {
-    fontFamily: typography.fonts.mono,
-    fontSize: 31,
-    color: '#F6EFD8',
-    marginTop: 6,
-    marginBottom: 8,
-    letterSpacing: 1.5,
-  },
-  landingTimeTextCompact: {
-    fontSize: 27,
-    marginBottom: 6,
+  landingDescription: {
+    fontFamily: typography.fonts.bodySerifItalic,
+    fontSize: 16,
+    lineHeight: 22,
+    color: 'rgba(245,240,232,0.62)',
+    textAlign: 'center',
+    marginTop: 8,
   },
   landingSigilWrapper: {
     width: 340,
@@ -3642,81 +3588,61 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    marginBottom: 14,
-    paddingHorizontal: 16,
+    marginTop: 22,
+    marginBottom: 0,
+    paddingHorizontal: 0,
     width: '100%',
   },
   landingTimelineRowCompact: {
-    marginBottom: 8,
-    paddingHorizontal: 12,
+    marginTop: 16,
   },
-  landingTimelineBox: {
+  landingTimelineItem: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 0,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.15)',
-    borderRadius: 8,
-    backgroundColor: 'rgba(212,175,55,0.05)',
+    gap: 7,
   },
-  landingTimelineBoxCompact: {
-    paddingVertical: 8,
+  landingTimelineDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#F0CB6A',
+    shadowColor: '#F0CB6A',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 5,
+    elevation: 3,
   },
-  landingTimelineNum: {
-    fontFamily: typography.fonts.mono,
-    fontSize: 10,
-    color: '#D4AF37',
-    marginBottom: 4,
-  },
-  landingTimelineNumCompact: {
-    fontSize: 9,
-    marginBottom: 3,
+  landingTimelineConnector: {
+    flex: 0.55,
+    height: 1,
+    marginBottom: 16,
+    backgroundColor: 'rgba(212,175,55,0.22)',
   },
   landingTimelineText: {
     fontFamily: typography.fonts.mono,
-    fontSize: 7,
-    color: 'rgba(245,240,232,0.6)',
-    letterSpacing: 0,
+    fontSize: 8,
+    color: 'rgba(245,240,232,0.38)',
+    letterSpacing: 1.1,
     textTransform: 'uppercase',
     textAlign: 'center',
   },
   landingTimelineTextCompact: {
-    fontSize: 6,
+    fontSize: 7,
   },
-  landingIntentionWrap: {
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  landingIntentionWrapCompact: {
-    paddingHorizontal: 20,
-  },
-  landingIntentionLabel: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 10,
-    color: '#D4AF37',
-    letterSpacing: 2,
-    marginBottom: 6,
-  },
-  landingIntentionText: {
+  landingHint: {
     fontFamily: typography.fonts.bodySerifItalic,
-    fontSize: 18,
-    color: '#F6EFD8',
+    fontSize: 13,
+    color: 'rgba(245,240,232,0.34)',
     textAlign: 'center',
-    lineHeight: 26,
-  },
-  landingIntentionTextCompact: {
-    fontSize: 16,
-    lineHeight: 22,
+    marginTop: 24,
   },
   landingBottomSection: {
-    paddingBottom: 34,
+    paddingBottom: 28,
     paddingHorizontal: 24,
     alignItems: 'center',
   },
   landingBottomSectionCompact: {
-    paddingBottom: 20,
+    paddingBottom: 16,
   },
   landingBeginBtn: {
     width: '100%',
@@ -3735,11 +3661,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   landingBeginBtnText: {
+    fontFamily: typography.fonts.bodyBold,
     fontWeight: '600',
     fontSize: 16,
-    letterSpacing: 1.5,
+    letterSpacing: 0.6,
     color: '#080C10',
-    textTransform: 'uppercase',
   },
   landingFooterText: {
     fontFamily: typography.fonts.bodySerifItalic,

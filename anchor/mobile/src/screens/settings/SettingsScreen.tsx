@@ -790,14 +790,6 @@ export const SettingsScreen: React.FC = () => {
               disabled={isLoading || !remindersEnabled}
             />
             <SettingsRow
-              title="Milestone Celebrations"
-              subtitle="Earned progress moments."
-              type="toggle"
-              toggleValue={notifState?.milestoneNotificationsEnabled ?? true}
-              onToggle={(enabled) => void updateNotificationPreferences({ milestoneNotificationsEnabled: enabled })}
-              disabled={isLoading || !remindersEnabled}
-            />
-            <SettingsRow
               title="Notification Tone"
               value={(notifState?.notificationTone ?? 'encouraging')
                 .replace('_', ' ')

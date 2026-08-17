@@ -76,12 +76,6 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         </View>
 
         <Text style={styles.displayName}>{displayName || 'Seeker'}</Text>
-
-        {notifState?.sovereign_rank ? (
-          <View style={styles.sovereignBadge}>
-            <Text style={styles.sovereignLabel}>Sovereign</Text>
-          </View>
-        ) : null}
       </BlurView>
     ) : (
       <View style={[styles.container, { backgroundColor: 'rgba(12, 17, 24, 0.92)' }]}>
@@ -98,12 +92,6 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         </View>
 
         <Text style={styles.displayName}>{displayName || 'Seeker'}</Text>
-
-        {notifState?.sovereign_rank ? (
-          <View style={styles.sovereignBadge}>
-            <Text style={styles.sovereignLabel}>Sovereign</Text>
-          </View>
-        ) : null}
       </View>
     )
   );
@@ -151,20 +139,5 @@ const styles = StyleSheet.create({
     ...typography.h2,
     color: colors.bone,
     marginBottom: spacing.sm,
-  },
-  sovereignBadge: {
-    marginTop: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#D4AF37',
-    alignSelf: 'flex-start',
-  },
-  sovereignLabel: {
-    fontFamily: 'Cinzel',
-    fontSize: 11,
-    color: '#D4AF37',
-    letterSpacing: 1.5,
   },
 });

@@ -41,7 +41,7 @@ describe('useProgressionData', () => {
     useProfileStore.setState({ timezone: 'UTC+0 (GMT)' });
   });
 
-  it('updates totals, practice days, deepest practice, and next mark after a Prime', () => {
+  it('updates totals, practice days, and deepest practice after a Prime', () => {
     const anchor = createMockAnchor({
       id: 'anchor-1',
       intentionText: 'Build with calm precision',
@@ -67,16 +67,11 @@ describe('useProgressionData', () => {
 
     expect(result.current.totalPrimes).toBe(1);
     expect(result.current.practiceDays).toBe(1);
-    expect(result.current.rank.guidance).toBe(
-      '9 primes · 2 practice days to Practitioner'
-    );
     expect(result.current.deepestPractice.empty).toBe(false);
     if (!result.current.deepestPractice.empty) {
       expect(result.current.deepestPractice.stats.primes).toBe(1);
       expect(result.current.deepestPractice.tierName).toBe('Surface');
     }
-    expect(result.current.nextMark.current).toBe(1);
-    expect(result.current.nextMark.required).toBe(3);
   });
 
   it('counts a reinforce after a prior prime as a Deep Prime and upgrades depth', () => {
@@ -176,16 +171,20 @@ describe('useProgressionData', () => {
     }
   });
 
-  it('updates rank eligibility when an Anchor is released', () => {
+  it('tracks active and released anchor counts accurately', () => {
     useAnchorStore.setState({
       anchors: [
         createMockAnchor({
-          id: 'anchor-rank',
-          intentionText: 'Close the loop',
-          activationCount: 50,
+          id: 'anchor-active',
+          intentionText: 'Active anchor',
+        }),
+        createMockAnchor({
+          id: 'anchor-released',
+          intentionText: 'Released anchor',
+          isReleased: true,
         }),
       ],
-      totalPrimes: 50,
+      totalPrimes: 10,
       primeStreak: 0,
       lastPrimedDate: null,
       isLoading: false,
@@ -194,23 +193,10 @@ describe('useProgressionData', () => {
       currentAnchorId: undefined,
     });
 
-    useSessionStore.setState({
-      primingHistory: Array.from({ length: 14 }, (_, index) =>
-        createPrimingEntry(String(index + 1), {
-          anchorId: 'anchor-rank',
-          type: 'activate',
-          completedAt: `2026-05-${String(index + 1).padStart(2, '0')}T12:00:00.000Z`,
-        })
-      ),
-    });
-
     const { result } = renderHook(() => useProgressionData());
-    expect(result.current.rank.currentName).toBe('Practitioner');
-
-    act(() => {
-      useAnchorStore.getState().releaseAnchor('anchor-rank');
-    });
-
-    expect(result.current.rank.currentName).toBe('Architect');
+    expect(result.current.activeAnchors).toBe(1);
+    expect(result.current.releasedAnchors).toBe(1);
+    expect(result.current.hasAnchors).toBe(true);
+    expect(result.current.forgedCount).toBe(2);
   });
 });

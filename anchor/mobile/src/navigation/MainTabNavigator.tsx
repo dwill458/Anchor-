@@ -43,11 +43,8 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { safeHaptics } from '@/utils/haptics';
-import { useTeachingStore } from '@/stores/teachingStore';
-import { useToast } from '@/components/ToastProvider';
 import { PracticeCompletionService } from '@/services/PracticeCompletionService';
 import VisualizationSceneService from '@/services/VisualizationSceneService';
-import { TEACHINGS } from '@/constants/teaching';
 import { WidgetDeepLinkHandler } from '@/widgets/WidgetDeepLinkHandler';
 import { ResumeTargetHandler } from './ResumeTargetHandler';
 import { WIDGETS_ENABLED } from '@/config';
@@ -274,7 +271,6 @@ export const MainTabNavigator: React.FC = () => {
   );
   const hasCheckedAutoOpen = useRef(false);
   const autoOpenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const toast = useToast();
 
   const [activeIndex, setActiveIndex] = React.useState(0);
   const [vaultRouteName, setVaultRouteName] = React.useState(
@@ -353,40 +349,18 @@ export const MainTabNavigator: React.FC = () => {
     };
   }, [anchorCount, openDailyAnchorAutomatically]);
 
-  // Milestone queue drain — one milestone toast per 10s on app foreground
+  // Flush practice writes on app foreground
   React.useEffect(() => {
-    let timerId: ReturnType<typeof setTimeout> | null = null;
-
-    const clearDrainTimer = () => {
-      if (!timerId) return;
-      clearTimeout(timerId);
-      timerId = null;
-    };
-
-    const drain = () => {
-      const milestoneId = useTeachingStore.getState().dequeueMilestone();
-      if (!milestoneId) return;
-      const content = TEACHINGS[milestoneId];
-      if (content) toast.success(content.copy);
-      clearDrainTimer();
-      timerId = setTimeout(drain, 10000);
-    };
-
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
         flushPracticeWrites();
-        clearDrainTimer();
-        drain();
-      } else {
-        clearDrainTimer();
       }
     });
 
     return () => {
       subscription.remove();
-      clearDrainTimer();
     };
-  }, [flushPracticeWrites, toast]);
+  }, [flushPracticeWrites]);
 
   const handleVaultRouteChange = useCallback((name: string) => {
     setVaultRouteName(name);

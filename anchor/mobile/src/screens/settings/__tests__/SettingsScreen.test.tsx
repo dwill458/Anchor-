@@ -277,7 +277,6 @@ describe('SettingsScreen', () => {
     expect(screen.getByText('Thread Strength Alerts')).toBeTruthy();
     expect(screen.getByText('Unfinished Anchor Reminders')).toBeTruthy();
     expect(screen.getByText('Weekly Recap')).toBeTruthy();
-    expect(screen.getByText('Milestone Celebrations')).toBeTruthy();
     expect(screen.getByText('Notification Tone')).toBeTruthy();
 
     fireEvent.press(screen.getByTestId('settings-row-Thread Threshold'));

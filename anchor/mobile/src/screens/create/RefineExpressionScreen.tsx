@@ -20,7 +20,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft, Lock } from 'lucide-react-native';
 import { safeHaptics } from '@/utils/haptics';
 import type { RootStackParamList, SigilVariant } from '@/types';
 import { colors, spacing, typography } from '@/theme';
@@ -72,6 +72,15 @@ const isSigilVariant = (value: string | undefined): value is SigilVariant =>
 const normalizeSigilVariant = (value: string | undefined): SigilVariant =>
   isSigilVariant(value) ? value : 'balanced';
 
+// Mirrors the canonical one-line descriptions from StructureForgeScreen's STRUCTURES
+// catalog, keyed by the structureId values this screen resolves to.
+const STRUCTURE_DEFINITIONS: Record<string, string> = {
+  focused: 'A structured form built around a clear center.',
+  contained: 'Your form held within a defined boundary.',
+  raw: 'Less framing. More of the original form remains visible.',
+  drawn: 'Create the form yourself.',
+};
+
 const EXPLORE_TABS = [
   { id: 'week', label: 'This Week' },
   { id: 'core', label: 'Core' },
@@ -111,6 +120,8 @@ export default function RefineExpressionScreen() {
         : structureId === 'raw'
           ? 'Raw'
           : 'Focused';
+
+  const structureDef = STRUCTURE_DEFINITIONS[structureId] ?? STRUCTURE_DEFINITIONS.focused;
 
   const recommendedStyles = useMemo(
     () => getRecommendedStyles(category, intention),
@@ -371,6 +382,12 @@ export default function RefineExpressionScreen() {
               )}
             </View>
             <Text style={styles.structHeroName}>{structureLabel}</Text>
+            <Text style={styles.structHeroDef}>{structureDef}</Text>
+            <View style={styles.structLockRow}>
+              <Lock size={11} color={colors.anchor15.gilt} strokeWidth={1.8} />
+              <Text style={styles.structLockText}>Structure locked · visual refinement only</Text>
+            </View>
+            <Text style={styles.structLockSub}>Styles change the finish, not the meaning.</Text>
           </View>
 
           {/* First-Use Microteaching */}
@@ -525,10 +542,10 @@ export default function RefineExpressionScreen() {
               onPress={handleRefineAnchor}
               disabled={isGenerating}
               accessibilityRole="button"
-              accessibilityLabel="Generate Anchor"
+              accessibilityLabel="Refine Anchor"
               style={[styles.ctaButton, isGenerating && styles.ctaButtonDisabled]}
             >
-              <Text style={styles.ctaButtonText}>GENERATE ANCHOR →</Text>
+              <Text style={styles.ctaButtonText}>REFINE ANCHOR →</Text>
             </Pressable>
           </View>
         </View>
@@ -687,6 +704,36 @@ const styles = StyleSheet.create({
     letterSpacing: 1.92,
     color: colors.anchor15.giltBright,
     textTransform: 'uppercase',
+  },
+  structHeroDef: {
+    marginTop: 6,
+    fontFamily: typography.fontFamily.voiceItalic,
+    fontSize: 13,
+    color: 'rgba(244, 239, 230, 0.55)',
+    textAlign: 'center',
+    maxWidth: 260,
+  },
+  structLockRow: {
+    marginTop: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  structLockText: {
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 10.5,
+    fontWeight: '600',
+    letterSpacing: 1.26,
+    color: colors.anchor15.gilt,
+    textTransform: 'uppercase',
+  },
+  structLockSub: {
+    marginTop: 4,
+    fontFamily: typography.fontFamily.sans,
+    fontWeight: '300',
+    fontSize: 11.5,
+    color: colors.anchor15.ash,
+    textAlign: 'center',
   },
 
   // First-Use Microteaching

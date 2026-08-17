@@ -11,10 +11,7 @@ import { useTeachingStore } from './teachingStore';
 import { apiClient } from '@/services/ApiClient';
 import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import {
-  JOURNEY_MILESTONE_IDS,
-  JOURNEY_TEACHING_CONTENT_ID_BY_MILESTONE,
-} from '@/constants/milestones';
+
 import {
   buildPrimingHistoryEntry,
   getIsoWeekdayIndex,
@@ -532,11 +529,6 @@ export const useSessionStore = create<SessionState>()(
           !teaching.userFlags.hasCompletedFirstCharge
         ) {
           teaching.setUserFlag('hasCompletedFirstCharge', true);
-          teaching.queueMilestone(
-            JOURNEY_TEACHING_CONTENT_ID_BY_MILESTONE[
-              JOURNEY_MILESTONE_IDS.firstPrime
-            ],
-          );
         }
         if (
           entry.type === 'stabilize' &&

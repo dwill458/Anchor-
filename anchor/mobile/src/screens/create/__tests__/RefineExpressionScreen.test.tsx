@@ -109,7 +109,7 @@ describe('RefineExpressionScreen', () => {
       fireEvent.press(allTab);
     });
     expect(screen.getByRole('button', { name: 'Luminous family filter' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Mystic family filter' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Symbolic family filter' })).toBeTruthy();
   });
 
   it('displays selected style in the sticky CTA bar and navigates to AIGenerating', () => {
@@ -118,7 +118,7 @@ describe('RefineExpressionScreen', () => {
 
     expect(screen.getByText('SELECTED STYLE:')).toBeTruthy();
 
-    const generateBtn = screen.getByRole('button', { name: 'Generate Anchor' });
+    const generateBtn = screen.getByRole('button', { name: 'Refine Anchor' });
     expect(generateBtn).toBeTruthy();
 
     act(() => {
@@ -149,7 +149,7 @@ describe('RefineExpressionScreen', () => {
     const { unmount } = render(<RefineExpressionScreen />);
 
     act(() => {
-      fireEvent.press(screen.getByRole('button', { name: 'Generate Anchor' }));
+      fireEvent.press(screen.getByRole('button', { name: 'Refine Anchor' }));
     });
     act(() => {
       jest.advanceTimersByTime(1000);
@@ -160,7 +160,7 @@ describe('RefineExpressionScreen', () => {
     // Coming back from AIGenerating ("Go Back" after an error) refocuses the screen.
     render(<RefineExpressionScreen />);
     expect(screen.queryByText('CREATING YOUR ANCHOR')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Generate Anchor' }).props.accessibilityState)
+    expect(screen.getByRole('button', { name: 'Refine Anchor' }).props.accessibilityState)
       .not.toMatchObject({ disabled: true });
     jest.useRealTimers();
   });
@@ -170,7 +170,7 @@ describe('RefineExpressionScreen', () => {
     const { unmount } = render(<RefineExpressionScreen />);
 
     act(() => {
-      fireEvent.press(screen.getByRole('button', { name: 'Generate Anchor' }));
+      fireEvent.press(screen.getByRole('button', { name: 'Refine Anchor' }));
     });
     // Back-swipe before the 900ms beat elapses.
     unmount();

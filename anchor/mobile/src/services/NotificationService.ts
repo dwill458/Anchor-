@@ -814,8 +814,6 @@ class NotificationService {
         return 'ritual_reminder';
       case 'weekly_recap':
         return 'weekly_summary';
-      case 'milestone':
-        return 'daily_goal_checkpoint';
     }
   }
 
@@ -827,7 +825,6 @@ class NotificationService {
         return '/practice';
       case 'daily_prime':
       case 'thread_strength':
-      case 'milestone':
       default:
         return '/sanctuary';
     }
@@ -842,7 +839,6 @@ class NotificationService {
       case 'unfinished_anchor':
         return NOTIFICATION_CHANNELS.RITUAL_REMINDERS;
       case 'daily_prime':
-      case 'milestone':
       default:
         return NOTIFICATION_CHANNELS.DAILY_REMINDERS;
     }

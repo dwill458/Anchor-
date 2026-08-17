@@ -216,46 +216,6 @@ export const TEACHINGS: Record<string, TeachingContent> = {
     cooldownMs: 0,
   },
 
-  // ── Milestone Toasts (M1, M2, M6) ──────────────────────────────────────────
-
-  milestone_first_anchor_v1: {
-    teachingId: 'milestone_first_anchor_v1',
-    screen: 'any',
-    trigger: 'milestone',
-    guideOnly: false,
-    tier: 'both',
-    copy: "Your first anchor is set. Prime it when you're ready.",
-    pattern: 'toast_achievement',
-    tone: 'encouragement',
-    maxShows: 1,
-    cooldownMs: 0,
-  },
-
-  milestone_first_charge_v1: {
-    teachingId: 'milestone_first_charge_v1',
-    screen: 'any',
-    trigger: 'milestone',
-    guideOnly: false,
-    tier: 'both',
-    copy: 'First imprint made. Repeat until recall feels natural.',
-    pattern: 'toast_achievement',
-    tone: 'closure',
-    maxShows: 1,
-    cooldownMs: 0,
-  },
-
-  milestone_first_burn_v1: {
-    teachingId: 'milestone_first_burn_v1',
-    screen: 'any',
-    trigger: 'milestone',
-    guideOnly: false,
-    tier: 'both',
-    copy: 'Released. Begin the next work with a clean field.',
-    pattern: 'toast_achievement',
-    tone: 'closure',
-    maxShows: 1,
-    cooldownMs: 0,
-  },
 
   // ── Mid Creation Flow ───────────────────────────────────────────────────────
 
