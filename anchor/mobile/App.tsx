@@ -63,6 +63,11 @@ import {
   clearPushTokensFromServer,
   syncPushTokensToServer,
 } from './src/services/NotificationSyncService';
+import {
+  recordNotificationDelivered,
+  useNotificationController,
+} from './src/hooks/useNotificationController';
+import type { NotificationCategory } from './src/services/notifications/notificationTypes';
 import { initWidgetDataSync } from './src/widgets/widgetDataBridge';
 import { WIDGETS_ENABLED } from './src/config';
 import { useAppStartup } from './src/hooks/useAppStartup';
@@ -215,6 +220,11 @@ async function resolvePrimeOnLaunchInitialState(): Promise<InitialState | undefi
   }
 
   return buildPrimeOnLaunchInitialState(anchorId, durationSeconds, ritualType);
+}
+
+function AppNotificationLifecycle() {
+  useNotificationController();
+  return null;
 }
 
 export default function App() {
@@ -692,11 +702,18 @@ export default function App() {
       handleNotificationResponse
     );
     const receivedSubscription = Notifications.addNotificationReceivedListener((notification) => {
+      const payload = notification.request.content.data ?? {};
       trackNotificationPayload(
         AnalyticsEvents.NOTIFICATION_SENT,
-        notification.request.content.data ?? {},
+        payload,
         'sentAt'
       );
+      if (typeof payload.category === 'string') {
+        void recordNotificationDelivered(
+          payload.category as NotificationCategory,
+          typeof payload.anchorId === 'string' ? payload.anchorId : undefined
+        );
+      }
     });
 
     Notifications.getLastNotificationResponseAsync()
@@ -755,6 +772,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <ToastProvider>
+        <AppNotificationLifecycle />
         <GestureHandlerRootView style={{ flex: 1 }}>
           <SafeAreaProvider>
             <View style={styles.webContainer}>

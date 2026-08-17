@@ -12,7 +12,9 @@
 import React, { useCallback, useRef, useState, useEffect } from 'react';
 import {
   AppState,
+  BackHandler,
   Dimensions,
+  Platform,
   View,
   Text,
   StyleSheet,
@@ -374,6 +376,27 @@ export const MainTabNavigator: React.FC = () => {
   const handleChartRouteChange = useCallback((name: string) => {
     setChartRouteName(name);
   }, []);
+
+  // Handle Android universal back button for top-level tab switching
+  useEffect(() => {
+    if (Platform.OS !== 'android') return undefined;
+
+    const onBackPress = () => {
+      // If user is on a secondary tab at its root screen, navigate back to Sanctuary (Tab 0)
+      if (activeIndex === 1 && practiceRouteName === 'PracticeHome') {
+        handleIndexChange(0);
+        return true;
+      }
+      if (activeIndex === 2 && chartRouteName === 'ChartHome') {
+        handleIndexChange(0);
+        return true;
+      }
+      return false;
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => subscription.remove();
+  }, [activeIndex, chartRouteName, handleIndexChange, practiceRouteName]);
 
   return (
     <TabNavigationProvider

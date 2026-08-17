@@ -4,7 +4,7 @@
  * Six-screen Anchor 1.5 onboarding flow.
  */
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import {
   Animated,
   Easing,
   Platform,
+  BackHandler,
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -542,6 +543,21 @@ export const NarrativeOnboardingScreen: React.FC<Props> = ({ navigation }) => {
     },
     [currentSlide, reduceMotion, slideOpacity]
   );
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return undefined;
+
+    const onBackPress = () => {
+      if (currentSlide > 0) {
+        goToSlide(currentSlide - 1);
+        return true;
+      }
+      return false;
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => subscription.remove();
+  }, [currentSlide, goToSlide]);
 
   const handleCTA = () => {
     if (currentSlide === 2 && (!name.trim() || !selectedUseCase)) return;

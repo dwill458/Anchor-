@@ -157,13 +157,20 @@ export default function ReturningIntentionScreen() {
     }, [clearTransientTimers]);
 
     // Handle Android hardware back button — go back to sanctuary instead of closing the app
-    useEffect(() => {
-        const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-            navigation.goBack();
-            return true;
-        });
-        return () => backHandler.remove();
-    }, [navigation]);
+    useFocusEffect(
+        React.useCallback(() => {
+            if (Platform.OS !== 'android') return undefined;
+
+            const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+                if (navigation.canGoBack()) {
+                    navigation.goBack();
+                    return true;
+                }
+                return false;
+            });
+            return () => backHandler.remove();
+        }, [navigation])
+    );
 
     // Check reduced motion accessibility setting on mount
     useEffect(() => {

@@ -338,4 +338,38 @@ describe('useNotificationController', () => {
 
     expect(canOffer).toBe(false);
   });
+
+  it('schedules daily_prime concurrently with situational thread_strength nudges', async () => {
+    mockGetPermissionStatus.mockResolvedValue('granted');
+    mockSessionStoreGetState.mockReturnValue(createSessionState({ threadStrength: 40 }));
+
+    const { result } = renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+
+    expect(mockScheduleSmartNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        category: 'daily_prime',
+        repeatsDaily: true,
+      })
+    );
+    expect(mockScheduleSmartNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        category: 'thread_strength',
+      })
+    );
+  });
+
+  it('does not mutate lastNotificationSentAt at schedule time to prevent rate-limit self-cancellation', async () => {
+    mockGetPermissionStatus.mockResolvedValue('granted');
+    mockSessionStoreGetState.mockReturnValue(createSessionState({ threadStrength: 40 }));
+
+    const { result } = renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+
+    const savedState = JSON.parse(asyncStorage.setItem.mock.calls.at(-1)?.[1] ?? '{}');
+    expect(savedState.lastNotificationSentAt?.thread_strength).toBeUndefined();
+    expect(savedState.lastNotificationSentAt?.daily_prime).toBeUndefined();
+  });
 });

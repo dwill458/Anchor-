@@ -113,7 +113,6 @@ describe('RefineExpressionScreen', () => {
   });
 
   it('displays selected style in the sticky CTA bar and navigates to AIGenerating', () => {
-    jest.useFakeTimers();
     render(<RefineExpressionScreen />);
 
     expect(screen.getByText('SELECTED STYLE:')).toBeTruthy();
@@ -125,14 +124,6 @@ describe('RefineExpressionScreen', () => {
       fireEvent.press(generateBtn);
     });
 
-    // Overlay appears
-    expect(screen.getByText('CREATING YOUR ANCHOR')).toBeTruthy();
-
-    // Advance timer for transition handoff
-    act(() => {
-      jest.advanceTimersByTime(1000);
-    });
-
     expect(mockNavigate).toHaveBeenCalledWith(
       'AIGenerating',
       expect.objectContaining({
@@ -141,45 +132,6 @@ describe('RefineExpressionScreen', () => {
         selectedStyle: expect.any(Object),
       })
     );
-    jest.useRealTimers();
-  });
-
-  it('clears the generation overlay when the screen is focused again', () => {
-    jest.useFakeTimers();
-    const { unmount } = render(<RefineExpressionScreen />);
-
-    act(() => {
-      fireEvent.press(screen.getByRole('button', { name: 'Refine Anchor' }));
-    });
-    act(() => {
-      jest.advanceTimersByTime(1000);
-    });
-    expect(mockNavigate).toHaveBeenCalledWith('AIGenerating', expect.any(Object));
-    unmount();
-
-    // Coming back from AIGenerating ("Go Back" after an error) refocuses the screen.
-    render(<RefineExpressionScreen />);
-    expect(screen.queryByText('CREATING YOUR ANCHOR')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Refine Anchor' }).props.accessibilityState)
-      .not.toMatchObject({ disabled: true });
-    jest.useRealTimers();
-  });
-
-  it('does not hand off to AIGenerating if the screen blurs during the transition beat', () => {
-    jest.useFakeTimers();
-    const { unmount } = render(<RefineExpressionScreen />);
-
-    act(() => {
-      fireEvent.press(screen.getByRole('button', { name: 'Refine Anchor' }));
-    });
-    // Back-swipe before the 900ms beat elapses.
-    unmount();
-    act(() => {
-      jest.advanceTimersByTime(1000);
-    });
-
-    expect(mockNavigate).not.toHaveBeenCalled();
-    jest.useRealTimers();
   });
 
   it('navigates back when top back button is pressed', () => {

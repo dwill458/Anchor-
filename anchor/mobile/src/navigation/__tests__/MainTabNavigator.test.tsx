@@ -222,3 +222,49 @@ describe('MainTabNavigator Tab Bar Visibility', () => {
     expect(queryByTestId('custom-tab-bar')).toBeTruthy();
   });
 });
+
+describe('MainTabNavigator Android Back Handler', () => {
+  let backHandlerCallbacks: Array<() => boolean> = [];
+  const originalPlatformOS = require('react-native').Platform.OS;
+
+  beforeEach(() => {
+    backHandlerCallbacks = [];
+    require('react-native').Platform.OS = 'android';
+    jest.spyOn(require('react-native').BackHandler, 'addEventListener').mockImplementation(
+      (...args: any[]) => {
+        const [event, callback] = args;
+        if (event === 'hardwareBackPress') {
+          backHandlerCallbacks.push(callback);
+        }
+        return {
+          remove: jest.fn(() => {
+            backHandlerCallbacks = backHandlerCallbacks.filter((cb) => cb !== callback);
+          }),
+        } as any;
+      }
+    );
+  });
+
+  afterEach(() => {
+    require('react-native').Platform.OS = originalPlatformOS;
+    jest.restoreAllMocks();
+  });
+
+  it('registers back handler on mount and cleans up on unmount', () => {
+    const { MainTabNavigator } = require('../MainTabNavigator');
+    const { unmount } = render(<MainTabNavigator />);
+
+    expect(backHandlerCallbacks.length).toBeGreaterThan(0);
+    unmount();
+    expect(backHandlerCallbacks.length).toBe(0);
+  });
+
+  it('returns false on Vault root allowing default OS exit', () => {
+    const { MainTabNavigator } = require('../MainTabNavigator');
+    render(<MainTabNavigator />);
+
+    const handler = backHandlerCallbacks[backHandlerCallbacks.length - 1];
+    expect(handler()).toBe(false);
+  });
+});
+

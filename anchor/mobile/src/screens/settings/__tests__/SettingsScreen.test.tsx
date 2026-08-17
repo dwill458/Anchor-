@@ -26,6 +26,7 @@ const mockNotifState = {
 };
 const mockFetchProfile = jest.fn(() => Promise.resolve());
 const mockNavigate = jest.fn();
+const mockPopToTop = jest.fn();
 const mockSettings = {
   openDailyAnchorAutomatically: false,
   practiceGuidanceEnabled: true,
@@ -62,6 +63,7 @@ jest.mock('@react-native-community/datetimepicker', () => 'DateTimePicker');
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({
     navigate: mockNavigate,
+    popToTop: mockPopToTop,
   }),
   CommonActions: {
     reset: jest.fn(),
@@ -171,6 +173,14 @@ describe('SettingsScreen', () => {
     expect(screen.queryByText('Account sync coming soon')).toBeNull();
     expect(screen.queryByText('v1.1')).toBeNull();
     expect(mockFetchProfile).not.toHaveBeenCalled();
+  });
+
+  it('returns to the profile screen from the header back button', () => {
+    const screen = render(<SettingsScreen />);
+
+    fireEvent.press(screen.getByLabelText('Back to Profile'));
+
+    expect(mockPopToTop).toHaveBeenCalledTimes(1);
   });
 
   it('shows a sign-in link for signed-out users', () => {

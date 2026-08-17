@@ -1,4 +1,5 @@
 import React from 'react';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { colors } from '@/theme';
@@ -22,23 +23,38 @@ interface ChartStackNavigatorProps {
   onRouteChange?: (routeName: string) => void;
 }
 
-export const ChartStackNavigator: React.FC<ChartStackNavigatorProps> = ({ onRouteChange }) => (
-  <ErrorBoundary>
-    <Stack.Navigator
-      screenListeners={{
-        state: (event) => {
-          const state = event.data.state as { index: number; routes: Array<{ name: string }> } | undefined;
-          const routeName = state?.routes?.[state.index]?.name;
+export const ChartStackNavigator: React.FC<ChartStackNavigatorProps> = ({ onRouteChange }) => {
+  const navigationRef = useNavigationContainerRef<ChartStackParamList>();
+
+  return (
+    <ErrorBoundary>
+      <NavigationContainer
+        independent={true}
+        ref={navigationRef}
+        onReady={() => {
+          const routeName = navigationRef.getCurrentRoute()?.name;
           if (routeName) onRouteChange?.(routeName);
-        },
-      }}
-      screenOptions={{
-        headerShown: false,
-        animation: 'slide_from_right',
-        gestureEnabled: true,
-        contentStyle: { backgroundColor: colors.background.primary },
-      }}
-    >
+        }}
+        onStateChange={() => {
+          const routeName = navigationRef.getCurrentRoute()?.name;
+          if (routeName) onRouteChange?.(routeName);
+        }}
+      >
+        <Stack.Navigator
+          screenListeners={{
+            state: (event) => {
+              const state = event.data.state as { index: number; routes: Array<{ name: string }> } | undefined;
+              const routeName = state?.routes?.[state.index]?.name;
+              if (routeName) onRouteChange?.(routeName);
+            },
+          }}
+          screenOptions={{
+            headerShown: false,
+            animation: 'slide_from_right',
+            gestureEnabled: true,
+            contentStyle: { backgroundColor: colors.background.primary },
+          }}
+        >
       <Stack.Screen name="ChartHome" component={ChartHomeScreen} />
       <Stack.Screen name="CourseSetup" component={CourseSetupScreen} options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
       <Stack.Screen name="CourseEditor" component={CourseEditorScreen} />
@@ -69,8 +85,10 @@ export const ChartStackNavigator: React.FC<ChartStackNavigatorProps> = ({ onRout
         }}
       />
       <Stack.Screen name="CompletedJourney" component={CompletedJourneyScreen} />
-    </Stack.Navigator>
-  </ErrorBoundary>
-);
+        </Stack.Navigator>
+      </NavigationContainer>
+    </ErrorBoundary>
+  );
+};
 
 export default ChartStackNavigator;

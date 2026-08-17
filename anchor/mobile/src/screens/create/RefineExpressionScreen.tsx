@@ -7,16 +7,14 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { RouteProp, useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
-  Easing,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
-  withRepeat,
   withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -134,63 +132,24 @@ export default function RefineExpressionScreen() {
 
   const [exploreTab, setExploreTab] = useState<ExploreTabId | null>(null);
   const [exploreFamily, setExploreFamily] = useState<RefineStyleFamily | 'All'>('All');
-  const [isGenerating, setIsGenerating] = useState(false);
   const [isTeachVisible, setIsTeachVisible] = useState(false);
 
   const taughtRef = useRef(false);
   const teachTimer = useRef<NodeJS.Timeout | null>(null);
-  const genTimer = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     return () => {
       if (teachTimer.current) clearTimeout(teachTimer.current);
-      if (genTimer.current) clearTimeout(genTimer.current);
     };
   }, []);
 
-  // The overlay is a hand-off beat into AIGenerating, not a lasting state. Clear it
-  // whenever this screen is focused again — after "Go Back" on a generation error, or a
-  // swipe dismiss — otherwise the user returns to a frozen spinner over a dead CTA.
-  // The blur cleanup cancels a hand-off still in flight so a back-swipe during the beat
-  // can't push AIGenerating after the fact.
-  useFocusEffect(
-    useCallback(() => {
-      setIsGenerating(false);
-      return () => {
-        if (genTimer.current) {
-          clearTimeout(genTimer.current);
-          genTimer.current = null;
-        }
-      };
-    }, [])
-  );
-
   const teachOpacity = useSharedValue(0);
   const teachHeight = useSharedValue(0);
-
-  const spinRotation = useSharedValue(0);
 
   const selectedStyleOption = useMemo(
     () => REFINE_STYLES.find((s) => s.id === selectedStyleId) ?? REFINE_STYLES[0],
     [selectedStyleId]
   );
-
-  // Spin animation for generating indicator
-  useEffect(() => {
-    if (isGenerating && !reduceMotion) {
-      spinRotation.value = withRepeat(
-        withTiming(360, { duration: 900, easing: Easing.linear }),
-        -1,
-        false
-      );
-    } else {
-      spinRotation.value = 0;
-    }
-  }, [isGenerating, reduceMotion, spinRotation]);
-
-  const animatedSpinStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${spinRotation.value}deg` }],
-  }));
 
   const animatedTeachStyle = useAnimatedStyle(() => ({
     opacity: teachOpacity.value,
@@ -243,8 +202,6 @@ export default function RefineExpressionScreen() {
   }, []);
 
   const handleRefineAnchor = useCallback(() => {
-    if (isGenerating) return;
-    setIsGenerating(true);
     void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
 
     // Warm Railway server before transition
@@ -270,22 +227,16 @@ export default function RefineExpressionScreen() {
       reinforcementMetadata: params.reinforcementMetadata,
     };
 
-    const delayMs = reduceMotion ? 400 : 900;
-    if (genTimer.current) clearTimeout(genTimer.current);
-    genTimer.current = setTimeout(() => {
-      navigation.navigate('AIGenerating', payload);
-    }, delayMs);
+    navigation.navigate('AIGenerating', payload);
   }, [
     category,
     intention,
-    isGenerating,
     navigation,
     params.distilledLetters,
     params.reinforcementMetadata,
     params.reinforcedSigilSvg,
     params.structureType,
     params.structureVariant,
-    reduceMotion,
     selectedStyleOption,
     sigilSvg,
     structureType,
@@ -540,33 +491,14 @@ export default function RefineExpressionScreen() {
 
             <Pressable
               onPress={handleRefineAnchor}
-              disabled={isGenerating}
               accessibilityRole="button"
               accessibilityLabel="Refine Anchor"
-              style={[styles.ctaButton, isGenerating && styles.ctaButtonDisabled]}
+              style={styles.ctaButton}
             >
               <Text style={styles.ctaButtonText}>REFINE ANCHOR →</Text>
             </Pressable>
           </View>
         </View>
-
-        {/* Generation Transition Overlay */}
-        {isGenerating ? (
-          <View style={styles.generationOverlay}>
-            <View style={styles.genComboRow}>
-              <Text style={styles.genComboText}>{structureLabel}</Text>
-              <Text style={styles.genComboSep}>·</Text>
-              <Text style={styles.genComboText}>{selectedStyleOption.displayName}</Text>
-            </View>
-
-            <Text style={styles.genArrow}>↓</Text>
-
-            <View style={styles.genCreatingRow}>
-              <Animated.View style={[styles.genRing, animatedSpinStyle]} />
-              <Text style={styles.genCreatingText}>CREATING YOUR ANCHOR</Text>
-            </View>
-          </View>
-        ) : null}
       </View>
     </SafeAreaView>
   );
@@ -951,58 +883,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 2.24,
     color: colors.anchor15.giltBright,
-    textTransform: 'uppercase',
-  },
-
-  // Generation Transition Overlay
-  generationOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(11, 16, 21, 0.94)',
-    zIndex: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 18,
-  },
-  genComboRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  genComboText: {
-    fontFamily: typography.fontFamily.serifSemiBold,
-    fontSize: 15,
-    fontWeight: '600',
-    letterSpacing: 1.2,
-    color: colors.anchor15.giltBright,
-    textTransform: 'uppercase',
-  },
-  genComboSep: {
-    color: 'rgba(217, 179, 108, 0.34)',
-    fontSize: 16,
-  },
-  genArrow: {
-    fontSize: 18,
-    color: 'rgba(217, 179, 108, 0.34)',
-  },
-  genCreatingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  genRing: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 1.5,
-    borderColor: 'rgba(217, 179, 108, 0.34)',
-    borderTopColor: colors.anchor15.gilt,
-  },
-  genCreatingText: {
-    fontFamily: typography.fontFamily.serifSemiBold,
-    fontSize: 12,
-    fontWeight: '500',
-    letterSpacing: 1.92,
-    color: colors.anchor15.ash,
     textTransform: 'uppercase',
   },
 });

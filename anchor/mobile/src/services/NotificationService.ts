@@ -21,6 +21,7 @@ import type {
 // Configure notification behavior
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
+    shouldShowAlert: true,
     shouldShowBanner: true,
     shouldShowList: true,
     shouldPlaySound: true,
@@ -523,6 +524,7 @@ class NotificationService {
     anchorId?: string;
     milestone?: string;
     deepLink?: string;
+    repeatsDaily?: boolean;
   }): Promise<string | null> {
     if (!(options.fireDate instanceof Date) || Number.isNaN(options.fireDate.getTime())) {
       this.recordError(
@@ -536,6 +538,19 @@ class NotificationService {
 
     const identifier = this.buildSmartNotificationId(options.category, options.anchorId);
     await this.cancelReminder(identifier);
+
+    const trigger = options.repeatsDaily
+      ? {
+          type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+          hour: options.fireDate.getHours(),
+          minute: options.fireDate.getMinutes(),
+          repeats: true,
+          channelId: this.channelForCategory(options.category),
+        }
+      : this.buildDateTrigger(
+          options.fireDate,
+          this.channelForCategory(options.category)
+        );
 
     return this.scheduleNotification({
       identifier,
@@ -552,10 +567,7 @@ class NotificationService {
           deepLink: options.deepLink ?? this.defaultDeepLinkForCategory(options.category),
         }),
       },
-      trigger: this.buildDateTrigger(
-        options.fireDate,
-        this.channelForCategory(options.category)
-      ),
+      trigger,
     });
   }
 

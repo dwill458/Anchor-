@@ -7,8 +7,8 @@
  */
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { BackHandler, View, Text, StyleSheet, InteractionManager } from 'react-native';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { BackHandler, Platform, View, Text, StyleSheet, InteractionManager } from 'react-native';
+import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
@@ -563,23 +563,27 @@ export const ActivationScreen: React.FC = () => {
     return unsubscribe;
   }, [handleComplete, navigation, promptExitSession]);
 
-  useEffect(() => {
-    const hardwareBackSubscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (exitingRef.current) {
-        return false;
-      }
-      if (sessionCompletedRef.current) {
-        handleComplete();
-        return true;
-      }
-      promptExitSession();
-      return true;
-    });
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== 'android') return undefined;
 
-    return () => {
-      hardwareBackSubscription.remove();
-    };
-  }, [handleComplete, promptExitSession]);
+      const hardwareBackSubscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (exitingRef.current) {
+          return false;
+        }
+        if (sessionCompletedRef.current) {
+          handleComplete();
+          return true;
+        }
+        promptExitSession();
+        return true;
+      });
+
+      return () => {
+        hardwareBackSubscription.remove();
+      };
+    }, [handleComplete, promptExitSession])
+  );
 
   const handleCompletionDone = useCallback(async (reflectionWord?: string) => {
     if (hasRecordedRef.current) {

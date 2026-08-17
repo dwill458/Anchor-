@@ -9,13 +9,14 @@ import {
   Alert,
   BackHandler,
   Keyboard,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
+import { RouteProp, useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { SvgXml } from 'react-native-svg';
@@ -251,17 +252,26 @@ export const ConfirmBurnScreen: React.FC = () => {
       });
     });
 
-    const hardwareBackSubscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (isLeavingRef.current) return false;
-      handleBack();
-      return true;
-    });
-
     return () => {
       beforeRemoveUnsubscribe();
-      hardwareBackSubscription.remove();
     };
-  }, [confirmLeave, handleBack, navigation]);
+  }, [confirmLeave, navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== 'android') return undefined;
+
+      const hardwareBackSubscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (isLeavingRef.current) return false;
+        handleBack();
+        return true;
+      });
+
+      return () => {
+        hardwareBackSubscription.remove();
+      };
+    }, [handleBack])
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>

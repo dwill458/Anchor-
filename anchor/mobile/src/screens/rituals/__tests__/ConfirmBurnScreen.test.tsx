@@ -19,6 +19,7 @@ jest.mock('@react-navigation/native', () => ({
     navigate: jest.fn(),
     goBack: jest.fn(),
   })),
+  useFocusEffect: (cb: any) => cb(),
 }));
 
 jest.mock('@/services/AnalyticsService');

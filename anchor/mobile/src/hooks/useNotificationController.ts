@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NotificationService from '@/services/NotificationService';
 import {
@@ -18,7 +18,11 @@ import {
 } from '@/services/DailyGoalNudgeService';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import {
+  evaluateDailyPrime,
   evaluateNotificationRules,
+  evaluateThreadStrength,
+  evaluateUnfinishedAnchor,
+  evaluateWeeklyRecap,
   type NotificationRuleContext,
   type NotificationRuleResult,
 } from '@/services/notifications/notificationRules';
@@ -238,7 +242,6 @@ export const useNotificationController = () => {
     result: NotificationRuleResult,
     templateId: string
   ): NotificationStateWithSyncMetadata => {
-    const now = new Date().toISOString();
     const next: NotificationStateWithSyncMetadata = {
       ...state,
       lastTemplateIdByCategory: {
@@ -247,24 +250,8 @@ export const useNotificationController = () => {
       },
     };
 
-    if (result.category !== 'daily_prime') {
-      next.lastNotificationSentAt = {
-        ...(state.lastNotificationSentAt ?? {}),
-        [result.category]: now,
-      };
-    }
-
-    if (result.category === 'unfinished_anchor' && result.anchorId) {
-      next.unfinishedAnchorReminders = {
-        ...(state.unfinishedAnchorReminders ?? {}),
-        [result.anchorId]: {
-          startedAt:
-            state.unfinishedAnchorReminders?.[result.anchorId]?.startedAt ??
-            new Date().toISOString(),
-          sentAt: now,
-        },
-      };
-    }
+    // Note: lastNotificationSentAt is only updated when a notification is actually delivered,
+    // NOT when scheduled in advance, preventing false rate-limit self-cancellation.
 
     return next;
   }, []);
@@ -275,54 +262,121 @@ export const useNotificationController = () => {
     await NotificationService.cancelNotification('micro-prime');
     await NotificationService.cancelWeeklySummary();
 
-    const context = buildRuleContext();
-    await cancelSmartNotifications(context);
-
     const permissionStatus = await NotificationService.getPermissionStatus();
     const stateWithPermission = {
       ...state,
       notificationPermissionStatus: permissionStatus,
     };
 
-    const result = evaluateNotificationRules(stateWithPermission, context)
-      .find((candidate) => candidate.eligible && candidate.fireDate);
+    const context = buildRuleContext();
 
-    if (!result?.fireDate) {
+    if (
+      !stateWithPermission.notification_enabled ||
+      permissionStatus !== 'granted'
+    ) {
+      await cancelSmartNotifications(context);
       return stateWithPermission;
     }
 
-    const template = selectNotificationTemplate({
-      category: result.category,
-      tone: stateWithPermission.notificationTone,
-      lastTemplateIdByCategory: stateWithPermission.lastTemplateIdByCategory,
-    });
-    const rendered = renderNotificationTemplate({
-      template,
-      variables: result.variables,
-    });
+    let nextState = { ...stateWithPermission };
 
-    const notificationId = await NotificationService.scheduleSmartNotification({
-      category: result.category,
-      templateId: template.id,
-      tone: stateWithPermission.notificationTone,
-      title: rendered.title,
-      body: rendered.body,
-      fireDate: result.fireDate,
-      anchorId: result.anchorId,
-    });
+    // 1. Primary Daily Prime Reminder (Recurring)
+    if (stateWithPermission.dailyPrimeEnabled) {
+      const dailyPrimeResult = evaluateDailyPrime(stateWithPermission, context);
+      if (dailyPrimeResult.eligible && dailyPrimeResult.fireDate) {
+        const template = selectNotificationTemplate({
+          category: 'daily_prime',
+          tone: stateWithPermission.notificationTone,
+          lastTemplateIdByCategory: stateWithPermission.lastTemplateIdByCategory,
+        });
+        const rendered = renderNotificationTemplate({
+          template,
+          variables: dailyPrimeResult.variables,
+        });
 
-    if (notificationId) {
-      AnalyticsService.track(AnalyticsEvents.NOTIFICATION_SCHEDULED, {
-        category: result.category,
-        templateId: template.id,
-        tone: stateWithPermission.notificationTone,
-        anchorId: result.anchorId,
-        sentAt: result.fireDate.toISOString(),
-      });
-      return markSmartNotificationScheduled(stateWithPermission, result, template.id);
+        const notificationId = await NotificationService.scheduleSmartNotification({
+          category: 'daily_prime',
+          templateId: template.id,
+          tone: stateWithPermission.notificationTone,
+          title: rendered.title,
+          body: rendered.body,
+          fireDate: dailyPrimeResult.fireDate,
+          repeatsDaily: true,
+        });
+
+        if (notificationId) {
+          AnalyticsService.track(AnalyticsEvents.NOTIFICATION_SCHEDULED, {
+            category: 'daily_prime',
+            templateId: template.id,
+            tone: stateWithPermission.notificationTone,
+            sentAt: dailyPrimeResult.fireDate.toISOString(),
+          });
+          nextState = markSmartNotificationScheduled(nextState, dailyPrimeResult, template.id);
+        }
+      } else {
+        await NotificationService.cancelSmartNotification('daily_prime');
+      }
+    } else {
+      await NotificationService.cancelSmartNotification('daily_prime');
     }
 
-    return stateWithPermission;
+    // 2. Situational Smart Nudges (Thread Strength, Unfinished Anchor, Weekly Recap)
+    const situationalRules: NotificationRuleResult[] = [
+      evaluateThreadStrength(stateWithPermission, context),
+      evaluateUnfinishedAnchor(stateWithPermission, context),
+      evaluateWeeklyRecap(stateWithPermission, context),
+    ];
+    const situationalCandidate = situationalRules.find(
+      (candidate) => candidate.eligible && candidate.fireDate
+    );
+
+    if (situationalCandidate?.fireDate) {
+      // Cancel other situational categories so only the active one is queued
+      await Promise.all(
+        (['thread_strength', 'unfinished_anchor', 'weekly_recap'] as NotificationCategory[])
+          .filter((cat) => cat !== situationalCandidate.category)
+          .map((cat) => NotificationService.cancelSmartNotification(cat))
+      );
+
+      const template = selectNotificationTemplate({
+        category: situationalCandidate.category,
+        tone: stateWithPermission.notificationTone,
+        lastTemplateIdByCategory: stateWithPermission.lastTemplateIdByCategory,
+      });
+      const rendered = renderNotificationTemplate({
+        template,
+        variables: situationalCandidate.variables,
+      });
+
+      const notificationId = await NotificationService.scheduleSmartNotification({
+        category: situationalCandidate.category,
+        templateId: template.id,
+        tone: stateWithPermission.notificationTone,
+        title: rendered.title,
+        body: rendered.body,
+        fireDate: situationalCandidate.fireDate,
+        anchorId: situationalCandidate.anchorId,
+      });
+
+      if (notificationId) {
+        AnalyticsService.track(AnalyticsEvents.NOTIFICATION_SCHEDULED, {
+          category: situationalCandidate.category,
+          templateId: template.id,
+          tone: stateWithPermission.notificationTone,
+          anchorId: situationalCandidate.anchorId,
+          sentAt: situationalCandidate.fireDate.toISOString(),
+        });
+        nextState = markSmartNotificationScheduled(nextState, situationalCandidate, template.id);
+      }
+    } else {
+      await Promise.all(
+        (['thread_strength', 'unfinished_anchor', 'weekly_recap'] as NotificationCategory[]).map(
+          (cat) => NotificationService.cancelSmartNotification(cat)
+        )
+      );
+    }
+
+    return nextState;
   }, [buildRuleContext, cancelSmartNotifications, markSmartNotificationScheduled]);
 
   const initOnAppOpen = useCallback(async () => {
@@ -331,7 +385,6 @@ export const useNotificationController = () => {
       state = reconcile(state);
       state.last_app_open_at = new Date().toISOString();
       state.app_opened_in_last_5_days = true;
-
 
       state = await scheduleSmartNotifications(state);
       await saveState(state);
@@ -348,6 +401,17 @@ export const useNotificationController = () => {
 
   useEffect(() => {
     void initOnAppOpen();
+  }, [initOnAppOpen]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        void initOnAppOpen();
+      }
+    });
+    return () => {
+      subscription.remove();
+    };
   }, [initOnAppOpen]);
 
   useEffect(() => {
@@ -853,3 +917,33 @@ export const useNotificationController = () => {
     setDailyPrimeReminder,
   };
 };
+
+export async function recordNotificationDelivered(
+  category: NotificationCategory,
+  anchorId?: string
+): Promise<void> {
+  try {
+    const stored = await AsyncStorage.getItem(NOTIFICATION_STATE_STORAGE_KEY);
+    const state = normalizeNotificationState(
+      stored ? JSON.parse(stored) : initializeNotificationState()
+    );
+    const now = new Date().toISOString();
+    state.lastNotificationSentAt = {
+      ...(state.lastNotificationSentAt ?? {}),
+      [category]: now,
+    };
+    if (category === 'unfinished_anchor' && anchorId) {
+      state.unfinishedAnchorReminders = {
+        ...(state.unfinishedAnchorReminders ?? {}),
+        [anchorId]: {
+          startedAt: state.unfinishedAnchorReminders?.[anchorId]?.startedAt ?? now,
+          sentAt: now,
+        },
+      };
+    }
+    await AsyncStorage.setItem(NOTIFICATION_STATE_STORAGE_KEY, JSON.stringify(state));
+  } catch (error) {
+    logger.warn('[NotificationController] Failed to record notification delivery', error);
+  }
+}
+

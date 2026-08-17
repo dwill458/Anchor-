@@ -225,6 +225,10 @@ export const SettingsScreen: React.FC = () => {
   const [spShowPass, setSpShowPass] = useState(false);
   const [spShowConfirm, setSpShowConfirm] = useState(false);
 
+  const handleBackToProfile = useCallback(() => {
+    navigation.popToTop();
+  }, [navigation]);
+
   const traceDefaultEnabled = useSettingsStore((state) => state.traceDefaultEnabled ?? true);
   const setTraceDefaultEnabled = useSettingsStore((state) => state.setTraceDefaultEnabled);
   const reduceMotionPreference = useSettingsStore(
@@ -552,7 +556,7 @@ export const SettingsScreen: React.FC = () => {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Back to Profile"
-            onPress={() => navigation.goBack()}
+            onPress={handleBackToProfile}
             hitSlop={10}
             style={styles.headerButton}
           >

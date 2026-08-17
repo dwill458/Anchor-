@@ -540,14 +540,9 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(217, 179, 108, 0.18)',
   },
   cardSelected: {
-    borderWidth: 1,
+    borderWidth: 0.5,
     borderColor: colors.anchor15.gilt,
     backgroundColor: 'rgba(30, 42, 51, 0.36)',
-    shadowColor: colors.anchor15.gilt,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.08,
-    shadowRadius: 5,
-    elevation: 1,
   },
   checkCircle: {
     position: 'absolute',
