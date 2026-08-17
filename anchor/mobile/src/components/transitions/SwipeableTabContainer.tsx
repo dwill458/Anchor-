@@ -3,17 +3,10 @@
  *
  * iOS-like swipeable container for Sanctuary ↔ Practice tabs.
  *
- * The inactive tab is only kept mounted while a swipe gesture is actively
- * dragging (needed so both screens are visible for the live drag preview).
- * Outside of an active swipe — including every tab-button press — only the
- * active tab is mounted. A real mount always forces Android to do a full
- * fresh layout + draw of a brand-new native view, which sidesteps a
- * device/OS-level rendering bug where an existing view's opacity-only
- * update can silently fail to get recomposited until the next unrelated
- * touch event (confirmed via `adb shell dumpsys gfxinfo`: zero new frames
- * were produced during the stuck period). Swiping itself never showed the
- * bug, since the live touch keeps the compositor continuously producing
- * frames for the whole gesture.
+ * Tabs are mounted lazily on first visit and remain mounted afterward. This
+ * preserves each tab's screen state (including the Vault's anchor data and
+ * scroll position) when switching tabs. During a swipe, all tabs are mounted
+ * so both screens are available for the live drag preview.
  *
  * Features:
  * - Horizontal swipe gesture support with a live drag preview
@@ -72,9 +65,12 @@ export const SwipeableTabContainer: React.FC<SwipeableTabContainerProps> = ({
   swipeEnabled = true,
 }) => {
   const reducedMotion = useReducedMotion();
-  // Only kept true while a swipe is actively dragging or settling — see
-  // file header. Outside of that window, only the active tab is mounted.
+  // Keep tabs mounted after their first visit so switching back does not
+  // recreate the screen and trigger its initial data-loading work again.
   const [isSwiping, setIsSwiping] = useState(false);
+  const [mountedTabs, setMountedTabs] = useState<Set<number>>(
+    () => new Set([activeIndex]),
+  );
 
   // Animated position: 0 = first tab, 1 = second tab, etc.
   const position = useSharedValue(activeIndex);
@@ -113,13 +109,21 @@ export const SwipeableTabContainer: React.FC<SwipeableTabContainerProps> = ({
     }
 
     // External change (tab-button press, or invalidating a stale gesture):
-    // no second tab is mounted to crossfade against here, so place the
-    // active page directly. The repaint is guaranteed by the fresh mount
-    // this triggers, not by this assignment.
+    // place the active page directly. The visited page remains mounted and
+    // only its ownership/visibility changes.
     setIsSwiping(false);
     position.value = activeIndex;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeIndex, reducedMotion]);
+
+  React.useEffect(() => {
+    setMountedTabs((previous) => {
+      if (previous.has(activeIndex)) return previous;
+      const next = new Set(previous);
+      next.add(activeIndex);
+      return next;
+    });
+  }, [activeIndex]);
 
   const panGesture = Gesture.Pan()
     .enabled(swipeEnabled)
@@ -196,7 +200,7 @@ export const SwipeableTabContainer: React.FC<SwipeableTabContainerProps> = ({
     <GestureDetector gesture={panGesture}>
       <Animated.View style={styles.container}>
         {React.Children.map(children, (child, index) => {
-          const shouldMount = isSwiping || index === activeIndex;
+          const shouldMount = isSwiping || mountedTabs.has(index) || index === activeIndex;
           return (
             <TabPage
               key={index}

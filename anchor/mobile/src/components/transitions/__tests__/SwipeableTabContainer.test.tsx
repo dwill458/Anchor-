@@ -115,6 +115,28 @@ describe('SwipeableTabContainer', () => {
     expect(sharedValues[0]?.value).toBe(1);
   });
 
+  it('keeps visited tabs mounted when switching back to them', () => {
+    const screen = renderTabs(0);
+
+    screen.rerender(
+      <SwipeableTabContainer activeIndex={1} onIndexChange={jest.fn()} tabCount={2}>
+        {tabChildren}
+      </SwipeableTabContainer>
+    );
+
+    expect(screen.getByTestId('tab-page-0').props.children).not.toBeNull();
+    expect(screen.getByTestId('tab-page-1').props.children).not.toBeNull();
+
+    screen.rerender(
+      <SwipeableTabContainer activeIndex={0} onIndexChange={jest.fn()} tabCount={2}>
+        {tabChildren}
+      </SwipeableTabContainer>
+    );
+
+    expect(screen.getByTestId('tab-page-0').props.children).not.toBeNull();
+    expect(screen.getByTestId('tab-page-1').props.children).not.toBeNull();
+  });
+
   it('ignores a stale pan after a tab-button selection changes activeIndex', () => {
     const onIndexChange = jest.fn();
     const screen = render(
