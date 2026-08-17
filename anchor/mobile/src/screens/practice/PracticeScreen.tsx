@@ -423,12 +423,13 @@ export const PracticeScreen: React.FC = () => {
     }, [resolveLocationPrimingSuggestion]),
   );
 
-  const headerAnim = useSharedValue(0);
-  const threadAnim = useSharedValue(0);
-  const heroAnim = useSharedValue(0);
-  const portalsAnim = useSharedValue(0);
+  const shouldAnimateIntro =
+    Platform.OS !== "android" && !reduceMotion && performanceTier === "high";
+  const headerAnim = useSharedValue(shouldAnimateIntro ? 0 : 1);
+  const threadAnim = useSharedValue(shouldAnimateIntro ? 0 : 1);
+  const heroAnim = useSharedValue(shouldAnimateIntro ? 0 : 1);
+  const portalsAnim = useSharedValue(shouldAnimateIntro ? 0 : 1);
   const hasAnimatedRef = useRef(false);
-  const shouldAnimateIntro = !reduceMotion && performanceTier === "high";
 
   useFocusEffect(
     useCallback(() => {

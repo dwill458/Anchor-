@@ -33,6 +33,22 @@ interface StackNavRef {
   popToTop: () => void;
 }
 
+type PendingStackRoute = { screen: string; params?: unknown };
+
+export const dispatchPendingPracticeRoute = (
+  nav: StackNavRef,
+  pending: PendingStackRoute,
+): void => {
+  // PracticeStack starts on PracticeHome. Reusing that root route avoids
+  // mounting a second PracticeHome when a request arrived while the tab
+  // was unmounted.
+  if (pending.screen === 'PracticeHome') {
+    nav.navigate(pending.screen, pending.params);
+  } else {
+    nav.push(pending.screen, pending.params);
+  }
+};
+
 interface TabNavigationContextValue {
   /** Switch to Vault tab, optionally pushing a specific screen immediately */
   navigateToVault: <RouteName extends keyof RootStackParamList>(
@@ -86,7 +102,7 @@ export const TabNavigationProvider: React.FC<TabNavigationProviderProps> = ({
     if (tabIndex === 1 && nav && pendingPracticeRouteRef.current) {
       const pending = pendingPracticeRouteRef.current;
       pendingPracticeRouteRef.current = null;
-      nav.push(pending.screen, pending.params);
+      dispatchPendingPracticeRoute(nav, pending);
     }
     if (tabIndex === 2 && nav && pendingChartRouteRef.current) {
       const pending = pendingChartRouteRef.current;
@@ -134,18 +150,25 @@ export const TabNavigationProvider: React.FC<TabNavigationProviderProps> = ({
       screen?: RouteName,
       params?: PracticeStackParamList[RouteName]
     ) => {
+      const practiceNavigation = tabNavRefs.current[1];
+
       if (screen) {
-        const practiceNavigation = tabNavRefs.current[1];
         if (practiceNavigation) {
-          if (screen === 'PracticeHome') {
-            practiceNavigation.popToTop();
-            practiceNavigation.navigate(screen, params);
-          } else {
-            practiceNavigation.push(screen, params);
-          }
+          dispatchPendingPracticeRoute(practiceNavigation, {
+            screen: String(screen),
+            params,
+          });
         } else {
           pendingPracticeRouteRef.current = { screen: String(screen), params };
         }
+      } else if (practiceNavigation) {
+        // Home is the Practice stack root. Reset an already-mounted stack in
+        // one navigation action; a newly mounted stack already starts here.
+        dispatchPendingPracticeRoute(practiceNavigation, { screen: 'PracticeHome' });
+      } else {
+        // A no-argument request means PracticeHome, so discard any stale
+        // route that was queued before the tab was mounted.
+        pendingPracticeRouteRef.current = null;
       }
 
       if (activeIndex !== 1) {

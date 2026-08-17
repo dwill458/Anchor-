@@ -10,6 +10,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   InteractionManager,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -201,7 +202,10 @@ export function selectPrimaryAnchor(anchors: Anchor[]): Anchor | null {
 type VaultScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Vault'>;
 
 const getFadeUp = (delay: number, disabled: boolean) => {
-  if (disabled) return undefined;
+  // Android can leave Reanimated entering views at their initial opacity
+  // after the tab container remounts the Home screen. Render the content
+  // immediately there; iOS keeps the intended entrance animation.
+  if (disabled || Platform.OS === 'android') return undefined;
   return FadeInUp.duration(600)
     .delay(delay)
     .withInitialValues({ opacity: 0, transform: [{ translateY: 10 }] });
@@ -543,7 +547,10 @@ export const VaultScreen: React.FC = () => {
   const handleActivate = useCallback((): void => {
     if (!primaryAnchor) return;
     setCurrentAnchor(primaryAnchor.id);
-    navigateToPractice('PracticeHome', { anchorId: primaryAnchor.id });
+    // The selected anchor is already in the shared store. Let PracticeStack
+    // keep its existing PracticeHome root instead of updating route params
+    // during the tab mount, which causes a second PracticeHome load.
+    navigateToPractice();
   }, [navigateToPractice, primaryAnchor, setCurrentAnchor]);
 
   // ── Render ────────────────────────────────────────────────────────────────────

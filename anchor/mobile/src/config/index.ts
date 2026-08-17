@@ -14,11 +14,15 @@ import { Platform } from 'react-native';
 // For dev-only local backend (only used when __DEV__=true and EXPO_PUBLIC_API_URL is not set):
 //   EXPO_PUBLIC_DEV_API_URL=http://192.168.x.x:8000  (physical device)
 //   EXPO_PUBLIC_DEV_API_URL=http://10.0.2.2:8000      (Android emulator)
+// A development build without an injected local URL must still work on a
+// physical device. `localhost` would point at the device itself, so default
+// to the hosted API and require an explicit env var for local development.
+const DEFAULT_REMOTE_API_URL = 'https://anchor-production-26bf.up.railway.app';
 export const API_URL =
   process.env.EXPO_PUBLIC_API_URL ??
   (__DEV__
-    ? (process.env.EXPO_PUBLIC_DEV_API_URL ?? 'http://localhost:8000')
-    : 'https://anchor-production-26bf.up.railway.app');
+    ? (process.env.EXPO_PUBLIC_DEV_API_URL ?? DEFAULT_REMOTE_API_URL)
+    : DEFAULT_REMOTE_API_URL);
 
 const readOptionalPublicEnv = (value: string | undefined): string => {
   const trimmed = value?.trim();

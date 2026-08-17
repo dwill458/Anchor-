@@ -24,6 +24,7 @@ let mockPendingFirstAnchorDraft: { tempAnchorId: string } | null = null;
 let mockPerformanceTier: 'high' | 'medium' | 'low' = 'high';
 let mockReduceMotionEnabled = true;
 const mockSetPendingForgeResumeTarget = jest.fn();
+const mockNavigateToPractice = jest.fn();
 
 jest.mock('@/stores/anchorStore', () => ({
     useAnchorStore: (selector: any) => {
@@ -64,10 +65,11 @@ jest.mock('@/hooks/useTrialStatus', () => ({
     }),
 }));
 jest.mock('@/contexts/TabNavigationContext', () => ({
-    useTabNavigation: () => ({
-        registerTabNav: jest.fn(),
-        activeTabIndex: 0,
-    }),
+  useTabNavigation: () => ({
+    registerTabNav: jest.fn(),
+    navigateToPractice: mockNavigateToPractice,
+    activeTabIndex: 0,
+  }),
 }));
 
 jest.mock('@/hooks/useReduceMotionEnabled', () => ({
@@ -164,6 +166,7 @@ describe('VaultScreen', () => {
         mockPendingFirstAnchorDraft = null;
         mockPerformanceTier = 'high';
         mockReduceMotionEnabled = true;
+        mockNavigateToPractice.mockClear();
     });
 
     it('redirects an un-accounted guest with a pending first anchor to SaveProgress', () => {
@@ -274,6 +277,25 @@ describe('VaultScreen', () => {
         render(<VaultScreen />);
         fireEvent.press(screen.getByLabelText('Create new anchor'));
         expect(mockNavigate).toHaveBeenCalledWith('FirstAnchorCreation');
+    });
+
+    it('switches to the existing PracticeHome root without pushing route params', () => {
+        mockAnchors = [{
+            id: 'a1',
+            intentionText: 'Build focus',
+            category: 'career',
+            isCharged: false,
+            activationCount: 0,
+            baseSigilSvg: '<svg></svg>',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        }];
+
+        render(<VaultScreen />);
+        fireEvent.press(screen.getByLabelText('Practice this anchor'));
+
+        expect(mockNavigateToPractice).toHaveBeenCalledTimes(1);
+        expect(mockNavigateToPractice).toHaveBeenCalledWith();
     });
 
     it('hides released anchors from Sanctuary content', () => {
