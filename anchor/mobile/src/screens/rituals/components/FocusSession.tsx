@@ -11,7 +11,13 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, {
+  Circle,
+  Defs,
+  LinearGradient as SvgLinearGradient,
+  RadialGradient,
+  Stop,
+} from 'react-native-svg';
 import { SvgXml } from 'react-native-svg';
 import Animated, {
   Easing,
@@ -69,6 +75,8 @@ import type {
 const colors = {
   ...themeColors,
   gold: themeColors.practiceMode.focus.primary,
+  goldBright: '#E1D6F4',
+  goldDim: '#6F5F94',
 };
 
 const SEAL_HOLD_MS = 2500;
@@ -160,32 +168,68 @@ const OrbitRings: React.FC<OrbitRingsProps> = ({ radius, pausedDim, reduceMotion
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-// Three concentric aura rings that pulse with the breath cycle
+// Three concentric aura rings that pulse with the breath cycle — rendered as
+// soft radial-gradient fields (rather than flat tinted circles) for a
+// smoother, more premium falloff at any anchor size.
 type BreathAuraProps = { breathAnim: SharedValue<number>; anchorSize: number };
 const BreathAura: React.FC<BreathAuraProps> = ({ breathAnim, anchorSize }) => {
-  const farSz = anchorSize * 1.55;
-  const midSz = anchorSize * 1.25;
-  const nearSz = anchorSize * 1.1;
+  const farSz = anchorSize * 1.7;
+  const midSz = anchorSize * 1.36;
+  const nearSz = anchorSize * 1.14;
 
   const farStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(breathAnim.value, [0, 1], [0.07, 0.18]),
-    transform: [{ scale: interpolate(breathAnim.value, [0, 1], [0.9, 1.12]) }],
+    opacity: interpolate(breathAnim.value, [0, 1], [0.3, 0.68]),
+    transform: [{ scale: interpolate(breathAnim.value, [0, 1], [0.9, 1.14]) }],
   }));
   const midStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(breathAnim.value, [0, 1], [0.12, 0.26]),
-    transform: [{ scale: interpolate(breathAnim.value, [0, 1], [0.92, 1.08]) }],
+    opacity: interpolate(breathAnim.value, [0, 1], [0.4, 0.82]),
+    transform: [{ scale: interpolate(breathAnim.value, [0, 1], [0.93, 1.09]) }],
   }));
   const nearStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(breathAnim.value, [0, 1], [0.18, 0.45]),
-    transform: [{ scale: interpolate(breathAnim.value, [0, 1], [0.94, 1.05]) }],
+    opacity: interpolate(breathAnim.value, [0, 1], [0.32, 0.66]),
+    transform: [{ scale: interpolate(breathAnim.value, [0, 1], [0.95, 1.05]) }],
   }));
 
-  const base = { position: 'absolute' as const, borderRadius: 9999, alignSelf: 'center' as const };
   return (
     <View style={{ position: 'absolute', width: farSz, height: farSz, top: '50%', left: '50%', marginTop: -farSz / 2, marginLeft: -farSz / 2 }} pointerEvents="none">
-      <Animated.View style={[base, { width: farSz, height: farSz, backgroundColor: `${colors.gold}1A` }, farStyle]} />
-      <Animated.View style={[base, { width: midSz, height: midSz, top: (farSz - midSz) / 2, left: (farSz - midSz) / 2, backgroundColor: `${colors.gold}28` }, midStyle]} />
-      <Animated.View style={[base, { width: nearSz, height: nearSz, top: (farSz - nearSz) / 2, left: (farSz - nearSz) / 2, borderWidth: 1, borderColor: `${colors.gold}48`, backgroundColor: `${colors.gold}10` }, nearStyle]} />
+      <Animated.View style={[StyleSheet.absoluteFillObject, farStyle]}>
+        <Svg width={farSz} height={farSz}>
+          <Defs>
+            <RadialGradient id="breathAuraFar" cx="50%" cy="50%" r="50%">
+              <Stop offset="0%" stopColor={colors.gold} stopOpacity={0.14} />
+              <Stop offset="55%" stopColor={colors.gold} stopOpacity={0.05} />
+              <Stop offset="100%" stopColor={colors.gold} stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+          <Circle cx={farSz / 2} cy={farSz / 2} r={farSz / 2} fill="url(#breathAuraFar)" />
+        </Svg>
+      </Animated.View>
+
+      <Animated.View style={[{ position: 'absolute', width: midSz, height: midSz, top: (farSz - midSz) / 2, left: (farSz - midSz) / 2 }, midStyle]}>
+        <Svg width={midSz} height={midSz}>
+          <Defs>
+            <RadialGradient id="breathAuraMid" cx="50%" cy="50%" r="50%">
+              <Stop offset="0%" stopColor={colors.gold} stopOpacity={0.26} />
+              <Stop offset="62%" stopColor={colors.gold} stopOpacity={0.08} />
+              <Stop offset="100%" stopColor={colors.gold} stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+          <Circle cx={midSz / 2} cy={midSz / 2} r={midSz / 2} fill="url(#breathAuraMid)" />
+        </Svg>
+      </Animated.View>
+
+      <Animated.View style={[{ position: 'absolute', width: nearSz, height: nearSz, top: (farSz - nearSz) / 2, left: (farSz - nearSz) / 2 }, nearStyle]}>
+        <Svg width={nearSz} height={nearSz}>
+          <Defs>
+            <RadialGradient id="breathAuraNear" cx="50%" cy="50%" r="50%">
+              <Stop offset="58%" stopColor={colors.gold} stopOpacity={0} />
+              <Stop offset="86%" stopColor={colors.goldBright} stopOpacity={0.4} />
+              <Stop offset="100%" stopColor={colors.gold} stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+          <Circle cx={nearSz / 2} cy={nearSz / 2} r={nearSz / 2} fill="url(#breathAuraNear)" />
+        </Svg>
+      </Animated.View>
     </View>
   );
 };
@@ -198,25 +242,40 @@ type ProgressRingProps = {
   flare: SharedValue<number>;
 };
 const ProgressRing: React.FC<ProgressRingProps> = ({ radius, progress, pausedDim, flare }) => {
-  const sz = radius * 2 + RING_STROKE * 4;
+  const sz = radius * 2 + RING_STROKE * 8;
   const cx = sz / 2;
   const circ = 2 * Math.PI * radius;
 
   const trackProps = useAnimatedProps(() => ({
-    opacity: (0.45 + progress.value * 0.1) * pausedDim.value,
+    opacity: (0.4 + progress.value * 0.1) * pausedDim.value,
     strokeWidth: RING_STROKE,
+  }));
+  const glowProps = useAnimatedProps(() => ({
+    strokeDashoffset: circ * (1 - progress.value),
+    opacity: (0.16 + 0.3 * progress.value + flare.value * 0.2) * pausedDim.value,
+    strokeWidth: RING_STROKE + 7 + flare.value * 4,
   }));
   const fillProps = useAnimatedProps(() => ({
     strokeDashoffset: circ * (1 - progress.value),
-    opacity: (0.35 + 0.55 * progress.value + flare.value * 0.25) * pausedDim.value,
+    opacity: (0.45 + 0.55 * progress.value + flare.value * 0.25) * pausedDim.value,
     strokeWidth: RING_STROKE + flare.value * 1.5,
   }));
 
   return (
     <View style={{ position: 'absolute', top: '50%', left: '50%', marginTop: -sz / 2, marginLeft: -sz / 2, width: sz, height: sz }} pointerEvents="none">
       <Svg width={sz} height={sz}>
-        <AnimatedCircle cx={cx} cy={cx} r={radius} stroke={`${colors.gold}26`} fill="none" animatedProps={trackProps} />
+        <Defs>
+          <SvgLinearGradient id="focusRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor={colors.goldBright} />
+            <Stop offset="100%" stopColor={colors.gold} />
+          </SvgLinearGradient>
+        </Defs>
+        <AnimatedCircle cx={cx} cy={cx} r={radius} stroke={`${colors.gold}22`} fill="none" animatedProps={trackProps} />
         <AnimatedCircle cx={cx} cy={cx} r={radius} stroke={colors.gold} fill="none"
+          strokeDasharray={circ} strokeLinecap="round"
+          rotation="-90" origin={`${cx}, ${cx}`}
+          animatedProps={glowProps} />
+        <AnimatedCircle cx={cx} cy={cx} r={radius} stroke="url(#focusRingGrad)" fill="none"
           strokeDasharray={circ} strokeLinecap="round"
           rotation="-90" origin={`${cx}, ${cx}`}
           animatedProps={fillProps} />
@@ -228,22 +287,37 @@ const ProgressRing: React.FC<ProgressRingProps> = ({ radius, progress, pausedDim
 // Seal hold ring — fills as user presses
 type SealRingProps = { radius: number; sealProgress: SharedValue<number> };
 const SealRing: React.FC<SealRingProps> = ({ radius, sealProgress }) => {
-  const sz = radius * 2 + RING_STROKE * 4;
+  const sz = radius * 2 + RING_STROKE * 8;
   const cx = sz / 2;
   const circ = 2 * Math.PI * radius;
 
-  const trackProps = useAnimatedProps(() => ({ strokeWidth: 2, opacity: 0.18 }));
+  const trackProps = useAnimatedProps(() => ({ strokeWidth: 1.5, opacity: 0.2 }));
+  const glowProps = useAnimatedProps(() => ({
+    strokeDashoffset: circ * (1 - sealProgress.value),
+    opacity: 0.18 + sealProgress.value * 0.42,
+    strokeWidth: 3 + sealProgress.value * 6,
+  }));
   const fillProps = useAnimatedProps(() => ({
     strokeDashoffset: circ * (1 - sealProgress.value),
-    opacity: 0.55 + sealProgress.value * 0.45,
+    opacity: 0.6 + sealProgress.value * 0.4,
     strokeWidth: 2.5,
   }));
 
   return (
     <View style={{ position: 'absolute', top: '50%', left: '50%', marginTop: -sz / 2, marginLeft: -sz / 2, width: sz, height: sz }} pointerEvents="none">
       <Svg width={sz} height={sz}>
+        <Defs>
+          <SvgLinearGradient id="focusSealGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <Stop offset="0%" stopColor={colors.goldBright} />
+            <Stop offset="100%" stopColor={colors.gold} />
+          </SvgLinearGradient>
+        </Defs>
         <AnimatedCircle cx={cx} cy={cx} r={radius} stroke={colors.gold} fill="none" animatedProps={trackProps} />
         <AnimatedCircle cx={cx} cy={cx} r={radius} stroke={colors.gold} fill="none"
+          strokeDasharray={circ} strokeLinecap="round"
+          rotation="-90" origin={`${cx}, ${cx}`}
+          animatedProps={glowProps} />
+        <AnimatedCircle cx={cx} cy={cx} r={radius} stroke="url(#focusSealGrad)" fill="none"
           strokeDasharray={circ} strokeLinecap="round"
           rotation="-90" origin={`${cx}, ${cx}`}
           animatedProps={fillProps} />
@@ -299,8 +373,8 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   const isCompactLayout = isCompactPhoneViewport(width, height);
   const isShortLayout = isShortPhoneViewport(height);
   const ANCHOR_SIZE = Math.min(
-    Math.round(width * (isCompactLayout ? 0.56 : 0.68)),
-    isCompactLayout ? 220 : 280
+    Math.round(width * (isCompactLayout ? 0.66 : 0.78)),
+    isCompactLayout ? 250 : 320
   );
   const RING_RADIUS = ANCHOR_SIZE / 2 + 22;
 
@@ -746,8 +820,15 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     setTimeout(onComplete, 400);
   }, [onComplete]);
 
+  // Tracks whether a real onPressIn (physical touch-down) started the hold
+  // gesture for the current press. A real device always fires onPressIn
+  // before onPress on tap, so when it's set we let the hold animation run
+  // its course instead of letting the paired onPress short-circuit it.
+  const pressInFiredRef = useRef(false);
+
   const handleSealPressIn = useCallback(() => {
     if (!isSeal) return;
+    pressInFiredRef.current = true;
     sealProgress.value = withTiming(1, { duration: SEAL_HOLD_MS, easing: Easing.linear, reduceMotion: ReduceMotion.Never },
       (finished) => { if (finished) runOnJS(triggerComplete)(); }
     );
@@ -760,9 +841,16 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     sealProgress.value = withTiming(0, { duration: 200, reduceMotion: ReduceMotion.Never });
   }, [sealProgress]);
 
-  // Tap also completes (for accessibility and tests)
+  // Tap-only completion (no preceding onPressIn) covers assistive-tech
+  // activation and tests. A real press-and-hold already started the ring
+  // animation via handleSealPressIn — let that finish on its own instead of
+  // letting the paired onPress complete the seal early.
   const handleSealTap = useCallback(() => {
     if (status !== 'completed' || continuePressedRef.current) return;
+    if (pressInFiredRef.current) {
+      pressInFiredRef.current = false;
+      return;
+    }
     continuePressedRef.current = true;
     onComplete();
   }, [onComplete, status]);
@@ -786,6 +874,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
 
   useEffect(() => {
     continuePressedRef.current = false;
+    pressInFiredRef.current = false;
     completionTriggeredRef.current = false;
     setIsBeginningSession(false);
     setArriveCueIndex(0);
@@ -1032,21 +1121,32 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
             accessibilityRole={isSeal ? 'button' : undefined}
             accessibilityLabel={isSeal ? 'Seal your anchor — press and hold' : undefined}
           >
-            {/* Bloom glow (behind aura) */}
+            {/* Bloom glow (behind aura) — soft radial-gradient field, not a flat tinted circle */}
             <Animated.View
               pointerEvents="none"
               style={[
                 styles.bloom,
                 {
-                  width: ANCHOR_SIZE * 1.7,
-                  height: ANCHOR_SIZE * 1.7,
-                  borderRadius: (ANCHOR_SIZE * 1.7) / 2,
-                  top: -(ANCHOR_SIZE * 0.35),
-                  left: -(ANCHOR_SIZE * 0.35),
+                  width: ANCHOR_SIZE * 1.8,
+                  height: ANCHOR_SIZE * 1.8,
+                  top: -(ANCHOR_SIZE * 0.4),
+                  left: -(ANCHOR_SIZE * 0.4),
                 },
                 bloomStyle,
               ]}
-            />
+            >
+              <Svg width={ANCHOR_SIZE * 1.8} height={ANCHOR_SIZE * 1.8}>
+                <Defs>
+                  <RadialGradient id="focusBloom" cx="50%" cy="50%" r="50%">
+                    <Stop offset="0%" stopColor={colors.goldBright} stopOpacity={0.42} />
+                    <Stop offset="32%" stopColor={colors.gold} stopOpacity={0.22} />
+                    <Stop offset="64%" stopColor={colors.gold} stopOpacity={0.07} />
+                    <Stop offset="100%" stopColor={colors.gold} stopOpacity={0} />
+                  </RadialGradient>
+                </Defs>
+                <Circle cx={ANCHOR_SIZE * 0.9} cy={ANCHOR_SIZE * 0.9} r={ANCHOR_SIZE * 0.9} fill="url(#focusBloom)" />
+              </Svg>
+            </Animated.View>
 
             {/* Breath aura rings */}
             <BreathAura breathAnim={breathAnim} anchorSize={ANCHOR_SIZE} />
@@ -1069,7 +1169,15 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
           </Pressable>
 
           {isSeal ? (
-            <Text style={[styles.sealHint, isCompactLayout && styles.sealHintCompact]}>Press and hold to seal</Text>
+            <Text
+              style={[
+                styles.sealHint,
+                isCompactLayout && styles.sealHintCompact,
+                { marginTop: Math.round(ANCHOR_SIZE * 0.24) },
+              ]}
+            >
+              Press and hold to seal
+            </Text>
           ) : null}
         </View>
 
@@ -1195,12 +1303,8 @@ const styles = StyleSheet.create({
   },
   bloom: {
     position: 'absolute',
-    backgroundColor: `${colors.gold}22`,
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 32,
-    elevation: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   // ── Anchor sigil ──
@@ -1238,14 +1342,14 @@ const styles = StyleSheet.create({
   bottom: {
     paddingBottom: spacing.xl,
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.lg,
     minHeight: 120,
     justifyContent: 'flex-end',
     width: '100%',
   },
   bottomCompact: {
     paddingBottom: spacing.lg,
-    gap: spacing.sm + 2,
+    gap: spacing.md,
     minHeight: 88,
   },
   guidanceText: {
@@ -1253,15 +1357,15 @@ const styles = StyleSheet.create({
     fontSize: 22,
     color: colors.gold,
     textAlign: 'center',
-    lineHeight: 32,
-    letterSpacing: 0.5,
-    textShadowColor: 'rgba(173,153,210,0.2)',
+    lineHeight: 34,
+    letterSpacing: 0.6,
+    textShadowColor: 'rgba(173,153,210,0.28)',
     textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 8,
+    textShadowRadius: 10,
   },
   guidanceTextCompact: {
     fontSize: 18,
-    lineHeight: 26,
+    lineHeight: 28,
   },
 
   // ── Landing Screen ──
@@ -1428,28 +1532,28 @@ const styles = StyleSheet.create({
   },
   focusIntentionWrap: {
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
     paddingHorizontal: spacing.lg,
     width: '100%',
   },
   focusIntentionWrapCompact: {
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
     paddingHorizontal: spacing.md,
   },
   intentionLabelChip: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 4,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: 'rgba(173,153,210,0.3)',
     backgroundColor: 'rgba(173,153,210,0.08)',
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
   },
   intentionLabelText: {
     fontSize: 9,
     fontFamily: typography.fontFamily.serif,
     color: colors.gold,
-    letterSpacing: 2.5,
+    letterSpacing: 3,
   },
   focusIntentionText: {
     fontSize: 16,
@@ -1457,12 +1561,13 @@ const styles = StyleSheet.create({
     color: colors.bone,
     textAlign: 'center',
     opacity: 0.85,
-    lineHeight: 22,
+    lineHeight: 24,
+    letterSpacing: 0.2,
     width: '100%',
   },
   focusIntentionTextCompact: {
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 21,
   },
   pauseBtnCompact: {
     paddingHorizontal: spacing.md + 2,

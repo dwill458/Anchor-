@@ -182,4 +182,83 @@ describe('AnchorSelectorSheet', () => {
 
     expect(onSelectMock).toHaveBeenCalledWith(anchors[0]);
   });
+
+  it('excludes the current anchor from the Recent Anchors list when not searching', () => {
+    const anchors = [
+      mockAnchor('a1', 'I am focused and present', 'mind'),
+      mockAnchor('a2', 'Protect creative focus', 'health'),
+      mockAnchor('a3', 'Build lasting strength', 'desire'),
+    ];
+
+    const { getAllByText, getByText } = render(
+      <AnchorSelectorSheet
+        visible={true}
+        anchors={anchors}
+        selectedAnchorId="a1"
+        onSelect={onSelectMock}
+        onClose={onCloseMock}
+      />
+    );
+
+    // "I am focused and present" should only appear once (in CURRENT ANCHOR card)
+    const currentAnchorMatches = getAllByText('I am focused and present');
+    expect(currentAnchorMatches).toHaveLength(1);
+
+    expect(getByText('Protect creative focus')).toBeTruthy();
+    expect(getByText('Build lasting strength')).toBeTruthy();
+  });
+
+  it('distinguishes multiple separate forge instances with same intention by forged recency', () => {
+    const anchors = [
+      mockAnchor('a1', 'I am focused and present', 'mind', {
+        createdAt: new Date(Date.now() - 3600000), // 1 hour ago
+        lastActivatedAt: undefined,
+        chargedAt: undefined,
+        isCharged: false,
+      }),
+      mockAnchor('a2', 'I am focused and present', 'mind', {
+        createdAt: new Date(Date.now() - 86400000 * 3), // 3 days ago
+        lastActivatedAt: undefined,
+        chargedAt: undefined,
+        isCharged: false,
+      }),
+    ];
+
+    const { getByText } = render(
+      <AnchorSelectorSheet
+        visible={true}
+        anchors={anchors}
+        selectedAnchorId="a1"
+        onSelect={onSelectMock}
+        onClose={onCloseMock}
+      />
+    );
+
+    // Current anchor shows "Forged today"
+    expect(getByText('Forged today')).toBeTruthy();
+    // Recent anchor shows "Forged 3d ago"
+    expect(getByText('Forged 3d ago')).toBeTruthy();
+  });
+
+  it('generates a deterministic sigil for anchors lacking precomputed baseSigilSvg', () => {
+    const anchors = [
+      mockAnchor('a1', 'Uncut raw intention', 'health', {
+        baseSigilSvg: '' as any,
+        reinforcedSigilSvg: undefined,
+        enhancedImageUrl: undefined,
+      }),
+    ];
+
+    const { getByText } = render(
+      <AnchorSelectorSheet
+        visible={true}
+        anchors={anchors}
+        selectedAnchorId="a1"
+        onSelect={onSelectMock}
+        onClose={onCloseMock}
+      />
+    );
+
+    expect(getByText('Uncut raw intention')).toBeTruthy();
+  });
 });

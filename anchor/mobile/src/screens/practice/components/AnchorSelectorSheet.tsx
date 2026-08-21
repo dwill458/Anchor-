@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Animated,
   FlatList,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -9,6 +10,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,6 +22,8 @@ import { OptimizedImage } from '@/components/common';
 import { colors, spacing, typography } from '@/theme';
 import { safeHaptics } from '@/utils/haptics';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
+
+import { generateTrueSigil } from '@/utils/sigil/traditional-generator';
 
 interface AnchorSelectorSheetProps {
   visible: boolean;
@@ -40,7 +44,25 @@ function formatRecency(anchor: Anchor): string | null {
   );
   if (!ts || Number.isNaN(ts)) {
     if (anchor.isCharged) return 'Primed';
-    return null;
+    if (anchor.createdAt) {
+      const createdDate = new Date(anchor.createdAt);
+      if (!Number.isNaN(createdDate.getTime())) {
+        const now = Date.now();
+        const diffMs = Math.max(0, now - createdDate.getTime());
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        if (diffHours < 1) return 'Forged just now';
+        if (diffHours < 24) return 'Forged today';
+        const diffDays = Math.floor(diffHours / 24);
+        if (diffDays === 1) return 'Forged yesterday';
+        if (diffDays < 7) return `Forged ${diffDays}d ago`;
+        if (diffDays < 30) {
+          const weeks = Math.floor(diffDays / 7);
+          return `Forged ${weeks}w ago`;
+        }
+        return `Forged ${createdDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+      }
+    }
+    return 'Forged';
   }
   const now = Date.now();
   const diffMs = Math.max(0, now - ts);
@@ -54,20 +76,26 @@ function formatRecency(anchor: Anchor): string | null {
     const weeks = Math.floor(diffDays / 7);
     return `Practiced ${weeks}w ago`;
   }
-  return null;
+  const date = new Date(ts);
+  return `Practiced ${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
 }
 
 interface AnchorArtworkProps {
   anchor: Anchor;
   size: number;
+  isCurrent?: boolean;
   isSelecting?: boolean;
 }
 
 const AnchorArtwork: React.FC<AnchorArtworkProps> = React.memo(
-  ({ anchor, size, isSelecting }) => {
+  ({ anchor, size, isCurrent, isSelecting }) => {
     const reduceMotion = useReduceMotionEnabled();
     const scaleAnim = useRef(new Animated.Value(1)).current;
-    const sigil = anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg;
+    const [imageFailed, setImageFailed] = useState(false);
+
+    useEffect(() => {
+      setImageFailed(false);
+    }, [anchor.enhancedImageUrl]);
 
     useEffect(() => {
       if (isSelecting && !reduceMotion) {
@@ -86,6 +114,46 @@ const AnchorArtwork: React.FC<AnchorArtworkProps> = React.memo(
       }
     }, [isSelecting, reduceMotion, scaleAnim]);
 
+    const sigil = useMemo(() => {
+      const raw =
+        anchor.reinforcedSigilSvg ||
+        anchor.baseSigilSvg ||
+        (anchor as any).sigilSvg;
+      if (raw && typeof raw === 'string' && raw.trim().length > 0) {
+        return raw;
+      }
+      try {
+        const letters =
+          anchor.distilledLetters && anchor.distilledLetters.length > 0
+            ? anchor.distilledLetters
+            : anchor.intentionText || 'Anchor';
+        return generateTrueSigil(
+          letters,
+          anchor.planetaryTier as any,
+          anchor.structureVariant || 'balanced'
+        ).svg;
+      } catch {
+        return null;
+      }
+    }, [
+      anchor.baseSigilSvg,
+      anchor.distilledLetters,
+      anchor.intentionText,
+      anchor.planetaryTier,
+      anchor.reinforcedSigilSvg,
+      anchor.structureVariant,
+      (anchor as any).sigilSvg,
+    ]);
+
+    const showImage =
+      Boolean(anchor.enhancedImageUrl) &&
+      anchor.enhancedImageUrl!.trim().length > 0 &&
+      !imageFailed;
+
+    const borderColor = isCurrent || isSelecting
+      ? colors.gold
+      : 'rgba(244, 239, 230, 0.14)';
+
     return (
       <Animated.View
         style={[
@@ -94,22 +162,26 @@ const AnchorArtwork: React.FC<AnchorArtworkProps> = React.memo(
             width: size,
             height: size,
             borderRadius: size / 2,
-            borderColor: isSelecting
-              ? colors.gold
-              : 'rgba(217, 179, 108, 0.22)',
+            borderColor,
             transform: [{ scale: scaleAnim }],
           },
-          isSelecting && styles.artworkContainerActive,
+          (isCurrent || isSelecting) && styles.artworkContainerActive,
         ]}
       >
-        {anchor.enhancedImageUrl ? (
+        {showImage ? (
           <OptimizedImage
-            uri={anchor.enhancedImageUrl}
+            uri={anchor.enhancedImageUrl!}
             style={{ width: size, height: size, borderRadius: size / 2 }}
             resizeMode="cover"
+            onError={() => setImageFailed(true)}
           />
         ) : sigil ? (
-          <SvgXml xml={sigil} width={size * 0.62} height={size * 0.62} />
+          <SvgXml
+            xml={sigil}
+            width={size * 0.64}
+            height={size * 0.64}
+            color={colors.bone}
+          />
         ) : (
           <Text style={styles.artworkFallback}>◈</Text>
         )}
@@ -147,6 +219,7 @@ const AnchorRow: React.FC<AnchorRowProps> = React.memo(
         <AnchorArtwork
           anchor={item}
           size={ROW_AVATAR_SIZE}
+          isCurrent={false}
           isSelecting={isSelecting}
         />
 
@@ -194,6 +267,7 @@ export const AnchorSelectorSheet: React.FC<AnchorSelectorSheetProps> = ({
   onClose,
 }) => {
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const [query, setQuery] = useState('');
   const [selectingId, setSelectingId] = useState<string | null>(null);
   const selectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -219,7 +293,11 @@ export const AnchorSelectorSheet: React.FC<AnchorSelectorSheetProps> = ({
     if (!trimmed) {
       // Exclude current anchor from recent list if there's no search query
       if (currentAnchor) {
-        return anchors.filter((a) => a.id !== currentAnchor.id);
+        return anchors.filter(
+          (a) =>
+            a.id !== currentAnchor.id &&
+            (!currentAnchor.localId || a.localId !== currentAnchor.localId)
+        );
       }
       return anchors;
     }
@@ -277,15 +355,20 @@ export const AnchorSelectorSheet: React.FC<AnchorSelectorSheetProps> = ({
     >
       <View style={styles.root}>
         <Pressable style={styles.backdrop} onPress={onClose} />
-        <View
-          style={[
-            styles.sheetWrap,
-            {
-              paddingBottom: Math.max(spacing.lg, insets.bottom + spacing.sm),
-            },
-          ]}
-          accessibilityViewIsModal={true}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.keyboardAvoiding}
         >
+          <View
+            style={[
+              styles.sheetWrap,
+              {
+                height: Math.min(windowHeight * 0.84, 760),
+                paddingBottom: Math.max(spacing.lg, insets.bottom + spacing.sm),
+              },
+            ]}
+            accessibilityViewIsModal={true}
+          >
           {Platform.OS === 'ios' ? (
             <BlurView intensity={48} tint="dark" style={StyleSheet.absoluteFillObject} />
           ) : (
@@ -317,6 +400,7 @@ export const AnchorSelectorSheet: React.FC<AnchorSelectorSheetProps> = ({
                 <AnchorArtwork
                   anchor={currentAnchor}
                   size={FEATURED_AVATAR_SIZE}
+                  isCurrent={true}
                   isSelecting={selectingId === currentAnchor.id}
                 />
 
@@ -398,8 +482,9 @@ export const AnchorSelectorSheet: React.FC<AnchorSelectorSheetProps> = ({
             />
           </View>
         </View>
-      </View>
-    </Modal>
+      </KeyboardAvoidingView>
+    </View>
+  </Modal>
   );
 };
 
@@ -412,8 +497,12 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(6, 9, 13, 0.68)',
   },
+  keyboardAvoiding: {
+    width: '100%',
+    justifyContent: 'flex-end',
+  },
   sheetWrap: {
-    maxHeight: '86%',
+    maxHeight: '90%',
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
     overflow: 'hidden',
