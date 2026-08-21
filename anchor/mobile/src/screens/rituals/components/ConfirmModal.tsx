@@ -111,6 +111,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             activeOpacity={0.85}
             accessibilityRole="button"
             accessibilityLabel={primaryCtaLabel}
+            testID="confirm-modal-primary-btn"
           >
             <Text style={styles.primaryButtonText}>{primaryCtaLabel}</Text>
           </TouchableOpacity>
@@ -121,6 +122,8 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             activeOpacity={0.7}
             accessibilityRole="button"
             accessibilityLabel={secondaryCtaLabel}
+            hitSlop={{ top: 12, bottom: 12, left: 24, right: 24 }}
+            testID="confirm-modal-secondary-btn"
           >
             <Text style={styles.secondaryButtonText}>{secondaryCtaLabel}</Text>
           </TouchableOpacity>

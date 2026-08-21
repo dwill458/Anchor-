@@ -601,13 +601,23 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
       }
 
       const player = ambientAudioRef.current;
-      fadeAmbientTo(0, FOCUS_AMBIENT_FADE_OUT_MS, () => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
         if (ambientAudioRef.current === player) {
           player.stop();
           ambientAudioRef.current = null;
           ambientVolumeRef.current = 0;
         }
         resolve();
+      };
+
+      const timeoutId = setTimeout(finish, FOCUS_AMBIENT_FADE_OUT_MS + 50);
+
+      fadeAmbientTo(0, FOCUS_AMBIENT_FADE_OUT_MS, () => {
+        clearTimeout(timeoutId);
+        finish();
       });
     });
   }, [fadeAmbientTo, stopGuidanceAudio]);

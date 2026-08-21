@@ -638,42 +638,78 @@ export const ActivationScreen: React.FC = () => {
   const exitSession = useCallback(async () => {
     exitingRef.current = true;
     setShowExitWarning(false);
-    await focusSessionExitAudioHandlerRef.current?.();
 
-    if (returnToChart({ returnTo, anchorId, chartContext })) return;
-
-    if (returnTarget?.kind === 'anchorDetail') {
-      navigation.popToTop?.();
-      returnToAnchorDetail(returnTarget.anchorId);
-      return;
+    try {
+      if (focusSessionExitAudioHandlerRef.current) {
+        await Promise.race([
+          focusSessionExitAudioHandlerRef.current(),
+          new Promise((resolve) => setTimeout(resolve, 350)),
+        ]);
+      }
+    } catch (error) {
+      logger.warn('Error fading audio on focus session exit', error);
     }
 
-    if (returnTo === 'practice') {
-      if (typeof navigation.popToTop === 'function') {
-        navigation.popToTop();
-      } else {
+    try {
+      if (returnToChart({ returnTo, anchorId, chartContext })) return;
+
+      const canNavigateBack =
+        typeof navigation.canGoBack !== 'function' || navigation.canGoBack();
+
+      if (returnTarget?.kind === 'anchorDetail') {
+        if (typeof navigation.popToTop === 'function' && canNavigateBack) {
+          navigation.popToTop();
+        }
+        returnToAnchorDetail(returnTarget.anchorId);
+        return;
+      }
+
+      if (returnTo === 'practice') {
+        if (typeof navigation.popToTop === 'function' && canNavigateBack) {
+          navigation.popToTop();
+        } else if (canNavigateBack) {
+          navigation.goBack();
+        }
+        navigateToPractice();
+        return;
+      }
+
+      if (returnTo === 'detail') {
+        returnToAnchorDetail(anchorId);
+        return;
+      }
+
+      if (returnTo === 'vault') {
+        if (isPendingFirstAnchor && anchor) {
+          navigation.replace('SaveProgress', { anchor });
+        } else {
+          navigateToVaultDestination(navigation, 'replace');
+        }
+        return;
+      }
+
+      if (canNavigateBack) {
         navigation.goBack();
-      }
-      navigateToPractice();
-      return;
-    }
-
-    if (returnTo === 'detail') {
-      returnToAnchorDetail(anchorId);
-      return;
-    }
-
-    if (returnTo === 'vault') {
-      if (isPendingFirstAnchor && anchor) {
-        navigation.replace('SaveProgress', { anchor });
       } else {
-        navigateToVaultDestination(navigation, 'replace');
+        navigateToVaultDestination(navigation, 'reset');
       }
-      return;
+    } catch (navError) {
+      logger.error('Error navigating on focus session exit', navError);
+      navigateToVaultDestination(navigation, 'reset');
     }
-
-    navigation.goBack();
-  }, [anchor, anchorId, chartContext, isPendingFirstAnchor, navigateToPractice, navigateToVault, navigation, returnTarget, returnTo, returnToChart]);
+  }, [
+    anchor,
+    anchorId,
+    chartContext,
+    isPendingFirstAnchor,
+    navigateToPractice,
+    navigateToVault,
+    navigation,
+    returnTarget,
+    returnTo,
+    returnToChart,
+    returnToAnchorDetail,
+  ]);
 
   const promptExitSession = useCallback(() => {
     setShowExitWarning(true);
