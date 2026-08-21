@@ -769,12 +769,8 @@ describe('ActivationScreen', () => {
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
     expect(apiClient.post).not.toHaveBeenCalled();
 
-    // Tap the seal container (fires onPress = immediate complete)
+    // Tap the seal container (fires onPress = immediate complete, no reflection prompt)
     fireEvent.press(getByTestId('focus-session-continue'));
-
-    // Now click Done in CompletionModal
-    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
-    fireEvent.press(getByTestId('completion-modal-done'));
 
     await waitFor(() => expect(mockGoBack).toHaveBeenCalled());
 
@@ -789,19 +785,13 @@ describe('ActivationScreen', () => {
   });
 
   it('records and exits only once when completion callbacks re-enter', async () => {
-    const { getByTestId, getByLabelText } = render(<ActivationScreen />);
+    const { getByTestId } = render(<ActivationScreen />);
 
     const seal = await waitFor(() => getByTestId('focus-session-continue'), {
       timeout: 4000,
     });
     fireEvent.press(seal);
     fireEvent.press(seal);
-
-    const done = await waitFor(() => getByTestId('completion-modal-done'));
-    const skip = getByLabelText('Skip reflection');
-    fireEvent.press(done);
-    fireEvent.press(skip);
-    fireEvent.press(done);
 
     await waitFor(() => expect(mockGoBack).toHaveBeenCalledTimes(1));
     expect(mockHandlePrimeComplete).toHaveBeenCalledTimes(1);
@@ -813,8 +803,6 @@ describe('ActivationScreen', () => {
 
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
     fireEvent.press(getByTestId('focus-session-continue'));
-    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
-    fireEvent.press(getByTestId('completion-modal-done'));
 
     await waitFor(() => expect(mockUpdateAnchor).toHaveBeenCalledWith(TEST_ANCHOR_UUID, {
       activationCount: 1,
@@ -876,7 +864,7 @@ describe('ActivationScreen', () => {
     fireEvent.press(getByTestId('focus-session-dismiss'));
 
     expect(mockGoBack).not.toHaveBeenCalled();
-    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
+    await waitFor(() => expect(mockGoBack).toHaveBeenCalled());
   });
 
   it('routes completed-session back attempts into reflection instead of exit warning', async () => {
@@ -896,8 +884,7 @@ describe('ActivationScreen', () => {
     });
 
     expect(preventDefault).toHaveBeenCalled();
-    expect(mockGoBack).not.toHaveBeenCalled();
-    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
+    await waitFor(() => expect(mockGoBack).toHaveBeenCalled());
   });
 
   it('pops vault stack and returns to Practice after completion when launched from Practice', async () => {
@@ -914,8 +901,6 @@ describe('ActivationScreen', () => {
     const { getByTestId } = render(<ActivationScreen />);
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
     fireEvent.press(getByTestId('focus-session-continue'));
-    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
-    fireEvent.press(getByTestId('completion-modal-done'));
 
     await waitFor(() => {
       expect(mockPopToTop).toHaveBeenCalled();
@@ -937,8 +922,6 @@ describe('ActivationScreen', () => {
 
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
     fireEvent.press(getByTestId('focus-session-continue'));
-    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
-    fireEvent.press(getByTestId('completion-modal-done'));
 
     await waitFor(() => {
       expect(apiClient.post).toHaveBeenCalledWith(
@@ -965,8 +948,6 @@ describe('ActivationScreen', () => {
 
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
     fireEvent.press(getByTestId('focus-session-continue'));
-    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
-    fireEvent.press(getByTestId('completion-modal-done'));
 
     await waitFor(() => {
       expect(apiClient.post).toHaveBeenCalledWith(
@@ -983,13 +964,13 @@ describe('ActivationScreen', () => {
   it('shows the post-prime trace prompt before reflection when eligible', async () => {
     mockIsPostPrimeTraceEligible.mockResolvedValue(true);
 
-    const { getByTestId, queryByTestId } = render(<ActivationScreen />);
+    const { getByTestId } = render(<ActivationScreen />);
 
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
     fireEvent.press(getByTestId('focus-session-continue'));
 
     await waitFor(() => expect(getByTestId('post-prime-trace-modal')).toBeTruthy());
-    expect(queryByTestId('completion-modal-done')).toBeNull();
+    expect(mockGoBack).not.toHaveBeenCalled();
   });
 
   it('skips the post-prime trace prompt on the first prime session for an anchor', async () => {
@@ -1010,7 +991,7 @@ describe('ActivationScreen', () => {
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
     fireEvent.press(getByTestId('focus-session-continue'));
 
-    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
+    await waitFor(() => expect(mockGoBack).toHaveBeenCalled());
     expect(queryByTestId('post-prime-trace-modal')).toBeNull();
     expect(mockIsPostPrimeTraceEligible).not.toHaveBeenCalled();
   });
@@ -1032,8 +1013,6 @@ describe('ActivationScreen', () => {
 
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
     fireEvent.press(getByTestId('focus-session-continue'));
-    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
-    fireEvent.press(getByTestId('completion-modal-done'));
 
     await waitFor(() =>
       expect(mockUpdateAnchor).toHaveBeenCalledWith(
@@ -1096,7 +1075,7 @@ describe('ActivationScreen', () => {
     await waitFor(() => expect(getByTestId('post-prime-skip-button')).toBeTruthy());
     fireEvent.press(getByTestId('post-prime-skip-button'));
 
-    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
+    await waitFor(() => expect(mockGoBack).toHaveBeenCalled());
     expect(mockNavigate).not.toHaveBeenCalledWith('ManualReinforcement', expect.anything());
   });
 
@@ -1126,7 +1105,7 @@ describe('ActivationScreen', () => {
       usePostPrimeTraceStore.getState().finishFlow(flowId!, 'completed');
     });
 
-    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
+    await waitFor(() => expect(mockGoBack).toHaveBeenCalled());
   });
 
   it('handles API errors gracefully after sealing', async () => {
@@ -1137,8 +1116,6 @@ describe('ActivationScreen', () => {
 
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
     fireEvent.press(getByTestId('focus-session-continue'));
-    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
-    fireEvent.press(getByTestId('completion-modal-done'));
 
     await waitFor(() => {
       expect(ErrorTrackingService.captureException).toHaveBeenCalledWith(
@@ -1165,8 +1142,6 @@ describe('ActivationScreen', () => {
 
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
     fireEvent.press(getByTestId('focus-session-continue'));
-    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
-    fireEvent.press(getByTestId('completion-modal-done'));
 
     await waitFor(() => {
       expect(ErrorTrackingService.captureException).not.toHaveBeenCalledWith(
@@ -1231,8 +1206,6 @@ describe('ActivationScreen', () => {
 
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
     fireEvent.press(getByTestId('focus-session-continue'));
-    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
-    fireEvent.press(getByTestId('completion-modal-done'));
 
     await waitFor(() => {
       expect(apiClient.post).toHaveBeenNthCalledWith(
@@ -1270,8 +1243,6 @@ describe('ActivationScreen', () => {
 
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
     fireEvent.press(getByTestId('focus-session-continue'));
-    await waitFor(() => expect(getByTestId('completion-modal-done')).toBeTruthy());
-    fireEvent.press(getByTestId('completion-modal-done'));
 
     await waitFor(() =>
       expect(mockNavigateToVaultDestination).toHaveBeenCalledWith(

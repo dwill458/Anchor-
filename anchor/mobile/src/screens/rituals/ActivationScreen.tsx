@@ -2,8 +2,8 @@
  * Anchor App - Activation Screen
  *
  * Focused session for your anchor.
- * On completion, shows CompletionModal for one-word reflection,
- * then records the session in sessionStore before navigating back.
+ * On completion, records the session in sessionStore and navigates back
+ * without a reflection prompt.
  */
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
@@ -32,7 +32,6 @@ import { useToast } from '@/components/ToastProvider';
 import { logger } from '@/utils/logger';
 import { RitualScaffold } from './components/RitualScaffold';
 import { FocusSession } from './components/FocusSession';
-import { CompletionModal } from './components/CompletionModal';
 import { ConfirmModal } from './components/ConfirmModal';
 import { PostPrimeTraceModal } from './components/PostPrimeTraceModal';
 import { useTeachingGate } from '@/utils/useTeachingGate';
@@ -162,13 +161,6 @@ export const ActivationScreen: React.FC = () => {
     candidateIds: ['activation_ground_note_v1'],
   });
 
-  // Seal Whisper (Pattern 5): passed to CompletionModal on first charge, guide ON
-  const sealWhisperTeaching = useTeachingGate({
-    screenId: 'completion_modal',
-    candidateIds: ['completion_seal_whisper_v1'],
-  });
-
-  const [showCompletion, setShowCompletion] = useState(false);
   const [showPostPrimeTrace, setShowPostPrimeTrace] = useState(false);
   const [showExitWarning, setShowExitWarning] = useState(false);
   const [showChartInvitation, setShowChartInvitation] = useState(false);
@@ -182,6 +174,9 @@ export const ActivationScreen: React.FC = () => {
   const completionEventIdRef = React.useRef(createPracticeEventId());
   const focusSessionExitAudioHandlerRef = React.useRef<(() => Promise<void>) | null>(null);
   const completionTransitionTaskRef = React.useRef<{ cancel?: () => void } | null>(null);
+  // Grace window before auto-finalizing when the compact trace link is the only
+  // thing on screen, so the user still has a moment to tap it before we navigate away.
+  const compactTraceAutoFinalizeRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Record ground note shown (once, on render — gate already enforces lifetime limit)
   React.useEffect(() => {
@@ -382,14 +377,141 @@ export const ActivationScreen: React.FC = () => {
     });
   }, [isPendingFirstAnchor, returnTo]);
 
-  // Show completion modal instead of immediately going back
   const handleSessionCompleted = useCallback(() => {
     sessionCompletedRef.current = true;
     setShowExitWarning(false);
     recordPrimeSession();
   }, [recordPrimeSession]);
 
-  const showReflectionModal = useCallback((options?: { keepTraceLink?: boolean }) => {
+  const finishAfterCompletion = useCallback((canonicalSessionId?: string) => {
+    if (canonicalSessionId && returnToChart({
+      returnTo,
+      anchorId,
+      chartContext,
+      practiceReturn: {
+        outcome: 'completed',
+        practiceSessionId: canonicalSessionId,
+        practiceMode: practiceMode ?? 'focus',
+        anchorId,
+      },
+    })) return;
+
+    if (returnTarget?.kind === 'anchorDetail') {
+      navigation.popToTop?.();
+      returnToAnchorDetail(returnTarget.anchorId);
+      return;
+    }
+
+    if (returnTo === 'practice') {
+      if (typeof navigation.popToTop === 'function') navigation.popToTop();
+      navigateToPractice();
+      scheduleReviewRequestAfterHomeReturn();
+    } else if (returnTo === 'reinforce') {
+      navigation.replace('Ritual', {
+        anchorId,
+        ritualType: 'ritual',
+        durationSeconds: 300,
+        returnTo: 'detail',
+      });
+    } else if (returnTo === 'detail') {
+      returnToAnchorDetail(anchorId);
+    } else if (returnTo === 'vault') {
+      if (isPendingFirstAnchor && anchor) {
+        navigation.replace('SaveProgress', { anchor });
+      } else {
+        navigateToVaultDestination(navigation, 'replace');
+        scheduleReviewRequestAfterHomeReturn();
+      }
+    } else {
+      navigation.goBack();
+    }
+  }, [
+    anchor,
+    anchorId,
+    chartContext,
+    isPendingFirstAnchor,
+    navigateToPractice,
+    navigation,
+    practiceMode,
+    returnTarget,
+    returnTo,
+    returnToAnchorDetail,
+    returnToChart,
+    scheduleReviewRequestAfterHomeReturn,
+  ]);
+
+  // Records the session and navigates away with no reflection prompt.
+  const handleCompletionDone = useCallback(async () => {
+    if (hasRecordedRef.current) {
+      return;
+    }
+    hasRecordedRef.current = true;
+
+    setShowExitWarning(false);
+    exitingRef.current = true;
+
+    // Record session locally
+    const completedAt = new Date().toISOString();
+    const completionEventId = recordSession({
+      idempotencyKey: completionEventIdRef.current,
+      anchorId,
+      type: 'activate',
+      durationSeconds: activationDurationSeconds,
+      mode:
+        focusSessionAudioPlan.configuration.backgroundAudio === 'ambient' ||
+        focusSessionAudioPlan.configuration.guidanceVoice !== 'none'
+          ? 'ambient'
+          : 'silent',
+      audioConfiguration: focusSessionAudioPlan.configuration,
+      completedAt,
+    });
+    const canonicalRecord = await PracticeCompletionService.queueLegacyCompletion({
+      id: completionEventId,
+      anchorId,
+      anchorLocalId: anchor?.localId,
+      practiceMode: 'focus',
+      durationSeconds: activationDurationSeconds,
+      completedAt,
+      guidanceVoice: focusSessionAudioPlan.configuration.guidanceVoice,
+      backgroundAudio: focusSessionAudioPlan.configuration.backgroundAudio,
+      source: resolvePracticeCompletionSource(returnTo),
+      chartContext,
+      practiceEntrySource: source,
+    });
+    void recordReviewSignal('focus_session_completed');
+
+    const journey = useChartJourneyStore.getState();
+    if (
+      canonicalRecord &&
+      returnTo !== 'chart' &&
+      journey.firstAnchorId === anchorId &&
+      journey.newUserIntroStage === 'ready'
+    ) {
+      setShowChartInvitation(true);
+      return;
+    }
+    finishAfterCompletion(canonicalRecord?.id);
+  }, [
+    anchor,
+    anchorId,
+    activationDurationSeconds,
+    chartContext,
+    finishAfterCompletion,
+    recordSession,
+    focusSessionAudioPlan,
+    returnTo,
+    source,
+  ]);
+
+  const clearCompactTraceAutoFinalize = useCallback(() => {
+    if (compactTraceAutoFinalizeRef.current) {
+      clearTimeout(compactTraceAutoFinalizeRef.current);
+      compactTraceAutoFinalizeRef.current = null;
+    }
+  }, []);
+
+  // No reflection modal — finalize the session directly once the seal completes.
+  const finalizeFocusSession = useCallback((options?: { keepTraceLink?: boolean }) => {
     sessionCompletedRef.current = true;
     if (!options?.keepTraceLink) {
       setShowPostPrimeTrace(false);
@@ -398,10 +520,10 @@ export const ActivationScreen: React.FC = () => {
 
     completionTransitionTaskRef.current?.cancel?.();
     completionTransitionTaskRef.current = InteractionManager.runAfterInteractions(() => {
-      setShowCompletion(true);
       completionTransitionTaskRef.current = null;
+      void handleCompletionDone();
     });
-  }, []);
+  }, [handleCompletionDone]);
 
   const handleComplete = useCallback(async () => {
     if (completionStartedRef.current) {
@@ -411,12 +533,12 @@ export const ActivationScreen: React.FC = () => {
     sessionCompletedRef.current = true;
     setShowExitWarning(false);
 
-    // Log the activation immediately when the seal completes — not gated on modal "Done"
+    // Log the activation immediately when the seal completes — not gated on a modal
     void logActivationInBackground();
     await handlePrimeComplete();
 
     if (isFirstPrimeForAnchor) {
-      showReflectionModal();
+      finalizeFocusSession();
       return;
     }
 
@@ -425,43 +547,52 @@ export const ActivationScreen: React.FC = () => {
     if (shouldOfferPostPrimeTrace) {
       setShowPostPrimeTrace(true);
       if (!traceDefaultEnabled) {
-        showReflectionModal({ keepTraceLink: true });
+        // Compact trace link is now the only thing on screen — give it a brief
+        // window before auto-finalizing so it's still tappable.
+        clearCompactTraceAutoFinalize();
+        compactTraceAutoFinalizeRef.current = setTimeout(() => {
+          compactTraceAutoFinalizeRef.current = null;
+          finalizeFocusSession({ keepTraceLink: true });
+        }, 3500);
       }
       return;
     }
 
-    showReflectionModal();
+    finalizeFocusSession();
   }, [
+    clearCompactTraceAutoFinalize,
+    finalizeFocusSession,
     handlePrimeComplete,
     isFirstPrimeForAnchor,
     logActivationInBackground,
-    showReflectionModal,
     traceDefaultEnabled,
   ]);
 
   const handleSkipPostPrimeTrace = useCallback(() => {
-    showReflectionModal();
-  }, [showReflectionModal]);
+    clearCompactTraceAutoFinalize();
+    finalizeFocusSession();
+  }, [clearCompactTraceAutoFinalize, finalizeFocusSession]);
 
   const handleBeginPostPrimeTrace = useCallback(async () => {
+    clearCompactTraceAutoFinalize();
     await markPostPrimeTraceAttemptStarted();
 
     const flowId = beginPostPrimeTraceFlow(anchorId);
     setPendingPostPrimeFlowId(flowId);
     setShowPostPrimeTrace(false);
-    setShowCompletion(false);
 
     navigation.navigate('ManualReinforcement', {
       source: 'post_prime_trace',
       anchorId,
     });
-  }, [anchorId, beginPostPrimeTraceFlow, navigation]);
+  }, [anchorId, beginPostPrimeTraceFlow, clearCompactTraceAutoFinalize, navigation]);
 
   useEffect(() => {
     return () => {
       completionTransitionTaskRef.current?.cancel?.();
+      clearCompactTraceAutoFinalize();
     };
-  }, []);
+  }, [clearCompactTraceAutoFinalize]);
 
   useEffect(() => {
     if (!pendingPostPrimeFlowId) {
@@ -494,14 +625,14 @@ export const ActivationScreen: React.FC = () => {
       });
     }
 
-    showReflectionModal();
+    finalizeFocusSession();
   }, [
     activeFlow,
     activationDurationSeconds,
     anchorId,
     bumpThreadStrength,
+    finalizeFocusSession,
     pendingPostPrimeFlowId,
-    showReflectionModal,
   ]);
 
   const exitSession = useCallback(async () => {
@@ -588,127 +719,6 @@ export const ActivationScreen: React.FC = () => {
     }, [handleComplete, promptExitSession])
   );
 
-  const finishAfterCompletion = useCallback((canonicalSessionId?: string) => {
-    if (canonicalSessionId && returnToChart({
-      returnTo,
-      anchorId,
-      chartContext,
-      practiceReturn: {
-        outcome: 'completed',
-        practiceSessionId: canonicalSessionId,
-        practiceMode: practiceMode ?? 'focus',
-        anchorId,
-      },
-    })) return;
-
-    if (returnTarget?.kind === 'anchorDetail') {
-      navigation.popToTop?.();
-      returnToAnchorDetail(returnTarget.anchorId);
-      return;
-    }
-
-    if (returnTo === 'practice') {
-      if (typeof navigation.popToTop === 'function') navigation.popToTop();
-      navigateToPractice();
-      scheduleReviewRequestAfterHomeReturn();
-    } else if (returnTo === 'reinforce') {
-      navigation.replace('Ritual', {
-        anchorId,
-        ritualType: 'ritual',
-        durationSeconds: 300,
-        returnTo: 'detail',
-      });
-    } else if (returnTo === 'detail') {
-      returnToAnchorDetail(anchorId);
-    } else if (returnTo === 'vault') {
-      if (isPendingFirstAnchor && anchor) {
-        navigation.replace('SaveProgress', { anchor });
-      } else {
-        navigateToVaultDestination(navigation, 'replace');
-        scheduleReviewRequestAfterHomeReturn();
-      }
-    } else {
-      navigation.goBack();
-    }
-  }, [
-    anchor,
-    anchorId,
-    chartContext,
-    isPendingFirstAnchor,
-    navigateToPractice,
-    navigation,
-    practiceMode,
-    returnTarget,
-    returnTo,
-    returnToAnchorDetail,
-    returnToChart,
-    scheduleReviewRequestAfterHomeReturn,
-  ]);
-
-  const handleCompletionDone = useCallback(async (reflectionWord?: string) => {
-    if (hasRecordedRef.current) {
-      return;
-    }
-    hasRecordedRef.current = true;
-
-    setShowCompletion(false);
-    setShowExitWarning(false);
-    exitingRef.current = true;
-
-    // Record session locally
-    const completedAt = new Date().toISOString();
-    const completionEventId = recordSession({
-      idempotencyKey: completionEventIdRef.current,
-      anchorId,
-      type: 'activate',
-      durationSeconds: activationDurationSeconds,
-      mode:
-        focusSessionAudioPlan.configuration.backgroundAudio === 'ambient' ||
-        focusSessionAudioPlan.configuration.guidanceVoice !== 'none'
-          ? 'ambient'
-          : 'silent',
-      audioConfiguration: focusSessionAudioPlan.configuration,
-      reflectionWord,
-      completedAt,
-    });
-    const canonicalRecord = await PracticeCompletionService.queueLegacyCompletion({
-      id: completionEventId,
-      anchorId,
-      anchorLocalId: anchor?.localId,
-      practiceMode: 'focus',
-      durationSeconds: activationDurationSeconds,
-      completedAt,
-      guidanceVoice: focusSessionAudioPlan.configuration.guidanceVoice,
-      backgroundAudio: focusSessionAudioPlan.configuration.backgroundAudio,
-      source: resolvePracticeCompletionSource(returnTo),
-      chartContext,
-      practiceEntrySource: source,
-    });
-    void recordReviewSignal('focus_session_completed');
-
-    const journey = useChartJourneyStore.getState();
-    if (
-      canonicalRecord &&
-      returnTo !== 'chart' &&
-      journey.firstAnchorId === anchorId &&
-      journey.newUserIntroStage === 'ready'
-    ) {
-      setShowChartInvitation(true);
-      return;
-    }
-    finishAfterCompletion(canonicalRecord?.id);
-  }, [
-    anchor,
-    anchorId,
-    activationDurationSeconds,
-    chartContext,
-    finishAfterCompletion,
-    recordSession,
-    focusSessionAudioPlan,
-    returnTo,
-    source,
-  ]);
-
   if (isAnchorMissing) {
     return (
       <RitualScaffold>
@@ -753,15 +763,6 @@ export const ActivationScreen: React.FC = () => {
         onTrace={handleBeginPostPrimeTrace}
         onSkip={handleSkipPostPrimeTrace}
         compact={!traceDefaultEnabled}
-      />
-      <CompletionModal
-        visible={showCompletion}
-        sessionType="activate"
-        anchor={anchor}
-        onDone={handleCompletionDone}
-        teachingLine={sealWhisperTeaching?.copy}
-        teachingId={sealWhisperTeaching?.teachingId}
-        collectReflection={returnTo !== 'chart'}
       />
       <ConfirmModal
         visible={showExitWarning}
