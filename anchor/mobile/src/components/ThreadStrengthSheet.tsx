@@ -210,6 +210,9 @@ function buildThisWeekDays(countsByDate: Map<string, DayCounts>): WeekDay[] {
 export function getTagline(pct: number, totalSessions: number): string {
   if (totalSessions === 0) return 'No sessions yet. Forge the first prime.';
   if (pct === 0) return 'Anchor is dormant.';
+  // A first or second session scores low by arithmetic alone (one day of
+  // seven). A new thread has not frayed — it is still being laid.
+  if (totalSessions <= 2) return 'Thread is new. Return tomorrow to set it.';
   if (pct < 20) return 'Thread is fraying. Prime today.';
   if (pct < 40) return 'Slipping. Prime today.';
   if (pct < 70) return 'Thread is holding.';

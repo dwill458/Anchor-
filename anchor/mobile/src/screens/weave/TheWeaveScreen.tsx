@@ -21,7 +21,6 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Circle, Path } from 'react-native-svg';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { PracticeStackParamList } from '@/types';
@@ -53,6 +52,7 @@ import {
   type WeaveNode,
 } from './weaveData';
 import { buildWeaveGeometry } from './weaveGeometry';
+import { WeaveCanvas } from './WeaveCanvas';
 
 type WeaveRoute = RouteProp<PracticeStackParamList, 'TheWeave'>;
 type WeaveNavigation = NativeStackNavigationProp<PracticeStackParamList, 'TheWeave'>;
@@ -154,7 +154,6 @@ export const TheWeaveScreen: React.FC = () => {
   const width = Math.max(280, SCREEN_WIDTH - 40);
   const geometry = useMemo(() => buildWeaveGeometry({ modes: MODE_ORDER, nodesByMode: data.nodesByMode, bucketCount: data.bucketCount, width, height: PLOT_HEIGHT }), [data.bucketCount, data.nodesByMode, width]);
   const ticks = useMemo(() => axisTicks(range, data.startDateKey), [data.startDateKey, range]);
-  const weaveSegments = useMemo(() => geometry.strands.flatMap((strand) => strand.segments).sort((left, right) => left.layer - right.layer || left.id.localeCompare(right.id)), [geometry.strands]);
   const strength = useMemo(
     () => scope.kind === 'anchor' && data.events.length > 0
       ? calculateThreadStrengthScore(data.events, localDateKey(new Date()), sensitivity, restDays)
@@ -187,10 +186,6 @@ export const TheWeaveScreen: React.FC = () => {
       easing: Easing.bezier(0.16, 1, 0.3, 1),
     });
   }, [scopeKey, range, data.startDateKey, reduceMotion, expandProgress]);
-
-  const animatedRevealStyle = useAnimatedStyle(() => ({
-    width: width * expandProgress.value,
-  }));
 
   const animatedPlotStyle = useAnimatedStyle(() => ({
     opacity: interpolate(expandProgress.value, [0, 0.15, 1], [0.3, 0.75, 1]),
@@ -364,58 +359,17 @@ export const TheWeaveScreen: React.FC = () => {
               {isOffline ? <Text style={styles.cachedLabel}>Showing saved history while offline</Text> : null}
               <Text style={styles.plotSummary} accessibilityRole="summary">{`${scopeLabel(scope, anchorNames)}, ${WEAVE_RANGE_CONFIG[range].label}: ${data.metrics.sessions} completed practice sessions across ${data.metrics.practiceDays} practice days. Each node opens its completed-session detail.`}</Text>
               <Animated.View style={[styles.plot, { width }, animatedPlotStyle]} accessible={false}>
-                <Animated.View style={[{ width, height: PLOT_HEIGHT, overflow: 'hidden' }, animatedRevealStyle]}>
-                  <Svg width={width} height={PLOT_HEIGHT} accessible={false}>
-                    {weaveSegments.map((segment) => (
-                      <React.Fragment key={segment.id}>
-                        <Path
-                          d={segment.path}
-                          stroke="#080D12"
-                          strokeOpacity={0.75}
-                          strokeWidth={segment.strokeWidth + 2}
-                          fill="none"
-                        />
-                        <Path
-                          d={segment.path}
-                          stroke={MODE_COLORS[segment.mode]}
-                          strokeOpacity={segment.opacity}
-                          strokeWidth={segment.strokeWidth}
-                          fill="none"
-                        />
-                      </React.Fragment>
-                    ))}
-                    {data.nodes.map((node) => {
-                      const position = geometry.nodePositions[node.id];
-                      if (!position) return null;
-                      const isSelected = sheet === 'node' && selectedNode?.id === node.id;
-                      const isNotable = node.sessionCount >= 2;
-                      const showGlow = isNotable || isSelected;
-                      const glowRadius = position.radius + (isSelected ? 6 : 3);
-                      return (
-                        <React.Fragment key={node.id}>
-                          {showGlow && (
-                            <Circle
-                              cx={position.left}
-                              cy={position.top}
-                              r={glowRadius}
-                              fill={MODE_COLORS[node.mode]}
-                              opacity={reduceMotion ? 0.08 : (isSelected ? 0.24 : 0.12)}
-                            />
-                          )}
-                          <Circle
-                            cx={position.left}
-                            cy={position.top}
-                            r={position.radius}
-                            fill={isSelected ? '#F4EFE6' : MODE_COLORS[node.mode]}
-                            stroke={isSelected ? MODE_COLORS[node.mode] : undefined}
-                            strokeWidth={isSelected ? 1.5 : 0}
-                            opacity={reduceMotion ? 0.92 : 1}
-                          />
-                        </React.Fragment>
-                      );
-                    })}
-                  </Svg>
-                </Animated.View>
+                <WeaveCanvas
+                  width={width}
+                  height={PLOT_HEIGHT}
+                  geometry={geometry}
+                  nodes={data.nodes}
+                  modeColors={MODE_COLORS}
+                  backgroundColor="#080D12"
+                  selectedNodeId={sheet === 'node' ? selectedNode?.id ?? null : null}
+                  animationKey={`${scopeKey}:${range}:${data.startDateKey}`}
+                  still={reduceMotion}
+                />
                 {data.nodes.map((node) => {
                   const position = geometry.nodePositions[node.id];
                   if (!position) return null;

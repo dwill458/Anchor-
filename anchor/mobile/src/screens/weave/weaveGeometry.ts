@@ -1,13 +1,8 @@
 import type { PracticeMode } from '@/types/practice';
 import type { WeaveNode } from './weaveData';
 
-export const WEAVE_PLOT_PADDING = 24;
-
-export interface WeavePoint {
-  x: number;
-  y: number;
-  activity: number;
-}
+/** Horizontal inset, matching the reference weave's PAD. */
+export const WEAVE_PLOT_PADDING = 8;
 
 export interface WeaveStrand {
   mode: PracticeMode;
@@ -20,40 +15,62 @@ export interface WeaveStrand {
 export interface WeaveSegment {
   id: string;
   mode: PracticeMode;
+  /** The visible line, overrunning its bucket so joints never break. */
   path: string;
+  /** The backing stroke, held to the bucket so it cannot cut its neighbours. */
+  haloPath: string;
   opacity: number;
   strokeWidth: number;
-  /** Alternates periods/modes so crossings visually pass over and under. */
+  /** Alternates buckets/modes so crossings visually pass over and under. */
   layer: number;
+  /** 0–1 position of this chunk along the plot; drives the entrance stagger. */
+  travel: number;
+}
+
+export interface WeaveNodePosition {
+  left: number;
+  top: number;
+  radius: number;
+  glowRadius: number;
+  /** 0–1 position along the plot; drives the entrance stagger. */
+  travel: number;
+  /** True for the most recent bucket — the thread's live end. */
+  latest: boolean;
 }
 
 export interface WeaveGeometry {
   strands: WeaveStrand[];
-  nodePositions: Record<string, { left: number; top: number; radius: number; glowRadius: number }>;
+  nodePositions: Record<string, WeaveNodePosition>;
 }
+
+const TAU = Math.PI * 2;
+/** Per-strand phase offsets for the three wobble harmonics. */
+const STRAND_PHASES = [
+  [0.4, 1.9, 3.3],
+  [2.2, 4.8, 0.7],
+  [4.1, 0.3, 2.6],
+  [5.6, 3.1, 5.0],
+];
+/** Sub-steps per bucket; enough to keep each chunk visibly curved. */
+const CHUNK_STEPS = 7;
+/** Half the widest backing stroke, in points. */
+export const HALO_REACH = 3.2;
+/** Lane separation and wobble reach, as a share of plot height. */
+const LANE_GAP_RATIO = 0.185;
+const WOBBLE_RATIO = 0.15;
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
-function makePath(points: WeavePoint[]): string {
-  if (!points.length) return '';
-  return points.reduce((path, point, index) => {
-    if (index === 0) return `M ${point.x.toFixed(2)} ${point.y.toFixed(2)}`;
-    const previous = points[index - 1];
-    const controlX = (previous.x + point.x) / 2;
-    return `${path} Q ${controlX.toFixed(2)} ${previous.y.toFixed(2)}, ${point.x.toFixed(2)} ${point.y.toFixed(2)}`;
-  }, '');
-}
-
-function makeSegmentPath(previous: WeavePoint, point: WeavePoint): string {
-  const controlX = (previous.x + point.x) / 2;
-  return `M ${previous.x.toFixed(2)} ${previous.y.toFixed(2)} Q ${controlX.toFixed(2)} ${previous.y.toFixed(2)}, ${point.x.toFixed(2)} ${point.y.toFixed(2)}`;
+function smoothstep(f: number): number {
+  return f * f * (3 - 2 * f);
 }
 
 /**
- * The reference weave is deliberately not a chart: it uses completed-practice
- * density to pull four colored threads through one another. This deterministic
- * projection keeps the same visual language while ensuring every deviation is
- * derived from the canonical ledger rather than a decorative random arc.
+ * The weave is not a chart: four threads — one per practice mode — braid
+ * across time on fixed lanes. Practice never displaces a thread up or down;
+ * it only decides how far that thread breathes around its lane and how much
+ * weight and light it carries. A thread therefore always travels across, and
+ * every completed session reads as reinforcement rather than a drop.
  */
 export function buildWeaveGeometry(args: {
   modes: readonly PracticeMode[];
@@ -65,73 +82,126 @@ export function buildWeaveGeometry(args: {
   const { modes, nodesByMode, bucketCount, width, height } = args;
   const bucketTotal = Math.max(1, bucketCount);
   const allNodes = modes.flatMap((mode) => nodesByMode[mode]);
-  const maxSessions = Math.max(1, ...allNodes.map((node) => node.sessionCount));
-  const activityByMode = new Map<PracticeMode, number[]>();
-  const totalByBucket = Array.from({ length: bucketTotal }, () => 0);
+  const latestBucket = allNodes.reduce((latest, node) => Math.max(latest, node.bucketIndex), -1);
 
+  // Per-mode session counts per bucket, normalised against the busiest bucket
+  // so a single quiet mode still reads next to a heavily practised one.
+  const activityByMode = new Map<PracticeMode, number[]>();
   modes.forEach((mode) => {
     const activity = Array.from({ length: bucketTotal }, () => 0);
     nodesByMode[mode].forEach((node) => {
       activity[node.bucketIndex] = node.sessionCount;
-      totalByBucket[node.bucketIndex] += node.sessionCount;
     });
     activityByMode.set(mode, activity);
   });
+  const peak = Math.max(1, ...allNodes.map((node) => node.sessionCount));
+  const normalisedByMode = new Map<PracticeMode, number[]>(
+    modes.map((mode) => [
+      mode,
+      (activityByMode.get(mode) ?? []).map((count) => Math.min(1, count / (peak * 0.75))),
+    ]),
+  );
 
-  const maxBucketActivity = Math.max(1, ...totalByBucket);
-  const minY = WEAVE_PLOT_PADDING;
-  const maxY = height - WEAVE_PLOT_PADDING;
-  const usableHeight = Math.max(1, maxY - minY);
+  const centerY = height / 2;
+  const laneGap = height * LANE_GAP_RATIO;
+  const wobbleReach = height * WOBBLE_RATIO;
+  const plotWidth = Math.max(1, width - WEAVE_PLOT_PADDING * 2);
+  const xAt = (t: number) => WEAVE_PLOT_PADDING + t * plotWidth;
+  // Enough overrun to clear the widest backing stroke, in bucket units.
+  const overlap = Math.min(0.4, (HALO_REACH * bucketTotal) / plotWidth) / bucketTotal;
   const nodePositions: WeaveGeometry['nodePositions'] = {};
 
   const strands = modes.map((mode, modeIndex) => {
-    const activity = activityByMode.get(mode) ?? [];
-    const totalSessions = activity.reduce((sum, value) => sum + value, 0);
-    const baseY = minY + (modeIndex / Math.max(1, modes.length - 1)) * usableHeight;
-    const points = Array.from({ length: bucketTotal }, (_, bucketIndex) => {
-      const intensity = activity[bucketIndex] / maxSessions;
-      const fieldIntensity = totalByBucket[bucketIndex] / maxBucketActivity;
-      const x = WEAVE_PLOT_PADDING + (bucketIndex / Math.max(1, bucketTotal - 1)) * (width - WEAVE_PLOT_PADDING * 2);
-      // A shared field creates crossings; the mode phase preserves distinct
-      // threads and the local ledger intensity decides how far each one moves.
-      const sharedWave = Math.sin(bucketIndex * 1.23 + 0.65) * fieldIntensity * 23;
-      const modeWave = Math.cos(bucketIndex * 1.71 + modeIndex * 1.27) * (4 + intensity * 22);
-      const densityPull = (intensity - fieldIntensity / modes.length) * 44;
-      const y = clamp(baseY + sharedWave + modeWave + densityPull, minY, maxY);
-      return { x, y, activity: intensity };
-    });
+    const normalised = normalisedByMode.get(mode) ?? [];
+    const phases = STRAND_PHASES[modeIndex % STRAND_PHASES.length];
+    const laneY = centerY + (modeIndex - (modes.length - 1) / 2) * laneGap;
+
+    // Bucket activity smoothed into a continuous envelope, so the thread
+    // swells into a practised stretch instead of kinking at it.
+    const activityAt = (t: number) => {
+      const position = t * bucketTotal - 0.5;
+      const index = Math.floor(position);
+      const fraction = position - index;
+      const from = normalised[clamp(index, 0, bucketTotal - 1)] ?? 0;
+      const to = normalised[clamp(index + 1, 0, bucketTotal - 1)] ?? 0;
+      return from + (to - from) * smoothstep(fraction);
+    };
+
+    const yAt = (t: number) => {
+      const amplitude = 0.44 + 0.56 * activityAt(t);
+      const wobble =
+        wobbleReach *
+        amplitude *
+        (0.58 * Math.sin(TAU * 1.7 * t + phases[0]) +
+          0.29 * Math.sin(TAU * 4.1 * t + phases[1]) +
+          0.13 * Math.sin(TAU * 7.9 * t + phases[2]));
+      return laneY + wobble;
+    };
+
+    const segments: WeaveSegment[] = [];
+    const fullPoints: string[] = [];
+    const pointAt = (t: number) => `${xAt(t).toFixed(2)} ${yAt(t).toFixed(2)}`;
+    const sample = (from: number, to: number, steps: number) => {
+      const commands: string[] = [];
+      for (let step = 0; step <= steps; step += 1) {
+        commands.push(`${step === 0 ? 'M' : 'L'}${pointAt(from + ((to - from) * step) / steps)}`);
+      }
+      return commands.join('');
+    };
+
+    for (let bucketIndex = 0; bucketIndex < bucketTotal; bucketIndex += 1) {
+      const from = bucketIndex / bucketTotal;
+      const to = (bucketIndex + 1) / bucketTotal;
+      for (let step = 0; step <= CHUNK_STEPS; step += 1) {
+        const point = pointAt(from + ((to - from) * step) / CHUNK_STEPS);
+        // Chunks share their boundary point; the strand path keeps it once.
+        if (step > 0) fullPoints.push(`L${point}`);
+        else if (bucketIndex === 0) fullPoints.push(`M${point}`);
+      }
+
+      // A dormant stretch still carries the thread between two sessions, so a
+      // chunk takes the strongest point of the smoothed envelope it spans —
+      // the line brightens as it approaches the next node rather than dying
+      // between them.
+      let intensity = 0;
+      for (let step = 0; step <= CHUNK_STEPS; step += 1) {
+        intensity = Math.max(intensity, activityAt(from + ((to - from) * step) / CHUNK_STEPS));
+      }
+
+      segments.push({
+        id: `${mode}:${bucketIndex}`,
+        mode,
+        // The line overruns its bucket on both sides so the neighbouring
+        // chunk's backing stroke cannot bite a gap out of the joint.
+        path: sample(Math.max(0, from - overlap), Math.min(1, to + overlap), CHUNK_STEPS + 2),
+        haloPath: sample(from, to, CHUNK_STEPS),
+        opacity: Number((0.14 + intensity * 0.52).toFixed(3)),
+        strokeWidth: Number((0.6 + intensity * 0.95).toFixed(2)),
+        layer: (bucketIndex + modeIndex) % 2,
+        travel: bucketTotal === 1 ? 0 : bucketIndex / (bucketTotal - 1),
+      });
+    }
 
     nodesByMode[mode].forEach((node) => {
-      const point = points[node.bucketIndex];
-      const radius = 3 + Math.min(4.2, Math.sqrt(node.sessionCount) * 1.25);
+      const t = Math.min(1, (node.bucketIndex + 0.5) / bucketTotal);
+      const radius = 2.6 + Math.min(2.6, (node.sessionCount - 1) * 0.55);
       nodePositions[node.id] = {
-        left: point.x,
-        top: point.y,
+        left: xAt(t),
+        top: yAt(t),
         radius,
         glowRadius: radius + 3,
+        travel: t,
+        latest: node.bucketIndex === latestBucket,
       };
     });
 
-    const opacity = totalSessions === 0 ? 0.13 : clamp(0.3 + totalSessions / Math.max(1, allNodes.length * 2), 0.34, 0.84);
-    const strokeWidth = totalSessions === 0 ? 0.75 : clamp(0.9 + Math.sqrt(totalSessions) * 0.18, 0.95, 1.65);
+    const meanIntensity = normalised.reduce((sum, value) => sum + value, 0) / bucketTotal;
     return {
       mode,
-      path: makePath(points),
-      opacity,
-      strokeWidth,
-      segments: points.slice(1).map((point, segmentIndex) => {
-        const segmentIntensity = Math.max(points[segmentIndex].activity, point.activity);
-        const segmentOpacity = clamp(0.13 + segmentIntensity * 0.62, 0.13, 0.75);
-        const segmentStrokeWidth = clamp(0.75 + segmentIntensity * 0.95, 0.75, 1.7);
-        return {
-          id: `${mode}:${segmentIndex}`,
-          mode,
-          path: makeSegmentPath(points[segmentIndex], point),
-          opacity: segmentOpacity,
-          strokeWidth: segmentStrokeWidth,
-          layer: (segmentIndex + modeIndex) % 2,
-        };
-      }),
+      path: fullPoints.join(''),
+      opacity: Number((0.14 + meanIntensity * 0.52).toFixed(3)),
+      strokeWidth: Number((0.6 + meanIntensity * 0.95).toFixed(2)),
+      segments,
     };
   });
 

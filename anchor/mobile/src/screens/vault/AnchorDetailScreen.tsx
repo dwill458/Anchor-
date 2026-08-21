@@ -24,7 +24,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, isToday } from 'date-fns';
-import Svg, { Circle, Path } from 'react-native-svg';
 import {
   ChevronLeft,
   ChevronRight,
@@ -58,6 +57,7 @@ import {
   formatWeaveDuration,
 } from '@/screens/weave/weaveData';
 import { buildWeaveGeometry } from '@/screens/weave/weaveGeometry';
+import { WeaveCanvas } from '@/screens/weave/WeaveCanvas';
 import type { PracticeMode } from '@/types/practice';
 import { MedallionCoin } from './components/MedallionCoin';
 import { SigilSvg, ZenBackground } from '@/components/common';
@@ -99,6 +99,10 @@ const EDITORIAL_MODE_META: Record<string, { label: string; color: string }> = {
 };
 
 const MODE_ORDER: PracticeMode[] = ['focus', 'visualize', 'deep_prime', 'release'];
+const WEAVE_MODE_COLORS = MODE_ORDER.reduce(
+  (map, mode) => ({ ...map, [mode]: EDITORIAL_MODE_META[mode].color }),
+  {} as Record<PracticeMode, string>,
+);
 
 const threadStateFor = (value: number) => {
   if (value >= 80) return 'Well held';
@@ -327,12 +331,6 @@ const EditorialWeavePreview = ({
     });
   }, [previewWidth, weaveData.bucketCount, weaveData.nodesByMode]);
 
-  const weaveSegments = useMemo(() => {
-    return geometry.strands
-      .flatMap((strand) => strand.segments)
-      .sort((left, right) => left.layer - right.layer || left.id.localeCompare(right.id));
-  }, [geometry.strands]);
-
   const hasNodes = weaveData.nodes.length > 0;
 
   return (
@@ -349,52 +347,16 @@ const EditorialWeavePreview = ({
         <ChevronRight size={16} color={colors.anchor15.gilt} strokeWidth={1.4} />
       </View>
       <View style={editorial.weaveCanvas} accessible={false}>
-        <Svg width={previewWidth} height={WEAVE_PLOT_HEIGHT} accessible={false}>
-          {weaveSegments.map((segment) => (
-            <React.Fragment key={segment.id}>
-              <Path
-                d={segment.path}
-                stroke="#0E141A"
-                strokeOpacity={0.92}
-                strokeWidth={segment.strokeWidth + 2.8}
-                fill="none"
-              />
-              <Path
-                d={segment.path}
-                stroke={EDITORIAL_MODE_META[segment.mode]?.color ?? '#F0CB6A'}
-                strokeOpacity={segment.opacity}
-                strokeWidth={segment.strokeWidth}
-                fill="none"
-              />
-            </React.Fragment>
-          ))}
-          {weaveData.nodes.map((node) => {
-            const position = geometry.nodePositions[node.id];
-            if (!position) return null;
-            const isNotable = node.sessionCount >= 2;
-            const nodeModeColor = EDITORIAL_MODE_META[node.mode]?.color ?? '#F0CB6A';
-            return (
-              <React.Fragment key={node.id}>
-                {isNotable && (
-                  <Circle
-                    cx={position.left}
-                    cy={position.top}
-                    r={position.radius + 3.5}
-                    fill={nodeModeColor}
-                    opacity={reduceMotionEnabled ? 0.1 : 0.22}
-                  />
-                )}
-                <Circle
-                  cx={position.left}
-                  cy={position.top}
-                  r={position.radius}
-                  fill={nodeModeColor}
-                  opacity={reduceMotionEnabled ? 0.9 : 1}
-                />
-              </React.Fragment>
-            );
-          })}
-        </Svg>
+        <WeaveCanvas
+          width={previewWidth}
+          height={WEAVE_PLOT_HEIGHT}
+          geometry={geometry}
+          nodes={weaveData.nodes}
+          modeColors={WEAVE_MODE_COLORS}
+          backgroundColor="#0E141A"
+          animationKey={anchorId ?? 'anchor'}
+          still={reduceMotionEnabled}
+        />
 
         {!hasNodes ? (
           <View pointerEvents="none" style={editorial.weaveEmptyWrap}>
