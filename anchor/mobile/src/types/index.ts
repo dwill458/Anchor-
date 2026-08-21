@@ -17,6 +17,7 @@ import type {
   PracticeFlowReturnTarget,
   WeaveScope,
 } from './practice';
+export * from './practice';
 export * from './chart';
 import type { ChartCapabilities, ChartFeatureFlags } from './chart';
 

@@ -8,27 +8,22 @@ import {
 } from '../visualizePresentation';
 
 describe('Visualize presentation', () => {
-  it('maps the stable audio timeline onto the five requested visual phases', () => {
+  it('maps the stable timeline onto the five canonical visual phases', () => {
     expect(
-      ['see', 'feel', 'choose', 'rehearse', 'seal'].map((phase) =>
+      ['arrive', 'build', 'rehearse', 'adapt', 'return'].map((phase) =>
         getVisualizePresentationPhase(
           phase as Parameters<typeof getVisualizePresentationPhase>[0],
         ),
       ),
-    ).toEqual(['see', 'feel', 'choose', 'rehearse', 'seal']);
+    ).toEqual(['arrive', 'build', 'rehearse', 'adapt', 'return']);
   });
 
   it('gives each phase a distinct, progressively evolving motion state', () => {
-    expect(VISUALIZE_PHASE_PRESENTATION.see.ringMotion).toBe('outward');
-    expect(VISUALIZE_PHASE_PRESENTATION.feel.ringMotion).toBe('inward');
-    expect(VISUALIZE_PHASE_PRESENTATION.choose.ringMotion).toBe('orbit');
-    expect(VISUALIZE_PHASE_PRESENTATION.rehearse.depth).toBeGreaterThan(
-      VISUALIZE_PHASE_PRESENTATION.choose.depth,
-    );
-    expect(VISUALIZE_PHASE_PRESENTATION.seal.ringMotion).toBe('settle');
-    expect(VISUALIZE_PHASE_PRESENTATION.seal.ringDurationMs).toBeGreaterThan(
-      VISUALIZE_PHASE_PRESENTATION.rehearse.ringDurationMs,
-    );
+    expect(VISUALIZE_PHASE_PRESENTATION.arrive.ringMotion).toBe('outward');
+    expect(VISUALIZE_PHASE_PRESENTATION.build.ringMotion).toBe('orbit');
+    expect(VISUALIZE_PHASE_PRESENTATION.rehearse.ringMotion).toBe('directional');
+    expect(VISUALIZE_PHASE_PRESENTATION.adapt.ringMotion).toBe('inward');
+    expect(VISUALIZE_PHASE_PRESENTATION.return.ringMotion).toBe('settle');
   });
 
   it('exposes non-color segment states for progress semantics', () => {

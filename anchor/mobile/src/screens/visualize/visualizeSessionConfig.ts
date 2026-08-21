@@ -2,13 +2,93 @@ export const VISUALIZE_DURATIONS = [60, 180, 300] as const;
 export type VisualizeDuration = (typeof VISUALIZE_DURATIONS)[number];
 
 export const VISUALIZE_PHASE_IDS = [
-  'see',
-  'feel',
-  'choose',
+  'arrive',
+  'build',
   'rehearse',
-  'seal',
+  'adapt',
+  'return',
 ] as const;
 export type VisualizePhaseId = (typeof VISUALIZE_PHASE_IDS)[number];
+
+export interface VisualizePromptLine {
+  m: string;
+  s?: string;
+}
+
+export interface VisualizePhaseDefinition {
+  key: VisualizePhaseId;
+  name: string;
+  weight: number;
+  lines: readonly VisualizePromptLine[];
+}
+
+export const VISUALIZE_PHASE_DEFINITIONS: readonly VisualizePhaseDefinition[] = [
+  {
+    key: 'arrive',
+    name: 'Arrive',
+    weight: 0.16,
+    lines: [
+      { m: 'Let your attention settle.' },
+      { m: 'Return to the Anchor.' },
+      { m: 'Allow your breathing to slow.', s: 'In… and out.' },
+    ],
+  },
+  {
+    key: 'build',
+    name: 'Build',
+    weight: 0.24,
+    lines: [
+      { m: 'Let the moment begin.' },
+      { m: 'Where are you?' },
+      { m: 'What happens first?' },
+      { m: 'What do you notice around you?' },
+    ],
+  },
+  {
+    key: 'rehearse',
+    name: 'Rehearse',
+    weight: 0.30,
+    lines: [
+      { m: 'Move through the moment.' },
+      { m: 'Notice how you begin.' },
+      { m: 'What do you say or do?' },
+      { m: 'Notice your posture.' },
+      { m: 'What does deliberate action look like here?' },
+    ],
+  },
+  {
+    key: 'adapt',
+    name: 'Adapt',
+    weight: 0.18,
+    lines: [
+      { m: 'Something shifts.' },
+      { m: 'The moment becomes harder than expected.' },
+      { m: 'What do you do next?' },
+      { m: 'Return to the response you want to practice.' },
+      { m: 'Continue without rushing.' },
+    ],
+  },
+  {
+    key: 'return',
+    name: 'Return',
+    weight: 0.12,
+    lines: [
+      { m: 'Let the scene fade.' },
+      { m: 'Return your attention to the Anchor.' },
+      { m: 'Let your attention widen to the room.' },
+      { m: 'Carry one useful response into what comes next.' },
+    ],
+  },
+];
+
+/** Haptic pulse moments (fraction within phase) - one light pulse per phase entry */
+export const VISUALIZE_PULSES: Record<VisualizePhaseId, readonly number[]> = {
+  arrive: [0.04],
+  build: [0.04],
+  rehearse: [0.04],
+  adapt: [0.04],
+  return: [0.04],
+};
 
 export type VisualizeRingMotion =
   | 'outward'
@@ -26,20 +106,24 @@ export interface VisualizeAnimationProfile {
   glow: number;
   depth: number;
   contrast: number;
+  sigilScale: number;
+  sigilOpacity: number;
+  frameOpacity: number;
 }
 
 export interface VisualizePromptConfig {
   id: string;
-  /** Offset from the beginning of the session. */
   startMs: number;
   text: string;
-  /** Existing recorded clip used for the selected voice, when available. */
+  subText?: string;
   voiceAssetId: string;
 }
 
 export interface VisualizePhaseConfig {
   id: VisualizePhaseId;
+  name: string;
   durationMs: number;
+  lines: readonly VisualizePromptLine[];
   prompts: readonly VisualizePromptConfig[];
   animationProfile: VisualizeAnimationProfile;
 }
@@ -50,305 +134,136 @@ export interface VisualizeSessionConfig {
 }
 
 const PROFILES: Record<VisualizePhaseId, VisualizeAnimationProfile> = {
-  see: {
+  arrive: {
     ringMotion: 'outward',
-    ringDurationMs: 15_000,
-    breathDurationMs: 8_400,
-    breathAmount: 0.012,
-    glow: 0.3,
+    ringDurationMs: 9_000,
+    breathDurationMs: 9_000,
+    breathAmount: 0.045,
+    glow: 0.35,
     depth: 0.22,
     contrast: 0.9,
+    sigilScale: 1.05,
+    sigilOpacity: 1.0,
+    frameOpacity: 1.0,
   },
-  feel: {
-    ringMotion: 'inward',
-    ringDurationMs: 13_000,
-    breathDurationMs: 7_200,
-    breathAmount: 0.018,
-    glow: 0.43,
-    depth: 0.3,
-    contrast: 0.96,
-  },
-  choose: {
+  build: {
     ringMotion: 'orbit',
-    ringDurationMs: 12_000,
-    breathDurationMs: 6_800,
-    breathAmount: 0.014,
-    glow: 0.56,
+    ringDurationMs: 8_000,
+    breathDurationMs: 8_000,
+    breathAmount: 0.02,
+    glow: 0.55,
     depth: 0.4,
     contrast: 1,
+    sigilScale: 0.82,
+    sigilOpacity: 1.0,
+    frameOpacity: 1.0,
   },
   rehearse: {
     ringMotion: 'directional',
-    ringDurationMs: 9_500,
-    breathDurationMs: 5_800,
-    breathAmount: 0.02,
-    glow: 0.68,
+    ringDurationMs: 10_000,
+    breathDurationMs: 10_000,
+    breathAmount: 0.015,
+    glow: 0.3,
     depth: 0.62,
     contrast: 1.04,
+    sigilScale: 0.56,
+    sigilOpacity: 0.55,
+    frameOpacity: 0.62,
   },
-  seal: {
+  adapt: {
+    ringMotion: 'inward',
+    ringDurationMs: 7_000,
+    breathDurationMs: 7_000,
+    breathAmount: 0.018,
+    glow: 0.45,
+    depth: 0.5,
+    contrast: 1.0,
+    sigilScale: 0.56,
+    sigilOpacity: 0.5,
+    frameOpacity: 0.62,
+  },
+  return: {
     ringMotion: 'settle',
-    ringDurationMs: 28_000,
+    ringDurationMs: 12_000,
     breathDurationMs: 11_000,
     breathAmount: 0.006,
-    glow: 0.76,
+    glow: 0.6,
     depth: 0.35,
     contrast: 0.98,
+    sigilScale: 1.05,
+    sigilOpacity: 1.0,
+    frameOpacity: 1.0,
   },
 };
 
-const prompt = (
-  id: string,
-  startSeconds: number,
-  text: string,
-  voiceAssetId: string,
-): VisualizePromptConfig => ({
-  id,
-  startMs: startSeconds * 1_000,
-  text,
-  voiceAssetId,
-});
+const buildPhaseConfig = (
+  def: VisualizePhaseDefinition,
+  phaseDurationSeconds: number,
+  phaseStartSeconds: number,
+  sessionDurationSeconds: number,
+): VisualizePhaseConfig => {
+  const lineCount = def.lines.length;
+  const lineDuration = phaseDurationSeconds / lineCount;
 
-const phase = (
-  id: VisualizePhaseId,
-  durationSeconds: number,
-  prompts: readonly VisualizePromptConfig[],
-): VisualizePhaseConfig => ({
-  id,
-  durationMs: durationSeconds * 1_000,
-  prompts,
-  animationProfile: PROFILES[id],
-});
+  const voicePrefix = sessionDurationSeconds === 60 ? '1M' : sessionDurationSeconds === 180 ? '3M' : '5M';
+  const phaseUpper = def.key.toUpperCase();
 
-/**
- * One timing table for every supported session length. Prompt gaps are
- * intentional practice windows; narration does not fill the session.
- */
+  const prompts: VisualizePromptConfig[] = def.lines.map((line, idx) => {
+    const startSeconds = phaseStartSeconds + idx * lineDuration;
+    const paddedIdx = String(idx + 1).padStart(2, '0');
+    // Map voice assets gracefully; fallback safely to available asset IDs
+    const voiceAssetId = `VIZ_${voicePrefix}_${phaseUpper}_${paddedIdx}`;
+    return {
+      id: `viz-${sessionDurationSeconds}-${def.key}-${idx + 1}`,
+      startMs: Math.round(startSeconds * 1_000),
+      text: line.m,
+      subText: line.s,
+      voiceAssetId: `VIZ_${voicePrefix}_${def.key === 'build' ? 'SEE' : def.key === 'rehearse' ? 'FEEL' : def.key === 'adapt' ? 'SEAL' : phaseUpper}_01`,
+    };
+  });
+
+  return {
+    id: def.key,
+    name: def.name,
+    durationMs: phaseDurationSeconds * 1_000,
+    lines: def.lines,
+    prompts,
+    animationProfile: PROFILES[def.key],
+  };
+};
+
+const createSessionConfig = (totalDuration: VisualizeDuration): VisualizeSessionConfig => {
+  const segs = VISUALIZE_PHASE_DEFINITIONS.map((p, i) => {
+    if (i === VISUALIZE_PHASE_DEFINITIONS.length - 1) {
+      // remainder to ensure exact sum
+      const prevSum = VISUALIZE_PHASE_DEFINITIONS.slice(0, -1)
+        .map((prev) => Math.max(4, Math.round(prev.weight * totalDuration)))
+        .reduce((a, b) => a + b, 0);
+      return totalDuration - prevSum;
+    }
+    return Math.max(4, Math.round(p.weight * totalDuration));
+  });
+
+  let currentStart = 0;
+  const phases: VisualizePhaseConfig[] = VISUALIZE_PHASE_DEFINITIONS.map((def, i) => {
+    const phaseDur = segs[i];
+    const cfg = buildPhaseConfig(def, phaseDur, currentStart, totalDuration);
+    currentStart += phaseDur;
+    return cfg;
+  });
+
+  return {
+    totalDurationMs: totalDuration * 1_000,
+    phases,
+  };
+};
+
 export const VISUALIZE_SESSION_CONFIGS: Readonly<
   Record<VisualizeDuration, VisualizeSessionConfig>
 > = {
-  60: {
-    totalDurationMs: 60_000,
-    phases: [
-      phase('see', 12, [
-        prompt('visualize-60-see-1', 1.5, 'Bring the scene into focus.', 'VIZ_1M_SEE_01'),
-      ]),
-      phase('feel', 11, [
-        prompt(
-          'visualize-60-feel-1',
-          13.5,
-          'Notice what this moment feels like in your body.',
-          'VIZ_1M_FEEL_02',
-        ),
-      ]),
-      phase('choose', 11, [
-        prompt(
-          'visualize-60-choose-1',
-          24.5,
-          'Choose the response that matches who you are becoming.',
-          'VIZ_1M_FEEL_03',
-        ),
-      ]),
-      phase('rehearse', 16, [
-        prompt(
-          'visualize-60-rehearse-1',
-          36,
-          'See yourself take that action clearly and naturally.',
-          'VIZ_1M_SEE_03',
-        ),
-      ]),
-      phase('seal', 10, [
-        prompt(
-          'visualize-60-seal-1',
-          52,
-          'Let this response settle into your Anchor.',
-          'VIZ_1M_SEAL_02',
-        ),
-      ]),
-    ],
-  },
-  180: {
-    totalDurationMs: 180_000,
-    phases: [
-      phase('see', 35, [
-        prompt('visualize-180-see-1', 2, 'Bring the scene into focus.', 'VIZ_3M_SEE_01'),
-        prompt(
-          'visualize-180-see-2',
-          19,
-          'Notice the first detail that makes this moment real.',
-          'VIZ_3M_SEE_02',
-        ),
-      ]),
-      phase('feel', 30, [
-        prompt(
-          'visualize-180-feel-1',
-          38,
-          'Step inside the scene and notice your posture.',
-          'VIZ_3M_FEEL_01',
-        ),
-        prompt(
-          'visualize-180-feel-2',
-          54,
-          'Feel the pace of your breathing and attention.',
-          'VIZ_3M_FEEL_04',
-        ),
-      ]),
-      phase('choose', 30, [
-        prompt(
-          'visualize-180-choose-1',
-          69,
-          'Name the response that matches your intention.',
-          'VIZ_3M_FEEL_05',
-        ),
-        prompt(
-          'visualize-180-choose-2',
-          84,
-          'Let that choice become clear and specific.',
-          'VIZ_3M_SEE_03',
-        ),
-      ]),
-      phase('rehearse', 55, [
-        prompt(
-          'visualize-180-rehearse-1',
-          99,
-          'See yourself take the first step without rushing.',
-          'VIZ_3M_SEAL_01',
-        ),
-        prompt(
-          'visualize-180-rehearse-2',
-          117,
-          'Run the moment again, letting your words and actions follow naturally.',
-          'VIZ_3M_SEAL_02',
-        ),
-        prompt(
-          'visualize-180-rehearse-3',
-          135,
-          'Practice continuing forward after the choice is made.',
-          'VIZ_3M_FEEL_06',
-        ),
-      ]),
-      phase('seal', 30, [
-        prompt(
-          'visualize-180-seal-1',
-          155,
-          'Keep the clearest image of how you showed up.',
-          'VIZ_3M_SEAL_03',
-        ),
-        prompt(
-          'visualize-180-seal-2',
-          171,
-          'Let this response settle into your Anchor.',
-          'VIZ_3M_SEAL_04',
-        ),
-      ]),
-    ],
-  },
-  300: {
-    totalDurationMs: 300_000,
-    phases: [
-      phase('see', 55, [
-        prompt('visualize-300-see-1', 3, 'Bring the scene into focus.', 'VIZ_5M_SEE_01'),
-        prompt(
-          'visualize-300-see-2',
-          20,
-          'Notice the people, objects, and movement around you.',
-          'VIZ_5M_SEE_02',
-        ),
-        prompt(
-          'visualize-300-see-3',
-          38,
-          'Let the image sharpen naturally without forcing detail.',
-          'VIZ_5M_SEE_05',
-        ),
-      ]),
-      phase('feel', 50, [
-        prompt(
-          'visualize-300-feel-1',
-          60,
-          'Step inside the scene and look through your own eyes.',
-          'VIZ_5M_FEEL_01',
-        ),
-        prompt(
-          'visualize-300-feel-2',
-          77,
-          'Notice your posture, breathing, and physical steadiness.',
-          'VIZ_5M_FEEL_03',
-        ),
-        prompt(
-          'visualize-300-feel-3',
-          94,
-          'Feel the pace of your thoughts as the moment asks something of you.',
-          'VIZ_5M_FEEL_07',
-        ),
-      ]),
-      phase('choose', 50, [
-        prompt(
-          'visualize-300-choose-1',
-          110,
-          'Identify the response that matches the person you are becoming.',
-          'VIZ_5M_FEEL_08',
-        ),
-        prompt(
-          'visualize-300-choose-2',
-          127,
-          'Make the decision precise: what will you say or do first?',
-          'VIZ_5M_SEE_06',
-        ),
-        prompt(
-          'visualize-300-choose-3',
-          144,
-          'Feel the alignment of choosing and moving forward.',
-          'VIZ_5M_FEEL_09',
-        ),
-      ]),
-      phase('rehearse', 95, [
-        prompt(
-          'visualize-300-rehearse-1',
-          160,
-          'See yourself take the first step clearly and naturally.',
-          'VIZ_5M_SEAL_01',
-        ),
-        prompt(
-          'visualize-300-rehearse-2',
-          181,
-          'Run the moment again, letting your words carry the intention.',
-          'VIZ_5M_SEAL_02',
-        ),
-        prompt(
-          'visualize-300-rehearse-3',
-          204,
-          'Practice meeting the difficult turn without leaving yourself.',
-          'VIZ_5M_SEAL_03',
-        ),
-        prompt(
-          'visualize-300-rehearse-4',
-          230,
-          'See the action complete, then continue forward with confidence.',
-          'VIZ_5M_FEEL_06',
-        ),
-      ]),
-      phase('seal', 50, [
-        prompt(
-          'visualize-300-seal-1',
-          255,
-          'Keep only the clearest image of how you showed up.',
-          'VIZ_5M_SEAL_04',
-        ),
-        prompt(
-          'visualize-300-seal-2',
-          273,
-          'Let the posture, calm, and certainty settle into your Anchor.',
-          'VIZ_5M_SEAL_05',
-        ),
-        prompt(
-          'visualize-300-seal-3',
-          290,
-          'Let this response be available to you when the moment arrives.',
-          'VIZ_5M_RETURN_05',
-        ),
-      ]),
-    ],
-  },
+  60: createSessionConfig(60),
+  180: createSessionConfig(180),
+  300: createSessionConfig(300),
 };
 
 export function getVisualizeSessionConfig(

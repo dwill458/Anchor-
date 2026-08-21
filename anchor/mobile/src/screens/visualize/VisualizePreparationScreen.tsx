@@ -1,8 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   Keyboard,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -11,153 +14,116 @@ import {
   TextInput,
   useWindowDimensions,
   View,
-} from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-  ArrowLeft,
-  LockKeyhole,
-  RefreshCw,
-  RotateCcw,
-} from "lucide-react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Pencil, X } from 'lucide-react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import type { RootStackParamList } from "@/types";
-import { useAnchorStore } from "@/stores/anchorStore";
-import { useAuthStore } from "@/stores/authStore";
-import { useSettingsStore } from "@/stores/settingsStore";
+import type { PracticeEntrySource, RootStackParamList } from '@/types';
+import { useAnchorStore } from '@/stores/anchorStore';
+import { useAuthStore } from '@/stores/authStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import {
   normalizeSuggestionIndex,
   useVisualizationSceneStore,
-} from "@/stores/visualizationSceneStore";
-import { useTrialStatus } from "@/hooks/useTrialStatus";
+} from '@/stores/visualizationSceneStore';
+import { useTrialStatus } from '@/hooks/useTrialStatus';
 import VisualizationSceneService, {
   normalizeVisualizationSceneText,
   validateVisualizationSceneText,
   visualizationLatencyBucket,
   type GenerateResult,
-} from "@/services/VisualizationSceneService";
-import { AnalyticsEvents, AnalyticsService } from "@/services/AnalyticsService";
+} from '@/services/VisualizationSceneService';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import {
   SessionConfigurationPill,
   SessionConfigurationSheet,
-} from "@/components/practice/SessionConfiguration";
-import { colors as themeColors, spacing, typography } from "@/theme";
-import type { SessionAudioDefaults } from "@/types/sessionAudio";
-import { MicroTeachCard } from "@/components/teaching";
-import { useTeachingGate } from "@/utils/useTeachingGate";
-import { useTabNavigation } from "@/contexts/TabNavigationContext";
-import { useChartPracticeReturn } from "@/hooks/useChartPracticeReturn";
-import { getVisualizationLensSize, shouldPinPreparationCta } from "./visualizePresentation";
-import { VisualizationAnchorLens, VisualizationPrimaryButton } from './VisualizationPrimitives';
+} from '@/components/practice/SessionConfiguration';
+import { colors as themeColors, typography } from '@/theme';
+import type { SessionAudioDefaults } from '@/types/sessionAudio';
+import { useTabNavigation } from '@/contexts/TabNavigationContext';
+import { useChartPracticeReturn } from '@/hooks/useChartPracticeReturn';
+import {
+  VisualizeAnchorField,
+  VisualizeFieldBackground,
+} from './VisualizeAnchorField';
+import { VisualizationPrimaryButton } from './VisualizationPrimitives';
+import { VISUALIZE_DURATIONS, type VisualizeDuration } from './visualizeSessionConfig';
 
-type Props = NativeStackScreenProps<RootStackParamList, "VisualizePreparation">;
+type Props = NativeStackScreenProps<RootStackParamList, 'VisualizePreparation'>;
 
 const colors = {
   ...themeColors,
-  gold: themeColors.practiceMode.visualize.primary,
+  gold: '#D4AF37',
+  goldBright: '#F0CB6A',
+  goldDim: '#8a6f23',
+  goldLine: 'rgba(212,175,55,0.28)',
+  bone: '#F5F0E8',
+  boneSoft: 'rgba(245,240,232,0.62)',
+  boneFaint: 'rgba(245,240,232,0.34)',
+  sheetBg: 'rgba(13,21,40,0.96)',
 };
+
+const SCENE_MAX = 180;
+const durLabel = (s: number) => (s === 60 ? '1 min' : s === 300 ? '5 min' : '3 min');
 
 export const VisualizePreparationScreen: React.FC<Props> = ({
   navigation,
   route,
 }) => {
-  const window = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const { navigateToPaywall, navigateToVault, returnToAnchorDetail: canonicalReturnToAnchorDetail } = useTabNavigation();
-  const returnToAnchorDetail = canonicalReturnToAnchorDetail ?? ((anchorId: string) => navigateToVault('AnchorDetail', { anchorId }));
   const returnToChart = useChartPracticeReturn(navigation);
+  const {
+    navigateToSanctuary: canonicalNavigateToSanctuary,
+    navigateToVault,
+    returnToAnchorDetail: canonicalReturnToAnchorDetail,
+  } = useTabNavigation();
+  const navigateToSanctuary = canonicalNavigateToSanctuary ?? (() => navigateToVault());
+  const returnToAnchorDetail =
+    canonicalReturnToAnchorDetail ??
+    ((anchorId: string) => navigateToVault('AnchorDetail', { anchorId }));
+
   const anchor = useAnchorStore((state) =>
     state.getAnchorById(route.params.anchorId),
   );
   const accountId = useAuthStore((state) => state.user?.id ?? null);
   const { hasActiveEntitlement, subscriptionStatus } = useTrialStatus();
+
   const globalDefaults = useSettingsStore(
     (state) => state.sessionAudioDefaults.visualize,
   );
-  const defaultDuration = useSettingsStore(
-    (state) => state.visualizeSessionDuration,
-  );
-  const recentDuration = useSettingsStore(
-    (state) => state.lastSessionDurationByMode.visualize,
-  );
-  const setRecentDuration = useSettingsStore(
-    (state) => state.setLastSessionDuration,
-  );
-  const scene = useVisualizationSceneStore(
-    (state) =>
-      state.scenes[route.params.anchorId] ??
-      (anchor?.localId ? state.scenes[anchor.localId] : undefined),
-  );
-  const suggestions = useVisualizationSceneStore(
-    (state) =>
-      state.suggestions[route.params.anchorId] ??
-      (anchor?.localId ? state.suggestions[anchor.localId] : undefined) ??
-      [],
+
+  const [duration, setDuration] = useState<VisualizeDuration>(180);
+
+  // Suggestions state
+  const suggestions = useVisualizationSceneStore((state) =>
+    anchor ? state.suggestions[anchor.id] ?? [] : [],
   );
   const suggestionIndex = useVisualizationSceneStore((state) =>
-    normalizeSuggestionIndex(
-      state.selectedSuggestionIndex[route.params.anchorId] ??
-        (anchor?.localId
-          ? state.selectedSuggestionIndex[anchor.localId]
-          : undefined),
-      state.suggestions[route.params.anchorId]?.length ??
-        (anchor?.localId
-          ? (state.suggestions[anchor.localId]?.length ?? 0)
-          : 0),
-    ),
-  );
-  const [duration, setDuration] = useState<60 | 180 | 300>(
-    recentDuration ?? defaultDuration,
+    anchor
+      ? normalizeSuggestionIndex(
+          state.selectedSuggestionIndex[anchor.id],
+          suggestions.length,
+        )
+      : 0,
   );
   const [audio, setAudio] = useState<SessionAudioDefaults>({
     ...globalDefaults,
   });
-  const [sceneText, setSceneText] = useState("");
+  const [sceneText, setSceneText] = useState('');
   const [loading, setLoading] = useState(hasActiveEntitlement);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [configVisible, setConfigVisible] = useState(false);
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const [viewportHeight, setViewportHeight] = useState(0);
-  const [contentHeight, setContentHeight] = useState(0);
-  const [stickyCta, setStickyCta] = useState(false);
+  const [sceneSheetVisible, setSceneSheetVisible] = useState(false);
+  const [draftScene, setDraftScene] = useState('');
+  const [eduOpen, setEduOpen] = useState(true);
   const startingRef = useRef(false);
-  const sceneTeaching = useTeachingGate({
-    screenId: "visualize_preparation",
-    candidateIds: ["visualize_scene_explainer"],
-  });
 
-  const sigilSvg = anchor?.reinforcedSigilSvg || anchor?.baseSigilSvg || "";
+  const sigilSvg = anchor?.reinforcedSigilSvg || anchor?.baseSigilSvg || '';
   const imageUrl = anchor?.enhancedImageUrl;
-  const validationError = useMemo(
-    () => validateVisualizationSceneText(sceneText),
-    [sceneText],
-  );
-  const savedSceneText = normalizeVisualizationSceneText(
-    scene?.currentText ?? "",
-  );
-  const hasUnsavedChanges =
-    !!scene && normalizeVisualizationSceneText(sceneText) !== savedSceneText;
-  /** The suggestion the user is currently positioned on, not the first ever generated. */
-  const selectedSuggestion = suggestions[suggestionIndex] ?? null;
-  const canRotate = suggestions.length > 1;
-  const canRestoreSuggestion =
-    !!selectedSuggestion &&
-    normalizeVisualizationSceneText(sceneText) !==
-      normalizeVisualizationSceneText(selectedSuggestion);
-  const artworkSize = getVisualizationLensSize('entrance', window.width);
-  const compactHeight = window.height < 780;
-  const stickyButtonHeight = 52 + 10 + insets.bottom;
+  const anchorName = anchor?.intentionText || 'Anchor';
 
-  // Lets a background upgrade check whether the user has touched the text
-  // without re-running the load effect on every keystroke.
-  const sceneTextRef = useRef(sceneText);
-  useEffect(() => {
-    sceneTextRef.current = sceneText;
-  }, [sceneText]);
-
-  /** Diagnostic properties only — no intention text, no scene text. */
   const trackGeneration = useCallback(
     (anchorId: string, result: GenerateResult): void => {
       const diagnosticProps = {
@@ -176,22 +142,6 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
         version: result.scene.generationVersion,
         fallback: result.fallbackUsed,
       });
-      if (!result.fallbackUsed) return;
-      AnalyticsService.track(
-        AnalyticsEvents.VISUALIZE_SCENE_FALLBACK_USED,
-        diagnosticProps,
-      );
-      // A transport-level failure is a distinct signal from the provider
-      // running and producing unusable output.
-      if (
-        result.diagnostics.fallbackReason === "client_request_failed" ||
-        result.diagnostics.fallbackReason === "feature_disabled"
-      ) {
-        AnalyticsService.track(
-          AnalyticsEvents.VISUALIZE_SCENE_GENERATION_FAILED,
-          diagnosticProps,
-        );
-      }
     },
     [],
   );
@@ -208,18 +158,6 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
     let active = true;
     void (async () => {
       const loaded = await VisualizationSceneService.load(anchor, accountId);
-      const upgrading = VisualizationSceneService.shouldAttemptSceneUpgrade(
-        anchor,
-        loaded,
-      );
-      if (!VisualizationSceneService.getSuggestions(anchor).length || upgrading) {
-        AnalyticsService.track(
-          AnalyticsEvents.VISUALIZE_SCENE_GENERATION_REQUESTED,
-          { anchor_id: anchor.id, upgrade: upgrading },
-        );
-      }
-      // Cache-first. A provisional deterministic batch still renders straight
-      // away; any upgrade runs behind it rather than blocking the screen.
       const outcome = await VisualizationSceneService.ensureBatch(
         anchor,
         accountId,
@@ -230,587 +168,571 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
       const cachedSelection = () =>
         VisualizationSceneService.getSuggestions(anchor)[
           VisualizationSceneService.getSelectedIndex(anchor)
-        ] ?? "";
+        ] ?? '';
 
-      const applyResult = (result: GenerateResult): void => {
-        setSceneText(result.scene.currentText);
-        trackGeneration(anchor.id, result);
-      };
-
-      if (outcome.kind === "generated") {
-        applyResult(outcome.result);
+      if (outcome.kind === 'generated') {
+        setSceneText(outcome.result.scene.currentText);
+        trackGeneration(anchor.id, outcome.result);
       } else {
         const initialText = loaded?.currentText ?? cachedSelection();
-        setSceneText(initialText);
-        AnalyticsService.track(AnalyticsEvents.VISUALIZE_SCENE_BATCH_CACHED, {
-          anchor_id: anchor.id,
-          cached: true,
-          scene_count: VisualizationSceneService.getSuggestions(anchor).length,
-          upgrading,
-        });
-
-        if (outcome.upgrade) {
-          void outcome.upgrade.then((result) => {
-            if (!active) return;
-            // Adopt the upgraded scene only if the user has not touched the
-            // text meanwhile — a late response must never overwrite an edit.
-            if (sceneTextRef.current !== initialText) {
-              trackGeneration(anchor.id, result);
-              return;
-            }
-            applyResult(result);
-          });
-        }
+        setSceneText(initialText || 'I move through an important task calmly, make clear decisions, and finish without rushing.');
       }
       setLoading(false);
     })();
     return () => {
       active = false;
     };
-    // Keyed on anchor.id, not the anchor object: a store update elsewhere must
-    // not remount this effect and trigger a second generation.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accountId, anchor?.id, hasActiveEntitlement]);
+  }, [accountId, anchor, hasActiveEntitlement, route.params.anchorId, subscriptionStatus, trackGeneration]);
 
-  useEffect(() => {
-    if (scene && !sceneText) setSceneText(scene.currentText);
-  }, [scene, sceneText]);
+  const handleOpenSceneSheet = () => {
+    setDraftScene(sceneText);
+    setSceneSheetVisible(true);
+  };
 
-  useEffect(() => {
-    setStickyCta(false);
-    setViewportHeight(0);
-    setContentHeight(0);
-  }, [window.height, window.width]);
-
-  useEffect(() => {
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const showSubscription = Keyboard.addListener(showEvent, () =>
-      setKeyboardVisible(true),
-    );
-    const hideSubscription = Keyboard.addListener(hideEvent, () =>
-      setKeyboardVisible(false),
-    );
-    return () => {
-      showSubscription.remove();
-      hideSubscription.remove();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (
-      !stickyCta &&
-      shouldPinPreparationCta(contentHeight, viewportHeight, false)
-    ) {
-      setStickyCta(true);
+  const handleSaveScene = async (newText: string) => {
+    const trimmed = newText.trim();
+    if (!trimmed) return;
+    setSceneText(trimmed);
+    setSceneSheetVisible(false);
+    if (anchor && accountId) {
+      const currentScene = useVisualizationSceneStore.getState().scenes[anchor.id];
+      const updated = {
+        accountId,
+        anchorId: anchor.id,
+        anchorLocalId: anchor.localId ?? null,
+        currentText: trimmed,
+        originalSuggestion: currentScene?.originalSuggestion ?? trimmed,
+        generationSource: 'user_edited' as const,
+        generationVersion: currentScene?.generationVersion ?? 'scene-v1',
+        clientUpdatedAt: new Date().toISOString(),
+        syncState: 'pending' as const,
+      };
+      await VisualizationSceneService.save(anchor, updated);
     }
-  }, [contentHeight, stickyCta, viewportHeight]);
+  };
 
-  const saveScene = useCallback(async () => {
-    if (!anchor || !scene || validationError) {
-      setError(validationError);
+  const handleNextSuggestion = () => {
+    if (!anchor || !suggestions.length) return;
+    const nextIdx = (suggestionIndex + 1) % suggestions.length;
+    useVisualizationSceneStore
+      .getState()
+      .setSelectedSuggestionIndex(anchor.id, nextIdx);
+    const nextText = suggestions[nextIdx];
+    if (nextText) {
+      setDraftScene(nextText);
+    }
+  };
+
+  const handleRestoreOriginal = () => {
+    if (!anchor || !suggestions.length) return;
+    useVisualizationSceneStore
+      .getState()
+      .setSelectedSuggestionIndex(anchor.id, 0);
+    const origText = suggestions[0];
+    if (origText) {
+      setDraftScene(origText);
+    }
+  };
+
+  const handleCancel = () => {
+    if (route.params.returnTo === 'chart') {
+      returnToChart({
+        returnTo: route.params.returnTo,
+        anchorId: route.params.anchorId,
+        chartContext: route.params.chartContext,
+      });
       return;
     }
-    if (!hasUnsavedChanges) return;
-    setSaving(true);
-    setError(null);
-    await VisualizationSceneService.save(anchor, {
-      ...scene,
-      currentText: sceneText.trim(),
-      generationSource:
-        sceneText.trim() === scene.originalSuggestion
-          ? scene.generationSource
-          : "user_edited",
-      clientUpdatedAt: new Date().toISOString(),
-    });
-    AnalyticsService.track(AnalyticsEvents.VISUALIZE_SCENE_EDITED, {
-      anchor_id: anchor.id,
-      source: "preparation",
-    });
-    setSaving(false);
-  }, [anchor, hasUnsavedChanges, scene, sceneText, validationError]);
+    if (route.params.returnTarget?.kind === 'anchorDetail') {
+      returnToAnchorDetail(route.params.returnTarget.anchorId);
+      return;
+    }
+    navigation.popToTop();
+  };
 
-  /**
-   * Local rotation only. Never calls generate() and never touches the network:
-   * the batch is already persisted, so this works offline and costs nothing.
-   */
-  const rotateScene = useCallback(() => {
-    if (!anchor) return;
-    const { text, index, count } = VisualizationSceneService.rotate(anchor);
-    if (!text) return;
-    setSceneText(text);
-    setError(null);
-    AnalyticsService.track(AnalyticsEvents.VISUALIZE_SCENE_ROTATED, {
-      anchor_id: anchor.id,
-      scene_position: index + 1,
-      scene_count: count,
-      scene_char_count: text.length,
-    });
-  }, [anchor]);
-
-  if (!anchor) return <View style={styles.container} />;
-
-  const start = async () => {
-    // Guard against double-taps: saveScene() is awaited before we navigate, so
-    // a second press could otherwise fire a duplicate replace("VisualizeSession").
-    if (startingRef.current) return;
+  const handleBegin = async () => {
+    if (startingRef.current || !hasActiveEntitlement || !sceneText.trim()) return;
     startingRef.current = true;
+    setSaving(true);
+
     try {
-      await runStart();
+      if (anchor && accountId) {
+        const currentScene = useVisualizationSceneStore.getState().scenes[anchor.id];
+        const updated = {
+          accountId,
+          anchorId: anchor.id,
+          anchorLocalId: anchor.localId ?? null,
+          currentText: sceneText,
+          originalSuggestion: currentScene?.originalSuggestion ?? sceneText,
+          generationSource: (currentScene?.generationSource === 'user_edited' ? 'user_edited' : 'seeded_legacy') as any,
+          generationVersion: currentScene?.generationVersion ?? 'scene-v1',
+          clientUpdatedAt: new Date().toISOString(),
+          syncState: 'pending' as const,
+        };
+        await VisualizationSceneService.save(anchor, updated);
+      }
+      AnalyticsService.track(AnalyticsEvents.PRACTICE_SESSION_STARTED, {
+        practice_mode: 'visualize',
+        anchor_id: route.params.anchorId,
+        duration_seconds: duration,
+        guidance_voice: audio.guidanceVoice,
+        background_audio: audio.backgroundAudio,
+      });
+
+      navigation.replace('VisualizeSession', {
+        anchorId: route.params.anchorId,
+        durationSeconds: duration,
+        sceneText,
+        guidanceVoice: audio.guidanceVoice,
+        backgroundAudio: audio.backgroundAudio,
+        source: 'practice_screen',
+        returnTo: route.params.returnTo === 'chart' ? 'chart' : 'practice',
+        returnTarget: route.params.returnTarget,
+        chartContext: route.params.chartContext,
+        practiceMode: route.params.practiceMode ?? 'visualize',
+        practiceEntrySource: route.params.source as PracticeEntrySource | undefined,
+      });
     } finally {
-      // Only the success path navigates away; reset so paywall/validation/error
-      // exits stay tappable.
+      setSaving(false);
       startingRef.current = false;
     }
   };
 
-  const runStart = async () => {
-    if (!hasActiveEntitlement) {
-      AnalyticsService.track(AnalyticsEvents.VISUALIZE_PRO_LOCK_VIEWED, {
-        anchor_id: anchor.id,
-        tier: subscriptionStatus,
-      });
-      AnalyticsService.track(AnalyticsEvents.VISUALIZE_TRIAL_CTA_SELECTED, {
-        anchor_id: anchor.id,
-        tier: subscriptionStatus,
-      });
-      navigateToPaywall({
-        source: "gated_feature",
-        preferredPlanId: "annual",
-        resumeTarget: { kind: "visualize_prepare", anchorId: anchor.id },
-      });
-      return;
-    }
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-    await saveScene();
-    setRecentDuration("visualize", duration);
-    navigation.replace("VisualizeSession", {
-      anchorId: anchor.id,
-      durationSeconds: duration,
-      sceneText: sceneText.trim(),
-      guidanceVoice: audio.guidanceVoice,
-      backgroundAudio: audio.backgroundAudio,
-      source:
-        route.params.source === 'anchor_detail'
-          ? 'anchor_detail'
-          : route.params.source === 'deep_link' || route.params.source === 'paywall_resume'
-            ? 'deep_link'
-            : 'practice_screen',
-      ...(route.params.source === 'chart' || route.params.source === 'chart_waypoint_detail'
-        ? { practiceEntrySource: route.params.source }
-        : {}),
-      returnTo: route.params.returnTo,
-      returnTarget: route.params.returnTarget,
-      chartContext: route.params.chartContext,
-      practiceMode: route.params.practiceMode,
-    });
-  };
-
-  const handleBack = () => {
-    if (returnToChart({
-      returnTo: route.params.returnTo,
-      anchorId: route.params.anchorId,
-      chartContext: route.params.chartContext,
-    })) return;
-    if (route.params.returnTarget?.kind === 'anchorDetail') {
-      navigation.popToTop();
-      returnToAnchorDetail(route.params.returnTarget.anchorId);
-      return;
-    }
-    navigation.goBack();
-  };
-
-  const beginCta = (
-    <View
-      testID={stickyCta ? "visualize-begin-sticky" : "visualize-begin-inline"}
-      style={[styles.begin, stickyCta && styles.beginSticky]}
-    >
-      <VisualizationPrimaryButton
-        label={hasActiveEntitlement ? "BEGIN VISUALIZATION" : "UNLOCK VISUALIZE"}
-        onPress={() => void start()}
-      />
-    </View>
-  );
-
   return (
-    <LinearGradient
-      colors={["#06101F", "#0B2440", "#071321"]}
-      style={styles.container}
-    >
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.header}>
+    <View style={styles.container}>
+      <VisualizeFieldBackground phase="arrive" />
+      <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+        {/* Top Header */}
+        <View style={styles.topHeader}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Go back"
-            onPress={handleBack}
-            style={styles.iconButton}
+            accessibilityLabel="Close"
+            onPress={handleCancel}
+            style={styles.iconBtn}
           >
-            <ArrowLeft color={colors.gold} size={20} />
+            <X size={15} color={colors.boneSoft} />
           </Pressable>
-          <Text style={styles.headerTitle}>VISUALIZE</Text>
-          <View style={styles.iconButton} />
+
+          <Text style={styles.topHeaderLabel}>
+            VISUALIZE · {durLabel(duration)}
+          </Text>
+
+          <View style={styles.headerSpacer} />
         </View>
-        <KeyboardAvoidingView
-          style={styles.keyboardAvoider}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+
+        {/* Scrollable Main Content */}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          <ScrollView
-            style={styles.scroll}
-            contentContainerStyle={[
-              styles.content,
-              compactHeight && styles.contentCompact,
-              stickyCta && { paddingBottom: stickyButtonHeight + 28 },
-            ]}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-            onLayout={(event) =>
-              setViewportHeight(event.nativeEvent.layout.height)
-            }
-            onContentSizeChange={(_width, height) => setContentHeight(height)}
+          {/* Framed Stage in Compact mode */}
+          <View style={styles.stageWrap}>
+            <VisualizeAnchorField
+              phase="arrive"
+              compact={true}
+              sigilSize={176}
+              imageUrl={imageUrl}
+              sigilSvg={sigilSvg}
+            />
+          </View>
+
+          {/* Anchor Name & Subtitle */}
+          <Text style={styles.prepName}>{anchorName}</Text>
+          <Text style={styles.prepTag}>
+            Practice how you want to show up in a specific moment.
+          </Text>
+
+          {/* Scene Card */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Scene to Rehearse, tap to edit"
+            onPress={handleOpenSceneSheet}
+            style={styles.sceneCard}
           >
-          <Text style={styles.eyebrow}>MENTAL REHEARSAL</Text>
-          <Text style={styles.title}>
-            See the moment.{`\n`}Feel the choice.
-          </Text>
-          <Text style={styles.subtitle}>
-            Rehearse a real behavior through five quiet phases. Your Anchor
-            supports the scene—it never becomes literal imagery.
-          </Text>
-          <View style={[styles.artwork, { height: artworkSize + 8 }]}>
-            <VisualizationAnchorLens size={artworkSize} imageUrl={imageUrl} svg={sigilSvg} />
-          </View>
-          <View style={styles.intentionCard}>
-            <Text style={styles.sceneLabel}>ORIGINAL INTENTION</Text>
-            <Text
-              style={styles.intentionText}
-              numberOfLines={2}
-              ellipsizeMode="tail"
-            >
-              {anchor.intentionText}
-            </Text>
-          </View>
-          <View style={styles.sceneCard}>
-            <View style={styles.sceneHeader}>
-              <Text style={[styles.sceneLabel, styles.sceneHeaderLabel]}>
-                YOUR SCENE
-              </Text>
-              {hasActiveEntitlement && !loading ? (
-                <Text style={styles.count}>{sceneText.length}/180</Text>
-              ) : null}
-            </View>
-            {!hasActiveEntitlement ? (
-              <View style={styles.locked}>
-                <LockKeyhole color={colors.gold} size={23} />
-                <Text style={styles.lockedTitle}>Preview the practice</Text>
-                <Text style={styles.lockedText}>
-                  Your scene is generated only after Pro or trial access is
-                  confirmed.
-                </Text>
+            <View style={styles.sceneCardHeader}>
+              <Text style={styles.sceneCardLabel}>SCENE TO REHEARSE</Text>
+              <View style={styles.sceneEditPill}>
+                <Pencil size={11} color={colors.gold} />
+                <Text style={styles.sceneEditText}>EDIT</Text>
               </View>
-            ) : loading ? (
-              <ActivityIndicator color={colors.gold} />
-            ) : (
-              <>
-                <TextInput
-                  accessibilityLabel="Visualization scene"
-                  multiline
-                  value={sceneText}
-                  maxLength={180}
-                  onChangeText={(text) => {
-                    setSceneText(text);
-                    setError(null);
-                  }}
-                  style={styles.sceneInput}
-                />
-                {error ? (
-                  <Text accessibilityRole="alert" style={styles.error}>
-                    {error}
-                  </Text>
-                ) : null}
-                <View style={styles.sceneActions}>
-                  {canRotate ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`Another scene, ${suggestionIndex + 1} of ${suggestions.length}`}
-                      onPress={rotateScene}
-                      style={styles.sceneActionButton}
-                      testID="visualize-another-scene"
-                    >
-                      <RefreshCw color={colors.gold} size={14} />
-                      <Text style={styles.textButtonLabel}>Another Scene</Text>
-                      <Text style={styles.scenePosition}>
-                        {suggestionIndex + 1} / {suggestions.length}
-                      </Text>
-                    </Pressable>
-                  ) : null}
-                  {canRestoreSuggestion ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      onPress={() => {
-                        if (!selectedSuggestion) return;
-                        setSceneText(selectedSuggestion);
-                        setError(null);
-                        AnalyticsService.track(
-                          AnalyticsEvents.VISUALIZE_SCENE_RESTORED,
-                          {
-                            anchor_id: anchor.id,
-                            scene_position: suggestionIndex + 1,
-                            scene_count: suggestions.length,
-                          },
-                        );
-                      }}
-                      style={styles.sceneActionButton}
-                      testID="visualize-restore-suggested"
-                    >
-                      <RotateCcw color={colors.gold} size={14} />
-                      <Text style={styles.textButtonLabel}>
-                        Restore Suggested Scene
-                      </Text>
-                    </Pressable>
-                  ) : null}
-                </View>
-                {hasUnsavedChanges ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityState={{
-                      disabled: saving || !!validationError,
-                    }}
-                    disabled={saving || !!validationError}
-                    onPress={() => void saveScene()}
-                    style={styles.saveScene}
-                  >
-                    <Text style={styles.saveSceneText}>
-                      {saving ? "Saving…" : "Save Scene"}
-                    </Text>
-                  </Pressable>
-                ) : null}
-              </>
-            )}
-          </View>
-          <MicroTeachCard
-            teaching={sceneTeaching}
-            screenId="visualize_preparation"
-            style={styles.teachingCard}
-          />
-          <View style={styles.configurationBlock}>
-            <Text style={styles.sceneLabel}>THIS SESSION</Text>
+            </View>
+            <Text style={styles.sceneCardQuote}>
+              "{sceneText || 'Describe the moment you will rehearse…'}"
+            </Text>
+          </Pressable>
+
+          {/* "Why a scene?" Micro-Teaching */}
+          {eduOpen ? (
+            <View style={styles.eduCard}>
+              <Pressable
+                accessibilityLabel="Dismiss explanation"
+                onPress={() => setEduOpen(false)}
+                style={styles.eduCloseBtn}
+              >
+                <X size={13} color={colors.boneFaint} />
+              </Pressable>
+              <Text style={styles.eduTitle}>Why a scene?</Text>
+              <Text style={styles.eduBody}>
+                Specific moments are easier to rehearse than abstract goals. We
+                suggested one for this Anchor. Make it yours.
+              </Text>
+            </View>
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setEduOpen(true)}
+              style={styles.whyLink}
+            >
+              <Text style={styles.whyLinkText}>Why a scene?</Text>
+            </Pressable>
+          )}
+
+          {/* Session Configuration Pill */}
+          <View style={styles.pillWrap}>
             <SessionConfigurationPill
               value={audio}
               durationSeconds={duration}
               onPress={() => setConfigVisible(true)}
             />
           </View>
-            {!stickyCta ? beginCta : null}
-          </ScrollView>
-          {stickyCta && !keyboardVisible ? (
-            <View style={[styles.stickyCta, { paddingBottom: insets.bottom + 8 }]}>{beginCta}</View>
-          ) : null}
-        </KeyboardAvoidingView>
+        </ScrollView>
+
+        {/* Bottom Begin CTA */}
+        <View style={[styles.bottomActions, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+          <VisualizationPrimaryButton
+            label={saving ? 'PREPARING…' : 'BEGIN VISUALIZE →'}
+            disabled={saving || !sceneText.trim()}
+            onPress={() => void handleBegin()}
+          />
+        </View>
+
+        {/* Session Configuration Sheet */}
         <SessionConfigurationSheet
           visible={configVisible}
           value={audio}
-          onChange={(next) => {
-            setAudio(next);
-            AnalyticsService.track(
-              AnalyticsEvents.PRACTICE_TEMPORARY_SETTINGS_CHANGED,
-              {
-                practice_mode: "visualize",
-                guidance_voice: next.guidanceVoice,
-                background_audio: next.backgroundAudio,
-                duration_seconds: duration,
-              },
-            );
-          }}
           sessionType="visualize"
           durationSeconds={duration}
-          durationOptions={[60, 180, 300]}
-          onDurationChange={(next) => setDuration(next as 60 | 180 | 300)}
+          durationOptions={VISUALIZE_DURATIONS}
+          onDurationChange={(d) => setDuration(d as VisualizeDuration)}
+          onChange={(next) => setAudio(next)}
           onClose={() => setConfigVisible(false)}
         />
+
+        {/* Scene Editing Modal Sheet */}
+        <Modal
+          visible={sceneSheetVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setSceneSheetVisible(false)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.modalOverlay}
+          >
+            <Pressable
+              style={styles.modalScrim}
+              onPress={() => setSceneSheetVisible(false)}
+            />
+            <View style={[styles.sheetContainer, { paddingBottom: Math.max(insets.bottom + 10, 24) }]}>
+              <View style={styles.sheetGrab} />
+              <Text style={styles.sheetTitle}>Scene to Rehearse</Text>
+
+              <View style={styles.sheetInputWrap}>
+                <TextInput
+                  value={draftScene}
+                  onChangeText={(t) => setDraftScene(t.slice(0, SCENE_MAX))}
+                  placeholder="Describe the moment you will rehearse…"
+                  placeholderTextColor="rgba(245,240,232,0.3)"
+                  multiline
+                  numberOfLines={3}
+                  style={styles.sheetTextInput}
+                  autoFocus
+                />
+                <Text style={styles.sheetCharCount}>
+                  {draftScene.length} / {SCENE_MAX}
+                </Text>
+              </View>
+
+              <View style={styles.sheetActionsStack}>
+                <VisualizationPrimaryButton
+                  label="SAVE SCENE"
+                  disabled={!draftScene.trim()}
+                  onPress={() => void handleSaveScene(draftScene)}
+                />
+
+                <View style={styles.sheetSecondaryRow}>
+                  {suggestions.length > 1 && (
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={handleNextSuggestion}
+                      style={styles.sheetGhostBtn}
+                    >
+                      <Text style={styles.sheetGhostText}>Try Another Suggestion</Text>
+                    </Pressable>
+                  )}
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={handleRestoreOriginal}
+                    style={styles.sheetGhostBtn}
+                  >
+                    <Text style={styles.sheetGhostText}>Restore Original</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
       </SafeAreaView>
-    </LinearGradient>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#06101F" },
-  safe: { flex: 1 },
-  keyboardAvoider: { flex: 1 },
-  scroll: { flex: 1 },
-  header: {
-    height: 50,
-    paddingHorizontal: 18,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  container: {
+    flex: 1,
+    backgroundColor: '#04060c',
   },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
+  safe: {
+    flex: 1,
   },
-  headerTitle: {
-    color: colors.gold,
+  topHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    zIndex: 10,
+  },
+  iconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.goldLine,
+    backgroundColor: 'rgba(245,240,232,0.04)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  topHeaderLabel: {
     fontFamily: typography.fonts.heading,
     fontSize: 12,
-    letterSpacing: 3,
+    letterSpacing: 2.8,
+    color: colors.boneSoft,
+    textTransform: 'uppercase',
   },
-  content: {
+  headerSpacer: {
+    width: 32,
+  },
+  scrollContent: {
     paddingHorizontal: 22,
-    paddingBottom: 20,
-    alignItems: "stretch",
+    alignItems: 'center',
+    paddingBottom: 24,
+    gap: 14,
   },
-  contentCompact: { paddingHorizontal: 20, paddingBottom: 16 },
-  eyebrow: {
-    color: colors.gold,
-    fontFamily: typography.fonts.body,
-    fontSize: 9,
-    letterSpacing: 2.6,
-    textAlign: "center",
+  stageWrap: {
     marginTop: 4,
+    marginBottom: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  title: {
-    color: "#F4EDD8",
+  prepName: {
     fontFamily: typography.fonts.heading,
-    fontSize: 28,
-    lineHeight: 34,
-    textAlign: "center",
-    marginTop: 7,
+    fontSize: 22,
+    fontWeight: '500',
+    color: colors.bone,
+    textAlign: 'center',
+    letterSpacing: 0.8,
+    lineHeight: 28,
   },
-  subtitle: {
-    color: "rgba(224,231,239,.65)",
-    fontFamily: typography.fonts.body,
-    fontSize: 13,
-    lineHeight: 18,
-    textAlign: "center",
-    marginTop: 5,
-  },
-  artwork: { alignItems: "center", justifyContent: "center", marginTop: 2 },
-  sceneCard: {
-    marginTop: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderRadius: 25,
-    backgroundColor: "rgba(5,17,31,.72)",
-    borderWidth: 1,
-    borderColor: "rgba(120,180,209,.2)",
-  },
-  sceneLabel: {
-    color: colors.gold,
-    fontFamily: typography.fonts.body,
-    fontSize: 9,
-    letterSpacing: 2.2,
-    marginBottom: 7,
-  },
-  sceneHeader: {
-    minHeight: 20,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-  },
-  sceneHeaderLabel: { marginBottom: 0 },
-  sceneInput: {
-    minHeight: 104,
-    maxHeight: 170,
-    color: "#F5F0DF",
-    fontFamily: typography.fonts.body,
-    fontSize: 16,
-    lineHeight: 24,
-    textAlignVertical: "top",
-    paddingTop: 8,
-    paddingBottom: 8,
-  },
-  count: {
-    color: "rgba(255,255,255,.35)",
-    fontSize: 10,
-    fontVariant: ["tabular-nums"],
-  },
-  error: { color: "#E89087", fontSize: 12, marginTop: 4 },
-  sceneActions: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 9,
-    gap: 8,
-  },
-  sceneActionButton: {
-    flex: 1,
-    minHeight: 44,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingHorizontal: 8,
-    borderRadius: 13,
-    backgroundColor: "rgba(120,180,209,.06)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(120,180,209,.18)",
-  },
-  textButtonLabel: {
-    color: colors.gold,
-    fontFamily: typography.fonts.body,
-    fontSize: 11,
-  },
-  scenePosition: {
-    color: "rgba(212,175,55,.45)",
-    fontFamily: typography.fonts.body,
-    fontSize: 10,
-    fontVariant: ["tabular-nums"],
-  },
-  saveScene: {
-    marginTop: 4,
-    alignSelf: "flex-end",
-    minHeight: 36,
-    justifyContent: "center",
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    backgroundColor: "rgba(120,180,209,.1)",
-  },
-  saveSceneText: { color: colors.gold, fontSize: 11 },
-  locked: { alignItems: "center", paddingVertical: 12, gap: 6 },
-  lockedTitle: {
-    color: "#F4EDD8",
-    fontFamily: typography.fonts.heading,
-    fontSize: 16,
-  },
-  lockedText: {
-    color: "rgba(224,231,239,.6)",
-    textAlign: "center",
-    lineHeight: 19,
-  },
-  teachingCard: { marginTop: 12 },
-  begin: { marginTop: 12 },
-  beginSticky: { marginTop: 0 },
-  intentionCard: {
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderRadius: 25,
-    backgroundColor: "rgba(5,17,31,.48)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,.07)",
-  },
-  intentionText: {
-    color: "rgba(244,237,216,.78)",
-    fontFamily: typography.fonts.body,
+  prepTag: {
+    fontFamily: typography.fonts.bodySerifItalic,
+    fontStyle: 'italic',
     fontSize: 14,
-    lineHeight: 19,
+    color: colors.boneSoft,
+    textAlign: 'center',
+    maxWidth: 290,
+    lineHeight: 20,
+    marginTop: -6,
   },
-  configurationBlock: { marginTop: 14, marginBottom: 2 },
-  stickyCta: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: 20,
+  sceneCard: {
+    width: '100%',
+    backgroundColor: 'rgba(10,16,32,0.6)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.goldLine,
+    padding: 16,
+    gap: 10,
+  },
+  sceneCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sceneCardLabel: {
+    fontFamily: typography.fonts.mono,
+    fontSize: 10,
+    letterSpacing: 2.2,
+    color: colors.gold,
+    textTransform: 'uppercase',
+  },
+  sceneEditPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(212,175,55,0.08)',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.22)',
+  },
+  sceneEditText: {
+    fontFamily: typography.fonts.mono,
+    fontSize: 9.5,
+    letterSpacing: 1.2,
+    color: colors.goldBright,
+  },
+  sceneCardQuote: {
+    fontFamily: typography.fonts.bodySerifItalic,
+    fontStyle: 'italic',
+    fontSize: 15,
+    color: colors.bone,
+    lineHeight: 22,
+  },
+  eduCard: {
+    width: '100%',
+    backgroundColor: 'rgba(245,240,232,0.03)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(245,240,232,0.09)',
+    padding: 14,
+    gap: 6,
+    position: 'relative',
+  },
+  eduCloseBtn: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    padding: 4,
+  },
+  eduTitle: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 12.5,
+    letterSpacing: 1.4,
+    color: colors.boneSoft,
+    textTransform: 'uppercase',
+  },
+  eduBody: {
+    fontFamily: typography.fonts.bodySerifItalic,
+    fontStyle: 'italic',
+    fontSize: 13,
+    color: colors.boneFaint,
+    lineHeight: 18,
+  },
+  whyLink: {
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+  },
+  whyLinkText: {
+    fontFamily: typography.fonts.body,
+    fontSize: 12,
+    letterSpacing: 0.8,
+    color: colors.goldDim,
+    textDecorationLine: 'underline',
+  },
+  pillWrap: {
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  bottomActions: {
+    paddingHorizontal: 22,
     paddingTop: 10,
-    paddingBottom: 8,
-    backgroundColor: "rgba(5,14,27,.94)",
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(120,180,209,.18)",
+    backgroundColor: '#04060c',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(3,4,10,0.65)',
+  },
+  sheetContainer: {
+    backgroundColor: colors.sheetBg,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.24)',
+    paddingHorizontal: 22,
+    paddingTop: 14,
+    gap: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.6,
+    shadowRadius: 30,
+    shadowOffset: { width: 0, height: -10 },
+    elevation: 8,
+  },
+  sheetGrab: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(245,240,232,0.16)',
+    alignSelf: 'center',
+    marginBottom: 2,
+  },
+  sheetTitle: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 17,
+    letterSpacing: 0.6,
+    color: colors.bone,
+    textAlign: 'center',
+  },
+  sheetInputWrap: {
+    position: 'relative',
+  },
+  sheetTextInput: {
+    backgroundColor: 'rgba(245,240,232,0.04)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.25)',
+    padding: 14,
+    paddingBottom: 28,
+    color: colors.bone,
+    fontFamily: typography.fonts.bodySerifItalic,
+    fontStyle: 'italic',
+    fontSize: 15,
+    lineHeight: 21,
+    minHeight: 90,
+    textAlignVertical: 'top',
+  },
+  sheetCharCount: {
+    position: 'absolute',
+    bottom: 8,
+    right: 12,
+    fontFamily: typography.fonts.mono,
+    fontSize: 10,
+    color: colors.boneFaint,
+  },
+  sheetActionsStack: {
+    gap: 10,
+    marginTop: 2,
+  },
+  sheetSecondaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    flexWrap: 'wrap',
+  },
+  sheetGhostBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+  },
+  sheetGhostText: {
+    fontFamily: typography.fonts.body,
+    fontSize: 12.5,
+    color: colors.boneSoft,
   },
 });

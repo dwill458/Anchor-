@@ -11,17 +11,16 @@ describe('visualizeAudioState', () => {
 
   it('deduplicates cues after pause/resume and foreground reconciliation', () => {
     const handled = new Set<string>();
-    expect(getNextDueVisualizeCue(cues, 999, handled)).toBeNull();
-    const first = getNextDueVisualizeCue(cues, 1_500, handled);
-    expect(first?.id).toBe('visualize-60-see-1');
+    const first = getNextDueVisualizeCue(cues, 0, handled);
+    expect(first?.id).toBe('viz-60-arrive-1');
     handled.add(first!.id);
 
-    expect(getNextDueVisualizeCue(cues, 13_499, handled)).toBeNull();
-    const second = getNextDueVisualizeCue(cues, 13_500, handled);
-    expect(second?.id).toBe('visualize-60-feel-1');
+    const second = getNextDueVisualizeCue(cues, 3_500, handled);
+    expect(second?.id).toBe('viz-60-arrive-2');
     handled.add(second!.id);
+
     // Re-reading canonical elapsed time after foregrounding never returns a handled cue.
-    expect(getNextDueVisualizeCue(cues, 13_500, handled)).toBeNull();
+    expect(getNextDueVisualizeCue(cues, 3_500, handled)).toBeNull();
   });
 
   it('uses guided ducking and a higher ambient-only resting level', () => {

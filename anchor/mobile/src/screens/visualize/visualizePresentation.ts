@@ -5,11 +5,11 @@ import {
 } from './visualizeSessionConfig';
 
 export const VISUALIZE_PRESENTATION_PHASES = [
-  'see',
-  'feel',
-  'choose',
+  'arrive',
+  'build',
   'rehearse',
-  'seal',
+  'adapt',
+  'return',
 ] as const;
 
 export type VisualizePresentationPhase =
@@ -27,14 +27,17 @@ export interface VisualizePhasePresentation {
   glow: number;
   depth: number;
   contrast: number;
+  sigilScale: number;
+  sigilOpacity: number;
+  frameOpacity: number;
 }
 
 const RUNTIME_TO_PRESENTATION_PHASE: Record<VisualizePhaseId, VisualizePresentationPhase> = {
-  see: 'see',
-  feel: 'feel',
-  choose: 'choose',
+  arrive: 'arrive',
+  build: 'build',
   rehearse: 'rehearse',
-  seal: 'seal',
+  adapt: 'adapt',
+  return: 'return',
 };
 
 const animationProfile = (phase: VisualizePresentationPhase) =>
@@ -45,46 +48,46 @@ export const VISUALIZE_PHASE_PRESENTATION: Record<
   VisualizePresentationPhase,
   VisualizePhasePresentation
 > = {
-  see: {
-    id: 'see',
-    title: 'SEE',
-    supportingInstruction: 'Bring the scene into focus.',
-    gradient: ['#040D1B', '#0B2D52', '#06111F'],
-    ...animationProfile('see'),
+  arrive: {
+    id: 'arrive',
+    title: 'ARRIVE',
+    supportingInstruction: 'Let your attention settle.',
+    gradient: ['#04060C', '#132244', '#0A1122'],
+    ...animationProfile('arrive'),
   },
-  feel: {
-    id: 'feel',
-    title: 'FEEL',
-    supportingInstruction: 'Notice the moment in your body.',
-    gradient: ['#071525', '#173A5A', '#0A1423'],
-    ...animationProfile('feel'),
-  },
-  choose: {
-    id: 'choose',
-    title: 'CHOOSE',
-    supportingInstruction: 'Align with the response you choose.',
-    gradient: ['#061321', '#12456A', '#081421'],
-    ...animationProfile('choose'),
+  build: {
+    id: 'build',
+    title: 'BUILD',
+    supportingInstruction: 'Let the moment begin.',
+    gradient: ['#04060C', '#1C2F57', '#132244'],
+    ...animationProfile('build'),
   },
   rehearse: {
     id: 'rehearse',
     title: 'REHEARSE',
-    supportingInstruction: 'Practice the action until it feels natural.',
-    gradient: ['#04101E', '#0E355A', '#0A1829'],
+    supportingInstruction: 'Move through the moment.',
+    gradient: ['#04060C', '#0E1D3A', '#080D1B'],
     ...animationProfile('rehearse'),
   },
-  seal: {
-    id: 'seal',
-    title: 'SEAL',
-    supportingInstruction: 'Let the response settle into your Anchor.',
-    gradient: ['#050F1D', '#12304D', '#07111E'],
-    ...animationProfile('seal'),
+  adapt: {
+    id: 'adapt',
+    title: 'ADAPT',
+    supportingInstruction: 'Something shifts.',
+    gradient: ['#04060C', '#221915', '#0C0E18'],
+    ...animationProfile('adapt'),
+  },
+  return: {
+    id: 'return',
+    title: 'RETURN',
+    supportingInstruction: 'Let the scene fade.',
+    gradient: ['#04060C', '#16294D', '#080D1A'],
+    ...animationProfile('return'),
   },
 };
 
 export const getVisualizePresentationPhase = (
   runtimePhase: VisualizePhaseId,
-): VisualizePresentationPhase => RUNTIME_TO_PRESENTATION_PHASE[runtimePhase];
+): VisualizePresentationPhase => RUNTIME_TO_PRESENTATION_PHASE[runtimePhase] ?? 'arrive';
 
 export type VisualizeSegmentState = 'completed' | 'current' | 'upcoming';
 

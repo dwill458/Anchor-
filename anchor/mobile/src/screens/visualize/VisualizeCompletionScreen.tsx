@@ -187,10 +187,13 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
       anchorId: route.params.anchorId,
       durationSeconds: route.params.durationSeconds,
       sceneText: route.params.sceneText ?? completedSession?.sceneSnapshot ?? '',
-      returnTo: route.params.returnTo,
+      guidanceVoice: (completedSession?.guidanceVoice as any) ?? 'female',
+      backgroundAudio: (completedSession?.backgroundAudio as any) ?? 'ambient',
+      returnTo: route.params.returnTo === 'chart' ? 'chart' : 'practice',
       returnTarget: route.params.returnTarget,
       chartContext: route.params.chartContext,
       practiceMode: route.params.practiceMode ?? 'visualize',
+      practiceEntrySource: route.params.practiceEntrySource,
     });
   };
 
@@ -274,7 +277,7 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
               ]}
             />
             <VisualizationAnchorLens
-              size={104}
+              size={132}
               imageUrl={imageUrl}
               svg={sigilSvg}
               still={false}

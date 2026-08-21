@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
+  Animated,
+  Easing,
   Image,
   Pressable,
   StyleSheet,
@@ -9,98 +11,249 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SvgXml } from 'react-native-svg';
+import Svg, { Circle, Path, SvgXml } from 'react-native-svg';
 
 import { colors as themeColors, typography } from '@/theme';
 import type { VisualizeSegmentState } from './visualizePresentation';
 
 const colors = {
   ...themeColors,
-  gold: themeColors.practiceMode.visualize.primary,
+  gold: '#D4AF37',
+  goldBright: '#F0CB6A',
+  goldDim: '#8a6f23',
+  goldLine: 'rgba(212,175,55,0.28)',
+  bone: '#F5F0E8',
+  boneSoft: 'rgba(245,240,232,0.62)',
+  boneFaint: 'rgba(245,240,232,0.34)',
 };
 
 type LensProps = {
   size: number;
   imageUrl?: string;
   svg?: string;
+  still?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
-/** A circular presentation of an Anchor, shared by every Visualize surface. */
+/**
+ * A circular presentation of an Anchor coin matching the parchment Sigil aesthetic
+ * in Visualize Mode (Standalone) (5).html.
+ */
 export const VisualizationAnchorLens = React.memo(({
   size,
   imageUrl,
   svg,
+  still = false,
   style,
 }: LensProps) => {
-  const innerSize = Math.round(size - 12);
+  const floatAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (still) {
+      floatAnim.stopAnimation();
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: 1,
+          duration: 4_000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration: 4_000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [floatAnim, still]);
+
+  const translateY = floatAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -4],
+  });
+  const scale = floatAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.02],
+  });
+
+  const innerSize = Math.round(size - 6);
+
   return (
-    <View style={[styles.lensStage, { width: size, height: size }, style]}>
-      <View
-        pointerEvents="none"
-        style={[styles.lensAmbientGlow, { width: size + 22, height: size + 22, borderRadius: (size + 22) / 2 }]}
-      />
+    <Animated.View
+      style={[
+        styles.sigilWrap,
+        {
+          width: size,
+          height: size,
+          transform: still ? [] : [{ translateY }, { scale }],
+        },
+        style,
+      ]}
+    >
+      {/* Parchment Coin Base */}
       <LinearGradient
-        colors={['#F4EDD8', '#DDD0B5']}
-        start={{ x: 0.2, y: 0.05 }}
-        end={{ x: 0.85, y: 1 }}
-        style={[styles.lens, { width: size, height: size, borderRadius: size / 2 }]}
+        colors={['#f9f2de', '#e8dcb8', '#c4b07c']}
+        locations={[0, 0.48, 1]}
+        start={{ x: 0.32, y: 0.26 }}
+        end={{ x: 0.8, y: 0.9 }}
+        style={[
+          styles.sigilPaper,
+          {
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+          },
+        ]}
       >
+        {/* Subtle Coin Rings SVG */}
+        <Svg
+          viewBox="0 0 200 200"
+          style={StyleSheet.absoluteFill}
+        >
+          {[18, 34, 50, 66, 82].map((r) => (
+            <Circle
+              key={r}
+              cx="100"
+              cy="100"
+              r={r}
+              fill="none"
+              stroke="rgba(55,35,15,0.13)"
+              strokeWidth="0.6"
+            />
+          ))}
+        </Svg>
+
+        {/* User Sigil / Image / Mark */}
         <View
           style={[
-            styles.lensInset,
-            { width: innerSize, height: innerSize, borderRadius: innerSize / 2 },
+            styles.sigilInnerContent,
+            {
+              width: innerSize,
+              height: innerSize,
+              borderRadius: innerSize / 2,
+            },
           ]}
         >
           {imageUrl ? (
             <Image
               source={{ uri: imageUrl }}
-              style={{ width: innerSize, height: innerSize }}
+              style={{ width: innerSize, height: innerSize, borderRadius: innerSize / 2 }}
               resizeMode="cover"
             />
           ) : svg ? (
-            <SvgXml xml={svg} width={innerSize} height={innerSize} />
-          ) : null}
+            <SvgXml xml={svg} width={innerSize * 0.75} height={innerSize * 0.75} />
+          ) : (
+            <Svg viewBox="0 0 200 200" width={innerSize} height={innerSize}>
+              <Path
+                d="M58 62 L142 62 L72 148"
+                fill="none"
+                stroke="#1a1208"
+                strokeWidth="6.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <Path
+                d="M58 62 Q62 74 66 84"
+                fill="none"
+                stroke="#1a1208"
+                strokeWidth="3"
+                strokeLinecap="round"
+                opacity={0.65}
+              />
+              <Circle
+                cx="100"
+                cy="100"
+                r="13"
+                fill="none"
+                stroke="#3a2818"
+                strokeWidth="1.8"
+                opacity={0.45}
+              />
+            </Svg>
+          )}
         </View>
       </LinearGradient>
-    </View>
+    </Animated.View>
   );
 });
 
 type ProgressProps = {
-  segmentStates: VisualizeSegmentState[];
-  label: string;
+  currentPhaseIndex: number;
+  totalPhases?: number;
+  phaseProgress?: number;
+  remainingText?: string;
+  label?: string;
+  style?: StyleProp<ViewStyle>;
 };
 
-const VisualizationPhaseProgressComponent: React.FC<ProgressProps> = ({
-  segmentStates,
-  label,
-}) => (
-  <View accessibilityRole="progressbar" accessibilityLabel={label} style={styles.progressBlock}>
-    <View style={styles.progressSegments}>
-      {segmentStates.map((state, index) => (
-        <View key={`${state}-${index}`} style={styles.segmentWrap}>
-          <View style={[styles.segment, styles[`segment_${state}`]]} />
-          {state === 'current' ? <View style={styles.segmentDot} /> : null}
-        </View>
-      ))}
-    </View>
-    <Text style={styles.progressLabel}>{label}</Text>
-  </View>
-);
-
 /**
- * The session screen rebuilds `segmentStates` on every 100ms tick, but its
- * contents only change when the phase advances. Compare element-wise so this
- * bar re-renders a handful of times per session instead of ~10x/second.
+ * 5-Dot Phase Track with circular SVG ring animating around the active dot.
  */
-export const VisualizationPhaseProgress = React.memo(
-  VisualizationPhaseProgressComponent,
-  (prev, next) =>
-    prev.label === next.label &&
-    prev.segmentStates.length === next.segmentStates.length &&
-    prev.segmentStates.every((state, index) => state === next.segmentStates[index]),
-);
+export const VisualizationPhaseTrack: React.FC<ProgressProps> = ({
+  currentPhaseIndex,
+  totalPhases = 5,
+  phaseProgress = 0,
+  remainingText,
+  style,
+}) => {
+  const radius = 8;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference * (1 - Math.min(1, Math.max(0, phaseProgress)));
+
+  return (
+    <View style={[styles.trackRow, style]}>
+      <View style={styles.phaseTrack}>
+        {Array.from({ length: totalPhases }).map((_, i) => {
+          const isDone = i < currentPhaseIndex;
+          const isActive = i === currentPhaseIndex;
+
+          return (
+            <View key={i} style={styles.dotCell}>
+              {isActive && (
+                <Svg
+                  width={18}
+                  height={18}
+                  viewBox="0 0 18 18"
+                  style={styles.dotRingSvg}
+                >
+                  <Circle
+                    cx="9"
+                    cy="9"
+                    r={radius}
+                    fill="none"
+                    stroke="rgba(212,175,55,0.75)"
+                    strokeWidth={1.4}
+                    strokeDasharray={`${circumference} ${circumference}`}
+                    strokeDashoffset={strokeDashoffset}
+                    strokeLinecap="round"
+                  />
+                </Svg>
+              )}
+              <View
+                style={[
+                  styles.phaseDot,
+                  isDone && styles.phaseDotDone,
+                  isActive && styles.phaseDotActive,
+                ]}
+              />
+            </View>
+          );
+        })}
+      </View>
+      {remainingText ? (
+        <Text style={styles.timeLeftText}>{remainingText}</Text>
+      ) : null}
+    </View>
+  );
+};
+
+export const VisualizationPhaseProgress = VisualizationPhaseTrack;
 
 type ButtonProps = {
   label: string;
@@ -120,74 +273,127 @@ export const VisualizationPrimaryButton: React.FC<ButtonProps> = ({
     accessibilityState={{ disabled }}
     disabled={disabled}
     onPress={onPress}
-    style={({ pressed }) => [styles.primaryButton, disabled && styles.primaryDisabled, pressed && styles.primaryPressed, style]}
+    style={({ pressed }) => [
+      styles.primaryButtonWrap,
+      disabled && styles.primaryDisabled,
+      pressed && styles.primaryPressed,
+      style,
+    ]}
   >
-    <LinearGradient colors={['#DDB84D', '#B48729']} style={styles.primaryGradient}>
+    <LinearGradient
+      colors={['#C9A84C', '#A8892E', '#8B7020']}
+      locations={[0, 0.6, 1]}
+      start={{ x: 0.1, y: 0 }}
+      end={{ x: 0.9, y: 1 }}
+      style={styles.primaryGradient}
+    >
       <Text style={styles.primaryLabel}>{label}</Text>
     </LinearGradient>
   </Pressable>
 );
 
 const styles = StyleSheet.create({
-  lensStage: { alignItems: 'center', justifyContent: 'center' },
-  lensAmbientGlow: {
-    position: 'absolute',
-    backgroundColor: 'rgba(68,128,182,0.18)',
-    borderWidth: 1,
-    borderColor: 'rgba(120,180,209,0.18)',
+  sigilWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#D4AF37',
+    shadowOpacity: 0.28,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
-  lens: {
+  sigilPaper: {
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(120,180,209,0.78)',
+    borderColor: 'rgba(212,175,55,0.4)',
   },
-  lensInset: {
+  sigilInnerContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
     overflow: 'hidden',
-    backgroundColor: '#EEE4D0',
-    borderWidth: 2,
-    borderColor: 'rgba(8,20,34,0.25)',
   },
-  progressBlock: { alignItems: 'center' },
-  progressSegments: { flexDirection: 'row', gap: 5, alignSelf: 'stretch' },
-  segmentWrap: { flex: 1, height: 12, justifyContent: 'center', position: 'relative' },
-  segment: { height: 2, borderRadius: 2, backgroundColor: 'rgba(128,151,170,0.3)' },
-  segment_completed: { backgroundColor: 'rgba(91,172,219,0.72)' },
-  segment_current: {
-    height: 3,
-    backgroundColor: '#6CC5F3',
-    shadowColor: '#6CC5F3',
-    shadowOpacity: 0.38,
-    shadowRadius: 5,
+  trackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  phaseTrack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  dotCell: {
+    position: 'relative',
+    width: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dotRingSvg: {
+    position: 'absolute',
+    transform: [{ rotate: '-90deg' }],
+  },
+  phaseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(245,240,232,0.28)',
+    backgroundColor: 'transparent',
+  },
+  phaseDotDone: {
+    backgroundColor: '#8a6f23',
+    borderColor: '#8a6f23',
+  },
+  phaseDotActive: {
+    backgroundColor: '#F0CB6A',
+    borderColor: '#F0CB6A',
+    shadowColor: '#F0CB6A',
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
     shadowOffset: { width: 0, height: 0 },
     elevation: 2,
   },
-  segment_upcoming: { backgroundColor: 'rgba(126,150,170,0.28)' },
-  segmentDot: {
-    position: 'absolute',
-    top: 2,
-    left: '50%',
-    width: 6,
-    height: 6,
-    marginLeft: -3,
-    borderRadius: 3,
-    backgroundColor: '#B9E8FA',
-    shadowColor: '#6CC5F3',
-    shadowOpacity: 0.45,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 0 },
+  timeLeftText: {
+    fontFamily: typography.fonts.mono,
+    fontSize: 10,
+    color: colors.boneFaint,
+    letterSpacing: 0.8,
   },
-  progressLabel: {
-    color: '#8ED4F5',
-    fontFamily: typography.fonts.body,
-    fontSize: 9,
-    letterSpacing: 2.1,
-    marginTop: 7,
+  primaryButtonWrap: {
+    width: '100%',
+    minHeight: 52,
+    borderRadius: 999,
+    overflow: 'hidden',
+    shadowColor: '#D4AF37',
+    shadowOpacity: 0.3,
+    shadowRadius: 15,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
   },
-  primaryButton: { minHeight: 52, borderRadius: 17, overflow: 'hidden' },
-  primaryGradient: { flex: 1, minHeight: 52, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
-  primaryLabel: { color: '#07111D', fontFamily: typography.fonts.heading, fontSize: 12, letterSpacing: 1.4 },
-  primaryDisabled: { opacity: 0.48 },
-  primaryPressed: { opacity: 0.86 },
+  primaryGradient: {
+    flex: 1,
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 24,
+  },
+  primaryLabel: {
+    color: '#0f0d08',
+    fontFamily: typography.fonts.heading,
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 2.2,
+    textTransform: 'uppercase',
+  },
+  primaryDisabled: {
+    opacity: 0.35,
+  },
+  primaryPressed: {
+    transform: [{ translateY: 1 }],
+  },
 });

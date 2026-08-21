@@ -211,7 +211,7 @@ describe('useVisualizeSessionAudio', () => {
     }));
     const reopenedPlayers = createdPlayers.slice(playerCountBeforeReopen);
 
-    expect(reopenedPlayers).toHaveLength(2);
+    expect(reopenedPlayers).toHaveLength(3);
     expect(reopenedPlayers[0].play).toHaveBeenCalledTimes(1);
     expect(firstSessionPlayers[0].play).toHaveBeenCalledTimes(1);
   });

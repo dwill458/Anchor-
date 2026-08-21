@@ -1,17 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import * as Haptics from 'expo-haptics';
-import { StatusBar } from 'expo-status-bar';
 import {
   Animated,
+  BackHandler,
   Easing,
+  Modal,
   Pressable,
   StyleSheet,
   Text,
   useWindowDimensions,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useKeepAwake } from 'expo-keep-awake';
 import { Pause, Play, X } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -22,113 +21,47 @@ import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { usePerformanceTier } from '@/hooks/usePerformanceTier';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
-import { useTeachingGate } from '@/utils/useTeachingGate';
-import { useRecordOnShow } from '@/components/teaching/useRecordOnShow';
-import type { TeachingContent } from '@/constants/teaching';
 import { PracticeCompletionService } from '@/services/PracticeCompletionService';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
-import { trackSessionStartedWithAudio } from '@/services/SessionAudioAnalytics';
-import { resolveSessionAudioPlan } from '@/services/SessionAudioManifest';
-import { getVisualizeSessionAudioManifest } from '@/services/visualizeAudioManifest';
 import { colors as themeColors, typography } from '@/theme';
-import { safeHaptics } from '@/utils/haptics';
-import { ConfirmModal } from '@/screens/rituals/components/ConfirmModal';
-import { useChartPracticeReturn } from '@/hooks/useChartPracticeReturn';
-import { useTabNavigation } from '@/contexts/TabNavigationContext';
-import { resolvePracticeCompletionSource } from '@/navigation/practiceReturn';
-
-const colors = {
-  ...themeColors,
-  gold: themeColors.practiceMode.visualize.primary,
-};
-import { VisualizeAnchorField } from './VisualizeAnchorField';
 import {
-  VISUALIZE_PHASE_PRESENTATION,
-  getVisualizationLensSize,
-  getVisualizePresentationPhase,
-  getVisualizeSegmentState,
-} from './visualizePresentation';
+  VisualizeAnchorField,
+  VisualizeFieldBackground,
+} from './VisualizeAnchorField';
 import {
-  VisualizationAnchorLens,
-  VisualizationPhaseProgress,
+  VisualizationPhaseTrack,
+  VisualizationPrimaryButton,
 } from './VisualizationPrimitives';
-import { PromptPresenter } from './PromptPresenter';
-import { useVisualizeImmersiveMode } from './useVisualizeImmersiveMode';
-import { useVisualizeSessionAudio } from './useVisualizeSessionAudio';
+import {
+  VISUALIZE_PHASE_DEFINITIONS,
+  type VisualizePhaseId,
+} from './visualizeSessionConfig';
 import { useVisualizeSessionEngine } from './useVisualizeSessionEngine';
+import { resolvePracticeCompletionSource } from '@/navigation/practiceReturn';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'VisualizeSession'>;
 
-const KeepAwake: React.FC = () => {
-  useKeepAwake('visualize-session');
-  return null;
+const colors = {
+  ...themeColors,
+  gold: '#D4AF37',
+  goldBright: '#F0CB6A',
+  goldDim: '#8a6f23',
+  goldLine: 'rgba(212,175,55,0.28)',
+  bone: '#F5F0E8',
+  boneSoft: 'rgba(245,240,232,0.62)',
+  boneFaint: 'rgba(245,240,232,0.34)',
+  sheetBg: 'rgba(13,21,40,0.96)',
 };
 
 const formatTime = (seconds: number): string =>
-  `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
-
-const VisualizeControlsHint: React.FC<{
-  teaching: TeachingContent | null;
-  reduceMotion: boolean;
-}> = ({ teaching, reduceMotion }) => {
-  const opacity = useRef(new Animated.Value(0)).current;
-
-  useRecordOnShow(teaching, 'visualize_session');
-
-  useEffect(() => {
-    if (!teaching) return;
-    let fadeTimer: ReturnType<typeof setTimeout> | null = null;
-    opacity.stopAnimation();
-    opacity.setValue(reduceMotion ? 1 : 0);
-    if (reduceMotion) {
-      fadeTimer = setTimeout(() => opacity.setValue(0), 2_600);
-    } else {
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 360,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }).start();
-      fadeTimer = setTimeout(() => {
-        Animated.timing(opacity, {
-          toValue: 0,
-          duration: 420,
-          easing: Easing.in(Easing.cubic),
-          useNativeDriver: true,
-        }).start();
-      }, 2_600);
-    }
-    return () => {
-      if (fadeTimer) clearTimeout(fadeTimer);
-      opacity.stopAnimation();
-    };
-  }, [opacity, reduceMotion, teaching]);
-
-  if (!teaching) return null;
-
-  return (
-    <Animated.View
-      accessible
-      accessibilityLabel={teaching.copy}
-      accessibilityLiveRegion="polite"
-      pointerEvents="none"
-      style={[styles.controlsHint, { opacity }]}
-    >
-      <View style={styles.controlsHintDot} />
-      <Text style={styles.controlsHintText}>{teaching.copy}</Text>
-    </Animated.View>
-  );
-};
+  `${Math.floor(seconds / 60)}:${String(Math.floor(Math.max(0, seconds) % 60)).padStart(2, '0')}`;
 
 export const VisualizeSessionScreen: React.FC<Props> = ({
   navigation,
   route,
 }) => {
-  const window = useWindowDimensions();
-  const returnToChart = useChartPracticeReturn(navigation);
-  const { navigateToSanctuary: canonicalNavigateToSanctuary, navigateToVault, returnToAnchorDetail: canonicalReturnToAnchorDetail } = useTabNavigation();
-  const navigateToSanctuary = canonicalNavigateToSanctuary ?? (() => navigateToVault());
-  const returnToAnchorDetail = canonicalReturnToAnchorDetail ?? ((anchorDetailId: string) => navigateToVault('AnchorDetail', { anchorId: anchorDetailId }));
+  useKeepAwake();
+  const insets = useSafeAreaInsets();
   const {
     anchorId,
     durationSeconds,
@@ -141,37 +74,22 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
     practiceMode,
     practiceEntrySource,
   } = route.params;
+
   const anchor = useAnchorStore((state) => state.getAnchorById(anchorId));
   const accountId = useAuthStore((state) => state.user?.id ?? null);
   const hapticIntensity = useSettingsStore((state) => state.hapticIntensity);
   const reduceMotion = useReduceMotionEnabled();
   const performanceTier = usePerformanceTier();
-  const controlsHint = useTeachingGate({
-    screenId: 'visualize_session',
-    candidateIds: ['visualize_controls_hint'],
-  });
+
+  const [confirmEnd, setConfirmEnd] = useState(false);
+  const [ctrlVisible, setCtrlVisible] = useState(true);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const completionRef = useRef(false);
 
   const sessionIdRef = useRef(
     `visualize:${accountId ?? 'guest'}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`,
   );
   const canonicalSessionIdRef = useRef<string | null>(null);
-  const completionRef = useRef(false);
-  const completionCueRef = useRef(false);
-  const completionTransitionStartedRef = useRef(false);
-  const startedAnalyticsRef = useRef(false);
-  const exitingRef = useRef(false);
-  const exitPromptOpenRef = useRef(false);
-  const pendingNavigateRef = useRef<(() => void) | null>(null);
-  const [showExitModal, setShowExitModal] = useState(false);
-  const [controlsVisible, setControlsVisible] = useState(true);
-  const [feedback, setFeedback] = useState<'Paused' | 'Resumed' | null>(null);
-  const controlsOpacity = useRef(new Animated.Value(1)).current;
-  const feedbackOpacity = useRef(new Animated.Value(0)).current;
-  const activeCopyOpacity = useRef(new Animated.Value(1)).current;
-  const completionOpacity = useRef(new Animated.Value(0)).current;
-  const completionScale = useRef(new Animated.Value(0.94)).current;
-  const completionAnchorScale = useRef(new Animated.Value(0.86)).current;
-  const completionAnchorTranslateY = useRef(new Animated.Value(16)).current;
 
   const complete = useCallback(
     async ({ startedAt, completedAt }: { startedAt: string; completedAt: string }) => {
@@ -199,8 +117,6 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
           canonicalSessionIdRef.current = canonicalRecord.id;
           syncOutcome = 'queued';
         } catch {
-          // The local queue is the source of truth for the completion screen;
-          // analytics still records a failed sync without blocking the ritual.
           syncOutcome = 'failed';
         }
       }
@@ -215,18 +131,33 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
         sync_outcome: syncOutcome,
         completed_at: completedAt,
       });
-    }, [
+
+      navigation.replace('VisualizeCompletion', {
+        anchorId,
+        durationSeconds,
+        sessionId: canonicalSessionIdRef.current ?? sessionIdRef.current,
+        sceneText,
+        returnTo,
+        returnTarget,
+        chartContext,
+        practiceMode: practiceMode ?? 'visualize',
+      });
+    },
+    [
       accountId,
       anchor,
       anchorId,
       backgroundAudio,
+      chartContext,
       durationSeconds,
       guidanceVoice,
-      sceneText,
-      chartContext,
+      navigation,
       practiceEntrySource,
-      returnTo,
+      practiceMode,
       returnTarget,
+      returnTo,
+      route.params.source,
+      sceneText,
     ],
   );
 
@@ -236,703 +167,451 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
     onComplete: complete,
   });
 
-  const audioPlan = useMemo(
-    () =>
-      resolveSessionAudioPlan({
-        sessionType: 'visualize',
-        durationSeconds,
-        configuration: {
-          guidanceVoice,
-          backgroundAudio,
-          source: 'session_override',
-        },
-      }),
-    [backgroundAudio, durationSeconds, guidanceVoice],
-  );
-  const audioManifest = useMemo(
-    () => getVisualizeSessionAudioManifest(durationSeconds),
-    [durationSeconds],
-  );
-  const handleAudioInterruption = useCallback(
-    () => engine.pause('audio_interruption'),
-    [engine.pause],
-  );
-  const sessionAudio = useVisualizeSessionAudio({
-    plan: audioPlan,
-    manifest: audioManifest,
-    elapsedMs: engine.elapsedMs,
-    isActive: engine.state === 'running',
-    isCompleting: engine.state === 'completing',
-    isComplete: engine.state === 'completed',
-    onInterruption: handleAudioInterruption,
-  });
+  const isPaused = engine.state === 'paused';
 
-  const immersive =
-    engine.state === 'running' ||
-    engine.state === 'paused' ||
-    engine.state === 'completing';
-  useVisualizeImmersiveMode(immersive);
-
-  useEffect(() => {
-    if (startedAnalyticsRef.current) return;
-    startedAnalyticsRef.current = true;
-    engine.start();
-    const startedAt = new Date().toISOString();
-    AnalyticsService.track(AnalyticsEvents.PRACTICE_SESSION_STARTED, {
-      practice_mode: 'visualize',
-      session_id: sessionIdRef.current,
-      anchor_id: anchorId,
-      duration_seconds: durationSeconds,
-      guidance_voice: guidanceVoice,
-      background_audio: backgroundAudio,
-      started_at: startedAt,
-    });
-    trackSessionStartedWithAudio(audioPlan);
-    // Engine start is deliberately one-shot for this route instance.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    anchorId,
-    audioPlan,
-    backgroundAudio,
-    durationSeconds,
-    engine.start,
-    guidanceVoice,
-  ]);
-
-  useEffect(() => {
-    if (engine.state !== 'completed') return;
-    navigation.replace('VisualizeCompletion', {
-      anchorId,
-      sessionId: canonicalSessionIdRef.current ?? sessionIdRef.current,
-      durationSeconds,
-      source: route.params.source,
-      sceneText,
-      practiceEntrySource,
-      returnTo,
-      returnTarget,
-      chartContext,
-      practiceMode,
-    });
-  }, [anchorId, chartContext, durationSeconds, engine.state, navigation, practiceEntrySource, practiceMode, returnTarget, returnTo, route.params.source, sceneText]);
-
-  useEffect(() => {
-    if (engine.state !== 'running') {
-      setControlsVisible(true);
-      return;
+  // Controls Auto-Fade Logic
+  const resetHideTimer = useCallback(() => {
+    setCtrlVisible(true);
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    if (!isPaused && !confirmEnd) {
+      hideTimerRef.current = setTimeout(() => {
+        setCtrlVisible(false);
+      }, 3_000);
     }
-    if (!controlsVisible) return;
-    const timer = setTimeout(() => setControlsVisible(false), 4_500);
-    return () => clearTimeout(timer);
-  }, [controlsVisible, engine.state]);
+  }, [confirmEnd, isPaused]);
 
   useEffect(() => {
-    Animated.timing(controlsOpacity, {
-      toValue: controlsVisible ? 1 : 0,
-      duration: reduceMotion ? 0 : 280,
-      useNativeDriver: true,
-    }).start();
-  }, [controlsOpacity, controlsVisible, reduceMotion]);
-
-  useEffect(() => {
-    if (engine.state !== 'completing' || completionTransitionStartedRef.current) {
-      return;
-    }
-    completionTransitionStartedRef.current = true;
-    if (hapticIntensity > 0 && !completionCueRef.current) {
-      completionCueRef.current = true;
-      void safeHaptics.notification(Haptics.NotificationFeedbackType.Success);
-    }
-
-    const animation = Animated.parallel([
-      Animated.timing(activeCopyOpacity, {
-        toValue: 0,
-        duration: reduceMotion ? 0 : 420,
-        easing: Easing.in(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(completionOpacity, {
-        toValue: 1,
-        duration: reduceMotion ? 0 : 620,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(completionScale, {
-        toValue: 1,
-        duration: reduceMotion ? 0 : 760,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(completionAnchorScale, {
-        toValue: 1,
-        duration: reduceMotion ? 0 : 760,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(completionAnchorTranslateY, {
-        toValue: 0,
-        duration: reduceMotion ? 0 : 760,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]);
-    animation.start();
-
-    let cancelled = false;
-    const settleCompletion = async () => {
-      await Promise.allSettled([
-        engine.completionPromise ?? Promise.resolve(),
-        sessionAudio.finishCompletion(),
-      ]);
-      await new Promise<void>((resolve) => setTimeout(resolve, reduceMotion ? 120 : 820));
-      if (!cancelled) engine.markCompleted();
-    };
-    void settleCompletion();
-
+    resetHideTimer();
     return () => {
-      cancelled = true;
-      animation.stop();
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     };
-  }, [
-    completionOpacity,
-    completionScale,
-    activeCopyOpacity,
-    completionAnchorScale,
-    completionAnchorTranslateY,
-    engine.completionPromise,
-    engine.markCompleted,
-    engine.state,
-    hapticIntensity,
-    reduceMotion,
-    sessionAudio.finishCompletion,
-  ]);
+  }, [isPaused, confirmEnd, resetHideTimer]);
 
-  const continueAfterExitPrompt = useCallback(() => {
-    exitPromptOpenRef.current = false;
-    setShowExitModal(false);
-    pendingNavigateRef.current = null;
-    engine.resume();
-  }, [engine.resume]);
-
-  const confirmEarlyEnd = useCallback(
-    (navigateAfterStop: () => void) => {
-      if (exitingRef.current) return;
-      exitingRef.current = true;
-      exitPromptOpenRef.current = false;
-      setShowExitModal(false);
-      engine.endEarly();
-      void sessionAudio.fadeOutAndStop().finally(navigateAfterStop);
-    },
-    [engine.endEarly, sessionAudio.fadeOutAndStop],
-  );
-
-  const showEarlyExitPrompt = useCallback(
-    (navigateAfterStop?: () => void) => {
-      if (exitingRef.current || exitPromptOpenRef.current) return;
-      exitPromptOpenRef.current = true;
-      if (navigateAfterStop) {
-        pendingNavigateRef.current = navigateAfterStop;
-      }
-      engine.pause('exit_prompt');
-      setShowExitModal(true);
-    },
-    [engine.pause],
-  );
-
+  // Start engine on mount
   useEffect(() => {
-    const unsubscribe = navigation.addListener('beforeRemove', (event) => {
-      if (
-        exitingRef.current ||
-        engine.state === 'completed' ||
-        engine.state === 'completing'
-      ) {
+    engine.start();
+  }, [engine]);
+
+  // Calculate current phase index & line
+  const phaseKey = (engine.phase.id as VisualizePhaseId) || 'arrive';
+  const phaseIndex = Math.max(
+    0,
+    VISUALIZE_PHASE_DEFINITIONS.findIndex((p) => p.key === phaseKey),
+  );
+  const phaseDef = VISUALIZE_PHASE_DEFINITIONS[phaseIndex] ?? VISUALIZE_PHASE_DEFINITIONS[0];
+  const lines = phaseDef.lines;
+  const lineIndex = Math.min(
+    Math.floor(engine.phaseProgress * lines.length),
+    lines.length - 1,
+  );
+  const currentLine = lines[lineIndex] ?? lines[0];
+
+  // Scene text opacity during Build phase (fades as the scene establishes)
+  const sceneOpacity =
+    phaseKey === 'build'
+      ? Math.max(0, 1 - Math.max(0, engine.phaseProgress - 0.5) / 0.35)
+      : 0;
+
+  const remaining = Math.max(0, durationSeconds - Math.floor(engine.elapsedSeconds));
+
+  const handleEndEarly = () => {
+    completionRef.current = true;
+    engine.endEarly();
+    setConfirmEnd(false);
+    navigation.popToTop();
+  };
+
+  // Intercept Android hardware back press and navigation transitions
+  useEffect(() => {
+    const onBackPress = () => {
+      if (completionRef.current) {
+        return false;
+      }
+      setConfirmEnd(true);
+      return true;
+    };
+
+    const backSubscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      onBackPress,
+    );
+
+    const unsubscribeBeforeRemove = navigation.addListener('beforeRemove', (e) => {
+      if (completionRef.current) {
         return;
       }
-      event.preventDefault();
-      showEarlyExitPrompt(() => {
-        if (!returnToChart({ returnTo, anchorId, chartContext })) {
-          if (returnTarget?.kind === 'anchorDetail') {
-            navigation.popToTop();
-            returnToAnchorDetail(returnTarget.anchorId);
-            return;
-          }
-          if (returnTarget?.kind === 'sanctuary') {
-            navigation.popToTop();
-            navigateToSanctuary();
-            return;
-          }
-          navigation.dispatch(event.data.action);
-        }
-      });
+      e.preventDefault();
+      setConfirmEnd(true);
     });
-    return unsubscribe;
-  }, [anchorId, chartContext, engine.state, navigateToSanctuary, navigation, returnTarget, returnTo, returnToChart, returnToAnchorDetail, showEarlyExitPrompt]);
 
-  const togglePlayback = useCallback(() => {
-    if (engine.state === 'completing' || engine.state === 'completed') return;
-    const willResume = engine.state === 'paused';
-    if (hapticIntensity > 0) void safeHaptics.selection();
-    if (willResume) engine.resume();
-    else engine.pause();
-    setControlsVisible(true);
-    setFeedback(willResume ? 'Resumed' : 'Paused');
-    feedbackOpacity.stopAnimation();
-    feedbackOpacity.setValue(0);
-    Animated.sequence([
-      Animated.timing(feedbackOpacity, {
-        toValue: 1,
-        duration: reduceMotion ? 0 : 130,
-        useNativeDriver: true,
-      }),
-      Animated.delay(620),
-      Animated.timing(feedbackOpacity, {
-        toValue: 0,
-        duration: reduceMotion ? 0 : 220,
-        useNativeDriver: true,
-      }),
-    ]).start(({ finished }) => {
-      if (finished) setFeedback(null);
-    });
-  }, [
-    engine.pause,
-    engine.resume,
-    engine.state,
-    feedbackOpacity,
-    hapticIntensity,
-    reduceMotion,
-  ]);
+    return () => {
+      backSubscription.remove();
+      unsubscribeBeforeRemove();
+    };
+  }, [navigation]);
 
-  const requestEarlyEnd = useCallback(() => {
-    showEarlyExitPrompt(() => {
-      if (!returnToChart({ returnTo, anchorId, chartContext })) {
-        if (returnTarget?.kind === 'anchorDetail') {
-          navigation.popToTop();
-          returnToAnchorDetail(returnTarget.anchorId);
-          return;
-        }
-        if (returnTarget?.kind === 'sanctuary') {
-          navigation.popToTop();
-          navigateToSanctuary();
-          return;
-        }
-        navigation.goBack();
-      }
-    });
-  }, [anchorId, chartContext, navigateToSanctuary, navigation, returnTarget, returnTo, returnToChart, returnToAnchorDetail, showEarlyExitPrompt]);
-
-  if (!anchor || !accountId) return <View style={styles.container} />;
-
-  const currentPresentationPhase = getVisualizePresentationPhase(engine.phase.id);
-  const presentation = VISUALIZE_PHASE_PRESENTATION[currentPresentationPhase];
-  const currentPhaseIndex = Math.max(
-    0,
-    engine.schedule.findIndex((phase) => phase.id === engine.phase.id),
-  );
-  const sigilSvg = anchor.reinforcedSigilSvg || anchor.baseSigilSvg || '';
-  const heroSize = getVisualizationLensSize('practice', window.width);
-  const phaseLabel = `PHASE ${currentPhaseIndex + 1} OF ${engine.schedule.length} · ${presentation.title}`;
+  const sigilSvg = anchor?.reinforcedSigilSvg || anchor?.baseSigilSvg || '';
+  const imageUrl = anchor?.enhancedImageUrl;
 
   return (
-    <View style={styles.container}>
-      <StatusBar hidden={immersive} style="light" />
-      {immersive ? <KeepAwake /> : null}
-      <LinearGradient
-        colors={presentation.gradient}
-        style={StyleSheet.absoluteFill}
-      />
-      <Pressable
-        accessibilityLabel="Toggle controls"
-        style={StyleSheet.absoluteFill}
-        onPress={() => setControlsVisible((value) => !value)}
-      />
+    <Pressable style={styles.screenContainer} onPress={resetHideTimer}>
+      <VisualizeFieldBackground phase={phaseKey} paused={isPaused} />
 
-      <SafeAreaView edges={['top', 'bottom']} style={styles.safe} pointerEvents="box-none">
-        <Animated.View
-          pointerEvents={controlsVisible ? 'auto' : 'none'}
-          style={[styles.topControls, { opacity: controlsOpacity }]}
+      {/* Top Controls Bar (fades out during immersive practice) */}
+      <View
+        pointerEvents={ctrlVisible || isPaused ? 'auto' : 'none'}
+        style={[
+          styles.topBar,
+          { paddingTop: Math.max(insets.top + 8, 20), opacity: ctrlVisible || isPaused ? 1 : 0.06 },
+        ]}
+      >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="End session"
+          onPress={() => setConfirmEnd(true)}
+          style={styles.iconBtn}
+        >
+          <X size={15} color={colors.boneSoft} />
+        </Pressable>
+
+        <Text style={styles.topBarTitle}>VISUALIZE</Text>
+
+        <View style={styles.topSpacer} />
+      </View>
+
+      {/* Floating Paused Tag */}
+      {isPaused && (
+        <View style={styles.pausedTagWrap} pointerEvents="none">
+          <View style={styles.pausedPill}>
+            <Text style={styles.pausedText}>PAUSED</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Center Anchor Stage Field */}
+      <View style={styles.anchorFieldWrap}>
+        <VisualizeAnchorField
+          phase={phaseKey}
+          phaseProgress={engine.phaseProgress}
+          totalProgress={engine.totalProgress}
+          active={engine.state === 'running'}
+          paused={isPaused}
+          sigilSize={192}
+          imageUrl={imageUrl}
+          sigilSvg={sigilSvg}
+        />
+      </View>
+
+      {/* Session Bottom Guidance & Controls */}
+      <View style={[styles.bottomSection, { paddingBottom: Math.max(insets.bottom + 16, 32) }]}>
+        {/* 5-Dot Progress Track */}
+        <VisualizationPhaseTrack
+          currentPhaseIndex={phaseIndex}
+          totalPhases={5}
+          phaseProgress={engine.phaseProgress}
+          remainingText={`${formatTime(remaining)} remaining`}
+        />
+
+        {/* Phase Number & Name */}
+        <Text style={styles.phaseLabel}>
+          PHASE {phaseIndex + 1} OF 5 · {phaseDef.name}
+        </Text>
+
+        {/* Main Guidance Text */}
+        <Text style={styles.mainGuidance} numberOfLines={3}>
+          {currentLine.m}
+        </Text>
+
+        {/* Sub Guidance Text */}
+        <Text style={styles.subGuidance}>
+          {currentLine.s || ' '}
+        </Text>
+
+        {/* Build Phase Quoted Scene Text */}
+        {phaseKey === 'build' && sceneOpacity > 0 ? (
+          <Text style={[styles.sceneQuote, { opacity: sceneOpacity }]}>
+            "{sceneText}"
+          </Text>
+        ) : null}
+
+        {/* Bottom Play/Pause & End Controls */}
+        <View
+          pointerEvents={ctrlVisible || isPaused ? 'auto' : 'none'}
+          style={[
+            styles.controlsRow,
+            { opacity: ctrlVisible || isPaused ? 1 : 0.06 },
+          ]}
         >
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="End visualization"
-            onPress={(event) => {
-              event.stopPropagation();
-              requestEarlyEnd();
+            accessibilityLabel={isPaused ? 'Resume' : 'Pause'}
+            onPress={() => {
+              if (isPaused) {
+                engine.resume();
+              } else {
+                engine.pause();
+              }
+              resetHideTimer();
             }}
-            style={styles.circleButton}
+            style={styles.pauseBtn}
           >
-            <X color="#E7F1F8" size={19} strokeWidth={2.2} />
-          </Pressable>
-          <Text
-            accessibilityLabel={`${engine.remainingSeconds} seconds remaining`}
-            style={styles.time}
-          >
-            {formatTime(engine.remainingSeconds)}
-          </Text>
-          <View style={styles.circleButton} />
-        </Animated.View>
-
-        <View style={styles.progressWrap}>
-          <VisualizationPhaseProgress
-            label={phaseLabel}
-            segmentStates={engine.schedule.map((_, index) =>
-              getVisualizeSegmentState(index, currentPhaseIndex),
+            {isPaused ? (
+              <Play size={18} color={colors.bone} fill={colors.bone} />
+            ) : (
+              <Pause size={17} color={colors.bone} fill={colors.bone} />
             )}
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="End session"
+            onPress={() => setConfirmEnd(true)}
+            style={styles.endBtn}
+          >
+            <Text style={styles.endBtnText}>END</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* Confirmation Modal when Ending Early */}
+      <Modal
+        visible={confirmEnd}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConfirmEnd(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable
+            style={styles.modalScrim}
+            onPress={() => setConfirmEnd(false)}
           />
-        </View>
-
-        <View style={styles.stage}>
-          <VisualizeAnchorField
-            phase={currentPresentationPhase}
-            phaseProgress={engine.phaseProgress}
-            totalProgress={engine.totalProgress}
-            active={engine.state === 'running'}
-            reduceMotion={reduceMotion}
-            performanceTier={performanceTier}
-            heroSize={heroSize}
-            compact={window.height < 720}
-          >
-            <VisualizationAnchorLens
-              size={heroSize}
-              imageUrl={anchor.enhancedImageUrl}
-              svg={sigilSvg}
-            />
-          </VisualizeAnchorField>
-        </View>
-
-        <Animated.View style={[styles.copy, { opacity: activeCopyOpacity }]}>
-          <View style={styles.directiveCard}>
-            <Text style={styles.phaseTitle}>{presentation.title}</Text>
-            <PromptPresenter
-              prompt={engine.currentPrompt}
-              fallbackText={presentation.supportingInstruction}
-              fallbackId={`phase:${engine.phase.id}`}
-            />
-          </View>
-          <View style={styles.sceneCue}>
-            <Text style={styles.sceneLabel}>SCENE</Text>
-            <Text
-              accessibilityLiveRegion="polite"
-              numberOfLines={4}
-              ellipsizeMode="tail"
-              style={styles.sceneFull}
-            >
-              {sceneText}
+          <View style={[styles.confirmSheet, { paddingBottom: Math.max(insets.bottom + 10, 24) }]}>
+            <View style={styles.sheetGrab} />
+            <Text style={styles.confirmTitle}>End visualization?</Text>
+            <Text style={styles.confirmBody}>
+              Your progress in this session will not be recorded.
             </Text>
-          </View>
-        </Animated.View>
-
-        {engine.state !== 'completing' && engine.state !== 'completed' ? (
-          <Animated.View
-            pointerEvents={controlsVisible ? 'auto' : 'none'}
-            style={[styles.bottomControls, { opacity: controlsOpacity }]}
-          >
-            <View style={styles.audioControlField}>
-              {feedback ? (
-                <Animated.Text
-                  accessibilityLiveRegion="polite"
-                  style={[styles.audioFeedback, { opacity: feedbackOpacity }]}
-                >
-                  {feedback}
-                </Animated.Text>
-              ) : null}
+            <View style={styles.confirmBtnStack}>
+              <VisualizationPrimaryButton
+                label="CONTINUE SESSION"
+                onPress={() => setConfirmEnd(false)}
+              />
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={
-                  engine.state === 'paused'
-                    ? 'Resume visualization'
-                    : 'Pause visualization'
-                }
-                accessibilityState={{ disabled: engine.state === 'preparing' }}
-                disabled={engine.state === 'preparing'}
-                onPress={(event) => {
-                  event.stopPropagation();
-                  togglePlayback();
-                }}
-                style={({ pressed }) => [
-                  styles.pauseButton,
-                  pressed && styles.pauseButtonPressed,
-                ]}
+                onPress={handleEndEarly}
+                style={styles.endConfirmBtn}
               >
-                {engine.state === 'paused' ? (
-                  <Play color="#071321" size={22} strokeWidth={2.7} />
-                ) : (
-                  <Pause color="#071321" size={22} strokeWidth={2.7} />
-                )}
+                <Text style={styles.endConfirmText}>End Session</Text>
               </Pressable>
             </View>
-            <View
-              accessibilityLabel={`${Math.round(engine.totalProgress * 100)} percent complete`}
-              style={styles.totalTrack}
-            >
-              <View
-                style={[
-                  styles.totalFill,
-                  { width: `${engine.totalProgress * 100}%` },
-                ]}
-              />
-            </View>
-          </Animated.View>
-        ) : null}
-
-        <VisualizeControlsHint
-          teaching={controlsHint}
-          reduceMotion={reduceMotion}
-        />
-      </SafeAreaView>
-
-      {engine.state === 'completing' ? (
-        <Animated.View
-          pointerEvents="none"
-          style={[styles.completionLayer, { opacity: completionOpacity }]}
-        >
-          <LinearGradient
-            colors={['rgba(3,13,28,.06)', 'rgba(5,28,58,.82)', 'rgba(4,13,28,.98)']}
-            style={StyleSheet.absoluteFill}
-          />
-          <Animated.View
-            style={[
-              styles.completionAnchor,
-              {
-                transform: [
-                  { translateY: completionAnchorTranslateY },
-                  { scale: completionAnchorScale },
-                ],
-              },
-            ]}
-          >
-            <VisualizationAnchorLens
-              size={Math.round(heroSize * 0.7)}
-              imageUrl={anchor.enhancedImageUrl}
-              svg={sigilSvg}
-            />
-          </Animated.View>
-          <Animated.View
-            style={[
-              styles.completionCopy,
-              { transform: [{ scale: completionScale }] },
-            ]}
-          >
-            <Text style={styles.completionEyebrow}>VISUALIZATION COMPLETE</Text>
-            <Text style={styles.completionTitle}>SCENE REHEARSED</Text>
-            <Text style={styles.completionSubtitle}>
-              The response is yours to return to.
-            </Text>
-          </Animated.View>
-        </Animated.View>
-      ) : null}
-
-      <ConfirmModal
-        visible={showExitModal}
-        title="End visualization?"
-        body="Your progress in this session will not be recorded."
-        primaryCtaLabel="Continue Session"
-        secondaryCtaLabel="End Session"
-        onPrimary={continueAfterExitPrompt}
-        onSecondary={() => {
-          const navAction = pendingNavigateRef.current || (() => navigation.goBack());
-          confirmEarlyEnd(navAction);
-        }}
-      />
-    </View>
+          </View>
+        </View>
+      </Modal>
+    </Pressable>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  screenContainer: {
     flex: 1,
-    backgroundColor: '#06101F',
+    backgroundColor: '#04060c',
   },
-  safe: {
-    flex: 1,
-  },
-  topControls: {
-    height: 54,
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 22,
+    zIndex: 10,
   },
-  circleButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(2,10,20,.4)',
+  iconBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     borderWidth: 1,
-    borderColor: 'rgba(204,231,249,.1)',
-  },
-  time: {
-    color: '#DCECF8',
-    fontFamily: typography.fonts.body,
-    fontVariant: ['tabular-nums'],
-    fontSize: 14,
-    letterSpacing: 0.8,
-  },
-  progressWrap: {
-    paddingHorizontal: 24,
-    marginTop: 3,
-  },
-  stage: {
-    flex: 1,
-    minHeight: 218,
+    borderColor: colors.goldLine,
+    backgroundColor: 'rgba(245,240,232,0.04)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  copy: {
-    minHeight: 190,
-    paddingHorizontal: 26,
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-  },
-  directiveCard: {
-    width: '100%',
-    minHeight: 98,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    borderRadius: 25,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(6,17,31,.54)',
-    borderWidth: 1,
-    borderColor: 'rgba(170,220,248,.16)',
-  },
-  phaseTitle: {
-    color: '#74C7F5',
+  topBarTitle: {
     fontFamily: typography.fonts.heading,
     fontSize: 12,
-    letterSpacing: 2.7,
-    marginBottom: 7,
+    letterSpacing: 3.2,
+    color: colors.boneSoft,
+    textTransform: 'uppercase',
   },
-  sceneCue: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 12,
-    minHeight: 48,
-    paddingHorizontal: 12,
+  topSpacer: {
+    width: 34,
   },
-  sceneLabel: {
-    color: 'rgba(162,211,240,.68)',
-    fontFamily: typography.fonts.body,
-    fontSize: 9,
-    letterSpacing: 2,
-  },
-  sceneFull: {
-    color: 'rgba(226,241,249,.78)',
-    fontFamily: typography.fonts.body,
-    fontSize: 13,
-    lineHeight: 20,
-    textAlign: 'center',
-    marginTop: 4,
-  },
-  bottomControls: {
-    paddingHorizontal: 28,
-    paddingBottom: 12,
-    alignItems: 'center',
-    gap: 10,
-  },
-  audioControlField: {
-    width: 78,
-    height: 78,
-    borderRadius: 39,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(8,21,37,.5)',
-    borderWidth: 1,
-    borderColor: 'rgba(159,213,244,.18)',
-    shadowColor: '#51B7ED',
-    shadowOpacity: 0.16,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 3,
-  },
-  audioFeedback: {
+  pausedTagWrap: {
     position: 'absolute',
-    top: -24,
-    color: 'rgba(219,237,247,.76)',
-    fontFamily: typography.fonts.body,
-    fontSize: 11,
-    letterSpacing: 0.5,
-  },
-  pauseButton: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#70C9F4',
-  },
-  pauseButtonPressed: {
-    opacity: 0.78,
-    transform: [{ scale: 0.97 }],
-  },
-  totalTrack: {
-    width: '100%',
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: 'rgba(191,225,244,.2)',
-    overflow: 'hidden',
-  },
-  totalFill: {
-    height: '100%',
-    backgroundColor: '#65C1F0',
-  },
-  controlsHint: {
-    position: 'absolute',
+    top: 96,
     left: 0,
     right: 0,
-    bottom: 92,
+    zIndex: 9,
+    alignItems: 'center',
+  },
+  pausedPill: {
+    paddingVertical: 6,
+    paddingHorizontal: 18,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.goldLine,
+    backgroundColor: 'rgba(10,16,32,0.85)',
+  },
+  pausedText: {
+    fontFamily: typography.fonts.mono,
+    fontSize: 10,
+    letterSpacing: 3.5,
+    textTransform: 'uppercase',
+    color: colors.gold,
+  },
+  anchorFieldWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 4,
+  },
+  bottomSection: {
+    paddingHorizontal: 30,
+    alignItems: 'center',
+    gap: 12,
+    zIndex: 8,
+  },
+  phaseLabel: {
+    fontFamily: typography.fonts.mono,
+    fontSize: 10,
+    letterSpacing: 2.8,
+    color: colors.gold,
+    textTransform: 'uppercase',
+  },
+  mainGuidance: {
+    fontFamily: typography.fonts.bodySerif,
+    fontSize: 24,
+    fontWeight: '500',
+    color: colors.bone,
+    textAlign: 'center',
+    lineHeight: 32,
+    maxWidth: 310,
+    minHeight: 64,
+  },
+  subGuidance: {
+    fontFamily: typography.fonts.bodySerifItalic,
+    fontStyle: 'italic',
+    fontSize: 15,
+    color: colors.boneFaint,
+    textAlign: 'center',
+    lineHeight: 20,
+    maxWidth: 280,
+    minHeight: 20,
+    marginTop: -4,
+  },
+  sceneQuote: {
+    fontFamily: typography.fonts.bodySerifItalic,
+    fontStyle: 'italic',
+    fontSize: 14,
+    color: 'rgba(245,240,232,0.55)',
+    textAlign: 'center',
+    maxWidth: 280,
+    lineHeight: 19,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(245,240,232,0.08)',
+    paddingTop: 8,
+    marginTop: 2,
+  },
+  controlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 18,
+    marginTop: 6,
+  },
+  pauseBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    borderWidth: 1,
+    borderColor: colors.goldLine,
+    backgroundColor: 'rgba(212,175,55,0.08)',
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  controlsHintDot: {
-    width: 4,
+  endBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  endBtnText: {
+    fontFamily: typography.fonts.mono,
+    fontSize: 12,
+    letterSpacing: 1.6,
+    color: colors.boneFaint,
+    textTransform: 'uppercase',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(3,4,10,0.6)',
+  },
+  confirmSheet: {
+    backgroundColor: colors.sheetBg,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.24)',
+    paddingHorizontal: 22,
+    paddingTop: 16,
+    gap: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.55,
+    shadowRadius: 30,
+    shadowOffset: { width: 0, height: -10 },
+    elevation: 8,
+  },
+  sheetGrab: {
+    width: 36,
     height: 4,
     borderRadius: 2,
-    marginRight: 7,
-    backgroundColor: '#78C9F1',
+    backgroundColor: 'rgba(245,240,232,0.16)',
+    alignSelf: 'center',
+    marginBottom: 4,
   },
-  controlsHintText: {
-    color: 'rgba(218,237,247,.66)',
-    fontFamily: typography.fonts.body,
-    fontSize: 11,
-    letterSpacing: 0.35,
+  confirmTitle: {
+    fontFamily: typography.fonts.heading,
+    fontSize: 18,
+    fontWeight: '500',
+    letterSpacing: 0.8,
+    color: colors.bone,
+    textAlign: 'center',
   },
-  completionLayer: {
-    ...StyleSheet.absoluteFillObject,
+  confirmBody: {
+    fontFamily: typography.fonts.bodySerifItalic,
+    fontStyle: 'italic',
+    fontSize: 15,
+    color: colors.boneSoft,
+    textAlign: 'center',
+    lineHeight: 21,
+    marginTop: -4,
+  },
+  confirmBtnStack: {
+    gap: 10,
+    marginTop: 6,
+  },
+  endConfirmBtn: {
+    width: '100%',
+    paddingVertical: 13,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(245,240,232,0.16)',
+    backgroundColor: 'rgba(245,240,232,0.04)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  completionCopy: {
-    alignItems: 'center',
-    paddingHorizontal: 28,
-    marginTop: 210,
-  },
-  completionAnchor: {
-    position: 'absolute',
-    top: '16%',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  completionEyebrow: {
-    color: '#77C8F1',
+  endConfirmText: {
     fontFamily: typography.fonts.body,
-    fontSize: 10,
-    letterSpacing: 2.7,
-  },
-  completionTitle: {
-    color: '#F4EDD8',
-    fontFamily: typography.fonts.heading,
-    fontSize: 29,
-    letterSpacing: 1.4,
-    marginTop: 10,
-  },
-  completionSubtitle: {
-    color: 'rgba(225,239,247,.68)',
-    fontFamily: typography.fonts.body,
-    fontSize: 14,
-    lineHeight: 21,
-    marginTop: 9,
+    fontSize: 13,
+    letterSpacing: 0.6,
+    color: colors.boneSoft,
   },
 });

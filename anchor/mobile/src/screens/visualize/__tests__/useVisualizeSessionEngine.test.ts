@@ -37,7 +37,7 @@ describe('useVisualizeSessionEngine', () => {
     });
   };
 
-  it('moves through phase boundaries without changing the canonical audio schedule', () => {
+  it('moves through phase boundaries accurately', () => {
     const onComplete = jest.fn();
     const { result, unmount } = renderHook(() =>
       useVisualizeSessionEngine({
@@ -50,13 +50,13 @@ describe('useVisualizeSessionEngine', () => {
     );
 
     act(() => result.current.start());
-    expect(result.current.phase.id).toBe('see');
+    expect(result.current.phase.id).toBe('arrive');
 
-    advanceClock(12_100);
-    expect(result.current.phase.id).toBe('feel');
+    advanceClock(10_100);
+    expect(result.current.phase.id).toBe('build');
 
-    advanceClock(11_000);
-    expect(result.current.phase.id).toBe('choose');
+    advanceClock(14_000);
+    expect(result.current.phase.id).toBe('rehearse');
     expect(onComplete).not.toHaveBeenCalled();
     unmount();
   });

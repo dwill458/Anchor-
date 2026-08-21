@@ -38,10 +38,12 @@ export const getVisualizeMonotonicNow = (): number =>
 const getWallClockNow = (): number => Date.now();
 const CLOCK_TICK_MS = 100;
 
-// Choose is the one defining in-session moment. Completion haptics are owned
-// by the completion transition so they cannot repeat on a render.
-const HAPTIC_POSITIONS: Partial<Record<VisualizePhaseId, number>> = {
-  choose: 0.52,
+const HAPTIC_POSITIONS: Record<VisualizePhaseId, number> = {
+  arrive: 0.04,
+  build: 0.04,
+  rehearse: 0.04,
+  adapt: 0.04,
+  return: 0.04,
 };
 
 export function useVisualizeSessionEngine(params: {
