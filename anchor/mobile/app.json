@@ -10,7 +10,7 @@
       "android",
       "web"
     ],
-    "icon": "./assets/anchor-icon.png",
+    "icon": "./assets/anchor-icon-v2.png",
     "userInterfaceStyle": "dark",
     "splash": {
       "image": "./assets/anchor-splash-artwork.jpg",
@@ -111,8 +111,8 @@
     "android": {
       "allowBackup": false,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/anchor-adaptive-foreground-v2.png",
-        "backgroundColor": "#260A4C",
+        "foregroundImage": "./assets/anchor-adaptive-foreground-v3.png",
+        "backgroundColor": "#010919",
         "monochromeImage": "./assets/anchor-monochrome.png"
       },
       "package": "com.anchorintentions.app",
@@ -143,7 +143,7 @@
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/anchor-icon-v2.png"
     },
     "plugins": [
       [
