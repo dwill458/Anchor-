@@ -596,8 +596,7 @@ export type RootStackParamList = {
   // VAULT & ANCHOR MANAGEMENT
   // ═══════════════════════════════════════════════════
   Vault: undefined;
-  SaveProgress: { anchor: Anchor };
-  TrialSignUp: undefined;
+  SaveProgress: { anchor: Anchor; previewMode?: boolean };
   AnchorDetail: { anchorId: string };
   TheWeave: {
     origin?: 'practice' | 'anchorDetail' | 'sanctuary' | 'chart';
@@ -975,7 +974,6 @@ export type RootStackParamList = {
   // Audio & Haptics Settings
   MantraVoice: undefined;
   VoiceStyle: undefined;
-  HapticFeedback: undefined;
 
   // Data & Privacy Settings
   DataPrivacy: undefined;
@@ -1169,12 +1167,6 @@ export type OnboardingStackParamList = {
   SaveProgress: undefined;
   Login: AuthScreenParams | undefined;
   SignUp: AuthScreenParams | undefined;
-};
-
-export type AuthStackParamList = {
-  Login: AuthScreenParams | undefined;
-  SignUp: AuthScreenParams | undefined;
-  Onboarding: undefined;
 };
 
 // ============================================================================

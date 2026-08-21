@@ -15,7 +15,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SvgXml } from 'react-native-svg';
 import { useNavigation, type CompositeNavigationProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import type { AuthStackParamList } from '../../types';
 import type { RootNavigatorParamList } from '@/navigation/RootNavigator';
 import { useAuthStore } from '../../stores/authStore';
 import { generateTrueSigil } from '@/utils/sigil/traditional-generator';

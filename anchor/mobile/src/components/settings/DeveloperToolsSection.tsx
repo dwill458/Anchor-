@@ -1,5 +1,6 @@
 import React from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import NotificationService, { type NotificationType } from '@/services/NotificationService';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -110,6 +111,7 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
   resetSettings,
   onResetOnboarding,
 }) => {
+  const navigation = useNavigation<any>();
   const anchors = useAnchorStore((state) => state.anchors);
   const currentAnchorId = useAnchorStore((state) => state.currentAnchorId);
   const updateAnchorState = useAnchorStore((state) => state.updateAnchor);
@@ -146,6 +148,9 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
     subStore.devTierOverride === 'free' ? 'expired' : subStore.devTierOverride;
   const triggerDeveloperWeeklySummaryPreview = useSettingsStore(
     (state) => state.triggerDeveloperWeeklySummaryPreview
+  );
+  const triggerDeveloperSaveProgressPreview = useSettingsStore(
+    (state) => state.triggerDeveloperSaveProgressPreview
   );
   const resettableAnchor = React.useMemo(() => {
     const currentAnchor = currentAnchorId
@@ -303,6 +308,26 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
     );
   };
 
+  const handleForcePaywall = () => {
+    navigation.navigate('Paywall', { source: 'gated_feature' });
+  };
+
+  const handlePreviewSaveProgress = () => {
+    if (!resettableAnchor && anchors.length === 0) {
+      Alert.alert('No Anchor Available', 'Create an anchor first, then preview Save Progress here.');
+      return;
+    }
+    triggerDeveloperSaveProgressPreview();
+    // VaultStack is always mounted, so the push happens immediately even
+    // while this Settings modal covers it. Close the modal to reveal it.
+    const parent = navigation.getParent();
+    if (parent) {
+      parent.goBack();
+      return;
+    }
+    navigation.goBack();
+  };
+
   const renderAccordionHeader = (
     title: string,
     description: string,
@@ -432,6 +457,35 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
                   rightElement={
                     <View style={styles.notificationBadge}>
                       <Text style={styles.notificationBadgeText}>Reset</Text>
+                    </View>
+                  }
+                />
+                <SettingsRow
+                  title="Force Paywall"
+                  subtitle="Open the Paywall screen for testing"
+                  type="none"
+                  onPress={handleForcePaywall}
+                  isDev
+                  rightElement={
+                    <View style={styles.notificationBadge}>
+                      <Text style={styles.notificationBadgeText}>Open</Text>
+                    </View>
+                  }
+                />
+                <SettingsRow
+                  title="Preview Save Progress Screen"
+                  subtitle={
+                    resettableAnchor || anchors.length > 0
+                      ? 'Push the guest Save Progress screen onto Vault'
+                      : 'No anchor available — create one first'
+                  }
+                  type="none"
+                  onPress={handlePreviewSaveProgress}
+                  disabled={!resettableAnchor && anchors.length === 0}
+                  isDev
+                  rightElement={
+                    <View style={styles.notificationBadge}>
+                      <Text style={styles.notificationBadgeText}>Open</Text>
                     </View>
                   }
                   showDivider={false}

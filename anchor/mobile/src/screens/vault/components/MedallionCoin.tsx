@@ -47,7 +47,17 @@ export interface MedallionCoinProps {
   showGlow?: boolean;
   /** Device render budget. `'low'` (or reduced motion) freezes the hero glow to a static aura. */
   performanceTier?: PerformanceTier;
+  /**
+   * Thread Strength, 0–100. Scales the halo glow's reach and brightness at the
+   * same rate the ThreadRing sweep fills, so a nascent Anchor glows faintly
+   * and a tempered one glows at full bloom. Omit to render at full glow.
+   */
+  strength?: number;
 }
+
+// Glow never fully vanishes at 0 strength — it reads as dim, not broken.
+const GLOW_MIN_SCALE = 0.55;
+const GLOW_MIN_OPACITY_FACTOR = 0.2;
 
 /** Default stylized Anchor 'A' mark with vertical dual-ended arrow */
 const AnchorLetterAMark: React.FC<{ size: number }> = ({ size }) => {
@@ -106,6 +116,7 @@ export const MedallionCoin: React.FC<MedallionCoinProps> = ({
   testID = 'medallion-coin',
   showGlow = true,
   performanceTier = 'high',
+  strength,
 }) => {
   const breatheAnim = useSharedValue(1);
   const glowPulse = useSharedValue(0.88);
@@ -121,6 +132,23 @@ export const MedallionCoin: React.FC<MedallionCoinProps> = ({
   const ringAOpacity = useSharedValue(0);
   const ringBScale = useSharedValue(0.86);
   const ringBOpacity = useSharedValue(0);
+
+  const strengthRatio =
+    strength == null ? 1 : Math.min(Math.max(strength, 0), 100) / 100;
+  const glowStrength = useSharedValue(reduceMotionEnabled ? strengthRatio : 0);
+
+  useEffect(() => {
+    if (reduceMotionEnabled) {
+      glowStrength.value = strengthRatio;
+      return;
+    }
+    // Mirrors ThreadRing's own fill animation so the glow grows in lockstep
+    // with the sweep, not on its own timeline.
+    glowStrength.value = withTiming(strengthRatio, {
+      duration: 900,
+      easing: Easing.bezier(0.22, 1, 0.36, 1),
+    });
+  }, [strengthRatio, reduceMotionEnabled, glowStrength]);
 
   useEffect(() => {
     if (reduceMotionEnabled) {
@@ -226,18 +254,30 @@ export const MedallionCoin: React.FC<MedallionCoinProps> = ({
     opacity: glowPulse.value,
   }));
 
-  const auraStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: auraScale.value }],
-    opacity: auraOpacity.value,
-  }));
-  const ringAStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: ringAScale.value }],
-    opacity: ringAOpacity.value,
-  }));
-  const ringBStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: ringBScale.value }],
-    opacity: ringBOpacity.value,
-  }));
+  const auraStyle = useAnimatedStyle(() => {
+    const scaleFactor = GLOW_MIN_SCALE + (1 - GLOW_MIN_SCALE) * glowStrength.value;
+    const opacityFactor = GLOW_MIN_OPACITY_FACTOR + (1 - GLOW_MIN_OPACITY_FACTOR) * glowStrength.value;
+    return {
+      transform: [{ scale: auraScale.value * scaleFactor }],
+      opacity: auraOpacity.value * opacityFactor,
+    };
+  });
+  const ringAStyle = useAnimatedStyle(() => {
+    const scaleFactor = GLOW_MIN_SCALE + (1 - GLOW_MIN_SCALE) * glowStrength.value;
+    const opacityFactor = GLOW_MIN_OPACITY_FACTOR + (1 - GLOW_MIN_OPACITY_FACTOR) * glowStrength.value;
+    return {
+      transform: [{ scale: ringAScale.value * scaleFactor }],
+      opacity: ringAOpacity.value * opacityFactor,
+    };
+  });
+  const ringBStyle = useAnimatedStyle(() => {
+    const scaleFactor = GLOW_MIN_SCALE + (1 - GLOW_MIN_SCALE) * glowStrength.value;
+    const opacityFactor = GLOW_MIN_OPACITY_FACTOR + (1 - GLOW_MIN_OPACITY_FACTOR) * glowStrength.value;
+    return {
+      transform: [{ scale: ringBScale.value * scaleFactor }],
+      opacity: ringBOpacity.value * opacityFactor,
+    };
+  });
 
   // The artwork is intentionally edge-to-edge inside the medallion.
   const symbolSize = size;

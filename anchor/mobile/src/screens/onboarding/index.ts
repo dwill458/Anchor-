@@ -8,4 +8,3 @@ export { ReframeScreen } from './ReframeScreen';
 export { HowItWorksScreen } from './HowItWorksScreen';
 export { DailyLoopScreen } from './DailyLoopScreen';
 export { NarrativeOnboardingScreen } from './NarrativeOnboardingScreen';
-export { TrialSignUpScreen } from './TrialSignUpScreen';

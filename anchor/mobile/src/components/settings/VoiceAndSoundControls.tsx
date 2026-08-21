@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { Play, Square, Volume2, VolumeX } from "lucide-react-native";
+import { ChevronRight, Play, Square, Volume2 } from "lucide-react-native";
 import { colors, spacing, typography } from "@/theme";
 import {
   isVoiceAvailable,
@@ -181,28 +181,19 @@ export const VoiceAndSoundControls: React.FC<Props> = ({
                   accessibilityRole="button"
                   accessibilityLabel={`${activePreviewVoice === option.voice ? "Stop" : "Play"} ${option.voice === "female" ? "Female" : "Male"} voice preview`}
                   accessibilityState={{ disabled: !available || !hasPreview }}
-                  activeOpacity={0.82}
+                  activeOpacity={0.7}
                   disabled={!available || !hasPreview}
+                  hitSlop={8}
                   onPress={() =>
                     void handlePreview(
                       option.voice as Exclude<GuidanceVoice, "none">,
                     )
                   }
-                  style={[
-                    styles.previewButton,
-                    (!available || !hasPreview) && styles.previewButtonDisabled,
-                  ]}
+                  style={styles.previewLink}
                 >
                   {activePreviewVoice === option.voice ? (
-                    <Square color={colors.gold} fill={colors.gold} size={12} />
-                  ) : (
-                    <Play
-                      color={
-                        available && hasPreview ? colors.gold : colors.silver
-                      }
-                      size={14}
-                    />
-                  )}
+                    <Square color={colors.gold} fill={colors.gold} size={10} />
+                  ) : null}
                   <Text
                     style={[
                       styles.previewText,
@@ -211,6 +202,12 @@ export const VoiceAndSoundControls: React.FC<Props> = ({
                   >
                     {activePreviewVoice === option.voice ? "Stop" : "Preview"}
                   </Text>
+                  {activePreviewVoice === option.voice ? null : (
+                    <ChevronRight
+                      color={available && hasPreview ? colors.gold : colors.silver}
+                      size={13}
+                    />
+                  )}
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -223,27 +220,19 @@ export const VoiceAndSoundControls: React.FC<Props> = ({
         </Text>
       ) : null}
 
-      <Text style={[styles.groupLabel, styles.backgroundLabel]}>
-        Background
-      </Text>
+      <Text style={[styles.groupLabel, styles.backgroundLabel]}>Audio</Text>
       <View accessibilityRole="radiogroup" style={styles.backgroundGrid}>
         <TouchableOpacity
           accessibilityRole="radio"
           accessibilityLabel="Ambient background"
           accessibilityState={{ selected: value.backgroundAudio === "ambient" }}
-          activeOpacity={0.82}
+          activeOpacity={0.85}
           onPress={() => onChange({ ...value, backgroundAudio: "ambient" })}
           style={[
             styles.backgroundButton,
             value.backgroundAudio === "ambient" && styles.selectedRow,
           ]}
         >
-          <Volume2
-            color={
-              value.backgroundAudio === "ambient" ? colors.gold : colors.silver
-            }
-            size={17}
-          />
           <Text
             style={[
               styles.backgroundText,
@@ -257,19 +246,13 @@ export const VoiceAndSoundControls: React.FC<Props> = ({
           accessibilityRole="radio"
           accessibilityLabel="Silence background"
           accessibilityState={{ selected: value.backgroundAudio === "off" }}
-          activeOpacity={0.82}
+          activeOpacity={0.85}
           onPress={() => onChange({ ...value, backgroundAudio: "off" })}
           style={[
             styles.backgroundButton,
             value.backgroundAudio === "off" && styles.selectedRow,
           ]}
         >
-          <VolumeX
-            color={
-              value.backgroundAudio === "off" ? colors.gold : colors.silver
-            }
-            size={17}
-          />
           <Text
             style={[
               styles.backgroundText,
@@ -313,23 +296,25 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
   groupLabel: {
-    color: colors.silver,
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 0.9,
+    color: colors.gold,
+    fontFamily: typography.fonts.headingSemiBold,
+    fontSize: 10,
+    letterSpacing: 2,
     marginTop: 4,
+    marginBottom: 2,
     textTransform: "uppercase",
   },
   voiceList: { gap: 8 },
   voiceRow: {
-    alignItems: "center",
+    alignItems: "flex-start",
     backgroundColor: "rgba(255,255,255,0.035)",
     borderColor: "rgba(192,192,192,0.16)",
     borderRadius: 12,
     borderWidth: 1,
     flexDirection: "row",
     minHeight: 64,
-    paddingRight: 8,
+    paddingRight: 10,
+    paddingTop: 9,
   },
   selectedRow: {
     backgroundColor: "rgba(212,175,55,0.09)",
@@ -368,7 +353,13 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 7,
   },
-  voiceTitle: { color: "#F2F0EA", fontSize: 14, fontWeight: "700" },
+  voiceTitle: {
+    color: "#F2F0EA",
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+  },
   voiceDescription: {
     color: "rgba(229,229,229,0.6)",
     fontSize: 12,
@@ -382,36 +373,40 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     textTransform: "uppercase",
   },
-  previewButton: {
+  previewLink: {
     alignItems: "center",
-    borderColor: "rgba(212,175,55,0.3)",
-    borderRadius: 9,
-    borderWidth: 1,
     flexDirection: "row",
-    gap: 5,
-    justifyContent: "center",
-    minHeight: 40,
-    minWidth: 82,
-    paddingHorizontal: 9,
+    gap: 2,
+    marginTop: 1,
+    paddingVertical: 6,
+    paddingLeft: 8,
   },
-  previewButtonDisabled: { borderColor: "rgba(192,192,192,0.12)" },
-  previewText: { color: colors.gold, fontSize: 11, fontWeight: "700" },
+  previewText: {
+    color: colors.gold,
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
   previewError: { color: "#E5A29A", fontSize: 12 },
   backgroundLabel: { marginTop: spacing.sm },
   backgroundGrid: { flexDirection: "row", gap: 10 },
   backgroundButton: {
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.035)",
-    borderColor: "rgba(192,192,192,0.16)",
-    borderRadius: 11,
+    backgroundColor: "#1C2530",
+    borderColor: "rgba(212,175,55,0.28)",
+    borderRadius: 10,
     borderWidth: 1,
     flex: 1,
-    flexDirection: "row",
-    gap: 8,
     justifyContent: "center",
-    minHeight: 48,
+    paddingVertical: 14,
   },
-  backgroundText: { color: colors.silver, fontSize: 13, fontWeight: "700" },
+  backgroundText: {
+    color: colors.silver,
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
   selectedText: { color: colors.gold },
   summary: {
     alignItems: "center",

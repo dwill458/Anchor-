@@ -22,7 +22,6 @@ import {
   HapticIntensityScreen,
   DataPrivacyScreen,
 } from '../screens/profile';
-import { HapticFeedbackScreen } from '../screens/settings';
 import { LoginScreen } from '../screens/auth';
 import type { AuthScreenParams } from '@/types';
 
@@ -44,7 +43,6 @@ export type ProfileStackParamList = {
   ThemeSelection: undefined;
   AccentColor: undefined;
   VaultView: undefined;
-  HapticFeedback: undefined;
   HapticIntensity: undefined;
   DataPrivacy: undefined;
   Login: AuthScreenParams | undefined;
@@ -138,11 +136,6 @@ export const ProfileStackNavigator: React.FC = () => {
           name="VaultView"
           component={VaultViewScreen}
           options={{ headerTitle: 'Vault View' }}
-        />
-        <Stack.Screen
-          name="HapticFeedback"
-          component={HapticFeedbackScreen}
-          options={{ headerTitle: 'Haptic Feedback' }}
         />
         <Stack.Screen
           name="HapticIntensity"

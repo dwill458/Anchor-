@@ -104,14 +104,14 @@ const VoidGlowBackdrop = React.memo(function VoidGlowBackdrop() {
     >
       <Defs>
         <RadialGradient id={VOID_GLOW_ID} cx="50%" cy="45%" rx="50%" ry="52%">
-          <Stop offset="0%" stopColor={colors.gold} stopOpacity="0.12" />
-          <Stop offset="42%" stopColor={colors.deepPurple} stopOpacity="0.22" />
-          <Stop offset="100%" stopColor={colors.black} stopOpacity="0" />
+          <Stop offset="0%" stopColor={colors.anchor15.gilt} stopOpacity="0.12" />
+          <Stop offset="42%" stopColor={colors.anchor15.steel} stopOpacity="0.32" />
+          <Stop offset="100%" stopColor={colors.anchor15.ink} stopOpacity="0" />
         </RadialGradient>
       </Defs>
       <Rect x="0" y="0" width="100" height="100" fill={`url(#${VOID_GLOW_ID})`} />
-      <Circle cx="50" cy="46" r="22" fill={withAlpha(colors.gold, 0.03)} />
-      <Circle cx="50" cy="46" r="14" fill={withAlpha(colors.deepPurple, 0.08)} />
+      <Circle cx="50" cy="46" r="22" fill={withAlpha(colors.anchor15.gilt, 0.03)} />
+      <Circle cx="50" cy="46" r="14" fill={withAlpha(colors.anchor15.steel, 0.12)} />
     </Svg>
   );
 });
@@ -128,9 +128,9 @@ const PreviewFadeOverlay = React.memo(function PreviewFadeOverlay() {
     >
       <Defs>
         <RadialGradient id={PREVIEW_FADE_ID} cx="50%" cy="100%" rx="62%" ry="70%">
-          <Stop offset="0%" stopColor={colors.black} stopOpacity="0" />
-          <Stop offset="48%" stopColor={colors.deepPurple} stopOpacity="0.7" />
-          <Stop offset="100%" stopColor={colors.black} stopOpacity="1" />
+          <Stop offset="0%" stopColor={colors.anchor15.ink} stopOpacity="0" />
+          <Stop offset="48%" stopColor={colors.anchor15.navy} stopOpacity="0.7" />
+          <Stop offset="100%" stopColor={colors.anchor15.ink} stopOpacity="1" />
         </RadialGradient>
       </Defs>
       <Rect x="0" y="0" width="100" height="100" fill={`url(#${PREVIEW_FADE_ID})`} />
@@ -147,17 +147,17 @@ const LockBadgeIcon = React.memo(function LockBadgeIcon() {
         width="14"
         height="10"
         rx="2"
-        stroke={colors.gold}
+        stroke={colors.anchor15.gilt}
         strokeWidth={1.5}
         strokeLinecap="round"
       />
       <Path
         d="M8 11V7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7V11"
-        stroke={colors.gold}
+        stroke={colors.anchor15.gilt}
         strokeWidth={1.5}
         strokeLinecap="round"
       />
-      <Circle cx="12" cy="15.5" r="1.5" fill={colors.gold} />
+      <Circle cx="12" cy="15.5" r="1.5" fill={colors.anchor15.gilt} />
     </Svg>
   );
 });
@@ -322,7 +322,7 @@ const AnimatedScreen = React.memo(function AnimatedScreen({
       >
         <View style={[styles.previewZone, { height: previewHeight }]}>
           <LinearGradient
-            colors={[colors.navy, colors.deepPurple, colors.black]}
+            colors={[colors.anchor15.creationTop, colors.anchor15.navy, colors.anchor15.ink]}
             start={{ x: 0, y: 0 }}
             end={{ x: 0.82, y: 1 }}
             style={StyleSheet.absoluteFillObject}
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
     borderRadius: 120,
     left: -80,
     top: 24,
-    backgroundColor: withAlpha(colors.deepPurple, 0.34),
+    backgroundColor: withAlpha(colors.anchor15.steel, 0.4),
   },
   previewAmbientOrbRight: {
     position: 'absolute',

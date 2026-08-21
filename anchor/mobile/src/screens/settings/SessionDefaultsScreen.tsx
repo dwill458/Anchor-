@@ -1,13 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  Animated,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -200,7 +198,6 @@ export const SessionDefaultsScreen: React.FC = () => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const ownerUserId = useAuthStore((state) => state.user?.id ?? null);
   const focusSessionMode = useSettingsStore((state) => state.focusSessionMode ?? 'quick');
-  const { width: screenWidth } = useWindowDimensions();
   const storedFocusDuration = useSettingsStore((state) => state.focusSessionDuration ?? 30);
   const storedPrimeDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
   const storedVisualizeDuration = useSettingsStore(
@@ -253,19 +250,6 @@ export const SessionDefaultsScreen: React.FC = () => {
   );
   const [isAddingPlace, setIsAddingPlace] = useState(false);
   const [placeStatus, setPlaceStatus] = useState<string | null>(null);
-  const pillTranslate = useRef(
-    new Animated.Value(activeTab === 'focus' ? 0 : activeTab === 'prime' ? 1 : 2)
-  ).current;
-  const tabPillWidth = (screenWidth - 56) / 3;
-
-  useEffect(() => {
-    Animated.spring(pillTranslate, {
-      toValue: activeTab === 'focus' ? 0 : activeTab === 'prime' ? 1 : 2,
-      useNativeDriver: true,
-      friction: 8,
-      tension: 85,
-    }).start();
-  }, [activeTab, pillTranslate]);
 
   const resolvedPrimeDurationSeconds = useMemo(() => {
     if (primeSelection === 'custom') {
@@ -392,54 +376,37 @@ export const SessionDefaultsScreen: React.FC = () => {
         </View>
 
         <View style={styles.tabTrack}>
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              styles.tabPill,
-              {
-                transform: [
-                  {
-                    translateX: pillTranslate.interpolate({
-                      inputRange: [0, 1, 2],
-                      outputRange: [0, tabPillWidth, tabPillWidth * 2],
-                    }),
-                  },
-                ],
-                width: tabPillWidth,
-              },
-            ]}
-          />
           <TouchableOpacity
-            activeOpacity={0.8}
+            activeOpacity={0.85}
             accessibilityRole="button"
             accessibilityState={{ selected: activeTab === 'focus' }}
             onPress={() => setActiveTab('focus')}
-            style={styles.tabButton}
+            style={[styles.tabButton, activeTab === 'focus' && styles.tabButtonActive]}
           >
             <Text style={[styles.tabButtonText, activeTab === 'focus' && styles.tabButtonTextActive]}>
-              ⚡ Focus
+              Focus
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            activeOpacity={0.8}
+            activeOpacity={0.85}
             accessibilityRole="button"
             accessibilityState={{ selected: activeTab === 'prime' }}
             onPress={() => setActiveTab('prime')}
-            style={styles.tabButton}
+            style={[styles.tabButton, activeTab === 'prime' && styles.tabButtonActive]}
           >
             <Text style={[styles.tabButtonText, activeTab === 'prime' && styles.tabButtonTextActive]}>
-              ◎ Prime
+              Deep Prime
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            activeOpacity={0.8}
+            activeOpacity={0.85}
             accessibilityRole="button"
             accessibilityState={{ selected: activeTab === 'visualize' }}
             onPress={() => setActiveTab('visualize')}
-            style={styles.tabButton}
+            style={[styles.tabButton, activeTab === 'visualize' && styles.tabButtonActive]}
           >
             <Text style={[styles.tabButtonText, activeTab === 'visualize' && styles.tabButtonTextActive]}>
-              ◇ Visualize
+              Visualize
             </Text>
           </TouchableOpacity>
         </View>
@@ -453,7 +420,7 @@ export const SessionDefaultsScreen: React.FC = () => {
             <>
               <View style={styles.section}>
                 <Text style={styles.sectionLabel}>Duration</Text>
-                <Text style={styles.sectionDescription}>Quick Prime runs 10 seconds to 2 minutes.</Text>
+                <Text style={styles.sectionDescription}>Duration ranges from 10 seconds to 2 minutes.</Text>
                 <View style={styles.focusDurationGrid}>
                   {FOCUS_DURATION_OPTIONS.map((option) => (
                     <DurationButton
@@ -474,6 +441,7 @@ export const SessionDefaultsScreen: React.FC = () => {
                   onChange={setFocusAudioDefaults}
                   sessionType="focus"
                   durationSeconds={focusDuration}
+                  showHeading={false}
                 />
               </View>
             </>
@@ -481,7 +449,7 @@ export const SessionDefaultsScreen: React.FC = () => {
             <>
               <View style={styles.section}>
                 <Text style={styles.sectionLabel}>Duration</Text>
-                <Text style={styles.sectionDescription}>Deep Prime starts at 2 minutes - no ceiling.</Text>
+                <Text style={styles.sectionDescription}>Duration ranges from 2 to 15 minutes, or set a custom time.</Text>
                 <View style={styles.primeDurationGrid}>
                   {PRIME_DURATION_OPTIONS.map((option) => (
                     <DurationButton
@@ -523,6 +491,7 @@ export const SessionDefaultsScreen: React.FC = () => {
                   onChange={setPrimeAudioDefaults}
                   sessionType="deep_prime"
                   durationSeconds={resolvedPrimeDurationSeconds}
+                  showHeading={false}
                 />
               </View>
             </>
@@ -530,7 +499,7 @@ export const SessionDefaultsScreen: React.FC = () => {
             <>
               <View style={styles.section}>
                 <Text style={styles.sectionLabel}>Duration</Text>
-                <Text style={styles.sectionDescription}>Choose a 1, 3, or 5 minute visualization.</Text>
+                <Text style={styles.sectionDescription}>Duration ranges from 1 to 5 minutes.</Text>
                 <View style={styles.primeDurationGrid}>
                   {([60, 180, 300] as const).map((duration) => (
                     <DurationButton
@@ -549,6 +518,7 @@ export const SessionDefaultsScreen: React.FC = () => {
                   onChange={setVisualizeAudioDefaults}
                   sessionType="visualize"
                   durationSeconds={visualizeDuration}
+                  showHeading={false}
                 />
               </View>
             </>
@@ -650,8 +620,9 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: colors.gold,
-    fontSize: 19,
-    letterSpacing: 1.2,
+    fontSize: 17,
+    letterSpacing: 2.2,
+    textTransform: 'uppercase',
     fontFamily: typography.fonts.heading,
   },
   headerSpacer: {
@@ -660,32 +631,28 @@ const styles = StyleSheet.create({
   tabTrack: {
     marginHorizontal: 24,
     marginBottom: 28,
-    padding: 4,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.14)',
-    backgroundColor: '#1C2530',
+    gap: 8,
     flexDirection: 'row',
-  },
-  tabPill: {
-    position: 'absolute',
-    top: 4,
-    left: 4,
-    height: 46,
-    borderRadius: 10,
-    backgroundColor: colors.gold,
   },
   tabButton: {
     flex: 1,
     height: 46,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.28)',
+    backgroundColor: '#1C2530',
+  },
+  tabButtonActive: {
+    borderColor: colors.gold,
+    backgroundColor: colors.gold,
   },
   tabButtonText: {
     fontFamily: typography.fonts.heading,
-    fontSize: 12,
-    letterSpacing: 1.2,
+    fontSize: 11,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
     color: 'rgba(192,192,192,0.75)',
   },
   tabButtonTextActive: {

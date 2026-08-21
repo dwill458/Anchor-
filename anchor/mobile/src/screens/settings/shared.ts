@@ -29,10 +29,3 @@ export const formatFocusSummary = (settings: AnchorSettings): string =>
 
 export const formatGoalSummary = (goal: number): string =>
   `${goal} session${goal === 1 ? '' : 's'} / day`;
-
-export const formatHapticFeedbackLabel = (
-  feedback: AnchorSettings['hapticFeedback']
-): string => {
-  if (feedback === 'light') return 'Soft';
-  return feedback.charAt(0).toUpperCase() + feedback.slice(1);
-};

@@ -34,8 +34,10 @@ import { calculateStreak } from '@/utils/streakHelpers';
 import { isoWeekKey } from '@/utils/primingAnalytics';
 import { resolveAnchorStrengthPct } from '@/components/ThreadStrengthSheet';
 import { getThreadState } from '@/screens/practice/components/ThreadStrengthBlock';
+import { BakedGlow } from '@/components/common';
 import { ThreadRing } from './ThreadRing';
 import { MedallionCoin } from './MedallionCoin';
+import { SelectedChipGlowRing } from './SelectedChipGlowRing';
 
 // ─── Constants & Layout ───────────────────────────────────────────────────────
 
@@ -43,8 +45,13 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const H_PAD = 20;
 // Scaled up from the 244pt prototype baseline to fill the dead space that used
 // to sit below the anchor stack; still capped proportionally on smaller devices.
-const STAGE_SIZE = Math.min(Math.round((SCREEN_WIDTH - H_PAD * 2) * 0.88), 336);
+const STAGE_SIZE = Math.min(Math.round((SCREEN_WIDTH - H_PAD * 2) * 0.78), 296);
 const MEDALLION_SIZE = Math.round(STAGE_SIZE * 0.72); // ~242pt when stage is 336pt
+// Hugs the coin's own edge (same "+outside the edge" treatment as the
+// AnchorStack chip ring) rather than spanning the whole stage — the coin
+// stays the clear focal point instead of getting washed out by a big blur.
+const MEDALLION_GLOW_SIZE = Math.round(MEDALLION_SIZE * 1.26);
+const MEDALLION_RING_RADIUS = MEDALLION_SIZE / 2 + 8;
 
 const STATE_BADGE: Record<ReturnType<typeof getThreadState>, string> = {
   strong: 'TEMPERED',
@@ -159,6 +166,8 @@ const HeroAnchorCardInner: React.FC<HeroAnchorCardProps> = ({
   const { pct: strengthPct, lastPrimedAt } = useAnchorThreadStrength(anchor);
   const threadState = getThreadState(strengthPct, lastPrimedAt);
   const badgeLabel = STATE_BADGE[threadState] || (strengthPct >= 70 ? 'TEMPERED' : strengthPct >= 30 ? 'KINDLING' : 'NASCENT');
+  const showGlowRingPulse = performanceTier === 'high' && !reduceMotionEnabled;
+  const showStaticGlowRing = performanceTier === 'medium';
 
   // ── Press scale animation ──
   const pressScale = useSharedValue(1);
@@ -209,13 +218,37 @@ const HeroAnchorCardInner: React.FC<HeroAnchorCardProps> = ({
           />
 
           {/* Center Circular Medallion Coin (inset 34) */}
-          <View style={styles.medallionWrap}>
+          <View
+            style={[
+              styles.medallionWrap,
+              { width: MEDALLION_GLOW_SIZE, height: MEDALLION_GLOW_SIZE },
+            ]}
+          >
+            {showGlowRingPulse ? (
+              <SelectedChipGlowRing
+                size={MEDALLION_GLOW_SIZE}
+                ringRadius={MEDALLION_RING_RADIUS}
+                color={colors.anchor15.giltBright}
+                reduceMotionEnabled={reduceMotionEnabled}
+                intensity={strengthPct / 100}
+              />
+            ) : null}
+            {showStaticGlowRing ? (
+              <BakedGlow
+                size={MEDALLION_GLOW_SIZE}
+                color={colors.anchor15.giltBright}
+                baseOpacity={0.5 * Math.max(strengthPct / 100, 0.25)}
+                peakOpacity={0.5 * Math.max(strengthPct / 100, 0.25)}
+                reduceMotionEnabled
+              />
+            ) : null}
             <MedallionCoin
               size={MEDALLION_SIZE}
               imageUrl={imageUrl}
               sigilXml={sigilSvg}
               reduceMotionEnabled={reduceMotionEnabled}
               performanceTier={performanceTier}
+              strength={strengthPct}
             />
           </View>
         </View>

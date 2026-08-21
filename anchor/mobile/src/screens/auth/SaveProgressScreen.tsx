@@ -20,7 +20,15 @@ import {
 } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { Check } from 'lucide-react-native';
-import Svg, { Circle, Path, SvgXml } from 'react-native-svg';
+import Svg, {
+  Circle,
+  Defs,
+  LinearGradient as SvgLinearGradient,
+  Path,
+  RadialGradient,
+  Stop,
+  SvgXml,
+} from 'react-native-svg';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -45,15 +53,72 @@ import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 type NavigationProp = StackNavigationProp<RootStackParamList, 'SaveProgress'>;
 type SaveProgressRouteProp = RouteProp<RootStackParamList, 'SaveProgress'>;
 
-const GOLD_BRIGHT = '#F0CB6A';
-const GOLD_MID = '#C9A84C';
-const GOLD_DEEP = '#A8892E';
-const BONE = '#F5F0E8';
-const DISC_SIGIL_SIZE = 152;
-const FALLBACK_SIGIL_SIZE = 122;
+const GOLD_BRIGHT = colors.anchor15.giltBright;
+const GOLD_MID = colors.anchor15.gilt;
+const GOLD_DEEP = '#A7793A';
+const BONE = colors.anchor15.bone;
+const DISC_SIGIL_SIZE = 184;
+const FALLBACK_SIGIL_SIZE = 148;
 const DISC_ARTWORK_RADIUS = DISC_SIGIL_SIZE / 2;
-const ORBIT_SIZE = 242;
-const ORBIT_OFFSET = 15;
+const ORBIT_SIZE = 278;
+const ORBIT_OFFSET = 17.5;
+const SUN_GLOW_SIZE = 340;
+const SUN_RAY_CENTER = SUN_GLOW_SIZE / 2;
+const SUN_RAY_COUNT = 16;
+const SUN_RAY_ANGLE_STEP = 360 / SUN_RAY_COUNT;
+const SUN_RAY_INNER_RADIUS = 58;
+
+const buildSunRayPath = (outerRadius: number, outerWidth: number) => {
+  const apexY = SUN_RAY_CENTER - SUN_RAY_INNER_RADIUS;
+  const outerY = SUN_RAY_CENTER - outerRadius;
+  const halfWidth = outerWidth / 2;
+  return `M ${SUN_RAY_CENTER} ${apexY} L ${SUN_RAY_CENTER - halfWidth} ${outerY} L ${
+    SUN_RAY_CENTER + halfWidth
+  } ${outerY} Z`;
+};
+
+const SunburstGlow = () => (
+  <Svg width="100%" height="100%" viewBox={`0 0 ${SUN_GLOW_SIZE} ${SUN_GLOW_SIZE}`}>
+    <Defs>
+      <RadialGradient id="sunBloom" cx="50%" cy="50%" r="50%">
+        <Stop offset="0%" stopColor={GOLD_BRIGHT} stopOpacity={0.42} />
+        <Stop offset="45%" stopColor={GOLD_MID} stopOpacity={0.16} />
+        <Stop offset="100%" stopColor={GOLD_MID} stopOpacity={0} />
+      </RadialGradient>
+      <SvgLinearGradient id="sunRayFade" x1="0" y1="0" x2="0" y2="1">
+        <Stop offset="0" stopColor={GOLD_BRIGHT} stopOpacity={0} />
+        <Stop offset="1" stopColor={GOLD_BRIGHT} stopOpacity={0.85} />
+      </SvgLinearGradient>
+    </Defs>
+    <Circle cx={SUN_RAY_CENTER} cy={SUN_RAY_CENTER} r={SUN_RAY_CENTER} fill="url(#sunBloom)" />
+    {Array.from({ length: SUN_RAY_COUNT }).map((_, index) => {
+      const angle = index * SUN_RAY_ANGLE_STEP;
+      const isLong = index % 2 === 0;
+      const outerRadius = isLong ? SUN_RAY_CENTER - 6 : SUN_RAY_CENTER - 30;
+      const outerWidth = isLong ? 26 : 14;
+      return (
+        <React.Fragment key={angle}>
+          <Path
+            d={buildSunRayPath(outerRadius, outerWidth * 1.8)}
+            fill="url(#sunRayFade)"
+            opacity={0.22}
+            rotation={angle}
+            originX={SUN_RAY_CENTER}
+            originY={SUN_RAY_CENTER}
+          />
+          <Path
+            d={buildSunRayPath(outerRadius, outerWidth)}
+            fill="url(#sunRayFade)"
+            opacity={0.85}
+            rotation={angle}
+            originX={SUN_RAY_CENTER}
+            originY={SUN_RAY_CENTER}
+          />
+        </React.Fragment>
+      );
+    })}
+  </Svg>
+);
 
 const useEntranceStyle = (value: SharedValue<number>) =>
   useAnimatedStyle(() => ({
@@ -65,7 +130,7 @@ const FallbackAnchorMark = ({ size }: { size: number }) => (
   <Svg width={size} height={size} viewBox="0 0 200 200">
     <Path
       d="M58 62 L142 62 L72 148"
-      stroke={colors.gold}
+      stroke={colors.anchor15.gilt}
       strokeWidth="6.2"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -73,7 +138,7 @@ const FallbackAnchorMark = ({ size }: { size: number }) => (
     />
     <Path
       d="M58 62 Q62 74 66 84"
-      stroke={colors.gold}
+      stroke={colors.anchor15.gilt}
       strokeWidth="2.8"
       strokeLinecap="round"
       opacity={0.72}
@@ -131,7 +196,7 @@ const AnchorDisc = ({ anchor }: { anchor: Anchor }) => {
 
 const TrustItem = ({ label }: { label: string }) => (
   <View style={styles.trustItem}>
-    <Check size={13} color={colors.gold} strokeWidth={1.8} />
+    <Check size={13} color={colors.anchor15.gilt} strokeWidth={1.8} />
     <Text style={styles.trustLabel} numberOfLines={1}>
       {label}
     </Text>
@@ -145,6 +210,7 @@ export const SaveProgressScreen: React.FC = () => {
   const { height } = useWindowDimensions();
   const reduceMotionEnabled = useReduceMotionEnabled();
   const anchor = route.params.anchor;
+  const previewMode = route.params.previewMode ?? false;
 
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const pendingFirstAnchorDraft = useAuthStore((state) => state.pendingFirstAnchorDraft);
@@ -242,7 +308,7 @@ export const SaveProgressScreen: React.FC = () => {
       );
       spinProgress.value = 0;
       spinProgress.value = withRepeat(
-        withTiming(360, { duration: 7000, easing: Easing.linear, ...ambient }),
+        withTiming(360, { duration: 42000, easing: Easing.linear, ...ambient }),
         -1,
         false,
         undefined,
@@ -316,7 +382,7 @@ export const SaveProgressScreen: React.FC = () => {
 
   useFocusEffect(
     React.useCallback(() => {
-      if (!isAuthenticated) {
+      if (previewMode || !isAuthenticated) {
         return;
       }
 
@@ -348,6 +414,7 @@ export const SaveProgressScreen: React.FC = () => {
       navigation,
       pendingFirstAnchorDraft,
       pendingFirstAnchorError,
+      previewMode,
     ])
   );
 
@@ -383,7 +450,7 @@ export const SaveProgressScreen: React.FC = () => {
     await signOut();
   };
 
-  if (isAuthenticated) {
+  if (isAuthenticated && !previewMode) {
     return (
       <View style={styles.screen}>
         <StatusBar style="light" />
@@ -403,7 +470,7 @@ export const SaveProgressScreen: React.FC = () => {
             <View style={styles.finalizeCard}>
               {isFinalizingPendingFirstAnchor ? (
                 <View style={styles.loadingRow}>
-                  <ActivityIndicator color={colors.gold} />
+                  <ActivityIndicator color={colors.anchor15.gilt} />
                   <Text style={styles.loadingText}>Finalizing account handoff...</Text>
                 </View>
               ) : (
@@ -463,38 +530,16 @@ export const SaveProgressScreen: React.FC = () => {
           <Animated.View style={[styles.hero, wave3Style]}>
             <Animated.View style={[styles.medallion, floatStyle]}>
               <Animated.View style={[styles.halo, haloStyle]} />
-              <View style={styles.medallionGlowFloor} />
-              <View style={styles.orbit} />
-              <View style={styles.ringInner} />
-              <AnchorDisc anchor={anchor} />
               <Animated.View
                 pointerEvents="none"
                 renderToHardwareTextureAndroid
                 style={[styles.spinningGlow, spinningGlowStyle]}
               >
-                <Svg width="100%" height="100%" viewBox="0 0 266 266">
-                  <Circle
-                    cx="133"
-                    cy="133"
-                    r="122"
-                    stroke={withAlpha(GOLD_BRIGHT, 0.82)}
-                    strokeWidth="8"
-                    strokeDasharray="72 34"
-                    strokeLinecap="round"
-                    fill="none"
-                  />
-                  <Circle
-                    cx="133"
-                    cy="133"
-                    r="108"
-                    stroke={withAlpha(colors.gold, 0.4)}
-                    strokeWidth="3"
-                    strokeDasharray="28 44"
-                    strokeLinecap="round"
-                    fill="none"
-                  />
-                </Svg>
+                <SunburstGlow />
               </Animated.View>
+              <View style={styles.orbit} />
+              <View style={styles.ringInner} />
+              <AnchorDisc anchor={anchor} />
               <Animated.View
                 pointerEvents="none"
                 style={[styles.medallionPulse, medallionPulseStyle]}
@@ -554,18 +599,18 @@ export const SaveProgressScreen: React.FC = () => {
 const BackgroundLayers = () => (
   <View pointerEvents="none" style={styles.background}>
     <LinearGradient
-      colors={['#261741', '#140b22', '#0a0612', '#050309']}
-      locations={[0, 0.36, 0.66, 1]}
+      colors={[colors.anchor15.creationTop, colors.anchor15.navy, colors.anchor15.ink]}
+      locations={[0, 0.48, 1]}
       start={{ x: 0.5, y: 0 }}
       end={{ x: 0.5, y: 1 }}
       style={StyleSheet.absoluteFill}
     />
-    <View style={[styles.bgOrb, styles.bgOrbPurple]} />
+    <View style={[styles.bgOrb, styles.bgOrbSteel]} />
     <View style={[styles.bgOrb, styles.bgOrbGold]} />
     <View style={[styles.bgOrb, styles.bgOrbMid]} />
     <View style={styles.grainOverlay} />
     <LinearGradient
-      colors={['rgba(5,3,9,0)', 'rgba(5,3,9,0.92)']}
+      colors={['rgba(8,11,15,0)', 'rgba(8,11,15,0.92)']}
       style={styles.floorVignette}
     />
   </View>
@@ -574,7 +619,7 @@ const BackgroundLayers = () => (
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#050309',
+    backgroundColor: colors.anchor15.ink,
   },
   safeArea: {
     flex: 1,
@@ -588,14 +633,14 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     opacity: 0.5,
   },
-  bgOrbPurple: {
+  bgOrbSteel: {
     width: 300,
     height: 300,
     top: -80,
     left: -70,
-    backgroundColor: 'rgba(78,42,130,0.7)',
-    shadowColor: '#4E2A82',
-    shadowOpacity: 0.75,
+    backgroundColor: 'rgba(30,42,51,0.6)',
+    shadowColor: colors.anchor15.steel,
+    shadowOpacity: 0.5,
     shadowRadius: 58,
   },
   bgOrbGold: {
@@ -603,19 +648,19 @@ const styles = StyleSheet.create({
     height: 260,
     bottom: 40,
     right: -70,
-    backgroundColor: 'rgba(212,175,55,0.16)',
-    shadowColor: colors.gold,
+    backgroundColor: 'rgba(212,175,55,0.14)',
+    shadowColor: colors.anchor15.gilt,
     shadowOpacity: 0.3,
     shadowRadius: 58,
   },
   bgOrbMid: {
-    width: 200,
-    height: 200,
-    top: '40%',
-    left: '30%',
-    backgroundColor: 'rgba(110,65,175,0.3)',
-    shadowColor: '#6E41AF',
-    shadowOpacity: 0.38,
+    width: 220,
+    height: 220,
+    top: '38%',
+    left: '28%',
+    backgroundColor: 'rgba(96,72,140,0.12)',
+    shadowColor: colors.anchor15.purpleAtmosphere,
+    shadowOpacity: 0.2,
     shadowRadius: 58,
   },
   grainOverlay: {
@@ -656,19 +701,19 @@ const styles = StyleSheet.create({
     fontFamily: typography.fonts.mono,
     fontSize: 10,
     letterSpacing: 4.2,
-    color: colors.gold,
+    color: colors.anchor15.gilt,
     textTransform: 'uppercase',
     textAlign: 'center',
   },
   eyebrowLineLeft: {
     width: 22,
     height: 1,
-    backgroundColor: withAlpha(colors.gold, 0.22),
+    backgroundColor: withAlpha(colors.anchor15.gilt, 0.22),
   },
   eyebrowLineRight: {
     width: 22,
     height: 1,
-    backgroundColor: withAlpha(colors.gold, 0.22),
+    backgroundColor: withAlpha(colors.anchor15.gilt, 0.22),
   },
   title: {
     fontFamily: typography.fonts.heading,
@@ -682,7 +727,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   titleGold: {
-    color: colors.gold,
+    color: colors.anchor15.gilt,
   },
   body: {
     fontFamily: typography.fonts.body,
@@ -697,49 +742,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 16,
-    minHeight: 368,
+    minHeight: 424,
     paddingVertical: 6,
   },
   medallion: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 272,
-    height: 272,
+    width: 313,
+    height: 313,
     alignSelf: 'center',
   },
   halo: {
     position: 'absolute',
-    width: 258,
-    height: 258,
-    borderRadius: 129,
+    width: 297,
+    height: 297,
+    borderRadius: 149,
     backgroundColor: 'rgba(212,175,55,0.12)',
-    shadowColor: colors.gold,
+    shadowColor: colors.anchor15.gilt,
     shadowOpacity: 0.24,
     shadowRadius: 24,
     elevation: 2,
   },
   medallionPulse: {
     position: 'absolute',
-    width: 252,
-    height: 252,
-    borderRadius: 126,
+    width: 290,
+    height: 290,
+    borderRadius: 145,
     borderWidth: 4,
     borderColor: withAlpha(GOLD_BRIGHT, 0.82),
     backgroundColor: 'transparent',
   },
   spinningGlow: {
     position: 'absolute',
-    width: 266,
-    height: 266,
-    borderRadius: 133,
-    opacity: 0.86,
-  },
-  medallionGlowFloor: {
-    position: 'absolute',
-    width: 238,
-    height: 238,
-    borderRadius: 119,
-    backgroundColor: withAlpha(GOLD_BRIGHT, 0.08),
+    width: SUN_GLOW_SIZE,
+    height: SUN_GLOW_SIZE,
   },
   orbit: {
     position: 'absolute',
@@ -750,25 +786,25 @@ const styles = StyleSheet.create({
     borderRadius: ORBIT_SIZE / 2,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: withAlpha(colors.gold, 0.18),
+    borderColor: withAlpha(colors.anchor15.gilt, 0.18),
   },
   ringInner: {
     position: 'absolute',
-    width: 226,
-    height: 226,
-    borderRadius: 113,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
     borderWidth: 1.2,
-    borderColor: withAlpha(colors.gold, 0.16),
+    borderColor: withAlpha(colors.anchor15.gilt, 0.16),
   },
   disc: {
-    width: 224,
-    height: 224,
-    borderRadius: 112,
-    backgroundColor: '#140d26',
+    width: 272,
+    height: 272,
+    borderRadius: 136,
+    backgroundColor: colors.anchor15.veil,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.gold,
+    shadowColor: colors.anchor15.gilt,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.18,
     shadowRadius: 52,
@@ -776,35 +812,35 @@ const styles = StyleSheet.create({
   },
   discRingOuter: {
     position: 'absolute',
-    width: 222,
-    height: 222,
-    borderRadius: 111,
+    width: 269,
+    height: 269,
+    borderRadius: 135,
     borderWidth: 1.1,
-    borderColor: withAlpha(colors.gold, 0.12),
+    borderColor: withAlpha(colors.anchor15.gilt, 0.12),
   },
   discRingA: {
     position: 'absolute',
-    width: 172,
-    height: 172,
-    borderRadius: 86,
+    width: 209,
+    height: 209,
+    borderRadius: 105,
     borderWidth: 0.6,
-    borderColor: withAlpha(colors.gold, 0.14),
+    borderColor: withAlpha(colors.anchor15.gilt, 0.14),
   },
   discRingB: {
     position: 'absolute',
-    width: 122,
-    height: 122,
-    borderRadius: 61,
+    width: 148,
+    height: 148,
+    borderRadius: 74,
     borderWidth: 0.6,
-    borderColor: withAlpha(colors.gold, 0.12),
+    borderColor: withAlpha(colors.anchor15.gilt, 0.12),
   },
   discRingC: {
     position: 'absolute',
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 87,
+    height: 87,
+    borderRadius: 43.5,
     borderWidth: 0.6,
-    borderColor: withAlpha(colors.gold, 0.1),
+    borderColor: withAlpha(colors.anchor15.gilt, 0.1),
   },
   discSigilWrap: {
     width: DISC_SIGIL_SIZE,
@@ -836,8 +872,8 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.gold,
-    shadowColor: colors.gold,
+    backgroundColor: colors.anchor15.gilt,
+    shadowColor: colors.anchor15.gilt,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 6,
@@ -905,7 +941,7 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: colors.gold,
+    shadowColor: colors.anchor15.gilt,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.34,
     shadowRadius: 34,
@@ -943,7 +979,7 @@ const styles = StyleSheet.create({
   secondaryUnderline: {
     color: BONE,
     textDecorationLine: 'underline',
-    textDecorationColor: withAlpha(colors.gold, 0.28),
+    textDecorationColor: withAlpha(colors.anchor15.gilt, 0.28),
   },
   finalizeWrap: {
     flex: 1,
@@ -971,8 +1007,8 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: withAlpha(colors.gold, 0.18),
-    backgroundColor: 'rgba(15, 10, 26, 0.72)',
+    borderColor: withAlpha(colors.anchor15.gilt, 0.18),
+    backgroundColor: withAlpha(colors.anchor15.veil, 0.72),
     padding: spacing.lg,
     gap: spacing.md,
     marginTop: spacing.md,

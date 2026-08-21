@@ -368,10 +368,9 @@ describe('AnchorDetailScreen', () => {
         });
     });
 
-    it('renders the required share and wallpaper utility rows', () => {
+    it('renders the anchor options row and release row', () => {
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
-        expect(screen.getByText('SHARE ANCHOR')).toBeTruthy();
-        expect(screen.getByText('SET AS WALLPAPER')).toBeTruthy();
+        expect(screen.getByText('ANCHOR OPTIONS')).toBeTruthy();
         expect(screen.getByText('RELEASE ANCHOR')).toBeTruthy();
     });
 
@@ -383,7 +382,8 @@ describe('AnchorDetailScreen', () => {
 
     it('shares a branded anchor card from the detail screen', async () => {
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
-        fireEvent.press(screen.getByText('SHARE ANCHOR'));
+        fireEvent.press(screen.getByText('ANCHOR OPTIONS'));
+        fireEvent.press(screen.getByText('Share Anchor'));
         fireEvent.press(screen.getByText('SHARE MY ANCHOR'));
 
         await waitFor(() => {
@@ -411,7 +411,8 @@ describe('AnchorDetailScreen', () => {
         mockAnchor.sigilUri = 'https://example.com/legacy-share-card.png';
 
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
-        fireEvent.press(screen.getByText('SHARE ANCHOR'));
+        fireEvent.press(screen.getByText('ANCHOR OPTIONS'));
+        fireEvent.press(screen.getByText('Share Anchor'));
         fireEvent.press(screen.getByText('SHARE MY ANCHOR'));
 
         await waitFor(() => {
@@ -435,7 +436,8 @@ describe('AnchorDetailScreen', () => {
 
     it('exports wallpaper from the detail screen', async () => {
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
-        fireEvent.press(screen.getByText('SET AS WALLPAPER'));
+        fireEvent.press(screen.getByText('ANCHOR OPTIONS'));
+        fireEvent.press(screen.getByText('Set as Wallpaper'));
         await waitFor(() => {
             expect(mockCaptureRef).toHaveBeenCalled();
             expect(mockSavePngToPhotoLibrary).toHaveBeenCalledWith(

@@ -28,6 +28,7 @@ import { Home, Zap, Compass } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
+  ReduceMotion,
   useSharedValue,
   useAnimatedStyle,
   withSpring,
@@ -54,10 +55,12 @@ import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import type { RootStackParamList } from '@/types';
 import type { RootNavigatorParamList } from './RootNavigator';
 
-// ─── Floating Glass Capsule Tab Bar ──────────────────────────────────────────
+// ─── Floating Smoked Obsidian Capsule Tab Bar ─────────────────────────────────
 
-export const ACTIVE_COLOR = '#E8E8E8';
-export const INACTIVE_COLOR = 'rgba(192, 192, 192, 0.45)';
+export const ACTIVE_COLOR = '#EDE5D6';
+export const INACTIVE_ICON_COLOR = '#888681';
+export const INACTIVE_LABEL_COLOR = '#8F8B83';
+export const INACTIVE_COLOR = '#888681';
 export const TAB_ICON_SIZE = 22;
 export const TAB_ICON_STROKE_WIDTH = 1.5;
 
@@ -67,7 +70,7 @@ export const TABS = [
     label: 'SANCTUARY',
     icon: (active: boolean) => (
       <Home
-        color={active ? ACTIVE_COLOR : INACTIVE_COLOR}
+        color={active ? ACTIVE_COLOR : INACTIVE_ICON_COLOR}
         size={TAB_ICON_SIZE}
         strokeWidth={TAB_ICON_STROKE_WIDTH}
         fill="none"
@@ -80,7 +83,7 @@ export const TABS = [
     label: 'PRACTICE',
     icon: (active: boolean) => (
       <Zap
-        color={active ? ACTIVE_COLOR : INACTIVE_COLOR}
+        color={active ? ACTIVE_COLOR : INACTIVE_ICON_COLOR}
         size={TAB_ICON_SIZE}
         strokeWidth={TAB_ICON_STROKE_WIDTH}
         fill="none"
@@ -93,7 +96,7 @@ export const TABS = [
     label: 'CHART',
     icon: (active: boolean) => (
       <Compass
-        color={active ? ACTIVE_COLOR : INACTIVE_COLOR}
+        color={active ? ACTIVE_COLOR : INACTIVE_ICON_COLOR}
         size={TAB_ICON_SIZE}
         strokeWidth={TAB_ICON_STROKE_WIDTH}
         fill="none"
@@ -140,11 +143,14 @@ export const CustomTabBar: React.FC<CustomTabBarProps> = ({
       if (reduceMotionEnabled) {
         pillX.value = targetX;
       } else {
-        pillX.value = withSpring(targetX, {
-          damping: 18,
-          stiffness: 150,
-          mass: 0.8,
-        });
+        // reduceMotionEnabled above is the single reduce-motion gate here, so
+        // opt out of Reanimated's implicit ReduceMotion.System — otherwise
+        // Android devices with "Remove animations" (or animator scale 0)
+        // silently cancel the spring and the pill snaps instead of sliding.
+        pillX.value = withSpring(
+          targetX,
+          { damping: 20, stiffness: 170, mass: 0.7, reduceMotion: ReduceMotion.Never },
+        );
       }
     }
   }, [activeIndex, barWidth, reduceMotionEnabled, pillX, pillWidth]);
@@ -162,15 +168,14 @@ export const CustomTabBar: React.FC<CustomTabBarProps> = ({
       if (reduceMotionEnabled) {
         pillX.value = targetX;
       } else {
-        pillX.value = withSpring(targetX, {
-          damping: 18,
-          stiffness: 150,
-          mass: 0.8,
-        });
+        pillX.value = withSpring(
+          targetX,
+          { damping: 20, stiffness: 170, mass: 0.7, reduceMotion: ReduceMotion.Never },
+        );
       }
     }
 
-    const delay = reduceMotionEnabled ? 0 : 460;
+    const delay = reduceMotionEnabled ? 0 : 300;
     if (delay > 0) {
       if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current);
       navTimeoutRef.current = setTimeout(() => {
@@ -200,14 +205,14 @@ export const CustomTabBar: React.FC<CustomTabBarProps> = ({
     >
       <BlurView intensity={26} tint="dark" style={StyleSheet.absoluteFillObject} />
       <LinearGradient
-        colors={['rgba(255, 255, 255, 0.09)', 'rgba(255, 255, 255, 0.02)', 'rgba(0, 0, 0, 0.06)']}
+        colors={['rgba(255, 245, 220, 0.08)', 'rgba(255, 245, 220, 0.02)', 'rgba(0, 0, 0, 0.10)']}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={StyleSheet.absoluteFillObject}
       />
       <View style={styles.capsuleBorder} pointerEvents="none" />
 
-      {/* Animated Sliding Silver Pill */}
+      {/* Animated Sliding Illuminated Warm Ivory Pill */}
       {barWidth > 0 && (
         <Animated.View
           style={[styles.pillContainer, animatedPillStyle]}
@@ -215,7 +220,7 @@ export const CustomTabBar: React.FC<CustomTabBarProps> = ({
           testID={`tab-indicator-${TABS[activeIndex]?.label.toLowerCase()}`}
         >
           <LinearGradient
-            colors={['rgba(255, 255, 255, 0.32)', 'rgba(255, 255, 255, 0.05)', 'rgba(192, 192, 192, 0.14)']}
+            colors={['rgba(255, 245, 220, 0.16)', 'rgba(224, 211, 185, 0.06)', 'rgba(224, 211, 185, 0.10)']}
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
             style={StyleSheet.absoluteFillObject}
@@ -228,7 +233,7 @@ export const CustomTabBar: React.FC<CustomTabBarProps> = ({
       <View style={styles.tabsRow}>
         {TABS.map((tab) => {
           const isActive = activeIndex === tab.index;
-          const color = isActive ? ACTIVE_COLOR : INACTIVE_COLOR;
+          const labelColor = isActive ? ACTIVE_COLOR : INACTIVE_LABEL_COLOR;
           return (
             <Pressable
               key={tab.index}
@@ -240,11 +245,14 @@ export const CustomTabBar: React.FC<CustomTabBarProps> = ({
               style={styles.tabButton}
             >
               <View style={[styles.tabContent, isActive && styles.tabContentActive]}>
-                <View style={styles.iconWrap}>{tab.icon(isActive)}</View>
+                <View style={styles.iconWrap}>
+                  {isActive && <View style={styles.activeIconHalo} pointerEvents="none" />}
+                  {tab.icon(isActive)}
+                </View>
                 <Text
                   style={[
                     styles.tabLabel,
-                    { color },
+                    { color: labelColor },
                   ]}
                   numberOfLines={1}
                 >
@@ -443,7 +451,7 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     overflow: 'hidden',
     zIndex: 50,
-    backgroundColor: 'rgba(16, 21, 27, 0.5)',
+    backgroundColor: 'rgba(20, 21, 20, 0.90)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 18 },
     shadowOpacity: 0.55,
@@ -454,7 +462,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     borderRadius: 32,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
+    borderColor: 'rgba(222, 191, 125, 0.18)',
   },
   pillContainer: {
     position: 'absolute',
@@ -462,17 +470,17 @@ const styles = StyleSheet.create({
     bottom: 6,
     borderRadius: 999,
     overflow: 'hidden',
-    shadowColor: '#C0C0C0',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowColor: '#DEBF7D',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 2,
   },
   pillBorder: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.32)',
+    borderColor: 'rgba(239, 211, 150, 0.28)',
   },
   tabsRow: {
     flex: 1,
@@ -502,6 +510,13 @@ const styles = StyleSheet.create({
     height: 24,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  activeIconHalo: {
+    position: 'absolute',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(222, 191, 125, 0.09)',
   },
   tabLabel: {
     fontFamily: typography.fontFamily.ritual || 'Cinzel-Regular',

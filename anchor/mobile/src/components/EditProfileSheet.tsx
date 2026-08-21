@@ -17,7 +17,7 @@ import { requireOptionalNativeModule } from 'expo-modules-core';
 import { Check, ChevronDown, X } from 'lucide-react-native';
 import { colors, spacing, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
-import { detectTimezoneLabel, TIMEZONE_OPTIONS, type ProfileMono, type StoredProfile } from '@/stores/profileStore';
+import { detectTimezoneLabel, EMPTY_AXIOM, TIMEZONE_OPTIONS, type ProfileMono, type StoredProfile } from '@/stores/profileStore';
 import { PROFILE_AVATAR_SLOTS, ProfileAvatar, ProfileAvatarMarkCell } from '@/components/profile/ProfileAvatar';
 import { getAvatarByIndex } from '@/utils/avatarUtils';
 import { logger } from '@/utils/logger';
@@ -230,7 +230,7 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                   <Text style={styles.previewEyebrow}>YOUR SIGNAL</Text>
                   <Text style={styles.previewName}>{displayName}</Text>
                   <Text style={styles.previewAxiom} numberOfLines={2}>
-                    {axiom.trim() || 'A quiet place to return to.'}
+                    {axiom.trim() || EMPTY_AXIOM}
                   </Text>
                   <Text style={styles.previewMeta}>This is how you appear in Anchor.</Text>
                 </View>
@@ -287,7 +287,6 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
               </View>
 
               <View style={[styles.axiomPanel, focusedField === 'axiom' ? styles.axiomPanelFocused : null]}>
-                <Text style={styles.quoteMark}>“</Text>
                 <View style={styles.axiomControl}>
                   <TextInput
                     value={axiom}
@@ -319,7 +318,7 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
               <View style={styles.markPanel}>
                 <View style={styles.markPanelHeader}>
                   <Text style={styles.markPanelLabel}>PLACEHOLDER AVATAR</Text>
-                  <Text style={styles.markPanelValue}>{mono === 'initial' ? 'INITIAL' : 'SIGIL'}</Text>
+                  <Text style={styles.markPanelValue}>{mono === 'initial' ? 'INITIAL' : 'MARK'}</Text>
                 </View>
                 <View style={styles.markGrid}>
                   <ProfileAvatarMarkCell
@@ -354,7 +353,7 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
               <View style={styles.timezonePanel}>
                 <View style={styles.timezoneLabelGroup}>
                   <Text style={styles.inputLabel}>TIMEZONE</Text>
-                  <Text style={styles.timezoneHint}>Used for streak accuracy</Text>
+                  <Text style={styles.timezoneHint}>Used to keep your practice aligned</Text>
                 </View>
                 <Pressable
                   onPress={() => setTimezoneOpen((value) => !value)}
@@ -617,12 +616,6 @@ const styles = StyleSheet.create({
   axiomPanelFocused: {
     borderColor: colors.anchor15.goldLine,
   },
-  quoteMark: {
-    fontFamily: typography.fontFamily.voice,
-    fontSize: 28,
-    lineHeight: 30,
-    color: colors.anchor15.gilt,
-  },
   axiomControl: {
     flex: 1,
     minWidth: 0,
@@ -689,7 +682,9 @@ const styles = StyleSheet.create({
     minHeight: 52,
     paddingHorizontal: 18,
     borderRadius: 4,
-    backgroundColor: colors.anchor15.gilt,
+    borderWidth: 1,
+    borderColor: colors.anchor15.goldLine,
+    backgroundColor: colors.anchor15.ink,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -701,12 +696,12 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.instrumentSemiBold,
     fontSize: 11,
     letterSpacing: 1.5,
-    color: colors.anchor15.ink,
+    color: colors.anchor15.bone,
   },
   saveButtonArrow: {
     fontFamily: typography.fontFamily.instrument,
     fontSize: 21,
-    color: colors.anchor15.ink,
+    color: colors.anchor15.gilt,
   },
   input: {
     flex: 1,

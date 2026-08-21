@@ -29,7 +29,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Info,
-  MoreHorizontal,
   Share2,
   X,
 } from 'lucide-react-native';
@@ -505,14 +504,6 @@ const AnchorDetailEditorialPage = (props: any) => {
           <ChevronLeft size={19} color={colors.anchor15.giltBright} strokeWidth={1.45} />
           <Text style={editorial.backLabel}>Sanctuary</Text>
         </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Anchor options"
-          onPress={onOpenOptions}
-          style={({ pressed }) => [editorial.headerControl, editorial.optionsControl, pressed && editorial.pressed]}
-        >
-          <MoreHorizontal size={21} color={colors.anchor15.ash} strokeWidth={1.45} />
-        </Pressable>
       </View>
 
       {!hasAnchor ? (
@@ -673,23 +664,12 @@ const AnchorDetailEditorialPage = (props: any) => {
             <View style={editorial.utilitySection}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Share Anchor"
-                onPress={onOpenShareSheet}
+                accessibilityLabel="Anchor options"
+                onPress={onOpenOptions}
                 style={({ pressed }) => [editorial.utilityRow, pressed && editorial.pressed]}
-                testID="anchor-detail-share-button"
+                testID="anchor-detail-options-button"
               >
-                <Text style={editorial.utilityText}>SHARE ANCHOR</Text>
-                <ChevronRight size={17} color={colors.anchor15.ash} strokeWidth={1.4} />
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Set Anchor as wallpaper"
-                onPress={onSetWallpaper}
-                disabled={isExporting}
-                style={({ pressed }) => [editorial.utilityRow, (pressed || isExporting) && editorial.pressed]}
-                testID="anchor-detail-set-wallpaper-button"
-              >
-                <Text style={editorial.utilityText}>{isExporting ? 'OPENING WALLPAPER…' : 'SET AS WALLPAPER'}</Text>
+                <Text style={editorial.utilityText}>ANCHOR OPTIONS</Text>
                 <ChevronRight size={17} color={colors.anchor15.ash} strokeWidth={1.4} />
               </Pressable>
             </View>
@@ -850,11 +830,11 @@ const AnchorDetailEditorialPage = (props: any) => {
       </EditorialSheet>
 
       <EditorialSheet visible={showOptions} title="Anchor options" onClose={onCloseOptions} reduceMotionEnabled={reduceMotionEnabled}>
-        <Pressable accessibilityRole="button" onPress={() => { onCloseOptions(); onShare(); }} style={editorial.optionRow}>
+        <Pressable accessibilityRole="button" onPress={() => { onCloseOptions(); onOpenShareSheet(); }} style={editorial.optionRow} testID="anchor-detail-share-button">
           <Text style={editorial.optionText}>Share Anchor</Text>
           <ChevronRight size={17} color={colors.anchor15.ash} />
         </Pressable>
-        <Pressable accessibilityRole="button" onPress={() => { onCloseOptions(); onSetWallpaper(); }} style={editorial.optionRow}>
+        <Pressable accessibilityRole="button" onPress={() => { onCloseOptions(); onSetWallpaper(); }} style={editorial.optionRow} testID="anchor-detail-set-wallpaper-button">
           <Text style={editorial.optionText}>Set as Wallpaper</Text>
           <ChevronRight size={17} color={colors.anchor15.ash} />
         </Pressable>
@@ -1336,7 +1316,6 @@ const editorial = StyleSheet.create({
   headerControl: { minHeight: 44, minWidth: 44, justifyContent: 'center', alignItems: 'center' },
   backControl: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', paddingRight: 12 },
   backLabel: { color: colors.anchor15.bone, fontFamily: typography.fontFamily.instrument, fontSize: 13, marginLeft: 1 },
-  optionsControl: { alignItems: 'flex-end', paddingRight: 4 },
   statusWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 34 },
   statusRule: { width: 44, height: StyleSheet.hairlineWidth, backgroundColor: colors.anchor15.gilt, marginBottom: 22 },
   statusTitle: { color: colors.anchor15.bone, fontFamily: typography.fontFamily.voice, fontSize: 26, lineHeight: 31, textAlign: 'center' },

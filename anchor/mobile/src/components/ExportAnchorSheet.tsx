@@ -2,15 +2,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Modal,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   Easing,
@@ -21,6 +17,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { X } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { safeHaptics } from '@/utils/haptics';
 import { colors, spacing, typography } from '@/theme';
@@ -140,56 +137,45 @@ export function ExportAnchorSheet({ isVisible, onClose, sigilSvg, sigilUri, inte
             onPress={onClose}
             accessibilityRole="button"
             accessibilityLabel="Close export sheet"
-          >
-            {Platform.OS === 'ios' ? (
-              <BlurView intensity={28} tint="dark" style={StyleSheet.absoluteFill} />
-            ) : (
-              <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(8,10,14,0.88)' }]} />
-            )}
-          </AnimatedPressable>
+          />
 
           <Animated.View
             style={[styles.sheet, sheetStyle, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}
             accessibilityViewIsModal
           >
-            {/* Sheet background */}
-            {Platform.OS === 'ios' ? (
-              <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
-            ) : (
-              <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(12,17,24,0.96)' }]} />
-            )}
-            <LinearGradient
-              colors={['rgba(212,175,55,0.14)', 'rgba(212,175,55,0.04)', 'rgba(212,175,55,0.01)']}
-              start={{ x: 0.2, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-              pointerEvents="none"
-            />
-
             {/* Handle */}
             <View style={styles.handle} />
 
             {/* Header */}
-            <Text style={styles.title}>EXPORT ANCHOR</Text>
-            <Text style={styles.subtitle}>Save your primed symbol</Text>
+            <View style={styles.header}>
+              <Text style={styles.title}>Export Anchor</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+                onPress={onClose}
+                style={styles.closeButton}
+              >
+                <X size={18} color={colors.anchor15.ash} strokeWidth={1.5} />
+              </Pressable>
+            </View>
+            <Text style={styles.subtitle}>Save your primed symbol.</Text>
 
             {/* Format pills */}
             <Text style={styles.sectionLabel}>FORMAT</Text>
             <View style={styles.pillRow}>
               {FORMAT_PILLS.map(({ key, label, sub }) => (
-                <TouchableOpacity
+                <Pressable
                   key={key}
                   style={[styles.pill, format === key && styles.pillActive]}
                   onPress={() => selectFormat(key)}
-                  activeOpacity={0.8}
                   accessibilityRole="radio"
                   accessibilityState={{ selected: format === key }}
                 >
                   <Text style={[styles.pillLabel, format === key && styles.pillLabelActive]}>
                     {label}
                   </Text>
-                  <Text style={styles.pillSub}>{sub}</Text>
-                </TouchableOpacity>
+                  <Text style={[styles.pillSub, format === key && styles.pillSubActive]}>{sub}</Text>
+                </Pressable>
               ))}
             </View>
 
@@ -199,26 +185,27 @@ export function ExportAnchorSheet({ isVisible, onClose, sigilSvg, sigilUri, inte
               {(['standard', 'high'] as const).map((res) => {
                 const dim = EXPORT_DIMENSIONS[format][res];
                 return (
-                  <TouchableOpacity
+                  <Pressable
                     key={res}
                     style={[styles.resBtn, resolution === res && styles.resBtnActive]}
                     onPress={() => selectResolution(res)}
-                    activeOpacity={0.8}
                     accessibilityRole="radio"
                     accessibilityState={{ selected: resolution === res }}
                   >
-                    <Text style={[styles.resLabel, resolution === res && styles.resLabelActive]}>
-                      {res === 'standard' ? 'STANDARD' : 'HIGH-RES'}
-                    </Text>
+                    <View style={styles.resLabelRow}>
+                      <Text style={[styles.resLabel, resolution === res && styles.resLabelActive]}>
+                        {res === 'standard' ? 'STANDARD' : 'HIGH-RES'}
+                      </Text>
+                      {res === 'high' && (
+                        <View style={styles.resBadge}>
+                          <Text style={styles.resBadgeText}>3×</Text>
+                        </View>
+                      )}
+                    </View>
                     <Text style={styles.resDim}>
                       {dim.w} × {dim.h}
                     </Text>
-                    {res === 'high' && (
-                      <View style={styles.resBadge}>
-                        <Text style={styles.resBadgeText}>3×</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
+                  </Pressable>
                 );
               })}
             </View>
@@ -228,65 +215,55 @@ export function ExportAnchorSheet({ isVisible, onClose, sigilSvg, sigilUri, inte
 
             {/* Transparent background toggle */}
             <View style={styles.toggleRow}>
-              <View style={{ flex: 1, marginRight: spacing.md }}>
+              <View style={styles.toggleCopy}>
                 <Text style={styles.toggleLabel}>TRANSPARENT BACKGROUND</Text>
                 <Text style={styles.toggleSub}>PNG alpha channel preserved</Text>
               </View>
-              <TouchableOpacity
+              <Pressable
                 style={[styles.toggle, transparentBG && styles.toggleOn]}
                 onPress={toggleTransparent}
-                activeOpacity={0.8}
                 accessibilityRole="switch"
                 accessibilityState={{ checked: transparentBG }}
               >
                 <View style={[styles.toggleThumb, transparentBG && styles.toggleThumbOn]} />
-              </TouchableOpacity>
+              </Pressable>
             </View>
 
             {/* Include intention toggle */}
             {!!intention && (
               <>
                 <View style={styles.toggleRow}>
-                  <View style={{ flex: 1, marginRight: spacing.md }}>
+                  <View style={styles.toggleCopy}>
                     <Text style={styles.toggleLabel}>INCLUDE INTENTION</Text>
                     <Text style={styles.toggleSub}>Embed your words in the image</Text>
                   </View>
-                  <TouchableOpacity
+                  <Pressable
                     style={[styles.toggle, includeIntention && styles.toggleOn]}
                     onPress={toggleIncludeIntention}
-                    activeOpacity={0.8}
                     accessibilityRole="switch"
                     accessibilityState={{ checked: includeIntention }}
                   >
                     <View style={[styles.toggleThumb, includeIntention && styles.toggleThumbOn]} />
-                  </TouchableOpacity>
+                  </Pressable>
                 </View>
                 {includeIntention && (
-                  <Text style={styles.intentionPreview}>{intention}</Text>
+                  <Text style={styles.intentionPreview}>“{intention}”</Text>
                 )}
               </>
             )}
 
             {/* CTA */}
-            <TouchableOpacity
-              style={[styles.ctaWrapper, isLoading && styles.ctaDisabled]}
+            <Pressable
+              style={({ pressed }) => [styles.cta, (pressed || isLoading) && styles.ctaPressed]}
               onPress={handleExport}
               disabled={isLoading}
-              activeOpacity={0.85}
               accessibilityRole="button"
               accessibilityLabel="Save to Camera Roll"
             >
-              <LinearGradient
-                colors={['#b8920a', '#d4a820', '#c49a15']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.cta}
-              >
-                <Text style={styles.ctaText}>
-                  {isLoading ? 'SAVING...' : 'SAVE TO CAMERA ROLL'}
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
+              <Text style={styles.ctaText}>
+                {isLoading ? 'SAVING…' : 'SAVE TO CAMERA ROLL'}
+              </Text>
+            </Pressable>
 
             <Text style={styles.ctaNote}>PNG · {sizeLabel} · Saved to Photos</Text>
           </Animated.View>
@@ -324,132 +301,151 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   backdrop: {
-    backgroundColor: 'rgba(8,10,14,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.62)',
   },
   sheet: {
+    backgroundColor: colors.anchor15.veil,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    borderWidth: 1,
-    borderColor: colors.ritual.border,
-    overflow: 'hidden',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.anchor15.goldHairline,
+    paddingHorizontal: 22,
+    paddingTop: 6,
   },
   handle: {
-    width: 36,
+    width: 34,
     height: 3,
-    borderRadius: 2,
-    backgroundColor: 'rgba(212,175,55,0.3)',
+    borderRadius: 3,
+    backgroundColor: 'rgba(244,239,230,0.28)',
     alignSelf: 'center',
-    marginBottom: spacing.md + spacing.xs,
+    marginTop: 5,
+    marginBottom: spacing.md,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   title: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 13,
-    letterSpacing: 2.5,
-    color: colors.gold,
-    textAlign: 'center',
-    marginBottom: 4,
+    color: colors.anchor15.bone,
+    fontFamily: typography.fontFamily.voice,
+    fontSize: 21,
+    lineHeight: 26,
+  },
+  closeButton: {
+    width: 34,
+    height: 34,
+    marginRight: -6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   subtitle: {
-    fontFamily: typography.fonts.bodySerifItalic,
-    fontSize: 12,
-    color: colors.text.tertiary,
-    textAlign: 'center',
+    color: 'rgba(244,239,230,0.6)',
+    fontFamily: typography.fontFamily.voiceItalic,
+    fontSize: 14,
+    lineHeight: 19,
+    marginTop: 2,
     marginBottom: spacing.md,
   },
   sectionLabel: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 8,
+    color: 'rgba(242,223,168,0.78)',
+    fontFamily: typography.fontFamily.ritual,
+    fontSize: 9.5,
     letterSpacing: 2,
-    color: 'rgba(212,175,55,0.5)',
     textTransform: 'uppercase',
     marginBottom: spacing.sm,
   },
   pillRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: 8,
     marginBottom: spacing.md,
   },
   pill: {
     flex: 1,
-    paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.xs,
-    borderRadius: 10,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.18)',
-    backgroundColor: 'rgba(255,255,255,0.02)',
+    borderColor: 'rgba(217, 179, 108, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
     alignItems: 'center',
     gap: 3,
   },
   pillActive: {
-    borderColor: 'rgba(212,175,55,0.7)',
-    backgroundColor: 'rgba(212,175,55,0.08)',
+    borderColor: colors.anchor15.giltBright,
+    backgroundColor: 'rgba(217, 179, 108, 0.1)',
   },
   pillLabel: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 8.5,
-    letterSpacing: 1,
-    color: colors.text.primary,
+    color: 'rgba(244, 239, 230, 0.55)',
+    fontFamily: typography.fontFamily.ritualSemiBold,
+    fontSize: 9.5,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
   },
   pillLabelActive: {
-    color: colors.gold,
+    color: colors.anchor15.giltBright,
   },
   pillSub: {
-    fontFamily: typography.fonts.bodySerifItalic,
-    fontSize: 9,
-    color: 'rgba(192,192,192,0.45)',
+    color: 'rgba(244, 239, 230, 0.4)',
+    fontFamily: typography.fontFamily.voiceItalic,
+    fontSize: 10,
+  },
+  pillSubActive: {
+    color: 'rgba(217, 179, 108, 0.85)',
   },
   resRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: 8,
     marginBottom: spacing.md,
   },
   resBtn: {
     flex: 1,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.18)',
-    backgroundColor: 'rgba(255,255,255,0.02)',
-    alignItems: 'center',
+    borderColor: 'rgba(217, 179, 108, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    paddingVertical: 9,
+    paddingHorizontal: 10,
     gap: 2,
   },
   resBtnActive: {
-    borderColor: colors.gold,
-    backgroundColor: 'rgba(212,175,55,0.08)',
+    borderColor: colors.anchor15.giltBright,
+    backgroundColor: 'rgba(217, 179, 108, 0.1)',
+  },
+  resLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   resLabel: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 9,
+    color: 'rgba(244, 239, 230, 0.55)',
+    fontFamily: typography.fontFamily.ritualSemiBold,
+    fontSize: 9.5,
     letterSpacing: 1.2,
-    color: colors.text.primary,
   },
   resLabelActive: {
-    color: colors.gold,
+    color: colors.anchor15.giltBright,
   },
   resDim: {
-    fontFamily: typography.fonts.bodySerifItalic,
-    fontSize: 8.5,
-    color: 'rgba(192,192,192,0.4)',
+    color: 'rgba(244, 239, 230, 0.4)',
+    fontFamily: typography.fontFamily.voiceItalic,
+    fontSize: 10,
   },
   resBadge: {
-    backgroundColor: 'rgba(212,175,55,0.15)',
+    backgroundColor: 'rgba(217, 179, 108, 0.15)',
     borderRadius: 3,
     paddingHorizontal: 4,
     paddingVertical: 1,
-    marginTop: 2,
   },
   resBadgeText: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 7,
+    color: colors.anchor15.giltBright,
+    fontFamily: typography.fontFamily.ritualSemiBold,
+    fontSize: 8,
     letterSpacing: 0.5,
-    color: colors.gold,
   },
   divider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(212,175,55,0.14)',
+    backgroundColor: colors.anchor15.hairline,
     marginBottom: spacing.md,
   },
   toggleRow: {
@@ -457,74 +453,78 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.md,
   },
+  toggleCopy: {
+    flex: 1,
+    marginRight: spacing.md,
+  },
   toggleLabel: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 9,
+    color: colors.anchor15.bone,
+    fontFamily: typography.fontFamily.ritualSemiBold,
+    fontSize: 9.5,
     letterSpacing: 1.2,
-    color: colors.text.primary,
     marginBottom: 2,
   },
   toggleSub: {
-    fontFamily: typography.fonts.bodySerifItalic,
-    fontSize: 9,
-    color: 'rgba(192,192,192,0.4)',
+    color: 'rgba(244, 239, 230, 0.4)',
+    fontFamily: typography.fontFamily.voiceItalic,
+    fontSize: 11.5,
   },
   toggle: {
     width: 42,
     height: 24,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.3)',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: colors.anchor15.hairlineGold,
+    backgroundColor: 'rgba(255,255,255,0.04)',
     justifyContent: 'center',
     paddingHorizontal: 2,
   },
   toggleOn: {
-    backgroundColor: 'rgba(212,175,55,0.2)',
-    borderColor: colors.gold,
+    backgroundColor: 'rgba(217, 179, 108, 0.18)',
+    borderColor: colors.anchor15.giltBright,
   },
   toggleThumb: {
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: 'rgba(192,192,192,0.4)',
+    backgroundColor: 'rgba(244,239,230,0.32)',
   },
   toggleThumbOn: {
-    backgroundColor: colors.gold,
+    backgroundColor: colors.anchor15.giltBright,
     alignSelf: 'flex-end',
   },
   intentionPreview: {
-    fontFamily: typography.fonts.bodySerifItalic,
-    fontSize: 11,
-    color: 'rgba(212,175,55,0.6)',
+    color: 'rgba(217, 179, 108, 0.75)',
+    fontFamily: typography.fontFamily.voiceItalic,
+    fontSize: 13,
     textAlign: 'center',
-    letterSpacing: 0.4,
+    lineHeight: 18,
+    marginTop: -spacing.sm,
     marginBottom: spacing.md,
     paddingHorizontal: spacing.sm,
   },
-  ctaWrapper: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginBottom: spacing.sm,
-  },
-  ctaDisabled: {
-    opacity: 0.6,
-  },
   cta: {
+    backgroundColor: colors.anchor15.giltBright,
+    borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  ctaPressed: {
+    opacity: 0.8,
   },
   ctaText: {
-    fontFamily: typography.fonts.headingBold,
-    fontSize: 12,
-    letterSpacing: 2,
-    color: colors.navy,
+    color: '#10151A',
+    fontFamily: typography.fontFamily.ritualSemiBold,
+    fontSize: 11.5,
+    letterSpacing: 1.8,
+    textTransform: 'uppercase',
   },
   ctaNote: {
-    fontFamily: typography.fonts.bodySerifItalic,
-    fontSize: 9,
-    color: 'rgba(192,192,192,0.3)',
+    color: colors.anchor15.ash,
+    fontFamily: typography.fontFamily.instrument,
+    fontSize: 10.5,
     textAlign: 'center',
     marginBottom: spacing.xs,
   },

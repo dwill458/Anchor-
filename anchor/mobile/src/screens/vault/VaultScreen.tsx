@@ -221,7 +221,7 @@ export const VaultScreen: React.FC = () => {
   // bottom. Scroll content needs at least that much clearance plus a margin so
   // the anchor row isn't hidden behind it on devices with tall gesture insets.
   const tabBarClearance = 64 + Math.max(46, insets.bottom + 12) + 32;
-  const { registerTabNav, activeTabIndex, navigateToPractice } = useTabNavigation();
+  const { registerTabNav, activeTabIndex, navigateToPractice, navigateToVault } = useTabNavigation();
   const { startPractice } = usePracticeEntry();
   const isVaultTabActive = activeTabIndex == null ? true : activeTabIndex === 0;
 
@@ -270,6 +270,14 @@ export const VaultScreen: React.FC = () => {
       navigation.navigate('WeeklyReview');
     }
   }, [shouldShow, dismiss, navigation]);
+
+  const developerSaveProgressPreviewToken = useSettingsStore(
+    (state) => state.developerSaveProgressPreviewToken
+  );
+  const clearDeveloperSaveProgressPreview = useSettingsStore(
+    (state) => state.clearDeveloperSaveProgressPreview
+  );
+
   const [now, setNow] = useState(() => new Date());
   const [gridVisible, setGridVisible] = useState(false);
   const [nextAnchorCursor, setNextAnchorCursor] = useState<string | null>(null);
@@ -292,6 +300,23 @@ export const VaultScreen: React.FC = () => {
     }
     return autoPrimary;
   }, [currentAnchorId, sanctuaryAnchors, autoPrimary]);
+
+  useEffect(() => {
+    if (!developerSaveProgressPreviewToken) return;
+    clearDeveloperSaveProgressPreview();
+    const previewAnchor = primaryAnchor ?? anchors[0];
+    if (!previewAnchor) {
+      Alert.alert('No Anchor Available', 'Create an anchor first, then preview Save Progress here.');
+      return;
+    }
+    navigateToVault('SaveProgress', { anchor: previewAnchor, previewMode: true });
+  }, [
+    developerSaveProgressPreviewToken,
+    clearDeveloperSaveProgressPreview,
+    primaryAnchor,
+    anchors,
+    navigateToVault,
+  ]);
 
   useEffect(() => {
     const timer = setInterval(() => {

@@ -37,7 +37,6 @@ import { useAuthStore } from '@/stores/authStore';
 import type { ProfileStackParamList } from '@/navigation/ProfileStackNavigator';
 import { colors, typography } from '@/theme';
 import { logger } from '@/utils/logger';
-import { formatHapticFeedbackLabel } from './shared';
 
 const SHOW_DEVELOPER_TOOLS = __DEV__;
 const WEEKDAY_LABELS = [
@@ -598,9 +597,10 @@ export const SettingsScreen: React.FC = () => {
             />
             <SettingsRow
               title="Haptic Feedback"
-              value={formatHapticFeedbackLabel(settings.hapticFeedback)}
-              type="chevron"
-              onPress={() => navigation.navigate('HapticFeedback')}
+              subtitle="Vibration cues during Focus and Prime sessions."
+              type="toggle"
+              toggleValue={settings.hapticFeedback !== 'none'}
+              onToggle={(value) => void updateSetting('hapticFeedback', value ? 'strong' : 'none')}
               disabled={isLoading}
             />
             <SettingsRow

@@ -174,7 +174,7 @@ describe('CustomTabBar', () => {
 
     const flattenedStyle = StyleSheet.flatten(getByTestId('custom-tab-bar').props.style);
     expect(flattenedStyle).toMatchObject({
-      backgroundColor: 'rgba(16, 21, 27, 0.5)',
+      backgroundColor: 'rgba(20, 21, 20, 0.90)',
       height: 64,
       borderRadius: 32,
       position: 'absolute',
@@ -187,14 +187,14 @@ describe('CustomTabBar', () => {
     const { getByTestId } = render(<CustomTabBar activeIndex={0} onTabPress={jest.fn()} />);
 
     expect(parseIconProps(getByTestId('tab-icon-sanctuary'))).toMatchObject({
-      color: '#E8E8E8',
+      color: '#EDE5D6',
       size: 22,
       strokeWidth: 1.5,
       fill: 'none',
     });
 
     expect(parseIconProps(getByTestId('tab-icon-practice'))).toMatchObject({
-      color: 'rgba(192, 192, 192, 0.45)',
+      color: '#888681',
       size: 22,
       strokeWidth: 1.5,
       fill: 'none',

@@ -28,6 +28,8 @@ import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { ENABLE_GOOGLE_SIGN_IN } from '@/config';
 import { useAuthStore } from '../../stores/authStore';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
+import { useProfileStore } from '@/stores/profileStore';
 import { useSubscriptionStore } from '../../stores/subscriptionStore';
 import { AuthService } from '../../services/AuthService';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
@@ -44,19 +46,23 @@ import type {
 type AuthTab = AuthScreenInitialTab;
 type FocusedField = 'name' | 'email' | 'password' | 'confirmPassword' | null;
 
-type LoginScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Login'>;
+// Also used as the component behind the 'SignUp' route (see SignUpScreen.tsx),
+// which shares this single Anchor 1.5 auth implementation instead of a second one.
+type LoginScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Login' | 'SignUp'>;
 
 interface LoginScreenProps {
   navigation: LoginScreenNavigationProp;
   route?: { params?: AuthScreenParams };
 }
 
-const ANCHOR_GOLD = require('../../assets/images/anchor-logo-official.png');
+const ANCHOR_GOLD = require('../../assets/images/anchor-gold.png');
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) => {
   const initialTab = route?.params?.initialTab ?? 'signin';
   const [tab, setTab] = useState<AuthTab>(initialTab);
-  const [name, setName] = useState('');
+  const [name, setName] = useState(
+    () => useFirstAnchorFlowStore.getState().draft?.onboardingName ?? ''
+  );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -212,6 +218,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
       preserveCompletedOnboarding: shouldCompleteOnboardingAfterAuth,
       launchTrialPurchase: false,
     });
+
+    // The onboarding name is private device state until the user explicitly
+    // creates an account. Keep the confirmed value in the local profile; do
+    // not invent a new backend field for it.
+    if (!isSignIn && context === 'save_progress' && name.trim()) {
+      useProfileStore.getState().updateProfile({ name: name.trim() });
+    }
 
     const shouldRouteThroughFirstAnchorGate = Boolean(
       useAuthStore.getState().pendingFirstAnchorDraft
@@ -558,7 +571,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
                 <Image
                   source={ANCHOR_GOLD}
                   style={auth15.logoImage}
-                  resizeMode="cover"
+                  resizeMode="contain"
                   accessible
                   accessibilityLabel="Anchor"
                 />
@@ -696,492 +709,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
       </SafeAreaView>
     </LinearGradient>
   );
-
-  return (
-    <LinearGradient
-      colors={['#3E2C5B', '#1a1230', '#080C10']}
-      locations={[0, 0.3, 1]}
-      start={{ x: 0.5, y: 0 }}
-      end={{ x: 0.5, y: 1 }}
-      style={styles.container}
-    >
-      <SafeAreaView style={styles.safeArea}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardAvoid}
-        >
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-              <Animated.View style={[styles.logoWrap, { transform: [{ translateY: floatAnim }] }]}>
-                <Animated.View style={[styles.logoGlow, { opacity: glowAnim }]} />
-                <Animated.View style={[styles.logoGlowOuter, { opacity: glowAnim }]} />
-                <Image
-                  source={ANCHOR_GOLD}
-                  style={styles.logoImage}
-                  resizeMode="contain"
-                  accessible
-                  accessibilityLabel="Anchor logo"
-                />
-              </Animated.View>
-
-              <Text style={styles.wordmark}>ANCHOR</Text>
-              <Text style={styles.subtitle}>Transform intentions into power</Text>
-
-              <View style={styles.card}>
-                <View style={styles.tabRow}>
-                  <TouchableOpacity
-                    activeOpacity={0.9}
-                    onPress={() => {
-                      resetError();
-                      setTab('signin');
-                    }}
-                    style={styles.tabButton}
-                  >
-                    {isSignIn ? (
-                      <LinearGradient
-                        colors={['#D4AF37', '#8B6914']}
-                        start={{ x: 0, y: 0.5 }}
-                        end={{ x: 1, y: 0.5 }}
-                        style={styles.activeTab}
-                      >
-                        <Text style={styles.activeTabText}>SIGN IN</Text>
-                      </LinearGradient>
-                    ) : (
-                      <View style={styles.inactiveTab}>
-                        <Text style={styles.inactiveTabText}>SIGN IN</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    activeOpacity={0.9}
-                    onPress={() => {
-                      resetError();
-                      setTab('signup');
-                    }}
-                    style={styles.tabButton}
-                  >
-                    {!isSignIn ? (
-                      <LinearGradient
-                        colors={['#D4AF37', '#8B6914']}
-                        start={{ x: 0, y: 0.5 }}
-                        end={{ x: 1, y: 0.5 }}
-                        style={styles.activeTab}
-                      >
-                        <Text style={styles.activeTabText}>SIGN UP</Text>
-                      </LinearGradient>
-                    ) : (
-                      <View style={styles.inactiveTab}>
-                        <Text style={styles.inactiveTabText}>SIGN UP</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.ssoRow}>
-                  {isAppleAvailable ? (
-                    <View style={styles.ssoButtonWrap}>
-                      <AppleAuthentication.AppleAuthenticationButton
-                        buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
-                        buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                        cornerRadius={11}
-                        style={styles.appleButton}
-                        onPress={() => {
-                          void handleAppleSignIn();
-                        }}
-                      />
-                    </View>
-                  ) : null}
-
-                  {showGoogleSignIn ? (
-                    <View style={styles.ssoButtonWrap}>
-                      <TouchableOpacity
-                        style={[styles.googleButton, loading ? styles.ssoButtonDisabled : null]}
-                        onPress={() => void handleGoogleSignIn()}
-                        disabled={loading}
-                        activeOpacity={0.85}
-                      >
-                        <View style={styles.googleBadge}>
-                          <Text style={styles.googleBadgeText}>G</Text>
-                        </View>
-                        <Text style={styles.googleButtonText}>Continue with Google</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : null}
-                </View>
-
-                <View style={styles.dividerRow}>
-                  <View style={styles.dividerLine} />
-                  <Text style={styles.dividerText}>
-                    {isAppleAvailable || showGoogleSignIn ? 'or continue with email' : 'continue with email'}
-                  </Text>
-                  <View style={styles.dividerLine} />
-                </View>
-
-                {!isSignIn
-                  ? renderField('name', 'NAME (OPTIONAL)', name, setName, {
-                    autoCapitalize: 'words',
-                    placeholder: 'What should we call you?',
-                  })
-                  : null}
-
-                {renderField('email', 'EMAIL', email, setEmail, {
-                  keyboardType: 'email-address',
-                  placeholder: 'you@example.com',
-                })}
-
-                {renderField('password', 'PASSWORD', password, setPassword, {
-                  placeholder: 'At least 8 characters',
-                  secureTextEntry: true,
-                  showToggle: true,
-                  shown: showPassword,
-                  onToggle: () => setShowPassword((current) => !current),
-                })}
-
-                {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-                {isSignIn ? (
-                  <TouchableOpacity
-                    onPress={() => {
-                      void handleForgotPassword();
-                    }}
-                    disabled={loading}
-                    style={styles.forgotPasswordButton}
-                  >
-                    <Text style={styles.forgotPasswordText}>Forgot password?</Text>
-                  </TouchableOpacity>
-                ) : null}
-
-                <TouchableOpacity style={styles.ctaButton} onPress={handleSubmit} disabled={loading}>
-                  <LinearGradient
-                    colors={['#D4AF37', '#B8962E', '#8B6914']}
-                    start={{ x: 0, y: 0.5 }}
-                    end={{ x: 1, y: 0.5 }}
-                    style={styles.ctaGradient}
-                  >
-                    {loading ? (
-                      <ActivityIndicator color="#080C10" />
-                    ) : (
-                      <Text style={styles.ctaText}>{ctaCopy}</Text>
-                    )}
-                  </LinearGradient>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => {
-                    resetError();
-                    setTab(isSignIn ? 'signup' : 'signin');
-                  }}
-                  disabled={loading}
-                  style={styles.switchLinkButton}
-                >
-                  {isSignIn ? (
-                    <Text style={styles.switchLinkText}>
-                      New to Anchor? <Text style={styles.switchLinkAccent}>Begin your practice</Text>
-                    </Text>
-                  ) : (
-                    <Text style={styles.switchLinkText}>
-                      Already forged? <Text style={styles.switchLinkAccent}>Sign in</Text>
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-
-              <Text style={styles.trialText}>7-DAY FREE TRIAL · NO CARD REQUIRED</Text>
-            </Animated.View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </LinearGradient>
-  );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  keyboardAvoid: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 28,
-  },
-  content: {
-    alignSelf: 'center',
-    width: '100%',
-    maxWidth: 380,
-  },
-  logoWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  logoGlow: {
-    position: 'absolute',
-    width: 86,
-    height: 86,
-    borderRadius: 43,
-    borderWidth: 2,
-    borderColor: 'rgba(212,175,55,0.75)',
-    backgroundColor: 'transparent',
-    shadowColor: '#D4AF37',
-    shadowOpacity: 0.55,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 10,
-  },
-  logoGlowOuter: {
-    position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.28)',
-    backgroundColor: 'transparent',
-    shadowColor: '#D4AF37',
-    shadowOpacity: 0.22,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 6,
-  },
-  logoImage: {
-    width: 110,
-    height: 110,
-  },
-  wordmark: {
-    textAlign: 'center',
-    fontFamily: typography.fonts.headingBold,
-    fontSize: 32,
-    letterSpacing: 8,
-    color: '#D4AF37',
-    textShadowColor: 'rgba(212,175,55,0.4)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 20,
-    marginBottom: 4,
-  },
-  subtitle: {
-    textAlign: 'center',
-    fontFamily: typography.fonts.bodySerifItalic,
-    fontSize: 14,
-    letterSpacing: 2,
-    color: 'rgba(245,245,220,0.45)',
-    marginBottom: 28,
-  },
-  card: {
-    width: '100%',
-    maxWidth: 380,
-    alignSelf: 'center',
-    backgroundColor: 'rgba(15,20,25,0.82)',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.2)',
-    padding: 28,
-  },
-  tabRow: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(8,12,16,0.6)',
-    borderRadius: 10,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.1)',
-    marginBottom: 28,
-  },
-  tabButton: {
-    flex: 1,
-  },
-  activeTab: {
-    borderRadius: 7,
-    minHeight: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  inactiveTab: {
-    borderRadius: 7,
-    minHeight: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  activeTabText: {
-    fontFamily: typography.fonts.headingSemiBold,
-    fontSize: 11,
-    letterSpacing: 1.5,
-    color: '#080C10',
-  },
-  inactiveTabText: {
-    fontFamily: typography.fonts.headingSemiBold,
-    fontSize: 11,
-    letterSpacing: 1.5,
-    color: 'rgba(245,245,220,0.45)',
-  },
-  ssoRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  ssoButtonWrap: {
-    flex: 1,
-    minHeight: 48,
-  },
-  appleButton: {
-    width: '100%',
-    height: 48,
-  },
-  googleButton: {
-    width: '100%',
-    height: 48,
-    borderRadius: 11,
-    backgroundColor: '#FFFFFF',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    gap: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(8,12,16,0.08)',
-  },
-  googleBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  googleBadgeText: {
-    color: '#4285F4',
-    fontFamily: typography.fonts.headingBold,
-    fontSize: 18,
-    lineHeight: 20,
-  },
-  googleButtonText: {
-    flex: 1,
-    color: '#1F1F1F',
-    fontFamily: typography.fonts.body,
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  ssoButtonDisabled: {
-    opacity: 0.65,
-  },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginVertical: 22,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: 'rgba(212,175,55,0.2)',
-  },
-  dividerText: {
-    fontFamily: typography.fonts.bodySerif,
-    fontSize: 12,
-    letterSpacing: 2,
-    color: 'rgba(245,245,220,0.2)',
-  },
-  inputGroup: {
-    marginBottom: 18,
-  },
-  fieldLabel: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 10,
-    letterSpacing: 2,
-    color: 'rgba(212,175,55,0.7)',
-    marginBottom: 7,
-  },
-  input: {
-    backgroundColor: 'rgba(8,12,16,0.7)',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.18)',
-    paddingVertical: 13,
-    paddingHorizontal: 16,
-    color: '#F5F5DC',
-    fontFamily: typography.fonts.bodySerif,
-    fontSize: 15,
-  },
-  inputWithToggle: {
-    paddingRight: 62,
-  },
-  inputFocused: {
-    borderColor: 'rgba(212,175,55,0.55)',
-  },
-  toggleButton: {
-    position: 'absolute',
-    right: 14,
-    top: 0,
-    bottom: 0,
-    justifyContent: 'center',
-  },
-  toggleButtonText: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 10,
-    letterSpacing: 1,
-    color: '#D4AF37',
-  },
-  errorText: {
-    color: colors.error,
-    textAlign: 'center',
-    marginBottom: 12,
-    fontFamily: typography.fonts.body,
-  },
-  forgotPasswordButton: {
-    alignSelf: 'flex-end',
-    marginBottom: 16,
-  },
-  forgotPasswordText: {
-    textAlign: 'right',
-    color: '#D4AF37',
-    fontFamily: typography.fonts.bodySerifItalic,
-    fontSize: 12,
-  },
-  ctaButton: {
-    borderRadius: 11,
-    overflow: 'hidden',
-  },
-  ctaGradient: {
-    paddingVertical: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 52,
-  },
-  ctaText: {
-    fontFamily: typography.fonts.headingBold,
-    fontSize: 11,
-    letterSpacing: 3,
-    color: '#080C10',
-  },
-  switchLinkButton: {
-    marginTop: 18,
-  },
-  switchLinkText: {
-    textAlign: 'center',
-    color: 'rgba(245,245,220,0.35)',
-    fontFamily: typography.fonts.bodySerif,
-    fontSize: 13,
-  },
-  switchLinkAccent: {
-    color: '#D4AF37',
-    fontFamily: typography.fonts.bodySerifItalic,
-  },
-  trialText: {
-    marginTop: 20,
-    textAlign: 'center',
-    fontFamily: typography.fonts.heading,
-    fontSize: 11,
-    letterSpacing: 1.5,
-    color: 'rgba(245,245,220,0.25)',
-  },
-});
 
 const auth15 = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.anchor15.ink },
@@ -1195,10 +723,10 @@ const auth15 = StyleSheet.create({
   vignette: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.08)' },
   scrollContent: { flexGrow: 1, alignItems: 'center', paddingHorizontal: 26, paddingTop: 31, paddingBottom: 40 },
   content: { width: '100%', maxWidth: 340, alignItems: 'center' },
-  logoWrap: { width: 72, height: 72, alignItems: 'center', justifyContent: 'center' },
+  logoWrap: { width: 76, height: 76, alignItems: 'center', justifyContent: 'center' },
   logoHalo: { position: 'absolute', width: 112, height: 112, borderRadius: 56, backgroundColor: 'rgba(217,179,108,0.18)' },
   logoRing: { position: 'absolute', width: 92, height: 92, borderRadius: 46, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(217,179,108,0.22)' },
-  logoImage: { width: 72, height: 72, borderRadius: 18, borderWidth: 1, borderColor: 'rgba(217,179,108,0.24)', shadowColor: '#000000', shadowOpacity: 0.45, shadowRadius: 13, shadowOffset: { width: 0, height: 8 }, elevation: 4 },
+  logoImage: { width: 72, height: 72 },
   wordmark: { color: colors.anchor15.gilt, fontFamily: typography.fontFamily.ritualSemiBold, fontSize: 26, letterSpacing: 5.7, marginLeft: 5.7, marginTop: 18, textShadowColor: 'rgba(217,179,108,0.25)', textShadowRadius: 18 },
   descriptor: { color: 'rgba(244,239,230,0.48)', fontFamily: typography.fontFamily.mono, fontSize: 9, letterSpacing: 2.8, marginTop: 6 },
   subline: { maxWidth: 270, color: 'rgba(244,239,230,0.72)', fontFamily: typography.fontFamily.voiceItalic, fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 12 },

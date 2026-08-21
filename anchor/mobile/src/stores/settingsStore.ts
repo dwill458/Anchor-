@@ -361,6 +361,7 @@ const withDeveloperSettingsDefaults = (
     developerDeleteWithoutBurnEnabled: persistedState?.developerDeleteWithoutBurnEnabled ?? false,
     developerMasterAccountEnabled: persistedState?.developerMasterAccountEnabled ?? false,
     developerWeeklySummaryPreviewToken: 0,
+    developerSaveProgressPreviewToken: 0,
     debugLoggingEnabled:
       persistedState?.debugLoggingEnabled ?? getDefaultDebugLoggingEnabled(),
     analyticsEnabled: persistedState?.analyticsEnabled ?? true,
@@ -427,6 +428,7 @@ export interface SettingsState {
   developerForceStreakBreakEnabled: boolean;
   developerDeleteWithoutBurnEnabled: boolean;
   developerWeeklySummaryPreviewToken: number;
+  developerSaveProgressPreviewToken: number;
   debugLoggingEnabled: boolean;
   analyticsEnabled: boolean;
   traceDefaultEnabled: boolean;
@@ -501,6 +503,8 @@ export interface SettingsState {
   setDeveloperDeleteWithoutBurnEnabled: (enabled: boolean) => void;
   triggerDeveloperWeeklySummaryPreview: () => void;
   clearDeveloperWeeklySummaryPreview: () => void;
+  triggerDeveloperSaveProgressPreview: () => void;
+  clearDeveloperSaveProgressPreview: () => void;
   setDebugLoggingEnabled: (enabled: boolean) => void;
   setAnalyticsEnabled: (enabled: boolean) => void;
   setTraceDefaultEnabled: (enabled: boolean) => void;
@@ -566,6 +570,7 @@ const DEFAULT_SETTINGS = {
   developerForceStreakBreakEnabled: false,
   developerDeleteWithoutBurnEnabled: false,
   developerWeeklySummaryPreviewToken: 0,
+  developerSaveProgressPreviewToken: 0,
   debugLoggingEnabled: __DEV__ && process.env.EXPO_PUBLIC_DEBUG_LOGGING === 'true',
   analyticsEnabled: true,
   traceDefaultEnabled: true,
@@ -995,6 +1000,19 @@ export const useSettingsStore = create<SettingsState>()(
       clearDeveloperWeeklySummaryPreview: () => {
         set({
           developerWeeklySummaryPreviewToken: 0,
+        });
+      },
+
+      triggerDeveloperSaveProgressPreview: () => {
+        triggerHaptic();
+        set({
+          developerSaveProgressPreviewToken: Date.now(),
+        });
+      },
+
+      clearDeveloperSaveProgressPreview: () => {
+        set({
+          developerSaveProgressPreviewToken: 0,
         });
       },
 

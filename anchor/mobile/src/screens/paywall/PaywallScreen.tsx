@@ -23,7 +23,7 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Circle, Path, SvgXml } from 'react-native-svg';
+import Svg, { Circle, Line, Path, SvgXml } from 'react-native-svg';
 import { AnalyticsService, AnalyticsEvents } from '@/services/AnalyticsService';
 import { refreshServerEntitlement } from '@/services/BillingService';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
@@ -245,11 +245,11 @@ function buildPlans(metadata: RevenueCatOfferingDisplayMetadata): Record<PlanId,
 function FallbackAnchorMark({ size = 46 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 100 100" testID="fallback-anchor-mark">
-      <Circle cx="50" cy="50" r="39" fill="none" stroke={colors.gold} strokeWidth="2" opacity={0.35} />
+      <Circle cx="50" cy="50" r="39" fill="none" stroke={colors.anchor15.gilt} strokeWidth="2" opacity={0.35} />
       <Path
         d="M50 18 L76 76 L50 64 L24 76 Z"
         fill="none"
-        stroke={colors.gold}
+        stroke={colors.anchor15.gilt}
         strokeWidth="4"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -272,6 +272,75 @@ function CheckIcon() {
     <Svg width={12} height={12} viewBox="0 0 12 12">
       <Path d="M2.4 6.1l2.3 2.4 4.9-5" stroke="#1A1208" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
+  );
+}
+
+function IconCreate() {
+  return (
+    <Svg width={19} height={19} viewBox="0 0 26 26" fill="none">
+      <Circle cx="10" cy="13" r="7.3" stroke={colors.anchor15.gilt} strokeWidth={1.3} />
+      <Circle cx="17" cy="13" r="7.3" stroke={colors.anchor15.gilt} strokeWidth={1.3} opacity={0.7} />
+    </Svg>
+  );
+}
+
+function IconDepth() {
+  return (
+    <Svg width={19} height={19} viewBox="0 0 26 26" fill="none">
+      <Path d="M4 9 Q13 4.5 22 9" stroke={colors.anchor15.gilt} strokeWidth={1.3} strokeLinecap="round" />
+      <Path d="M4 14 Q13 9.5 22 14" stroke={colors.anchor15.gilt} strokeWidth={1.3} strokeLinecap="round" opacity={0.68} />
+      <Path d="M4 19 Q13 14.5 22 19" stroke={colors.anchor15.gilt} strokeWidth={1.3} strokeLinecap="round" opacity={0.4} />
+    </Svg>
+  );
+}
+
+const PERSONALIZE_SPOKES: Array<[number, number, number, number]> = [
+  [19.5, 13, 23, 13],
+  [16.25, 18.63, 18, 21.66],
+  [9.75, 18.63, 8, 21.66],
+  [6.5, 13, 3, 13],
+  [9.75, 7.37, 8, 4.34],
+  [16.25, 7.37, 18, 4.34],
+];
+
+function IconPersonalize() {
+  return (
+    <Svg width={19} height={19} viewBox="0 0 26 26" fill="none">
+      <Circle cx="13" cy="13" r="3.3" stroke={colors.anchor15.gilt} strokeWidth={1.3} />
+      {PERSONALIZE_SPOKES.map(([x1, y1, x2, y2], index) => (
+        <Line
+          key={index}
+          x1={x1}
+          y1={y1}
+          x2={x2}
+          y2={y2}
+          stroke={colors.anchor15.gilt}
+          strokeWidth={1.3}
+          strokeLinecap="round"
+          opacity={0.75}
+        />
+      ))}
+    </Svg>
+  );
+}
+
+const PRO_VALUES = [
+  { Icon: IconCreate, title: 'Create freely', desc: 'Create and explore more Anchors.' },
+  { Icon: IconDepth, title: 'Practice deeper', desc: 'Unlock Visualize and the complete Practice experience.' },
+  { Icon: IconPersonalize, title: 'Make it yours', desc: 'Access premium expressions and personalization.' },
+] as const;
+
+function ProValueRow({ Icon, title, desc }: { Icon: () => React.JSX.Element; title: string; desc: string }) {
+  return (
+    <View style={styles.valueRow}>
+      <View style={styles.valueIcon}>
+        <Icon />
+      </View>
+      <View style={styles.valueTextWrap}>
+        <Text style={styles.valueTitle}>{title}</Text>
+        <Text style={styles.valueDesc}>{desc}</Text>
+      </View>
+    </View>
   );
 }
 
@@ -321,9 +390,9 @@ function HeroSigil({ anchor }: { anchor: Anchor | null }) {
         {enhancedUrl ? (
           <Image source={{ uri: enhancedUrl }} style={styles.sigilImage} resizeMode="contain" testID="paywall-primary-anchor-img" />
         ) : sigilXml ? (
-          <SvgXml xml={sigilXml} width={96} height={96} testID="paywall-primary-anchor-svg" />
+          <SvgXml xml={sigilXml} width={160} height={160} testID="paywall-primary-anchor-svg" />
         ) : (
-          <FallbackAnchorMark size={96} />
+          <FallbackAnchorMark size={160} />
         )}
       </View>
     </View>
@@ -710,8 +779,8 @@ export const PaywallScreen: React.FC = () => {
   return (
     <View style={styles.root}>
       <LinearGradient
-        colors={['#07040C', '#100820', colors.black]}
-        locations={[0, 0.46, 1]}
+        colors={[colors.anchor15.creationTop, colors.anchor15.navy, colors.anchor15.ink]}
+        locations={[0, 0.4, 1]}
         style={StyleSheet.absoluteFillObject}
       />
       <View style={styles.bgOrbTop} />
@@ -758,6 +827,12 @@ export const PaywallScreen: React.FC = () => {
             )}
             <Text style={styles.sub}>{sourceCopy?.body ?? headline.sub}</Text>
 
+            <View style={styles.values}>
+              {PRO_VALUES.map((value) => (
+                <ProValueRow key={value.title} Icon={value.Icon} title={value.title} desc={value.desc} />
+              ))}
+            </View>
+
             {showRecap ? (
               <View testID="paywall-recap">
                 <View style={styles.recap}>
@@ -800,7 +875,7 @@ export const PaywallScreen: React.FC = () => {
           </ScrollView>
 
           <LinearGradient
-            colors={['rgba(8,12,16,0)', colors.black, colors.black]}
+            colors={['rgba(8,11,15,0)', colors.anchor15.ink, colors.anchor15.ink]}
             locations={[0, 0.28, 1]}
             style={styles.footer}
           >
@@ -818,14 +893,14 @@ export const PaywallScreen: React.FC = () => {
               style={({ pressed }) => [styles.ctaPressable, pressed && styles.ctaPressed]}
             >
               <LinearGradient
-                colors={['#F0CB6A', '#C9A84C', '#A8892E']}
+                colors={[colors.anchor15.giltBright, colors.gold, '#A9852B']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={[styles.cta, (isPurchasing || isRestoring || isPurchaseUnavailable) && styles.disabled]}
               >
                 {isPurchasing ? (
                   <View style={styles.ctaLoading}>
-                    <ActivityIndicator color="#100C04" />
+                    <ActivityIndicator color={colors.anchor15.navy} />
                     <Text style={styles.ctaLoadingLabel}>Completing purchase…</Text>
                   </View>
                 ) : (
@@ -883,7 +958,7 @@ export const PaywallScreen: React.FC = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.black,
+    backgroundColor: colors.anchor15.ink,
   },
   safeArea: {
     flex: 1,
@@ -895,7 +970,7 @@ const styles = StyleSheet.create({
     borderRadius: 130,
     top: 80,
     left: -110,
-    backgroundColor: withAlpha(colors.deepPurple, 0.24),
+    backgroundColor: 'rgba(90,105,145,0.16)',
   },
   bgOrbBottom: {
     position: 'absolute',
@@ -904,7 +979,7 @@ const styles = StyleSheet.create({
     borderRadius: 110,
     right: -90,
     bottom: 180,
-    backgroundColor: withAlpha(colors.gold, 0.06),
+    backgroundColor: withAlpha(colors.anchor15.gilt, 0.07),
   },
   closeButton: {
     position: 'absolute',
@@ -932,54 +1007,54 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sigilOuter: {
-    width: 172,
-    height: 172,
+    width: 268,
+    height: 268,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,
   },
   sigilHalo: {
     position: 'absolute',
-    width: 168,
-    height: 168,
-    borderRadius: 84,
-    backgroundColor: withAlpha(colors.gold, 0.1),
+    width: 224,
+    height: 224,
+    borderRadius: 112,
+    backgroundColor: withAlpha(colors.anchor15.gilt, 0.08),
   },
   sigilRing: {
     position: 'absolute',
-    width: 150,
-    height: 150,
-    borderRadius: 75,
+    width: 244,
+    height: 244,
+    borderRadius: 122,
     borderWidth: 1,
-    borderColor: withAlpha(colors.gold, 0.22),
+    borderColor: withAlpha(colors.anchor15.gilt, 0.22),
   },
   sigilDot: {
     position: 'absolute',
     top: -3,
-    left: 72,
+    left: 119,
     width: 6,
     height: 6,
     borderRadius: 3,
     backgroundColor: colors.sanctuary.goldBright,
   },
   sigilCore: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#100820',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: colors.anchor15.steel,
     borderWidth: 1,
-    borderColor: withAlpha(colors.gold, 0.3),
+    borderColor: withAlpha(colors.anchor15.gilt, 0.3),
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.purple,
+    shadowColor: colors.anchor15.steel,
     shadowOpacity: 0.5,
     shadowRadius: 30,
     elevation: 6,
   },
   sigilImage: {
-    width: 104,
-    height: 104,
-    borderRadius: 52,
+    width: 173,
+    height: 173,
+    borderRadius: 87,
   },
   anchorCap: {
     fontFamily: typography.fonts.mono,
@@ -1019,6 +1094,44 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
     maxWidth: 310,
+  },
+  values: {
+    width: '100%',
+    gap: 15,
+    marginTop: 22,
+  },
+  valueRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 13,
+  },
+  valueIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: withAlpha(colors.anchor15.gilt, 0.06),
+    borderWidth: 1,
+    borderColor: withAlpha(colors.anchor15.gilt, 0.28),
+  },
+  valueTextWrap: {
+    flex: 1,
+  },
+  valueTitle: {
+    fontFamily: typography.fonts.headingSemiBold,
+    fontSize: 12,
+    letterSpacing: 1.9,
+    textTransform: 'uppercase',
+    color: colors.bone,
+  },
+  valueDesc: {
+    fontFamily: typography.fonts.body,
+    fontSize: 13,
+    lineHeight: 18,
+    color: withAlpha(colors.bone, 0.62),
+    marginTop: 3,
   },
   recap: {
     flexDirection: 'row',
@@ -1094,12 +1207,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   planSelected: {
-    borderColor: withAlpha(colors.gold, 0.65),
-    backgroundColor: withAlpha(colors.gold, 0.08),
-    shadowColor: colors.gold,
-    shadowOpacity: 0.12,
-    shadowRadius: 30,
-    elevation: 5,
+    borderWidth: 1.5,
+    borderColor: withAlpha(colors.gold, 0.85),
+    backgroundColor: withAlpha(colors.bone, 0.025),
   },
   planUnavailable: {
     opacity: 0.5,
@@ -1151,9 +1261,9 @@ const styles = StyleSheet.create({
   },
   planPrice: {
     fontFamily: typography.fonts.headingBold,
-    fontSize: 27,
+    fontSize: 20,
     color: colors.bone,
-    lineHeight: 30,
+    lineHeight: 23,
     textAlign: 'center',
   },
   planPriceSelected: {
@@ -1222,7 +1332,7 @@ const styles = StyleSheet.create({
     fontFamily: typography.fonts.headingBold,
     fontSize: 14,
     letterSpacing: 2.8,
-    color: '#100C04',
+    color: colors.anchor15.navy,
     textTransform: 'uppercase',
   },
   ctaLoading: {
@@ -1234,7 +1344,7 @@ const styles = StyleSheet.create({
     fontFamily: typography.fonts.headingBold,
     fontSize: 12,
     letterSpacing: 1.7,
-    color: '#100C04',
+    color: colors.anchor15.navy,
     textTransform: 'uppercase',
   },
   ctaSub: {

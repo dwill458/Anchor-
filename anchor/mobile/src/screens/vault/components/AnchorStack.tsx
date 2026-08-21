@@ -21,13 +21,15 @@ import { withAlpha } from '@/utils/color';
 import type { Anchor } from '@/types';
 import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
-import { BakedGlow, RingGlowCanvas } from '@/components/common';
+import { BakedGlow } from '@/components/common';
 import { formatCategory, isAnchorReleased } from '../utils/anchorStateHelpers';
 import { MedallionCoin } from './MedallionCoin';
 import { NewAnchorTile } from './NewAnchorTile';
+import { SelectedChipGlowRing } from './SelectedChipGlowRing';
 
 const CHIP_SIZE = 60;
-const GLOW_SIZE = 88; // overflows the chip by 14px each side, matching ThreadStrengthBlock's ring-to-glow ratio
+const GLOW_SIZE = 88;
+const CHIP_RING_RADIUS = CHIP_SIZE / 2 + 6; // pulses just outside the chip's edge
 const CARD_WIDTH = 72;
 const CARD_GAP = 18;
 
@@ -63,20 +65,19 @@ const StackCard = React.memo<StackCardProps>(({ anchor, isActive, onPress }) => 
     >
       <View style={styles.chipWrap}>
         {showGlowPulse ? (
-          <RingGlowCanvas
+          <SelectedChipGlowRing
             size={GLOW_SIZE}
+            ringRadius={CHIP_RING_RADIUS}
             color={colors.anchor15.giltBright}
-            intensity={0.85}
             reduceMotionEnabled={reduceMotionEnabled}
-            tier={perfTier}
           />
         ) : null}
         {showStaticGlow ? (
           <BakedGlow
             size={GLOW_SIZE}
             color={colors.anchor15.giltBright}
-            baseOpacity={0.32}
-            peakOpacity={0.32}
+            baseOpacity={0.55}
+            peakOpacity={0.55}
             reduceMotionEnabled={true}
           />
         ) : null}
