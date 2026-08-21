@@ -36,10 +36,13 @@ import VisualizationSceneService, {
   type GenerateResult,
 } from '@/services/VisualizationSceneService';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
+import { persistSessionAudioDefaults } from '@/services/SessionAudioPreferencesService';
+import { SessionConfigurationPill } from '@/components/practice/SessionConfiguration';
 import {
-  SessionConfigurationPill,
   SessionConfigurationSheet,
-} from '@/components/practice/SessionConfiguration';
+  VISUALIZE_MODE,
+  type SessionDraft,
+} from '@/components/practice/SessionConfigurationSheet';
 import { colors as themeColors, typography } from '@/theme';
 import type { SessionAudioDefaults } from '@/types/sessionAudio';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
@@ -49,7 +52,7 @@ import {
   VisualizeFieldBackground,
 } from './VisualizeAnchorField';
 import { VisualizationPrimaryButton } from './VisualizationPrimitives';
-import { VISUALIZE_DURATIONS, type VisualizeDuration } from './visualizeSessionConfig';
+import type { VisualizeDuration } from './visualizeSessionConfig';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'VisualizePreparation'>;
 
@@ -410,13 +413,25 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
         {/* Session Configuration Sheet */}
         <SessionConfigurationSheet
           visible={configVisible}
-          value={audio}
-          sessionType="visualize"
-          durationSeconds={duration}
-          durationOptions={VISUALIZE_DURATIONS}
-          onDurationChange={(d) => setDuration(d as VisualizeDuration)}
-          onChange={(next) => setAudio(next)}
+          mode={VISUALIZE_MODE}
+          config={{
+            durationSeconds: duration,
+            guidanceVoice: audio.guidanceVoice,
+            backgroundAudio: audio.backgroundAudio,
+            makeDefault: false,
+          }}
           onClose={() => setConfigVisible(false)}
+          onApply={(draft: SessionDraft) => {
+            setDuration(draft.durationSeconds as VisualizeDuration);
+            setAudio({ guidanceVoice: draft.guidanceVoice, backgroundAudio: draft.backgroundAudio });
+            setConfigVisible(false);
+            if (draft.makeDefault) {
+              void persistSessionAudioDefaults('visualize', {
+                guidanceVoice: draft.guidanceVoice,
+                backgroundAudio: draft.backgroundAudio,
+              }).catch(() => undefined);
+            }
+          }}
         />
 
         {/* Scene Editing Modal Sheet */}

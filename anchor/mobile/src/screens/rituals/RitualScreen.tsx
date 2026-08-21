@@ -65,16 +65,17 @@ import { useMissingAnchorRedirect } from './utils/useMissingAnchorRedirect';
 import { useDeepPrimeSessionAudio } from './hooks/useDeepPrimeSessionAudio';
 import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
 import { createPracticeEventId } from '@/utils/primingAnalytics';
+import { VoiceAndSoundSummaryRow } from '@/components/settings/SessionAudioOverrideSheet';
 import {
-  SessionAudioOverrideSheet,
-  VoiceAndSoundSummaryRow,
-} from '@/components/settings/SessionAudioOverrideSheet';
+  DEEP_PRIME_MODE,
+  SessionConfigurationSheet,
+  type SessionDraft,
+} from '@/components/practice/SessionConfigurationSheet';
 import {
   legacyAudioModeToSessionAudioDefaults,
   DEFAULT_SESSION_AUDIO_DEFAULTS,
   resolveSessionAudioConfiguration,
   type SessionAudioConfiguration,
-  type SessionAudioDefaults,
 } from '@/types/sessionAudio';
 import { resolveSessionAudioPlan } from '@/services/SessionAudioManifest';
 import { trackSessionStartedWithAudio } from '@/services/SessionAudioAnalytics';
@@ -1992,17 +1993,28 @@ export const RitualScreen: React.FC = () => {
                     {config.phases.length} phases. Close your eyes between guidance.
                   </Text>
                 </View>
-                <SessionAudioOverrideSheet
+                <SessionConfigurationSheet
                   visible={showAudioOverride}
-                  sessionType="deep_prime"
-                  durationSeconds={config.totalDurationSeconds}
-                  initialValue={resolvedSessionAudio}
-                  onCancel={() => setShowAudioOverride(false)}
-                  onConfirm={(value: SessionAudioDefaults, makeDefault: boolean) => {
-                    setResolvedSessionAudio({ ...value, source: 'session_override' });
+                  mode={DEEP_PRIME_MODE}
+                  config={{
+                    durationSeconds: config.totalDurationSeconds,
+                    guidanceVoice: resolvedSessionAudio.guidanceVoice,
+                    backgroundAudio: resolvedSessionAudio.backgroundAudio,
+                    makeDefault: false,
+                  }}
+                  onClose={() => setShowAudioOverride(false)}
+                  onApply={(draft: SessionDraft) => {
+                    setResolvedSessionAudio({
+                      guidanceVoice: draft.guidanceVoice,
+                      backgroundAudio: draft.backgroundAudio,
+                      source: 'session_override',
+                    });
                     setShowAudioOverride(false);
-                    if (makeDefault) {
-                      void persistSessionAudioDefaults('deep_prime', value).catch(() => undefined);
+                    if (draft.makeDefault) {
+                      void persistSessionAudioDefaults('deep_prime', {
+                        guidanceVoice: draft.guidanceVoice,
+                        backgroundAudio: draft.backgroundAudio,
+                      }).catch(() => undefined);
                     }
                   }}
                 />

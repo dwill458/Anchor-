@@ -61,10 +61,12 @@ import {
   trackSessionStartedWithAudio,
 } from '@/services/SessionAudioAnalytics';
 import { stopVoicePreview } from '@/services/VoicePreviewService';
+import { VoiceAndSoundSummaryRow } from '@/components/settings/SessionAudioOverrideSheet';
 import {
-  SessionAudioOverrideSheet,
-  VoiceAndSoundSummaryRow,
-} from '@/components/settings/SessionAudioOverrideSheet';
+  FOCUS_SESSION_MODE,
+  SessionConfigurationSheet,
+  type SessionDraft,
+} from '@/components/practice/SessionConfigurationSheet';
 import type {
   SessionAudioConfiguration,
   SessionAudioDefaults,
@@ -1073,22 +1075,23 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
           </View>
         </RNAnimated.View>
         {onAudioConfigurationChange ? (
-          <SessionAudioOverrideSheet
+          <SessionConfigurationSheet
             visible={showAudioOverride}
-            sessionType="focus"
-            durationSeconds={resolvedDurationSeconds}
-            durationOptions={[10, 30, 60]}
-            onDurationChange={(newDuration) => {
-              setSelectedDurationSeconds(newDuration);
+            mode={FOCUS_SESSION_MODE}
+            config={{
+              durationSeconds: resolvedDurationSeconds,
+              guidanceVoice: audioConfiguration.guidanceVoice,
+              backgroundAudio: audioConfiguration.backgroundAudio,
+              makeDefault: false,
             }}
-            initialValue={audioConfiguration}
-            onCancel={() => setShowAudioOverride(false)}
-            onConfirm={(value, makeDefault, newDuration) => {
+            onClose={() => setShowAudioOverride(false)}
+            onApply={(draft: SessionDraft) => {
               setShowAudioOverride(false);
-              if (newDuration) {
-                setSelectedDurationSeconds(newDuration);
-              }
-              onAudioConfigurationChange(value, makeDefault);
+              setSelectedDurationSeconds(draft.durationSeconds);
+              onAudioConfigurationChange(
+                { guidanceVoice: draft.guidanceVoice, backgroundAudio: draft.backgroundAudio },
+                draft.makeDefault
+              );
             }}
           />
         ) : null}
