@@ -1012,7 +1012,7 @@ const styles = StyleSheet.create({
     marginHorizontal: H_PAD,
   },
   activateBtnWrap: {
-    marginTop: 10,
+    marginTop: 26,
     marginHorizontal: H_PAD,
   },
   activateBtn: {

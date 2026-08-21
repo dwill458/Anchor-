@@ -78,23 +78,21 @@ const CountUp: React.FC<{ value: number; reduceMotion?: boolean }> = ({
 
     let start: number | undefined;
     let animId: number;
-    const duration = 900;
+    const duration = 1100;
     const ease = (t: number) => 1 - Math.pow(1 - t, 3);
 
-    const timer = setTimeout(() => {
-      const step = (timestamp: number) => {
-        if (start === undefined) start = timestamp;
-        const progress = Math.min((timestamp - start) / duration, 1);
-        setDisplay(Math.round(ease(progress) * value));
-        if (progress < 1) {
-          animId = requestAnimationFrame(step);
-        }
-      };
-      animId = requestAnimationFrame(step);
-    }, 200);
+    setDisplay(0);
+    const step = (timestamp: number) => {
+      if (start === undefined) start = timestamp;
+      const progress = Math.min((timestamp - start) / duration, 1);
+      setDisplay(Math.round(ease(progress) * value));
+      if (progress < 1) {
+        animId = requestAnimationFrame(step);
+      }
+    };
+    animId = requestAnimationFrame(step);
 
     return () => {
-      clearTimeout(timer);
       cancelAnimationFrame(animId);
     };
   }, [value, reduceMotion]);
@@ -292,13 +290,14 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   textInfo: {
-    marginTop: 4,
+    marginTop: 0,
     alignItems: 'center',
     width: '100%',
   },
   stateBadge: {
     fontFamily: 'Cinzel-SemiBold',
     fontSize: 13,
+    lineHeight: 16,
     letterSpacing: 2.34,
     color: colors.anchor15.giltBright,
     marginBottom: 4,
@@ -314,14 +313,16 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontFamily: 'Cinzel-Regular',
     fontSize: 9.5,
+    lineHeight: 12,
     letterSpacing: 2.09,
     textTransform: 'uppercase',
     color: withAlpha(colors.anchor15.gilt, 0.55),
   },
   anchorTitle: {
-    marginTop: 26,
+    marginTop: 8,
     fontFamily: 'Cinzel-SemiBold',
     fontSize: 22,
+    lineHeight: 26,
     letterSpacing: 2.2,
     textTransform: 'uppercase',
     color: colors.anchor15.bone,
@@ -329,9 +330,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   anchorCategory: {
-    marginTop: 8,
+    marginTop: 10,
     fontFamily: 'Cinzel-Regular',
     fontSize: 11,
+    lineHeight: 14,
     letterSpacing: 2.2,
     textTransform: 'uppercase',
     color: colors.anchor15.ash,
