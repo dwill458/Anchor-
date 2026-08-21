@@ -47,10 +47,11 @@ import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import type { PracticeStackParamList } from '@/types';
 import type { PracticeMode } from '@/types/practice';
 import { useCourseStore } from '@/stores/courseStore';
+import { useAuthStore } from '@/stores/authStore';
 import { SigilSvg } from '@/components/common/SigilSvg';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useWeeklyReview, MAX_WEEK_OFFSET, type WeeklyReviewData } from '@/hooks/useWeeklyReview';
-import type { CourseDetail, WaypointSummary } from '@/types/chart';
+import { canViewChart, type CourseDetail, type WaypointSummary } from '@/types/chart';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 
@@ -1178,7 +1179,8 @@ export function WeeklyReviewScreen() {
 
   // Course data (optional, may not be available)
   const activeCourse = useCourseStore((s) => s.activeCourse);
-  const courseFlags = useCourseStore((s) => s.flags);
+  const chartFlags = useAuthStore((s) => s.user?.chartFlags);
+  const chartCapabilities = useAuthStore((s) => s.user?.chartCapabilities);
 
   const data = useWeeklyReview(weekOffset);
 
@@ -1257,7 +1259,7 @@ export function WeeklyReviewScreen() {
 
   // ── Live (normal) ─────────────────────────────────────────────────────────
   const showCourse =
-    courseFlags.chart_enabled && activeCourse?.status === 'ACTIVE';
+    canViewChart(chartFlags, chartCapabilities) && activeCourse?.status === 'ACTIVE';
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>

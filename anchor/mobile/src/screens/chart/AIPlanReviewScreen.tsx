@@ -6,7 +6,7 @@ import type { RouteProp } from '@react-navigation/native';
 import { chartApiClient, getChartErrorCode } from '@/services/ChartApiClient';
 import { useCourseStore } from '@/stores/courseStore';
 import { useAuthStore } from '@/stores/authStore';
-import { AnalyticsEvents, trackChartEventOnce } from '@/services/AnalyticsService';
+import { AnalyticsEvents, AnalyticsService, trackChartEventOnce } from '@/services/AnalyticsService';
 import type { ChartStackParamList, CoursePlanProposal } from '@/types/chart';
 import {
   ChartButton,
@@ -30,6 +30,7 @@ export const AIPlanReviewScreen: React.FC = () => {
   const route = useRoute<ReviewRoute>();
   const store = useCourseStore();
   const accountId = useAuthStore((state) => state.user?.id ?? null);
+  const canAccept = useAuthStore((state) => state.user?.chartCapabilities?.canAcceptExistingChartPlan === true);
   const acceptKey = useRef(keyFor()).current;
   const [proposal, setProposal] = useState<CoursePlanProposal | null>(null);
   const [loading, setLoading] = useState(true);
@@ -80,7 +81,14 @@ export const AIPlanReviewScreen: React.FC = () => {
         server_confirmed: true,
       });
       await store.refresh();
-      navigation.navigate('ChartHome');
+      if (result.data.currentWaypointId) {
+        navigation.replace('WaypointActivation', {
+          courseId: result.data.id,
+          waypointId: result.data.currentWaypointId,
+        });
+      } else {
+        navigation.replace('ChartHome');
+      }
     } catch (cause) {
       const code = getChartErrorCode(cause);
       setError(
@@ -140,6 +148,12 @@ export const AIPlanReviewScreen: React.FC = () => {
             >
               {proposal.destinationInterpretation}
             </Text>
+            {proposal.startingContext ? (
+              <View style={{ gap: 5 }}>
+                <Text style={{ color: '#D4AF37', fontFamily: 'Inter-SemiBold', fontSize: 12 }}>STARTING FROM</Text>
+                <Text style={{ color: '#C0C0C0', fontSize: 14, lineHeight: 20 }}>{proposal.startingContext}</Text>
+              </View>
+            ) : null}
             {proposal.generationSource === 'deterministic_fallback' ? (
               <Text style={{ color: '#C0C0C0', fontSize: 14 }}>
                 A simple planning outline is shown because a suggested plan was
@@ -184,15 +198,28 @@ export const AIPlanReviewScreen: React.FC = () => {
             <ReadOnlyNotice reason="You are offline. Acceptance is unavailable until you reconnect." />
           ) : null}
           <ChartButton
-            label="Accept plan and create Course"
+            label="Use this Course"
             onPress={() => void accept()}
             disabled={
-              accepting || store.offline || !store.flags.chart_write_enabled
+              accepting || store.offline || !store.flags.chart_write_enabled || !canAccept
             }
             hint="Creates a Course only after this explicit action."
           />
           <ChartButton
-            label="Back without changes"
+            label="Edit or regenerate"
+            secondary
+            onPress={() => {
+              AnalyticsService.track('chart_planner_proposal_edit_selected', {
+                proposal_id: proposal.proposalId,
+                waypoint_count: proposal.waypoints.length,
+              });
+              navigation.navigate('CourseSetup', { fromProposalId: proposal.proposalId });
+            }}
+            disabled={accepting || store.offline}
+            hint="Opens every Waypoint for editing and keeps you in control before publishing."
+          />
+          <ChartButton
+            label="Reject this suggestion"
             secondary
             onPress={() => {
               trackChartEventOnce(AnalyticsEvents.CHART_PLANNER_PROPOSAL_DISMISSED, accountId, proposal?.proposalId ?? route.params.proposalId, {

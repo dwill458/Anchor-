@@ -49,6 +49,8 @@ import {
 } from "@/types/sessionAudio";
 import { resolvePracticeCompletionSource } from "@/navigation/practiceReturn";
 import { useChartPracticeReturn } from "@/hooks/useChartPracticeReturn";
+import { useChartJourneyStore } from "@/stores/chartJourneyStore";
+import { ChartFirstJourneyInvitation } from "@/screens/chart/components/ChartFirstJourneyInvitation";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -136,6 +138,11 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
     "saving" | "ready" | "error"
   >("saving");
   const [completionAttempt, setCompletionAttempt] = useState(0);
+  const newUserIntroReady = useChartJourneyStore(
+    (state) =>
+      state.firstAnchorId === anchorId &&
+      state.newUserIntroStage === "ready",
+  );
 
   const glowBreath = useRef(new Animated.Value(0)).current;
   const ringSpinA = useRef(new Animated.Value(0)).current;
@@ -771,6 +778,15 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
         visible={reminderCardVisible}
         variant="fallback"
         onDismiss={handleReminderDismiss}
+      />
+      <ChartFirstJourneyInvitation
+        visible={
+          completionState === "ready" &&
+          returnTo !== "chart" &&
+          newUserIntroReady
+        }
+        onCourseSelected={() => navigation.popToTop?.()}
+        onContinue={handleDismiss}
       />
     </View>
   );

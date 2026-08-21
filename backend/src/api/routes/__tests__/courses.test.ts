@@ -9,10 +9,16 @@ const mockPrisma = {
 };
 jest.mock('../../../lib/prisma', () => ({ prisma: mockPrisma }));
 
+const mockGetChartCapabilities = jest.fn();
+jest.mock('../../../services/ChartCapabilityService', () => ({
+  getChartCapabilities: mockGetChartCapabilities,
+}));
+
 jest.mock('../../../config/chartFlags', () => ({
   requireChartEnabled: jest.fn(),
   requireChartWriteEnabled: jest.fn(),
   requireChartInitialized: jest.fn(),
+  requireChartReflectionWritesEnabled: jest.fn(),
 }));
 
 const mockCourseService = {
@@ -71,6 +77,11 @@ describe('Chart course route boundary', () => {
       if (version !== 1)
         throw new AppError('Chart migration is required', 409, 'MIGRATION_REQUIRED');
     });
+    mockGetChartCapabilities.mockResolvedValue({
+      canViewChart: true,
+      canEditCourse: true,
+      canCreateOrEditReflections: true,
+    });
   });
 
   it('returns FEATURE_DISABLED while flags are off', async () => {
@@ -104,5 +115,24 @@ describe('Chart course route boundary', () => {
     expect(initialized.status).toBe(200);
     expect(initialized.body.data.chartSchemaVersion).toBe(1);
     expect(mockCourseService.initializeChartForUser).toHaveBeenCalledWith('user-1');
+  });
+
+  it('accepts and trims optional current reality on manual Course creation', async () => {
+    mockCourseService.createCourse.mockResolvedValue({
+      id: 'course-1',
+      startingContext: '43 users',
+    });
+    const response = await request(buildApp()).post('/api/courses').send({
+      idempotencyKey: 'course-with-context',
+      destinationText: 'Reach 10,000 users',
+      currentReality: '  43 users  ',
+    });
+
+    expect(response.status).toBe(201);
+    expect(mockCourseService.createCourse).toHaveBeenCalledWith('user-1', {
+      idempotencyKey: 'course-with-context',
+      destinationText: 'Reach 10,000 users',
+      currentReality: '43 users',
+    });
   });
 });

@@ -8,6 +8,7 @@ import { courseService } from '../../services/CourseService';
 import {
   requireChartEnabled,
   requireChartInitialized,
+  requireChartReflectionWritesEnabled,
   requireChartWriteEnabled,
 } from '../../config/chartFlags';
 import { getChartCapabilities } from '../../services/ChartCapabilityService';
@@ -20,6 +21,7 @@ const CreateCourseSchema = z
   .object({
     idempotencyKey: IdempotencyKey,
     destinationText: z.string().trim().min(1).max(140),
+    currentReality: z.string().trim().min(1).max(500).optional(),
     waypoints: z
       .array(
         z
@@ -120,6 +122,11 @@ const LogQuerySchema = z
   })
   .strict();
 
+function completionCreatesReflection(input: z.infer<typeof CompleteSchema>): boolean {
+  const content = input.reflection?.structuredContent;
+  return Boolean(content?.whatHelped?.trim() || content?.whatLearned?.trim());
+}
+
 function validate<T>(schema: z.ZodType<T>, value: unknown): T {
   const result = schema.safeParse(value);
   if (!result.success) {
@@ -155,14 +162,22 @@ async function resolveChartUser(req: AuthRequest): Promise<{
   return user;
 }
 
-async function requireWriteUser(req: AuthRequest): Promise<string> {
+async function requireWriteAccess(req: AuthRequest): Promise<{
+  userId: string;
+  capabilities: Awaited<ReturnType<typeof getChartCapabilities>>;
+}> {
   requireChartWriteEnabled();
   const user = await resolveChartUser(req);
   requireChartInitialized(user.chartSchemaVersion);
-  if (!(await getChartCapabilities(user)).canEditCourse) {
+  const capabilities = await getChartCapabilities(user);
+  if (!capabilities.canEditCourse) {
     throw new AppError('Chart is currently unavailable', 403, 'FEATURE_DISABLED');
   }
-  return user.id;
+  return { userId: user.id, capabilities };
+}
+
+async function requireWriteUser(req: AuthRequest): Promise<string> {
+  return (await requireWriteAccess(req)).userId;
 }
 
 async function requireReadUser(
@@ -345,14 +360,21 @@ router.post(
   '/:courseId/waypoints/:waypointId/complete',
   async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-      const userId = await requireWriteUser(req);
+      const access = await requireWriteAccess(req);
+      const input = validate(CompleteSchema, req.body ?? {});
+      if (completionCreatesReflection(input)) {
+        requireChartReflectionWritesEnabled();
+        if (!access.capabilities.canCreateOrEditReflections) {
+          throw new AppError('Chart reflections are currently disabled', 403, 'FEATURE_DISABLED');
+        }
+      }
       res.json({
         success: true,
         data: await courseService.completeWaypoint(
-          userId,
+          access.userId,
           req.params.courseId,
           req.params.waypointId,
-          validate(CompleteSchema, req.body ?? {})
+          input
         ),
       });
     } catch (error) {

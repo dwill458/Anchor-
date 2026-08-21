@@ -8,7 +8,8 @@
  */
 
 import { parseChartDeepLink } from '../chartDeepLinks';
-import { useCourseStore } from '@/stores/courseStore';
+import { courseCacheKey, useCourseStore } from '@/stores/courseStore';
+import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
 import { chartApiClient } from '@/services/ChartApiClient';
 import { ApiClientError } from '@/services/ApiClient';
 import {
@@ -41,9 +42,10 @@ function bindStore(overrides: Record<string, unknown> = {}): void {
   });
 }
 
-afterEach(() => {
+afterEach(async () => {
   jest.restoreAllMocks();
   useCourseStore.getState().clearAccount();
+  await encryptedPersistStorage.removeItem(courseCacheKey(ACCOUNT_ID));
 });
 
 describe('Deep-link resolution — unknown Course', () => {
@@ -87,7 +89,10 @@ describe('Deep-link resolution — unknown Course', () => {
 
     // A course the server no longer has must not linger in the list.
     expect(useCourseStore.getState().courses).toEqual([]);
+    expect(useCourseStore.getState().activeCourse).toBeNull();
     expect(useCourseStore.getState().errorCode).toBe('COURSE_NOT_FOUND');
+    const persisted = await encryptedPersistStorage.getItem(courseCacheKey(ACCOUNT_ID));
+    expect(persisted && JSON.parse(persisted).activeCourse).toBeNull();
   });
 
   it('keeps the cached course on a transient network failure', async () => {

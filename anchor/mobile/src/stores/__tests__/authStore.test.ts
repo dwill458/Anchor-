@@ -8,6 +8,10 @@ import { useAuthStore } from '../authStore';
 import { useAnchorStore } from '../anchorStore';
 import { useProfileStore } from '../profileStore';
 import { useSessionStore } from '../sessionStore';
+import { useCourseStore } from '../courseStore';
+import { useCourseLogStore } from '../courseLogStore';
+import { useReflectionDraftStore } from '../reflectionDraftStore';
+import { useChartJourneyStore } from '../chartJourneyStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { apiClient } from '@/services/ApiClient';
@@ -101,6 +105,10 @@ describe('authStore', () => {
       photo: null,
       memberSince: null,
     });
+    useCourseStore.getState().clearAccount();
+    useCourseLogStore.getState().clearAccount();
+    void useReflectionDraftStore.getState().clearAccount();
+    useChartJourneyStore.getState().clearAccount();
     jest.clearAllMocks();
   });
 
@@ -544,6 +552,38 @@ describe('authStore', () => {
 
       expect(useAuthStore.getState().wallpaperPromptSeen).toBe(false);
     });
+
+    it('clears private Chart memory synchronously when sign-out begins', async () => {
+      const user = createMockUser({ id: 'chart-account' });
+      useAuthStore.getState().setUser(user);
+      useCourseStore.setState({
+        accountId: user.id,
+        courses: [{ id: 'course-1', destinationText: 'Private destination' } as any],
+      });
+      useCourseLogStore.setState({
+        accountId: user.id,
+        courseId: 'course-1',
+        entries: [{ id: 'private-entry' } as any],
+      });
+      useReflectionDraftStore.setState({
+        accountId: user.id,
+        hydrated: true,
+        drafts: { private: { body: 'Private reflection' } as any },
+      });
+      useChartJourneyStore.setState({
+        accountId: user.id,
+        hydrated: true,
+        setupDraft: { destinationText: 'Private destination' } as any,
+      });
+
+      const signingOut = useAuthStore.getState().signOut();
+
+      expect(useCourseStore.getState().courses).toEqual([]);
+      expect(useCourseLogStore.getState().entries).toEqual([]);
+      expect(useReflectionDraftStore.getState().drafts).toEqual({});
+      expect(useChartJourneyStore.getState().setupDraft).toBeNull();
+      await signingOut;
+    });
   });
 
   describe('Persistence', () => {
@@ -632,6 +672,52 @@ describe('authStore', () => {
       setSession(createMockUser({ id: 'second-account' }), 'second-token');
 
       expect(useAuthStore.getState().wallpaperPromptSeen).toBe(false);
+    });
+
+    it('clears every private Chart store before exposing a different account', () => {
+      const firstUser = createMockUser({ id: 'first-account' });
+      useAuthStore.getState().setUser(firstUser);
+      useCourseStore.setState({
+        accountId: firstUser.id,
+        courses: [{ id: 'private-course', destinationText: 'Private destination' } as any],
+        flags: {
+          chart_enabled: true,
+          chart_write_enabled: true,
+          chart_ai_planner_enabled: true,
+          chart_reflections_enabled: true,
+          chart_notifications_enabled: true,
+          chart_existing_user_intro_enabled: true,
+        },
+      });
+      useCourseLogStore.setState({
+        accountId: firstUser.id,
+        courseId: 'private-course',
+        entries: [{ id: 'private-log-entry' } as any],
+      });
+      useReflectionDraftStore.setState({
+        accountId: firstUser.id,
+        hydrated: true,
+        drafts: { private: { body: 'Private reflection' } as any },
+      });
+      useChartJourneyStore.setState({
+        accountId: firstUser.id,
+        hydrated: true,
+        setupDraft: { destinationText: 'Private destination' } as any,
+      });
+
+      useAuthStore.getState().setUser(createMockUser({ id: 'second-account' }));
+
+      expect(useCourseStore.getState()).toMatchObject({
+        accountId: 'second-account',
+        courses: [],
+        activeCourse: null,
+        readOnly: true,
+      });
+      expect(Object.values(useCourseStore.getState().flags).every((value) => value === false)).toBe(true);
+      expect(useCourseLogStore.getState()).toMatchObject({ accountId: null, courseId: null, entries: [] });
+      expect(useReflectionDraftStore.getState().drafts).toEqual({});
+      expect(useChartJourneyStore.getState().accountId).toBe('second-account');
+      expect(useChartJourneyStore.getState().setupDraft).toBeNull();
     });
 
     it('should handle complete login flow', () => {
@@ -842,6 +928,11 @@ describe('authStore', () => {
       expect(postMock.mock.calls.filter(([url]) => url === '/api/anchors')).toHaveLength(1);
       expect(useAuthStore.getState().pendingFirstAnchorDraft).toBeNull();
       expect(useAnchorStore.getState().anchors[0]?.id).toBe('server-anchor-1');
+      expect(useChartJourneyStore.getState()).toMatchObject({
+        accountId: 'user-123',
+        firstAnchorId: 'server-anchor-1',
+        newUserIntroStage: 'awaiting_practice',
+      });
 
       postMock.mockRestore();
     });

@@ -32,6 +32,7 @@ const mockPrisma = {
   },
   course: { findUnique: jest.fn() },
   waypoint: { findUnique: jest.fn() },
+  courseAnchorLink: { findFirst: jest.fn() },
   courseEvent: { findUnique: jest.fn(), create: jest.fn() },
   $transaction: jest.fn(),
 };
@@ -41,6 +42,10 @@ jest.mock('../../../lib/prisma', () => ({
 }));
 jest.mock('../../../services/PracticeAccessService', () => ({
   requireVisualizeAccess: jest.fn().mockResolvedValue(undefined),
+}));
+const mockGetChartCapabilities = jest.fn();
+jest.mock('../../../services/ChartCapabilityService', () => ({
+  getChartCapabilities: (...args: unknown[]) => mockGetChartCapabilities(...args),
 }));
 
 import { authMiddleware } from '../../middleware/auth';
@@ -68,6 +73,7 @@ const MOCK_DB_USER = {
   stabilizeStreakDays: 3,
   stabilizesTotal: 10,
   lastStabilizeAt: null as Date | null,
+  chartSchemaVersion: 1,
 };
 
 const VALID_BODY = {
@@ -287,6 +293,13 @@ describe('canonical practice sessions', () => {
     nextAction: null,
     clientVersion: '1.0.0',
   };
+  const chartBody = {
+    ...body,
+    id: 'chart-session-1',
+    courseId: 'course-1',
+    waypointId: 'waypoint-1',
+    practiceEntrySource: 'chart_waypoint_detail',
+  };
 
   beforeEach(() => {
     app = buildApp();
@@ -307,6 +320,26 @@ describe('canonical practice sessions', () => {
     mockPrisma.practiceSession.findUnique.mockResolvedValue(null);
     mockPrisma.practiceSession.findFirst.mockResolvedValue(null);
     mockPrisma.practiceSession.findMany.mockResolvedValue([]);
+    mockGetChartCapabilities.mockResolvedValue({ canCompleteExistingCourse: true });
+    mockPrisma.course.findUnique.mockResolvedValue({
+      id: 'course-1',
+      userId: MOCK_DB_USER.id,
+      status: 'ACTIVE',
+      currentWaypointId: 'waypoint-1',
+      deletedAt: null,
+    });
+    mockPrisma.waypoint.findUnique.mockResolvedValue({
+      id: 'waypoint-1',
+      userId: MOCK_DB_USER.id,
+      courseId: 'course-1',
+      reachedAt: null,
+      skippedAt: null,
+      cancelledAt: null,
+    });
+    mockPrisma.courseAnchorLink.findFirst.mockResolvedValue({
+      anchorId: 'anchor-1',
+      anchor: { id: 'anchor-1', userId: MOCK_DB_USER.id, isArchived: false },
+    });
     mockPrisma.practiceSession.create.mockImplementation(async ({ data }: any) => ({
       ...data,
       startedAt: new Date(data.startedAt),
@@ -335,19 +368,6 @@ describe('canonical practice sessions', () => {
   });
 
   it('accepts Chart context and emits exactly one PRACTICE_COMPLETED event across retries', async () => {
-    const chartBody = {
-      ...body,
-      id: 'chart-session-1',
-      courseId: 'course-1',
-      waypointId: 'waypoint-1',
-      practiceEntrySource: 'chart_waypoint_detail',
-    };
-    mockPrisma.course.findUnique.mockResolvedValue({ id: 'course-1', userId: MOCK_DB_USER.id });
-    mockPrisma.waypoint.findUnique.mockResolvedValue({
-      id: 'waypoint-1',
-      userId: MOCK_DB_USER.id,
-      courseId: 'course-1',
-    });
     mockPrisma.courseEvent.findUnique.mockResolvedValue(null);
     mockPrisma.courseEvent.create.mockResolvedValue({ id: 'chart-event-1' });
 
@@ -362,6 +382,22 @@ describe('canonical practice sessions', () => {
         }),
       })
     );
+    expect(mockPrisma.courseAnchorLink.findFirst).toHaveBeenCalledWith({
+      where: {
+        userId: MOCK_DB_USER.id,
+        courseId: 'course-1',
+        waypointId: 'waypoint-1',
+        role: 'WAYPOINT_PRIMARY',
+        unlinkedAt: null,
+      },
+      select: {
+        anchorId: true,
+        anchor: { select: { id: true, userId: true, isArchived: true } },
+      },
+    });
+    expect(mockPrisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: 'Serializable',
+    });
     expect(mockPrisma.courseEvent.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ eventType: 'PRACTICE_COMPLETED' }),
@@ -378,6 +414,160 @@ describe('canonical practice sessions', () => {
     const retry = await request(app).post('/api/practice/sessions').send(chartBody);
     expect(retry.status).toBe(200);
     expect(mockPrisma.courseEvent.create).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    {
+      label: 'an inactive Course',
+      course: {
+        id: 'course-1',
+        userId: MOCK_DB_USER.id,
+        status: 'ARCHIVED',
+        currentWaypointId: 'waypoint-1',
+        deletedAt: null,
+      },
+      status: 409,
+      code: 'COURSE_NOT_ACTIVE',
+    },
+    {
+      label: 'a stale non-current Waypoint',
+      course: {
+        id: 'course-1',
+        userId: MOCK_DB_USER.id,
+        status: 'ACTIVE',
+        currentWaypointId: 'waypoint-2',
+        deletedAt: null,
+      },
+      status: 409,
+      code: 'WAYPOINT_NOT_CURRENT',
+    },
+  ])('rejects Chart attribution against $label', async ({ course, status, code }) => {
+    mockPrisma.course.findUnique.mockResolvedValue(course);
+
+    const response = await request(app)
+      .post('/api/practice/sessions')
+      .send({ ...chartBody, id: `invalid-course-${code}` });
+
+    expect(response.status).toBe(status);
+    expect(response.body.error.code).toBe(code);
+    expect(mockPrisma.practiceSession.create).not.toHaveBeenCalled();
+    expect(mockPrisma.courseEvent.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects an owned Waypoint forged under a different Course', async () => {
+    mockPrisma.waypoint.findUnique.mockResolvedValue({
+      id: 'waypoint-1',
+      userId: MOCK_DB_USER.id,
+      courseId: 'course-2',
+      reachedAt: null,
+      skippedAt: null,
+      cancelledAt: null,
+    });
+
+    const response = await request(app)
+      .post('/api/practice/sessions')
+      .send({ ...chartBody, id: 'forged-waypoint-course-session' });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('PRACTICE_SESSION_INVALID');
+    expect(mockPrisma.courseAnchorLink.findFirst).not.toHaveBeenCalled();
+    expect(mockPrisma.practiceSession.create).not.toHaveBeenCalled();
+    expect(mockPrisma.courseEvent.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects an owned but replaced Anchor instead of attributing it to the current Waypoint', async () => {
+    mockPrisma.courseAnchorLink.findFirst.mockResolvedValue({
+      anchorId: 'anchor-2',
+      anchor: { id: 'anchor-2', userId: MOCK_DB_USER.id, isArchived: false },
+    });
+
+    const response = await request(app)
+      .post('/api/practice/sessions')
+      .send({ ...chartBody, id: 'replaced-anchor-session' });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('PRACTICE_SESSION_INVALID');
+    expect(mockPrisma.practiceSession.create).not.toHaveBeenCalled();
+    expect(mockPrisma.courseEvent.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a forged server Anchor snapshot even when anchorId matches the active link', async () => {
+    const response = await request(app)
+      .post('/api/practice/sessions')
+      .send({
+        ...chartBody,
+        id: 'forged-server-anchor-session',
+        anchorServerId: 'anchor-2',
+      });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('PRACTICE_SESSION_INVALID');
+    expect(mockPrisma.practiceSession.create).not.toHaveBeenCalled();
+    expect(mockPrisma.courseEvent.create).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { label: 'unlinked', activeLink: null },
+    {
+      label: 'released',
+      activeLink: {
+        anchorId: 'anchor-1',
+        anchor: { id: 'anchor-1', userId: MOCK_DB_USER.id, isArchived: true },
+      },
+    },
+  ])('rejects a Chart session after its Anchor is $label', async ({ activeLink }) => {
+    mockPrisma.courseAnchorLink.findFirst.mockResolvedValue(activeLink);
+
+    const response = await request(app)
+      .post('/api/practice/sessions')
+      .send({ ...chartBody, id: 'unavailable-anchor-session' });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('PRACTICE_SESSION_INVALID');
+    expect(mockPrisma.practiceSession.create).not.toHaveBeenCalled();
+    expect(mockPrisma.courseEvent.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects Chart attribution when completing the existing Course is disabled', async () => {
+    mockGetChartCapabilities.mockResolvedValue({ canCompleteExistingCourse: false });
+
+    const response = await request(app)
+      .post('/api/practice/sessions')
+      .send({ ...chartBody, id: 'disabled-chart-session' });
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe('FEATURE_DISABLED');
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockPrisma.practiceSession.create).not.toHaveBeenCalled();
+    expect(mockPrisma.courseEvent.create).not.toHaveBeenCalled();
+  });
+
+  it('preserves ordinary non-Chart Practice when Chart completion is disabled', async () => {
+    mockGetChartCapabilities.mockResolvedValue({ canCompleteExistingCourse: false });
+
+    const response = await request(app)
+      .post('/api/practice/sessions')
+      .send({ ...body, id: 'ordinary-practice-session' });
+
+    expect(response.status).toBe(201);
+    expect(mockGetChartCapabilities).not.toHaveBeenCalled();
+    expect(mockPrisma.course.findUnique).not.toHaveBeenCalled();
+    expect(mockPrisma.courseEvent.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects Course and Waypoint IDs hidden under a non-Chart source', async () => {
+    const response = await request(app)
+      .post('/api/practice/sessions')
+      .send({
+        ...chartBody,
+        id: 'forged-non-chart-source',
+        practiceEntrySource: 'anchor_detail',
+      });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.code).toBe('PRACTICE_SESSION_INVALID');
+    expect(mockPrisma.practiceSession.create).not.toHaveBeenCalled();
+    expect(mockPrisma.courseEvent.create).not.toHaveBeenCalled();
   });
 
   it('accepts a pre-ledger legacy payload missing localDateKey/timeZone/utcOffset/completionSource/schemaVersion', async () => {

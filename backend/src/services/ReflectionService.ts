@@ -7,6 +7,12 @@ import type { CreateReflectionRequest, UpdateReflectionRequest } from '../types/
 
 type ReflectionInput = CreateReflectionRequest;
 type StructuredContent = { whatHelped?: string; whatLearned?: string };
+type ReflectionRelationship = {
+  practiceSessionId: string | null;
+  anchorId: string | null;
+  courseId: string | null;
+  waypointId: string | null;
+};
 
 function cleanText(value: string | undefined, max = 1000): string | undefined {
   if (value === undefined) return undefined;
@@ -104,10 +110,13 @@ export class ReflectionService {
     assertPromptAndMoodRules(input);
     const content = assertContent(input);
     if (!content) return null;
-    const replay = await this.replayExisting(userId, input, content);
+    // Resolve the effective relationship before any replay. POST_PRACTICE
+    // derives Course/Waypoint/Anchor from its session, and those canonical
+    // values are part of the idempotency identity just like source and prompt.
+    const relationship = await this.validateRelationships(userId, input);
+    const replay = await this.replayExisting(userId, input, content, relationship);
     if (replay) return replay;
 
-    const relationship = await this.validateRelationships(userId, input);
     try {
       return reflectionResponse(await this.insert(userId, input, content, relationship));
     } catch (error) {
@@ -118,7 +127,7 @@ export class ReflectionService {
         error.code === 'P2002' &&
         (error.meta?.target as string[] | undefined)?.includes('idempotency_key')
       ) {
-        const raced = await this.replayExisting(userId, input, content);
+        const raced = await this.replayExisting(userId, input, content, relationship);
         if (raced) return raced;
       }
       throw error;
@@ -129,12 +138,7 @@ export class ReflectionService {
     userId: string,
     input: ReflectionInput,
     content: { body: string | undefined; structuredContent: StructuredContent | undefined },
-    relationship: {
-      practiceSessionId: string | null;
-      anchorId: string | null;
-      courseId: string | null;
-      waypointId: string | null;
-    }
+    relationship: ReflectionRelationship
   ): Promise<Prisma.ReflectionGetPayload<Prisma.ReflectionDefaultArgs>> {
     return prisma.$transaction(async tx => {
       const reflection = await tx.reflection.create({
@@ -187,7 +191,8 @@ export class ReflectionService {
   private async replayExisting(
     userId: string,
     input: ReflectionInput,
-    content: { body: string | undefined; structuredContent: StructuredContent | undefined }
+    content: { body: string | undefined; structuredContent: StructuredContent | undefined },
+    relationship: ReflectionRelationship
   ): Promise<Record<string, unknown> | null> {
     const existing = await prisma.reflection.findUnique({
       where: { idempotencyKey: input.idempotencyKey },
@@ -200,10 +205,18 @@ export class ReflectionService {
         'IDEMPOTENCY_CONFLICT'
       );
     }
-    // Tombstones are authoritative. Never resurrect destroyed text on a
-    // delayed replay of the original request.
+    if (!this.matchesIdentity(existing, userId, input, relationship)) {
+      throw new AppError(
+        'Reflection idempotency key has already been used',
+        409,
+        'IDEMPOTENCY_CONFLICT'
+      );
+    }
+    // Tombstones are authoritative. Their original content has intentionally
+    // been destroyed, but immutable prompt, mood, and relationship identity
+    // must still match before returning the tombstone.
     if (existing.deletedAt) return reflectionResponse(existing);
-    if (!this.matches(existing, userId, input, content)) {
+    if (!this.matches(existing, userId, input, content, relationship)) {
       throw new AppError(
         'Reflection idempotency key has already been used',
         409,
@@ -290,12 +303,7 @@ export class ReflectionService {
   private async validateRelationships(
     userId: string,
     input: ReflectionInput
-  ): Promise<{
-    practiceSessionId: string | null;
-    anchorId: string | null;
-    courseId: string | null;
-    waypointId: string | null;
-  }> {
+  ): Promise<ReflectionRelationship> {
     if (input.anchorId) {
       const anchor = await prisma.anchor.findFirst({
         where: { id: input.anchorId, userId },
@@ -317,9 +325,12 @@ export class ReflectionService {
       });
       if (!session || session.userId !== userId)
         throw new AppError('Reflection relationship is invalid', 422, 'REFLECTION_INVALID');
+      if (input.anchorId && input.anchorId !== session.anchorId) {
+        throw new AppError('Reflection relationship is invalid', 422, 'REFLECTION_INVALID');
+      }
       return {
         practiceSessionId: session.id,
-        anchorId: input.anchorId ?? session.anchorId,
+        anchorId: session.anchorId ?? null,
         courseId: session.courseId ?? null,
         waypointId: session.waypointId ?? null,
       };
@@ -413,18 +424,34 @@ export class ReflectionService {
     existing: Prisma.ReflectionGetPayload<Prisma.ReflectionDefaultArgs>,
     userId: string,
     input: ReflectionInput,
-    content: { body: string | undefined; structuredContent: StructuredContent | undefined }
+    content: { body: string | undefined; structuredContent: StructuredContent | undefined },
+    relationship: ReflectionRelationship
+  ): boolean {
+    return (
+      this.matchesIdentity(existing, userId, input, relationship) &&
+      existing.body === (content.body ?? null) &&
+      JSON.stringify(existing.structuredContent) ===
+        JSON.stringify(content.structuredContent ?? null)
+    );
+  }
+
+  private matchesIdentity(
+    existing: Prisma.ReflectionGetPayload<Prisma.ReflectionDefaultArgs>,
+    userId: string,
+    input: ReflectionInput,
+    relationship: ReflectionRelationship
   ): boolean {
     return (
       existing.userId === userId &&
       existing.source === input.source &&
       existing.promptType === input.promptType &&
       existing.promptVersion === input.promptVersion &&
-      existing.body === (content.body ?? null) &&
-      JSON.stringify(existing.structuredContent) ===
-        JSON.stringify(content.structuredContent ?? null) &&
       existing.moodBefore === (input.moodBefore ?? null) &&
-      existing.moodAfter === (input.moodAfter ?? null)
+      existing.moodAfter === (input.moodAfter ?? null) &&
+      existing.practiceSessionId === relationship.practiceSessionId &&
+      existing.anchorId === relationship.anchorId &&
+      existing.courseId === relationship.courseId &&
+      existing.waypointId === relationship.waypointId
     );
   }
 }

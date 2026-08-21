@@ -44,7 +44,7 @@ export const CourseEditorScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [newWaypointTitle, setNewWaypointTitle] = useState('');
   const [newWaypointDescription, setNewWaypointDescription] = useState('');
-  const addWaypointKey = useRef(actionKey('waypoint-add')).current;
+  const addWaypointIntentRef = useRef<{ signature: string; key: string } | null>(null);
 
   useEffect(() => {
     if (!course) void store.fetchCourseDetail(route.params.courseId);
@@ -98,16 +98,23 @@ export const CourseEditorScreen: React.FC = () => {
 
   const addWaypoint = async () => {
     if (!course || !newWaypointTitle.trim() || course.waypoints.length >= 7) return;
+    const title = newWaypointTitle.trim();
+    const description = newWaypointDescription.trim();
+    const signature = JSON.stringify([course.id, course.version, title, description]);
+    if (addWaypointIntentRef.current?.signature !== signature) {
+      addWaypointIntentRef.current = { signature, key: actionKey('waypoint-add') };
+    }
     const updated = await store.addWaypoint(route.params.courseId, {
-      idempotencyKey: addWaypointKey,
+      idempotencyKey: addWaypointIntentRef.current.key,
       expectedCourseVersion: course.version,
-      title: newWaypointTitle.trim(),
-      ...(newWaypointDescription.trim() ? { description: newWaypointDescription.trim() } : {}),
+      title,
+      ...(description ? { description } : {}),
     });
     if (!updated) {
       setError('The waypoint could not be added.');
       return;
     }
+    addWaypointIntentRef.current = null;
     setNewWaypointTitle('');
     setNewWaypointDescription('');
   };

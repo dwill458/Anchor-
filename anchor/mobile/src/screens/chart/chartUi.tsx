@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   screenSubtitle: { fontFamily: typography.fonts.body, fontSize: 11.5, lineHeight: 16, color: 'rgba(245,240,232,0.32)', marginTop: 4 },
   kicker: { fontFamily: typography.fonts.headingSemiBold, fontSize: 9.5, lineHeight: 13, letterSpacing: 2.1, color: 'rgba(212,175,55,0.62)', textTransform: 'uppercase' },
   panel: { borderRadius: 16, borderWidth: 1, borderColor: C.cardBorder, overflow: 'hidden', position: 'relative' },
-  ghostButton: { minHeight: 34, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  ghostButton: { minHeight: 44, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 6 },
   ghostPressed: { opacity: 0.68 },
   ghostText: { fontFamily: typography.fonts.body, fontSize: 11.5, letterSpacing: 0.2 },
   section: { gap: 10 },
@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   cardEmphasis: { borderColor: 'rgba(212,175,55,0.24)', backgroundColor: 'rgba(20,26,35,0.74)' },
-  iconButton: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(212,175,55,0.14)', backgroundColor: 'rgba(255,255,255,0.015)' },
+  iconButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(212,175,55,0.14)', backgroundColor: 'rgba(255,255,255,0.015)' },
   button: {
     minHeight: 50,
     paddingHorizontal: spacing.lg,

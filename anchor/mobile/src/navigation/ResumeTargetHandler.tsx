@@ -6,15 +6,17 @@ import { useAnchorStore } from "@/stores/anchorStore";
 import { useNavigationResumeStore } from "@/stores/navigationResumeStore";
 import { ENABLE_VISUALIZE } from "@/config";
 import { useAuthStore } from "@/stores/authStore";
-import { resolveChartFeatureFlags } from "@/types/chart";
+import { canViewChart } from "@/types/chart";
 
 export const ResumeTargetHandler: React.FC = () => {
   const { navigateToPractice, navigateToChart, navigateToVault } = useTabNavigation();
   const { startPractice } = usePracticeEntry();
   useEffect(() => {
+    const authUser = useAuthStore.getState().user;
+    const hasChartAccess = canViewChart(authUser?.chartFlags, authUser?.chartCapabilities);
     const chartDeepLink = useNavigationResumeStore.getState().consumeChartDeepLink();
     if (chartDeepLink) {
-      if (!resolveChartFeatureFlags(useAuthStore.getState().user?.chartFlags).chart_enabled) {
+      if (!hasChartAccess) {
         navigateToVault();
         return;
       }
@@ -49,7 +51,7 @@ export const ResumeTargetHandler: React.FC = () => {
       }
     }
     if (target.kind === 'chart_waypoint') {
-      if (!resolveChartFeatureFlags(useAuthStore.getState().user?.chartFlags).chart_enabled) {
+      if (!hasChartAccess) {
         navigateToVault();
         return;
       }
@@ -60,7 +62,7 @@ export const ResumeTargetHandler: React.FC = () => {
       return;
     }
     if (target.kind === 'chart_ai_plan') {
-      if (!resolveChartFeatureFlags(useAuthStore.getState().user?.chartFlags).chart_enabled) {
+      if (!hasChartAccess) {
         navigateToVault();
         return;
       }

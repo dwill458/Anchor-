@@ -63,9 +63,7 @@ const persisted = (userId: string) => prisma.aIPlanProposal.count({ where: { use
 function settledOutcomes<T>(results: PromiseSettledResult<T>[]) {
   return {
     fulfilled: results.filter(r => r.status === 'fulfilled').length,
-    rejected: results.filter(
-      (r): r is PromiseRejectedResult => r.status === 'rejected'
-    ),
+    rejected: results.filter((r): r is PromiseRejectedResult => r.status === 'rejected'),
   };
 }
 
@@ -229,6 +227,29 @@ describePg('Chart — real PostgreSQL races and replays', () => {
   });
 
   describe('Course publication and completion races', () => {
+    it('accepts a proposal without violating the immediate current-waypoint FK', async () => {
+      const user = await makeUser('pro');
+      const proposal = await coursePlannerService.generate(user, {
+        destinationText: 'Reach one hundred active members',
+        currentReality: 'We currently have twenty active members',
+        idempotencyKey: randomUUID(),
+      });
+
+      const accepted = await coursePlannerService.accept(user.id, {
+        proposalId: proposal.proposalId,
+        idempotencyKey: randomUUID(),
+      });
+
+      expect(accepted.status).toBe('ACTIVE');
+      expect(accepted.startingContext).toBe('We currently have twenty active members');
+      expect(accepted.currentWaypointId).toBe(accepted.waypoints[0].id);
+      expect(
+        await prisma.waypoint.count({
+          where: { id: accepted.currentWaypointId!, courseId: accepted.id, userId: user.id },
+        })
+      ).toBe(1);
+    });
+
     it('two concurrent publishes cannot create two active Courses', async () => {
       const user = await makeUser('pro');
       const courses = await Promise.all(
@@ -275,7 +296,66 @@ describePg('Chart — real PostgreSQL races and replays', () => {
       expect(settledOutcomes(results).fulfilled).toBeGreaterThanOrEqual(1);
 
       expect(await eventCount(courseId, 'WAYPOINT_REACHED')).toBe(1);
-      expect((await prisma.waypoint.findUnique({ where: { id: currentId } }))?.reachedAt).not.toBeNull();
+      expect(
+        (await prisma.waypoint.findUnique({ where: { id: currentId } }))?.reachedAt
+      ).not.toBeNull();
+    });
+  });
+
+  describe('request idempotency races', () => {
+    it('two identical concurrent waypoint adds commit one logical mutation', async () => {
+      const user = await makeUser('pro');
+      const { courseId, currentId, version } = await publishedCourse(user.id);
+      const key = randomUUID();
+      const input = {
+        idempotencyKey: key,
+        expectedCourseVersion: version,
+        title: 'Concurrent outcome ledge',
+        description: 'This ledge must exist exactly once.',
+        afterWaypointId: currentId,
+      };
+
+      const results = await Promise.allSettled([
+        courseService.addWaypoint(user.id, courseId, input),
+        courseService.addWaypoint(user.id, courseId, input),
+      ]);
+
+      expect(settledOutcomes(results).fulfilled).toBe(2);
+      expect(
+        await prisma.waypoint.count({
+          where: { courseId, userId: user.id, title: 'Concurrent outcome ledge' },
+        })
+      ).toBe(1);
+    });
+
+    it('one of two concurrent Anchor-link intents sharing a key conflicts', async () => {
+      const user = await makeUser('pro');
+      const { courseId, version } = await publishedCourse(user.id);
+      const [anchorA, anchorB] = await Promise.all([makeAnchor(user.id), makeAnchor(user.id)]);
+      const key = randomUUID();
+      const results = await Promise.allSettled([
+        courseService.linkAnchor(user.id, courseId, {
+          idempotencyKey: key,
+          expectedCourseVersion: version,
+          anchorId: anchorA.id,
+          role: 'DESTINATION',
+        }),
+        courseService.linkAnchor(user.id, courseId, {
+          idempotencyKey: key,
+          expectedCourseVersion: version,
+          anchorId: anchorB.id,
+          role: 'DESTINATION',
+        }),
+      ]);
+      const { fulfilled, rejected } = settledOutcomes(results);
+
+      expect(fulfilled).toBe(1);
+      expect((rejected[0].reason as { code?: string }).code).toBe('IDEMPOTENCY_CONFLICT');
+      expect(
+        await prisma.courseAnchorLink.count({
+          where: { courseId, userId: user.id, role: 'DESTINATION', unlinkedAt: null },
+        })
+      ).toBe(1);
     });
   });
 
@@ -289,10 +369,15 @@ describePg('Chart — real PostgreSQL races and replays', () => {
       const attackerCourse = await publishedCourse(attacker.id);
 
       const sharedKey = randomUUID();
-      await courseService.completeWaypoint(victim.id, victimCourse.courseId, victimCourse.currentId, {
-        idempotencyKey: sharedKey,
-        expectedCourseVersion: victimCourse.version,
-      });
+      await courseService.completeWaypoint(
+        victim.id,
+        victimCourse.courseId,
+        victimCourse.currentId,
+        {
+          idempotencyKey: sharedKey,
+          expectedCourseVersion: victimCourse.version,
+        }
+      );
       const victimEvent = await prisma.courseEvent.findFirst({
         where: { courseId: victimCourse.courseId, eventType: 'WAYPOINT_REACHED' },
       });
@@ -563,7 +648,9 @@ describePg('Chart — real PostgreSQL races and replays', () => {
       })) as { id: string; body?: string | null; deletedAt?: Date | null };
       expect(replay.id).toBe(created.id);
       expect(replay.body ?? '').toBe('');
-      expect(await prisma.reflection.count({ where: { userId: user.id, deletedAt: null } })).toBe(0);
+      expect(await prisma.reflection.count({ where: { userId: user.id, deletedAt: null } })).toBe(
+        0
+      );
     });
   });
 
@@ -590,7 +677,9 @@ describePg('Chart — real PostgreSQL races and replays', () => {
       expect(rejected.map(entry => (entry.reason as Error).message)).toEqual([]);
       expect(fulfilled).toBe(3);
 
-      expect(await prisma.reflection.count({ where: { userId: user.id, idempotencyKey: key } })).toBe(1);
+      expect(
+        await prisma.reflection.count({ where: { userId: user.id, idempotencyKey: key } })
+      ).toBe(1);
     });
 
     it('another account replaying the same Reflection key is denied', async () => {

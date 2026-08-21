@@ -28,6 +28,7 @@ const mockPrisma = {
   },
   course: { findUnique: jest.fn() },
   waypoint: { findUnique: jest.fn() },
+  courseAnchorLink: { findFirst: jest.fn() },
   courseEvent: { findUnique: jest.fn(), create: jest.fn() },
   $transaction: jest.fn(),
 };
@@ -35,6 +36,10 @@ const mockPrisma = {
 jest.mock('../../../lib/prisma', () => ({ prisma: mockPrisma }));
 jest.mock('../../../services/PracticeAccessService', () => ({
   requireVisualizeAccess: jest.fn().mockResolvedValue(undefined),
+}));
+const mockGetChartCapabilities = jest.fn();
+jest.mock('../../../services/ChartCapabilityService', () => ({
+  getChartCapabilities: (...args: unknown[]) => mockGetChartCapabilities(...args),
 }));
 
 import { authMiddleware } from '../../middleware/auth';
@@ -70,6 +75,7 @@ const MOCK_DB_USER = {
   subscriptionStatus: 'pro',
   subscriptionId: 'pro',
   trialStartedAt: new Date(),
+  chartSchemaVersion: 1,
 };
 
 function buildApp(): Application {
@@ -115,6 +121,7 @@ describe('frozen practiceEntrySource contract', () => {
     mockPrisma.practiceSession.findUnique.mockResolvedValue(null);
     mockPrisma.practiceSession.findFirst.mockResolvedValue(null);
     mockPrisma.practiceSession.findMany.mockResolvedValue([]);
+    mockGetChartCapabilities.mockResolvedValue({ canCompleteExistingCourse: true });
     mockPrisma.practiceSession.create.mockImplementation(async ({ data }: any) => ({
       ...data,
       startedAt: new Date(data.startedAt),
@@ -122,11 +129,24 @@ describe('frozen practiceEntrySource contract', () => {
     }));
     mockPrisma.anchor.update.mockResolvedValue({ id: 'anchor-1' });
     mockPrisma.user.update.mockResolvedValue({ id: MOCK_DB_USER.id });
-    mockPrisma.course.findUnique.mockResolvedValue({ id: 'course-1', userId: MOCK_DB_USER.id });
+    mockPrisma.course.findUnique.mockResolvedValue({
+      id: 'course-1',
+      userId: MOCK_DB_USER.id,
+      status: 'ACTIVE',
+      currentWaypointId: 'waypoint-1',
+      deletedAt: null,
+    });
     mockPrisma.waypoint.findUnique.mockResolvedValue({
       id: 'waypoint-1',
       userId: MOCK_DB_USER.id,
       courseId: 'course-1',
+      reachedAt: null,
+      skippedAt: null,
+      cancelledAt: null,
+    });
+    mockPrisma.courseAnchorLink.findFirst.mockResolvedValue({
+      anchorId: 'anchor-1',
+      anchor: { id: 'anchor-1', userId: MOCK_DB_USER.id, isArchived: false },
     });
     mockPrisma.courseEvent.findUnique.mockResolvedValue(null);
     mockPrisma.courseEvent.create.mockResolvedValue({ id: 'event-1' });

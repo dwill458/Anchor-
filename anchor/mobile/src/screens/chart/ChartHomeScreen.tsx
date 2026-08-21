@@ -9,6 +9,7 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { useAuthStore } from '@/stores/authStore';
 import { useCourseStore } from '@/stores/courseStore';
 import { useCourseLogStore } from '@/stores/courseLogStore';
+import { useChartJourneyStore } from '@/stores/chartJourneyStore';
 import { startReflectionQueueSync } from '@/services/ReflectionService';
 import { AnalyticsEvents, trackChartEventOnce } from '@/services/AnalyticsService';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
@@ -18,6 +19,7 @@ import { canViewChart } from '@/types/chart';
 import type { ChartStackParamList, CourseDetail, CourseSummary, WaypointSummary } from '@/types/chart';
 import { colors, typography } from '@/theme';
 import { CourseMap } from './components/CourseMap';
+import { ExistingUserChartIntro } from './components/ExistingUserChartIntro';
 import {
   ChartButton,
   ChartCard,
@@ -152,10 +154,15 @@ export const ChartHomeScreen: React.FC = () => {
   const store = useCourseStore();
   const logStore = useCourseLogStore();
   const reducedMotion = useReduceMotionEnabled();
+  const journeyAccountId = useChartJourneyStore((state) => state.accountId);
+  const journeyHydrated = useChartJourneyStore((state) => state.hydrated);
+  const existingUserIntroResolved = useChartJourneyStore((state) => state.existingUserIntroResolved);
+  const newUserIntroStage = useChartJourneyStore((state) => state.newUserIntroStage);
+  const hasChartAccess = Boolean(accountId && canViewChart(serverFlags, chartCapabilities));
 
   useEffect(() => {
     if (!accountId || serverFlags == null) return;
-    if (canViewChart(serverFlags, chartCapabilities)) {
+    if (hasChartAccess) {
       trackChartEventOnce(AnalyticsEvents.CHART_TAB_VIEWED, accountId, route.key, {
         entry_source: 'chart_tab',
       });
@@ -166,16 +173,19 @@ export const ChartHomeScreen: React.FC = () => {
         offline: authOffline,
       });
     }
-  }, [accountId, authOffline, chartCapabilities, route.key, serverFlags]);
+  }, [accountId, authOffline, hasChartAccess, route.key]);
 
   useEffect(() => {
-    if (!accountId || !canViewChart(serverFlags, chartCapabilities)) return;
-    store.setFeatureFlags(serverFlags);
+    if (!accountId || !hasChartAccess) return;
+    void useChartJourneyStore.getState().bindAccount(accountId);
     store.bindAccount(accountId);
+    store.setFeatureFlags(serverFlags);
     void store.hydrateAndRefresh(accountId);
-  }, [accountId, serverFlags, chartCapabilities, store.bindAccount, store.hydrateAndRefresh, store.setFeatureFlags]);
+  }, [accountId, hasChartAccess, serverFlags, store.bindAccount, store.hydrateAndRefresh, store.setFeatureFlags]);
 
-  useEffect(() => startReflectionQueueSync(), []);
+  useEffect(() => {
+    if (hasChartAccess) startReflectionQueueSync();
+  }, [hasChartAccess]);
 
   useEffect(() => {
     registerTabNav(2, navigation);
@@ -189,14 +199,17 @@ export const ChartHomeScreen: React.FC = () => {
   const detail = course && 'waypoints' in course ? course : null;
 
   useEffect(() => {
-    if (!accountId || !detail?.id) return;
+    if (!accountId || !hasChartAccess || !detail?.id) return;
     void logStore.bind(accountId, detail.id);
-  }, [accountId, detail?.id, logStore.bind]);
+  }, [accountId, detail?.id, hasChartAccess, logStore.bind]);
 
   const historicalCourses = store.courses.filter((item) => item.status === 'COMPLETED' || item.status === 'ARCHIVED');
   const hasCache = Boolean(course || store.courses.length);
   const offline = authOffline || store.offline;
   const readOnly = store.readOnly || offline || store.stale;
+  const canReflect =
+    store.flags.chart_reflections_enabled &&
+    chartCapabilities?.canCreateOrEditReflections === true;
 
   const retry = useCallback(() => {
     if (accountId) void store.hydrateAndRefresh(accountId);
@@ -206,7 +219,7 @@ export const ChartHomeScreen: React.FC = () => {
     if (course) navigation.navigate('CourseDetails', { courseId: course.id });
   }, [course, navigation]);
 
-  if (!accountId || !store.flags.chart_enabled) {
+  if (!hasChartAccess) {
     return (
       <ChartScreenFrame title="CHART" subtitle="Know where you’re going.">
         <ChartCard emphasis><Text style={styles.emptyTitle}>Chart is unavailable</Text><Text style={styles.body}>Chart will appear here when it is enabled for your account.</Text></ChartCard>
@@ -231,17 +244,27 @@ export const ChartHomeScreen: React.FC = () => {
   }
 
   if (!course) {
+    const showExistingUserIntro =
+      hasChartAccess &&
+      store.flags.chart_existing_user_intro_enabled &&
+      journeyHydrated &&
+      journeyAccountId === accountId &&
+      !existingUserIntroResolved &&
+      newUserIntroStage === 'not_eligible';
     return (
-      <ChartScreenFrame title="CHART" scroll={false} headerTopInset={18}>
-        <View style={styles.emptyState}>
-          <EmptyChartArt />
-          <Text style={styles.emptyTitle}>Where are you going?</Text>
-          <Text style={[styles.body, styles.emptyBody]}>Set a destination. Anchor will help you plot the way there.</Text>
-          <ChartButton label="Plot Your Course" onPress={() => navigation.navigate('CourseSetup')} />
-          <ChartGhostButton label="Build it myself" onPress={() => navigation.navigate('CourseSetup')} style={styles.buildItButton} />
-        </View>
-        {historicalCourses.length > 0 ? <ChartCard><ChartKicker>Completed & Archived Journeys</ChartKicker>{historicalCourses.map((item) => <ChartGhostButton key={item.id} label={`${item.status === 'COMPLETED' ? 'Completed' : 'Archived'} · ${item.destinationText}`} onPress={() => item.status === 'COMPLETED' ? navigation.navigate('CompletedJourney', { courseId: item.id }) : navigation.navigate('CourseDetails', { courseId: item.id })} />)}</ChartCard> : null}
-      </ChartScreenFrame>
+      <>
+        <ChartScreenFrame title="CHART" scroll={false} headerTopInset={18}>
+          <View style={styles.emptyState}>
+            <EmptyChartArt />
+            <Text style={styles.emptyTitle}>Where are you going?</Text>
+            <Text style={[styles.body, styles.emptyBody]}>Set a destination. Anchor will help you plot the meaningful results between here and there.</Text>
+            <ChartButton label="Plot a New Destination" onPress={() => navigation.navigate('CourseSetup')} />
+            <ChartGhostButton label="Build the Course Myself" onPress={() => navigation.navigate('CourseSetup')} style={styles.buildItButton} />
+          </View>
+          {historicalCourses.length > 0 ? <ChartCard><ChartKicker>Completed & Archived Journeys</ChartKicker>{historicalCourses.map((item) => <ChartGhostButton key={item.id} label={`${item.status === 'COMPLETED' ? 'Completed' : 'Archived'} · ${item.destinationText}`} onPress={() => item.status === 'COMPLETED' ? navigation.navigate('CompletedJourney', { courseId: item.id }) : navigation.navigate('CourseDetails', { courseId: item.id })} />)}</ChartCard> : null}
+        </ChartScreenFrame>
+        <ExistingUserChartIntro visible={showExistingUserIntro} navigation={navigation} />
+      </>
     );
   }
 
@@ -336,14 +359,20 @@ export const ChartHomeScreen: React.FC = () => {
               {currentWaypoint.state === 'BLOCKED' ? <Text style={styles.currentDescription}>This waypoint is blocked because its linked Anchor is unavailable.</Text> : currentWaypoint.description ? <Text style={styles.currentDescription}>{currentWaypoint.description}</Text> : null}
 
               <ChartKicker style={styles.subKicker}>LINKED ANCHOR</ChartKicker>
-              <ChartCard style={styles.anchorCard}>
-                <AnchorArt waypoint={currentWaypoint} />
-                <View style={styles.anchorCopy}>
-                  <Text style={styles.anchorQuote}>“{currentWaypoint.anchorLink?.snapshot.intentionText ?? 'No Anchor linked yet'}”</Text>
-                  <Text style={styles.anchorMeta}>{currentWaypoint.anchorLink?.anchorAvailable ? 'LINKED ANCHOR' : currentWaypoint.state === 'BLOCKED' ? 'ANCHOR UNAVAILABLE' : 'LINK AN ANCHOR TO PRACTICE'}</Text>
-                </View>
-                <ArrowUpRight size={15} color={colors.gold} />
-              </ChartCard>
+              <Pressable
+                onPress={() => navigation.navigate('WaypointDetail', { courseId: course.id, waypointId: currentWaypoint.id })}
+                accessibilityRole="button"
+                accessibilityLabel={`Open current Waypoint Anchor: ${currentWaypoint.anchorLink?.snapshot.intentionText ?? 'No Anchor linked'}`}
+              >
+                <ChartCard style={styles.anchorCard}>
+                  <AnchorArt waypoint={currentWaypoint} />
+                  <View style={styles.anchorCopy}>
+                    <Text style={styles.anchorQuote}>“{currentWaypoint.anchorLink?.snapshot.intentionText ?? 'No Anchor linked yet'}”</Text>
+                    <Text style={styles.anchorMeta}>{currentWaypoint.anchorLink?.anchorAvailable ? 'LINKED ANCHOR' : currentWaypoint.state === 'BLOCKED' ? 'ANCHOR UNAVAILABLE' : 'LINK AN ANCHOR TO PRACTICE'}</Text>
+                  </View>
+                  <ArrowUpRight size={15} color={colors.gold} />
+                </ChartCard>
+              </Pressable>
               {!currentWaypoint.anchorLink?.anchorAvailable ? <ChartButton label="Link an Existing Anchor" secondary onPress={() => navigation.navigate('WaypointDetail', { courseId: course.id, waypointId: currentWaypoint.id })} disabled={readOnly} /> : null}
 
               <ChartKicker style={styles.subKicker}>PRACTICE THIS WAYPOINT</ChartKicker>
@@ -358,7 +387,7 @@ export const ChartHomeScreen: React.FC = () => {
                   return <View key={entry.id} style={styles.logLine}><View style={styles.logDot} /><View style={styles.logEntryCopy}><Text style={styles.logMeta}>{formatShortDate(entry.occurredAt).toUpperCase()} · {copy.meta}</Text><Text style={styles.logQuote}>“{copy.text}”</Text></View></View>;
                 }) : <Text style={styles.logEmpty}>{logStore.loading ? 'Loading Course Log…' : 'Your reflections will appear here.'}</Text>}
               </ChartCard>
-              <View style={styles.logActions}><ChartGhostButton label="Add Reflection" icon={<BookOpen size={13} color={colors.gold} />} onPress={() => navigation.navigate('ReflectionComposer', { source: 'MANUAL_COURSE', promptType: 'COURSE_STATUS', promptVersion: 1, courseId: course.id, waypointId: currentWaypoint.id, draftKey: `course:${course.id}:${currentWaypoint.id}:manual` })} /><ChartGhostButton label="View full log →" onPress={() => navigation.navigate('CourseLog', { courseId: course.id })} color={colors.gold} /></View>
+              <View style={styles.logActions}><ChartGhostButton label="Add Reflection" disabled={!canReflect} icon={<BookOpen size={13} color={colors.gold} />} onPress={() => navigation.navigate('ReflectionComposer', { source: 'MANUAL_COURSE', promptType: 'COURSE_STATUS', promptVersion: 1, courseId: course.id, waypointId: currentWaypoint.id, draftKey: `course:${course.id}:${currentWaypoint.id}:manual` })} /><ChartGhostButton label="View full log →" onPress={() => navigation.navigate('CourseLog', { courseId: course.id })} color={colors.gold} /></View>
 
               <ChartKicker style={styles.subKicker}>COURSE GUIDANCE</ChartKicker>
               <ChartGhostButton label={course.observations?.[0]?.text ?? 'Your reflections will surface patterns here.'} onPress={() => navigation.navigate('CourseLog', { courseId: course.id })} color="rgba(245,240,232,0.62)" />

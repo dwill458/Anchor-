@@ -4,6 +4,7 @@ import { AnalyticsService } from '@/services/AnalyticsService';
 import { apiClient } from '@/services/ApiClient';
 import { isBackendAnchorId } from '@/services/BackendAnchorService';
 import { useAuthStore } from '@/stores/authStore';
+import { useChartJourneyStore } from '@/stores/chartJourneyStore';
 import {
   readSecureValue,
   writeSecureValue,
@@ -29,6 +30,24 @@ const queueKey = (accountId: string) =>
   `anchor:practice-write-queue:${accountId}`;
 const nextActionQueueKey = (accountId: string) =>
   `anchor:practice-next-action-queue:${accountId}`;
+const accountQueueOperations = new Map<string, Promise<void>>();
+const activeFlushes = new Map<string, Promise<void>>();
+
+async function withAccountQueueLock<T>(
+  accountId: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const previous = accountQueueOperations.get(accountId) ?? Promise.resolve();
+  const current = previous.catch(() => undefined).then(operation);
+  const settled = current.then(() => undefined, () => undefined);
+  accountQueueOperations.set(accountId, settled);
+  void settled.finally(() => {
+    if (accountQueueOperations.get(accountId) === settled) {
+      accountQueueOperations.delete(accountId);
+    }
+  });
+  return current;
+}
 
 interface NextActionWrite {
   sessionId: string;
@@ -119,11 +138,11 @@ function resolveChartColumns(input: CompletePracticeSessionInput): {
 } {
   const entrySource = input.practiceEntrySource ?? null;
   const context = input.chartContext;
-  if (
-    !isChartPracticeEntrySource(entrySource ?? undefined) ||
-    !isChartPracticeContext(context)
-  ) {
+  if (!isChartPracticeEntrySource(entrySource ?? undefined)) {
     return { courseId: null, waypointId: null, practiceEntrySource: entrySource };
+  }
+  if (!isChartPracticeContext(context)) {
+    return { courseId: null, waypointId: null, practiceEntrySource: null };
   }
   return {
     courseId: context.courseId,
@@ -171,6 +190,35 @@ function buildRecord(input: CompletePracticeSessionInput): PracticeSessionRecord
   };
 }
 
+async function markFirstPracticeForActiveAccount(
+  accountId: string,
+  anchorId: string,
+  practiceMode: PracticeMode,
+): Promise<void> {
+  // Releasing an Anchor is a destructive closing action, not the reinforcing
+  // first-Practice milestone that seeds a future Course.
+  if (!anchorId || practiceMode === 'release' || useAuthStore.getState().user?.id !== accountId) return;
+  // Auth normally starts this hydration. Rechecking immediately before the
+  // call prevents a late completion for account A from superseding an
+  // account-B bind that already began while the canonical write was awaited.
+  await useChartJourneyStore.getState().bindAccount(accountId);
+  if (
+    useAuthStore.getState().user?.id !== accountId ||
+    useChartJourneyStore.getState().accountId !== accountId
+  ) return;
+  await useChartJourneyStore.getState().markFirstPracticeCompleted(anchorId);
+}
+
+function isActivePracticeAccount(accountId: string): boolean {
+  return useAuthStore.getState().user?.id === accountId;
+}
+
+function assertActivePracticeAccount(accountId: string): void {
+  if (!isActivePracticeAccount(accountId)) {
+    throw new Error('Practice completion account is no longer active.');
+  }
+}
+
 export const PracticeCompletionService = {
   async completePracticeSession(
     input: CompletePracticeSessionInput,
@@ -185,6 +233,14 @@ export const PracticeCompletionService = {
       .getState()
       .practiceHistory.find((event) => event.id === input.sessionId);
     if (existing) {
+      if (existing.accountId !== input.accountId) {
+        throw new Error('Practice session ID belongs to another account.');
+      }
+      await markFirstPracticeForActiveAccount(
+        input.accountId,
+        existing.anchorServerId ?? existing.anchorId ?? existing.anchorLocalId ?? '',
+        existing.practiceMode,
+      );
       AnalyticsService.track('practice_duplicate_prevented', {
         mode: existing.practiceMode,
         source: input.source,
@@ -198,6 +254,13 @@ export const PracticeCompletionService = {
       record,
       options.mirrorLegacySession === true,
       options.flushImmediately !== false,
+    );
+    // The invitation milestone is based on a durable canonical Practice write,
+    // never on a timer, strength increase, or Waypoint lifecycle change.
+    await markFirstPracticeForActiveAccount(
+      input.accountId,
+      record.anchorServerId ?? record.anchorId ?? record.anchorLocalId ?? '',
+      record.practiceMode,
     );
     AnalyticsService.track('practice_session_completed', {
       mode: record.practiceMode,
@@ -267,20 +330,21 @@ export const PracticeCompletionService = {
     mirrorLegacySession = false,
     flushImmediately = true,
   ): Promise<void> {
-    const currentAccountId = useAuthStore.getState().user?.id;
-    if (!currentAccountId || currentAccountId !== record.accountId) {
-      throw new Error('Cannot queue practice history for an inactive account.');
-    }
-
-    const queue = await readQueue(record.accountId);
-    if (!queue.some((item) => item.id === record.id)) {
-      await writeQueue(record.accountId, [...queue, record]);
-    }
-    if (mirrorLegacySession) {
-      useSessionStore.getState().recordPracticeSession(record);
-    } else {
-      useSessionStore.getState().appendCanonicalPracticeSession(record);
-    }
+    assertActivePracticeAccount(record.accountId);
+    await withAccountQueueLock(record.accountId, async () => {
+      assertActivePracticeAccount(record.accountId);
+      const queue = await readQueue(record.accountId);
+      assertActivePracticeAccount(record.accountId);
+      if (!queue.some((item) => item.id === record.id)) {
+        await writeQueue(record.accountId, [...queue, record]);
+        assertActivePracticeAccount(record.accountId);
+      }
+      if (mirrorLegacySession) {
+        useSessionStore.getState().recordPracticeSession(record);
+      } else {
+        useSessionStore.getState().appendCanonicalPracticeSession(record);
+      }
+    });
     if (flushImmediately) void this.flush(record.accountId);
   },
 
@@ -360,37 +424,81 @@ export const PracticeCompletionService = {
   },
 
   async flush(accountId: string): Promise<void> {
-    if (useAuthStore.getState().user?.id !== accountId) return;
-    const queue = await readQueue(accountId);
-    const remaining: PracticeSessionRecord[] = [];
-    for (const session of queue) {
-      try {
-        await apiClient.post('/api/practice/sessions', serverPayload(session));
-        useSessionStore.getState().markPracticeSessionSynced(session.id);
-      } catch {
-        remaining.push({ ...session, syncState: 'failed' });
-        AnalyticsService.track('practice_sync_failed', {
-          mode: session.practiceMode,
-          session_id: session.id,
-        });
-        logger.warn('[PracticeCompletionService] Practice sync deferred');
+    const existingFlush = activeFlushes.get(accountId);
+    if (existingFlush) return existingFlush;
+    const operation = (async () => {
+      if (!isActivePracticeAccount(accountId)) return;
+      const queue = await withAccountQueueLock(accountId, async () => {
+        if (!isActivePracticeAccount(accountId)) return [];
+        const current = await readQueue(accountId);
+        return isActivePracticeAccount(accountId) ? current : [];
+      });
+      const syncedIds = new Set<string>();
+      const failedIds = new Set<string>();
+      for (const session of queue) {
+        if (!isActivePracticeAccount(accountId)) return;
+        try {
+          await apiClient.post('/api/practice/sessions', serverPayload(session));
+          if (!isActivePracticeAccount(accountId)) return;
+          syncedIds.add(session.id);
+          useSessionStore.getState().markPracticeSessionSynced(session.id);
+        } catch {
+          if (!isActivePracticeAccount(accountId)) return;
+          failedIds.add(session.id);
+          AnalyticsService.track('practice_sync_failed', {
+            mode: session.practiceMode,
+            session_id: session.id,
+          });
+          logger.warn('[PracticeCompletionService] Practice sync deferred');
+        }
       }
-    }
-    await writeQueue(accountId, remaining);
+      await withAccountQueueLock(accountId, async () => {
+        if (!isActivePracticeAccount(accountId)) return;
+        const latest = await readQueue(accountId);
+        if (!isActivePracticeAccount(accountId)) return;
+        const reconciled = latest
+          .filter((session) => !syncedIds.has(session.id))
+          .map((session) => failedIds.has(session.id) ? { ...session, syncState: 'failed' as const } : session);
+        await writeQueue(accountId, reconciled);
+      });
+      if (!isActivePracticeAccount(accountId)) return;
 
-    const nextActionQueue = await readNextActionQueue(accountId);
-    const remainingNextActions: NextActionWrite[] = [];
-    for (const write of nextActionQueue) {
-      try {
-        await apiClient.patch(
-          `/api/practice/sessions/${encodeURIComponent(write.sessionId)}/next-action`,
-          { nextAction: write.nextAction },
-        );
-      } catch {
-        remainingNextActions.push(write);
+      const nextActionQueue = await withAccountQueueLock(accountId, async () => {
+        if (!isActivePracticeAccount(accountId)) return [];
+        const current = await readNextActionQueue(accountId);
+        return isActivePracticeAccount(accountId) ? current : [];
+      });
+      const syncedNextActions = new Set<string>();
+      for (const write of nextActionQueue) {
+        if (!isActivePracticeAccount(accountId)) return;
+        const signature = `${write.sessionId}:${write.nextAction ?? ''}`;
+        try {
+          await apiClient.patch(
+            `/api/practice/sessions/${encodeURIComponent(write.sessionId)}/next-action`,
+            { nextAction: write.nextAction },
+          );
+          if (!isActivePracticeAccount(accountId)) return;
+          syncedNextActions.add(signature);
+        } catch {
+          if (!isActivePracticeAccount(accountId)) return;
+        }
       }
+      await withAccountQueueLock(accountId, async () => {
+        if (!isActivePracticeAccount(accountId)) return;
+        const latest = await readNextActionQueue(accountId);
+        if (!isActivePracticeAccount(accountId)) return;
+        await writeNextActionQueue(
+          accountId,
+          latest.filter((write) => !syncedNextActions.has(`${write.sessionId}:${write.nextAction ?? ''}`)),
+        );
+      });
+    })();
+    activeFlushes.set(accountId, operation);
+    try {
+      await operation;
+    } finally {
+      if (activeFlushes.get(accountId) === operation) activeFlushes.delete(accountId);
     }
-    await writeNextActionQueue(accountId, remainingNextActions);
   },
 
   async saveNextAction(params: {
@@ -415,11 +523,16 @@ export const PracticeCompletionService = {
         { nextAction },
       );
     } catch {
-      const queue = await readNextActionQueue(params.accountId);
-      await writeNextActionQueue(params.accountId, [
-        ...queue.filter((item) => item.sessionId !== params.sessionId),
-        { sessionId: params.sessionId, nextAction },
-      ]);
+      assertActivePracticeAccount(params.accountId);
+      await withAccountQueueLock(params.accountId, async () => {
+        assertActivePracticeAccount(params.accountId);
+        const queue = await readNextActionQueue(params.accountId);
+        assertActivePracticeAccount(params.accountId);
+        await writeNextActionQueue(params.accountId, [
+          ...queue.filter((item) => item.sessionId !== params.sessionId),
+          { sessionId: params.sessionId, nextAction },
+        ]);
+      });
     }
   },
 };

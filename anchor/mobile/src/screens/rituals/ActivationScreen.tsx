@@ -64,6 +64,8 @@ import { resolveSessionAudioPlan } from '@/services/SessionAudioManifest';
 import { PracticeCompletionService } from '@/services/PracticeCompletionService';
 import { resolvePracticeCompletionSource } from '@/navigation/practiceReturn';
 import { useChartPracticeReturn } from '@/hooks/useChartPracticeReturn';
+import { useChartJourneyStore } from '@/stores/chartJourneyStore';
+import { ChartFirstJourneyInvitation } from '@/screens/chart/components/ChartFirstJourneyInvitation';
 
 type ActivationRouteProp = RouteProp<RootStackParamList, 'ActivationRitual'>;
 type ActivationNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ActivationRitual'>;
@@ -169,6 +171,7 @@ export const ActivationScreen: React.FC = () => {
   const [showCompletion, setShowCompletion] = useState(false);
   const [showPostPrimeTrace, setShowPostPrimeTrace] = useState(false);
   const [showExitWarning, setShowExitWarning] = useState(false);
+  const [showChartInvitation, setShowChartInvitation] = useState(false);
   const [pendingPostPrimeFlowId, setPendingPostPrimeFlowId] = useState<string | null>(null);
   const exitingRef = React.useRef(false);
   const sessionCompletedRef = React.useRef(false);
@@ -585,6 +588,63 @@ export const ActivationScreen: React.FC = () => {
     }, [handleComplete, promptExitSession])
   );
 
+  const finishAfterCompletion = useCallback((canonicalSessionId?: string) => {
+    if (canonicalSessionId && returnToChart({
+      returnTo,
+      anchorId,
+      chartContext,
+      practiceReturn: {
+        outcome: 'completed',
+        practiceSessionId: canonicalSessionId,
+        practiceMode: practiceMode ?? 'focus',
+        anchorId,
+      },
+    })) return;
+
+    if (returnTarget?.kind === 'anchorDetail') {
+      navigation.popToTop?.();
+      returnToAnchorDetail(returnTarget.anchorId);
+      return;
+    }
+
+    if (returnTo === 'practice') {
+      if (typeof navigation.popToTop === 'function') navigation.popToTop();
+      navigateToPractice();
+      scheduleReviewRequestAfterHomeReturn();
+    } else if (returnTo === 'reinforce') {
+      navigation.replace('Ritual', {
+        anchorId,
+        ritualType: 'ritual',
+        durationSeconds: 300,
+        returnTo: 'detail',
+      });
+    } else if (returnTo === 'detail') {
+      returnToAnchorDetail(anchorId);
+    } else if (returnTo === 'vault') {
+      if (isPendingFirstAnchor && anchor) {
+        navigation.replace('SaveProgress', { anchor });
+      } else {
+        navigateToVaultDestination(navigation, 'replace');
+        scheduleReviewRequestAfterHomeReturn();
+      }
+    } else {
+      navigation.goBack();
+    }
+  }, [
+    anchor,
+    anchorId,
+    chartContext,
+    isPendingFirstAnchor,
+    navigateToPractice,
+    navigation,
+    practiceMode,
+    returnTarget,
+    returnTo,
+    returnToAnchorDetail,
+    returnToChart,
+    scheduleReviewRequestAfterHomeReturn,
+  ]);
+
   const handleCompletionDone = useCallback(async (reflectionWord?: string) => {
     if (hasRecordedRef.current) {
       return;
@@ -626,68 +686,26 @@ export const ActivationScreen: React.FC = () => {
     });
     void recordReviewSignal('focus_session_completed');
 
-    if (canonicalRecord && returnToChart({
-      returnTo,
-      anchorId,
-      chartContext,
-      practiceReturn: {
-        outcome: 'completed',
-        practiceSessionId: canonicalRecord.id,
-        practiceMode: practiceMode ?? 'focus',
-        anchorId,
-      },
-    })) return;
-
-    if (returnTarget?.kind === 'anchorDetail') {
-      navigation.popToTop?.();
-      returnToAnchorDetail(returnTarget.anchorId);
+    const journey = useChartJourneyStore.getState();
+    if (
+      canonicalRecord &&
+      returnTo !== 'chart' &&
+      journey.firstAnchorId === anchorId &&
+      journey.newUserIntroStage === 'ready'
+    ) {
+      setShowChartInvitation(true);
       return;
     }
-
-    if (returnTo === 'practice') {
-      if (typeof navigation.popToTop === 'function') {
-        navigation.popToTop();
-      }
-      navigateToPractice();
-      scheduleReviewRequestAfterHomeReturn();
-    } else if (returnTo === 'reinforce') {
-      navigation.replace('Ritual', {
-        anchorId,
-        ritualType: 'ritual',
-        durationSeconds: 300,
-        returnTo: 'detail',
-      });
-    } else if (returnTo === 'detail') {
-      returnToAnchorDetail(anchorId);
-    } else if (returnTo === 'vault') {
-      if (isPendingFirstAnchor && anchor) {
-        navigation.replace('SaveProgress', { anchor });
-      } else {
-        navigateToVaultDestination(navigation, 'replace');
-        scheduleReviewRequestAfterHomeReturn();
-      }
-    } else {
-      navigation.goBack();
-    }
+    finishAfterCompletion(canonicalRecord?.id);
   }, [
     anchor,
-    activeAccountId,
     anchorId,
     activationDurationSeconds,
     chartContext,
-    isPendingFirstAnchor,
-    logActivationInBackground,
-    navigateToPractice,
-    navigateToVault,
-    navigation,
+    finishAfterCompletion,
     recordSession,
-    handlePrimeComplete,
     focusSessionAudioPlan,
-    practiceMode,
-    returnTarget,
     returnTo,
-    returnToChart,
-    scheduleReviewRequestAfterHomeReturn,
     source,
   ]);
 
@@ -753,6 +771,17 @@ export const ActivationScreen: React.FC = () => {
         secondaryCtaLabel="Exit"
         onPrimary={() => setShowExitWarning(false)}
         onSecondary={exitSession}
+      />
+      <ChartFirstJourneyInvitation
+        visible={showChartInvitation}
+        onCourseSelected={() => {
+          setShowChartInvitation(false);
+          navigation.popToTop?.();
+        }}
+        onContinue={() => {
+          setShowChartInvitation(false);
+          finishAfterCompletion();
+        }}
       />
     </>
   );

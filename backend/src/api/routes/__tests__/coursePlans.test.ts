@@ -91,15 +91,17 @@ describe('Chart plan route boundary', () => {
     mockPlanner.generate.mockResolvedValue({ proposalId: 'proposal-1' });
     const response = await request(buildApp()).post('/api/course-plans').send({
       destinationText: ' Complete a portfolio ',
+      currentReality: ' I have one draft project. ',
       idempotencyKey: 'plan-1',
     });
     expect(response.status).toBe(201);
     // Entitlement inputs are resolved server-side and handed to the service;
-    // only the two validated fields come from the request body.
-    expect(mockPlanner.generate).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'user-1' }),
-      { destinationText: 'Complete a portfolio', idempotencyKey: 'plan-1' }
-    );
+    // Only validated planner fields come from the request body.
+    expect(mockPlanner.generate).toHaveBeenCalledWith(expect.objectContaining({ id: 'user-1' }), {
+      destinationText: 'Complete a portfolio',
+      currentReality: 'I have one draft project.',
+      idempotencyKey: 'plan-1',
+    });
   });
 
   it('keeps acceptance behind both planner and Chart-write flags', async () => {

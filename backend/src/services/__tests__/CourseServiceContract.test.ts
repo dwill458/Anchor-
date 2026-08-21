@@ -11,12 +11,19 @@
  * this file deliberately does not repeat those.
  */
 
-import { CourseAnchorRole, CourseEventType, CourseStatus } from '@prisma/client';
+import { createHash } from 'crypto';
+import { CourseAnchorRole, CourseEventType, CourseStatus, Prisma } from '@prisma/client';
 
 const mockPrisma = {
   $transaction: jest.fn(),
-  course: { findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn() },
-  waypoint: { update: jest.fn() },
+  course: {
+    findUnique: jest.fn(),
+    findFirst: jest.fn(),
+    findMany: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+  },
+  waypoint: { create: jest.fn(), update: jest.fn() },
   courseEvent: {
     findUnique: jest.fn(),
     findFirst: jest.fn(),
@@ -27,11 +34,12 @@ const mockPrisma = {
   anchor: { findFirst: jest.fn() },
   reflection: { create: jest.fn(), findMany: jest.fn() },
   practiceSession: { findUnique: jest.fn(), findMany: jest.fn() },
+  aIPlanProposal: { findUnique: jest.fn(), updateMany: jest.fn() },
 };
 
 jest.mock('../../lib/prisma', () => ({ prisma: mockPrisma }));
 
-import { courseService } from '../CourseService';
+import { courseService, createPublishedCourseFromProposal } from '../CourseService';
 import { AppError } from '../../api/middleware/errorHandler';
 
 // Deterministic values from docs/chart/PHASE_0_FIXTURE_MATRIX.md.
@@ -41,6 +49,17 @@ const COURSE_ID = 'course-chart-phase0';
 const USER_ID = 'acct-chart-phase0';
 const COURSE_VERSION = 7;
 const DESTINATION = 'Anchor has ten thousand users';
+
+function fingerprint(value: Record<string, unknown>): string {
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
+function uniqueViolation(): Prisma.PrismaClientKnownRequestError {
+  return new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+    code: 'P2002',
+    clientVersion: 'test',
+  });
+}
 
 const WP = {
   start: 'wp-start',
@@ -54,7 +73,7 @@ function waypointRow(
   id: string,
   position: number,
   title: string,
-  overrides: Record<string, unknown> = {},
+  overrides: Record<string, unknown> = {}
 ) {
   return {
     id,
@@ -111,6 +130,7 @@ function courseRow(overrides: Record<string, unknown> = {}) {
     id: COURSE_ID,
     userId: USER_ID,
     destinationText: DESTINATION,
+    startingContext: null,
     status: CourseStatus.ACTIVE,
     currentWaypointId: WP.current,
     version: COURSE_VERSION,
@@ -137,8 +157,8 @@ function courseRow(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockPrisma.$transaction.mockImplementation(
-    async (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma),
+  mockPrisma.$transaction.mockImplementation(async (callback: (tx: typeof mockPrisma) => unknown) =>
+    callback(mockPrisma)
   );
   mockPrisma.courseEvent.findUnique.mockResolvedValue(null);
   mockPrisma.courseEvent.findFirst.mockResolvedValue(null);
@@ -149,8 +169,11 @@ beforeEach(() => {
   });
   mockPrisma.courseEvent.findMany.mockResolvedValue([]);
   mockPrisma.course.update.mockResolvedValue({});
+  mockPrisma.course.findUnique.mockResolvedValue(null);
+  mockPrisma.course.create.mockImplementation(async ({ data }: any) => data);
   mockPrisma.course.findMany.mockResolvedValue([]);
   mockPrisma.waypoint.update.mockResolvedValue({});
+  mockPrisma.waypoint.create.mockImplementation(async ({ data }: any) => data);
   mockPrisma.courseAnchorLink.update.mockResolvedValue({});
   mockPrisma.courseAnchorLink.findMany.mockResolvedValue([]);
   mockPrisma.courseAnchorLink.create.mockImplementation(async ({ data }: any) => data);
@@ -159,6 +182,218 @@ beforeEach(() => {
   mockPrisma.reflection.create.mockImplementation(async ({ data }: any) => data);
   mockPrisma.practiceSession.findMany.mockResolvedValue([]);
   mockPrisma.practiceSession.findUnique.mockResolvedValue(null);
+  mockPrisma.aIPlanProposal.findUnique.mockResolvedValue(null);
+  mockPrisma.aIPlanProposal.updateMany.mockResolvedValue({ count: 1 });
+});
+
+describe('Proposal publication assembly', () => {
+  it('creates a DRAFT with a null pointer, inserts Waypoints, then publishes it', async () => {
+    mockPrisma.course.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(
+      courseRow({
+        startingContext: '43 active users.',
+        status: CourseStatus.ACTIVE,
+        currentWaypointId: WP.current,
+      })
+    );
+
+    await createPublishedCourseFromProposal(mockPrisma as any, {
+      userId: USER_ID,
+      proposalId: 'proposal-1',
+      idempotencyKey: 'accept-course-1',
+      destinationText: DESTINATION,
+      startingContext: '43 active users.',
+      waypoints: [
+        { title: 'Reach 100 users', description: 'Sustain the first meaningful cohort.' },
+        { title: 'Reach 1,000 users', description: 'Demonstrate repeatable adoption.' },
+      ],
+    });
+
+    expect(mockPrisma.course.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: CourseStatus.DRAFT,
+          currentWaypointId: null,
+          startingContext: '43 active users.',
+        }),
+      })
+    );
+    expect(mockPrisma.waypoint.create).toHaveBeenCalledTimes(2);
+    expect(mockPrisma.course.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: CourseStatus.ACTIVE,
+          currentWaypointId: expect.any(String),
+        }),
+      })
+    );
+    expect(mockPrisma.course.create.mock.invocationCallOrder[0]).toBeLessThan(
+      mockPrisma.waypoint.create.mock.invocationCallOrder[0]
+    );
+    expect(mockPrisma.waypoint.create.mock.invocationCallOrder[1]).toBeLessThan(
+      mockPrisma.course.update.mock.invocationCallOrder[0]
+    );
+  });
+});
+
+describe('Edited proposal Course creation', () => {
+  const pendingProposal = (overrides: Record<string, unknown> = {}) => ({
+    id: 'proposal-edited-1',
+    userId: USER_ID,
+    courseId: null,
+    status: 'PENDING',
+    acceptedAt: null,
+    expiresAt: new Date('2099-01-01T00:00:00.000Z'),
+    destinationInterpretation: DESTINATION,
+    startingContext: '43 active users',
+    ...overrides,
+  });
+  const editedInput = {
+    idempotencyKey: 'edited-proposal-create-1',
+    destinationText: DESTINATION,
+    currentReality: '  43   active users  ',
+    fromProposalId: 'proposal-edited-1',
+    waypoints: [
+      { title: 'Reach 100 users', description: 'Edited first ledge.' },
+      { title: 'Reach 1,000 users', description: 'Edited second ledge.' },
+    ],
+  };
+
+  it('claims the owned live proposal in the same transaction as DRAFT creation', async () => {
+    mockPrisma.aIPlanProposal.findUnique.mockResolvedValue(pendingProposal());
+    mockPrisma.course.findFirst.mockResolvedValueOnce(null).mockImplementation(({ where }: any) =>
+      courseRow({
+        id: where.id,
+        status: CourseStatus.DRAFT,
+        currentWaypointId: null,
+        startingContext: '43 active users',
+        createdFromProposalId: 'proposal-edited-1',
+        idempotencyKey: editedInput.idempotencyKey,
+        waypoints: editedInput.waypoints.map((waypoint, index) =>
+          waypointRow(`edited-${index}`, (index + 1) * 100, waypoint.title, {
+            courseId: where.id,
+            description: waypoint.description,
+          })
+        ),
+        anchorLinks: [],
+      })
+    );
+
+    const created = await courseService.createCourse(USER_ID, editedInput);
+
+    expect(created.status).toBe(CourseStatus.DRAFT);
+    expect(created.startingContext).toBe('43 active users');
+    expect(mockPrisma.aIPlanProposal.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        id: 'proposal-edited-1',
+        userId: USER_ID,
+        status: 'PENDING',
+        courseId: null,
+        acceptedAt: null,
+        expiresAt: { gt: expect.any(Date) },
+      }),
+      data: {
+        status: 'ACCEPTED',
+        acceptedAt: expect.any(Date),
+        courseId: created.id,
+      },
+    });
+  });
+
+  it('rejects a missing or cross-account proposal before creating anything', async () => {
+    for (const proposal of [null, pendingProposal({ userId: 'other-user' })]) {
+      jest.clearAllMocks();
+      mockPrisma.course.findUnique.mockResolvedValue(null);
+      mockPrisma.courseEvent.findUnique.mockResolvedValue(null);
+      mockPrisma.aIPlanProposal.findUnique.mockResolvedValue(proposal);
+
+      await expect(courseService.createCourse(USER_ID, editedInput)).rejects.toMatchObject({
+        code: 'COURSE_NOT_FOUND',
+        statusCode: 404,
+      });
+      expect(mockPrisma.course.create).not.toHaveBeenCalled();
+    }
+  });
+
+  it.each([
+    ['expired', { expiresAt: new Date('2020-01-01T00:00:00.000Z') }],
+    ['accepted', { status: 'ACCEPTED', acceptedAt: NOW, courseId: 'course-existing' }],
+  ])('rejects a %s proposal before creating anything', async (_label, overrides) => {
+    mockPrisma.aIPlanProposal.findUnique.mockResolvedValue(pendingProposal(overrides));
+
+    await expect(courseService.createCourse(USER_ID, editedInput)).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      statusCode: 409,
+    });
+    expect(mockPrisma.course.create).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['destination', { destinationText: 'A different destination' }],
+    ['current reality', { currentReality: 'A different baseline' }],
+  ])('rejects mismatched proposal %s provenance', async (_label, overrides) => {
+    mockPrisma.aIPlanProposal.findUnique.mockResolvedValue(pendingProposal());
+
+    await expect(
+      courseService.createCourse(USER_ID, { ...editedInput, ...overrides })
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', statusCode: 409 });
+    expect(mockPrisma.course.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('Manual Course create idempotency intent', () => {
+  it('replays the full normalized payload and conflicts on changed waypoints or provenance', async () => {
+    const input = {
+      idempotencyKey: 'manual-create-intent-1',
+      destinationText: 'Build a durable studio',
+      currentReality: '  One   client  ',
+      waypoints: [{ title: 'Serve five clients', description: 'Sustain the outcome.' }],
+    };
+    let persisted: ReturnType<typeof courseRow>;
+    mockPrisma.course.findFirst.mockResolvedValueOnce(null).mockImplementation(({ where }: any) => {
+      persisted = courseRow({
+        id: where.id,
+        destinationText: input.destinationText,
+        startingContext: 'One client',
+        status: CourseStatus.DRAFT,
+        currentWaypointId: null,
+        idempotencyKey: input.idempotencyKey,
+        waypoints: [
+          waypointRow('manual-wp-1', 100, input.waypoints[0].title, {
+            courseId: where.id,
+            description: input.waypoints[0].description,
+          }),
+        ],
+        anchorLinks: [],
+      });
+      return persisted;
+    });
+
+    await courseService.createCourse(USER_ID, input);
+    const committedEvent = mockPrisma.courseEvent.create.mock.calls
+      .map(([args]: any) => args.data)
+      .find((event: any) => event.eventType === CourseEventType.COURSE_CREATED);
+    mockPrisma.course.findUnique.mockResolvedValue(persisted!);
+    mockPrisma.courseEvent.findUnique.mockResolvedValue({
+      ...committedEvent,
+      id: 'manual-course-created-event',
+    });
+    mockPrisma.course.create.mockClear();
+    mockPrisma.waypoint.create.mockClear();
+
+    await courseService.createCourse(USER_ID, input);
+    expect(mockPrisma.course.create).not.toHaveBeenCalled();
+    expect(mockPrisma.waypoint.create).not.toHaveBeenCalled();
+
+    await expect(
+      courseService.createCourse(USER_ID, {
+        ...input,
+        waypoints: [{ ...input.waypoints[0], title: 'Serve ten clients' }],
+      })
+    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT', statusCode: 409 });
+    await expect(
+      courseService.createCourse(USER_ID, { ...input, fromProposalId: 'forged-proposal' })
+    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT', statusCode: 409 });
+  });
 });
 
 // ── Response shapes ─────────────────────────────────────────────────────────
@@ -172,6 +407,7 @@ describe('Course and Waypoint response shapes', () => {
       [
         'id',
         'destinationText',
+        'startingContext',
         'status',
         'version',
         'currentWaypointId',
@@ -183,7 +419,7 @@ describe('Course and Waypoint response shapes', () => {
         'destinationAnchorLink',
         'observations',
         'waypoints',
-      ].sort(),
+      ].sort()
     );
     // No `needsRepair` on a healthy course.
     expect(course).not.toHaveProperty('needsRepair');
@@ -207,7 +443,7 @@ describe('Course and Waypoint response shapes', () => {
           'skippedAt',
           'cancelledAt',
           'anchorLink',
-        ].sort(),
+        ].sort()
       );
     }
     const reached = course.waypoints.find(item => item.id === WP.start)!;
@@ -222,7 +458,7 @@ describe('Course and Waypoint response shapes', () => {
     expect(course.destinationText).toBe(DESTINATION);
     for (const waypoint of course.waypoints) {
       expect(['UPCOMING', 'CURRENT', 'REACHED', 'BLOCKED', 'SKIPPED', 'CANCELLED']).toContain(
-        waypoint.state,
+        waypoint.state
       );
       expect(waypoint.state as string).not.toBe('DESTINATION');
     }
@@ -261,7 +497,7 @@ describe('Derived Waypoint states and currentWaypointId authority', () => {
           waypointRow(WP.fiveK, 400, '5K USERS', { cancelledAt: NOW }),
           waypointRow(WP.tenK, 500, '10K USERS'),
         ],
-      }),
+      })
     );
     const course = await courseService.getCourse(USER_ID, COURSE_ID);
     const byId = new Map(course.waypoints.map(item => [item.id, item.state]));
@@ -275,7 +511,7 @@ describe('Derived Waypoint states and currentWaypointId authority', () => {
 
   it('flags a course whose pointer is corrupt and withholds a derived CURRENT', async () => {
     mockPrisma.course.findFirst.mockResolvedValue(
-      courseRow({ currentWaypointId: 'wp-does-not-exist' }),
+      courseRow({ currentWaypointId: 'wp-does-not-exist' })
     );
     const course = await courseService.getCourse(USER_ID, COURSE_ID);
 
@@ -296,7 +532,7 @@ describe('Derived Waypoint states and currentWaypointId authority', () => {
           waypointRow(WP.start, 100, 'START', { reachedAt: PLOTTED_AT }),
           waypointRow(WP.current, 300, '1K USERS', { reachedAt: NOW }),
         ],
-      }),
+      })
     );
     const course = await courseService.getCourse(USER_ID, COURSE_ID);
 
@@ -310,21 +546,19 @@ describe('Derived Waypoint states and currentWaypointId authority', () => {
 
 describe('Waypoint completion — expected version and pointer advance', () => {
   it('advances the pointer to the next non-terminal waypoint and increments once', async () => {
-    mockPrisma.course.findFirst
-      .mockResolvedValueOnce(courseRow())
-      .mockResolvedValue(
-        courseRow({
-          version: COURSE_VERSION + 1,
-          currentWaypointId: WP.fiveK,
-          waypoints: [
-            waypointRow(WP.start, 100, 'START', { reachedAt: PLOTTED_AT }),
-            waypointRow(WP.hundred, 200, '100 USERS', { reachedAt: PLOTTED_AT }),
-            waypointRow(WP.current, 300, '1K USERS', { reachedAt: NOW }),
-            waypointRow(WP.fiveK, 400, '5K USERS'),
-            waypointRow(WP.tenK, 500, '10K USERS'),
-          ],
-        }),
-      );
+    mockPrisma.course.findFirst.mockResolvedValueOnce(courseRow()).mockResolvedValue(
+      courseRow({
+        version: COURSE_VERSION + 1,
+        currentWaypointId: WP.fiveK,
+        waypoints: [
+          waypointRow(WP.start, 100, 'START', { reachedAt: PLOTTED_AT }),
+          waypointRow(WP.hundred, 200, '100 USERS', { reachedAt: PLOTTED_AT }),
+          waypointRow(WP.current, 300, '1K USERS', { reachedAt: NOW }),
+          waypointRow(WP.fiveK, 400, '5K USERS'),
+          waypointRow(WP.tenK, 500, '10K USERS'),
+        ],
+      })
+    );
 
     const result = await courseService.completeWaypoint(USER_ID, COURSE_ID, WP.current, {
       idempotencyKey: 'complete-1',
@@ -346,7 +580,7 @@ describe('Waypoint completion — expected version and pointer advance', () => {
           currentWaypointId: WP.fiveK,
           version: { increment: 1 },
         }),
-      }),
+      })
     );
   });
 
@@ -357,7 +591,7 @@ describe('Waypoint completion — expected version and pointer advance', () => {
       courseService.completeWaypoint(USER_ID, COURSE_ID, WP.current, {
         idempotencyKey: 'complete-stale',
         expectedCourseVersion: COURSE_VERSION - 1,
-      }),
+      })
     ).rejects.toMatchObject({ code: 'COURSE_VERSION_CONFLICT', statusCode: 409 });
 
     // Fail closed: no state was touched.
@@ -377,7 +611,9 @@ describe('Waypoint completion — expected version and pointer advance', () => {
 
     // AppError.meta is what errorHandler serializes as `error.details`, which is
     // where ChartApiClient.getConflictCourse() reads the refreshed course from.
-    const meta = (error as AppError).meta as { course: { version: number; currentWaypointId: string } };
+    const meta = (error as AppError).meta as {
+      course: { version: number; currentWaypointId: string };
+    };
     expect(meta.course.version).toBe(COURSE_VERSION);
     expect(meta.course.currentWaypointId).toBe(WP.current);
   });
@@ -389,7 +625,7 @@ describe('Waypoint completion — expected version and pointer advance', () => {
       courseService.completeWaypoint(USER_ID, COURSE_ID, WP.fiveK, {
         idempotencyKey: 'complete-not-current',
         expectedCourseVersion: COURSE_VERSION,
-      }),
+      })
     ).rejects.toMatchObject({ code: 'WAYPOINT_NOT_CURRENT', statusCode: 409 });
     expect(mockPrisma.course.update).not.toHaveBeenCalled();
   });
@@ -402,7 +638,7 @@ describe('Waypoint completion — expected version and pointer advance', () => {
       courseService.completeWaypoint(USER_ID, COURSE_ID, WP.start, {
         idempotencyKey: 'complete-again',
         expectedCourseVersion: COURSE_VERSION,
-      }),
+      })
     ).rejects.toMatchObject({ code: 'WAYPOINT_ALREADY_REACHED', statusCode: 409 });
   });
 
@@ -429,7 +665,7 @@ describe('Waypoint completion — expected version and pointer advance', () => {
           waypointRow(WP.tenK, 500, '10K USERS', { reachedAt: NOW }),
         ],
         anchorLinks: [anchorLinkRow({ id: 'link-10k', waypointId: WP.tenK })],
-      }),
+      })
     );
 
     const result = await courseService.completeWaypoint(USER_ID, COURSE_ID, WP.tenK, {
@@ -443,7 +679,7 @@ describe('Waypoint completion — expected version and pointer advance', () => {
     expect(result.course.status).toBe('COMPLETED');
 
     const eventTypes = mockPrisma.courseEvent.create.mock.calls.map(
-      ([args]: any) => args.data.eventType,
+      ([args]: any) => args.data.eventType
     );
     expect(eventTypes).toContain(CourseEventType.WAYPOINT_REACHED);
     expect(eventTypes).toContain(CourseEventType.COURSE_COMPLETED);
@@ -460,6 +696,14 @@ describe('Waypoint completion — idempotency', () => {
       courseId: COURSE_ID,
       waypointId: WP.current,
       eventType: CourseEventType.WAYPOINT_REACHED,
+      sourceEntityType: 'Waypoint',
+      sourceEntityId: WP.current,
+      snapshot: {
+        requestFingerprint: fingerprint({
+          supportingPracticeSessionId: null,
+          reflection: null,
+        }),
+      },
       idempotencyKey: 'chart:waypoint-complete:complete-1:reached',
     });
     mockPrisma.course.findFirst.mockResolvedValue(
@@ -473,7 +717,7 @@ describe('Waypoint completion — idempotency', () => {
           waypointRow(WP.fiveK, 400, '5K USERS'),
           waypointRow(WP.tenK, 500, '10K USERS'),
         ],
-      }),
+      })
     );
 
     const result = await courseService.completeWaypoint(USER_ID, COURSE_ID, WP.current, {
@@ -537,7 +781,7 @@ describe('Waypoint completion — atomic reflection', () => {
           waypointRow(WP.fiveK, 400, '5K USERS'),
           waypointRow(WP.tenK, 500, '10K USERS'),
         ],
-      }),
+      })
     );
   }
 
@@ -552,7 +796,7 @@ describe('Waypoint completion — atomic reflection', () => {
       USER_ID,
       COURSE_ID,
       WP.current,
-      completionWithReflection,
+      completionWithReflection
     );
 
     expect(result.reflectionId).toBe('reflection-row-1');
@@ -594,12 +838,89 @@ describe('Waypoint completion — atomic reflection', () => {
     const added = events.find(item => item.eventType === CourseEventType.REFLECTION_ADDED);
 
     expect(reached?.idempotencyKey).toBe(
-      'chart:waypoint-complete:complete-with-reflection:reached',
+      'chart:waypoint-complete:complete-with-reflection:reached'
     );
     expect(added?.idempotencyKey).toBe('chart:reflection-added:reflection-1');
     expect(added?.snapshot).toEqual({ reflectionPromptType: 'WAYPOINT_COMPLETION' });
     // The event snapshot carries no reflection text.
     expect(JSON.stringify(added?.snapshot)).not.toContain('Consistency');
+  });
+
+  it('replays the identical inline reflection, returns its original id, and rejects edits', async () => {
+    stageCompletion();
+    mockPrisma.reflection.create.mockImplementation(async ({ data }: any) => ({
+      ...data,
+      id: 'reflection-row-replay',
+    }));
+    await courseService.completeWaypoint(USER_ID, COURSE_ID, WP.current, completionWithReflection);
+    const events = mockPrisma.courseEvent.create.mock.calls.map(([args]: any) => args.data);
+    const reached = events.find(item => item.eventType === CourseEventType.WAYPOINT_REACHED);
+    const reflected = events.find(item => item.eventType === CourseEventType.REFLECTION_ADDED);
+    mockPrisma.courseEvent.findUnique.mockImplementation(({ where }: any) => {
+      if (where.idempotencyKey === reached.idempotencyKey) {
+        return Promise.resolve({ ...reached, id: 'event-reached-replay' });
+      }
+      if (where.idempotencyKey === reflected.idempotencyKey) {
+        return Promise.resolve({ ...reflected, id: 'event-reflected-replay' });
+      }
+      return Promise.resolve(null);
+    });
+    mockPrisma.reflection.create.mockClear();
+    mockPrisma.courseEvent.create.mockClear();
+    mockPrisma.course.update.mockClear();
+    mockPrisma.waypoint.update.mockClear();
+
+    const replay = await courseService.completeWaypoint(USER_ID, COURSE_ID, WP.current, {
+      ...completionWithReflection,
+      expectedCourseVersion: COURSE_VERSION - 1,
+    });
+    expect(replay).toMatchObject({
+      replayed: true,
+      completionEventId: 'event-reached-replay',
+      reflectionId: 'reflection-row-replay',
+    });
+    expect(mockPrisma.reflection.create).not.toHaveBeenCalled();
+    expect(mockPrisma.course.update).not.toHaveBeenCalled();
+
+    await expect(
+      courseService.completeWaypoint(USER_ID, COURSE_ID, WP.current, {
+        ...completionWithReflection,
+        reflection: {
+          ...completionWithReflection.reflection,
+          structuredContent: {
+            ...completionWithReflection.reflection.structuredContent,
+            whatLearned: 'A different lesson.',
+          },
+        },
+      })
+    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT', statusCode: 409 });
+  });
+
+  it('rejects adding an inline reflection when replaying a completion without one', async () => {
+    stageCompletion();
+    await courseService.completeWaypoint(USER_ID, COURSE_ID, WP.current, {
+      idempotencyKey: 'complete-then-add-reflection',
+      expectedCourseVersion: COURSE_VERSION,
+    });
+    const reached = mockPrisma.courseEvent.create.mock.calls
+      .map(([args]: any) => args.data)
+      .find((event: any) => event.eventType === CourseEventType.WAYPOINT_REACHED);
+    mockPrisma.courseEvent.findUnique.mockImplementation(({ where }: any) =>
+      Promise.resolve(
+        where.idempotencyKey === reached.idempotencyKey
+          ? { ...reached, id: 'event-without-reflection' }
+          : null
+      )
+    );
+    mockPrisma.reflection.create.mockClear();
+
+    await expect(
+      courseService.completeWaypoint(USER_ID, COURSE_ID, WP.current, {
+        ...completionWithReflection,
+        idempotencyKey: 'complete-then-add-reflection',
+      })
+    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT', statusCode: 409 });
+    expect(mockPrisma.reflection.create).not.toHaveBeenCalled();
   });
 
   it('completes without a reflection when the user skips it', async () => {
@@ -630,7 +951,7 @@ describe('Waypoint completion — atomic reflection', () => {
     expect(result.reflectionId).toBeUndefined();
     expect(mockPrisma.reflection.create).not.toHaveBeenCalled();
     const events = mockPrisma.courseEvent.create.mock.calls.map(
-      ([args]: any) => args.data.eventType,
+      ([args]: any) => args.data.eventType
     );
     expect(events).not.toContain(CourseEventType.REFLECTION_ADDED);
   });
@@ -650,7 +971,7 @@ describe('Waypoint completion — supporting practice session', () => {
         idempotencyKey: 'complete-cross-account',
         expectedCourseVersion: COURSE_VERSION,
         supportingPracticeSessionId: 'session-1',
-      }),
+      })
     ).rejects.toMatchObject({
       code: 'PRACTICE_SESSION_ACCOUNT_MISMATCH',
       statusCode: 403,
@@ -667,7 +988,7 @@ describe('Waypoint completion — supporting practice session', () => {
         idempotencyKey: 'complete-missing-session',
         expectedCourseVersion: COURSE_VERSION,
         supportingPracticeSessionId: 'session-missing',
-      }),
+      })
     ).rejects.toMatchObject({ code: 'PRACTICE_SESSION_INVALID', statusCode: 422 });
   });
 
@@ -676,6 +997,9 @@ describe('Waypoint completion — supporting practice session', () => {
     mockPrisma.practiceSession.findUnique.mockResolvedValue({
       id: 'session-ok',
       userId: USER_ID,
+      courseId: COURSE_ID,
+      waypointId: WP.current,
+      anchorId: 'anchor-current',
       completedAt: new Date(),
     });
 
@@ -688,8 +1012,56 @@ describe('Waypoint completion — supporting practice session', () => {
     expect(mockPrisma.waypoint.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ supportingPracticeSessionId: 'session-ok' }),
-      }),
+      })
     );
+  });
+
+  it.each([
+    [
+      'another Course',
+      { courseId: 'course-other', waypointId: WP.current, anchorId: 'anchor-current' },
+    ],
+    ['another Waypoint', { courseId: COURSE_ID, waypointId: WP.fiveK, anchorId: 'anchor-current' }],
+    ['another Anchor', { courseId: COURSE_ID, waypointId: WP.current, anchorId: 'anchor-other' }],
+    ['no Anchor', { courseId: COURSE_ID, waypointId: WP.current, anchorId: null }],
+  ])('rejects a supporting session from %s', async (_label, relationship) => {
+    mockPrisma.course.findFirst.mockResolvedValue(courseRow());
+    mockPrisma.practiceSession.findUnique.mockResolvedValue({
+      id: 'session-wrong-context',
+      userId: USER_ID,
+      completedAt: new Date(),
+      ...relationship,
+    });
+
+    await expect(
+      courseService.completeWaypoint(USER_ID, COURSE_ID, WP.current, {
+        idempotencyKey: `complete-${relationship.courseId}-${relationship.waypointId}-${relationship.anchorId}`,
+        expectedCourseVersion: COURSE_VERSION,
+        supportingPracticeSessionId: 'session-wrong-context',
+      })
+    ).rejects.toMatchObject({ code: 'PRACTICE_SESSION_INVALID', statusCode: 422 });
+    expect(mockPrisma.waypoint.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects supporting-session provenance when the Waypoint has no active Anchor link', async () => {
+    mockPrisma.course.findFirst.mockResolvedValue(courseRow({ anchorLinks: [] }));
+    mockPrisma.practiceSession.findUnique.mockResolvedValue({
+      id: 'session-without-active-link',
+      userId: USER_ID,
+      courseId: COURSE_ID,
+      waypointId: WP.current,
+      anchorId: 'anchor-current',
+      completedAt: new Date(),
+    });
+
+    await expect(
+      courseService.completeWaypoint(USER_ID, COURSE_ID, WP.current, {
+        idempotencyKey: 'complete-without-active-link',
+        expectedCourseVersion: COURSE_VERSION,
+        supportingPracticeSessionId: 'session-without-active-link',
+      })
+    ).rejects.toMatchObject({ code: 'PRACTICE_SESSION_INVALID', statusCode: 422 });
+    expect(mockPrisma.waypoint.update).not.toHaveBeenCalled();
   });
 });
 
@@ -732,7 +1104,7 @@ describe('Anchor-link and blocked-state behavior', () => {
       courseService.completeWaypoint(USER_ID, COURSE_ID, WP.current, {
         idempotencyKey: 'complete-blocked',
         expectedCourseVersion: COURSE_VERSION,
-      }),
+      })
     ).rejects.toMatchObject({ code: 'WAYPOINT_BLOCKED', statusCode: 409 });
 
     expect(mockPrisma.course.update).not.toHaveBeenCalled();
@@ -746,23 +1118,20 @@ describe('Anchor-link and blocked-state behavior', () => {
       courseService.skipWaypoint(USER_ID, COURSE_ID, WP.current, {
         idempotencyKey: 'skip-blocked',
         expectedCourseVersion: COURSE_VERSION,
-      }),
+      })
     ).rejects.toMatchObject({ code: 'WAYPOINT_BLOCKED', statusCode: 409 });
   });
 
   it('does not block a non-current waypoint whose anchor was released', async () => {
     mockPrisma.course.findFirst.mockResolvedValue(
       courseRow({
-        anchorLinks: [
-          releasedLink,
-          anchorLinkRow({ id: 'link-5k', waypointId: WP.fiveK }),
-        ],
+        anchorLinks: [releasedLink, anchorLinkRow({ id: 'link-5k', waypointId: WP.fiveK })],
         currentWaypointId: WP.fiveK,
         waypoints: [
           waypointRow(WP.current, 300, '1K USERS'),
           waypointRow(WP.fiveK, 400, '5K USERS'),
         ],
-      }),
+      })
     );
     const course = await courseService.getCourse(USER_ID, COURSE_ID);
 
@@ -815,10 +1184,10 @@ describe('Anchor-link and blocked-state behavior', () => {
       expect(mockPrisma.course.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ currentWaypointId: WP.fiveK }),
-        }),
+        })
       );
       const eventTypes = mockPrisma.courseEvent.create.mock.calls.map(
-        ([args]: any) => args.data.eventType,
+        ([args]: any) => args.data.eventType
       );
       expect(eventTypes).toContain(CourseEventType.WAYPOINT_REACHED);
       expect(eventTypes).not.toContain(CourseEventType.WAYPOINT_BLOCKED);
@@ -833,7 +1202,7 @@ describe('Anchor-link and blocked-state behavior', () => {
       });
 
       expect(mockPrisma.waypoint.update).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: WP.current } }),
+        expect.objectContaining({ where: { id: WP.current } })
       );
     });
 
@@ -854,7 +1223,7 @@ describe('Anchor-link and blocked-state behavior', () => {
       expect(mockPrisma.reflection.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ anchorId: null, waypointId: WP.current }),
-        }),
+        })
       );
     });
 
@@ -878,7 +1247,7 @@ describe('Anchor-link and blocked-state behavior', () => {
       });
 
       const eventTypes = mockPrisma.courseEvent.create.mock.calls.map(
-        ([args]: any) => args.data.eventType,
+        ([args]: any) => args.data.eventType
       );
       expect(eventTypes).toContain(CourseEventType.WAYPOINT_ANCHOR_LINKED);
       // Nothing was ever blocked, so nothing may be reported as unblocked.
@@ -891,10 +1260,17 @@ describe('Anchor-link and blocked-state behavior', () => {
       courseRow({
         anchorLinks: [
           anchorLinkRow({
-            anchor: { id: 'anchor-current', isArchived: true, intentionText: DESTINATION, category: 'career', planetaryTier: null, enhancedImageUrl: null },
+            anchor: {
+              id: 'anchor-current',
+              isArchived: true,
+              intentionText: DESTINATION,
+              category: 'career',
+              planetaryTier: null,
+              enhancedImageUrl: null,
+            },
           }),
         ],
-      }),
+      })
     );
     const course = await courseService.getCourse(USER_ID, COURSE_ID);
     const current = course.waypoints.find(item => item.id === WP.current)!;
@@ -941,7 +1317,7 @@ describe('One live Course', () => {
       courseService.updateCourse(USER_ID, COURSE_ID, {
         expectedCourseVersion: COURSE_VERSION,
         status: 'ACTIVE',
-      }),
+      })
     ).rejects.toMatchObject({ code: 'ACTIVE_COURSE_EXISTS', statusCode: 409 });
 
     expect(mockPrisma.course.update).not.toHaveBeenCalled();
@@ -951,9 +1327,7 @@ describe('One live Course', () => {
     mockPrisma.course.findFirst
       .mockResolvedValueOnce(draftRow())
       .mockResolvedValueOnce(null)
-      .mockResolvedValue(
-        draftRow({ status: CourseStatus.ACTIVE, currentWaypointId: WP.start }),
-      );
+      .mockResolvedValue(draftRow({ status: CourseStatus.ACTIVE, currentWaypointId: WP.start }));
 
     await courseService.updateCourse(USER_ID, COURSE_ID, {
       expectedCourseVersion: COURSE_VERSION,
@@ -966,7 +1340,7 @@ describe('One live Course', () => {
           status: CourseStatus.ACTIVE,
           currentWaypointId: WP.start,
         }),
-      }),
+      })
     );
   });
 
@@ -983,12 +1357,12 @@ describe('One live Course', () => {
           status: CourseStatus.ARCHIVED,
           currentWaypointId: null,
           archivedAt: NOW,
-        }),
+        })
       )
       .mockResolvedValueOnce({ id: 'course-other-active' });
 
     await expect(
-      courseService.restoreCourse(USER_ID, COURSE_ID, COURSE_VERSION),
+      courseService.restoreCourse(USER_ID, COURSE_ID, COURSE_VERSION)
     ).rejects.toMatchObject({ code: 'ACTIVE_COURSE_EXISTS', statusCode: 409 });
   });
 
@@ -1011,20 +1385,20 @@ describe('One live Course', () => {
           deletedAt: null,
           id: { not: COURSE_ID },
         },
-      }),
+      })
     );
   });
 
   it('refuses to publish a Course with no non-terminal waypoint', async () => {
     mockPrisma.course.findFirst.mockResolvedValueOnce(
-      draftRow({ waypoints: [waypointRow(WP.start, 100, 'START', { skippedAt: NOW })] }),
+      draftRow({ waypoints: [waypointRow(WP.start, 100, 'START', { skippedAt: NOW })] })
     );
 
     await expect(
       courseService.updateCourse(USER_ID, COURSE_ID, {
         expectedCourseVersion: COURSE_VERSION,
         status: 'ACTIVE',
-      }),
+      })
     ).rejects.toMatchObject({ code: 'WAYPOINT_NOT_FOUND', statusCode: 422 });
   });
 });
@@ -1088,7 +1462,7 @@ describe('Anchor link lifecycle', () => {
           anchorId: NEW_ANCHOR.id,
           role: CourseAnchorRole.WAYPOINT_PRIMARY,
           waypointId: WP.current,
-        }),
+        })
       ).rejects.toMatchObject({ code: 'ANCHOR_LINK_INVALID', statusCode: 422 });
 
       expect(mockPrisma.courseAnchorLink.create).not.toHaveBeenCalled();
@@ -1106,7 +1480,7 @@ describe('Anchor link lifecycle', () => {
           anchorId: NEW_ANCHOR.id,
           role: CourseAnchorRole.WAYPOINT_PRIMARY,
           waypointId: WP.current,
-        }),
+        })
       ).rejects.toMatchObject({ code: 'ANCHOR_UNAVAILABLE', statusCode: 409 });
     });
 
@@ -1122,10 +1496,10 @@ describe('Anchor link lifecycle', () => {
           anchorId: 'anchor-someone-else',
           role: CourseAnchorRole.WAYPOINT_PRIMARY,
           waypointId: WP.current,
-        }),
+        })
       ).rejects.toMatchObject({ code: 'ANCHOR_LINK_INVALID', statusCode: 422 });
       expect(mockPrisma.anchor.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 'anchor-someone-else', userId: USER_ID } }),
+        expect.objectContaining({ where: { id: 'anchor-someone-else', userId: USER_ID } })
       );
     });
 
@@ -1142,7 +1516,7 @@ describe('Anchor link lifecycle', () => {
 
       expect(mockPrisma.course.update).toHaveBeenCalledTimes(1);
       expect(mockPrisma.course.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: { version: { increment: 1 } } }),
+        expect.objectContaining({ data: { version: { increment: 1 } } })
       );
     });
 
@@ -1191,7 +1565,7 @@ describe('Anchor link lifecycle', () => {
           anchorId: NEW_ANCHOR.id,
           role: CourseAnchorRole.WAYPOINT_PRIMARY,
           waypointId: WP.current,
-        }),
+        })
       ).rejects.toMatchObject({ code: 'COURSE_VERSION_CONFLICT', statusCode: 409 });
 
       expect(mockPrisma.courseAnchorLink.create).not.toHaveBeenCalled();
@@ -1249,7 +1623,7 @@ describe('Anchor link lifecycle', () => {
         expect.objectContaining({
           where: { id: 'link-current' },
           data: expect.objectContaining({ unlinkedAt: expect.any(Date) }),
-        }),
+        })
       );
       expect(mockPrisma.courseAnchorLink.create).toHaveBeenCalledTimes(1);
       expect(eventTypes()).toEqual([
@@ -1310,7 +1684,7 @@ describe('Anchor link lifecycle', () => {
           role: CourseAnchorRole.WAYPOINT_PRIMARY,
           waypointId: WP.current,
           replaceLinkId: 'link-that-is-not-active',
-        }),
+        })
       ).rejects.toMatchObject({ code: 'ANCHOR_LINK_INVALID', statusCode: 422 });
     });
 
@@ -1343,7 +1717,7 @@ describe('Anchor link lifecycle', () => {
               burnedLink(),
               anchorLinkRow({ id: 'link-new', anchorId: NEW_ANCHOR.id, anchor: NEW_ANCHOR }),
             ],
-          }),
+          })
         );
 
       const result = await courseService.linkAnchor(USER_ID, COURSE_ID, {
@@ -1378,7 +1752,7 @@ describe('Anchor link lifecycle', () => {
       mockPrisma.course.findFirst.mockResolvedValue(
         courseRow({
           anchorLinks: [anchorLinkRow({ id: 'link-5k', waypointId: WP.fiveK })],
-        }),
+        })
       );
 
       await courseService.unlinkAnchor(USER_ID, COURSE_ID, 'link-5k', COURSE_VERSION);
@@ -1401,7 +1775,7 @@ describe('Anchor link lifecycle', () => {
 
     it('records ANCHOR_RELEASED rather than ANCHOR_UNLINKED when the Anchor is already gone', async () => {
       mockPrisma.course.findFirst.mockResolvedValue(
-        courseRow({ anchorLinks: [anchorLinkRow({ anchor: null })] }),
+        courseRow({ anchorLinks: [anchorLinkRow({ anchor: null })] })
       );
 
       await courseService.unlinkAnchor(USER_ID, COURSE_ID, 'link-current', COURSE_VERSION);
@@ -1414,7 +1788,7 @@ describe('Anchor link lifecycle', () => {
       mockPrisma.course.findFirst.mockResolvedValue(courseRow({ anchorLinks: [burnedLink()] }));
 
       await expect(
-        courseService.unlinkAnchor(USER_ID, COURSE_ID, 'link-current', COURSE_VERSION),
+        courseService.unlinkAnchor(USER_ID, COURSE_ID, 'link-current', COURSE_VERSION)
       ).rejects.toMatchObject({ code: 'ANCHOR_LINK_INVALID', statusCode: 422 });
       expect(mockPrisma.course.update).not.toHaveBeenCalled();
     });
@@ -1423,7 +1797,7 @@ describe('Anchor link lifecycle', () => {
       mockPrisma.course.findFirst.mockResolvedValue(courseRow());
 
       await expect(
-        courseService.unlinkAnchor(USER_ID, COURSE_ID, 'link-current', COURSE_VERSION - 1),
+        courseService.unlinkAnchor(USER_ID, COURSE_ID, 'link-current', COURSE_VERSION - 1)
       ).rejects.toMatchObject({ code: 'COURSE_VERSION_CONFLICT', statusCode: 409 });
       expect(mockPrisma.courseAnchorLink.update).not.toHaveBeenCalled();
     });
@@ -1458,7 +1832,7 @@ describe('Anchor link lifecycle', () => {
 
     it('derives ANCHOR_DELETED when the link is open but its Anchor row is gone', async () => {
       mockPrisma.course.findFirst.mockResolvedValue(
-        courseRow({ anchorLinks: [anchorLinkRow({ anchorId: null, anchor: null })] }),
+        courseRow({ anchorLinks: [anchorLinkRow({ anchorId: null, anchor: null })] })
       );
 
       const course = await courseService.getCourse(USER_ID, COURSE_ID);
@@ -1499,7 +1873,7 @@ describe('Anchor link lifecycle', () => {
       const current = course.waypoints.find(item => item.id === WP.current)!;
 
       expect(Object.keys(current.anchorLink!).sort()).toEqual(
-        ['anchorAvailable', 'anchorId', 'id', 'linkedAt', 'role', 'snapshot'].sort(),
+        ['anchorAvailable', 'anchorId', 'id', 'linkedAt', 'role', 'snapshot'].sort()
       );
       expect(Object.keys(current.anchorLink!.snapshot).sort()).toEqual(
         [
@@ -1511,7 +1885,7 @@ describe('Anchor link lifecycle', () => {
           'planetaryTier',
           'releasedAtUnlink',
           'snapshotVersion',
-        ].sort(),
+        ].sort()
       );
     });
 
@@ -1528,7 +1902,7 @@ describe('Anchor link lifecycle', () => {
 
     it('normalizes a malformed snapshot rather than leaking partial data', async () => {
       mockPrisma.course.findFirst.mockResolvedValue(
-        courseRow({ anchorLinks: [anchorLinkRow({ anchorSnapshot: { intentionText: 42 } })] }),
+        courseRow({ anchorLinks: [anchorLinkRow({ anchorSnapshot: { intentionText: 42 } })] })
       );
       const course = await courseService.getCourse(USER_ID, COURSE_ID);
       const snapshot = course.waypoints.find(item => item.id === WP.current)!.anchorLink!.snapshot;
@@ -1543,7 +1917,7 @@ describe('Anchor link lifecycle', () => {
       mockPrisma.course.findFirst.mockResolvedValue(
         courseRow({
           anchorLinks: [anchorLinkRow({ id: 'link-100', waypointId: WP.hundred })],
-        }),
+        })
       );
       const course = await courseService.getCourse(USER_ID, COURSE_ID);
       const reached = course.waypoints.find(item => item.id === WP.hundred)!;
@@ -1609,7 +1983,10 @@ describe('Anchor link lifecycle', () => {
       });
 
       const [{ data }] = mockPrisma.courseEvent.create.mock.calls[0] as any[];
-      expect(data.snapshot).toEqual({ anchorRole: CourseAnchorRole.WAYPOINT_PRIMARY });
+      expect(data.snapshot).toEqual({
+        anchorRole: CourseAnchorRole.WAYPOINT_PRIMARY,
+        requestFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
+      });
       expect(JSON.stringify(data)).not.toContain(NEW_ANCHOR.intentionText);
     });
   });
@@ -1619,7 +1996,7 @@ describe('Anchor link lifecycle', () => {
       'refuses to link an Anchor on a %s course',
       async status => {
         mockPrisma.course.findFirst.mockResolvedValue(
-          courseRow({ status, currentWaypointId: null, anchorLinks: [] }),
+          courseRow({ status, currentWaypointId: null, anchorLinks: [] })
         );
 
         await expect(
@@ -1629,10 +2006,163 @@ describe('Anchor link lifecycle', () => {
             anchorId: NEW_ANCHOR.id,
             role: CourseAnchorRole.WAYPOINT_PRIMARY,
             waypointId: WP.current,
-          }),
+          })
         ).rejects.toMatchObject({ code: 'COURSE_NOT_ACTIVE', statusCode: 409 });
-      },
+      }
     );
+  });
+});
+
+describe('Mutation idempotency intent', () => {
+  it('replays an identical add before mutation and conflicts on changed intent', async () => {
+    mockPrisma.course.findFirst.mockResolvedValue(courseRow());
+    const input = {
+      idempotencyKey: 'add-intent-1',
+      expectedCourseVersion: COURSE_VERSION,
+      title: '2K USERS',
+      description: 'Sustain two thousand active users.',
+      afterWaypointId: WP.current,
+    };
+
+    await courseService.addWaypoint(USER_ID, COURSE_ID, input);
+    const committedEvent = {
+      ...mockPrisma.courseEvent.create.mock.calls[0][0].data,
+      id: 'event-add-intent',
+    };
+
+    mockPrisma.courseEvent.findUnique.mockResolvedValue(committedEvent);
+    mockPrisma.waypoint.create.mockClear();
+    mockPrisma.waypoint.update.mockClear();
+    mockPrisma.course.update.mockClear();
+    mockPrisma.courseEvent.create.mockClear();
+
+    await courseService.addWaypoint(USER_ID, COURSE_ID, {
+      ...input,
+      expectedCourseVersion: COURSE_VERSION - 1,
+    });
+    expect(mockPrisma.waypoint.create).not.toHaveBeenCalled();
+    expect(mockPrisma.waypoint.update).not.toHaveBeenCalled();
+    expect(mockPrisma.course.update).not.toHaveBeenCalled();
+
+    await expect(
+      courseService.addWaypoint(USER_ID, COURSE_ID, {
+        ...input,
+        title: 'A different outcome',
+      })
+    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
+    expect(mockPrisma.waypoint.create).not.toHaveBeenCalled();
+  });
+
+  it('replays an identical Anchor link before mutation and conflicts on Anchor B', async () => {
+    const linkAnchor = {
+      id: 'anchor-link-intent',
+      isArchived: false,
+      intentionText: 'I sustain meaningful growth',
+      category: 'career',
+      planetaryTier: null,
+      enhancedImageUrl: null,
+    };
+    mockPrisma.course.findFirst.mockResolvedValue(courseRow({ anchorLinks: [] }));
+    mockPrisma.anchor.findFirst.mockResolvedValue(linkAnchor);
+    const input = {
+      idempotencyKey: 'link-intent-1',
+      expectedCourseVersion: COURSE_VERSION,
+      anchorId: linkAnchor.id,
+      role: CourseAnchorRole.WAYPOINT_PRIMARY,
+      waypointId: WP.current,
+    };
+
+    await courseService.linkAnchor(USER_ID, COURSE_ID, input);
+    const committedEvent = {
+      ...mockPrisma.courseEvent.create.mock.calls[0][0].data,
+      id: 'event-link-intent',
+    };
+
+    mockPrisma.courseEvent.findUnique.mockResolvedValue(committedEvent);
+    mockPrisma.courseAnchorLink.create.mockClear();
+    mockPrisma.courseAnchorLink.update.mockClear();
+    mockPrisma.course.update.mockClear();
+    mockPrisma.courseEvent.create.mockClear();
+
+    await courseService.linkAnchor(USER_ID, COURSE_ID, {
+      ...input,
+      expectedCourseVersion: COURSE_VERSION - 1,
+    });
+    expect(mockPrisma.courseAnchorLink.create).not.toHaveBeenCalled();
+    expect(mockPrisma.courseAnchorLink.update).not.toHaveBeenCalled();
+    expect(mockPrisma.course.update).not.toHaveBeenCalled();
+
+    await expect(
+      courseService.linkAnchor(USER_ID, COURSE_ID, {
+        ...input,
+        anchorId: 'anchor-b',
+      })
+    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
+    expect(mockPrisma.courseAnchorLink.create).not.toHaveBeenCalled();
+  });
+
+  it('recovers an add replay that lost a concurrent unique-key race', async () => {
+    const requestFingerprint = fingerprint({
+      title: '2K USERS',
+      description: 'Sustain two thousand active users.',
+      afterWaypointId: WP.current,
+    });
+    mockPrisma.$transaction.mockRejectedValueOnce(uniqueViolation());
+    mockPrisma.course.findFirst.mockResolvedValue(courseRow());
+    mockPrisma.courseEvent.findUnique.mockResolvedValue({
+      id: 'event-add-race',
+      userId: USER_ID,
+      courseId: COURSE_ID,
+      waypointId: 'wp-added-race',
+      eventType: CourseEventType.WAYPOINT_ADDED,
+      sourceEntityType: 'Waypoint',
+      sourceEntityId: 'wp-added-race',
+      snapshot: { requestFingerprint },
+      idempotencyKey: 'chart:waypoint-add:add-race',
+    });
+
+    const replay = await courseService.addWaypoint(USER_ID, COURSE_ID, {
+      idempotencyKey: 'add-race',
+      expectedCourseVersion: COURSE_VERSION,
+      title: '2K USERS',
+      description: 'Sustain two thousand active users.',
+      afterWaypointId: WP.current,
+    });
+
+    expect(replay.id).toBe(COURSE_ID);
+    expect(mockPrisma.waypoint.create).not.toHaveBeenCalled();
+  });
+
+  it('recovers an Anchor-link replay that lost a concurrent unique-key race', async () => {
+    const requestFingerprint = fingerprint({
+      anchorId: 'anchor-race',
+      role: CourseAnchorRole.DESTINATION,
+      waypointId: null,
+      replaceLinkId: null,
+    });
+    mockPrisma.$transaction.mockRejectedValueOnce(uniqueViolation());
+    mockPrisma.course.findFirst.mockResolvedValue(courseRow());
+    mockPrisma.courseEvent.findUnique.mockResolvedValue({
+      id: 'event-link-race',
+      userId: USER_ID,
+      courseId: COURSE_ID,
+      waypointId: null,
+      eventType: CourseEventType.DESTINATION_ANCHOR_LINKED,
+      sourceEntityType: 'CourseAnchorLink',
+      sourceEntityId: 'link-race',
+      snapshot: { requestFingerprint },
+      idempotencyKey: 'chart:anchor-link:link-race',
+    });
+
+    const replay = await courseService.linkAnchor(USER_ID, COURSE_ID, {
+      idempotencyKey: 'link-race',
+      expectedCourseVersion: COURSE_VERSION,
+      anchorId: 'anchor-race',
+      role: CourseAnchorRole.DESTINATION,
+    });
+
+    expect(replay.id).toBe(COURSE_ID);
+    expect(mockPrisma.courseAnchorLink.create).not.toHaveBeenCalled();
   });
 });
 
@@ -1651,11 +2181,11 @@ describe('Waypoint skip', () => {
       expect.objectContaining({
         where: { id: WP.current },
         data: expect.objectContaining({ skippedAt: expect.any(Date) }),
-      }),
+      })
     );
     expect(mockPrisma.course.update).toHaveBeenCalledTimes(1);
     const events = mockPrisma.courseEvent.create.mock.calls.map(
-      ([args]: any) => args.data.eventType,
+      ([args]: any) => args.data.eventType
     );
     expect(events).toEqual([CourseEventType.WAYPOINT_SKIPPED]);
   });
@@ -1663,6 +2193,10 @@ describe('Waypoint skip', () => {
   it('replays a committed skip without a second mutation', async () => {
     mockPrisma.courseEvent.findUnique.mockResolvedValue({
       id: 'event-skip',
+      userId: USER_ID,
+      courseId: COURSE_ID,
+      waypointId: WP.current,
+      eventType: CourseEventType.WAYPOINT_SKIPPED,
       idempotencyKey: 'chart:waypoint-transition:skip-1',
     });
     mockPrisma.course.findFirst.mockResolvedValue(courseRow());
@@ -1682,8 +2216,34 @@ describe('Waypoint skip', () => {
       courseService.skipWaypoint(USER_ID, COURSE_ID, WP.fiveK, {
         idempotencyKey: 'skip-upcoming',
         expectedCourseVersion: COURSE_VERSION,
-      }),
+      })
     ).rejects.toMatchObject({ code: 'WAYPOINT_NOT_CURRENT', statusCode: 409 });
+  });
+
+  it('refuses to skip the final remaining outcome', async () => {
+    const terminalAt = new Date('2026-08-01T12:00:00.000Z');
+    mockPrisma.course.findFirst.mockResolvedValue(
+      courseRow({
+        currentWaypointId: WP.tenK,
+        waypoints: [
+          waypointRow(WP.start, 100, 'START', { reachedAt: terminalAt }),
+          waypointRow(WP.hundred, 200, '100 USERS', { reachedAt: terminalAt }),
+          waypointRow(WP.current, 300, '1K USERS', { reachedAt: terminalAt }),
+          waypointRow(WP.fiveK, 400, '5K USERS', { reachedAt: terminalAt }),
+          waypointRow(WP.tenK, 500, '10K USERS'),
+        ],
+      })
+    );
+
+    await expect(
+      courseService.skipWaypoint(USER_ID, COURSE_ID, WP.tenK, {
+        idempotencyKey: 'skip-final',
+        expectedCourseVersion: COURSE_VERSION,
+      })
+    ).rejects.toMatchObject({ code: 'WAYPOINT_TRANSITION_INVALID', statusCode: 409 });
+    expect(mockPrisma.waypoint.update).not.toHaveBeenCalled();
+    expect(mockPrisma.course.update).not.toHaveBeenCalled();
+    expect(mockPrisma.courseEvent.create).not.toHaveBeenCalled();
   });
 });
 
@@ -1700,7 +2260,7 @@ describe('Ownership and error codes', () => {
     expect(mockPrisma.course.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ id: COURSE_ID, userId: USER_ID, deletedAt: null }),
-      }),
+      })
     );
   });
 
@@ -1710,7 +2270,7 @@ describe('Ownership and error codes', () => {
       courseService.completeWaypoint('other-user', COURSE_ID, WP.current, {
         idempotencyKey: 'complete-other',
         expectedCourseVersion: COURSE_VERSION,
-      }),
+      })
     ).rejects.toMatchObject({ code: 'COURSE_NOT_FOUND', statusCode: 404 });
     expect(mockPrisma.course.update).not.toHaveBeenCalled();
   });
@@ -1721,7 +2281,7 @@ describe('Ownership and error codes', () => {
       courseService.completeWaypoint(USER_ID, COURSE_ID, 'wp-does-not-exist', {
         idempotencyKey: 'complete-unknown-wp',
         expectedCourseVersion: COURSE_VERSION,
-      }),
+      })
     ).rejects.toMatchObject({ code: 'WAYPOINT_NOT_FOUND', statusCode: 404 });
   });
 
@@ -1729,18 +2289,16 @@ describe('Ownership and error codes', () => {
     for (const status of [CourseStatus.COMPLETED, CourseStatus.ARCHIVED]) {
       jest.clearAllMocks();
       mockPrisma.$transaction.mockImplementation(
-        async (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma),
+        async (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma)
       );
       mockPrisma.courseEvent.findUnique.mockResolvedValue(null);
-      mockPrisma.course.findFirst.mockResolvedValue(
-        courseRow({ status, currentWaypointId: null }),
-      );
+      mockPrisma.course.findFirst.mockResolvedValue(courseRow({ status, currentWaypointId: null }));
 
       await expect(
         courseService.completeWaypoint(USER_ID, COURSE_ID, WP.current, {
           idempotencyKey: `complete-${status}`,
           expectedCourseVersion: COURSE_VERSION,
-        }),
+        })
       ).rejects.toMatchObject({ code: 'COURSE_NOT_ACTIVE', statusCode: 409 });
     }
   });
@@ -1784,7 +2342,7 @@ describe('Course Log pagination and joins', () => {
         where: { userId: USER_ID, courseId: COURSE_ID },
         take: 2,
         orderBy: [{ recordedAt: 'desc' }, { id: 'desc' }],
-      }),
+      })
     );
     expect(result.data).toHaveLength(1);
     expect(result.pagination).toEqual({ nextCursor: 'e1', hasMore: true });
@@ -1802,7 +2360,7 @@ describe('Course Log pagination and joins', () => {
     await courseService.listLog(USER_ID, COURSE_ID, 25, 'e1');
 
     expect(mockPrisma.courseEvent.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ cursor: { id: 'e1' }, skip: 1 }),
+      expect.objectContaining({ cursor: { id: 'e1' }, skip: 1 })
     );
   });
 
@@ -1865,10 +2423,10 @@ describe('Course Log pagination and joins', () => {
     expect(byId.get('e-link')?.anchorLink?.id).toBe('link-current');
     // Each join is scoped to the authenticated user.
     expect(mockPrisma.reflection.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ userId: USER_ID }) }),
+      expect.objectContaining({ where: expect.objectContaining({ userId: USER_ID }) })
     );
     expect(mockPrisma.practiceSession.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ userId: USER_ID }) }),
+      expect.objectContaining({ where: expect.objectContaining({ userId: USER_ID }) })
     );
   });
 

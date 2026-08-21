@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { Prisma, CourseStatus, CourseEventType, CourseAnchorRole } from '@prisma/client';
 import { AppError } from '../api/middleware/errorHandler';
 import { prisma } from '../lib/prisma';
@@ -142,6 +142,7 @@ function toSummary(row: CourseRow, observations?: CourseObservation[]): CourseSu
   const summary: CourseSummary = {
     id: row.id,
     destinationText: row.destinationText,
+    startingContext: row.startingContext ?? null,
     status: row.status,
     version: row.version,
     currentWaypointId: row.currentWaypointId,
@@ -222,6 +223,98 @@ function eventKey(prefix: string, idempotencyKey: string): string {
   return `chart:${prefix}:${idempotencyKey}`;
 }
 
+function mutationFingerprint(value: Record<string, unknown>): string {
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
+type NormalizedCourseCreateIntent = {
+  destinationText: string;
+  startingContext: string | null;
+  fromProposalId: string | null;
+  waypoints: Array<{ title: string; description: string | null }>;
+};
+
+function normalizeStartingContext(value: string | null | undefined): string | null {
+  const normalized = value?.replace(/\s+/g, ' ').trim();
+  return normalized || null;
+}
+
+function normalizeCourseCreateIntent(input: CreateCourseRequest): NormalizedCourseCreateIntent {
+  return {
+    destinationText: input.destinationText.trim(),
+    startingContext: normalizeStartingContext(input.currentReality),
+    fromProposalId: input.fromProposalId ?? null,
+    waypoints: (input.waypoints ?? []).map(waypoint => ({
+      title: waypoint.title.trim(),
+      description: waypoint.description?.trim() || null,
+    })),
+  };
+}
+
+function persistedCourseCreateIntent(row: CourseRow): NormalizedCourseCreateIntent {
+  return {
+    destinationText: row.destinationText,
+    startingContext: normalizeStartingContext(row.startingContext),
+    fromProposalId: row.createdFromProposalId ?? null,
+    waypoints: row.waypoints.map(waypoint => ({
+      title: waypoint.title,
+      description: waypoint.description ?? null,
+    })),
+  };
+}
+
+function replayFingerprint(snapshot: Prisma.JsonValue | null): string | null {
+  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) return null;
+  const value = (snapshot as Record<string, unknown>).requestFingerprint;
+  return typeof value === 'string' ? value : null;
+}
+
+function idempotencyConflict(): never {
+  throw new AppError('Idempotency key has already been used', 409, 'IDEMPOTENCY_CONFLICT');
+}
+
+type CourseEventRow = Prisma.CourseEventGetPayload<Prisma.CourseEventDefaultArgs>;
+
+function assertWaypointAddReplay(
+  event: CourseEventRow,
+  expected: { userId: string; courseId: string; requestFingerprint: string }
+): void {
+  if (
+    event.userId !== expected.userId ||
+    event.courseId !== expected.courseId ||
+    event.eventType !== CourseEventType.WAYPOINT_ADDED ||
+    event.sourceEntityType !== 'Waypoint' ||
+    !event.sourceEntityId ||
+    event.waypointId !== event.sourceEntityId ||
+    replayFingerprint(event.snapshot) !== expected.requestFingerprint
+  ) {
+    idempotencyConflict();
+  }
+}
+
+function assertAnchorLinkReplay(
+  event: CourseEventRow,
+  expected: {
+    userId: string;
+    courseId: string;
+    waypointId: string | null;
+    eventType: CourseEventType;
+    requestFingerprint: string;
+  }
+): void {
+  if (
+    event.userId !== expected.userId ||
+    event.courseId !== expected.courseId ||
+    event.waypointId !== expected.waypointId ||
+    event.eventType !== expected.eventType ||
+    event.sourceEntityType !== 'CourseAnchorLink' ||
+    !event.sourceEntityId ||
+    replayFingerprint(event.snapshot) !== expected.requestFingerprint
+  ) {
+    idempotencyConflict();
+  }
+}
+
 /**
  * `CourseEvent.idempotencyKey` is globally unique and is derived from a
  * client-supplied string, so a replay pre-read can return an event belonging to
@@ -284,6 +377,38 @@ async function findCourseByIdempotency(
   return row;
 }
 
+async function replayCreatedCourse(
+  client: CourseClient,
+  userId: string,
+  idempotencyKey: string,
+  requestFingerprint: string
+): Promise<CourseDetail | null> {
+  const row = await findCourseByIdempotency(client, userId, idempotencyKey);
+  if (!row) return null;
+  const event = await client.courseEvent.findUnique({
+    where: { idempotencyKey: eventKey('course-created', idempotencyKey) },
+  });
+  if (
+    event &&
+    (event.userId !== userId ||
+      event.courseId !== row.id ||
+      event.eventType !== CourseEventType.COURSE_CREATED ||
+      event.sourceEntityType !== 'Course' ||
+      event.sourceEntityId !== row.id)
+  ) {
+    idempotencyConflict();
+  }
+
+  // New creates carry an immutable fingerprint. The persisted-shape fallback
+  // keeps pre-fingerprint Courses replayable while still binding all fields
+  // when that legacy Course has not subsequently been edited.
+  const committedFingerprint =
+    (event ? replayFingerprint(event.snapshot) : null) ??
+    mutationFingerprint(persistedCourseCreateIntent(row));
+  if (committedFingerprint !== requestFingerprint) idempotencyConflict();
+  return projection(row);
+}
+
 async function runSerializable<T>(work: (tx: TxClient) => Promise<T>): Promise<T> {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
@@ -291,12 +416,9 @@ async function runSerializable<T>(work: (tx: TxClient) => Promise<T>): Promise<T
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
       });
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2034' &&
-        attempt < 2
-      ) {
-        continue;
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
+        if (attempt < 2) continue;
+        throw new AppError('Chart transaction could not be serialized', 409, 'SYNC_CONFLICT');
       }
       throw error;
     }
@@ -316,6 +438,7 @@ export async function createPublishedCourseFromProposal(
     proposalId: string;
     idempotencyKey: string;
     destinationText: string;
+    startingContext: string | null;
     waypoints: Array<{ title: string; description: string }>;
   }
 ): Promise<CourseDetail> {
@@ -346,14 +469,28 @@ export async function createPublishedCourseFromProposal(
       id: courseId,
       userId: input.userId,
       destinationText: input.destinationText,
-      status: CourseStatus.ACTIVE,
-      currentWaypointId: waypointRows[0].id,
+      startingContext: input.startingContext,
+      // The current-waypoint FK is immediate. Assemble the Course as a DRAFT,
+      // create its Waypoints, and publish only after the referenced row exists.
+      status: CourseStatus.DRAFT,
+      currentWaypointId: null,
       idempotencyKey: input.idempotencyKey,
       createdFromProposalId: input.proposalId,
       schemaVersion: 1,
     },
   });
   for (const waypoint of waypointRows) await tx.waypoint.create({ data: waypoint });
+  try {
+    await tx.course.update({
+      where: { id: courseId },
+      data: { status: CourseStatus.ACTIVE, currentWaypointId: waypointRows[0].id },
+    });
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      throw new AppError('An active Course already exists', 409, 'ACTIVE_COURSE_EXISTS');
+    }
+    throw error;
+  }
 
   await courseEventService.append(tx, {
     userId: input.userId,
@@ -412,19 +549,58 @@ export class CourseService {
   }
 
   async createCourse(userId: string, input: CreateCourseRequest): Promise<CourseDetail> {
-    const existing = await findCourseByIdempotency(prisma, userId, input.idempotencyKey);
-    if (existing) {
-      if (existing.destinationText !== input.destinationText.trim()) {
-        throw new AppError('Idempotency key has already been used', 409, 'IDEMPOTENCY_CONFLICT');
-      }
-      return projection(existing);
+    const intent = normalizeCourseCreateIntent(input);
+    if (!intent.destinationText || intent.destinationText.length > 140) {
+      throw new AppError('Course destination is invalid', 400, 'VALIDATION_ERROR');
     }
-    if ((input.waypoints?.length ?? 0) > 7) {
+    if (intent.startingContext && intent.startingContext.length > 500) {
+      throw new AppError('Current reality is too long', 400, 'VALIDATION_ERROR');
+    }
+    if (intent.waypoints.length > 7) {
       throw new AppError('A Course may contain at most 7 waypoints', 400, 'VALIDATION_ERROR');
     }
+    const requestFingerprint = mutationFingerprint(intent);
+    const replay = await replayCreatedCourse(
+      prisma,
+      userId,
+      input.idempotencyKey,
+      requestFingerprint
+    );
+    if (replay) return replay;
 
     try {
       return await runSerializable(async tx => {
+        const transactionReplay = await replayCreatedCourse(
+          tx,
+          userId,
+          input.idempotencyKey,
+          requestFingerprint
+        );
+        if (transactionReplay) return transactionReplay;
+
+        const proposal = intent.fromProposalId
+          ? await tx.aIPlanProposal.findUnique({ where: { id: intent.fromProposalId } })
+          : null;
+        if (intent.fromProposalId && (!proposal || proposal.userId !== userId)) {
+          throw new AppError('Proposal is unavailable', 404, 'COURSE_NOT_FOUND');
+        }
+        if (
+          proposal &&
+          (proposal.status !== 'PENDING' ||
+            proposal.courseId !== null ||
+            proposal.acceptedAt !== null ||
+            proposal.expiresAt.getTime() <= Date.now())
+        ) {
+          throw new AppError('Proposal is no longer available', 409, 'VALIDATION_ERROR');
+        }
+        if (
+          proposal &&
+          (proposal.destinationInterpretation.trim() !== intent.destinationText ||
+            normalizeStartingContext(proposal.startingContext) !== intent.startingContext)
+        ) {
+          throw new AppError('Proposal does not match the Course', 409, 'VALIDATION_ERROR');
+        }
+
         const active = await tx.course.findFirst({
           where: { userId, status: CourseStatus.ACTIVE, deletedAt: null },
           select: { id: true },
@@ -437,9 +613,10 @@ export class CourseService {
           data: {
             id: courseId,
             userId,
-            destinationText: input.destinationText.trim(),
+            destinationText: intent.destinationText,
+            startingContext: intent.startingContext,
             idempotencyKey: input.idempotencyKey,
-            createdFromProposalId: input.fromProposalId ?? null,
+            createdFromProposalId: intent.fromProposalId,
             schemaVersion: 1,
           },
         });
@@ -451,15 +628,15 @@ export class CourseService {
           title: string;
           description: string | null;
         }> = [];
-        for (const [index, waypoint] of (input.waypoints ?? []).entries()) {
+        for (const [index, waypoint] of intent.waypoints.entries()) {
           const createdWaypoint = await tx.waypoint.create({
             data: {
               id: randomUUID(),
               userId,
               courseId,
               position: (index + 1) * 100,
-              title: waypoint.title.trim(),
-              description: waypoint.description?.trim() || null,
+              title: waypoint.title,
+              description: waypoint.description,
             },
           });
           waypoints.push(createdWaypoint);
@@ -470,6 +647,7 @@ export class CourseService {
           eventType: CourseEventType.COURSE_CREATED,
           sourceEntityType: 'Course',
           sourceEntityId: courseId,
+          snapshot: { requestFingerprint },
           idempotencyKey: eventKey('course-created', input.idempotencyKey),
         });
         for (const waypoint of waypoints) {
@@ -484,10 +662,33 @@ export class CourseService {
             idempotencyKey: eventKey(`waypoint-added:${waypoint.id}`, input.idempotencyKey),
           });
         }
+        if (proposal) {
+          const accepted = await tx.aIPlanProposal.updateMany({
+            where: {
+              id: proposal.id,
+              userId,
+              status: 'PENDING',
+              courseId: null,
+              acceptedAt: null,
+              expiresAt: { gt: new Date() },
+            },
+            data: { status: 'ACCEPTED', acceptedAt: new Date(), courseId },
+          });
+          if (accepted.count !== 1) {
+            throw new AppError('Proposal is no longer available', 409, 'VALIDATION_ERROR');
+          }
+        }
         return projection(await findCourse(tx, userId, created.id));
       });
     } catch (error) {
       if (isUniqueViolation(error)) {
+        const racedReplay = await replayCreatedCourse(
+          prisma,
+          userId,
+          input.idempotencyKey,
+          requestFingerprint
+        );
+        if (racedReplay) return racedReplay;
         throw new AppError('An active Course already exists', 409, 'ACTIVE_COURSE_EXISTS');
       }
       throw error;
@@ -677,56 +878,86 @@ export class CourseService {
     courseId: string,
     input: AddWaypointRequest
   ): Promise<CourseDetail> {
-    return runSerializable(async tx => {
-      const row = await findCourse(tx, userId, courseId);
-      assertExpectedVersion(row, input.expectedCourseVersion);
-      assertCourseWritable(row);
-      ensureNoCorruption(row);
-      if (row.waypoints.length >= 7)
-        throw new AppError('A Course may contain at most 7 waypoints', 400, 'VALIDATION_ERROR');
-      const nonTerminal = row.waypoints.filter(waypoint => !isTerminal(waypoint));
-      const terminal = row.waypoints.filter(waypoint => isTerminal(waypoint));
-      const afterIndex = input.afterWaypointId
-        ? nonTerminal.findIndex(waypoint => waypoint.id === input.afterWaypointId)
-        : nonTerminal.length - 1;
-      if (input.afterWaypointId && afterIndex < 0)
-        throw new AppError('Waypoint not found', 404, 'WAYPOINT_NOT_FOUND');
-      const orderedIds = nonTerminal.map(waypoint => waypoint.id);
-      orderedIds.splice(afterIndex + 1, 0, '__new__');
-      const start = terminal.length
-        ? Math.max(...terminal.map(waypoint => waypoint.position)) + 100
-        : 100;
-      const newWaypointId = randomUUID();
-      await tx.waypoint.create({
-        data: {
-          id: newWaypointId,
+    const normalizedTitle = input.title.trim();
+    const normalizedDescription = input.description?.trim() || null;
+    const requestFingerprint = mutationFingerprint({
+      title: normalizedTitle,
+      description: normalizedDescription,
+      afterWaypointId: input.afterWaypointId ?? null,
+    });
+    const eventKeyValue = eventKey('waypoint-add', input.idempotencyKey);
+    const replayExpectation = { userId, courseId, requestFingerprint };
+    try {
+      return await runSerializable(async tx => {
+        const row = await findCourse(tx, userId, courseId);
+        const existingEvent = await tx.courseEvent.findUnique({
+          where: { idempotencyKey: eventKeyValue },
+        });
+        if (existingEvent) {
+          assertWaypointAddReplay(existingEvent, replayExpectation);
+          return projection(row);
+        }
+        assertExpectedVersion(row, input.expectedCourseVersion);
+        assertCourseWritable(row);
+        ensureNoCorruption(row);
+        if (row.waypoints.length >= 7)
+          throw new AppError('A Course may contain at most 7 waypoints', 400, 'VALIDATION_ERROR');
+        const nonTerminal = row.waypoints.filter(waypoint => !isTerminal(waypoint));
+        const terminal = row.waypoints.filter(waypoint => isTerminal(waypoint));
+        const afterIndex = input.afterWaypointId
+          ? nonTerminal.findIndex(waypoint => waypoint.id === input.afterWaypointId)
+          : nonTerminal.length - 1;
+        if (input.afterWaypointId && afterIndex < 0)
+          throw new AppError('Waypoint not found', 404, 'WAYPOINT_NOT_FOUND');
+        const orderedIds = nonTerminal.map(waypoint => waypoint.id);
+        orderedIds.splice(afterIndex + 1, 0, '__new__');
+        const start = terminal.length
+          ? Math.max(...terminal.map(waypoint => waypoint.position)) + 100
+          : 100;
+        const newWaypointId = randomUUID();
+        await tx.waypoint.create({
+          data: {
+            id: newWaypointId,
+            userId,
+            courseId,
+            position: -1000000,
+            title: normalizedTitle,
+            description: normalizedDescription,
+          },
+        });
+        const updates = orderedIds.map(id => (id === '__new__' ? newWaypointId : id));
+        for (const [index, id] of updates.entries()) {
+          await tx.waypoint.update({ where: { id }, data: { position: -(index + 1) } });
+        }
+        for (const [index, id] of updates.entries()) {
+          await tx.waypoint.update({ where: { id }, data: { position: start + index * 100 } });
+        }
+        await tx.course.update({ where: { id: courseId }, data: { version: { increment: 1 } } });
+        await courseEventService.append(tx, {
           userId,
           courseId,
-          position: -1000000,
-          title: input.title.trim(),
-          description: input.description?.trim() || null,
-        },
+          waypointId: newWaypointId,
+          eventType: CourseEventType.WAYPOINT_ADDED,
+          sourceEntityType: 'Waypoint',
+          sourceEntityId: newWaypointId,
+          snapshot: { waypointTitle: normalizedTitle, requestFingerprint },
+          idempotencyKey: eventKeyValue,
+        });
+        return projection(await findCourse(tx, userId, courseId));
       });
-      const updates = orderedIds.map(id => (id === '__new__' ? newWaypointId : id));
-      for (const [index, id] of updates.entries()) {
-        await tx.waypoint.update({ where: { id }, data: { position: -(index + 1) } });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        const row = await findCourse(prisma, userId, courseId);
+        const racedEvent = await prisma.courseEvent.findUnique({
+          where: { idempotencyKey: eventKeyValue },
+        });
+        if (racedEvent) {
+          assertWaypointAddReplay(racedEvent, replayExpectation);
+          return projection(row);
+        }
       }
-      for (const [index, id] of updates.entries()) {
-        await tx.waypoint.update({ where: { id }, data: { position: start + index * 100 } });
-      }
-      await tx.course.update({ where: { id: courseId }, data: { version: { increment: 1 } } });
-      await courseEventService.append(tx, {
-        userId,
-        courseId,
-        waypointId: newWaypointId,
-        eventType: CourseEventType.WAYPOINT_ADDED,
-        sourceEntityType: 'Waypoint',
-        sourceEntityId: newWaypointId,
-        snapshot: { waypointTitle: input.title.trim() },
-        idempotencyKey: eventKey('waypoint-add', input.idempotencyKey),
-      });
-      return projection(await findCourse(tx, userId, courseId));
-    });
+      throw error;
+    }
   }
 
   async editWaypoint(
@@ -815,6 +1046,21 @@ export class CourseService {
   ): Promise<CompleteWaypointResponse> {
     return runSerializable(async tx => {
       const row = await findCourse(tx, userId, courseId);
+      const normalizedReflection = input.reflection
+        ? normalizeCompletionReflection(input.reflection)
+        : null;
+      const requestFingerprint = mutationFingerprint({
+        supportingPracticeSessionId: input.supportingPracticeSessionId ?? null,
+        reflection: input.reflection
+          ? {
+              structuredContent: normalizedReflection,
+              moodAfter: input.reflection.moodAfter ?? null,
+              promptType: input.reflection.promptType,
+              promptVersion: input.reflection.promptVersion,
+              idempotencyKey: input.reflection.idempotencyKey,
+            }
+          : null,
+      });
       const reachedKey = eventKey('waypoint-complete', `${input.idempotencyKey}:reached`);
       const existing = await tx.courseEvent.findUnique({ where: { idempotencyKey: reachedKey } });
       if (existing) {
@@ -824,30 +1070,52 @@ export class CourseService {
           waypointId,
           eventType: CourseEventType.WAYPOINT_REACHED,
         });
+        if (replayFingerprint(existing.snapshot) !== requestFingerprint) {
+          idempotencyConflict();
+        }
         const replayRow = await findCourse(tx, userId, courseId);
         const completed = assertWaypointBelongs(replayRow, waypointId);
         const next = replayRow.currentWaypointId
           ? (replayRow.waypoints.find(item => item.id === replayRow.currentWaypointId) ?? null)
           : null;
+        const completedLink = stateLinkForWaypoint(replayRow, completed.id);
+        const nextLink = next ? stateLinkForWaypoint(replayRow, next.id) : null;
+        let reflectionId: string | undefined;
+        if (input.reflection && normalizedReflection) {
+          const reflectionEvent = await tx.courseEvent.findUnique({
+            where: {
+              idempotencyKey: eventKey('reflection-added', input.reflection.idempotencyKey),
+            },
+          });
+          if (reflectionEvent) {
+            if (
+              reflectionEvent.userId !== userId ||
+              reflectionEvent.courseId !== courseId ||
+              reflectionEvent.waypointId !== waypointId ||
+              reflectionEvent.eventType !== CourseEventType.REFLECTION_ADDED ||
+              reflectionEvent.sourceEntityType !== 'Reflection' ||
+              !reflectionEvent.sourceEntityId
+            ) {
+              idempotencyConflict();
+            }
+            reflectionId = reflectionEvent.sourceEntityId;
+          }
+        }
         return {
           course: toSummary(replayRow),
           completedWaypoint: buildWaypointSummary(
             replayRow,
             completed,
-            activeLinkForWaypoint(replayRow, completed.id),
-            anchorFromLink(activeLinkForWaypoint(replayRow, completed.id))
+            completedLink,
+            anchorFromLink(completedLink)
           ),
           nextWaypoint: next
-            ? buildWaypointSummary(
-                replayRow,
-                next,
-                activeLinkForWaypoint(replayRow, next.id),
-                anchorFromLink(activeLinkForWaypoint(replayRow, next.id))
-              )
+            ? buildWaypointSummary(replayRow, next, nextLink, anchorFromLink(nextLink))
             : null,
           courseCompleted: replayRow.status === CourseStatus.COMPLETED,
           completionEventId: existing.id,
           replayed: true,
+          ...(reflectionId ? { reflectionId } : {}),
         };
       }
       assertExpectedVersion(row, input.expectedCourseVersion);
@@ -884,7 +1152,13 @@ export class CourseService {
             403,
             'PRACTICE_SESSION_ACCOUNT_MISMATCH'
           );
-        if (session.completedAt.getTime() < Date.now() - 7 * 24 * 60 * 60 * 1000) {
+        if (
+          session.courseId !== courseId ||
+          session.waypointId !== waypointId ||
+          !activeLink?.anchorId ||
+          session.anchorId !== activeLink.anchorId ||
+          session.completedAt.getTime() < Date.now() - 7 * 24 * 60 * 60 * 1000
+        ) {
           throw new AppError(
             'Supporting practice session is invalid',
             422,
@@ -918,14 +1192,13 @@ export class CourseService {
         eventType: CourseEventType.WAYPOINT_REACHED,
         sourceEntityType: 'Waypoint',
         sourceEntityId: waypointId,
-        snapshot: { waypointTitle: waypoint.title },
+        snapshot: { waypointTitle: waypoint.title, requestFingerprint },
         occurredAt: now,
         idempotencyKey: reachedKey,
       });
       let reflectionId: string | undefined;
       if (input.reflection) {
-        const reflectionData = normalizeCompletionReflection(input.reflection);
-        if (reflectionData) {
+        if (normalizedReflection) {
           const reflection = await tx.reflection.create({
             data: {
               id: randomUUID(),
@@ -934,7 +1207,7 @@ export class CourseService {
               promptType: 'WAYPOINT_COMPLETION',
               promptVersion: input.reflection.promptVersion,
               body: null,
-              structuredContent: reflectionData as Prisma.InputJsonValue,
+              structuredContent: normalizedReflection as Prisma.InputJsonValue,
               moodAfter: input.reflection.moodAfter ?? null,
               practiceSessionId: null,
               anchorId: activeLink?.anchorId ?? null,
@@ -972,21 +1245,21 @@ export class CourseService {
       }
       const updated = await findCourse(tx, userId, courseId);
       const completed = assertWaypointBelongs(updated, waypointId);
+      const completedLink = stateLinkForWaypoint(updated, completed.id);
       const nextSummary = next
-        ? buildWaypointSummary(
-            updated,
-            assertWaypointBelongs(updated, next.id),
-            activeLinkForWaypoint(updated, next.id),
-            anchorFromLink(activeLinkForWaypoint(updated, next.id))
-          )
+        ? (() => {
+            const nextWaypoint = assertWaypointBelongs(updated, next.id);
+            const nextLink = stateLinkForWaypoint(updated, next.id);
+            return buildWaypointSummary(updated, nextWaypoint, nextLink, anchorFromLink(nextLink));
+          })()
         : null;
       return {
         course: toSummary(updated),
         completedWaypoint: buildWaypointSummary(
           updated,
           completed,
-          activeLinkForWaypoint(updated, completed.id),
-          anchorFromLink(activeLinkForWaypoint(updated, completed.id))
+          completedLink,
+          anchorFromLink(completedLink)
         ),
         nextWaypoint: nextSummary,
         courseCompleted,
@@ -1113,14 +1386,22 @@ export class CourseService {
       const blockedReason = deriveBlockedReason(skipStateLink, anchorFromLink(skipStateLink));
       if (blockedReason) throw new AppError('Waypoint is blocked', 409, 'WAYPOINT_BLOCKED');
       const next = selectNextWaypoint(row.waypoints, waypoint.position);
-      const completed = !next;
+      // Reaching the final outcome is the only transition that can complete a
+      // destination. A skipped final waypoint would otherwise emit
+      // COURSE_COMPLETED and present an unreached destination as achieved.
+      if (!next) {
+        throw new AppError(
+          'The final waypoint must be reached or the Course must be edited',
+          409,
+          'WAYPOINT_TRANSITION_INVALID'
+        );
+      }
       const now = new Date();
       await tx.waypoint.update({ where: { id: waypointId }, data: { skippedAt: now } });
       await tx.course.update({
         where: { id: courseId },
         data: {
-          currentWaypointId: next?.id ?? null,
-          ...(completed ? { status: CourseStatus.COMPLETED, completedAt: now } : {}),
+          currentWaypointId: next.id,
           version: { increment: 1 },
         },
       });
@@ -1135,17 +1416,6 @@ export class CourseService {
         occurredAt: now,
         idempotencyKey: eventKeyValue,
       });
-      if (completed) {
-        await courseEventService.append(tx, {
-          userId,
-          courseId,
-          eventType: CourseEventType.COURSE_COMPLETED,
-          sourceEntityType: 'Course',
-          sourceEntityId: courseId,
-          occurredAt: now,
-          idempotencyKey: eventKey('course-completed', idempotencyKey),
-        });
-      }
       return projection(await findCourse(tx, userId, courseId));
     });
   }
@@ -1155,115 +1425,154 @@ export class CourseService {
     courseId: string,
     input: LinkAnchorRequest
   ): Promise<CourseDetail> {
-    return runSerializable(async tx => {
-      const row = await findCourse(tx, userId, courseId);
-      assertExpectedVersion(row, input.expectedCourseVersion);
-      assertCourseWritable(row);
-      ensureNoCorruption(row);
-      const waypoint =
-        input.role === CourseAnchorRole.WAYPOINT_PRIMARY
-          ? assertWaypointBelongs(row, input.waypointId ?? '')
-          : null;
-      if (input.role === CourseAnchorRole.DESTINATION && input.waypointId)
-        throw new AppError(
-          'Destination links cannot specify a waypoint',
-          422,
-          'ANCHOR_LINK_INVALID'
-        );
-      if (input.role === CourseAnchorRole.WAYPOINT_PRIMARY && !input.waypointId)
-        throw new AppError('Waypoint links require a waypoint', 422, 'ANCHOR_LINK_INVALID');
-      const anchor = await tx.anchor.findFirst({
-        where: { id: input.anchorId, userId },
-        select: {
-          id: true,
-          isArchived: true,
-          intentionText: true,
-          category: true,
-          planetaryTier: true,
-          enhancedImageUrl: true,
-        },
-      });
-      if (!anchor) throw new AppError('Anchor link is invalid', 422, 'ANCHOR_LINK_INVALID');
-      if (anchor.isArchived) throw new AppError('Anchor is unavailable', 409, 'ANCHOR_UNAVAILABLE');
-      const activeLink =
-        input.role === CourseAnchorRole.DESTINATION
-          ? activeDestinationLink(row)
-          : activeLinkForWaypoint(row, input.waypointId!);
-      if (activeLink && activeLink.id !== input.replaceLinkId)
-        throw new AppError(
-          'An active link already exists; use replacement',
-          422,
-          'ANCHOR_LINK_INVALID'
-        );
-      if (input.replaceLinkId && (!activeLink || activeLink.id !== input.replaceLinkId))
-        throw new AppError('Anchor link is invalid', 422, 'ANCHOR_LINK_INVALID');
-      // WAYPOINT_UNBLOCKED may only be emitted where a WAYPOINT_BLOCKED could
-      // have been: on the current waypoint, and only when a prior link exists to
-      // have been broken. Deriving this from the active link alone made the
-      // first-ever link on a current waypoint log "Waypoint is available again."
-      // for a waypoint that was never blocked. See D10.
-      const priorStateLink = waypoint ? stateLinkForWaypoint(row, waypoint.id) : null;
-      const wasBlocked =
-        waypoint !== null &&
-        row.currentWaypointId === waypoint.id &&
-        deriveBlockedReason(priorStateLink, anchorFromLink(priorStateLink)) !== null;
-      if (input.replaceLinkId && activeLink) {
-        const oldAnchor = activeLink.anchor;
-        await tx.courseAnchorLink.update({
-          where: { id: activeLink.id },
-          data: {
-            unlinkedAt: new Date(),
-            anchorSnapshot: buildAnchorSnapshot(
-              oldAnchor ?? {
-                id: activeLink.anchorId ?? '',
-                intentionText: '',
-                category: '',
-                planetaryTier: null,
-                enhancedImageUrl: null,
-              },
-              !oldAnchor || oldAnchor.isArchived
-            ) as Prisma.InputJsonValue,
+    const expectedEventType =
+      input.role === CourseAnchorRole.DESTINATION
+        ? CourseEventType.DESTINATION_ANCHOR_LINKED
+        : CourseEventType.WAYPOINT_ANCHOR_LINKED;
+    const expectedWaypointId =
+      input.role === CourseAnchorRole.WAYPOINT_PRIMARY ? (input.waypointId ?? null) : null;
+    const requestFingerprint = mutationFingerprint({
+      anchorId: input.anchorId,
+      role: input.role,
+      waypointId: expectedWaypointId,
+      replaceLinkId: input.replaceLinkId ?? null,
+    });
+    const linkEventKey = eventKey('anchor-link', input.idempotencyKey);
+    const replayExpectation = {
+      userId,
+      courseId,
+      waypointId: expectedWaypointId,
+      eventType: expectedEventType,
+      requestFingerprint,
+    };
+    try {
+      return await runSerializable(async tx => {
+        const row = await findCourse(tx, userId, courseId);
+        const existingEvent = await tx.courseEvent.findUnique({
+          where: { idempotencyKey: linkEventKey },
+        });
+        if (existingEvent) {
+          assertAnchorLinkReplay(existingEvent, replayExpectation);
+          return projection(row);
+        }
+        assertExpectedVersion(row, input.expectedCourseVersion);
+        assertCourseWritable(row);
+        ensureNoCorruption(row);
+        const waypoint =
+          input.role === CourseAnchorRole.WAYPOINT_PRIMARY
+            ? assertWaypointBelongs(row, input.waypointId ?? '')
+            : null;
+        if (input.role === CourseAnchorRole.DESTINATION && input.waypointId)
+          throw new AppError(
+            'Destination links cannot specify a waypoint',
+            422,
+            'ANCHOR_LINK_INVALID'
+          );
+        if (input.role === CourseAnchorRole.WAYPOINT_PRIMARY && !input.waypointId)
+          throw new AppError('Waypoint links require a waypoint', 422, 'ANCHOR_LINK_INVALID');
+        const anchor = await tx.anchor.findFirst({
+          where: { id: input.anchorId, userId },
+          select: {
+            id: true,
+            isArchived: true,
+            intentionText: true,
+            category: true,
+            planetaryTier: true,
+            enhancedImageUrl: true,
           },
         });
-      }
-      const link = await tx.courseAnchorLink.create({
-        data: {
-          id: randomUUID(),
-          userId,
-          courseId,
-          waypointId: waypoint?.id ?? null,
-          anchorId: anchor.id,
-          role: input.role,
-          anchorSnapshot: buildAnchorSnapshot(anchor, false) as Prisma.InputJsonValue,
-        },
-      });
-      await tx.course.update({ where: { id: courseId }, data: { version: { increment: 1 } } });
-      await courseEventService.append(tx, {
-        userId,
-        courseId,
-        waypointId: waypoint?.id ?? null,
-        eventType:
+        if (!anchor) throw new AppError('Anchor link is invalid', 422, 'ANCHOR_LINK_INVALID');
+        if (anchor.isArchived)
+          throw new AppError('Anchor is unavailable', 409, 'ANCHOR_UNAVAILABLE');
+        const activeLink =
           input.role === CourseAnchorRole.DESTINATION
-            ? CourseEventType.DESTINATION_ANCHOR_LINKED
-            : CourseEventType.WAYPOINT_ANCHOR_LINKED,
-        sourceEntityType: 'CourseAnchorLink',
-        sourceEntityId: link.id,
-        snapshot: { anchorRole: input.role },
-        idempotencyKey: eventKey('anchor-link', input.idempotencyKey),
-      });
-      if (wasBlocked && waypoint) {
+            ? activeDestinationLink(row)
+            : activeLinkForWaypoint(row, input.waypointId!);
+        if (activeLink && activeLink.id !== input.replaceLinkId)
+          throw new AppError(
+            'An active link already exists; use replacement',
+            422,
+            'ANCHOR_LINK_INVALID'
+          );
+        if (input.replaceLinkId && (!activeLink || activeLink.id !== input.replaceLinkId))
+          throw new AppError('Anchor link is invalid', 422, 'ANCHOR_LINK_INVALID');
+        // WAYPOINT_UNBLOCKED may only be emitted where a WAYPOINT_BLOCKED could
+        // have been: on the current waypoint, and only when a prior link exists to
+        // have been broken. Deriving this from the active link alone made the
+        // first-ever link on a current waypoint log "Waypoint is available again."
+        // for a waypoint that was never blocked. See D10.
+        const priorStateLink = waypoint ? stateLinkForWaypoint(row, waypoint.id) : null;
+        const wasBlocked =
+          waypoint !== null &&
+          row.currentWaypointId === waypoint.id &&
+          deriveBlockedReason(priorStateLink, anchorFromLink(priorStateLink)) !== null;
+        if (input.replaceLinkId && activeLink) {
+          const oldAnchor = activeLink.anchor;
+          await tx.courseAnchorLink.update({
+            where: { id: activeLink.id },
+            data: {
+              unlinkedAt: new Date(),
+              anchorSnapshot: buildAnchorSnapshot(
+                oldAnchor ?? {
+                  id: activeLink.anchorId ?? '',
+                  intentionText: '',
+                  category: '',
+                  planetaryTier: null,
+                  enhancedImageUrl: null,
+                },
+                !oldAnchor || oldAnchor.isArchived
+              ) as Prisma.InputJsonValue,
+            },
+          });
+        }
+        const link = await tx.courseAnchorLink.create({
+          data: {
+            id: randomUUID(),
+            userId,
+            courseId,
+            waypointId: waypoint?.id ?? null,
+            anchorId: anchor.id,
+            role: input.role,
+            anchorSnapshot: buildAnchorSnapshot(anchor, false) as Prisma.InputJsonValue,
+          },
+        });
+        await tx.course.update({ where: { id: courseId }, data: { version: { increment: 1 } } });
         await courseEventService.append(tx, {
           userId,
           courseId,
-          waypointId: waypoint.id,
-          eventType: CourseEventType.WAYPOINT_UNBLOCKED,
+          waypointId: waypoint?.id ?? null,
+          eventType: expectedEventType,
           sourceEntityType: 'CourseAnchorLink',
           sourceEntityId: link.id,
-          idempotencyKey: eventKey('waypoint-unblocked', input.idempotencyKey),
+          snapshot: { anchorRole: input.role, requestFingerprint },
+          idempotencyKey: linkEventKey,
         });
+        if (wasBlocked && waypoint) {
+          await courseEventService.append(tx, {
+            userId,
+            courseId,
+            waypointId: waypoint.id,
+            eventType: CourseEventType.WAYPOINT_UNBLOCKED,
+            sourceEntityType: 'CourseAnchorLink',
+            sourceEntityId: link.id,
+            idempotencyKey: eventKey('waypoint-unblocked', input.idempotencyKey),
+          });
+        }
+        return projection(await findCourse(tx, userId, courseId));
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        const row = await findCourse(prisma, userId, courseId);
+        const racedEvent = await prisma.courseEvent.findUnique({
+          where: { idempotencyKey: linkEventKey },
+        });
+        if (racedEvent) {
+          assertAnchorLinkReplay(racedEvent, replayExpectation);
+          return projection(row);
+        }
       }
-      return projection(await findCourse(tx, userId, courseId));
-    });
+      throw error;
+    }
   }
 
   async unlinkAnchor(
@@ -1608,6 +1917,7 @@ function isSafeSnapshot(value: unknown): value is Record<string, string | number
       'fromPosition',
       'toPosition',
       'blockedReason',
+      'requestFingerprint',
     ].includes(key)
   );
 }

@@ -360,6 +360,7 @@ model Course {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   destinationText       String       @map("destination_text") @db.VarChar(140)
+  startingContext       String?      @map("starting_context") @db.VarChar(500)
   status                CourseStatus @default(DRAFT)
   currentWaypointId     String?      @unique @map("current_waypoint_id")
   currentWaypoint       Waypoint?    @relation("CourseCurrentWaypoint", fields: [currentWaypointId], references: [id], onDelete: SetNull)
@@ -498,6 +499,7 @@ model AIPlanProposal {
   plannerVersion            String    @map("planner_version")
   modelVersion              String    @map("model_version")
   inputHash                 String    @map("input_hash")
+  startingContext           String?   @map("starting_context") @db.VarChar(500)
   destinationInterpretation String    @map("destination_interpretation") @db.VarChar(280)
   waypoints                 Json
   generationSource          String    @map("generation_source")

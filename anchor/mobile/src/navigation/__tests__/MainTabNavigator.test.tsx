@@ -125,7 +125,7 @@ jest.mock('@/constants/teaching', () => ({
   TEACHINGS: {},
 }));
 
-import { CustomTabBar } from '../MainTabNavigator';
+import { CustomTabBar, TABS } from '../MainTabNavigator';
 
 function parseIconProps(node: { props: { children: string } }) {
   return JSON.parse(node.props.children);
@@ -162,6 +162,15 @@ describe('CustomTabBar', () => {
     expect(onTabPress).toHaveBeenCalledWith(2);
     expect(screen.getByLabelText('Chart')).toBeTruthy();
     expect(screen.getByTestId('tab-indicator-chart')).toBeTruthy();
+  });
+
+  it('does not render a dead Chart control when the navigator supplies only accessible tabs', () => {
+    const screen = render(
+      <CustomTabBar activeIndex={0} onTabPress={jest.fn()} tabs={TABS.slice(0, 2)} />,
+    );
+
+    expect(screen.queryByLabelText('Chart')).toBeNull();
+    expect(screen.queryByText('CHART')).toBeNull();
   });
 
   it('renders only the active tab indicator and applies the requested bar chrome', () => {
@@ -267,4 +276,3 @@ describe('MainTabNavigator Android Back Handler', () => {
     expect(handler()).toBe(false);
   });
 });
-

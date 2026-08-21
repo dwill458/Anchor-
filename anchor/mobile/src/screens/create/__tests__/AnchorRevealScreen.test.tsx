@@ -1,5 +1,5 @@
 import React from 'react';
-import { Animated, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, Text, TouchableOpacity, View } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { AnchorRevealScreen } from '../AnchorRevealScreen';
 
@@ -10,6 +10,7 @@ const mockSetCurrentAnchor = jest.fn();
 const mockIncrementAnchorCount = jest.fn();
 const mockHandleAnchorSaved = jest.fn();
 const mockCanOfferFirstAnchorReminder = jest.fn();
+let mockActiveAccountId = 'user-1';
 
 const mockRouteParams = {
     intentionText: 'I return to the present',
@@ -58,19 +59,21 @@ jest.mock('@/stores/anchorStore', () => ({
         selector({ tempEnhancedImage: null, setTempEnhancedImage: jest.fn() }),
 }));
 
-jest.mock('@/stores/authStore', () => ({
-    useAuthStore: (selector: any) =>
-        selector({
+jest.mock('@/stores/authStore', () => {
+    const getState = () => ({
             incrementAnchorCount: mockIncrementAnchorCount,
             wallpaperPromptSeen: true,
-            user: { id: 'user-1' },
+            user: { id: mockActiveAccountId },
             isAuthenticated: true,
             anchorCount: 0,
             setPendingFirstAnchorDraft: jest.fn(),
             enqueuePendingFirstAnchorMutation: jest.fn(),
             clearPendingFirstAnchorState: jest.fn(),
-        }),
-}));
+    });
+    const useAuthStore: any = (selector: any) => selector(getState());
+    useAuthStore.getState = getState;
+    return { useAuthStore };
+});
 
 jest.mock('@/stores/settingsStore', () => ({
     useSettingsStore: (selector: any) => selector({ guideMode: false }),
@@ -144,6 +147,7 @@ const createAnimation = () => ({
 
 describe('AnchorRevealScreen', () => {
     beforeEach(() => {
+        mockActiveAccountId = 'user-1';
         mockReplace.mockClear();
         mockPost.mockReset();
         mockAddAnchor.mockClear();
@@ -158,6 +162,7 @@ describe('AnchorRevealScreen', () => {
     });
 
     afterEach(() => {
+        jest.useRealTimers();
         jest.restoreAllMocks();
     });
 
@@ -174,5 +179,72 @@ describe('AnchorRevealScreen', () => {
             expect(mockReplace).toHaveBeenCalledWith('PrimeYourAnchor', { anchorId: 'anchor-1' });
         });
         expect(mockCanOfferFirstAnchorReminder).not.toHaveBeenCalled();
+    });
+
+    it('does not project a late Anchor response into a newly active account', async () => {
+        let resolvePost!: (value: unknown) => void;
+        mockPost.mockReturnValue(new Promise((resolve) => { resolvePost = resolve; }));
+        render(<AnchorRevealScreen />);
+
+        fireEvent.press(screen.getByTestId('begin-priming-button'));
+        mockActiveAccountId = 'user-2';
+        resolvePost({ success: true, data: { id: 'anchor-for-user-1' } });
+
+        await waitFor(() => expect(mockPost).toHaveBeenCalledTimes(1));
+        await act(async () => {});
+        expect(mockAddAnchor).not.toHaveBeenCalled();
+        expect(mockReplace).not.toHaveBeenCalled();
+    });
+
+    it('retains the same first-Anchor intent when both network responses are lost', async () => {
+        jest.useFakeTimers();
+        const networkError = new Error('Network error. Please check your connection.');
+        mockPost.mockRejectedValue(networkError);
+        const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+        render(<AnchorRevealScreen />);
+
+        fireEvent.press(screen.getByTestId('begin-priming-button'));
+        await act(async () => { await Promise.resolve(); });
+        await act(async () => {
+            jest.advanceTimersByTime(500);
+            await Promise.resolve();
+            await Promise.resolve();
+        });
+
+        expect(mockPost).toHaveBeenCalledTimes(2);
+        const firstKey = mockPost.mock.calls[0][1].idempotencyKey;
+        expect(mockPost.mock.calls[1][1].idempotencyKey).toBe(firstKey);
+        expect(mockAddAnchor).not.toHaveBeenCalled();
+        expect(mockReplace).not.toHaveBeenCalled();
+        expect(alert).toHaveBeenCalledWith(
+            'Anchor not yet confirmed',
+            expect.stringContaining('tap Continue again'),
+        );
+
+        mockPost.mockResolvedValueOnce({ success: true, data: { id: 'anchor-reconciled' } });
+        fireEvent.press(screen.getByTestId('begin-priming-button'));
+        await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+        expect(mockPost.mock.calls[2][1].idempotencyKey).toBe(firstKey);
+        expect(mockAddAnchor).toHaveBeenCalledWith(expect.objectContaining({ id: 'anchor-reconciled' }));
+        jest.useRealTimers();
+    });
+
+    it('does not authenticate a delayed retry as a newly active account', async () => {
+        jest.useFakeTimers();
+        mockPost.mockRejectedValueOnce(new Error('Network error. Please check your connection.'));
+        render(<AnchorRevealScreen />);
+
+        fireEvent.press(screen.getByTestId('begin-priming-button'));
+        await act(async () => { await Promise.resolve(); });
+        mockActiveAccountId = 'user-2';
+        await act(async () => {
+            jest.advanceTimersByTime(500);
+            await Promise.resolve();
+        });
+
+        expect(mockPost).toHaveBeenCalledTimes(1);
+        expect(mockAddAnchor).not.toHaveBeenCalled();
+        expect(mockReplace).not.toHaveBeenCalled();
+        jest.useRealTimers();
     });
 });

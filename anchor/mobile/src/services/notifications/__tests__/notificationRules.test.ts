@@ -219,3 +219,65 @@ describe('notification rules', () => {
     ).toBe(false);
   });
 });
+
+describe('send limits are evaluated at delivery time', () => {
+  // Regression: these limits used to be judged against "now" while scheduling a
+  // reminder hours away, so a recent delivery made the standing daily prime
+  // ineligible — and the scheduler cancels ineligible categories, silently
+  // unscheduling the recurring reminder.
+  const now = new Date('2026-06-24T15:00:00.000Z');
+  // Anchor the prime well clear of `now` in LOCAL terms so the assertions do
+  // not depend on the machine timezone.
+  const dailyPrimeTime = `${String((now.getHours() + 5) % 24).padStart(2, '0')}:00`;
+  const sentTenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000).toISOString();
+
+  it('keeps the daily prime scheduled after a recent delivery', () => {
+    const result = evaluateDailyPrime(
+      baseState({
+        dailyPrimeTime,
+        lastNotificationSentAt: { thread_strength: sentTenMinutesAgo },
+      }),
+      context({ now })
+    );
+
+    expect(result.eligible).toBe(true);
+    expect(result.fireDate).toBeInstanceOf(Date);
+    expect(result.fireDate!.getTime()).toBeGreaterThan(now.getTime());
+  });
+
+  it('allows a distant fire time but blocks an imminent one', () => {
+    const state = baseState({
+      lastNotificationSentAt: { weekly_recap: now.toISOString() },
+    });
+
+    expect(
+      canSendCategory(state, 'daily_prime', new Date(now.getTime() + 6 * 60 * 60 * 1000))
+    ).toBe(true);
+    expect(
+      canSendCategory(state, 'daily_prime', new Date(now.getTime() + 10 * 60 * 1000))
+    ).toBe(false);
+  });
+
+  it('still rate-limits situational nudges, which fire minutes away', () => {
+    const result = evaluateThreadStrength(
+      baseState({ lastNotificationSentAt: { weekly_recap: sentTenMinutesAgo } }),
+      context({ now, threadStrength: 10 })
+    );
+
+    expect(result.eligible).toBe(false);
+  });
+
+  it.each([
+    ['notifications disabled', { notification_enabled: false }],
+    ['permission denied', { notificationPermissionStatus: 'denied' as const }],
+    ['daily prime turned off', { dailyPrimeEnabled: false }],
+  ])('still reports the daily prime ineligible when %s', (_label, overrides) => {
+    const result = evaluateDailyPrime(
+      baseState({ dailyPrimeTime, ...overrides }),
+      context({ now })
+    );
+
+    expect(result.eligible).toBe(false);
+    expect(result.fireDate).toBeUndefined();
+  });
+});

@@ -19,6 +19,7 @@ export const CourseDetailsScreen: React.FC = () => {
   const route = useRoute<DetailsRoute>();
   const store = useCourseStore();
   const accountId = useAuthStore((state) => state.user?.id ?? null);
+  const canReflect = useAuthStore((state) => state.user?.chartCapabilities?.canCreateOrEditReflections === true);
   const { error: showError } = useToast();
   const course = store.activeCourse?.id === route.params.courseId
     ? store.activeCourse
@@ -76,6 +77,7 @@ export const CourseDetailsScreen: React.FC = () => {
         <ChartKicker>COURSE DETAILS</ChartKicker>
         <Text style={{ color: '#F5F5DC', fontFamily: 'Cinzel-SemiBold', fontSize: 25 }}>{course.destinationText}</Text>
         <Text style={{ color: '#C0C0C0', fontFamily: 'Inter-Regular', fontSize: 14 }}>Plotted {formatDate(course.plottedAt)}  ·  {course.reachedCount} of {course.waypointCount} reached</Text>
+        {course.startingContext ? <Text style={{ color: '#C0C0C0', fontFamily: 'Inter-Regular', fontSize: 14, lineHeight: 20 }}>Starting from · {course.startingContext}</Text> : null}
         <Text style={{ color: '#F5F5DC', fontFamily: 'Inter-Regular', fontSize: 15 }}>{course.destinationAnchorLink?.snapshot.intentionText ?? 'No destination Anchor linked'}</Text>
       </ChartCard>
       {course.status === 'ACTIVE' || course.status === 'DRAFT' ? (
@@ -83,7 +85,7 @@ export const CourseDetailsScreen: React.FC = () => {
       ) : null}
       {course.status === 'ACTIVE' || course.status === 'DRAFT' ? <ChartGhostButton label="Add waypoint" onPress={() => navigation.navigate('CourseEditor', { courseId: course.id })} color="#F5F0E8" /> : null}
       {course.status === 'ACTIVE' || course.status === 'DRAFT' ? <ChartGhostButton label="Reorder waypoints" onPress={() => navigation.navigate('CourseEditor', { courseId: course.id })} color="#F5F0E8" /> : null}
-      <ChartGhostButton label="Add Reflection" disabled={!store.flags.chart_reflections_enabled} onPress={() => navigation.navigate('ReflectionComposer', { source: 'MANUAL_COURSE', promptType: 'COURSE_STATUS', promptVersion: 1, courseId: course.id, draftKey: `course:${course.id}:manual` })} color="#F5F0E8" />
+      <ChartGhostButton label="Add Reflection" disabled={!store.flags.chart_reflections_enabled || !canReflect} onPress={() => navigation.navigate('ReflectionComposer', { source: 'MANUAL_COURSE', promptType: 'COURSE_STATUS', promptVersion: 1, courseId: course.id, draftKey: `course:${course.id}:manual` })} color="#F5F0E8" />
       {course.status !== 'ARCHIVED' ? <ChartGhostButton label="Archive course" onPress={archive} disabled={store.readOnly} color="#C8875A" /> : null}
       {course.status === 'ARCHIVED' ? <ChartButton label="Restore Course" onPress={restore} disabled={store.readOnly} /> : null}
       <ChartGhostButton label="Delete course" onPress={remove} disabled={store.readOnly} color="#C8875A" />

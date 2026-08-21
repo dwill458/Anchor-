@@ -93,6 +93,7 @@ export type CourseObservation = {
 export type CourseSummary = {
   id: string;
   destinationText: string;
+  startingContext: string | null;
   status: CourseStatus;
   version: number;
   currentWaypointId: string | null;
@@ -137,6 +138,7 @@ export type CourseLogEntry = {
 export type CreateCourseRequest = {
   idempotencyKey: string;
   destinationText: string;
+  currentReality?: string;
   waypoints?: Array<{ title: string; description?: string }>;
   fromProposalId?: string;
 };
@@ -235,6 +237,7 @@ export type CoursePlanProposal = {
   inputHash: string;
   generationSource: 'gemini' | 'deterministic_fallback';
   fallbackReason: string | null;
+  startingContext: string | null;
   destinationInterpretation: string;
   waypoints: Array<{
     clientKey: string;

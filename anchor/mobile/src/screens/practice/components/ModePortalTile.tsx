@@ -2,10 +2,7 @@ import React, { useEffect } from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import Animated, {
   Easing,
-  FadeIn,
-  FadeOut,
   interpolate,
-  LinearTransition,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -116,8 +113,7 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
           ]}
         />
       </View>
-      <Animated.View
-        layout={reduceMotion ? undefined : LinearTransition.duration(ANIMATION_DURATION).easing(Easing.bezier(0.22, 1, 0.36, 1))}
+      <View
         pointerEvents="none"
         style={[
           styles.content,
@@ -141,14 +137,11 @@ export const ModePortalTile: React.FC<ModePortalTileProps> = ({
         </View>
 
         {selected ? (
-          <Animated.View
-            entering={reduceMotion ? undefined : FadeIn.duration(200).easing(Easing.bezier(0.22, 1, 0.36, 1))}
-            exiting={reduceMotion ? undefined : FadeOut.duration(160).easing(Easing.bezier(0.22, 1, 0.36, 1))}
-          >
+          <View style={styles.meaningWrap}>
             <Text style={styles.meaning}>{meaning}</Text>
-          </Animated.View>
+          </View>
         ) : null}
-      </Animated.View>
+      </View>
     </Pressable>
   );
 };
@@ -273,6 +266,9 @@ const styles = StyleSheet.create({
   },
   durationSelected: {
     color: 'rgba(244,239,230,0.7)',
+  },
+  meaningWrap: {
+    overflow: 'hidden',
   },
   meaning: {
     marginTop: 10,

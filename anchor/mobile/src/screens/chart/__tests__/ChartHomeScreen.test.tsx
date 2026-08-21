@@ -22,10 +22,6 @@ jest.mock('@/contexts/TabNavigationContext', () => ({
   useTabNavigation: () => ({ registerTabNav: jest.fn() }),
 }));
 jest.mock('@/hooks/useReduceMotionEnabled', () => ({ useReduceMotionEnabled: () => false }));
-jest.mock('@/types/chart', () => ({
-  ...jest.requireActual('@/types/chart'),
-  canViewChart: () => true,
-}));
 jest.mock('@/components/LoadingSpinner', () => {
   const mockReact = require('react');
   const { Text: MockText } = require('react-native');
@@ -65,6 +61,8 @@ const mockUseAuthStore = jest.requireMock('@/stores/authStore').useAuthStore as 
 const mockUseCourseStore = jest.requireMock('@/stores/courseStore').useCourseStore as jest.Mock;
 const mockUseCourseLogStore = jest.requireMock('@/stores/courseLogStore').useCourseLogStore as jest.Mock;
 const startReflectionQueueSync = jest.requireMock('@/services/ReflectionService').startReflectionQueueSync as jest.Mock;
+let authState: any;
+let courseStoreState: any;
 
 const currentWaypoint = {
   id: 'waypoint-1',
@@ -113,18 +111,29 @@ const course = {
 };
 
 describe('ChartHomeScreen — truthful Chart copy', () => {
+  const previousBuildFlag = process.env.EXPO_PUBLIC_ENABLE_CHART;
+
+  beforeAll(() => {
+    process.env.EXPO_PUBLIC_ENABLE_CHART = 'true';
+  });
+
+  afterAll(() => {
+    if (previousBuildFlag === undefined) delete process.env.EXPO_PUBLIC_ENABLE_CHART;
+    else process.env.EXPO_PUBLIC_ENABLE_CHART = previousBuildFlag;
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
-    const auth = {
+    authState = {
       user: {
         id: 'account-1',
         chartFlags: { chart_enabled: true, chart_write_enabled: true },
-        chartCapabilities: undefined,
+        chartCapabilities: { canViewChart: true },
       },
       isOfflineMode: false,
     };
-    mockUseAuthStore.mockImplementation((selector: (state: typeof auth) => unknown) => selector(auth));
-    mockUseCourseStore.mockReturnValue({
+    mockUseAuthStore.mockImplementation((selector: (state: typeof authState) => unknown) => selector(authState));
+    courseStoreState = {
       activeCourse: course,
       courses: [course],
       flags: { chart_enabled: true, chart_write_enabled: true },
@@ -140,7 +149,8 @@ describe('ChartHomeScreen — truthful Chart copy', () => {
       bindAccount: jest.fn(),
       hydrateAndRefresh: jest.fn(),
       setFeatureFlags: jest.fn(),
-    });
+    };
+    mockUseCourseStore.mockImplementation(() => courseStoreState);
     mockUseCourseLogStore.mockReturnValue({ entries: [], loading: false, bind: jest.fn() });
   });
 
@@ -162,5 +172,16 @@ describe('ChartHomeScreen — truthful Chart copy', () => {
     expect(screen.queryByLabelText('Chart notifications')).toBeNull();
     fireEvent.press(screen.getByLabelText('Chart menu'));
     expect(jest.requireMock('@react-navigation/native').__mockNavigation.navigate).toHaveBeenCalledWith('CourseDetails', { courseId: 'course-1' });
+  });
+
+  it('renders unavailable and does not hydrate private Chart data when capability is denied', () => {
+    authState.user.chartCapabilities = { canViewChart: false };
+
+    const screen = render(<ChartHomeScreen />);
+
+    expect(screen.getByText('Chart is unavailable')).toBeTruthy();
+    expect(courseStoreState.bindAccount).not.toHaveBeenCalled();
+    expect(courseStoreState.hydrateAndRefresh).not.toHaveBeenCalled();
+    expect(startReflectionQueueSync).not.toHaveBeenCalled();
   });
 });

@@ -13,6 +13,7 @@
  * never on private text.
  */
 
+import { createHash } from 'crypto';
 import { CourseEventType, CourseStatus } from '@prisma/client';
 
 const mockPrisma = {
@@ -30,10 +31,16 @@ jest.mock('../../lib/prisma', () => ({ prisma: mockPrisma }));
 import { courseService } from '../CourseService';
 
 const now = new Date('2026-08-04T12:00:00.000Z');
+const completionFingerprint = createHash('sha256')
+  .update(JSON.stringify({ supportingPracticeSessionId: null, reflection: null }))
+  .digest('hex');
 
 type WaypointOverrides = { reachedAt?: Date | null; skippedAt?: Date | null };
 
-function courseRow(currentOverrides: WaypointOverrides = {}, currentWaypointId = 'waypoint-current') {
+function courseRow(
+  currentOverrides: WaypointOverrides = {},
+  currentWaypointId = 'waypoint-current'
+) {
   return {
     id: 'course-1',
     userId: 'user-1',
@@ -91,6 +98,9 @@ const ownEvent = (eventType: CourseEventType, overrides: Record<string, unknown>
   courseId: 'course-1',
   waypointId: 'waypoint-current',
   eventType,
+  ...(eventType === CourseEventType.WAYPOINT_REACHED
+    ? { snapshot: { requestFingerprint: completionFingerprint } }
+    : {}),
   ...overrides,
 });
 

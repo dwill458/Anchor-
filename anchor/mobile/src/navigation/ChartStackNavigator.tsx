@@ -3,6 +3,7 @@ import { NavigationContainer, useNavigationContainerRef } from '@react-navigatio
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { colors } from '@/theme';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import type { ChartStackParamList } from '@/types/chart';
 import {
   ChartHomeScreen,
@@ -15,6 +16,8 @@ import {
   WaypointDetailScreen,
   CourseLogScreen,
   ReflectionComposerScreen,
+  WaypointActivationScreen,
+  WaypointReachedScreen,
 } from '@/screens/chart';
 
 const Stack = createNativeStackNavigator<ChartStackParamList>();
@@ -25,6 +28,7 @@ interface ChartStackNavigatorProps {
 
 export const ChartStackNavigator: React.FC<ChartStackNavigatorProps> = ({ onRouteChange }) => {
   const navigationRef = useNavigationContainerRef<ChartStackParamList>();
+  const reduceMotion = useReduceMotionEnabled();
 
   return (
     <ErrorBoundary>
@@ -50,19 +54,29 @@ export const ChartStackNavigator: React.FC<ChartStackNavigatorProps> = ({ onRout
           }}
           screenOptions={{
             headerShown: false,
-            animation: 'slide_from_right',
+            animation: reduceMotion ? 'none' : 'slide_from_right',
             gestureEnabled: true,
             contentStyle: { backgroundColor: colors.background.primary },
           }}
         >
       <Stack.Screen name="ChartHome" component={ChartHomeScreen} />
-      <Stack.Screen name="CourseSetup" component={CourseSetupScreen} options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="CourseSetup" component={CourseSetupScreen} options={{ presentation: 'modal', animation: reduceMotion ? 'none' : 'slide_from_bottom' }} />
       <Stack.Screen name="CourseEditor" component={CourseEditorScreen} />
       <Stack.Screen name="AIPlanReview" component={AIPlanReviewScreen} />
+      <Stack.Screen
+        name="WaypointActivation"
+        component={WaypointActivationScreen}
+        options={{ gestureEnabled: false, animation: reduceMotion ? 'none' : 'fade' }}
+      />
       <Stack.Screen
         name="WaypointDetail"
         component={WaypointDetailScreen}
         options={{ presentation: 'formSheet', gestureDirection: 'vertical' }}
+      />
+      <Stack.Screen
+        name="WaypointReached"
+        component={WaypointReachedScreen}
+        options={{ gestureEnabled: false, animation: reduceMotion ? 'none' : 'fade' }}
       />
       <Stack.Screen name="CourseLog" component={CourseLogScreen} />
       <Stack.Screen
@@ -81,7 +95,7 @@ export const ChartStackNavigator: React.FC<ChartStackNavigatorProps> = ({ onRout
         options={{
           presentation: 'fullScreenModal',
           gestureEnabled: false,
-          animation: 'fade',
+          animation: reduceMotion ? 'none' : 'fade',
         }}
       />
       <Stack.Screen name="CompletedJourney" component={CompletedJourneyScreen} />

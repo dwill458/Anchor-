@@ -17,6 +17,7 @@ export const CourseCompletionScreen: React.FC = () => {
   const route = useRoute<CompletionRoute>();
   const store = useCourseStore();
   const accountId = useAuthStore((state) => state.user?.id ?? null);
+  const canReflect = useAuthStore((state) => state.user?.chartCapabilities?.canCreateOrEditReflections === true);
   const course = store.activeCourse?.id === route.params.courseId ? store.activeCourse : null;
   const allowLeaveRef = React.useRef(false);
 
@@ -53,12 +54,17 @@ export const CourseCompletionScreen: React.FC = () => {
       <ChartCard emphasis>
         <Text style={{ color: '#F5F5DC', fontFamily: 'Cinzel-SemiBold', fontSize: 30 }}>You reached your destination.</Text>
         <Text style={{ color: '#C0C0C0', fontFamily: 'Inter-Regular', fontSize: 15, lineHeight: 22 }}>{course.destinationText}</Text>
+        {course.startingContext ? (
+          <Text style={{ color: '#C0C0C0', fontFamily: 'Inter-Regular', fontSize: 14, lineHeight: 21 }}>
+            You began this Course from: {course.startingContext}
+          </Text>
+        ) : null}
       </ChartCard>
       <ChartButton label="View Your Journey" onPress={() => {
         allowLeaveRef.current = true;
         navigation.replace('CompletedJourney', { courseId: course.id });
       }} />
-      <ChartButton label="Add Reflection" secondary disabled={!store.flags.chart_reflections_enabled} onPress={() => navigation.navigate('ReflectionComposer', { source: 'COURSE_COMPLETION', promptType: 'FINAL_REFLECTION', promptVersion: 1, courseId: course.id, draftKey: `course:${course.id}:completion` })} />
+      <ChartButton label="Add Reflection" secondary disabled={!store.flags.chart_reflections_enabled || !canReflect} onPress={() => navigation.navigate('ReflectionComposer', { source: 'COURSE_COMPLETION', promptType: 'FINAL_REFLECTION', promptVersion: 1, courseId: course.id, draftKey: `course:${course.id}:completion` })} />
       <ChartButton label="Plot What Comes Next" secondary onPress={() => {
         allowLeaveRef.current = true;
         navigation.replace('CourseSetup');

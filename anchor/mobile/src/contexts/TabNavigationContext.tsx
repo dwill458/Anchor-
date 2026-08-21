@@ -22,7 +22,7 @@
  *   }, []);
  */
 
-import React, { createContext, useCallback, useContext, useRef } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef } from 'react';
 import type { PracticeStackParamList, RootStackParamList, ChartStackParamList } from '@/types';
 
 type TabIndex = 0 | 1 | 2;
@@ -84,6 +84,8 @@ interface TabNavigationProviderProps {
   onIndexChange: (index: number) => void;
   onNavigateToPaywall: (params?: RootStackParamList['Paywall']) => void;
   activeIndex?: number;
+  /** Server-authoritative Chart availability projected by the tab host. */
+  chartAvailable: boolean;
 }
 
 export const TabNavigationProvider: React.FC<TabNavigationProviderProps> = ({
@@ -91,11 +93,22 @@ export const TabNavigationProvider: React.FC<TabNavigationProviderProps> = ({
   onIndexChange,
   onNavigateToPaywall,
   activeIndex = 0,
+  chartAvailable,
 }) => {
   // Refs to each tab's root screen navigation — registered by VaultScreen + PracticeScreen
   const tabNavRefs = useRef<(any | null)[]>([null, null, null]);
   const pendingPracticeRouteRef = useRef<{ screen: string; params?: unknown } | null>(null);
   const pendingChartRouteRef = useRef<{ screen: string; params?: unknown } | null>(null);
+  const chartAvailableRef = useRef(chartAvailable);
+  chartAvailableRef.current = chartAvailable;
+
+  useEffect(() => {
+    if (!chartAvailable) {
+      // A route can be queued while Chart is mounted lazily. Revocation must
+      // invalidate that route before a later remount can reopen account data.
+      pendingChartRouteRef.current = null;
+    }
+  }, [chartAvailable]);
 
   const registerTabNav = useCallback((tabIndex: TabIndex, nav: any) => {
     tabNavRefs.current[tabIndex] = nav;
@@ -104,7 +117,9 @@ export const TabNavigationProvider: React.FC<TabNavigationProviderProps> = ({
       pendingPracticeRouteRef.current = null;
       dispatchPendingPracticeRoute(nav, pending);
     }
-    if (tabIndex === 2 && nav && pendingChartRouteRef.current) {
+    if (tabIndex === 2 && nav && !chartAvailableRef.current) {
+      pendingChartRouteRef.current = null;
+    } else if (tabIndex === 2 && nav && pendingChartRouteRef.current) {
       const pending = pendingChartRouteRef.current;
       pendingChartRouteRef.current = null;
       nav.navigate(pending.screen, pending.params);
@@ -183,6 +198,13 @@ export const TabNavigationProvider: React.FC<TabNavigationProviderProps> = ({
       screen?: RouteName,
       params?: ChartStackParamList[RouteName]
     ) => {
+      if (!chartAvailableRef.current) {
+        pendingChartRouteRef.current = null;
+        // Do not select an unmounted third tab. If revocation happened while
+        // Chart was active, return to the non-sensitive root tab.
+        if (activeIndex === 2) onIndexChange(0);
+        return;
+      }
       if (screen) {
         const chartNavigation = tabNavRefs.current[2];
         if (chartNavigation) {

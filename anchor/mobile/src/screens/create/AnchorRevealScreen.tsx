@@ -38,6 +38,11 @@ import type { ApiResponse, Anchor } from '@/types';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { getAnchorCreationLimitCopy } from '@/utils/entitlements';
 import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
+import { getFreshChartAnchorHandoff, useChartJourneyStore } from '@/stores/chartJourneyStore';
+import {
+    cancelChartAnchorCreationHandoff,
+    completeChartAnchorCreation,
+} from '@/services/ChartAnchorHandoffService';
 
 type AnchorRevealRouteProp = RouteProp<RootStackParamList, 'AnchorReveal'>;
 type AnchorRevealNavigationProp = StackNavigationProp<RootStackParamList, 'AnchorReveal'>;
@@ -64,11 +69,21 @@ export const AnchorRevealScreen: React.FC = () => {
     const entitlements = useEntitlements();
     const [isSaving, setIsSaving] = useState(false);
     const [reminderCardVisible, setReminderCardVisible] = useState(false);
-    const pendingNavRef = useRef<{ anchorId: string; isGuestFirstAnchor: boolean } | null>(null);
+    const pendingNavRef = useRef<{
+        anchorId: string;
+        isGuestFirstAnchor: boolean;
+        expectedAccountId: string | null;
+    } | null>(null);
     // State updates do not take effect until React re-renders. Keep a synchronous
     // guard across the whole create-and-reminder flow so a second tap cannot start
     // another request while an async continuation is still pending.
     const creationInFlightRef = useRef(false);
+    // Retain one create intent across same-screen network reconciliation. This
+    // is especially important for the first signed-in Anchor, where a lost
+    // response must never lead to a second server record on the next tap.
+    const standaloneCreateIdempotencyKeyRef = useRef(
+        `anchor-create-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+    );
 
     const {
         intentionText,
@@ -137,11 +152,13 @@ export const AnchorRevealScreen: React.FC = () => {
         navigation.goBack();
     };
 
-    const navigateAfterSave = (
+    const navigateStandardAfterSave = (
         anchorId: string,
         isGuestFirstAnchor: boolean,
         isFirstAnchor: boolean,
+        expectedAccountId: string | null,
     ) => {
+        if (expectedAccountId && useAuthStore.getState().user?.id !== expectedAccountId) return;
         if (isGuestFirstAnchor) {
             // The creation record already exists locally. Passing it through is
             // more reliable than rereading a persisted store during the same
@@ -190,17 +207,94 @@ export const AnchorRevealScreen: React.FC = () => {
         }
     };
 
+    const navigateAfterSave = async (
+        anchorId: string,
+        isGuestFirstAnchor: boolean,
+        isFirstAnchor: boolean,
+        expectedAccountId: string | null,
+    ) => {
+        if (expectedAccountId && useAuthStore.getState().user?.id !== expectedAccountId) return;
+        const handoff = await completeChartAnchorCreation(anchorId);
+        if (expectedAccountId && useAuthStore.getState().user?.id !== expectedAccountId) return;
+        if (handoff.status === 'linked') {
+            useFirstAnchorFlowStore.getState().clearDraft();
+            navigation.replace('PrimeYourAnchor', {
+                anchorId,
+                chartContext: handoff.chartContext,
+                chartOriginAccountId: expectedAccountId ?? undefined,
+            });
+            return;
+        }
+        if (handoff.status === 'unavailable') {
+            const pendingChartHandoff = authUser?.id
+                ? getFreshChartAnchorHandoff(authUser.id)
+                : null;
+            creationInFlightRef.current = false;
+            setIsSaving(false);
+            Alert.alert(
+                'Anchor saved',
+                'Your Anchor is safe, but Chart could not connect it yet. Retry the link before beginning Practice.',
+                [
+                    {
+                        text: 'Continue in Sanctuary',
+                        style: 'cancel',
+                        onPress: () => {
+                            if (expectedAccountId && useAuthStore.getState().user?.id !== expectedAccountId) return;
+                            if (expectedAccountId && pendingChartHandoff) {
+                                cancelChartAnchorCreationHandoff(
+                                    expectedAccountId,
+                                    pendingChartHandoff.courseId,
+                                    pendingChartHandoff.waypointId,
+                                    pendingChartHandoff.linkIdempotencyKey,
+                                );
+                            }
+                            navigateStandardAfterSave(
+                                anchorId,
+                                isGuestFirstAnchor,
+                                isFirstAnchor,
+                                expectedAccountId,
+                            );
+                        },
+                    },
+                    {
+                        text: 'Retry link',
+                        onPress: () => void navigateAfterSave(
+                            anchorId,
+                            isGuestFirstAnchor,
+                            isFirstAnchor,
+                            expectedAccountId,
+                        ),
+                    },
+                ],
+            );
+            return;
+        }
+        if (handoff.status === 'stale') {
+            Alert.alert(
+                'Course changed',
+                'Your Anchor is safe in Sanctuary. The Waypoint changed before it could be linked, so nothing was attached automatically.',
+            );
+        }
+        navigateStandardAfterSave(anchorId, isGuestFirstAnchor, isFirstAnchor, expectedAccountId);
+    };
+
     const handleReminderDismiss = () => {
         setReminderCardVisible(false);
         const pending = pendingNavRef.current;
         pendingNavRef.current = null;
         if (pending) {
-            navigateAfterSave(pending.anchorId, pending.isGuestFirstAnchor, false);
+            void navigateAfterSave(
+                pending.anchorId,
+                pending.isGuestFirstAnchor,
+                false,
+                pending.expectedAccountId,
+            );
         }
     };
 
     const handleContinue = async () => {
         if (isSaving || creationInFlightRef.current) return;
+        const expectedAccountId = authUser?.id ?? null;
         const isGuestFirstAnchor = !isAuthenticated && existingAnchorCount === 0;
         const isFirstAnchor = existingAnchorCount === 0;
         if (!isGuestFirstAnchor && !entitlements.canCreateAnchor) {
@@ -236,12 +330,45 @@ export const AnchorRevealScreen: React.FC = () => {
             has_image: Boolean(enhancedImageUrl),
         });
 
-        const idempotencyKey = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        const { tier, confidenceScore, isCustomFallback } = classifyToTierPreliminary(intentionText);
+        const anchorCreateIntent = {
+            intentionText,
+            category,
+            distilledLetters,
+            baseSigilSvg,
+            structureVariant: structureVariant || 'balanced',
+            reinforcedSigilSvg: reinforcedSigilSvg || undefined,
+            reinforcementMetadata: reinforcementMetadata || undefined,
+            enhancedImageUrl: enhancedImageUrl || undefined,
+            enhancementMetadata: enhancementMetadata || undefined,
+            planetaryTier: tier,
+            classifierVersion: 2,
+            classifierMeta: { confidenceScore, isCustomFallback },
+        };
+        const chartHandoff = authUser?.id ? getFreshChartAnchorHandoff(authUser.id) : null;
+        let claimedChartHandoff = chartHandoff;
+        if (chartHandoff) {
+            try {
+                claimedChartHandoff = await useChartJourneyStore.getState().claimAnchorCreateIntent(
+                    JSON.stringify(anchorCreateIntent),
+                );
+            } catch {
+                creationInFlightRef.current = false;
+                setIsSaving(false);
+                Alert.alert('Unable to save Chart progress', 'Try again before creating this Waypoint Anchor.');
+                return;
+            }
+        }
+        if (authUser?.id && useAuthStore.getState().user?.id !== authUser.id) {
+            creationInFlightRef.current = false;
+            setIsSaving(false);
+            return;
+        }
+        const idempotencyKey = claimedChartHandoff?.anchorCreateIdempotencyKey
+            ?? standaloneCreateIdempotencyKeyRef.current;
         let anchorId = isGuestFirstAnchor
             ? `pending-first-anchor-${idempotencyKey}`
             : `anchor-${idempotencyKey}`;
-
-        const { tier, confidenceScore, isCustomFallback } = classifyToTierPreliminary(intentionText);
 
         try {
             if (isGuestFirstAnchor) {
@@ -263,18 +390,7 @@ export const AnchorRevealScreen: React.FC = () => {
                 // already created rather than creating a duplicate, so a single
                 // network-only retry (no response received either way) is safe here.
                 const anchorPayload = {
-                    intentionText,
-                    category,
-                    distilledLetters,
-                    baseSigilSvg,
-                    structureVariant: structureVariant || 'balanced',
-                    reinforcedSigilSvg: reinforcedSigilSvg || undefined,
-                    reinforcementMetadata: reinforcementMetadata || undefined,
-                    enhancedImageUrl: enhancedImageUrl || undefined,
-                    enhancementMetadata: enhancementMetadata || undefined,
-                    planetaryTier: tier,
-                    classifierVersion: 2,
-                    classifierMeta: { confidenceScore, isCustomFallback },
+                    ...anchorCreateIntent,
                     idempotencyKey,
                 };
 
@@ -290,6 +406,13 @@ export const AnchorRevealScreen: React.FC = () => {
                         throw firstAttemptErr;
                     }
                     await new Promise(resolve => setTimeout(resolve, 500));
+                    // ApiClient resolves credentials at request time. Never let
+                    // account B authenticate account A's delayed retry.
+                    if (expectedAccountId && useAuthStore.getState().user?.id !== expectedAccountId) {
+                        creationInFlightRef.current = false;
+                        setIsSaving(false);
+                        return;
+                    }
                     response = await post<ApiResponse<Anchor>>('/api/anchors', anchorPayload);
                 }
 
@@ -297,6 +420,9 @@ export const AnchorRevealScreen: React.FC = () => {
                     anchorId = response.data.id;
                     logger.info('[AnchorReveal] Anchor saved to backend', { anchorId });
                 } else {
+                    if (claimedChartHandoff || isFirstAnchor) {
+                        throw new Error('The Anchor server did not confirm the saved Anchor.');
+                    }
                     logger.warn('[AnchorReveal] Backend returned unexpected response, using local ID', { response });
                 }
             }
@@ -332,7 +458,12 @@ export const AnchorRevealScreen: React.FC = () => {
                 return;
             }
 
-            logger.warn('[AnchorReveal] Failed to save anchor to backend, proceeding locally', err);
+            if (expectedAccountId && useAuthStore.getState().user?.id !== expectedAccountId) {
+                creationInFlightRef.current = false;
+                setIsSaving(false);
+                return;
+            }
+            logger.warn('[AnchorReveal] Failed to save anchor to backend', err);
             FrictionAnalytics.flowError('anchor_creation', 'anchor_reveal', 'backend_save_failed', {
                 is_first_anchor: isGuestFirstAnchor,
                 category,
@@ -346,7 +477,30 @@ export const AnchorRevealScreen: React.FC = () => {
                 screen: 'AnchorRevealScreen',
                 action: 'save_anchor_to_backend',
             });
-            // Continue with local fallback — don't block the user
+            if (claimedChartHandoff || isFirstAnchor) {
+                // Chart linking and the first-journey milestone require the
+                // canonical server ID. Keep the persisted create intent/key and
+                // let the user retry; if the server committed but both responses
+                // were lost, the identical POST reconciles to that same Anchor.
+                creationInFlightRef.current = false;
+                setIsSaving(false);
+                Alert.alert(
+                    'Anchor not yet confirmed',
+                    'Your creation is still here. Check your connection and tap Continue again; Anchor will safely recover the same save.',
+                );
+                return;
+            }
+            // Returning standalone Anchors retain the existing offline-first
+            // local projection and are promoted by the normal sync service.
+        }
+
+        // The network request may outlive the screen's authenticated account.
+        // Never project account A's newly-created Anchor into account B's
+        // in-memory Sanctuary or journey state after a sign-out/switch.
+        if (authUser?.id && useAuthStore.getState().user?.id !== authUser.id) {
+            creationInFlightRef.current = false;
+            setIsSaving(false);
+            return;
         }
 
         const createdAnchor: Anchor = {
@@ -372,6 +526,20 @@ export const AnchorRevealScreen: React.FC = () => {
         addAnchor(createdAnchor);
         setCurrentAnchor?.(anchorId);
         incrementAnchorCount();
+        if (
+            isFirstAnchor &&
+            !isGuestFirstAnchor &&
+            authUser?.id &&
+            useAuthStore.getState().user?.id === authUser.id
+        ) {
+            await useChartJourneyStore.getState().bindAccount(authUser.id);
+            if (
+                useAuthStore.getState().user?.id === authUser.id &&
+                useChartJourneyStore.getState().accountId === authUser.id
+            ) {
+                await useChartJourneyStore.getState().markFirstAnchorCreated(anchorId);
+            }
+        }
         AnalyticsService.track(AnalyticsEvents.ANCHOR_CREATION_COMPLETED, {
             anchor_id: anchorId,
             source: isGuestFirstAnchor ? 'onboarding_first_anchor' : 'anchor_reveal',
@@ -404,7 +572,7 @@ export const AnchorRevealScreen: React.FC = () => {
             !isFirstAnchor && await canOfferFirstAnchorReminder();
 
         if (shouldShowReminder) {
-            pendingNavRef.current = { anchorId, isGuestFirstAnchor };
+            pendingNavRef.current = { anchorId, isGuestFirstAnchor, expectedAccountId };
             setReminderCardVisible(true);
             return;
         }
@@ -412,7 +580,7 @@ export const AnchorRevealScreen: React.FC = () => {
         if (!isGuestFirstAnchor) {
             useFirstAnchorFlowStore.getState().clearDraft();
         }
-        navigateAfterSave(anchorId, isGuestFirstAnchor, isFirstAnchor);
+        await navigateAfterSave(anchorId, isGuestFirstAnchor, isFirstAnchor, expectedAccountId);
     };
 
     return (

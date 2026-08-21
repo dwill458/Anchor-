@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 jest.mock('@react-navigation/native', () => {
-  const navigation = { navigate: jest.fn(), goBack: jest.fn() };
+  const navigation = { navigate: jest.fn(), replace: jest.fn(), goBack: jest.fn() };
   return {
     __mockNavigation: navigation,
     useNavigation: () => navigation,
@@ -14,12 +14,33 @@ jest.mock('@/services/ChartApiClient', () => ({
   getChartErrorCode: jest.fn(),
 }));
 jest.mock('@/stores/courseStore', () => ({ useCourseStore: jest.fn() }));
+const mockAuthState = {
+  user: {
+    id: 'account-1',
+    chartCapabilities: { canAcceptExistingChartPlan: true },
+  },
+};
+jest.mock('@/stores/authStore', () => ({
+  useAuthStore: (selector: (state: typeof mockAuthState) => unknown) => selector(mockAuthState),
+}));
+const mockAnalyticsTrack = jest.fn();
+const mockTrackChartEventOnce = jest.fn();
+jest.mock('@/services/AnalyticsService', () => ({
+  AnalyticsEvents: {
+    CHART_PLANNER_PROPOSAL_VIEWED: 'proposal_viewed',
+    CHART_PLANNER_PROPOSAL_ACCEPTED: 'proposal_accepted',
+    CHART_PLANNER_PROPOSAL_DISMISSED: 'proposal_dismissed',
+  },
+  AnalyticsService: { track: (...args: unknown[]) => mockAnalyticsTrack(...args) },
+  trackChartEventOnce: (...args: unknown[]) => mockTrackChartEventOnce(...args),
+}));
 
 import AIPlanReviewScreen from '../AIPlanReviewScreen';
 
 const mockNavigation = jest.requireMock('@react-navigation/native')
   .__mockNavigation as {
   navigate: jest.Mock;
+  replace: jest.Mock;
   goBack: jest.Mock;
 };
 const mockChartApi = jest.requireMock('@/services/ChartApiClient')
@@ -41,6 +62,7 @@ const proposal = {
   generationSource: 'deterministic_fallback' as const,
   fallbackReason: 'unavailable_or_invalid',
   destinationInterpretation: 'Finish a portfolio',
+  startingContext: 'Two strong pieces and no consistent publishing rhythm',
   waypoints: [
     {
       clientKey: 'key-1',
@@ -55,6 +77,7 @@ const proposal = {
 describe('AIPlanReviewScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAuthState.user.chartCapabilities.canAcceptExistingChartPlan = true;
     mockUseCourseStore.mockReturnValue({
       offline: false,
       flags: { chart_write_enabled: true },
@@ -71,22 +94,23 @@ describe('AIPlanReviewScreen', () => {
     expect(
       screen.getByLabelText('Waypoint 1: Clarify the target'),
     ).toBeTruthy();
-    fireEvent.press(screen.getByLabelText('Back without changes'));
+    expect(screen.getByText('Two strong pieces and no consistent publishing rhythm')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Reject this suggestion'));
     expect(mockNavigation.goBack).toHaveBeenCalledTimes(1);
     expect(mockChartApi.acceptCoursePlan).not.toHaveBeenCalled();
   });
 
-  it('requires an explicit acceptance action before creating a Course', async () => {
+  it('requires capability and an explicit acceptance action before activating the Course', async () => {
     mockChartApi.acceptCoursePlan.mockResolvedValue({
-      data: { id: 'course-1' },
+      data: { id: 'course-1', status: 'ACTIVE', currentWaypointId: 'waypoint-1' },
     });
     const screen = render(<AIPlanReviewScreen />);
     await waitFor(() =>
       expect(
-        screen.getByLabelText('Accept plan and create Course'),
+        screen.getByLabelText('Use this Course'),
       ).toBeTruthy(),
     );
-    fireEvent.press(screen.getByLabelText('Accept plan and create Course'));
+    fireEvent.press(screen.getByLabelText('Use this Course'));
     await waitFor(() =>
       expect(mockChartApi.acceptCoursePlan).toHaveBeenCalledWith(
         'proposal-1',
@@ -94,6 +118,34 @@ describe('AIPlanReviewScreen', () => {
       ),
     );
     expect(mockRefresh).toHaveBeenCalled();
-    expect(mockNavigation.navigate).toHaveBeenCalledWith('ChartHome');
+    expect(mockNavigation.replace).toHaveBeenCalledWith('WaypointActivation', {
+      courseId: 'course-1',
+      waypointId: 'waypoint-1',
+    });
+  });
+
+  it('fails closed when the server capability projection does not allow acceptance', async () => {
+    mockAuthState.user.chartCapabilities.canAcceptExistingChartPlan = false;
+    const screen = render(<AIPlanReviewScreen />);
+    await waitFor(() => expect(screen.getByLabelText('Use this Course')).toBeTruthy());
+
+    fireEvent.press(screen.getByLabelText('Use this Course'));
+
+    expect(mockChartApi.acceptCoursePlan).not.toHaveBeenCalled();
+  });
+
+  it('opens proposal-backed setup for explicit editing or regeneration', async () => {
+    const screen = render(<AIPlanReviewScreen />);
+    await waitFor(() => expect(screen.getByLabelText('Edit or regenerate')).toBeTruthy());
+
+    fireEvent.press(screen.getByLabelText('Edit or regenerate'));
+
+    expect(mockNavigation.navigate).toHaveBeenCalledWith('CourseSetup', {
+      fromProposalId: 'proposal-1',
+    });
+    expect(mockAnalyticsTrack).toHaveBeenCalledWith(
+      'chart_planner_proposal_edit_selected',
+      expect.objectContaining({ waypoint_count: 1 }),
+    );
   });
 });

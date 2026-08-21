@@ -14,6 +14,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 const PRACTICE_CATEGORIES = new Set<NotificationCategory>(['daily_prime', 'thread_strength']);
 const REASONABLE_UNFINISHED_DELAY_MS = DAY_MS;
+const SITUATIONAL_DELAY_MS = 5 * 60 * 1000;
 
 export interface NotificationRuleState {
   notification_enabled: boolean;
@@ -98,24 +99,36 @@ export function nextReminderFireDate(time: string, now: Date): Date | null {
   return fireDate;
 }
 
+/**
+ * Send-limit policy for a category.
+ *
+ * `at` is the moment the notification would actually be *delivered*, not the
+ * moment it is being scheduled. Evaluating these limits against "now" while
+ * scheduling something hours (or a day) away made recent sends suppress future
+ * reminders, and the scheduler cancels whatever it judges ineligible — which
+ * silently unscheduled the standing daily reminder.
+ */
 export function canSendCategory(
   state: NotificationRuleState,
   category: NotificationCategory,
-  now: Date
+  at: Date
 ): boolean {
   if (!state.notification_enabled || state.notificationPermissionStatus !== 'granted') {
     return false;
   }
 
   const sentAt = state.lastNotificationSentAt ?? {};
-  const todaySends = Object.entries(sentAt).filter(([, value]) => isSameLocalDay(value, now));
+  const todaySends = Object.entries(sentAt).filter(([, value]) => isSameLocalDay(value, at));
   if (todaySends.length >= 3) {
     return false;
   }
 
   const sentWithinHour = Object.values(sentAt).some((value) => {
     const sentDate = new Date(value ?? '');
-    return !Number.isNaN(sentDate.getTime()) && now.getTime() - sentDate.getTime() < HOUR_MS;
+    return (
+      !Number.isNaN(sentDate.getTime()) &&
+      Math.abs(at.getTime() - sentDate.getTime()) < HOUR_MS
+    );
   });
   if (sentWithinHour) {
     return false;
@@ -154,10 +167,18 @@ export function evaluateDailyPrime(
     fireDate.setDate(fireDate.getDate() + 1);
   }
 
+  // The daily prime is a standing recurring reminder, so a breached send limit
+  // must push it to the next occurrence rather than report it ineligible: the
+  // scheduler cancels ineligible categories, which would drop the recurring
+  // reminder entirely instead of merely skipping one day.
+  if (fireDate && !canSendCategory(state, 'daily_prime', fireDate)) {
+    fireDate.setDate(fireDate.getDate() + 1);
+  }
+
   const eligible = Boolean(
     state.dailyPrimeEnabled &&
     fireDate &&
-    canSendCategory(state, 'daily_prime', context.now)
+    canSendCategory(state, 'daily_prime', fireDate)
   );
 
   return {
@@ -174,9 +195,10 @@ export function evaluateThreadStrength(
 ): NotificationRuleResult {
   const lastSentAt = state.lastNotificationSentAt?.thread_strength;
   const sentRecently = Boolean(lastSentAt && context.now.getTime() - new Date(lastSentAt).getTime() < DAY_MS);
+  const fireDate = new Date(context.now.getTime() + SITUATIONAL_DELAY_MS);
   const eligible = Boolean(
     state.threadStrengthAlertsEnabled &&
-    canSendCategory(state, 'thread_strength', context.now) &&
+    canSendCategory(state, 'thread_strength', fireDate) &&
     context.threadStrength < state.threadStrengthThreshold &&
     !hasCompletedPracticeToday(context) &&
     !sentRecently
@@ -185,7 +207,7 @@ export function evaluateThreadStrength(
   return {
     category: 'thread_strength',
     eligible,
-    fireDate: eligible ? new Date(context.now.getTime() + 5 * 60 * 1000) : undefined,
+    fireDate: eligible ? fireDate : undefined,
     variables: { threadStrength: Math.round(context.threadStrength) },
     reason: eligible ? undefined : 'thread_strength_ineligible',
   };
@@ -209,17 +231,18 @@ export function evaluateUnfinishedAnchor(
     return context.now.getTime() - new Date(startedAt).getTime() >= REASONABLE_UNFINISHED_DELAY_MS;
   });
 
+  const fireDate = new Date(context.now.getTime() + SITUATIONAL_DELAY_MS);
   const eligible = Boolean(
     unfinished &&
     state.unfinishedAnchorRemindersEnabled &&
-    canSendCategory(state, 'unfinished_anchor', context.now)
+    canSendCategory(state, 'unfinished_anchor', fireDate)
   );
 
   return {
     category: 'unfinished_anchor',
     eligible,
     anchorId: unfinished ? (unfinished.localId ?? unfinished.id) : undefined,
-    fireDate: eligible ? new Date(context.now.getTime() + 5 * 60 * 1000) : undefined,
+    fireDate: eligible ? fireDate : undefined,
     reason: eligible ? undefined : 'unfinished_anchor_ineligible',
   };
 }
@@ -242,9 +265,10 @@ export function evaluateWeeklyRecap(
     .sort((left, right) => (right.activationCount ?? 0) - (left.activationCount ?? 0))[0];
   const lastSentAt = state.lastNotificationSentAt?.weekly_recap;
   const sentThisWeek = Boolean(lastSentAt && context.now.getTime() - new Date(lastSentAt).getTime() < 7 * DAY_MS);
+  const fireDate = new Date(context.now.getTime() + SITUATIONAL_DELAY_MS);
   const eligible = Boolean(
     state.weeklyRecapEnabled &&
-    canSendCategory(state, 'weekly_recap', context.now) &&
+    canSendCategory(state, 'weekly_recap', fireDate) &&
     !sentThisWeek &&
     (weeklySessionCount > 0 || context.anchors.length > 0)
   );
@@ -252,7 +276,7 @@ export function evaluateWeeklyRecap(
   return {
     category: 'weekly_recap',
     eligible,
-    fireDate: eligible ? new Date(context.now.getTime() + 5 * 60 * 1000) : undefined,
+    fireDate: eligible ? fireDate : undefined,
     variables: {
       sessionCount: weeklySessionCount,
       anchorName: strongestAnchor ? `${strongestAnchor.category} anchor` : 'your anchor',
@@ -274,7 +298,7 @@ export function evaluateNotificationRules(
   ];
 }
 
-function isSameLocalDay(value: string | undefined, now: Date): boolean {
+function isSameLocalDay(value: string | undefined, reference: Date): boolean {
   if (!value) {
     return false;
   }
@@ -284,7 +308,7 @@ function isSameLocalDay(value: string | undefined, now: Date): boolean {
     return false;
   }
 
-  return date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate();
+  return date.getFullYear() === reference.getFullYear() &&
+    date.getMonth() === reference.getMonth() &&
+    date.getDate() === reference.getDate();
 }

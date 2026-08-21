@@ -134,6 +134,8 @@ export type CourseObservation = {
 export type CourseSummary = {
   id: string;
   destinationText: string;
+  /** Optional user-supplied baseline persisted by the Course authority. */
+  startingContext: string | null;
   status: CourseStatus;
   version: number;
   currentWaypointId: string | null;
@@ -172,6 +174,7 @@ export type CourseLogEntry = {
 export type CreateCourseRequest = {
   idempotencyKey: string;
   destinationText: string;
+  currentReality?: string;
   waypoints?: Array<{ title: string; description?: string }>;
   fromProposalId?: string;
 };
@@ -187,6 +190,7 @@ export type CoursePlanProposal = {
   generationSource: 'gemini' | 'deterministic_fallback';
   fallbackReason: string | null;
   destinationInterpretation: string;
+  startingContext: string | null;
   waypoints: Array<{ clientKey: string; title: string; description: string }>;
   createdAt: string;
   expiresAt: string;
@@ -194,6 +198,7 @@ export type CoursePlanProposal = {
 
 export type GenerateCoursePlanRequest = {
   destinationText: string;
+  currentReality?: string;
   idempotencyKey: string;
   /**
    * Opts into the account's own consented reflections as planning context.
@@ -351,14 +356,21 @@ export type ChartResponseEnvelope<T> = {
 
 export type ChartStackParamList = {
   ChartHome: undefined;
-  CourseSetup: { fromProposalId?: string } | undefined;
+  CourseSetup: { fromProposalId?: string; seedAnchorId?: string } | undefined;
   CourseEditor: { courseId: string };
   AIPlanReview: { courseId: string | null; proposalId: string };
+  WaypointActivation: { courseId: string; waypointId: string };
   WaypointDetail: {
     courseId: string;
     waypointId: string;
     practiceReturn?: ChartPracticeCompletionHandoff;
     launchMode?: import('./practice').ChartPracticeMode;
+  };
+  WaypointReached: {
+    courseId: string;
+    completedWaypointId: string;
+    nextWaypointId: string;
+    completionEventId: string;
   };
   CourseLog: { courseId: string; waypointId?: string };
   ReflectionComposer: {

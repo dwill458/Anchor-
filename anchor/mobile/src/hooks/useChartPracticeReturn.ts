@@ -6,7 +6,8 @@ import {
   type ResolvePracticeReturnArgs,
 } from '@/navigation/practiceReturn';
 import { useAuthStore } from '@/stores/authStore';
-import { resolveChartFeatureFlags } from '@/types/chart';
+import { finishChartAnchorPracticeHandoff } from '@/services/ChartAnchorHandoffService';
+import { canViewChart } from '@/types/chart';
 
 type PracticeNavigation = {
   popToTop?: () => void;
@@ -19,10 +20,23 @@ type PracticeNavigation = {
 export function useChartPracticeReturn(navigation: PracticeNavigation) {
   const { navigateToChart, navigateToPractice } = useTabNavigation();
   const serverFlags = useAuthStore((state) => state.user?.chartFlags);
-  const chartEnabled = resolveChartFeatureFlags(serverFlags).chart_enabled;
+  const chartCapabilities = useAuthStore((state) => state.user?.chartCapabilities);
+  const chartEnabled = canViewChart(serverFlags, chartCapabilities);
 
   return useCallback((args: Omit<ResolvePracticeReturnArgs, 'chartEnabled'>): boolean => {
     if (args.returnTo !== 'chart') return false;
+
+    if (
+      args.chartContext &&
+      args.practiceReturn?.outcome === 'completed' &&
+      args.practiceReturn.anchorId
+    ) {
+      finishChartAnchorPracticeHandoff(
+        args.chartContext.courseId,
+        args.chartContext.waypointId,
+        args.practiceReturn.anchorId,
+      );
+    }
 
     const target = resolvePracticeReturnTarget({ ...args, chartEnabled });
     navigation.popToTop?.();

@@ -91,4 +91,43 @@ describe('CourseEventService', () => {
       })
     ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
   });
+
+  it('binds a replay to its waypoint, source entity, snapshot, and event version', async () => {
+    const existing = {
+      id: 'event-1',
+      userId: 'user-1',
+      courseId: 'course-1',
+      waypointId: 'waypoint-1',
+      eventType: 'WAYPOINT_ADDED',
+      sourceEntityType: 'Waypoint',
+      sourceEntityId: 'waypoint-1',
+      snapshot: { waypointTitle: 'First result', requestFingerprint: 'a'.repeat(64) },
+      eventVersion: 2,
+    };
+    tx.courseEvent.findUnique.mockResolvedValue(existing);
+    const input = {
+      userId: 'user-1',
+      courseId: 'course-1',
+      waypointId: 'waypoint-1',
+      eventType: 'WAYPOINT_ADDED' as const,
+      sourceEntityType: 'Waypoint',
+      sourceEntityId: 'waypoint-1',
+      snapshot: { waypointTitle: 'First result', requestFingerprint: 'a'.repeat(64) },
+      eventVersion: 2,
+      idempotencyKey: 'strict-key',
+    };
+
+    await expect(service.append(tx, input)).resolves.toBe(existing);
+
+    for (const change of [
+      { waypointId: 'waypoint-2' },
+      { sourceEntityId: 'waypoint-2' },
+      { snapshot: { waypointTitle: 'Different result', requestFingerprint: 'b'.repeat(64) } },
+      { eventVersion: 3 },
+    ]) {
+      await expect(service.append(tx, { ...input, ...change })).rejects.toMatchObject({
+        code: 'IDEMPOTENCY_CONFLICT',
+      });
+    }
+  });
 });

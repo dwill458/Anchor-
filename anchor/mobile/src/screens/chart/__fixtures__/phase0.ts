@@ -112,6 +112,7 @@ function course(overrides: Partial<CourseDetail> = {}): CourseDetail {
   const summary: CourseSummary = {
     id: FIXTURE_COURSE_ID,
     destinationText: FIXTURE_DESTINATION,
+    startingContext: null,
     status: 'ACTIVE',
     version: FIXTURE_COURSE_VERSION,
     currentWaypointId: WAYPOINT_IDS.current,

@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types';
 import { distillIntention } from '@/utils/sigil/distillation';
@@ -32,6 +32,8 @@ import { TEACHINGS } from '@/constants/teaching';
 import { useAuthStore } from '@/stores/authStore';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
+import { useChartJourneyStore } from '@/stores/chartJourneyStore';
+import { cancelChartAnchorCreationHandoff } from '@/services/ChartAnchorHandoffService';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { getAnchorCreationLimitCopy } from '@/utils/entitlements';
 import { analyzeIntention, detectGibberish, getGuidanceText } from '@/utils/intentionPatterns';
@@ -42,9 +44,11 @@ type NavigationProp = StackNavigationProp<RootStackParamList, 'CreateAnchor'>;
 
 export default function ReturningIntentionScreen() {
     const navigation = useNavigation<NavigationProp>();
+    const route = useRoute<RouteProp<RootStackParamList, 'CreateAnchor'>>();
     const insets = useSafeAreaInsets();
     const { recordShown } = useTeachingStore();
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+    const accountId = useAuthStore((state) => state.user?.id ?? null);
     const pendingForgeIntent = useAuthStore((state) => state.pendingForgeIntent);
     const setPendingForgeIntent = useAuthStore((state) => state.setPendingForgeIntent);
     const clearPendingForgeIntent = useAuthStore((state) => state.clearPendingForgeIntent);
@@ -52,6 +56,7 @@ export default function ReturningIntentionScreen() {
     const anchorCount = useAnchorStore((state) => state.anchors.length);
     const startAnchorDraft = useFirstAnchorFlowStore((state) => state.startAnchorDraft);
     const entitlements = useEntitlements();
+    const chartOrigin = route.params?.chartHandoff;
 
     const scrollViewRef = useRef<ScrollView>(null);
     const textInputRef = useRef<TextInput>(null);
@@ -146,10 +151,51 @@ export default function ReturningIntentionScreen() {
 
     useFocusEffect(
         React.useCallback(() => {
-            resetDraftState();
-            return clearTransientTimers;
-        }, [clearTransientTimers, resetDraftState])
+            let active = true;
+            void (async () => {
+                if (accountId) await useChartJourneyStore.getState().bindAccount(accountId);
+                if (!active || useAuthStore.getState().user?.id !== accountId) return;
+                const handoff = useChartJourneyStore.getState().anchorCreationHandoff;
+                if (!chartOrigin) {
+                    // Entering ordinary creation deliberately abandons only the
+                    // active account's own pending Chart handoff.
+                    if (accountId && handoff) {
+                        cancelChartAnchorCreationHandoff(
+                            accountId,
+                            handoff.courseId,
+                            handoff.waypointId,
+                            handoff.linkIdempotencyKey,
+                        );
+                    }
+                } else if (
+                    !handoff ||
+                    handoff.courseId !== chartOrigin.courseId ||
+                    handoff.waypointId !== chartOrigin.waypointId
+                ) {
+                    navigation.goBack();
+                    return;
+                }
+                resetDraftState();
+            })();
+            return () => {
+                active = false;
+                clearTransientTimers();
+            };
+        }, [accountId, chartOrigin, clearTransientTimers, navigation, resetDraftState])
     );
+
+    const cancelCreation = React.useCallback(() => {
+        const handoff = useChartJourneyStore.getState().anchorCreationHandoff;
+        if (accountId && chartOrigin && handoff) {
+            cancelChartAnchorCreationHandoff(
+                accountId,
+                chartOrigin.courseId,
+                chartOrigin.waypointId,
+                handoff.linkIdempotencyKey,
+            );
+        }
+        navigation.goBack();
+    }, [accountId, chartOrigin, navigation]);
 
     // Cleanup idle timer on unmount
     useEffect(() => () => {
@@ -163,13 +209,13 @@ export default function ReturningIntentionScreen() {
 
             const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
                 if (navigation.canGoBack()) {
-                    navigation.goBack();
+                    cancelCreation();
                     return true;
                 }
                 return false;
             });
             return () => backHandler.remove();
-        }, [navigation])
+        }, [cancelCreation, navigation])
     );
 
     // Check reduced motion accessibility setting on mount
@@ -331,7 +377,7 @@ export default function ReturningIntentionScreen() {
                         tier: entitlements.tier,
                     });
                     Alert.alert(copy?.title ?? 'Daily creation limit reached', copy?.body, [
-                        { text: copy?.cta ?? 'Return to Sanctuary', onPress: () => navigation.goBack() },
+                        { text: copy?.cta ?? 'Return to Sanctuary', onPress: cancelCreation },
                     ]);
                     return;
                 }
@@ -381,7 +427,7 @@ export default function ReturningIntentionScreen() {
             <SafeAreaView style={styles.safeArea}>
                 <Animated.View style={[styles.backButtonWrapper, { opacity: fadeAnim }]}>
                     <TouchableOpacity
-                        onPress={() => navigation.goBack()}
+                        onPress={cancelCreation}
                         style={styles.backButton}
                         activeOpacity={0.7}
                         accessibilityRole="button"

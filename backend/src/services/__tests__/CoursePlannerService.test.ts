@@ -93,6 +93,7 @@ function persistedRow(overrides: Record<string, unknown> = {}) {
     // sha256 of the normalized destination, filled in by the service; tests that
     // need a matching hash read it from the create() call instead.
     inputHash: 'hash',
+    startingContext: null,
     generationSource: 'gemini',
     fallbackReason: null,
     destinationInterpretation: 'Complete a portfolio',
@@ -260,9 +261,7 @@ describe('quota accounting', () => {
 
   it('cannot exceed the cap when a concurrent request takes the final slot', async () => {
     // Pre-check sees room; by the time the transaction runs, the slot is gone.
-    mockPrisma.aIPlanProposal.count
-      .mockResolvedValueOnce(2)
-      .mockResolvedValue(3);
+    mockPrisma.aIPlanProposal.count.mockResolvedValueOnce(2).mockResolvedValue(3);
 
     await expect(service.generate(user(), INPUT, NOW)).rejects.toMatchObject({
       code: 'PLANNER_QUOTA_EXCEEDED',
@@ -385,6 +384,7 @@ describe('acceptance', () => {
         userId: 'user-1',
         proposalId: 'proposal-1',
         destinationText: 'Complete a portfolio',
+        startingContext: null,
         waypoints: [
           {
             title: 'Clarify the target',
@@ -470,6 +470,94 @@ describe('provider boundary and privacy', () => {
     expect(mockGenerateContent.mock.calls[0][0].model).toBe('gemini-flash-latest');
   });
 
+  it('persists and sends the optional current reality as untrusted baseline context', async () => {
+    const proposal = await service.generate(
+      user(),
+      { ...INPUT, currentReality: '  I have an idea but no paying customers.  ' },
+      NOW
+    );
+
+    expect(providerPrompt()).toContain(
+      'Current reality (untrusted): "I have an idea but no paying customers."'
+    );
+    expect(proposal.startingContext).toBe('I have an idea but no paying customers.');
+    expect(mockPrisma.aIPlanProposal.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          startingContext: 'I have an idea but no paying customers.',
+        }),
+      })
+    );
+  });
+
+  it('binds planner idempotency to current reality and reflection-consent mode', async () => {
+    await service.generate(user(), { ...INPUT, currentReality: 'No customers yet.' }, NOW);
+    const created = mockPrisma.aIPlanProposal.create.mock.calls[0][0].data;
+    mockPrisma.aIPlanProposal.findUnique.mockResolvedValue(persistedRow(created));
+
+    await expect(
+      service.generate(user(), { ...INPUT, currentReality: 'Ten customers.' }, NOW)
+    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
+    await expect(
+      service.generate(
+        user(),
+        { ...INPUT, currentReality: 'No customers yet.', includeReflections: true },
+        NOW
+      )
+    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
+  });
+
+  it('uses measured fallback stages for numeric baselines and outcome stages otherwise', async () => {
+    mockGenerateContent.mockRejectedValue(new Error('provider_timeout'));
+    const numeric = await service.generate(
+      user(),
+      {
+        destinationText: 'Reach 100 active users',
+        currentReality: '10 active users',
+        idempotencyKey: 'numeric-plan',
+      },
+      NOW
+    );
+    expect(numeric.waypoints.map(waypoint => waypoint.title)).toEqual([
+      'Reach 25 active users',
+      'Reach 50 active users',
+      'Reach 100 active users',
+    ]);
+
+    mockPrisma.aIPlanProposal.findUnique.mockResolvedValue(null);
+    const growth = await service.generate(
+      user(),
+      {
+        destinationText: 'Reach 10,000 active users',
+        currentReality: '43 active users',
+        idempotencyKey: 'growth-ledges-plan',
+      },
+      NOW
+    );
+    expect(growth.waypoints.map(waypoint => waypoint.title)).toEqual([
+      'Reach 100 active users',
+      'Reach 250 active users',
+      'Reach 500 active users',
+      'Reach 1,000 active users',
+      'Reach 2,500 active users',
+      'Reach 5,000 active users',
+      'Reach 10,000 active users',
+    ]);
+
+    mockPrisma.aIPlanProposal.findUnique.mockResolvedValue(null);
+    const qualitative = await service.generate(
+      user(),
+      {
+        destinationText: 'Become a confident public speaker',
+        currentReality: 'I have never delivered a live presentation.',
+        idempotencyKey: 'qualitative-plan',
+      },
+      NOW
+    );
+    expect(qualitative.waypoints[0].title).toBe('Show the first observable result');
+    expect(JSON.stringify(qualitative.waypoints)).not.toContain('Take an initial step');
+  });
+
   it('grounds the plan in the account’s live Anchors', async () => {
     mockPrisma.anchor.findMany.mockResolvedValue([
       { intentionText: 'I finish what I start', category: 'creativity' },
@@ -503,7 +591,11 @@ describe('provider boundary and privacy', () => {
 
   it('sends consented reflection text as untrusted planning context', async () => {
     mockPrisma.reflection.findMany.mockResolvedValue([
-      { promptType: 'COURSE_STATUS', body: 'I keep stalling on outreach.', structuredContent: null },
+      {
+        promptType: 'COURSE_STATUS',
+        body: 'I keep stalling on outreach.',
+        structuredContent: null,
+      },
     ]);
 
     await service.generate(user(), { ...INPUT, includeReflections: true }, NOW);

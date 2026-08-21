@@ -53,6 +53,8 @@ import { ResumeTargetHandler } from './ResumeTargetHandler';
 import { WIDGETS_ENABLED } from '@/config';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import type { RootStackParamList } from '@/types';
+import { canViewChart } from '@/types/chart';
+import { useChartJourneyStore } from '@/stores/chartJourneyStore';
 import type { RootNavigatorParamList } from './RootNavigator';
 
 // ─── Floating Smoked Obsidian Capsule Tab Bar ─────────────────────────────────
@@ -109,11 +111,13 @@ export const TABS = [
 export interface CustomTabBarProps {
   activeIndex: number;
   onTabPress: (index: number) => void;
+  tabs?: typeof TABS;
 }
 
 export const CustomTabBar: React.FC<CustomTabBarProps> = ({
   activeIndex,
   onTabPress,
+  tabs = TABS,
 }) => {
   const insets = useSafeAreaInsets();
   const reduceMotionEnabled = useReduceMotionEnabled();
@@ -121,7 +125,7 @@ export const CustomTabBar: React.FC<CustomTabBarProps> = ({
   const [barWidth, setBarWidth] = useState(initialWidth);
   const navTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const initialTabWidth = initialWidth > 0 ? initialWidth / TABS.length : 0;
+  const initialTabWidth = initialWidth > 0 ? initialWidth / tabs.length : 0;
   const pillX = useSharedValue(initialTabWidth > 0 ? activeIndex * initialTabWidth + 6 : 0);
   const pillWidth = useSharedValue(initialTabWidth > 0 ? initialTabWidth - 12 : 0);
 
@@ -129,7 +133,7 @@ export const CustomTabBar: React.FC<CustomTabBarProps> = ({
     const width = e.nativeEvent.layout.width;
     if (width > 0 && width !== barWidth) {
       setBarWidth(width);
-      const tabWidth = width / TABS.length;
+      const tabWidth = width / tabs.length;
       pillWidth.value = tabWidth - 12;
       pillX.value = activeIndex * tabWidth + 6;
     }
@@ -137,7 +141,7 @@ export const CustomTabBar: React.FC<CustomTabBarProps> = ({
 
   useEffect(() => {
     if (barWidth > 0) {
-      const tabWidth = barWidth / TABS.length;
+      const tabWidth = barWidth / tabs.length;
       const targetX = activeIndex * tabWidth + 6;
       pillWidth.value = tabWidth - 12;
       if (reduceMotionEnabled) {
@@ -153,7 +157,7 @@ export const CustomTabBar: React.FC<CustomTabBarProps> = ({
         );
       }
     }
-  }, [activeIndex, barWidth, reduceMotionEnabled, pillX, pillWidth]);
+  }, [activeIndex, barWidth, reduceMotionEnabled, pillX, pillWidth, tabs.length]);
 
   const animatedPillStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: pillX.value }],
@@ -163,7 +167,7 @@ export const CustomTabBar: React.FC<CustomTabBarProps> = ({
   const handleTabPress = (tabIndex: number) => {
     safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
     if (barWidth > 0) {
-      const tabWidth = barWidth / TABS.length;
+      const tabWidth = barWidth / tabs.length;
       const targetX = tabIndex * tabWidth + 6;
       if (reduceMotionEnabled) {
         pillX.value = targetX;
@@ -217,10 +221,10 @@ export const CustomTabBar: React.FC<CustomTabBarProps> = ({
         <Animated.View
           style={[styles.pillContainer, animatedPillStyle]}
           pointerEvents="none"
-          testID={`tab-indicator-${TABS[activeIndex]?.label.toLowerCase()}`}
+          testID={`tab-indicator-${tabs[activeIndex]?.label.toLowerCase()}`}
         >
           <LinearGradient
-            colors={['rgba(255, 245, 220, 0.16)', 'rgba(224, 211, 185, 0.06)', 'rgba(224, 211, 185, 0.10)']}
+            colors={['rgba(255, 245, 220, 0.136)', 'rgba(224, 211, 185, 0.051)', 'rgba(224, 211, 185, 0.085)']}
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
             style={StyleSheet.absoluteFillObject}
@@ -231,7 +235,7 @@ export const CustomTabBar: React.FC<CustomTabBarProps> = ({
 
       {/* Tab Buttons */}
       <View style={styles.tabsRow}>
-        {TABS.map((tab) => {
+        {tabs.map((tab) => {
           const isActive = activeIndex === tab.index;
           const labelColor = isActive ? ACTIVE_COLOR : INACTIVE_LABEL_COLOR;
           return (
@@ -279,6 +283,13 @@ export const MainTabNavigator: React.FC = () => {
   const shouldRedirectToCreation = useAuthStore(
     (state) => state.shouldRedirectToCreation,
   );
+  const accountId = useAuthStore((state) => state.user?.id ?? null);
+  const chartFlags = useAuthStore((state) => state.user?.chartFlags);
+  const chartCapabilities = useAuthStore((state) => state.user?.chartCapabilities);
+  const chartAvailable = canViewChart(chartFlags, chartCapabilities);
+  // The Chart tab is always visible; free/ineligible accounts route to the
+  // paywall on tap instead of the tab disappearing from the bar.
+  const swipeableTabCount = chartAvailable ? TABS.length : 2;
   const hasCheckedAutoOpen = useRef(false);
   const autoOpenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -290,6 +301,8 @@ export const MainTabNavigator: React.FC = () => {
     React.useState('PracticeHome');
   const [practiceRouteParams, setPracticeRouteParams] = React.useState<unknown>(undefined);
   const [chartRouteName, setChartRouteName] = React.useState('ChartHome');
+  const previousNavigationAccountIdRef = useRef(accountId);
+  const accountChangedDuringRender = previousNavigationAccountIdRef.current !== accountId;
 
   const flushPracticeWrites = useCallback(() => {
     const accountId = useAuthStore.getState().user?.id;
@@ -312,9 +325,25 @@ export const MainTabNavigator: React.FC = () => {
     }
   }, [shouldRedirectToCreation]);
 
-  const handleIndexChange = useCallback((index: number) => {
-    setActiveIndex(index);
-  }, []);
+  React.useEffect(() => {
+    void useChartJourneyStore.getState().bindAccount(accountId);
+  }, [accountId]);
+
+  React.useEffect(() => {
+    if (previousNavigationAccountIdRef.current === accountId) return;
+    previousNavigationAccountIdRef.current = accountId;
+    // Independent stack instances deliberately preserve routes during normal
+    // tab switches, but never across auth accounts.
+    setActiveIndex(0);
+    setVaultRouteName(shouldRedirectToCreation ? 'FirstAnchorCreation' : 'Vault');
+    setPracticeRouteName('PracticeHome');
+    setPracticeRouteParams(undefined);
+    setChartRouteName('ChartHome');
+  }, [accountId, shouldRedirectToCreation]);
+
+  React.useEffect(() => {
+    if (!chartAvailable && activeIndex === 2) setActiveIndex(0);
+  }, [activeIndex, chartAvailable]);
 
   // Practice owns an independent navigation container, so its local navigation
   // object cannot resolve RootNavigator's Paywall route. Keep that boundary in
@@ -326,6 +355,14 @@ export const MainTabNavigator: React.FC = () => {
     [rootNavigation],
   );
 
+  const handleIndexChange = useCallback((index: number) => {
+    if (index === 2 && !chartAvailable) {
+      handlePaywallNavigation({ source: 'gated_feature' });
+      return;
+    }
+    setActiveIndex(index);
+  }, [chartAvailable, handlePaywallNavigation]);
+
   const isTabBarVisible = React.useMemo(() => {
     if (activeIndex === 0) return vaultRouteName === 'Vault';
     if (activeIndex === 1) {
@@ -335,8 +372,8 @@ export const MainTabNavigator: React.FC = () => {
       return practiceRouteName === 'PracticeHome' ||
         (practiceRouteName === 'TheWeave' && weaveOrigin === 'practice');
     }
-    return chartRouteName === 'ChartHome';
-  }, [activeIndex, vaultRouteName, practiceRouteName, practiceRouteParams, chartRouteName]);
+    return chartAvailable && chartRouteName === 'ChartHome';
+  }, [activeIndex, vaultRouteName, practiceRouteName, practiceRouteParams, chartRouteName, chartAvailable]);
 
   // Auto-open daily anchor
   React.useEffect(() => {
@@ -395,7 +432,7 @@ export const MainTabNavigator: React.FC = () => {
         handleIndexChange(0);
         return true;
       }
-      if (activeIndex === 2 && chartRouteName === 'ChartHome') {
+      if (chartAvailable && activeIndex === 2 && chartRouteName === 'ChartHome') {
         handleIndexChange(0);
         return true;
       }
@@ -404,33 +441,42 @@ export const MainTabNavigator: React.FC = () => {
 
     const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => subscription.remove();
-  }, [activeIndex, chartRouteName, handleIndexChange, practiceRouteName]);
+  }, [activeIndex, chartAvailable, chartRouteName, handleIndexChange, practiceRouteName]);
+
+  // The account-reset effect runs after commit. Force the first render for the
+  // new account to Sanctuary as well, so no stale secondary tab flashes first.
+  const renderedActiveIndex = accountChangedDuringRender
+    ? 0
+    : chartAvailable ? activeIndex : Math.min(activeIndex, 1);
 
   return (
     <TabNavigationProvider
+      key={`tab-navigation:${accountId ?? 'signed-out'}`}
       onIndexChange={handleIndexChange}
       onNavigateToPaywall={handlePaywallNavigation}
-      activeIndex={activeIndex}
+      activeIndex={renderedActiveIndex}
+      chartAvailable={chartAvailable}
     >
       {/* Routes the home screen widget CTA (anchor://practice) to the Practice tab */}
       {WIDGETS_ENABLED && <WidgetDeepLinkHandler />}
       <ResumeTargetHandler />
       <View style={styles.container}>
         <SwipeableTabContainer
-          activeIndex={activeIndex}
+          activeIndex={renderedActiveIndex}
           onIndexChange={handleIndexChange}
-          tabCount={3}
+          tabCount={swipeableTabCount}
           swipeEnabled={isTabBarVisible}
         >
           <VaultStackNavigator onRouteChange={handleVaultRouteChange} />
           <PracticeStackNavigator onRouteChange={handlePracticeRouteChange} />
-          <ChartStackNavigator onRouteChange={handleChartRouteChange} />
+          {chartAvailable ? <ChartStackNavigator onRouteChange={handleChartRouteChange} /> : null}
         </SwipeableTabContainer>
 
         {isTabBarVisible && (
           <CustomTabBar
-            activeIndex={activeIndex}
+            activeIndex={renderedActiveIndex}
             onTabPress={handleIndexChange}
+            tabs={TABS}
           />
         )}
       </View>
@@ -472,7 +518,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     shadowColor: '#DEBF7D',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
+    shadowOpacity: 0.15,
     shadowRadius: 10,
     elevation: 2,
   },
@@ -480,7 +526,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: 'rgba(239, 211, 150, 0.28)',
+    borderColor: 'rgba(239, 211, 150, 0.238)',
   },
   tabsRow: {
     flex: 1,
@@ -516,7 +562,7 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: 'rgba(222, 191, 125, 0.09)',
+    backgroundColor: 'rgba(222, 191, 125, 0.076)',
   },
   tabLabel: {
     fontFamily: typography.fontFamily.ritual || 'Cinzel-Regular',

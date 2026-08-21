@@ -32,6 +32,15 @@ import { useSubscriptionStore, computeDaysRemaining } from '@/stores/subscriptio
 import { useTeachingStore } from '@/stores/teachingStore';
 import { useVisualizationSceneStore } from '@/stores/visualizationSceneStore';
 import { purgeChartCacheForAccount, useCourseStore } from '@/stores/courseStore';
+import { purgeCourseLogsForAccount, useCourseLogStore } from '@/stores/courseLogStore';
+import {
+  purgeReflectionDraftsForAccount,
+  useReflectionDraftStore,
+} from '@/stores/reflectionDraftStore';
+import {
+  purgeChartJourneyForAccount,
+  useChartJourneyStore,
+} from '@/stores/chartJourneyStore';
 import { useNavigationResumeStore } from '@/stores/navigationResumeStore';
 import { calculateStreak } from '@/utils/streakHelpers';
 import {
@@ -173,6 +182,58 @@ function applyUserToSubscriptionStore(user: User | null): void {
     totalAnchorsCreated: user.totalAnchorsCreated,
     currentStreak: user.currentStreak,
   });
+}
+
+function transitionChartAccount(
+  previousAccountId: string | null,
+  nextAccountId: string | null,
+): void {
+  const courseStore = useCourseStore.getState();
+  const logStore = useCourseLogStore.getState();
+  const draftStore = useReflectionDraftStore.getState();
+  const journeyStore = useChartJourneyStore.getState();
+  if (
+    previousAccountId === nextAccountId &&
+    (nextAccountId !== null ||
+      (!courseStore.accountId && !logStore.accountId && !draftStore.accountId && !journeyStore.accountId))
+  ) {
+    return;
+  }
+  const accountToClear = previousAccountId
+    ?? courseStore.accountId
+    ?? logStore.accountId
+    ?? draftStore.accountId
+    ?? journeyStore.accountId;
+
+  if (accountToClear) {
+    const knownCourseIds = courseStore.accountId === accountToClear
+      ? courseStore.courses.map((course) => course.id)
+      : [];
+    courseStore.clearAccount(accountToClear);
+    logStore.clearAccount(accountToClear);
+    void purgeCourseLogsForAccount(accountToClear, knownCourseIds).catch((error) => {
+      logger.warn('Failed to purge prior-account Chart logs', error);
+    });
+    void draftStore.clearAccount(accountToClear).catch((error) => {
+      logger.warn('Failed to purge prior-account Chart drafts', error);
+    });
+    journeyStore.clearAccount(accountToClear);
+    void purgeChartJourneyForAccount(accountToClear).catch((error) => {
+      logger.warn('Failed to purge prior-account Chart journey state', error);
+    });
+  } else {
+    courseStore.clearAccount();
+    logStore.clearAccount();
+    void draftStore.clearAccount();
+    journeyStore.clearAccount();
+  }
+
+  if (nextAccountId) {
+    courseStore.bindAccount(nextAccountId);
+    void journeyStore.bindAccount(nextAccountId).catch((error) => {
+      logger.warn('Failed to hydrate Chart journey state', error);
+    });
+  }
 }
 
 async function readLegacyAuthStorage(name: string): Promise<string | null> {
@@ -432,9 +493,7 @@ export const useAuthStore = create<AuthState>()(
 
       // Actions
       setUser: (user) => {
-        if (get().user?.id !== (user?.id ?? null)) {
-          useCourseStore.getState().bindAccount(user?.id ?? null);
-        }
+        transitionChartAccount(get().user?.id ?? null, user?.id ?? null);
         applyUserToSubscriptionStore(user);
         useProfileStore.getState().syncFromUser(user);
         set((state) => {
@@ -466,9 +525,7 @@ export const useAuthStore = create<AuthState>()(
         }),
 
       setSession: (user, token) => {
-        if (get().user?.id !== user.id) {
-          useCourseStore.getState().bindAccount(user.id);
-        }
+        transitionChartAccount(get().user?.id ?? null, user.id);
         applyUserToSubscriptionStore(user);
         useProfileStore.getState().syncFromUser(user);
         set((state) => {
@@ -527,34 +584,35 @@ export const useAuthStore = create<AuthState>()(
           anchorCount: state.anchorCount + 1,
         })),
 
-      enableDeveloperMasterAccount: () =>
-        set((state) => {
-          const developerUser = createDeveloperMasterUser({
-            hasCompletedOnboarding: state.hasCompletedOnboarding,
-            totalAnchorsCreated: Math.max(
-              state.anchorCount,
-              state.user?.totalAnchorsCreated ?? 0
-            ),
-            totalActivations: state.user?.totalActivations ?? 0,
-            currentStreak: state.user?.currentStreak ?? 0,
-            longestStreak: state.user?.longestStreak ?? 0,
-            stabilizesTotal: state.user?.stabilizesTotal ?? 0,
-            stabilizeStreakDays: state.user?.stabilizeStreakDays ?? 0,
-            lastStabilizeAt: state.user?.lastStabilizeAt,
-            createdAt: state.user?.createdAt ?? new Date(),
-          });
+      enableDeveloperMasterAccount: () => {
+        const state = get();
+        const developerUser = createDeveloperMasterUser({
+          hasCompletedOnboarding: state.hasCompletedOnboarding,
+          totalAnchorsCreated: Math.max(
+            state.anchorCount,
+            state.user?.totalAnchorsCreated ?? 0
+          ),
+          totalActivations: state.user?.totalActivations ?? 0,
+          currentStreak: state.user?.currentStreak ?? 0,
+          longestStreak: state.user?.longestStreak ?? 0,
+          stabilizesTotal: state.user?.stabilizesTotal ?? 0,
+          stabilizeStreakDays: state.user?.stabilizeStreakDays ?? 0,
+          lastStabilizeAt: state.user?.lastStabilizeAt,
+          createdAt: state.user?.createdAt ?? new Date(),
+        });
 
-          applyUserToSubscriptionStore(developerUser);
+        transitionChartAccount(state.user?.id ?? null, developerUser.id);
+        applyUserToSubscriptionStore(developerUser);
 
-          return {
-            user: developerUser,
-            token: DEVELOPER_MASTER_ACCOUNT_TOKEN,
-            isAuthenticated: true,
-            isLoading: false,
-            profileData: null,
-            profileLastFetched: null,
-          };
-        }),
+        set({
+          user: developerUser,
+          token: DEVELOPER_MASTER_ACCOUNT_TOKEN,
+          isAuthenticated: true,
+          isLoading: false,
+          profileData: null,
+          profileLastFetched: null,
+        });
+      },
 
       setPendingForgeIntent: (pendingForgeIntent) =>
         set({
@@ -619,6 +677,7 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const profileData = await fetchCompleteProfile();
+          transitionChartAccount(get().user?.id ?? null, profileData.user.id);
           applyUserToSubscriptionStore(profileData.user);
           const hasCompletedOnboarding = Boolean(profileData.user.hasCompletedOnboarding);
           useProfileStore.getState().syncFromUser(profileData.user);
@@ -859,6 +918,15 @@ export const useAuthStore = create<AuthState>()(
               : state.profileData,
           }));
 
+          const activeAccountId = get().user?.id;
+          if (activeAccountId && (!user?.id || activeAccountId === user.id)) {
+            const journeyStore = useChartJourneyStore.getState();
+            await journeyStore.bindAccount(activeAccountId);
+            if (get().user?.id === activeAccountId) {
+              await useChartJourneyStore.getState().markFirstAnchorCreated(finalizedAnchor.id);
+            }
+          }
+
           return true;
         } catch (error) {
           const message =
@@ -989,6 +1057,10 @@ export const useAuthStore = create<AuthState>()(
 
       signOut: async () => {
         const userId = get().user?.id;
+        const chartCourseIds = useCourseStore.getState().accountId === userId
+          ? useCourseStore.getState().courses.map((course) => course.id)
+          : [];
+        transitionChartAccount(userId ?? null, null);
         if (userId) {
           const profileState = useProfileStore.getState();
           const sessionState = useSessionStore.getState();
@@ -1045,7 +1117,6 @@ export const useAuthStore = create<AuthState>()(
         useVisualizationSceneStore.getState().clearActiveAccount();
         useProfileStore.getState().resetProfile();
         useSettingsStore.getState().bindSessionAudioDefaultsOwner(null);
-        useCourseStore.getState().clearAccount(userId);
         useNavigationResumeStore.getState().setTarget(null);
         useNavigationResumeStore.getState().setChartDeepLink(null);
         set({
@@ -1065,6 +1136,9 @@ export const useAuthStore = create<AuthState>()(
         void Promise.all([
           clearNotificationSession(),
           ...(userId ? [purgeChartCacheForAccount(userId)] : []),
+          ...(userId ? [purgeCourseLogsForAccount(userId, chartCourseIds)] : []),
+          ...(userId ? [purgeReflectionDraftsForAccount(userId)] : []),
+          ...(userId ? [purgeChartJourneyForAccount(userId)] : []),
           encryptedPersistStorage.removeItem(ANCHOR_VAULT_STORAGE_KEY),
           encryptedPersistStorage.removeItem(ANCHOR_SESSION_STORAGE_KEY),
           encryptedPersistStorage.removeItem(CACHED_USER_KEY),
@@ -1080,6 +1154,7 @@ export const useAuthStore = create<AuthState>()(
       storage: createJSONStorage(() => encryptedAuthStorage),
       onRehydrateStorage: () => (state) => {
         if (state) {
+          transitionChartAccount(null, state.user?.id ?? null);
           applyUserToSubscriptionStore(state.user);
           // One-shot navigation flags should never survive an app restart.
           state.setShouldRedirectToCreation(false);

@@ -275,10 +275,9 @@ class NotificationService {
         data: this.buildPayload('daily_reminder'),
       },
       trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+        type: Notifications.SchedulableTriggerInputTypes.DAILY,
         hour: parsed.hour,
         minute: parsed.minute,
-        repeats: true,
         channelId: NOTIFICATION_CHANNELS.DAILY_REMINDERS,
       },
     });
@@ -412,10 +411,9 @@ class NotificationService {
         data: this.buildPayload('streak_protection'),
       },
       trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+        type: Notifications.SchedulableTriggerInputTypes.DAILY,
         hour: 20,
         minute: 0,
-        repeats: true,
         channelId: NOTIFICATION_CHANNELS.STREAK_PROTECTION,
       },
     });
@@ -456,11 +454,10 @@ class NotificationService {
         data: this.buildPayload('weekly_summary'),
       },
       trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+        type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
         weekday: normalizedDay + 1,
         hour: parsed.hour,
         minute: parsed.minute,
-        repeats: true,
         channelId: NOTIFICATION_CHANNELS.WEEKLY_SUMMARY,
       },
     });
@@ -541,10 +538,9 @@ class NotificationService {
 
     const trigger = options.repeatsDaily
       ? {
-          type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
           hour: options.fireDate.getHours(),
           minute: options.fireDate.getMinutes(),
-          repeats: true,
           channelId: this.channelForCategory(options.category),
         }
       : this.buildDateTrigger(
@@ -962,10 +958,9 @@ class NotificationService {
     const parsed = this.parseTime(time);
     if (!parsed) return null;
     return {
-      type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
       hour: parsed.hour,
       minute: parsed.minute,
-      repeats: true,
       channelId: NOTIFICATION_CHANNELS.RITUAL_REMINDERS,
     };
   }

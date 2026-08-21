@@ -7,5 +7,7 @@ export { default as CompletedJourneyScreen } from './CompletedJourneyScreen';
 export { default as CourseCompletionScreen } from './CourseCompletionScreen';
 export { default as ChartPlaceholderScreen } from './ChartPlaceholderScreen';
 export { default as AIPlanReviewScreen } from './AIPlanReviewScreen';
+export { default as WaypointActivationScreen } from './WaypointActivationScreen';
+export { default as WaypointReachedScreen } from './WaypointReachedScreen';
 export { default as CourseLogScreen } from './CourseLogScreen';
 export { default as ReflectionComposerScreen } from './ReflectionComposerScreen';

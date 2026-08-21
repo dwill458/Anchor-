@@ -38,6 +38,8 @@ jest.mock('expo-notifications', () => ({
   },
   SchedulableTriggerInputTypes: {
     CALENDAR: 'calendar',
+    DAILY: 'daily',
+    WEEKLY: 'weekly',
     DATE: 'date',
     TIME_INTERVAL: 'timeInterval',
   },
@@ -287,6 +289,76 @@ describe('NotificationService', () => {
           title: 'Thread Strength',
         }),
       })
+    );
+  });
+});
+
+describe('recurring triggers are schedulable on Android', () => {
+  // Android's native scheduler has no "calendar" branch and throws
+  // InvalidArgumentException for it, which NotificationService swallows into
+  // lastError — so a CALENDAR trigger means the notification silently never
+  // fires on Android. Recurring reminders must use DAILY/WEEKLY instead.
+  const ANDROID_SUPPORTED = ['daily', 'weekly', 'date', 'timeInterval', 'channel'];
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (Notifications.scheduleNotificationAsync as jest.Mock).mockResolvedValue('id-1');
+  });
+
+  const triggerOf = () =>
+    (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0].trigger;
+
+  it.each([
+    ['scheduleDailyReminder', () => NotificationService.scheduleDailyReminder('09:30')],
+    ['scheduleStreakProtectionAlert', () => NotificationService.scheduleStreakProtectionAlert()],
+    ['scheduleWeeklySummary', () => NotificationService.scheduleWeeklySummary(0, '19:00')],
+    [
+      'scheduleRitualReminder',
+      () => NotificationService.scheduleRitualReminder('anchor-1', '08:00'),
+    ],
+    [
+      'scheduleSmartNotification (repeatsDaily)',
+      () =>
+        NotificationService.scheduleSmartNotification({
+          category: 'daily_prime',
+          templateId: 'tpl-1',
+          tone: 'encouraging',
+          title: 'Title',
+          body: 'Body',
+          fireDate: new Date('2026-01-01T21:00:00'),
+          repeatsDaily: true,
+        }),
+    ],
+  ])('%s uses an Android-supported trigger type', async (_name, schedule) => {
+    await schedule();
+
+    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalled();
+    const trigger = triggerOf();
+    expect(trigger.type).not.toBe('calendar');
+    expect(ANDROID_SUPPORTED).toContain(trigger.type);
+  });
+
+  it('schedules the daily prime at the requested local hour and minute', async () => {
+    await NotificationService.scheduleSmartNotification({
+      category: 'daily_prime',
+      templateId: 'tpl-1',
+      tone: 'encouraging',
+      title: 'Title',
+      body: 'Body',
+      fireDate: new Date('2026-01-01T21:00:00'),
+      repeatsDaily: true,
+    });
+
+    expect(triggerOf()).toEqual(
+      expect.objectContaining({ type: 'daily', hour: 21, minute: 0 })
+    );
+  });
+
+  it('schedules the weekly summary on the requested weekday', async () => {
+    await NotificationService.scheduleWeeklySummary(0, '19:00');
+
+    expect(triggerOf()).toEqual(
+      expect.objectContaining({ type: 'weekly', weekday: 1, hour: 19, minute: 0 })
     );
   });
 });

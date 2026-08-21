@@ -15,6 +15,11 @@ jest.mock('../../middleware/auth');
 const mockPrisma = { user: { findUnique: jest.fn() } };
 jest.mock('../../../lib/prisma', () => ({ prisma: mockPrisma }));
 
+const mockGetChartCapabilities = jest.fn();
+jest.mock('../../../services/ChartCapabilityService', () => ({
+  getChartCapabilities: mockGetChartCapabilities,
+}));
+
 jest.mock('../../../config/chartFlags', () => ({
   requireChartEnabled: jest.fn(),
   requireChartWriteEnabled: jest.fn(),
@@ -96,6 +101,11 @@ beforeEach(() => {
   mockedWriteEnabled.mockImplementation(() => undefined);
   mockedInitialized.mockImplementation(() => undefined);
   mockedReflectionWrites.mockImplementation(() => undefined);
+  mockGetChartCapabilities.mockResolvedValue({
+    canViewChart: true,
+    canEditCourse: true,
+    canCreateOrEditReflections: true,
+  });
   mockCourseService.completeWaypoint.mockResolvedValue({
     course: { id: COURSE_ID, version: 8, currentWaypointId: 'wp-5k' },
     completedWaypoint: { id: WAYPOINT_ID, state: 'REACHED' },
@@ -121,7 +131,7 @@ describe('Response envelope', () => {
 
   it('wraps an error in { success: false, error: { code, message } }', async () => {
     mockCourseService.getCourse.mockRejectedValue(
-      new AppError('Course not found', 404, 'COURSE_NOT_FOUND'),
+      new AppError('Course not found', 404, 'COURSE_NOT_FOUND')
     );
     const response = await request(buildApp()).get(`/api/courses/${COURSE_ID}`);
 
@@ -134,7 +144,7 @@ describe('Response envelope', () => {
     mockCourseService.completeWaypoint.mockRejectedValue(
       new AppError('Course has changed on another device', 409, 'COURSE_VERSION_CONFLICT', {
         course: { id: COURSE_ID, version: 9 },
-      }),
+      })
     );
     const response = await request(buildApp())
       .post(`/api/courses/${COURSE_ID}/waypoints/${WAYPOINT_ID}/complete`)
@@ -160,7 +170,7 @@ describe('POST /:courseId/waypoints/:waypointId/complete', () => {
       'user-1',
       COURSE_ID,
       WAYPOINT_ID,
-      validCompletion(),
+      validCompletion()
     );
   });
 
@@ -215,8 +225,69 @@ describe('POST /:courseId/waypoints/:waypointId/complete', () => {
       'user-1',
       COURSE_ID,
       WAYPOINT_ID,
-      expect.objectContaining({ reflection }),
+      expect.objectContaining({ reflection })
     );
+    expect(mockedReflectionWrites).toHaveBeenCalledTimes(1);
+  });
+
+  it('blocks nonempty inline reflections when the reflection feature is disabled', async () => {
+    mockedReflectionWrites.mockImplementation(() => {
+      throw new AppError('Chart reflections are disabled', 403, 'FEATURE_DISABLED');
+    });
+
+    const response = await request(buildApp())
+      .post(`/api/courses/${COURSE_ID}/waypoints/${WAYPOINT_ID}/complete`)
+      .send({
+        ...validCompletion(),
+        reflection: {
+          structuredContent: { whatHelped: 'Turning up.' },
+          promptType: 'WAYPOINT_COMPLETION',
+          promptVersion: 1,
+          idempotencyKey: 'reflection-disabled',
+        },
+      });
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe('FEATURE_DISABLED');
+    expect(mockCourseService.completeWaypoint).not.toHaveBeenCalled();
+  });
+
+  it('blocks nonempty inline reflections when account reflection capability is absent', async () => {
+    mockGetChartCapabilities.mockResolvedValue({
+      canViewChart: true,
+      canEditCourse: true,
+      canCreateOrEditReflections: false,
+    });
+
+    const response = await request(buildApp())
+      .post(`/api/courses/${COURSE_ID}/waypoints/${WAYPOINT_ID}/complete`)
+      .send({
+        ...validCompletion(),
+        reflection: {
+          structuredContent: { whatLearned: 'Consistency.' },
+          promptType: 'WAYPOINT_COMPLETION',
+          promptVersion: 1,
+          idempotencyKey: 'reflection-capability-disabled',
+        },
+      });
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe('FEATURE_DISABLED');
+    expect(mockCourseService.completeWaypoint).not.toHaveBeenCalled();
+  });
+
+  it('allows completion without reflection when reflection writes are disabled', async () => {
+    mockedReflectionWrites.mockImplementation(() => {
+      throw new AppError('Chart reflections are disabled', 403, 'FEATURE_DISABLED');
+    });
+
+    const response = await request(buildApp())
+      .post(`/api/courses/${COURSE_ID}/waypoints/${WAYPOINT_ID}/complete`)
+      .send(validCompletion());
+
+    expect(response.status).toBe(200);
+    expect(mockedReflectionWrites).not.toHaveBeenCalled();
+    expect(mockCourseService.completeWaypoint).toHaveBeenCalledTimes(1);
   });
 
   it('rejects a freeform reflection body instead of silently discarding it', async () => {
@@ -317,7 +388,7 @@ describe('Skip and cancel routes', () => {
       'user-1',
       COURSE_ID,
       WAYPOINT_ID,
-      { idempotencyKey: 'cancel-1', expectedCourseVersion: 7 },
+      { idempotencyKey: 'cancel-1', expectedCourseVersion: 7 }
     );
   });
 
@@ -381,14 +452,12 @@ describe('Anchor link routes', () => {
   });
 
   it('rejects an unknown anchor role', async () => {
-    const response = await request(buildApp())
-      .post(`/api/courses/${COURSE_ID}/anchor-links`)
-      .send({
-        idempotencyKey: 'link-2',
-        expectedCourseVersion: 7,
-        anchorId: 'anchor-current',
-        role: 'DESTINATION_MARKER',
-      });
+    const response = await request(buildApp()).post(`/api/courses/${COURSE_ID}/anchor-links`).send({
+      idempotencyKey: 'link-2',
+      expectedCourseVersion: 7,
+      anchorId: 'anchor-current',
+      role: 'DESTINATION_MARKER',
+    });
 
     expect(response.status).toBe(400);
   });
@@ -442,7 +511,7 @@ describe('GET /:courseId/log', () => {
 
   it('rejects an unknown query parameter', async () => {
     const response = await request(buildApp()).get(
-      `/api/courses/${COURSE_ID}/log?limit=10&includeDeleted=true`,
+      `/api/courses/${COURSE_ID}/log?limit=10&includeDeleted=true`
     );
     expect(response.status).toBe(400);
   });
@@ -471,7 +540,7 @@ describe('Ownership resolution', () => {
 
     expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
       where: { authUid: 'firebase-user-1' },
-      select: { id: true, chartSchemaVersion: true },
+      select: expect.objectContaining({ id: true, chartSchemaVersion: true }),
     });
     expect(mockCourseService.getCourse).toHaveBeenCalledWith('user-1', COURSE_ID);
   });
@@ -537,14 +606,12 @@ describe('Reflection routes', () => {
     mockedReflectionWrites.mockImplementation(() => {
       throw new AppError('Chart reflections are disabled', 403, 'FEATURE_DISABLED');
     });
-    const response = await request(buildApp())
-      .post('/api/reflections')
-      .send({
-        idempotencyKey: 'reflection-2',
-        source: 'MANUAL_COURSE',
-        promptType: 'COURSE_STATUS',
-        promptVersion: 1,
-      });
+    const response = await request(buildApp()).post('/api/reflections').send({
+      idempotencyKey: 'reflection-2',
+      source: 'MANUAL_COURSE',
+      promptType: 'COURSE_STATUS',
+      promptVersion: 1,
+    });
 
     expect(response.status).toBe(403);
     expect(mockReflectionService.create).not.toHaveBeenCalled();
@@ -554,14 +621,12 @@ describe('Reflection routes', () => {
     mockedInitialized.mockImplementation(() => {
       throw new AppError('Chart migration is required', 409, 'MIGRATION_REQUIRED');
     });
-    const response = await request(buildApp())
-      .post('/api/reflections')
-      .send({
-        idempotencyKey: 'reflection-3',
-        source: 'MANUAL_COURSE',
-        promptType: 'COURSE_STATUS',
-        promptVersion: 1,
-      });
+    const response = await request(buildApp()).post('/api/reflections').send({
+      idempotencyKey: 'reflection-3',
+      source: 'MANUAL_COURSE',
+      promptType: 'COURSE_STATUS',
+      promptVersion: 1,
+    });
 
     expect(response.status).toBe(409);
     expect(response.body.error.code).toBe('MIGRATION_REQUIRED');

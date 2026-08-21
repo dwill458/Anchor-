@@ -13,9 +13,15 @@ const SECURE_META_SUFFIX = '__secure_meta';
 const SECURE_CHUNK_PREFIX = '__secure_chunk_';
 const SECURE_CHUNK_SIZE = 1800;
 const SECURE_STORE_KEY_PATTERN = /^[A-Za-z0-9._-]+$/;
-// Reflection drafts and Course Log pages can contain private writing. Unlike
-// general UI caches, they must never degrade to plaintext persistence.
-const SECURE_ONLY_PREFIXES = ['anchor:chart:reflection-drafts:', 'anchor:chart:log:'];
+// Chart projections, Reflection drafts, and Course Log pages can all contain
+// private intention or reflection writing. Unlike general UI caches, none of
+// these namespaces may ever degrade to plaintext persistence.
+const SECURE_ONLY_PREFIXES = [
+  'anchor:chart:course:',
+  'anchor:chart:journey:',
+  'anchor:chart:reflection-drafts:',
+  'anchor:chart:log:',
+];
 
 function requiresSecureOnly(name: string): boolean {
   return SECURE_ONLY_PREFIXES.some((prefix) => name.startsWith(prefix));
@@ -131,6 +137,16 @@ async function migrateLegacyAsyncStorageValue(name: string): Promise<string | nu
     return legacyValue;
   } catch (error) {
     logger.error(`Failed to migrate legacy AsyncStorage key ${name} to SecureStore`, error);
+    if (requiresSecureOnly(name)) {
+      // Fail closed: a private cache that cannot be encrypted must neither be
+      // returned to the app nor remain available as a plaintext fallback.
+      try {
+        await AsyncStorage.removeItem(name);
+      } catch (cleanupError) {
+        logger.error(`Failed to remove legacy plaintext key ${name}`, cleanupError);
+      }
+      return null;
+    }
     return legacyValue;
   }
 }
@@ -143,6 +159,11 @@ async function performWrite(name: string, value: string): Promise<void> {
   } catch (error) {
     if (requiresSecureOnly(name)) {
       logger.error(`Failed to write secure-only store key ${name}`, error);
+      try {
+        await AsyncStorage.removeItem(name);
+      } catch (cleanupError) {
+        logger.error(`Failed to remove plaintext fallback key ${name}`, cleanupError);
+      }
       throw error;
     }
     logger.error(`Failed to write encrypted store key ${name}, falling back to AsyncStorage`, error);
@@ -170,6 +191,18 @@ const pendingWrites = new Map<
   }
 >();
 const lastWrittenValue = new Map<string, string>();
+const storageEpoch = new Map<string, number>();
+const operationChains = new Map<string, Promise<void>>();
+
+function enqueueStorageOperation(name: string, operation: () => Promise<void>): Promise<void> {
+  const previous = operationChains.get(name) ?? Promise.resolve();
+  const current = previous.catch(() => undefined).then(operation);
+  operationChains.set(name, current);
+  void current.finally(() => {
+    if (operationChains.get(name) === current) operationChains.delete(name);
+  }).catch(() => undefined);
+  return current;
+}
 
 function scheduleWrite(name: string, value: string): Promise<void> {
   if (lastWrittenValue.get(name) === value) {
@@ -198,10 +231,18 @@ async function flushWrite(name: string): Promise<void> {
   const entry = pendingWrites.get(name);
   if (!entry) return;
   pendingWrites.delete(name);
+  const epoch = storageEpoch.get(name) ?? 0;
 
   try {
-    await performWrite(name, entry.value);
-    lastWrittenValue.set(name, entry.value);
+    await enqueueStorageOperation(name, async () => {
+      // A remove scheduled after this debounce was created invalidates it even
+      // if the operation had not reached SecureStore yet.
+      if ((storageEpoch.get(name) ?? 0) !== epoch) return;
+      await performWrite(name, entry.value);
+      if ((storageEpoch.get(name) ?? 0) === epoch) {
+        lastWrittenValue.set(name, entry.value);
+      }
+    });
     entry.resolvers.forEach(({ resolve }) => resolve());
   } catch (error) {
     entry.resolvers.forEach(({ reject }) => reject(error));
@@ -218,6 +259,9 @@ async function flushWrite(name: string): Promise<void> {
 export const encryptedPersistStorage: AsyncStateStorage = {
   getItem: async (name: string): Promise<string | null> => {
     try {
+      // In particular, wait for an account purge already queued for this key;
+      // a rapid re-login must not hydrate the value being removed.
+      await operationChains.get(name)?.catch(() => undefined);
       const secureValue = await readSecureValue(name);
       if (secureValue != null) {
         lastWrittenValue.set(name, secureValue);
@@ -227,7 +271,14 @@ export const encryptedPersistStorage: AsyncStateStorage = {
       return await migrateLegacyAsyncStorageValue(name);
     } catch (error) {
       logger.error(`Failed to read encrypted store key ${name}`, error);
-      if (requiresSecureOnly(name)) return null;
+      if (requiresSecureOnly(name)) {
+        try {
+          await AsyncStorage.removeItem(name);
+        } catch (cleanupError) {
+          logger.error(`Failed to remove unreadable plaintext key ${name}`, cleanupError);
+        }
+        return null;
+      }
       return await AsyncStorage.getItem(name);
     }
   },
@@ -237,6 +288,7 @@ export const encryptedPersistStorage: AsyncStateStorage = {
   },
 
   removeItem: async (name: string): Promise<void> => {
+    storageEpoch.set(name, (storageEpoch.get(name) ?? 0) + 1);
     const pending = pendingWrites.get(name);
     if (pending) {
       clearTimeout(pending.timer);
@@ -244,7 +296,9 @@ export const encryptedPersistStorage: AsyncStateStorage = {
       pending.resolvers.forEach(({ resolve }) => resolve());
     }
     lastWrittenValue.delete(name);
-    await clearSecureChunks(name);
-    await AsyncStorage.removeItem(name);
+    await enqueueStorageOperation(name, async () => {
+      await clearSecureChunks(name);
+      await AsyncStorage.removeItem(name);
+    });
   },
 };

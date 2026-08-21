@@ -3,6 +3,7 @@ import { apiClient } from '../ApiClient';
 import { AnalyticsService } from '../AnalyticsService';
 import { useAuthStore } from '@/stores/authStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useChartJourneyStore } from '@/stores/chartJourneyStore';
 
 const input = (accountId: string, sessionId = 'stable-session') => ({
   sessionId,
@@ -65,10 +66,74 @@ describe('PracticeCompletionService', () => {
     expect(useSessionStore.getState().practiceHistory[0].syncState).toBe('synced');
   });
 
+  it('does not lose a completion queued while an older queue snapshot is flushing', async () => {
+    const accountId = 'account-completion-concurrent';
+    useAuthStore.setState({ user: { id: accountId } as any });
+    await PracticeCompletionService.completePracticeSession(
+      input(accountId, 'older-session'),
+      { flushImmediately: false },
+    );
+
+    let releaseOlderPost!: (value: unknown) => void;
+    const olderPost = new Promise((resolve) => { releaseOlderPost = resolve; });
+    let markOlderPostStarted!: () => void;
+    const olderPostStarted = new Promise<void>((resolve) => { markOlderPostStarted = resolve; });
+    const post = jest.spyOn(apiClient, 'post').mockImplementationOnce(() => {
+      markOlderPostStarted();
+      return olderPost as any;
+    });
+    const firstFlush = PracticeCompletionService.flush(accountId);
+    await olderPostStarted;
+    expect(post).toHaveBeenCalledWith(
+      '/api/practice/sessions',
+      expect.objectContaining({ id: 'older-session' }),
+    );
+
+    await PracticeCompletionService.completePracticeSession(
+      input(accountId, 'newer-session'),
+      { flushImmediately: false },
+    );
+    releaseOlderPost({ data: { success: true } });
+    await firstFlush;
+
+    post.mockResolvedValueOnce({ data: { success: true } } as any);
+    await PracticeCompletionService.flush(accountId);
+    expect(post.mock.calls.map(([, body]) => (body as any).id)).toEqual([
+      'older-session',
+      'newer-session',
+    ]);
+    expect(useSessionStore.getState().practiceHistory).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'older-session', syncState: 'synced' }),
+      expect.objectContaining({ id: 'newer-session', syncState: 'synced' }),
+    ]));
+  });
+
   it('refuses cross-account writes', async () => {
     await expect(
       PracticeCompletionService.completePracticeSession(input('another-account')),
     ).rejects.toThrow('active account');
     expect(useSessionStore.getState().practiceHistory).toEqual([]);
+  });
+
+  it('does not rebind or mark the prior account after an account switch during a durable write', async () => {
+    useAuthStore.setState({ user: { id: 'account-a' } as any });
+    await useChartJourneyStore.getState().bindAccount('account-a');
+    useChartJourneyStore.getState().markFirstAnchorCreated('anchor-1');
+
+    let releaseWrite!: () => void;
+    const writePending = new Promise<void>((resolve) => { releaseWrite = resolve; });
+    jest.spyOn(PracticeCompletionService, 'queueCanonicalCompletion').mockReturnValue(writePending);
+
+    const completion = PracticeCompletionService.completePracticeSession(
+      input('account-a', 'account-switch-session'),
+      { flushImmediately: false },
+    );
+    useAuthStore.setState({ user: { id: 'account-b' } as any });
+    await useChartJourneyStore.getState().bindAccount('account-b');
+    releaseWrite();
+    await completion;
+
+    expect(useChartJourneyStore.getState().accountId).toBe('account-b');
+    expect(useChartJourneyStore.getState().newUserIntroStage).toBe('not_eligible');
   });
 });

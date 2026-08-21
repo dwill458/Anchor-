@@ -11,8 +11,11 @@ import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useNotificationController } from '@/hooks/useNotificationController';
 import { usePracticeEntry } from '@/hooks/usePracticeEntry';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useAuthStore } from '@/stores/authStore';
+import { finishChartAnchorPracticeHandoff } from '@/services/ChartAnchorHandoffService';
 import { colors, typography } from '@/theme';
 import type { RootStackParamList } from '@/types';
+import { canViewChart } from '@/types/chart';
 
 type PrimeRoute = RouteProp<RootStackParamList, 'PrimeYourAnchor'>;
 type PrimeNavigation = StackNavigationProp<RootStackParamList, 'PrimeYourAnchor'>;
@@ -39,13 +42,40 @@ export function PrimeYourAnchorScreen() {
   const navigation = useNavigation<PrimeNavigation>();
   const route = useRoute<PrimeRoute>();
   const anchor = useAnchorStore((state) => state.getAnchorById(route.params.anchorId));
+  const chartContext = route.params.chartContext;
+  const activeAccountId = useAuthStore((state) => state.user?.id ?? null);
+  const activeChartFlags = useAuthStore((state) => state.user?.chartFlags);
+  const activeChartCapabilities = useAuthStore((state) => state.user?.chartCapabilities);
+  const chartAvailable = canViewChart(activeChartFlags, activeChartCapabilities);
+  // The producer records the account that owned the server-confirmed link.
+  // Do not infer it from a later render: the auth account can switch while the
+  // route is queued or while the notification reminder gate is open.
+  const chartOriginAccountIdRef = useRef(
+    chartContext ? route.params.chartOriginAccountId ?? null : null,
+  );
   const { startPractice, isNavigationLocked } = usePracticeEntry();
-  const { navigateToSanctuary } = useTabNavigation();
+  const { navigateToSanctuary, navigateToChart } = useTabNavigation();
   const [selectedMode, setSelectedMode] = useState<FirstPracticeMode>('focus');
   const breath = useRef(new Animated.Value(0)).current;
   const { canOfferFirstAnchorReminder } = useNotificationController();
   const [reminderVisible, setReminderVisible] = useState(false);
   const pendingActionRef = useRef<(() => void) | null>(null);
+  const safeFallbackDispatchedRef = useRef(false);
+
+  const chartHandoffIsActive = useCallback(() => {
+    if (!chartContext || !chartOriginAccountIdRef.current) return false;
+    const user = useAuthStore.getState().user;
+    return user?.id === chartOriginAccountIdRef.current &&
+      canViewChart(user.chartFlags, user.chartCapabilities);
+  }, [chartContext]);
+
+  const returnToSafeAccountRoot = useCallback(() => {
+    if (safeFallbackDispatchedRef.current) return;
+    safeFallbackDispatchedRef.current = true;
+    pendingActionRef.current = null;
+    setReminderVisible(false);
+    navigateToSanctuary();
+  }, [navigateToSanctuary]);
 
   // This screen is the single first-anchor destination reached after saving an
   // Anchor (guest or signed-in), so it is the only remaining chance to ask for
@@ -53,14 +83,22 @@ export function PrimeYourAnchorScreen() {
   // this, notificationPermissionStatus stays 'undetermined' forever and every
   // reminder rule silently refuses to schedule.
   const runWithReminderGate = useCallback(async (action: () => void) => {
+    if (chartContext && !chartHandoffIsActive()) {
+      returnToSafeAccountRoot();
+      return;
+    }
     const shouldOffer = await canOfferFirstAnchorReminder();
+    if (chartContext && !chartHandoffIsActive()) {
+      returnToSafeAccountRoot();
+      return;
+    }
     if (shouldOffer) {
       pendingActionRef.current = action;
       setReminderVisible(true);
       return;
     }
     action();
-  }, [canOfferFirstAnchorReminder]);
+  }, [canOfferFirstAnchorReminder, chartContext, chartHandoffIsActive, returnToSafeAccountRoot]);
 
   const handleReminderDismiss = useCallback(() => {
     setReminderVisible(false);
@@ -68,6 +106,17 @@ export function PrimeYourAnchorScreen() {
     pendingActionRef.current = null;
     action?.();
   }, []);
+
+  useEffect(() => {
+    if (
+      chartContext &&
+      (!chartOriginAccountIdRef.current ||
+        activeAccountId !== chartOriginAccountIdRef.current ||
+        !chartAvailable)
+    ) {
+      returnToSafeAccountRoot();
+    }
+  }, [activeAccountId, chartAvailable, chartContext, returnToSafeAccountRoot]);
 
   useEffect(() => {
     const animation = Animated.loop(Animated.sequence([
@@ -85,6 +134,23 @@ export function PrimeYourAnchorScreen() {
   const expressionArtwork = anchor?.enhancedImageUrl;
   const selectedCopy = MODE_COPY[selectedMode];
 
+  const leaveWithoutPractice = useCallback(() => {
+    if (chartContext) {
+      if (!chartHandoffIsActive()) {
+        returnToSafeAccountRoot();
+        return;
+      }
+      finishChartAnchorPracticeHandoff(chartContext.courseId, chartContext.waypointId, route.params.anchorId);
+      navigation.popToTop();
+      navigateToChart('WaypointDetail', {
+        courseId: chartContext.courseId,
+        waypointId: chartContext.waypointId,
+      });
+      return;
+    }
+    navigateToSanctuary();
+  }, [chartContext, chartHandoffIsActive, navigateToChart, navigateToSanctuary, navigation, returnToSafeAccountRoot, route.params.anchorId]);
+
   if (!anchor) {
     return (
       <Anchor15Screen>
@@ -93,7 +159,7 @@ export function PrimeYourAnchorScreen() {
           <Text style={styles.eyebrow}>ANCHOR FORGED</Text>
           <Text style={styles.missingTitle}>Your Anchor is safely waiting in Sanctuary.</Text>
           <Text style={styles.missingBody}>We could not reopen it from this link. Nothing has been discarded.</Text>
-          <Anchor15PrimaryButton label="Go to Sanctuary" onPress={navigateToSanctuary} />
+          <Anchor15PrimaryButton label={chartContext ? 'Return to Chart' : 'Go to Sanctuary'} onPress={leaveWithoutPractice} />
         </View>
       </Anchor15Screen>
     );
@@ -101,18 +167,27 @@ export function PrimeYourAnchorScreen() {
 
   const beginSelectedPractice = () => {
     void runWithReminderGate(() => {
+      if (chartContext) {
+        if (!chartHandoffIsActive()) {
+          returnToSafeAccountRoot();
+          return;
+        }
+        navigation.popToTop();
+      }
       startPractice({
         mode: selectedMode,
         anchorId: anchor.id,
-        source: 'sanctuary_prime_anchor',
+        source: chartContext ? 'chart_waypoint_detail' : 'sanctuary_prime_anchor',
         durationSeconds: selectedMode === 'focus' ? 30 : undefined,
-        returnTarget: { kind: 'sanctuary' },
+        ...(chartContext
+          ? { chartContext }
+          : { returnTarget: { kind: 'sanctuary' as const } }),
       });
     });
   };
 
   const practiceLater = () => {
-    void runWithReminderGate(navigateToSanctuary);
+    void runWithReminderGate(leaveWithoutPractice);
   };
 
   return (
@@ -120,7 +195,7 @@ export function PrimeYourAnchorScreen() {
       <StatusBar style="light" />
       <View pointerEvents="none" style={styles.goldGlow} />
       <View style={styles.topRow}>
-        <Pressable onPress={navigateToSanctuary} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close and return to Sanctuary" style={styles.closeButton}>
+        <Pressable onPress={leaveWithoutPractice} hitSlop={10} accessibilityRole="button" accessibilityLabel={chartContext ? 'Close and return to Chart' : 'Close and return to Sanctuary'} style={styles.closeButton}>
           <Text style={styles.closeText}>×</Text>
         </Pressable>
         <View style={styles.titlePill}><Text style={styles.titlePillText}>Prime Your Anchor</Text></View>

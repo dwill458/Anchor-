@@ -23,7 +23,7 @@ import { usePracticeEntry } from "@/hooks/usePracticeEntry";
 import { useAnchorStore } from "@/stores/anchorStore";
 import { ENABLE_VISUALIZE } from "@/config";
 import { useAuthStore } from "@/stores/authStore";
-import { resolveChartFeatureFlags } from "@/types/chart";
+import { canViewChart } from "@/types/chart";
 import { claimInitialDeepLink, parseChartDeepLink, resetInitialDeepLinkClaimForTests } from "@/navigation/chartDeepLinks";
 import { useNavigationResumeStore } from "@/stores/navigationResumeStore";
 
@@ -83,8 +83,8 @@ export function WidgetDeepLinkHandler(): null {
   const handleUrl = (url: string | null | undefined) => {
     const chartTarget = parseChartDeepLink(url);
     if (chartTarget) {
-      const flags = resolveChartFeatureFlags(useAuthStore.getState().user?.chartFlags);
-      if (!flags.chart_enabled) {
+      const user = useAuthStore.getState().user;
+      if (!canViewChart(user?.chartFlags, user?.chartCapabilities)) {
         navigateToVaultRef.current();
         return;
       }

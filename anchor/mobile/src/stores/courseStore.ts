@@ -179,6 +179,7 @@ function updateReadOnly(state: CourseStoreState): boolean {
   return (
     !state.flags.chart_write_enabled ||
     state.offline ||
+    state.stale ||
     state.migrationRequired ||
     state.activeCourse?.needsRepair === true
   );
@@ -194,6 +195,12 @@ function setAuthoritativeCourse(
     const courses = state.courses.some((item) => item.id === course.id)
       ? state.courses.map((item) => (item.id === course.id ? course : item))
       : [...state.courses, course];
+    const nextState = {
+      ...state,
+      activeCourse: course,
+      stale: false,
+      offline: false,
+    };
     return {
       courses,
       // The detail slot is also used by editor/sheet routes for DRAFT and
@@ -203,6 +210,7 @@ function setAuthoritativeCourse(
       stale: false,
       offline: false,
       errorCode: null,
+      readOnly: updateReadOnly(nextState),
     };
   });
 }
@@ -265,6 +273,7 @@ export const useCourseStore = create<CourseStoreState>((set, get) => ({
       initializationStatus: accountId ? 'hydrating' : 'idle',
       courses: [],
       activeCourse: null,
+      flags: DEFAULT_CHART_FEATURE_FLAGS,
       loading: false,
       refreshing: false,
       errorCode: null,
@@ -290,14 +299,16 @@ export const useCourseStore = create<CourseStoreState>((set, get) => ({
     if (snapshot) {
       set((state) => {
         const lastSyncedAt = snapshot.lastSyncedAt;
+        const stale = !lastSyncedAt || Date.now() - lastSyncedAt > CHART_STALE_AFTER_MS;
+        const flags = state.flags.chart_enabled ? state.flags : snapshot.flags;
         return {
           courses: snapshot.courses,
           activeCourse: snapshot.activeCourse,
           lastSyncedAt,
-          stale: !lastSyncedAt || Date.now() - lastSyncedAt > CHART_STALE_AFTER_MS,
-          flags: state.flags.chart_enabled ? state.flags : snapshot.flags,
+          stale,
+          flags,
           initializationStatus: 'ready',
-          readOnly: updateReadOnly({ ...state, activeCourse: snapshot.activeCourse }),
+          readOnly: updateReadOnly({ ...state, activeCourse: snapshot.activeCourse, stale, flags }),
         };
       });
     }
@@ -345,15 +356,25 @@ export const useCourseStore = create<CourseStoreState>((set, get) => ({
         }
 
         const courses = listed.data ?? [];
-        set({
-          courses,
-          initializationStatus: 'ready',
-          migrationRequired: false,
-          errorCode: null,
-          loading: false,
-          offline: false,
-          stale: false,
-          lastSyncedAt: Date.now(),
+        set((state) => {
+          const nextState = {
+            ...state,
+            courses,
+            migrationRequired: false,
+            offline: false,
+            stale: false,
+          };
+          return {
+            courses,
+            initializationStatus: 'ready',
+            migrationRequired: false,
+            errorCode: null,
+            loading: false,
+            offline: false,
+            stale: false,
+            lastSyncedAt: Date.now(),
+            readOnly: updateReadOnly(nextState),
+          };
         });
 
         const activeSummary = courses.find((course) => course.status === 'ACTIVE');
@@ -362,7 +383,10 @@ export const useCourseStore = create<CourseStoreState>((set, get) => ({
           if (get().accountId !== accountId || controller.signal.aborted) return;
           setAuthoritativeCourse(set, accountId, detail.data);
         } else {
-          set({ activeCourse: null });
+          set((state) => ({
+            activeCourse: null,
+            readOnly: updateReadOnly({ ...state, activeCourse: null }),
+          }));
         }
         await persistCurrentState(get);
       } catch (error) {
@@ -372,6 +396,7 @@ export const useCourseStore = create<CourseStoreState>((set, get) => ({
         set((state) => {
           const nextError = code === 'FEATURE_DISABLED' ? 'FEATURE_DISABLED' : offline ? 'NETWORK' : code ?? 'NETWORK';
           const nextMigration = code === 'MIGRATION_REQUIRED';
+          const nextStale = isCached(state) || state.stale;
           const flags = code === 'FEATURE_DISABLED'
             ? { ...state.flags, chart_enabled: false, chart_write_enabled: false }
             : state.flags;
@@ -379,11 +404,11 @@ export const useCourseStore = create<CourseStoreState>((set, get) => ({
             loading: false,
             refreshing: false,
             offline,
-            stale: isCached(state) || state.stale,
+            stale: nextStale,
             migrationRequired: nextMigration,
             initializationStatus: nextMigration ? 'migrationRequired' : state.initializationStatus,
             flags,
-            readOnly: updateReadOnly({ ...state, flags, offline, migrationRequired: nextMigration }),
+            readOnly: updateReadOnly({ ...state, flags, offline, stale: nextStale, migrationRequired: nextMigration }),
             errorCode: nextError,
           };
         });
@@ -410,10 +435,20 @@ export const useCourseStore = create<CourseStoreState>((set, get) => ({
       await persistCurrentState(get);
       return result.data;
     } catch (error) {
-      if (isChartAbortError(error)) return null;
+      if (isChartAbortError(error) || controller.signal.aborted || get().accountId !== accountId) return null;
       const code = getChartErrorCode(error) ?? 'NETWORK';
       if (code === 'COURSE_NOT_FOUND') {
-        set((state) => ({ courses: state.courses.filter((course) => course.id !== courseId), errorCode: code }));
+        set((state) => {
+          if (state.accountId !== accountId) return {};
+          const activeCourse = state.activeCourse?.id === courseId ? null : state.activeCourse;
+          return {
+            courses: state.courses.filter((course) => course.id !== courseId),
+            activeCourse,
+            errorCode: code,
+            readOnly: updateReadOnly({ ...state, activeCourse }),
+          };
+        });
+        await persistCurrentState(get);
       } else {
         set({ errorCode: code });
       }
@@ -436,6 +471,7 @@ export const useCourseStore = create<CourseStoreState>((set, get) => ({
       await persistCurrentState(get);
       return result.data;
     } catch (error) {
+      if (get().accountId !== accountId) return null;
       const conflict = getConflictCourse(error);
       if (conflict) setAuthoritativeCourse(set, accountId, conflict);
       set({ errorCode: getChartErrorCode(error) ?? 'NETWORK' });
@@ -458,6 +494,7 @@ export const useCourseStore = create<CourseStoreState>((set, get) => ({
       await persistCurrentState(get);
       return result.data;
     } catch (error) {
+      if (get().accountId !== accountId) return null;
       const conflict = getConflictCourse(error);
       if (conflict) setAuthoritativeCourse(set, accountId, conflict);
       set({ errorCode: getChartErrorCode(error) ?? 'NETWORK' });
@@ -480,6 +517,7 @@ export const useCourseStore = create<CourseStoreState>((set, get) => ({
       await persistCurrentState(get);
       return result.data;
     } catch (error) {
+      if (get().accountId !== accountId) return null;
       const conflict = getConflictCourse(error);
       if (conflict) setAuthoritativeCourse(set, accountId, conflict);
       set({ errorCode: getChartErrorCode(error) ?? 'NETWORK' });
@@ -502,6 +540,7 @@ export const useCourseStore = create<CourseStoreState>((set, get) => ({
       await persistCurrentState(get);
       return result.data;
     } catch (error) {
+      if (get().accountId !== accountId) return null;
       const conflict = getConflictCourse(error);
       if (conflict) setAuthoritativeCourse(set, accountId, conflict);
       set({ errorCode: getChartErrorCode(error) ?? 'NETWORK' });
@@ -524,6 +563,7 @@ export const useCourseStore = create<CourseStoreState>((set, get) => ({
       await persistCurrentState(get);
       return result.data;
     } catch (error) {
+      if (get().accountId !== accountId) return null;
       const conflict = getConflictCourse(error);
       if (conflict) setAuthoritativeCourse(set, accountId, conflict);
       set({ errorCode: getChartErrorCode(error) ?? 'NETWORK' });
@@ -550,6 +590,7 @@ export const useCourseStore = create<CourseStoreState>((set, get) => ({
       await persistCurrentState(get);
       return true;
     } catch (error) {
+      if (get().accountId !== accountId) return false;
       const conflict = getConflictCourse(error);
       if (conflict) setAuthoritativeCourse(set, accountId, conflict);
       set({ errorCode: getChartErrorCode(error) ?? 'NETWORK' });
@@ -572,6 +613,7 @@ export const useCourseStore = create<CourseStoreState>((set, get) => ({
       await persistCurrentState(get);
       return result.data;
     } catch (error) {
+      if (get().accountId !== accountId) return null;
       const conflict = getConflictCourse(error);
       if (conflict) setAuthoritativeCourse(set, accountId, conflict);
       set({ errorCode: getChartErrorCode(error) ?? 'NETWORK' });
@@ -594,6 +636,7 @@ export const useCourseStore = create<CourseStoreState>((set, get) => ({
       await persistCurrentState(get);
       return result.data;
     } catch (error) {
+      if (get().accountId !== accountId) return null;
       const conflict = getConflictCourse(error);
       if (conflict) setAuthoritativeCourse(set, accountId, conflict);
       set({ errorCode: getChartErrorCode(error) ?? 'NETWORK' });
@@ -616,6 +659,7 @@ export const useCourseStore = create<CourseStoreState>((set, get) => ({
       await persistCurrentState(get);
       return result.data;
     } catch (error) {
+      if (get().accountId !== accountId) return null;
       const conflict = getConflictCourse(error);
       if (conflict) setAuthoritativeCourse(set, accountId, conflict);
       set({ errorCode: getChartErrorCode(error) ?? 'NETWORK' });
@@ -660,6 +704,7 @@ export const useCourseStore = create<CourseStoreState>((set, get) => ({
       }
       return result.data;
     } catch (error) {
+      if (get().accountId !== accountId) return null;
       const conflict = getConflictCourse(error);
       if (conflict) setAuthoritativeCourse(set, accountId, conflict);
       set({ errorCode: getChartErrorCode(error) ?? 'NETWORK' });
@@ -682,6 +727,7 @@ export const useCourseStore = create<CourseStoreState>((set, get) => ({
       await persistCurrentState(get);
       return result.data;
     } catch (error) {
+      if (get().accountId !== accountId) return null;
       const conflict = getConflictCourse(error);
       if (conflict) setAuthoritativeCourse(set, accountId, conflict);
       set({ errorCode: getChartErrorCode(error) ?? 'NETWORK' });
@@ -704,6 +750,7 @@ export const useCourseStore = create<CourseStoreState>((set, get) => ({
       await persistCurrentState(get);
       return result.data;
     } catch (error) {
+      if (get().accountId !== accountId) return null;
       const conflict = getConflictCourse(error);
       if (conflict) setAuthoritativeCourse(set, accountId, conflict);
       set({ errorCode: getChartErrorCode(error) ?? 'NETWORK' });
@@ -726,6 +773,7 @@ export const useCourseStore = create<CourseStoreState>((set, get) => ({
       await persistCurrentState(get);
       return result.data;
     } catch (error) {
+      if (get().accountId !== accountId) return null;
       const conflict = getConflictCourse(error);
       if (conflict) setAuthoritativeCourse(set, accountId, conflict);
       set({ errorCode: getChartErrorCode(error) ?? 'NETWORK' });
@@ -748,6 +796,7 @@ export const useCourseStore = create<CourseStoreState>((set, get) => ({
       await persistCurrentState(get);
       return result.data;
     } catch (error) {
+      if (get().accountId !== accountId) return null;
       const conflict = getConflictCourse(error);
       if (conflict) setAuthoritativeCourse(set, accountId, conflict);
       set({ errorCode: getChartErrorCode(error) ?? 'NETWORK' });
@@ -756,15 +805,21 @@ export const useCourseStore = create<CourseStoreState>((set, get) => ({
   },
 
   clearAccount: (accountId) => {
+    const targetAccountId = accountId ?? get().accountId;
+    if (targetAccountId && get().accountId && get().accountId !== targetAccountId) {
+      void purgeCourseCache(targetAccountId);
+      return;
+    }
     activeController?.abort();
     activeController = null;
     refreshPromise = null;
-    if (accountId) void purgeCourseCache(accountId);
+    if (targetAccountId) void purgeCourseCache(targetAccountId);
     set({
       accountId: null,
       initializationStatus: 'idle',
       courses: [],
       activeCourse: null,
+      flags: DEFAULT_CHART_FEATURE_FLAGS,
       loading: false,
       refreshing: false,
       errorCode: null,

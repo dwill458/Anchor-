@@ -19,6 +19,7 @@ const IdempotencyKey = z.string().trim().min(1).max(200);
 const GenerateSchema = z
   .object({
     destinationText: z.string().trim().min(1).max(140),
+    currentReality: z.string().trim().min(1).max(500).optional(),
     idempotencyKey: IdempotencyKey,
     // Opts into the caller's own consented reflections. It cannot widen the
     // pool past consent: the query filters on aiConsentGrantedAt regardless.

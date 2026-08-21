@@ -13,6 +13,8 @@ import {
   Pressable,
   Platform,
   InteractionManager,
+  LayoutAnimation,
+  UIManager,
 } from "react-native";
 import {
   SafeAreaView,
@@ -74,6 +76,13 @@ type PracticeNavigationProp = StackNavigationProp<
 // DEFERRED: type PendingMode = 'charge' | 'stabilize' | 'burn' | 'quickActivate' | null; — restore post-launch
 type PendingMode = "charge" | "burn" | "quickActivate" | "visualize" | null;
 type PracticeToolMode = Exclude<PendingMode, null>;
+
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const AUTO_TEACHING_KEY = "practice_teaching_auto_seen_v2";
 const DEEP_CHARGE_MINUTES_MIN = 2;
@@ -682,13 +691,16 @@ export const PracticeScreen: React.FC = () => {
 
   const chooseMode = useCallback((mode: PracticeToolMode) => {
     markInteraction();
+    if (!reduceMotion) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }
     setSelectedMode(mode);
     if (mode === 'visualize' && !visualizeAccess.hasActiveEntitlement) {
       AnalyticsService.track(AnalyticsEvents.VISUALIZE_PRO_LOCK_VIEWED, {
         tier: visualizeAccess.subscriptionStatus,
       });
     }
-  }, [markInteraction, visualizeAccess.hasActiveEntitlement, visualizeAccess.subscriptionStatus]);
+  }, [markInteraction, reduceMotion, visualizeAccess.hasActiveEntitlement, visualizeAccess.subscriptionStatus]);
 
   const selectedModeSource: Record<PracticeToolMode, PracticeEntrySource> = {
     quickActivate: 'practice_focus_card',

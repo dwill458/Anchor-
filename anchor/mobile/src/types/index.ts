@@ -644,7 +644,12 @@ export type RootStackParamList = {
       resumeTarget?: NavigationResumeTarget;
     }
     | undefined;
-  CreateAnchor: undefined;
+  CreateAnchor:
+    | {
+        /** Identifier-only origin; private intention text never crosses routes. */
+        chartHandoff?: { courseId: string; waypointId: string };
+      }
+    | undefined;
   /** First anchor creation after onboarding — shows new-user IntentionInputScreen */
   FirstAnchorCreation: undefined;
   Login: AuthScreenParams | undefined;
@@ -771,8 +776,14 @@ export type RootStackParamList = {
     reinforcementMetadata?: ReinforcementMetadata;
     enhancementMetadata?: EnhancementMetadata;
   };
-  /** Canonical first-time bridge from a saved Anchor to Sanctuary/practice. */
-  PrimeYourAnchor: { anchorId: string };
+  /** Canonical bridge from a saved Anchor into its first Practice. */
+  PrimeYourAnchor: {
+    anchorId: string;
+    /** Identifier-only Chart authority, present only after a server-confirmed link. */
+    chartContext?: ChartPracticeContext;
+    /** Account that owned the confirmed Chart link; used only as a fail-closed route guard. */
+    chartOriginAccountId?: string;
+  };
 
   // DEFERRED: Mantra feature removed from launch flow — reintroduce in v1.1.
   // MantraCreation: {

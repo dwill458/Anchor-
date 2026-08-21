@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Modal, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
@@ -7,20 +7,24 @@ import { Eye, Sparkles, Zap } from 'lucide-react-native';
 import { useCourseStore } from '@/stores/courseStore';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useChartJourneyStore } from '@/stores/chartJourneyStore';
 import { usePracticeEntry } from '@/hooks/usePracticeEntry';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { AnalyticsEvents, trackChartEventOnce } from '@/services/AnalyticsService';
-import { resolveChartFeatureFlags } from '@/types/chart';
 import { AnchorSelectorSheet } from '@/screens/practice/components/AnchorSelectorSheet';
 import type { Anchor } from '@/types';
 import type { PracticeEntryMode } from '@/types/practice';
-import type { ChartStackParamList } from '@/types/chart';
+import type { ChartStackParamList, CompleteWaypointResponse } from '@/types/chart';
 import { colors, typography } from '@/theme';
 import { ChartButton, ChartCard, ChartGhostButton, ChartKicker, ChartScreenFrame, ChartSheetHandle, ChartStatusPill, ReadOnlyNotice } from './chartUi';
 import { useChartPostPracticeReflection } from './useChartPostPracticeReflection';
 
 type Navigation = NativeStackNavigationProp<ChartStackParamList, 'WaypointDetail'>;
 type WaypointRoute = RouteProp<ChartStackParamList, 'WaypointDetail'>;
+
+type MutationIntent = { signature: string; key: string };
+type CompletionIntent = MutationIntent & { reflectionKey: string };
 
 function actionKey(prefix: string): string {
   return `chart-waypoint-${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -37,11 +41,12 @@ export const WaypointDetailScreen: React.FC = () => {
   const route = useRoute<WaypointRoute>();
   const store = useCourseStore();
   const activeAnchors = useAnchorStore((state) => state.getActiveAnchors());
-  const subscriptionStatus = useAuthStore((state) => state.user?.subscriptionStatus ?? 'free');
+  const chartCapabilities = useAuthStore((state) => state.user?.chartCapabilities);
   // Analytics dedupe is per account; a null id means no event is emitted.
   const accountId = useAuthStore((state) => state.user?.id ?? null);
   const { navigateToVault } = useTabNavigation();
   const { startPractice, isNavigationLocked } = usePracticeEntry();
+  const reduceMotion = useReduceMotionEnabled();
   const course = store.activeCourse?.id === route.params.courseId ? store.activeCourse : null;
   const waypoint = course?.waypoints.find((item) => item.id === route.params.waypointId);
   const [selectorVisible, setSelectorVisible] = useState(false);
@@ -49,11 +54,17 @@ export const WaypointDetailScreen: React.FC = () => {
   const [whatHelped, setWhatHelped] = useState('');
   const [whatLearned, setWhatLearned] = useState('');
   const [completing, setCompleting] = useState(false);
-  const requestKey = useRef(actionKey('link')).current;
-  const completionKey = useRef(actionKey('complete')).current;
+  const linkIntentRef = useRef<MutationIntent | null>(null);
+  const anchorCreationInFlightRef = useRef(false);
+  const completionIntentRef = useRef<CompletionIntent | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const refreshedPracticeSessionRef = useRef<string | null>(null);
   const launchedPracticeRef = useRef<string | null>(null);
+  const canCreateAnchor = chartCapabilities?.canCreateAnchor === true;
+  const canAddCompletionReflection =
+    store.flags.chart_reflections_enabled === true &&
+    chartCapabilities?.chartReflectionsEnabled === true &&
+    chartCapabilities?.canCreateOrEditReflections === true;
 
   const launchPractice = useCallback((mode: PracticeEntryMode) => {
     const anchorId = waypoint?.anchorLink?.anchorId;
@@ -107,32 +118,156 @@ export const WaypointDetailScreen: React.FC = () => {
       ]);
       return;
     }
-    const result = await store.linkAnchor(route.params.courseId, { idempotencyKey: requestKey, expectedCourseVersion: course.version, anchorId: anchor.id, role: 'WAYPOINT_PRIMARY', waypointId: waypoint.id, ...(waypoint.anchorLink ? { replaceLinkId: waypoint.anchorLink.id } : {}), ...(acknowledgedReuse ? { acknowledgedReuse: true } : {}) });
+    const signature = [
+      course.id,
+      waypoint.id,
+      String(course.version),
+      anchor.id,
+      waypoint.anchorLink?.id ?? 'new',
+      acknowledgedReuse ? 'reuse' : 'standard',
+    ].join(':');
+    if (linkIntentRef.current?.signature !== signature) {
+      linkIntentRef.current = { signature, key: actionKey('link') };
+    }
+    setActionError(null);
+    let linked = false;
+    try {
+      linked = Boolean(await store.linkAnchor(route.params.courseId, {
+        idempotencyKey: linkIntentRef.current.key,
+        expectedCourseVersion: course.version,
+        anchorId: anchor.id,
+        role: 'WAYPOINT_PRIMARY',
+        waypointId: waypoint.id,
+        ...(waypoint.anchorLink ? { replaceLinkId: waypoint.anchorLink.id } : {}),
+        ...(acknowledgedReuse ? { acknowledgedReuse: true } : {}),
+      }));
+    } catch {
+      linked = false;
+    }
     setSelectorVisible(false);
-    if (!result) setActionError('The Anchor could not be linked. Choose another Anchor and try again.');
+    if (!linked) {
+      setActionError('The Anchor could not be linked. Choose another Anchor and try again.');
+      return;
+    }
+    linkIntentRef.current = null;
   };
 
-  const finishCompletion = async (skipReflection: boolean) => {
-    setActionError(null);
-    setCompleting(true);
-    const reflectionBody = { whatHelped: whatHelped.trim(), whatLearned: whatLearned.trim() };
-    const result = await store.completeWaypoint(course.id, waypoint.id, {
-      idempotencyKey: completionKey,
-      expectedCourseVersion: course.version,
-      ...(!skipReflection && (reflectionBody.whatHelped || reflectionBody.whatLearned) ? {
-        reflection: {
-          idempotencyKey: actionKey('completion-reflection'),
-          promptType: 'WAYPOINT_COMPLETION' as const,
-          promptVersion: 1,
-          structuredContent: reflectionBody,
-        },
-      } : {}),
+  const beginAnchorCreation = async () => {
+    if (anchorCreationInFlightRef.current || !accountId || !course || !waypoint || store.readOnly || !canCreateAnchor) return;
+    anchorCreationInFlightRef.current = true;
+    await useChartJourneyStore.getState().bindAccount(accountId);
+    const latest = useCourseStore.getState().activeCourse;
+    if (
+      useAuthStore.getState().user?.id !== accountId ||
+      useAuthStore.getState().user?.chartCapabilities?.canCreateAnchor !== true ||
+      useChartJourneyStore.getState().accountId !== accountId ||
+      latest?.id !== course.id ||
+      latest.currentWaypointId !== waypoint.id ||
+      latest.waypoints.find((item) => item.id === waypoint.id)?.state !== 'CURRENT'
+    ) {
+      anchorCreationInFlightRef.current = false;
+      setActionError('This Waypoint changed. Refresh Chart before creating its Anchor.');
+      return;
+    }
+    if (!useChartJourneyStore.getState().beginAnchorCreation(
+      course.id,
+      waypoint.id,
+      course.version,
+      waypoint.anchorLink?.id ?? null,
+      waypoint.anchorLink?.anchorId ?? null,
+    )) {
+      anchorCreationInFlightRef.current = false;
+      return;
+    }
+    trackChartEventOnce(AnalyticsEvents.WAYPOINT_ANCHOR_ACTION_SELECTED, accountId, `create:${course.id}:${waypoint.id}`, {
+      course_state: course.status,
+      waypoint_state: waypoint.state,
+      action: 'create_new',
     });
-    setCompleting(false);
+    navigateToVault('CreateAnchor', {
+      chartHandoff: { courseId: course.id, waypointId: waypoint.id },
+    });
+    setTimeout(() => { anchorCreationInFlightRef.current = false; }, 600);
+  };
+
+  const finishCompletion = async () => {
+    if (completing || waypoint.state !== 'CURRENT') return;
+    setActionError(null);
+    const reflectionBody = { whatHelped: whatHelped.trim(), whatLearned: whatLearned.trim() };
+    const includeReflection =
+      canAddCompletionReflection &&
+      Boolean(reflectionBody.whatHelped || reflectionBody.whatLearned);
+    const signature = includeReflection
+      ? JSON.stringify([course.id, waypoint.id, course.version, reflectionBody.whatHelped, reflectionBody.whatLearned])
+      : JSON.stringify([course.id, waypoint.id, course.version, 'no-reflection']);
+    if (completionIntentRef.current?.signature !== signature) {
+      completionIntentRef.current = {
+        signature,
+        key: actionKey('complete'),
+        reflectionKey: actionKey('completion-reflection'),
+      };
+    }
+    const intent = completionIntentRef.current;
+
+    if (accountId) {
+      trackChartEventOnce(AnalyticsEvents.WAYPOINT_COMPLETION_STARTED, accountId, intent.key, {
+        course_state: course.status,
+        waypoint_state: waypoint.state,
+      });
+    }
+
+    setCompleting(true);
+    let result: CompleteWaypointResponse | null = null;
+    try {
+      result = await store.completeWaypoint(course.id, waypoint.id, {
+        idempotencyKey: intent.key,
+        expectedCourseVersion: course.version,
+        ...(includeReflection ? {
+          reflection: {
+            idempotencyKey: intent.reflectionKey,
+            promptType: 'WAYPOINT_COMPLETION' as const,
+            promptVersion: 1,
+            structuredContent: reflectionBody,
+          },
+        } : {}),
+      });
+    } catch {
+      result = null;
+    } finally {
+      setCompleting(false);
+    }
     if (!result) { setActionError('This waypoint could not be reached. The Course may have changed; refresh and try again.'); return; }
+
+    if (accountId) {
+      trackChartEventOnce(AnalyticsEvents.WAYPOINT_COMPLETED, accountId, result.completionEventId, {
+        course_state: result.course.status,
+        waypoint_state: 'REACHED',
+        server_confirmed: true,
+      });
+      if (result.courseCompleted) {
+        trackChartEventOnce(AnalyticsEvents.COURSE_COMPLETED, accountId, result.course.id, {
+          course_state: 'COMPLETED',
+          waypoint_count: result.course.waypointCount,
+          server_confirmed: true,
+        });
+      }
+    }
+
     setCompletionVisible(false);
-    if (result.courseCompleted) navigation.replace('CourseCompletion', { courseId: course.id });
-    else navigation.replace('ChartHome');
+    if (result.courseCompleted) {
+      navigation.replace('CourseCompletion', { courseId: course.id });
+      return;
+    }
+    if (result.nextWaypoint) {
+      navigation.replace('WaypointReached', {
+        courseId: course.id,
+        completedWaypointId: result.completedWaypoint.id,
+        nextWaypointId: result.nextWaypoint.id,
+        completionEventId: result.completionEventId,
+      });
+      return;
+    }
+    navigation.replace('ChartHome');
   };
 
   const skipWaypoint = async () => {
@@ -147,36 +282,6 @@ export const WaypointDetailScreen: React.FC = () => {
     const result = await store.cancelWaypoint(course.id, waypoint.id, { idempotencyKey: actionKey('cancel'), expectedCourseVersion: course.version });
     if (!result) setActionError('This waypoint could not be removed. Refresh and try again.');
     else navigation.replace('ChartHome');
-  };
-
-  const complete = async () => {
-    if (!accountId || completing || waypoint.state !== 'CURRENT') return;
-    trackChartEventOnce(AnalyticsEvents.WAYPOINT_COMPLETION_STARTED, accountId, completionKey, {
-      course_state: course.status,
-      waypoint_state: waypoint.state,
-    });
-    setCompleting(true);
-    const result = await store.completeWaypoint(course.id, waypoint.id, {
-      idempotencyKey: completionKey,
-      expectedCourseVersion: course.version,
-    });
-    setCompleting(false);
-    if (!result) return;
-    trackChartEventOnce(AnalyticsEvents.WAYPOINT_COMPLETED, accountId, result.completionEventId, {
-      course_state: result.course.status,
-      waypoint_state: 'REACHED',
-      server_confirmed: true,
-    });
-    if (result.courseCompleted) {
-      trackChartEventOnce(AnalyticsEvents.COURSE_COMPLETED, accountId, result.course.id, {
-        course_state: 'COMPLETED',
-        waypoint_count: result.course.waypointCount,
-        server_confirmed: true,
-      });
-      navigation.replace('CourseCompletion', { courseId: course.id });
-      return;
-    }
-    navigation.replace('ChartHome');
   };
 
   const isBlocked = waypoint.state === 'BLOCKED';
@@ -204,32 +309,72 @@ export const WaypointDetailScreen: React.FC = () => {
         <ChartKicker style={styles.kickerSpacing}>LOG · {waypoint.title}</ChartKicker>
         <ChartGhostButton label="View full log →" onPress={() => navigation.navigate('CourseLog', { courseId: course.id, waypointId: waypoint.id })} color={colors.gold} />
 
-        {!isTerminal && waypoint.state === 'CURRENT' ? <ChartButton label="Mark Reached" onPress={() => setCompletionVisible(true)} disabled={store.readOnly} /> : null}
+        {!isTerminal && waypoint.state === 'CURRENT' ? <ChartButton label="Mark Waypoint Reached" onPress={() => { setActionError(null); setCompletionVisible(true); }} disabled={store.readOnly} /> : null}
         {!isTerminal && waypoint.state === 'CURRENT' ? <ChartButton label="Skip Waypoint" secondary onPress={() => Alert.alert('Skip waypoint?', 'This will be recorded in the Course Log and cannot be undone.', [{ text: 'Keep waypoint', style: 'cancel' }, { text: 'Skip waypoint', style: 'destructive', onPress: () => void skipWaypoint() }])} disabled={store.readOnly} /> : null}
         {!isTerminal && waypoint.state === 'UPCOMING' ? <ChartButton label="Remove from Course" secondary destructive onPress={() => Alert.alert('Remove waypoint?', 'This records the waypoint as cancelled. It cannot be restored.', [{ text: 'Keep waypoint', style: 'cancel' }, { text: 'Remove waypoint', style: 'destructive', onPress: () => void cancelWaypoint() }])} disabled={store.readOnly} /> : null}
         {actionError ? <Text accessibilityLiveRegion="assertive" style={styles.error}>{actionError}</Text> : null}
 
         <ChartButton label="Link an Existing Anchor" secondary onPress={() => setSelectorVisible(true)} disabled={store.readOnly} />
-        {subscriptionStatus === 'free' ? <ChartButton label="Create a New Anchor" secondary onPress={() => Alert.alert('Anchor creation unavailable', 'Link an existing Anchor first, or upgrade to create a new one.')} /> : <ChartButton label="Create a New Anchor" secondary onPress={() => navigateToVault('CreateAnchor')} />}
+        <ChartButton
+          label="Create a New Anchor"
+          secondary
+          onPress={() => void beginAnchorCreation()}
+          disabled={!canCreateAnchor || store.readOnly}
+          hint={!canCreateAnchor ? 'Anchor creation is unavailable for this account.' : undefined}
+        />
         {store.readOnly ? <ReadOnlyNotice reason={store.offline ? 'You are offline. Anchor links and Course mutations are disabled.' : 'Anchor links and Course mutations are currently read-only.'} /> : null}
       </ChartScreenFrame>
       <AnchorSelectorSheet visible={selectorVisible} anchors={activeAnchors} onSelect={(anchor) => void selectAnchor(anchor)} onClose={() => setSelectorVisible(false)} />
-      <Modal visible={completionVisible} transparent animationType="slide" onRequestClose={() => setCompletionVisible(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.ceremony}>
-            <View style={styles.sheetHandle} />
-            <View style={styles.checkCircle}><Text style={styles.checkMark}>✓</Text></View>
-            <ChartKicker style={styles.ceremonyKicker}>YOU REACHED A WAYPOINT</ChartKicker>
-            <Text style={styles.ceremonyTitle}>{waypoint.title}</Text>
-            <Text style={styles.ceremonyLead}>Before you continue…</Text>
-            <Text style={styles.fieldLabel}>What helped you get here?</Text>
-            <TextInput value={whatHelped} onChangeText={setWhatHelped} placeholder="Optional" placeholderTextColor="rgba(245,240,232,0.28)" style={styles.ceremonyInput} multiline />
-            <Text style={styles.fieldLabel}>What did you learn?</Text>
-            <TextInput value={whatLearned} onChangeText={setWhatLearned} placeholder="Optional" placeholderTextColor="rgba(245,240,232,0.28)" style={styles.ceremonyInput} multiline />
-            <ChartButton label="Continue Course" onPress={() => void finishCompletion(false)} disabled={completing} />
-            <ChartGhostButton label="Skip reflection" onPress={() => void finishCompletion(true)} disabled={completing} color="rgba(245,240,232,0.54)" />
-          </View>
-        </View>
+      <Modal
+        visible={completionVisible}
+        transparent
+        animationType={reduceMotion ? 'none' : 'fade'}
+        onRequestClose={() => { if (!completing) setCompletionVisible(false); }}
+      >
+        <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <ScrollView
+            contentContainerStyle={styles.modalScroll}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.ceremony} accessibilityViewIsModal accessibilityLabel="Confirm waypoint completion">
+              <View style={styles.sheetHandle} />
+              <ChartKicker style={styles.ceremonyKicker}>CONFIRM WAYPOINT</ChartKicker>
+              <Text accessibilityRole="header" style={styles.ceremonyTitle}>Mark “{waypoint.title}” reached?</Text>
+              <Text style={styles.ceremonyLead}>Confirm only when this change has happened in the real world. Your Course moves forward after the server accepts it.</Text>
+              {canAddCompletionReflection ? (
+                <>
+                  <Text style={styles.reflectionIntro}>You can add a private reflection with the same confirmation.</Text>
+                  <Text style={styles.fieldLabel}>What helped you get here?</Text>
+                  <TextInput
+                    value={whatHelped}
+                    onChangeText={setWhatHelped}
+                    placeholder="Optional"
+                    placeholderTextColor="rgba(245,240,232,0.28)"
+                    style={styles.ceremonyInput}
+                    multiline
+                    editable={!completing}
+                    accessibilityLabel="What helped you get here? Optional"
+                  />
+                  <Text style={styles.fieldLabel}>What did you learn?</Text>
+                  <TextInput
+                    value={whatLearned}
+                    onChangeText={setWhatLearned}
+                    placeholder="Optional"
+                    placeholderTextColor="rgba(245,240,232,0.28)"
+                    style={styles.ceremonyInput}
+                    multiline
+                    editable={!completing}
+                    accessibilityLabel="What did you learn? Optional"
+                  />
+                </>
+              ) : null}
+              {actionError ? <Text accessibilityLiveRegion="assertive" style={styles.error}>{actionError}</Text> : null}
+              <ChartButton label="Confirm Reached" onPress={() => void finishCompletion()} disabled={completing} />
+              <ChartGhostButton label="Cancel" onPress={() => setCompletionVisible(false)} disabled={completing} color="rgba(245,240,232,0.54)" />
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
     </>
   );
@@ -249,13 +394,13 @@ const styles = StyleSheet.create({
   muted: { fontFamily: typography.fonts.body, fontSize: 12, lineHeight: 18, color: 'rgba(245,240,232,0.44)' },
   error: { fontFamily: typography.fonts.body, fontSize: 13, lineHeight: 19, color: '#F0A0A0' },
   modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(4,6,9,0.72)' },
+  modalScroll: { flexGrow: 1, justifyContent: 'flex-end' },
   ceremony: { paddingHorizontal: 22, paddingTop: 11, paddingBottom: 28, gap: 10, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderWidth: 1, borderColor: 'rgba(212,175,55,0.1)', backgroundColor: '#141A21' },
   sheetHandle: { alignSelf: 'center', width: 34, height: 3, borderRadius: 2, backgroundColor: 'rgba(212,175,55,0.32)', marginBottom: 6 },
-  checkCircle: { alignSelf: 'center', width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.gold, shadowColor: colors.gold, shadowOpacity: 0.45, shadowRadius: 18 },
-  checkMark: { fontFamily: typography.fonts.bodyBold, fontSize: 26, color: '#14100A' },
   ceremonyKicker: { alignSelf: 'center' },
   ceremonyTitle: { fontFamily: typography.fonts.headingSemiBold, fontSize: 27, lineHeight: 35, textAlign: 'center', color: colors.bone },
-  ceremonyLead: { fontFamily: 'CormorantGaramond-Italic', fontSize: 17, textAlign: 'center', color: 'rgba(245,240,232,0.72)', marginBottom: 5 },
+  ceremonyLead: { fontFamily: typography.fonts.body, fontSize: 13, lineHeight: 20, textAlign: 'center', color: 'rgba(245,240,232,0.72)', marginBottom: 5 },
+  reflectionIntro: { fontFamily: 'CormorantGaramond-Italic', fontSize: 16, lineHeight: 22, textAlign: 'center', color: 'rgba(245,240,232,0.58)' },
   fieldLabel: { fontFamily: typography.fonts.body, fontSize: 12, color: 'rgba(245,240,232,0.55)' },
   ceremonyInput: { minHeight: 62, maxHeight: 110, padding: 13, borderRadius: 13, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.025)', color: colors.bone, fontFamily: 'CormorantGaramond-Italic', fontSize: 16, textAlignVertical: 'top' },
 });

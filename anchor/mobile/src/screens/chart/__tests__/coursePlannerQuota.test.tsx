@@ -6,6 +6,17 @@
 import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
+let mockAuthState: { user: { id: string } };
+let mockJourneyState: {
+  accountId: string;
+  hydrated: boolean;
+  setupDraft: null;
+  bindAccount: jest.Mock;
+  updateSetupDraft: jest.Mock;
+  replaceSetupDraft: jest.Mock;
+  clearSetupDraft: jest.Mock;
+};
+
 jest.mock('@react-navigation/native', () => {
   const navigation = { navigate: jest.fn(), goBack: jest.fn() };
   return {
@@ -19,6 +30,18 @@ jest.mock('@/services/ChartApiClient', () => ({
   getChartErrorCode: jest.fn(),
 }));
 jest.mock('@/stores/courseStore', () => ({ useCourseStore: jest.fn() }));
+jest.mock('@/stores/authStore', () => ({
+  useAuthStore: Object.assign(
+    (selector: (state: typeof mockAuthState) => unknown) => selector(mockAuthState),
+    { getState: () => mockAuthState },
+  ),
+}));
+jest.mock('@/stores/chartJourneyStore', () => ({
+  useChartJourneyStore: Object.assign(
+    () => mockJourneyState,
+    { getState: () => mockJourneyState },
+  ),
+}));
 
 import { CourseSetupScreen } from '../CourseSetupScreen';
 
@@ -53,6 +76,16 @@ function quota(overrides: Record<string, unknown> = {}) {
 describe('CourseSetupScreen — planner quota presentation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAuthState = { user: { id: 'quota-test-account' } };
+    mockJourneyState = {
+      accountId: 'quota-test-account',
+      hydrated: true,
+      setupDraft: null,
+      bindAccount: jest.fn().mockResolvedValue(undefined),
+      updateSetupDraft: jest.fn(),
+      replaceSetupDraft: jest.fn(),
+      clearSetupDraft: jest.fn(),
+    };
     mockUseCourseStore.mockReturnValue(storeState());
     mockGetCoursePlanQuota.mockResolvedValue({ data: quota() });
     mockGetChartErrorCode.mockReturnValue(undefined);

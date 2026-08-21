@@ -14,6 +14,10 @@ export const COURSE_EVENT_SNAPSHOT_KEYS = [
   'fromPosition',
   'toPosition',
   'blockedReason',
+  // A one-way digest of the logical mutation request. This lets mutation
+  // services bind an idempotency key to intent without putting private text in
+  // the immutable Course Log.
+  'requestFingerprint',
 ] as const;
 
 type SnapshotKey = (typeof COURSE_EVENT_SNAPSHOT_KEYS)[number];
@@ -77,11 +81,24 @@ function sanitizeSnapshot(
   return result as Prisma.InputJsonValue;
 }
 
+function snapshotSignature(value: unknown): string {
+  if (value === null || value === undefined) return 'null';
+  if (typeof value !== 'object' || Array.isArray(value)) return JSON.stringify(value);
+  const entries = Object.entries(value as Record<string, unknown>).sort(([left], [right]) =>
+    left.localeCompare(right)
+  );
+  return JSON.stringify(Object.fromEntries(entries));
+}
+
 export class CourseEventService {
   async append(
     tx: Prisma.TransactionClient,
     input: CreateCourseEventInput
   ): Promise<Prisma.CourseEventGetPayload<Prisma.CourseEventDefaultArgs>> {
+    // Sanitize before the replay lookup as well as before insertion. Otherwise
+    // an invalid snapshot can bypass validation merely by reusing a committed
+    // key.
+    const snapshot = sanitizeSnapshot(input.snapshot);
     const existing = await tx.courseEvent.findUnique({
       where: { idempotencyKey: input.idempotencyKey },
     });
@@ -89,14 +106,18 @@ export class CourseEventService {
       if (
         existing.userId !== input.userId ||
         existing.courseId !== input.courseId ||
-        existing.eventType !== input.eventType
+        (existing.waypointId ?? null) !== (input.waypointId ?? null) ||
+        existing.eventType !== input.eventType ||
+        (existing.sourceEntityType ?? null) !== (input.sourceEntityType ?? null) ||
+        (existing.sourceEntityId ?? null) !== (input.sourceEntityId ?? null) ||
+        (existing.eventVersion ?? 1) !== (input.eventVersion ?? 1) ||
+        snapshotSignature(existing.snapshot) !== snapshotSignature(snapshot)
       ) {
         throw new AppError('Idempotency key has already been used', 409, 'IDEMPOTENCY_CONFLICT');
       }
       return existing;
     }
 
-    const snapshot = sanitizeSnapshot(input.snapshot);
     return tx.courseEvent.create({
       data: {
         id: randomUUID(),

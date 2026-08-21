@@ -150,6 +150,93 @@ describe('ReflectionService', () => {
     expect(mockPrisma.reflection.create).not.toHaveBeenCalled();
   });
 
+  it('rejects a live or tombstoned replay under a different Chart relationship', async () => {
+    mockPrisma.reflection.findUnique.mockResolvedValue(baseReflection);
+
+    await expect(
+      reflectionService.create('user-1', {
+        idempotencyKey: 'reflection-key',
+        source: 'MANUAL_COURSE',
+        promptType: 'COURSE_STATUS',
+        promptVersion: 1,
+        body: 'A private note',
+        courseId: 'course-2',
+      })
+    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
+
+    mockPrisma.reflection.findUnique.mockResolvedValue({
+      ...baseReflection,
+      body: '',
+      deletedAt: new Date(),
+    });
+    await expect(
+      reflectionService.create('user-1', {
+        idempotencyKey: 'reflection-key',
+        source: 'MANUAL_COURSE',
+        promptType: 'COURSE_STATUS',
+        promptVersion: 1,
+        body: 'A private note',
+        courseId: 'course-2',
+      })
+    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
+
+    expect(mockPrisma.reflection.create).not.toHaveBeenCalled();
+  });
+
+  it('canonicalizes post-practice relationships and rejects an unrelated owned Anchor', async () => {
+    mockPrisma.practiceSession.findUnique.mockResolvedValue({
+      id: 'session-1',
+      userId: 'user-1',
+      anchorId: 'anchor-1',
+      courseId: 'course-1',
+      waypointId: 'waypoint-1',
+    });
+    mockPrisma.anchor.findFirst.mockResolvedValue({ id: 'anchor-2' });
+
+    await expect(
+      reflectionService.create('user-1', {
+        idempotencyKey: 'post-practice-mismatch',
+        source: 'POST_PRACTICE',
+        promptType: 'HOW_DO_YOU_FEEL_NOW',
+        promptVersion: 1,
+        body: 'I feel focused.',
+        practiceSessionId: 'session-1',
+        anchorId: 'anchor-2',
+      })
+    ).rejects.toMatchObject({ code: 'REFLECTION_INVALID' });
+
+    mockPrisma.reflection.findUnique.mockResolvedValue({
+      ...baseReflection,
+      id: 'post-practice-reflection',
+      idempotencyKey: 'post-practice-replay',
+      source: 'POST_PRACTICE',
+      promptType: 'HOW_DO_YOU_FEEL_NOW',
+      body: 'I feel focused.',
+      practiceSessionId: 'session-1',
+      anchorId: 'anchor-1',
+      courseId: 'course-1',
+      waypointId: 'waypoint-1',
+    });
+    const replay = await reflectionService.create('user-1', {
+      idempotencyKey: 'post-practice-replay',
+      source: 'POST_PRACTICE',
+      promptType: 'HOW_DO_YOU_FEEL_NOW',
+      promptVersion: 1,
+      body: 'I feel focused.',
+      practiceSessionId: 'session-1',
+    });
+
+    expect(replay).toEqual(
+      expect.objectContaining({
+        practiceSessionId: 'session-1',
+        anchorId: 'anchor-1',
+        courseId: 'course-1',
+        waypointId: 'waypoint-1',
+      })
+    );
+    expect(mockPrisma.reflection.create).not.toHaveBeenCalled();
+  });
+
   it('keeps reflection text out of the CourseEvent snapshot', async () => {
     await reflectionService.create('user-1', {
       idempotencyKey: 'manual-event',

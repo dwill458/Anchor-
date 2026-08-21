@@ -5,9 +5,8 @@
  */
 
 import { NextFunction, Router, Response } from 'express';
-import { PracticeSession } from '@prisma/client';
+import { CourseAnchorRole, CourseStatus, PracticeSession, Prisma } from '@prisma/client';
 import { z } from 'zod';
-import type { Prisma } from '@prisma/client';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
@@ -21,6 +20,7 @@ import { validateVisualizationScene } from '../../services/VisualizationSceneSer
 import { requireVisualizeAccess } from '../../services/PracticeAccessService';
 import { courseEventService } from '../../services/CourseEventService';
 import { PRACTICE_ENTRY_SOURCES, type PracticeEntrySource } from '../../types/chart';
+import { getChartCapabilities } from '../../services/ChartCapabilityService';
 
 const router = Router();
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -38,6 +38,10 @@ const PRACTICE_ENTRY_SOURCE_VALUES = [...PRACTICE_ENTRY_SOURCES] as [
   PracticeEntrySource,
   ...PracticeEntrySource[],
 ];
+const CHART_PRACTICE_ENTRY_SOURCES: readonly PracticeEntrySource[] = [
+  'chart',
+  'chart_waypoint_detail',
+];
 
 type AuthenticatedPracticeUser = Prisma.UserGetPayload<{
   select: {
@@ -47,6 +51,7 @@ type AuthenticatedPracticeUser = Prisma.UserGetPayload<{
     subscriptionStatus: true;
     subscriptionId: true;
     trialStartedAt: true;
+    chartSchemaVersion: true;
   };
 }>;
 
@@ -179,6 +184,7 @@ async function getAuthenticatedUser(req: AuthRequest): Promise<AuthenticatedPrac
       subscriptionStatus: true,
       subscriptionId: true,
       trialStartedAt: true,
+      chartSchemaVersion: true,
     },
   });
   if (!user) throw new AppError('User not found', 404, 'USER_NOT_FOUND');
@@ -328,12 +334,118 @@ function immutableSessionMatches(
   );
 }
 
+function requiresChartPracticeAuthority(input: NormalizedPracticeSessionInput): boolean {
+  const chartSource =
+    input.practiceEntrySource != null &&
+    CHART_PRACTICE_ENTRY_SOURCES.includes(input.practiceEntrySource);
+  const hasChartIds = Boolean(input.courseId || input.waypointId);
+  if (!chartSource && !hasChartIds) return false;
+  if (!chartSource || !input.courseId || !input.waypointId) {
+    throw new AppError('Chart Practice context is incomplete', 422, 'PRACTICE_SESSION_INVALID');
+  }
+  return true;
+}
+
+async function requireCurrentChartPracticeAuthority(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  input: NormalizedPracticeSessionInput
+): Promise<string> {
+  const courseId = input.courseId!;
+  const waypointId = input.waypointId!;
+  const course = await tx.course.findUnique({
+    where: { id: courseId },
+    select: {
+      id: true,
+      userId: true,
+      status: true,
+      currentWaypointId: true,
+      deletedAt: true,
+    },
+  });
+  if (!course) throw new AppError('Course context is invalid', 422, 'PRACTICE_SESSION_INVALID');
+  if (course.userId !== userId) {
+    throw new AppError(
+      'Course context belongs to another account',
+      403,
+      'PRACTICE_SESSION_ACCOUNT_MISMATCH'
+    );
+  }
+  if (course.deletedAt || course.status !== CourseStatus.ACTIVE) {
+    throw new AppError('Course is not active', 409, 'COURSE_NOT_ACTIVE');
+  }
+  if (course.currentWaypointId !== waypointId) {
+    throw new AppError('Waypoint is not current', 409, 'WAYPOINT_NOT_CURRENT');
+  }
+
+  const waypoint = await tx.waypoint.findUnique({
+    where: { id: waypointId },
+    select: {
+      id: true,
+      userId: true,
+      courseId: true,
+      reachedAt: true,
+      skippedAt: true,
+      cancelledAt: true,
+    },
+  });
+  if (!waypoint) {
+    throw new AppError('Waypoint context is invalid', 422, 'PRACTICE_SESSION_INVALID');
+  }
+  if (waypoint.userId !== userId) {
+    throw new AppError(
+      'Waypoint context belongs to another account',
+      403,
+      'PRACTICE_SESSION_ACCOUNT_MISMATCH'
+    );
+  }
+  if (
+    waypoint.courseId !== courseId ||
+    waypoint.reachedAt ||
+    waypoint.skippedAt ||
+    waypoint.cancelledAt
+  ) {
+    throw new AppError('Waypoint context is invalid', 422, 'PRACTICE_SESSION_INVALID');
+  }
+
+  const activeLink = await tx.courseAnchorLink.findFirst({
+    where: {
+      userId,
+      courseId,
+      waypointId,
+      role: CourseAnchorRole.WAYPOINT_PRIMARY,
+      unlinkedAt: null,
+    },
+    select: {
+      anchorId: true,
+      anchor: { select: { id: true, userId: true, isArchived: true } },
+    },
+  });
+  const submittedServerAnchorId = input.anchorServerId ?? input.anchorId;
+  if (
+    !activeLink?.anchorId ||
+    !activeLink.anchor ||
+    activeLink.anchor.userId !== userId ||
+    activeLink.anchor.isArchived ||
+    input.anchorId !== activeLink.anchorId ||
+    submittedServerAnchorId !== activeLink.anchorId
+  ) {
+    // Deliberately do not reveal which Anchor is currently linked.
+    throw new AppError('Chart Anchor context is invalid', 422, 'PRACTICE_SESSION_INVALID');
+  }
+  return activeLink.anchorId;
+}
+
 router.post('/sessions', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const input = normalizeLegacySessionInput(validate(PracticeSessionSchema, req.body ?? {}));
     assertValidCompletedSession(input);
     const user = await getAuthenticatedUser(req);
     if (input.practiceMode === 'visualize') await requireVisualizeAccess(user);
+    const chartAttributed = requiresChartPracticeAuthority(input);
+    if (chartAttributed && !(await getChartCapabilities(user)).canCompleteExistingCourse) {
+      throw new AppError('Chart is currently unavailable', 403, 'FEATURE_DISABLED');
+    }
 
     const existing = await prisma.practiceSession.findUnique({ where: { id: input.id } });
     if (existing) {
@@ -344,126 +456,97 @@ router.post('/sessions', async (req: AuthRequest, res: Response, next: NextFunct
       return;
     }
 
-    if (input.waypointId && !input.courseId) {
-      throw new AppError('Waypoint context requires a Course', 422, 'PRACTICE_SESSION_INVALID');
-    }
-    if (input.courseId) {
-      const referencedCourse = await prisma.course.findUnique({
-        where: { id: input.courseId },
-        select: { id: true, userId: true },
-      });
-      if (!referencedCourse)
-        throw new AppError('Course context is invalid', 422, 'PRACTICE_SESSION_INVALID');
-      if (referencedCourse.userId !== user.id) {
-        throw new AppError(
-          'Course context belongs to another account',
-          403,
-          'PRACTICE_SESSION_ACCOUNT_MISMATCH'
-        );
-      }
-      if (input.waypointId) {
-        const referencedWaypoint = await prisma.waypoint.findUnique({
-          where: { id: input.waypointId },
-          select: { id: true, userId: true, courseId: true },
-        });
-        if (!referencedWaypoint)
-          throw new AppError('Waypoint context is invalid', 422, 'PRACTICE_SESSION_INVALID');
-        if (referencedWaypoint.userId !== user.id) {
-          throw new AppError(
-            'Waypoint context belongs to another account',
-            403,
-            'PRACTICE_SESSION_ACCOUNT_MISMATCH'
-          );
+    const created = await prisma.$transaction(
+      async tx => {
+        let relationAnchorId: string | null = null;
+        if (chartAttributed) {
+          relationAnchorId = await requireCurrentChartPracticeAuthority(tx, user.id, input);
+        } else if (input.anchorId) {
+          const referencedAnchor = await tx.anchor.findUnique({
+            where: { id: input.anchorId },
+            select: { id: true, userId: true },
+          });
+          if (referencedAnchor && referencedAnchor.userId !== user.id) {
+            throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
+          }
+          // A non-Chart session completed before a delete/release remains valid.
+          // Retain its snapshots without restoring a live Anchor relation.
+          relationAnchorId = referencedAnchor?.id ?? null;
         }
-        if (referencedWaypoint.courseId !== input.courseId) {
-          throw new AppError('Waypoint context is invalid', 422, 'PRACTICE_SESSION_INVALID');
-        }
-      }
-    }
-
-    let relationAnchorId: string | null = null;
-    if (input.anchorId) {
-      const referencedAnchor = await prisma.anchor.findUnique({
-        where: { id: input.anchorId },
-        select: { id: true, userId: true },
-      });
-      if (referencedAnchor && referencedAnchor.userId !== user.id) {
-        throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
-      }
-      // A session completed before a delete/release remains valid. If the
-      // anchor has since been deleted, retain its snapshots without restoring
-      // a live relation.
-      relationAnchorId = referencedAnchor?.id ?? null;
-    }
-
-    const created = await prisma.$transaction(async tx => {
-      const session = await tx.practiceSession.create({
-        data: {
-          id: input.id,
-          userId: user.id,
-          anchorId: relationAnchorId,
-          anchorLocalId: input.anchorLocalId ?? null,
-          anchorServerIdSnapshot: input.anchorServerId ?? input.anchorId,
-          practiceMode: input.practiceMode,
-          plannedDurationSeconds: input.plannedDurationSeconds,
-          completedDurationSeconds: input.completedDurationSeconds,
-          completionStatus: input.completionStatus,
-          startedAt: new Date(input.startedAt),
-          completedAt: new Date(input.completedAt),
-          localDateKey: input.localDateKey,
-          timeZone: input.timeZone,
-          utcOffsetMinutesAtCompletion: input.utcOffsetMinutesAtCompletion,
-          completionSource: input.completionSource,
-          schemaVersion: input.schemaVersion,
-          legacyType: input.legacyType ?? null,
-          guidanceVoice: input.guidanceVoice,
-          backgroundAudio: input.backgroundAudio,
-          sceneSnapshot: input.sceneSnapshot ?? null,
-          nextAction: input.nextAction ?? null,
-          clientVersion: input.clientVersion ?? null,
-          metadata: input.metadata as Prisma.InputJsonValue | undefined,
-          courseId: input.courseId ?? null,
-          waypointId: input.waypointId ?? null,
-          practiceEntrySource: input.practiceEntrySource ?? null,
-        },
-      });
-      if (input.courseId) {
-        await courseEventService.append(tx, {
-          userId: user.id,
-          courseId: input.courseId,
-          waypointId: input.waypointId ?? null,
-          eventType: 'PRACTICE_COMPLETED',
-          sourceEntityType: 'PracticeSession',
-          sourceEntityId: session.id,
-          snapshot: {
-            practiceMode: input.practiceMode,
-            durationSeconds: input.completedDurationSeconds,
-          },
-          occurredAt: new Date(input.completedAt),
-          idempotencyKey: `chart:practice-completed:${session.id}`,
-        });
-      }
-      // Focus/Deep Prime retain their existing legacy activation/charge writes
-      // during compatibility. Visualize has no legacy row, so it owns the
-      // compatibility counters here.
-      if (relationAnchorId && input.practiceMode === 'visualize') {
-        await tx.anchor.update({
-          where: { id: relationAnchorId },
+        const session = await tx.practiceSession.create({
           data: {
-            activationCount: { increment: 1 },
-            lastActivatedAt: new Date(input.completedAt),
+            id: input.id,
+            userId: user.id,
+            anchorId: relationAnchorId,
+            anchorLocalId: input.anchorLocalId ?? null,
+            anchorServerIdSnapshot: input.anchorServerId ?? input.anchorId,
+            practiceMode: input.practiceMode,
+            plannedDurationSeconds: input.plannedDurationSeconds,
+            completedDurationSeconds: input.completedDurationSeconds,
+            completionStatus: input.completionStatus,
+            startedAt: new Date(input.startedAt),
+            completedAt: new Date(input.completedAt),
+            localDateKey: input.localDateKey,
+            timeZone: input.timeZone,
+            utcOffsetMinutesAtCompletion: input.utcOffsetMinutesAtCompletion,
+            completionSource: input.completionSource,
+            schemaVersion: input.schemaVersion,
+            legacyType: input.legacyType ?? null,
+            guidanceVoice: input.guidanceVoice,
+            backgroundAudio: input.backgroundAudio,
+            sceneSnapshot: input.sceneSnapshot ?? null,
+            nextAction: input.nextAction ?? null,
+            clientVersion: input.clientVersion ?? null,
+            metadata: input.metadata as Prisma.InputJsonValue | undefined,
+            courseId: input.courseId ?? null,
+            waypointId: input.waypointId ?? null,
+            practiceEntrySource: input.practiceEntrySource ?? null,
           },
         });
-        await tx.user.update({
-          where: { id: user.id },
-          data: { totalActivations: { increment: 1 } },
-        });
-      }
-      return session;
-    });
+        if (input.courseId) {
+          await courseEventService.append(tx, {
+            userId: user.id,
+            courseId: input.courseId,
+            waypointId: input.waypointId ?? null,
+            eventType: 'PRACTICE_COMPLETED',
+            sourceEntityType: 'PracticeSession',
+            sourceEntityId: session.id,
+            snapshot: {
+              practiceMode: input.practiceMode,
+              durationSeconds: input.completedDurationSeconds,
+            },
+            occurredAt: new Date(input.completedAt),
+            idempotencyKey: `chart:practice-completed:${session.id}`,
+          });
+        }
+        // Focus/Deep Prime retain their existing legacy activation/charge writes
+        // during compatibility. Visualize has no legacy row, so it owns the
+        // compatibility counters here.
+        if (relationAnchorId && input.practiceMode === 'visualize') {
+          await tx.anchor.update({
+            where: { id: relationAnchorId },
+            data: {
+              activationCount: { increment: 1 },
+              lastActivatedAt: new Date(input.completedAt),
+            },
+          });
+          await tx.user.update({
+            where: { id: user.id },
+            data: { totalActivations: { increment: 1 } },
+          });
+        }
+        return session;
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    );
     res.status(201).json({ success: true, data: created, idempotent: false });
   } catch (error) {
     if (error instanceof AppError) return next(error);
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
+      return next(
+        new AppError('Chart Practice context changed during completion', 409, 'SYNC_CONFLICT')
+      );
+    }
     return next(new AppError('Failed to record practice session', 500, 'PRACTICE_ERROR'));
   }
 });

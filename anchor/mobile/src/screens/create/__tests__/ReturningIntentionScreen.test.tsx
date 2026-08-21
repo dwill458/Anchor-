@@ -4,9 +4,17 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react-
 import ReturningIntentionScreen from '../ReturningIntentionScreen';
 
 const mockNavigate = jest.fn();
+const mockGoBack = jest.fn();
+const mockCanGoBack = jest.fn(() => true);
+const mockNavigation = {
+  navigate: mockNavigate,
+  goBack: mockGoBack,
+  canGoBack: mockCanGoBack,
+};
 const mockSetPendingForgeIntent = jest.fn();
 const mockClearPendingForgeIntent = jest.fn();
 const mockSetPendingForgeResumeTarget = jest.fn();
+const mockBindChartAccount = jest.fn();
 
 let mockPendingForgeIntent: string | null = null;
 let mockIsAuthenticated = true;
@@ -15,27 +23,49 @@ let mockAnchorCount = 1;
 
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
-  useNavigation: () => ({ navigate: mockNavigate, goBack: jest.fn() }),
+  useNavigation: () => mockNavigation,
   useFocusEffect: (effect: any) => require('react').useEffect(effect, [effect]),
   useRoute: () => ({ params: {} }),
 }));
 
-jest.mock('@/stores/authStore', () => ({
-  useAuthStore: (selector: (state: Record<string, unknown>) => unknown) =>
-    selector({
+jest.mock('@/stores/authStore', () => {
+  const getState = () => ({
       isAuthenticated: mockIsAuthenticated,
+      user: mockIsAuthenticated ? { id: 'returning-test-account' } : null,
       pendingForgeIntent: mockPendingForgeIntent,
       setPendingForgeIntent: mockSetPendingForgeIntent,
       clearPendingForgeIntent: mockClearPendingForgeIntent,
       setPendingForgeResumeTarget: mockSetPendingForgeResumeTarget,
-    }),
-}));
+  });
+  const useAuthStore: any = (selector: (state: Record<string, unknown>) => unknown) => selector(getState());
+  useAuthStore.getState = getState;
+  return { useAuthStore };
+});
 
 jest.mock('@/stores/anchorStore', () => ({
   useAnchorStore: (selector: (state: Record<string, unknown>) => unknown) =>
     selector({
       anchors: Array.from({ length: mockAnchorCount }, (_, index) => ({ id: `anchor-${index}` })),
     }),
+}));
+
+jest.mock('@/stores/chartJourneyStore', () => {
+  const getState = () => ({
+    accountId: 'returning-test-account',
+    hydrated: true,
+    anchorCreationHandoff: null,
+    bindAccount: mockBindChartAccount,
+  });
+  const useChartJourneyStore: any = (selector?: (state: Record<string, unknown>) => unknown) => {
+    const state = getState();
+    return selector ? selector(state) : state;
+  };
+  useChartJourneyStore.getState = getState;
+  return { useChartJourneyStore };
+});
+
+jest.mock('@/services/ChartAnchorHandoffService', () => ({
+  cancelChartAnchorCreationHandoff: jest.fn(),
 }));
 
 jest.mock('@/hooks/useTrialStatus', () => ({
@@ -80,9 +110,12 @@ jest.mock('@/components/common', () => ({
 describe('ReturningIntentionScreen', () => {
   beforeEach(() => {
     mockNavigate.mockClear();
+    mockGoBack.mockClear();
+    mockCanGoBack.mockClear();
     mockSetPendingForgeIntent.mockClear();
     mockClearPendingForgeIntent.mockClear();
     mockSetPendingForgeResumeTarget.mockClear();
+    mockBindChartAccount.mockReset().mockResolvedValue(undefined);
     mockPendingForgeIntent = null;
     mockIsAuthenticated = true;
     mockHasActiveEntitlement = true;
@@ -145,8 +178,11 @@ describe('ReturningIntentionScreen', () => {
     ['zzzzzz', "That doesn't look like an intention. What do you actually want?"],
     ['I will focus today', 'Try present tense: "I choose…" "I am…" or "I return…"'],
     ["I don't check social media", 'Try affirmative: "I choose…" instead of "I don\'t…"'],
-  ])('shows shared intention guidance for %s', (text, guidance) => {
+  ])('shows shared intention guidance for %s', async (text, guidance) => {
     render(<ReturningIntentionScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
     const input = screen.UNSAFE_getByType(TextInput);
 
     fireEvent.changeText(input, text);
