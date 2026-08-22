@@ -15,6 +15,7 @@ import {
 import { BlurView } from 'expo-blur';
 import { requireOptionalNativeModule } from 'expo-modules-core';
 import { Check, ChevronDown, X } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
 import { detectTimezoneLabel, EMPTY_AXIOM, TIMEZONE_OPTIONS, type ProfileMono, type StoredProfile } from '@/stores/profileStore';
@@ -62,6 +63,7 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
   const [photoSheetOpen, setPhotoSheetOpen] = useState(false);
   const [timezoneOpen, setTimezoneOpen] = useState(false);
   const [focusedField, setFocusedField] = useState<'name' | 'axiom' | null>(null);
+  const insets = useSafeAreaInsets();
 
   const translateY = useRef(new Animated.Value(520)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
@@ -214,7 +216,7 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
               },
             ]}
           >
-            <View style={styles.headerRow}>
+            <View style={[styles.headerRow, { paddingTop: insets.top + 12 }]}>
               <Pressable hitSlop={10} onPress={onClose} style={styles.headerButton}>
                 <X color={colors.anchor15.ash} size={18} strokeWidth={1.5} />
               </Pressable>
