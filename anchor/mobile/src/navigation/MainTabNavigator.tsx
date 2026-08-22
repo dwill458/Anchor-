@@ -250,7 +250,6 @@ export const CustomTabBar: React.FC<CustomTabBarProps> = ({
             >
               <View style={[styles.tabContent, isActive && styles.tabContentActive]}>
                 <View style={styles.iconWrap}>
-                  {isActive && <View style={styles.activeIconHalo} pointerEvents="none" />}
                   {tab.icon(isActive)}
                 </View>
                 <Text
@@ -470,7 +469,7 @@ export const MainTabNavigator: React.FC = () => {
           <CustomTabBar
             activeIndex={renderedActiveIndex}
             onTabPress={handleIndexChange}
-            tabs={TABS}
+            tabs={TABS.filter((tab) => tab.label !== 'CHART')}
           />
         )}
       </View>
@@ -550,13 +549,6 @@ const styles = StyleSheet.create({
     height: 24,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  activeIconHalo: {
-    position: 'absolute',
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(222, 191, 125, 0.076)',
   },
   tabLabel: {
     fontFamily: typography.fontFamily.ritual || 'Cinzel-Regular',
