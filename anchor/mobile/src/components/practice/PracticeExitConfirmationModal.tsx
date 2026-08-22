@@ -67,7 +67,7 @@ function resolveModeMetadata(mode?: PracticeExitMode | string): {
     case 'deepPrime':
       return {
         defaultTitle: 'Exit Deep Prime?',
-        color: colors.bronze, // bronze (#CD7F32)
+        color: colors.practiceMode.deepPrime.bright, // gold (#F0CB6A)
       };
     case 'visualize':
       return {
