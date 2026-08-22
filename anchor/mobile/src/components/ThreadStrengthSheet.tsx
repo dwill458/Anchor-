@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   Image,
   Modal,
@@ -8,16 +8,24 @@ import {
   Text,
   View,
 } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedProps,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Circle } from 'react-native-svg';
-import { SvgXml } from 'react-native-svg';
+import Svg, { Circle, SvgXml } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSessionStore, type SessionLogEntry } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import type { PrimingHistoryEntry } from '@/utils/primingAnalytics';
 import { calculateStreak } from '@/utils/streakHelpers';
-import { spacing, typography } from '@/theme';
+import { colors, spacing, typography } from '@/theme';
 
 export interface ThreadStrengthSheetProps {
   visible: boolean;
@@ -62,21 +70,25 @@ interface ClassifiedEntry extends PrimingLikeEntry {
 
 const WEEKDAY_LABELS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as const;
 const DUPLICATE_WINDOW_MS = 5 * 1000;
-const GAUGE_CIRCUMFERENCE = 2 * Math.PI * 30;
+const GAUGE_RADIUS = 45;
+const GAUGE_CIRCUMFERENCE = 2 * Math.PI * GAUGE_RADIUS;
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const C = {
   sheet: '#131820',
   overlay: 'rgba(8,11,16,0.72)',
   card: 'rgba(255,255,255,0.04)',
   cardBorder: 'rgba(212,175,55,0.12)',
-  gold: '#D4AF37',
+  gold: colors.gold,
   goldDim: '#8a7120',
-  purple: '#9B7FD4',
-  purpleDark: '#3E2C5B',
-  bone: '#F5F5DC',
-  silver: 'rgba(245,245,220,0.68)',
-  silverDim: 'rgba(245,245,220,0.4)',
+  goldSoft: 'rgba(212,175,55,0.35)',
+  silver: colors.silver,
+  bone: colors.bone,
+  silverDim: 'rgba(245,245,220,0.68)',
+  silverMuted: 'rgba(245,245,220,0.55)',
   silverSoft: 'rgba(245,245,220,0.28)',
+  hairline: 'rgba(245,245,220,0.10)',
 };
 
 function localDateString(date: Date): string {
@@ -304,37 +316,117 @@ function deriveThreadStrengthData(params: {
   };
 }
 
-const StrengthGauge: React.FC<{ value: number }> = ({ value }) => {
+const StrengthGauge: React.FC<{ value: number; reduceMotion: boolean }> = ({ value, reduceMotion }) => {
   const clampedValue = Math.max(0, Math.min(100, Math.round(value)));
-  const strokeDashoffset = GAUGE_CIRCUMFERENCE * (1 - clampedValue / 100);
+  const progress = useSharedValue(reduceMotion ? 1 : 0);
+
+  useEffect(() => {
+    if (reduceMotion) {
+      progress.value = 1;
+      return;
+    }
+    progress.value = 0;
+    progress.value = withTiming(1, {
+      duration: 1000,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [reduceMotion]);
+
+  const animatedCircleProps = useAnimatedProps(() => {
+    const strokeDashoffset = GAUGE_CIRCUMFERENCE * (1 - (clampedValue / 100) * progress.value);
+    return {
+      strokeDashoffset,
+    };
+  });
 
   return (
     <View style={styles.gaugeWrap}>
-      <Svg width={76} height={76} viewBox="0 0 76 76">
+      <Svg width={104} height={104} viewBox="0 0 104 104">
         <Circle
-          cx={38}
-          cy={38}
-          r={30}
-          stroke="rgba(255,255,255,0.06)"
-          strokeWidth={5.5}
+          cx={52}
+          cy={52}
+          r={GAUGE_RADIUS}
+          stroke="rgba(245,245,220,0.08)"
+          strokeWidth={8}
           fill="none"
         />
-        <Circle
-          cx={38}
-          cy={38}
-          r={30}
+        <AnimatedCircle
+          cx={52}
+          cy={52}
+          r={GAUGE_RADIUS}
           stroke={C.gold}
-          strokeWidth={5.5}
+          strokeWidth={8}
           fill="none"
           strokeLinecap="round"
           strokeDasharray={`${GAUGE_CIRCUMFERENCE} ${GAUGE_CIRCUMFERENCE}`}
-          strokeDashoffset={strokeDashoffset}
-          transform="rotate(-90 38 38)"
+          animatedProps={animatedCircleProps}
+          transform="rotate(-90 52 52)"
         />
       </Svg>
       <View style={styles.gaugeInner}>
-        <Text style={styles.gaugePct}>{clampedValue}</Text>
-        <Text style={styles.gaugeLabel}>STRENGTH</Text>
+        <View style={styles.gaugeScoreRow}>
+          <Text style={styles.gaugeScoreNumber}>{clampedValue}</Text>
+          <Text style={styles.gaugeScoreOutOf}>/100</Text>
+        </View>
+        <Text style={styles.gaugeScoreCaption}>STRENGTH</Text>
+      </View>
+    </View>
+  );
+};
+
+interface StatRowProps {
+  label: string;
+  value: string | number;
+  fillPct: number;
+  fillColor: string;
+  delayMs: number;
+  reduceMotion: boolean;
+}
+
+const StatRow: React.FC<StatRowProps> = ({
+  label,
+  value,
+  fillPct,
+  fillColor,
+  delayMs,
+  reduceMotion,
+}) => {
+  const clampedPct = Math.max(0, Math.min(100, fillPct));
+  const progress = useSharedValue(reduceMotion ? 1 : 0);
+
+  useEffect(() => {
+    if (reduceMotion) {
+      progress.value = 1;
+      return;
+    }
+    progress.value = 0;
+    progress.value = withDelay(
+      delayMs,
+      withTiming(1, {
+        duration: 900,
+        easing: Easing.out(Easing.cubic),
+      })
+    );
+  }, [delayMs, reduceMotion]);
+
+  const animatedBarStyle = useAnimatedStyle(() => ({
+    width: `${progress.value * clampedPct}%`,
+  }));
+
+  return (
+    <View style={styles.statRow}>
+      <View style={styles.statRowTop}>
+        <Text style={styles.statLabel}>{label}</Text>
+        <Text style={styles.statValue}>{value}</Text>
+      </View>
+      <View style={styles.statBarTrack}>
+        <Animated.View
+          style={[
+            styles.statBarFill,
+            { backgroundColor: fillColor },
+            animatedBarStyle,
+          ]}
+        />
       </View>
     </View>
   );
@@ -346,6 +438,7 @@ export const ThreadStrengthSheet: React.FC<ThreadStrengthSheetProps> = ({
   anchorId,
 }) => {
   const insets = useSafeAreaInsets();
+  const reduceMotion = useReduceMotionEnabled();
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const primingHistory = useSessionStore((state) => state.primingHistory ?? []);
   const sessionLog = useSessionStore((state) => state.sessionLog);
@@ -397,6 +490,7 @@ export const ThreadStrengthSheet: React.FC<ThreadStrengthSheetProps> = ({
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
           >
+            {/* 1. Header with seal & quote (duplicate % pill removed) */}
             <View style={styles.header}>
               <View style={styles.thumb} testID="thread-strength-sheet-sigil">
                 {sigilUri ? (
@@ -418,49 +512,77 @@ export const ThreadStrengthSheet: React.FC<ThreadStrengthSheetProps> = ({
 
               <View style={styles.headerMeta}>
                 <Text style={styles.headerSup}>This Anchor · Thread Strength</Text>
-                <Text numberOfLines={1} style={styles.headerTitle}>
+                <Text numberOfLines={2} style={styles.headerTitle}>
                   {intention}
                 </Text>
               </View>
-
-              <Text style={styles.headerPct}>{data.strengthPct}%</Text>
             </View>
 
-            <View style={styles.gaugeRow}>
-              <StrengthGauge value={data.strengthPct} />
-              <View style={styles.gaugeText}>
-                <Text style={styles.gaugeTitle}>This Anchor Only</Text>
-                <Text style={styles.gaugeBody}>
-                  Thread Strength grows when you come back to this anchor consistently.
-                  {'\n'}
-                  {tagline}
+            <View style={styles.hr} />
+
+            {/* 2. Score row: Ring + Promoted State Headline */}
+            <View style={styles.scoreRow}>
+              <StrengthGauge value={data.strengthPct} reduceMotion={reduceMotion} />
+              <View style={styles.scoreCopy}>
+                <Text style={styles.stateHeadline}>{tagline}</Text>
+                <Text style={styles.stateExplainer}>
+                  Grows when you come back to this anchor consistently.
                 </Text>
               </View>
             </View>
 
-            <View style={styles.statsGrid}>
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>{data.totalSessions}</Text>
-                <Text style={styles.statLabel}>Total Sessions</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>{data.currentStreak}</Text>
-                <Text style={styles.statLabel}>Current Constancy</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>{data.longestStreak}</Text>
-                <Text style={styles.statLabel}>Longest Constancy</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={[styles.statValue, styles.statValuePurple]}>{data.deepPrimePct}%</Text>
-                <Text style={styles.statLabel}>Deep Primes</Text>
-              </View>
+            <View style={styles.hr} />
+
+            {/* 3. Stat rows (replaces 2x2 tile grid) */}
+            {/* DEFERRED: 2x2 stat tile grid replaced with ordered weighted rows (v2 redesign).
+                To restore the 2x2 grid, render:
+                <View style={styles.statsGrid}>
+                  <View style={styles.statCard}><Text style={styles.statValue}>{data.totalSessions}</Text><Text style={styles.statLabel}>Total Sessions</Text></View>
+                  <View style={styles.statCard}><Text style={styles.statValue}>{data.currentStreak}</Text><Text style={styles.statLabel}>Current Constancy</Text></View>
+                  <View style={styles.statCard}><Text style={styles.statValue}>{data.longestStreak}</Text><Text style={styles.statLabel}>Longest Constancy</Text></View>
+                  <View style={styles.statCard}><Text style={[styles.statValue, { color: C.silver }]}>{data.deepPrimePct}%</Text><Text style={styles.statLabel}>Deep Primes</Text></View>
+                </View>
+            */}
+            <View style={styles.statRows}>
+              <StatRow
+                label="Total Sessions"
+                value={data.totalSessions}
+                fillPct={Math.min(100, Math.round((data.totalSessions / 35) * 100))}
+                fillColor={C.gold}
+                delayMs={150}
+                reduceMotion={reduceMotion}
+              />
+              <StatRow
+                label="Longest Constancy"
+                value={data.longestStreak}
+                fillPct={Math.min(100, Math.round((data.longestStreak / 10) * 100))}
+                fillColor={C.gold}
+                delayMs={240}
+                reduceMotion={reduceMotion}
+              />
+              <StatRow
+                label="Current Constancy"
+                value={data.currentStreak}
+                fillPct={Math.min(100, Math.round((data.currentStreak / 10) * 100))}
+                fillColor={data.currentStreak > 0 ? C.gold : 'rgba(245,245,220,0.18)'}
+                delayMs={330}
+                reduceMotion={reduceMotion}
+              />
+              <StatRow
+                label="Deep Primes"
+                value={`${data.deepPrimePct}%`}
+                fillPct={data.deepPrimePct}
+                fillColor={C.silver}
+                delayMs={420}
+                reduceMotion={reduceMotion}
+              />
             </View>
 
+            {/* 4. Session Breakdown (Deep Primes colored Silver, zero Deep Purple token usage) */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionLabel}>Session Breakdown</Text>
-                <Text style={styles.sectionValue}>{data.deepPrimePct}% Deep Primes</Text>
+                <Text style={styles.sectionValueSilver}>{data.deepPrimePct}% Deep Primes</Text>
               </View>
               <View style={styles.breakdownTrack}>
                 <LinearGradient
@@ -492,6 +614,7 @@ export const ThreadStrengthSheet: React.FC<ThreadStrengthSheetProps> = ({
               </View>
             </View>
 
+            {/* 5. Week Row */}
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>This Week</Text>
               <View style={styles.weekRow}>
@@ -514,6 +637,7 @@ export const ThreadStrengthSheet: React.FC<ThreadStrengthSheetProps> = ({
               </View>
             </View>
 
+            {/* 6. Sensitivity note */}
             <View style={styles.sensitivity}>
               <View style={styles.sensitivityDot} />
               <Text style={styles.sensitivityText}>
@@ -540,18 +664,18 @@ const styles = StyleSheet.create({
     backgroundColor: C.overlay,
   },
   sheet: {
-    maxHeight: '78%',
+    maxHeight: '82%',
     backgroundColor: C.sheet,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     borderTopWidth: 1,
     borderTopColor: 'rgba(212,175,55,0.18)',
   },
   handle: {
-    width: 36,
+    width: 44,
     height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(212,175,55,0.25)',
+    borderRadius: 4,
+    backgroundColor: C.goldSoft,
     alignSelf: 'center',
     marginTop: 12,
   },
@@ -564,14 +688,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(212,175,55,0.1)',
+    paddingBottom: spacing.sm,
   },
   thumb: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
@@ -593,104 +715,117 @@ const styles = StyleSheet.create({
   headerMeta: {
     flex: 1,
     minWidth: 0,
+    gap: 3,
   },
   headerSup: {
     fontFamily: typography.fonts.heading,
-    fontSize: 9,
-    color: 'rgba(212,175,55,0.6)',
-    letterSpacing: 1,
+    fontSize: 10.5,
+    color: C.gold,
+    letterSpacing: 1.6,
     textTransform: 'uppercase',
+    opacity: 0.85,
   },
   headerTitle: {
-    marginTop: 3,
     fontFamily: typography.fonts.bodySerifItalic,
-    fontSize: 14,
+    fontSize: 16,
     color: C.bone,
+    lineHeight: 21,
   },
-  headerPct: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.2)',
-    backgroundColor: 'rgba(212,175,55,0.08)',
-    fontFamily: typography.fonts.headingBold,
-    fontSize: 12,
-    color: C.gold,
+  hr: {
+    height: 1,
+    backgroundColor: C.hairline,
+    marginVertical: 2,
   },
-  gaugeRow: {
+  scoreRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: 18,
   },
   gaugeWrap: {
-    width: 76,
-    height: 76,
+    width: 104,
+    height: 104,
+    position: 'relative',
+    flexShrink: 0,
   },
   gaugeInner: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  gaugePct: {
-    fontFamily: typography.fonts.headingBold,
-    fontSize: 17,
-    color: C.gold,
-    lineHeight: 18,
-  },
-  gaugeLabel: {
-    marginTop: 2,
-    fontFamily: typography.fonts.body,
-    fontSize: 8,
-    color: C.silverSoft,
-    letterSpacing: 0.9,
-  },
-  gaugeText: {
-    flex: 1,
-  },
-  gaugeTitle: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 13,
-    color: C.bone,
-    letterSpacing: 0.5,
-  },
-  gaugeBody: {
-    marginTop: 4,
-    fontFamily: typography.fonts.bodySerifItalic,
-    fontSize: 13,
-    lineHeight: 18,
-    color: C.silver,
-  },
-  statsGrid: {
+  gaugeScoreRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    alignItems: 'flex-end',
   },
-  statCard: {
-    width: '48.5%',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: C.cardBorder,
-    backgroundColor: C.card,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 1,
-  },
-  statValue: {
+  gaugeScoreNumber: {
     fontFamily: typography.fonts.headingBold,
-    fontSize: 20,
+    fontSize: 28,
+    color: C.bone,
+    lineHeight: 30,
+  },
+  gaugeScoreOutOf: {
+    fontFamily: typography.fonts.body,
+    fontSize: 12,
+    color: C.bone,
+    opacity: 0.55,
+    marginLeft: 2,
+    marginBottom: 2,
+  },
+  gaugeScoreCaption: {
+    marginTop: 4,
+    fontFamily: typography.fonts.heading,
+    fontSize: 9,
+    color: C.silverMuted,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  scoreCopy: {
+    flex: 1,
+    gap: 6,
+  },
+  stateHeadline: {
+    fontFamily: typography.fonts.headingBold,
+    fontSize: 18,
     color: C.gold,
     lineHeight: 22,
   },
-  statValuePurple: {
-    color: C.purple,
+  stateExplainer: {
+    fontFamily: typography.fonts.bodySerif,
+    fontSize: 14,
+    lineHeight: 19,
+    color: C.silverMuted,
+  },
+  statRows: {
+    gap: 12,
+  },
+  statRow: {
+    gap: 5,
+  },
+  statRowTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
   },
   statLabel: {
-    marginTop: 3,
-    fontFamily: typography.fonts.body,
-    fontSize: 9,
-    color: C.silverSoft,
-    letterSpacing: 0.8,
+    fontFamily: typography.fonts.heading,
+    fontSize: 10.5,
+    letterSpacing: 1.2,
+    color: C.silverMuted,
     textTransform: 'uppercase',
+  },
+  statValue: {
+    fontFamily: typography.fonts.headingBold,
+    fontSize: 15,
+    color: C.bone,
+  },
+  statBarTrack: {
+    height: 4,
+    borderRadius: 4,
+    backgroundColor: 'rgba(245,245,220,0.07)',
+    overflow: 'hidden',
+  },
+  statBarFill: {
+    height: '100%',
+    borderRadius: 4,
   },
   section: {
     gap: spacing.sm,
@@ -698,26 +833,26 @@ const styles = StyleSheet.create({
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'baseline',
     gap: spacing.md,
   },
   sectionLabel: {
-    fontFamily: typography.fonts.body,
-    fontSize: 10,
-    color: C.silverSoft,
+    fontFamily: typography.fonts.heading,
+    fontSize: 10.5,
+    color: C.silverMuted,
     letterSpacing: 1.2,
     textTransform: 'uppercase',
   },
-  sectionValue: {
-    fontFamily: typography.fonts.body,
-    fontSize: 10,
-    color: C.purple,
+  sectionValueSilver: {
+    fontFamily: typography.fonts.bodySerifItalic,
+    fontSize: 13,
+    color: C.silver,
   },
   breakdownTrack: {
-    height: 6,
-    borderRadius: 999,
+    height: 8,
+    borderRadius: 4,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: 'rgba(245,245,220,0.07)',
     flexDirection: 'row',
   },
   breakdownFocus: {
@@ -725,7 +860,7 @@ const styles = StyleSheet.create({
   },
   breakdownDeep: {
     height: '100%',
-    backgroundColor: C.purpleDark,
+    backgroundColor: C.silver,
   },
   breakdownVisualize: {
     height: '100%',
@@ -738,8 +873,8 @@ const styles = StyleSheet.create({
   },
   breakdownText: {
     fontFamily: typography.fonts.bodySerifItalic,
-    fontSize: 11,
-    color: C.silverDim,
+    fontSize: 13,
+    color: C.silverMuted,
   },
   weekRow: {
     flexDirection: 'row',
@@ -748,50 +883,51 @@ const styles = StyleSheet.create({
   },
   weekDay: {
     alignItems: 'center',
-    gap: 5,
+    gap: 6,
     flex: 1,
   },
   weekLabel: {
     fontFamily: typography.fonts.body,
-    fontSize: 8,
-    color: C.silverSoft,
+    fontSize: 11,
+    color: C.silverMuted,
     letterSpacing: 0.5,
   },
   weekDot: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(245,245,220,0.15)',
     backgroundColor: 'rgba(255,255,255,0.04)',
   },
   weekDotFocus: {
-    backgroundColor: 'rgba(212,175,55,0.16)',
-    borderColor: 'rgba(212,175,55,0.45)',
+    backgroundColor: 'rgba(212,175,55,0.18)',
+    borderColor: C.gold,
   },
   weekDotDeep: {
-    backgroundColor: 'rgba(62,44,91,0.7)',
-    borderColor: C.purple,
+    backgroundColor: 'rgba(192,192,192,0.18)',
+    borderColor: C.silver,
   },
   weekDotVisualize: {
     backgroundColor: 'rgba(24,59,101,0.8)',
     borderColor: '#6E9BC8',
   },
   weekDotToday: {
+    borderColor: C.gold,
     shadowColor: C.gold,
-    shadowOpacity: 0.28,
+    shadowOpacity: 0.35,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 0 },
     elevation: 3,
   },
   deepPip: {
     position: 'absolute',
-    top: 6,
-    left: 6,
+    top: 7,
+    left: 7,
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: 'rgba(155,127,212,0.85)',
+    backgroundColor: C.silver,
   },
   sensitivity: {
     flexDirection: 'row',
@@ -814,11 +950,12 @@ const styles = StyleSheet.create({
   sensitivityText: {
     flex: 1,
     fontFamily: typography.fonts.bodySerif,
-    fontSize: 11,
-    lineHeight: 16,
-    color: C.silverDim,
+    fontSize: 12,
+    lineHeight: 17,
+    color: C.silverMuted,
   },
   sensitivityStrong: {
+    fontFamily: typography.fonts.headingBold,
     color: C.gold,
   },
 });
