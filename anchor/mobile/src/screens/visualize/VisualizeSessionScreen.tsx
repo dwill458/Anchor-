@@ -164,18 +164,26 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
     ],
   );
 
+  const sessionDefaults = useSettingsStore(
+    (state) => state.sessionAudioDefaults?.visualize,
+  );
+  const resolvedGuidanceVoice =
+    guidanceVoice ?? sessionDefaults?.guidanceVoice ?? 'female';
+  const resolvedBackgroundAudio =
+    backgroundAudio ?? sessionDefaults?.backgroundAudio ?? 'ambient';
+
   const audioPlan = useMemo(
     () =>
       resolveSessionAudioPlan({
         sessionType: 'visualize',
         durationSeconds,
         configuration: {
-          guidanceVoice,
-          backgroundAudio,
+          guidanceVoice: resolvedGuidanceVoice,
+          backgroundAudio: resolvedBackgroundAudio,
           source: 'session_override',
         },
       }),
-    [backgroundAudio, durationSeconds, guidanceVoice],
+    [durationSeconds, resolvedBackgroundAudio, resolvedGuidanceVoice],
   );
 
   const audioManifest = useMemo(
@@ -189,6 +197,10 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
     onComplete: complete,
   });
 
+  const handleInterruption = useCallback(() => {
+    engine.pause('audio_interrupted');
+  }, [engine]);
+
   const { fadeOutAndStop } = useVisualizeSessionAudio({
     plan: audioPlan,
     manifest: audioManifest,
@@ -196,7 +208,7 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
     isActive: engine.state === 'running',
     isCompleting: engine.state === 'completing',
     isComplete: engine.state === 'completed',
-    onInterruption: () => engine.pause('audio_interrupted'),
+    onInterruption: handleInterruption,
   });
 
   const isPaused = engine.state === 'paused';

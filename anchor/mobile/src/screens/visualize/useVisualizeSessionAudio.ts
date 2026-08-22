@@ -60,14 +60,22 @@ export function useVisualizeSessionAudio(params: {
   const previousActiveRef = useRef(false);
   const hasStartedRef = useRef(false);
   const ambientWasPlayingRef = useRef(false);
-  const isActiveRef = useRef(params.isActive);
   const intentionalPauseRef = useRef(false);
   const earlyExitInProgressRef = useRef(false);
   const mountedRef = useRef(true);
   const generationRef = useRef(0);
   const resumedAtRef = useRef(0);
 
+  const planRef = useRef(params.plan);
+  planRef.current = params.plan;
+  const manifestRef = useRef(params.manifest);
+  manifestRef.current = params.manifest;
+  const isActiveRef = useRef(params.isActive);
   isActiveRef.current = params.isActive;
+  const onInterruptionRef = useRef(params.onInterruption);
+  onInterruptionRef.current = params.onInterruption;
+
+  const planKey = `${params.plan.sessionType}:${params.plan.durationSeconds}:${params.plan.configuration.guidanceVoice}:${params.plan.configuration.backgroundAudio}`;
 
   const isCurrent = useCallback(
     (generation: number) => mountedRef.current && generationRef.current === generation,
@@ -167,24 +175,23 @@ export function useVisualizeSessionAudio(params: {
 
   const restoreAmbient = useCallback(() => {
     if (completionInFlightRef.current || earlyExitInProgressRef.current) return;
+    const currentPlan = planRef.current;
+    const currentManifest = manifestRef.current;
     fadeAmbientTo(
-      getVisualizeAmbientRestingVolume(params.plan.shouldPlayVoice),
-      params.manifest.cues[0]?.duckingEnvelope.releaseMs ?? 400,
+      getVisualizeAmbientRestingVolume(currentPlan.shouldPlayVoice),
+      currentManifest.cues[0]?.duckingEnvelope.releaseMs ?? 400,
     );
-  }, [
-    fadeAmbientTo,
-    params.manifest.cues,
-    params.plan.shouldPlayVoice,
-  ]);
+  }, [fadeAmbientTo]);
 
   const prepareCue = useCallback(
     (cue: ResolvedVoiceCue | null, generation = generationRef.current) => {
+      const currentPlan = planRef.current;
       if (
         !cue ||
         !isCurrent(generation) ||
         earlyExitInProgressRef.current ||
         completionInFlightRef.current ||
-        !params.plan.shouldPlayVoice ||
+        !currentPlan.shouldPlayVoice ||
         handledCueIdsRef.current.has(cue.phaseId)
       )
         return;
@@ -196,7 +203,7 @@ export function useVisualizeSessionAudio(params: {
         onFailure: () => {
           if (!isCurrent(generation)) return;
           handledCueIdsRef.current.add(cue.phaseId);
-          trackGuidedAudioLoadFailed(params.plan, cue.phaseId);
+          trackGuidedAudioLoadFailed(currentPlan, cue.phaseId);
           if (preparedVoiceRef.current?.cue.phaseId === cue.phaseId)
             preparedVoiceRef.current = null;
           if (activeVoiceRef.current?.cue.phaseId === cue.phaseId) {
@@ -222,7 +229,6 @@ export function useVisualizeSessionAudio(params: {
     [
       createSessionAudioPlayer,
       isCurrent,
-      params.plan,
       restoreAmbient,
       stopPreparedVoice,
     ],
@@ -230,6 +236,8 @@ export function useVisualizeSessionAudio(params: {
 
   const playCue = useCallback(
     (cue: ResolvedVoiceCue) => {
+      const currentPlan = planRef.current;
+      const currentManifest = manifestRef.current;
       if (
         earlyExitInProgressRef.current ||
         completionInFlightRef.current ||
@@ -249,17 +257,17 @@ export function useVisualizeSessionAudio(params: {
       handledCueIdsRef.current.add(cue.phaseId);
       fadeAmbientTo(
         VISUALIZE_AMBIENT_LEVELS.guidedDucked,
-        params.manifest.cues.find((item) => item.id === cue.phaseId)
+        currentManifest.cues.find((item) => item.id === cue.phaseId)
           ?.duckingEnvelope.attackMs ?? 160,
       );
       prepared.player.play();
 
       const nextDefinition = getNextUnhandledVisualizeCue(
-        params.manifest.cues,
+        currentManifest.cues,
         handledCueIdsRef.current,
       );
       const next = nextDefinition
-        ? params.plan.voiceCues.find(
+        ? currentPlan.voiceCues.find(
             (item) => item.phaseId === nextDefinition.id,
           ) ?? null
         : null;
@@ -267,24 +275,25 @@ export function useVisualizeSessionAudio(params: {
     },
     [
       fadeAmbientTo,
-      params.manifest.cues,
-      params.plan.voiceCues,
       prepareCue,
     ],
   );
 
   const finishCompletion = useCallback(
-    (durationMs = params.manifest.ambient.fadeOutMs): Promise<void> => {
+    (durationMs?: number): Promise<void> => {
       if (completionInFlightRef.current) return completionInFlightRef.current;
+      const currentPlan = planRef.current;
+      const currentManifest = manifestRef.current;
+      const fadeMs = durationMs ?? currentManifest.ambient.fadeOutMs;
       intentionalPauseRef.current = true;
       stopActiveVoice();
       stopPreparedVoice();
-      const operation = stopAmbient(durationMs).then(() => {
+      const operation = stopAmbient(fadeMs).then(() => {
         if (
           !mountedRef.current ||
           earlyExitInProgressRef.current ||
           completionToneRef.current ||
-          (!params.plan.shouldPlayAmbient && !params.plan.shouldPlayVoice)
+          (!currentPlan.shouldPlayAmbient && !currentPlan.shouldPlayVoice)
         )
           return;
         const tone = createSessionAudioPlayer(COMPLETION_TONE, {
@@ -299,9 +308,6 @@ export function useVisualizeSessionAudio(params: {
     },
     [
       createSessionAudioPlayer,
-      params.manifest.ambient.fadeOutMs,
-      params.plan.shouldPlayAmbient,
-      params.plan.shouldPlayVoice,
       stopActiveVoice,
       stopAmbient,
       stopPreparedVoice,
@@ -348,15 +354,18 @@ export function useVisualizeSessionAudio(params: {
     stopCompletionTone();
     void stopAmbient(0);
 
-    if (params.plan.shouldPlayAmbient && params.plan.ambientTrack) {
+    const currentPlan = planRef.current;
+    const currentManifest = manifestRef.current;
+
+    if (currentPlan.shouldPlayAmbient && currentPlan.ambientTrack) {
       ambientRef.current = createSessionAudioPlayer(
-        params.plan.ambientTrack.asset,
+        currentPlan.ambientTrack.asset,
         {
-          loop: params.manifest.ambient.loop,
-          trackId: getAmbientAudioTrackId(params.plan.ambientTrack),
+          loop: currentManifest.ambient.loop,
+          trackId: getAmbientAudioTrackId(currentPlan.ambientTrack),
           volume: 0,
           onFailure: () => {
-            if (isCurrent(generation)) trackAmbientAudioLoadFailed(params.plan);
+            if (isCurrent(generation)) trackAmbientAudioLoadFailed(currentPlan);
           },
           onStatus: (status) => {
             if (!isCurrent(generation)) return;
@@ -372,14 +381,14 @@ export function useVisualizeSessionAudio(params: {
               !isWithinResumeGracePeriod
             ) {
               ambientWasPlayingRef.current = false;
-              params.onInterruption();
+              onInterruptionRef.current();
             }
           },
         },
       );
     }
-    if (params.plan.shouldPlayVoice) {
-      prepareCue(params.plan.voiceCues[0] ?? null, generation);
+    if (currentPlan.shouldPlayVoice) {
+      prepareCue(currentPlan.voiceCues[0] ?? null, generation);
     }
     intentionalPauseRef.current = false;
 
@@ -397,9 +406,7 @@ export function useVisualizeSessionAudio(params: {
     clearAmbientFade,
     createSessionAudioPlayer,
     isCurrent,
-    params.manifest.ambient.loop,
-    params.onInterruption,
-    params.plan,
+    planKey,
     prepareCue,
     stopActiveVoice,
     stopAmbient,
@@ -432,8 +439,10 @@ export function useVisualizeSessionAudio(params: {
     intentionalPauseRef.current = false;
     resumedAtRef.current = Date.now();
     if (!previousActiveRef.current) {
+      const currentPlan = planRef.current;
+      const currentManifest = manifestRef.current;
       const resting = getVisualizeAmbientRestingVolume(
-        params.plan.shouldPlayVoice,
+        currentPlan.shouldPlayVoice,
       );
       const resumeTarget = voiceActiveRef.current
         ? VISUALIZE_AMBIENT_LEVELS.guidedDucked
@@ -442,8 +451,8 @@ export function useVisualizeSessionAudio(params: {
         // Reconcile after backgrounding without recreating the player.
         // Looping assets use the equivalent position in the source track.
         if (hasStartedRef.current && params.elapsedMs > 200) {
-          const trackSeconds = params.manifest.ambient.expectedDurationSeconds;
-          const targetSeconds = params.manifest.ambient.loop
+          const trackSeconds = currentManifest.ambient.expectedDurationSeconds;
+          const targetSeconds = currentManifest.ambient.loop
             ? (params.elapsedMs / 1_000) % trackSeconds
             : Math.min(params.elapsedMs / 1_000, Math.max(0, trackSeconds - 0.1));
           const currentPos = ambientRef.current.getCurrentTime();
@@ -452,7 +461,7 @@ export function useVisualizeSessionAudio(params: {
           }
         }
         ambientRef.current.play();
-        fadeAmbientTo(resumeTarget, params.manifest.ambient.fadeInMs);
+        fadeAmbientTo(resumeTarget, currentManifest.ambient.fadeInMs);
       }
       activeVoiceRef.current?.player.play();
       previousActiveRef.current = true;
@@ -460,13 +469,15 @@ export function useVisualizeSessionAudio(params: {
     }
 
     if (!voiceActiveRef.current) {
+      const currentPlan = planRef.current;
+      const currentManifest = manifestRef.current;
       const definition = getNextDueVisualizeCue(
-        params.manifest.cues,
+        currentManifest.cues,
         params.elapsedMs,
         handledCueIdsRef.current,
       );
       if (definition) {
-        const cue = params.plan.voiceCues.find(
+        const cue = currentPlan.voiceCues.find(
           (item) => item.phaseId === definition.id,
         );
         if (cue) playCue(cue);
@@ -481,9 +492,6 @@ export function useVisualizeSessionAudio(params: {
     params.isActive,
     params.isComplete,
     params.isCompleting,
-    params.manifest,
-    params.plan.shouldPlayVoice,
-    params.plan.voiceCues,
     playCue,
   ]);
 
