@@ -4,6 +4,18 @@ import type { WeaveNode } from './weaveData';
 /** Horizontal inset, matching the reference weave's PAD. */
 export const WEAVE_PLOT_PADDING = 8;
 
+/**
+ * Neon palette for the weave threads and nodes — the same hue family as the
+ * app's practice-mode colors, pushed to full saturation so they pop against
+ * the near-black canvas and carry a believable glow.
+ */
+export const WEAVE_NEON_MODE_COLORS: Record<PracticeMode, string> = {
+  focus: '#B84DFF',
+  visualize: '#2FE0FF',
+  deep_prime: '#FFD23F',
+  release: '#FF6A3D',
+};
+
 export interface WeaveStrand {
   mode: PracticeMode;
   path: string;

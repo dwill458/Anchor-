@@ -56,7 +56,7 @@ import {
   eventMatchesAnchor,
   formatWeaveDuration,
 } from '@/screens/weave/weaveData';
-import { buildWeaveGeometry } from '@/screens/weave/weaveGeometry';
+import { buildWeaveGeometry, WEAVE_NEON_MODE_COLORS } from '@/screens/weave/weaveGeometry';
 import { WeaveCanvas } from '@/screens/weave/WeaveCanvas';
 import type { PracticeMode } from '@/types/practice';
 import { MedallionCoin } from './components/MedallionCoin';
@@ -99,10 +99,7 @@ const EDITORIAL_MODE_META: Record<string, { label: string; color: string }> = {
 };
 
 const MODE_ORDER: PracticeMode[] = ['focus', 'visualize', 'deep_prime', 'release'];
-const WEAVE_MODE_COLORS = MODE_ORDER.reduce(
-  (map, mode) => ({ ...map, [mode]: EDITORIAL_MODE_META[mode].color }),
-  {} as Record<PracticeMode, string>,
-);
+const WEAVE_MODE_COLORS: Record<PracticeMode, string> = WEAVE_NEON_MODE_COLORS;
 
 const threadStateFor = (value: number) => {
   if (value >= 80) return 'Well held';

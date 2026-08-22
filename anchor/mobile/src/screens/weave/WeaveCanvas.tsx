@@ -11,6 +11,10 @@
  *   `.wv-node`   nodeIn 300ms ease-out,                  380 + t*620ms
  *   `.wv-recent` pulseOnce 1600ms ease-in-out, 1400ms delay
  *
+ * The wavefront carries a flickering glow (a strobed opacity envelope) and
+ * each node flashes a brief spark as the front reaches it, so the reveal
+ * reads as a lightning strike building the weave rather than a smooth wipe.
+ *
  * Under reduced motion — or when the node count would make per-node
  * animation expensive — the weave renders in its final state immediately.
  */
@@ -68,16 +72,36 @@ const NodeMark: React.FC<{
 }> = ({ position, color, selected, notable, still, animationKey }) => {
   const bloom = useSharedValue(still ? 1 : 0);
   const pulse = useSharedValue(1);
+  // Flashes bright the instant the wavefront reaches this node, like a
+  // strike landing, then burns off while the mark settles to its bloom.
+  const spark = useSharedValue(0);
   const delay = SWEEP_START + NODE_LEAD + position.travel * SWEEP_TRAVEL;
 
   useEffect(() => {
     if (still) {
       bloom.value = 1;
       pulse.value = 1;
+      spark.value = 0;
       return undefined;
     }
     bloom.value = 0;
-    bloom.value = withDelay(delay, withTiming(1, { duration: NODE_DURATION, easing: Easing.out(Easing.quad) }));
+    spark.value = 0;
+    // A quick overshoot past full size sells the "struck" pop before the
+    // mark relaxes to its resting bloom.
+    bloom.value = withDelay(
+      delay,
+      withSequence(
+        withTiming(1.18, { duration: NODE_DURATION * 0.6, easing: Easing.out(Easing.cubic) }),
+        withTiming(1, { duration: NODE_DURATION * 0.4, easing: Easing.inOut(Easing.quad) }),
+      ),
+    );
+    spark.value = withDelay(
+      delay,
+      withSequence(
+        withTiming(1, { duration: 70, easing: Easing.out(Easing.quad) }),
+        withTiming(0, { duration: 320, easing: Easing.out(Easing.quad) }),
+      ),
+    );
     if (position.latest) {
       pulse.value = withDelay(
         PULSE_DELAY,
@@ -90,6 +114,7 @@ const NodeMark: React.FC<{
     return () => {
       cancelAnimation(bloom);
       cancelAnimation(pulse);
+      cancelAnimation(spark);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [animationKey, delay, position.latest, still]);
@@ -98,11 +123,15 @@ const NodeMark: React.FC<{
   // circle and avoids a transform-origin round trip.
   const markProps = useAnimatedProps(() => ({
     r: position.radius * (0.5 + 0.5 * bloom.value),
-    opacity: bloom.value * pulse.value,
+    opacity: Math.min(1, bloom.value) * pulse.value,
   }));
   const glowProps = useAnimatedProps(() => ({
-    r: (position.radius + (selected ? 6 : 3)) * (0.5 + 0.5 * bloom.value),
-    opacity: bloom.value * (selected ? 0.24 : 0.12),
+    r: (position.radius + (selected ? 7 : 5)) * (0.5 + 0.5 * Math.min(1, bloom.value)),
+    opacity: Math.min(1, bloom.value) * (selected ? 0.34 : 0.2),
+  }));
+  const sparkProps = useAnimatedProps(() => ({
+    r: position.radius + 2 + spark.value * 10,
+    opacity: spark.value * 0.85,
   }));
 
   return (
@@ -123,6 +152,7 @@ const NodeMark: React.FC<{
         stroke={selected ? color : undefined}
         strokeWidth={selected ? 1.5 : 0}
       />
+      <AnimatedCircle animatedProps={sparkProps} cx={position.left} cy={position.top} fill="#FFF7E6" />
     </>
   );
 };
@@ -149,10 +179,14 @@ export const WeaveCanvas: React.FC<WeaveCanvasProps> = ({
   }, [geometry.strands]);
   const animateNodes = !still && nodes.length <= MAX_ANIMATED_NODES;
   const sweep = useSharedValue(still ? 1 : 0);
+  // Strobes the wavefront's brightness during its travel so the reveal reads
+  // as a bolt crackling across rather than a smooth wipe.
+  const flicker = useSharedValue(1);
 
   useEffect(() => {
     if (still) {
       sweep.value = 1;
+      flicker.value = 1;
       return undefined;
     }
     sweep.value = 0;
@@ -160,16 +194,37 @@ export const WeaveCanvas: React.FC<WeaveCanvasProps> = ({
       SWEEP_START,
       withTiming(1, { duration: SWEEP_TRAVEL + NODE_DURATION, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
     );
-    return () => cancelAnimation(sweep);
-  }, [animationKey, still, sweep]);
+    flicker.value = 1;
+    flicker.value = withDelay(
+      SWEEP_START,
+      withSequence(
+        withTiming(1, { duration: 40 }),
+        withTiming(0.35, { duration: 30 }),
+        withTiming(1, { duration: 55 }),
+        withTiming(0.6, { duration: 90 }),
+        withTiming(1, { duration: 45 }),
+        withTiming(0.5, { duration: 120 }),
+        withTiming(1, { duration: 60 }),
+        withTiming(0.75, { duration: 180 }),
+        withTiming(1, { duration: 300 }),
+      ),
+    );
+    return () => {
+      cancelAnimation(sweep);
+      cancelAnimation(flicker);
+    };
+  }, [animationKey, still, sweep, flicker]);
 
   const revealStyle = useAnimatedStyle(() => ({ width: width * sweep.value }));
-  // A thread of light rides the leading edge, so the reveal reads as the
-  // weave being drawn rather than a panel being uncovered.
-  const wavefrontStyle = useAnimatedStyle(() => ({
-    opacity: sweep.value <= 0 || sweep.value >= 1 ? 0 : 0.5 * Math.sin(Math.PI * sweep.value) ** 0.6,
-    transform: [{ translateX: width * sweep.value - 1 }],
-  }));
+  // A bolt of light rides the leading edge, so the reveal reads as the weave
+  // being struck into place rather than a panel being uncovered.
+  const wavefrontStyle = useAnimatedStyle(() => {
+    const envelope = sweep.value <= 0 || sweep.value >= 1 ? 0 : Math.sin(Math.PI * sweep.value) ** 0.6;
+    return {
+      opacity: envelope * flicker.value,
+      transform: [{ translateX: width * sweep.value - 1 }],
+    };
+  });
 
   return (
     <View style={{ width, height }} accessible={false}>
@@ -184,6 +239,17 @@ export const WeaveCanvas: React.FC<WeaveCanvasProps> = ({
                   stroke={backgroundColor}
                   strokeOpacity={0.94}
                   strokeWidth={segment.strokeWidth + 3.4}
+                  fill="none"
+                />
+              ))}
+              {pass.map((segment) => (
+                <Path
+                  key={`${segment.id}:glow`}
+                  d={segment.path}
+                  stroke={modeColors[segment.mode]}
+                  strokeOpacity={segment.opacity * 0.55}
+                  strokeWidth={segment.strokeWidth + 5.5}
+                  strokeLinecap="round"
                   fill="none"
                 />
               ))}
@@ -213,9 +279,9 @@ export const WeaveCanvas: React.FC<WeaveCanvasProps> = ({
                     <Circle
                       cx={position.left}
                       cy={position.top}
-                      r={position.radius + (selected ? 6 : 3)}
+                      r={position.radius + (selected ? 7 : 5)}
                       fill={color}
-                      opacity={selected ? 0.24 : 0.12}
+                      opacity={selected ? 0.34 : 0.2}
                     />
                   )}
                   <Circle
@@ -244,19 +310,42 @@ export const WeaveCanvas: React.FC<WeaveCanvasProps> = ({
         </Svg>
       </Animated.View>
       {!still && (
-        <Animated.View pointerEvents="none" style={[styles.wavefront, { height }, wavefrontStyle]} />
+        <Animated.View pointerEvents="none" style={[styles.wavefrontWrap, { height }, wavefrontStyle]}>
+          <View style={[styles.wavefrontLayer, styles.wavefrontGlow]} />
+          <View style={[styles.wavefrontLayer, styles.wavefrontHalo]} />
+          <View style={[styles.wavefrontLayer, styles.wavefrontCore]} />
+        </Animated.View>
       )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  wavefront: {
+  wavefrontWrap: {
     position: 'absolute',
     left: 0,
     top: 0,
+    width: 1,
+  },
+  wavefrontLayer: {
+    position: 'absolute',
+    top: 0,
+    height: '100%',
+  },
+  wavefrontGlow: {
+    left: -11,
+    width: 22,
+    backgroundColor: 'rgba(240,203,106,0.18)',
+  },
+  wavefrontHalo: {
+    left: -4,
+    width: 8,
+    backgroundColor: 'rgba(255,246,214,0.42)',
+  },
+  wavefrontCore: {
+    left: -1,
     width: 2,
-    backgroundColor: '#F0CB6A',
+    backgroundColor: '#FFF9EA',
   },
 });
 

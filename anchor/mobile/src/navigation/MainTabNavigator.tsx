@@ -365,15 +365,9 @@ export const MainTabNavigator: React.FC = () => {
 
   const isTabBarVisible = React.useMemo(() => {
     if (activeIndex === 0) return vaultRouteName === 'Vault';
-    if (activeIndex === 1) {
-      // The reference keeps primary chrome on a Practice-origin Weave, but an
-      // Anchor Detail-origin Weave behaves like a focused detail surface.
-      const weaveOrigin = (practiceRouteParams as { origin?: unknown } | undefined)?.origin;
-      return practiceRouteName === 'PracticeHome' ||
-        (practiceRouteName === 'TheWeave' && weaveOrigin === 'practice');
-    }
+    if (activeIndex === 1) return practiceRouteName === 'PracticeHome';
     return chartAvailable && chartRouteName === 'ChartHome';
-  }, [activeIndex, vaultRouteName, practiceRouteName, practiceRouteParams, chartRouteName, chartAvailable]);
+  }, [activeIndex, vaultRouteName, practiceRouteName, chartRouteName, chartAvailable]);
 
   // Auto-open daily anchor
   React.useEffect(() => {

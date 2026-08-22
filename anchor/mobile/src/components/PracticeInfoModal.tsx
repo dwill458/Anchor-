@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronDown, ChevronRight, Eye, Flame, Zap } from 'lucide-react-native';
+import { ChevronDown, ChevronRight, Eye, Flame, Target, Zap } from 'lucide-react-native';
 import { colors, spacing, typography } from '@/theme';
 import { safeHaptics } from '@/utils/haptics';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
@@ -56,7 +56,7 @@ const PRACTICE_MODES: PracticeModeInfo[] = [
     accent: '#D4AF37',
     iconSurface: 'rgba(212, 175, 55, 0.12)',
     iconBorder: 'rgba(212, 175, 55, 0.28)',
-    icon: (color) => <Zap size={15} color={color} />,
+    icon: (color) => <Target size={15} color={color} />,
   },
   {
     key: 'visualize',

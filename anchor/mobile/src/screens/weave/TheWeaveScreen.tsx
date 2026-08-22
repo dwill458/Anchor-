@@ -12,7 +12,7 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ChevronDown, ChevronLeft, Info, X } from 'lucide-react-native';
+import { ChevronDown, ChevronLeft, ChevronUp, X } from 'lucide-react-native';
 import Animated, {
   Easing,
   interpolate,
@@ -51,7 +51,7 @@ import {
   WEAVE_RANGE_CONFIG,
   type WeaveNode,
 } from './weaveData';
-import { buildWeaveGeometry } from './weaveGeometry';
+import { buildWeaveGeometry, WEAVE_NEON_MODE_COLORS } from './weaveGeometry';
 import { WeaveCanvas } from './WeaveCanvas';
 
 type WeaveRoute = RouteProp<PracticeStackParamList, 'TheWeave'>;
@@ -59,12 +59,7 @@ type WeaveNavigation = NativeStackNavigationProp<PracticeStackParamList, 'TheWea
 type SheetKind = 'scope' | 'range' | 'node' | 'about' | null;
 type HistoryStatus = 'loading' | 'ready' | 'error';
 
-const MODE_COLORS: Record<PracticeMode, string> = {
-  focus: '#AD99D2',
-  visualize: '#78B4D1',
-  deep_prime: '#F0CB6A',
-  release: '#C8875A',
-};
+const MODE_COLORS: Record<PracticeMode, string> = WEAVE_NEON_MODE_COLORS;
 
 const MODE_ORDER: PracticeMode[] = ['focus', 'visualize', 'deep_prime', 'release'];
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -132,7 +127,7 @@ export const TheWeaveScreen: React.FC = () => {
   const weaveTeaching = useTeachingGate({ screenId: 'the_weave', candidateIds: ['weave_intro_v1'] });
   const recordTeachingShown = useTeachingStore((state) => state.recordShown);
   const [showTeaching, setShowTeaching] = useState(Boolean(weaveTeaching));
-  const bottomPadding = 64 + Math.max(46, insets.bottom + 12) + 64;
+  const bottomPadding = Math.max(38, insets.bottom + 28);
   const anchorNames = useMemo(
     () => {
       const names = new Map<string, string>();
@@ -164,7 +159,19 @@ export const TheWeaveScreen: React.FC = () => {
     if (data.metrics.sessions < 8) return null;
     return MODE_ORDER.slice().sort((left, right) => data.metrics.modeCounts[right] - data.metrics.modeCounts[left])[0];
   }, [data.metrics]);
-  const recentEvents = useMemo(() => data.events.slice().sort((left, right) => new Date(right.completedAt).getTime() - new Date(left.completedAt).getTime()).slice(0, 3), [data.events]);
+  const [isRecentExpanded, setIsRecentExpanded] = useState(false);
+  const sortedRecentEvents = useMemo(
+    () =>
+      data.events
+        .slice()
+        .sort((left, right) => new Date(right.completedAt).getTime() - new Date(left.completedAt).getTime())
+        .slice(0, 30),
+    [data.events],
+  );
+  const displayedRecentEvents = useMemo(
+    () => (isRecentExpanded ? sortedRecentEvents : sortedRecentEvents.slice(0, 3)),
+    [isRecentExpanded, sortedRecentEvents],
+  );
   const knownCanonicalHistory = useMemo(() => selectCanonicalPracticeEvents(history, accountId).length > 0, [accountId, history]);
   const anchorThreadStrength = useMemo(() => new Map(anchors.map((anchor) => {
     const events = selectCanonicalPracticeEvents(history, accountId).filter((event) => eventMatchesAnchor(event, [anchor.id, anchor.localId]));
@@ -270,15 +277,6 @@ export const TheWeaveScreen: React.FC = () => {
           >
             <ChevronLeft color="#87939D" size={18} />
             <Text style={styles.backLabel}>{route.params.origin === 'anchorDetail' ? 'Anchor' : 'Practice'}</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="About The Weave"
-            onPress={() => setSheet('about')}
-            style={styles.aboutButton}
-            testID="weave-about"
-          >
-            <Info color="rgba(217,179,108,0.7)" size={18} />
           </Pressable>
         </View>
 
@@ -461,18 +459,40 @@ export const TheWeaveScreen: React.FC = () => {
 
           <View style={styles.rule} />
           <Text style={styles.sectionLabel}>RECENT ACTIVITY</Text>
-          {recentEvents.length ? (
-            recentEvents.map((event) => (
-              <View key={event.id} style={styles.activityRow}>
-                <View style={[styles.activityDot, { backgroundColor: MODE_COLORS[event.practiceMode] }]} />
-                <View style={styles.activityCopy}>
-                  <Text style={styles.activityTitle}>{PRACTICE_MODE_LABELS[event.practiceMode]}</Text>
-                  <Text style={styles.activityDetail}>
-                    {displayDate(event.localDateKey)} · {formatWeaveDuration(event.completedDurationSeconds)}
-                  </Text>
+          {displayedRecentEvents.length ? (
+            <>
+              {displayedRecentEvents.map((event) => (
+                <View key={event.id} style={styles.activityRow}>
+                  <View style={[styles.activityDot, { backgroundColor: MODE_COLORS[event.practiceMode] }]} />
+                  <View style={styles.activityCopy}>
+                    <Text style={styles.activityTitle}>{PRACTICE_MODE_LABELS[event.practiceMode]}</Text>
+                    <Text style={styles.activityDetail}>
+                      {displayDate(event.localDateKey)} · {formatWeaveDuration(event.completedDurationSeconds)}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            ))
+              ))}
+              {sortedRecentEvents.length > 3 ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={isRecentExpanded ? 'Show fewer sessions' : `Show more sessions, ${sortedRecentEvents.length} total`}
+                  onPress={() => setIsRecentExpanded((prev) => !prev)}
+                  style={styles.moreSessionsButton}
+                  testID="weave-more-sessions"
+                >
+                  <Text style={styles.moreSessionsText}>
+                    {isRecentExpanded
+                      ? 'Show less'
+                      : `Show more sessions (${sortedRecentEvents.length})`}
+                  </Text>
+                  {isRecentExpanded ? (
+                    <ChevronUp color={colors.gold} size={14} />
+                  ) : (
+                    <ChevronDown color={colors.gold} size={14} />
+                  )}
+                </Pressable>
+              ) : null}
+            </>
           ) : (
             <Text style={styles.emptyRecent}>Your completed returns will appear here.</Text>
           )}
@@ -595,12 +615,6 @@ const styles = StyleSheet.create({
     color: '#87939D',
     fontFamily: typography.fontFamily.sans,
     fontSize: 14,
-  },
-  aboutButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   content: {
     paddingHorizontal: 20,
@@ -968,6 +982,22 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.bodySerifItalic,
     fontSize: 14,
     paddingBottom: 8,
+  },
+  moreSessionsButton: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  moreSessionsText: {
+    color: colors.gold,
+    fontFamily: typography.fontFamily.serifSemiBold,
+    fontSize: 11,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
   },
   insightButton: {
     minHeight: 44,

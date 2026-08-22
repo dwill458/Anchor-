@@ -54,17 +54,18 @@ const renderCanvas = (still: boolean) =>
   );
 
 describe('WeaveCanvas', () => {
-  it('draws every chunk of all four threads, each over its own backing stroke', () => {
+  it('draws every chunk of all four threads, each over its own backing stroke and neon glow', () => {
     const screen = renderCanvas(false);
 
-    // 4 modes x 4 buckets, doubled by the background stroke behind each chunk.
-    expect(screen.UNSAFE_getAllByType('Path' as any)).toHaveLength(32);
+    // 4 modes x 4 buckets, tripled by the background stroke and glow behind each chunk.
+    expect(screen.UNSAFE_getAllByType('Path' as any)).toHaveLength(48);
   });
 
-  it('renders one mark per completed-practice node', () => {
+  it('renders a mark and a strike spark per completed-practice node', () => {
     const screen = renderCanvas(false);
 
-    expect(screen.UNSAFE_getAllByType('Circle' as any)).toHaveLength(1);
+    // The node's main mark plus its lightning-strike spark flash.
+    expect(screen.UNSAFE_getAllByType('Circle' as any)).toHaveLength(2);
   });
 
   it('drops the travelling wavefront when motion is stilled', () => {
