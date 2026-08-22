@@ -802,10 +802,7 @@ export const ActivationScreen: React.FC = () => {
       />
       <ConfirmModal
         visible={showExitWarning}
-        title="Exit Focus Session?"
-        body="You will need to start over if you leave now."
-        primaryCtaLabel="Keep Practicing"
-        secondaryCtaLabel="Exit"
+        mode="focus"
         onPrimary={() => setShowExitWarning(false)}
         onSecondary={exitSession}
       />

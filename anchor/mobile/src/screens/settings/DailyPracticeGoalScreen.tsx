@@ -99,7 +99,11 @@ export const DailyPracticeGoalScreen: React.FC = () => {
           <View style={styles.headerSpacer} />
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
           <View style={styles.hero}>
             <Text style={styles.heroTitle}>Daily Practice Goal</Text>
             <Text style={styles.heroSubtitle}>
@@ -404,9 +408,15 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontFamily: typography.fonts.bodySerifItalic,
   },
+  scrollView: {
+    flex: 1,
+  },
   footer: {
     paddingHorizontal: 24,
     paddingBottom: 16,
+    backgroundColor: '#0F1419',
+    zIndex: 10,
+    elevation: 10,
   },
   saveButton: {
     borderRadius: 14,

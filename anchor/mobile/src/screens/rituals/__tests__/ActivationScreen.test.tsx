@@ -815,7 +815,7 @@ describe('ActivationScreen', () => {
 
     fireEvent.press(getByTestId('focus-session-dismiss'));
 
-    expect(getByText('Exit Focus Session?')).toBeTruthy();
+    expect(getByText('Exit Focus?')).toBeTruthy();
     fireEvent.press(getByText('Exit'));
     await waitFor(() => expect(mockGoBack).toHaveBeenCalled());
     expect(apiClient.post).not.toHaveBeenCalled();

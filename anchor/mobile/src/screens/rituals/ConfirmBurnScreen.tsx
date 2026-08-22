@@ -6,7 +6,6 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   BackHandler,
   Keyboard,
   Platform,
@@ -28,6 +27,7 @@ import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { ChargedGlowCanvas, OptimizedImage } from '@/components/common';
+import { PracticeExitConfirmationModal } from '@/components/practice/PracticeExitConfirmationModal';
 import { safeHaptics } from '@/utils/haptics';
 import { RitualRail, type RitualRailStep } from './components/RitualRail';
 import { ReleaseInput } from './components/ReleaseInput';
@@ -66,6 +66,8 @@ export const ConfirmBurnScreen: React.FC = () => {
 
   const [currentStep, setCurrentStep] = useState<BurnStep>('reflect');
   const [releaseText, setReleaseText] = useState('');
+  const [showExitWarning, setShowExitWarning] = useState(false);
+  const pendingLeaveActionRef = useRef<(() => void) | null>(null);
 
   const isReleaseReady = releaseText === TARGET_WORD;
 
@@ -106,14 +108,8 @@ export const ConfirmBurnScreen: React.FC = () => {
   }, [navigation, hasActiveEntitlement, navigateToVault]);
 
   const confirmLeave = useCallback((onConfirm: () => void) => {
-    Alert.alert(
-      'Leave Burn & Release?',
-      'You will need to begin this Burn & Release practice again if you leave now.',
-      [
-        { text: 'Stay', style: 'cancel' },
-        { text: 'Leave', style: 'destructive', onPress: onConfirm },
-      ]
-    );
+    pendingLeaveActionRef.current = onConfirm;
+    setShowExitWarning(true);
   }, []);
 
   useEffect(() => {
@@ -366,6 +362,20 @@ export const ConfirmBurnScreen: React.FC = () => {
           </TouchableOpacity>
         ) : null}
       </View>
+      <PracticeExitConfirmationModal
+        visible={showExitWarning}
+        mode="release"
+        onPrimary={() => {
+          pendingLeaveActionRef.current = null;
+          setShowExitWarning(false);
+        }}
+        onSecondary={() => {
+          setShowExitWarning(false);
+          const action = pendingLeaveActionRef.current;
+          pendingLeaveActionRef.current = null;
+          action?.();
+        }}
+      />
     </SafeAreaView>
   );
 };

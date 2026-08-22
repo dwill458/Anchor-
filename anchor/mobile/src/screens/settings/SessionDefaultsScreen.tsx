@@ -52,6 +52,12 @@ const PRIME_DURATION_OPTIONS: Array<{ label: string; value: Exclude<PrimeDuratio
   { label: '15 min', value: 900 },
 ];
 
+const TAB_MODE_COLOR: Record<SessionTab, string> = {
+  focus: colors.practiceMode.focus.primary,
+  prime: colors.practiceMode.deepPrime.bright,
+  visualize: colors.practiceMode.visualize.primary,
+};
+
 const clampPrimeMinutes = (value: number): number => Math.min(120, Math.max(2, Math.round(value)));
 
 const resolveInitialPrimeSelection = (durationSeconds: number): PrimeDurationOption => {
@@ -381,7 +387,13 @@ export const SessionDefaultsScreen: React.FC = () => {
             accessibilityRole="button"
             accessibilityState={{ selected: activeTab === 'focus' }}
             onPress={() => setActiveTab('focus')}
-            style={[styles.tabButton, activeTab === 'focus' && styles.tabButtonActive]}
+            style={[
+              styles.tabButton,
+              activeTab === 'focus' && {
+                borderColor: TAB_MODE_COLOR.focus,
+                backgroundColor: TAB_MODE_COLOR.focus,
+              },
+            ]}
           >
             <Text style={[styles.tabButtonText, activeTab === 'focus' && styles.tabButtonTextActive]}>
               Focus
@@ -392,7 +404,13 @@ export const SessionDefaultsScreen: React.FC = () => {
             accessibilityRole="button"
             accessibilityState={{ selected: activeTab === 'prime' }}
             onPress={() => setActiveTab('prime')}
-            style={[styles.tabButton, activeTab === 'prime' && styles.tabButtonActive]}
+            style={[
+              styles.tabButton,
+              activeTab === 'prime' && {
+                borderColor: TAB_MODE_COLOR.prime,
+                backgroundColor: TAB_MODE_COLOR.prime,
+              },
+            ]}
           >
             <Text style={[styles.tabButtonText, activeTab === 'prime' && styles.tabButtonTextActive]}>
               Deep Prime
@@ -403,7 +421,13 @@ export const SessionDefaultsScreen: React.FC = () => {
             accessibilityRole="button"
             accessibilityState={{ selected: activeTab === 'visualize' }}
             onPress={() => setActiveTab('visualize')}
-            style={[styles.tabButton, activeTab === 'visualize' && styles.tabButtonActive]}
+            style={[
+              styles.tabButton,
+              activeTab === 'visualize' && {
+                borderColor: TAB_MODE_COLOR.visualize,
+                backgroundColor: TAB_MODE_COLOR.visualize,
+              },
+            ]}
           >
             <Text style={[styles.tabButtonText, activeTab === 'visualize' && styles.tabButtonTextActive]}>
               Visualize
@@ -643,10 +667,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(212,175,55,0.28)',
     backgroundColor: '#1C2530',
-  },
-  tabButtonActive: {
-    borderColor: colors.gold,
-    backgroundColor: colors.gold,
   },
   tabButtonText: {
     fontFamily: typography.fonts.heading,

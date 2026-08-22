@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   BackHandler,
   Dimensions,
   Image,
@@ -18,6 +17,7 @@ import type { WebViewMessageEvent } from 'react-native-webview';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { colors as themeColors, spacing, typography } from '@/theme';
 import { logger } from '@/utils/logger';
+import { PracticeExitConfirmationModal } from '@/components/practice/PracticeExitConfirmationModal';
 import { burnRitualWebViewHtml } from './burnRitualWebViewHtml';
 
 const colors = {
@@ -240,6 +240,8 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
   const [resolvedWebViewSigilUri, setResolvedWebViewSigilUri] = useState<string | undefined>(undefined);
   const [isWebViewSigilReady, setIsWebViewSigilReady] = useState(false);
   const [isWebViewLoaded, setIsWebViewLoaded] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const pendingCancelActionRef = useRef<(() => void) | null>(null);
 
   const ashLineOpacity = useSharedValue(0);
   const nativeArtworkOpacity = useSharedValue(1);
@@ -414,14 +416,8 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
   }, [handleAnimationComplete, queueTimer]);
 
   const showCancelRitualDialog = useCallback((onConfirm: () => void) => {
-    Alert.alert(
-      'Cancel Practice?',
-      'Cancelling will stop the burn. Your anchor will not be released.',
-      [
-        { text: 'Continue Practice', style: 'cancel' },
-        { text: 'Cancel', style: 'destructive', onPress: onConfirm },
-      ]
-    );
+    pendingCancelActionRef.current = onConfirm;
+    setShowCancelModal(true);
   }, []);
 
   useEffect(() => {
@@ -722,6 +718,23 @@ export const BurnAnimationOverlay: React.FC<BurnAnimationOverlayProps> = ({
           )}
         </View>
       )}
+
+      <PracticeExitConfirmationModal
+        visible={showCancelModal}
+        mode="release"
+        title="Cancel Burn & Release?"
+        body="Cancelling will stop the burn. Your anchor will not be released."
+        onPrimary={() => {
+          pendingCancelActionRef.current = null;
+          setShowCancelModal(false);
+        }}
+        onSecondary={() => {
+          setShowCancelModal(false);
+          const action = pendingCancelActionRef.current;
+          pendingCancelActionRef.current = null;
+          action?.();
+        }}
+      />
     </View>
   );
 };

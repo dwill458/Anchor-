@@ -2764,10 +2764,13 @@ export const RitualScreen: React.FC = () => {
       />
         <ConfirmModal
           visible={showExitWarning}
-          title="Exit Practice?"
-          body="You will need to start over if you leave now."
-          primaryCtaLabel="Keep Practicing"
-          secondaryCtaLabel="Exit"
+          mode={
+            isDeepRitual || practiceMode === 'deepPrime' || practiceMode === 'deep_prime'
+              ? 'deep_prime'
+              : ritualType === 'focus' || practiceMode === 'focus'
+                ? 'focus'
+                : 'generic'
+          }
           onPrimary={() => setShowExitWarning(false)}
           onSecondary={exitRitual}
         />

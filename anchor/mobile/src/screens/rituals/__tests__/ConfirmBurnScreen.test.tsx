@@ -40,17 +40,19 @@ jest.useFakeTimers();
 
 describe('ConfirmBurnScreen', () => {
   let mockNavigate: jest.Mock;
+  let mockGoBack: jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockNavigate = jest.fn();
+    mockGoBack = jest.fn();
     (AuthService.getIdToken as jest.Mock).mockResolvedValue('token');
 
     const navigation = require('@react-navigation/native');
     navigation.useNavigation.mockReturnValue({
       navigate: mockNavigate,
       replace: jest.fn(),
-      goBack: jest.fn(),
+      goBack: mockGoBack,
     });
 
     (useAnchorStore as unknown as jest.Mock).mockImplementation((selector: any) =>
@@ -284,5 +286,25 @@ describe('ConfirmBurnScreen', () => {
 
     fireEvent.changeText(getByPlaceholderText('Type RELEASE'), 'RELEASE');
     expect(getByText('✓  Ready to release')).toBeTruthy();
+  });
+
+  it('shows unified exit confirmation modal when backing out of Reflect step', () => {
+    const { getByLabelText, getByText, queryByText } = render(<ConfirmBurnScreen />);
+
+    fireEvent.press(getByLabelText('Go back'));
+
+    expect(getByText('Exit Burn & Release?')).toBeTruthy();
+    expect(getByText('You will need to start over if you leave now.')).toBeTruthy();
+    expect(getByText('Keep Practicing')).toBeTruthy();
+    expect(getByText('Exit')).toBeTruthy();
+
+    // Dismiss by Keep Practicing
+    fireEvent.press(getByText('Keep Practicing'));
+    expect(mockGoBack).not.toHaveBeenCalled();
+
+    // Reopen and confirm exit
+    fireEvent.press(getByLabelText('Go back'));
+    fireEvent.press(getByText('Exit'));
+    expect(mockGoBack).toHaveBeenCalledTimes(1);
   });
 });

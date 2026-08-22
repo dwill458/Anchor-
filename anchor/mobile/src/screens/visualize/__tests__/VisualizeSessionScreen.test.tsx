@@ -84,7 +84,7 @@ describe('VisualizeSessionScreen audio integration', () => {
     expect(lastCall.isActive).toBe(true);
   });
 
-  it('triggers fadeOutAndStop when ending session early', () => {
+  it('triggers fadeOutAndStop when ending session early', async () => {
     const { getAllByLabelText, getByText } = render(
       <VisualizeSessionScreen navigation={mockNavigation} route={mockRoute} />,
     );
@@ -92,10 +92,32 @@ describe('VisualizeSessionScreen audio integration', () => {
     // Open confirmation modal
     fireEvent.press(getAllByLabelText('End session')[0]);
 
-    // Press End Session confirm button
-    fireEvent.press(getByText('End Session'));
+    // Modal renders canonical title and Exit button
+    expect(getByText('Exit Visualize?')).toBeTruthy();
+    expect(getByText('Keep Practicing')).toBeTruthy();
+
+    // Press Exit confirm button
+    await act(async () => {
+      fireEvent.press(getByText('Exit'));
+    });
 
     expect(mockFadeOutAndStop).toHaveBeenCalledTimes(1);
     expect(mockNavigation.popToTop).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps practicing when dismissing the exit confirmation modal', () => {
+    const { getAllByLabelText, getByText, queryByText } = render(
+      <VisualizeSessionScreen navigation={mockNavigation} route={mockRoute} />,
+    );
+
+    // Open confirmation modal
+    fireEvent.press(getAllByLabelText('End session')[0]);
+    expect(getByText('Exit Visualize?')).toBeTruthy();
+
+    // Press Keep Practicing
+    fireEvent.press(getByText('Keep Practicing'));
+
+    expect(mockFadeOutAndStop).not.toHaveBeenCalled();
+    expect(mockNavigation.popToTop).not.toHaveBeenCalled();
   });
 });

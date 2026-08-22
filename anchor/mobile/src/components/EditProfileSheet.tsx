@@ -19,6 +19,7 @@ import { colors, spacing, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
 import { detectTimezoneLabel, EMPTY_AXIOM, TIMEZONE_OPTIONS, type ProfileMono, type StoredProfile } from '@/stores/profileStore';
 import { PROFILE_AVATAR_SLOTS, ProfileAvatar, ProfileAvatarMarkCell } from '@/components/profile/ProfileAvatar';
+import { PhotoSourceSheet } from '@/components/PhotoSourceSheet';
 import { getAvatarByIndex } from '@/utils/avatarUtils';
 import { logger } from '@/utils/logger';
 
@@ -58,6 +59,7 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
   const [timezone, setTimezone] = useState(profile.timezone);
   const [mono, setMono] = useState<ProfileMono>(profile.mono);
   const [photo, setPhoto] = useState<string | null>(profile.photo);
+  const [photoSheetOpen, setPhotoSheetOpen] = useState(false);
   const [timezoneOpen, setTimezoneOpen] = useState(false);
   const [focusedField, setFocusedField] = useState<'name' | 'axiom' | null>(null);
 
@@ -175,6 +177,9 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
   };
 
   const handlePhotoPress = () => {
+    setPhotoSheetOpen(true);
+    // DEFERRED: native ActionSheetIOS picker — restore by uncommenting if PhotoSourceSheet is reverted
+    /*
     const buttons: Parameters<typeof Alert.alert>[2] = [
       { text: 'Choose from Library', onPress: () => void pickFromLibrary() },
       { text: 'Take Photo', onPress: () => void takePhoto() },
@@ -184,6 +189,7 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
     }
     buttons.push({ text: 'Cancel', style: 'cancel' });
     Alert.alert('Profile Photo', undefined, buttons);
+    */
   };
 
   return (
@@ -416,6 +422,24 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
             </View>
           </Animated.View>
         </KeyboardAvoidingView>
+
+        <PhotoSourceSheet
+          visible={photoSheetOpen}
+          onClose={() => setPhotoSheetOpen(false)}
+          onSelectCamera={() => {
+            setPhotoSheetOpen(false);
+            void takePhoto();
+          }}
+          onSelectLibrary={() => {
+            setPhotoSheetOpen(false);
+            void pickFromLibrary();
+          }}
+          onRemovePhoto={() => {
+            setPhotoSheetOpen(false);
+            setPhoto(null);
+          }}
+          hasExistingPhoto={Boolean(photo)}
+        />
       </View>
     </Modal>
   );

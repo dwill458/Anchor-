@@ -196,6 +196,38 @@ const PROFILES: Record<VisualizePhaseId, VisualizeAnimationProfile> = {
   },
 };
 
+const PHASE_VOICE_NAMES: Record<VisualizePhaseId, string> = {
+  arrive: 'ARRIVE',
+  build: 'SEE',
+  rehearse: 'FEEL',
+  adapt: 'SEAL',
+  return: 'RETURN',
+};
+
+const MAX_VOICE_ASSET_INDEX: Record<VisualizeDuration, Record<VisualizePhaseId, number>> = {
+  60: {
+    arrive: 2,
+    build: 3,
+    rehearse: 3,
+    adapt: 2,
+    return: 1,
+  },
+  180: {
+    arrive: 5,
+    build: 6,
+    rehearse: 6,
+    adapt: 4,
+    return: 4,
+  },
+  300: {
+    arrive: 7,
+    build: 9,
+    rehearse: 9,
+    adapt: 5,
+    return: 5,
+  },
+};
+
 const buildPhaseConfig = (
   def: VisualizePhaseDefinition,
   phaseDurationSeconds: number,
@@ -206,19 +238,20 @@ const buildPhaseConfig = (
   const lineDuration = phaseDurationSeconds / lineCount;
 
   const voicePrefix = sessionDurationSeconds === 60 ? '1M' : sessionDurationSeconds === 180 ? '3M' : '5M';
-  const phaseUpper = def.key.toUpperCase();
+  const voicePhase = PHASE_VOICE_NAMES[def.key] ?? def.key.toUpperCase();
+  const maxIndex = MAX_VOICE_ASSET_INDEX[sessionDurationSeconds as VisualizeDuration]?.[def.key] ?? 1;
 
   const prompts: VisualizePromptConfig[] = def.lines.map((line, idx) => {
     const startSeconds = phaseStartSeconds + idx * lineDuration;
-    const paddedIdx = String(idx + 1).padStart(2, '0');
-    // Map voice assets gracefully; fallback safely to available asset IDs
-    const voiceAssetId = `VIZ_${voicePrefix}_${phaseUpper}_${paddedIdx}`;
+    const assetIndex = Math.min(idx + 1, maxIndex);
+    const paddedIdx = String(assetIndex).padStart(2, '0');
+    const voiceAssetId = `VIZ_${voicePrefix}_${voicePhase}_${paddedIdx}`;
     return {
       id: `viz-${sessionDurationSeconds}-${def.key}-${idx + 1}`,
       startMs: Math.round(startSeconds * 1_000),
       text: line.m,
       subText: line.s,
-      voiceAssetId: `VIZ_${voicePrefix}_${def.key === 'build' ? 'SEE' : def.key === 'rehearse' ? 'FEEL' : def.key === 'adapt' ? 'SEAL' : phaseUpper}_01`,
+      voiceAssetId,
     };
   });
 

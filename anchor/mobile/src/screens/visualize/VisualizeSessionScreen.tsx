@@ -3,7 +3,6 @@ import {
   Animated,
   BackHandler,
   Easing,
-  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -24,13 +23,13 @@ import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { PracticeCompletionService } from '@/services/PracticeCompletionService';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { colors as themeColors, typography } from '@/theme';
+import { PracticeExitConfirmationModal } from '@/components/practice/PracticeExitConfirmationModal';
 import {
   VisualizeAnchorField,
   VisualizeFieldBackground,
 } from './VisualizeAnchorField';
 import {
   VisualizationPhaseTrack,
-  VisualizationPrimaryButton,
 } from './VisualizationPrimitives';
 import {
   VISUALIZE_PHASE_DEFINITIONS,
@@ -41,6 +40,8 @@ import { useVisualizeSessionAudio } from './useVisualizeSessionAudio';
 import { resolveSessionAudioPlan } from '@/services/SessionAudioManifest';
 import { getVisualizeSessionAudioManifest } from '@/services/visualizeAudioManifest';
 import { resolvePracticeCompletionSource } from '@/navigation/practiceReturn';
+import { useChartPracticeReturn } from '@/hooks/useChartPracticeReturn';
+import { useTabNavigation } from '@/contexts/TabNavigationContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'VisualizeSession'>;
 
@@ -83,6 +84,16 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
   const hapticIntensity = useSettingsStore((state) => state.hapticIntensity);
   const reduceMotion = useReduceMotionEnabled();
   const performanceTier = usePerformanceTier();
+
+  const returnToChart = useChartPracticeReturn(navigation);
+  const {
+    navigateToPractice,
+    navigateToVault,
+    returnToAnchorDetail: canonicalReturnToAnchorDetail,
+  } = useTabNavigation();
+  const returnToAnchorDetail =
+    canonicalReturnToAnchorDetail ??
+    ((targetAnchorId: string) => navigateToVault('AnchorDetail', { anchorId: targetAnchorId }));
 
   const [confirmEnd, setConfirmEnd] = useState(false);
   const [ctrlVisible, setCtrlVisible] = useState(true);
@@ -258,13 +269,54 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
 
   const remaining = Math.max(0, durationSeconds - Math.floor(engine.elapsedSeconds));
 
-  const handleEndEarly = () => {
+  const handleEndEarly = useCallback(async () => {
     completionRef.current = true;
-    void fadeOutAndStop();
-    engine.endEarly();
     setConfirmEnd(false);
-    navigation.popToTop();
-  };
+    await fadeOutAndStop();
+    engine.endEarly();
+
+    if (returnTo === 'chart') {
+      returnToChart({
+        returnTo,
+        anchorId,
+        chartContext,
+      });
+      return;
+    }
+
+    if (returnTarget?.kind === 'anchorDetail') {
+      if (typeof navigation.popToTop === 'function') {
+        navigation.popToTop();
+      }
+      returnToAnchorDetail(returnTarget.anchorId);
+      return;
+    }
+
+    if (returnTo === 'practice') {
+      if (typeof navigation.popToTop === 'function') {
+        navigation.popToTop();
+      }
+      navigateToPractice?.();
+      return;
+    }
+
+    if (typeof navigation.popToTop === 'function' && navigation.canGoBack?.()) {
+      navigation.popToTop();
+    } else {
+      navigation.goBack();
+    }
+  }, [
+    anchorId,
+    chartContext,
+    engine,
+    fadeOutAndStop,
+    navigateToPractice,
+    navigation,
+    returnTarget,
+    returnTo,
+    returnToAnchorDetail,
+    returnToChart,
+  ]);
 
   // Intercept Android hardware back press and navigation transitions
   useEffect(() => {
@@ -299,8 +351,16 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
   const imageUrl = anchor?.enhancedImageUrl;
 
   return (
-    <Pressable style={styles.screenContainer} onPress={resetHideTimer}>
-      <VisualizeFieldBackground phase={phaseKey} paused={isPaused} />
+    <View style={styles.screenContainer}>
+      {/* Tap background to show controls */}
+      <Pressable
+        style={StyleSheet.absoluteFill}
+        onPress={resetHideTimer}
+        accessibilityRole="none"
+        accessibilityLabel="Background"
+      >
+        <VisualizeFieldBackground phase={phaseKey} paused={isPaused} />
+      </Pressable>
 
       {/* Top Controls Bar (fades out during immersive practice) */}
       <View
@@ -422,40 +482,13 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
       </View>
 
       {/* Confirmation Modal when Ending Early */}
-      <Modal
+      <PracticeExitConfirmationModal
         visible={confirmEnd}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setConfirmEnd(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <Pressable
-            style={styles.modalScrim}
-            onPress={() => setConfirmEnd(false)}
-          />
-          <View style={[styles.confirmSheet, { paddingBottom: Math.max(insets.bottom + 10, 24) }]}>
-            <View style={styles.sheetGrab} />
-            <Text style={styles.confirmTitle}>End visualization?</Text>
-            <Text style={styles.confirmBody}>
-              Your progress in this session will not be recorded.
-            </Text>
-            <View style={styles.confirmBtnStack}>
-              <VisualizationPrimaryButton
-                label="CONTINUE SESSION"
-                onPress={() => setConfirmEnd(false)}
-              />
-              <Pressable
-                accessibilityRole="button"
-                onPress={handleEndEarly}
-                style={styles.endConfirmBtn}
-              >
-                <Text style={styles.endConfirmText}>End Session</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    </Pressable>
+        mode="visualize"
+        onPrimary={() => setConfirmEnd(false)}
+        onSecondary={handleEndEarly}
+      />
+    </View>
   );
 };
 
@@ -593,73 +626,5 @@ const styles = StyleSheet.create({
     letterSpacing: 1.6,
     color: colors.boneFaint,
     textTransform: 'uppercase',
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  modalScrim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(3,4,10,0.6)',
-  },
-  confirmSheet: {
-    backgroundColor: colors.sheetBg,
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.24)',
-    paddingHorizontal: 22,
-    paddingTop: 16,
-    gap: 14,
-    shadowColor: '#000',
-    shadowOpacity: 0.55,
-    shadowRadius: 30,
-    shadowOffset: { width: 0, height: -10 },
-    elevation: 8,
-  },
-  sheetGrab: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(245,240,232,0.16)',
-    alignSelf: 'center',
-    marginBottom: 4,
-  },
-  confirmTitle: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 18,
-    fontWeight: '500',
-    letterSpacing: 0.8,
-    color: colors.bone,
-    textAlign: 'center',
-  },
-  confirmBody: {
-    fontFamily: typography.fonts.bodySerifItalic,
-    fontStyle: 'italic',
-    fontSize: 15,
-    color: colors.boneSoft,
-    textAlign: 'center',
-    lineHeight: 21,
-    marginTop: -4,
-  },
-  confirmBtnStack: {
-    gap: 10,
-    marginTop: 6,
-  },
-  endConfirmBtn: {
-    width: '100%',
-    paddingVertical: 13,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(245,240,232,0.16)',
-    backgroundColor: 'rgba(245,240,232,0.04)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  endConfirmText: {
-    fontFamily: typography.fonts.body,
-    fontSize: 13,
-    letterSpacing: 0.6,
-    color: colors.boneSoft,
   },
 });

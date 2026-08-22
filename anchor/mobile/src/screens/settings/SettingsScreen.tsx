@@ -16,7 +16,7 @@ import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft, X } from 'lucide-react-native';
 
 import { SettingsRow } from '@/components/settings/SettingsRow';
 import { SettingsSectionBlock } from '@/components/settings/SettingsSectionBlock';
@@ -89,8 +89,17 @@ const ChoiceSheet: React.FC<{
   >
     <Pressable style={styles.sheetScrim} onPress={onDismiss}>
       <Pressable style={styles.choiceSheet} onPress={(event) => event.stopPropagation()}>
-        <View style={styles.sheetHandle} />
-        <Text style={styles.sheetTitle}>{title}</Text>
+        <View style={styles.sheetHeader}>
+          <Text style={styles.sheetTitle}>{title}</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            onPress={onDismiss}
+            style={styles.closeButton}
+          >
+            <X color={colors.gold} size={18} />
+          </Pressable>
+        </View>
         <ScrollView
           style={styles.choiceList}
           showsVerticalScrollIndicator={false}
@@ -119,14 +128,6 @@ const ChoiceSheet: React.FC<{
             );
           })}
         </ScrollView>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Cancel"
-          onPress={onDismiss}
-          style={styles.sheetCancel}
-        >
-          <Text style={styles.sheetCancelLabel}>Cancel</Text>
-        </Pressable>
       </Pressable>
     </Pressable>
   </Modal>
@@ -1101,6 +1102,19 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(244,239,230,0.22)',
     marginBottom: 15,
   },
+  sheetHeader: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  closeButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   sheetTitle: {
     color: colors.anchor15.bone,
     fontFamily: typography.fontFamily.voice,
@@ -1146,7 +1160,7 @@ const styles = StyleSheet.create({
   },
   radioSelected: {
     borderWidth: 5,
-    borderColor: colors.anchor15.gilt,
+    borderColor: colors.gold,
   },
   sheetCancel: {
     minHeight: 44,
