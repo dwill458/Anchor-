@@ -208,7 +208,7 @@ describe('SettingsScreen', () => {
     expect(screen.getAllByText('Not signed in').length).toBeGreaterThan(0);
     expect(screen.getByText('Sign In')).toBeTruthy();
     expect(screen.getByText('Create or reconnect your account')).toBeTruthy();
-      expect(screen.queryByText('DANGER / ACCOUNT ACTIONS')).toBeNull();
+      expect(screen.queryByText('DANGER ZONE')).toBeNull();
     expect(screen.queryByText('Delete Account')).toBeNull();
 
     fireEvent.press(screen.getByTestId('settings-row-Sign In'));
@@ -227,7 +227,7 @@ describe('SettingsScreen', () => {
 
     const screen = render(<SettingsScreen />);
 
-    expect(screen.getByText('DANGER / ACCOUNT ACTIONS')).toBeTruthy();
+    expect(screen.getByText('DANGER ZONE')).toBeTruthy();
     expect(screen.getByText('Delete Account')).toBeTruthy();
   });
 

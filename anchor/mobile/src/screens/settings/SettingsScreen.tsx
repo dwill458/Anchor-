@@ -39,15 +39,6 @@ import { colors, typography } from '@/theme';
 import { logger } from '@/utils/logger';
 
 const SHOW_DEVELOPER_TOOLS = __DEV__;
-const WEEKDAY_LABELS = [
-  'Sunday',
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
-];
 
 type PickerKind = 'motion' | 'time' | null;
 type ConfirmationKind = 'resetTips' | 'signOut' | 'deleteAccount' | null;
@@ -252,7 +243,6 @@ export const SettingsScreen: React.FC = () => {
   const threadStrengthSensitivity = useSettingsStore(
     (state) => state.threadStrengthSensitivity ?? 'balanced',
   );
-  const restDays = useSettingsStore((state) => state.restDays ?? []);
   const { notifState, toggleNotifications, updateNotificationPreferences } =
     useNotificationController();
   // Keep the system preference listener active for the existing reduced-motion contract.
@@ -506,12 +496,6 @@ export const SettingsScreen: React.FC = () => {
           : `Custom · ${dailyPracticeGoal} / day`;
   const threadStrengthSummary =
     threadStrengthSensitivity.charAt(0).toUpperCase() + threadStrengthSensitivity.slice(1);
-  const restDaysSummary =
-    restDays.length === 0
-      ? 'None'
-      : restDays.length === 1
-        ? WEEKDAY_LABELS[restDays[0]]
-        : restDays.map((day) => WEEKDAY_LABELS[day].slice(0, 3)).join(', ');
 
   const motionOptions = [
     { label: 'System default', value: 'system' },
@@ -591,6 +575,39 @@ export const SettingsScreen: React.FC = () => {
               disabled={isLoading}
             />
             <SettingsRow
+              title="Daily Practice Goal"
+              value={goalSummary}
+              type="chevron"
+              onPress={() => navigation.navigate('DailyPracticeGoal')}
+              disabled={isLoading}
+            />
+            <SettingsRow
+              title="Thread Strength"
+              value={threadStrengthSummary}
+              type="chevron"
+              onPress={() => navigation.navigate('ThreadStrength')}
+              disabled={isLoading}
+            />
+            <SettingsRow
+              title="Guide Mode"
+              subtitle="Show helpful guidance while you create and practice."
+              type="toggle"
+              toggleValue={settings.practiceGuidanceEnabled}
+              onToggle={(value) => {
+                void updateSetting('practiceGuidanceEnabled', value);
+                AnalyticsService.track('guide_mode_toggled', { enabled: value });
+              }}
+              disabled={isLoading}
+            />
+            <SettingsRow
+              title="Hide Intention Text"
+              subtitle="During priming, show only the Anchor."
+              type="toggle"
+              toggleValue={settings.reduceIntentionVisibility}
+              onToggle={(value) => void updateSetting('reduceIntentionVisibility', value)}
+              disabled={isLoading}
+            />
+            <SettingsRow
               title="Anchor Tracing"
               subtitle="Offer tracing during creation and after Practice."
               type="toggle"
@@ -623,6 +640,83 @@ export const SettingsScreen: React.FC = () => {
             />
           </SettingsSectionBlock>
 
+          <Text style={styles.sectionLabel}>REMINDERS</Text>
+          <SettingsSectionBlock flat>
+            <SettingsRow
+              title="Practice Reminders"
+              subtitle="Receive quiet reminders to return to your Anchor."
+              type="toggle"
+              toggleValue={remindersEnabled}
+              onToggle={handleReminderToggle}
+              disabled={isLoading || notifState == null}
+            />
+            <SettingsRow
+              title="Reminder Time"
+              value={formatTimeLabel(notifState?.dailyPrimeTime ?? '21:00')}
+              type="chevron"
+              onPress={() => setPickerKind('time')}
+              disabled={isLoading || !remindersEnabled}
+            />
+            <SettingsRow
+              title="Daily Prime Reminder"
+              subtitle="One reminder if no Focus Session or Deep Prime is complete."
+              type="toggle"
+              toggleValue={notifState?.dailyPrimeEnabled ?? true}
+              onToggle={(enabled) => void updateNotificationPreferences({ dailyPrimeEnabled: enabled })}
+              disabled={isLoading || !remindersEnabled}
+            />
+            <SettingsRow
+              title="Thread Strength Alerts"
+              subtitle="Only when Thread Strength drops below your threshold."
+              type="toggle"
+              toggleValue={notifState?.threadStrengthAlertsEnabled ?? true}
+              onToggle={(enabled) => void updateNotificationPreferences({ threadStrengthAlertsEnabled: enabled })}
+              disabled={isLoading || !remindersEnabled}
+            />
+            <SettingsRow
+              title="Thread Threshold"
+              value={`${notifState?.threadStrengthThreshold ?? 70}%`}
+              type="chevron"
+              onPress={() => {
+                const current = notifState?.threadStrengthThreshold ?? 70;
+                const next = current >= 85 ? 60 : current >= 70 ? 85 : 70;
+                void updateNotificationPreferences({ threadStrengthThreshold: next });
+              }}
+              disabled={isLoading || !remindersEnabled}
+            />
+            <SettingsRow
+              title="Unfinished Anchor Reminders"
+              subtitle="One reminder when an Anchor stays unsealed."
+              type="toggle"
+              toggleValue={notifState?.unfinishedAnchorRemindersEnabled ?? true}
+              onToggle={(enabled) => void updateNotificationPreferences({ unfinishedAnchorRemindersEnabled: enabled })}
+              disabled={isLoading || !remindersEnabled}
+            />
+            <SettingsRow
+              title="Notification Tone"
+              value={(notifState?.notificationTone ?? 'encouraging')
+                .replace('_', ' ')
+                .replace(/^\w/, (char) => char.toUpperCase())}
+              type="chevron"
+              onPress={() => {
+                const order = ['direct', 'encouraging', 'reflective', 'performance'] as const;
+                const current = notifState?.notificationTone ?? 'encouraging';
+                const next = order[(order.indexOf(current) + 1) % order.length];
+                void updateNotificationPreferences({ notificationTone: next });
+              }}
+              disabled={isLoading || !remindersEnabled}
+            />
+            <SettingsRow
+              title="Weekly Recap"
+              subtitle="A quiet weekly summary when there is activity."
+              type="toggle"
+              toggleValue={weeklyRecapEnabled}
+              onToggle={(enabled) => void updateNotificationPreferences({ weeklyRecapEnabled: enabled })}
+              disabled={isLoading || !remindersEnabled}
+              showDivider={false}
+            />
+          </SettingsSectionBlock>
+
           <Text style={styles.sectionLabel}>EXPERIENCE</Text>
           <SettingsSectionBlock flat>
             <SettingsRow
@@ -646,34 +740,6 @@ export const SettingsScreen: React.FC = () => {
               type="chevron"
               onPress={handleResetTeachingTips}
               disabled={isLoading}
-              showDivider={false}
-            />
-          </SettingsSectionBlock>
-
-          <Text style={styles.sectionLabel}>REMINDERS</Text>
-          <SettingsSectionBlock flat>
-            <SettingsRow
-              title="Practice Reminders"
-              subtitle="Receive quiet reminders to return to your Anchor."
-              type="toggle"
-              toggleValue={remindersEnabled}
-              onToggle={handleReminderToggle}
-              disabled={isLoading || notifState == null}
-            />
-            <SettingsRow
-              title="Reminder Time"
-              value={formatTimeLabel(notifState?.dailyPrimeTime ?? '21:00')}
-              type="chevron"
-              onPress={() => setPickerKind('time')}
-              disabled={isLoading || !remindersEnabled}
-            />
-            <SettingsRow
-              title="Weekly Recap"
-              subtitle="A quiet weekly summary when there is activity."
-              type="toggle"
-              toggleValue={weeklyRecapEnabled}
-              onToggle={(enabled) => void updateNotificationPreferences({ weeklyRecapEnabled: enabled })}
-              disabled={isLoading || !remindersEnabled}
               showDivider={false}
             />
           </SettingsSectionBlock>
@@ -761,109 +827,6 @@ export const SettingsScreen: React.FC = () => {
             />
           </SettingsSectionBlock>
 
-          <Text style={styles.nativeSectionLabel}>NATIVE PRACTICE DETAILS</Text>
-          <Text style={styles.nativeSectionNote}>
-            Additional practice controls remain available here for existing workflows.
-          </Text>
-          <Text style={styles.sectionLabel}>REMINDER DETAILS</Text>
-          <SettingsSectionBlock flat>
-            <SettingsRow
-              title="Daily Prime Reminder"
-              subtitle="One reminder if no Focus Session or Deep Prime is complete."
-              type="toggle"
-              toggleValue={notifState?.dailyPrimeEnabled ?? true}
-              onToggle={(enabled) => void updateNotificationPreferences({ dailyPrimeEnabled: enabled })}
-              disabled={isLoading || !remindersEnabled}
-            />
-            <SettingsRow
-              title="Thread Strength Alerts"
-              subtitle="Only when Thread Strength drops below your threshold."
-              type="toggle"
-              toggleValue={notifState?.threadStrengthAlertsEnabled ?? true}
-              onToggle={(enabled) => void updateNotificationPreferences({ threadStrengthAlertsEnabled: enabled })}
-              disabled={isLoading || !remindersEnabled}
-            />
-            <SettingsRow
-              title="Thread Threshold"
-              value={`${notifState?.threadStrengthThreshold ?? 70}%`}
-              type="chevron"
-              onPress={() => {
-                const current = notifState?.threadStrengthThreshold ?? 70;
-                const next = current >= 85 ? 60 : current >= 70 ? 85 : 70;
-                void updateNotificationPreferences({ threadStrengthThreshold: next });
-              }}
-              disabled={isLoading || !remindersEnabled}
-            />
-            <SettingsRow
-              title="Unfinished Anchor Reminders"
-              subtitle="One reminder when an Anchor stays unsealed."
-              type="toggle"
-              toggleValue={notifState?.unfinishedAnchorRemindersEnabled ?? true}
-              onToggle={(enabled) => void updateNotificationPreferences({ unfinishedAnchorRemindersEnabled: enabled })}
-              disabled={isLoading || !remindersEnabled}
-            />
-            <SettingsRow
-              title="Notification Tone"
-              value={(notifState?.notificationTone ?? 'encouraging')
-                .replace('_', ' ')
-                .replace(/^\w/, (char) => char.toUpperCase())}
-              type="chevron"
-              onPress={() => {
-                const order = ['direct', 'encouraging', 'reflective', 'performance'] as const;
-                const current = notifState?.notificationTone ?? 'encouraging';
-                const next = order[(order.indexOf(current) + 1) % order.length];
-                void updateNotificationPreferences({ notificationTone: next });
-              }}
-              disabled={isLoading || !remindersEnabled}
-              showDivider={false}
-            />
-          </SettingsSectionBlock>
-
-          <Text style={styles.sectionLabel}>MORE PRACTICE</Text>
-          <SettingsSectionBlock flat>
-            <SettingsRow
-              title="Daily Practice Goal"
-              value={goalSummary}
-              type="chevron"
-              onPress={() => navigation.navigate('DailyPracticeGoal')}
-              disabled={isLoading}
-            />
-            <SettingsRow
-              title="Thread Strength"
-              value={threadStrengthSummary}
-              type="chevron"
-              onPress={() => navigation.navigate('ThreadStrength')}
-              disabled={isLoading}
-            />
-            <SettingsRow
-              title="Rest Days"
-              value={restDaysSummary}
-              type="chevron"
-              onPress={() => navigation.navigate('RestDays')}
-              disabled={isLoading}
-            />
-            <SettingsRow
-              title="Guide Mode"
-              subtitle="Show helpful guidance while you create and practice."
-              type="toggle"
-              toggleValue={settings.practiceGuidanceEnabled}
-              onToggle={(value) => {
-                void updateSetting('practiceGuidanceEnabled', value);
-                AnalyticsService.track('guide_mode_toggled', { enabled: value });
-              }}
-              disabled={isLoading}
-            />
-            <SettingsRow
-              title="Hide Intention Text"
-              subtitle="During priming, show only the Anchor."
-              type="toggle"
-              toggleValue={settings.reduceIntentionVisibility}
-              onToggle={(value) => void updateSetting('reduceIntentionVisibility', value)}
-              disabled={isLoading}
-              showDivider={false}
-            />
-          </SettingsSectionBlock>
-
           {SHOW_DEVELOPER_TOOLS && DeveloperToolsSection ? (
             <DeveloperToolsSection
               resetSettings={resetSettings}
@@ -873,7 +836,7 @@ export const SettingsScreen: React.FC = () => {
 
           {isAuthenticated ? (
             <>
-              <Text style={[styles.sectionLabel, styles.dangerLabel]}>DANGER / ACCOUNT ACTIONS</Text>
+              <Text style={[styles.sectionLabel, styles.dangerLabel]}>DANGER ZONE</Text>
               <SettingsSectionBlock flat style={styles.dangerBlock}>
                 <SettingsRow
                   title="Sign Out"
@@ -1081,21 +1044,6 @@ const styles = StyleSheet.create({
   },
   dangerLabel: {
     color: '#b77d7d',
-  },
-  nativeSectionLabel: {
-    color: colors.anchor15.gilt,
-    fontFamily: typography.fontFamily.ritual,
-    fontSize: 10,
-    letterSpacing: 2.1,
-    marginTop: 28,
-    marginBottom: 5,
-  },
-  nativeSectionNote: {
-    color: colors.anchor15.ash,
-    fontFamily: typography.fontFamily.instrument,
-    fontSize: 11,
-    lineHeight: 17,
-    marginBottom: 2,
   },
   dangerBlock: {
     borderTopWidth: StyleSheet.hairlineWidth,

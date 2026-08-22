@@ -304,8 +304,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(62,44,91,0.7)',
-    backgroundColor: 'rgba(62,44,91,0.35)',
+    borderColor: 'rgba(135,147,157,0.28)',
+    backgroundColor: 'rgba(30,42,51,0.45)',
     padding: 16,
   },
   infoTitle: {

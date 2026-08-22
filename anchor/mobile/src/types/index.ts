@@ -968,7 +968,6 @@ export type RootStackParamList = {
   SessionDefaults: undefined;
   DailyPracticeGoal: undefined;
   ThreadStrength: undefined;
-  RestDays: undefined;
   // DEFERRED: replaced by SessionDefaultsScreen — remove post-launch.
   DefaultCharge: undefined;
   // DEFERRED: replaced by SessionDefaultsScreen — remove post-launch.

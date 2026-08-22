@@ -15,7 +15,6 @@ import {
   SessionDefaultsScreen,
   DailyPracticeGoalScreen,
   ThreadStrengthScreen,
-  RestDaysScreen,
   ThemeSelectionScreen,
   AccentColorScreen,
   VaultViewScreen,
@@ -31,7 +30,6 @@ export type ProfileStackParamList = {
   SessionDefaults: undefined;
   DailyPracticeGoal: undefined;
   ThreadStrength: undefined;
-  RestDays: undefined;
   // DEFERRED: replaced by SessionDefaultsScreen — remove post-launch.
   DefaultCharge: undefined;
   // DEFERRED: replaced by SessionDefaultsScreen — remove post-launch.
@@ -114,11 +112,6 @@ export const ProfileStackNavigator: React.FC = () => {
         <Stack.Screen
           name="ThreadStrength"
           component={ThreadStrengthScreen}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="RestDays"
-          component={RestDaysScreen}
           options={{ headerShown: false }}
         />
         {/* DEFERRED: legacy practice-settings routes replaced by SessionDefaultsScreen — remove post-launch. */}
