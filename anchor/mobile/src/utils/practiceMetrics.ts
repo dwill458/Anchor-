@@ -134,20 +134,19 @@ export function selectCanonicalPracticeEvents(
   accountId: string | null | undefined,
   now: Date = new Date(),
 ): PracticeSessionRecord[] {
-  if (!accountId) return [];
   const seen = new Set<string>();
   const latestAllowed = now.getTime() + FUTURE_CLOCK_SKEW_MS;
   return events
     .filter((event) => {
-      // 'legacy' marks pre-redesign entries that predate account-scoped
-      // tracking and haven't yet been rebound by hydrateFromBackend. They can
-      // only survive under the account that's currently signed in — sign-out
-      // resets the whole session store — so treat them as this account's own
-      // until rebinding catches up, instead of hiding them from Thread
-      // Strength until a network rehydrate happens to run.
+      // If signed in, match accountId or 'legacy'.
+      // If not signed in (guest / dev without accountId), match any local events or 'guest' / 'legacy'.
+      const matchesAccount = accountId
+        ? event.accountId === accountId || event.accountId === 'legacy'
+        : !event.accountId || event.accountId === 'guest' || event.accountId === 'legacy';
+
       if (
-        (event.accountId !== accountId && event.accountId !== "legacy") ||
-        event.completionStatus !== "completed" ||
+        !matchesAccount ||
+        event.completionStatus !== 'completed' ||
         seen.has(event.id) ||
         !PRACTICE_MODES.includes(event.practiceMode) ||
         !isValidLocalDateKey(event.localDateKey)

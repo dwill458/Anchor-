@@ -329,12 +329,13 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Framed Stage in Compact mode */}
+          {/* Framed Stage */}
           <View style={styles.stageWrap}>
             <VisualizeAnchorField
               phase="arrive"
-              compact={true}
-              sigilSize={176}
+              compact={false}
+              heroSize={300}
+              sigilSize={216}
               imageUrl={imageUrl}
               sigilSvg={sigilSvg}
             />

@@ -159,14 +159,15 @@ export const TheWeaveScreen: React.FC = () => {
     if (data.metrics.sessions < 8) return null;
     return MODE_ORDER.slice().sort((left, right) => data.metrics.modeCounts[right] - data.metrics.modeCounts[left])[0];
   }, [data.metrics]);
+  const allScopeEvents = useMemo(() => {
+    return selectCanonicalPracticeEvents(history, accountId)
+      .filter((event) => scope.kind === 'all' || eventMatchesAnchor(event, selectedAnchorAliases ?? scope.anchorId))
+      .sort((left, right) => new Date(right.completedAt).getTime() - new Date(left.completedAt).getTime());
+  }, [accountId, history, scope, selectedAnchorAliases]);
   const [isRecentExpanded, setIsRecentExpanded] = useState(false);
   const sortedRecentEvents = useMemo(
-    () =>
-      data.events
-        .slice()
-        .sort((left, right) => new Date(right.completedAt).getTime() - new Date(left.completedAt).getTime())
-        .slice(0, 30),
-    [data.events],
+    () => allScopeEvents.slice(0, 30),
+    [allScopeEvents],
   );
   const displayedRecentEvents = useMemo(
     () => (isRecentExpanded ? sortedRecentEvents : sortedRecentEvents.slice(0, 3)),
@@ -347,59 +348,63 @@ export const TheWeaveScreen: React.FC = () => {
                 <Text style={styles.retryText}>Retry</Text>
               </Pressable>
             </View>
-          ) : noConfirmedHistory ? (
-            <View style={styles.statusBlock}>
-              <Text style={styles.statusTitle}>The weave begins with a return.</Text>
-              <Text style={styles.statusText}>Completed practice will appear here for this range.</Text>
-            </View>
           ) : (
             <>
-              {isOffline ? <Text style={styles.cachedLabel}>Showing saved history while offline</Text> : null}
-              <Text style={styles.plotSummary} accessibilityRole="summary">{`${scopeLabel(scope, anchorNames)}, ${WEAVE_RANGE_CONFIG[range].label}: ${data.metrics.sessions} completed practice sessions across ${data.metrics.practiceDays} practice days. Each node opens its completed-session detail.`}</Text>
-              <Animated.View style={[styles.plot, { width }, animatedPlotStyle]} accessible={false}>
-                <WeaveCanvas
-                  width={width}
-                  height={PLOT_HEIGHT}
-                  geometry={geometry}
-                  nodes={data.nodes}
-                  modeColors={MODE_COLORS}
-                  backgroundColor="#080D12"
-                  selectedNodeId={sheet === 'node' ? selectedNode?.id ?? null : null}
-                  animationKey={`${scopeKey}:${range}:${data.startDateKey}`}
-                  still={reduceMotion}
-                />
-                {data.nodes.map((node) => {
-                  const position = geometry.nodePositions[node.id];
-                  if (!position) return null;
-                  const anchorLabel = scope.kind === 'all'
-                    ? (node.events.length === 1 ? anchorNames.get(node.events[0]?.anchorId ?? '') ?? 'An Anchor' : 'Across Anchors')
-                    : primaryAnchorName ?? 'This Anchor';
-                  return (
-                    <Pressable
-                      key={`${node.id}:target`}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${PRACTICE_MODE_LABELS[node.mode]}, ${displayRange(node.startDateKey, node.endDateKey)}, ${node.sessionCount} ${node.sessionCount === 1 ? 'session' : 'sessions'}, ${formatWeaveDuration(node.durationSeconds)}, ${anchorLabel}`}
-                      onPress={() => openNode(node)}
-                      style={[styles.nodeTarget, { left: position.left - 22, top: position.top - 22 }]}
+              {noConfirmedHistory ? (
+                <View style={styles.statusBlock}>
+                  <Text style={styles.statusTitle}>The weave begins with a return.</Text>
+                  <Text style={styles.statusText}>Completed practice will appear here for this range.</Text>
+                </View>
+              ) : (
+                <>
+                  {isOffline ? <Text style={styles.cachedLabel}>Showing saved history while offline</Text> : null}
+                  <Text style={styles.plotSummary} accessibilityRole="summary">{`${scopeLabel(scope, anchorNames)}, ${WEAVE_RANGE_CONFIG[range].label}: ${data.metrics.sessions} completed practice sessions across ${data.metrics.practiceDays} practice days. Each node opens its completed-session detail.`}</Text>
+                  <Animated.View style={[styles.plot, { width }, animatedPlotStyle]} accessible={false}>
+                    <WeaveCanvas
+                      width={width}
+                      height={PLOT_HEIGHT}
+                      geometry={geometry}
+                      nodes={data.nodes}
+                      modeColors={MODE_COLORS}
+                      backgroundColor="#080D12"
+                      selectedNodeId={sheet === 'node' ? selectedNode?.id ?? null : null}
+                      animationKey={`${scopeKey}:${range}:${data.startDateKey}`}
+                      still={reduceMotion}
                     />
-                  );
-                })}
-              </Animated.View>
-              <View style={styles.axis} accessible={false}>
-                {ticks.map((tick, index) => (
-                  <Text key={`${tick}:${index}`} style={tick === 'NOW' ? styles.axisNow : styles.axisLabel}>
-                    {tick}
-                  </Text>
-                ))}
-              </View>
-              <View style={styles.legend}>
-                {MODE_ORDER.map((mode) => (
-                  <View key={mode} style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: MODE_COLORS[mode] }]} />
-                    <Text style={styles.legendText}>{PRACTICE_MODE_LABELS[mode]}</Text>
+                    {data.nodes.map((node) => {
+                      const position = geometry.nodePositions[node.id];
+                      if (!position) return null;
+                      const anchorLabel = scope.kind === 'all'
+                        ? (node.events.length === 1 ? anchorNames.get(node.events[0]?.anchorId ?? '') ?? 'An Anchor' : 'Across Anchors')
+                        : primaryAnchorName ?? 'This Anchor';
+                      return (
+                        <Pressable
+                          key={`${node.id}:target`}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${PRACTICE_MODE_LABELS[node.mode]}, ${displayRange(node.startDateKey, node.endDateKey)}, ${node.sessionCount} ${node.sessionCount === 1 ? 'session' : 'sessions'}, ${formatWeaveDuration(node.durationSeconds)}, ${anchorLabel}`}
+                          onPress={() => openNode(node)}
+                          style={[styles.nodeTarget, { left: position.left - 22, top: position.top - 22 }]}
+                        />
+                      );
+                    })}
+                  </Animated.View>
+                  <View style={styles.axis} accessible={false}>
+                    {ticks.map((tick, index) => (
+                      <Text key={`${tick}:${index}`} style={tick === 'NOW' ? styles.axisNow : styles.axisLabel}>
+                        {tick}
+                      </Text>
+                    ))}
                   </View>
-                ))}
-              </View>
+                  <View style={styles.legend}>
+                    {MODE_ORDER.map((mode) => (
+                      <View key={mode} style={styles.legendItem}>
+                        <View style={[styles.legendDot, { backgroundColor: MODE_COLORS[mode] }]} />
+                        <Text style={styles.legendText}>{PRACTICE_MODE_LABELS[mode]}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </>
+              )}
             </>
           )}
 

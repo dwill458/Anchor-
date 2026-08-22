@@ -341,7 +341,10 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
           totalProgress={engine.totalProgress}
           active={engine.state === 'running'}
           paused={isPaused}
-          sigilSize={192}
+          reduceMotion={reduceMotion}
+          performanceTier={performanceTier}
+          heroSize={330}
+          sigilSize={228}
           imageUrl={imageUrl}
           sigilSvg={sigilSvg}
         />

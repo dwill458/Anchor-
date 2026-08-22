@@ -317,8 +317,8 @@ export const VisualizeAnchorField: React.FC<VisualizeAnchorFieldProps> = ({
   active = true,
   paused = false,
   reduceMotion = false,
-  heroSize = 316,
-  sigilSize = 192,
+  heroSize = 330,
+  sigilSize = 228,
   compact = false,
   imageUrl,
   sigilSvg,
@@ -326,6 +326,7 @@ export const VisualizeAnchorField: React.FC<VisualizeAnchorFieldProps> = ({
   children,
 }) => {
   // Continuous Breathing Animations
+  const heroBreathAnim = useRef(new Animated.Value(0)).current;
   const auraAnim = useRef(new Animated.Value(0)).current;
   const lensAnim = useRef(new Animated.Value(0)).current;
   const breathRingAnim = useRef(new Animated.Value(0)).current;
@@ -338,35 +339,35 @@ export const VisualizeAnchorField: React.FC<VisualizeAnchorFieldProps> = ({
     switch (phase) {
       case 'arrive':
         return {
-          sigilScale: 1.05,
+          sigilScale: 1.02,
           sigilOpacity: 1,
           frameOpacity: 1,
-          apertureOpacity: 0.15,
+          apertureOpacity: 0.18,
         };
       case 'build':
         return {
-          sigilScale: 0.82,
+          sigilScale: 0.96,
           sigilOpacity: 1,
           frameOpacity: 0.95,
           apertureOpacity: 0.35,
         };
       case 'rehearse':
         return {
-          sigilScale: 0.56,
-          sigilOpacity: 0.55,
-          frameOpacity: 0.62,
-          apertureOpacity: 0.15,
+          sigilScale: 0.90,
+          sigilOpacity: 0.88,
+          frameOpacity: 0.75,
+          apertureOpacity: 0.20,
         };
       case 'adapt':
         return {
-          sigilScale: 0.56,
-          sigilOpacity: 0.5,
-          frameOpacity: 0.62,
+          sigilScale: 0.90,
+          sigilOpacity: 0.85,
+          frameOpacity: 0.75,
           apertureOpacity: 0.45,
         };
       case 'return':
         return {
-          sigilScale: 1.05,
+          sigilScale: 1.02,
           sigilOpacity: 1,
           frameOpacity: 1,
           apertureOpacity: 0.25,
@@ -417,11 +418,29 @@ export const VisualizeAnchorField: React.FC<VisualizeAnchorFieldProps> = ({
   // Run Ambient Breathing Loops
   useEffect(() => {
     if (reduceMotion || paused) {
+      heroBreathAnim.stopAnimation();
       auraAnim.stopAnimation();
       lensAnim.stopAnimation();
       breathRingAnim.stopAnimation();
       return;
     }
+
+    const heroBreathLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(heroBreathAnim, {
+          toValue: 1,
+          duration: 4_200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(heroBreathAnim, {
+          toValue: 0,
+          duration: 4_200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
 
     const auraLoop = Animated.loop(
       Animated.sequence([
@@ -461,58 +480,70 @@ export const VisualizeAnchorField: React.FC<VisualizeAnchorFieldProps> = ({
       Animated.sequence([
         Animated.timing(breathRingAnim, {
           toValue: 1,
-          duration: 4_500,
+          duration: 4_200,
           easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
         Animated.timing(breathRingAnim, {
           toValue: 0,
-          duration: 4_500,
+          duration: 4_200,
           easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
       ]),
     );
 
+    heroBreathLoop.start();
     auraLoop.start();
     lensLoop.start();
     breathRingLoop.start();
 
     return () => {
+      heroBreathLoop.stop();
       auraLoop.stop();
       lensLoop.stop();
       breathRingLoop.stop();
     };
-  }, [auraAnim, breathRingAnim, lensAnim, paused, reduceMotion]);
+  }, [auraAnim, breathRingAnim, heroBreathAnim, lensAnim, paused, reduceMotion]);
+
+  const heroBreathScale = heroBreathAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.96, 1.05],
+  });
 
   const auraScale = auraAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.9, 1.08],
+    outputRange: [0.92, 1.08],
   });
   const auraOpacity = auraAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.6, 1],
+    outputRange: [0.55, 0.95],
   });
 
   const lensScaleY = lensAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.86, 1.02],
+    outputRange: [0.88, 1.02],
   });
   const lensOpacity = lensAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.5, 0.85],
+    outputRange: [0.45, 0.85],
   });
 
   const breathRingScale = breathRingAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.92, 1.14],
+    outputRange: [0.94, 1.10],
   });
   const breathRingOpacity = breathRingAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.25, 0.6],
+    outputRange: [0.2, 0.6],
   });
 
-  const stageSize = 316;
+  const stageSize = heroSize;
+  const auraSize = Math.round(sigilSize * 1.25);
+  const apertureSize = Math.round(sigilSize * 1.32);
+  const breathRingSize = sigilSize + 24;
+  const lensWidth = Math.min(stageSize - 20, Math.round(sigilSize * 1.35));
+  const lensHeight = Math.round(sigilSize * 0.95);
 
   return (
     <View style={[styles.stageWrapper, style]}>
@@ -524,7 +555,7 @@ export const VisualizeAnchorField: React.FC<VisualizeAnchorFieldProps> = ({
             height: stageSize,
             opacity: frameOpacity,
             transform: [
-              { scale: compact ? 0.74 : 1 },
+              { scale: compact ? 0.92 : 1 },
               { translateX: tremorAnim },
             ],
           },
@@ -552,12 +583,14 @@ export const VisualizeAnchorField: React.FC<VisualizeAnchorFieldProps> = ({
           style={[
             styles.aura,
             {
+              width: auraSize,
+              height: auraSize,
               opacity: auraOpacity,
               transform: [{ scale: auraScale }],
             },
           ]}
         >
-          <Svg width={270} height={270}>
+          <Svg width={auraSize} height={auraSize}>
             <Defs>
               <RadialGradient id="stage-aura-grad" cx="50%" cy="50%" r="50%">
                 <Stop offset="0%" stopColor="#d4af37" stopOpacity={0.25} />
@@ -565,7 +598,7 @@ export const VisualizeAnchorField: React.FC<VisualizeAnchorFieldProps> = ({
                 <Stop offset="100%" stopColor="#d4af37" stopOpacity={0} />
               </RadialGradient>
             </Defs>
-            <Rect x={0} y={0} width={270} height={270} fill="url(#stage-aura-grad)" />
+            <Rect x={0} y={0} width={auraSize} height={auraSize} fill="url(#stage-aura-grad)" />
           </Svg>
         </Animated.View>
 
@@ -574,6 +607,9 @@ export const VisualizeAnchorField: React.FC<VisualizeAnchorFieldProps> = ({
           style={[
             styles.lens,
             {
+              width: lensWidth,
+              height: lensHeight,
+              borderRadius: lensHeight / 2,
               opacity: lensOpacity,
               transform: [{ scaleY: lensScaleY }],
             },
@@ -585,11 +621,13 @@ export const VisualizeAnchorField: React.FC<VisualizeAnchorFieldProps> = ({
           style={[
             styles.aperture,
             {
+              width: apertureSize,
+              height: apertureSize,
               opacity: apertureOpacity,
             },
           ]}
         >
-          <Svg width={290} height={290}>
+          <Svg width={apertureSize} height={apertureSize}>
             <Defs>
               <RadialGradient id="stage-aperture-grad" cx="50%" cy="50%" r="50%">
                 <Stop offset="0%" stopColor="#3468be" stopOpacity={0.32} />
@@ -597,22 +635,23 @@ export const VisualizeAnchorField: React.FC<VisualizeAnchorFieldProps> = ({
                 <Stop offset="100%" stopColor="#3468be" stopOpacity={0} />
               </RadialGradient>
             </Defs>
-            <Rect x={0} y={0} width={290} height={290} fill="url(#stage-aperture-grad)" />
+            <Rect x={0} y={0} width={apertureSize} height={apertureSize} fill="url(#stage-aperture-grad)" />
           </Svg>
         </Animated.View>
 
-        {/* Arrive Breath Ring */}
-        {phase === 'arrive' && (
-          <Animated.View
-            style={[
-              styles.breathRing,
-              {
-                opacity: breathRingOpacity,
-                transform: [{ scale: breathRingScale }],
-              },
-            ]}
-          />
-        )}
+        {/* Continuous Breath Ring */}
+        <Animated.View
+          style={[
+            styles.breathRing,
+            {
+              width: breathRingSize,
+              height: breathRingSize,
+              borderRadius: breathRingSize / 2,
+              opacity: breathRingOpacity,
+              transform: [{ scale: reduceMotion || paused ? 1 : breathRingScale }],
+            },
+          ]}
+        />
 
         {/* Sigil Outer Wrapper */}
         <Animated.View
@@ -624,12 +663,22 @@ export const VisualizeAnchorField: React.FC<VisualizeAnchorFieldProps> = ({
             },
           ]}
         >
-          <VisualizationAnchorLens
-            size={sigilSize}
-            imageUrl={imageUrl}
-            svg={sigilSvg}
-            still={paused}
-          />
+          {/* Hero Breathing Animated Wrapper */}
+          <Animated.View
+            style={[
+              styles.heroBreatheWrap,
+              {
+                transform: [{ scale: reduceMotion || paused ? 1 : heroBreathScale }],
+              },
+            ]}
+          >
+            <VisualizationAnchorLens
+              size={sigilSize}
+              imageUrl={imageUrl}
+              svg={sigilSvg}
+              still={paused}
+            />
+          </Animated.View>
         </Animated.View>
 
         {children}
@@ -695,36 +744,30 @@ const styles = StyleSheet.create({
   },
   lens: {
     position: 'absolute',
-    width: 288,
-    height: 190,
-    borderRadius: 95,
     borderWidth: 1,
     borderColor: 'rgba(212,175,55,0.14)',
   },
   aura: {
     position: 'absolute',
-    width: 240,
-    height: 240,
     alignItems: 'center',
     justifyContent: 'center',
   },
   aperture: {
     position: 'absolute',
-    width: 260,
-    height: 260,
     alignItems: 'center',
     justifyContent: 'center',
   },
   breathRing: {
     position: 'absolute',
-    width: 190,
-    height: 190,
-    borderRadius: 95,
     borderWidth: 1,
     borderColor: 'rgba(212,175,55,0.3)',
   },
   sigilOuter: {
     zIndex: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroBreatheWrap: {
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -20,7 +20,7 @@
  */
 import React, { useEffect, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import Animated, {
   Easing,
   cancelAnimation,
@@ -37,6 +37,7 @@ import type { WeaveNode } from './weaveData';
 import type { WeaveGeometry, WeaveNodePosition } from './weaveGeometry';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+const AnimatedRect = Animated.createAnimatedComponent(Rect);
 
 /** Reference stagger, in milliseconds. */
 const SWEEP_START = 120;
@@ -86,20 +87,20 @@ const NodeMark: React.FC<{
     }
     bloom.value = 0;
     spark.value = 0;
-    // A quick overshoot past full size sells the "struck" pop before the
+    // A gentle overshoot past full size sells the "struck" pop before the
     // mark relaxes to its resting bloom.
     bloom.value = withDelay(
       delay,
       withSequence(
-        withTiming(1.18, { duration: NODE_DURATION * 0.6, easing: Easing.out(Easing.cubic) }),
+        withTiming(1.1, { duration: NODE_DURATION * 0.6, easing: Easing.out(Easing.quad) }),
         withTiming(1, { duration: NODE_DURATION * 0.4, easing: Easing.inOut(Easing.quad) }),
       ),
     );
     spark.value = withDelay(
       delay,
       withSequence(
-        withTiming(1, { duration: 70, easing: Easing.out(Easing.quad) }),
-        withTiming(0, { duration: 320, easing: Easing.out(Easing.quad) }),
+        withTiming(1, { duration: 80, easing: Easing.out(Easing.quad) }),
+        withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) }),
       ),
     );
     if (position.latest) {
@@ -126,12 +127,12 @@ const NodeMark: React.FC<{
     opacity: Math.min(1, bloom.value) * pulse.value,
   }));
   const glowProps = useAnimatedProps(() => ({
-    r: (position.radius + (selected ? 7 : 5)) * (0.5 + 0.5 * Math.min(1, bloom.value)),
-    opacity: Math.min(1, bloom.value) * (selected ? 0.34 : 0.2),
+    r: (position.radius + (selected ? 6 : 4)) * (0.5 + 0.5 * Math.min(1, bloom.value)),
+    opacity: Math.min(1, bloom.value) * (selected ? 0.28 : 0.16),
   }));
   const sparkProps = useAnimatedProps(() => ({
-    r: position.radius + 2 + spark.value * 10,
-    opacity: spark.value * 0.85,
+    r: position.radius + 2 + spark.value * 7,
+    opacity: spark.value * 0.65,
   }));
 
   return (
@@ -198,15 +199,11 @@ export const WeaveCanvas: React.FC<WeaveCanvasProps> = ({
     flicker.value = withDelay(
       SWEEP_START,
       withSequence(
-        withTiming(1, { duration: 40 }),
-        withTiming(0.35, { duration: 30 }),
-        withTiming(1, { duration: 55 }),
-        withTiming(0.6, { duration: 90 }),
-        withTiming(1, { duration: 45 }),
-        withTiming(0.5, { duration: 120 }),
-        withTiming(1, { duration: 60 }),
-        withTiming(0.75, { duration: 180 }),
-        withTiming(1, { duration: 300 }),
+        withTiming(1, { duration: 90 }),
+        withTiming(0.62, { duration: 160 }),
+        withTiming(1, { duration: 140 }),
+        withTiming(0.72, { duration: 220 }),
+        withTiming(1, { duration: 310 }),
       ),
     );
     return () => {
@@ -215,11 +212,17 @@ export const WeaveCanvas: React.FC<WeaveCanvasProps> = ({
     };
   }, [animationKey, still, sweep, flicker]);
 
-  const revealStyle = useAnimatedStyle(() => ({ width: width * sweep.value }));
+  // Reveals the weave by sliding an opaque cover off to the right, rather
+  // than clipping a wrapping View around the <Svg> — RN's overflow clipping
+  // of an embedded native SVG view is unreliable on some platforms and would
+  // otherwise let the whole weave render at full width from the first frame.
+  // The cover itself needs no clipping: it simply slides past the SVG's own
+  // right edge, which every SVG viewport clips inherently.
+  const coverProps = useAnimatedProps(() => ({ x: width * sweep.value }));
   // A bolt of light rides the leading edge, so the reveal reads as the weave
   // being struck into place rather than a panel being uncovered.
   const wavefrontStyle = useAnimatedStyle(() => {
-    const envelope = sweep.value <= 0 || sweep.value >= 1 ? 0 : Math.sin(Math.PI * sweep.value) ** 0.6;
+    const envelope = sweep.value <= 0 || sweep.value >= 1 ? 0 : 0.7 * Math.sin(Math.PI * sweep.value) ** 0.6;
     return {
       opacity: envelope * flicker.value,
       transform: [{ translateX: width * sweep.value - 1 }],
@@ -228,87 +231,96 @@ export const WeaveCanvas: React.FC<WeaveCanvasProps> = ({
 
   return (
     <View style={{ width, height }} accessible={false}>
-      <Animated.View style={[{ width, height, overflow: 'hidden' }, revealStyle]}>
-        <Svg width={width} height={height} accessible={false}>
-          {passes.map((pass, layer) => (
-            <React.Fragment key={`pass:${layer}`}>
-              {pass.map((segment) => (
-                <Path
-                  key={`${segment.id}:halo`}
-                  d={segment.haloPath}
-                  stroke={backgroundColor}
-                  strokeOpacity={0.94}
-                  strokeWidth={segment.strokeWidth + 3.4}
-                  fill="none"
-                />
-              ))}
-              {pass.map((segment) => (
-                <Path
-                  key={`${segment.id}:glow`}
-                  d={segment.path}
-                  stroke={modeColors[segment.mode]}
-                  strokeOpacity={segment.opacity * 0.55}
-                  strokeWidth={segment.strokeWidth + 5.5}
-                  strokeLinecap="round"
-                  fill="none"
-                />
-              ))}
-              {pass.map((segment) => (
-                <Path
-                  key={`${segment.id}:line`}
-                  d={segment.path}
-                  stroke={modeColors[segment.mode]}
-                  strokeOpacity={segment.opacity}
-                  strokeWidth={segment.strokeWidth}
-                  strokeLinecap="round"
-                  fill="none"
-                />
-              ))}
-            </React.Fragment>
-          ))}
-          {nodes.map((node) => {
-            const position = geometry.nodePositions[node.id];
-            if (!position) return null;
-            const selected = selectedNodeId === node.id;
-            const notable = node.sessionCount >= 2;
-            const color = modeColors[node.mode];
-            if (!animateNodes) {
-              return (
-                <React.Fragment key={node.id}>
-                  {(notable || selected) && (
-                    <Circle
-                      cx={position.left}
-                      cy={position.top}
-                      r={position.radius + (selected ? 7 : 5)}
-                      fill={color}
-                      opacity={selected ? 0.34 : 0.2}
-                    />
-                  )}
+      <Svg width={width} height={height} accessible={false}>
+        {passes.map((pass, layer) => (
+          <React.Fragment key={`pass:${layer}`}>
+            {pass.map((segment) => (
+              <Path
+                key={`${segment.id}:halo`}
+                d={segment.haloPath}
+                stroke={backgroundColor}
+                strokeOpacity={0.94}
+                strokeWidth={segment.strokeWidth + 3.4}
+                fill="none"
+              />
+            ))}
+            {pass.map((segment) => (
+              <Path
+                key={`${segment.id}:glow`}
+                d={segment.path}
+                stroke={modeColors[segment.mode]}
+                strokeOpacity={segment.opacity * 0.55}
+                strokeWidth={segment.strokeWidth + 5.5}
+                strokeLinecap="round"
+                fill="none"
+              />
+            ))}
+            {pass.map((segment) => (
+              <Path
+                key={`${segment.id}:line`}
+                d={segment.path}
+                stroke={modeColors[segment.mode]}
+                strokeOpacity={segment.opacity}
+                strokeWidth={segment.strokeWidth}
+                strokeLinecap="round"
+                fill="none"
+              />
+            ))}
+          </React.Fragment>
+        ))}
+        {nodes.map((node) => {
+          const position = geometry.nodePositions[node.id];
+          if (!position) return null;
+          const selected = selectedNodeId === node.id;
+          const notable = node.sessionCount >= 2;
+          const color = modeColors[node.mode];
+          if (!animateNodes) {
+            return (
+              <React.Fragment key={node.id}>
+                {(notable || selected) && (
                   <Circle
                     cx={position.left}
                     cy={position.top}
-                    r={position.radius}
-                    fill={selected ? '#F4EFE6' : color}
-                    stroke={selected ? color : undefined}
-                    strokeWidth={selected ? 1.5 : 0}
+                    r={position.radius + (selected ? 6 : 4)}
+                    fill={color}
+                    opacity={selected ? 0.28 : 0.16}
                   />
-                </React.Fragment>
-              );
-            }
-            return (
-              <NodeMark
-                key={node.id}
-                position={position}
-                color={color}
-                selected={selected}
-                notable={notable}
-                still={still}
-                animationKey={animationKey}
-              />
+                )}
+                <Circle
+                  cx={position.left}
+                  cy={position.top}
+                  r={position.radius}
+                  fill={selected ? '#F4EFE6' : color}
+                  stroke={selected ? color : undefined}
+                  strokeWidth={selected ? 1.5 : 0}
+                />
+              </React.Fragment>
             );
-          })}
-        </Svg>
-      </Animated.View>
+          }
+          return (
+            <NodeMark
+              key={node.id}
+              position={position}
+              color={color}
+              selected={selected}
+              notable={notable}
+              still={still}
+              animationKey={animationKey}
+            />
+          );
+        })}
+        {!still && (
+          <AnimatedRect
+            x={0}
+            y={0}
+            width={width}
+            height={height}
+            fill={backgroundColor}
+            animatedProps={coverProps}
+            pointerEvents="none"
+          />
+        )}
+      </Svg>
       {!still && (
         <Animated.View pointerEvents="none" style={[styles.wavefrontWrap, { height }, wavefrontStyle]}>
           <View style={[styles.wavefrontLayer, styles.wavefrontGlow]} />
@@ -333,19 +345,19 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   wavefrontGlow: {
-    left: -11,
-    width: 22,
-    backgroundColor: 'rgba(240,203,106,0.18)',
+    left: -9,
+    width: 18,
+    backgroundColor: 'rgba(240,203,106,0.14)',
   },
   wavefrontHalo: {
-    left: -4,
-    width: 8,
-    backgroundColor: 'rgba(255,246,214,0.42)',
+    left: -3.5,
+    width: 7,
+    backgroundColor: 'rgba(255,246,214,0.34)',
   },
   wavefrontCore: {
     left: -1,
     width: 2,
-    backgroundColor: '#FFF9EA',
+    backgroundColor: '#FFF3D2',
   },
 });
 
