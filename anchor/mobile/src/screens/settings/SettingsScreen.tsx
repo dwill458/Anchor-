@@ -225,7 +225,16 @@ export const SettingsScreen: React.FC = () => {
   const [spShowConfirm, setSpShowConfirm] = useState(false);
 
   const handleBackToProfile = useCallback(() => {
-    navigation.popToTop();
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      const parent = navigation.getParent();
+      if (parent) {
+        parent.goBack();
+      } else {
+        navigation.goBack();
+      }
+    }
   }, [navigation]);
 
   const traceDefaultEnabled = useSettingsStore((state) => state.traceDefaultEnabled ?? true);
@@ -556,12 +565,12 @@ export const SettingsScreen: React.FC = () => {
             accessibilityRole="button"
             accessibilityLabel="Back to Profile"
             onPress={handleBackToProfile}
-            hitSlop={10}
+            hitSlop={12}
             style={styles.headerButton}
           >
             <ArrowLeft color={colors.anchor15.ash} size={19} strokeWidth={1.5} />
           </Pressable>
-          <Text style={styles.headerTitle}>Settings</Text>
+          <Text pointerEvents="none" style={styles.headerTitle}>Settings</Text>
           <View style={styles.headerButton} />
         </View>
 
@@ -1034,6 +1043,7 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 1,
   },
   headerTitle: {
     position: 'absolute',

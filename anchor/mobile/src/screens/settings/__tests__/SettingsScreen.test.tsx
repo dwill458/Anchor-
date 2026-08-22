@@ -26,6 +26,10 @@ const mockNotifState = {
 };
 const mockFetchProfile = jest.fn(() => Promise.resolve());
 const mockNavigate = jest.fn();
+const mockGoBack = jest.fn();
+const mockCanGoBack = jest.fn(() => true);
+const mockParentGoBack = jest.fn();
+const mockGetParent = jest.fn(() => ({ goBack: mockParentGoBack }));
 const mockPopToTop = jest.fn();
 const mockSettings = {
   openDailyAnchorAutomatically: false,
@@ -63,6 +67,9 @@ jest.mock('@react-native-community/datetimepicker', () => 'DateTimePicker');
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({
     navigate: mockNavigate,
+    goBack: mockGoBack,
+    canGoBack: mockCanGoBack,
+    getParent: mockGetParent,
     popToTop: mockPopToTop,
   }),
   CommonActions: {
@@ -180,7 +187,16 @@ describe('SettingsScreen', () => {
 
     fireEvent.press(screen.getByLabelText('Back to Profile'));
 
-    expect(mockPopToTop).toHaveBeenCalledTimes(1);
+    expect(mockGoBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to dismissing parent navigator when canGoBack is false', () => {
+    mockCanGoBack.mockReturnValueOnce(false);
+    const screen = render(<SettingsScreen />);
+
+    fireEvent.press(screen.getByLabelText('Back to Profile'));
+
+    expect(mockParentGoBack).toHaveBeenCalledTimes(1);
   });
 
   it('shows a sign-in link for signed-out users', () => {

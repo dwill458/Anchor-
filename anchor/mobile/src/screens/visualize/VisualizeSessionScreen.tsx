@@ -37,6 +37,9 @@ import {
   type VisualizePhaseId,
 } from './visualizeSessionConfig';
 import { useVisualizeSessionEngine } from './useVisualizeSessionEngine';
+import { useVisualizeSessionAudio } from './useVisualizeSessionAudio';
+import { resolveSessionAudioPlan } from '@/services/SessionAudioManifest';
+import { getVisualizeSessionAudioManifest } from '@/services/visualizeAudioManifest';
 import { resolvePracticeCompletionSource } from '@/navigation/practiceReturn';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'VisualizeSession'>;
@@ -161,10 +164,39 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
     ],
   );
 
+  const audioPlan = useMemo(
+    () =>
+      resolveSessionAudioPlan({
+        sessionType: 'visualize',
+        durationSeconds,
+        configuration: {
+          guidanceVoice,
+          backgroundAudio,
+          source: 'session_override',
+        },
+      }),
+    [backgroundAudio, durationSeconds, guidanceVoice],
+  );
+
+  const audioManifest = useMemo(
+    () => getVisualizeSessionAudioManifest(durationSeconds),
+    [durationSeconds],
+  );
+
   const engine = useVisualizeSessionEngine({
     durationSeconds,
     hapticsEnabled: hapticIntensity > 0,
     onComplete: complete,
+  });
+
+  const { fadeOutAndStop } = useVisualizeSessionAudio({
+    plan: audioPlan,
+    manifest: audioManifest,
+    elapsedMs: engine.elapsedMs,
+    isActive: engine.state === 'running',
+    isCompleting: engine.state === 'completing',
+    isComplete: engine.state === 'completed',
+    onInterruption: () => engine.pause('audio_interrupted'),
   });
 
   const isPaused = engine.state === 'paused';
@@ -216,6 +248,7 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
 
   const handleEndEarly = () => {
     completionRef.current = true;
+    void fadeOutAndStop();
     engine.endEarly();
     setConfirmEnd(false);
     navigation.popToTop();
