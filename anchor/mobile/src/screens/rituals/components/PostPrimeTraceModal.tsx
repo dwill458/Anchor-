@@ -1,5 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  Pressable,
+  StyleProp,
+  StyleSheet,
+  Text,
+  TextStyle,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Defs, RadialGradient, Stop, SvgXml } from 'react-native-svg';
@@ -119,6 +127,10 @@ interface PostPrimeTraceModalProps {
   onTrace: () => void;
   onSkip: () => void;
   compact?: boolean;
+  /** Renders the compact CTA in-flow (no absolute floating pill). Ignored unless `compact` is true. */
+  inline?: boolean;
+  /** Overrides the compact/inline CTA text style, e.g. to match a sibling CTA. */
+  textStyle?: StyleProp<TextStyle>;
 }
 
 export const PostPrimeTraceModal: React.FC<PostPrimeTraceModalProps> = ({
@@ -127,6 +139,8 @@ export const PostPrimeTraceModal: React.FC<PostPrimeTraceModalProps> = ({
   onTrace,
   onSkip,
   compact = false,
+  inline = false,
+  textStyle,
 }) => {
   const reduceMotionEnabled = useReduceMotionEnabled();
   const opacity = useSharedValue(0);
@@ -215,6 +229,21 @@ export const PostPrimeTraceModal: React.FC<PostPrimeTraceModalProps> = ({
   }
 
   if (compact) {
+    if (inline) {
+      return (
+        <TouchableOpacity
+          style={styles.inlineLink}
+          onPress={onTrace}
+          activeOpacity={0.72}
+          accessibilityRole="button"
+          accessibilityLabel="Trace"
+          testID="post-prime-trace-link"
+        >
+          <Text style={[styles.inlineLinkText, textStyle]}>Trace</Text>
+        </TouchableOpacity>
+      );
+    }
+
     return (
       <View style={styles.compactWrap} pointerEvents="box-none">
         <TouchableOpacity
@@ -225,7 +254,7 @@ export const PostPrimeTraceModal: React.FC<PostPrimeTraceModalProps> = ({
           accessibilityLabel="Trace"
           testID="post-prime-trace-link"
         >
-          <Text style={styles.compactLinkText}>Trace</Text>
+          <Text style={[styles.compactLinkText, textStyle]}>Trace</Text>
         </TouchableOpacity>
       </View>
     );
@@ -385,6 +414,15 @@ const styles = StyleSheet.create({
     color: colors.gold,
     textDecorationLine: 'underline',
     textDecorationColor: colors.gold,
+  },
+  inlineLink: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  inlineLinkText: {
+    fontSize: typography.sizes.body2,
+    fontFamily: typography.fonts.bodyBold,
+    color: colors.gold,
   },
   cardShell: {
     width: '100%',

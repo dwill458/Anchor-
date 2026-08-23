@@ -60,6 +60,8 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
   route,
 }) => {
   const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
+  const HERO_SIZE = Math.min(screenWidth * 0.58, 250);
   const returnToChart = useChartPracticeReturn(navigation);
   const {
     navigateToSanctuary: canonicalNavigateToSanctuary,
@@ -75,16 +77,52 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
     state.getAnchorById(route.params.anchorId),
   );
   const accountId = useAuthStore((state) => state.user?.id ?? null);
-  const completedSession = useSessionStore((state) =>
-    state.practiceHistory.find(
-      (session) => session.id === route.params.sessionId,
-    ),
+  const practiceHistory = useSessionStore((state) => state.practiceHistory);
+  const completedSession = practiceHistory.find(
+    (session) => session.id === route.params.sessionId,
   );
 
   const [nextAction, setNextAction] = useState('');
   const [saved, setSaved] = useState(false);
 
   const traceDefaultEnabled = useSettingsStore((state) => state.traceDefaultEnabled ?? true);
+  const threadStrengthSensitivity = useSettingsStore(
+    (state) => state.threadStrengthSensitivity,
+  );
+  const restDays = useSettingsStore((state) => state.restDays);
+
+  const practiceCompleteResult = useMemo(
+    () =>
+      calculatePracticeCompleteResult({
+        anchorId: route.params.anchorId,
+        anchorLocalId: anchor?.localId,
+        practiceMode: 'visualize',
+        practiceHistory,
+        accountId,
+        completedSessionId: route.params.sessionId,
+        newRecord: completedSession,
+        sensitivity: threadStrengthSensitivity,
+        restDays,
+        returnTo: route.params.returnTo,
+        returnTarget: route.params.returnTarget,
+        source: route.params.practiceEntrySource,
+        chartContext: route.params.chartContext,
+      }),
+    [
+      accountId,
+      anchor?.localId,
+      completedSession,
+      practiceHistory,
+      restDays,
+      route.params.anchorId,
+      route.params.chartContext,
+      route.params.practiceEntrySource,
+      route.params.returnTarget,
+      route.params.returnTo,
+      route.params.sessionId,
+      threadStrengthSensitivity,
+    ],
+  );
   const bumpThreadStrength = useSessionStore((state) => state.bumpThreadStrength);
   const beginPostPrimeTraceFlow = usePostPrimeTraceStore((state) => state.beginFlow);
   const activeFlow = usePostPrimeTraceStore((state) => state.activeFlow);
@@ -216,31 +254,11 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
   const returnLabel = 'Continue';
 
   const returnToOrigin = () => {
-    const practiceHistory = useSessionStore.getState?.()?.practiceHistory ?? [];
-    const accountId = useAuthStore.getState?.()?.user?.id ?? null;
-    const settingsState = useSettingsStore.getState?.() ?? {};
-
-    const result = calculatePracticeCompleteResult({
-      anchorId: route.params.anchorId,
-      anchorLocalId: anchor?.localId,
-      practiceMode: 'visualize',
-      practiceHistory,
-      accountId,
-      completedSessionId: route.params.sessionId,
-      newRecord: completedSession,
-      sensitivity: settingsState.threadStrengthSensitivity,
-      restDays: settingsState.restDays,
-      returnTo: route.params.returnTo,
-      returnTarget: route.params.returnTarget,
-      source: route.params.practiceEntrySource,
-      chartContext: route.params.chartContext,
-    });
-
     useAnchorStore.getState?.()?.updateAnchor?.(route.params.anchorId, {
-      threadStrength: result.newThreadStrength,
+      threadStrength: practiceCompleteResult.newThreadStrength,
     });
 
-    (navigation as any).replace('PracticeComplete', result);
+    (navigation as any).replace('PracticeComplete', practiceCompleteResult);
   };
 
   const handleVisualizeAgain = () => {
@@ -291,6 +309,9 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
   const shimmerScale = shimmer.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] });
   const shimmerOpacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] });
 
+  const shimmerAuraSize = HERO_SIZE * 1.29;
+  const rippleRingSize = HERO_SIZE * 1.17;
+
   return (
     <View style={styles.container}>
       <VisualizeFieldBackground phase="return" />
@@ -309,6 +330,9 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
               style={[
                 styles.shimmerAura,
                 {
+                  width: shimmerAuraSize,
+                  height: shimmerAuraSize,
+                  borderRadius: shimmerAuraSize / 2,
                   opacity: shimmerOpacity,
                   transform: [{ scale: shimmerScale }],
                 },
@@ -318,6 +342,9 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
               style={[
                 styles.rippleRing,
                 {
+                  width: rippleRingSize,
+                  height: rippleRingSize,
+                  borderRadius: rippleRingSize / 2,
                   opacity: ringOpacity1,
                   transform: [{ scale: ringScale1 }],
                 },
@@ -327,6 +354,9 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
               style={[
                 styles.rippleRing,
                 {
+                  width: rippleRingSize,
+                  height: rippleRingSize,
+                  borderRadius: rippleRingSize / 2,
                   opacity: ringOpacity2,
                   transform: [{ scale: ringScale2 }],
                 },
@@ -336,13 +366,16 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
               style={[
                 styles.rippleRing,
                 {
+                  width: rippleRingSize,
+                  height: rippleRingSize,
+                  borderRadius: rippleRingSize / 2,
                   opacity: ringOpacity3,
                   transform: [{ scale: ringScale3 }],
                 },
               ]}
             />
             <VisualizationAnchorLens
-              size={132}
+              size={HERO_SIZE}
               imageUrl={imageUrl}
               svg={sigilSvg}
               still={false}
@@ -361,7 +394,7 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statCell}>
-              <Text style={styles.statVal}>Thread 88</Text>
+              <Text style={styles.statVal}>Thread {practiceCompleteResult.newThreadStrength}</Text>
               <Text style={styles.statLbl}>TEMPERED</Text>
             </View>
           </View>
@@ -401,6 +434,18 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
 
           {/* Action CTAs */}
           <View style={styles.actionsWrap}>
+            {anchor && !traceDefaultEnabled ? (
+              <PostPrimeTraceModal
+                visible={showPostPrimeTrace}
+                anchor={anchor}
+                onTrace={handleBeginPostPrimeTrace}
+                onSkip={handleSkipPostPrimeTrace}
+                compact
+                inline
+                textStyle={styles.ghostBtnText}
+              />
+            ) : null}
+
             <VisualizationPrimaryButton
               label={`${returnLabel.toUpperCase()} →`}
               onPress={returnToOrigin}
@@ -418,13 +463,13 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
         </ScrollView>
       </SafeAreaView>
 
-      {anchor ? (
+      {anchor && traceDefaultEnabled ? (
         <PostPrimeTraceModal
           visible={showPostPrimeTrace}
           anchor={anchor}
           onTrace={handleBeginPostPrimeTrace}
           onSkip={handleSkipPostPrimeTrace}
-          compact={!traceDefaultEnabled}
+          compact={false}
         />
       ) : null}
     </View>
@@ -442,6 +487,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 28,
     gap: 12,
   },
@@ -449,7 +495,8 @@ const styles = StyleSheet.create({
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 14,
+    marginTop: -20,
+    marginBottom: 14,
   },
   shimmerAura: {
     position: 'absolute',
