@@ -320,7 +320,7 @@ export const ActivationScreen: React.FC = () => {
         });
       }
 
-      toast.success('Prime session logged successfully');
+      toast.success('Anchor Sealed');
       trackActivationCompleted(true);
     } catch (error) {
       if (error instanceof Error && error.message === 'Anchor not found') {

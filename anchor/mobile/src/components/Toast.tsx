@@ -5,12 +5,19 @@
  */
 
 import React, { useCallback, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Text, StyleSheet, Animated, Easing, TouchableOpacity } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, typography } from '@/theme';
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
+
+const ACCENT_BY_TYPE: Record<ToastType, { color: string; border: string }> = {
+  success: { color: colors.gold, border: 'rgba(212, 175, 55, 0.35)' },
+  warning: { color: colors.gold, border: 'rgba(212, 175, 55, 0.35)' },
+  error: { color: '#EF4444', border: 'rgba(239, 68, 68, 0.35)' },
+  info: { color: '#3B82F6', border: 'rgba(59, 130, 246, 0.35)' },
+};
 
 export interface ToastProps {
   message: string;
@@ -26,7 +33,7 @@ export const Toast: React.FC<ToastProps> = ({
   onDismiss,
 }) => {
   const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(-100)).current;
+  const translateY = useRef(new Animated.Value(-6)).current;
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isDismissingRef = useRef(false);
 
@@ -49,7 +56,7 @@ export const Toast: React.FC<ToastProps> = ({
         useNativeDriver: true,
       }),
       Animated.timing(translateY, {
-        toValue: -100,
+        toValue: -6,
         duration: 200,
         useNativeDriver: true,
       }),
@@ -68,18 +75,18 @@ export const Toast: React.FC<ToastProps> = ({
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
 
-    // Animate in
+    // Settle in: subtle fade + drift down, not a slide from off-screen
     Animated.parallel([
       Animated.timing(opacity, {
         toValue: 1,
-        duration: 300,
+        duration: 600,
+        easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
-      Animated.spring(translateY, {
+      Animated.timing(translateY, {
         toValue: 0,
-        damping: 15,
-        mass: 1,
-        stiffness: 150,
+        duration: 600,
+        easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
     ]).start();
@@ -97,24 +104,12 @@ export const Toast: React.FC<ToastProps> = ({
     };
   }, [duration, handleDismiss, opacity, translateY, type]);
 
-  const getColors = (): [string, string] => {
-    switch (type) {
-      case 'success':
-        return ['#10B981', '#059669']; // Green
-      case 'error':
-        return ['#EF4444', '#DC2626']; // Red
-      case 'warning':
-        return [colors.gold, '#B8941F']; // Gold
-      case 'info':
-      default:
-        return ['#3B82F6', '#2563EB']; // Blue
-    }
-  };
+  const accent = ACCENT_BY_TYPE[type];
 
-  const getIcon = (): string => {
+  const getIcon = (): string | null => {
     switch (type) {
       case 'success':
-        return '✓';
+        return null; // rendered as a thin-stroke circle-check instead
       case 'error':
         return '✕';
       case 'warning':
@@ -151,17 +146,30 @@ export const Toast: React.FC<ToastProps> = ({
         accessibilityLabel="Dismiss notification"
         accessibilityHint="Double tap to dismiss this notification"
       >
-        <LinearGradient
-          colors={getColors()}
-          style={styles.gradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
+        <View
+          style={[
+            styles.card,
+            { borderColor: accent.border, borderLeftColor: accent.color },
+          ]}
         >
-          <Text style={styles.icon}>{getIcon()}</Text>
+          {type === 'success' ? (
+            <Svg width={18} height={18} style={styles.icon} viewBox="0 0 24 24" fill="none">
+              <Circle cx={12} cy={12} r={10} stroke={accent.color} strokeWidth={1.3} />
+              <Path
+                d="M7 12.5L10.2 15.5L17 8.5"
+                stroke={accent.color}
+                strokeWidth={1.4}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+          ) : (
+            <Text style={[styles.iconGlyph, { color: accent.color }]}>{getIcon()}</Text>
+          )}
           <Text style={styles.message} numberOfLines={3}>
             {message}
           </Text>
-        </LinearGradient>
+        </View>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -174,22 +182,27 @@ const styles = StyleSheet.create({
     left: spacing.md,
     right: spacing.md,
     zIndex: 9999,
-    elevation: 10,
+    elevation: 6,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
   },
-  gradient: {
+  card: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(244, 239, 230, 0.03)',
+    borderWidth: 1,
+    borderLeftWidth: 2,
+    borderRadius: 4,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    borderRadius: 12,
   },
   icon: {
-    fontSize: 20,
-    color: colors.bone,
+    marginRight: spacing.md,
+  },
+  iconGlyph: {
+    fontSize: 18,
     marginRight: spacing.md,
     fontWeight: '600',
   },

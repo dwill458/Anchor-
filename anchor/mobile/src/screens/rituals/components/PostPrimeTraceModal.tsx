@@ -18,7 +18,7 @@ import { OptimizedImage } from '@/components/common';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { colors, spacing, typography } from '@/theme';
 
-const SIGIL_SIZE = 88;
+const SIGIL_SIZE = 124; // ~1.4x the prior 88px medallion
 const GOLD_BRIGHT = '#F2DFA8';
 
 // A bespoke, slow-breathing radial-gradient halo behind the sigil — softer
@@ -41,8 +41,8 @@ const TraceSigilGlow: React.FC<{ size: number; reduceMotionEnabled: boolean }> =
 
     breath.value = withRepeat(
       withSequence(
-        withTiming(1, { duration: 2600, easing: Easing.inOut(Easing.sin) }),
-        withTiming(0, { duration: 2600, easing: Easing.inOut(Easing.sin) }),
+        withTiming(1, { duration: 1700, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0, { duration: 1700, easing: Easing.inOut(Easing.sin) }),
       ),
       -1,
       true,

@@ -11,9 +11,10 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import Animated, {
   Easing,
+  cancelAnimation,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -88,6 +89,27 @@ export default function AIGeneratingScreen() {
   const reduceMotion = useReducedMotion();
   const compact = isCompactPhoneViewport(width, height);
 
+  // Responsive hero sizing — enlarged for prominent focal presence.
+  const maxHeroWidth = Math.min(width - 32, 344);
+  const heroScale = compact ? 0.85 : 1;
+  const heroSize = Math.round(maxHeroWidth * heroScale);
+  const heroCenter = heroSize / 2;
+  const heroOuterHaloSize = Math.round(heroSize * 0.98);
+  const heroInnerHaloSize = Math.round(heroSize * 0.82);
+  const heroPulseWaveSize = Math.round(heroSize * 0.76);
+  const heroCircleSize = Math.round(heroSize * 0.68);
+  const sigilSize = Math.round(heroCircleSize * 0.65);
+
+  const heroSpinnerRadius = Math.round(heroCircleSize / 2 + 13);
+  const spinnerCircumference = 2 * Math.PI * heroSpinnerRadius;
+  const spinnerArcLength = spinnerCircumference / 3.4;
+  const spinnerDashArray = `${spinnerArcLength.toFixed(1)},${(spinnerCircumference - spinnerArcLength).toFixed(1)}`;
+
+  const heroOrbitalRadius = Math.round(heroCircleSize / 2 + 28);
+  const heroRingARadius = Math.round(heroCircleSize / 2 + 18);
+  const heroRingBRadius = Math.round(heroCircleSize / 2 + 38);
+  const heroRingCRadius = Math.round(heroSize / 2 - 4);
+
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const anchorCount = useAuthStore((state) => state.anchorCount);
@@ -141,81 +163,156 @@ export default function AIGeneratingScreen() {
   const generationAttemptRef = useRef<number>(initialGenerationAttempt ?? 1);
 
   // Animations
-  const haloScale = useSharedValue(1);
-  const haloOpacity = useSharedValue(0.85);
-  const ringRotA = useSharedValue(0);
-  const ringRotB = useSharedValue(0);
+  const haloProgress = useSharedValue(0);
+  const pulseWaveProgress = useSharedValue(0);
+  const heroCoreProgress = useSharedValue(0);
+  const spinnerProgress = useSharedValue(0);
+  const counterSpinnerProgress = useSharedValue(0);
+  const ringAProgress = useSharedValue(0);
+  const ringBProgress = useSharedValue(0);
+  const ringCProgress = useSharedValue(0);
   const bgArcRotA = useSharedValue(0);
   const bgArcRotB = useSharedValue(0);
   const progressPercent = useSharedValue(10);
   const statusOpacity = useSharedValue(1);
 
-  // Start continuous loops on mount
+  // Start continuous loops once on mount
   useEffect(() => {
-    if (!reduceMotion) {
-      // Breathing Halo
-      haloScale.value = withRepeat(
-        withSequence(
-          withTiming(1.08, { duration: 2300, easing: Easing.inOut(Easing.ease) }),
-          withTiming(1.0, { duration: 2300, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        false
-      );
-      haloOpacity.value = withRepeat(
-        withSequence(
-          withTiming(1.0, { duration: 2300, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0.85, { duration: 2300, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        false
-      );
+    // 1. Radiant Halo Breathing Pulse
+    haloProgress.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 2200, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 2200, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      false
+    );
 
-      // Rotating Concentric Rings (Inner 34s, Outer 46s reverse)
-      ringRotA.value = withRepeat(
-        withTiming(360, { duration: 34000, easing: Easing.linear }),
-        -1,
-        false
-      );
-      ringRotB.value = withRepeat(
-        withTiming(-360, { duration: 46000, easing: Easing.linear }),
-        -1,
-        false
-      );
+    // 2. Expanding Energy Ripple Wave
+    pulseWaveProgress.value = withRepeat(
+      withTiming(1, { duration: 2400, easing: Easing.out(Easing.cubic) }),
+      -1,
+      false
+    );
 
-      // Ambient background arcs
-      bgArcRotA.value = withRepeat(
-        withTiming(360, { duration: 220000, easing: Easing.linear }),
-        -1,
-        false
-      );
-      bgArcRotB.value = withRepeat(
-        withTiming(-360, { duration: 260000, easing: Easing.linear }),
-        -1,
-        false
-      );
-    }
-  }, [bgArcRotA, bgArcRotB, haloOpacity, haloScale, reduceMotion, ringRotA, ringRotB]);
+    // 3. Hero Core Breathing Pulse & Glow
+    heroCoreProgress.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 2200, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 2200, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      false
+    );
+
+    // 4. Primary Fast Spinning Radiant Glow Arc (1800ms)
+    spinnerProgress.value = withRepeat(
+      withTiming(1, { duration: 1800, easing: Easing.linear }),
+      -1,
+      false
+    );
+
+    // 5. Counter-Spinning Orbital Nodes (-7000ms)
+    counterSpinnerProgress.value = withRepeat(
+      withTiming(-1, { duration: 7000, easing: Easing.linear }),
+      -1,
+      false
+    );
+
+    // 6. Concentric Celestial Rings
+    ringAProgress.value = withRepeat(
+      withTiming(-1, { duration: 24000, easing: Easing.linear }),
+      -1,
+      false
+    );
+    ringBProgress.value = withRepeat(
+      withTiming(1, { duration: 34000, easing: Easing.linear }),
+      -1,
+      false
+    );
+    ringCProgress.value = withRepeat(
+      withTiming(-1, { duration: 46000, easing: Easing.linear }),
+      -1,
+      false
+    );
+
+    // 7. Ambient background arcs
+    bgArcRotA.value = withRepeat(
+      withTiming(1, { duration: 220000, easing: Easing.linear }),
+      -1,
+      false
+    );
+    bgArcRotB.value = withRepeat(
+      withTiming(-1, { duration: 260000, easing: Easing.linear }),
+      -1,
+      false
+    );
+
+    return () => {
+      cancelAnimation(haloProgress);
+      cancelAnimation(pulseWaveProgress);
+      cancelAnimation(heroCoreProgress);
+      cancelAnimation(spinnerProgress);
+      cancelAnimation(counterSpinnerProgress);
+      cancelAnimation(ringAProgress);
+      cancelAnimation(ringBProgress);
+      cancelAnimation(ringCProgress);
+      cancelAnimation(bgArcRotA);
+      cancelAnimation(bgArcRotB);
+    };
+  }, []);
 
   const animatedHaloStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: haloScale.value }],
-    opacity: haloOpacity.value,
+    transform: [{ scale: 1.0 + haloProgress.value * 0.16 }],
+    opacity: 0.65 + haloProgress.value * 0.35,
+  }));
+
+  const animatedPulseWaveStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 0.88 + pulseWaveProgress.value * 0.54 }],
+    opacity: (1 - pulseWaveProgress.value) * 0.6,
+  }));
+
+  const animatedHeroCoreStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1.0 + heroCoreProgress.value * 0.035 }],
+    shadowOpacity: 0.30 + heroCoreProgress.value * 0.50,
+    shadowRadius: 24 + heroCoreProgress.value * 18,
+  }));
+
+  const animatedSigilStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1.0 + heroCoreProgress.value * 0.04 }],
+    opacity: 0.88 + heroCoreProgress.value * 0.12,
   }));
 
   const animatedRingAStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${ringRotA.value}deg` }],
+    transform: [{ rotate: `${ringAProgress.value * 360}deg` }],
   }));
 
   const animatedRingBStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${ringRotB.value}deg` }],
+    transform: [{ rotate: `${ringBProgress.value * 360}deg` }],
+  }));
+
+  const animatedRingCStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${ringCProgress.value * 360}deg` }],
+  }));
+
+  const animatedSpinnerStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${spinnerProgress.value * 360}deg` }],
+  }));
+
+  const animatedSpinnerGlowStyle = useAnimatedStyle(() => ({
+    opacity: 0.65 + heroCoreProgress.value * 0.35,
+  }));
+
+  const animatedCounterSpinnerStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${counterSpinnerProgress.value * 360}deg` }],
   }));
 
   const animatedBgArcAStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${bgArcRotA.value}deg` }],
+    transform: [{ rotate: `${bgArcRotA.value * 360}deg` }],
   }));
 
   const animatedBgArcBStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${bgArcRotB.value}deg` }],
+    transform: [{ rotate: `${bgArcRotB.value * 360}deg` }],
   }));
 
   const animatedProgressStyle = useAnimatedStyle(() => ({
@@ -576,82 +673,246 @@ export default function AIGeneratingScreen() {
           </View>
 
           {/* ── Structure Hero ── */}
-          <View style={styles.hero}>
-            {/* Breathing Halo */}
+          <View style={[styles.hero, { width: heroSize, height: heroSize }]}>
+            {/* Outer Ambient Breathing Halo */}
             {!isError ? (
-              <Animated.View style={[styles.heroHalo, animatedHaloStyle]} />
+              <Animated.View
+                style={[
+                  styles.heroHaloOuter,
+                  {
+                    width: heroOuterHaloSize,
+                    height: heroOuterHaloSize,
+                    borderRadius: heroOuterHaloSize / 2,
+                  },
+                  animatedHaloStyle,
+                ]}
+              />
             ) : null}
 
-            {/* Concentric Rotating Dashed Rings */}
+            {/* Inner Vibrant Glowing Halo */}
+            {!isError ? (
+              <Animated.View
+                style={[
+                  styles.heroHaloInner,
+                  {
+                    width: heroInnerHaloSize,
+                    height: heroInnerHaloSize,
+                    borderRadius: heroInnerHaloSize / 2,
+                  },
+                  animatedHaloStyle,
+                ]}
+              />
+            ) : null}
+
+            {/* Expanding Pulsing Energy Wave */}
+            {!isError ? (
+              <Animated.View
+                style={[
+                  styles.heroPulseWave,
+                  {
+                    width: heroPulseWaveSize,
+                    height: heroPulseWaveSize,
+                    borderRadius: heroPulseWaveSize / 2,
+                  },
+                  animatedPulseWaveStyle,
+                ]}
+              />
+            ) : null}
+
+            {/* Outer Celestial Ring (Slow Counter-Clockwise) */}
             <Animated.View
               style={[
-                styles.heroRing,
-                styles.heroRingB,
+                styles.heroLayer,
+                { width: heroSize, height: heroSize },
                 isError && styles.heroRingDim,
-                animatedRingBStyle,
+                animatedRingCStyle,
               ]}
             >
-              <Svg width={230} height={230} viewBox="0 0 230 230">
+              <Svg width={heroSize} height={heroSize} viewBox={`0 0 ${heroSize} ${heroSize}`}>
                 <Circle
-                  cx="115"
-                  cy="115"
-                  r="114"
+                  cx={heroCenter}
+                  cy={heroCenter}
+                  r={heroRingCRadius}
                   stroke={colors.anchor15.gilt}
                   strokeWidth="1"
-                  strokeDasharray="6,6"
+                  strokeDasharray="4,12"
                   fill="none"
                   opacity={0.16}
                 />
               </Svg>
             </Animated.View>
 
+            {/* Concentric Rotating Dashed Ring B */}
             <Animated.View
               style={[
-                styles.heroRing,
-                styles.heroRingA,
+                styles.heroLayer,
+                { width: heroSize, height: heroSize },
                 isError && styles.heroRingDim,
-                animatedRingAStyle,
+                animatedRingBStyle,
               ]}
             >
-              <Svg width={200} height={200} viewBox="0 0 200 200">
+              <Svg width={heroSize} height={heroSize} viewBox={`0 0 ${heroSize} ${heroSize}`}>
                 <Circle
-                  cx="100"
-                  cy="100"
-                  r="99"
+                  cx={heroCenter}
+                  cy={heroCenter}
+                  r={heroRingBRadius}
                   stroke={colors.anchor15.gilt}
                   strokeWidth="1"
-                  strokeDasharray="8,8"
+                  strokeDasharray="6,8"
                   fill="none"
-                  opacity={0.24}
+                  opacity={0.22}
                 />
               </Svg>
             </Animated.View>
 
-            {/* Hero Center Circle */}
-            <View
+            {/* Concentric Rotating Dashed Ring A */}
+            <Animated.View
+              style={[
+                styles.heroLayer,
+                { width: heroSize, height: heroSize },
+                isError && styles.heroRingDim,
+                animatedRingAStyle,
+              ]}
+            >
+              <Svg width={heroSize} height={heroSize} viewBox={`0 0 ${heroSize} ${heroSize}`}>
+                <Circle
+                  cx={heroCenter}
+                  cy={heroCenter}
+                  r={heroRingARadius}
+                  stroke={colors.anchor15.gilt}
+                  strokeWidth="1"
+                  strokeDasharray="8,8"
+                  fill="none"
+                  opacity={0.28}
+                />
+              </Svg>
+            </Animated.View>
+
+            {/* Counter-Spinning Orbital Nodes */}
+            {!isError ? (
+              <Animated.View
+                style={[
+                  styles.heroLayer,
+                  { width: heroSize, height: heroSize },
+                  animatedCounterSpinnerStyle,
+                ]}
+              >
+                <Svg width={heroSize} height={heroSize} viewBox={`0 0 ${heroSize} ${heroSize}`}>
+                  <Circle
+                    cx={heroCenter}
+                    cy={heroCenter - heroOrbitalRadius}
+                    r={3.5}
+                    fill={colors.anchor15.giltBright}
+                    opacity={0.85}
+                  />
+                  <Circle
+                    cx={heroCenter + heroOrbitalRadius}
+                    cy={heroCenter}
+                    r={2.5}
+                    fill={colors.anchor15.gilt}
+                    opacity={0.65}
+                  />
+                  <Circle
+                    cx={heroCenter}
+                    cy={heroCenter + heroOrbitalRadius}
+                    r={3.5}
+                    fill={colors.anchor15.giltBright}
+                    opacity={0.85}
+                  />
+                  <Circle
+                    cx={heroCenter - heroOrbitalRadius}
+                    cy={heroCenter}
+                    r={2.5}
+                    fill={colors.anchor15.gilt}
+                    opacity={0.65}
+                  />
+                </Svg>
+              </Animated.View>
+            ) : null}
+
+            {/* Fast Spinning Radiant Glow Arc */}
+            {!isError ? (
+              <Animated.View
+                style={[
+                  styles.heroLayer,
+                  styles.heroSpinnerShadow,
+                  { width: heroSize, height: heroSize },
+                  animatedSpinnerGlowStyle,
+                  animatedSpinnerStyle,
+                ]}
+              >
+                <Svg width={heroSize} height={heroSize} viewBox={`0 0 ${heroSize} ${heroSize}`}>
+                  <Defs>
+                    <SvgLinearGradient id="heroSpinnerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <Stop offset="0%" stopColor={colors.anchor15.giltBright} stopOpacity="0" />
+                      <Stop offset="50%" stopColor={colors.anchor15.gilt} stopOpacity="0.7" />
+                      <Stop offset="100%" stopColor="#FFFFFF" stopOpacity="1" />
+                    </SvgLinearGradient>
+                  </Defs>
+                  <Circle
+                    cx={heroCenter}
+                    cy={heroCenter}
+                    r={heroSpinnerRadius}
+                    stroke="url(#heroSpinnerGradient)"
+                    strokeWidth="3.5"
+                    strokeLinecap="round"
+                    strokeDasharray={spinnerDashArray}
+                    fill="none"
+                  />
+                  {/* Glowing Leading Head Pip */}
+                  <Circle
+                    cx={heroCenter + heroSpinnerRadius}
+                    cy={heroCenter}
+                    r={4}
+                    fill="#FFFFFF"
+                  />
+                  <Circle
+                    cx={heroCenter + heroSpinnerRadius}
+                    cy={heroCenter}
+                    r={7}
+                    fill={colors.anchor15.giltBright}
+                    opacity={0.4}
+                  />
+                </Svg>
+              </Animated.View>
+            ) : null}
+
+            {/* Hero Center Pulsing & Glowing Orb */}
+            <Animated.View
               style={[
                 styles.heroCircle,
+                {
+                  width: heroCircleSize,
+                  height: heroCircleSize,
+                  borderRadius: heroCircleSize / 2,
+                },
+                !isError && animatedHeroCoreStyle,
                 stage === 'ready' && styles.heroCircleReady,
                 isError && styles.heroCircleError,
               ]}
             >
-              {baseSigilSvg || reinforcedSigilSvg ? (
-                <SigilSvg
-                  xml={reinforcedSigilSvg || baseSigilSvg}
-                  width={92}
-                  height={92}
-                  color={colors.anchor15.gilt}
-                />
-              ) : (
-                <StructureHeroGlyph
-                  id={structureId}
-                  size={92}
-                  color={colors.anchor15.gilt}
-                  accent={colors.anchor15.giltBright}
-                  strokes={flowDraft?.drawingStrokes}
-                />
-              )}
-            </View>
+              {/* Inner ambient glow layer */}
+              <View style={[styles.heroCircleInnerGlow, { borderRadius: heroCircleSize / 2 }]} />
+
+              <Animated.View style={animatedSigilStyle}>
+                {baseSigilSvg || reinforcedSigilSvg ? (
+                  <SigilSvg
+                    xml={reinforcedSigilSvg || baseSigilSvg}
+                    width={sigilSize}
+                    height={sigilSize}
+                    color={colors.anchor15.gilt}
+                  />
+                ) : (
+                  <StructureHeroGlyph
+                    id={structureId}
+                    size={sigilSize}
+                    color={colors.anchor15.gilt}
+                    accent={colors.anchor15.giltBright}
+                    strokes={flowDraft?.drawingStrokes}
+                  />
+                )}
+              </Animated.View>
+            </Animated.View>
           </View>
 
           {/* ── Status & Progress Section (Normal / Progressing) ── */}
@@ -798,23 +1059,23 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 26,
-    paddingTop: 32,
-    paddingBottom: 40,
-    gap: 30,
-  },
-  contentCompact: {
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 24,
+    paddingBottom: 28,
     gap: 22,
+  },
+  contentCompact: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 16,
+    gap: 14,
   },
 
   // ── Header ──
   head: {
     alignItems: 'center',
-    gap: 9,
-    maxWidth: 320,
+    gap: 8,
+    maxWidth: 340,
   },
   eyebrow: {
     fontFamily: typography.fontFamily.ritual,
@@ -844,52 +1105,64 @@ const styles = StyleSheet.create({
   // ── Structure Hero ──
   hero: {
     position: 'relative',
-    width: 230,
-    height: 230,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  heroHalo: {
+  heroHaloOuter: {
     position: 'absolute',
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: 'rgba(217, 179, 108, 0.16)',
+    backgroundColor: 'rgba(217, 179, 108, 0.08)',
   },
-  heroRing: {
+  heroHaloInner: {
     position: 'absolute',
+    backgroundColor: 'rgba(217, 179, 108, 0.18)',
   },
-  heroRingA: {
-    width: 200,
-    height: 200,
+  heroPulseWave: {
+    position: 'absolute',
+    borderWidth: 1.5,
+    borderColor: 'rgba(217, 179, 108, 0.45)',
+    backgroundColor: 'rgba(217, 179, 108, 0.06)',
   },
-  heroRingB: {
-    width: 230,
-    height: 230,
+  heroLayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   heroRingDim: {
     opacity: 0.4,
   },
+  heroSpinnerShadow: {
+    shadowColor: colors.anchor15.giltBright,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.7,
+    shadowRadius: 20,
+  },
   heroCircle: {
     position: 'relative',
-    width: 164,
-    height: 164,
-    borderRadius: 82,
-    borderWidth: 1,
-    borderColor: 'rgba(217, 179, 108, 0.28)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(217, 179, 108, 0.38)',
     backgroundColor: '#161F28',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.anchor15.gilt,
+    shadowColor: colors.anchor15.giltBright,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.16,
-    shadowRadius: 34,
-    elevation: 10,
+    shadowOpacity: 0.45,
+    shadowRadius: 32,
+    elevation: 12,
+    overflow: 'hidden',
+  },
+  heroCircleInnerGlow: {
+    ...StyleSheet.absoluteFillObject,
+    borderWidth: 1,
+    borderColor: 'rgba(246, 226, 148, 0.18)',
+    backgroundColor: 'rgba(217, 179, 108, 0.04)',
   },
   heroCircleReady: {
-    borderColor: colors.anchor15.gilt,
-    shadowOpacity: 0.3,
-    shadowRadius: 44,
+    borderColor: colors.anchor15.giltBright,
+    shadowColor: colors.anchor15.giltBright,
+    shadowOpacity: 0.85,
+    shadowRadius: 48,
   },
   heroCircleError: {
     opacity: 0.5,
@@ -899,9 +1172,9 @@ const styles = StyleSheet.create({
   // ── Status Section ──
   statusWrap: {
     alignItems: 'center',
-    gap: 14,
+    gap: 12,
     width: '100%',
-    maxWidth: 280,
+    maxWidth: 290,
   },
   statusText: {
     fontFamily: typography.fontFamily.ritual,
