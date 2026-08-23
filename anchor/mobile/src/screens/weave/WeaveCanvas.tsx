@@ -2,30 +2,25 @@
  * WeaveCanvas — the shared rendering of The Weave, used by both the Anchor
  * Detail preview and the full Weave screen.
  *
- * The entrance is a port of the reference weave's CSS stagger: the threads
- * are revealed left → right by a travelling wavefront, and every node blooms
- * as that wavefront reaches it, so the eye is carried from one completed
- * session to the next. The reference timings map to Reanimated as:
+ * The entrance is a direct port of the reference weave's CSS stagger: each
+ * thread segment fades in independently, left → right, and every node blooms
+ * shortly after the thread beneath it arrives — no shared wipe or mask, just
+ * per-element timing, matching the reference exactly:
  *
  *   `.wv-line`   lineIn 640ms cubic-bezier(.22,1,.36,1), 120 + t*620ms
  *   `.wv-node`   nodeIn 300ms ease-out,                  380 + t*620ms
  *   `.wv-recent` pulseOnce 1600ms ease-in-out, 1400ms delay
  *
- * The wavefront carries a flickering glow (a strobed opacity envelope) and
- * each node flashes a brief spark as the front reaches it, so the reveal
- * reads as a lightning strike building the weave rather than a smooth wipe.
- *
  * Under reduced motion — or when the node count would make per-node
  * animation expensive — the weave renders in its final state immediately.
  */
 import React, { useEffect, useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { View } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 import Animated, {
   Easing,
   cancelAnimation,
   useAnimatedProps,
-  useAnimatedStyle,
   useSharedValue,
   withDelay,
   withSequence,
@@ -34,14 +29,15 @@ import Animated, {
 
 import type { PracticeMode } from '@/types/practice';
 import type { WeaveNode } from './weaveData';
-import type { WeaveGeometry, WeaveNodePosition } from './weaveGeometry';
+import type { WeaveGeometry, WeaveNodePosition, WeaveSegment } from './weaveGeometry';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-const AnimatedRect = Animated.createAnimatedComponent(Rect);
+const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 /** Reference stagger, in milliseconds. */
 const SWEEP_START = 120;
 const SWEEP_TRAVEL = 620;
+const LINE_DURATION = 640;
 const NODE_LEAD = 260;
 const NODE_DURATION = 300;
 const PULSE_DELAY = 1400;
@@ -158,6 +154,55 @@ const NodeMark: React.FC<{
   );
 };
 
+/** One thread chunk — fades in on its own delay, matching `.wv-line` exactly. */
+const SegmentMark: React.FC<{
+  segment: WeaveSegment;
+  color: string;
+  backgroundColor: string;
+  still: boolean;
+  animationKey: string;
+}> = ({ segment, color, backgroundColor, still, animationKey }) => {
+  const reveal = useSharedValue(still ? 1 : 0);
+  const delay = SWEEP_START + segment.travel * SWEEP_TRAVEL;
+
+  useEffect(() => {
+    if (still) {
+      reveal.value = 1;
+      return undefined;
+    }
+    reveal.value = 0;
+    reveal.value = withDelay(
+      delay,
+      withTiming(1, { duration: LINE_DURATION, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
+    );
+    return () => cancelAnimation(reveal);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [animationKey, delay, still]);
+
+  const haloProps = useAnimatedProps(() => ({ strokeOpacity: 0.94 * reveal.value }));
+  const lineProps = useAnimatedProps(() => ({ strokeOpacity: segment.opacity * reveal.value }));
+
+  return (
+    <>
+      <AnimatedPath
+        d={segment.haloPath}
+        stroke={backgroundColor}
+        animatedProps={haloProps}
+        strokeWidth={segment.strokeWidth + 3.4}
+        fill="none"
+      />
+      <AnimatedPath
+        d={segment.path}
+        stroke={color}
+        animatedProps={lineProps}
+        strokeWidth={segment.strokeWidth}
+        strokeLinecap="round"
+        fill="none"
+      />
+    </>
+  );
+};
+
 export const WeaveCanvas: React.FC<WeaveCanvasProps> = ({
   width,
   height,
@@ -179,55 +224,6 @@ export const WeaveCanvas: React.FC<WeaveCanvasProps> = ({
     );
   }, [geometry.strands]);
   const animateNodes = !still && nodes.length <= MAX_ANIMATED_NODES;
-  const sweep = useSharedValue(still ? 1 : 0);
-  // Strobes the wavefront's brightness during its travel so the reveal reads
-  // as a bolt crackling across rather than a smooth wipe.
-  const flicker = useSharedValue(1);
-
-  useEffect(() => {
-    if (still) {
-      sweep.value = 1;
-      flicker.value = 1;
-      return undefined;
-    }
-    sweep.value = 0;
-    sweep.value = withDelay(
-      SWEEP_START,
-      withTiming(1, { duration: SWEEP_TRAVEL + NODE_DURATION, easing: Easing.bezier(0.22, 1, 0.36, 1) }),
-    );
-    flicker.value = 1;
-    flicker.value = withDelay(
-      SWEEP_START,
-      withSequence(
-        withTiming(1, { duration: 90 }),
-        withTiming(0.62, { duration: 160 }),
-        withTiming(1, { duration: 140 }),
-        withTiming(0.72, { duration: 220 }),
-        withTiming(1, { duration: 310 }),
-      ),
-    );
-    return () => {
-      cancelAnimation(sweep);
-      cancelAnimation(flicker);
-    };
-  }, [animationKey, still, sweep, flicker]);
-
-  // Reveals the weave by sliding an opaque cover off to the right, rather
-  // than clipping a wrapping View around the <Svg> — RN's overflow clipping
-  // of an embedded native SVG view is unreliable on some platforms and would
-  // otherwise let the whole weave render at full width from the first frame.
-  // The cover itself needs no clipping: it simply slides past the SVG's own
-  // right edge, which every SVG viewport clips inherently.
-  const coverProps = useAnimatedProps(() => ({ x: width * sweep.value }));
-  // A bolt of light rides the leading edge, so the reveal reads as the weave
-  // being struck into place rather than a panel being uncovered.
-  const wavefrontStyle = useAnimatedStyle(() => {
-    const envelope = sweep.value <= 0 || sweep.value >= 1 ? 0 : 0.7 * Math.sin(Math.PI * sweep.value) ** 0.6;
-    return {
-      opacity: envelope * flicker.value,
-      transform: [{ translateX: width * sweep.value - 1 }],
-    };
-  });
 
   return (
     <View style={{ width, height }} accessible={false}>
@@ -235,35 +231,13 @@ export const WeaveCanvas: React.FC<WeaveCanvasProps> = ({
         {passes.map((pass, layer) => (
           <React.Fragment key={`pass:${layer}`}>
             {pass.map((segment) => (
-              <Path
-                key={`${segment.id}:halo`}
-                d={segment.haloPath}
-                stroke={backgroundColor}
-                strokeOpacity={0.94}
-                strokeWidth={segment.strokeWidth + 3.4}
-                fill="none"
-              />
-            ))}
-            {pass.map((segment) => (
-              <Path
-                key={`${segment.id}:glow`}
-                d={segment.path}
-                stroke={modeColors[segment.mode]}
-                strokeOpacity={segment.opacity * 0.55}
-                strokeWidth={segment.strokeWidth + 5.5}
-                strokeLinecap="round"
-                fill="none"
-              />
-            ))}
-            {pass.map((segment) => (
-              <Path
-                key={`${segment.id}:line`}
-                d={segment.path}
-                stroke={modeColors[segment.mode]}
-                strokeOpacity={segment.opacity}
-                strokeWidth={segment.strokeWidth}
-                strokeLinecap="round"
-                fill="none"
+              <SegmentMark
+                key={segment.id}
+                segment={segment}
+                color={modeColors[segment.mode]}
+                backgroundColor={backgroundColor}
+                still={still}
+                animationKey={animationKey}
               />
             ))}
           </React.Fragment>
@@ -309,56 +283,9 @@ export const WeaveCanvas: React.FC<WeaveCanvasProps> = ({
             />
           );
         })}
-        {!still && (
-          <AnimatedRect
-            x={0}
-            y={0}
-            width={width}
-            height={height}
-            fill={backgroundColor}
-            animatedProps={coverProps}
-            pointerEvents="none"
-          />
-        )}
       </Svg>
-      {!still && (
-        <Animated.View pointerEvents="none" style={[styles.wavefrontWrap, { height }, wavefrontStyle]}>
-          <View style={[styles.wavefrontLayer, styles.wavefrontGlow]} />
-          <View style={[styles.wavefrontLayer, styles.wavefrontHalo]} />
-          <View style={[styles.wavefrontLayer, styles.wavefrontCore]} />
-        </Animated.View>
-      )}
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  wavefrontWrap: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    width: 1,
-  },
-  wavefrontLayer: {
-    position: 'absolute',
-    top: 0,
-    height: '100%',
-  },
-  wavefrontGlow: {
-    left: -9,
-    width: 18,
-    backgroundColor: 'rgba(240,203,106,0.14)',
-  },
-  wavefrontHalo: {
-    left: -3.5,
-    width: 7,
-    backgroundColor: 'rgba(255,246,214,0.34)',
-  },
-  wavefrontCore: {
-    left: -1,
-    width: 2,
-    backgroundColor: '#FFF3D2',
-  },
-});
 
 export default WeaveCanvas;
