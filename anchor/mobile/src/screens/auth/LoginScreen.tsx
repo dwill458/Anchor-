@@ -11,8 +11,8 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  Linking,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,10 +20,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StackNavigationProp } from '@react-navigation/stack';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { colors, typography } from '@/theme';
+import { LEGAL_URLS } from '@/constants/legal';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { ENABLE_GOOGLE_SIGN_IN } from '@/config';
 import { useAuthStore } from '../../stores/authStore';
@@ -700,7 +702,27 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
                 </View>
 
                 {!isSignIn ? (
-                  <Text style={auth15.legalText}>By continuing, you agree to the <Text style={auth15.legalLink}>Terms</Text> and <Text style={auth15.legalLink}>Privacy Policy</Text>.</Text>
+                  <Text style={auth15.legalText}>
+                    By continuing, you agree to the{' '}
+                    <Text
+                      style={auth15.legalLink}
+                      accessibilityRole="link"
+                      accessibilityLabel="Terms of Service"
+                      onPress={() => void Linking.openURL(LEGAL_URLS.termsOfService)}
+                    >
+                      Terms
+                    </Text>{' '}
+                    and{' '}
+                    <Text
+                      style={auth15.legalLink}
+                      accessibilityRole="link"
+                      accessibilityLabel="Privacy Policy"
+                      onPress={() => void Linking.openURL(LEGAL_URLS.privacyPolicy)}
+                    >
+                      Privacy Policy
+                    </Text>
+                    .
+                  </Text>
                 ) : null}
               </View>
             </Animated.View>

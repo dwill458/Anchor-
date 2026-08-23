@@ -797,21 +797,10 @@ const AnchorDetailEditorialPage = (props: any) => {
           <Text style={editorial.optionText}>Set as Wallpaper</Text>
           <ChevronRight size={17} color={colors.anchor15.ash} />
         </Pressable>
-        <Pressable accessibilityRole="button" onPress={() => { onCloseOptions(); onSavePng(); }} style={editorial.optionRow}>
+        <Pressable accessibilityRole="button" onPress={() => { onCloseOptions(); onSavePng(); }} style={[editorial.optionRow, editorial.optionDelete]}>
           <Text style={editorial.optionText}>Save PNG</Text>
           <ChevronRight size={17} color={colors.anchor15.ash} />
         </Pressable>
-        {!anchor.isReleased ? (
-          <Pressable accessibilityRole="button" onPress={onRelease} style={editorial.optionRow}>
-            <Text style={editorial.optionRelease}>Release Anchor</Text>
-            <ChevronRight size={17} color="rgba(200,135,96,0.8)" />
-          </Pressable>
-        ) : null}
-        {!anchor.isReleased ? (
-          <Pressable accessibilityRole="button" onPress={onDelete} style={[editorial.optionRow, editorial.optionDelete]}>
-            <Text style={editorial.optionDeleteText}>Delete Anchor</Text>
-          </Pressable>
-        ) : null}
       </EditorialSheet>
 
       <EditorialSheet visible={showDistilledForm} title="Distilled Form" onClose={onCloseDistilledForm} reduceMotionEnabled={reduceMotionEnabled}>
