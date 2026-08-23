@@ -116,8 +116,8 @@ describe('SessionAudioManifest', () => {
       track => track.sessionType === 'visualize',
     );
 
-    expect(VISUALIZE_VOICE_PLAYBACK_GAIN).toBe(0.19);
+    expect(VISUALIZE_VOICE_PLAYBACK_GAIN).toBe(0.13);
     expect(visualizeTracks).toHaveLength(142);
-    expect(visualizeTracks.every(track => track.playbackGain === 0.19)).toBe(true);
+    expect(visualizeTracks.every(track => track.playbackGain === 0.13)).toBe(true);
   });
 });
