@@ -6,7 +6,9 @@
  * progress, and a Carry It Forward recommendation.
  *
  * Entry: navigate('WeeklyReview') from Sanctuary Home (no required params).
- * Defaults to last completed week (offset = 1).
+ * Defaults to last completed week (offset = 1), except on Sunday — when the
+ * in-app review window opens per weeklyReviewWindow.ts — where it defaults
+ * to the current, wrapping-up week (offset = 0).
  *
  * Visual reference: Weekly Review (Standalone).html
  * Spec: Weekly Review Implementation Prompt.md
@@ -1176,7 +1178,11 @@ export function WeeklyReviewScreen() {
   const { navigateToSanctuary, navigateToChart } = useTabNavigation();
   const { startPractice } = usePracticeEntry();
 
-  const [weekOffset, setWeekOffset] = useState(1); // Default: last completed week
+  // Default: last completed week — except on Sunday, when the in-app review
+  // window opens for the week that's wrapping up today (offset 0). Without
+  // this, opening the review on a Sunday shows the prior, already-reviewed
+  // week instead of the one the user just practiced in.
+  const [weekOffset, setWeekOffset] = useState(() => (new Date().getDay() === 0 ? 0 : 1));
   const [showError, setShowError] = useState(false);
 
   // Course data (optional, may not be available)
@@ -1231,6 +1237,22 @@ export function WeeklyReviewScreen() {
     navigateToChart();
   }, [navigateToChart]);
 
+  // Hoisted above the early returns below: data.state (and therefore which
+  // branch renders) can change between renders of this same component
+  // instance as the user pages between weeks, so every hook this component
+  // calls — including these staggered fade-ins, only used by the 'live'
+  // branch — must run unconditionally on every render or React throws a
+  // "rendered fewer hooks than expected" error when the branch changes.
+  const fadeStyle0 = useFadeIn(STAGGER_DELAYS[0], reducedMotion);
+  const fadeStyle1 = useFadeIn(STAGGER_DELAYS[1], reducedMotion);
+  const fadeStyle2 = useFadeIn(STAGGER_DELAYS[2], reducedMotion);
+  const fadeStyle3 = useFadeIn(STAGGER_DELAYS[3], reducedMotion);
+  const fadeStyle4 = useFadeIn(STAGGER_DELAYS[4], reducedMotion);
+  const fadeStyle5 = useFadeIn(STAGGER_DELAYS[5], reducedMotion);
+  const fadeStyle6 = useFadeIn(STAGGER_DELAYS[6], reducedMotion);
+  const fadeStyle7 = useFadeIn(STAGGER_DELAYS[7], reducedMotion);
+  const fadeStyle8 = useFadeIn(STAGGER_DELAYS[8], reducedMotion);
+
   // ── Quiet Week ────────────────────────────────────────────────────────────
   if (data.state === 'none') {
     return (
@@ -1276,7 +1298,7 @@ export function WeeklyReviewScreen() {
         {showError && <ErrorBanner onRetry={() => setShowError(false)} />}
 
         {/* ── Header ── */}
-        <Animated.View style={[styles.sectionPad, useFadeIn(STAGGER_DELAYS[0], reducedMotion)]}>
+        <Animated.View style={[styles.sectionPad, fadeStyle0]}>
           <Text style={styles.eyebrow}>WEEK IN REVIEW</Text>
           <Text style={styles.title}>Your Week, Woven</Text>
           <WeekNav
@@ -1294,14 +1316,14 @@ export function WeeklyReviewScreen() {
         <SectionRule />
 
         {/* ── Thread Strength ── */}
-        <Animated.View style={useFadeIn(STAGGER_DELAYS[1], reducedMotion)}>
+        <Animated.View style={fadeStyle1}>
           <ThreadStrengthBlock data={data} reducedMotion={reducedMotion} />
         </Animated.View>
 
         <SectionRule />
 
         {/* ── Weave Chart ── */}
-        <Animated.View style={[styles.sectionPad, useFadeIn(STAGGER_DELAYS[2], reducedMotion)]}>
+        <Animated.View style={[styles.sectionPad, fadeStyle2]}>
           <WeeklyWeaveChart
             data={data}
             reducedMotion={reducedMotion}
@@ -1312,21 +1334,21 @@ export function WeeklyReviewScreen() {
         <SectionRule />
 
         {/* ── Metrics ── */}
-        <Animated.View style={[styles.sectionPad, useFadeIn(STAGGER_DELAYS[3], reducedMotion)]}>
+        <Animated.View style={[styles.sectionPad, fadeStyle3]}>
           <MetricsGrid data={data} />
         </Animated.View>
 
         <SectionRule />
 
         {/* ── Practice Mix ── */}
-        <Animated.View style={[styles.sectionPad, useFadeIn(STAGGER_DELAYS[4], reducedMotion)]}>
+        <Animated.View style={[styles.sectionPad, fadeStyle4]}>
           <PracticeMix data={data} />
         </Animated.View>
 
         <SectionRule />
 
         {/* ── Anchor List ── */}
-        <Animated.View style={[styles.sectionPad, useFadeIn(STAGGER_DELAYS[5], reducedMotion)]}>
+        <Animated.View style={[styles.sectionPad, fadeStyle5]}>
           <AnchorList
             data={data}
             onAnchorPress={handleAnchorPress}
@@ -1337,7 +1359,7 @@ export function WeeklyReviewScreen() {
         <SectionRule />
 
         {/* ── Pattern ── */}
-        <Animated.View style={[styles.sectionPad, useFadeIn(STAGGER_DELAYS[6], reducedMotion)]}>
+        <Animated.View style={[styles.sectionPad, fadeStyle6]}>
           <PatternBlock line={data.patternLine} />
         </Animated.View>
 
@@ -1345,7 +1367,7 @@ export function WeeklyReviewScreen() {
         {showCourse && activeCourse && (
           <>
             <SectionRule />
-            <Animated.View style={[styles.sectionPad, useFadeIn(STAGGER_DELAYS[7], reducedMotion)]}>
+            <Animated.View style={[styles.sectionPad, fadeStyle7]}>
               <CourseSection
                 course={activeCourse}
                 reducedMotion={reducedMotion}
@@ -1358,7 +1380,7 @@ export function WeeklyReviewScreen() {
         <SectionRule />
 
         {/* ── Carry It Forward ── */}
-        <Animated.View style={[styles.sectionPad, useFadeIn(STAGGER_DELAYS[8], reducedMotion)]}>
+        <Animated.View style={[styles.sectionPad, fadeStyle8]}>
           <CarryItForward
             data={data}
             activeCourse={activeCourse}
