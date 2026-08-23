@@ -27,6 +27,7 @@ export interface CalculatePracticeCompleteResultParams {
   anchorLocalId?: string | null;
   practiceMode: PracticeMode;
   practiceHistory: readonly PracticeSessionRecord[];
+  previousPracticeHistory?: readonly PracticeSessionRecord[];
   accountId: string | null | undefined;
   completedSessionId: string;
   newRecord?: PracticeSessionRecord | null;
@@ -51,8 +52,9 @@ export function calculatePracticeCompleteResult(
   const sensitivity = params.sensitivity ?? 'balanced';
   const restDays = params.restDays ?? [];
 
-  const canonicalEvents = selectCanonicalPracticeEvents(
-    params.practiceHistory,
+  const rawHistoryBefore = params.previousPracticeHistory ?? params.practiceHistory;
+  const canonicalEventsBefore = selectCanonicalPracticeEvents(
+    rawHistoryBefore,
     params.accountId,
     now,
   );
@@ -61,11 +63,17 @@ export function calculatePracticeCompleteResult(
     (id): id is string => Boolean(id),
   );
 
+  const excludedIds = new Set(
+    [params.completedSessionId, params.newRecord?.id].filter(
+      (id): id is string => Boolean(id),
+    ),
+  );
+
   // Events for this anchor strictly before the newly completed session
-  const anchorEventsBefore = canonicalEvents.filter(
+  const anchorEventsBefore = canonicalEventsBefore.filter(
     (event) =>
       eventMatchesAnchor(event, anchorAliases) &&
-      event.id !== params.completedSessionId,
+      !excludedIds.has(event.id),
   );
 
   const isFirstPractice = anchorEventsBefore.length === 0;
@@ -83,13 +91,21 @@ export function calculatePracticeCompleteResult(
   let anchorEventsAfter: PracticeSessionRecord[];
   if (
     params.newRecord &&
-    !canonicalEvents.some((event) => event.id === params.newRecord?.id)
+    !anchorEventsBefore.some((event) => event.id === params.newRecord?.id)
   ) {
     anchorEventsAfter = [...anchorEventsBefore, params.newRecord];
   } else {
-    anchorEventsAfter = canonicalEvents.filter((event) =>
+    const canonicalEventsAfter = selectCanonicalPracticeEvents(
+      params.practiceHistory,
+      params.accountId,
+      now,
+    );
+    anchorEventsAfter = canonicalEventsAfter.filter((event) =>
       eventMatchesAnchor(event, anchorAliases),
     );
+    if (anchorEventsAfter.length === 0 && params.newRecord) {
+      anchorEventsAfter = [params.newRecord];
+    }
   }
 
   const newThreadStrength = calculateThreadStrengthScore(
