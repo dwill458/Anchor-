@@ -36,6 +36,7 @@ import { ConfirmModal } from './components/ConfirmModal';
 import { PostPrimeTraceModal } from './components/PostPrimeTraceModal';
 import { useTeachingGate } from '@/utils/useTeachingGate';
 import { TEACHINGS } from '@/constants/teaching';
+import { calculatePracticeCompleteResult } from '@/utils/practiceCompletionCoordinator';
 import { useNotificationController } from '@/hooks/useNotificationController';
 import { usePostPrimeTraceStore } from '@/stores/postPrimeTraceStore';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
@@ -480,25 +481,40 @@ export const ActivationScreen: React.FC = () => {
     });
     void recordReviewSignal('focus_session_completed');
 
-    const journey = useChartJourneyStore.getState();
-    if (
-      canonicalRecord &&
-      returnTo !== 'chart' &&
-      journey.firstAnchorId === anchorId &&
-      journey.newUserIntroStage === 'ready'
-    ) {
-      setShowChartInvitation(true);
-      return;
-    }
-    finishAfterCompletion(canonicalRecord?.id);
+    const practiceHistory = useSessionStore.getState?.()?.practiceHistory ?? [];
+    const accountId = useAuthStore.getState?.()?.user?.id ?? null;
+    const settingsState = useSettingsStore.getState?.() ?? {};
+
+    const result = calculatePracticeCompleteResult({
+      anchorId,
+      anchorLocalId: anchor?.localId,
+      practiceMode: 'focus',
+      practiceHistory,
+      accountId,
+      completedSessionId: completionEventId,
+      newRecord: canonicalRecord,
+      sensitivity: settingsState.threadStrengthSensitivity,
+      restDays: settingsState.restDays,
+      returnTo,
+      returnTarget,
+      source,
+      chartContext,
+    });
+
+    useAnchorStore.getState?.()?.updateAnchor?.(anchorId, {
+      threadStrength: result.newThreadStrength,
+    });
+
+    navigation.replace('PracticeComplete', result);
   }, [
-    anchor,
+    anchor?.localId,
     anchorId,
     activationDurationSeconds,
     chartContext,
-    finishAfterCompletion,
+    navigation,
     recordSession,
     focusSessionAudioPlan,
+    returnTarget,
     returnTo,
     source,
   ]);
@@ -613,7 +629,6 @@ export const ActivationScreen: React.FC = () => {
     setPendingPostPrimeFlowId(null);
 
     if (completedPostPrimeTrace) {
-      bumpThreadStrength(2);
       FrictionAnalytics.completeFlow('activation', {
         anchor_id: anchorId,
         result: 'post_prime_trace_completed',
@@ -630,7 +645,6 @@ export const ActivationScreen: React.FC = () => {
     activeFlow,
     activationDurationSeconds,
     anchorId,
-    bumpThreadStrength,
     finalizeFocusSession,
     pendingPostPrimeFlowId,
   ]);

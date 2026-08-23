@@ -37,15 +37,21 @@ jest.mock('@/services/ApiClient', () => ({
 
 const mockSettingsStoreState = {
   threadStrengthSensitivity: 'balanced' as ThreadStrengthSensitivity,
+  sensitivityHistory: [],
   restDays: [] as number[],
+  restDaysHistory: [],
   restDayPolicy: 'build' as RestDayPolicy,
 };
 
-jest.mock('@/stores/settingsStore', () => ({
-  useSettingsStore: {
-    getState: () => mockSettingsStoreState,
-  },
-}));
+jest.mock('@/stores/settingsStore', () => {
+  const actual = jest.requireActual('@/stores/settingsStore');
+  return {
+    ...actual,
+    useSettingsStore: {
+      getState: () => mockSettingsStoreState,
+    },
+  };
+});
 
 // Helper to build a session entry (minus id)
 const makeEntry = (
@@ -88,14 +94,16 @@ beforeEach(() => {
       },
       lastGraceDayUsedAt: null,
       sessionLog: [],
-      threadStrength: 50,
+      threadStrength: 0,
       totalSessionsCount: 0,
       lastPrimedAt: null,
       weekHistory: [false, false, false, false, false, false, false],
       weekHistoryKey: 'test-week',
       primingHistory: [],
+      practiceHistory: [],
       journeyWeekStart: null,
       lastDecayDate: null,
+      v2Baselines: {},
     });
   });
 });
@@ -112,19 +120,20 @@ describe('sessionStore', () => {
       expect(result.current.lastSession).toBeNull();
     });
 
-    it('starts with threadStrength 50', () => {
+    it('initializes todayPractice with zero sessions', () => {
       const { result } = renderHook(() => useSessionStore());
-      expect(result.current.threadStrength).toBe(50);
+      expect(result.current.todayPractice.sessionsCount).toBe(0);
+      expect(result.current.todayPractice.totalSeconds).toBe(0);
     });
 
-    it('starts with totalSessionsCount 0', () => {
+    it('initializes threadStrength at 0 for new installs', () => {
       const { result } = renderHook(() => useSessionStore());
-      expect(result.current.totalSessionsCount).toBe(0);
+      expect(result.current.threadStrength).toBe(0);
     });
   });
 
   describe('recordSession', () => {
-    it('adds a session to the log', () => {
+    it('prepends new entry to sessionLog', () => {
       const { result } = renderHook(() => useSessionStore());
       act(() => result.current.recordSession(makeEntry()));
       expect(result.current.sessionLog).toHaveLength(1);
@@ -147,7 +156,7 @@ describe('sessionStore', () => {
       expect(result.current.sessionLog).toHaveLength(1);
       expect(result.current.primingHistory).toHaveLength(1);
       expect(result.current.totalSessionsCount).toBe(1);
-      expect(result.current.threadStrength).toBe(90);
+      expect(result.current.threadStrength).toBe(18);
     });
 
     it('sets lastSession to the recorded entry', () => {
@@ -185,19 +194,19 @@ describe('sessionStore', () => {
       expect(result.current.totalSessionsCount).toBe(0);
     });
 
-    it('increases threadStrength for activate session (gain 25)', () => {
+    it('increases threadStrength for activate session (V2 base gain 12)', () => {
       const { result } = renderHook(() => useSessionStore());
       act(() => result.current.recordSession(makeEntry({ type: 'activate' })));
-      expect(result.current.threadStrength).toBe(75); // 50 + 25
+      expect(result.current.threadStrength).toBe(12); // 0 + 12
     });
 
-    it('increases threadStrength for reinforce session (gain 40)', () => {
+    it('increases threadStrength for reinforce session (V2 base gain 18)', () => {
       const { result } = renderHook(() => useSessionStore());
       act(() => result.current.recordSession(makeEntry({ type: 'reinforce' })));
-      expect(result.current.threadStrength).toBe(90); // 50 + 40
+      expect(result.current.threadStrength).toBe(18); // 0 + 18
     });
 
-    it('adds +40 exactly once for an idempotent Visualize completion', () => {
+    it('adds +15 exactly once for an idempotent Visualize completion', () => {
       const record = {
         id: 'visualize-session-1',
         accountId: 'user-1',
@@ -228,15 +237,15 @@ describe('sessionStore', () => {
         useSessionStore.getState().recordPracticeSession(record);
         useSessionStore.getState().recordPracticeSession(record);
       });
-      expect(useSessionStore.getState().threadStrength).toBe(60);
+      expect(useSessionStore.getState().threadStrength).toBe(35); // 20 + 15
       expect(useSessionStore.getState().practiceHistory).toHaveLength(1);
     });
 
     it('caps threadStrength at 100', () => {
       const { result } = renderHook(() => useSessionStore());
       act(() => {
-        useSessionStore.setState({ threadStrength: 90 });
-        result.current.recordSession(makeEntry({ type: 'reinforce' })); // +40 → capped at 100
+        useSessionStore.setState({ threadStrength: 98 });
+        result.current.recordSession(makeEntry({ type: 'reinforce' })); // capped at 100
       });
       expect(result.current.threadStrength).toBe(100);
     });
@@ -244,7 +253,7 @@ describe('sessionStore', () => {
     it('does not change threadStrength for stabilize sessions', () => {
       const { result } = renderHook(() => useSessionStore());
       act(() => result.current.recordSession(makeEntry({ type: 'stabilize' })));
-      expect(result.current.threadStrength).toBe(50);
+      expect(result.current.threadStrength).toBe(0);
     });
 
     it('sets lastPrimedAt for activate sessions', () => {
@@ -340,7 +349,7 @@ describe('sessionStore', () => {
     it('does nothing if never primed', () => {
       const { result } = renderHook(() => useSessionStore());
       act(() => result.current.applyDecay());
-      expect(result.current.threadStrength).toBe(50);
+      expect(result.current.threadStrength).toBe(0);
     });
 
     it('does nothing if already applied decay today', () => {
@@ -371,39 +380,89 @@ describe('sessionStore', () => {
           lastPrimedAt: yesterday,
           threadStrength: 60,
           lastDecayDate: null,
+          practiceHistory: [
+            {
+              id: 'p1',
+              accountId: 'u1',
+              anchorId: 'a1',
+              anchorLocalId: 'a1',
+              anchorServerId: 'a1',
+              practiceMode: 'deep_prime',
+              plannedDurationSeconds: 60,
+              completedDurationSeconds: 60,
+              completionStatus: 'completed',
+              startedAt: new Date(Date.now() - 86400000).toISOString(),
+              completedAt: new Date(Date.now() - 86400000).toISOString(),
+              localDateKey: yesterday,
+              timeZone: 'UTC',
+              utcOffsetMinutesAtCompletion: 0,
+              completionSource: 'practice_screen',
+              schemaVersion: 2,
+              legacyType: null,
+              guidanceVoice: 'none',
+              backgroundAudio: 'off',
+              sceneSnapshot: null,
+              nextAction: null,
+              clientVersion: '1.0.0',
+              syncState: 'synced',
+            },
+          ],
         });
         result.current.applyDecay();
       });
-      expect(result.current.threadStrength).toBe(60);
+      // 1 missed day (yesterday was practiced, today is in-progress): 0 missed days elapsed -> 18
+      expect(result.current.threadStrength).toBe(18);
     });
 
-    it('applies 30-point decay on the second missed day with balanced sensitivity', () => {
+    it('applies 4-point decay on the second missed day with balanced sensitivity', () => {
+      const threeDaysAgo = localDateString(new Date(Date.now() - 3 * 86400000));
+      const { result } = renderHook(() => useSessionStore());
+      act(() => {
+        useSessionStore.setState({
+          lastPrimedAt: threeDaysAgo,
+          threadStrength: 60,
+          lastDecayDate: null,
+          v2Baselines: {
+            practice_wide: {
+              type: 'THREAD_STRENGTH_V2_BASELINE',
+              anchorId: 'practice_wide',
+              effectiveAt: new Date(Date.now() - 3 * 86400000).toISOString(),
+              startingScore: 60,
+              highestStageReached: 'tempered',
+              version: 2,
+            },
+          },
+        });
+        result.current.applyDecay();
+      });
+      // Balanced: 1 grace day (day 1 = 0, day 2 = -4) -> 60 - 4 = 56
+      expect(result.current.threadStrength).toBe(56);
+    });
+
+    it('does not drop below memory floor on decay', () => {
+      mockSettingsStoreState.threadStrengthSensitivity = 'strict';
       const twoDaysAgo = localDateString(new Date(Date.now() - 2 * 86400000));
       const { result } = renderHook(() => useSessionStore());
       act(() => {
         useSessionStore.setState({
           lastPrimedAt: twoDaysAgo,
-          threadStrength: 60,
-          lastDecayDate: null,
-        });
-        result.current.applyDecay();
-      });
-      expect(result.current.threadStrength).toBe(30);
-    });
-
-    it('does not drop below 10 on the first decay day', () => {
-      mockSettingsStoreState.threadStrengthSensitivity = 'strict';
-      const yesterday = localDateString(new Date(Date.now() - 86400000));
-      const { result } = renderHook(() => useSessionStore());
-      act(() => {
-        useSessionStore.setState({
-          lastPrimedAt: yesterday,
           threadStrength: 15,
           lastDecayDate: null,
+          v2Baselines: {
+            practice_wide: {
+              type: 'THREAD_STRENGTH_V2_BASELINE',
+              anchorId: 'practice_wide',
+              effectiveAt: new Date(Date.now() - 2 * 86400000).toISOString(),
+              startingScore: 15,
+              highestStageReached: 'nascent',
+              version: 2,
+            },
+          },
         });
         result.current.applyDecay();
       });
-      expect(result.current.threadStrength).toBe(10); // floored at 10
+      // Strict: 0 grace days (day 1 = -5) -> 15 - 5 = 10
+      expect(result.current.threadStrength).toBe(10);
     });
 
     it('skips decay for lenient sensitivity until the third missed day', () => {
@@ -415,22 +474,44 @@ describe('sessionStore', () => {
           lastPrimedAt: twoDaysAgo,
           threadStrength: 70,
           lastDecayDate: null,
+          v2Baselines: {
+            practice_wide: {
+              type: 'THREAD_STRENGTH_V2_BASELINE',
+              anchorId: 'practice_wide',
+              effectiveAt: new Date(Date.now() - 2 * 86400000).toISOString(),
+              startingScore: 70,
+              highestStageReached: 'tempered',
+              version: 2,
+            },
+          },
         });
         result.current.applyDecay();
       });
+      // Lenient: 2 grace days (day 1 = 0, day 2 = 0) -> 70
       expect(result.current.threadStrength).toBe(70);
     });
 
     it('skips decay entirely when the missed day is a configured rest day', () => {
       mockSettingsStoreState.threadStrengthSensitivity = 'strict';
-      const yesterday = localDateString(new Date(Date.now() - 86400000));
-      mockSettingsStoreState.restDays = [new Date().getDay()];
+      const twoDaysAgo = localDateString(new Date(Date.now() - 2 * 86400000));
+      const missedDay = new Date(Date.now() - 86400000).getUTCDay();
+      mockSettingsStoreState.restDays = [missedDay];
       const { result } = renderHook(() => useSessionStore());
       act(() => {
         useSessionStore.setState({
-          lastPrimedAt: yesterday,
+          lastPrimedAt: twoDaysAgo,
           threadStrength: 70,
           lastDecayDate: null,
+          v2Baselines: {
+            practice_wide: {
+              type: 'THREAD_STRENGTH_V2_BASELINE',
+              anchorId: 'practice_wide',
+              effectiveAt: new Date(Date.now() - 2 * 86400000).toISOString(),
+              startingScore: 70,
+              highestStageReached: 'tempered',
+              version: 2,
+            },
+          },
         });
         result.current.applyDecay();
       });
@@ -458,7 +539,7 @@ describe('sessionStore', () => {
 
       act(() => result.current.bumpThreadStrength(2));
 
-      expect(result.current.threadStrength).toBe(52);
+      expect(result.current.threadStrength).toBe(2);
       expect(result.current.sessionLog).toHaveLength(0);
       expect(result.current.totalSessionsCount).toBe(0);
     });
@@ -476,7 +557,7 @@ describe('sessionStore', () => {
   });
 
   describe('hydrateFromBackend', () => {
-    it('restores backend progress when local session state is partial', () => {
+    it('restores backend progress and recomputes V2 Thread Strength', () => {
       const { result } = renderHook(() => useSessionStore());
       const secondCompletedAt = new Date().toISOString();
       const firstCompletedAt = new Date(
@@ -488,7 +569,7 @@ describe('sessionStore', () => {
           totalSessionsCount: 1,
           primingHistory: [],
           sessionLog: [],
-          threadStrength: 50,
+          threadStrength: 0,
           lastPrimedAt: null,
         });
 
@@ -533,10 +614,11 @@ describe('sessionStore', () => {
       expect(result.current.lastPrimedAt).toBe(
         localDateString(new Date(secondCompletedAt)),
       );
-      expect(result.current.threadStrength).toBe(100);
+      // V2 calculation: Focus (12) + Reinforce 2nd same-day session (18 * 1.0 * 0.50 = 9) -> 21
+      expect(result.current.threadStrength).toBe(21);
     });
 
-    it('replays a restored Visualize session as a +40 Thread Strength gain', () => {
+    it('replays a restored Visualize session with V2 base gain (+15)', () => {
       const { result } = renderHook(() => useSessionStore());
       const completedAt = new Date().toISOString();
 
@@ -562,7 +644,7 @@ describe('sessionStore', () => {
         });
       });
 
-      expect(result.current.threadStrength).toBe(90);
+      expect(result.current.threadStrength).toBe(15);
     });
 
     it('rebinds locally-persisted legacy-owned practice history to the authenticated account even when no new backend progress arrives', () => {

@@ -195,7 +195,10 @@ describe('VaultScreen', () => {
 
     it('renders empty state when no anchors', () => {
         render(<VaultScreen />);
-        expect(screen.getByText(/FORGE YOUR FIRST ANCHOR/)).toBeTruthy();
+        expect(screen.getByText('AWAITING FORGE')).toBeTruthy();
+        expect(screen.getByText('One intention. Forged.')).toBeTruthy();
+        expect(screen.getByText(/Write it once\. Anchor traces it into a symbol/)).toBeTruthy();
+        expect(screen.getByText('FORGE YOUR FIRST ANCHOR →')).toBeTruthy();
         expect(screen.getByLabelText('Forge your first anchor')).toBeTruthy();
     });
 

@@ -178,7 +178,39 @@ export const normalizeChartPracticeContext = (
       }
     : null;
 
-/** Existing product weighting: Deep Prime compounds faster than base practice. */
+export const THREAD_STRENGTH_ALGORITHM_VERSION = 2 as const;
+
+export type ThreadStrengthStage = 'nascent' | 'kindling' | 'tempered' | 'forged';
+
+export interface ThreadStrengthV2Baseline {
+  type: 'THREAD_STRENGTH_V2_BASELINE';
+  anchorId: string;
+  effectiveAt: string;
+  startingScore: number;
+  highestStageReached: ThreadStrengthStage;
+  version: 2;
+}
+
+export interface PracticeCompletionSnapshot {
+  previousThreadStrength: number;
+  newThreadStrength: number;
+  previousStage: ThreadStrengthStage;
+  newStage: ThreadStrengthStage;
+  didCrossStage: boolean;
+  isFirstPractice: boolean;
+}
+
+/** V2 base gains for canonical practice modes */
+export const PRACTICE_THREAD_STRENGTH_V2_BASE_GAINS: Readonly<
+  Record<PracticeMode, number>
+> = {
+  focus: 12,
+  visualize: 15,
+  deep_prime: 18,
+  release: 0,
+};
+
+/** Existing V1 product weighting (kept for legacy replay & V1 baseline generation) */
 export const PRACTICE_THREAD_STRENGTH_GAINS: Readonly<
   Record<PracticeMode, number>
 > = {
@@ -296,3 +328,18 @@ export interface VisualizationScene {
 
 export const practiceModeLabel = (mode: PracticeMode): string =>
   PRACTICE_MODE_LABELS[mode];
+
+export interface PracticeCompleteResult {
+  anchorId: string;
+  practiceMode: PracticeMode;
+  previousThreadStrength: number;
+  newThreadStrength: number;
+  previousStage: string;
+  newStage: string;
+  didCrossStage: boolean;
+  isFirstPractice: boolean;
+  returnTo?: 'vault' | 'practice' | 'detail' | 'chart' | 'reinforce';
+  returnTarget?: PracticeFlowReturnTarget;
+  source?: PracticeEntrySource;
+  chartContext?: ChartPracticeContext;
+}

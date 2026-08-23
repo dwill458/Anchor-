@@ -173,7 +173,6 @@ export const ChargeCompleteScreen: React.FC = () => {
     setPendingPostPrimeFlowId(null);
 
     if (completedPostPrimeTrace) {
-      useSessionStore.getState().bumpThreadStrength(2);
       FrictionAnalytics.completeFlow('activation', {
         anchor_id: anchorId,
         result: 'post_prime_trace_completed',

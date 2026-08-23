@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import {
   Animated,
   Easing,
@@ -19,11 +19,19 @@ import type { RootStackParamList } from '@/types';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { PracticeCompletionService } from '@/services/PracticeCompletionService';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { colors as themeColors, typography } from '@/theme';
 import { useChartPracticeReturn } from '@/hooks/useChartPracticeReturn';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
+import { PostPrimeTraceModal } from '@/screens/rituals/components/PostPrimeTraceModal';
+import { usePostPrimeTraceStore } from '@/stores/postPrimeTraceStore';
+import {
+  isPostPrimeTraceEligible,
+  markPostPrimeTraceAttemptStarted,
+} from '@/utils/postPrimeTraceEligibility';
+import { calculatePracticeCompleteResult } from '@/utils/practiceCompletionCoordinator';
 import {
   VisualizeFieldBackground,
 } from './VisualizeAnchorField';
@@ -75,6 +83,71 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
 
   const [nextAction, setNextAction] = useState('');
   const [saved, setSaved] = useState(false);
+
+  const traceDefaultEnabled = useSettingsStore((state) => state.traceDefaultEnabled ?? true);
+  const bumpThreadStrength = useSessionStore((state) => state.bumpThreadStrength);
+  const beginPostPrimeTraceFlow = usePostPrimeTraceStore((state) => state.beginFlow);
+  const activeFlow = usePostPrimeTraceStore((state) => state.activeFlow);
+  const [showPostPrimeTrace, setShowPostPrimeTrace] = useState(false);
+  const [pendingPostPrimeFlowId, setPendingPostPrimeFlowId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (route.params.returnTo === 'chart') {
+      return;
+    }
+    let cancelled = false;
+    isPostPrimeTraceEligible().then((eligible) => {
+      if (!cancelled && eligible) {
+        setShowPostPrimeTrace(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [route.params.returnTo]);
+
+  const handleSkipPostPrimeTrace = useCallback(() => {
+    setShowPostPrimeTrace(false);
+  }, []);
+
+  const handleBeginPostPrimeTrace = useCallback(async () => {
+    await markPostPrimeTraceAttemptStarted();
+
+    const flowId = beginPostPrimeTraceFlow(route.params.anchorId);
+    setPendingPostPrimeFlowId(flowId);
+    setShowPostPrimeTrace(false);
+
+    navigation.navigate('ManualReinforcement', {
+      source: 'post_prime_trace',
+      anchorId: route.params.anchorId,
+    });
+  }, [beginPostPrimeTraceFlow, navigation, route.params.anchorId]);
+
+  useEffect(() => {
+    if (!pendingPostPrimeFlowId) {
+      return;
+    }
+
+    if (
+      !activeFlow ||
+      activeFlow.flowId !== pendingPostPrimeFlowId ||
+      activeFlow.result === 'pending'
+    ) {
+      return;
+    }
+
+    const completedPostPrimeTrace = activeFlow.result === 'completed';
+
+    usePostPrimeTraceStore.getState().clearFlow(pendingPostPrimeFlowId);
+    setPendingPostPrimeFlowId(null);
+
+    if (completedPostPrimeTrace) {
+      AnalyticsService.track('post_prime_trace_completed', {
+        anchor_id: route.params.anchorId,
+        session_duration_seconds: route.params.durationSeconds,
+      });
+    }
+  }, [activeFlow, pendingPostPrimeFlowId, route.params.anchorId, route.params.durationSeconds]);
 
   const sigilSvg = anchor?.reinforcedSigilSvg || anchor?.baseSigilSvg || '';
   const imageUrl = anchor?.enhancedImageUrl;
@@ -140,42 +213,34 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
   }, [ring1, ring2, ring3, shimmer]);
 
   const isChartReturn = route.params.returnTo === 'chart';
-  const returnLabel = route.params.returnTarget?.kind === 'anchorDetail'
-    ? 'Done'
-    : route.params.returnTarget?.kind === 'sanctuary'
-      ? 'Done'
-      : isChartReturn
-        ? 'Continue'
-        : 'Done';
+  const returnLabel = 'Continue';
 
   const returnToOrigin = () => {
-    if (isChartReturn) {
-      returnToChart({
-        returnTo: route.params.returnTo,
-        anchorId: route.params.anchorId,
-        chartContext: route.params.chartContext,
-        ...(completedSession
-          ? {
-              practiceReturn: {
-                outcome: 'completed' as const,
-                practiceSessionId: completedSession.id,
-                practiceMode: route.params.practiceMode ?? 'visualize',
-                anchorId: route.params.anchorId,
-              },
-            }
-          : {}),
-      });
-      return;
-    }
+    const practiceHistory = useSessionStore.getState?.()?.practiceHistory ?? [];
+    const accountId = useAuthStore.getState?.()?.user?.id ?? null;
+    const settingsState = useSettingsStore.getState?.() ?? {};
 
-    navigation.popToTop();
-    if (route.params.returnTarget?.kind === 'anchorDetail') {
-      returnToAnchorDetail(route.params.returnTarget.anchorId);
-      return;
-    }
-    if (route.params.returnTarget?.kind === 'sanctuary') {
-      navigateToSanctuary();
-    }
+    const result = calculatePracticeCompleteResult({
+      anchorId: route.params.anchorId,
+      anchorLocalId: anchor?.localId,
+      practiceMode: 'visualize',
+      practiceHistory,
+      accountId,
+      completedSessionId: route.params.sessionId,
+      newRecord: completedSession,
+      sensitivity: settingsState.threadStrengthSensitivity,
+      restDays: settingsState.restDays,
+      returnTo: route.params.returnTo,
+      returnTarget: route.params.returnTarget,
+      source: route.params.practiceEntrySource,
+      chartContext: route.params.chartContext,
+    });
+
+    useAnchorStore.getState?.()?.updateAnchor?.(route.params.anchorId, {
+      threadStrength: result.newThreadStrength,
+    });
+
+    (navigation as any).replace('PracticeComplete', result);
   };
 
   const handleVisualizeAgain = () => {
@@ -352,6 +417,16 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
           </View>
         </ScrollView>
       </SafeAreaView>
+
+      {anchor ? (
+        <PostPrimeTraceModal
+          visible={showPostPrimeTrace}
+          anchor={anchor}
+          onTrace={handleBeginPostPrimeTrace}
+          onSkip={handleSkipPostPrimeTrace}
+          compact={!traceDefaultEnabled}
+        />
+      ) : null}
     </View>
   );
 };

@@ -33,6 +33,7 @@ import { useSessionStore } from '@/stores/sessionStore';
 import { calculateStreak } from '@/utils/streakHelpers';
 import { isoWeekKey } from '@/utils/primingAnalytics';
 import { resolveAnchorStrengthPct } from '@/components/ThreadStrengthSheet';
+import { getCanonicalThreadStage } from '@/utils/threadStrength';
 import { getThreadState } from '@/screens/practice/components/ThreadStrengthBlock';
 import { BakedGlow } from '@/components/common';
 import { ThreadRing } from './ThreadRing';
@@ -138,6 +139,7 @@ function useAnchorThreadStrength(anchor: Anchor): { pct: number; lastPrimedAt: s
         type: primed ? 'focus' : 'empty',
         isToday: false,
       })),
+      anchorId: anchor.id,
     });
 
     return { pct, lastPrimedAt };
@@ -163,7 +165,7 @@ const HeroAnchorCardInner: React.FC<HeroAnchorCardProps> = ({
   const sigilSvg = anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg;
   const { pct: strengthPct, lastPrimedAt } = useAnchorThreadStrength(anchor);
   const threadState = getThreadState(strengthPct, lastPrimedAt);
-  const badgeLabel = STATE_BADGE[threadState] || (strengthPct >= 70 ? 'TEMPERED' : strengthPct >= 30 ? 'KINDLING' : 'NASCENT');
+  const badgeLabel = getCanonicalThreadStage(strengthPct).toUpperCase();
   const showGlowRingPulse = performanceTier === 'high' && !reduceMotionEnabled;
   const showStaticGlowRing = performanceTier === 'medium';
 

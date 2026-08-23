@@ -53,6 +53,7 @@ import { TIMING, EASING } from './utils/transitionConstants';
 import * as Speech from 'expo-speech';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 import { isFirstPrimeForAnchor as isAnchorFirstPrime } from '@/utils/anchorPriming';
+import { calculatePracticeCompleteResult } from '@/utils/practiceCompletionCoordinator';
 import { useNotificationController } from '@/hooks/useNotificationController';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { PostPrimeTraceModal } from './components/PostPrimeTraceModal';
@@ -1112,64 +1113,6 @@ export const RitualScreen: React.FC = () => {
     }
   }
 
-  const handleSkipPostPrimeTrace = useCallback(() => {
-    setShowPostPrimeTrace(false);
-    InteractionManager.runAfterInteractions(() => {
-      setShowCompletion(true);
-    });
-  }, []);
-
-  const handleBeginPostPrimeTrace = useCallback(async () => {
-    await markPostPrimeTraceAttemptStarted();
-
-    const flowId = beginPostPrimeTraceFlow(anchorId);
-    setPendingPostPrimeFlowId(flowId);
-    setShowPostPrimeTrace(false);
-    setShowCompletion(false);
-
-    navigation.navigate('ManualReinforcement', {
-      source: 'post_prime_trace',
-      anchorId,
-    });
-  }, [anchorId, beginPostPrimeTraceFlow, navigation]);
-
-  useEffect(() => {
-    if (!pendingPostPrimeFlowId) {
-      return;
-    }
-
-    if (
-      !activeFlow ||
-      activeFlow.flowId !== pendingPostPrimeFlowId ||
-      activeFlow.result === 'pending'
-    ) {
-      return;
-    }
-
-    const completedPostPrimeTrace = activeFlow.result === 'completed';
-
-    usePostPrimeTraceStore.getState().clearFlow(pendingPostPrimeFlowId);
-    setPendingPostPrimeFlowId(null);
-
-    if (completedPostPrimeTrace) {
-      bumpThreadStrength(2);
-      AnalyticsService.track('post_prime_trace_completed', {
-        anchor_id: anchorId,
-        session_duration_seconds: config.totalDurationSeconds,
-      });
-    }
-
-    InteractionManager.runAfterInteractions(() => {
-      setShowCompletion(true);
-    });
-  }, [
-    activeFlow,
-    anchorId,
-    bumpThreadStrength,
-    config.totalDurationSeconds,
-    pendingPostPrimeFlowId,
-  ]);
-
   const exitRitual = useCallback(async (practiceReturn?: ChartPracticeCompletionHandoff) => {
     exitingRef.current = true;
     setShowExitWarning(false);
@@ -1206,6 +1149,132 @@ export const RitualScreen: React.FC = () => {
 
     navigateToVaultDestination(navigation, 'reset');
   }, [anchor, anchorId, chartContext, clearDeepTimerInterval, fadeOutDeepPrimeAudio, isPendingFirstAnchor, navigateToPractice, navigation, returnTarget, returnTo, returnToChart, returnToAnchorDetail]);
+
+  const finalizeDeepRitual = useCallback(async () => {
+    const completedAt = new Date().toISOString();
+    const completionEventId = recordSession({
+      idempotencyKey: completionEventIdRef.current,
+      anchorId,
+      type: 'reinforce',
+      durationSeconds: config.totalDurationSeconds,
+      mode:
+        sessionAudioPlan.configuration.backgroundAudio === 'ambient' ||
+        sessionAudioPlan.configuration.guidanceVoice !== 'none'
+          ? 'ambient'
+          : 'silent',
+      audioConfiguration: sessionAudioPlan.configuration,
+      completedAt,
+    });
+    const canonicalRecord = await PracticeCompletionService.queueLegacyCompletion({
+      id: completionEventId,
+      anchorId,
+      anchorLocalId: anchor?.localId,
+      practiceMode: 'deep_prime',
+      durationSeconds: config.totalDurationSeconds,
+      completedAt,
+      guidanceVoice: sessionAudioPlan.configuration.guidanceVoice,
+      backgroundAudio: sessionAudioPlan.configuration.backgroundAudio,
+      source: resolvePracticeCompletionSource(returnTo),
+      chartContext,
+      practiceEntrySource: source,
+    });
+    await handlePrimeComplete();
+
+    const practiceHistory = useSessionStore.getState?.()?.practiceHistory ?? [];
+    const accountId = useAuthStore.getState?.()?.user?.id ?? null;
+    const settingsState = useSettingsStore.getState?.() ?? {};
+
+    const result = calculatePracticeCompleteResult({
+      anchorId,
+      anchorLocalId: anchor?.localId,
+      practiceMode: 'deep_prime',
+      practiceHistory,
+      accountId,
+      completedSessionId: completionEventId,
+      newRecord: canonicalRecord,
+      sensitivity: settingsState.threadStrengthSensitivity,
+      restDays: settingsState.restDays,
+      returnTo,
+      returnTarget,
+      source,
+      chartContext,
+    });
+
+    useAnchorStore.getState?.()?.updateAnchor?.(anchorId, {
+      threadStrength: result.newThreadStrength,
+    });
+
+    navigation.replace('PracticeComplete', result);
+  }, [
+    anchor?.localId,
+    anchorId,
+    chartContext,
+    config.totalDurationSeconds,
+    handlePrimeComplete,
+    navigation,
+    recordSession,
+    returnTarget,
+    returnTo,
+    sessionAudioPlan,
+    source,
+  ]);
+
+  const handleSkipPostPrimeTrace = useCallback(() => {
+    setShowPostPrimeTrace(false);
+    InteractionManager.runAfterInteractions(() => {
+      void finalizeDeepRitual();
+    });
+  }, [finalizeDeepRitual]);
+
+  const handleBeginPostPrimeTrace = useCallback(async () => {
+    await markPostPrimeTraceAttemptStarted();
+
+    const flowId = beginPostPrimeTraceFlow(anchorId);
+    setPendingPostPrimeFlowId(flowId);
+    setShowPostPrimeTrace(false);
+    setShowCompletion(false);
+
+    navigation.navigate('ManualReinforcement', {
+      source: 'post_prime_trace',
+      anchorId,
+    });
+  }, [anchorId, beginPostPrimeTraceFlow, navigation]);
+
+  useEffect(() => {
+    if (!pendingPostPrimeFlowId) {
+      return;
+    }
+
+    if (
+      !activeFlow ||
+      activeFlow.flowId !== pendingPostPrimeFlowId ||
+      activeFlow.result === 'pending'
+    ) {
+      return;
+    }
+
+    const completedPostPrimeTrace = activeFlow.result === 'completed';
+
+    usePostPrimeTraceStore.getState().clearFlow(pendingPostPrimeFlowId);
+    setPendingPostPrimeFlowId(null);
+
+    if (completedPostPrimeTrace) {
+      AnalyticsService.track('post_prime_trace_completed', {
+        anchor_id: anchorId,
+        session_duration_seconds: config.totalDurationSeconds,
+      });
+    }
+
+    InteractionManager.runAfterInteractions(() => {
+      void finalizeDeepRitual();
+    });
+  }, [
+    activeFlow,
+    anchorId,
+    config.totalDurationSeconds,
+    finalizeDeepRitual,
+    pendingPostPrimeFlowId,
+  ]);
 
   const continueFromSeal = useCallback(async () => {
     if (hasFinalizedRef.current) {
@@ -1328,40 +1397,13 @@ export const RitualScreen: React.FC = () => {
     }
 
     if (isDeepRitual) {
-      const completedAt = new Date().toISOString();
-      const completionEventId = recordSession({
-        idempotencyKey: completionEventIdRef.current,
-        anchorId,
-        type: 'reinforce',
-        durationSeconds: config.totalDurationSeconds,
-        mode:
-          sessionAudioPlan.configuration.backgroundAudio === 'ambient' ||
-          sessionAudioPlan.configuration.guidanceVoice !== 'none'
-            ? 'ambient'
-            : 'silent',
-        audioConfiguration: sessionAudioPlan.configuration,
-        completedAt,
-      });
-      const canonicalRecord = await PracticeCompletionService.queueLegacyCompletion({
-        id: completionEventId,
-        anchorId,
-        anchorLocalId: anchor?.localId,
-        practiceMode: 'deep_prime',
-        durationSeconds: config.totalDurationSeconds,
-        completedAt,
-        guidanceVoice: sessionAudioPlan.configuration.guidanceVoice,
-        backgroundAudio: sessionAudioPlan.configuration.backgroundAudio,
-        source: resolvePracticeCompletionSource(returnTo),
-        chartContext,
-        practiceEntrySource: source,
-      });
-      await handlePrimeComplete();
-      await exitRitual(canonicalRecord ? {
-        outcome: 'completed',
-        practiceSessionId: canonicalRecord.id,
-        practiceMode: practiceMode ?? 'deepPrime',
-        anchorId,
-      } : undefined);
+      const shouldOfferPostPrimeTrace = await isPostPrimeTraceEligible();
+      if (shouldOfferPostPrimeTrace) {
+        setShowPostPrimeTrace(true);
+        return;
+      }
+
+      await finalizeDeepRitual();
       return;
     }
 
@@ -1384,8 +1426,7 @@ export const RitualScreen: React.FC = () => {
     chartContext,
     config.totalDurationSeconds,
     enqueuePendingFirstAnchorMutation,
-    exitRitual,
-    handlePrimeComplete,
+    finalizeDeepRitual,
     isDeepRitual,
     isFirstPrimeForAnchor,
     isPendingFirstAnchor,
@@ -1393,7 +1434,6 @@ export const RitualScreen: React.FC = () => {
     practiceMode,
     returnTarget,
     resolvedSessionAudio,
-    recordSession,
     returnTo,
     ritualType,
     sessionAudioPlan,
@@ -1464,13 +1504,45 @@ export const RitualScreen: React.FC = () => {
     });
 
     await handlePrimeComplete();
-    await exitRitual(canonicalRecord ? {
-      outcome: 'completed',
-      practiceSessionId: canonicalRecord.id,
-      practiceMode: practiceMode ?? 'deepPrime',
+
+    const practiceHistory = useSessionStore.getState?.()?.practiceHistory ?? [];
+    const accountId = useAuthStore.getState?.()?.user?.id ?? null;
+    const settingsState = useSettingsStore.getState?.() ?? {};
+
+    const result = calculatePracticeCompleteResult({
       anchorId,
-    } : undefined);
-  }, [anchor?.localId, anchorId, chartContext, config.totalDurationSeconds, sessionAudioPlan, recordSession, handlePrimeComplete, exitRitual, practiceMode, returnTo, source]);
+      anchorLocalId: anchor?.localId,
+      practiceMode: 'deep_prime',
+      practiceHistory,
+      accountId,
+      completedSessionId: completionEventId,
+      newRecord: canonicalRecord,
+      sensitivity: settingsState.threadStrengthSensitivity,
+      restDays: settingsState.restDays,
+      returnTo,
+      returnTarget,
+      source,
+      chartContext,
+    });
+
+    useAnchorStore.getState?.()?.updateAnchor?.(anchorId, {
+      threadStrength: result.newThreadStrength,
+    });
+
+    navigation.replace('PracticeComplete', result);
+  }, [
+    anchor?.localId,
+    anchorId,
+    chartContext,
+    config.totalDurationSeconds,
+    handlePrimeComplete,
+    navigation,
+    recordSession,
+    returnTarget,
+    returnTo,
+    sessionAudioPlan,
+    source,
+  ]);
 
   useEffect(() => {
     if (typeof navigation.addListener !== 'function') return () => undefined;
@@ -2765,7 +2837,7 @@ export const RitualScreen: React.FC = () => {
         <ConfirmModal
           visible={showExitWarning}
           mode={
-            isDeepRitual || practiceMode === 'deepPrime' || practiceMode === 'deep_prime'
+            isDeepRitual || (practiceMode as string) === 'deepPrime' || (practiceMode as string) === 'deep_prime'
               ? 'deep_prime'
               : ritualType === 'focus' || practiceMode === 'focus'
                 ? 'focus'

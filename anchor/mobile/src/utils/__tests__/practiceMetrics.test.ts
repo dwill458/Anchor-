@@ -169,8 +169,34 @@ describe("canonical practice metrics", () => {
   });
 });
 
-describe("calculateThreadStrengthScore decay", () => {
-  it("never decays a consecutive daily streak, even under strict sensitivity", () => {
+describe("calculateThreadStrengthScore V2", () => {
+  it("starts at 0 for new anchors and increases with base gains and diminishing returns", () => {
+    // Session 1: Deep Prime (+18) -> score 18
+    const events = [event("d1", "deep_prime", "2026-07-01T10:00:00.000Z")];
+    const score1 = calculateThreadStrengthScore(events, "2026-07-01", "balanced", []);
+    expect(score1).toBe(18);
+
+    // Session 2 on Day 2: Deep Prime (pre-session 18 -> multiplier 1.0, 1st session of day -> 1.0) -> +18 -> score 36
+    const events2 = [
+      ...events,
+      event("d2", "deep_prime", "2026-07-02T10:00:00.000Z"),
+    ];
+    const score2 = calculateThreadStrengthScore(events2, "2026-07-02", "balanced", []);
+    expect(score2).toBe(36);
+  });
+
+  it("applies same-day diminishing return multipliers", () => {
+    const events = [
+      event("d1", "focus", "2026-07-01T08:00:00.000Z"), // 1st: 12 * 1.0 = 12 (pre-strength 0)
+      event("d2", "focus", "2026-07-01T12:00:00.000Z"), // 2nd: 12 * 1.0 * 0.50 = 6 (pre-strength 12)
+      event("d3", "focus", "2026-07-01T16:00:00.000Z"), // 3rd: 12 * 1.0 * 0.25 = 3 (pre-strength 18)
+      event("d4", "focus", "2026-07-01T20:00:00.000Z"), // 4th+: 0
+    ];
+    const score = calculateThreadStrengthScore(events, "2026-07-01", "balanced", []);
+    expect(score).toBe(12 + 6 + 3); // 21
+  });
+
+  it("never decays on consecutive daily streak under strict sensitivity", () => {
     const events = [
       event("d1", "deep_prime", "2026-07-01T10:00:00.000Z"),
       event("d2", "deep_prime", "2026-07-02T10:00:00.000Z"),
@@ -182,50 +208,75 @@ describe("calculateThreadStrengthScore decay", () => {
       "strict",
       [],
     );
-    // 50 + 40 (day1) clamps at 100 by day2 with zero missed days in between —
-    // a real gap-day decay (the pre-fix bug) would have knocked 30 off here.
-    expect(score).toBe(100);
+    // Day 1: 18
+    // Day 2: 18 + round(18 * 1.0) = 36
+    // Day 3: 36 + round(18 * 0.80) = 36 + 14 = 50
+    expect(score).toBe(50);
   });
 
-  it("still decays for a genuinely skipped day between sessions", () => {
-    const events = [
-      event("d1", "deep_prime", "2026-07-01T10:00:00.000Z"),
-      // 2026-07-02 skipped
-      event("d2", "deep_prime", "2026-07-03T10:00:00.000Z"),
-    ];
-    const score = calculateThreadStrengthScore(
-      events,
-      "2026-07-03",
-      "strict",
-      [],
-    );
-    // 50 + 40 = 90, then one missed day (07-02) costs 30 under strict, then +40 clamps at 100.
-    expect(score).toBe(100);
-
-    const partialEvents = [
-      event("d1", "focus", "2026-07-01T10:00:00.000Z"),
-      event("d2", "focus", "2026-07-03T10:00:00.000Z"),
-    ];
-    const partialScore = calculateThreadStrengthScore(
-      partialEvents,
-      "2026-07-03",
-      "strict",
-      [],
-    );
-    // 50 + 25 = 75, minus 30 for the one skipped day, plus 25 = 70.
-    expect(partialScore).toBe(70);
-  });
-
-  it("does not decay the still-in-progress current day when there is no session yet today", () => {
+  it("applies prospective sensitivity and rest-day settings without altering past decay", () => {
+    // 2026-07-01: practice (+18) -> 18
+    // 2026-07-02: skipped (missedDayIndex 0: Balanced -> 0 decay)
+    // 2026-07-03: skipped (missedDayIndex 1: Balanced -> -4 decay) -> 14
+    // 2026-07-04: sensitivity changed to Strict at noon.
+    // 2026-07-04: skipped (missedDayIndex 2: Strict -> -8 decay) -> 6
     const events = [event("d1", "deep_prime", "2026-07-01T10:00:00.000Z")];
     const score = calculateThreadStrengthScore(
       events,
-      "2026-07-02",
+      "2026-07-05",
       "strict",
       [],
+      {
+        sensitivityHistory: [
+          { sensitivity: "balanced", effectiveAt: "2026-07-01T00:00:00.000Z" },
+          { sensitivity: "strict", effectiveAt: "2026-07-04T12:00:00.000Z" },
+        ],
+      }
     );
-    // Only one calendar day has elapsed since the last practice (today is
-    // still in progress), so there is no fully-missed day yet.
-    expect(score).toBe(90);
+    // 07-02 (Balanced, day 0): decay 0 -> 18
+    // 07-03 (Balanced, day 1): decay 4 -> 14
+    // 07-04 (Strict, day 2): decay 6 -> 8
+    expect(score).toBe(8);
+  });
+
+  it("calculates per-anchor thread strength independently", () => {
+    const events = [
+      event("a1", "focus", "2026-07-01T10:00:00.000Z", { anchorId: "anchor-A" }),
+      event("b1", "deep_prime", "2026-07-01T11:00:00.000Z", { anchorId: "anchor-B" }),
+    ];
+    const { calculateAnchorThreadStrength } = require("../practiceMetrics");
+    const resultA = calculateAnchorThreadStrength({
+      events,
+      anchorId: "anchor-A",
+      now: new Date("2026-07-01T12:00:00.000Z"),
+    });
+    const resultB = calculateAnchorThreadStrength({
+      events,
+      anchorId: "anchor-B",
+      now: new Date("2026-07-01T12:00:00.000Z"),
+    });
+
+    expect(resultA.score).toBe(12);
+    expect(resultB.score).toBe(18);
+  });
+
+  it("respects migration baselines and durable memory floors", () => {
+    const { createThreadStrengthV2Baseline } = require("../practiceMetrics");
+    const baseline = createThreadStrengthV2Baseline({
+      anchorId: "anchor-legacy",
+      startingScore: 75,
+      effectiveAt: "2026-07-01T00:00:00.000Z",
+      highestStageReached: "tempered",
+    });
+
+    // Starting at 75 (tempered floor 30). With 20 missed days under strict, it will clamp to 30.
+    const score = calculateThreadStrengthScore(
+      [],
+      "2026-07-21",
+      "strict",
+      [],
+      { baseline }
+    );
+    expect(score).toBe(30);
   });
 });

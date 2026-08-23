@@ -6,6 +6,7 @@
 
 import React, { useCallback, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Easing, TouchableOpacity } from 'react-native';
+import { BlurView } from 'expo-blur';
 import Svg, { Circle, Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, typography } from '@/theme';
@@ -152,6 +153,7 @@ export const Toast: React.FC<ToastProps> = ({
             { borderColor: accent.border, borderLeftColor: accent.color },
           ]}
         >
+          <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
           {type === 'success' ? (
             <Svg width={18} height={18} style={styles.icon} viewBox="0 0 24 24" fill="none">
               <Circle cx={12} cy={12} r={10} stroke={accent.color} strokeWidth={1.3} />
@@ -191,12 +193,13 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(244, 239, 230, 0.03)',
+    backgroundColor: 'rgba(15, 20, 25, 0.72)',
     borderWidth: 1,
     borderLeftWidth: 2,
     borderRadius: 4,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
+    overflow: 'hidden',
   },
   icon: {
     marginRight: spacing.md,

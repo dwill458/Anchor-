@@ -10,7 +10,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import type { PracticeStackParamList } from '@/types';
 // DEFERRED: import { PracticeScreen, StabilizeRitualScreen, EvolveScreen } from '@/screens/practice'; — restore post-launch
-import { PracticeScreen, EvolveScreen, ThreadStrengthDetailScreen } from '@/screens/practice';
+import { PracticeScreen, EvolveScreen, ThreadStrengthDetailScreen, PracticeCompleteScreen } from '@/screens/practice';
 import {
   ActivationScreen,
   BreathingAnimation,
@@ -97,6 +97,11 @@ export const PracticeStackNavigator: React.FC<PracticeStackNavigatorProps> = ({ 
           <Stack.Screen
             name="SealAnchor"
             component={SealAnchorScreen}
+            options={{ animation: 'fade_from_bottom' }}
+          />
+          <Stack.Screen
+            name="PracticeComplete"
+            component={PracticeCompleteScreen}
             options={{ animation: 'fade_from_bottom' }}
           />
           <Stack.Screen

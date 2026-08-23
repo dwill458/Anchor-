@@ -18,7 +18,15 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SvgXml } from 'react-native-svg';
+import Svg, {
+  Circle,
+  Defs,
+  Line,
+  Path,
+  RadialGradient,
+  Stop,
+  SvgXml,
+} from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import Animated2, { FadeInUp } from 'react-native-reanimated';
@@ -71,20 +79,20 @@ import { usePracticeEntry } from '@/hooks/usePracticeEntry';
 
 const H_PAD = 28;
 
-// Ghost sigils used in the empty-state ritual circle (from the HTML prototype)
-const GHOST_SIGIL_1 = `<svg viewBox="0 0 55 55" fill="none" stroke="#D4AF37" stroke-width="1" xmlns="http://www.w3.org/2000/svg">
-  <line x1="27" y1="4" x2="27" y2="51"/>
-  <line x1="4" y1="27" x2="51" y2="27"/>
-  <line x1="10" y1="10" x2="44" y2="44"/>
-  <circle cx="27" cy="27" r="18" opacity=".5"/>
-</svg>`;
-
-const GHOST_SIGIL_2 = `<svg viewBox="0 0 45 45" fill="none" stroke="#D4AF37" stroke-width="1" xmlns="http://www.w3.org/2000/svg">
-  <line x1="22" y1="4" x2="22" y2="41"/>
-  <line x1="4" y1="22" x2="41" y2="22"/>
-  <circle cx="22" cy="22" r="14" opacity=".5"/>
-  <circle cx="22" cy="22" r="5" opacity=".7"/>
-</svg>`;
+// DEFERRED: Ghost sigils used in legacy concentric ritual circle removed in empty-state redesign
+// const GHOST_SIGIL_1 = `<svg viewBox="0 0 55 55" fill="none" stroke="#D4AF37" stroke-width="1" xmlns="http://www.w3.org/2000/svg">
+//   <line x1="27" y1="4" x2="27" y2="51"/>
+//   <line x1="4" y1="27" x2="51" y2="27"/>
+//   <line x1="10" y1="10" x2="44" y2="44"/>
+//   <circle cx="27" cy="27" r="18" opacity=".5"/>
+// </svg>`;
+//
+// const GHOST_SIGIL_2 = `<svg viewBox="0 0 45 45" fill="none" stroke="#D4AF37" stroke-width="1" xmlns="http://www.w3.org/2000/svg">
+//   <line x1="22" y1="4" x2="22" y2="41"/>
+//   <line x1="4" y1="22" x2="41" y2="22"/>
+//   <circle cx="22" cy="22" r="14" opacity=".5"/>
+//   <circle cx="22" cy="22" r="5" opacity=".7"/>
+// </svg>`;
 
 // ─── GuestReturnBanner ───────────────────────────────────────────────────────
 
@@ -619,6 +627,7 @@ export const VaultScreen: React.FC = () => {
             ? renderEmptyState({
                 handleCreateAnchor,
                 shouldReduceMotion,
+                pulseDotStyle,
                 orbitRingStyle,
               })
             : renderActiveState({
@@ -655,70 +664,134 @@ export const VaultScreen: React.FC = () => {
 interface EmptyStateProps {
   handleCreateAnchor: () => void;
   shouldReduceMotion: boolean;
-  orbitRingStyle: ReturnType<typeof useAnimatedStyle>;
+  pulseDotStyle: ReturnType<typeof useAnimatedStyle>;
+  orbitRingStyle?: ReturnType<typeof useAnimatedStyle>;
 }
 
 export function VaultEmptyStateContent({
   handleCreateAnchor,
   shouldReduceMotion,
-  orbitRingStyle,
+  pulseDotStyle,
 }: EmptyStateProps) {
   return (
     <View style={styles.emptyStateFill} testID="vault-empty-state-fill">
-      {/* Kicker */}
-      <Animated2.View entering={getFadeUp(150, shouldReduceMotion)}>
-        <Text style={styles.emptyKicker}>YOUR PRACTICE SPACE AWAITS</Text>
+      {/* ── Single-ring blueprint glyph frame ── */}
+      <Animated2.View
+        entering={getFadeUp(150, shouldReduceMotion)}
+        style={styles.blueprintWrap}
+      >
+        <Svg width={CIRCLE} height={CIRCLE} viewBox="0 0 200 200">
+          <Defs>
+            <RadialGradient id="blueprint-bg" cx="50%" cy="50%" r="50%">
+              <Stop offset="0%" stopColor="#1E2A33" stopOpacity={0.4} />
+              <Stop offset="80%" stopColor="#0F1419" stopOpacity={0.7} />
+              <Stop offset="100%" stopColor="#080B0F" stopOpacity={0.9} />
+            </RadialGradient>
+          </Defs>
+
+          {/* Single circular frame matching medallion ring */}
+          <Circle
+            cx="100"
+            cy="100"
+            r="98"
+            fill="url(#blueprint-bg)"
+            stroke={withAlpha(colors.anchor15.gilt, 0.35)}
+            strokeWidth="1"
+          />
+
+          {/* Low-opacity straight grid lines (silver at ~15%) */}
+          <Line x1="40" y1="20" x2="40" y2="180" stroke={withAlpha(colors.silver, 0.15)} strokeWidth="1" />
+          <Line x1="70" y1="10" x2="70" y2="190" stroke={withAlpha(colors.silver, 0.15)} strokeWidth="1" />
+          <Line x1="100" y1="5" x2="100" y2="195" stroke={withAlpha(colors.silver, 0.15)} strokeWidth="1" />
+          <Line x1="130" y1="10" x2="130" y2="190" stroke={withAlpha(colors.silver, 0.15)} strokeWidth="1" />
+          <Line x1="160" y1="20" x2="160" y2="180" stroke={withAlpha(colors.silver, 0.15)} strokeWidth="1" />
+
+          <Line x1="20" y1="40" x2="180" y2="40" stroke={withAlpha(colors.silver, 0.15)} strokeWidth="1" />
+          <Line x1="10" y1="70" x2="190" y2="70" stroke={withAlpha(colors.silver, 0.15)} strokeWidth="1" />
+          <Line x1="5" y1="100" x2="195" y2="100" stroke={withAlpha(colors.silver, 0.15)} strokeWidth="1" />
+          <Line x1="10" y1="130" x2="190" y2="130" stroke={withAlpha(colors.silver, 0.15)} strokeWidth="1" />
+          <Line x1="20" y1="160" x2="180" y2="160" stroke={withAlpha(colors.silver, 0.15)} strokeWidth="1" />
+
+          {/* Dashed unfinished glyph linework in gold at ~55% */}
+          <Line
+            x1="100"
+            y1="35"
+            x2="100"
+            y2="165"
+            stroke={withAlpha(colors.anchor15.gilt, 0.55)}
+            strokeWidth="1.6"
+            strokeDasharray="5 4"
+            strokeLinecap="round"
+          />
+          <Path
+            d="M100 45 L145 100 L100 155 L55 100 Z"
+            stroke={withAlpha(colors.anchor15.gilt, 0.55)}
+            strokeWidth="1.5"
+            strokeDasharray="6 5"
+            fill="none"
+            strokeLinecap="round"
+          />
+          <Path
+            d="M70 70 L100 100 L130 70"
+            stroke={withAlpha(colors.anchor15.gilt, 0.45)}
+            strokeWidth="1.2"
+            strokeDasharray="4 4"
+            fill="none"
+            strokeLinecap="round"
+          />
+          <Path
+            d="M70 130 L100 100 L130 130"
+            stroke={withAlpha(colors.anchor15.gilt, 0.45)}
+            strokeWidth="1.2"
+            strokeDasharray="4 4"
+            fill="none"
+            strokeLinecap="round"
+          />
+          <Circle
+            cx="100"
+            cy="100"
+            r="45"
+            stroke={withAlpha(colors.anchor15.gilt, 0.35)}
+            strokeWidth="1"
+            strokeDasharray="4 6"
+            fill="none"
+          />
+        </Svg>
+
+        {/* Small pulsing gold dot */}
+        <Animated2.View style={[styles.blueprintPulseDot, pulseDotStyle]} pointerEvents="none" />
+
+        {/*
+        // DEFERRED: ring tap-to-forge removed — single CTA below now owns this action
+        // <TouchableOpacity
+        //   style={styles.rcCenter}
+        //   onPress={handleCreateAnchor}
+        //   activeOpacity={0.75}
+        //   accessibilityRole="button"
+        //   accessibilityLabel="Forge your first anchor"
+        // >
+        //   <Text style={styles.rcPlus}>+</Text>
+        //   <Text style={styles.rcLabel}>FORGE</Text>
+        // </TouchableOpacity>
+        */}
       </Animated2.View>
 
-      {/* Ritual circle */}
-      <Animated2.View entering={getFadeUp(200, shouldReduceMotion)} style={styles.ritualWrap}>
-        {/* Ghost sigils */}
-        <View style={styles.ghostSigil1} pointerEvents="none">
-          <SvgXml xml={GHOST_SIGIL_1} width={55} height={55} />
-        </View>
-        <View style={styles.ghostSigil2} pointerEvents="none">
-          <SvgXml xml={GHOST_SIGIL_2} width={45} height={45} />
-        </View>
+      {/* ── Copy and ghost CTA ── */}
+      <Animated2.View entering={getFadeUp(250, shouldReduceMotion)} style={styles.emptyCopyWrap}>
+        <Text style={styles.emptyEyebrow}>AWAITING FORGE</Text>
+        <Text style={styles.emptyHeadline}>One intention. Forged.</Text>
+        <Text style={styles.emptySubhead}>
+          Write it once. Anchor traces it into a symbol you'll carry back to it daily.
+        </Text>
 
-        {/* Static outer ring */}
-        <View style={[styles.rcRing, styles.rcR1]} />
-        {/* Static middle ring */}
-        <View style={[styles.rcRing, styles.rcR2]} />
-        {/* Animated inner ring */}
-        <Animated2.View style={[styles.rcRing, styles.rcR3, orbitRingStyle]}>
-          <View style={styles.rcOrbitDot} />
-        </Animated2.View>
-
-        {/* Center forge button */}
         <TouchableOpacity
-          style={styles.rcCenter}
+          style={styles.activateBtn}
           onPress={handleCreateAnchor}
-          activeOpacity={0.75}
+          activeOpacity={0.8}
           accessibilityRole="button"
           accessibilityLabel="Forge your first anchor"
         >
-          <Text style={styles.rcPlus}>+</Text>
-          <Text style={styles.rcLabel}>FORGE</Text>
-        </TouchableOpacity>
-      </Animated2.View>
-
-      {/* Copy */}
-      <Animated2.View entering={getFadeUp(300, shouldReduceMotion)} style={styles.emptyCopyWrap}>
-        <Text style={styles.emptyHeadline}>
-          {'Begin with one '}
-          <Text style={styles.emptyHeadlineGold}>intention.</Text>
-        </Text>
-        <Text style={styles.emptyBody}>
-          Forge your first anchor — a personal symbol that primes your mind before the moments that matter.
-        </Text>
-        <TouchableOpacity
-          style={styles.forgeCta}
-          onPress={handleCreateAnchor}
-          activeOpacity={0.85}
-          accessibilityRole="button"
-        >
-          <View style={styles.forgeCtaShimmer} pointerEvents="none" />
-          <Text style={styles.forgeCtaText}>⚡  FORGE YOUR FIRST ANCHOR</Text>
+          <Text style={styles.activateBtnText}>FORGE YOUR FIRST ANCHOR →</Text>
         </TouchableOpacity>
       </Animated2.View>
     </View>
@@ -838,154 +911,199 @@ const styles = StyleSheet.create({
   },
 
   // ── Empty state ───────────────────────────────────────────────────────────────
-  emptyKicker: {
-    marginTop: 14,
-    marginHorizontal: H_PAD,
-    fontFamily: 'Cinzel-Regular',
-    fontSize: 9,
-    letterSpacing: 2.5,
-    color: 'rgba(212,175,55,0.4)',
-    textTransform: 'uppercase',
-    textAlign: 'center',
-  },
   emptyStateFill: {
     flex: 1,
-    justifyContent: 'space-between',
   },
-  ritualWrap: {
-    marginTop: 16,
+  blueprintWrap: {
+    marginTop: 12,
     alignSelf: 'center',
     width: CIRCLE,
     height: CIRCLE,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
   },
-  ghostSigil1: {
+  blueprintPulseDot: {
     position: 'absolute',
-    top: 8,
-    left: 10,
-    opacity: 0.04,
-  },
-  ghostSigil2: {
-    position: 'absolute',
-    bottom: 8,
-    right: 10,
-    opacity: 0.04,
-    transform: [{ rotate: '55deg' }],
-  },
-  rcRing: {
-    position: 'absolute',
-    borderRadius: CIRCLE / 2,
-    borderWidth: 1,
-    borderColor: RING_BORDER,
-    alignItems: 'center',
-  },
-  rcR1: { width: CIRCLE, height: CIRCLE },
-  rcR2: {
-    width: CIRCLE - 44,
-    height: CIRCLE - 44,
-    borderColor: 'rgba(212,175,55,0.07)',
-  },
-  rcR3: {
-    width: CIRCLE - 88,
-    height: CIRCLE - 88,
-    borderColor: 'rgba(212,175,55,0.10)',
-  },
-  rcOrbitDot: {
-    position: 'absolute',
-    top: -2.5,
-    left: (CIRCLE - 88) / 2 - 2.5,
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: colors.gold,
-    shadowColor: colors.gold,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.anchor15.giltBright,
+    shadowColor: colors.anchor15.giltBright,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.65,
-    shadowRadius: 5,
+    shadowOpacity: 0.85,
+    shadowRadius: 6,
     elevation: 4,
-  },
-  rcCenter: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    backgroundColor: 'rgba(30,42,51,0.5)',
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-  },
-  rcPlus: {
-    fontSize: 22,
-    lineHeight: 26,
-    color: colors.gold,
-    opacity: 0.75,
-    fontWeight: '300',
-  },
-  rcLabel: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: 8,
-    letterSpacing: 2,
-    color: colors.gold,
-    opacity: 0.65,
-    textTransform: 'uppercase',
   },
   emptyCopyWrap: {
     marginTop: 20,
     marginHorizontal: H_PAD,
+    alignItems: 'center',
+  },
+  emptyEyebrow: {
+    fontFamily: 'Cinzel-SemiBold',
+    fontSize: 13,
+    lineHeight: 16,
+    letterSpacing: 2.34,
+    color: colors.anchor15.giltBright,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+    marginBottom: 8,
   },
   emptyHeadline: {
-    fontFamily: 'Cinzel-Medium',
-    fontSize: 19,
-    color: colors.bone,
-    letterSpacing: 0.3,
+    fontFamily: 'Cinzel-SemiBold',
+    fontSize: 22,
     lineHeight: 26,
+    letterSpacing: 2.2,
+    textTransform: 'uppercase',
+    color: colors.anchor15.bone,
+    textAlign: 'center',
+    paddingHorizontal: 16,
     marginBottom: 10,
   },
-  emptyHeadlineGold: {
-    color: colors.gold,
-  },
-  emptyBody: {
+  emptySubhead: {
     fontFamily: 'CormorantGaramond-Regular',
     fontSize: 15,
     fontWeight: '300',
-    color: 'rgba(192,192,192,0.5)',
-    lineHeight: 24,
-    marginBottom: 20,
+    color: colors.anchor15.ash,
+    lineHeight: 22,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 26,
   },
-  forgeCta: {
-    width: '100%',
-    height: 54,
-    backgroundColor: colors.gold,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 14,
-    elevation: 6,
-  },
-  forgeCtaShimmer: {
-    position: 'absolute',
-    inset: 0,
-    // Simulates the 135deg linear-gradient shimmer from the prototype
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    top: 0,
-    left: 0,
-    right: '50%',
-    bottom: 0,
-    transform: [{ skewX: '-20deg' }],
-  },
-  forgeCtaText: {
-    fontFamily: 'Cinzel-SemiBold',
-    fontSize: 12,
-    letterSpacing: 2.2,
-    color: colors.navy,
-    textTransform: 'uppercase',
-  },
+  // DEFERRED: concentric multi-ring and ritual circle styles removed in empty-state redesign — single blueprint frame renders in its place
+  // emptyKicker: {
+  //   marginTop: 14,
+  //   marginHorizontal: H_PAD,
+  //   fontFamily: 'Cinzel-Regular',
+  //   fontSize: 9,
+  //   letterSpacing: 2.5,
+  //   color: 'rgba(212,175,55,0.4)',
+  //   textTransform: 'uppercase',
+  //   textAlign: 'center',
+  // },
+  // ritualWrap: {
+  //   marginTop: 16,
+  //   alignSelf: 'center',
+  //   width: CIRCLE,
+  //   height: CIRCLE,
+  //   alignItems: 'center',
+  //   justifyContent: 'center',
+  // },
+  // ghostSigil1: {
+  //   position: 'absolute',
+  //   top: 8,
+  //   left: 10,
+  //   opacity: 0.04,
+  // },
+  // ghostSigil2: {
+  //   position: 'absolute',
+  //   bottom: 8,
+  //   right: 10,
+  //   opacity: 0.04,
+  //   transform: [{ rotate: '55deg' }],
+  // },
+  // rcRing: {
+  //   position: 'absolute',
+  //   borderRadius: CIRCLE / 2,
+  //   borderWidth: 1,
+  //   borderColor: RING_BORDER,
+  //   alignItems: 'center',
+  // },
+  // rcR1: { width: CIRCLE, height: CIRCLE },
+  // rcR2: {
+  //   width: CIRCLE - 44,
+  //   height: CIRCLE - 44,
+  //   borderColor: 'rgba(212,175,55,0.07)',
+  // },
+  // rcR3: {
+  //   width: CIRCLE - 88,
+  //   height: CIRCLE - 88,
+  //   borderColor: 'rgba(212,175,55,0.10)',
+  // },
+  // rcOrbitDot: {
+  //   position: 'absolute',
+  //   top: -2.5,
+  //   left: (CIRCLE - 88) / 2 - 2.5,
+  //   width: 5,
+  //   height: 5,
+  //   borderRadius: 3,
+  //   backgroundColor: colors.gold,
+  //   shadowColor: colors.gold,
+  //   shadowOffset: { width: 0, height: 0 },
+  //   shadowOpacity: 0.65,
+  //   shadowRadius: 5,
+  //   elevation: 4,
+  // },
+  // rcCenter: {
+  //   width: 110,
+  //   height: 110,
+  //   borderRadius: 55,
+  //   backgroundColor: 'rgba(30,42,51,0.5)',
+  //   borderWidth: 1,
+  //   borderColor: 'rgba(212,175,55,0.18)',
+  //   alignItems: 'center',
+  //   justifyContent: 'center',
+  //   gap: 5,
+  // },
+  // rcPlus: {
+  //   fontSize: 22,
+  //   lineHeight: 26,
+  //   color: colors.gold,
+  //   opacity: 0.75,
+  //   fontWeight: '300',
+  // },
+  // rcLabel: {
+  //   fontFamily: 'Cinzel-Regular',
+  //   fontSize: 8,
+  //   letterSpacing: 2,
+  //   color: colors.gold,
+  //   opacity: 0.65,
+  //   textTransform: 'uppercase',
+  // },
+  // emptyHeadlineGold: {
+  //   color: colors.gold,
+  // },
+  // emptyBody: {
+  //   fontFamily: 'CormorantGaramond-Regular',
+  //   fontSize: 15,
+  //   fontWeight: '300',
+  //   color: 'rgba(192,192,192,0.5)',
+  //   lineHeight: 24,
+  //   marginBottom: 20,
+  // },
+  // DEFERRED: solid gold filled forgeCta removed to comply with brand rules — replaced with ghost button sharing styles.activateBtn
+  // forgeCta: {
+  //   width: '100%',
+  //   height: 54,
+  //   backgroundColor: colors.gold,
+  //   borderRadius: 10,
+  //   alignItems: 'center',
+  //   justifyContent: 'center',
+  //   overflow: 'hidden',
+  //   shadowColor: colors.gold,
+  //   shadowOffset: { width: 0, height: 8 },
+  //   shadowOpacity: 0.25,
+  //   shadowRadius: 14,
+  //   elevation: 6,
+  // },
+  // forgeCtaShimmer: {
+  //   position: 'absolute',
+  //   inset: 0,
+  //   backgroundColor: 'rgba(255,255,255,0.1)',
+  //   top: 0,
+  //   left: 0,
+  //   right: '50%',
+  //   bottom: 0,
+  //   transform: [{ skewX: '-20deg' }],
+  // },
+  // forgeCtaText: {
+  //   fontFamily: 'Cinzel-SemiBold',
+  //   fontSize: 12,
+  //   letterSpacing: 2.2,
+  //   color: colors.navy,
+  //   textTransform: 'uppercase',
+  // },
 
   // ── Active state ──────────────────────────────────────────────────────────────
   contextBar: {
@@ -1024,6 +1142,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    width: '100%',
   },
   activateBtnText: {
     fontFamily: 'Cinzel-SemiBold',

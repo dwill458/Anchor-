@@ -55,6 +55,8 @@ const mockPrime15mVisualizationPlayer = createMockManagedPlayer();
 const mockPrime15mSettlingPlayer = createMockManagedPlayer();
 const mockPrime15mClosingPlayer = createMockManagedPlayer();
 
+const mockReplace = jest.fn();
+
 jest.mock('@react-navigation/native', () => {
   const React = require('react');
 
@@ -68,6 +70,7 @@ jest.mock('@react-navigation/native', () => {
     })),
     useNavigation: jest.fn(() => ({
       goBack: jest.fn(),
+      replace: mockReplace,
     })),
     useFocusEffect: (effect: () => void | (() => void)) => {
       React.useEffect(() => effect(), [effect]);
@@ -449,7 +452,7 @@ describe('RitualScreen', () => {
       })
     );
     expect(mockHandlePrimeComplete).toHaveBeenCalledTimes(1);
-    await waitFor(() => expect(mockNavigateToPractice).toHaveBeenCalledTimes(1), {
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('PracticeComplete', expect.objectContaining({ anchorId: 'test-anchor-id' })), {
       timeout: 2000,
     });
     expect(queryByTestId('completion-modal-done')).toBeNull();

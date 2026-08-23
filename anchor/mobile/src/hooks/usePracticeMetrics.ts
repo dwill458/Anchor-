@@ -18,7 +18,14 @@ export function usePracticeMetrics() {
   const sensitivity = useSettingsStore(
     (state) => state.threadStrengthSensitivity,
   );
+  const sensitivityHistory = useSettingsStore(
+    (state) => state.sensitivityHistory,
+  );
   const restDays = useSettingsStore((state) => state.restDays);
+  const restDaysHistory = useSettingsStore((state) => state.restDaysHistory);
+  const practiceWideBaseline = useSessionStore(
+    (state) => state.v2Baselines?.['practice_wide'] ?? null,
+  );
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -41,9 +48,22 @@ export function usePracticeMetrics() {
         accountId,
         dailyGoal,
         sensitivity,
+        sensitivityHistory,
         restDays,
+        restDaysHistory,
+        baseline: practiceWideBaseline,
         now,
       }),
-    [accountId, dailyGoal, events, now, restDays, sensitivity],
+    [
+      accountId,
+      dailyGoal,
+      events,
+      now,
+      practiceWideBaseline,
+      restDays,
+      restDaysHistory,
+      sensitivity,
+      sensitivityHistory,
+    ],
   );
 }

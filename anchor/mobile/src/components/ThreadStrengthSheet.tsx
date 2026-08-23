@@ -24,6 +24,7 @@ import { useSessionStore, type SessionLogEntry } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import type { PrimingHistoryEntry } from '@/utils/primingAnalytics';
+import type { PracticeSessionRecord } from '@/types/practice';
 import { calculateStreak } from '@/utils/streakHelpers';
 import { colors, spacing, typography } from '@/theme';
 
@@ -219,17 +220,14 @@ function buildThisWeekDays(countsByDate: Map<string, DayCounts>): WeekDay[] {
   });
 }
 
+import {
+  calculateAnchorThreadStrength,
+  type AnchorThreadStrengthResult,
+} from '@/utils/practiceMetrics';
+import { getThreadStrengthTagline } from '@/utils/threadStrength';
+
 export function getTagline(pct: number, totalSessions: number): string {
-  if (totalSessions === 0) return 'No sessions yet. Forge the first prime.';
-  if (pct === 0) return 'Anchor is dormant.';
-  // A first or second session scores low by arithmetic alone (one day of
-  // seven). A new thread has not frayed — it is still being laid.
-  if (totalSessions <= 2) return 'Thread is new. Return tomorrow to set it.';
-  if (pct < 20) return 'Thread is fraying. Prime today.';
-  if (pct < 40) return 'Slipping. Prime today.';
-  if (pct < 70) return 'Thread is holding.';
-  if (pct < 90) return 'Thread is holding strong.';
-  return 'Thread is fully tensioned.';
+  return getThreadStrengthTagline({ score: pct, totalSessions }).tagline;
 }
 
 export function resolveAnchorStrengthPct(params: {
@@ -237,7 +235,27 @@ export function resolveAnchorStrengthPct(params: {
   totalSessions: number;
   currentStreak: number;
   thisWeekDays: WeekDay[];
+  anchorId?: string;
+  practiceHistory?: PracticeSessionRecord[];
 }): number {
+  if (params.anchorId) {
+    const sessionState = useSessionStore.getState();
+    const settingsState = useSettingsStore.getState();
+    const events = params.practiceHistory ?? sessionState.practiceHistory ?? [];
+    const baseline = sessionState.getAnchorV2Baseline?.(params.anchorId) ?? null;
+    if (events.length > 0 || baseline) {
+      return calculateAnchorThreadStrength({
+        events,
+        anchorId: params.anchorId,
+        sensitivity: settingsState.threadStrengthSensitivity,
+        sensitivityHistory: settingsState.sensitivityHistory,
+        restDays: settingsState.restDays,
+        restDaysHistory: settingsState.restDaysHistory,
+        baseline,
+      }).score;
+    }
+  }
+
   const storedStrength = normalizeStrength(params.storedStrength);
   if (storedStrength != null) {
     return storedStrength;
@@ -262,6 +280,7 @@ function deriveThreadStrengthData(params: {
   anchorThreadStrength?: number | null;
   primingHistory: PrimingHistoryEntry[];
   sessionLog: SessionLogEntry[];
+  practiceHistory?: PracticeSessionRecord[];
   sensitivityMode: string;
 }): DerivedThreadStrengthData {
   const sourceEntries =
@@ -300,6 +319,8 @@ function deriveThreadStrengthData(params: {
     totalSessions,
     currentStreak: streak.currentStreak,
     thisWeekDays,
+    anchorId: params.anchorId,
+    practiceHistory: params.practiceHistory,
   });
 
   return {
@@ -442,6 +463,7 @@ export const ThreadStrengthSheet: React.FC<ThreadStrengthSheetProps> = ({
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const primingHistory = useSessionStore((state) => state.primingHistory ?? []);
   const sessionLog = useSessionStore((state) => state.sessionLog);
+  const practiceHistory = useSessionStore((state) => state.practiceHistory ?? []);
   const sensitivityMode = useSettingsStore(
     (state) => state.threadStrengthSensitivity ?? 'balanced'
   );
@@ -455,9 +477,10 @@ export const ThreadStrengthSheet: React.FC<ThreadStrengthSheetProps> = ({
         anchorThreadStrength: anchor?.threadStrength ?? null,
         primingHistory,
         sessionLog,
+        practiceHistory,
         sensitivityMode,
       }),
-    [anchor?.threadStrength, anchorId, primingHistory, sensitivityMode, sessionLog]
+    [anchor?.threadStrength, anchorId, practiceHistory, primingHistory, sensitivityMode, sessionLog]
   );
 
   const tagline = useMemo(

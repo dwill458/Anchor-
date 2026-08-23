@@ -12,6 +12,7 @@ export * from './sessionAudio';
 import type {
   ChartPracticeContext,
   ChartPracticeMode,
+  PracticeCompleteResult,
   PracticeEntryMode,
   PracticeEntrySource,
   PracticeFlowReturnTarget,
@@ -896,6 +897,7 @@ export type RootStackParamList = {
     practiceMode?: ChartPracticeMode;
   };
   SealAnchor: { anchorId: string; returnTo?: 'vault' | 'practice' | 'detail' };
+  PracticeComplete: PracticeCompleteResult;
   ChargeComplete: {
     anchorId: string;
     durationSeconds?: number;
@@ -1055,6 +1057,7 @@ export type PracticeStackParamList = {
     practiceMode?: ChartPracticeMode;
   };
   SealAnchor: { anchorId: string; returnTo?: 'practice' };
+  PracticeComplete: PracticeCompleteResult;
   ChargeComplete: {
     anchorId: string;
     durationSeconds?: number;

@@ -26,6 +26,7 @@ import {
   AnchorRevealScreen,
   WallpaperPromptScreen,
 } from '../screens/create';
+import { PracticeCompleteScreen } from '../screens/practice';
 import {
   ActivationScreen,
   ConfirmBurnScreen,
@@ -251,6 +252,11 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
       <Stack.Screen
         name="SealAnchor"
         component={SealAnchorScreen}
+        options={{ headerShown: false, animation: 'fade_from_bottom' }}
+      />
+      <Stack.Screen
+        name="PracticeComplete"
+        component={PracticeCompleteScreen}
         options={{ headerShown: false, animation: 'fade_from_bottom' }}
       />
       <Stack.Screen

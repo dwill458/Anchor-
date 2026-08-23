@@ -101,7 +101,10 @@ export const useNotificationController = () => {
       accountId,
       dailyGoal: dailyPracticeGoal,
       sensitivity: settingsState.threadStrengthSensitivity,
+      sensitivityHistory: settingsState.sensitivityHistory,
       restDays: settingsState.restDays,
+      restDaysHistory: settingsState.restDaysHistory,
+      baseline: sessionState.v2Baselines?.['practice_wide'] ?? null,
       now,
     });
     const currentPrimes = hasCanonicalLedger
@@ -208,7 +211,10 @@ export const useNotificationController = () => {
       accountId,
       dailyGoal: settingsState.dailyPracticeGoal,
       sensitivity: settingsState.threadStrengthSensitivity,
+      sensitivityHistory: settingsState.sensitivityHistory,
       restDays: settingsState.restDays,
+      restDaysHistory: settingsState.restDaysHistory,
+      baseline: sessionState.v2Baselines?.['practice_wide'] ?? null,
       now,
     });
 

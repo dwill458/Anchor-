@@ -130,9 +130,9 @@ describe('ThreadStrengthSheet v2', () => {
 
   it('exports helper functions with stable signatures', () => {
     expect(getTagline(0, 0)).toBe('No sessions yet. Forge the first prime.');
-    expect(getTagline(10, 1)).toBe('Thread is new. Return tomorrow to set it.');
-    expect(getTagline(15, 5)).toBe('Thread is fraying. Prime today.');
-    expect(getTagline(35, 5)).toBe('Slipping. Prime today.');
+    expect(getTagline(10, 1)).toBe('Thread is beginning.');
+    expect(getTagline(15, 5)).toBe('Thread is beginning.');
+    expect(getTagline(35, 5)).toBe('Thread is lightly held.');
     expect(getTagline(55, 5)).toBe('Thread is holding.');
     expect(getTagline(85, 5)).toBe('Thread is holding strong.');
     expect(getTagline(95, 5)).toBe('Thread is fully tensioned.');

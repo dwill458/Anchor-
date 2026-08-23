@@ -50,6 +50,10 @@ const mockRecordSession = jest.fn();
 const mockIsPostPrimeTraceEligible = jest.fn().mockResolvedValue(false);
 const mockMarkPostPrimeTraceAttemptStarted = jest.fn().mockResolvedValue(undefined);
 const mockNavigateToVaultDestination = jest.fn();
+const mockGoBack = jest.fn();
+const mockReplace = jest.fn();
+const mockNavigate = jest.fn();
+const mockPopToTop = jest.fn();
 
 jest.mock('@react-navigation/native', () => {
   const React = require('react');
@@ -62,7 +66,10 @@ jest.mock('@react-navigation/native', () => {
       },
     })),
     useNavigation: jest.fn(() => ({
-      goBack: jest.fn(),
+      goBack: mockGoBack,
+      replace: mockReplace,
+      navigate: mockNavigate,
+      popToTop: mockPopToTop,
     })),
     useFocusEffect: (effect: () => void | (() => void)) => {
       React.useEffect(() => effect(), [effect]);
@@ -157,6 +164,9 @@ const mockSettingsState = (overrides: Record<string, unknown> = {}) => {
     arrivePhaseEnabled: false,
     reduceIntentionVisibility: false,
     primeSessionDuration: 120,
+    setTraceDefaultEnabled: jest.fn(),
+    recordTraceSkipped: jest.fn(),
+    resetTraceSkipStreak: jest.fn(),
     ...overrides,
   } as any;
   base.sessionAudioDefaults = overrides.sessionAudioDefaults ?? {
@@ -772,7 +782,12 @@ describe('ActivationScreen', () => {
     // Tap the seal container (fires onPress = immediate complete, no reflection prompt)
     fireEvent.press(getByTestId('focus-session-continue'));
 
-    await waitFor(() => expect(mockGoBack).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith(
+        'PracticeComplete',
+        expect.objectContaining({ anchorId: TEST_ANCHOR_UUID })
+      )
+    );
 
     await waitFor(() => expect(apiClient.post).toHaveBeenCalledWith(
       `/api/anchors/${TEST_ANCHOR_UUID}/activate`,
@@ -793,7 +808,7 @@ describe('ActivationScreen', () => {
     fireEvent.press(seal);
     fireEvent.press(seal);
 
-    await waitFor(() => expect(mockGoBack).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledTimes(1));
     expect(mockHandlePrimeComplete).toHaveBeenCalledTimes(1);
     expect(mockRecordSession).toHaveBeenCalledTimes(1);
   });
@@ -863,8 +878,8 @@ describe('ActivationScreen', () => {
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
     fireEvent.press(getByTestId('focus-session-dismiss'));
 
-    expect(mockGoBack).not.toHaveBeenCalled();
-    await waitFor(() => expect(mockGoBack).toHaveBeenCalled());
+    expect(mockReplace).not.toHaveBeenCalled();
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('PracticeComplete', expect.anything()));
   });
 
   it('routes completed-session back attempts into reflection instead of exit warning', async () => {
@@ -884,7 +899,7 @@ describe('ActivationScreen', () => {
     });
 
     expect(preventDefault).toHaveBeenCalled();
-    await waitFor(() => expect(mockGoBack).toHaveBeenCalled());
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('PracticeComplete', expect.anything()));
   });
 
   it('pops vault stack and returns to Practice after completion when launched from Practice', async () => {
@@ -903,8 +918,10 @@ describe('ActivationScreen', () => {
     fireEvent.press(getByTestId('focus-session-continue'));
 
     await waitFor(() => {
-      expect(mockPopToTop).toHaveBeenCalled();
-      expect(mockNavigateToPractice).toHaveBeenCalled();
+      expect(mockReplace).toHaveBeenCalledWith(
+        'PracticeComplete',
+        expect.objectContaining({ returnTo: 'practice' })
+      );
     });
   });
 
@@ -991,7 +1008,12 @@ describe('ActivationScreen', () => {
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
     fireEvent.press(getByTestId('focus-session-continue'));
 
-    await waitFor(() => expect(mockGoBack).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith(
+        'PracticeComplete',
+        expect.objectContaining({ anchorId: TEST_ANCHOR_UUID })
+      )
+    );
     expect(queryByTestId('post-prime-trace-modal')).toBeNull();
     expect(mockIsPostPrimeTraceEligible).not.toHaveBeenCalled();
   });
@@ -1075,7 +1097,15 @@ describe('ActivationScreen', () => {
     await waitFor(() => expect(getByTestId('post-prime-skip-button')).toBeTruthy());
     fireEvent.press(getByTestId('post-prime-skip-button'));
 
-    await waitFor(() => expect(mockGoBack).toHaveBeenCalled());
+    await waitFor(() => expect(getByTestId('post-prime-skip-prompt-just-once')).toBeTruthy());
+    fireEvent.press(getByTestId('post-prime-skip-prompt-just-once'));
+
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith(
+        'PracticeComplete',
+        expect.objectContaining({ anchorId: TEST_ANCHOR_UUID })
+      )
+    );
     expect(mockNavigate).not.toHaveBeenCalledWith('ManualReinforcement', expect.anything());
   });
 
@@ -1105,7 +1135,12 @@ describe('ActivationScreen', () => {
       usePostPrimeTraceStore.getState().finishFlow(flowId!, 'completed');
     });
 
-    await waitFor(() => expect(mockGoBack).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith(
+        'PracticeComplete',
+        expect.objectContaining({ anchorId: TEST_ANCHOR_UUID })
+      )
+    );
   });
 
   it('handles API errors gracefully after sealing', async () => {
@@ -1128,7 +1163,10 @@ describe('ActivationScreen', () => {
       );
     });
 
-    expect(mockGoBack).toHaveBeenCalled();
+    expect(mockReplace).toHaveBeenCalledWith(
+      'PracticeComplete',
+      expect.objectContaining({ anchorId: TEST_ANCHOR_UUID })
+    );
     expect(mockToastError).toHaveBeenCalledWith(
       'Prime session completed but failed to sync. Will retry later.'
     );
@@ -1245,9 +1283,9 @@ describe('ActivationScreen', () => {
     fireEvent.press(getByTestId('focus-session-continue'));
 
     await waitFor(() =>
-      expect(mockNavigateToVaultDestination).toHaveBeenCalledWith(
-        expect.anything(),
-        'replace'
+      expect(mockReplace).toHaveBeenCalledWith(
+        'PracticeComplete',
+        expect.objectContaining({ returnTo: 'vault' })
       )
     );
   });

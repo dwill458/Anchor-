@@ -480,6 +480,10 @@ export interface WidgetSnapshotInputs {
   lastGraceDayUsedAt: string | null;
   threadStrength?: number;
   threadStrengthSensitivity?: ThreadStrengthSensitivity;
+  sensitivityHistory?: ReturnType<typeof useSettingsStore.getState>['sensitivityHistory'];
+  restDays?: number[];
+  restDaysHistory?: ReturnType<typeof useSettingsStore.getState>['restDaysHistory'];
+  baseline?: ReturnType<typeof useSessionStore.getState>['v2Baselines'][string] | null;
   now?: Date;
 }
 
@@ -529,7 +533,10 @@ export function buildWidgetSnapshot(inputs: WidgetSnapshotInputs): WidgetSnapsho
           accountId: inputs.accountId,
           dailyGoal: 3,
           sensitivity,
-          restDays: [],
+          sensitivityHistory: inputs.sensitivityHistory,
+          restDays: inputs.restDays ?? [],
+          restDaysHistory: inputs.restDaysHistory,
+          baseline: inputs.baseline,
           now,
         }),
         sensitivity
@@ -604,6 +611,10 @@ export async function syncWidgetData(): Promise<void> {
       lastGraceDayUsedAt: sessionState.lastGraceDayUsedAt,
       threadStrength: sessionState.threadStrength,
       threadStrengthSensitivity: settingsState.threadStrengthSensitivity,
+      sensitivityHistory: settingsState.sensitivityHistory,
+      restDays: settingsState.restDays,
+      restDaysHistory: settingsState.restDaysHistory,
+      baseline: sessionState.v2Baselines?.['practice_wide'] ?? null,
     });
     const json = JSON.stringify(snapshot);
 

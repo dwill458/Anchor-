@@ -22,16 +22,25 @@ import {
   type PrimingHistoryEntry,
 } from '@/utils/primingAnalytics';
 import {
+  calculatePracticeGain,
   calculateThreadDecay,
+  getCanonicalThreadStage,
   getThreadDecayStartDay,
 } from '@/utils/threadStrength';
 import type { SessionAudioConfiguration } from '@/types/sessionAudio';
 import {
   normalizePracticeMode,
   PRACTICE_THREAD_STRENGTH_GAINS,
+  type PracticeMode,
   type PracticeSessionRecord,
+  type ThreadStrengthV2Baseline,
   type UnknownPracticeHistoryRecord,
 } from '@/types/practice';
+import {
+  calculateAnchorThreadStrength,
+  calculateThreadStrengthScore,
+  createThreadStrengthV2Baseline,
+} from '@/utils/practiceMetrics';
 import {
   getCompletionTimeContext,
   PRACTICE_SESSION_SCHEMA_VERSION,
@@ -104,6 +113,8 @@ interface SessionState {
   journeyWeekStart: string | null;
   /** YYYY-MM-DD of the last day decay was applied — prevents double-apply. */
   lastDecayDate: string | null;
+  /** Durable Thread Strength V2 migration baseline records per anchor or practice-wide */
+  v2Baselines: Record<string, ThreadStrengthV2Baseline>;
 
   // Actions
   recordSession: (entry: SessionRecordInput) => string;
@@ -121,6 +132,10 @@ interface SessionState {
   applyDecay: () => void;
   /** Applies an explicit, non-session-based thread strength delta. */
   bumpThreadStrength: (delta: number) => void;
+  /** Gets the durable V2 baseline for a given anchor or practice-wide */
+  getAnchorV2Baseline: (anchorId: string) => ThreadStrengthV2Baseline | null;
+  /** Sets a durable V2 baseline for an anchor */
+  setAnchorV2Baseline: (baseline: ThreadStrengthV2Baseline) => void;
   /**
    * Seeds the store from backend data on first sign-in.
    * No-op if the local store already has recorded sessions.
@@ -166,6 +181,8 @@ const createInitialSessionState = (): Omit<
   | 'resetIfNewDay'
   | 'applyDecay'
   | 'bumpThreadStrength'
+  | 'getAnchorV2Baseline'
+  | 'setAnchorV2Baseline'
   | 'hydrateFromBackend'
   | 'reset'
 > => ({
@@ -174,7 +191,7 @@ const createInitialSessionState = (): Omit<
   weeklyPractice: EMPTY_WEEK(),
   lastGraceDayUsedAt: null,
   sessionLog: [],
-  threadStrength: 50,
+  threadStrength: 0,
   totalSessionsCount: 0,
   lastPrimedAt: null,
   weekHistory: EMPTY_WEEK_HISTORY(),
@@ -184,15 +201,29 @@ const createInitialSessionState = (): Omit<
   unknownPracticeHistory: [],
   journeyWeekStart: null,
   lastDecayDate: null,
+  v2Baselines: {},
 });
 
 const LOG_CAP = 50;
 
-function getPracticeSessionGain(type: SessionType): number {
-  if (type === 'activate') return PRACTICE_THREAD_STRENGTH_GAINS.focus;
-  if (type === 'reinforce') return PRACTICE_THREAD_STRENGTH_GAINS.deep_prime;
-  if (type === 'visualize') return PRACTICE_THREAD_STRENGTH_GAINS.visualize;
-  return 0;
+function getPracticeSessionGain(params: {
+  type: SessionType;
+  currentStrength: number;
+  sessionIndexToday: number;
+}): number {
+  const mode: PracticeMode =
+    params.type === 'activate'
+      ? 'focus'
+      : params.type === 'reinforce'
+        ? 'deep_prime'
+        : params.type === 'visualize'
+          ? 'visualize'
+          : 'release';
+  return calculatePracticeGain({
+    mode,
+    currentStrength: params.currentStrength,
+    sessionIndexToday: params.sessionIndexToday,
+  });
 }
 
 function sortCanonicalPracticeHistory(
@@ -238,60 +269,59 @@ function countDecayEligibleDays(
   return eligibleDays;
 }
 
-function applyThreadDecayForMissedDays(
-  strength: number,
-  missedDays: number,
-  sensitivity: ReturnType<
-    typeof useSettingsStore.getState
-  >['threadStrengthSensitivity'],
-): number {
-  let nextStrength = strength;
-  const decayStartDay = getThreadDecayStartDay(sensitivity);
-  for (let missedDay = 1; missedDay <= missedDays; missedDay += 1) {
-    const previousPenalty = calculateThreadDecay(missedDay - 1, sensitivity);
-    const nextPenalty = calculateThreadDecay(missedDay, sensitivity);
-    const penaltyDelta = nextPenalty - previousPenalty;
-    if (penaltyDelta <= 0) continue;
-    const minimumStrengthFloor = missedDay === decayStartDay ? 10 : 5;
-    nextStrength = Math.max(minimumStrengthFloor, nextStrength - penaltyDelta);
-  }
-  return nextStrength;
-}
-
 function recomputeThreadStrength(
   history: PrimingHistoryEntry[],
   today: string,
+  baseline?: ThreadStrengthV2Baseline | null,
 ): number {
-  const { threadStrengthSensitivity, restDays } = useSettingsStore.getState();
-  const chronological = [...history].sort(
-    (left, right) =>
-      new Date(left.completedAt).getTime() -
-      new Date(right.completedAt).getTime(),
+  const {
+    threadStrengthSensitivity,
+    sensitivityHistory,
+    restDays,
+    restDaysHistory,
+  } = useSettingsStore.getState();
+  const records: PracticeSessionRecord[] = history.map((h) => ({
+    id: h.id,
+    accountId: 'legacy',
+    anchorId: h.anchorId,
+    anchorLocalId: h.anchorId,
+    anchorServerId: h.anchorId,
+    practiceMode:
+      h.type === 'reinforce'
+        ? 'deep_prime'
+        : h.type === 'visualize'
+          ? 'visualize'
+          : 'focus',
+    plannedDurationSeconds: 60,
+    completedDurationSeconds: 60,
+    completionStatus: 'completed' as const,
+    startedAt: h.completedAt,
+    completedAt: h.completedAt,
+    localDateKey: h.localDate,
+    timeZone: 'UTC',
+    utcOffsetMinutesAtCompletion: 0,
+    completionSource: 'restored' as const,
+    schemaVersion: PRACTICE_SESSION_SCHEMA_VERSION,
+    legacyType: h.type,
+    guidanceVoice: 'none' as const,
+    backgroundAudio: 'off' as const,
+    sceneSnapshot: null,
+    nextAction: null,
+    clientVersion: null,
+    syncState: 'synced' as const,
+  }));
+
+  return calculateThreadStrengthScore(
+    records,
+    today,
+    threadStrengthSensitivity,
+    restDays,
+    {
+      sensitivityHistory,
+      restDaysHistory,
+      baseline,
+    },
   );
-  let strength = 50;
-  let lastPracticeDate: string | null = null;
-
-  for (const entry of chronological) {
-    const practiceDate = localDateString(new Date(entry.completedAt));
-    if (lastPracticeDate && practiceDate > lastPracticeDate) {
-      strength = applyThreadDecayForMissedDays(
-        strength,
-        countDecayEligibleDays(lastPracticeDate, practiceDate, restDays),
-        threadStrengthSensitivity,
-      );
-    }
-    strength = Math.min(100, strength + getPracticeSessionGain(entry.type));
-    lastPracticeDate = practiceDate;
-  }
-
-  if (lastPracticeDate && today > lastPracticeDate) {
-    strength = applyThreadDecayForMissedDays(
-      strength,
-      countDecayEligibleDays(lastPracticeDate, today, restDays),
-      threadStrengthSensitivity,
-    );
-  }
-  return strength;
 }
 
 function coercePrimingHistory(entries: unknown): PrimingHistoryEntry[] {
@@ -491,7 +521,17 @@ export const useSessionStore = create<SessionState>()(
             weekHistory[dayOfWeek] = true;
 
             if (shouldBuildThread) {
-              const gain = getPracticeSessionGain(entry.type);
+              const sessionsTodayForAnchor = (state.primingHistory ?? []).filter(
+                (p) =>
+                  p.anchorId === entry.anchorId &&
+                  p.localDate === todayKey,
+              ).length;
+              const sessionIndexToday = sessionsTodayForAnchor + 1;
+              const gain = getPracticeSessionGain({
+                type: entry.type,
+                currentStrength: threadStrength,
+                sessionIndexToday,
+              });
               threadStrength = Math.min(100, threadStrength + gain);
               lastPrimedAt = todayKey;
             }
@@ -659,9 +699,14 @@ export const useSessionStore = create<SessionState>()(
       },
 
       applyDecay: () => {
-        const { lastPrimedAt, threadStrength, lastDecayDate } = get();
-        const { threadStrengthSensitivity, restDays } =
-          useSettingsStore.getState();
+        const { lastPrimedAt, lastDecayDate, practiceHistory, v2Baselines } =
+          get();
+        const {
+          threadStrengthSensitivity,
+          sensitivityHistory,
+          restDays,
+          restDaysHistory,
+        } = useSettingsStore.getState();
         const today = localDateString(new Date());
 
         // Already applied decay today — skip
@@ -673,50 +718,19 @@ export const useSessionStore = create<SessionState>()(
           return;
         }
 
-        const decayEligibleMissedDays = countDecayEligibleDays(
-          lastPrimedAt,
+        const newScore = calculateThreadStrengthScore(
+          practiceHistory,
           today,
+          threadStrengthSensitivity,
           restDays,
+          {
+            sensitivityHistory,
+            restDaysHistory,
+            baseline: v2Baselines['practice_wide'] ?? null,
+          },
         );
-        const daysAlreadyDecayed = lastDecayDate
-          ? countDecayEligibleDays(lastPrimedAt, lastDecayDate, restDays)
-          : 0;
 
-        if (daysAlreadyDecayed >= decayEligibleMissedDays) {
-          set({ lastDecayDate: today });
-          return;
-        }
-
-        let newStrength = threadStrength;
-        const decayStartDay = getThreadDecayStartDay(threadStrengthSensitivity);
-
-        for (
-          let missedDay = daysAlreadyDecayed + 1;
-          missedDay <= decayEligibleMissedDays;
-          missedDay += 1
-        ) {
-          const previousPenalty = calculateThreadDecay(
-            missedDay - 1,
-            threadStrengthSensitivity,
-          );
-          const nextPenalty = calculateThreadDecay(
-            missedDay,
-            threadStrengthSensitivity,
-          );
-          const penaltyDelta = nextPenalty - previousPenalty;
-
-          if (penaltyDelta <= 0) {
-            continue;
-          }
-
-          const minimumStrengthFloor = missedDay === decayStartDay ? 10 : 5;
-          newStrength = Math.max(
-            minimumStrengthFloor,
-            newStrength - penaltyDelta,
-          );
-        }
-
-        set({ threadStrength: newStrength, lastDecayDate: today });
+        set({ threadStrength: newScore, lastDecayDate: today });
       },
 
       bumpThreadStrength: (delta) => {
@@ -729,6 +743,19 @@ export const useSessionStore = create<SessionState>()(
             0,
             Math.min(100, state.threadStrength + delta),
           ),
+        }));
+      },
+
+      getAnchorV2Baseline: (anchorId) => {
+        return get().v2Baselines[anchorId] ?? null;
+      },
+
+      setAnchorV2Baseline: (baseline) => {
+        set((state) => ({
+          v2Baselines: {
+            ...state.v2Baselines,
+            [baseline.anchorId]: baseline,
+          },
         }));
       },
 
@@ -898,7 +925,7 @@ export const useSessionStore = create<SessionState>()(
     {
       name: 'anchor-session-storage',
       storage: createJSONStorage(() => encryptedPersistStorage),
-      version: 5,
+      version: 6,
       migrate: (persistedState: unknown, version: number) => {
         const s = (persistedState as Partial<SessionState>) ?? {};
         const migratedState: Partial<SessionState> = { ...s };
@@ -1026,11 +1053,29 @@ export const useSessionStore = create<SessionState>()(
               } as PracticeSessionRecord,
             ];
           });
-          migratedState.unknownPracticeHistory = Array.from(
-            new Map(
-              unknownPracticeHistory.map((entry) => [entry.fingerprint, entry]),
-            ).values(),
-          );
+          const dedupedUnknown = new Map<string, UnknownPracticeHistoryRecord>();
+          for (const entry of unknownPracticeHistory) {
+            dedupedUnknown.set(entry.fingerprint, entry);
+          }
+          migratedState.unknownPracticeHistory = Array.from(dedupedUnknown.values());
+        }
+
+        if (version < 6) {
+          migratedState.v2Baselines = (migratedState.v2Baselines ??
+            {}) as Record<string, ThreadStrengthV2Baseline>;
+          if (
+            typeof s.threadStrength === 'number' &&
+            s.threadStrength > 0 &&
+            !migratedState.v2Baselines['practice_wide']
+          ) {
+            migratedState.v2Baselines['practice_wide'] =
+              createThreadStrengthV2Baseline({
+                anchorId: 'practice_wide',
+                startingScore: s.threadStrength,
+                effectiveAt: new Date().toISOString(),
+                highestStageReached: getCanonicalThreadStage(s.threadStrength),
+              });
+          }
         }
 
         return migratedState as SessionState;

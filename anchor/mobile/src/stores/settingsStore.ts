@@ -20,6 +20,69 @@ export type SessionAudioMode = 'silent' | 'ambient';
 export type DailyPracticeGoalPreset = 'once' | 'three' | 'five' | 'custom';
 export type ThreadStrengthSensitivity = 'lenient' | 'balanced' | 'strict';
 export type RestDayPolicy = 'build' | 'neutral';
+
+export interface ThreadStrengthSensitivityHistoryEntry {
+  sensitivity: ThreadStrengthSensitivity;
+  effectiveAt: string;
+}
+
+export interface RestDaysHistoryEntry {
+  restDays: number[];
+  effectiveAt: string;
+}
+
+export function getEffectiveSensitivityAt(
+  history: readonly ThreadStrengthSensitivityHistoryEntry[] | undefined,
+  current: ThreadStrengthSensitivity,
+  targetDateOrTimestamp: string | Date
+): ThreadStrengthSensitivity {
+  if (!history || history.length === 0) return current;
+  const targetMs =
+    typeof targetDateOrTimestamp === 'string'
+      ? new Date(targetDateOrTimestamp).getTime()
+      : targetDateOrTimestamp.getTime();
+
+  const sorted = [...history].sort(
+    (a, b) => new Date(a.effectiveAt).getTime() - new Date(b.effectiveAt).getTime()
+  );
+
+  let match = sorted[0]?.sensitivity ?? current;
+  for (const entry of sorted) {
+    if (new Date(entry.effectiveAt).getTime() <= targetMs) {
+      match = entry.sensitivity;
+    } else {
+      break;
+    }
+  }
+  return match;
+}
+
+export function getEffectiveRestDaysAt(
+  history: readonly RestDaysHistoryEntry[] | undefined,
+  current: readonly number[],
+  targetDateOrTimestamp: string | Date
+): readonly number[] {
+  if (!history || history.length === 0) return current;
+  const targetMs =
+    typeof targetDateOrTimestamp === 'string'
+      ? new Date(targetDateOrTimestamp).getTime()
+      : targetDateOrTimestamp.getTime();
+
+  const sorted = [...history].sort(
+    (a, b) => new Date(a.effectiveAt).getTime() - new Date(b.effectiveAt).getTime()
+  );
+
+  let match = sorted[0]?.restDays ?? current;
+  for (const entry of sorted) {
+    if (new Date(entry.effectiveAt).getTime() <= targetMs) {
+      match = entry.restDays;
+    } else {
+      break;
+    }
+  }
+  return match;
+}
+
 export type ReduceMotionPreference = 'system' | 'on' | 'off';
 export type LastSessionDurationByMode = {
   focus: number;
@@ -400,7 +463,9 @@ export interface SettingsState {
   dailyPracticeGoal: number;
   dailyPracticeGoalPreset: DailyPracticeGoalPreset;
   threadStrengthSensitivity: ThreadStrengthSensitivity;
+  sensitivityHistory: ThreadStrengthSensitivityHistoryEntry[];
   restDays: number[];
+  restDaysHistory: RestDaysHistoryEntry[];
   restDayPolicy: RestDayPolicy;
   arrivePhaseEnabled: boolean;
   reduceIntentionVisibility: boolean;
@@ -547,7 +612,19 @@ const DEFAULT_SETTINGS = {
   dailyPracticeGoal: 3,
   dailyPracticeGoalPreset: 'three' as DailyPracticeGoalPreset,
   threadStrengthSensitivity: 'balanced' as ThreadStrengthSensitivity,
+  sensitivityHistory: [
+    {
+      sensitivity: 'balanced' as ThreadStrengthSensitivity,
+      effectiveAt: '1970-01-01T00:00:00.000Z',
+    },
+  ],
   restDays: [] as number[],
+  restDaysHistory: [
+    {
+      restDays: [] as number[],
+      effectiveAt: '1970-01-01T00:00:00.000Z',
+    },
+  ],
   restDayPolicy: 'build' as RestDayPolicy,
   arrivePhaseEnabled: true,
   reduceIntentionVisibility: false,
@@ -833,15 +910,30 @@ export const useSettingsStore = create<SettingsState>()(
 
       setThreadStrengthSensitivity: (sensitivity) => {
         triggerHaptic();
-        set({
-          threadStrengthSensitivity: sensitivity,
+        set((state) => {
+          const nowIso = new Date().toISOString();
+          return {
+            threadStrengthSensitivity: sensitivity,
+            sensitivityHistory: [
+              ...(state.sensitivityHistory ?? []),
+              { sensitivity, effectiveAt: nowIso },
+            ],
+          };
         });
       },
 
       setRestDays: (days) => {
         triggerHaptic();
-        set({
-          restDays: normalizeRestDays(days),
+        const normalized = normalizeRestDays(days);
+        set((state) => {
+          const nowIso = new Date().toISOString();
+          return {
+            restDays: normalized,
+            restDaysHistory: [
+              ...(state.restDaysHistory ?? []),
+              { restDays: normalized, effectiveAt: nowIso },
+            ],
+          };
         });
       },
 
@@ -1224,7 +1316,9 @@ export const useSettingsStore = create<SettingsState>()(
         dailyPracticeGoal: state.dailyPracticeGoal,
         dailyPracticeGoalPreset: state.dailyPracticeGoalPreset,
         threadStrengthSensitivity: state.threadStrengthSensitivity,
+        sensitivityHistory: state.sensitivityHistory,
         restDays: state.restDays,
+        restDaysHistory: state.restDaysHistory,
         restDayPolicy: state.restDayPolicy,
         arrivePhaseEnabled: state.arrivePhaseEnabled,
         reduceIntentionVisibility: state.reduceIntentionVisibility,

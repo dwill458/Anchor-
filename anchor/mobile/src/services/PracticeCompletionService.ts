@@ -219,11 +219,19 @@ function assertActivePracticeAccount(accountId: string): void {
   }
 }
 
+import { buildPracticeCompletionSnapshot } from '@/utils/practiceMetrics';
+import { useSettingsStore } from '@/stores/settingsStore';
+import type { PracticeCompletionSnapshot } from '@/types/practice';
+
 export const PracticeCompletionService = {
   async completePracticeSession(
     input: CompletePracticeSessionInput,
     options: { mirrorLegacySession?: boolean; flushImmediately?: boolean } = {},
-  ): Promise<{ record: PracticeSessionRecord; duplicate: boolean }> {
+  ): Promise<{
+    record: PracticeSessionRecord;
+    duplicate: boolean;
+    snapshot?: PracticeCompletionSnapshot;
+  }> {
     const currentAccountId = useAuthStore.getState().user?.id;
     if (!currentAccountId || currentAccountId !== input.accountId) {
       throw new Error('Practice completion account does not match the active account.');
@@ -249,7 +257,23 @@ export const PracticeCompletionService = {
       return { record: existing, duplicate: true };
     }
 
+    const sessionState = useSessionStore.getState();
+    const settingsState = useSettingsStore.getState();
+    const anchorId =
+      input.anchorId ?? input.anchorLocalId ?? 'unlinked-anchor';
     const record = buildRecord(input);
+
+    const snapshot = buildPracticeCompletionSnapshot({
+      eventsBeforeSession: sessionState.practiceHistory,
+      completedSession: record,
+      anchorId,
+      sensitivity: settingsState.threadStrengthSensitivity,
+      sensitivityHistory: settingsState.sensitivityHistory,
+      restDays: settingsState.restDays,
+      restDaysHistory: settingsState.restDaysHistory,
+      baseline: sessionState.getAnchorV2Baseline(anchorId),
+    });
+
     await this.queueCanonicalCompletion(
       record,
       options.mirrorLegacySession === true,
@@ -280,7 +304,7 @@ export const PracticeCompletionService = {
         }
         : {}),
     });
-    return { record, duplicate: false };
+    return { record, duplicate: false, snapshot };
   },
 
   async queueLegacyCompletion(params: {
