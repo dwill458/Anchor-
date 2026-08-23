@@ -503,7 +503,7 @@ export default function ManualForgeScreen() {
           </TouchableOpacity>
 
           <View style={styles.headerCenter}>
-            <Text style={styles.headerSubtitle}>Step 2 of 2</Text>
+            <Text style={styles.headerSubtitle}>Forge</Text>
           </View>
 
           <TouchableOpacity

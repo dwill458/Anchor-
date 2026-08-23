@@ -20,10 +20,13 @@ jest.mock('@react-navigation/native', () => ({
   useRoute: () => ({ params: mockRouteParams }),
 }));
 
+let mockAnchorData: Record<string, unknown> | undefined = undefined;
+const mockGetAnchorById = jest.fn(() => mockAnchorData);
+
 // Selector-aware store mocks, matching zustand's API shape.
 jest.mock('@/stores/anchorStore', () => ({
   useAnchorStore: (selector?: (state: Record<string, unknown>) => unknown) => {
-    const state = { getAnchorById: () => undefined };
+    const state = { getAnchorById: mockGetAnchorById };
     return selector ? selector(state) : state;
   },
 }));
@@ -159,6 +162,8 @@ describe('ManualReinforcementScreen', () => {
     mockRecordTraceSkipped.mockClear();
     mockRecordTraceSkipped.mockImplementation(() => 1);
     mockResetTraceSkipStreak.mockClear();
+    mockSetTraceDefaultEnabled.mockClear();
+    mockAnchorData = undefined;
     mockUpdateDraft.mockClear();
     mockPlaySound.mockClear();
     mockReduceMotion = false;
@@ -268,16 +273,73 @@ describe('ManualReinforcementScreen', () => {
     }));
   });
 
-  it('Skip Tracing navigates to Style Selection with skipped metadata', () => {
+  it('Skip Tracing opens the default prompt modal and setting as default disables tracing', () => {
     render(<ManualReinforcementScreen />);
 
     fireEvent.press(screen.getByLabelText('Skip Tracing'));
 
+    expect(screen.getByText('Skip tracing by default?')).toBeTruthy();
+    expect(screen.getByText(/You can skip this step when creating future Anchors/)).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Set as default'));
+
+    expect(mockSetTraceDefaultEnabled).toHaveBeenCalledWith(false);
     expect(mockNavigate).toHaveBeenCalledWith('StyleSelection', expect.objectContaining({
       intentionText: 'Test Intention',
       category: 'health',
       reinforcementMetadata: expect.objectContaining({ completed: false, skipped: true }),
     }));
+  });
+
+  it('Skip Tracing allows skipping just this time without setting as default', () => {
+    render(<ManualReinforcementScreen />);
+
+    fireEvent.press(screen.getByLabelText('Skip Tracing'));
+
+    expect(screen.getByText('Skip tracing by default?')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Just this time'));
+
+    expect(mockSetTraceDefaultEnabled).not.toHaveBeenCalled();
+    expect(mockRecordTraceSkipped).toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith('StyleSelection', expect.objectContaining({
+      intentionText: 'Test Intention',
+      category: 'health',
+      reinforcementMetadata: expect.objectContaining({ completed: false, skipped: true }),
+    }));
+  });
+
+  it('Dismissing the skip default prompt cancels navigation and stays on trace screen', () => {
+    render(<ManualReinforcementScreen />);
+
+    fireEvent.press(screen.getByLabelText('Skip Tracing'));
+
+    expect(screen.getByText('Skip tracing by default?')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Close'));
+
+    expect(screen.queryByText('Skip tracing by default?')).toBeNull();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('skips immediately without prompt for post_prime_trace source', () => {
+    mockAnchorData = {
+      id: 'anchor-1',
+      intentionText: 'Prime Intention',
+      category: 'focus',
+      baseSigilSvg: '<svg></svg>',
+    };
+    mockRouteParams = {
+      source: 'post_prime_trace',
+      anchorId: 'anchor-1',
+    };
+
+    render(<ManualReinforcementScreen />);
+
+    fireEvent.press(screen.getByLabelText('Skip'));
+
+    expect(screen.queryByText('Skip tracing by default?')).toBeNull();
+    expect(mockGoBack).toHaveBeenCalled();
   });
 
   it('opens and dismisses the About Tracing sheet', () => {

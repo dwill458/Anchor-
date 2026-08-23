@@ -47,6 +47,8 @@ import {
 type AnchorRevealRouteProp = RouteProp<RootStackParamList, 'AnchorReveal'>;
 type AnchorRevealNavigationProp = StackNavigationProp<RootStackParamList, 'AnchorReveal'>;
 
+const AUTO_CONTINUE_SECONDS = 5;
+
 export const AnchorRevealScreen: React.FC = () => {
     const navigation = useNavigation<AnchorRevealNavigationProp>();
     const route = useRoute<AnchorRevealRouteProp>();
@@ -69,6 +71,7 @@ export const AnchorRevealScreen: React.FC = () => {
     const entitlements = useEntitlements();
     const [isSaving, setIsSaving] = useState(false);
     const [reminderCardVisible, setReminderCardVisible] = useState(false);
+    const [secondsRemaining, setSecondsRemaining] = useState(AUTO_CONTINUE_SECONDS);
     const pendingNavRef = useRef<{
         anchorId: string;
         isGuestFirstAnchor: boolean;
@@ -578,6 +581,26 @@ export const AnchorRevealScreen: React.FC = () => {
         await navigateAfterSave(anchorId, isGuestFirstAnchor, isFirstAnchor, expectedAccountId);
     };
 
+    const handleContinueRef = useRef(handleContinue);
+    handleContinueRef.current = handleContinue;
+
+    useEffect(() => {
+        if (isSaving || reminderCardVisible) return;
+
+        const interval = setInterval(() => {
+            setSecondsRemaining((prev) => {
+                if (prev <= 1) {
+                    clearInterval(interval);
+                    void handleContinueRef.current();
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [isSaving, reminderCardVisible]);
+
     return (
         <View style={styles.container}>
             <StatusBar style="light" />
@@ -727,7 +750,9 @@ export const AnchorRevealScreen: React.FC = () => {
                                     <ActivityIndicator color={colors.anchor15.ink} size="small" />
                                 ) : (
                                     <>
-                                        <Text style={[styles.continueText, isCompactLayout && styles.continueTextCompact]}>BEGIN PRIMING</Text>
+                                        <Text style={[styles.continueText, isCompactLayout && styles.continueTextCompact]}>
+                                            BEGIN PRIMING {secondsRemaining > 0 ? `(${secondsRemaining}s)` : ''}
+                                        </Text>
                                         <Text style={[styles.continueArrow, isCompactLayout && styles.continueArrowCompact]}>→</Text>
                                     </>
                                 )}

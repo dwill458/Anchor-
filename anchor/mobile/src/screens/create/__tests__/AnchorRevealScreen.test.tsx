@@ -247,4 +247,20 @@ describe('AnchorRevealScreen', () => {
         expect(mockReplace).not.toHaveBeenCalled();
         jest.useRealTimers();
     });
+
+    it('automatically advances after 5 seconds countdown', async () => {
+        jest.useFakeTimers();
+        render(<AnchorRevealScreen />);
+
+        await act(async () => {
+            jest.advanceTimersByTime(5000);
+            await Promise.resolve();
+        });
+
+        expect(mockPost).toHaveBeenCalledTimes(1);
+        expect(mockAddAnchor).toHaveBeenCalledTimes(1);
+        expect(mockReplace).toHaveBeenCalledWith('PrimeYourAnchor', { anchorId: 'anchor-1' });
+        jest.useRealTimers();
+    });
 });
+

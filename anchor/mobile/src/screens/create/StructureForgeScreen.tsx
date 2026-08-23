@@ -333,7 +333,7 @@ export default function StructureForgeScreen() {
           >
             <BackChevronIcon size={16} color={boneSoft} />
           </Pressable>
-          <Text style={styles.stepTag}>Step 2 of 2</Text>
+          <Text style={styles.stepTag}>Structure</Text>
         </View>
 
         <ScrollView

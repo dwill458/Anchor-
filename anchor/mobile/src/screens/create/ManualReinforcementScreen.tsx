@@ -151,10 +151,10 @@ export default function ManualReinforcementScreen() {
       ? activePostPrimeFlow.flowId
       : null;
   const isCompactLayout = isCompactPhoneViewport(width, height);
-  const horizontalPadding = isCompactLayout ? 22 : 28;
+  const horizontalPadding = isCompactLayout ? 16 : 20;
   const canvasSize = Math.min(
     width - horizontalPadding * 2,
-    height * (isCompactLayout ? 0.38 : 0.44)
+    height * (isCompactLayout ? 0.42 : 0.48)
   );
   const liveStrokeWidth = Math.max(4, (canvasSize / 300) * 5.5);
 
@@ -511,16 +511,15 @@ export default function ManualReinforcementScreen() {
   const handleSkip = () => {
     if (continuing || showTraceDefaultPrompt) return;
     const timeSpentMs = Date.now() - startTime.current;
-    const nextSkipStreak = recordTraceSkipped();
 
-    if (nextSkipStreak === 3) {
-      pendingSkipTimeSpentMsRef.current = timeSpentMs;
-      setShowTraceDefaultPrompt(true);
+    if (isPostPrimeTrace) {
+      setContinuing(true);
+      continueAfterSkip(timeSpentMs);
       return;
     }
 
-    setContinuing(true);
-    continueAfterSkip(timeSpentMs);
+    pendingSkipTimeSpentMsRef.current = timeSpentMs;
+    setShowTraceDefaultPrompt(true);
   };
 
   const handleDisableTraceDefault = () => {
@@ -529,7 +528,7 @@ export default function ManualReinforcementScreen() {
     setShowTraceDefaultPrompt(false);
     setTraceDefaultEnabled(false);
     resetTraceSkipStreak();
-    AnalyticsService.track('trace_default_disabled', { source: 'adaptive_prompt' });
+    AnalyticsService.track('trace_default_disabled', { source: 'skip_modal' });
     setContinuing(true);
     continueAfterSkip(timeSpentMs);
   };
@@ -538,9 +537,15 @@ export default function ManualReinforcementScreen() {
     const timeSpentMs = pendingSkipTimeSpentMsRef.current ?? Date.now() - startTime.current;
     pendingSkipTimeSpentMsRef.current = null;
     setShowTraceDefaultPrompt(false);
-    resetTraceSkipStreak();
+    recordTraceSkipped();
+    AnalyticsService.track('trace_skipped_once', { source: 'skip_modal' });
     setContinuing(true);
     continueAfterSkip(timeSpentMs);
+  };
+
+  const handleCancelSkipPrompt = () => {
+    pendingSkipTimeSpentMsRef.current = null;
+    setShowTraceDefaultPrompt(false);
   };
 
   const handleClearLast = () => {
@@ -633,7 +638,7 @@ export default function ManualReinforcementScreen() {
           >
             <BackChevronIcon size={16} color={boneSoft} />
           </Pressable>
-          <Text style={styles.stepTag}>{isPostPrimeTrace ? 'Trace' : 'Structure'}</Text>
+          <Text style={styles.stepTag}>{isPostPrimeTrace ? 'Trace' : 'Trace Structure'}</Text>
         </View>
 
         <View
@@ -809,35 +814,23 @@ export default function ManualReinforcementScreen() {
             </View>
           ) : null}
 
-          {showTraceDefaultPrompt ? (
-            <View style={styles.traceDefaultPrompt}>
-              <Text style={styles.traceDefaultPromptText}>
-                Skip tracing by default? You can turn it back on in Settings.
-              </Text>
-              <View style={styles.traceDefaultPromptActions}>
-                <Pressable
-                  style={({ pressed }) => [styles.nextBtnSmall, pressed && styles.nextBtnPressed]}
-                  onPress={handleDisableTraceDefault}
-                  accessibilityRole="button"
-                  accessibilityLabel="Yes, skip by default"
-                >
-                  <Text style={styles.nextBtnSmallText}>Yes, skip by default</Text>
-                </Pressable>
-                <Pressable
-                  onPress={handleKeepTraceDefault}
-                  accessibilityRole="button"
-                  accessibilityLabel="No, keep asking"
-                  style={styles.traceDefaultPromptSecondary}
-                >
-                  <Text style={styles.traceDefaultPromptSecondaryText}>No, keep asking</Text>
-                </Pressable>
-              </View>
-            </View>
-          ) : null}
-
           <View style={{ flex: 1 }} />
 
           <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 18) }]}>
+            <Pressable
+              onPress={handleSkip}
+              disabled={showTraceDefaultPrompt || continuing}
+              hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={isPostPrimeTrace ? 'Skip' : 'Skip Tracing'}
+              accessibilityState={{ disabled: showTraceDefaultPrompt || continuing }}
+              style={styles.skipLink}
+            >
+              <Text style={styles.skipLinkText}>
+                {isPostPrimeTrace ? 'Skip' : 'Skip Tracing'}
+              </Text>
+            </Pressable>
+
             <Pressable
               onPress={handleComplete}
               disabled={strokeCount === 0 || continuing}
@@ -854,23 +847,61 @@ export default function ManualReinforcementScreen() {
                 {isPostPrimeTrace ? 'Complete trace' : 'Continue →'}
               </Text>
             </Pressable>
-
-            <Pressable
-              onPress={handleSkip}
-              disabled={showTraceDefaultPrompt || continuing}
-              hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
-              accessibilityRole="button"
-              accessibilityLabel={isPostPrimeTrace ? 'Skip' : 'Skip Tracing'}
-              accessibilityState={{ disabled: showTraceDefaultPrompt || continuing }}
-              style={styles.skipLink}
-            >
-              <Text style={styles.skipLinkText}>
-                {isPostPrimeTrace ? 'Skip' : 'Skip Tracing'}
-              </Text>
-            </Pressable>
           </View>
         </View>
       </SafeAreaView>
+
+      {showTraceDefaultPrompt ? (
+        <View style={styles.modalRoot} accessibilityViewIsModal>
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={handleCancelSkipPrompt}
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss modal"
+          />
+          <View style={styles.modalCard}>
+            <Pressable
+              onPress={handleCancelSkipPrompt}
+              hitSlop={10}
+              style={styles.modalCloseBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+            >
+              <CloseIcon size={12} color={boneFaint} />
+            </Pressable>
+
+            <View style={styles.modalEyebrowRow}>
+              <View style={styles.modalEyebrowRule} />
+              <Text style={styles.modalEyebrow}>Tracing Preference</Text>
+            </View>
+
+            <Text style={styles.modalTitle}>Skip tracing by default?</Text>
+            <Text style={styles.modalBody}>
+              You can skip this step when creating future Anchors. You can always change this in Settings.
+            </Text>
+
+            <View style={styles.modalActions}>
+              <Pressable
+                style={({ pressed }) => [styles.modalPrimaryBtn, pressed && styles.nextBtnPressed]}
+                onPress={handleDisableTraceDefault}
+                accessibilityRole="button"
+                accessibilityLabel="Set as default"
+              >
+                <Text style={styles.modalPrimaryBtnText}>Set as Default</Text>
+              </Pressable>
+
+              <Pressable
+                style={({ pressed }) => [styles.modalSecondaryBtn, pressed && styles.modalSecondaryBtnPressed]}
+                onPress={handleKeepTraceDefault}
+                accessibilityRole="button"
+                accessibilityLabel="Just this time"
+              >
+                <Text style={styles.modalSecondaryBtnText}>Just This Time</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      ) : null}
 
       {showAboutTracing ? (
         <View style={styles.sheetRoot}>
@@ -925,13 +956,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 24,
-    paddingTop: 14,
-    paddingBottom: 12,
+    paddingTop: 8,
+    paddingBottom: 6,
   },
   backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     borderWidth: 1,
     borderColor: hairlineGold,
     alignItems: 'center',
@@ -950,26 +981,27 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flex: 1,
+    justifyContent: 'space-between',
   },
   textZone: {
-    marginTop: 12,
+    marginTop: 4,
   },
   eyebrowRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 14,
+    gap: 8,
+    marginBottom: 4,
   },
   eyebrowRule: {
-    width: 20,
+    width: 18,
     height: 1,
     backgroundColor: goldLine,
   },
   eyebrow: {
     fontFamily: typography.fontFamily.ritual,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '500',
-    letterSpacing: 2.2,
+    letterSpacing: 2,
     color: ash,
     textTransform: 'uppercase',
   },
@@ -977,35 +1009,36 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.voiceItalic,
     fontStyle: 'italic',
     fontWeight: '500',
-    fontSize: 25,
-    lineHeight: 32,
+    fontSize: 22,
+    lineHeight: 28,
     color: bone,
     letterSpacing: 0.15,
-    marginBottom: 14,
+    marginBottom: 4,
   },
   body: {
     fontFamily: typography.fontFamily.instrument,
-    fontSize: 16,
+    fontSize: 13.5,
     color: boneSoft,
-    lineHeight: 25.6,
+    lineHeight: 19,
   },
   teachBanner: {
-    marginTop: 14,
-    padding: 13,
-    borderRadius: 12,
+    marginTop: 6,
+    paddingVertical: 7,
+    paddingHorizontal: 11,
+    borderRadius: 10,
     backgroundColor: 'rgba(217, 179, 108, 0.07)',
     borderWidth: 1,
     borderColor: hairline,
   },
   teachBannerText: {
     fontFamily: typography.fontFamily.instrument,
-    fontSize: 12.5,
-    lineHeight: 19.4,
+    fontSize: 12,
+    lineHeight: 16.5,
     color: boneSoft,
   },
   canvasFrame: {
     alignSelf: 'center',
-    marginTop: 16,
+    marginTop: 6,
     borderRadius: 20,
     backgroundColor: '#0A0F14',
     borderWidth: 1,
@@ -1040,7 +1073,7 @@ const styles = StyleSheet.create({
     color: boneFaint,
     fontFamily: typography.fontFamily.voiceItalic,
     fontStyle: 'italic',
-    fontSize: 15,
+    fontSize: 14,
   },
   structureSetLabel: {
     ...StyleSheet.absoluteFillObject,
@@ -1061,7 +1094,7 @@ const styles = StyleSheet.create({
     color: giltBright,
   },
   headerTeachRow: {
-    marginTop: 12,
+    marginTop: 6,
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
@@ -1069,8 +1102,8 @@ const styles = StyleSheet.create({
   },
   headerTeach: {
     fontFamily: typography.fontFamily.instrument,
-    fontSize: 12.5,
-    lineHeight: 19.4,
+    fontSize: 12,
+    lineHeight: 16.5,
     color: ash,
     textAlign: 'center',
   },
@@ -1092,21 +1125,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 8,
-    marginTop: 16,
+    marginTop: 6,
   },
   toolBtn: {
     flex: 1,
-    minHeight: 44,
+    minHeight: 34,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
-    borderRadius: 12,
+    gap: 3,
+    borderRadius: 10,
   },
   toolLabel: {
     fontFamily: typography.fontFamily.ritual,
-    fontSize: 9,
+    fontSize: 8.5,
     fontWeight: '500',
-    letterSpacing: 1.26,
+    letterSpacing: 1.1,
     textTransform: 'uppercase',
     color: boneSoft,
   },
@@ -1114,10 +1147,10 @@ const styles = StyleSheet.create({
     color: boneFaint,
   },
   clearConfirm: {
-    marginTop: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 12,
+    marginTop: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 10,
     backgroundColor: 'rgba(15, 20, 25, 0.9)',
     borderWidth: 1,
     borderColor: goldLine,
@@ -1127,79 +1160,144 @@ const styles = StyleSheet.create({
   },
   clearConfirmText: {
     fontFamily: typography.fontFamily.instrument,
-    fontSize: 13,
+    fontSize: 12,
     color: boneSoft,
   },
   clearConfirmActions: {
     flexDirection: 'row',
-    gap: 14,
+    gap: 12,
   },
   clearConfirmActionText: {
     fontFamily: typography.fontFamily.ritualSemiBold,
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '600',
-    letterSpacing: 1.4,
+    letterSpacing: 1.2,
     textTransform: 'uppercase',
     color: ash,
   },
   clearConfirmDanger: {
     color: giltBright,
   },
-  traceDefaultPrompt: {
-    marginTop: 14,
-    borderRadius: 12,
+  modalRoot: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    zIndex: 100,
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(6, 9, 13, 0.78)',
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 380,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: goldLine,
-    backgroundColor: 'rgba(10, 13, 18, 0.86)',
-    padding: 16,
+    backgroundColor: colors.anchor15.veil,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.45,
+    shadowRadius: 24,
+    elevation: 12,
   },
-  traceDefaultPromptText: {
-    fontFamily: typography.fontFamily.instrument,
-    fontSize: 13,
-    lineHeight: 19,
-    color: bone,
-    textAlign: 'center',
-    marginBottom: 14,
-  },
-  traceDefaultPromptActions: {
-    gap: 8,
-  },
-  nextBtnSmall: {
-    minHeight: 44,
-    borderRadius: 999,
-    backgroundColor: 'rgba(217, 179, 108, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(217, 179, 108, 0.34)',
+  modalCloseBtn: {
+    position: 'absolute',
+    top: 18,
+    right: 18,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: hairline,
   },
-  nextBtnSmallText: {
+  modalEyebrowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  modalEyebrowRule: {
+    width: 16,
+    height: 1,
+    backgroundColor: goldLine,
+  },
+  modalEyebrow: {
+    fontFamily: typography.fontFamily.ritual,
+    fontSize: 10,
+    fontWeight: '500',
+    letterSpacing: 2,
+    color: ash,
+    textTransform: 'uppercase',
+  },
+  modalTitle: {
+    fontFamily: typography.fontFamily.voiceItalic,
+    fontStyle: 'italic',
+    fontWeight: '500',
+    fontSize: 22,
+    lineHeight: 28,
+    color: bone,
+    marginBottom: 10,
+  },
+  modalBody: {
+    fontFamily: typography.fontFamily.instrument,
+    fontSize: 14.5,
+    lineHeight: 22,
+    color: boneSoft,
+    marginBottom: 24,
+  },
+  modalActions: {
+    gap: 10,
+  },
+  modalPrimaryBtn: {
+    width: '100%',
+    height: 50,
+    borderRadius: 999,
+    backgroundColor: 'rgba(217, 179, 108, 0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(217, 179, 108, 0.42)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalPrimaryBtnText: {
     fontFamily: typography.fontFamily.ritualSemiBold,
     fontWeight: '600',
-    fontSize: 12,
-    letterSpacing: 1.2,
+    fontSize: 13,
+    letterSpacing: 2,
     color: giltBright,
     textTransform: 'uppercase',
   },
-  traceDefaultPromptSecondary: {
-    minHeight: 44,
+  modalSecondaryBtn: {
+    width: '100%',
+    height: 48,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: hairlineGold,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  traceDefaultPromptSecondaryText: {
+  modalSecondaryBtnPressed: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  modalSecondaryBtnText: {
     fontFamily: typography.fontFamily.instrument,
-    fontSize: 13,
-    color: ash,
+    fontSize: 14,
+    color: bone,
   },
   bottomBar: {
-    paddingTop: 18,
+    paddingTop: 8,
     alignItems: 'center',
     gap: 4,
   },
   nextBtn: {
     width: '100%',
-    height: 56,
+    height: 48,
     borderRadius: 999,
     backgroundColor: 'rgba(217, 179, 108, 0.1)',
     borderWidth: 1,
@@ -1217,13 +1315,13 @@ const styles = StyleSheet.create({
   nextBtnText: {
     fontFamily: typography.fontFamily.ritualSemiBold,
     fontWeight: '600',
-    fontSize: 14,
-    letterSpacing: 2.52,
+    fontSize: 13,
+    letterSpacing: 2.2,
     color: giltBright,
     textTransform: 'uppercase',
   },
   skipLink: {
-    minHeight: 44,
+    minHeight: 28,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 12,

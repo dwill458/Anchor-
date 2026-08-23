@@ -265,7 +265,7 @@ export default function IntentionInputScreen() {
         {
             key: 'present',
             label: 'Present',
-            desc: guidanceText || "Write from the state you're choosing.",
+            desc: "Write from the state you're choosing.",
             attn: Boolean(guidanceText),
         },
         { key: 'felt', label: 'Felt', desc: 'Use words that matter to you.' },
@@ -297,7 +297,7 @@ export default function IntentionInputScreen() {
                         >
                             <BackChevronIcon size={16} color={boneSoft} />
                         </Pressable>
-                        <Text style={styles.stepTag}>Step 1 of 2</Text>
+                        <Text style={styles.stepTag}>Intention</Text>
                     </View>
 
                     <ScrollView
@@ -360,6 +360,12 @@ export default function IntentionInputScreen() {
                                             &ldquo;I am fully present with my work.&rdquo;
                                         </Text>
                                     </View>
+                                </View>
+                            )}
+
+                            {guidanceText.length > 0 && (
+                                <View style={styles.warningBanner}>
+                                    <Text style={styles.warningText}>{guidanceText}</Text>
                                 </View>
                             )}
 
@@ -643,6 +649,22 @@ const styles = StyleSheet.create({
         fontFamily: typography.fontFamily.voiceItalic,
         fontStyle: 'italic',
         fontSize: 12.5,
+        lineHeight: 18,
+        color: giltBright,
+    },
+    warningBanner: {
+        marginTop: 14,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderLeftWidth: 2,
+        borderLeftColor: giltBright,
+        backgroundColor: 'rgba(217, 179, 108, 0.08)',
+        borderRadius: 4,
+    },
+    warningText: {
+        fontFamily: typography.fontFamily.voiceItalic,
+        fontStyle: 'italic',
+        fontSize: 13,
         lineHeight: 18,
         color: giltBright,
     },
