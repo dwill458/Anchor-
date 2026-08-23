@@ -136,7 +136,7 @@ export function selectCanonicalPracticeEvents(
 ): PracticeSessionRecord[] {
   const seen = new Set<string>();
   const latestAllowed = now.getTime() + FUTURE_CLOCK_SKEW_MS;
-  return events
+  return (events ?? [])
     .filter((event) => {
       // If signed in, match accountId or 'legacy'.
       // If not signed in (guest / dev without accountId), match any local events or 'guest' / 'legacy'.

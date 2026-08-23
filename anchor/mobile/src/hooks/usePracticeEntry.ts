@@ -32,6 +32,7 @@ export function usePracticeEntry(): PracticeEntryController {
   const { navigateToPractice, navigateToPaywall, activeTabIndex } = useTabNavigation();
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const focusSessionDuration = useSettingsStore((state) => state.focusSessionDuration ?? 30);
+  const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
   const sessionAudioDefaults = useSettingsStore(
     (state) => state.sessionAudioDefaults ?? DEFAULT_SESSION_AUDIO_DEFAULTS
   );
@@ -103,6 +104,7 @@ export function usePracticeEntry(): PracticeEntryController {
         primeSessionAccess,
         visualizeAvailable: visualizeAccess.hasActiveEntitlement,
         defaultFocusDurationSeconds: focusSessionDuration,
+        defaultPrimeDurationSeconds: primeSessionDuration,
         defaultAudioConfiguration: {
           focus: resolveSessionAudioConfiguration(sessionAudioDefaults.focus),
           deepPrime: resolveSessionAudioConfiguration(sessionAudioDefaults.deep_prime),
@@ -148,6 +150,7 @@ export function usePracticeEntry(): PracticeEntryController {
       navigateToPaywall,
       navigateToPracticeTarget,
       primeSessionAccess,
+      primeSessionDuration,
       releaseNavigationLock,
       sessionAudioDefaults,
       visualizeAccess.hasActiveEntitlement,

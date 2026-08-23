@@ -40,7 +40,7 @@ describe('Chart practice completion handoff', () => {
   it.each([
     ['focus', 'ActivationRitual'],
     ['visualize', 'VisualizePreparation'],
-    ['deepPrime', 'ChargeSetup'],
+    ['deepPrime', 'Ritual'],
   ] as const)('threads %s through the shared %s route', (mode, route) => {
     const deps = dependencies();
     expect(startPractice({

@@ -59,7 +59,7 @@ function buildDependencies(overrides: Record<string, unknown> = {}) {
 }
 
 describe('startPractice', () => {
-  it('creates exactly one direct Deep Prime setup target', () => {
+  it('creates exactly one direct Deep Prime ritual target', () => {
     const dependencies = buildDependencies();
 
     expect(startPractice({
@@ -70,13 +70,14 @@ describe('startPractice', () => {
 
     expect(dependencies.navigateToPractice).toHaveBeenCalledTimes(1);
     expect(dependencies.navigateToPractice).toHaveBeenCalledWith({
-      route: 'ChargeSetup',
+      route: 'Ritual',
       params: {
         anchorId: anchor.id,
+        ritualType: 'deep',
+        durationSeconds: 120,
+        audioConfiguration: dependencies.defaultAudioConfiguration.deepPrime,
         returnTo: 'practice',
         returnTarget: { kind: 'practice' },
-        initialDuration: 'deep',
-        initialDurationSeconds: undefined,
         flowVariant: 'practice',
         source: 'practice_hero',
       },

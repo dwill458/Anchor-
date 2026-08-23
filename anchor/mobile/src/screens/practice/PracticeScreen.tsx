@@ -571,12 +571,9 @@ export const PracticeScreen: React.FC = () => {
         return;
       }
       if (mode === 'charge') {
-        // ChargeSetup is only for choosing a duration on an anchor's first
-        // prime. Once it's been charged before, Deep Prime should drop
-        // straight into the ritual using the saved default duration.
         startCharge(
           target,
-          target.isCharged ? primeSessionDuration : undefined,
+          primeSessionDuration,
           undefined,
           source === 'practice_hero' ? source : 'practice_deep_prime_card'
         );

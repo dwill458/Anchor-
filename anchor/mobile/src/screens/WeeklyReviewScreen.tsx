@@ -50,6 +50,7 @@ import { useCourseStore } from '@/stores/courseStore';
 import { useAuthStore } from '@/stores/authStore';
 import { SigilSvg } from '@/components/common/SigilSvg';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
+import { usePracticeEntry } from '@/hooks/usePracticeEntry';
 import { useWeeklyReview, MAX_WEEK_OFFSET, type WeeklyReviewData } from '@/hooks/useWeeklyReview';
 import { canViewChart, type CourseDetail, type WaypointSummary } from '@/types/chart';
 
@@ -1173,6 +1174,7 @@ export function WeeklyReviewScreen() {
   const reducedMotion = useReducedMotion() ?? false;
 
   const { navigateToSanctuary, navigateToChart } = useTabNavigation();
+  const { startPractice } = usePracticeEntry();
 
   const [weekOffset, setWeekOffset] = useState(1); // Default: last completed week
   const [showError, setShowError] = useState(false);
@@ -1206,11 +1208,12 @@ export function WeeklyReviewScreen() {
   }, [navigation]);
 
   const handlePractice = useCallback((anchorId: string) => {
-    navigation.navigate('ChargeSetup', {
+    startPractice({
+      mode: 'deepPrime',
       anchorId,
       source: 'practice_hero',
     });
-  }, [navigation]);
+  }, [startPractice]);
 
   const handleSanctuary = useCallback(() => {
     if (navigation.canGoBack()) {

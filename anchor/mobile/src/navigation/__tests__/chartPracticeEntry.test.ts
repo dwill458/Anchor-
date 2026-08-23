@@ -175,15 +175,15 @@ describe('startPractice — Chart context survives route construction', () => {
     });
   });
 
-  it('carries context into Deep Prime setup for default and explicit durations', () => {
+  it('carries context into Deep Prime ritual for default and explicit durations', () => {
     const setup = buildDependencies();
     startPractice(
       { mode: 'deepPrime', anchorId: anchor.id, source: 'chart', chartContext },
       setup,
     );
     expect(setup.navigateToPractice).toHaveBeenCalledWith({
-      route: 'ChargeSetup',
-      params: expect.objectContaining({ returnTo: 'chart', chartContext }),
+      route: 'Ritual',
+      params: expect.objectContaining({ returnTo: 'chart', chartContext, durationSeconds: 120 }),
     });
 
     const direct = buildDependencies();
@@ -199,7 +199,7 @@ describe('startPractice — Chart context survives route construction', () => {
     );
     expect(direct.navigateToPractice).toHaveBeenCalledWith({
       route: 'Ritual',
-      params: expect.objectContaining({ returnTo: 'chart', chartContext }),
+      params: expect.objectContaining({ returnTo: 'chart', chartContext, durationSeconds: 300 }),
     });
   });
 
@@ -229,7 +229,7 @@ describe('startPractice — Chart context survives route construction', () => {
     expect(dependencies.navigateToPractice).toHaveBeenCalledTimes(1);
     const [target] = (dependencies.navigateToPractice as jest.Mock).mock.calls[0];
     // The Chart stack must never receive a practice route.
-    expect(['ChargeSetup', 'Ritual', 'ActivationRitual', 'VisualizePreparation']).toContain(
+    expect(['Ritual', 'ActivationRitual', 'VisualizePreparation']).toContain(
       target.route,
     );
   });
@@ -285,16 +285,17 @@ describe('startPractice — Chart context and source are inseparable', () => {
     expect(dependencies.navigateToPractice).not.toHaveBeenCalled();
   });
 
-  it('keeps non-Chart Deep Prime entries on the shared setup route', () => {
+  it('keeps non-Chart Deep Prime entries on the shared ritual route', () => {
     const dependencies = buildDependencies();
     startPractice({ mode: 'deepPrime', anchorId: anchor.id, source: 'practice_hero' }, dependencies);
     expect(dependencies.navigateToPractice).toHaveBeenCalledWith({
-      route: 'ChargeSetup',
+      route: 'Ritual',
       params: expect.objectContaining({
         anchorId: anchor.id,
         returnTo: 'practice',
-        initialDuration: 'deep',
+        ritualType: 'deep',
         source: 'practice_hero',
+        durationSeconds: 120,
       }),
     });
   });

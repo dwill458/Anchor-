@@ -51,12 +51,7 @@ export const WallpaperPromptScreen: React.FC = () => {
       // Routes a pending-first-anchor guest to the account gate instead of the Vault.
       navigateToVaultDestination(navigation, 'reset');
     } else {
-      navigation.replace('ChargeSetup', {
-        anchorId,
-        autoStartOnSelection: true,
-        returnTo: 'vault',
-        fromOnboarding,
-      });
+      navigation.replace('PrimeYourAnchor', { anchorId });
     }
   };
 

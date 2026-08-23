@@ -64,10 +64,8 @@ describe('WallpaperPromptScreen', () => {
     });
 
     expect(mockSetWallpaperPromptSeen).toHaveBeenCalledWith(true);
-    expect(mockReplace).toHaveBeenCalledWith('ChargeSetup', expect.objectContaining({
+    expect(mockReplace).toHaveBeenCalledWith('PrimeYourAnchor', {
       anchorId: 'anchor-123',
-      autoStartOnSelection: true,
-      returnTo: 'vault',
-    }));
+    });
   });
 });

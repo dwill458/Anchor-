@@ -83,13 +83,12 @@ describe('MantraCreationScreen', () => {
         expect(screen.getAllByText('⏸').length).toBeGreaterThan(0);
     });
 
-    it('stub: Continue navigates to charge setup with auto-start enabled', async () => {
+    it('stub: Continue navigates to PrimeYourAnchor', async () => {
         render(<MantraCreationScreen />);
         fireEvent.press(screen.getByText('Continue to Ritual ›'));
         await waitFor(() => {
-            expect(mockNavigate).toHaveBeenCalledWith('ChargeSetup', expect.objectContaining({
+            expect(mockNavigate).toHaveBeenCalledWith('PrimeYourAnchor', expect.objectContaining({
                 anchorId: expect.any(String),
-                autoStartOnSelection: true,
             }));
         });
     });

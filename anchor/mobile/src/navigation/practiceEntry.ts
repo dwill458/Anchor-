@@ -45,6 +45,7 @@ export interface StartPracticeDependencies {
   primeSessionAccess: PrimeSessionAccessSnapshot;
   visualizeAvailable: boolean;
   defaultFocusDurationSeconds: number;
+  defaultPrimeDurationSeconds?: number;
   defaultAudioConfiguration: {
     focus: SessionAudioConfiguration;
     deepPrime: SessionAudioConfiguration;
@@ -190,39 +191,25 @@ export function startPractice(
 
   let target: PracticeEntryTarget;
   switch (request.mode) {
-    case 'deepPrime':
-      if (request.durationSeconds != null) {
-        // Charged anchor — skip the duration picker and go straight to the session.
-        target = {
-          route: 'Ritual',
-          params: {
-            anchorId,
-            ritualType: 'deep',
-            durationSeconds: request.durationSeconds,
-            audioConfiguration,
-            returnTo,
-            returnTarget,
-            flowVariant: 'practice',
-            source: request.source,
-            ...chartParams,
-          },
-        };
-      } else {
-        // First prime — show ChargeSetup so the user can choose a duration.
-        target = {
-          route: 'ChargeSetup',
-          params: {
-            anchorId,
-            returnTo,
-            returnTarget,
-            initialDuration: 'deep',
-            flowVariant: 'practice',
-            source: request.source,
-            ...chartParams,
-          },
-        };
-      }
+    case 'deepPrime': {
+      const durationSeconds =
+        request.durationSeconds ?? dependencies.defaultPrimeDurationSeconds ?? 120;
+      target = {
+        route: 'Ritual',
+        params: {
+          anchorId,
+          ritualType: 'deep',
+          durationSeconds,
+          audioConfiguration,
+          returnTo,
+          returnTarget,
+          flowVariant: 'practice',
+          source: request.source,
+          ...chartParams,
+        },
+      };
       break;
+    }
     case 'focus':
       target = {
         route: 'ActivationRitual',

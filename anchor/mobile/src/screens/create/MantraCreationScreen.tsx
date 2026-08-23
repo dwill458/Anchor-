@@ -489,9 +489,8 @@ export const MantraCreationScreen: React.FC = () => {
       return;
     }
 
-    navigation.navigate('ChargeSetup', {
+    navigation.navigate('PrimeYourAnchor', {
       anchorId,
-      autoStartOnSelection: true,
     });
   }, [ensureAnchor, navigation, selectedMantraOption]);
 

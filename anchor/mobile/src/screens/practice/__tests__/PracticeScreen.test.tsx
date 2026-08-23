@@ -309,7 +309,7 @@ describe('PracticeScreen', () => {
     expect(mockNavigate).not.toHaveBeenCalledWith('AnchorDetail', expect.anything());
   });
 
-  it('shows the Choose Your Prime setup screen for an anchor that has never been primed', async () => {
+  it('routes directly to Deep Prime ritual for an unprimed anchor rather than opening setup', async () => {
     mockAnchors = [
       buildAnchor('unprimed-anchor', 'Fresh anchor', { isCharged: false, activationCount: 0 }),
     ];
@@ -319,14 +319,10 @@ describe('PracticeScreen', () => {
     fireEvent.press(screen.getByTestId('practice-selected-mode-cta'));
 
     await waitFor(() => {
-      expect(mockNavigateToPractice).toHaveBeenCalledWith('ChargeSetup', {
-        anchorId: 'unprimed-anchor',
-        flowVariant: 'practice',
-        initialDuration: 'deep',
-        returnTarget: { kind: 'practice' },
-        returnTo: 'practice',
-        source: 'practice_deep_prime_card',
-      });
+      expect(mockNavigateToPractice).toHaveBeenCalledWith(
+        'Ritual',
+        chargeSetupExpectation('unprimed-anchor', 'practice_deep_prime_card', 120),
+      );
     });
   });
 

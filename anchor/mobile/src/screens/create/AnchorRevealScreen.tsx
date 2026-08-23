@@ -198,12 +198,7 @@ export const AnchorRevealScreen: React.FC = () => {
                 fromOnboarding: isGuestFirstAnchor,
             });
         } else {
-            navigation.replace('ChargeSetup', {
-                anchorId,
-                autoStartOnSelection: true,
-                returnTo: 'vault',
-                fromOnboarding: isGuestFirstAnchor,
-            });
+            navigation.replace('PrimeYourAnchor', { anchorId });
         }
     };
 
