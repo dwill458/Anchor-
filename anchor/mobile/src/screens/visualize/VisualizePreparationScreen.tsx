@@ -24,6 +24,7 @@ import type { PracticeEntrySource, RootStackParamList } from '@/types';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useTeachingStore } from '@/stores/teachingStore';
 import {
   normalizeSuggestionIndex,
   useVisualizationSceneStore,
@@ -117,11 +118,39 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
   const [sceneText, setSceneText] = useState('');
   const [loading, setLoading] = useState(hasActiveEntitlement);
   const [saving, setSaving] = useState(false);
-  const [configVisible, setConfigVisible] = useState(false);
+  const isExplainerExhausted = useTeachingStore((state) =>
+    state.isExhausted('visualize_scene_explainer'),
+  );
+  const recordShown = useTeachingStore((state) => state.recordShown);
+
   const [sceneSheetVisible, setSceneSheetVisible] = useState(false);
   const [draftScene, setDraftScene] = useState('');
-  const [eduOpen, setEduOpen] = useState(true);
+  const [eduOpen, setEduOpen] = useState(!isExplainerExhausted);
   const startingRef = useRef(false);
+
+  useEffect(() => {
+    if (!isExplainerExhausted) {
+      setEduOpen(true);
+      recordShown('visualize_scene_explainer', 'glass_card', 1);
+      AnalyticsService.track('teaching_shown', {
+        teaching_id: 'visualize_scene_explainer',
+        pattern: 'glass_card',
+        screen: 'visualize_preparation',
+        trigger: 'first_time',
+        guide_mode: true,
+      });
+    }
+  }, [isExplainerExhausted, recordShown]);
+
+  const handleDismissEdu = useCallback(() => {
+    recordShown('visualize_scene_explainer', 'glass_card', 1);
+    AnalyticsService.track('teaching_dismissed', {
+      teaching_id: 'visualize_scene_explainer',
+      pattern: 'glass_card',
+      screen: 'visualize_preparation',
+    });
+    setEduOpen(false);
+  }, [recordShown]);
 
   const sigilSvg = anchor?.reinforcedSigilSvg || anchor?.baseSigilSvg || '';
   const imageUrl = anchor?.enhancedImageUrl;

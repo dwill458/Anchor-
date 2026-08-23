@@ -19,7 +19,6 @@ export interface VisualizePhaseDefinition {
   key: VisualizePhaseId;
   name: string;
   weight: number;
-  lines: readonly VisualizePromptLine[];
 }
 
 export const VISUALIZE_PHASE_DEFINITIONS: readonly VisualizePhaseDefinition[] = [
@@ -27,59 +26,147 @@ export const VISUALIZE_PHASE_DEFINITIONS: readonly VisualizePhaseDefinition[] = 
     key: 'arrive',
     name: 'Arrive',
     weight: 0.16,
-    lines: [
-      { m: 'Let your attention settle.' },
-      { m: 'Return to the Anchor.' },
-      { m: 'Allow your breathing to slow.', s: 'In… and out.' },
-    ],
   },
   {
     key: 'build',
     name: 'Build',
-    weight: 0.24,
-    lines: [
-      { m: 'Let the moment begin.' },
-      { m: 'Where are you?' },
-      { m: 'What happens first?' },
-      { m: 'What do you notice around you?' },
-    ],
+    weight: 0.28,
   },
   {
     key: 'rehearse',
     name: 'Rehearse',
-    weight: 0.30,
-    lines: [
-      { m: 'Move through the moment.' },
-      { m: 'Notice how you begin.' },
-      { m: 'What do you say or do?' },
-      { m: 'Notice your posture.' },
-      { m: 'What does deliberate action look like here?' },
-    ],
+    weight: 0.28,
   },
   {
     key: 'adapt',
     name: 'Adapt',
-    weight: 0.18,
-    lines: [
-      { m: 'Something shifts.' },
-      { m: 'The moment becomes harder than expected.' },
-      { m: 'What do you do next?' },
-      { m: 'Return to the response you want to practice.' },
-      { m: 'Continue without rushing.' },
-    ],
+    weight: 0.16,
   },
   {
     key: 'return',
     name: 'Return',
     weight: 0.12,
-    lines: [
-      { m: 'Let the scene fade.' },
-      { m: 'Return your attention to the Anchor.' },
-      { m: 'Let your attention widen to the room.' },
-      { m: 'Carry one useful response into what comes next.' },
-    ],
   },
 ];
+
+interface PromptSourceSpec {
+  m: string;
+  s?: string;
+  voiceAssetId: string;
+}
+
+const VISUALIZE_PROMPTS_BY_DURATION: Record<
+  VisualizeDuration,
+  Record<VisualizePhaseId, readonly PromptSourceSpec[]>
+> = {
+  60: {
+    arrive: [
+      { m: 'Let your attention settle on your anchor.', voiceAssetId: 'VIZ_1M_ARRIVE_01' },
+      { m: 'Take a slow breath in.', s: 'And let it go.', voiceAssetId: 'VIZ_1M_ARRIVE_02' },
+    ],
+    build: [
+      { m: 'Bring your scene to mind.', voiceAssetId: 'VIZ_1M_SEE_01' },
+      { m: 'Picture the exact moment that shows this intention is real.', voiceAssetId: 'VIZ_1M_SEE_02' },
+      { m: 'What is the clearest detail you see?', voiceAssetId: 'VIZ_1M_SEE_03' },
+    ],
+    rehearse: [
+      { m: 'Step into the scene.', voiceAssetId: 'VIZ_1M_FEEL_01' },
+      { m: 'Notice your posture, your breathing, and the way you respond.', voiceAssetId: 'VIZ_1M_FEEL_02' },
+      { m: 'Let this version of you feel familiar.', voiceAssetId: 'VIZ_1M_FEEL_03' },
+    ],
+    adapt: [
+      { m: 'Let the scene become smaller and clearer.', voiceAssetId: 'VIZ_1M_SEAL_01' },
+      { m: 'Place that feeling back into your anchor.', voiceAssetId: 'VIZ_1M_SEAL_02' },
+    ],
+    return: [
+      { m: 'Return to the room.', s: 'Carry it into your next action.', voiceAssetId: 'VIZ_1M_RETURN_01' },
+    ],
+  },
+  180: {
+    arrive: [
+      { m: 'Let your attention settle on your anchor.', voiceAssetId: 'VIZ_3M_ARRIVE_01' },
+      { m: 'Notice the shape, the lines, and the space around it.', voiceAssetId: 'VIZ_3M_ARRIVE_02' },
+      { m: 'Take a slow breath in.', voiceAssetId: 'VIZ_3M_ARRIVE_03' },
+      { m: 'And let it go.', voiceAssetId: 'VIZ_3M_ARRIVE_04' },
+      { m: 'You do not need to force anything. Just become present.', voiceAssetId: 'VIZ_3M_ARRIVE_05' },
+    ],
+    build: [
+      { m: 'Bring your scene to mind.', voiceAssetId: 'VIZ_3M_SEE_01' },
+      { m: 'Picture the exact moment that shows this intention is already real.', voiceAssetId: 'VIZ_3M_SEE_02' },
+      { m: 'Notice where you are.', voiceAssetId: 'VIZ_3M_SEE_03' },
+      { m: 'What do you see first?', voiceAssetId: 'VIZ_3M_SEE_04' },
+      { m: 'What is happening around you?', voiceAssetId: 'VIZ_3M_SEE_05' },
+      { m: 'Let the scene become clear enough to enter without trying to control every detail.', voiceAssetId: 'VIZ_3M_SEE_06' },
+    ],
+    rehearse: [
+      { m: 'Now step into the scene.', voiceAssetId: 'VIZ_3M_FEEL_01' },
+      { m: 'Notice your posture.', voiceAssetId: 'VIZ_3M_FEEL_02' },
+      { m: 'Notice your breathing.', voiceAssetId: 'VIZ_3M_FEEL_03' },
+      { m: 'Listen to the way you speak and the pace of your decisions.', voiceAssetId: 'VIZ_3M_FEEL_04' },
+      { m: 'See how you respond when the moment asks something of you.', voiceAssetId: 'VIZ_3M_FEEL_05' },
+      { m: 'Let this response feel practiced and familiar.', voiceAssetId: 'VIZ_3M_FEEL_06' },
+    ],
+    adapt: [
+      { m: 'Let the scene become smaller and clearer.', voiceAssetId: 'VIZ_3M_SEAL_01' },
+      { m: 'Keep the posture, the calm, and the certainty.', voiceAssetId: 'VIZ_3M_SEAL_02' },
+      { m: 'Allow the image to move back into your anchor.', voiceAssetId: 'VIZ_3M_SEAL_03' },
+      { m: 'Let the anchor hold the memory of this response.', voiceAssetId: 'VIZ_3M_SEAL_04' },
+    ],
+    return: [
+      { m: 'Begin returning your attention to the room.', voiceAssetId: 'VIZ_3M_RETURN_01' },
+      { m: 'Feel the surface beneath you.', voiceAssetId: 'VIZ_3M_RETURN_02' },
+      { m: 'Take one natural breath.', voiceAssetId: 'VIZ_3M_RETURN_03' },
+      { m: 'Carry this version of yourself into your next action.', voiceAssetId: 'VIZ_3M_RETURN_04' },
+    ],
+  },
+  300: {
+    arrive: [
+      { m: 'Let your attention settle on your anchor.', voiceAssetId: 'VIZ_5M_ARRIVE_01' },
+      { m: 'Notice the shape, the lines, and the space around it.', voiceAssetId: 'VIZ_5M_ARRIVE_02' },
+      { m: 'You do not need to solve anything right now.', voiceAssetId: 'VIZ_5M_ARRIVE_03' },
+      { m: 'Take a slow breath in.', voiceAssetId: 'VIZ_5M_ARRIVE_04' },
+      { m: 'Hold it gently.', voiceAssetId: 'VIZ_5M_ARRIVE_05' },
+      { m: 'And let it go.', voiceAssetId: 'VIZ_5M_ARRIVE_06' },
+      { m: 'Allow the noise around you to move farther away.', voiceAssetId: 'VIZ_5M_ARRIVE_07' },
+    ],
+    build: [
+      { m: 'Bring your saved scene to mind.', voiceAssetId: 'VIZ_5M_SEE_01' },
+      { m: 'Picture the exact moment that shows this intention is already real.', voiceAssetId: 'VIZ_5M_SEE_02' },
+      { m: 'Notice where you are.', voiceAssetId: 'VIZ_5M_SEE_03' },
+      { m: 'What can you see around you?', voiceAssetId: 'VIZ_5M_SEE_04' },
+      { m: 'What is the first detail that makes this moment feel real?', voiceAssetId: 'VIZ_5M_SEE_05' },
+      { m: 'Notice the people, objects, or movement within the scene.', voiceAssetId: 'VIZ_5M_SEE_06' },
+      { m: 'Let the image sharpen naturally.', voiceAssetId: 'VIZ_5M_SEE_07' },
+      { m: 'See the moment unfold from beginning to end.', voiceAssetId: 'VIZ_5M_SEE_08' },
+      { m: 'Do not chase perfection. Let the scene feel real enough to enter.', voiceAssetId: 'VIZ_5M_SEE_09' },
+    ],
+    rehearse: [
+      { m: 'Now step into the scene.', voiceAssetId: 'VIZ_5M_FEEL_01' },
+      { m: 'Look through your own eyes instead of watching yourself from a distance.', voiceAssetId: 'VIZ_5M_FEEL_02' },
+      { m: 'Notice your posture.', voiceAssetId: 'VIZ_5M_FEEL_03' },
+      { m: 'Notice your breathing.', voiceAssetId: 'VIZ_5M_FEEL_04' },
+      { m: 'Listen to the way you speak.', voiceAssetId: 'VIZ_5M_FEEL_05' },
+      { m: 'Feel the pace of your thoughts and decisions.', voiceAssetId: 'VIZ_5M_FEEL_06' },
+      { m: 'When the moment becomes difficult, notice how you respond.', voiceAssetId: 'VIZ_5M_FEEL_07' },
+      { m: 'See yourself remain connected to the intention behind this anchor.', voiceAssetId: 'VIZ_5M_FEEL_08' },
+      { m: 'Let this way of responding feel practiced, steady, and familiar.', voiceAssetId: 'VIZ_5M_FEEL_09' },
+    ],
+    adapt: [
+      { m: 'Let the scene begin to narrow.', voiceAssetId: 'VIZ_5M_SEAL_01' },
+      { m: 'Keep only the clearest image of how you showed up.', voiceAssetId: 'VIZ_5M_SEAL_02' },
+      { m: 'Hold onto the posture, the calm, and the certainty.', voiceAssetId: 'VIZ_5M_SEAL_03' },
+      { m: 'Allow the scene to move back into your anchor.', voiceAssetId: 'VIZ_5M_SEAL_04' },
+      { m: 'Let the anchor hold the memory of this response.', voiceAssetId: 'VIZ_5M_SEAL_05' },
+    ],
+    return: [
+      { m: 'Begin returning your attention to the room.', voiceAssetId: 'VIZ_5M_RETURN_01' },
+      { m: 'Feel the surface beneath you.', voiceAssetId: 'VIZ_5M_RETURN_02' },
+      { m: 'Notice the sounds around you.', voiceAssetId: 'VIZ_5M_RETURN_03' },
+      { m: 'Take one natural breath.', voiceAssetId: 'VIZ_5M_RETURN_04' },
+      { m: 'Carry this version of yourself into the next thing you do.', voiceAssetId: 'VIZ_5M_RETURN_05' },
+    ],
+  },
+};
 
 /** Haptic pulse moments (fraction within phase) - one light pulse per phase entry */
 export const VISUALIZE_PULSES: Record<VisualizePhaseId, readonly number[]> = {
@@ -196,70 +283,38 @@ const PROFILES: Record<VisualizePhaseId, VisualizeAnimationProfile> = {
   },
 };
 
-const PHASE_VOICE_NAMES: Record<VisualizePhaseId, string> = {
-  arrive: 'ARRIVE',
-  build: 'SEE',
-  rehearse: 'FEEL',
-  adapt: 'SEAL',
-  return: 'RETURN',
-};
-
-const MAX_VOICE_ASSET_INDEX: Record<VisualizeDuration, Record<VisualizePhaseId, number>> = {
-  60: {
-    arrive: 2,
-    build: 3,
-    rehearse: 3,
-    adapt: 2,
-    return: 1,
-  },
-  180: {
-    arrive: 5,
-    build: 6,
-    rehearse: 6,
-    adapt: 4,
-    return: 4,
-  },
-  300: {
-    arrive: 7,
-    build: 9,
-    rehearse: 9,
-    adapt: 5,
-    return: 5,
-  },
-};
-
 const buildPhaseConfig = (
   def: VisualizePhaseDefinition,
   phaseDurationSeconds: number,
   phaseStartSeconds: number,
   sessionDurationSeconds: number,
 ): VisualizePhaseConfig => {
-  const lineCount = def.lines.length;
+  const phasePrompts =
+    VISUALIZE_PROMPTS_BY_DURATION[sessionDurationSeconds as VisualizeDuration]?.[def.key] ?? [];
+  const lineCount = Math.max(1, phasePrompts.length);
   const lineDuration = phaseDurationSeconds / lineCount;
 
-  const voicePrefix = sessionDurationSeconds === 60 ? '1M' : sessionDurationSeconds === 180 ? '3M' : '5M';
-  const voicePhase = PHASE_VOICE_NAMES[def.key] ?? def.key.toUpperCase();
-  const maxIndex = MAX_VOICE_ASSET_INDEX[sessionDurationSeconds as VisualizeDuration]?.[def.key] ?? 1;
-
-  const prompts: VisualizePromptConfig[] = def.lines.map((line, idx) => {
+  const prompts: VisualizePromptConfig[] = phasePrompts.map((item, idx) => {
     const startSeconds = phaseStartSeconds + idx * lineDuration;
-    const assetIndex = Math.min(idx + 1, maxIndex);
-    const paddedIdx = String(assetIndex).padStart(2, '0');
-    const voiceAssetId = `VIZ_${voicePrefix}_${voicePhase}_${paddedIdx}`;
     return {
       id: `viz-${sessionDurationSeconds}-${def.key}-${idx + 1}`,
       startMs: Math.round(startSeconds * 1_000),
-      text: line.m,
-      subText: line.s,
-      voiceAssetId,
+      text: item.m,
+      subText: item.s,
+      voiceAssetId: item.voiceAssetId,
     };
   });
+
+  const lines: VisualizePromptLine[] = phasePrompts.map((item) => ({
+    m: item.m,
+    s: item.s,
+  }));
 
   return {
     id: def.key,
     name: def.name,
     durationMs: phaseDurationSeconds * 1_000,
-    lines: def.lines,
+    lines,
     prompts,
     animationProfile: PROFILES[def.key],
   };

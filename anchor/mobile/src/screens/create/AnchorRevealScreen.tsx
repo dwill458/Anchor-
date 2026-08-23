@@ -581,20 +581,26 @@ export const AnchorRevealScreen: React.FC = () => {
     return (
         <View style={styles.container}>
             <StatusBar style="light" />
-            <ZenBackground orbOpacity={0.2} />
+            <LinearGradient
+                colors={['#18202A', '#121820', colors.anchor15.navy]}
+                locations={[0, 0.44, 1]}
+                style={StyleSheet.absoluteFill}
+            />
+            <View pointerEvents="none" style={styles.goldGlow} />
 
             <SafeAreaView style={styles.safeArea}>
-                {/* Custom Header with Back Button */}
-                <View style={[styles.header, { paddingTop: Math.max(insets.top, spacing.md) }]}>
+                {/* Custom Header with Back Button and Centered Title */}
+                <View style={[styles.header, { paddingTop: Math.max(insets.top, spacing.sm) }]}>
                     <GlassIconButton
                         onPress={handleBack}
                         accessibilityLabel="Back"
                         size="md"
                         testID="back-button"
+                        style={styles.backButton}
                     >
                         <Text style={styles.backIcon}>←</Text>
                     </GlassIconButton>
-                    <Text style={styles.headerTitle}>Your Anchor</Text>
+                    <Text style={styles.headerTitle}>YOUR ANCHOR</Text>
                     <View style={styles.headerSpacer} />
                 </View>
 
@@ -607,130 +613,127 @@ export const AnchorRevealScreen: React.FC = () => {
                         { paddingBottom: Math.max(insets.bottom, 20) },
                     ]}
                 >
-                <View
-                    style={[
-                        styles.content,
-                        { paddingHorizontal: contentHorizontal },
-                        isCompactLayout && styles.contentCompact,
-                    ]}
-                >
-                    <Animated.View
+                    <View
                         style={[
-                            styles.imageContainer,
-                            isCompactLayout && styles.imageContainerCompact,
-                            {
-                                width: imageSize,
-                                height: imageSize,
-                                opacity: fadeAnim,
-                                transform: [{ scale: scaleAnim }],
-                            },
+                            styles.content,
+                            { paddingHorizontal: contentHorizontal },
+                            isCompactLayout && styles.contentCompact,
                         ]}
                     >
-                        <View
+                        <Animated.View
                             style={[
-                                styles.imageCard,
-                                { borderRadius: imageSize / 2 },
+                                styles.imageContainer,
+                                isCompactLayout && styles.imageContainerCompact,
+                                {
+                                    width: imageSize,
+                                    height: imageSize,
+                                    opacity: fadeAnim,
+                                    transform: [{ scale: scaleAnim }],
+                                },
                             ]}
                         >
-                            {enhancedImageUrl ? (
-                                <OptimizedImage
-                                    uri={enhancedImageUrl}
-                                    style={styles.image}
-                                    resizeMode="cover"
-                                />
-                            ) : (
-                                <View style={styles.sigilWrapper}>
-                                    <SigilSvg
-                                        xml={reinforcedSigilSvg || baseSigilSvg}
-                                        width={imageSize - (isCompactLayout ? 64 : 80)}
-                                        height={imageSize - (isCompactLayout ? 64 : 80)}
-                                        color={colors.gold}
+                            <View style={[styles.imageHalo, { borderRadius: (imageSize + 40) / 2 }]} />
+                            <View
+                                style={[
+                                    styles.imageCard,
+                                    { borderRadius: imageSize / 2 },
+                                ]}
+                            >
+                                {enhancedImageUrl ? (
+                                    <OptimizedImage
+                                        uri={enhancedImageUrl}
+                                        style={styles.image}
+                                        resizeMode="cover"
+                                    />
+                                ) : (
+                                    <View style={styles.sigilWrapper}>
+                                        <SigilSvg
+                                            xml={reinforcedSigilSvg || baseSigilSvg}
+                                            width={imageSize - (isCompactLayout ? 64 : 80)}
+                                            height={imageSize - (isCompactLayout ? 64 : 80)}
+                                            color={colors.anchor15.giltBright}
+                                        />
+                                    </View>
+                                )}
+                                <View style={[styles.glowOverlay, { borderRadius: imageSize / 2 }]} />
+                            </View>
+                        </Animated.View>
+
+                        <Animated.View
+                            style={[
+                                styles.textContainer,
+                                {
+                                    opacity: fadeAnim,
+                                    transform: [{ translateY: fadeAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
+                                },
+                            ]}
+                        >
+                            <Text style={[styles.label, isCompactLayout && styles.labelCompact]}>
+                                ROOTED IN YOUR INTENTION
+                            </Text>
+                            <BlurView intensity={20} tint="dark" style={[styles.intentionCard, isCompactLayout && styles.intentionCardCompact]}>
+                                <View style={styles.intentionBorder} />
+                                <Text style={[styles.intentionText, isCompactLayout && styles.intentionTextCompact]}>
+                                    {intentionText}
+                                </Text>
+                            </BlurView>
+
+                            {/* Guide Hint for Future Tense / Negation */}
+                            {guideMode && intentionAnalysis.shouldShowGuidance && guidanceText && (
+                                <View style={styles.guideHintContainer}>
+                                    <UndertoneLine
+                                        text={guidanceText}
+                                        variant="emphasis"
                                     />
                                 </View>
                             )}
-                            <View style={[styles.glowOverlay, { borderRadius: imageSize / 2 }]} />
-                        </View>
-                    </Animated.View>
+
+                            {/* Seal Recall Micro-Teaching Line */}
+                            <View style={styles.sealLineContainer}>
+                                <View style={styles.sealIndicatorBar} />
+                                <Text style={styles.sealLineText}>Return to this symbol to train recall.</Text>
+                            </View>
+                        </Animated.View>
+                    </View>
 
                     <Animated.View
                         style={[
-                            styles.textContainer,
-                            {
-                                opacity: fadeAnim,
-                                transform: [{ translateY: fadeAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
-                            },
+                            styles.footer,
+                            isCompactLayout && styles.footerCompact,
+                            { opacity: fadeAnim },
                         ]}
                     >
-                        <Text style={[styles.label, isCompactLayout && styles.labelCompact]}>
-                            ROOTED IN YOUR INTENTION
-                        </Text>
-                        <BlurView intensity={20} tint="dark" style={[styles.intentionCard, isCompactLayout && styles.intentionCardCompact]}>
-                            <View style={styles.intentionBorder} />
-                            <Text style={[styles.intentionText, isCompactLayout && styles.intentionTextCompact]}>
-                                {intentionText}
-                            </Text>
-                        </BlurView>
-
-                        {/* Guide Hint for Future Tense / Negation */}
-                        {guideMode && intentionAnalysis.shouldShowGuidance && guidanceText && (
-                            <View style={styles.guideHintContainer}>
-                                <UndertoneLine
-                                    text={guidanceText}
-                                    variant="emphasis"
-                                />
-                            </View>
-                        )}
-
-                        {/* Seal Micro-Teaching Line */}
-                        <View style={styles.sealLineContainer}>
-                            <UndertoneLine
-                                text="Return to this symbol to train recall."
-                                variant="default"
-                            />
-                        </View>
-                    </Animated.View>
-                </View>
-
-                <Animated.View
-                    style={[
-                        styles.footer,
-                        isCompactLayout && styles.footerCompact,
-                        { opacity: fadeAnim },
-                    ]}
-                >
-                    {/* Guide Mode Helper Text */}
-                    {guideMode && (
+                        {/* Prompt Helper Text */}
                         <Text style={[styles.ctaHelperText, isCompactLayout && styles.ctaHelperTextCompact]}>
                             Take in the symbol, then choose how you want to prime it.
                         </Text>
-                    )}
 
-                    <TouchableOpacity
-                        onPress={handleContinue}
-                        activeOpacity={isSaving ? 1 : 0.9}
-                        disabled={isSaving}
-                        style={styles.continueButton}
-                        accessibilityRole="button"
-                        accessibilityLabel="Begin Priming"
-                        testID="begin-priming-button"
-                    >
-                        <LinearGradient
-                            colors={[colors.gold, '#B8941F']}
-                            style={[styles.continueGradient, isCompactLayout && styles.continueGradientCompact]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
+                        <TouchableOpacity
+                            onPress={handleContinue}
+                            activeOpacity={isSaving ? 1 : 0.85}
+                            disabled={isSaving}
+                            style={styles.continueButton}
+                            accessibilityRole="button"
+                            accessibilityLabel="Begin Priming"
+                            testID="begin-priming-button"
                         >
-                            {isSaving ? (
-                                <ActivityIndicator color={colors.charcoal} size="small" />
-                            ) : (
-                                <>
-                                    <Text style={[styles.continueText, isCompactLayout && styles.continueTextCompact]}>BEGIN PRIMING</Text>
-                                    <Text style={[styles.continueArrow, isCompactLayout && styles.continueArrowCompact]}>→</Text>
-                                </>
-                            )}
-                        </LinearGradient>
-                    </TouchableOpacity>
-                </Animated.View>
+                            <LinearGradient
+                                colors={[colors.anchor15.giltBright, colors.anchor15.gilt, '#AE813F']}
+                                style={[styles.continueGradient, isCompactLayout && styles.continueGradientCompact]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                            >
+                                {isSaving ? (
+                                    <ActivityIndicator color={colors.anchor15.ink} size="small" />
+                                ) : (
+                                    <>
+                                        <Text style={[styles.continueText, isCompactLayout && styles.continueTextCompact]}>BEGIN PRIMING</Text>
+                                        <Text style={[styles.continueArrow, isCompactLayout && styles.continueArrowCompact]}>→</Text>
+                                    </>
+                                )}
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    </Animated.View>
                 </ScrollView>
             </SafeAreaView>
 
@@ -746,7 +749,17 @@ export const AnchorRevealScreen: React.FC = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: colors.navy,
+        backgroundColor: colors.anchor15.navy,
+    },
+    goldGlow: {
+        position: 'absolute',
+        top: -140,
+        left: '50%',
+        transform: [{ translateX: -210 }],
+        width: 420,
+        height: 420,
+        borderRadius: 210,
+        backgroundColor: 'rgba(217, 179, 108, 0.08)',
     },
     safeArea: {
         flex: 1,
@@ -762,52 +775,71 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: spacing.lg,
-        paddingBottom: spacing.md,
+        paddingBottom: spacing.sm,
+    },
+    backButton: {
+        width: 42,
+        height: 42,
+        borderRadius: 21,
+        backgroundColor: 'rgba(22, 29, 37, 0.65)',
+        borderWidth: 1,
+        borderColor: 'rgba(217, 179, 108, 0.22)',
     },
     headerTitle: {
-        ...typography.h3,
-        color: colors.gold,
-        letterSpacing: 0.5,
+        fontFamily: typography.fontFamily.ritualSemiBold,
+        fontSize: 15,
+        letterSpacing: 2.6,
+        color: colors.anchor15.giltBright,
         flex: 1,
         textAlign: 'center',
+        textTransform: 'uppercase',
     },
     backIcon: {
-        fontSize: 20,
-        color: colors.gold,
+        fontSize: 19,
+        color: colors.anchor15.giltBright,
         fontWeight: '300',
     },
     headerSpacer: {
-        width: 44,
-        height: 44,
+        width: 42,
+        height: 42,
     },
     content: {
         flex: 1,
         alignItems: 'center',
         justifyContent: 'flex-start',
-        paddingTop: spacing.md,
+        paddingTop: spacing.lg,
     },
     contentCompact: {
-        paddingTop: spacing.sm,
+        paddingTop: spacing.md,
     },
     imageContainer: {
-        marginBottom: 20,
-        shadowColor: colors.gold,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.4,
-        shadowRadius: 30,
-        elevation: 20,
+        marginBottom: 26,
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'relative',
+        shadowColor: colors.anchor15.gilt,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.32,
+        shadowRadius: 32,
+        elevation: 16,
     },
     imageContainerCompact: {
-        marginBottom: 16,
+        marginBottom: 18,
         shadowRadius: 22,
+    },
+    imageHalo: {
+        position: 'absolute',
+        width: '116%',
+        height: '116%',
+        backgroundColor: 'rgba(217, 179, 108, 0.08)',
     },
     imageCard: {
         width: '100%',
         height: '100%',
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: 'rgba(212, 175, 55, 0.3)',
-        backgroundColor: colors.charcoal,
+        borderColor: 'rgba(217, 179, 108, 0.35)',
+        backgroundColor: colors.anchor15.steel,
     },
     image: {
         width: '100%',
@@ -820,36 +852,39 @@ const styles = StyleSheet.create({
     },
     glowOverlay: {
         ...StyleSheet.absoluteFillObject,
-        borderWidth: 2,
-        borderColor: 'rgba(212, 175, 55, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(217, 179, 108, 0.15)',
     },
     textContainer: {
         width: '100%',
     },
     label: {
+        fontFamily: typography.fontFamily.ritual,
         fontSize: 11,
-        fontWeight: '700',
-        color: colors.silver,
-        letterSpacing: 1.5,
+        letterSpacing: 2.2,
+        color: colors.anchor15.ash,
         marginBottom: spacing.md,
         textAlign: 'center',
-        opacity: 0.8,
+        textTransform: 'uppercase',
     },
     labelCompact: {
         fontSize: 10,
+        letterSpacing: 1.8,
         marginBottom: spacing.sm,
     },
     intentionCard: {
         borderRadius: 16,
-        padding: 24,
+        paddingVertical: 22,
+        paddingHorizontal: 24,
         borderWidth: 1,
-        borderColor: 'rgba(212, 175, 55, 0.2)',
-        backgroundColor: 'rgba(26, 26, 29, 0.4)',
+        borderColor: 'rgba(217, 179, 108, 0.18)',
+        backgroundColor: 'rgba(22, 29, 37, 0.55)',
         position: 'relative',
         overflow: 'hidden',
     },
     intentionCardCompact: {
-        padding: 18,
+        paddingVertical: 16,
+        paddingHorizontal: 18,
         borderRadius: 14,
     },
     intentionBorder: {
@@ -857,19 +892,19 @@ const styles = StyleSheet.create({
         left: 0,
         top: 0,
         bottom: 0,
-        width: 3,
-        backgroundColor: colors.gold,
+        width: 3.5,
+        backgroundColor: colors.anchor15.giltBright,
     },
     intentionText: {
-        ...typography.body,
-        fontSize: 18,
+        fontFamily: typography.fontFamily.voiceItalic,
+        fontSize: 20,
         fontStyle: 'italic',
-        color: colors.bone,
+        color: colors.anchor15.bone,
         lineHeight: 28,
         textAlign: 'center',
     },
     intentionTextCompact: {
-        fontSize: 16,
+        fontSize: 17,
         lineHeight: 24,
     },
     guideHintContainer: {
@@ -878,66 +913,86 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
     },
     sealLineContainer: {
-        marginTop: spacing.md,
-        paddingHorizontal: spacing.sm,
-        alignItems: 'flex-start',
+        marginTop: spacing.md + 2,
+        paddingHorizontal: spacing.xs,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    sealIndicatorBar: {
+        width: 2.5,
+        height: 14,
+        backgroundColor: colors.anchor15.gilt,
+        borderRadius: 1,
+    },
+    sealLineText: {
+        fontFamily: typography.fontFamily.voiceItalic,
+        fontSize: 14,
+        fontStyle: 'italic',
+        color: 'rgba(244, 239, 230, 0.62)',
+        lineHeight: 20,
     },
     footer: {
         paddingHorizontal: spacing.lg,
-        paddingBottom: 20,
+        paddingTop: spacing.md,
+        paddingBottom: 22,
     },
     footerCompact: {
         paddingHorizontal: spacing.md + 4,
+        paddingTop: spacing.sm,
         paddingBottom: 16,
     },
     ctaHelperText: {
-        ...typography.caption,
-        fontSize: 13,
-        color: colors.text.secondary,
-        textAlign: 'center',
-        marginBottom: spacing.sm,
+        fontFamily: typography.fontFamily.voiceItalic,
+        fontSize: 13.5,
         fontStyle: 'italic',
-        letterSpacing: 0.3,
+        color: 'rgba(244, 239, 230, 0.62)',
+        textAlign: 'center',
+        marginBottom: spacing.md,
+        lineHeight: 19,
     },
     ctaHelperTextCompact: {
-        fontSize: 12,
+        fontSize: 12.5,
+        marginBottom: spacing.sm,
     },
     continueButton: {
-        borderRadius: 20,
+        borderRadius: 999,
         overflow: 'hidden',
-        shadowColor: colors.gold,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.4,
-        shadowRadius: 16,
+        shadowColor: colors.anchor15.gilt,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.32,
+        shadowRadius: 20,
         elevation: 10,
     },
     continueGradient: {
+        minHeight: 56,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 18,
-        paddingHorizontal: 32,
+        paddingHorizontal: 24,
+        gap: 8,
     },
     continueGradientCompact: {
-        paddingVertical: 16,
-        paddingHorizontal: 24,
+        minHeight: 50,
+        paddingHorizontal: 20,
     },
     continueText: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: colors.charcoal,
-        letterSpacing: 0.5,
-        marginRight: 8,
+        fontFamily: typography.fontFamily.ritualSemiBold,
+        fontSize: 14,
+        letterSpacing: 2,
+        color: colors.anchor15.ink,
+        textTransform: 'uppercase',
     },
     continueTextCompact: {
-        fontSize: 15,
+        fontSize: 13,
+        letterSpacing: 1.6,
     },
     continueArrow: {
-        fontSize: 20,
-        color: colors.charcoal,
-        fontWeight: '300',
+        fontSize: 18,
+        color: colors.anchor15.ink,
+        fontWeight: '600',
     },
     continueArrowCompact: {
-        fontSize: 18,
+        fontSize: 16,
     },
 });

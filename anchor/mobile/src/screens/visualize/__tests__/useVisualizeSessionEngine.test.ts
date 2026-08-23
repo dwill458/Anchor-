@@ -55,7 +55,7 @@ describe('useVisualizeSessionEngine', () => {
     advanceClock(10_100);
     expect(result.current.phase.id).toBe('build');
 
-    advanceClock(14_000);
+    advanceClock(17_000);
     expect(result.current.phase.id).toBe('rehearse');
     expect(onComplete).not.toHaveBeenCalled();
     unmount();

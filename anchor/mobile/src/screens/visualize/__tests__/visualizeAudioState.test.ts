@@ -15,12 +15,12 @@ describe('visualizeAudioState', () => {
     expect(first?.id).toBe('viz-60-arrive-1');
     handled.add(first!.id);
 
-    const second = getNextDueVisualizeCue(cues, 3_500, handled);
+    const second = getNextDueVisualizeCue(cues, 5_000, handled);
     expect(second?.id).toBe('viz-60-arrive-2');
     handled.add(second!.id);
 
     // Re-reading canonical elapsed time after foregrounding never returns a handled cue.
-    expect(getNextDueVisualizeCue(cues, 3_500, handled)).toBeNull();
+    expect(getNextDueVisualizeCue(cues, 5_000, handled)).toBeNull();
   });
 
   it('uses guided ducking and a higher ambient-only resting level', () => {

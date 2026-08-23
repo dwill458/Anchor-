@@ -32,7 +32,7 @@ import {
   VisualizationPhaseTrack,
 } from './VisualizationPrimitives';
 import {
-  VISUALIZE_PHASE_DEFINITIONS,
+  getVisualizeSessionConfig,
   type VisualizePhaseId,
 } from './visualizeSessionConfig';
 import { useVisualizeSessionEngine } from './useVisualizeSessionEngine';
@@ -248,13 +248,17 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
   }, [engine]);
 
   // Calculate current phase index & line
+  const sessionConfig = useMemo(
+    () => getVisualizeSessionConfig(durationSeconds),
+    [durationSeconds],
+  );
   const phaseKey = (engine.phase.id as VisualizePhaseId) || 'arrive';
   const phaseIndex = Math.max(
     0,
-    VISUALIZE_PHASE_DEFINITIONS.findIndex((p) => p.key === phaseKey),
+    sessionConfig.phases.findIndex((p) => p.id === phaseKey),
   );
-  const phaseDef = VISUALIZE_PHASE_DEFINITIONS[phaseIndex] ?? VISUALIZE_PHASE_DEFINITIONS[0];
-  const lines = phaseDef.lines;
+  const phaseConfig = sessionConfig.phases[phaseIndex] ?? sessionConfig.phases[0];
+  const lines = phaseConfig.lines;
   const lineIndex = Math.min(
     Math.floor(engine.phaseProgress * lines.length),
     lines.length - 1,
@@ -422,7 +426,7 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
 
         {/* Phase Number & Name */}
         <Text style={styles.phaseLabel}>
-          PHASE {phaseIndex + 1} OF 5 · {phaseDef.name}
+          PHASE {phaseIndex + 1} OF 5 · {phaseConfig.name}
         </Text>
 
         {/* Main Guidance Text */}
