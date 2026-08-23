@@ -22,9 +22,9 @@ describe('Toast Component', () => {
     expect(getByText('Test message')).toBeTruthy();
   });
 
-  it('should render success type with correct icon', () => {
-    const { getByText } = render(<Toast message="Success!" type="success" />);
-    expect(getByText('✓')).toBeTruthy();
+  it('should render success type with correct notification label', () => {
+    const { getByRole } = render(<Toast message="Success!" type="success" />);
+    expect(getByRole('alert').props.accessibilityLabel).toBe('Success notification: Success!');
   });
 
   it('should render error type with correct icon', () => {
