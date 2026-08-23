@@ -123,6 +123,7 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
   );
   const recordShown = useTeachingStore((state) => state.recordShown);
 
+  const [configVisible, setConfigVisible] = useState(false);
   const [sceneSheetVisible, setSceneSheetVisible] = useState(false);
   const [draftScene, setDraftScene] = useState('');
   const [eduOpen, setEduOpen] = useState(!isExplainerExhausted);
@@ -399,11 +400,13 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
           {eduOpen ? (
             <View style={styles.eduCard}>
               <Pressable
+                accessibilityRole="button"
                 accessibilityLabel="Dismiss explanation"
-                onPress={() => setEduOpen(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                onPress={handleDismissEdu}
                 style={styles.eduCloseBtn}
               >
-                <X size={13} color={colors.boneFaint} />
+                <X size={16} color={colors.boneSoft} />
               </Pressable>
               <Text style={styles.eduTitle}>Why a scene?</Text>
               <Text style={styles.eduBody}>
@@ -657,9 +660,10 @@ const styles = StyleSheet.create({
   },
   eduCloseBtn: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    padding: 4,
+    top: 6,
+    right: 6,
+    padding: 8,
+    zIndex: 2,
   },
   eduTitle: {
     fontFamily: typography.fonts.heading,
