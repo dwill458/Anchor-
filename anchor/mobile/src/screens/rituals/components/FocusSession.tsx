@@ -39,7 +39,6 @@ import { Pause, Play } from 'lucide-react-native';
 import { colors as themeColors, spacing, typography } from '@/theme';
 import { OptimizedImage } from '@/components/common';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
-import { useAudio } from '@/hooks/useAudio';
 import {
   type ManagedSessionAudioPlayer,
   useSessionAudio,
@@ -398,7 +397,6 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
       }),
     [audioConfiguration, resolvedDurationSeconds]
   );
-  const { playSound } = useAudio();
   const { createSessionAudioPlayer } = useSessionAudio();
   const { setActiveSession } = useNotificationController();
 
@@ -722,14 +720,11 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
     }
 
     void safeHaptics.notification(Haptics.NotificationFeedbackType.Success);
-    if (audioPlan.shouldPlayAmbient && !audioPlan.shouldPlayVoice) {
-      void playSound('prime-complete');
-    }
     onSessionCompleted?.();
   }, [
     animateProgressToEnd, clearArriveTimers, clearTickInterval,
-    audioPlan.shouldPlayAmbient, audioPlan.shouldPlayVoice, flare, glowBoost, onSessionCompleted,
-    pausedDim, playSound, reduceMotionEnabled, stopAmbientBed, stopGuidanceAudio,
+    flare, glowBoost, onSessionCompleted,
+    pausedDim, reduceMotionEnabled, stopAmbientBed, stopGuidanceAudio,
   ]);
 
   // ── Tick countdown ─────────────────────────────────────────────────────────
