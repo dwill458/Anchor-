@@ -207,9 +207,9 @@ export const CustomTabBar: React.FC<CustomTabBarProps> = ({
       onLayout={handleLayout}
       testID="custom-tab-bar"
     >
-      <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFillObject} />
+      <BlurView intensity={95} tint="dark" style={StyleSheet.absoluteFillObject} />
       <LinearGradient
-        colors={['rgba(255, 245, 220, 0.08)', 'rgba(255, 245, 220, 0.02)', 'rgba(0, 0, 0, 0.10)']}
+        colors={['rgba(255, 245, 220, 0.09)', 'rgba(255, 245, 220, 0.02)', 'rgba(0, 0, 0, 0.30)']}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={StyleSheet.absoluteFillObject}
@@ -490,7 +490,7 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     overflow: 'hidden',
     zIndex: 50,
-    backgroundColor: 'rgba(20, 21, 20, 0.70)',
+    backgroundColor: 'rgba(14, 15, 14, 0.88)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 18 },
     shadowOpacity: 0.55,

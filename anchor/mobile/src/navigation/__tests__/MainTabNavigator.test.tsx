@@ -183,7 +183,7 @@ describe('CustomTabBar', () => {
 
     const flattenedStyle = StyleSheet.flatten(getByTestId('custom-tab-bar').props.style);
     expect(flattenedStyle).toMatchObject({
-      backgroundColor: 'rgba(20, 21, 20, 0.70)',
+      backgroundColor: 'rgba(14, 15, 14, 0.88)',
       height: 64,
       borderRadius: 32,
       position: 'absolute',
