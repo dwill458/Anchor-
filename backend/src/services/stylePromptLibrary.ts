@@ -6,7 +6,7 @@ export type { AIStyle };
 export type StyleCollection = 'core' | 'featured' | 'seasonal';
 
 export type CompositionFamily =
-  | 'CENTRED STILLPOINT'
+  | 'CENTRED AXIS'
   | 'OFFSET FIELD'
   | 'DIRECTIONAL FLOW'
   | 'LOWER-ANCHORED'
@@ -15,7 +15,7 @@ export type CompositionFamily =
 
 export type VisualCategory =
   | 'Geometric'
-  | 'Mystic'
+  | 'Precision'
   | 'Luminous'
   | 'Organic'
   | 'Minimal'
@@ -49,11 +49,11 @@ interface IntentionSignal {
 }
 
 export const GLOBAL_NEGATIVE_PROMPT =
-  'text, words, letters, phrases, captions, numbers, numerals, readable characters, runes, fake writing, inscriptions, labels, currency symbols, dollar sign, coins, cash, banknotes, bank logos, charts, graphs, stock ticker, brand logos, watermark, copyright mark, clipart, sticker, icon pack, emoji, flat app icon, photorealistic human face, human figure, portrait, hands, literal scene, literal object illustration, distorted geometry, altered structure, altered shape, warped lines, broken sigil, melted sigil, blurry, muddy, low quality, random artifacts, overcrowded ornament';
+  'text, words, letters, phrases, captions, numbers, numerals, readable characters, runes, fake writing, inscriptions, labels, currency symbols, dollar sign, coins, cash, banknotes, bank logos, charts, graphs, stock ticker, brand logos, watermark, copyright mark, clipart, sticker, icon pack, emoji, flat app icon, photorealistic human face, human figure, portrait, hands, literal scene, literal object illustration, distorted geometry, altered structure, altered shape, warped lines, broken geometry, melted lines, blurry, muddy, low quality, random artifacts, overcrowded ornament, altar, candle wax, fantasy clutter, religious iconography';
 
 const STYLE_EXTRA_NEGATIVES: Partial<Record<AIStyle, string>> = {
   ink_brush: 'calligraphy letters, readable brush marks, decorative script',
-  sacred_geometry: 'stock sacred geometry poster, overpowering mandala, generic occult chart',
+  sacred_geometry: 'stock mandala poster, generic occult chart, overpowering mandala',
   prism_veil: 'neon rainbow effect, cheap holographic sticker, plastic iridescence',
   celestial_grid: 'zodiac signs, horoscope wheel, readable chart labels, astrology glyphs',
   architectural_trace: 'readable annotations, blueprint labels, technical numbers',
@@ -67,57 +67,58 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     styleFamily: 'Precision / Structural',
     category: 'Geometric',
     collection: 'core',
-    description: 'Precision drafting, measured geometry, blueprint discipline.',
-    paletteLane: 'smoked parchment, silver-white, faint cyan, graphite',
-    compositionFamily: 'CENTRED STILLPOINT',
-    materialBehavior: 'etched drafting ink, blueprint grid logic, silver calibration marks',
+    description: 'Precision drafting, measured geometry, schematic blueprint discipline.',
+    paletteLane: 'smoked slate, silver-white, faint cyan, graphite',
+    compositionFamily: 'CENTRED AXIS',
+    materialBehavior: 'precision drafting ink, schematic grid logic, silver calibration ticks',
     styleNativeMotif:
-      'drafting calibration ticks, non-readable survey marks, and measured guide rails',
+      'machined calibration ticks, non-readable datum marks, and measured guide rails',
     defaultDensity: 'moderate',
     promptStyleBlock:
-      'Precision drafting discipline and measured blueprint logic. The sigil remains crisp and untouched while calibration marks, graphite guide rails, faint cyan grid ghosts, and silver-white etched drafting strokes form a restrained technical atmosphere. Avoid readable annotations, numbers, labels, or any diagram language that could be interpreted as text.',
+      'Precision drafting discipline and measured schematic logic. The anchor geometry remains crisp and untouched while calibration ticks, graphite guide rails, faint cyan grid guides, and silver-white drafting strokes form a restrained technical atmosphere. Avoid readable annotations, numbers, labels, or any diagram language that could be interpreted as text.',
     negativePrompt: getStyleNegativePrompt('architectural_trace'),
     accentMotifs: [
-      'partial orthographic guide rails fading before they reach the sigil',
+      'partial orthographic guide rails fading before they reach the geometry',
       'tiny non-readable calibration ticks near the margins',
-      'soft graphite datum lines dissolved into smoked parchment',
+      'soft graphite datum lines dissolved into smoked slate',
     ],
   },
   lunar_etch: {
     id: 'lunar_etch',
     displayName: 'Lunar Etch',
-    styleFamily: 'Atmospheric / Luminous',
-    category: 'Mystic',
+    styleFamily: 'Material / Precision',
+    category: 'Material',
     collection: 'core',
-    description: 'Moonlit silver engraving, quiet radiance, nocturnal contrast.',
-    paletteLane: 'moon-silver, indigo-black, cold pearl, soft blue-white',
+    description: 'Precision silver engraving, quiet radiance, nocturnal contrast.',
+    paletteLane: 'monochrome silver, indigo-black, cold titanium, soft blue-gray',
     compositionFamily: 'OFFSET FIELD',
-    materialBehavior: 'silver etching, lunar dust, restrained metallic bloom',
-    styleNativeMotif: 'moon-silver dust fields and quiet crescent-like edge light',
+    materialBehavior:
+      'milled silver etching, micro-particle dust, restrained cold metallic reflection',
+    styleNativeMotif: 'silver dust fields, hairline edge highlights, and directional shadow',
     defaultDensity: 'sparse',
     promptStyleBlock:
-      'Moonlit silver engraving with cold pearl highlights and indigo-black depth. The sigil remains exact while restrained metallic bloom, lunar dust, soft blue-white haze, and off-axis nocturnal contrast gather around it. Avoid large moon icons or literal celestial objects; keep the lunar quality atmospheric and etched.',
+      'Precision silver engraving with cold titanium highlights and indigo-black depth. The anchor geometry remains exact while restrained metallic bloom, fine metallic dust, soft blue-gray contrast, and off-axis lighting gather around it. Keep the quality atmospheric and milled; avoid literal moon icons or celestial wallpaper.',
     negativePrompt: getStyleNegativePrompt('lunar_etch'),
     accentMotifs: [
-      'soft eclipse-like shadow falloff in one side field',
-      'cold pearl dust clustering away from the center',
+      'soft shadow falloff in one side field',
+      'cold titanium dust clustering away from the center',
       'thin silver bloom along peripheral darkness',
     ],
   },
   resonance_rings: {
     id: 'resonance_rings',
     displayName: 'Resonance Rings',
-    styleFamily: 'Resonance / Field',
+    styleFamily: 'Waveform / Field',
     category: 'Luminous',
     collection: 'core',
     description: 'Concentric pulse circles, waveform halos, radiating energy.',
     paletteLane: 'amber-white on charcoal, optional teal-white on graphite',
     compositionFamily: 'DIRECTIONAL FLOW',
-    materialBehavior: 'echo rings, pulse halos, acoustic field lines',
-    styleNativeMotif: 'non-uniform pulse halos and abstract acoustic field lines',
+    materialBehavior: 'waveform rings, pulse field lines, harmonic interval spacing',
+    styleNativeMotif: 'non-uniform waveform bands and measured acoustic field lines',
     defaultDensity: 'moderate',
     promptStyleBlock:
-      'Concentric pulse circles and waveform halos moving with controlled rhythm. The sigil remains unchanged while amber-white or teal-white echo rings pass behind and around it on charcoal graphite depth. Ring spacing should vary; avoid a generic sonar target, radar UI, or uniform wallpaper pattern.',
+      'Concentric pulse arrays and waveform harmonics moving with controlled rhythm. The anchor geometry remains unchanged while amber-white or teal-white waveform rings pass behind and around it on charcoal graphite depth. Ring spacing should vary; avoid a generic radar target, sonar UI, or uniform pattern.',
     negativePrompt: getStyleNegativePrompt('resonance_rings'),
     accentMotifs: [
       'uneven harmonic rings with visible falloff',
@@ -128,84 +129,85 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
   watercolor: {
     id: 'watercolor',
     displayName: 'Watercolor',
-    styleFamily: 'Organic / Painterly',
+    styleFamily: 'Organic / Pigment',
     category: 'Organic',
     collection: 'core',
-    description: 'Flowing pigment washes, soft bloom, textured paper.',
+    description: 'Flowing fluid pigment washes, soft dispersion bloom, textured cotton substrate.',
     paletteLane: 'mineral blue, oxblood, moss, plum, muted saffron',
     compositionFamily: 'OFFSET FIELD',
-    materialBehavior: 'pigment bleed, deckled paper, wet edge blooms',
-    styleNativeMotif: 'pigment blooms, deckled paper grain, and soft wet-edge tides',
+    materialBehavior: 'pigment saturation, heavy cold-press cotton grain, wet-edge separation',
+    styleNativeMotif: 'mineral pigment blooms, textured substrate grain, and soft fluid tides',
     defaultDensity: 'moderate',
     promptStyleBlock:
-      'Flowing watercolor on textured paper with mineral blue, oxblood, moss, plum, and muted saffron. The preserved sigil stays sharp and exact while pigment washes bloom behind it, bleed softly at the edges, and create asymmetrical paper atmosphere. Avoid muddy washes or loose paint that obscures or redraws the sigil.',
+      'Flowing fluid pigment on heavy cotton substrate with mineral blue, oxblood, moss, plum, and muted saffron. The preserved anchor linework stays sharp and exact while pigment washes disperse behind it, bleed softly at the margins, and create asymmetrical spatial atmosphere. Avoid muddy washes that obscure or alter the geometry.',
     negativePrompt: getStyleNegativePrompt('watercolor'),
     accentMotifs: [
-      'deckled paper edge shadows',
+      'deckled substrate edge shadows',
       'granulated mineral pigment pools',
-      'soft backrun blooms held outside the sigil geometry',
+      'soft backrun blooms held outside the anchor linework',
     ],
   },
   ink_brush: {
     id: 'ink_brush',
     displayName: 'Ink Brush',
-    styleFamily: 'Organic / Minimal',
+    styleFamily: 'Minimal / Precision',
     category: 'Minimal',
     collection: 'core',
-    description: 'Sumi-e ink restraint, strong gesture, meaningful negative space.',
-    paletteLane: 'black ink, bone paper, faint iron-red seal haze',
+    description: 'Carbon ink restraint, strong gesture, meaningful negative space.',
+    paletteLane: 'carbon black ink, bone substrate, faint iron-red structural haze',
     compositionFamily: 'OPEN VOID',
-    materialBehavior: 'dry brush pressure, diluted ink mist, paper grain',
-    styleNativeMotif: 'dry brush pressure, diluted ink mist, and untouched paper void',
+    materialBehavior: 'dry carbon pressure, diluted ink wash, textured substrate grain',
+    styleNativeMotif: 'dry carbon stroke pressure, diluted ink wash, and open negative space',
     defaultDensity: 'sparse',
     promptStyleBlock:
-      'Sumi-e restraint with strong black ink, bone paper, faint iron-red seal haze, and meaningful negative space. The sigil geometry remains exact, as if the fixed linework has received ink texture without changing its path. Use dry brush pressure, diluted mist, and paper grain around the form; avoid readable calligraphy, letters, or loose gestural redrawing.',
+      'Carbon ink discipline with strong black pigment, bone substrate, faint iron-red accent haze, and meaningful negative space. The anchor geometry remains exact, as if the fixed linework has received high-density carbon ink texture without changing its path. Use dry stroke pressure, diluted wash, and substrate grain around the form; avoid calligraphy letters, decorative script, or loose redrawing.',
     negativePrompt: getStyleNegativePrompt('ink_brush'),
     accentMotifs: [
       'one dry-brush pressure field near the periphery',
-      'diluted ink mist fading into open paper',
-      'a faint iron-red atmospheric haze with no mark or character shape',
+      'diluted ink wash fading into open substrate void',
+      'a faint iron-red atmospheric haze with no glyph or character shape',
     ],
   },
   gold_leaf: {
     id: 'gold_leaf',
     displayName: 'Gold Leaf',
-    styleFamily: 'Material / Precious',
+    styleFamily: 'Material / Struck Alloy',
     category: 'Luminous',
     collection: 'core',
-    description: 'Gilded finish, antique glow, precious surface depth.',
-    paletteLane: 'antique gold, umber, soot-black, soft bronze',
-    compositionFamily: 'CENTRED STILLPOINT',
-    materialBehavior: 'torn gold leaf, gilded cracks, subtle metallic dust',
-    styleNativeMotif: 'torn gold leaf seams, gilded cracks, and antique metallic dust',
+    description: 'Struck alloy seams, brushed gold highlights, structural depth.',
+    paletteLane: 'antique gold accent, umber, soot-black, soft bronze',
+    compositionFamily: 'CENTRED AXIS',
+    materialBehavior: 'brushed-gold fracture, struck alloy seams, micro-particle metallic dust',
+    styleNativeMotif: 'hairline gold fractures, struck alloy seams, and fine metallic dust',
     defaultDensity: 'moderate',
     promptStyleBlock:
-      'Antique gold leaf, umber depth, soot-black contrast, and soft bronze warmth. The sigil remains exact while torn gilding, fine cracks, metallic dust, and stable inner glow create precious surface depth. Avoid generic sparkle overlays, coins, currency, or ornamental frames that compete with the sigil.',
+      'Struck alloy and brushed gold seams, umber depth, soot-black contrast, and soft bronze warmth. The anchor geometry remains exact while hairline gold fractures, pressed metallic dust, and stable inner reflection create material depth. Gold functions strictly as an accent highlight or thin seam covering no more than 15% of the field. Avoid generic sparkle overlays, coins, currency, or ornamental frames.',
     negativePrompt: getStyleNegativePrompt('gold_leaf'),
     accentMotifs: [
-      'irregular leaf seams that never cross the sigil lines',
-      'soft bronze dust gathering near the stillpoint',
-      'subtle tarnish shadows in the outer field',
+      'irregular metallic seams that never cross the anchor lines',
+      'soft bronze dust gathering near the central axis',
+      'subtle oxidation shadows in the outer field',
     ],
   },
   cosmic: {
     id: 'cosmic',
     displayName: 'Cosmic',
-    styleFamily: 'Atmospheric / Expansive',
-    category: 'Mystic',
+    styleFamily: 'Field / Vector Array',
+    category: 'Luminous',
     collection: 'core',
-    description: 'Deep-space atmosphere, luminous dust, celestial depth.',
-    paletteLane: 'midnight teal, violet gas, pale gold flare, star-white',
+    description: 'Dimensional vector field, particle dust, deep atmospheric gradients.',
+    paletteLane: 'midnight teal, deep violet, pale gold flare accent, particle white',
     compositionFamily: 'DIAGONAL TENSION',
-    materialBehavior: 'nebular haze, star dust, layered dark gradients',
-    styleNativeMotif: 'nebular haze, star-dust fields, and deep diagonal atmospheric currents',
+    materialBehavior: 'vector field haze, particulate dust, layered dark gradients',
+    styleNativeMotif:
+      'vector field currents, particulate dust arrays, and deep diagonal atmospheric gradients',
     defaultDensity: 'rich',
     promptStyleBlock:
-      'Deep-space atmosphere with midnight teal, violet gas, pale gold flare, and star-white dust. The sigil is exact and untouched while nebular haze, layered dark gradients, and a controlled diagonal pull create celestial depth. Avoid planets, literal space scenes, astronauts, or poster-like cosmic wallpaper.',
+      'Atmospheric depth with midnight teal, deep violet, pale gold flare accent, and particle-white dust. The anchor geometry is exact and untouched while energy fields, layered dark gradients, and a controlled diagonal pull create dimensional depth. Avoid planets, literal space scenes, astronauts, or poster wallpaper.',
     negativePrompt: getStyleNegativePrompt('cosmic'),
     accentMotifs: [
-      'a diagonal star-dust current behind the sigil',
-      'violet gas fading into midnight teal depth',
+      'a diagonal particulate current behind the geometry',
+      'deep violet gas fading into midnight teal depth',
       'one pale gold flare held at the periphery',
     ],
   },
@@ -215,14 +217,14 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     styleFamily: 'Precision / Minimal',
     category: 'Minimal',
     collection: 'core',
-    description: 'Ultra-clean linework, spacious restraint, quiet precision.',
-    paletteLane: 'platinum on black navy, bone on charcoal, faint silver',
+    description: 'Ultra-clean linework, spacious restraint, engineered precision.',
+    paletteLane: 'platinum on dark graphite, bone on charcoal, faint silver',
     compositionFamily: 'OPEN VOID',
-    materialBehavior: 'clean vector-like line clarity, almost no ornament',
-    styleNativeMotif: 'bare negative space, micro edge highlights, and clean line tension',
+    materialBehavior: 'machined vector line clarity, zero ornamental clutter',
+    styleNativeMotif: 'open negative space, micro edge bevels, and clean linear tension',
     defaultDensity: 'sparse',
     promptStyleBlock:
-      'Ultra-clean linework with spacious restraint, platinum on black navy or bone on charcoal, and faint silver edge clarity. The sigil geometry remains exact with almost no ornament. Use negative space, quiet precision, and restrained edge emphasis; avoid app-icon treatment or decorative clutter.',
+      'Machined linework with spacious restraint, platinum on dark graphite or bone on charcoal, and faint silver edge clarity. The anchor geometry remains exact with zero ornamental clutter. Use negative space, engineering precision, and restrained edge emphasis; avoid app-icon treatment or decorative clutter.',
     negativePrompt: getStyleNegativePrompt('minimal_line'),
     accentMotifs: [
       'one quiet field of untouched negative space',
@@ -236,35 +238,36 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     styleFamily: 'Material / Monochrome',
     category: 'Material',
     collection: 'core',
-    description: 'Black glass, graphite polish, reflective shadow.',
-    paletteLane: 'black glass, graphite, silver edge, smoke gray',
+    description: 'Black obsidian composite, graphite polish, reflective bevel highlights.',
+    paletteLane: 'polished obsidian composite, graphite, silver edge, smoke gray',
     compositionFamily: 'LOWER-ANCHORED',
-    materialBehavior: 'polished obsidian, glossy edge highlights, dark reflection',
-    styleNativeMotif: 'black-glass reflections, graphite polish, and low reflective shadow',
+    materialBehavior:
+      'machined obsidian composite, reflective bevel highlights, dark shadow weight',
+    styleNativeMotif: 'obsidian reflections, graphite polish, and low reflective shadow',
     defaultDensity: 'sparse',
     promptStyleBlock:
-      'Polished obsidian, graphite, silver edge light, and smoke gray reflection. The sigil remains exact while glossy highlights, black glass depth, and lower-weighted reflection make the image feel protected and grounded. Avoid color noise, soft painterly treatment, or flat monochrome poster styling.',
+      'Polished obsidian composite, graphite, silver edge reflection, and smoke gray depth. The anchor geometry remains exact while reflective bevel highlights, dark composite depth, and lower-weighted shadow make the image feel grounded and protected. Avoid color noise, soft painterly treatment, or flat poster styling.',
     negativePrompt: getStyleNegativePrompt('obsidian_mono'),
     accentMotifs: [
       'a low horizontal reflection shelf beneath the field',
       'smoke gray separation in black-on-black depth',
-      'small silver glints only at the outer edge behavior',
+      'small silver glints only at the outer edge perimeter',
     ],
   },
   aurora_glow: {
     id: 'aurora_glow',
     displayName: 'Aurora Glow',
-    styleFamily: 'Atmospheric / Luminous',
+    styleFamily: 'Atmospheric / Spectral',
     category: 'Luminous',
     collection: 'core',
-    description: 'Blue-green aurora light, soft spectral bloom, moving atmosphere.',
-    paletteLane: 'blue-green, cobalt, violet, rare gold accents',
+    description: 'Blue-green spectral light, soft dispersion bloom, moving atmospheric field.',
+    paletteLane: 'blue-green, cobalt, violet, rare gold hairline accents',
     compositionFamily: 'DIRECTIONAL FLOW',
-    materialBehavior: 'light ribbons, soft atmospheric bloom, spectral haze',
-    styleNativeMotif: 'blue-green light ribbons, spectral haze, and soft atmospheric bloom',
+    materialBehavior: 'spectral light ribbons, atmospheric gradient bloom, refracted field haze',
+    styleNativeMotif: 'blue-green light ribbons, spectral haze, and atmospheric gradient bloom',
     defaultDensity: 'rich',
     promptStyleBlock:
-      'Blue-green aurora light with cobalt, violet, soft spectral bloom, and rare gold accents. The sigil remains exact while light ribbons and haze move across and around the field. Keep the glow atmospheric and elegant; avoid rainbow neon, hard-edged overlays, or literal landscape scenes.',
+      'Blue-green spectral light with cobalt, violet, soft dispersion bloom, and rare gold hairline accents. The anchor geometry remains exact while light ribbons and haze move across and around the field. Keep the glow atmospheric and disciplined; avoid rainbow neon, hard-edged overlays, or literal landscape scenes.',
     negativePrompt: getStyleNegativePrompt('aurora_glow'),
     accentMotifs: [
       'soft vertical light curtains bending around negative space',
@@ -275,81 +278,83 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
   ember_trace: {
     id: 'ember_trace',
     displayName: 'Ember Trace',
-    styleFamily: 'Material / Heat',
+    styleFamily: 'Material / Thermal',
     category: 'Material',
     collection: 'core',
-    description: 'Coal-dark surface, copper heat, controlled ember glow.',
+    description: 'Coal-dark surface, copper heat, controlled thermal glow.',
     paletteLane: 'coal black, ember orange, copper red, ash gray',
     compositionFamily: 'DIAGONAL TENSION',
-    materialBehavior: 'scorched linework, heated edges, ember dust',
-    styleNativeMotif: 'heated edge glow, ember dust, and scorched ash gradients',
+    materialBehavior: 'tempered linework, heated bevel edges, particulate ember dust',
+    styleNativeMotif: 'heated bevel glow, ember dust, and scorched carbon gradients',
     defaultDensity: 'moderate',
     promptStyleBlock:
-      'Coal-dark surface with ember orange, copper red, and ash gray heat. The sigil geometry remains exact while heated edges, scorched atmosphere, ember dust, and disciplined diagonal force create controlled intensity. Avoid flames as literal objects, explosions, or messy molten distortion.',
+      'Coal-dark surface with ember orange, copper red, and ash gray heat. The anchor geometry remains exact while heated edges, tempered atmosphere, particulate ember dust, and disciplined diagonal force create controlled intensity. Avoid flames as literal objects, explosions, or molten distortion.',
     negativePrompt: getStyleNegativePrompt('ember_trace'),
     accentMotifs: [
-      'copper-red heat concentrated along peripheral edge behavior',
-      'ash gray cooling fields behind the sigil',
+      'copper-red heat concentrated along peripheral edge perimeter',
+      'ash gray cooling fields behind the geometry',
       'a diagonal ember dust current with strong restraint',
     ],
   },
   monolith_ink: {
     id: 'monolith_ink',
     displayName: 'Monolith Ink',
-    styleFamily: 'Material / Structural',
+    styleFamily: 'Material / Monumental',
     category: 'Geometric',
     collection: 'core',
-    description: 'Heavy stone ink, monumental stillness, carved presence.',
-    paletteLane: 'ash black, stone gray, dusted bronze, muted bone',
+    description: 'Heavy carbon ink, monumental weight, structural relief presence.',
+    paletteLane: 'matte carbon, basalt gray, dusted bronze accent, muted bone',
     compositionFamily: 'LOWER-ANCHORED',
-    materialBehavior: 'stone grain, heavy ink, carved shadow',
-    styleNativeMotif: 'stone grain, heavy ink mass, carved shadow, and weighted base pressure',
+    materialBehavior: 'basalt composite grain, dense carbon ink, machined relief shadow',
+    styleNativeMotif:
+      'basalt grain, dense carbon mass, structural relief shadow, and weighted base gravity',
     defaultDensity: 'moderate',
     promptStyleBlock:
-      'Heavy stone ink with ash black, stone gray, dusted bronze, and muted bone. The sigil remains exact while carved shadow, matte weight, mineral grain, and lower-anchored gravity create monumental stillness. Avoid soft brushiness, decorative filigree, or ornamental clutter.',
+      'Dense carbon ink with matte carbon black, basalt gray, dusted bronze accent, and muted bone. The anchor geometry remains exact while structural relief shadow, matte weight, mineral composite grain, and lower-anchored gravity create monumental stillness. Avoid decorative filigree or ornamental clutter.',
     negativePrompt: getStyleNegativePrompt('monolith_ink'),
     accentMotifs: [
       'a broad lower shadow shelf',
-      'dusted bronze residue in stone grain',
-      'quiet vertical mass implied behind the unchanged sigil',
+      'dusted bronze residue in composite grain',
+      'quiet vertical mass implied behind the unchanged geometry',
     ],
   },
   celestial_grid: {
     id: 'celestial_grid',
     displayName: 'Celestial Grid',
-    styleFamily: 'Precision / Celestial',
+    styleFamily: 'Precision / Astrometric',
     category: 'Geometric',
     collection: 'featured',
-    description: 'Observatory geometry, star-map lines, measured cosmic order.',
+    description:
+      'Measured astrometric geometry, coordinate vector lines, technical telemetry order.',
     paletteLane: 'midnight navy, pale cyan, soft violet, pinprick gold',
     compositionFamily: 'OFFSET FIELD',
-    materialBehavior: 'star-map plotting, observatory marks, delicate grid constellations',
+    materialBehavior: 'coordinate plotting, telemetry markers, delicate vector arrays',
     styleNativeMotif:
-      'observatory plotting marks, star-map lines, and delicate constellation grids',
+      'telemetry plotting markers, navigational vector lines, and delicate coordinate grids',
     defaultDensity: 'moderate',
     promptStyleBlock:
-      'Measured observatory geometry with midnight navy, pale cyan, soft violet, and pinprick gold. The sigil remains exact while star-map plotting, delicate grid constellations, and asymmetrical navigation marks orient the field. Avoid zodiac wheels, astrology symbols, readable chart labels, or generic celestial posters.',
+      'Measured telemetry geometry with midnight navy, pale cyan, soft violet, and pinprick gold. The anchor geometry remains exact while navigational plotting, delicate coordinate grids, and asymmetrical telemetry marks orient the field. Avoid zodiac wheels, horoscope charts, astrology symbols, readable chart labels, or generic posters.',
     negativePrompt: getStyleNegativePrompt('celestial_grid'),
     accentMotifs: [
-      'selective star-node clusters away from the center',
-      'partial observatory arcs that do not create readable diagrams',
+      'selective coordinate nodes away from the center',
+      'partial astrometric arcs that do not create readable diagrams',
       'offset pale-cyan coordinate lines with no text or numbers',
     ],
   },
   echo_chamber: {
     id: 'echo_chamber',
     displayName: 'Echo Chamber',
-    styleFamily: 'Resonance / Field',
+    styleFamily: 'Acoustic / Field',
     category: 'Luminous',
     collection: 'featured',
-    description: 'Repeating echoes, inner-room acoustics, layered signal.',
-    paletteLane: 'smoked violet, blue-gray, muted gold, shadow black',
-    compositionFamily: 'CENTRED STILLPOINT',
+    description: 'Repeating acoustic harmonics, chamber depth, layered signal dampening.',
+    paletteLane: 'smoked violet, blue-gray, muted gold accent, shadow black',
+    compositionFamily: 'CENTRED AXIS',
     materialBehavior: 'nested acoustic fields, soft echo bands, chamber depth',
-    styleNativeMotif: 'nested acoustic fields, soft echo bands, and shadowed chamber depth',
+    styleNativeMotif: 'nested acoustic fields, harmonic echo bands, and shadowed structural depth',
     defaultDensity: 'moderate',
     promptStyleBlock:
-      'Layered acoustic depth with smoked violet, blue-gray, muted gold, and shadow black. The sigil remains exact while nested echo bands and chamber-like depth repeat softly around the stillpoint. Avoid wallpaper ripples, hard target graphics, or high-contrast UI rings.',
+      'Layered acoustic depth with smoked violet, blue-gray, muted gold accent, and shadow black. The anchor geometry remains exact while nested echo bands and chamber-like depth repeat with controlled dampening around the central axis. Avoid wallpaper ripples, target graphics, or high-contrast UI rings.',
     negativePrompt: getStyleNegativePrompt('echo_chamber'),
     accentMotifs: [
       'elliptical echo bands with uneven fade',
@@ -360,17 +365,17 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
   prism_veil: {
     id: 'prism_veil',
     displayName: 'Prism Veil',
-    styleFamily: 'Organic / Light',
+    styleFamily: 'Optic / Refraction',
     category: 'Luminous',
     collection: 'featured',
-    description: 'Iridescent refraction, glasslike hush, spectral layering.',
-    paletteLane: 'pearl, opal, pale cyan, lavender, faint gold',
+    description: 'Optic refraction, chromatic dispersion, frosted acrylic translucency.',
+    paletteLane: 'frosted acrylic, opal, pale cyan, lavender, faint gold accent',
     compositionFamily: 'OFFSET FIELD',
-    materialBehavior: 'translucent veils, refracted edges, prism bloom',
-    styleNativeMotif: 'refracted light shards and translucent veil layers',
+    materialBehavior: 'translucent optic veils, refracted bevels, chromatic dispersion',
+    styleNativeMotif: 'refracted light shears and translucent optic layers',
     defaultDensity: 'moderate',
     promptStyleBlock:
-      'Iridescent refracted light, spectral layering, and glasslike hush. The sigil remains crisp and untouched while translucent color fields pass behind it. Use delicate refraction, pearl highlights, pale cyan edges, lavender haze, and faint gold glints. Avoid neon rainbow effects or cheap holographic stickers.',
+      'Optic refraction, chromatic dispersion, and frosted acrylic translucency. The anchor geometry remains crisp and untouched while translucent color fields pass behind it. Use delicate refraction, pearl highlights, pale cyan edges, lavender haze, and faint gold glints. Avoid neon rainbow effects or cheap holographic stickers.',
     negativePrompt: getStyleNegativePrompt('prism_veil'),
     accentMotifs: [
       'translucent veil layers crossing only the surrounding field',
@@ -381,22 +386,22 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
   verdigris_relic: {
     id: 'verdigris_relic',
     displayName: 'Verdigris Relic',
-    styleFamily: 'Material / Ancient',
+    styleFamily: 'Material / Oxidized Alloy',
     category: 'Material',
     collection: 'featured',
-    description: 'Oxidized copper, mineral patina, archaeological elegance.',
-    paletteLane: 'oxidized teal, bronze, ash, dark stone',
+    description: 'Oxidized copper alloy, mineral patina, precision-etched relief surface.',
+    paletteLane: 'oxidized teal, aged bronze, carbon ash, dark slate',
     compositionFamily: 'LOWER-ANCHORED',
-    materialBehavior: 'aged copper, patina blooms, worn engraved surface',
-    styleNativeMotif: 'oxidized copper patina blooms and worn archaeological surface grain',
+    materialBehavior: 'oxidized copper alloy, patina blooms, precision-etched relief surface',
+    styleNativeMotif: 'oxidized copper patina blooms and micro-textured alloy relief',
     defaultDensity: 'moderate',
     promptStyleBlock:
-      'Oxidized copper with mineral patina, bronze, ash, and dark stone. The sigil remains exact while aged copper, worn engraving, and verdigris blooms create archaeological elegance. Keep it refined and grounded; avoid coins, relic icons, fake inscriptions, or literal artifacts.',
+      'Oxidized copper alloy with mineral patina, bronze, carbon ash, and dark slate. The anchor geometry remains exact while aged alloy, precision etching, and verdigris blooms create material permanence. Keep it refined and grounded; avoid coins, antique junk, fake inscriptions, or literal artifacts.',
     negativePrompt: getStyleNegativePrompt('verdigris_relic'),
     accentMotifs: [
       'patina bloom clusters weighted toward the lower field',
-      'worn bronze edge catches away from the sigil center',
-      'dark stone grain and ash mineral dust',
+      'worn bronze edge catches away from the geometry center',
+      'dark slate grain and carbon mineral dust',
     ],
   },
   solar_halo: {
@@ -405,80 +410,82 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     styleFamily: 'Atmospheric / Radiant',
     category: 'Luminous',
     collection: 'seasonal',
-    description: 'Sun-warmed radiance, disciplined brightness, haloed clarity.',
-    paletteLane: 'ivory, saffron, brass, pale amber, smoke',
-    compositionFamily: 'CENTRED STILLPOINT',
-    materialBehavior: 'soft solar rings, warm haze, brass light',
-    styleNativeMotif: 'soft solar rings, disciplined brass light, and warm halo haze',
+    description: 'Thermal radiance, disciplined brightness, haloed clarity.',
+    paletteLane: 'ivory, saffron, pale brass accent, pale amber, smoke gray',
+    compositionFamily: 'CENTRED AXIS',
+    materialBehavior: 'thermal radiant halos, warm dispersion haze, brushed brass highlights',
+    styleNativeMotif: 'radiant thermal rings, disciplined brass highlights, and warm halo haze',
     defaultDensity: 'moderate',
     promptStyleBlock:
-      'Sun-warmed radiance with ivory, saffron, brass, pale amber, and smoke. The sigil remains exact while soft solar rings, warm haze, and disciplined brightness clarify the stillpoint. Avoid literal suns, landscapes, flames, or overwhelming golden poster treatment.',
+      'Disciplined thermal radiance with ivory, saffron, pale brass accents, pale amber, and smoke gray. The anchor geometry remains exact while soft radiant rings, warm atmospheric haze, and disciplined brightness clarify the central axis. Avoid literal suns, landscapes, flames, or overwhelming golden poster treatment.',
     negativePrompt: getStyleNegativePrompt('solar_halo'),
     accentMotifs: [
-      'soft brass rings fading before they touch the sigil',
-      'pale amber haze concentrated near the stillpoint',
+      'soft brass rings fading before they touch the geometry',
+      'pale amber haze concentrated near the central axis',
       'smoke-muted outer warmth for contrast',
     ],
   },
   tideglass: {
     id: 'tideglass',
     displayName: 'Tideglass',
-    styleFamily: 'Organic / Coastal',
+    styleFamily: 'Material / Frosted Silicate',
     category: 'Organic',
     collection: 'seasonal',
-    description: 'Sea-glass translucency, mineral wash, tidal softness.',
+    description: 'Frosted silicate translucency, fluid mineral wash, soft edge boundaries.',
     paletteLane: 'seafoam, slate blue, soft aqua, mineral gray',
     compositionFamily: 'DIRECTIONAL FLOW',
-    materialBehavior: 'translucent washed glass, salt haze, tide-soft edges',
-    styleNativeMotif: 'sea-glass translucency, salt haze, and tide-soft mineral wash',
+    materialBehavior: 'frosted silicate translucency, saline haze, eroded-edge softness',
+    styleNativeMotif: 'frosted silicate planes, saline haze, and fluid mineral wash',
     defaultDensity: 'sparse',
     promptStyleBlock:
-      'Sea-glass translucency with seafoam, slate blue, soft aqua, and mineral gray. The sigil remains exact while washed glass, salt haze, tide-soft edges, and directional flow create adaptive calm. Avoid literal beaches, shells, waves as objects, or watery blur that softens the sigil geometry.',
+      'Frosted silicate translucency with seafoam, slate blue, soft aqua, and mineral gray. The anchor geometry remains exact while tumbled matte glass texture, saline haze, soft boundary edges, and directional flow create fluid clarity. Avoid beaches, shells, waves as objects, or watery blur that softens the linework.',
     negativePrompt: getStyleNegativePrompt('tideglass'),
     accentMotifs: [
-      'translucent sea-glass planes behind the sigil',
-      'salt haze along one directional edge',
+      'translucent silicate planes behind the geometry',
+      'saline haze along one directional edge',
       'mineral gray tide lines kept abstract and secondary',
     ],
   },
   sacred_geometry: {
     id: 'sacred_geometry',
     displayName: 'Sacred Geometry',
-    styleFamily: 'Geometric / Collector',
-    category: 'Mystic',
+    styleFamily: 'Geometric / Mathematical',
+    category: 'Geometric',
     collection: 'seasonal',
-    description: 'Layered mathematical symbolism, luminous geometric depth.',
-    paletteLane: 'indigo, teal, dusty rose, muted brass, celestial blue',
-    compositionFamily: 'CENTRED STILLPOINT',
-    materialBehavior: 'layered geometric systems, transparent overlaps, precise geometry',
-    styleNativeMotif: 'transparent mathematical overlays and precise secondary geometry systems',
+    description:
+      'Layered harmonic mathematical systems, transparent vector overlays, structural depth.',
+    paletteLane: 'indigo, teal, dusty rose, muted brass accent, slate blue',
+    compositionFamily: 'CENTRED AXIS',
+    materialBehavior:
+      'layered harmonic geometry, transparent vector overlays, mathematical precision',
+    styleNativeMotif: 'transparent vector overlays and secondary geometric projection systems',
     defaultDensity: 'rich',
     promptStyleBlock:
-      'Tasteful layered mathematical symbolism with indigo, teal, dusty rose, muted brass, and celestial blue. The sigil remains exact while transparent overlaps and precise secondary geometry create luminous depth. Keep this less generic than stock sacred-geometry posters; do not overpower the sigil or force a mandala-like template.',
+      'Layered harmonic mathematical systems with indigo, teal, dusty rose, muted brass accents, and slate blue. The anchor geometry remains exact while transparent overlaps and precise secondary geometric projections create spatial depth. Keep this disciplined and architectural; do not overpower the anchor geometry or force a mandala template.',
     negativePrompt: getStyleNegativePrompt('sacred_geometry'),
     accentMotifs: [
-      'transparent geometry systems with clear hierarchy',
-      'muted brass construction arcs behind the sigil',
-      'celestial blue overlap fields kept airy and precise',
+      'transparent vector systems with clear hierarchy',
+      'muted brass construction arcs behind the geometry',
+      'slate blue overlap fields kept airy and precise',
     ],
   },
   velvet_ember: {
     id: 'velvet_ember',
     displayName: 'Velvet Ember',
-    styleFamily: 'Material / Luxury',
+    styleFamily: 'Material / Precision Alloy',
     category: 'Material',
     collection: 'seasonal',
-    description: 'Velvet darkness, warm ember glow, soft luxury depth.',
-    paletteLane: 'burgundy-black, copper, warm amber, soot violet',
+    description: 'Matte dark depth, brushed copper thermal glints, controlled contrast.',
+    paletteLane: 'matte burgundy-black, brushed copper, warm amber accent, soot violet',
     compositionFamily: 'DIAGONAL TENSION',
-    materialBehavior: 'velvet texture, ember glints, soft smoky depth',
-    styleNativeMotif: 'velvet texture, copper ember glints, and soft smoky depth',
+    materialBehavior: 'matte tactile darkness, copper thermal glints, soft smoke depth',
+    styleNativeMotif: 'matte carbon texture, brushed copper thermal glints, and soft smoke depth',
     defaultDensity: 'moderate',
     promptStyleBlock:
-      'Velvet darkness with burgundy-black, copper, warm amber, and soot violet. The sigil remains exact while soft luxury depth, ember glints, smoky diagonal tension, and controlled magnetism shape the surrounding field. Avoid fashion objects, jewelry literalism, flames, or over-saturated red glow.',
+      'Matte dark depth with burgundy-black, brushed copper, warm amber accents, and soot violet. The anchor geometry remains exact while luxury material depth, copper thermal glints, smoky diagonal tension, and controlled focus shape the surrounding field. Avoid fashion objects, jewelry literalism, flames, or oversaturated red glow.',
     negativePrompt: getStyleNegativePrompt('velvet_ember'),
     accentMotifs: [
-      'copper ember glints embedded in velvet darkness',
+      'copper thermal glints embedded in matte darkness',
       'soot-violet smoke following a diagonal current',
       'warm amber depth held behind the fixed geometry',
     ],
@@ -509,8 +516,24 @@ const INTENTION_SIGNALS: Array<IntentionSignal & { keywords: string[] }> = [
       'steady',
       'clarity',
       'concentrate',
+      'concentration',
       'study',
       'attention',
+      'habit',
+      'habits',
+      'routine',
+      'execution',
+      'execute',
+      'finish',
+      'complete',
+      'completion',
+      'drive',
+      'flow state',
+      'deep work',
+      'prioritize',
+      'mastery',
+      'precision',
+      'relentless',
     ],
     directionalBehavior: 'converging motion toward one stable focal zone',
     densityBehavior: 'restrained outer field, denser inner concentration',
@@ -525,9 +548,11 @@ const INTENTION_SIGNALS: Array<IntentionSignal & { keywords: string[] }> = [
       'confidence',
       'confident',
       'courage',
+      'courageous',
       'brave',
       'bold',
       'power',
+      'powerful',
       'worthy',
       'fearless',
       'success',
@@ -538,6 +563,21 @@ const INTENTION_SIGNALS: Array<IntentionSignal & { keywords: string[] }> = [
       'strength',
       'gym',
       'fitness',
+      'workout',
+      'train',
+      'training',
+      'lift',
+      'athletic',
+      'win',
+      'winning',
+      'lead',
+      'leadership',
+      'stand tall',
+      'unstoppable',
+      'conviction',
+      'sovereign',
+      'command',
+      'resilient',
     ],
     directionalBehavior: 'upward lift or outward expansion',
     densityBehavior: 'stronger central field with open surrounding space',
@@ -555,52 +595,104 @@ const INTENTION_SIGNALS: Array<IntentionSignal & { keywords: string[] }> = [
       'growth',
       'grow',
       'prosper',
+      'prosperity',
       'wealth',
+      'wealthy',
       'money',
-      'receive',
+      'financial',
       'expand',
+      'expansion',
+      'scale',
+      'scaling',
+      'career',
+      'revenue',
+      'opportunity',
+      'build',
+      'building',
+      'invest',
+      'investment',
+      'multiply',
+      'progress',
+      'generate',
+      'generative',
+      'momentum',
+      'receive',
+      'reach',
     ],
     directionalBehavior: 'expanding arcs and layered outward growth',
     densityBehavior: 'rich but ordered supporting detail',
     focalBehavior: 'glowing center with branching peripheral accents',
     paletteBehavior:
-      'fertile greens, gold, teal, warm earth, or luminous amber without currency imagery',
+      'mineral greens, gold accent, teal, warm earth, or luminous amber without currency imagery',
     rhythmBehavior: 'organic expansion, gradual bloom',
     motif:
       'abstract branching density and expanding arcs, never coins, cash, baskets, or financial symbols',
   },
   {
-    theme: 'Healing / peace',
+    theme: 'Recovery / reset',
     keywords: [
-      'healing',
-      'heal',
-      'health',
-      'peace',
-      'calm',
-      'serenity',
-      'rest',
-      'soften',
+      'recovery',
       'recover',
+      'reset',
+      'heal',
+      'healing',
+      'health',
+      'healthy',
+      'rest',
+      'restore',
+      'restoration',
+      'calm',
+      'peace',
+      'serenity',
+      'unwind',
+      'recharge',
+      'sleep',
+      'breathe',
+      'stillness',
+      'steady',
+      'decompress',
+      'balance',
+      'soothe',
+      'soften',
+      'regenerate',
+      'ease',
+      'quiet',
     ],
-    directionalBehavior: 'soft circular settling or downward calm',
-    densityBehavior: 'spacious field with gentle detail',
-    focalBehavior: 'softened center with less hard contrast',
-    paletteBehavior: 'cool blues, pale green, silver, ivory, or soft violet where compatible',
-    rhythmBehavior: 'slow, quiet, breathing motion',
+    directionalBehavior: 'downward settling and balanced horizontal stabilization',
+    densityBehavior: 'spacious field with gentle, uncluttered detail',
+    focalBehavior: 'stabilized center with softened contrast',
+    paletteBehavior: 'cool slate blues, mineral green, silver, ivory, or muted charcoal',
+    rhythmBehavior: 'measured, quiet, and grounded',
     motif:
-      'settling haze and softened edge rhythm, never medical symbols, bodies, or literal nature icons',
+      'settling atmospheric depth and clean stabilizing lines, never medical crosses, figures, or literal nature icons',
   },
   {
     theme: 'Love / relationship',
     keywords: [
       'love',
       'relationship',
+      'relationships',
       'romance',
+      'romantic',
       'partner',
+      'partnership',
       'connection',
       'intimacy',
       'family',
       'belong',
+      'belonging',
+      'friendship',
+      'friends',
+      'bond',
+      'bonding',
+      'empathy',
+      'compassion',
+      'community',
+      'trust',
+      'together',
+      'warmth',
+      'devotion',
+      'care',
     ],
     directionalBehavior: 'converging paired movement or gentle orbital flow',
     densityBehavior: 'balanced left/right fields with soft connection points',
@@ -614,14 +706,29 @@ const INTENTION_SIGNALS: Array<IntentionSignal & { keywords: string[] }> = [
     theme: 'Protection / stability',
     keywords: [
       'protect',
+      'protection',
       'safe',
+      'safety',
       'boundary',
       'boundaries',
       'stable',
       'stability',
       'ground',
+      'grounded',
+      'grounding',
       'foundation',
+      'bedrock',
       'endure',
+      'endurance',
+      'resilience',
+      'shield',
+      'fortify',
+      'anchor',
+      'guard',
+      'defense',
+      'solid',
+      'unshakable',
+      'rooted',
     ],
     directionalBehavior: 'downward settling and perimeter containment',
     densityBehavior: 'weighted base with quiet protective outer space',
@@ -633,7 +740,34 @@ const INTENTION_SIGNALS: Array<IntentionSignal & { keywords: string[] }> = [
   },
   {
     theme: 'Creativity / expression',
-    keywords: ['create', 'creative', 'creativity', 'art', 'voice', 'express', 'inspire', 'imagine'],
+    keywords: [
+      'create',
+      'creative',
+      'creativity',
+      'art',
+      'artist',
+      'voice',
+      'express',
+      'expression',
+      'expressive',
+      'inspire',
+      'inspiration',
+      'imagine',
+      'imagination',
+      'craft',
+      'craftsmanship',
+      'write',
+      'writing',
+      'author',
+      'design',
+      'invent',
+      'innovation',
+      'original',
+      'make',
+      'vision',
+      'story',
+      'composer',
+    ],
     directionalBehavior: 'curving emergence and asymmetric outward motion',
     densityBehavior: 'varied clusters balanced by open space',
     focalBehavior: 'lively secondary emphasis without stealing from the sigil',
@@ -648,7 +782,7 @@ const DEFAULT_INTENTION_SIGNAL: IntentionSignal = {
   theme: 'General intention',
   directionalBehavior: 'subtle inward organization with a quiet outward release',
   densityBehavior: 'moderate supporting detail with clear hierarchy',
-  focalBehavior: 'the preserved sigil remains the dominant focal point',
+  focalBehavior: 'the preserved anchor geometry remains the dominant focal point',
   paletteBehavior:
     'the selected style palette remains primary with a restrained accent temperature shift',
   rhythmBehavior: 'steady, composed, and non-literal',
@@ -656,39 +790,39 @@ const DEFAULT_INTENTION_SIGNAL: IntentionSignal = {
 };
 
 const COMPOSITION_VARIANTS: Record<CompositionFamily, string[]> = {
-  'CENTRED STILLPOINT': [
-    'Hold the sigil as a stable center while light, texture, and density settle toward it.',
-    'Keep the sigil central, but vary halo weight and peripheral spacing so the render does not feel templated.',
+  'CENTRED AXIS': [
+    'Hold the anchor on a stable central axis while light, texture, and density settle toward it.',
+    'Keep the anchor central, but vary accent weight and peripheral spacing so the render does not feel templated.',
     'Build a calm inner field and let outer detail fade with measured restraint.',
-    'Use a clear central stillpoint with one subtle asymmetry in light or material behavior.',
+    'Use a clear central axis with one subtle asymmetry in light or material behavior.',
   ],
   'OFFSET FIELD': [
-    'Keep the sigil geometry unchanged while the supporting field is biased toward one side or quadrant.',
+    'Keep the anchor geometry unchanged while the supporting field is biased toward one side or quadrant.',
     'Use asymmetrical density and open counter-space so the image feels spatially authored.',
-    'Let the surrounding material drift off-center while the sigil remains structurally stable.',
-    'Create one dominant off-axis field of light, texture, or atmosphere behind the sigil.',
+    'Let the surrounding material drift off-center while the anchor geometry remains structurally stable.',
+    'Create one dominant off-axis field of light, texture, or atmosphere behind the anchor geometry.',
   ],
   'DIRECTIONAL FLOW': [
-    'Move atmosphere across or around the preserved sigil with a clear directional current.',
-    'Use flowing density that passes behind the sigil without dragging, bending, or changing it.',
+    'Move atmosphere across or around the preserved anchor linework with a clear directional current.',
+    'Use flowing density that passes behind the anchor without dragging, bending, or changing it.',
     'Let light or texture travel from one edge of the frame toward another with controlled rhythm.',
-    'Create a visible path through the background field while the sigil stays exact and calm.',
+    'Create a visible path through the background field while the anchor stays exact and calm.',
   ],
   'LOWER-ANCHORED': [
     'Weight the image low in the frame with grounded shadow, material depth, or base pressure.',
     'Let the lower field feel rooted while the upper field has more breathing room.',
-    'Use a quiet base of density beneath the preserved sigil without turning it into a literal pedestal.',
+    'Use a quiet base of density beneath the preserved anchor geometry without turning it into a literal pedestal.',
     'Make the composition feel settled and rooted through shadow and material gravity.',
   ],
   'DIAGONAL TENSION': [
-    'Introduce controlled diagonal force through light, haze, texture, or density behind the sigil.',
-    'Let one diagonal current cut through the surrounding field without touching the sigil geometry.',
+    'Introduce controlled diagonal force through light, haze, texture, or density behind the anchor geometry.',
+    'Let one diagonal current cut through the surrounding field without touching the anchor geometry.',
     'Balance a strong diagonal atmosphere with enough negative space to preserve clarity.',
-    'Use diagonal pressure as emotional movement, not as a new symbol or scene.',
+    'Use diagonal pressure as dynamic movement, not as a new symbol or scene.',
   ],
   'OPEN VOID': [
     'Make negative space a major part of the design, with very restrained secondary detail.',
-    'Let the sigil breathe in open space while texture appears only where it strengthens focus.',
+    'Let the anchor linework breathe in open space while texture appears only where it strengthens focus.',
     'Use emptiness, spacing, and quiet edge treatment as the main visual language.',
     'Avoid filling the frame; the absence of ornament should feel intentional and refined.',
   ],
@@ -739,16 +873,16 @@ export function buildStylePrompt(
     `${style.id}:${cleanIntention}:${safeVariationIndex}:accent`
   );
 
-  return `SIGIL IDENTITY:
-This sigil embodies the intention "${cleanIntention}".
+  return `ANCHOR GEOMETRY IDENTITY:
+This anchor embodies the intention "${cleanIntention}".
 
 STRUCTURAL PRESERVATION — ABSOLUTE PRIORITY:
 
-1. The input image defines the exact sigil geometry. Preserve ALL lines, circles, intersections, and shapes exactly as shown.
-2. Do NOT warp, melt, bend, rotate, skew, redraw, simplify, or reinterpret the sigil geometry.
+1. The input image defines the exact anchor geometry. Preserve ALL lines, circles, intersections, and shapes exactly as shown.
+2. Do NOT warp, melt, bend, rotate, skew, redraw, simplify, or reinterpret the anchor geometry.
 3. Do NOT add text, labels, captions, letters, words, numbers, runes, glyph alphabets, or readable symbols anywhere.
-4. The sigil geometry is immutable. Treat it as a fixed engraved plate beneath all styling.
-5. Styling may influence atmosphere, texture, framing, lighting, color, density, ornament, and peripheral composition only. Never alter the preserved sigil structure.
+4. The anchor geometry is immutable. Treat it as a fixed engraved plate beneath all styling.
+5. Styling may influence atmosphere, texture, framing, lighting, color, density, ornament, and peripheral composition only. Never alter the preserved anchor structure.
 
 STYLE IDENTITY:
 ${style.displayName} — ${style.description}
@@ -797,7 +931,7 @@ Do not add people, text, objects, symbols, or readable imagery to explain the in
 The intention should be felt through the image's pressure, color, density, spacing, and movement.
 
 SYMBOLIC MOTIFS — FLEXIBLE, NOT UNIFORM:
-Use 2 to 3 subtle symbolic motifs maximum.
+Use 2 to 3 subtle abstract motifs maximum.
 
 Motif structure:
 
@@ -807,18 +941,17 @@ Motif structure:
 
 Motifs may appear as:
 
-* engraved border accents
+* precision border accents
 * background texture
 * negative-space shaping
 * light behavior
 * atmospheric clustering
 * secondary field geometry
 * material imperfections
-* peripheral marks
+* peripheral markers
 
 Motifs must be abstract, ornamental, and secondary.
 Do not place motifs as central icons.
-Do not repeat the same Mercury / Air / prism motif set in every style.
 Each style should have its own motif logic.
 
 COMPOSITIONAL FAMILY:
@@ -826,13 +959,13 @@ ${style.compositionFamily}
 
 Use this composition family intentionally.
 ${compositionVariant}
-Do not default every render to the same centered mystical-poster composition.
+Do not default every render to the same centered generic composition.
 
 Composition families:
 
-* CENTRED STILLPOINT: sigil feels stable, complete, and central
-* OFFSET FIELD: supporting energy is asymmetrical and spatially interesting
-* DIRECTIONAL FLOW: atmosphere moves across or around the sigil
+* CENTRED AXIS: anchor geometry feels stable, complete, and central on a fixed axis
+* OFFSET FIELD: supporting energy is asymmetrical and spatially authored
+* DIRECTIONAL FLOW: atmosphere moves across or around the anchor geometry
 * LOWER-ANCHORED: image feels grounded, weighted, and rooted
 * DIAGONAL TENSION: energy cuts through the composition with controlled force
 * OPEN VOID: negative space is a major part of the design
@@ -841,6 +974,9 @@ COLOR + MATERIAL LOGIC:
 Palette lane: ${style.paletteLane}
 Material behavior: ${style.materialBehavior}
 
+GOLD ACCENT CONSTRAINT:
+Gold or warm-metallic tones must not dominate more than ~15% of the visual field. Gold functions strictly as a thin structural highlight, edge bevel, or seam — never a wash, fill, or dominant surface treatment.
+
 Use a distinct palette lane for this style.
 The Anchor brand palette should guide taste, not imprison the artwork.
 Allow richer variation in hue, substrate, glow, haze, bloom, and secondary accents where appropriate.
@@ -848,7 +984,7 @@ Allow richer variation in hue, substrate, glow, haze, bloom, and secondary accen
 UNIQUENESS MANDATE:
 This render must feel specific to:
 
-* this sigil
+* this anchor
 * this intention
 * this selected style
 
@@ -866,7 +1002,7 @@ Differentiate each render through at least 3 of these axes:
 * visual rhythm
 
 Avoid generic wallpaper treatment.
-Avoid stock mystical poster aesthetics.
+Avoid stock fantasy poster aesthetics.
 Avoid making every style feel like the same symbol placed over a different background.
 
 STRICT AVOIDANCE RULES:
@@ -879,20 +1015,21 @@ STRICT AVOIDANCE RULES:
 ✗ Flat app-icon treatment
 ✗ Dominant human figures, faces, portraits, hands, bodies
 ✗ Literal front-and-center scene illustration of the intention
-✗ Distorted, warped, changed, broken, or redrawn sigil geometry
-✗ Overcrowded ornament that competes with the sigil
+✗ Distorted, warped, changed, broken, or redrawn anchor geometry
+✗ Overcrowded ornament that competes with the anchor geometry
 ✗ Low-quality blur, muddy details, random artifacts
+✗ Religious iconography, candles, fantasy clutter, or literal scene objects
 
 Allowed:
-✓ Subtle symbolic implication
+✓ Subtle abstract implication
 ✓ Abstract atmospheric cues
 ✓ Non-literal emotional tone
 ✓ Style-native ornament
 ✓ Intention-reactive density and emphasis
-✓ Background and border detail that never alters the sigil
+✓ Background and border detail that never alters the anchor geometry
 
 FINAL ART DIRECTION:
-Create a finished image where the sigil remains exact and untouched, while the surrounding world feels uniquely shaped by the selected style and the emotional signal of the intention.`;
+Create a finished image where the anchor geometry remains exact and untouched, while the surrounding world feels uniquely shaped by the selected style and the emotional signal of the intention.`;
 }
 
 function normalizeIntention(intention: string): string {

@@ -50,7 +50,9 @@ describe('VisualizationSceneService', () => {
   });
 
   it('accepts one or two concise behavioral sentences', () => {
-    expect(validateVisualizationScene('I notice the moment, choose calmly, and follow through.')).toBe(true);
+    expect(
+      validateVisualizationScene('I notice the moment, choose calmly, and follow through.')
+    ).toBe(true);
     expect(validateVisualizationScene('I pause. I respond with steady attention.')).toBe(true);
   });
 
@@ -73,7 +75,19 @@ describe('VisualizationSceneService', () => {
   });
 
   it('has a valid fallback for every supported category', () => {
-    for (const category of ['desire', 'health', 'career', 'relationships', 'creativity', 'spirituality', 'abundance', 'family', 'learning', 'adventure', 'custom']) {
+    for (const category of [
+      'desire',
+      'health',
+      'career',
+      'relationships',
+      'creativity',
+      'spirituality',
+      'abundance',
+      'family',
+      'learning',
+      'adventure',
+      'custom',
+    ]) {
       const suggestions = buildDeterministicSceneSuggestions({ intention: 'test', category });
       expect(suggestions).toHaveLength(3);
       expect(suggestions.every(validateVisualizationScene)).toBe(true);
@@ -147,7 +161,7 @@ describe('VisualizationSceneService', () => {
       expect(result.suggestions).toEqual(VALID_THREE);
       expect(result.rawCandidateCount).toBe(3);
       expect(result.validCandidateCount).toBe(3);
-      expect(result.model).toBe('gemini-2.0-flash');
+      expect(result.model).toBe('gemini-flash-latest');
     });
 
     it('falls back with insufficient_valid_scenes when two of three validate', async () => {
@@ -217,7 +231,10 @@ describe('VisualizationSceneService', () => {
     });
 
     it('reports malformed_response when output is truncated by the token cap', async () => {
-      mockGenerateContent.mockResolvedValue({ text: '', candidates: [{ finishReason: 'MAX_TOKENS' }] });
+      mockGenerateContent.mockResolvedValue({
+        text: '',
+        candidates: [{ finishReason: 'MAX_TOKENS' }],
+      });
 
       expect((await generate()).fallbackReason).toBe('malformed_response');
     });
@@ -300,7 +317,7 @@ describe('VisualizationSceneService', () => {
       expect(status.providerKeyConfigured).toBe(true);
       expect(JSON.stringify(status)).not.toContain('super-secret-value');
       expect(typeof status.featureEnabled).toBe('boolean');
-      expect(status.model).toBe('gemini-2.0-flash');
+      expect(status.model).toBe('gemini-flash-latest');
       expect(status.modelExplicitlyConfigured).toBe(false);
     });
 

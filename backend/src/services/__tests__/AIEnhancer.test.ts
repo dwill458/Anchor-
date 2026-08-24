@@ -337,7 +337,9 @@ describe('AIEnhancer Service', () => {
       expect(result.styleApplied).toBe('gold_leaf');
       expect(result.variationUrls[0]).toContain('dicebear.com');
       expect(result.prompt).toContain('STRUCTURAL PRESERVATION — ABSOLUTE PRIORITY');
-      expect(result.prompt).toContain('This sigil embodies the intention "I am strong and confident"');
+      expect(result.prompt).toContain(
+        'This anchor embodies the intention "I am strong and confident"'
+      );
       expect(result.controlMethod).toBe('canny');
     });
 
