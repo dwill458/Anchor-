@@ -5,11 +5,13 @@ import {
   deriveIntentionSignal,
   getStyleNegativePrompt,
   getStylePromptDefinition,
+  STYLE_PROMPT_LIBRARY,
 } from '../stylePromptLibrary';
 
 describe('stylePromptLibrary', () => {
   it('uses the canonical backend style ID tuple', () => {
     expect(VALID_AI_STYLES).toBe(AI_STYLE_IDS);
+    expect(VALID_AI_STYLES.length).toBe(20);
   });
 
   it('falls back for inherited object property names', () => {
@@ -19,10 +21,42 @@ describe('stylePromptLibrary', () => {
   });
 
   it('matches intention keywords as words instead of substrings', () => {
-    expect(deriveIntentionSignal('I will start a new routine').theme).toBe('General intention');
-    expect(deriveIntentionSignal('I will create a new routine').theme).toBe(
+    // 'start' should not match 'art'
+    expect(deriveIntentionSignal('I will start today').theme).toBe('General intention');
+    expect(deriveIntentionSignal('I will create art today').theme).toBe('Creativity / expression');
+  });
+
+  it('correctly maps all 7 intention vectors', () => {
+    expect(deriveIntentionSignal('deep work and focus').theme).toBe('Focus / discipline');
+    expect(deriveIntentionSignal('unshakable courage and strength').theme).toBe(
+      'Confidence / courage'
+    );
+    expect(deriveIntentionSignal('expanding financial wealth and growth').theme).toBe(
+      'Abundance / growth'
+    );
+    expect(deriveIntentionSignal('rest, recovery, and quiet reset').theme).toBe('Recovery / reset');
+    expect(deriveIntentionSignal('deep love, connection, and trust').theme).toBe(
+      'Love / relationship'
+    );
+    expect(deriveIntentionSignal('firm boundaries and protection').theme).toBe(
+      'Protection / stability'
+    );
+    expect(deriveIntentionSignal('artistic inspiration and innovation').theme).toBe(
       'Creativity / expression'
     );
+  });
+
+  it('enforces the gold accent constraint and structural preservation in built prompts', () => {
+    const prompt = buildStylePrompt('steady focus', 'architectural_trace', 0);
+
+    expect(prompt).toContain('ANCHOR GEOMETRY IDENTITY:');
+    expect(prompt).toContain('STRUCTURAL PRESERVATION — ABSOLUTE PRIORITY:');
+    expect(prompt).toContain('GOLD ACCENT CONSTRAINT:');
+    expect(prompt).toContain('~15%');
+    expect(prompt).toContain('CENTRED AXIS');
+    expect(prompt).not.toContain('STILLPOINT');
+    expect(prompt).not.toContain('grimoire');
+    expect(prompt).not.toContain('occult');
   });
 
   it('normalizes invalid variation indexes', () => {
@@ -30,5 +64,12 @@ describe('stylePromptLibrary', () => {
 
     expect(prompt).not.toContain('undefined');
     expect(prompt).toContain('Watercolor');
+  });
+
+  it('contains no deprecated STILLPOINT composition family in any style definition', () => {
+    for (const styleId of VALID_AI_STYLES) {
+      const def = STYLE_PROMPT_LIBRARY[styleId];
+      expect(def.compositionFamily).not.toBe('CENTRED STILLPOINT');
+    }
   });
 });
