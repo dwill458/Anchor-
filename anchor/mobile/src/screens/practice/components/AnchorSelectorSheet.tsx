@@ -37,6 +37,18 @@ interface AnchorSelectorSheetProps {
 const FEATURED_AVATAR_SIZE = 64;
 const ROW_AVATAR_SIZE = 54;
 
+// This screen renders category as raw enum text (no shared label map exists
+// yet). Only override the two renamed categories; everything else keeps its
+// existing raw-text-plus-CSS-uppercase behavior.
+const CATEGORY_LABEL_OVERRIDES: Partial<Record<string, string>> = {
+  desire: 'ambition',
+  abundance: 'wealth',
+};
+
+function displayCategory(category: string): string {
+  return CATEGORY_LABEL_OVERRIDES[category] ?? category.replace(/_/g, ' ');
+}
+
 function formatRecency(anchor: Anchor): string | null {
   const ts = Math.max(
     anchor.lastActivatedAt ? new Date(anchor.lastActivatedAt).getTime() : 0,
@@ -201,7 +213,7 @@ interface AnchorRowProps {
 const AnchorRow: React.FC<AnchorRowProps> = React.memo(
   ({ item, selected, isSelecting, nextRitual, onPress }) => {
     const recency = formatRecency(item);
-    const category = item.category ? item.category.replace(/_/g, ' ') : 'Anchor';
+    const category = item.category ? displayCategory(item.category) : 'Anchor';
 
     return (
       <TouchableOpacity
@@ -340,7 +352,7 @@ export const AnchorSelectorSheet: React.FC<AnchorSelectorSheetProps> = ({
   const isSearching = query.trim().length > 0;
   const currentRecency = currentAnchor ? formatRecency(currentAnchor) : null;
   const currentCategory = currentAnchor?.category
-    ? currentAnchor.category.replace(/_/g, ' ')
+    ? displayCategory(currentAnchor.category)
     : 'Anchor';
 
   return (

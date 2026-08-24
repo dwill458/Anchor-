@@ -34,9 +34,14 @@ const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
   wealth: { label: 'Wealth', color: colors.bronze },
   relationships: { label: 'Love', color: colors.deepPurple },
   personal_growth: { label: 'Growth', color: colors.silver },
-  desire: { label: 'Desire', color: colors.coral },
+  desire: { label: 'Ambition', color: colors.coral },
   experience: { label: 'Experience', color: colors.cyan },
   custom: { label: 'Custom', color: colors.text.tertiary },
+  // DEFERRED: this map predates the current AnchorCategory taxonomy and is
+  // missing creativity/spirituality/family/learning/adventure — those fall
+  // back to the Custom badge. 'abundance' added here since it's in scope
+  // for the Desire/Abundance label rename.
+  abundance: { label: 'Wealth', color: colors.bronze },
 };
 
 const AnchorCardComponent: React.FC<AnchorCardProps> = ({

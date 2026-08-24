@@ -31,6 +31,18 @@ import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const THUMB = 48;
 
+// This screen renders category as raw enum text (no shared label map exists
+// yet). Only override the two renamed categories; everything else keeps its
+// existing raw-text-plus-CSS-capitalize behavior.
+const CATEGORY_LABEL_OVERRIDES: Partial<Record<string, string>> = {
+  desire: 'ambition',
+  abundance: 'wealth',
+};
+
+function displayCategory(category: string): string {
+  return CATEGORY_LABEL_OVERRIDES[category] ?? category.replace(/_/g, ' ');
+}
+
 function formatActivationLabel(seconds: number): string {
   if (seconds < 60) return `Activate ${seconds}s`;
   const m = Math.round(seconds / 60);
@@ -124,7 +136,7 @@ export const TodayAnchorCard: React.FC<TodayAnchorCardProps> = ({
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
             <Text style={styles.categoryLabel}>
-              {anchor.category.replace(/_/g, ' ')}
+              {displayCategory(anchor.category)}
             </Text>
             <StreakChip currentStreak={streakCount} />
           </View>

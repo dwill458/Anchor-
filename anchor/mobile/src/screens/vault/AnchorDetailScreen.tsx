@@ -86,9 +86,14 @@ const CATEGORY_LABELS: Record<string, string> = {
   wealth: 'Wealth',
   relationships: 'Love',
   personal_growth: 'Growth',
-  desire: 'Desire',
+  desire: 'Ambition',
   experience: 'Experience',
   custom: 'Custom',
+  // DEFERRED: this map predates the current AnchorCategory taxonomy and is
+  // missing creativity/spirituality/family/learning/adventure — falls back
+  // to the raw category string below. 'abundance' added here since it's
+  // in scope for the Desire/Abundance label rename.
+  abundance: 'Wealth',
 };
 
 const EDITORIAL_MODE_META: Record<string, { label: string; color: string }> = {
