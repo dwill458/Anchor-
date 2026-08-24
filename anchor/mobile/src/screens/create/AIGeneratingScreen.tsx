@@ -24,6 +24,7 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
+  type WithTimingConfig,
 } from 'react-native-reanimated';
 import { Clock, ArrowRight } from 'lucide-react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -114,7 +115,9 @@ const DUR_SWEEP = 1650;   // light sweeps
 const DUR_RESOLVE = 1900; // stroke-by-stroke illumination of the Anchor
 
 const NEVER = ReduceMotion.Never;
-const timing = (duration: number, easing: (value: number) => number) => ({
+type MotionEasing = NonNullable<WithTimingConfig['easing']>;
+
+const timing = (duration: number, easing: MotionEasing): WithTimingConfig => ({
   duration,
   easing,
   reduceMotion: NEVER,
@@ -205,277 +208,304 @@ export default function AIGeneratingScreen() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const generationAttemptRef = useRef<number>(initialGenerationAttempt ?? 1);
 
-  // Animations
-  const haloProgress = useSharedValue(0);
-  const pulseWaveProgress = useSharedValue(0);
-  const heroCoreProgress = useSharedValue(0);
-  const sigilBreathProgress = useSharedValue(0);
-  const sigilFloatProgress = useSharedValue(0);
-  const spinnerProgress = useSharedValue(0);
-  const counterSpinnerProgress = useSharedValue(0);
-  const ringAProgress = useSharedValue(0);
-  const ringBProgress = useSharedValue(0);
-  const ringCProgress = useSharedValue(0);
-  const bgArcRotA = useSharedValue(0);
-  const bgArcRotB = useSharedValue(0);
+  // ── Motion state (Orbital Assembly) ──────────────────────────────────────
+  // One continuous loop only: the Anchor's breath. Everything else is either
+  // stage-triggered or a slow alignment cycle that spends most of its time still.
+  const anchorBreath = useSharedValue(0);      // 1.00 -> 1.025 scale on the glyph
+  const anchorResolve = useSharedValue(0);     // 0 -> 1 stroke-by-stroke illumination
+  const anchorLuma = useSharedValue(0);        // gold intensity, steps up per stage
+  const traceProgress = useSharedValue(0);     // circumference arc draw
+  const sweepProgress = useSharedValue(0);     // light pass across the glyph
+  const ringOuter = useSharedValue(0);         // degrees of alignment offset
+  const ringMid = useSharedValue(0);
+  const ringInner = useSharedValue(0);
+  const fragmentProgress = useSharedValue(0);  // two expressions leaving the Anchor
+  const finalPulse = useSharedValue(0);        // single soft halo on ready
   const progressPercent = useSharedValue(10);
   const statusOpacity = useSharedValue(1);
 
-  // Start continuous loops
+  const hasError = Boolean(errorMessage);
+
+  // ── Ambient loops: the Anchor breathes; the rings make periodic corrections ──
   useEffect(() => {
-    if (reduceMotion) {
-      cancelAnimation(haloProgress);
-      cancelAnimation(pulseWaveProgress);
-      cancelAnimation(heroCoreProgress);
-      cancelAnimation(sigilBreathProgress);
-      cancelAnimation(sigilFloatProgress);
-      cancelAnimation(spinnerProgress);
-      cancelAnimation(counterSpinnerProgress);
-      cancelAnimation(ringAProgress);
-      cancelAnimation(ringBProgress);
-      cancelAnimation(ringCProgress);
-      cancelAnimation(bgArcRotA);
-      cancelAnimation(bgArcRotB);
-      haloProgress.value = 0;
-      pulseWaveProgress.value = 0;
-      heroCoreProgress.value = 0;
-      sigilBreathProgress.value = 0;
-      sigilFloatProgress.value = 0;
-      spinnerProgress.value = 0;
-      counterSpinnerProgress.value = 0;
-      ringAProgress.value = 0;
-      ringBProgress.value = 0;
-      ringCProgress.value = 0;
-      bgArcRotA.value = 0;
-      bgArcRotB.value = 0;
+    const rest = () => {
+      cancelAnimation(anchorBreath);
+      cancelAnimation(ringOuter);
+      cancelAnimation(ringMid);
+      cancelAnimation(ringInner);
+      anchorBreath.value = 0;
+      ringOuter.value = 0;
+      ringMid.value = 0;
+      ringInner.value = 0;
+    };
+
+    if (reduceMotion || hasError) {
+      rest();
       return;
     }
 
-    // 1. Radiant Halo Breathing Pulse
-    haloProgress.value = withRepeat(
+    // Anchor breath — the only perpetual motion on the screen.
+    anchorBreath.value = withRepeat(
       withSequence(
-        withTiming(1, { duration: 2200, easing: Easing.inOut(Easing.ease), reduceMotion: ReduceMotion.Never }),
-        withTiming(0, { duration: 2200, easing: Easing.inOut(Easing.ease), reduceMotion: ReduceMotion.Never })
+        withTiming(1, timing(3200, Easing.inOut(Easing.sin))),
+        withTiming(0, timing(3200, Easing.inOut(Easing.sin)))
       ),
       -1,
       false,
       undefined,
-      ReduceMotion.Never
+      NEVER
     );
 
-    // 2. Expanding Energy Ripple Wave
-    pulseWaveProgress.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 2400, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.Never }),
-        withTiming(0, { duration: 0, reduceMotion: ReduceMotion.Never })
-      ),
-      -1,
-      false,
-      undefined,
-      ReduceMotion.Never
-    );
+    // Ring alignment: drift a few degrees, dwell, then ease back into true.
+    // Long dwells keep the composition still far more often than it moves.
+    const alignmentCycle = (degrees: number, delay: number) =>
+      withDelay(
+        delay,
+        withRepeat(
+          withSequence(
+            withTiming(degrees, timing(DUR_ALIGN, EASE_ADJUST)),
+            withDelay(900, withTiming(0, timing(1600, EASE_SETTLE))),
+            withDelay(2400, withTiming(0, timing(0, EASE_SETTLE)))
+          ),
+          -1,
+          false,
+          undefined,
+          NEVER
+        )
+      );
 
-    // 3. Hero Core Breathing Pulse & Glow
-    heroCoreProgress.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.sin), reduceMotion: ReduceMotion.Never }),
-        withTiming(0, { duration: 2000, easing: Easing.inOut(Easing.sin), reduceMotion: ReduceMotion.Never })
-      ),
-      -1,
-      false,
-      undefined,
-      ReduceMotion.Never
-    );
+    ringOuter.value = alignmentCycle(10, 0);
+    ringMid.value = alignmentCycle(-6, 420);
+    ringInner.value = alignmentCycle(3, 840);
 
-    // 4. Central Anchor Sigil Breathing Pulse & Levitation Float
-    sigilBreathProgress.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 2200, easing: Easing.inOut(Easing.sin), reduceMotion: ReduceMotion.Never }),
-        withTiming(0, { duration: 2200, easing: Easing.inOut(Easing.sin), reduceMotion: ReduceMotion.Never })
-      ),
-      -1,
-      false,
-      undefined,
-      ReduceMotion.Never
-    );
+    return rest;
+  }, [reduceMotion, hasError]);
 
-    sigilFloatProgress.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 2600, easing: Easing.inOut(Easing.sin), reduceMotion: ReduceMotion.Never }),
-        withTiming(0, { duration: 2600, easing: Easing.inOut(Easing.sin), reduceMotion: ReduceMotion.Never })
-      ),
-      -1,
-      false,
-      undefined,
-      ReduceMotion.Never
-    );
+  // ── Stage choreography ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (hasError) {
+      cancelAnimation(sweepProgress);
+      cancelAnimation(finalPulse);
+      sweepProgress.value = 0;
+      finalPulse.value = 0;
+      return;
+    }
 
-    // 5. Primary Fast Spinning Radiant Glow Arc (1800ms)
-    spinnerProgress.value = withRepeat(
-      withTiming(1, { duration: 1800, easing: Easing.linear, reduceMotion: ReduceMotion.Never }),
-      -1,
-      false,
-      undefined,
-      ReduceMotion.Never
-    );
+    // Under reduce motion every stage lands instantly in its resolved pose.
+    const instant = (value: number) => withTiming(value, timing(0, EASE_SETTLE));
 
-    // 6. Counter-Spinning Orbital Nodes (-7000ms)
-    counterSpinnerProgress.value = withRepeat(
-      withTiming(-1, { duration: 7000, easing: Easing.linear, reduceMotion: ReduceMotion.Never }),
-      -1,
-      false,
-      undefined,
-      ReduceMotion.Never
-    );
-
-    // 7. Concentric Celestial Rings
-    ringAProgress.value = withRepeat(
-      withTiming(-1, { duration: 24000, easing: Easing.linear, reduceMotion: ReduceMotion.Never }),
-      -1,
-      false,
-      undefined,
-      ReduceMotion.Never
-    );
-    ringBProgress.value = withRepeat(
-      withTiming(1, { duration: 34000, easing: Easing.linear, reduceMotion: ReduceMotion.Never }),
-      -1,
-      false,
-      undefined,
-      ReduceMotion.Never
-    );
-    ringCProgress.value = withRepeat(
-      withTiming(-1, { duration: 46000, easing: Easing.linear, reduceMotion: ReduceMotion.Never }),
-      -1,
-      false,
-      undefined,
-      ReduceMotion.Never
-    );
-
-    // 8. Ambient background arcs
-    bgArcRotA.value = withRepeat(
-      withTiming(1, { duration: 220000, easing: Easing.linear, reduceMotion: ReduceMotion.Never }),
-      -1,
-      false,
-      undefined,
-      ReduceMotion.Never
-    );
-    bgArcRotB.value = withRepeat(
-      withTiming(-1, { duration: 260000, easing: Easing.linear, reduceMotion: ReduceMotion.Never }),
-      -1,
-      false,
-      undefined,
-      ReduceMotion.Never
-    );
-
-    return () => {
-      cancelAnimation(haloProgress);
-      cancelAnimation(pulseWaveProgress);
-      cancelAnimation(heroCoreProgress);
-      cancelAnimation(sigilBreathProgress);
-      cancelAnimation(sigilFloatProgress);
-      cancelAnimation(spinnerProgress);
-      cancelAnimation(counterSpinnerProgress);
-      cancelAnimation(ringAProgress);
-      cancelAnimation(ringBProgress);
-      cancelAnimation(ringCProgress);
-      cancelAnimation(bgArcRotA);
-      cancelAnimation(bgArcRotB);
+    const lightPass = (duration: number) => {
+      if (reduceMotion) return;
+      sweepProgress.value = 0;
+      sweepProgress.value = withTiming(1, timing(duration, EASE_SWEEP));
     };
-  }, [reduceMotion]);
 
+    switch (stage) {
+      // Phase 1 — Preparing Structure: a single thin arc traces the rim while
+      // the Anchor illuminates from the top down. Almost nothing else moves.
+      case 'preparing': {
+        cancelAnimation(sweepProgress);
+        sweepProgress.value = 0;
+        finalPulse.value = 0;
+        if (reduceMotion) {
+          traceProgress.value = 0.62;
+          anchorResolve.value = 1;
+          anchorLuma.value = 0.5;
+          fragmentProgress.value = 0;
+          break;
+        }
+        traceProgress.value = 0;
+        anchorResolve.value = 0;
+        anchorLuma.value = 0;
+        fragmentProgress.value = 0;
+        traceProgress.value = withTiming(0.62, timing(1700, EASE_SETTLE));
+        anchorResolve.value = withDelay(220, withTiming(1, timing(DUR_RESOLVE, EASE_ADJUST)));
+        anchorLuma.value = withDelay(220, withTiming(0.5, timing(1500, EASE_ADJUST)));
+        break;
+      }
+
+      // Phase 2 — Applying Style: the rings correct themselves (ambient loop)
+      // and one soft light pass crosses the Anchor. Refinement, not spinning.
+      case 'applying': {
+        anchorLuma.value = reduceMotion ? instant(0.72) : withTiming(0.72, timing(DUR_MICRO, EASE_ADJUST));
+        traceProgress.value = reduceMotion ? instant(0.82) : withTiming(0.82, timing(DUR_ALIGN, EASE_SETTLE));
+        lightPass(DUR_SWEEP);
+        break;
+      }
+
+      // Phase 3 — Creating Expressions: two fragments leave the Anchor and
+      // travel outward, hinting at the two expressions about to arrive.
+      case 'creating': {
+        anchorLuma.value = reduceMotion ? instant(0.85) : withTiming(0.85, timing(DUR_MICRO, EASE_ADJUST));
+        fragmentProgress.value = reduceMotion
+          ? instant(1)
+          : withDelay(260, withTiming(1, timing(1500, EASE_SETTLE)));
+        break;
+      }
+
+      case 'finalizing': {
+        anchorLuma.value = reduceMotion ? instant(0.93) : withTiming(0.93, timing(DUR_STAGE, EASE_ADJUST));
+        traceProgress.value = reduceMotion ? instant(0.94) : withTiming(0.94, timing(900, EASE_SETTLE));
+        break;
+      }
+
+      // Final state — Ready: rings lock into alignment, the arc closes, the
+      // Anchor reaches full luminance, and one small halo expands just once.
+      case 'ready': {
+        anchorLuma.value = reduceMotion ? instant(1) : withTiming(1, timing(520, EASE_SETTLE));
+        traceProgress.value = reduceMotion ? instant(1) : withTiming(1, timing(620, EASE_SETTLE));
+        if (reduceMotion) break;
+        cancelAnimation(ringOuter);
+        cancelAnimation(ringMid);
+        cancelAnimation(ringInner);
+        ringOuter.value = withTiming(0, timing(900, EASE_SETTLE));
+        ringMid.value = withTiming(0, timing(900, EASE_SETTLE));
+        ringInner.value = withTiming(0, timing(900, EASE_SETTLE));
+        finalPulse.value = 0;
+        finalPulse.value = withTiming(1, timing(900, EASE_SETTLE));
+        lightPass(1400);
+        break;
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, hasError, reduceMotion]);
+
+  // ── Derived styles ──────────────────────────────────────────────────────
+
+  // Quiet ambient halo. No scale pulse — it only tracks the Anchor's intensity.
   const animatedHaloStyle = useAnimatedStyle(() => {
     if (reduceMotion) {
-      return {
-        transform: [{ scale: 1.0 }],
-        opacity: 0.65,
-      };
+      return { opacity: 0.7 };
+    }
+    return { opacity: 0.3 + anchorLuma.value * 0.45 + anchorBreath.value * 0.06 };
+  });
+
+  // The one halo of the whole sequence — a single small expansion on ready.
+  const animatedFinalPulseStyle = useAnimatedStyle(() => {
+    const progress = finalPulse.value;
+    if (progress <= 0) {
+      return { opacity: 0, transform: [{ scale: 1 }] };
     }
     return {
-      transform: [{ scale: 1.0 + haloProgress.value * 0.18 }],
-      opacity: 0.60 + haloProgress.value * 0.40,
+      opacity: interpolate(progress, [0, 0.18, 1], [0, 0.3, 0], 'clamp'),
+      transform: [{ scale: 1 + progress * 0.055 }],
     };
   });
 
-  const animatedPulseWaveStyle = useAnimatedStyle(() => {
+  const animatedRingOuterStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${ringOuter.value}deg` }],
+  }));
+
+  const animatedRingMidStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${ringMid.value}deg` }],
+  }));
+
+  const animatedRingInnerStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${ringInner.value}deg` }],
+  }));
+
+  // The trace arc is bright while it draws, then recedes so the Anchor leads.
+  const animatedTraceStyle = useAnimatedStyle(() => {
     if (reduceMotion) {
-      return {
-        transform: [{ scale: 1.0 }],
-        opacity: 0,
-      };
+      return { opacity: 0.45 };
+    }
+    return { opacity: 0.85 - anchorLuma.value * 0.4 };
+  });
+
+  const traceAnimatedProps = useAnimatedProps(() => ({
+    strokeDashoffset: traceCircumference * (1 - (reduceMotion ? 0.62 : traceProgress.value)),
+  }));
+
+  // Anchor: subtle breath only — 1.00 to 1.025.
+  const animatedAnchorStyle = useAnimatedStyle(() => {
+    if (reduceMotion) {
+      return { transform: [{ scale: 1 }] };
+    }
+    return { transform: [{ scale: 1 + anchorBreath.value * 0.025 }] };
+  });
+
+  // Illuminated copy of the glyph, revealed top-down so strokes light in sequence.
+  const animatedAnchorRevealStyle = useAnimatedStyle(() => {
+    if (reduceMotion) {
+      return { height: sigilSize, opacity: 1 };
     }
     return {
-      transform: [{ scale: 0.88 + pulseWaveProgress.value * 0.56 }],
-      opacity: (1 - pulseWaveProgress.value) * 0.65,
+      height: sigilSize * anchorResolve.value,
+      opacity: 0.5 + anchorLuma.value * 0.5,
     };
   });
 
-  const animatedHeroCoreStyle = useAnimatedStyle(() => {
+  // A hairline of light riding the illumination edge as it descends.
+  const animatedRevealEdgeStyle = useAnimatedStyle(() => {
     if (reduceMotion) {
-      return {
-        transform: [{ scale: 1.0 }],
-        shadowOpacity: 0.45,
-        shadowRadius: 32,
-      };
+      return { opacity: 0, transform: [{ translateY: sigilSize }] };
     }
+    const progress = anchorResolve.value;
     return {
-      transform: [{ scale: 0.97 + heroCoreProgress.value * 0.07 }],
-      shadowOpacity: 0.35 + heroCoreProgress.value * 0.45,
-      shadowRadius: 20 + heroCoreProgress.value * 22,
+      opacity: Math.min(progress * 6, 1) * (1 - progress) * 0.9,
+      transform: [{ translateY: sigilSize * progress }],
     };
   });
 
-  const animatedSigilStyle = useAnimatedStyle(() => {
-    if (reduceMotion) {
-      return {
-        transform: [{ scale: 1.0 }, { translateY: 0 }],
-        opacity: 1.0,
-      };
+  const animatedSweepStyle = useAnimatedStyle(() => {
+    const progress = sweepProgress.value;
+    if (reduceMotion || progress <= 0 || progress >= 1) {
+      return { opacity: 0, transform: [{ translateX: -sweepTravel }, { rotate: '18deg' }] };
     }
     return {
+      opacity: interpolate(progress, [0, 0.22, 0.78, 1], [0, 1, 1, 0], 'clamp'),
       transform: [
-        { scale: 0.94 + sigilBreathProgress.value * 0.12 },
-        { translateY: (sigilFloatProgress.value - 0.5) * 6 },
+        { translateX: interpolate(progress, [0, 1], [-sweepTravel, sweepTravel]) },
+        { rotate: '18deg' },
       ],
-      opacity: 0.82 + sigilBreathProgress.value * 0.18,
     };
   });
 
-  const animatedRingAStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${ringAProgress.value * 360}deg` }],
-  }));
-
-  const animatedRingBStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${ringBProgress.value * 360}deg` }],
-  }));
-
-  const animatedRingCStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${ringCProgress.value * 360}deg` }],
-  }));
-
-  const animatedSpinnerStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${spinnerProgress.value * 360}deg` }],
-  }));
-
-  const animatedSpinnerGlowStyle = useAnimatedStyle(() => {
+  // Glow is reserved for the Anchor and rises only as it resolves.
+  const animatedHeroCircleStyle = useAnimatedStyle(() => {
     if (reduceMotion) {
-      return { opacity: 0.8 };
+      return { shadowOpacity: 0.28, shadowRadius: 24 };
     }
     return {
-      opacity: 0.65 + heroCoreProgress.value * 0.35,
+      shadowOpacity: 0.08 + anchorLuma.value * 0.3,
+      shadowRadius: 12 + anchorLuma.value * 18,
     };
   });
 
-  const animatedCounterSpinnerStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${counterSpinnerProgress.value * 360}deg` }],
+  const animatedHeroRimStyle = useAnimatedStyle(() => ({
+    opacity: reduceMotion ? 0.5 : 0.14 + anchorLuma.value * 0.5,
   }));
 
-  const animatedBgArcAStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${bgArcRotA.value * 360}deg` }],
-  }));
+  // Phase 3 fragments: x eases outward while y bows upward, giving a curved path.
+  const animatedFragmentLeftStyle = useAnimatedStyle(() => {
+    const progress = fragmentProgress.value;
+    if (progress <= 0) {
+      return { opacity: 0, transform: [{ translateX: 0 }, { translateY: 0 }, { scale: 0.4 }] };
+    }
+    return {
+      opacity: interpolate(progress, [0, 0.16, 0.7, 1], [0, 0.9, 0.72, 0.5], 'clamp'),
+      transform: [
+        { translateX: -fragmentTargetX * progress },
+        { translateY: fragmentTargetY * progress - Math.sin(progress * Math.PI) * fragmentLift },
+        { scale: interpolate(progress, [0, 0.25, 1], [0.4, 1, 0.78], 'clamp') },
+      ],
+    };
+  });
 
-  const animatedBgArcBStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${bgArcRotB.value * 360}deg` }],
-  }));
+  const animatedFragmentRightStyle = useAnimatedStyle(() => {
+    const progress = fragmentProgress.value;
+    if (progress <= 0) {
+      return { opacity: 0, transform: [{ translateX: 0 }, { translateY: 0 }, { scale: 0.4 }] };
+    }
+    return {
+      opacity: interpolate(progress, [0, 0.16, 0.7, 1], [0, 0.9, 0.72, 0.5], 'clamp'),
+      transform: [
+        { translateX: fragmentTargetX * progress },
+        { translateY: fragmentTargetY * progress - Math.sin(progress * Math.PI) * fragmentLift },
+        { scale: interpolate(progress, [0, 0.25, 1], [0.4, 1, 0.78], 'clamp') },
+      ],
+    };
+  });
 
   const animatedProgressStyle = useAnimatedStyle(() => ({
     width: `${progressPercent.value}%`,
@@ -698,7 +728,9 @@ export default function AIGeneratingScreen() {
               typeof result.generationTime === 'number' ? result.generationTime * 1000 : 0,
             reuseRequestId: result.reuseRequestId || '',
           });
-        }, 700);
+          // Hold on the resolved Anchor long enough for the closing halo and
+          // final light pass to finish before handing off to the picker.
+        }, reduceMotion ? 500 : 1300);
       }, 500);
     } catch (error) {
       trace.stop({ success: false });
@@ -756,6 +788,7 @@ export default function AIGeneratingScreen() {
     progressPercent,
     reinforcementMetadata,
     reinforcedSigilSvg,
+    reduceMotion,
     setStageWithAnim,
     structureVariant,
     styleChoice,
@@ -800,7 +833,27 @@ export default function AIGeneratingScreen() {
   };
 
   const statusText = STAGE_LABELS[stage];
-  const isError = Boolean(errorMessage);
+  const isError = hasError;
+
+  // The Anchor is rendered twice: a faint blueprint copy and an illuminated
+  // copy that is revealed progressively, so strokes appear to light in sequence.
+  const renderGlyph = (glyphColor: string) =>
+    baseSigilSvg || reinforcedSigilSvg ? (
+      <SigilSvg
+        xml={reinforcedSigilSvg || baseSigilSvg}
+        width={sigilSize}
+        height={sigilSize}
+        color={glyphColor}
+      />
+    ) : (
+      <StructureHeroGlyph
+        id={structureId}
+        size={sigilSize}
+        color={glyphColor}
+        accent={colors.anchor15.giltBright}
+        strokes={flowDraft?.drawingStrokes}
+      />
+    );
 
   return (
     <View style={styles.container}>
@@ -818,9 +871,9 @@ export default function AIGeneratingScreen() {
         {/* Bottom Amethyst Aura */}
         <View style={styles.amethystAura} />
 
-        {/* Animated Background Arcs */}
-        <Animated.View style={[styles.bgArc, styles.bgArcA, animatedBgArcAStyle]} />
-        <Animated.View style={[styles.bgArc, styles.bgArcB, animatedBgArcBStyle]} />
+        {/* Static background arcs -- structure, not motion. */}
+        <View style={[styles.bgArc, styles.bgArcA]} />
+        <View style={[styles.bgArc, styles.bgArcB]} />
       </View>
 
       <SafeAreaView style={styles.safeArea}>
@@ -836,58 +889,44 @@ export default function AIGeneratingScreen() {
 
           {/* ── Structure Hero ── */}
           <View style={[styles.hero, { width: heroSize, height: heroSize }]}>
-            {/* Outer Ambient Breathing Halo */}
+            {/* Quiet ambient halo — no bloom, no pulse. It only tracks intensity. */}
             {!isError ? (
               <Animated.View
                 style={[
-                  styles.heroHaloOuter,
+                  styles.heroHaloQuiet,
                   {
-                    width: heroOuterHaloSize,
-                    height: heroOuterHaloSize,
-                    borderRadius: heroOuterHaloSize / 2,
+                    width: heroHaloSize,
+                    height: heroHaloSize,
+                    borderRadius: heroHaloSize / 2,
                   },
                   animatedHaloStyle,
                 ]}
               />
             ) : null}
 
-            {/* Inner Vibrant Glowing Halo */}
+            {/* Single closing halo — expands slightly, once, when ready. */}
             {!isError ? (
               <Animated.View
                 style={[
-                  styles.heroHaloInner,
+                  styles.heroFinalPulse,
                   {
-                    width: heroInnerHaloSize,
-                    height: heroInnerHaloSize,
-                    borderRadius: heroInnerHaloSize / 2,
+                    width: heroHaloSize,
+                    height: heroHaloSize,
+                    borderRadius: heroHaloSize / 2,
                   },
-                  animatedHaloStyle,
+                  animatedFinalPulseStyle,
                 ]}
+                pointerEvents="none"
               />
             ) : null}
 
-            {/* Expanding Pulsing Energy Wave */}
-            {!isError ? (
-              <Animated.View
-                style={[
-                  styles.heroPulseWave,
-                  {
-                    width: heroPulseWaveSize,
-                    height: heroPulseWaveSize,
-                    borderRadius: heroPulseWaveSize / 2,
-                  },
-                  animatedPulseWaveStyle,
-                ]}
-              />
-            ) : null}
-
-            {/* Outer Celestial Ring (Slow Counter-Clockwise) */}
+            {/* Outer alignment ring — drifts ~10°, then eases back into true. */}
             <Animated.View
               style={[
                 styles.heroLayer,
                 { width: heroSize, height: heroSize },
                 isError && styles.heroRingDim,
-                animatedRingCStyle,
+                animatedRingOuterStyle,
               ]}
             >
               <Svg width={heroSize} height={heroSize} viewBox={`0 0 ${heroSize} ${heroSize}`}>
@@ -899,18 +938,18 @@ export default function AIGeneratingScreen() {
                   strokeWidth="1"
                   strokeDasharray="4,12"
                   fill="none"
-                  opacity={0.16}
+                  opacity={0.14}
                 />
               </Svg>
             </Animated.View>
 
-            {/* Concentric Rotating Dashed Ring B */}
+            {/* Middle alignment ring — counter-drifts ~6°. */}
             <Animated.View
               style={[
                 styles.heroLayer,
                 { width: heroSize, height: heroSize },
                 isError && styles.heroRingDim,
-                animatedRingBStyle,
+                animatedRingMidStyle,
               ]}
             >
               <Svg width={heroSize} height={heroSize} viewBox={`0 0 ${heroSize} ${heroSize}`}>
@@ -922,18 +961,18 @@ export default function AIGeneratingScreen() {
                   strokeWidth="1"
                   strokeDasharray="6,8"
                   fill="none"
-                  opacity={0.22}
+                  opacity={0.18}
                 />
               </Svg>
             </Animated.View>
 
-            {/* Concentric Rotating Dashed Ring A */}
+            {/* Inner alignment ring — the smallest correction, ~3°. */}
             <Animated.View
               style={[
                 styles.heroLayer,
                 { width: heroSize, height: heroSize },
                 isError && styles.heroRingDim,
-                animatedRingAStyle,
+                animatedRingInnerStyle,
               ]}
             >
               <Svg width={heroSize} height={heroSize} viewBox={`0 0 ${heroSize} ${heroSize}`}>
@@ -945,101 +984,52 @@ export default function AIGeneratingScreen() {
                   strokeWidth="1"
                   strokeDasharray="8,8"
                   fill="none"
-                  opacity={0.28}
+                  opacity={0.22}
                 />
               </Svg>
             </Animated.View>
 
-            {/* Counter-Spinning Orbital Nodes */}
+            {/* Phase 1 — a single thin gold arc drawn around the rim. It never
+                rotates; it is drawn once and then recedes behind the Anchor. */}
             {!isError ? (
               <Animated.View
                 style={[
                   styles.heroLayer,
                   { width: heroSize, height: heroSize },
-                  animatedCounterSpinnerStyle,
+                  animatedTraceStyle,
                 ]}
               >
                 <Svg width={heroSize} height={heroSize} viewBox={`0 0 ${heroSize} ${heroSize}`}>
-                  <Circle
-                    cx={heroCenter}
-                    cy={heroCenter - heroOrbitalRadius}
-                    r={3.5}
-                    fill={colors.anchor15.giltBright}
-                    opacity={0.85}
-                  />
-                  <Circle
-                    cx={heroCenter + heroOrbitalRadius}
-                    cy={heroCenter}
-                    r={2.5}
-                    fill={colors.anchor15.gilt}
-                    opacity={0.65}
-                  />
-                  <Circle
-                    cx={heroCenter}
-                    cy={heroCenter + heroOrbitalRadius}
-                    r={3.5}
-                    fill={colors.anchor15.giltBright}
-                    opacity={0.85}
-                  />
-                  <Circle
-                    cx={heroCenter - heroOrbitalRadius}
-                    cy={heroCenter}
-                    r={2.5}
-                    fill={colors.anchor15.gilt}
-                    opacity={0.65}
-                  />
-                </Svg>
-              </Animated.View>
-            ) : null}
-
-            {/* Fast Spinning Radiant Glow Arc */}
-            {!isError ? (
-              <Animated.View
-                style={[
-                  styles.heroLayer,
-                  styles.heroSpinnerShadow,
-                  { width: heroSize, height: heroSize },
-                  animatedSpinnerGlowStyle,
-                  animatedSpinnerStyle,
-                ]}
-              >
-                <Svg width={heroSize} height={heroSize} viewBox={`0 0 ${heroSize} ${heroSize}`}>
-                  <Defs>
-                    <SvgLinearGradient id="heroSpinnerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <Stop offset="0%" stopColor={colors.anchor15.giltBright} stopOpacity="0" />
-                      <Stop offset="50%" stopColor={colors.anchor15.gilt} stopOpacity="0.7" />
-                      <Stop offset="100%" stopColor="#FFFFFF" stopOpacity="1" />
-                    </SvgLinearGradient>
-                  </Defs>
-                  <Circle
+                  <AnimatedCircle
                     cx={heroCenter}
                     cy={heroCenter}
-                    r={heroSpinnerRadius}
-                    stroke="url(#heroSpinnerGradient)"
-                    strokeWidth="3.5"
+                    r={traceRadius}
+                    stroke={colors.anchor15.gilt}
+                    strokeWidth="1.6"
                     strokeLinecap="round"
-                    strokeDasharray={spinnerDashArray}
+                    strokeDasharray={traceCircumference}
                     fill="none"
-                  />
-                  {/* Glowing Leading Head Pip */}
-                  <Circle
-                    cx={heroCenter + heroSpinnerRadius}
-                    cy={heroCenter}
-                    r={4}
-                    fill="#FFFFFF"
-                  />
-                  <Circle
-                    cx={heroCenter + heroSpinnerRadius}
-                    cy={heroCenter}
-                    r={7}
-                    fill={colors.anchor15.giltBright}
-                    opacity={0.4}
+                    rotation="-90"
+                    origin={`${heroCenter}, ${heroCenter}`}
+                    animatedProps={traceAnimatedProps}
                   />
                 </Svg>
               </Animated.View>
             ) : null}
 
-            {/* Hero Center Pulsing & Glowing Orb */}
+            {/* Phase 3 — two fragments leave the Anchor on curved paths, hinting
+                at the two expressions about to be revealed. */}
+            {!isError ? (
+              <View
+                style={[styles.heroLayer, { width: heroSize, height: heroSize }]}
+                pointerEvents="none"
+              >
+                <Animated.View style={[styles.fragmentDot, animatedFragmentLeftStyle]} />
+                <Animated.View style={[styles.fragmentDot, animatedFragmentRightStyle]} />
+              </View>
+            ) : null}
+
+            {/* Hero core — the Anchor and its containing disc. */}
             <Animated.View
               style={[
                 styles.heroCircle,
@@ -1048,31 +1038,87 @@ export default function AIGeneratingScreen() {
                   height: heroCircleSize,
                   borderRadius: heroCircleSize / 2,
                 },
-                !isError && animatedHeroCoreStyle,
+                !isError && animatedHeroCircleStyle,
                 stage === 'ready' && styles.heroCircleReady,
                 isError && styles.heroCircleError,
               ]}
             >
-              {/* Inner ambient glow layer */}
-              <View style={[styles.heroCircleInnerGlow, { borderRadius: heroCircleSize / 2 }]} />
+              {/* Rim brightens with the Anchor rather than glowing constantly. */}
+              <Animated.View
+                style={[
+                  styles.heroRim,
+                  { borderRadius: heroCircleSize / 2 },
+                  !isError && animatedHeroRimStyle,
+                ]}
+                pointerEvents="none"
+              />
 
-              <Animated.View style={animatedSigilStyle}>
-                {baseSigilSvg || reinforcedSigilSvg ? (
-                  <SigilSvg
-                    xml={reinforcedSigilSvg || baseSigilSvg}
-                    width={sigilSize}
-                    height={sigilSize}
-                    color={colors.anchor15.gilt}
-                  />
-                ) : (
-                  <StructureHeroGlyph
-                    id={structureId}
-                    size={sigilSize}
-                    color={colors.anchor15.gilt}
-                    accent={colors.anchor15.giltBright}
-                    strokes={flowDraft?.drawingStrokes}
-                  />
-                )}
+              <Animated.View
+                style={[styles.anchorStage, { width: sigilSize, height: sigilSize }, animatedAnchorStyle]}
+              >
+                {/* Blueprint layer: the unresolved structure, always faintly present. */}
+                <View style={styles.anchorGhost} pointerEvents="none">
+                  {renderGlyph(colors.anchor15.gilt)}
+                </View>
+
+                {/* Illuminated layer, revealed top-down as the Anchor resolves. */}
+                <Animated.View
+                  style={[styles.anchorReveal, { width: sigilSize }, animatedAnchorRevealStyle]}
+                  pointerEvents="none"
+                >
+                  <View style={[styles.anchorRevealInner, { width: sigilSize, height: sigilSize }]}>
+                    {renderGlyph(colors.anchor15.giltBright)}
+                  </View>
+                </Animated.View>
+
+                {/* Hairline of light riding the illumination edge. */}
+                {!isError ? (
+                  <Animated.View
+                    style={[styles.anchorRevealEdge, { width: sigilSize }, animatedRevealEdgeStyle]}
+                    pointerEvents="none"
+                  >
+                    <LinearGradient
+                      colors={[
+                        'rgba(242, 223, 168, 0)',
+                        'rgba(242, 223, 168, 0.75)',
+                        'rgba(242, 223, 168, 0)',
+                      ]}
+                      start={{ x: 0, y: 0.5 }}
+                      end={{ x: 1, y: 0.5 }}
+                      style={StyleSheet.absoluteFill}
+                    />
+                  </Animated.View>
+                ) : null}
+
+                {/* Light pass — a single refined sweep, used sparingly. */}
+                {!isError ? (
+                  <Animated.View
+                    style={[
+                      styles.anchorSweep,
+                      {
+                        width: sweepBandWidth,
+                        height: sigilSize * 2,
+                        top: -sigilSize * 0.5,
+                        left: (sigilSize - sweepBandWidth) / 2,
+                      },
+                      animatedSweepStyle,
+                    ]}
+                    pointerEvents="none"
+                  >
+                    <LinearGradient
+                      colors={[
+                        'rgba(246, 226, 148, 0)',
+                        'rgba(246, 226, 148, 0.22)',
+                        'rgba(255, 255, 255, 0.30)',
+                        'rgba(246, 226, 148, 0.22)',
+                        'rgba(246, 226, 148, 0)',
+                      ]}
+                      start={{ x: 0, y: 0.5 }}
+                      end={{ x: 1, y: 0.5 }}
+                      style={StyleSheet.absoluteFill}
+                    />
+                  </Animated.View>
+                ) : null}
               </Animated.View>
             </Animated.View>
           </View>
@@ -1270,19 +1316,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  heroHaloOuter: {
+  heroHaloQuiet: {
     position: 'absolute',
-    backgroundColor: 'rgba(217, 179, 108, 0.08)',
+    backgroundColor: 'rgba(217, 179, 108, 0.05)',
   },
-  heroHaloInner: {
+  heroFinalPulse: {
     position: 'absolute',
-    backgroundColor: 'rgba(217, 179, 108, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(242, 223, 168, 0.55)',
   },
-  heroPulseWave: {
+  fragmentDot: {
     position: 'absolute',
-    borderWidth: 1.5,
-    borderColor: 'rgba(217, 179, 108, 0.45)',
-    backgroundColor: 'rgba(217, 179, 108, 0.06)',
+    width: 3.5,
+    height: 3.5,
+    borderRadius: 2,
+    backgroundColor: colors.anchor15.giltBright,
   },
   heroLayer: {
     position: 'absolute',
@@ -1294,12 +1342,6 @@ const styles = StyleSheet.create({
   heroRingDim: {
     opacity: 0.4,
   },
-  heroSpinnerShadow: {
-    shadowColor: colors.anchor15.giltBright,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.7,
-    shadowRadius: 20,
-  },
   heroCircle: {
     position: 'relative',
     borderWidth: 1.5,
@@ -1309,22 +1351,51 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     shadowColor: colors.anchor15.giltBright,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.45,
-    shadowRadius: 32,
-    elevation: 12,
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 8,
     overflow: 'hidden',
   },
-  heroCircleInnerGlow: {
+  heroRim: {
     ...StyleSheet.absoluteFillObject,
     borderWidth: 1,
-    borderColor: 'rgba(246, 226, 148, 0.18)',
-    backgroundColor: 'rgba(217, 179, 108, 0.04)',
+    borderColor: 'rgba(246, 226, 148, 0.5)',
   },
   heroCircleReady: {
     borderColor: colors.anchor15.giltBright,
     shadowColor: colors.anchor15.giltBright,
-    shadowOpacity: 0.85,
-    shadowRadius: 48,
+    shadowOpacity: 0.5,
+    shadowRadius: 34,
+  },
+
+  // -- Anchor glyph stage --
+  anchorStage: {
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  anchorGhost: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.22,
+  },
+  anchorReveal: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    overflow: 'hidden',
+  },
+  anchorRevealInner: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
+  anchorRevealEdge: {
+    position: 'absolute',
+    top: -1,
+    left: 0,
+    height: 1.5,
+  },
+  anchorSweep: {
+    position: 'absolute',
   },
   heroCircleError: {
     opacity: 0.5,

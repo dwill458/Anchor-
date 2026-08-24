@@ -17,6 +17,7 @@
 import React, {
   useCallback,
   useEffect,
+  useMemo,
   useState,
 } from 'react';
 import {
@@ -55,6 +56,12 @@ import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { usePracticeEntry } from '@/hooks/usePracticeEntry';
 import { useWeeklyReview, MAX_WEEK_OFFSET, type WeeklyReviewData } from '@/hooks/useWeeklyReview';
 import { canViewChart, type CourseDetail, type WaypointSummary } from '@/types/chart';
+import {
+  WeaveCanvas,
+  buildWeaveGeometry,
+  WEAVE_PLOT_PADDING,
+  type WeaveNode,
+} from '@/screens/weave';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 
@@ -364,39 +371,6 @@ function ThreadStrengthBlock({
 
 // ─── 7-day Weave chart ────────────────────────────────────────────────────────
 
-function buildWeavePath(
-  days: WeeklyReviewData['days'],
-  mode: PracticeMode,
-  chartW: number,
-  chartH: number,
-  modeIndex: number,
-  totalModes: number,
-): string {
-  const centerY = chartH / 2;
-  const amplitude = (chartH / 2 - 12) / totalModes;
-  const baseY = centerY + (modeIndex - (totalModes - 1) / 2) * (amplitude * 0.9);
-  const stepX = chartW / 6;
-
-  const points = days.map((day, i) => {
-    const activity = Math.min(1, day.byMode[mode] / 3);
-    const swing = activity * amplitude * 0.85;
-    const sign = i % 2 === 0 ? 1 : -1;
-    return { x: i * stepX, y: baseY + sign * swing };
-  });
-
-  if (points.length === 0) return '';
-
-  // Build smooth bezier curve through points
-  let d = `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
-  for (let i = 1; i < points.length; i++) {
-    const prev = points[i - 1];
-    const curr = points[i];
-    const cpX = (prev.x + curr.x) / 2;
-    d += ` C ${cpX.toFixed(1)} ${prev.y.toFixed(1)}, ${cpX.toFixed(1)} ${curr.y.toFixed(1)}, ${curr.x.toFixed(1)} ${curr.y.toFixed(1)}`;
-  }
-  return d;
-}
-
 type DayDetailData = {
   day: WeeklyReviewData['days'][number];
   visible: boolean;
@@ -412,14 +386,49 @@ function WeeklyWeaveChart({
   onViewFullWeave: () => void;
 }) {
   const [dayDetail, setDayDetail] = useState<DayDetailData>({ day: data.days[0], visible: false });
-  const pathOpacity = useSharedValue(reducedMotion ? 1 : 0);
 
-  useEffect(() => {
-    if (reducedMotion) { pathOpacity.value = 1; return; }
-    pathOpacity.value = withDelay(200, withTiming(1, { duration: 600 }));
-  }, [reducedMotion, pathOpacity]);
+  // Convert 7-day review data to Weave nodes
+  const { nodes, nodesByMode } = useMemo(() => {
+    const nodeList: WeaveNode[] = [];
+    const byMode: Record<PracticeMode, WeaveNode[]> = {
+      focus: [],
+      visualize: [],
+      deep_prime: [],
+      release: [],
+    };
 
-  const svgAnimStyle = useAnimatedStyle(() => ({ opacity: pathOpacity.value }));
+    data.days.forEach((day, bucketIndex) => {
+      MODE_ORDER.forEach((mode) => {
+        const count = day.byMode[mode] || 0;
+        if (count > 0) {
+          const node: WeaveNode = {
+            id: `week:${data.weekStart}:${day.date}:${mode}`,
+            mode,
+            bucketIndex,
+            startDateKey: day.date,
+            endDateKey: day.date,
+            events: [],
+            sessionCount: count,
+            durationSeconds: day.byModeDuration?.[mode] || 0,
+          };
+          nodeList.push(node);
+          byMode[mode].push(node);
+        }
+      });
+    });
+
+    return { nodes: nodeList, nodesByMode: byMode };
+  }, [data.days, data.weekStart]);
+
+  const geometry = useMemo(() => {
+    return buildWeaveGeometry({
+      modes: MODE_ORDER,
+      nodesByMode,
+      bucketCount: 7,
+      width: WEAVE_W,
+      height: WEAVE_H,
+    });
+  }, [nodesByMode]);
 
   // Accessible text summary
   const totalSessions = data.returnCount;
@@ -441,59 +450,33 @@ function WeeklyWeaveChart({
         {a11ySummary}
       </Text>
 
-      <Animated.View style={svgAnimStyle}>
-        <Svg
+      <View style={{ width: WEAVE_W, height: WEAVE_H, position: 'relative' }} accessible={false}>
+        <WeaveCanvas
           width={WEAVE_W}
           height={WEAVE_H}
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-        >
-          {MODE_ORDER.map((mode, mi) => {
-            const pathD = buildWeavePath(data.days, mode, WEAVE_W, WEAVE_H, mi, MODE_ORDER.length);
-            const activity = data.days.reduce((a, d) => a + d.byMode[mode], 0);
-            const strokeWidth = activity === 0 ? 0.8 : 1.4 + Math.min(activity / 5, 1) * 1.2;
-            const strokeOpacity = activity === 0 ? 0.18 : 0.65 + Math.min(activity / 8, 1) * 0.35;
-            return (
-              <Path
-                key={mode}
-                d={pathD}
-                stroke={MODE_COLORS_RN[mode]}
-                strokeWidth={strokeWidth}
-                strokeOpacity={strokeOpacity}
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            );
-          })}
-
-          {/* Tappable nodes */}
-          {data.days.map((day, i) => {
-            const stepX = WEAVE_W / 6;
-            const x = i * stepX;
-            const hasSession = day.sessionCount > 0;
-            if (!hasSession) return null;
-            const totalOnDay = day.sessionCount;
-            const r = 4 + Math.min((totalOnDay - 1) * 1.5, 5);
-            const dominantMode = MODE_ORDER.reduce((best, m) =>
-              day.byMode[m] > day.byMode[best] ? m : best,
-            ) as PracticeMode;
-            const label = `${day.label} — ${day.sessionCount} session${day.sessionCount !== 1 ? 's' : ''}`;
-            return (
-              <Circle
-                key={day.date}
-                cx={x}
-                cy={WEAVE_H / 2}
-                r={r}
-                fill={MODE_COLORS_RN[dominantMode]}
-                fillOpacity={0.85}
-                accessibilityLabel={label}
-                onPress={() => setDayDetail({ day, visible: true })}
-              />
-            );
-          })}
-        </Svg>
-      </Animated.View>
+          geometry={geometry}
+          nodes={nodes}
+          modeColors={MODE_COLORS_RN}
+          backgroundColor={C.navy}
+          animationKey={`${data.weekStart}-${data.weekOffset}`}
+          still={reducedMotion}
+        />
+        {nodes.map((node) => {
+          const position = geometry.nodePositions[node.id];
+          if (!position) return null;
+          const day = data.days[node.bucketIndex];
+          if (!day) return null;
+          return (
+            <Pressable
+              key={`${node.id}:target`}
+              accessibilityRole="button"
+              accessibilityLabel={`${MODE_LABELS[node.mode]}, ${day.label}, ${node.sessionCount} ${node.sessionCount === 1 ? 'session' : 'sessions'}`}
+              onPress={() => setDayDetail({ day, visible: true })}
+              style={[styles.nodeTarget, { left: position.left - 20, top: position.top - 20 }]}
+            />
+          );
+        })}
+      </View>
 
       {/* Day labels */}
       <View style={styles.weaveDayLabels}>
@@ -893,13 +876,11 @@ function CarryItForward({
   activeCourse,
   onPractice,
   onSecondary,
-  onTertiary,
 }: {
   data: WeeklyReviewData;
   activeCourse: CourseDetail | null;
   onPractice: (anchorId: string) => void;
   onSecondary: () => void;
-  onTertiary?: () => void;
 }) {
   const PLACEHOLDER_SVG = `<svg viewBox="0 0 32 36" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="18" r="12" stroke="${C.gold}" stroke-width="1" fill="none" opacity="0.5"/></svg>`;
 
@@ -981,16 +962,6 @@ function CarryItForward({
       >
         <Text style={styles.carrySecondary}>{secondaryLabel}</Text>
       </TouchableOpacity>
-
-      {scenario === 'none' && onTertiary && (
-        <TouchableOpacity
-          onPress={onTertiary}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          style={styles.carrySecondaryWrap}
-        >
-          <Text style={styles.carryTertiary}>Set a Destination →</Text>
-        </TouchableOpacity>
-      )}
     </View>
   );
 }
@@ -1023,6 +994,16 @@ function QuietWeekLayout({
     ? 'RETURN TO THIS WAYPOINT'
     : 'RETURN TO PRACTICE';
 
+  const quietGeometry = useMemo(() => {
+    return buildWeaveGeometry({
+      modes: MODE_ORDER,
+      nodesByMode: { focus: [], visualize: [], deep_prime: [], release: [] },
+      bucketCount: 7,
+      width: WEAVE_W,
+      height: WEAVE_H,
+    });
+  }, []);
+
   return (
     <ScrollView
       style={styles.screen}
@@ -1043,17 +1024,15 @@ function QuietWeekLayout({
         {/* Empty Weave (still mode) */}
         <View style={styles.weaveSection}>
           <SectionHeader label="THIS WEEK" />
-          <Svg width={WEAVE_W} height={WEAVE_H}
-            accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-            {MODE_ORDER.map((mode, mi) => {
-              const d = buildWeavePath(data.days, mode, WEAVE_W, WEAVE_H, mi, MODE_ORDER.length);
-              return (
-                <Path key={mode} d={d}
-                  stroke={MODE_COLORS_RN[mode]} strokeWidth={0.8} strokeOpacity={0.12}
-                  fill="none" strokeLinecap="round" />
-              );
-            })}
-          </Svg>
+          <WeaveCanvas
+            width={WEAVE_W}
+            height={WEAVE_H}
+            geometry={quietGeometry}
+            nodes={[]}
+            modeColors={MODE_COLORS_RN}
+            backgroundColor={C.navy}
+            still={true}
+          />
           <View style={styles.weaveDayLabels}>
             {['M','T','W','T','F','S','S'].map((l, i) => (
               <Text key={i} style={styles.weaveDayLabel}>{l}</Text>
@@ -1233,10 +1212,6 @@ export function WeeklyReviewScreen() {
     navigateToChart();
   }, [navigateToChart]);
 
-  const handleSetDestination = useCallback(() => {
-    navigateToChart();
-  }, [navigateToChart]);
-
   // Hoisted above the early returns below: data.state (and therefore which
   // branch renders) can change between renders of this same component
   // instance as the user pages between weeks, so every hook this component
@@ -1386,7 +1361,6 @@ export function WeeklyReviewScreen() {
             activeCourse={activeCourse}
             onPractice={handlePractice}
             onSecondary={showCourse ? handleViewChart : handleSanctuary}
-            onTertiary={!showCourse ? handleSetDestination : undefined}
           />
         </Animated.View>
       </ScrollView>
@@ -1552,18 +1526,23 @@ const styles = StyleSheet.create({
   },
   weaveDayLabels: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 0,
     marginTop: 6,
     width: WEAVE_W,
+    paddingHorizontal: WEAVE_PLOT_PADDING,
   },
   weaveDayLabel: {
     fontFamily: FONTS.inst,
     fontSize: 10,
     color: C.ash,
     opacity: 0.6,
-    width: WEAVE_W / 7,
+    flex: 1,
     textAlign: 'center',
+  },
+  nodeTarget: {
+    position: 'absolute',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
   weaveLegend: {
     flexDirection: 'row',
@@ -1836,13 +1815,6 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.inst,
     fontSize: 13,
     color: C.lightGold,
-  },
-  carryTertiary: {
-    fontFamily: FONTS.inst,
-    fontSize: 13,
-    color: C.lightGold,
-    opacity: 0.7,
-    marginTop: 4,
   },
 
   // ── Quiet week ──
