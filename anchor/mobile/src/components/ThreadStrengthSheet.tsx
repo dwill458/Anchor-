@@ -630,12 +630,22 @@ export const ThreadStrengthSheet: React.FC<ThreadStrengthSheetProps> = ({
     >
       <View style={styles.modalRoot}>
         <Pressable style={styles.overlay} onPress={onClose} />
-        <Pressable style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 18) }]} onPress={(event) => event.stopPropagation()}>
+        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 18) }]}>
           <View style={styles.handle} />
 
           <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={true}
+            indicatorStyle="white"
+            nestedScrollEnabled={true}
+            keyboardShouldPersistTaps="handled"
+            decelerationRate="normal"
+            scrollEventThrottle={16}
+            bounces={true}
+            overScrollMode="always"
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: Math.max(insets.bottom + 28, 44) },
+            ]}
           >
             {/* 1. Header with seal & quote (duplicate % pill removed) */}
             <View style={styles.header}>
@@ -802,7 +812,7 @@ export const ThreadStrengthSheet: React.FC<ThreadStrengthSheetProps> = ({
               </View>
             </Pressable>
           </ScrollView>
-        </Pressable>
+        </View>
       </View>
     </Modal>
   );
@@ -818,7 +828,8 @@ const styles = StyleSheet.create({
     backgroundColor: C.overlay,
   },
   sheet: {
-    maxHeight: '82%',
+    maxHeight: '90%',
+    flexShrink: 1,
     backgroundColor: C.sheet,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
