@@ -87,10 +87,13 @@ jest.mock('@/services/AnalyticsService', () => ({
   },
 }));
 
+import { useTeachingStore } from '@/stores/teachingStore';
+
 describe('PracticeCompleteScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockReduceMotion = false;
+    useTeachingStore.getState().reset();
     jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => {});
     mockRouteParams = {
       anchorId: 'anchor-1',
@@ -170,7 +173,7 @@ describe('PracticeCompleteScreen', () => {
 
     expect(mockSetDailyPrimeReminder).toHaveBeenCalledWith(
       '08:00',
-      'practice_complete_first_prime',
+      'first_anchor',
     );
     expect(screen.getByText(/Reminder set — Morning/)).toBeTruthy();
   });
@@ -243,5 +246,79 @@ describe('PracticeCompleteScreen', () => {
     render(<PracticeCompleteScreen />);
 
     expect(screen.getByText('65')).toBeTruthy();
+  });
+
+  describe('Same-Day Contextual Education', () => {
+    it('does NOT show contextual teaching on first practice of the day', () => {
+      mockRouteParams = {
+        anchorId: 'anchor-1',
+        practiceMode: 'focus',
+        previousThreadStrength: 62,
+        newThreadStrength: 68,
+        previousStage: 'Kindling',
+        newStage: 'Kindling',
+        didCrossStage: false,
+        isFirstPractice: false,
+        sameDayGainReduced: false,
+        returnTo: 'practice',
+      };
+
+      render(<PracticeCompleteScreen />);
+
+      expect(screen.queryByText('RETURNING TOMORROW HAS THE GREATEST EFFECT')).toBeNull();
+      expect(
+        screen.queryByText(
+          'Additional practices today still reinforce this Anchor, but Thread Strength grows most when you return over time.'
+        )
+      ).toBeNull();
+    });
+
+    it('shows contextual teaching on same-day second practice when gain was reduced', () => {
+      mockRouteParams = {
+        anchorId: 'anchor-1',
+        practiceMode: 'focus',
+        previousThreadStrength: 62,
+        newThreadStrength: 65,
+        previousStage: 'Kindling',
+        newStage: 'Kindling',
+        didCrossStage: false,
+        isFirstPractice: false,
+        sameDayGainReduced: true,
+        returnTo: 'practice',
+      };
+
+      render(<PracticeCompleteScreen />);
+
+      expect(screen.getByText('RETURNING TOMORROW HAS THE GREATEST EFFECT')).toBeTruthy();
+      expect(
+        screen.getByText(
+          'Additional practices today still reinforce this Anchor, but Thread Strength grows most when you return over time.'
+        )
+      ).toBeTruthy();
+    });
+
+    it('does not show contextual teaching if already seen / exhausted', () => {
+      // First render exhausts the teaching
+      mockRouteParams = {
+        anchorId: 'anchor-1',
+        practiceMode: 'focus',
+        previousThreadStrength: 62,
+        newThreadStrength: 65,
+        previousStage: 'Kindling',
+        newStage: 'Kindling',
+        didCrossStage: false,
+        isFirstPractice: false,
+        sameDayGainReduced: true,
+        returnTo: 'practice',
+      };
+
+      const { unmount } = render(<PracticeCompleteScreen />);
+      expect(screen.getByText('RETURNING TOMORROW HAS THE GREATEST EFFECT')).toBeTruthy();
+      unmount();
+
+      // Second render on subsequent same-day practice
+      render(<PracticeCompleteScreen />);
+      expect(screen.queryByText('RETURNING TOMORROW HAS THE GREATEST EFFECT')).toBeNull();
+    });
   });
 });

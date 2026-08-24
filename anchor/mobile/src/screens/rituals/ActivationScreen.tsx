@@ -451,6 +451,11 @@ export const ActivationScreen: React.FC = () => {
     setShowExitWarning(false);
     exitingRef.current = true;
 
+    // Snapshot practice history before recording this session
+    const previousPracticeHistory = useSessionStore.getState?.()?.practiceHistory ?? [];
+    const accountId = useAuthStore.getState?.()?.user?.id ?? null;
+    const settingsState = useSettingsStore.getState?.() ?? {};
+
     // Record session locally
     const completedAt = new Date().toISOString();
     const completionEventId = recordSession({
@@ -481,15 +486,12 @@ export const ActivationScreen: React.FC = () => {
     });
     void recordReviewSignal('focus_session_completed');
 
-    const practiceHistory = useSessionStore.getState?.()?.practiceHistory ?? [];
-    const accountId = useAuthStore.getState?.()?.user?.id ?? null;
-    const settingsState = useSettingsStore.getState?.() ?? {};
-
     const result = calculatePracticeCompleteResult({
       anchorId,
       anchorLocalId: anchor?.localId,
       practiceMode: 'focus',
-      practiceHistory,
+      practiceHistory: previousPracticeHistory,
+      previousPracticeHistory,
       accountId,
       completedSessionId: completionEventId,
       newRecord: canonicalRecord,
@@ -535,10 +537,8 @@ export const ActivationScreen: React.FC = () => {
     setShowExitWarning(false);
 
     completionTransitionTaskRef.current?.cancel?.();
-    completionTransitionTaskRef.current = InteractionManager.runAfterInteractions(() => {
-      completionTransitionTaskRef.current = null;
-      void handleCompletionDone();
-    });
+    completionTransitionTaskRef.current = null;
+    void handleCompletionDone();
   }, [handleCompletionDone]);
 
   const handleComplete = useCallback(async () => {
@@ -551,7 +551,7 @@ export const ActivationScreen: React.FC = () => {
 
     // Log the activation immediately when the seal completes — not gated on a modal
     void logActivationInBackground();
-    await handlePrimeComplete();
+    void handlePrimeComplete();
 
     if (isFirstPrimeForAnchor) {
       finalizeFocusSession();

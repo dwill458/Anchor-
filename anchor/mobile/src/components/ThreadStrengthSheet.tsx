@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Image,
   Modal,
@@ -17,12 +17,14 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
+import { ChevronDown } from 'lucide-react-native';
 import Svg, { Circle, SvgXml } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSessionStore, type SessionLogEntry } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
+import { AnalyticsService } from '@/services/AnalyticsService';
 import type { PrimingHistoryEntry } from '@/utils/primingAnalytics';
 import type { PracticeSessionRecord } from '@/types/practice';
 import { calculateStreak } from '@/utils/streakHelpers';
@@ -32,6 +34,7 @@ export interface ThreadStrengthSheetProps {
   visible: boolean;
   onClose: () => void;
   anchorId: string;
+  onOpenSensitivity?: () => void;
 }
 
 type SessionDisplayType = 'focus' | 'deep' | 'visualize';
@@ -239,8 +242,8 @@ export function resolveAnchorStrengthPct(params: {
   practiceHistory?: PracticeSessionRecord[];
 }): number {
   if (params.anchorId) {
-    const sessionState = useSessionStore.getState();
-    const settingsState = useSettingsStore.getState();
+    const sessionState = typeof useSessionStore.getState === 'function' ? useSessionStore.getState() : {} as any;
+    const settingsState = typeof useSettingsStore.getState === 'function' ? useSettingsStore.getState() : {} as any;
     const events = params.practiceHistory ?? sessionState.practiceHistory ?? [];
     const baseline = sessionState.getAnchorV2Baseline?.(params.anchorId) ?? null;
     if (events.length > 0 || baseline) {
@@ -453,10 +456,128 @@ const StatRow: React.FC<StatRowProps> = ({
   );
 };
 
+const SENSITIVITY_COPY: Record<string, { title: string; note: string }> = {
+  balanced: {
+    title: 'SENSITIVITY: BALANCED',
+    note: 'One grace day before gradual decay.',
+  },
+  lenient: {
+    title: 'SENSITIVITY: LENIENT',
+    note: 'Two grace days before gradual decay.',
+  },
+  strict: {
+    title: 'SENSITIVITY: STRICT',
+    note: 'Decay begins after the first missed practice day.',
+  },
+};
+
+interface HowItWorksAccordionProps {
+  anchorId: string;
+  reduceMotion: boolean;
+}
+
+const PRINCIPLES = [
+  {
+    title: 'RETURN OVER TIME',
+    body: 'Your first practice with this Anchor each day has the strongest effect. Returning across different days builds Thread Strength most effectively.',
+  },
+  {
+    title: 'REPEAT PRACTICE',
+    body: 'Practicing the same Anchor again can still reinforce it, but additional practices in the same day contribute less Thread Strength.',
+  },
+  {
+    title: 'PRACTICE DEPTH',
+    body: 'Different practices reinforce your Anchor differently. Deeper practices can have a stronger effect than shorter Focus sessions.',
+  },
+  {
+    title: 'TIME AWAY',
+    body: 'Thread Strength gradually eases when you stop returning. Rest days are protected, and your Sensitivity setting controls how soon strength begins to loosen.',
+  },
+] as const;
+
+const HowItWorksAccordion: React.FC<HowItWorksAccordionProps> = ({ anchorId, reduceMotion }) => {
+  const [expanded, setExpanded] = useState(false);
+  const animationProgress = useSharedValue(0);
+
+  const toggleExpand = useCallback(() => {
+    const next = !expanded;
+    setExpanded(next);
+    if (next) {
+      AnalyticsService.track('thread_strength_education_opened', {
+        anchor_id: anchorId,
+      });
+    } else {
+      AnalyticsService.track('thread_strength_education_closed', {
+        anchor_id: anchorId,
+      });
+    }
+  }, [anchorId, expanded]);
+
+  useEffect(() => {
+    if (reduceMotion) {
+      animationProgress.value = expanded ? 1 : 0;
+      return;
+    }
+    animationProgress.value = withTiming(expanded ? 1 : 0, {
+      duration: 300,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+    });
+  }, [expanded, reduceMotion, animationProgress]);
+
+  const chevronAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${animationProgress.value * 180}deg` }],
+  }));
+
+  const contentAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: reduceMotion ? 1 : animationProgress.value,
+  }));
+
+  return (
+    <View style={styles.accordionContainer}>
+      <Pressable
+        style={styles.accordionHeader}
+        onPress={toggleExpand}
+        accessibilityRole="button"
+        accessibilityLabel="How Thread Strength works, Built through return, depth, and consistency."
+        accessibilityState={{ expanded }}
+        testID="thread-strength-education-toggle"
+      >
+        <View style={styles.accordionHeaderTextWrap}>
+          <Text style={styles.accordionTitle}>HOW THREAD STRENGTH WORKS</Text>
+          <Text style={styles.accordionSubtitle}>
+            Built through return, depth, and consistency.
+          </Text>
+        </View>
+        <Animated.View style={[styles.accordionChevronWrap, chevronAnimatedStyle]}>
+          <ChevronDown size={16} color={C.gold} />
+        </Animated.View>
+      </Pressable>
+
+      {expanded && (
+        <Animated.View style={[styles.principlesList, contentAnimatedStyle]}>
+          {PRINCIPLES.map((principle, index) => (
+            <View key={principle.title} style={styles.principleRow}>
+              <View style={styles.principleMarkerCol}>
+                <View style={styles.principleDot} />
+                {index < PRINCIPLES.length - 1 && <View style={styles.principleLine} />}
+              </View>
+              <View style={styles.principleTextCol}>
+                <Text style={styles.principleTitle}>{principle.title}</Text>
+                <Text style={styles.principleBody}>{principle.body}</Text>
+              </View>
+            </View>
+          ))}
+        </Animated.View>
+      )}
+    </View>
+  );
+};
+
 export const ThreadStrengthSheet: React.FC<ThreadStrengthSheetProps> = ({
   visible,
   onClose,
   anchorId,
+  onOpenSensitivity,
 }) => {
   const insets = useSafeAreaInsets();
   const reduceMotion = useReduceMotionEnabled();
@@ -491,6 +612,9 @@ export const ThreadStrengthSheet: React.FC<ThreadStrengthSheetProps> = ({
   const sigilUri =
     ((anchor as { sigilUri?: string | null } | undefined)?.sigilUri ?? anchor?.enhancedImageUrl) || null;
   const sigilSvg = anchor?.baseSigilSvg ?? '';
+
+  const currentSensitivityKey = (sensitivityMode ?? 'balanced').toLowerCase();
+  const currentSensitivity = SENSITIVITY_COPY[currentSensitivityKey] ?? SENSITIVITY_COPY.balanced;
 
   if (!visible) {
     return null;
@@ -660,16 +784,23 @@ export const ThreadStrengthSheet: React.FC<ThreadStrengthSheetProps> = ({
               </View>
             </View>
 
-            {/* 6. Sensitivity note */}
-            <View style={styles.sensitivity}>
+            {/* 6. How Thread Strength Works */}
+            <HowItWorksAccordion anchorId={anchorId} reduceMotion={reduceMotion} />
+
+            {/* 7. Sensitivity row */}
+            <Pressable
+              style={styles.sensitivity}
+              onPress={() => onOpenSensitivity?.()}
+              accessibilityRole="button"
+              accessibilityLabel={`${currentSensitivity.title}. ${currentSensitivity.note}`}
+              testID="thread-strength-sensitivity-row"
+            >
               <View style={styles.sensitivityDot} />
-              <Text style={styles.sensitivityText}>
-                {/* DEFERRED: Per-anchor sensitivity override — Phase 3+ */}
-                {/* sensitivityMode is currently read from global settings only. */}
-                {/* Future: allow per-anchor sensitivity stored alongside anchor record. */}
-                Sensitivity: <Text style={styles.sensitivityStrong}>{data.sensitivityMode}</Text> — Any missed day begins decay.
-              </Text>
-            </View>
+              <View style={styles.sensitivityContent}>
+                <Text style={styles.sensitivityTitle}>{currentSensitivity.title}</Text>
+                <Text style={styles.sensitivityNote}>{currentSensitivity.note}</Text>
+              </View>
+            </Pressable>
           </ScrollView>
         </Pressable>
       </View>
@@ -952,6 +1083,91 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: C.silver,
   },
+  accordionContainer: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: C.cardBorder,
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    overflow: 'hidden',
+  },
+  accordionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+  },
+  accordionHeaderTextWrap: {
+    flex: 1,
+    gap: 3,
+    paddingRight: spacing.sm,
+  },
+  accordionTitle: {
+    fontFamily: typography.fonts.headingBold,
+    fontSize: 11,
+    letterSpacing: 1.4,
+    color: C.gold,
+    textTransform: 'uppercase',
+  },
+  accordionSubtitle: {
+    fontFamily: typography.fonts.bodySerif,
+    fontSize: 12.5,
+    lineHeight: 17,
+    color: C.silverMuted,
+  },
+  accordionChevronWrap: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  principlesList: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.md,
+    gap: 14,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(212,175,55,0.08)',
+  },
+  principleRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  principleMarkerCol: {
+    alignItems: 'center',
+    width: 8,
+    paddingTop: 4,
+  },
+  principleDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: C.gold,
+  },
+  principleLine: {
+    flex: 1,
+    width: 1,
+    backgroundColor: 'rgba(212,175,55,0.18)',
+    marginTop: 4,
+    marginBottom: -8,
+  },
+  principleTextCol: {
+    flex: 1,
+    gap: 3,
+  },
+  principleTitle: {
+    fontFamily: typography.fonts.headingBold,
+    fontSize: 11,
+    letterSpacing: 1.2,
+    color: C.gold,
+    textTransform: 'uppercase',
+  },
+  principleBody: {
+    fontFamily: typography.fonts.bodySerif,
+    fontSize: 12.5,
+    lineHeight: 17.5,
+    color: C.silverMuted,
+  },
   sensitivity: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -970,15 +1186,21 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: C.gold,
   },
-  sensitivityText: {
+  sensitivityContent: {
     flex: 1,
+    gap: 2,
+  },
+  sensitivityTitle: {
+    fontFamily: typography.fonts.headingBold,
+    fontSize: 10.5,
+    letterSpacing: 1.2,
+    color: C.gold,
+    textTransform: 'uppercase',
+  },
+  sensitivityNote: {
     fontFamily: typography.fonts.bodySerif,
     fontSize: 12,
     lineHeight: 17,
     color: C.silverMuted,
-  },
-  sensitivityStrong: {
-    fontFamily: typography.fonts.headingBold,
-    color: C.gold,
   },
 });

@@ -64,6 +64,7 @@ describe('practiceCompletionCoordinator', () => {
     expect(result.previousStage).toBe('Nascent');
     expect(result.newStage).toBe('Nascent');
     expect(result.didCrossStage).toBe(false);
+    expect(result.sameDayGainReduced).toBe(false);
   });
 
   it('calculates returning practice result and detects stage crossing', () => {
@@ -100,9 +101,10 @@ describe('practiceCompletionCoordinator', () => {
     expect(result.previousStage).toBe('Nascent');
     expect(result.newStage).toBe('Kindling');
     expect(result.didCrossStage).toBe(true);
+    expect(result.sameDayGainReduced).toBe(false);
   });
 
-  it('detects no stage transition when scores stay within stage boundaries', () => {
+  it('detects no stage transition when scores stay within stage boundaries and marks sameDayGainReduced when repeating on same day', () => {
     const priorSession1 = makeSession(
       'session-0',
       anchorId,
@@ -125,7 +127,7 @@ describe('practiceCompletionCoordinator', () => {
       accountId: 'test-account',
       completedSessionId: 'session-1',
       newRecord: newSession,
-      now,
+      now: new Date('2026-05-09T12:00:00.000Z'),
     });
 
     expect(result.isFirstPractice).toBe(false);
@@ -134,6 +136,7 @@ describe('practiceCompletionCoordinator', () => {
     expect(result.previousStage).toBe('Nascent');
     expect(result.newStage).toBe('Nascent');
     expect(result.didCrossStage).toBe(false);
+    expect(result.sameDayGainReduced).toBe(true);
   });
 
   it('only considers events for the specified anchor', () => {
@@ -165,5 +168,6 @@ describe('practiceCompletionCoordinator', () => {
     expect(result.isFirstPractice).toBe(true);
     expect(result.previousThreadStrength).toBe(0);
     expect(result.newThreadStrength).toBe(12);
+    expect(result.sameDayGainReduced).toBe(false);
   });
 });

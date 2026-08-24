@@ -1152,6 +1152,11 @@ export const RitualScreen: React.FC = () => {
 
   const finalizeDeepRitual = useCallback(async () => {
     const completedAt = new Date().toISOString();
+    // Snapshot practice history before recording this session
+    const previousPracticeHistory = useSessionStore.getState?.()?.practiceHistory ?? [];
+    const accountId = useAuthStore.getState?.()?.user?.id ?? null;
+    const settingsState = useSettingsStore.getState?.() ?? {};
+
     const completionEventId = recordSession({
       idempotencyKey: completionEventIdRef.current,
       anchorId,
@@ -1180,15 +1185,12 @@ export const RitualScreen: React.FC = () => {
     });
     await handlePrimeComplete();
 
-    const practiceHistory = useSessionStore.getState?.()?.practiceHistory ?? [];
-    const accountId = useAuthStore.getState?.()?.user?.id ?? null;
-    const settingsState = useSettingsStore.getState?.() ?? {};
-
     const result = calculatePracticeCompleteResult({
       anchorId,
       anchorLocalId: anchor?.localId,
       practiceMode: 'deep_prime',
-      practiceHistory,
+      practiceHistory: previousPracticeHistory,
+      previousPracticeHistory,
       accountId,
       completedSessionId: completionEventId,
       newRecord: canonicalRecord,
@@ -1474,6 +1476,11 @@ export const RitualScreen: React.FC = () => {
     setShowCompletion(false);
     exitingRef.current = true;
 
+    // Snapshot practice history before recording this session
+    const previousPracticeHistory = useSessionStore.getState?.()?.practiceHistory ?? [];
+    const accountId = useAuthStore.getState?.()?.user?.id ?? null;
+    const settingsState = useSettingsStore.getState?.() ?? {};
+
     const completedAt = new Date().toISOString();
     const completionEventId = recordSession({
       idempotencyKey: completionEventIdRef.current,
@@ -1505,15 +1512,12 @@ export const RitualScreen: React.FC = () => {
 
     await handlePrimeComplete();
 
-    const practiceHistory = useSessionStore.getState?.()?.practiceHistory ?? [];
-    const accountId = useAuthStore.getState?.()?.user?.id ?? null;
-    const settingsState = useSettingsStore.getState?.() ?? {};
-
     const result = calculatePracticeCompleteResult({
       anchorId,
       anchorLocalId: anchor?.localId,
       practiceMode: 'deep_prime',
-      practiceHistory,
+      practiceHistory: previousPracticeHistory,
+      previousPracticeHistory,
       accountId,
       completedSessionId: completionEventId,
       newRecord: canonicalRecord,

@@ -119,6 +119,11 @@ export function calculatePracticeCompleteResult(
   const newStage = getThreadStrengthState(newThreadStrength).label;
   const didCrossStage = previousStage !== newStage;
 
+  const sameDaySessionsBefore = anchorEventsBefore.filter(
+    (event) => event.localDateKey === today,
+  ).length;
+  const sameDayGainReduced = sameDaySessionsBefore > 0;
+
   return {
     anchorId: params.anchorId,
     practiceMode: params.practiceMode,
@@ -128,6 +133,7 @@ export function calculatePracticeCompleteResult(
     newStage,
     didCrossStage,
     isFirstPractice,
+    sameDayGainReduced,
     returnTo: params.returnTo,
     returnTarget: params.returnTarget,
     source: params.source,

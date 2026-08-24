@@ -302,6 +302,20 @@ export const TEACHINGS: Record<string, TeachingContent> = {
     cooldownMs: 0,
   },
 
+  practice_same_day_diminishing_returns_v1: {
+    teachingId: 'practice_same_day_diminishing_returns_v1',
+    screen: 'practice_complete',
+    trigger: 'first_time',
+    guideOnly: false,
+    tier: 'both',
+    title: 'RETURNING TOMORROW HAS THE GREATEST EFFECT',
+    copy: 'Additional practices today still reinforce this Anchor, but Thread Strength grows most when you return over time.',
+    pattern: 'bottom_hint',
+    tone: 'grounding',
+    maxShows: 1,
+    cooldownMs: 0,
+  },
+
   visualize_scene_explainer: {
     teachingId: 'visualize_scene_explainer',
     screen: 'visualize_preparation',

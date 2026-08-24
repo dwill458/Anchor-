@@ -27,6 +27,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import type { PracticeStackParamList, RootStackParamList } from '@/types';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useTeachingStore } from '@/stores/teachingStore';
 import { useNotificationController } from '@/hooks/useNotificationController';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { useChartPracticeReturn } from '@/hooks/useChartPracticeReturn';
@@ -36,7 +37,7 @@ import { SigilSvg, OptimizedImage } from '@/components/common';
 import { colors, typography } from '@/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const HERO_SIZE = Math.min(SCREEN_WIDTH * 0.48, 198);
+const HERO_SIZE = Math.min(SCREEN_WIDTH * 0.62, 240);
 
 type NavigationProp = NativeStackNavigationProp<PracticeStackParamList, 'PracticeComplete'>;
 type RouteProps = RouteProp<PracticeStackParamList, 'PracticeComplete'>;
@@ -68,6 +69,7 @@ export const PracticeCompleteScreen: React.FC = () => {
     newStage,
     didCrossStage,
     isFirstPractice,
+    sameDayGainReduced,
     returnTo,
     returnTarget,
     source,
@@ -103,6 +105,7 @@ export const PracticeCompleteScreen: React.FC = () => {
   const [step, setStep] = useState(reduceMotion ? 4 : 0);
   const [displayCount, setDisplayCount] = useState(fromVal);
   const [isReminderEligible, setIsReminderEligible] = useState(false);
+  const [showSameDayTeaching, setShowSameDayTeaching] = useState(false);
   const [reminderExpanded, setReminderExpanded] = useState(false);
   const [selectedReminderOption, setSelectedReminderOption] = useState<ReminderTimeOption>(
     REMINDER_TIME_OPTIONS[0],
@@ -149,6 +152,21 @@ export const PracticeCompleteScreen: React.FC = () => {
       });
     }
 
+    if (!isFirstPractice && sameDayGainReduced) {
+      const isExhausted = useTeachingStore
+        .getState()
+        .isExhausted('practice_same_day_diminishing_returns_v1');
+      if (!isExhausted) {
+        setShowSameDayTeaching(true);
+        useTeachingStore
+          .getState()
+          .recordShown('practice_same_day_diminishing_returns_v1', 'bottom_hint', 1);
+        AnalyticsService.track('thread_strength_same_day_teaching_viewed', {
+          anchor_id: anchorId,
+        });
+      }
+    }
+
     if (isFirstPractice) {
       canOfferFirstAnchorReminder().then((eligible) => {
         setIsReminderEligible(eligible);
@@ -171,6 +189,7 @@ export const PracticeCompleteScreen: React.FC = () => {
     practiceMode,
     previousStage,
     previousThreadStrength,
+    sameDayGainReduced,
   ]);
 
   // Accessibility Announcement
@@ -201,7 +220,7 @@ export const PracticeCompleteScreen: React.FC = () => {
     // Step 0: Fade screen in
     Animated.timing(screenFadeAnim, {
       toValue: 1,
-      duration: 400,
+      duration: 250,
       useNativeDriver: true,
     }).start();
 
@@ -235,26 +254,26 @@ export const PracticeCompleteScreen: React.FC = () => {
       Animated.parallel([
         Animated.timing(heroPulseScale, {
           toValue: 1.24,
-          duration: 850,
+          duration: 750,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
         Animated.timing(heroPulseOpacity, {
           toValue: 0,
-          duration: 850,
+          duration: 750,
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }),
         Animated.sequence([
           Animated.timing(heroGlowPeakAnim, {
             toValue: 0.9,
-            duration: 500,
+            duration: 400,
             easing: Easing.out(Easing.quad),
             useNativeDriver: true,
           }),
           Animated.timing(heroGlowPeakAnim, {
             toValue: isTransition ? 0.5 : 0.32,
-            duration: 600,
+            duration: 500,
             easing: Easing.inOut(Easing.quad),
             useNativeDriver: true,
           }),
@@ -262,23 +281,23 @@ export const PracticeCompleteScreen: React.FC = () => {
         Animated.sequence([
           Animated.timing(threadSweepOpacity, {
             toValue: 0.85,
-            duration: 200,
+            duration: 150,
             useNativeDriver: true,
           }),
           Animated.timing(threadSweepOpacity, {
             toValue: 0,
-            duration: 700,
+            duration: 600,
             useNativeDriver: true,
           }),
         ]),
         Animated.timing(threadSweepRotation, {
           toValue: 1,
-          duration: 900,
+          duration: 750,
           easing: Easing.inOut(Easing.quad),
           useNativeDriver: true,
         }),
       ]).start();
-    }, 550);
+    }, 120);
 
     const t2 = setTimeout(() => {
       // Step 2: Labels and initial numbers appear
@@ -286,17 +305,17 @@ export const PracticeCompleteScreen: React.FC = () => {
       Animated.parallel([
         Animated.timing(labelFadeAnim, {
           toValue: 1,
-          duration: 400,
+          duration: 300,
           useNativeDriver: true,
         }),
         Animated.timing(labelTranslateY, {
           toValue: 0,
-          duration: 400,
+          duration: 300,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
       ]).start();
-    }, 950);
+    }, 300);
 
     const t3 = setTimeout(() => {
       // Step 3: Progress bar moves from fromVal to toVal
@@ -304,7 +323,7 @@ export const PracticeCompleteScreen: React.FC = () => {
 
       // Smooth number count-up
       const startTime = Date.now();
-      const countDuration = 800;
+      const countDuration = 700;
       const countInterval = setInterval(() => {
         const elapsed = Date.now() - startTime;
         const progress = Math.min(1, elapsed / countDuration);
@@ -320,7 +339,7 @@ export const PracticeCompleteScreen: React.FC = () => {
 
       Animated.timing(progressBarAnim, {
         toValue: toVal,
-        duration: 900,
+        duration: 750,
         easing: Easing.bezier(0.22, 0.61, 0.36, 1),
         useNativeDriver: false,
       }).start(() => {
@@ -335,7 +354,7 @@ export const PracticeCompleteScreen: React.FC = () => {
           new_thread_strength: toVal,
         });
       });
-    }, 1450);
+    }, 500);
 
     const t4 = setTimeout(() => {
       // Step 4: Status and reminders appear
@@ -343,28 +362,28 @@ export const PracticeCompleteScreen: React.FC = () => {
       Animated.parallel([
         Animated.timing(statusFadeAnim, {
           toValue: 1,
-          duration: 550,
+          duration: 450,
           useNativeDriver: true,
         }),
         Animated.timing(stageNameTranslateY, {
           toValue: 0,
-          duration: 550,
+          duration: 450,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
         Animated.timing(reminderFadeAnim, {
           toValue: 1,
-          duration: 500,
+          duration: 400,
           useNativeDriver: true,
         }),
         Animated.timing(reminderTranslateY, {
           toValue: 0,
-          duration: 500,
+          duration: 400,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
       ]).start();
-    }, 2200);
+    }, 1200);
 
     return () => {
       clearTimeout(t1);
@@ -560,10 +579,7 @@ export const PracticeCompleteScreen: React.FC = () => {
         {/* Body content */}
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingBottom: insets.bottom + 24 },
-          ]}
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
           {/* Hero Anchor with restrained effects */}
@@ -782,6 +798,29 @@ export const PracticeCompleteScreen: React.FC = () => {
                 <Text style={styles.stageNameText}>{newStage}</Text>
               </Animated.View>
             )}
+
+            {/* Same-Day Diminishing Returns Education */}
+            {showSameDayTeaching && (
+              <Animated.View
+                style={[
+                  styles.sameDayTeachingSection,
+                  {
+                    opacity: statusFadeAnim,
+                    transform: [{ translateY: stageNameTranslateY }],
+                  },
+                ]}
+                accessibilityRole="summary"
+                accessibilityLabel="Returning tomorrow has the greatest effect. Additional practices today still reinforce this Anchor, but Thread Strength grows most when you return over time."
+                testID="practice-same-day-teaching"
+              >
+                <Text style={styles.sameDayTeachingTitle}>
+                  RETURNING TOMORROW HAS THE GREATEST EFFECT
+                </Text>
+                <Text style={styles.sameDayTeachingSub}>
+                  Additional practices today still reinforce this Anchor, but Thread Strength grows most when you return over time.
+                </Text>
+              </Animated.View>
+            )}
           </View>
 
           {/* First Practice Reminder Opportunity */}
@@ -924,9 +963,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -140,
     alignSelf: 'center',
-    width: 420,
-    height: 420,
-    borderRadius: 210,
+    width: 480,
+    height: 480,
+    borderRadius: 240,
     backgroundColor: 'rgba(217, 179, 108, 0.07)',
   },
   header: {
@@ -947,11 +986,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingTop: 12,
-    gap: 18,
+    paddingVertical: 16,
+    gap: 20,
   },
   heroWrap: {
     position: 'relative',
@@ -1243,6 +1283,32 @@ const styles = StyleSheet.create({
     color: 'rgba(244, 239, 230, 0.65)',
     textAlign: 'center',
     paddingVertical: 6,
+  },
+  sameDayTeachingSection: {
+    width: '100%',
+    maxWidth: 290,
+    marginTop: 12,
+    paddingTop: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(217, 179, 108, 0.18)',
+    alignItems: 'center',
+    gap: 6,
+  },
+  sameDayTeachingTitle: {
+    fontFamily: typography.fontFamily.serif,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 2,
+    color: '#F2DFA8',
+    textTransform: 'uppercase',
+    textAlign: 'center',
+  },
+  sameDayTeachingSub: {
+    fontFamily: typography.fontFamily.voiceItalic,
+    fontSize: 13.5,
+    lineHeight: 19,
+    color: 'rgba(244, 239, 230, 0.65)',
+    textAlign: 'center',
   },
   bottomActions: {
     alignItems: 'center',

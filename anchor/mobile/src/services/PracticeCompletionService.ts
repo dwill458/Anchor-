@@ -345,7 +345,8 @@ export const PracticeCompletionService = {
       backgroundAudio: params.backgroundAudio,
       chartContext: params.chartContext,
       practiceEntrySource: params.practiceEntrySource,
-    });
+    }, { flushImmediately: false });
+    void this.flush(accountId);
     return result.record;
   },
 

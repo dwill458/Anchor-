@@ -562,6 +562,14 @@ export function buildPracticeCompletionSnapshot(params: {
     now: params.now,
   });
 
+  const sameDaySessionsBefore = params.eventsBeforeSession.filter(
+    (e) =>
+      (e.anchorId === params.anchorId ||
+        e.anchorLocalId === params.anchorId ||
+        e.anchorServerId === params.anchorId) &&
+      e.localDateKey === params.completedSession.localDateKey
+  ).length;
+
   return {
     previousThreadStrength: previous.score,
     newThreadStrength: next.score,
@@ -569,6 +577,7 @@ export function buildPracticeCompletionSnapshot(params: {
     newStage: next.stage,
     didCrossStage: next.stage !== previous.stage,
     isFirstPractice: previous.totalSessions === 0,
+    sameDayGainReduced: sameDaySessionsBefore > 0,
   };
 }
 

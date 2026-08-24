@@ -198,6 +198,7 @@ export interface PracticeCompletionSnapshot {
   newStage: ThreadStrengthStage;
   didCrossStage: boolean;
   isFirstPractice: boolean;
+  sameDayGainReduced?: boolean;
 }
 
 /** V2 base gains for canonical practice modes */
@@ -338,6 +339,7 @@ export interface PracticeCompleteResult {
   newStage: string;
   didCrossStage: boolean;
   isFirstPractice: boolean;
+  sameDayGainReduced?: boolean;
   returnTo?: 'vault' | 'practice' | 'detail' | 'chart' | 'reinforce';
   returnTarget?: PracticeFlowReturnTarget;
   source?: PracticeEntrySource;
