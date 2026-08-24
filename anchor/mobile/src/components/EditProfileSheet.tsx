@@ -737,7 +737,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   axiomInput: {
+    flex: 1,
+    minHeight: 48,
+    color: colors.anchor15.bone,
     fontFamily: typography.fontFamily.voiceItalic,
+    fontSize: 16,
+    lineHeight: 22,
+    textAlignVertical: 'top',
   },
   counterText: {
     fontFamily: typography.fontFamily.instrument,

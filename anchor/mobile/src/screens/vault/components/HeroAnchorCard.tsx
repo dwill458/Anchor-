@@ -258,7 +258,12 @@ const HeroAnchorCardInner: React.FC<HeroAnchorCardProps> = ({
           <Text style={styles.stateBadge}>{badgeLabel}</Text>
           <CountUp value={strengthPct} reduceMotion={reduceMotionEnabled} />
           <Text style={styles.strengthEyebrow}>THREAD STRENGTH</Text>
-          <Text style={styles.anchorTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+          <Text
+            style={styles.anchorTitle}
+            numberOfLines={2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.5}
+          >
             {anchor.intentionText}
           </Text>
           <Text style={styles.anchorCategory}>{formatCategory(anchor.category)}</Text>
