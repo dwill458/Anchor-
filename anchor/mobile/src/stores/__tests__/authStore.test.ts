@@ -12,6 +12,7 @@ import { useCourseStore } from '../courseStore';
 import { useCourseLogStore } from '../courseLogStore';
 import { useReflectionDraftStore } from '../reflectionDraftStore';
 import { useChartJourneyStore } from '../chartJourneyStore';
+import { useSubscriptionStore } from '../subscriptionStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { apiClient } from '@/services/ApiClient';
@@ -109,6 +110,18 @@ describe('authStore', () => {
     useCourseLogStore.getState().clearAccount();
     void useReflectionDraftStore.getState().clearAccount();
     useChartJourneyStore.getState().clearAccount();
+    useSubscriptionStore.setState({
+      rcTier: 'free',
+      remoteCompedAccess: false,
+      trialStartDate: null,
+      subscriptionStatus: 'expired',
+      isInTrial: false,
+      isSubscribed: false,
+      hasActiveEntitlement: false,
+      daysRemaining: null,
+      trialExpired: false,
+      rcSynced: false,
+    });
     jest.clearAllMocks();
   });
 
@@ -158,6 +171,19 @@ describe('authStore', () => {
 
       const { isAuthenticated } = useAuthStore.getState();
       expect(isAuthenticated).toBe(true);
+    });
+
+    it('seeds paid access from the server profile before RevenueCat finishes syncing', () => {
+      const { setUser } = useAuthStore.getState();
+
+      setUser(createMockUser({ subscriptionStatus: 'pro_annual' }));
+
+      expect(useSubscriptionStore.getState()).toMatchObject({
+        rcTier: 'pro',
+        isSubscribed: true,
+        hasActiveEntitlement: true,
+        subscriptionStatus: 'active',
+      });
     });
 
     it('should set isAuthenticated to false when user is null', () => {

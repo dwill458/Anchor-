@@ -87,6 +87,7 @@ export const SealAnchorScreen: React.FC = () => {
   // Refs for intervals/timeouts
   const holdTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hapticIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const completionTimerRef = useRef<NodeJS.Timeout | null>(null);
   const holdStartTimeRef = useRef<number>(0);
 
   // ══════════════════════════════════════════════════════════════
@@ -188,6 +189,7 @@ export const SealAnchorScreen: React.FC = () => {
     // Clear timers
     if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
     if (hapticIntervalRef.current) clearInterval(hapticIntervalRef.current);
+    if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
 
     // Reset animations
     progressAnim.stopAnimation();
@@ -241,51 +243,57 @@ export const SealAnchorScreen: React.FC = () => {
       useNativeDriver: true,
     }).start();
 
-    // Bloom effect
-    Animated.parallel([
-      Animated.timing(bloomScaleAnim, {
-        toValue: 2.5,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.sequence([
-        Animated.timing(bloomOpacityAnim, {
-          toValue: 1,
-          duration: 400,
+    // Radiant bloom burst
+    if (!reduceMotionEnabled) {
+      Animated.parallel([
+        Animated.timing(bloomScaleAnim, {
+          toValue: 2.2,
+          duration: 350,
           useNativeDriver: true,
         }),
-        Animated.timing(bloomOpacityAnim, {
-          toValue: 0,
-          duration: 900,
-          useNativeDriver: true,
-        }),
-      ]),
-    ]).start();
+        Animated.sequence([
+          Animated.timing(bloomOpacityAnim, {
+            toValue: 1,
+            duration: 180,
+            useNativeDriver: true,
+          }),
+          Animated.timing(bloomOpacityAnim, {
+            toValue: 0,
+            duration: 170,
+            useNativeDriver: true,
+          }),
+        ]),
+      ]).start();
+    }
 
-    // Update anchor in store
+    // Update anchor in store & navigate smoothly without dead pause
     try {
       const chargedAt = new Date();
-      await updateAnchor(anchorId, {
+      const updatePromise = updateAnchor(anchorId, {
         isCharged: true,
         chargedAt,
         firstChargedAt: anchor?.firstChargedAt ?? chargedAt,
         chargeCount: (anchor?.chargeCount ?? 0) + 1,
       });
 
-      // Navigate to completion screen after bloom
-      setTimeout(() => {
-        if (isFirstPrimeForAnchor) {
-          navigation.replace('FirstPrimeComplete', {
-            anchorId,
-            sessionCount: 1,
-            threadStrength: 1,
-            durationSeconds: SEAL_DURATION,
-            returnTo,
-          });
-        } else {
-          navigation.replace('ChargeComplete', { anchorId, returnTo });
-        }
-      }, 1200);
+      const transitionDelay = reduceMotionEnabled ? 0 : 300;
+      const delayPromise = new Promise<void>((resolve) => {
+        completionTimerRef.current = setTimeout(resolve, transitionDelay);
+      });
+
+      await Promise.all([updatePromise, delayPromise]);
+
+      if (isFirstPrimeForAnchor) {
+        navigation.replace('FirstPrimeComplete', {
+          anchorId,
+          sessionCount: 1,
+          threadStrength: 1,
+          durationSeconds: SEAL_DURATION,
+          returnTo,
+        });
+      } else {
+        navigation.replace('ChargeComplete', { anchorId, returnTo });
+      }
     } catch (error) {
       logger.warn('Failed to update anchor locally', error);
       Alert.alert('Save failed', 'Your seal could not be saved. Please try again.');
@@ -334,6 +342,7 @@ export const SealAnchorScreen: React.FC = () => {
     return () => {
       if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
       if (hapticIntervalRef.current) clearInterval(hapticIntervalRef.current);
+      if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
     };
   }, []);
 
@@ -396,6 +405,8 @@ export const SealAnchorScreen: React.FC = () => {
           onPressOut={handlePressOut}
           disabled={isComplete}
           style={styles.orbPressable}
+          accessibilityLabel="Press and hold to seal your anchor"
+          accessibilityRole="button"
         >
           <Animated.View
             style={[

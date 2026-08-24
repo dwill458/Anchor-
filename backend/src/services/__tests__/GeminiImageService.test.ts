@@ -295,11 +295,7 @@ describe('GeminiImageService', () => {
     it('produces distinct celestial_grid prompts for different intentions', () => {
       const service = new GeminiImageService();
 
-      const promptA = (service as any).createPrompt(
-        'I think before I speak',
-        'celestial_grid',
-        0
-      );
+      const promptA = (service as any).createPrompt('I think before I speak', 'celestial_grid', 0);
       const promptB = (service as any).createPrompt(
         'My discipline outlasts my motivation',
         'celestial_grid',

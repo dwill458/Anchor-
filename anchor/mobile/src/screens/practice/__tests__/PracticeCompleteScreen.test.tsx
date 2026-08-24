@@ -88,12 +88,14 @@ jest.mock('@/services/AnalyticsService', () => ({
 }));
 
 import { useTeachingStore } from '@/stores/teachingStore';
+import { useAuthStore } from '@/stores/authStore';
 
 describe('PracticeCompleteScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockReduceMotion = false;
     useTeachingStore.getState().reset();
+    useAuthStore.getState().setWallpaperPromptSeen(false);
     jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => {});
     mockRouteParams = {
       anchorId: 'anchor-1',
@@ -246,6 +248,44 @@ describe('PracticeCompleteScreen', () => {
     render(<PracticeCompleteScreen />);
 
     expect(screen.getByText('65')).toBeTruthy();
+  });
+
+  it('presents the wallpaper sheet after a first practice reveal', () => {
+    mockReduceMotion = true;
+    mockRouteParams = {
+      anchorId: 'anchor-1',
+      practiceMode: 'focus',
+      previousThreadStrength: 0,
+      newThreadStrength: 25,
+      previousStage: 'Nascent',
+      newStage: 'Kindling',
+      didCrossStage: true,
+      isFirstPractice: true,
+      returnTo: 'practice',
+    };
+
+    render(<PracticeCompleteScreen />);
+
+    expect(screen.getByTestId('set-as-wallpaper-button')).toBeTruthy();
+  });
+
+  it('also presents the wallpaper sheet after a stage transition', () => {
+    mockReduceMotion = true;
+    mockRouteParams = {
+      anchorId: 'anchor-1',
+      practiceMode: 'deep_prime',
+      previousThreadStrength: 68,
+      newThreadStrength: 72,
+      previousStage: 'Kindling',
+      newStage: 'Tempered',
+      didCrossStage: true,
+      isFirstPractice: false,
+      returnTo: 'detail',
+    };
+
+    render(<PracticeCompleteScreen />);
+
+    expect(screen.getByTestId('set-as-wallpaper-button')).toBeTruthy();
   });
 
   describe('Same-Day Contextual Education', () => {

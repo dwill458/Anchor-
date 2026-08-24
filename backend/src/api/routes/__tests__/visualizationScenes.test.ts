@@ -25,8 +25,7 @@ jest.mock('../../../services/VisualizationSceneService', () => {
   const actual = jest.requireActual('../../../services/VisualizationSceneService');
   return {
     ...actual,
-    generateVisualizationSceneSuggestions: (...args: unknown[]) =>
-      mockGenerateSuggestions(...args),
+    generateVisualizationSceneSuggestions: (...args: unknown[]) => mockGenerateSuggestions(...args),
   };
 });
 

@@ -472,22 +472,24 @@ describe('GET /api/auth/me', () => {
     const res = await request(buildApp()).get('/api/auth/me');
 
     expect(res.status).toBe(200);
-    expect(Object.keys(res.body.data.chartCapabilities).sort()).toEqual([
-      'canAcceptExistingChartPlan',
-      'canCompleteExistingCourse',
-      'canCreateAnchor',
-      'canCreateManualCourse',
-      'canCreateOrEditReflections',
-      'canEditCourse',
-      'canGenerateChartPlan',
-      'canRetrieveOwnedChartPlan',
-      'canViewChart',
-      'canViewOwnedCourseHistory',
-      'chartAiPlannerEnabled',
-      'chartEnabled',
-      'chartReflectionsEnabled',
-      'plannerQuota',
-    ].sort());
+    expect(Object.keys(res.body.data.chartCapabilities).sort()).toEqual(
+      [
+        'canAcceptExistingChartPlan',
+        'canCompleteExistingCourse',
+        'canCreateAnchor',
+        'canCreateManualCourse',
+        'canCreateOrEditReflections',
+        'canEditCourse',
+        'canGenerateChartPlan',
+        'canRetrieveOwnedChartPlan',
+        'canViewChart',
+        'canViewOwnedCourseHistory',
+        'chartAiPlannerEnabled',
+        'chartEnabled',
+        'chartReflectionsEnabled',
+        'plannerQuota',
+      ].sort()
+    );
     expect(Object.keys(res.body.data.chartCapabilities.plannerQuota).sort()).toEqual([
       'eligible',
       'limit',
@@ -638,7 +640,11 @@ describe('GET /api/auth/me/export', () => {
       (reflection: { id: string }) => reflection.id === 'reflection-deleted'
     );
     expect(deleted).toEqual(
-      expect.objectContaining({ body: null, structuredContent: null, deletedAt: expect.any(String) })
+      expect.objectContaining({
+        body: null,
+        structuredContent: null,
+        deletedAt: expect.any(String),
+      })
     );
     expect(res.body.data.account.reflections).toEqual(
       expect.arrayContaining([expect.objectContaining({ body: 'active reflection canary' })])

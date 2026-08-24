@@ -146,7 +146,9 @@ describe('planner entitlement resolution', () => {
   });
 
   it('fails closed when the trial anchor is missing or invalid', async () => {
-    await expect(resolvePlannerEntitlement(user({ trialStartedAt: null }), NOW)).resolves.toBeNull();
+    await expect(
+      resolvePlannerEntitlement(user({ trialStartedAt: null }), NOW)
+    ).resolves.toBeNull();
     await expect(
       resolvePlannerEntitlement(user({ trialStartedAt: new Date(NaN) }), NOW)
     ).resolves.toBeNull();
@@ -259,9 +261,11 @@ describe('planner quota evaluation', () => {
   it('scopes every count to the authenticated account', async () => {
     const { client, spy } = counter(0);
     await evaluatePlannerQuota(client, user({ id: 'user-other' }), NOW);
-    expect(spy).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ userId: 'user-other' }),
-    }));
+    expect(spy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ userId: 'user-other' }),
+      })
+    );
   });
 
   it('never counts for a zero-cap state', async () => {

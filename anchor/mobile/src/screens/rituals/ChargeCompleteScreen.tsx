@@ -97,13 +97,7 @@ export const ChargeCompleteScreen: React.FC = () => {
 
   // Show CompletionModal first before the vault/activate CTAs
   const [completionDone, setCompletionDone] = useState(false);
-  const [showCompletion, setShowCompletion] = useState(false);
-
-  useEffect(() => {
-    InteractionManager.runAfterInteractions(() => {
-      setShowCompletion(true);
-    });
-  }, []);
+  const [showCompletion, setShowCompletion] = useState(true);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;

@@ -28,12 +28,14 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { PracticeStackParamList, RootStackParamList } from '@/types';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useTeachingStore } from '@/stores/teachingStore';
+import { useAuthStore } from '@/stores/authStore';
 import { useNotificationController } from '@/hooks/useNotificationController';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { useChartPracticeReturn } from '@/hooks/useChartPracticeReturn';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { SigilSvg, OptimizedImage } from '@/components/common';
+import { SetWallpaperSheet } from '@/components/sheets/SetWallpaperSheet';
 import { colors, typography } from '@/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -77,6 +79,8 @@ export const PracticeCompleteScreen: React.FC = () => {
   } = route.params;
 
   const anchor = useAnchorStore((state) => state.getAnchorById(anchorId));
+  const wallpaperPromptSeen = useAuthStore((state) => state.wallpaperPromptSeen);
+  const setWallpaperPromptSeen = useAuthStore((state) => state.setWallpaperPromptSeen);
   const returnToChart = useChartPracticeReturn(navigation);
   const {
     navigateToPractice,
@@ -114,6 +118,8 @@ export const PracticeCompleteScreen: React.FC = () => {
     'set' | 'skipped' | null
   >(null);
   const [isSettingReminder, setIsSettingReminder] = useState(false);
+  const [hasThreadStrengthRevealed, setHasThreadStrengthRevealed] = useState(reduceMotion);
+  const [showWallpaperSheet, setShowWallpaperSheet] = useState(false);
 
   // Animated values
   const screenFadeAnim = useRef(new Animated.Value(reduceMotion ? 1 : 0)).current;
@@ -208,12 +214,25 @@ export const PracticeCompleteScreen: React.FC = () => {
     return () => clearTimeout(timer);
   }, [fromVal, isFirstPractice, isTransition, newStage, toVal]);
 
+  // The wallpaper prompt belongs to the first meaningful practice moment, not
+  // the creation flow. Wait until the Thread Strength reveal has resolved so it
+  // does not compete with the completion acknowledgement.
+  useEffect(() => {
+    const isWallpaperMoment = isFirstPractice || didCrossStage;
+    if (!hasThreadStrengthRevealed || !isWallpaperMoment || !anchor || wallpaperPromptSeen) {
+      return;
+    }
+
+    setShowWallpaperSheet(true);
+  }, [anchor, didCrossStage, hasThreadStrengthRevealed, isFirstPractice, wallpaperPromptSeen]);
+
   // Animation Sequence
   useEffect(() => {
     if (reduceMotion) {
       setStep(4);
       setDisplayCount(toVal);
       progressBarAnim.setValue(toVal);
+      setHasThreadStrengthRevealed(true);
       return;
     }
 
@@ -353,6 +372,7 @@ export const PracticeCompleteScreen: React.FC = () => {
           anchor_id: anchorId,
           new_thread_strength: toVal,
         });
+        setHasThreadStrengthRevealed(true);
       });
     }, 500);
 
@@ -945,6 +965,18 @@ export const PracticeCompleteScreen: React.FC = () => {
           </TouchableOpacity>
         </Animated.View>
       </Animated.View>
+
+      {showWallpaperSheet && anchor ? (
+        <SetWallpaperSheet
+          anchor={anchor}
+          trigger={isFirstPractice ? 'first_practice' : 'stage_transition'}
+          onSetWallpaper={() => setWallpaperPromptSeen(true)}
+          onDismiss={() => {
+            setWallpaperPromptSeen(true);
+            setShowWallpaperSheet(false);
+          }}
+        />
+      ) : null}
     </SafeAreaView>
   );
 };

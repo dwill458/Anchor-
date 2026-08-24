@@ -74,14 +74,14 @@ describe('POST /api/billing/refresh', () => {
         source: 'revenuecat',
       },
     });
-    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith(expect.objectContaining({
-      where: { authUid: 'firebase-uid-1' },
-    }));
-    expect(mockGetRevenueCatAccess).toHaveBeenCalledWith(
-      'db-user-1',
-      expect.any(Date),
-      { forceRefresh: true }
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { authUid: 'firebase-uid-1' },
+      })
     );
+    expect(mockGetRevenueCatAccess).toHaveBeenCalledWith('db-user-1', expect.any(Date), {
+      forceRefresh: true,
+    });
     expect(mockPrisma.user.update).toHaveBeenCalledWith({
       where: { id: 'db-user-1' },
       data: {

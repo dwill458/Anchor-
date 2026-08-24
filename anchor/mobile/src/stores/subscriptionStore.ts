@@ -59,6 +59,7 @@ interface SubscriptionState extends TrialStatusSnapshot {
     setSubscriptionStatus: (status: 'trial' | 'active' | 'expired') => void;
     setTrialState: (snapshot: TrialStatusSnapshot) => void;
     applyServerEntitlement: (hasActiveEntitlement: boolean) => void;
+    resetRemoteEntitlement: () => void;
     syncAccountTrial: (startDate: Date | string) => void;
     applyServerTrial: (startDate: Date | string, serverExpired?: boolean) => void;
     confirmServerExpiry: () => void;
@@ -107,6 +108,19 @@ export const useSubscriptionStore = create<SubscriptionState>()(
                     subscriptionStatus: hasActiveEntitlement ? 'active' : 'expired',
                     rcSynced: true,
                 }),
+            resetRemoteEntitlement: () =>
+                set((state) => ({
+                    rcTier: 'free',
+                    isInTrial: false,
+                    isSubscribed: false,
+                    hasActiveEntitlement: false,
+                    daysRemaining: null,
+                    trialExpired: false,
+                    rcSynced: false,
+                    subscriptionStatus: isLocalTrialActive(state.trialStartDate)
+                        ? 'trial'
+                        : 'expired',
+                })),
             syncAccountTrial: (startDate) => {
                 const normalizedStartDate = normalizeTrialStartDate(startDate);
                 if (!normalizedStartDate) {

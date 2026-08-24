@@ -473,7 +473,7 @@ export const PaywallScreen: React.FC = () => {
   const primeStreak = useAnchorStore((state) => state.primeStreak);
   const { forgedCount, totalPrimes } = useProgressionData();
   const reduceMotion = useReduceMotionEnabled();
-  const { daysRemaining, subscriptionStatus } = useTrialStatus();
+  const { daysRemaining, subscriptionStatus, isSubscribed } = useTrialStatus();
 
   const preferredPlanId = useSubscriptionStore((state) => state.preferredPlanId);
   const setPreferredPlanId = useSubscriptionStore((state) => state.setPreferredPlanId);
@@ -497,6 +497,16 @@ export const PaywallScreen: React.FC = () => {
   const sourceCopy = getPaywallSourceCopy(source);
   const headline = HEADLINES[PAYWALL_EXPERIMENT.headline];
   const showRecap = PAYWALL_EXPERIMENT.showRecap && (source === 'post_trial' || forgedCount + totalPrimes + primeStreak > 0);
+
+  useEffect(() => {
+    if (!isSubscribed) return;
+
+    // Navigation can race with account hydration or a RevenueCat update. A
+    // paid account must never remain on the paywall just because it was
+    // opened before its entitlement finished syncing.
+    logger.warn('[PaywallScreen] Paid entitlement detected; dismissing paywall');
+    navigation.goBack();
+  }, [isSubscribed, navigation]);
 
   useEffect(() => {
     if (!primaryAnchor) {

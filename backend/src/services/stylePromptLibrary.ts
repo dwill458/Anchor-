@@ -92,7 +92,8 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     description: 'Precision silver engraving, quiet radiance, nocturnal contrast.',
     paletteLane: 'monochrome silver, indigo-black, cold titanium, soft blue-gray',
     compositionFamily: 'OFFSET FIELD',
-    materialBehavior: 'milled silver etching, micro-particle dust, restrained cold metallic reflection',
+    materialBehavior:
+      'milled silver etching, micro-particle dust, restrained cold metallic reflection',
     styleNativeMotif: 'silver dust fields, hairline edge highlights, and directional shadow',
     defaultDensity: 'sparse',
     promptStyleBlock:
@@ -198,7 +199,8 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     paletteLane: 'midnight teal, deep violet, pale gold flare accent, particle white',
     compositionFamily: 'DIAGONAL TENSION',
     materialBehavior: 'vector field haze, particulate dust, layered dark gradients',
-    styleNativeMotif: 'vector field currents, particulate dust arrays, and deep diagonal atmospheric gradients',
+    styleNativeMotif:
+      'vector field currents, particulate dust arrays, and deep diagonal atmospheric gradients',
     defaultDensity: 'rich',
     promptStyleBlock:
       'Atmospheric depth with midnight teal, deep violet, pale gold flare accent, and particle-white dust. The anchor geometry is exact and untouched while energy fields, layered dark gradients, and a controlled diagonal pull create dimensional depth. Avoid planets, literal space scenes, astronauts, or poster wallpaper.',
@@ -239,7 +241,8 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     description: 'Black obsidian composite, graphite polish, reflective bevel highlights.',
     paletteLane: 'polished obsidian composite, graphite, silver edge, smoke gray',
     compositionFamily: 'LOWER-ANCHORED',
-    materialBehavior: 'machined obsidian composite, reflective bevel highlights, dark shadow weight',
+    materialBehavior:
+      'machined obsidian composite, reflective bevel highlights, dark shadow weight',
     styleNativeMotif: 'obsidian reflections, graphite polish, and low reflective shadow',
     defaultDensity: 'sparse',
     promptStyleBlock:
@@ -303,7 +306,8 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     paletteLane: 'matte carbon, basalt gray, dusted bronze accent, muted bone',
     compositionFamily: 'LOWER-ANCHORED',
     materialBehavior: 'basalt composite grain, dense carbon ink, machined relief shadow',
-    styleNativeMotif: 'basalt grain, dense carbon mass, structural relief shadow, and weighted base gravity',
+    styleNativeMotif:
+      'basalt grain, dense carbon mass, structural relief shadow, and weighted base gravity',
     defaultDensity: 'moderate',
     promptStyleBlock:
       'Dense carbon ink with matte carbon black, basalt gray, dusted bronze accent, and muted bone. The anchor geometry remains exact while structural relief shadow, matte weight, mineral composite grain, and lower-anchored gravity create monumental stillness. Avoid decorative filigree or ornamental clutter.',
@@ -320,7 +324,8 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     styleFamily: 'Precision / Astrometric',
     category: 'Geometric',
     collection: 'featured',
-    description: 'Measured astrometric geometry, coordinate vector lines, technical telemetry order.',
+    description:
+      'Measured astrometric geometry, coordinate vector lines, technical telemetry order.',
     paletteLane: 'midnight navy, pale cyan, soft violet, pinprick gold',
     compositionFamily: 'OFFSET FIELD',
     materialBehavior: 'coordinate plotting, telemetry markers, delicate vector arrays',
@@ -447,10 +452,12 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     styleFamily: 'Geometric / Mathematical',
     category: 'Geometric',
     collection: 'seasonal',
-    description: 'Layered harmonic mathematical systems, transparent vector overlays, structural depth.',
+    description:
+      'Layered harmonic mathematical systems, transparent vector overlays, structural depth.',
     paletteLane: 'indigo, teal, dusty rose, muted brass accent, slate blue',
     compositionFamily: 'CENTRED AXIS',
-    materialBehavior: 'layered harmonic geometry, transparent vector overlays, mathematical precision',
+    materialBehavior:
+      'layered harmonic geometry, transparent vector overlays, mathematical precision',
     styleNativeMotif: 'transparent vector overlays and secondary geometric projection systems',
     defaultDensity: 'rich',
     promptStyleBlock:

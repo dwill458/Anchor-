@@ -11,6 +11,7 @@ const mockSetPreferredPlanId = jest.fn();
 const mockApplyServerEntitlement = jest.fn();
 const mockRefreshServerEntitlement = jest.fn();
 let mockPreferredPlanId: 'monthly' | 'annual' = 'annual';
+let mockIsSubscribed = false;
 let mockRouteParams: { preferredPlanId?: 'monthly' | 'annual'; source?: 'post_trial' | 'gated_feature' } | undefined;
 
 let mockAnchorState: {
@@ -57,7 +58,7 @@ jest.mock('@/hooks/useReduceMotionEnabled', () => ({
 jest.mock('@/hooks/useTrialStatus', () => ({
   useTrialStatus: () => ({
     isTrialActive: false,
-    isSubscribed: false,
+    isSubscribed: mockIsSubscribed,
     hasExpired: true,
     trialExpired: true,
     hasActiveEntitlement: false,
@@ -168,6 +169,7 @@ describe('PaywallScreen', () => {
     mockRefreshServerEntitlement.mockReset();
     mockRefreshServerEntitlement.mockResolvedValue(serverEntitlement(false));
     mockPreferredPlanId = 'annual';
+    mockIsSubscribed = false;
     mockRouteParams = undefined;
     mockAnchorState = {
       anchors: [
@@ -211,6 +213,16 @@ describe('PaywallScreen', () => {
     expect(screen.queryByText('Lifetime')).toBeNull();
     await waitFor(() => {
       expect(screen.getByText('Continue my practice')).toBeTruthy();
+    });
+  });
+
+  it('dismisses itself when a paid entitlement is already active', async () => {
+    mockIsSubscribed = true;
+
+    render(<PaywallScreen />);
+
+    await waitFor(() => {
+      expect(mockGoBack).toHaveBeenCalledTimes(1);
     });
   });
 

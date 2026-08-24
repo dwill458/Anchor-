@@ -424,7 +424,9 @@ class RevenueCatService {
   async logIn(userId: string): Promise<TrialStatusSnapshot> {
     const purchases = getPurchasesModule();
     if (!purchases?.logIn) {
-      return applyTrialStatus(DEFAULT_TRIAL_STATUS);
+      // A missing native module is an availability problem, not proof that
+      // the account is free. Keep the server/bootstrap entitlement intact.
+      return this.getCurrentStatus();
     }
 
     this.configure();
@@ -446,7 +448,10 @@ class RevenueCatService {
   async refreshTrialStatus(options: RevenueCatStatusSyncOptions = {}): Promise<TrialStatusSnapshot> {
     const purchases = getPurchasesModule();
     if (!purchases?.getCustomerInfo) {
-      return applyTrialStatus(DEFAULT_TRIAL_STATUS);
+      // Do not turn a transient SDK/configuration failure into an expired
+      // subscription. A negative entitlement requires a real customer-info
+      // response or an explicit server billing decision.
+      return this.getCurrentStatus();
     }
 
     try {

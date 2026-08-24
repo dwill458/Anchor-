@@ -21,6 +21,7 @@ import Animated, {
   Easing,
   useAnimatedStyle,
   useSharedValue,
+  withRepeat,
   withTiming,
 } from 'react-native-reanimated';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
@@ -183,6 +184,51 @@ const HeroAnchorCardInner: React.FC<HeroAnchorCardProps> = ({
     pressScale.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.quad) });
   };
 
+  // ── Breathing animation ──
+  const breatheScale = useSharedValue(1);
+  const breatheTranslateY = useSharedValue(0);
+
+  useEffect(() => {
+    if (reduceMotionEnabled || performanceTier === 'low') {
+      cancelAnimation(breatheScale);
+      cancelAnimation(breatheTranslateY);
+      breatheScale.value = 1;
+      breatheTranslateY.value = 0;
+      return;
+    }
+
+    // 2750ms inhale / 2750ms exhale (5.5s full respiratory cycle matching Sanctuary prototype)
+    breatheScale.value = withRepeat(
+      withTiming(1.025, {
+        duration: 2750,
+        easing: Easing.inOut(Easing.sin),
+      }),
+      -1,
+      true,
+    );
+
+    breatheTranslateY.value = withRepeat(
+      withTiming(-3.5, {
+        duration: 2750,
+        easing: Easing.inOut(Easing.sin),
+      }),
+      -1,
+      true,
+    );
+
+    return () => {
+      cancelAnimation(breatheScale);
+      cancelAnimation(breatheTranslateY);
+    };
+  }, [reduceMotionEnabled, performanceTier, breatheScale, breatheTranslateY]);
+
+  const stageBreatheStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: breatheScale.value },
+      { translateY: breatheTranslateY.value },
+    ],
+  }));
+
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -193,8 +239,11 @@ const HeroAnchorCardInner: React.FC<HeroAnchorCardProps> = ({
       accessibilityLabel={`${anchor.intentionText}, ${formatCategory(anchor.category)}. Thread Strength ${strengthPct}, ${badgeLabel}.`}
     >
       <Animated.View style={[styles.heroWrap, cardStyle]}>
-        {/* ── Anchor Stage (244pt) ── */}
-        <View style={[styles.stageOuter, { width: STAGE_SIZE, height: STAGE_SIZE }]}>
+        {/* ── Anchor Stage (244pt) with Breathing Animation ── */}
+        <Animated.View
+          testID="hero-stage"
+          style={[styles.stageOuter, { width: STAGE_SIZE, height: STAGE_SIZE }, stageBreatheStyle]}
+        >
           {/* Circular dark radial gradient floor (inset 26) */}
           <View style={[styles.stageFloor, { width: STAGE_SIZE - 52, height: STAGE_SIZE - 52, borderRadius: (STAGE_SIZE - 52) / 2 }]}>
             <Svg width="100%" height="100%" viewBox="0 0 100 100">
@@ -251,7 +300,7 @@ const HeroAnchorCardInner: React.FC<HeroAnchorCardProps> = ({
               strength={strengthPct}
             />
           </View>
-        </View>
+        </Animated.View>
 
         {/* ── Thread Strength Read-out ── */}
         <View style={styles.textInfo}>

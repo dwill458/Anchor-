@@ -7,15 +7,13 @@ import { resolveGoogleApiKey } from '../env';
  */
 describe('resolveGoogleApiKey', () => {
   it('uses GOOGLE_API_KEY when present', () => {
-    expect(
-      resolveGoogleApiKey({ GOOGLE_API_KEY: 'canonical' } as NodeJS.ProcessEnv)
-    ).toBe('canonical');
+    expect(resolveGoogleApiKey({ GOOGLE_API_KEY: 'canonical' } as NodeJS.ProcessEnv)).toBe(
+      'canonical'
+    );
   });
 
   it('accepts GEMINI_API_KEY when GOOGLE_API_KEY is absent', () => {
-    expect(
-      resolveGoogleApiKey({ GEMINI_API_KEY: 'alias' } as NodeJS.ProcessEnv)
-    ).toBe('alias');
+    expect(resolveGoogleApiKey({ GEMINI_API_KEY: 'alias' } as NodeJS.ProcessEnv)).toBe('alias');
   });
 
   it('prefers GOOGLE_API_KEY when both are present', () => {
@@ -42,8 +40,6 @@ describe('resolveGoogleApiKey', () => {
   });
 
   it('trims surrounding whitespace', () => {
-    expect(
-      resolveGoogleApiKey({ GEMINI_API_KEY: '  alias  ' } as NodeJS.ProcessEnv)
-    ).toBe('alias');
+    expect(resolveGoogleApiKey({ GEMINI_API_KEY: '  alias  ' } as NodeJS.ProcessEnv)).toBe('alias');
   });
 });

@@ -7,6 +7,10 @@ jest.mock('../MedallionCoin', () => ({
   MedallionCoin: () => null,
 }));
 
+jest.mock('../SelectedChipGlowRing', () => ({
+  SelectedChipGlowRing: () => null,
+}));
+
 const mockAnchor: Anchor = {
   id: 'anchor-1',
   user_id: 'user-1',

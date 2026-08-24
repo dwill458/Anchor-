@@ -86,7 +86,8 @@ describe('RevenueCatEntitlementService', () => {
   });
 
   it('bypasses a cached entitlement after a completed purchase or restore', async () => {
-    const getSpy = jest.spyOn(axios, 'get')
+    const getSpy = jest
+      .spyOn(axios, 'get')
       .mockResolvedValueOnce({
         data: {
           subscriber: {
@@ -117,9 +118,7 @@ describe('RevenueCatEntitlementService', () => {
       isActive: true,
       productIdentifier: 'anchor_pro_monthly',
     });
-    await expect(
-      getRevenueCatAccess('fresh-user', now, { forceRefresh: true })
-    ).resolves.toEqual({
+    await expect(getRevenueCatAccess('fresh-user', now, { forceRefresh: true })).resolves.toEqual({
       isActive: true,
       productIdentifier: 'anchor_pro_annual',
     });

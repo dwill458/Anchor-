@@ -160,6 +160,19 @@ describe('RevenueCatService', () => {
     expect(mockSetSubscriptionStatus).toHaveBeenCalledWith('trial');
   });
 
+  it('preserves an active paid state when RevenueCat is temporarily unavailable', async () => {
+    mockSubscriptionState.subscriptionStatus = 'active';
+    mockSubscriptionState.isSubscribed = true;
+    mockSubscriptionState.hasActiveEntitlement = true;
+    mockPurchases.getCustomerInfo.mockRejectedValueOnce(new Error('network unavailable'));
+
+    const status = await RevenueCatService.refreshTrialStatus();
+
+    expect(status.isSubscribed).toBe(true);
+    expect(status.hasActiveEntitlement).toBe(true);
+    expect(mockSetSubscriptionStatus).not.toHaveBeenCalled();
+  });
+
   it('purchases package by identifier successfully', async () => {
     const pkg = { identifier: 'test_product' };
     mockPurchases.getOfferings.mockResolvedValueOnce({

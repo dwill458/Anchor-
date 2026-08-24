@@ -87,6 +87,23 @@ describe('subscriptionStore', () => {
     });
   });
 
+  describe('resetRemoteEntitlement', () => {
+    it('clears paid access without discarding a still-active local trial clock', () => {
+      const { result } = renderHook(() => useSubscriptionStore());
+
+      act(() => {
+        result.current.syncAccountTrial(new Date().toISOString());
+        result.current.applyServerEntitlement(true);
+        result.current.resetRemoteEntitlement();
+      });
+
+      expect(result.current.isSubscribed).toBe(false);
+      expect(result.current.hasActiveEntitlement).toBe(false);
+      expect(result.current.rcSynced).toBe(false);
+      expect(result.current.subscriptionStatus).toBe('trial');
+    });
+  });
+
   describe('setDevOverrideEnabled', () => {
     it('enables the dev override', () => {
       const { result } = renderHook(() => useSubscriptionStore());

@@ -143,6 +143,22 @@ function applyUserToSubscriptionStore(user: User | null): void {
   const subscription = useSubscriptionStore.getState();
   subscription.setRemoteCompedAccess(user?.isComped === true);
 
+  if (!user) {
+    // RevenueCat state is account-scoped and must not bleed into the next
+    // account while the SDK switches users. Keep a valid local trial clock,
+    // but clear the previous account's paid entitlement immediately.
+    subscription.resetRemoteEntitlement();
+    AnalyticsService.reset();
+    return;
+  }
+
+  // The authenticated profile is server-confirmed state. Seed paid access
+  // before the asynchronous RevenueCat login so a paid user never sees the
+  // default local `expired` state during startup or an SDK outage.
+  subscription.applyServerEntitlement(
+    typeof user.subscriptionStatus === 'string' && user.subscriptionStatus.startsWith('pro')
+  );
+
   // Seed the account-bound trial clock synchronously whenever a user is set, so
   // it is in place before RevenueCat's async logIn() resolves and reads it.
   // Without this, on a fresh install (AsyncStorage empty → status defaults to
@@ -163,11 +179,6 @@ function applyUserToSubscriptionStore(user: User | null): void {
   // measured without RevenueCat. The backend remains the source of truth — this
   // is read-only reporting that refreshes whenever the user record changes
   // (login, profile fetch, rehydrate). Sign-out (user === null) resets identity.
-  if (!user) {
-    AnalyticsService.reset();
-    return;
-  }
-
   const trialStartIso = trialAnchor
     ? (trialAnchor instanceof Date ? trialAnchor.toISOString() : new Date(trialAnchor).toISOString())
     : undefined;

@@ -14,6 +14,7 @@ export const colors = {
   anchor15: {
     ink: '#080B0F',
     navy: '#0F1419',
+    midnight: '#0B1015',
     veil: '#161D25',
     steel: '#1E2A33',
     creationTop: '#18202A',

@@ -168,7 +168,7 @@ describe('Chart rollback safety (H-004)', () => {
         CHART_ROLLOUT_PERCENT: '',
         CHART_KILL_SWITCH: '',
       });
-      expect(Object.values(getChartFeatureFlags()).every((value) => value === false)).toBe(true);
+      expect(Object.values(getChartFeatureFlags()).every(value => value === false)).toBe(true);
       expect(isAccountInChartRollout('account-1')).toBe(false);
     });
 
@@ -201,7 +201,7 @@ describe('Chart rollback safety (H-004)', () => {
         ...allOn,
         ENABLE_CHART: 'false',
       });
-      expect(Object.values(getChartFeatureFlags()).every((value) => value === false)).toBe(true);
+      expect(Object.values(getChartFeatureFlags()).every(value => value === false)).toBe(true);
       expect(() => requireChartEnabled()).toThrow(
         expect.objectContaining({ code: 'FEATURE_DISABLED' })
       );
@@ -212,13 +212,13 @@ describe('Chart rollback safety (H-004)', () => {
         ...allOn,
         CHART_KILL_SWITCH: 'true',
       });
-      expect(Object.values(getChartFeatureFlags()).every((value) => value === false)).toBe(true);
+      expect(Object.values(getChartFeatureFlags()).every(value => value === false)).toBe(true);
       expect(isAccountInChartRollout('account-1')).toBe(false);
     });
 
     it('restores the same accounts and flags when re-enabled', () => {
       const before = loadFlags(allOn);
-      const bucketed = ['a', 'b', 'c', 'd', 'e'].filter((id) =>
+      const bucketed = ['a', 'b', 'c', 'd', 'e'].filter(id =>
         before.isAccountInChartRollout(`account-${id}`)
       );
 
@@ -230,7 +230,7 @@ describe('Chart rollback safety (H-004)', () => {
       // Bucketing is a deterministic hash of the account id, so the cohort is
       // restored rather than reshuffled.
       expect(
-        ['a', 'b', 'c', 'd', 'e'].filter((id) => after.isAccountInChartRollout(`account-${id}`))
+        ['a', 'b', 'c', 'd', 'e'].filter(id => after.isAccountInChartRollout(`account-${id}`))
       ).toEqual(bucketed);
     });
   });

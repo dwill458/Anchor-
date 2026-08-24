@@ -380,9 +380,9 @@ describe('StorageService', () => {
     it('extracts the object key from the configured public domain URL', () => {
       process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN = 'https://cdn.example.com';
 
-      expect(
-        extractStorageObjectKey('https://cdn.example.com/anchors/user/anchor/mock.png')
-      ).toBe('anchors/user/anchor/mock.png');
+      expect(extractStorageObjectKey('https://cdn.example.com/anchors/user/anchor/mock.png')).toBe(
+        'anchors/user/anchor/mock.png'
+      );
     });
 
     it('extracts the object key from a presigned R2 URL', () => {

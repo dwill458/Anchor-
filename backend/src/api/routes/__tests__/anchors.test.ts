@@ -598,7 +598,6 @@ describe('DELETE /api/anchors/:id', () => {
 
     expect(res.status).toBe(404);
   });
-
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -924,10 +923,9 @@ describe('POST /api/anchors/:id/burn', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.burned).toBe(true);
     expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
-    expect(mockPrisma.$transaction).toHaveBeenCalledWith(
-      expect.any(Function),
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
-    );
+    expect(mockPrisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    });
     expect(mockPrisma.anchor.findFirst).toHaveBeenCalledWith({
       where: { id: 'anchor-1', userId: 'db-user-1' },
       include: expect.objectContaining({

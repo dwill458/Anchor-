@@ -12,15 +12,15 @@ import { join } from 'path';
 
 const MIGRATION_DIR = join(
   __dirname,
-  '../../../prisma/migrations/20260802000000_add_chart_backend_foundation',
+  '../../../prisma/migrations/20260802000000_add_chart_backend_foundation'
 );
 const PRODUCTION_ROLLBACK_PATH = join(
   __dirname,
-  '../../../prisma/migrations/ROLLBACK_20260802000000_add_chart_backend_foundation.sql',
+  '../../../prisma/migrations/ROLLBACK_20260802000000_add_chart_backend_foundation.sql'
 );
 const DEV_ROLLBACK_PATH = join(
   __dirname,
-  '../../../prisma/migrations/DEV_ONLY_DESTRUCTIVE_ROLLBACK_20260802000000_add_chart_backend_foundation.sql',
+  '../../../prisma/migrations/DEV_ONLY_DESTRUCTIVE_ROLLBACK_20260802000000_add_chart_backend_foundation.sql'
 );
 
 const migration = readFileSync(join(MIGRATION_DIR, 'migration.sql'), 'utf8');
@@ -99,9 +99,7 @@ describe('Chart migration — frozen event taxonomy', () => {
   it('declares exactly the frozen CourseEventType values', () => {
     const match = migration.match(/CREATE TYPE "CourseEventType" AS ENUM \(([\s\S]*?)\);/);
     expect(match).not.toBeNull();
-    const values = (match![1].match(/'([A-Z_]+)'/g) ?? []).map(value =>
-      value.replace(/'/g, ''),
-    );
+    const values = (match![1].match(/'([A-Z_]+)'/g) ?? []).map(value => value.replace(/'/g, ''));
     expect(values.sort()).toEqual([...FROZEN_EVENT_TYPES].sort());
   });
 
@@ -121,11 +119,9 @@ describe('Chart migration — invariants enforced in the database', () => {
   });
 
   it('allows at most one active link per role and per waypoint', () => {
+    expect(migration).toContain('CREATE UNIQUE INDEX "course_anchor_links_one_active_destination"');
     expect(migration).toContain(
-      'CREATE UNIQUE INDEX "course_anchor_links_one_active_destination"',
-    );
-    expect(migration).toContain(
-      'CREATE UNIQUE INDEX "course_anchor_links_one_active_waypoint_primary"',
+      'CREATE UNIQUE INDEX "course_anchor_links_one_active_waypoint_primary"'
     );
   });
 
@@ -148,7 +144,7 @@ describe('Chart migration — invariants enforced in the database', () => {
 describe('Chart migration — deletion behavior matches the burn contract', () => {
   it('nulls the Course pointer rather than cascading a waypoint delete into the Course', () => {
     expect(migration).toMatch(
-      /FOREIGN KEY \("current_waypoint_id"\) REFERENCES "waypoints"\("id"\) ON DELETE SET NULL/,
+      /FOREIGN KEY \("current_waypoint_id"\) REFERENCES "waypoints"\("id"\) ON DELETE SET NULL/
     );
   });
 
@@ -156,17 +152,16 @@ describe('Chart migration — deletion behavior matches the burn contract', () =
     // Amendment A2: burn hard-deletes the Anchor after Chart links and snapshots
     // are closed; the link row and its anchorSnapshot must remain.
     expect(migration).toMatch(
-      /FOREIGN KEY \("anchor_id"\) REFERENCES "anchors"\("id"\) ON DELETE SET NULL/,
+      /FOREIGN KEY \("anchor_id"\) REFERENCES "anchors"\("id"\) ON DELETE SET NULL/
     );
   });
 
   it('keeps practice history free of Chart foreign keys', () => {
     // Practice history must survive Course deletion, so course_id/waypoint_id on
     // practice_sessions are soft references by contract.
-    const practiceBlock = migration.slice(
-      migration.indexOf('ALTER TABLE "practice_sessions"'),
-    );
-    const chartFkOnPractice = /practice_sessions[\s\S]{0,400}FOREIGN KEY \("(course_id|waypoint_id)"\)/;
+    const practiceBlock = migration.slice(migration.indexOf('ALTER TABLE "practice_sessions"'));
+    const chartFkOnPractice =
+      /practice_sessions[\s\S]{0,400}FOREIGN KEY \("(course_id|waypoint_id)"\)/;
     expect(practiceBlock).not.toMatch(chartFkOnPractice);
     expect(schema).toContain('courseId            String? @map("course_id")');
   });
@@ -207,7 +202,7 @@ describe('Chart migration — explicitly opted-in development rollback is comple
 
   it('drops the added index', () => {
     expect(devRollback).toContain(
-      'DROP INDEX IF EXISTS "practice_sessions_course_id_completed_at_idx"',
+      'DROP INDEX IF EXISTS "practice_sessions_course_id_completed_at_idx"'
     );
   });
 
