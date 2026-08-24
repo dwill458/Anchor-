@@ -32,6 +32,8 @@ import {
   ConfirmBurnScreen,
   BurningRitualScreen,
   ChargeSetupScreen,
+  DeepPrimeCompletionScreen,
+  FocusCompletionScreen,
   RitualScreen,
   SealAnchorScreen,
   ChargeCompleteScreen,
@@ -258,6 +260,16 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
         name="PracticeComplete"
         component={PracticeCompleteScreen}
         options={{ headerShown: false, animation: 'fade_from_bottom' }}
+      />
+      <Stack.Screen
+        name="FocusCompletion"
+        component={FocusCompletionScreen}
+        options={{ headerShown: false, animation: 'none' }}
+      />
+      <Stack.Screen
+        name="DeepPrimeCompletion"
+        component={DeepPrimeCompletionScreen}
+        options={{ headerShown: false, animation: 'none' }}
       />
       <Stack.Screen
         name="ChargeComplete"

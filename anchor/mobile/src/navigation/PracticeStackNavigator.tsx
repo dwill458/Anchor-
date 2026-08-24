@@ -18,7 +18,9 @@ import {
   ChargeSetupScreen,
   ConfirmBurnScreen,
   BurningRitualScreen,
+  DeepPrimeCompletionScreen,
   FirstPrimeCompleteScreen,
+  FocusCompletionScreen,
   RitualScreen,
   SealAnchorScreen,
 } from '@/screens/rituals';
@@ -103,6 +105,16 @@ export const PracticeStackNavigator: React.FC<PracticeStackNavigatorProps> = ({ 
             name="PracticeComplete"
             component={PracticeCompleteScreen}
             options={{ animation: 'fade_from_bottom' }}
+          />
+          <Stack.Screen
+            name="FocusCompletion"
+            component={FocusCompletionScreen}
+            options={{ animation: 'none' }}
+          />
+          <Stack.Screen
+            name="DeepPrimeCompletion"
+            component={DeepPrimeCompletionScreen}
+            options={{ animation: 'none' }}
           />
           <Stack.Screen
             name="ChargeComplete"

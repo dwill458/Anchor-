@@ -1,17 +1,13 @@
-import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
-  Animated,
-  Easing,
   Keyboard,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  useWindowDimensions,
+  TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Check } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -20,25 +16,16 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { usePostPrimeTraceStore } from '@/stores/postPrimeTraceStore';
+import { markPostPrimeTraceAttemptStarted } from '@/utils/postPrimeTraceEligibility';
 import { PracticeCompletionService } from '@/services/PracticeCompletionService';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { colors as themeColors, typography } from '@/theme';
 import { useChartPracticeReturn } from '@/hooks/useChartPracticeReturn';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
-import { PostPrimeTraceModal } from '@/screens/rituals/components/PostPrimeTraceModal';
-import { usePostPrimeTraceStore } from '@/stores/postPrimeTraceStore';
-import {
-  isPostPrimeTraceEligible,
-  markPostPrimeTraceAttemptStarted,
-} from '@/utils/postPrimeTraceEligibility';
 import { calculatePracticeCompleteResult } from '@/utils/practiceCompletionCoordinator';
-import {
-  VisualizeFieldBackground,
-} from './VisualizeAnchorField';
-import {
-  VisualizationAnchorLens,
-  VisualizationPrimaryButton,
-} from './VisualizationPrimitives';
+import { SessionCompletionScreen } from '@/screens/practice/SessionCompletionScreen';
+import { PRACTICE_COMPLETION_PRESETS } from '@/screens/practice/practiceCompletionPresets';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'VisualizeCompletion'>;
 
@@ -53,15 +40,10 @@ const colors = {
   boneFaint: 'rgba(245,240,232,0.34)',
 };
 
-const durLabel = (s: number) => (s === 60 ? '1 min' : s === 300 ? '5 min' : '3 min');
-
 export const VisualizeCompletionScreen: React.FC<Props> = ({
   navigation,
   route,
 }) => {
-  const insets = useSafeAreaInsets();
-  const { width: screenWidth } = useWindowDimensions();
-  const HERO_SIZE = Math.min(screenWidth * 0.58, 250);
   const returnToChart = useChartPracticeReturn(navigation);
   const {
     navigateToSanctuary: canonicalNavigateToSanctuary,
@@ -85,7 +67,6 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
   const [nextAction, setNextAction] = useState('');
   const [saved, setSaved] = useState(false);
 
-  const traceDefaultEnabled = useSettingsStore((state) => state.traceDefaultEnabled ?? true);
   const threadStrengthSensitivity = useSettingsStore(
     (state) => state.threadStrengthSensitivity,
   );
@@ -123,37 +104,15 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
       threadStrengthSensitivity,
     ],
   );
-  const bumpThreadStrength = useSessionStore((state) => state.bumpThreadStrength);
   const beginPostPrimeTraceFlow = usePostPrimeTraceStore((state) => state.beginFlow);
   const activeFlow = usePostPrimeTraceStore((state) => state.activeFlow);
-  const [showPostPrimeTrace, setShowPostPrimeTrace] = useState(false);
   const [pendingPostPrimeFlowId, setPendingPostPrimeFlowId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (route.params.returnTo === 'chart') {
-      return;
-    }
-    let cancelled = false;
-    isPostPrimeTraceEligible().then((eligible) => {
-      if (!cancelled && eligible) {
-        setShowPostPrimeTrace(true);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [route.params.returnTo]);
-
-  const handleSkipPostPrimeTrace = useCallback(() => {
-    setShowPostPrimeTrace(false);
-  }, []);
 
   const handleBeginPostPrimeTrace = useCallback(async () => {
     await markPostPrimeTraceAttemptStarted();
 
     const flowId = beginPostPrimeTraceFlow(route.params.anchorId);
     setPendingPostPrimeFlowId(flowId);
-    setShowPostPrimeTrace(false);
 
     navigation.navigate('ManualReinforcement', {
       source: 'post_prime_trace',
@@ -187,71 +146,7 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
     }
   }, [activeFlow, pendingPostPrimeFlowId, route.params.anchorId, route.params.durationSeconds]);
 
-  const sigilSvg = anchor?.reinforcedSigilSvg || anchor?.baseSigilSvg || '';
-  const imageUrl = anchor?.enhancedImageUrl;
   const allowsNextAction = route.params.durationSeconds >= 180;
-
-  // Expanding ripple rings animations
-  const ring1 = useRef(new Animated.Value(0)).current;
-  const ring2 = useRef(new Animated.Value(0)).current;
-  const ring3 = useRef(new Animated.Value(0)).current;
-  const shimmer = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const createRipple = (anim: Animated.Value, delay: number) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(delay),
-          Animated.timing(anim, {
-            toValue: 1,
-            duration: 4_000,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }),
-          Animated.timing(anim, {
-            toValue: 0,
-            duration: 0,
-            useNativeDriver: true,
-          }),
-        ]),
-      );
-
-    const shimmerLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(shimmer, {
-          toValue: 1,
-          duration: 2_500,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(shimmer, {
-          toValue: 0,
-          duration: 2_500,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-
-    const r1 = createRipple(ring1, 0);
-    const r2 = createRipple(ring2, 1_300);
-    const r3 = createRipple(ring3, 2_600);
-
-    r1.start();
-    r2.start();
-    r3.start();
-    shimmerLoop.start();
-
-    return () => {
-      r1.stop();
-      r2.stop();
-      r3.stop();
-      shimmerLoop.stop();
-    };
-  }, [ring1, ring2, ring3, shimmer]);
-
-  const isChartReturn = route.params.returnTo === 'chart';
-  const returnLabel = 'Continue';
 
   const returnToOrigin = () => {
     useAnchorStore.getState?.()?.updateAnchor?.(route.params.anchorId, {
@@ -297,181 +192,69 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
     });
   };
 
-  const ringScale1 = ring1.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1.45] });
-  const ringOpacity1 = ring1.interpolate({ inputRange: [0, 0.22, 1], outputRange: [0, 0.6, 0] });
+  const preset = PRACTICE_COMPLETION_PRESETS.visualize;
 
-  const ringScale2 = ring2.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1.45] });
-  const ringOpacity2 = ring2.interpolate({ inputRange: [0, 0.22, 1], outputRange: [0, 0.6, 0] });
+  const carryCard = allowsNextAction ? (
+    <View style={styles.carryCard}>
+      <Text style={styles.carryLabel}>TAKE IT FORWARD</Text>
+      <Text style={styles.carryQuestion}>
+        What is one action you can take now that matches what you rehearsed?
+      </Text>
+      {saved ? (
+        <View style={styles.nextSavedPill}>
+          <Check size={14} color={colors.gold} />
+          <Text style={styles.nextSavedText}>{nextAction}</Text>
+        </View>
+      ) : (
+        <View style={styles.inputWrap}>
+          <TextInput
+            placeholder={'"Send the meeting outline before 9:00 AM."'}
+            placeholderTextColor="rgba(245,240,232,0.28)"
+            value={nextAction}
+            onChangeText={setNextAction}
+            style={styles.nextInput}
+          />
+          <Pressable
+            disabled={!nextAction.trim()}
+            onPress={() => void saveNextAction()}
+            style={[styles.saveActionBtn, !nextAction.trim() && styles.saveActionDisabled]}
+          >
+            <Text style={styles.saveActionText}>SAVE ACTION</Text>
+          </Pressable>
+        </View>
+      )}
+    </View>
+  ) : undefined;
 
-  const ringScale3 = ring3.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1.45] });
-  const ringOpacity3 = ring3.interpolate({ inputRange: [0, 0.22, 1], outputRange: [0, 0.6, 0] });
-
-  const shimmerScale = shimmer.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] });
-  const shimmerOpacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] });
-
-  const shimmerAuraSize = HERO_SIZE * 1.29;
-  const rippleRingSize = HERO_SIZE * 1.17;
+  const traceSecondaryAction = anchor ? (
+    <TouchableOpacity
+      style={styles.traceSecondaryBtn}
+      onPress={handleBeginPostPrimeTrace}
+      activeOpacity={0.75}
+      accessibilityRole="button"
+      accessibilityLabel="Trace"
+      testID="post-prime-trace-button"
+    >
+      <Text style={styles.traceSecondaryText}>Trace</Text>
+    </TouchableOpacity>
+  ) : undefined;
 
   return (
     <View style={styles.container}>
-      <VisualizeFieldBackground phase="return" />
-      <SafeAreaView style={styles.safe}>
-        <ScrollView
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingTop: Math.max(insets.top + 20, 48), paddingBottom: Math.max(insets.bottom + 20, 40) },
-          ]}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Centered Shimmering Coin with Ripple Rings */}
-          <View style={styles.markContainer}>
-            <Animated.View
-              style={[
-                styles.shimmerAura,
-                {
-                  width: shimmerAuraSize,
-                  height: shimmerAuraSize,
-                  borderRadius: shimmerAuraSize / 2,
-                  opacity: shimmerOpacity,
-                  transform: [{ scale: shimmerScale }],
-                },
-              ]}
-            />
-            <Animated.View
-              style={[
-                styles.rippleRing,
-                {
-                  width: rippleRingSize,
-                  height: rippleRingSize,
-                  borderRadius: rippleRingSize / 2,
-                  opacity: ringOpacity1,
-                  transform: [{ scale: ringScale1 }],
-                },
-              ]}
-            />
-            <Animated.View
-              style={[
-                styles.rippleRing,
-                {
-                  width: rippleRingSize,
-                  height: rippleRingSize,
-                  borderRadius: rippleRingSize / 2,
-                  opacity: ringOpacity2,
-                  transform: [{ scale: ringScale2 }],
-                },
-              ]}
-            />
-            <Animated.View
-              style={[
-                styles.rippleRing,
-                {
-                  width: rippleRingSize,
-                  height: rippleRingSize,
-                  borderRadius: rippleRingSize / 2,
-                  opacity: ringOpacity3,
-                  transform: [{ scale: ringScale3 }],
-                },
-              ]}
-            />
-            <VisualizationAnchorLens
-              size={HERO_SIZE}
-              imageUrl={imageUrl}
-              svg={sigilSvg}
-              still={false}
-            />
-          </View>
-
-          {/* Eyebrow & Title */}
-          <Text style={styles.eyebrow}>VISUALIZE COMPLETE</Text>
-          <Text style={styles.title}>Rehearsal complete.</Text>
-
-          {/* Stats Row */}
-          <View style={styles.statRow}>
-            <View style={styles.statCell}>
-              <Text style={styles.statVal}>{durLabel(route.params.durationSeconds)}</Text>
-              <Text style={styles.statLbl}>PRACTICED</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statCell}>
-              <Text style={styles.statVal}>Thread {practiceCompleteResult.newThreadStrength}</Text>
-              <Text style={styles.statLbl}>TEMPERED</Text>
-            </View>
-          </View>
-
-          {/* "Take It Forward" (for 3 min and 5 min sessions) */}
-          {allowsNextAction && (
-            <View style={styles.carryCard}>
-              <Text style={styles.carryLabel}>TAKE IT FORWARD</Text>
-              <Text style={styles.carryQuestion}>
-                What is one action you can take now that matches what you rehearsed?
-              </Text>
-              {saved ? (
-                <View style={styles.nextSavedPill}>
-                  <Check size={14} color={colors.gold} />
-                  <Text style={styles.nextSavedText}>{nextAction}</Text>
-                </View>
-              ) : (
-                <View style={styles.inputWrap}>
-                  <TextInput
-                    placeholder={'"Send the meeting outline before 9:00 AM."'}
-                    placeholderTextColor="rgba(245,240,232,0.28)"
-                    value={nextAction}
-                    onChangeText={setNextAction}
-                    style={styles.nextInput}
-                  />
-                  <Pressable
-                    disabled={!nextAction.trim()}
-                    onPress={() => void saveNextAction()}
-                    style={[styles.saveActionBtn, !nextAction.trim() && styles.saveActionDisabled]}
-                  >
-                    <Text style={styles.saveActionText}>SAVE ACTION</Text>
-                  </Pressable>
-                </View>
-              )}
-            </View>
-          )}
-
-          {/* Action CTAs */}
-          <View style={styles.actionsWrap}>
-            {anchor && !traceDefaultEnabled ? (
-              <PostPrimeTraceModal
-                visible={showPostPrimeTrace}
-                anchor={anchor}
-                onTrace={handleBeginPostPrimeTrace}
-                onSkip={handleSkipPostPrimeTrace}
-                compact
-                inline
-                textStyle={styles.ghostBtnText}
-              />
-            ) : null}
-
-            <VisualizationPrimaryButton
-              label={`${returnLabel.toUpperCase()} →`}
-              onPress={returnToOrigin}
-            />
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Visualize Again"
-              onPress={handleVisualizeAgain}
-              style={styles.ghostBtn}
-            >
-              <Text style={styles.ghostBtnText}>Visualize Again</Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-
-      {anchor && traceDefaultEnabled ? (
-        <PostPrimeTraceModal
-          visible={showPostPrimeTrace}
-          anchor={anchor}
-          onTrace={handleBeginPostPrimeTrace}
-          onSkip={handleSkipPostPrimeTrace}
-          compact={false}
-        />
-      ) : null}
+      <SessionCompletionScreen
+        practiceMode="visualize"
+        anchor={anchor}
+        durationSeconds={route.params.durationSeconds}
+        threadDelta={practiceCompleteResult.newThreadStrength - practiceCompleteResult.previousThreadStrength}
+        eyebrow={preset.eyebrow}
+        headline={preset.headline}
+        accentColor={preset.accentColor}
+        repeatLabel={preset.repeatLabel}
+        onContinue={returnToOrigin}
+        onRepeat={handleVisualizeAgain}
+        secondaryAction={traceSecondaryAction}
+        belowStatsContent={carryCard}
+      />
     </View>
   );
 };
@@ -479,84 +262,24 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#04060c',
   },
-  safe: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
+  traceSecondaryBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 28,
-    gap: 12,
   },
-  markContainer: {
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -20,
-    marginBottom: 14,
-  },
-  shimmerAura: {
-    position: 'absolute',
-    width: 170,
-    height: 170,
-    borderRadius: 85,
-    backgroundColor: 'rgba(240,203,106,0.18)',
-  },
-  rippleRing: {
-    position: 'absolute',
-    width: 155,
-    height: 155,
-    borderRadius: 77.5,
-    borderWidth: 1,
-    borderColor: colors.goldLine,
-  },
-  eyebrow: {
-    fontFamily: typography.fonts.mono,
-    fontSize: 10,
-    letterSpacing: 3.6,
-    color: colors.gold,
-    textTransform: 'uppercase',
-    marginTop: 6,
-  },
-  title: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 27,
-    fontWeight: '500',
-    color: colors.bone,
-    textAlign: 'center',
+  traceSecondaryText: {
+    fontFamily: typography.fonts.bodyBold,
+    fontSize: 14,
+    color: '#FFFFFF',
     letterSpacing: 0.5,
-    lineHeight: 34,
   },
-  statRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 22,
-    marginTop: 10,
-  },
-  statCell: {
-    alignItems: 'center',
-    gap: 3,
-  },
-  statVal: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 19,
-    color: colors.bone,
+  ghostBtnText: {
+    fontFamily: typography.fonts.body,
+    fontSize: 13,
     letterSpacing: 0.4,
-  },
-  statLbl: {
-    fontFamily: typography.fonts.mono,
-    fontSize: 9,
-    letterSpacing: 1.8,
-    color: colors.boneFaint,
-    textTransform: 'uppercase',
-  },
-  statDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: 'rgba(245,240,232,0.12)',
+    color: colors.boneSoft,
   },
   carryCard: {
     width: '100%',
@@ -634,21 +357,5 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     fontSize: 16,
     color: colors.bone,
-  },
-  actionsWrap: {
-    marginTop: 18,
-    width: '100%',
-    alignItems: 'center',
-    gap: 12,
-  },
-  ghostBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-  },
-  ghostBtnText: {
-    fontFamily: typography.fonts.body,
-    fontSize: 13,
-    letterSpacing: 0.4,
-    color: colors.boneSoft,
   },
 });

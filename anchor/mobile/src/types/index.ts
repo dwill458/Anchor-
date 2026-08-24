@@ -898,6 +898,8 @@ export type RootStackParamList = {
   };
   SealAnchor: { anchorId: string; returnTo?: 'vault' | 'practice' | 'detail' };
   PracticeComplete: PracticeCompleteResult;
+  FocusCompletion: PracticeCompleteResult & { durationSeconds: number };
+  DeepPrimeCompletion: PracticeCompleteResult & { durationSeconds: number };
   ChargeComplete: {
     anchorId: string;
     durationSeconds?: number;
@@ -1058,6 +1060,8 @@ export type PracticeStackParamList = {
   };
   SealAnchor: { anchorId: string; returnTo?: 'practice' };
   PracticeComplete: PracticeCompleteResult;
+  FocusCompletion: PracticeCompleteResult & { durationSeconds: number };
+  DeepPrimeCompletion: PracticeCompleteResult & { durationSeconds: number };
   ChargeComplete: {
     anchorId: string;
     durationSeconds?: number;

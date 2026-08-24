@@ -37,12 +37,6 @@ import { CompletionModal } from './components/CompletionModal';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
-import { PostPrimeTraceModal } from './components/PostPrimeTraceModal';
-import { usePostPrimeTraceStore } from '@/stores/postPrimeTraceStore';
-import {
-  isPostPrimeTraceEligible,
-  markPostPrimeTraceAttemptStarted,
-} from '@/utils/postPrimeTraceEligibility';
 import { useMissingAnchorRedirect } from './utils/useMissingAnchorRedirect';
 import { createPracticeEventId } from '@/utils/primingAnalytics';
 import {
@@ -104,96 +98,12 @@ export const ChargeCompleteScreen: React.FC = () => {
   // Show CompletionModal first before the vault/activate CTAs
   const [completionDone, setCompletionDone] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
-  const [showPostPrimeTrace, setShowPostPrimeTrace] = useState(false);
-  const [pendingPostPrimeFlowId, setPendingPostPrimeFlowId] = useState<string | null>(null);
-  
-  const beginPostPrimeTraceFlow = usePostPrimeTraceStore((state) => state.beginFlow);
-  const activeFlow = usePostPrimeTraceStore((state) => state.activeFlow);
 
   useEffect(() => {
-    async function checkEligibility() {
-      if (returnTo === 'chart') {
-        InteractionManager.runAfterInteractions(() => setShowCompletion(true));
-        return;
-      }
-      const shouldOffer = await isPostPrimeTraceEligible();
-      if (shouldOffer) {
-        setShowPostPrimeTrace(true);
-        if (!traceDefaultEnabled) {
-          InteractionManager.runAfterInteractions(() => {
-            setShowCompletion(true);
-          });
-        }
-      } else {
-        InteractionManager.runAfterInteractions(() => {
-          setShowCompletion(true);
-        });
-      }
-    }
-    checkEligibility();
-  }, [returnTo, traceDefaultEnabled]);
-
-  const handleSkipPostPrimeTrace = () => {
-    setShowPostPrimeTrace(false);
     InteractionManager.runAfterInteractions(() => {
       setShowCompletion(true);
     });
-  };
-
-  const handleBeginPostPrimeTrace = async () => {
-    await markPostPrimeTraceAttemptStarted();
-
-    const flowId = beginPostPrimeTraceFlow(anchorId);
-    setPendingPostPrimeFlowId(flowId);
-    setShowPostPrimeTrace(false);
-    setShowCompletion(false);
-
-    navigation.navigate('ManualReinforcement', {
-      source: 'post_prime_trace',
-      anchorId,
-    });
-  };
-
-  useEffect(() => {
-    if (!pendingPostPrimeFlowId) {
-      return;
-    }
-
-    if (
-      !activeFlow ||
-      activeFlow.flowId !== pendingPostPrimeFlowId ||
-      activeFlow.result === 'pending'
-    ) {
-      return;
-    }
-
-    const completedPostPrimeTrace = activeFlow.result === 'completed';
-
-    usePostPrimeTraceStore.getState().clearFlow(pendingPostPrimeFlowId);
-    setPendingPostPrimeFlowId(null);
-
-    if (completedPostPrimeTrace) {
-      FrictionAnalytics.completeFlow('activation', {
-        anchor_id: anchorId,
-        result: 'post_prime_trace_completed',
-        session_duration_seconds: routeDurationSeconds ?? primeSessionDuration,
-      });
-      AnalyticsService.track('post_prime_trace_completed', {
-        anchor_id: anchorId,
-        session_duration_seconds: routeDurationSeconds ?? primeSessionDuration,
-      });
-    }
-
-    InteractionManager.runAfterInteractions(() => {
-      setShowCompletion(true);
-    });
-  }, [
-    activeFlow,
-    anchorId,
-    pendingPostPrimeFlowId,
-    primeSessionDuration,
-    routeDurationSeconds,
-  ]);
+  }, []);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
@@ -425,14 +335,6 @@ export const ChargeCompleteScreen: React.FC = () => {
           </Animated.View>
         )}
       </RitualScaffold>
-
-      <PostPrimeTraceModal
-        visible={showPostPrimeTrace}
-        anchor={anchor}
-        onTrace={handleBeginPostPrimeTrace}
-        onSkip={handleSkipPostPrimeTrace}
-        compact={!traceDefaultEnabled}
-      />
 
       {/* CompletionModal shows first before the vault CTAs */}
       <CompletionModal

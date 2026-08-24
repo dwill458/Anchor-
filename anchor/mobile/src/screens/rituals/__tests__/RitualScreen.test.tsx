@@ -452,7 +452,7 @@ describe('RitualScreen', () => {
       })
     );
     expect(mockHandlePrimeComplete).toHaveBeenCalledTimes(1);
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('PracticeComplete', expect.objectContaining({ anchorId: 'test-anchor-id' })), {
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('DeepPrimeCompletion', expect.objectContaining({ anchorId: 'test-anchor-id' })), {
       timeout: 2000,
     });
     expect(queryByTestId('completion-modal-done')).toBeNull();

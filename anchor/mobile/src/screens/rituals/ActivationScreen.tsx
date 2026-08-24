@@ -23,7 +23,6 @@ import { apiClient } from '@/services/ApiClient';
 import BackendAnchorService, { isBackendAnchorId } from '@/services/BackendAnchorService';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
-import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import {
   recordReviewSignal,
   requestReviewIfEligible,
@@ -33,17 +32,11 @@ import { logger } from '@/utils/logger';
 import { RitualScaffold } from './components/RitualScaffold';
 import { FocusSession } from './components/FocusSession';
 import { ConfirmModal } from './components/ConfirmModal';
-import { PostPrimeTraceModal } from './components/PostPrimeTraceModal';
 import { useTeachingGate } from '@/utils/useTeachingGate';
 import { TEACHINGS } from '@/constants/teaching';
 import { calculatePracticeCompleteResult } from '@/utils/practiceCompletionCoordinator';
 import { useNotificationController } from '@/hooks/useNotificationController';
-import { usePostPrimeTraceStore } from '@/stores/postPrimeTraceStore';
 import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
-import {
-  isPostPrimeTraceEligible,
-  markPostPrimeTraceAttemptStarted,
-} from '@/utils/postPrimeTraceEligibility';
 import { useMissingAnchorRedirect } from './utils/useMissingAnchorRedirect';
 import {
   buildRecoveredChargeState,
@@ -114,12 +107,9 @@ export const ActivationScreen: React.FC = () => {
           : undefined
       )
     );
-  const traceDefaultEnabled = useSettingsStore((state) => state.traceDefaultEnabled ?? true);
   const { recordSession, bumpThreadStrength } = useSessionStore();
   const { recordShown } = useTeachingStore();
   const { handlePrimeComplete } = useNotificationController();
-  const beginPostPrimeTraceFlow = usePostPrimeTraceStore((state) => state.beginFlow);
-  const activeFlow = usePostPrimeTraceStore((state) => state.activeFlow);
   const primeSessionAccess = usePrimeSessionAccess();
   const anchor = getAnchorById(anchorId);
   const isPendingFirstAnchor = pendingFirstAnchorDraft?.tempAnchorId === anchorId;
@@ -162,10 +152,8 @@ export const ActivationScreen: React.FC = () => {
     candidateIds: ['activation_ground_note_v1'],
   });
 
-  const [showPostPrimeTrace, setShowPostPrimeTrace] = useState(false);
   const [showExitWarning, setShowExitWarning] = useState(false);
   const [showChartInvitation, setShowChartInvitation] = useState(false);
-  const [pendingPostPrimeFlowId, setPendingPostPrimeFlowId] = useState<string | null>(null);
   const exitingRef = React.useRef(false);
   const sessionCompletedRef = React.useRef(false);
   const completionStartedRef = React.useRef(false);
@@ -175,9 +163,6 @@ export const ActivationScreen: React.FC = () => {
   const completionEventIdRef = React.useRef(createPracticeEventId());
   const focusSessionExitAudioHandlerRef = React.useRef<(() => Promise<void>) | null>(null);
   const completionTransitionTaskRef = React.useRef<{ cancel?: () => void } | null>(null);
-  // Grace window before auto-finalizing when the compact trace link is the only
-  // thing on screen, so the user still has a moment to tap it before we navigate away.
-  const compactTraceAutoFinalizeRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Record ground note shown (once, on render — gate already enforces lifetime limit)
   React.useEffect(() => {
@@ -507,7 +492,7 @@ export const ActivationScreen: React.FC = () => {
       threadStrength: result.newThreadStrength,
     });
 
-    navigation.replace('PracticeComplete', result);
+    navigation.replace('FocusCompletion', { ...result, durationSeconds: activationDurationSeconds });
   }, [
     anchor?.localId,
     anchorId,
@@ -521,19 +506,9 @@ export const ActivationScreen: React.FC = () => {
     source,
   ]);
 
-  const clearCompactTraceAutoFinalize = useCallback(() => {
-    if (compactTraceAutoFinalizeRef.current) {
-      clearTimeout(compactTraceAutoFinalizeRef.current);
-      compactTraceAutoFinalizeRef.current = null;
-    }
-  }, []);
-
   // No reflection modal — finalize the session directly once the seal completes.
-  const finalizeFocusSession = useCallback((options?: { keepTraceLink?: boolean }) => {
+  const finalizeFocusSession = useCallback(() => {
     sessionCompletedRef.current = true;
-    if (!options?.keepTraceLink) {
-      setShowPostPrimeTrace(false);
-    }
     setShowExitWarning(false);
 
     completionTransitionTaskRef.current?.cancel?.();
@@ -553,101 +528,14 @@ export const ActivationScreen: React.FC = () => {
     void logActivationInBackground();
     void handlePrimeComplete();
 
-    if (isFirstPrimeForAnchor) {
-      finalizeFocusSession();
-      return;
-    }
-
-    const shouldOfferPostPrimeTrace = await isPostPrimeTraceEligible();
-
-    if (shouldOfferPostPrimeTrace) {
-      setShowPostPrimeTrace(true);
-      if (!traceDefaultEnabled) {
-        // Compact trace link is now the only thing on screen — give it a brief
-        // window before auto-finalizing so it's still tappable.
-        clearCompactTraceAutoFinalize();
-        compactTraceAutoFinalizeRef.current = setTimeout(() => {
-          compactTraceAutoFinalizeRef.current = null;
-          finalizeFocusSession({ keepTraceLink: true });
-        }, 3500);
-      }
-      return;
-    }
-
     finalizeFocusSession();
-  }, [
-    clearCompactTraceAutoFinalize,
-    finalizeFocusSession,
-    handlePrimeComplete,
-    isFirstPrimeForAnchor,
-    logActivationInBackground,
-    traceDefaultEnabled,
-  ]);
-
-  const handleSkipPostPrimeTrace = useCallback(() => {
-    clearCompactTraceAutoFinalize();
-    finalizeFocusSession();
-  }, [clearCompactTraceAutoFinalize, finalizeFocusSession]);
-
-  const handleBeginPostPrimeTrace = useCallback(async () => {
-    clearCompactTraceAutoFinalize();
-    await markPostPrimeTraceAttemptStarted();
-
-    const flowId = beginPostPrimeTraceFlow(anchorId);
-    setPendingPostPrimeFlowId(flowId);
-    setShowPostPrimeTrace(false);
-
-    navigation.navigate('ManualReinforcement', {
-      source: 'post_prime_trace',
-      anchorId,
-    });
-  }, [anchorId, beginPostPrimeTraceFlow, clearCompactTraceAutoFinalize, navigation]);
+  }, [finalizeFocusSession, handlePrimeComplete, logActivationInBackground]);
 
   useEffect(() => {
     return () => {
       completionTransitionTaskRef.current?.cancel?.();
-      clearCompactTraceAutoFinalize();
     };
-  }, [clearCompactTraceAutoFinalize]);
-
-  useEffect(() => {
-    if (!pendingPostPrimeFlowId) {
-      return;
-    }
-
-    if (
-      !activeFlow ||
-      activeFlow.flowId !== pendingPostPrimeFlowId ||
-      activeFlow.result === 'pending'
-    ) {
-      return;
-    }
-
-    const completedPostPrimeTrace = activeFlow.result === 'completed';
-
-    usePostPrimeTraceStore.getState().clearFlow(pendingPostPrimeFlowId);
-    setPendingPostPrimeFlowId(null);
-
-    if (completedPostPrimeTrace) {
-      FrictionAnalytics.completeFlow('activation', {
-        anchor_id: anchorId,
-        result: 'post_prime_trace_completed',
-        session_duration_seconds: activationDurationSeconds,
-      });
-      AnalyticsService.track('post_prime_trace_completed', {
-        anchor_id: anchorId,
-        session_duration_seconds: activationDurationSeconds,
-      });
-    }
-
-    finalizeFocusSession();
-  }, [
-    activeFlow,
-    activationDurationSeconds,
-    anchorId,
-    finalizeFocusSession,
-    pendingPostPrimeFlowId,
-  ]);
+  }, []);
 
   const exitSession = useCallback(async () => {
     exitingRef.current = true;
@@ -806,13 +694,6 @@ export const ActivationScreen: React.FC = () => {
           }
           promptExitSession();
         }}
-      />
-      <PostPrimeTraceModal
-        visible={showPostPrimeTrace}
-        anchor={anchor}
-        onTrace={handleBeginPostPrimeTrace}
-        onSkip={handleSkipPostPrimeTrace}
-        compact={!traceDefaultEnabled}
       />
       <ConfirmModal
         visible={showExitWarning}

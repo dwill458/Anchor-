@@ -784,7 +784,7 @@ describe('ActivationScreen', () => {
 
     await waitFor(() =>
       expect(mockReplace).toHaveBeenCalledWith(
-        'PracticeComplete',
+        'FocusCompletion',
         expect.objectContaining({ anchorId: TEST_ANCHOR_UUID })
       )
     );
@@ -879,7 +879,7 @@ describe('ActivationScreen', () => {
     fireEvent.press(getByTestId('focus-session-dismiss'));
 
     expect(mockReplace).not.toHaveBeenCalled();
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('PracticeComplete', expect.anything()));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('FocusCompletion', expect.anything()));
   });
 
   it('routes completed-session back attempts into reflection instead of exit warning', async () => {
@@ -899,7 +899,7 @@ describe('ActivationScreen', () => {
     });
 
     expect(preventDefault).toHaveBeenCalled();
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('PracticeComplete', expect.anything()));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('FocusCompletion', expect.anything()));
   });
 
   it('pops vault stack and returns to Practice after completion when launched from Practice', async () => {
@@ -919,7 +919,7 @@ describe('ActivationScreen', () => {
 
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith(
-        'PracticeComplete',
+        'FocusCompletion',
         expect.objectContaining({ returnTo: 'practice' })
       );
     });
@@ -978,46 +978,6 @@ describe('ActivationScreen', () => {
     });
   });
 
-  it('shows the post-prime trace prompt before reflection when eligible', async () => {
-    mockIsPostPrimeTraceEligible.mockResolvedValue(true);
-
-    const { getByTestId } = render(<ActivationScreen />);
-
-    await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
-    fireEvent.press(getByTestId('focus-session-continue'));
-
-    await waitFor(() => expect(getByTestId('post-prime-trace-modal')).toBeTruthy());
-    expect(mockGoBack).not.toHaveBeenCalled();
-  });
-
-  it('skips the post-prime trace prompt on the first prime session for an anchor', async () => {
-    mockIsPostPrimeTraceEligible.mockResolvedValue(true);
-    mockAnchor = createMockAnchor({
-      id: TEST_ANCHOR_UUID,
-      intentionText: 'I am confident',
-      baseSigilSvg: '<svg></svg>',
-      isCharged: false,
-      activationCount: 0,
-      chargeCount: 0,
-      firstChargedAt: undefined,
-    });
-    mockGetAnchorById.mockReturnValue(mockAnchor);
-
-    const { getByTestId, queryByTestId } = render(<ActivationScreen />);
-
-    await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
-    fireEvent.press(getByTestId('focus-session-continue'));
-
-    await waitFor(() =>
-      expect(mockReplace).toHaveBeenCalledWith(
-        'PracticeComplete',
-        expect.objectContaining({ anchorId: TEST_ANCHOR_UUID })
-      )
-    );
-    expect(queryByTestId('post-prime-trace-modal')).toBeNull();
-    expect(mockIsPostPrimeTraceEligible).not.toHaveBeenCalled();
-  });
-
   it('marks the anchor as charged when the first quick-prime completes', async () => {
     mockAnchor = createMockAnchor({
       id: TEST_ANCHOR_UUID,
@@ -1052,7 +1012,6 @@ describe('ActivationScreen', () => {
   });
 
   it('backfills charged state for anchors that already have activation history', async () => {
-    mockIsPostPrimeTraceEligible.mockResolvedValue(true);
     mockAnchor = createMockAnchor({
       id: TEST_ANCHOR_UUID,
       intentionText: 'I am confident',
@@ -1071,8 +1030,12 @@ describe('ActivationScreen', () => {
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
     fireEvent.press(getByTestId('focus-session-continue'));
 
-    await waitFor(() => expect(getByTestId('post-prime-trace-modal')).toBeTruthy());
-    expect(mockIsPostPrimeTraceEligible).toHaveBeenCalled();
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith(
+        'FocusCompletion',
+        expect.objectContaining({ anchorId: TEST_ANCHOR_UUID })
+      )
+    );
     expect(mockUpdateAnchor).toHaveBeenCalledWith(
       TEST_ANCHOR_UUID,
       expect.objectContaining({
@@ -1083,63 +1046,6 @@ describe('ActivationScreen', () => {
         activationCount: 4,
         lastActivatedAt: expect.any(Date),
       })
-    );
-  });
-
-  it('skips post-prime trace into reflection without applying the trace flow', async () => {
-    mockIsPostPrimeTraceEligible.mockResolvedValue(true);
-
-    const { getByTestId } = render(<ActivationScreen />);
-
-    await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
-    fireEvent.press(getByTestId('focus-session-continue'));
-
-    await waitFor(() => expect(getByTestId('post-prime-skip-button')).toBeTruthy());
-    fireEvent.press(getByTestId('post-prime-skip-button'));
-
-    await waitFor(() => expect(getByTestId('post-prime-skip-prompt-just-once')).toBeTruthy());
-    fireEvent.press(getByTestId('post-prime-skip-prompt-just-once'));
-
-    await waitFor(() =>
-      expect(mockReplace).toHaveBeenCalledWith(
-        'PracticeComplete',
-        expect.objectContaining({ anchorId: TEST_ANCHOR_UUID })
-      )
-    );
-    expect(mockNavigate).not.toHaveBeenCalledWith('ManualReinforcement', expect.anything());
-  });
-
-  it('starts post-prime trace and returns to reflection after a completed trace result', async () => {
-    mockIsPostPrimeTraceEligible.mockResolvedValue(true);
-
-    const { getByTestId } = render(<ActivationScreen />);
-
-    await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
-    fireEvent.press(getByTestId('focus-session-continue'));
-
-    await waitFor(() => expect(getByTestId('post-prime-trace-button')).toBeTruthy());
-    fireEvent.press(getByTestId('post-prime-trace-button'));
-
-    expect(mockMarkPostPrimeTraceAttemptStarted).toHaveBeenCalled();
-    await waitFor(() =>
-      expect(mockNavigate).toHaveBeenCalledWith('ManualReinforcement', {
-        source: 'post_prime_trace',
-        anchorId: TEST_ANCHOR_UUID,
-      })
-    );
-
-    const flowId = usePostPrimeTraceStore.getState().activeFlow?.flowId;
-    expect(flowId).toBeTruthy();
-
-    act(() => {
-      usePostPrimeTraceStore.getState().finishFlow(flowId!, 'completed');
-    });
-
-    await waitFor(() =>
-      expect(mockReplace).toHaveBeenCalledWith(
-        'PracticeComplete',
-        expect.objectContaining({ anchorId: TEST_ANCHOR_UUID })
-      )
     );
   });
 
@@ -1164,7 +1070,7 @@ describe('ActivationScreen', () => {
     });
 
     expect(mockReplace).toHaveBeenCalledWith(
-      'PracticeComplete',
+      'FocusCompletion',
       expect.objectContaining({ anchorId: TEST_ANCHOR_UUID })
     );
     expect(mockToastError).toHaveBeenCalledWith(
@@ -1284,7 +1190,7 @@ describe('ActivationScreen', () => {
 
     await waitFor(() =>
       expect(mockReplace).toHaveBeenCalledWith(
-        'PracticeComplete',
+        'FocusCompletion',
         expect.objectContaining({ returnTo: 'vault' })
       )
     );

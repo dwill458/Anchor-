@@ -56,12 +56,6 @@ import { isFirstPrimeForAnchor as isAnchorFirstPrime } from '@/utils/anchorPrimi
 import { calculatePracticeCompleteResult } from '@/utils/practiceCompletionCoordinator';
 import { useNotificationController } from '@/hooks/useNotificationController';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
-import { PostPrimeTraceModal } from './components/PostPrimeTraceModal';
-import { usePostPrimeTraceStore } from '@/stores/postPrimeTraceStore';
-import {
-  isPostPrimeTraceEligible,
-  markPostPrimeTraceAttemptStarted,
-} from '@/utils/postPrimeTraceEligibility';
 import { useMissingAnchorRedirect } from './utils/useMissingAnchorRedirect';
 import { useDeepPrimeSessionAudio } from './hooks/useDeepPrimeSessionAudio';
 import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
@@ -317,10 +311,7 @@ export const RitualScreen: React.FC = () => {
     (state) => state.sessionAudioDefaults ?? DEFAULT_SESSION_AUDIO_DEFAULTS
   );
   const reduceIntentionVisibility = useSettingsStore((state) => state.reduceIntentionVisibility ?? false);
-  const traceDefaultEnabled = useSettingsStore((state) => state.traceDefaultEnabled ?? true);
   const { handlePrimeComplete } = useNotificationController();
-  const beginPostPrimeTraceFlow = usePostPrimeTraceStore((state) => state.beginFlow);
-  const activeFlow = usePostPrimeTraceStore((state) => state.activeFlow);
   const bumpThreadStrength = useSessionStore((state) => state.bumpThreadStrength);
   const primeSessionAccess = usePrimeSessionAccess();
   const anchor = getAnchorById(anchorId);
@@ -333,8 +324,6 @@ export const RitualScreen: React.FC = () => {
   const [showExitWarning, setShowExitWarning] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
   const [isReady, setIsReady] = useState(false);
-  const [showPostPrimeTrace, setShowPostPrimeTrace] = useState(false);
-  const [pendingPostPrimeFlowId, setPendingPostPrimeFlowId] = useState<string | null>(null);
   const [sealCopyMode, setSealCopyMode] = useState<SealCopyMode>('active');
   const [sealBreathLabel, setSealBreathLabel] = useState<'Inhale' | 'Exhale'>('Inhale');
   const [showSealContinue, setShowSealContinue] = useState(false);
@@ -1206,7 +1195,10 @@ export const RitualScreen: React.FC = () => {
       threadStrength: result.newThreadStrength,
     });
 
-    navigation.replace('PracticeComplete', result);
+    navigation.replace('DeepPrimeCompletion', {
+      ...result,
+      durationSeconds: config.totalDurationSeconds,
+    });
   }, [
     anchor?.localId,
     anchorId,
@@ -1219,63 +1211,6 @@ export const RitualScreen: React.FC = () => {
     returnTo,
     sessionAudioPlan,
     source,
-  ]);
-
-  const handleSkipPostPrimeTrace = useCallback(() => {
-    setShowPostPrimeTrace(false);
-    InteractionManager.runAfterInteractions(() => {
-      void finalizeDeepRitual();
-    });
-  }, [finalizeDeepRitual]);
-
-  const handleBeginPostPrimeTrace = useCallback(async () => {
-    await markPostPrimeTraceAttemptStarted();
-
-    const flowId = beginPostPrimeTraceFlow(anchorId);
-    setPendingPostPrimeFlowId(flowId);
-    setShowPostPrimeTrace(false);
-    setShowCompletion(false);
-
-    navigation.navigate('ManualReinforcement', {
-      source: 'post_prime_trace',
-      anchorId,
-    });
-  }, [anchorId, beginPostPrimeTraceFlow, navigation]);
-
-  useEffect(() => {
-    if (!pendingPostPrimeFlowId) {
-      return;
-    }
-
-    if (
-      !activeFlow ||
-      activeFlow.flowId !== pendingPostPrimeFlowId ||
-      activeFlow.result === 'pending'
-    ) {
-      return;
-    }
-
-    const completedPostPrimeTrace = activeFlow.result === 'completed';
-
-    usePostPrimeTraceStore.getState().clearFlow(pendingPostPrimeFlowId);
-    setPendingPostPrimeFlowId(null);
-
-    if (completedPostPrimeTrace) {
-      AnalyticsService.track('post_prime_trace_completed', {
-        anchor_id: anchorId,
-        session_duration_seconds: config.totalDurationSeconds,
-      });
-    }
-
-    InteractionManager.runAfterInteractions(() => {
-      void finalizeDeepRitual();
-    });
-  }, [
-    activeFlow,
-    anchorId,
-    config.totalDurationSeconds,
-    finalizeDeepRitual,
-    pendingPostPrimeFlowId,
   ]);
 
   const continueFromSeal = useCallback(async () => {
@@ -1399,12 +1334,6 @@ export const RitualScreen: React.FC = () => {
     }
 
     if (isDeepRitual) {
-      const shouldOfferPostPrimeTrace = await isPostPrimeTraceEligible();
-      if (shouldOfferPostPrimeTrace) {
-        setShowPostPrimeTrace(true);
-        return;
-      }
-
       await finalizeDeepRitual();
       return;
     }
@@ -1533,7 +1462,10 @@ export const RitualScreen: React.FC = () => {
       threadStrength: result.newThreadStrength,
     });
 
-    navigation.replace('PracticeComplete', result);
+    navigation.replace('DeepPrimeCompletion', {
+      ...result,
+      durationSeconds: config.totalDurationSeconds,
+    });
   }, [
     anchor?.localId,
     anchorId,
@@ -2824,13 +2756,6 @@ export const RitualScreen: React.FC = () => {
             </Animated.View>
           </>
         )}
-        <PostPrimeTraceModal
-          visible={showPostPrimeTrace}
-          anchor={anchor}
-          onTrace={handleBeginPostPrimeTrace}
-          onSkip={handleSkipPostPrimeTrace}
-          compact={!traceDefaultEnabled}
-        />
         <CompletionModal
           visible={showCompletion}
         sessionType="reinforce"
