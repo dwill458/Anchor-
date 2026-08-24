@@ -14,9 +14,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import Animated, {
   Easing,
+  ReduceMotion,
   cancelAnimation,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withRepeat,
   withSequence,
@@ -33,6 +33,7 @@ import { SigilSvg } from '@/components/common';
 import { useAuthStore } from '@/stores/authStore';
 import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
 import { useTrialStatus } from '@/hooks/useTrialStatus';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { logger } from '@/utils/logger';
 import { safeHaptics } from '@/utils/haptics';
 import * as Haptics from 'expo-haptics';
@@ -86,7 +87,7 @@ export default function AIGeneratingScreen() {
   const route = useRoute<AIGeneratingRouteProp>();
   const navigation = useNavigation<AIGeneratingNavigationProp>();
   const { width, height } = useWindowDimensions();
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useReduceMotionEnabled();
   const compact = isCompactPhoneViewport(width, height);
 
   // Responsive hero sizing — enlarged for prominent focal presence.
@@ -166,6 +167,8 @@ export default function AIGeneratingScreen() {
   const haloProgress = useSharedValue(0);
   const pulseWaveProgress = useSharedValue(0);
   const heroCoreProgress = useSharedValue(0);
+  const sigilBreathProgress = useSharedValue(0);
+  const sigilFloatProgress = useSharedValue(0);
   const spinnerProgress = useSharedValue(0);
   const counterSpinnerProgress = useSharedValue(0);
   const ringAProgress = useSharedValue(0);
@@ -176,82 +179,158 @@ export default function AIGeneratingScreen() {
   const progressPercent = useSharedValue(10);
   const statusOpacity = useSharedValue(1);
 
-  // Start continuous loops once on mount
+  // Start continuous loops
   useEffect(() => {
+    if (reduceMotion) {
+      cancelAnimation(haloProgress);
+      cancelAnimation(pulseWaveProgress);
+      cancelAnimation(heroCoreProgress);
+      cancelAnimation(sigilBreathProgress);
+      cancelAnimation(sigilFloatProgress);
+      cancelAnimation(spinnerProgress);
+      cancelAnimation(counterSpinnerProgress);
+      cancelAnimation(ringAProgress);
+      cancelAnimation(ringBProgress);
+      cancelAnimation(ringCProgress);
+      cancelAnimation(bgArcRotA);
+      cancelAnimation(bgArcRotB);
+      haloProgress.value = 0;
+      pulseWaveProgress.value = 0;
+      heroCoreProgress.value = 0;
+      sigilBreathProgress.value = 0;
+      sigilFloatProgress.value = 0;
+      spinnerProgress.value = 0;
+      counterSpinnerProgress.value = 0;
+      ringAProgress.value = 0;
+      ringBProgress.value = 0;
+      ringCProgress.value = 0;
+      bgArcRotA.value = 0;
+      bgArcRotB.value = 0;
+      return;
+    }
+
     // 1. Radiant Halo Breathing Pulse
     haloProgress.value = withRepeat(
       withSequence(
-        withTiming(1, { duration: 2200, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0, { duration: 2200, easing: Easing.inOut(Easing.ease) })
+        withTiming(1, { duration: 2200, easing: Easing.inOut(Easing.ease), reduceMotion: ReduceMotion.Never }),
+        withTiming(0, { duration: 2200, easing: Easing.inOut(Easing.ease), reduceMotion: ReduceMotion.Never })
       ),
       -1,
-      false
+      false,
+      undefined,
+      ReduceMotion.Never
     );
 
     // 2. Expanding Energy Ripple Wave
     pulseWaveProgress.value = withRepeat(
-      withTiming(1, { duration: 2400, easing: Easing.out(Easing.cubic) }),
+      withSequence(
+        withTiming(1, { duration: 2400, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.Never }),
+        withTiming(0, { duration: 0, reduceMotion: ReduceMotion.Never })
+      ),
       -1,
-      false
+      false,
+      undefined,
+      ReduceMotion.Never
     );
 
     // 3. Hero Core Breathing Pulse & Glow
     heroCoreProgress.value = withRepeat(
       withSequence(
-        withTiming(1, { duration: 2200, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0, { duration: 2200, easing: Easing.inOut(Easing.ease) })
+        withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.sin), reduceMotion: ReduceMotion.Never }),
+        withTiming(0, { duration: 2000, easing: Easing.inOut(Easing.sin), reduceMotion: ReduceMotion.Never })
       ),
       -1,
-      false
+      false,
+      undefined,
+      ReduceMotion.Never
     );
 
-    // 4. Primary Fast Spinning Radiant Glow Arc (1800ms)
+    // 4. Central Anchor Sigil Breathing Pulse & Levitation Float
+    sigilBreathProgress.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 2200, easing: Easing.inOut(Easing.sin), reduceMotion: ReduceMotion.Never }),
+        withTiming(0, { duration: 2200, easing: Easing.inOut(Easing.sin), reduceMotion: ReduceMotion.Never })
+      ),
+      -1,
+      false,
+      undefined,
+      ReduceMotion.Never
+    );
+
+    sigilFloatProgress.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 2600, easing: Easing.inOut(Easing.sin), reduceMotion: ReduceMotion.Never }),
+        withTiming(0, { duration: 2600, easing: Easing.inOut(Easing.sin), reduceMotion: ReduceMotion.Never })
+      ),
+      -1,
+      false,
+      undefined,
+      ReduceMotion.Never
+    );
+
+    // 5. Primary Fast Spinning Radiant Glow Arc (1800ms)
     spinnerProgress.value = withRepeat(
-      withTiming(1, { duration: 1800, easing: Easing.linear }),
+      withTiming(1, { duration: 1800, easing: Easing.linear, reduceMotion: ReduceMotion.Never }),
       -1,
-      false
+      false,
+      undefined,
+      ReduceMotion.Never
     );
 
-    // 5. Counter-Spinning Orbital Nodes (-7000ms)
+    // 6. Counter-Spinning Orbital Nodes (-7000ms)
     counterSpinnerProgress.value = withRepeat(
-      withTiming(-1, { duration: 7000, easing: Easing.linear }),
+      withTiming(-1, { duration: 7000, easing: Easing.linear, reduceMotion: ReduceMotion.Never }),
       -1,
-      false
+      false,
+      undefined,
+      ReduceMotion.Never
     );
 
-    // 6. Concentric Celestial Rings
+    // 7. Concentric Celestial Rings
     ringAProgress.value = withRepeat(
-      withTiming(-1, { duration: 24000, easing: Easing.linear }),
+      withTiming(-1, { duration: 24000, easing: Easing.linear, reduceMotion: ReduceMotion.Never }),
       -1,
-      false
+      false,
+      undefined,
+      ReduceMotion.Never
     );
     ringBProgress.value = withRepeat(
-      withTiming(1, { duration: 34000, easing: Easing.linear }),
+      withTiming(1, { duration: 34000, easing: Easing.linear, reduceMotion: ReduceMotion.Never }),
       -1,
-      false
+      false,
+      undefined,
+      ReduceMotion.Never
     );
     ringCProgress.value = withRepeat(
-      withTiming(-1, { duration: 46000, easing: Easing.linear }),
+      withTiming(-1, { duration: 46000, easing: Easing.linear, reduceMotion: ReduceMotion.Never }),
       -1,
-      false
+      false,
+      undefined,
+      ReduceMotion.Never
     );
 
-    // 7. Ambient background arcs
+    // 8. Ambient background arcs
     bgArcRotA.value = withRepeat(
-      withTiming(1, { duration: 220000, easing: Easing.linear }),
+      withTiming(1, { duration: 220000, easing: Easing.linear, reduceMotion: ReduceMotion.Never }),
       -1,
-      false
+      false,
+      undefined,
+      ReduceMotion.Never
     );
     bgArcRotB.value = withRepeat(
-      withTiming(-1, { duration: 260000, easing: Easing.linear }),
+      withTiming(-1, { duration: 260000, easing: Easing.linear, reduceMotion: ReduceMotion.Never }),
       -1,
-      false
+      false,
+      undefined,
+      ReduceMotion.Never
     );
 
     return () => {
       cancelAnimation(haloProgress);
       cancelAnimation(pulseWaveProgress);
       cancelAnimation(heroCoreProgress);
+      cancelAnimation(sigilBreathProgress);
+      cancelAnimation(sigilFloatProgress);
       cancelAnimation(spinnerProgress);
       cancelAnimation(counterSpinnerProgress);
       cancelAnimation(ringAProgress);
@@ -260,28 +339,64 @@ export default function AIGeneratingScreen() {
       cancelAnimation(bgArcRotA);
       cancelAnimation(bgArcRotB);
     };
-  }, []);
+  }, [reduceMotion]);
 
-  const animatedHaloStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 1.0 + haloProgress.value * 0.16 }],
-    opacity: 0.65 + haloProgress.value * 0.35,
-  }));
+  const animatedHaloStyle = useAnimatedStyle(() => {
+    if (reduceMotion) {
+      return {
+        transform: [{ scale: 1.0 }],
+        opacity: 0.65,
+      };
+    }
+    return {
+      transform: [{ scale: 1.0 + haloProgress.value * 0.18 }],
+      opacity: 0.60 + haloProgress.value * 0.40,
+    };
+  });
 
-  const animatedPulseWaveStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 0.88 + pulseWaveProgress.value * 0.54 }],
-    opacity: (1 - pulseWaveProgress.value) * 0.6,
-  }));
+  const animatedPulseWaveStyle = useAnimatedStyle(() => {
+    if (reduceMotion) {
+      return {
+        transform: [{ scale: 1.0 }],
+        opacity: 0,
+      };
+    }
+    return {
+      transform: [{ scale: 0.88 + pulseWaveProgress.value * 0.56 }],
+      opacity: (1 - pulseWaveProgress.value) * 0.65,
+    };
+  });
 
-  const animatedHeroCoreStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 1.0 + heroCoreProgress.value * 0.035 }],
-    shadowOpacity: 0.30 + heroCoreProgress.value * 0.50,
-    shadowRadius: 24 + heroCoreProgress.value * 18,
-  }));
+  const animatedHeroCoreStyle = useAnimatedStyle(() => {
+    if (reduceMotion) {
+      return {
+        transform: [{ scale: 1.0 }],
+        shadowOpacity: 0.45,
+        shadowRadius: 32,
+      };
+    }
+    return {
+      transform: [{ scale: 0.97 + heroCoreProgress.value * 0.07 }],
+      shadowOpacity: 0.35 + heroCoreProgress.value * 0.45,
+      shadowRadius: 20 + heroCoreProgress.value * 22,
+    };
+  });
 
-  const animatedSigilStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 1.0 + heroCoreProgress.value * 0.04 }],
-    opacity: 0.88 + heroCoreProgress.value * 0.12,
-  }));
+  const animatedSigilStyle = useAnimatedStyle(() => {
+    if (reduceMotion) {
+      return {
+        transform: [{ scale: 1.0 }, { translateY: 0 }],
+        opacity: 1.0,
+      };
+    }
+    return {
+      transform: [
+        { scale: 0.94 + sigilBreathProgress.value * 0.12 },
+        { translateY: (sigilFloatProgress.value - 0.5) * 6 },
+      ],
+      opacity: 0.82 + sigilBreathProgress.value * 0.18,
+    };
+  });
 
   const animatedRingAStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${ringAProgress.value * 360}deg` }],
@@ -299,9 +414,14 @@ export default function AIGeneratingScreen() {
     transform: [{ rotate: `${spinnerProgress.value * 360}deg` }],
   }));
 
-  const animatedSpinnerGlowStyle = useAnimatedStyle(() => ({
-    opacity: 0.65 + heroCoreProgress.value * 0.35,
-  }));
+  const animatedSpinnerGlowStyle = useAnimatedStyle(() => {
+    if (reduceMotion) {
+      return { opacity: 0.8 };
+    }
+    return {
+      opacity: 0.65 + heroCoreProgress.value * 0.35,
+    };
+  });
 
   const animatedCounterSpinnerStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${counterSpinnerProgress.value * 360}deg` }],
@@ -326,8 +446,8 @@ export default function AIGeneratingScreen() {
   const setStageWithAnim = useCallback((newStage: GenerationStage) => {
     if (!reduceMotion) {
       statusOpacity.value = withSequence(
-        withTiming(0, { duration: 150 }),
-        withTiming(1, { duration: 200 })
+        withTiming(0, { duration: 150, reduceMotion: ReduceMotion.Never }),
+        withTiming(1, { duration: 200, reduceMotion: ReduceMotion.Never })
       );
     }
     setStage(newStage);

@@ -304,6 +304,7 @@ const EditorialWeavePreview = ({
   accountId,
   onPress,
   reduceMotionEnabled,
+  perfTier,
 }: any) => {
   const previewWidth = Math.max(280, SCREEN_W - 44);
 
@@ -352,7 +353,7 @@ const EditorialWeavePreview = ({
           modeColors={WEAVE_MODE_COLORS}
           backgroundColor="#0E141A"
           animationKey={anchorId ?? 'anchor'}
-          still={reduceMotionEnabled}
+          still={reduceMotionEnabled || perfTier !== 'high'}
         />
 
         {!hasNodes ? (
@@ -563,6 +564,7 @@ const AnchorDetailEditorialPage = (props: any) => {
                 accountId={accountId}
                 onPress={onOpenWeave}
                 reduceMotionEnabled={reduceMotionEnabled}
+                perfTier={perfTier}
               />
             </View>
 

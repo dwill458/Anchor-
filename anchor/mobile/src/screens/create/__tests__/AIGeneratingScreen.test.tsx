@@ -77,8 +77,15 @@ jest.mock('@/services/AuthService', () => ({
   },
 }));
 
+let mockReduceMotionEnabled = false;
+
+jest.mock('@/hooks/useReduceMotionEnabled', () => ({
+  useReduceMotionEnabled: () => mockReduceMotionEnabled,
+}));
+
 describe('AIGeneratingScreen (Anchor 1.5)', () => {
   beforeEach(() => {
+    mockReduceMotionEnabled = false;
     jest.clearAllMocks();
     mockCurrentRouteParams = { ...mockDefaultRouteParams };
     useFirstAnchorFlowStore.getState().clearDraft();
@@ -162,5 +169,16 @@ describe('AIGeneratingScreen (Anchor 1.5)', () => {
     });
 
     expect(mockGoBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders gracefully when reduce motion is enabled', async () => {
+    mockReduceMotionEnabled = true;
+    (global as any).fetch = jest.fn().mockImplementation(() => new Promise(() => {}));
+
+    render(<AIGeneratingScreen />);
+
+    expect(screen.getByText('GENERATING')).toBeTruthy();
+    expect(screen.getByText('Generating Your Anchor')).toBeTruthy();
+    expect(screen.getByText('PREPARING STRUCTURE')).toBeTruthy();
   });
 });

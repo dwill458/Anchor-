@@ -44,6 +44,7 @@ import AuthHydrationService from '@/services/AuthHydrationService';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { useTeachingGate } from '@/utils/useTeachingGate';
 import { useTeachingStore } from '@/stores/teachingStore';
+import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
 import {
   buildWeaveData,
   eventMatchesAnchor,
@@ -114,6 +115,7 @@ export const TheWeaveScreen: React.FC = () => {
   const sensitivity = useSettingsStore((state) => state.threadStrengthSensitivity);
   const restDays = useSettingsStore((state) => state.restDays);
   const reduceMotion = useReducedMotion();
+  const perfTier = useAppPerformanceTier();
   const originAnchorId = route.params.originAnchorId;
   const [scope, setScope] = useState<WeaveScope>(
     route.params.initialScope ??
@@ -369,7 +371,7 @@ export const TheWeaveScreen: React.FC = () => {
                       backgroundColor="#080D12"
                       selectedNodeId={sheet === 'node' ? selectedNode?.id ?? null : null}
                       animationKey={`${scopeKey}:${range}:${data.startDateKey}`}
-                      still={reduceMotion}
+                      still={reduceMotion || perfTier !== 'high'}
                     />
                     {data.nodes.map((node) => {
                       const position = geometry.nodePositions[node.id];
