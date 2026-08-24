@@ -105,7 +105,7 @@ function buildProfileFromUser(user: User | null): StoredProfile {
     axiom: '',
     timezone: detectTimezoneLabel(),
     mono: 'initial',
-    photo: null,
+    photo: user?.profilePictureUrl ?? null,
     memberSince: user?.createdAt ? new Date(user.createdAt).toISOString() : null,
   };
 }
@@ -123,7 +123,15 @@ export const useProfileStore = create<ProfileState>()(
 
           const defaults = buildProfileFromUser(user);
           if (state.ownerUserId !== user.id) {
-            return defaults;
+            return {
+              ...defaults,
+              name: state.name || defaults.name,
+              axiom: state.axiom || defaults.axiom,
+              timezone: state.timezone || defaults.timezone,
+              mono: state.mono || defaults.mono,
+              photo: state.photo || user.profilePictureUrl || null,
+              memberSince: state.memberSince || defaults.memberSince,
+            };
           }
 
           return {
@@ -132,6 +140,7 @@ export const useProfileStore = create<ProfileState>()(
             name: state.name || defaults.name,
             timezone: state.timezone || defaults.timezone,
             memberSince: state.memberSince || defaults.memberSince,
+            photo: state.photo || user.profilePictureUrl || null,
           };
         }),
 

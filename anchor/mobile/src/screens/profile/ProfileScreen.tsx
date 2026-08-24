@@ -65,6 +65,7 @@ export const ProfileScreen: React.FC = () => {
   const resolvedName =
     name || user?.displayName || user?.email?.split('@')[0] || 'Practitioner';
   const resolvedAxiom = axiom.trim() || EMPTY_AXIOM;
+  const resolvedPhoto = photo || user?.profilePictureUrl || null;
   const memberSinceDate = memberSince
     ? new Date(memberSince)
     : user?.createdAt
@@ -110,14 +111,28 @@ export const ProfileScreen: React.FC = () => {
     mono: typeof mono;
     photo: string | null;
   }) => {
-    const persistedPhoto =
-      user?.id != null
-        ? await persistProfilePhoto({
-            userId: user.id,
-            photoUri: updates.photo,
-            previousPhotoUri: photo,
-          })
-        : updates.photo;
+    let persistedPhoto: string | null = updates.photo;
+
+    if (updates.photo && !updates.photo.startsWith('http://') && !updates.photo.startsWith('https://')) {
+      persistedPhoto =
+        user?.id != null
+          ? await persistProfilePhoto({
+              userId: user.id,
+              photoUri: updates.photo,
+              previousPhotoUri: photo,
+            })
+          : updates.photo;
+    } else if (!updates.photo && photo) {
+      if (user?.id != null) {
+        await persistProfilePhoto({
+          userId: user.id,
+          photoUri: null,
+          previousPhotoUri: photo,
+        });
+      }
+      persistedPhoto = null;
+    }
+
     const nextUpdates = { ...updates, photo: persistedPhoto };
 
     updateProfile(nextUpdates);
@@ -132,14 +147,20 @@ export const ProfileScreen: React.FC = () => {
         };
 
         if (persistedPhoto) {
-          const photoData = await FileSystem.readAsStringAsync(persistedPhoto, {
-            encoding: 'base64',
-          });
-          const mimeType = persistedPhoto.endsWith('.png')
-            ? 'image/png'
-            : 'image/jpeg';
-          body.profilePictureBase64 = `data:${mimeType};base64,${photoData}`;
-          body.profilePictureMimeType = mimeType;
+          if (persistedPhoto.startsWith('http://') || persistedPhoto.startsWith('https://')) {
+            body.profilePictureUrl = persistedPhoto;
+          } else {
+            const photoData = await FileSystem.readAsStringAsync(persistedPhoto, {
+              encoding: 'base64',
+            });
+            const mimeType = persistedPhoto.endsWith('.png')
+              ? 'image/png'
+              : 'image/jpeg';
+            body.profilePictureBase64 = `data:${mimeType};base64,${photoData}`;
+            body.profilePictureMimeType = mimeType;
+          }
+        } else {
+          body.profilePictureUrl = null;
         }
 
         const response = await apiClient.patch<ApiResponse<User>>(
@@ -148,7 +169,11 @@ export const ProfileScreen: React.FC = () => {
         );
 
         if (response.data?.success && response.data.data) {
-          setUser(response.data.data);
+          const updatedUser = response.data.data;
+          setUser(updatedUser);
+          if (updatedUser.profilePictureUrl) {
+            updateProfile({ photo: persistedPhoto || updatedUser.profilePictureUrl });
+          }
         }
       } catch (error) {
         logger.warn('[ProfileScreen] Failed to sync profile remotely', error);
@@ -192,7 +217,7 @@ export const ProfileScreen: React.FC = () => {
               size={84}
               name={resolvedName}
               mono={mono}
-              photoUri={photo}
+              photoUri={resolvedPhoto}
               userId={user?.id}
               showCameraBadge={false}
             />
@@ -263,7 +288,7 @@ export const ProfileScreen: React.FC = () => {
           axiom: axiom.trim(),
           timezone,
           mono,
-          photo,
+          photo: resolvedPhoto,
         }}
         onClose={() => setEditSheetOpen(false)}
         onSave={handleSaveProfile}

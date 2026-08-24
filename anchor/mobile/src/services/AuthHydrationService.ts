@@ -836,6 +836,7 @@ class AuthHydrationService {
       useProfileStore.getState().updateProfile({
         ...profileSnapshot,
         ownerUserId: resolvedUserId,
+        photo: profileSnapshot.photo || normalizedProfileData?.user.profilePictureUrl || null,
       });
     }
 

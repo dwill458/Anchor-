@@ -19,6 +19,10 @@ function getExtension(uri: string): string {
   return extension.length <= 6 ? extension : '.jpg';
 }
 
+function isRemotePhoto(uri: string | null | undefined): boolean {
+  return Boolean(uri && (uri.startsWith('http://') || uri.startsWith('https://')));
+}
+
 function isManagedProfilePhoto(uri: string | null | undefined): boolean {
   return Boolean(uri && PROFILE_MEDIA_DIR && uri.startsWith(PROFILE_MEDIA_DIR));
 }
@@ -50,6 +54,10 @@ export async function persistProfilePhoto(params: {
 
     if (!photoUri) {
       return null;
+    }
+
+    if (isRemotePhoto(photoUri)) {
+      return photoUri;
     }
 
     if (isManagedProfilePhoto(photoUri)) {

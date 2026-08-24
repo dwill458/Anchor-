@@ -32,12 +32,12 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   const mono = useProfileStore((state) => state.mono);
 
   const avatarInitial = displayName?.[0]?.toUpperCase() || 'S';
-  const trimmedPhoto = photo?.trim();
+  const resolvedPhotoUri = photo?.trim() || user?.profilePictureUrl?.trim();
   const selectedAvatarSource = mono.startsWith('avatar_')
     ? getAvatarByIndex(Number.parseInt(mono.replace('avatar_', ''), 10) || 0)
     : null;
-  const avatarSource: ImageSourcePropType | null = trimmedPhoto
-    ? { uri: trimmedPhoto }
+  const avatarSource: ImageSourcePropType | null = resolvedPhotoUri
+    ? { uri: resolvedPhotoUri }
     : selectedAvatarSource ?? (
       user?.id
         ? getDefaultAvatar(user.id)

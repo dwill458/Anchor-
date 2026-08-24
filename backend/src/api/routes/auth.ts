@@ -107,7 +107,7 @@ function serializeUser(user: {
     id: user.id,
     email: user.email,
     displayName: user.displayName,
-    ...(user.profilePictureUrl && { profilePictureUrl: user.profilePictureUrl }),
+    profilePictureUrl: user.profilePictureUrl ?? null,
     hasCompletedOnboarding: user.hasCompletedOnboarding,
     isComped: user.isComped,
     subscriptionStatus: user.subscriptionStatus,

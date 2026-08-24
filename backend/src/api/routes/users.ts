@@ -16,7 +16,7 @@ const router = Router();
 
 const UpdateProfileSchema = z.object({
   displayName: z.string().min(1).max(100).optional(),
-  profilePictureUrl: z.string().url().optional(),
+  profilePictureUrl: z.string().url().nullable().optional(),
   profilePictureBase64: z.string().optional(),
   profilePictureMimeType: z.enum(['image/jpeg', 'image/png']).optional(),
 });
