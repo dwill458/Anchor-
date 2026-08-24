@@ -118,6 +118,14 @@ const CONTROLNET_METHOD_BY_STYLE: Record<AIStyle, StyleConfig['method']> = {
   tideglass: 'lineart',
   sacred_geometry: 'canny',
   velvet_ember: 'lineart',
+  solar_veil: 'canny',
+  ink_bloom: 'lineart',
+  prism_fold: 'lineart',
+  ocean_current: 'lineart',
+  halo_drift: 'canny',
+  harvest_gild: 'canny',
+  midnight_bloom: 'lineart',
+  winter_halo: 'lineart',
 };
 
 const CONTROLNET_CATEGORY_BY_STYLE: Record<AIStyle, StyleConfig['category']> = {
@@ -141,6 +149,14 @@ const CONTROLNET_CATEGORY_BY_STYLE: Record<AIStyle, StyleConfig['category']> = {
   tideglass: 'organic',
   sacred_geometry: 'geometric',
   velvet_ember: 'hybrid',
+  solar_veil: 'hybrid',
+  ink_bloom: 'organic',
+  prism_fold: 'organic',
+  ocean_current: 'organic',
+  halo_drift: 'hybrid',
+  harvest_gild: 'hybrid',
+  midnight_bloom: 'hybrid',
+  winter_halo: 'hybrid',
 };
 
 const CONTROLNET_OVERRIDES: Partial<
@@ -165,6 +181,14 @@ const CONTROLNET_OVERRIDES: Partial<
   echo_chamber: { strength: 0.28 },
   solar_halo: { strength: 0.24 },
   velvet_ember: { strength: 0.26 },
+  solar_veil: { strength: 0.24 },
+  ink_bloom: { strength: 0.28 },
+  prism_fold: { strength: 0.28 },
+  ocean_current: { strength: 0.28 },
+  halo_drift: { strength: 0.24 },
+  harvest_gild: { conditioning_scale: 1.2, strength: 0.24 },
+  midnight_bloom: { strength: 0.26 },
+  winter_halo: { strength: 0.24 },
 };
 
 /**
