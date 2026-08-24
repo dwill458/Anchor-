@@ -11,13 +11,16 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
+import Svg, { Circle } from 'react-native-svg';
 import Animated, {
   Easing,
   ReduceMotion,
   cancelAnimation,
+  interpolate,
+  useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withRepeat,
   withSequence,
   withTiming,
@@ -71,6 +74,14 @@ const STYLE_NAME_LOOKUP: Record<string, string> = {
   solar_halo: 'Solar Halo',
   tideglass: 'Tideglass',
   velvet_ember: 'Velvet Ember',
+  solar_veil: 'Solar Veil',
+  ink_bloom: 'Ink Bloom',
+  prism_fold: 'Prism Fold',
+  ocean_current: 'Ocean Current',
+  halo_drift: 'Halo Drift',
+  harvest_gild: 'Harvest Gild',
+  midnight_bloom: 'Midnight Bloom',
+  winter_halo: 'Winter Halo',
 };
 
 const STRUCTURE_NAME_LOOKUP: Record<string, string> = {
@@ -82,6 +93,32 @@ const STRUCTURE_NAME_LOOKUP: Record<string, string> = {
   minimal: 'Raw',
   balanced: 'Focused',
 };
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+/**
+ * -- Motion tokens: "Orbital Assembly" --
+ *
+ * The Anchor is the protagonist. Everything else makes small, deliberate
+ * adjustments and then settles. No infinite linear rotation, no expanding
+ * blooms -- the choreography is movement -> settle -> transformation -> settle.
+ */
+const EASE_SETTLE = Easing.bezier(0.16, 1, 0.3, 1);   // long ease-out: locking into place
+const EASE_ADJUST = Easing.bezier(0.65, 0, 0.35, 1);  // soft ease-in-out: deliberate correction
+const EASE_SWEEP = Easing.bezier(0.42, 0, 0.22, 1);   // light pass across the glyph
+
+const DUR_MICRO = 700;    // micro motions
+const DUR_STAGE = 600;    // stage transitions
+const DUR_ALIGN = 1400;   // ring alignment adjustments
+const DUR_SWEEP = 1650;   // light sweeps
+const DUR_RESOLVE = 1900; // stroke-by-stroke illumination of the Anchor
+
+const NEVER = ReduceMotion.Never;
+const timing = (duration: number, easing: (value: number) => number) => ({
+  duration,
+  easing,
+  reduceMotion: NEVER,
+});
 
 export default function AIGeneratingScreen() {
   const route = useRoute<AIGeneratingRouteProp>();
@@ -95,21 +132,26 @@ export default function AIGeneratingScreen() {
   const heroScale = compact ? 0.85 : 1;
   const heroSize = Math.round(maxHeroWidth * heroScale);
   const heroCenter = heroSize / 2;
-  const heroOuterHaloSize = Math.round(heroSize * 0.98);
-  const heroInnerHaloSize = Math.round(heroSize * 0.82);
-  const heroPulseWaveSize = Math.round(heroSize * 0.76);
+  const heroHaloSize = Math.round(heroSize * 0.80);
   const heroCircleSize = Math.round(heroSize * 0.68);
   const sigilSize = Math.round(heroCircleSize * 0.65);
 
-  const heroSpinnerRadius = Math.round(heroCircleSize / 2 + 13);
-  const spinnerCircumference = 2 * Math.PI * heroSpinnerRadius;
-  const spinnerArcLength = spinnerCircumference / 3.4;
-  const spinnerDashArray = `${spinnerArcLength.toFixed(1)},${(spinnerCircumference - spinnerArcLength).toFixed(1)}`;
+  // Phase 1 trace arc -- a single thin gold line drawn around the circumference.
+  const traceRadius = Math.round(heroCircleSize / 2 + 13);
+  const traceCircumference = 2 * Math.PI * traceRadius;
 
-  const heroOrbitalRadius = Math.round(heroCircleSize / 2 + 28);
   const heroRingARadius = Math.round(heroCircleSize / 2 + 18);
   const heroRingBRadius = Math.round(heroCircleSize / 2 + 38);
   const heroRingCRadius = Math.round(heroSize / 2 - 4);
+
+  // Phase 3 expression fragments -- two points leaving the Anchor.
+  const fragmentTargetX = Math.round(heroRingBRadius * 0.92);
+  const fragmentTargetY = -Math.round(heroRingBRadius * 0.30);
+  const fragmentLift = Math.round(heroRingBRadius * 0.26);
+
+  // Light pass geometry (clipped to the glyph stage).
+  const sweepBandWidth = Math.max(18, Math.round(sigilSize * 0.34));
+  const sweepTravel = Math.round(sigilSize * 0.95);
 
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);

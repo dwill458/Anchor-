@@ -2,6 +2,7 @@ import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import RefineExpressionScreen from '../RefineExpressionScreen';
 import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
+import { REFINE_STYLES } from '../constants/refineStyles';
 
 const mockNavigate = jest.fn();
 const mockGoBack = jest.fn();
@@ -78,6 +79,14 @@ describe('RefineExpressionScreen', () => {
     expect(useFirstAnchorFlowStore.getState().draft?.selectedStyleId).toBe('watercolor');
   });
 
+  it('assigns every AI-enabled finish a distinct generation prompt', () => {
+    const generatedStyleIds = REFINE_STYLES
+      .filter((style) => style.id !== 'original')
+      .map((style) => style.generationStyle);
+
+    expect(new Set(generatedStyleIds).size).toBe(generatedStyleIds.length);
+  });
+
   it('toggles explore more tabs (Featured, Core, Seasonal, All Styles)', () => {
     render(<RefineExpressionScreen />);
 
@@ -131,6 +140,20 @@ describe('RefineExpressionScreen', () => {
         category: 'health',
         selectedStyle: expect.any(Object),
       })
+    );
+  });
+
+  it('sends Ocean Current to its own generation prompt instead of Tideglass', () => {
+    render(<RefineExpressionScreen />);
+
+    act(() => {
+      fireEvent.press(screen.getByRole('button', { name: 'Ocean Current style' }));
+      fireEvent.press(screen.getByRole('button', { name: 'Refine Anchor' }));
+    });
+
+    expect(mockNavigate).toHaveBeenCalledWith(
+      'AIGenerating',
+      expect.objectContaining({ styleChoice: 'ocean_current' })
     );
   });
 

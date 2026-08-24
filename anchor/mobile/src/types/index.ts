@@ -500,7 +500,15 @@ export type AIStyle =
   | 'solar_halo'
   | 'tideglass'
   | 'sacred_geometry'
-  | 'velvet_ember';
+  | 'velvet_ember'
+  | 'solar_veil'
+  | 'ink_bloom'
+  | 'prism_fold'
+  | 'ocean_current'
+  | 'halo_drift'
+  | 'harvest_gild'
+  | 'midnight_bloom'
+  | 'winter_halo';
 
 export type PaywallSource =
   | 'post_trial'

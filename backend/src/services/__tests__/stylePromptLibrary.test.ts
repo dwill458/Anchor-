@@ -11,7 +11,7 @@ import {
 describe('stylePromptLibrary', () => {
   it('uses the canonical backend style ID tuple', () => {
     expect(VALID_AI_STYLES).toBe(AI_STYLE_IDS);
-    expect(VALID_AI_STYLES.length).toBe(20);
+    expect(VALID_AI_STYLES.length).toBe(28);
   });
 
   it('falls back for inherited object property names', () => {
@@ -70,6 +70,25 @@ describe('stylePromptLibrary', () => {
     for (const styleId of VALID_AI_STYLES) {
       const def = STYLE_PROMPT_LIBRARY[styleId];
       expect(def.compositionFamily).not.toBe('CENTRED STILLPOINT');
+    }
+  });
+
+  it('keeps each product finish attached to its own prompt identity', () => {
+    const productStyles = [
+      ['solar_veil', 'Solar Veil'],
+      ['ink_bloom', 'Ink Bloom'],
+      ['prism_fold', 'Prism Fold'],
+      ['ocean_current', 'Ocean Current'],
+      ['halo_drift', 'Halo Drift'],
+      ['harvest_gild', 'Harvest Gild'],
+      ['midnight_bloom', 'Midnight Bloom'],
+      ['winter_halo', 'Winter Halo'],
+    ] as const;
+
+    for (const [styleId, displayName] of productStyles) {
+      const prompt = buildStylePrompt('steady focus', styleId);
+      expect(getStylePromptDefinition(styleId).displayName).toBe(displayName);
+      expect(prompt).toContain(`STYLE IDENTITY:\n${displayName}`);
     }
   });
 });
