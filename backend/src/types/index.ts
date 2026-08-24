@@ -38,6 +38,14 @@ export const AI_STYLE_IDS = [
   'tideglass',
   'sacred_geometry',
   'velvet_ember',
+  'solar_veil',
+  'ink_bloom',
+  'prism_fold',
+  'ocean_current',
+  'halo_drift',
+  'harvest_gild',
+  'midnight_bloom',
+  'winter_halo',
 ] as const;
 
 export type AIStyle = (typeof AI_STYLE_IDS)[number];

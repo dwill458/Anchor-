@@ -234,12 +234,12 @@ describe('GeminiImageService', () => {
         LAUNCH_STYLE_LIBRARY.map(style => style.compositionFamily)
       );
 
-      expect(LAUNCH_STYLE_LIBRARY).toHaveLength(20);
-      expect(paletteLanes.size).toBe(20);
+      expect(LAUNCH_STYLE_LIBRARY).toHaveLength(28);
+      expect(paletteLanes.size).toBe(28);
       expect(compositionFamilies.size).toBeGreaterThanOrEqual(5);
       expect(CORE_STYLE_IDS).toHaveLength(12);
-      expect(FEATURED_STYLE_IDS).toHaveLength(4);
-      expect(SEASONAL_STYLE_IDS).toHaveLength(4);
+      expect(FEATURED_STYLE_IDS).toHaveLength(9);
+      expect(SEASONAL_STYLE_IDS).toHaveLength(7);
     });
 
     it('adds style-specific uniqueness signatures for all supported styles', () => {
@@ -265,6 +265,14 @@ describe('GeminiImageService', () => {
         'tideglass',
         'sacred_geometry',
         'velvet_ember',
+        'solar_veil',
+        'ink_bloom',
+        'prism_fold',
+        'ocean_current',
+        'halo_drift',
+        'harvest_gild',
+        'midnight_bloom',
+        'winter_halo',
       ];
 
       supportedStyles.forEach(style => {

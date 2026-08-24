@@ -602,6 +602,14 @@ describe('AIEnhancer Service', () => {
       'tideglass',
       'sacred_geometry',
       'velvet_ember',
+      'solar_veil',
+      'ink_bloom',
+      'prism_fold',
+      'ocean_current',
+      'halo_drift',
+      'harvest_gild',
+      'midnight_bloom',
+      'winter_halo',
     ];
 
     it.each(allStyles)('should handle %s style correctly', async style => {
