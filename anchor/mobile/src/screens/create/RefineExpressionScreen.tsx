@@ -27,9 +27,7 @@ import { API_URL } from '@/config';
 import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
 import {
   RefineBadgeView,
-  RefineFeatCard,
   RefineGlyph,
-  RefineHeroCard,
   RefineStyleCard,
   StructureHeroGlyph,
 } from './components/RefineStyleCard';
@@ -43,8 +41,6 @@ import {
   familyStyles,
   featuredStyles,
   getRecommendedStyles,
-  heroStyle,
-  railStyles,
   seasonalStyles,
 } from './constants/refineStyles';
 
@@ -80,7 +76,7 @@ const STRUCTURE_DEFINITIONS: Record<string, string> = {
 };
 
 const EXPLORE_TABS = [
-  { id: 'week', label: 'This Week' },
+  { id: 'featured', label: 'Featured' },
   { id: 'core', label: 'Core' },
   { id: 'seasonal', label: 'Seasonal' },
   { id: 'all', label: 'All Styles →' },
@@ -204,13 +200,31 @@ export default function RefineExpressionScreen() {
   const handleRefineAnchor = useCallback(() => {
     void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
 
+    useFirstAnchorFlowStore.getState().updateDraft({
+      selectedStyleId: selectedStyleOption.id,
+    });
+
+    // "Original" keeps the untouched structure — skip AI generation entirely
+    // and go straight to the reveal/confirmation screen.
+    if (selectedStyleOption.id === 'original') {
+      useFirstAnchorFlowStore.getState().updateDraft({ generationStatus: 'complete' });
+
+      navigation.navigate('AnchorReveal', {
+        intentionText: intention,
+        category,
+        distilledLetters: params.distilledLetters ?? [],
+        baseSigilSvg: sigilSvg ?? '',
+        reinforcedSigilSvg: params.reinforcedSigilSvg,
+        structureVariant: normalizeSigilVariant(params.structureVariant ?? params.structureType),
+        reinforcementMetadata: params.reinforcementMetadata,
+      });
+      return;
+    }
+
     // Warm Railway server before transition
     void fetch(`${API_URL}/health`).catch(() => {});
 
-    useFirstAnchorFlowStore.getState().updateDraft({
-      selectedStyleId: selectedStyleOption.id,
-      generationStatus: 'generating',
-    });
+    useFirstAnchorFlowStore.getState().updateDraft({ generationStatus: 'generating' });
 
     const payload: ForwardNavigationPayload = {
       intention,
@@ -247,7 +261,7 @@ export default function RefineExpressionScreen() {
   const gridPadding = spacing.lg;
   const cardWidth = Math.floor((screenWidth - gridPadding * 2 - gridGap) / 2);
 
-  const renderStyleGrid = (stylesToRender: RefineStyleOption[], variant: 'core' | 'recommended' | 'seasonal' | 'filtered' = 'core') => {
+  const renderStyleGrid = (stylesToRender: RefineStyleOption[], variant: 'core' | 'recommended' | 'seasonal' | 'filtered' | 'featured' = 'core') => {
     return (
       <View style={styles.grid}>
         {stylesToRender.map((style, index) => (
@@ -390,31 +404,10 @@ export default function RefineExpressionScreen() {
             </ScrollView>
 
             {/* Explore Panels */}
-            {exploreTab === 'week' ? (
+            {exploreTab === 'featured' ? (
               <View style={styles.explorePanel}>
-                <Text style={styles.sectionSub}>A curated set of limited finishes available now.</Text>
-                {heroStyle ? (
-                  <RefineHeroCard
-                    option={heroStyle}
-                    isSelected={selectedStyleId === heroStyle.id}
-                    onSelect={handleStyleSelect}
-                  />
-                ) : null}
-
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.featuredRail}
-                >
-                  {railStyles.map((style) => (
-                    <RefineFeatCard
-                      key={style.id}
-                      option={style}
-                      isSelected={selectedStyleId === style.id}
-                      onSelect={handleStyleSelect}
-                    />
-                  ))}
-                </ScrollView>
+                <Text style={styles.sectionSub}>A curated set of standout finishes.</Text>
+                {renderStyleGrid(featuredStyles, 'featured')}
               </View>
             ) : null}
 
@@ -754,14 +747,6 @@ const styles = StyleSheet.create({
   },
   explorePanel: {
     marginTop: 6,
-  },
-
-  // Featured Rail
-  featuredRail: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: 16,
-    paddingBottom: 4,
-    gap: 12,
   },
 
   // Seasonal Panel

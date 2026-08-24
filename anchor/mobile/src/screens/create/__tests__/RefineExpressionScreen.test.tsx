@@ -78,15 +78,15 @@ describe('RefineExpressionScreen', () => {
     expect(useFirstAnchorFlowStore.getState().draft?.selectedStyleId).toBe('watercolor');
   });
 
-  it('toggles explore more tabs (This Week, Core, Seasonal, All Styles)', () => {
+  it('toggles explore more tabs (Featured, Core, Seasonal, All Styles)', () => {
     render(<RefineExpressionScreen />);
 
-    // Tap This Week tab
-    const thisWeekTab = screen.getByRole('button', { name: 'This Week tab' });
+    // Tap Featured tab
+    const featuredTab = screen.getByRole('button', { name: 'Featured tab' });
     act(() => {
-      fireEvent.press(thisWeekTab);
+      fireEvent.press(featuredTab);
     });
-    expect(screen.getByText('A curated set of limited finishes available now.')).toBeTruthy();
+    expect(screen.getByText('A curated set of standout finishes.')).toBeTruthy();
 
     // Tap Core tab
     const coreTab = screen.getByRole('button', { name: 'Core tab' });
