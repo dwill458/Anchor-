@@ -4,7 +4,7 @@ import { logger } from '../utils/logger';
 
 export const VISUALIZATION_SCENE_MAX_LENGTH = 180;
 export const VISUALIZATION_SCENE_VERSION = 'scene-v1';
-export const VISUALIZATION_SCENE_DEFAULT_MODEL = 'gemini-2.0-flash';
+export const VISUALIZATION_SCENE_DEFAULT_MODEL = 'gemini-flash-latest';
 
 /**
  * Diagnostic-only. Never rendered; classifies why a batch fell back to canned text.
@@ -367,6 +367,7 @@ export async function generateVisualizationSceneSuggestions(params: {
                 'First identify the observable behavior that would prove the intention in a real moment. Each suggestion must be present tense, one or two short sentences, observable, behavior-focused, directly related to that behavior, and 180 characters or fewer.',
                 'Do not invent names, relationships, dates, locations, workplaces, meetings, or events. Do not merely repeat the intention.',
                 'Do not substitute a generic calm or listening scene when the intention is about a decision, boundary, communication, or follow-through. Show the defining choice, words, or next action.',
+                'Do not use words like breathe, breathing, calm, peaceful, mindful, let go, energy, or in the moment. Use concrete physical or verbal action instead.',
                 `Category: ${params.category}`,
                 `Untrusted intention: ${JSON.stringify(params.intention.slice(0, 500))}`,
               ].join('\n'),

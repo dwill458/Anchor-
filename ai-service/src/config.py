@@ -87,49 +87,53 @@ GLOBAL_NEGATIVE_PROMPT = (
     "cash, banknotes, bank logos, charts, graphs, stock ticker, brand logos, watermark, "
     "copyright mark, clipart, sticker, icon pack, emoji, flat app icon, photorealistic "
     "human face, human figure, portrait, hands, literal scene, literal object illustration, "
-    "distorted geometry, altered structure, altered shape, warped lines, broken sigil, melted sigil, "
-    "blurry, muddy, low quality, random artifacts, overcrowded ornament"
+    "distorted geometry, altered structure, altered shape, warped lines, broken geometry, melted lines, "
+    "blurry, muddy, low quality, random artifacts, overcrowded ornament, altar, "
+    "candle wax, fantasy clutter, religious iconography"
 )
 
 
 def build_style_prompt(display_name: str, description: str, palette: str, material: str, composition: str) -> str:
     return (
-        "SIGIL GEOMETRY IS SACRED STRUCTURE. Preserve ALL input lines, circles, "
+        "ANCHOR GEOMETRY IS IMMUTABLE STRUCTURE. Preserve ALL input lines, circles, "
         "intersections, and shapes exactly as shown. Do NOT warp, melt, bend, rotate, "
-        "skew, redraw, simplify, reinterpret, or add to the sigil geometry. Treat the "
-        "sigil as a fixed engraved plate beneath all styling. "
+        "skew, redraw, simplify, reinterpret, or add to the anchor geometry. Treat the "
+        "geometry as a fixed engraved plate beneath all styling. "
         f"Style identity: {display_name} — {description}. "
         f"Composition family: {composition}. "
         f"Palette lane: {palette}. Material behavior: {material}. "
+        "GOLD ACCENT CONSTRAINT: Gold or warm-metallic tones must not dominate more than "
+        "~15% of the visual field. Gold functions strictly as a thin structural highlight, "
+        "edge bevel, or seam — never a wash, fill, or dominant surface treatment. "
         "Styling may influence atmosphere, finish, texture, light, color, density, and "
         "peripheral composition only. Use abstract, secondary motifs only; no text, "
         "numbers, readable symbols, people, logos, currency imagery, literal scenes, or "
         "objects that explain the intention. The finished image should feel specific "
-        "without ever changing the preserved sigil structure."
+        "without ever changing the preserved anchor geometry."
     )
 
 
 STYLE_LIBRARY = {
-    "architectural_trace": ("Architectural Trace", "Precision drafting, measured geometry, blueprint discipline.", "smoked parchment, silver-white, faint cyan, graphite", "etched drafting ink, blueprint grid logic, silver calibration marks", "CENTRED STILLPOINT", "canny", 0.20, 1.25, 6.5),
-    "lunar_etch": ("Lunar Etch", "Moonlit silver engraving, quiet radiance, nocturnal contrast.", "moon-silver, indigo-black, cold pearl, soft blue-white", "silver etching, lunar dust, restrained metallic bloom", "OFFSET FIELD", "lineart", 0.24, None, None),
-    "resonance_rings": ("Resonance Rings", "Concentric pulse circles, waveform halos, radiating energy.", "amber-white on charcoal, optional teal-white on graphite", "echo rings, pulse halos, acoustic field lines", "DIRECTIONAL FLOW", "lineart", 0.26, None, None),
-    "watercolor": ("Watercolor", "Flowing pigment washes, soft bloom, textured paper.", "mineral blue, oxblood, moss, plum, muted saffron", "pigment bleed, deckled paper, wet edge blooms", "OFFSET FIELD", "lineart", 0.28, None, None),
-    "ink_brush": ("Ink Brush", "Sumi-e ink restraint, strong gesture, meaningful negative space.", "black ink, bone paper, faint iron-red seal haze", "dry brush pressure, diluted ink mist, paper grain", "OPEN VOID", "lineart", 0.25, None, None),
-    "gold_leaf": ("Gold Leaf", "Gilded finish, antique glow, precious surface depth.", "antique gold, umber, soot-black, soft bronze", "torn gold leaf, gilded cracks, subtle metallic dust", "CENTRED STILLPOINT", "canny", 0.26, 1.20, None),
-    "cosmic": ("Cosmic", "Deep-space atmosphere, luminous dust, celestial depth.", "midnight teal, violet gas, pale gold flare, star-white", "nebular haze, star dust, layered dark gradients", "DIAGONAL TENSION", "lineart", 0.30, None, None),
-    "minimal_line": ("Minimal Line", "Ultra-clean linework, spacious restraint, quiet precision.", "platinum on black navy, bone on charcoal, faint silver", "clean vector-like line clarity, almost no ornament", "OPEN VOID", "canny", 0.18, 1.30, None),
-    "obsidian_mono": ("Obsidian Mono", "Black glass, graphite polish, reflective shadow.", "black glass, graphite, silver edge, smoke gray", "polished obsidian, glossy edge highlights, dark reflection", "LOWER-ANCHORED", "lineart", 0.20, None, None),
-    "aurora_glow": ("Aurora Glow", "Blue-green aurora light, soft spectral bloom, moving atmosphere.", "blue-green, cobalt, violet, rare gold accents", "light ribbons, soft atmospheric bloom, spectral haze", "DIRECTIONAL FLOW", "lineart", 0.32, None, None),
-    "ember_trace": ("Ember Trace", "Coal-dark surface, copper heat, controlled ember glow.", "coal black, ember orange, copper red, ash gray", "scorched linework, heated edges, ember dust", "DIAGONAL TENSION", "lineart", 0.26, None, None),
-    "monolith_ink": ("Monolith Ink", "Heavy stone ink, monumental stillness, carved presence.", "ash black, stone gray, dusted bronze, muted bone", "stone grain, heavy ink, carved shadow", "LOWER-ANCHORED", "lineart", 0.22, 1.20, None),
-    "celestial_grid": ("Celestial Grid", "Observatory geometry, star-map lines, measured cosmic order.", "midnight navy, pale cyan, soft violet, pinprick gold", "star-map plotting, observatory marks, delicate grid constellations", "OFFSET FIELD", "canny", 0.20, 1.25, None),
-    "echo_chamber": ("Echo Chamber", "Repeating echoes, inner-room acoustics, layered signal.", "smoked violet, blue-gray, muted gold, shadow black", "nested acoustic fields, soft echo bands, chamber depth", "CENTRED STILLPOINT", "lineart", 0.28, None, None),
-    "prism_veil": ("Prism Veil", "Iridescent refraction, glasslike hush, spectral layering.", "pearl, opal, pale cyan, lavender, faint gold", "translucent veils, refracted edges, prism bloom", "OFFSET FIELD", "lineart", 0.28, None, None),
-    "verdigris_relic": ("Verdigris Relic", "Oxidized copper, mineral patina, archaeological elegance.", "oxidized teal, bronze, ash, dark stone", "aged copper, patina blooms, worn engraved surface", "LOWER-ANCHORED", "canny", 0.24, 1.20, None),
-    "solar_halo": ("Solar Halo", "Sun-warmed radiance, disciplined brightness, haloed clarity.", "ivory, saffron, brass, pale amber, smoke", "soft solar rings, warm haze, brass light", "CENTRED STILLPOINT", "canny", 0.24, None, None),
-    "tideglass": ("Tideglass", "Sea-glass translucency, mineral wash, tidal softness.", "seafoam, slate blue, soft aqua, mineral gray", "translucent washed glass, salt haze, tide-soft edges", "DIRECTIONAL FLOW", "lineart", 0.28, None, None),
-    "sacred_geometry": ("Sacred Geometry", "Layered mathematical symbolism, luminous geometric depth.", "indigo, teal, dusty rose, muted brass, celestial blue", "layered geometric systems, transparent overlaps, precise geometry", "CENTRED STILLPOINT", "canny", 0.24, 1.20, None),
-    "velvet_ember": ("Velvet Ember", "Velvet darkness, warm ember glow, soft luxury depth.", "burgundy-black, copper, warm amber, soot violet", "velvet texture, ember glints, soft smoky depth", "DIAGONAL TENSION", "lineart", 0.26, None, None),
+    "architectural_trace": ("Architectural Trace", "Precision drafting, measured geometry, schematic blueprint discipline.", "smoked slate, silver-white, faint cyan, graphite", "precision drafting ink, schematic grid logic, silver calibration ticks", "CENTRED AXIS", "canny", 0.20, 1.25, 6.5),
+    "lunar_etch": ("Lunar Etch", "Precision silver engraving, quiet radiance, nocturnal contrast.", "monochrome silver, indigo-black, cold titanium, soft blue-gray", "milled silver etching, micro-particle dust, restrained cold metallic reflection", "OFFSET FIELD", "lineart", 0.24, None, None),
+    "resonance_rings": ("Resonance Rings", "Concentric pulse circles, waveform halos, radiating energy.", "amber-white on charcoal, optional teal-white on graphite", "waveform rings, pulse field lines, harmonic interval spacing", "DIRECTIONAL FLOW", "lineart", 0.26, None, None),
+    "watercolor": ("Watercolor", "Flowing fluid pigment washes, soft dispersion bloom, textured cotton substrate.", "mineral blue, oxblood, moss, plum, muted saffron", "pigment saturation, heavy cold-press cotton grain, wet-edge separation", "OFFSET FIELD", "lineart", 0.28, None, None),
+    "ink_brush": ("Ink Brush", "Carbon ink restraint, strong gesture, meaningful negative space.", "carbon black ink, bone substrate, faint iron-red structural haze", "dry carbon pressure, diluted ink wash, textured substrate grain", "OPEN VOID", "lineart", 0.25, None, None),
+    "gold_leaf": ("Gold Leaf", "Struck alloy seams, brushed gold highlights, structural depth.", "antique gold accent, umber, soot-black, soft bronze", "brushed-gold fracture, struck alloy seams, micro-particle metallic dust", "CENTRED AXIS", "canny", 0.26, 1.20, None),
+    "cosmic": ("Cosmic", "Dimensional vector field, particle dust, deep atmospheric gradients.", "midnight teal, deep violet, pale gold flare accent, particle white", "vector field haze, particulate dust, layered dark gradients", "DIAGONAL TENSION", "lineart", 0.30, None, None),
+    "minimal_line": ("Minimal Line", "Ultra-clean linework, spacious restraint, engineered precision.", "platinum on dark graphite, bone on charcoal, faint silver", "machined vector line clarity, zero ornamental clutter", "OPEN VOID", "canny", 0.18, 1.30, None),
+    "obsidian_mono": ("Obsidian Mono", "Black obsidian composite, graphite polish, reflective bevel highlights.", "polished obsidian composite, graphite, silver edge, smoke gray", "machined obsidian composite, reflective bevel highlights, dark shadow weight", "LOWER-ANCHORED", "lineart", 0.20, None, None),
+    "aurora_glow": ("Aurora Glow", "Blue-green spectral light, soft dispersion bloom, moving atmospheric field.", "blue-green, cobalt, violet, rare gold hairline accents", "spectral light ribbons, atmospheric gradient bloom, refracted field haze", "DIRECTIONAL FLOW", "lineart", 0.32, None, None),
+    "ember_trace": ("Ember Trace", "Coal-dark surface, copper heat, controlled thermal glow.", "coal black, ember orange, copper red, ash gray", "tempered linework, heated bevel edges, particulate ember dust", "DIAGONAL TENSION", "lineart", 0.26, None, None),
+    "monolith_ink": ("Monolith Ink", "Heavy carbon ink, monumental weight, structural relief presence.", "matte carbon, basalt gray, dusted bronze accent, muted bone", "basalt composite grain, dense carbon ink, machined relief shadow", "LOWER-ANCHORED", "lineart", 0.22, 1.20, None),
+    "celestial_grid": ("Celestial Grid", "Measured astrometric geometry, coordinate vector lines, technical telemetry order.", "midnight navy, pale cyan, soft violet, pinprick gold", "coordinate plotting, telemetry markers, delicate vector arrays", "OFFSET FIELD", "canny", 0.20, 1.25, None),
+    "echo_chamber": ("Echo Chamber", "Repeating acoustic harmonics, chamber depth, layered signal dampening.", "smoked violet, blue-gray, muted gold accent, shadow black", "nested acoustic fields, soft echo bands, chamber depth", "CENTRED AXIS", "lineart", 0.28, None, None),
+    "prism_veil": ("Prism Veil", "Optic refraction, chromatic dispersion, frosted acrylic translucency.", "frosted acrylic, opal, pale cyan, lavender, faint gold accent", "translucent optic veils, refracted bevels, chromatic dispersion", "OFFSET FIELD", "lineart", 0.28, None, None),
+    "verdigris_relic": ("Verdigris Relic", "Oxidized copper alloy, mineral patina, precision-etched relief surface.", "oxidized teal, aged bronze, carbon ash, dark slate", "oxidized copper alloy, patina blooms, precision-etched relief surface", "LOWER-ANCHORED", "canny", 0.24, 1.20, None),
+    "solar_halo": ("Solar Halo", "Thermal radiance, disciplined brightness, haloed clarity.", "ivory, saffron, pale brass accent, pale amber, smoke gray", "thermal radiant halos, warm dispersion haze, brushed brass highlights", "CENTRED AXIS", "canny", 0.24, None, None),
+    "tideglass": ("Tideglass", "Frosted silicate translucency, fluid mineral wash, soft edge boundaries.", "seafoam, slate blue, soft aqua, mineral gray", "frosted silicate translucency, saline haze, eroded-edge softness", "DIRECTIONAL FLOW", "lineart", 0.28, None, None),
+    "sacred_geometry": ("Sacred Geometry", "Layered harmonic mathematical systems, transparent vector overlays, structural depth.", "indigo, teal, dusty rose, muted brass accent, slate blue", "layered harmonic geometry, transparent vector overlays, mathematical precision", "CENTRED AXIS", "canny", 0.24, 1.20, None),
+    "velvet_ember": ("Velvet Ember", "Matte dark depth, brushed copper thermal glints, controlled contrast.", "matte burgundy-black, brushed copper, warm amber accent, soot violet", "matte tactile darkness, copper thermal glints, soft smoke depth", "DIAGONAL TENSION", "lineart", 0.26, None, None),
 }
 
 

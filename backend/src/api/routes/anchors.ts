@@ -483,7 +483,7 @@ Tier mapping:
 - venus: Relationships, love, peace, harmony, experiences.`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-flash-latest',
         contents: [
           {
             role: 'user',

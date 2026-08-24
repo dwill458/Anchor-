@@ -147,7 +147,7 @@ describe('VisualizationSceneService', () => {
       expect(result.suggestions).toEqual(VALID_THREE);
       expect(result.rawCandidateCount).toBe(3);
       expect(result.validCandidateCount).toBe(3);
-      expect(result.model).toBe('gemini-2.0-flash');
+      expect(result.model).toBe('gemini-flash-latest');
     });
 
     it('falls back with insufficient_valid_scenes when two of three validate', async () => {
@@ -300,7 +300,7 @@ describe('VisualizationSceneService', () => {
       expect(status.providerKeyConfigured).toBe(true);
       expect(JSON.stringify(status)).not.toContain('super-secret-value');
       expect(typeof status.featureEnabled).toBe('boolean');
-      expect(status.model).toBe('gemini-2.0-flash');
+      expect(status.model).toBe('gemini-flash-latest');
       expect(status.modelExplicitlyConfigured).toBe(false);
     });
 

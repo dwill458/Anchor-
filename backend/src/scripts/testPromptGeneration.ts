@@ -15,28 +15,38 @@ import {
 const testCases: Array<{ name: string; intentionText: string; style: AIStyle }> = [
   {
     name: 'Focus / discipline',
-    intentionText: 'steady focus',
+    intentionText: 'steady deep work and execution discipline',
     style: 'architectural_trace',
   },
   {
     name: 'Confidence / courage',
-    intentionText: 'radiant confidence',
+    intentionText: 'unshakable courage and leadership power',
     style: 'solar_halo',
   },
   {
     name: 'Abundance / growth',
-    intentionText: 'abundance and growth',
+    intentionText: 'exponential financial growth and scaling momentum',
     style: 'verdigris_relic',
   },
   {
-    name: 'Healing / peace',
-    intentionText: 'peace and healing',
+    name: 'Recovery / reset',
+    intentionText: 'deep recovery, rest, and mental reset',
     style: 'tideglass',
   },
   {
     name: 'Love / relationship',
-    intentionText: 'deeper connection in my relationship',
+    intentionText: 'deeper connection, trust, and intimacy in my relationship',
     style: 'prism_veil',
+  },
+  {
+    name: 'Protection / stability',
+    intentionText: 'unshakable boundary and bedrock stability',
+    style: 'obsidian_mono',
+  },
+  {
+    name: 'Creativity / expression',
+    intentionText: 'innovative craftsmanship, creative design, and original vision',
+    style: 'cosmic',
   },
 ];
 
