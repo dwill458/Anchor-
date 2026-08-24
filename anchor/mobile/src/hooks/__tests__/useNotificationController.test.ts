@@ -174,6 +174,36 @@ describe('useNotificationController', () => {
     );
   });
 
+  it('serializes scheduling transactions from concurrent controller mounts', async () => {
+    mockGetPermissionStatus.mockResolvedValue('granted');
+    mockSessionStoreGetState.mockReturnValue(createSessionState({ threadStrength: 80 }));
+
+    let releaseFirstSchedule: ((identifier: string) => void) | undefined;
+    mockScheduleSmartNotification.mockImplementationOnce(
+      () => new Promise<string>((resolve) => {
+        releaseFirstSchedule = resolve;
+      })
+    );
+
+    const first = renderHook(() => useNotificationController());
+    await waitFor(() => expect(mockScheduleSmartNotification).toHaveBeenCalledTimes(1));
+
+    const second = renderHook(() => useNotificationController());
+    await Promise.resolve();
+
+    // The second controller cannot enter its cancel-and-replace transaction
+    // until the first has finished scheduling its notification.
+    expect(mockScheduleSmartNotification).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      releaseFirstSchedule?.('first-smart-id');
+    });
+
+    await waitFor(() => expect(first.result.current.isInitialized).toBe(true));
+    await waitFor(() => expect(second.result.current.isInitialized).toBe(true));
+    expect(mockScheduleSmartNotification.mock.calls.length).toBeGreaterThanOrEqual(2);
+  });
+
   it('schedules the next-day daily prime after a Focus Session was completed today', async () => {
     mockGetPermissionStatus.mockResolvedValue('granted');
     mockSessionStoreGetState.mockReturnValue(createSessionState({

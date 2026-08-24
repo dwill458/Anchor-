@@ -57,6 +57,18 @@ const SMART_NOTIFICATION_PRIORITY: NotificationCategory[] = [
   'daily_prime',
 ];
 
+// This hook is deliberately mounted in the app shell as well as several
+// feature screens. A scheduling pass is a cancel-and-replace transaction, so
+// overlapping passes can otherwise cancel a notification another instance has
+// just queued. Keep the complete transaction process-wide and sequential.
+let schedulerQueue: Promise<unknown> = Promise.resolve();
+
+const runSchedulingExclusively = <T,>(task: () => Promise<T>): Promise<T> => {
+  const result = schedulerQueue.then(task, task);
+  schedulerQueue = result.catch(() => undefined);
+  return result;
+};
+
 export const useNotificationController = () => {
   const [notifState, setNotifState] = useState<NotificationStateWithSyncMetadata | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -264,7 +276,7 @@ export const useNotificationController = () => {
 
   const scheduleSmartNotifications = useCallback(async (
     state: NotificationStateWithSyncMetadata
-  ): Promise<NotificationStateWithSyncMetadata> => {
+  ): Promise<NotificationStateWithSyncMetadata> => runSchedulingExclusively(async () => {
     await NotificationService.cancelNotification('micro-prime');
     await NotificationService.cancelWeeklySummary();
 
@@ -383,7 +395,7 @@ export const useNotificationController = () => {
     }
 
     return nextState;
-  }, [buildRuleContext, cancelSmartNotifications, markSmartNotificationScheduled]);
+  }), [buildRuleContext, cancelSmartNotifications, markSmartNotificationScheduled]);
 
   const initOnAppOpen = useCallback(async () => {
     try {
@@ -952,4 +964,3 @@ export async function recordNotificationDelivered(
     logger.warn('[NotificationController] Failed to record notification delivery', error);
   }
 }
-

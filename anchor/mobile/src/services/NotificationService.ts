@@ -34,11 +34,14 @@ const DEFAULT_LIGHT_COLOR = '#D4AF37';
 const CUSTOM_NOTIFICATION_SOUND = 'notification.wav';
 
 export const NOTIFICATION_CHANNELS = {
-  DAILY_REMINDERS: 'daily-reminders',
-  DAILY_GOAL_CHECKPOINTS: 'daily-goal-checkpoints',
-  RITUAL_REMINDERS: 'ritual-reminders',
-  STREAK_PROTECTION: 'streak-protection',
-  WEEKLY_SUMMARY: 'weekly-summary',
+  // Android persists a channel's enabled state, importance, and sound for the
+  // lifetime of an install. New IDs let existing installs recover from the
+  // silent/disabled legacy channels that cannot be repaired in place.
+  DAILY_REMINDERS: 'daily-reminders-v3',
+  DAILY_GOAL_CHECKPOINTS: 'daily-goal-checkpoints-v3',
+  RITUAL_REMINDERS: 'ritual-reminders-v3',
+  STREAK_PROTECTION: 'streak-protection-v3',
+  WEEKLY_SUMMARY: 'weekly-summary-v3',
 };
 
 export const NOTIFICATION_IDS = {
@@ -705,7 +708,7 @@ class NotificationService {
 
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.DAILY_GOAL_CHECKPOINTS, {
         name: 'Daily Goal Checkpoints',
-        importance: Notifications.AndroidImportance.DEFAULT,
+        importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: DEFAULT_LIGHT_COLOR,
         sound: CUSTOM_NOTIFICATION_SOUND,
@@ -713,7 +716,7 @@ class NotificationService {
 
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.RITUAL_REMINDERS, {
         name: 'Prime Reminders',
-        importance: Notifications.AndroidImportance.DEFAULT,
+        importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: DEFAULT_LIGHT_COLOR,
         sound: CUSTOM_NOTIFICATION_SOUND,
@@ -721,14 +724,14 @@ class NotificationService {
 
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.STREAK_PROTECTION, {
         name: 'Thread Strength',
-        importance: Notifications.AndroidImportance.DEFAULT,
+        importance: Notifications.AndroidImportance.HIGH,
         lightColor: DEFAULT_LIGHT_COLOR,
         sound: CUSTOM_NOTIFICATION_SOUND,
       });
 
       await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.WEEKLY_SUMMARY, {
         name: 'Weekly Summary',
-        importance: Notifications.AndroidImportance.LOW,
+        importance: Notifications.AndroidImportance.DEFAULT,
         lightColor: DEFAULT_LIGHT_COLOR,
         sound: CUSTOM_NOTIFICATION_SOUND,
       });

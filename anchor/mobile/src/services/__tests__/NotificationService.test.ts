@@ -1,6 +1,6 @@
 import type { Notification } from 'expo-notifications';
 import * as Notifications from 'expo-notifications';
-import NotificationService, { NOTIFICATION_IDS } from '../NotificationService';
+import NotificationService, { NOTIFICATION_CHANNELS, NOTIFICATION_IDS } from '../NotificationService';
 
 jest.mock('expo-constants', () => ({
   expoConfig: {
@@ -139,7 +139,7 @@ describe('NotificationService', () => {
         trigger: expect.objectContaining({
           type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
           seconds: 5,
-          channelId: 'daily-reminders',
+          channelId: NOTIFICATION_CHANNELS.DAILY_REMINDERS,
         }),
       })
     );
