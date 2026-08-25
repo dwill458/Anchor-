@@ -11,8 +11,18 @@ function anchorDisplayName(anchor?: Anchor) {
   return (anchor as { identityAnchor?: string })?.identityAnchor || anchor?.intentionText?.trim() || 'Select an anchor';
 }
 
+// This card renders category as raw enum text (no shared label map exists
+// yet). Only override the two renamed categories; everything else keeps its
+// existing raw-text behavior.
+const CATEGORY_LABEL_OVERRIDES: Partial<Record<string, string>> = {
+  desire: 'ambition',
+  abundance: 'wealth',
+};
+
 function anchorMetadata(anchor?: Anchor) {
-  return anchor?.category?.trim() || 'Personal Anchor';
+  const category = anchor?.category?.trim();
+  if (!category) return 'Personal Anchor';
+  return CATEGORY_LABEL_OVERRIDES[category] ?? category;
 }
 
 export const PracticeOverviewCard: React.FC<{
