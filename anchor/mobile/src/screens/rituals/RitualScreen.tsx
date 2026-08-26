@@ -1947,7 +1947,7 @@ export const RitualScreen: React.FC = () => {
 
                   <Text style={styles.landingAnchorTitle}>"{anchor.intentionText}"</Text>
                   <Text style={styles.landingDescription}>
-                    Spend longer with the Anchor through guided{`\n`}attention.
+                    Spend longer with the Anchor through guided attention.
                   </Text>
 
                   <View
@@ -3589,6 +3589,7 @@ const styles = StyleSheet.create({
     color: 'rgba(245,240,232,0.62)',
     textAlign: 'center',
     marginTop: 8,
+    paddingHorizontal: 20,
   },
   landingSigilWrapper: {
     width: 340,
