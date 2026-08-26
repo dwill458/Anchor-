@@ -419,6 +419,7 @@ describe('AnchorDetailScreen', () => {
             expect(mockShareCardRendererProps).toHaveBeenCalledWith(
                 expect.objectContaining({
                     artworkUri: 'https://example.com/legacy-share-card.png',
+                    threadStrength: 0,
                 })
             );
         });

@@ -7,7 +7,7 @@ import { logger } from '@/utils/logger';
 
 const CAPTURE_OPTIONS: Record<ShareCardFormat, { width: number; height: number; quality: number }> = {
   square: { width: 1080, height: 1080, quality: 0.95 },
-  stories: { width: 1170, height: 2532, quality: 0.82 },
+  stories: { width: 1080, height: 1920, quality: 0.95 },
 };
 
 type SharingModuleShape = {

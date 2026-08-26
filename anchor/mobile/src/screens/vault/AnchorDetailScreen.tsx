@@ -843,7 +843,7 @@ const AnchorDetailEditorialPage = (props: any) => {
       <ConfirmUnchargedBurnSheet visible={showConfirmRelease} onConfirm={onConfirmRelease} onCancel={onCloseRelease} intentionText={anchor.intention} />
       <ConfirmDeleteAnchorSheet visible={showConfirmDelete} intentionText={anchor.intention} onBurnInstead={onRelease} onDelete={onConfirmDelete} onCancel={onCloseDelete} />
       <ExportAnchorSheet isVisible={showExportSheet} onClose={onCloseExport} sigilSvg={anchor.baseSigilSvg} sigilUri={anchor.sigilUri} intention={anchor.intention} onExportComplete={(uri) => logger.info('[AnchorDetail] Anchor exported', { uri })} />
-      {showShareCard ? <ShareCardRenderer ref={shareCardRef} anchorSVG={anchor.baseSigilSvg} artworkUri={anchor.sigilUri ?? anchor.enhancedImageUrl} intention={anchor.intention} daysPrimed={anchorPractice.currentStreak} format={shareFormat} onRenderReady={onShareCardRendered} /> : null}
+      {showShareCard ? <ShareCardRenderer ref={shareCardRef} anchorSVG={anchor.baseSigilSvg} artworkUri={anchor.sigilUri ?? anchor.enhancedImageUrl} intention={anchor.intention} daysPrimed={anchorPractice.currentStreak} threadStrength={threadStrengthValue} format={shareFormat} onRenderReady={onShareCardRendered} /> : null}
     </View>
   );
 };

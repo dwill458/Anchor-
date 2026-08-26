@@ -48,9 +48,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { safeHaptics } from '@/utils/haptics';
 import { PracticeCompletionService } from '@/services/PracticeCompletionService';
 import VisualizationSceneService from '@/services/VisualizationSceneService';
-import { WidgetDeepLinkHandler } from '@/widgets/WidgetDeepLinkHandler';
 import { ResumeTargetHandler } from './ResumeTargetHandler';
-import { WIDGETS_ENABLED } from '@/config';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import type { RootStackParamList } from '@/types';
 import { canViewChart } from '@/types/chart';
@@ -450,8 +448,6 @@ export const MainTabNavigator: React.FC = () => {
       activeIndex={renderedActiveIndex}
       chartAvailable={chartAvailable}
     >
-      {/* Routes the home screen widget CTA (anchor://practice) to the Practice tab */}
-      {WIDGETS_ENABLED && <WidgetDeepLinkHandler />}
       <ResumeTargetHandler />
       <View style={styles.container}>
         <SwipeableTabContainer

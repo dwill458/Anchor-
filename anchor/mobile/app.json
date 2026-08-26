@@ -210,51 +210,6 @@
         {
           "locationWhenInUsePermission": "Allow Anchor to suggest your local priming preset when you are near a saved place."
         }
-      ],
-      [
-        "react-native-android-widget",
-        {
-          "fonts": [
-            "./assets/widget-fonts/Cinzel_500Medium.ttf",
-            "./assets/widget-fonts/Cinzel_600SemiBold.ttf",
-            "./assets/widget-fonts/CrimsonPro_600SemiBold.ttf"
-          ],
-          "widgets": [
-            {
-              "name": "AnchorSmallWidget",
-              "label": "Anchor",
-              "description": "Your anchor at a glance — glows gold once you prime.",
-              "minWidth": "110dp",
-              "minHeight": "110dp",
-              "targetCellWidth": 2,
-              "targetCellHeight": 2,
-              "resizeMode": "none",
-              "updatePeriodMillis": 1800000
-            },
-            {
-              "name": "AnchorMediumWidget",
-              "label": "Anchor — Prime",
-              "description": "Today's anchor with a one-tap way into your Focus session.",
-              "minWidth": "250dp",
-              "minHeight": "110dp",
-              "targetCellWidth": 4,
-              "targetCellHeight": 2,
-              "resizeMode": "horizontal",
-              "updatePeriodMillis": 1800000
-            },
-            {
-              "name": "AnchorLargeWidget",
-              "label": "Anchor — Session History",
-              "description": "Your day thread and 18 weeks of session history.",
-              "minWidth": "250dp",
-              "minHeight": "250dp",
-              "targetCellWidth": 4,
-              "targetCellHeight": 4,
-              "resizeMode": "horizontal|vertical",
-              "updatePeriodMillis": 1800000
-            }
-          ]
-        }
       ]
     ],
     "extra": {

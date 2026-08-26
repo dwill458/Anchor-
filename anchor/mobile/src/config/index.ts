@@ -83,9 +83,9 @@ export const ENABLE_VISUALIZE = process.env.EXPO_PUBLIC_ENABLE_VISUALIZE !== 'fa
 // Chart is deliberately default-off. The server flag is consumed separately
 // by the Course store and can only make this build more restrictive.
 export const ENABLE_CHART = process.env.EXPO_PUBLIC_ENABLE_CHART === 'true';
-// Widgets aren't ready for this release — keep the native surface built but
-// disable the JS-side sync/task-handler/deep-link wiring until they are.
-export const WIDGETS_ENABLED = process.env.EXPO_PUBLIC_ENABLE_WIDGETS === 'true';
+// Widgets are excluded from the 1.5 release. Keep their source dormant until
+// native registration, task handling, data sync, and deep-link support return.
+export const WIDGETS_ENABLED = false;
 export const IOS_BUNDLE_ID = 'com.anchorintentions.app';
 export const ANDROID_PACKAGE_NAME = 'com.anchorintentions.app';
 export const PASSWORD_RESET_CONTINUE_URL = readOptionalPublicEnv(

@@ -68,8 +68,6 @@ import {
   useNotificationController,
 } from './src/hooks/useNotificationController';
 import type { NotificationCategory } from './src/services/notifications/notificationTypes';
-import { initWidgetDataSync } from './src/widgets/widgetDataBridge';
-import { WIDGETS_ENABLED } from './src/config';
 import { useAppStartup } from './src/hooks/useAppStartup';
 import { SplashController } from './src/components/splash/SplashController';
 import { SPLASH_BACKGROUND_COLOR } from './src/components/splash/splashAnimation.constants';
@@ -385,15 +383,6 @@ export default function App() {
   useEffect(() => {
     developerMasterAccountEnabledRef.current = developerMasterAccountEnabled;
   }, [developerMasterAccountEnabled]);
-
-  // Mirror session/anchor state into the home screen widgets. Subscribes to
-  // the stores, so prime completions, decay, and hydration all propagate
-  // without touching those flows.
-  useEffect(() => {
-    if (WIDGETS_ENABLED) {
-      initWidgetDataSync();
-    }
-  }, []);
 
   useEffect(() => {
     AuthService.initialize();
