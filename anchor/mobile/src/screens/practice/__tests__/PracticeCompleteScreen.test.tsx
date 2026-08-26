@@ -68,6 +68,7 @@ jest.mock('@/hooks/useReduceMotionEnabled', () => ({
 }));
 
 const mockCanOfferFirstAnchorReminder = jest.fn().mockResolvedValue(true);
+const mockCanOfferPracticeReminder = jest.fn().mockResolvedValue(true);
 const mockSetDailyPrimeReminder = jest.fn().mockResolvedValue('granted');
 const mockMarkReminderPromptShown = jest.fn().mockResolvedValue(undefined);
 const mockCompleteReminderPrompt = jest.fn().mockResolvedValue(undefined);
@@ -75,6 +76,7 @@ const mockCompleteReminderPrompt = jest.fn().mockResolvedValue(undefined);
 jest.mock('@/hooks/useNotificationController', () => ({
   useNotificationController: () => ({
     canOfferFirstAnchorReminder: mockCanOfferFirstAnchorReminder,
+    canOfferPracticeReminder: mockCanOfferPracticeReminder,
     setDailyPrimeReminder: mockSetDailyPrimeReminder,
     markReminderPromptShown: mockMarkReminderPromptShown,
     completeReminderPrompt: mockCompleteReminderPrompt,
@@ -94,6 +96,8 @@ describe('PracticeCompleteScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockReduceMotion = false;
+    mockCanOfferFirstAnchorReminder.mockResolvedValue(true);
+    mockCanOfferPracticeReminder.mockResolvedValue(true);
     useTeachingStore.getState().reset();
     useAuthStore.getState().setWallpaperPromptSeen(false);
     jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => {});
@@ -110,7 +114,10 @@ describe('PracticeCompleteScreen', () => {
     };
   });
 
-  it('renders normal returning practice with previous and new Thread Strength', async () => {
+  it('renders normal returning practice when reminders are already active', async () => {
+    mockCanOfferPracticeReminder.mockResolvedValue(false);
+    mockCanOfferFirstAnchorReminder.mockResolvedValue(false);
+
     render(<PracticeCompleteScreen />);
 
     expect(screen.getByText('PRACTICE COMPLETE')).toBeTruthy();
@@ -121,8 +128,22 @@ describe('PracticeCompleteScreen', () => {
 
     // In normal returning practice, first practice banner is NOT rendered
     expect(screen.queryByText('YOUR THREAD HAS BEGUN')).toBeNull();
-    // Reminder opportunity is NOT rendered
+    // Reminder opportunity is NOT rendered when not eligible
     expect(screen.queryByText('KEEP BUILDING THE THREAD')).toBeNull();
+  });
+
+  it('renders practice reminder opportunity on returning practice when reminders are not yet active', async () => {
+    mockCanOfferPracticeReminder.mockResolvedValue(true);
+
+    render(<PracticeCompleteScreen />);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText('PRACTICE COMPLETE')).toBeTruthy();
+    expect(screen.getByText('KEEP BUILDING THE THREAD')).toBeTruthy();
+    expect(screen.getByText('Set a practice reminder ›')).toBeTruthy();
   });
 
   it('renders first practice teaching state and reminder prompt', async () => {

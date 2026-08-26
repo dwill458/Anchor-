@@ -662,7 +662,7 @@ export const SettingsScreen: React.FC = () => {
               title="Daily Prime Reminder"
               subtitle="One reminder if no Focus Session or Deep Prime is complete."
               type="toggle"
-              toggleValue={notifState?.dailyPrimeEnabled ?? true}
+              toggleValue={notifState?.dailyPrimeEnabled ?? false}
               onToggle={(enabled) => void updateNotificationPreferences({ dailyPrimeEnabled: enabled })}
               disabled={isLoading || !remindersEnabled}
             />
@@ -670,7 +670,7 @@ export const SettingsScreen: React.FC = () => {
               title="Thread Strength Alerts"
               subtitle="Only when Thread Strength drops below your threshold."
               type="toggle"
-              toggleValue={notifState?.threadStrengthAlertsEnabled ?? true}
+              toggleValue={notifState?.threadStrengthAlertsEnabled ?? false}
               onToggle={(enabled) => void updateNotificationPreferences({ threadStrengthAlertsEnabled: enabled })}
               disabled={isLoading || !remindersEnabled}
             />
@@ -689,7 +689,7 @@ export const SettingsScreen: React.FC = () => {
               title="Unfinished Anchor Reminders"
               subtitle="One reminder when an Anchor stays unsealed."
               type="toggle"
-              toggleValue={notifState?.unfinishedAnchorRemindersEnabled ?? true}
+              toggleValue={notifState?.unfinishedAnchorRemindersEnabled ?? false}
               onToggle={(enabled) => void updateNotificationPreferences({ unfinishedAnchorRemindersEnabled: enabled })}
               disabled={isLoading || !remindersEnabled}
             />

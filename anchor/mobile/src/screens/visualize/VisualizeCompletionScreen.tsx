@@ -232,10 +232,10 @@ export const VisualizeCompletionScreen: React.FC<Props> = ({
       onPress={handleBeginPostPrimeTrace}
       activeOpacity={0.75}
       accessibilityRole="button"
-      accessibilityLabel="Trace"
+      accessibilityLabel="Trace to Deepen"
       testID="post-prime-trace-button"
     >
-      <Text style={styles.traceSecondaryText}>Trace</Text>
+      <Text style={styles.traceSecondaryText}>Trace to Deepen</Text>
     </TouchableOpacity>
   ) : undefined;
 
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   traceSecondaryText: {
-    fontFamily: typography.fonts.bodyBold,
+    fontFamily: typography.fonts.body,
     fontSize: 14,
     color: '#FFFFFF',
     letterSpacing: 0.5,

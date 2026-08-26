@@ -87,7 +87,7 @@ describe('FocusCompletionScreen', () => {
     expect(screen.getByText('THREAD +8')).toBeTruthy();
     expect(screen.queryByText('THREAD 48')).toBeNull();
     expect(screen.getByText('Focus Again')).toBeTruthy();
-    expect(screen.getByText('Trace')).toBeTruthy();
+    expect(screen.getByText('Trace to Deepen')).toBeTruthy();
   });
 
   it('shows THREAD +0 when the session produced no gain, never a negative or bare total', () => {
@@ -138,7 +138,7 @@ describe('FocusCompletionScreen', () => {
     render(<FocusCompletionScreen />);
 
     expect(screen.getByTestId('post-prime-trace-button')).toBeTruthy();
-    expect(screen.getByText('Trace')).toBeTruthy();
+    expect(screen.getByText('Trace to Deepen')).toBeTruthy();
     expect(screen.queryByTestId('post-prime-trace-modal')).toBeNull();
   });
 

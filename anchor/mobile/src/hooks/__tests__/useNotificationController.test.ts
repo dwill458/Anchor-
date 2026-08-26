@@ -137,19 +137,23 @@ describe('useNotificationController', () => {
     expect(mockScheduleSmartNotification).not.toHaveBeenCalled();
     const savedState = JSON.parse(asyncStorage.setItem.mock.calls.at(-1)?.[1] ?? '{}');
     expect(savedState).toMatchObject({
-      dailyPrimeEnabled: true,
+      notification_enabled: false,
+      dailyPrimeEnabled: false,
       dailyPrimeTime: '21:00',
-      threadStrengthAlertsEnabled: true,
+      threadStrengthAlertsEnabled: false,
       threadStrengthThreshold: 70,
-      unfinishedAnchorRemindersEnabled: true,
+      unfinishedAnchorRemindersEnabled: false,
       weeklyRecapEnabled: false,
       notificationTone: 'encouraging',
       notificationPermissionStatus: 'undetermined',
     });
   });
 
-  it('schedules a daily prime notification when permission is granted and practice is incomplete', async () => {
+  it('schedules a daily prime notification when permission is granted, enabled, and practice is incomplete', async () => {
     mockGetPermissionStatus.mockResolvedValue('granted');
+    asyncStorage.getItem.mockResolvedValue(
+      JSON.stringify({ notification_enabled: true, dailyPrimeEnabled: true })
+    );
     mockSessionStoreGetState.mockReturnValue(createSessionState({ threadStrength: 80 }));
 
     const { result } = renderHook(() => useNotificationController());
@@ -176,6 +180,9 @@ describe('useNotificationController', () => {
 
   it('serializes scheduling transactions from concurrent controller mounts', async () => {
     mockGetPermissionStatus.mockResolvedValue('granted');
+    asyncStorage.getItem.mockResolvedValue(
+      JSON.stringify({ notification_enabled: true, dailyPrimeEnabled: true })
+    );
     mockSessionStoreGetState.mockReturnValue(createSessionState({ threadStrength: 80 }));
 
     let releaseFirstSchedule: ((identifier: string) => void) | undefined;
@@ -206,6 +213,9 @@ describe('useNotificationController', () => {
 
   it('schedules the next-day daily prime after a Focus Session was completed today', async () => {
     mockGetPermissionStatus.mockResolvedValue('granted');
+    asyncStorage.getItem.mockResolvedValue(
+      JSON.stringify({ notification_enabled: true, dailyPrimeEnabled: true })
+    );
     mockSessionStoreGetState.mockReturnValue(createSessionState({
       sessionLog: [
         {
@@ -249,6 +259,9 @@ describe('useNotificationController', () => {
 
   it('persists preference changes and reschedules through the smart scheduler', async () => {
     mockGetPermissionStatus.mockResolvedValue('granted');
+    asyncStorage.getItem.mockResolvedValue(
+      JSON.stringify({ notification_enabled: true, dailyPrimeEnabled: true })
+    );
     const { result } = renderHook(() => useNotificationController());
 
     await waitFor(() => expect(result.current.isInitialized).toBe(true));
@@ -285,8 +298,7 @@ describe('useNotificationController', () => {
     expect(asyncStorage.setItem).toHaveBeenCalled();
   });
 
-  it('schedules the daily prime reminder after permission is granted', async () => {
-    mockRequestPermissions.mockResolvedValue(true);
+  it('schedules a daily reminder when the user chooses a time', async () => {
     mockGetPermissionStatus.mockResolvedValue('granted');
     const { result } = renderHook(() => useNotificationController());
 
@@ -369,8 +381,46 @@ describe('useNotificationController', () => {
     expect(canOffer).toBe(false);
   });
 
+  it('offers practice reminder on completion when reminders are not active', async () => {
+    mockGetPermissionStatus.mockResolvedValue('undetermined');
+    const { result } = renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+
+    let canOffer = false;
+    await act(async () => {
+      canOffer = await result.current.canOfferPracticeReminder();
+    });
+
+    expect(canOffer).toBe(true);
+  });
+
+  it('does not offer practice reminder when reminders are already active and granted', async () => {
+    mockGetPermissionStatus.mockResolvedValue('granted');
+    asyncStorage.getItem.mockResolvedValue(
+      JSON.stringify({ notification_enabled: true, dailyPrimeEnabled: true })
+    );
+    const { result } = renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+
+    let canOffer = true;
+    await act(async () => {
+      canOffer = await result.current.canOfferPracticeReminder();
+    });
+
+    expect(canOffer).toBe(false);
+  });
+
   it('schedules daily_prime concurrently with situational thread_strength nudges', async () => {
     mockGetPermissionStatus.mockResolvedValue('granted');
+    asyncStorage.getItem.mockResolvedValue(
+      JSON.stringify({
+        notification_enabled: true,
+        dailyPrimeEnabled: true,
+        threadStrengthAlertsEnabled: true,
+      })
+    );
     mockSessionStoreGetState.mockReturnValue(createSessionState({ threadStrength: 40 }));
 
     const { result } = renderHook(() => useNotificationController());
@@ -392,6 +442,13 @@ describe('useNotificationController', () => {
 
   it('does not mutate lastNotificationSentAt at schedule time to prevent rate-limit self-cancellation', async () => {
     mockGetPermissionStatus.mockResolvedValue('granted');
+    asyncStorage.getItem.mockResolvedValue(
+      JSON.stringify({
+        notification_enabled: true,
+        dailyPrimeEnabled: true,
+        threadStrengthAlertsEnabled: true,
+      })
+    );
     mockSessionStoreGetState.mockReturnValue(createSessionState({ threadStrength: 40 }));
 
     const { result } = renderHook(() => useNotificationController());

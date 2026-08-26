@@ -87,7 +87,7 @@ describe('DeepPrimeCompletionScreen', () => {
     expect(screen.getByText('THREAD +12')).toBeTruthy();
     expect(screen.queryByText('THREAD 59')).toBeNull();
     expect(screen.getByText('Prime Again')).toBeTruthy();
-    expect(screen.getByText('Trace')).toBeTruthy();
+    expect(screen.getByText('Trace to Deepen')).toBeTruthy();
   });
 
   it('forwards the untouched PracticeCompleteResult to the Thread Strength sheet on Continue', () => {
@@ -123,7 +123,7 @@ describe('DeepPrimeCompletionScreen', () => {
     render(<DeepPrimeCompletionScreen />);
 
     expect(screen.getByTestId('post-prime-trace-button')).toBeTruthy();
-    expect(screen.getByText('Trace')).toBeTruthy();
+    expect(screen.getByText('Trace to Deepen')).toBeTruthy();
     expect(screen.queryByTestId('post-prime-trace-modal')).toBeNull();
   });
 

@@ -127,7 +127,7 @@ describe('VisualizeCompletionScreen', () => {
 
     const traceButton = screen.getByTestId('post-prime-trace-button');
     expect(traceButton).toBeTruthy();
-    expect(screen.getByText('Trace')).toBeTruthy();
+    expect(screen.getByText('Trace to Deepen')).toBeTruthy();
 
     fireEvent.press(traceButton);
     await waitFor(() =>

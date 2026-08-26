@@ -556,6 +556,14 @@ export const useNotificationController = () => {
           await clearPushTokensFromServer();
         }
       } else {
+        if (
+          !state.dailyPrimeEnabled &&
+          !state.threadStrengthAlertsEnabled &&
+          !state.unfinishedAnchorRemindersEnabled
+        ) {
+          state.dailyPrimeEnabled = true;
+        }
+
         // Request OS permission BEFORE scheduling. getRemotePushRegistration()
         // triggers the permission prompt; scheduleSmartNotifications() reads the
         // resulting permission status, so on a first-time enable scheduling must
@@ -801,6 +809,43 @@ export const useNotificationController = () => {
   }, [loadState, reconcile, saveState]);
 
   /**
+   * Resolve practice reminder eligibility for the practice completion finale.
+   * Returns true when practice reminders are not currently active and notification
+   * permission is not explicitly denied.
+   */
+  const canOfferPracticeReminder = useCallback(async (): Promise<boolean> => {
+    try {
+      const state = reconcile(await loadState());
+      const notificationPermissionStatus = await NotificationService.getPermissionStatus();
+      const refreshedState = {
+        ...state,
+        notificationPermissionStatus,
+      };
+
+      await saveState(refreshedState);
+
+      // If user already has practice reminders enabled & permission granted, no need to prompt
+      if (
+        refreshedState.notification_enabled &&
+        refreshedState.dailyPrimeEnabled &&
+        notificationPermissionStatus === 'granted'
+      ) {
+        return false;
+      }
+
+      // If permission is denied in OS settings, don't show prompt
+      if (notificationPermissionStatus === 'denied') {
+        return false;
+      }
+
+      return true;
+    } catch (err) {
+      logger.warn('[NotificationController] Failed to resolve practice reminder eligibility', err);
+      return false;
+    }
+  }, [loadState, reconcile, saveState]);
+
+  /**
    * Record that the daily-reminder prompt card was shown for a given moment.
    * Tracks the first time the prompt is surfaced without nagging on re-entry.
    */
@@ -930,6 +975,7 @@ export const useNotificationController = () => {
     showNotificationSoftAsk,
     handleAnchorSaved,
     canOfferFirstAnchorReminder,
+    canOfferPracticeReminder,
     markReminderPromptShown,
     completeReminderPrompt,
     setDailyPrimeReminder,

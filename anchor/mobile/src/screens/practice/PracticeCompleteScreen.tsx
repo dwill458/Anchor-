@@ -95,6 +95,7 @@ export const PracticeCompleteScreen: React.FC = () => {
 
   const {
     canOfferFirstAnchorReminder,
+    canOfferPracticeReminder,
     setDailyPrimeReminder,
     markReminderPromptShown,
     completeReminderPrompt,
@@ -173,20 +174,20 @@ export const PracticeCompleteScreen: React.FC = () => {
       }
     }
 
-    if (isFirstPractice) {
-      canOfferFirstAnchorReminder().then((eligible) => {
-        setIsReminderEligible(eligible);
-        if (eligible) {
-          void markReminderPromptShown('first_anchor');
-          AnalyticsService.track('practice_reminder_prompt_viewed', {
-            anchor_id: anchorId,
-          });
-        }
-      });
-    }
+    const checkEligibility = canOfferPracticeReminder ?? canOfferFirstAnchorReminder;
+    checkEligibility().then((eligible) => {
+      setIsReminderEligible(eligible);
+      if (eligible) {
+        void markReminderPromptShown('first_anchor');
+        AnalyticsService.track('practice_reminder_prompt_viewed', {
+          anchor_id: anchorId,
+        });
+      }
+    });
   }, [
     anchorId,
     canOfferFirstAnchorReminder,
+    canOfferPracticeReminder,
     didCrossStage,
     isFirstPractice,
     markReminderPromptShown,
@@ -843,8 +844,8 @@ export const PracticeCompleteScreen: React.FC = () => {
             )}
           </View>
 
-          {/* First Practice Reminder Opportunity */}
-          {isFirstPractice && isReminderEligible && (
+          {/* Practice Reminder Opportunity */}
+          {isReminderEligible && (
             <Animated.View
               style={[
                 styles.reminderSection,
