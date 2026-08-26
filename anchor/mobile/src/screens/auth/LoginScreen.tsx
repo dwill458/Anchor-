@@ -189,19 +189,27 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
     }
   };
 
-  // Hand off to the SaveProgress gate, which finalizes the pending first anchor
-  // (attaches it to the new account) before entering the Vault.
-  const finalizeFirstAnchorThenVault = () => {
+  // Hand off to the First Prime screen (or SaveProgress / Vault fallback), which attaches
+  // the first anchor to the new account.
+  const finalizeFirstAnchorThenPrime = (pendingAnchorId?: string | null) => {
     const routeNames = (navigation.getState?.().routeNames ?? []) as readonly string[];
     const anchorId =
-      route?.params?.anchorId ?? useAuthStore.getState().pendingFirstAnchorDraft?.tempAnchorId;
-    const anchor = anchorId ? useAnchorStore.getState().getAnchorById(anchorId) : null;
-    if (anchorId && routeNames.includes('SaveProgress')) {
-      if (anchor) {
-        navigation.replace('SaveProgress', { anchor });
-        return;
-      }
+      pendingAnchorId ??
+      route?.params?.anchorId ??
+      useAuthStore.getState().pendingFirstAnchorDraft?.tempAnchorId;
+
+    if (anchorId && routeNames.includes('PrimeYourAnchor')) {
+      useFirstAnchorFlowStore.getState().clearDraft();
+      navigation.replace('PrimeYourAnchor', { anchorId });
+      return;
     }
+
+    const anchor = anchorId ? useAnchorStore.getState().getAnchorById(anchorId) : null;
+    if (anchor && routeNames.includes('SaveProgress')) {
+      navigation.replace('SaveProgress', { anchor });
+      return;
+    }
+
     navigateAfterSuccessfulAuth('Vault');
   };
 
@@ -209,6 +217,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
     if (preferredPlanId) {
       setPreferredPlanId(preferredPlanId);
     }
+
+    const pendingAnchorId =
+      route?.params?.anchorId ??
+      useAuthStore.getState().pendingFirstAnchorDraft?.tempAnchorId;
 
     const shouldCompleteOnboardingAfterAuth =
       hasCompletedOnboarding ||
@@ -228,16 +240,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
       useProfileStore.getState().updateProfile({ name: name.trim() });
     }
 
-    const shouldRouteThroughFirstAnchorGate = Boolean(
-      useAuthStore.getState().pendingFirstAnchorDraft
-    );
-
-    if (context === 'first_anchor_gate') {
-      finalizeFirstAnchorThenVault();
-    } else if (context === 'save_progress' && shouldRouteThroughFirstAnchorGate) {
-      finalizeFirstAnchorThenVault();
-    } else if (context === 'save_progress') {
-      navigateAfterSuccessfulAuth('Vault');
+    if (context === 'first_anchor_gate' || context === 'save_progress') {
+      finalizeFirstAnchorThenPrime(pendingAnchorId);
     } else if (context === 'paywall') {
       navigateAfterSuccessfulAuth('Vault');
     } else if (context == null || context === 'onboarding') {

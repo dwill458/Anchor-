@@ -13,7 +13,7 @@ const mockNavigation = {
   navigate: jest.fn(),
   goBack: jest.fn(),
   canGoBack: jest.fn(() => true),
-  getState: jest.fn(() => ({ routeNames: ['Login', 'Vault', 'SaveProgress'] })),
+  getState: jest.fn(() => ({ routeNames: ['Login', 'Vault', 'SaveProgress', 'PrimeYourAnchor'] })),
 };
 
 jest.mock('expo-apple-authentication', () => ({
@@ -174,5 +174,53 @@ describe('LoginScreen', () => {
     expect(screen.getByLabelText('Sign in or sign up')).toBeTruthy();
     expect(timingSpy).not.toHaveBeenCalled();
     timingSpy.mockRestore();
+  });
+
+  it('routes to PrimeYourAnchor after sign-up when context is save_progress', async () => {
+    (AuthService.signUpWithEmail as jest.Mock) = jest.fn().mockResolvedValue({
+      user: { id: 'new-user' },
+      token: 'token-123',
+    });
+
+    const screen = render(
+      <LoginScreen
+        navigation={mockNavigation as never}
+        route={{ params: { initialTab: 'signup', context: 'save_progress', anchorId: 'anchor-123' } }}
+      />
+    );
+
+    fireEvent.changeText(screen.getByLabelText('EMAIL'), 'newuser@example.com');
+    fireEvent.changeText(screen.getByLabelText('PASSWORD'), 'password123');
+    fireEvent.press(screen.getByLabelText('Create account'));
+
+    await waitFor(() => {
+      expect(mockNavigation.replace).toHaveBeenCalledWith('PrimeYourAnchor', {
+        anchorId: 'anchor-123',
+      });
+    });
+  });
+
+  it('routes to PrimeYourAnchor after sign-in when context is save_progress', async () => {
+    (AuthService.signInWithEmail as jest.Mock) = jest.fn().mockResolvedValue({
+      user: { id: 'existing-user' },
+      token: 'token-456',
+    });
+
+    const screen = render(
+      <LoginScreen
+        navigation={mockNavigation as never}
+        route={{ params: { initialTab: 'signin', context: 'save_progress', anchorId: 'anchor-456' } }}
+      />
+    );
+
+    fireEvent.changeText(screen.getByLabelText('EMAIL'), 'user@example.com');
+    fireEvent.changeText(screen.getByLabelText('PASSWORD'), 'password123');
+    fireEvent.press(screen.getByLabelText('Sign in'));
+
+    await waitFor(() => {
+      expect(mockNavigation.replace).toHaveBeenCalledWith('PrimeYourAnchor', {
+        anchorId: 'anchor-456',
+      });
+    });
   });
 });

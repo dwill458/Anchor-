@@ -72,7 +72,11 @@ jest.mock('react-native-svg', () => {
     __esModule: true,
     default: Mock,
     Circle: Mock,
+    Defs: Mock,
+    LinearGradient: Mock,
     Path: Mock,
+    RadialGradient: Mock,
+    Stop: Mock,
     Svg: Mock,
     SvgXml: Mock,
   };
