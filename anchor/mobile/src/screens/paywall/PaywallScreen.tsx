@@ -87,17 +87,17 @@ const PAYWALL_EXPERIMENT = {
 const HEADLINES: Record<HeadlineId, { eyebrow: string; titleA: string; titleB: string; titleEm: string; sub: string }> = {
   loss: {
     eyebrow: 'Your free trial has ended',
-    titleA: "Don't lose access",
+    titleA: 'Keep your access',
     titleB: 'to what you',
     titleEm: 'built.',
-    sub: 'Your anchors and progress are safe. Continue to keep your practice within reach when you need it.',
+    sub: 'Your anchors and progress are preserved. Continue to keep your practice within reach.',
   },
   momentum: {
     eyebrow: 'Seven days complete',
-    titleA: "You've built",
+    titleA: 'You have built',
     titleB: 'something',
     titleEm: 'real.',
-    sub: 'The hardest part is starting, and you already did. Keep the momentum.',
+    sub: 'The initial pattern is set. Continue strengthening the thread.',
   },
   direct: {
     eyebrow: 'Trial ended',

@@ -1,7 +1,7 @@
 /**
  * Anchor App - Product Selection Screen
  *
- * Allows user to choose how to manifest their anchor physically.
+ * Allows user to craft their anchor into a physical artifact.
  * Feels ceremonial, not commercial.
  */
 
@@ -112,7 +112,7 @@ export const ProductSelectionScreen: React.FC = () => {
             <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
                 {/* Header */}
                 <View style={styles.header}>
-                    <Text style={styles.title}>Choose Your Manifestation</Text>
+                    <Text style={styles.title}>Choose Your Physical Anchor</Text>
                     <Text style={styles.subtitle}>
                         How will you carry this anchor with you?
                     </Text>

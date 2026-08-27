@@ -55,7 +55,7 @@ export const ConfirmUnchargedBurnSheet: React.FC<ConfirmUnchargedBurnSheetProps>
           <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
             <View style={styles.handle} />
 
-            <Text style={styles.title}>Unplanted Intention</Text>
+            <Text style={styles.title}>Unprimed Anchor</Text>
 
             {intentionText && (
               <Text style={styles.intention} numberOfLines={2}>
@@ -64,9 +64,9 @@ export const ConfirmUnchargedBurnSheet: React.FC<ConfirmUnchargedBurnSheetProps>
             )}
 
             <Text style={styles.body}>
-              Your intention has not been implanted. Releasing this anchor now will disperse its energy before it has been grounded.
+              This anchor has not been primed. Releasing it now removes the symbol before repetition can build a pattern.
               {"\n\n"}
-              Are you certain you wish to proceed with the ritual of release?
+              Are you certain you wish to release this anchor?
             </Text>
 
             <View style={styles.actions}>
@@ -83,7 +83,7 @@ export const ConfirmUnchargedBurnSheet: React.FC<ConfirmUnchargedBurnSheetProps>
                 onPress={handleCancel}
                 activeOpacity={0.8}
               >
-                <Text style={styles.cancelButtonText}>Keep & Ground</Text>
+                <Text style={styles.cancelButtonText}>Keep Anchor</Text>
               </TouchableOpacity>
             </View>
           </Pressable>

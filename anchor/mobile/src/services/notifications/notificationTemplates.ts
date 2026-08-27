@@ -48,7 +48,7 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationCategory, NotificationTe
       'daily_prime',
       'performance',
       'Prime your focus',
-      'One short session keeps the signal strong.'
+      'One short session keeps the thread strong.'
     ),
   ],
   thread_strength: [
@@ -87,7 +87,7 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationCategory, NotificationTe
       'unfinished_anchor',
       'direct',
       'Your anchor is still unsealed',
-      "Finish shaping it when you're ready."
+      'Finish shaping it when you are ready.'
     ),
     makeTemplate(
       'unfinished_anchor_encouraging_1',

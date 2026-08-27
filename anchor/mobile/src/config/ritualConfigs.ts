@@ -481,7 +481,7 @@ export function getPracticeDeepPrimeConfig(durationSeconds: number): RitualConfi
   phaseDurations[2] += total - phaseDurations.reduce((sum, value) => sum + value, 0);
   const phaseGuidance = [
     [{ at: 0, text: 'Let your breathing slow.' }, { at: 0.5, text: 'Allow your attention to arrive here.' }],
-    [{ at: 0, text: 'Notice the Anchor without trying to interpret it.' }, { at: 0.32, text: 'Let your eyes follow its form.' }, { at: 0.62, text: 'Notice where your attention naturally returns.' }, { at: 0.84, text: 'You don’t need to decode it. Let the form become familiar.', teaching: true }],
+    [{ at: 0, text: 'Notice the Anchor without trying to interpret it.' }, { at: 0.32, text: 'Let your eyes follow its form.' }, { at: 0.62, text: 'Notice where your attention naturally returns.' }, { at: 0.84, text: 'You do not need to decode it. Let the form become familiar.', teaching: true }],
     [{ at: 0, text: 'Let everything outside the form become quieter.' }, { at: 0.55, text: 'When your attention wanders, return to the Anchor.' }],
     [{ at: 0, text: 'Stay with the form.' }, { at: 0.16, text: '' }],
     [{ at: 0, text: 'Let your attention widen again.' }, { at: 0.5, text: 'Carry the Anchor with you.' }],

@@ -171,8 +171,8 @@ export const PhotoSourceSheet: React.FC<PhotoSourceSheetProps> = ({
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.eyebrow}>YOUR IMAGE</Text>
-            <Text style={styles.title}>Update Your Signal Photo</Text>
-            <Text style={styles.subtitle}>Choose how you'd like to add it.</Text>
+            <Text style={styles.title}>Update Your Profile Photo</Text>
+            <Text style={styles.subtitle}>Choose how you would like to add it.</Text>
           </View>
 
           {/* Options */}
@@ -237,7 +237,7 @@ export const PhotoSourceSheet: React.FC<PhotoSourceSheetProps> = ({
                 </View>
                 <View style={styles.optionCopy}>
                   <Text style={[styles.optionLabel, styles.optionLabelDestructive]}>Remove Photo</Text>
-                  <Text style={styles.optionCaption}>Revert to your default signal mark</Text>
+                  <Text style={styles.optionCaption}>Revert to your default anchor mark</Text>
                 </View>
                 <ChevronRight color={withAlpha('#E05454', 0.5)} size={18} strokeWidth={1.5} />
               </Pressable>

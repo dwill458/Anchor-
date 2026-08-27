@@ -444,7 +444,7 @@ export const VaultScreen: React.FC = () => {
     } catch (error) {
       const msg = (error as Error).message;
       setError(msg);
-      toast.error("We couldn't load your anchors. Check your connection and try again.");
+      toast.error("Could not load your anchors. Check your connection and try again.");
       ErrorTrackingService.captureException(error as Error, {
         screen: 'VaultScreen',
         action: 'fetch_anchors',
@@ -781,7 +781,7 @@ export function VaultEmptyStateContent({
         <Text style={styles.emptyEyebrow}>AWAITING FORGE</Text>
         <Text style={styles.emptyHeadline}>One intention. Forged.</Text>
         <Text style={styles.emptySubhead}>
-          Write it once. Anchor traces it into a symbol you'll carry back to it daily.
+          Write it once. Anchor compresses it into a symbol you will return to daily.
         </Text>
 
         <TouchableOpacity

@@ -146,9 +146,9 @@ export function getAnchorCreationLimitCopy(reason: AnchorCreationLimitReason): L
   switch (reason) {
     case 'trial_anchor_cap_reached':
       return {
-        title: "You've created your 7 trial anchors",
+        title: 'You have created your 7 trial anchors',
         body:
-          'Anchor works best when each intention has space to breathe. Upgrade to Pro to keep creating new anchors and practicing without limits.',
+          'Anchor works best when each intention has space to hold attention. Upgrade to Pro to continue creating new anchors and practicing without limits.',
         cta: 'Unlock Anchor Pro',
         secondary: 'Not now',
       };
@@ -164,7 +164,7 @@ export function getAnchorCreationLimitCopy(reason: AnchorCreationLimitReason): L
       return {
         title: 'Daily creation limit reached',
         body:
-          "You've created 10 anchors today. Anchor works best when each symbol has room to mean something. You can create more tomorrow.",
+          'You have created 10 anchors today. Anchor works best when each symbol has room to hold attention. You can create more tomorrow.',
         cta: 'Return to Sanctuary',
       };
     default:
@@ -178,7 +178,7 @@ export function getPracticeLimitCopy(reason: PracticeLimitReason): LimitCopy | n
       return {
         title: 'Weekly sessions complete',
         body:
-          "You've used your free practice sessions for the week. Upgrade to Anchor Pro to keep practicing without limits.",
+          'You have used your free practice sessions for the week. Upgrade to Anchor Pro to continue practicing without limits.',
         cta: 'Unlock Unlimited Sessions',
         secondary: 'Return to Sanctuary',
       };

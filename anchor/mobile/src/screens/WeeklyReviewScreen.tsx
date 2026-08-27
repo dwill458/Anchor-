@@ -208,7 +208,7 @@ function ErrorBanner({ onRetry }: { onRetry: () => void }) {
   return (
     <View style={styles.errorBanner}>
       <Text style={styles.errorBannerText}>
-        Couldn't refresh this week — showing your last saved summary.
+        Could not refresh this week. Showing your last saved summary.
       </Text>
       <TouchableOpacity onPress={onRetry} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
         <Text style={styles.errorBannerRetry}>RETRY</Text>
@@ -1018,7 +1018,7 @@ function QuietWeekLayout({
 
         <Text style={styles.quietHeadline}>A quiet week.</Text>
         <Text style={styles.quietBody}>
-          Nothing was lost. Your Practice is here when you're ready to return.
+          Nothing was lost. Practice is here when you are ready to return.
         </Text>
 
         {/* Empty Weave (still mode) */}

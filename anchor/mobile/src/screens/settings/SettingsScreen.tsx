@@ -624,7 +624,7 @@ export const SettingsScreen: React.FC = () => {
             />
             <SettingsRow
               title="Haptic Feedback"
-              subtitle="Vibration cues during Focus and Prime sessions."
+              subtitle="Haptic cues during Focus and Prime sessions."
               type="toggle"
               toggleValue={settings.hapticFeedback !== 'none'}
               onToggle={(value) => void updateSetting('hapticFeedback', value ? 'strong' : 'none')}

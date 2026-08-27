@@ -408,8 +408,7 @@ export function WeeklySummaryModal({
               {isZeroPrimeWeek ? (
                 <>
                   <Text style={styles.zeroPrimeLine}>
-                    You didn't show up this week. Start again — today counts more than the
-                    streak you didn't have.
+                    The thread weakened while you were away. One session starts strengthening it again.
                   </Text>
 
                   <View style={[styles.actions, { paddingBottom: Math.max(bottomInset, 20) + 12 }]}>

@@ -70,7 +70,7 @@ export const DEPTH_TIERS: DepthTier[] = [
     name: 'Surface',
     color: colors.silver,
     description:
-      'The first imprint. Meaning has been marked, not yet embodied.',
+      'The first pattern. Meaning has been marked, not yet embodied.',
     requirements: {},
   },
   {

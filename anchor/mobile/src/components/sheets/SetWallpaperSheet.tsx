@@ -231,7 +231,7 @@ export const SetWallpaperSheet: React.FC<SetWallpaperSheetProps> = ({
                 Set it as your <Text style={styles.titleGold}>lock screen.</Text>
               </Text>
               <Text style={styles.body}>
-                Every time you pick up your phone, it primes your next move. 100 exposures a day — that's the practice.
+                Every time you pick up your phone, it primes your next move. 100 exposures a day — that is the practice.
               </Text>
               {errorMessage ? <Text style={styles.errorMessage}>{errorMessage}</Text> : null}
               <TouchableOpacity

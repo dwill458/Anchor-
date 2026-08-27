@@ -66,9 +66,9 @@ const SHEET_ITEMS = [
     { label: 'Short', title: 'One intention. One direction.' },
     {
         label: 'Present',
-        title: "Write from the state you're choosing, not the state you're escaping.",
+        title: "Write from the state you are choosing, not the state you are escaping.",
         example: {
-            insteadOf: '"I don\'t want to procrastinate."',
+            insteadOf: '"I do not want to procrastinate."',
             tryText: '"I begin important work immediately."',
         },
     },
@@ -265,7 +265,7 @@ export default function IntentionInputScreen() {
         {
             key: 'present',
             label: 'Present',
-            desc: "Write from the state you're choosing.",
+            desc: "Write from the state you are choosing.",
             attn: Boolean(guidanceText),
         },
         { key: 'felt', label: 'Felt', desc: 'Use words that matter to you.' },

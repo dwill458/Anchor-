@@ -3,16 +3,16 @@ export const PRACTICE_COPY = {
     headerSubtitle: "Return to the symbol. Keep the thread.",
     primaryCTA: "Begin Priming",
     dailyThreadTitle: "Daily thread",
-    dailyThreadBody: "One session today keeps the current running.",
+    dailyThreadBody: "One session today strengthens the thread.",
     rituals: {
         charge: {
             title: "DEEP PRIME",
-            meaning: "Imprint the symbol into attention.",
+            meaning: "Anchor the symbol into attention.",
             duration: "2 mins to custom",
         },
         stabilize: {
             title: "STABILIZE",
-            meaning: "Settle the intent. Make it steady.",
+            meaning: "Settle the intention. Make it steady.",
             duration: "30 sec to 3 min",
         },
         burn: {
@@ -27,7 +27,7 @@ export const PRACTICE_COPY = {
         }
     },
     teaching: {
-        ritualOverview: "Charge builds intensity. Stabilize makes it stick. Burn releases it."
+        ritualOverview: "Charge builds intensity. Stabilize reinforces the pattern. Release clears the form."
     }
 };
 

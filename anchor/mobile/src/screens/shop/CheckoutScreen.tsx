@@ -100,9 +100,9 @@ export const CheckoutScreen: React.FC = () => {
         <SafeAreaView style={styles.container}>
             <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
                 <View style={styles.header}>
-                    <Text style={styles.title}>Your Anchor's Journey</Text>
+                    <Text style={styles.title}>Your Physical Anchor</Text>
                     <Text style={styles.subtitle}>
-                        This manifestation will be crafted with intention and shipped to you
+                        This physical anchor will be crafted with your symbol and shipped to you
                     </Text>
                 </View>
 

@@ -31,7 +31,7 @@ export function generateWeeklyInsight(input: WeeklyInsightInput): {
   if (daysShownUp === 7) {
     return {
       line1: 'Seven days. Seven primes.',
-      line2: "The thread doesn't break when you refuse to let it.",
+      line2: "The thread does not break when you refuse to let it.",
       highlightPhrase: 'refuse to let it',
     };
   }
@@ -73,7 +73,7 @@ export function generateWeeklyInsight(input: WeeklyInsightInput): {
 
     return {
       line1: `You prime most on ${phrase}.`,
-      line2: "That's not habit yet — that's identity.",
+      line2: "That is not habit yet — that is identity.",
       highlightPhrase: phrase,
     };
   }

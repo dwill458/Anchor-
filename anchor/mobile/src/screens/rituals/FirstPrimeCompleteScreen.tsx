@@ -738,7 +738,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
                 ]}
               />
             </View>
-            <Text style={styles.threadLabel}>The imprint has begun</Text>
+            <Text style={styles.threadLabel}>The pattern has begun</Text>
           </FadeUp>
 
           <FadeUp animation={dividerAnim} style={styles.dividerWrap}>

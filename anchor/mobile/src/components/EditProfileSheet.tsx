@@ -222,7 +222,7 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
               </Pressable>
               <View style={styles.headerTitleGroup}>
                 <Text style={styles.headerKicker}>SANCTUARY / PROFILE</Text>
-                <Text style={styles.title}>EDIT YOUR SIGNAL</Text>
+                <Text style={styles.title}>EDIT YOUR PROFILE</Text>
               </View>
               <View style={styles.headerButtonPlaceholder} />
             </View>
@@ -235,7 +235,7 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
             >
               <View style={styles.previewBlock}>
                 <View style={styles.previewCopy}>
-                  <Text style={styles.previewEyebrow}>YOUR SIGNAL</Text>
+                  <Text style={styles.previewEyebrow}>YOUR PROFILE</Text>
                   <Text style={styles.previewName}>{displayName}</Text>
                   <Text style={styles.previewAxiom} numberOfLines={2}>
                     {axiom.trim() || EMPTY_AXIOM}

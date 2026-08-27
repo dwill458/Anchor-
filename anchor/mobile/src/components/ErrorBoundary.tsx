@@ -72,7 +72,7 @@ export class ErrorBoundary extends Component<Props, State> {
             <Text style={styles.icon}>⚠️</Text>
             <Text style={styles.title}>Something Went Wrong</Text>
             <Text style={styles.message}>
-              We encountered an unexpected error. Don't worry, your data is safe.
+              Anchor encountered an unexpected error. Your data is preserved.
             </Text>
 
             {__DEV__ && this.state.error && (

@@ -34,19 +34,19 @@ const STEPS = [
   {
     number: '2',
     title: 'Forge Your Anchor',
-    description: 'We transform your intention into a personal visual symbol—your Anchor.',
+    description: 'Compress your intention into a personal visual symbol.',
     icon: Sparkles,
   },
   {
     number: '3',
     title: 'Prime with Practice',
-    description: 'Build the connection through embodied practice—breath, focus, emotion.',
+    description: 'Hold attention on the symbol to reinforce the pattern.',
     icon: Flame,
   },
   {
     number: '4',
     title: 'Activate Daily',
-    description: 'Spend 30-60 seconds with your Anchor each day to reinforce your path.',
+    description: 'Return to the symbol daily to strengthen the thread.',
     icon: Play,
   },
 ];

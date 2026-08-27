@@ -22,7 +22,7 @@ describe('Wave 2 Deep Priming configuration', () => {
       { at: 0, text: 'Notice the Anchor without trying to interpret it.' },
       { at: 0.32, text: 'Let your eyes follow its form.' },
       { at: 0.62, text: 'Notice where your attention naturally returns.' },
-      { at: 0.84, text: 'You don’t need to decode it. Let the form become familiar.', teaching: true },
+      { at: 0.84, text: 'You do not need to decode it. Let the form become familiar.', teaching: true },
     ]);
     expect(config.phases[3].guidanceTimeline).toEqual([
       { at: 0, text: 'Stay with the form.' },

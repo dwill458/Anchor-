@@ -26,7 +26,7 @@ describe('generateWeeklyInsight', () => {
     };
     const result = generateWeeklyInsight(input);
     expect(result.line1).toBe('Seven days. Seven primes.');
-    expect(result.line2).toBe("The thread doesn't break when you refuse to let it.");
+    expect(result.line2).toBe("The thread does not break when you refuse to let it.");
     expect(result.highlightPhrase).toBe('refuse to let it');
   });
 
@@ -83,7 +83,7 @@ describe('generateWeeklyInsight', () => {
     };
     const result = generateWeeklyInsight(input);
     expect(result.line1).toBe('You prime most on Tuesday mornings.');
-    expect(result.line2).toBe("That's not habit yet — that's identity.");
+    expect(result.line2).toBe("That is not habit yet — that is identity.");
     expect(result.highlightPhrase).toBe('Tuesday mornings');
   });
 
