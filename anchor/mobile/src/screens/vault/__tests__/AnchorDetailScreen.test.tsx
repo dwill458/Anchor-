@@ -24,6 +24,7 @@ const mockShareCardRendererProps = jest.fn();
 const mockZenBackgroundProps = jest.fn();
 const mockDel = jest.fn();
 const mockRemoveAnchor = jest.fn();
+const mockSetCurrentAnchor = jest.fn();
 let mockPerfTier: 'high' | 'medium' | 'low' = 'high';
 let mockReduceMotionEnabled = false;
 const mockAnchor = {
@@ -101,6 +102,7 @@ jest.mock('@/stores/anchorStore', () => ({
                 id,
             }),
             removeAnchor: mockRemoveAnchor,
+            setCurrentAnchor: mockSetCurrentAnchor,
             currentAnchorId: null,
         };
         return selector ? selector(state) : state;
@@ -303,6 +305,7 @@ describe('AnchorDetailScreen', () => {
     it('opens Practice for this Anchor from the floating CTA', () => {
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
         fireEvent.press(screen.getByText('PRACTICE THIS ANCHOR →'));
+        expect(mockSetCurrentAnchor).toHaveBeenCalledWith('anchor-123');
         expect(mockNavigateToPractice).toHaveBeenCalled();
     });
 

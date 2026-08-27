@@ -856,6 +856,7 @@ export const AnchorDetailScreen = ({ navigation, route }: any) => {
   const { navigateToPractice } = useTabNavigation();
   const toast = useToast();
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
+  const setCurrentAnchor = useAnchorStore((state) => state.setCurrentAnchor);
   const removeAnchor = useAnchorStore((state) => state.removeAnchor);
   const isAnchorStoreLoading = useAnchorStore((state) => state.isLoading);
   const anchorStoreError = useAnchorStore((state) => state.error);
@@ -1038,7 +1039,8 @@ export const AnchorDetailScreen = ({ navigation, route }: any) => {
   const handlePracticePress = () => {
     safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
     if (anchorId) {
-      startPractice({ mode: 'deepPrime', anchorId, source: 'anchor_detail' });
+      setCurrentAnchor(anchorId);
+      navigateToPractice();
     }
   };
 

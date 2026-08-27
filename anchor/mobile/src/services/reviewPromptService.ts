@@ -82,7 +82,7 @@ const collectPracticeEntries = (): PracticeEntry[] => {
   const sessionState = useSessionStore.getState();
   const entries = new Map<string, PracticeEntry>();
 
-  sessionState.primingHistory.forEach((entry) => {
+  sessionState.primingHistory?.forEach((entry) => {
     entries.set(entry.id, {
       id: entry.id,
       type: entry.type,
@@ -91,8 +91,19 @@ const collectPracticeEntries = (): PracticeEntry[] => {
     });
   });
 
-  sessionState.sessionLog.forEach((entry) => {
+  sessionState.sessionLog?.forEach((entry) => {
     entries.set(entry.id, entry);
+  });
+
+  sessionState.practiceHistory?.forEach((entry) => {
+    if (entry.practiceMode === 'focus') {
+      entries.set(entry.id, {
+        id: entry.id,
+        type: 'activate',
+        completedAt: entry.completedAt,
+        localDate: entry.localDate,
+      });
+    }
   });
 
   return Array.from(entries.values());
@@ -191,7 +202,8 @@ export const requestReviewIfEligible = async (
     return false;
   }
 
-  const canAsk = await StoreReview.hasAction();
+  const hasActionFn = StoreReview.hasAction ?? StoreReview.isAvailableAsync;
+  const canAsk = hasActionFn ? await hasActionFn() : true;
   if (!canAsk) {
     devLog('native review action unavailable', { source });
     return false;
@@ -228,22 +240,27 @@ export const openStoreListing = async (): Promise<boolean> => {
   }
 
   if (Platform.OS === 'ios') {
-    const response = await fetch(
-      `https://itunes.apple.com/lookup?bundleId=${encodeURIComponent(IOS_BUNDLE_IDENTIFIER)}`
-    );
-    const payload = (await response.json()) as {
-      results?: Array<{ trackId?: number; trackViewUrl?: string }>;
-    };
-    const result = payload.results?.[0];
+    try {
+      const response = await fetch(
+        `https://itunes.apple.com/lookup?bundleId=${encodeURIComponent(IOS_BUNDLE_IDENTIFIER)}`
+      );
+      const payload = (await response.json()) as {
+        results?: Array<{ trackId?: number; trackViewUrl?: string }>;
+      };
+      const result = payload.results?.[0];
 
-    if (result?.trackId && (await openUrl(`itms-apps://itunes.apple.com/app/id${result.trackId}`))) {
-      return true;
-    }
+      if (result?.trackId && (await openUrl(`itms-apps://itunes.apple.com/app/id${result.trackId}`))) {
+        return true;
+      }
 
-    if (result?.trackViewUrl) {
-      return openUrl(result.trackViewUrl);
+      if (result?.trackViewUrl) {
+        return openUrl(result.trackViewUrl);
+      }
+    } catch (error) {
+      logger.warn('[ReviewPrompt] Failed to lookup iOS store listing', error);
     }
   }
 
   return false;
 };
+
