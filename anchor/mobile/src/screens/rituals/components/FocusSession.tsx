@@ -823,8 +823,7 @@ export const FocusSession: React.FC<FocusSessionProps> = ({
   const triggerComplete = useCallback(() => {
     if (continuePressedRef.current) return;
     continuePressedRef.current = true;
-    // Delay so user sees the fully-sealed ring before the modal overlays
-    setTimeout(onComplete, 400);
+    onComplete();
   }, [onComplete]);
 
   // Tracks whether a real onPressIn (physical touch-down) started the hold

@@ -456,11 +456,12 @@ export const ActivationScreen: React.FC = () => {
       audioConfiguration: focusSessionAudioPlan.configuration,
       completedAt,
     });
-    const canonicalRecord = await PracticeCompletionService.queueLegacyCompletion({
+
+    const legacyParams = {
       id: completionEventId,
       anchorId,
       anchorLocalId: anchor?.localId,
-      practiceMode: 'focus',
+      practiceMode: 'focus' as const,
       durationSeconds: activationDurationSeconds,
       completedAt,
       guidanceVoice: focusSessionAudioPlan.configuration.guidanceVoice,
@@ -468,7 +469,10 @@ export const ActivationScreen: React.FC = () => {
       source: resolvePracticeCompletionSource(returnTo),
       chartContext,
       practiceEntrySource: source,
-    });
+    };
+
+    const canonicalRecord = PracticeCompletionService.buildLegacyRecord(legacyParams);
+    void PracticeCompletionService.queueLegacyCompletion(legacyParams);
     void recordReviewSignal('focus_session_completed');
 
     const result = calculatePracticeCompleteResult({

@@ -1139,7 +1139,7 @@ export const RitualScreen: React.FC = () => {
     navigateToVaultDestination(navigation, 'reset');
   }, [anchor, anchorId, chartContext, clearDeepTimerInterval, fadeOutDeepPrimeAudio, isPendingFirstAnchor, navigateToPractice, navigation, returnTarget, returnTo, returnToChart, returnToAnchorDetail]);
 
-  const finalizeDeepRitual = useCallback(async () => {
+  const finalizeDeepRitual = useCallback(() => {
     const completedAt = new Date().toISOString();
     // Snapshot practice history before recording this session
     const previousPracticeHistory = useSessionStore.getState?.()?.practiceHistory ?? [];
@@ -1159,11 +1159,12 @@ export const RitualScreen: React.FC = () => {
       audioConfiguration: sessionAudioPlan.configuration,
       completedAt,
     });
-    const canonicalRecord = await PracticeCompletionService.queueLegacyCompletion({
+
+    const legacyParams = {
       id: completionEventId,
       anchorId,
       anchorLocalId: anchor?.localId,
-      practiceMode: 'deep_prime',
+      practiceMode: 'deep_prime' as const,
       durationSeconds: config.totalDurationSeconds,
       completedAt,
       guidanceVoice: sessionAudioPlan.configuration.guidanceVoice,
@@ -1171,8 +1172,11 @@ export const RitualScreen: React.FC = () => {
       source: resolvePracticeCompletionSource(returnTo),
       chartContext,
       practiceEntrySource: source,
-    });
-    await handlePrimeComplete();
+    };
+
+    const canonicalRecord = PracticeCompletionService.buildLegacyRecord(legacyParams);
+    void PracticeCompletionService.queueLegacyCompletion(legacyParams);
+    handlePrimeComplete();
 
     const result = calculatePracticeCompleteResult({
       anchorId,
@@ -1195,6 +1199,7 @@ export const RitualScreen: React.FC = () => {
       threadStrength: result.newThreadStrength,
     });
 
+    exitingRef.current = true;
     navigation.replace('DeepPrimeCompletion', {
       ...result,
       durationSeconds: config.totalDurationSeconds,
@@ -1227,47 +1232,6 @@ export const RitualScreen: React.FC = () => {
       chargeType = 'initial_deep';
     }
 
-    let backendSyncFailed = false;
-    let effectiveAnchorId = anchorId;
-
-    if (isPendingFirstAnchor) {
-      enqueuePendingFirstAnchorMutation({
-        type: 'charge_anchor',
-        tempAnchorId: anchorId,
-        chargeType,
-        durationSeconds: config.totalDurationSeconds,
-        idempotencyKey: completionEventIdRef.current,
-        queuedAt: new Date().toISOString(),
-      });
-    } else {
-      try {
-        const persistedAnchor = await BackendAnchorService.ensureServerAnchor(anchorId);
-        effectiveAnchorId = persistedAnchor?.id ?? anchorId;
-      } catch (syncError) {
-        backendSyncFailed = true;
-        logger.warn('Anchor create sync failed before charge, saving locally only', syncError);
-      }
-
-      const token = await AuthService.getIdToken();
-      const isMockToken =
-        typeof token === 'string' && (token === 'mock-jwt-token' || token.startsWith('mock-'));
-
-      if (!backendSyncFailed && isBackendAnchorId(effectiveAnchorId) && !isMockToken) {
-        try {
-          await apiClient.post(`/api/anchors/${effectiveAnchorId}/charge`, {
-            chargeType,
-            durationSeconds: config.totalDurationSeconds,
-            idempotencyKey: completionEventIdRef.current,
-          });
-        } catch (syncError) {
-          backendSyncFailed = true;
-          logger.warn('Charge sync failed, saving locally only', syncError);
-        }
-      } else if (!isBackendAnchorId(effectiveAnchorId)) {
-        backendSyncFailed = true;
-      }
-    }
-
     const chargedAt = new Date();
     await updateAnchor(anchorId, {
       isCharged: true,
@@ -1276,27 +1240,54 @@ export const RitualScreen: React.FC = () => {
       chargeCount: (anchor?.chargeCount ?? 0) + 1,
     });
 
-    const chargeMode = isDeepRitual ? 'deep' : 'quick';
-    AnalyticsService.track(AnalyticsEvents.ANCHOR_CHARGED, {
-      anchor_id: effectiveAnchorId,
-      source: 'ritual',
-      charge_type: chargeType,
-      charge_mode: chargeMode,
-      duration_seconds: config.totalDurationSeconds,
-      backend_synced: !backendSyncFailed,
-      is_first_prime: isFirstPrimeForAnchor,
-      guidance_voice: sessionAudioPlan.configuration.guidanceVoice,
-      requested_guidance_voice: sessionAudioPlan.requestedConfiguration.guidanceVoice,
-      background_audio: sessionAudioPlan.configuration.backgroundAudio,
-      audio_source: sessionAudioPlan.configuration.source,
-    });
-    AnalyticsService.track(
-      isDeepRitual
-        ? AnalyticsEvents.DEEP_CHARGE_COMPLETED
-        : AnalyticsEvents.QUICK_CHARGE_COMPLETED,
-      {
+    const syncChargeInBackground = async () => {
+      let backendSyncFailed = false;
+      let effectiveAnchorId = anchorId;
+
+      if (isPendingFirstAnchor) {
+        enqueuePendingFirstAnchorMutation({
+          type: 'charge_anchor',
+          tempAnchorId: anchorId,
+          chargeType,
+          durationSeconds: config.totalDurationSeconds,
+          idempotencyKey: completionEventIdRef.current,
+          queuedAt: new Date().toISOString(),
+        });
+      } else {
+        try {
+          const persistedAnchor = await BackendAnchorService.ensureServerAnchor(anchorId);
+          effectiveAnchorId = persistedAnchor?.id ?? anchorId;
+        } catch (syncError) {
+          backendSyncFailed = true;
+          logger.warn('Anchor create sync failed before charge, saving locally only', syncError);
+        }
+
+        const token = await AuthService.getIdToken();
+        const isMockToken =
+          typeof token === 'string' && (token === 'mock-jwt-token' || token.startsWith('mock-'));
+
+        if (!backendSyncFailed && isBackendAnchorId(effectiveAnchorId) && !isMockToken) {
+          try {
+            await apiClient.post(`/api/anchors/${effectiveAnchorId}/charge`, {
+              chargeType,
+              durationSeconds: config.totalDurationSeconds,
+              idempotencyKey: completionEventIdRef.current,
+            });
+          } catch (syncError) {
+            backendSyncFailed = true;
+            logger.warn('Charge sync failed, saving locally only', syncError);
+          }
+        } else if (!isBackendAnchorId(effectiveAnchorId)) {
+          backendSyncFailed = true;
+        }
+      }
+
+      const chargeMode = isDeepRitual ? 'deep' : 'quick';
+      AnalyticsService.track(AnalyticsEvents.ANCHOR_CHARGED, {
         anchor_id: effectiveAnchorId,
         source: 'ritual',
+        charge_type: chargeType,
+        charge_mode: chargeMode,
         duration_seconds: config.totalDurationSeconds,
         backend_synced: !backendSyncFailed,
         is_first_prime: isFirstPrimeForAnchor,
@@ -1304,21 +1295,31 @@ export const RitualScreen: React.FC = () => {
         requested_guidance_voice: sessionAudioPlan.requestedConfiguration.guidanceVoice,
         background_audio: sessionAudioPlan.configuration.backgroundAudio,
         audio_source: sessionAudioPlan.configuration.source,
-      }
-    );
+      });
+      AnalyticsService.track(
+        isDeepRitual
+          ? AnalyticsEvents.DEEP_CHARGE_COMPLETED
+          : AnalyticsEvents.QUICK_CHARGE_COMPLETED,
+        {
+          anchor_id: effectiveAnchorId,
+          source: 'ritual',
+          duration_seconds: config.totalDurationSeconds,
+          backend_synced: !backendSyncFailed,
+          is_first_prime: isFirstPrimeForAnchor,
+          guidance_voice: sessionAudioPlan.configuration.guidanceVoice,
+          requested_guidance_voice: sessionAudioPlan.requestedConfiguration.guidanceVoice,
+          background_audio: sessionAudioPlan.configuration.backgroundAudio,
+          audio_source: sessionAudioPlan.configuration.source,
+        }
+      );
+    };
 
-    if (backendSyncFailed && isMountedRef.current) {
-      Alert.alert('Saved Locally', 'Anchor charge saved. Sync will retry later.');
-    }
-
-    if (!isMountedRef.current) {
-      return;
-    }
+    void syncChargeInBackground();
 
     if (isFirstPrimeForAnchor) {
       exitingRef.current = true;
       navigation.replace('FirstPrimeComplete', {
-        anchorId: effectiveAnchorId,
+        anchorId,
         sessionCount: 1,
         threadStrength: 1,
         durationSeconds: config.totalDurationSeconds,
@@ -1334,13 +1335,13 @@ export const RitualScreen: React.FC = () => {
     }
 
     if (isDeepRitual) {
-      await finalizeDeepRitual();
+      finalizeDeepRitual();
       return;
     }
 
     exitingRef.current = true;
     navigation.replace('ChargeComplete', {
-      anchorId: effectiveAnchorId,
+      anchorId,
       durationSeconds: config.totalDurationSeconds,
       completionEventId: completionEventIdRef.current,
       audioConfiguration: sessionAudioPlan.configuration,
@@ -1364,7 +1365,6 @@ export const RitualScreen: React.FC = () => {
     navigation,
     practiceMode,
     returnTarget,
-    resolvedSessionAudio,
     returnTo,
     ritualType,
     sessionAudioPlan,
@@ -1378,12 +1378,8 @@ export const RitualScreen: React.FC = () => {
     }
 
     deepSealAutoCompleteStartedRef.current = true;
-    const autoCompleteTimeout = setTimeout(() => {
-      void continueFromSeal();
-    }, reduceMotionEnabled ? 0 : 350);
-
-    return () => clearTimeout(autoCompleteTimeout);
-  }, [continueFromSeal, isDeepRitual, reduceMotionEnabled, state.isSealComplete]);
+    void continueFromSeal();
+  }, [continueFromSeal, isDeepRitual, state.isSealComplete]);
 
   function handleBack() {
     if (state.isSealComplete && !showSealContinue) {
@@ -1425,11 +1421,12 @@ export const RitualScreen: React.FC = () => {
       completedAt,
       reflectionWord,
     });
-    const canonicalRecord = await PracticeCompletionService.queueLegacyCompletion({
+
+    const legacyParams = {
       id: completionEventId,
       anchorId,
       anchorLocalId: anchor?.localId,
-      practiceMode: 'deep_prime',
+      practiceMode: 'deep_prime' as const,
       durationSeconds: config.totalDurationSeconds,
       completedAt,
       guidanceVoice: sessionAudioPlan.configuration.guidanceVoice,
@@ -1437,9 +1434,11 @@ export const RitualScreen: React.FC = () => {
       source: resolvePracticeCompletionSource(returnTo),
       chartContext,
       practiceEntrySource: source,
-    });
+    };
 
-    await handlePrimeComplete();
+    const canonicalRecord = PracticeCompletionService.buildLegacyRecord(legacyParams);
+    void PracticeCompletionService.queueLegacyCompletion(legacyParams);
+    handlePrimeComplete();
 
     const result = calculatePracticeCompleteResult({
       anchorId,

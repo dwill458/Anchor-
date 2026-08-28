@@ -307,6 +307,47 @@ export const PracticeCompletionService = {
     return { record, duplicate: false, snapshot };
   },
 
+  buildLegacyRecord(params: {
+    id: string;
+    anchorId: string;
+    anchorLocalId?: string | null;
+    practiceMode: 'focus' | 'deep_prime';
+    durationSeconds: number;
+    completedAt: string;
+    guidanceVoice: GuidanceVoice;
+    backgroundAudio: BackgroundAudioMode;
+    source?: PracticeCompletionSource;
+    chartContext?: ChartPracticeContext;
+    practiceEntrySource?: PracticeEntrySource;
+  }): PracticeSessionRecord | null {
+    const accountId = useAuthStore.getState?.()?.user?.id;
+    if (!accountId) return null;
+    const completedAtMs = new Date(params.completedAt).getTime();
+    return buildRecord({
+      sessionId: params.id,
+      accountId,
+      anchorId: isBackendAnchorId(params.anchorId) ? params.anchorId : null,
+      anchorLocalId: params.anchorLocalId ?? params.anchorId,
+      anchorServerId: isBackendAnchorId(params.anchorId)
+        ? params.anchorId
+        : null,
+      mode: params.practiceMode,
+      plannedDurationSeconds: params.durationSeconds,
+      actualDurationSeconds: params.durationSeconds,
+      startedAt: new Date(
+        completedAtMs - params.durationSeconds * 1000,
+      ).toISOString(),
+      completedAt: params.completedAt,
+      source: params.source ?? 'unknown',
+      legacyType:
+        params.practiceMode === 'deep_prime' ? 'reinforce' : 'activate',
+      guidanceVoice: params.guidanceVoice,
+      backgroundAudio: params.backgroundAudio,
+      chartContext: params.chartContext,
+      practiceEntrySource: params.practiceEntrySource,
+    });
+  },
+
   async queueLegacyCompletion(params: {
     id: string;
     anchorId: string;

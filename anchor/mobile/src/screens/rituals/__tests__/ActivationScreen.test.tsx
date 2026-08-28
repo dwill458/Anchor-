@@ -878,7 +878,6 @@ describe('ActivationScreen', () => {
     await waitFor(() => expect(getByTestId('focus-session-continue')).toBeTruthy(), { timeout: 4000 });
     fireEvent.press(getByTestId('focus-session-dismiss'));
 
-    expect(mockReplace).not.toHaveBeenCalled();
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('FocusCompletion', expect.anything()));
   });
 
