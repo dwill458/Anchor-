@@ -87,17 +87,31 @@ GLOBAL_NEGATIVE_PROMPT = (
     "cash, banknotes, bank logos, charts, graphs, stock ticker, brand logos, watermark, "
     "copyright mark, clipart, sticker, icon pack, emoji, flat app icon, photorealistic "
     "human face, human figure, portrait, hands, literal scene, literal object illustration, "
+    "literal nautical anchor, ship anchor, boat anchor, physical anchor, metal anchor, "
+    "anchor object, anchor icon, anchor logo, anchor emoji, recognizable anchor silhouette, "
+    "maritime imagery, harbor, ship, boat, "
     "distorted geometry, altered structure, altered shape, warped lines, broken geometry, melted lines, "
     "blurry, muddy, low quality, random artifacts, overcrowded ornament, altar, "
     "candle wax, fantasy clutter, religious iconography"
 )
 
 
+LITERAL_ANCHOR_EXCLUSION = (
+    "LITERAL SUBJECT EXCLUSION — ABSOLUTE: Create abstract symbolic sigil artwork only. "
+    "Anchor is the app/product name, not a physical subject. Never draw, add, clarify, "
+    "embellish, or suggest a real-world nautical, ship, boat, or metal anchor; anchor icon; "
+    "anchor logo; anchor emoji; or recognizable anchor silhouette. If the supplied linework "
+    "happens to resemble an anchor, preserve it only as abstract non-object geometry and "
+    "never turn it into a literal anchor."
+)
+
+
 def build_style_prompt(display_name: str, description: str, palette: str, material: str, composition: str) -> str:
     return (
-        "ANCHOR GEOMETRY IS IMMUTABLE STRUCTURE. Preserve ALL input lines, circles, "
+        f"{LITERAL_ANCHOR_EXCLUSION} "
+        "SIGIL GEOMETRY IS IMMUTABLE STRUCTURE. Preserve ALL input lines, circles, "
         "intersections, and shapes exactly as shown. Do NOT warp, melt, bend, rotate, "
-        "skew, redraw, simplify, reinterpret, or add to the anchor geometry. Treat the "
+        "skew, redraw, simplify, reinterpret, or add to the sigil geometry. Treat the "
         "geometry as a fixed engraved plate beneath all styling. "
         f"Style identity: {display_name} — {description}. "
         f"Composition family: {composition}. "
@@ -108,8 +122,15 @@ def build_style_prompt(display_name: str, description: str, palette: str, materi
         "Styling may influence atmosphere, finish, texture, light, color, density, and "
         "peripheral composition only. Use abstract, secondary motifs only; no text, "
         "numbers, readable symbols, people, logos, currency imagery, literal scenes, or "
-        "objects that explain the intention. The finished image should feel specific "
-        "without ever changing the preserved anchor geometry."
+        "objects that explain the intention. Faint non-readable abstract marks are allowed "
+        "only as secondary texture and must never form a recognizable icon or object. "
+        "Bring back a restrained mystical undertone without making the image a full ritual "
+        "or fantasy tableau: use ethereal glow, quiet aura, dreamlike depth, restrained "
+        "celestial dust, soft luminous edges, and faint esoteric energy. Keep it refined, "
+        "contemporary, and grounded; avoid tarot cards, spellbooks, ritual altars, zodiac "
+        "diagrams, religious scenes, or fantasy tableaux. The finished image should feel specific "
+        "without ever changing the preserved sigil geometry. "
+        f"{LITERAL_ANCHOR_EXCLUSION}"
     )
 
 

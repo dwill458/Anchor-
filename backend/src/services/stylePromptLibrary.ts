@@ -49,7 +49,11 @@ interface IntentionSignal {
 }
 
 export const GLOBAL_NEGATIVE_PROMPT =
-  'text, words, letters, phrases, captions, numbers, numerals, readable characters, runes, fake writing, inscriptions, labels, currency symbols, dollar sign, coins, cash, banknotes, bank logos, charts, graphs, stock ticker, brand logos, watermark, copyright mark, clipart, sticker, icon pack, emoji, flat app icon, photorealistic human face, human figure, portrait, hands, literal scene, literal object illustration, distorted geometry, altered structure, altered shape, warped lines, broken geometry, melted lines, blurry, muddy, low quality, random artifacts, overcrowded ornament, altar, candle wax, fantasy clutter, religious iconography';
+  'text, words, letters, phrases, captions, numbers, numerals, readable characters, runes, fake writing, inscriptions, labels, currency symbols, dollar sign, coins, cash, banknotes, bank logos, charts, graphs, stock ticker, brand logos, watermark, copyright mark, clipart, sticker, icon pack, emoji, flat app icon, photorealistic human face, human figure, portrait, hands, literal scene, literal object illustration, literal nautical anchor, ship anchor, boat anchor, physical anchor, metal anchor, anchor object, anchor icon, anchor logo, anchor emoji, recognizable anchor silhouette, maritime imagery, harbor, ship, boat, distorted geometry, altered structure, altered shape, warped lines, broken geometry, melted lines, blurry, muddy, low quality, random artifacts, overcrowded ornament, altar, candle wax, fantasy clutter, religious iconography';
+
+export const LITERAL_ANCHOR_EXCLUSION = `
+LITERAL SUBJECT EXCLUSION — ABSOLUTE:
+Create abstract symbolic sigil artwork only. “Anchor” is the app/product name, not a physical subject. Never draw, add, clarify, embellish, or suggest a real-world nautical, ship, boat, or metal anchor; anchor icon; anchor logo; anchor emoji; or recognizable anchor silhouette. If the supplied linework happens to resemble an anchor, preserve it only as abstract non-object geometry and never turn it into a literal anchor.`.trim();
 
 const STYLE_EXTRA_NEGATIVES: Partial<Record<AIStyle, string>> = {
   ink_brush: 'calligraphy letters, readable brush marks, decorative script',
@@ -1040,17 +1044,22 @@ export function buildStylePrompt(
     style.accentMotifs,
     `${style.id}:${cleanIntention}:${safeVariationIndex}:accent`
   );
+  const styleArtDirection = style.promptStyleBlock.replace(/\banchor\b/gi, 'sigil');
+  const compositionArtDirection = compositionVariant.replace(/\banchor\b/gi, 'sigil');
+  const focalArtDirection = signal.focalBehavior.replace(/\banchor\b/gi, 'sigil');
 
-  return `ANCHOR GEOMETRY IDENTITY:
-This anchor embodies the intention "${cleanIntention}".
+  return `SIGIL GEOMETRY IDENTITY:
+${LITERAL_ANCHOR_EXCLUSION}
+
+This sigil embodies the intention "${cleanIntention}".
 
 STRUCTURAL PRESERVATION — ABSOLUTE PRIORITY:
 
-1. The input image defines the exact anchor geometry. Preserve ALL lines, circles, intersections, and shapes exactly as shown.
-2. Do NOT warp, melt, bend, rotate, skew, redraw, simplify, or reinterpret the anchor geometry.
-3. Do NOT add text, labels, captions, letters, words, numbers, runes, glyph alphabets, or readable symbols anywhere.
-4. The anchor geometry is immutable. Treat it as a fixed engraved plate beneath all styling.
-5. Styling may influence atmosphere, texture, framing, lighting, color, density, ornament, and peripheral composition only. Never alter the preserved anchor structure.
+1. The input image defines the exact sigil geometry. Preserve ALL lines, circles, intersections, and shapes exactly as shown.
+2. Do NOT warp, melt, bend, rotate, skew, redraw, simplify, or reinterpret the sigil geometry.
+3. Do NOT add text, labels, captions, letters, words, numbers, runes, glyph alphabets, or readable symbols anywhere. Faint non-readable abstract marks are allowed only as secondary texture and must never form a recognizable icon or object.
+4. The sigil geometry is immutable. Treat it as a fixed engraved plate beneath all styling.
+5. Styling may influence atmosphere, texture, framing, lighting, color, density, ornament, and peripheral composition only. Never alter the preserved sigil structure.
 
 STYLE IDENTITY:
 ${style.displayName} — ${style.description}
@@ -1062,14 +1071,14 @@ VISUAL CATEGORY:
 ${style.category}
 
 STYLE-SPECIFIC ART DIRECTION:
-${style.promptStyleBlock}
+${styleArtDirection}
 
 STYLE SIGNATURE FOR THIS RENDER:
 - Palette lane: ${style.paletteLane}
 - Material behavior: ${style.materialBehavior}
 - Style-native motif: ${style.styleNativeMotif}
 - Default density: ${style.defaultDensity}
-- Composition variation: ${compositionVariant}
+- Composition variation: ${compositionArtDirection}
 
 INTENTION SIGNAL LAYER — SUBTLE, NON-LITERAL, STYLE-AWARE:
 Translate the intention into visual behavior without depicting it as a literal object or scene.
@@ -1088,18 +1097,21 @@ For the intention "${cleanIntention}", use:
 
 * Directional behavior: ${signal.directionalBehavior}
 * Density behavior: ${signal.densityBehavior}
-* Focal emphasis: ${signal.focalBehavior}
+* Focal emphasis: ${focalArtDirection}
 * Palette behavior: ${signal.paletteBehavior}
 * Atmospheric rhythm: ${signal.rhythmBehavior}
 
 Important:
 Do not illustrate the intention directly.
 Do not create a literal scene.
-Do not add people, text, objects, symbols, or readable imagery to explain the intention.
+Do not add people, text, literal objects, or readable imagery to explain the intention. Use only abstract visual cues.
 The intention should be felt through the image's pressure, color, density, spacing, and movement.
 
+MYSTICAL ATMOSPHERE — RESTRAINED:
+Bring back a subtle mystical undertone without making the image a full ritual or fantasy tableau. Use ethereal glow, quiet aura, dreamlike depth, restrained celestial dust, soft luminous edges, and a faint sense of esoteric energy. Let the mystery come from atmosphere, layering, light, and abstract secondary geometry. Keep the result refined, contemporary, and grounded; do not create a tarot card, spellbook, ritual altar, zodiac diagram, religious scene, or fantasy tableau.
+
 SYMBOLIC MOTIFS — FLEXIBLE, NOT UNIFORM:
-Use 2 to 3 subtle abstract motifs maximum.
+Use 2 to 4 subtle abstract motifs maximum.
 
 Motif structure:
 
@@ -1126,14 +1138,14 @@ COMPOSITIONAL FAMILY:
 ${style.compositionFamily}
 
 Use this composition family intentionally.
-${compositionVariant}
+${compositionArtDirection}
 Do not default every render to the same centered generic composition.
 
 Composition families:
 
-* CENTRED AXIS: anchor geometry feels stable, complete, and central on a fixed axis
+* CENTRED AXIS: sigil geometry feels stable, complete, and central on a fixed axis
 * OFFSET FIELD: supporting energy is asymmetrical and spatially authored
-* DIRECTIONAL FLOW: atmosphere moves across or around the anchor geometry
+* DIRECTIONAL FLOW: atmosphere moves across or around the sigil geometry
 * LOWER-ANCHORED: image feels grounded, weighted, and rooted
 * DIAGONAL TENSION: energy cuts through the composition with controlled force
 * OPEN VOID: negative space is a major part of the design
@@ -1146,13 +1158,13 @@ GOLD ACCENT CONSTRAINT:
 Gold or warm-metallic tones must not dominate more than ~15% of the visual field. Gold functions strictly as a thin structural highlight, edge bevel, or seam — never a wash, fill, or dominant surface treatment.
 
 Use a distinct palette lane for this style.
-The Anchor brand palette should guide taste, not imprison the artwork.
+The product brand palette should guide taste, not imprison the artwork.
 Allow richer variation in hue, substrate, glow, haze, bloom, and secondary accents where appropriate.
 
 UNIQUENESS MANDATE:
 This render must feel specific to:
 
-* this anchor
+* this sigil
 * this intention
 * this selected style
 
@@ -1183,8 +1195,8 @@ STRICT AVOIDANCE RULES:
 ✗ Flat app-icon treatment
 ✗ Dominant human figures, faces, portraits, hands, bodies
 ✗ Literal front-and-center scene illustration of the intention
-✗ Distorted, warped, changed, broken, or redrawn anchor geometry
-✗ Overcrowded ornament that competes with the anchor geometry
+✗ Distorted, warped, changed, broken, or redrawn sigil geometry
+✗ Overcrowded ornament that competes with the sigil geometry
 ✗ Low-quality blur, muddy details, random artifacts
 ✗ Religious iconography, candles, fantasy clutter, or literal scene objects
 
@@ -1194,10 +1206,14 @@ Allowed:
 ✓ Non-literal emotional tone
 ✓ Style-native ornament
 ✓ Intention-reactive density and emphasis
-✓ Background and border detail that never alters the anchor geometry
+✓ Background and border detail that never alters the sigil geometry
+✓ Restrained mystical atmosphere, ethereal light, and quiet esoteric mood
+✓ Faint non-readable abstract marks used as secondary texture
 
 FINAL ART DIRECTION:
-Create a finished image where the anchor geometry remains exact and untouched, while the surrounding world feels uniquely shaped by the selected style and the emotional signal of the intention.`;
+Create a finished image where the sigil geometry remains exact and untouched, while the surrounding world feels uniquely shaped by the selected style and the emotional signal of the intention.
+
+${LITERAL_ANCHOR_EXCLUSION}`;
 }
 
 function normalizeIntention(intention: string): string {

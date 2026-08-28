@@ -49,14 +49,40 @@ describe('stylePromptLibrary', () => {
   it('enforces the gold accent constraint and structural preservation in built prompts', () => {
     const prompt = buildStylePrompt('steady focus', 'architectural_trace', 0);
 
-    expect(prompt).toContain('ANCHOR GEOMETRY IDENTITY:');
+    expect(prompt).toContain('SIGIL GEOMETRY IDENTITY:');
     expect(prompt).toContain('STRUCTURAL PRESERVATION — ABSOLUTE PRIORITY:');
+    expect(prompt).toContain('LITERAL SUBJECT EXCLUSION — ABSOLUTE:');
+    expect(prompt).toContain(
+      'Never draw, add, clarify, embellish, or suggest a real-world nautical'
+    );
     expect(prompt).toContain('GOLD ACCENT CONSTRAINT:');
     expect(prompt).toContain('~15%');
     expect(prompt).toContain('CENTRED AXIS');
     expect(prompt).not.toContain('STILLPOINT');
     expect(prompt).not.toContain('grimoire');
     expect(prompt).not.toContain('occult');
+  });
+
+  it('excludes literal physical anchors from every generated art prompt', () => {
+    for (const styleId of VALID_AI_STYLES) {
+      const prompt = buildStylePrompt('steady focus', styleId, 0).toLowerCase();
+      const negativePrompt = getStyleNegativePrompt(styleId).toLowerCase();
+
+      expect(prompt).toContain('abstract symbolic sigil artwork only');
+      expect(prompt).toContain('never turn it into a literal anchor');
+      expect(negativePrompt).toContain('literal nautical anchor');
+      expect(negativePrompt).toContain('recognizable anchor silhouette');
+    }
+  });
+
+  it('restores a restrained mystical atmosphere without opening literal-object rules', () => {
+    const prompt = buildStylePrompt('steady focus', 'watercolor', 0);
+
+    expect(prompt).toContain('MYSTICAL ATMOSPHERE — RESTRAINED:');
+    expect(prompt).toContain('ethereal glow');
+    expect(prompt).toContain('Faint non-readable abstract marks');
+    expect(prompt).toContain('do not create a tarot card, spellbook, ritual altar');
+    expect(prompt).toContain('literal objects');
   });
 
   it('normalizes invalid variation indexes', () => {
