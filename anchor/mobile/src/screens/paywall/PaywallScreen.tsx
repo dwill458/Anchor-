@@ -1,8 +1,8 @@
 /**
  * PaywallScreen
  *
- * Full-screen post-trial paywall. Purchases are still executed through
- * RevenueCat package identifiers and unlock only after entitlement confirmation.
+ * Custom Anchor Pro paywall. Purchases are executed through RevenueCat and
+ * the first free Anchor is never represented as a local trial.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -25,7 +25,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Path, SvgXml } from 'react-native-svg';
 import { AnalyticsService, AnalyticsEvents } from '@/services/AnalyticsService';
-import { refreshServerEntitlement } from '@/services/BillingService';
+import { refreshServerEntitlement, scheduleServerEntitlementRetry } from '@/services/BillingService';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
 import { colors, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
@@ -52,7 +52,6 @@ type StoreAvailability = 'loading' | 'available' | 'unavailable';
 function getPaywallSourceCopy(source: PaywallSource) {
   switch (source) {
     case 'create_anchor_free_locked':
-    case 'trial_anchor_cap_reached':
       return getAnchorCreationLimitCopy(source);
     case 'free_weekly_sessions_used':
     case 'premium_practice_locked':
@@ -74,6 +73,7 @@ type PlanDisplay = {
   unitLabel: string | null;
   strikeLabel: string | null;
   badge: string | null;
+  trialEligible: boolean | null;
 };
 
 const PAYWALL_EXPERIMENT = {
@@ -86,11 +86,11 @@ const PAYWALL_EXPERIMENT = {
 
 const HEADLINES: Record<HeadlineId, { eyebrow: string; titleA: string; titleB: string; titleEm: string; sub: string }> = {
   loss: {
-    eyebrow: 'Your free trial has ended',
-    titleA: "Don't lose access",
-    titleB: 'to what you',
-    titleEm: 'built.',
-    sub: 'Your anchors and progress are safe. Continue to keep your practice within reach when you need it.',
+    eyebrow: 'Anchor Pro',
+    titleA: 'Keep creating',
+    titleB: 'what matters',
+    titleEm: 'next.',
+    sub: 'Your first Anchor is safe. Unlock Pro to create more Anchors and use every practice mode.',
   },
   momentum: {
     eyebrow: 'Seven days complete',
@@ -211,6 +211,7 @@ function buildPlanDisplay(
         : null,
     strikeLabel: null,
     badge: null,
+    trialEligible: live?.trialEligible ?? null,
   };
 }
 
@@ -418,6 +419,7 @@ export const PaywallScreen: React.FC = () => {
 
   const introOpacity = useRef(new Animated.Value(reduceMotion ? 1 : 0)).current;
   const introTranslate = useRef(new Animated.Value(reduceMotion ? 0 : 16)).current;
+  const paywallImpressionTracked = useRef(false);
 
   const primaryAnchor = useMemo(() => selectPrimaryAnchor(anchors), [anchors]);
   const plans = useMemo(() => buildPlans(offeringMetadata), [offeringMetadata]);
@@ -436,6 +438,9 @@ export const PaywallScreen: React.FC = () => {
   }, [primaryAnchor]);
 
   useEffect(() => {
+    if (storeAvailability === 'loading') return;
+    if (paywallImpressionTracked.current) return;
+    paywallImpressionTracked.current = true;
     AnalyticsService.track('paywall_viewed', {
       source,
       defaultPlan: PAYWALL_EXPERIMENT.defaultPlan,
@@ -450,7 +455,12 @@ export const PaywallScreen: React.FC = () => {
       trial_days_remaining: daysRemaining,
       trial_status: subscriptionStatus,
     });
-  }, [source, daysRemaining, subscriptionStatus]);
+    if (typeof revenueCatService.trackCustomPaywallImpression === 'function') {
+      void revenueCatService.trackCustomPaywallImpression(offeringMetadata.offeringId).catch((error) => {
+        logger.warn('[PaywallScreen] RevenueCat custom impression tracking failed', error);
+      });
+    }
+  }, [daysRemaining, offeringMetadata.offeringId, source, storeAvailability, subscriptionStatus]);
 
   useEffect(() => {
     let mounted = true;
@@ -557,10 +567,13 @@ export const PaywallScreen: React.FC = () => {
       product_id: packageId,
     });
 
+    let purchaseStatus;
     try {
-      const { dismissed } = await revenueCatService.purchasePackageByIdentifier(packageId, {
+      const result = await revenueCatService.purchasePackageByIdentifier(packageId, {
         syncStatus: false,
       });
+      purchaseStatus = result.status;
+      const { dismissed } = result;
       if (dismissed) {
         FrictionAnalytics.stepAbandoned('paywall', 'store_purchase', 'store_sheet_dismissed', {
           source,
@@ -582,22 +595,29 @@ export const PaywallScreen: React.FC = () => {
       return;
     }
 
+    if (!purchaseStatus?.hasActiveEntitlement) {
+      Alert.alert(
+        'Purchase is still being confirmed',
+        'Your purchase was completed, but the Pro entitlement is still being confirmed. Your receipt is safe.'
+      );
+      setIsPurchasing(false);
+      return;
+    }
+
+    // CustomerInfo is the immediate client unlock. The server remains the
+    // authority for protected writes and is reconciled independently.
+    applyServerEntitlement(true);
     try {
       const access = await refreshServerEntitlement();
-      if (!access.hasActiveEntitlement) {
-        FrictionAnalytics.flowBlocked('paywall', 'purchase_confirmation', 'server_entitlement_inactive', {
-          source,
-          plan: selectedPlanId,
-          product_id: packageId,
-        });
-        Alert.alert(
-          'Purchase is still being confirmed',
-          'Your purchase was completed, but access is still being confirmed. Your receipt is safe. Try again in a moment, or restore purchases.'
-        );
-        return;
+      if (!access.hasActiveEntitlement && typeof scheduleServerEntitlementRetry === 'function') {
+        scheduleServerEntitlementRetry();
       }
+    } catch (error) {
+      logger.warn('[PaywallScreen] Backend billing sync deferred after purchase', error);
+      if (typeof scheduleServerEntitlementRetry === 'function') scheduleServerEntitlementRetry();
+    }
 
-      applyServerEntitlement(true);
+    try {
       AnalyticsService.track('paywall_converted', {
         source,
         plan: selectedPlanId,
@@ -616,17 +636,6 @@ export const PaywallScreen: React.FC = () => {
       });
       useNavigationResumeStore.getState().setTarget(route.params?.resumeTarget ?? null);
       navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
-    } catch (error) {
-      FrictionAnalytics.flowError('paywall', 'purchase_confirmation', 'billing_confirmation_failed', {
-        source,
-        plan: selectedPlanId,
-        product_id: packageId,
-      });
-      logger.error('[PaywallScreen] Billing confirmation failed after purchase', error);
-      Alert.alert(
-        'Purchase is still being confirmed',
-        'Your purchase was completed, but we could not confirm access yet. Your receipt is safe. Try again in a moment, or restore purchases.'
-      );
     } finally {
       setIsPurchasing(false);
     }
@@ -648,8 +657,9 @@ export const PaywallScreen: React.FC = () => {
     AnalyticsService.track('paywall_restore_tapped', { source });
     FrictionAnalytics.stepCompleted('paywall', 'restore_cta', { source });
 
+    let restoreStatus;
     try {
-      await revenueCatService.restorePurchases({ syncStatus: false });
+      restoreStatus = await revenueCatService.restorePurchases({ syncStatus: false });
     } catch (error: any) {
       FrictionAnalytics.flowError('paywall', 'restore', 'restore_failed', {
         source,
@@ -663,40 +673,44 @@ export const PaywallScreen: React.FC = () => {
       return;
     }
 
+    if (!restoreStatus?.hasActiveEntitlement) {
+      FrictionAnalytics.flowBlocked('paywall', 'restore', 'no_subscription_found', { source });
+      Alert.alert('No subscription found', 'No active subscription was found for this account.');
+      setIsRestoring(false);
+      return;
+    }
+
+    applyServerEntitlement(true);
     try {
       const access = await refreshServerEntitlement();
-      if (!access.hasActiveEntitlement) {
-        FrictionAnalytics.flowBlocked('paywall', 'restore', 'no_subscription_found', { source });
-        Alert.alert('No subscription found', 'No active subscription was found for this account.');
-        return;
+      if (!access.hasActiveEntitlement && typeof scheduleServerEntitlementRetry === 'function') {
+        scheduleServerEntitlementRetry();
       }
+    } catch (error) {
+      logger.warn('[PaywallScreen] Backend billing sync deferred after restore', error);
+      if (typeof scheduleServerEntitlementRetry === 'function') scheduleServerEntitlementRetry();
+    }
 
-      applyServerEntitlement(true);
+    try {
       FrictionAnalytics.completeFlow('paywall', {
         source,
         reason: 'restore_success',
       });
       useNavigationResumeStore.getState().setTarget(route.params?.resumeTarget ?? null);
       navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
-    } catch (error) {
-      FrictionAnalytics.flowError('paywall', 'restore_confirmation', 'billing_confirmation_failed', {
-        source,
-      });
-      logger.error('[PaywallScreen] Billing confirmation failed after restore', error);
-      Alert.alert(
-        'Restore is still being confirmed',
-        'Your restore was completed, but we could not confirm access yet. Try again in a moment.'
-      );
     } finally {
       setIsRestoring(false);
     }
   }, [applyServerEntitlement, isPurchasing, isRestoring, navigation, source]);
 
+  const trialEligible = selectedPlan.trialEligible === true;
   const ctaSub = isStoreLoading
     ? 'Loading current App Store pricing...'
     : isPurchaseUnavailable
       ? 'Purchases are temporarily unavailable. Restore is still available.'
-      : PAYWALL_EXPERIMENT.perDayPrice && selectedPlan.priceValue
+      : trialEligible
+        ? `7-day free trial, then ${selectedPlan.priceLabel} / ${selectedPlanId === 'annual' ? 'year' : 'month'} · cancel anytime`
+        : PAYWALL_EXPERIMENT.perDayPrice && selectedPlan.priceValue
         ? selectedPlanId === 'annual'
           ? `less than ${formatCurrency(selectedPlan.priceValue / 365, selectedPlan.currencyCode)} / day · cancel anytime`
           : `about ${formatCurrency(selectedPlan.priceValue / 30, selectedPlan.currencyCode)} / day · cancel anytime`
@@ -705,7 +719,9 @@ export const PaywallScreen: React.FC = () => {
     ? 'Loading plans...'
     : isPurchaseUnavailable
       ? 'Purchases unavailable'
-      : sourceCopy?.cta ?? 'Continue my practice';
+      : trialEligible
+        ? 'Start 7-day free trial'
+        : sourceCopy?.cta ?? 'Continue with Pro';
 
   return (
     <View style={styles.root}>
@@ -812,7 +828,7 @@ export const PaywallScreen: React.FC = () => {
                   ? 'Completing purchase and confirming access'
                   : isPurchaseUnavailable || isStoreLoading
                   ? ctaLabel
-                  : `Continue my practice, ${selectedPlan.tier} selected`
+                  : `${ctaLabel}, ${selectedPlan.tier} selected`
               }
               disabled={isPurchasing || isRestoring || isPurchaseUnavailable}
               style={({ pressed }) => [styles.ctaPressable, pressed && styles.ctaPressed]}

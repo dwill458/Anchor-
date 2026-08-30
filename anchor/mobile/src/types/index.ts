@@ -200,6 +200,10 @@ export interface User {
   settings?: UserSettings | null;
   subscriptionStatus: SubscriptionStatus;
   totalAnchorsCreated: number;
+  /** Server-authoritative lifetime Free Anchor allowance state. */
+  freeAnchorConsumed?: boolean;
+  /** Backend-computed, migration-only legacy trial compatibility access. */
+  legacyMigrationAccess?: boolean;
   totalActivations: number;
   currentStreak: number;
   longestStreak: number;
@@ -495,7 +499,6 @@ export type PaywallSource =
   | 'post_trial'
   | 'gated_feature'
   | 'create_anchor_free_locked'
-  | 'trial_anchor_cap_reached'
   | 'free_weekly_sessions_used'
   | 'premium_practice_locked';
 

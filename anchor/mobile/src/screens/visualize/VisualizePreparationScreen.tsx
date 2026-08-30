@@ -68,7 +68,8 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
     state.getAnchorById(route.params.anchorId),
   );
   const accountId = useAuthStore((state) => state.user?.id ?? null);
-  const { hasActiveEntitlement, subscriptionStatus } = useTrialStatus();
+  const { hasActiveEntitlement, subscriptionStatus, entitlementReady } = useTrialStatus();
+  const canUseVisualize = entitlementReady && hasActiveEntitlement;
   const globalDefaults = useSettingsStore(
     (state) => state.sessionAudioDefaults.visualize,
   );
@@ -111,7 +112,7 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
     ...globalDefaults,
   });
   const [sceneText, setSceneText] = useState("");
-  const [loading, setLoading] = useState(hasActiveEntitlement);
+  const [loading, setLoading] = useState(canUseVisualize);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [configVisible, setConfigVisible] = useState(false);
@@ -198,7 +199,7 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
       anchor_id: route.params.anchorId,
       tier: subscriptionStatus,
     });
-    if (!anchor || !accountId || !hasActiveEntitlement) {
+    if (!anchor || !accountId || !canUseVisualize) {
       setLoading(false);
       return;
     }
@@ -267,7 +268,7 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
     // Keyed on anchor.id, not the anchor object: a store update elsewhere must
     // not remount this effect and trigger a second generation.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accountId, anchor?.id, hasActiveEntitlement]);
+  }, [accountId, anchor?.id, canUseVisualize]);
 
   useEffect(() => {
     if (scene && !sceneText) setSceneText(scene.currentText);
@@ -362,7 +363,8 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
   };
 
   const runStart = async () => {
-    if (!hasActiveEntitlement) {
+    if (!entitlementReady) return;
+    if (!canUseVisualize) {
       AnalyticsService.track(AnalyticsEvents.VISUALIZE_PRO_LOCK_VIEWED, {
         anchor_id: anchor.id,
         tier: subscriptionStatus,
@@ -405,7 +407,7 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
       style={[styles.begin, stickyCta && styles.beginSticky]}
     >
       <VisualizationPrimaryButton
-        label={hasActiveEntitlement ? "BEGIN VISUALIZATION" : "UNLOCK VISUALIZE"}
+        label={canUseVisualize ? "BEGIN VISUALIZATION" : "UNLOCK VISUALIZE"}
         onPress={() => void start()}
       />
     </View>
@@ -473,11 +475,11 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
               <Text style={[styles.sceneLabel, styles.sceneHeaderLabel]}>
                 YOUR SCENE
               </Text>
-              {hasActiveEntitlement && !loading ? (
+              {canUseVisualize && !loading ? (
                 <Text style={styles.count}>{sceneText.length}/180</Text>
               ) : null}
             </View>
-            {!hasActiveEntitlement ? (
+            {!canUseVisualize ? (
               <View style={styles.locked}>
                 <LockKeyhole color={colors.gold} size={23} />
                 <Text style={styles.lockedTitle}>Preview the practice</Text>

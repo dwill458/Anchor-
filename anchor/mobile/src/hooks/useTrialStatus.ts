@@ -9,7 +9,7 @@
  * if (hasExpired && !isSubscribed) { // show paywall }
  */
 
-import { useSubscriptionStore, computeDaysRemaining } from '@/stores/subscriptionStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 
 export interface TrialStatus {
@@ -27,12 +27,20 @@ export interface TrialStatus {
     daysRemaining: number;
     /** Raw subscriptionStatus field. */
     subscriptionStatus: 'trial' | 'active' | 'expired';
+    /** RevenueCat has hydrated the identified customer. */
+    entitlementReady: boolean;
 }
 
 export function useTrialStatus(): TrialStatus {
     const subscriptionStatus = useSubscriptionStore((s) => s.subscriptionStatus);
-    const trialStartDate = useSubscriptionStore((s) => s.trialStartDate);
+    const isTrialActiveFromStore = useSubscriptionStore((s) => s.isInTrial);
+    const isSubscribedFromStore = useSubscriptionStore((s) => s.isSubscribed);
+    const hasActiveEntitlementFromStore = useSubscriptionStore((s) => s.hasActiveEntitlement);
+    const daysRemainingFromStore = useSubscriptionStore((s) => s.daysRemaining);
+    const trialExpiredFromStore = useSubscriptionStore((s) => s.trialExpired);
+    const entitlementReady = useSubscriptionStore((s) => s.entitlementReady);
     const remoteCompedAccess = useSubscriptionStore((s) => s.remoteCompedAccess);
+    const legacyMigrationAccess = useSubscriptionStore((s) => s.legacyMigrationAccess);
     const devOverrideEnabled = useSubscriptionStore((s) => s.devOverrideEnabled);
     const devTierOverride = useSubscriptionStore((s) => s.devTierOverride);
     const developerMasterAccountEnabled = useSettingsStore(
@@ -48,6 +56,7 @@ export function useTrialStatus(): TrialStatus {
             hasActiveEntitlement: true,
             daysRemaining: 0,
             subscriptionStatus: 'active',
+            entitlementReady: true,
         };
     }
 
@@ -60,6 +69,20 @@ export function useTrialStatus(): TrialStatus {
             hasActiveEntitlement: true,
             daysRemaining: 0,
             subscriptionStatus: 'active',
+            entitlementReady: true,
+        };
+    }
+
+    if (legacyMigrationAccess) {
+        return {
+            isTrialActive: true,
+            isSubscribed: false,
+            hasExpired: false,
+            trialExpired: false,
+            hasActiveEntitlement: true,
+            daysRemaining: 0,
+            subscriptionStatus: 'trial',
+            entitlementReady: true,
         };
     }
 
@@ -73,6 +96,7 @@ export function useTrialStatus(): TrialStatus {
             hasActiveEntitlement: false,
             daysRemaining: 0,
             subscriptionStatus: 'expired',
+            entitlementReady: true,
         };
     }
 
@@ -86,6 +110,7 @@ export function useTrialStatus(): TrialStatus {
             hasActiveEntitlement: true,
             daysRemaining: 0,
             subscriptionStatus: 'active',
+            entitlementReady: true,
         };
     }
 
@@ -99,24 +124,23 @@ export function useTrialStatus(): TrialStatus {
             hasActiveEntitlement: true,
             daysRemaining: 7,
             subscriptionStatus: 'trial',
+            entitlementReady: true,
         };
     }
 
-    const daysRemaining = computeDaysRemaining(trialStartDate);
-    const isSubscribed = subscriptionStatus === 'active';
-
-    // RC only tracks store entitlements. The no-card trial is account-bound
-    // client state seeded from the backend user creation timestamp.
-    const isTrialActive = subscriptionStatus === 'trial' && daysRemaining > 0;
-    const hasExpired = !isSubscribed && !isTrialActive;
+    const daysRemaining = daysRemainingFromStore ?? 0;
+    const isSubscribed = isSubscribedFromStore;
+    const isTrialActive = isTrialActiveFromStore;
+    const hasExpired = entitlementReady && !hasActiveEntitlementFromStore;
 
     return {
         isTrialActive,
         isSubscribed,
         hasExpired,
-        trialExpired: hasExpired,
-        hasActiveEntitlement: isSubscribed || isTrialActive,
+        trialExpired: trialExpiredFromStore,
+        hasActiveEntitlement: hasActiveEntitlementFromStore,
         daysRemaining,
         subscriptionStatus,
+        entitlementReady,
     };
 }

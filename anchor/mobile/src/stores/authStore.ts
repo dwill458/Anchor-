@@ -28,7 +28,7 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { useSubscriptionStore, computeDaysRemaining } from '@/stores/subscriptionStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { useTeachingStore } from '@/stores/teachingStore';
 import { useVisualizationSceneStore } from '@/stores/visualizationSceneStore';
 import { purgeChartCacheForAccount, useCourseStore } from '@/stores/courseStore';
@@ -131,44 +131,23 @@ const createClearedPendingFirstAnchorState = () => ({
 
 function applyUserToSubscriptionStore(user: User | null): void {
   const subscription = useSubscriptionStore.getState();
-  subscription.setRemoteCompedAccess(user?.isComped === true);
-
-  // Seed the account-bound trial clock synchronously whenever a user is set, so
-  // it is in place before RevenueCat's async logIn() resolves and reads it.
-  // Without this, on a fresh install (AsyncStorage empty → status defaults to
-  // 'expired') with a restored Firebase session, RevenueCat can confirm "no
-  // entitlement" before the trial start date is known, briefly gating an
-  // in-trial user behind the paywall.
-  //
-  // trialStartedAt is the server-authoritative trial anchor (resettable per
-  // account); we trust it as the source of truth and let it replace any stale
-  // local clock — this is what allows a backend reset to reach existing beta
-  // devices. createdAt is the fallback for backends predating the column.
-  const trialAnchor = user?.trialStartedAt ?? user?.createdAt;
-  if (trialAnchor) {
-    subscription.applyServerTrial(trialAnchor, user?.isTrialExpired);
+  if (!user) {
+    subscription.resetForAccount();
   }
+  subscription.setRemoteCompedAccess(user?.isComped === true);
+  subscription.setLegacyMigrationAccess?.(user?.legacyMigrationAccess === true);
 
-  // Mirror trial/conversion state into analytics (PostHog) so the funnel can be
-  // measured without RevenueCat. The backend remains the source of truth — this
-  // is read-only reporting that refreshes whenever the user record changes
-  // (login, profile fetch, rehydrate). Sign-out (user === null) resets identity.
+  // RevenueCat owns billing access. Profile updates only bind comped access and
+  // report the server projection; legacy trial dates never grant client access.
   if (!user) {
     AnalyticsService.reset();
     return;
   }
 
-  const trialStartIso = trialAnchor
-    ? (trialAnchor instanceof Date ? trialAnchor.toISOString() : new Date(trialAnchor).toISOString())
-    : undefined;
-
   AnalyticsService.identify(user.id, {
     subscriptionStatus: user.subscriptionStatus,
-    trial_started_at: trialStartIso,
-    trial_expired: user.isTrialExpired === true,
-    trial_days_remaining: trialStartIso ? computeDaysRemaining(trialStartIso) : 0,
     is_comped: user.isComped === true,
-    converted: user.subscriptionStatus.startsWith('pro'),
+    converted: false,
     totalAnchorsCreated: user.totalAnchorsCreated,
     currentStreak: user.currentStreak,
   });
@@ -433,6 +412,7 @@ export const useAuthStore = create<AuthState>()(
       setUser: (user) => {
         if (get().user?.id !== (user?.id ?? null)) {
           useCourseStore.getState().bindAccount(user?.id ?? null);
+          useSubscriptionStore.getState().resetForAccount();
         }
         applyUserToSubscriptionStore(user);
         useProfileStore.getState().syncFromUser(user);
@@ -467,6 +447,7 @@ export const useAuthStore = create<AuthState>()(
       setSession: (user, token) => {
         if (get().user?.id !== user.id) {
           useCourseStore.getState().bindAccount(user.id);
+          useSubscriptionStore.getState().resetForAccount();
         }
         applyUserToSubscriptionStore(user);
         useProfileStore.getState().syncFromUser(user);
@@ -608,6 +589,7 @@ export const useAuthStore = create<AuthState>()(
       // NEW: Fetch profile with 5-minute cache TTL
       fetchProfile: async () => {
         try {
+          const requestedUserId = get().user?.id ?? null;
           const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
           const { profileLastFetched } = get();
           const now = Date.now();
@@ -618,6 +600,9 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const profileData = await fetchCompleteProfile();
+          // A slow response from account A must not overwrite the active
+          // account B after a switch or sign-out.
+          if ((get().user?.id ?? null) !== requestedUserId) return;
           applyUserToSubscriptionStore(profileData.user);
           const hasCompletedOnboarding = Boolean(profileData.user.hasCompletedOnboarding);
           useProfileStore.getState().syncFromUser(profileData.user);

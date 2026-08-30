@@ -282,8 +282,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
         provider: 'email',
         context,
       });
-      // No-card trial begins at account creation; mark the funnel entry.
-      AnalyticsService.track(AnalyticsEvents.TRIAL_STARTED, { provider: 'email', context });
       FrictionAnalytics.completeFlow('onboarding_auth', {
         provider: 'email',
         mode: 'signup',
@@ -360,9 +358,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
             context,
           }
         );
-        if (result.isNewUser) {
-          AnalyticsService.track(AnalyticsEvents.TRIAL_STARTED, { provider: 'apple', context });
-        }
         FrictionAnalytics.completeFlow('onboarding_auth', {
           provider: 'apple',
           mode: tab,
@@ -415,9 +410,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
             context,
           }
         );
-        if (result.isNewUser) {
-          AnalyticsService.track(AnalyticsEvents.TRIAL_STARTED, { provider: 'google', context });
-        }
         FrictionAnalytics.completeFlow('onboarding_auth', {
           provider: 'google',
           mode: tab,
@@ -696,7 +688,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.trialText}>7-DAY FREE TRIAL · NO CARD REQUIRED</Text>
+              <Text style={styles.trialText}>FREE ACCOUNT · YOUR ANCHORS STAY YOURS</Text>
             </Animated.View>
           </ScrollView>
         </KeyboardAvoidingView>

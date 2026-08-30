@@ -15,6 +15,7 @@ import { getFirebaseAdmin } from '../../config/firebase';
 import { hasCompedAccess } from '../../utils/compedAccess';
 import { logger } from '../../utils/logger';
 import { getChartFeatureFlags } from '../../config/chartFlags';
+import { hasLegacyMigrationAccess } from '../../services/MonetizationAccessService';
 
 const router = Router();
 
@@ -72,6 +73,8 @@ function serializeUser(user: {
   isComped: boolean;
   subscriptionStatus: string;
   totalAnchorsCreated: number;
+  freeAnchorConsumed?: boolean;
+  legacyMigrationAccess?: boolean;
   totalActivations: number;
   currentStreak: number;
   longestStreak: number;
@@ -89,6 +92,8 @@ function serializeUser(user: {
   isComped: boolean;
   subscriptionStatus: string;
   totalAnchorsCreated: number;
+  freeAnchorConsumed: boolean;
+  legacyMigrationAccess: boolean;
   totalActivations: number;
   currentStreak: number;
   longestStreak: number;
@@ -99,8 +104,8 @@ function serializeUser(user: {
   trialStartedAt: Date;
   isTrialExpired: boolean;
 } {
-  // Anchor the trial on trialStartedAt (resettable per-account), falling back to
-  // createdAt for records written before the column existed.
+  // Legacy trial metadata remains serialized temporarily for old clients and
+  // migration support. It is never an authorization decision.
   const trialAnchor = user.trialStartedAt ?? user.createdAt;
   return {
     id: user.id,
@@ -111,6 +116,8 @@ function serializeUser(user: {
     isComped: user.isComped,
     subscriptionStatus: user.subscriptionStatus,
     totalAnchorsCreated: user.totalAnchorsCreated,
+    freeAnchorConsumed: user.totalAnchorsCreated >= 1,
+    legacyMigrationAccess: hasLegacyMigrationAccess(user),
     totalActivations: user.totalActivations,
     currentStreak: user.currentStreak,
     longestStreak: user.longestStreak,

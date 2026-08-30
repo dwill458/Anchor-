@@ -15,6 +15,8 @@ export interface EnvConfig {
   // Security
   ALLOWED_ORIGINS?: string; // Comma-separated list of allowed origins
   COMPED_ACCESS_EMAILS?: string; // Comma/space-separated list of comped account emails
+  /** ISO cutoff for the one-time legacy trial migration bridge. */
+  MONETIZATION_MODEL_ACTIVATED_AT?: string;
   ENABLE_MERCH: boolean;
   ENABLE_VISUALIZE: boolean;
   ENABLE_CHART: boolean;
@@ -227,6 +229,10 @@ export function validateEnv(): EnvConfig {
       COMPED_ACCESS_EMAILS: validateString(
         'COMPED_ACCESS_EMAILS',
         process.env.COMPED_ACCESS_EMAILS
+      ),
+      MONETIZATION_MODEL_ACTIVATED_AT: validateString(
+        'MONETIZATION_MODEL_ACTIVATED_AT',
+        process.env.MONETIZATION_MODEL_ACTIVATED_AT
       ),
       ENABLE_MERCH: validateBoolean('ENABLE_MERCH', process.env.ENABLE_MERCH, false),
       ENABLE_VISUALIZE: validateBoolean('ENABLE_VISUALIZE', process.env.ENABLE_VISUALIZE, false),

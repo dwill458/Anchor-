@@ -91,8 +91,8 @@ describe('PostAuthFlowService', () => {
     });
 
     expect(mockMigrateAnchors).toHaveBeenCalledTimes(1);
-    expect(useSubscriptionStore.getState().subscriptionStatus).toBe('trial');
-    expect(useSubscriptionStore.getState().trialStartDate).toBe(trialStartedAt);
+    expect(useSubscriptionStore.getState().subscriptionStatus).toBe('expired');
+    expect(useSubscriptionStore.getState().trialStartDate).toBeNull();
     expect(mockHydrateAuthenticatedData).toHaveBeenCalledWith({
       skipAnchorRefresh: false,
     });

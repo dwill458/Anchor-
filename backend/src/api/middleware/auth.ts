@@ -38,8 +38,10 @@ export interface AuthRequest extends Request {
   dbUser?: {
     id: string;
     subscriptionStatus?: string;
+    subscriptionId?: string | null;
     isComped?: boolean;
     trialStartedAt?: Date;
+    totalAnchorsCreated?: number;
   };
 }
 

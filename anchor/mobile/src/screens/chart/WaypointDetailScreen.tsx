@@ -5,7 +5,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { useCourseStore } from '@/stores/courseStore';
 import { useAnchorStore } from '@/stores/anchorStore';
-import { useAuthStore } from '@/stores/authStore';
+import { useTrialStatus } from '@/hooks/useTrialStatus';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { AnchorSelectorSheet } from '@/screens/practice/components/AnchorSelectorSheet';
 import type { Anchor } from '@/types';
@@ -24,8 +24,8 @@ export const WaypointDetailScreen: React.FC = () => {
   const route = useRoute<WaypointRoute>();
   const store = useCourseStore();
   const activeAnchors = useAnchorStore((state) => state.getActiveAnchors());
-  const subscriptionStatus = useAuthStore((state) => state.user?.subscriptionStatus ?? 'free');
-  const { navigateToVault } = useTabNavigation();
+  const { entitlementReady, hasActiveEntitlement } = useTrialStatus();
+  const { navigateToVault, navigateToPaywall } = useTabNavigation();
   const course = store.activeCourse?.id === route.params.courseId ? store.activeCourse : null;
   const waypoint = course?.waypoints.find((item) => item.id === route.params.waypointId);
   const [selectorVisible, setSelectorVisible] = useState(false);
@@ -85,8 +85,11 @@ export const WaypointDetailScreen: React.FC = () => {
           <Text style={{ color: '#F5F5DC', fontFamily: 'Inter-Regular', fontSize: 15 }}>{waypoint.anchorLink?.snapshot.intentionText ?? 'No Anchor linked'}</Text>
           {isBlocked ? <Text style={{ color: '#FFB1B1', fontFamily: 'Inter-Regular', fontSize: 14 }}>Blocked because the linked Anchor is unavailable.</Text> : null}
           <ChartButton label="Link an Existing Anchor" onPress={() => setSelectorVisible(true)} disabled={store.readOnly} />
-          {subscriptionStatus === 'free' ? (
-            <ChartButton label="Create a New Anchor" secondary onPress={() => Alert.alert('Anchor creation unavailable', 'Link an existing Anchor first, or upgrade to create a new one.')} />
+          {!entitlementReady || !hasActiveEntitlement ? (
+            <ChartButton label="Create a New Anchor" secondary onPress={() => {
+              if (!entitlementReady) return;
+              navigateToPaywall({ source: 'gated_feature', preferredPlanId: 'annual' });
+            }} />
           ) : (
             <ChartButton label="Create a New Anchor" secondary onPress={() => navigateToVault('CreateAnchor')} />
           )}

@@ -2,7 +2,6 @@ import {
   computeEntitlements,
   FREE_WEEKLY_SESSION_LIMIT,
   PAID_PRO_DAILY_ANCHOR_LIMIT,
-  TRIAL_ANCHOR_LIMIT,
 } from '../entitlements';
 import { isoWeekKey, localWeekStartString, type PrimingHistoryEntry } from '../primingAnalytics';
 
@@ -29,35 +28,32 @@ function sessions(count: number, completedAt = now): PrimingHistoryEntry[] {
 }
 
 describe('entitlements', () => {
-  it('allows trial users to create anchors 1 through 7', () => {
+  it('allows a Free user to create the first Anchor', () => {
     const entitlements = computeEntitlements({
       isSubscribed: false,
-      isTrialActive: true,
-      trialStartDate,
-      anchors: anchors(TRIAL_ANCHOR_LIMIT - 1, '2026-06-16T10:00:00.000Z'),
+      isTrialActive: false,
+      anchors: [],
       now,
     });
 
-    expect(entitlements.isInTrial).toBe(true);
-    expect(entitlements.isPro).toBe(true);
+    expect(entitlements.isFree).toBe(true);
     expect(entitlements.canCreateAnchor).toBe(true);
-    expect(entitlements.remainingTrialAnchors).toBe(1);
+    expect(entitlements.anchorCreationLimitReason).toBeNull();
   });
 
-  it('blocks trial user from creating anchor 8', () => {
+  it('blocks a Free user from creating a second Anchor', () => {
     const entitlements = computeEntitlements({
       isSubscribed: false,
-      isTrialActive: true,
-      trialStartDate,
-      anchors: anchors(TRIAL_ANCHOR_LIMIT, '2026-06-16T10:00:00.000Z'),
+      isTrialActive: false,
+      freeAnchorConsumed: true,
       now,
     });
 
     expect(entitlements.canCreateAnchor).toBe(false);
-    expect(entitlements.anchorCreationLimitReason).toBe('trial_anchor_cap_reached');
+    expect(entitlements.anchorCreationLimitReason).toBe('create_anchor_free_locked');
     expect(entitlements.remainingTrialAnchors).toBe(0);
     expect(entitlements.canStartPracticeSession).toBe(true);
-    expect(entitlements.canUseUnlimitedSessions).toBe(true);
+    expect(entitlements.canUseUnlimitedSessions).toBe(false);
   });
 
   it('moves expired trial users to Free without removing existing access affordances', () => {
@@ -66,7 +62,7 @@ describe('entitlements', () => {
       isTrialActive: false,
       trialExpired: true,
       trialStartDate,
-      anchors: anchors(3, '2026-06-16T10:00:00.000Z'),
+      freeAnchorConsumed: true,
       primingHistory: sessions(2),
       now,
     });
@@ -131,7 +127,7 @@ describe('entitlements', () => {
       isSubscribed: true,
       isTrialActive: true,
       trialStartDate,
-      anchors: anchors(TRIAL_ANCHOR_LIMIT, '2026-06-17T10:00:00.000Z'),
+      anchors: anchors(2, '2026-06-17T10:00:00.000Z'),
       now,
     });
 
@@ -139,7 +135,7 @@ describe('entitlements', () => {
     expect(entitlements.isInTrial).toBe(false);
     expect(entitlements.canCreateAnchor).toBe(true);
     expect(entitlements.remainingDailyProAnchors).toBe(
-      PAID_PRO_DAILY_ANCHOR_LIMIT - TRIAL_ANCHOR_LIMIT
+      PAID_PRO_DAILY_ANCHOR_LIMIT - 2
     );
   });
 });

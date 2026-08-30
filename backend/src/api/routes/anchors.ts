@@ -15,7 +15,7 @@ import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
 import { redisClient } from '../../lib/redis';
 import { BackendAnalyticsService } from '../../services/AnalyticsService';
-import { getRevenueCatAccess } from '../../services/RevenueCatEntitlementService';
+import { resolveMonetizationAccess } from '../../services/MonetizationAccessService';
 import { logger } from '../../utils/logger';
 import { resolveStoredAssetUrl } from '../../services/StorageService';
 import { courseService } from '../../services/CourseService';
@@ -69,9 +69,7 @@ const ANCHOR_LIST_SELECT: Prisma.AnchorSelect = {
 };
 
 const router = Router();
-const TRIAL_ANCHOR_LIMIT = 7;
 const PAID_PRO_DAILY_ANCHOR_LIMIT = 10;
-const TRIAL_DURATION_DAYS = 7;
 
 const aiHourlyLimiterStore =
   process.env.NODE_ENV === 'test' || !process.env.REDIS_URL
@@ -342,9 +340,12 @@ async function assertCanCreateAnchor(tx: Prisma.TransactionClient, userId: strin
   const user = await tx.user.findUnique({
     where: { id: userId },
     select: {
+      id: true,
       subscriptionStatus: true,
       isComped: true,
       trialStartedAt: true,
+      subscriptionId: true,
+      totalAnchorsCreated: true,
     },
   });
 
@@ -353,8 +354,8 @@ async function assertCanCreateAnchor(tx: Prisma.TransactionClient, userId: strin
   }
 
   const now = new Date();
-  const paidPro =
-    user.isComped || user.subscriptionStatus === 'pro' || user.subscriptionStatus === 'pro_annual';
+  const access = await resolveMonetizationAccess(user);
+  const paidPro = access.hasProAccess;
 
   if (paidPro) {
     const { start, end } = getUtcDayRange(now);
@@ -374,45 +375,25 @@ async function assertCanCreateAnchor(tx: Prisma.TransactionClient, userId: strin
     return;
   }
 
-  const trialStartedAt = user.trialStartedAt;
-  const trialEndsAt = addDays(trialStartedAt, TRIAL_DURATION_DAYS);
-  const isTrialActive = now < trialEndsAt;
-
-  if (!isTrialActive) {
+  if (user.totalAnchorsCreated >= 1) {
     throw new AppError('Create more anchors with Pro', 403, 'CREATE_ANCHOR_FREE_LOCKED');
-  }
-
-  const trialAnchorCount = await tx.anchor.count({
-    where: {
-      userId,
-      createdAt: {
-        gte: trialStartedAt,
-        lt: trialEndsAt,
-      },
-    },
-  });
-
-  if (trialAnchorCount >= TRIAL_ANCHOR_LIMIT) {
-    throw new AppError('Trial anchor limit reached', 403, 'TRIAL_ANCHOR_CAP_REACHED');
   }
 }
 
 async function syncRevenueCatSubscription(user: NonNullable<AuthRequest['dbUser']>): Promise<void> {
   if (user.isComped) return;
 
-  const access = await getRevenueCatAccess(user.id);
-  if (!access) return;
+  const access = await resolveMonetizationAccess(user);
+  if (access.source !== 'revenuecat' && access.source !== 'revenuecat_cache') return;
 
-  const persistedPaid =
-    user.subscriptionStatus === 'pro' || user.subscriptionStatus === 'pro_annual';
-  if (persistedPaid === access.isActive) return;
-
-  const subscriptionStatus = access.isActive ? 'pro' : 'free';
+  const subscriptionStatus = access.hasProAccess ? 'pro' : 'free';
+  const subscriptionId = access.hasProAccess ? access.productIdentifier : null;
+  if (user.subscriptionStatus === subscriptionStatus && user.subscriptionId === subscriptionId) return;
   await prisma.user.update({
     where: { id: user.id },
     data: {
       subscriptionStatus,
-      subscriptionId: access.productIdentifier,
+      subscriptionId,
     },
   });
   user.subscriptionStatus = subscriptionStatus;
@@ -441,6 +422,8 @@ router.use(async (req: AuthRequest, res: Response, next: NextFunction) => {
         subscriptionStatus: true,
         isComped: true,
         trialStartedAt: true,
+        subscriptionId: true,
+        totalAnchorsCreated: true,
       },
     });
     if (!user) {

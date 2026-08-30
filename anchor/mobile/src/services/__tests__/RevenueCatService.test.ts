@@ -48,6 +48,7 @@ describe('RevenueCatService', () => {
   const mockSetTrialState = jest.fn();
   const mockSetSubscriptionStatus = jest.fn();
   const mockSetRcSynced = jest.fn();
+  const mockSetEntitlementReady = jest.fn();
   let mockSubscriptionState: Record<string, unknown>;
 
   beforeEach(() => {
@@ -57,6 +58,7 @@ describe('RevenueCatService', () => {
       setTrialState: mockSetTrialState,
       setSubscriptionStatus: mockSetSubscriptionStatus,
       setRcSynced: mockSetRcSynced,
+      setEntitlementReady: mockSetEntitlementReady,
       subscriptionStatus: 'expired',
       trialStartDate: null,
       // Fields read by getCurrentStatus() (fallback path on caught errors)
@@ -109,7 +111,7 @@ describe('RevenueCatService', () => {
     expect(mockSetRcTier).toHaveBeenCalledWith('pro');
   });
 
-  it('grants access when RevenueCat reports active subscriptions without entitlement mapping', async () => {
+  it('does not grant access when the canonical Pro entitlement is not active', async () => {
     mockPurchases.getCustomerInfo.mockResolvedValueOnce({
       entitlements: {
         active: {},
@@ -121,11 +123,11 @@ describe('RevenueCatService', () => {
 
     const status = await RevenueCatService.refreshTrialStatus();
 
-    expect(status.hasActiveEntitlement).toBe(true);
-    expect(status.isSubscribed).toBe(true);
+    expect(status.hasActiveEntitlement).toBe(false);
+    expect(status.isSubscribed).toBe(false);
     expect(status.isInTrial).toBe(false);
-    expect(mockSetRcTier).toHaveBeenCalledWith('pro');
-    expect(mockSetSubscriptionStatus).toHaveBeenCalledWith('active');
+    expect(mockSetRcTier).toHaveBeenCalledWith('free');
+    expect(mockSetSubscriptionStatus).toHaveBeenCalledWith('expired');
   });
 
   it('recognizes uppercase RevenueCat trial period values', async () => {
@@ -149,7 +151,7 @@ describe('RevenueCatService', () => {
     expect(mockSetSubscriptionStatus).toHaveBeenCalledWith('trial');
   });
 
-  it('preserves a valid local account trial when RevenueCat has no active entitlement', async () => {
+  it('does not restore the retired local account trial when RevenueCat has no entitlement', async () => {
     mockSubscriptionState.subscriptionStatus = 'trial';
     mockSubscriptionState.trialStartDate = new Date().toISOString();
     mockPurchases.getCustomerInfo.mockResolvedValueOnce({});
@@ -157,7 +159,7 @@ describe('RevenueCatService', () => {
     const status = await RevenueCatService.refreshTrialStatus();
 
     expect(status.hasActiveEntitlement).toBe(false);
-    expect(mockSetSubscriptionStatus).toHaveBeenCalledWith('trial');
+    expect(mockSetSubscriptionStatus).toHaveBeenCalledWith('expired');
   });
 
   it('purchases package by identifier successfully', async () => {
@@ -174,7 +176,7 @@ describe('RevenueCatService', () => {
     expect(result.status.hasActiveEntitlement).toBe(true);
   });
 
-  it('can defer client unlock state until the server confirms a completed purchase', async () => {
+  it('applies the completed store entitlement immediately even when server sync is deferred', async () => {
     const pkg = { identifier: 'test_product' };
     mockPurchases.getOfferings.mockResolvedValueOnce({
       current: { availablePackages: [pkg] },
@@ -186,9 +188,9 @@ describe('RevenueCatService', () => {
     });
 
     expect(result.status.hasActiveEntitlement).toBe(true);
-    expect(mockSetRcTier).not.toHaveBeenCalled();
-    expect(mockSetTrialState).not.toHaveBeenCalled();
-    expect(mockSetSubscriptionStatus).not.toHaveBeenCalled();
+    expect(mockSetRcTier).toHaveBeenCalledWith('pro');
+    expect(mockSetTrialState).toHaveBeenCalled();
+    expect(mockSetSubscriptionStatus).toHaveBeenCalledWith('active');
   });
 
   it('handles user cancellation during purchase', async () => {

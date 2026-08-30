@@ -304,9 +304,7 @@ export const AnchorRevealScreen: React.FC = () => {
             const serverLimitReason =
                 err instanceof ApiClientError && err.code === 'PRO_DAILY_ANCHOR_CAP_REACHED'
                     ? 'pro_daily_anchor_cap_reached'
-                    : err instanceof ApiClientError && err.code === 'TRIAL_ANCHOR_CAP_REACHED'
-                        ? 'trial_anchor_cap_reached'
-                        : err instanceof ApiClientError && err.code === 'CREATE_ANCHOR_FREE_LOCKED'
+                    : err instanceof ApiClientError && err.code === 'CREATE_ANCHOR_FREE_LOCKED'
                             ? 'create_anchor_free_locked'
                             : null;
 

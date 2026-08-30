@@ -517,9 +517,8 @@ export default function App() {
   }, [developerMasterAccountEnabled, initialAuthResolved]);
 
   useEffect(() => {
-    // Configure RevenueCat SDK anonymously on app start.
-    // We'll log in with the real user ID once auth resolves.
-    revenueCatService.configure();
+    // RevenueCat is configured with the authenticated database User UUID when
+    // auth hydration completes; Anchor does not create anonymous purchase IDs.
     ErrorTrackingService.initialize({
       enabled: monitoringConfig.sentryEnabled,
       environment: monitoringConfig.environment,

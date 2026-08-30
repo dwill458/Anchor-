@@ -107,7 +107,7 @@ describe('POST /api/billing/refresh', () => {
       hasActiveEntitlement: false,
       subscriptionStatus: 'free',
       productIdentifier: null,
-      source: 'revenuecat',
+      source: 'free',
     });
     expect(mockPrisma.user.update).toHaveBeenCalledWith({
       where: { id: 'db-user-1' },

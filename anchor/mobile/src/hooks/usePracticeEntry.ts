@@ -98,10 +98,19 @@ export function usePracticeEntry(): PracticeEntryController {
       setIsNavigationLocked(true);
       let redirectRequested = false;
 
+      // Do not turn an entitlement hydration gap into a paywall impression.
+      // The next render will retry once the identified RevenueCat customer is
+      // ready, while the backend remains authoritative for protected writes.
+      if (request.mode === 'visualize' && !visualizeAccess.entitlementReady) {
+        releaseNavigationLock();
+        return false;
+      }
+
       const started = startPracticeRequest(request, {
         getAnchorById,
         primeSessionAccess,
-        visualizeAvailable: visualizeAccess.hasActiveEntitlement,
+        visualizeAvailable:
+          visualizeAccess.entitlementReady && visualizeAccess.hasActiveEntitlement,
         defaultFocusDurationSeconds: focusSessionDuration,
         defaultAudioConfiguration: {
           focus: resolveSessionAudioConfiguration(sessionAudioDefaults.focus),
@@ -151,6 +160,7 @@ export function usePracticeEntry(): PracticeEntryController {
       releaseNavigationLock,
       sessionAudioDefaults,
       visualizeAccess.hasActiveEntitlement,
+      visualizeAccess.entitlementReady,
     ]
   );
 

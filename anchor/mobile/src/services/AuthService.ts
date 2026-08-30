@@ -33,7 +33,7 @@ const createMockUser = (overrides: Partial<User> = {}): User => ({
   hasCompletedOnboarding: false,
   isComped: false,
   subscriptionStatus: 'free',
-  totalAnchorsCreated: 5,
+  totalAnchorsCreated: 0,
   totalActivations: 20,
   currentStreak: 3,
   longestStreak: 5,

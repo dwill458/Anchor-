@@ -439,7 +439,10 @@ export const SettingsScreen: React.FC = () => {
               title="Subscription"
               value={subscriptionSummary}
               type="chevron"
-              onPress={() => navigation.getParent()?.navigate('Paywall' as never)}
+              onPress={() => (navigation.getParent() as any)?.navigate('Paywall', {
+                source: 'gated_feature',
+                preferredPlanId: 'annual',
+              })}
             />
             <SettingsRow title="Restore Purchases" value={isRestoring ? 'Restoring…' : undefined} type="chevron" onPress={() => void handleRestorePurchases()} disabled={isRestoring} />
             <SettingsRow title="Export My Data" subtitle={isExporting ? 'Preparing your JSON export…' : 'Share a copy of your account data.'} value={isExporting ? 'Preparing…' : undefined} type="chevron" onPress={handleExportMyData} disabled={isExporting} showDivider={false} />

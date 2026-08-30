@@ -42,7 +42,7 @@ jest.mock('@/stores/anchorStore', () => ({
 jest.mock('@/stores/authStore', () => ({
     useAuthStore: (selector: any) => {
         const state = {
-            user: { id: 'test-user', displayName: 'Test User', stabilizeStreakDays: 0, lastStabilizeAt: null },
+            user: { id: 'test-user', displayName: 'Test User', stabilizeStreakDays: 0, lastStabilizeAt: null, totalAnchorsCreated: 1, freeAnchorConsumed: true },
             isAuthenticated: mockIsAuthenticated,
             anchorCount: 0,
             shouldRedirectToCreation: false,
@@ -62,6 +62,7 @@ jest.mock('@/hooks/useTrialStatus', () => ({
         isSubscribed: mockHasActiveEntitlement,
         trialExpired: !mockHasActiveEntitlement,
         hasActiveEntitlement: mockHasActiveEntitlement,
+        entitlementReady: true,
     }),
 }));
 jest.mock('@/contexts/TabNavigationContext', () => ({

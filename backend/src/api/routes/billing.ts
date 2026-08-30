@@ -11,7 +11,7 @@ import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
-import { getRevenueCatAccess } from '../../services/RevenueCatEntitlementService';
+import { resolveMonetizationAccess } from '../../services/MonetizationAccessService';
 
 const router = Router();
 
@@ -60,35 +60,30 @@ router.post(
         throw new AppError('User not found', 404, 'USER_NOT_FOUND');
       }
 
-      if (user.isComped) {
-        res.json({
-          success: true,
-          data: {
-            hasActiveEntitlement: true,
-            subscriptionStatus: 'pro',
-            productIdentifier: user.subscriptionId,
-            source: 'comped',
+      const access = await resolveMonetizationAccess(user, new Date(), { forceRefresh: true });
+      if (!access.entitlementVerified && !access.isComped && !access.legacyMigrationAccess) {
+        res.status(503).json({
+          success: false,
+          error: {
+            code: 'BILLING_UNAVAILABLE',
+            message: 'Billing access could not be verified yet. Please retry shortly.',
           },
         });
         return;
       }
+      const subscriptionStatus = access.hasProAccess ? 'pro' : 'free';
+      // Preserve the internal comp marker as a projection detail; it is not
+      // used as store entitlement evidence and is never sent to RevenueCat.
+      const subscriptionId = access.isComped
+        ? user.subscriptionId
+        : access.hasProAccess
+          ? access.productIdentifier
+          : null;
 
-      const access = await getRevenueCatAccess(user.id, new Date(), { forceRefresh: true });
-      if (!access) {
-        throw new AppError(
-          'Billing access is temporarily unavailable. Please try again shortly.',
-          503,
-          'BILLING_UNAVAILABLE'
-        );
-      }
-
-      const subscriptionStatus = access.isActive ? 'pro' : 'free';
-      const subscriptionId = access.isActive ? access.productIdentifier : null;
-
-      if (
+      if (!access.isComped && (
         user.subscriptionId !== subscriptionId ||
         user.subscriptionStatus !== subscriptionStatus
-      ) {
+      )) {
         await prisma.user.update({
           where: { id: user.id },
           data: { subscriptionStatus, subscriptionId },
@@ -98,10 +93,10 @@ router.post(
       res.json({
         success: true,
         data: {
-          hasActiveEntitlement: access.isActive,
+          hasActiveEntitlement: access.hasProAccess,
           subscriptionStatus,
           productIdentifier: subscriptionId,
-          source: 'revenuecat',
+          source: access.source,
         },
       });
     } catch (error) {

@@ -49,9 +49,11 @@ describe('PracticeAccessService', () => {
       isActive: false,
       productIdentifier: null,
     });
+    process.env.MONETIZATION_MODEL_ACTIVATED_AT = new Date().toISOString();
     await expect(
       requireVisualizeAccess(user({ trialStartedAt: new Date(Date.now() - 6 * 86_400_000) }))
     ).resolves.toBeUndefined();
+    delete process.env.MONETIZATION_MODEL_ACTIVATED_AT;
   });
 
   it('rejects an expired Free account without trusting a client claim', async () => {
@@ -62,5 +64,9 @@ describe('PracticeAccessService', () => {
     await expect(
       requireVisualizeAccess(user({ trialStartedAt: new Date(Date.now() - 8 * 86_400_000) }))
     ).rejects.toMatchObject({ statusCode: 403, code: 'PREMIUM_PRACTICE_LOCKED' });
+  });
+
+  afterEach(() => {
+    delete process.env.MONETIZATION_MODEL_ACTIVATED_AT;
   });
 });

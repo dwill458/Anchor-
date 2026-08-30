@@ -22,7 +22,7 @@ jest.mock('@react-navigation/native', () => ({
   useRoute: () => ({ params: routeParams }),
 }));
 jest.mock('@/hooks/useReduceMotionEnabled', () => ({ useReduceMotionEnabled: () => true }));
-jest.mock('@/hooks/useTrialStatus', () => ({ useTrialStatus: () => ({ hasActiveEntitlement: true }) }));
+jest.mock('@/hooks/useTrialStatus', () => ({ useTrialStatus: () => ({ hasActiveEntitlement: true, entitlementReady: true }) }));
 jest.mock('@/stores/authStore', () => ({
   useAuthStore: (selector: (state: unknown) => unknown) => selector({
     user: { id: 'user-1' },

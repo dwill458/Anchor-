@@ -5,7 +5,7 @@ import {
   REVENUECAT_ENTITLEMENT_ID,
   REVENUECAT_MONTHLY_PACKAGE_ID,
 } from '@/config';
-import { isLocalTrialActive, useSubscriptionStore } from '@/stores/subscriptionStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { logger } from '@/utils/logger';
 
 export interface TrialStatusSnapshot {
@@ -43,6 +43,7 @@ interface RevenueCatProduct {
 }
 
 interface RevenueCatStoreProduct {
+  identifier?: string;
   price?: number;
   priceString?: string;
   pricePerMonth?: number | null;
@@ -56,6 +57,14 @@ interface RevenueCatStoreProduct {
     cycles?: number;
     period?: string;
   } | null;
+  defaultOption?: {
+    freePhase?: {
+      price?: number | { amountMicros?: number };
+      period?: { iso8601?: string };
+      billingPeriod?: { iso8601?: string };
+    } | null;
+    pricingPhases?: Array<{ price?: { amountMicros?: number }; billingPeriod?: { iso8601?: string } }>;
+  } | null;
 }
 
 interface RevenueCatPackage {
@@ -66,6 +75,7 @@ interface RevenueCatPackage {
 }
 
 interface RevenueCatOffering {
+  identifier?: string;
   availablePackages?: RevenueCatPackage[];
 }
 
@@ -101,6 +111,8 @@ interface RevenueCatPurchases {
   getOfferings?: () => Promise<RevenueCatOfferings>;
   purchasePackage?: (pkg: RevenueCatPackage) => Promise<RevenueCatPurchaseResult | CustomerInfo>;
   restorePurchases?: () => Promise<CustomerInfo>;
+  checkTrialOrIntroductoryPriceEligibility?: (productIDs: string[]) => Promise<Record<string, { status?: number }>>;
+  trackCustomPaywallImpression?: (params?: { paywallId?: string | null; offeringId?: string | null }) => Promise<void>;
   /**
    * The native SDK registers the listener and returns void. Removal is done
    * via removeCustomerInfoUpdateListener with the same listener reference.
@@ -124,11 +136,14 @@ export interface RevenueCatPlanDisplayMetadata {
   pricePerYear: number | null;
   pricePerYearString: string | null;
   currencyCode: string | null;
+  trialEligible?: boolean | null;
 }
 
-export type RevenueCatOfferingDisplayMetadata = Partial<
-  Record<RevenueCatPlanId, RevenueCatPlanDisplayMetadata>
->;
+export interface RevenueCatOfferingDisplayMetadata {
+  offeringId?: string | null;
+  monthly?: RevenueCatPlanDisplayMetadata;
+  annual?: RevenueCatPlanDisplayMetadata;
+}
 
 /**
  * Use server-confirmed status for a purchase/restore when a screen needs the
@@ -164,38 +179,7 @@ function getPurchasesModule(): RevenueCatPurchases | null {
 function getEntitlementInfo(customerInfo: CustomerInfo | null | undefined): CustomerEntitlementInfo | null {
   if (!customerInfo) return null;
 
-  const activeEntitlement = customerInfo.entitlements?.active?.[REVENUECAT_ENTITLEMENT_ID];
-  if (activeEntitlement) {
-    return activeEntitlement;
-  }
-
-  // If the configured entitlement ID is missing or doesn't match the dashboard,
-  // fall back to the first active entitlement so a config mismatch doesn't block
-  // users who have a valid subscription.
-  const activeMap = customerInfo.entitlements?.active;
-  if (activeMap) {
-    const keys = Object.keys(activeMap);
-    if (keys.length > 0) {
-      logger.warn(
-        `[RevenueCatService] Entitlement "${REVENUECAT_ENTITLEMENT_ID}" not found in active entitlements; ` +
-          `falling back to "${keys[0]}". Set EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID to match your RevenueCat dashboard.`
-      );
-      return activeMap[keys[0]];
-    }
-  }
-
-  const allEntitlement = customerInfo.entitlements?.all?.[REVENUECAT_ENTITLEMENT_ID];
-  return allEntitlement ?? null;
-}
-
-function getActiveStoreSubscriptionIds(customerInfo: CustomerInfo | null | undefined): string[] {
-  if (!Array.isArray(customerInfo?.activeSubscriptions)) {
-    return [];
-  }
-
-  return customerInfo.activeSubscriptions.filter(
-    (productId): productId is string => typeof productId === 'string' && productId.length > 0
-  );
+  return customerInfo.entitlements?.active?.[REVENUECAT_ENTITLEMENT_ID] ?? null;
 }
 
 function getDaysRemaining(expirationDate?: string | null): number | null {
@@ -211,27 +195,11 @@ function getDaysRemaining(expirationDate?: string | null): number | null {
 
 function deriveTrialStatus(customerInfo: CustomerInfo | null | undefined): TrialStatusSnapshot {
   const entitlement = getEntitlementInfo(customerInfo);
-  const activeStoreSubscriptionIds = getActiveStoreSubscriptionIds(customerInfo);
-
-  if (!entitlement && activeStoreSubscriptionIds.length > 0) {
-    logger.warn(
-      '[RevenueCatService] Active store subscription found without an active entitlement; granting paid access from customerInfo.activeSubscriptions. Check RevenueCat entitlement/product mapping.',
-      { activeStoreSubscriptionIds }
-    );
-    return {
-      isInTrial: false,
-      isSubscribed: true,
-      hasActiveEntitlement: true,
-      daysRemaining: null,
-      trialExpired: false,
-    };
-  }
-
   if (!entitlement) {
     return DEFAULT_TRIAL_STATUS;
   }
 
-  const isActive = entitlement.isActive === true || activeStoreSubscriptionIds.length > 0;
+  const isActive = entitlement.isActive === true;
   const periodType = typeof entitlement.periodType === 'string' ? entitlement.periodType.toLowerCase() : '';
   const isInTrial = isActive && periodType === 'trial';
   const isSubscribed = isActive && !isInTrial;
@@ -248,20 +216,16 @@ function deriveTrialStatus(customerInfo: CustomerInfo | null | undefined): Trial
 
 function applyTrialStatus(status: TrialStatusSnapshot, synced = false): TrialStatusSnapshot {
   const subscriptionStore = useSubscriptionStore.getState();
-  const localTrialActive =
-    subscriptionStore.subscriptionStatus === 'trial' &&
-    isLocalTrialActive(subscriptionStore.trialStartDate);
 
   subscriptionStore.setRcTier(status.hasActiveEntitlement ? 'pro' : 'free');
   subscriptionStore.setTrialState(status);
+  subscriptionStore.setEntitlementReady?.(true);
   if (synced) {
     subscriptionStore.setRcSynced(true);
   }
   if (status.isSubscribed) {
     subscriptionStore.setSubscriptionStatus('active');
   } else if (status.isInTrial) {
-    subscriptionStore.setSubscriptionStatus('trial');
-  } else if (localTrialActive) {
     subscriptionStore.setSubscriptionStatus('trial');
   } else {
     subscriptionStore.setSubscriptionStatus('expired');
@@ -271,10 +235,13 @@ function applyTrialStatus(status: TrialStatusSnapshot, synced = false): TrialSta
 
 function applyStatusWhenEnabled(
   status: TrialStatusSnapshot,
-  options: RevenueCatStatusSyncOptions,
+  _options: RevenueCatStatusSyncOptions,
   synced = true
 ): TrialStatusSnapshot {
-  return options.syncStatus === false ? status : applyTrialStatus(status, synced);
+  // A completed store transaction must update local UI immediately. The
+  // option is retained for call-site compatibility; backend synchronization is
+  // handled separately by BillingService.
+  return applyTrialStatus(status, synced);
 }
 
 function extractCustomerInfo(
@@ -427,6 +394,9 @@ class RevenueCatService {
       return applyTrialStatus(DEFAULT_TRIAL_STATUS);
     }
 
+    // Configure the SDK without stamping the requested user as already
+    // logged in; the explicit RevenueCat logIn call below performs the
+    // identity switch and returns that customer's CustomerInfo.
     this.configure();
     if (configuredUserId === userId) {
       return this.refreshTrialStatus();
@@ -496,7 +466,8 @@ class RevenueCatService {
 
     try {
       const offerings = await purchases.getOfferings();
-      const availablePackages = this.resolveOfferingFromCollection(offerings)?.availablePackages ?? [];
+      const offering = this.resolveOfferingFromCollection(offerings);
+      const availablePackages = offering?.availablePackages ?? [];
       const monthlyPackage = availablePackages.find(
         (pkg) => pkg.identifier === REVENUECAT_MONTHLY_PACKAGE_ID
       );
@@ -504,11 +475,47 @@ class RevenueCatService {
         (pkg) => pkg.identifier === REVENUECAT_ANNUAL_PACKAGE_ID
       );
       const metadata: RevenueCatOfferingDisplayMetadata = {};
+      if (offering?.identifier) metadata.offeringId = offering.identifier;
       const monthlyMetadata = buildPlanMetadata('monthly', REVENUECAT_MONTHLY_PACKAGE_ID, monthlyPackage);
       const annualMetadata = buildPlanMetadata('annual', REVENUECAT_ANNUAL_PACKAGE_ID, annualPackage);
 
       if (monthlyMetadata) metadata.monthly = monthlyMetadata;
       if (annualMetadata) metadata.annual = annualMetadata;
+
+      const packageProducts = [monthlyPackage, annualPackage]
+        .map((pkg) => pkg?.storeProduct)
+        .filter((product): product is RevenueCatStoreProduct => Boolean(product));
+      const purchasesWithEligibility = purchases as RevenueCatPurchases & {
+        checkTrialOrIntroductoryPriceEligibility?: (productIDs: string[]) => Promise<Record<string, { status?: number }>>;
+      };
+      if (Platform.OS === 'ios' && purchasesWithEligibility.checkTrialOrIntroductoryPriceEligibility) {
+        const productIds = packageProducts
+          .map((product) => (product as RevenueCatStoreProduct & { identifier?: string }).identifier)
+          .filter((id): id is string => Boolean(id));
+        if (productIds.length > 0) {
+          const eligibility = await purchasesWithEligibility.checkTrialOrIntroductoryPriceEligibility(productIds);
+          for (const [planId, pkg] of [['monthly', monthlyPackage], ['annual', annualPackage] ] as const) {
+            const productId = (pkg?.storeProduct as (RevenueCatStoreProduct & { identifier?: string }) | undefined)?.identifier;
+            if (productId && metadata[planId]) {
+              metadata[planId] = { ...metadata[planId]!, trialEligible: eligibility[productId]?.status === 2 };
+            }
+          }
+        }
+      } else if (Platform.OS === 'android') {
+        for (const [planId, pkg] of [['monthly', monthlyPackage], ['annual', annualPackage] ] as const) {
+          const product = pkg?.storeProduct;
+          const freePhase = product?.defaultOption?.freePhase;
+          const amountMicros =
+            typeof freePhase?.price === 'object'
+              ? freePhase.price?.amountMicros
+              : freePhase?.price === 0
+                ? 0
+                : undefined;
+          const period = freePhase?.billingPeriod?.iso8601 ?? freePhase?.period?.iso8601;
+          const trialEligible = amountMicros === 0 && (!period || period === 'P7D');
+          if (metadata[planId]) metadata[planId] = { ...metadata[planId]!, trialEligible };
+        }
+      }
 
       return metadata;
     } catch (error) {
@@ -636,6 +643,15 @@ class RevenueCatService {
 
   getStorePlatform(): 'ios' | 'android' {
     return Platform.OS === 'ios' ? 'ios' : 'android';
+  }
+
+  async trackCustomPaywallImpression(offeringId?: string | null): Promise<void> {
+    const purchases = getPurchasesModule();
+    if (!purchases?.trackCustomPaywallImpression) return;
+    await purchases.trackCustomPaywallImpression({
+      paywallId: 'anchor_pro_custom_v1',
+      offeringId: offeringId ?? null,
+    });
   }
 }
 

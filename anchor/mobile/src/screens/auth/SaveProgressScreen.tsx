@@ -513,14 +513,14 @@ export const SaveProgressScreen: React.FC = () => {
 
           <Animated.View style={[styles.trustBottomWrap, wave4Style]}>
             <View style={styles.trustStrip}>
-              <TrustItem label="7-DAY TRIAL" />
+              <TrustItem label="FREE ACCOUNT" />
               <View style={styles.trustDivider} />
               <TrustItem label="NO CARD" />
               <View style={styles.trustDivider} />
               <TrustItem label="CANCEL ANYTIME" />
             </View>
             <View style={styles.bottom}>
-              <Text style={styles.trialNote}>Full access starts instantly. No card required.</Text>
+              <Text style={styles.trialNote}>Create your account to save and sync this Anchor.</Text>
               <Pressable
                 style={styles.cta}
                 onPress={handleSaveAnchor}

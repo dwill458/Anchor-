@@ -90,6 +90,7 @@ const MOCK_DB_USER = {
   subscriptionStatus: 'free',
   isComped: false,
   trialStartedAt: new Date(),
+  totalAnchorsCreated: 0,
 };
 
 const MOCK_ANCHOR = {
@@ -220,10 +221,10 @@ describe('POST /api/anchors', () => {
     expect(res.body.error.code).toBe('USER_NOT_FOUND');
   });
 
-  it('returns 403 when an expired Free user creates an anchor', async () => {
+  it('returns 403 when a Free user attempts a second Anchor', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
       ...MOCK_DB_USER,
-      trialStartedAt: new Date('2026-01-01T00:00:00.000Z'),
+      totalAnchorsCreated: 1,
     });
 
     const res = await request(buildApp()).post('/api/anchors').send(VALID_CREATE_BODY);
@@ -233,21 +234,25 @@ describe('POST /api/anchors', () => {
     expect(mockPrisma.anchor.create).not.toHaveBeenCalled();
   });
 
-  it('returns 403 when a trial user has created 7 trial anchors', async () => {
+  it('does not apply the retired trial anchor cap to the first Free Anchor', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
     (mockPrisma.anchor.count as jest.Mock).mockResolvedValue(7);
+    (mockPrisma.anchor.create as jest.Mock).mockResolvedValue(MOCK_ANCHOR);
 
     const res = await request(buildApp()).post('/api/anchors').send(VALID_CREATE_BODY);
 
-    expect(res.status).toBe(403);
-    expect(res.body.error.code).toBe('TRIAL_ANCHOR_CAP_REACHED');
-    expect(mockPrisma.anchor.create).not.toHaveBeenCalled();
+    expect(res.status).toBe(201);
+    expect(mockPrisma.anchor.create).toHaveBeenCalledTimes(1);
   });
 
   it('returns 429 when a paid Pro user has created 10 anchors today', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
       ...MOCK_DB_USER,
       subscriptionStatus: 'pro',
+    });
+    mockGetRevenueCatAccess.mockResolvedValue({
+      isActive: true,
+      productIdentifier: 'anchor_pro_monthly',
     });
     (mockPrisma.anchor.count as jest.Mock).mockResolvedValue(10);
 

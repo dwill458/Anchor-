@@ -144,13 +144,13 @@ describe('subscriptionStore', () => {
       expect(result.current.getEffectiveTier()).toBe('free');
     });
 
-    it('returns pro for an active account trial after RevenueCat has synced without entitlement', () => {
+    it('stays Free when RevenueCat has synced without an active entitlement', () => {
       const { result } = renderHook(() => useSubscriptionStore());
       act(() => {
         result.current.syncAccountTrial(new Date().toISOString());
         result.current.setRcSynced(true);
       });
-      expect(result.current.getEffectiveTier()).toBe('pro');
+      expect(result.current.getEffectiveTier()).toBe('free');
     });
 
     it('does not grant pro for a trial without a start date', () => {
@@ -176,10 +176,10 @@ describe('subscriptionStore', () => {
       expect(result.current.getEffectiveTier()).toBe('free');
     });
 
-    it('returns pro when rcTier starts with pro', () => {
+    it('does not trust rcTier without an active entitlement snapshot', () => {
       const { result } = renderHook(() => useSubscriptionStore());
       act(() => result.current.setRcTier('pro'));
-      expect(result.current.getEffectiveTier()).toBe('pro');
+      expect(result.current.getEffectiveTier()).toBe('free');
     });
 
     it('returns pro when devOverrideEnabled and devTierOverride is pro', () => {

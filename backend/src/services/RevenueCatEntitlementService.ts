@@ -8,6 +8,7 @@ const REVENUECAT_TIMEOUT_MS = 5_000;
 interface RevenueCatEntitlement {
   expires_date?: string | null;
   product_identifier?: string | null;
+  period_type?: string | null;
 }
 
 interface RevenueCatSubscriberResponse {
@@ -19,6 +20,9 @@ interface RevenueCatSubscriberResponse {
 export interface RevenueCatAccessSnapshot {
   isActive: boolean;
   productIdentifier: string | null;
+  isTrialPeriod?: boolean;
+  expiresAt?: string | null;
+  isStale?: boolean;
 }
 
 export interface RevenueCatAccessOptions {
@@ -28,8 +32,12 @@ export interface RevenueCatAccessOptions {
 
 interface CachedSnapshot {
   value: RevenueCatAccessSnapshot;
+  cachedAt: number;
   cachedUntil: number;
+  staleUntil: number;
 }
+
+const REVENUECAT_STALE_ACCESS_GRACE_MS = 24 * 60 * 60 * 1000;
 
 const cache = new Map<string, CachedSnapshot>();
 
@@ -72,11 +80,15 @@ export async function getRevenueCatAccess(
     const value = {
       isActive: isEntitlementActive(entitlement, now),
       productIdentifier: entitlement?.product_identifier ?? null,
+      isTrialPeriod: entitlement?.period_type?.toLowerCase() === 'trial',
+      expiresAt: entitlement?.expires_date ?? null,
     };
 
     cache.set(appUserId, {
       value,
+      cachedAt: now.getTime(),
       cachedUntil: now.getTime() + REVENUECAT_CACHE_TTL_MS,
+      staleUntil: now.getTime() + REVENUECAT_STALE_ACCESS_GRACE_MS,
     });
     return value;
   } catch (error) {
@@ -84,12 +96,22 @@ export async function getRevenueCatAccess(
       const value = { isActive: false, productIdentifier: null };
       cache.set(appUserId, {
         value,
+        cachedAt: now.getTime(),
         cachedUntil: now.getTime() + REVENUECAT_CACHE_TTL_MS,
+        staleUntil: now.getTime() + REVENUECAT_STALE_ACCESS_GRACE_MS,
       });
       return value;
     }
 
-    logger.warn('[RevenueCat] Failed to resolve server entitlement; using persisted status', {
+    if (cached && cached.value.isActive && cached.staleUntil > now.getTime()) {
+      logger.warn('[RevenueCat] Using bounded stale verified Pro entitlement after lookup failure', {
+        appUserId,
+        cachedAt: new Date(cached.cachedAt).toISOString(),
+      });
+      return { ...cached.value, isStale: true };
+    }
+
+    logger.warn('[RevenueCat] Failed to resolve server entitlement; no verified access available', {
       appUserId,
       status: axios.isAxiosError(error) ? error.response?.status : undefined,
     });
