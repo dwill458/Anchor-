@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { logger } from '@/utils/logger';
-import type { NotificationCategory, NotificationMilestone } from './notificationTypes';
+import type { NotificationCategory } from './notificationTypes';
 
 /**
  * The reminder that is currently queued with the OS.
@@ -15,7 +15,6 @@ export interface PendingSmartNotification {
   /** ISO timestamp of the earliest occurrence that is still queued. */
   fireDate: string;
   anchorId?: string;
-  milestone?: NotificationMilestone;
 }
 
 export const PENDING_SMART_NOTIFICATION_STORAGE_KEY = '@anchor_pending_smart_notification';

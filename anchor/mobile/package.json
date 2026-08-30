@@ -17,12 +17,14 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:verbose": "jest --verbose",
+    "test:anchor15:visual": "node ./scripts/compare-anchor15-screenshots.mjs",
     "adb-reverse": "node ../../scripts/adb-reverse-monitor.js"
   },
   "dependencies": {
     "@bacons/apple-targets": "^4.0.7",
     "@expo-google-fonts/cinzel": "^0.4.2",
     "@expo-google-fonts/crimson-pro": "^0.4.2",
+    "@expo-google-fonts/eb-garamond": "^0.4.3",
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo/metro-runtime": "~6.1.2",
     "@react-native-async-storage/async-storage": "2.2.0",

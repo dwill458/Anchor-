@@ -1,106 +1,82 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  Animated,
-  Platform,
   Alert,
+  Animated,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
   useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
-import Svg, { Circle, G, Path } from 'react-native-svg';
+import Svg, { Circle } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { RootStackParamList, AIStyle } from '@/types';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import { type StackNavigationProp } from '@react-navigation/stack';
+import { Clock3 } from 'lucide-react-native';
+
+import { SigilSvg } from '@/components/common/SigilSvg';
 import { API_URL } from '@/config';
-import { useAuthStore } from '@/stores/authStore';
-import { logger } from '@/utils/logger';
-// DEFERRED: freemium — useSubscription replaced with useTrialStatus
-// import { useSubscription } from '@/hooks/useSubscription';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { useTrialStatus } from '@/hooks/useTrialStatus';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { PerformanceMonitoring } from '@/services/PerformanceMonitoring';
 import { AuthService } from '@/services/AuthService';
 import { FrictionAnalytics } from '@/services/FrictionAnalytics';
-import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
-
-const IS_ANDROID = Platform.OS === 'android';
-
-// Design System Colors (Zen Architect)
-const colors = {
-  navy: '#0F1419',
-  charcoal: '#1A1A1D',
-  gold: '#D4AF37',
-  bone: '#F5F5DC',
-  silver: '#C0C0C0',
-  deepPurple: '#3E2C5B',
-  bronze: '#CD7F32',
-};
+import { useAuthStore } from '@/stores/authStore';
+import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
+import { colors, typography } from '@/theme';
+import type { RootStackParamList } from '@/types';
+import { isCompactPhoneViewport } from '@/utils/layout';
+import { logger } from '@/utils/logger';
 
 type AIGeneratingRouteProp = RouteProp<RootStackParamList, 'AIGenerating'>;
 type AIGeneratingNavigationProp = StackNavigationProp<RootStackParamList, 'AIGenerating'>;
+type GenerationFailure = 'connection' | 'generic' | null;
 
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-const AnimatedG = Animated.createAnimatedComponent(G);
-const AnimatedPath = Animated.createAnimatedComponent(Path);
+const GENERATION_TIMEOUT_MS = 180_000;
+const ESTIMATED_PROGRESS_CAP = 94;
 
-/**
- * Style-specific refinement phrases for ritual experience
- */
-const STYLE_REFINEMENT_PHRASES: Record<AIStyle, string> = {
-  architectural_trace: 'Drafting precise lines and balance',
-  lunar_etch: 'Etching moonlit contrast and quiet radiance',
-  resonance_rings: 'Layering rhythmic pulse rings',
-  minimal_line: 'Clarifying lines and balance',
-  ink_brush: 'Introducing flow and motion',
-  sacred_geometry: 'Aligning structure and proportion',
-  watercolor: 'Blending tone and atmosphere',
-  gold_leaf: 'Layering luminous essence',
-  cosmic: 'Attuning celestial energies',
-  obsidian_mono: 'Carving contrast and stillness',
-  aurora_glow: 'Diffusing spectral light',
-  ember_trace: 'Igniting warm edge detail',
-  echo_chamber: 'Layering resonant echoes',
-  monolith_ink: 'Grounding bold structural weight',
-  celestial_grid: 'Synchronizing astral geometry',
-  prism_veil: 'Refracting translucent color fields',
-  verdigris_relic: 'Aging copper patina and mineral depth',
-  solar_halo: 'Warming disciplined solar radiance',
-  tideglass: 'Washing sea-glass light through the field',
-  velvet_ember: 'Deepening velvet shadow and ember glow',
+const humanize = (value: string | null | undefined): string =>
+  (value ?? '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+    .trim();
+
+const isConnectionError = (error: unknown): boolean => {
+  if (!(error instanceof Error)) return false;
+  return /network|fetch|connection|internet|offline|socket|timed?\s*out/i.test(error.message);
 };
 
-/**
- * Progress phases for ritual progression
- */
-const PROGRESS_PHASES = {
-  beginning: { threshold: 0, label: 'Beginning' },
-  aligning: { threshold: 30, label: 'Aligning' },
-  finalizing: { threshold: 80, label: 'Finalizing' },
+const resolveStatus = ({
+  progress,
+  isComplete,
+  isOriginalExpression,
+}: {
+  progress: number;
+  isComplete: boolean;
+  isOriginalExpression: boolean;
+}): string => {
+  if (isComplete) return 'EXPRESSIONS READY';
+  if (progress >= 84) return 'FINALIZING';
+  if (progress >= 48) {
+    return isOriginalExpression ? 'CREATING ORIGINAL EXPRESSIONS' : 'CREATING EXPRESSIONS';
+  }
+  if (progress >= 22) return 'APPLYING STYLE';
+  return 'PREPARING STRUCTURE';
 };
 
 export default function AIGeneratingScreen() {
   const route = useRoute<AIGeneratingRouteProp>();
   const navigation = useNavigation<AIGeneratingNavigationProp>();
   const { width, height } = useWindowDimensions();
+  const reduceMotion = useReduceMotionEnabled();
+  const isCompactLayout = isCompactPhoneViewport(width, height);
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const anchorCount = useAuthStore((state) => state.anchorCount);
-  const isCompactLayout = isCompactPhoneViewport(width, height);
-  const isShortLayout = isShortPhoneViewport(height);
-  const orbitSize = isCompactLayout ? 168 : 200;
-  const glowSize = isCompactLayout ? 188 : 220;
-  const centerSize = isCompactLayout ? 104 : 120;
-  const orb1Size = isCompactLayout ? 240 : 300;
-  const orb2Size = isCompactLayout ? 210 : 250;
-  // All paid users get Flash (Nano Banana 2) by default.
-  // Pro model escalated server-side on regeneration (attempt 2+).
   const { hasActiveEntitlement } = useTrialStatus();
-
   const {
     intentionText,
     category,
@@ -113,505 +89,48 @@ export default function AIGeneratingScreen() {
     generationAttempt: initialGenerationAttempt,
   } = route.params;
 
-  const [progress, setProgress] = useState(0);
-
-  // Animations
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
-  const sparkleAnim = useRef(new Animated.Value(0)).current;
-  const glowAnim = useRef(new Animated.Value(0)).current;
-  const orb1Anim = useRef(new Animated.Value(0)).current;
-  const orb2Anim = useRef(new Animated.Value(0)).current;
-
+  const [estimatedProgress, setEstimatedProgress] = useState(0);
+  const [failure, setFailure] = useState<GenerationFailure>(null);
+  const [isComplete, setIsComplete] = useState(false);
+  const contentOpacity = useRef(new Animated.Value(0)).current;
+  const haloOpacity = useRef(new Animated.Value(0.32)).current;
+  const haloScale = useRef(new Animated.Value(1)).current;
+  const lineTravel = useRef(new Animated.Value(0)).current;
   const isMountedRef = useRef(true);
   const isGeneratingRef = useRef(false);
-  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const estimatedProgressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const requestTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const animationLoopsRef = useRef<Animated.CompositeAnimation[]>([]);
-  // Tracks generation attempts for this anchor — pro users upgrade to pro model at attempt 3+
+  const ambientLoopsRef = useRef<Animated.CompositeAnimation[]>([]);
   const generationAttemptRef = useRef<number>(initialGenerationAttempt ?? 1);
 
-  // Get the current progress phase label
-  const getProgressPhase = () => {
-    if (progress >= PROGRESS_PHASES.finalizing.threshold) {
-      return PROGRESS_PHASES.finalizing.label;
-    } else if (progress >= PROGRESS_PHASES.aligning.threshold) {
-      return PROGRESS_PHASES.aligning.label;
-    } else {
-      return PROGRESS_PHASES.beginning.label;
+  const actualStructure = reinforcedSigilSvg || baseSigilSvg;
+  const structureLabel = useMemo(
+    () => (reinforcedSigilSvg ? 'Drawn structure' : humanize(structureVariant) || 'Selected structure'),
+    [reinforcedSigilSvg, structureVariant],
+  );
+  const styleLabel = useMemo(() => humanize(styleChoice), [styleChoice]);
+  const isOriginalExpression = generationAttemptRef.current > 1 || Boolean(reinforcedSigilSvg);
+  const status = resolveStatus({
+    progress: estimatedProgress,
+    isComplete,
+    isOriginalExpression,
+  });
+
+  const clearGenerationResources = useCallback((keepNavigationTimeout = false) => {
+    if (estimatedProgressIntervalRef.current) {
+      clearInterval(estimatedProgressIntervalRef.current);
+      estimatedProgressIntervalRef.current = null;
     }
-  };
-
-  // Get style-specific refinement phrase
-  const refinementPhrase = STYLE_REFINEMENT_PHRASES[styleChoice] || 'Refining your expression';
-
-  /**
-   * Render style-specific refinement seal
-   * Each style has a unique visual representation and animation
-   */
-  const renderRefinementSeal = () => {
-    const baseOpacity = 0.5;
-
-    switch (styleChoice) {
-      case 'architectural_trace':
-      case 'minimal_line':
-        // Architectural trace: Clean concentric circles with subtle snapping alignment
-        return (
-          <Svg width={120} height={120} viewBox="0 0 120 120">
-            {/* Outer circle */}
-            <Circle
-              cx="60"
-              cy="60"
-              r="50"
-              stroke={colors.gold}
-              strokeWidth="2"
-              fill="none"
-              opacity={0.4}
-            />
-            {/* Middle circle */}
-            <Circle
-              cx="60"
-              cy="60"
-              r="35"
-              stroke={colors.gold}
-              strokeWidth="2"
-              fill="none"
-              opacity={0.5}
-            />
-            {/* Inner circle */}
-            <Circle
-              cx="60"
-              cy="60"
-              r="20"
-              stroke={colors.gold}
-              strokeWidth="2.5"
-              fill="none"
-              opacity={0.6}
-            />
-            {/* Center dot */}
-            <AnimatedCircle
-              cx="60"
-              cy="60"
-              r="4"
-              fill={colors.gold}
-              opacity={sparkleOpacity}
-            />
-          </Svg>
-        );
-
-      case 'lunar_etch':
-        return (
-          <Svg width={120} height={120} viewBox="0 0 120 120">
-            <Circle
-              cx="60"
-              cy="60"
-              r="48"
-              stroke={colors.silver}
-              strokeWidth="1.5"
-              fill="none"
-              opacity={0.26}
-            />
-            <Path
-              d="M 81 28 C 63 26, 49 40, 49 60 C 49 80, 63 94, 81 92 C 71 84, 66 74, 66 60 C 66 46, 71 36, 81 28 Z"
-              stroke={colors.silver}
-              strokeWidth="2"
-              fill="none"
-              opacity={0.6}
-            />
-            <Circle cx="83" cy="39" r="2" fill={colors.silver} opacity={0.7} />
-            <Circle cx="90" cy="54" r="1.5" fill={colors.silver} opacity={0.5} />
-            <Circle cx="78" cy="74" r="1.5" fill={colors.silver} opacity={0.45} />
-            <AnimatedCircle
-              cx="60"
-              cy="60"
-              r="10"
-              stroke={colors.gold}
-              strokeWidth="1.25"
-              fill="none"
-              opacity={glowOpacity}
-            />
-          </Svg>
-        );
-
-      case 'resonance_rings':
-        return (
-          <Svg width={120} height={120} viewBox="0 0 120 120">
-            <Circle
-              cx="60"
-              cy="60"
-              r="48"
-              stroke={colors.gold}
-              strokeWidth="1.2"
-              fill="none"
-              opacity={0.22}
-            />
-            <Circle
-              cx="60"
-              cy="60"
-              r="36"
-              stroke={colors.gold}
-              strokeWidth="1.6"
-              fill="none"
-              opacity={0.35}
-              strokeDasharray="7,5"
-            />
-            <Circle
-              cx="60"
-              cy="60"
-              r="24"
-              stroke={colors.gold}
-              strokeWidth="2"
-              fill="none"
-              opacity={0.52}
-            />
-            <AnimatedG opacity={glowOpacity}>
-              <Path d="M 20 60 H 100" stroke={colors.gold} strokeWidth="1.2" fill="none" opacity={0.35} />
-              <Path d="M 60 20 V 100" stroke={colors.gold} strokeWidth="1.2" fill="none" opacity={0.35} />
-            </AnimatedG>
-            <AnimatedCircle cx="60" cy="60" r="5" fill={colors.gold} opacity={sparkleOpacity} />
-          </Svg>
-        );
-
-      case 'ink_brush':
-        // Ink Brush: Organic flowing strokes with motion
-        return (
-          <Svg width={120} height={120} viewBox="0 0 120 120">
-            {/* Flowing brush circle with varying thickness */}
-            <Circle
-              cx="60"
-              cy="60"
-              r="45"
-              stroke={colors.gold}
-              strokeWidth="3"
-              fill="none"
-              opacity={baseOpacity}
-              strokeDasharray="5,3"
-            />
-            {/* Inner flowing strokes */}
-            <AnimatedG opacity={glowOpacity}>
-              <Path
-                d="M 35 60 Q 60 35, 85 60 Q 60 85, 35 60"
-                stroke={colors.gold}
-                strokeWidth="2"
-                fill="none"
-              />
-              <Path
-                d="M 40 60 Q 60 45, 80 60 Q 60 75, 40 60"
-                stroke={colors.gold}
-                strokeWidth="1.5"
-                fill="none"
-                opacity={0.6}
-              />
-            </AnimatedG>
-          </Svg>
-        );
-
-      case 'sacred_geometry':
-        // Sacred Geometry: Precise geometric patterns with alignment
-        // Sacred Geometry: Merkaba / Star of David visualization
-        return (
-          <Svg width={120} height={120} viewBox="0 0 120 120">
-            {/* Outer circle */}
-            <Circle
-              cx="60"
-              cy="60"
-              r="50"
-              stroke={colors.gold}
-              strokeWidth="1"
-              fill="none"
-              opacity={0.3}
-            />
-
-            {/* Star of David (Merkaba Projection) */}
-            <AnimatedG opacity={glowOpacity}>
-              {/* Upward Triangle */}
-              <Path
-                d="M 60 15 L 99 82 L 21 82 Z"
-                stroke={colors.gold}
-                strokeWidth="2"
-                fill="none"
-              />
-              {/* Downward Triangle */}
-              <Path
-                d="M 60 105 L 21 38 L 99 38 Z"
-                stroke={colors.gold}
-                strokeWidth="2"
-                fill="none"
-              />
-            </AnimatedG>
-
-            {/* Central 3D Connection Point (Merkaba Core) */}
-            <AnimatedCircle
-              cx="60"
-              cy="60"
-              r="4"
-              fill={colors.gold}
-              opacity={sparkleOpacity}
-            />
-
-            {/* Connecting lines for 3D effect */}
-            <Path
-              d="M 60 60 L 60 15 M 60 60 L 99 82 M 60 60 L 21 82"
-              stroke={colors.gold}
-              strokeWidth="1"
-              opacity={0.4}
-            />
-            <Path
-              d="M 60 60 L 60 105 M 60 60 L 21 38 M 60 60 L 99 38"
-              stroke={colors.gold}
-              strokeWidth="1"
-              opacity={0.4}
-            />
-          </Svg>
-        );
-
-      case 'watercolor':
-        // Watercolor: Flowing liquid forms and organic ripples
-        return (
-          <Svg width={120} height={120} viewBox="0 0 120 120">
-            {/* Deep water background flow */}
-            <AnimatedG opacity={glowOpacity}>
-              <Path
-                d="M 0 60 C 30 40, 90 80, 120 60"
-                stroke={colors.gold}
-                strokeWidth="8"
-                fill="none"
-                opacity={0.1}
-              />
-              <Path
-                d="M 0 75 C 40 55, 80 95, 120 75"
-                stroke={colors.gold}
-                strokeWidth="6"
-                fill="none"
-                opacity={0.15}
-              />
-            </AnimatedG>
-
-            {/* Middle stream currents */}
-            <Path
-              d="M 10 55 Q 35 35, 60 55 T 110 55"
-              stroke={colors.gold}
-              strokeWidth="2"
-              fill="none"
-              opacity={0.4}
-            />
-            <Path
-              d="M 10 65 Q 35 45, 60 65 T 110 65"
-              stroke={colors.gold}
-              strokeWidth="2"
-              fill="none"
-              opacity={0.3}
-            />
-            <Path
-              d="M 10 75 Q 35 55, 60 75 T 110 75"
-              stroke={colors.gold}
-              strokeWidth="1.5"
-              fill="none"
-              opacity={0.2}
-            />
-
-            {/* Water Pouring into Paint Vessel */}
-            <AnimatedG>
-              {/* The Stream (Vertical flow) */}
-              <AnimatedPath
-                d="M 60 20 C 62 40, 58 50, 60 72"
-                stroke={colors.gold}
-                strokeWidth="3"
-                fill="none"
-                opacity={sparkleOpacity}
-                strokeLinecap="round"
-              />
-
-              {/* Water Surface / Splash */}
-              <AnimatedCircle
-                cx="60"
-                cy="72"
-                r="12"
-                fill={colors.gold}
-                opacity={0.3}
-                transform={[{ scale: pulseAnim }]}
-              />
-
-              {/* The Vessel / Paint Pot */}
-              <Path
-                d="M 40 72 Q 40 95, 60 95 Q 80 95, 80 72 L 80 65 Q 60 65, 40 65 Z"
-                stroke={colors.gold}
-                strokeWidth="2"
-                fill="none"
-                strokeLinejoin="round"
-                opacity={0.6}
-              />
-
-              {/* Vessel Rim Detail */}
-              <Path
-                d="M 40 72 Q 60 82, 80 72"
-                stroke={colors.gold}
-                strokeWidth="1"
-                fill="none"
-                opacity={0.4}
-              />
-            </AnimatedG>
-
-            {/* Outer Ripple Rings */}
-            <Circle
-              cx="60"
-              cy="65"
-              r="40"
-              stroke={colors.gold}
-              strokeWidth="1"
-              fill="none"
-              opacity={0.1}
-              strokeDasharray="10,5"
-            />
-          </Svg>
-        );
-
-      case 'gold_leaf':
-        // Gold Leaf: Illuminated circle with luxurious glow
-        return (
-          <Svg width={120} height={120} viewBox="0 0 120 120">
-            {/* Outer ornate circle */}
-            <Circle
-              cx="60"
-              cy="60"
-              r="50"
-              stroke={colors.gold}
-              strokeWidth="2.5"
-              fill="none"
-              opacity={0.5}
-            />
-            {/* Decorative inner ring */}
-            <Circle
-              cx="60"
-              cy="60"
-              r="40"
-              stroke={colors.gold}
-              strokeWidth="1"
-              strokeDasharray="4,4"
-              fill="none"
-              opacity={0.4}
-            />
-            {/* Center medallion */}
-            <AnimatedCircle
-              cx="60"
-              cy="60"
-              r="25"
-              stroke={colors.gold}
-              strokeWidth="3"
-              fill="none"
-              opacity={glowOpacity}
-            />
-            {/* Inner glow */}
-            <AnimatedCircle
-              cx="60"
-              cy="60"
-              r="12"
-              fill={colors.gold}
-              opacity={sparkleOpacity.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0.2, 0.5],
-              })}
-            />
-          </Svg>
-        );
-
-      case 'cosmic':
-        // Cosmic: Ethereal orbital patterns with celestial energy
-        return (
-          <Svg width={120} height={120} viewBox="0 0 120 120">
-            {/* Outer orbit */}
-            <AnimatedCircle
-              cx="60"
-              cy="60"
-              r="50"
-              stroke={colors.gold}
-              strokeWidth="1.5"
-              strokeDasharray="6,6"
-              fill="none"
-              opacity={glowOpacity.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0.3, 0.5],
-              })}
-            />
-            {/* Middle orbit */}
-            <AnimatedCircle
-              cx="60"
-              cy="60"
-              r="35"
-              stroke={colors.gold}
-              strokeWidth="1.5"
-              strokeDasharray="4,4"
-              fill="none"
-              opacity={sparkleOpacity}
-            />
-            {/* Inner core */}
-            <AnimatedCircle
-              cx="60"
-              cy="60"
-              r="18"
-              fill={colors.gold}
-              opacity={glowOpacity.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0.2, 0.4],
-              })}
-            />
-            {/* Center star */}
-            <AnimatedCircle
-              cx="60"
-              cy="60"
-              r="6"
-              fill={colors.bone}
-              opacity={sparkleOpacity}
-            />
-          </Svg>
-        );
-
-      default:
-        // Fallback: Simple refined circle
-        return (
-          <Svg width={120} height={120} viewBox="0 0 120 120">
-            <Circle
-              cx="60"
-              cy="60"
-              r="50"
-              stroke={colors.gold}
-              strokeWidth="2"
-              fill="none"
-              opacity={0.4}
-            />
-            <AnimatedCircle
-              cx="60"
-              cy="60"
-              r="30"
-              stroke={colors.gold}
-              strokeWidth="2.5"
-              fill="none"
-              opacity={sparkleOpacity}
-            />
-          </Svg>
-        );
-    }
-  };
-
-  const clearGenerationResources = useCallback((keepNavigationTimeout: boolean = false) => {
-    if (progressIntervalRef.current) {
-      clearInterval(progressIntervalRef.current);
-      progressIntervalRef.current = null;
-    }
-
     if (requestTimeoutRef.current) {
       clearTimeout(requestTimeoutRef.current);
       requestTimeoutRef.current = null;
     }
-
     if (!keepNavigationTimeout && navigationTimeoutRef.current) {
       clearTimeout(navigationTimeoutRef.current);
       navigationTimeoutRef.current = null;
     }
-
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -624,41 +143,28 @@ export default function AIGeneratingScreen() {
       return;
     }
 
-    // First anchor is part of the onboarding flow — bypass auth and entitlement checks.
-    // The account-creation gate is shown after the first prime ritual, before Sanctuary.
+    useFirstAnchorFlowStore.getState().updateDraft({ generationStatus: 'generating' });
     const isFirstAnchor = anchorCount === 0;
-
-    if (!isFirstAnchor) {
-      if (!isAuthenticated) {
-        Alert.alert('Account Required', 'Sign in before generating AI artwork.', [
-          {
-            text: 'Sign In',
-            onPress: () => navigation.replace('Login', {}),
-          },
-          {
-            text: 'Go Back',
-            style: 'cancel',
-            onPress: () => navigation.goBack(),
-          },
-        ]);
-        return;
-      }
-
-      if (!hasActiveEntitlement) {
-        Alert.alert('Subscription Required', 'Your trial has ended. Renew access to generate AI artwork.', [
-          {
-            text: 'View Paywall',
-            onPress: () => navigation.navigate('Paywall'),
-          },
-          {
-            text: 'Go Back',
-            style: 'cancel',
-            onPress: () => navigation.goBack(),
-          },
-        ]);
-        return;
-      }
+    if (!isFirstAnchor && !isAuthenticated) {
+      Alert.alert('Account Required', 'Sign in before generating AI artwork.', [
+        { text: 'Sign In', onPress: () => navigation.replace('Login', {}) },
+        { text: 'Go Back', style: 'cancel', onPress: () => navigation.goBack() },
+      ]);
+      return;
     }
+    if (!isFirstAnchor && !hasActiveEntitlement) {
+      Alert.alert('Subscription Required', 'Your trial has ended. Renew access to generate AI artwork.', [
+        { text: 'View Paywall', onPress: () => navigation.navigate('Paywall') },
+        { text: 'Go Back', style: 'cancel', onPress: () => navigation.goBack() },
+      ]);
+      return;
+    }
+
+    isGeneratingRef.current = true;
+    clearGenerationResources();
+    setFailure(null);
+    setIsComplete(false);
+    setEstimatedProgress(0);
 
     const userId = user?.id || `dev-user-${Date.now()}`;
     const trace = PerformanceMonitoring.startTrace('ai_enhance', {
@@ -666,52 +172,34 @@ export default function AIGeneratingScreen() {
       user_id: userId,
       has_reinforced_svg: Boolean(reinforcedSigilSvg),
     });
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    requestTimeoutRef.current = setTimeout(() => controller.abort(), GENERATION_TIMEOUT_MS);
 
-    isGeneratingRef.current = true;
-    clearGenerationResources();
     FrictionAnalytics.stepCompleted('anchor_creation', 'ai_generation_started', {
       style_id: styleChoice,
       category,
       attempt: generationAttemptRef.current,
       has_reinforced_svg: Boolean(reinforcedSigilSvg),
     });
-
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-
-    requestTimeoutRef.current = setTimeout(() => {
-      controller.abort();
-    }, 180000);
-
     ErrorTrackingService.addBreadcrumb('AI enhancement started', 'ai.enhance', {
       style_choice: styleChoice,
       user_id: userId,
     });
 
-    try {
-      logger.info('[AIGenerating] Starting AI generation', {
-        style: styleChoice,
-        userId,
-        apiUrl: API_URL,
+    estimatedProgressIntervalRef.current = setInterval(() => {
+      if (!isMountedRef.current) return;
+      setEstimatedProgress((previous) => {
+        if (previous >= ESTIMATED_PROGRESS_CAP) return previous;
+        return Math.min(
+          ESTIMATED_PROGRESS_CAP,
+          previous + Math.max(0.15, (ESTIMATED_PROGRESS_CAP - previous) * 0.035),
+        );
       });
+    }, 800);
 
-      progressIntervalRef.current = setInterval(() => {
-        if (!isMountedRef.current) {
-          return;
-        }
-
-        setProgress((prev) => {
-          if (prev >= 94) return prev;
-          // Decelerate: fast start, then asymptotically slow toward 94%.
-          // Never reaches 94 on its own — only the API response sets 100.
-          const increment = Math.max(0.15, (94 - prev) * 0.035);
-          return prev + increment;
-        });
-      }, 800);
-
-      const sigilToEnhance = reinforcedSigilSvg || baseSigilSvg;
+    try {
       const token = await AuthService.getIdToken();
-
       const response = await fetch(`${API_URL}/api/ai/enhance`, {
         method: 'POST',
         headers: {
@@ -719,7 +207,7 @@ export default function AIGeneratingScreen() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          sigilSvg: sigilToEnhance,
+          sigilSvg: actualStructure,
           styleChoice,
           intentionText,
           anchorId: `temp-${Date.now()}`,
@@ -729,39 +217,32 @@ export default function AIGeneratingScreen() {
         }),
         signal: controller.signal,
       });
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || errorData.error || 'AI enhancement failed');
       }
 
       const result = await response.json();
-
       trace.putAttribute('variation_count', Array.isArray(result.variations) ? result.variations.length : 0);
       trace.stop({ success: true });
       FrictionAnalytics.stepCompleted('anchor_creation', 'ai_generating', {
         style_id: styleChoice,
         category,
         variation_count: Array.isArray(result.variations) ? result.variations.length : 0,
-        generation_time_ms:
-          typeof result.generationTime === 'number' ? result.generationTime * 1000 : undefined,
+        generation_time_ms: typeof result.generationTime === 'number' ? result.generationTime * 1000 : undefined,
       });
       ErrorTrackingService.addBreadcrumb('AI enhancement completed', 'ai.enhance', {
         style_choice: styleChoice,
         variation_count: Array.isArray(result.variations) ? result.variations.length : 0,
       });
 
-      if (!isMountedRef.current) {
-        return;
-      }
-
-      setProgress(100);
+      if (!isMountedRef.current) return;
+      setEstimatedProgress(100);
+      setIsComplete(true);
+      useFirstAnchorFlowStore.getState().updateDraft({ generationStatus: 'complete' });
 
       navigationTimeoutRef.current = setTimeout(() => {
-        if (!isMountedRef.current) {
-          return;
-        }
-
+        if (!isMountedRef.current) return;
         navigation.replace('EnhancedVersionPicker', {
           intentionText,
           category,
@@ -777,714 +258,302 @@ export default function AIGeneratingScreen() {
           modelUsed: result.model || '',
           provider: result.provider || '',
           controlMethod: result.controlMethod || '',
-          generationTimeMs:
-            typeof result.generationTime === 'number' ? result.generationTime * 1000 : 0,
+          generationTimeMs: typeof result.generationTime === 'number' ? result.generationTime * 1000 : 0,
           reuseRequestId: result.reuseRequestId || '',
         });
-      }, 500);
+      }, reduceMotion ? 0 : 500);
     } catch (error) {
       trace.stop({ success: false });
+      if (!isMountedRef.current) return;
 
-      if (!isMountedRef.current) {
-        return;
-      }
-
-      setProgress(0);
-
-      let errorMessage = 'Failed to enhance anchor. Please try again.';
-      let errorCode = 'ai_generation_failed';
-      if (error instanceof Error) {
-        if (error.name === 'AbortError') {
-          errorMessage = 'Generation timed out. The AI is taking too long. Please try again.';
-          errorCode = 'ai_generation_timeout';
-        } else if (error.message.includes('Network')) {
-          errorMessage = 'Network error. Please check your connection and try again.';
-          errorCode = 'network_error';
-        } else {
-          errorMessage = error.message;
-        }
-      }
+      const connectionFailure = isConnectionError(error) && !(error instanceof Error && error.name === 'AbortError');
+      const errorCode = connectionFailure
+        ? 'network_error'
+        : error instanceof Error && error.name === 'AbortError'
+          ? 'ai_generation_timeout'
+          : 'ai_generation_failed';
+      setEstimatedProgress(0);
+      setFailure(connectionFailure ? 'connection' : 'generic');
+      useFirstAnchorFlowStore.getState().updateDraft({ generationStatus: 'error' });
       FrictionAnalytics.flowError('anchor_creation', 'ai_generating', errorCode, {
         style_id: styleChoice,
         category,
         attempt: generationAttemptRef.current,
       });
-
       ErrorTrackingService.captureException(error, {
         screen: 'AIGeneratingScreen',
         action: 'generate_ai_variations',
         style_choice: styleChoice,
       });
       logger.error('[AIGenerating] AI generation error', error);
-
-      Alert.alert('Enhancement Failed', errorMessage, [
-        {
-          text: 'Try Again',
-          onPress: () => {
-            generationAttemptRef.current += 1;
-            FrictionAnalytics.flowRetry('anchor_creation', 'ai_generating', {
-              style_id: styleChoice,
-              category,
-            });
-            void generateAIVariations();
-          },
-        },
-        {
-          text: 'Go Back',
-          style: 'cancel',
-          onPress: () => {
-            FrictionAnalytics.stepAbandoned('anchor_creation', 'ai_generating', 'go_back_after_error', {
-              style_id: styleChoice,
-              category,
-            });
-            navigation.goBack();
-          },
-        },
-      ]);
     } finally {
       clearGenerationResources(true);
       isGeneratingRef.current = false;
     }
   }, [
-    API_URL,
+    actualStructure,
     anchorCount,
     baseSigilSvg,
     category,
     clearGenerationResources,
     distilledLetters,
     hasActiveEntitlement,
-    isAuthenticated,
     intentionText,
+    isAuthenticated,
     navigation,
-    reinforcementMetadata,
+    reduceMotion,
     reinforcedSigilSvg,
+    reinforcementMetadata,
     structureVariant,
     styleChoice,
     user?.id,
   ]);
 
+  const retryGeneration = useCallback(() => {
+    generationAttemptRef.current += 1;
+    FrictionAnalytics.flowRetry('anchor_creation', 'ai_generating', {
+      style_id: styleChoice,
+      category,
+    });
+    void generateAIVariations();
+  }, [category, generateAIVariations, styleChoice]);
+
   useEffect(() => {
     isMountedRef.current = true;
-
-    Animated.timing(fadeAnim, {
+    const intro = Animated.timing(contentOpacity, {
       toValue: 1,
-      duration: 800,
+      duration: reduceMotion ? 0 : 420,
       useNativeDriver: true,
-    }).start();
+    });
+    intro.start();
 
-    const getRotationDuration = () => {
-      switch (styleChoice) {
-        case 'architectural_trace':
-        case 'minimal_line':
-          return 6000;
-        case 'lunar_etch':
-          return 11000;
-        case 'resonance_rings':
-          return 9000;
-        case 'ink_brush':
-          return 10000;
-        case 'sacred_geometry':
-          return 12000;
-        case 'watercolor':
-          return 15000;
-        case 'gold_leaf':
-          return 20000;
-        case 'cosmic':
-          return 8000;
-        default:
-          return 8000;
-      }
-    };
-
-    const pulseLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.15,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-
-    const rotateLoop = Animated.loop(
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: getRotationDuration(),
-        useNativeDriver: true,
-      })
-    );
-
-    const sparkleLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(sparkleAnim, {
-          toValue: 1,
-          duration: 1200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(sparkleAnim, {
-          toValue: 0,
-          duration: 1200,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-
-    const glowLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowAnim, {
-          toValue: 1,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(glowAnim, {
-          toValue: 0,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-
-    const orb1Loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(orb1Anim, {
-          toValue: 1,
-          duration: 4000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(orb1Anim, {
-          toValue: 0,
-          duration: 4000,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-
-    const orb2Loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(orb2Anim, {
-          toValue: 1,
-          duration: 5000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(orb2Anim, {
-          toValue: 0,
-          duration: 5000,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-
-    animationLoopsRef.current = [pulseLoop, rotateLoop, sparkleLoop, glowLoop, orb1Loop, orb2Loop];
-    animationLoopsRef.current.forEach((loop) => loop.start());
+    if (!reduceMotion) {
+      const halo = Animated.loop(
+        Animated.sequence([
+          Animated.parallel([
+            Animated.timing(haloOpacity, { toValue: 0.55, duration: 2600, useNativeDriver: true }),
+            Animated.timing(haloScale, { toValue: 1.035, duration: 2600, useNativeDriver: true }),
+          ]),
+          Animated.parallel([
+            Animated.timing(haloOpacity, { toValue: 0.24, duration: 2600, useNativeDriver: true }),
+            Animated.timing(haloScale, { toValue: 1, duration: 2600, useNativeDriver: true }),
+          ]),
+        ]),
+      );
+      const progressLine = Animated.loop(
+        Animated.timing(lineTravel, { toValue: 1, duration: 1500, useNativeDriver: true }),
+      );
+      ambientLoopsRef.current = [halo, progressLine];
+      ambientLoopsRef.current.forEach((loop) => loop.start());
+    } else {
+      haloOpacity.setValue(0.3);
+      haloScale.setValue(1);
+      lineTravel.setValue(0.48);
+    }
 
     void generateAIVariations();
-
     return () => {
       isMountedRef.current = false;
       isGeneratingRef.current = false;
-      animationLoopsRef.current.forEach((loop) => loop.stop());
-      animationLoopsRef.current = [];
-      fadeAnim.stopAnimation();
-      pulseAnim.stopAnimation();
-      rotateAnim.stopAnimation();
-      sparkleAnim.stopAnimation();
-      glowAnim.stopAnimation();
-      orb1Anim.stopAnimation();
-      orb2Anim.stopAnimation();
+      intro.stop();
+      ambientLoopsRef.current.forEach((loop) => loop.stop());
+      ambientLoopsRef.current = [];
       clearGenerationResources();
     };
-  }, [
-    clearGenerationResources,
-    fadeAnim,
-    generateAIVariations,
-    glowAnim,
-    orb1Anim,
-    orb2Anim,
-    pulseAnim,
-    rotateAnim,
-    sparkleAnim,
-    styleChoice,
-  ]);
+  }, [clearGenerationResources, contentOpacity, generateAIVariations, haloOpacity, haloScale, lineTravel, reduceMotion]);
 
-  // Style-specific rotation interpolation
-  const rotation = rotateAnim.interpolate({
+  const progressTranslateX = lineTravel.interpolate({
     inputRange: [0, 1],
-    outputRange:
-      styleChoice === 'architectural_trace' || styleChoice === 'minimal_line'
-        ? ['0deg', '360deg'] // Will apply snapping via discrete steps
-        : ['0deg', '360deg'],
+    outputRange: [-150, 280],
   });
-
-  // For architectural_trace, create snapping alignment effect
-  const getRotationTransform = () => {
-    if (styleChoice === 'architectural_trace' || styleChoice === 'minimal_line') {
-      // Create 12 snapping points (every 30 degrees)
-      const snappedRotation = rotateAnim.interpolate({
-        inputRange: [
-          0, 0.083, 0.166, 0.25, 0.333, 0.416, 0.5, 0.583, 0.666, 0.75, 0.833, 0.916, 1,
-        ],
-        outputRange: [
-          '0deg',
-          '30deg',
-          '60deg',
-          '90deg',
-          '120deg',
-          '150deg',
-          '180deg',
-          '210deg',
-          '240deg',
-          '270deg',
-          '300deg',
-          '330deg',
-          '360deg',
-        ],
-      });
-      return [{ rotate: snappedRotation }];
-    }
-    return [{ rotate: rotation }];
-  };
-
-  const sparkleOpacity = sparkleAnim.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0.3, 1, 0.3],
-  });
-
-  const glowOpacity = glowAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.3, 0.8],
-  });
+  const heroSize = isCompactLayout ? 142 : 164;
+  const haloSize = heroSize + 46;
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-
-      {/* Animated Background */}
       <LinearGradient
-        colors={[colors.navy, colors.deepPurple, colors.charcoal, colors.navy]}
-        style={styles.background}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+        colors={[colors.anchor15.creationTop, colors.anchor15.navy, colors.anchor15.ink]}
+        locations={[0, 0.5, 1]}
+        style={StyleSheet.absoluteFillObject}
       />
+      <View pointerEvents="none" style={styles.goldAmbient} />
+      <View pointerEvents="none" style={styles.arcTop} />
+      <View pointerEvents="none" style={styles.arcBottom} />
 
-      {/* Floating Orbs - Optimized for both platforms */}
-      <Animated.View
-        style={[
-          styles.orb,
-          styles.orb1,
-          {
-            width: orb1Size,
-            height: orb1Size,
-            top: -Math.round(orb1Size * 0.33),
-            right: -Math.round(orb1Size * 0.33),
-          },
-          {
-            opacity: orb1Anim.interpolate({
-              inputRange: [0, 1],
-              outputRange: IS_ANDROID ? [0.06, 0.10] : [0.1, 0.15],
-            }),
-            transform: [
-              {
-                translateY: orb1Anim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, -30],
-                }),
-              },
-            ],
-          },
-        ]}
-      />
-      <Animated.View
-        style={[
-          styles.orb,
-          styles.orb2,
-          {
-            width: orb2Size,
-            height: orb2Size,
-            bottom: -Math.round(orb2Size * 0.32),
-            left: -Math.round(orb2Size * 0.32),
-          },
-          {
-            opacity: orb2Anim.interpolate({
-              inputRange: [0, 1],
-              outputRange: IS_ANDROID ? [0.05, 0.08] : [0.08, 0.12],
-            }),
-            transform: [
-              {
-                translateX: orb2Anim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, 20],
-                }),
-              },
-            ],
-          },
-        ]}
-      />
-
-      {/* Main Content */}
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <Animated.View style={[styles.content, isCompactLayout && styles.contentCompact, { opacity: fadeAnim }]}>
-        {/* Center Icon with Animations */}
-        <View
-          style={[
-            styles.iconContainer,
-            isCompactLayout && styles.iconContainerCompact,
-            { width: orbitSize, height: orbitSize },
-          ]}
-        >
-          {/* Outer glow */}
-          <Animated.View
-            style={[
-              styles.glowRing,
-              {
-                width: glowSize,
-                height: glowSize,
-                borderRadius: glowSize / 2,
-              },
-              {
-                opacity: glowOpacity,
-                transform: [{ scale: pulseAnim }],
-              },
-            ]}
-          />
-
-          {/* Rotating outer circle with style-specific animation */}
-          <Animated.View style={{ transform: getRotationTransform() }}>
-            <Svg width={orbitSize} height={orbitSize} viewBox="0 0 200 200">
-              {/* Dashed outer circle */}
-              <Circle
-                cx="100"
-                cy="100"
-                r="90"
-                stroke={colors.gold}
-                strokeWidth="2"
-                strokeDasharray="8,8"
-                fill="none"
-                opacity={0.3}
-              />
-            </Svg>
-          </Animated.View>
-
-          {/* Refinement Seal - Style-responsive center visual */}
-          <Animated.View
-            style={[
-              styles.centerIcon,
-              {
-                width: centerSize,
-                height: centerSize,
-              },
-              {
-                transform: [{ scale: pulseAnim }],
-              },
-            ]}
-          >
-            {IS_ANDROID ? (
-              <View style={[styles.centerCircle, styles.centerCircleAndroid, { width: centerSize, height: centerSize, borderRadius: centerSize / 2 }]}>
-                {renderRefinementSeal()}
+        <Animated.View style={[styles.content, isCompactLayout && styles.contentCompact, { opacity: contentOpacity }]}>
+          {failure ? (
+            <View style={styles.errorState} accessibilityLiveRegion="polite">
+              <Text style={styles.eyebrow}>{failure === 'connection' ? 'Connection Lost' : 'Generation paused'}</Text>
+              <Text style={styles.errorTitle}>
+                {failure === 'connection' ? 'Connection Lost' : 'We couldn’t finish this generation.'}
+              </Text>
+              <Text style={styles.errorBody}>
+                {failure === 'connection' ? 'Your choices are saved.' : 'Your structure and style are still here.'}
+              </Text>
+              <View style={styles.errorActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={failure === 'connection' ? 'Retry generation' : 'Try generating again'}
+                  onPress={retryGeneration}
+                  style={({ pressed }) => [styles.primaryAction, pressed && styles.pressed]}
+                >
+                  <Text style={styles.primaryActionLabel}>{failure === 'connection' ? 'Retry' : 'Try Again'}</Text>
+                </Pressable>
+                {failure === 'generic' ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Back to style"
+                    onPress={() => navigation.goBack()}
+                    style={({ pressed }) => [styles.secondaryAction, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.secondaryActionLabel}>Back to Style</Text>
+                  </Pressable>
+                ) : null}
               </View>
-            ) : (
-              <BlurView intensity={15} tint="dark" style={[styles.centerCircle, { width: centerSize, height: centerSize, borderRadius: centerSize / 2 }]}>
-                {renderRefinementSeal()}
-              </BlurView>
-            )}
-          </Animated.View>
-        </View>
-
-        {/* Loading Text */}
-        <View style={[styles.loadingTextContainer, isCompactLayout && styles.loadingTextContainerCompact]}>
-          <Animated.Text
-            style={[
-              styles.loadingTextPrimary,
-              isCompactLayout && styles.loadingTextPrimaryCompact,
-              {
-                opacity: fadeAnim,
-              },
-            ]}
-          >
-            Refining your Anchor…
-          </Animated.Text>
-          <Animated.Text
-            style={[
-              styles.loadingTextSecondary,
-              isCompactLayout && styles.loadingTextSecondaryCompact,
-              {
-                opacity: fadeAnim,
-              },
-            ]}
-          >
-            {refinementPhrase}
-          </Animated.Text>
-        </View>
-
-        {/* Progress Bar */}
-        <View style={[styles.progressContainer, isCompactLayout && styles.progressContainerCompact]}>
-          <View style={styles.progressBarBg}>
-            <View
-              style={[
-                styles.progressBarFill,
-                { width: `${progress}%`, opacity: 0.4 },
-              ]}
-            />
-          </View>
-          <Text style={[styles.progressPhaseText, isCompactLayout && styles.progressPhaseTextCompact]}>{getProgressPhase()}</Text>
-        </View>
-
-        {/* Intention Card */}
-        <View style={[styles.intentionContainer, isCompactLayout && styles.intentionContainerCompact]}>
-          {IS_ANDROID ? (
-            <View style={[styles.intentionCard, styles.intentionCardAndroid, isCompactLayout && styles.intentionCardCompact]}>
-              <Text style={styles.intentionLabel}>FORGING</Text>
-              <Text style={[styles.intentionText, isCompactLayout && styles.intentionTextCompact]}>"{intentionText}"</Text>
-              <View style={styles.intentionBorder} />
             </View>
           ) : (
-            <BlurView intensity={12} tint="dark" style={[styles.intentionCard, isCompactLayout && styles.intentionCardCompact]}>
-              <Text style={styles.intentionLabel}>FORGING</Text>
-              <Text style={[styles.intentionText, isCompactLayout && styles.intentionTextCompact]}>"{intentionText}"</Text>
-              <View style={styles.intentionBorder} />
-            </BlurView>
-          )}
-        </View>
+            <>
+              <View style={styles.heading}>
+                <Text style={styles.eyebrow}>Generating</Text>
+                <Text style={styles.title}>Generating Your Anchor</Text>
+                <Text style={styles.subtitle}>Creating expressions from your structure and selected style.</Text>
+              </View>
 
-        {/* Time Estimate */}
-        <View style={[styles.timeEstimate, isCompactLayout && styles.timeEstimateCompact]}>
-          <Animated.View
-            style={[
-              styles.timeIcon,
-              {
-                opacity: sparkleOpacity,
-              },
-            ]}
-          >
-            <Text style={styles.timeIconText}>⏱</Text>
-          </Animated.View>
-          <Text style={[styles.timeText, isShortLayout && styles.timeTextCompact]}>This usually takes about 30 seconds</Text>
-        </View>
-      </Animated.View>
+              <View style={[styles.heroStage, { width: haloSize, height: haloSize }]} accessible={false}>
+                <Animated.View
+                  style={[
+                    styles.heroHalo,
+                    { width: haloSize, height: haloSize, borderRadius: haloSize / 2, opacity: haloOpacity, transform: [{ scale: haloScale }] },
+                  ]}
+                />
+                <Svg width={haloSize} height={haloSize} viewBox="0 0 220 220" style={styles.ringField}>
+                  <Circle cx="110" cy="110" r="93" fill="none" stroke={colors.anchor15.gilt} strokeWidth="1" strokeDasharray="2 5" opacity="0.18" />
+                  <Circle cx="110" cy="110" r="78" fill="none" stroke={colors.anchor15.gilt} strokeWidth="1" strokeDasharray="3 4" opacity="0.14" />
+                  <Circle cx="110" cy="110" r="62" fill="none" stroke={colors.anchor15.gilt} strokeWidth="1" opacity="0.55" />
+                  <Circle cx="110" cy="110" r="35" fill="none" stroke={colors.anchor15.gilt} strokeWidth="1" opacity="0.17" />
+                </Svg>
+                <View style={[styles.sigilFrame, { width: heroSize, height: heroSize, borderRadius: heroSize / 2 }]}>
+                  <SigilSvg xml={actualStructure} width={heroSize * 0.56} height={heroSize * 0.56} color={colors.anchor15.giltBright} />
+                </View>
+              </View>
+
+              <View style={styles.statusBlock}>
+                <Text accessibilityLiveRegion="polite" style={styles.statusLabel}>{status}</Text>
+                <View style={styles.progressTrack} accessibilityElementsHidden>
+                  <Animated.View
+                    style={[
+                      styles.progressLine,
+                      { transform: [{ translateX: progressTranslateX }] },
+                      reduceMotion && styles.progressLineStatic,
+                    ]}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.metadata}>
+                <Text style={styles.metadataLabel}>Structure · Style</Text>
+                <Text style={styles.metadataValue} numberOfLines={2}>{`${structureLabel} · ${styleLabel}`}</Text>
+                <View style={styles.estimateRow}>
+                  <Clock3 color={colors.anchor15.gilt} size={13} strokeWidth={1.4} />
+                  <Text style={styles.estimate}>Usually ready in about 30 seconds.</Text>
+                </View>
+              </View>
+            </>
+          )}
+        </Animated.View>
       </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.navy,
+  container: { flex: 1, backgroundColor: colors.anchor15.ink },
+  safeArea: { flex: 1 },
+  goldAmbient: {
+    position: 'absolute', width: 390, height: 390, borderRadius: 195, top: -205, left: -42,
+    backgroundColor: 'rgba(217, 179, 108, 0.055)',
   },
-  safeArea: {
-    flex: 1,
+  arcTop: {
+    position: 'absolute', width: 620, height: 620, borderRadius: 310, top: -440, left: -250,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(217, 179, 108, 0.09)',
   },
-  background: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  orb: {
-    position: 'absolute',
-    borderRadius: 300,
-    backgroundColor: colors.gold,
-  },
-  orb1: {
-  },
-  orb2: {
+  arcBottom: {
+    position: 'absolute', width: 480, height: 480, borderRadius: 240, bottom: -336, right: -204,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(217, 179, 108, 0.07)',
   },
   content: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 32,
+    flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28, paddingVertical: 26,
   },
-  contentCompact: {
-    paddingHorizontal: 24,
+  contentCompact: { paddingHorizontal: 22, paddingVertical: 16 },
+  heading: { alignItems: 'center', maxWidth: 326, marginBottom: 32 },
+  eyebrow: {
+    color: colors.anchor15.ash, fontFamily: typography.fontFamily.ritual, fontSize: 10,
+    letterSpacing: 2.3, textTransform: 'uppercase',
   },
-  iconContainer: {
-    width: 200,
-    height: 200,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 48,
+  title: {
+    color: colors.anchor15.bone, fontFamily: typography.fontFamily.ritualSemiBold, fontSize: 22,
+    lineHeight: 27, letterSpacing: 0.2, textAlign: 'center', marginTop: 10,
   },
-  iconContainerCompact: {
-    marginBottom: 28,
+  subtitle: {
+    color: 'rgba(244, 239, 230, 0.72)', fontFamily: typography.fontFamily.voiceItalic,
+    fontStyle: 'italic', fontSize: 15, lineHeight: 20, textAlign: 'center', marginTop: 12,
   },
-  glowRing: {
-    position: 'absolute',
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: colors.gold,
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 40,
-    elevation: 20,
+  heroStage: { alignItems: 'center', justifyContent: 'center', marginBottom: 31 },
+  heroHalo: {
+    position: 'absolute', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(217, 179, 108, 0.24)',
   },
-  centerIcon: {
-    position: 'absolute',
-    width: 120,
-    height: 120,
-    justifyContent: 'center',
-    alignItems: 'center',
+  ringField: { position: 'absolute' },
+  sigilFrame: {
+    alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 20, 25, 0.60)',
   },
-  centerCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(26, 26, 29, 0.6)',
-    borderWidth: 2,
-    borderColor: 'rgba(212, 175, 55, 0.3)',
+  statusBlock: { width: '100%', maxWidth: 320, alignItems: 'center' },
+  statusLabel: {
+    color: colors.anchor15.gilt, fontFamily: typography.fontFamily.ritualSemiBold, fontSize: 10,
+    letterSpacing: 1.8, textAlign: 'center', marginBottom: 18,
   },
-  centerCircleAndroid: {
-    backgroundColor: 'rgba(26, 26, 29, 0.9)',
+  progressTrack: {
+    width: '100%', height: 1, overflow: 'hidden', backgroundColor: 'rgba(217, 179, 108, 0.18)',
   },
-  loadingTextContainer: {
-    alignItems: 'center',
-    marginBottom: 40,
+  progressLine: { width: 108, height: 1, backgroundColor: colors.anchor15.giltBright },
+  progressLineStatic: { transform: [{ translateX: 106 }] },
+  metadata: { alignItems: 'center', marginTop: 17, maxWidth: 330 },
+  metadataLabel: {
+    color: colors.anchor15.ash, fontFamily: typography.fontFamily.instrument, fontSize: 10,
+    letterSpacing: 1.35, textTransform: 'uppercase',
   },
-  loadingTextContainerCompact: {
-    marginBottom: 28,
+  metadataValue: {
+    color: colors.anchor15.bone, fontFamily: typography.fontFamily.ritualSemiBold, fontSize: 12,
+    lineHeight: 18, letterSpacing: 0.35, textAlign: 'center', marginTop: 8, textTransform: 'uppercase',
   },
-  loadingTextPrimary: {
-    fontSize: 22,
-    fontWeight: '500',
-    color: colors.bone,
-    marginBottom: 12,
-    letterSpacing: 0.5,
-    textAlign: 'center',
+  estimateRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 15 },
+  estimate: {
+    color: colors.anchor15.ash, fontFamily: typography.fontFamily.voiceItalic, fontStyle: 'italic',
+    fontSize: 13, lineHeight: 18,
   },
-  loadingTextPrimaryCompact: {
-    fontSize: 20,
-    marginBottom: 10,
+  errorState: { width: '100%', maxWidth: 320, alignItems: 'center' },
+  errorTitle: {
+    color: colors.anchor15.bone, fontFamily: typography.fontFamily.ritualSemiBold, fontSize: 22,
+    lineHeight: 29, textAlign: 'center', marginTop: 12,
   },
-  loadingTextSecondary: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: colors.gold,
-    letterSpacing: 0.3,
-    textAlign: 'center',
-    opacity: 0.8,
+  errorBody: {
+    color: 'rgba(244, 239, 230, 0.72)', fontFamily: typography.fontFamily.voiceItalic,
+    fontStyle: 'italic', fontSize: 16, lineHeight: 22, textAlign: 'center', marginTop: 12,
   },
-  loadingTextSecondaryCompact: {
-    fontSize: 15,
+  errorActions: { width: '100%', gap: 10, marginTop: 29 },
+  primaryAction: { minHeight: 48, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.anchor15.gilt },
+  primaryActionLabel: {
+    color: colors.anchor15.ink, fontFamily: typography.fontFamily.instrumentSemiBold, fontSize: 12,
+    letterSpacing: 1.15, textTransform: 'uppercase',
   },
-  progressContainer: {
-    width: '100%',
-    marginBottom: 40,
+  secondaryAction: {
+    minHeight: 48, alignItems: 'center', justifyContent: 'center', borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.anchor15.goldHairline,
   },
-  progressContainerCompact: {
-    marginBottom: 28,
+  secondaryActionLabel: {
+    color: colors.anchor15.giltBright, fontFamily: typography.fontFamily.instrumentSemiBold, fontSize: 12,
+    letterSpacing: 1.05, textTransform: 'uppercase',
   },
-  progressBarBg: {
-    width: '100%',
-    height: 3,
-    backgroundColor: 'rgba(26, 26, 29, 0.5)',
-    borderRadius: 1.5,
-    overflow: 'hidden',
-    marginBottom: 16,
-    borderWidth: 0,
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 1.5,
-    backgroundColor: colors.gold,
-  },
-  progressPhaseText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.silver,
-    textAlign: 'center',
-    letterSpacing: 1.2,
-    marginTop: 8,
-    opacity: 0.7,
-  },
-  progressPhaseTextCompact: {
-    fontSize: 12,
-    marginTop: 6,
-  },
-  intentionContainer: {
-    width: '100%',
-    marginBottom: 24,
-  },
-  intentionContainerCompact: {
-    marginBottom: 18,
-  },
-  intentionCard: {
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.3)',
-    backgroundColor: 'rgba(26, 26, 29, 0.5)',
-    position: 'relative',
-  },
-  intentionCardCompact: {
-    padding: 16,
-  },
-  intentionCardAndroid: {
-    backgroundColor: 'rgba(26, 26, 29, 0.9)',
-  },
-  intentionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.silver,
-    letterSpacing: 1.5,
-    marginBottom: 8,
-    opacity: 0.7,
-  },
-  intentionText: {
-    fontSize: 17,
-    fontStyle: 'italic',
-    color: colors.bone,
-    lineHeight: 24,
-  },
-  intentionTextCompact: {
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  intentionBorder: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 4,
-    backgroundColor: colors.gold,
-    borderTopLeftRadius: 16,
-    borderBottomLeftRadius: 16,
-  },
-  timeEstimate: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: 'rgba(62, 44, 91, 0.3)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.2)',
-  },
-  timeEstimateCompact: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  timeIcon: {
-    marginRight: 10,
-  },
-  timeIconText: {
-    fontSize: 20,
-  },
-  timeText: {
-    fontSize: 13,
-    color: colors.silver,
-    fontStyle: 'italic',
-  },
-  timeTextCompact: {
-    fontSize: 12,
-  },
+  pressed: { opacity: 0.72 },
 });

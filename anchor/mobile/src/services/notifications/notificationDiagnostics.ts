@@ -67,7 +67,6 @@ export interface NotificationDiagnosticsReport {
     dailyPrimeTime: string;
     threadStrengthAlertsEnabled: boolean;
     weeklyRecapEnabled: boolean;
-    milestoneNotificationsEnabled: boolean;
     lastNotificationSentAt: NotificationState['lastNotificationSentAt'];
   } | null;
   pending: PendingSmartNotification | null;
@@ -170,7 +169,6 @@ export async function collectNotificationDiagnostics(): Promise<NotificationDiag
         dailyPrimeTime: state.dailyPrimeTime,
         threadStrengthAlertsEnabled: state.threadStrengthAlertsEnabled,
         weeklyRecapEnabled: state.weeklyRecapEnabled,
-        milestoneNotificationsEnabled: state.milestoneNotificationsEnabled,
         lastNotificationSentAt: state.lastNotificationSentAt,
       };
     }
@@ -257,7 +255,6 @@ export function formatNotificationDiagnostics(
     lines.push(`  daily prime time:      ${report.appState.dailyPrimeTime}`);
     lines.push(`  thread strength:       ${report.appState.threadStrengthAlertsEnabled}`);
     lines.push(`  weekly recap:          ${report.appState.weeklyRecapEnabled}`);
-    lines.push(`  milestones:            ${report.appState.milestoneNotificationsEnabled}`);
     const sent = Object.entries(report.appState.lastNotificationSentAt ?? {});
     lines.push(`  last delivered:        ${sent.length === 0 ? 'never' : ''}`);
     sent.forEach(([category, at]) => lines.push(`    ${category}: ${at}`));

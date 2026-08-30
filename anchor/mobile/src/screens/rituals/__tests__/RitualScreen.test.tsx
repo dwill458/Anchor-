@@ -19,7 +19,6 @@ const mockNavigateToPractice = jest.fn();
 const mockNavigateToVaultDestination = jest.fn();
 const mockUpdateAnchor = jest.fn();
 const mockRecordSession = jest.fn();
-const mockQueueProgressionMilestones = jest.fn();
 
 const createMockManagedPlayer = () => ({
   pause: jest.fn(),
@@ -146,10 +145,6 @@ jest.mock('@/services/ApiClient', () => ({
 jest.mock('@/utils/postPrimeTraceEligibility', () => ({
   isPostPrimeTraceEligible: jest.fn().mockResolvedValue(false),
   markPostPrimeTraceAttemptStarted: jest.fn().mockResolvedValue(undefined),
-}));
-jest.mock('@/utils/progressionMilestones', () => ({
-  queueProgressionMilestonesFromStores: (...args: any[]) =>
-    mockQueueProgressionMilestones(...args),
 }));
 jest.mock('@/navigation/firstAnchorGate', () => ({
   navigateToVaultDestination: (...args: any[]) => mockNavigateToVaultDestination(...args),
@@ -286,8 +281,6 @@ describe('RitualScreen', () => {
     mockUpdateAnchor.mockReset();
     mockUpdateAnchor.mockResolvedValue(undefined);
     mockRecordSession.mockReset();
-    mockQueueProgressionMilestones.mockReset();
-    mockQueueProgressionMilestones.mockResolvedValue(undefined);
 
     mockAnchor = createMockAnchor({
       id: 'test-anchor-id',
@@ -455,7 +448,6 @@ describe('RitualScreen', () => {
         durationSeconds: 30,
       })
     );
-    expect(mockQueueProgressionMilestones).toHaveBeenCalledTimes(1);
     expect(mockHandlePrimeComplete).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(mockNavigateToPractice).toHaveBeenCalledTimes(1), {
       timeout: 2000,

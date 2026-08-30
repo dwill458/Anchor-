@@ -130,9 +130,16 @@ jest.mock('@/screens/vault/components/HeroAnchorCard', () => ({
 }));
 
 jest.mock('@/screens/vault/components/AnchorStack', () => ({
-    AnchorStack: ({ anchors }: any) => {
-        const { Text } = require('react-native');
-        return <Text>Stack: {anchors.length}</Text>;
+    AnchorStack: ({ anchors, onAddPress }: any) => {
+        const { Text, TouchableOpacity } = require('react-native');
+        return (
+            <>
+                <Text>Stack: {anchors.length}</Text>
+                <TouchableOpacity accessibilityLabel="Create new anchor" onPress={onAddPress}>
+                    <Text>New anchor</Text>
+                </TouchableOpacity>
+            </>
+        );
     },
 }));
 
@@ -193,7 +200,7 @@ describe('VaultScreen', () => {
         });
         // Vault contents must never render for an un-accounted guest.
         expect(screen.queryByTestId('hero-anchor-card')).toBeNull();
-        expect(screen.queryByText('CREATE NEW ANCHOR')).toBeNull();
+        expect(screen.queryByLabelText('Create new anchor')).toBeNull();
     });
 
     it('renders empty state when no anchors', () => {
@@ -249,7 +256,7 @@ describe('VaultScreen', () => {
         }];
         render(<VaultScreen />);
         expect(screen.getByText('Hero: Build focus')).toBeTruthy();
-        expect(screen.getByText('CREATE NEW ANCHOR')).toBeTruthy();
+        expect(screen.getByLabelText('Create new anchor')).toBeTruthy();
     });
 
     it('shows skeleton loader while loading', () => {
@@ -344,7 +351,9 @@ describe('VaultScreen', () => {
 
         render(<VaultScreen />);
         expect(screen.getByText('Hero: Build focus')).toBeTruthy();
-        expect(screen.getByText('Stack: 0')).toBeTruthy();
+        // The current/hero anchor is included in the row (highlighted), so a
+        // single active anchor still shows a stack of 1.
+        expect(screen.getByText('Stack: 1')).toBeTruthy();
     });
 
     it('shows the empty sanctuary state when only released anchors remain', () => {
@@ -363,7 +372,7 @@ describe('VaultScreen', () => {
 
         render(<VaultScreen />);
         expect(screen.getByText(/FORGE YOUR FIRST ANCHOR/)).toBeTruthy();
-        expect(screen.queryByText('CREATE NEW ANCHOR')).toBeNull();
+        expect(screen.queryByText(/Stack:/)).toBeNull();
     });
 
     it('routes unauthenticated returning users to the create flow', () => {

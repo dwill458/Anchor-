@@ -22,7 +22,6 @@ import {
   type PrimingHistoryEntry,
 } from "@/utils/primingAnalytics";
 import { logger } from "@/utils/logger";
-import { initializeProgressionMilestonesFromStores } from "@/utils/progressionMilestones";
 import { applyRemoteSessionAudioPreferences } from "@/services/SessionAudioPreferencesService";
 import type {
   PracticeSessionRecord,
@@ -1005,7 +1004,6 @@ class AuthHydrationService {
 
     if (!isCurrentAccount()) return;
     useAuthStore.getState().computeStreak();
-    await initializeProgressionMilestonesFromStores();
   }
 
   /**

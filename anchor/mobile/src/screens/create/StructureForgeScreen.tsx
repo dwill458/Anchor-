@@ -20,6 +20,7 @@ import { useTeachingGate } from '@/utils/useTeachingGate';
 import { generateAllVariants, SigilGenerationResult, SigilVariant } from '@/utils/sigil/traditional-generator';
 import { classifyToTierPreliminary } from '@/utils/tierClassifier';
 import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
+import { useFirstAnchorFlowStore, type FirstAnchorStructure } from '@/stores/firstAnchorFlowStore';
 
 type StructureType = 'focused' | 'ritual' | 'raw';
 type StructureCardType = StructureType | 'drawn';
@@ -117,7 +118,9 @@ export default function StructureForgeScreen() {
   const previewGlowSize = isCompactLayout ? 164 : isShortLayout ? 174 : 186;
   const previewCoreSize = isCompactLayout ? 188 : isShortLayout ? 204 : 220;
 
-  const [selectedStructure, setSelectedStructure] = useState<StructureCardType>('focused');
+  // Selection is intentional: do not silently make a first-anchor decision for
+  // someone. This matches the teaching copy and keeps a resumed draft explicit.
+  const [selectedStructure, setSelectedStructure] = useState<StructureCardType | null>(null);
   const glowOpacity = useSharedValue(0.7);
 
   useEffect(() => {
@@ -140,7 +143,7 @@ export default function StructureForgeScreen() {
   }));
 
   const selectedConfig = useMemo(
-    () => STRUCTURES.find((item) => item.type === selectedStructure) ?? STRUCTURES[0],
+    () => STRUCTURES.find((item) => item.type === selectedStructure),
     [selectedStructure]
   );
 
@@ -162,10 +165,12 @@ export default function StructureForgeScreen() {
       : variantByStructure[structure.icon as StructureType] ?? ''
   );
 
-  const selectedVariantSvg = getStructureIconXml(selectedConfig);
-  const isManualStructureSelected = selectedConfig.isManual === true;
+  const selectedVariantSvg = selectedConfig ? getStructureIconXml(selectedConfig) : '';
+  const isManualStructureSelected = selectedConfig?.isManual === true;
 
   const navigateToTraceStructure = () => {
+    if (!selectedStructure || !selectedConfig || isManualStructureSelected) return;
+
     (navigation as unknown as { navigate: (...args: any[]) => void }).navigate('ManualReinforcement', {
       source: 'creation',
       intention,
@@ -179,6 +184,17 @@ export default function StructureForgeScreen() {
   };
 
   const handleBeginForging = () => {
+    if (!selectedStructure || !selectedConfig) return;
+
+    const selectedDraftStructure: FirstAnchorStructure = selectedStructure === 'focused'
+      ? 'balanced'
+      : selectedStructure === 'ritual'
+        ? 'compact'
+        : selectedStructure === 'raw'
+          ? 'minimal'
+          : 'drawn';
+    useFirstAnchorFlowStore.getState().updateDraft({ structure: selectedDraftStructure });
+
     if (isManualStructureSelected) {
       (navigation as unknown as { navigate: (...args: any[]) => void }).navigate('ManualForge', {
         intentionText,
@@ -192,21 +208,14 @@ export default function StructureForgeScreen() {
     if (!selectedVariantSvg) return;
 
     if (!traceDefaultEnabled) {
-      // DEFERRED: navigateToTraceStructure(); — default-on trace screen path remains above.
-      (navigation as unknown as { navigate: (...args: any[]) => void }).navigate('LockStructure', {
+      (navigation as unknown as { navigate: (...args: any[]) => void }).navigate('StyleSelection', {
         intentionText,
         category,
         distilledLetters,
         baseSigilSvg: selectedVariantSvg,
         reinforcedSigilSvg: undefined,
         structureVariant: STRUCTURE_VARIANT_MAP[selectedStructure as StructureType],
-        reinforcementMetadata: {
-          completed: false,
-          skipped: true,
-          strokeCount: 0,
-          fidelityScore: 0,
-          timeSpentMs: 0,
-        },
+        reinforcementMetadata: { completed: false, skipped: true, strokeCount: 0, fidelityScore: 0, timeSpentMs: 0 },
       });
       return;
     }
@@ -364,9 +373,9 @@ export default function StructureForgeScreen() {
         </View>
 
         <Text style={[styles.activeHint, { paddingHorizontal: horizontalPadding }, isCompactLayout && styles.activeHintCompact]}>
-          {selectedConfig.label} selected
+          {selectedConfig ? `${selectedConfig.label} selected` : 'Choose a structure to continue'}
         </Text>
-        {!traceDefaultEnabled && !isManualStructureSelected ? (
+        {selectedConfig && !traceDefaultEnabled && !isManualStructureSelected ? (
           <Pressable
             style={[styles.traceLink, { marginHorizontal: horizontalPadding }]}
             onPress={navigateToTraceStructure}
@@ -392,6 +401,7 @@ export default function StructureForgeScreen() {
           <Pressable
             style={styles.ctaShadowWrap}
             onPress={handleBeginForging}
+            disabled={!selectedConfig}
             accessibilityRole="button"
             accessibilityLabel={isManualStructureSelected ? 'Draw Your Anchor' : 'Begin Forging'}
           >
@@ -404,7 +414,7 @@ export default function StructureForgeScreen() {
                 colors={[colors.gold, colors.forgeScreen.ctaMid, colors.forgeScreen.ctaEnd]}
                 start={{ x: 0, y: 0.5 }}
                 end={{ x: 1, y: 0.5 }}
-                style={[styles.ctaButton, isCompactLayout && styles.ctaButtonCompact]}
+                style={[styles.ctaButton, !selectedConfig && styles.ctaButtonDisabled, isCompactLayout && styles.ctaButtonCompact]}
               >
                 <Text style={styles.ctaText}>Begin Forging</Text>
               </LinearGradient>
@@ -724,6 +734,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  ctaButtonDisabled: {
+    opacity: 0.42,
   },
   ctaButtonCompact: {
     height: 50,

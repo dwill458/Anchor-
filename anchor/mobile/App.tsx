@@ -30,13 +30,16 @@ import {
   CrimsonPro_400Regular,
   CrimsonPro_400Regular_Italic,
 } from '@expo-google-fonts/crimson-pro';
+import {
+  EBGaramond_400Regular,
+  EBGaramond_400Regular_Italic,
+  EBGaramond_500Medium,
+} from '@expo-google-fonts/eb-garamond';
 import { RootNavigator } from './src/navigation';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { ToastProvider } from './src/components/ToastProvider';
-import { ForgeMomentOverlay } from './src/components/ForgeMomentOverlay';
 import { useAuthStore } from './src/stores/authStore';
 import { useAnchorStore } from './src/stores/anchorStore';
-import { useForgeMomentStore } from './src/stores/forgeMomentStore';
 import { useSessionStore } from './src/stores/sessionStore';
 import { useSettingsStore } from './src/stores/settingsStore';
 import { SettingsRevealProvider } from './src/components/transitions/SettingsRevealProvider';
@@ -221,10 +224,6 @@ export default function App() {
   const analyticsEnabled = useSettingsStore((state) => state.analyticsEnabled);
   const anchorCount = useAnchorStore((state) => state.anchors.length);
   const lastSessionId = useSessionStore((state) => state.lastSession?.id);
-  const activeMilestone = useForgeMomentStore((state) => state.activeMilestone);
-  const hydrateMilestoneScope = useForgeMomentStore((state) => state.hydrateScope);
-  const markActiveMilestoneShown = useForgeMomentStore((state) => state.markActiveShown);
-  const dismissMilestone = useForgeMomentStore((state) => state.dismissMilestone);
   const navRef = useNavigationContainerRef<RootNavigatorParamList>();
   const routeNameRef = useRef<string | undefined>(undefined);
   const screenTraceRef = useRef<PerformanceTrace | null>(null);
@@ -245,15 +244,6 @@ export default function App() {
   const developerMasterAccountEnabledRef = useRef(developerMasterAccountEnabled);
   const previousUserIdRef = useRef<string | null>(null);
 
-  React.useEffect(() => {
-    void hydrateMilestoneScope(user?.id ?? null);
-  }, [hydrateMilestoneScope, user?.id]);
-  const handleActiveMilestoneShown = React.useCallback(() => {
-    void markActiveMilestoneShown();
-  }, [markActiveMilestoneShown]);
-  const handleDismissMilestone = React.useCallback(() => {
-    void dismissMilestone();
-  }, [dismissMilestone]);
   const developerSkipOnboardingEnabled = useSettingsStore(
     (state) => state.developerSkipOnboardingEnabled
   );
@@ -280,6 +270,9 @@ export default function App() {
     'Inter-SemiBold': Inter_600SemiBold,
     'CrimsonPro-Regular': CrimsonPro_400Regular,
     'CrimsonPro-Italic': CrimsonPro_400Regular_Italic,
+    'EBGaramond-Regular': EBGaramond_400Regular,
+    'EBGaramond-Italic': EBGaramond_400Regular_Italic,
+    'EBGaramond-Medium': EBGaramond_500Medium,
     'CormorantGaramond-Regular': CrimsonPro_400Regular,
     'CormorantGaramond-Italic': CrimsonPro_400Regular_Italic,
   });
@@ -816,11 +809,6 @@ export default function App() {
                   >
                     <StatusBar style="light" />
                     <RootNavigator />
-                    <ForgeMomentOverlay
-                      milestone={activeMilestone}
-                      onShown={handleActiveMilestoneShown}
-                      onDismiss={handleDismissMilestone}
-                    />
                   </NavigationContainer>
                 </SettingsRevealProvider>
               </View>

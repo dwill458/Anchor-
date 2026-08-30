@@ -45,7 +45,6 @@ import {
   markPostPrimeTraceAttemptStarted,
 } from '@/utils/postPrimeTraceEligibility';
 import { useMissingAnchorRedirect } from './utils/useMissingAnchorRedirect';
-import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
 import {
   buildRecoveredChargeState,
   isFirstPrimeForAnchor as isAnchorFirstPrime,
@@ -603,7 +602,6 @@ export const ActivationScreen: React.FC = () => {
       source: returnTo === 'practice' ? 'practice_screen' : 'anchor_detail',
     });
     void recordReviewSignal('focus_session_completed');
-    await queueProgressionMilestonesFromStores({ sourceEventId: completionEventId });
 
     if (returnTo === 'practice') {
       if (typeof navigation.popToTop === 'function') {

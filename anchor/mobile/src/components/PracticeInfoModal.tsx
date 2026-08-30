@@ -1,110 +1,119 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
+  LayoutAnimation,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
+  UIManager,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ChevronDown, ChevronRight, Eye, Flame, Zap } from 'lucide-react-native';
 import { colors, spacing, typography } from '@/theme';
+import { safeHaptics } from '@/utils/haptics';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
+
+if (
+  Platform.OS === 'android' &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 interface PracticeInfoModalProps {
   isVisible: boolean;
   onDismiss: () => void;
 }
 
-type ModeCard = {
-  key: 'focus' | 'deep-prime' | 'visualize' | 'release';
-  title: string;
-  action: string;
-  description: string;
-  accent: string;
-  iconStroke: string;
-  surface: string;
-  border: string;
-  iconSurface: string;
-};
+type PracticeModeKey = 'deep-prime' | 'visualize' | 'focus' | 'release';
 
-const SHEET_BACKGROUND = '#131920';
-const SHEET_BORDER = 'rgba(212,175,55,0.15)';
-const HANDLE_COLOR = 'rgba(192,192,192,0.25)';
-const OVERLAY_COLOR = 'rgba(8,12,16,0.6)';
-const GOLD_DIM = '#8A7020';
-const MODE_CARDS: ModeCard[] = [
+interface PracticeModeInfo {
+  key: PracticeModeKey;
+  title: string;
+  outcome: string;
+  metadata: string;
+  expandedTeaching: string;
+  accent: string;
+  iconSurface: string;
+  iconBorder: string;
+  icon: (color: string) => React.ReactNode;
+}
+
+const PRACTICE_MODES: PracticeModeInfo[] = [
   {
     key: 'deep-prime',
-    title: 'Deep Prime',
-    action: 'Build sustained attention.',
-    description: 'Stay with your anchor long enough for the intention to settle and compound.',
-    accent: '#D4AF37', iconStroke: '#D4AF37', surface: 'rgba(212,175,55,0.06)', border: 'rgba(212,175,55,0.2)', iconSurface: 'rgba(212,175,55,0.15)',
+    title: 'DEEP PRIME',
+    outcome: 'Stay with it longer.',
+    metadata: '2–10 min · Build sustained attention',
+    expandedTeaching:
+      'Stay with your anchor long enough for the intention to settle and compound.',
+    accent: '#D4AF37',
+    iconSurface: 'rgba(212, 175, 55, 0.12)',
+    iconBorder: 'rgba(212, 175, 55, 0.28)',
+    icon: (color) => <Zap size={15} color={color} />,
   },
   {
-    key: 'visualize', title: 'Visualize', action: 'Rehearse the moment.',
-    description: 'Picture a specific future moment where the intention is already real.',
-    accent: '#78B4D1', iconStroke: '#78B4D1', surface: 'rgba(120,180,209,0.06)', border: 'rgba(120,180,209,0.2)', iconSurface: 'rgba(120,180,209,0.15)',
+    key: 'visualize',
+    title: 'VISUALIZE',
+    outcome: 'See the outcome before it happens.',
+    metadata: '1–5 min · Mental rehearsal',
+    expandedTeaching:
+      'Picture a specific future moment where the intention is already real.',
+    accent: '#78B4D1',
+    iconSurface: 'rgba(120, 180, 209, 0.12)',
+    iconBorder: 'rgba(120, 180, 209, 0.28)',
+    icon: (color) => <Eye size={15} color={color} />,
   },
   {
-    key: 'focus', title: 'Focus Session', action: 'Reset drifting attention.',
-    description: 'Use a short session to return quickly to the anchor and the next step.',
-    accent: '#AD99D2', iconStroke: '#AD99D2', surface: 'rgba(173,153,210,0.06)', border: 'rgba(173,153,210,0.2)', iconSurface: 'rgba(173,153,210,0.15)',
+    key: 'focus',
+    title: 'FOCUS SESSION',
+    outcome: 'Come back to what matters.',
+    metadata: '10–60 sec · Quick reset',
+    expandedTeaching:
+      'Use a short session to return quickly to the anchor and the next step.',
+    accent: '#AD99D2',
+    iconSurface: 'rgba(173, 153, 210, 0.12)',
+    iconBorder: 'rgba(173, 153, 210, 0.28)',
+    icon: (color) => <Zap size={15} color={color} />,
   },
   {
-    key: 'release', title: 'Release', action: 'Close the completed loop.',
-    description: 'Let go when an intention has completed its work while preserving its history.',
-    accent: '#C8875A', iconStroke: '#C8875A', surface: 'rgba(200,135,90,0.06)', border: 'rgba(200,135,90,0.2)', iconSurface: 'rgba(200,135,90,0.15)',
+    key: 'release',
+    title: 'RELEASE',
+    outcome: 'Close the loop.',
+    metadata: 'Completed intentions · Let go',
+    expandedTeaching:
+      'Let go when an intention has completed its work while preserving its history.',
+    accent: '#C8875A',
+    iconSurface: 'rgba(200, 135, 90, 0.12)',
+    iconBorder: 'rgba(200, 135, 90, 0.28)',
+    icon: (color) => <Flame size={15} color={color} />,
   },
 ];
-
-function ModeGlyph({ mode, stroke }: { mode: ModeCard['key']; stroke: string }) {
-  if (mode === 'deep-prime') {
-    return (
-      <View style={styles.glyphFrame}>
-        <View style={[styles.boltSegment, styles.boltTop, { backgroundColor: stroke }]} />
-        <View style={[styles.boltSegment, styles.boltMid, { backgroundColor: stroke }]} />
-        <View style={[styles.boltSegment, styles.boltBottom, { backgroundColor: stroke }]} />
-      </View>
-    );
-  }
-
-  if (mode === 'release') {
-    return (
-      <View style={styles.glyphFrame}>
-        <View style={[styles.sealArc, styles.sealArcLeft, { borderColor: stroke }]} />
-        <View style={[styles.sealArc, styles.sealArcRight, { borderColor: stroke }]} />
-        <View style={[styles.sealStem, { backgroundColor: stroke }]} />
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.glyphFrame}>
-      <View style={[styles.ringOuter, { borderColor: stroke }]} />
-      <View style={[styles.ringInner, { borderColor: stroke }]} />
-      <View style={[styles.rayVertical, { backgroundColor: stroke }]} />
-      <View style={[styles.rayHorizontal, { backgroundColor: stroke }]} />
-      <View style={[styles.rayDiagonalLeft, { backgroundColor: stroke }]} />
-      <View style={[styles.rayDiagonalRight, { backgroundColor: stroke }]} />
-    </View>
-  );
-}
 
 export const PracticeInfoModal: React.FC<PracticeInfoModalProps> = ({
   isVisible,
   onDismiss,
 }) => {
+  const insets = useSafeAreaInsets();
+  const reduceMotion = useReduceMotionEnabled();
   const [isMounted, setIsMounted] = useState(isVisible);
+  const [expandedKey, setExpandedKey] = useState<PracticeModeKey | null>(null);
+
   const overlayOpacity = useRef(new Animated.Value(0)).current;
-  const sheetTranslateY = useRef(new Animated.Value(320)).current;
+  const sheetTranslateY = useRef(new Animated.Value(300)).current;
 
   const entranceEasing = useMemo(() => Easing.bezier(0.32, 0.72, 0, 1), []);
 
   useEffect(() => {
     if (isVisible) {
       setIsMounted(true);
+      setExpandedKey(null);
       Animated.parallel([
         Animated.timing(overlayOpacity, {
           toValue: 1,
@@ -114,7 +123,7 @@ export const PracticeInfoModal: React.FC<PracticeInfoModalProps> = ({
         }),
         Animated.timing(sheetTranslateY, {
           toValue: 0,
-          duration: 380,
+          duration: reduceMotion ? 1 : 320,
           easing: entranceEasing,
           useNativeDriver: true,
         }),
@@ -130,8 +139,8 @@ export const PracticeInfoModal: React.FC<PracticeInfoModalProps> = ({
         useNativeDriver: true,
       }),
       Animated.timing(sheetTranslateY, {
-        toValue: 320,
-        duration: 220,
+        toValue: 300,
+        duration: reduceMotion ? 1 : 220,
         easing: Easing.in(Easing.cubic),
         useNativeDriver: true,
       }),
@@ -140,7 +149,23 @@ export const PracticeInfoModal: React.FC<PracticeInfoModalProps> = ({
         setIsMounted(false);
       }
     });
-  }, [entranceEasing, isVisible, overlayOpacity, sheetTranslateY]);
+  }, [entranceEasing, isVisible, overlayOpacity, reduceMotion, sheetTranslateY]);
+
+  const handleToggleRow = useCallback(
+    (key: PracticeModeKey) => {
+      safeHaptics.selection();
+      if (!reduceMotion) {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      }
+      setExpandedKey((prev) => (prev === key ? null : key));
+    },
+    [reduceMotion]
+  );
+
+  const handleDismiss = useCallback(() => {
+    safeHaptics.selection();
+    onDismiss();
+  }, [onDismiss]);
 
   if (!isMounted) {
     return null;
@@ -152,17 +177,18 @@ export const PracticeInfoModal: React.FC<PracticeInfoModalProps> = ({
       visible={isMounted}
       animationType="none"
       statusBarTranslucent
-      onRequestClose={onDismiss}
+      onRequestClose={handleDismiss}
     >
       <View style={styles.root} pointerEvents="box-none">
         <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]}>
-          <Pressable style={StyleSheet.absoluteFillObject} onPress={onDismiss} />
+          <Pressable style={StyleSheet.absoluteFillObject} onPress={handleDismiss} />
         </Animated.View>
 
         <Animated.View
           style={[
             styles.sheet,
             {
+              paddingBottom: Math.max(spacing.lg, insets.bottom + spacing.sm),
               transform: [{ translateY: sheetTranslateY }],
             },
           ]}
@@ -170,55 +196,89 @@ export const PracticeInfoModal: React.FC<PracticeInfoModalProps> = ({
         >
           <View style={styles.handle} />
 
-          <Text style={styles.title}>Four Ways to Practice</Text>
-          <Text style={styles.subtitle}>
-            Each completed practice strengthens the same thread in a different way.
-          </Text>
+          <View style={styles.header}>
+            <Text style={styles.heading}>CHOOSE WHAT YOU NEED</Text>
+            <Text style={styles.supportingCopy}>
+              Each practice strengthens your anchor differently.
+            </Text>
+          </View>
 
           <ScrollView
             bounces={false}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
           >
-            <View style={styles.cards}>
-              {MODE_CARDS.map((card) => (
-                <View
-                  key={card.key}
-                  style={[
-                    styles.card,
-                    {
-                      backgroundColor: card.surface,
-                      borderColor: card.border,
-                    },
-                  ]}
-                >
-                  <View style={[styles.iconWrap, { backgroundColor: card.iconSurface }]}>
-                    <ModeGlyph mode={card.key} stroke={card.iconStroke} />
-                  </View>
-                  <View style={styles.cardBody}>
-                    <Text style={[styles.cardTitle, { color: card.accent }]}>{card.title}</Text>
-                    <Text style={styles.cardAction}>{card.action}</Text>
-                    <Text style={styles.cardDescription}>{card.description}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
+            <View style={styles.rowsContainer}>
+              {PRACTICE_MODES.map((mode, index) => {
+                const isExpanded = expandedKey === mode.key;
+                const isLast = index === PRACTICE_MODES.length - 1;
 
-            <View style={styles.divider} />
+                return (
+                  <View key={mode.key} style={styles.rowWrapper}>
+                    <TouchableOpacity
+                      activeOpacity={0.76}
+                      onPress={() => handleToggleRow(mode.key)}
+                      style={[
+                        styles.row,
+                        isExpanded && styles.rowExpanded,
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${mode.title}: ${mode.outcome}. ${mode.metadata}. ${
+                        isExpanded ? 'Expanded. Tap to collapse.' : 'Tap to read more.'
+                      }`}
+                      accessibilityState={{ expanded: isExpanded }}
+                    >
+                      <View
+                        style={[
+                          styles.iconContainer,
+                          {
+                            backgroundColor: mode.iconSurface,
+                            borderColor: mode.iconBorder,
+                          },
+                        ]}
+                      >
+                        {mode.icon(mode.accent)}
+                      </View>
 
-            <View style={styles.note}>
-              <Text style={styles.noteIcon}>⬡</Text>
-              <Text style={styles.noteText}>
-                Every session type, regardless of length, adds to your{' '}
-                <Text style={styles.noteStrong}>thread strength</Text>. The goal isn&apos;t
-                volume. It&apos;s return.
-              </Text>
+                      <View style={styles.rowCenter}>
+                        <Text style={[styles.modeTitle, { color: mode.accent }]}>
+                          {mode.title}
+                        </Text>
+                        <Text style={styles.modeOutcome}>{mode.outcome}</Text>
+                        <Text style={styles.modeMetadata}>{mode.metadata}</Text>
+                      </View>
+
+                      <View style={styles.chevronWrap}>
+                        {isExpanded ? (
+                          <ChevronDown size={16} color={mode.accent} />
+                        ) : (
+                          <ChevronRight
+                            size={16}
+                            color="rgba(244, 239, 230, 0.35)"
+                          />
+                        )}
+                      </View>
+                    </TouchableOpacity>
+
+                    {isExpanded && (
+                      <View style={styles.expandedContent}>
+                        <Text style={styles.expandedText}>
+                          {mode.expandedTeaching}
+                        </Text>
+                      </View>
+                    )}
+
+                    {!isLast && <View style={styles.rowDivider} />}
+                  </View>
+                );
+              })}
             </View>
 
             <TouchableOpacity
               accessibilityRole="button"
-              activeOpacity={0.86}
-              onPress={onDismiss}
+              accessibilityLabel="Got It"
+              activeOpacity={0.84}
+              onPress={handleDismiss}
               style={styles.cta}
             >
               <Text style={styles.ctaText}>Got It</Text>
@@ -237,235 +297,135 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: OVERLAY_COLOR,
+    backgroundColor: 'rgba(6, 9, 13, 0.68)',
   },
   sheet: {
-    maxHeight: '86%',
-    backgroundColor: SHEET_BACKGROUND,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    maxHeight: '84%',
+    backgroundColor: '#121820',
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
     borderTopWidth: 1,
-    borderColor: SHEET_BORDER,
+    borderColor: 'rgba(217, 179, 108, 0.22)',
     paddingTop: 12,
-    paddingHorizontal: 24,
-    paddingBottom: 40,
+    paddingHorizontal: 20,
   },
   handle: {
-    width: 36,
+    width: 40,
     height: 4,
     borderRadius: 2,
     alignSelf: 'center',
-    marginBottom: 24,
-    backgroundColor: HANDLE_COLOR,
+    marginBottom: 18,
+    backgroundColor: 'rgba(244, 239, 230, 0.22)',
   },
-  title: {
-    color: colors.bone,
+  header: {
+    marginBottom: 16,
+  },
+  heading: {
     fontFamily: typography.fontFamily.serifSemiBold,
     fontSize: 18,
-    letterSpacing: 1.1,
+    letterSpacing: 1.4,
+    color: colors.bone,
     textTransform: 'uppercase',
-    marginBottom: 6,
   },
-  subtitle: {
-    color: colors.silver,
-    fontFamily: typography.fontFamily.bodySerifItalic,
-    fontSize: 14,
-    lineHeight: 21,
-    marginBottom: 24,
+  supportingCopy: {
+    marginTop: 4,
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 13,
+    lineHeight: 18,
+    color: 'rgba(244, 239, 230, 0.58)',
   },
   scrollContent: {
-    paddingBottom: spacing.xs,
+    paddingBottom: spacing.sm,
   },
-  cards: {
-    gap: 10,
-    marginBottom: 28,
-  },
-  card: {
-    borderRadius: 14,
+  rowsContainer: {
+    borderRadius: 16,
+    backgroundColor: 'rgba(244, 239, 230, 0.025)',
     borderWidth: 1,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-    flexDirection: 'row',
-    gap: 14,
+    borderColor: 'rgba(244, 239, 230, 0.06)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    marginBottom: 20,
   },
-  iconWrap: {
+  rowWrapper: {
+    width: '100%',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    gap: 13,
+  },
+  rowExpanded: {
+    paddingBottom: 8,
+  },
+  iconContainer: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 1,
-  },
-  glyphFrame: {
-    width: 18,
-    height: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ringOuter: {
-    position: 'absolute',
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 1.5,
-  },
-  ringInner: {
-    position: 'absolute',
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    borderWidth: 1.5,
-  },
-  rayVertical: {
-    position: 'absolute',
-    width: 1.5,
-    height: 18,
-    borderRadius: 2,
-  },
-  rayHorizontal: {
-    position: 'absolute',
-    width: 18,
-    height: 1.5,
-    borderRadius: 2,
-  },
-  rayDiagonalLeft: {
-    position: 'absolute',
-    width: 1.5,
-    height: 18,
-    borderRadius: 2,
-    transform: [{ rotate: '45deg' }],
-  },
-  rayDiagonalRight: {
-    position: 'absolute',
-    width: 1.5,
-    height: 18,
-    borderRadius: 2,
-    transform: [{ rotate: '-45deg' }],
-  },
-  boltSegment: {
-    position: 'absolute',
-    borderRadius: 1,
-  },
-  boltTop: {
-    width: 7,
-    height: 2,
-    top: 2,
-    left: 7,
-    transform: [{ rotate: '-22deg' }],
-  },
-  boltMid: {
-    width: 10,
-    height: 2,
-    top: 8,
-    left: 4,
-    transform: [{ rotate: '55deg' }],
-  },
-  boltBottom: {
-    width: 7,
-    height: 2,
-    bottom: 2,
-    left: 7,
-    transform: [{ rotate: '-22deg' }],
-  },
-  sealArc: {
-    position: 'absolute',
-    width: 9,
-    height: 11,
-    borderWidth: 1.5,
-    borderTopColor: 'transparent',
-    borderBottomLeftRadius: 9,
-    borderBottomRightRadius: 9,
-  },
-  sealArcLeft: {
-    left: 1,
-    borderRightColor: 'transparent',
-    transform: [{ rotate: '18deg' }],
-  },
-  sealArcRight: {
-    right: 1,
-    borderLeftColor: 'transparent',
-    transform: [{ rotate: '-18deg' }],
-  },
-  sealStem: {
-    position: 'absolute',
-    width: 1.5,
-    height: 9,
-    bottom: 1,
-    borderRadius: 2,
-  },
-  cardBody: {
-    flex: 1,
-  },
-  cardTitle: {
-    fontFamily: typography.fontFamily.serifSemiBold,
-    fontSize: 13,
-    letterSpacing: 1.3,
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  cardAction: {
-    color: colors.bone,
-    fontFamily: typography.fontFamily.bodySerif,
-    fontSize: 18,
-    lineHeight: 23,
-    marginBottom: 5,
-  },
-  cardDescription: {
-    color: colors.silver,
-    fontFamily: typography.fontFamily.bodySerifItalic,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  divider: {
-    height: 1,
-    marginBottom: 20,
-    backgroundColor: 'transparent',
-    borderTopWidth: 1,
-    borderColor: SHEET_BORDER,
-  },
-  note: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginBottom: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(212,175,55,0.04)',
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
-  noteIcon: {
-    color: GOLD_DIM,
+  rowCenter: {
+    flex: 1,
+    minWidth: 0,
+  },
+  modeTitle: {
+    fontFamily: typography.fontFamily.sansBold,
+    fontSize: 11,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  modeOutcome: {
+    fontFamily: typography.fontFamily.bodySerif,
     fontSize: 16,
     lineHeight: 20,
-    fontFamily: typography.fontFamily.serif,
+    color: colors.bone,
   },
-  noteText: {
-    flex: 1,
-    color: colors.silver,
+  modeMetadata: {
+    marginTop: 3,
+    fontFamily: typography.fontFamily.sans,
+    fontSize: 11,
+    color: 'rgba(244, 239, 230, 0.46)',
+  },
+  chevronWrap: {
+    width: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  expandedContent: {
+    paddingLeft: 49,
+    paddingRight: 12,
+    paddingBottom: 12,
+  },
+  expandedText: {
     fontFamily: typography.fontFamily.bodySerifItalic,
-    fontSize: 14,
-    lineHeight: 22,
+    fontSize: 13.5,
+    lineHeight: 19,
+    color: 'rgba(244, 239, 230, 0.82)',
   },
-  noteStrong: {
-    color: colors.gold,
-    fontFamily: typography.fontFamily.bodySerif,
+  rowDivider: {
+    height: 1,
+    backgroundColor: 'rgba(244, 239, 230, 0.05)',
   },
   cta: {
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.35)',
-    paddingVertical: 16,
+    borderColor: 'rgba(217, 179, 108, 0.32)',
+    backgroundColor: 'rgba(217, 179, 108, 0.05)',
+    paddingVertical: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent',
   },
   ctaText: {
     color: colors.gold,
     fontFamily: typography.fontFamily.serifSemiBold,
-    fontSize: 14,
-    letterSpacing: 1.7,
+    fontSize: 13,
+    letterSpacing: 1.6,
     textTransform: 'uppercase',
   },
 });

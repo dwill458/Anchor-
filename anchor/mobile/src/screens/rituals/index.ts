@@ -11,6 +11,7 @@ export { RitualScreen } from './RitualScreen';
 export { SealAnchorScreen } from './SealAnchorScreen';
 export { ChargeCompleteScreen } from './ChargeCompleteScreen';
 export { FirstPrimeCompleteScreen } from './FirstPrimeCompleteScreen';
+export { PrimeYourAnchorScreen } from './PrimeYourAnchorScreen';
 
 // Activation & Burning
 export { ActivationScreen } from './ActivationScreen';

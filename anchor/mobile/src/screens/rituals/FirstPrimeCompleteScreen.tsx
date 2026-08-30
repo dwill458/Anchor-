@@ -40,7 +40,6 @@ import { PracticeCompletionService } from "@/services/PracticeCompletionService"
 import { colors, spacing, typography } from "@/theme";
 import type { RootStackParamList } from "@/types";
 import { navigateToVaultDestination } from "@/navigation/firstAnchorGate";
-import { queueProgressionMilestonesFromStores } from "@/utils/progressionMilestones";
 import { buildRecoveredChargeState } from "@/utils/anchorPriming";
 import { createPracticeEventId } from "@/utils/primingAnalytics";
 import { logger } from "@/utils/logger";
@@ -271,10 +270,6 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
               timestamp: new Date().toISOString(),
             });
           }
-          // Safe to retry after a crash between the session write and award write.
-          await queueProgressionMilestonesFromStores({
-            sourceEventId: completionEventId,
-          });
           if (active) setCompletionState("ready");
         } catch {
           hasRecordedRef.current = false;

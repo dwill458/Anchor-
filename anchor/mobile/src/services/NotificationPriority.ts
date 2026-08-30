@@ -14,9 +14,3 @@ export const resolvePriority = (eligible: EligibleNotifications): NotificationTy
   if (eligible.microPrime) return 'MICRO_PRIME';
   return null;
 };
-
-export const isSovereign = (
-  total_primes_all_time: number,
-  alchemist_milestones_count: number
-): boolean =>
-  total_primes_all_time >= 50 || alchemist_milestones_count >= 3;

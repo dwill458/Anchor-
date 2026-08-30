@@ -62,7 +62,6 @@ import {
 } from '@/utils/postPrimeTraceEligibility';
 import { useMissingAnchorRedirect } from './utils/useMissingAnchorRedirect';
 import { useDeepPrimeSessionAudio } from './hooks/useDeepPrimeSessionAudio';
-import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
 import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
 import { createPracticeEventId } from '@/utils/primingAnalytics';
 import {
@@ -1317,7 +1316,6 @@ export const RitualScreen: React.FC = () => {
         backgroundAudio: sessionAudioPlan.configuration.backgroundAudio,
         source: returnTo === 'practice' ? 'practice_screen' : 'anchor_detail',
       });
-      await queueProgressionMilestonesFromStores({ sourceEventId: completionEventId });
       await handlePrimeComplete();
       await exitRitual();
       return;
@@ -1411,7 +1409,6 @@ export const RitualScreen: React.FC = () => {
       source: returnTo === 'practice' ? 'practice_screen' : 'anchor_detail',
     });
 
-    await queueProgressionMilestonesFromStores({ sourceEventId: completionEventId });
     await handlePrimeComplete();
     exitRitual();
   }, [anchorId, config.totalDurationSeconds, sessionAudioPlan, recordSession, handlePrimeComplete, exitRitual]);

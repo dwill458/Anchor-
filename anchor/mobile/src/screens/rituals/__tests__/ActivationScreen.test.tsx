@@ -47,7 +47,6 @@ const mockHandlePrimeComplete = jest.fn();
 const mockSetActiveSession = jest.fn();
 const mockRecordPrimeSession = jest.fn();
 const mockRecordSession = jest.fn();
-const mockQueueProgressionMilestones = jest.fn();
 const mockIsPostPrimeTraceEligible = jest.fn().mockResolvedValue(false);
 const mockMarkPostPrimeTraceAttemptStarted = jest.fn().mockResolvedValue(undefined);
 const mockNavigateToVaultDestination = jest.fn();
@@ -148,10 +147,6 @@ jest.mock('@/utils/postPrimeTraceEligibility', () => ({
 }));
 jest.mock('@/navigation/firstAnchorGate', () => ({
   navigateToVaultDestination: (...args: any[]) => mockNavigateToVaultDestination(...args),
-}));
-jest.mock('@/utils/progressionMilestones', () => ({
-  queueProgressionMilestonesFromStores: (...args: any[]) =>
-    mockQueueProgressionMilestones(...args),
 }));
 
 // Helper: make useSettingsStore call the selector so values resolve correctly
@@ -268,8 +263,6 @@ describe('ActivationScreen', () => {
     mockSetActiveSession.mockResolvedValue(undefined);
     mockRecordPrimeSession.mockReset();
     mockRecordSession.mockReset();
-    mockQueueProgressionMilestones.mockReset();
-    mockQueueProgressionMilestones.mockResolvedValue(undefined);
     mockIsPostPrimeTraceEligible.mockReset();
     mockIsPostPrimeTraceEligible.mockResolvedValue(false);
     mockMarkPostPrimeTraceAttemptStarted.mockReset();
@@ -813,7 +806,6 @@ describe('ActivationScreen', () => {
     await waitFor(() => expect(mockGoBack).toHaveBeenCalledTimes(1));
     expect(mockHandlePrimeComplete).toHaveBeenCalledTimes(1);
     expect(mockRecordSession).toHaveBeenCalledTimes(1);
-    expect(mockQueueProgressionMilestones).toHaveBeenCalledTimes(1);
   });
 
   it('updates local activation immediately on seal', async () => {

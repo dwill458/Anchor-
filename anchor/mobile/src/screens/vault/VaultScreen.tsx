@@ -16,7 +16,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SvgXml } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
@@ -70,7 +69,6 @@ import { usePracticeEntry } from '@/hooks/usePracticeEntry';
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const H_PAD = 28;
-const CREATE_ZONE_BG = '#080C10';
 
 // Ghost sigils used in the empty-state ritual circle (from the HTML prototype)
 const GHOST_SIGIL_1 = `<svg viewBox="0 0 55 55" fill="none" stroke="#D4AF37" stroke-width="1" xmlns="http://www.w3.org/2000/svg">
@@ -285,12 +283,6 @@ export const VaultScreen: React.FC = () => {
     }
     return autoPrimary;
   }, [currentAnchorId, sanctuaryAnchors, autoPrimary]);
-
-  // Anchors to show in the stack — exclude the current hero
-  const stackAnchors = useMemo(
-    () => sanctuaryAnchors.filter((a) => a.id !== primaryAnchor?.id),
-    [sanctuaryAnchors, primaryAnchor],
-  );
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -634,7 +626,7 @@ export const VaultScreen: React.FC = () => {
                 orbitRingStyle,
               })
             : renderActiveState({
-                anchors: stackAnchors,
+                anchors: sanctuaryAnchors,
                 primaryAnchor: primaryAnchor!,
                 shouldReduceMotion,
                 pulseDotStyle,
@@ -647,28 +639,6 @@ export const VaultScreen: React.FC = () => {
                 vaultTeaching,
               })}
         </ScrollView>
-
-        {sanctuaryAnchors.length > 0 && (
-          <View style={styles.createZone}>
-            <LinearGradient
-              colors={['transparent', CREATE_ZONE_BG]}
-              style={styles.createFade}
-              pointerEvents="none"
-            />
-            <TouchableOpacity
-              style={styles.createBtn}
-              onPress={handleCreateAnchor}
-              activeOpacity={0.75}
-              accessibilityRole="button"
-              accessibilityLabel="Create new anchor"
-            >
-              <View style={styles.plusRing}>
-                <Text style={styles.plusIcon}>+</Text>
-              </View>
-              <Text style={styles.createLabel}>CREATE NEW ANCHOR</Text>
-            </TouchableOpacity>
-          </View>
-        )}
       </SafeAreaView>
       <WeeklySummaryModal
         visible={shouldShow}
@@ -845,22 +815,24 @@ function renderActiveState({
           onPress={handleActivate}
           activeOpacity={0.8}
           accessibilityRole="button"
-          accessibilityLabel="Prime Anchor"
+          accessibilityLabel="Practice this anchor"
         >
-          <Animated2.View style={[styles.activatePulseDot, pulseDotStyle]} />
           <Text style={styles.activateBtnText}>
-            PRIME ANCHOR
+            PRACTICE THIS ANCHOR →
           </Text>
         </TouchableOpacity>
       </Animated2.View>
 
-      {/* ── Anchor stack — shows ALL anchors so users always see their collection ── */}
+      <View style={styles.sectionDivider} />
+
+      {/* ── Anchor stack — shows ALL anchors, current one highlighted ── */}
       <Animated2.View
         entering={getFadeUp(600, shouldReduceMotion)}
         style={styles.stackWrap}
       >
         <AnchorStack
           anchors={anchors}
+          primaryAnchorId={primaryAnchor.id}
           onAnchorPress={handleAnchorPress}
           onAddPress={handleCreateAnchor}
           onViewAll={onViewAll}
@@ -878,7 +850,7 @@ const RING_BORDER = 'rgba(212,175,55,0.10)';
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.sanctuary.purpleBg,
+    backgroundColor: colors.anchor15.navy,
   },
   safeArea: {
     flex: 1,
@@ -890,7 +862,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingTop: 4,
     flexGrow: 1,
-    paddingBottom: 0,
+    paddingBottom: 32,
   },
 
   // ── Empty state ───────────────────────────────────────────────────────────────
@@ -965,7 +937,7 @@ const styles = StyleSheet.create({
     width: 110,
     height: 110,
     borderRadius: 55,
-    backgroundColor: 'rgba(62,44,91,0.35)',
+    backgroundColor: 'rgba(30,42,51,0.5)',
     borderWidth: 1,
     borderColor: 'rgba(212,175,55,0.18)',
     alignItems: 'center',
@@ -1072,86 +1044,31 @@ const styles = StyleSheet.create({
     marginHorizontal: H_PAD,
   },
   activateBtn: {
-    height: 46,
-    borderRadius: 12,
+    height: 56,
+    borderRadius: 999,
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.3)',
-    backgroundColor: 'transparent',
+    borderColor: withAlpha(colors.anchor15.gilt, 0.34),
+    backgroundColor: withAlpha(colors.anchor15.gilt, 0.1),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-  },
-  activatePulseDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: colors.gold,
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 5,
-    elevation: 4,
   },
   activateBtnText: {
-    fontFamily: 'Cinzel-Regular',
-    fontSize: 12,
-    letterSpacing: 2,
-    color: colors.gold,
-    textTransform: 'uppercase',
+    fontFamily: 'Cinzel-SemiBold',
+    fontSize: 13,
+    letterSpacing: 0.78,
+    color: colors.anchor15.giltBright,
+  },
+  sectionDivider: {
+    marginTop: 26,
+    marginHorizontal: H_PAD,
+    height: 1,
+    backgroundColor: withAlpha(colors.anchor15.gilt, 0.12),
   },
   stackWrap: {
-    marginTop: 10,
+    marginTop: 18,
     marginHorizontal: H_PAD,
-    marginBottom: 4,
-  },
-  createZone: {
-    backgroundColor: CREATE_ZONE_BG,
-    paddingHorizontal: 24,
-    paddingTop: 10,
-    paddingBottom: 14,
-    position: 'relative',
-  },
-  createFade: {
-    position: 'absolute',
-    top: -28,
-    left: 0,
-    right: 0,
-    height: 28,
-  },
-  createBtn: {
-    width: '100%',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.34)',
-    backgroundColor: 'rgba(212,175,55,0.06)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  plusRing: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1.5,
-    borderColor: 'rgba(212,175,55,0.65)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  plusIcon: {
-    color: '#D4AF37',
-    fontSize: 14,
-    lineHeight: 16,
-    marginTop: -1,
-  },
-  createLabel: {
-    fontFamily: 'Cinzel-SemiBold',
-    fontSize: 11.5,
-    letterSpacing: 2.5,
-    color: 'rgba(212,175,55,0.9)',
+    marginBottom: 24,
   },
 });
 
