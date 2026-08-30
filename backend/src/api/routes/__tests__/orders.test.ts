@@ -28,7 +28,11 @@ jest.mock('../../../utils/svgRasterizer', () => ({
   }),
 }));
 jest.mock('../../../services/StorageService', () => ({
-  uploadImageFromBuffer: jest.fn().mockResolvedValue('https://cdn.example.com/mock.png'),
+  uploadImageAssetFromBuffer: jest.fn().mockResolvedValue({
+    url: 'https://cdn.example.com/mock.png',
+    externalUrl: 'https://signed.example.com/mock.png',
+    objectKey: 'anchors/db-user-1/anchor-1/mock.png',
+  }),
 }));
 
 // orders.ts uses the shared Prisma singleton.
@@ -52,11 +56,11 @@ jest.mock('../../../lib/prisma', () => ({
 import { authMiddleware } from '../../middleware/auth';
 import ordersRouter from '../orders';
 import { rasterizeSVG } from '../../../utils/svgRasterizer';
-import { uploadImageFromBuffer } from '../../../services/StorageService';
+import { uploadImageAssetFromBuffer } from '../../../services/StorageService';
 
 const mockedAuthMiddleware = authMiddleware as jest.Mock;
 const mockedRasterizeSVG = rasterizeSVG as jest.Mock;
-const mockedUploadImageFromBuffer = uploadImageFromBuffer as jest.Mock;
+const mockedUploadImageAssetFromBuffer = uploadImageAssetFromBuffer as jest.Mock;
 
 // ── App setup ─────────────────────────────────────────────────────────────────
 
@@ -129,7 +133,7 @@ describe('POST /api/orders', () => {
     mockPrismaInstance.anchor.findFirst.mockResolvedValue(MOCK_ANCHOR);
     mockPrismaInstance.order.create.mockResolvedValue(MOCK_ORDER);
     mockedRasterizeSVG.mockClear();
-    mockedUploadImageFromBuffer.mockClear();
+    mockedUploadImageAssetFromBuffer.mockClear();
   });
 
   it('creates an order and returns 201', async () => {
@@ -168,11 +172,14 @@ describe('POST /api/orders', () => {
         backgroundColor: 'transparent',
       })
     );
-    expect(mockedUploadImageFromBuffer).toHaveBeenCalledWith(
+    expect(mockedUploadImageAssetFromBuffer).toHaveBeenCalledWith(
       expect.any(Buffer),
       'db-user-1',
       'anchor-1',
-      0
+      0,
+      expect.objectContaining({
+        signedUrlExpiresIn: 7 * 24 * 60 * 60,
+      })
     );
   });
 
@@ -249,10 +256,8 @@ describe('POST /api/orders', () => {
   describe('product pricing', () => {
     const products: Array<[string, number]> = [
       ['print', 3500 + 800 + 250],
-      ['keychain', 1800 + 500 + 150],
-      ['hoodie', 6500 + 1200 + 500],
-      ['t-shirt', 3200 + 800 + 250],
       ['phone-case', 2800 + 600 + 200],
+      ['desk-mat', 4500 + 900 + 350],
     ];
 
     test.each(products)('calculates total for %s correctly', async (productType, expectedTotal) => {

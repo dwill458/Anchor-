@@ -35,6 +35,16 @@ import {
   FirstPrimeCompleteScreen,
   PrimeYourAnchorScreen,
 } from '../screens/rituals';
+import { ENABLE_MERCH } from '@/config';
+const ProductSelectionScreen = ENABLE_MERCH
+  ? require('../screens/shop').ProductSelectionScreen
+  : null;
+const ProductMockupScreen = ENABLE_MERCH
+  ? require('../screens/shop').ProductMockupScreen
+  : null;
+const CheckoutScreen = ENABLE_MERCH
+  ? require('../screens/shop').CheckoutScreen
+  : null;
 import {
   AuthGateScreen,
   LoginScreen,
@@ -223,6 +233,27 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
         component={WallpaperPromptScreen}
         options={{ headerShown: false }}
       />
+      {ENABLE_MERCH && ProductSelectionScreen && (
+        <Stack.Screen
+          name="ProductSelection"
+          component={ProductSelectionScreen}
+          options={{ headerShown: false, animation: 'fade_from_bottom' }}
+        />
+      )}
+      {ENABLE_MERCH && ProductMockupScreen && (
+        <Stack.Screen
+          name="ProductMockup"
+          component={ProductMockupScreen}
+          options={{ headerShown: false, animation: 'fade_from_bottom' }}
+        />
+      )}
+      {ENABLE_MERCH && CheckoutScreen && (
+        <Stack.Screen
+          name="Checkout"
+          component={CheckoutScreen}
+          options={{ headerShown: false, animation: 'fade_from_bottom' }}
+        />
+      )}
       {/* ════════════════════════════════════════════════════════ */}
       {/* Charging & Activation - Zen Architect (Phase 2.7)       */}
       {/* ════════════════════════════════════════════════════════ */}

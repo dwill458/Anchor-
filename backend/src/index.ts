@@ -16,6 +16,7 @@ import usersRoutes from './api/routes/users';
 import anchorRoutes from './api/routes/anchors';
 import aiRoutes from './api/routes/ai';
 import practiceRoutes from './api/routes/practice';
+import merchRoutes from './api/routes/merch';
 import visualizationSceneRoutes from './api/routes/visualizationScenes';
 import orderRoutes from './api/routes/orders';
 import contentRoutes from './api/routes/content';
@@ -227,6 +228,8 @@ app.use('/api/anchors', anchorRoutes);
 // Practice routes
 app.use('/api/practice', practiceRoutes);
 
+// Merch catalog routes
+app.use('/api/merch', merchRoutes);
 // Chart / Workstream A routes. The route handlers remain protected by auth and
 // server-side default-off feature flags.
 app.use('/api/courses', courseRoutes);

@@ -44,6 +44,15 @@ export interface EnvConfig {
   CLOUDFLARE_R2_BUCKET_NAME?: string;
   CLOUDFLARE_R2_PUBLIC_DOMAIN?: string;
 
+  // Merch
+  PRINTFUL_API_KEY?: string;
+  PRINTFUL_WEBHOOK_SECRET?: string;
+  PRINTFUL_STORE_ID?: string;
+  PRINTFUL_CREATE_ORDERS: boolean;
+  PRINTFUL_CONFIRM_ORDERS: boolean;
+  PRINTFUL_VARIANT_IDS?: string;
+  PRINTFUL_MOCKUP_TEMPLATE_IDS?: string;
+
   // TTS (Optional)
   GOOGLE_CLOUD_PROJECT_ID?: string;
   GOOGLE_CLOUD_PRIVATE_KEY?: string;
@@ -212,6 +221,32 @@ export function validateEnv(): EnvConfig {
       CLOUDFLARE_R2_PUBLIC_DOMAIN: validateString(
         'CLOUDFLARE_R2_PUBLIC_DOMAIN',
         process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN
+      ),
+
+      // Merch (optional until real Printful order creation is enabled)
+      PRINTFUL_API_KEY: validateString('PRINTFUL_API_KEY', process.env.PRINTFUL_API_KEY),
+      PRINTFUL_WEBHOOK_SECRET: validateString(
+        'PRINTFUL_WEBHOOK_SECRET',
+        process.env.PRINTFUL_WEBHOOK_SECRET
+      ),
+      PRINTFUL_STORE_ID: validateString('PRINTFUL_STORE_ID', process.env.PRINTFUL_STORE_ID),
+      PRINTFUL_CREATE_ORDERS: validateBoolean(
+        'PRINTFUL_CREATE_ORDERS',
+        process.env.PRINTFUL_CREATE_ORDERS,
+        false
+      ),
+      PRINTFUL_CONFIRM_ORDERS: validateBoolean(
+        'PRINTFUL_CONFIRM_ORDERS',
+        process.env.PRINTFUL_CONFIRM_ORDERS,
+        false
+      ),
+      PRINTFUL_VARIANT_IDS: validateString(
+        'PRINTFUL_VARIANT_IDS',
+        process.env.PRINTFUL_VARIANT_IDS
+      ),
+      PRINTFUL_MOCKUP_TEMPLATE_IDS: validateString(
+        'PRINTFUL_MOCKUP_TEMPLATE_IDS',
+        process.env.PRINTFUL_MOCKUP_TEMPLATE_IDS
       ),
 
       // TTS (optional)
