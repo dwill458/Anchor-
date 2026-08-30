@@ -116,17 +116,21 @@ async function buildSignedObjectUrl(
   objectKey: string,
   expiresIn: number = 3600
 ): Promise<string> {
+  // S3Client/GetObjectCommand (@aws-sdk/client-s3) and the presigner's expected
+  // Client<>/Command<> types diverge across SDK minor versions; cast to the
+  // presigner's own parameter types to bridge the mismatch without `any`.
+  type PresignParams = Parameters<typeof presignS3Request>;
   return presignS3Request(
-    client as any,
+    client as PresignParams[0],
     new GetObjectCommand({
       Bucket: bucket,
       Key: objectKey,
-    }) as any,
+    }) as PresignParams[1],
     { expiresIn }
   );
 }
 
-function extractObjectKeyFromPublicDomainUrl(assetUrl: URL, bucket: string): string | null {
+function extractObjectKeyFromPublicDomainUrl(assetUrl: URL, _bucket: string): string | null {
   const publicDomain = normalizeEnvValue(process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN);
   if (!publicDomain) {
     return null;

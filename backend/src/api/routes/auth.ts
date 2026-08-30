@@ -14,6 +14,8 @@ import { prisma } from '../../lib/prisma';
 import { getFirebaseAdmin } from '../../config/firebase';
 import { hasCompedAccess } from '../../utils/compedAccess';
 import { logger } from '../../utils/logger';
+import { getChartFeatureFlags } from '../../config/chartFlags';
+import { getChartCapabilities } from '../../services/ChartCapabilityService';
 
 const router = Router();
 
@@ -60,6 +62,8 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+
 function serializeUser(user: {
   id: string;
   email: string;
@@ -76,6 +80,7 @@ function serializeUser(user: {
   stabilizeStreakDays: number;
   lastStabilizeAt: Date | null;
   createdAt: Date;
+  trialStartedAt?: Date | null;
 }): {
   id: string;
   email: string;
@@ -92,7 +97,12 @@ function serializeUser(user: {
   stabilizeStreakDays: number;
   lastStabilizeAt: Date | null;
   createdAt: Date;
+  trialStartedAt: Date;
+  isTrialExpired: boolean;
 } {
+  // Anchor the trial on trialStartedAt (resettable per-account), falling back to
+  // createdAt for records written before the column existed.
+  const trialAnchor = user.trialStartedAt ?? user.createdAt;
   return {
     id: user.id,
     email: user.email,
@@ -109,6 +119,8 @@ function serializeUser(user: {
     stabilizeStreakDays: user.stabilizeStreakDays,
     lastStabilizeAt: user.lastStabilizeAt,
     createdAt: user.createdAt,
+    trialStartedAt: trialAnchor,
+    isTrialExpired: Date.now() >= trialAnchor.getTime() + TRIAL_DURATION_MS,
   };
 }
 
@@ -157,6 +169,32 @@ function buildUserSyncPayload(input: {
   };
 }
 
+function isUniqueEmailConflict(error: unknown): error is Prisma.PrismaClientKnownRequestError {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2002' &&
+    Array.isArray(error.meta?.target) &&
+    error.meta.target.includes('email')
+  );
+}
+
+type GuidanceVoice = 'female' | 'male' | 'none';
+type BackgroundAudioMode = 'ambient' | 'off';
+type SessionAudioDefaultsPayload = {
+  focus: {
+    guidanceVoice: GuidanceVoice;
+    backgroundAudio: BackgroundAudioMode;
+  };
+  deep_prime: {
+    guidanceVoice: GuidanceVoice;
+    backgroundAudio: BackgroundAudioMode;
+  };
+  visualize: {
+    guidanceVoice: GuidanceVoice;
+    backgroundAudio: BackgroundAudioMode;
+  };
+};
+
 function buildSettingsUpsertData(settings: {
   notificationsEnabled?: boolean;
   dailyReminderTime?: string;
@@ -166,7 +204,9 @@ function buildSettingsUpsertData(settings: {
   focusSessionDuration?: number;
   focusSessionAudio?: 'silent' | 'ambient';
   primeSessionDuration?: number;
+  visualizeSessionDuration?: number;
   primeSessionAudio?: 'silent' | 'ambient';
+  sessionAudioDefaults?: SessionAudioDefaultsPayload;
   hapticIntensity?: number;
   vaultViewType?: 'grid' | 'list';
 }): {
@@ -178,7 +218,9 @@ function buildSettingsUpsertData(settings: {
   focusSessionDuration?: number;
   focusSessionAudio?: 'silent' | 'ambient';
   primeSessionDuration?: number;
+  visualizeSessionDuration?: number;
   primeSessionAudio?: 'silent' | 'ambient';
+  sessionAudioDefaults?: Prisma.InputJsonValue;
   hapticIntensity?: number;
   vaultViewType?: 'grid' | 'list';
 } {
@@ -191,7 +233,9 @@ function buildSettingsUpsertData(settings: {
     focusSessionDuration,
     focusSessionAudio,
     primeSessionDuration,
+    visualizeSessionDuration,
     primeSessionAudio,
+    sessionAudioDefaults,
     hapticIntensity,
     vaultViewType,
   } = settings;
@@ -205,7 +249,9 @@ function buildSettingsUpsertData(settings: {
     ...(focusSessionDuration !== undefined && { focusSessionDuration }),
     ...(focusSessionAudio !== undefined && { focusSessionAudio }),
     ...(primeSessionDuration !== undefined && { primeSessionDuration }),
+    ...(visualizeSessionDuration !== undefined && { visualizeSessionDuration }),
     ...(primeSessionAudio !== undefined && { primeSessionAudio }),
+    ...(sessionAudioDefaults !== undefined && { sessionAudioDefaults }),
     ...(hapticIntensity !== undefined && { hapticIntensity }),
     ...(vaultViewType && { vaultViewType }),
   };
@@ -217,11 +263,27 @@ const SyncSchema = z.object({
   displayName: z.string().optional(),
   authProvider: z.enum(['email', 'google', 'apple']).optional(),
   hasCompletedOnboarding: z.boolean().optional(),
+  allowCreate: z.boolean().optional(),
 });
 
 const UpdateProfileSchema = z.object({
   displayName: z.string().min(1).max(100).optional(),
 });
+
+const SessionAudioDefaultsSchema = z
+  .object({
+    guidanceVoice: z.enum(['female', 'male', 'none']),
+    backgroundAudio: z.enum(['ambient', 'off']),
+  })
+  .strict();
+
+const SessionAudioDefaultsByTypeSchema = z
+  .object({
+    focus: SessionAudioDefaultsSchema,
+    deep_prime: SessionAudioDefaultsSchema,
+    visualize: SessionAudioDefaultsSchema,
+  })
+  .strict();
 
 const UpdateSettingsSchema = z.object({
   notificationsEnabled: z.boolean().optional(),
@@ -235,7 +297,9 @@ const UpdateSettingsSchema = z.object({
   focusSessionDuration: z.number().min(10).max(120).optional(),
   focusSessionAudio: z.enum(['silent', 'ambient']).optional(),
   primeSessionDuration: z.number().min(120).max(7200).optional(),
+  visualizeSessionDuration: z.union([z.literal(60), z.literal(180), z.literal(300)]).optional(),
   primeSessionAudio: z.enum(['silent', 'ambient']).optional(),
+  sessionAudioDefaults: SessionAudioDefaultsByTypeSchema.optional(),
   hapticIntensity: z.number().min(1).max(5).optional(),
   vaultViewType: z.enum(['grid', 'list']).optional(),
 });
@@ -299,6 +363,72 @@ async function getExportSection<T>(
   }
 }
 
+const REFLECTION_EXPORT_KEYS = [
+  'id',
+  'userId',
+  'source',
+  'promptType',
+  'promptVersion',
+  'body',
+  'structuredContent',
+  'moodBefore',
+  'moodAfter',
+  'practiceSessionId',
+  'anchorId',
+  'courseId',
+  'waypointId',
+  'aiConsentGrantedAt',
+  'createdAt',
+  'updatedAt',
+  'deletedAt',
+  'idempotencyKey',
+  'schemaVersion',
+] as const;
+
+const AI_PROPOSAL_EXPORT_KEYS = [
+  'id',
+  'userId',
+  'courseId',
+  'baseCourseVersion',
+  'plannerVersion',
+  'modelVersion',
+  'inputHash',
+  'destinationInterpretation',
+  'waypoints',
+  'generationSource',
+  'fallbackReason',
+  'status',
+  'createdAt',
+  'expiresAt',
+  'acceptedAt',
+  'idempotencyKey',
+] as const;
+
+function projectExportFields(value: unknown, keys: readonly string[]): Record<string, unknown> {
+  if (!value || typeof value !== 'object') return {};
+  const record = value as Record<string, unknown>;
+  return Object.fromEntries(keys.filter(key => key in record).map(key => [key, record[key]]));
+}
+
+function serializeReflectionForExport(value: unknown): Record<string, unknown> {
+  const reflection = projectExportFields(value, REFLECTION_EXPORT_KEYS);
+  // A deleted Reflection remains a neutral tombstone for sync/audit purposes;
+  // its freeform body and structured content must not be resurrected by export.
+  if (reflection.deletedAt) {
+    reflection.body = null;
+    reflection.structuredContent = null;
+    reflection.moodBefore = null;
+    reflection.moodAfter = null;
+  }
+  return reflection;
+}
+
+function serializeAiProposalForExport(value: unknown): Record<string, unknown> {
+  // Keep the normalized proposal needed to reconstruct the user's Chart data,
+  // while excluding any future raw prompt/provider response/credential fields.
+  return projectExportFields(value, AI_PROPOSAL_EXPORT_KEYS);
+}
+
 /**
  * POST /api/auth/sync
  *
@@ -322,7 +452,12 @@ router.post(
       }
       const authUid = req.user.uid;
 
-      const { displayName, authProvider, hasCompletedOnboarding } = validate(SyncSchema, req.body);
+      const {
+        displayName,
+        authProvider,
+        hasCompletedOnboarding,
+        allowCreate = true,
+      } = validate(SyncSchema, req.body);
       const rawEmail = req.user.email;
 
       if (!rawEmail) {
@@ -360,53 +495,102 @@ router.post(
         lastSeenAt,
       });
 
-      const user = await prisma.$transaction(async tx => {
-        const existingByAuthUid = await tx.user.findUnique({
-          where: { authUid },
-        });
+      const user = await prisma
+        .$transaction(async tx => {
+          const existingByAuthUid = await tx.user.findUnique({
+            where: { authUid },
+          });
 
-        const syncedUser = existingByAuthUid
-          ? await tx.user.update({
-              where: { authUid },
-              data: syncPayload,
-            })
-          : await (async () => {
-              const existingByEmail = await tx.user.findFirst({
-                where: {
-                  email: {
-                    equals: email,
-                    mode: 'insensitive',
-                  },
-                },
-              });
-
-              if (existingByEmail) {
-                return tx.user.update({
-                  where: { id: existingByEmail.id },
-                  data: {
-                    ...syncPayload,
-                    authUid,
+          const syncedUser = existingByAuthUid
+            ? await tx.user.update({
+                where: { authUid },
+                data: syncPayload,
+              })
+            : await (async () => {
+                const existingByEmail = await tx.user.findFirst({
+                  where: {
+                    email: {
+                      equals: email,
+                      mode: 'insensitive',
+                    },
                   },
                 });
-              }
 
-              return tx.user.create({
-                data: {
-                  authUid,
-                  ...syncPayload,
-                  hasCompletedOnboarding: hasCompletedOnboarding === true,
+                if (existingByEmail) {
+                  return tx.user.update({
+                    where: { id: existingByEmail.id },
+                    data: {
+                      ...syncPayload,
+                      authUid,
+                    },
+                  });
+                }
+
+                if (!allowCreate) {
+                  throw new AppError(
+                    'No Anchor account was found for this sign-in. Use the account email from your existing Anchor profile, or create a new account.',
+                    404,
+                    'USER_NOT_FOUND'
+                  );
+                }
+
+                // If this races with a concurrent sync inserting the same email, let the
+                // unique-constraint error propagate out of this transaction. Postgres aborts
+                // the whole transaction once a statement errors, so the recovery lookup below
+                // runs in a fresh transaction rather than reusing this aborted one.
+                return tx.user.create({
+                  data: {
+                    authUid,
+                    ...syncPayload,
+                    hasCompletedOnboarding: hasCompletedOnboarding === true,
+                  },
+                });
+              })();
+
+          await tx.userSettings.upsert({
+            where: { userId: syncedUser.id },
+            update: {},
+            create: { userId: syncedUser.id },
+          });
+
+          return syncedUser;
+        })
+        .catch(async error => {
+          if (!isUniqueEmailConflict(error)) {
+            throw error;
+          }
+
+          return prisma.$transaction(async tx => {
+            const userCreatedByConcurrentSync = await tx.user.findFirst({
+              where: {
+                email: {
+                  equals: email,
+                  mode: 'insensitive',
                 },
-              });
-            })();
+              },
+            });
 
-        await tx.userSettings.upsert({
-          where: { userId: syncedUser.id },
-          update: {},
-          create: { userId: syncedUser.id },
+            if (!userCreatedByConcurrentSync) {
+              throw error;
+            }
+
+            const syncedUser = await tx.user.update({
+              where: { id: userCreatedByConcurrentSync.id },
+              data: {
+                ...syncPayload,
+                authUid,
+              },
+            });
+
+            await tx.userSettings.upsert({
+              where: { userId: syncedUser.id },
+              update: {},
+              create: { userId: syncedUser.id },
+            });
+
+            return syncedUser;
+          });
         });
-
-        return syncedUser;
-      });
 
       res.json({
         success: true,
@@ -470,12 +654,17 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response, next: 
 
     const isComped = await syncCompedFlag(userRecord);
     const user = { ...userRecord, isComped };
+    const chartCapabilities = await getChartCapabilities(user);
 
     res.json({
       success: true,
       data: {
         ...serializeUser(user),
         settings: userRecord.settings,
+        chartFlags: getChartFeatureFlags(),
+        // Additive, account-authoritative decisions. Legacy clients keep using
+        // chartFlags; no billing/provider internals leave the server.
+        chartCapabilities,
       },
     });
   } catch (error) {
@@ -529,6 +718,7 @@ router.get(
           fcmToken: true,
           apnsToken: true,
           notificationsEnabled: true,
+          chartSchemaVersion: true,
           settings: true,
         },
       });
@@ -542,45 +732,45 @@ router.get(
         anchors,
         activations,
         charges,
+        practiceSessions,
+        visualizationScenes,
         orders,
         syncQueue,
         burnedAnchors,
         flaggedContent,
+        courses,
+        waypoints,
+        courseAnchorLinks,
+        reflections,
+        courseEvents,
+        aiPlanProposals,
       ] = await Promise.all([
-        getExportSection(
-          'anchors',
-          exportContext,
-          () =>
-            prisma.anchor.findMany({
-              where: { userId: user.id },
-              orderBy: { createdAt: 'desc' },
-              include: {
-                activations: { orderBy: { activatedAt: 'desc' } },
-                charges: { orderBy: { chargedAt: 'desc' } },
-              },
-            }),
-          []
-        ),
-        getExportSection(
-          'activations',
-          exportContext,
-          () =>
-            prisma.activation.findMany({
-              where: { userId: user.id },
-              orderBy: { activatedAt: 'desc' },
-            }),
-          []
-        ),
-        getExportSection(
-          'charges',
-          exportContext,
-          () =>
-            prisma.charge.findMany({
-              where: { userId: user.id },
-              orderBy: { chargedAt: 'desc' },
-            }),
-          []
-        ),
+        // Progression-critical sections fail the whole export instead of
+        // returning a deceptively complete v2 payload with missing history.
+        prisma.anchor.findMany({
+          where: { userId: user.id },
+          orderBy: { createdAt: 'desc' },
+          include: {
+            activations: { orderBy: { activatedAt: 'desc' } },
+            charges: { orderBy: { chargedAt: 'desc' } },
+          },
+        }),
+        prisma.activation.findMany({
+          where: { userId: user.id },
+          orderBy: { activatedAt: 'desc' },
+        }),
+        prisma.charge.findMany({
+          where: { userId: user.id },
+          orderBy: { chargedAt: 'desc' },
+        }),
+        prisma.practiceSession.findMany({
+          where: { userId: user.id },
+          orderBy: { completedAt: 'desc' },
+        }),
+        prisma.visualizationScene.findMany({
+          where: { userId: user.id },
+          orderBy: { updatedAt: 'desc' },
+        }),
         getExportSection(
           'orders',
           exportContext,
@@ -601,16 +791,10 @@ router.get(
             }),
           []
         ),
-        getExportSection(
-          'burnedAnchors',
-          exportContext,
-          () =>
-            prisma.burnedAnchor.findMany({
-              where: { userId: user.id },
-              orderBy: { burnedAt: 'desc' },
-            }),
-          []
-        ),
+        prisma.burnedAnchor.findMany({
+          where: { userId: user.id },
+          orderBy: { burnedAt: 'desc' },
+        }),
         getExportSection(
           'flaggedContent',
           exportContext,
@@ -621,7 +805,70 @@ router.get(
             }),
           []
         ),
+        getExportSection(
+          'courses',
+          exportContext,
+          () =>
+            prisma.course.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'desc' } }),
+          []
+        ),
+        getExportSection(
+          'waypoints',
+          exportContext,
+          () =>
+            prisma.waypoint.findMany({
+              where: { userId: user.id },
+              orderBy: [{ courseId: 'asc' }, { position: 'asc' }],
+            }),
+          []
+        ),
+        getExportSection(
+          'courseAnchorLinks',
+          exportContext,
+          () =>
+            prisma.courseAnchorLink.findMany({
+              where: { userId: user.id },
+              orderBy: { createdAt: 'desc' },
+            }),
+          []
+        ),
+        getExportSection(
+          'reflections',
+          exportContext,
+          () =>
+            prisma.reflection.findMany({
+              where: { userId: user.id },
+              orderBy: { createdAt: 'desc' },
+            }),
+          []
+        ),
+        getExportSection(
+          'courseEvents',
+          exportContext,
+          () =>
+            prisma.courseEvent.findMany({
+              where: { userId: user.id },
+              orderBy: [{ recordedAt: 'desc' }, { id: 'desc' }],
+            }),
+          []
+        ),
+        getExportSection(
+          'aiPlanProposals',
+          exportContext,
+          () =>
+            prisma.aIPlanProposal.findMany({
+              where: { userId: user.id },
+              orderBy: { createdAt: 'desc' },
+            }),
+          []
+        ),
       ]);
+      const exportedReflections = (Array.isArray(reflections) ? reflections : []).map(
+        serializeReflectionForExport
+      );
+      const exportedAiPlanProposals = (Array.isArray(aiPlanProposals) ? aiPlanProposals : []).map(
+        serializeAiProposalForExport
+      );
       const { passwordHash: _passwordHash, ...exportedUser } = user as typeof user & {
         passwordHash?: string | null;
       };
@@ -629,14 +876,24 @@ router.get(
       res.json({
         success: true,
         data: {
-          exportVersion: 1,
+          // v4 adds the complete Chart foundation while retaining every
+          // previous export section for older clients.
+          exportVersion: 4,
           exportedAt: new Date().toISOString(),
           account: {
             ...exportedUser,
             anchors,
             activations,
             charges,
+            practiceSessions,
+            visualizationScenes,
             orders,
+            courses,
+            waypoints,
+            courseAnchorLinks,
+            reflections: exportedReflections,
+            courseEvents,
+            aiPlanProposals: exportedAiPlanProposals,
           },
           burnedAnchors,
           flaggedContent,
@@ -713,7 +970,9 @@ router.put(
  * - focusSessionDuration: Number in seconds (optional)
  * - focusSessionAudio: 'silent' | 'ambient' (optional)
  * - primeSessionDuration: Number in seconds (optional)
+ * - visualizeSessionDuration: 60, 180, or 300 seconds (optional)
  * - primeSessionAudio: 'silent' | 'ambient' (optional)
+ * - sessionAudioDefaults: validated Voice & Sound defaults for Focus, Deep Prime, and Visualize (optional)
  * - hapticIntensity: Number 1-5 (optional)
  * - vaultViewType: 'grid' | 'list' (optional)
  */
@@ -736,7 +995,9 @@ router.put(
         focusSessionDuration,
         focusSessionAudio,
         primeSessionDuration,
+        visualizeSessionDuration,
         primeSessionAudio,
+        sessionAudioDefaults,
         hapticIntensity,
         vaultViewType,
       } = validate(UpdateSettingsSchema, req.body);
@@ -750,7 +1011,9 @@ router.put(
         focusSessionDuration,
         focusSessionAudio,
         primeSessionDuration,
+        visualizeSessionDuration,
         primeSessionAudio,
+        sessionAudioDefaults,
         hapticIntensity,
         vaultViewType,
       });
@@ -944,6 +1207,11 @@ router.delete(
         await tx.syncQueue.deleteMany({
           where: { userId: user.id },
         });
+        // Chart has both direct and nested ownership paths. Explicit deletes
+        // make account deletion auditable even if a future relation changes.
+        await tx.reflection.deleteMany({ where: { userId: user.id } });
+        await tx.aIPlanProposal.deleteMany({ where: { userId: user.id } });
+        await tx.course.deleteMany({ where: { userId: user.id } });
         await tx.user.delete({
           where: { id: user.id },
         });

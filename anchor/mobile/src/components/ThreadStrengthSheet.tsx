@@ -25,8 +25,8 @@ export interface ThreadStrengthSheetProps {
   anchorId: string;
 }
 
-type SessionDisplayType = 'focus' | 'deep';
-type WeekDayType = 'focus' | 'deep' | 'empty';
+type SessionDisplayType = 'focus' | 'deep' | 'visualize';
+type WeekDayType = SessionDisplayType | 'empty';
 
 interface WeekDay {
   day: string;
@@ -42,6 +42,7 @@ interface DerivedThreadStrengthData {
   deepPrimePct: number;
   focusCount: number;
   deepCount: number;
+  visualizeCount: number;
   thisWeekDays: WeekDay[];
   sensitivityMode: string;
 }
@@ -49,7 +50,7 @@ interface DerivedThreadStrengthData {
 interface PrimingLikeEntry {
   id: string;
   anchorId: string;
-  type: 'activate' | 'reinforce';
+  type: 'activate' | 'reinforce' | 'visualize';
   completedAt: string;
 }
 
@@ -105,8 +106,8 @@ function normalizeStrength(value: unknown): number | null {
 function buildFallbackPrimingHistory(sessionLog: SessionLogEntry[]): PrimingLikeEntry[] {
   return sessionLog
     .filter(
-      (entry): entry is SessionLogEntry & { type: 'activate' | 'reinforce' } =>
-        entry.type === 'activate' || entry.type === 'reinforce'
+      (entry): entry is SessionLogEntry & { type: 'activate' | 'reinforce' | 'visualize' } =>
+        entry.type === 'activate' || entry.type === 'reinforce' || entry.type === 'visualize'
     )
     .map((entry) => ({
       id: entry.id,
@@ -164,8 +165,9 @@ function classifyAnchorEntries(entries: PrimingLikeEntry[], anchorId: string): C
     }
     lastSignatureTime.set(entry.type, entry.timestamp);
 
-    const displayType: SessionDisplayType =
-      entry.type === 'reinforce' && hasPriorPrime ? 'deep' : 'focus';
+    const displayType: SessionDisplayType = entry.type === 'visualize'
+      ? 'visualize'
+      : entry.type === 'reinforce' && hasPriorPrime ? 'deep' : 'focus';
 
     classified.push({
       ...entry,
@@ -177,17 +179,21 @@ function classifyAnchorEntries(entries: PrimingLikeEntry[], anchorId: string): C
   return classified;
 }
 
-function buildThisWeekDays(countsByDate: Map<string, { focusCount: number; deepCount: number }>): WeekDay[] {
+type DayCounts = { focusCount: number; deepCount: number; visualizeCount: number };
+
+function buildThisWeekDays(countsByDate: Map<string, DayCounts>): WeekDay[] {
   const today = new Date();
   const monday = addDays(today, -((today.getDay() + 6) % 7));
 
   return WEEKDAY_LABELS.map((day, index) => {
     const date = addDays(monday, index);
     const dateKey = localDateString(date);
-    const counts = countsByDate.get(dateKey) ?? { focusCount: 0, deepCount: 0 };
+    const counts = countsByDate.get(dateKey) ?? { focusCount: 0, deepCount: 0, visualizeCount: 0 };
     let type: WeekDayType = 'empty';
 
-    if (counts.deepCount > 0) {
+    if (counts.visualizeCount > 0) {
+      type = 'visualize';
+    } else if (counts.deepCount > 0) {
       type = 'deep';
     } else if (counts.focusCount > 0) {
       type = 'focus';
@@ -246,26 +252,30 @@ function deriveThreadStrengthData(params: {
   const sourceEntries =
     params.primingHistory.length > 0 ? params.primingHistory : buildFallbackPrimingHistory(params.sessionLog);
   const classifiedEntries = classifyAnchorEntries(sourceEntries, params.anchorId);
-  const countsByDate = new Map<string, { focusCount: number; deepCount: number }>();
+  const countsByDate = new Map<string, DayCounts>();
 
   for (const entry of classifiedEntries) {
-    const current = countsByDate.get(entry.dateKey) ?? { focusCount: 0, deepCount: 0 };
+    const current = countsByDate.get(entry.dateKey) ?? { focusCount: 0, deepCount: 0, visualizeCount: 0 };
     if (entry.displayType === 'focus') {
       current.focusCount += 1;
-    } else {
+    } else if (entry.displayType === 'deep') {
       current.deepCount += 1;
+    } else {
+      current.visualizeCount += 1;
     }
     countsByDate.set(entry.dateKey, current);
   }
 
   let focusCount = 0;
   let deepCount = 0;
+  let visualizeCount = 0;
   countsByDate.forEach((counts) => {
     focusCount += counts.focusCount;
     deepCount += counts.deepCount;
+    visualizeCount += counts.visualizeCount;
   });
 
-  const totalSessions = focusCount + deepCount;
+  const totalSessions = focusCount + deepCount + visualizeCount;
   const streak = calculateStreak(
     classifiedEntries.map((entry) => ({ createdAt: entry.completedAt }))
   );
@@ -285,6 +295,7 @@ function deriveThreadStrengthData(params: {
     deepPrimePct: totalSessions > 0 ? Math.round((deepCount / totalSessions) * 100) : 0,
     focusCount,
     deepCount,
+    visualizeCount,
     thisWeekDays,
     sensitivityMode: capitalize(params.sensitivityMode),
   };
@@ -417,7 +428,7 @@ export const ThreadStrengthSheet: React.FC<ThreadStrengthSheetProps> = ({
               <View style={styles.gaugeText}>
                 <Text style={styles.gaugeTitle}>This Anchor Only</Text>
                 <Text style={styles.gaugeBody}>
-                  {data.totalSessions} {data.totalSessions === 1 ? 'session' : 'sessions'} total.
+                  Thread Strength grows when you come back to this anchor consistently.
                   {'\n'}
                   {tagline}
                 </Text>
@@ -464,10 +475,17 @@ export const ThreadStrengthSheet: React.FC<ThreadStrengthSheetProps> = ({
                     { width: `${data.deepPrimePct}%` },
                   ]}
                 />
+                <View
+                  style={[
+                    styles.breakdownVisualize,
+                    { width: `${data.totalSessions > 0 ? (data.visualizeCount / data.totalSessions) * 100 : 0}%` },
+                  ]}
+                />
               </View>
               <View style={styles.breakdownLegend}>
                 <Text style={styles.breakdownText}>{data.focusCount} Focus</Text>
                 <Text style={styles.breakdownText}>{data.deepCount} Deep Primes</Text>
+                <Text style={styles.breakdownText}>{data.visualizeCount} Visualize</Text>
               </View>
             </View>
 
@@ -482,6 +500,7 @@ export const ThreadStrengthSheet: React.FC<ThreadStrengthSheetProps> = ({
                         styles.weekDot,
                         day.type === 'focus' && styles.weekDotFocus,
                         day.type === 'deep' && styles.weekDotDeep,
+                        day.type === 'visualize' && styles.weekDotVisualize,
                         day.isToday && styles.weekDotToday,
                       ]}
                     >
@@ -705,6 +724,10 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: C.purpleDark,
   },
+  breakdownVisualize: {
+    height: '100%',
+    backgroundColor: '#183B65',
+  },
   breakdownLegend: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -746,6 +769,10 @@ const styles = StyleSheet.create({
   weekDotDeep: {
     backgroundColor: 'rgba(62,44,91,0.7)',
     borderColor: C.purple,
+  },
+  weekDotVisualize: {
+    backgroundColor: 'rgba(24,59,101,0.8)',
+    borderColor: '#6E9BC8',
   },
   weekDotToday: {
     shadowColor: C.gold,

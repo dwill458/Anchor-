@@ -38,6 +38,10 @@ const PLACEHOLDER_SIGIL = `<svg viewBox="0 0 32 36" fill="none" xmlns="http://ww
 </svg>`;
 const NODE_STAGGER_MS = 120;
 const BAR_TRACK_WIDTH = 168;
+// Matches the "Slipping" boundary in ThreadStrengthSheet.getTagline (< 40).
+// Below this the thread is visibly fading and the review forces a
+// recommit/release decision on the weakest anchor.
+const FADING_THREAD_THRESHOLD = 40;
 
 type PrimingState = WeeklyStats['days'][number]['state'];
 type ExtendedAnchor = Anchor & { sigilImageUri?: string | null };
@@ -45,6 +49,8 @@ type ExtendedAnchor = Anchor & { sigilImageUri?: string | null };
 export interface WeeklySummaryModalProps {
   visible: boolean;
   onDismiss: () => void;
+  /** Routes the weakest anchor into the existing release (burn) flow. */
+  onReleaseAnchor?: (anchorId: string) => void;
 }
 
 interface ResolvedAnchorData {
@@ -131,17 +137,18 @@ function formatDateRange(startValue: string, endValue: string): string {
   return `${startLabel} – ${endLabel}`;
 }
 
-function formatForgedDate(dateString: string): string {
-  const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) {
-    return dateString;
-  }
-
-  return date.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-  }).toUpperCase();
-}
+// DEFERRED: only used by the deferred Dominant Focus card below.
+// function formatForgedDate(dateString: string): string {
+//   const date = new Date(dateString);
+//   if (Number.isNaN(date.getTime())) {
+//     return dateString;
+//   }
+//
+//   return date.toLocaleDateString(undefined, {
+//     month: 'short',
+//     day: 'numeric',
+//   }).toUpperCase();
+// }
 
 function dominantPrimingDay(days: WeeklyStats['days']): WeeklyStats['days'][number] {
   return [...days].sort((left, right) => {
@@ -189,6 +196,7 @@ function LegendItem({
 export function WeeklySummaryModal({
   visible,
   onDismiss,
+  onReleaseAnchor,
 }: WeeklySummaryModalProps) {
   const stats = useWeeklyStats();
   const anchors = useAnchorStore((state) => state.anchors);
@@ -201,11 +209,34 @@ export function WeeklySummaryModal({
   const strengthProgress = useRef(new Animated.Value(0)).current;
   const nodeAnimations = useRef(Array.from({ length: 7 }, () => new Animated.Value(0))).current;
   const [isSharing, setIsSharing] = useState(false);
+  const [hasRecommitted, setHasRecommitted] = useState(false);
 
   const anchorData = useMemo(
     () => resolveAnchorData(anchors, stats),
     [anchors, stats]
   );
+  const isZeroPrimeWeek = stats.totalPrimes === 0;
+  const rankedAnchorRows = useMemo(
+    () =>
+      stats.rankedAnchors.map((ranked) => {
+        const anchor = anchors.find(
+          (item) => item.id === ranked.id || item.localId === ranked.id
+        ) as ExtendedAnchor | undefined;
+
+        return {
+          ...ranked,
+          artworkUri: anchor?.sigilImageUri ?? anchor?.enhancedImageUrl ?? null,
+          sigilXml: anchor?.baseSigilSvg ?? PLACEHOLDER_SIGIL,
+        };
+      }),
+    [anchors, stats.rankedAnchors]
+  );
+  const weakestAnchor = rankedAnchorRows[0] ?? null;
+  const showFadingDecision =
+    !isZeroPrimeWeek &&
+    weakestAnchor != null &&
+    weakestAnchor.threadStrength < FADING_THREAD_THRESHOLD &&
+    !hasRecommitted;
   const dominantDay = useMemo(() => dominantPrimingDay(stats.days), [stats.days]);
   const weekData = useMemo(() => ({
     weekNumber: stats.weekNumber,
@@ -233,20 +264,23 @@ export function WeeklySummaryModal({
     peakTimeOfDay: weekData.peakTimeOfDay,
     isFirstPrimeEver: weekData.lifetimePrimes === weekData.totalPrimes,
   }), [weekData]);
-  const barScaleX = strengthProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, Math.max(0, Math.min(1, anchorData.threadStrength / 100))],
-  });
-  const barTranslateX = strengthProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-BAR_TRACK_WIDTH / 2, -(BAR_TRACK_WIDTH * (1 - Math.max(0, Math.min(1, anchorData.threadStrength / 100)))) / 2],
-  });
+  // DEFERRED: animated bar interpolations for the single Dominant Focus card,
+  // replaced by the ranked anchor list's static strength bars.
+  // const barScaleX = strengthProgress.interpolate({
+  //   inputRange: [0, 1],
+  //   outputRange: [0, Math.max(0, Math.min(1, anchorData.threadStrength / 100))],
+  // });
+  // const barTranslateX = strengthProgress.interpolate({
+  //   inputRange: [0, 1],
+  //   outputRange: [-BAR_TRACK_WIDTH / 2, -(BAR_TRACK_WIDTH * (1 - Math.max(0, Math.min(1, anchorData.threadStrength / 100)))) / 2],
+  // });
 
   useEffect(() => {
     if (!visible) {
       return;
     }
 
+    setHasRecommitted(false);
     sheetTranslateY.setValue(48);
     backdropOpacity.setValue(0);
     strengthProgress.setValue(0);
@@ -283,6 +317,19 @@ export function WeeklySummaryModal({
     ]).start();
   }, [backdropOpacity, nodeAnimations, sheetTranslateY, strengthProgress, visible]);
 
+  const handleRelease = () => {
+    if (!weakestAnchor) {
+      return;
+    }
+
+    if (onReleaseAnchor) {
+      onReleaseAnchor(weakestAnchor.id);
+      return;
+    }
+
+    logger.warn('[WeeklySummaryModal] release requested without a release handler');
+  };
+
   const handleShare = async () => {
     if (isSharing || isCapturing) {
       return;
@@ -311,6 +358,7 @@ export function WeeklySummaryModal({
       statusBarTranslucent
     >
       <View style={styles.overlayRoot}>
+        {isZeroPrimeWeek ? null : (
         <View pointerEvents="none" style={styles.hiddenShare}>
           <View collapsable={false}>
             <ViewShot
@@ -335,6 +383,7 @@ export function WeeklySummaryModal({
             </ViewShot>
           </View>
         </View>
+        )}
 
         <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: backdropOpacity }]}>
           <Pressable style={styles.backdrop} onPress={onDismiss} />
@@ -356,6 +405,25 @@ export function WeeklySummaryModal({
                 <Text style={styles.weekDate}>{formatDateRange(stats.weekStart, stats.weekEnd)}</Text>
               </View>
 
+              {isZeroPrimeWeek ? (
+                <>
+                  <Text style={styles.zeroPrimeLine}>
+                    You didn't show up this week. Start again — today counts more than the
+                    streak you didn't have.
+                  </Text>
+
+                  <View style={[styles.actions, { paddingBottom: Math.max(bottomInset, 20) + 12 }]}>
+                    <TouchableOpacity
+                      style={styles.primaryButton}
+                      onPress={onDismiss}
+                      activeOpacity={0.84}
+                    >
+                      <Text style={styles.primaryButtonText}>START THIS WEEK →</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              ) : (
+                <>
               <View style={styles.threadSection}>
                 <Text style={styles.sectionLabel}>YOUR WEEK, THREADED</Text>
                 <View style={styles.threadTrack}>
@@ -391,6 +459,96 @@ export function WeeklySummaryModal({
                 </View>
               </View>
 
+              <View style={styles.insightSection}>
+                <Text style={styles.insightLine}>
+                  {insight.line1.includes(insight.highlightPhrase)
+                    ? insight.line1.split(insight.highlightPhrase)[0]
+                    : insight.line1}
+                  {insight.line1.includes(insight.highlightPhrase) ? (
+                    <Text style={styles.insightHighlight}>{insight.highlightPhrase}</Text>
+                  ) : null}
+                  {insight.line1.includes(insight.highlightPhrase)
+                    ? insight.line1.split(insight.highlightPhrase)[1]
+                    : ''}
+                  {'\n'}
+                  {insight.line2.includes(insight.highlightPhrase)
+                    ? insight.line2.split(insight.highlightPhrase)[0]
+                    : insight.line2}
+                  {insight.line2.includes(insight.highlightPhrase) ? (
+                    <Text style={styles.insightHighlight}>{insight.highlightPhrase}</Text>
+                  ) : null}
+                  {insight.line2.includes(insight.highlightPhrase)
+                    ? insight.line2.split(insight.highlightPhrase)[1]
+                    : ''}
+                </Text>
+              </View>
+
+              <View style={styles.spotlightSection}>
+                <Text style={styles.sectionLabel}>Active anchors · weakest first</Text>
+                <View style={styles.rankedList}>
+                  {rankedAnchorRows.map((row) => (
+                    <View key={row.id} style={styles.rankedRow}>
+                      <View style={styles.rankedThumb}>
+                        {row.artworkUri ? (
+                          <Image
+                            source={{ uri: row.artworkUri }}
+                            style={styles.rankedThumbImage}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <SigilSvg xml={row.sigilXml} width={22} height={25} />
+                        )}
+                      </View>
+
+                      <View style={styles.rankedInfo}>
+                        <Text style={styles.rankedIntent} numberOfLines={1}>
+                          {row.intention}
+                        </Text>
+                        <View style={styles.threadBarWrap}>
+                          <View style={styles.threadBarBg}>
+                            <View
+                              style={[
+                                styles.rankedBarFill,
+                                { width: `${Math.max(0, Math.min(100, row.threadStrength))}%` },
+                              ]}
+                            />
+                          </View>
+                          <Text style={styles.threadScore}>
+                            {row.threadStrength}
+                            <Text style={styles.threadScoreSuffix}> THREAD</Text>
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+
+                {showFadingDecision && weakestAnchor ? (
+                  <View style={styles.decisionBlock}>
+                    <Text style={styles.decisionLine}>
+                      {`"${weakestAnchor.intention.replace(/^"|"$/g, '')}" is fading. Recommit, or release it.`}
+                    </Text>
+                    <View style={styles.decisionButtons}>
+                      <TouchableOpacity
+                        style={styles.decisionRecommit}
+                        onPress={() => setHasRecommitted(true)}
+                        activeOpacity={0.84}
+                      >
+                        <Text style={styles.decisionRecommitText}>RECOMMIT</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.decisionRelease}
+                        onPress={handleRelease}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.decisionReleaseText}>RELEASE</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : null}
+              </View>
+
+              {/* DEFERRED: single Dominant Focus card replaced by the ranked anchor list above.
               <View style={styles.spotlightSection}>
                 <Text style={styles.sectionLabel}>Dominant focus</Text>
                 <View style={styles.anchorCard}>
@@ -426,6 +584,7 @@ export function WeeklySummaryModal({
                   </View>
                 </View>
               </View>
+              */}
 
               <View style={styles.statsSection}>
                 <View style={styles.statsGrid}>
@@ -444,40 +603,27 @@ export function WeeklySummaryModal({
                 </View>
               </View>
 
-              <Text style={styles.insightLine}>
-                {insight.line1.includes(insight.highlightPhrase)
-                  ? insight.line1.split(insight.highlightPhrase)[0]
-                  : insight.line1}
-                {insight.line1.includes(insight.highlightPhrase) ? (
-                  <Text style={styles.insightHighlight}>{insight.highlightPhrase}</Text>
-                ) : null}
-                {insight.line1.includes(insight.highlightPhrase)
-                  ? insight.line1.split(insight.highlightPhrase)[1]
-                  : ''}
-                {'\n'}
-                {insight.line2.includes(insight.highlightPhrase)
-                  ? insight.line2.split(insight.highlightPhrase)[0]
-                  : insight.line2}
-                {insight.line2.includes(insight.highlightPhrase) ? (
-                  <Text style={styles.insightHighlight}>{insight.highlightPhrase}</Text>
-                ) : null}
-                {insight.line2.includes(insight.highlightPhrase)
-                  ? insight.line2.split(insight.highlightPhrase)[1]
-                  : ''}
-              </Text>
-
+              {/* Identity insight line moved above, directly below the weekly
+                  calendar strip. Continuation is now the primary CTA; sharing
+                  is secondary. */}
               <View style={[styles.actions, { paddingBottom: Math.max(bottomInset, 20) + 12 }]}>
-                <TouchableOpacity style={styles.primaryButton} onPress={handleShare} activeOpacity={0.84} disabled={isCapturing || isSharing}>
-                  <StarGlyph color={NAVY} />
-                  <Text style={styles.primaryButtonText}>
-                    {isCapturing || isSharing ? 'SHARING THIS WEEK' : 'SHARE THIS WEEK'}
+                <TouchableOpacity style={styles.primaryButton} onPress={onDismiss} activeOpacity={0.84}>
+                  <Text style={styles.primaryButtonText}>{`BEGIN WEEK ${stats.weekNumber + 1} →`}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.ghostButton}
+                  onPress={handleShare}
+                  activeOpacity={0.8}
+                  disabled={isCapturing || isSharing}
+                >
+                  <Text style={styles.ghostButtonText}>
+                    {isCapturing || isSharing ? 'Sharing this week…' : 'Share this week'}
                   </Text>
                 </TouchableOpacity>
-
-                <TouchableOpacity style={styles.ghostButton} onPress={onDismiss} activeOpacity={0.8}>
-                  <Text style={styles.ghostButtonText}>{`Begin Week ${stats.weekNumber + 1} →`}</Text>
-                </TouchableOpacity>
               </View>
+                </>
+              )}
             </ScrollView>
           </LinearGradient>
         </Animated.View>
@@ -636,6 +782,114 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     borderBottomWidth: 0.5,
     borderBottomColor: 'rgba(245,245,220,0.06)',
+  },
+  insightSection: {
+    paddingBottom: 16,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(245,245,220,0.06)',
+  },
+  rankedList: {
+    gap: 10,
+  },
+  rankedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 0.5,
+    borderColor: 'rgba(212,175,55,0.2)',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  rankedThumb: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: 'rgba(62,44,91,0.5)',
+    borderWidth: 0.5,
+    borderColor: 'rgba(212,175,55,0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  rankedThumbImage: {
+    width: 40,
+    height: 40,
+  },
+  rankedInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  rankedIntent: {
+    fontFamily: 'CormorantGaramond-Italic',
+    fontSize: 14,
+    lineHeight: 18,
+    color: BONE,
+    marginBottom: 6,
+  },
+  rankedBarFill: {
+    height: '100%',
+    borderRadius: 2,
+    backgroundColor: GOLD,
+  },
+  decisionBlock: {
+    marginTop: 16,
+    backgroundColor: 'rgba(212,175,55,0.06)',
+    borderWidth: 0.5,
+    borderColor: 'rgba(212,175,55,0.3)',
+    borderRadius: 10,
+    padding: 16,
+  },
+  decisionLine: {
+    fontFamily: 'CormorantGaramond-Italic',
+    fontSize: 15,
+    lineHeight: 21,
+    color: BONE,
+    marginBottom: 12,
+  },
+  decisionButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  decisionRecommit: {
+    flex: 1,
+    height: 42,
+    borderRadius: 8,
+    backgroundColor: GOLD,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  decisionRecommitText: {
+    fontFamily: 'Cinzel-Regular',
+    fontSize: 10,
+    letterSpacing: 2,
+    color: NAVY,
+  },
+  decisionRelease: {
+    flex: 1,
+    height: 42,
+    borderRadius: 8,
+    borderWidth: 0.5,
+    borderColor: 'rgba(192,192,192,0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  decisionReleaseText: {
+    fontFamily: 'Cinzel-Regular',
+    fontSize: 10,
+    letterSpacing: 2,
+    color: SILVER,
+  },
+  zeroPrimeLine: {
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: 8,
+    fontFamily: 'CormorantGaramond-Italic',
+    fontSize: 16,
+    lineHeight: 24,
+    color: BONE,
+    textAlign: 'center',
   },
   anchorCard: {
     backgroundColor: 'rgba(255,255,255,0.03)',

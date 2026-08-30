@@ -80,115 +80,105 @@ class StylePreset(BaseModel):
     guidance_scale: float | None = None
 
 
-# Style presets optimized for geometry preservation
+# Style presets optimized for geometry preservation.
+GLOBAL_NEGATIVE_PROMPT = (
+    "text, words, letters, phrases, captions, numbers, numerals, readable characters, "
+    "runes, fake writing, inscriptions, labels, currency symbols, dollar sign, coins, "
+    "cash, banknotes, bank logos, charts, graphs, stock ticker, brand logos, watermark, "
+    "copyright mark, clipart, sticker, icon pack, emoji, flat app icon, photorealistic "
+    "human face, human figure, portrait, hands, literal scene, literal object illustration, "
+    "literal nautical anchor, ship anchor, boat anchor, physical anchor, metal anchor, "
+    "anchor object, anchor icon, anchor logo, anchor emoji, recognizable anchor silhouette, "
+    "maritime imagery, harbor, ship, boat, "
+    "distorted geometry, altered structure, altered shape, warped lines, broken geometry, melted lines, "
+    "blurry, muddy, low quality, random artifacts, overcrowded ornament, altar, "
+    "candle wax, fantasy clutter, religious iconography"
+)
+
+
+LITERAL_ANCHOR_EXCLUSION = (
+    "LITERAL SUBJECT EXCLUSION — ABSOLUTE: Create abstract symbolic sigil artwork only. "
+    "Anchor is the app/product name, not a physical subject. Never draw, add, clarify, "
+    "embellish, or suggest a real-world nautical, ship, boat, or metal anchor; anchor icon; "
+    "anchor logo; anchor emoji; or recognizable anchor silhouette. If the supplied linework "
+    "happens to resemble an anchor, preserve it only as abstract non-object geometry and "
+    "never turn it into a literal anchor."
+)
+
+
+def build_style_prompt(display_name: str, description: str, palette: str, material: str, composition: str) -> str:
+    return (
+        f"{LITERAL_ANCHOR_EXCLUSION} "
+        "SIGIL GEOMETRY IS IMMUTABLE STRUCTURE. Preserve ALL input lines, circles, "
+        "intersections, and shapes exactly as shown. Do NOT warp, melt, bend, rotate, "
+        "skew, redraw, simplify, reinterpret, or add to the sigil geometry. Treat the "
+        "geometry as a fixed engraved plate beneath all styling. "
+        f"Style identity: {display_name} — {description}. "
+        f"Composition family: {composition}. "
+        f"Palette lane: {palette}. Material behavior: {material}. "
+        "GOLD ACCENT CONSTRAINT: Gold or warm-metallic tones must not dominate more than "
+        "~15% of the visual field. Gold functions strictly as a thin structural highlight, "
+        "edge bevel, or seam — never a wash, fill, or dominant surface treatment. "
+        "Styling may influence atmosphere, finish, texture, light, color, density, and "
+        "peripheral composition only. Use abstract, secondary motifs only; no text, "
+        "numbers, readable symbols, people, logos, currency imagery, literal scenes, or "
+        "objects that explain the intention. Faint non-readable abstract marks are allowed "
+        "only as secondary texture and must never form a recognizable icon or object. "
+        "Bring back a restrained mystical undertone without making the image a full ritual "
+        "or fantasy tableau: use ethereal glow, quiet aura, dreamlike depth, restrained "
+        "celestial dust, soft luminous edges, and faint esoteric energy. Keep it refined, "
+        "contemporary, and grounded; avoid tarot cards, spellbooks, ritual altars, zodiac "
+        "diagrams, religious scenes, or fantasy tableaux. The finished image should feel specific "
+        "without ever changing the preserved sigil geometry. "
+        f"{LITERAL_ANCHOR_EXCLUSION}"
+    )
+
+
+STYLE_LIBRARY = {
+    "architectural_trace": ("Architectural Trace", "Precision drafting, measured geometry, schematic blueprint discipline.", "smoked slate, silver-white, faint cyan, graphite", "precision drafting ink, schematic grid logic, silver calibration ticks", "CENTRED AXIS", "canny", 0.20, 1.25, 6.5),
+    "lunar_etch": ("Lunar Etch", "Precision silver engraving, quiet radiance, nocturnal contrast.", "monochrome silver, indigo-black, cold titanium, soft blue-gray", "milled silver etching, micro-particle dust, restrained cold metallic reflection", "OFFSET FIELD", "lineart", 0.24, None, None),
+    "resonance_rings": ("Resonance Rings", "Concentric pulse circles, waveform halos, radiating energy.", "amber-white on charcoal, optional teal-white on graphite", "waveform rings, pulse field lines, harmonic interval spacing", "DIRECTIONAL FLOW", "lineart", 0.26, None, None),
+    "watercolor": ("Watercolor", "Flowing fluid pigment washes, soft dispersion bloom, textured cotton substrate.", "mineral blue, oxblood, moss, plum, muted saffron", "pigment saturation, heavy cold-press cotton grain, wet-edge separation", "OFFSET FIELD", "lineart", 0.28, None, None),
+    "ink_brush": ("Ink Brush", "Carbon ink restraint, strong gesture, meaningful negative space.", "carbon black ink, bone substrate, faint iron-red structural haze", "dry carbon pressure, diluted ink wash, textured substrate grain", "OPEN VOID", "lineart", 0.25, None, None),
+    "gold_leaf": ("Gold Leaf", "Struck alloy seams, brushed gold highlights, structural depth.", "antique gold accent, umber, soot-black, soft bronze", "brushed-gold fracture, struck alloy seams, micro-particle metallic dust", "CENTRED AXIS", "canny", 0.26, 1.20, None),
+    "cosmic": ("Cosmic", "Dimensional vector field, particle dust, deep atmospheric gradients.", "midnight teal, deep violet, pale gold flare accent, particle white", "vector field haze, particulate dust, layered dark gradients", "DIAGONAL TENSION", "lineart", 0.30, None, None),
+    "minimal_line": ("Minimal Line", "Ultra-clean linework, spacious restraint, engineered precision.", "platinum on dark graphite, bone on charcoal, faint silver", "machined vector line clarity, zero ornamental clutter", "OPEN VOID", "canny", 0.18, 1.30, None),
+    "obsidian_mono": ("Obsidian Mono", "Black obsidian composite, graphite polish, reflective bevel highlights.", "polished obsidian composite, graphite, silver edge, smoke gray", "machined obsidian composite, reflective bevel highlights, dark shadow weight", "LOWER-ANCHORED", "lineart", 0.20, None, None),
+    "aurora_glow": ("Aurora Glow", "Blue-green spectral light, soft dispersion bloom, moving atmospheric field.", "blue-green, cobalt, violet, rare gold hairline accents", "spectral light ribbons, atmospheric gradient bloom, refracted field haze", "DIRECTIONAL FLOW", "lineart", 0.32, None, None),
+    "ember_trace": ("Ember Trace", "Coal-dark surface, copper heat, controlled thermal glow.", "coal black, ember orange, copper red, ash gray", "tempered linework, heated bevel edges, particulate ember dust", "DIAGONAL TENSION", "lineart", 0.26, None, None),
+    "monolith_ink": ("Monolith Ink", "Heavy carbon ink, monumental weight, structural relief presence.", "matte carbon, basalt gray, dusted bronze accent, muted bone", "basalt composite grain, dense carbon ink, machined relief shadow", "LOWER-ANCHORED", "lineart", 0.22, 1.20, None),
+    "celestial_grid": ("Celestial Grid", "Measured astrometric geometry, coordinate vector lines, technical telemetry order.", "midnight navy, pale cyan, soft violet, pinprick gold", "coordinate plotting, telemetry markers, delicate vector arrays", "OFFSET FIELD", "canny", 0.20, 1.25, None),
+    "echo_chamber": ("Echo Chamber", "Repeating acoustic harmonics, chamber depth, layered signal dampening.", "smoked violet, blue-gray, muted gold accent, shadow black", "nested acoustic fields, soft echo bands, chamber depth", "CENTRED AXIS", "lineart", 0.28, None, None),
+    "prism_veil": ("Prism Veil", "Optic refraction, chromatic dispersion, frosted acrylic translucency.", "frosted acrylic, opal, pale cyan, lavender, faint gold accent", "translucent optic veils, refracted bevels, chromatic dispersion", "OFFSET FIELD", "lineart", 0.28, None, None),
+    "verdigris_relic": ("Verdigris Relic", "Oxidized copper alloy, mineral patina, precision-etched relief surface.", "oxidized teal, aged bronze, carbon ash, dark slate", "oxidized copper alloy, patina blooms, precision-etched relief surface", "LOWER-ANCHORED", "canny", 0.24, 1.20, None),
+    "solar_halo": ("Solar Halo", "Thermal radiance, disciplined brightness, haloed clarity.", "ivory, saffron, pale brass accent, pale amber, smoke gray", "thermal radiant halos, warm dispersion haze, brushed brass highlights", "CENTRED AXIS", "canny", 0.24, None, None),
+    "tideglass": ("Tideglass", "Frosted silicate translucency, fluid mineral wash, soft edge boundaries.", "seafoam, slate blue, soft aqua, mineral gray", "frosted silicate translucency, saline haze, eroded-edge softness", "DIRECTIONAL FLOW", "lineart", 0.28, None, None),
+    "sacred_geometry": ("Sacred Geometry", "Layered harmonic mathematical systems, transparent vector overlays, structural depth.", "indigo, teal, dusty rose, muted brass accent, slate blue", "layered harmonic geometry, transparent vector overlays, mathematical precision", "CENTRED AXIS", "canny", 0.24, 1.20, None),
+    "velvet_ember": ("Velvet Ember", "Matte dark depth, brushed copper thermal glints, controlled contrast.", "matte burgundy-black, brushed copper, warm amber accent, soot violet", "matte tactile darkness, copper thermal glints, soft smoke depth", "DIAGONAL TENSION", "lineart", 0.26, None, None),
+}
+
+
 STYLE_PRESETS: Dict[str, StylePreset] = {
-    "watercolor": StylePreset(
-        name="watercolor",
-        controlnet_type="lineart",
-        prompt_template=(
-            "Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. "
-            "Apply soft watercolor texture as surface treatment only. Translucent washes, "
-            "subtle color bleeding at edges. Paper texture visible. The sigil linework remains unchanged. "
-            "High-quality artistic enhancement, mystical symbol preserved exactly."
-        ),
-        negative_prompt=(
-            "extra lines, decorative circle, mandala, compass, runes, glyphs, occult seal, "
-            "emblem, logo redesign, reinterpretation, frame, border, symmetry embellishment, "
-            "altered shape, new symbols, added elements, changed geometry, distorted lines, "
-            "thick outlines, cartoon, 3d render, photograph"
-        ),
-        denoise_strength=0.30,  # Slightly higher for organic styles
-    ),
-
-    "ink_brush": StylePreset(
-        name="ink_brush",
-        controlnet_type="lineart",
-        prompt_template=(
-            "Restore and beautify the existing sigil while preserving exact geometry and stroke paths. "
-            "Render it in an expressive traditional ink brush sumi-e style with flowing brush pressure, "
-            "visible dry-brush texture, ink wash gradients, subtle feathering, rice paper texture, "
-            "and elegant zen calligraphic energy. Keep the sigil structure exactly as drawn, but make "
-            "the brushwork feel organic, tactile, and artistically alive."
-        ),
-        negative_prompt=(
-            "extra lines, decorative circle, mandala, compass, runes, glyphs, occult seal, "
-            "emblem, logo redesign, reinterpretation, frame, border, symmetry embellishment, "
-            "altered shape, new symbols, added elements, changed geometry, distorted lines, "
-            "additional rings, extra patterns, modified structure, redesigned form, digital, 3d, modern"
-        ),
-        denoise_strength=0.25,
-    ),
-
-    "sacred_geometry": StylePreset(
-        name="sacred_geometry",
-        controlnet_type="canny",  # Canny for geometric precision
-        prompt_template=(
-            "Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. "
-            "Apply golden metallic sheen as surface treatment only. Sacred geometry aesthetic, "
-            "precise lines with subtle glow. Mathematical perfection in texture, not form. "
-            "The original sigil geometry is untouched."
-        ),
-        negative_prompt=(
-            "extra lines, decorative circle, mandala, compass, runes, glyphs, occult seal, "
-            "emblem, logo redesign, reinterpretation, frame, border, symmetry embellishment, "
-            "altered shape, new symbols, added elements, changed geometry, organic, messy"
-        ),
-        conditioning_scale=1.25,  # Higher for geometric styles
-        denoise_strength=0.22,
-    ),
-
-    "gold_leaf": StylePreset(
-        name="gold_leaf",
-        controlnet_type="canny",
-        prompt_template=(
-            "Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. "
-            "Apply gold leaf gilding texture as surface treatment only. Illuminated manuscript style, "
-            "precious metal sheen, ornate texture on the existing lines. Medieval luxury aesthetic. "
-            "The sigil shape remains exactly as designed."
-        ),
-        negative_prompt=(
-            "extra lines, decorative circle, mandala, compass, runes, glyphs, occult seal, "
-            "emblem, logo redesign, reinterpretation, frame, border, symmetry embellishment, "
-            "altered shape, new symbols, added elements, changed geometry, modern, photography"
-        ),
-        conditioning_scale=1.20,
-        denoise_strength=0.25,
-    ),
-
-    "cosmic": StylePreset(
-        name="cosmic",
-        controlnet_type="lineart",
-        prompt_template=(
-            "Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. "
-            "Apply ethereal cosmic glow as surface treatment only. Nebula colors, starlight, "
-            "celestial energy emanating from the unchanged sigil lines. Deep space background. "
-            "The sigil structure is preserved exactly."
-        ),
-        negative_prompt=(
-            "extra lines, decorative circle, mandala, compass, runes, glyphs, occult seal, "
-            "emblem, logo redesign, reinterpretation, frame, border, symmetry embellishment, "
-            "altered shape, new symbols, added elements, changed geometry, planets, faces, realistic photo"
-        ),
-        denoise_strength=0.32,  # Slightly higher for glow effects
-    ),
-
-    "minimal_line": StylePreset(
-        name="minimal_line",
-        controlnet_type="canny",
-        prompt_template=(
-            "Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. "
-            "Apply clean minimalist treatment as surface polish only. Crisp precise lines, "
-            "subtle paper texture, modern graphic design aesthetic. "
-            "The sigil geometry is preserved with absolute precision."
-        ),
-        negative_prompt=(
-            "extra lines, decorative circle, mandala, compass, runes, glyphs, occult seal, "
-            "emblem, logo redesign, reinterpretation, frame, border, symmetry embellishment, "
-            "altered shape, new symbols, added elements, changed geometry, texture, shading, embellishment, ornate"
-        ),
-        conditioning_scale=1.30,  # Highest for minimal - structure is everything
-        denoise_strength=0.18,    # Lowest - minimal change needed
-    ),
+    style_id: StylePreset(
+        name=style_id,
+        controlnet_type=controlnet_type,
+        prompt_template=build_style_prompt(display_name, description, palette, material, composition),
+        negative_prompt=GLOBAL_NEGATIVE_PROMPT,
+        denoise_strength=denoise_strength,
+        conditioning_scale=conditioning_scale,
+        guidance_scale=guidance_scale,
+    )
+    for style_id, (
+        display_name,
+        description,
+        palette,
+        material,
+        composition,
+        controlnet_type,
+        denoise_strength,
+        conditioning_scale,
+        guidance_scale,
+    ) in STYLE_LIBRARY.items()
 }
 
 

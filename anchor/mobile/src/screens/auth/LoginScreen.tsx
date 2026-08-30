@@ -26,13 +26,17 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { colors, typography } from '@/theme';
 import { ENABLE_GOOGLE_SIGN_IN } from '@/config';
 import { useAuthStore } from '../../stores/authStore';
+import { useAnchorStore } from '@/stores/anchorStore';
 import { useSubscriptionStore } from '../../stores/subscriptionStore';
 import { AuthService } from '../../services/AuthService';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
+import { FrictionAnalytics } from '@/services/FrictionAnalytics';
+import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import PostAuthFlowService from '../../services/PostAuthFlowService';
+import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 import type {
   AuthScreenInitialTab,
   AuthScreenParams,
-  OnboardingStackParamList,
   RootStackParamList,
 } from '@/types';
 
@@ -46,7 +50,7 @@ interface LoginScreenProps {
   route?: { params?: AuthScreenParams };
 }
 
-const ANCHOR_GOLD = require('../../assets/images/anchor-gold.png');
+const ANCHOR_GOLD = require('../../assets/images/anchor-logo-official.png');
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) => {
   const initialTab = route?.params?.initialTab ?? 'signin';
@@ -54,12 +58,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [focusedField, setFocusedField] = useState<FocusedField>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isAppleAvailable, setIsAppleAvailable] = useState(false);
 
   const hasCompletedOnboarding = useAuthStore((state) => state.hasCompletedOnboarding);
@@ -137,19 +139,60 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
     }
   };
 
+  const shouldMarkOnboardingCompletedForAuth = () =>
+    context == null ||
+    context === 'onboarding' ||
+    context === 'first_anchor_gate' ||
+    context === 'save_progress' ||
+    context === 'paywall';
+
+  const navigateAfterSuccessfulAuth = (target: 'Vault') => {
+    const routeNames = (navigation.getState?.().routeNames ?? []) as readonly string[];
+
+    if (routeNames.includes(target)) {
+      navigateToVaultDestination(navigation, 'replace');
+      return;
+    }
+
+    // Profile/settings auth is presented as a modal stack over Main. Close it
+    // after sign-in so the user returns to the now-authenticated app surface.
+    if (
+      (routeNames.includes('Profile') || routeNames.includes('Settings')) &&
+      navigation.canGoBack()
+    ) {
+      navigation.goBack();
+    }
+  };
+
+  // Hand off to the SaveProgress gate, which finalizes the pending first anchor
+  // (attaches it to the new account) before entering the Vault.
+  const finalizeFirstAnchorThenVault = () => {
+    const routeNames = (navigation.getState?.().routeNames ?? []) as readonly string[];
+    const anchorId =
+      route?.params?.anchorId ?? useAuthStore.getState().pendingFirstAnchorDraft?.tempAnchorId;
+    const anchor = anchorId ? useAnchorStore.getState().getAnchorById(anchorId) : null;
+    if (anchorId && routeNames.includes('SaveProgress')) {
+      if (anchor) {
+        navigation.replace('SaveProgress', { anchor });
+        return;
+      }
+    }
+    navigateAfterSuccessfulAuth('Vault');
+  };
+
   const completeAuth = async (result: Awaited<ReturnType<typeof AuthService.signInWithEmail>>) => {
     if (preferredPlanId) {
       setPreferredPlanId(preferredPlanId);
     }
 
+    const shouldCompleteOnboardingAfterAuth =
+      hasCompletedOnboarding ||
+      shouldMarkOnboardingCompletedForAuth();
+
     await PostAuthFlowService.run({
       user: result.user,
       token: result.token,
-      preserveCompletedOnboarding:
-        hasCompletedOnboarding ||
-        context === 'first_anchor_gate' ||
-        context === 'save_progress' ||
-        context === 'paywall',
+      preserveCompletedOnboarding: shouldCompleteOnboardingAfterAuth,
       launchTrialPurchase: false,
     });
 
@@ -158,13 +201,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
     );
 
     if (context === 'first_anchor_gate') {
-      navigation.replace('FirstAnchorAccountGate');
+      finalizeFirstAnchorThenVault();
     } else if (context === 'save_progress' && shouldRouteThroughFirstAnchorGate) {
-      navigation.replace('FirstAnchorAccountGate');
+      finalizeFirstAnchorThenVault();
     } else if (context === 'save_progress') {
-      navigation.replace('Vault');
+      navigateAfterSuccessfulAuth('Vault');
     } else if (context === 'paywall') {
-      navigation.replace('Vault');
+      navigateAfterSuccessfulAuth('Vault');
+    } else if (context == null || context === 'onboarding') {
+      navigateAfterSuccessfulAuth('Vault');
     }
   };
 
@@ -172,18 +217,37 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
     resetError();
     if (!email.trim() || !password) {
       setError('Please enter both email and password');
+      FrictionAnalytics.flowBlocked('onboarding_auth', 'login', 'missing_credentials', { context });
       return;
     }
 
     setLoading(true);
+    FrictionAnalytics.stepCompleted('onboarding_auth', 'auth_started', {
+      provider: 'email',
+      mode: 'signin',
+      context,
+    });
     try {
       const result = await AuthService.signInWithEmail(email, password, {
-        hasCompletedOnboarding:
-          context === 'first_anchor_gate' || context === 'save_progress' ? true : undefined,
+        hasCompletedOnboarding: shouldMarkOnboardingCompletedForAuth() ? true : undefined,
+        allowBackendCreate: false,
       });
       await completeAuth(result);
+      AnalyticsService.track(AnalyticsEvents.SIGN_IN_COMPLETED, {
+        provider: 'email',
+        context,
+      });
+      FrictionAnalytics.completeFlow('onboarding_auth', {
+        provider: 'email',
+        mode: 'signin',
+        context,
+      });
     } catch (err: any) {
       setError(err.message || 'Login failed');
+      FrictionAnalytics.flowError('onboarding_auth', 'login', 'signin_failed', {
+        provider: 'email',
+        context,
+      });
     } finally {
       setLoading(false);
     }
@@ -191,24 +255,52 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
 
   const handleSignUp = async () => {
     resetError();
-    if (!name.trim() || !email.trim() || !password || !confirmPassword) {
-      setError('Please fill in all fields');
+    if (!email.trim() || !password) {
+      setError('Please enter your email and a password');
+      FrictionAnalytics.flowBlocked('onboarding_auth', 'signup', 'missing_fields', { context });
       return;
     }
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
+      FrictionAnalytics.flowBlocked('onboarding_auth', 'signup', 'password_too_short', { context });
       return;
     }
 
     setLoading(true);
+    FrictionAnalytics.stepCompleted('onboarding_auth', 'auth_started', {
+      provider: 'email',
+      mode: 'signup',
+      context,
+    });
     try {
       const result = await AuthService.signUpWithEmail(email, password, name, {
-        hasCompletedOnboarding:
-          context === 'first_anchor_gate' || context === 'save_progress' ? true : undefined,
+        hasCompletedOnboarding: shouldMarkOnboardingCompletedForAuth() ? true : undefined,
+        allowBackendCreate: true,
       });
       await completeAuth(result);
+      AnalyticsService.track(AnalyticsEvents.SIGN_UP_COMPLETED, {
+        provider: 'email',
+        context,
+      });
+      // No-card trial begins at account creation; mark the funnel entry.
+      AnalyticsService.track(AnalyticsEvents.TRIAL_STARTED, { provider: 'email', context });
+      FrictionAnalytics.completeFlow('onboarding_auth', {
+        provider: 'email',
+        mode: 'signup',
+        context,
+      });
     } catch (err: any) {
       setError(err.message || 'Sign up failed');
+      FrictionAnalytics.flowError('onboarding_auth', 'signup', 'signup_failed', {
+        provider: 'email',
+        context,
+        error_code: err?.code,
+        error_message: err?.message,
+      });
+      ErrorTrackingService.captureException(err, {
+        screen: 'LoginScreen',
+        action: 'signup_email',
+      });
     } finally {
       setLoading(false);
     }
@@ -225,15 +317,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
 
   const handleForgotPassword = async () => {
     resetError();
-    if (!email.trim()) {
+    const resetEmail = email.trim().toLowerCase();
+
+    if (!resetEmail) {
       setError('Enter your email first to reset your password');
       return;
     }
 
     setLoading(true);
     try {
-      await AuthService.sendPasswordResetEmail(email);
-      Alert.alert('Reset email sent', `A reset link was sent to ${email.trim()}.`);
+      await AuthService.sendPasswordResetEmail(resetEmail);
+      Alert.alert(
+        'Reset email sent',
+        `If an Anchor account exists for ${resetEmail}, a reset link will arrive shortly.`
+      );
     } catch (err: any) {
       setError(err.message || 'Unable to send password reset email');
     } finally {
@@ -244,16 +341,51 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
   const handleAppleSignIn = () => {
     resetError();
     setLoading(true);
+    FrictionAnalytics.stepCompleted('onboarding_auth', 'auth_started', {
+      provider: 'apple',
+      mode: tab,
+      context,
+    });
     void (async () => {
       try {
-        const result = await AuthService.signInWithApple();
+        const result = await AuthService.signInWithApple({
+          hasCompletedOnboarding: shouldMarkOnboardingCompletedForAuth() ? true : undefined,
+          allowBackendCreate: !isSignIn,
+        });
         await completeAuth(result);
+        AnalyticsService.track(
+          tab === 'signup' ? AnalyticsEvents.SIGN_UP_COMPLETED : AnalyticsEvents.SIGN_IN_COMPLETED,
+          {
+            provider: 'apple',
+            context,
+          }
+        );
+        if (result.isNewUser) {
+          AnalyticsService.track(AnalyticsEvents.TRIAL_STARTED, { provider: 'apple', context });
+        }
+        FrictionAnalytics.completeFlow('onboarding_auth', {
+          provider: 'apple',
+          mode: tab,
+          context,
+        });
       } catch (err: any) {
         if (err?.code === 'ERR_REQUEST_CANCELED') {
+          FrictionAnalytics.stepAbandoned('onboarding_auth', 'apple_auth', 'provider_cancelled', {
+            context,
+          });
           return;
         }
         const message = err?.message || 'Apple sign-in failed';
         setError(message);
+        FrictionAnalytics.flowError('onboarding_auth', 'apple_auth', 'apple_auth_failed', {
+          context,
+          error_code: err?.code,
+          error_message: message,
+        });
+        ErrorTrackingService.captureException(err, {
+          screen: 'LoginScreen',
+          action: 'apple_sign_in',
+        });
         Alert.alert('Apple sign-in', message);
       } finally {
         setLoading(false);
@@ -264,16 +396,51 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
   const handleGoogleSignIn = () => {
     resetError();
     setLoading(true);
+    FrictionAnalytics.stepCompleted('onboarding_auth', 'auth_started', {
+      provider: 'google',
+      mode: tab,
+      context,
+    });
     void (async () => {
       try {
-        const result = await AuthService.signInWithGoogle();
+        const result = await AuthService.signInWithGoogle({
+          hasCompletedOnboarding: shouldMarkOnboardingCompletedForAuth() ? true : undefined,
+          allowBackendCreate: !isSignIn,
+        });
         await completeAuth(result);
+        AnalyticsService.track(
+          tab === 'signup' ? AnalyticsEvents.SIGN_UP_COMPLETED : AnalyticsEvents.SIGN_IN_COMPLETED,
+          {
+            provider: 'google',
+            context,
+          }
+        );
+        if (result.isNewUser) {
+          AnalyticsService.track(AnalyticsEvents.TRIAL_STARTED, { provider: 'google', context });
+        }
+        FrictionAnalytics.completeFlow('onboarding_auth', {
+          provider: 'google',
+          mode: tab,
+          context,
+        });
       } catch (err: any) {
         if (err?.message === 'Google sign-in was cancelled.') {
+          FrictionAnalytics.stepAbandoned('onboarding_auth', 'google_auth', 'provider_cancelled', {
+            context,
+          });
           return;
         }
         const message = err?.message || 'Google sign-in failed';
         setError(message);
+        FrictionAnalytics.flowError('onboarding_auth', 'google_auth', 'google_auth_failed', {
+          context,
+          error_code: err?.code,
+          error_message: message,
+        });
+        ErrorTrackingService.captureException(err, {
+          screen: 'LoginScreen',
+          action: 'google_sign_in',
+        });
         Alert.alert('Google sign-in', message);
       } finally {
         setLoading(false);
@@ -345,7 +512,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
     >
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardAvoid}
         >
           <ScrollView
@@ -357,7 +524,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
               <Animated.View style={[styles.logoWrap, { transform: [{ translateY: floatAnim }] }]}>
                 <Animated.View style={[styles.logoGlow, { opacity: glowAnim }]} />
                 <Animated.View style={[styles.logoGlowOuter, { opacity: glowAnim }]} />
-                <Image source={ANCHOR_GOLD} style={styles.logoImage} resizeMode="contain" />
+                <Image
+                  source={ANCHOR_GOLD}
+                  style={styles.logoImage}
+                  resizeMode="contain"
+                  accessible
+                  accessibilityLabel="Anchor logo"
+                />
               </Animated.View>
 
               <Text style={styles.wordmark}>ANCHOR</Text>
@@ -455,9 +628,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
                 </View>
 
                 {!isSignIn
-                  ? renderField('name', 'FULL NAME', name, setName, {
+                  ? renderField('name', 'NAME (OPTIONAL)', name, setName, {
                     autoCapitalize: 'words',
-                    placeholder: 'Your name',
+                    placeholder: 'What should we call you?',
                   })
                   : null}
 
@@ -467,22 +640,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
                 })}
 
                 {renderField('password', 'PASSWORD', password, setPassword, {
-                  placeholder: '••••••••',
+                  placeholder: 'At least 8 characters',
                   secureTextEntry: true,
                   showToggle: true,
                   shown: showPassword,
                   onToggle: () => setShowPassword((current) => !current),
                 })}
-
-                {!isSignIn
-                  ? renderField('confirmPassword', 'CONFIRM PASSWORD', confirmPassword, setConfirmPassword, {
-                    placeholder: '••••••••',
-                    secureTextEntry: true,
-                    showToggle: true,
-                    shown: showConfirmPassword,
-                    onToggle: () => setShowConfirmPassword((current) => !current),
-                  })
-                  : null}
 
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
 

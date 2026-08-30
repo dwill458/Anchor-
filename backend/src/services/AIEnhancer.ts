@@ -17,6 +17,13 @@ import { logger } from '../utils/logger';
 import { rasterizeSVG } from '../utils/svgRasterizer';
 import { computeStructureMatch } from '../utils/structureMatching';
 import { GeminiImageService } from './GeminiImageService';
+import {
+  VALID_AI_STYLES,
+  buildStylePrompt,
+  getStyleNegativePrompt,
+  type AIStyle,
+} from './stylePromptLibrary';
+export type { AIStyle } from './stylePromptLibrary';
 
 // ============================================================================
 // LEGACY CODE REMOVED (Phase 4 Cleanup)
@@ -76,33 +83,12 @@ export function getCostEstimate(tier: 'draft' | 'premium' | 'pro_upgrade' = 'pre
 // ============================================================================
 
 /**
- * AI Style type definition (matches mobile types)
- */
-export type AIStyle =
-  | 'watercolor'
-  | 'sacred_geometry'
-  | 'ink_brush'
-  | 'gold_leaf'
-  | 'cosmic'
-  | 'architectural_trace'
-  | 'lunar_etch'
-  | 'resonance_rings'
-  | 'minimal_line'
-  | 'obsidian_mono'
-  | 'aurora_glow'
-  | 'ember_trace'
-  | 'echo_chamber'
-  | 'monolith_ink'
-  | 'celestial_grid';
-
-/**
  * Style configuration for ControlNet enhancement
  * Now includes style-specific parameter overrides for fine-tuning
  */
 interface StyleConfig {
   name: AIStyle;
   method: 'canny' | 'lineart' | 'scribble';
-  prompt: string;
   negativePrompt: string;
   category: 'organic' | 'geometric' | 'hybrid';
   // Style-specific overrides (optional)
@@ -111,207 +97,117 @@ interface StyleConfig {
   strength?: number; // denoise/strength
 }
 
-/**
- * STRICT negative prompt - prevents ALL structure modification
- * Used as base for all styles
- */
-const STRICT_NEGATIVE_PROMPT =
-  'extra lines, decorative circle, mandala, compass, runes, glyphs, occult seal, ' +
-  'emblem, logo redesign, reinterpretation, frame, border, symmetry embellishment, ' +
-  'altered shape, new symbols, added elements, changed geometry, distorted lines, ' +
-  'additional rings, extra patterns, modified structure, redesigned form';
+const CONTROLNET_METHOD_BY_STYLE: Record<AIStyle, StyleConfig['method']> = {
+  architectural_trace: 'canny',
+  lunar_etch: 'lineart',
+  resonance_rings: 'lineart',
+  watercolor: 'lineart',
+  ink_brush: 'lineart',
+  gold_leaf: 'canny',
+  cosmic: 'lineart',
+  minimal_line: 'canny',
+  obsidian_mono: 'lineart',
+  aurora_glow: 'lineart',
+  ember_trace: 'lineart',
+  monolith_ink: 'lineart',
+  celestial_grid: 'canny',
+  echo_chamber: 'lineart',
+  prism_veil: 'lineart',
+  verdigris_relic: 'canny',
+  solar_halo: 'canny',
+  tideglass: 'lineart',
+  sacred_geometry: 'canny',
+  velvet_ember: 'lineart',
+  solar_veil: 'canny',
+  ink_bloom: 'lineart',
+  prism_fold: 'lineart',
+  ocean_current: 'lineart',
+  halo_drift: 'canny',
+  harvest_gild: 'canny',
+  midnight_bloom: 'lineart',
+  winter_halo: 'lineart',
+};
+
+const CONTROLNET_CATEGORY_BY_STYLE: Record<AIStyle, StyleConfig['category']> = {
+  architectural_trace: 'geometric',
+  lunar_etch: 'hybrid',
+  resonance_rings: 'hybrid',
+  watercolor: 'organic',
+  ink_brush: 'organic',
+  gold_leaf: 'hybrid',
+  cosmic: 'organic',
+  minimal_line: 'geometric',
+  obsidian_mono: 'geometric',
+  aurora_glow: 'organic',
+  ember_trace: 'hybrid',
+  monolith_ink: 'geometric',
+  celestial_grid: 'geometric',
+  echo_chamber: 'hybrid',
+  prism_veil: 'organic',
+  verdigris_relic: 'hybrid',
+  solar_halo: 'hybrid',
+  tideglass: 'organic',
+  sacred_geometry: 'geometric',
+  velvet_ember: 'hybrid',
+  solar_veil: 'hybrid',
+  ink_bloom: 'organic',
+  prism_fold: 'organic',
+  ocean_current: 'organic',
+  halo_drift: 'hybrid',
+  harvest_gild: 'hybrid',
+  midnight_bloom: 'hybrid',
+  winter_halo: 'hybrid',
+};
+
+const CONTROLNET_OVERRIDES: Partial<
+  Record<AIStyle, Pick<StyleConfig, 'conditioning_scale' | 'guidance_scale' | 'strength'>>
+> = {
+  architectural_trace: { conditioning_scale: 1.25, guidance_scale: 6.5, strength: 0.2 },
+  minimal_line: { conditioning_scale: 1.3, strength: 0.18 },
+  celestial_grid: { conditioning_scale: 1.25, strength: 0.2 },
+  sacred_geometry: { conditioning_scale: 1.2, strength: 0.24 },
+  monolith_ink: { conditioning_scale: 1.2, strength: 0.22 },
+  verdigris_relic: { conditioning_scale: 1.2, strength: 0.24 },
+  lunar_etch: { strength: 0.24 },
+  resonance_rings: { strength: 0.26 },
+  watercolor: { strength: 0.28 },
+  cosmic: { strength: 0.3 },
+  aurora_glow: { strength: 0.32 },
+  tideglass: { strength: 0.28 },
+  prism_veil: { strength: 0.28 },
+  gold_leaf: { conditioning_scale: 1.2, strength: 0.26 },
+  obsidian_mono: { strength: 0.2 },
+  ember_trace: { strength: 0.26 },
+  echo_chamber: { strength: 0.28 },
+  solar_halo: { strength: 0.24 },
+  velvet_ember: { strength: 0.26 },
+  solar_veil: { strength: 0.24 },
+  ink_bloom: { strength: 0.28 },
+  prism_fold: { strength: 0.28 },
+  ocean_current: { strength: 0.28 },
+  halo_drift: { strength: 0.24 },
+  harvest_gild: { conditioning_scale: 1.2, strength: 0.24 },
+  midnight_bloom: { strength: 0.26 },
+  winter_halo: { strength: 0.24 },
+};
 
 /**
- * Validated style configurations with STRICT structure preservation prompts
- * Each prompt now explicitly emphasizes preserving exact geometry
+ * Validated style configurations with STRICT structure preservation prompts.
+ * Prompt text is generated from the shared launch style library.
  */
-const STYLE_CONFIGS: Record<AIStyle, StyleConfig> = {
-  architectural_trace: {
-    name: 'architectural_trace',
-    method: 'canny',
-    category: 'geometric',
-    prompt:
-      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. Apply architectural drafting precision as surface treatment only. Measured blueprint lines, subtle grid discipline, clean technical elegance, no ornamental drift. The original sigil geometry is untouched.',
-    negativePrompt: STRICT_NEGATIVE_PROMPT + ', organic, loose sketching, messy, hand-drawn',
-    conditioning_scale: 1.25,
-    guidance_scale: 6.5,
-    strength: 0.2,
+const STYLE_CONFIGS: Record<AIStyle, StyleConfig> = VALID_AI_STYLES.reduce(
+  (configs, style) => {
+    configs[style] = {
+      name: style,
+      method: CONTROLNET_METHOD_BY_STYLE[style],
+      category: CONTROLNET_CATEGORY_BY_STYLE[style],
+      negativePrompt: getStyleNegativePrompt(style),
+      ...CONTROLNET_OVERRIDES[style],
+    };
+    return configs;
   },
-  lunar_etch: {
-    name: 'lunar_etch',
-    method: 'lineart',
-    category: 'hybrid',
-    prompt:
-      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. Apply moonlit silver etching as surface treatment only. Pale metallic highlights, crescent glints, quiet darkness, refined contrast. The sigil structure remains exactly as drawn.',
-    negativePrompt: STRICT_NEGATIVE_PROMPT + ', warm colors, noisy texture, cartoon, photography',
-    strength: 0.24,
-  },
-  resonance_rings: {
-    name: 'resonance_rings',
-    method: 'lineart',
-    category: 'hybrid',
-    prompt:
-      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. Apply concentric resonance rings as surface treatment only. Layered pulse circles, subtle waveform halos, radiating energy in the background. The sigil structure is preserved exactly.',
-    negativePrompt:
-      STRICT_NEGATIVE_PROMPT + ', sharp geometry, clutter, static noise, photorealism',
-    strength: 0.26,
-  },
-  watercolor: {
-    name: 'watercolor',
-    method: 'lineart',
-    category: 'organic',
-    prompt:
-      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
-      'Apply soft watercolor texture as surface treatment only. Translucent washes, ' +
-      'subtle color bleeding at edges. Paper texture visible. The sigil linework remains unchanged. ' +
-      'High-quality artistic enhancement, mystical symbol preserved exactly.',
-    negativePrompt:
-      STRICT_NEGATIVE_PROMPT + ', photography, realistic, 3d, thick outlines, cartoon',
-    strength: 0.28, // Slightly higher for organic texture
-  },
-  sacred_geometry: {
-    name: 'sacred_geometry',
-    method: 'canny',
-    category: 'geometric',
-    prompt:
-      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
-      'Apply rich multi-layer sacred geometry as surface treatment. Multiple visible systems in the ' +
-      "background: Flower of Life, Metatron's Cube, Sri Yantra, golden spiral — layer at least 2 together. " +
-      'Rich color palette: deep indigo, violet, gold, rose, teal, amber — each geometric layer in a ' +
-      'distinct hue or opacity for real visual depth. The original sigil geometry is untouched.',
-    negativePrompt:
-      STRICT_NEGATIVE_PROMPT + ', organic, soft, messy, hand-drawn, monochrome, single color',
-    conditioning_scale: 1.2,
-    strength: 0.3,
-  },
-  ink_brush: {
-    name: 'ink_brush',
-    method: 'lineart',
-    category: 'organic',
-    prompt:
-      'Restore and beautify the existing sigil while preserving exact geometry and stroke paths. ' +
-      'Render it in an expressive traditional ink brush sumi-e style with flowing brush pressure, ' +
-      'visible dry-brush texture, ink wash gradients, subtle feathering, rice paper texture, ' +
-      'and elegant zen calligraphic energy. Keep the sigil structure exactly as drawn, but make ' +
-      'the brushwork feel organic, tactile, and artistically alive.',
-    negativePrompt: STRICT_NEGATIVE_PROMPT + ', digital, 3d, modern',
-    strength: 0.25,
-  },
-  gold_leaf: {
-    name: 'gold_leaf',
-    method: 'canny',
-    category: 'hybrid',
-    prompt:
-      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
-      'Apply free-form gold atmosphere as surface treatment. Liquid gold sheen, scattered gold leaf ' +
-      'fragments, gilded halo glow blooming outward from the sigil. Background in any dark moody tone ' +
-      'that serves the gold — charcoal, warm black, aged parchment, deep indigo. No imposed border style. ' +
-      'Gold is a living light source, not just a surface finish. The sigil shape remains exactly as designed.',
-    negativePrompt:
-      STRICT_NEGATIVE_PROMPT + ', modern, photography, people, Gothic border, filigree frame',
-    conditioning_scale: 1.2,
-    strength: 0.28,
-  },
-  cosmic: {
-    name: 'cosmic',
-    method: 'lineart',
-    category: 'organic',
-    prompt:
-      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
-      'Apply ethereal cosmic glow as surface treatment only. Nebula colors, starlight, ' +
-      'celestial energy emanating from the unchanged sigil lines. Deep space background. ' +
-      'The sigil structure is preserved exactly.',
-    negativePrompt: STRICT_NEGATIVE_PROMPT + ', planets, faces, realistic photo, solid shapes',
-    strength: 0.3, // Slightly higher for glow effects
-  },
-  minimal_line: {
-    name: 'minimal_line',
-    method: 'canny',
-    category: 'geometric',
-    prompt:
-      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
-      'Apply clean minimalist treatment as surface polish only. Crisp precise lines, ' +
-      'subtle paper texture, modern graphic design aesthetic. ' +
-      'The sigil geometry is preserved with absolute precision.',
-    negativePrompt:
-      STRICT_NEGATIVE_PROMPT + ', texture, heavy shading, embellishment, ornate, thick lines',
-    conditioning_scale: 1.3, // Highest - structure is everything for minimal
-    strength: 0.18, // Lowest - minimal change needed
-  },
-  obsidian_mono: {
-    name: 'obsidian_mono',
-    method: 'lineart',
-    category: 'geometric',
-    prompt:
-      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
-      'Apply high-contrast monochrome obsidian texture as surface treatment only. ' +
-      'Deep black glass with subtle sharp reflections. High-contrast monochromatic finish. ' +
-      'The original sigil geometry is preserved with absolute precision.',
-    negativePrompt: STRICT_NEGATIVE_PROMPT + ', color, soft, organic, messy',
-    strength: 0.2,
-  },
-  aurora_glow: {
-    name: 'aurora_glow',
-    method: 'lineart',
-    category: 'organic',
-    prompt:
-      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
-      'Apply atmospheric aurora borealis glow as surface treatment only. ' +
-      'Shifting green, purple, and blue light curtains behind and around the sigil. ' +
-      'The sigil structure remains precisely as drawn.',
-    negativePrompt: STRICT_NEGATIVE_PROMPT + ', solid shapes, sharp edges, photography',
-    strength: 0.32,
-  },
-  ember_trace: {
-    name: 'ember_trace',
-    method: 'lineart',
-    category: 'hybrid',
-    prompt:
-      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
-      'Apply warm ember edge lighting as surface treatment only. ' +
-      'Glowing orange and red hot metal edges, cooling black surfaces. ' +
-      'The sigil shape remains exactly as designed.',
-    negativePrompt: STRICT_NEGATIVE_PROMPT + ', cold colors, water, soft texture',
-    strength: 0.26,
-  },
-  echo_chamber: {
-    name: 'echo_chamber',
-    method: 'lineart',
-    category: 'organic',
-    prompt:
-      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
-      'Apply layered cyclical resonance as surface treatment only. ' +
-      'Subtle repeating ripple effects emanating from the unchanged sigil lines. ' +
-      'The sigil structure is preserved exactly.',
-    negativePrompt: STRICT_NEGATIVE_PROMPT + ', sharp geometry, busy patterns, high contrast',
-    strength: 0.3,
-  },
-  monolith_ink: {
-    name: 'monolith_ink',
-    method: 'lineart',
-    category: 'geometric',
-    prompt:
-      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
-      'Apply grounded heavy-line authority as surface treatment only. ' +
-      'Matte black architectural ink, heavy weight but precise edges. ' +
-      'The sigil geometry is preserved with absolute precision.',
-    negativePrompt: STRICT_NEGATIVE_PROMPT + ', soft brush, color, messy, organic',
-    strength: 0.22,
-  },
-  celestial_grid: {
-    name: 'celestial_grid',
-    method: 'canny',
-    category: 'geometric',
-    prompt:
-      'Restore and beautify the existing sigil. Preserve exact geometry and stroke paths. ' +
-      'Apply constellation-inspired symmetry as surface treatment only. ' +
-      'Precise grid-based star alignments following the sigil lines. ' +
-      'The original sigil geometry is untouched.',
-    negativePrompt: STRICT_NEGATIVE_PROMPT + ', messy, organic, soft edges, thick brush',
-    conditioning_scale: 1.25,
-    strength: 0.2,
-  },
-};
+  {} as Record<AIStyle, StyleConfig>
+);
 
 /**
  * ControlNet models for structure-preserving enhancement
@@ -374,132 +270,6 @@ export interface ControlNetEnhancementRequest {
   autoComposite?: boolean; // Auto-composite if structure drifts (default: false)
   tier?: 'draft' | 'premium' | 'pro_upgrade'; // Quality tier for Gemini (default: 'premium')
   numberOfVariations?: number; // Override for partial pool refill (default derived from tier)
-}
-
-/**
- * Get symbol instructions for Replicate prompts based on intention text
- * Matches GoogleImagenV3 keyword mapping for consistency
- */
-function getReplicateSymbolInstructions(intentionText?: string): string {
-  if (!intentionText || intentionText.trim() === '') {
-    return ''; // No intention provided
-  }
-
-  const lowerIntent = intentionText.toLowerCase();
-
-  // Comprehensive keyword → symbol mapping
-  const symbolMap: Record<string, string> = {
-    // Stability & Grounding
-    grounded: 'deep roots, tree trunks, mountains, anchors, solid foundations, earth elements',
-    ground: 'deep roots, tree trunks, mountains, anchors, solid foundations, earth elements',
-    stability: 'balanced stones, pillars, foundations, sturdy oak, mountain peaks, anchors',
-    stable: 'balanced stones, pillars, foundations, sturdy oak, mountain peaks, anchors',
-    foundation: 'stone foundations, pillars, bedrock, architectural base, supporting columns',
-    foundational: 'stone foundations, pillars, bedrock, architectural base, supporting columns',
-
-    // Protection & Boundaries
-    boundaries: 'chains, locks, shields, protective barriers, fortress walls, celtic knots',
-    boundary: 'chains, locks, shields, protective barriers, fortress walls, celtic knots',
-    protection: 'shields, armor, guardian animals, protective circles, defensive walls',
-    protect: 'shields, armor, guardian animals, protective circles, defensive walls',
-
-    // Physical & Strength
-    gym: 'barbells, dumbbells, flames, muscular aesthetics, powerlifting anatomy, lightning bolts',
-    fitness:
-      'barbells, dumbbells, flames, muscular aesthetics, powerlifting anatomy, lightning bolts',
-    workout:
-      'barbells, dumbbells, flames, muscular aesthetics, powerlifting anatomy, lightning bolts',
-    strength: 'flexed muscles, iron weights, fire bursts, lions, oak trees, power symbols',
-    strong: 'flexed muscles, iron weights, fire bursts, lions, oak trees, power symbols',
-
-    // Health & Healing
-    health: 'healing light, organic growth, heartbeat patterns, herbal motifs, vitality spirals',
-    healthy: 'healing light, organic growth, heartbeat patterns, herbal motifs, vitality spirals',
-    healing: 'gentle light, flowing water, medicinal herbs, restoration symbols, soft energy',
-    heal: 'gentle light, flowing water, medicinal herbs, restoration symbols, soft energy',
-
-    // Mental & Focus
-    focus: 'geometric clarity, centered energy, laser-like precision, intricate mandalas',
-    focused: 'geometric clarity, centered energy, laser-like precision, intricate mandalas',
-    concentration: 'geometric clarity, centered energy, laser-like precision, intricate mandalas',
-    clarity: 'clear crystals, sharp lines, focused light, lens flares, precision geometry',
-    clear: 'clear crystals, sharp lines, focused light, lens flares, precision geometry',
-    mind: 'brain patterns, neural networks, thought waves, consciousness symbols, mental clarity',
-    mental: 'brain patterns, neural networks, thought waves, consciousness symbols, mental clarity',
-
-    // Success & Achievement
-    success: 'crowns, ascending paths, mountain peaks, golden trophies, victory laurels',
-    successful: 'crowns, ascending paths, mountain peaks, golden trophies, victory laurels',
-    achievement: 'medals, awards, summit peaks, podiums, triumph symbols, accomplishment badges',
-    achieve: 'medals, awards, summit peaks, podiums, triumph symbols, accomplishment badges',
-    career: 'ascending corporate ladders, briefcases, professional symbols, success markers',
-    job: 'ascending corporate ladders, briefcases, professional symbols, success markers',
-
-    // Relationships & Love
-    love: 'roses, hearts, cupid imagery, romantic vines, paired doves, infinity loops',
-    romance: 'roses, hearts, cupid imagery, romantic vines, paired doves, infinity loops',
-    romantic: 'roses, hearts, cupid imagery, romantic vines, paired doves, infinity loops',
-    relationship: 'intertwined elements, hearts, blossoms, infinity knots, paired symbols',
-    connection: 'intertwined elements, hearts, blossoms, infinity knots, paired symbols',
-
-    // Spiritual & Mystical
-    spirit: 'runes, cosmic portals, meditation glyphs, auras of light, sacred geometry',
-    spiritual: 'runes, cosmic portals, meditation glyphs, auras of light, sacred geometry',
-    magic: 'mystical runes, spell circles, ethereal wisps, magical glyphs, arcane symbols',
-    magical: 'mystical runes, spell circles, ethereal wisps, magical glyphs, arcane symbols',
-
-    // Prosperity & Abundance
-    prosperity: 'gold coins, cornucopia, overflowing vessels, harvest abundance, wealth symbols',
-    prosperous: 'gold coins, cornucopia, overflowing vessels, harvest abundance, wealth symbols',
-    wealth: 'gold bullion, gem stones, treasure chests, golden rays, prosperity coins',
-    wealthy: 'gold bullion, gem stones, treasure chests, golden rays, prosperity coins',
-    rich: 'gold bullion, gem stones, treasure chests, golden rays, prosperity coins',
-    money: 'currency symbols, flowing coins, gold reserves, financial prosperity',
-    abundance: 'cornucopia, bountiful harvest, flowing water, multiplying symbols, full baskets',
-    abundant: 'cornucopia, bountiful harvest, flowing water, multiplying symbols, full baskets',
-
-    // Peace & Calm
-    peace: 'doves, olive branches, calm waters, zen circles, soft clouds, tranquil scenes',
-    peaceful: 'doves, olive branches, calm waters, zen circles, soft clouds, tranquil scenes',
-    calm: 'still water, gentle waves, soft light, floating feathers, peaceful meditation',
-    calming: 'still water, gentle waves, soft light, floating feathers, peaceful meditation',
-    serenity: 'lotus flowers, meditation symbols, balanced stones, tranquil ponds, zen gardens',
-    serene: 'lotus flowers, meditation symbols, balanced stones, tranquil ponds, zen gardens',
-
-    // Creativity & Inspiration
-    creativity: 'paintbrushes, flowing ink, musical notes, artistic tools, color bursts',
-    creative: 'paintbrushes, flowing ink, musical notes, artistic tools, color bursts',
-    inspiration: 'light bulbs, shooting stars, divine rays, muse symbols, spark of genius',
-    inspire: 'light bulbs, shooting stars, divine rays, muse symbols, spark of genius',
-
-    // Growth & Transformation
-    growth: 'sprouting seeds, growing vines, expanding spirals, ascending paths, blooming flowers',
-    grow: 'sprouting seeds, growing vines, expanding spirals, ascending paths, blooming flowers',
-    transformation: 'butterfly metamorphosis, phoenix rising, evolving forms, alchemical symbols',
-    transform: 'butterfly metamorphosis, phoenix rising, evolving forms, alchemical symbols',
-    change: 'butterfly metamorphosis, phoenix rising, evolving forms, alchemical symbols',
-
-    // Confidence & Power
-    confidence: 'standing lion, raised sword, bold flames, strong pillars, empowered stance',
-    confident: 'standing lion, raised sword, bold flames, strong pillars, empowered stance',
-    power:
-      'lightning bolts, radiating energy, powerful animals, explosive force, dominant presence',
-    powerful:
-      'lightning bolts, radiating energy, powerful animals, explosive force, dominant presence',
-  };
-
-  // Find matching keywords (prioritize longer/more specific matches first)
-  const keywords = Object.keys(symbolMap).sort((a, b) => b.length - a.length);
-
-  for (const keyword of keywords) {
-    if (lowerIntent.includes(keyword)) {
-      const symbols = symbolMap[keyword];
-      return ` Add thematic symbolic elements representing "${intentionText}": ${symbols}. Integrate these symbols organically around and within the sigil structure.`;
-    }
-  }
-
-  // Fallback: generic enhancement with intention context
-  return ` Enhance the sigil with decorative elements that symbolically represent "${intentionText}". Add meaningful mystical imagery that reflects this intention.`;
 }
 
 /**
@@ -705,10 +475,9 @@ export async function enhanceSigilWithControlNet(
       validateStructure,
     });
 
-    // Build intention-aware prompt BEFORE mock mode check
-    const basePrompt = styleConfig.prompt;
-    const symbolInstructions = getReplicateSymbolInstructions(request.intentionText);
-    const enhancedPrompt = basePrompt + symbolInstructions;
+    // Build intention-aware prompt BEFORE mock mode check.
+    // The shared prompt builder keeps intention influence non-literal and structure-safe.
+    const enhancedPrompt = buildStylePrompt(request.intentionText || '', request.styleChoice, 0);
 
     // Check for mock mode
     const apiToken = process.env.REPLICATE_API_TOKEN;
@@ -719,7 +488,7 @@ export async function enhanceSigilWithControlNet(
       logger.debug('[AI Enhancement] Enhanced prompt with intention', {
         style: request.styleChoice,
         intentionText: request.intentionText || '(none)',
-        hasSymbols: symbolInstructions.length > 0,
+        hasIntentionSignal: Boolean(request.intentionText?.trim()),
       });
 
       const numVariations = Math.max(1, request.numberOfVariations ?? 2);
@@ -731,7 +500,9 @@ export async function enhanceSigilWithControlNet(
       ] as const;
       const mockUrls = Array.from({ length: numVariations }, (_, i) => {
         const [backgroundColor, shapeColor] = mockPalette[i % mockPalette.length];
-        return `https://api.dicebear.com/7.x/shapes/png?seed=${request.userId}-${request.styleChoice}-${i + 1}&backgroundColor=${backgroundColor}&shape1Color=${shapeColor}`;
+        // size=256 is the API's effective max for this endpoint — still far
+        // sharper than the 128px default it silently falls back to otherwise.
+        return `https://api.dicebear.com/7.x/shapes/png?seed=${request.userId}-${request.styleChoice}-${i + 1}&backgroundColor=${backgroundColor}&shape1Color=${shapeColor}&size=256`;
       });
 
       // Mock structure scores (all passing in mock mode)
@@ -803,7 +574,7 @@ export async function enhanceSigilWithControlNet(
       model: styleConfig.method,
       style: request.styleChoice,
       intentionText: request.intentionText || '(none)',
-      hasSymbolInstructions: symbolInstructions.length > 0,
+      hasIntentionSignal: Boolean(request.intentionText?.trim()),
       promptLength: enhancedPrompt.length,
       conditioningScale,
       guidanceScale,

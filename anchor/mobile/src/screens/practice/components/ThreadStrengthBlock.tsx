@@ -328,14 +328,14 @@ const styles = StyleSheet.create({
   },
   barTrack: {
     flex: 1,
-    height: 4,
-    borderRadius: 2,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: '#1e2330',
     overflow: 'hidden',
   },
   barFill: {
-    height: 4,
-    borderRadius: 2,
+    height: 6,
+    borderRadius: 3,
   },
   msg: {
     fontFamily: typography.fontFamily.sans,

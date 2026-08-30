@@ -4,7 +4,10 @@
 
 import { renderHook, act } from '@testing-library/react-native';
 import { useSessionStore } from '../sessionStore';
-import type { RestDayPolicy, ThreadStrengthSensitivity } from '../settingsStore';
+import type {
+  RestDayPolicy,
+  ThreadStrengthSensitivity,
+} from '../settingsStore';
 
 // Mock dependencies
 jest.mock('@/stores/authStore', () => ({
@@ -51,7 +54,7 @@ const makeEntry = (
     type: 'activate' | 'reinforce' | 'stabilize';
     durationSeconds: number;
     mode: 'silent' | 'mantra' | 'ambient';
-  }> = {}
+  }> = {},
 ) => ({
   anchorId: 'anchor-1',
   type: 'activate' as const,
@@ -73,8 +76,16 @@ beforeEach(() => {
   act(() => {
     useSessionStore.setState({
       lastSession: null,
-      todayPractice: { date: localDateString(new Date()), sessionsCount: 0, totalSeconds: 0 },
-      weeklyPractice: { weekKey: 'test-week', sessionsCount: 0, totalSeconds: 0 },
+      todayPractice: {
+        date: localDateString(new Date()),
+        sessionsCount: 0,
+        totalSeconds: 0,
+      },
+      weeklyPractice: {
+        weekKey: 'test-week',
+        sessionsCount: 0,
+        totalSeconds: 0,
+      },
       lastGraceDayUsedAt: null,
       sessionLog: [],
       threadStrength: 50,
@@ -119,15 +130,39 @@ describe('sessionStore', () => {
       expect(result.current.sessionLog).toHaveLength(1);
     });
 
+    it('deduplicates a retried completion by its stable event ID', () => {
+      const { result } = renderHook(() => useSessionStore());
+      const entry = makeEntry({ type: 'reinforce' });
+      act(() => {
+        result.current.recordSession({
+          ...entry,
+          idempotencyKey: 'practice-event-retry',
+        });
+        result.current.recordSession({
+          ...entry,
+          idempotencyKey: 'practice-event-retry',
+        });
+      });
+
+      expect(result.current.sessionLog).toHaveLength(1);
+      expect(result.current.primingHistory).toHaveLength(1);
+      expect(result.current.totalSessionsCount).toBe(1);
+      expect(result.current.threadStrength).toBe(90);
+    });
+
     it('sets lastSession to the recorded entry', () => {
       const { result } = renderHook(() => useSessionStore());
-      act(() => result.current.recordSession(makeEntry({ anchorId: 'anchor-abc' })));
+      act(() =>
+        result.current.recordSession(makeEntry({ anchorId: 'anchor-abc' })),
+      );
       expect(result.current.lastSession?.anchorId).toBe('anchor-abc');
     });
 
     it('increments todayPractice.sessionsCount', () => {
       const { result } = renderHook(() => useSessionStore());
-      act(() => result.current.recordSession(makeEntry({ durationSeconds: 60 })));
+      act(() =>
+        result.current.recordSession(makeEntry({ durationSeconds: 60 })),
+      );
       expect(result.current.todayPractice.sessionsCount).toBe(1);
       expect(result.current.todayPractice.totalSeconds).toBe(60);
     });
@@ -160,6 +195,41 @@ describe('sessionStore', () => {
       const { result } = renderHook(() => useSessionStore());
       act(() => result.current.recordSession(makeEntry({ type: 'reinforce' })));
       expect(result.current.threadStrength).toBe(90); // 50 + 40
+    });
+
+    it('adds +40 exactly once for an idempotent Visualize completion', () => {
+      const record = {
+        id: 'visualize-session-1',
+        accountId: 'user-1',
+        anchorId: 'anchor-1',
+        anchorLocalId: 'anchor-1',
+        anchorServerId: 'anchor-1',
+        practiceMode: 'visualize' as const,
+        plannedDurationSeconds: 180,
+        completedDurationSeconds: 180,
+        completionStatus: 'completed' as const,
+        startedAt: '2026-07-19T12:00:00.000Z',
+        completedAt: '2026-07-19T12:03:00.000Z',
+        localDateKey: '2026-07-19',
+        timeZone: 'UTC',
+        utcOffsetMinutesAtCompletion: 0,
+        completionSource: 'practice_screen' as const,
+        schemaVersion: 2,
+        legacyType: null,
+        guidanceVoice: 'none' as const,
+        backgroundAudio: 'off' as const,
+        sceneSnapshot: 'I pause and respond calmly.',
+        nextAction: null,
+        clientVersion: '1.0.0',
+        syncState: 'pending' as const,
+      };
+      act(() => {
+        useSessionStore.setState({ threadStrength: 20, practiceHistory: [] });
+        useSessionStore.getState().recordPracticeSession(record);
+        useSessionStore.getState().recordPracticeSession(record);
+      });
+      expect(useSessionStore.getState().threadStrength).toBe(60);
+      expect(useSessionStore.getState().practiceHistory).toHaveLength(1);
     });
 
     it('caps threadStrength at 100', () => {
@@ -213,7 +283,7 @@ describe('sessionStore', () => {
           anchorId: 'anchor-1',
           type: 'activate',
           localDate: localDateString(new Date()),
-        })
+        }),
       );
     });
 
@@ -251,12 +321,18 @@ describe('sessionStore', () => {
       const { result } = renderHook(() => useSessionStore());
       act(() => {
         useSessionStore.setState({
-          todayPractice: { date: '2020-01-01', sessionsCount: 5, totalSeconds: 150 },
+          todayPractice: {
+            date: '2020-01-01',
+            sessionsCount: 5,
+            totalSeconds: 150,
+          },
         });
         result.current.resetIfNewDay();
       });
       expect(result.current.todayPractice.sessionsCount).toBe(0);
-      expect(result.current.todayPractice.date).toBe(localDateString(new Date()));
+      expect(result.current.todayPractice.date).toBe(
+        localDateString(new Date()),
+      );
     });
   });
 
@@ -366,7 +442,10 @@ describe('sessionStore', () => {
       const today = localDateString(new Date());
       const { result } = renderHook(() => useSessionStore());
       act(() => {
-        useSessionStore.setState({ lastPrimedAt: yesterday, lastDecayDate: null });
+        useSessionStore.setState({
+          lastPrimedAt: yesterday,
+          lastDecayDate: null,
+        });
         result.current.applyDecay();
       });
       expect(result.current.lastDecayDate).toBe(today);
@@ -393,6 +472,151 @@ describe('sessionStore', () => {
       });
 
       expect(result.current.threadStrength).toBe(100);
+    });
+  });
+
+  describe('hydrateFromBackend', () => {
+    it('restores backend progress when local session state is partial', () => {
+      const { result } = renderHook(() => useSessionStore());
+      const secondCompletedAt = new Date().toISOString();
+      const firstCompletedAt = new Date(
+        Date.now() - 60 * 60 * 1000,
+      ).toISOString();
+
+      act(() => {
+        useSessionStore.setState({
+          totalSessionsCount: 1,
+          primingHistory: [],
+          sessionLog: [],
+          threadStrength: 50,
+          lastPrimedAt: null,
+        });
+
+        result.current.hydrateFromBackend({
+          totalActivations: 5,
+          currentStreak: 3,
+          anchors: [{ lastActivatedAt: new Date(secondCompletedAt) }],
+          primingHistory: [
+            {
+              id: 'activation-1',
+              anchorId: 'anchor-1',
+              type: 'activate',
+              completedAt: firstCompletedAt,
+              localDate: localDateString(new Date(firstCompletedAt)),
+              weekKey: '2026-W24',
+              weekStart: '2026-06-08',
+              weekdayIndex: 0,
+              hourOfDay: 10,
+              timeOfDay: 'morning',
+            },
+            {
+              id: 'activation-2',
+              anchorId: 'anchor-1',
+              type: 'reinforce',
+              completedAt: secondCompletedAt,
+              localDate: localDateString(new Date(secondCompletedAt)),
+              weekKey: '2026-W24',
+              weekStart: '2026-06-08',
+              weekdayIndex: 1,
+              hourOfDay: 10,
+              timeOfDay: 'morning',
+            },
+          ],
+        });
+      });
+
+      expect(result.current.totalSessionsCount).toBe(5);
+      expect(result.current.primingHistory).toHaveLength(2);
+      expect(result.current.primingHistory[0]).toEqual(
+        expect.objectContaining({ id: 'activation-2' }),
+      );
+      expect(result.current.lastPrimedAt).toBe(
+        localDateString(new Date(secondCompletedAt)),
+      );
+      expect(result.current.threadStrength).toBe(100);
+    });
+
+    it('replays a restored Visualize session as a +40 Thread Strength gain', () => {
+      const { result } = renderHook(() => useSessionStore());
+      const completedAt = new Date().toISOString();
+
+      act(() => {
+        result.current.hydrateFromBackend({
+          totalActivations: 1,
+          currentStreak: 1,
+          anchors: [{ lastActivatedAt: new Date(completedAt) }],
+          primingHistory: [
+            {
+              id: 'visualize-restored-1',
+              anchorId: 'anchor-1',
+              type: 'visualize',
+              completedAt,
+              localDate: localDateString(new Date(completedAt)),
+              weekKey: '2026-W29',
+              weekStart: '2026-07-13',
+              weekdayIndex: 6,
+              hourOfDay: 8,
+              timeOfDay: 'morning',
+            },
+          ],
+        });
+      });
+
+      expect(result.current.threadStrength).toBe(90);
+    });
+
+    it('rebinds locally-persisted legacy-owned practice history to the authenticated account even when no new backend progress arrives', () => {
+      const { result } = renderHook(() => useSessionStore());
+      const completedAt = new Date().toISOString();
+
+      act(() => {
+        useSessionStore.setState({
+          totalSessionsCount: 1,
+          primingHistory: [],
+          practiceHistory: [
+            {
+              id: 'legacy-session-1',
+              accountId: 'legacy',
+              anchorId: 'anchor-1',
+              anchorLocalId: null,
+              anchorServerId: 'anchor-1',
+              practiceMode: 'focus',
+              plannedDurationSeconds: 30,
+              completedDurationSeconds: 30,
+              completionStatus: 'completed',
+              startedAt: completedAt,
+              completedAt,
+              localDateKey: localDateString(new Date(completedAt)),
+              timeZone: 'UTC',
+              utcOffsetMinutesAtCompletion: 0,
+              completionSource: 'restored',
+              schemaVersion: 1,
+              legacyType: 'activate',
+              guidanceVoice: 'none',
+              backgroundAudio: 'off',
+              sceneSnapshot: null,
+              nextAction: null,
+              clientVersion: null,
+              syncState: 'synced',
+            },
+          ],
+        });
+
+        // No new priming/practice data from the backend — this mirrors the
+        // self-healing rehydrate call finding nothing new to add, but local
+        // state still owns a canonical session under the placeholder
+        // 'legacy' account from a pre-migration restore.
+        result.current.hydrateFromBackend({
+          accountId: 'user-123',
+          totalActivations: 1,
+          currentStreak: 0,
+          anchors: [],
+          primingHistory: [],
+        });
+      });
+
+      expect(result.current.practiceHistory).toHaveLength(1);
+      expect(result.current.practiceHistory[0].accountId).toBe('user-123');
     });
   });
 });

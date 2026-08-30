@@ -14,7 +14,11 @@ import { AuthRequest, authMiddleware, DEV_MASTER_UID } from '../middleware/auth'
 import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
 import { redisClient } from '../../lib/redis';
+import { BackendAnalyticsService } from '../../services/AnalyticsService';
+import { getRevenueCatAccess } from '../../services/RevenueCatEntitlementService';
 import { logger } from '../../utils/logger';
+import { resolveStoredAssetUrl } from '../../services/StorageService';
+import { courseService } from '../../services/CourseService';
 
 // Whitelist of columns that may be used in ORDER BY to prevent injection
 const ALLOWED_ORDER_BY = [
@@ -65,6 +69,9 @@ const ANCHOR_LIST_SELECT: Prisma.AnchorSelect = {
 };
 
 const router = Router();
+const TRIAL_ANCHOR_LIMIT = 7;
+const PAID_PRO_DAILY_ANCHOR_LIMIT = 10;
+const TRIAL_DURATION_DAYS = 7;
 
 const aiHourlyLimiterStore =
   process.env.NODE_ENV === 'test' || !process.env.REDIS_URL
@@ -143,6 +150,7 @@ const CreateAnchorSchema = z.object({
   mantraText: z.string().optional(),
   mantraPronunciation: z.string().optional(),
   mantraAudioUrl: z.string().optional(),
+  idempotencyKey: z.string().min(1).max(200).optional(),
 });
 
 const UpdateAnchorSchema = z.object({
@@ -207,11 +215,13 @@ const UpdateAnchorSchema = z.object({
 const ChargeAnchorSchema = z.object({
   chargeType: z.enum(['initial_quick', 'initial_deep', 'recharge']),
   durationSeconds: z.number().min(1),
+  idempotencyKey: z.string().min(1).max(200).optional(),
 });
 
 const ActivateAnchorSchema = z.object({
   activationType: z.enum(['visual', 'mantra', 'deep']),
   durationSeconds: z.number().min(1),
+  idempotencyKey: z.string().min(1).max(200).optional(),
 });
 
 const ClassifyTierSchema = z.object({
@@ -292,6 +302,122 @@ function extractVariationReservation(metadata: unknown): {
   };
 }
 
+async function resolveAnchorArtworkUrls<T extends { enhancedImageUrl?: string | null }>(
+  anchor: T
+): Promise<T> {
+  if (!anchor?.enhancedImageUrl) {
+    return anchor;
+  }
+
+  return {
+    ...anchor,
+    enhancedImageUrl:
+      (await resolveStoredAssetUrl(anchor.enhancedImageUrl, 7 * 24 * 60 * 60)) ?? null,
+  };
+}
+
+async function resolveAnchorCollectionArtworkUrls<T extends { enhancedImageUrl?: string | null }>(
+  anchors: T[]
+): Promise<T[]> {
+  return Promise.all(anchors.map(resolveAnchorArtworkUrls));
+}
+
+function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+function getUtcDayRange(now: Date): { start: Date; end: Date } {
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const end = addDays(start, 1);
+  return { start, end };
+}
+
+async function assertCanCreateAnchor(tx: Prisma.TransactionClient, userId: string): Promise<void> {
+  // Serialize count + create for this user so concurrent requests cannot both
+  // observe the same count and exceed the configured cap.
+  await tx.$queryRaw`SELECT 1 FROM "users" WHERE "id" = ${userId} FOR UPDATE`;
+
+  const user = await tx.user.findUnique({
+    where: { id: userId },
+    select: {
+      subscriptionStatus: true,
+      isComped: true,
+      trialStartedAt: true,
+    },
+  });
+
+  if (!user) {
+    throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+  }
+
+  const now = new Date();
+  const paidPro =
+    user.isComped || user.subscriptionStatus === 'pro' || user.subscriptionStatus === 'pro_annual';
+
+  if (paidPro) {
+    const { start, end } = getUtcDayRange(now);
+    const createdToday = await tx.anchor.count({
+      where: {
+        userId,
+        createdAt: {
+          gte: start,
+          lt: end,
+        },
+      },
+    });
+
+    if (createdToday >= PAID_PRO_DAILY_ANCHOR_LIMIT) {
+      throw new AppError('Daily creation limit reached', 429, 'PRO_DAILY_ANCHOR_CAP_REACHED');
+    }
+    return;
+  }
+
+  const trialStartedAt = user.trialStartedAt;
+  const trialEndsAt = addDays(trialStartedAt, TRIAL_DURATION_DAYS);
+  const isTrialActive = now < trialEndsAt;
+
+  if (!isTrialActive) {
+    throw new AppError('Create more anchors with Pro', 403, 'CREATE_ANCHOR_FREE_LOCKED');
+  }
+
+  const trialAnchorCount = await tx.anchor.count({
+    where: {
+      userId,
+      createdAt: {
+        gte: trialStartedAt,
+        lt: trialEndsAt,
+      },
+    },
+  });
+
+  if (trialAnchorCount >= TRIAL_ANCHOR_LIMIT) {
+    throw new AppError('Trial anchor limit reached', 403, 'TRIAL_ANCHOR_CAP_REACHED');
+  }
+}
+
+async function syncRevenueCatSubscription(user: NonNullable<AuthRequest['dbUser']>): Promise<void> {
+  if (user.isComped) return;
+
+  const access = await getRevenueCatAccess(user.id);
+  if (!access) return;
+
+  const persistedPaid =
+    user.subscriptionStatus === 'pro' || user.subscriptionStatus === 'pro_annual';
+  if (persistedPaid === access.isActive) return;
+
+  const subscriptionStatus = access.isActive ? 'pro' : 'free';
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      subscriptionStatus,
+      subscriptionId: access.productIdentifier,
+    },
+  });
+  user.subscriptionStatus = subscriptionStatus;
+}
+
 // All anchor routes require authentication
 router.use(authMiddleware);
 
@@ -310,7 +436,12 @@ router.use(async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const user = await prisma.user.findUnique({
       where: { authUid: req.user.uid },
-      select: { id: true },
+      select: {
+        id: true,
+        subscriptionStatus: true,
+        isComped: true,
+        trialStartedAt: true,
+      },
     });
     if (!user) {
       next(new AppError('User not found', 404, 'USER_NOT_FOUND'));
@@ -352,7 +483,7 @@ Tier mapping:
 - venus: Relationships, love, peace, harmony, experiences.`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-flash-latest',
         contents: [
           {
             role: 'user',
@@ -448,16 +579,43 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
       mantraText,
       mantraPronunciation,
       mantraAudioUrl,
+      idempotencyKey,
     } = validate(CreateAnchorExtendedSchema, req.body);
 
     const userId = req.dbUser!.id;
     const variationReservation = extractVariationReservation(enhancementMetadata);
 
-    const anchor = await prisma.$transaction(async tx => {
+    if (idempotencyKey) {
+      const existing = await prisma.anchor.findUnique({ where: { idempotencyKey } });
+      if (existing) {
+        if (existing.userId !== userId) {
+          next(
+            new AppError(
+              'Idempotency key already used by another user',
+              409,
+              'IDEMPOTENCY_KEY_CONFLICT'
+            )
+          );
+          return;
+        }
+        // The client already created this anchor on a previous attempt (it just never
+        // saw the response) — return the existing anchor instead of making a duplicate.
+        const anchor = await resolveAnchorArtworkUrls(existing);
+        res.status(200).json({ success: true, data: anchor });
+        return;
+      }
+    }
+
+    await syncRevenueCatSubscription(req.dbUser!);
+
+    const createdAnchor = await prisma.$transaction(async tx => {
+      await assertCanCreateAnchor(tx, userId);
+
       // Create anchor with new architecture fields
       const createdAnchor = await tx.anchor.create({
         data: {
           userId,
+          idempotencyKey: idempotencyKey || null,
           intentionText,
           category,
           distilledLetters,
@@ -544,6 +702,16 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
       return createdAnchor;
     });
 
+    const anchor = await resolveAnchorArtworkUrls(createdAnchor);
+
+    BackendAnalyticsService.track('anchor_creation_completed', userId, {
+      anchor_id: anchor.id,
+      category: anchor.category,
+      structure_variant: anchor.structureVariant,
+      has_enhanced_image: Boolean(anchor.enhancedImageUrl),
+      backend_confirmed: true,
+    });
+
     res.status(201).json({
       success: true,
       data: anchor,
@@ -552,6 +720,24 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
     if (error instanceof AppError) {
       next(error);
       return;
+    }
+
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002' &&
+      (error.meta?.target as string[] | undefined)?.includes('idempotency_key') &&
+      typeof req.body?.idempotencyKey === 'string'
+    ) {
+      // Lost the race with a concurrent retry using the same idempotency key —
+      // the other request created the anchor, so return it instead of erroring.
+      const existing = await prisma.anchor.findUnique({
+        where: { idempotencyKey: req.body.idempotencyKey },
+      });
+      if (existing && existing.userId === req.dbUser?.id) {
+        const anchor = await resolveAnchorArtworkUrls(existing);
+        res.status(200).json({ success: true, data: anchor });
+        return;
+      }
     }
 
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -678,13 +864,14 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
       ...(cursor && { cursor: { id: cursor }, skip: 1 }),
     });
 
+    const resolvedAnchors = await resolveAnchorCollectionArtworkUrls(anchors);
     const nextCursor = anchors.length === limit ? anchors[anchors.length - 1].id : null;
 
     res.json({
       success: true,
-      data: anchors,
+      data: resolvedAnchors,
       meta: {
-        total: anchors.length,
+        total: resolvedAnchors.length,
         nextCursor,
       },
     });
@@ -781,9 +968,11 @@ router.get('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
       throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
     }
 
+    const resolvedAnchor = await resolveAnchorArtworkUrls(anchor);
+
     res.json({
       success: true,
-      data: anchor,
+      data: resolvedAnchor,
     });
   } catch (error) {
     if (error instanceof AppError) {
@@ -886,22 +1075,44 @@ router.put('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
     if (isShared !== undefined) allowedUpdates.isShared = Boolean(isShared);
     if (sharedAt !== undefined) allowedUpdates.sharedAt = sharedAt ? new Date(sharedAt) : null;
 
-    // Verify ownership then update in a single round-trip using updateMany
-    // (returns count=0 if the anchor doesn't exist or isn't owned by this user)
-    const result = await prisma.anchor.updateMany({
-      where: { id, userId },
-      data: allowedUpdates,
-    });
+    // Archiving is an Anchor-owned lifecycle operation, but closing Chart
+    // links must commit atomically with it. Other edits retain the existing
+    // single-statement path.
+    const result =
+      allowedUpdates.isArchived === true
+        ? await prisma.$transaction(
+            async tx => {
+              const updated = await tx.anchor.updateMany({
+                where: { id, userId },
+                data: allowedUpdates,
+              });
+              if (updated.count > 0) {
+                await courseService.closeLinksForUnavailableAnchor(
+                  tx,
+                  userId,
+                  id,
+                  'ANCHOR_RELEASED'
+                );
+              }
+              return updated;
+            },
+            { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+          )
+        : await prisma.anchor.updateMany({
+            where: { id, userId },
+            data: allowedUpdates,
+          });
 
     if (result.count === 0) {
       throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
     }
 
     const anchor = await prisma.anchor.findUnique({ where: { id } });
+    const resolvedAnchor = anchor ? await resolveAnchorArtworkUrls(anchor) : anchor;
 
     res.json({
       success: true,
-      data: anchor,
+      data: resolvedAnchor,
     });
   } catch (error) {
     if (error instanceof AppError) {
@@ -922,18 +1133,31 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next: NextFunction
     const { id } = req.params;
     const userId = req.dbUser!.id;
 
-    // Verify ownership and archive in one round-trip
-    const result = await prisma.anchor.updateMany({
-      where: { id, userId },
-      data: {
-        isArchived: true,
-        archivedAt: new Date(),
+    const result = await prisma.$transaction(
+      async tx => {
+        const updated = await tx.anchor.updateMany({
+          where: { id, userId },
+          data: {
+            isArchived: true,
+            archivedAt: new Date(),
+          },
+        });
+        if (updated.count > 0) {
+          await courseService.closeLinksForUnavailableAnchor(tx, userId, id, 'ANCHOR_RELEASED');
+        }
+        return updated;
       },
-    });
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    );
 
     if (result.count === 0) {
       throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
     }
+
+    BackendAnalyticsService.track('anchor_deleted', userId, {
+      anchor_id: id,
+      backend_confirmed: true,
+    });
 
     res.json({
       success: true,
@@ -962,11 +1186,23 @@ router.delete('/:id', async (req: AuthRequest, res: Response, next: NextFunction
 router.post('/:id/charge', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const { chargeType, durationSeconds } = validate(ChargeAnchorSchema, req.body);
+    const { chargeType, durationSeconds, idempotencyKey } = validate(ChargeAnchorSchema, req.body);
     const userId = req.dbUser!.id;
 
+    if (idempotencyKey) {
+      const existingEvent = await prisma.charge.findFirst({
+        where: { userId, clientEventId: idempotencyKey },
+      });
+      if (existingEvent) {
+        const existingAnchor = await prisma.anchor.findFirst({ where: { id, userId } });
+        if (!existingAnchor) throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
+        res.json({ success: true, data: await resolveAnchorArtworkUrls(existingAnchor) });
+        return;
+      }
+    }
+
     const chargedAt = new Date();
-    const anchor = await prisma.$transaction(async tx => {
+    const chargedAnchor = await prisma.$transaction(async tx => {
       const existingAnchor = await tx.anchor.findFirst({
         where: { id, userId },
         select: { id: true, firstChargedAt: true },
@@ -983,6 +1219,7 @@ router.post('/:id/charge', async (req: AuthRequest, res: Response, next: NextFun
           chargeType,
           durationSeconds,
           completed: true,
+          clientEventId: idempotencyKey,
           chargedAt,
         },
       });
@@ -1001,6 +1238,16 @@ router.post('/:id/charge', async (req: AuthRequest, res: Response, next: NextFun
       });
     });
 
+    const anchor = await resolveAnchorArtworkUrls(chargedAnchor);
+
+    BackendAnalyticsService.track('anchor_charged', userId, {
+      anchor_id: anchor.id,
+      charge_type: chargeType,
+      charge_mode: chargeType.includes('quick') ? 'quick' : 'deep',
+      duration_seconds: durationSeconds,
+      backend_confirmed: true,
+    });
+
     res.json({
       success: true,
       data: anchor,
@@ -1009,6 +1256,22 @@ router.post('/:id/charge', async (req: AuthRequest, res: Response, next: NextFun
     if (error instanceof AppError) {
       next(error);
       return;
+    }
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002' &&
+      typeof req.body?.idempotencyKey === 'string'
+    ) {
+      const existingEvent = await prisma.charge.findFirst({
+        where: { userId: req.dbUser!.id, clientEventId: req.body.idempotencyKey },
+      });
+      const existingAnchor = existingEvent
+        ? await prisma.anchor.findFirst({ where: { id: req.params.id, userId: req.dbUser!.id } })
+        : null;
+      if (existingAnchor) {
+        res.json({ success: true, data: await resolveAnchorArtworkUrls(existingAnchor) });
+        return;
+      }
     }
     next(new AppError('Failed to charge anchor', 500, 'CHARGE_ERROR'));
   }
@@ -1026,11 +1289,26 @@ router.post('/:id/charge', async (req: AuthRequest, res: Response, next: NextFun
 router.post('/:id/activate', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const { activationType, durationSeconds } = validate(ActivateAnchorSchema, req.body);
+    const { activationType, durationSeconds, idempotencyKey } = validate(
+      ActivateAnchorSchema,
+      req.body
+    );
     const userId = req.dbUser!.id;
 
+    if (idempotencyKey) {
+      const existingEvent = await prisma.activation.findFirst({
+        where: { userId, clientEventId: idempotencyKey },
+      });
+      if (existingEvent) {
+        const existingAnchor = await prisma.anchor.findFirst({ where: { id, userId } });
+        if (!existingAnchor) throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
+        res.json({ success: true, data: await resolveAnchorArtworkUrls(existingAnchor) });
+        return;
+      }
+    }
+
     const activatedAt = new Date();
-    const anchor = await prisma.$transaction(async tx => {
+    const activatedAnchor = await prisma.$transaction(async tx => {
       const existingAnchor = await tx.anchor.findFirst({
         where: { id, userId },
         select: {
@@ -1048,6 +1326,7 @@ router.post('/:id/activate', async (req: AuthRequest, res: Response, next: NextF
           anchorId: id,
           activationType,
           durationSeconds,
+          clientEventId: idempotencyKey,
           activatedAt,
         },
       });
@@ -1081,6 +1360,7 @@ router.post('/:id/activate', async (req: AuthRequest, res: Response, next: NextF
             chargeType: 'initial_quick',
             durationSeconds,
             completed: true,
+            clientEventId: idempotencyKey,
             chargedAt: activatedAt,
           },
         });
@@ -1108,6 +1388,21 @@ router.post('/:id/activate', async (req: AuthRequest, res: Response, next: NextF
       return updatedAnchor;
     });
 
+    const anchor = await resolveAnchorArtworkUrls(activatedAnchor);
+
+    BackendAnalyticsService.track('anchor_activated', userId, {
+      anchor_id: anchor.id,
+      activation_type: activationType,
+      duration_seconds: durationSeconds,
+      backend_confirmed: true,
+    });
+    BackendAnalyticsService.track('activation_ritual_completed', userId, {
+      anchor_id: anchor.id,
+      activation_type: activationType,
+      duration_seconds: durationSeconds,
+      backend_confirmed: true,
+    });
+
     res.json({
       success: true,
       data: anchor,
@@ -1116,6 +1411,22 @@ router.post('/:id/activate', async (req: AuthRequest, res: Response, next: NextF
     if (error instanceof AppError) {
       next(error);
       return;
+    }
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002' &&
+      typeof req.body?.idempotencyKey === 'string'
+    ) {
+      const existingEvent = await prisma.activation.findFirst({
+        where: { userId: req.dbUser!.id, clientEventId: req.body.idempotencyKey },
+      });
+      const existingAnchor = existingEvent
+        ? await prisma.anchor.findFirst({ where: { id: req.params.id, userId: req.dbUser!.id } })
+        : null;
+      if (existingAnchor) {
+        res.json({ success: true, data: await resolveAnchorArtworkUrls(existingAnchor) });
+        return;
+      }
     }
     next(new AppError('Failed to log activation', 500, 'ACTIVATION_ERROR'));
   }
@@ -1132,42 +1443,127 @@ router.post('/:id/burn', async (req: AuthRequest, res: Response, next: NextFunct
     const { id } = req.params;
     const userId = req.dbUser!.id;
 
-    const anchor = await prisma.anchor.findFirst({
-      where: { id, userId },
-    });
+    type BurnTransactionResult = {
+      anchor: { id: string; activationCount: number };
+      burnedAnchor: { id: string; enhancedImageUrl?: string | null };
+    };
+    const burnOnce = (): Promise<BurnTransactionResult> =>
+      prisma.$transaction(
+        async tx => {
+          // Resolve ownership and collect the records that will be cascaded inside
+          // the same transaction as the archive write/delete.
+          const anchor = await tx.anchor.findFirst({
+            where: { id, userId },
+            include: {
+              activations: {
+                orderBy: { activatedAt: 'asc' },
+                select: {
+                  id: true,
+                  anchorId: true,
+                  activationType: true,
+                  durationSeconds: true,
+                  clientEventId: true,
+                  activatedAt: true,
+                },
+              },
+              charges: {
+                orderBy: { chargedAt: 'asc' },
+                select: {
+                  id: true,
+                  anchorId: true,
+                  chargeType: true,
+                  durationSeconds: true,
+                  completed: true,
+                  clientEventId: true,
+                  chargedAt: true,
+                },
+              },
+            },
+          });
 
-    if (!anchor) {
-      throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
-    }
+          if (!anchor) {
+            throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
+          }
 
-    if (anchor.isArchived) {
-      throw new AppError('Anchor is already archived', 400, 'ALREADY_ARCHIVED');
-    }
+          if (anchor.isArchived) {
+            throw new AppError('Anchor is already archived', 400, 'ALREADY_ARCHIVED');
+          }
 
-    // Use a transaction to ensure atomicity
-    const result = await prisma.$transaction(async tx => {
-      // 1. Create entry in burned_anchors
-      const burnedAnchor = await tx.burnedAnchor.create({
-        data: {
-          originalAnchorId: anchor.id,
-          userId,
-          intentionText: anchor.intentionText,
-          category: anchor.category,
-          distilledLetters: anchor.distilledLetters,
-          baseSigilSvg: anchor.baseSigilSvg,
-          enhancedImageUrl: anchor.enhancedImageUrl ?? null,
-          activationCount: anchor.activationCount,
-          createdAt: anchor.createdAt,
-          burnedAt: new Date(),
+          // Chart link closure is part of the same serializable lifecycle
+          // transaction. The live Anchor is deleted below, so snapshots must
+          // be refreshed and current waypoints blocked before the FK nulls it.
+          await courseService.closeLinksForUnavailableAnchor(
+            tx,
+            userId,
+            anchor.id,
+            'ANCHOR_RELEASED'
+          );
+
+          // 1. Create entry in burned_anchors
+          const burnedAnchor = await tx.burnedAnchor.create({
+            data: {
+              originalAnchorId: anchor.id,
+              userId,
+              intentionText: anchor.intentionText,
+              category: anchor.category,
+              distilledLetters: anchor.distilledLetters,
+              baseSigilSvg: anchor.baseSigilSvg,
+              enhancedImageUrl: anchor.enhancedImageUrl ?? null,
+              activationCount: anchor.activationCount,
+              activationHistory: anchor.activations.map(activation => ({
+                ...activation,
+                activatedAt: activation.activatedAt.toISOString(),
+              })),
+              chargeHistory: anchor.charges.map(charge => ({
+                ...charge,
+                chargedAt: charge.chargedAt.toISOString(),
+              })),
+              createdAt: anchor.createdAt,
+              burnedAt: new Date(),
+            },
+          });
+
+          // 2. Delete original anchor (cascades to activations/charges)
+          await tx.anchor.delete({
+            where: { id: anchor.id },
+          });
+
+          return { anchor, burnedAnchor };
         },
-      });
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+      );
 
-      // 2. Delete original anchor (cascades to activations/charges)
-      await tx.anchor.delete({
-        where: { id: anchor.id },
-      });
+    // Serializable isolation prevents an activation/charge committed during
+    // the burn window from being cascade-deleted after the history snapshot.
+    // PostgreSQL may abort one contender, so retry the whole atomic operation.
+    let burnResult: Awaited<ReturnType<typeof burnOnce>> | undefined;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        burnResult = await burnOnce();
+        break;
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2034' &&
+          attempt < 2
+        ) {
+          continue;
+        }
+        throw error;
+      }
+    }
+    if (!burnResult) {
+      throw new AppError('Burn transaction could not be serialized', 409, 'BURN_CONFLICT');
+    }
+    const { anchor, burnedAnchor } = burnResult;
 
-      return burnedAnchor;
+    const result = await resolveAnchorArtworkUrls(burnedAnchor);
+
+    BackendAnalyticsService.track('burn_completed', userId, {
+      anchor_id: anchor.id,
+      burned_anchor_id: result.id,
+      activation_count: anchor.activationCount,
+      backend_confirmed: true,
     });
 
     res.json({
@@ -1180,7 +1576,11 @@ router.post('/:id/burn', async (req: AuthRequest, res: Response, next: NextFunct
       next(error);
       return;
     }
-    logger.error('[Anchors] Burn error', error instanceof Error ? error : new Error(String(error)));
+    // Burn failures are logged structurally; database error strings can echo
+    // private Anchor or Chart text and are not safe telemetry.
+    logger.error('[Anchors] Burn error', undefined, {
+      code: error instanceof AppError ? error.code : 'BURN_ERROR',
+    });
     next(new AppError('Failed to burn anchor', 500, 'BURN_ERROR'));
   }
 });

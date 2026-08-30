@@ -1,4 +1,5 @@
 import { Platform, Share } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import { ServiceError } from './ServiceErrors';
 
@@ -34,6 +35,54 @@ const buildFilename = (anchorName: string): string =>
 const createWallpaperMessage = (intentionText: string): string =>
   `Save this PNG, then set it as your wallpaper from your device settings.\n\n"${intentionText}"`;
 
+const EXPORT_CACHE_ROOT = FileSystem.cacheDirectory ?? FileSystem.documentDirectory;
+const EXPORT_CACHE_DIRECTORY = EXPORT_CACHE_ROOT ? `${EXPORT_CACHE_ROOT}anchor-exports/` : null;
+
+const createPhotoLibraryFilename = (filename: string): string => {
+  const baseName = sanitizeSegment(filename.replace(/\.png$/i, ''));
+  return `${baseName}-${Date.now()}.png`;
+};
+
+export const shouldRequestPhotoLibrarySavePermission = (): boolean =>
+  Platform.OS !== 'android' || Number(Platform.Version) < 29;
+
+export async function requestPhotoLibrarySavePermission(): Promise<boolean> {
+  if (!shouldRequestPhotoLibrarySavePermission()) {
+    return true;
+  }
+
+  const permission = await MediaLibrary.requestPermissionsAsync(true);
+  return Boolean(permission.granted);
+}
+
+export async function preparePngForPhotoLibrary(
+  localUri: string,
+  filename: string
+): Promise<string> {
+  if (!localUri.startsWith('file://') || !EXPORT_CACHE_DIRECTORY) {
+    return localUri;
+  }
+
+  await FileSystem.makeDirectoryAsync(EXPORT_CACHE_DIRECTORY, { intermediates: true });
+
+  const destinationUri = `${EXPORT_CACHE_DIRECTORY}${createPhotoLibraryFilename(filename)}`;
+  await FileSystem.copyAsync({
+    from: localUri,
+    to: destinationUri,
+  });
+
+  return destinationUri;
+}
+
+export async function savePngToPhotoLibrary(
+  localUri: string,
+  filename: string
+): Promise<string> {
+  const photoLibraryUri = await preparePngForPhotoLibrary(localUri, filename);
+  await MediaLibrary.saveToLibraryAsync(photoLibraryUri);
+  return photoLibraryUri;
+}
+
 export async function exportAnchorArtwork({
   anchor,
   mode,
@@ -54,12 +103,10 @@ export async function exportAnchorArtwork({
   const filename = buildFilename(anchor.anchorName);
 
   if (mode === 'download') {
-    const requiresPermission = Platform.OS !== 'android' || Number(Platform.Version) < 29;
-
-    if (requiresPermission) {
+    if (shouldRequestPhotoLibrarySavePermission()) {
       let permission;
       try {
-        permission = await MediaLibrary.requestPermissionsAsync(true);
+        permission = await requestPhotoLibrarySavePermission();
       } catch (error) {
         throw new ServiceError(
           'artwork/permission-failed',
@@ -68,7 +115,7 @@ export async function exportAnchorArtwork({
         );
       }
 
-      if (!permission.granted) {
+      if (!permission) {
         throw new ServiceError(
           'artwork/permission-denied',
           'Photo library permission is required to save this PNG.'
@@ -77,7 +124,7 @@ export async function exportAnchorArtwork({
     }
 
     try {
-      await MediaLibrary.saveToLibraryAsync(localUri);
+      await savePngToPhotoLibrary(localUri, filename);
     } catch (error) {
       throw new ServiceError(
         'artwork/save-failed',

@@ -58,13 +58,37 @@ class Logger {
       'userid',
       'phonenumber',
       // App-specific sensitive content
-      'distilledLetters',
-      'intentionText',
+      'distilledletters',
+      'intentiontext',
       'mantratext',
       'mantra',
       'sigilsvg',
       'basesigilsvg',
       'reinforcedsigilsvg',
+      // Chart private content and sensitive structural text
+      'destinationtext',
+      'waypointtitle',
+      'waypointdescription',
+      'description',
+      'title',
+      'intention',
+      'anchorintention',
+      'reflection',
+      'reflectionbody',
+      'body',
+      'structuredcontent',
+      'whathelped',
+      'whatlearned',
+      'anchorsnapshot',
+      'resulttext',
+      'extractedthemes',
+      'themes',
+      'theme',
+      'skipreason',
+      'requestbody',
+      'rawbody',
+      'rawrequestbody',
+      'payload',
     ];
 
     if (Array.isArray(obj)) {
@@ -118,8 +142,14 @@ class Logger {
     if (!this.shouldLog(LogLevel.ERROR)) return;
     const errorMeta =
       error instanceof Error
-        ? { message: error.message, stack: error.stack, ...(meta as object) }
-        : { error, ...(meta as object) };
+        ? {
+            errorType: error.name,
+            ...(typeof (error as { code?: unknown }).code === 'string'
+              ? { errorCode: (error as unknown as { code: string }).code }
+              : {}),
+            ...(meta as object),
+          }
+        : { errorType: 'NonError', ...(meta as object) };
     // eslint-disable-next-line no-console
     console.error(this.formatMessage('ERROR', message, errorMeta));
   }

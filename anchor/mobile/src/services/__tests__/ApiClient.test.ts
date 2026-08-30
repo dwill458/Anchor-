@@ -6,7 +6,7 @@
 
 import axios from 'axios';
 import MockAdapter from 'axios-mock-adapter';
-import { apiClient, get, post, put, del } from '../ApiClient';
+import { ApiClientError, apiClient, get, post, put, del } from '../ApiClient';
 import { AuthService } from '../AuthService';
 import { API_URL } from '@/config';
 import { ErrorTrackingService } from '../ErrorTrackingService';
@@ -229,7 +229,14 @@ describe('ApiClient', () => {
         },
       });
 
-      await expect(get('/test')).rejects.toThrow('Validation failed');
+      const error = await get('/test').catch((caught) => caught);
+      expect(error).toBeInstanceOf(ApiClientError);
+      expect(error).toMatchObject({
+        name: 'ApiClientError',
+        message: 'Validation failed',
+        code: 'VALIDATION_ERROR',
+        status: 400,
+      });
     });
 
     it('should handle unknown status codes', async () => {

@@ -33,6 +33,7 @@ import {
   SealAnchorScreen,
   ChargeCompleteScreen,
   FirstPrimeCompleteScreen,
+  PrimeYourAnchorScreen,
 } from '../screens/rituals';
 import { ENABLE_MERCH } from '@/config';
 const ProductSelectionScreen = ENABLE_MERCH
@@ -46,12 +47,16 @@ const CheckoutScreen = ENABLE_MERCH
   : null;
 import {
   AuthGateScreen,
-  FirstAnchorAccountGateScreen,
   LoginScreen,
   SaveProgressScreen,
   SignUpScreen,
 } from '../screens/auth';
 import { TrialSignUpScreen } from '../screens/onboarding';
+import {
+  VisualizeCompletionScreen,
+  VisualizePreparationScreen,
+  VisualizeSessionScreen,
+} from '../screens/visualize';
 import type { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { useAuthStore } from '@/stores/authStore';
@@ -114,11 +119,6 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
         }}
       />
       <Stack.Screen
-        name="FirstAnchorAccountGate"
-        component={FirstAnchorAccountGateScreen}
-        options={{ headerShown: false, gestureEnabled: false }}
-      />
-      <Stack.Screen
         name="SaveProgress"
         component={SaveProgressScreen}
         options={{ headerShown: false, gestureEnabled: false, animation: 'fade_from_bottom' }}
@@ -143,6 +143,9 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
         component={AnchorDetailScreen}
         options={{ headerShown: false }}
       />
+      <Stack.Screen name="VisualizePreparation" component={VisualizePreparationScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="VisualizeSession" component={VisualizeSessionScreen} options={{ headerShown: false, gestureEnabled: false, animation: 'none' }} />
+      <Stack.Screen name="VisualizeCompletion" component={VisualizeCompletionScreen} options={{ headerShown: false, gestureEnabled: false, animation: 'none' }} />
       <Stack.Screen
         name="FirstAnchorCreation"
         component={IntentionInputScreen}
@@ -219,6 +222,11 @@ export const VaultStackNavigator: React.FC<VaultStackNavigatorProps> = ({ onRout
         name="AnchorReveal"
         component={AnchorRevealScreen}
         options={{ headerShown: false, animation: 'fade_from_bottom' }}
+      />
+      <Stack.Screen
+        name="PrimeYourAnchor"
+        component={PrimeYourAnchorScreen}
+        options={{ headerShown: false, animation: 'fade_from_bottom', gestureEnabled: false }}
       />
       <Stack.Screen
         name="WallpaperPrompt"

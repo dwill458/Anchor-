@@ -2,14 +2,15 @@
  * TabNavigationContext
  *
  * Provides cross-tab navigation for screens inside VaultStack or PracticeStack
- * that need to navigate to a different tab (e.g., Practice→Vault's ActivationRitual).
+ * that need to navigate to a different tab. Practice session routes are owned
+ * by PracticeStack, so callers should use navigateToPractice for session entry.
  *
  * Replaces the old `navigation.getParent()?.navigate('Vault', ...)` pattern
  * that broke when we moved from @react-navigation/bottom-tabs to SwipeableTabContainer.
  *
  * Usage:
  *   const { navigateToVault, navigateToPractice } = useTabNavigation();
- *   navigateToVault('ActivationRitual', { anchorId: '...', activationType: 'visual' });
+ *   navigateToVault('AnchorDetail', { anchorId: '...' });
  *   navigateToPractice();
  *
  * Registration (call from each tab's root screen on mount):
@@ -22,7 +23,7 @@
  */
 
 import React, { createContext, useCallback, useContext, useRef } from 'react';
-import type { RootStackParamList } from '@/types';
+import type { PracticeStackParamList, RootStackParamList, ChartStackParamList } from '@/types';
 
 type TabIndex = 0 | 1 | 2;
 
@@ -38,8 +39,18 @@ interface TabNavigationContextValue {
     screen?: RouteName,
     params?: RootStackParamList[RouteName]
   ) => void;
-  /** Switch to Practice tab */
-  navigateToPractice: () => void;
+  /** Switch to Practice tab, optionally pushing a route on PracticeStack. */
+  navigateToPractice: <RouteName extends keyof PracticeStackParamList>(
+    screen?: RouteName,
+    params?: PracticeStackParamList[RouteName]
+  ) => void;
+  /** Open the root-level paywall from either tab's independent stack. */
+  navigateToPaywall: (params?: RootStackParamList['Paywall']) => void;
+  /** Switch to Chart and optionally push a Chart route. */
+  navigateToChart: <RouteName extends keyof ChartStackParamList>(
+    screen?: RouteName,
+    params?: ChartStackParamList[RouteName]
+  ) => void;
   /** Register the navigation object from a tab's root screen */
   registerTabNav: (tabIndex: TabIndex, nav: any) => void;
   /** Currently selected top-level tab index */
@@ -51,19 +62,33 @@ const TabNavigationContext = createContext<TabNavigationContextValue | null>(nul
 interface TabNavigationProviderProps {
   children: React.ReactNode;
   onIndexChange: (index: number) => void;
+  onNavigateToPaywall: (params?: RootStackParamList['Paywall']) => void;
   activeIndex?: number;
 }
 
 export const TabNavigationProvider: React.FC<TabNavigationProviderProps> = ({
   children,
   onIndexChange,
+  onNavigateToPaywall,
   activeIndex = 0,
 }) => {
   // Refs to each tab's root screen navigation — registered by VaultScreen + PracticeScreen
   const tabNavRefs = useRef<(any | null)[]>([null, null, null]);
+  const pendingPracticeRouteRef = useRef<{ screen: string; params?: unknown } | null>(null);
+  const pendingChartRouteRef = useRef<{ screen: string; params?: unknown } | null>(null);
 
   const registerTabNav = useCallback((tabIndex: TabIndex, nav: any) => {
     tabNavRefs.current[tabIndex] = nav;
+    if (tabIndex === 1 && nav && pendingPracticeRouteRef.current) {
+      const pending = pendingPracticeRouteRef.current;
+      pendingPracticeRouteRef.current = null;
+      nav.push(pending.screen, pending.params);
+    }
+    if (tabIndex === 2 && nav && pendingChartRouteRef.current) {
+      const pending = pendingChartRouteRef.current;
+      pendingChartRouteRef.current = null;
+      nav.push(pending.screen, pending.params);
+    }
   }, []);
 
   const navigateToVault = useCallback(
@@ -83,13 +108,55 @@ export const TabNavigationProvider: React.FC<TabNavigationProviderProps> = ({
     [onIndexChange],
   );
 
-  const navigateToPractice = useCallback(() => {
-    onIndexChange(1);
-  }, [onIndexChange]);
+  const navigateToPractice = useCallback(
+    <RouteName extends keyof PracticeStackParamList>(
+      screen?: RouteName,
+      params?: PracticeStackParamList[RouteName]
+    ) => {
+      if (screen) {
+        const practiceNavigation = tabNavRefs.current[1];
+        if (practiceNavigation) {
+          practiceNavigation.push(screen, params);
+        } else {
+          pendingPracticeRouteRef.current = { screen: String(screen), params };
+        }
+      }
+
+      if (activeIndex !== 1) {
+        onIndexChange(1);
+      }
+    },
+    [activeIndex, onIndexChange]
+  );
+
+  const navigateToChart = useCallback(
+    <RouteName extends keyof ChartStackParamList>(
+      screen?: RouteName,
+      params?: ChartStackParamList[RouteName]
+    ) => {
+      if (screen) {
+        const chartNavigation = tabNavRefs.current[2];
+        if (chartNavigation) {
+          chartNavigation.push(screen, params);
+        } else {
+          pendingChartRouteRef.current = { screen: String(screen), params };
+        }
+      }
+      if (activeIndex !== 2) onIndexChange(2);
+    },
+    [activeIndex, onIndexChange]
+  );
 
   return (
     <TabNavigationContext.Provider
-      value={{ navigateToVault, navigateToPractice, registerTabNav, activeTabIndex: activeIndex }}
+      value={{
+        navigateToVault,
+        navigateToPractice,
+        navigateToChart,
+        navigateToPaywall: onNavigateToPaywall,
+        registerTabNav,
+        activeTabIndex: activeIndex,
+      }}
     >
       {children}
     </TabNavigationContext.Provider>

@@ -122,7 +122,6 @@ export const TrialSignUpScreen: React.FC = () => {
         user: result.user,
         token: result.token,
         preserveCompletedOnboarding: true,
-        launchTrialPurchase: false,
       });
       navigateToVaultDestination(navigation, 'replace');
     } catch (err: any) {
@@ -151,7 +150,7 @@ export const TrialSignUpScreen: React.FC = () => {
       </View>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
         <ScrollView

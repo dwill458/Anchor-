@@ -16,6 +16,7 @@ import type {
   User,
 } from '@/types';
 import { apiClient, fetchCompleteProfile } from '@/services/ApiClient';
+import { AnalyticsService } from '@/services/AnalyticsService';
 import { AuthService } from '@/services/AuthService';
 import { clearNotificationSession } from '@/services/NotificationSessionService';
 import {
@@ -26,8 +27,12 @@ import {
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useSessionStore } from '@/stores/sessionStore';
-import { useSubscriptionStore } from '@/stores/subscriptionStore';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { useSubscriptionStore, computeDaysRemaining } from '@/stores/subscriptionStore';
 import { useTeachingStore } from '@/stores/teachingStore';
+import { useVisualizationSceneStore } from '@/stores/visualizationSceneStore';
+import { purgeChartCacheForAccount, useCourseStore } from '@/stores/courseStore';
+import { useNavigationResumeStore } from '@/stores/navigationResumeStore';
 import { calculateStreak } from '@/utils/streakHelpers';
 import {
   createDeveloperMasterUser,
@@ -113,7 +118,6 @@ const ANCHOR_SESSION_STORAGE_KEY = 'anchor-session-storage';
 const CACHED_USER_KEY = 'anchor:cached_user';
 const RECOVERY_DUMP_MARKER_KEY = '@anchor_recovery_dump_complete';
 const RECOVERY_DUMP_VAULT_KEY = '@anchor_recovery_dump_vault';
-const LAST_MILESTONE_SHOWN_KEY = '@anchor_last_milestone_shown';
 
 const createClearedPendingFirstAnchorState = () => ({
   shouldRedirectToCreation: false,
@@ -125,8 +129,49 @@ const createClearedPendingFirstAnchorState = () => ({
   pendingFirstAnchorError: null,
 });
 
-function applyCompedAccessToSubscriptionStore(user: User | null): void {
-  useSubscriptionStore.getState().setRemoteCompedAccess(user?.isComped === true);
+function applyUserToSubscriptionStore(user: User | null): void {
+  const subscription = useSubscriptionStore.getState();
+  subscription.setRemoteCompedAccess(user?.isComped === true);
+
+  // Seed the account-bound trial clock synchronously whenever a user is set, so
+  // it is in place before RevenueCat's async logIn() resolves and reads it.
+  // Without this, on a fresh install (AsyncStorage empty → status defaults to
+  // 'expired') with a restored Firebase session, RevenueCat can confirm "no
+  // entitlement" before the trial start date is known, briefly gating an
+  // in-trial user behind the paywall.
+  //
+  // trialStartedAt is the server-authoritative trial anchor (resettable per
+  // account); we trust it as the source of truth and let it replace any stale
+  // local clock — this is what allows a backend reset to reach existing beta
+  // devices. createdAt is the fallback for backends predating the column.
+  const trialAnchor = user?.trialStartedAt ?? user?.createdAt;
+  if (trialAnchor) {
+    subscription.applyServerTrial(trialAnchor, user?.isTrialExpired);
+  }
+
+  // Mirror trial/conversion state into analytics (PostHog) so the funnel can be
+  // measured without RevenueCat. The backend remains the source of truth — this
+  // is read-only reporting that refreshes whenever the user record changes
+  // (login, profile fetch, rehydrate). Sign-out (user === null) resets identity.
+  if (!user) {
+    AnalyticsService.reset();
+    return;
+  }
+
+  const trialStartIso = trialAnchor
+    ? (trialAnchor instanceof Date ? trialAnchor.toISOString() : new Date(trialAnchor).toISOString())
+    : undefined;
+
+  AnalyticsService.identify(user.id, {
+    subscriptionStatus: user.subscriptionStatus,
+    trial_started_at: trialStartIso,
+    trial_expired: user.isTrialExpired === true,
+    trial_days_remaining: trialStartIso ? computeDaysRemaining(trialStartIso) : 0,
+    is_comped: user.isComped === true,
+    converted: user.subscriptionStatus.startsWith('pro'),
+    totalAnchorsCreated: user.totalAnchorsCreated,
+    currentStreak: user.currentStreak,
+  });
 }
 
 async function readLegacyAuthStorage(name: string): Promise<string | null> {
@@ -333,7 +378,7 @@ interface AuthState {
   finalizePendingFirstAnchorDraft: () => Promise<boolean>;
   setOfflineMode: (offline: boolean) => void;
   setIsGuest: (value: boolean) => void;
-  signOut: () => void;
+  signOut: () => Promise<void>;
 
   // NEW: Profile actions
   fetchProfile: () => Promise<void>;
@@ -386,9 +431,13 @@ export const useAuthStore = create<AuthState>()(
 
       // Actions
       setUser: (user) => {
-        applyCompedAccessToSubscriptionStore(user);
+        if (get().user?.id !== (user?.id ?? null)) {
+          useCourseStore.getState().bindAccount(user?.id ?? null);
+        }
+        applyUserToSubscriptionStore(user);
         useProfileStore.getState().syncFromUser(user);
         set((state) => {
+          const isSameAccount = state.user?.id === user?.id;
           const hasCompletedOnboarding = user
             ? Boolean(user.hasCompletedOnboarding)
             : false;
@@ -403,6 +452,9 @@ export const useAuthStore = create<AuthState>()(
               : null,
             isAuthenticated: !!user,
             hasCompletedOnboarding,
+            // This prompt belongs to the account's first Anchor, not the device.
+            // A new account must never inherit another account's "seen" state.
+            wallpaperPromptSeen: isSameAccount ? state.wallpaperPromptSeen : false,
           };
         });
       },
@@ -413,9 +465,13 @@ export const useAuthStore = create<AuthState>()(
         }),
 
       setSession: (user, token) => {
-        applyCompedAccessToSubscriptionStore(user);
+        if (get().user?.id !== user.id) {
+          useCourseStore.getState().bindAccount(user.id);
+        }
+        applyUserToSubscriptionStore(user);
         useProfileStore.getState().syncFromUser(user);
-        set(() => {
+        set((state) => {
+          const isSameAccount = state.user?.id === user.id;
           const hasCompletedOnboarding = Boolean(user.hasCompletedOnboarding);
 
           return {
@@ -428,6 +484,9 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true,
             hasCompletedOnboarding,
             isLoading: false,
+            // Keep the prompt state for a returning account, but reset it when
+            // authentication establishes a different account on this device.
+            wallpaperPromptSeen: isSameAccount ? state.wallpaperPromptSeen : false,
           };
         });
       },
@@ -484,7 +543,7 @@ export const useAuthStore = create<AuthState>()(
             createdAt: state.user?.createdAt ?? new Date(),
           });
 
-          applyCompedAccessToSubscriptionStore(developerUser);
+          applyUserToSubscriptionStore(developerUser);
 
           return {
             user: developerUser,
@@ -559,7 +618,7 @@ export const useAuthStore = create<AuthState>()(
           }
 
           const profileData = await fetchCompleteProfile();
-          applyCompedAccessToSubscriptionStore(profileData.user);
+          applyUserToSubscriptionStore(profileData.user);
           const hasCompletedOnboarding = Boolean(profileData.user.hasCompletedOnboarding);
           useProfileStore.getState().syncFromUser(profileData.user);
           set({
@@ -716,6 +775,9 @@ export const useAuthStore = create<AuthState>()(
                 {
                   chargeType: mutation.chargeType,
                   durationSeconds: mutation.durationSeconds,
+                  ...(mutation.idempotencyKey
+                    ? { idempotencyKey: mutation.idempotencyKey }
+                    : {}),
                 }
               );
 
@@ -739,6 +801,9 @@ export const useAuthStore = create<AuthState>()(
                 {
                   activationType: mutation.activationType,
                   durationSeconds: mutation.durationSeconds,
+                  ...(mutation.idempotencyKey
+                    ? { idempotencyKey: mutation.idempotencyKey }
+                    : {}),
                 }
               );
 
@@ -905,7 +970,7 @@ export const useAuthStore = create<AuthState>()(
               lastStabilizeAt: toDateOrNull(updatedUser.lastStabilizeAt) ?? undefined,
             };
 
-            applyCompedAccessToSubscriptionStore(normalizedUpdatedUser);
+            applyUserToSubscriptionStore(normalizedUpdatedUser);
 
             set((state) => ({
               user: state.user ? { ...state.user, ...normalizedUpdatedUser } : normalizedUpdatedUser,
@@ -921,51 +986,67 @@ export const useAuthStore = create<AuthState>()(
         return flags;
       },
 
-      signOut: () => {
+      signOut: async () => {
         const userId = get().user?.id;
         if (userId) {
           const profileState = useProfileStore.getState();
           const sessionState = useSessionStore.getState();
           const anchorState = useAnchorStore.getState();
-          void Promise.all([
-            saveAnchorSnapshot(userId, {
-              anchors: anchorState.anchors,
-              currentAnchorId: anchorState.currentAnchorId,
-            }),
-            saveProfileSnapshot(userId, {
-              ownerUserId: profileState.ownerUserId,
-              name: profileState.name,
-              axiom: profileState.axiom,
-              timezone: profileState.timezone,
-              mono: profileState.mono,
-              photo: profileState.photo,
-              memberSince: profileState.memberSince,
-            }),
-            saveSessionSnapshot(userId, {
-              lastSession: sessionState.lastSession,
-              todayPractice: sessionState.todayPractice,
-              weeklyPractice: sessionState.weeklyPractice,
-              lastGraceDayUsedAt: sessionState.lastGraceDayUsedAt,
-              sessionLog: sessionState.sessionLog,
-              threadStrength: sessionState.threadStrength,
-              totalSessionsCount: sessionState.totalSessionsCount,
-              lastPrimedAt: sessionState.lastPrimedAt,
-              weekHistory: sessionState.weekHistory,
-              weekHistoryKey: sessionState.weekHistoryKey,
-              primingHistory: sessionState.primingHistory,
-              journeyWeekStart: sessionState.journeyWeekStart,
-              lastDecayDate: sessionState.lastDecayDate,
-            }),
-          ]).catch((error) => {
+          try {
+            await Promise.all([
+              saveAnchorSnapshot(userId, {
+                anchors: anchorState.anchors,
+                currentAnchorId: anchorState.currentAnchorId,
+              }),
+              saveProfileSnapshot(userId, {
+                ownerUserId: profileState.ownerUserId,
+                name: profileState.name,
+                axiom: profileState.axiom,
+                timezone: profileState.timezone,
+                mono: profileState.mono,
+                photo: profileState.photo,
+                memberSince: profileState.memberSince,
+              }),
+              saveSessionSnapshot(userId, {
+                lastSession: sessionState.lastSession,
+                todayPractice: sessionState.todayPractice,
+                weeklyPractice: sessionState.weeklyPractice,
+                lastGraceDayUsedAt: sessionState.lastGraceDayUsedAt,
+                sessionLog: sessionState.sessionLog,
+                threadStrength: sessionState.threadStrength,
+                totalSessionsCount: sessionState.totalSessionsCount,
+                lastPrimedAt: sessionState.lastPrimedAt,
+                weekHistory: sessionState.weekHistory,
+                weekHistoryKey: sessionState.weekHistoryKey,
+                primingHistory: sessionState.primingHistory,
+                practiceHistory: sessionState.practiceHistory,
+                journeyWeekStart: sessionState.journeyWeekStart,
+                lastDecayDate: sessionState.lastDecayDate,
+              }),
+            ]);
+          } catch (error) {
             logger.warn('Failed to preserve local user state before sign out', error);
-          });
+          }
         }
 
-        applyCompedAccessToSubscriptionStore(null);
+        // Auth callbacks can overlap. If a different account was established
+        // while the previous account's snapshots were being saved, the stale
+        // sign-out must not clear the new account's stores or presenter.
+        const currentUserId = get().user?.id;
+        if (currentUserId && currentUserId !== userId) {
+          return;
+        }
+
+        applyUserToSubscriptionStore(null);
         useAnchorStore.getState().clearAnchors();
         useSessionStore.getState().reset();
         useTeachingStore.getState().reset();
+        useVisualizationSceneStore.getState().clearActiveAccount();
         useProfileStore.getState().resetProfile();
+        useSettingsStore.getState().bindSessionAudioDefaultsOwner(null);
+        useCourseStore.getState().clearAccount(userId);
+        useNavigationResumeStore.getState().setTarget(null);
+        useNavigationResumeStore.getState().setChartDeepLink(null);
         set({
           user: null,
           token: null,
@@ -975,18 +1056,19 @@ export const useAuthStore = create<AuthState>()(
           anchorCount: 0,
           profileData: null,
           profileLastFetched: null,
+          wallpaperPromptSeen: false,
           ...createClearedPendingFirstAnchorState(),
         });
         // Intentionally preserved: local trial cache is device-level/offline UX state.
         // Do not clear anchor-subscription-override-storage on account sign-out.
         void Promise.all([
           clearNotificationSession(),
+          ...(userId ? [purgeChartCacheForAccount(userId)] : []),
           encryptedPersistStorage.removeItem(ANCHOR_VAULT_STORAGE_KEY),
           encryptedPersistStorage.removeItem(ANCHOR_SESSION_STORAGE_KEY),
           encryptedPersistStorage.removeItem(CACHED_USER_KEY),
           AsyncStorage.removeItem(RECOVERY_DUMP_MARKER_KEY),
           AsyncStorage.removeItem(RECOVERY_DUMP_VAULT_KEY),
-          AsyncStorage.removeItem(LAST_MILESTONE_SHOWN_KEY),
         ]).catch((error) => {
           logger.warn('Failed to fully clear persisted local auth data on sign out', error);
         });
@@ -997,7 +1079,7 @@ export const useAuthStore = create<AuthState>()(
       storage: createJSONStorage(() => encryptedAuthStorage),
       onRehydrateStorage: () => (state) => {
         if (state) {
-          applyCompedAccessToSubscriptionStore(state.user);
+          applyUserToSubscriptionStore(state.user);
           // One-shot navigation flags should never survive an app restart.
           state.setShouldRedirectToCreation(false);
           // Recompute streak immediately after store hydrates from disk

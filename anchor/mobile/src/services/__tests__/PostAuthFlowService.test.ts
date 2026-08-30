@@ -66,9 +66,12 @@ describe('PostAuthFlowService', () => {
   });
 
   it('migrates all local anchors during post-auth setup', async () => {
+    const trialStartedAt = new Date().toISOString();
     const user = createMockUser({
       id: 'user-123',
-      createdAt: new Date(),
+      createdAt: new Date(trialStartedAt),
+      trialStartedAt,
+      isTrialExpired: false,
     });
     const localAnchor = createMockAnchor({ id: 'local-anchor', userId: 'user-123' });
     const foreignAnchor = createMockAnchor({ id: 'foreign-anchor', userId: 'user-other' });
@@ -89,7 +92,7 @@ describe('PostAuthFlowService', () => {
 
     expect(mockMigrateAnchors).toHaveBeenCalledTimes(1);
     expect(useSubscriptionStore.getState().subscriptionStatus).toBe('trial');
-    expect(useSubscriptionStore.getState().trialStartDate).toBe(user.createdAt.toISOString());
+    expect(useSubscriptionStore.getState().trialStartDate).toBe(trialStartedAt);
     expect(mockHydrateAuthenticatedData).toHaveBeenCalledWith({
       skipAnchorRefresh: false,
     });

@@ -3,13 +3,14 @@ import { render, screen, fireEvent } from '@testing-library/react-native';
 
 // Mock navigation
 const mockNavigate = jest.fn();
+const mockReplace = jest.fn();
 jest.mock('@react-navigation/native', () => ({
     ...jest.requireActual('@react-navigation/native'),
     useNavigation: () => ({
         navigate: mockNavigate,
         push: mockNavigate,
         goBack: jest.fn(),
-        replace: jest.fn(),
+        replace: mockReplace,
     }),
     useRoute: () => ({ params: {} }),
 }));
@@ -19,6 +20,10 @@ let mockAnchors: any[] = [];
 let mockIsLoading = false;
 let mockIsAuthenticated = true;
 let mockHasActiveEntitlement = true;
+let mockPendingFirstAnchorDraft: { tempAnchorId: string } | null = null;
+let mockPerformanceTier: 'high' | 'medium' | 'low' = 'high';
+let mockReduceMotionEnabled = true;
+let mockActiveTabIndex: number | null = 0;
 const mockSetPendingForgeResumeTarget = jest.fn();
 
 jest.mock('@/stores/anchorStore', () => ({
@@ -43,6 +48,7 @@ jest.mock('@/stores/authStore', () => ({
             shouldRedirectToCreation: false,
             setShouldRedirectToCreation: jest.fn(),
             setPendingForgeResumeTarget: mockSetPendingForgeResumeTarget,
+            pendingFirstAnchorDraft: mockPendingFirstAnchorDraft,
         };
         return selector ? selector(state) : state;
     }
@@ -51,17 +57,26 @@ jest.mock('@/hooks/useSubscription', () => ({
     useSubscription: () => ({ isFree: true, features: { maxAnchors: 3 } })
 }));
 jest.mock('@/hooks/useTrialStatus', () => ({
-    useTrialStatus: () => ({ hasActiveEntitlement: mockHasActiveEntitlement }),
+    useTrialStatus: () => ({
+        isTrialActive: false,
+        isSubscribed: mockHasActiveEntitlement,
+        trialExpired: !mockHasActiveEntitlement,
+        hasActiveEntitlement: mockHasActiveEntitlement,
+    }),
 }));
 jest.mock('@/contexts/TabNavigationContext', () => ({
     useTabNavigation: () => ({
         registerTabNav: jest.fn(),
-        activeTabIndex: 0,
+        activeTabIndex: mockActiveTabIndex,
     }),
 }));
 
 jest.mock('@/hooks/useReduceMotionEnabled', () => ({
-    useReduceMotionEnabled: () => true,
+    useReduceMotionEnabled: () => mockReduceMotionEnabled,
+}));
+
+jest.mock('@/hooks/useAppPerformanceTier', () => ({
+    useAppPerformanceTier: () => mockPerformanceTier,
 }));
 
 jest.mock('@/components/ToastProvider', () => ({
@@ -89,7 +104,21 @@ jest.mock('@/screens/vault/components/SanctuaryHeader', () => ({
 }));
 
 jest.mock('@/screens/vault/components/AtmosphericOrbs', () => ({
-    AtmosphericOrbs: () => null,
+    AtmosphericOrbs: ({
+        reduceMotionEnabled,
+        paused,
+    }: {
+        reduceMotionEnabled: boolean;
+        paused?: boolean;
+    }) => {
+        const { Text } = require('react-native');
+        return (
+            <>
+                <Text testID="atmospheric-orbs">{reduceMotionEnabled ? 'static' : 'animated'}</Text>
+                <Text testID="atmospheric-orbs-paused">{paused ? 'paused' : 'running'}</Text>
+            </>
+        );
+    },
 }));
 
 jest.mock('@/screens/vault/components/HeroAnchorCard', () => ({
@@ -101,9 +130,16 @@ jest.mock('@/screens/vault/components/HeroAnchorCard', () => ({
 }));
 
 jest.mock('@/screens/vault/components/AnchorStack', () => ({
-    AnchorStack: ({ anchors }: any) => {
-        const { Text } = require('react-native');
-        return <Text>Stack: {anchors.length}</Text>;
+    AnchorStack: ({ anchors, onAddPress }: any) => {
+        const { Text, TouchableOpacity } = require('react-native');
+        return (
+            <>
+                <Text>Stack: {anchors.length}</Text>
+                <TouchableOpacity accessibilityLabel="Create new anchor" onPress={onAddPress}>
+                    <Text>New anchor</Text>
+                </TouchableOpacity>
+            </>
+        );
     },
 }));
 
@@ -131,17 +167,80 @@ import { VaultScreen } from '../VaultScreen';
 describe('VaultScreen', () => {
     beforeEach(() => {
         mockNavigate.mockClear();
+        mockReplace.mockClear();
         mockSetPendingForgeResumeTarget.mockClear();
         mockAnchors = [];
         mockIsLoading = false;
         mockIsAuthenticated = true;
         mockHasActiveEntitlement = true;
+        mockPendingFirstAnchorDraft = null;
+        mockActiveTabIndex = 0;
+        mockPerformanceTier = 'high';
+        mockReduceMotionEnabled = true;
+    });
+
+    it('redirects an un-accounted guest with a pending first anchor to SaveProgress', () => {
+        mockIsAuthenticated = false;
+        mockPendingFirstAnchorDraft = { tempAnchorId: 'pending-first-anchor-1' };
+        mockAnchors = [{
+            id: 'pending-first-anchor-1',
+            intentionText: 'Build focus',
+            category: 'career',
+            isCharged: false,
+            activationCount: 0,
+            baseSigilSvg: '<svg></svg>',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        }];
+
+        render(<VaultScreen />);
+
+        expect(mockReplace).toHaveBeenCalledWith('SaveProgress', {
+            anchor: expect.objectContaining({ id: 'pending-first-anchor-1' }),
+        });
+        // Vault contents must never render for an un-accounted guest.
+        expect(screen.queryByTestId('hero-anchor-card')).toBeNull();
+        expect(screen.queryByLabelText('Create new anchor')).toBeNull();
     });
 
     it('renders empty state when no anchors', () => {
         render(<VaultScreen />);
         expect(screen.getByText(/FORGE YOUR FIRST ANCHOR/)).toBeTruthy();
         expect(screen.getByLabelText('Forge your first anchor')).toBeTruthy();
+    });
+
+    // Leaving the tab used to be reported to children as "reduce motion", which
+    // they answer by resetting their shared values — so returning to the
+    // Sanctuary replayed the entire intro. Off-screen must pause, not reset.
+    describe('ambient motion while the tab is off-screen', () => {
+        it('pauses ambient motion without claiming reduced motion', () => {
+            mockReduceMotionEnabled = false;
+            mockActiveTabIndex = 1;
+
+            render(<VaultScreen />);
+
+            expect(screen.getByTestId('atmospheric-orbs').props.children).toBe('animated');
+            expect(screen.getByTestId('atmospheric-orbs-paused').props.children).toBe('paused');
+        });
+
+        it('resumes ambient motion when the tab is active', () => {
+            mockReduceMotionEnabled = false;
+            mockActiveTabIndex = 0;
+
+            render(<VaultScreen />);
+
+            expect(screen.getByTestId('atmospheric-orbs').props.children).toBe('animated');
+            expect(screen.getByTestId('atmospheric-orbs-paused').props.children).toBe('running');
+        });
+
+        it('still reports reduced motion when the user has asked for it', () => {
+            mockReduceMotionEnabled = true;
+            mockActiveTabIndex = 0;
+
+            render(<VaultScreen />);
+
+            expect(screen.getByTestId('atmospheric-orbs').props.children).toBe('static');
+        });
     });
 
     it('renders anchor grid when anchors exist', () => {
@@ -157,7 +256,7 @@ describe('VaultScreen', () => {
         }];
         render(<VaultScreen />);
         expect(screen.getByText('Hero: Build focus')).toBeTruthy();
-        expect(screen.getByText('CREATE NEW ANCHOR')).toBeTruthy();
+        expect(screen.getByLabelText('Create new anchor')).toBeTruthy();
     });
 
     it('shows skeleton loader while loading', () => {
@@ -165,6 +264,23 @@ describe('VaultScreen', () => {
         mockAnchors = [];
         render(<VaultScreen />);
         expect(screen.getByText('Loading...')).toBeTruthy();
+    });
+
+    it('renders the atmospheric orb animation on high-tier Android-class devices', () => {
+        mockReduceMotionEnabled = false;
+        mockPerformanceTier = 'high';
+
+        render(<VaultScreen />);
+
+        expect(screen.getByText('animated')).toBeTruthy();
+    });
+
+    it('skips the expensive atmospheric orb layer on lower-tier devices', () => {
+        mockPerformanceTier = 'medium';
+
+        render(<VaultScreen />);
+
+        expect(screen.queryByTestId('atmospheric-orbs')).toBeNull();
     });
 
     it('tapping forge button navigates to anchor creation', () => {
@@ -235,7 +351,9 @@ describe('VaultScreen', () => {
 
         render(<VaultScreen />);
         expect(screen.getByText('Hero: Build focus')).toBeTruthy();
-        expect(screen.getByText('Stack: 0')).toBeTruthy();
+        // The current/hero anchor is included in the row (highlighted), so a
+        // single active anchor still shows a stack of 1.
+        expect(screen.getByText('Stack: 1')).toBeTruthy();
     });
 
     it('shows the empty sanctuary state when only released anchors remain', () => {
@@ -254,7 +372,7 @@ describe('VaultScreen', () => {
 
         render(<VaultScreen />);
         expect(screen.getByText(/FORGE YOUR FIRST ANCHOR/)).toBeTruthy();
-        expect(screen.queryByText('CREATE NEW ANCHOR')).toBeNull();
+        expect(screen.queryByText(/Stack:/)).toBeNull();
     });
 
     it('routes unauthenticated returning users to the create flow', () => {
@@ -276,7 +394,7 @@ describe('VaultScreen', () => {
         expect(mockNavigate).toHaveBeenCalledWith('CreateAnchor');
     });
 
-    it('routes authenticated users without entitlement to the create flow', () => {
+    it('routes authenticated users without entitlement to the paywall', () => {
         mockHasActiveEntitlement = false;
         mockAnchors = [{
             id: 'a1',
@@ -292,6 +410,20 @@ describe('VaultScreen', () => {
         render(<VaultScreen />);
         fireEvent.press(screen.getByLabelText('Create new anchor'));
 
-        expect(mockNavigate).toHaveBeenCalledWith('CreateAnchor');
+        expect(mockNavigate).toHaveBeenCalledWith('Paywall', {
+            source: 'create_anchor_free_locked',
+            preferredPlanId: 'annual',
+        });
+    });
+
+    it('lets unauthenticated guests without entitlement forge their first anchor', () => {
+        mockIsAuthenticated = false;
+        mockHasActiveEntitlement = false;
+        mockAnchors = [];
+
+        render(<VaultScreen />);
+        fireEvent.press(screen.getByLabelText('Forge your first anchor'));
+
+        expect(mockNavigate).toHaveBeenCalledWith('FirstAnchorCreation');
     });
 });

@@ -25,6 +25,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types';
 import { ZenBackground } from '@/components/common';
 import { colors } from '@/theme';
+import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IS_ANDROID = Platform.OS === 'android';
@@ -397,9 +398,10 @@ export default function ManualForgeScreen() {
       ${pathsContent}
       </svg>`;
 
-      // Navigate to EnhancementChoice - user can choose to keep pure or enhance with AI
-      // The manual drawing becomes the "base structure" for ControlNet if AI enhancement is chosen
-      navigation.navigate('EnhancementChoice', {
+      // A drawn structure goes directly into Refine Style; generation changes
+      // appearance, never the geometry the user just made.
+      useFirstAnchorFlowStore.getState().updateDraft({ drawingSvg: sigilSvg, structure: 'drawn' });
+      navigation.navigate('StyleSelection', {
         intentionText,
         category,
         distilledLetters,
@@ -411,7 +413,7 @@ export default function ManualForgeScreen() {
 
     } catch (error) {
       logger.error('Error saving manual sigil:', error);
-      Alert.alert('Error', 'Failed to save your anchor.');
+      Alert.alert('Save failed', 'Your anchor could not be saved. Your drawing is still here — try again.');
     }
   };
 

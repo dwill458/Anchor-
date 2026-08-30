@@ -1,15 +1,13 @@
 import 'react-native-gesture-handler';
 import React, { useEffect, useRef } from 'react';
 import {
-  Animated,
   AppState,
-  StatusBar,
   View,
   StyleSheet,
   Platform,
-  Dimensions,
 } from 'react-native';
 import { useFonts } from 'expo-font';
+import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
 import type { DevicePushToken } from 'expo-notifications';
@@ -32,26 +30,25 @@ import {
   CrimsonPro_400Regular,
   CrimsonPro_400Regular_Italic,
 } from '@expo-google-fonts/crimson-pro';
+import {
+  EBGaramond_400Regular,
+  EBGaramond_400Regular_Italic,
+  EBGaramond_500Medium,
+} from '@expo-google-fonts/eb-garamond';
 import { RootNavigator } from './src/navigation';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { ToastProvider } from './src/components/ToastProvider';
-import { ForgeMomentOverlay } from './src/components/ForgeMomentOverlay';
-import { useTrialStatus } from './src/hooks/useTrialStatus';
 import { useAuthStore } from './src/stores/authStore';
-import { useForgeMomentStore } from './src/stores/forgeMomentStore';
+import { useAnchorStore } from './src/stores/anchorStore';
 import { useSessionStore } from './src/stores/sessionStore';
 import { useSettingsStore } from './src/stores/settingsStore';
-import { useSubscriptionStore } from './src/stores/subscriptionStore';
 import { SettingsRevealProvider } from './src/components/transitions/SettingsRevealProvider';
 import type { RootNavigatorParamList } from './src/navigation/RootNavigator';
-import {
-  buildExpiredTrialPaywallNavigationState,
-  buildMainRootNavigationState,
-  shouldShowOnboardingFlow,
-} from './src/navigation/rootNavigationState';
+import { shouldShowOnboardingFlow } from './src/navigation/rootNavigationState';
 import type { Anchor } from './src/types';
 import { ErrorTrackingService, setupGlobalErrorHandler } from './src/services/ErrorTrackingService';
 import { PerformanceMonitoring, type PerformanceTrace } from './src/services/PerformanceMonitoring';
+import { FrictionAnalytics } from './src/services/FrictionAnalytics';
 import { monitoringConfig } from './src/config/monitoring';
 import { AuthService } from './src/services/AuthService';
 
@@ -60,11 +57,17 @@ import { encryptedPersistStorage, readSecureValue } from './src/stores/encrypted
 import { logger } from './src/utils/logger';
 import revenueCatService from './src/services/RevenueCatService';
 import NotificationService from './src/services/NotificationService';
+import { AnalyticsEvents, AnalyticsService } from './src/services/AnalyticsService';
 import AuthHydrationService from './src/services/AuthHydrationService';
 import {
   clearPushTokensFromServer,
   syncPushTokensToServer,
 } from './src/services/NotificationSyncService';
+import { initWidgetDataSync } from './src/widgets/widgetDataBridge';
+import { WIDGETS_ENABLED } from './src/config';
+import { useAppStartup } from './src/hooks/useAppStartup';
+import { SplashController } from './src/components/splash/SplashController';
+import { SPLASH_BACKGROUND_COLOR } from './src/components/splash/splashAnimation.constants';
 
 function isNetworkError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
@@ -79,15 +82,13 @@ function isNetworkError(error: unknown): boolean {
   );
 }
 
-const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
-const SPLASH_BACKGROUND_COLOR = '#080C10';
 
 if (!isWeb) {
   void SplashScreen.preventAutoHideAsync();
   SplashScreen.setOptions({
-    duration: 400,
-    fade: true,
+    duration: 0,
+    fade: false,
   });
 }
 
@@ -111,7 +112,6 @@ const PRIME_ON_LAUNCH_KEY = '@anchor_prime_on_launch';
 const ANCHOR_VAULT_STORAGE_KEY = 'anchor-vault-storage';
 const RECOVERY_DUMP_MARKER_KEY = '@anchor_recovery_dump_complete';
 const RECOVERY_DUMP_VAULT_KEY = '@anchor_recovery_dump_vault';
-const PRIME_ON_LAUNCH_FADE_DURATION_MS = 300;
 
 function parseStoredBoolean(rawValue: string | null): boolean {
   if (rawValue == null) {
@@ -221,26 +221,29 @@ export default function App() {
   const computeStreak = useAuthStore((state) => state.computeStreak);
   const user = useAuthStore((state) => state.user);
   const dailyPracticeGoal = useSettingsStore((state) => state.dailyPracticeGoal);
+  const analyticsEnabled = useSettingsStore((state) => state.analyticsEnabled);
+  const anchorCount = useAnchorStore((state) => state.anchors.length);
   const lastSessionId = useSessionStore((state) => state.lastSession?.id);
-  const activeMilestone = useForgeMomentStore((state) => state.activeMilestone);
-  const dismissMilestone = useForgeMomentStore((state) => state.dismissMilestone);
   const navRef = useNavigationContainerRef<RootNavigatorParamList>();
   const routeNameRef = useRef<string | undefined>(undefined);
   const screenTraceRef = useRef<PerformanceTrace | null>(null);
-  const hasPresentedExpiredPaywallRef = useRef(false);
-  const launchOpacity = useRef(new Animated.Value(1)).current;
   const [settingsHydrated, setSettingsHydrated] = React.useState(false);
+  const [startupSafeFailure, setStartupSafeFailure] = React.useState(false);
+  const [analyticsPreferenceHydrated, setAnalyticsPreferenceHydrated] = React.useState(() =>
+    useSettingsStore.persist.hasHydrated()
+  );
   const [launchStateResolved, setLaunchStateResolved] = React.useState(false);
   const [initialNavigationState, setInitialNavigationState] = React.useState<
     InitialState | undefined
   >(undefined);
-  const [shouldFadePrimeOnLaunch, setShouldFadePrimeOnLaunch] = React.useState(false);
+  const startupStartedAtRef = useRef(Date.now());
   const hasCompletedOnboarding = useAuthStore((state) => state.hasCompletedOnboarding);
   const developerMasterAccountEnabled = useSettingsStore(
     (state) => state.developerMasterAccountEnabled
   );
   const developerMasterAccountEnabledRef = useRef(developerMasterAccountEnabled);
   const previousUserIdRef = useRef<string | null>(null);
+
   const developerSkipOnboardingEnabled = useSettingsStore(
     (state) => state.developerSkipOnboardingEnabled
   );
@@ -253,20 +256,13 @@ export default function App() {
   // One-shot latch: true once the initial auth restore has settled. Must not
   // track isLoading live — Login/SignUp re-use it and would unmount the app.
   const [initialAuthResolved, setInitialAuthResolved] = React.useState(false);
-  const { hasExpired, isSubscribed } = useTrialStatus();
-  const rcSynced = useSubscriptionStore((state) => state.rcSynced);
-  const devOverrideEnabled = useSubscriptionStore((state) => state.devOverrideEnabled);
-  const remoteCompedAccess = useSubscriptionStore((state) => state.remoteCompedAccess);
-  // Suppress the post-trial paywall until RevenueCat has confirmed entitlement
-  // state at least once this session. On a clean install the persisted store
-  // defaults to "expired", so without this gate a real subscriber would see the
-  // paywall flash before logIn()/refreshTrialStatus() resolves. Dev overrides
-  // and comped access are authoritative immediately and bypass the gate.
-  const entitlementResolved =
-    rcSynced || (__DEV__ && devOverrideEnabled) || remoteCompedAccess;
-  const showExpiredTrialPaywall =
-    !showOnboarding && hasExpired && !isSubscribed && entitlementResolved;
-  const [fontsLoaded] = useFonts({
+  const trackingContext = React.useMemo(
+    () => ({
+      anchor_count: anchorCount,
+    }),
+    [anchorCount]
+  );
+  const [fontsLoaded, fontLoadError] = useFonts({
     'Cinzel-Regular': Cinzel_400Regular,
     'Cinzel-SemiBold': Cinzel_600SemiBold,
     'Cinzel-Bold': Cinzel_700Bold,
@@ -274,12 +270,22 @@ export default function App() {
     'Inter-SemiBold': Inter_600SemiBold,
     'CrimsonPro-Regular': CrimsonPro_400Regular,
     'CrimsonPro-Italic': CrimsonPro_400Regular_Italic,
+    'EBGaramond-Regular': EBGaramond_400Regular,
+    'EBGaramond-Italic': EBGaramond_400Regular_Italic,
+    'EBGaramond-Medium': EBGaramond_500Medium,
     'CormorantGaramond-Regular': CrimsonPro_400Regular,
     'CormorantGaramond-Italic': CrimsonPro_400Regular_Italic,
   });
-  // Hold the native splash until fonts are loaded AND auth state is determined,
-  // so the first visible frame is never a font-flash or an auth redirect jump.
-  const appIsReady = fontsLoaded && launchStateResolved && initialAuthResolved;
+  const startup = useAppStartup({
+    fontsReady: fontsLoaded || Boolean(fontLoadError),
+    settingsHydrated,
+    authRestorationSettled: initialAuthResolved,
+    primeOnLaunchResolved: launchStateResolved,
+    safeFailure: startupSafeFailure || Boolean(fontLoadError),
+  });
+  const appIsReady = startup.isReady;
+  const effectiveAnalyticsEnabled =
+    process.env.EXPO_PUBLIC_ANALYTICS_ENABLED !== 'false' && analyticsEnabled;
 
   useEffect(() => {
     if (!__DEV__) {
@@ -317,6 +323,7 @@ export default function App() {
     loadSettingsSnapshot()
       .catch((error) => {
         logger.error('Failed to hydrate settings snapshot', error);
+        setStartupSafeFailure(true);
       })
       .finally(() => {
         if (isMounted) {
@@ -330,6 +337,17 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (useSettingsStore.persist.hasHydrated()) {
+      setAnalyticsPreferenceHydrated(true);
+      return undefined;
+    }
+
+    return useSettingsStore.persist.onFinishHydration(() => {
+      setAnalyticsPreferenceHydrated(true);
+    });
+  }, []);
+
+  useEffect(() => {
     let isMounted = true;
 
     resolvePrimeOnLaunchInitialState()
@@ -339,12 +357,10 @@ export default function App() {
         }
 
         setInitialNavigationState(initialState);
-        const shouldFade = initialState != null;
-        setShouldFadePrimeOnLaunch(shouldFade);
-        launchOpacity.setValue(shouldFade ? 0 : 1);
       })
       .catch((error) => {
         logger.error('Failed to resolve Prime on Launch initial state', error);
+        setStartupSafeFailure(true);
       })
       .finally(() => {
         if (isMounted) {
@@ -355,33 +371,20 @@ export default function App() {
     return () => {
       isMounted = false;
     };
-  }, [launchOpacity]);
-
-  useEffect(() => {
-    if (!launchStateResolved || !shouldFadePrimeOnLaunch) {
-      return;
-    }
-
-    Animated.timing(launchOpacity, {
-      toValue: 1,
-      duration: PRIME_ON_LAUNCH_FADE_DURATION_MS,
-      useNativeDriver: true,
-    }).start();
-  }, [launchOpacity, launchStateResolved, shouldFadePrimeOnLaunch]);
-
-  useEffect(() => {
-    if (!appIsReady || isWeb) {
-      return;
-    }
-
-    void SplashScreen.hideAsync().catch((error) => {
-      logger.warn('[SplashScreen] Failed to hide native splash screen', error);
-    });
-  }, [appIsReady]);
+  }, []);
 
   useEffect(() => {
     developerMasterAccountEnabledRef.current = developerMasterAccountEnabled;
   }, [developerMasterAccountEnabled]);
+
+  // Mirror session/anchor state into the home screen widgets. Subscribes to
+  // the stores, so prime completions, decay, and hydration all propagate
+  // without touching those flows.
+  useEffect(() => {
+    if (WIDGETS_ENABLED) {
+      initWidgetDataSync();
+    }
+  }, []);
 
   useEffect(() => {
     AuthService.initialize();
@@ -426,12 +429,16 @@ export default function App() {
         store.setOfflineMode(false);
         store.setLoading(false);
 
+        // The authenticated shell can safely render as soon as the trusted
+        // session is established. This refresh reconciles account-owned data
+        // in the background and retains its owner checks inside the service.
         try {
           await AuthHydrationService.hydrateAuthenticatedData({
             skipAnchorRefresh: Boolean(useAuthStore.getState().pendingFirstAnchorDraft),
           });
         } catch (hydrationError) {
           logger.warn('Authenticated session restored, but data hydration failed', hydrationError);
+          setStartupSafeFailure(true);
         }
       } catch (error) {
         if (!isActive || currentVersion !== authStateVersion) {
@@ -456,6 +463,7 @@ export default function App() {
         logger.error('Failed to restore authenticated session', error);
         store.signOut();
         store.setLoading(false);
+        setStartupSafeFailure(true);
       }
     });
 
@@ -524,8 +532,17 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!analyticsPreferenceHydrated) {
+      return;
+    }
+
+    AnalyticsService.initialize({ enabled: effectiveAnalyticsEnabled });
+  }, [analyticsPreferenceHydrated, effectiveAnalyticsEnabled]);
+
+  useEffect(() => {
     if (user?.id) {
       ErrorTrackingService.setUser(user.id);
+      AnalyticsService.identify(user.id);
       // Log in to RevenueCat with the Firebase UID so purchases are linked to this account.
       revenueCatService.logIn(user.id).catch((error) => {
         logger.warn('[RevenueCat] logIn failed', error);
@@ -534,6 +551,8 @@ export default function App() {
     }
 
     ErrorTrackingService.clearUser();
+    AnalyticsService.reset();
+    FrictionAnalytics.reset();
   }, [user?.displayName, user?.email, user?.id]);
 
   useEffect(() => {
@@ -626,6 +645,77 @@ export default function App() {
     };
   }, [user?.id]);
 
+  useEffect(() => {
+    const trackNotificationPayload = (
+      eventName: string,
+      payload: Record<string, unknown>,
+      timestampKey: 'sentAt' | 'openedAt'
+    ) => {
+      const category = typeof payload.category === 'string' ? payload.category : undefined;
+      const templateId = typeof payload.templateId === 'string' ? payload.templateId : undefined;
+      const tone = typeof payload.tone === 'string' ? payload.tone : undefined;
+      const anchorId = typeof payload.anchorId === 'string' ? payload.anchorId : undefined;
+
+      AnalyticsService.track(eventName, {
+        category,
+        templateId,
+        tone,
+        anchorId,
+        [timestampKey]: new Date().toISOString(),
+        completedSessionAfterOpen: timestampKey === 'openedAt' ? false : undefined,
+      });
+    };
+
+    const handleNotificationResponse = (response: Notifications.NotificationResponse) => {
+      const payload = response.notification.request.content.data ?? {};
+      trackNotificationPayload(AnalyticsEvents.NOTIFICATION_OPENED, payload, 'openedAt');
+
+      const action = NotificationService.handleNotificationClick(response);
+      if (!navRef.isReady()) {
+        return;
+      }
+
+      switch (action.action) {
+        case 'open_ritual_reminder':
+        case 'open_daily_reminder':
+        case 'open_streak_protection':
+        case 'open_weekly_summary':
+        case 'open_notification_category':
+          navRef.navigate('Main');
+          break;
+        case 'unknown':
+        default:
+          break;
+      }
+    };
+
+    const subscription = Notifications.addNotificationResponseReceivedListener(
+      handleNotificationResponse
+    );
+    const receivedSubscription = Notifications.addNotificationReceivedListener((notification) => {
+      trackNotificationPayload(
+        AnalyticsEvents.NOTIFICATION_SENT,
+        notification.request.content.data ?? {},
+        'sentAt'
+      );
+    });
+
+    Notifications.getLastNotificationResponseAsync()
+      .then((response) => {
+        if (response) {
+          handleNotificationResponse(response);
+        }
+      })
+      .catch((error) => {
+        logger.warn('[Notifications] Failed to read launch notification response', error);
+      });
+
+    return () => {
+      subscription.remove();
+      receivedSubscription.remove();
+    };
+  }, [navRef]);
+
 
 
   useEffect(() => {
@@ -647,33 +737,20 @@ export default function App() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!navRef.isReady()) {
-      return;
-    }
-
-    const currentRouteName = navRef.getCurrentRoute()?.name;
-    if (!currentRouteName) {
-      return;
-    }
-
-    if (showExpiredTrialPaywall) {
-      if (!hasPresentedExpiredPaywallRef.current) {
-        hasPresentedExpiredPaywallRef.current = true;
-        navRef.resetRoot(buildExpiredTrialPaywallNavigationState());
-      }
-      return;
-    }
-
-    hasPresentedExpiredPaywallRef.current = false;
-
-    if (currentRouteName === 'Paywall') {
-      navRef.resetRoot(buildMainRootNavigationState());
-    }
-  }, [navRef, showExpiredTrialPaywall]);
-
   if (!appIsReady) {
-    return <View style={styles.fontLoadingFallback} />;
+    return (
+      <SafeAreaProvider>
+        <View style={styles.fontLoadingFallback}>
+          <StatusBar style="light" backgroundColor="transparent" translucent />
+          <SplashController
+            startupReady={false}
+            startupOutcome={startup.outcome}
+            startupStartedAt={startupStartedAtRef.current}
+            authState={user?.id ? 'signed_in' : 'signed_out'}
+          />
+        </View>
+      </SafeAreaProvider>
+    );
   }
 
   return (
@@ -682,7 +759,7 @@ export default function App() {
         <GestureHandlerRootView style={{ flex: 1 }}>
           <SafeAreaProvider>
             <View style={styles.webContainer}>
-              <Animated.View style={[styles.appContainer, { opacity: launchOpacity }]}>
+              <View style={styles.appContainer}>
                 <SettingsRevealProvider navigationRef={navRef}>
                   <NavigationContainer
                     ref={navRef}
@@ -698,6 +775,7 @@ export default function App() {
 
                       routeNameRef.current = initialRouteName;
                       ErrorTrackingService.trackNavigation(undefined, initialRouteName);
+                      FrictionAnalytics.trackRouteViewed(initialRouteName, trackingContext);
                       screenTraceRef.current = PerformanceMonitoring.startTrace(
                         `screen_${initialRouteName}`,
                         { route: initialRouteName }
@@ -722,18 +800,24 @@ export default function App() {
                       );
 
                       ErrorTrackingService.trackNavigation(previousRouteName, currentRouteName);
+                      FrictionAnalytics.trackRouteViewed(currentRouteName, {
+                        from_route: previousRouteName,
+                        ...trackingContext,
+                      });
                       routeNameRef.current = currentRouteName;
                     }}
                   >
-                    <StatusBar barStyle="light-content" backgroundColor="#1A1A1D" />
+                    <StatusBar style="light" />
                     <RootNavigator />
-                    <ForgeMomentOverlay
-                      milestone={activeMilestone}
-                      onDismiss={dismissMilestone}
-                    />
                   </NavigationContainer>
                 </SettingsRevealProvider>
-              </Animated.View>
+              </View>
+              <SplashController
+                startupReady={appIsReady}
+                startupOutcome={startup.outcome}
+                startupStartedAt={startupStartedAtRef.current}
+                authState={user?.id ? 'signed_in' : 'signed_out'}
+              />
             </View>
           </SafeAreaProvider>
         </GestureHandlerRootView>

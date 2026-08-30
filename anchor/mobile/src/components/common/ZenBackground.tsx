@@ -107,7 +107,6 @@ const OrbLayer: React.FC<{
         },
       ]}
       pointerEvents="none"
-      renderToHardwareTextureAndroid={true}
     />
   );
 };
@@ -143,46 +142,23 @@ export const ZenBackground: React.FC<ZenBackgroundProps> = ({
   const palette = useMemo(() => {
     if (variant === 'sanctuary') {
       return {
-        gradient: [colors.navy, colors.deepPurple, colors.charcoal, '#0A0812'] as const,
+        // Anchor 1.5 Sanctuary Home: creationTop -> mid -> navy, no purple.
+        gradient: [colors.anchor15.creationTop, '#12181F', colors.anchor15.navy] as const,
+        gradientLocations: [0, 0.44, 1] as const,
+        gradientVertical: true,
         orbPresets: [
           {
             id: 's1',
-            size: 320,
-            top: -90,
-            left: -80,
-            color: 'rgba(88, 56, 148, 0.7)',
-            opacity: 0.28,
-            driftX: 16,
-            driftY: 12,
-            scale: 0.07,
-            duration: 12000,
-            phase: 0.2,
-          },
-          {
-            id: 's2',
-            size: 250,
-            top: 120,
-            right: -100,
-            color: 'rgba(212, 175, 55, 0.55)',
-            opacity: 0.14,
-            driftX: -12,
-            driftY: 18,
-            scale: 0.05,
-            duration: 15000,
-            phase: 1.4,
-          },
-          {
-            id: 's3',
             size: 360,
-            bottom: 40,
-            left: -130,
-            color: 'rgba(56, 28, 120, 0.7)',
-            opacity: 0.24,
-            driftX: 20,
-            driftY: -12,
-            scale: 0.08,
-            duration: 17000,
-            phase: 2.2,
+            top: -106,
+            right: -110,
+            color: 'rgba(217, 179, 108, 0.16)',
+            opacity: 0.5,
+            driftX: 6,
+            driftY: 4,
+            scale: 0.03,
+            duration: 16000,
+            phase: 0.2,
           },
         ] as OrbPreset[],
         grainOpacity: 0.06,
@@ -306,9 +282,10 @@ export const ZenBackground: React.FC<ZenBackgroundProps> = ({
     <Animated.View pointerEvents="none" style={[styles.container, fadeStyle]}>
       <LinearGradient
         colors={palette.gradient}
+        locations={'gradientLocations' in palette ? palette.gradientLocations : undefined}
         style={StyleSheet.absoluteFillObject}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+        start={'gradientVertical' in palette && palette.gradientVertical ? { x: 0.5, y: 0 } : { x: 0, y: 0 }}
+        end={'gradientVertical' in palette && palette.gradientVertical ? { x: 0.5, y: 1 } : { x: 1, y: 1 }}
       />
 
       {visibleOrbs.map((orb) => (

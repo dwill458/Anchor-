@@ -11,6 +11,7 @@
 
 import express, { Application } from 'express';
 import request from 'supertest';
+import { Prisma } from '@prisma/client';
 import { errorHandler } from '../../middleware/errorHandler';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
@@ -43,6 +44,12 @@ const mockPrisma = {
   charge: {
     findMany: jest.fn(),
   },
+  practiceSession: {
+    findMany: jest.fn(),
+  },
+  visualizationScene: {
+    findMany: jest.fn(),
+  },
   order: {
     findMany: jest.fn(),
   },
@@ -58,6 +65,12 @@ const mockPrisma = {
     findMany: jest.fn(),
     deleteMany: jest.fn(),
   },
+  course: { findMany: jest.fn(), deleteMany: jest.fn() },
+  waypoint: { findMany: jest.fn() },
+  courseAnchorLink: { findMany: jest.fn() },
+  reflection: { findMany: jest.fn(), deleteMany: jest.fn() },
+  courseEvent: { findMany: jest.fn() },
+  aIPlanProposal: { findMany: jest.fn(), deleteMany: jest.fn() },
 };
 
 jest.mock('../../../lib/prisma', () => ({
@@ -101,6 +114,7 @@ const MOCK_DB_USER = {
   stabilizeStreakDays: 0,
   lastStabilizeAt: null,
   createdAt: new Date('2024-01-01'),
+  trialStartedAt: new Date(),
   updatedAt: new Date('2024-01-01'),
   lastSeenAt: new Date('2024-01-01'),
 };
@@ -116,7 +130,13 @@ const MOCK_SETTINGS = {
   focusSessionDuration: 30,
   focusSessionAudio: 'ambient',
   primeSessionDuration: 120,
+  visualizeSessionDuration: 180,
   primeSessionAudio: 'ambient',
+  sessionAudioDefaults: {
+    focus: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+    deep_prime: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+    visualize: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+  },
   hapticIntensity: 3,
   vaultViewType: 'grid',
   updatedAt: new Date('2024-01-01'),
@@ -130,6 +150,8 @@ beforeEach(() => {
   (mockPrisma.$transaction as jest.Mock).mockImplementation(async (callback: any) =>
     callback(mockPrisma)
   );
+  (mockPrisma.practiceSession.findMany as jest.Mock).mockResolvedValue([]);
+  (mockPrisma.visualizationScene.findMany as jest.Mock).mockResolvedValue([]);
 
   mockedGetFirebaseAdmin.mockReturnValue({
     auth: () => ({
@@ -161,6 +183,8 @@ describe('POST /api/auth/sync', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data.email).toBe('test@example.com');
+    expect(res.body.data.trialStartedAt).toBe(MOCK_DB_USER.trialStartedAt.toISOString());
+    expect(res.body.data.isTrialExpired).toBe(false);
     expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
     expect(mockPrisma.user.findUnique).toHaveBeenCalledTimes(1);
     expect(mockPrisma.user.update).toHaveBeenCalledTimes(1);
@@ -218,8 +242,7 @@ describe('POST /api/auth/sync', () => {
   });
 
   it('links an existing user by email when auth uid changes', async () => {
-    (mockPrisma.user.findUnique as jest.Mock)
-      .mockResolvedValueOnce(null);
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValueOnce(null);
     (mockPrisma.user.findFirst as jest.Mock).mockResolvedValueOnce(MOCK_DB_USER);
     (mockPrisma.user.update as jest.Mock).mockResolvedValue({
       ...MOCK_DB_USER,
@@ -244,9 +267,49 @@ describe('POST /api/auth/sync', () => {
     );
   });
 
+  it('links an existing user by email when sign-in sync disallows creation', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValueOnce(null);
+    (mockPrisma.user.findFirst as jest.Mock).mockResolvedValueOnce(MOCK_DB_USER);
+    (mockPrisma.user.update as jest.Mock).mockResolvedValue({
+      ...MOCK_DB_USER,
+      authUid: 'firebase-uid-1',
+      authProvider: 'google',
+    });
+    (mockPrisma.userSettings.upsert as jest.Mock).mockResolvedValue(MOCK_SETTINGS);
+
+    const res = await request(buildApp())
+      .post('/api/auth/sync')
+      .send({ displayName: 'Test User', authProvider: 'google', allowCreate: false });
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: MOCK_DB_USER.id },
+        data: expect.objectContaining({
+          authUid: 'firebase-uid-1',
+          authProvider: 'google',
+        }),
+      })
+    );
+    expect(mockPrisma.user.create).not.toHaveBeenCalled();
+  });
+
+  it('does not create a user when sign-in sync disallows creation and no match exists', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValueOnce(null);
+    (mockPrisma.user.findFirst as jest.Mock).mockResolvedValueOnce(null);
+
+    const res = await request(buildApp())
+      .post('/api/auth/sync')
+      .send({ displayName: 'Test User', authProvider: 'google', allowCreate: false });
+
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe('USER_NOT_FOUND');
+    expect(mockPrisma.user.create).not.toHaveBeenCalled();
+    expect(mockPrisma.userSettings.upsert).not.toHaveBeenCalled();
+  });
+
   it('creates a user when no auth uid or email match exists', async () => {
-    (mockPrisma.user.findUnique as jest.Mock)
-      .mockResolvedValueOnce(null);
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValueOnce(null);
     (mockPrisma.user.findFirst as jest.Mock).mockResolvedValueOnce(null);
     (mockPrisma.user.create as jest.Mock).mockResolvedValue(MOCK_DB_USER);
     (mockPrisma.userSettings.upsert as jest.Mock).mockResolvedValue(MOCK_SETTINGS);
@@ -257,6 +320,53 @@ describe('POST /api/auth/sync', () => {
 
     expect(res.status).toBe(200);
     expect(mockPrisma.user.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('recovers when a concurrent sync creates the same email first', async () => {
+    const uniqueEmailConflict = new Prisma.PrismaClientKnownRequestError(
+      'Unique constraint failed on the fields: (`email`)',
+      {
+        code: 'P2002',
+        clientVersion: 'test',
+        meta: { target: ['email'] },
+      }
+    );
+
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValueOnce(null);
+    (mockPrisma.user.findFirst as jest.Mock).mockResolvedValueOnce(null).mockResolvedValueOnce({
+      ...MOCK_DB_USER,
+      authUid: 'firebase-uid-from-winning-request',
+    });
+    (mockPrisma.user.create as jest.Mock).mockRejectedValueOnce(uniqueEmailConflict);
+    (mockPrisma.user.update as jest.Mock).mockResolvedValue({
+      ...MOCK_DB_USER,
+      authProvider: 'google',
+    });
+    (mockPrisma.userSettings.upsert as jest.Mock).mockResolvedValue(MOCK_SETTINGS);
+
+    const res = await request(buildApp())
+      .post('/api/auth/sync')
+      .send({ displayName: 'Test User', authProvider: 'google' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(mockPrisma.user.create).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.user.findFirst).toHaveBeenCalledTimes(2);
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: MOCK_DB_USER.id },
+        data: expect.objectContaining({
+          authUid: 'firebase-uid-1',
+          authProvider: 'google',
+          email: 'test@example.com',
+        }),
+      })
+    );
+    expect(mockPrisma.userSettings.upsert).toHaveBeenCalledWith({
+      where: { userId: MOCK_DB_USER.id },
+      update: {},
+      create: { userId: MOCK_DB_USER.id },
+    });
   });
 
   it('links an existing user by email case-insensitively and normalizes the stored email', async () => {
@@ -342,7 +452,52 @@ describe('GET /api/auth/me', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.email).toBe('test@example.com');
     expect(res.body.data.isComped).toBe(false);
+    expect(res.body.data.trialStartedAt).toBe(MOCK_DB_USER.trialStartedAt.toISOString());
+    expect(res.body.data.isTrialExpired).toBe(false);
     expect(res.body.data.settings).toBeDefined();
+  });
+
+  it('returns only the exact safe Chart capability projection', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+      ...MOCK_DB_USER,
+      // Canary values prove the route does not accidentally project billing or
+      // provider state while adding account-authoritative Chart decisions.
+      subscriptionId: 'private-subscription-canary',
+      plannerModel: 'private-provider-model-canary',
+      plannerApiKey: 'private-provider-key-canary',
+      rolloutBucket: 17,
+      settings: MOCK_SETTINGS,
+    });
+
+    const res = await request(buildApp()).get('/api/auth/me');
+
+    expect(res.status).toBe(200);
+    expect(Object.keys(res.body.data.chartCapabilities).sort()).toEqual([
+      'canAcceptExistingChartPlan',
+      'canCompleteExistingCourse',
+      'canCreateAnchor',
+      'canCreateManualCourse',
+      'canCreateOrEditReflections',
+      'canEditCourse',
+      'canGenerateChartPlan',
+      'canRetrieveOwnedChartPlan',
+      'canViewChart',
+      'canViewOwnedCourseHistory',
+      'chartAiPlannerEnabled',
+      'chartEnabled',
+      'chartReflectionsEnabled',
+      'plannerQuota',
+    ].sort());
+    expect(Object.keys(res.body.data.chartCapabilities.plannerQuota).sort()).toEqual([
+      'eligible',
+      'limit',
+      'reason',
+      'remaining',
+      'resetAt',
+    ]);
+    expect(JSON.stringify(res.body.data.chartCapabilities)).not.toMatch(
+      /private-subscription-canary|private-provider-model-canary|private-provider-key-canary|rolloutBucket/i
+    );
   });
 
   it('returns 404 when user does not exist', async () => {
@@ -368,6 +523,12 @@ describe('GET /api/auth/me/export', () => {
     (mockPrisma.anchor.findMany as jest.Mock).mockResolvedValue([]);
     (mockPrisma.activation.findMany as jest.Mock).mockResolvedValue([]);
     (mockPrisma.charge.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.practiceSession.findMany as jest.Mock).mockResolvedValue([
+      { id: 'session-1', sceneSnapshot: 'I follow through calmly.' },
+    ]);
+    (mockPrisma.visualizationScene.findMany as jest.Mock).mockResolvedValue([
+      { id: 'scene-1', currentText: 'I follow through calmly.' },
+    ]);
     (mockPrisma.order.findMany as jest.Mock).mockResolvedValue([]);
     (mockPrisma.syncQueue.findMany as jest.Mock).mockResolvedValue([]);
     (mockPrisma.burnedAnchor.findMany as jest.Mock).mockResolvedValue([]);
@@ -383,6 +544,13 @@ describe('GET /api/auth/me/export', () => {
       orderBy: { createdAt: 'desc' },
     });
     expect(res.body.data.account.passwordHash).toBeUndefined();
+    expect(res.body.data.exportVersion).toBe(4);
+    expect(res.body.data.account.practiceSessions).toEqual([
+      expect.objectContaining({ id: 'session-1' }),
+    ]);
+    expect(res.body.data.account.visualizationScenes).toEqual([
+      expect.objectContaining({ id: 'scene-1' }),
+    ]);
   });
 
   it('returns partial export data when an optional export section fails', async () => {
@@ -406,6 +574,164 @@ describe('GET /api/auth/me/export', () => {
     expect(res.body.data.account.anchors).toEqual([{ id: 'anchor-1' }]);
     expect(res.body.data.account.orders).toEqual([]);
     expect(res.body.data.account.passwordHash).toBeUndefined();
+  });
+
+  it('exports Chart entities while neutralizing deleted Reflection text and provider internals', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+      ...MOCK_DB_USER,
+      passwordHash: 'private-password-hash',
+      settings: MOCK_SETTINGS,
+    });
+    (mockPrisma.anchor.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.activation.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.charge.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.practiceSession.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.visualizationScene.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.order.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.syncQueue.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.burnedAnchor.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.flaggedContent.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.course.findMany as jest.Mock).mockResolvedValue([
+      { id: 'course-1', destinationText: 'course destination canary' },
+    ]);
+    (mockPrisma.waypoint.findMany as jest.Mock).mockResolvedValue([
+      { id: 'waypoint-1', title: 'waypoint title canary' },
+    ]);
+    (mockPrisma.courseAnchorLink.findMany as jest.Mock).mockResolvedValue([
+      { id: 'link-1', anchorSnapshot: { intentionText: 'anchor snapshot canary' } },
+    ]);
+    (mockPrisma.reflection.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'reflection-deleted',
+        body: 'deleted reflection canary',
+        structuredContent: { whatHelped: 'deleted structured canary' },
+        deletedAt: new Date('2026-08-01T00:00:00.000Z'),
+      },
+      { id: 'reflection-active', body: 'active reflection canary', deletedAt: null },
+    ]);
+    (mockPrisma.courseEvent.findMany as jest.Mock).mockResolvedValue([
+      { id: 'event-1', eventType: 'COURSE_CREATED' },
+    ]);
+    (mockPrisma.aIPlanProposal.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'proposal-1',
+        destinationInterpretation: 'normalized planner result',
+        waypoints: [{ title: 'normalized waypoint' }],
+        rawPrompt: 'raw planner prompt canary',
+        rawResponse: 'raw planner response canary',
+        providerApiKey: 'provider credential canary',
+      },
+    ]);
+
+    const res = await request(buildApp()).get('/api/auth/me/export');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.exportVersion).toBe(4);
+    expect(res.body.data.account.courses).toHaveLength(1);
+    expect(res.body.data.account.waypoints).toHaveLength(1);
+    expect(res.body.data.account.courseAnchorLinks).toHaveLength(1);
+    expect(res.body.data.account.courseEvents).toHaveLength(1);
+    expect(res.body.data.account.aiPlanProposals).toEqual([
+      expect.objectContaining({ destinationInterpretation: 'normalized planner result' }),
+    ]);
+    const deleted = res.body.data.account.reflections.find(
+      (reflection: { id: string }) => reflection.id === 'reflection-deleted'
+    );
+    expect(deleted).toEqual(
+      expect.objectContaining({ body: null, structuredContent: null, deletedAt: expect.any(String) })
+    );
+    expect(res.body.data.account.reflections).toEqual(
+      expect.arrayContaining([expect.objectContaining({ body: 'active reflection canary' })])
+    );
+    const serialized = JSON.stringify(res.body.data);
+    expect(serialized).not.toContain('raw planner prompt canary');
+    expect(serialized).not.toContain('raw planner response canary');
+    expect(serialized).not.toContain('provider credential canary');
+    expect(serialized).not.toContain('deleted reflection canary');
+    expect(serialized).not.toContain('deleted structured canary');
+  });
+
+  it('fails closed when a progression-critical export section is unavailable', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+      ...MOCK_DB_USER,
+      settings: MOCK_SETTINGS,
+    });
+    (mockPrisma.anchor.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.activation.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.charge.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.order.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.syncQueue.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.burnedAnchor.findMany as jest.Mock).mockRejectedValue(
+      new Error('burned history unavailable')
+    );
+    (mockPrisma.flaggedContent.findMany as jest.Mock).mockResolvedValue([]);
+
+    const res = await request(buildApp()).get('/api/auth/me/export');
+
+    expect(res.status).toBe(500);
+    expect(res.body.error.code).toBe('EXPORT_ERROR');
+  });
+
+  it('exports only the authenticated account burned-anchor snapshots while retaining prior fields in v4', async () => {
+    const burnedAnchor = {
+      id: 'burned-1',
+      originalAnchorId: 'anchor-1',
+      userId: 'db-user-1',
+      intentionText: 'Archived intention',
+      category: 'custom',
+      distilledLetters: ['A'],
+      baseSigilSvg: '<svg/>',
+      enhancedImageUrl: null,
+      activationCount: 2,
+      activationHistory: [
+        {
+          id: 'activation-1',
+          anchorId: 'anchor-1',
+          activationType: 'visual',
+          durationSeconds: 30,
+          activatedAt: '2026-07-10T09:00:00.000Z',
+        },
+      ],
+      chargeHistory: [
+        {
+          id: 'charge-1',
+          anchorId: 'anchor-1',
+          chargeType: 'initial_deep',
+          durationSeconds: 300,
+          completed: true,
+          chargedAt: '2026-07-11T10:00:00.000Z',
+        },
+      ],
+      createdAt: new Date('2026-07-01T00:00:00.000Z'),
+      burnedAt: new Date('2026-07-12T00:00:00.000Z'),
+    };
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+      ...MOCK_DB_USER,
+      settings: MOCK_SETTINGS,
+    });
+    (mockPrisma.anchor.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.activation.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.charge.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.order.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.syncQueue.findMany as jest.Mock).mockResolvedValue([]);
+    (mockPrisma.burnedAnchor.findMany as jest.Mock).mockResolvedValue([burnedAnchor]);
+    (mockPrisma.flaggedContent.findMany as jest.Mock).mockResolvedValue([]);
+
+    const res = await request(buildApp()).get('/api/auth/me/export');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.exportVersion).toBe(4);
+    expect(mockPrisma.burnedAnchor.findMany).toHaveBeenCalledWith({
+      where: { userId: 'db-user-1' },
+      orderBy: { burnedAt: 'desc' },
+    });
+    expect(res.body.data.burnedAnchors).toEqual([
+      expect.objectContaining({
+        originalAnchorId: 'anchor-1',
+        activationHistory: [expect.objectContaining({ id: 'activation-1' })],
+        chargeHistory: [expect.objectContaining({ id: 'charge-1' })],
+      }),
+    ]);
   });
 });
 
@@ -473,16 +799,58 @@ describe('PUT /api/auth/settings', () => {
       primeSessionAudio: 'silent',
     });
 
-    const res = await request(buildApp())
-      .put('/api/auth/settings')
-      .send({
-        focusSessionAudio: 'silent',
-        primeSessionAudio: 'silent',
-      });
+    const res = await request(buildApp()).put('/api/auth/settings').send({
+      focusSessionAudio: 'silent',
+      primeSessionAudio: 'silent',
+    });
 
     expect(res.status).toBe(200);
     expect(res.body.data.focusSessionAudio).toBe('silent');
     expect(res.body.data.primeSessionAudio).toBe('silent');
+  });
+
+  it('validates and persists structured Voice & Sound defaults', async () => {
+    const sessionAudioDefaults = {
+      focus: { guidanceVoice: 'none', backgroundAudio: 'ambient' },
+      deep_prime: { guidanceVoice: 'male', backgroundAudio: 'off' },
+      visualize: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+    };
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    (mockPrisma.userSettings.upsert as jest.Mock).mockResolvedValue({
+      ...MOCK_SETTINGS,
+      sessionAudioDefaults,
+    });
+
+    const res = await request(buildApp()).put('/api/auth/settings').send({ sessionAudioDefaults });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.sessionAudioDefaults).toEqual(sessionAudioDefaults);
+    expect(mockPrisma.userSettings.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ sessionAudioDefaults }),
+        update: expect.objectContaining({ sessionAudioDefaults }),
+      })
+    );
+  });
+
+  it.each([
+    {
+      focus: { guidanceVoice: 'robot', backgroundAudio: 'ambient' },
+      deep_prime: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+      visualize: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+    },
+    {
+      focus: { guidanceVoice: 'female', backgroundAudio: 'loud' },
+      deep_prime: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+      visualize: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+    },
+    {
+      focus: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
+    },
+  ])('rejects malformed structured Voice & Sound defaults', async sessionAudioDefaults => {
+    const res = await request(buildApp()).put('/api/auth/settings').send({ sessionAudioDefaults });
+    expect(res.status).toBe(400);
+    expect(mockPrisma.userSettings.upsert).not.toHaveBeenCalled();
   });
 
   it('updates session mode and duration defaults and returns 200', async () => {
@@ -494,13 +862,11 @@ describe('PUT /api/auth/settings', () => {
       primeSessionDuration: 300,
     });
 
-    const res = await request(buildApp())
-      .put('/api/auth/settings')
-      .send({
-        focusSessionMode: 'deep',
-        focusSessionDuration: 60,
-        primeSessionDuration: 300,
-      });
+    const res = await request(buildApp()).put('/api/auth/settings').send({
+      focusSessionMode: 'deep',
+      focusSessionDuration: 60,
+      primeSessionDuration: 300,
+    });
 
     expect(res.status).toBe(200);
     expect(res.body.data.focusSessionMode).toBe('deep');
@@ -728,6 +1094,18 @@ describe('DELETE /api/auth/me', () => {
       },
     });
     expect(mockPrisma.burnedAnchor.deleteMany).toHaveBeenCalledWith({
+      where: { userId: 'db-user-1' },
+    });
+    expect(mockPrisma.syncQueue.deleteMany).toHaveBeenCalledWith({
+      where: { userId: 'db-user-1' },
+    });
+    expect(mockPrisma.reflection.deleteMany).toHaveBeenCalledWith({
+      where: { userId: 'db-user-1' },
+    });
+    expect(mockPrisma.aIPlanProposal.deleteMany).toHaveBeenCalledWith({
+      where: { userId: 'db-user-1' },
+    });
+    expect(mockPrisma.course.deleteMany).toHaveBeenCalledWith({
       where: { userId: 'db-user-1' },
     });
     expect(mockPrisma.user.delete).toHaveBeenCalledWith(

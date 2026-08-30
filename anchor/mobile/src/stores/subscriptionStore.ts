@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SubscriptionStatus } from '@/types';
+import { AnalyticsService, AnalyticsEvents } from '@/services/AnalyticsService';
 
 const TRIAL_DURATION_DAYS = 7;
 export type PreferredPlanId = 'monthly' | 'annual';
@@ -57,7 +58,10 @@ interface SubscriptionState extends TrialStatusSnapshot {
     setTrialStartDate: (date: string) => void;
     setSubscriptionStatus: (status: 'trial' | 'active' | 'expired') => void;
     setTrialState: (snapshot: TrialStatusSnapshot) => void;
+    applyServerEntitlement: (hasActiveEntitlement: boolean) => void;
     syncAccountTrial: (startDate: Date | string) => void;
+    applyServerTrial: (startDate: Date | string, serverExpired?: boolean) => void;
+    confirmServerExpiry: () => void;
     setPreferredPlanId: (planId: PreferredPlanId) => void;
     setRemoteCompedAccess: (enabled: boolean) => void;
     setDevOverrideEnabled: (enabled: boolean) => void;
@@ -92,6 +96,17 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             setTrialStartDate: (date) => set({ trialStartDate: date }),
             setSubscriptionStatus: (status) => set({ subscriptionStatus: status }),
             setTrialState: (snapshot) => set(snapshot),
+            applyServerEntitlement: (hasActiveEntitlement) =>
+                set({
+                    rcTier: hasActiveEntitlement ? 'pro' : 'free',
+                    isInTrial: false,
+                    isSubscribed: hasActiveEntitlement,
+                    hasActiveEntitlement,
+                    daysRemaining: null,
+                    trialExpired: !hasActiveEntitlement,
+                    subscriptionStatus: hasActiveEntitlement ? 'active' : 'expired',
+                    rcSynced: true,
+                }),
             syncAccountTrial: (startDate) => {
                 const normalizedStartDate = normalizeTrialStartDate(startDate);
                 if (!normalizedStartDate) {
@@ -115,6 +130,62 @@ export const useSubscriptionStore = create<SubscriptionState>()(
                         subscriptionStatus: isLocalTrialActive(effectiveStartDate) ? 'trial' : 'expired',
                     };
                 });
+            },
+            applyServerTrial: (startDate, serverExpired) => {
+                // The server owns the trial anchor (trialStartedAt). Unlike
+                // syncAccountTrial — which keeps the EARLIEST date as an
+                // anti-tamper guard against cleared local storage — here we
+                // trust and REPLACE the local clock with the server value,
+                // because only the backend can mutate it. This is what lets a
+                // reset (e.g. migrating beta accounts to a fresh trial) actually
+                // take effect on devices that still hold a stale start date.
+                const normalizedStartDate = normalizeTrialStartDate(startDate);
+                if (!normalizedStartDate) {
+                    return;
+                }
+
+                const prevStatus = get().subscriptionStatus;
+
+                set((state) => {
+                    // Never downgrade a paid subscriber.
+                    if (state.subscriptionStatus === 'active') {
+                        return {};
+                    }
+
+                    // Server clock is authoritative for expiry (defeats device
+                    // clock rollback). Fall back to local math only when the
+                    // backend predates the isTrialExpired field.
+                    const expired =
+                        typeof serverExpired === 'boolean'
+                            ? serverExpired
+                            : !isLocalTrialActive(normalizedStartDate);
+
+                    return {
+                        trialStartDate: normalizedStartDate,
+                        subscriptionStatus: expired ? 'expired' : 'trial',
+                    };
+                });
+
+                // Emit once on the genuine trial→expired transition. Persisted
+                // state means a returning expired user (prev already 'expired')
+                // never re-fires.
+                if (prevStatus === 'trial' && get().subscriptionStatus === 'expired') {
+                    AnalyticsService.track(AnalyticsEvents.TRIAL_EXPIRED, {
+                        trial_started_at: normalizedStartDate,
+                    });
+                }
+            },
+            confirmServerExpiry: () => {
+                const prevStatus = get().subscriptionStatus;
+                set((state) => {
+                    if (state.subscriptionStatus === 'active') return {};
+                    return { subscriptionStatus: 'expired' };
+                });
+                if (prevStatus === 'trial' && get().subscriptionStatus === 'expired') {
+                    AnalyticsService.track(AnalyticsEvents.TRIAL_EXPIRED, {
+                        trial_started_at: get().trialStartDate ?? undefined,
+                    });
+                }
             },
             setPreferredPlanId: (preferredPlanId) => set({ preferredPlanId }),
             setRemoteCompedAccess: (enabled) => set({ remoteCompedAccess: enabled }),

@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 
 jest.mock('react-native-reanimated', () => {
   const Reanimated = require('react-native-reanimated/mock');
@@ -29,6 +29,10 @@ jest.mock('../VaultStackNavigator', () => ({
 
 jest.mock('../PracticeStackNavigator', () => ({
   PracticeStackNavigator: () => null,
+}));
+
+jest.mock('../ChartStackNavigator', () => ({
+  ChartStackNavigator: () => null,
 }));
 
 jest.mock('../../screens/discover', () => ({
@@ -90,6 +94,31 @@ function parseIconProps(node: { props: { children: string } }) {
 }
 
 describe('CustomTabBar', () => {
+  it('maps the Sanctuary and Practice buttons to their matching tab indices', () => {
+    const onTabPress = jest.fn();
+    const { getByText } = render(<CustomTabBar activeIndex={0} onTabPress={onTabPress} />);
+
+    fireEvent.press(getByText('PRACTICE'));
+    fireEvent.press(getByText('SANCTUARY'));
+
+    expect(onTabPress).toHaveBeenNthCalledWith(1, 1);
+    expect(onTabPress).toHaveBeenNthCalledWith(2, 0);
+  });
+
+  it('keeps Chart hidden by default and exposes it as the third tab when enabled', () => {
+    const onTabPress = jest.fn();
+    const disabled = render(<CustomTabBar activeIndex={0} onTabPress={onTabPress} />);
+    expect(disabled.queryByText('CHART')).toBeNull();
+
+    disabled.unmount();
+    const enabled = render(<CustomTabBar activeIndex={2} onTabPress={onTabPress} chartEnabled />);
+    fireEvent.press(enabled.getByText('CHART'));
+
+    expect(onTabPress).toHaveBeenCalledWith(2);
+    expect(enabled.getByLabelText('Chart')).toBeTruthy();
+    expect(enabled.getByTestId('tab-indicator-chart')).toBeTruthy();
+  });
+
   it('renders only the active tab indicator and applies the requested bar chrome', () => {
     const { getByTestId, queryByTestId } = render(
       <CustomTabBar activeIndex={0} onTabPress={jest.fn()} />

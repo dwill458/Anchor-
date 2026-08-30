@@ -54,12 +54,64 @@ jest.mock('expo-speech', () => ({
   isSpeakingAsync: jest.fn(() => Promise.resolve(false)),
 }));
 
+jest.mock('expo-audio', () => ({
+  createAudioPlayer: jest.fn(() => ({
+    addListener: jest.fn(() => ({ remove: jest.fn() })),
+    currentTime: 0,
+    isLoaded: true,
+    loop: false,
+    pause: jest.fn(),
+    play: jest.fn(),
+    remove: jest.fn(),
+    seekTo: jest.fn(() => Promise.resolve()),
+    volume: 1,
+  })),
+  setAudioModeAsync: jest.fn(() => Promise.resolve()),
+  useAudioRecorder: jest.fn(() => ({
+    prepareToRecordAsync: jest.fn(),
+    record: jest.fn(),
+    stop: jest.fn(),
+    uri: null,
+  })),
+  AudioModule: {
+    requestRecordingPermissionsAsync: jest.fn(() => Promise.resolve({ granted: false })),
+    setAudioModeAsync: jest.fn(() => Promise.resolve()),
+  },
+  RecordingPresets: { HIGH_QUALITY: {} },
+}));
+
+jest.mock('expo-store-review', () => ({
+  hasAction: jest.fn(() => Promise.resolve(true)),
+  requestReview: jest.fn(() => Promise.resolve()),
+  storeUrl: jest.fn(() => null),
+}));
+
 jest.mock('expo-media-library', () => ({
   requestPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
   saveToLibraryAsync: jest.fn(() => Promise.resolve()),
 }));
 
+jest.mock('expo-location', () => ({
+  Accuracy: {
+    Balanced: 3,
+  },
+  getForegroundPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'denied' })),
+  requestForegroundPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'denied' })),
+  hasServicesEnabledAsync: jest.fn(() => Promise.resolve(false)),
+  getLastKnownPositionAsync: jest.fn(() => Promise.resolve(null)),
+  getCurrentPositionAsync: jest.fn(() =>
+    Promise.resolve({
+      coords: {
+        latitude: 0,
+        longitude: 0,
+        accuracy: 20,
+      },
+    })
+  ),
+}));
+
 const mockExpoFileSystem = {
+  cacheDirectory: 'file:///cache/',
   documentDirectory: 'file:///documents/',
   readAsStringAsync: jest.fn(() => Promise.resolve('')),
   copyAsync: jest.fn(() => Promise.resolve()),
@@ -73,6 +125,17 @@ const mockExpoFileSystem = {
 
 jest.mock('expo-file-system', () => mockExpoFileSystem);
 jest.mock('expo-file-system/legacy', () => mockExpoFileSystem);
+
+jest.mock('posthog-react-native', () => ({
+  __esModule: true,
+  default: jest.fn().mockImplementation(() => ({
+    capture: jest.fn(),
+    identify: jest.fn(),
+    optIn: jest.fn(),
+    optOut: jest.fn(),
+    reset: jest.fn(),
+  })),
+}));
 
 jest.mock('expo-secure-store', () => {
   const store = new Map<string, string>();
@@ -223,6 +286,7 @@ jest.mock('react-native-svg', () => ({
   Path: 'Path',
   G: 'G',
   Line: 'Line',
+  Polygon: 'Polygon',
   Polyline: 'Polyline',
   Rect: 'Rect',
   Defs: 'Defs',
@@ -281,6 +345,7 @@ jest.mock('@react-native-firebase/auth', () => {
     currentUser: mockUser,
     signInWithEmailAndPassword: jest.fn(),
     createUserWithEmailAndPassword: jest.fn(),
+    sendPasswordResetEmail: jest.fn(),
     signOut: jest.fn(),
     onAuthStateChanged: jest.fn((_cb: unknown) => jest.fn()),
   };
@@ -295,7 +360,12 @@ jest.mock('@/services/AuthService', () => ({
     getIdToken: jest.fn().mockResolvedValue(null),
     getCurrentUser: jest.fn().mockReturnValue(null),
     getCachedUser: jest.fn().mockResolvedValue(null),
+    sendPasswordResetEmail: jest.fn().mockResolvedValue(undefined),
     signOut: jest.fn().mockResolvedValue(undefined),
+    signInWithEmail: jest.fn(),
+    signUpWithEmail: jest.fn(),
+    signInWithApple: jest.fn(),
+    signInWithGoogle: jest.fn(),
   },
 }));
 

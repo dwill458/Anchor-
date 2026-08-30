@@ -2,7 +2,11 @@
  * AnalyticsService Tests
  */
 
-import { AnalyticsService, AnalyticsEvents } from '../AnalyticsService';
+import {
+  AnalyticsEvents,
+  AnalyticsService,
+  sanitizeAnalyticsProperties,
+} from '../AnalyticsService';
 
 beforeEach(() => {
   AnalyticsService.setEnabled(true);
@@ -53,6 +57,23 @@ describe('AnalyticsService', () => {
     it('does not throw when analytics is disabled', () => {
       AnalyticsService.setEnabled(false);
       expect(() => AnalyticsService.track('suppressed_event')).not.toThrow();
+    });
+  });
+
+  describe('trackAnonymous', () => {
+    it('tracks lifecycle events without throwing', () => {
+      AnalyticsService.identify('user-should-not-be-attached');
+      expect(() =>
+        AnalyticsService.trackAnonymous(AnalyticsEvents.SPLASH_STARTED, {
+          authState: 'signed_in',
+          startupOutcome: 'success',
+        })
+      ).not.toThrow();
+    });
+
+    it('does not throw when analytics is disabled', () => {
+      AnalyticsService.setEnabled(false);
+      expect(() => AnalyticsService.trackAnonymous(AnalyticsEvents.SPLASH_COMPLETED)).not.toThrow();
     });
   });
 
@@ -128,6 +149,37 @@ describe('AnalyticsService', () => {
       expect(AnalyticsEvents.ACTIVATION_RITUAL_COMPLETED).toBe('activation_ritual_completed');
       expect(AnalyticsEvents.APP_OPENED).toBe('app_opened');
       expect(AnalyticsEvents.SIGN_OUT).toBe('sign_out');
+      expect(AnalyticsEvents.SPLASH_STARTED).toBe('splash_started');
+      expect(AnalyticsEvents.SPLASH_COMPLETED).toBe('splash_completed');
+      expect(AnalyticsEvents.SPLASH_SKIPPED_REDUCE_MOTION).toBe('splash_skipped_reduce_motion');
+      expect(AnalyticsEvents.SPLASH_STARTUP_WAITED).toBe('splash_startup_waited');
+    });
+  });
+
+  describe('sanitizeAnalyticsProperties', () => {
+    it('removes sensitive top-level and nested properties', () => {
+      expect(
+        sanitizeAnalyticsProperties({
+          category: 'health',
+          email: 'person@example.com',
+          intentionText: 'private intention',
+          prompt: 'private prompt',
+          scene: 'private scene',
+          scene_snapshot: 'private snapshot',
+          next_action: 'private action',
+          text_content: 'private text',
+          nested: {
+            mantra: 'private mantra',
+            safe: true,
+            image_url: 'https://example.com/private.png',
+          },
+        })
+      ).toEqual({
+        category: 'health',
+        nested: {
+          safe: true,
+        },
+      });
     });
   });
 });

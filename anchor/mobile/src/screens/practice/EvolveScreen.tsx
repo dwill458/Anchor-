@@ -16,11 +16,14 @@ import { colors, spacing, typography } from '@/theme';
 import { useAuthStore } from '@/stores/authStore';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { MicroTeachInline } from '@/components/teaching';
+import { useTeachingGate } from '@/utils/useTeachingGate';
 
 import { RitualScaffold } from '@/screens/rituals/components/RitualScaffold';
 import { RitualTopBar } from '@/screens/rituals/components/RitualTopBar';
 import { useNavigation } from '@react-navigation/native';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
+import { usePracticeEntry } from '@/hooks/usePracticeEntry';
 import { StackNavigationProp } from '@react-navigation/stack';
 
 type EvolveNavProp = StackNavigationProp<PracticeStackParamList, 'Evolve'>;
@@ -81,11 +84,16 @@ const GlassCard: React.FC<{ children: React.ReactNode; style?: any }> = ({ child
 export const EvolveScreen: React.FC = () => {
   const navigation = useNavigation<EvolveNavProp>();
   const { navigateToVault } = useTabNavigation();
+  const { startPractice } = usePracticeEntry();
   const user = useAuthStore((state) => state.user);
   const developerForceStreakBreakEnabled = useSettingsStore(
     (state) => state.developerForceStreakBreakEnabled
   );
   const getActiveAnchors = useAnchorStore((state) => state.getActiveAnchors);
+  const evolveTeaching = useTeachingGate({
+    screenId: 'evolve',
+    candidateIds: ['evolve_intro_v1'],
+  });
 
   const activeAnchors = getActiveAnchors();
   const hasAnchors = activeAnchors.length > 0;
@@ -162,7 +170,11 @@ export const EvolveScreen: React.FC = () => {
       return;
     }
 
-    navigateToVault('Ritual', { anchorId: anchor.id, ritualType: 'focus' });
+    startPractice({
+      mode: 'focus',
+      anchorId: anchor.id,
+      source: 'evolve',
+    });
   };
 
   return (
@@ -176,6 +188,7 @@ export const EvolveScreen: React.FC = () => {
         <View style={styles.header}>
           <Text style={styles.subtitle}>Expand Your Sanctuary.</Text>
           <Text style={styles.stats}>{statsLine}</Text>
+          <MicroTeachInline teaching={evolveTeaching} screenId="evolve" />
         </View>
 
         <View style={styles.pathList}>

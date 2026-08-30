@@ -12,8 +12,10 @@ import {
     Dimensions,
     Easing,
     AccessibilityInfo,
+    Alert,
+    Keyboard,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -27,6 +29,11 @@ import { useTeachingStore } from '@/stores/teachingStore';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { TEACHINGS } from '@/constants/teaching';
 import { useIntentionValidation } from '@/hooks/useIntentionValidation';
+import { useEntitlements } from '@/hooks/useEntitlements';
+import { getAnchorCreationLimitCopy } from '@/utils/entitlements';
+import { useAuthStore } from '@/stores/authStore';
+import { useAnchorStore } from '@/stores/anchorStore';
+import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
 
 const { height } = Dimensions.get('window');
 
@@ -34,14 +41,21 @@ type NavigationProp = StackNavigationProp<RootStackParamList, 'CreateAnchor'>;
 
 export default function IntentionInputScreen() {
     const navigation = useNavigation<NavigationProp>();
+    const insets = useSafeAreaInsets();
     const { recordShown } = useTeachingStore();
 
     const scrollViewRef = useRef<ScrollView>(null);
+    const textInputRef = useRef<TextInput>(null);
     const [intention, setIntention] = useState('');
     const [placeholder, setPlaceholder] = useState('');
     const [isFocused, setIsFocused] = useState(false);
     const [delayedCanSubmit, setDelayedCanSubmit] = useState(false);
     const intentionValidation = useIntentionValidation(intention);
+    const entitlements = useEntitlements();
+    const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+    const anchorCount = useAnchorStore((state) => state.anchors.length);
+    const updateFirstAnchorDraft = useFirstAnchorFlowStore((state) => state.updateDraft);
+    const initializedFromDraftRef = useRef(false);
 
     // Teaching: Undertone state
     const [undertoneText, setUndertoneText] = useState<string | null>(null);
@@ -112,7 +126,10 @@ export default function IntentionInputScreen() {
 
     useFocusEffect(
         React.useCallback(() => {
-            setIntention('');
+            if (!initializedFromDraftRef.current) {
+                setIntention(useFirstAnchorFlowStore.getState().draft?.originalIntention ?? '');
+                initializedFromDraftRef.current = true;
+            }
             setDelayedCanSubmit(false);
             setIsFocused(false);
             setUndertoneText(null);
@@ -177,6 +194,21 @@ export default function IntentionInputScreen() {
         }, 150);
     };
 
+    const restoreLayoutAfterKeyboard = React.useCallback(() => {
+        textInputRef.current?.blur();
+        setIsFocused(false);
+        if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+
+        requestAnimationFrame(() => {
+            scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+        });
+    }, []);
+
+    useEffect(() => {
+        const subscription = Keyboard.addListener('keyboardDidHide', restoreLayoutAfterKeyboard);
+        return () => subscription.remove();
+    }, [restoreLayoutAfterKeyboard]);
+
     const handleBlur = () => {
         setIsFocused(false);
         if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
@@ -205,8 +237,40 @@ export default function IntentionInputScreen() {
 
     const handleContinue = () => {
         if (delayedCanSubmit) {
+            const isGuestFirstAnchor = !isAuthenticated && anchorCount === 0;
+            if (!isGuestFirstAnchor && !entitlements.canCreateAnchor) {
+                const reason = entitlements.anchorCreationLimitReason;
+                if (!reason) return;
+
+                AnalyticsService.track(reason, {
+                    source: 'first_anchor_creation',
+                    anchors_created_today: entitlements.anchorsCreatedToday,
+                    anchors_created_during_trial: entitlements.anchorsCreatedDuringTrial,
+                    tier: entitlements.tier,
+                });
+
+                if (reason === 'pro_daily_anchor_cap_reached') {
+                    const copy = getAnchorCreationLimitCopy(reason);
+                    Alert.alert(copy?.title ?? 'Daily creation limit reached', copy?.body, [
+                        { text: copy?.cta ?? 'Return to Sanctuary', onPress: () => navigation.goBack() },
+                    ]);
+                    return;
+                }
+
+                navigation.navigate('Paywall', {
+                    source: reason,
+                    preferredPlanId: 'annual',
+                });
+                return;
+            }
+
             const distillation = distillIntention(intention);
             const category = detectCategoryFromText(intention);
+            updateFirstAnchorDraft({
+                originalIntention: intention,
+                distilledLetters: distillation.finalLetters,
+                generationStatus: 'idle',
+            });
             navigation.navigate('LetterDistillation', {
                 intentionText: intention,
                 category,
@@ -228,12 +292,15 @@ export default function IntentionInputScreen() {
             <SafeAreaView style={styles.safeArea}>
                 <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + spacing.sm : 0}
                     style={styles.keyboardView}
                 >
                     <ScrollView
                         ref={scrollViewRef}
                         style={styles.scrollView}
                         contentContainerStyle={styles.scrollContent}
+                        contentInsetAdjustmentBehavior="always"
+                        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
                     >
@@ -257,6 +324,7 @@ export default function IntentionInputScreen() {
                         <Animated.View style={[styles.section, { opacity: fadeAnim }]}>
                             <Animated.View style={[styles.inputContainer, { borderColor: inputBorderColor }]}>
                                 <TextInput
+                                    ref={textInputRef}
                                     style={styles.textInput}
                                     value={intention}
                                     onChangeText={handleIntentionChange}
@@ -271,6 +339,7 @@ export default function IntentionInputScreen() {
                                     returnKeyType="none"
                                     blurOnSubmit={false}
                                     enablesReturnKeyAutomatically={false}
+                                    selectionColor={colors.gold}
                                     accessibilityLabel="What are you anchoring right now?"
                                 />
                             </Animated.View>
@@ -342,6 +411,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     scrollContent: {
+        flexGrow: 1,
         paddingHorizontal: spacing.xl,
         paddingBottom: spacing.lg,  // 24px — breathing room above CTA when keyboard open
     },
@@ -389,6 +459,9 @@ const styles = StyleSheet.create({
         color: colors.text.primary,
         lineHeight: 28,
         minHeight: 90,
+        paddingTop: spacing.xs,
+        paddingBottom: spacing.xs,
+        paddingHorizontal: 0,
         textAlignVertical: 'top',
     },
     microCopy: {

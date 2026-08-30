@@ -17,10 +17,16 @@ import anchorRoutes from './api/routes/anchors';
 import aiRoutes from './api/routes/ai';
 import practiceRoutes from './api/routes/practice';
 import merchRoutes from './api/routes/merch';
+import visualizationSceneRoutes from './api/routes/visualizationScenes';
 import orderRoutes from './api/routes/orders';
 import contentRoutes from './api/routes/content';
+import billingRoutes from './api/routes/billing';
+import courseRoutes from './api/routes/courses';
+import coursePlanRoutes from './api/routes/coursePlans';
+import reflectionRoutes from './api/routes/reflections';
 import { errorHandler, notFoundHandler } from './api/middleware/errorHandler';
 import { logger } from './utils/logger';
+import { scrubSentryEvent } from './utils/sentryPrivacy';
 import { env } from './config/env';
 import { prisma } from './lib/prisma';
 
@@ -31,43 +37,6 @@ dotenv.config();
 
 const sentryEnabled = Boolean(env.SENTRY_DSN);
 
-function scrubSensitiveSentryData<T extends Record<string, unknown> | undefined>(value: T): T {
-  if (!value) {
-    return value;
-  }
-
-  for (const key of Object.keys(value)) {
-    const normalizedKey = key.toLowerCase();
-    if (
-      normalizedKey === 'authorization' ||
-      normalizedKey === 'cookie' ||
-      normalizedKey === 'set-cookie' ||
-      normalizedKey === 'x-api-key'
-    ) {
-      delete value[key];
-      continue;
-    }
-
-    const nested = value[key];
-    if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
-      scrubSensitiveSentryData(nested as Record<string, unknown>);
-    }
-  }
-
-  return value;
-}
-
-function scrubSensitiveString(value: string | undefined): string | undefined {
-  if (!value) {
-    return value;
-  }
-
-  return value
-    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[redacted-email]')
-    .replace(/Bearer\s+[A-Za-z0-9\-._~+/]+=*/gi, 'Bearer [redacted]')
-    .replace(/(?:(?:token|secret|password|authorization)=)[^&\s]+/gi, '$1[redacted]');
-}
-
 if (sentryEnabled) {
   Sentry.init({
     dsn: env.SENTRY_DSN,
@@ -75,40 +44,7 @@ if (sentryEnabled) {
     sendDefaultPii: false,
     tracesSampleRate: env.SENTRY_TRACES_SAMPLE_RATE,
     integrations: [Sentry.expressIntegration()],
-    beforeSend(event) {
-      if (event.user) {
-        event.user = event.user.id ? { id: event.user.id } : undefined;
-      }
-
-      if (event.request?.headers) {
-        scrubSensitiveSentryData(event.request.headers as Record<string, unknown>);
-      }
-
-      if (event.request?.data && typeof event.request.data === 'object') {
-        scrubSensitiveSentryData(event.request.data as Record<string, unknown>);
-      }
-
-      if (typeof event.request?.query_string === 'string') {
-        event.request.query_string = scrubSensitiveString(event.request.query_string);
-      }
-
-      if (event.extra) {
-        scrubSensitiveSentryData(event.extra as Record<string, unknown>);
-      }
-
-      if (event.message) {
-        event.message = scrubSensitiveString(event.message);
-      }
-
-      if (event.exception?.values) {
-        event.exception.values = event.exception.values.map(value => ({
-          ...value,
-          value: scrubSensitiveString(value.value),
-        }));
-      }
-
-      return event;
-    },
+    beforeSend: scrubSentryEvent,
   });
 }
 
@@ -196,6 +132,12 @@ app.use(
   })
 );
 
+// Profile-picture uploads send base64 image bodies (validated up to 5MB raw in
+// StorageService). Base64 inflates payloads by ~33%, so this route needs a larger
+// body limit than the global parser. Registered first so it consumes the body
+// before the 1mb parser below — body-parser skips once req._body is set.
+app.use('/api/users', express.json({ limit: '8mb' }));
+
 // Limit request body size to prevent memory exhaustion attacks
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
@@ -273,10 +215,14 @@ app.get('/', (_req: Request, res: Response) => {
 // Authentication routes
 app.use('/api/auth', authRoutes);
 
+// Billing access is confirmed server-side against RevenueCat after store purchase.
+app.use('/api/billing', billingRoutes);
+
 // User routes
 app.use('/api/users', usersRoutes);
 
 // Anchor routes
+app.use('/api/anchors', visualizationSceneRoutes);
 app.use('/api/anchors', anchorRoutes);
 
 // Practice routes
@@ -284,6 +230,11 @@ app.use('/api/practice', practiceRoutes);
 
 // Merch catalog routes
 app.use('/api/merch', merchRoutes);
+// Chart / Workstream A routes. The route handlers remain protected by auth and
+// server-side default-off feature flags.
+app.use('/api/courses', courseRoutes);
+app.use('/api/course-plans', coursePlanRoutes);
+app.use('/api/reflections', reflectionRoutes);
 
 // AI Enhancement routes (Phase 2)
 app.use('/api/ai', aiRoutes);

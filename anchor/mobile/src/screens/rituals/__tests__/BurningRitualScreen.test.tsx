@@ -8,6 +8,10 @@ import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { AuthService } from '@/services/AuthService';
 
+const mockCommitReleaseCompletion = jest.fn().mockResolvedValue({ id: 'release-event' });
+const mockFlushPractice = jest.fn().mockResolvedValue(undefined);
+const mockHandleSigilVaulted = jest.fn().mockResolvedValue(undefined);
+
 jest.mock('@react-navigation/native', () => ({
   useRoute: jest.fn(() => ({
     params: {
@@ -31,6 +35,12 @@ jest.mock('@/stores/authStore', () => ({
 jest.mock('@/services/ApiClient');
 jest.mock('@/services/AnalyticsService');
 jest.mock('@/services/ErrorTrackingService');
+jest.mock('@/services/PracticeCompletionService', () => ({
+  PracticeCompletionService: {
+    commitReleaseCompletion: (...args: any[]) => mockCommitReleaseCompletion(...args),
+    flush: (...args: any[]) => mockFlushPractice(...args),
+  },
+}));
 jest.mock('@/services/AuthService', () => ({
   AuthService: {
     getIdToken: jest.fn(),
@@ -48,12 +58,8 @@ jest.mock('@/components/ToastProvider', () => ({
 jest.mock('@/hooks/useNotificationController', () => ({
   useNotificationController: () => ({
     handleBurnFlowEntered: jest.fn().mockResolvedValue(undefined),
-    handleSigilVaulted: jest.fn().mockResolvedValue(undefined),
+    handleSigilVaulted: (...args: any[]) => mockHandleSigilVaulted(...args),
   }),
-}));
-
-jest.mock('@/utils/progressionMilestones', () => ({
-  queueProgressionMilestonesFromStores: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('@/stores/teachingStore', () => ({
@@ -125,7 +131,7 @@ describe('BurningRitualScreen', () => {
   let mockGoBack: jest.Mock;
   let mockPopToTop: jest.Mock;
   let mockReleaseAnchor: jest.Mock;
-  let mockAuthState = { isAuthenticated: true };
+  let mockAuthState = { isAuthenticated: true, user: { id: 'user-1' } };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -133,7 +139,7 @@ describe('BurningRitualScreen', () => {
     mockGoBack = jest.fn();
     mockPopToTop = jest.fn();
     mockReleaseAnchor = jest.fn();
-    mockAuthState = { isAuthenticated: true };
+    mockAuthState = { isAuthenticated: true, user: { id: 'user-1' } };
     (AuthService.getIdToken as jest.Mock).mockResolvedValue('token');
 
     const navigation = require('@react-navigation/native');
@@ -186,6 +192,19 @@ describe('BurningRitualScreen', () => {
     });
   });
 
+  it('shows completion without waiting for post-release bookkeeping', async () => {
+    (post as jest.Mock).mockResolvedValue({ success: true });
+    mockHandleSigilVaulted.mockImplementation(() => new Promise<void>(() => {}));
+    const { getByText, getByTestId } = render(<BurningRitualScreen />);
+
+    fireEvent.press(getByText('Run Commit'));
+
+    await waitFor(() => {
+      expect(mockReleaseAnchor).toHaveBeenCalledWith('test-anchor-id');
+      expect(getByTestId('commit-status').props.children).toBe('success');
+    });
+  });
+
   it('tracks burn failure and keeps anchor in store on API error', async () => {
     (post as jest.Mock).mockRejectedValue(new Error('Network error'));
     const { getByText, getByTestId } = render(<BurningRitualScreen />);
@@ -204,6 +223,23 @@ describe('BurningRitualScreen', () => {
       expect(ErrorTrackingService.captureException).toHaveBeenCalled();
       expect(getByTestId('commit-status').props.children).toBe('error');
     });
+    // A transient burn failure must not record a release completion — the
+    // anchor is still alive, so Thread Strength shouldn't count it.
+    expect(mockCommitReleaseCompletion).not.toHaveBeenCalled();
+  });
+
+  it('still records the release and completes locally when the anchor is already gone', async () => {
+    (post as jest.Mock).mockRejectedValue(new Error('Anchor not found'));
+    const { getByText, getByTestId } = render(<BurningRitualScreen />);
+
+    fireEvent.press(getByText('Run Commit'));
+
+    await waitFor(() => {
+      expect(getByTestId('commit-status').props.children).toBe('success');
+    });
+
+    expect(mockCommitReleaseCompletion).toHaveBeenCalledTimes(1);
+    expect(mockReleaseAnchor).toHaveBeenCalledWith('test-anchor-id');
   });
 
   it('navigates back to Vault when return-to-sanctuary is pressed', () => {
@@ -267,7 +303,7 @@ describe('BurningRitualScreen', () => {
   });
 
   it('blocks burn commit when auth state is stale and there is no token', async () => {
-    mockAuthState = { isAuthenticated: true };
+    mockAuthState = { isAuthenticated: true, user: { id: 'user-1' } };
     (useAuthStore as unknown as jest.Mock).mockImplementation((selector: any) =>
       selector
         ? selector(mockAuthState)

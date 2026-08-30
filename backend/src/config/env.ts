@@ -16,6 +16,17 @@ export interface EnvConfig {
   ALLOWED_ORIGINS?: string; // Comma-separated list of allowed origins
   COMPED_ACCESS_EMAILS?: string; // Comma/space-separated list of comped account emails
   ENABLE_MERCH: boolean;
+  ENABLE_VISUALIZE: boolean;
+  ENABLE_CHART: boolean;
+  ENABLE_CHART_WRITE: boolean;
+  ENABLE_CHART_AI_PLANNER: boolean;
+  ENABLE_CHART_REFLECTIONS: boolean;
+  ENABLE_CHART_NOTIFICATIONS: boolean;
+  ENABLE_CHART_EXISTING_USER_INTRO: boolean;
+  /** Account rollout percentage for Chart. Defaults to zero so Chart remains dark. */
+  CHART_ROLLOUT_PERCENT: number;
+  /** Emergency server-side Chart kill switch. */
+  CHART_KILL_SWITCH: boolean;
   EXPOSE_ERROR_STACK: boolean;
 
   // Auth (Optional - for future Firebase Admin integration)
@@ -55,6 +66,8 @@ export interface EnvConfig {
   // Monitoring
   SENTRY_DSN?: string;
   SENTRY_TRACES_SAMPLE_RATE: number;
+  POSTHOG_API_KEY?: string;
+  POSTHOG_HOST: string;
 }
 
 class EnvValidationError extends Error {
@@ -62,6 +75,22 @@ class EnvValidationError extends Error {
     super(message);
     this.name = 'EnvValidationError';
   }
+}
+
+/**
+ * Resolves the Google Generative Language API key from either supported name.
+ *
+ * GOOGLE_API_KEY is canonical. GEMINI_API_KEY is accepted as an alias because
+ * production was provisioned under that name, which left the Visualize scene
+ * provider reading an unset variable. Consumers must read the normalized
+ * `env.GOOGLE_API_KEY` rather than either raw variable.
+ *
+ * Never log or return this value to a client.
+ */
+export function resolveGoogleApiKey(source: NodeJS.ProcessEnv = process.env): string | undefined {
+  const canonical = source.GOOGLE_API_KEY?.trim();
+  if (canonical) return canonical;
+  return source.GEMINI_API_KEY?.trim() || undefined;
 }
 
 function validateString(
@@ -93,6 +122,18 @@ function validateNumber(key: string, value: unknown, defaultValue: number): numb
     throw new EnvValidationError(`Environment variable ${key} must be a number`);
   }
 
+  return parsed;
+}
+
+function validatePercentage(key: string, value: unknown, defaultValue: number): number {
+  if (value === undefined || value === null || value === '') return defaultValue;
+  if (typeof value !== 'string' || !/^\d+$/.test(value.trim())) {
+    throw new EnvValidationError(`Environment variable ${key} must be an integer from 0 to 100`);
+  }
+  const parsed = Number(value.trim());
+  if (!Number.isSafeInteger(parsed) || parsed < 0 || parsed > 100) {
+    throw new EnvValidationError(`Environment variable ${key} must be an integer from 0 to 100`);
+  }
   return parsed;
 }
 
@@ -221,7 +262,8 @@ export function validateEnv(): EnvConfig {
         'GOOGLE_CLOUD_CLIENT_EMAIL',
         process.env.GOOGLE_CLOUD_CLIENT_EMAIL
       ),
-      GOOGLE_API_KEY: validateString('GOOGLE_API_KEY', process.env.GOOGLE_API_KEY),
+      // Normalized: accepts GOOGLE_API_KEY (canonical) or GEMINI_API_KEY (alias).
+      GOOGLE_API_KEY: resolveGoogleApiKey(),
 
       // JWT (required in production)
       JWT_SECRET: validateString(
@@ -238,6 +280,40 @@ export function validateEnv(): EnvConfig {
         process.env.COMPED_ACCESS_EMAILS
       ),
       ENABLE_MERCH: validateBoolean('ENABLE_MERCH', process.env.ENABLE_MERCH, false),
+      ENABLE_VISUALIZE: validateBoolean('ENABLE_VISUALIZE', process.env.ENABLE_VISUALIZE, false),
+      // Chart is deliberately default-off until Workstream G enables it.
+      ENABLE_CHART: validateBoolean('ENABLE_CHART', process.env.ENABLE_CHART, false),
+      ENABLE_CHART_WRITE: validateBoolean(
+        'ENABLE_CHART_WRITE',
+        process.env.ENABLE_CHART_WRITE,
+        false
+      ),
+      ENABLE_CHART_AI_PLANNER: validateBoolean(
+        'ENABLE_CHART_AI_PLANNER',
+        process.env.ENABLE_CHART_AI_PLANNER,
+        false
+      ),
+      ENABLE_CHART_REFLECTIONS: validateBoolean(
+        'ENABLE_CHART_REFLECTIONS',
+        process.env.ENABLE_CHART_REFLECTIONS,
+        false
+      ),
+      ENABLE_CHART_NOTIFICATIONS: validateBoolean(
+        'ENABLE_CHART_NOTIFICATIONS',
+        process.env.ENABLE_CHART_NOTIFICATIONS,
+        false
+      ),
+      ENABLE_CHART_EXISTING_USER_INTRO: validateBoolean(
+        'ENABLE_CHART_EXISTING_USER_INTRO',
+        process.env.ENABLE_CHART_EXISTING_USER_INTRO,
+        false
+      ),
+      CHART_ROLLOUT_PERCENT: validatePercentage(
+        'CHART_ROLLOUT_PERCENT',
+        process.env.CHART_ROLLOUT_PERCENT,
+        0
+      ),
+      CHART_KILL_SWITCH: validateBoolean('CHART_KILL_SWITCH', process.env.CHART_KILL_SWITCH, false),
       EXPOSE_ERROR_STACK: validateBoolean(
         'EXPOSE_ERROR_STACK',
         process.env.EXPOSE_ERROR_STACK,
@@ -253,6 +329,9 @@ export function validateEnv(): EnvConfig {
           validateNumber('SENTRY_TRACES_SAMPLE_RATE', process.env.SENTRY_TRACES_SAMPLE_RATE, 0.1)
         )
       ),
+      POSTHOG_API_KEY: validateString('POSTHOG_API_KEY', process.env.POSTHOG_API_KEY),
+      POSTHOG_HOST:
+        validateString('POSTHOG_HOST', process.env.POSTHOG_HOST) ?? 'https://us.i.posthog.com',
     };
 
     // In production, critical variables must be present.

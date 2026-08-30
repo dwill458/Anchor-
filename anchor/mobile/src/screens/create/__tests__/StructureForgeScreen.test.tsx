@@ -55,7 +55,6 @@ describe('StructureForgeScreen', () => {
 
     it('stub: selects Balanced variant on tap', () => {
         render(<StructureForgeScreen />);
-        // Focused is default — press it again to confirm it stays selected
         fireEvent.press(screen.getByLabelText('Focused structure'));
         expect(screen.getByText('Focused selected')).toBeTruthy();
     });
@@ -68,6 +67,7 @@ describe('StructureForgeScreen', () => {
 
     it('stub: navigates to ManualReinforcement after selection', () => {
         render(<StructureForgeScreen />);
+        fireEvent.press(screen.getByLabelText('Focused structure'));
         fireEvent.press(screen.getByLabelText('Begin Forging'));
         expect(mockNavigate).toHaveBeenCalledWith('ManualReinforcement', expect.objectContaining({
             intentionText: 'Test Intention',

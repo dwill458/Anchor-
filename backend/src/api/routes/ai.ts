@@ -25,8 +25,9 @@ import {
   estimateGenerationTime,
   AIStyle,
 } from '../../services/AIEnhancer';
+import { VALID_AI_STYLES } from '../../services/stylePromptLibrary';
 import { generateMantra, getRecommendedMantraStyle } from '../../services/MantraGenerator';
-import { uploadImageFromUrl } from '../../services/StorageService';
+import { resolveStoredAssetUrl, uploadImageFromUrl } from '../../services/StorageService';
 import {
   generateAllMantraAudio,
   isTTSAvailable,
@@ -96,35 +97,17 @@ const aiDailyLimiter = rateLimit({
 
 // --- Zod schemas ---
 
-const VALID_STYLES = [
-  'watercolor',
-  'sacred_geometry',
-  'ink_brush',
-  'gold_leaf',
-  'cosmic',
-  'architectural_trace',
-  'lunar_etch',
-  'resonance_rings',
-  'minimal_line',
-  'obsidian_mono',
-  'aurora_glow',
-  'ember_trace',
-  'echo_chamber',
-  'monolith_ink',
-  'celestial_grid',
-] as const;
-
 const EnhanceSchema = z.object({
   sigilSvg: z.string().min(1),
-  styleChoice: z.enum(VALID_STYLES),
+  styleChoice: z.enum(VALID_AI_STYLES),
   anchorId: z.string().min(1),
-  intentionText: z.string().optional(),
-  intention: z.string().optional(),
+  intentionText: z.string().max(500).optional(),
+  intention: z.string().max(500).optional(),
   validateStructure: z.boolean().optional(),
   autoComposite: z.boolean().optional(),
   provider: z.enum(['gemini', 'replicate', 'auto']).optional(),
   tier: z.enum(['draft', 'premium']).optional(),
-  generationAttempt: z.number().optional(),
+  generationAttempt: z.number().int().min(0).max(100).optional(),
 });
 
 const MantraSchema = z.object({
@@ -193,6 +176,18 @@ type ClientVariation = {
   seed: number;
   reusedFromPool: boolean;
 };
+
+async function resolveClientVariationUrls(
+  variations: ClientVariation[],
+  expiresIn: number = 7 * 24 * 60 * 60
+): Promise<ClientVariation[]> {
+  return Promise.all(
+    variations.map(async variation => ({
+      ...variation,
+      imageUrl: (await resolveStoredAssetUrl(variation.imageUrl, expiresIn)) ?? variation.imageUrl,
+    }))
+  );
+}
 
 /**
  * POST /api/ai/enhance
@@ -642,7 +637,10 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
       }
     }
 
-    const responseVariations = [...reservedPoolVariations, ...pooledGeneratedVariations];
+    const responseVariations = await resolveClientVariationUrls([
+      ...reservedPoolVariations,
+      ...pooledGeneratedVariations,
+    ]);
 
     if (responseVariations.length === 0) {
       logger.error('[AI Enhance] All variation uploads failed', { anchorId, style: styleChoice });

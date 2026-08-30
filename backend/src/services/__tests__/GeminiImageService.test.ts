@@ -15,6 +15,12 @@ jest.mock('sharp');
 
 import { GoogleGenAI } from '@google/genai';
 import { GeminiImageService, GeminiError, GeminiErrorType } from '../GeminiImageService';
+import {
+  CORE_STYLE_IDS,
+  FEATURED_STYLE_IDS,
+  LAUNCH_STYLE_LIBRARY,
+  SEASONAL_STYLE_IDS,
+} from '../stylePromptLibrary';
 
 describe('GeminiImageService', () => {
   const originalEnv = process.env;
@@ -218,6 +224,115 @@ describe('GeminiImageService', () => {
         expect(err).toBeInstanceOf(GeminiError);
         expect((err as GeminiError).type).toBe(GeminiErrorType.INVALID_API_KEY);
       }
+    });
+  });
+
+  describe('prompt generation', () => {
+    it('defines the 20-style launch library with unique palettes and varied composition families', () => {
+      const paletteLanes = new Set(LAUNCH_STYLE_LIBRARY.map(style => style.paletteLane));
+      const compositionFamilies = new Set(
+        LAUNCH_STYLE_LIBRARY.map(style => style.compositionFamily)
+      );
+
+      expect(LAUNCH_STYLE_LIBRARY).toHaveLength(28);
+      expect(paletteLanes.size).toBe(28);
+      expect(compositionFamilies.size).toBeGreaterThanOrEqual(5);
+      expect(CORE_STYLE_IDS).toHaveLength(12);
+      expect(FEATURED_STYLE_IDS).toHaveLength(9);
+      expect(SEASONAL_STYLE_IDS).toHaveLength(7);
+    });
+
+    it('adds style-specific uniqueness signatures for all supported styles', () => {
+      const service = new GeminiImageService();
+      const supportedStyles = [
+        'architectural_trace',
+        'lunar_etch',
+        'resonance_rings',
+        'watercolor',
+        'ink_brush',
+        'gold_leaf',
+        'cosmic',
+        'minimal_line',
+        'obsidian_mono',
+        'aurora_glow',
+        'ember_trace',
+        'monolith_ink',
+        'celestial_grid',
+        'echo_chamber',
+        'prism_veil',
+        'verdigris_relic',
+        'solar_halo',
+        'tideglass',
+        'sacred_geometry',
+        'velvet_ember',
+        'solar_veil',
+        'ink_bloom',
+        'prism_fold',
+        'ocean_current',
+        'halo_drift',
+        'harvest_gild',
+        'midnight_bloom',
+        'winter_halo',
+      ];
+
+      supportedStyles.forEach(style => {
+        const prompt = (service as any).createPrompt('steady focus', style, 0);
+        expect(prompt).toContain('UNIQUENESS MANDATE');
+        expect(prompt).toContain('STYLE SIGNATURE FOR THIS RENDER');
+        expect(prompt).toContain('STRUCTURAL PRESERVATION — ABSOLUTE PRIORITY');
+        expect(prompt).toContain('INTENTION SIGNAL LAYER');
+      });
+    });
+
+    it('adds style identity and composition family for celestial_grid prompts', () => {
+      const service = new GeminiImageService();
+
+      const prompt = (service as any).createPrompt(
+        'My discipline outlasts my motivation',
+        'celestial_grid',
+        0
+      );
+
+      expect(prompt).toContain('UNIQUENESS MANDATE');
+      expect(prompt).toContain('Celestial Grid — Measured astrometric geometry');
+      expect(prompt).toContain('COMPOSITIONAL FAMILY:');
+      expect(prompt).toContain('OFFSET FIELD');
+      expect(prompt).toContain('Avoid zodiac wheels');
+    });
+
+    it('produces distinct celestial_grid prompts for different intentions', () => {
+      const service = new GeminiImageService();
+
+      const promptA = (service as any).createPrompt('I think before I speak', 'celestial_grid', 0);
+      const promptB = (service as any).createPrompt(
+        'My discipline outlasts my motivation',
+        'celestial_grid',
+        0
+      );
+
+      expect(promptA).not.toEqual(promptB);
+    });
+
+    it('cycles stance variants across variation indexes', () => {
+      const service = new GeminiImageService();
+
+      const promptA = (service as any).createPrompt('steady focus', 'celestial_grid', 0);
+      const promptB = (service as any).createPrompt('steady focus', 'celestial_grid', 1);
+
+      expect(promptA).not.toEqual(promptB);
+      expect(promptA).toContain('Composition variation:');
+      expect(promptB).toContain('Composition variation:');
+    });
+
+    it('adds a non-generic style signature for gold_leaf prompts', () => {
+      const service = new GeminiImageService();
+
+      const prompt = (service as any).createPrompt('radiant confidence', 'gold_leaf', 0);
+
+      expect(prompt).toContain('Gold Leaf — Struck alloy seams');
+      expect(prompt).toContain('Palette lane: antique gold accent, umber, soot-black, soft bronze');
+      expect(prompt).toContain('Material behavior: brushed-gold fracture, struck alloy seams');
+      expect(prompt).toContain('upward lift or outward expansion');
     });
   });
 });

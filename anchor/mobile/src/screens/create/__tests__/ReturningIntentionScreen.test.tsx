@@ -16,6 +16,7 @@ let mockAnchorCount = 1;
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
   useNavigation: () => ({ navigate: mockNavigate, goBack: jest.fn() }),
+  useFocusEffect: (effect: any) => require('react').useEffect(effect, [effect]),
   useRoute: () => ({ params: {} }),
 }));
 
@@ -38,7 +39,12 @@ jest.mock('@/stores/anchorStore', () => ({
 }));
 
 jest.mock('@/hooks/useTrialStatus', () => ({
-  useTrialStatus: () => ({ hasActiveEntitlement: mockHasActiveEntitlement }),
+  useTrialStatus: () => ({
+    isTrialActive: false,
+    isSubscribed: mockHasActiveEntitlement,
+    trialExpired: !mockHasActiveEntitlement,
+    hasActiveEntitlement: mockHasActiveEntitlement,
+  }),
 }));
 
 jest.mock('@/stores/teachingStore', () => ({
@@ -129,7 +135,10 @@ describe('ReturningIntentionScreen', () => {
 
     expect(mockSetPendingForgeIntent).toHaveBeenCalledWith('Hold steady');
     expect(mockSetPendingForgeResumeTarget).toHaveBeenCalledWith('CreateAnchor');
-    expect(mockNavigate).toHaveBeenCalledWith('Paywall');
+    expect(mockNavigate).toHaveBeenCalledWith('Paywall', {
+      source: 'create_anchor_free_locked',
+      preferredPlanId: 'annual',
+    });
   });
 
   it.each([

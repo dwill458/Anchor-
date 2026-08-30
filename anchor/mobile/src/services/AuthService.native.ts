@@ -14,6 +14,10 @@ import { API_URL } from '@/config';
 import { ENABLE_GOOGLE_SIGN_IN, GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from '@/config';
 import { clearNotificationSession } from '@/services/NotificationSessionService';
 import { clearPushTokensFromServer } from '@/services/NotificationSyncService';
+import {
+  buildPasswordResetActionCodeSettings,
+  normalizePasswordResetEmail,
+} from '@/services/passwordResetActionCodeSettings';
 
 let GoogleSignin: any = null;
 import {
@@ -35,6 +39,7 @@ export interface AuthResult {
 
 export interface AuthSyncOptions {
   hasCompletedOnboarding?: boolean;
+  allowBackendCreate?: boolean;
 }
 
 type AuthProvider = 'email' | 'google' | 'apple';
@@ -62,6 +67,8 @@ function normalizeUser(data: User): User {
     stabilizesTotal: data.stabilizesTotal ?? 0,
     stabilizeStreakDays: data.stabilizeStreakDays ?? 0,
     lastStabilizeAt: data.lastStabilizeAt ? normalizeDate(data.lastStabilizeAt) : undefined,
+    trialStartedAt: data.trialStartedAt ? normalizeDate(data.trialStartedAt).toISOString() : undefined,
+    isTrialExpired: data.isTrialExpired === true,
   };
 }
 
@@ -223,6 +230,7 @@ async function syncUserWithBackend(
       displayName: displayNameOverride ?? firebaseUser.displayName ?? undefined,
       authProvider: getAuthProvider(firebaseUser),
       hasCompletedOnboarding: options?.hasCompletedOnboarding === true ? true : undefined,
+      allowCreate: options?.allowBackendCreate ?? true,
     }),
   });
 
@@ -239,7 +247,8 @@ async function syncUserWithBackend(
 async function buildAuthResult(
   firebaseUser: FirebaseAuthTypes.User,
   displayNameOverride?: string,
-  options?: AuthSyncOptions
+  options?: AuthSyncOptions,
+  firebaseIsNewUser?: boolean
 ): Promise<AuthResult> {
   const idToken = await firebaseUser.getIdToken();
   const user = await syncUserWithBackend(firebaseUser, idToken, displayNameOverride, options);
@@ -249,7 +258,10 @@ async function buildAuthResult(
   return {
     user,
     token: idToken,
-    isNewUser: !user.hasCompletedOnboarding,
+    // Prefer Firebase's own "was a new auth user created" signal — it's accurate even
+    // when credential sign-in (e.g. Apple/Google) links an existing account instead of
+    // creating one. Fall back to the onboarding heuristic where no credential is available.
+    isNewUser: firebaseIsNewUser ?? !user.hasCompletedOnboarding,
   };
 }
 
@@ -265,8 +277,14 @@ export class AuthService {
   ): Promise<AuthResult> {
     try {
       const credential = await auth().signInWithEmailAndPassword(email.trim(), password);
-      return await buildAuthResult(credential.user, undefined, options);
+      return await buildAuthResult(
+        credential.user,
+        undefined,
+        { ...options, allowBackendCreate: false },
+        credential.additionalUserInfo?.isNewUser
+      );
     } catch (error) {
+      await auth().signOut().catch(() => undefined);
       logger.error('Failed to sign in with email', error);
       throw mapAuthError(error);
     }
@@ -288,7 +306,12 @@ export class AuthService {
       }
 
       const currentUser = auth().currentUser ?? credential.user;
-      return await buildAuthResult(currentUser, trimmedName, options);
+      return await buildAuthResult(
+        currentUser,
+        trimmedName,
+        options,
+        credential.additionalUserInfo?.isNewUser
+      );
     } catch (error) {
       logger.error('Failed to sign up with email', error);
       await auth().signOut().catch(() => undefined);
@@ -296,7 +319,7 @@ export class AuthService {
     }
   }
 
-  static async signInWithGoogle(): Promise<AuthResult> {
+  static async signInWithGoogle(options?: AuthSyncOptions): Promise<AuthResult> {
     try {
       configureGoogleSignin();
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
@@ -313,14 +336,20 @@ export class AuthService {
 
       const credential = auth.GoogleAuthProvider.credential(idToken);
       const firebaseCredential = await auth().signInWithCredential(credential);
-      return await buildAuthResult(firebaseCredential.user);
+      return await buildAuthResult(
+        firebaseCredential.user,
+        undefined,
+        { ...options, allowBackendCreate: options?.allowBackendCreate ?? false },
+        firebaseCredential.additionalUserInfo?.isNewUser
+      );
     } catch (error) {
+      await auth().signOut().catch(() => undefined);
       logger.error('Failed to sign in with Google', error);
       throw mapAuthError(error);
     }
   }
 
-  static async signInWithApple(): Promise<AuthResult> {
+  static async signInWithApple(options?: AuthSyncOptions): Promise<AuthResult> {
     try {
       const isAvailable = await AppleAuthentication.isAvailableAsync();
       if (!isAvailable) {
@@ -355,8 +384,14 @@ export class AuthService {
       }
 
       const currentUser = auth().currentUser ?? firebaseCredential.user;
-      return await buildAuthResult(currentUser, displayName);
+      return await buildAuthResult(
+        currentUser,
+        displayName,
+        { ...options, allowBackendCreate: options?.allowBackendCreate ?? false },
+        firebaseCredential.additionalUserInfo?.isNewUser
+      );
     } catch (error) {
+      await auth().signOut().catch(() => undefined);
       logger.error('Failed to sign in with Apple', error);
       throw mapAuthError(error);
     }
@@ -443,7 +478,23 @@ export class AuthService {
   }
 
   static async sendPasswordResetEmail(email: string): Promise<void> {
-    await auth().sendPasswordResetEmail(email.trim());
+    const normalizedEmail = normalizePasswordResetEmail(email);
+    const actionCodeSettings = buildPasswordResetActionCodeSettings();
+
+    try {
+      await auth().sendPasswordResetEmail(normalizedEmail, actionCodeSettings);
+    } catch (error) {
+      const code = typeof error === 'object' && error && 'code' in error
+        ? String((error as { code?: unknown }).code)
+        : '';
+
+      if (code === 'auth/user-not-found') {
+        return;
+      }
+
+      logger.error('Failed to send password reset email', error);
+      throw mapAuthError(error);
+    }
   }
 
   static async deleteAccount(): Promise<void> {

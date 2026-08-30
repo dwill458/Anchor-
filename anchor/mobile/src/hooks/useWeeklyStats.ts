@@ -1,7 +1,10 @@
 import { useMemo } from 'react';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import { calculateStreak } from '@/utils/streakHelpers';
+import { reviewsPreviousWeekWindow } from '@/utils/weeklyReviewWindow';
 import type { Anchor } from '@/types';
+import { PRACTICE_THREAD_STRENGTH_GAINS } from '@/types/practice';
 import {
   TIME_OF_DAY_LABELS,
   WEEKDAY_NAMES,
@@ -35,9 +38,22 @@ export interface DayNode {
 }
 
 /**
+ * One row in the weekly review's ranked anchor list.
+ */
+export interface RankedAnchor {
+  id: string;
+  intention: string;
+  /** Display Thread Strength, clamped 0-100. */
+  threadStrength: number;
+  /** Priming sessions recorded for the anchor in the active review period. */
+  weeklyPrimeCount: number;
+}
+
+/**
  * Derived weekly priming summary for the active review period.
- * Sundays review the previously completed Sunday-to-Saturday window.
- * Other days review the current Sunday-to-Saturday window.
+ * Sundays and Monday mornings review the previously completed
+ * Sunday-to-Saturday window. Other times review the current
+ * Sunday-to-Saturday window.
  */
 export interface WeeklyStats {
   /** User-relative week number, starting at week 1. */
@@ -71,10 +87,14 @@ export interface WeeklyStats {
   };
   /** Weekly performance bucket derived from attendance and recovery pattern. */
   performanceTier: PerformanceTier;
+  /** All active anchors, sorted weakest Thread Strength first. */
+  rankedAnchors: RankedAnchor[];
 }
 
 function getSessionGain(entry: { type: PrimingHistoryEntry['type'] }): number {
-  return entry.type === 'reinforce' ? 40 : 25;
+  if (entry.type === 'reinforce') return PRACTICE_THREAD_STRENGTH_GAINS.deep_prime;
+  if (entry.type === 'visualize') return PRACTICE_THREAD_STRENGTH_GAINS.visualize;
+  return PRACTICE_THREAD_STRENGTH_GAINS.focus;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -143,10 +163,16 @@ function startOfSundayWeek(date: Date): Date {
 function resolveSummaryWeekStartDate(now: Date): Date {
   const currentSundayWeekStart = startOfSundayWeek(now);
 
-  // Sunday evening summaries review the previously completed Sunday-Saturday window.
-  if (now.getDay() === 0) {
+  // Sunday summaries and Monday-morning summaries review the previously
+  // completed Sunday-Saturday window, so the Monday-morning delivery of the
+  // Weekly Thread Review still covers the finished week.
+  if (reviewsPreviousWeekWindow(now)) {
     return addDays(currentSundayWeekStart, -7);
   }
+  // DEFERRED: Sunday-only rule, superseded by the shared review window above.
+  // if (now.getDay() === 0) {
+  //   return addDays(currentSundayWeekStart, -7);
+  // }
 
   return currentSundayWeekStart;
 }
@@ -334,6 +360,54 @@ export function useWeeklyStats(): WeeklyStats {
       }
     }
 
+    // Ranked list for the Weekly Thread Review: display strength only. The
+    // stored per-anchor strength wins when present; the fallback mirrors
+    // resolveAnchorStrengthPct in ThreadStrengthSheet (best of the
+    // primed-days-this-period and current-streak ratios). Decay math in
+    // utils/threadStrength.ts is untouched.
+    const rankedAnchors: RankedAnchor[] = activeAnchors
+      .map((anchor) => {
+        const weeklySessions = currentWeekSessionsByAnchor.get(anchor.id) ?? [];
+        const allSessions = primingSessionsByAnchor.get(anchor.id) ?? [];
+        const storedStrength =
+          typeof anchor.threadStrength === 'number' && Number.isFinite(anchor.threadStrength)
+            ? clamp(Math.round(anchor.threadStrength), 0, 100)
+            : null;
+        const primedDaysThisPeriod = new Set(weeklySessions.map((session) => session.localDate)).size;
+        const streakRatio =
+          allSessions.length > 0
+            ? Math.round(
+                (calculateStreak(allSessions.map((session) => ({ createdAt: session.completedAt })))
+                  .currentStreak /
+                  7) *
+                  100
+              )
+            : 0;
+        const fallbackStrength = clamp(
+          Math.max(Math.round((primedDaysThisPeriod / 7) * 100), streakRatio),
+          0,
+          100
+        );
+
+        return {
+          id: anchor.id,
+          intention: anchor.intentionText,
+          threadStrength: storedStrength ?? fallbackStrength,
+          weeklyPrimeCount: weeklySessions.length,
+        };
+      })
+      .sort((left, right) => {
+        if (left.threadStrength !== right.threadStrength) {
+          return left.threadStrength - right.threadStrength;
+        }
+
+        if (left.weeklyPrimeCount !== right.weeklyPrimeCount) {
+          return left.weeklyPrimeCount - right.weeklyPrimeCount;
+        }
+
+        return left.id.localeCompare(right.id);
+      });
+
     return {
       weekNumber: diffSundayWeeksInclusive(effectiveJourneyWeekStart, weekStart),
       calendarWeekNumber: isoWeekNumber(weekEndDate),
@@ -346,6 +420,7 @@ export function useWeeklyStats(): WeeklyStats {
       dominantAnchor,
       peakPrimingWindow: resolvePeakPrimingWindow(primingHistory),
       performanceTier,
+      rankedAnchors,
     };
   }, [anchors, journeyWeekStart, primingHistory, threadStrength]);
 }

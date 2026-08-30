@@ -23,6 +23,7 @@ export interface AuthResult {
 
 export interface AuthSyncOptions {
   hasCompletedOnboarding?: boolean;
+  allowBackendCreate?: boolean;
 }
 
 const createMockUser = (overrides: Partial<User> = {}): User => ({
@@ -39,6 +40,8 @@ const createMockUser = (overrides: Partial<User> = {}): User => ({
   stabilizesTotal: 0,
   stabilizeStreakDays: 0,
   createdAt: new Date(),
+  trialStartedAt: new Date().toISOString(),
+  isTrialExpired: false,
   ...overrides,
 });
 
@@ -104,7 +107,7 @@ export class AuthService {
     };
   }
 
-  static async signInWithGoogle(): Promise<AuthResult> {
+  static async signInWithGoogle(options?: AuthSyncOptions): Promise<AuthResult> {
     assertMockAuthEnabled();
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
@@ -113,14 +116,14 @@ export class AuthService {
         id: 'mock-uid-google',
         email: 'google-user@example.com',
         displayName: 'Google Guest',
-        hasCompletedOnboarding: true,
+        hasCompletedOnboarding: options?.hasCompletedOnboarding ?? true,
       }),
       token: 'mock-jwt-token',
       isNewUser: false,
     };
   }
 
-  static async signInWithApple(): Promise<AuthResult> {
+  static async signInWithApple(options?: AuthSyncOptions): Promise<AuthResult> {
     assertMockAuthEnabled();
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
@@ -129,7 +132,7 @@ export class AuthService {
         id: 'mock-uid-apple',
         email: 'apple-user@example.com',
         displayName: 'Apple Guest',
-        hasCompletedOnboarding: true,
+        hasCompletedOnboarding: options?.hasCompletedOnboarding ?? true,
       }),
       token: 'mock-jwt-token',
       isNewUser: false,

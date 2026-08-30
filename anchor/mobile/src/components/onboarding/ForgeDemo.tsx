@@ -7,21 +7,36 @@ import {
   Animated,
   StyleSheet,
 } from 'react-native';
+import { colors, typography } from '@/theme';
 
 const forgeRevealAsset = require('../../../assets/onboarding_anchor.png') as number;
+const palette = colors.anchor15;
+
+const withAlpha = (hex: string, alpha: number): string => {
+  const value = parseInt(hex.replace('#', ''), 16);
+  const red = (value >> 16) & 255;
+  const green = (value >> 8) & 255;
+  const blue = value & 255;
+  return `rgba(${red},${green},${blue},${alpha})`;
+};
 
 interface ForgeDemoProps {
   isActive: boolean;
+  intention?: string;
   onForgeComplete?: () => void;
 }
 
 type Phase = 'idle' | 'forging' | 'complete';
 
-export const ForgeDemo: React.FC<ForgeDemoProps> = ({ isActive, onForgeComplete }) => {
+export const ForgeDemo: React.FC<ForgeDemoProps> = ({
+  isActive,
+  intention = 'Deep work for 4 hours',
+  onForgeComplete,
+}) => {
   const [phase, setPhase] = useState<Phase>('idle');
   const intentionOpacity = useRef(new Animated.Value(1)).current;
-  const sigilOpacity = useRef(new Animated.Value(0)).current;
-  const sigilGlow = useRef(new Animated.Value(0)).current;
+  const anchorOpacity = useRef(new Animated.Value(0)).current;
+  const anchorGlow = useRef(new Animated.Value(0)).current;
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const clearAllTimers = useCallback(() => {
@@ -33,9 +48,9 @@ export const ForgeDemo: React.FC<ForgeDemoProps> = ({ isActive, onForgeComplete 
     clearAllTimers();
     setPhase('idle');
     intentionOpacity.setValue(1);
-    sigilOpacity.setValue(0);
-    sigilGlow.setValue(0);
-  }, [clearAllTimers, intentionOpacity, sigilOpacity, sigilGlow]);
+    anchorOpacity.setValue(0);
+    anchorGlow.setValue(0);
+  }, [anchorGlow, anchorOpacity, clearAllTimers, intentionOpacity]);
 
   useEffect(() => {
     if (isActive) {
@@ -57,31 +72,32 @@ export const ForgeDemo: React.FC<ForgeDemoProps> = ({ isActive, onForgeComplete 
 
     const t1 = setTimeout(() => {
       Animated.sequence([
-        Animated.timing(sigilOpacity, { toValue: 1, duration: 600, useNativeDriver: true }),
-        Animated.timing(sigilGlow, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.timing(anchorOpacity, { toValue: 1, duration: 600, useNativeDriver: true }),
+        Animated.timing(anchorGlow, { toValue: 1, duration: 400, useNativeDriver: true }),
       ]).start();
       setPhase('complete');
       onForgeComplete?.();
     }, 900);
 
     timersRef.current.push(t1);
-  }, [phase, intentionOpacity, sigilOpacity, sigilGlow, onForgeComplete]);
+  }, [anchorGlow, anchorOpacity, phase, intentionOpacity, onForgeComplete]);
 
-  const btnLabel = phase === 'idle' ? '⚡ FORGE' : phase === 'forging' ? 'Forging...' : '✓ Forged';
+  const btnLabel = phase === 'idle' ? 'CREATE ANCHOR' : phase === 'forging' ? 'Creating...' : '✓ YOUR ANCHOR';
   const btnActive = phase === 'idle';
 
   return (
     <View style={styles.container}>
       <View style={styles.forge}>
         <Animated.Text style={[styles.intentionText, { opacity: intentionOpacity }]}>
-          "Deep work for 4 hours"
+          &quot;{intention}&quot;
         </Animated.Text>
 
-        <Animated.View style={[styles.sigilWrap, { opacity: sigilOpacity }]}>
+        <Animated.View style={[styles.anchorWrap, { opacity: anchorOpacity }]}>
           <Image
             source={forgeRevealAsset}
-            style={styles.sigil}
+            style={styles.anchor}
             resizeMode="contain"
+            accessible={false}
           />
         </Animated.View>
 
@@ -104,15 +120,15 @@ const styles = StyleSheet.create({
   container: {
     width: 320,
     height: 320,
-    borderRadius: 4,
+    borderRadius: 18,
     overflow: 'hidden',
   },
   forge: {
     flex: 1,
-    backgroundColor: 'rgba(15, 20, 25, 0.85)',
+    backgroundColor: withAlpha(palette.navy, 0.85),
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.2)',
-    borderRadius: 4,
+    borderColor: withAlpha(palette.gilt, 0.2),
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -122,51 +138,51 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     textAlign: 'center',
-    fontFamily: 'Georgia',
+    fontFamily: typography.fonts.bodySerifItalic,
     fontSize: 14,
     fontStyle: 'italic',
-    color: '#C0C0C0',
+    color: palette.ash,
     letterSpacing: 0.7,
   },
-  sigilWrap: {
+  anchorWrap: {
     width: 200,
     height: 200,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sigil: {
+  anchor: {
     width: 200,
     height: 200,
   },
   forgeBtn: {
     position: 'absolute',
     bottom: 20,
-    paddingHorizontal: 28,
+    paddingHorizontal: 20,
     paddingVertical: 8,
-    backgroundColor: '#D4AF37',
-    borderRadius: 6,
-    shadowColor: '#D4AF37',
+    backgroundColor: palette.gilt,
+    borderRadius: 12,
+    shadowColor: palette.gilt,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 6,
   },
   forgeBtnDone: {
-    backgroundColor: 'rgba(212,175,55,0.15)',
+    backgroundColor: withAlpha(palette.gilt, 0.15),
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.3)',
+    borderColor: withAlpha(palette.gilt, 0.3),
     shadowOpacity: 0,
     elevation: 0,
   },
   forgeBtnText: {
-    fontFamily: 'Georgia',
+    fontFamily: typography.fonts.heading,
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 3,
-    color: '#0F1419',
+    color: palette.ink,
     textTransform: 'uppercase',
   },
   forgeBtnTextDone: {
-    color: '#D4AF37',
+    color: palette.gilt,
   },
 });

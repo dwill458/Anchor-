@@ -18,6 +18,13 @@ export interface UserProperties {
   subscriptionStatus?: string;
   totalAnchorsCreated?: number;
   currentStreak?: number;
+  // Trial / conversion funnel (no-card trial is tracked here since RevenueCat
+  // only sees store entitlements, not the account-bound trial).
+  trial_started_at?: string;
+  trial_expired?: boolean;
+  trial_days_remaining?: number;
+  is_comped?: boolean;
+  converted?: boolean;
 }
 
 /**
@@ -37,24 +44,171 @@ export interface UserProperties {
  * AnalyticsService.screen('VaultScreen');
  * ```
  */
+import { Platform } from 'react-native';
+import Constants from 'expo-constants';
+import PostHog from 'posthog-react-native';
 import { logger } from '@/utils/logger';
+
+interface AnalyticsConfig {
+  enabled?: boolean;
+  posthogApiKey?: string;
+  posthogHost?: string;
+}
+
+const DEFAULT_POSTHOG_HOST = 'https://us.i.posthog.com';
+const SENSITIVE_PROPERTY_KEYS = new Set([
+  'email',
+  'displayname',
+  'display_name',
+  'intention',
+  'intentiontext',
+  'intention_text',
+  'scene',
+  'scene_text',
+  'scenesnapshot',
+  'scene_snapshot',
+  'nextaction',
+  'next_action',
+  'text',
+  'text_content',
+  'content_text',
+  'mantra',
+  'prompt',
+  'ai_prompt',
+  'generated_prompt',
+  'message',
+  'error_message',
+  'image',
+  'image_url',
+  'artwork',
+  'svg',
+  'base64',
+  'uri',
+]);
+
+const readPublicEnv = (value: string | undefined): string => value?.trim() ?? '';
+
+const appVersion = Constants.expoConfig?.version ?? 'unknown';
+
+const sanitizeAnalyticsValue = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map(sanitizeAnalyticsValue);
+  }
+
+  if (!value || typeof value !== 'object' || value instanceof Date) {
+    return value;
+  }
+
+  return Object.entries(value as Record<string, unknown>).reduce<Record<string, unknown>>(
+    (sanitized, [key, nestedValue]) => {
+      const normalizedKey = key.toLowerCase().replace(/[^a-z0-9_]/g, '');
+      if (!SENSITIVE_PROPERTY_KEYS.has(normalizedKey)) {
+        sanitized[key] = sanitizeAnalyticsValue(nestedValue);
+      }
+      return sanitized;
+    },
+    {}
+  );
+};
+
+export const sanitizeAnalyticsProperties = (
+  properties?: Record<string, any>
+): Record<string, any> | undefined => {
+  if (!properties) {
+    return undefined;
+  }
+
+  return sanitizeAnalyticsValue(properties) as Record<string, any>;
+};
 
 class Analytics {
   private enabled: boolean = true;
   private userId: string | null = null;
   private userProperties: UserProperties = {};
+  private posthog: any = null;
+  private initialized = false;
+  private posthogApiKey = '';
+  private posthogHost = DEFAULT_POSTHOG_HOST;
+
+  private canSendToPostHog(): boolean {
+    return this.enabled && this.posthog != null;
+  }
+
+  private readConfig(config?: AnalyticsConfig): void {
+    this.posthogApiKey =
+      config?.posthogApiKey ?? readPublicEnv(process.env.EXPO_PUBLIC_POSTHOG_API_KEY);
+    const posthogHost =
+      config?.posthogHost ?? readPublicEnv(process.env.EXPO_PUBLIC_POSTHOG_HOST);
+    this.posthogHost = posthogHost || DEFAULT_POSTHOG_HOST;
+  }
+
+  private ensurePostHogClient(): boolean {
+    if (this.posthog) {
+      return true;
+    }
+
+    if (!this.posthogApiKey) {
+      return false;
+    }
+
+    this.posthog = new PostHog(this.posthogApiKey, {
+      host: this.posthogHost,
+      disabled: !this.enabled,
+      disableGeoip: true,
+      enableSessionReplay: false,
+      captureAppLifecycleEvents: true,
+    });
+
+    return true;
+  }
+
+  private safelyCallPostHog(action: string, callback: () => void): void {
+    if (!this.canSendToPostHog()) {
+      return;
+    }
+
+    try {
+      callback();
+    } catch (error) {
+      logger.warn(`[Analytics] PostHog ${action} failed`, error);
+    }
+  }
 
   /**
    * Initialize analytics
    */
-  initialize(config?: { enabled?: boolean }): void {
-    this.enabled = config?.enabled ?? true;
+  initialize(config?: AnalyticsConfig): void {
+    const envEnabled = process.env.EXPO_PUBLIC_ANALYTICS_ENABLED !== 'false';
+    this.enabled = config?.enabled ?? envEnabled;
+    this.readConfig(config);
 
     logger.info('[Analytics] Initialized', { enabled: this.enabled });
 
-    // INTEGRATION: Wire your analytics provider here before shipping.
-    // Example: Mixpanel.init(process.env.EXPO_PUBLIC_MIXPANEL_TOKEN);
-    // Example: amplitude.getInstance().init(process.env.EXPO_PUBLIC_AMPLITUDE_KEY);
+    if (this.initialized) {
+      if (this.enabled && !this.ensurePostHogClient()) {
+        logger.warn('[Analytics] PostHog missing API key');
+        return;
+      }
+
+      try {
+        this.posthog?.[this.enabled ? 'optIn' : 'optOut']?.();
+      } catch (error) {
+        logger.warn('[Analytics] PostHog opt state update failed', error);
+      }
+      return;
+    }
+
+    this.initialized = true;
+
+    if (!this.enabled) {
+      logger.warn('[Analytics] PostHog disabled');
+      return;
+    }
+
+    if (!this.ensurePostHogClient()) {
+      logger.warn('[Analytics] PostHog missing API key');
+      return;
+    }
   }
 
   /**
@@ -66,11 +220,13 @@ class Analytics {
     this.userId = userId;
     this.userProperties = { ...this.userProperties, ...properties };
 
-    logger.info('[Analytics] Identify', { userId, properties });
+    const safeProperties = sanitizeAnalyticsProperties(properties);
 
-    // INTEGRATION: Identify user in your analytics provider.
-    // Example: Mixpanel.identify(userId);
-    // Example: Mixpanel.getPeople().set(properties);
+    logger.info('[Analytics] Identify', { userId, properties: safeProperties });
+
+    this.safelyCallPostHog('identify', () => {
+      this.posthog.identify(userId, safeProperties);
+    });
   }
 
   /**
@@ -82,7 +238,9 @@ class Analytics {
     const event: AnalyticsEvent = {
       name: eventName,
       properties: {
-        ...properties,
+        app_version: appVersion,
+        platform: Platform.OS,
+        ...sanitizeAnalyticsProperties(properties),
         userId: this.userId,
         timestamp: new Date().toISOString(),
       },
@@ -91,9 +249,34 @@ class Analytics {
 
     logger.info('[Analytics] Track', event);
 
-    // INTEGRATION: Track event in your analytics provider.
-    // Example: Mixpanel.track(eventName, properties);
-    // Example: amplitude.getInstance().logEvent(eventName, properties);
+    this.safelyCallPostHog('capture', () => {
+      this.posthog.capture(eventName, event.properties);
+    });
+  }
+
+  /**
+   * Track lifecycle telemetry without attaching the identified user field.
+   * Splash/startup events must remain free of personal information.
+   */
+  trackAnonymous(eventName: string, properties?: Record<string, any>): void {
+    if (!this.enabled) return;
+
+    const event: AnalyticsEvent = {
+      name: eventName,
+      properties: {
+        app_version: appVersion,
+        platform: Platform.OS,
+        ...sanitizeAnalyticsProperties(properties),
+        timestamp: new Date().toISOString(),
+      },
+      timestamp: new Date(),
+    };
+
+    logger.info('[Analytics] Track anonymous', event);
+
+    this.safelyCallPostHog('capture anonymous', () => {
+      this.posthog.capture(eventName, event.properties);
+    });
   }
 
   /**
@@ -113,11 +296,15 @@ class Analytics {
     if (!this.enabled) return;
 
     this.userProperties = { ...this.userProperties, ...properties };
+    const safeProperties = sanitizeAnalyticsProperties(properties);
 
-    logger.info('[Analytics] Set user properties', properties);
+    logger.info('[Analytics] Set user properties', safeProperties);
 
-    // INTEGRATION: Set user properties in your analytics provider.
-    // Example: Mixpanel.getPeople().set(properties);
+    if (this.userId) {
+      this.safelyCallPostHog('set user properties', () => {
+        this.posthog.identify(this.userId, safeProperties);
+      });
+    }
   }
 
   /**
@@ -127,9 +314,6 @@ class Analytics {
     if (!this.enabled) return;
 
     logger.info('[Analytics] Increment', { property, value });
-
-    // INTEGRATION: Increment property in your analytics provider.
-    // Example: Mixpanel.getPeople().increment(property, value);
   }
 
   /**
@@ -143,8 +327,9 @@ class Analytics {
 
     logger.info('[Analytics] Reset');
 
-    // INTEGRATION: Reset in your analytics provider.
-    // Example: Mixpanel.reset();
+    this.safelyCallPostHog('reset', () => {
+      this.posthog.reset();
+    });
   }
 
   /**
@@ -154,6 +339,22 @@ class Analytics {
     this.enabled = enabled;
 
     logger.info('[Analytics] Set enabled', enabled);
+
+    if (enabled && !this.initialized) {
+      this.initialize({ enabled });
+      return;
+    }
+
+    if (enabled && !this.ensurePostHogClient()) {
+      logger.warn('[Analytics] PostHog missing API key');
+      return;
+    }
+
+    try {
+      this.posthog?.[enabled ? 'optIn' : 'optOut']?.();
+    } catch (error) {
+      logger.warn(`[Analytics] PostHog ${enabled ? 'opt in' : 'opt out'} failed`, error);
+    }
   }
 }
 
@@ -165,6 +366,10 @@ export const AnalyticsEvents = {
   // App lifecycle
   APP_OPENED: 'app_opened',
   APP_BACKGROUNDED: 'app_backgrounded',
+  SPLASH_STARTED: 'splash_started',
+  SPLASH_COMPLETED: 'splash_completed',
+  SPLASH_SKIPPED_REDUCE_MOTION: 'splash_skipped_reduce_motion',
+  SPLASH_STARTUP_WAITED: 'splash_startup_waited',
 
   // Authentication
   SIGN_UP_STARTED: 'sign_up_started',
@@ -212,16 +417,82 @@ export const AnalyticsEvents = {
   UPGRADE_INITIATED: 'upgrade_initiated',
   BURN_TO_MAKE_ROOM_INITIATED: 'burn_to_make_room_initiated',
 
+  // Trial lifecycle (no-card trial — funnel measured here, not via RevenueCat)
+  TRIAL_STARTED: 'trial_started',
+  TRIAL_EXPIRED: 'trial_expired',
+  TRIAL_CONVERTED: 'trial_converted',
+  TRIAL_BANNER_VIEWED: 'trial_banner_viewed',
+  TRIAL_BANNER_TAPPED: 'trial_banner_tapped',
+
   // Features
   MANUAL_FORGE_OPENED: 'manual_forge_opened',
   MANUAL_FORGE_COMPLETED: 'manual_forge_completed',
   MANTRA_AUDIO_PLAYED: 'mantra_audio_played',
+  SESSION_AUDIO_DEFAULT_CHANGED: 'session_audio_default_changed',
+  SESSION_AUDIO_OVERRIDE_OPENED: 'session_audio_override_opened',
+  SESSION_AUDIO_OVERRIDE_APPLIED: 'session_audio_override_applied',
+  VOICE_PREVIEW_STARTED: 'voice_preview_started',
+  VOICE_PREVIEW_COMPLETED: 'voice_preview_completed',
+  VOICE_PREVIEW_FAILED: 'voice_preview_failed',
+  SESSION_STARTED: 'session_started',
+  GUIDED_AUDIO_LOAD_FAILED: 'guided_audio_load_failed',
+  AMBIENT_AUDIO_LOAD_FAILED: 'ambient_audio_load_failed',
+  SESSION_AUDIO_FALLBACK_USED: 'session_audio_fallback_used',
+  VISUALIZE_CARD_VIEWED: 'visualize_card_viewed',
+  VISUALIZE_SELECTED: 'visualize_selected',
+  VISUALIZE_PRO_LOCK_VIEWED: 'visualize_pro_lock_viewed',
+  VISUALIZE_TRIAL_CTA_SELECTED: 'visualize_trial_cta_selected',
+  VISUALIZE_PREPARATION_VIEWED: 'visualize_preparation_viewed',
+  VISUALIZE_SCENE_GENERATION_REQUESTED: 'visualize_scene_generation_requested',
+  VISUALIZE_SCENE_GENERATED: 'visualize_scene_generated',
+  VISUALIZE_SCENE_GENERATION_FAILED: 'visualize_scene_generation_failed',
+  VISUALIZE_SCENE_FALLBACK_USED: 'visualize_scene_fallback_used',
+  VISUALIZE_SCENE_BATCH_CACHED: 'visualize_scene_batch_cached',
+  VISUALIZE_SCENE_ROTATED: 'visualize_scene_rotated',
+  VISUALIZE_SCENE_RESTORED: 'visualize_scene_restored',
+  VISUALIZE_SCENE_EDITED: 'visualize_scene_edited',
+  VISUALIZE_SUGGESTION_REQUESTED: 'visualize_suggestion_requested',
+  VISUALIZE_ORIGINAL_RESTORED: 'visualize_original_restored',
+  PRACTICE_TEMPORARY_SETTINGS_CHANGED: 'practice_temporary_settings_changed',
+  PRACTICE_SESSION_STARTED: 'practice_session_started',
+  PRACTICE_SESSION_PAUSED: 'practice_session_paused',
+  PRACTICE_SESSION_RESUMED: 'practice_session_resumed',
+  PRACTICE_SESSION_ENDED_EARLY: 'practice_session_ended_early',
+  PRACTICE_PHASE_REACHED: 'practice_phase_reached',
+  PRACTICE_SESSION_COMPLETED: 'practice_session_completed',
+  PRACTICE_MODE_SELECTED: 'practice_mode_selected',
+  PRACTICE_CURRENT_ANCHOR_CHANGED: 'practice_current_anchor_changed',
+  THREAD_STRENGTH_OPENED: 'thread_strength_opened',
+  PRACTICE_DATA_MIGRATION_COMPLETED: 'practice_data_migration_completed',
+  PRACTICE_DATA_MIGRATION_FAILED: 'practice_data_migration_failed',
+  PRACTICE_SYNC_FAILED: 'practice_sync_failed',
+  PRACTICE_DUPLICATE_PREVENTED: 'practice_duplicate_prevented',
+  VISUALIZE_NEXT_ACTION_SAVED: 'visualize_next_action_saved',
+  VISUALIZE_PRACTICE_AGAIN_SELECTED: 'visualize_practice_again_selected',
+  VISUALIZE_RETURN_TO_SANCTUARY_SELECTED: 'visualize_return_to_sanctuary_selected',
 
   // Navigation
   VAULT_VIEWED: 'vault_viewed',
   DISCOVER_VIEWED: 'discover_viewed',
   SHOP_VIEWED: 'shop_viewed',
   PROFILE_VIEWED: 'profile_viewed',
+
+  // Notifications
+  NOTIFICATION_PERMISSION_PROMPT_SHOWN: 'notification_permission_prompt_shown',
+  NOTIFICATION_PERMISSION_GRANTED: 'notification_permission_granted',
+  NOTIFICATION_PERMISSION_DENIED: 'notification_permission_denied',
+  NOTIFICATION_SCHEDULED: 'notification_scheduled',
+  NOTIFICATION_SENT: 'notification_sent',
+  NOTIFICATION_OPENED: 'notification_opened',
+  NOTIFICATION_ACTION_COMPLETED: 'notification_action_completed',
+
+  // Daily Prime reminder prompt (post first-anchor / fallback moment)
+  NOTIFICATION_PROMPT_CARD_VIEWED: 'notification_prompt_card_viewed',
+  NOTIFICATION_SET_DAILY_REMINDER_TAPPED: 'notification_set_daily_reminder_tapped',
+  NOTIFICATION_NOT_NOW_TAPPED: 'notification_not_now_tapped',
+  DAILY_PRIME_REMINDER_SCHEDULED: 'daily_prime_reminder_scheduled',
+  DAILY_PRIME_REMINDER_DISABLED: 'daily_prime_reminder_disabled',
+  DAILY_PRIME_REMINDER_TIME_CHANGED: 'daily_prime_reminder_time_changed',
 
   // Merch / Physical Anchors
   MERCH_INITIATED_FROM_ANCHOR_DETAILS: 'merch_initiated_from_anchor_details',
@@ -231,4 +502,14 @@ export const AnalyticsEvents = {
   // Errors
   ERROR_OCCURRED: 'error_occurred',
   API_ERROR: 'api_error',
+
+  // Friction tracking
+  FLOW_STARTED: 'flow_started',
+  FLOW_STEP_VIEWED: 'flow_step_viewed',
+  FLOW_STEP_COMPLETED: 'flow_step_completed',
+  FLOW_STEP_ABANDONED: 'flow_step_abandoned',
+  FLOW_BLOCKED: 'flow_blocked',
+  FLOW_RETRY: 'flow_retry',
+  FLOW_ERROR: 'flow_error',
+  FLOW_COMPLETED: 'flow_completed',
 } as const;

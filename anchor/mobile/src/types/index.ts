@@ -4,6 +4,15 @@
  * Core domain types and interfaces used throughout the application.
  */
 
+import type {
+  SessionAudioConfiguration,
+  SessionAudioDefaultsByType,
+} from './sessionAudio';
+export * from './sessionAudio';
+import type { PracticeEntrySource } from './practice';
+export * from './chart';
+import type { ChartFeatureFlags } from './chart';
+
 // ============================================================================
 // Core Domain Types
 // ============================================================================
@@ -155,14 +164,17 @@ export enum PlanetaryTier {
  * Maps legacy categories to the new 5-tier planetary system
  */
 export const CATEGORY_TO_TIER: Record<AnchorCategory, PlanetaryTier> = {
-  career: PlanetaryTier.JUPITER,
-  wealth: PlanetaryTier.JUPITER,
-  health: PlanetaryTier.MARS,
-  relationships: PlanetaryTier.VENUS,
-  personal_growth: PlanetaryTier.SATURN,
   desire: PlanetaryTier.SUN,
-  experience: PlanetaryTier.VENUS,
-  custom: PlanetaryTier.SATURN
+  health: PlanetaryTier.MARS,
+  career: PlanetaryTier.JUPITER,
+  relationships: PlanetaryTier.VENUS,
+  creativity: PlanetaryTier.SUN,
+  spirituality: PlanetaryTier.SATURN,
+  abundance: PlanetaryTier.JUPITER,
+  family: PlanetaryTier.VENUS,
+  learning: PlanetaryTier.SATURN,
+  adventure: PlanetaryTier.VENUS,
+  custom: PlanetaryTier.SATURN,
 };
 
 /**
@@ -195,6 +207,12 @@ export interface User {
   stabilizeStreakDays: number;
   lastStabilizeAt?: Date;
   createdAt: Date;
+  // Server-authoritative trial anchor (resettable per-account). Optional for
+  // backward-compat with backends that predate the column.
+  trialStartedAt?: string;
+  isTrialExpired?: boolean;
+  /** Server-driven Chart flags from /api/auth/me. Defaults off when absent. */
+  chartFlags?: ChartFeatureFlags;
 }
 
 export type AuthScreenContext = 'onboarding' | 'first_anchor_gate' | 'save_progress' | 'paywall';
@@ -205,6 +223,7 @@ export interface AuthScreenParams {
   context?: AuthScreenContext;
   initialTab?: AuthScreenInitialTab;
   preferredPlanId?: AuthPreferredPlanId;
+  anchorId?: string;
 }
 
 export interface PendingFirstAnchorDraft {
@@ -227,6 +246,7 @@ export type PendingFirstAnchorMutation =
     tempAnchorId: string;
     chargeType: ChargeType;
     durationSeconds: number;
+    idempotencyKey?: string;
     queuedAt: string;
   }
   | {
@@ -234,6 +254,7 @@ export type PendingFirstAnchorMutation =
     tempAnchorId: string;
     activationType: ActivationType;
     durationSeconds: number;
+    idempotencyKey?: string;
     queuedAt: string;
   };
 
@@ -253,9 +274,14 @@ export interface UserSettings {
   defaultChargeDuration: number; // in seconds
   focusSessionMode: 'quick' | 'deep';
   focusSessionDuration: number;
+  /** @deprecated Read sessionAudioDefaults instead. Retained for rolling migration. */
   focusSessionAudio: 'silent' | 'ambient';
   primeSessionDuration: number;
+  visualizeSessionDuration?: number;
+  /** @deprecated Read sessionAudioDefaults instead. Retained for rolling migration. */
   primeSessionAudio: 'silent' | 'ambient';
+  /** Voice & Sound defaults. Optional while older backends roll forward. */
+  sessionAudioDefaults?: SessionAudioDefaultsByType;
   hapticIntensity: number; // 1-5 scale
   vaultViewType: 'grid' | 'list';
   updatedAt: Date;
@@ -324,6 +350,7 @@ export interface ApiResponse<T = any> {
   meta?: {
     page?: number;
     total?: number;
+    nextCursor?: string | null;
   };
 }
 
@@ -443,21 +470,39 @@ export interface EnhancementMetadata {
  * Updated to reflect validated styles from spike phase
  */
 export type AIStyle =
-  | 'watercolor'
-  | 'sacred_geometry'
-  | 'ink_brush'
-  | 'gold_leaf'
-  | 'cosmic'
   | 'architectural_trace'
   | 'lunar_etch'
   | 'resonance_rings'
+  | 'watercolor'
+  | 'ink_brush'
+  | 'gold_leaf'
+  | 'cosmic'
   | 'minimal_line'
   | 'obsidian_mono'
   | 'aurora_glow'
   | 'ember_trace'
-  | 'echo_chamber'
   | 'monolith_ink'
-  | 'celestial_grid';
+  | 'celestial_grid'
+  | 'echo_chamber'
+  | 'prism_veil'
+  | 'verdigris_relic'
+  | 'solar_halo'
+  | 'tideglass'
+  | 'sacred_geometry'
+  | 'velvet_ember';
+
+export type PaywallSource =
+  | 'post_trial'
+  | 'gated_feature'
+  | 'create_anchor_free_locked'
+  | 'trial_anchor_cap_reached'
+  | 'free_weekly_sessions_used'
+  | 'premium_practice_locked';
+
+export type NavigationResumeTarget =
+  | { kind: 'visualize_prepare'; anchorId: string }
+  | { kind: 'chart_ai_plan'; destinationText: string }
+  | { kind: 'chart_waypoint'; courseId: string; waypointId: string };
 
 export interface GeneratedVariation {
   variationId?: string;
@@ -540,12 +585,33 @@ export type RootStackParamList = {
   // VAULT & ANCHOR MANAGEMENT
   // ═══════════════════════════════════════════════════
   Vault: undefined;
-  FirstAnchorAccountGate: undefined;
-  SaveProgress: { anchorId: string };
+  SaveProgress: { anchor: Anchor };
   TrialSignUp: undefined;
   AnchorDetail: { anchorId: string };
+  VisualizePreparation: { anchorId: string; source?: string };
+  VisualizeSession: {
+    anchorId: string;
+    durationSeconds: 60 | 180 | 300;
+    sceneText: string;
+    guidanceVoice: 'female' | 'male' | 'none';
+    backgroundAudio: 'ambient' | 'off';
+    source?: 'practice_screen' | 'anchor_detail' | 'deep_link';
+  };
+  VisualizeCompletion: {
+    anchorId: string;
+    sessionId: string;
+    durationSeconds: 60 | 180 | 300;
+    source?: 'practice_screen' | 'anchor_detail' | 'deep_link';
+    sceneText?: string;
+  };
   AuthGate: undefined;
-  Paywall: { source?: 'post_trial' | 'gated_feature'; preferredPlanId?: AuthPreferredPlanId } | undefined;
+  Paywall:
+    | {
+      source?: PaywallSource;
+      preferredPlanId?: AuthPreferredPlanId;
+      resumeTarget?: NavigationResumeTarget;
+    }
+    | undefined;
   CreateAnchor: undefined;
   /** First anchor creation after onboarding — shows new-user IntentionInputScreen */
   FirstAnchorCreation: undefined;
@@ -673,6 +739,8 @@ export type RootStackParamList = {
     reinforcementMetadata?: ReinforcementMetadata;
     enhancementMetadata?: EnhancementMetadata;
   };
+  /** Canonical first-time bridge from a saved Anchor to Sanctuary/practice. */
+  PrimeYourAnchor: { anchorId: string };
 
   // DEFERRED: Mantra feature removed from launch flow — reintroduce in v1.1.
   // MantraCreation: {
@@ -745,11 +813,14 @@ export type RootStackParamList = {
     enhancedImageUrl?: string;
     sigilSvg?: string;
     returnTo?: 'charge_setup' | 'vault';
+    fromOnboarding?: boolean;
   };
   ChargeSetup: {
     anchorId: string;
     returnTo?: 'vault' | 'practice' | 'detail';
     autoStartOnSelection?: boolean;
+    initialDuration?: 'quick' | 'deep';
+    fromOnboarding?: boolean;
   };
   BreathingAnimation: {
     source?: 'charge' | 'practice';
@@ -763,12 +834,17 @@ export type RootStackParamList = {
     ritualType: 'focus' | 'ritual' | 'quick' | 'deep'; // Legacy types for compatibility
     durationSeconds?: number; // Optional custom duration for focus/ritual modes
     mantraAudioEnabled?: boolean;
+    audioConfiguration?: SessionAudioConfiguration;
+    /** @deprecated Compatibility for location presets saved before Voice & Sound v2. */
+    audioModeOverride?: 'silent' | 'ambient';
     returnTo?: 'vault' | 'practice' | 'detail';
   };
   SealAnchor: { anchorId: string; returnTo?: 'vault' | 'practice' | 'detail' };
   ChargeComplete: {
     anchorId: string;
     durationSeconds?: number;
+    completionEventId?: string;
+    audioConfiguration?: SessionAudioConfiguration;
     returnTo?: 'vault' | 'practice' | 'detail';
   };
   FirstPrimeComplete: {
@@ -776,6 +852,8 @@ export type RootStackParamList = {
     sessionCount: number;
     threadStrength: number;
     durationSeconds: number;
+    completionEventId?: string;
+    audioConfiguration?: SessionAudioConfiguration;
     returnTo?: 'vault' | 'practice' | 'detail';
   };
 
@@ -784,7 +862,11 @@ export type RootStackParamList = {
     anchorId: string;
     activationType: ActivationType;
     durationOverride?: number;
+    audioConfiguration?: SessionAudioConfiguration;
+    /** @deprecated Compatibility for location presets saved before Voice & Sound v2. */
+    audioModeOverride?: 'silent' | 'ambient';
     returnTo?: 'vault' | 'practice' | 'detail' | 'reinforce';
+    initialDuration?: 'quick' | 'deep';
   };
 
   // Phase 3: Burning Ritual
@@ -793,6 +875,8 @@ export type RootStackParamList = {
     intention: string;
     sigilSvg: string;
     enhancedImageUrl?: string;
+    returnTo?: 'vault' | 'practice' | 'detail';
+    source?: PracticeEntrySource;
   };
 
   BurningRitual: {
@@ -800,6 +884,8 @@ export type RootStackParamList = {
     intention: string;
     sigilSvg: string;
     enhancedImageUrl?: string;
+    returnTo?: 'vault' | 'practice' | 'detail';
+    source?: PracticeEntrySource;
   };
 
   // ═══════════════════════════════════════════════════
@@ -836,47 +922,128 @@ export type RootStackParamList = {
   // ═══════════════════════════════════════════════════
   Settings: undefined;
   SessionDefaults: undefined;
-  DailyPracticeGoal: undefined;
-  ThreadStrength: undefined;
-  RestDays: undefined;
-  // DEFERRED: replaced by SessionDefaultsScreen — remove post-launch.
-  DefaultCharge: undefined;
-  // DEFERRED: replaced by SessionDefaultsScreen — remove post-launch.
-  DefaultActivation: undefined;
-  // DEFERRED: replaced by SessionDefaultsScreen — remove post-launch.
-  PrimingDefaults: undefined;
-  // DEFERRED: replaced by SessionDefaultsScreen — remove post-launch.
-  DefaultFocusMode: undefined;
 
-  // Appearance Settings
-  ThemeSelection: undefined;
-  AccentColor: undefined;
-  VaultView: undefined;
-
-  // Audio & Haptics Settings
-  MantraVoice: undefined;
-  VoiceStyle: undefined;
-  HapticFeedback: undefined;
-
-  // Data & Privacy Settings
-  DataPrivacy: undefined;
+  // Deferred merch flow. Kept typed while ENABLE_MERCH gates production access.
+  ProductSelection: {
+    anchorId: string;
+    sigilSvg: string;
+    intentionText: string;
+  };
+  ProductMockup: {
+    anchorId: string;
+    sigilSvg: string;
+    intentionText: string;
+    productType: 'print' | 'hoodie' | 'keychain' | 't-shirt' | 'phone-case';
+  };
+  Checkout: {
+    anchorId: string;
+    productType: 'print' | 'hoodie' | 'keychain' | 't-shirt' | 'phone-case';
+    size: string;
+    color: string;
+  };
 };
 
 export type PracticeStackParamList = {
-  PracticeHome: undefined;
+  PracticeHome: { anchorId?: string } | undefined;
+  ThreadStrengthDetail: undefined;
   // DEFERRED: StabilizeRitual: { anchorId: string }; — restore post-launch
   Evolve: undefined;
+  ChargeSetup: {
+    anchorId: string;
+    returnTo?: 'practice';
+    autoStartOnSelection?: boolean;
+    initialDuration?: 'quick' | 'deep';
+    fromOnboarding?: boolean;
+    source?: PracticeEntrySource;
+  };
+  BreathingAnimation: {
+    source?: 'charge' | 'practice';
+    anchorId?: string;
+    mode?: string;
+    duration?: number;
+    returnTo?: 'practice';
+  };
+  Ritual: {
+    anchorId: string;
+    ritualType: 'focus' | 'ritual' | 'quick' | 'deep';
+    durationSeconds?: number;
+    mantraAudioEnabled?: boolean;
+    audioConfiguration?: SessionAudioConfiguration;
+    audioModeOverride?: 'silent' | 'ambient';
+    returnTo?: 'practice';
+    source?: PracticeEntrySource;
+  };
+  SealAnchor: { anchorId: string; returnTo?: 'practice' };
+  ChargeComplete: {
+    anchorId: string;
+    durationSeconds?: number;
+    completionEventId?: string;
+    audioConfiguration?: SessionAudioConfiguration;
+    returnTo?: 'practice';
+  };
+  FirstPrimeComplete: {
+    anchorId: string;
+    sessionCount: number;
+    threadStrength: number;
+    durationSeconds: number;
+    completionEventId?: string;
+    audioConfiguration?: SessionAudioConfiguration;
+    returnTo?: 'practice';
+  };
+  ActivationRitual: {
+    anchorId: string;
+    activationType: ActivationType;
+    durationOverride?: number;
+    audioConfiguration?: SessionAudioConfiguration;
+    audioModeOverride?: 'silent' | 'ambient';
+    returnTo?: 'practice';
+    initialDuration?: 'quick' | 'deep';
+    source?: PracticeEntrySource;
+  };
+  ManualReinforcement:
+    | {
+      source: 'post_prime_trace';
+      anchorId: string;
+    }
+    | {
+      source: 'creation';
+      intentionText: string;
+      category: AnchorCategory;
+      distilledLetters: string[];
+      baseSigilSvg: string;
+      structureVariant: SigilVariant;
+      reinforcedSigilSvg?: string;
+      reinforcementMetadata?: ReinforcementMetadata;
+    };
+  VisualizePreparation: { anchorId: string; source?: PracticeEntrySource };
+  VisualizeSession: {
+    anchorId: string;
+    durationSeconds: 60 | 180 | 300;
+    sceneText: string;
+    guidanceVoice: 'female' | 'male' | 'none';
+    backgroundAudio: 'ambient' | 'off';
+  };
+  VisualizeCompletion: {
+    anchorId: string;
+    sessionId: string;
+    durationSeconds: 60 | 180 | 300;
+    sceneText?: string;
+  };
   ConfirmBurn: {
     anchorId: string;
     intention: string;
     sigilSvg: string;
     enhancedImageUrl?: string;
+    returnTo?: 'practice';
+    source?: PracticeEntrySource;
   };
   BurningRitual: {
     anchorId: string;
     intention: string;
     sigilSvg: string;
     enhancedImageUrl?: string;
+    returnTo?: 'practice';
+    source?: PracticeEntrySource;
   };
 };
 

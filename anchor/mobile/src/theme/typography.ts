@@ -24,6 +24,12 @@ export const typography = {
 
   // Font families (new structure)
   fontFamily: {
+    ritual: 'Cinzel-Regular',
+    ritualSemiBold: 'Cinzel-SemiBold',
+    voice: 'EBGaramond-Regular',
+    voiceItalic: 'EBGaramond-Italic',
+    instrument: 'Inter-Regular',
+    instrumentSemiBold: 'Inter-SemiBold',
     serif: 'Cinzel-Regular',
     serifBold: 'Cinzel-Bold',
     serifSemiBold: 'Cinzel-SemiBold',
@@ -75,7 +81,7 @@ export const typography = {
   body: { fontFamily: 'Inter-Regular', fontSize: 16, lineHeight: 24 },
   bodyBold: { fontFamily: 'Inter-SemiBold', fontSize: 16, lineHeight: 24 },
   bodySerifItalic: {
-    fontFamily: 'CormorantGaramond-Italic',
+    fontFamily: 'EBGaramond-Italic',
     fontStyle: 'italic' as const,
     fontSize: 16,
     lineHeight: 24,

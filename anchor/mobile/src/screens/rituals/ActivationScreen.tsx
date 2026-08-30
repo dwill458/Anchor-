@@ -22,7 +22,12 @@ import { colors, spacing, typography } from '@/theme';
 import { apiClient } from '@/services/ApiClient';
 import BackendAnchorService, { isBackendAnchorId } from '@/services/BackendAnchorService';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
-import { AnalyticsService } from '@/services/AnalyticsService';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
+import { FrictionAnalytics } from '@/services/FrictionAnalytics';
+import {
+  recordReviewSignal,
+  requestReviewIfEligible,
+} from '@/services/reviewPromptService';
 import { useToast } from '@/components/ToastProvider';
 import { logger } from '@/utils/logger';
 import { RitualScaffold } from './components/RitualScaffold';
@@ -40,21 +45,39 @@ import {
   markPostPrimeTraceAttemptStarted,
 } from '@/utils/postPrimeTraceEligibility';
 import { useMissingAnchorRedirect } from './utils/useMissingAnchorRedirect';
-import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
 import {
   buildRecoveredChargeState,
   isFirstPrimeForAnchor as isAnchorFirstPrime,
   needsChargeStateBackfill,
 } from '@/utils/anchorPriming';
+import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
+import { createPracticeEventId } from '@/utils/primingAnalytics';
+import {
+  DEFAULT_SESSION_AUDIO_DEFAULTS,
+  legacyAudioModeToSessionAudioDefaults,
+  resolveSessionAudioConfiguration,
+  type SessionAudioConfiguration,
+  type SessionAudioDefaults,
+} from '@/types/sessionAudio';
+import { persistSessionAudioDefaults } from '@/services/SessionAudioPreferencesService';
+import { resolveSessionAudioPlan } from '@/services/SessionAudioManifest';
+import { PracticeCompletionService } from '@/services/PracticeCompletionService';
 
 type ActivationRouteProp = RouteProp<RootStackParamList, 'ActivationRitual'>;
 type ActivationNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ActivationRitual'>;
 
 export const ActivationScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { navigateToPractice } = useTabNavigation();
+  const { navigateToPractice, navigateToPaywall } = useTabNavigation();
   const route = useRoute<ActivationRouteProp>();
-  const { anchorId, activationType, durationOverride, returnTo } = route.params;
+  const {
+    anchorId,
+    activationType,
+    durationOverride,
+    audioConfiguration,
+    audioModeOverride,
+    returnTo,
+  } = route.params;
   const toast = useToast();
 
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
@@ -67,12 +90,26 @@ export const ActivationScreen: React.FC = () => {
     (state) => state.enqueuePendingFirstAnchorMutation
   );
   const focusSessionDuration = useSettingsStore((state) => state.focusSessionDuration ?? 30);
-  const focusSessionAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'ambient');
+  const focusSessionAudioDefaults = useSettingsStore(
+    (state) => state.sessionAudioDefaults?.focus ?? DEFAULT_SESSION_AUDIO_DEFAULTS.focus
+  );
+  const [resolvedFocusSessionAudio, setResolvedFocusSessionAudio] =
+    useState<SessionAudioConfiguration>(() =>
+      audioConfiguration ??
+      resolveSessionAudioConfiguration(
+        focusSessionAudioDefaults,
+        audioModeOverride
+          ? legacyAudioModeToSessionAudioDefaults(audioModeOverride)
+          : undefined
+      )
+    );
+  const traceDefaultEnabled = useSettingsStore((state) => state.traceDefaultEnabled ?? true);
   const { recordSession, bumpThreadStrength } = useSessionStore();
   const { recordShown } = useTeachingStore();
   const { handlePrimeComplete } = useNotificationController();
   const beginPostPrimeTraceFlow = usePostPrimeTraceStore((state) => state.beginFlow);
   const activeFlow = usePostPrimeTraceStore((state) => state.activeFlow);
+  const primeSessionAccess = usePrimeSessionAccess();
   const anchor = getAnchorById(anchorId);
   const isPendingFirstAnchor = pendingFirstAnchorDraft?.tempAnchorId === anchorId;
   const anchorHeroUri = anchor
@@ -83,6 +120,30 @@ export const ActivationScreen: React.FC = () => {
   const isAnchorMissing = !anchor;
 
   useMissingAnchorRedirect(!isAnchorMissing, navigation);
+
+  useEffect(() => {
+    if (isAnchorMissing || primeSessionAccess.focus.isAllowed) {
+      return;
+    }
+
+    const task = InteractionManager.runAfterInteractions(() => {
+      navigation.goBack();
+      requestAnimationFrame(() => {
+        AnalyticsService.track('free_weekly_sessions_used', {
+          source: 'activation_screen_backstop',
+          remaining_weekly_free_sessions: primeSessionAccess.focus.remaining,
+          tier: primeSessionAccess.tier,
+        });
+
+        navigateToPaywall({
+          source: 'free_weekly_sessions_used',
+          preferredPlanId: 'annual',
+        });
+      });
+    });
+
+    return () => task.cancel();
+  }, [isAnchorMissing, navigateToPaywall, navigation, primeSessionAccess.focus.isAllowed]);
 
   // Ground Note (Pattern 2): shown on first charge session, guide ON
   const groundNoteTeaching = useTeachingGate({
@@ -102,7 +163,11 @@ export const ActivationScreen: React.FC = () => {
   const [pendingPostPrimeFlowId, setPendingPostPrimeFlowId] = useState<string | null>(null);
   const exitingRef = React.useRef(false);
   const sessionCompletedRef = React.useRef(false);
+  const completionStartedRef = React.useRef(false);
+  const hasRecordedRef = React.useRef(false);
   const hasLoggedActivationRef = React.useRef(false);
+  const activationSyncFailedRef = React.useRef(false);
+  const completionEventIdRef = React.useRef(createPracticeEventId());
   const focusSessionExitAudioHandlerRef = React.useRef<(() => Promise<void>) | null>(null);
   const completionTransitionTaskRef = React.useRef<{ cancel?: () => void } | null>(null);
 
@@ -127,10 +192,20 @@ export const ActivationScreen: React.FC = () => {
 
     return Math.max(10, Math.min(120, Math.round(focusSessionDuration)));
   }, [durationOverride, focusSessionDuration]);
+  const focusSessionAudioPlan = useMemo(
+    () =>
+      resolveSessionAudioPlan({
+        sessionType: 'focus',
+        durationSeconds: activationDurationSeconds,
+        configuration: resolvedFocusSessionAudio,
+      }),
+    [activationDurationSeconds, resolvedFocusSessionAudio]
+  );
 
   const logActivationInBackground = useCallback(async (): Promise<void> => {
     if (hasLoggedActivationRef.current) return;
     hasLoggedActivationRef.current = true;
+    activationSyncFailedRef.current = false;
 
     const localActivationTime = new Date();
     const currentActivationCount = anchor?.activationCount ?? 0;
@@ -142,6 +217,24 @@ export const ActivationScreen: React.FC = () => {
           : null;
     let effectiveAnchorId = anchorId;
     let backendSyncFailed = false;
+
+    const trackActivationCompleted = (backendSynced: boolean, queued = false) => {
+      const properties = {
+        anchor_id: effectiveAnchorId,
+        activation_type: activationType || 'visual',
+        duration_seconds: activationDurationSeconds,
+        backend_synced: backendSynced,
+        queued,
+        is_first_prime: isFirstPrimeForAnchor,
+        guidance_voice: focusSessionAudioPlan.configuration.guidanceVoice,
+        requested_guidance_voice:
+          focusSessionAudioPlan.requestedConfiguration.guidanceVoice,
+        background_audio: focusSessionAudioPlan.configuration.backgroundAudio,
+        audio_source: focusSessionAudioPlan.configuration.source,
+      };
+      AnalyticsService.track(AnalyticsEvents.ANCHOR_ACTIVATED, properties);
+      AnalyticsService.track(AnalyticsEvents.ACTIVATION_RITUAL_COMPLETED, properties);
+    };
 
     updateAnchor(anchorId, {
       activationCount: currentActivationCount + 1,
@@ -159,9 +252,11 @@ export const ActivationScreen: React.FC = () => {
           tempAnchorId: anchorId,
           activationType: activationType || 'visual',
           durationSeconds: activationDurationSeconds,
+          idempotencyKey: completionEventIdRef.current,
           queuedAt: localActivationTime.toISOString(),
         });
         toast.success('Prime session saved for your first anchor');
+        trackActivationCompleted(false, true);
         return;
       }
 
@@ -178,13 +273,16 @@ export const ActivationScreen: React.FC = () => {
       }
 
       if (backendSyncFailed) {
+        activationSyncFailedRef.current = true;
         toast.error('Prime session completed but failed to sync. Will retry later.');
+        trackActivationCompleted(false);
         return;
       }
 
       const response = await apiClient.post(`/api/anchors/${effectiveAnchorId}/activate`, {
         activationType: activationType || 'visual',
         durationSeconds: activationDurationSeconds,
+        idempotencyKey: completionEventIdRef.current,
       });
 
       if (response.data.data) {
@@ -216,8 +314,10 @@ export const ActivationScreen: React.FC = () => {
       }
 
       toast.success('Prime session logged successfully');
+      trackActivationCompleted(true);
     } catch (error) {
       if (error instanceof Error && error.message === 'Anchor not found') {
+        activationSyncFailedRef.current = true;
         toast.error('This anchor is no longer available.');
         navigateToVaultDestination(navigation, 'replace');
         return;
@@ -232,7 +332,9 @@ export const ActivationScreen: React.FC = () => {
         }
       );
 
+      activationSyncFailedRef.current = true;
       toast.error('Prime session completed but failed to sync. Will retry later.');
+      trackActivationCompleted(false);
     }
   }, [
     activationDurationSeconds,
@@ -244,10 +346,29 @@ export const ActivationScreen: React.FC = () => {
     incrementTotalPrimes,
     isPendingFirstAnchor,
     isFirstPrimeForAnchor,
+    focusSessionAudioPlan,
     shouldBackfillChargeState,
     toast,
     updateAnchor,
   ]);
+
+  const scheduleReviewRequestAfterHomeReturn = useCallback(() => {
+    if (isPendingFirstAnchor || (returnTo !== 'practice' && returnTo !== 'vault')) {
+      return;
+    }
+
+    InteractionManager.runAfterInteractions(() => {
+      void requestReviewIfEligible('focus_session_complete', {
+        isReturningToHomeAfterFocusSession: true,
+        recentSessionFailed: activationSyncFailedRef.current,
+        isOnboarding: false,
+        isAnchorCreation: false,
+        isPaywall: false,
+        isActiveFocusSession: false,
+        isActiveDeepPrimeSession: false,
+      });
+    });
+  }, [isPendingFirstAnchor, returnTo]);
 
   // Show completion modal instead of immediately going back
   const handleSessionCompleted = useCallback(() => {
@@ -256,9 +377,11 @@ export const ActivationScreen: React.FC = () => {
     recordPrimeSession();
   }, [recordPrimeSession]);
 
-  const showReflectionModal = useCallback(() => {
+  const showReflectionModal = useCallback((options?: { keepTraceLink?: boolean }) => {
     sessionCompletedRef.current = true;
-    setShowPostPrimeTrace(false);
+    if (!options?.keepTraceLink) {
+      setShowPostPrimeTrace(false);
+    }
     setShowExitWarning(false);
 
     completionTransitionTaskRef.current?.cancel?.();
@@ -269,6 +392,10 @@ export const ActivationScreen: React.FC = () => {
   }, []);
 
   const handleComplete = useCallback(async () => {
+    if (completionStartedRef.current) {
+      return;
+    }
+    completionStartedRef.current = true;
     sessionCompletedRef.current = true;
     setShowExitWarning(false);
 
@@ -285,11 +412,20 @@ export const ActivationScreen: React.FC = () => {
 
     if (shouldOfferPostPrimeTrace) {
       setShowPostPrimeTrace(true);
+      if (!traceDefaultEnabled) {
+        showReflectionModal({ keepTraceLink: true });
+      }
       return;
     }
 
     showReflectionModal();
-  }, [handlePrimeComplete, isFirstPrimeForAnchor, logActivationInBackground, showReflectionModal]);
+  }, [
+    handlePrimeComplete,
+    isFirstPrimeForAnchor,
+    logActivationInBackground,
+    showReflectionModal,
+    traceDefaultEnabled,
+  ]);
 
   const handleSkipPostPrimeTrace = useCallback(() => {
     showReflectionModal();
@@ -301,6 +437,7 @@ export const ActivationScreen: React.FC = () => {
     const flowId = beginPostPrimeTraceFlow(anchorId);
     setPendingPostPrimeFlowId(flowId);
     setShowPostPrimeTrace(false);
+    setShowCompletion(false);
 
     navigation.navigate('ManualReinforcement', {
       source: 'post_prime_trace',
@@ -334,6 +471,11 @@ export const ActivationScreen: React.FC = () => {
 
     if (completedPostPrimeTrace) {
       bumpThreadStrength(2);
+      FrictionAnalytics.completeFlow('activation', {
+        anchor_id: anchorId,
+        result: 'post_prime_trace_completed',
+        session_duration_seconds: activationDurationSeconds,
+      });
       AnalyticsService.track('post_prime_trace_completed', {
         anchor_id: anchorId,
         session_duration_seconds: activationDurationSeconds,
@@ -371,8 +513,8 @@ export const ActivationScreen: React.FC = () => {
     }
 
     if (returnTo === 'vault') {
-      if (isPendingFirstAnchor) {
-        navigation.replace('SaveProgress', { anchorId });
+      if (isPendingFirstAnchor && anchor) {
+        navigation.replace('SaveProgress', { anchor });
       } else {
         navigateToVaultDestination(navigation, 'replace');
       }
@@ -380,7 +522,7 @@ export const ActivationScreen: React.FC = () => {
     }
 
     navigation.goBack();
-  }, [anchorId, isPendingFirstAnchor, navigateToPractice, navigation, returnTo]);
+  }, [anchor, anchorId, isPendingFirstAnchor, navigateToPractice, navigation, returnTo]);
 
   const promptExitSession = useCallback(() => {
     setShowExitWarning(true);
@@ -423,26 +565,50 @@ export const ActivationScreen: React.FC = () => {
   }, [handleComplete, promptExitSession]);
 
   const handleCompletionDone = useCallback(async (reflectionWord?: string) => {
+    if (hasRecordedRef.current) {
+      return;
+    }
+    hasRecordedRef.current = true;
+
     setShowCompletion(false);
     setShowExitWarning(false);
     exitingRef.current = true;
 
     // Record session locally
-    recordSession({
+    const completedAt = new Date().toISOString();
+    const completionEventId = recordSession({
+      idempotencyKey: completionEventIdRef.current,
       anchorId,
       type: 'activate',
       durationSeconds: activationDurationSeconds,
-      mode: focusSessionAudio,
+      mode:
+        focusSessionAudioPlan.configuration.backgroundAudio === 'ambient' ||
+        focusSessionAudioPlan.configuration.guidanceVoice !== 'none'
+          ? 'ambient'
+          : 'silent',
+      audioConfiguration: focusSessionAudioPlan.configuration,
       reflectionWord,
-      completedAt: new Date().toISOString(),
+      completedAt,
     });
-    await queueProgressionMilestonesFromStores();
+    await PracticeCompletionService.queueLegacyCompletion({
+      id: completionEventId,
+      anchorId,
+      anchorLocalId: anchor?.localId,
+      practiceMode: 'focus',
+      durationSeconds: activationDurationSeconds,
+      completedAt,
+      guidanceVoice: focusSessionAudioPlan.configuration.guidanceVoice,
+      backgroundAudio: focusSessionAudioPlan.configuration.backgroundAudio,
+      source: returnTo === 'practice' ? 'practice_screen' : 'anchor_detail',
+    });
+    void recordReviewSignal('focus_session_completed');
 
     if (returnTo === 'practice') {
       if (typeof navigation.popToTop === 'function') {
         navigation.popToTop();
       }
       navigateToPractice();
+      scheduleReviewRequestAfterHomeReturn();
     } else if (returnTo === 'reinforce') {
       navigation.replace('Ritual', {
         anchorId,
@@ -453,15 +619,17 @@ export const ActivationScreen: React.FC = () => {
     } else if (returnTo === 'detail') {
       navigation.navigate('AnchorDetail', { anchorId });
     } else if (returnTo === 'vault') {
-      if (isPendingFirstAnchor) {
-        navigation.replace('SaveProgress', { anchorId });
+      if (isPendingFirstAnchor && anchor) {
+        navigation.replace('SaveProgress', { anchor });
       } else {
         navigateToVaultDestination(navigation, 'replace');
+        scheduleReviewRequestAfterHomeReturn();
       }
     } else {
       navigation.goBack();
     }
   }, [
+    anchor,
     anchorId,
     activationDurationSeconds,
     isPendingFirstAnchor,
@@ -470,8 +638,9 @@ export const ActivationScreen: React.FC = () => {
     navigation,
     recordSession,
     handlePrimeComplete,
-    focusSessionAudio,
+    focusSessionAudioPlan,
     returnTo,
+    scheduleReviewRequestAfterHomeReturn,
   ]);
 
   if (isAnchorMissing) {
@@ -490,6 +659,13 @@ export const ActivationScreen: React.FC = () => {
         intentionText={anchor.intentionText}
         anchorImageUri={anchorHeroUri}
         durationSeconds={activationDurationSeconds}
+        audioConfiguration={resolvedFocusSessionAudio}
+        onAudioConfigurationChange={(value: SessionAudioDefaults, makeDefault: boolean) => {
+          setResolvedFocusSessionAudio({ ...value, source: 'session_override' });
+          if (makeDefault) {
+            void persistSessionAudioDefaults('focus', value).catch(() => undefined);
+          }
+        }}
         onComplete={handleComplete}
         onSessionCompleted={handleSessionCompleted}
         groundNoteText={groundNoteTeaching?.copy}
@@ -510,6 +686,7 @@ export const ActivationScreen: React.FC = () => {
         anchor={anchor}
         onTrace={handleBeginPostPrimeTrace}
         onSkip={handleSkipPostPrimeTrace}
+        compact={!traceDefaultEnabled}
       />
       <CompletionModal
         visible={showCompletion}
@@ -523,10 +700,10 @@ export const ActivationScreen: React.FC = () => {
         visible={showExitWarning}
         title="Exit Focus Session?"
         body="You will need to start over if you leave now."
-        primaryCtaLabel="Exit"
-        secondaryCtaLabel="Stay"
-        onPrimary={exitSession}
-        onSecondary={() => setShowExitWarning(false)}
+        primaryCtaLabel="Keep Practicing"
+        secondaryCtaLabel="Exit"
+        onPrimary={() => setShowExitWarning(false)}
+        onSecondary={exitSession}
       />
     </>
   );

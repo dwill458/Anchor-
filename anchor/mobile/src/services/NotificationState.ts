@@ -1,3 +1,10 @@
+import type {
+  LastNotificationSentAt,
+  NotificationPermissionStatus,
+  NotificationTone,
+  UnfinishedAnchorReminderMap,
+} from '@/services/notifications/notificationTypes';
+
 const DEFAULT_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 export const DEFAULT_NOTIFICATION_GOAL_PRIMES = 3;
 export const NOTIFICATION_STATE_STORAGE_KEY = '@anchor_notification_state';
@@ -20,11 +27,26 @@ export interface NotificationState {
   active_hours_end: number;
   timezone: string;
   notification_enabled: boolean;
-  total_primes_all_time: number;
-  alchemist_milestones_count: number;
-  sovereign_rank: boolean;
   active_session: boolean;
   weaver_enabled: boolean;
+  threadStrength: number;
+  dailyPrimeEnabled: boolean;
+  dailyPrimeTime: string;
+  threadStrengthAlertsEnabled: boolean;
+  threadStrengthThreshold: number;
+  unfinishedAnchorRemindersEnabled: boolean;
+  weeklyRecapEnabled: boolean;
+  notificationTone: NotificationTone;
+  lastNotificationSentAt: LastNotificationSentAt;
+  lastTemplateIdByCategory: Partial<Record<string, string>>;
+  notificationPermissionStatus: NotificationPermissionStatus;
+  unfinishedAnchorReminders: UnfinishedAnchorReminderMap;
+  softAskShownAt: string | null;
+  softAskDismissedAt: string | null;
+  // Daily Prime reminder prompt (post first-anchor / fallback moment)
+  notificationPromptShownAt: string | null;
+  firstAnchorReminderPromptCompleted: boolean;
+  fallbackReminderPromptCompleted: boolean;
 }
 
 export const getMonday12AMLocal = (): string => {
@@ -55,12 +77,67 @@ export const initializeNotificationState = (): NotificationState => ({
   active_hours_end: 21,
   timezone: DEFAULT_TIMEZONE,
   notification_enabled: true,
-  total_primes_all_time: 0,
-  alchemist_milestones_count: 0,
-  sovereign_rank: false,
   active_session: false,
   weaver_enabled: true,
+  threadStrength: 50,
+  dailyPrimeEnabled: true,
+  dailyPrimeTime: '21:00',
+  threadStrengthAlertsEnabled: true,
+  threadStrengthThreshold: 70,
+  unfinishedAnchorRemindersEnabled: true,
+  weeklyRecapEnabled: false,
+  notificationTone: 'encouraging',
+  lastNotificationSentAt: {},
+  lastTemplateIdByCategory: {},
+  notificationPermissionStatus: 'undetermined',
+  unfinishedAnchorReminders: {},
+  softAskShownAt: null,
+  softAskDismissedAt: null,
+  notificationPromptShownAt: null,
+  firstAnchorReminderPromptCompleted: false,
+  fallbackReminderPromptCompleted: false,
 });
+
+export const normalizeNotificationState = (
+  raw: Partial<NotificationState> | null | undefined
+): NotificationState => {
+  const defaults = initializeNotificationState();
+  const state = { ...defaults, ...(raw ?? {}) };
+
+  state.dailyPrimeTime =
+    typeof state.dailyPrimeTime === 'string' && /^([0-1]?\d|2[0-3]):([0-5]\d)$/.test(state.dailyPrimeTime)
+      ? state.dailyPrimeTime
+      : `${String(state.active_hours_end ?? 21).padStart(2, '0')}:00`;
+  state.threadStrengthThreshold =
+    typeof state.threadStrengthThreshold === 'number' && Number.isFinite(state.threadStrengthThreshold)
+      ? Math.min(100, Math.max(0, Math.round(state.threadStrengthThreshold)))
+      : 70;
+  state.notificationTone =
+    state.notificationTone === 'direct' ||
+    state.notificationTone === 'reflective' ||
+    state.notificationTone === 'performance'
+      ? state.notificationTone
+      : 'encouraging';
+  state.notificationPermissionStatus =
+    state.notificationPermissionStatus === 'granted' ||
+    state.notificationPermissionStatus === 'denied'
+      ? state.notificationPermissionStatus
+      : 'undetermined';
+  state.lastNotificationSentAt =
+    state.lastNotificationSentAt && typeof state.lastNotificationSentAt === 'object'
+      ? state.lastNotificationSentAt
+      : {};
+  state.lastTemplateIdByCategory =
+    state.lastTemplateIdByCategory && typeof state.lastTemplateIdByCategory === 'object'
+      ? state.lastTemplateIdByCategory
+      : {};
+  state.unfinishedAnchorReminders =
+    state.unfinishedAnchorReminders && typeof state.unfinishedAnchorReminders === 'object'
+      ? state.unfinishedAnchorReminders
+      : {};
+
+  return state;
+};
 
 export const isSameDay = (d1: Date | null, d2: Date | null): boolean => {
   if (!d1 || !d2) return false;

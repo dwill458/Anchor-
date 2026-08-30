@@ -5,9 +5,31 @@
  * for the Anchor Details screen.
  */
 
-import { Anchor } from '@/types';
+import { Anchor, AnchorCategory } from '@/types';
 import { differenceInDays, differenceInHours, differenceInMinutes, format } from 'date-fns';
 import { isoWeekKey } from '@/utils/primingAnalytics';
+
+const CATEGORY_LABELS: Record<AnchorCategory, string> = {
+  desire: 'Desire',
+  health: 'Health',
+  career: 'Career',
+  relationships: 'Relationships',
+  creativity: 'Creativity',
+  spirituality: 'Spirituality',
+  abundance: 'Abundance',
+  family: 'Family',
+  learning: 'Learning',
+  adventure: 'Adventure',
+  custom: 'Custom',
+};
+
+/**
+ * Human-readable label for an anchor's category, shared by the Sanctuary
+ * hero stage and the anchor chip row.
+ */
+export function formatCategory(category: AnchorCategory): string {
+  return CATEGORY_LABELS[category] ?? 'Custom';
+}
 
 interface ActivationRecord {
   anchorId: string;

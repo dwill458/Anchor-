@@ -15,11 +15,18 @@ jest.mock('../../utils/logger');
 jest.mock('fs');
 jest.mock('axios');
 jest.mock('@aws-sdk/client-s3');
+jest.mock('@aws-sdk/s3-request-presigner', () => ({
+  getSignedUrl: jest.fn().mockResolvedValue('https://signed.example.com/mock-presigned-url'),
+}));
 import fs from 'fs';
 import axios from 'axios';
 import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl as mockPresignedUrl } from '@aws-sdk/s3-request-presigner';
 
 import {
+  extractStorageObjectKey,
+  resolveStoredAssetUrl,
+  uploadImageAssetFromBuffer,
   uploadImageFromBuffer,
   uploadImageFromUrl,
   uploadAudio,
@@ -167,6 +174,7 @@ describe('StorageService', () => {
 
       const mockSend = jest.fn().mockResolvedValue({});
       (S3Client as jest.Mock).mockImplementation(() => ({ send: mockSend }));
+      (mockPresignedUrl as jest.Mock).mockResolvedValue('https://signed.example.com/anchor.png');
 
       const result = await uploadImageFromBuffer(Buffer.from('data'), 'user', 'anchor', 0);
 
@@ -181,6 +189,32 @@ describe('StorageService', () => {
         })
       );
       expect(result).toContain('https://cdn.example.com/anchors/user/anchor/');
+    });
+
+    it('returns a signed external URL for third-party fetches while keeping the app URL stable', async () => {
+      process.env.CLOUDFLARE_ACCOUNT_ID = 'test-account';
+      process.env.CLOUDFLARE_R2_ACCESS_KEY_ID = 'access-key';
+      process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY = 'secret-key';
+      process.env.CLOUDFLARE_R2_BUCKET_NAME = 'anchor-assets';
+      process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN = 'https://cdn.example.com';
+
+      const mockSend = jest.fn().mockResolvedValue({});
+      (S3Client as jest.Mock).mockImplementation(() => ({ send: mockSend }));
+      (mockPresignedUrl as jest.Mock).mockResolvedValue(
+        'https://signed.example.com/anchors/user/anchor/image.png'
+      );
+
+      const asset = await uploadImageAssetFromBuffer(Buffer.from('data'), 'user', 'anchor', 0, {
+        signedUrlExpiresIn: 7200,
+      });
+
+      expect(asset.url).toContain('https://cdn.example.com/anchors/user/anchor/');
+      expect(asset.externalUrl).toBe('https://signed.example.com/anchors/user/anchor/image.png');
+      expect(mockPresignedUrl).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.objectContaining({ expiresIn: 7200 })
+      );
     });
   });
 
@@ -309,25 +343,89 @@ describe('StorageService', () => {
   // ============================================================================
 
   describe('getSignedUrl', () => {
-    it('should return public domain URL when configured', async () => {
-      process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN = 'https://cdn.example.com';
+    it('should return a signed URL when R2 is configured', async () => {
+      process.env.CLOUDFLARE_ACCOUNT_ID = 'test-account';
+      process.env.CLOUDFLARE_R2_ACCESS_KEY_ID = 'access-key';
+      process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY = 'secret-key';
+      process.env.CLOUDFLARE_R2_BUCKET_NAME = 'anchor-assets';
+      (S3Client as jest.Mock).mockImplementation(() => ({ send: jest.fn() }));
+      (mockPresignedUrl as jest.Mock).mockResolvedValue(
+        'https://signed.example.com/anchors/user/anchor/image.png'
+      );
+
       const url = await getSignedUrl('anchors/user/anchor/image.png');
-      expect(url).toBe('https://cdn.example.com/anchors/user/anchor/image.png');
+      expect(url).toBe('https://signed.example.com/anchors/user/anchor/image.png');
     });
 
-    it('should fall back to default R2 URL when no public domain set', async () => {
+    it('should fall back to default R2 URL when no credentials are set', async () => {
       const url = await getSignedUrl('anchors/user/anchor/image.png');
       expect(url).toContain('r2.cloudflarestorage.com');
       expect(url).toContain('anchors/user/anchor/image.png');
     });
 
-    it('throws in production when the public domain is missing', async () => {
+    it('throws in production when the bucket is missing and no client can be built', async () => {
       process.env.NODE_ENV = 'production';
-      process.env.CLOUDFLARE_R2_BUCKET_NAME = 'anchor-assets';
 
       await expect(getSignedUrl('anchors/user/anchor/image.png')).rejects.toThrow(
-        'CLOUDFLARE_R2_PUBLIC_DOMAIN'
+        'CLOUDFLARE_ACCOUNT_ID'
       );
+    });
+  });
+
+  // ============================================================================
+  // Asset URL resolution
+  // ============================================================================
+
+  describe('extractStorageObjectKey', () => {
+    it('extracts the object key from the configured public domain URL', () => {
+      process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN = 'https://cdn.example.com';
+
+      expect(
+        extractStorageObjectKey('https://cdn.example.com/anchors/user/anchor/mock.png')
+      ).toBe('anchors/user/anchor/mock.png');
+    });
+
+    it('extracts the object key from a presigned R2 URL', () => {
+      process.env.CLOUDFLARE_R2_BUCKET_NAME = 'anchor-assets';
+
+      expect(
+        extractStorageObjectKey(
+          'https://test-account.r2.cloudflarestorage.com/anchor-assets/anchors/user/anchor/mock.png?X-Amz-Expires=3600'
+        )
+      ).toBe('anchors/user/anchor/mock.png');
+    });
+  });
+
+  describe('resolveStoredAssetUrl', () => {
+    it('returns a fresh signed URL for a stored public asset URL when R2 is configured', async () => {
+      process.env.CLOUDFLARE_ACCOUNT_ID = 'test-account';
+      process.env.CLOUDFLARE_R2_ACCESS_KEY_ID = 'access-key';
+      process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY = 'secret-key';
+      process.env.CLOUDFLARE_R2_BUCKET_NAME = 'anchor-assets';
+      process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN = 'https://cdn.example.com';
+      (S3Client as jest.Mock).mockImplementation(() => ({ send: jest.fn() }));
+      (mockPresignedUrl as jest.Mock).mockResolvedValue(
+        'https://signed.example.com/anchors/user/anchor/mock.png'
+      );
+
+      const url = await resolveStoredAssetUrl(
+        'https://cdn.example.com/anchors/user/anchor/mock.png',
+        7200
+      );
+
+      expect(url).toBe('https://signed.example.com/anchors/user/anchor/mock.png');
+      expect(mockPresignedUrl).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.objectContaining({ expiresIn: 7200 })
+      );
+    });
+
+    it('returns the original URL when the asset URL is not managed by storage', async () => {
+      const url = await resolveStoredAssetUrl('https://example.com/external.png');
+
+      expect(url).toBe('https://example.com/external.png');
+      expect(mockPresignedUrl).not.toHaveBeenCalled();
     });
   });
 

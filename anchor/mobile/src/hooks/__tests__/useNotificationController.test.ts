@@ -1,27 +1,62 @@
-import { renderHook, act, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNotificationController } from '../useNotificationController';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { NOTIFICATION_STATE_STORAGE_KEY } from '@/services/NotificationState';
+import { PENDING_SMART_NOTIFICATION_STORAGE_KEY } from '@/services/notifications/pendingNotificationStore';
 
-const mockScheduleLocalNotification = jest.fn();
-const mockScheduleWeeklySummary = jest.fn();
+const mockScheduleSmartNotification = jest.fn();
+const mockCancelSmartNotification = jest.fn();
+const mockCancelSmartNotificationSeries = jest.fn();
 const mockCancelNotification = jest.fn();
 const mockCancelWeeklySummary = jest.fn();
+const mockGetPermissionStatus = jest.fn();
+const mockRequestPermissions = jest.fn();
 const mockAnchorStoreGetState = jest.fn();
 const mockSessionStoreGetState = jest.fn();
 const mockAuthStoreGetState = jest.fn();
 const mockSyncNotificationStateToServer = jest.fn();
 const mockGetPendingNotificationStateSync = jest.fn();
+const mockTrack = jest.fn();
 
 jest.mock('@/services/NotificationService', () => ({
   __esModule: true,
   default: {
-    scheduleLocalNotification: (...args: unknown[]) => mockScheduleLocalNotification(...args),
-    scheduleWeeklySummary: (...args: unknown[]) => mockScheduleWeeklySummary(...args),
+    scheduleSmartNotification: (...args: unknown[]) => mockScheduleSmartNotification(...args),
+    cancelSmartNotification: (...args: unknown[]) => mockCancelSmartNotification(...args),
+    cancelSmartNotificationSeries: (...args: unknown[]) =>
+      mockCancelSmartNotificationSeries(...args),
     cancelNotification: (...args: unknown[]) => mockCancelNotification(...args),
     cancelWeeklySummary: (...args: unknown[]) => mockCancelWeeklySummary(...args),
+    getPermissionStatus: (...args: unknown[]) => mockGetPermissionStatus(...args),
+    requestPermissions: (...args: unknown[]) => mockRequestPermissions(...args),
+    getRemotePushRegistration: jest.fn(() =>
+      Promise.resolve({
+        permissionGranted: true,
+        expoPushToken: null,
+        fcmToken: null,
+        apnsToken: null,
+      })
+    ),
   },
 }));
+
+jest.mock('@/services/AnalyticsService', () => {
+  const events = {
+    NOTIFICATION_PERMISSION_PROMPT_SHOWN: 'notification_permission_prompt_shown',
+    NOTIFICATION_PERMISSION_GRANTED: 'notification_permission_granted',
+    NOTIFICATION_PERMISSION_DENIED: 'notification_permission_denied',
+    NOTIFICATION_SCHEDULED: 'notification_scheduled',
+  };
+
+  return {
+    AnalyticsEvents: events,
+    AnalyticsService: {
+      track: (...args: unknown[]) => mockTrack(...args),
+    },
+  };
+});
 
 jest.mock('@/stores/anchorStore', () => ({
   useAnchorStore: {
@@ -42,6 +77,8 @@ jest.mock('@/stores/authStore', () => ({
 }));
 
 jest.mock('@/services/NotificationSyncService', () => ({
+  clearPushTokensFromServer: jest.fn(() => Promise.resolve()),
+  syncPushTokensToServer: jest.fn(() => Promise.resolve()),
   syncNotificationStateToServer: (...args: unknown[]) =>
     mockSyncNotificationStateToServer(...args),
   getPendingNotificationStateSync: (...args: unknown[]) =>
@@ -55,9 +92,28 @@ type AsyncStorageMock = {
 
 const asyncStorage = AsyncStorage as unknown as AsyncStorageMock;
 
+// Several stores share the AsyncStorage mock, so the notification state has to
+// be looked up by key rather than by taking the most recent write.
+const readSavedNotificationState = (): Record<string, unknown> => {
+  const call = asyncStorage.setItem.mock.calls
+    .filter(([key]) => key === NOTIFICATION_STATE_STORAGE_KEY)
+    .at(-1);
+
+  return JSON.parse(call?.[1] ?? '{}');
+};
+
+const readPendingNotification = (): Record<string, unknown> | null => {
+  const call = asyncStorage.setItem.mock.calls
+    .filter(([key]) => key === PENDING_SMART_NOTIFICATION_STORAGE_KEY)
+    .at(-1);
+
+  return call ? JSON.parse(call[1]) : null;
+};
+
 const createSessionState = (overrides: Record<string, unknown> = {}) => ({
   sessionLog: [],
   totalSessionsCount: 0,
+  threadStrength: 50,
   lastPrimedAt: null,
   lastSession: null,
   primingHistory: [],
@@ -65,6 +121,7 @@ const createSessionState = (overrides: Record<string, unknown> = {}) => ({
 });
 
 const createAnchorState = (overrides: Record<string, unknown> = {}) => ({
+  anchors: [],
   totalPrimes: 0,
   ...overrides,
 });
@@ -72,574 +129,324 @@ const createAnchorState = (overrides: Record<string, unknown> = {}) => ({
 describe('useNotificationController', () => {
   beforeEach(() => {
     jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-04-23T15:00:00.000Z'));
+    jest.setSystemTime(new Date('2026-06-24T15:00:00.000Z'));
     jest.clearAllMocks();
 
     mockAnchorStoreGetState.mockReturnValue(createAnchorState());
     mockSessionStoreGetState.mockReturnValue(createSessionState());
-    mockAuthStoreGetState.mockReturnValue({ user: null });
-    useSettingsStore.setState({
-      weeklySummaryEnabled: true,
-      weeklySummaryDay: 0,
-      weeklySummaryTime: '19:30',
-    });
+    mockAuthStoreGetState.mockReturnValue({ user: null, isAuthenticated: false });
+    mockGetPermissionStatus.mockResolvedValue('undetermined');
+    mockRequestPermissions.mockResolvedValue(true);
+    mockScheduleSmartNotification.mockResolvedValue('smart-id');
+    mockCancelSmartNotification.mockResolvedValue(undefined);
+    mockCancelSmartNotificationSeries.mockResolvedValue(undefined);
+    mockCancelNotification.mockResolvedValue(undefined);
+    mockCancelWeeklySummary.mockResolvedValue(undefined);
+    mockSyncNotificationStateToServer.mockResolvedValue(null);
+    mockGetPendingNotificationStateSync.mockResolvedValue(null);
     asyncStorage.getItem.mockResolvedValue(null);
     asyncStorage.setItem.mockResolvedValue(undefined);
-    mockCancelNotification.mockResolvedValue(undefined);
-    mockScheduleLocalNotification.mockResolvedValue('micro-prime');
-    mockScheduleWeeklySummary.mockResolvedValue('weekly-summary');
-    mockCancelWeeklySummary.mockResolvedValue(undefined);
-    mockSyncNotificationStateToServer.mockResolvedValue(undefined);
-    mockGetPendingNotificationStateSync.mockResolvedValue(null);
+    useSettingsStore.setState({ dailyPracticeGoal: 3 });
   });
 
   afterEach(() => {
     jest.useRealTimers();
   });
 
-  it('initializes notification state on first launch and schedules micro-prime plus the weekly summary at the selected time', async () => {
+  it('initializes Phase 1 defaults without scheduling before permission is granted', async () => {
     const { result } = renderHook(() => useNotificationController());
 
     await waitFor(() => expect(result.current.isInitialized).toBe(true));
 
-    expect(mockCancelNotification).toHaveBeenCalledWith('micro-prime');
-    expect(mockScheduleLocalNotification).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: 'micro-prime',
-        title: 'The Sanctuary is open.',
-        body: '10 seconds to hold the thread?',
-        deepLink: '/sanctuary',
-      })
-    );
-
-    const scheduledAt = mockScheduleLocalNotification.mock.calls[0][0].fireDate as Date;
-    expect(scheduledAt.getDate()).toBe(24);
-    expect(scheduledAt.getHours()).toBe(21);
-    expect(scheduledAt.getMinutes()).toBe(0);
-
-    expect(mockScheduleWeeklySummary).toHaveBeenCalledWith(0, '19:30');
-
-    const savedState = JSON.parse(asyncStorage.setItem.mock.calls.at(-1)?.[1] ?? '{}');
+    expect(mockScheduleSmartNotification).not.toHaveBeenCalled();
+    const savedState = readSavedNotificationState();
     expect(savedState).toMatchObject({
-      primed_today: false,
-      active_hours_end: 21,
-      notification_enabled: true,
-      sovereign_rank: false,
-      goal_primes: 3,
+      dailyPrimeEnabled: true,
+      dailyPrimeTime: '21:00',
+      threadStrengthAlertsEnabled: true,
+      threadStrengthThreshold: 70,
+      unfinishedAnchorRemindersEnabled: true,
+      weeklyRecapEnabled: false,
+      notificationTone: 'encouraging',
+      notificationPermissionStatus: 'undetermined',
     });
   });
 
-  it('resets primed_today on a new day and increments miss streak across missed days', async () => {
-    asyncStorage.getItem.mockResolvedValue(JSON.stringify({
-      primed_today: true,
-      last_prime_at: '2026-04-20T09:00:00.000Z',
-      missed_yesterday: false,
-      miss_streak: 0,
-      app_opened_in_last_5_days: true,
-      last_app_open_at: '2026-04-20T10:00:00.000Z',
-      total_primes_this_week: 3,
-      week_started_at: '2026-04-20T00:00:00.000Z',
-      current_primes: 3,
-      goal_primes: 22,
-      has_reached_goal_today: true,
-      has_entered_burn_flow: false,
-      sigil_in_vault: false,
-      active_hours_start: 8,
-      active_hours_end: 21,
-      timezone: 'UTC',
-      notification_enabled: true,
-      total_primes_all_time: 3,
-      alchemist_milestones_count: 0,
-      sovereign_rank: false,
-      active_session: false,
-    }));
-
-    renderHook(() => useNotificationController());
-
-    await waitFor(() => expect(asyncStorage.setItem).toHaveBeenCalled());
-
-    const savedState = JSON.parse(asyncStorage.setItem.mock.calls.at(-1)?.[1] ?? '{}');
-    expect(savedState.primed_today).toBe(false);
-    expect(savedState.has_reached_goal_today).toBe(false);
-    expect(savedState.goal_primes).toBe(3);
-    expect(savedState.missed_yesterday).toBe(true);
-    expect(savedState.miss_streak).toBe(2);
-  });
-
-  it('increments all-time prime totals after a completed prime', async () => {
-    asyncStorage.getItem.mockResolvedValue(JSON.stringify({
-      primed_today: false,
-      last_prime_at: null,
-      missed_yesterday: false,
-      miss_streak: 0,
-      app_opened_in_last_5_days: true,
-      last_app_open_at: '2026-04-22T10:00:00.000Z',
-      total_primes_this_week: 0,
-      week_started_at: '2026-04-20T00:00:00.000Z',
-      current_primes: 0,
-      goal_primes: 22,
-      has_reached_goal_today: false,
-      has_entered_burn_flow: false,
-      sigil_in_vault: false,
-      active_hours_start: 8,
-      active_hours_end: 21,
-      timezone: 'UTC',
-      notification_enabled: true,
-      total_primes_all_time: 49,
-      alchemist_milestones_count: 0,
-      sovereign_rank: false,
-      active_session: false,
-    }));
+  it('schedules a daily prime notification when permission is granted and practice is incomplete', async () => {
+    mockGetPermissionStatus.mockResolvedValue('granted');
+    mockSessionStoreGetState.mockReturnValue(createSessionState({ threadStrength: 80 }));
 
     const { result } = renderHook(() => useNotificationController());
 
     await waitFor(() => expect(result.current.isInitialized).toBe(true));
 
-    mockSessionStoreGetState.mockReturnValue(createSessionState({
-      totalSessionsCount: 50,
-      lastPrimedAt: '2026-04-23',
-      sessionLog: [
-        {
-          id: 'session-1',
-          anchorId: 'anchor-1',
-          type: 'activate',
-          durationSeconds: 30,
-          mode: 'silent',
-          completedAt: '2026-04-23T15:05:00.000Z',
-        },
-      ],
-      primingHistory: [
-        {
-          id: 'session-1',
-          anchorId: 'anchor-1',
-          type: 'activate',
-          completedAt: '2026-04-23T15:05:00.000Z',
-          localDate: '2026-04-23',
-          weekKey: '2026-W17',
-          weekStart: '2026-04-20T00:00:00.000Z',
-          weekdayIndex: 2,
-          hourOfDay: 15,
-          timeOfDay: 'afternoon',
-        },
-      ],
-    }));
-
-    await act(async () => {
-      await result.current.handlePrimeComplete();
-    });
-
-    const savedState = JSON.parse(asyncStorage.setItem.mock.calls.at(-1)?.[1] ?? '{}');
-    expect(savedState.total_primes_all_time).toBe(50);
-    expect(savedState.primed_today).toBe(true);
-    expect(savedState.goal_primes).toBe(3);
-  });
-
-  it('reconciles store-derived progress after a prime was already recorded locally', async () => {
-    asyncStorage.getItem.mockResolvedValue(JSON.stringify({
-      primed_today: false,
-      last_prime_at: null,
-      missed_yesterday: false,
-      miss_streak: 0,
-      app_opened_in_last_5_days: true,
-      last_app_open_at: '2026-04-22T10:00:00.000Z',
-      total_primes_this_week: 0,
-      week_started_at: '2026-04-20T00:00:00.000Z',
-      current_primes: 0,
-      goal_primes: 3,
-      has_reached_goal_today: false,
-      has_entered_burn_flow: false,
-      sigil_in_vault: false,
-      active_hours_start: 8,
-      active_hours_end: 21,
-      timezone: 'UTC',
-      notification_enabled: true,
-      total_primes_all_time: 0,
-      alchemist_milestones_count: 0,
-      sovereign_rank: false,
-      active_session: false,
-      weaver_enabled: true,
-    }));
-    mockSessionStoreGetState.mockReturnValue(createSessionState({
-      sessionLog: [
-        {
-          id: 'activate-1',
-          anchorId: 'anchor-1',
-          type: 'activate',
-          durationSeconds: 30,
-          mode: 'silent',
-          completedAt: '2026-04-23T09:00:00.000Z',
-        },
-        {
-          id: 'reinforce-1',
-          anchorId: 'anchor-1',
-          type: 'reinforce',
-          durationSeconds: 120,
-          mode: 'silent',
-          completedAt: '2026-04-23T11:00:00.000Z',
-        },
-      ],
-      totalSessionsCount: 2,
-      lastPrimedAt: '2026-04-23',
-      primingHistory: [
-        {
-          id: 'reinforce-1',
-          anchorId: 'anchor-1',
-          type: 'reinforce',
-          completedAt: '2026-04-23T11:00:00.000Z',
-          localDate: '2026-04-23',
-          weekKey: '2026-W17',
-          weekStart: '2026-04-20T00:00:00.000Z',
-          weekdayIndex: 2,
-          hourOfDay: 11,
-          timeOfDay: 'morning',
-        },
-        {
-          id: 'activate-1',
-          anchorId: 'anchor-1',
-          type: 'activate',
-          completedAt: '2026-04-23T09:00:00.000Z',
-          localDate: '2026-04-23',
-          weekKey: '2026-W17',
-          weekStart: '2026-04-20T00:00:00.000Z',
-          weekdayIndex: 2,
-          hourOfDay: 9,
-          timeOfDay: 'morning',
-        },
-      ],
-    }));
-    mockAnchorStoreGetState.mockReturnValue(createAnchorState({ totalPrimes: 2 }));
-
-    renderHook(() => useNotificationController());
-
-    await waitFor(() => expect(asyncStorage.setItem).toHaveBeenCalled());
-
-    const savedState = JSON.parse(asyncStorage.setItem.mock.calls.at(-1)?.[1] ?? '{}');
-    expect(savedState.current_primes).toBe(2);
-    expect(savedState.total_primes_this_week).toBe(2);
-    expect(savedState.total_primes_all_time).toBe(2);
-    expect(savedState.primed_today).toBe(true);
-    expect(savedState.last_prime_at).toBe('2026-04-23T11:00:00.000Z');
-  });
-
-  it('schedules sovereign micro-prime copy when sovereign rank is already active', async () => {
-    asyncStorage.getItem.mockResolvedValue(JSON.stringify({
-      primed_today: false,
-      last_prime_at: null,
-      missed_yesterday: false,
-      miss_streak: 0,
-      app_opened_in_last_5_days: true,
-      last_app_open_at: '2026-04-22T10:00:00.000Z',
-      total_primes_this_week: 0,
-      week_started_at: '2026-04-20T00:00:00.000Z',
-      current_primes: 0,
-      goal_primes: 22,
-      has_reached_goal_today: false,
-      has_entered_burn_flow: false,
-      sigil_in_vault: false,
-      active_hours_start: 8,
-      active_hours_end: 20,
-      timezone: 'UTC',
-      notification_enabled: true,
-      total_primes_all_time: 50,
-      alchemist_milestones_count: 0,
-      sovereign_rank: true,
-      active_session: false,
-    }));
-
-    renderHook(() => useNotificationController());
-
-    await waitFor(() => expect(mockScheduleLocalNotification).toHaveBeenCalled());
-
-    expect(mockScheduleLocalNotification).toHaveBeenCalledWith(
+    expect(mockScheduleSmartNotification).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: 'The thread awaits.',
-        body: 'Your touch is needed.',
+        category: 'daily_prime',
+        templateId: expect.any(String),
+        tone: 'encouraging',
+        title: expect.any(String),
+        body: expect.any(String),
+        fireDate: expect.any(Date),
       })
     );
-    const scheduledAt = mockScheduleLocalNotification.mock.calls[0][0].fireDate as Date;
-    expect(scheduledAt.getDate()).toBe(24);
-    expect(scheduledAt.getHours()).toBe(20);
-    expect(scheduledAt.getMinutes()).toBe(0);
-  });
-
-  it('suppresses micro-prime and weekly summary when a higher-priority cloud push already fired today', async () => {
-    asyncStorage.getItem.mockResolvedValue(JSON.stringify({
-      primed_today: false,
-      last_prime_at: null,
-      missed_yesterday: false,
-      miss_streak: 0,
-      app_opened_in_last_5_days: true,
-      last_app_open_at: '2026-04-22T10:00:00.000Z',
-      total_primes_this_week: 1,
-      week_started_at: '2026-04-20T00:00:00.000Z',
-      current_primes: 0,
-      goal_primes: 3,
-      has_reached_goal_today: false,
-      has_entered_burn_flow: false,
-      sigil_in_vault: false,
-      active_hours_start: 8,
-      active_hours_end: 21,
-      timezone: 'UTC',
-      notification_enabled: true,
-      total_primes_all_time: 10,
-      alchemist_milestones_count: 0,
-      sovereign_rank: false,
-      active_session: false,
-      weaver_enabled: true,
-      last_sent_type: 'WEAVER',
-      last_sent_utc_date: '2026-04-23',
-    }));
-
-    renderHook(() => useNotificationController());
-
-    await waitFor(() => expect(mockCancelNotification).toHaveBeenCalledWith('micro-prime'));
-
-    expect(mockScheduleLocalNotification).not.toHaveBeenCalled();
-    expect(mockCancelWeeklySummary).toHaveBeenCalled();
-    expect(mockScheduleWeeklySummary).not.toHaveBeenCalled();
-  });
-
-  it('cancels the existing micro-prime after a prime completes and does not reschedule the same day', async () => {
-    const storedState = {
-      primed_today: false,
-      last_prime_at: null,
-      missed_yesterday: false,
-      miss_streak: 0,
-      app_opened_in_last_5_days: true,
-      last_app_open_at: '2026-04-22T10:00:00.000Z',
-      total_primes_this_week: 0,
-      week_started_at: '2026-04-20T00:00:00.000Z',
-      current_primes: 0,
-      goal_primes: 22,
-      has_reached_goal_today: false,
-      has_entered_burn_flow: false,
-      sigil_in_vault: false,
-      active_hours_start: 8,
-      active_hours_end: 21,
-      timezone: 'UTC',
-      notification_enabled: true,
-      total_primes_all_time: 0,
-      alchemist_milestones_count: 0,
-      sovereign_rank: false,
-      active_session: false,
-    };
-    asyncStorage.getItem.mockResolvedValue(JSON.stringify(storedState));
-
-    const { result } = renderHook(() => useNotificationController());
-
-    await waitFor(() => expect(result.current.isInitialized).toBe(true));
-    mockScheduleLocalNotification.mockClear();
-    mockCancelNotification.mockClear();
-
-    mockSessionStoreGetState.mockReturnValue(createSessionState({
-      totalSessionsCount: 1,
-      lastPrimedAt: '2026-04-23',
-      sessionLog: [
-        {
-          id: 'session-1',
-          anchorId: 'anchor-1',
-          type: 'activate',
-          durationSeconds: 30,
-          mode: 'silent',
-          completedAt: '2026-04-23T15:05:00.000Z',
-        },
-      ],
-      primingHistory: [
-        {
-          id: 'session-1',
-          anchorId: 'anchor-1',
-          type: 'activate',
-          completedAt: '2026-04-23T15:05:00.000Z',
-          localDate: '2026-04-23',
-          weekKey: '2026-W17',
-          weekStart: '2026-04-20T00:00:00.000Z',
-          weekdayIndex: 2,
-          hourOfDay: 15,
-          timeOfDay: 'afternoon',
-        },
-      ],
-    }));
-
-    await act(async () => {
-      await result.current.handlePrimeComplete();
-    });
-
-    expect(mockCancelNotification).toHaveBeenCalledWith('micro-prime');
-    expect(mockScheduleLocalNotification).not.toHaveBeenCalled();
-
-    const savedState = JSON.parse(asyncStorage.setItem.mock.calls.at(-1)?.[1] ?? '{}');
-    expect(savedState.primed_today).toBe(true);
-    expect(savedState.current_primes).toBe(1);
-    expect(savedState.total_primes_this_week).toBe(1);
-    expect(savedState.total_primes_all_time).toBe(1);
-  });
-
-  it('unlocks sovereign rank after the third vaulted milestone', async () => {
-    const storedState = {
-      primed_today: false,
-      last_prime_at: '2026-04-22T12:00:00.000Z',
-      missed_yesterday: false,
-      miss_streak: 0,
-      app_opened_in_last_5_days: true,
-      last_app_open_at: '2026-04-22T10:00:00.000Z',
-      total_primes_this_week: 5,
-      week_started_at: '2026-04-20T00:00:00.000Z',
-      current_primes: 22,
-      goal_primes: 22,
-      has_reached_goal_today: true,
-      has_entered_burn_flow: true,
-      sigil_in_vault: false,
-      active_hours_start: 8,
-      active_hours_end: 21,
-      timezone: 'UTC',
-      notification_enabled: true,
-      total_primes_all_time: 12,
-      alchemist_milestones_count: 2,
-      sovereign_rank: false,
-      active_session: false,
-    };
-    asyncStorage.getItem.mockResolvedValue(JSON.stringify(storedState));
-
-    const { result } = renderHook(() => useNotificationController());
-
-    await waitFor(() => expect(result.current.isInitialized).toBe(true));
-
-    await act(async () => {
-      await result.current.handleSigilVaulted();
-    });
-
-    const savedState = JSON.parse(asyncStorage.setItem.mock.calls.at(-1)?.[1] ?? '{}');
-    expect(savedState.alchemist_milestones_count).toBe(3);
-    expect(savedState.current_primes).toBe(0);
-    expect(savedState.has_reached_goal_today).toBe(false);
-    expect(savedState.has_entered_burn_flow).toBe(false);
-    expect(savedState.sovereign_rank).toBe(true);
-  });
-
-  it('syncs completed-prime state only when the user is authenticated', async () => {
-    asyncStorage.getItem.mockResolvedValue(JSON.stringify({
-      primed_today: false,
-      last_prime_at: null,
-      missed_yesterday: false,
-      miss_streak: 0,
-      app_opened_in_last_5_days: true,
-      last_app_open_at: '2026-04-22T10:00:00.000Z',
-      total_primes_this_week: 0,
-      week_started_at: '2026-04-20T00:00:00.000Z',
-      current_primes: 1,
-      goal_primes: 3,
-      has_reached_goal_today: false,
-      has_entered_burn_flow: false,
-      sigil_in_vault: false,
-      active_hours_start: 8,
-      active_hours_end: 21,
-      timezone: 'UTC',
-      notification_enabled: true,
-      total_primes_all_time: 1,
-      alchemist_milestones_count: 0,
-      sovereign_rank: false,
-      active_session: false,
-      weaver_enabled: true,
-    }));
-
-    mockAuthStoreGetState.mockReturnValue({ user: { id: 'user-1' }, isAuthenticated: true });
-
-    const { result } = renderHook(() => useNotificationController());
-
-    await waitFor(() => expect(result.current.isInitialized).toBe(true));
-
-    await act(async () => {
-      await result.current.handlePrimeComplete();
-    });
-
-    expect(mockSyncNotificationStateToServer).toHaveBeenCalledWith(
+    expect(mockTrack).toHaveBeenCalledWith(
+      'notification_scheduled',
       expect.objectContaining({
-        primed_today: true,
-        current_primes: 1,
+        category: 'daily_prime',
       })
     );
+  });
 
-    jest.clearAllMocks();
-    mockScheduleLocalNotification.mockResolvedValue('micro-prime');
-    mockCancelNotification.mockResolvedValue(undefined);
-    mockSyncNotificationStateToServer.mockResolvedValue(undefined);
-    asyncStorage.getItem.mockResolvedValue(JSON.stringify({
-      primed_today: false,
-      last_prime_at: null,
-      missed_yesterday: false,
-      miss_streak: 0,
-      app_opened_in_last_5_days: true,
-      last_app_open_at: '2026-04-22T10:00:00.000Z',
-      total_primes_this_week: 0,
-      week_started_at: '2026-04-20T00:00:00.000Z',
-      current_primes: 1,
-      goal_primes: 3,
-      has_reached_goal_today: false,
-      has_entered_burn_flow: false,
-      sigil_in_vault: false,
-      active_hours_start: 8,
-      active_hours_end: 21,
-      timezone: 'UTC',
-      notification_enabled: true,
-      total_primes_all_time: 1,
-      alchemist_milestones_count: 0,
-      sovereign_rank: false,
-      active_session: false,
-      weaver_enabled: true,
-    }));
-    mockAuthStoreGetState.mockReturnValue({ user: null, isAuthenticated: false });
+  it('queues a horizon of daily prime reminders so they survive the app not being opened', async () => {
+    mockGetPermissionStatus.mockResolvedValue('granted');
+    mockSessionStoreGetState.mockReturnValue(createSessionState({ threadStrength: 80 }));
+
+    const { result } = renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+
+    // Only the first scheduling pass is asserted: the AsyncStorage mock is
+    // stateless, so a later pass does not see the pending record it wrote.
+    const dailyPrimeCalls = mockScheduleSmartNotification.mock.calls
+      .map(([options]) => options as { category: string; occurrence?: number; fireDate: Date })
+      .filter((options) => options.category === 'daily_prime')
+      .slice(0, 7);
+
+    expect(dailyPrimeCalls.map((options) => options.occurrence)).toEqual([
+      undefined,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+    ]);
+
+    const [first, second] = dailyPrimeCalls;
+    expect(second.fireDate.getTime() - first.fireDate.getTime()).toBe(24 * 60 * 60 * 1000);
+  });
+
+  it('records the queued reminder so a re-run does not cancel it', async () => {
+    mockGetPermissionStatus.mockResolvedValue('granted');
+    mockSessionStoreGetState.mockReturnValue(createSessionState({ threadStrength: 80 }));
+
+    const { result } = renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+
+    const pending = readPendingNotification();
+    expect(pending).toMatchObject({
+      identifier: 'smart-id',
+      category: 'daily_prime',
+    });
+
+    // A second controller instance (another screen mounting) must leave the
+    // queued reminder in place rather than cancelling and re-evaluating it.
+    asyncStorage.getItem.mockImplementation((key: string) =>
+      Promise.resolve(
+        key === PENDING_SMART_NOTIFICATION_STORAGE_KEY ? JSON.stringify(pending) : null
+      )
+    );
+    mockScheduleSmartNotification.mockClear();
+    mockCancelSmartNotificationSeries.mockClear();
 
     const second = renderHook(() => useNotificationController());
-
     await waitFor(() => expect(second.result.current.isInitialized).toBe(true));
 
-    await act(async () => {
-      await second.result.current.handlePrimeComplete();
-    });
-
-    expect(mockSyncNotificationStateToServer).not.toHaveBeenCalled();
+    expect(mockCancelSmartNotificationSeries).not.toHaveBeenCalled();
+    expect(mockScheduleSmartNotification).not.toHaveBeenCalled();
   });
 
-  it('retries pending notification sync state on the next authenticated sync', async () => {
-    asyncStorage.getItem.mockResolvedValue(JSON.stringify({
-      primed_today: false,
-      last_prime_at: null,
-      missed_yesterday: false,
-      miss_streak: 0,
-      app_opened_in_last_5_days: true,
-      last_app_open_at: '2026-04-22T10:00:00.000Z',
-      total_primes_this_week: 0,
-      week_started_at: '2026-04-20T00:00:00.000Z',
-      current_primes: 1,
-      goal_primes: 3,
-      has_reached_goal_today: false,
-      has_entered_burn_flow: false,
-      sigil_in_vault: false,
-      active_hours_start: 8,
-      active_hours_end: 21,
-      timezone: 'UTC',
-      notification_enabled: true,
-      total_primes_all_time: 1,
-      alchemist_milestones_count: 0,
-      sovereign_rank: false,
-      active_session: false,
-      weaver_enabled: true,
-    }));
-    mockAuthStoreGetState.mockReturnValue({ user: { id: 'user-1' }, isAuthenticated: true });
-    mockGetPendingNotificationStateSync.mockResolvedValue({
-      notification_enabled: false,
-      current_primes: 0,
+  it('re-arms the next reminder once the queued one has fired', async () => {
+    mockGetPermissionStatus.mockResolvedValue('granted');
+    mockSessionStoreGetState.mockReturnValue(createSessionState({ threadStrength: 80 }));
+    asyncStorage.getItem.mockImplementation((key: string) =>
+      Promise.resolve(
+        key === PENDING_SMART_NOTIFICATION_STORAGE_KEY
+          ? JSON.stringify({
+              identifier: 'smart-id',
+              category: 'daily_prime',
+              // Fired two hours ago, so it is outside the one-per-hour cap.
+              fireDate: '2026-06-24T13:00:00.000Z',
+            })
+          : null
+      )
+    );
+
+    const { result } = renderHook(() => useNotificationController());
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+
+    expect(mockScheduleSmartNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ category: 'daily_prime' })
+    );
+    expect(readSavedNotificationState()).toMatchObject({
+      lastNotificationSentAt: { daily_prime: '2026-06-24T13:00:00.000Z' },
     });
+  });
 
-    renderHook(() => useNotificationController());
+  it('schedules the next-day daily prime after a Focus Session was completed today', async () => {
+    mockGetPermissionStatus.mockResolvedValue('granted');
+    mockSessionStoreGetState.mockReturnValue(createSessionState({
+      sessionLog: [
+        {
+          id: 'session-1',
+          anchorId: 'anchor-1',
+          type: 'activate',
+          durationSeconds: 30,
+          mode: 'silent',
+          completedAt: '2026-06-24T14:00:00.000Z',
+        },
+      ],
+      totalSessionsCount: 1,
+      lastPrimedAt: '2026-06-24',
+      primingHistory: [
+        {
+          id: 'session-1',
+          anchorId: 'anchor-1',
+          type: 'activate',
+          completedAt: '2026-06-24T14:00:00.000Z',
+          localDate: '2026-06-24',
+          weekKey: '2026-W26',
+          weekStart: '2026-06-22',
+          weekdayIndex: 2,
+          hourOfDay: 14,
+          timeOfDay: 'afternoon',
+        },
+      ],
+    }));
 
-    await waitFor(() => expect(mockSyncNotificationStateToServer).toHaveBeenCalled());
+    const { result } = renderHook(() => useNotificationController());
 
-    expect(mockSyncNotificationStateToServer).toHaveBeenCalledWith(
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+
+    expect(mockScheduleSmartNotification).toHaveBeenCalledWith(
       expect.objectContaining({
-        notification_enabled: true,
-        current_primes: 1,
+        category: 'daily_prime',
+        fireDate: new Date(2026, 5, 25, 21, 0, 0, 0),
       })
     );
+  });
+
+  it('persists preference changes and reschedules through the smart scheduler', async () => {
+    mockGetPermissionStatus.mockResolvedValue('granted');
+    const { result } = renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+    mockScheduleSmartNotification.mockClear();
+
+    await act(async () => {
+      await result.current.updateNotificationPreferences({
+        dailyPrimeTime: '08:00',
+        notificationTone: 'direct',
+        threadStrengthThreshold: 85,
+      });
+    });
+
+    const savedState = readSavedNotificationState();
+    expect(savedState).toMatchObject({
+      dailyPrimeTime: '08:00',
+      notificationTone: 'direct',
+      threadStrengthThreshold: 85,
+    });
+    expect(mockScheduleSmartNotification).toHaveBeenCalled();
+  });
+
+  it('does not show a blocking alert when an anchor is saved (the reminder card owns the ask)', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    const { result } = renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+
+    await act(async () => {
+      await result.current.handleAnchorSaved();
+    });
+
+    expect(alertSpy).not.toHaveBeenCalled();
+    expect(asyncStorage.setItem).toHaveBeenCalled();
+  });
+
+  it('schedules the daily prime reminder after permission is granted', async () => {
+    mockRequestPermissions.mockResolvedValue(true);
+    mockGetPermissionStatus.mockResolvedValue('granted');
+    const { result } = renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+
+    let status: 'granted' | 'denied' = 'denied';
+    await act(async () => {
+      status = await result.current.setDailyPrimeReminder('08:00', 'first_anchor');
+    });
+
+    expect(status).toBe('granted');
+    expect(mockRequestPermissions).toHaveBeenCalled();
+
+    const savedState = readSavedNotificationState();
+    expect(savedState).toMatchObject({
+      notificationPermissionStatus: 'granted',
+      notification_enabled: true,
+      dailyPrimeEnabled: true,
+      dailyPrimeTime: '08:00',
+    });
+  });
+
+  it('records a denied permission without scheduling when the user declines', async () => {
+    mockRequestPermissions.mockResolvedValue(false);
+    const { result } = renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+
+    let status: 'granted' | 'denied' = 'granted';
+    await act(async () => {
+      status = await result.current.setDailyPrimeReminder('20:00', 'fallback');
+    });
+
+    expect(status).toBe('denied');
+    const savedState = readSavedNotificationState();
+    expect(savedState).toMatchObject({
+      notificationPermissionStatus: 'denied',
+      notification_enabled: false,
+    });
+  });
+
+  it('marks a reminder prompt moment as completed so it is not shown again', async () => {
+    const { result } = renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+
+    await act(async () => {
+      await result.current.completeReminderPrompt('first_anchor');
+    });
+
+    const savedState = readSavedNotificationState();
+    expect(savedState.firstAnchorReminderPromptCompleted).toBe(true);
+  });
+
+  it('offers the first-anchor reminder after permission was already granted', async () => {
+    mockGetPermissionStatus.mockResolvedValue('granted');
+    const { result } = renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+
+    let canOffer = false;
+    await act(async () => {
+      canOffer = await result.current.canOfferFirstAnchorReminder();
+    });
+
+    expect(canOffer).toBe(true);
+  });
+
+  it('does not offer the first-anchor reminder after permission was denied', async () => {
+    mockGetPermissionStatus.mockResolvedValue('denied');
+    const { result } = renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+
+    let canOffer = true;
+    await act(async () => {
+      canOffer = await result.current.canOfferFirstAnchorReminder();
+    });
+
+    expect(canOffer).toBe(false);
   });
 });

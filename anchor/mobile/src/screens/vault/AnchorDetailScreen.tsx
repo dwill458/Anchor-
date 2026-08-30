@@ -1,5 +1,11 @@
 // @ts-nocheck
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   View,
   Text,
@@ -24,17 +30,23 @@ import { SvgXml } from 'react-native-svg';
 import { ChevronRight, Share2, Zap } from 'lucide-react-native';
 import { MoreRitualsSheet, RitualType } from '@/components/MoreRitualsSheet';
 import { useToast } from '@/components/ToastProvider';
-import { useTabNavigation } from '@/contexts/TabNavigationContext';
+import { usePracticeEntry } from '@/hooks/usePracticeEntry';
+import { ENABLE_MERCH } from '@/config';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { del, post } from '@/services/ApiClient';
-import { exportAnchorArtwork } from '@/services/AnchorArtworkExportService';
+import {
+  requestPhotoLibrarySavePermission,
+  savePngToPhotoLibrary,
+} from '@/services/AnchorArtworkExportService';
 import { captureRef } from 'react-native-view-shot';
-import * as MediaLibrary from 'expo-media-library';
 import { safeHaptics } from '@/utils/haptics';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, typography } from '@/theme';
+import { MicroTeachHintRow, MicroTeachInfoChip } from '@/components/teaching';
+import { useTeachingGate } from '@/utils/useTeachingGate';
 import { calculateStreak } from '@/utils/streakHelpers';
 import Reanimated, {
   Easing as ReanimatedEasing,
@@ -55,7 +67,10 @@ import {
 import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
 import { resolveBurnArtworkUri } from '@/screens/rituals/utils/resolveBurnArtworkUri';
 import { ExportAnchorSheet } from '@/components/ExportAnchorSheet';
-import { ThreadStrengthSheet, resolveAnchorStrengthPct } from '@/components/ThreadStrengthSheet';
+import {
+  ThreadStrengthSheet,
+  resolveAnchorStrengthPct,
+} from '@/components/ThreadStrengthSheet';
 import { ConfirmUnchargedBurnSheet } from '@/components/modals/ConfirmUnchargedBurnSheet';
 import { ConfirmDeleteAnchorSheet } from '@/components/modals/ConfirmDeleteAnchorSheet';
 import ShareCardRenderer from '@/components/ShareCardRenderer';
@@ -89,7 +104,10 @@ const C = {
   burnBorder: 'rgba(200,100,40,0.3)',
 };
 
-const CARD_GRADIENT = [colors.practice.cardSecondarySurface, colors.practice.cardSecondarySurface];
+const CARD_GRADIENT = [
+  colors.practice.cardSecondarySurface,
+  colors.practice.cardSecondarySurface,
+];
 const MINI_WEEK_DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 const CATEGORY_LABELS = {
@@ -124,7 +142,9 @@ const isoWeekKey = (d) => {
   const dayOfWeek = tmp.getUTCDay() || 7;
   tmp.setUTCDate(tmp.getUTCDate() + 4 - dayOfWeek);
   const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
-  const weekNo = Math.ceil(((tmp.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  const weekNo = Math.ceil(
+    ((tmp.getTime() - yearStart.getTime()) / 86400000 + 1) / 7,
+  );
   return `${tmp.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
 };
 
@@ -134,19 +154,13 @@ const toDisplayAnchor = (rawAnchor) => {
   const lastActivatedDate = getDateValue(rawAnchor.lastActivatedAt);
 
   const intention =
-    rawAnchor.intention ??
-    rawAnchor.intentionText ??
-    'No intention set';
+    rawAnchor.intention ?? rawAnchor.intentionText ?? 'No intention set';
 
   const categoryKey = rawAnchor.category ?? 'custom';
   const categoryLabel =
-    CATEGORY_LABELS[categoryKey] ??
-    String(categoryKey).replace(/_/g, ' ');
+    CATEGORY_LABELS[categoryKey] ?? String(categoryKey).replace(/_/g, ' ');
 
-  const distilled =
-    rawAnchor.distilled ??
-    rawAnchor.distilledLetters ??
-    [];
+  const distilled = rawAnchor.distilled ?? rawAnchor.distilledLetters ?? [];
 
   const charged = Boolean(rawAnchor.charged ?? rawAnchor.isCharged);
   const released = Boolean(rawAnchor.isReleased);
@@ -202,11 +216,15 @@ const FadeUp = ({ children, delay = 0, animate = true }) => {
 
     Animated.parallel([
       Animated.timing(opacity, {
-        toValue: 1, duration: 500, delay,
+        toValue: 1,
+        duration: 500,
+        delay,
         useNativeDriver: true,
       }),
       Animated.timing(translateY, {
-        toValue: 0, duration: 500, delay,
+        toValue: 0,
+        duration: 500,
+        delay,
         useNativeDriver: true,
       }),
     ]).start();
@@ -230,17 +248,23 @@ const BreathingGlow = ({ animate = true }: { animate?: boolean }) => {
       cancelAnimation(opacity);
       return;
     }
-    
+
     scale.value = withRepeat(
-      withTiming(1.03, { duration: 2200, easing: ReanimatedEasing.inOut(ReanimatedEasing.ease) }),
+      withTiming(1.03, {
+        duration: 2200,
+        easing: ReanimatedEasing.inOut(ReanimatedEasing.ease),
+      }),
       -1,
-      true
+      true,
     );
-    
+
     opacity.value = withRepeat(
-      withTiming(1.0, { duration: 2200, easing: ReanimatedEasing.inOut(ReanimatedEasing.ease) }),
+      withTiming(1.0, {
+        duration: 2200,
+        easing: ReanimatedEasing.inOut(ReanimatedEasing.ease),
+      }),
       -1,
-      true
+      true,
     );
 
     return () => {
@@ -256,10 +280,7 @@ const BreathingGlow = ({ animate = true }: { animate?: boolean }) => {
 
   return (
     <Reanimated.View
-      style={[
-        StyleSheet.absoluteFillObject,
-        style,
-      ]}
+      style={[StyleSheet.absoluteFillObject, style]}
       pointerEvents="none"
     >
       <LinearGradient
@@ -283,11 +304,11 @@ const ShineButton = ({ onPress, children, style, animate = true }) => {
       cancelAnimation(shinePhase);
       return;
     }
-    
+
     shinePhase.value = withRepeat(
       withTiming(1, { duration: 3400, easing: ReanimatedEasing.linear }),
       -1,
-      false
+      false,
     );
 
     return () => cancelAnimation(shinePhase);
@@ -298,7 +319,15 @@ const ShineButton = ({ onPress, children, style, animate = true }) => {
     // So ratio is 900/3400 = 0.2647
     const progress = Math.min(1, shinePhase.value / 0.2647);
     return {
-      transform: [{ translateX: interpolate(progress, [0, 1], [-SCREEN_W, SCREEN_W * 1.5]) }],
+      transform: [
+        {
+          translateX: interpolate(
+            progress,
+            [0, 1],
+            [-SCREEN_W, SCREEN_W * 1.5],
+          ),
+        },
+      ],
     };
   });
 
@@ -307,16 +336,14 @@ const ShineButton = ({ onPress, children, style, animate = true }) => {
       <View style={{ overflow: 'hidden', borderRadius: 14 }}>
         <LinearGradient
           colors={['#b8920a', '#d4a820', '#c49a15']}
-          start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
           style={s.activateInner}
         >
           {children}
           {animate && (
             <Reanimated.View
-              style={[
-                s.shineSweep,
-                shineStyle,
-              ]}
+              style={[s.shineSweep, shineStyle]}
               pointerEvents="none"
             />
           )}
@@ -383,7 +410,10 @@ const rs = StyleSheet.create({
   },
   heroHalo: {
     position: 'absolute',
-    top: -2, left: -2, right: -2, bottom: -2,
+    top: -2,
+    left: -2,
+    right: -2,
+    bottom: -2,
     borderRadius: 22,
     opacity: 0.6,
   },
@@ -447,17 +477,26 @@ const rs = StyleSheet.create({
     color: C.textDim,
     fontFamily: 'Inter-Medium',
     fontSize: 14,
-  }
+  },
 });
 
-const RitualCard = ({ icon, title, subtitle, helper, onPress, isMuted = false, isDanger = false, children }) => {
+const RitualCard = ({
+  icon,
+  title,
+  subtitle,
+  helper,
+  onPress,
+  isMuted = false,
+  isDanger = false,
+  children,
+}) => {
   const scale = useSharedValue(1);
   const glowOpacity = useSharedValue(0);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
     shadowOpacity: glowOpacity.value,
-    shadowColor: isDanger ? C.red : (isMuted ? C.burn : C.gold),
+    shadowColor: isDanger ? C.red : isMuted ? C.burn : C.gold,
     shadowRadius: interpolate(glowOpacity.value, [0, 1], [4, 12]),
   }));
 
@@ -481,9 +520,11 @@ const RitualCard = ({ icon, title, subtitle, helper, onPress, isMuted = false, i
       <Reanimated.View style={[rs.ritualCardShell, animatedStyle]}>
         <LinearGradient
           colors={
-            isDanger ? ['rgba(116,28,28,0.3)', 'rgba(78,16,16,0.24)'] :
-              isMuted ? ['rgba(150,62,24,0.32)', 'rgba(102,36,12,0.28)'] :
-                CARD_GRADIENT
+            isDanger
+              ? ['rgba(116,28,28,0.3)', 'rgba(78,16,16,0.24)']
+              : isMuted
+                ? ['rgba(150,62,24,0.32)', 'rgba(102,36,12,0.28)']
+                : CARD_GRADIENT
           }
           style={[rs.card, isDanger && rs.cardDanger, isMuted && rs.cardMuted]}
         >
@@ -492,9 +533,26 @@ const RitualCard = ({ icon, title, subtitle, helper, onPress, isMuted = false, i
               <Text style={{ fontSize: 20 }}>{icon}</Text>
             </View>
             <View style={rs.col}>
-              <Text style={[rs.title, isDanger && { color: C.red }, isMuted && { color: C.burn }]}>{title}</Text>
+              <Text
+                style={[
+                  rs.title,
+                  isDanger && { color: C.red },
+                  isMuted && { color: C.burn },
+                ]}
+              >
+                {title}
+              </Text>
               {subtitle && <Text style={rs.subtitle}>{subtitle}</Text>}
-              {helper && <Text style={[rs.helper, isDanger && { color: 'rgba(232,140,140,0.7)' }]}>{helper}</Text>}
+              {helper && (
+                <Text
+                  style={[
+                    rs.helper,
+                    isDanger && { color: 'rgba(232,140,140,0.7)' },
+                  ]}
+                >
+                  {helper}
+                </Text>
+              )}
             </View>
           </View>
           {children}
@@ -504,24 +562,46 @@ const RitualCard = ({ icon, title, subtitle, helper, onPress, isMuted = false, i
   );
 };
 
-const PrimerModal = ({ visible, onActivate, onSkip, onCancel, blurIntensity = 30 }) => (
+const PrimerModal = ({
+  visible,
+  onActivate,
+  onSkip,
+  onCancel,
+  blurIntensity = 30,
+}) => (
   <Modal visible={visible} transparent animationType="fade">
     <View style={rs.modalOverlay}>
-      <BlurView intensity={blurIntensity} tint="dark" style={StyleSheet.absoluteFillObject} />
+      <BlurView
+        intensity={blurIntensity}
+        tint="dark"
+        style={StyleSheet.absoluteFillObject}
+      />
       <View style={rs.modalContent}>
-        <LinearGradient colors={CARD_GRADIENT} style={[rs.card, { padding: 24, paddingVertical: 32 }]}>
+        <LinearGradient
+          colors={CARD_GRADIENT}
+          style={[rs.card, { padding: 24, paddingVertical: 32 }]}
+        >
           <Text style={rs.modalTitle}>Primer Session</Text>
-          <Text style={rs.modalBody}>Primer: 10 seconds to bring it online.</Text>
+          <Text style={rs.modalBody}>
+            Primer: 10 seconds to bring it online.
+          </Text>
 
           <View style={rs.modalActions}>
             <TouchableOpacity style={rs.modalBtnPrimary} onPress={onActivate}>
-              <LinearGradient colors={['#b8920a', '#d4a820', '#c49a15']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={rs.modalBtnGrad}>
+              <LinearGradient
+                colors={['#b8920a', '#d4a820', '#c49a15']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={rs.modalBtnGrad}
+              >
                 <Text style={rs.modalBtnTextPrimary}>ACTIVATE (10s)</Text>
               </LinearGradient>
             </TouchableOpacity>
 
             <TouchableOpacity style={rs.modalBtnSecondary} onPress={onSkip}>
-              <Text style={rs.modalBtnTextSecondary}>Skip straight to Reinforce</Text>
+              <Text style={rs.modalBtnTextSecondary}>
+                Skip straight to Reinforce
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={rs.modalBtnCancel} onPress={onCancel}>
@@ -570,8 +650,12 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const isLowPerfDevice = perfTier === 'low';
   const isReducedEffectsDevice = perfTier !== 'high';
   const shouldAnimateIntro = perfTier === 'high';
-  const { navigateToPractice } = useTabNavigation();
+  const { startPractice } = usePracticeEntry();
   const toast = useToast();
+  const anchorReuseTeaching = useTeachingGate({
+    screenId: 'anchor_detail',
+    candidateIds: ['anchor_reuse_v1'],
+  });
   const getAnchorById = useAnchorStore((state) => state.getAnchorById);
   const removeAnchor = useAnchorStore((state) => state.removeAnchor);
   const defaultActivation = useSettingsStore((s) => s.defaultActivation);
@@ -582,19 +666,27 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
   const [primerVisible, setPrimerVisible] = useState(false);
   const [moreRitualsVisible, setMoreRitualsVisible] = useState(false);
   const isScrollActiveRef = useRef(false);
-  const [pendingExportAction, setPendingExportAction] = useState<'download' | 'wallpaper' | null>(null);
+  const [pendingExportAction, setPendingExportAction] = useState<
+    'download' | 'wallpaper' | null
+  >(null);
   const anchorCardRef = useRef<View>(null);
   const [isExporting, setIsExporting] = useState(false);
-  const mediaLibraryPermissionRef = useRef<MediaLibrary.PermissionResponse | null>(null);
+  const mediaLibraryPermissionGrantedRef = useRef(false);
   const [showExportSheet, setShowExportSheet] = useState(false);
-  const [confirmUnchargedBurnVisible, setConfirmUnchargedBurnVisible] = useState(false);
+  const [confirmUnchargedBurnVisible, setConfirmUnchargedBurnVisible] =
+    useState(false);
   const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
-  const [threadStrengthSheetVisible, setThreadStrengthSheetVisible] = useState(false);
+  const [threadStrengthSheetVisible, setThreadStrengthSheetVisible] =
+    useState(false);
   const [showShareCard, setShowShareCard] = useState(false);
-  const [shareFormat, setShareFormat] = useState<'square' | 'stories'>('square');
+  const [shareFormat, setShareFormat] = useState<'square' | 'stories'>(
+    'square',
+  );
   const shareCardRef = useRef(null);
   const shareCardRenderedRef = useRef(false);
-  const shareCardTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shareCardTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const {
     captureAndShare,
     isLoading: isShareCardLoading,
@@ -608,11 +700,14 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
     return () => task.cancel();
   }, []);
 
-  useEffect(() => () => {
-    if (shareCardTimeoutRef.current) {
-      clearTimeout(shareCardTimeoutRef.current);
-    }
-  }, []);
+  useEffect(
+    () => () => {
+      if (shareCardTimeoutRef.current) {
+        clearTimeout(shareCardTimeoutRef.current);
+      }
+    },
+    [],
+  );
 
   // Permissions are requested lazily on export to avoid native-module errors
   // or unhandled rejections surfacing as a LogBox popup during navigation.
@@ -642,9 +737,20 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         baseSigilSvg: '',
         enhancedImageUrl: null,
       },
-    [sourceAnchor] // eslint-disable-line react-hooks/exhaustive-deps
+    [sourceAnchor], // eslint-disable-line react-hooks/exhaustive-deps
   );
-  const resolvedSigilSvg = anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg ?? '';
+  useEffect(() => {
+    if (!anchorId) return;
+    AnalyticsService.track(AnalyticsEvents.ANCHOR_DETAIL_VIEWED, {
+      anchor_id: anchorId,
+      source: routeAnchor ? 'navigation_params' : 'store',
+      charged: Boolean(anchor.charged),
+      released: Boolean(anchor.isReleased),
+    });
+  }, [anchorId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const resolvedSigilSvg =
+    anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg ?? '';
   const anchorPractice = useMemo(() => {
     if (!anchorId) {
       return {
@@ -660,26 +766,40 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
       .filter(
         (entry) =>
           entry.anchorId === anchorId &&
-          (entry.type === 'activate' || entry.type === 'reinforce')
+          (entry.type === 'activate' || entry.type === 'reinforce'),
       )
-      .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime());
+      .sort(
+        (a, b) =>
+          new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime(),
+      );
 
-    const weekHistoryForAnchor = [false, false, false, false, false, false, false];
+    const weekHistoryForAnchor = [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+    ];
     primingSessions.forEach((entry) => {
       const date = new Date(entry.completedAt);
-      if (Number.isNaN(date.getTime()) || isoWeekKey(date) !== currentWeekKey) return;
+      if (Number.isNaN(date.getTime()) || isoWeekKey(date) !== currentWeekKey)
+        return;
       const dayIndex = (date.getDay() + 6) % 7;
       weekHistoryForAnchor[dayIndex] = true;
     });
 
     const currentStreak = calculateStreak(
-      primingSessions.map((entry) => ({ createdAt: entry.completedAt }))
+      primingSessions.map((entry) => ({ createdAt: entry.completedAt })),
     ).currentStreak;
 
     return {
       currentStreak,
       totalPrimingSessions: primingSessions.length,
-      lastPrimedAt: primingSessions[0] ? localDateString(new Date(primingSessions[0].completedAt)) : null,
+      lastPrimedAt: primingSessions[0]
+        ? localDateString(new Date(primingSessions[0].completedAt))
+        : null,
       weekHistory: weekHistoryForAnchor,
     };
   }, [anchorId, sessionLog]);
@@ -697,17 +817,20 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
   const divineBreath = useSharedValue(0);
   const divineGlowActive = Boolean(anchor.charged || anchor.today === 'Primed');
-  const freezeDetailChrome = Platform.OS === 'android' && isScrollActiveRef.current;
+  const freezeDetailChrome =
+    Platform.OS === 'android' && isScrollActiveRef.current;
   const pauseExpensiveEffects = freezeDetailChrome || isReducedEffectsDevice;
-  const enableDetailChromeGlow = Platform.OS !== 'android' && perfTier === 'high';
+  const enableDetailChromeGlow =
+    Platform.OS !== 'android' && perfTier === 'high';
   const glowAnimationsActive = divineGlowActive && !pauseExpensiveEffects;
-  const headerBlurIntensity = Platform.OS === 'ios'
-    ? perfTier === 'high'
-      ? 30
-      : perfTier === 'medium'
-        ? 12
-        : 0
-    : 0;
+  const headerBlurIntensity =
+    Platform.OS === 'ios'
+      ? perfTier === 'high'
+        ? 30
+        : perfTier === 'medium'
+          ? 12
+          : 0
+      : 0;
 
   useEffect(() => {
     if (!divineGlowActive) {
@@ -727,7 +850,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         easing: ReanimatedEasing.inOut(ReanimatedEasing.sin),
       }),
       -1,
-      true
+      true,
     );
 
     return () => {
@@ -756,7 +879,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
       borderColor: interpolateColor(
         divineBreath.value,
         [0, 1],
-        ['rgba(201,168,76,0.28)', 'rgba(245,216,137,0.92)']
+        ['rgba(201,168,76,0.28)', 'rgba(245,216,137,0.92)'],
       ),
       shadowColor: C.gold,
       shadowOpacity: interpolate(divineBreath.value, [0, 1], [0.12, 0.34]),
@@ -764,11 +887,15 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
     };
   }, [divineBreath, enableDetailChromeGlow, glowAnimationsActive]);
 
-  const topCardAuraStyle = useAnimatedStyle(() => ({
-    opacity: enableDetailChromeGlow && glowAnimationsActive
-      ? interpolate(divineBreath.value, [0, 1], [0.12, 0.34])
-      : 0,
-  }), [divineBreath, enableDetailChromeGlow, glowAnimationsActive]);
+  const topCardAuraStyle = useAnimatedStyle(
+    () => ({
+      opacity:
+        enableDetailChromeGlow && glowAnimationsActive
+          ? interpolate(divineBreath.value, [0, 1], [0.12, 0.34])
+          : 0,
+    }),
+    [divineBreath, enableDetailChromeGlow, glowAnimationsActive],
+  );
 
   const statsCardPulseStyle = useAnimatedStyle(() => {
     if (!enableDetailChromeGlow) {
@@ -791,7 +918,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
       borderColor: interpolateColor(
         divineBreath.value,
         [0, 1],
-        ['rgba(201,168,76,0.30)', 'rgba(255,228,148,0.96)']
+        ['rgba(201,168,76,0.30)', 'rgba(255,228,148,0.96)'],
       ),
       shadowColor: C.gold,
       shadowOpacity: interpolate(divineBreath.value, [0, 1], [0.14, 0.4]),
@@ -799,11 +926,15 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
     };
   }, [divineBreath, enableDetailChromeGlow, glowAnimationsActive]);
 
-  const statsCardAuraStyle = useAnimatedStyle(() => ({
-    opacity: enableDetailChromeGlow && glowAnimationsActive
-      ? interpolate(divineBreath.value, [0, 1], [0.14, 0.36])
-      : 0,
-  }), [divineBreath, enableDetailChromeGlow, glowAnimationsActive]);
+  const statsCardAuraStyle = useAnimatedStyle(
+    () => ({
+      opacity:
+        enableDetailChromeGlow && glowAnimationsActive
+          ? interpolate(divineBreath.value, [0, 1], [0.14, 0.36])
+          : 0,
+    }),
+    [divineBreath, enableDetailChromeGlow, glowAnimationsActive],
+  );
 
   useEffect(() => {
     if (defaultActivation?.unit !== 'seconds') return;
@@ -827,15 +958,18 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
   const handleActivatePress = () => {
     if (!anchorId) {
-      Alert.alert('Anchor unavailable', 'Unable to activate because no anchor ID was provided.');
+      Alert.alert(
+        'Anchor unavailable',
+        'This anchor could not be opened. Go back to your vault and try again.',
+      );
       return;
     }
 
-    navigation.navigate('ActivationRitual', {
+    startPractice({
+      mode: 'focus',
       anchorId,
-      activationType: 'visual',
-      durationOverride: getDurationSeconds(),
-      returnTo: 'detail',
+      source: 'anchor_detail',
+      durationSeconds: getDurationSeconds(),
     });
   };
 
@@ -859,21 +993,21 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
   const executeReinforce = () => {
     setPrimerVisible(false);
-    navigation.navigate('Ritual', {
+    startPractice({
+      mode: 'deepPrime',
       anchorId,
-      ritualType: 'ritual',
+      source: 'anchor_detail',
       durationSeconds: 300,
-      returnTo: 'detail',
     });
   };
 
   const handlePrimerActivate = () => {
     setPrimerVisible(false);
-    navigation.navigate('ActivationRitual', {
+    startPractice({
+      mode: 'focus',
       anchorId,
-      activationType: 'visual',
-      durationOverride: 10,
-      returnTo: 'reinforce',
+      source: 'anchor_detail',
+      durationSeconds: 10,
     });
   };
 
@@ -894,17 +1028,27 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
     const burnAnchor = storeAnchor ?? sourceAnchor;
 
-    navigation.navigate('ConfirmBurn', {
+    startPractice({
+      mode: 'release',
       anchorId,
-      intention: burnAnchor?.intentionText ?? burnAnchor?.intention ?? anchor.intention,
-      sigilSvg: burnAnchor?.reinforcedSigilSvg ?? burnAnchor?.baseSigilSvg ?? '',
-      enhancedImageUrl: anchor.sigilUri || anchor.enhancedImageUrl || burnAnchor?.enhancedImageUrl || undefined,
+      source: 'anchor_detail',
+      intention:
+        burnAnchor?.intentionText ?? burnAnchor?.intention ?? anchor.intention,
+      sigilSvg:
+        burnAnchor?.reinforcedSigilSvg ?? burnAnchor?.baseSigilSvg ?? '',
+      enhancedImageUrl:
+        anchor.sigilUri ||
+        anchor.enhancedImageUrl ||
+        burnAnchor?.enhancedImageUrl ||
+        undefined,
     });
   };
 
   const handlePracticePress = () => {
     safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium);
-    navigateToPractice();
+    if (anchorId) {
+      startPractice({ mode: 'deepPrime', anchorId, source: 'anchor_detail' });
+    }
   };
 
   const handleMoreRitualsPress = () => {
@@ -919,18 +1063,18 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
     if (type === 'burn') {
       handleBurn();
     } else if (type === 'quickActivate' || type === 'charge') {
-      navigation.navigate('ActivationRitual', {
+      startPractice({
+        mode: 'focus',
         anchorId,
-        activationType: 'visual',
-        durationOverride: durationSeconds ?? (type === 'quickActivate' ? 30 : 180),
-        returnTo: 'detail',
+        source: 'anchor_detail',
+        durationSeconds: durationSeconds ?? (type === 'quickActivate' ? 30 : 180),
       });
     } else if (type === 'stabilize') {
-      navigation.navigate('Ritual', {
+      startPractice({
+        mode: 'deepPrime',
         anchorId,
-        ritualType: 'ritual',
+        source: 'anchor_detail',
         durationSeconds: durationSeconds ?? 180,
-        returnTo: 'detail',
       });
     }
   };
@@ -952,15 +1096,19 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
     }
 
     removeAnchor(anchorId);
+    AnalyticsService.track(AnalyticsEvents.ANCHOR_DELETED, {
+      anchor_id: anchorId,
+      source: 'anchor_detail',
+    });
     navigation.popToTop();
   };
 
   const ensureMediaLibraryPermission = async () => {
-    if (mediaLibraryPermissionRef.current?.granted) return true;
+    if (mediaLibraryPermissionGrantedRef.current) return true;
     try {
-      const result = await MediaLibrary.requestPermissionsAsync();
-      mediaLibraryPermissionRef.current = result;
-      return Boolean(result?.granted);
+      const granted = await requestPhotoLibrarySavePermission();
+      mediaLibraryPermissionGrantedRef.current = granted;
+      return granted;
     } catch {
       return false;
     }
@@ -989,12 +1137,20 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
               return;
             }
 
-            const uri = await captureRef(anchorCardRef, { format: 'png', quality: 1 });
-            await MediaLibrary.saveToLibraryAsync(uri);
+            const uri = await captureRef(anchorCardRef, {
+              format: 'png',
+              quality: 1,
+            });
+            const savedUri = await savePngToPhotoLibrary(
+              uri,
+              'anchor-wallpaper.png',
+            );
 
             if (pendingExportAction === 'wallpaper') {
-              await Share.share({ url: uri });
-              toast.info('Save the image, then set it as your wallpaper in Settings');
+              await Share.share({ url: savedUri });
+              toast.info(
+                'Save the image, then set it as your wallpaper in Settings',
+              );
             } else {
               toast.success('Anchor saved to your photo library');
             }
@@ -1002,7 +1158,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
             toast.error(
               pendingExportAction === 'wallpaper'
                 ? 'Could not open share sheet'
-                : 'Could not save image. Check your permissions.'
+                : 'Could not save image. Check your permissions.',
             );
           } finally {
             if (!cancelled) {
@@ -1022,8 +1178,8 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
   const handleDownloadPNG = async () => {
     if (isExporting) return;
-    const perm = await MediaLibrary.requestPermissionsAsync();
-    if (perm.status !== 'granted') {
+    const granted = await ensureMediaLibraryPermission();
+    if (!granted) {
       toast.warning('Allow photo library access to save your anchor');
       return;
     }
@@ -1033,8 +1189,8 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
   const handleSetWallpaper = async () => {
     if (isExporting) return;
-    const perm = await MediaLibrary.requestPermissionsAsync();
-    if (perm.status !== 'granted') {
+    const granted = await ensureMediaLibraryPermission();
+    if (!granted) {
       toast.warning('Allow photo library access to share your anchor');
       return;
     }
@@ -1059,7 +1215,7 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         await captureAndShare(
           anchor.intention,
           anchorPractice.currentStreak,
-          shareFormat
+          shareFormat,
         );
       } finally {
         setShowShareCard(false);
@@ -1091,24 +1247,37 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
     const imageUrl = anchor.sigilUri ?? anchor.enhancedImageUrl ?? '';
     if (!imageUrl || !anchor.id) return;
 
-    Alert.alert(
-      'Report AI Content',
-      'Why are you reporting this anchor?',
-      [
-        { text: 'Inappropriate', onPress: () => submitContentReport(anchor.id, imageUrl, 'inappropriate') },
-        { text: 'Harmful', onPress: () => submitContentReport(anchor.id, imageUrl, 'harmful') },
-        { text: 'Other', onPress: () => submitContentReport(anchor.id, imageUrl, 'other') },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+    Alert.alert('Report AI Content', 'Why are you reporting this anchor?', [
+      {
+        text: 'Inappropriate',
+        onPress: () =>
+          submitContentReport(anchor.id, imageUrl, 'inappropriate'),
+      },
+      {
+        text: 'Harmful',
+        onPress: () => submitContentReport(anchor.id, imageUrl, 'harmful'),
+      },
+      {
+        text: 'Other',
+        onPress: () => submitContentReport(anchor.id, imageUrl, 'other'),
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
-  const submitContentReport = async (anchorId: string, imageUrl: string, reason: string) => {
+  const submitContentReport = async (
+    anchorId: string,
+    imageUrl: string,
+    reason: string,
+  ) => {
     try {
       await post('/content/flag', { anchorId, imageUrl, reason });
       Alert.alert('Reported', 'Thank you. Our team will review this content.');
     } catch {
-      Alert.alert('Error', 'Could not submit report. Please try again.');
+      Alert.alert(
+        'Report not sent',
+        'Your report could not be submitted. Please try again.',
+      );
     }
   };
 
@@ -1128,19 +1297,21 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
       {/* ── HEADER ── */}
       {headerBlurIntensity > 0 ? (
-        <BlurView
-          intensity={headerBlurIntensity}
-          tint="dark"
-          style={s.header}
-        >
-          <TouchableOpacity onPress={() => navigation?.goBack()} style={s.backBtn}>
+        <BlurView intensity={headerBlurIntensity} tint="dark" style={s.header}>
+          <TouchableOpacity
+            onPress={() => navigation?.goBack()}
+            style={s.backBtn}
+          >
             <Text style={s.backArrow}>←</Text>
           </TouchableOpacity>
           <Text style={s.headerTitle}>ANCHOR DETAILS</Text>
         </BlurView>
       ) : (
         <View style={[s.header, s.headerFallback]}>
-          <TouchableOpacity onPress={() => navigation?.goBack()} style={s.backBtn}>
+          <TouchableOpacity
+            onPress={() => navigation?.goBack()}
+            style={s.backBtn}
+          >
             <Text style={s.backArrow}>←</Text>
           </TouchableOpacity>
           <Text style={s.headerTitle}>ANCHOR DETAILS</Text>
@@ -1148,7 +1319,10 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
       )}
 
       <ScrollView
-        contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + spacing.xl + spacing.sm }]}
+        contentContainerStyle={[
+          s.scroll,
+          { paddingBottom: insets.bottom + spacing.xl + spacing.sm },
+        ]}
         showsVerticalScrollIndicator={false}
         onScrollBeginDrag={handleHeroScrollStart}
         onMomentumScrollBegin={handleHeroScrollStart}
@@ -1156,38 +1330,81 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         onMomentumScrollEnd={handleHeroScrollStop}
         scrollEventThrottle={16}
       >
-
         <View style={s.heroStack}>
           {/* ── TITLE CARD ── */}
           <FadeUp delay={50} animate={shouldAnimateIntro}>
-            <Reanimated.View style={[s.animatedCardShell, Platform.OS === 'android' && s.animatedCardShellAndroid, isLowPerfDevice && s.lowPerfFlatCardShell, topCardPulseStyle]}>
+            <Reanimated.View
+              style={[
+                s.animatedCardShell,
+                Platform.OS === 'android' && s.animatedCardShellAndroid,
+                isLowPerfDevice && s.lowPerfFlatCardShell,
+                topCardPulseStyle,
+              ]}
+            >
               <LinearGradient
                 colors={CARD_GRADIENT}
-                style={[s.card, s.cardGold, Platform.OS === 'android' && s.cardGoldAndroid, isLowPerfDevice && s.lowPerfNoCardShadow]}
+                style={[
+                  s.card,
+                  s.cardGold,
+                  Platform.OS === 'android' && s.cardGoldAndroid,
+                  isLowPerfDevice && s.lowPerfNoCardShadow,
+                ]}
               >
                 <Text style={s.anchorEyebrow}>CURRENT ANCHOR</Text>
                 <Text style={s.intentionText}>{anchor.intention}</Text>
                 <View style={s.badgeRow}>
                   <View style={s.badgeDesire}>
-                    <View style={[s.badgeDot, { backgroundColor: colors.gold }]} />
-                    <Text style={[s.badgeText, { color: colors.gold }]}>{anchor.category}</Text>
+                    <View
+                      style={[s.badgeDot, { backgroundColor: colors.gold }]}
+                    />
+                    <Text style={[s.badgeText, { color: colors.gold }]}>
+                      {anchor.category}
+                    </Text>
                   </View>
-                  <View style={[
-                    s.badgeCharged,
-                    Platform.OS === 'android' && s.badgeChargedAndroid,
-                    anchor.isReleased ? s.badgeReleased : (!anchor.charged && s.badgeDormant)
-                  ]}>
-                    <Text style={s.badgeIcon}>{anchor.isReleased ? '🔥' : (anchor.charged ? '⚡' : '💤')}</Text>
-                    <Text style={[s.badgeText, { color: anchor.isReleased ? colors.silver : (anchor.charged ? C.goldBright : C.textDim) }]}>
-                      {anchor.isReleased ? 'Released' : (anchor.charged ? 'Primed' : 'Dormant')}
+                  <View
+                    style={[
+                      s.badgeCharged,
+                      Platform.OS === 'android' && s.badgeChargedAndroid,
+                      anchor.isReleased
+                        ? s.badgeReleased
+                        : !anchor.charged && s.badgeDormant,
+                    ]}
+                  >
+                    <Text style={s.badgeIcon}>
+                      {anchor.isReleased ? '🔥' : anchor.charged ? '⚡' : '💤'}
+                    </Text>
+                    <Text
+                      style={[
+                        s.badgeText,
+                        {
+                          color: anchor.isReleased
+                            ? colors.silver
+                            : anchor.charged
+                              ? C.goldBright
+                              : C.textDim,
+                        },
+                      ]}
+                    >
+                      {anchor.isReleased
+                        ? 'Released'
+                        : anchor.charged
+                          ? 'Primed'
+                          : 'Dormant'}
                     </Text>
                   </View>
                 </View>
               </LinearGradient>
               {!isLowPerfDevice && (
-                <Reanimated.View pointerEvents="none" style={[s.cardAuraOverlay, topCardAuraStyle]}>
+                <Reanimated.View
+                  pointerEvents="none"
+                  style={[s.cardAuraOverlay, topCardAuraStyle]}
+                >
                   <LinearGradient
-                    colors={['rgba(255, 223, 133, 0.14)', 'rgba(245, 198, 82, 0.05)', 'rgba(255, 223, 133, 0.14)']}
+                    colors={[
+                      'rgba(255, 223, 133, 0.14)',
+                      'rgba(245, 198, 82, 0.05)',
+                      'rgba(255, 223, 133, 0.14)',
+                    ]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={StyleSheet.absoluteFillObject}
@@ -1217,13 +1434,21 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                   />
                 </View>
               )}
-              <View style={[s.sigilCard, Platform.OS === 'android' && s.sigilCardAndroid, isLowPerfDevice && s.lowPerfNoSigilShadow]}>
+              <View
+                style={[
+                  s.sigilCard,
+                  Platform.OS === 'android' && s.sigilCardAndroid,
+                  isLowPerfDevice && s.lowPerfNoSigilShadow,
+                ]}
+              >
                 <LinearGradient
                   colors={['#1a0f35', '#0d0820', '#080510']}
                   style={s.sigilWrapper}
                 >
                   {!divineGlowActive && !isLowPerfDevice && (
-                    <BreathingGlow animate={perfTier === 'high' && !pauseExpensiveEffects} />
+                    <BreathingGlow
+                      animate={perfTier === 'high' && !pauseExpensiveEffects}
+                    />
                   )}
 
                   {/* ChargedGlowCanvas fills inside the card for charged
@@ -1238,18 +1463,27 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                   )}
 
                   {/* Purple backdrop for charged anchors */}
-                  {anchor.charged && (
-                    <View style={s.chargedSigilBackdrop} />
-                  )}
+                  {anchor.charged && <View style={s.chargedSigilBackdrop} />}
 
                   {anchor.sigilUri ? (
                     <Image
                       source={{ uri: anchor.sigilUri }}
-                      style={[s.sigilImage, anchor.charged && s.chargedSigilImage, anchor.isReleased && s.releasedSigilImage]}
+                      style={[
+                        s.sigilImage,
+                        anchor.charged && s.chargedSigilImage,
+                        anchor.isReleased && s.releasedSigilImage,
+                      ]}
                       resizeMode="cover"
                     />
                   ) : resolvedSigilSvg ? (
-                    <View style={[s.sigilPlaceholder, Platform.OS === 'android' && s.sigilPlaceholderAndroid, isLowPerfDevice && s.lowPerfNoSigilShadow, anchor.charged && s.chargedSigilPlaceholder]}>
+                    <View
+                      style={[
+                        s.sigilPlaceholder,
+                        Platform.OS === 'android' && s.sigilPlaceholderAndroid,
+                        isLowPerfDevice && s.lowPerfNoSigilShadow,
+                        anchor.charged && s.chargedSigilPlaceholder,
+                      ]}
+                    >
                       <SigilSvg
                         xml={resolvedSigilSvg}
                         width={SIGIL_CIRCLE_SIZE * (anchor.charged ? 0.72 : 1)}
@@ -1259,7 +1493,10 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                   ) : (
                     <LinearGradient
                       colors={['#2a1a60', '#0f0830', '#050015']}
-                      style={[s.sigilPlaceholder, anchor.charged && s.chargedSigilPlaceholder]}
+                      style={[
+                        s.sigilPlaceholder,
+                        anchor.charged && s.chargedSigilPlaceholder,
+                      ]}
                     >
                       <Text style={{ fontSize: 72 }}>🎵</Text>
                     </LinearGradient>
@@ -1278,17 +1515,40 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
               testID="anchor-thread-strength-row"
               onPress={() => setThreadStrengthSheetVisible(true)}
             >
-              <Reanimated.View style={[s.animatedCardShell, Platform.OS === 'android' && s.animatedCardShellAndroid, isLowPerfDevice && s.lowPerfFlatCardShell, statsCardPulseStyle]}>
-                <LinearGradient colors={[colors.practice.threadSurface, colors.practice.threadSurface]} style={[s.card, s.statsCard, isLowPerfDevice && s.lowPerfNoCardShadow]}>
+              <Reanimated.View
+                style={[
+                  s.animatedCardShell,
+                  Platform.OS === 'android' && s.animatedCardShellAndroid,
+                  isLowPerfDevice && s.lowPerfFlatCardShell,
+                  statsCardPulseStyle,
+                ]}
+              >
+                <LinearGradient
+                  colors={[
+                    colors.practice.threadSurface,
+                    colors.practice.threadSurface,
+                  ]}
+                  style={[
+                    s.card,
+                    s.statsCard,
+                    isLowPerfDevice && s.lowPerfNoCardShadow,
+                  ]}
+                >
                   <View style={s.miniStreakCard}>
                     <View style={s.miniStreakLeft}>
                       <View style={s.miniStreakIcon}>
                         <Zap size={16} color={colors.gold} />
                       </View>
                       <View>
-                        <Text testID="anchor-detail-streak-value" style={s.miniStreakNum}>
+                        <Text
+                          testID="anchor-detail-streak-value"
+                          style={s.miniStreakNum}
+                        >
                           {anchorPractice.currentStreak}
-                          <Text style={s.miniStreakUnit}> {currentStreakUnit}</Text>
+                          <Text style={s.miniStreakUnit}>
+                            {' '}
+                            {currentStreakUnit}
+                          </Text>
                         </Text>
                         <Text style={s.miniStreakSub}>Thread Strength</Text>
                       </View>
@@ -1296,13 +1556,38 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
 
                     <View style={s.miniDays}>
                       <View style={s.miniThreadBarWrap}>
-                        <View style={[s.miniThreadBar, { width: `${threadStrengthValue}%` }]} />
+                        <View
+                          style={[
+                            s.miniThreadBar,
+                            { width: `${threadStrengthValue}%` },
+                          ]}
+                        />
                       </View>
-                      <MiniWeekTrack weekHistory={anchorPractice.weekHistory} lastPrimedAt={anchorPractice.lastPrimedAt} />
+                      <MiniWeekTrack
+                        weekHistory={anchorPractice.weekHistory}
+                        lastPrimedAt={anchorPractice.lastPrimedAt}
+                      />
                     </View>
                   </View>
 
-                  <Text style={s.miniAffirmation}>The symbol is becoming part of you.</Text>
+                  <Text style={s.miniAffirmation}>
+                    Each return strengthens the signal.
+                  </Text>
+
+                  <View style={{ marginTop: spacing.sm }}>
+                    <MicroTeachInfoChip
+                      teachingIds="anchor_history_v1"
+                      screenId="anchor_detail"
+                      label="Why this matters"
+                      sheetTitle="Why this matters"
+                    />
+                  </View>
+
+                  <MicroTeachHintRow
+                    teaching={anchorReuseTeaching}
+                    screenId="anchor_detail"
+                    showPin={false}
+                  />
 
                   {/* Distilled row */}
                   <View style={s.distilledSection}>
@@ -1320,9 +1605,16 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                   </View>
                 </LinearGradient>
                 {!isLowPerfDevice && (
-                  <Reanimated.View pointerEvents="none" style={[s.cardAuraOverlay, statsCardAuraStyle]}>
+                  <Reanimated.View
+                    pointerEvents="none"
+                    style={[s.cardAuraOverlay, statsCardAuraStyle]}
+                  >
                     <LinearGradient
-                      colors={['rgba(255, 223, 133, 0.18)', 'rgba(245, 198, 82, 0.08)', 'rgba(255, 223, 133, 0.18)']}
+                      colors={[
+                        'rgba(255, 223, 133, 0.18)',
+                        'rgba(245, 198, 82, 0.08)',
+                        'rgba(255, 223, 133, 0.18)',
+                      ]}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 1 }}
                       style={StyleSheet.absoluteFillObject}
@@ -1341,8 +1633,12 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
               <View style={s.releasedStatusGradient}>
                 <View style={s.releasedStatusLeft}>
                   <Text style={s.releasedStatusLabel}>Ceremony Complete</Text>
-                  <Text style={s.releasedStatusTitle}>This anchor has been released.</Text>
-                  <Text style={s.releasedStatusDate}>Success on {anchor.releasedAt}</Text>
+                  <Text style={s.releasedStatusTitle}>
+                    This anchor has been released.
+                  </Text>
+                  <Text style={s.releasedStatusDate}>
+                    Success on {anchor.releasedAt}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -1368,14 +1664,15 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         {/* DEFERRED: Direct ritual entry points live on Practice — restore the secondary ritual sheet here only if the detail screen regains mode-launch responsibilities. */}
 
         <FadeUp delay={320} animate={shouldAnimateIntro}>
-          <LinearGradient
-            colors={CARD_GRADIENT}
-            style={[s.card, s.exportCard]}
-          >
+          <LinearGradient colors={CARD_GRADIENT} style={[s.card, s.exportCard]}>
             <Text style={s.exportEyebrow}>WALLPAPER & EXPORT</Text>
-            <Text style={s.exportTitle}>Keep your anchor where you will actually see it.</Text>
+            <Text style={s.exportTitle}>
+              Keep your anchor where you will actually see it.
+            </Text>
             <Text style={s.exportBody}>
-              Share a branded card for messages and social, save the raw PNG, or open the wallpaper flow when you want the symbol on your lock screen.
+              Share a branded card for messages and social, save the raw PNG, or
+              open the wallpaper flow when you want the symbol on your lock
+              screen.
             </Text>
             <View style={s.exportActionRow}>
               <View style={s.formatToggleRow}>
@@ -1383,20 +1680,54 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                   accessibilityRole="button"
                   activeOpacity={0.85}
                   onPress={() => setShareFormat('square')}
-                  style={[s.formatPill, shareFormat === 'square' && s.formatPillActive]}
+                  style={[
+                    s.formatPill,
+                    shareFormat === 'square' && s.formatPillActive,
+                  ]}
                 >
-                  <Text style={[s.formatPillText, shareFormat === 'square' && s.formatPillTextActive]}>SQUARE</Text>
-                  <Text style={[s.formatPillDim, shareFormat === 'square' && s.formatPillDimActive]}>1:1</Text>
+                  <Text
+                    style={[
+                      s.formatPillText,
+                      shareFormat === 'square' && s.formatPillTextActive,
+                    ]}
+                  >
+                    SQUARE
+                  </Text>
+                  <Text
+                    style={[
+                      s.formatPillDim,
+                      shareFormat === 'square' && s.formatPillDimActive,
+                    ]}
+                  >
+                    1:1
+                  </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   accessibilityRole="button"
                   activeOpacity={0.85}
                   onPress={() => setShareFormat('stories')}
-                  style={[s.formatPill, shareFormat === 'stories' && s.formatPillActive]}
+                  style={[
+                    s.formatPill,
+                    shareFormat === 'stories' && s.formatPillActive,
+                  ]}
                 >
-                  <Text style={[s.formatPillText, shareFormat === 'stories' && s.formatPillTextActive]}>STORIES</Text>
-                  <Text style={[s.formatPillDim, shareFormat === 'stories' && s.formatPillDimActive]}>9:16</Text>
+                  <Text
+                    style={[
+                      s.formatPillText,
+                      shareFormat === 'stories' && s.formatPillTextActive,
+                    ]}
+                  >
+                    STORIES
+                  </Text>
+                  <Text
+                    style={[
+                      s.formatPillDim,
+                      shareFormat === 'stories' && s.formatPillDimActive,
+                    ]}
+                  >
+                    9:16
+                  </Text>
                 </TouchableOpacity>
               </View>
 
@@ -1405,7 +1736,11 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                 activeOpacity={0.85}
                 disabled={isShareCardLoading}
                 onPress={handleShareAnchor}
-                style={[s.exportActionButton, s.exportActionPrimary, isShareCardLoading && s.exportActionDisabled]}
+                style={[
+                  s.exportActionButton,
+                  s.exportActionPrimary,
+                  isShareCardLoading && s.exportActionDisabled,
+                ]}
                 testID="anchor-detail-share-button"
               >
                 <View style={s.exportActionPrimaryContent}>
@@ -1439,7 +1774,11 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
                   accessibilityRole="button"
                   activeOpacity={0.85}
                   onPress={() => setShowExportSheet(true)}
-                  style={[s.exportActionButton, s.exportActionSecondary, s.exportActionHalf]}
+                  style={[
+                    s.exportActionButton,
+                    s.exportActionSecondary,
+                    s.exportActionHalf,
+                  ]}
                   testID="anchor-detail-download-png-button"
                 >
                   <Text style={s.exportActionSecondaryText}>SAVE PNG</Text>
@@ -1471,7 +1810,6 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
         <FadeUp delay={400} animate={shouldAnimateIntro}>
           <Text style={s.footerDate}>Created {anchor.createdAt}</Text>
         </FadeUp>
-
       </ScrollView>
 
       {/* ── HIDDEN CAPTURE TARGET — mount only while exporting so it doesn't
@@ -1490,17 +1828,51 @@ const AnchorDetailsScreen = ({ navigation, route }) => {
           }}
           collapsable={false}
         >
-          <View style={{ width: 1170 * 0.65, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <View
+            style={{
+              width: 1170 * 0.65,
+              aspectRatio: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
             {anchor.sigilUri ? (
-              <Image source={{ uri: anchor.sigilUri }} style={{ width: '100%', height: '100%', borderRadius: 999 }} resizeMode="cover" />
+              <Image
+                source={{ uri: anchor.sigilUri }}
+                style={{ width: '100%', height: '100%', borderRadius: 999 }}
+                resizeMode="cover"
+              />
             ) : resolvedSigilSvg ? (
-              <SigilSvg xml={resolvedSigilSvg} width={1170 * 0.65} height={1170 * 0.65} />
+              <SigilSvg
+                xml={resolvedSigilSvg}
+                width={1170 * 0.65}
+                height={1170 * 0.65}
+              />
             ) : null}
           </View>
-          <Text style={{ color: '#F5F5DC', fontFamily: 'CormorantGaramond-Regular', fontSize: 28, textAlign: 'center', marginTop: 48, paddingHorizontal: 80 }}>
+          <Text
+            style={{
+              color: '#F5F5DC',
+              fontFamily: 'CormorantGaramond-Regular',
+              fontSize: 28,
+              textAlign: 'center',
+              marginTop: 48,
+              paddingHorizontal: 80,
+            }}
+          >
             {anchor.intention}
           </Text>
-          <Text style={{ color: '#D4AF37', fontFamily: 'Cinzel-Regular', fontSize: 18, letterSpacing: 8, textAlign: 'center', marginTop: 24, marginBottom: 80 }}>
+          <Text
+            style={{
+              color: '#D4AF37',
+              fontFamily: 'Cinzel-Regular',
+              fontSize: 18,
+              letterSpacing: 8,
+              textAlign: 'center',
+              marginTop: 24,
+              marginBottom: 80,
+            }}
+          >
             ANCHOR
           </Text>
         </View>
@@ -1588,12 +1960,16 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(12,14,18,0.88)',
   },
   backBtn: {
-    width: 36, height: 36,
-    alignItems: 'center', justifyContent: 'center',
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: spacing.sm,
   },
   backArrow: {
-    color: C.gold, fontSize: 22, opacity: 0.85,
+    color: C.gold,
+    fontSize: 22,
+    opacity: 0.85,
   },
   headerTitle: {
     fontFamily: typography.fontFamily.serif,
@@ -1699,30 +2075,37 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 6, paddingHorizontal: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
     borderRadius: 30,
     backgroundColor: 'rgba(201,168,76,0.15)',
-    borderWidth: 1, borderColor: 'rgba(201,168,76,0.4)',
+    borderWidth: 1,
+    borderColor: 'rgba(201,168,76,0.4)',
   },
   badgeDesire: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 6, paddingHorizontal: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
     borderRadius: 30,
     backgroundColor: colors.practice.cardIconSecondarySurface,
-    borderWidth: 1, borderColor: colors.practice.cardIconSecondaryBorder,
+    borderWidth: 1,
+    borderColor: colors.practice.cardIconSecondaryBorder,
   },
   badgeCharged: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 6, paddingHorizontal: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
     borderRadius: 30,
     backgroundColor: colors.practice.threadIconSurface,
-    borderWidth: 1, borderColor: colors.practice.threadIconBorder,
+    borderWidth: 1,
+    borderColor: colors.practice.threadIconBorder,
     shadowColor: C.gold,
-    shadowOpacity: 0.2, shadowRadius: 8,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
   },
   badgeChargedAndroid: {
     shadowOpacity: 0,
@@ -1740,7 +2123,9 @@ const s = StyleSheet.create({
     shadowOpacity: 0,
   },
   badgeDot: {
-    width: 5, height: 5, borderRadius: 3,
+    width: 5,
+    height: 5,
+    borderRadius: 3,
   },
   badgeIcon: { fontSize: 11 },
   badgeText: {
@@ -1810,7 +2195,8 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: C.gold,
-    shadowOpacity: 0.2, shadowRadius: 20,
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
   },
   sigilPlaceholderAndroid: {
     shadowOpacity: 0,
@@ -1966,7 +2352,8 @@ const s = StyleSheet.create({
     flex: 1,
     minWidth: '45%',
     backgroundColor: 'rgba(34,26,70,0.58)',
-    borderWidth: 1, borderColor: 'rgba(156,120,224,0.25)',
+    borderWidth: 1,
+    borderColor: 'rgba(156,120,224,0.25)',
     borderRadius: 12,
     padding: 14,
     alignItems: 'center',
@@ -2054,13 +2441,18 @@ const s = StyleSheet.create({
     gap: spacing.xs + 2,
   },
   distilledTag: {
-    borderWidth: 1, borderColor: colors.practice.cardSecondaryBorder,
-    borderRadius: 6, paddingVertical: 2, paddingHorizontal: 7,
+    borderWidth: 1,
+    borderColor: colors.practice.cardSecondaryBorder,
+    borderRadius: 6,
+    paddingVertical: 2,
+    paddingHorizontal: 7,
     backgroundColor: 'rgba(0,0,0,0.12)',
   },
   distilledTagText: {
     fontFamily: typography.fontFamily.serif,
-    fontSize: 8, letterSpacing: 1, color: C.textSec,
+    fontSize: 8,
+    letterSpacing: 1,
+    color: C.textSec,
   },
 
   // ── SECTION LABEL ──
@@ -2097,7 +2489,8 @@ const s = StyleSheet.create({
   },
   shineSweep: {
     position: 'absolute',
-    top: 0, bottom: 0,
+    top: 0,
+    bottom: 0,
     width: 80,
     backgroundColor: 'rgba(255,255,255,0.18)',
     transform: [{ skewX: '-20deg' }],
@@ -2116,18 +2509,24 @@ const s = StyleSheet.create({
     gap: 10,
   },
   durationPill: {
-    paddingVertical: 7, paddingHorizontal: 20,
+    paddingVertical: 7,
+    paddingHorizontal: 20,
     borderRadius: 30,
-    borderWidth: 1, borderColor: 'rgba(140,100,220,0.25)',
+    borderWidth: 1,
+    borderColor: 'rgba(140,100,220,0.25)',
   },
   durationPillActive: {
     borderColor: C.goldBorder,
     backgroundColor: 'rgba(201,168,76,0.1)',
-    shadowColor: C.gold, shadowOpacity: 0.2, shadowRadius: 8,
+    shadowColor: C.gold,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
   },
   durationText: {
     fontFamily: 'serif',
-    fontSize: 10, fontWeight: '700', letterSpacing: 1,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1,
     color: C.textSec,
   },
   durationTextActive: { color: C.goldBright },
@@ -2138,32 +2537,46 @@ const s = StyleSheet.create({
   },
   saveDefaultText: {
     fontFamily: 'serif',
-    fontSize: 12, fontStyle: 'italic', color: C.goldDim, opacity: 0.96,
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: C.goldDim,
+    opacity: 0.96,
   },
   fastReset: {
     fontFamily: 'serif',
-    fontSize: 11, fontStyle: 'italic',
-    color: C.textDim, textAlign: 'center',
+    fontSize: 11,
+    fontStyle: 'italic',
+    color: C.textDim,
+    textAlign: 'center',
     marginTop: -6,
   },
 
   // ── COLLAPSIBLE ──
   collapsibleCard: { padding: 18 },
   collapsibleHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   collapsibleTitle: {
     fontFamily: 'serif',
-    fontSize: 13, fontWeight: '600', color: C.gold, letterSpacing: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: C.gold,
+    letterSpacing: 1,
     marginBottom: 3,
   },
   collapsibleMeta: {
     fontFamily: 'serif',
-    fontSize: 12, color: C.textSec, marginBottom: 2,
+    fontSize: 12,
+    color: C.textSec,
+    marginBottom: 2,
   },
   collapsibleSub: {
     fontFamily: 'serif',
-    fontSize: 11, fontStyle: 'italic', color: C.textDim,
+    fontSize: 11,
+    fontStyle: 'italic',
+    color: C.textDim,
   },
   chevron: { color: C.goldDim, fontSize: 12 },
 
@@ -2179,25 +2592,37 @@ const s = StyleSheet.create({
   },
   actionBtnText: {
     fontFamily: 'serif',
-    fontSize: 13, fontWeight: '700', letterSpacing: 1.6,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 1.6,
   },
 
   // ── PRACTICE ──
   practiceHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: spacing.md,
   },
   practiceTitle: {
     fontFamily: typography.fontFamily.serifSemiBold,
-    fontSize: 13, fontWeight: '600', color: C.gold, letterSpacing: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: C.gold,
+    letterSpacing: 1,
   },
   practiceItem: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm + spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm + spacing.xs,
   },
   practiceCheck: {
-    width: 28, height: 28, borderRadius: 14,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     borderWidth: 1.5,
-    alignItems: 'center', justifyContent: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   checkComplete: {
     borderColor: 'rgba(201,168,76,0.5)',
@@ -2209,32 +2634,48 @@ const s = StyleSheet.create({
   },
   practiceCheckText: {
     fontFamily: typography.fontFamily.serif,
-    fontSize: 10, fontWeight: '700',
+    fontSize: 10,
+    fontWeight: '700',
   },
   practiceLabel: {
     fontFamily: typography.fontFamily.sans,
-    fontSize: 15, color: C.textPrimary, letterSpacing: 0.3,
+    fontSize: 15,
+    color: C.textPrimary,
+    letterSpacing: 0.3,
   },
 
   // ── PHYSICAL ──
   physicalEyebrow: {
     fontFamily: typography.fontFamily.serif,
-    fontSize: 8, letterSpacing: 3, color: C.silverDim,
-    textTransform: 'uppercase', marginBottom: spacing.xs,
+    fontSize: 8,
+    letterSpacing: 3,
+    color: C.silverDim,
+    textTransform: 'uppercase',
+    marginBottom: spacing.xs,
   },
   physicalSub: {
     fontFamily: typography.fontFamily.sans,
-    fontSize: 13, fontStyle: 'italic', color: C.textSec, marginBottom: spacing.md,
+    fontSize: 13,
+    fontStyle: 'italic',
+    color: C.textSec,
+    marginBottom: spacing.md,
   },
   physicalRow: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm + spacing.xs, marginBottom: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm + spacing.xs,
+    marginBottom: spacing.md,
   },
   physicalThumb: {
-    width: 64, height: 64, borderRadius: 12,
-    borderWidth: 1, borderColor: colors.practice.cardFeaturedBorder,
+    width: 64,
+    height: 64,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.practice.cardFeaturedBorder,
     backgroundColor: colors.practice.cardFeaturedSurface,
     overflow: 'hidden',
-    alignItems: 'center', justifyContent: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   physicalThumbImage: {
     width: '100%',
@@ -2250,24 +2691,38 @@ const s = StyleSheet.create({
   },
   physicalCopyTitle: {
     fontFamily: typography.fontFamily.serifSemiBold,
-    fontSize: 13, fontWeight: '700', color: C.textPrimary, marginBottom: spacing.xs,
+    fontSize: 13,
+    fontWeight: '700',
+    color: C.textPrimary,
+    marginBottom: spacing.xs,
   },
   physicalCopyBody: {
     fontFamily: typography.fontFamily.sans,
-    fontSize: 12, fontStyle: 'italic', color: C.textSec,
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: C.textSec,
   },
   createPhysicalBtn: {
-    borderRadius: 12, padding: 15, alignItems: 'center',
-    shadowColor: C.gold, shadowOpacity: 0.25, shadowRadius: 10,
+    borderRadius: 12,
+    padding: 15,
+    alignItems: 'center',
+    shadowColor: C.gold,
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
   },
   createPhysicalText: {
     fontFamily: typography.fontFamily.serif,
-    fontSize: 12, fontWeight: '800', letterSpacing: 2, color: '#1a0e00',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 2,
+    color: '#1a0e00',
   },
   physicalTags: {
     fontFamily: typography.fontFamily.serif,
-    fontSize: 11, color: C.textDim,
-    textAlign: 'center', letterSpacing: 1,
+    fontSize: 11,
+    color: C.textDim,
+    textAlign: 'center',
+    letterSpacing: 1,
   },
   // ── NEW RITUAL ACTIONS ──
   primaryCtaCard: {
@@ -2470,9 +2925,12 @@ const s = StyleSheet.create({
   // ── FOOTER ──
   footerDate: {
     fontFamily: typography.fontFamily.sans,
-    fontSize: 11, fontStyle: 'italic',
-    color: C.textDim, textAlign: 'center',
-    paddingVertical: spacing.sm, letterSpacing: 0.5,
+    fontSize: 11,
+    fontStyle: 'italic',
+    color: C.textDim,
+    textAlign: 'center',
+    paddingVertical: spacing.sm,
+    letterSpacing: 0.5,
   },
 
   // ── REPORT CONTENT ──

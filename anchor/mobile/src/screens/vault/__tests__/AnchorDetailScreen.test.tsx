@@ -4,10 +4,17 @@ import { Share } from 'react-native';
 import * as Sharing from 'expo-sharing';
 import { AnchorDetailScreen } from '../AnchorDetailScreen';
 
+jest.mock('@/config', () => ({
+    ...jest.requireActual('@/config'),
+    ENABLE_MERCH: false,
+}));
+
 // Mock navigation
 const mockNavigate = jest.fn();
 const mockNavigateToPractice = jest.fn();
 const mockExportAnchorArtwork = jest.fn();
+const mockRequestPhotoLibrarySavePermission = jest.fn();
+const mockSavePngToPhotoLibrary = jest.fn();
 const mockCaptureRef = jest.fn();
 const mockRequestPermissionsAsync = jest.fn();
 const mockSaveToLibraryAsync = jest.fn();
@@ -182,6 +189,8 @@ jest.mock('@/services/ApiClient', () => ({
 
 jest.mock('@/services/AnchorArtworkExportService', () => ({
     exportAnchorArtwork: (...args: any[]) => mockExportAnchorArtwork(...args),
+    requestPhotoLibrarySavePermission: (...args: any[]) => mockRequestPhotoLibrarySavePermission(...args),
+    savePngToPhotoLibrary: (...args: any[]) => mockSavePngToPhotoLibrary(...args),
 }));
 
 jest.mock('@/components/ToastProvider', () => ({
@@ -195,13 +204,13 @@ jest.mock('@/components/ToastProvider', () => ({
 }));
 
 jest.mock('@/services/AnalyticsService', () => ({
+    AnalyticsEvents: {
+        ANCHOR_DETAIL_VIEWED: 'anchor_detail_viewed',
+        ANCHOR_DELETED: 'anchor_deleted',
+    },
     AnalyticsService: {
         track: (...args: any[]) => mockAnalyticsTrack(...args),
     },
-}));
-
-jest.mock('@/components/MoreRitualsSheet', () => ({
-    MoreRitualsSheet: () => null,
 }));
 
 jest.mock('@/components/ShareCardRenderer', () => {
@@ -247,6 +256,8 @@ describe('AnchorDetailScreen', () => {
         jest.restoreAllMocks();
         mockNavigate.mockClear();
         mockExportAnchorArtwork.mockReset();
+        mockRequestPhotoLibrarySavePermission.mockReset();
+        mockSavePngToPhotoLibrary.mockReset();
         mockCaptureRef.mockReset();
         mockRequestPermissionsAsync.mockReset();
         mockSaveToLibraryAsync.mockReset();
@@ -267,6 +278,8 @@ describe('AnchorDetailScreen', () => {
             mode: 'wallpaper',
         });
         mockCaptureRef.mockResolvedValue('file:///tmp/anchor-card.png');
+        mockRequestPhotoLibrarySavePermission.mockResolvedValue(true);
+        mockSavePngToPhotoLibrary.mockResolvedValue('file:///tmp/anchor-card-saved.png');
         mockRequestPermissionsAsync.mockResolvedValue({ status: 'granted', granted: true });
         mockSaveToLibraryAsync.mockResolvedValue(undefined);
         jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction' } as any);
@@ -291,13 +304,14 @@ describe('AnchorDetailScreen', () => {
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
         expect(screen.getByText('Ready to prime?')).toBeTruthy();
         expect(screen.getByText('Open Practice')).toBeTruthy();
+        expect(screen.queryByText('Visualize')).toBeNull();
     });
 
     it('stub: shows the compact priming stats', () => {
         render(<AnchorDetailScreen navigation={navigation} route={route} />);
         expect(screen.getByText('Dormant')).toBeTruthy();
         expect(screen.getByText('Thread Strength')).toBeTruthy();
-        expect(screen.getByText('The symbol is becoming part of you.')).toBeTruthy();
+        expect(screen.getByText('Each return strengthens the signal.')).toBeTruthy();
         expect(screen.getByTestId('anchor-detail-streak-value').props.children[0]).toBe(1);
     });
 
@@ -335,6 +349,12 @@ describe('AnchorDetailScreen', () => {
         expect(screen.getByText('SHARE MY ANCHOR')).toBeTruthy();
         expect(screen.getByText('SET AS WALLPAPER')).toBeTruthy();
         expect(screen.getByText('SAVE PNG')).toBeTruthy();
+    });
+
+    it('does not render the physical anchor CTA when merch is disabled', () => {
+        render(<AnchorDetailScreen navigation={navigation} route={route} />);
+        expect(screen.queryByText('PHYSICAL ANCHOR')).toBeNull();
+        expect(screen.queryByText('CREATE PHYSICAL ANCHOR')).toBeNull();
     });
 
     it('shares a branded anchor card from the detail screen', async () => {
@@ -382,8 +402,11 @@ describe('AnchorDetailScreen', () => {
         fireEvent.press(screen.getByText('SET AS WALLPAPER'));
         await waitFor(() => {
             expect(mockCaptureRef).toHaveBeenCalled();
-            expect(mockSaveToLibraryAsync).toHaveBeenCalledWith('file:///tmp/anchor-card.png');
-            expect(Share.share).toHaveBeenCalledWith({ url: 'file:///tmp/anchor-card.png' });
+            expect(mockSavePngToPhotoLibrary).toHaveBeenCalledWith(
+                'file:///tmp/anchor-card.png',
+                'anchor-wallpaper.png'
+            );
+            expect(Share.share).toHaveBeenCalledWith({ url: 'file:///tmp/anchor-card-saved.png' });
         });
     });
 

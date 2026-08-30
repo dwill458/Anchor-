@@ -134,7 +134,7 @@ export const DataPrivacyScreen: React.FC = () => {
                             await AsyncStorage.multiRemove(CACHE_KEYS);
                             Alert.alert('Cleared', 'Local cache has been successfully cleared.');
                         } catch {
-                            Alert.alert('Error', 'Could not clear cache. Please try again.');
+                            Alert.alert('Cache not cleared', 'The local cache could not be cleared. Please try again.');
                         } finally {
                             setIsClearingCache(false);
                         }
@@ -146,7 +146,7 @@ export const DataPrivacyScreen: React.FC = () => {
 
     const openUrl = (url: string) => {
         Linking.openURL(url).catch(() => {
-            Alert.alert('Error', 'Could not open the link.');
+            Alert.alert('Link unavailable', 'This link could not be opened right now.');
         });
     };
 
@@ -177,7 +177,7 @@ export const DataPrivacyScreen: React.FC = () => {
                                 <Text style={styles.overviewTitle}>Privacy First</Text>
                             </View>
                             <Text style={styles.overviewText}>
-                                Your anchors and intentions are your own. Anchor stores your account email, Anchor content, subscription state, reminder preferences, and push notification tokens needed to send practice reminders. We send your intention text to Google's Gemini AI to generate sigil artwork and use Sentry for crash and performance diagnostics. We do not use your data for advertising.
+                                Your anchors and intentions are your own. Anchor stores your account email, Anchor content, subscription state, reminder preferences, and push notification tokens needed to send practice reminders. We send your intention text to Google's Gemini AI to generate sigil artwork and, when you request it, Visualize scene suggestions. We use Sentry for crash and performance diagnostics. We do not use your data for advertising.
                             </Text>
                         </CardWrapper>
                     </View>

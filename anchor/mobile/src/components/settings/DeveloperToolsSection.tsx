@@ -3,7 +3,6 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import NotificationService, { type NotificationType } from '@/services/NotificationService';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { useForgeMomentStore } from '@/stores/forgeMomentStore';
 import {
   useDetectedPerformanceTier,
   usePerformanceTier,
@@ -120,7 +119,6 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
   const [showCoreTools, setShowCoreTools] = React.useState(true);
   const [showNotificationTools, setShowNotificationTools] = React.useState(false);
   const [showWeeklyTools, setShowWeeklyTools] = React.useState(false);
-  const [showMilestoneTools, setShowMilestoneTools] = React.useState(false);
   const subStore = useSubscriptionStore();
   const developerModeEnabled = useSettingsStore((s) => s.developerModeEnabled);
   const setDeveloperModeEnabled = useSettingsStore((s) => s.setDeveloperModeEnabled);
@@ -276,39 +274,6 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
     } finally {
       setIsNotificationActionRunning(false);
     }
-  };
-
-  const { queueMilestone } = useForgeMomentStore((state) => ({
-    queueMilestone: state.queueMilestone,
-  }));
-
-  const RANK_MILESTONE_OPTIONS: Array<{
-    name: string;
-    label: string;
-  }> = [
-    {
-      name: 'Practitioner',
-      label: 'Practitioner Rank',
-    },
-    {
-      name: 'Architect',
-      label: 'Architect Rank',
-    },
-    {
-      name: 'Sovereign',
-      label: 'Sovereign Rank',
-    },
-  ];
-
-  const handleQueueRankMilestone = async (rankName: string, label: string): Promise<void> => {
-    const success = await queueMilestone({
-      type: 'rank',
-      name: rankName,
-    });
-    const message = success
-      ? `${label} queued for display.`
-      : `${label} already shown recently.`;
-    setNotificationStatus(message);
   };
 
   const handleResetFirstPrimeState = () => {
@@ -568,35 +533,6 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
                 }
                 showDivider={false}
               />
-            ) : null}
-          </SettingsSectionBlock>
-
-          <SettingsSectionBlock isDev style={styles.notificationBlock}>
-            {renderAccordionHeader(
-              'Milestone Trigger Tests',
-              'Queue rank achievements to test milestone popups.',
-              showMilestoneTools,
-              () => setShowMilestoneTools((current) => !current)
-            )}
-
-            {showMilestoneTools ? (
-              <>
-                {RANK_MILESTONE_OPTIONS.map((option, index) => (
-                  <SettingsRow
-                    key={option.name}
-                    title={option.label}
-                    type="none"
-                    onPress={() => void handleQueueRankMilestone(option.name, option.label)}
-                    isDev
-                    rightElement={
-                      <View style={styles.notificationBadge}>
-                        <Text style={styles.notificationBadgeText}>Show</Text>
-                      </View>
-                    }
-                    showDivider={index < RANK_MILESTONE_OPTIONS.length - 1}
-                  />
-                ))}
-              </>
             ) : null}
           </SettingsSectionBlock>
 

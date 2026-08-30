@@ -20,6 +20,8 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { RootStackParamList } from '@/types';
 import { colors } from '@/theme';
 import { ZenBackground } from '@/components/common';
+import { MicroTeachCard } from '@/components/teaching';
+import { useTeachingGate } from '@/utils/useTeachingGate';
 import * as Haptics from 'expo-haptics';
 import { typography } from '@/theme';
 import { isCompactPhoneViewport } from '@/utils/layout';
@@ -49,6 +51,11 @@ export const EnhancementChoiceScreen: React.FC = () => {
   const route = useRoute<EnhancementChoiceRouteProp>();
   const { width, height } = useWindowDimensions();
   const isCompactLayout = isCompactPhoneViewport(width, height);
+
+  const enhancementTeaching = useTeachingGate({
+    screenId: 'enhancement_choice',
+    candidateIds: ['enhancement_choice_first_time_v1'],
+  });
 
   const ENHANCEMENT_OPTIONS: EnhancementOption[] = [
     {
@@ -254,6 +261,13 @@ export const EnhancementChoiceScreen: React.FC = () => {
               “Your structure is set. Choose how it speaks.”
             </Text>
           </Animated.View>
+
+          <MicroTeachCard
+            teaching={enhancementTeaching}
+            screenId="enhancement_choice"
+            style={{ marginHorizontal: 24, marginBottom: 16 }}
+          />
+
 
           {/* Intention Card */}
           <Animated.View

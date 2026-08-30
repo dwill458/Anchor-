@@ -30,6 +30,7 @@ export interface ConfirmModalProps {
   secondaryCtaLabel: string;
   onPrimary: () => void;
   onSecondary: () => void;
+  onBackdropPress?: () => void;
 }
 
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -40,6 +41,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   secondaryCtaLabel,
   onPrimary,
   onSecondary,
+  onBackdropPress,
 }) => {
   const opacity = useSharedValue(0);
   const scale = useSharedValue(0.85);
@@ -68,7 +70,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
       <TouchableOpacity
         style={StyleSheet.absoluteFill}
         activeOpacity={1}
-        onPress={onSecondary}
+        onPress={onBackdropPress ?? onPrimary}
         accessibilityLabel="Dismiss modal"
       />
 

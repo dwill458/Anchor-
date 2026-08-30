@@ -14,6 +14,11 @@ import AnchorSyncService from '@/services/AnchorSyncService';
 import { useAuthStore } from '@/stores/authStore';
 import { getAdjustedDateString } from '@/utils/dateUtils';
 import { logger } from '@/utils/logger';
+import { useVisualizationSceneStore } from './visualizationSceneStore';
+import {
+  JOURNEY_MILESTONE_IDS,
+  JOURNEY_TEACHING_CONTENT_ID_BY_MILESTONE,
+} from '@/constants/milestones';
 
 const normalizeDate = (value?: Date | string): Date | undefined => {
   if (!value) return undefined;
@@ -22,14 +27,14 @@ const normalizeDate = (value?: Date | string): Date | undefined => {
 
 const normalizeAnchor = (anchor: Anchor): Anchor => ({
   ...anchor,
-  createdAt: normalizeDate(anchor.createdAt) ?? new Date(),
-  updatedAt: normalizeDate(anchor.updatedAt) ?? new Date(),
-  chargedAt: normalizeDate(anchor.chargedAt),
-  firstChargedAt: normalizeDate(anchor.firstChargedAt),
-  ignitedAt: normalizeDate(anchor.ignitedAt),
-  lastActivatedAt: normalizeDate(anchor.lastActivatedAt),
-  releasedAt: normalizeDate(anchor.releasedAt),
-  archivedAt: normalizeDate(anchor.archivedAt),
+  createdAt: anchor.createdAt instanceof Date ? anchor.createdAt : normalizeDate(anchor.createdAt) ?? new Date(),
+  updatedAt: anchor.updatedAt instanceof Date ? anchor.updatedAt : normalizeDate(anchor.updatedAt) ?? new Date(),
+  chargedAt: anchor.chargedAt instanceof Date ? anchor.chargedAt : normalizeDate(anchor.chargedAt),
+  firstChargedAt: anchor.firstChargedAt instanceof Date ? anchor.firstChargedAt : normalizeDate(anchor.firstChargedAt),
+  ignitedAt: anchor.ignitedAt instanceof Date ? anchor.ignitedAt : normalizeDate(anchor.ignitedAt),
+  lastActivatedAt: anchor.lastActivatedAt instanceof Date ? anchor.lastActivatedAt : normalizeDate(anchor.lastActivatedAt),
+  releasedAt: anchor.releasedAt instanceof Date ? anchor.releasedAt : normalizeDate(anchor.releasedAt),
+  archivedAt: anchor.archivedAt instanceof Date ? anchor.archivedAt : normalizeDate(anchor.archivedAt),
 });
 
 const matchesAnchorReference = (anchor: Anchor, referenceId: string): boolean =>
@@ -118,7 +123,9 @@ export const useAnchorStore = create<AnchorState>()(
         // Set first-anchor flag once; queue M1 milestone
         if (!teaching.userFlags.hasCreatedFirstAnchor) {
           teaching.setUserFlag('hasCreatedFirstAnchor', true);
-          teaching.queueMilestone('milestone_first_anchor_v1');
+          teaching.queueMilestone(
+            JOURNEY_TEACHING_CONTENT_ID_BY_MILESTONE[JOURNEY_MILESTONE_IDS.firstAnchor]
+          );
         }
         set((state) => ({
           anchors: [anchor, ...state.anchors], // Add to beginning (most recent first)
@@ -182,7 +189,19 @@ export const useAnchorStore = create<AnchorState>()(
           };
         }),
 
-      removeAnchor: (id) =>
+      removeAnchor: (id) => {
+        const target = get().getAnchorById(id);
+        const referenceIds = Array.from(
+          new Set([id, target?.id, target?.localId].filter((value): value is string => Boolean(value)))
+        );
+
+        // Tombstone the anchor and drop any queued sync retries so a later
+        // queue flush (or a late failure callback) cannot resurrect it.
+        void AnchorSyncService.markAnchorDeleted(referenceIds).catch((error) => {
+          logger.warn('[anchorStore] Failed to invalidate queued sync for removed anchor', error);
+        });
+        useVisualizationSceneStore.getState().removeForAnchor(referenceIds);
+
         set((state) => {
           const nextAnchors = state.anchors.filter((anchor) => !matchesAnchorReference(anchor, id));
 
@@ -191,7 +210,8 @@ export const useAnchorStore = create<AnchorState>()(
             totalPrimes: calculateTotalPrimes(nextAnchors),
             error: null,
           };
-        }),
+        });
+      },
 
       incrementTotalPrimes: () => {
         const nextTotalPrimes = get().totalPrimes + 1;
@@ -267,9 +287,24 @@ export const useAnchorStore = create<AnchorState>()(
 
       applySyncedAnchor: (referenceId, anchor) =>
         set((state) => {
+          const existingAnchor = state.anchors.find((candidate) =>
+            matchesAnchorReference(candidate, referenceId)
+          );
+
+          // The anchor was removed while its sync was in flight — applying the
+          // synced snapshot would resurrect it. Keep it deleted.
+          if (!existingAnchor) {
+            return { error: null };
+          }
+
           const syncedAnchor = {
             ...anchor,
             localId: anchor.localId ?? referenceId,
+            // A sync started before a burn must not return the anchor to the
+            // active vault: preserve local released/archived state.
+            isReleased: existingAnchor.isReleased || anchor.isReleased,
+            releasedAt: existingAnchor.releasedAt ?? normalizeDate(anchor.releasedAt),
+            archivedAt: existingAnchor.archivedAt ?? normalizeDate(anchor.archivedAt),
           };
 
           return {
@@ -304,7 +339,31 @@ export const useAnchorStore = create<AnchorState>()(
         const syncedAnchors = await AnchorSyncService.flushRetryQueue(authStore.user.id);
         if (syncedAnchors.length > 0) {
           set((state) => {
-            const nextAnchors = mergeAnchors(state.anchors, syncedAnchors);
+            // Queued retries hold snapshots that may predate a local delete or
+            // burn. Only merge back anchors that still exist locally, and never
+            // let a stale snapshot pull a released/archived anchor back into
+            // the active vault.
+            const applicableAnchors = syncedAnchors.filter((syncedAnchor) => {
+              const localAnchor = state.anchors.find(
+                (anchor) =>
+                  matchesAnchorReference(anchor, syncedAnchor.localId ?? syncedAnchor.id) ||
+                  matchesAnchorReference(anchor, syncedAnchor.id)
+              );
+
+              if (!localAnchor) {
+                return false;
+              }
+
+              const localIsRetired = Boolean(localAnchor.isReleased || localAnchor.archivedAt);
+              const syncedIsRetired = Boolean(syncedAnchor.isReleased || syncedAnchor.archivedAt);
+              return !(localIsRetired && !syncedIsRetired);
+            });
+
+            if (applicableAnchors.length === 0) {
+              return { error: null };
+            }
+
+            const nextAnchors = mergeAnchors(state.anchors, applicableAnchors);
 
             return {
               anchors: nextAnchors,
@@ -316,7 +375,20 @@ export const useAnchorStore = create<AnchorState>()(
         }
       },
 
-      releaseAnchor: (id) =>
+      releaseAnchor: (id) => {
+        const target = get().getAnchorById(id);
+        const referenceIds = Array.from(
+          new Set([id, target?.id, target?.localId].filter((value): value is string => Boolean(value)))
+        );
+
+        // Drop queued sync retries holding a pre-burn snapshot so a later
+        // flush cannot return the burned anchor to the active vault. No
+        // tombstone: the anchor still exists locally as released/archived.
+        void AnchorSyncService.cancelQueuedSync(referenceIds).catch((error) => {
+          logger.warn('[anchorStore] Failed to cancel queued sync for released anchor', error);
+        });
+        useVisualizationSceneStore.getState().removeForAnchor(referenceIds);
+
         set((state) => {
           const nextAnchors = state.anchors.map((anchor) =>
             matchesAnchorReference(anchor, id)
@@ -333,7 +405,8 @@ export const useAnchorStore = create<AnchorState>()(
             anchors: nextAnchors,
             error: null,
           };
-        }),
+        });
+      },
     }),
     {
       name: 'anchor-vault-storage',

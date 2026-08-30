@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Anchor — Redesign Package</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+:root{--gold:#D4AF37;--gold-dim:rgba(212,175,55,0.14);--gold-border:rgba(212,175,55,0.25);--bg-deep:#080C10;--bg:#0F1419;--bg-card:#111820;--bone:#F5F5DC;--text-2:#C0C0C0;--text-3:#7c8087}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg-deep);color:var(--bone);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh}
+a{color:var(--gold)}
+a:hover{color:#F0CB6A}
+header{padding:64px 48px 40px;text-align:center;border-bottom:1px solid var(--gold-border)}
+header .eyebrow{font-family:'Cinzel',serif;letter-spacing:0.3em;font-size:12px;color:var(--gold);text-transform:uppercase}
+header h1{font-family:'Cinzel',serif;font-weight:600;font-size:38px;margin-top:14px;letter-spacing:0.01em}
+header p{margin-top:12px;color:var(--text-2);font-size:15px}
+main{max-width:1180px;margin:0 auto;padding:48px}
+section{margin-bottom:52px}
+section h2{font-family:'Cinzel',serif;font-size:14px;letter-spacing:0.18em;text-transform:uppercase;color:var(--text-3);margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.08)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+.card{display:flex;align-items:center;gap:14px;padding:18px 20px;background:var(--bg-card);border:1px solid rgba(255,255,255,0.07);border-radius:10px;text-decoration:none;color:var(--bone);transition:border-color .15s,transform .15s}
+.card:hover{border-color:var(--gold-border);transform:translateY(-2px)}
+.num{font-family:'Cinzel',serif;font-size:13px;color:var(--gold);min-width:22px}
+.card span.name{font-size:15px;font-weight:500}
+footer{text-align:center;padding:40px;color:var(--text-3);font-size:13px}
+</style>
+</head>
+<body>
+<header>
+<div class="eyebrow">Anchor</div>
+<h1>Redesign Package</h1>
+<p>All screens from the current redesign, bundled as standalone files — open any card, works fully offline.</p>
+</header>
+<main>
+<section>
+<h2>Onboarding &amp; Discovery</h2>
+<div class="grid">
+<a class="card" href="26 Sign In.html"><span class="num">26</span><span class="name">Sign In</span></a>
+<a class="card" href="02 Onboarding.html"><span class="num">02</span><span class="name">Onboarding</span></a>
+<a class="card" href="03 Choose Structure.html"><span class="num">03</span><span class="name">Choose Structure</span></a>
+<a class="card" href="27 Draw Your Structure.html"><span class="num">27</span><span class="name">Draw Your Structure</span></a>
+<a class="card" href="28 Trace Your Structure.html"><span class="num">28</span><span class="name">Trace Your Structure</span></a>
+<a class="card" href="29 Select Your Expression.html"><span class="num">29</span><span class="name">Select Your Expression</span></a>
+<a class="card" href="04 Set Intention.html"><span class="num">04</span><span class="name">Set Intention</span></a>
+<a class="card" href="32 Distilling Your Intention.html"><span class="num">32</span><span class="name">Distilling Your Intention</span></a>
+<a class="card" href="06 Refine Style.html"><span class="num">06</span><span class="name">Refine Style</span></a>
+<a class="card" href="30 Generate.html"><span class="num">30</span><span class="name">Generate</span></a>
+</div>
+</section>
+<section>
+<h2>Chart &amp; Progression</h2>
+<div class="grid">
+<a class="card" href="08 Chart.html"><span class="num">08</span><span class="name">Chart</span></a>
+<a class="card" href="15 Anchor Detail.html"><span class="num">15</span><span class="name">Anchor Detail</span></a>
+<a class="card" href="24 The Weave.html"><span class="num">24</span><span class="name">The Weave</span></a>
+</div>
+</section>
+<section>
+<h2>Practice</h2>
+<div class="grid">
+<a class="card" href="09 Sanctuary Home.html"><span class="num">09</span><span class="name">Sanctuary Home</span></a>
+<a class="card" href="10 Practice Screen.html"><span class="num">10</span><span class="name">Practice Screen</span></a>
+<a class="card" href="11 Focus Session.html"><span class="num">11</span><span class="name">Focus Session</span></a>
+<a class="card" href="12 Deep Priming Session.html"><span class="num">12</span><span class="name">Deep Priming Session</span></a>
+<a class="card" href="25 Prime Your Anchor.html"><span class="num">25</span><span class="name">Prime Your Anchor</span></a>
+<a class="card" href="31 Release Session.html"><span class="num">31</span><span class="name">Release Session</span></a>
+<a class="card" href="13 Visualize Mode.html"><span class="num">13</span><span class="name">Visualize Mode</span></a>
+<a class="card" href="22 Save Progress.html"><span class="num">22</span><span class="name">Save Progress</span></a>
+</div>
+</section>
+<section>
+<h2>Account &amp; Commerce</h2>
+<div class="grid">
+<a class="card" href="16 Profile Screen.html"><span class="num">16</span><span class="name">Profile Screen</span></a>
+<a class="card" href="17 Settings.html"><span class="num">17</span><span class="name">Settings</span></a>
+<a class="card" href="21 Paywall.html"><span class="num">21</span><span class="name">Paywall</span></a>
+</div>
+</section>
+</main>
+<footer>24 screens · each file is fully self-contained</footer>
+</body>
+</html>

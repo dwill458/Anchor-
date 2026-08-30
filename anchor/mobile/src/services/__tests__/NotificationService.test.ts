@@ -1,6 +1,6 @@
 import type { Notification } from 'expo-notifications';
 import * as Notifications from 'expo-notifications';
-import NotificationService, { NOTIFICATION_IDS } from '../NotificationService';
+import NotificationService, { NOTIFICATION_CHANNELS, NOTIFICATION_IDS } from '../NotificationService';
 
 jest.mock('expo-constants', () => ({
   expoConfig: {
@@ -22,6 +22,7 @@ jest.mock('expo-notifications', () => ({
   getDevicePushTokenAsync: jest.fn(),
   getExpoPushTokenAsync: jest.fn(),
   setNotificationChannelAsync: jest.fn(),
+  deleteNotificationChannelAsync: jest.fn(),
   scheduleNotificationAsync: jest.fn(),
   cancelScheduledNotificationAsync: jest.fn(),
   getAllScheduledNotificationsAsync: jest.fn(),
@@ -39,6 +40,8 @@ jest.mock('expo-notifications', () => ({
   SchedulableTriggerInputTypes: {
     CALENDAR: 'calendar',
     DATE: 'date',
+    DAILY: 'daily',
+    WEEKLY: 'weekly',
     TIME_INTERVAL: 'timeInterval',
   },
 }));
@@ -58,6 +61,16 @@ describe('NotificationService', () => {
     const result = await NotificationService.requestPermissions();
 
     expect(result).toBe(true);
+    expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
+  });
+
+  it('reports notification permission status without prompting', async () => {
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({
+      status: 'denied',
+      granted: false,
+    });
+
+    await expect(NotificationService.getPermissionStatus()).resolves.toBe('denied');
     expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
   });
 
@@ -108,6 +121,55 @@ describe('NotificationService', () => {
     );
   });
 
+  // expo-notifications rejects `calendar` triggers on Android with
+  // "Trigger of type: calendar is not supported on Android", so every repeating
+  // reminder has to use a daily/weekly trigger instead.
+  it.each([
+    ['daily reminder', () => NotificationService.scheduleDailyReminder('09:30'), 'daily'],
+    ['ritual reminder', () => NotificationService.scheduleRitualReminder('anchor-1', '09:30'), 'daily'],
+    ['streak protection alert', () => NotificationService.scheduleStreakProtectionAlert(), 'daily'],
+    ['weekly summary', () => NotificationService.scheduleWeeklySummary(0, '19:00'), 'weekly'],
+  ])('schedules the %s with an Android-supported trigger', async (_label, schedule, triggerType) => {
+    (Notifications.scheduleNotificationAsync as jest.Mock).mockResolvedValue('scheduled-id');
+
+    await schedule();
+
+    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trigger: expect.objectContaining({ type: triggerType }),
+      })
+    );
+  });
+
+  it('schedules repeat occurrences of a category under distinct identifiers', async () => {
+    (Notifications.scheduleNotificationAsync as jest.Mock).mockResolvedValue('smart-id');
+
+    await NotificationService.scheduleSmartNotification({
+      category: 'daily_prime',
+      templateId: 'daily_prime_encouraging_1',
+      tone: 'encouraging',
+      title: 'Your anchor is ready',
+      body: 'A moment to return.',
+      fireDate: new Date('2026-06-25T21:00:00.000Z'),
+      occurrence: 3,
+    });
+
+    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ identifier: 'smart-notification:daily_prime#3' })
+    );
+  });
+
+  it('cancels every occurrence of a smart notification series', async () => {
+    await NotificationService.cancelSmartNotificationSeries('daily_prime', 3);
+
+    const cancelMock = Notifications.cancelScheduledNotificationAsync as jest.Mock;
+    expect(cancelMock.mock.calls.flat()).toEqual([
+      'smart-notification:daily_prime',
+      'smart-notification:daily_prime#1',
+      'smart-notification:daily_prime#2',
+    ]);
+  });
+
   it('schedules developer test notifications as one-time local notifications', async () => {
     (Notifications.scheduleNotificationAsync as jest.Mock).mockResolvedValue('dev-test-id');
 
@@ -127,7 +189,37 @@ describe('NotificationService', () => {
         trigger: expect.objectContaining({
           type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
           seconds: 5,
-          channelId: 'daily-reminders',
+          channelId: NOTIFICATION_CHANNELS.DAILY_REMINDERS,
+        }),
+      })
+    );
+  });
+
+  it('schedules smart category notifications with template metadata', async () => {
+    (Notifications.scheduleNotificationAsync as jest.Mock).mockResolvedValue('smart-id');
+
+    const fireDate = new Date('2026-06-24T21:00:00.000Z');
+    const id = await NotificationService.scheduleSmartNotification({
+      category: 'daily_prime',
+      templateId: 'daily_prime_encouraging_1',
+      tone: 'encouraging',
+      title: 'Your anchor is ready',
+      body: "One Focus Session can reinforce today's thread.",
+      fireDate,
+    });
+
+    expect(id).toBe('smart-id');
+    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        identifier: 'smart-notification:daily_prime',
+        content: expect.objectContaining({
+          title: 'Your anchor is ready',
+          data: expect.objectContaining({
+            type: 'daily_reminder',
+            category: 'daily_prime',
+            templateId: 'daily_prime_encouraging_1',
+            tone: 'encouraging',
+          }),
         }),
       })
     );
@@ -199,6 +291,41 @@ describe('NotificationService', () => {
     const response = NotificationService.handleNotificationClick(notification);
 
     expect(response).toEqual({ action: 'open_ritual_reminder', anchorId: 'anchor-1' });
+  });
+
+  it('maps smart notification taps to category actions', () => {
+    const notification: Notification = {
+      date: Date.now(),
+      request: {
+        identifier: 'smart-notification:daily_prime',
+        content: {
+          title: null,
+          subtitle: null,
+          body: null,
+          data: {
+            type: 'daily_reminder',
+            category: 'daily_prime',
+            templateId: 'daily_prime_direct_1',
+            tone: 'direct',
+          },
+          sound: null,
+          launchImageName: null,
+          badge: null,
+          attachments: [],
+          categoryIdentifier: null,
+          threadIdentifier: null,
+        },
+        trigger: {
+          type: 'unknown',
+        },
+      },
+    };
+
+    expect(NotificationService.handleNotificationClick(notification)).toEqual({
+      action: 'open_notification_category',
+      category: 'daily_prime',
+      anchorId: undefined,
+    });
   });
 
   it('uses the updated Prime copy for streak protection alerts', async () => {

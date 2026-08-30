@@ -14,12 +14,11 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { requireOptionalNativeModule } from 'expo-modules-core';
-import { ChevronDown } from 'lucide-react-native';
-import { colors, spacing, typography } from '@/theme';
+import { Check, ChevronDown, X } from 'lucide-react-native';
+import { colors, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
 import { detectTimezoneLabel, TIMEZONE_OPTIONS, type ProfileMono, type StoredProfile } from '@/stores/profileStore';
 import { PROFILE_AVATAR_SLOTS, ProfileAvatar, ProfileAvatarMarkCell } from '@/components/profile/ProfileAvatar';
-import { getAvatarByIndex } from '@/utils/avatarUtils';
 import { logger } from '@/utils/logger';
 
 interface EditProfileSheetProps {
@@ -138,7 +137,7 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
   const pickFromLibrary = async () => {
     const ImagePicker = getImagePickerModule();
     if (!ImagePicker) {
-      Alert.alert('Unavailable', 'Photo picking is not available in this installed build. Rebuild or reinstall the app to enable it.');
+      Alert.alert('Photos unavailable', 'Photo selection is not available in this version of Anchor. Please update the app and try again.');
       return;
     }
 
@@ -163,7 +162,7 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
   const takePhoto = async () => {
     const ImagePicker = getImagePickerModule();
     if (!ImagePicker) {
-      Alert.alert('Unavailable', 'Camera capture is not available in this installed build. Rebuild or reinstall the app to enable it.');
+      Alert.alert('Camera unavailable', 'The camera is not available in this version of Anchor. Please update the app and try again.');
       return;
     }
 
@@ -216,18 +215,34 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
               },
             ]}
           >
-            <View style={styles.topShimmer} />
+            <View pointerEvents="none" style={styles.sheetAtmosphere} />
             <View style={styles.handle} />
 
             <View style={styles.headerRow}>
-              <Pressable hitSlop={8} onPress={onClose}>
-                <Text style={styles.cancelLabel}>Cancel</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Cancel editing profile"
+                hitSlop={8}
+                onPress={onClose}
+                style={styles.headerAction}
+              >
+                <X color={colors.anchor15.ash} size={17} strokeWidth={1.35} />
               </Pressable>
-              <Text style={styles.title}>EDIT PROFILE</Text>
-              <Pressable hitSlop={8} onPress={() => void handleSave()} style={styles.savePill}>
-                <Text style={styles.savePillText}>Save</Text>
+              <View pointerEvents="none" style={styles.headerTitleGroup}>
+                <Text style={styles.headerEyebrow}>Account</Text>
+                <Text style={styles.title}>EDIT PROFILE</Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Save profile"
+                hitSlop={8}
+                onPress={() => void handleSave()}
+                style={styles.saveAction}
+              >
+                <Text style={styles.saveActionText}>Save</Text>
               </Pressable>
             </View>
+            <View style={styles.headerRule} />
 
             <ScrollView
               style={styles.scrollView}
@@ -236,20 +251,32 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
               showsVerticalScrollIndicator={false}
             >
               <View style={styles.avatarSection}>
-                <ProfileAvatar
-                  size={84}
-                  name={displayName}
-                  mono={mono}
-                  photoUri={photo}
-                  badgeSize={26}
-                  onPress={handlePhotoPress}
-                  onBadgePress={handlePhotoPress}
-                />
-                <Text style={styles.photoHint}>Tap to upload photo</Text>
+                <View style={styles.sectionHeading}>
+                  <Text style={styles.sectionNumber}>01</Text>
+                  <Text style={styles.sectionTitle}>PROFILE MARK</Text>
+                </View>
+                <View style={styles.avatarRow}>
+                  <ProfileAvatar
+                    size={84}
+                    name={displayName}
+                    mono={mono}
+                    photoUri={photo}
+                    badgeSize={26}
+                    onPress={handlePhotoPress}
+                    onBadgePress={handlePhotoPress}
+                  />
+                  <View style={styles.avatarCopy}>
+                    <Text style={styles.avatarTitle}>{photo ? 'Profile photo selected' : 'Your profile mark'}</Text>
+                    <Text style={styles.photoHint}>Tap the mark to choose a photo, or choose a symbol below.</Text>
+                  </View>
+                </View>
               </View>
 
               <View style={styles.fieldBlock}>
-                <FieldLabel>DISPLAY NAME</FieldLabel>
+                <View style={styles.sectionHeading}>
+                  <Text style={styles.sectionNumber}>02</Text>
+                  <FieldLabel>DISPLAY NAME</FieldLabel>
+                </View>
                 <View
                   style={[
                     styles.textField,
@@ -263,8 +290,8 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                     onFocus={() => setFocusedField('name')}
                     onBlur={() => setFocusedField(null)}
                     placeholder="Your name"
-                    placeholderTextColor={withAlpha(colors.silver, 0.42)}
-                    selectionColor={colors.gold}
+                    placeholderTextColor={withAlpha(colors.anchor15.ash, 0.62)}
+                    selectionColor={colors.anchor15.gilt}
                     style={styles.input}
                   />
                   <Text style={styles.counterText}>{name.length}/24</Text>
@@ -272,7 +299,10 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
               </View>
 
               <View style={styles.fieldBlock}>
-                <FieldLabel>OPERATING PRINCIPLE</FieldLabel>
+                <View style={styles.sectionHeading}>
+                  <Text style={styles.sectionNumber}>03</Text>
+                  <FieldLabel>OPERATING PRINCIPLE</FieldLabel>
+                </View>
                 <FieldHint>One line. Your personal axiom. Shown beneath your name.</FieldHint>
                 <View
                   style={[
@@ -289,8 +319,8 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                     onFocus={() => setFocusedField('axiom')}
                     onBlur={() => setFocusedField(null)}
                     placeholder="Build in silence."
-                    placeholderTextColor={withAlpha(colors.silver, 0.42)}
-                    selectionColor={colors.gold}
+                    placeholderTextColor={withAlpha(colors.anchor15.ash, 0.62)}
+                    selectionColor={colors.anchor15.gilt}
                     style={[styles.input, axiom.trim().length > 0 ? styles.axiomInput : null]}
                   />
                   <Text style={styles.counterText}>{axiom.length}/40</Text>
@@ -298,7 +328,10 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
               </View>
 
               <View style={styles.fieldBlock}>
-                <FieldLabel>DEFAULT AVATAR</FieldLabel>
+                <View style={styles.sectionHeading}>
+                  <Text style={styles.sectionNumber}>04</Text>
+                  <FieldLabel>DEFAULT MARK</FieldLabel>
+                </View>
                 <FieldHint>Shown when no photo is set · choose the placeholder avatar you want</FieldHint>
                 <View style={styles.markGrid}>
                   <ProfileAvatarMarkCell
@@ -307,13 +340,12 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                     initial={displayName.charAt(0).toUpperCase() || 'P'}
                     onPress={() => setMono('initial')}
                   />
-                  {PROFILE_AVATAR_SLOTS.map((slotId, index) => (
+                  {PROFILE_AVATAR_SLOTS.map((slotId) => (
                     <ProfileAvatarMarkCell
                       key={slotId}
                       mono={slotId}
                       selected={mono === slotId}
                       initial={displayName.charAt(0).toUpperCase() || 'P'}
-                      avatarSource={getAvatarByIndex(index)}
                       onPress={() => setMono(slotId)}
                     />
                   ))}
@@ -321,7 +353,10 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
               </View>
 
               <View style={styles.fieldBlock}>
-                <FieldLabel>TIMEZONE</FieldLabel>
+                <View style={styles.sectionHeading}>
+                  <Text style={styles.sectionNumber}>05</Text>
+                  <FieldLabel>TIMEZONE</FieldLabel>
+                </View>
                 <FieldHint>Auto-detected · used for Constancy accuracy</FieldHint>
                 <Pressable
                   onPress={() => setTimezoneOpen((value) => !value)}
@@ -357,9 +392,8 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
                           }}
                           style={[styles.dropdownItem, selected ? styles.dropdownItemSelected : null]}
                         >
-                          <Text style={[styles.dropdownItemText, selected ? styles.dropdownItemTextSelected : null]}>
-                            {selected ? `✓  ${option}` : option}
-                          </Text>
+                          <Text style={[styles.dropdownItemText, selected ? styles.dropdownItemTextSelected : null]}>{option}</Text>
+                          {selected ? <Check color={colors.anchor15.gilt} size={15} strokeWidth={1.45} /> : null}
                         </Pressable>
                       );
                     })}
@@ -385,181 +419,238 @@ const styles = StyleSheet.create({
   },
   backdropTint: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: withAlpha(colors.black, 0.8),
+    backgroundColor: 'rgba(8, 11, 15, 0.78)',
   },
   sheet: {
-    height: '100%',
-    backgroundColor: colors.black,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderWidth: 1,
+    height: '94%',
+    backgroundColor: colors.anchor15.navy,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderBottomWidth: 0,
-    borderColor: withAlpha(colors.gold, 0.15),
+    borderColor: colors.anchor15.goldHairline,
     overflow: 'hidden',
   },
-  topShimmer: {
+  sheetAtmosphere: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: withAlpha(colors.gold, 0.34),
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    top: -210,
+    right: -112,
+    backgroundColor: 'rgba(217, 179, 108, 0.055)',
   },
   handle: {
     alignSelf: 'center',
-    width: 36,
-    height: 3,
-    borderRadius: 999,
-    backgroundColor: withAlpha(colors.white, 0.13),
-    marginTop: 14,
-    marginBottom: 14,
+    width: 32,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(217, 179, 108, 0.42)',
+    marginTop: 13,
+    marginBottom: 8,
   },
   headerRow: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
+    minHeight: 48,
+    paddingHorizontal: 20,
+    paddingBottom: 11,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  cancelLabel: {
-    fontFamily: typography.fonts.body,
-    fontSize: typography.sizes.body2,
-    color: withAlpha(colors.silver, 0.62),
+  headerAction: {
+    width: 44,
+    height: 44,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  headerTitleGroup: {
+    alignItems: 'center',
+    gap: 1,
+  },
+  headerEyebrow: {
+    color: colors.anchor15.ash,
+    fontFamily: typography.fontFamily.instrument,
+    fontSize: 9,
+    letterSpacing: 1.35,
+    textTransform: 'uppercase',
   },
   title: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 11,
-    letterSpacing: 2.8,
-    color: colors.gold,
+    fontFamily: typography.fontFamily.ritualSemiBold,
+    fontSize: 10,
+    letterSpacing: 1.8,
+    color: colors.anchor15.bone,
   },
-  savePill: {
-    minWidth: 72,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: colors.gold,
-    alignItems: 'center',
+  saveAction: {
+    minWidth: 44,
+    height: 44,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
-  savePillText: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 11,
-    color: colors.black,
-    letterSpacing: 0.5,
+  saveActionText: {
+    color: colors.anchor15.gilt,
+    fontFamily: typography.fontFamily.ritualSemiBold,
+    fontSize: 10,
+    letterSpacing: 1.25,
+    textTransform: 'uppercase',
+  },
+  headerRule: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.anchor15.hairline,
+    marginHorizontal: 20,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xxl,
+    paddingHorizontal: 20,
+    paddingTop: 26,
+    paddingBottom: 42,
   },
   avatarSection: {
-    alignItems: 'center',
-    marginBottom: spacing.xl,
+    paddingBottom: 28,
+    marginBottom: 27,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.anchor15.hairline,
   },
-  photoHint: {
-    marginTop: spacing.sm,
-    fontFamily: typography.fonts.bodySerifItalic,
-    fontSize: 11,
-    color: withAlpha(colors.silver, 0.35),
-  },
-  fieldBlock: {
-    marginBottom: spacing.xl,
-  },
-  fieldLabel: {
-    fontFamily: typography.fonts.heading,
-    fontSize: 9,
-    letterSpacing: 2.4,
-    color: colors.gold,
-    marginBottom: 6,
-  },
-  fieldHint: {
-    fontFamily: typography.fonts.bodySerifItalic,
-    fontSize: 11,
-    color: withAlpha(colors.silver, 0.38),
-    marginBottom: 12,
-  },
-  textField: {
-    minHeight: 52,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: withAlpha(colors.white, 0.08),
-    backgroundColor: withAlpha(colors.white, 0.04),
-    paddingHorizontal: spacing.md,
+  sectionHeading: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: 9,
+    marginBottom: 12,
+  },
+  sectionNumber: {
+    color: 'rgba(217, 179, 108, 0.62)',
+    fontFamily: typography.fontFamily.instrument,
+    fontSize: 9,
+    letterSpacing: 0.75,
+    width: 17,
+  },
+  sectionTitle: {
+    color: colors.anchor15.gilt,
+    fontFamily: typography.fontFamily.ritualSemiBold,
+    fontSize: 9,
+    letterSpacing: 1.7,
+    textTransform: 'uppercase',
+  },
+  avatarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 17,
+  },
+  avatarCopy: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: 8,
+  },
+  avatarTitle: {
+    color: colors.anchor15.bone,
+    fontFamily: typography.fontFamily.voice,
+    fontSize: 19,
+    lineHeight: 23,
+  },
+  photoHint: {
+    marginTop: 5,
+    fontFamily: typography.fontFamily.instrument,
+    fontSize: 11,
+    lineHeight: 16,
+    color: colors.anchor15.ash,
+  },
+  fieldBlock: {
+    marginBottom: 29,
+  },
+  fieldLabel: {
+    fontFamily: typography.fontFamily.ritualSemiBold,
+    fontSize: 9,
+    letterSpacing: 1.7,
+    color: colors.anchor15.gilt,
+  },
+  fieldHint: {
+    fontFamily: typography.fontFamily.instrument,
+    fontSize: 11,
+    lineHeight: 16,
+    color: colors.anchor15.ash,
+    marginTop: -3,
+    marginBottom: 9,
+  },
+  textField: {
+    minHeight: 55,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(244, 239, 230, 0.22)',
+    paddingHorizontal: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   textFieldFocused: {
-    borderColor: withAlpha(colors.gold, 0.28),
+    borderBottomColor: colors.anchor15.gilt,
   },
   input: {
     flex: 1,
     minHeight: 48,
-    color: colors.bone,
-    fontFamily: typography.fonts.bodySerif,
-    fontSize: 16,
+    color: colors.anchor15.bone,
+    fontFamily: typography.fontFamily.voice,
+    fontSize: 19,
+    paddingVertical: 0,
   },
   axiomInput: {
-    fontFamily: typography.fonts.bodySerifItalic,
+    fontFamily: typography.fontFamily.voiceItalic,
+    fontStyle: 'italic',
   },
   counterText: {
-    fontFamily: typography.fonts.body,
+    fontFamily: typography.fontFamily.instrument,
     fontSize: 10,
-    color: withAlpha(colors.silver, 0.28),
+    color: 'rgba(135, 147, 157, 0.74)',
+    fontVariant: ['tabular-nums'],
   },
   markGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 9,
+    gap: 8,
   },
   dropdownTrigger: {
-    minHeight: 52,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: withAlpha(colors.white, 0.08),
-    backgroundColor: withAlpha(colors.white, 0.04),
-    paddingHorizontal: spacing.md,
+    minHeight: 55,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(244, 239, 230, 0.22)',
+    paddingHorizontal: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   dropdownTriggerOpen: {
-    borderColor: withAlpha(colors.gold, 0.3),
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
+    borderBottomColor: colors.anchor15.gilt,
   },
   dropdownValue: {
     flex: 1,
-    color: colors.bone,
-    fontFamily: typography.fonts.bodySerif,
+    color: colors.anchor15.bone,
+    fontFamily: typography.fontFamily.instrument,
     fontSize: 14,
-    marginRight: spacing.sm,
+    marginRight: 10,
   },
   dropdownList: {
-    borderWidth: 1,
-    borderTopWidth: 0,
-    borderColor: withAlpha(colors.gold, 0.18),
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
-    backgroundColor: withAlpha(colors.black, 0.96),
+    marginTop: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.anchor15.goldHairline,
+    backgroundColor: colors.anchor15.veil,
     maxHeight: 180,
   },
   dropdownItem: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 11,
+    minHeight: 48,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: withAlpha(colors.white, 0.04),
+    borderBottomColor: colors.anchor15.hairline,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   dropdownItemSelected: {
-    backgroundColor: withAlpha(colors.gold, 0.07),
+    backgroundColor: 'rgba(217, 179, 108, 0.07)',
   },
   dropdownItemText: {
-    fontFamily: typography.fonts.bodySerif,
+    fontFamily: typography.fontFamily.instrument,
     fontSize: 13,
-    color: withAlpha(colors.silver, 0.75),
+    color: colors.anchor15.ash,
   },
   dropdownItemTextSelected: {
-    color: colors.gold,
+    color: colors.anchor15.bone,
   },
 });

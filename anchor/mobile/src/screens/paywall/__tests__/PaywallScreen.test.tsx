@@ -1,6 +1,6 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { Alert, StyleSheet } from 'react-native';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import type { Anchor } from '@/types';
 
 const mockNavigate = jest.fn();
@@ -8,6 +8,8 @@ const mockGoBack = jest.fn();
 const mockReset = jest.fn();
 const mockTrack = jest.fn();
 const mockSetPreferredPlanId = jest.fn();
+const mockApplyServerEntitlement = jest.fn();
+const mockRefreshServerEntitlement = jest.fn();
 let mockPreferredPlanId: 'monthly' | 'annual' = 'annual';
 let mockRouteParams: { preferredPlanId?: 'monthly' | 'annual'; source?: 'post_trial' | 'gated_feature' } | undefined;
 
@@ -40,6 +42,7 @@ jest.mock('@/stores/subscriptionStore', () => ({
     selector({
       preferredPlanId: mockPreferredPlanId,
       setPreferredPlanId: mockSetPreferredPlanId,
+      applyServerEntitlement: mockApplyServerEntitlement,
     }),
 }));
 
@@ -51,15 +54,29 @@ jest.mock('@/hooks/useReduceMotionEnabled', () => ({
   useReduceMotionEnabled: () => true,
 }));
 
+jest.mock('@/hooks/useTrialStatus', () => ({
+  useTrialStatus: () => ({
+    isTrialActive: false,
+    isSubscribed: false,
+    hasExpired: true,
+    trialExpired: true,
+    hasActiveEntitlement: false,
+    daysRemaining: 0,
+    subscriptionStatus: 'expired',
+  }),
+}));
+
 jest.mock('@/services/AnalyticsService', () => ({
   AnalyticsService: {
     track: (...args: any[]) => mockTrack(...args),
   },
+  AnalyticsEvents: jest.requireActual('@/services/AnalyticsService').AnalyticsEvents,
 }));
 
 jest.mock('@/utils/logger', () => ({
   logger: {
     warn: jest.fn(),
+    error: jest.fn(),
   },
 }));
 
@@ -71,6 +88,10 @@ jest.mock('@/services/RevenueCatService', () => ({
     restorePurchases: jest.fn(),
     getPackagePresentations: jest.fn().mockResolvedValue({}),
   },
+}));
+
+jest.mock('@/services/BillingService', () => ({
+  refreshServerEntitlement: (...args: unknown[]) => mockRefreshServerEntitlement(...args),
 }));
 
 import revenueCatService from '@/services/RevenueCatService';
@@ -101,13 +122,51 @@ const trialStatus = (hasActiveEntitlement: boolean) => ({
   trialExpired: !hasActiveEntitlement,
 });
 
+const serverEntitlement = (hasActiveEntitlement: boolean) => ({
+  hasActiveEntitlement,
+  subscriptionStatus: hasActiveEntitlement ? 'pro' as const : 'free' as const,
+  productIdentifier: hasActiveEntitlement ? 'anchor_pro_annual' : null,
+  source: 'revenuecat' as const,
+});
+
+const buildLiveOfferingMetadata = () => ({
+  monthly: {
+    planId: 'monthly' as const,
+    packageId: '$rc_monthly',
+    price: 7.99,
+    priceString: '$7.99',
+    pricePerMonth: 7.99,
+    pricePerMonthString: '$7.99',
+    pricePerYear: 95.88,
+    pricePerYearString: '$95.88',
+    currencyCode: 'USD',
+  },
+  annual: {
+    planId: 'annual' as const,
+    packageId: '$rc_annual',
+    price: 59.99,
+    priceString: '$59.99',
+    pricePerMonth: 5,
+    pricePerMonthString: '$5.00',
+    pricePerYear: 59.99,
+    pricePerYearString: '$59.99',
+    currencyCode: 'USD',
+  },
+});
+
 describe('PaywallScreen', () => {
+  let alertSpy: jest.SpyInstance;
+
   beforeEach(() => {
+    alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     mockNavigate.mockClear();
     mockGoBack.mockClear();
     mockReset.mockClear();
     mockTrack.mockClear();
     mockSetPreferredPlanId.mockClear();
+    mockApplyServerEntitlement.mockClear();
+    mockRefreshServerEntitlement.mockReset();
+    mockRefreshServerEntitlement.mockResolvedValue(serverEntitlement(false));
     mockPreferredPlanId = 'annual';
     mockRouteParams = undefined;
     mockAnchorState = {
@@ -126,7 +185,9 @@ describe('PaywallScreen', () => {
     };
 
     jest.mocked(revenueCatService.getOfferingDisplayMetadata).mockReset();
-    jest.mocked(revenueCatService.getOfferingDisplayMetadata).mockResolvedValue({});
+    jest
+      .mocked(revenueCatService.getOfferingDisplayMetadata)
+      .mockImplementation(() => Promise.resolve(buildLiveOfferingMetadata()));
     jest.mocked(revenueCatService.purchasePackageByIdentifier).mockReset();
     jest.mocked(revenueCatService.purchasePackageByIdentifier).mockResolvedValue({
       status: trialStatus(false),
@@ -136,13 +197,21 @@ describe('PaywallScreen', () => {
     jest.mocked(revenueCatService.restorePurchases).mockResolvedValue(trialStatus(false));
   });
 
-  it('renders monthly and annual plans plus the CTA', () => {
+  afterEach(async () => {
+    cleanup();
+    await act(async () => {});
+    alertSpy.mockRestore();
+  });
+
+  it('renders monthly and annual plans plus the CTA', async () => {
     render(<PaywallScreen />);
 
     expect(screen.getByText('Monthly')).toBeTruthy();
     expect(screen.getByText('Annual')).toBeTruthy();
     expect(screen.queryByText('Lifetime')).toBeNull();
-    expect(screen.getByText('Continue my practice')).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText('Continue my practice')).toBeTruthy();
+    });
   });
 
   it('selects annual by default', () => {
@@ -164,9 +233,12 @@ describe('PaywallScreen', () => {
     expect(mockSetPreferredPlanId).toHaveBeenCalledWith('monthly');
   });
 
-  it('changes plan selection without purchasing on card press', () => {
+  it('changes plan selection without purchasing on card press', async () => {
     render(<PaywallScreen />);
 
+    await waitFor(() => {
+      expect(screen.getByLabelText('Continue my practice, Annual selected')).toBeTruthy();
+    });
     fireEvent.press(screen.getByTestId('paywall-plan-monthly'));
 
     expect(screen.getByTestId('paywall-plan-monthly').props.accessibilityState.selected).toBe(true);
@@ -183,31 +255,43 @@ describe('PaywallScreen', () => {
 
     render(<PaywallScreen />);
 
+    await waitFor(() => {
+      expect(screen.getByLabelText('Continue my practice, Annual selected')).toBeTruthy();
+    });
     fireEvent.press(screen.getByTestId('paywall-plan-monthly'));
     fireEvent.press(screen.getByLabelText('Continue my practice, Monthly selected'));
 
     await waitFor(() => {
-      expect(revenueCatService.purchasePackageByIdentifier).toHaveBeenCalledWith('$rc_monthly');
+      expect(revenueCatService.purchasePackageByIdentifier).toHaveBeenCalledWith('$rc_monthly', {
+        syncStatus: false,
+      });
     });
   });
 
-  it('resets to Main after entitlement confirmation', async () => {
+  it('resets to Main only after the server confirms an entitlement', async () => {
     jest.mocked(revenueCatService.purchasePackageByIdentifier).mockResolvedValueOnce({
-      status: trialStatus(true),
+      status: trialStatus(false),
       dismissed: false,
     });
+    mockRefreshServerEntitlement.mockResolvedValueOnce(serverEntitlement(true));
 
     render(<PaywallScreen />);
 
+    await waitFor(() => {
+      expect(screen.getByLabelText('Continue my practice, Annual selected')).toBeTruthy();
+    });
     fireEvent.press(screen.getByLabelText('Continue my practice, Annual selected'));
 
     await waitFor(() => {
       expect(mockReset).toHaveBeenCalledWith({ index: 0, routes: [{ name: 'Main' }] });
     });
+    expect(mockRefreshServerEntitlement).toHaveBeenCalledTimes(1);
+    expect(mockApplyServerEntitlement).toHaveBeenCalledWith(true);
   });
 
-  it('restores and unlocks when an active entitlement is found', async () => {
-    jest.mocked(revenueCatService.restorePurchases).mockResolvedValueOnce(trialStatus(true));
+  it('restores and unlocks only when the server reports active access', async () => {
+    jest.mocked(revenueCatService.restorePurchases).mockResolvedValueOnce(trialStatus(false));
+    mockRefreshServerEntitlement.mockResolvedValueOnce(serverEntitlement(true));
 
     render(<PaywallScreen />);
 
@@ -216,9 +300,14 @@ describe('PaywallScreen', () => {
     await waitFor(() => {
       expect(mockReset).toHaveBeenCalledWith({ index: 0, routes: [{ name: 'Main' }] });
     });
+    expect(revenueCatService.restorePurchases).toHaveBeenCalledWith({ syncStatus: false });
+    expect(mockApplyServerEntitlement).toHaveBeenCalledWith(true);
   });
 
-  it('does not unlock when restore finds no active entitlement', async () => {
+  it('does not unlock when the server cannot confirm a restored entitlement', async () => {
+    jest.mocked(revenueCatService.restorePurchases).mockResolvedValueOnce(trialStatus(true));
+    mockRefreshServerEntitlement.mockResolvedValueOnce(serverEntitlement(false));
+
     render(<PaywallScreen />);
 
     fireEvent.press(screen.getByLabelText('Restore purchase'));
@@ -227,6 +316,97 @@ describe('PaywallScreen', () => {
       expect(revenueCatService.restorePurchases).toHaveBeenCalled();
     });
     expect(mockReset).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith(
+      'No subscription found',
+      'No active subscription was found for this account.'
+    );
+  });
+
+  it('keeps the paywall visible while a completed purchase is still awaiting server confirmation', async () => {
+    jest.mocked(revenueCatService.purchasePackageByIdentifier).mockResolvedValueOnce({
+      status: trialStatus(true),
+      dismissed: false,
+    });
+    mockRefreshServerEntitlement.mockResolvedValueOnce(serverEntitlement(false));
+
+    render(<PaywallScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Continue my practice, Annual selected')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByLabelText('Continue my practice, Annual selected'));
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Purchase is still being confirmed',
+        expect.stringContaining('Your receipt is safe')
+      );
+    });
+    expect(mockReset).not.toHaveBeenCalled();
+    expect(mockApplyServerEntitlement).not.toHaveBeenCalled();
+  });
+
+  it('disables purchase when RevenueCat returns no App Store products for offerings', async () => {
+    jest.mocked(revenueCatService.getOfferingDisplayMetadata).mockResolvedValueOnce({});
+
+    render(<PaywallScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Purchases unavailable')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByLabelText('Purchases unavailable'));
+
+    expect(revenueCatService.purchasePackageByIdentifier).not.toHaveBeenCalled();
+    expect(screen.getByText('Purchases are temporarily unavailable. Restore is still available.')).toBeTruthy();
+    expect(screen.queryByTestId('paywall-price-comparison')).toBeNull();
+  });
+
+  it('uses live store pricing for the annual comparison and savings label', async () => {
+    render(<PaywallScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Paying monthly totals $95.88 each year.')).toBeTruthy();
+    });
+    expect(screen.getByText('Best value · save 37%')).toBeTruthy();
+  });
+
+  it('does not compare prices across currencies', async () => {
+    const mismatchedCurrencyOffering = buildLiveOfferingMetadata();
+    mismatchedCurrencyOffering.annual.currencyCode = 'EUR';
+    mismatchedCurrencyOffering.annual.priceString = '€59.99';
+    jest.mocked(revenueCatService.getOfferingDisplayMetadata).mockResolvedValueOnce(
+      mismatchedCurrencyOffering
+    );
+
+    render(<PaywallScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByText('€59.99')).toBeTruthy();
+    });
+    expect(screen.queryByTestId('paywall-price-comparison')).toBeNull();
+    expect(screen.queryByText(/Best value/)).toBeNull();
+  });
+
+  it('sanitizes RevenueCat configuration errors in purchase alerts', async () => {
+    jest.mocked(revenueCatService.purchasePackageByIdentifier).mockRejectedValueOnce(
+      new Error('There is an issue with your configuration. There are no App Store products registered in the RevenueCat dashboard for your offerings.')
+    );
+
+    render(<PaywallScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Continue my practice, Annual selected')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByLabelText('Continue my practice, Annual selected'));
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Purchase could not be completed',
+        'Purchases are temporarily unavailable. Please try again later or restore an existing subscription.'
+      );
+    });
+    expect(alertSpy.mock.calls[0][1]).not.toContain('RevenueCat dashboard');
   });
 
   it('renders the most reinforced active anchor as the hero', () => {
@@ -287,6 +467,13 @@ describe('PaywallScreen', () => {
     expect(screen.getByText('Anchors forged')).toBeTruthy();
     expect(screen.getByText('Sessions primed')).toBeTruthy();
     expect(screen.getByText('Prime record')).toBeTruthy();
+  });
+
+  it('frames the expired-trial decision as retaining access, not losing stored work', () => {
+    render(<PaywallScreen />);
+
+    expect(screen.getByText(/Your anchors and progress are safe/)).toBeTruthy();
+    expect(screen.getByText(/Keep it within reach as you/)).toBeTruthy();
   });
 
   it('opens sign in from the paywall', () => {

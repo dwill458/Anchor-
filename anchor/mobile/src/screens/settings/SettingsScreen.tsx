@@ -5,6 +5,7 @@ import {
   Modal,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -13,73 +14,162 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useSettingsState } from '@/hooks/useSettings';
-import { useSettingsStore } from '@/stores/settingsStore';
-import { useSettingsReveal } from '@/components/transitions/SettingsRevealProvider';
-import { AuthService } from '@/services/AuthService';
-import { useAuthStore } from '@/stores/authStore';
-import type { RootStackParamList } from '@/types';
-import { LEGAL_URLS, SUPPORT_EMAIL, SUPPORT_EMAIL_URL } from '@/constants/legal';
+import { ArrowLeft } from 'lucide-react-native';
+
 import { SettingsRow } from '@/components/settings/SettingsRow';
 import { SettingsSectionBlock } from '@/components/settings/SettingsSectionBlock';
+import { useSettingsReveal } from '@/components/transitions/SettingsRevealProvider';
+import { LEGAL_URLS, SUPPORT_EMAIL, SUPPORT_EMAIL_URL } from '@/constants/legal';
+import { useNotificationController } from '@/hooks/useNotificationController';
+import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
+import { useSettingsState } from '@/hooks/useSettings';
+import type { ProfileStackParamList } from '@/navigation/ProfileStackNavigator';
+import { apiClient } from '@/services/ApiClient';
+import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
+import { AuthService } from '@/services/AuthService';
 import NotificationService from '@/services/NotificationService';
-import { useNotificationController } from '../../hooks/useNotificationController';
-import { colors } from '@/theme';
-import {
-  formatHapticFeedbackLabel,
-  SETTINGS_MUTED_TEXT,
-  SETTINGS_SCREEN_BACKGROUND,
-} from './shared';
+import revenueCatService from '@/services/RevenueCatService';
+import { openStoreListing } from '@/services/reviewPromptService';
+import { useAuthStore } from '@/stores/authStore';
+import { useSettingsStore, type ReduceMotionPreference } from '@/stores/settingsStore';
+import { useTeachingStore } from '@/stores/teachingStore';
+import { colors, typography } from '@/theme';
+import { useTrialStatus } from '@/hooks/useTrialStatus';
+import { formatHapticFeedbackLabel } from './shared';
 import { logger } from '@/utils/logger';
 
-const WEEKDAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const SHOW_DEVELOPER_TOOLS =
-  __DEV__ || process.env.EXPO_PUBLIC_APP_ENV !== 'production';
+type PickerKind = 'motion' | 'reminderTime' | 'haptics' | null;
+type ConfirmationKind = 'resetTips' | 'signOut' | 'deleteAccount' | null;
 
-const formatDurationLabel = (durationSeconds: number): string => {
-  if (durationSeconds < 60) {
-    return `${durationSeconds}s`;
-  }
-
-  const minutes = Math.round(durationSeconds / 60);
-  return `${minutes} min`;
+const formatHourLabel = (hour: number): string => {
+  const normalized = Math.max(0, Math.min(23, hour));
+  const meridiem = normalized >= 12 ? 'PM' : 'AM';
+  return `${normalized % 12 || 12}:00 ${meridiem}`;
 };
 
-const restorePurchases = async (): Promise<void> => {
-  try {
-    const purchasesModule = require('react-native-purchases');
-    const purchases = purchasesModule?.default ?? purchasesModule;
-    if (typeof purchases?.restorePurchases === 'function') {
-      await purchases.restorePurchases();
-      Alert.alert('Restore Purchase', 'Your purchases were restored.');
-      return;
-    }
-  } catch {
-    // RevenueCat is not available in this build.
-  }
-
-  Alert.alert('Restore Purchase', 'RevenueCat restorePurchases() is not available in this build.');
+const formatTimeLabel = (time: string | null | undefined): string => {
+  const match = /^([0-1]?\d|2[0-3]):([0-5]\d)$/.exec(time ?? '');
+  return formatHourLabel(match ? Number(match[1]) : 21);
 };
+
+const formatMotionLabel = (preference: ReduceMotionPreference): string => {
+  if (preference === 'system') return 'Device Setting';
+  return preference === 'on' ? 'Reduced' : 'Full';
+};
+
+const ChoiceSheet: React.FC<{
+  visible: boolean;
+  title: string;
+  options: Array<{ label: string; value: string }>;
+  selectedValue: string;
+  reduceMotion: boolean;
+  onDismiss: () => void;
+  onSelect: (value: string) => void;
+}> = ({ visible, title, options, selectedValue, reduceMotion, onDismiss, onSelect }) => (
+  <Modal
+    visible={visible}
+    transparent
+    animationType={reduceMotion ? 'none' : 'slide'}
+    accessibilityViewIsModal
+    onRequestClose={onDismiss}
+  >
+    <Pressable style={styles.sheetScrim} onPress={onDismiss}>
+      <Pressable style={styles.choiceSheet} onPress={(event) => event.stopPropagation()}>
+        <View style={styles.sheetHandle} />
+        <Text style={styles.sheetTitle}>{title}</Text>
+        <ScrollView
+          style={styles.choiceList}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.choiceListContent}
+        >
+          {options.map((option) => {
+            const selected = option.value === selectedValue;
+            return (
+              <Pressable
+                key={option.value}
+                accessibilityRole="radio"
+                accessibilityLabel={option.label}
+                accessibilityState={{ selected }}
+                onPress={() => onSelect(option.value)}
+                style={({ pressed }) => [
+                  styles.choiceRow,
+                  selected && styles.choiceRowSelected,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Text style={[styles.choiceLabel, selected && styles.choiceLabelSelected]}>{option.label}</Text>
+                <View style={[styles.radio, selected && styles.radioSelected]} />
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+        <Pressable accessibilityRole="button" accessibilityLabel="Cancel" onPress={onDismiss} style={styles.sheetCancel}>
+          <Text style={styles.sheetCancelLabel}>Cancel</Text>
+        </Pressable>
+      </Pressable>
+    </Pressable>
+  </Modal>
+);
+
+const ConfirmationSheet: React.FC<{
+  visible: boolean;
+  title: string;
+  description: string;
+  confirmLabel: string;
+  destructive?: boolean;
+  reduceMotion: boolean;
+  onDismiss: () => void;
+  onConfirm: () => void;
+}> = ({
+  visible,
+  title,
+  description,
+  confirmLabel,
+  destructive = false,
+  reduceMotion,
+  onDismiss,
+  onConfirm,
+}) => (
+  <Modal
+    visible={visible}
+    transparent
+    animationType={reduceMotion ? 'none' : 'slide'}
+    accessibilityViewIsModal
+    onRequestClose={onDismiss}
+  >
+    <Pressable style={styles.sheetScrim} onPress={onDismiss}>
+      <Pressable style={styles.confirmationSheet} onPress={(event) => event.stopPropagation()}>
+        <View style={styles.sheetHandle} />
+        <Text style={styles.sheetTitle}>{title}</Text>
+        <Text style={styles.confirmationDescription}>{description}</Text>
+        <View style={styles.confirmationActions}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Cancel" onPress={onDismiss} style={styles.confirmationCancel}>
+            <Text style={styles.sheetCancelLabel}>Cancel</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={confirmLabel}
+            onPress={onConfirm}
+            style={[styles.confirmationConfirm, destructive && styles.confirmationConfirmDestructive]}
+          >
+            <Text style={[styles.confirmationConfirmLabel, destructive && styles.confirmationConfirmLabelDestructive]}>
+              {confirmLabel}
+            </Text>
+          </Pressable>
+        </View>
+      </Pressable>
+    </Pressable>
+  </Modal>
+);
 
 export const SettingsScreen: React.FC = () => {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { settings, updateSetting, resetSettings, isLoading } = useSettingsState();
-  const focusSessionMode = useSettingsStore((state) => state.focusSessionMode ?? 'quick');
-  const focusSessionDuration = useSettingsStore((state) => state.focusSessionDuration ?? 30);
-  const focusSessionAudio = useSettingsStore((state) => state.focusSessionAudio ?? 'ambient');
-  const primeSessionDuration = useSettingsStore((state) => state.primeSessionDuration ?? 120);
-  const primeSessionAudio = useSettingsStore((state) => state.primeSessionAudio ?? 'ambient');
-  const dailyPracticeGoal = useSettingsStore((state) => state.dailyPracticeGoal ?? 3);
-  const dailyPracticeGoalPreset = useSettingsStore(
-    (state) => state.dailyPracticeGoalPreset ?? 'three'
-  );
-  const threadStrengthSensitivity = useSettingsStore(
-    (state) => state.threadStrengthSensitivity ?? 'balanced'
-  );
-  const restDays = useSettingsStore((state) => state.restDays ?? []);
-  const { notifState, toggleNotifications, updateActiveHours, toggleWeaver } = useNotificationController();
+  const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
+  const { settings, updateSetting, isLoading } = useSettingsState();
+  const reveal = useSettingsReveal();
+  const reduceMotionEnabled = useReduceMotionEnabled();
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const profileEmail = useAuthStore((state) => state.profileData?.user?.email?.trim() ?? '');
@@ -87,8 +177,18 @@ export const SettingsScreen: React.FC = () => {
   const setUser = useAuthStore((state) => state.setUser);
   const setHasCompletedOnboarding = useAuthStore((state) => state.setHasCompletedOnboarding);
   const signOut = useAuthStore((state) => state.signOut);
-  const reveal = useSettingsReveal();
-  const [timePickerTarget, setTimePickerTarget] = useState<'wake' | 'reminder' | null>(null);
+  const traceDefaultEnabled = useSettingsStore((state) => state.traceDefaultEnabled ?? true);
+  const setTraceDefaultEnabled = useSettingsStore((state) => state.setTraceDefaultEnabled);
+  const reduceMotionPreference = useSettingsStore((state) => state.reduceMotion ?? 'system');
+  const setReduceMotion = useSettingsStore((state) => state.setReduceMotion);
+  const analyticsEnabled = useSettingsStore((state) => state.analyticsEnabled);
+  const setAnalyticsEnabled = useSettingsStore((state) => state.setAnalyticsEnabled);
+  const { notifState, toggleNotifications, updateNotificationPreferences } = useNotificationController();
+  const { isSubscribed, isTrialActive, daysRemaining } = useTrialStatus();
+  const [pickerKind, setPickerKind] = useState<PickerKind>(null);
+  const [confirmationKind, setConfirmationKind] = useState<ConfirmationKind>(null);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [showSetPasswordModal, setShowSetPasswordModal] = useState(false);
   const [spEmail, setSpEmail] = useState('');
   const [spPassword, setSpPassword] = useState('');
@@ -97,138 +197,152 @@ export const SettingsScreen: React.FC = () => {
   const [spLoading, setSpLoading] = useState(false);
   const [spShowPass, setSpShowPass] = useState(false);
   const [spShowConfirm, setSpShowConfirm] = useState(false);
-  const hasMarkedReadyRef = useRef(false);
   const frameRef = useRef<number | null>(null);
-  const appVersion = Constants.expoConfig?.version ?? '1.0.0';
-  const DeveloperToolsSection = __DEV__
-    ? require('@/components/settings/DeveloperToolsSection').DeveloperToolsSection
-    : null;
+  const hasMarkedReadyRef = useRef(false);
 
-  const firebaseEmail = isAuthenticated
-    ? AuthService.getCurrentFirebaseUser?.()?.email?.trim() ?? ''
-    : '';
+  const appVersion = Constants.expoConfig?.version ?? '1.0.0';
+  const firebaseEmail = isAuthenticated ? AuthService.getCurrentFirebaseUser?.()?.email?.trim() ?? '' : '';
   const accountEmail = user?.email?.trim() || profileEmail || firebaseEmail;
   const canSetPassword = isAuthenticated && !AuthService.getLinkedProviders().includes('password');
-  const accountSubtitle = isAuthenticated
-    ? accountEmail
-      ? 'Synced to this account'
-      : 'Syncing account details...'
-    : 'Not signed in';
+  const remindersEnabled = notifState?.notification_enabled ?? false;
+  const weeklyRecapEnabled = notifState?.weeklyRecapEnabled ?? false;
+  const subscriptionSummary = isSubscribed
+    ? 'Pro'
+    : isTrialActive
+      ? `Trial · ${daysRemaining} day${daysRemaining === 1 ? '' : 's'} left`
+      : 'Free';
 
-  const handleRootLayout = useCallback(() => {
-    if (hasMarkedReadyRef.current || frameRef.current !== null) {
-      return;
-    }
-
+  const markReady = useCallback(() => {
+    if (hasMarkedReadyRef.current || frameRef.current !== null) return;
     frameRef.current = requestAnimationFrame(() => {
       frameRef.current = null;
-      if (hasMarkedReadyRef.current) {
-        return;
-      }
       hasMarkedReadyRef.current = true;
       reveal.markSettingsReady();
     });
   }, [reveal]);
 
-  const handleSignOut = useCallback(() => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await AuthService.signOut();
-            } catch (error) {
-              Alert.alert('Sign Out Failed', 'We could not sign you out right now.');
-              logger.warn('[SettingsScreen] Failed to sign out cleanly', error);
-              return;
-            }
-
-            try {
-              // Clear sync retry queue so stale anchor data is not carried over
-              const { writeSecureValue } = require('@/stores/encryptedPersistStorage');
-              await writeSecureValue('anchor-sync-retry-queue', '[]');
-            } catch (error) {
-              logger.warn('[SettingsScreen] Failed to clear sync retry queue on sign-out', error);
-            }
-
-            signOut();
-            setHasCompletedOnboarding(false);
-            navigation.dispatch(
-              CommonActions.reset({
-                index: 0,
-                routes: [{ name: 'Onboarding' }],
-              })
-            );
-          },
-        },
-      ]
+  const resetToOnboarding = useCallback(() => {
+    const rootNavigation = navigation.getParent() as any;
+    (rootNavigation ?? navigation).dispatch(
+      CommonActions.reset({ index: 0, routes: [{ name: 'Onboarding' }] }),
     );
-  }, [navigation, signOut, setHasCompletedOnboarding]);
-
-  const handleSignIn = useCallback(() => {
-    navigation.navigate('Login', {
-      initialTab: 'signin',
-    });
   }, [navigation]);
 
-  const handleDeleteAccount = useCallback(() => {
-    Alert.alert(
-      'Delete Account',
-      'This action is permanent and cannot be undone. All your anchors and data will be deleted from our servers. \n\nImportant: Deleting your account will not cancel active subscriptions. Please cancel any active subscriptions through your App Store or Google Play account to prevent future billing.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await AuthService.deleteAccount();
-            } catch (error) {
-              const message = error instanceof Error ? error.message : 'Failed to delete account';
-              Alert.alert('Deletion Failed', message);
-              logger.error('[SettingsScreen] Failed to delete account', error);
-              return;
-            }
+  const confirmSignOut = useCallback(async () => {
+    setConfirmationKind(null);
+    try {
+      AnalyticsService.track(AnalyticsEvents.SIGN_OUT, { source: 'settings' });
+      await AuthService.signOut();
+      const { writeSecureValue } = require('@/stores/encryptedPersistStorage');
+      await writeSecureValue('anchor-sync-retry-queue', '[]');
+      await signOut();
+      setHasCompletedOnboarding(false);
+      resetToOnboarding();
+    } catch (error) {
+      logger.warn('[SettingsScreen] Failed to sign out cleanly', error);
+      Alert.alert('Sign Out Failed', 'We could not sign you out right now.');
+    }
+  }, [resetToOnboarding, setHasCompletedOnboarding, signOut]);
 
-            try {
-              // Clear local data
-              const { writeSecureValue } = require('@/stores/encryptedPersistStorage');
-              await writeSecureValue('anchor-sync-retry-queue', '[]');
-            } catch (error) {
-              logger.warn('[SettingsScreen] Failed to clear sync retry queue after account deletion', error);
-            }
+  const confirmDeleteAccount = useCallback(async () => {
+    setConfirmationKind(null);
+    try {
+      await AuthService.deleteAccount();
+      const { writeSecureValue } = require('@/stores/encryptedPersistStorage');
+      await writeSecureValue('anchor-sync-retry-queue', '[]');
+      await signOut();
+      setHasCompletedOnboarding(false);
+      resetToOnboarding();
+    } catch (error) {
+      logger.error('[SettingsScreen] Failed to delete account', error);
+      Alert.alert('Deletion Failed', error instanceof Error ? error.message : 'Failed to delete account.');
+    }
+  }, [resetToOnboarding, setHasCompletedOnboarding, signOut]);
 
-            signOut();
-            setHasCompletedOnboarding(false);
-            navigation.dispatch(
-              CommonActions.reset({
-                index: 0,
-                routes: [{ name: 'Onboarding' }],
-              })
-            );
-          },
-        },
-      ]
-    );
-  }, [navigation, signOut, setHasCompletedOnboarding]);
+  const confirmResetTeachingTips = useCallback(() => {
+    setConfirmationKind(null);
+    useTeachingStore.getState().reset();
+    AnalyticsService.track('teaching_reset');
+  }, []);
 
-  const handleOpenSetPassword = useCallback(() => {
-    setSpEmail(accountEmail || firebaseEmail || '');
-    setSpPassword('');
-    setSpConfirm('');
-    setSpError('');
-    setSpLoading(false);
-    setSpShowPass(false);
-    setSpShowConfirm(false);
-    setShowSetPasswordModal(true);
-  }, [accountEmail, firebaseEmail]);
+  const handleReminderToggle = useCallback((enabled: boolean) => {
+    void (async () => {
+      if (!enabled) {
+        await toggleNotifications(false);
+        return;
+      }
+      const granted = await NotificationService.requestPermissions();
+      if (!granted) {
+        Alert.alert(
+          'Notification Permission Required',
+          NotificationService.getLastError()?.message ?? 'Please enable notifications in your device settings.',
+        );
+        return;
+      }
+      await toggleNotifications(true);
+    })();
+  }, [toggleNotifications]);
 
-  const handleSubmitSetPassword = useCallback(async () => {
+  const handleRestorePurchases = useCallback(async () => {
+    if (isRestoring) return;
+    setIsRestoring(true);
+    try {
+      const status = await revenueCatService.restorePurchases();
+      Alert.alert(
+        status.hasActiveEntitlement ? 'Purchases restored' : 'No subscription found',
+        status.hasActiveEntitlement
+          ? 'Your Pro access is active again.'
+          : 'No active subscription was found for this account. If you subscribed with a different store account, switch to it and try again.',
+      );
+    } catch (error) {
+      logger.warn('[SettingsScreen] Restore purchases failed', error);
+      Alert.alert('Restore failed', 'We could not restore purchases right now. Check your connection and try again.');
+    } finally {
+      setIsRestoring(false);
+    }
+  }, [isRestoring]);
+
+  const handleExportMyData = useCallback(() => {
+    if (isExporting) return;
+    Alert.alert('Export My Data', 'Prepare a JSON export of your Anchors, sessions, settings, and account activity to share or save.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Export',
+        onPress: () => void (async () => {
+          setIsExporting(true);
+          try {
+            const response = await apiClient.get<{ success: boolean; data?: unknown }>('/auth/me/export');
+            if (!response.data?.success || !response.data.data) throw new Error('Failed to prepare export');
+            await Share.share({ title: 'Anchor Data Export', message: JSON.stringify(response.data.data, null, 2) });
+          } catch (error) {
+            logger.warn('[SettingsScreen] Failed to export user data', error);
+            Alert.alert('Export Failed', 'Could not prepare your export. Please try again or contact support.');
+          } finally {
+            setIsExporting(false);
+          }
+        })(),
+      },
+    ]);
+  }, [isExporting]);
+
+  const openUrl = useCallback(async (url: string) => {
+    try {
+      if (!(await Linking.canOpenURL(url))) throw new Error('Unsupported URL');
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert('Link unavailable', 'This link could not be opened right now.');
+    }
+  }, []);
+
+  const handleSupport = useCallback(async () => {
+    if (await Linking.canOpenURL(SUPPORT_EMAIL_URL)) {
+      await Linking.openURL(SUPPORT_EMAIL_URL);
+      return;
+    }
+    await openUrl(LEGAL_URLS.support);
+  }, [openUrl]);
+
+  const handleSetPassword = useCallback(async () => {
     if (spPassword.length < 6) {
       setSpError('Password must be at least 6 characters.');
       return;
@@ -248,494 +362,124 @@ export const SettingsScreen: React.FC = () => {
     } finally {
       setSpLoading(false);
     }
-  }, [spEmail, spPassword, spConfirm]);
+  }, [spConfirm, spEmail, spPassword]);
 
-  const handleResetOnboarding = useCallback(async () => {
-    setHasCompletedOnboarding(false);
-  }, [setHasCompletedOnboarding]);
-
-  const handlePrivacyPolicy = () => {
-    Linking.openURL(LEGAL_URLS.privacyPolicy);
-  };
-
-  const handleSupport = () => {
-    Linking.openURL(LEGAL_URLS.support);
-  };
-
-  useEffect(
-    () => () => {
-      if (frameRef.current !== null) {
-        cancelAnimationFrame(frameRef.current);
-      }
-    },
-    []
-  );
-
-  useEffect(() => {
-    if (!isAuthenticated || !user?.id || user.email?.trim()) {
-      return;
-    }
-
-    if (firebaseEmail) {
-      setUser({ ...user, email: firebaseEmail });
-    }
-
-    void fetchProfile().catch((error) => {
-      logger.warn('[SettingsScreen] Failed to refresh account profile', error);
-    });
-  }, [fetchProfile, firebaseEmail, isAuthenticated, setUser, user]);
-
-  const formatHourLabel = useCallback((hour: number | null | undefined) => {
-    const normalizedHour = Math.max(0, Math.min(23, hour ?? 0));
-    const meridiem = normalizedHour >= 12 ? 'PM' : 'AM';
-    const hour12 = normalizedHour % 12 || 12;
-    return `${hour12}:00 ${meridiem}`;
+  useEffect(() => () => {
+    if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
   }, []);
 
-  const handleTimeSelection = useCallback(
-    async (hour: number) => {
-      if (timePickerTarget === 'wake') {
-        await updateActiveHours(hour, notifState?.active_hours_end ?? 21);
-      } else if (timePickerTarget === 'reminder') {
-        await updateActiveHours(notifState?.active_hours_start ?? 8, hour);
-      }
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id || user.email?.trim()) return;
+    if (firebaseEmail) setUser({ ...user, email: firebaseEmail });
+    void fetchProfile().catch((error) => logger.warn('[SettingsScreen] Failed to refresh account profile', error));
+  }, [fetchProfile, firebaseEmail, isAuthenticated, setUser, user]);
 
-      setTimePickerTarget(null);
-    },
-    [
-      notifState?.active_hours_end,
-      notifState?.active_hours_start,
-      timePickerTarget,
-      updateActiveHours,
-    ]
-  );
-
-  const sessionSummary =
-    focusSessionMode === 'deep'
-      ? `Deep Prime · ${formatDurationLabel(primeSessionDuration)} · ${primeSessionAudio === 'ambient' ? 'Ambient' : 'Silent'}`
-      : `Quick Prime · ${formatDurationLabel(focusSessionDuration)} · ${focusSessionAudio === 'ambient' ? 'Ambient' : 'Silent'}`;
-
-  const goalSummary =
-    dailyPracticeGoalPreset === 'once'
-      ? 'Once / day'
-      : dailyPracticeGoalPreset === 'three'
-        ? 'Three times / day'
-        : dailyPracticeGoalPreset === 'five'
-          ? 'Five times / day'
-          : `Custom · ${dailyPracticeGoal} / day`;
-
-  const threadStrengthSummary =
-    threadStrengthSensitivity.charAt(0).toUpperCase() + threadStrengthSensitivity.slice(1);
-
-  const restDaysSummary =
-    restDays.length === 0
-      ? 'None'
-      : restDays.length === 1
-        ? WEEKDAY_LABELS[restDays[0]]
-        : restDays.map((day) => WEEKDAY_LABELS[day].slice(0, 3)).join(', ');
+  const motionOptions = [
+    { label: 'Device Setting', value: 'system' },
+    { label: 'Reduced', value: 'on' },
+    { label: 'Full', value: 'off' },
+  ];
+  const timeOptions = Array.from({ length: 24 }, (_, hour) => ({ label: formatHourLabel(hour), value: String(hour) }));
+  const hapticOptions = [
+    { label: 'Strong', value: 'strong' },
+    { label: 'Standard', value: 'medium' },
+    { label: 'Soft', value: 'light' },
+  ];
+  const activeReminderHour = Number((notifState?.dailyPrimeTime ?? '21:00').slice(0, 2));
+  const confirmation = confirmationKind === 'resetTips'
+    ? { title: 'Show teaching tips again?', description: 'Anchor will show first-use guidance again when it is useful.', confirmLabel: 'Reset Tips', onConfirm: confirmResetTeachingTips }
+    : confirmationKind === 'signOut'
+      ? { title: 'Sign out of Anchor?', description: 'You can sign back in at any time to continue your practice.', confirmLabel: 'Sign Out', onConfirm: () => void confirmSignOut() }
+      : confirmationKind === 'deleteAccount'
+        ? { title: 'Delete your account?', description: 'This action is permanent and cannot be undone. All your Anchors and data will be deleted from our servers. Deleting your account will not cancel active subscriptions; cancel them through your App Store or Google Play account to prevent future billing.', confirmLabel: 'Delete Account', destructive: true, onConfirm: () => void confirmDeleteAccount() }
+        : null;
 
   return (
-    <View style={styles.container} onLayout={handleRootLayout}>
-      <SafeAreaView style={styles.safeArea} edges={['bottom']}>
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <Text style={styles.pageDescription}>
-            Personalize your path with Anchor&apos;s core configurations.
-          </Text>
-
-          <Text style={styles.sectionLabel}>Practice Settings</Text>
-          <Text style={styles.sectionDescription}>
-            Control how your anchors are created, primed, and activated.
-          </Text>
-          <SettingsSectionBlock>
-            <SettingsRow
-              title="Session Defaults"
-              value={sessionSummary}
-              type="chevron"
-              onPress={() => navigation.navigate('SessionDefaults')}
-              disabled={isLoading}
-            />
-            <SettingsRow
-              title="Daily Practice Goal"
-              value={goalSummary}
-              type="chevron"
-              onPress={() => navigation.navigate('DailyPracticeGoal')}
-              disabled={isLoading}
-            />
-            <SettingsRow
-              title="Thread Strength"
-              value={threadStrengthSummary}
-              type="chevron"
-              onPress={() => navigation.navigate('ThreadStrength')}
-              disabled={isLoading}
-            />
-            <SettingsRow
-              title="Rest Days"
-              value={restDaysSummary}
-              type="chevron"
-              onPress={() => navigation.navigate('RestDays')}
-              disabled={isLoading}
-            />
-            <SettingsRow
-              title="Hide Intention Text"
-              subtitle="During priming, show only the anchor"
-              type="toggle"
-              toggleValue={settings.reduceIntentionVisibility}
-              onToggle={(value) => updateSetting('reduceIntentionVisibility', value)}
-              disabled={isLoading}
-              showDivider={false}
-            />
+    <View style={styles.container} onLayout={markReady}>
+      <LinearGradient colors={[colors.anchor15.creationTop, colors.anchor15.navy, colors.anchor15.ink]} locations={[0, 0.48, 1]} style={StyleSheet.absoluteFillObject} />
+      <View pointerEvents="none" style={styles.goldAmbient} />
+      <View pointerEvents="none" style={styles.topArc} />
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        <View style={styles.header}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Back to Profile" onPress={() => navigation.goBack()} style={styles.headerButton}>
+            <ArrowLeft color={colors.anchor15.ash} size={19} strokeWidth={1.4} />
+          </Pressable>
+          <Text style={styles.headerTitle}>SETTINGS</Text>
+          <View style={styles.headerButton} />
+        </View>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <Text style={styles.sectionLabel}>PRACTICE</Text>
+          <SettingsSectionBlock flat>
+            <SettingsRow title="Session Defaults" value="Duration · Voice · Audio" type="chevron" onPress={() => navigation.navigate('SessionDefaults')} disabled={isLoading} />
+            <SettingsRow title="Anchor Tracing" subtitle="Offer tracing during creation and after Practice." type="toggle" toggleValue={traceDefaultEnabled} onToggle={(value) => { setTraceDefaultEnabled(value); AnalyticsService.track(value ? 'trace_default_enabled' : 'trace_default_disabled', { source: 'settings' }); }} disabled={isLoading} />
+            <SettingsRow title="Haptic Feedback" value={formatHapticFeedbackLabel(settings.hapticFeedback)} type="chevron" onPress={() => setPickerKind('haptics')} disabled={isLoading} />
+            <SettingsRow title="Sound Effects" subtitle="Interface and Practice sound effects." type="toggle" toggleValue={settings.soundEffectsEnabled} onToggle={(value) => void updateSetting('soundEffectsEnabled', value)} disabled={isLoading} showDivider={false} />
           </SettingsSectionBlock>
 
-          <Text style={styles.sectionLabel}>App Behavior</Text>
-          <Text style={styles.sectionDescription}>
-            Tune how Anchor supports your day and nudges you back into practice.
-          </Text>
-          <SettingsSectionBlock>
-            <SettingsRow
-              title="Prime on Launch"
-              subtitle="Opens directly to your practice"
-              type="toggle"
-              toggleValue={settings.openDailyAnchorAutomatically}
-              onToggle={(value) => updateSetting('openDailyAnchorAutomatically', value)}
-              disabled={isLoading}
-            />
-            <SettingsRow
-              title="Practice Guidance"
-              subtitle="Gentle in-context tips during new practices"
-              type="toggle"
-              toggleValue={settings.practiceGuidanceEnabled}
-              onToggle={(value) => updateSetting('practiceGuidanceEnabled', value)}
-              disabled={isLoading}
-            />
-
-            <SettingsRow
-              title="Notifications"
-              subtitle="Enable Prime reminders and weekly reflections"
-              type="toggle"
-              toggleValue={notifState?.notification_enabled ?? true}
-              onToggle={(value) => {
-                void (async () => {
-                  if (!value) {
-                    await toggleNotifications(false);
-                    return;
-                  }
-
-                  const granted = await NotificationService.requestPermissions();
-                  if (!granted) {
-                    const message =
-                      NotificationService.getLastError()?.message ??
-                      'Please enable notifications in your device settings.';
-                    Alert.alert('Notification Permission Required', message);
-                    return;
-                  }
-
-                  await toggleNotifications(true);
-                })();
-              }}
-              disabled={isLoading}
-              showDivider={!(notifState?.notification_enabled ?? true)}
-            />
-            {notifState?.notification_enabled ? (
-              <>
-                <SettingsRow
-                  title="Wake Time"
-                  subtitle="When your active day begins"
-                  value={formatHourLabel(notifState?.active_hours_start ?? 8)}
-                  type="chevron"
-                  onPress={() => setTimePickerTarget('wake')}
-                  disabled={isLoading}
-                />
-                <SettingsRow
-                  title="Reminder Time"
-                  subtitle="When Micro-Prime fires if you haven't primed"
-                  value={formatHourLabel(notifState?.active_hours_end ?? 21)}
-                  type="chevron"
-                  onPress={() => setTimePickerTarget('reminder')}
-                  disabled={isLoading}
-                  showDivider={true}
-                />
-                <SettingsRow
-                  title="Recovery Nudges"
-                  subtitle="Gentle reminder when you've missed a day"
-                  type="toggle"
-                  toggleValue={notifState?.weaver_enabled ?? true}
-                  onToggle={async (enabled) => void toggleWeaver(enabled)}
-                  disabled={isLoading}
-                  showDivider={false}
-                />
-              </>
-            ) : null}
+          <Text style={styles.sectionLabel}>EXPERIENCE</Text>
+          <SettingsSectionBlock flat>
+            <SettingsRow title="Open to Practice" subtitle="Open directly to Practice when you return." type="toggle" toggleValue={settings.openDailyAnchorAutomatically} onToggle={(value) => void updateSetting('openDailyAnchorAutomatically', value)} disabled={isLoading} />
+            <SettingsRow title="Reduce Motion" value={formatMotionLabel(reduceMotionPreference)} type="chevron" onPress={() => setPickerKind('motion')} disabled={isLoading} />
+            <SettingsRow title="Reset Teaching Tips" subtitle="Show first-use guidance again." type="chevron" onPress={() => setConfirmationKind('resetTips')} disabled={isLoading} showDivider={false} />
           </SettingsSectionBlock>
 
-          {/* Appearance section removed */}
-
-          <Text style={styles.sectionLabel}>Audio & Haptics</Text>
-          <SettingsSectionBlock>
-            <SettingsRow
-              title="Haptic Feedback"
-              value={formatHapticFeedbackLabel(settings.hapticFeedback)}
-              type="chevron"
-              onPress={() => navigation.navigate('HapticFeedback')}
-            />
-            <SettingsRow
-              title="Sound"
-              subtitle="Audio feedback during forge and prime sessions"
-              type="toggle"
-              toggleValue={settings.soundEffectsEnabled}
-              onToggle={(value) => updateSetting('soundEffectsEnabled', value)}
-              disabled={isLoading}
-              showDivider={false}
-            />
+          <Text style={styles.sectionLabel}>REMINDERS</Text>
+          <SettingsSectionBlock flat>
+            <SettingsRow title="Practice Reminders" subtitle="Receive quiet reminders to return to your Anchor." type="toggle" toggleValue={remindersEnabled} onToggle={handleReminderToggle} disabled={isLoading || notifState == null} />
+            <SettingsRow title="Reminder Time" value={formatTimeLabel(notifState?.dailyPrimeTime)} type="chevron" onPress={() => setPickerKind('reminderTime')} disabled={isLoading || !remindersEnabled} />
+            <SettingsRow title="Weekly Recap" subtitle="A quiet weekly summary when there is activity." type="toggle" toggleValue={weeklyRecapEnabled} onToggle={(value) => void updateNotificationPreferences({ weeklyRecapEnabled: value })} disabled={isLoading || !remindersEnabled} showDivider={false} />
           </SettingsSectionBlock>
 
-          <Text style={styles.sectionLabel}>Account</Text>
-          <SettingsSectionBlock>
+          <Text style={styles.sectionLabel}>ACCOUNT</Text>
+          <SettingsSectionBlock flat>
+            <SettingsRow title="Email Address" subtitle={isAuthenticated ? 'Synced to this account' : 'Not signed in'} value={accountEmail || 'Not signed in'} type="static" />
+            {canSetPassword ? <SettingsRow title="Set Password" subtitle="Add email sign-in to your account." type="chevron" onPress={() => { setSpEmail(accountEmail || firebaseEmail); setSpPassword(''); setSpConfirm(''); setSpError(''); setShowSetPasswordModal(true); }} /> : null}
+            {!isAuthenticated ? <SettingsRow title="Sign In" subtitle="Create or reconnect your account" type="chevron" onPress={() => navigation.navigate('Login', { initialTab: 'signin' })} /> : null}
             <SettingsRow
-              title="Email Address"
-              subtitle={accountSubtitle}
-              value={accountEmail || 'Not signed in'}
-              type="static"
-            />
-            {canSetPassword ? (
-              <SettingsRow
-                title="Set Password"
-                subtitle="Add email sign-in to your account"
-                type="chevron"
-                onPress={handleOpenSetPassword}
-              />
-            ) : null}
-            {isAuthenticated ? (
-              <SettingsRow title="Sign Out" type="chevron" onPress={handleSignOut} />
-            ) : (
-              <SettingsRow
-                title="Sign In"
-                subtitle="Create or reconnect your account"
-                type="chevron"
-                onPress={handleSignIn}
-              />
-            )}
-            <SettingsRow
-              title="Privacy Policy"
+              title="Subscription"
+              value={subscriptionSummary}
               type="chevron"
-              onPress={() => void Linking.openURL(LEGAL_URLS.privacyPolicy)}
+              onPress={() => navigation.getParent()?.navigate('Paywall' as never)}
             />
-            <SettingsRow
-              title="Terms of Service"
-              type="chevron"
-              onPress={() => void Linking.openURL(LEGAL_URLS.termsOfService)}
-              showDivider={false}
-            />
+            <SettingsRow title="Restore Purchases" value={isRestoring ? 'Restoring…' : undefined} type="chevron" onPress={() => void handleRestorePurchases()} disabled={isRestoring} />
+            <SettingsRow title="Export My Data" subtitle={isExporting ? 'Preparing your JSON export…' : 'Share a copy of your account data.'} value={isExporting ? 'Preparing…' : undefined} type="chevron" onPress={handleExportMyData} disabled={isExporting} showDivider={false} />
           </SettingsSectionBlock>
 
-          <Text style={styles.sectionLabel}>Legal & Support</Text>
-          <SettingsSectionBlock>
-            <SettingsRow
-              title="Privacy Policy"
-              type="chevron"
-              onPress={handlePrivacyPolicy}
-            />
-            <SettingsRow
-              title="Support"
-              type="chevron"
-              onPress={handleSupport}
-              showDivider={false}
-            />
+          <Text style={styles.sectionLabel}>SUPPORT & PRIVACY</Text>
+          <SettingsSectionBlock flat>
+            <SettingsRow title="Analytics" subtitle="Help improve Anchor with anonymous usage data." type="toggle" toggleValue={analyticsEnabled} onToggle={(value) => { setAnalyticsEnabled(value); const enabled = process.env.EXPO_PUBLIC_ANALYTICS_ENABLED !== 'false' && value; AnalyticsService.setEnabled(enabled); if (enabled) AnalyticsService.track('analytics_opted_in', { source: 'settings' }); }} disabled={isLoading} />
+            <SettingsRow title="Help & Support" value={SUPPORT_EMAIL} type="chevron" onPress={() => void handleSupport()} />
+            <SettingsRow title="Rate Anchor" type="chevron" onPress={() => void openStoreListing()} />
+            <SettingsRow title="Privacy Policy" type="chevron" onPress={() => void openUrl(LEGAL_URLS.privacyPolicy)} showDivider={false} />
           </SettingsSectionBlock>
 
-          <Text style={styles.sectionLabel}>Subscription</Text>
-          <SettingsSectionBlock>
-            <SettingsRow title="Current Plan" value="Active" type="static" />
-            <View style={styles.benefitsRow}>
-              <Text style={styles.benefitsText}>
-                {'· Unlimited anchors\n· Advanced customization\n· Manual creation tools'}
-              </Text>
-            </View>
-            <SettingsRow
-              title="Manage Subscription"
-              type="chevron"
-              onPress={() => navigation.navigate('Paywall' as never)}
-            />
-            <SettingsRow
-              title="Restore Purchase"
-              type="chevron"
-              onPress={restorePurchases}
-              showDivider={false}
-            />
-          </SettingsSectionBlock>
-
-          <Text style={styles.sectionLabel}>About Anchor</Text>
-          <SettingsSectionBlock>
-            <SettingsRow title="App Version" value={appVersion} type="static" />
-            <SettingsRow
-              title="Contact Support"
-              subtitle={SUPPORT_EMAIL}
-              type="chevron"
-              onPress={async () => {
-                const supported = await Linking.canOpenURL(SUPPORT_EMAIL_URL);
-                if (!supported) {
-                  Alert.alert('Contact Support', 'Mail is not available on this device.');
-                  return;
-                }
-                await Linking.openURL(SUPPORT_EMAIL_URL);
-              }}
-              showDivider={false}
-            />
-          </SettingsSectionBlock>
-
-          {SHOW_DEVELOPER_TOOLS && DeveloperToolsSection ? (
-            <DeveloperToolsSection
-              resetSettings={resetSettings}
-              onResetOnboarding={handleResetOnboarding}
-            />
-          ) : null}
-          {isAuthenticated ? (
-            <>
-              <Text style={[styles.sectionLabel, styles.dangerLabel]}>Danger Zone</Text>
-              <SettingsSectionBlock>
-                <SettingsRow
-                  title="Delete Account"
-                  type="none"
-                  titleColor="#e05252"
-                  onPress={handleDeleteAccount}
-                  style={styles.dangerRow}
-                  showDivider={false}
-                />
-              </SettingsSectionBlock>
-            </>
-          ) : null}
-
-          <View style={styles.bottomSpacer} />
+          {isAuthenticated ? <>
+            <Text style={[styles.sectionLabel, styles.accountActionsLabel]}>ACCOUNT ACTIONS</Text>
+            <SettingsSectionBlock flat style={styles.accountActions}>
+              <SettingsRow title="Sign Out" type="chevron" titleColor={colors.anchor15.ash} onPress={() => setConfirmationKind('signOut')} />
+              <SettingsRow title="Delete Account" type="none" titleColor="#D5968C" onPress={() => setConfirmationKind('deleteAccount')} showDivider={false} />
+            </SettingsSectionBlock>
+          </> : null}
+          <Text style={styles.versionText}>{`Version ${appVersion}`}</Text>
         </ScrollView>
       </SafeAreaView>
-      <Modal
-        visible={timePickerTarget !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setTimePickerTarget(null)}
-      >
-        <Pressable style={styles.hourPickerOverlay} onPress={() => setTimePickerTarget(null)}>
-          <Pressable style={styles.hourPickerCard} onPress={() => {}}>
-            <Text style={styles.hourPickerTitle}>
-              {timePickerTarget === 'wake'
-                ? 'Select Wake Time'
-                : timePickerTarget === 'reminder'
-                  ? 'Select Reminder Time'
-                  : 'Select Time'}
-            </Text>
-            <ScrollView
-              style={styles.hourPickerList}
-              contentContainerStyle={styles.hourPickerListContent}
-              showsVerticalScrollIndicator={false}
-            >
-              {Array.from({ length: 24 }, (_, hour) => {
-                const activeHour =
-                  timePickerTarget === 'wake'
-                    ? notifState?.active_hours_start ?? 8
-                    : notifState?.active_hours_end ?? 21;
-                const isSelected = activeHour === hour;
 
-                return (
-                  <TouchableOpacity
-                    key={hour}
-                    style={[
-                      styles.hourPickerOption,
-                      isSelected ? styles.hourPickerOptionActive : null,
-                    ]}
-                    activeOpacity={0.8}
-                    onPress={() => {
-                      void handleTimeSelection(hour);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.hourPickerOptionText,
-                        isSelected ? styles.hourPickerOptionTextActive : null,
-                      ]}
-                    >
-                      {formatHourLabel(hour)}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
-      <Modal
-        visible={showSetPasswordModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowSetPasswordModal(false)}
-      >
-        <Pressable style={styles.hourPickerOverlay} onPress={() => setShowSetPasswordModal(false)}>
-          <Pressable style={styles.hourPickerCard} onPress={() => {}}>
-            <Text style={styles.hourPickerTitle}>Set Password</Text>
-            <Text style={styles.setPasswordSubtitle}>
-              Add a password so you can also sign in with your email.
-            </Text>
-            <View style={styles.setPasswordFields}>
-              <TextInput
-                style={styles.setPasswordInput}
-                value={spEmail}
-                onChangeText={setSpEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                placeholder="Email"
-                placeholderTextColor="rgba(245,245,220,0.3)"
-              />
-              <View style={styles.setPasswordInputRow}>
-                <TextInput
-                  style={[styles.setPasswordInput, styles.setPasswordInputFlex]}
-                  value={spPassword}
-                  onChangeText={setSpPassword}
-                  secureTextEntry={!spShowPass}
-                  placeholder="New password"
-                  placeholderTextColor="rgba(245,245,220,0.3)"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-                <TouchableOpacity
-                  style={styles.setPasswordEye}
-                  onPress={() => setSpShowPass((v) => !v)}
-                >
-                  <Text style={styles.setPasswordEyeText}>{spShowPass ? 'Hide' : 'Show'}</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.setPasswordInputRow}>
-                <TextInput
-                  style={[styles.setPasswordInput, styles.setPasswordInputFlex]}
-                  value={spConfirm}
-                  onChangeText={setSpConfirm}
-                  secureTextEntry={!spShowConfirm}
-                  placeholder="Confirm password"
-                  placeholderTextColor="rgba(245,245,220,0.3)"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-                <TouchableOpacity
-                  style={styles.setPasswordEye}
-                  onPress={() => setSpShowConfirm((v) => !v)}
-                >
-                  <Text style={styles.setPasswordEyeText}>{spShowConfirm ? 'Hide' : 'Show'}</Text>
-                </TouchableOpacity>
-              </View>
-              {spError ? <Text style={styles.setPasswordError}>{spError}</Text> : null}
-              <TouchableOpacity
-                style={[styles.setPasswordButton, spLoading && styles.setPasswordButtonDisabled]}
-                onPress={() => void handleSubmitSetPassword()}
-                disabled={spLoading}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.setPasswordButtonText}>
-                  {spLoading ? 'Setting...' : 'Set Password'}
-                </Text>
-              </TouchableOpacity>
-            </View>
+      <ChoiceSheet visible={pickerKind === 'motion'} title="Reduce Motion" options={motionOptions} selectedValue={reduceMotionPreference} reduceMotion={reduceMotionEnabled} onDismiss={() => setPickerKind(null)} onSelect={(value) => { setReduceMotion(value as ReduceMotionPreference); setPickerKind(null); }} />
+      <ChoiceSheet visible={pickerKind === 'reminderTime'} title="Reminder Time" options={timeOptions} selectedValue={String(activeReminderHour)} reduceMotion={reduceMotionEnabled} onDismiss={() => setPickerKind(null)} onSelect={(value) => { void updateNotificationPreferences({ dailyPrimeTime: `${String(Number(value)).padStart(2, '0')}:00` }); setPickerKind(null); }} />
+      <ChoiceSheet visible={pickerKind === 'haptics'} title="Haptic Feedback" options={hapticOptions} selectedValue={settings.hapticFeedback} reduceMotion={reduceMotionEnabled} onDismiss={() => setPickerKind(null)} onSelect={(value) => { void updateSetting('hapticFeedback', value as 'strong' | 'medium' | 'light'); setPickerKind(null); }} />
+      <ConfirmationSheet visible={confirmation !== null} title={confirmation?.title ?? ''} description={confirmation?.description ?? ''} confirmLabel={confirmation?.confirmLabel ?? 'Confirm'} destructive={confirmation?.destructive} reduceMotion={reduceMotionEnabled} onDismiss={() => setConfirmationKind(null)} onConfirm={confirmation?.onConfirm ?? (() => setConfirmationKind(null))} />
+
+      <Modal visible={showSetPasswordModal} transparent animationType={reduceMotionEnabled ? 'none' : 'slide'} accessibilityViewIsModal onRequestClose={() => setShowSetPasswordModal(false)}>
+        <Pressable style={styles.sheetScrim} onPress={() => setShowSetPasswordModal(false)}>
+          <Pressable style={styles.passwordSheet} onPress={(event) => event.stopPropagation()}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Set Password</Text>
+            <Text style={styles.passwordSubtitle}>Add a password so you can also sign in with your email.</Text>
+            <TextInput style={styles.passwordInput} value={spEmail} onChangeText={setSpEmail} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} placeholder="Email" placeholderTextColor="rgba(244,239,230,0.32)" />
+            <View style={styles.passwordInputRow}><TextInput style={[styles.passwordInput, styles.passwordInputFlex]} value={spPassword} onChangeText={setSpPassword} secureTextEntry={!spShowPass} placeholder="New password" placeholderTextColor="rgba(244,239,230,0.32)" /><TouchableOpacity onPress={() => setSpShowPass((value) => !value)} style={styles.passwordEye}><Text style={styles.passwordEyeText}>{spShowPass ? 'Hide' : 'Show'}</Text></TouchableOpacity></View>
+            <View style={styles.passwordInputRow}><TextInput style={[styles.passwordInput, styles.passwordInputFlex]} value={spConfirm} onChangeText={setSpConfirm} secureTextEntry={!spShowConfirm} placeholder="Confirm password" placeholderTextColor="rgba(244,239,230,0.32)" /><TouchableOpacity onPress={() => setSpShowConfirm((value) => !value)} style={styles.passwordEye}><Text style={styles.passwordEyeText}>{spShowConfirm ? 'Hide' : 'Show'}</Text></TouchableOpacity></View>
+            {spError ? <Text style={styles.passwordError}>{spError}</Text> : null}
+            <Pressable accessibilityRole="button" accessibilityLabel="Set Password" disabled={spLoading} onPress={() => void handleSetPassword()} style={[styles.primarySheetButton, spLoading && styles.disabledButton]}><Text style={styles.primarySheetButtonLabel}>{spLoading ? 'Setting…' : 'Set Password'}</Text></Pressable>
           </Pressable>
         </Pressable>
       </Modal>
@@ -744,197 +488,51 @@ export const SettingsScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: SETTINGS_SCREEN_BACKGROUND,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-    backgroundColor: SETTINGS_SCREEN_BACKGROUND,
-  },
-  scrollContent: {
-    paddingBottom: 32,
-  },
-  pageDescription: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 10,
-    color: SETTINGS_MUTED_TEXT,
-    fontSize: 11,
-    fontFamily: 'Inter-Regular',
-    lineHeight: 17,
-  },
-  sectionLabel: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 8,
-    color: SETTINGS_MUTED_TEXT,
-    fontSize: 10,
-    fontFamily: 'Inter-SemiBold',
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-  },
-  sectionDescription: {
-    paddingHorizontal: 20,
-    paddingBottom: 10,
-    color: SETTINGS_MUTED_TEXT,
-    fontSize: 11,
-    fontFamily: 'Inter-Regular',
-    lineHeight: 16,
-  },
-  benefitsRow: {
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(212,175,55,0.15)',
-  },
-  benefitsText: {
-    color: SETTINGS_MUTED_TEXT,
-    fontSize: 12,
-    fontFamily: 'Inter-Regular',
-    lineHeight: 19,
-  },
-  dangerLabel: {
-    color: '#e05252',
-  },
-  dangerRow: {
-    backgroundColor: 'transparent',
-  },
-  bottomSpacer: {
-    height: 32,
-  },
-  inlineTimePickerContainer: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(212,175,55,0.15)',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 4,
-    backgroundColor: 'rgba(212,175,55,0.04)',
-  },
-  inlineTimePickerLabel: {
-    color: SETTINGS_MUTED_TEXT,
-    fontSize: 10,
-    fontFamily: 'Inter-SemiBold',
-    letterSpacing: 1.0,
-    textTransform: 'uppercase',
-    marginBottom: 2,
-  },
-  inlineDateTimePicker: {
-    height: 120,
-  },
-  hourPickerOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(6, 8, 12, 0.72)',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  hourPickerCard: {
-    maxHeight: '70%',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.18)',
-    backgroundColor: '#101822',
-    paddingVertical: 20,
-  },
-  hourPickerTitle: {
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-    color: colors.gold,
-    fontSize: 18,
-    fontFamily: 'Cinzel-Regular',
-  },
-  hourPickerList: {
-    flexGrow: 0,
-  },
-  hourPickerListContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 4,
-  },
-  hourPickerOption: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.1)',
-    backgroundColor: 'rgba(255,255,255,0.02)',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 8,
-  },
-  hourPickerOptionActive: {
-    borderColor: 'rgba(212,175,55,0.45)',
-    backgroundColor: 'rgba(212,175,55,0.1)',
-  },
-  hourPickerOptionText: {
-    color: colors.bone,
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
-  },
-  hourPickerOptionTextActive: {
-    color: colors.gold,
-  },
-  setPasswordSubtitle: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    color: SETTINGS_MUTED_TEXT,
-    fontSize: 13,
-    fontFamily: 'Inter-Regular',
-    lineHeight: 18,
-  },
-  setPasswordFields: {
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-    gap: 10,
-  },
-  setPasswordInput: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.2)',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: colors.bone,
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
-  },
-  setPasswordInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  setPasswordInputFlex: {
-    flex: 1,
-  },
-  setPasswordEye: {
-    paddingHorizontal: 4,
-    paddingVertical: 10,
-  },
-  setPasswordEyeText: {
-    color: colors.gold,
-    fontSize: 12,
-    fontFamily: 'Inter-Regular',
-  },
-  setPasswordError: {
-    color: '#e05252',
-    fontSize: 12,
-    fontFamily: 'Inter-Regular',
-  },
-  setPasswordButton: {
-    backgroundColor: 'rgba(212,175,55,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.4)',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  setPasswordButtonDisabled: {
-    opacity: 0.5,
-  },
-  setPasswordButtonText: {
-    color: colors.gold,
-    fontSize: 14,
-    fontFamily: 'Inter-SemiBold',
-  },
+  container: { flex: 1, backgroundColor: colors.anchor15.ink },
+  safeArea: { flex: 1 },
+  goldAmbient: { position: 'absolute', top: -220, left: -110, width: 365, height: 365, borderRadius: 183, backgroundColor: 'rgba(217,179,108,0.055)' },
+  topArc: { position: 'absolute', top: -442, left: -250, width: 620, height: 620, borderRadius: 310, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(217,179,108,0.09)' },
+  header: { height: 54, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { position: 'absolute', left: 0, right: 0, textAlign: 'center', color: colors.anchor15.ash, fontFamily: typography.fontFamily.ritual, fontSize: 12, letterSpacing: 2.0 },
+  scrollView: { flex: 1 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 52 },
+  sectionLabel: { color: colors.anchor15.ash, fontFamily: typography.fontFamily.ritual, fontSize: 10, letterSpacing: 2.15, marginTop: 27, marginBottom: 8 },
+  accountActionsLabel: { color: '#B9827C' },
+  accountActions: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(213,150,140,0.22)' },
+  versionText: { color: 'rgba(135,147,157,0.62)', fontFamily: typography.fontFamily.instrument, fontSize: 10, letterSpacing: 0.5, textAlign: 'center', marginTop: 38 },
+  sheetScrim: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(4,6,12,0.76)' },
+  choiceSheet: { maxHeight: '76%', paddingHorizontal: 22, paddingTop: 13, paddingBottom: 20, backgroundColor: colors.anchor15.veil, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.anchor15.goldHairline },
+  confirmationSheet: { paddingHorizontal: 22, paddingTop: 13, paddingBottom: 24, backgroundColor: colors.anchor15.veil, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.anchor15.goldHairline },
+  passwordSheet: { paddingHorizontal: 22, paddingTop: 13, paddingBottom: 24, backgroundColor: colors.anchor15.veil, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.anchor15.goldHairline },
+  sheetHandle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', backgroundColor: 'rgba(244,239,230,0.22)', marginBottom: 15 },
+  sheetTitle: { color: colors.anchor15.bone, fontFamily: typography.fontFamily.voice, fontSize: 24, lineHeight: 29, textAlign: 'center', marginBottom: 10 },
+  choiceList: { maxHeight: 390 },
+  choiceListContent: { paddingBottom: 8 },
+  choiceRow: { minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.anchor15.hairline },
+  choiceRowSelected: { backgroundColor: 'rgba(217,179,108,0.06)' },
+  choiceLabel: { color: colors.anchor15.bone, fontFamily: typography.fontFamily.voice, fontSize: 17 },
+  choiceLabelSelected: { color: colors.anchor15.giltBright },
+  radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: 'rgba(242,223,168,0.38)' },
+  radioSelected: { borderWidth: 5, borderColor: colors.anchor15.gilt },
+  sheetCancel: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 7 },
+  sheetCancelLabel: { color: colors.anchor15.ash, fontFamily: typography.fontFamily.instrument, fontSize: 13 },
+  confirmationDescription: { color: colors.anchor15.ash, fontFamily: typography.fontFamily.instrument, fontSize: 13, lineHeight: 20, textAlign: 'center', marginHorizontal: 6, marginBottom: 18 },
+  confirmationActions: { flexDirection: 'row', gap: 10 },
+  confirmationCancel: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderWidth: StyleSheet.hairlineWidth, borderColor: colors.anchor15.goldHairline },
+  confirmationConfirm: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(217,179,108,0.10)', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(217,179,108,0.34)' },
+  confirmationConfirmDestructive: { backgroundColor: 'rgba(199,123,98,0.12)', borderColor: 'rgba(199,123,98,0.42)' },
+  confirmationConfirmLabel: { color: colors.anchor15.giltBright, fontFamily: typography.fontFamily.instrumentSemiBold, fontSize: 12, letterSpacing: 0.8, textTransform: 'uppercase' },
+  confirmationConfirmLabelDestructive: { color: '#D5968C' },
+  passwordSubtitle: { color: colors.anchor15.ash, fontFamily: typography.fontFamily.instrument, fontSize: 12, lineHeight: 18, textAlign: 'center', marginBottom: 15 },
+  passwordInputRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
+  passwordInput: { minHeight: 46, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(217,179,108,0.26)', color: colors.anchor15.bone, fontFamily: typography.fontFamily.instrument, fontSize: 14, paddingHorizontal: 13 },
+  passwordInputFlex: { flex: 1, paddingRight: 66 },
+  passwordEye: { position: 'absolute', right: 10, padding: 8 },
+  passwordEyeText: { color: colors.anchor15.gilt, fontFamily: typography.fontFamily.instrument, fontSize: 11 },
+  passwordError: { color: '#D5968C', fontFamily: typography.fontFamily.instrument, fontSize: 12, marginTop: 10 },
+  primarySheetButton: { minHeight: 48, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.anchor15.gilt, marginTop: 18 },
+  primarySheetButtonLabel: { color: colors.anchor15.ink, fontFamily: typography.fontFamily.instrumentSemiBold, fontSize: 12, letterSpacing: 1.1, textTransform: 'uppercase' },
+  disabledButton: { opacity: 0.55 },
+  pressed: { opacity: 0.68 },
 });

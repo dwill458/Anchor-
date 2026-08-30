@@ -22,6 +22,7 @@ import {
 } from '@/components/common';
 import { OptimizedImage } from '@/components/common/OptimizedImage';
 import { exportAnchorArtwork } from '@/services/AnchorArtworkExportService';
+import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 import { colors, spacing, typography } from '@/theme';
 import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
 
@@ -38,7 +39,7 @@ export const WallpaperPromptScreen: React.FC = () => {
   const exportCanvasRef = useRef<AnchorArtworkExportCanvasHandle | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
-  const { anchorId, intentionText, enhancedImageUrl, sigilSvg, returnTo } = route.params;
+  const { anchorId, intentionText, enhancedImageUrl, sigilSvg, returnTo, fromOnboarding } = route.params;
   const isCompactLayout = isCompactPhoneViewport(width, height);
   const isShortLayout = isShortPhoneViewport(height);
   const phoneWidth = isCompactLayout ? 98 : 110;
@@ -47,12 +48,14 @@ export const WallpaperPromptScreen: React.FC = () => {
 
   const proceed = () => {
     if (returnTo === 'vault') {
-      navigation.replace('Vault');
+      // Routes a pending-first-anchor guest to the account gate instead of the Vault.
+      navigateToVaultDestination(navigation, 'reset');
     } else {
       navigation.replace('ChargeSetup', {
         anchorId,
         autoStartOnSelection: true,
         returnTo: 'vault',
+        fromOnboarding,
       });
     }
   };

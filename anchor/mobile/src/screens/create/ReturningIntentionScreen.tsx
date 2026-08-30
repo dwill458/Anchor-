@@ -12,11 +12,13 @@ import {
     Dimensions,
     Easing,
     AccessibilityInfo,
+    Alert,
     BackHandler,
+    Keyboard,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/types';
 import { distillIntention } from '@/utils/sigil/distillation';
@@ -29,7 +31,8 @@ import { AnalyticsService } from '@/services/AnalyticsService';
 import { TEACHINGS } from '@/constants/teaching';
 import { useAuthStore } from '@/stores/authStore';
 import { useAnchorStore } from '@/stores/anchorStore';
-import { useTrialStatus } from '@/hooks/useTrialStatus';
+import { useEntitlements } from '@/hooks/useEntitlements';
+import { getAnchorCreationLimitCopy } from '@/utils/entitlements';
 import { analyzeIntention, detectGibberish, getGuidanceText } from '@/utils/intentionPatterns';
 
 const { height } = Dimensions.get('window');
@@ -38,6 +41,7 @@ type NavigationProp = StackNavigationProp<RootStackParamList, 'CreateAnchor'>;
 
 export default function ReturningIntentionScreen() {
     const navigation = useNavigation<NavigationProp>();
+    const insets = useSafeAreaInsets();
     const { recordShown } = useTeachingStore();
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
     const pendingForgeIntent = useAuthStore((state) => state.pendingForgeIntent);
@@ -45,12 +49,16 @@ export default function ReturningIntentionScreen() {
     const clearPendingForgeIntent = useAuthStore((state) => state.clearPendingForgeIntent);
     const setPendingForgeResumeTarget = useAuthStore((state) => state.setPendingForgeResumeTarget);
     const anchorCount = useAnchorStore((state) => state.anchors.length);
-    const { hasActiveEntitlement } = useTrialStatus();
+    const entitlements = useEntitlements();
 
     const scrollViewRef = useRef<ScrollView>(null);
+    const textInputRef = useRef<TextInput>(null);
     const [intention, setIntention] = useState('');
     const [charCount, setCharCount] = useState(0);
     const [placeholder, setPlaceholder] = useState('');
+    const [isFocused, setIsFocused] = useState(false);
+    const [canSubmit, setCanSubmit] = useState(false);
+    const focusAnim = useRef(new Animated.Value(0)).current;
 
     // Teaching: Undertone state
     const [undertoneText, setUndertoneText] = useState<string | null>(null);
@@ -107,11 +115,44 @@ export default function ReturningIntentionScreen() {
         "Honor my boundaries"
     ];
 
+    const clearTransientTimers = React.useCallback(() => {
+        if (idleTimerRef.current) {
+            clearTimeout(idleTimerRef.current);
+            idleTimerRef.current = null;
+        }
+        if (nudgeDebounceRef.current) {
+            clearTimeout(nudgeDebounceRef.current);
+            nudgeDebounceRef.current = null;
+        }
+    }, []);
+
+    const resetDraftState = React.useCallback(() => {
+        clearTransientTimers();
+        setIntention('');
+        setCharCount(0);
+        setCanSubmit(false);
+        setIsFocused(false);
+        setUndertoneText(null);
+        setNudge(null);
+        undertoneOpacity.setValue(0);
+        focusAnim.setValue(0);
+
+        requestAnimationFrame(() => {
+            scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+        });
+    }, [clearTransientTimers, focusAnim, undertoneOpacity]);
+
+    useFocusEffect(
+        React.useCallback(() => {
+            resetDraftState();
+            return clearTransientTimers;
+        }, [clearTransientTimers, resetDraftState])
+    );
+
     // Cleanup idle timer on unmount
     useEffect(() => () => {
-        if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-        if (nudgeDebounceRef.current) clearTimeout(nudgeDebounceRef.current);
-    }, []);
+        clearTransientTimers();
+    }, [clearTransientTimers]);
 
     // Handle Android hardware back button — go back to sanctuary instead of closing the app
     useEffect(() => {
@@ -148,10 +189,6 @@ export default function ReturningIntentionScreen() {
             clearPendingForgeIntent();
         }
     }, [clearPendingForgeIntent, intention.length, pendingForgeIntent]);
-
-    const [isFocused, setIsFocused] = useState(false);
-    const [canSubmit, setCanSubmit] = useState(false);
-    const focusAnim = useRef(new Animated.Value(0)).current;
 
     // Subtle focus glow animation (locked system easing)
     useEffect(() => {
@@ -195,6 +232,24 @@ export default function ReturningIntentionScreen() {
             scrollViewRef.current?.scrollToEnd({ animated: true });
         }, 150);
     };
+
+    const restoreLayoutAfterKeyboard = React.useCallback(() => {
+        textInputRef.current?.blur();
+        setIsFocused(false);
+        if (idleTimerRef.current) {
+            clearTimeout(idleTimerRef.current);
+            idleTimerRef.current = null;
+        }
+
+        requestAnimationFrame(() => {
+            scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+        });
+    }, []);
+
+    useEffect(() => {
+        const subscription = Keyboard.addListener('keyboardDidHide', restoreLayoutAfterKeyboard);
+        return () => subscription.remove();
+    }, [restoreLayoutAfterKeyboard]);
 
     const handleBlur = () => {
         setIsFocused(false);
@@ -257,10 +312,34 @@ export default function ReturningIntentionScreen() {
                 return;
             }
 
-            if (isAuthenticated && !hasActiveEntitlement) {
+            if (isAuthenticated && !entitlements.canCreateAnchor) {
+                const reason = entitlements.anchorCreationLimitReason;
+                if (reason === 'pro_daily_anchor_cap_reached') {
+                    const copy = getAnchorCreationLimitCopy(reason);
+                    AnalyticsService.track(reason, {
+                        source: 'returning_intention',
+                        anchors_created_today: entitlements.anchorsCreatedToday,
+                        tier: entitlements.tier,
+                    });
+                    Alert.alert(copy?.title ?? 'Daily creation limit reached', copy?.body, [
+                        { text: copy?.cta ?? 'Return to Sanctuary', onPress: () => navigation.goBack() },
+                    ]);
+                    return;
+                }
+
                 setPendingForgeIntent(intention);
                 setPendingForgeResumeTarget('CreateAnchor');
-                navigation.navigate('Paywall');
+                if (reason) {
+                    AnalyticsService.track(reason, {
+                        source: 'returning_intention',
+                        anchors_created_during_trial: entitlements.anchorsCreatedDuringTrial,
+                        tier: entitlements.tier,
+                    });
+                    navigation.navigate('Paywall', {
+                        source: reason,
+                        preferredPlanId: 'annual',
+                    });
+                }
                 return;
             }
 
@@ -299,12 +378,15 @@ export default function ReturningIntentionScreen() {
                 </Animated.View>
                 <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + spacing.sm : 0}
                     style={styles.keyboardView}
                 >
                     <ScrollView
                         ref={scrollViewRef}
                         style={styles.scrollView}
                         contentContainerStyle={styles.scrollContent}
+                        contentInsetAdjustmentBehavior="always"
+                        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
                     >
@@ -346,6 +428,7 @@ export default function ReturningIntentionScreen() {
                                 ]}
                             >
                                 <TextInput
+                                    ref={textInputRef}
                                     style={styles.textInput}
                                     value={intention}
                                     onChangeText={handleIntentionChange}
@@ -360,6 +443,7 @@ export default function ReturningIntentionScreen() {
                                     returnKeyType="none"
                                     blurOnSubmit={false}
                                     enablesReturnKeyAutomatically={false}
+                                    selectionColor={colors.gold}
                                 />
                             </Animated.View>
 
@@ -428,6 +512,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     scrollContent: {
+        flexGrow: 1,
         paddingHorizontal: spacing.xl, // 32px - locked system
         paddingBottom: spacing.lg,  // 24px — breathing room above CTA when keyboard open
     },
@@ -475,6 +560,9 @@ const styles = StyleSheet.create({
         color: colors.text.primary,
         lineHeight: 28,
         minHeight: 90,
+        paddingTop: spacing.xs,
+        paddingBottom: spacing.xs,
+        paddingHorizontal: 0,
         textAlignVertical: 'top',
     },
     nudgeContainer: {

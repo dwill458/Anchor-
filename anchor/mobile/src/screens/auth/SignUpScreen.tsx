@@ -24,10 +24,16 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { colors, typography } from '@/theme';
 import { ENABLE_GOOGLE_SIGN_IN } from '@/config';
 import { useAuthStore } from '../../stores/authStore';
+import { useAnchorStore } from '@/stores/anchorStore';
 import { useSubscriptionStore } from '../../stores/subscriptionStore';
 import { AuthService } from '../../services/AuthService';
+import { FrictionAnalytics } from '@/services/FrictionAnalytics';
+import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import PostAuthFlowService from '../../services/PostAuthFlowService';
-import type { AuthScreenParams, OnboardingStackParamList, RootStackParamList } from '@/types';
+import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
+import type { AuthScreenParams, RootStackParamList } from '@/types';
+import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
+import { useProfileStore } from '@/stores/profileStore';
 
 type SignUpScreenNavigationProp = StackNavigationProp<RootStackParamList, 'SignUp'>;
 
@@ -37,10 +43,11 @@ interface SignUpScreenProps {
 }
 
 export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route }) => {
-  const [name, setName] = useState('');
+  const [name, setName] = useState(
+    () => useFirstAnchorFlowStore.getState().draft?.onboardingName ?? ''
+  );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [focusedField, setFocusedField] = useState<string | null>(null);
@@ -82,53 +89,124 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
     }
   };
 
+  const shouldMarkOnboardingCompletedForAuth = () =>
+    context == null ||
+    context === 'onboarding' ||
+    context === 'first_anchor_gate' ||
+    context === 'save_progress' ||
+    context === 'paywall';
+
+  const navigateAfterSuccessfulAuth = (target: 'Vault') => {
+    const routeNames = (navigation.getState?.().routeNames ?? []) as readonly string[];
+
+    if (routeNames.includes(target)) {
+      navigateToVaultDestination(navigation, 'replace');
+      return;
+    }
+
+    if (
+      (routeNames.includes('Profile') || routeNames.includes('Settings')) &&
+      navigation.canGoBack()
+    ) {
+      navigation.goBack();
+    }
+  };
+
+  // Hand off to the SaveProgress gate, which finalizes the pending first anchor
+  // (attaches it to the new account) before entering the Vault.
+  const finalizeFirstAnchorThenVault = () => {
+    const routeNames = (navigation.getState?.().routeNames ?? []) as readonly string[];
+    const anchorId =
+      route?.params?.anchorId ?? useAuthStore.getState().pendingFirstAnchorDraft?.tempAnchorId;
+    const anchor = anchorId ? useAnchorStore.getState().getAnchorById(anchorId) : null;
+    if (anchorId && routeNames.includes('SaveProgress')) {
+      if (anchor) {
+        navigation.replace('SaveProgress', { anchor });
+        return;
+      }
+    }
+    navigateAfterSuccessfulAuth('Vault');
+  };
+
   const completeAuth = async (result: Awaited<ReturnType<typeof AuthService.signUpWithEmail>>) => {
     if (preferredPlanId) {
       setPreferredPlanId(preferredPlanId);
     }
 
+    const shouldCompleteOnboardingAfterAuth =
+      hasCompletedOnboarding ||
+      shouldMarkOnboardingCompletedForAuth();
+
     await PostAuthFlowService.run({
       user: result.user,
       token: result.token,
-      preserveCompletedOnboarding:
-        hasCompletedOnboarding ||
-        context === 'first_anchor_gate' ||
-        context === 'save_progress',
+      preserveCompletedOnboarding: shouldCompleteOnboardingAfterAuth,
       launchTrialPurchase: false,
     });
+
+    // The onboarding name is private device state until the user explicitly
+    // creates an account. Keep the confirmed value in the local profile; do
+    // not invent a new backend field for it.
+    if (context === 'save_progress' && name.trim()) {
+      useProfileStore.getState().updateProfile({ name: name.trim() });
+    }
 
     const shouldRouteThroughFirstAnchorGate = Boolean(
       useAuthStore.getState().pendingFirstAnchorDraft
     );
 
     if (context === 'first_anchor_gate') {
-      navigation.replace('FirstAnchorAccountGate');
+      finalizeFirstAnchorThenVault();
     } else if (context === 'save_progress' && shouldRouteThroughFirstAnchorGate) {
-      navigation.replace('FirstAnchorAccountGate');
+      finalizeFirstAnchorThenVault();
     } else if (context === 'save_progress') {
-      navigation.replace('Vault');
+      navigateAfterSuccessfulAuth('Vault');
+    } else if (context === 'paywall' || context == null || context === 'onboarding') {
+      navigateAfterSuccessfulAuth('Vault');
     }
   };
 
   const handleSignUp = async () => {
     resetError();
-    if (!name.trim() || !email.trim() || !password || !confirmPassword) {
-      setError('Please fill in all fields');
+    if (!email.trim() || !password) {
+      setError('Please enter your email and a password');
+      FrictionAnalytics.flowBlocked('onboarding_auth', 'signup', 'missing_fields', { context });
       return;
     }
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
+      FrictionAnalytics.flowBlocked('onboarding_auth', 'signup', 'password_too_short', { context });
       return;
     }
     setLoading(true);
+    FrictionAnalytics.stepCompleted('onboarding_auth', 'auth_started', {
+      provider: 'email',
+      mode: 'signup',
+      context,
+    });
     try {
       const result = await AuthService.signUpWithEmail(email, password, name, {
-        hasCompletedOnboarding:
-          context === 'first_anchor_gate' || context === 'save_progress' ? true : undefined,
+        hasCompletedOnboarding: shouldMarkOnboardingCompletedForAuth() ? true : undefined,
+        allowBackendCreate: true,
       });
       await completeAuth(result);
+      FrictionAnalytics.completeFlow('onboarding_auth', {
+        provider: 'email',
+        mode: 'signup',
+        context,
+      });
     } catch (err: any) {
       setError(err.message || 'Sign up failed');
+      FrictionAnalytics.flowError('onboarding_auth', 'signup', 'signup_failed', {
+        provider: 'email',
+        context,
+        error_code: err?.code,
+        error_message: err?.message,
+      });
+      ErrorTrackingService.captureException(err, {
+        screen: 'SignUpScreen',
+        action: 'signup_email',
+      });
     } finally {
       setLoading(false);
     }
@@ -137,16 +215,41 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
   const handleAppleSignUp = () => {
     resetError();
     setLoading(true);
+    FrictionAnalytics.stepCompleted('onboarding_auth', 'auth_started', {
+      provider: 'apple',
+      mode: 'signup',
+      context,
+    });
     void (async () => {
       try {
-        const result = await AuthService.signInWithApple();
+        const result = await AuthService.signInWithApple({
+          hasCompletedOnboarding: shouldMarkOnboardingCompletedForAuth() ? true : undefined,
+          allowBackendCreate: true,
+        });
         await completeAuth(result);
+        FrictionAnalytics.completeFlow('onboarding_auth', {
+          provider: 'apple',
+          mode: 'signup',
+          context,
+        });
       } catch (err: any) {
         if (err?.code === 'ERR_REQUEST_CANCELED') {
+          FrictionAnalytics.stepAbandoned('onboarding_auth', 'apple_auth', 'provider_cancelled', {
+            context,
+          });
           return;
         }
         const message = err?.message || 'Apple sign-up failed';
         setError(message);
+        FrictionAnalytics.flowError('onboarding_auth', 'apple_auth', 'apple_auth_failed', {
+          context,
+          error_code: err?.code,
+          error_message: message,
+        });
+        ErrorTrackingService.captureException(err, {
+          screen: 'SignUpScreen',
+          action: 'apple_sign_in',
+        });
         Alert.alert('Apple sign-up', message);
       } finally {
         setLoading(false);
@@ -157,16 +260,41 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
   const handleGoogleSignUp = () => {
     resetError();
     setLoading(true);
+    FrictionAnalytics.stepCompleted('onboarding_auth', 'auth_started', {
+      provider: 'google',
+      mode: 'signup',
+      context,
+    });
     void (async () => {
       try {
-        const result = await AuthService.signInWithGoogle();
+        const result = await AuthService.signInWithGoogle({
+          hasCompletedOnboarding: shouldMarkOnboardingCompletedForAuth() ? true : undefined,
+          allowBackendCreate: true,
+        });
         await completeAuth(result);
+        FrictionAnalytics.completeFlow('onboarding_auth', {
+          provider: 'google',
+          mode: 'signup',
+          context,
+        });
       } catch (err: any) {
         if (err?.message === 'Google sign-in was cancelled.') {
+          FrictionAnalytics.stepAbandoned('onboarding_auth', 'google_auth', 'provider_cancelled', {
+            context,
+          });
           return;
         }
         const message = err?.message || 'Google sign-up failed';
         setError(message);
+        FrictionAnalytics.flowError('onboarding_auth', 'google_auth', 'google_auth_failed', {
+          context,
+          error_code: err?.code,
+          error_message: message,
+        });
+        ErrorTrackingService.captureException(err, {
+          screen: 'SignUpScreen',
+          action: 'google_sign_in',
+        });
         Alert.alert('Google sign-up', message);
       } finally {
         setLoading(false);
@@ -187,7 +315,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
 
       <SafeAreaView style={styles.safeArea}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardAvoid}
         >
           <ScrollView
@@ -247,12 +375,12 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
                   </View>
 
                   <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Full Name</Text>
+                    <Text style={styles.label}>Name (optional)</Text>
                     <TextInput
                       style={[styles.input, focusedField === 'name' && styles.inputFocused]}
                       value={name}
                       onChangeText={setName}
-                      placeholder="Enter your name"
+                      placeholder="What should we call you?"
                       placeholderTextColor={colors.silver}
                       autoCapitalize="words"
                       onFocus={() => setFocusedField('name')}
@@ -281,24 +409,10 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({ navigation, route })
                       style={[styles.input, focusedField === 'password' && styles.inputFocused]}
                       value={password}
                       onChangeText={setPassword}
-                      placeholder="••••••••"
+                      placeholder="At least 8 characters"
                       placeholderTextColor={colors.silver}
                       secureTextEntry
                       onFocus={() => setFocusedField('password')}
-                      onBlur={() => setFocusedField(null)}
-                    />
-                  </View>
-
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Confirm Password</Text>
-                    <TextInput
-                      style={[styles.input, focusedField === 'confirm' && styles.inputFocused]}
-                      value={confirmPassword}
-                      onChangeText={setConfirmPassword}
-                      placeholder="••••••••"
-                      placeholderTextColor={colors.silver}
-                      secureTextEntry
-                      onFocus={() => setFocusedField('confirm')}
                       onBlur={() => setFocusedField(null)}
                     />
                   </View>
