@@ -10,6 +10,7 @@ import {
   requireChartInitialized,
   requireChartWriteEnabled,
 } from '../../config/chartFlags';
+import { getChartCapabilities } from '../../services/ChartCapabilityService';
 
 const router = Router();
 
@@ -69,7 +70,10 @@ const CompleteSchema = z
     expectedCourseVersion: CourseVersion,
     reflection: z
       .object({
-        body: z.string().max(1000).optional(),
+        // No freeform `body`. The waypoint ceremony is exactly two structured
+        // optional prompts (whatHelped / whatLearned), and the service stores
+        // `body: null`. Accepting a body here would 200 while silently
+        // discarding the user's text.
         structuredContent: z
           .object({
             whatHelped: z.string().max(1000).optional(),
@@ -127,13 +131,25 @@ function validate<T>(schema: z.ZodType<T>, value: unknown): T {
   return result.data;
 }
 
-async function resolveChartUser(
-  req: AuthRequest
-): Promise<{ id: string; chartSchemaVersion: number }> {
+async function resolveChartUser(req: AuthRequest): Promise<{
+  id: string;
+  chartSchemaVersion: number;
+  isComped: boolean;
+  subscriptionStatus: string;
+  subscriptionId: string | null;
+  trialStartedAt: Date | null;
+}> {
   if (!req.user?.uid) throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
   const user = await prisma.user.findUnique({
     where: { authUid: req.user.uid },
-    select: { id: true, chartSchemaVersion: true },
+    select: {
+      id: true,
+      chartSchemaVersion: true,
+      isComped: true,
+      subscriptionStatus: true,
+      subscriptionId: true,
+      trialStartedAt: true,
+    },
   });
   if (!user) throw new AppError('User not found', 404, 'USER_NOT_FOUND');
   return user;
@@ -143,6 +159,9 @@ async function requireWriteUser(req: AuthRequest): Promise<string> {
   requireChartWriteEnabled();
   const user = await resolveChartUser(req);
   requireChartInitialized(user.chartSchemaVersion);
+  if (!(await getChartCapabilities(user)).canEditCourse) {
+    throw new AppError('Chart is currently unavailable', 403, 'FEATURE_DISABLED');
+  }
   return user.id;
 }
 
@@ -150,7 +169,11 @@ async function requireReadUser(
   req: AuthRequest
 ): Promise<{ id: string; chartSchemaVersion: number }> {
   requireChartEnabled();
-  return resolveChartUser(req);
+  const user = await resolveChartUser(req);
+  if (user.chartSchemaVersion === 1 && !(await getChartCapabilities(user)).canViewChart) {
+    throw new AppError('Chart is currently unavailable', 403, 'FEATURE_DISABLED');
+  }
+  return user;
 }
 
 router.use(authMiddleware);

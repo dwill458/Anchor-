@@ -9,6 +9,7 @@ import {
   requireChartReflectionWritesEnabled,
   requireChartInitialized,
 } from '../../config/chartFlags';
+import { getChartCapabilities } from '../../services/ChartCapabilityService';
 
 const router = Router();
 const StructuredContentSchema = z
@@ -42,14 +43,31 @@ const UpdateSchema = z
   })
   .strict();
 
-async function requireUser(req: AuthRequest): Promise<{ id: string; chartSchemaVersion: number }> {
+async function requireUser(req: AuthRequest): Promise<{
+  id: string;
+  chartSchemaVersion: number;
+  isComped: boolean;
+  subscriptionStatus: string;
+  subscriptionId: string | null;
+  trialStartedAt: Date | null;
+}> {
   if (!req.user?.uid) throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
   const user = await prisma.user.findUnique({
     where: { authUid: req.user.uid },
-    select: { id: true, chartSchemaVersion: true },
+    select: {
+      id: true,
+      chartSchemaVersion: true,
+      isComped: true,
+      subscriptionStatus: true,
+      subscriptionId: true,
+      trialStartedAt: true,
+    },
   });
   if (!user) throw new AppError('User not found', 404, 'USER_NOT_FOUND');
   requireChartInitialized(user.chartSchemaVersion);
+  if (!(await getChartCapabilities(user)).canCreateOrEditReflections) {
+    throw new AppError('Chart reflections are currently disabled', 403, 'FEATURE_DISABLED');
+  }
   return user;
 }
 

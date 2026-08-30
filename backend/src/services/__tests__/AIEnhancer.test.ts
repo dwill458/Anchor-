@@ -337,7 +337,9 @@ describe('AIEnhancer Service', () => {
       expect(result.styleApplied).toBe('gold_leaf');
       expect(result.variationUrls[0]).toContain('dicebear.com');
       expect(result.prompt).toContain('STRUCTURAL PRESERVATION — ABSOLUTE PRIORITY');
-      expect(result.prompt).toContain('This sigil embodies the intention "I am strong and confident"');
+      expect(result.prompt).toContain(
+        'This sigil embodies the intention "I am strong and confident"'
+      );
       expect(result.controlMethod).toBe('canny');
     });
 
@@ -600,6 +602,14 @@ describe('AIEnhancer Service', () => {
       'tideglass',
       'sacred_geometry',
       'velvet_ember',
+      'solar_veil',
+      'ink_bloom',
+      'prism_fold',
+      'ocean_current',
+      'halo_drift',
+      'harvest_gild',
+      'midnight_bloom',
+      'winter_halo',
     ];
 
     it.each(allStyles)('should handle %s style correctly', async style => {

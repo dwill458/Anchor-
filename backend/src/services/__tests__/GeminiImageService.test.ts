@@ -234,12 +234,12 @@ describe('GeminiImageService', () => {
         LAUNCH_STYLE_LIBRARY.map(style => style.compositionFamily)
       );
 
-      expect(LAUNCH_STYLE_LIBRARY).toHaveLength(20);
-      expect(paletteLanes.size).toBe(20);
+      expect(LAUNCH_STYLE_LIBRARY).toHaveLength(28);
+      expect(paletteLanes.size).toBe(28);
       expect(compositionFamilies.size).toBeGreaterThanOrEqual(5);
       expect(CORE_STYLE_IDS).toHaveLength(12);
-      expect(FEATURED_STYLE_IDS).toHaveLength(4);
-      expect(SEASONAL_STYLE_IDS).toHaveLength(4);
+      expect(FEATURED_STYLE_IDS).toHaveLength(9);
+      expect(SEASONAL_STYLE_IDS).toHaveLength(7);
     });
 
     it('adds style-specific uniqueness signatures for all supported styles', () => {
@@ -265,6 +265,14 @@ describe('GeminiImageService', () => {
         'tideglass',
         'sacred_geometry',
         'velvet_ember',
+        'solar_veil',
+        'ink_bloom',
+        'prism_fold',
+        'ocean_current',
+        'halo_drift',
+        'harvest_gild',
+        'midnight_bloom',
+        'winter_halo',
       ];
 
       supportedStyles.forEach(style => {
@@ -286,7 +294,7 @@ describe('GeminiImageService', () => {
       );
 
       expect(prompt).toContain('UNIQUENESS MANDATE');
-      expect(prompt).toContain('Celestial Grid — Observatory geometry');
+      expect(prompt).toContain('Celestial Grid — Measured astrometric geometry');
       expect(prompt).toContain('COMPOSITIONAL FAMILY:');
       expect(prompt).toContain('OFFSET FIELD');
       expect(prompt).toContain('Avoid zodiac wheels');
@@ -295,11 +303,7 @@ describe('GeminiImageService', () => {
     it('produces distinct celestial_grid prompts for different intentions', () => {
       const service = new GeminiImageService();
 
-      const promptA = (service as any).createPrompt(
-        'I think before I speak',
-        'celestial_grid',
-        0
-      );
+      const promptA = (service as any).createPrompt('I think before I speak', 'celestial_grid', 0);
       const promptB = (service as any).createPrompt(
         'My discipline outlasts my motivation',
         'celestial_grid',
@@ -325,9 +329,9 @@ describe('GeminiImageService', () => {
 
       const prompt = (service as any).createPrompt('radiant confidence', 'gold_leaf', 0);
 
-      expect(prompt).toContain('Gold Leaf — Gilded finish');
-      expect(prompt).toContain('Palette lane: antique gold, umber, soot-black, soft bronze');
-      expect(prompt).toContain('Material behavior: torn gold leaf, gilded cracks');
+      expect(prompt).toContain('Gold Leaf — Struck alloy seams');
+      expect(prompt).toContain('Palette lane: antique gold accent, umber, soot-black, soft bronze');
+      expect(prompt).toContain('Material behavior: brushed-gold fracture, struck alloy seams');
       expect(prompt).toContain('upward lift or outward expansion');
     });
   });
