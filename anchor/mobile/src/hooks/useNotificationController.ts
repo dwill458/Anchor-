@@ -837,6 +837,7 @@ export const useNotificationController = () => {
       await saveState(refreshedState);
 
       return (
+        refreshedState.notification_enabled &&
         notificationPermissionStatus !== 'denied' &&
         !refreshedState.firstAnchorReminderPromptCompleted
       );

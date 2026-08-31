@@ -436,6 +436,25 @@ describe('useNotificationController', () => {
     expect(canOffer).toBe(true);
   });
 
+  it('does not offer the first-anchor reminder when reminders are disabled', async () => {
+    mockGetPermissionStatus.mockResolvedValue('granted');
+    asyncStorage.getItem.mockImplementation(async (key: string) =>
+      key === NOTIFICATION_STATE_STORAGE_KEY
+        ? JSON.stringify({ notification_enabled: false })
+        : null
+    );
+    const { result } = renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+
+    let canOffer = true;
+    await act(async () => {
+      canOffer = await result.current.canOfferFirstAnchorReminder();
+    });
+
+    expect(canOffer).toBe(false);
+  });
+
   it('does not offer the first-anchor reminder after permission was denied', async () => {
     mockGetPermissionStatus.mockResolvedValue('denied');
     const { result } = renderHook(() => useNotificationController());

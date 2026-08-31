@@ -524,6 +524,7 @@ export const FirstPrimeCompleteScreen: React.FC = () => {
   // notification permission is still undetermined, offer it once here before
   // returning to the Sanctuary.
   const shouldShowFallbackReminder =
+    notifState?.notification_enabled === true &&
     notifState?.notificationPermissionStatus === "undetermined" &&
     !notifState?.fallbackReminderPromptCompleted;
 
