@@ -1,14 +1,14 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { GlassCard } from '@/components/common';
@@ -44,6 +44,13 @@ const TIME_OPTIONS: ReminderTimeOption[] = [
 
 const DEFAULT_REMINDER_TIME = '08:00';
 
+const dateForReminderTime = (time: string): Date => {
+  const [hour, minute] = time.split(':').map(Number);
+  const date = new Date();
+  date.setHours(hour, minute, 0, 0);
+  return date;
+};
+
 const COPY: Record<ReminderPromptVariant, {
   title: string;
   body: string;
@@ -67,12 +74,6 @@ const COPY: Record<ReminderPromptVariant, {
 const SUCCESS_COPY =
   'Daily reminder set. Anchor will give you one quiet nudge when it’s time to prime.';
 
-const formatHourLabel = (hour: number): string => {
-  const period = hour < 12 ? 'AM' : 'PM';
-  const normalized = hour % 12 === 0 ? 12 : hour % 12;
-  return `${normalized}:00 ${period}`;
-};
-
 export const DailyReminderPrompt: React.FC<DailyReminderPromptProps> = ({
   visible,
   variant,
@@ -86,6 +87,7 @@ export const DailyReminderPrompt: React.FC<DailyReminderPromptProps> = ({
 
   const [step, setStep] = useState<Step>('intro');
   const [isBusy, setIsBusy] = useState(false);
+  const [customTime, setCustomTime] = useState(() => dateForReminderTime(DEFAULT_REMINDER_TIME));
   const copy = COPY[variant];
 
   // Announce the prompt once when it becomes visible (also records shown-at).
@@ -93,6 +95,7 @@ export const DailyReminderPrompt: React.FC<DailyReminderPromptProps> = ({
     if (visible) {
       setStep('intro');
       setIsBusy(false);
+      setCustomTime(dateForReminderTime(DEFAULT_REMINDER_TIME));
       void markReminderPromptShown(variant);
     }
   }, [visible, variant, markReminderPromptShown]);
@@ -126,6 +129,18 @@ export const DailyReminderPrompt: React.FC<DailyReminderPromptProps> = ({
     setStep('time');
   }, []);
 
+  const handleChooseCustomTime = useCallback(() => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setCustomTime(dateForReminderTime(DEFAULT_REMINDER_TIME));
+    setStep('custom');
+  }, []);
+
+  const handleCustomTimeConfirm = useCallback(() => {
+    const hours = String(customTime.getHours()).padStart(2, '0');
+    const minutes = String(customTime.getMinutes()).padStart(2, '0');
+    void handleSchedule(`${hours}:${minutes}`);
+  }, [customTime, handleSchedule]);
+
   const handleSecondary = useCallback(() => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     AnalyticsService.track(AnalyticsEvents.NOTIFICATION_NOT_NOW_TAPPED, {
@@ -140,8 +155,6 @@ export const DailyReminderPrompt: React.FC<DailyReminderPromptProps> = ({
     void completeReminderPrompt(variant);
     onDismiss();
   }, [variant, completeReminderPrompt, onDismiss]);
-
-  const hourOptions = useMemo(() => Array.from({ length: 24 }, (_, hour) => hour), []);
 
   return (
     <Modal
@@ -183,17 +196,15 @@ export const DailyReminderPrompt: React.FC<DailyReminderPromptProps> = ({
                 </LinearGradient>
               </TouchableOpacity>
 
-              {variant === 'first_anchor' ? (
-                <TouchableOpacity
-                  onPress={handleChooseDifferentTime}
-                  activeOpacity={0.7}
-                  style={styles.changeTimeButton}
-                  accessibilityRole="button"
-                  accessibilityLabel="Choose a different reminder time"
-                >
-                  <Text style={styles.changeTimeText}>Choose a different time</Text>
-                </TouchableOpacity>
-              ) : null}
+              <TouchableOpacity
+                onPress={handleChooseDifferentTime}
+                activeOpacity={0.7}
+                style={styles.changeTimeButton}
+                accessibilityRole="button"
+                accessibilityLabel="Choose a different reminder time"
+              >
+                <Text style={styles.changeTimeText}>Choose a different time</Text>
+              </TouchableOpacity>
 
               <TouchableOpacity
                 onPress={handleSecondary}
@@ -231,7 +242,7 @@ export const DailyReminderPrompt: React.FC<DailyReminderPromptProps> = ({
                   </TouchableOpacity>
                 ))}
                 <TouchableOpacity
-                  onPress={() => setStep('custom')}
+                  onPress={handleChooseCustomTime}
                   activeOpacity={0.85}
                   disabled={isBusy}
                   style={styles.timeOption}
@@ -239,7 +250,7 @@ export const DailyReminderPrompt: React.FC<DailyReminderPromptProps> = ({
                   accessibilityLabel="Custom time"
                 >
                   <Text style={styles.timeOptionLabel}>Custom</Text>
-                  <Text style={styles.timeOptionHint}>Pick an hour</Text>
+                  <Text style={styles.timeOptionHint}>Pick a time</Text>
                 </TouchableOpacity>
               </View>
 
@@ -262,38 +273,52 @@ export const DailyReminderPrompt: React.FC<DailyReminderPromptProps> = ({
           {step === 'custom' && (
             <>
               <Text style={styles.eyebrow}>CUSTOM TIME</Text>
-              <Text style={styles.title}>Choose your hour</Text>
-              <ScrollView
-                style={styles.hourList}
-                contentContainerStyle={styles.hourListContent}
-                showsVerticalScrollIndicator={false}
-              >
-                {hourOptions.map((hour) => (
-                  <TouchableOpacity
-                    key={hour}
-                    onPress={() => void handleSchedule(`${String(hour).padStart(2, '0')}:00`)}
-                    activeOpacity={0.85}
-                    disabled={isBusy}
-                    style={styles.hourOption}
-                    accessibilityRole="button"
-                    accessibilityLabel={formatHourLabel(hour)}
-                  >
-                    <Text style={styles.hourOptionText}>{formatHourLabel(hour)}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              <Text style={styles.title}>Choose your time</Text>
+              <Text style={styles.body}>Set the hour and minutes that fit your practice.</Text>
+              <DateTimePicker
+                testID="custom-time-picker"
+                value={customTime}
+                mode="time"
+                display="spinner"
+                is24Hour={false}
+                onChange={(event, selectedDate) => {
+                  if (event.type !== 'dismissed' && selectedDate) {
+                    setCustomTime(selectedDate);
+                  }
+                }}
+                themeVariant="dark"
+                style={styles.timePicker}
+              />
               {isBusy ? (
                 <ActivityIndicator color={colors.gold} size="small" style={styles.busySpinner} />
               ) : (
-                <TouchableOpacity
-                  onPress={() => setStep('time')}
-                  activeOpacity={0.7}
-                  style={styles.secondaryButton}
-                  accessibilityRole="button"
-                  accessibilityLabel="Back"
-                >
-                  <Text style={styles.secondaryText}>Back</Text>
-                </TouchableOpacity>
+                <>
+                  <TouchableOpacity
+                    onPress={handleCustomTimeConfirm}
+                    activeOpacity={0.9}
+                    style={styles.primaryButton}
+                    accessibilityRole="button"
+                    accessibilityLabel="Set custom reminder time"
+                  >
+                    <LinearGradient
+                      colors={[colors.gold, '#B8941F']}
+                      style={styles.primaryGradient}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                    >
+                      <Text style={styles.primaryText}>Set Reminder</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => setStep('time')}
+                    activeOpacity={0.7}
+                    style={styles.secondaryButton}
+                    accessibilityRole="button"
+                    accessibilityLabel="Back"
+                  >
+                    <Text style={styles.secondaryText}>Back</Text>
+                  </TouchableOpacity>
+                </>
               )}
             </>
           )}
@@ -454,30 +479,9 @@ const styles = StyleSheet.create({
     color: 'rgba(212, 175, 55, 0.65)',
     letterSpacing: 0.3,
   },
-  hourList: {
-    width: '100%',
-    maxHeight: 260,
-    marginBottom: spacing.sm,
-  },
-  hourListContent: {
-    paddingVertical: spacing.xs,
-  },
-  hourOption: {
-    width: '100%',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.14)',
-    backgroundColor: 'rgba(212, 175, 55, 0.03)',
-    paddingVertical: 13,
-    paddingHorizontal: 18,
-    marginBottom: spacing.xs,
-    alignItems: 'center',
-  },
-  hourOptionText: {
-    fontFamily: typography.fonts.body,
-    fontSize: 15,
-    color: colors.bone,
-    letterSpacing: 0.5,
+  timePicker: {
+    alignSelf: 'center',
+    marginBottom: spacing.md,
   },
   busySpinner: {
     marginTop: spacing.lg,
