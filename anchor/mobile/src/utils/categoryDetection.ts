@@ -50,7 +50,10 @@ const CATEGORY_KEYWORDS: Record<AnchorCategory, string[]> = {
     'empathy', 'forgive', 'forgiveness', 'kindness', 'connection', 'open',
     'harmony', 'peace', 'resolve', 'conflict', 'vulnerable', 'honesty',
     'sincerity', 'loyalty', 'devotion', 'affection', 'caring', 'nurture',
-    'mentor', 'guide', 'coach', 'student', 'peer', 'neighbor', 'tribe',
+    // Roles such as mentor, coach, and student are ambiguous on their own.
+    // Keep relationship classification driven by the relationship itself,
+    // not by the person mentioned in the intention.
+    'neighbor', 'tribe',
     'gathering', 'celebration', 'reunion', 'belonging', 'acceptance',
     'inclusion', 'unity', 'solidarity', 'alliance', 'contribution',
     'altruism', 'service', 'helpful', 'kind', 'generous', 'loving', 'warmth',
@@ -116,6 +119,8 @@ const CATEGORY_KEYWORDS: Record<AnchorCategory, string[]> = {
     'wisdom', 'insight', 'discovery', 'explore', 'exploration', 'curiosity',
     'curious', 'wonder', 'research', 'study', 'academic', 'scholarly',
     'brilliant', 'achievement', 'accomplish', 'proficiency', 'proficient',
+    'grade', 'grades', 'exam', 'exams', 'test', 'tests', 'homework', 'gpa',
+    'academics', 'scholarship', 'thesis', 'essay', 'quiz',
   ],
   adventure: [
     'adventure', 'travel', 'journey', 'trip', 'explore', 'exploration',
@@ -131,10 +136,45 @@ const CATEGORY_KEYWORDS: Record<AnchorCategory, string[]> = {
   custom: [],
 };
 
+/**
+ * Phrases carry more meaning than isolated words. In particular, a role word
+ * like "student" should not outweigh a clear academic intention, and a word
+ * like "partner" should only strongly signal relationships when it is used in
+ * a relational phrase.
+ */
+const CATEGORY_PHRASES: Partial<Record<AnchorCategory, Array<[string, number]>>> = {
+  learning: [
+    ['straight a student', 8],
+    ['straight a', 6],
+    ['high grades', 6],
+    ['good grades', 6],
+    ['top grades', 6],
+    ['ace my exams', 6],
+    ['pass my exams', 5],
+    ['gpa', 6],
+    ['academic achievement', 6],
+    ['study for', 3],
+    ['do well in school', 5],
+    ['academic success', 5],
+  ],
+  relationships: [
+    ['romantic relationship', 7],
+    ['my partner', 6],
+    ['my friends', 6],
+    ['my family', 6],
+    ['better communication', 4],
+    ['feel connected', 4],
+  ],
+};
+
 export function detectCategoryFromText(intentionText: string): AnchorCategory {
-  const words = intentionText
+  const normalizedText = intentionText
     .toLowerCase()
-    .replace(/[^a-z\s]/g, ' ')
+    .replace(/[-–—]/g, ' ')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const words = normalizedText
     .split(/\s+/)
     .filter(Boolean);
 
@@ -156,6 +196,17 @@ export function detectCategoryFromText(intentionText: string): AnchorCategory {
     for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS) as [AnchorCategory, string[]][]) {
       if (keywords.includes(word)) {
         scores[category] += 1;
+      }
+    }
+  }
+
+  // Apply phrase evidence after word matching so specific intent wins over
+  // generic vocabulary. Phrases are normalized too, so "straight-A" and
+  // "straight A" are treated identically.
+  for (const [category, phrases] of Object.entries(CATEGORY_PHRASES) as [AnchorCategory, Array<[string, number]>][]) {
+    for (const [phrase, weight] of phrases) {
+      if (` ${normalizedText} `.includes(` ${phrase} `)) {
+        scores[category] += weight;
       }
     }
   }

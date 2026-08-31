@@ -463,7 +463,13 @@ Tier mapping:
 - jupiter: Career, wealth, ambition, abundance, scaling up.
 - mars: Health, vitality, physical energy, protection, fitness.
 - sun: Identity, core desires, raw intent, pure will, clarity.
-- venus: Relationships, love, peace, harmony, experiences.`;
+- venus: Relationships, love, peace, harmony, experiences.
+Classification guidance:
+- Classify the user's primary intention, not the grammatical role or person mentioned.
+- Academic and educational intentions belong to saturn: "I am a straight-A student", "get better grades", "pass my exams".
+- Only use venus when the intention is actually about a relationship or connection: "build a stronger relationship with my partner".
+- Do not classify an intention as venus just because it mentions a student, mentor, coach, teacher, or another person.
+Return the single best tier and lower confidence when the intention is genuinely ambiguous.`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3.5-flash-lite',
