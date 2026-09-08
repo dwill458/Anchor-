@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SvgXml } from 'react-native-svg';
+import { BlurMask, Canvas, Path, Skia } from '@shopify/react-native-skia';
+import { Easing, useSharedValue, withTiming } from 'react-native-reanimated';
 import type { Anchor } from '@/types';
-import { BakedGlow, OptimizedImage, RingGlowCanvas } from '@/components/common';
+import { OptimizedImage } from '@/components/common';
 import { typography } from '@/theme';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
-import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
 
 export type ThreadState = 'strong' | 'fading' | 'recover';
 
@@ -156,6 +157,76 @@ const RING_SIZE = 52;
 const SIGIL_SIZE = 30;
 const GLOW_SIZE = 76; // canvas overflows ring by 12px each side
 
+interface ThreadStrengthRingProps {
+  color: string;
+  state: ThreadState;
+  strength: number;
+  reduceMotionEnabled: boolean;
+}
+
+/**
+ * GPU-rendered progress ring. The trim is a Reanimated shared value, so value
+ * changes stay off the JS thread. Reduced Motion draws the final trim without
+ * timing animation while preserving the same visual state.
+ */
+const ThreadStrengthRing: React.FC<ThreadStrengthRingProps> = ({
+  color,
+  state,
+  strength,
+  reduceMotionEnabled,
+}) => {
+  const progress = useSharedValue(reduceMotionEnabled ? strength / 100 : 0);
+  const ringPath = useMemo(() => {
+    const inset = 13;
+    const diameter = GLOW_SIZE - inset * 2;
+    const path = Skia.Path.Make();
+    // Start at 12 o'clock so the trim reads as a familiar progress indicator.
+    path.addArc(Skia.XYWHRect(inset, inset, diameter, diameter), -90, 360);
+    return path;
+  }, []);
+
+  useEffect(() => {
+    const target = strength / 100;
+    progress.value = reduceMotionEnabled
+      ? target
+      : withTiming(target, { duration: 520, easing: Easing.out(Easing.cubic) });
+  }, [progress, reduceMotionEnabled, strength]);
+
+  const showGlow = state !== 'fading' && strength > 0;
+
+  return (
+    <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Path
+        path={ringPath}
+        color="#1e2330"
+        style="stroke"
+        strokeWidth={1.5}
+      />
+      {showGlow ? (
+        <Path
+          path={ringPath}
+          color={color}
+          end={progress}
+          style="stroke"
+          strokeCap="round"
+          strokeWidth={4.5}
+          opacity={0.48}
+        >
+          <BlurMask blur={5} style="normal" />
+        </Path>
+      ) : null}
+      <Path
+        path={ringPath}
+        color={color}
+        end={progress}
+        style="stroke"
+        strokeCap="round"
+        strokeWidth={1.8}
+      />
+    </Canvas>
+  );
+};
+
 export const ThreadStrengthBlock: React.FC<ThreadStrengthBlockProps> = ({
   threadStrength,
   totalSessionsCount,
@@ -168,10 +239,6 @@ export const ThreadStrengthBlock: React.FC<ThreadStrengthBlockProps> = ({
   const sigil = anchor?.reinforcedSigilSvg ?? anchor?.baseSigilSvg;
   const clampedStrength = Math.max(0, Math.min(100, threadStrength));
   const reduceMotionEnabled = useReduceMotionEnabled();
-  const perfTier = useAppPerformanceTier();
-  const glowIntensity = clampedStrength / 100;
-  const showAnimatedGlow = perfTier === 'high' && !reduceMotionEnabled;
-  const showStaticGlow = perfTier === 'medium' && state !== 'fading' && glowIntensity > 0.04;
 
   return (
     <View
@@ -182,33 +249,24 @@ export const ThreadStrengthBlock: React.FC<ThreadStrengthBlockProps> = ({
     >
       {/* Top row: sigil ring + session count */}
       <View style={styles.topRow}>
-        {/* Wrapper sized to GLOW_SIZE so the canvas overflows the ring evenly */}
-        <View style={styles.sigilRingWrap}>
-          {showAnimatedGlow ? (
-            <RingGlowCanvas
-              size={GLOW_SIZE}
-              color={c.ring}
-              intensity={glowIntensity}
-              reduceMotionEnabled={reduceMotionEnabled}
-              tier={perfTier}
-            />
-          ) : null}
-          {showStaticGlow ? (
-            <BakedGlow
-              size={GLOW_SIZE}
-              color={c.ring}
-              baseOpacity={0.18 + glowIntensity * 0.08}
-              peakOpacity={0.18 + glowIntensity * 0.08}
-              reduceMotionEnabled={true}
-            />
-          ) : null}
+        {/* The canvas owns the ring; the foreground stays native for image/SVG parity. */}
+        <View
+          accessible
+          accessibilityLabel={`Thread strength ${Math.round(clampedStrength)} percent`}
+          style={styles.sigilRingWrap}
+        >
+          <ThreadStrengthRing
+            color={c.ring}
+            reduceMotionEnabled={reduceMotionEnabled}
+            state={state}
+            strength={clampedStrength}
+          />
           <View
             style={[
               styles.sigilRing,
               {
-                borderColor: c.ring,
-                shadowColor: c.glow !== 'transparent' ? c.ring : undefined,
-                shadowOpacity: c.glow !== 'transparent' ? 1 : 0,
+                borderColor: 'transparent',
+                shadowOpacity: 0,
               },
             ]}
           >

@@ -1,3 +1,4 @@
+// DEFERRED: SigilSvg — Skia migration, pending pilot validation
 /**
  * SigilSvg - Wrapper component for displaying SVG sigils
  *

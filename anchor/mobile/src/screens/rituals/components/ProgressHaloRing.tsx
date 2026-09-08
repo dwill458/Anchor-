@@ -1,3 +1,4 @@
+// DEFERRED: ProgressHaloRing — Skia migration, pending pilot validation
 import React from 'react';
 import {
   View,
