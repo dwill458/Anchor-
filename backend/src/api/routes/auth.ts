@@ -15,7 +15,6 @@ import { getFirebaseAdmin } from '../../config/firebase';
 import { hasCompedAccess } from '../../utils/compedAccess';
 import { logger } from '../../utils/logger';
 import { getChartFeatureFlags } from '../../config/chartFlags';
-import { getChartCapabilities } from '../../services/ChartCapabilityService';
 
 const router = Router();
 
@@ -662,9 +661,6 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response, next: 
         ...serializeUser(user),
         settings: userRecord.settings,
         chartFlags: getChartFeatureFlags(),
-        // Additive, account-authoritative decisions. Legacy clients keep using
-        // chartFlags; no billing/provider internals leave the server.
-        chartCapabilities,
       },
     });
   } catch (error) {
@@ -743,7 +739,6 @@ router.get(
         courseAnchorLinks,
         reflections,
         courseEvents,
-        aiPlanProposals,
       ] = await Promise.all([
         // Progression-critical sections fail the whole export instead of
         // returning a deceptively complete v2 payload with missing history.
@@ -852,16 +847,6 @@ router.get(
             }),
           []
         ),
-        getExportSection(
-          'aiPlanProposals',
-          exportContext,
-          () =>
-            prisma.aIPlanProposal.findMany({
-              where: { userId: user.id },
-              orderBy: { createdAt: 'desc' },
-            }),
-          []
-        ),
       ]);
       const exportedReflections = (Array.isArray(reflections) ? reflections : []).map(
         serializeReflectionForExport
@@ -891,9 +876,8 @@ router.get(
             courses,
             waypoints,
             courseAnchorLinks,
-            reflections: exportedReflections,
+            reflections,
             courseEvents,
-            aiPlanProposals: exportedAiPlanProposals,
           },
           burnedAnchors,
           flaggedContent,

@@ -145,7 +145,7 @@ describe('visualization scene routes', () => {
       source: 'deterministic_fallback',
       version: 'scene-v1',
       fallbackReason: 'insufficient_valid_scenes',
-      model: 'gemini-2.0-flash',
+      model: 'gemini-3.5-flash-lite',
       latencyMs: 812,
       rawCandidateCount: 3,
       validCandidateCount: 2,
@@ -158,7 +158,7 @@ describe('visualization scene routes', () => {
     expect(response.status).toBe(200);
     expect(response.body.data.source).toBe('deterministic_fallback');
     expect(response.body.data.fallbackReason).toBe('insufficient_valid_scenes');
-    expect(response.body.data.model).toBe('gemini-2.0-flash');
+    expect(response.body.data.model).toBe('gemini-3.5-flash-lite');
     expect(response.body.data.latencyMs).toBe(812);
     expect(response.body.data.rawCandidateCount).toBe(3);
     expect(response.body.data.validCandidateCount).toBe(2);
@@ -170,7 +170,7 @@ describe('visualization scene routes', () => {
       source: 'gemini',
       version: 'scene-v1',
       fallbackReason: null,
-      model: 'gemini-2.0-flash',
+      model: 'gemini-3.5-flash-lite',
       latencyMs: 640,
       rawCandidateCount: 3,
       validCandidateCount: 3,

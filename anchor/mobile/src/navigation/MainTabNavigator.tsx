@@ -41,6 +41,7 @@ import { WidgetDeepLinkHandler } from '@/widgets/WidgetDeepLinkHandler';
 import { ResumeTargetHandler } from './ResumeTargetHandler';
 import { WIDGETS_ENABLED } from '@/config';
 import type { RootStackParamList } from '@/types';
+import { resolveChartFeatureFlags } from '@/types/chart';
 import type { RootNavigatorParamList } from './RootNavigator';
 
 // ─── Tab Button ───────────────────────────────────────────────────────────────
@@ -97,6 +98,7 @@ const TabButton: React.FC<TabButtonProps> = ({
 interface CustomTabBarProps {
   activeIndex: number;
   onTabPress: (index: number) => void;
+  chartEnabled?: boolean;
 }
 
 const GOLD = '#D4AF37';
@@ -149,8 +151,11 @@ export const TABS = [
 export const CustomTabBar: React.FC<CustomTabBarProps> = ({
   activeIndex,
   onTabPress,
+  chartEnabled = false,
 }) => {
   const insets = useSafeAreaInsets();
+  const visibleTabs = TABS.filter((tab) => tab.index !== 2 || chartEnabled);
+  const isCompactTabSet = visibleTabs.length < 3;
 
   return (
     <View
@@ -160,13 +165,13 @@ export const CustomTabBar: React.FC<CustomTabBarProps> = ({
       ]}
       testID="custom-tab-bar"
     >
-      {TABS.map((tab, index) => {
+      {visibleTabs.map((tab, index) => {
         const isActive = activeIndex === tab.index;
         return (
           <TabButton
             key={tab.index}
             onPress={() => onTabPress(tab.index)}
-            showDivider={index < TABS.length - 1}
+            showDivider={index < visibleTabs.length - 1}
             accessibilityLabel={tab.label === 'CHART' ? 'Chart' : tab.label[0] + tab.label.slice(1).toLowerCase()}
             accessibilityHint={tab.label === 'CHART' ? 'Where am I going?' : `Open ${tab.label.toLowerCase()}`}
           >
@@ -206,6 +211,8 @@ export const MainTabNavigator: React.FC = () => {
   const shouldRedirectToCreation = useAuthStore(
     (state) => state.shouldRedirectToCreation,
   );
+  const serverChartFlags = useAuthStore((state) => state.user?.chartFlags);
+  const chartEnabled = resolveChartFeatureFlags(serverChartFlags).chart_enabled;
   const hasCheckedAutoOpen = useRef(false);
   const autoOpenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toast = useToast();
@@ -216,7 +223,6 @@ export const MainTabNavigator: React.FC = () => {
   );
   const [practiceRouteName, setPracticeRouteName] =
     React.useState('PracticeHome');
-  const [practiceRouteParams, setPracticeRouteParams] = React.useState<unknown>(undefined);
   const [chartRouteName, setChartRouteName] = React.useState('ChartHome');
 
   const flushPracticeWrites = useCallback(() => {
@@ -241,8 +247,18 @@ export const MainTabNavigator: React.FC = () => {
   }, [shouldRedirectToCreation]);
 
   const handleIndexChange = useCallback((index: number) => {
+    if (!chartEnabled && index === 2) {
+      setActiveIndex(0);
+      return;
+    }
     setActiveIndex(index);
-  }, []);
+  }, [chartEnabled]);
+
+  React.useEffect(() => {
+    if (!chartEnabled && activeIndex === 2) setActiveIndex(0);
+  }, [activeIndex, chartEnabled]);
+
+  const displayActiveIndex = chartEnabled ? activeIndex : Math.min(activeIndex, 1);
 
   // Practice owns an independent navigation container, so its local navigation
   // object cannot resolve RootNavigator's Paywall route. Keep that boundary in
@@ -255,16 +271,10 @@ export const MainTabNavigator: React.FC = () => {
   );
 
   const isTabBarVisible = React.useMemo(() => {
-    if (activeIndex === 0) return vaultRouteName === 'Vault';
-    if (activeIndex === 1) {
-      // The reference keeps primary chrome on a Practice-origin Weave, but an
-      // Anchor Detail-origin Weave behaves like a focused detail surface.
-      const weaveOrigin = (practiceRouteParams as { origin?: unknown } | undefined)?.origin;
-      return practiceRouteName === 'PracticeHome' ||
-        (practiceRouteName === 'TheWeave' && weaveOrigin === 'practice');
-    }
+    if (displayActiveIndex === 0) return vaultRouteName === 'Vault';
+    if (displayActiveIndex === 1) return practiceRouteName === 'PracticeHome';
     return chartRouteName === 'ChartHome';
-  }, [activeIndex, vaultRouteName, practiceRouteName, chartRouteName]);
+  }, [displayActiveIndex, vaultRouteName, practiceRouteName, chartRouteName]);
 
   // Auto-open daily anchor
   React.useEffect(() => {
@@ -326,32 +336,28 @@ export const MainTabNavigator: React.FC = () => {
     <TabNavigationProvider
       onIndexChange={handleIndexChange}
       onNavigateToPaywall={handlePaywallNavigation}
-      activeIndex={activeIndex}
+      activeIndex={displayActiveIndex}
     >
       {/* Routes the home screen widget CTA (anchor://practice) to the Practice tab */}
       {WIDGETS_ENABLED && <WidgetDeepLinkHandler />}
       <ResumeTargetHandler />
       <View style={styles.container}>
         <SwipeableTabContainer
-          activeIndex={activeIndex}
+          activeIndex={displayActiveIndex}
           onIndexChange={handleIndexChange}
-          tabCount={3}
+          tabCount={chartEnabled ? 3 : 2}
           swipeEnabled={isTabBarVisible}
         >
           <VaultStackNavigator onRouteChange={setVaultRouteName} />
-          <PracticeStackNavigator
-            onRouteChange={(name, params) => {
-              setPracticeRouteName(name);
-              setPracticeRouteParams(params);
-            }}
-          />
-          <ChartStackNavigator onRouteChange={setChartRouteName} />
+          <PracticeStackNavigator onRouteChange={setPracticeRouteName} />
+          {chartEnabled ? <ChartStackNavigator onRouteChange={setChartRouteName} /> : null}
         </SwipeableTabContainer>
 
         {isTabBarVisible && (
           <CustomTabBar
-            activeIndex={activeIndex}
+            activeIndex={displayActiveIndex}
             onTabPress={handleIndexChange}
+            chartEnabled={chartEnabled}
           />
         )}
       </View>

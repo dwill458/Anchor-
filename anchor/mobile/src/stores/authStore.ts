@@ -30,7 +30,6 @@ import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSubscriptionStore, computeDaysRemaining } from '@/stores/subscriptionStore';
 import { useTeachingStore } from '@/stores/teachingStore';
-import { useForgeMomentStore } from '@/stores/forgeMomentStore';
 import { useVisualizationSceneStore } from '@/stores/visualizationSceneStore';
 import { purgeChartCacheForAccount, useCourseStore } from '@/stores/courseStore';
 import { useNavigationResumeStore } from '@/stores/navigationResumeStore';
@@ -119,7 +118,6 @@ const ANCHOR_SESSION_STORAGE_KEY = 'anchor-session-storage';
 const CACHED_USER_KEY = 'anchor:cached_user';
 const RECOVERY_DUMP_MARKER_KEY = '@anchor_recovery_dump_complete';
 const RECOVERY_DUMP_VAULT_KEY = '@anchor_recovery_dump_vault';
-const LAST_MILESTONE_SHOWN_KEY = '@anchor_last_milestone_shown';
 
 const createClearedPendingFirstAnchorState = () => ({
   shouldRedirectToCreation: false,
@@ -1043,7 +1041,6 @@ export const useAuthStore = create<AuthState>()(
         useAnchorStore.getState().clearAnchors();
         useSessionStore.getState().reset();
         useTeachingStore.getState().reset();
-        useForgeMomentStore.getState().resetMilestones();
         useVisualizationSceneStore.getState().clearActiveAccount();
         useProfileStore.getState().resetProfile();
         useSettingsStore.getState().bindSessionAudioDefaultsOwner(null);
@@ -1072,7 +1069,6 @@ export const useAuthStore = create<AuthState>()(
           encryptedPersistStorage.removeItem(CACHED_USER_KEY),
           AsyncStorage.removeItem(RECOVERY_DUMP_MARKER_KEY),
           AsyncStorage.removeItem(RECOVERY_DUMP_VAULT_KEY),
-          AsyncStorage.removeItem(LAST_MILESTONE_SHOWN_KEY),
         ]).catch((error) => {
           logger.warn('Failed to fully clear persisted local auth data on sign out', error);
         });

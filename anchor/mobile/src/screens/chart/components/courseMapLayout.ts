@@ -1,7 +1,6 @@
 import type { WaypointSummary } from '@/types/chart';
 import {
   computeCourseMapGeometry,
-  computeHorizontalCourseMapGeometry,
   type CourseMapGeometry,
   type NodeGeometry,
   type WaypointSide,
@@ -45,11 +44,8 @@ function deriveEmphasis(isDominant: boolean, state: WaypointSummary['state']): W
 export function buildCourseMapLayout(
   waypoints: WaypointSummary[],
   currentWaypointId: string | null,
-  orientation: 'vertical' | 'horizontal' = 'vertical',
 ): CourseMapLayout {
-  const geometry = orientation === 'horizontal'
-    ? computeHorizontalCourseMapGeometry(waypoints.length)
-    : computeCourseMapGeometry(waypoints.length);
+  const geometry = computeCourseMapGeometry(waypoints.length);
 
   const nodes: WaypointNodeLayout[] = waypoints.map((waypoint, index) => {
     const nodeGeometry: NodeGeometry | undefined = geometry.nodes[index];

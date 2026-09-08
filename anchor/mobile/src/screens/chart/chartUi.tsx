@@ -1,36 +1,21 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronRight, LockKeyhole, RefreshCw } from 'lucide-react-native';
 import { colors, spacing, typography } from '@/theme';
 import type { CourseStatus, WaypointSummary } from '@/types/chart';
-import { C, CARD_GRADIENT, F, GOLD_GRADIENT, ls } from './chartTokens';
-import { Ico } from './components/Ico';
 
 export const ChartScreenFrame: React.FC<{
   title: string;
   subtitle?: string;
   children: React.ReactNode;
   scroll?: boolean;
-  headerActions?: React.ReactNode;
-  headerTopInset?: number;
-}> = ({ title, subtitle, children, scroll = true, headerActions, headerTopInset = 0 }) => {
-  const insets = useSafeAreaInsets();
+}> = ({ title, subtitle, children, scroll = true }) => {
   const content = (
-    <View style={[styles.content, !scroll && styles.contentFixed]}>
-      <View
-        testID="chart-screen-header"
-        style={[styles.titleRow, { marginTop: Math.max(insets.top, 0) + headerTopInset }]}
-      >
-        <View style={styles.titleCopy}>
-          <Text style={styles.screenTitle} accessibilityRole="header">
-            {title}
-          </Text>
-          {subtitle ? <Text style={styles.screenSubtitle}>{subtitle}</Text> : null}
-        </View>
-        {headerActions ? <View style={styles.headerActions}>{headerActions}</View> : null}
-      </View>
+    <View style={styles.content}>
+      <Text style={styles.screenTitle} accessibilityRole="header">
+        {title}
+      </Text>
+      {subtitle ? <Text style={styles.screenSubtitle}>{subtitle}</Text> : null}
       {children}
     </View>
   );
@@ -76,170 +61,15 @@ export const ChartButton: React.FC<{
       pressed && !disabled && styles.buttonPressed,
     ]}
   >
-    {!secondary && !destructive ? (
-      <LinearGradient
-        colors={[...GOLD_GRADIENT]}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
-    ) : null}
     <Text style={[styles.buttonText, secondary && styles.buttonTextSecondary, destructive && styles.buttonTextDestructive]}>
       {label}
     </Text>
   </Pressable>
 );
 
-/** The prototype's 165° card wash sits behind the content, not on the border. */
-const CardWash: React.FC = () => (
-  <LinearGradient
-    colors={[...CARD_GRADIENT]}
-    start={{ x: 0.18, y: 0 }}
-    end={{ x: 0.82, y: 1 }}
-    style={StyleSheet.absoluteFill}
-    pointerEvents="none"
-  />
+export const ChartCard: React.FC<{ children: React.ReactNode; emphasis?: boolean }> = ({ children, emphasis }) => (
+  <View style={[styles.card, emphasis && styles.cardEmphasis]}>{children}</View>
 );
-
-export const ChartCard: React.FC<{ children: React.ReactNode; emphasis?: boolean; style?: object }> = ({ children, emphasis, style }) => (
-  <View style={[styles.card, emphasis && styles.cardEmphasis, style]}>
-    {emphasis ? null : <CardWash />}
-    {children}
-  </View>
-);
-
-export const ChartSection: React.FC<{ children: React.ReactNode; style?: object }> = ({ children, style }) => (
-  <View style={[styles.section, style]}>{children}</View>
-);
-
-export const ChartSheetHandle: React.FC = () => <View accessibilityElementsHidden style={styles.sheetHandle} />;
-
-export const ChartIconButton: React.FC<{
-  label: string;
-  icon: React.ReactNode;
-  onPress?: () => void;
-}> = ({ label, icon, onPress }) => (
-  <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} style={styles.iconButton}>
-    {icon}
-  </Pressable>
-);
-
-export const ChartKicker: React.FC<{ children: React.ReactNode; color?: string; style?: object }> = ({ children, color, style }) => (
-  <Text style={[styles.kicker, color ? { color } : null, style]}>{children}</Text>
-);
-
-export const ChartPanel: React.FC<{ children: React.ReactNode; style?: object }> = ({ children, style }) => (
-  <View style={[styles.panel, style]}>
-    <CardWash />
-    {children}
-  </View>
-);
-
-/** Hairline rule. `centered` is the ceremony variant that fades at both ends. */
-export const ChartHair: React.FC<{ centered?: boolean; style?: object }> = ({ centered = false, style }) => (
-  <LinearGradient
-    colors={
-      centered
-        ? ['transparent', 'rgba(212,175,55,0.35)', 'transparent']
-        : ['rgba(212,175,55,0.16)', 'rgba(212,175,55,0.03)', 'transparent']
-    }
-    locations={centered ? [0, 0.5, 1] : [0, 0.7, 1]}
-    start={{ x: 0, y: 0 }}
-    end={{ x: 1, y: 0 }}
-    style={[{ height: 1 }, style]}
-  />
-);
-
-export const ChartGhostButton: React.FC<{
-  label: string;
-  onPress?: () => void;
-  icon?: React.ReactNode;
-  color?: string;
-  style?: object;
-  disabled?: boolean;
-}> = ({ label, onPress, icon, color = 'rgba(245,240,232,0.62)', style, disabled = false }) => (
-  <Pressable
-    onPress={onPress}
-    disabled={disabled}
-    accessibilityRole="button"
-    accessibilityLabel={label}
-    style={({ pressed }) => [styles.ghostButton, pressed && !disabled && styles.ghostPressed, disabled && styles.buttonDisabled, style]}
-  >
-    {icon}
-    <Text style={[styles.ghostText, { color }]}>{label}</Text>
-  </Pressable>
-);
-
-/**
- * Waypoint status token. Status is never carried by colour alone — each state
- * has a distinct glyph (check / filled dot / hollow dot / star) beside its
- * label, matching the prototype's `StatusTag`.
- */
-export const ChartStatusTag: React.FC<{
-  status: string;
-  /**
-   * Presentation-only. Per PHASE_0_CONTRACT_FREEZE the destination is a
-   * Course-level marker, not a peer waypoint state, so it arrives as a flag.
-   */
-  isDestination?: boolean;
-  fontSize?: number;
-  em?: number;
-  style?: object;
-}> = ({ status, isDestination = false, fontSize = 9.5, em = 0.14, style }) => {
-  const key = status.toUpperCase();
-  const M = isDestination
-    ? { t: 'Destination', c: C.gold }
-    : key === 'REACHED'
-      ? { t: 'Reached', c: 'rgba(212,175,55,0.75)' }
-      : key === 'PLOTTED'
-        ? { t: 'Plotted', c: 'rgba(212,175,55,0.75)' }
-        : key === 'CURRENT'
-          ? { t: 'Current', c: C.lav }
-          : key === 'BLOCKED'
-            ? { t: 'Blocked', c: C.danger }
-            : key === 'SKIPPED'
-              ? { t: 'Skipped', c: C.boneFaint }
-              : key === 'CANCELLED'
-                ? { t: 'Cancelled', c: C.boneFaint }
-                : { t: 'Upcoming', c: C.boneFaint };
-
-  const dot = 6 * (fontSize / 9.5);
-  const past = !isDestination && (key === 'REACHED' || key === 'PLOTTED');
-  const hollow = !isDestination && !past && key !== 'CURRENT';
-
-  return (
-    <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 5 }, style]}>
-      {isDestination ? <Ico k="star" s={fontSize} c={M.c} /> : null}
-      {past ? <Ico k="check" s={fontSize} c={M.c} w={1.6} /> : null}
-      {!isDestination && key === 'CURRENT' ? (
-        <View
-          style={{
-            width: dot,
-            height: dot,
-            borderRadius: dot / 2,
-            backgroundColor: M.c,
-            shadowColor: M.c,
-            shadowOpacity: 0.9,
-            shadowRadius: 4,
-            shadowOffset: { width: 0, height: 0 },
-          }}
-        />
-      ) : null}
-      {hollow ? (
-        <View
-          style={{ width: dot, height: dot, borderRadius: dot / 2, borderWidth: 1, borderColor: M.c }}
-        />
-      ) : null}
-      <Text
-        numberOfLines={1}
-        style={{ fontFamily: F.bSemi, fontSize, letterSpacing: ls(fontSize, em), color: M.c }}
-      >
-        {M.t.toUpperCase()}
-      </Text>
-    </View>
-  );
-};
 
 export const ChartStatusPill: React.FC<{ status: CourseStatus | string }> = ({ status }) => (
   <View style={styles.statusPill}>
@@ -345,49 +175,31 @@ export function formatDate(value: string): string {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background.primary },
   scrollContent: { paddingBottom: 128 },
-  content: { paddingHorizontal: 20, paddingTop: 10, gap: spacing.md },
-  contentFixed: { flex: 1 },
-  titleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
-  titleCopy: { flex: 1 },
-  headerActions: { flexDirection: 'row', gap: spacing.sm, marginLeft: spacing.md },
-  screenTitle: { fontFamily: typography.fonts.headingBold, fontSize: 21, letterSpacing: 2.9, color: colors.bone },
-  screenSubtitle: { fontFamily: typography.fonts.body, fontSize: 11.5, lineHeight: 16, color: 'rgba(245,240,232,0.32)', marginTop: 4 },
-  kicker: { fontFamily: typography.fonts.headingSemiBold, fontSize: 9.5, lineHeight: 13, letterSpacing: 2.1, color: 'rgba(212,175,55,0.62)', textTransform: 'uppercase' },
-  panel: { borderRadius: 16, borderWidth: 1, borderColor: C.cardBorder, overflow: 'hidden', position: 'relative' },
-  ghostButton: { minHeight: 34, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  ghostPressed: { opacity: 0.68 },
-  ghostText: { fontFamily: typography.fonts.body, fontSize: 11.5, letterSpacing: 0.2 },
-  section: { gap: 10 },
-  sheetHandle: { alignSelf: 'center', width: 34, height: 3, borderRadius: 2, backgroundColor: 'rgba(212,175,55,0.32)', marginBottom: 2 },
+  content: { paddingHorizontal: spacing.lg, paddingTop: spacing.xl, gap: spacing.md },
+  screenTitle: { ...typography.h2, color: colors.text.primary },
+  screenSubtitle: { ...typography.body, color: colors.text.secondary, marginTop: -spacing.sm },
   card: {
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: C.cardBorder,
-    padding: 16,
+    borderColor: 'rgba(212,175,55,0.14)',
+    backgroundColor: 'rgba(20,26,35,0.92)',
+    padding: spacing.lg,
     gap: spacing.sm,
-    overflow: 'hidden',
-    position: 'relative',
   },
-  cardEmphasis: { borderColor: 'rgba(212,175,55,0.24)', backgroundColor: 'rgba(20,26,35,0.74)' },
-  iconButton: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(212,175,55,0.14)', backgroundColor: 'rgba(255,255,255,0.015)' },
+  cardEmphasis: { borderColor: 'rgba(212,175,55,0.34)', backgroundColor: 'rgba(30,28,28,0.94)' },
   button: {
-    minHeight: 50,
+    minHeight: 48,
     paddingHorizontal: spacing.lg,
-    borderRadius: 13,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: C.gold,
-    overflow: 'hidden',
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.22,
-    shadowRadius: 18,
+    backgroundColor: colors.gold,
   },
-  buttonSecondary: { backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(212,175,55,0.24)', shadowOpacity: 0 },
+  buttonSecondary: { backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' },
   buttonDestructive: { backgroundColor: 'rgba(150,45,45,0.18)', borderColor: 'rgba(255,110,110,0.38)', borderWidth: 1 },
   buttonDisabled: { opacity: 0.42 },
   buttonPressed: { transform: [{ scale: 0.98 }] },
-  buttonText: { fontFamily: typography.fonts.headingSemiBold, fontSize: 11, lineHeight: 16, letterSpacing: 1.8, color: '#14100A', textAlign: 'center', textTransform: 'uppercase' },
+  buttonText: { ...typography.bodyBold, color: '#1A1000', textAlign: 'center' },
   buttonTextSecondary: { color: colors.text.primary },
   buttonTextDestructive: { color: '#FFB1B1' },
   statusPill: { alignSelf: 'flex-start', borderRadius: 99, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, backgroundColor: 'rgba(212,175,55,0.12)', borderWidth: 1, borderColor: 'rgba(212,175,55,0.26)' },

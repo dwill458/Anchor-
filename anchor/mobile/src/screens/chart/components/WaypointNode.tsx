@@ -41,12 +41,7 @@ const MIN_HIT_TARGET = 44;
 
 const AMBER = colors.warning;
 
-function nodeSize(emphasis: WaypointEmphasis, horizontal: boolean): number {
-  if (horizontal) {
-    if (emphasis === 'dominant') return 38;
-    if (emphasis === 'reached') return 23;
-    return 17;
-  }
+function nodeSize(emphasis: WaypointEmphasis): number {
   if (emphasis === 'dominant') return DOMINANT_SIZE;
   if (emphasis === 'reached') return REACHED_SIZE;
   return SUBDUED_SIZE;
@@ -109,7 +104,6 @@ export type WaypointNodeProps = {
   y: number;
   mapWidth: number;
   mapHeight: number;
-  horizontal?: boolean;
   /** true only while this node is the subject of a just-committed advancement. */
   isSettling?: boolean;
   testID?: string;
@@ -126,11 +120,10 @@ const WaypointNodeComponent: React.FC<WaypointNodeProps> = ({
   y,
   mapWidth,
   mapHeight,
-  horizontal = false,
   isSettling = false,
   testID,
 }) => {
-  const size = nodeSize(emphasis, horizontal);
+  const size = nodeSize(emphasis);
   const iconSize = Math.round(size * 0.44);
   const hitTarget = Math.max(MIN_HIT_TARGET, size);
   const fill = nodeFillStyle(waypoint, isDominant);
@@ -164,7 +157,7 @@ const WaypointNodeComponent: React.FC<WaypointNodeProps> = ({
       ]}
     >
       {showHalo ? (
-        <CurrentWaypointHalo size={size + (horizontal ? 18 : 24)} reducedMotion={reducedMotion} settling={isSettling} />
+        <CurrentWaypointHalo size={size + 24} reducedMotion={reducedMotion} settling={isSettling} />
       ) : null}
       <Animated.View
         style={[
@@ -184,9 +177,9 @@ const WaypointNodeComponent: React.FC<WaypointNodeProps> = ({
           </Text>
         </View>
       ) : null}
-      <View style={[styles.label, horizontal ? styles.labelHorizontal : labelSide === 'right' ? styles.labelRight : styles.labelLeft]} pointerEvents="none">
+      <View style={[styles.label, labelSide === 'right' ? styles.labelRight : styles.labelLeft]} pointerEvents="none">
         <Text
-          style={[styles.labelText, isDominant && styles.labelTextDominant, horizontal && styles.labelTextHorizontal]}
+          style={[styles.labelText, isDominant && styles.labelTextDominant]}
           numberOfLines={isDominant ? 2 : 1}
         >
           {waypoint.title}
@@ -216,7 +209,6 @@ function propsEqual(prev: WaypointNodeProps, next: WaypointNodeProps): boolean {
     prev.y === next.y &&
     prev.mapWidth === next.mapWidth &&
     prev.mapHeight === next.mapHeight
-    && prev.horizontal === next.horizontal
   );
 }
 
@@ -253,9 +245,7 @@ const styles = StyleSheet.create({
   label: { position: 'absolute', top: '100%', width: 118, marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 4 },
   labelRight: { left: '50%', marginLeft: -12 },
   labelLeft: { right: '50%', marginRight: -12, justifyContent: 'flex-end' },
-  labelHorizontal: { left: '50%', width: 120, marginLeft: -60, justifyContent: 'center' },
   labelText: { ...typography.caption, color: colors.text.secondary, flexShrink: 1 },
   labelTextDominant: { ...typography.caption, fontFamily: typography.fonts.bodyBold, color: colors.text.primary, fontSize: 13 },
-  labelTextHorizontal: { fontSize: 10.5, lineHeight: 14, textAlign: 'center' },
   anchorDot: { width: 5, height: 5, borderRadius: 2.5 },
 });

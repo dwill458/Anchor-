@@ -142,3 +142,6 @@ pnpm-debug.log*
 *.tgz
 .next/
 backend/uploads/
+
+# Claude Code scheduler session state (per-machine, not shareable)
+.claude/scheduled_tasks.lock

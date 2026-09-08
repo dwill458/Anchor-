@@ -5,7 +5,7 @@ import { colors } from '@/theme';
 import type { ChartStackParamList } from '@/types/chart';
 import {
   ChartHomeScreen,
-  AIPlanReviewScreen,
+  ChartPlaceholderScreen,
   CompletedJourneyScreen,
   CourseCompletionScreen,
   CourseDetailsScreen,
@@ -40,9 +40,13 @@ export const ChartStackNavigator: React.FC<ChartStackNavigatorProps> = ({ onRout
       }}
     >
       <Stack.Screen name="ChartHome" component={ChartHomeScreen} />
-      <Stack.Screen name="CourseSetup" component={CourseSetupScreen} options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+      <Stack.Screen
+        name="CourseSetup"
+        component={CourseSetupScreen}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+      />
       <Stack.Screen name="CourseEditor" component={CourseEditorScreen} />
-      <Stack.Screen name="AIPlanReview" component={AIPlanReviewScreen} />
+      <Stack.Screen name="AIPlanReview" component={ChartPlaceholderScreen} />
       <Stack.Screen
         name="WaypointDetail"
         component={WaypointDetailScreen}

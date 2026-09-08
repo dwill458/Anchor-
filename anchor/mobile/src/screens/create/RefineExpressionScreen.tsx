@@ -27,6 +27,7 @@ import { colors, spacing, typography } from '@/theme';
 import { SigilSvg } from '@/components/common';
 import { API_URL } from '@/config';
 import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
+import { RefineStyleCard } from './components/RefineStyleCard';
 import {
   RefineBadgeView,
   RefineFeatCard,
@@ -176,43 +177,7 @@ export default function RefineExpressionScreen() {
     void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
     setSelectedStyleId(style.id);
     useFirstAnchorFlowStore.getState().updateDraft({ selectedStyleId: style.id });
-
-    // First-use teaching animation trigger
-    if (!taughtRef.current) {
-      taughtRef.current = true;
-      setIsTeachVisible(true);
-
-      if (reduceMotion) {
-        teachOpacity.value = 1;
-        teachHeight.value = 60;
-      } else {
-        teachOpacity.value = withTiming(1, { duration: 360 });
-        teachHeight.value = withTiming(60, { duration: 360 });
-      }
-
-      if (teachTimer.current) clearTimeout(teachTimer.current);
-      teachTimer.current = setTimeout(() => {
-        setIsTeachVisible(false);
-        if (reduceMotion) {
-          teachOpacity.value = 0;
-          teachHeight.value = 0;
-        } else {
-          teachOpacity.value = withTiming(0, { duration: 300 });
-          teachHeight.value = withTiming(0, { duration: 300 });
-        }
-      }, 2400);
-    }
-  }, [reduceMotion, selectedStyleId, teachHeight, teachOpacity]);
-
-  const handleTabPress = useCallback((tabId: ExploreTabId) => {
-    void safeHaptics.selection();
-    setExploreTab((prev) => (prev === tabId ? null : tabId));
-  }, []);
-
-  const handleFamilyPress = useCallback((family: RefineStyleFamily | 'All') => {
-    void safeHaptics.selection();
-    setExploreFamily(family);
-  }, []);
+  }, [selectedStyleId]);
 
   const handleRefineAnchor = useCallback(() => {
     if (isGenerating) return;
@@ -221,6 +186,10 @@ export default function RefineExpressionScreen() {
 
     // Warm Railway server before transition
     void fetch(`${API_URL}/health`).catch(() => {});
+    useFirstAnchorFlowStore.getState().updateDraft({
+      selectedStyleId: selectedStyleOption.id,
+      generationStatus: 'generating',
+    });
 
     useFirstAnchorFlowStore.getState().updateDraft({
       selectedStyleId: selectedStyleOption.id,
