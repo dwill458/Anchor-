@@ -39,9 +39,8 @@ import {
   type TraceHintVariant,
 } from '@/constants/traceHints';
 import { stableIndex } from '@/utils/hash';
-import { isCompactPhoneViewport } from '@/utils/layout';
+import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
 import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
-import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 
 type ManualReinforcementRouteProp = RouteProp<RootStackParamList, 'ManualReinforcement'>;
 type ManualReinforcementNavigationProp = StackNavigationProp<

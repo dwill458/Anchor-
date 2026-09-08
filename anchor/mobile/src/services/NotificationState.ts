@@ -1,6 +1,5 @@
 import type {
   LastNotificationSentAt,
-  NotificationMilestone,
   NotificationPermissionStatus,
   NotificationTone,
   UnfinishedAnchorReminderMap,
@@ -28,9 +27,6 @@ export interface NotificationState {
   active_hours_end: number;
   timezone: string;
   notification_enabled: boolean;
-  total_primes_all_time: number;
-  alchemist_milestones_count: number;
-  sovereign_rank: boolean;
   active_session: boolean;
   weaver_enabled: boolean;
   threadStrength: number;
@@ -40,12 +36,10 @@ export interface NotificationState {
   threadStrengthThreshold: number;
   unfinishedAnchorRemindersEnabled: boolean;
   weeklyRecapEnabled: boolean;
-  milestoneNotificationsEnabled: boolean;
   notificationTone: NotificationTone;
   lastNotificationSentAt: LastNotificationSentAt;
   lastTemplateIdByCategory: Partial<Record<string, string>>;
   notificationPermissionStatus: NotificationPermissionStatus;
-  sentMilestones: NotificationMilestone[];
   unfinishedAnchorReminders: UnfinishedAnchorReminderMap;
   softAskShownAt: string | null;
   softAskDismissedAt: string | null;
@@ -83,9 +77,6 @@ export const initializeNotificationState = (): NotificationState => ({
   active_hours_end: 21,
   timezone: DEFAULT_TIMEZONE,
   notification_enabled: true,
-  total_primes_all_time: 0,
-  alchemist_milestones_count: 0,
-  sovereign_rank: false,
   active_session: false,
   weaver_enabled: true,
   threadStrength: 50,
@@ -95,12 +86,10 @@ export const initializeNotificationState = (): NotificationState => ({
   threadStrengthThreshold: 70,
   unfinishedAnchorRemindersEnabled: true,
   weeklyRecapEnabled: false,
-  milestoneNotificationsEnabled: true,
   notificationTone: 'encouraging',
   lastNotificationSentAt: {},
   lastTemplateIdByCategory: {},
   notificationPermissionStatus: 'undetermined',
-  sentMilestones: [],
   unfinishedAnchorReminders: {},
   softAskShownAt: null,
   softAskDismissedAt: null,
@@ -142,7 +131,6 @@ export const normalizeNotificationState = (
     state.lastTemplateIdByCategory && typeof state.lastTemplateIdByCategory === 'object'
       ? state.lastTemplateIdByCategory
       : {};
-  state.sentMilestones = Array.isArray(state.sentMilestones) ? state.sentMilestones : [];
   state.unfinishedAnchorReminders =
     state.unfinishedAnchorReminders && typeof state.unfinishedAnchorReminders === 'object'
       ? state.unfinishedAnchorReminders

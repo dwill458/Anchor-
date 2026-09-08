@@ -1,7 +1,7 @@
 /**
  * Onboarding Flow Configuration
  * 
- * Defines the copy, structure, and flow for the 5-screen narrative onboarding.
+ * Defines the legacy copy structure for the narrative onboarding configuration.
  */
 
 export const ONBOARDING_FLOW = [

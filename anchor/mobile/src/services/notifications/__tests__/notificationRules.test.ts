@@ -1,8 +1,6 @@
 import {
   canSendCategory,
-  detectMilestone,
   evaluateDailyPrime,
-  evaluateMilestone,
   evaluateThreadStrength,
   evaluateUnfinishedAnchor,
   evaluateWeeklyRecap,
@@ -20,9 +18,7 @@ const baseState = (overrides: Partial<NotificationRuleState> = {}): Notification
   threadStrengthThreshold: 70,
   unfinishedAnchorRemindersEnabled: true,
   weeklyRecapEnabled: true,
-  milestoneNotificationsEnabled: true,
   lastNotificationSentAt: {},
-  sentMilestones: [],
   unfinishedAnchorReminders: {},
   ...overrides,
 });
@@ -160,7 +156,7 @@ describe('notification rules', () => {
     ).toBe(false);
   });
 
-  it('detects weekly recap and milestones', () => {
+  it('detects weekly recap eligibility', () => {
     expect(
       evaluateWeeklyRecap(
         baseState(),
@@ -179,11 +175,6 @@ describe('notification rules', () => {
         })
       ).eligible
     ).toBe(true);
-    expect(detectMilestone(3, 50, [])).toBe('sessions_3');
-    expect(detectMilestone(7, 50, ['sessions_3'])).toBe('sessions_7');
-    expect(detectMilestone(30, 50, ['sessions_3', 'sessions_7'])).toBe('sessions_30');
-    expect(detectMilestone(30, 100, ['sessions_3', 'sessions_7', 'sessions_30'])).toBe('thread_strength_100');
-    expect(evaluateMilestone(baseState(), context({ totalSessionsCount: 3 })).eligible).toBe(true);
   });
 
   it('enforces global spam limits', () => {
@@ -207,7 +198,7 @@ describe('notification rules', () => {
           lastNotificationSentAt: {
             daily_prime: '2026-06-24T09:00:00.000Z',
             weekly_recap: '2026-06-24T10:00:00.000Z',
-            milestone: '2026-06-24T11:00:00.000Z',
+            thread_strength: '2026-06-24T11:00:00.000Z',
           },
         }),
         'unfinished_anchor',
@@ -222,7 +213,7 @@ describe('notification rules', () => {
             weekly_recap: '2026-06-24T14:30:00.000Z',
           },
         }),
-        'milestone',
+        'thread_strength',
         now
       )
     ).toBe(false);

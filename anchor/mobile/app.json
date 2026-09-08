@@ -3,7 +3,7 @@
     "name": "Anchor: Visual Goal Setting",
     "slug": "anchor",
     "scheme": "anchor",
-    "version": "1.1.2",
+    "version": "1.5.0",
     "newArchEnabled": true,
     "platforms": [
       "ios",
@@ -20,7 +20,7 @@
     "assetBundlePatterns": [
       "**/*"
     ],
-    "runtimeVersion": "1.1.2",
+    "runtimeVersion": "1.5.0",
     "updates": {
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
@@ -111,12 +111,12 @@
     "android": {
       "allowBackup": false,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/anchor-adaptive-foreground-v2.png",
+        "foregroundImage": "./assets/anchor-adaptive-foreground-v3.png",
         "backgroundColor": "#260A4C",
         "monochromeImage": "./assets/anchor-monochrome.png"
       },
       "package": "com.anchorintentions.app",
-      "versionCode": 38,
+      "versionCode": 39,
       "googleServicesFile": "./google-services.json",
       "edgeToEdgeEnabled": true,
       "blockedPermissions": [
@@ -159,6 +159,7 @@
         }
       ],
       "./plugins/withFirebaseFrameworkFix",
+      "./plugins/withAndroidSplashIconBackground",
       "@react-native-firebase/app",
       "expo-apple-authentication",
       "@sentry/react-native/expo",
@@ -166,12 +167,12 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/anchor-splash-artwork.jpg",
-          "imageWidth": 360,
+          "image": "./assets/anchor-splash-logo.png",
+          "imageWidth": 160,
           "resizeMode": "contain",
           "backgroundColor": "#0F1419",
           "dark": {
-            "image": "./assets/anchor-splash-artwork.jpg",
+            "image": "./assets/anchor-splash-logo.png",
             "backgroundColor": "#0F1419"
           }
         }

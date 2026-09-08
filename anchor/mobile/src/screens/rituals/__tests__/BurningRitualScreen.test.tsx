@@ -7,10 +7,10 @@ import { post } from '@/services/ApiClient';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { ErrorTrackingService } from '@/services/ErrorTrackingService';
 import { AuthService } from '@/services/AuthService';
-import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
 
 const mockCommitReleaseCompletion = jest.fn().mockResolvedValue({ id: 'release-event' });
 const mockFlushPractice = jest.fn().mockResolvedValue(undefined);
+const mockHandleSigilVaulted = jest.fn().mockResolvedValue(undefined);
 
 jest.mock('@react-navigation/native', () => ({
   useRoute: jest.fn(() => ({
@@ -58,12 +58,8 @@ jest.mock('@/components/ToastProvider', () => ({
 jest.mock('@/hooks/useNotificationController', () => ({
   useNotificationController: () => ({
     handleBurnFlowEntered: jest.fn().mockResolvedValue(undefined),
-    handleSigilVaulted: jest.fn().mockResolvedValue(undefined),
+    handleSigilVaulted: (...args: any[]) => mockHandleSigilVaulted(...args),
   }),
-}));
-
-jest.mock('@/utils/progressionMilestones', () => ({
-  queueProgressionMilestonesFromStores: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('@/stores/teachingStore', () => ({
@@ -198,9 +194,7 @@ describe('BurningRitualScreen', () => {
 
   it('shows completion without waiting for post-release bookkeeping', async () => {
     (post as jest.Mock).mockResolvedValue({ success: true });
-    (queueProgressionMilestonesFromStores as jest.Mock).mockImplementation(
-      () => new Promise<void>(() => {})
-    );
+    mockHandleSigilVaulted.mockImplementation(() => new Promise<void>(() => {}));
     const { getByText, getByTestId } = render(<BurningRitualScreen />);
 
     fireEvent.press(getByText('Run Commit'));

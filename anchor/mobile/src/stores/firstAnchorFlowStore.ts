@@ -19,8 +19,6 @@ export interface FirstAnchorFlowDraft {
   structure?: FirstAnchorStructure;
   traceSvg?: string;
   drawingSvg?: string;
-  /** Normalized manual geometry retained while the first-anchor flow is active. */
-  drawingStrokes?: Array<{ points: Array<{ x: number; y: number }>; color: string; size: number; opacity: number; brushType: string }>;
   selectedStyleId?: string;
   generationStatus?: 'idle' | 'generating' | 'error' | 'complete';
   selectedExpressionId?: string;

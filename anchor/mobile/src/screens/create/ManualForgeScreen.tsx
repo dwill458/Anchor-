@@ -451,17 +451,7 @@ export default function ManualForgeScreen() {
 
       // A drawn structure goes directly into Refine Style; generation changes
       // appearance, never the geometry the user just made.
-      useFirstAnchorFlowStore.getState().updateDraft({
-        drawingSvg: sigilSvg,
-        drawingStrokes: strokes.map((stroke) => ({
-          ...stroke,
-          points: stroke.points.map(({ x, y }) => ({
-            x: Number((x / CANVAS_WIDTH).toFixed(5)),
-            y: Number((y / CANVAS_HEIGHT).toFixed(5)),
-          })),
-        })),
-        structure: 'drawn',
-      });
+      useFirstAnchorFlowStore.getState().updateDraft({ drawingSvg: sigilSvg, structure: 'drawn' });
       navigation.navigate('StyleSelection', {
         intentionText,
         category,

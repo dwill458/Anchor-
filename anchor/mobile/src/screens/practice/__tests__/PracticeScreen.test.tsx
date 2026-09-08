@@ -175,17 +175,21 @@ function canonicalEvent(id: string, mode: 'deep_prime' | 'visualize' | 'focus' |
   };
 }
 
-const chargeSetupExpectation = (
-  anchorId: string,
-  source: string,
-  initialDurationSeconds: number | undefined,
-) => ({
+// ChargeSetup only appears for an anchor's first prime; once an anchor is
+// charged, Deep Prime routes straight to Ritual using the saved duration.
+const chargeSetupExpectation = (anchorId: string, source: string) => ({
   anchorId,
   returnTo: 'practice',
-  returnTarget: { kind: 'practice' },
   initialDuration: 'deep',
-  initialDurationSeconds,
-  flowVariant: 'practice',
+  source,
+});
+
+const ritualExpectation = (anchorId: string, source: string, durationSeconds: number) => ({
+  anchorId,
+  ritualType: 'ritual',
+  durationSeconds,
+  audioConfiguration: { guidanceVoice: 'female', backgroundAudio: 'ambient', source: 'default' },
+  returnTo: 'practice',
   source,
 });
 
@@ -278,8 +282,8 @@ describe('PracticeScreen', () => {
       expect(mockNavigateToPractice).toHaveBeenCalledTimes(1);
     });
     expect(mockNavigateToPractice).toHaveBeenCalledWith(
-      'ChargeSetup',
-      chargeSetupExpectation('rapid-anchor', 'practice_deep_prime_card', 120),
+      'Ritual',
+      ritualExpectation('rapid-anchor', 'practice_deep_prime_card', 120),
     );
     expect(mockNavigateToVault).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalledWith('AnchorDetail', expect.anything());
@@ -296,8 +300,8 @@ describe('PracticeScreen', () => {
     await waitFor(() => {
       expect(mockNavigateToPractice).toHaveBeenCalledTimes(1);
       expect(mockNavigateToPractice).toHaveBeenCalledWith(
-        'ChargeSetup',
-        chargeSetupExpectation('card-anchor', 'practice_deep_prime_card', 120),
+        'Ritual',
+        ritualExpectation('card-anchor', 'practice_deep_prime_card', 120),
       );
     });
     expect(mockNavigateToVault).not.toHaveBeenCalled();
@@ -316,7 +320,7 @@ describe('PracticeScreen', () => {
     await waitFor(() => {
       expect(mockNavigateToPractice).toHaveBeenCalledWith(
         'ChargeSetup',
-        chargeSetupExpectation('unprimed-anchor', 'practice_deep_prime_card', undefined),
+        chargeSetupExpectation('unprimed-anchor', 'practice_deep_prime_card'),
       );
     });
   });
@@ -363,14 +367,10 @@ describe('PracticeScreen', () => {
 
     fireEvent.press(screen.getByTestId('practice-open-weave'));
 
-    expect(mockNavigate).toHaveBeenCalledWith('TheWeave', {
-      origin: 'practice',
-      originAnchorId: 'weave-anchor',
-      initialScope: { kind: 'anchor', anchorId: 'weave-anchor' },
-    });
+    expect(mockNavigate).toHaveBeenCalledWith('Evolve');
   });
 
-  it('routes the selected deep-prime tool through ChargeSetup for an already-primed anchor', async () => {
+  it('routes the selected deep-prime tool straight to Ritual for an already-primed anchor', async () => {
     mockAnchors = [buildAnchor('a99', 'Build consistency')];
     const screen = render(<PracticeScreen />);
 
@@ -379,8 +379,8 @@ describe('PracticeScreen', () => {
 
     await waitFor(() => {
       expect(mockNavigateToPractice).toHaveBeenCalledWith(
-        'ChargeSetup',
-        chargeSetupExpectation('a99', 'practice_deep_prime_card', 120),
+        'Ritual',
+        ritualExpectation('a99', 'practice_deep_prime_card', 120),
       );
     });
   });
@@ -421,8 +421,8 @@ describe('PracticeScreen', () => {
 
     await waitFor(() => {
       expect(mockNavigateToPractice).toHaveBeenCalledWith(
-        'ChargeSetup',
-        chargeSetupExpectation('a2', 'practice_deep_prime_card', 120),
+        'Ritual',
+        ritualExpectation('a2', 'practice_deep_prime_card', 120),
       );
     });
   });
@@ -437,8 +437,8 @@ describe('PracticeScreen', () => {
 
     await waitFor(() => {
       expect(mockNavigateToPractice).toHaveBeenCalledWith(
-        'ChargeSetup',
-        chargeSetupExpectation('a77', 'practice_deep_prime_card', 14 * 60),
+        'Ritual',
+        ritualExpectation('a77', 'practice_deep_prime_card', 14 * 60),
       );
     });
   });

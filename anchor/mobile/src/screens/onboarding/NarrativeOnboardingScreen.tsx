@@ -8,7 +8,6 @@ import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
-  Image,
   StyleSheet,
   TouchableOpacity,
   TextInput,
@@ -19,6 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
+import { SvgXml } from 'react-native-svg';
 import { useAuthStore } from '@/stores/authStore';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { OnboardingStackParamList } from '@/types';
@@ -28,6 +28,7 @@ import { getOnboardingProgressPercent } from '@/utils/onboardingProgress';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { useFirstAnchorFlowStore, type OnboardingUseCase } from '@/stores/firstAnchorFlowStore';
 import { ForgeDemo } from '@/components/onboarding/ForgeDemo';
+import { generateTrueSigil } from '@/utils/sigil/traditional-generator';
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'Welcome'>;
 
@@ -38,9 +39,7 @@ const MICRO_FONT_SIZE = typography.fontSize.xs - 3;
 const BODY_FONT_SIZE = typography.fontSize.md + 1;
 const BUTTON_FONT_SIZE = typography.fontSize.xs + 1;
 const palette = colors.anchor15;
-// Both source images include alpha, so they sit directly on the onboarding background.
-const goldAnchor = require('../../assets/images/anchor-gold.png') as number;
-const legacyFinalAnchor = require('../../../assets/success_anchor_onboarding.png') as number;
+const LEGACY_FINAL_ANCHOR = generateTrueSigil('Deep work for 4 hours', undefined, 'balanced').svg;
 
 const withAlpha = (hex: string, alpha: number): string => {
   const normalized = hex.replace('#', '');
@@ -184,7 +183,7 @@ const SigilMark: React.FC<{ size?: number; color?: string }> = ({
   </Svg>
 );
 
-/** Soft radial gold glow behind the anchor mark — no hard circle edge. */
+/** Soft radial gold glow behind the sigil mark — no hard circle edge. */
 const OrbitGlow: React.FC = () => (
   <Svg width={190} height={190} viewBox="0 0 190 190" style={visual.orbits.glowSvg} accessible={false}>
     <Defs>
@@ -280,14 +279,7 @@ const OrbitsVisual: React.FC<{ reduceMotion: boolean }> = ({ reduceMotion }) => 
 
       <View style={visual.orbits.center}>
         <OrbitGlow />
-        <Image
-          source={goldAnchor}
-          style={visual.orbits.logo}
-          resizeMode="contain"
-          accessible
-          accessibilityRole="image"
-          accessibilityLabel="Gold Anchor mark"
-        />
+        <SigilMark size={92} />
       </View>
 
       {words.map((word, i) => (
@@ -456,12 +448,7 @@ const FinalVisual: React.FC<{ reduceMotion: boolean }> = ({ reduceMotion }) => {
         <View style={visual.final.ringDot} />
       </Animated.View>
       <Animated.View style={{ transform: [{ scale: pulse }] }}>
-        <Image
-          source={legacyFinalAnchor}
-          style={visual.final.anchor}
-          resizeMode="contain"
-          accessible={false}
-        />
+        <SvgXml xml={LEGACY_FINAL_ANCHOR} width={154} height={154} color={palette.gilt} />
       </Animated.View>
       <View style={visual.final.badge}>
         <Text style={visual.final.badgeText}>1 INTENTION → 1 ANCHOR</Text>
@@ -795,7 +782,6 @@ const visual = {
     dot: { position: 'absolute', width: 6, height: 6, borderRadius: 3, backgroundColor: palette.gilt, top: -3, left: '50%', marginLeft: -3, shadowColor: palette.gilt, shadowOpacity: 0.8, shadowRadius: 4, shadowOffset: { width: 0, height: 0 } } as const,
     center: { position: 'absolute', alignItems: 'center', justifyContent: 'center', width: 176, height: 176 } as const,
     glowSvg: { position: 'absolute' } as const,
-    logo: { width: 160, height: 160, zIndex: 1 } as const,
     word: { position: 'absolute', fontFamily: typography.fonts.heading, fontSize: DETAIL_FONT_SIZE, color: palette.gilt, letterSpacing: 1.5 } as const,
   }),
   signal: StyleSheet.create({
@@ -823,7 +809,6 @@ const visual = {
     glow: { position: 'absolute', width: 280, height: 280, borderRadius: 140, backgroundColor: withAlpha(palette.gilt, 0.06) } as const,
     ring: { position: 'absolute', width: 280, height: 280, borderRadius: 140, borderWidth: 1, borderColor: withAlpha(palette.gilt, 0.2) } as const,
     ringDot: { position: 'absolute', width: 8, height: 8, borderRadius: 4, backgroundColor: palette.gilt, top: -4, left: '50%', marginLeft: -4, shadowColor: palette.gilt, shadowOpacity: 0.9, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } } as const,
-    anchor: { width: 200, height: 200, borderRadius: 100 } as const,
     badge: { position: 'absolute', bottom: -3, alignSelf: 'center', backgroundColor: withAlpha(palette.steel, 0.96), borderWidth: 1, borderColor: withAlpha(palette.gilt, 0.3), borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5 } as const,
     badgeText: { fontFamily: typography.fonts.heading, fontSize: MICRO_FONT_SIZE, letterSpacing: 1.1, color: palette.gilt } as const,
   }),

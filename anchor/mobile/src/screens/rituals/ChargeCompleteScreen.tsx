@@ -44,7 +44,6 @@ import {
   markPostPrimeTraceAttemptStarted,
 } from '@/utils/postPrimeTraceEligibility';
 import { useMissingAnchorRedirect } from './utils/useMissingAnchorRedirect';
-import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
 import { createPracticeEventId } from '@/utils/primingAnalytics';
 import {
   DEFAULT_SESSION_AUDIO_DEFAULTS,
@@ -331,7 +330,6 @@ export const ChargeCompleteScreen: React.FC = () => {
       practiceEntrySource: source,
     });
 
-    await queueProgressionMilestonesFromStores({ sourceEventId: recordedEventId });
     // Fire-and-forget — notification sync + server update should not block the UI transition
     handlePrimeComplete();
 

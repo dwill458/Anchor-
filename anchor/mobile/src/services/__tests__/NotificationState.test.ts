@@ -28,7 +28,6 @@ describe('NotificationState', () => {
       active_hours_start: 8,
       active_hours_end: 21,
       notification_enabled: true,
-      sovereign_rank: false,
       active_session: false,
       threadStrength: 50,
       dailyPrimeEnabled: true,
@@ -37,7 +36,6 @@ describe('NotificationState', () => {
       threadStrengthThreshold: 70,
       unfinishedAnchorRemindersEnabled: true,
       weeklyRecapEnabled: false,
-      milestoneNotificationsEnabled: true,
       notificationTone: 'encouraging',
       notificationPermissionStatus: 'undetermined',
     });

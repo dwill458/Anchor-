@@ -23,10 +23,6 @@ export interface EnvConfig {
   ENABLE_CHART_REFLECTIONS: boolean;
   ENABLE_CHART_NOTIFICATIONS: boolean;
   ENABLE_CHART_EXISTING_USER_INTRO: boolean;
-  /** Account rollout percentage for Chart. Defaults to zero so Chart remains dark. */
-  CHART_ROLLOUT_PERCENT: number;
-  /** Emergency server-side Chart kill switch. */
-  CHART_KILL_SWITCH: boolean;
   EXPOSE_ERROR_STACK: boolean;
 
   // Auth (Optional - for future Firebase Admin integration)
@@ -273,12 +269,6 @@ export function validateEnv(): EnvConfig {
         process.env.ENABLE_CHART_EXISTING_USER_INTRO,
         false
       ),
-      CHART_ROLLOUT_PERCENT: validatePercentage(
-        'CHART_ROLLOUT_PERCENT',
-        process.env.CHART_ROLLOUT_PERCENT,
-        0
-      ),
-      CHART_KILL_SWITCH: validateBoolean('CHART_KILL_SWITCH', process.env.CHART_KILL_SWITCH, false),
       EXPOSE_ERROR_STACK: validateBoolean(
         'EXPOSE_ERROR_STACK',
         process.env.EXPOSE_ERROR_STACK,

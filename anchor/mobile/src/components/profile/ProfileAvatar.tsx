@@ -5,7 +5,6 @@ import { Camera } from 'lucide-react-native';
 import Svg, { Circle, Line, Path, Polygon, Rect } from 'react-native-svg';
 import { colors, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
-import { getAvatarByIndex, getDefaultAvatar } from '@/utils/avatarUtils';
 import type { ProfileMono } from '@/stores/profileStore';
 
 export const PROFILE_MARK_SLOTS: ProfileMono[] = [
@@ -33,11 +32,11 @@ interface AvatarMarkGlyphProps {
 function AvatarMarkGlyph({ mono, size, dimmed = false }: AvatarMarkGlyphProps) {
   const slotIndex = Math.max(
     0,
-    mono === 'initial' ? 0 : Number.parseInt(mono.replace('slot_', ''), 10) || 0
+    mono === 'initial' ? 0 : Number.parseInt(mono.replace(/^(slot_|avatar_)/, ''), 10) || 0
   );
-  const stroke = dimmed ? withAlpha(colors.silver, 0.28) : colors.gold;
-  const fill = dimmed ? withAlpha(colors.silver, 0.08) : withAlpha(colors.gold, 0.08);
-  const opacity = dimmed ? 0.58 : 0.92;
+  const stroke = dimmed ? withAlpha(colors.anchor15.ash, 0.72) : colors.anchor15.gilt;
+  const fill = dimmed ? withAlpha(colors.anchor15.ash, 0.11) : withAlpha(colors.anchor15.gilt, 0.08);
+  const opacity = dimmed ? 0.76 : 0.92;
 
   return (
     <Svg width={size} height={size} viewBox="0 0 60 60">
@@ -102,7 +101,7 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
   name,
   mono,
   photoUri,
-  userId,
+  userId: _userId,
   showCameraBadge = true,
   badgeSize = 18,
   onPress,
@@ -112,16 +111,9 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
   const avatarInnerSize = size * 0.58;
   const initial = name.trim().charAt(0).toUpperCase() || 'P';
   const trimmedPhotoUri = photoUri?.trim();
-  const selectedAvatarSource = mono.startsWith('avatar_')
-    ? getAvatarByIndex(Number.parseInt(mono.replace('avatar_', ''), 10) || 0)
-    : null;
   const imageSource: ImageSourcePropType | null = trimmedPhotoUri
     ? { uri: trimmedPhotoUri }
-    : selectedAvatarSource ?? (
-      userId
-      ? getDefaultAvatar(userId)
-      : null
-    );
+    : null;
 
   return (
     <Wrapper
@@ -129,7 +121,7 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
       style={[styles.avatarFrame, { width: size, height: size, borderRadius: size / 2 }]}
     >
       <LinearGradient
-        colors={[withAlpha(colors.purple, 0.95), withAlpha(colors.black, 0.98)]}
+        colors={[colors.anchor15.veil, colors.anchor15.ink]}
         start={{ x: 0.25, y: 0.18 }}
         end={{ x: 0.78, y: 1 }}
         style={[
@@ -138,7 +130,7 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
             width: size,
             height: size,
             borderRadius: size / 2,
-            borderColor: colors.ritual.border,
+            borderColor: colors.anchor15.goldHairline,
             shadowRadius: size * 0.16,
           },
         ]}
@@ -171,7 +163,7 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
             },
           ]}
         >
-          <Camera color={colors.gold} size={badgeSize * 0.48} strokeWidth={1.7} />
+          <Camera color={colors.anchor15.gilt} size={badgeSize * 0.48} strokeWidth={1.7} />
         </Pressable>
       ) : null}
     </Wrapper>
@@ -182,19 +174,19 @@ export const ProfileAvatarMarkCell: React.FC<{
   mono: ProfileMono;
   selected: boolean;
   initial: string;
-  avatarSource?: ImageSourcePropType;
   onPress: () => void;
-}> = ({ mono, selected, initial, avatarSource, onPress }) => (
+}> = ({ mono, selected, initial, onPress }) => (
   <Pressable
+    accessibilityRole="button"
+    accessibilityLabel={`Choose ${mono === 'initial' ? 'initial' : mono.replace('_', ' ')} profile mark`}
+    accessibilityState={{ selected }}
     onPress={onPress}
     style={[
       styles.markCell,
       selected ? styles.markCellSelected : styles.markCellIdle,
     ]}
   >
-    {avatarSource ? (
-      <Image source={avatarSource} style={styles.markCellAvatar} resizeMode="cover" />
-    ) : mono === 'initial' ? (
+    {mono === 'initial' ? (
       <Text style={styles.markCellInitial}>{initial}</Text>
     ) : (
       <AvatarMarkGlyph mono={mono} size={22} dimmed={!selected} />
@@ -212,55 +204,44 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
     borderWidth: 1.5,
-    shadowColor: colors.gold,
+    shadowColor: colors.anchor15.gilt,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.16,
     elevation: 5,
   },
   avatarInitial: {
     fontFamily: typography.fonts.heading,
-    color: colors.gold,
+    color: colors.anchor15.giltBright,
     letterSpacing: 0.6,
   },
   cameraBadge: {
     position: 'absolute',
-    backgroundColor: colors.navy,
+    backgroundColor: colors.anchor15.navy,
     borderWidth: 1,
-    borderColor: colors.ritual.border,
+    borderColor: colors.anchor15.goldHairline,
     alignItems: 'center',
     justifyContent: 'center',
   },
   markCell: {
     width: 46,
     height: 46,
-    borderRadius: 10,
+    borderRadius: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
   markCellIdle: {
-    backgroundColor: withAlpha(colors.white, 0.03),
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: withAlpha(colors.gold, 0.15),
+    backgroundColor: 'transparent',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.anchor15.hairline,
   },
   markCellSelected: {
-    backgroundColor: withAlpha(colors.gold, 0.11),
-    borderWidth: 1,
-    borderColor: colors.gold,
-    shadowColor: colors.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.18,
-    shadowRadius: 10,
-    elevation: 4,
+    backgroundColor: 'rgba(217, 179, 108, 0.08)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.anchor15.gilt,
   },
   markCellInitial: {
-    fontFamily: typography.fonts.heading,
+    fontFamily: typography.fontFamily.ritual,
     fontSize: 18,
-    color: colors.gold,
-  },
-  markCellAvatar: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 9,
+    color: colors.anchor15.giltBright,
   },
 });

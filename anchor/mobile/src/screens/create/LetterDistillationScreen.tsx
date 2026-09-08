@@ -16,12 +16,12 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/types';
+import { useAuthStore } from '@/stores/authStore';
+import { useAnchorStore } from '@/stores/anchorStore';
 import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
-import { buildDistillationRenderWords } from '@/utils/sigil/distillation';
-import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
-import { safeHaptics } from '@/utils/haptics';
-import { colors, typography } from '@/theme';
-import { BackChevronIcon, CloseIcon } from '@/components/icons';
+import { useAudio } from '@/hooks/useAudio';
+import { colors } from '@/theme';
+import { isCompactPhoneViewport, isShortPhoneViewport } from '@/utils/layout';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'LetterDistillation'>;
@@ -61,19 +61,44 @@ function HeroGlow() {
   );
 }
 
-function TopGlow() {
-  return (
-    <View pointerEvents="none" style={styles.topGlowWrap}>
-      <Svg width={340} height={340}>
-        <Defs>
-          <SvgRadialGradient id="distillTopGlow" cx="50%" cy="50%" r="50%">
-            <Stop offset="0%" stopColor={gilt} stopOpacity={0.09} />
-            <Stop offset="68%" stopColor={gilt} stopOpacity={0} />
-          </SvgRadialGradient>
-        </Defs>
-        <Circle cx={170} cy={170} r={170} fill="url(#distillTopGlow)" />
-      </Svg>
-    </View>
+const VOWELS = new Set(['A', 'E', 'I', 'O', 'U']);
+
+export default function LetterDistillationScreen({ route, navigation }: Props) {
+  const { intentionText, distilledLetters, category } = route.params;
+  const { width, height } = useWindowDimensions();
+  const { user, anchorCount } = useAuthStore((state) => ({
+    user: state.user,
+    anchorCount: state.anchorCount,
+  }));
+  const localAnchorCount = useAnchorStore((state) => state.anchors.length);
+  const isCompactLayout = isCompactPhoneViewport(width, height);
+  const isShortLayout = isShortPhoneViewport(height);
+
+  useEffect(() => {
+    useFirstAnchorFlowStore.getState().updateDraft({
+      originalIntention: intentionText,
+      distilledLetters,
+    });
+  }, [distilledLetters, intentionText]);
+
+  // Step 2: unique alphabetic letters from raw intention (spaces removed, vowels kept)
+  const step2Letters = useMemo(() => {
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const char of intentionText.toUpperCase()) {
+      if (char === ' ') continue;
+      if (/[A-Z]/.test(char) && !seen.has(char)) {
+        seen.add(char);
+        result.push(char);
+      }
+    }
+    return result;
+  }, [intentionText]);
+
+  // Step 3: consonants only — vowels filtered from step2
+  const step3Letters = useMemo(
+    () => step2Letters.filter((letter) => !VOWELS.has(letter)),
+    [step2Letters]
   );
 }
 
@@ -98,12 +123,13 @@ function DistillChar({
       return;
     }
 
-    const anim = Animated.timing(progress, {
-      toValue: 1,
-      duration: reduceMotion ? 300 : 500,
-      delay: reduceMotion ? 0 : delayMs,
-      easing: Easing.linear,
-      useNativeDriver: false,
+    hasNavigatedRef.current = true;
+    clearStageTimers();
+
+    navigation.navigate('StructureForge', {
+      intentionText,
+      category,
+      distilledLetters: step4Letters,
     });
     anim.start();
     return () => anim.stop();

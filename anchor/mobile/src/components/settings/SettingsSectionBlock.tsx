@@ -4,6 +4,7 @@ import { StyleSheet, View, type ViewStyle } from 'react-native';
 interface SettingsSectionBlockProps {
   children: React.ReactNode;
   isDev?: boolean;
+  /** Editorial sections use hairlines rather than the legacy rounded-card treatment. */
   flat?: boolean;
   style?: ViewStyle;
 }
@@ -43,6 +44,7 @@ const styles = StyleSheet.create({
   },
   flatBlock: {
     marginHorizontal: 0,
+    marginBottom: 0,
     borderRadius: 0,
     borderWidth: 0,
     backgroundColor: 'transparent',

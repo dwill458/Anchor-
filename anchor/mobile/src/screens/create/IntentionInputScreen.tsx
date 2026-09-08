@@ -43,6 +43,8 @@ import { useAuthStore } from '@/stores/authStore';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
 
+const { height } = Dimensions.get('window');
+
 type NavigationProp = StackNavigationProp<RootStackParamList, 'CreateAnchor'>;
 
 const gilt = colors.anchor15.gilt;

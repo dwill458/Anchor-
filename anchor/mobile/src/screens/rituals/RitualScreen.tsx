@@ -62,7 +62,6 @@ import {
 } from '@/utils/postPrimeTraceEligibility';
 import { useMissingAnchorRedirect } from './utils/useMissingAnchorRedirect';
 import { useDeepPrimeSessionAudio } from './hooks/useDeepPrimeSessionAudio';
-import { queueProgressionMilestonesFromStores } from '@/utils/progressionMilestones';
 import { usePrimeSessionAccess } from '@/hooks/usePrimeSessionAccess';
 import { createPracticeEventId } from '@/utils/primingAnalytics';
 import {
@@ -1359,7 +1358,6 @@ export const RitualScreen: React.FC = () => {
         chartContext,
         practiceEntrySource: source,
       });
-      await queueProgressionMilestonesFromStores({ sourceEventId: completionEventId });
       await handlePrimeComplete();
       await exitRitual(canonicalRecord ? {
         outcome: 'completed',
@@ -1468,7 +1466,6 @@ export const RitualScreen: React.FC = () => {
       practiceEntrySource: source,
     });
 
-    await queueProgressionMilestonesFromStores({ sourceEventId: completionEventId });
     await handlePrimeComplete();
     await exitRitual(canonicalRecord ? {
       outcome: 'completed',

@@ -900,11 +900,7 @@ export const PracticeScreen: React.FC = () => {
               accessibilityLabel="Open The Weave"
               accessibilityHint="View your completed practice history"
               onPress={() => {
-                navigation.navigate('TheWeave', {
-                  origin: 'practice',
-                  originAnchorId: selectedAnchor?.id,
-                  initialScope: selectedAnchor ? { kind: 'anchor', anchorId: selectedAnchor.id } : { kind: 'all' },
-                });
+                navigation.navigate('Evolve');
               }}
               style={styles.weaveEntry}
               testID="practice-open-weave"
