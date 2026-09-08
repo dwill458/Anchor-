@@ -388,7 +388,8 @@ async function syncRevenueCatSubscription(user: NonNullable<AuthRequest['dbUser'
 
   const subscriptionStatus = access.hasProAccess ? 'pro' : 'free';
   const subscriptionId = access.hasProAccess ? access.productIdentifier : null;
-  if (user.subscriptionStatus === subscriptionStatus && user.subscriptionId === subscriptionId) return;
+  if (user.subscriptionStatus === subscriptionStatus && user.subscriptionId === subscriptionId)
+    return;
   await prisma.user.update({
     where: { id: user.id },
     data: {

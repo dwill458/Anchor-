@@ -63,6 +63,11 @@ model User {
   reflections         Reflection[]
   proposals           AIPlanProposal[]
   threadV2States      ThreadV2State[]
+  visions             Vision[]
+  visionScenes        VisionScene[]
+  visionViews         VisionView[]
+  assets              Asset[]
+  recommendationSignalAcks RecommendationSignalAck[]
 
   @@map("users")
 }
@@ -166,12 +171,17 @@ model Anchor {
   visualizationScene VisualizationScene?
   courseAnchorLinks  CourseAnchorLink[]
   threadV2States     ThreadV2State[]
+  visions            Vision[]
+
+  // INTENTION COMPLETION (CCR-1)
+  intentionCompletedAt DateTime? @map("intention_completed_at")
 
   @@index([userId])
   @@index([userId, isArchived]) // covers all vault queries (always filter isArchived=false)
   @@index([userId, isCharged]) // covers isCharged filter in GET /api/anchors
   @@index([userId, updatedAt]) // covers default orderBy (updatedAt desc)
   @@index([userId, createdAt]) // covers createdAt orderBy
+  @@index([userId, intentionCompletedAt])
   @@index([category])
   @@index([isShared])
   @@map("anchors")
@@ -705,4 +715,112 @@ model SyncQueue {
 
   @@index([userId, status])
   @@map("sync_queue")
+}
+
+// ============================================================================
+// Vision Domain & Recommendation Signals (Anchor 2.0 V2)
+// ============================================================================
+
+enum VisionStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum VisionSceneSource {
+  USER_UPLOAD
+  AI_GENERATED
+}
+
+model Vision {
+  id          String       @id @default(uuid())
+  userId      String       @map("user_id")
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anchorId    String       @map("anchor_id")
+  anchor      Anchor       @relation(fields: [anchorId], references: [id], onDelete: Cascade)
+
+  title       String?      @db.VarChar(140)
+  description String?      @db.Text
+  status      VisionStatus @default(ACTIVE)
+
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  scenes      VisionScene[]
+  views       VisionView[]
+
+  @@index([userId, status])
+  @@index([anchorId, status])
+  @@map("visions")
+}
+
+model VisionScene {
+  id          String            @id @default(uuid())
+  visionId    String            @map("vision_id")
+  vision      Vision            @relation(fields: [visionId], references: [id], onDelete: Cascade)
+  userId      String            @map("user_id")
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  sourceType  VisionSceneSource @map("source_type")
+  assetId     String?           @map("asset_id")
+  asset       Asset?            @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  prompt      String?           @db.Text
+  sortOrder   Int               @default(0) @map("sort_order")
+  isArchived  Boolean           @default(false) @map("is_archived")
+
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  @@index([visionId, sortOrder])
+  @@index([userId])
+  @@map("vision_scenes")
+}
+
+model VisionView {
+  id           String   @id @default(uuid())
+  visionId     String   @map("vision_id")
+  vision       Vision   @relation(fields: [visionId], references: [id], onDelete: Cascade)
+  userId       String   @map("user_id")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  viewedAt     DateTime @default(now()) @map("viewed_at")
+  localDateKey String?  @map("local_date_key")
+  timeZone     String?  @map("time_zone")
+
+  @@index([visionId, viewedAt])
+  @@index([userId, visionId, viewedAt])
+  @@index([userId, visionId, localDateKey])
+  @@map("vision_views")
+}
+
+model Asset {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  storageKey    String   @map("storage_key")
+  mimeType      String   @map("mime_type")
+  fileSizeBytes Int?     @map("file_size_bytes")
+  metadata      Json?
+
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  visionScenes  VisionScene[]
+
+  @@index([userId])
+  @@map("assets")
+}
+
+model RecommendationSignalAck {
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  signalKey      String   @map("signal_key")
+  signalType     String   @map("signal_type")
+  acknowledgedAt DateTime @default(now()) @map("acknowledged_at")
+
+  @@unique([userId, signalKey])
+  @@index([userId, acknowledgedAt])
+  @@map("recommendation_signal_acks")
 }

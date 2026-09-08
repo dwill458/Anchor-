@@ -41,6 +41,7 @@ export interface EnvConfig {
   CLOUDFLARE_R2_SECRET_ACCESS_KEY?: string;
   CLOUDFLARE_R2_BUCKET_NAME?: string;
   CLOUDFLARE_R2_PUBLIC_DOMAIN?: string;
+  CLOUDFLARE_R2_PRIVATE_BUCKET_NAME?: string;
 
   // TTS (Optional)
   GOOGLE_CLOUD_PROJECT_ID?: string;
@@ -198,6 +199,10 @@ export function validateEnv(): EnvConfig {
       CLOUDFLARE_R2_PUBLIC_DOMAIN: validateString(
         'CLOUDFLARE_R2_PUBLIC_DOMAIN',
         process.env.CLOUDFLARE_R2_PUBLIC_DOMAIN
+      ),
+      CLOUDFLARE_R2_PRIVATE_BUCKET_NAME: validateString(
+        'CLOUDFLARE_R2_PRIVATE_BUCKET_NAME',
+        process.env.CLOUDFLARE_R2_PRIVATE_BUCKET_NAME
       ),
 
       // TTS (optional)

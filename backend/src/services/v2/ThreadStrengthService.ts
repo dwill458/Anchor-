@@ -42,7 +42,9 @@ function applyLegacyDefaultDecay(strength: number, previous: Date | null, curren
 }
 
 function isThreadPracticeType(value: string): value is ThreadPracticeType {
-  return value === 'focus' || value === 'deep_prime' || value === 'visualize' || value === 'release';
+  return (
+    value === 'focus' || value === 'deep_prime' || value === 'visualize' || value === 'release'
+  );
 }
 
 export class ThreadStrengthService {
@@ -54,10 +56,9 @@ export class ThreadStrengthService {
     sessionId: string;
     mode: ThreadAuthorityMode;
   }): Promise<ThreadMovement> {
-    return prisma.$transaction(
-      tx => this.calculateInTransaction(tx, input),
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
-    );
+    return prisma.$transaction(tx => this.calculateInTransaction(tx, input), {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    });
   }
 
   async calculateForPracticeSession(input: {
@@ -83,16 +84,28 @@ export class ThreadStrengthService {
   private async calculateInTransaction(
     tx: Prisma.TransactionClient,
     input: {
-      userId: string; anchorId: string; practiceType: ThreadPracticeType;
-      completedAt: Date; sessionId: string; mode: ThreadAuthorityMode;
+      userId: string;
+      anchorId: string;
+      practiceType: ThreadPracticeType;
+      completedAt: Date;
+      sessionId: string;
+      mode: ThreadAuthorityMode;
     }
   ): Promise<ThreadMovement> {
-    const duplicate = await tx.threadV2Movement.findUnique({ where: { sessionId: input.sessionId } });
+    const duplicate = await tx.threadV2Movement.findUnique({
+      where: { sessionId: input.sessionId },
+    });
     if (duplicate) {
       if (duplicate.userId !== input.userId || duplicate.anchorId !== input.anchorId) {
         throw new Error('Thread movement session ownership conflict');
       }
-      return { beforeStrength: duplicate.beforeStrength, afterStrength: duplicate.afterStrength, delta: duplicate.delta, reason: 'practice_completed', idempotent: true };
+      return {
+        beforeStrength: duplicate.beforeStrength,
+        afterStrength: duplicate.afterStrength,
+        delta: duplicate.delta,
+        reason: 'practice_completed',
+        idempotent: true,
+      };
     }
 
     await tx.threadV2State.upsert({
@@ -101,7 +114,17 @@ export class ThreadStrengthService {
       update: {},
     });
     await tx.threadV2Movement.create({
-      data: { userId: input.userId, anchorId: input.anchorId, sessionId: input.sessionId, practiceType: input.practiceType, completedAt: input.completedAt, beforeStrength: 0, afterStrength: 0, delta: 0, reason: 'practice_completed' },
+      data: {
+        userId: input.userId,
+        anchorId: input.anchorId,
+        sessionId: input.sessionId,
+        practiceType: input.practiceType,
+        completedAt: input.completedAt,
+        beforeStrength: 0,
+        afterStrength: 0,
+        delta: 0,
+        reason: 'practice_completed',
+      },
     });
 
     // Recompose every movement in completion order so delayed/offline sessions
@@ -119,8 +142,18 @@ export class ThreadStrengthService {
       const gain = LEGACY_V1_DEFAULT_GAIN[movement.practiceType as ThreadPracticeType];
       const afterStrength = Math.min(100, beforeStrength + gain);
       const delta = afterStrength - beforeStrength;
-      await tx.threadV2Movement.update({ where: { id: movement.id }, data: { beforeStrength, afterStrength, delta } });
-      if (movement.sessionId === input.sessionId) requested = { beforeStrength, afterStrength, delta, reason: 'practice_completed', idempotent: false };
+      await tx.threadV2Movement.update({
+        where: { id: movement.id },
+        data: { beforeStrength, afterStrength, delta },
+      });
+      if (movement.sessionId === input.sessionId)
+        requested = {
+          beforeStrength,
+          afterStrength,
+          delta,
+          reason: 'practice_completed',
+          idempotent: false,
+        };
       strength = afterStrength;
       previous = movement.completedAt;
     }

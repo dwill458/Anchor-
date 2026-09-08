@@ -22,7 +22,7 @@ import contentRoutes from './api/routes/content';
 import billingRoutes from './api/routes/billing';
 import courseRoutes from './api/routes/courses';
 import reflectionRoutes from './api/routes/reflections';
-import { v2BillingRoutes, v2ThreadRoutes } from './api/routes/v2';
+import v2Routes, { v2BillingRoutes, v2ThreadRoutes } from './api/routes/v2';
 import { errorHandler, notFoundHandler } from './api/middleware/errorHandler';
 import { logger } from './utils/logger';
 import { env } from './config/env';
@@ -226,7 +226,7 @@ app.use(
       }
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Timezone'],
   })
 );
 
@@ -235,6 +235,10 @@ app.use(
 // body limit than the global parser. Registered first so it consumes the body
 // before the 1mb parser below — body-parser skips once req._body is set.
 app.use('/api/users', express.json({ limit: '8mb' }));
+// Vision uploads enforce a 5 MB decoded-image limit in visionRoutes. Allow
+// enough room for base64 expansion and JSON framing before that route-level
+// validation runs.
+app.use('/api/v2/assets/upload', express.json({ limit: '8mb' }));
 
 // Limit request body size to prevent memory exhaustion attacks
 app.use(express.json({ limit: '1mb' }));
@@ -320,6 +324,7 @@ app.use('/api/billing', billingRoutes);
 // behavior merely because this namespace is present.
 app.use('/api/v2/billing', v2BillingRoutes);
 app.use('/api/v2/thread', v2ThreadRoutes);
+app.use('/api/v2', v2Routes);
 
 // User routes
 app.use('/api/users', usersRoutes);
