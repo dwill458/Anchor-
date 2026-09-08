@@ -104,10 +104,13 @@ export async function getRevenueCatAccess(
     }
 
     if (cached && cached.value.isActive && cached.staleUntil > now.getTime()) {
-      logger.warn('[RevenueCat] Using bounded stale verified Pro entitlement after lookup failure', {
-        appUserId,
-        cachedAt: new Date(cached.cachedAt).toISOString(),
-      });
+      logger.warn(
+        '[RevenueCat] Using bounded stale verified Pro entitlement after lookup failure',
+        {
+          appUserId,
+          cachedAt: new Date(cached.cachedAt).toISOString(),
+        }
+      );
       return { ...cached.value, isStale: true };
     }
 

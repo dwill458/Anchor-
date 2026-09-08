@@ -73,8 +73,8 @@ export async function resolveMonetizationAccess(
     : null;
   const revenueCatIsActive = Boolean(
     revenueCatAccess?.isActive &&
-      (!revenueCatExpiry ||
-        (Number.isFinite(revenueCatExpiry.getTime()) && revenueCatExpiry.getTime() > now.getTime()))
+    (!revenueCatExpiry ||
+      (Number.isFinite(revenueCatExpiry.getTime()) && revenueCatExpiry.getTime() > now.getTime()))
   );
 
   if (revenueCatIsActive && revenueCatAccess) {

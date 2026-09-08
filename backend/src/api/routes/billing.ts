@@ -80,10 +80,10 @@ router.post(
           ? access.productIdentifier
           : null;
 
-      if (!access.isComped && (
-        user.subscriptionId !== subscriptionId ||
-        user.subscriptionStatus !== subscriptionStatus
-      )) {
+      if (
+        !access.isComped &&
+        (user.subscriptionId !== subscriptionId || user.subscriptionStatus !== subscriptionStatus)
+      ) {
         await prisma.user.update({
           where: { id: user.id },
           data: { subscriptionStatus, subscriptionId },
