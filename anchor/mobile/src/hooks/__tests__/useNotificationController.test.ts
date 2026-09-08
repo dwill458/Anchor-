@@ -7,6 +7,7 @@ const mockScheduleLocalNotification = jest.fn();
 const mockScheduleWeeklySummary = jest.fn();
 const mockCancelNotification = jest.fn();
 const mockCancelWeeklySummary = jest.fn();
+const mockHasPermissions = jest.fn();
 const mockAnchorStoreGetState = jest.fn();
 const mockSessionStoreGetState = jest.fn();
 const mockAuthStoreGetState = jest.fn();
@@ -20,6 +21,7 @@ jest.mock('@/services/NotificationService', () => ({
     scheduleWeeklySummary: (...args: unknown[]) => mockScheduleWeeklySummary(...args),
     cancelNotification: (...args: unknown[]) => mockCancelNotification(...args),
     cancelWeeklySummary: (...args: unknown[]) => mockCancelWeeklySummary(...args),
+    hasPermissions: (...args: unknown[]) => mockHasPermissions(...args),
   },
 }));
 
@@ -86,6 +88,7 @@ describe('useNotificationController', () => {
     asyncStorage.getItem.mockResolvedValue(null);
     asyncStorage.setItem.mockResolvedValue(undefined);
     mockCancelNotification.mockResolvedValue(undefined);
+    mockHasPermissions.mockResolvedValue(true);
     mockScheduleLocalNotification.mockResolvedValue('micro-prime');
     mockScheduleWeeklySummary.mockResolvedValue('weekly-summary');
     mockCancelWeeklySummary.mockResolvedValue(undefined);
@@ -127,6 +130,22 @@ describe('useNotificationController', () => {
       sovereign_rank: false,
       goal_primes: 3,
     });
+  });
+
+  it('disables app notification state when OS permissions are missing', async () => {
+    mockHasPermissions.mockResolvedValue(false);
+
+    const { result } = renderHook(() => useNotificationController());
+
+    await waitFor(() => expect(result.current.isInitialized).toBe(true));
+
+    expect(mockCancelNotification).toHaveBeenCalledWith('micro-prime');
+    expect(mockCancelWeeklySummary).toHaveBeenCalled();
+    expect(mockScheduleLocalNotification).not.toHaveBeenCalled();
+    expect(mockScheduleWeeklySummary).not.toHaveBeenCalled();
+
+    const savedState = JSON.parse(asyncStorage.setItem.mock.calls.at(-1)?.[1] ?? '{}');
+    expect(savedState.notification_enabled).toBe(false);
   });
 
   it('resets primed_today on a new day and increments miss streak across missed days', async () => {

@@ -61,6 +61,19 @@ describe('NotificationService', () => {
     expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
   });
 
+  it('checks iOS provisional permissions without showing the OS prompt', async () => {
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({
+      status: 'undetermined',
+      granted: false,
+      ios: { status: Notifications.IosAuthorizationStatus.PROVISIONAL },
+    });
+
+    const result = await NotificationService.hasPermissions();
+
+    expect(result).toBe(true);
+    expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
+  });
+
   it('returns expo and native push tokens when remote registration succeeds', async () => {
     (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({
       status: 'granted',
@@ -88,6 +101,30 @@ describe('NotificationService', () => {
         projectId: 'project-id-123',
       })
     );
+  });
+
+  it('returns APNS tokens for iOS remote registration', async () => {
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({
+      status: 'granted',
+      granted: true,
+      ios: { status: Notifications.IosAuthorizationStatus.AUTHORIZED },
+    });
+    (Notifications.getDevicePushTokenAsync as jest.Mock).mockResolvedValue({
+      type: 'ios',
+      data: 'apns-token-1',
+    });
+    (Notifications.getExpoPushTokenAsync as jest.Mock).mockResolvedValue({
+      data: 'ExponentPushToken[ios123]',
+    });
+
+    const result = await NotificationService.getRemotePushRegistration();
+
+    expect(result).toEqual({
+      permissionGranted: true,
+      expoPushToken: 'ExponentPushToken[ios123]',
+      fcmToken: null,
+      apnsToken: 'apns-token-1',
+    });
   });
 
   it('schedules ritual reminders with a deterministic identifier', async () => {
