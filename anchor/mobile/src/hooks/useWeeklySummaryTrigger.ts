@@ -10,6 +10,7 @@ const REVIEW_STREAK_KEY = 'anchor_weekly_summary_review_streak';
 
 /** Consecutive un-opened review weeks that force the review open on launch. */
 const AUTO_OPEN_DISMISSED_WEEKS = 2;
+const MINUTE_MS = 60_000;
 
 interface ReviewStreakState {
   /** Consecutive review weeks that ended without the review being opened. */
@@ -25,6 +26,11 @@ const INITIAL_STREAK_STATE: ReviewStreakState = {
   lastTrackedWeekKey: null,
   openedTrackedWeek: false,
 };
+
+function getMsUntilNextMinute(now: Date): number {
+  const elapsedMs = now.getSeconds() * 1000 + now.getMilliseconds();
+  return elapsedMs === 0 ? MINUTE_MS : MINUTE_MS - elapsedMs;
+}
 
 function parseStreakState(raw: string | null): ReviewStreakState {
   if (!raw) {
@@ -73,7 +79,25 @@ export function useWeeklySummaryTrigger(): WeeklySummaryTriggerResult {
   const [dismissedWeekKey, setDismissedWeekKey] = useState<string | null>(null);
   const [hasLoadedDismissalState, setHasLoadedDismissalState] = useState(false);
   const [autoOpenPending, setAutoOpenPending] = useState(false);
+  const [currentTime, setCurrentTime] = useState(() => new Date());
   const currentWeekKey = `${weekNumber}:${weekStart}`;
+
+  useEffect(() => {
+    let intervalId: ReturnType<typeof setInterval> | undefined;
+    const timeoutId = setTimeout(() => {
+      setCurrentTime(new Date());
+      intervalId = setInterval(() => {
+        setCurrentTime(new Date());
+      }, MINUTE_MS);
+    }, getMsUntilNextMinute(new Date()));
+
+    return () => {
+      clearTimeout(timeoutId);
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -154,6 +178,11 @@ export function useWeeklySummaryTrigger(): WeeklySummaryTriggerResult {
       return false;
     }
 
+    const hasReviewContent = hasActiveAnchor || totalPrimes >= 1;
+    if (!hasReviewContent) {
+      return false;
+    }
+
     // Two consecutive un-opened review weeks force the review open on launch.
     if (autoOpenPending) {
       return true;
@@ -167,11 +196,10 @@ export function useWeeklySummaryTrigger(): WeeklySummaryTriggerResult {
     // const hasWeeklyPrime = totalPrimes >= 1;
     // return isSunday && hasWeeklyPrime && !hasDismissedThisWeek;
 
-    const hasReviewContent = hasActiveAnchor || totalPrimes >= 1;
-
-    return isWithinWeeklyReviewWindow(new Date()) && hasReviewContent;
+    return isWithinWeeklyReviewWindow(currentTime);
   }, [
     autoOpenPending,
+    currentTime,
     currentWeekKey,
     developerPreviewToken,
     dismissedWeekKey,
