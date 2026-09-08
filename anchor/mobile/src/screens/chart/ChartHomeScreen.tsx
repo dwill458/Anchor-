@@ -4,19 +4,28 @@ import { ArrowUpRight, BookOpen, ChevronDown, CircleAlert, Eye, Link2, MoreHoriz
 import Svg, { Circle, Defs, G, Path, RadialGradient, Stop } from 'react-native-svg';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RouteProp } from '@react-navigation/native';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { useAuthStore } from '@/stores/authStore';
 import { useCourseStore } from '@/stores/courseStore';
+import { useCourseLogStore } from '@/stores/courseLogStore';
 import { startReflectionQueueSync } from '@/services/ReflectionService';
+import { AnalyticsEvents, trackChartEventOnce } from '@/services/AnalyticsService';
 import { useTabNavigation } from '@/contexts/TabNavigationContext';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
-import type { ChartStackParamList, CourseDetail, CourseSummary } from '@/types/chart';
+import type { ChartPracticeMode } from '@/types/practice';
+import { canViewChart } from '@/types/chart';
+import type { ChartStackParamList, CourseDetail, CourseSummary, WaypointSummary } from '@/types/chart';
+import { colors, typography } from '@/theme';
 import { CourseMap } from './components/CourseMap';
 import {
   ChartButton,
   ChartCard,
+  ChartGhostButton,
+  ChartIconButton,
+  ChartKicker,
   ChartScreenFrame,
-  ChartStatusPill,
+  ChartSection,
   ChartSyncNotice,
   LinearWaypointList,
   ReadOnlyNotice,
@@ -42,18 +51,13 @@ const EMPTY_STARS: Array<[number, number, number]> = [
 
 function errorCopy(code: string | null): string {
   switch (code) {
-    case 'FEATURE_DISABLED':
-      return 'Chart is currently read-only.';
-    case 'MIGRATION_REQUIRED':
-      return 'Chart needs to finish preparing your account.';
-    case 'COURSE_VERSION_CONFLICT':
-      return 'This Course changed elsewhere. Your view has been refreshed.';
-    case 'COURSE_NOT_FOUND':
-      return 'That Course is no longer available.';
-    case 'NETWORK':
-      return 'Chart could not refresh. Cached data remains available.';
-    default:
-      return 'Chart could not refresh. Try again.';
+    case 'FEATURE_DISABLED': return 'Chart is currently read-only.';
+    case 'MIGRATION_REQUIRED': return 'Chart needs to finish preparing your account.';
+    case 'COURSE_VERSION_CONFLICT': return 'This Course changed elsewhere. Your view has been refreshed.';
+    case 'COURSE_NOT_FOUND': return 'That Course is no longer available.';
+    case 'NETWORK': return 'Chart could not refresh. Cached data remains available.';
+    case 'STALE': return 'This Chart is out of date. Refresh before making a change.';
+    default: return 'Chart could not refresh. Try again.';
   }
 }
 
@@ -131,152 +135,147 @@ const PracticeModeButton: React.FC<{
 );
 
 const DestinationAnchor: React.FC<{ course: CourseDetail | CourseSummary }> = ({ course }) => (
-  <View>
-    <Text style={{ color: '#C0C0C0', fontFamily: 'Inter-Regular', fontSize: 12 }}>Destination Anchor</Text>
-    <Text style={{ color: '#F5F5DC', fontFamily: 'Inter-SemiBold', fontSize: 15, marginTop: 4 }}>
-      {course.destinationAnchorLink?.snapshot.intentionText ?? 'No Anchor linked yet'}
-    </Text>
+  <View style={styles.destinationAnchorRow}>
+    <Link2 size={14} color={colors.gold} />
+    <Text style={styles.destinationAnchorText}>{course.destinationAnchorLink?.snapshot.intentionText ?? 'No destination Anchor linked'}</Text>
   </View>
 );
 
 export const ChartHomeScreen: React.FC = () => {
   const navigation = useNavigation<ChartNavigation>();
+  const route = useRoute<ChartHomeRoute>();
   const accountId = useAuthStore((state) => state.user?.id ?? null);
   const serverFlags = useAuthStore((state) => state.user?.chartFlags);
+  const chartCapabilities = useAuthStore((state) => state.user?.chartCapabilities);
   const authOffline = useAuthStore((state) => state.isOfflineMode);
   const { registerTabNav } = useTabNavigation();
   const store = useCourseStore();
+  const logStore = useCourseLogStore();
   const reducedMotion = useReduceMotionEnabled();
 
   useEffect(() => {
-    if (!accountId) return;
+    if (!accountId || serverFlags == null) return;
+    if (canViewChart(serverFlags, chartCapabilities)) {
+      trackChartEventOnce(AnalyticsEvents.CHART_TAB_VIEWED, accountId, route.key, {
+        entry_source: 'chart_tab',
+      });
+    } else {
+      trackChartEventOnce(AnalyticsEvents.CHART_UNAVAILABLE_VIEWED, accountId, route.key, {
+        entry_source: 'chart_tab',
+        error_category: 'feature_unavailable',
+        offline: authOffline,
+      });
+    }
+  }, [accountId, authOffline, chartCapabilities, route.key, serverFlags]);
+
+  useEffect(() => {
+    if (!accountId || !canViewChart(serverFlags, chartCapabilities)) return;
     store.setFeatureFlags(serverFlags);
     store.bindAccount(accountId);
     void store.hydrateAndRefresh(accountId);
-  }, [accountId, serverFlags, store.bindAccount, store.hydrateAndRefresh, store.setFeatureFlags]);
+  }, [accountId, serverFlags, chartCapabilities, store.bindAccount, store.hydrateAndRefresh, store.setFeatureFlags]);
+
+  useEffect(() => startReflectionQueueSync(), []);
 
   useEffect(() => {
-    // ChartHome is the stack root, so its navigation object is the correct
-    // target for cross-tab pushes and deep links.
     registerTabNav(2, navigation);
     return () => registerTabNav(2, null);
   }, [navigation, registerTabNav]);
 
   const course = useMemo<CourseDetail | CourseSummary | null>(() => {
     if (store.activeCourse) return store.activeCourse;
-    return (
-      store.courses.find((item) => item.status === 'DRAFT') ??
-      store.courses.find((item) => item.status === 'ACTIVE') ??
-      null
-    );
+    return store.courses.find((item) => item.status === 'DRAFT') ?? store.courses.find((item) => item.status === 'ACTIVE') ?? null;
   }, [store.activeCourse, store.courses]);
-  const hasCache = Boolean(course || store.courses.length);
+  const detail = course && 'waypoints' in course ? course : null;
+
+  useEffect(() => {
+    if (!accountId || !detail?.id) return;
+    void logStore.bind(accountId, detail.id);
+  }, [accountId, detail?.id, logStore.bind]);
+
   const historicalCourses = store.courses.filter((item) => item.status === 'COMPLETED' || item.status === 'ARCHIVED');
+  const hasCache = Boolean(course || store.courses.length);
   const offline = authOffline || store.offline;
-  const disabledReason = offline
-    ? 'You are offline. Cached Chart data is available, but changes are disabled.'
-    : !store.flags.chart_write_enabled
-      ? 'Chart is readable while editing is disabled.'
-      : undefined;
+  const readOnly = store.readOnly || offline || store.stale;
 
   const retry = useCallback(() => {
     if (accountId) void store.hydrateAndRefresh(accountId);
   }, [accountId, store.hydrateAndRefresh]);
 
+  const openCourse = useCallback(() => {
+    if (course) navigation.navigate('CourseDetails', { courseId: course.id });
+  }, [course, navigation]);
+
   if (!accountId || !store.flags.chart_enabled) {
     return (
-      <ChartScreenFrame title="Chart" subtitle="Where am I going?">
-        <ChartCard>
-          <Text style={{ color: '#F5F5DC', fontFamily: 'Inter-SemiBold', fontSize: 18 }}>Chart is unavailable</Text>
-          <Text style={{ color: '#C0C0C0', fontFamily: 'Inter-Regular', fontSize: 15, lineHeight: 22 }}>
-            Chart will appear here when it is enabled for your account.
-          </Text>
-        </ChartCard>
+      <ChartScreenFrame title="CHART" subtitle="Know where you’re going.">
+        <ChartCard emphasis><Text style={styles.emptyTitle}>Chart is unavailable</Text><Text style={styles.body}>Chart will appear here when it is enabled for your account.</Text></ChartCard>
       </ChartScreenFrame>
     );
   }
 
   if (store.migrationRequired) {
     return (
-      <ChartScreenFrame title="Chart" subtitle="Where am I going?">
-        <ChartCard emphasis>
-          <Text style={{ color: '#F5F5DC', fontFamily: 'Cinzel-SemiBold', fontSize: 22 }}>Chart isn’t ready yet.</Text>
-          <Text style={{ color: '#C0C0C0', fontFamily: 'Inter-Regular', fontSize: 15, lineHeight: 22 }}>
-            Your account needs one more preparation step before Courses can open.
-          </Text>
-          <ChartButton label="Tap to retry" onPress={retry} disabled={store.refreshing} />
-        </ChartCard>
+      <ChartScreenFrame title="CHART" subtitle="Know where you’re going.">
+        <ChartCard emphasis><ChartKicker>Chart</ChartKicker><Text style={styles.emptyTitle}>Chart isn’t ready yet.</Text><Text style={styles.body}>Your account needs one more preparation step before Courses can open.</Text><ChartButton label="Tap to retry" onPress={retry} disabled={store.refreshing} /></ChartCard>
       </ChartScreenFrame>
     );
   }
 
   if ((store.loading || store.initializationStatus === 'hydrating') && !hasCache) {
-    return (
-      <ChartScreenFrame title="Chart" subtitle="Where am I going?">
-        <LoadingSpinner message="Loading Chart" />
-      </ChartScreenFrame>
-    );
+    return <ChartScreenFrame title="CHART" subtitle="Know where you’re going."><LoadingSpinner message="Loading Chart" /></ChartScreenFrame>;
   }
 
   if (!course && !hasCache && store.errorCode) {
-    return (
-      <ChartScreenFrame title="Chart" subtitle="Where am I going?">
-        <ChartCard emphasis>
-          <Text accessibilityLiveRegion="assertive" style={{ color: '#FFB1B1', fontFamily: 'Inter-SemiBold', fontSize: 17 }}>
-            {errorCopy(store.errorCode)}
-          </Text>
-          <ChartButton label="Retry" onPress={retry} />
-        </ChartCard>
-      </ChartScreenFrame>
-    );
+    return <ChartScreenFrame title="CHART" subtitle="Know where you’re going."><ChartCard emphasis><Text accessibilityLiveRegion="assertive" style={styles.error}>{errorCopy(store.errorCode)}</Text><ChartButton label="Retry" onPress={retry} /></ChartCard></ChartScreenFrame>;
   }
 
   if (!course) {
     return (
-      <ChartScreenFrame title="Chart" subtitle="Where am I going?">
-        <ChartCard emphasis>
-          <Text style={{ color: '#F5F5DC', fontFamily: 'Cinzel-SemiBold', fontSize: 28 }}>Plot Your Course</Text>
-          <Text style={{ color: '#C0C0C0', fontFamily: 'Inter-Regular', fontSize: 16, lineHeight: 24 }}>
-            Define where you are going, then give the next meaningful step a place to begin.
-          </Text>
+      <ChartScreenFrame title="CHART" scroll={false} headerTopInset={18}>
+        <View style={styles.emptyState}>
+          <EmptyChartArt />
+          <Text style={styles.emptyTitle}>Where are you going?</Text>
+          <Text style={[styles.body, styles.emptyBody]}>Set a destination. Anchor will help you plot the way there.</Text>
           <ChartButton label="Plot Your Course" onPress={() => navigation.navigate('CourseSetup')} />
-          {store.flags.chart_ai_planner_enabled ? (
-            <Text style={{ color: '#9E9E9E', fontFamily: 'Inter-Regular', fontSize: 12, lineHeight: 18 }}>
-              AI planning is available from the setup flow when a proposal is ready.
-            </Text>
-          ) : null}
-        </ChartCard>
-        {historicalCourses.length > 0 ? (
-          <ChartCard>
-            <Text style={{ color: '#D4AF37', fontFamily: 'Inter-SemiBold', fontSize: 13 }}>COMPLETED & ARCHIVED JOURNEYS</Text>
-            {historicalCourses.map((item) => (
-              <ChartButton
-                key={item.id}
-                label={`${item.status === 'COMPLETED' ? 'Completed' : 'Archived'} · ${item.destinationText}`}
-                secondary
-                onPress={() => {
-                  if (item.status === 'COMPLETED') {
-                    navigation.navigate('CompletedJourney', { courseId: item.id });
-                  } else {
-                    navigation.navigate('CourseDetails', { courseId: item.id });
-                  }
-                }}
-              />
-            ))}
-          </ChartCard>
-        ) : null}
-        {disabledReason ? <ReadOnlyNotice reason={disabledReason} /> : null}
+          <ChartGhostButton label="Build it myself" onPress={() => navigation.navigate('CourseSetup')} style={styles.buildItButton} />
+        </View>
+        {historicalCourses.length > 0 ? <ChartCard><ChartKicker>Completed & Archived Journeys</ChartKicker>{historicalCourses.map((item) => <ChartGhostButton key={item.id} label={`${item.status === 'COMPLETED' ? 'Completed' : 'Archived'} · ${item.destinationText}`} onPress={() => item.status === 'COMPLETED' ? navigation.navigate('CompletedJourney', { courseId: item.id }) : navigation.navigate('CourseDetails', { courseId: item.id })} />)}</ChartCard> : null}
       </ChartScreenFrame>
     );
   }
 
-  const detail = 'waypoints' in course ? course : null;
-  const needsRepair = course.needsRepair === true;
-  const isDraft = course.status === 'DRAFT';
+  const currentWaypoint = detail?.waypoints.find((waypoint) => waypoint.id === detail.currentWaypointId) ?? null;
+  const currentLogEntries = currentWaypoint
+    ? logStore.entries.filter((entry) => !entry.waypointId || entry.waypointId === currentWaypoint.id).slice(0, 2)
+    : [];
   const isActive = course.status === 'ACTIVE';
+  const isDraft = course.status === 'DRAFT';
   const isCompleted = course.status === 'COMPLETED';
   const isArchived = course.status === 'ARCHIVED';
-  const currentWaypoint = detail?.waypoints.find((waypoint) => waypoint.id === detail.currentWaypointId);
+
+  const launchPractice = (mode: ChartPracticeMode) => {
+    if (!detail || !currentWaypoint || !currentWaypoint.anchorLink?.anchorAvailable || readOnly) return;
+    navigation.navigate('WaypointDetail', {
+      courseId: detail.id,
+      waypointId: currentWaypoint.id,
+      launchMode: mode,
+    });
+  };
+
+  useEffect(() => {
+    if (!accountId || !course) return;
+    trackChartEventOnce(AnalyticsEvents.COURSE_VIEWED, accountId, course.id, {
+      course_state: course.status,
+      waypoint_count: course.waypointCount,
+    });
+    if (course.needsRepair) {
+      trackChartEventOnce(AnalyticsEvents.CHART_UNAVAILABLE_VIEWED, accountId, `repair:${course.id}`, {
+        course_state: course.status,
+        error_category: 'repair_required',
+      });
+    }
+  }, [accountId, course]);
 
   return (
     <ChartScreenFrame
@@ -293,14 +292,15 @@ export const ChartHomeScreen: React.FC = () => {
 
       {isDraft ? (
         <ChartCard emphasis>
-          <ChartStatusPill status="DRAFT" />
-          <Text style={{ color: '#F5F5DC', fontFamily: 'Cinzel-SemiBold', fontSize: 25 }}>{course.destinationText}</Text>
-          <Text style={{ color: '#C0C0C0', fontFamily: 'Inter-Regular', fontSize: 15 }}>{course.waypointCount} waypoint{course.waypointCount === 1 ? '' : 's'} plotted</Text>
+          <ChartKicker>YOUR COURSE · DRAFT</ChartKicker>
+          <Text style={styles.courseTitle}>{course.destinationText.toUpperCase()}</Text>
+          <Text style={styles.body}>{course.waypointCount} waypoint{course.waypointCount === 1 ? '' : 's'} plotted.</Text>
           <ChartButton label="Continue editing" onPress={() => navigation.navigate('CourseEditor', { courseId: course.id })} />
-          <ChartButton label="Publish Course" secondary onPress={() => void store.publishCourse(course.id, course.version)} disabled={store.readOnly || course.waypointCount === 0} hint={store.readOnly ? disabledReason : undefined} />
+          <ChartButton label="Publish Course" secondary onPress={() => void store.publishCourse(course.id, course.version)} disabled={readOnly || course.waypointCount === 0} />
         </ChartCard>
       ) : null}
-      {isActive ? (
+
+      {isActive && detail ? (
         <>
           <ChartSection style={styles.courseHeaderSection}>
             <ChartKicker>CURRENT COURSE</ChartKicker>
@@ -344,92 +344,110 @@ export const ChartHomeScreen: React.FC = () => {
                 </View>
                 <ArrowUpRight size={15} color={colors.gold} />
               </ChartCard>
-              <ChartCard>
-                <Text style={{ color: '#D4AF37', fontFamily: 'Inter-SemiBold', fontSize: 13 }}>PRACTICE</Text>
-                <Text style={{ color: '#C0C0C0', fontFamily: 'Inter-Regular', fontSize: 15, lineHeight: 22 }}>Practice actions will connect here when that flow lands.</Text>
+              {!currentWaypoint.anchorLink?.anchorAvailable ? <ChartButton label="Link an Existing Anchor" secondary onPress={() => navigation.navigate('WaypointDetail', { courseId: course.id, waypointId: currentWaypoint.id })} disabled={readOnly} /> : null}
+
+              <ChartKicker style={styles.subKicker}>PRACTICE THIS WAYPOINT</ChartKicker>
+              <View style={styles.practiceRow}>
+                {PRACTICE_MODES.map((mode) => <PracticeModeButton key={mode.mode} mode={mode} disabled={readOnly || !currentWaypoint.anchorLink?.anchorAvailable || currentWaypoint.state === 'BLOCKED'} onPress={() => launchPractice(mode.mode)} />)}
+              </View>
+
+              <ChartKicker style={styles.subKicker}>COURSE LOG · {currentWaypoint.title}</ChartKicker>
+              <ChartCard style={styles.logCard}>
+                {currentLogEntries.length > 0 ? currentLogEntries.map((entry) => {
+                  const copy = logEntryText(entry);
+                  return <View key={entry.id} style={styles.logLine}><View style={styles.logDot} /><View style={styles.logEntryCopy}><Text style={styles.logMeta}>{formatShortDate(entry.occurredAt).toUpperCase()} · {copy.meta}</Text><Text style={styles.logQuote}>“{copy.text}”</Text></View></View>;
+                }) : <Text style={styles.logEmpty}>{logStore.loading ? 'Loading Course Log…' : 'Your reflections will appear here.'}</Text>}
               </ChartCard>
-              <ChartCard>
-                <Text style={{ color: '#D4AF37', fontFamily: 'Inter-SemiBold', fontSize: 13 }}>COURSE PROGRESS</Text>
-                <Text style={{ color: '#F5F5DC', fontFamily: 'Inter-SemiBold', fontSize: 20 }}>{course.reachedCount} of {course.waypointCount} reached</Text>
-                <Text style={{ color: '#C0C0C0', fontFamily: 'Inter-Regular', fontSize: 15 }}>Destination: {course.destinationText}</Text>
-              </ChartCard>
-              <ChartCard>
-                <Text style={{ color: '#D4AF37', fontFamily: 'Inter-SemiBold', fontSize: 13 }}>ROUTE MAP</Text>
-                <CourseMap
-                  courseId={course.id}
-                  destinationText={course.destinationText}
-                  waypoints={detail.waypoints}
-                  currentWaypointId={detail.currentWaypointId}
-                  reachedCount={course.reachedCount}
-                  completed={false}
-                  reducedMotion={reducedMotion}
-                  onWaypointPress={(waypointId) => navigation.navigate('WaypointDetail', { courseId: course.id, waypointId })}
-                />
-                <Text style={{ color: '#9E9E9E', fontFamily: 'Inter-Regular', fontSize: 12 }}>The linear list below is the comprehension surface.</Text>
-              </ChartCard>
-              <ChartCard>
-                <Text style={{ color: '#D4AF37', fontFamily: 'Inter-SemiBold', fontSize: 13 }}>COURSE LOG</Text>
-                <Text style={{ color: '#9E9E9E', fontFamily: 'Inter-Regular', fontSize: 14 }}>Course Log will appear here when its workstream lands.</Text>
-                <ChartButton label="Open Course Log" secondary onPress={() => navigation.navigate('CourseLog', { courseId: course.id })} />
-              </ChartCard>
-              <ChartCard>
-                <Text style={{ color: '#D4AF37', fontFamily: 'Inter-SemiBold', fontSize: 13 }}>COURSE OBSERVATION</Text>
-                <Text style={{ color: '#C0C0C0', fontFamily: 'Inter-Regular', fontSize: 14 }}>{course.observations?.[0]?.text ?? 'Observations will appear as the Course gathers history.'}</Text>
-              </ChartCard>
-              <LinearWaypointList
-                waypoints={detail.waypoints}
-                currentWaypointId={detail.currentWaypointId}
-                onOpen={(waypoint) => navigation.navigate('WaypointDetail', { courseId: course.id, waypointId: waypoint.id })}
-              />
-              <ChartButton label="Manage Course" secondary onPress={() => navigation.navigate('CourseDetails', { courseId: course.id })} />
-            </>
+              <View style={styles.logActions}><ChartGhostButton label="Add Reflection" icon={<BookOpen size={13} color={colors.gold} />} onPress={() => navigation.navigate('ReflectionComposer', { source: 'MANUAL_COURSE', promptType: 'COURSE_STATUS', promptVersion: 1, courseId: course.id, waypointId: currentWaypoint.id, draftKey: `course:${course.id}:${currentWaypoint.id}:manual` })} /><ChartGhostButton label="View full log →" onPress={() => navigation.navigate('CourseLog', { courseId: course.id })} color={colors.gold} /></View>
+
+              <ChartKicker style={styles.subKicker}>COURSE GUIDANCE</ChartKicker>
+              <ChartGhostButton label={course.observations?.[0]?.text ?? 'Your reflections will surface patterns here.'} onPress={() => navigation.navigate('CourseLog', { courseId: course.id })} color="rgba(245,240,232,0.62)" />
+            </ChartSection>
           ) : null}
+
+          <LinearWaypointList waypoints={detail.waypoints} currentWaypointId={detail.currentWaypointId} onOpen={(waypoint) => navigation.navigate('WaypointDetail', { courseId: course.id, waypointId: waypoint.id })} />
+          <ChartGhostButton label="Manage Course" onPress={openCourse} icon={<MoreHorizontal size={14} color={colors.gold} />} color={colors.gold} />
         </>
       ) : null}
+
       {isCompleted ? (
         <ChartCard emphasis>
-          <ChartStatusPill status="COMPLETED" />
-          <Text style={{ color: '#F5F5DC', fontFamily: 'Cinzel-SemiBold', fontSize: 25 }}>Destination reached</Text>
-          <Text style={{ color: '#C0C0C0', fontFamily: 'Inter-Regular', fontSize: 15 }}>Completed {course.completedAt ? formatDate(course.completedAt) : 'date unavailable'}.</Text>
-          <ChartButton label="Open completed journey" onPress={() => navigation.navigate('CompletedJourney', { courseId: course.id })} />
-          <ChartButton label="Plot What Comes Next" secondary onPress={() => navigation.navigate('CourseSetup')} disabled={store.readOnly} hint={disabledReason} />
+          <ChartKicker>DESTINATION REACHED</ChartKicker><Text style={styles.courseTitle}>{course.destinationText.toUpperCase()}</Text><Text style={styles.body}>Completion is confirmed by the server.</Text>
+          {detail ? <CourseMap courseId={course.id} destinationText={course.destinationText} waypoints={detail.waypoints} currentWaypointId={null} reachedCount={course.reachedCount} completed reducedMotion={reducedMotion} orientation="horizontal" onWaypointPress={(waypointId) => navigation.navigate('WaypointDetail', { courseId: course.id, waypointId })} /> : null}
+          <ChartButton label="Open completed journey" onPress={() => navigation.navigate('CompletedJourney', { courseId: course.id })} /><ChartButton label="Plot What Comes Next" secondary onPress={() => navigation.navigate('CourseSetup')} disabled={readOnly} />
         </ChartCard>
       ) : null}
-      {isArchived ? (
-        <ChartCard emphasis>
-          <ChartStatusPill status="ARCHIVED" />
-          <Text style={{ color: '#F5F5DC', fontFamily: 'Cinzel-SemiBold', fontSize: 25 }}>{course.destinationText}</Text>
-          <Text style={{ color: '#C0C0C0', fontFamily: 'Inter-Regular', fontSize: 15 }}>Read-only archived journey.</Text>
-          <ChartButton label="Restore Course" onPress={() => void store.restoreCourse(course.id, course.version)} disabled={store.readOnly} hint={disabledReason} />
-          <ChartButton label="Open Course details" secondary onPress={() => navigation.navigate('CourseDetails', { courseId: course.id })} />
-        </ChartCard>
-      ) : null}
-      {!isDraft && !isActive && !isCompleted && !isArchived ? null : null}
-      {historicalCourses.length > 0 ? (
-        <ChartCard>
-          <Text style={{ color: '#D4AF37', fontFamily: 'Inter-SemiBold', fontSize: 13 }}>COMPLETED & ARCHIVED JOURNEYS</Text>
-          {historicalCourses.map((item) => (
-              <ChartButton
-                key={item.id}
-                label={`${item.status === 'COMPLETED' ? 'Completed' : 'Archived'} · ${item.destinationText}`}
-                secondary
-                onPress={() => {
-                  if (item.status === 'COMPLETED') {
-                    navigation.navigate('CompletedJourney', { courseId: item.id });
-                  } else {
-                    navigation.navigate('CourseDetails', { courseId: item.id });
-                  }
-                }}
-              />
-            ))}
-        </ChartCard>
-      ) : null}
-      {disabledReason && !needsRepair ? <ReadOnlyNotice reason={disabledReason} /> : null}
-      <ChartCard>
-        <DestinationAnchor course={course} />
-      </ChartCard>
+
+      {isArchived ? <ChartCard emphasis><ChartKicker>ARCHIVED JOURNEY</ChartKicker><Text style={styles.courseTitle}>{course.destinationText.toUpperCase()}</Text><Text style={styles.body}>Read-only archived journey.</Text><ChartButton label="Restore Course" onPress={() => void store.restoreCourse(course.id, course.version)} disabled={readOnly} /><ChartButton label="Open Course details" secondary onPress={openCourse} /></ChartCard> : null}
+
+      {course.needsRepair ? <ChartCard emphasis><ChartKicker color="#F0A0A0">REPAIR REQUIRED</ChartKicker><Text style={styles.body}>Chart needs to finish preparing this Course. Nothing was silently selected or repaired on this device.</Text><ChartButton label="Retry and refetch" onPress={retry} disabled={store.refreshing} /></ChartCard> : null}
+      {historicalCourses.length > 0 ? <ChartCard><ChartKicker>COMPLETED & ARCHIVED JOURNEYS</ChartKicker>{historicalCourses.map((item) => <ChartGhostButton key={item.id} label={`${item.status === 'COMPLETED' ? 'Completed' : 'Archived'} · ${item.destinationText}`} onPress={() => item.status === 'COMPLETED' ? navigation.navigate('CompletedJourney', { courseId: item.id }) : navigation.navigate('CourseDetails', { courseId: item.id })} />)}</ChartCard> : null}
+      {readOnly && !course.needsRepair ? <ReadOnlyNotice reason={offline ? 'You are offline. Cached Chart data is viewable; changes are disabled.' : store.stale ? 'This Chart is stale. Refresh before making a change.' : 'Chart changes are currently read-only.'} /> : null}
+      <DestinationAnchor course={course} />
     </ChartScreenFrame>
   );
 };
+
+const styles = StyleSheet.create({
+  headerActions: { flexDirection: 'row', gap: 8, marginTop: -2 },
+  emptyState: { flex: 1, justifyContent: 'flex-end', paddingBottom: 60, gap: 12 },
+  emptyArt: { position: 'absolute', left: -20, right: -20, top: 0, bottom: 0, overflow: 'visible' },
+  emptyStarfield: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
+  emptyGlowSvg: { position: 'absolute', top: 130, alignSelf: 'center' },
+  emptyRouteSvg: { position: 'absolute', top: 288, alignSelf: 'center' },
+  emptyTitle: { fontFamily: typography.fonts.headingSemiBold, fontSize: 24, lineHeight: 31, letterSpacing: 0.72, color: colors.bone },
+  emptyBody: { textAlign: 'center', paddingHorizontal: 34, color: 'rgba(245,240,232,0.62)' },
+  body: { fontFamily: typography.fonts.body, fontSize: 13, lineHeight: 20, color: 'rgba(245,240,232,0.68)' },
+  buildItButton: { alignSelf: 'center' },
+  inlineNotice: { minHeight: 40, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(240,160,160,0.22)', backgroundColor: 'rgba(120,30,30,0.12)', flexDirection: 'row', alignItems: 'center', gap: 8 },
+  inlineNoticeText: { flex: 1, fontFamily: typography.fonts.body, fontSize: 12, lineHeight: 17, color: '#F0A0A0' },
+  error: { fontFamily: typography.fonts.body, fontSize: 14, lineHeight: 20, color: '#F0A0A0' },
+  courseHeaderSection: { gap: 8 },
+  courseTitleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  courseTitle: { flex: 1, fontFamily: typography.fonts.headingSemiBold, fontSize: 19, lineHeight: 27, letterSpacing: 0.5, color: colors.bone },
+  courseMetaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  activeDestination: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  activeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.gold, shadowColor: colors.gold, shadowOpacity: 0.8, shadowRadius: 7 },
+  metaGold: { fontFamily: typography.fonts.body, fontSize: 11.5, color: colors.gold },
+  routeSection: { marginHorizontal: -20, gap: 6 },
+  progress: { paddingHorizontal: 20, fontFamily: typography.fonts.body, fontSize: 11.5, color: 'rgba(245,240,232,0.38)' },
+  currentSection: { paddingTop: 20, borderTopWidth: 1, borderTopColor: 'rgba(212,175,55,0.18)', gap: 10 },
+  currentTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  currentTitle: { fontFamily: typography.fonts.headingSemiBold, fontSize: 24, lineHeight: 31, color: colors.bone },
+  currentBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingTop: 4 },
+  currentBadgeDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#9B82D4', shadowColor: '#9B82D4', shadowOpacity: 0.8, shadowRadius: 5 },
+  currentBadgeText: { fontFamily: typography.fonts.headingSemiBold, fontSize: 9.5, letterSpacing: 1.3, color: '#AD99D2' },
+  blockedBadge: { borderColor: 'rgba(255,193,7,0.35)' },
+  blockedDot: { backgroundColor: colors.warning },
+  blockedText: { color: colors.warning },
+  currentDescription: { fontFamily: typography.fonts.body, fontSize: 13, lineHeight: 20, color: 'rgba(245,240,232,0.78)' },
+  currentMeta: { fontFamily: typography.fonts.body, fontSize: 10.5, color: 'rgba(245,240,232,0.36)' },
+  subKicker: { marginTop: 10 },
+  anchorCard: { flexDirection: 'row', alignItems: 'center', minHeight: 96, padding: 10, gap: 10 },
+  anchorArt: { width: 82, height: 82, alignItems: 'center', justifyContent: 'center' },
+  anchorGlow: { position: 'absolute', width: 82, height: 82, borderRadius: 41, backgroundColor: 'rgba(62,44,91,0.54)', shadowColor: '#9B82D4', shadowOpacity: 0.28, shadowRadius: 16 },
+  anchorRing: { width: 68, height: 68, borderRadius: 34, borderWidth: 1, borderColor: 'rgba(212,175,55,0.34)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: 'rgba(62,44,91,0.24)' },
+  anchorImage: { width: 62, height: 62, borderRadius: 31 },
+  anchorPlaceholder: { fontFamily: typography.fonts.body, fontSize: 12, color: 'rgba(245,240,232,0.36)' },
+  anchorCopy: { flex: 1, gap: 8 },
+  anchorQuote: { fontFamily: 'CormorantGaramond-Italic', fontSize: 17, lineHeight: 20, color: colors.bone },
+  anchorMeta: { fontFamily: typography.fonts.headingSemiBold, fontSize: 9, letterSpacing: 1.2, color: 'rgba(212,175,55,0.7)' },
+  practiceRow: { flexDirection: 'row', gap: 9 },
+  practiceMode: { flex: 1, minHeight: 64, borderRadius: 13, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.015)', alignItems: 'center', justifyContent: 'center', gap: 5 },
+  practiceModeLabel: { fontFamily: typography.fonts.headingSemiBold, fontSize: 9.5, letterSpacing: 1.1 },
+  disabled: { opacity: 0.38 },
+  pressed: { transform: [{ scale: 0.98 }] },
+  logCard: { padding: 10, gap: 12 },
+  logLine: { flexDirection: 'row', gap: 10 },
+  logEntryCopy: { flex: 1, gap: 2 },
+  logDot: { width: 7, height: 7, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(212,175,55,0.42)', marginTop: 4 },
+  logMeta: { fontFamily: typography.fonts.headingSemiBold, fontSize: 9, letterSpacing: 1.1, color: 'rgba(245,240,232,0.34)' },
+  logQuote: { fontFamily: 'CormorantGaramond-Italic', fontSize: 15, lineHeight: 19, color: 'rgba(245,240,232,0.62)', marginTop: 4 },
+  logBody: { fontFamily: typography.fonts.body, fontSize: 11, color: 'rgba(155,130,212,0.8)', marginTop: 3 },
+  logEmpty: { fontFamily: typography.fonts.body, fontSize: 12, lineHeight: 18, color: 'rgba(245,240,232,0.42)' },
+  logActions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  destinationAnchorRow: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingTop: 6, paddingBottom: 20 },
+  destinationAnchorText: { flex: 1, fontFamily: typography.fonts.body, fontSize: 11, color: 'rgba(245,240,232,0.42)' },
+});
 
 export default ChartHomeScreen;
