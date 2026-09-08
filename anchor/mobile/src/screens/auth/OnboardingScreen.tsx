@@ -20,7 +20,7 @@ import type { RootNavigatorParamList } from '@/navigation/RootNavigator';
 import { useAuthStore } from '../../stores/authStore';
 import { generateTrueSigil } from '@/utils/sigil/traditional-generator';
 import { ForgeDemo } from '@/components/onboarding/ForgeDemo';
-const anchorLogoImg = require('../../../assets/anchor-icon.png');
+const anchorLogoImg = require('../../assets/images/anchor-gold.png');
 import { UseCaseCard } from '@/components/onboarding/UseCaseCard';
 import type { UseCaseItem } from '@/components/onboarding/UseCaseCard';
 
