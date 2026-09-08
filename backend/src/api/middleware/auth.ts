@@ -40,7 +40,7 @@ export interface AuthRequest extends Request {
     subscriptionStatus?: string;
     subscriptionId?: string | null;
     isComped?: boolean;
-    trialStartedAt?: Date;
+    trialStartedAt?: Date | null;
     totalAnchorsCreated?: number;
   };
 }

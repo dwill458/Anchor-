@@ -868,6 +868,33 @@ describe('POST /api/anchors/:id/activate', () => {
 // ═════════════════════════════════════════════════════════════════════════════
 
 describe('POST /api/anchors/:id/burn', () => {
+  const originalDestructiveReleaseSetting = process.env.ALLOW_LEGACY_DESTRUCTIVE_RELEASE;
+
+  beforeEach(() => {
+    process.env.ALLOW_LEGACY_DESTRUCTIVE_RELEASE = 'true';
+  });
+
+  afterAll(() => {
+    if (originalDestructiveReleaseSetting === undefined) {
+      delete process.env.ALLOW_LEGACY_DESTRUCTIVE_RELEASE;
+    } else {
+      process.env.ALLOW_LEGACY_DESTRUCTIVE_RELEASE = originalDestructiveReleaseSetting;
+    }
+  });
+
+  it('quarantines destructive release by default and never enters the delete transaction', async () => {
+    process.env.ALLOW_LEGACY_DESTRUCTIVE_RELEASE = 'false';
+    const res = await request(buildApp()).post('/api/anchors/anchor-1/burn');
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toMatchObject({
+      code: 'DESTRUCTIVE_RELEASE_DISABLED',
+      message: 'Legacy destructive release is disabled.',
+    });
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockPrisma.anchor.delete).not.toHaveBeenCalled();
+  });
+
   it('returns 401 when auth middleware does not attach a user', async () => {
     mockedAuthMiddleware.mockImplementation((_req: any, res: any) => {
       res.status(401).json({

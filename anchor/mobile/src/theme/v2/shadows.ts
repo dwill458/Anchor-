@@ -1,0 +1,1 @@
+export const shadows = { none: {}, subtle: { shadowColor: '#171717', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 }, card: { shadowColor: '#171717', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 2 } } as const;

@@ -26,9 +26,9 @@ model User {
   subscriptionStatus     String    @default("free") // 'free', 'pro', 'pro_annual'
   subscriptionId         String?
   createdAt              DateTime  @default(now())
-  // Trial anchor — separate from createdAt so it can be reset per-account
-  // (e.g. migrating beta accounts onto a fresh trial at production launch).
-  trialStartedAt         DateTime  @default(now())
+  // Null means a trial has not been explicitly started. Existing populated
+  // timestamps are retained by the compatibility-safe migration below.
+  trialStartedAt         DateTime?
   updatedAt              DateTime  @updatedAt
   lastSeenAt             DateTime?
   hasCompletedOnboarding Boolean   @default(false)
@@ -62,6 +62,7 @@ model User {
   courses             Course[]
   reflections         Reflection[]
   proposals           AIPlanProposal[]
+  threadV2States      ThreadV2State[]
 
   @@map("users")
 }
@@ -164,6 +165,7 @@ model Anchor {
   practiceSessions   PracticeSession[]
   visualizationScene VisualizationScene?
   courseAnchorLinks  CourseAnchorLink[]
+  threadV2States     ThreadV2State[]
 
   @@index([userId])
   @@index([userId, isArchived]) // covers all vault queries (always filter isArchived=false)
@@ -173,6 +175,43 @@ model Anchor {
   @@index([category])
   @@index([isShared])
   @@map("anchors")
+}
+
+// Anchor 2.0 progression is deliberately separate from the legacy mobile
+// Thread cache. These records establish a server-owned, idempotent ledger.
+model ThreadV2State {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anchorId        String
+  anchor          Anchor   @relation(fields: [anchorId], references: [id], onDelete: Cascade)
+  strength        Int      @default(50)
+  lastCompletedAt DateTime? @map("last_completed_at")
+  ruleVersion     String   @default("legacy-v1-defaults") @map("rule_version")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, anchorId])
+  @@index([anchorId])
+  @@map("thread_v2_states")
+}
+
+model ThreadV2Movement {
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
+  anchorId       String   @map("anchor_id")
+  sessionId      String   @unique @map("session_id")
+  practiceType   String   @map("practice_type")
+  completedAt    DateTime @map("completed_at")
+  beforeStrength Int      @map("before_strength")
+  afterStrength  Int      @map("after_strength")
+  delta          Int
+  reason         String
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, anchorId, completedAt])
+  @@map("thread_v2_movements")
 }
 
 model AnchorVariationPool {

@@ -16,6 +16,7 @@ import { hasCompedAccess } from '../../utils/compedAccess';
 import { logger } from '../../utils/logger';
 import { getChartFeatureFlags } from '../../config/chartFlags';
 import { hasLegacyMigrationAccess } from '../../services/MonetizationAccessService';
+import { getTrialState, type TrialState } from '../../services/v2/TrialLifecycleService';
 
 const router = Router();
 
@@ -62,8 +63,6 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
-
 function serializeUser(user: {
   id: string;
   email: string;
@@ -101,12 +100,13 @@ function serializeUser(user: {
   stabilizeStreakDays: number;
   lastStabilizeAt: Date | null;
   createdAt: Date;
-  trialStartedAt: Date;
+  trialStartedAt: Date | null;
   isTrialExpired: boolean;
+  trialState: TrialState;
 } {
-  // Legacy trial metadata remains serialized temporarily for old clients and
-  // migration support. It is never an authorization decision.
-  const trialAnchor = user.trialStartedAt ?? user.createdAt;
+  // Legacy timestamps continue to be reported unchanged, but new accounts
+  // remain explicitly NOT_STARTED until the V2 activation endpoint is used.
+  const trialState = getTrialState(user.trialStartedAt);
   return {
     id: user.id,
     email: user.email,
@@ -125,8 +125,9 @@ function serializeUser(user: {
     stabilizeStreakDays: user.stabilizeStreakDays,
     lastStabilizeAt: user.lastStabilizeAt,
     createdAt: user.createdAt,
-    trialStartedAt: trialAnchor,
-    isTrialExpired: Date.now() >= trialAnchor.getTime() + TRIAL_DURATION_MS,
+    trialStartedAt: user.trialStartedAt ?? null,
+    isTrialExpired: trialState === 'EXPIRED',
+    trialState,
   };
 }
 

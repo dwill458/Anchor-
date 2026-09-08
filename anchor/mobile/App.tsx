@@ -35,7 +35,13 @@ import {
   EBGaramond_400Regular_Italic,
   EBGaramond_500Medium,
 } from '@expo-google-fonts/eb-garamond';
+import {
+  BricolageGrotesque_400Regular,
+  BricolageGrotesque_600SemiBold,
+} from '@expo-google-fonts/bricolage-grotesque';
+import { Figtree_400Regular, Figtree_500Medium } from '@expo-google-fonts/figtree';
 import { RootNavigator } from './src/navigation';
+import { AnchorV2Navigator } from './src/navigation/v2';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { ToastProvider } from './src/components/ToastProvider';
 import { useAuthStore } from './src/stores/authStore';
@@ -65,6 +71,7 @@ import {
 } from './src/services/NotificationSyncService';
 import { initWidgetDataSync } from './src/widgets/widgetDataBridge';
 import { WIDGETS_ENABLED } from './src/config';
+import { isAnchorV2DevEnabled } from './src/config/v2FeatureFlag';
 import { useAppStartup } from './src/hooks/useAppStartup';
 import { SplashController } from './src/components/splash/SplashController';
 import { SPLASH_BACKGROUND_COLOR } from './src/components/splash/splashAnimation.constants';
@@ -83,6 +90,12 @@ function isNetworkError(error: unknown): boolean {
 }
 
 const isWeb = Platform.OS === 'web';
+// V2 is deliberately unavailable in release builds. Its development entry is
+// opt-in so the production navigation tree remains the default during buildout.
+const anchorV2DevEnabled = isAnchorV2DevEnabled(
+  process.env.EXPO_PUBLIC_ANCHOR_V2_ENABLED,
+  __DEV__
+);
 
 if (!isWeb) {
   void SplashScreen.preventAutoHideAsync();
@@ -275,6 +288,11 @@ export default function App() {
     'EBGaramond-Medium': EBGaramond_500Medium,
     'CormorantGaramond-Regular': CrimsonPro_400Regular,
     'CormorantGaramond-Italic': CrimsonPro_400Regular_Italic,
+    // Loaded alongside the legacy set; only the opt-in V2 shell references them.
+    'BricolageGrotesque-Regular': BricolageGrotesque_400Regular,
+    'BricolageGrotesque-SemiBold': BricolageGrotesque_600SemiBold,
+    'Figtree-Regular': Figtree_400Regular,
+    'Figtree-Medium': Figtree_500Medium,
   });
   const startup = useAppStartup({
     fontsReady: fontsLoaded || Boolean(fontLoadError),
@@ -807,7 +825,7 @@ export default function App() {
                     }}
                   >
                     <StatusBar style="light" />
-                    <RootNavigator />
+                    {anchorV2DevEnabled ? <AnchorV2Navigator /> : <RootNavigator />}
                   </NavigationContainer>
                 </SettingsRevealProvider>
               </View>

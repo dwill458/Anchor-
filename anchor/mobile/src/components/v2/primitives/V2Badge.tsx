@@ -1,0 +1,6 @@
+import React from 'react';
+import { Text, View, StyleSheet } from 'react-native';
+import { colors, getCategoryColor, getCategorySoftTint, getPracticeColor, getPracticeSoftTint, radii, spacing, typography } from '@/theme/v2';
+type Props = { label: string; tone?: 'neutral' | 'category' | 'practice' | 'success' | 'warning' | 'error'; value?: string; testID?: string };
+export function V2Badge({ label, tone = 'neutral', value, testID }: Props) { const accent = tone === 'category' ? getCategoryColor(value ?? label) : tone === 'practice' ? getPracticeColor(value ?? label) : tone === 'success' ? colors.semantic.success : tone === 'warning' ? colors.semantic.warning : tone === 'error' ? colors.semantic.error : colors.text.secondary; const backgroundColor = tone === 'category' ? getCategorySoftTint(value ?? label) : tone === 'practice' ? getPracticeSoftTint(value ?? label) : `${accent}14`; return <View testID={testID} style={[styles.badge, { backgroundColor }]}><Text style={[styles.label, { color: accent }]}>{label}</Text></View>; }
+const styles = StyleSheet.create({ badge: { alignSelf: 'flex-start', borderRadius: radii.round, paddingHorizontal: spacing[2], paddingVertical: 5 }, label: { ...typography.labelSM, textTransform: 'none', letterSpacing: 0.1 } });

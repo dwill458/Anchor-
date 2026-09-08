@@ -1429,6 +1429,16 @@ router.post('/:id/activate', async (req: AuthRequest, res: Response, next: NextF
  */
 router.post('/:id/burn', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    // This endpoint hard-deletes the live Anchor. It remains available only
+    // behind an explicit legacy safety acknowledgement until Workstream J
+    // replaces it with an idempotent, non-destructive release lifecycle.
+    if (process.env.ALLOW_LEGACY_DESTRUCTIVE_RELEASE !== 'true') {
+      throw new AppError(
+        'Legacy destructive release is disabled.',
+        403,
+        'DESTRUCTIVE_RELEASE_DISABLED'
+      );
+    }
     const { id } = req.params;
     const userId = req.dbUser!.id;
 

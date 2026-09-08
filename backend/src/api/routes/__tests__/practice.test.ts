@@ -42,6 +42,10 @@ jest.mock('../../../lib/prisma', () => ({
 jest.mock('../../../services/PracticeAccessService', () => ({
   requireVisualizeAccess: jest.fn().mockResolvedValue(undefined),
 }));
+const mockThreadStrengthService = { calculateForPracticeSession: jest.fn() };
+jest.mock('../../../services/v2/ThreadStrengthService', () => ({
+  threadStrengthService: mockThreadStrengthService,
+}));
 
 import { authMiddleware } from '../../middleware/auth';
 import practiceRouter from '../practice';
@@ -291,6 +295,8 @@ describe('canonical practice sessions', () => {
   beforeEach(() => {
     app = buildApp();
     jest.clearAllMocks();
+    delete process.env.THREAD_V2_SHADOW;
+    delete process.env.THREAD_V2_AUTHORITY;
     mockedAuthMiddleware.mockImplementation((req: any, _res: any, next: any) => {
       req.user = MOCK_AUTH_USER;
       next();
@@ -332,6 +338,27 @@ describe('canonical practice sessions', () => {
     const retry = await request(app).post('/api/practice/sessions').send(body);
     expect(retry.status).toBe(200);
     expect(retry.body.idempotent).toBe(true);
+  });
+
+  it('runs an isolated V2 Thread shadow without changing the legacy session response', async () => {
+    process.env.THREAD_V2_SHADOW = 'true';
+    mockThreadStrengthService.calculateForPracticeSession.mockResolvedValue({
+      beforeStrength: 50,
+      afterStrength: 90,
+      delta: 40,
+      reason: 'practice_completed',
+      idempotent: false,
+    });
+
+    const response = await request(app).post('/api/practice/sessions').send(body);
+
+    expect(response.status).toBe(201);
+    expect(response.body.data).not.toHaveProperty('threadStrengthMovement');
+    expect(mockThreadStrengthService.calculateForPracticeSession).toHaveBeenCalledWith({
+      userId: MOCK_DB_USER.id,
+      sessionId: body.id,
+      mode: 'shadow',
+    });
   });
 
   it('accepts Chart context and emits exactly one PRACTICE_COMPLETED event across retries', async () => {

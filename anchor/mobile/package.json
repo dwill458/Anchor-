@@ -18,13 +18,16 @@
     "test:coverage": "jest --coverage",
     "test:verbose": "jest --verbose",
     "test:anchor15:visual": "node ./scripts/compare-anchor15-screenshots.mjs",
+    "test:v2-boundary": "node ../../scripts/check-v2-import-boundary.mjs",
     "adb-reverse": "node ../../scripts/adb-reverse-monitor.js"
   },
   "dependencies": {
     "@bacons/apple-targets": "^4.0.7",
+    "@expo-google-fonts/bricolage-grotesque": "^0.4.1",
     "@expo-google-fonts/cinzel": "^0.4.2",
     "@expo-google-fonts/crimson-pro": "^0.4.2",
     "@expo-google-fonts/eb-garamond": "^0.4.3",
+    "@expo-google-fonts/figtree": "^0.4.1",
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo/metro-runtime": "~6.1.2",
     "@react-native-async-storage/async-storage": "2.2.0",

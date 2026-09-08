@@ -171,6 +171,24 @@ beforeEach(() => {
 // ═════════════════════════════════════════════════════════════════════════════
 
 describe('POST /api/auth/sync', () => {
+  it('creates a new account with no automatic trial timestamp', async () => {
+    const newAccount = { ...MOCK_DB_USER, trialStartedAt: null };
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(null);
+    (mockPrisma.user.findFirst as jest.Mock).mockResolvedValue(null);
+    (mockPrisma.user.create as jest.Mock).mockResolvedValue(newAccount);
+    (mockPrisma.userSettings.upsert as jest.Mock).mockResolvedValue(MOCK_SETTINGS);
+
+    const res = await request(buildApp()).post('/api/auth/sync').send({ authProvider: 'email' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.trialStartedAt).toBeNull();
+    expect(res.body.data.trialState).toBe('NOT_STARTED');
+    expect(res.body.data.isTrialExpired).toBe(false);
+    expect(mockPrisma.user.create).toHaveBeenCalledWith({
+      data: expect.not.objectContaining({ trialStartedAt: expect.anything() }),
+    });
+  });
+
   it('creates or updates user and returns profile', async () => {
     (mockPrisma.user.findUnique as jest.Mock).mockResolvedValueOnce(MOCK_DB_USER);
     (mockPrisma.user.update as jest.Mock).mockResolvedValue(MOCK_DB_USER);

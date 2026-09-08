@@ -22,6 +22,7 @@ import contentRoutes from './api/routes/content';
 import billingRoutes from './api/routes/billing';
 import courseRoutes from './api/routes/courses';
 import reflectionRoutes from './api/routes/reflections';
+import { v2BillingRoutes, v2ThreadRoutes } from './api/routes/v2';
 import { errorHandler, notFoundHandler } from './api/middleware/errorHandler';
 import { logger } from './utils/logger';
 import { env } from './config/env';
@@ -314,6 +315,11 @@ app.use('/api/auth', authRoutes);
 
 // Billing access is confirmed server-side against RevenueCat after store purchase.
 app.use('/api/billing', billingRoutes);
+
+// Anchor 2.0 contracts remain explicitly versioned; no legacy client changes
+// behavior merely because this namespace is present.
+app.use('/api/v2/billing', v2BillingRoutes);
+app.use('/api/v2/thread', v2ThreadRoutes);
 
 // User routes
 app.use('/api/users', usersRoutes);
