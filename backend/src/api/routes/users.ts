@@ -11,6 +11,7 @@ import { AppError } from '../middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
 import { uploadProfilePicture } from '../../services/StorageService';
 import { logger } from '../../utils/logger';
+import { serializeUser } from '../../utils/serializeUser';
 
 const router = Router();
 
@@ -50,6 +51,9 @@ router.patch('/me', authMiddleware, async (req: AuthRequest, res: Response, next
 
     const user = await prisma.user.findUnique({
       where: { authUid: req.user.uid },
+      include: {
+        settings: true,
+      },
     });
 
     if (!user) {
@@ -72,12 +76,7 @@ router.patch('/me', authMiddleware, async (req: AuthRequest, res: Response, next
     if (Object.keys(updateData).length === 0) {
       res.json({
         success: true,
-        data: {
-          id: user.id,
-          email: user.email,
-          displayName: user.displayName,
-          profilePictureUrl: (user as any).profilePictureUrl,
-        },
+        data: serializeUser(user),
       });
       return;
     }
@@ -85,16 +84,14 @@ router.patch('/me', authMiddleware, async (req: AuthRequest, res: Response, next
     const updatedUser = await prisma.user.update({
       where: { authUid: req.user.uid },
       data: updateData,
+      include: {
+        settings: true,
+      },
     });
 
     res.json({
       success: true,
-      data: {
-        id: updatedUser.id,
-        email: updatedUser.email,
-        displayName: updatedUser.displayName,
-        profilePictureUrl: (updatedUser as any).profilePictureUrl,
-      },
+      data: serializeUser(updatedUser),
     });
   } catch (error) {
     if (error instanceof AppError) {

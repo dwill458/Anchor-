@@ -14,6 +14,7 @@ import { prisma } from '../../lib/prisma';
 import { getFirebaseAdmin } from '../../config/firebase';
 import { hasCompedAccess } from '../../utils/compedAccess';
 import { logger } from '../../utils/logger';
+import { serializeUser } from '../../utils/serializeUser';
 
 const router = Router();
 
@@ -58,58 +59,6 @@ function mapProviderIdToAuthProvider(providerId?: string): 'email' | 'google' | 
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
-}
-
-function serializeUser(user: {
-  id: string;
-  email: string;
-  displayName: string | null;
-  profilePictureUrl?: string | null;
-  hasCompletedOnboarding: boolean;
-  isComped: boolean;
-  subscriptionStatus: string;
-  totalAnchorsCreated: number;
-  totalActivations: number;
-  currentStreak: number;
-  longestStreak: number;
-  stabilizesTotal: number;
-  stabilizeStreakDays: number;
-  lastStabilizeAt: Date | null;
-  createdAt: Date;
-}): {
-  id: string;
-  email: string;
-  displayName: string | null;
-  profilePictureUrl?: string | null;
-  hasCompletedOnboarding: boolean;
-  isComped: boolean;
-  subscriptionStatus: string;
-  totalAnchorsCreated: number;
-  totalActivations: number;
-  currentStreak: number;
-  longestStreak: number;
-  stabilizesTotal: number;
-  stabilizeStreakDays: number;
-  lastStabilizeAt: Date | null;
-  createdAt: Date;
-} {
-  return {
-    id: user.id,
-    email: user.email,
-    displayName: user.displayName,
-    ...(user.profilePictureUrl && { profilePictureUrl: user.profilePictureUrl }),
-    hasCompletedOnboarding: user.hasCompletedOnboarding,
-    isComped: user.isComped,
-    subscriptionStatus: user.subscriptionStatus,
-    totalAnchorsCreated: user.totalAnchorsCreated,
-    totalActivations: user.totalActivations,
-    currentStreak: user.currentStreak,
-    longestStreak: user.longestStreak,
-    stabilizesTotal: user.stabilizesTotal,
-    stabilizeStreakDays: user.stabilizeStreakDays,
-    lastStabilizeAt: user.lastStabilizeAt,
-    createdAt: user.createdAt,
-  };
 }
 
 async function syncCompedFlag(user: {

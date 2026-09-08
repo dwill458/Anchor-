@@ -112,7 +112,8 @@ function buildAudioStorageKey(userId: string, anchorId: string, mantraStyle: str
 function buildProfilePictureStorageKey(userId: string, mimeType: string): string {
   const sanitizedUserId = sanitizePathSegment(userId);
   const extension = mimeType === 'image/png' ? 'png' : 'jpg';
-  return `profiles/${sanitizedUserId}/picture.${extension}`;
+  const version = `${Date.now()}-${randomUUID()}`;
+  return `profiles/${sanitizedUserId}/picture-${version}.${extension}`;
 }
 
 /**
