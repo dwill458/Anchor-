@@ -292,7 +292,8 @@ Coverage of the 13 required validations:
 
 - Branch: `anchor-2/ui-e-paywall`
 - Baseline: `f339b9f8`
-- Commit: _(see `git log -1` on the branch after push — recorded on commit)_
+- Commit: `8cc96d9fd71223d69ea849905d10016347c82190` (`8cc96d9f`)
+- Pushed to `origin/anchor-2/ui-e-paywall` (`f339b9f8..8cc96d9f`). Not merged into integration.
 
 ---
 
