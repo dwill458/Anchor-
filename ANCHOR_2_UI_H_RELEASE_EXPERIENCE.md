@@ -257,7 +257,7 @@ Full suite after this work: **`191 passed, 191 total` · `1485 passed, 1 skipped
 
 - Branch: `anchor-2/ui-h-release`
 - Baseline: `807a2ab5`
-- Commit: <!-- COMMIT_HASH -->
+- Commit: `5ee0cba0` (`5ee0cba07876fb2ea28d5ff84203cee2534d5744`)
 
 ---
 
