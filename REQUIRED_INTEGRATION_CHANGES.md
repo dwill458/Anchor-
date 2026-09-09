@@ -57,3 +57,23 @@ None required. UI-D composed everything from existing UI-A exports
 `V2Button`, `V2IconButton`, `V2Badge`, `V2SegmentedControl`, `V2ListRow`,
 `V2SectionHeader`, `V2Divider`, `V2TopBar`, `V2EmptyState`, theme tokens,
 `useV2ReduceMotion`, `v2Haptics`) without modifying any of them.
+
+## UI-F — Practice + Recommended Today
+
+UI-F exports `V2PracticeScreen`, Prepare-screen entry points, and
+`V2_PRACTICE_ROUTE_MANIFEST` from `screens/v2/practice`. Central navigation
+must register the manifest's Practice and Prepare routes, pass the fixed
+`anchorId`, and wire these typed intents:
+
+| UI-F intent | Integration target | Constraint |
+| --- | --- | --- |
+| `onBeginPractice(request)` | Existing Focus / Deep Prime / Visualize session entry | Reuse the proven session/audio engines; do not duplicate one in UI-F. |
+| `onPremiumCapabilityRequired(request)` | Paywall owner | Pass the backend capability result; UI-F owns no paywall screen. |
+| `onCreateVision(anchorId)` / `onOpenVision(anchorId)` | UI-G Vision | The no-Vision Visualize bridge must remain intact. |
+| `onReleaseRequested(anchorId, reason?)` | UI-H Release | Use the non-destructive Release lifecycle only; never the legacy burn endpoint. |
+
+The production screen fetches the existing non-consuming backend GET
+`/api/v2/anchors/:anchorId/recommendation-context`. Its explicit recommendation
+engagement path may POST the existing signal ACK endpoint; never ACK on mount,
+refresh, or background fetch. No central navigation implementation was applied
+on this branch.
