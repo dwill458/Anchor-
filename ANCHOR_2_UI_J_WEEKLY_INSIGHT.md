@@ -222,6 +222,7 @@ All verification suites executed and passed in `anchor/mobile`:
 - **Branch**: `anchor-2/ui-j-weekly-insight`
 - **Worktree**: `E:\Projects\Anchor-V2-worktrees\ui-j-weekly-insight`
 - **Baseline**: `807a2ab5`
+- **Commit Hash**: `5ecc4e74`
 - **Commit Message**: `feat(v2): implement UI-J weekly insight surface`
 
 ---
