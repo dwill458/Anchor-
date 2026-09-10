@@ -15,7 +15,8 @@ type QueueOptions = {
 
 /**
  * Presentation policy over canonical facts. The hook never detects events or calculates Thread deltas.
- * A bundle remains queued until acknowledgement/dismissal, so a crash after claim can be re-claimed later.
+ * Claims are advisory. The receipt is authoritative: PRESENTED is persisted
+ * before local storage, so a crash/reload never replays a visible ceremony.
  */
 export function useV2ThreadEventQueue(options: QueueOptions = {}) {
   const channel = options.channel ?? 'HOME_CONTEXT';

@@ -23,6 +23,9 @@ export class V2ThreadEventReceiptStore {
 
   async isTerminal(eventId: string, channel: V2ThreadEventChannel): Promise<boolean> {
     const receipt = await this.read(eventId, channel);
-    return receipt?.status === 'ACKNOWLEDGED' || receipt?.status === 'DISMISSED';
+    // PRESENTED is terminal for the ceremony itself. Acknowledgement/dismissal
+    // remains a separate one-time settlement, but a crash/reload must not replay
+    // something the server has already marked visible.
+    return receipt?.status === 'PRESENTED' || receipt?.status === 'ACKNOWLEDGED' || receipt?.status === 'DISMISSED';
   }
 }

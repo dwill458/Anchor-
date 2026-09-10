@@ -9,4 +9,11 @@ describe('V2ThreadEventReceiptStore', () => {
     const reloaded = new V2ThreadEventReceiptStore(storage);
     await expect(reloaded.isTerminal('te-ack', 'PRIMARY_IMMEDIATE')).resolves.toBe(true);
   });
+
+  it('does not replay a presented ceremony after reload/crash before acknowledgement', async () => {
+    const values = new Map<string, string>();
+    const storage = { getItem: jest.fn(async (key: string) => values.get(key) ?? null), setItem: jest.fn(async (key: string, value: string) => { values.set(key, value); }) };
+    await new V2ThreadEventReceiptStore(storage).write({ eventId: 'te-presented', channel: 'PRIMARY_IMMEDIATE', status: 'PRESENTED', firstPresentedAt: '2026-09-08T12:00:00.000Z' });
+    await expect(new V2ThreadEventReceiptStore(storage).isTerminal('te-presented', 'PRIMARY_IMMEDIATE')).resolves.toBe(true);
+  });
 });
