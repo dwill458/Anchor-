@@ -11,6 +11,8 @@ import { V2VisionScreen } from '@/screens/v2/vision';
 import { V2ChartScreen } from '@/screens/v2/chart';
 import { V2ProgressScreen } from '@/screens/v2/progress';
 import { V2AnchorLibraryScreen, V2AnchorDetailsScreen } from '@/screens/v2/anchors';
+import { V2ReleaseScreen } from '@/screens/v2/release';
+import { V2WeeklyInsightScreen } from '@/screens/v2/weeklyInsight';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import type { Anchor, SigilVariationStyle } from '@/types';
@@ -69,8 +71,8 @@ function V2PracticeRouteScreen() {
       onOpenVision={(id) => {
         navigation.navigate('V2Vision', { anchorId: id });
       }}
-      onReleaseRequested={(_id) => {
-        // Handled via UI-H
+      onReleaseRequested={(id, reason) => {
+        navigation.navigate('V2Release', { anchorId: id, reason });
       }}
     />
   );
@@ -120,6 +122,18 @@ function V2CreationRouteScreen() {
   return <V2CreationScreen saveAnchor={saveAnchor} onContinue={handleContinue} />;
 }
 
+function V2ReleaseRouteScreen() {
+  const navigation = useNavigation<any>();
+  const route = useRoute<RouteProp<AnchorV2StackParamList, 'V2Release'>>();
+  return <V2ReleaseScreen {...route.params} onCancel={() => navigation.goBack()} onReleaseCompleted={() => navigation.replace('V2DevelopmentHome')} />;
+}
+
+function V2WeeklyInsightRouteScreen() {
+  const navigation = useNavigation<any>();
+  const route = useRoute<RouteProp<AnchorV2StackParamList, 'V2WeeklyInsight'>>();
+  return <V2WeeklyInsightScreen route={route} navigation={navigation} onBack={() => navigation.goBack()} />;
+}
+
 /**
  * Anchor 2.0 central stack navigator.
  */
@@ -137,6 +151,8 @@ export function AnchorV2Navigator() {
       <Stack.Screen name="V2Vision" component={V2VisionScreen} />
       <Stack.Screen name="V2Chart" component={V2ChartScreen} />
       <Stack.Screen name="V2Progress" component={V2ProgressScreen} />
+      <Stack.Screen name="V2Release" component={V2ReleaseRouteScreen} />
+      <Stack.Screen name="V2WeeklyInsight" component={V2WeeklyInsightRouteScreen} />
     </Stack.Navigator>
   );
 }

@@ -20,6 +20,7 @@ export type V2DailyShellIntents = {
   onCreateAnchor?: () => void;
   onOpenProfile?: () => void;
   onReleaseAnchor?: (anchorId: string) => void;
+  onOpenWeeklyInsight?: () => void;
 };
 
 const noopWarn = (name: string) => () => {
@@ -43,7 +44,7 @@ export function V2DailyShellIntentsProvider({
 }
 
 export function useV2DailyShellIntents(): Required<
-  Pick<V2DailyShellIntents, 'onOpenPractice' | 'onOpenVision' | 'onCreateVision' | 'onOpenChart' | 'onCreateChart' | 'onOpenProgress' | 'onCreateAnchor' | 'onOpenProfile' | 'onReleaseAnchor'>
+  Pick<V2DailyShellIntents, 'onOpenPractice' | 'onOpenVision' | 'onCreateVision' | 'onOpenChart' | 'onCreateChart' | 'onOpenProgress' | 'onCreateAnchor' | 'onOpenProfile' | 'onReleaseAnchor' | 'onOpenWeeklyInsight'>
 > {
   const value = useContext(IntentsContext);
   return {
@@ -56,6 +57,7 @@ export function useV2DailyShellIntents(): Required<
     onCreateAnchor: value.onCreateAnchor ?? noopWarn('onCreateAnchor'),
     onOpenProfile: value.onOpenProfile ?? noopWarn('onOpenProfile'),
     onReleaseAnchor: value.onReleaseAnchor ?? noopWarn('onReleaseAnchor'),
+    onOpenWeeklyInsight: value.onOpenWeeklyInsight ?? noopWarn('onOpenWeeklyInsight'),
   };
 }
 

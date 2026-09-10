@@ -21,9 +21,12 @@ import {
 import { useV2HomeModel } from '@/adapters/v2/home';
 import { useV2SelectedAnchor } from '@/hooks/v2/home';
 import { useV2ReduceMotion } from '@/hooks/v2';
+import { useV2ThreadEventQueue } from '@/hooks/v2/threadEvents';
+import { V2ThreadEventModal } from '@/components/v2/threadEvents';
 import { motion, spacing } from '@/theme/v2';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { useV2DailyShellIntents, type V2DailyShellParamList } from './dailyShell';
+import { isWithinWeeklyInsightReviewWindow } from '@/adapters/v2/weeklyInsight';
 
 type Nav = NativeStackNavigationProp<V2DailyShellParamList, 'V2Home'>;
 
@@ -41,6 +44,7 @@ export function V2HomeScreen() {
   const { selectAnchor } = useV2SelectedAnchor();
   const reduceMotion = useV2ReduceMotion();
   const intents = useV2DailyShellIntents();
+  const threadEvents = useV2ThreadEventQueue({ channel: 'HOME_CONTEXT', enabled: Boolean(model.selectedAnchor) });
 
   useEffect(() => {
     track('v2_home_viewed', { anchorCount: model.anchorList.length });
@@ -146,6 +150,14 @@ export function V2HomeScreen() {
             />
           </V2Section>
 
+          {isWithinWeeklyInsightReviewWindow() ? (
+            <V2Section testID="v2-home-weekly-review">
+              <V2Button accessibilityLabel="Open Weekly Review" variant="secondary" onPress={intents.onOpenWeeklyInsight}>
+                Weekly Review
+              </V2Button>
+            </V2Section>
+          ) : null}
+
           <V2Section style={styles.visualSection}>
             <V2HomeVisionSection
               vision={model.vision}
@@ -187,6 +199,16 @@ export function V2HomeScreen() {
           </V2Section>
         </>
       )}
+      <V2ThreadEventModal
+        bundle={threadEvents.active}
+        visible={Boolean(threadEvents.active)}
+        anchorSvg={model.selectedAnchor?.baseSigilSvg}
+        category={model.selectedAnchor?.category}
+        reducedMotion={reduceMotion}
+        onPresented={() => { void threadEvents.claimActive().then(threadEvents.markPresented); }}
+        onAcknowledge={() => { void threadEvents.acknowledge(); }}
+        onDismiss={() => { void threadEvents.dismiss(); }}
+      />
     </V2Screen>
   );
 }

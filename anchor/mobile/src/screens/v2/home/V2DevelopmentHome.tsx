@@ -19,6 +19,8 @@ export function V2DevelopmentHome() {
       onOpenProgress: (anchorId) => navigation.navigate('V2Progress', { anchorId }),
       onCreateAnchor: () => navigation.navigate('V2Creation'),
       onOpenProfile: () => navigation.navigate('V2SystemGallery'),
+      onOpenWeeklyInsight: () => navigation.navigate('V2WeeklyInsight'),
+      onReleaseAnchor: (anchorId) => navigation.navigate('V2Release', { anchorId }),
     }),
     [navigation],
   );
