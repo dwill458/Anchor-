@@ -68,6 +68,8 @@ model User {
   visionViews         VisionView[]
   assets              Asset[]
   recommendationSignalAcks RecommendationSignalAck[]
+  threadEventLedger       ThreadEventLedger[]
+  weeklyInsightSnapshots  WeeklyInsightSnapshot[]
 
   @@map("users")
 }
@@ -171,10 +173,14 @@ model Anchor {
   visualizationScene VisualizationScene?
   courseAnchorLinks  CourseAnchorLink[]
   threadV2States     ThreadV2State[]
+  threadEventLedger  ThreadEventLedger[]
   visions            Vision[]
 
   // INTENTION COMPLETION (CCR-1)
   intentionCompletedAt DateTime? @map("intention_completed_at")
+  // Release is a terminal lifecycle transition, not a deletion.
+  releasedAt            DateTime? @map("released_at")
+  releaseIdempotencyKey String?   @unique @map("release_idempotency_key")
 
   @@index([userId])
   @@index([userId, isArchived]) // covers all vault queries (always filter isArchived=false)
@@ -182,9 +188,84 @@ model Anchor {
   @@index([userId, updatedAt]) // covers default orderBy (updatedAt desc)
   @@index([userId, createdAt]) // covers createdAt orderBy
   @@index([userId, intentionCompletedAt])
+  @@index([userId, releasedAt])
   @@index([category])
   @@index([isShared])
   @@map("anchors")
+}
+
+// Canonical presentation ledger. Domain producers append facts here; clients
+// may only claim/present/settle those facts and must never derive them locally.
+model ThreadEventLedger {
+  id                  String   @id @default(uuid())
+  userId              String   @map("user_id")
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anchorId            String?  @map("anchor_id")
+  anchor              Anchor?  @relation(fields: [anchorId], references: [id], onDelete: SetNull)
+  eventType           String   @map("event_type")
+  significance        String
+  sourceKind          String   @map("source_kind")
+  sourceEntityId      String?  @map("source_entity_id")
+  correlationId       String   @map("correlation_id")
+  correlationSequence Int      @default(0) @map("correlation_sequence")
+  ledgerSequence      BigInt   @default(autoincrement()) @map("ledger_sequence")
+  metadata            Json     @default("{}")
+  occurredAt          DateTime @map("occurred_at")
+  idempotencyKey      String   @unique @map("idempotency_key")
+  createdAt           DateTime @default(now()) @map("created_at")
+  receipts            ThreadEventPresentationReceipt[]
+  claims              ThreadEventPresentationClaim[]
+
+  @@index([userId, ledgerSequence])
+  @@index([userId, occurredAt])
+  @@map("thread_event_ledger")
+}
+
+model ThreadEventPresentationClaim {
+  id        String   @id @default(uuid())
+  eventId   String   @map("event_id")
+  event     ThreadEventLedger @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  channel   String
+  bundleKey String   @map("bundle_key")
+  claimedAt DateTime @default(now()) @map("claimed_at")
+  expiresAt DateTime @map("expires_at")
+
+  @@unique([eventId, channel])
+  @@index([expiresAt])
+  @@map("thread_event_presentation_claims")
+}
+
+model ThreadEventPresentationReceipt {
+  id          String   @id @default(uuid())
+  eventId     String   @map("event_id")
+  event       ThreadEventLedger @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  channel     String
+  status      String
+  presentedAt DateTime? @map("presented_at")
+  settledAt   DateTime? @map("settled_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([eventId, channel])
+  @@index([channel, status])
+  @@map("thread_event_presentation_receipts")
+}
+
+model WeeklyInsightSnapshot {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anchorId    String?  @map("anchor_id")
+  weekStart   DateTime @map("week_start")
+  weekEnd     DateTime @map("week_end")
+  snapshot    Json
+  feedback    String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, anchorId, weekStart])
+  @@index([userId, weekStart])
+  @@map("weekly_insight_snapshots")
 }
 
 // Anchor 2.0 progression is deliberately separate from the legacy mobile
@@ -446,6 +527,7 @@ model Waypoint {
   reachedAt                   DateTime? @map("reached_at")
   skippedAt                   DateTime? @map("skipped_at")
   cancelledAt                 DateTime? @map("cancelled_at")
+  archivedAt                  DateTime? @map("archived_at")
   supportingPracticeSessionId String?   @map("supporting_practice_session_id")
   createdAt                   DateTime  @default(now()) @map("created_at")
   updatedAt                   DateTime  @updatedAt @map("updated_at")

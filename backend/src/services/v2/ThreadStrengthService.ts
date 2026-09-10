@@ -163,6 +163,28 @@ export class ThreadStrengthService {
       data: { strength, lastCompletedAt: latest?.completedAt ?? null },
     });
     if (!requested) throw new Error('Thread movement was not persisted');
+    // Append the canonical fact in the same transaction as the authoritative
+    // movement. Presentation consumers never infer this from local progress.
+    await tx.threadEventLedger.upsert({
+      where: { idempotencyKey: `practice-thread-event:${input.sessionId}` },
+      create: {
+        userId: input.userId,
+        anchorId: input.anchorId,
+        eventType: 'THREAD_STRENGTHENED',
+        significance: requested.afterStrength >= 100 ? 'HIGH' : 'MEDIUM',
+        sourceKind: 'PRACTICE_COMPLETION',
+        sourceEntityId: input.sessionId,
+        correlationId: input.sessionId,
+        occurredAt: input.completedAt,
+        idempotencyKey: `practice-thread-event:${input.sessionId}`,
+        metadata: {
+          beforeStrength: requested.beforeStrength,
+          afterStrength: requested.afterStrength,
+          delta: requested.delta,
+        },
+      },
+      update: {},
+    });
     return requested;
   }
 }
