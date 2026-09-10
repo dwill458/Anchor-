@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ChevronRight } from 'lucide-react-native';
-import { colors, practiceColors, radii, spacing, typography } from '@/theme/v2';
+import { colors, practiceColors, spacing, typography } from '@/theme/v2';
 
 type Props = {
   /** Optional grounded status line, e.g. "Returned today". Never a recommendation. */
@@ -17,12 +17,9 @@ type Props = {
 export function V2HomePracticeEntry({ todayStatus, onStartPractice }: Props) {
   return (
     <View style={styles.container}>
-      {todayStatus ? (
-        <View style={styles.statusRow}>
-          <Text style={styles.eyebrow}>TODAY</Text>
-          <Text style={styles.status}>{todayStatus}</Text>
-        </View>
-      ) : null}
+      <View style={styles.topline}><Text style={styles.flag}>TODAY</Text>{todayStatus ? <Text style={styles.status}>✓ {todayStatus}</Text> : null}</View>
+      <Text style={styles.title}>A little focus. A clear next step.</Text>
+      <Text style={styles.copy}>Return to your intention before you begin.</Text>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Practice this Anchor"
@@ -30,7 +27,7 @@ export function V2HomePracticeEntry({ todayStatus, onStartPractice }: Props) {
         style={({ pressed }) => [styles.cta, pressed && styles.pressed]}
       >
         <View style={[styles.dot, { backgroundColor: practiceColors.focus }]} />
-        <Text style={styles.ctaLabel}>Practice this Anchor</Text>
+        <View style={styles.ctaCopy}><Text style={styles.ctaLabel}>30-second Focus</Text><View style={styles.underline} /></View>
         <ChevronRight size={18} color={colors.text.secondary} />
       </Pressable>
     </View>
@@ -38,22 +35,23 @@ export function V2HomePracticeEntry({ todayStatus, onStartPractice }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { gap: spacing[3] },
-  statusRow: { gap: 2 },
-  eyebrow: { ...typography.labelSM, color: colors.text.secondary },
-  status: { ...typography.bodyMD, color: colors.text.primary },
+  container: { gap: spacing[2], borderTopWidth: 1, borderTopColor: colors.border.default, paddingTop: spacing[4] },
+  topline: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[3] },
+  flag: { overflow: 'hidden', backgroundColor: '#7252C9', color: colors.text.inverse, paddingHorizontal: 11, paddingVertical: 5, fontFamily: typography.bodyMedium, fontSize: 10, letterSpacing: 1.5 },
+  status: { ...typography.caption, color: colors.semantic.success, textAlign: 'right', flex: 1 },
+  title: { ...typography.headingMD, color: colors.text.primary, marginTop: spacing[1] },
+  copy: { ...typography.bodySM, color: colors.text.secondary },
   cta: {
     minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[3],
-    paddingHorizontal: spacing[4],
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.border.subtle,
-    backgroundColor: colors.surface,
+    paddingHorizontal: 0,
+    marginTop: spacing[1],
   },
   pressed: { opacity: 0.78 },
-  dot: { width: 8, height: 8, borderRadius: radii.round },
-  ctaLabel: { flex: 1, ...typography.labelLG, color: colors.text.primary },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  ctaCopy: { flex: 1, gap: 3 },
+  ctaLabel: { ...typography.labelLG, color: colors.text.primary },
+  underline: { width: 130, height: 5, borderRadius: 3, backgroundColor: '#7391F2', transform: [{ rotate: '-2deg' }] },
 });

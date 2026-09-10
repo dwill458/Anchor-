@@ -121,7 +121,7 @@ export function V2HomeScreen() {
           </Animated.View>
 
           {model.thread ? (
-            <V2Section testID="v2-home-thread">
+            <V2Section testID="v2-home-thread" style={styles.threadSection}>
               <V2ThreadStrength
                 testID="v2-home-thread-strength"
                 value={model.thread.value}
@@ -137,7 +137,7 @@ export function V2HomeScreen() {
             </V2Section>
           ) : null}
 
-          <V2Section>
+          <V2Section style={styles.practiceSection}>
             <V2HomePracticeEntry
               onStartPractice={() => {
                 track('v2_home_practice_tapped');
@@ -146,7 +146,7 @@ export function V2HomeScreen() {
             />
           </V2Section>
 
-          <V2Section>
+          <V2Section style={styles.visualSection}>
             <V2HomeVisionSection
               vision={model.vision}
               onOpenVision={() => {
@@ -160,7 +160,7 @@ export function V2HomeScreen() {
             />
           </V2Section>
 
-          <V2Section>
+          <V2Section style={styles.chartSection}>
             <V2HomeChartSection
               chart={model.chart}
               onOpenChart={() => {
@@ -193,4 +193,8 @@ export function V2HomeScreen() {
 
 const styles = StyleSheet.create({
   empty: { paddingTop: spacing[8] },
+  threadSection: { marginBottom: spacing[6] },
+  practiceSection: { marginBottom: spacing[7] },
+  visualSection: { marginBottom: spacing[5] },
+  chartSection: { marginBottom: spacing[7] },
 });

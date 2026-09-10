@@ -53,12 +53,12 @@ export function V2HomeHeader({
 
 const styles = StyleSheet.create({
   bar: {
-    minHeight: 44,
+    minHeight: 40,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing[2],
   },
-  greeting: { flex: 1, ...typography.labelMD, color: colors.text.secondary, textTransform: 'none' },
-  utilities: { flexDirection: 'row', alignItems: 'center' },
+  greeting: { flex: 1, ...typography.bodyMD, fontFamily: typography.bodyMedium, color: colors.text.secondary, textTransform: 'none' },
+  utilities: { flexDirection: 'row', alignItems: 'center', marginRight: -8 },
 });

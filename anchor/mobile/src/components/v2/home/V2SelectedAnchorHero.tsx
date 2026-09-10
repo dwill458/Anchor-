@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { CircularAnchorRenderer, V2Badge } from '@/components/v2';
 import { colors, getCategoryColor, spacing, typography } from '@/theme/v2';
 import type { Anchor } from '@/types';
@@ -13,9 +14,8 @@ type Props = {
 };
 
 /**
- * The selected Anchor is the visual center of Home: circular artwork on a flat
- * category field, the intention as the display line, restrained category cue.
- * No coin, rim, aura, or rotating ring.
+ * The selected Anchor is the visual center of Home. Its intention leads, with
+ * a large, paper-like artwork field below — matching the handmade Home study.
  */
 export function V2SelectedAnchorHero({ anchor, threadValue, onPress, testID }: Props) {
   const label =
@@ -31,12 +31,20 @@ export function V2SelectedAnchorHero({ anchor, threadValue, onPress, testID }: P
       disabled={!onPress}
       style={({ pressed }) => [styles.container, pressed && onPress && styles.pressed]}
     >
-      <Text style={styles.intention}>{anchor.intentionText}</Text>
+      <View style={styles.titleBlock}>
+        <Text style={styles.intention}>{anchor.intentionText}</Text>
+        <View style={[styles.brushMark, { backgroundColor: getCategoryColor(anchor.category) }]} />
+      </View>
       <View style={styles.categoryRow}>
         <View style={[styles.categoryDash, { backgroundColor: getCategoryColor(anchor.category) }]} />
         <V2Badge label={categoryLabel(anchor.category)} tone="category" value={anchor.category} />
       </View>
       <View style={styles.artwork}>
+        <Svg pointerEvents="none" width={286} height={286} viewBox="0 0 286 286" style={styles.heroMarks}>
+          <Circle cx="143" cy="143" r="132" fill="none" stroke={getCategoryColor(anchor.category)} strokeOpacity={0.24} strokeWidth="2" strokeDasharray="9 7 28 5" />
+          <Circle cx="143" cy="143" r="124" fill="none" stroke={getCategoryColor(anchor.category)} strokeOpacity={0.36} strokeWidth="2.5" strokeDasharray="62 5 17 11" />
+          <Path d="M245 30l13-17M254 42l22-5M250 54l20 8M237 21l4-20" stroke="#F28A2E" strokeWidth="3" strokeLinecap="round" />
+        </Svg>
         <CircularAnchorRenderer
           svg={anchorArtworkSvg(anchor)}
           category={anchor.category}
@@ -49,14 +57,19 @@ export function V2SelectedAnchorHero({ anchor, threadValue, onPress, testID }: P
 }
 
 const styles = StyleSheet.create({
-  container: { alignItems: 'center', gap: spacing[4], paddingVertical: spacing[2] },
+  container: { gap: spacing[2], paddingTop: spacing[2] },
   pressed: { opacity: 0.82 },
+  titleBlock: { alignSelf: 'stretch' },
   intention: {
     ...typography.displayMedium,
     color: colors.text.primary,
-    alignSelf: 'stretch',
+    fontSize: 38,
+    lineHeight: 40,
+    letterSpacing: -1.4,
   },
+  brushMark: { width: 94, height: 5, borderRadius: 4, marginTop: 7, marginLeft: 56, transform: [{ rotate: '-2deg' }], opacity: 0.82 },
   categoryRow: { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  categoryDash: { width: 18, height: 2, borderRadius: 2 },
-  artwork: { paddingVertical: spacing[4] },
+  categoryDash: { width: 24, height: 5, borderRadius: 3 },
+  artwork: { height: 286, alignItems: 'center', justifyContent: 'center', paddingBottom: spacing[2] },
+  heroMarks: { position: 'absolute' },
 });
