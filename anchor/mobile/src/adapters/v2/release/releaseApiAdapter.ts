@@ -43,10 +43,7 @@ export function createV2ReleaseApiAdapter(client: HttpClient = apiClient): V2Rel
         return {
           status: 'released',
           anchorId,
-          releasedAt:
-            payload.releasedAt ??
-            payload.intentionCompletedAt ??
-            new Date().toISOString(),
+          releasedAt: payload.releasedAt,
           lifecycleState: payload.lifecycleState ?? 'released',
         };
       } catch (error: unknown) {
