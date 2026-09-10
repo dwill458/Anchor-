@@ -45,7 +45,7 @@ import {
   WeeklyInterpretation,
   WeeklyNextDirection,
 } from '@/components/v2/weeklyInsight';
-import type { WeeklyInsightFacts } from '@/adapters/v2/weeklyInsight/types';
+import type { WeeklyInsightFacts, WeeklyInsightSnapshot } from '@/adapters/v2/weeklyInsight/types';
 
 export interface V2WeeklyInsightScreenProps extends V2WeeklyInsightIntegrationCallbacks {
   route?: {
@@ -57,6 +57,7 @@ export interface V2WeeklyInsightScreenProps extends V2WeeklyInsightIntegrationCa
   snapshotId?: string;
   weekOffset?: number;
   factsOverride?: WeeklyInsightFacts;
+  historyOverride?: WeeklyInsightSnapshot[];
   testID?: string;
 }
 
@@ -67,6 +68,7 @@ export const V2WeeklyInsightScreen: React.FC<V2WeeklyInsightScreenProps> = ({
   snapshotId: propSnapshotId,
   weekOffset: propWeekOffset,
   factsOverride,
+  historyOverride,
   onBack,
   onNavigateToAnchor,
   onNavigateToChart,
@@ -99,6 +101,7 @@ export const V2WeeklyInsightScreen: React.FC<V2WeeklyInsightScreenProps> = ({
     snapshotId,
     weekOffset,
     factsOverride,
+    historyOverride,
     onFeedbackSubmit,
   });
 

@@ -15,6 +15,7 @@ import React from 'react';
 import { render, fireEvent, act } from '@testing-library/react-native';
 import { V2WeeklyInsightScreen } from '../V2WeeklyInsightScreen';
 import { PROTOTYPE_WEEKLY_INSIGHT_FIXTURES } from '@/adapters/v2/weeklyInsight/weeklyInsightFactsBuilder';
+import { selectWeeklyInsight } from '@/adapters/v2/weeklyInsight/weeklyInsightSelector';
 
 describe('V2WeeklyInsightScreen', () => {
   beforeEach(() => {
@@ -96,8 +97,9 @@ describe('V2WeeklyInsightScreen', () => {
   });
 
   it('4. historical snapshot list opens in drawer and selects past snapshot without data leaks', () => {
+    const recovery = { ...selectWeeklyInsight(PROTOTYPE_WEEKLY_INSIGHT_FIXTURES.recovery), id: 'snap-archive-1' };
     const { getByTestId, getByText, queryByTestId } = render(
-      <V2WeeklyInsightScreen factsOverride={PROTOTYPE_WEEKLY_INSIGHT_FIXTURES.consistency} />,
+      <V2WeeklyInsightScreen factsOverride={PROTOTYPE_WEEKLY_INSIGHT_FIXTURES.consistency} historyOverride={[recovery]} />,
     );
 
     // Tap history button in header

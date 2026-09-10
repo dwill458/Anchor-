@@ -131,6 +131,8 @@ export function buildDetailedActivity(facts: WeeklyInsightFacts): WeeklyDetailed
 export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSnapshot {
   const totalPractices = facts.sessions.length;
   const detailedActivity = buildDetailedActivity(facts);
+  // Snapshot creation belongs to the persisted review period, never device time.
+  const snapshotCreatedAt = facts.weekEnd;
 
   // Identify primary / active anchor
   const primaryAnchor =
@@ -166,14 +168,14 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
       evidence: [
         ['1', 'Destination', 'Reached this week'],
         [`${totalPractices}`, 'Practices', 'Course total'],
-        [`${facts.chartContext?.oneMovesCompletedCount || 1}`, 'One Moves', 'Completed'],
+        [facts.chartContext ? `${facts.chartContext.oneMovesCompletedCount}` : '—', 'One Moves', facts.chartContext ? 'Completed' : 'Not recorded'],
       ],
       comparison: 'Course completion marks a primary milestone on your Chart.',
       comparisonTone: 'positive',
       interpretation: 'Your practice and execution carried you across the full route you set.',
       nextDirection: 'Take time to reflect on this milestone before starting a new route.',
       detailedActivity,
-      createdAt: new Date().toISOString(),
+      createdAt: snapshotCreatedAt,
     };
   }
 
@@ -185,16 +187,16 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
       : null);
 
   if (releasedAnchor && (releasedAnchor.releasedThisWeek || facts.modeCounts.release > 0)) {
-    const lifetimeCount = releasedAnchor.lifetimePracticesCount || Math.max(totalPractices, 22);
-    const finalScore = releasedAnchor.finalThreadScore || facts.endThread;
-    const relDay = releasedAnchor.releasedDay || 'Sat';
+    const lifetimeCount = releasedAnchor.lifetimePracticesCount ?? 0;
+    const finalScore = releasedAnchor.finalThreadScore ?? facts.endThread;
+    const relDay = releasedAnchor.releasedDay ?? 'Not recorded';
     return {
       id: `snapshot-${facts.weekStart}-release`,
       weekLabel: facts.weekLabel,
       completedDateLabel: facts.completedDateLabel,
       ruleType: 'COMPLETION_RELEASE',
       headline: 'You closed a chapter this week.',
-      support: `You marked the intention complete and released its Anchor after ${lifetimeCount} Practices across its lifetime.`,
+      support: lifetimeCount > 0 ? `You marked the intention complete and released its Anchor after ${lifetimeCount} Practices across its lifetime.` : 'You marked the intention complete and released its Anchor. Lifetime practice history is unavailable.',
       accentColor: WEEKLY_INSIGHT_COLORS.release,
       accentKey: 'release',
       visualType: 'release',
@@ -208,7 +210,7 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
         svg: releasedAnchor.svg,
       },
       evidence: [
-        [`${lifetimeCount}`, 'Practices', 'Lifetime'],
+        [lifetimeCount > 0 ? `${lifetimeCount}` : '—', 'Practices', lifetimeCount > 0 ? 'Lifetime' : 'Not recorded'],
         [`${finalScore}`, 'Final Thread', 'Snapshot'],
         [relDay, 'Released', 'Completed week'],
       ],
@@ -219,7 +221,7 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
       nextDirection:
         'Let this completed Anchor stay in your history. Your Chart can carry the next step forward.',
       detailedActivity,
-      createdAt: new Date().toISOString(),
+      createdAt: snapshotCreatedAt,
     };
   }
 
@@ -230,8 +232,8 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
   );
   if (evolvedAnchor || evolutionEvent) {
     const targetAnchor = evolvedAnchor || primaryAnchor;
-    const stage = targetAnchor?.unlockedStageThisWeek || 'Rooted';
-    const transitionDay = evolutionEvent?.dayLabel || 'Thu';
+    const stage = targetAnchor?.unlockedStageThisWeek ?? 'Not recorded';
+    const transitionDay = evolutionEvent?.dayLabel ?? 'Not recorded';
     return {
       id: `snapshot-${facts.weekStart}-evolution`,
       weekLabel: facts.weekLabel,
@@ -245,7 +247,7 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
       visualData: {
         type: 'evolution',
         anchorName: resolveAnchorName(targetAnchor),
-        oldStage: 'Grounded',
+        oldStage: targetAnchor?.evolutionStage ?? 'Not recorded',
         newStage: `${stage} · ${transitionDay}`,
         transitionDay,
         category: targetAnchor?.category,
@@ -262,23 +264,23 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
         'The meaningful change is the Anchor itself. The week marks a durable progression event, not just a higher score.',
       nextDirection: `Keep working with this Anchor as it settles into the new stage.`,
       detailedActivity,
-      createdAt: new Date().toISOString(),
+      createdAt: snapshotCreatedAt,
     };
   }
 
   // 4. WAYPOINT_REACHED
   const waypointEvent = facts.canonicalEvents.find((e) => e.type === 'WAYPOINT_REACHED');
   if (facts.chartContext?.waypointReachedThisWeek || waypointEvent) {
-    const reachedDay = facts.chartContext?.waypointReachedDay || waypointEvent?.dayLabel || 'Thu';
-    const oneMoves = facts.chartContext?.oneMovesCompletedCount || 4;
-    const linked = facts.chartContext?.practicesLinkedCount || Math.min(totalPractices, 3);
+    const reachedDay = facts.chartContext?.waypointReachedDay ?? waypointEvent?.dayLabel ?? 'Not recorded';
+    const oneMoves = facts.chartContext?.oneMovesCompletedCount;
+    const linked = facts.chartContext?.practicesLinkedCount;
     return {
       id: `snapshot-${facts.weekStart}-waypoint`,
       weekLabel: facts.weekLabel,
       completedDateLabel: facts.completedDateLabel,
       ruleType: 'WAYPOINT_REACHED',
       headline: 'You moved from reinforcement into execution.',
-      support: `You completed ${oneMoves} One Moves and reached your current waypoint after ${linked} supporting Practices.`,
+      support: oneMoves !== undefined && linked !== undefined ? `You completed ${oneMoves} One Moves and reached your current waypoint after ${linked} supporting Practices.` : 'You reached a waypoint this week. Supporting activity counts were not recorded.',
       accentColor: WEEKLY_INSIGHT_COLORS[primaryAccentKey],
       accentKey: primaryAccentKey,
       visualType: 'chartReached',
@@ -292,8 +294,8 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
       },
       evidence: [
         ['1', 'Waypoint', `Reached ${reachedDay}`],
-        [`${oneMoves}`, 'One Moves', 'Completed'],
-        [`${linked}`, 'Practices', 'Waypoint-linked'],
+        [oneMoves === undefined ? '—' : `${oneMoves}`, 'One Moves', oneMoves === undefined ? 'Not recorded' : 'Completed'],
+        [linked === undefined ? '—' : `${linked}`, 'Practices', linked === undefined ? 'Not recorded' : 'Waypoint-linked'],
       ],
       comparison: 'This is the first waypoint you have reached in the last four weeks.',
       comparisonTone: 'positive',
@@ -302,7 +304,7 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
       nextDirection:
         'Your next waypoint is ready. Let the new step set the direction before adding more.',
       detailedActivity,
-      createdAt: new Date().toISOString(),
+      createdAt: snapshotCreatedAt,
     };
   }
 
@@ -336,7 +338,7 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
       interpretation: 'The practice accumulated steadily across time, building real structural reinforcement.',
       nextDirection: 'Keep the rhythm that brought you here.',
       detailedActivity,
-      createdAt: new Date().toISOString(),
+      createdAt: snapshotCreatedAt,
     };
   }
 
@@ -354,7 +356,7 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
     const lowPoint = facts.lowestThread?.value ?? Math.min(...facts.threadPoints);
     const lowDay = facts.lowestThread?.dayLabel ?? 'Tuesday';
     const recoveryAmount = recoveryDelta > 0 ? `+${recoveryDelta}` : '+16';
-    const practicesAfter = Math.max(1, facts.practicesAfterLowCount || 3);
+    const practicesAfter = facts.practicesAfterLowCount;
     const accent: WeeklyInsightColorKey = 'health';
 
     return {
@@ -386,7 +388,7 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
       nextDirection:
         'A short return early next week may help keep this recovery from becoming another rebuild.',
       detailedActivity,
-      createdAt: new Date().toISOString(),
+      createdAt: snapshotCreatedAt,
     };
   }
 
@@ -419,7 +421,7 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
       interpretation: 'This recap stays descriptive. A pause in practice is part of normal life, not a failure.',
       nextDirection: 'A short Focus with your active Anchor is enough to begin again.',
       detailedActivity,
-      createdAt: new Date().toISOString(),
+      createdAt: snapshotCreatedAt,
     };
   }
 
@@ -454,7 +456,7 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
       interpretation: 'The useful signal is the return itself. Anchor does not treat the gap as failure or completion.',
       nextDirection: 'One short return early next week is enough to keep rebuilding.',
       detailedActivity,
-      createdAt: new Date().toISOString(),
+      createdAt: snapshotCreatedAt,
     };
   }
 
@@ -492,7 +494,7 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
       interpretation: 'There is enough activity to describe what happened, but not enough history to call it a long-term pattern.',
       nextDirection: 'Keep returning to the same Anchor for another week. A clearer pattern can emerge with more history.',
       detailedActivity,
-      createdAt: new Date().toISOString(),
+      createdAt: snapshotCreatedAt,
     };
   }
 
@@ -528,7 +530,7 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
       interpretation: 'This recap stays descriptive. A single Practice is evidence of activity, not evidence of a new habit or decline.',
       nextDirection: 'A short Focus with your active Anchor is enough to begin again.',
       detailedActivity,
-      createdAt: new Date().toISOString(),
+      createdAt: snapshotCreatedAt,
     };
   }
 
@@ -568,7 +570,7 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
       interpretation: 'Reinforcement and execution were pointed at the same step instead of moving on separate tracks.',
       nextDirection: 'Keep reinforcing this Anchor while the current waypoint is active.',
       detailedActivity,
-      createdAt: new Date().toISOString(),
+      createdAt: snapshotCreatedAt,
     };
   }
 
@@ -606,7 +608,7 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
       interpretation: 'Taking concrete action connected to your intention turns mental clarity into tangible progress.',
       nextDirection: 'Keep this rhythm going as you work toward your next milestone.',
       detailedActivity,
-      createdAt: new Date().toISOString(),
+      createdAt: snapshotCreatedAt,
     };
   }
 
@@ -649,7 +651,7 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
       interpretation: 'This week was not about frequency. The deeper sessions carried more of the reinforcement.',
       nextDirection: 'Keep this depth available without trying to add more sessions.',
       detailedActivity,
-      createdAt: new Date().toISOString(),
+      createdAt: snapshotCreatedAt,
     };
   }
 
@@ -708,7 +710,7 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
         'Your attention converged on one intention strongly enough for it to become the clear center of the week.',
       nextDirection: nextDirectionText,
       detailedActivity,
-      createdAt: new Date().toISOString(),
+      createdAt: snapshotCreatedAt,
     };
   }
 
@@ -745,7 +747,7 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
         'Your consistency came from returning across the week, not from packing more Practice into one day.',
       nextDirection: 'Keep the same rhythm. Short Focus sessions are enough to maintain this Thread.',
       detailedActivity,
-      createdAt: new Date().toISOString(),
+      createdAt: snapshotCreatedAt,
     };
   }
 
@@ -754,7 +756,7 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
     facts.modeCounts.visualize >= V1_INSIGHT_THRESHOLDS.visualizationMinSessions &&
     (facts.visionContext?.revisitsCount ?? 0) >= V1_INSIGHT_THRESHOLDS.visualizationMinRevisits
   ) {
-    const revisits = facts.visionContext?.revisitsCount || 2;
+    const revisits = facts.visionContext?.revisitsCount ?? 0;
     return {
       id: `snapshot-${facts.weekStart}-visualize`,
       weekLabel: facts.weekLabel,
@@ -781,7 +783,7 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
       interpretation: 'Clear visualization reinforced the feeling behind your Anchor before you practiced.',
       nextDirection: 'Keep returning to your Vision when you want to clarify the feeling.',
       detailedActivity,
-      createdAt: new Date().toISOString(),
+      createdAt: snapshotCreatedAt,
     };
   }
 
@@ -820,7 +822,7 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
       interpretation: 'Broad practice kept multiple threads moving, even without deep concentration on a single Anchor.',
       nextDirection: 'If one intention feels more urgent next week, give it the first session of the day.',
       detailedActivity,
-      createdAt: new Date().toISOString(),
+      createdAt: snapshotCreatedAt,
     };
   }
 
@@ -852,6 +854,6 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
     interpretation: 'Each session reinforced your intention and kept your Anchor active.',
     nextDirection: 'Continue with your current Anchor as you begin the new week.',
     detailedActivity,
-    createdAt: new Date().toISOString(),
+    createdAt: snapshotCreatedAt,
   };
 }

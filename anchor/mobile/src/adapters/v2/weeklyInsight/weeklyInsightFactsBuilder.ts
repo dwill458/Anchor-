@@ -145,7 +145,7 @@ export function buildWeeklyInsightFacts(input: BuildWeeklyInsightFactsInput): We
   const anchorFacts: WeeklyAnchorFact[] = anchors.map((a) => {
     const pCount = anchorPracticeCounts.get(a.id) || 0;
     const share = weekSessions.length > 0 ? (pCount / weekSessions.length) * 100 : 0;
-    const intention = (a as any).intention || a.intentionText || 'Your Anchor';
+    const intention = (a as any).intention ?? a.intentionText ?? '';
     const isArchived = Boolean(a.archivedAt || (a as any).isArchived);
 
     // Check if released this week
@@ -165,12 +165,12 @@ export function buildWeeklyInsightFacts(input: BuildWeeklyInsightFactsInput): We
       intention,
       category: a.category,
       svg: (a as any).sigilSvg || (a as any).svg || null,
-      evolutionStage: (a as any).evolutionStage || 'Grounded',
-      unlockedStageThisWeek: (a as any).unlockedStageThisWeek || null,
+      evolutionStage: (a as any).evolutionStage ?? undefined,
+      unlockedStageThisWeek: (a as any).unlockedStageThisWeek ?? null,
       isReleased: isArchived,
       releasedThisWeek,
       releasedDay,
-      lifetimePracticesCount: (a as any).lifetimePracticesCount || (a as any).practicesCount || pCount,
+      lifetimePracticesCount: (a as any).lifetimePracticesCount ?? (a as any).practicesCount,
       finalThreadScore: a.threadStrength,
       practiceCountInWeek: pCount,
       sharePercent: share,
@@ -187,15 +187,16 @@ export function buildWeeklyInsightFacts(input: BuildWeeklyInsightFactsInput): We
   const currentThread =
     activeAnchor && typeof activeAnchor.finalThreadScore === 'number'
       ? Math.round(activeAnchor.finalThreadScore)
-      : 70;
+      : 0;
 
-  // Compute realistic curve ending at currentThread
+  // Missing movement history is represented as a flat, unknown-safe baseline;
+  // do not fabricate a plausible curve from the current score.
   const threadPoints = [
-    Math.max(0, currentThread - 3),
-    Math.max(0, currentThread - 2),
-    Math.max(0, currentThread - 2),
-    Math.max(0, currentThread - 1),
-    Math.max(0, currentThread - 1),
+    currentThread,
+    currentThread,
+    currentThread,
+    currentThread,
+    currentThread,
     currentThread,
     currentThread,
   ];
@@ -240,7 +241,7 @@ export function buildWeeklyInsightFacts(input: BuildWeeklyInsightFactsInput): We
   const chartContext: WeeklyChartFact | null = hasActiveCourse
     ? {
         hasActiveCourse: true,
-        currentWaypointTitle: currentWaypointTitle || 'Active Waypoint',
+        currentWaypointTitle,
         nextWaypointTitle,
         waypointReachedThisWeek,
         waypointReachedDay,
@@ -255,7 +256,7 @@ export function buildWeeklyInsightFacts(input: BuildWeeklyInsightFactsInput): We
     visionRevisitsCount > 0
       ? {
           revisitsCount: visionRevisitsCount,
-          visionTitle: visionTitle || 'Career Vision',
+          visionTitle,
           visionAnchorId: activeAnchor?.id,
         }
       : null;
