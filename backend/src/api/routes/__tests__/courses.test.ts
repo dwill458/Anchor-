@@ -21,6 +21,7 @@ const mockCourseService = {
   getCourse: jest.fn(),
   listLog: jest.fn(),
   createCourse: jest.fn(),
+  resolveForAnchor: jest.fn(),
   updateCourse: jest.fn(),
   archiveCourse: jest.fn(),
   restoreCourse: jest.fn(),
@@ -104,5 +105,43 @@ describe('Chart course route boundary', () => {
     expect(initialized.status).toBe(200);
     expect(initialized.body.data.chartSchemaVersion).toBe(1);
     expect(mockCourseService.initializeChartForUser).toHaveBeenCalledWith('user-1');
+  });
+
+  it('resolves Chart from an Anchor through the server contract, never by treating the Anchor ID as a Course ID', async () => {
+    mockCourseService.resolveForAnchor.mockResolvedValue({
+      id: 'course-1',
+      destinationText: 'A destination',
+    });
+    const response = await request(buildApp()).post('/api/courses/resolve-for-anchor').send({
+      anchorId: 'anchor-1',
+      idempotencyKey: 'chart-entry-1',
+    });
+    expect(response.status).toBe(201);
+    expect(response.body.data.id).toBe('course-1');
+    expect(mockCourseService.resolveForAnchor).toHaveBeenCalledWith(
+      'user-1',
+      'anchor-1',
+      'chart-entry-1'
+    );
+    expect(mockCourseService.getCourse).not.toHaveBeenCalledWith('user-1', 'anchor-1');
+  });
+
+  it('rejects malformed resolver input before it can create a Course', async () => {
+    const response = await request(buildApp())
+      .post('/api/courses/resolve-for-anchor')
+      .send({ anchorId: 'anchor-1' });
+    expect(response.status).toBe(400);
+    expect(mockCourseService.resolveForAnchor).not.toHaveBeenCalled();
+  });
+
+  it('honours the existing Chart write and initialization gates', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ id: 'user-1', chartSchemaVersion: 0 });
+    const response = await request(buildApp()).post('/api/courses/resolve-for-anchor').send({
+      anchorId: 'anchor-1',
+      idempotencyKey: 'chart-entry-1',
+    });
+    expect(response.status).toBe(409);
+    expect(response.body.error.code).toBe('MIGRATION_REQUIRED');
+    expect(mockCourseService.resolveForAnchor).not.toHaveBeenCalled();
   });
 });
