@@ -13,12 +13,16 @@ const mockPrisma = {
 };
 
 const mockGetAnchorVision = jest.fn();
+const mockGetDelta7d = jest.fn().mockResolvedValue(null);
 
 jest.mock('../../../lib/prisma', () => ({ prisma: mockPrisma }));
 jest.mock('../VisionService', () => ({
   visionService: {
     getAnchorVision: (...args: unknown[]) => mockGetAnchorVision(...args),
   },
+}));
+jest.mock('../ThreadStrengthService', () => ({
+  threadStrengthService: { getDelta7d: (...args: unknown[]) => mockGetDelta7d(...args) },
 }));
 
 import { buildCourseSignalKey, recommendationService } from '../RecommendationService';

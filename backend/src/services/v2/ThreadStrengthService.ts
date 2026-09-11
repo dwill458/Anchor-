@@ -48,6 +48,38 @@ function isThreadPracticeType(value: string): value is ThreadPracticeType {
 }
 
 export class ThreadStrengthService {
+  /** Replays persisted movement facts to compare current strength with seven days ago. */
+  async getDelta7d(input: { userId: string; anchorId: string; asOf?: Date }): Promise<number | null> {
+    const asOf = input.asOf ?? new Date();
+    const anchor = await prisma.anchor.findFirst({
+      where: { id: input.anchorId, userId: input.userId, isArchived: false },
+      select: { createdAt: true },
+    });
+    if (!anchor) return null;
+    const windowStart = new Date(asOf.getTime() - 7 * 24 * 60 * 60 * 1000);
+    if (anchor.createdAt > windowStart) return null;
+    const movements = await prisma.threadV2Movement.findMany({
+      where: { userId: input.userId, anchorId: input.anchorId, completedAt: { lte: asOf } },
+      orderBy: [{ completedAt: 'asc' }, { sessionId: 'asc' }],
+      select: { practiceType: true, completedAt: true },
+    });
+    if (!movements.length) return null;
+    const strengthAt = (cutoff: Date): number => {
+      let strength = STARTING_STRENGTH;
+      let previous: Date | null = null;
+      for (const movement of movements) {
+        if (movement.completedAt > cutoff) break;
+        strength = applyLegacyDefaultDecay(strength, previous, movement.completedAt);
+        const gain = LEGACY_V1_DEFAULT_GAIN[movement.practiceType as ThreadPracticeType];
+        if (gain === undefined) continue;
+        strength = Math.min(100, strength + gain);
+        previous = movement.completedAt;
+      }
+      return applyLegacyDefaultDecay(strength, previous, cutoff);
+    };
+    return strengthAt(asOf) - strengthAt(windowStart);
+  }
+
   async calculatePracticeCompletion(input: {
     userId: string;
     anchorId: string;

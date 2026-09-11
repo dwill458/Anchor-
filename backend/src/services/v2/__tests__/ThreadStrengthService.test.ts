@@ -8,7 +8,11 @@ const mockTx = {
   threadV2State: { upsert: jest.fn(), update: jest.fn() },
   threadEventLedger: { upsert: jest.fn() },
 };
-const mockPrisma = { $transaction: jest.fn(), practiceSession: { findFirst: jest.fn() } };
+const mockPrisma = {
+  $transaction: jest.fn(),
+  practiceSession: { findFirst: jest.fn() },
+  anchor: { findFirst: jest.fn() },
+};
 
 jest.mock('../../../lib/prisma', () => ({ prisma: mockPrisma }));
 
@@ -72,5 +76,20 @@ describe('ThreadStrengthService', () => {
     });
     expect(movement.idempotent).toBe(true);
     expect(mockTx.threadV2Movement.create).not.toHaveBeenCalled();
+  });
+
+  it('derives delta7d from replayed server movements, including decay after the latest event', async () => {
+    mockPrisma.anchor.findFirst.mockResolvedValue({ createdAt: new Date('2026-08-01T00:00:00.000Z') });
+    mockPrisma.threadV2Movement = mockTx.threadV2Movement;
+    mockTx.threadV2Movement.findMany.mockResolvedValue([
+      { sessionId: 'old', practiceType: 'focus', completedAt: new Date('2026-08-31T12:00:00.000Z') },
+      { sessionId: 'recent', practiceType: 'deep_prime', completedAt: new Date('2026-09-06T12:00:00.000Z') },
+    ]);
+    await expect(service.getDelta7d({ userId: 'user-1', anchorId: 'anchor-1', asOf: new Date('2026-09-07T12:00:00.000Z') })).resolves.toBe(-30);
+  });
+
+  it('returns unavailable only when the seven-day window or movement evidence is absent', async () => {
+    mockPrisma.anchor.findFirst.mockResolvedValue({ createdAt: new Date('2026-09-06T12:00:00.000Z') });
+    await expect(service.getDelta7d({ userId: 'user-1', anchorId: 'anchor-1', asOf: completedAt })).resolves.toBeNull();
   });
 });

@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { prisma } from '../../lib/prisma';
 import { AppError } from '../../api/middleware/errorHandler';
 import { visionService } from './VisionService';
+import { threadStrengthService } from './ThreadStrengthService';
 import {
   RecommendationContextResponse,
   RecommendationSignal,
@@ -43,8 +44,7 @@ export class RecommendationService {
   async getRecommendationContext(
     userId: string,
     anchorId: string,
-    clientTimeZone: string = 'UTC',
-    delta7d: number | null = null
+    clientTimeZone: string = 'UTC'
   ): Promise<RecommendationContextResponse> {
     const anchor = await prisma.anchor.findFirst({
       where: { id: anchorId, userId, isArchived: false },
@@ -72,15 +72,15 @@ export class RecommendationService {
       visionId: vision?.id ?? null,
     };
 
-    // 3. Resolve Thread Context (Section 23: THREAD_DELTA7D_BLOCKER)
+    // 3. Resolve Thread Context from the persisted, server-owned movement ledger.
+    const delta7d = await threadStrengthService.getDelta7d({ userId, anchorId });
     const threadContext =
       delta7d === null
         ? {
             delta7d: null,
             delta7dStatus: 'UNAVAILABLE' as const,
             status: 'UNAVAILABLE' as const,
-            blockerReason:
-              'THREAD_DELTA7D_BLOCKER: Server stores completion-time history facts but does not execute continuous 7-day decay modeling without user sensitivity preferences.',
+            blockerReason: 'THREAD_DELTA7D_UNAVAILABLE: insufficient persisted Thread movement evidence.',
           }
         : {
             delta7d,

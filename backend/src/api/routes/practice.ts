@@ -344,7 +344,12 @@ router.post('/sessions', async (req: AuthRequest, res: Response, next: NextFunct
       if (existing.userId !== user.id || !immutableSessionMatches(existing, input)) {
         throw new AppError('Session ID has already been used', 409, 'SESSION_ID_CONFLICT');
       }
-      res.json({ success: true, data: existing, idempotent: true });
+      const threadStrengthMovement = await threadStrengthService.calculateForPracticeSession({
+        userId: user.id,
+        sessionId: existing.id,
+        mode: 'authoritative',
+      });
+      res.json({ success: true, data: { ...existing, threadStrengthMovement }, idempotent: true });
       return;
     }
 
@@ -465,27 +470,16 @@ router.post('/sessions', async (req: AuthRequest, res: Response, next: NextFunct
       }
       return session;
     });
-    // Shadow persistence is isolated behind a backend flag. It never changes
-    // the legacy response unless authority has been explicitly enabled.
-    const threadV2Enabled =
-      process.env.THREAD_V2_SHADOW === 'true' || process.env.THREAD_V2_AUTHORITY === 'true';
-    const threadV2Authority = process.env.THREAD_V2_AUTHORITY === 'true';
-    let threadMovement: ThreadMovement | null = null;
-    if (threadV2Enabled) {
-      try {
-        threadMovement = await threadStrengthService.calculateForPracticeSession({
-          userId: user.id,
-          sessionId: created.id,
-          mode: threadV2Authority ? 'authoritative' : 'shadow',
-        });
-      } catch {
-        // A shadow failure must not break canonical practice recording or the
-        // currently shipping client. The authority endpoint exposes failures.
-      }
-    }
+    // Every accepted canonical completion produces one server-owned movement.
+    // The movement ledger's unique session key makes retries safe.
+    const threadMovement = await threadStrengthService.calculateForPracticeSession({
+      userId: user.id,
+      sessionId: created.id,
+      mode: 'authoritative',
+    });
     res.status(201).json({
       success: true,
-      data: threadV2Authority ? { ...created, threadStrengthMovement: threadMovement } : created,
+      data: { ...created, threadStrengthMovement: threadMovement },
       idempotent: false,
     });
   } catch (error) {
