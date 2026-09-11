@@ -13,9 +13,8 @@ import { V2ProgressScreen } from '@/screens/v2/progress';
 import { V2AnchorLibraryScreen, V2AnchorDetailsScreen } from '@/screens/v2/anchors';
 import { V2ReleaseScreen } from '@/screens/v2/release';
 import { V2WeeklyInsightScreen } from '@/screens/v2/weeklyInsight';
-import { useAnchorStore } from '@/stores/anchorStore';
-import { useAuthStore } from '@/stores/authStore';
-import type { Anchor, SigilVariationStyle } from '@/types';
+import { createV2Anchor } from '@/adapters/v2/anchors/anchorCreationApi';
+import { resolveV2ChartCourse } from '@/adapters/v2/chart/anchorCourseResolver';
 import type { AnchorV2StackParamList } from './types';
 
 const Stack = createNativeStackNavigator<AnchorV2StackParamList>();
@@ -81,39 +80,18 @@ function V2PracticeRouteScreen() {
 function V2CreationRouteScreen() {
   const navigation = useNavigation<any>();
 
-  const saveAnchor: CreationSaveAdapter = useCallback(async ({ draft, candidate }) => {
-    const userId = useAuthStore.getState().user?.id ?? 'v2-dev-user';
-    const anchorId = draft.draftId || `anchor-${Date.now()}`;
-    const now = new Date();
-    const structureVariant: SigilVariationStyle =
-      draft.structureType === 'raw' ? 'minimal' : draft.structureType === 'contained' ? 'dense' : 'balanced';
-    const newAnchor: Anchor = {
-      id: anchorId,
-      localId: anchorId,
-      userId,
-      intentionText: draft.intention,
-      category: draft.category ?? 'career',
-      classifierMeta: { v2Expression: candidate.expression },
-      distilledLetters: draft.distilledLetters ?? [],
-      baseSigilSvg: candidate.structureSvg,
-      structureVariant,
-      isCharged: false,
-      activationCount: 0,
-      chargeCount: 0,
-      threadStrength: 0,
-      createdAt: now,
-      updatedAt: now,
-    };
-    useAnchorStore.getState().addAnchor(newAnchor);
-    return { anchorId };
-  }, []);
+  const saveAnchor: CreationSaveAdapter = useCallback(
+    ({ draft, candidate, idempotencyKey }) => createV2Anchor(draft, candidate, idempotencyKey),
+    [],
+  );
 
-  const handleContinue = useCallback((continuation: CreationContinuation) => {
+  const handleContinue = useCallback(async (continuation: CreationContinuation) => {
     const { type, anchorId } = continuation;
     if (type === 'vision' || type === 'vision_and_chart') {
       navigation.replace('V2Vision', { anchorId });
     } else if (type === 'chart') {
-      navigation.replace('V2Chart', { courseId: anchorId });
+      const courseId = await resolveV2ChartCourse(anchorId, `v2-chart:${anchorId}`);
+      navigation.replace('V2Chart', { courseId, anchorId });
     } else {
       navigation.replace('V2DevelopmentHome');
     }

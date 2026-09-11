@@ -33,6 +33,10 @@ const CreateCourseSchema = z
     fromProposalId: z.string().min(1).max(200).optional(),
   })
   .strict();
+const ResolveAnchorCourseSchema = z.object({
+  anchorId: z.string().trim().min(1).max(200),
+  idempotencyKey: IdempotencyKey,
+}).strict();
 const UpdateCourseSchema = z
   .object({
     expectedCourseVersion: CourseVersion,
@@ -184,6 +188,16 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
     const userId = await requireWriteUser(req);
     const input = validate(CreateCourseSchema, req.body ?? {});
     res.status(201).json({ success: true, data: await courseService.createCourse(userId, input) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/resolve-for-anchor', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = await requireWriteUser(req);
+    const input = validate(ResolveAnchorCourseSchema, req.body ?? {});
+    res.status(201).json({ success: true, data: await courseService.resolveForAnchor(userId, input.anchorId, input.idempotencyKey) });
   } catch (error) {
     next(error);
   }

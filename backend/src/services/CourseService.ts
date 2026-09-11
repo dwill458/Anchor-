@@ -304,6 +304,45 @@ export class CourseService {
     return projection(row, observations);
   }
 
+  /**
+   * The only Anchor-context Chart entrypoint. It never conflates the two IDs:
+   * an existing live destination link wins; otherwise explicit Chart entry
+   * creates one draft Course and its destination link transactionally.
+   */
+  async resolveForAnchor(userId: string, anchorId: string, idempotencyKey: string): Promise<CourseDetail> {
+    return runSerializable(async tx => {
+      const existing = await tx.courseAnchorLink.findFirst({
+        where: { userId, anchorId, unlinkedAt: null, course: { deletedAt: null, status: { in: [CourseStatus.DRAFT, CourseStatus.ACTIVE] } } },
+        orderBy: { linkedAt: 'desc' },
+        select: { courseId: true },
+      });
+      if (existing) return projection(await findCourse(tx, userId, existing.courseId));
+
+      const anchor = await tx.anchor.findFirst({
+        where: { id: anchorId, userId, isArchived: false },
+        select: { id: true, intentionText: true, category: true, planetaryTier: true, enhancedImageUrl: true },
+      });
+      if (!anchor) throw new AppError('Anchor is unavailable', 422, 'ANCHOR_LINK_INVALID');
+
+      const courseId = randomUUID();
+      const course = await tx.course.create({
+        data: { id: courseId, userId, destinationText: anchor.intentionText.slice(0, 140), idempotencyKey: `anchor-entry:${anchorId}:${idempotencyKey}`, schemaVersion: 1 },
+      });
+      const link = await tx.courseAnchorLink.create({
+        data: { id: randomUUID(), userId, courseId, anchorId: anchor.id, role: CourseAnchorRole.DESTINATION, anchorSnapshot: buildAnchorSnapshot(anchor, false) as Prisma.InputJsonValue },
+      });
+      await courseEventService.append(tx, {
+        userId, courseId, eventType: CourseEventType.COURSE_CREATED, sourceEntityType: 'Course', sourceEntityId: courseId,
+        idempotencyKey: eventKey('anchor-course-created', `${anchorId}:${idempotencyKey}`),
+      });
+      await courseEventService.append(tx, {
+        userId, courseId, eventType: CourseEventType.DESTINATION_ANCHOR_LINKED, sourceEntityType: 'CourseAnchorLink', sourceEntityId: link.id,
+        idempotencyKey: eventKey('anchor-course-linked', `${anchorId}:${idempotencyKey}`),
+      });
+      return projection(await findCourse(tx, userId, course.id));
+    });
+  }
+
   async createCourse(userId: string, input: CreateCourseRequest): Promise<CourseDetail> {
     const existing = await findCourseByIdempotency(prisma, userId, input.idempotencyKey);
     if (existing) {

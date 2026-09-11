@@ -78,6 +78,16 @@ export class ChartApiClient {
     return this.unwrap(() => apiClient.post('/api/courses', request, this.requestConfig(signal)));
   }
 
+  /** Resolve the canonical Course linked to an Anchor, creating that link only on explicit Chart entry. */
+  resolveForAnchor(
+    request: { anchorId: string; idempotencyKey: string },
+    signal?: AbortSignal,
+  ): Promise<ChartApiResult<CourseDetail>> {
+    return this.unwrap(() =>
+      apiClient.post('/api/courses/resolve-for-anchor', request, this.requestConfig(signal)),
+    );
+  }
+
   updateCourse(
     courseId: string,
     request: { expectedCourseVersion: number; destinationText?: string; status?: 'ACTIVE' },

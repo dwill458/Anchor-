@@ -64,7 +64,7 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
     reorderWaypoints,
     updateWaypointTitle,
     addNewWaypoint,
-  } = useV2Chart(courseId);
+  } = useV2Chart(courseId, anchorId);
 
   // Active sheets and modals state
   const [selectedWaypointId, setSelectedWaypointId] = useState<string | null>(null);

@@ -10,6 +10,7 @@ import {
   type V2WaypointPresentation,
 } from '@/adapters/v2/chart';
 import type { CourseDetail } from '@/types/chart';
+import { resolveV2ChartCourse } from '@/adapters/v2/chart/anchorCourseResolver';
 
 export interface UseV2ChartResult {
   chart: V2ChartPresentationState | null;
@@ -30,7 +31,7 @@ export interface UseV2ChartResult {
   refresh: () => Promise<void>;
 }
 
-export function useV2Chart(courseIdProp?: string): UseV2ChartResult {
+export function useV2Chart(courseIdProp?: string, anchorId?: string): UseV2ChartResult {
   const activeCourseFromStore = useCourseStore((s) => s.activeCourse);
   const fetchCourseDetail = useCourseStore((s) => s.fetchCourseDetail);
   const editWaypointInStore = useCourseStore((s) => s.editWaypoint);
@@ -48,7 +49,20 @@ export function useV2Chart(courseIdProp?: string): UseV2ChartResult {
 
   const reachLockRef = useRef<boolean>(false);
 
-  const targetCourseId = courseIdProp ?? activeCourseFromStore?.id ?? '';
+  const [resolvedCourseId, setResolvedCourseId] = useState<string | null>(null);
+  const resolutionKey = useRef(`v2-chart:${anchorId ?? ''}`);
+  const targetCourseId = courseIdProp ?? resolvedCourseId ?? activeCourseFromStore?.id ?? '';
+
+  useEffect(() => {
+    if (courseIdProp || !anchorId || resolvedCourseId) return;
+    let active = true;
+    setLoading(true);
+    resolveV2ChartCourse(anchorId, resolutionKey.current)
+      .then((courseId) => { if (active) setResolvedCourseId(courseId); })
+      .catch((err: unknown) => { if (active) setError(err instanceof Error ? err.message : 'Unable to prepare Chart'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [anchorId, courseIdProp, resolvedCourseId]);
 
   useEffect(() => {
     if (activeCourseFromStore && (!courseIdProp || activeCourseFromStore.id === courseIdProp)) {
