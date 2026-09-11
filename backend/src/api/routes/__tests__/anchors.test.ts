@@ -179,6 +179,50 @@ describe('POST /api/anchors', () => {
     expect(mockPrisma.anchor.create).toHaveBeenCalledTimes(1);
   });
 
+  it('reuses one canonical Anchor for duplicate idempotent creation requests', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    (mockPrisma.anchor.findUnique as jest.Mock)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ ...MOCK_ANCHOR, idempotencyKey: 'client-create-1' });
+    (mockPrisma.anchor.create as jest.Mock).mockResolvedValue({
+      ...MOCK_ANCHOR,
+      idempotencyKey: 'client-create-1',
+    });
+    (mockPrisma.user.update as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    const body = { ...VALID_CREATE_BODY, idempotencyKey: 'client-create-1' };
+
+    const first = await request(buildApp()).post('/api/anchors').send(body);
+    const duplicate = await request(buildApp()).post('/api/anchors').send(body);
+
+    expect(first.status).toBe(201);
+    expect(duplicate.status).toBe(200);
+    expect(first.body.data.id).toBe('anchor-1');
+    expect(duplicate.body.data.id).toBe('anchor-1');
+    expect(mockPrisma.anchor.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('recovers the canonical Anchor when a retry races with the idempotency unique constraint', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    const uniqueConflict = new Prisma.PrismaClientKnownRequestError('idempotency conflict', {
+      code: 'P2002',
+      clientVersion: 'test',
+      meta: { target: ['idempotency_key'] },
+    });
+    (mockPrisma.anchor.findUnique as jest.Mock)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ ...MOCK_ANCHOR, idempotencyKey: 'retry-create-1' });
+    (mockPrisma.anchor.create as jest.Mock).mockRejectedValue(uniqueConflict);
+    const response = await request(buildApp()).post('/api/anchors').send({
+      ...VALID_CREATE_BODY,
+      idempotencyKey: 'retry-create-1',
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.id).toBe('anchor-1');
+    expect(mockPrisma.anchor.create).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.anchor.findUnique).toHaveBeenCalledTimes(2);
+  });
+
   it('returns 400 when intentionText is missing', async () => {
     const res = await request(buildApp())
       .post('/api/anchors')

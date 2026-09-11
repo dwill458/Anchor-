@@ -3,12 +3,15 @@ import { CourseEventType, CourseStatus, CourseAnchorRole } from '@prisma/client'
 const mockPrisma = {
   $transaction: jest.fn(),
   course: {
+    findUnique: jest.fn(),
     findFirst: jest.fn(),
+    create: jest.fn(),
     update: jest.fn(),
   },
+  anchor: { findFirst: jest.fn() },
   waypoint: { update: jest.fn() },
   courseEvent: { findUnique: jest.fn(), create: jest.fn(), findMany: jest.fn() },
-  courseAnchorLink: { findMany: jest.fn(), update: jest.fn() },
+  courseAnchorLink: { findMany: jest.fn(), findFirst: jest.fn(), create: jest.fn(), update: jest.fn() },
   reflection: { findMany: jest.fn() },
   practiceSession: { findMany: jest.fn() },
 };
@@ -82,11 +85,40 @@ beforeEach(() => {
     id: 'event-1',
   }));
   mockPrisma.course.update.mockResolvedValue({});
+  mockPrisma.course.findUnique.mockResolvedValue(null);
   mockPrisma.waypoint.update.mockResolvedValue({});
   mockPrisma.courseAnchorLink.update.mockResolvedValue({});
+  mockPrisma.courseAnchorLink.create.mockResolvedValue({ id: 'link-1' });
   mockPrisma.courseEvent.findMany.mockResolvedValue([]);
   mockPrisma.reflection.findMany.mockResolvedValue([]);
   mockPrisma.practiceSession.findMany.mockResolvedValue([]);
+});
+
+describe('CourseService Anchor resolver', () => {
+  it('reuses the existing active Course linked to an Anchor without creating a duplicate', async () => {
+    const existing = courseRow({ id: 'course-existing', idempotencyKey: 'existing-key' });
+    mockPrisma.course.findUnique.mockResolvedValue(null);
+    mockPrisma.courseAnchorLink.findFirst.mockResolvedValue({ courseId: 'course-existing' });
+    mockPrisma.course.findFirst.mockResolvedValue(existing);
+
+    const result = await courseService.resolveForAnchor('user-1', 'anchor-1', 'chart-entry-1');
+
+    expect(result.id).toBe('course-existing');
+    expect(mockPrisma.course.create).not.toHaveBeenCalled();
+    expect(mockPrisma.courseAnchorLink.create).not.toHaveBeenCalled();
+    expect(mockPrisma.anchor.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('rejects a missing Anchor instead of returning its ID as a Course ID', async () => {
+    mockPrisma.course.findUnique.mockResolvedValue(null);
+    mockPrisma.courseAnchorLink.findFirst.mockResolvedValue(null);
+    mockPrisma.anchor.findFirst.mockResolvedValue(null);
+
+    await expect(
+      courseService.resolveForAnchor('user-1', 'missing-anchor', 'chart-entry-2')
+    ).rejects.toMatchObject({ code: 'ANCHOR_LINK_INVALID' });
+    expect(mockPrisma.course.create).not.toHaveBeenCalled();
+  });
 });
 
 describe('CourseService cancellation contract', () => {
