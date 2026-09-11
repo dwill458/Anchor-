@@ -9,7 +9,7 @@ import { NavigationContainer, useNavigationContainerRef } from '@react-navigatio
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import type { PracticeStackParamList } from '@/types';
-import type { PracticeLaunchRequest } from './v2/PracticeLaunchHost';
+import type { PracticeLaunchRequest } from '@/types/practice';
 // DEFERRED: import { PracticeScreen, StabilizeRitualScreen, EvolveScreen } from '@/screens/practice'; — restore post-launch
 import { PracticeScreen, EvolveScreen, ThreadStrengthDetailScreen } from '@/screens/practice';
 import {
@@ -38,6 +38,34 @@ interface PracticeStackNavigatorProps {
   onReturnToV2?: () => void;
 }
 
+export function toMaturePracticeLaunch(request: PracticeLaunchRequest) {
+  const context = {
+    sessionId: request.sessionId,
+    entrySource: request.source,
+    visionId: request.visionId,
+    assetId: request.assetId,
+    courseId: request.courseId,
+    waypointId: request.waypointId,
+    returnTarget: request.returnTarget,
+  } as const;
+  if (request.mode === 'focus') {
+    return {
+      route: 'ActivationRitual' as const,
+      params: { anchorId: request.anchorId, activationType: 'visual' as const, durationOverride: request.durationSeconds, returnTo: 'practice' as const, source: request.source, ...context },
+    };
+  }
+  if (request.mode === 'deep_prime') {
+    return {
+      route: 'Ritual' as const,
+      params: { anchorId: request.anchorId, ritualType: 'ritual' as const, durationSeconds: request.durationSeconds, returnTo: 'practice' as const, source: request.source, ...context },
+    };
+  }
+  return {
+    route: 'VisualizePreparation' as const,
+    params: { anchorId: request.anchorId, durationSeconds: request.durationSeconds as 60 | 180 | 300, source: request.source, ...context },
+  };
+}
+
 export const PracticeStackNavigator: React.FC<PracticeStackNavigatorProps> = ({ onRouteChange, launchRequest, onReturnToV2 }) => {
   const navigationRef = useNavigationContainerRef<PracticeStackParamList>();
   const [ready, setReady] = React.useState(false);
@@ -48,9 +76,8 @@ export const PracticeStackNavigator: React.FC<PracticeStackNavigatorProps> = ({ 
 
   React.useEffect(() => {
     if (!launchRequest || !ready) return;
-    if (launchRequest.mode === 'focus') navigationRef.navigate('ActivationRitual', { anchorId: launchRequest.anchorId, activationType: 'visual', durationOverride: launchRequest.durationSeconds, returnTo: 'practice', source: launchRequest.source });
-    else if (launchRequest.mode === 'deep_prime') navigationRef.navigate('Ritual', { anchorId: launchRequest.anchorId, ritualType: 'ritual', durationSeconds: launchRequest.durationSeconds, returnTo: 'practice', source: launchRequest.source });
-    else navigationRef.navigate('VisualizePreparation', { anchorId: launchRequest.anchorId, source: launchRequest.source });
+    const launch = toMaturePracticeLaunch(launchRequest);
+    navigationRef.navigate(launch.route, launch.params as never);
   }, [launchRequest, navigationRef, ready]);
 
   return (

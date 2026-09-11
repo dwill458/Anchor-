@@ -11,8 +11,9 @@ import { colors, spacing, typography } from '@/theme/v2';
 import type { Anchor } from '@/types';
 import type { V2PracticeRouteIntents } from './practiceRoutes';
 import { V2PracticePrepareScreen } from './V2PracticePrepareScreen';
+import type { PracticeCompletionReturn } from '@/navigation/practiceCompletionReturn';
 
-type Props = Partial<V2PracticeRouteIntents> & { anchor?: Anchor | null; recommendation?: V2RecommendationContext | null; capabilities?: V2PracticeCapabilities; onBack?: () => void };
+type Props = Partial<V2PracticeRouteIntents> & { anchor?: Anchor | null; recommendation?: V2RecommendationContext | null; capabilities?: V2PracticeCapabilities; onBack?: () => void; completion?: PracticeCompletionReturn | null };
 
 export function V2PracticeScreen({ anchor: suppliedAnchor, recommendation: suppliedRecommendation, capabilities, onBack, onPremiumCapabilityRequired, onCreateVision, onOpenVision, onReleaseRequested, onBeginPractice }: Props) {
   const { selectedAnchor } = useV2SelectedAnchor();

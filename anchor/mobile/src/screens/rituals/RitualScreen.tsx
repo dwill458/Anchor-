@@ -282,6 +282,11 @@ export const RitualScreen: React.FC = () => {
     audioConfiguration,
     audioModeOverride,
     returnTo,
+    sessionId,
+    entrySource,
+    courseId,
+    waypointId,
+    returnTarget,
   } = route.params;
   const isMountedRef = useRef(true);
   const isCompletingRef = useRef(false);
@@ -1277,6 +1282,34 @@ export const RitualScreen: React.FC = () => {
     }
 
     if (isFirstPrimeForAnchor) {
+      if (returnTarget === 'v2_practice') {
+        const completedAt = new Date().toISOString();
+        const canonicalSessionId = sessionId ?? completionEventIdRef.current;
+        recordSession({
+          idempotencyKey: canonicalSessionId,
+          anchorId,
+          type: 'reinforce',
+          durationSeconds: config.totalDurationSeconds,
+          mode: sessionAudioPlan.configuration.backgroundAudio === 'ambient' || sessionAudioPlan.configuration.guidanceVoice !== 'none' ? 'ambient' : 'silent',
+          audioConfiguration: sessionAudioPlan.configuration,
+          completedAt,
+        });
+        await PracticeCompletionService.queueLegacyCompletion({
+          id: canonicalSessionId,
+          anchorId,
+          anchorLocalId: anchor?.localId,
+          practiceMode: 'deep_prime',
+          durationSeconds: config.totalDurationSeconds,
+          completedAt,
+          guidanceVoice: sessionAudioPlan.configuration.guidanceVoice,
+          backgroundAudio: sessionAudioPlan.configuration.backgroundAudio,
+          source: 'practice_screen',
+          courseId,
+          waypointId,
+          practiceEntrySource: entrySource,
+          returnTarget,
+        });
+      }
       exitingRef.current = true;
       navigation.replace('FirstPrimeComplete', {
         anchorId: effectiveAnchorId,
@@ -1292,8 +1325,9 @@ export const RitualScreen: React.FC = () => {
 
     if (isDeepRitual) {
       const completedAt = new Date().toISOString();
+      const canonicalSessionId = sessionId ?? completionEventIdRef.current;
       const completionEventId = recordSession({
-        idempotencyKey: completionEventIdRef.current,
+        idempotencyKey: canonicalSessionId,
         anchorId,
         type: 'reinforce',
         durationSeconds: config.totalDurationSeconds,
@@ -1306,7 +1340,7 @@ export const RitualScreen: React.FC = () => {
         completedAt,
       });
       await PracticeCompletionService.queueLegacyCompletion({
-        id: completionEventId,
+        id: canonicalSessionId,
         anchorId,
         anchorLocalId: anchor?.localId,
         practiceMode: 'deep_prime',
@@ -1315,6 +1349,10 @@ export const RitualScreen: React.FC = () => {
         guidanceVoice: sessionAudioPlan.configuration.guidanceVoice,
         backgroundAudio: sessionAudioPlan.configuration.backgroundAudio,
         source: returnTo === 'practice' ? 'practice_screen' : 'anchor_detail',
+        courseId,
+        waypointId,
+        practiceEntrySource: entrySource,
+        returnTarget,
       });
       await handlePrimeComplete();
       await exitRitual();

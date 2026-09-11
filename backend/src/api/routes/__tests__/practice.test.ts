@@ -340,7 +340,7 @@ describe('canonical practice sessions', () => {
     expect(retry.body.idempotent).toBe(true);
   });
 
-  it('runs an isolated V2 Thread shadow without changing the legacy session response', async () => {
+  it('returns authoritative V2 Thread movement with the canonical session response', async () => {
     process.env.THREAD_V2_SHADOW = 'true';
     mockThreadStrengthService.calculateForPracticeSession.mockResolvedValue({
       beforeStrength: 50,
@@ -353,11 +353,17 @@ describe('canonical practice sessions', () => {
     const response = await request(app).post('/api/practice/sessions').send(body);
 
     expect(response.status).toBe(201);
-    expect(response.body.data).not.toHaveProperty('threadStrengthMovement');
+    expect(response.body.data.threadStrengthMovement).toEqual({
+      beforeStrength: 50,
+      afterStrength: 90,
+      delta: 40,
+      reason: 'practice_completed',
+      idempotent: false,
+    });
     expect(mockThreadStrengthService.calculateForPracticeSession).toHaveBeenCalledWith({
       userId: MOCK_DB_USER.id,
       sessionId: body.id,
-      mode: 'shadow',
+      mode: 'authoritative',
     });
   });
 

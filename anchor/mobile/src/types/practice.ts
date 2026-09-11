@@ -57,6 +57,20 @@ export type PracticeEntrySource =
   | 'shortcut'
   | 'evolve';
 
+/** Typed handoff from V2 Prepare to the single mature Practice host. */
+export type PracticeLaunchRequest = {
+  anchorId: string;
+  mode: 'focus' | 'deep_prime' | 'visualize';
+  durationSeconds: number;
+  source: PracticeEntrySource;
+  sessionId?: string;
+  visionId?: string;
+  assetId?: string;
+  courseId?: string;
+  waypointId?: string;
+  returnTarget: 'v2_practice';
+};
+
 /** Existing product weighting: Deep Prime compounds faster than base practice. */
 export const PRACTICE_THREAD_STRENGTH_GAINS: Readonly<
   Record<PracticeMode, number>
@@ -121,6 +135,9 @@ export interface PracticeSessionRecord {
   anchorId: string | null;
   anchorLocalId: string | null;
   anchorServerId: string | null;
+  courseId?: string | null;
+  waypointId?: string | null;
+  practiceEntrySource?: PracticeEntrySource | null;
   practiceMode: PracticeMode;
   plannedDurationSeconds: number;
   completedDurationSeconds: number;

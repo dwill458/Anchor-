@@ -3,6 +3,7 @@ import { apiClient } from '../ApiClient';
 import { AnalyticsService } from '../AnalyticsService';
 import { useAuthStore } from '@/stores/authStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import { registerPracticeCompletionReturn } from '@/navigation/practiceCompletionReturn';
 
 const input = (accountId: string, sessionId = 'stable-session') => ({
   sessionId,
@@ -70,5 +71,47 @@ describe('PracticeCompletionService', () => {
       PracticeCompletionService.completePracticeSession(input('another-account')),
     ).rejects.toThrow('active account');
     expect(useSessionStore.getState().practiceHistory).toEqual([]);
+  });
+
+  it('returns server movement once after a V2 completion and preserves bridge context', async () => {
+    const accountId = 'account-completion-bridge';
+    useAuthStore.setState({ user: { id: accountId } as any });
+    const post = jest.spyOn(apiClient, 'post').mockResolvedValue({
+      data: {
+        data: {
+          threadStrengthMovement: { beforeStrength: 50, afterStrength: 90, delta: 40 },
+        },
+      },
+    } as any);
+    const returned = jest.fn();
+    const unregister = registerPracticeCompletionReturn(returned);
+
+    await PracticeCompletionService.completePracticeSession({
+      ...input(accountId, 'bridge-session'),
+      mode: 'deep_prime',
+      courseId: 'course-1',
+      waypointId: 'waypoint-1',
+      practiceEntrySource: 'practice_deep_prime_card',
+      metadata: { v2ReturnTarget: 'v2_practice', visionId: 'vision-1' },
+    }, { flushImmediately: false });
+    await PracticeCompletionService.flush(accountId);
+    await PracticeCompletionService.flush(accountId);
+
+    expect(post).toHaveBeenCalledWith('/api/practice/sessions', expect.objectContaining({
+      id: 'bridge-session',
+      courseId: 'course-1',
+      waypointId: 'waypoint-1',
+      practiceEntrySource: 'practice_deep_prime_card',
+      metadata: expect.objectContaining({ v2ReturnTarget: 'v2_practice', visionId: 'vision-1' }),
+    }));
+    expect(returned).toHaveBeenCalledTimes(1);
+    expect(returned).toHaveBeenCalledWith(expect.objectContaining({
+      sessionId: 'bridge-session',
+      returnTarget: 'v2_practice',
+      beforeStrength: 50,
+      afterStrength: 90,
+      delta: 40,
+    }));
+    unregister();
   });
 });

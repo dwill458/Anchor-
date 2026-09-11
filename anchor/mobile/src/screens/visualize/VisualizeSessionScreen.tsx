@@ -128,6 +128,13 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
     sceneText,
     guidanceVoice,
     backgroundAudio,
+    sessionId,
+    entrySource,
+    visionId,
+    assetId,
+    courseId,
+    waypointId,
+    returnTarget,
   } = route.params;
   const anchor = useAnchorStore((state) => state.getAnchorById(anchorId));
   const accountId = useAuthStore((state) => state.user?.id ?? null);
@@ -140,7 +147,7 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
   });
 
   const sessionIdRef = useRef(
-    `visualize:${accountId ?? 'guest'}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`,
+    sessionId ?? `visualize:${accountId ?? 'guest'}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`,
   );
   const completionRef = useRef(false);
   const completionCueRef = useRef(false);
@@ -178,6 +185,11 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
             backgroundAudio,
             sceneSnapshot: sceneText,
             source: route.params.source,
+            courseId,
+            waypointId,
+            practiceEntrySource: entrySource,
+            returnTarget,
+            metadata: { visionId, assetId },
           });
           syncOutcome = 'queued';
         } catch {
@@ -205,6 +217,12 @@ export const VisualizeSessionScreen: React.FC<Props> = ({
       durationSeconds,
       guidanceVoice,
       sceneText,
+      courseId,
+      waypointId,
+      entrySource,
+      returnTarget,
+      visionId,
+      assetId,
     ],
   );
 

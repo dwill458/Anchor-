@@ -29,7 +29,13 @@ export function V2PracticePrepareScreen({ anchor, mode, vision, source, onBack, 
   const begin = () => {
     if (mode === 'release') { onReleaseRequested(anchor.id, 'practice_prepare'); return; }
     if (isVisionEmpty || !duration) return;
-    onBeginPractice?.({ anchorId: anchor.id, mode, durationSeconds: duration, source });
+    onBeginPractice?.({
+      anchorId: anchor.id,
+      mode,
+      durationSeconds: duration,
+      source,
+      visionId: vision.state === 'ready' ? vision.visionId : undefined,
+    });
   };
   return <V2Screen scroll testID={`v2-practice-prepare-${mode}`}><Pressable accessibilityRole="button" accessibilityLabel="Back to Practice" onPress={onBack} style={styles.back}><ArrowLeft size={20} color={colors.text.primary} /><Text style={styles.backText}>Practice</Text></Pressable><View style={styles.content}><Text style={[styles.eyebrow, { color: definition.accent }]}>PREPARE</Text><Text style={styles.title}>{definition.title}</Text><Text style={styles.purpose}>{definition.purpose}</Text><V2PracticeAnchorContext anchor={anchor} />
     {isVisionEmpty ? <V2EmptyState title="Create a Vision first" message="Visualize rehearses a future you have chosen for this Anchor." action={<V2Button accessibilityLabel="Create a Vision for this Anchor" onPress={() => onCreateVision(anchor.id)}>Create a Vision</V2Button>} /> : mode === 'release' ? <View style={styles.release}><Text style={styles.releaseTitle}>Close this intention with care.</Text><Text style={styles.releaseBody}>Release preserves this Anchor and its history. It never deletes the record.</Text></View> : <><Text style={styles.durationLabel}>CHOOSE A DURATION</Text><View style={styles.durations}>{durations.map((option) => <Pressable key={option} accessibilityRole="button" accessibilityState={{ selected: option === duration }} accessibilityLabel={`${v2PracticeDurationLabel(option)}${option === duration ? ', selected' : ''}`} onPress={() => setDuration(option)} style={[styles.duration, option === duration && { borderColor: definition.accent, backgroundColor: `${definition.accent}12` }]}><Text style={[styles.durationText, option === duration && { color: definition.accent }]}>{v2PracticeDurationLabel(option)}</Text></Pressable>)}</View>{mode === 'visualize' && vision.state === 'ready' ? <Pressable accessibilityRole="button" accessibilityLabel="Open this Anchor's Vision" onPress={() => onOpenVision?.(anchor.id)}><Text numberOfLines={3} style={styles.visionPreview}>{vision.previewText}</Text></Pressable> : null}</>}

@@ -77,6 +77,11 @@ export const ActivationScreen: React.FC = () => {
     audioConfiguration,
     audioModeOverride,
     returnTo,
+    sessionId,
+    entrySource,
+    courseId,
+    waypointId,
+    returnTarget,
   } = route.params;
   const toast = useToast();
 
@@ -576,8 +581,9 @@ export const ActivationScreen: React.FC = () => {
 
     // Record session locally
     const completedAt = new Date().toISOString();
+    const canonicalSessionId = sessionId ?? completionEventIdRef.current;
     const completionEventId = recordSession({
-      idempotencyKey: completionEventIdRef.current,
+      idempotencyKey: canonicalSessionId,
       anchorId,
       type: 'activate',
       durationSeconds: activationDurationSeconds,
@@ -600,6 +606,10 @@ export const ActivationScreen: React.FC = () => {
       guidanceVoice: focusSessionAudioPlan.configuration.guidanceVoice,
       backgroundAudio: focusSessionAudioPlan.configuration.backgroundAudio,
       source: returnTo === 'practice' ? 'practice_screen' : 'anchor_detail',
+      courseId,
+      waypointId,
+      practiceEntrySource: entrySource,
+      returnTarget,
     });
     void recordReviewSignal('focus_session_completed');
 
@@ -640,6 +650,11 @@ export const ActivationScreen: React.FC = () => {
     handlePrimeComplete,
     focusSessionAudioPlan,
     returnTo,
+    sessionId,
+    entrySource,
+    courseId,
+    waypointId,
+    returnTarget,
     scheduleReviewRequestAfterHomeReturn,
   ]);
 

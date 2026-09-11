@@ -106,7 +106,7 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
     ),
   );
   const [duration, setDuration] = useState<60 | 180 | 300>(
-    recentDuration ?? defaultDuration,
+    route.params.durationSeconds ?? recentDuration ?? defaultDuration,
   );
   const [audio, setAudio] = useState<SessionAudioDefaults>({
     ...globalDefaults,
@@ -392,6 +392,13 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
       sceneText: sceneText.trim(),
       guidanceVoice: audio.guidanceVoice,
       backgroundAudio: audio.backgroundAudio,
+      sessionId: route.params.sessionId,
+      entrySource: route.params.entrySource,
+      visionId: route.params.visionId,
+      assetId: route.params.assetId,
+      courseId: route.params.courseId,
+      waypointId: route.params.waypointId,
+      returnTarget: route.params.returnTarget,
       source:
         route.params.source === 'anchor_detail'
           ? 'anchor_detail'

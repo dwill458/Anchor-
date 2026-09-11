@@ -591,7 +591,18 @@ export type RootStackParamList = {
   SaveProgress: { anchor: Anchor };
   TrialSignUp: undefined;
   AnchorDetail: { anchorId: string };
-  VisualizePreparation: { anchorId: string; source?: string };
+  VisualizePreparation: {
+    anchorId: string;
+    durationSeconds?: 60 | 180 | 300;
+    source?: string;
+    sessionId?: string;
+    entrySource?: PracticeEntrySource;
+    visionId?: string;
+    assetId?: string;
+    courseId?: string;
+    waypointId?: string;
+    returnTarget?: 'v2_practice';
+  };
   VisualizeSession: {
     anchorId: string;
     durationSeconds: 60 | 180 | 300;
@@ -599,6 +610,13 @@ export type RootStackParamList = {
     guidanceVoice: 'female' | 'male' | 'none';
     backgroundAudio: 'ambient' | 'off';
     source?: 'practice_screen' | 'anchor_detail' | 'deep_link';
+    sessionId?: string;
+    entrySource?: PracticeEntrySource;
+    visionId?: string;
+    assetId?: string;
+    courseId?: string;
+    waypointId?: string;
+    returnTarget?: 'v2_practice';
   };
   VisualizeCompletion: {
     anchorId: string;
@@ -606,6 +624,9 @@ export type RootStackParamList = {
     durationSeconds: 60 | 180 | 300;
     source?: 'practice_screen' | 'anchor_detail' | 'deep_link';
     sceneText?: string;
+    beforeStrength?: number | null;
+    afterStrength?: number | null;
+    delta?: number | null;
   };
   AuthGate: undefined;
   Paywall:
@@ -841,6 +862,13 @@ export type RootStackParamList = {
     /** @deprecated Compatibility for location presets saved before Voice & Sound v2. */
     audioModeOverride?: 'silent' | 'ambient';
     returnTo?: 'vault' | 'practice' | 'detail';
+    sessionId?: string;
+    entrySource?: PracticeEntrySource;
+    visionId?: string;
+    assetId?: string;
+    courseId?: string;
+    waypointId?: string;
+    returnTarget?: 'v2_practice';
   };
   SealAnchor: { anchorId: string; returnTo?: 'vault' | 'practice' | 'detail' };
   ChargeComplete: {
@@ -870,6 +898,13 @@ export type RootStackParamList = {
     audioModeOverride?: 'silent' | 'ambient';
     returnTo?: 'vault' | 'practice' | 'detail' | 'reinforce';
     initialDuration?: 'quick' | 'deep';
+    sessionId?: string;
+    entrySource?: PracticeEntrySource;
+    visionId?: string;
+    assetId?: string;
+    courseId?: string;
+    waypointId?: string;
+    returnTarget?: 'v2_practice';
   };
 
   // Phase 3: Burning Ritual
@@ -880,6 +915,13 @@ export type RootStackParamList = {
     enhancedImageUrl?: string;
     returnTo?: 'vault' | 'practice' | 'detail';
     source?: PracticeEntrySource;
+    sessionId?: string;
+    entrySource?: PracticeEntrySource;
+    visionId?: string;
+    assetId?: string;
+    courseId?: string;
+    waypointId?: string;
+    returnTarget?: 'v2_practice';
   };
 
   BurningRitual: {
@@ -946,6 +988,13 @@ export type PracticeStackParamList = {
     audioModeOverride?: 'silent' | 'ambient';
     returnTo?: 'practice';
     source?: PracticeEntrySource;
+    sessionId?: string;
+    entrySource?: PracticeEntrySource;
+    visionId?: string;
+    assetId?: string;
+    courseId?: string;
+    waypointId?: string;
+    returnTarget?: 'v2_practice';
   };
   SealAnchor: { anchorId: string; returnTo?: 'practice' };
   ChargeComplete: {
@@ -973,6 +1022,13 @@ export type PracticeStackParamList = {
     returnTo?: 'practice';
     initialDuration?: 'quick' | 'deep';
     source?: PracticeEntrySource;
+    sessionId?: string;
+    entrySource?: PracticeEntrySource;
+    visionId?: string;
+    assetId?: string;
+    courseId?: string;
+    waypointId?: string;
+    returnTarget?: 'v2_practice';
   };
   ManualReinforcement:
     | {
@@ -989,19 +1045,39 @@ export type PracticeStackParamList = {
       reinforcedSigilSvg?: string;
       reinforcementMetadata?: ReinforcementMetadata;
     };
-  VisualizePreparation: { anchorId: string; source?: PracticeEntrySource };
+  VisualizePreparation: {
+    anchorId: string;
+    durationSeconds?: 60 | 180 | 300;
+    source?: PracticeEntrySource;
+    sessionId?: string;
+    entrySource?: PracticeEntrySource;
+    visionId?: string;
+    assetId?: string;
+    courseId?: string;
+    waypointId?: string;
+    returnTarget?: 'v2_practice';
+  };
   VisualizeSession: {
     anchorId: string;
     durationSeconds: 60 | 180 | 300;
     sceneText: string;
     guidanceVoice: 'female' | 'male' | 'none';
     backgroundAudio: 'ambient' | 'off';
+    sessionId?: string;
+    source?: 'practice_screen' | 'anchor_detail' | 'deep_link';
+    entrySource?: PracticeEntrySource;
+    visionId?: string;
+    assetId?: string;
+    courseId?: string;
+    waypointId?: string;
+    returnTarget?: 'v2_practice';
   };
   VisualizeCompletion: {
     anchorId: string;
     sessionId: string;
     durationSeconds: 60 | 180 | 300;
     sceneText?: string;
+    source?: 'practice_screen' | 'anchor_detail' | 'deep_link';
   };
   ConfirmBurn: {
     anchorId: string;

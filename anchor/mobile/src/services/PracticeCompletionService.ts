@@ -12,6 +12,7 @@ import { useSessionStore } from '@/stores/sessionStore';
 import type { Anchor } from '@/types';
 import type {
   PracticeCompletionSource,
+  PracticeEntrySource,
   PracticeMode,
   PracticeSessionRecord,
 } from '@/types/practice';
@@ -39,6 +40,9 @@ export interface CompletePracticeSessionInput {
   anchorId: string | null;
   anchorLocalId?: string | null;
   anchorServerId?: string | null;
+  courseId?: string | null;
+  waypointId?: string | null;
+  practiceEntrySource?: PracticeEntrySource | null;
   mode: PracticeMode;
   startedAt: string;
   completedAt?: string;
@@ -105,6 +109,9 @@ function buildRecord(input: CompletePracticeSessionInput): PracticeSessionRecord
     anchorId: input.anchorId,
     anchorLocalId: input.anchorLocalId ?? input.anchorId,
     anchorServerId: input.anchorServerId ?? input.anchorId,
+    courseId: input.courseId ?? null,
+    waypointId: input.waypointId ?? null,
+    practiceEntrySource: input.practiceEntrySource ?? null,
     practiceMode: input.mode,
     plannedDurationSeconds: Math.max(
       1,
@@ -181,6 +188,11 @@ export const PracticeCompletionService = {
     guidanceVoice: GuidanceVoice;
     backgroundAudio: BackgroundAudioMode;
     source?: PracticeCompletionSource;
+    courseId?: string | null;
+    waypointId?: string | null;
+    practiceEntrySource?: PracticeEntrySource | null;
+    returnTarget?: 'v2_practice';
+    metadata?: Record<string, unknown>;
   }): Promise<void> {
     const accountId = useAuthStore.getState?.()?.user?.id;
     if (!accountId) return;
@@ -205,6 +217,13 @@ export const PracticeCompletionService = {
         params.practiceMode === 'deep_prime' ? 'reinforce' : 'activate',
       guidanceVoice: params.guidanceVoice,
       backgroundAudio: params.backgroundAudio,
+      courseId: params.courseId,
+      waypointId: params.waypointId,
+      practiceEntrySource: params.practiceEntrySource,
+      metadata: {
+        ...params.metadata,
+        ...(params.returnTarget === 'v2_practice' ? { v2ReturnTarget: 'v2_practice' } : {}),
+      },
     });
   },
 
@@ -241,6 +260,11 @@ export const PracticeCompletionService = {
     backgroundAudio: BackgroundAudioMode;
     sceneSnapshot: string;
     source?: PracticeCompletionSource;
+    courseId?: string | null;
+    waypointId?: string | null;
+    practiceEntrySource?: PracticeEntrySource | null;
+    returnTarget?: 'v2_practice';
+    metadata?: Record<string, unknown>;
   }): Promise<PracticeSessionRecord> {
     const result = await this.completePracticeSession(
       {
@@ -260,6 +284,13 @@ export const PracticeCompletionService = {
         guidanceVoice: params.guidanceVoice,
         backgroundAudio: params.backgroundAudio,
         sceneSnapshot: params.sceneSnapshot,
+        courseId: params.courseId,
+        waypointId: params.waypointId,
+        practiceEntrySource: params.practiceEntrySource,
+        metadata: {
+          ...params.metadata,
+          ...(params.returnTarget === 'v2_practice' ? { v2ReturnTarget: 'v2_practice' } : {}),
+        },
       },
       { mirrorLegacySession: true },
     );
