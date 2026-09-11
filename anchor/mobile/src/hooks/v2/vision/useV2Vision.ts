@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import * as FileSystem from 'expo-file-system/legacy';
 import { apiClient, ApiClientError } from '@/services/ApiClient';
 import {
   toV2VisionPresentationState,
@@ -8,6 +9,7 @@ import {
   type V2VisionTile,
   type V2VisualizeHandoff,
   type VisionSceneSource,
+  type VisionAssetReadModel,
 } from '@/adapters/v2/vision';
 
 export interface UseV2VisionResult {
@@ -28,6 +30,7 @@ export interface UseV2VisionResult {
     title?: string;
     scenes?: Array<{ assetId: string; prompt?: string; sourceType: VisionSceneSource }>;
   }) => Promise<VisionReadModel | null>;
+  uploadVisionAsset: (uri: string, mimeType?: string) => Promise<VisionAssetReadModel | null>;
   updateVision: (input: { title?: string; description?: string }) => Promise<VisionReadModel | null>;
   addScene: (input: {
     assetId: string;
@@ -165,6 +168,34 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
     [anchorId],
   );
 
+  // A Vision never references a client-local or prototype asset ID. The server
+  // owns validation, private storage, and the resulting canonical Asset ID.
+  const uploadVisionAsset = useCallback(
+    async (uri: string, suppliedMimeType?: string): Promise<VisionAssetReadModel | null> => {
+      try {
+        const mimeType = suppliedMimeType ?? (uri.toLowerCase().endsWith('.png')
+          ? 'image/png'
+          : uri.toLowerCase().endsWith('.webp')
+            ? 'image/webp'
+            : 'image/jpeg');
+        const base64Image = uri.startsWith('data:')
+          ? uri
+          : `data:${mimeType};base64,${await FileSystem.readAsStringAsync(uri, {
+              encoding: FileSystem.EncodingType.Base64,
+            })}`;
+        const response = await apiClient.post<VisionAssetReadModel>('/api/v2/assets/upload', {
+          base64Image,
+          mimeType,
+        });
+        return response.data;
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to upload image');
+        return null;
+      }
+    },
+    [],
+  );
+
   const updateVision = useCallback(
     async (input: { title?: string; description?: string }): Promise<VisionReadModel | null> => {
       if (!vision?.id) return null;
@@ -292,6 +323,7 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
     recordVisionView,
     refresh,
     createVision,
+    uploadVisionAsset,
     updateVision,
     addScene,
     reorderScenes,

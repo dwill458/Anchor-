@@ -10,8 +10,10 @@ export async function fetchWeeklyInsightHistory(anchorId?: string): Promise<Week
   const response = await apiClient.get<Envelope<WeeklyInsightSnapshot[]>>('/api/v2/weekly-insights', { params: anchorId ? { anchorId } : undefined });
   return unwrap(response.data);
 }
-export async function persistWeeklyInsightSnapshot(anchorId: string | undefined, snapshot: WeeklyInsightSnapshot, weekStart: string, weekEnd: string): Promise<WeeklyInsightSnapshot> {
-  const response = await apiClient.post<Envelope<WeeklyInsightSnapshot>>('/api/v2/weekly-insights', { anchorId: anchorId ?? null, weekStart, weekEnd, snapshot });
+/** The device requests generation but never submits facts or a narrative. */
+export async function generateWeeklyInsightSnapshot(anchorId?: string): Promise<WeeklyInsightSnapshot> {
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  const response = await apiClient.post<Envelope<WeeklyInsightSnapshot>>('/api/v2/weekly-insights/generate', { anchorId: anchorId ?? null, timeZone });
   return unwrap(response.data);
 }
 export async function persistWeeklyInsightFeedback(snapshotId: string, rating: WeeklyInsightFeedbackRating): Promise<void> {

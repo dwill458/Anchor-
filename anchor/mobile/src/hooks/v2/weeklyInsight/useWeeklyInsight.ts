@@ -13,12 +13,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { WeeklyInsightFeedbackRating } from '@/constants/v2/weeklyInsightRoutes';
-import { useSessionStore } from '@/stores/sessionStore';
-import { useAnchorStore } from '@/stores/anchorStore';
-import { useCourseLogStore } from '@/stores/courseLogStore';
-import { useCourseStore } from '@/stores/courseStore';
-import { buildWeeklyInsightFacts } from '@/adapters/v2/weeklyInsight/weeklyInsightFactsBuilder';
-import { fetchWeeklyInsightHistory, persistWeeklyInsightFeedback, persistWeeklyInsightSnapshot } from '@/adapters/v2/weeklyInsight/weeklyInsightApiAdapter';
+import { fetchWeeklyInsightHistory, generateWeeklyInsightSnapshot, persistWeeklyInsightFeedback } from '@/adapters/v2/weeklyInsight/weeklyInsightApiAdapter';
 import { selectWeeklyInsight } from '@/adapters/v2/weeklyInsight/weeklyInsightSelector';
 import { isWithinWeeklyInsightReviewWindow } from '@/adapters/v2/weeklyInsight/weeklyReviewWindow';
 import type {
@@ -73,39 +68,18 @@ export function useWeeklyInsight(options: UseWeeklyInsightOptions = {}): UseWeek
   const [selectedSnapshotId, setSelectedSnapshotId] = useState<string | null>(initialSnapshotId || null);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState<WeeklyInsightFeedbackRating | null>(null);
 
-  // Store subscriptions (safely consumed)
-  const sessions = useSessionStore((state) => state.practiceHistory || []);
-  const anchors = useAnchorStore((state) => state.anchors || []);
-  const courseLogs = useCourseLogStore((state) => state.entries || []);
-  const activeCourse = useCourseStore((state) => state.activeCourse);
-
   const isWithinReviewWindow = useMemo(() => isWithinWeeklyInsightReviewWindow(), []);
 
   // Compute archive items (preserved snapshots)
   const archiveItems = useMemo<WeeklyInsightHistoryItem[]>(() => persistedSnapshots.map(snapshot => ({ id: snapshot.id, dateRange: snapshot.weekLabel, title: snapshot.headline, typeLabel: snapshot.ruleType, ruleType: snapshot.ruleType, snapshot })), [persistedSnapshots]);
 
-  // Compute live facts or use override
+  // Production facts are frozen server evidence included with the snapshot.
+  // factsOverride exists solely for deterministic UI tests.
   const facts = useMemo<WeeklyInsightFacts | null>(() => {
     if (factsOverride) return factsOverride;
-
-    try {
-      return buildWeeklyInsightFacts({
-        sessions,
-        anchors,
-        courseLogs,
-        currentWaypointTitle: activeCourse?.waypoints?.find(
-          (w) => w.id === activeCourse.currentWaypointId,
-        )?.title,
-        hasActiveCourse: Boolean(activeCourse),
-        currentAnchorId: anchorId,
-        weekOffset, referenceDate: new Date(),
-        weeksOfHistoryCount: persistedSnapshots.length,
-      });
-    } catch (err: any) {
-      console.warn('[useWeeklyInsight] Failed to build facts:', err);
-      return null;
-    }
-  }, [factsOverride, sessions, anchors, courseLogs, activeCourse, anchorId, weekOffset]);
+    const current = persistedSnapshots[0] as (WeeklyInsightSnapshot & { facts?: WeeklyInsightFacts }) | undefined;
+    return current?.facts ?? null;
+  }, [factsOverride, persistedSnapshots, weekOffset]);
 
   // Compute primary snapshot from facts
   const primarySnapshot = useMemo<WeeklyInsightSnapshot | null>(() => {
@@ -123,19 +97,22 @@ export function useWeeklyInsight(options: UseWeeklyInsightOptions = {}): UseWeek
     return primarySnapshot;
   }, [selectedSnapshotId, archiveItems, primarySnapshot]);
 
-  // Determine first-week empty state:
-  // If user has 0 sessions ever and 0 anchors, or is brand new with no snapshot
+  // Missing server evidence remains missing; do not substitute device-local zeroes.
   const isFirstWeekEmpty = useMemo(() => {
     if (factsOverride) return false;
-    return sessions.length === 0 && anchors.length === 0;
-  }, [factsOverride, sessions.length, anchors.length]);
+    return Boolean(facts && facts.sessions.length === 0);
+  }, [factsOverride, facts]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const history = await fetchWeeklyInsightHistory(anchorId);
-      setPersistedSnapshots(history);
+      const current = await generateWeeklyInsightSnapshot(anchorId);
+      setPersistedSnapshots(items => {
+        const withoutCurrent = history.filter(item => item.id !== current.id);
+        return [current, ...withoutCurrent];
+      });
     } catch (e: any) {
       setError(e?.message || 'Failed to refresh insight');
     } finally {
@@ -179,14 +156,6 @@ export function useWeeklyInsight(options: UseWeeklyInsightOptions = {}): UseWeek
     },
     [activeSnapshot, onFeedbackSubmit],
   );
-
-  useEffect(() => {
-    if (!facts || factsOverride || primaryIsPersisted) return;
-    const snapshot = selectWeeklyInsight(facts);
-    void persistWeeklyInsightSnapshot(anchorId, snapshot, facts.weekStart, facts.weekEnd)
-      .then(saved => setPersistedSnapshots(items => items.some(item => item.id === saved.id) ? items : [saved, ...items]))
-      .catch(() => undefined);
-  }, [anchorId, facts, factsOverride, primaryIsPersisted]);
 
   return {
     snapshot: activeSnapshot,

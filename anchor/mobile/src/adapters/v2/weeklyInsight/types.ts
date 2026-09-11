@@ -214,6 +214,8 @@ export interface WeeklyInsightSnapshot {
   interpretation: string;
   nextDirection: string;
   detailedActivity: WeeklyDetailedActivity;
+  /** Immutable canonical evidence calculated by the backend with this snapshot. */
+  facts?: WeeklyInsightFacts;
   feedback?: WeeklyInsightFeedbackRating | null;
   createdAt: string;
 }

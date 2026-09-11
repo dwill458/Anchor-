@@ -27,6 +27,17 @@ export interface VisionReadModel {
   updatedAt: string;
 }
 
+/** A private, server-registered asset. Resolved URLs are short lived. */
+export interface VisionAssetReadModel {
+  id: string;
+  userId: string;
+  storageKey: string;
+  resolvedUrl: string | null;
+  mimeType: string;
+  fileSizeBytes: number | null;
+  createdAt: string;
+}
+
 export interface V2VisionTile {
   id: string;
   sceneId: string;

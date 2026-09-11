@@ -55,6 +55,7 @@ export function V2VisionScreen(props: V2VisionScreenProps) {
     visualizeHandoff,
     recordVisionView,
     createVision,
+    uploadVisionAsset,
   } = useV2Vision(anchorId);
 
   const [mode, setMode] = useState<'view' | 'create' | 'ready'>(initialMode);
@@ -101,15 +102,24 @@ export function V2VisionScreen(props: V2VisionScreenProps) {
         initialStep={mode === 'ready' ? 'ready' : state.state === 'none' ? 'empty' : 'prompt'}
         onBack={handleBack}
         onAssemble={async ({ description: desc, source, selectedAssets }) => {
-          await createVision({
+          const uploaded = await Promise.all(
+            selectedAssets.map(async asset => ({
+              asset,
+              uploaded: await uploadVisionAsset(asset.uri, asset.mimeType),
+            })),
+          );
+          // Do not claim success or send a partial Vision if any private asset
+          // registration failed. Retrying repeats only the failed request.
+          if (uploaded.some(item => !item.uploaded)) return;
+          const created = await createVision({
             description: desc,
-            scenes: selectedAssets.map((asset, index) => ({
-              assetId: asset.assetId,
+            scenes: uploaded.map(({ asset, uploaded: registered }) => ({
+              assetId: registered!.id,
               prompt: asset.prompt,
               sourceType: source,
             })),
           });
-          setMode('view');
+          if (created) setMode('view');
         }}
       />
     );

@@ -8,7 +8,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Check, ChevronRight, Image as ImageIcon, Sparkles, Upload } from 'lucide-react-native';
+import { Check, ChevronRight, Upload } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { GhostVisionComposition } from './GhostVisionComposition';
 import { V2Button, V2TopBar } from '@/components/v2';
 import { colors, getCategoryColor, radii, spacing, typography } from '@/theme/v2';
@@ -23,39 +24,12 @@ export interface V2VisionCreationFlowProps {
   onAssemble: (result: {
     description: string;
     source: VisionSceneSource;
-    selectedAssets: Array<{ assetId: string; prompt: string; imageUrl?: string }>;
+    selectedAssets: Array<{ uri: string; mimeType?: string; prompt: string }>;
   }) => Promise<void>;
   testID?: string;
 }
 
-// Preset candidate scenes for curation
-const PRESET_CANDIDATES = [
-  {
-    id: 'cand-1',
-    prompt: 'Focused creative desk at morning light',
-    imageUrl: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=600&q=80',
-  },
-  {
-    id: 'cand-2',
-    prompt: 'Calm library sanctuary with notebooks open',
-    imageUrl: 'https://images.unsplash.com/photo-1507842229451-79b1be886a29?w=600&q=80',
-  },
-  {
-    id: 'cand-3',
-    prompt: 'Open horizon landscape over quiet waters',
-    imageUrl: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=600&q=80',
-  },
-  {
-    id: 'cand-4',
-    prompt: 'Collaborative workshop table with real blueprints',
-    imageUrl: 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?w=600&q=80',
-  },
-  {
-    id: 'cand-5',
-    prompt: 'Evening reflections in a quiet studio space',
-    imageUrl: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=600&q=80',
-  },
-];
+type LocalCandidate = { id: string; uri: string; mimeType?: string; prompt: string };
 
 export function V2VisionCreationFlow({
   anchorId,
@@ -70,18 +44,36 @@ export function V2VisionCreationFlow({
     initialStep,
   );
   const [descriptionText, setDescriptionText] = useState('');
-  const [sourceType, setSourceType] = useState<VisionSceneSource>('AI_GENERATED');
-  const [keptIds, setKeptIds] = useState<Record<string, boolean>>({
-    'cand-1': true,
-    'cand-2': true,
-    'cand-3': true,
-  });
+  const [sourceType] = useState<VisionSceneSource>('USER_UPLOAD');
+  const [candidates, setCandidates] = useState<LocalCandidate[]>([]);
+  const [keptIds, setKeptIds] = useState<Record<string, boolean>>({});
   const [isAssembling, setIsAssembling] = useState(false);
 
   const categoryColor = getCategoryColor(anchorCategory);
   const isPromptValid = descriptionText.trim().length >= 12;
   const keptCount = Object.values(keptIds).filter(Boolean).length;
-  const canAssemble = keptCount >= 3;
+  const canAssemble = keptCount > 0;
+
+  const pickImages = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsMultipleSelection: true,
+      selectionLimit: 6,
+      quality: 0.85,
+    });
+    if (result.canceled) return;
+    const selected = result.assets.map((asset, index) => ({
+      id: `${asset.assetId ?? asset.uri}-${index}`,
+      uri: asset.uri,
+      mimeType: asset.mimeType ?? undefined,
+      prompt: descriptionText.trim() || 'A future scene for this Anchor',
+    }));
+    setCandidates(selected);
+    setKeptIds(Object.fromEntries(selected.map(candidate => [candidate.id, true])));
+    setStep('curation');
+  };
 
   const toggleKept = (id: string) => {
     setKeptIds((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -90,10 +82,10 @@ export function V2VisionCreationFlow({
   const handleAssemble = async () => {
     if (!canAssemble || isAssembling) return;
     setIsAssembling(true);
-    const selected = PRESET_CANDIDATES.filter((c) => keptIds[c.id]).map((c) => ({
-      assetId: c.id,
+    const selected = candidates.filter((c) => keptIds[c.id]).map((c) => ({
+      uri: c.uri,
+      mimeType: c.mimeType,
       prompt: c.prompt,
-      imageUrl: c.imageUrl,
     }));
     try {
       await onAssemble({
@@ -233,35 +225,10 @@ export function V2VisionCreationFlow({
           <Text style={styles.sectionTitle}>How should we picture it?</Text>
 
           <Pressable
-            testID="source-generated-option"
-            accessibilityRole="button"
-            accessibilityLabel="Generate scenes"
-            onPress={() => {
-              setSourceType('AI_GENERATED');
-              setStep('curation');
-            }}
-            style={styles.sourceOption}
-          >
-            <View style={styles.sourceIconBox}>
-              <Sparkles size={22} color={categoryColor} />
-            </View>
-            <View style={styles.sourceTextGroup}>
-              <Text style={styles.sourceTitle}>Generate scenes</Text>
-              <Text style={styles.sourceDesc}>
-                Draft a few scenes from your description — you choose what fits.
-              </Text>
-            </View>
-            <ChevronRight size={18} color={colors.text.secondary} />
-          </Pressable>
-
-          <Pressable
             testID="source-upload-option"
             accessibilityRole="button"
             accessibilityLabel="Add my own images"
-            onPress={() => {
-              setSourceType('USER_UPLOAD');
-              setStep('curation');
-            }}
+            onPress={pickImages}
             style={styles.sourceOption}
           >
             <View style={styles.sourceIconBox}>
@@ -290,7 +257,7 @@ export function V2VisionCreationFlow({
           <Text style={styles.subTitle}>Keep the ones that feel true.</Text>
 
           <View style={styles.candidatesGrid}>
-            {PRESET_CANDIDATES.map((cand) => {
+            {candidates.map((cand) => {
               const isKept = Boolean(keptIds[cand.id]);
               return (
                 <View
@@ -302,7 +269,7 @@ export function V2VisionCreationFlow({
                   ]}
                 >
                   <Image
-                    source={{ uri: cand.imageUrl }}
+                    source={{ uri: cand.uri }}
                     style={styles.candidateImage}
                     resizeMode="cover"
                   />
@@ -351,9 +318,7 @@ export function V2VisionCreationFlow({
           <Text style={styles.countText}>
             {canAssemble
               ? `${keptCount} kept`
-              : keptCount === 0
-                ? 'Choose 3 images to continue'
-                : `${keptCount} kept · Choose ${3 - keptCount} more`}
+              : 'Choose at least one image to continue'}
           </Text>
           <V2Button
             accessibilityLabel="Assemble Vision"
