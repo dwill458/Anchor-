@@ -21,10 +21,7 @@ import { validateVisualizationScene } from '../../services/VisualizationSceneSer
 import { requireVisualizeAccess } from '../../services/PracticeAccessService';
 import { courseEventService } from '../../services/CourseEventService';
 import { PRACTICE_ENTRY_SOURCES, type PracticeEntrySource } from '../../types/chart';
-import {
-  threadStrengthService,
-  type ThreadMovement,
-} from '../../services/v2/ThreadStrengthService';
+import { threadStrengthService } from '../../services/v2/ThreadStrengthService';
 
 const router = Router();
 const MS_PER_DAY = 24 * 60 * 60 * 1000;

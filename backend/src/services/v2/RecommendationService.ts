@@ -80,7 +80,8 @@ export class RecommendationService {
             delta7d: null,
             delta7dStatus: 'UNAVAILABLE' as const,
             status: 'UNAVAILABLE' as const,
-            blockerReason: 'THREAD_DELTA7D_BLOCKER: insufficient persisted Thread movement evidence.',
+            blockerReason:
+              'THREAD_DELTA7D_BLOCKER: insufficient persisted Thread movement evidence.',
           }
         : {
             delta7d,

@@ -49,7 +49,11 @@ function isThreadPracticeType(value: string): value is ThreadPracticeType {
 
 export class ThreadStrengthService {
   /** Replays persisted movement facts to compare current strength with seven days ago. */
-  async getDelta7d(input: { userId: string; anchorId: string; asOf?: Date }): Promise<number | null> {
+  async getDelta7d(input: {
+    userId: string;
+    anchorId: string;
+    asOf?: Date;
+  }): Promise<number | null> {
     const asOf = input.asOf ?? new Date();
     const anchor = await prisma.anchor.findFirst({
       where: { id: input.anchorId, userId: input.userId, isArchived: false },
