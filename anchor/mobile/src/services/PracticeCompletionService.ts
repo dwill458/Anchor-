@@ -307,9 +307,18 @@ export const PracticeCompletionService = {
     const remaining: PracticeSessionRecord[] = [];
     for (const session of queue) {
       try {
-        await apiClient.post('/api/practice/sessions', serverPayload(session));
+        const response = await apiClient.post<{
+          data?: { threadStrengthMovement?: { beforeStrength: number; afterStrength: number; delta: number } | null };
+        }>('/api/practice/sessions', serverPayload(session));
         useSessionStore.getState().markPracticeSessionSynced(session.id);
-        notifyPracticeCompletionReturned({ sessionId: session.id, anchorId: session.anchorId, mode: session.practiceMode, completedAt: session.completedAt });
+        const movement = response.data?.data?.threadStrengthMovement ?? null;
+        notifyPracticeCompletionReturned({
+          sessionId: session.id, anchorId: session.anchorId, mode: session.practiceMode,
+          completedAt: session.completedAt, source: session.completionSource,
+          returnTarget: session.metadata?.v2ReturnTarget === 'v2_practice' ? 'v2_practice' : null,
+          beforeStrength: movement?.beforeStrength ?? null, afterStrength: movement?.afterStrength ?? null,
+          delta: movement?.delta ?? null,
+        });
       } catch {
         remaining.push({ ...session, syncState: 'failed' });
         AnalyticsService.track('practice_sync_failed', {
