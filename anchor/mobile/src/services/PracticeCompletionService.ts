@@ -17,6 +17,7 @@ import type {
 } from '@/types/practice';
 import type { BackgroundAudioMode, GuidanceVoice } from '@/types/sessionAudio';
 import { logger } from '@/utils/logger';
+import { notifyPracticeCompletionReturned } from '@/navigation/practiceCompletionReturn';
 import {
   getCompletionTimeContext,
   PRACTICE_SESSION_SCHEMA_VERSION,
@@ -308,6 +309,7 @@ export const PracticeCompletionService = {
       try {
         await apiClient.post('/api/practice/sessions', serverPayload(session));
         useSessionStore.getState().markPracticeSessionSynced(session.id);
+        notifyPracticeCompletionReturned({ sessionId: session.id, anchorId: session.anchorId, mode: session.practiceMode, completedAt: session.completedAt });
       } catch {
         remaining.push({ ...session, syncState: 'failed' });
         AnalyticsService.track('practice_sync_failed', {
