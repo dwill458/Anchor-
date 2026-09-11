@@ -16,4 +16,20 @@ describe('PracticeCompletionReturn', () => {
     registerPracticeCompletionReturn(null);
     expect(() => notifyPracticeCompletionReturned({ sessionId: 's2', anchorId: 'a', mode: 'visualize', completedAt: 'now', source: 'practice_screen', returnTarget: null, beforeStrength: null, afterStrength: null, delta: null })).not.toThrow();
   });
+
+  it.each(['focus', 'deep_prime', 'visualize'])('returns accepted %s sessions without client movement math', (mode) => {
+    const received = jest.fn();
+    registerPracticeCompletionReturn(received);
+    notifyPracticeCompletionReturned({ sessionId: `mode-${mode}`, anchorId: 'a', mode, completedAt: 'now', source: 'practice_screen', returnTarget: 'v2_practice', beforeStrength: 10, afterStrength: 20, delta: 10 });
+    expect(received).toHaveBeenLastCalledWith(expect.objectContaining({ mode, beforeStrength: 10, afterStrength: 20, delta: 10 }));
+  });
+
+  it('keeps release separate and does not treat cancellation/failure as a completion callback', () => {
+    const received = jest.fn();
+    registerPracticeCompletionReturn(received);
+    // No notify call models cancel/back or a failed server POST: both are intentionally silent.
+    expect(received).not.toHaveBeenCalled();
+    notifyPracticeCompletionReturned({ sessionId: 'release', anchorId: 'a', mode: 'release', completedAt: 'now', source: 'practice_screen', returnTarget: null, beforeStrength: null, afterStrength: null, delta: null });
+    expect(received).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'release', returnTarget: null }));
+  });
 });
