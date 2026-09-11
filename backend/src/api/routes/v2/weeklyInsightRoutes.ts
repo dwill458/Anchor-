@@ -24,20 +24,23 @@ router.get('/weekly-insights', async (req: AuthRequest, res: Response, next: Nex
     next(error);
   }
 });
-router.post('/weekly-insights/generate', async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    const userId = await getAuthenticatedUserId(req);
-    const { anchorId, timeZone } = req.body ?? {};
-    if (anchorId !== undefined && anchorId !== null && typeof anchorId !== 'string')
-      throw new AppError('anchorId must be a string.', 400, 'INVALID_WEEKLY_INSIGHT');
-    if (timeZone !== undefined && typeof timeZone !== 'string')
-      throw new AppError('timeZone must be a string.', 400, 'INVALID_WEEKLY_INSIGHT');
-    const result = await weeklyInsightService.generate(userId, { anchorId, timeZone });
-    res.json({ success: true, data: result });
-  } catch (error) {
-    next(error);
+router.post(
+  '/weekly-insights/generate',
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const userId = await getAuthenticatedUserId(req);
+      const { anchorId, timeZone } = req.body ?? {};
+      if (anchorId !== undefined && anchorId !== null && typeof anchorId !== 'string')
+        throw new AppError('anchorId must be a string.', 400, 'INVALID_WEEKLY_INSIGHT');
+      if (timeZone !== undefined && typeof timeZone !== 'string')
+        throw new AppError('timeZone must be a string.', 400, 'INVALID_WEEKLY_INSIGHT');
+      const result = await weeklyInsightService.generate(userId, { anchorId, timeZone });
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
   }
-});
+);
 router.post(
   '/weekly-insights/:snapshotId/feedback',
   async (req: AuthRequest, res: Response, next: NextFunction) => {
