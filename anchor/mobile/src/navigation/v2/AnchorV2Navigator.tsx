@@ -17,6 +17,7 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import type { Anchor, SigilVariationStyle } from '@/types';
 import type { AnchorV2StackParamList } from './types';
+import { usePracticeLaunch } from './PracticeLaunchHost';
 
 const Stack = createNativeStackNavigator<AnchorV2StackParamList>();
 
@@ -55,6 +56,7 @@ function V2PracticeRouteScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<AnchorV2StackParamList, 'V2Practice'>>();
   const anchorId = route.params?.anchorId;
+  const launchPractice = usePracticeLaunch();
 
   return (
     <V2PracticeScreen
@@ -74,6 +76,13 @@ function V2PracticeRouteScreen() {
       onReleaseRequested={(id, reason) => {
         navigation.navigate('V2Release', { anchorId: id, reason });
       }}
+      onBeginPractice={(request) => launchPractice({
+        anchorId: request.anchorId,
+        mode: request.mode,
+        durationSeconds: request.durationSeconds,
+        source: request.mode === 'focus' ? 'practice_focus_card' : request.mode === 'deep_prime' ? 'practice_deep_prime_card' : 'practice_visualize_card',
+        returnTarget: 'v2_practice',
+      })}
     />
   );
 }

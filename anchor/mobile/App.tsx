@@ -41,7 +41,7 @@ import {
 } from '@expo-google-fonts/bricolage-grotesque';
 import { Figtree_400Regular, Figtree_500Medium } from '@expo-google-fonts/figtree';
 import { RootNavigator } from './src/navigation';
-import { AnchorV2Navigator } from './src/navigation/v2';
+import { AnchorV2PracticeHost } from './src/navigation/v2/PracticeLaunchHost';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { ToastProvider } from './src/components/ToastProvider';
 import { useAuthStore } from './src/stores/authStore';
@@ -825,7 +825,7 @@ export default function App() {
                     }}
                   >
                     <StatusBar style="light" />
-                    {anchorV2DevEnabled ? <AnchorV2Navigator /> : <RootNavigator />}
+                    {anchorV2DevEnabled ? <AnchorV2PracticeHost /> : <RootNavigator />}
                   </NavigationContainer>
                 </SettingsRevealProvider>
               </View>

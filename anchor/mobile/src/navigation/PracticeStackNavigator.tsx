@@ -9,6 +9,7 @@ import { NavigationContainer, useNavigationContainerRef } from '@react-navigatio
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import type { PracticeStackParamList } from '@/types';
+import type { PracticeLaunchRequest } from './v2/PracticeLaunchHost';
 // DEFERRED: import { PracticeScreen, StabilizeRitualScreen, EvolveScreen } from '@/screens/practice'; — restore post-launch
 import { PracticeScreen, EvolveScreen, ThreadStrengthDetailScreen } from '@/screens/practice';
 import {
@@ -33,14 +34,24 @@ const Stack = createNativeStackNavigator<PracticeStackParamList>();
 
 interface PracticeStackNavigatorProps {
   onRouteChange?: (routeName: string) => void;
+  launchRequest?: PracticeLaunchRequest | null;
+  onReturnToV2?: () => void;
 }
 
-export const PracticeStackNavigator: React.FC<PracticeStackNavigatorProps> = ({ onRouteChange }) => {
+export const PracticeStackNavigator: React.FC<PracticeStackNavigatorProps> = ({ onRouteChange, launchRequest, onReturnToV2 }) => {
   const navigationRef = useNavigationContainerRef<PracticeStackParamList>();
+  const [ready, setReady] = React.useState(false);
 
   React.useEffect(() => {
     onRouteChange?.('PracticeHome');
   }, [onRouteChange]);
+
+  React.useEffect(() => {
+    if (!launchRequest || !ready) return;
+    if (launchRequest.mode === 'focus') navigationRef.navigate('ActivationRitual', { anchorId: launchRequest.anchorId, activationType: 'visual', durationOverride: launchRequest.durationSeconds, returnTo: 'practice', source: launchRequest.source });
+    else if (launchRequest.mode === 'deep_prime') navigationRef.navigate('Ritual', { anchorId: launchRequest.anchorId, ritualType: 'ritual', durationSeconds: launchRequest.durationSeconds, returnTo: 'practice', source: launchRequest.source });
+    else navigationRef.navigate('VisualizePreparation', { anchorId: launchRequest.anchorId, source: launchRequest.source });
+  }, [launchRequest, navigationRef, ready]);
 
   return (
     <ErrorBoundary>
@@ -48,6 +59,7 @@ export const PracticeStackNavigator: React.FC<PracticeStackNavigatorProps> = ({ 
         independent={true}
         ref={navigationRef}
         onReady={() => {
+          setReady(true);
           const routeName = navigationRef.getCurrentRoute()?.name;
           if (routeName) onRouteChange?.(routeName);
         }}
