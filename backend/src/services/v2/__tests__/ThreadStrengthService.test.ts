@@ -12,6 +12,7 @@ const mockPrisma = {
   $transaction: jest.fn(),
   practiceSession: { findFirst: jest.fn() },
   anchor: { findFirst: jest.fn() },
+  threadV2Movement: mockTx.threadV2Movement,
 };
 
 jest.mock('../../../lib/prisma', () => ({ prisma: mockPrisma }));
@@ -80,7 +81,6 @@ describe('ThreadStrengthService', () => {
 
   it('derives delta7d from replayed server movements, including decay after the latest event', async () => {
     mockPrisma.anchor.findFirst.mockResolvedValue({ createdAt: new Date('2026-08-01T00:00:00.000Z') });
-    mockPrisma.threadV2Movement = mockTx.threadV2Movement;
     mockTx.threadV2Movement.findMany.mockResolvedValue([
       { sessionId: 'old', practiceType: 'focus', completedAt: new Date('2026-08-31T12:00:00.000Z') },
       { sessionId: 'recent', practiceType: 'deep_prime', completedAt: new Date('2026-09-06T12:00:00.000Z') },
