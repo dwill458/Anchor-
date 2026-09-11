@@ -117,10 +117,18 @@ export class WeeklyInsightService {
       detailedActivity: { totalPractices: total, activeDays: activeDays.filter(Boolean).length, totalMinutes: Math.floor((weeklySessions.reduce((sum, session) => sum + session.completedDurationSeconds, 0)) / 60), threadStart: firstMovement?.beforeStrength ?? null, threadEnd: lastMovement?.afterStrength ?? null, threadPoints, modeDistribution: [], connectedActivity: [], canonicalEvents: events.map(event => ({ label: event.eventType, day: dayLabel(dayIndex(event.occurredAt, timeZone)) })) },
       facts, createdAt: now.toISOString(),
     };
-    const result = await prisma.weeklyInsightSnapshot.upsert({
-      where: { userId_anchorId_weekStart: { userId, anchorId, weekStart } },
-      create: { userId, anchorId, weekStart, weekEnd, snapshot: snapshot as Prisma.InputJsonValue }, update: {},
-    });
+    // Prisma cannot address a nullable member of this compound key through
+    // `upsert`; preserve the existing global-insight semantics explicitly.
+    const result = anchorId
+      ? await prisma.weeklyInsightSnapshot.upsert({
+          where: { userId_anchorId_weekStart: { userId, anchorId, weekStart } },
+          create: { userId, anchorId, weekStart, weekEnd, snapshot: snapshot as Prisma.InputJsonValue }, update: {},
+        })
+      : (await prisma.weeklyInsightSnapshot.findFirst({
+          where: { userId, anchorId: null, weekStart },
+        })) ?? await prisma.weeklyInsightSnapshot.create({
+          data: { userId, anchorId: null, weekStart, weekEnd, snapshot: snapshot as Prisma.InputJsonValue },
+        });
     return { ...(result.snapshot as object), id: result.id, feedback: result.feedback };
   }
 }
