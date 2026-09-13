@@ -60,7 +60,7 @@ export function V2AnchorDetailsScreen() {
   }
 
   const anchorId = anchor.localId ?? anchor.id;
-  const qualitative = threadQualitativeLabel(thread.value, thread.unmeasured);
+  const qualitative = threadQualitativeLabel(thread.value ?? 0, thread.unmeasured);
 
   return (
     <V2Screen scroll testID="v2-anchor-details-screen">

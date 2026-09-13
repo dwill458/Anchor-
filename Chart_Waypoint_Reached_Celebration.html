@@ -1,0 +1,2145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Anchor — Chart: Waypoint Reached Celebration</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;600;700;800&family=Figtree:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <style>
+    /* ==========================================================================
+       ANCHOR DESIGN SYSTEM — CHART: WAYPOINT REACHED CELEBRATION
+       Beat 1: Dark wordless moment (exact Anchor-hold token #0E0C09 + ambient glow)
+       Beat 2: Light cream detail (#F4F1E9 + Bricolage Grotesque / Figtree)
+       Navy Token: #16265C (primary button & active reflection chip)
+       ========================================================================== */
+
+    :root {
+      /* Chart Cream Visual System */
+      --canvas: #F4F1E9;
+      --surface: #FBF9F4;
+      --surface-elevated: #FFFFFF;
+      --ink: #171717;
+      --ink-secondary: #6C6861;
+      --ink-tertiary: #969088;
+      --border-line: #D8D2C8;
+      --border-subtle: rgba(216, 210, 200, 0.6);
+
+      /* Living Spec §04 Color System — Category-Bound Tokens (Dynamically bound) */
+      --category-base: #E85D32; /* Ambition default */
+      --category-rgb: 232, 93, 50;
+      --category-glow: rgba(232, 93, 50, 0.38);
+      --category-glow-soft: rgba(232, 93, 50, 0.16);
+      --category-wash: rgba(232, 93, 50, 0.12);
+      --category-wash-border: rgba(232, 93, 50, 0.28);
+
+      /* Chart / Action Navy Tokens */
+      --navy-token: #16265C;
+      --navy-token-hover: #121F4B;
+      --wash-navy: rgba(22, 38, 92, 0.08);
+
+      /* Beat 1: Exact Anchor-hold Transition Tokens (#0E0C09) */
+      --dark-bg: #0E0C09;
+      --dark-bone: #F5F0E8;
+      --dark-bone-soft: rgba(245, 240, 232, 0.65);
+      --dark-bone-faint: rgba(245, 240, 232, 0.32);
+      --dark-ring-border: rgba(255, 255, 255, 0.18);
+
+      /* Typography Stacks */
+      --font-display: 'Bricolage Grotesque', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-ui: 'Figtree', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+      /* Motion */
+      --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+      --ease-smooth: cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: #111317;
+      font-family: var(--font-ui);
+      color: var(--ink);
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Outer Stage / Workbench */
+    .stage {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      background: radial-gradient(circle at 50% 25%, #1D2128 0%, #0E1014 100%);
+      padding-top: 40px;
+    }
+
+    /* Top Prototype Toolbar */
+    .proto-bar {
+      position: fixed;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 900;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(24, 27, 33, 0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      padding: 6px 10px;
+      border-radius: 9999px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4);
+      max-width: 96vw;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .proto-bar::-webkit-scrollbar { display: none; }
+
+    .proto-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.45);
+      padding: 0 10px 0 6px;
+      border-right: 1px solid rgba(255, 255, 255, 0.1);
+      white-space: nowrap;
+    }
+
+    .proto-btn {
+      padding: 6px 12px;
+      border-radius: 9999px;
+      border: none;
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.78);
+      font-family: var(--font-ui);
+      font-size: 11.5px;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 150ms ease;
+    }
+    .proto-btn:hover {
+      background: rgba(255, 255, 255, 0.16);
+      color: #FFF;
+    }
+    .proto-btn.active {
+      background: #FFFFFF;
+      color: #111317;
+      font-weight: 700;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    }
+    .proto-btn.reset {
+      background: rgba(242, 138, 46, 0.15);
+      color: #F28A2E;
+      margin-left: 4px;
+    }
+    .proto-btn.reset:hover {
+      background: rgba(242, 138, 46, 0.28);
+    }
+
+    /* Device Scaling Wrapper */
+    .device-scaler {
+      transform-origin: center center;
+      transition: transform 180ms ease;
+    }
+
+    /* Simulated iPhone 16 Pro Frame (390 x 844) */
+    .phone {
+      width: 390px;
+      height: 844px;
+      border-radius: 50px;
+      background: #000000;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 
+        0 42px 90px rgba(0, 0, 0, 0.58),
+        0 0 0 12px #1D1E22,
+        0 0 0 13.5px #3A3D44,
+        0 0 0 15px rgba(255, 255, 255, 0.06);
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+
+    /* Dynamic Island */
+    .dynamic-island {
+      position: absolute;
+      top: 11px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 124px;
+      height: 35px;
+      background: #000000;
+      border-radius: 20px;
+      z-index: 500;
+      pointer-events: none;
+    }
+
+    /* iOS Status Bar */
+    .status-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 28px 0;
+      z-index: 490;
+      font-family: var(--font-ui);
+      font-size: 13.5px;
+      font-weight: 600;
+      pointer-events: none;
+      transition: color 300ms ease;
+    }
+    .status-bar.dark-mode {
+      color: #FFFFFF;
+    }
+    .status-bar.light-mode {
+      color: #171717;
+    }
+
+    .status-icons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .status-icons svg {
+      display: block;
+      fill: currentColor;
+    }
+
+    /* Home Indicator */
+    .home-indicator {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 134px;
+      height: 5px;
+      border-radius: 100px;
+      z-index: 500;
+      pointer-events: none;
+      transition: background 300ms ease;
+    }
+    .home-indicator.dark-mode {
+      background: rgba(255, 255, 255, 0.45);
+    }
+    .home-indicator.light-mode {
+      background: rgba(23, 23, 23, 0.28);
+    }
+
+    /* Main Viewport Container inside Phone */
+    .screen-viewport {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      overflow: hidden;
+      background: var(--canvas);
+    }
+
+    /* Screen Views */
+    .view-layer {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: none;
+      flex-direction: column;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 260ms var(--ease-smooth);
+      z-index: 10;
+    }
+    .view-layer.active {
+      display: flex;
+      opacity: 1;
+      pointer-events: auto;
+      z-index: 20;
+    }
+
+    /* Common Micro-animations */
+    @keyframes pulseHalo {
+      0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.35; }
+      50% { transform: translate(-50%, -50%) scale(1.22); opacity: 0.12; }
+    }
+    @keyframes breatheSlow {
+      0%, 100% { transform: scale(1); opacity: 0.45; }
+      50% { transform: scale(1.08); opacity: 0.72; }
+    }
+    @keyframes dashCycle {
+      to { stroke-dashoffset: -22; }
+    }
+    @keyframes nodeCelebrate {
+      0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+      60% { transform: translate(-50%, -50%) scale(1.28); opacity: 1; }
+      100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    }
+    @keyframes tapHintPulse {
+      0%, 100% { opacity: 0.25; transform: translateY(0); }
+      50% { opacity: 0.7; transform: translateY(-3px); }
+    }
+
+    /* Utility / Helper Classes */
+    .pressable {
+      transition: opacity 110ms ease, transform 110ms ease;
+      cursor: pointer;
+    }
+    .pressable:active {
+      opacity: 0.72;
+      transform: scale(0.985);
+    }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+
+    /* ==========================================================================
+       SCREEN 1: CHART HOME (Original Screen, Unchanged Behavior)
+       ========================================================================== */
+    #view-chart {
+      background: var(--canvas);
+      color: var(--ink);
+    }
+
+    .chart-scroll {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      scrollbar-width: none;
+      padding-bottom: 38px;
+    }
+
+    /* Chart Header */
+    .chart-header {
+      padding: 56px 20px 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .chart-header-left {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .icon-btn {
+      width: 40px;
+      height: 40px;
+      border: none;
+      background: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .icon-btn:hover {
+      background: rgba(23, 23, 23, 0.05);
+    }
+    .chart-title {
+      font-family: var(--font-display);
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.015em;
+      color: var(--ink);
+    }
+
+    /* Anchor Context Strip */
+    .anchor-context-strip {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin: 10px 22px 0;
+      padding: 4px 0;
+      text-decoration: none;
+      color: inherit;
+    }
+    .anchor-mini-sigil {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--surface);
+      box-shadow: inset 0 0 0 1px rgba(23, 23, 20, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ink-secondary);
+    }
+    .anchor-context-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink-secondary);
+      max-width: 260px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Destination Block */
+    .destination-block {
+      padding: 18px 22px 0;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 14px;
+    }
+    .eyebrow {
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink-secondary);
+    }
+    .destination-title {
+      font-family: var(--font-display);
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.015em;
+      color: var(--ink);
+      margin-top: 5px;
+      line-height: 1.08;
+    }
+    .vision-thumbnail {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #101B42, var(--navy-token));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255, 255, 255, 0.88);
+      box-shadow: 0 4px 14px rgba(22, 38, 92, 0.22);
+      flex-shrink: 0;
+    }
+
+    /* Route Map */
+    .route-map-wrap {
+      padding: 16px 22px 0;
+      margin-top: 6px;
+    }
+    .route-map-canvas {
+      position: relative;
+      width: 346px;
+      max-width: 100%;
+      margin: 0 auto;
+    }
+    .node-halo {
+      position: absolute;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: var(--navy-token);
+      animation: pulseHalo 3.6s ease-in-out infinite;
+      pointer-events: none;
+    }
+    .node-celebrate {
+      animation: nodeCelebrate 600ms var(--ease-spring) both !important;
+    }
+
+    /* Waypoint Details on Chart Screen */
+    .chart-section {
+      padding: 20px 22px 0;
+    }
+    .section-divider {
+      margin: 20px 22px 0;
+      height: 1px;
+      background: var(--border-line);
+    }
+    .waypoint-headline {
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      margin-top: 7px;
+    }
+    .waypoint-desc {
+      font-size: 14px;
+      color: var(--ink-secondary);
+      margin-top: 6px;
+      line-height: 1.5;
+    }
+
+    /* Next Move Block */
+    .move-card {
+      margin-top: 10px;
+      font-size: 18.5px;
+      font-weight: 600;
+      color: var(--ink);
+      line-height: 1.35;
+    }
+    .chart-btn-navy {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 50px;
+      padding: 0 24px;
+      border-radius: 13px;
+      background: var(--navy-token);
+      color: #FFFFFF;
+      font-family: var(--font-ui);
+      font-size: 15px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      margin-top: 14px;
+      box-shadow: 0 4px 16px rgba(22, 38, 92, 0.18);
+    }
+    .chart-btn-navy:hover {
+      background: var(--navy-token-hover);
+    }
+
+    .move-progress-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink-secondary);
+      font-variant-numeric: tabular-nums;
+      margin-top: 16px;
+    }
+    .move-track-dots {
+      display: flex;
+      gap: 5px;
+      margin-top: 8px;
+      max-width: 180px;
+    }
+    .move-dot {
+      flex: 1;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border-line);
+      transition: background 300ms ease;
+    }
+    .move-dot.done {
+      background: var(--navy-token);
+    }
+
+    /* Trigger: Mark Waypoint Reached */
+    .trigger-prompt-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      font-family: var(--font-ui);
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--navy-token);
+      margin-top: 16px;
+    }
+    .trigger-prompt-btn:hover {
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    /* Footer Links */
+    .chart-footer-row {
+      padding: 22px 22px 42px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .footer-action-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: none;
+      border: none;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--ink-secondary);
+      cursor: pointer;
+    }
+    .footer-action-link:hover {
+      color: var(--ink);
+    }
+
+    /* ==========================================================================
+       BEAT 1: WAYPOINT REACHED — MOMENT (Dark, Wordless)
+       Exact Anchor-hold treatment: #0E0C09 background, ring + ambient glow,
+       small-caps label, large waypoint value, NO BUTTON, NO TRANSLATION.
+       ========================================================================== */
+    #view-moment {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--dark-bg);
+      color: var(--dark-bone);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 60px 28px 40px;
+      box-sizing: border-box;
+    }
+
+    .moment-centerpiece {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      width: 100%;
+      max-width: 320px;
+      margin-top: -20px;
+    }
+
+    /* Ambient Glow & Ring from Anchor-hold */
+    .moment-ring-wrap {
+      position: relative;
+      width: 216px;
+      height: 216px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 26px;
+    }
+
+    /* Category-Bound Radial Ambient Glow */
+    .moment-ambient-glow {
+      position: absolute;
+      inset: -46px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 50% 50%, var(--category-glow) 0%, var(--category-glow-soft) 45%, transparent 72%);
+      animation: breatheSlow 5.2s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    /* Concentric Dotted & Dashed Rings matching Anchor-hold exactly */
+    .moment-ring-svg {
+      position: absolute;
+      inset: 0;
+      width: 216px;
+      height: 216px;
+      filter: drop-shadow(0 0 16px var(--category-glow));
+      animation: breatheSlow 6.4s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    /* Anchor Circular Artwork Container (Anchor-hold) */
+    .moment-artwork-container {
+      position: relative;
+      width: 156px;
+      height: 156px;
+      border-radius: 50%;
+      overflow: hidden;
+      box-shadow: 
+        0 20px 50px rgba(0, 0, 0, 0.65),
+        0 0 28px var(--category-glow-soft);
+      background: radial-gradient(circle at 45% 40%, rgba(var(--category-rgb), 0.22) 0%, #181512 60%, #0B0A08 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: breatheSlow 6s ease-in-out infinite;
+    }
+
+    /* Small-caps Label near Ring */
+    .moment-eyebrow {
+      font-family: var(--font-ui);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--dark-bone-soft);
+      margin-bottom: 12px;
+    }
+
+    /* Waypoint Value, Large */
+    .moment-value {
+      font-family: var(--font-display);
+      font-size: 33px;
+      font-weight: 700;
+      letter-spacing: -0.015em;
+      color: var(--dark-bone);
+      line-height: 1.15;
+      text-wrap: balance;
+    }
+
+    /* Subtle wordless tap affordance (restrained fade in) */
+    .moment-tap-cue {
+      position: absolute;
+      bottom: 42px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      color: var(--dark-bone-faint);
+      animation: tapHintPulse 2.8s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    /* ==========================================================================
+       BEAT 2: WAYPOINT REACHED — DETAIL (Cream, Translation & Reflection)
+       ========================================================================== */
+    #view-detail {
+      background: var(--canvas);
+      color: var(--ink);
+      justify-content: space-between;
+    }
+
+    .detail-scroll {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      scrollbar-width: none;
+      padding: 66px 24px 20px;
+    }
+
+    /* Eyebrow repeating Beat 1 */
+    .detail-eyebrow {
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink-secondary);
+    }
+
+    /* The same number, large, now on cream */
+    .detail-value {
+      font-family: var(--font-display);
+      font-size: 34px;
+      font-weight: 700;
+      letter-spacing: -0.015em;
+      color: var(--ink);
+      margin-top: 7px;
+      line-height: 1.08;
+    }
+
+    /* Translation Line (Sample: 1,000 people chose this over doing nothing.) */
+    .detail-translation {
+      font-size: 15px;
+      font-weight: 450;
+      color: var(--ink-secondary);
+      line-height: 1.45;
+      margin-top: 9px;
+    }
+
+    /* Divider */
+    .detail-divider {
+      height: 1px;
+      background: var(--border-line);
+      margin: 26px 0 24px;
+    }
+
+    /* Reflection Section */
+    .reflection-eyebrow {
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink-secondary);
+    }
+
+    .reflection-prompt {
+      font-family: var(--font-ui);
+      font-size: 15.5px;
+      font-weight: 600;
+      line-height: 1.4;
+      letter-spacing: -0.005em;
+      color: var(--ink);
+      margin-top: 6px;
+    }
+
+    /* Chips Container */
+    .chips-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+      margin-top: 18px;
+    }
+
+    /* Single-select Chip Component Spec
+       Unselected: Neutral outline (#D8D2C8), transparent background, ink text
+       Selected: Navy selected-state (#16265C), white/cream text */
+    .reflection-chip {
+      background: transparent;
+      border: 1px solid var(--border-line);
+      color: var(--ink);
+      border-radius: 9999px;
+      padding: 9.5px 17px;
+      font-family: var(--font-ui);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      outline: none;
+      transition: all 160ms ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .reflection-chip:hover {
+      border-color: var(--ink-tertiary);
+      background: rgba(23, 23, 23, 0.025);
+    }
+    .reflection-chip.selected {
+      background: var(--navy-token);
+      border-color: var(--navy-token);
+      color: #FFFFFF;
+      font-weight: 600;
+      box-shadow: 0 3px 10px rgba(22, 38, 92, 0.22);
+    }
+    .reflection-chip:focus-visible {
+      outline: 2px solid var(--navy-token);
+      outline-offset: 2px;
+    }
+
+    /* Inline Expandable Text Field ("Something else" expanded) */
+    .expanded-text-wrap {
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      transition: max-height 280ms var(--ease-spring), opacity 240ms ease, margin-top 240ms ease;
+      margin-top: 0;
+    }
+    .expanded-text-wrap.open {
+      max-height: 160px;
+      opacity: 1;
+      margin-top: 14px;
+    }
+
+    .expanded-textarea {
+      width: 100%;
+      min-height: 88px;
+      background: var(--surface);
+      border: 1px solid var(--border-line);
+      border-radius: 14px;
+      padding: 13px 15px;
+      font-family: var(--font-ui);
+      font-size: 14.5px;
+      color: var(--ink);
+      resize: none;
+      outline: none;
+      line-height: 1.45;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.03);
+      transition: border-color 160ms ease;
+    }
+    .expanded-textarea:focus {
+      border-color: var(--navy-token);
+    }
+    .expanded-textarea::placeholder {
+      color: var(--ink-tertiary);
+      font-weight: 400;
+    }
+
+    /* Continue Button Footer */
+    .detail-footer {
+      padding: 14px 24px calc(24px + env(safe-area-inset-bottom, 16px));
+      background: var(--canvas);
+      flex-shrink: 0;
+    }
+
+    .btn-continue {
+      width: 100%;
+      min-height: 52px;
+      border-radius: 14px;
+      background: var(--navy-token);
+      color: #FFFFFF;
+      border: none;
+      font-family: var(--font-ui);
+      font-size: 15.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 90ms ease, opacity 90ms ease, background 140ms ease;
+      box-shadow: 0 4px 18px rgba(22, 38, 92, 0.2);
+    }
+    .btn-continue:hover {
+      background: var(--navy-token-hover);
+    }
+    .btn-continue:active {
+      transform: scale(0.985);
+      opacity: 0.92;
+    }
+
+    /* ==========================================================================
+       BOTTOM SHEETS (Waypoint Detail, Journey, Edit Chart)
+       ========================================================================== */
+    .sheet-scrim {
+      position: absolute;
+      inset: 0;
+      background: rgba(23, 23, 23, 0.38);
+      z-index: 600;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 220ms ease;
+      display: flex;
+      align-items: flex-end;
+    }
+    .sheet-scrim.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .sheet-card {
+      width: 100%;
+      max-height: 78%;
+      background: var(--canvas);
+      border-top: 1px solid var(--border-line);
+      border-radius: 24px 24px 0 0;
+      padding: 14px 22px calc(28px + env(safe-area-inset-bottom, 20px));
+      overflow-y: auto;
+      transform: translateY(24px);
+      transition: transform 260ms var(--ease-spring);
+      box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.16);
+    }
+    .sheet-scrim.open .sheet-card {
+      transform: translateY(0);
+    }
+
+    .sheet-handle {
+      width: 36px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border-line);
+      margin: 0 auto 16px;
+    }
+    .sheet-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .sheet-title {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-secondary);
+    }
+
+    /* Moves checklist row inside Sheet */
+    .sheet-move-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 0;
+    }
+    .sheet-check-icon {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .sheet-check-icon.done {
+      background: var(--navy-token);
+      color: #FFFFFF;
+    }
+    .sheet-check-icon.undone {
+      border: 1.5px solid var(--ink-tertiary);
+    }
+
+    /* Toast notification */
+    .toast {
+      position: absolute;
+      top: 58px;
+      left: 20px;
+      right: 20px;
+      background: #171717;
+      color: #FBF9F4;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 10px 16px;
+      border-radius: 12px;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+      z-index: 800;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      opacity: 0;
+      transform: translateY(-8px);
+      transition: all 220ms ease;
+      pointer-events: none;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Accessibility / Motion Settings */
+    @media (prefers-reduced-motion: reduce) {
+      .view-layer, .proto-btn, .pressable, .expanded-text-wrap, .sheet-scrim, .sheet-card {
+        transition: none !important;
+      }
+      .moment-ambient-glow, .node-halo, .moment-tap-cue {
+        animation: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="stage">
+
+    <!-- Prototype State Switcher Bar -->
+    <header class="proto-bar" role="toolbar" aria-label="Prototype State Switcher">
+      <span class="proto-title">States</span>
+      <button class="proto-btn active" data-state="chart">Chart Home</button>
+      <button class="proto-btn" data-state="moment">1 · Moment (Dark)</button>
+      <button class="proto-btn" data-state="detail-default">2 · Detail (Default)</button>
+      <button class="proto-btn" data-state="detail-chip">3 · Detail (Chip Active)</button>
+      <button class="proto-btn" data-state="detail-expanded">4 · Detail (Expanded)</button>
+      <button class="proto-btn" data-state="chart-advanced">5 · Path Advanced</button>
+      <button class="proto-btn reset" id="btn-reset" title="Reset to initial state">↺ Reset</button>
+    </header>
+
+    <!-- Scaled iOS Frame -->
+    <div class="device-scaler" id="device-scaler">
+      <div class="phone" role="region" aria-label="Anchor iOS Device Frame">
+
+        <!-- Dynamic Island -->
+        <div class="dynamic-island" aria-hidden="true"></div>
+
+        <!-- Status Bar -->
+        <div class="status-bar light-mode" id="status-bar" aria-hidden="true">
+          <span>9:41</span>
+          <div class="status-icons">
+            <!-- Cellular Signal -->
+            <svg width="17" height="11" viewBox="0 0 17 11"><path d="M1 9.5h2v1.5H1v-1.5zm4-3h2v4.5H5v-4.5zm4-3h2v7.5H9v-7.5zm4-3h2v10.5h-2V.5z"/></svg>
+            <!-- Wi-Fi -->
+            <svg width="15" height="11" viewBox="0 0 15 11"><path d="M7.5 2.8c2.4 0 4.6.9 6.2 2.4l1.3-1.4C13.2 1.9 10.5.8 7.5.8S1.8 1.9 0 3.8l1.3 1.4C2.9 3.7 5.1 2.8 7.5 2.8zm0 3.7c1.4 0 2.6.5 3.6 1.4l1.4-1.4C11.1 5.3 9.4 4.6 7.5 4.6S3.9 5.3 2.5 6.5l1.4 1.4c1-.9 2.2-1.4 3.6-1.4zm0 3.5c.8 0 1.5.7 1.5 1.5s-.7 1.5-1.5 1.5-1.5-.7-1.5-1.5.7-1.5 1.5-1.5z"/></svg>
+            <!-- Battery Pill -->
+            <svg width="24" height="11" viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="3.5" fill="none" stroke="currentColor"/><path d="M23 4.5v3a1 1 0 001-1v-1a1 1 0 00-1-1z" fill="currentColor"/><rect x="2" y="2" width="16" height="8" rx="2" fill="currentColor"/></svg>
+          </div>
+        </div>
+
+        <!-- Viewport Surface with Screens -->
+        <main class="screen-viewport">
+
+          <!-- ================================================================
+               SCREEN A: CHART HOME
+               ================================================================ -->
+          <section class="view-layer active" id="view-chart" aria-label="Chart screen">
+            <div class="chart-scroll no-scrollbar">
+
+              <!-- Chart Header -->
+              <div class="chart-header">
+                <div class="chart-header-left">
+                  <button class="icon-btn pressable" id="btn-chart-back" aria-label="Back">
+                    <svg width="20" height="20" viewBox="0 0 22 22" fill="none"><path d="M13.5 4.5 7 11l6.5 6.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </button>
+                  <h1 class="chart-title">Chart</h1>
+                </div>
+                <button class="icon-btn pressable" id="btn-open-edit" aria-label="Edit Chart">
+                  <svg width="20" height="20" viewBox="0 0 22 22" fill="currentColor"><circle cx="5" cy="11" r="1.7"/><circle cx="11" cy="11" r="1.7"/><circle cx="17" cy="11" r="1.7"/></svg>
+                </button>
+              </div>
+
+              <!-- Anchor Context Strip -->
+              <a href="javascript:void(0)" class="anchor-context-strip pressable" id="btn-anchor-strip" aria-label="Linked Anchor: I finish what I start">
+                <div class="anchor-mini-sigil">
+                  <!-- Focused Structure Sigil Icon (Neutral) -->
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="3" x2="12" y2="21"/>
+                    <line x1="4" y1="12" x2="20" y2="12"/>
+                    <polygon points="12,6 18,12 12,18 6,12" stroke="currentColor" stroke-width="1.8" fill="none"/>
+                    <circle cx="12" cy="12" r="2" fill="currentColor"/>
+                  </svg>
+                </div>
+                <span class="anchor-context-label" id="strip-anchor-intention">I finish what I start</span>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 2.5 8 6l-3.5 3.5" stroke="#969088" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </a>
+
+              <!-- Destination Block -->
+              <div class="destination-block">
+                <div>
+                  <div class="eyebrow">Destination</div>
+                  <div class="destination-title" id="chart-dest-text">10,000 active users</div>
+                </div>
+                <div class="vision-thumbnail pressable" aria-label="Vision thumb" title="View Vision">
+                  <!-- Vision Compass Icon -->
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+                </div>
+              </div>
+
+              <!-- Route Map Container (Rendered dynamically) -->
+              <div class="route-map-wrap">
+                <div class="route-map-canvas" id="route-map-container">
+                  <!-- SVG Map and Nodes injected here -->
+                </div>
+              </div>
+
+              <div class="section-divider"></div>
+
+              <!-- Current Waypoint Section -->
+              <div class="chart-section" id="section-current-waypoint">
+                <div class="eyebrow">Current Waypoint</div>
+                <div class="waypoint-headline" id="current-wp-headline">Reach 1,000 active users</div>
+                <div class="waypoint-desc" id="current-wp-desc">Build enough awareness and value for the first thousand people to actively choose Anchor.</div>
+              </div>
+
+              <div class="section-divider"></div>
+
+              <!-- Next Move Section -->
+              <div class="chart-section" id="section-next-move">
+                <div class="eyebrow">Next Move</div>
+                <div class="move-card" id="current-move-text">Contact 3 creators who already talk about goal setting.</div>
+                <button class="chart-btn-navy pressable" id="btn-mark-move-complete">Mark complete</button>
+                <div class="move-progress-label" id="move-progress-label">0 of 3 moves</div>
+                <div class="move-track-dots" id="move-track-dots">
+                  <div class="move-dot"></div>
+                  <div class="move-dot"></div>
+                  <div class="move-dot"></div>
+                </div>
+              </div>
+
+              <!-- Waypoint Reached Trigger Prompt -->
+              <div class="chart-section" id="section-waypoint-reached-prompt" style="padding-top: 14px;">
+                <button class="trigger-prompt-btn pressable" id="btn-trigger-celebration">
+                  <span id="trigger-prompt-label">Think you've reached this waypoint? Mark waypoint reached</span>
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 2.5 8 6l-3.5 3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+              </div>
+
+              <div class="section-divider"></div>
+
+              <!-- Footer Milestone & Action Links -->
+              <div class="chart-footer-row">
+                <div class="eyebrow" id="footer-wp-count">2 of 5 waypoints</div>
+                <div style="display: flex; gap: 18px;">
+                  <button class="footer-action-link pressable" id="btn-open-journey">
+                    <span>View journey</span>
+                    <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M4.5 2.5 8 6l-3.5 3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </button>
+                  <button class="footer-action-link pressable" id="btn-open-edit-footer">
+                    <span>Edit Chart</span>
+                    <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M4.5 2.5 8 6l-3.5 3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+          <!-- ================================================================
+               SCREEN B: BEAT 1 — MOMENT (Dark, Wordless)
+               Exact Anchor-hold treatment: #0E0C09 background, dotted/dashed ring,
+               category-bound ambient glow, Anchor circular artwork container,
+               small-caps label, large waypoint value, strictly NO buttons, NO translation.
+               ================================================================ -->
+          <section class="view-layer" id="view-moment" aria-label="Waypoint Reached - Moment. Tap anywhere to continue.">
+            <div class="moment-centerpiece">
+              
+              <!-- Anchor-Hold Ring & Glow Treatment (Category-Bound) -->
+              <div class="moment-ring-wrap" aria-hidden="true">
+                <!-- Category-Bound Ambient Radial Glow -->
+                <div class="moment-ambient-glow"></div>
+
+                <!-- Dotted and Dashed Concentric Rings matching Anchor-hold -->
+                <svg class="moment-ring-svg" viewBox="0 0 216 216" width="216" height="216">
+                  <!-- Outer Dotted Ring -->
+                  <circle cx="108" cy="108" r="102" fill="none" stroke="var(--category-base)" stroke-width="1.8" stroke-dasharray="3 6" stroke-linecap="round" opacity="0.75" />
+                  <!-- Inner Dashed Ring -->
+                  <circle cx="108" cy="108" r="91" fill="none" stroke="var(--category-base)" stroke-width="1.2" stroke-dasharray="5 5" stroke-linecap="round" opacity="0.38" />
+                </svg>
+
+                <!-- Anchor's Circular Artwork Container (Anchor-hold) -->
+                <div class="moment-artwork-container">
+                  <image-slot id="anchor-1" shape="circle" class="dark-slot" placeholder="anchor artwork" style="width: 100%; height: 100%; display: block;">
+                    <!-- Default Anchor Generative Sigil Artwork (Focused Structure: 'I finish what I start') -->
+                    <svg class="anchor-sigil-art" viewBox="0 0 160 160" width="160" height="160" fill="none" style="width:100%;height:100%;display:block;">
+                      <defs>
+                        <radialGradient id="sigilBg" cx="50%" cy="46%" r="54%">
+                          <stop offset="0%" stop-color="#E85D32" stop-opacity="0.32" id="sigil-stop-0"/>
+                          <stop offset="68%" stop-color="#181512" stop-opacity="0.95"/>
+                          <stop offset="100%" stop-color="#0B0A08" stop-opacity="1"/>
+                        </radialGradient>
+                        <linearGradient id="sigilBoneGold" x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stop-color="#FFFFFF"/>
+                          <stop offset="40%" stop-color="#F5F0E8"/>
+                          <stop offset="100%" stop-color="#D9B36C"/>
+                        </linearGradient>
+                      </defs>
+                      <!-- Radial Canvas Atmosphere -->
+                      <circle cx="80" cy="80" r="79" fill="url(#sigilBg)"/>
+                      <!-- Outer Alignment Rings -->
+                      <circle cx="80" cy="80" r="68" stroke="rgba(245, 240, 232, 0.12)" stroke-width="1" stroke-dasharray="2 4"/>
+                      <circle cx="80" cy="80" r="50" stroke="rgba(245, 240, 232, 0.18)" stroke-width="1"/>
+                      <circle cx="80" cy="80" r="28" stroke="rgba(245, 240, 232, 0.22)" stroke-width="1.2"/>
+                      <!-- Focused Structure Geometry (F N S H W T R) -->
+                      <!-- Central Vertical Axis -->
+                      <line x1="80" y1="22" x2="80" y2="138" stroke="url(#sigilBoneGold)" stroke-width="2.2" stroke-linecap="round"/>
+                      <!-- Horizontal Equator Axis -->
+                      <line x1="38" y1="80" x2="122" y2="80" stroke="url(#sigilBoneGold)" stroke-width="1.8" stroke-linecap="round"/>
+                      <!-- Centered Diamond Inscription -->
+                      <polygon points="80,36 116,80 80,124 44,80" stroke="url(#sigilBoneGold)" stroke-width="1.6" fill="none" opacity="0.88"/>
+                      <!-- Core Inscribed Sigil Rings & Category Locus -->
+                      <circle cx="80" cy="80" r="10" stroke="url(#sigilBoneGold)" stroke-width="2" fill="none"/>
+                      <circle cx="80" cy="80" r="3.5" fill="var(--category-base)" id="sigil-core-dot"/>
+                      <!-- Radiating Cardinal Nodes -->
+                      <circle cx="80" cy="26" r="4" stroke="url(#sigilBoneGold)" stroke-width="1.8" fill="#141210"/>
+                      <circle cx="38" cy="80" r="3.5" stroke="url(#sigilBoneGold)" stroke-width="1.6" fill="#141210"/>
+                      <circle cx="122" cy="80" r="3.5" stroke="url(#sigilBoneGold)" stroke-width="1.6" fill="#141210"/>
+                      <circle cx="80" cy="134" r="3.5" stroke="url(#sigilBoneGold)" stroke-width="1.6" fill="#141210"/>
+                      <!-- Diagonal Alignment Rays -->
+                      <line x1="54" y1="54" x2="106" y2="106" stroke="rgba(245, 240, 232, 0.28)" stroke-width="1" stroke-linecap="round"/>
+                      <line x1="106" y1="54" x2="54" y2="106" stroke="rgba(245, 240, 232, 0.28)" stroke-width="1" stroke-linecap="round"/>
+                    </svg>
+                  </image-slot>
+                </div>
+              </div>
+
+              <!-- Small-caps label near the ring (exact copy) -->
+              <div class="moment-eyebrow">WAYPOINT REACHED</div>
+
+              <!-- Waypoint value, large, inside or below ring (exact copy) -->
+              <div class="moment-value" id="moment-wp-value">1,000 active users</div>
+
+            </div>
+
+            <!-- Subtle wordless tap affordance at bottom of screen -->
+            <div class="moment-tap-cue" aria-hidden="true">Tap anywhere to continue</div>
+          </section>
+
+          <!-- ================================================================
+               SCREEN C: BEAT 2 — DETAIL (Cream, Translation, Reflection)
+               ================================================================ -->
+          <section class="view-layer" id="view-detail" aria-label="Waypoint Reached - Detail">
+            <div class="detail-scroll no-scrollbar">
+
+              <!-- Eyebrow: repeats Beat 1 to anchor continuity -->
+              <div class="detail-eyebrow">WAYPOINT REACHED</div>
+
+              <!-- The same number, large, now on cream -->
+              <div class="detail-value" id="detail-wp-value">1,000 active users</div>
+
+              <!-- Translation line (one sentence per-waypoint custom copy) -->
+              <div class="detail-translation" id="detail-wp-translation">1,000 people chose this over doing nothing.</div>
+
+              <!-- Divider -->
+              <div class="detail-divider"></div>
+
+              <!-- Retrospective Reflection Eyebrow & Prompt -->
+              <div class="reflection-eyebrow">WHAT GOT YOU HERE</div>
+              <div class="reflection-prompt">What actually got you here?</div>
+
+              <!-- Single-select Chips -->
+              <div class="chips-group" role="radiogroup" aria-label="What actually got you here?">
+                <button type="button" class="reflection-chip" role="radio" aria-checked="false" data-chip="Consistency">Consistency</button>
+                <button type="button" class="reflection-chip" role="radio" aria-checked="false" data-chip="One good decision">One good decision</button>
+                <button type="button" class="reflection-chip" role="radio" aria-checked="false" data-chip="Other people">Other people</button>
+                <button type="button" class="reflection-chip" role="radio" aria-checked="false" data-chip="Something else" id="chip-something-else">Something else</button>
+              </div>
+
+              <!-- Expanded inline text field for "Something else" -->
+              <div class="expanded-text-wrap" id="expanded-text-container" aria-hidden="true">
+                <textarea 
+                  class="expanded-textarea" 
+                  id="input-reflection-text" 
+                  placeholder="Say more…" 
+                  aria-label="Reflection text details"
+                  rows="3"></textarea>
+              </div>
+
+            </div>
+
+            <!-- Primary Continue Button (same navy token as Chart's existing Mark complete) -->
+            <div class="detail-footer">
+              <button class="btn-continue" id="btn-continue">Continue</button>
+            </div>
+          </section>
+
+          <!-- ================================================================
+               SHEETS: WAYPOINT DETAIL, JOURNEY, EDIT CHART
+               ================================================================ -->
+          <!-- Waypoint Detail Sheet -->
+          <div class="sheet-scrim" id="sheet-waypoint" role="dialog" aria-modal="true" aria-label="Waypoint Details">
+            <div class="sheet-card">
+              <div class="sheet-handle"></div>
+              <div class="sheet-top">
+                <span class="sheet-title">Waypoint</span>
+                <button class="icon-btn pressable" id="btn-close-wp-sheet" aria-label="Close">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3 3 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                </button>
+              </div>
+              <div class="destination-title" id="sheet-wp-name" style="font-size: 24px;">1,000 active users</div>
+              <div id="sheet-wp-badge" style="display: inline-block; margin-top: 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--navy-token); background: var(--wash-navy); padding: 3px 8px; border-radius: 6px;">Current</div>
+              <p class="waypoint-desc" id="sheet-wp-desc" style="margin-top: 10px;">Build enough awareness and value for the first thousand people to actively choose Anchor.</p>
+              
+              <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-line);">
+                <div class="eyebrow" style="margin-bottom: 10px;">Moves</div>
+                <div id="sheet-moves-list" style="display: flex; flex-direction: column; gap: 8px;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Journey Sheet -->
+          <div class="sheet-scrim" id="sheet-journey" role="dialog" aria-modal="true" aria-label="Your Journey">
+            <div class="sheet-card">
+              <div class="sheet-handle"></div>
+              <div class="sheet-top">
+                <span class="sheet-title">Your Journey</span>
+                <button class="icon-btn pressable" id="btn-close-journey-sheet" aria-label="Close">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3 3 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                </button>
+              </div>
+              <div id="journey-list" style="display: flex; flex-direction: column; gap: 14px; margin-top: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 18px; height: 18px; border-radius: 50%; background: var(--navy-token); color: #FFF; display: flex; align-items: center; justify-content: center;">
+                      <svg width="9" height="9" viewBox="0 0 10 8" fill="none"><path d="M1 4.2 3.6 6.8 9 1.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </div>
+                    <span style="font-size: 15px; font-weight: 600;">500 active users reached</span>
+                  </div>
+                  <span style="font-size: 13px; color: var(--ink-tertiary);">Aug 12</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid var(--border-line);">
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 18px; height: 18px; border-radius: 50%; background: var(--navy-token); color: #FFF; display: flex; align-items: center; justify-content: center;">
+                      <svg width="9" height="9" viewBox="0 0 10 8" fill="none"><path d="M1 4.2 3.6 6.8 9 1.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </div>
+                    <span style="font-size: 15px; font-weight: 600;">100 active users reached</span>
+                  </div>
+                  <span style="font-size: 13px; color: var(--ink-tertiary);">Jul 26</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Edit Chart Sheet -->
+          <div class="sheet-scrim" id="sheet-edit" role="dialog" aria-modal="true" aria-label="Edit Chart">
+            <div class="sheet-card">
+              <div class="sheet-handle"></div>
+              <div class="sheet-top">
+                <span class="sheet-title">Edit Chart</span>
+                <button class="icon-btn pressable" id="btn-close-edit-sheet" aria-label="Close">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3 3 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                </button>
+              </div>
+              <p style="font-size: 13.5px; color: var(--ink-secondary); margin-bottom: 14px;">Waypoints establish measurable checkpoints along your Course toward 10,000 active users.</p>
+              <div id="edit-wp-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
+            </div>
+          </div>
+
+          <!-- Notification Toast -->
+          <div class="toast" id="toast-msg" role="status" aria-live="polite">
+            <span id="toast-text">Waypoint reached celebration complete</span>
+          </div>
+
+        </main>
+
+        <!-- Home Indicator -->
+        <div class="home-indicator light-mode" id="home-indicator" aria-hidden="true"></div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ==========================================================================
+       INTERACTION & STATE ENGINE
+       ========================================================================== -->
+  <script>
+    (function() {
+      'use strict';
+
+      // ── Initial State Data ──
+      const WAYPOINTS_DATA = [
+        {
+          id: 'wp0',
+          value: '100 active users',
+          desc: 'Enough real users to know the product works outside your own head.',
+          translation: '100 real people found initial signal in this work.',
+          moves: [
+            { text: 'Set up early waitlist landing page', done: true },
+            { text: 'Share with 10 trusted peers', done: true }
+          ]
+        },
+        {
+          id: 'wp1',
+          value: '500 active users',
+          desc: 'Get in front of the communities that already care about goal setting.',
+          translation: '500 users proved this solves an undeniable personal need.',
+          moves: [
+            { text: 'Launch on Product Hunt and niche directories', done: true },
+            { text: 'Run customer discovery interviews with 15 users', done: true }
+          ]
+        },
+        {
+          id: 'wp2',
+          value: '1,000 active users',
+          desc: 'Build enough awareness and value for the first thousand people to actively choose Anchor.',
+          translation: '1,000 people chose this over doing nothing.', // Hardcoded exact prototype copy
+          moves: [
+            { text: 'Contact 3 creators who already talk about goal setting.', done: false },
+            { text: 'Post the "first week" build story.', done: false },
+            { text: 'Reply to every early user within a day.', done: false }
+          ]
+        },
+        {
+          id: 'wp3',
+          value: '5,000 active users',
+          desc: 'Turn early users into a steady source of new ones.',
+          translation: '5,000 people now count on Anchor as their daily standard.',
+          moves: [
+            { text: 'Ask 10 active users for a testimonial.', done: false },
+            { text: 'Set up a simple referral link.', done: false }
+          ]
+        },
+        {
+          id: 'wp4',
+          value: '10,000 active users',
+          desc: 'The product grows through word of mouth and consistent use.',
+          translation: 'Ten thousand people anchored to what matters most.',
+          moves: [
+            { text: 'Ship the feature users ask for most.', done: false }
+          ],
+          isDestination: true
+        }
+      ];
+
+      // Deep clone helper
+      function cloneWaypoints() {
+        return JSON.parse(JSON.stringify(WAYPOINTS_DATA));
+      }
+
+      // ── <image-slot> Custom Element Registration ──
+      // Complies with the Anchor design system's user-fillable artwork slot specification.
+      // Renders child slot content (the authentic generative sigil artwork) by default,
+      // and supports file drag-and-drop or dropped images seamlessly.
+      if (!customElements.get('image-slot')) {
+        class ImageSlot extends HTMLElement {
+          connectedCallback() {
+            if (this._initialized) return;
+            this._initialized = true;
+            this.style.display = 'block';
+            this.style.position = 'relative';
+            this.style.width = this.style.width || '100%';
+            this.style.height = this.style.height || '100%';
+            this.style.overflow = 'hidden';
+            if (this.getAttribute('shape') === 'circle') {
+              this.style.borderRadius = '50%';
+            }
+
+            // Drag and drop image ingestion
+            this.addEventListener('dragover', (e) => {
+              e.preventDefault();
+              this.style.outline = '2px dashed var(--navy-token)';
+            });
+            this.addEventListener('dragleave', () => {
+              this.style.outline = 'none';
+            });
+            this.addEventListener('drop', (e) => {
+              e.preventDefault();
+              this.style.outline = 'none';
+              const file = e.dataTransfer?.files?.[0];
+              if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                  let img = this.querySelector('img.slotted-img');
+                  if (!img) {
+                    img = document.createElement('img');
+                    img.className = 'slotted-img';
+                    img.style.position = 'absolute';
+                    img.style.inset = '0';
+                    img.style.width = '100%';
+                    img.style.height = '100%';
+                    img.style.objectFit = 'cover';
+                    img.style.zIndex = '5';
+                    this.appendChild(img);
+                  }
+                  img.src = evt.target.result;
+                  const svgChild = this.querySelector('.anchor-sigil-art');
+                  if (svgChild) svgChild.style.display = 'none';
+                };
+                reader.readAsDataURL(file);
+              }
+            });
+          }
+        }
+        customElements.define('image-slot', ImageSlot);
+      }
+
+      // ── Living Spec §04 Color System — Category Token Registry ──
+      const CATEGORY_COLORS = {
+        Ambition: '#E85D32',
+        Career: '#3157D8',
+        Desire: '#D94F8A',
+        Health: '#2FA879',
+        Relationships: '#E56F7A',
+        Creativity: '#F28A2E',
+        Spirituality: '#7657D9',
+        Abundance: '#B6A32A',
+        Family: '#C86B45',
+        Learning: '#198C9C',
+        Adventure: '#2D9FC8',
+        Custom: '#62666D'
+      };
+
+      // Active Anchor Model for this Prototype (Ambition / "I finish what I start")
+      const ACTIVE_ANCHOR = {
+        id: 'anchor-1',
+        intention: 'I finish what I start',
+        category: 'Ambition',
+        thread: 64
+      };
+
+      // Dynamic Category Theme Applier (Binds glow, rings, wash, and badges dynamically)
+      function applyCategoryTheme(catName) {
+        const hex = CATEGORY_COLORS[catName] || '#E85D32';
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        
+        document.documentElement.style.setProperty('--category-base', hex);
+        document.documentElement.style.setProperty('--category-rgb', `${r}, ${g}, ${b}`);
+        document.documentElement.style.setProperty('--category-glow', `rgba(${r}, ${g}, ${b}, 0.38)`);
+        document.documentElement.style.setProperty('--category-glow-soft', `rgba(${r}, ${g}, ${b}, 0.16)`);
+        document.documentElement.style.setProperty('--category-wash', `rgba(${r}, ${g}, ${b}, 0.12)`);
+        document.documentElement.style.setProperty('--category-wash-border', `rgba(${r}, ${g}, ${b}, 0.28)`);
+
+        // Synchronize SVG radial gradient and core marker if rendered
+        const stopEl = document.getElementById('sigil-stop-0');
+        if (stopEl) stopEl.setAttribute('stop-color', hex);
+        const coreDot = document.getElementById('sigil-core-dot');
+        if (coreDot) coreDot.setAttribute('fill', hex);
+
+        // Synchronize Context Strip
+        const stripIntention = document.getElementById('strip-anchor-intention');
+        if (stripIntention) stripIntention.textContent = ACTIVE_ANCHOR.intention;
+      }
+
+      // App State
+      let waypoints = cloneWaypoints();
+      let reachedCount = 2; // wp0 and wp1 are reached; wp2 is current
+      let selectedChip = null;
+      let reflectionText = '';
+      let activeView = 'chart'; // 'chart' | 'moment' | 'detail'
+      let justReachedNodeId = null;
+
+      // DOM Elements Cache
+      const scalerEl = document.getElementById('device-scaler');
+      const statusBarEl = document.getElementById('status-bar');
+      const homeIndicatorEl = document.getElementById('home-indicator');
+      const viewChartEl = document.getElementById('view-chart');
+      const viewMomentEl = document.getElementById('view-moment');
+      const viewDetailEl = document.getElementById('view-detail');
+
+      const momentWpValueEl = document.getElementById('moment-wp-value');
+      const detailWpValueEl = document.getElementById('detail-wp-value');
+      const detailWpTranslationEl = document.getElementById('detail-wp-translation');
+
+      const chipButtons = document.querySelectorAll('.reflection-chip');
+      const chipSomethingElse = document.getElementById('chip-something-else');
+      const expandedTextContainer = document.getElementById('expanded-text-container');
+      const inputReflectionText = document.getElementById('input-reflection-text');
+      const btnContinue = document.getElementById('btn-continue');
+
+      const currentWpHeadlineEl = document.getElementById('current-wp-headline');
+      const currentWpDescEl = document.getElementById('current-wp-desc');
+      const currentMoveTextEl = document.getElementById('current-move-text');
+      const moveProgressLabelEl = document.getElementById('move-progress-label');
+      const moveTrackDotsEl = document.getElementById('move-track-dots');
+      const triggerPromptLabelEl = document.getElementById('trigger-prompt-label');
+      const footerWpCountEl = document.getElementById('footer-wp-count');
+      const routeMapContainer = document.getElementById('route-map-container');
+
+      const toastEl = document.getElementById('toast-msg');
+      const toastTextEl = document.getElementById('toast-text');
+
+      // ── Responsive Fit Scaler ──
+      function fitDevice() {
+        const availableHeight = window.innerHeight - 70;
+        const availableWidth = window.innerWidth - 32;
+        const scaleY = availableHeight / 844;
+        const scaleX = availableWidth / 390;
+        const scale = Math.min(1, Math.min(scaleX, scaleY));
+        scalerEl.style.transform = `scale(${Math.max(0.65, scale)})`;
+      }
+      window.addEventListener('resize', fitDevice);
+      fitDevice();
+
+      // ── View Transitions ──
+      function setView(viewName) {
+        activeView = viewName;
+        viewChartEl.classList.toggle('active', viewName === 'chart');
+        viewMomentEl.classList.toggle('active', viewName === 'moment');
+        viewDetailEl.classList.toggle('active', viewName === 'detail');
+
+        const isDarkMode = (viewName === 'moment');
+        statusBarEl.className = 'status-bar ' + (isDarkMode ? 'dark-mode' : 'light-mode');
+        homeIndicatorEl.className = 'home-indicator ' + (isDarkMode ? 'dark-mode' : 'light-mode');
+
+        // Update prototype bar button active state
+        document.querySelectorAll('.proto-bar .proto-btn:not(.reset)').forEach(btn => {
+          btn.classList.remove('active');
+        });
+
+        if (viewName === 'chart') {
+          document.querySelector('[data-state="chart"]')?.classList.add('active');
+        } else if (viewName === 'moment') {
+          document.querySelector('[data-state="moment"]')?.classList.add('active');
+        } else if (viewName === 'detail') {
+          if (selectedChip === 'Something else') {
+            document.querySelector('[data-state="detail-expanded"]')?.classList.add('active');
+          } else if (selectedChip) {
+            document.querySelector('[data-state="detail-chip"]')?.classList.add('active');
+          } else {
+            document.querySelector('[data-state="detail-default"]')?.classList.add('active');
+          }
+        }
+      }
+
+      // ── Show Toast Helper ──
+      function showToast(msg) {
+        toastTextEl.textContent = msg;
+        toastEl.classList.add('show');
+        setTimeout(() => toastEl.classList.remove('show'), 2600);
+      }
+
+      // ── Render Route Map & Chart Surface ──
+      function renderChart() {
+        const total = waypoints.length;
+        const finished = reachedCount >= total;
+        const currentWp = finished ? null : waypoints[reachedCount];
+
+        // 1. Current Waypoint info
+        if (finished) {
+          currentWpHeadlineEl.textContent = "You've reached your Destination.";
+          currentWpDescEl.textContent = "Set a new Destination to keep moving forward.";
+        } else {
+          currentWpHeadlineEl.textContent = `Reach ${currentWp.value}`;
+          currentWpDescEl.textContent = currentWp.desc;
+        }
+
+        // 2. Next Move info
+        if (finished) {
+          currentMoveTextEl.textContent = "Nothing left plotted here. Reflect, or plot what comes next.";
+          document.getElementById('btn-mark-move-complete').style.display = 'none';
+          moveProgressLabelEl.textContent = "All moves complete";
+          moveTrackDotsEl.innerHTML = '';
+        } else {
+          document.getElementById('btn-mark-move-complete').style.display = 'inline-flex';
+          const pendingMoves = currentWp.moves.filter(m => !m.done);
+          const firstPending = pendingMoves[0];
+          const doneMovesCount = currentWp.moves.length - pendingMoves.length;
+
+          if (firstPending) {
+            currentMoveTextEl.textContent = firstPending.text;
+            document.getElementById('btn-mark-move-complete').textContent = "Mark complete";
+          } else {
+            currentMoveTextEl.textContent = "All moves finished. Ready to advance.";
+            document.getElementById('btn-mark-move-complete').textContent = "Mark waypoint reached";
+          }
+
+          moveProgressLabelEl.textContent = `${doneMovesCount} of ${currentWp.moves.length} moves`;
+          moveTrackDotsEl.innerHTML = currentWp.moves.map(m => `
+            <div class="move-dot ${m.done ? 'done' : ''}"></div>
+          `).join('');
+
+          // 3. Waypoint Reached prompt
+          const allDone = currentWp.moves.length > 0 && currentWp.moves.every(m => m.done);
+          triggerPromptLabelEl.textContent = allDone 
+            ? "All moves complete — mark waypoint reached"
+            : "Think you've reached this waypoint? Mark waypoint reached";
+        }
+
+        // 4. Footer count
+        footerWpCountEl.textContent = `${Math.min(reachedCount, total)} of ${total} waypoints`;
+
+        // 5. SVG Route Map Geometry (matches Chart 2.0 specs)
+        const SVG_W = 346;
+        const BASE_X = 64;
+        const OFFSET_CYCLE = [0, 14, -10, 16, -12, 4, 11, -8];
+        const Y_START = 22;
+        const GAP = 58;
+        const svgH = Y_START + GAP * total + 30;
+
+        const points = [{ x: BASE_X, y: Y_START }];
+        for (let i = 0; i < total; i++) {
+          points.push({ x: BASE_X + OFFSET_CYCLE[i % OFFSET_CYCLE.length], y: Y_START + GAP * (i + 1) });
+        }
+
+        function segPath(p0, p1) {
+          const dy = (p1.y - p0.y) / 2;
+          return `M${p0.x} ${p0.y} C${p0.x} ${p0.y + dy}, ${p1.x} ${p1.y - dy}, ${p1.x} ${p1.y}`;
+        }
+
+        let svgHtml = `
+          <svg width="${SVG_W}" height="${svgH}" viewBox="0 0 ${SVG_W} ${svgH}" style="position: absolute; inset: 0; overflow: visible;" aria-hidden="true">
+        `;
+
+        // Path segments
+        for (let i = 0; i < points.length - 1; i++) {
+          const reached = (i === 0) ? true : (i <= reachedCount);
+          const pA = points[i];
+          const pB = points[i + 1];
+          svgHtml += `
+            <path d="${segPath(pA, pB)}" 
+                  fill="none" 
+                  stroke="${reached ? 'var(--navy-token)' : 'rgba(150,144,136,0.38)'}" 
+                  stroke-width="${reached ? 2.5 : 2}" 
+                  stroke-linecap="round" 
+                  stroke-dasharray="${reached ? 'none' : '5 6'}" 
+                  style="${reached ? '' : 'animation: dashCycle 1.8s linear infinite'}" />
+          `;
+        }
+        svgHtml += `</svg>`;
+
+        // Start point
+        svgHtml += `
+          <div aria-hidden="true" style="position: absolute; left: ${points[0].x}px; top: ${points[0].y}px; transform: translate(-50%, -50%); width: 9px; height: 9px; border-radius: 50%; background: var(--ink-tertiary);"></div>
+          <div aria-hidden="true" style="position: absolute; left: 104px; top: ${points[0].y}px; transform: translateY(-50%); font-size: 11px; font-weight: 600; color: var(--ink-tertiary);">Start</div>
+        `;
+
+        // Waypoint nodes
+        waypoints.forEach((w, i) => {
+          const p = points[i + 1];
+          const isDone = i < reachedCount;
+          const isCurrent = (!finished && i === reachedCount);
+          const isLast = (i === total - 1);
+          const isJustCelebrated = (justReachedNodeId === w.id);
+
+          let nodeMarkHtml = '';
+          if (isDone) {
+            if (isLast) {
+              nodeMarkHtml = `
+                <div style="width: 20px; height: 20px; background: var(--navy-token); transform: rotate(45deg); display: flex; align-items: center; justify-content: center;">
+                  <span style="transform: rotate(-45deg); color: #FFF; display: flex;"><svg width="9" height="9" viewBox="0 0 10 8" fill="none"><path d="M1 4.2 3.6 6.8 9 1.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                </div>`;
+            } else {
+              nodeMarkHtml = `
+                <div style="width: 18px; height: 18px; border-radius: 50%; background: var(--navy-token); display: flex; align-items: center; justify-content: center; color: #FFF;">
+                  <svg width="8.5" height="8.5" viewBox="0 0 10 8" fill="none"><path d="M1 4.2 3.6 6.8 9 1.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>`;
+            }
+          } else if (isCurrent) {
+            if (isLast) {
+              nodeMarkHtml = `
+                <div style="width: 24px; height: 24px; background: var(--navy-token); transform: rotate(45deg); box-shadow: 0 0 0 3px var(--canvas), 0 0 0 5px var(--navy-token);"></div>`;
+            } else {
+              nodeMarkHtml = `
+                <div style="width: 22px; height: 22px; border-radius: 50%; background: var(--navy-token); box-shadow: 0 0 0 3px var(--canvas), 0 0 0 5px var(--navy-token);"></div>`;
+            }
+          } else {
+            if (isLast) {
+              nodeMarkHtml = `
+                <div style="width: 19px; height: 19px; background: none; border: 1.6px solid var(--ink-tertiary); transform: rotate(45deg);"></div>`;
+            } else {
+              nodeMarkHtml = `
+                <div style="width: 16px; height: 16px; border-radius: 50%; background: var(--surface); border: 1.6px solid var(--ink-tertiary);"></div>`;
+            }
+          }
+
+          let stateBadge = '';
+          if (isCurrent) {
+            stateBadge = `<span style="font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--navy-token); background: var(--wash-navy); padding: 2px 7px; border-radius: 5px;">Current</span>`;
+          } else if (isDone) {
+            stateBadge = `<span style="font-size: 11px; color: var(--ink-secondary); font-weight: 500;">Reached</span>`;
+          } else if (isLast) {
+            stateBadge = `<span style="font-size: 11px; color: var(--ink-tertiary); font-weight: 500;">Destination</span>`;
+          } else {
+            stateBadge = `<span style="font-size: 11px; color: var(--ink-tertiary); font-weight: 500;">Upcoming</span>`;
+          }
+
+          svgHtml += `
+            <div style="position: absolute; left: 0; right: 0; top: 0; bottom: 0; pointer-events: none;">
+              ${isCurrent ? `<div class="node-halo" style="left: ${p.x}px; top: ${p.y}px;"></div>` : ''}
+              <button type="button" 
+                      class="pressable ${isJustCelebrated ? 'node-celebrate' : ''}" 
+                      onclick="window.chartOpenWaypointSheet('${w.id}')"
+                      aria-label="Waypoint: ${w.value}"
+                      style="pointer-events: auto; position: absolute; left: ${p.x}px; top: ${p.y}px; transform: translate(-50%, -50%); background: none; border: none; padding: 10px; cursor: pointer;">
+                ${nodeMarkHtml}
+              </button>
+              <button type="button" 
+                      class="pressable"
+                      onclick="window.chartOpenWaypointSheet('${w.id}')"
+                      style="pointer-events: auto; position: absolute; left: 104px; top: ${p.y}px; transform: translateY(-50%); text-align: left; background: none; border: none; padding: 0; cursor: pointer; max-width: 220px;">
+                <div style="font-family: var(--font-display); font-size: 15.5px; font-weight: 700; color: var(--ink); letter-spacing: -0.01em;">${w.value}</div>
+                <div style="margin-top: 2px;">${stateBadge}</div>
+              </button>
+            </div>
+          `;
+        });
+
+        routeMapContainer.innerHTML = svgHtml;
+        routeMapContainer.style.height = `${svgH}px`;
+      }
+
+      // ── Trigger Celebration Workflow (Two Beats) ──
+      function triggerWaypointReached() {
+        if (reachedCount >= waypoints.length) {
+          showToast("Course destination already reached.");
+          return;
+        }
+
+        const currentWp = waypoints[reachedCount];
+        
+        // Prepare Beat 1 & 2 content
+        momentWpValueEl.textContent = currentWp.value;
+        detailWpValueEl.textContent = currentWp.value;
+        detailWpTranslationEl.textContent = currentWp.translation;
+
+        // Reset Beat 2 reflection states
+        selectedChip = null;
+        reflectionText = '';
+        inputReflectionText.value = '';
+        chipButtons.forEach(btn => {
+          btn.classList.remove('selected');
+          btn.setAttribute('aria-checked', 'false');
+        });
+        expandedTextContainer.classList.remove('open');
+        expandedTextContainer.setAttribute('aria-hidden', 'true');
+
+        // Transition into Beat 1: Moment (Dark)
+        setView('moment');
+      }
+
+      // Beat 1: Tap anywhere to advance to Beat 2
+      viewMomentEl.addEventListener('click', function(e) {
+        setView('detail');
+      });
+
+      // ── Beat 2: Chip Single-Select Interaction ──
+      chipButtons.forEach(btn => {
+        btn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          const chipName = this.getAttribute('data-chip');
+
+          if (selectedChip === chipName) {
+            // Tapping a selected chip again deselects it
+            selectedChip = null;
+            this.classList.remove('selected');
+            this.setAttribute('aria-checked', 'false');
+            if (chipName === 'Something else') {
+              expandedTextContainer.classList.remove('open');
+              expandedTextContainer.setAttribute('aria-hidden', 'true');
+            }
+          } else {
+            // Tapping a second chip deselects the first
+            chipButtons.forEach(b => {
+              b.classList.remove('selected');
+              b.setAttribute('aria-checked', 'false');
+            });
+            selectedChip = chipName;
+            this.classList.add('selected');
+            this.setAttribute('aria-checked', 'true');
+
+            // Selecting "Something else" selects that chip and reveals text field in one motion
+            if (chipName === 'Something else') {
+              expandedTextContainer.classList.add('open');
+              expandedTextContainer.setAttribute('aria-hidden', 'false');
+              setTimeout(() => inputReflectionText.focus(), 150);
+            } else {
+              expandedTextContainer.classList.remove('open');
+              expandedTextContainer.setAttribute('aria-hidden', 'true');
+            }
+          }
+
+          // Sync prototype bar active state
+          if (selectedChip === 'Something else') {
+            document.querySelector('[data-state="detail-expanded"]')?.classList.add('active');
+          } else if (selectedChip) {
+            document.querySelector('[data-state="detail-chip"]')?.classList.add('active');
+          } else {
+            document.querySelector('[data-state="detail-default"]')?.classList.add('active');
+          }
+        });
+      });
+
+      inputReflectionText.addEventListener('input', function() {
+        reflectionText = this.value;
+      });
+
+      // ── Beat 2: Continue Button (Completes Celebration & Advances Path) ──
+      btnContinue.addEventListener('click', function(e) {
+        e.stopPropagation();
+
+        const wpJustCompleted = waypoints[reachedCount];
+        justReachedNodeId = wpJustCompleted ? wpJustCompleted.id : null;
+
+        // Advance underlying waypoint progress
+        reachedCount = Math.min(reachedCount + 1, waypoints.length);
+
+        // Mark all moves under the previous waypoint as completed
+        if (wpJustCompleted) {
+          wpJustCompleted.moves.forEach(m => m.done = true);
+        }
+
+        // Return to normal Chart screen with path already advanced
+        renderChart();
+        setView('chart');
+
+        showToast(`Waypoint reached: ${wpJustCompleted.value}`);
+
+        // Clear pulse animation after 1.2s
+        setTimeout(() => {
+          justReachedNodeId = null;
+          renderChart();
+        }, 1200);
+      });
+
+      // ── Chart Interaction: Mark Move Complete ──
+      document.getElementById('btn-mark-move-complete').addEventListener('click', function() {
+        if (reachedCount >= waypoints.length) return;
+        const currentWp = waypoints[reachedCount];
+        const pending = currentWp.moves.find(m => !m.done);
+
+        if (pending) {
+          pending.done = true;
+          renderChart();
+
+          // Check if this was the final Move under current waypoint
+          const remaining = currentWp.moves.filter(m => !m.done);
+          if (remaining.length === 0) {
+            // Automatically fires celebration on completing the final Move!
+            setTimeout(() => {
+              triggerWaypointReached();
+            }, 360);
+          }
+        } else {
+          // If no pending moves remain, tapping button triggers waypoint reached
+          triggerWaypointReached();
+        }
+      });
+
+      // ── Chart Interaction: Trigger Button ("Think you've reached this waypoint?") ──
+      document.getElementById('btn-trigger-celebration').addEventListener('click', function() {
+        triggerWaypointReached();
+      });
+
+      // ── Bottom Sheets Management ──
+      const sheetWaypointEl = document.getElementById('sheet-waypoint');
+      const sheetJourneyEl = document.getElementById('sheet-journey');
+      const sheetEditEl = document.getElementById('sheet-edit');
+
+      function closeSheets() {
+        document.querySelectorAll('.sheet-scrim').forEach(s => s.classList.remove('open'));
+      }
+
+      document.querySelectorAll('.sheet-scrim').forEach(s => {
+        s.addEventListener('click', function(e) {
+          if (e.target === this) closeSheets();
+        });
+      });
+
+      document.getElementById('btn-close-wp-sheet').addEventListener('click', closeSheets);
+      document.getElementById('btn-close-journey-sheet').addEventListener('click', closeSheets);
+      document.getElementById('btn-close-edit-sheet').addEventListener('click', closeSheets);
+
+      // Open Waypoint Sheet
+      window.chartOpenWaypointSheet = function(wpId) {
+        const wp = waypoints.find(w => w.id === wpId);
+        if (!wp) return;
+
+        const idx = waypoints.indexOf(wp);
+        const isDone = idx < reachedCount;
+        const isCurrent = (idx === reachedCount && reachedCount < waypoints.length);
+
+        document.getElementById('sheet-wp-name').textContent = wp.value;
+        document.getElementById('sheet-wp-desc').textContent = wp.desc;
+
+        const badgeEl = document.getElementById('sheet-wp-badge');
+        if (isCurrent) {
+          badgeEl.textContent = 'Current';
+          badgeEl.style.color = 'var(--navy-token)';
+          badgeEl.style.background = 'var(--wash-navy)';
+        } else if (isDone) {
+          badgeEl.textContent = 'Reached';
+          badgeEl.style.color = 'var(--navy-token)';
+          badgeEl.style.background = 'var(--wash-navy)';
+        } else {
+          badgeEl.textContent = 'Upcoming';
+          badgeEl.style.color = 'var(--ink-secondary)';
+          badgeEl.style.background = 'rgba(150, 144, 136, 0.12)';
+        }
+
+        const movesListEl = document.getElementById('sheet-moves-list');
+        movesListEl.innerHTML = wp.moves.map(m => `
+          <div class="sheet-move-row">
+            <div class="sheet-check-icon ${m.done ? 'done' : 'undone'}">
+              ${m.done ? '<svg width="9" height="9" viewBox="0 0 10 8" fill="none"><path d="M1 4.2 3.6 6.8 9 1.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' : ''}
+            </div>
+            <span style="font-size: 14px; color: ${m.done ? 'var(--ink-secondary)' : 'var(--ink)'}; text-decoration: ${m.done ? 'line-through' : 'none'};">${m.text}</span>
+          </div>
+        `).join('') || '<div style="font-size: 13px; color: var(--ink-secondary);">No moves logged.</div>';
+
+        sheetWaypointEl.classList.add('open');
+      };
+
+      // Open Journey Sheet
+      document.getElementById('btn-open-journey').addEventListener('click', function() {
+        sheetJourneyEl.classList.add('open');
+      });
+
+      // Open Edit Chart Sheet
+      function openEditSheet() {
+        const editListEl = document.getElementById('edit-wp-list');
+        editListEl.innerHTML = waypoints.map((w, i) => `
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border-line); border-radius: 12px;">
+            <div>
+              <div style="font-size: 14.5px; font-weight: 600; color: var(--ink);">${w.value}</div>
+              <div style="font-size: 11px; color: var(--ink-tertiary); margin-top: 2px;">${w.isDestination ? 'Destination' : `Waypoint #${i + 1}`}</div>
+            </div>
+            <span style="font-size: 12px; font-weight: 600; color: ${i < reachedCount ? 'var(--navy-token)' : 'var(--ink-tertiary)'};">
+              ${i < reachedCount ? 'Reached' : (i === reachedCount ? 'Current' : 'Plotted')}
+            </span>
+          </div>
+        `).join('');
+
+        sheetEditEl.classList.add('open');
+      }
+
+      document.getElementById('btn-open-edit').addEventListener('click', openEditSheet);
+      document.getElementById('btn-open-edit-footer').addEventListener('click', openEditSheet);
+
+      // Back button click feedback
+      document.getElementById('btn-chart-back').addEventListener('click', function() {
+        showToast("Chart is at root level.");
+      });
+      document.getElementById('btn-anchor-strip').addEventListener('click', function() {
+        showToast(`Active Anchor: '${ACTIVE_ANCHOR.intention}'`);
+      });
+
+      // ── Prototype State Switcher Controls ──
+      document.querySelectorAll('.proto-bar .proto-btn[data-state]').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const targetState = this.getAttribute('data-state');
+          closeSheets();
+
+          if (targetState === 'chart') {
+            setView('chart');
+          } 
+          else if (targetState === 'moment') {
+            const currentWp = waypoints[Math.min(reachedCount, waypoints.length - 1)];
+            momentWpValueEl.textContent = currentWp.value;
+            setView('moment');
+          } 
+          else if (targetState === 'detail-default') {
+            const currentWp = waypoints[Math.min(reachedCount, waypoints.length - 1)];
+            detailWpValueEl.textContent = currentWp.value;
+            detailWpTranslationEl.textContent = currentWp.translation;
+
+            // Unanswered state
+            selectedChip = null;
+            chipButtons.forEach(b => {
+              b.classList.remove('selected');
+              b.setAttribute('aria-checked', 'false');
+            });
+            expandedTextContainer.classList.remove('open');
+            expandedTextContainer.setAttribute('aria-hidden', 'true');
+            inputReflectionText.value = '';
+            setView('detail');
+          } 
+          else if (targetState === 'detail-chip') {
+            const currentWp = waypoints[Math.min(reachedCount, waypoints.length - 1)];
+            detailWpValueEl.textContent = currentWp.value;
+            detailWpTranslationEl.textContent = currentWp.translation;
+
+            // One chip active: Consistency
+            selectedChip = 'Consistency';
+            chipButtons.forEach(b => {
+              const matches = (b.getAttribute('data-chip') === 'Consistency');
+              b.classList.toggle('selected', matches);
+              b.setAttribute('aria-checked', matches ? 'true' : 'false');
+            });
+            expandedTextContainer.classList.remove('open');
+            expandedTextContainer.setAttribute('aria-hidden', 'true');
+            setView('detail');
+          } 
+          else if (targetState === 'detail-expanded') {
+            const currentWp = waypoints[Math.min(reachedCount, waypoints.length - 1)];
+            detailWpValueEl.textContent = currentWp.value;
+            detailWpTranslationEl.textContent = currentWp.translation;
+
+            // "Something else" tapped, inline text field open
+            selectedChip = 'Something else';
+            chipButtons.forEach(b => {
+              const matches = (b.getAttribute('data-chip') === 'Something else');
+              b.classList.toggle('selected', matches);
+              b.setAttribute('aria-checked', matches ? 'true' : 'false');
+            });
+            expandedTextContainer.classList.add('open');
+            expandedTextContainer.setAttribute('aria-hidden', 'false');
+            inputReflectionText.value = 'Focused on deep direct feedback loops with early adopters.';
+            setView('detail');
+          }
+          else if (targetState === 'chart-advanced') {
+            reachedCount = 3; // 1,000 active users marked reached, 5,000 active users is current
+            waypoints[2].moves.forEach(m => m.done = true);
+            justReachedNodeId = 'wp2';
+            renderChart();
+            setView('chart');
+            setTimeout(() => {
+              justReachedNodeId = null;
+              renderChart();
+            }, 1200);
+          }
+        });
+      });
+
+      // Reset Button
+      document.getElementById('btn-reset').addEventListener('click', function() {
+        waypoints = cloneWaypoints();
+        reachedCount = 2; // wp2 is current
+        selectedChip = null;
+        reflectionText = '';
+        inputReflectionText.value = '';
+        justReachedNodeId = null;
+        closeSheets();
+        renderChart();
+        setView('chart');
+        showToast("Prototype reset to initial state.");
+      });
+
+      // Keyboard navigation (Escape closes sheets)
+      window.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeSheets();
+      });
+
+      // Initial Theme & Render
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const qCat = urlParams.get('cat');
+        if (qCat && CATEGORY_COLORS[qCat]) {
+          ACTIVE_ANCHOR.category = qCat;
+        }
+      } catch (e) {
+        console.warn('URL cat param parsing:', e);
+      }
+      applyCategoryTheme(ACTIVE_ANCHOR.category);
+
+      renderChart();
+      setView('chart');
+
+      // Check URL query parameters for direct state deep-linking (e.g. ?state=moment)
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const qState = urlParams.get('state');
+        if (qState) {
+          const targetBtn = document.querySelector(`.proto-bar .proto-btn[data-state="${qState}"]`);
+          if (targetBtn) targetBtn.click();
+        }
+      } catch (e) {
+        console.warn('URL state parsing:', e);
+      }
+
+    })();
+  </script>
+</body>
+</html>

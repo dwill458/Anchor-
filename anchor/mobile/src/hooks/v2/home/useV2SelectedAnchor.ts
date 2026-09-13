@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useAuthStore } from '@/stores/authStore';
 import type { Anchor } from '@/types';
 
 /**
@@ -16,12 +17,15 @@ export function useV2SelectedAnchor(): {
   selectAnchor: (anchorId: string) => void;
 } {
   const anchors = useAnchorStore((s) => s.anchors);
+  const userId = useAuthStore((s) => s.user?.id ?? null);
   const currentAnchorId = useAnchorStore((s) => s.currentAnchorId);
   const setCurrentAnchor = useAnchorStore((s) => s.setCurrentAnchor);
 
   const activeAnchors = useMemo(
-    () => anchors.filter((anchor) => !anchor.isReleased && !anchor.archivedAt),
-    [anchors],
+    () => userId
+      ? anchors.filter((anchor) => anchor.userId === userId && !anchor.isReleased && !anchor.archivedAt)
+      : [],
+    [anchors, userId],
   );
 
   const selectedAnchor = useMemo(() => {

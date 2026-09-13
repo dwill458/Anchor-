@@ -11,10 +11,10 @@ export type AnchorV2StackParamList = {
   V2AnchorLibrary: undefined;
   V2AnchorDetails: { anchorId: string };
   V2Paywall: V2PaywallRouteParams;
-  V2Practice: { anchorId?: string };
+  V2Practice: { anchorId?: string; source?: string; returnRoute?: string; recommendedMode?: V2PracticeMode };
   V2PracticePrepare: { anchorId: string; mode?: V2PracticeMode };
   V2Vision: { anchorId?: string };
-  V2Chart: { courseId?: string };
+  V2Chart: { courseId?: string; anchorId?: string };
   V2Progress: { anchorId?: string };
   V2Release: V2ReleaseRouteParams;
   V2WeeklyInsight: V2WeeklyInsightRouteParams | undefined;

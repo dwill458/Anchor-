@@ -38,8 +38,15 @@ import {
 import {
   BricolageGrotesque_400Regular,
   BricolageGrotesque_600SemiBold,
+  BricolageGrotesque_700Bold,
+  BricolageGrotesque_800ExtraBold,
 } from '@expo-google-fonts/bricolage-grotesque';
-import { Figtree_400Regular, Figtree_500Medium } from '@expo-google-fonts/figtree';
+import {
+  Figtree_400Regular,
+  Figtree_500Medium,
+  Figtree_600SemiBold,
+  Figtree_700Bold,
+} from '@expo-google-fonts/figtree';
 import { RootNavigator } from './src/navigation';
 import { AnchorV2Navigator } from './src/navigation/v2';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
@@ -291,8 +298,12 @@ export default function App() {
     // Loaded alongside the legacy set; only the opt-in V2 shell references them.
     'BricolageGrotesque-Regular': BricolageGrotesque_400Regular,
     'BricolageGrotesque-SemiBold': BricolageGrotesque_600SemiBold,
+    'BricolageGrotesque-Bold': BricolageGrotesque_700Bold,
+    'BricolageGrotesque-ExtraBold': BricolageGrotesque_800ExtraBold,
     'Figtree-Regular': Figtree_400Regular,
     'Figtree-Medium': Figtree_500Medium,
+    'Figtree-SemiBold': Figtree_600SemiBold,
+    'Figtree-Bold': Figtree_700Bold,
   });
   const startup = useAppStartup({
     fontsReady: fontsLoaded || Boolean(fontLoadError),

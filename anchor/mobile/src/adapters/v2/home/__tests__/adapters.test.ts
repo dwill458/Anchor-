@@ -18,7 +18,7 @@ describe('threadAdapter', () => {
 
   it('marks an Anchor with no stored strength as unmeasured (never fabricates a value)', () => {
     const result = toThreadPresentation(makeAnchor({ threadStrength: undefined }));
-    expect(result).toMatchObject({ value: 0, unmeasured: true });
+    expect(result).toMatchObject({ value: null, unmeasured: true });
   });
 
   it('labels strength qualitatively without inventing movement', () => {
@@ -62,8 +62,8 @@ describe('chartAdapter', () => {
       archivedAt: null,
       destinationAnchorLink: null,
       waypoints: [
-        { id: 'wp-1', state: 'REACHED', title: 'Ship beta' } as never,
-        { id: 'wp-2', state: 'CURRENT', title: 'Contact 3 creators' } as never,
+        { id: 'wp-1', position: 1, state: 'REACHED', reachedAt: '2026-09-01', title: 'Ship beta' } as never,
+        { id: 'wp-2', position: 2, state: 'CURRENT', reachedAt: null, title: 'Contact 3 creators' } as never,
       ],
       ...overrides,
     }) as CourseDetail;
@@ -80,7 +80,45 @@ describe('chartAdapter', () => {
       destinationText: 'Reach 1,000 active users',
       nextMove: 'Contact 3 creators',
       reachedCount: 2,
-      waypointCount: 5,
+      waypointCount: 2,
+      currentWaypointId: 'wp-2',
+      currentWaypointIndex: 1,
+      isFinished: false,
+      waypoints: [
+        { id: 'wp-1', title: 'Ship beta', state: 'REACHED', reached: true, isCurrent: false, isDestination: false },
+        { id: 'wp-2', title: 'Contact 3 creators', state: 'CURRENT', reached: false, isCurrent: true, isDestination: true },
+      ],
     });
+  });
+
+  it('does not guess a current waypoint when the authoritative id is unresolved', () => {
+    const result = toHomeChartState(course({ currentWaypointId: 'missing', waypointCount: 2, reachedCount: 1 }));
+    expect(result.state).toBe('ready');
+    if (result.state !== 'ready') return;
+    expect(result.nextMove).toBeNull();
+    expect(result.currentWaypointIndex).toBe(-1);
+    expect(result.waypoints.some((waypoint) => waypoint.isCurrent)).toBe(false);
+  });
+
+  it.each([2, 3, 5, 6])('preserves a real %i-waypoint route without a count fallback', (count) => {
+    const waypoints = Array.from({ length: count }, (_, index) => ({
+      id: `wp-${index + 1}`,
+      position: index + 1,
+      state: index === 0 ? 'REACHED' : index === 1 ? 'CURRENT' : 'UPCOMING',
+      reachedAt: index === 0 ? '2026-09-01' : null,
+      title: `Waypoint ${index + 1}`,
+    }));
+    const result = toHomeChartState(course({
+      currentWaypointId: 'wp-2',
+      waypointCount: count,
+      reachedCount: 1,
+      waypoints: waypoints as never,
+    }));
+    expect(result.state).toBe('ready');
+    if (result.state !== 'ready') return;
+    expect(result.waypointCount).toBe(count);
+    expect(result.waypoints).toHaveLength(count);
+    expect(result.currentWaypointId).toBe('wp-2');
+    expect(result.currentWaypointIndex).toBe(1);
   });
 });

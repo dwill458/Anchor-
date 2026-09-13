@@ -173,4 +173,50 @@ describe('V2ChartScreen', () => {
       expect(getByText('Waypoint reached.')).toBeTruthy();
     });
   });
+
+  it('renders State A (no anchor) when neither anchor nor course exists', async () => {
+    useCourseStore.setState({
+      activeCourse: null,
+      courses: [],
+      loading: false,
+    });
+    useAnchorStore.setState({
+      anchors: [],
+    });
+
+    const { getByText, getByTestId } = render(<V2ChartScreen courseId="" />);
+
+    expect(getByTestId('v2-chart-screen-empty')).toBeTruthy();
+    expect(getByTestId('v2-chart-empty-state-no-anchor')).toBeTruthy();
+    expect(getByText('Every journey begins with an Anchor')).toBeTruthy();
+    expect(getByText('Create your first Anchor →')).toBeTruthy();
+  });
+
+  it('renders State B (anchor exists, no course) with illustrated path and create chart CTA', async () => {
+    useCourseStore.setState({
+      activeCourse: null,
+      courses: [],
+      loading: false,
+    });
+    useAnchorStore.setState({
+      anchors: [
+        {
+          id: 'anchor-1',
+          name: 'Calm Leadership',
+          intention: 'Lead with clarity',
+          status: 'ACTIVE',
+        } as any,
+      ],
+    });
+
+    const { getByText, getByTestId } = render(
+      <V2ChartScreen courseId="" anchorId="anchor-1" />,
+    );
+
+    expect(getByTestId('v2-chart-screen-empty')).toBeTruthy();
+    expect(getByTestId('v2-chart-empty-state-no-chart')).toBeTruthy();
+    expect(getByText('Calm Leadership')).toBeTruthy();
+    expect(getByText('Give this Anchor somewhere to go.')).toBeTruthy();
+    expect(getByText('Create a Chart →')).toBeTruthy();
+  });
 });

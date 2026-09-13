@@ -2,9 +2,14 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 const mockAcknowledge = jest.fn();
+const mockVisionGet = jest.fn();
 jest.mock('@/adapters/v2/practice', () => ({
   ...jest.requireActual('@/adapters/v2/practice'),
   acknowledgeV2RecommendationSignal: (...args: unknown[]) => mockAcknowledge(...args),
+}));
+jest.mock('@/services/ApiClient', () => ({
+  apiClient: { get: (...args: unknown[]) => mockVisionGet(...args), post: jest.fn() },
+  ApiClientError: class ApiClientError extends Error {},
 }));
 
 import { V2PracticeScreen } from '../V2PracticeScreen';
@@ -23,7 +28,7 @@ const fullAccess = { focus: true, deep_prime: true, visualize: true, release: tr
 const renderPractice = (recommendation = context('Focus'), props: Partial<React.ComponentProps<typeof V2PracticeScreen>> = {}) => render(<V2PracticeScreen anchor={makeAnchor({ id: 'a', threadStrength: 20 })} recommendation={recommendation} capabilities={fullAccess} {...props} />);
 
 describe('V2PracticeScreen', () => {
-  beforeEach(() => { mockAcknowledge.mockReset(); mockAcknowledge.mockResolvedValue(undefined); });
+  beforeEach(() => { mockAcknowledge.mockReset(); mockAcknowledge.mockResolvedValue(undefined); mockVisionGet.mockReset(); mockVisionGet.mockRejectedValue({ status: 404 }); });
 
   it('renders exactly one server-provided recommendation', () => {
     renderPractice(context('Focus'));
@@ -80,11 +85,11 @@ describe('V2PracticeScreen', () => {
     expect(screen.queryByTestId('v2-practice-prepare-deep_prime')).toBeNull();
   });
 
-  it('offers the Vision creation handoff without fabricating a Vision', () => {
+  it('offers the Vision creation handoff without fabricating a Vision', async () => {
     const onCreateVision = jest.fn();
     renderPractice(context('Visualize'), { onCreateVision });
     fireEvent.press(screen.getByTestId('v2-practice-row-visualize'));
-    expect(screen.getByText('Create a Vision first')).toBeTruthy();
+    expect(await screen.findByText('Create a Vision first')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Create a Vision for this Anchor'));
     expect(onCreateVision).toHaveBeenCalledWith('a');
   });

@@ -20,7 +20,15 @@ export function getCategoryFieldColor(category?: string | null): string {
   return `${getCategoryColor(category)}1F`;
 }
 
-/** For compact labels, selection fills, and quiet supporting emphasis. */
-export function getCategorySoftTint(category?: string | null): string {
+export function getCategoryPalette(category?: string | null) {
+  const base = getCategoryColor(category);
+  return {
+    base,
+    wash: `${base}1C`,
+    soft: `${base}14`,
+    light: `${base}38`,
+    deep: `${base}E6`,
+  };
+}export function getCategorySoftTint(category?: string | null): string {
   return `${getCategoryColor(category)}14`;
 }

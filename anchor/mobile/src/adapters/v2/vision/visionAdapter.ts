@@ -46,10 +46,7 @@ export function toV2VisionPresentationState(
     isHero: index === 0,
   }));
 
-  const description =
-    raw.description?.trim() ||
-    activeScenes[0]?.prompt?.trim() ||
-    'A clear picture of where this Anchor is taking you.';
+  const description = raw.description?.trim() || activeScenes[0]?.prompt?.trim() || '';
 
   return {
     state: 'ready',
@@ -80,10 +77,7 @@ export function toV2VisionCompactState(
     return { state: 'none' };
   }
 
-  const previewText =
-    raw.description?.trim() ||
-    activeScenes[0]?.prompt?.trim() ||
-    'Vision set';
+  const previewText = raw.description?.trim() || activeScenes[0]?.prompt?.trim() || '';
 
   return {
     state: 'ready',

@@ -4,6 +4,7 @@ import { colors } from '@/theme/v2';
 import { V2HomeScreen } from './V2HomeScreen';
 import { V2AnchorLibraryScreen } from '@/screens/v2/anchors/V2AnchorLibraryScreen';
 import { V2AnchorDetailsScreen } from '@/screens/v2/anchors/V2AnchorDetailsScreen';
+import type { V2PracticeMode } from '@/constants/v2/practice';
 
 /**
  * External navigation intents UI-D exposes but does not own. Production
@@ -11,10 +12,10 @@ import { V2AnchorDetailsScreen } from '@/screens/v2/anchors/V2AnchorDetailsScree
  * REQUIRED_INTEGRATION_CHANGES.md.
  */
 export type V2DailyShellIntents = {
-  onOpenPractice?: (anchorId: string) => void;
+  onOpenPractice?: (anchorId: string, recommendedMode?: V2PracticeMode) => void;
   onOpenVision?: (anchorId: string) => void;
   onCreateVision?: (anchorId: string) => void;
-  onOpenChart?: (anchorId?: string) => void;
+  onOpenChart?: (anchorId?: string, courseId?: string) => void;
   onCreateChart?: (anchorId: string) => void;
   onOpenProgress?: (anchorId?: string) => void;
   onCreateAnchor?: () => void;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
 import { V2EmptyState, V2Screen, V2ThreadStrength } from '@/components/v2';
@@ -12,9 +12,9 @@ import type { Anchor } from '@/types';
 import type { V2PracticeRouteIntents } from './practiceRoutes';
 import { V2PracticePrepareScreen } from './V2PracticePrepareScreen';
 
-type Props = Partial<V2PracticeRouteIntents> & { anchor?: Anchor | null; recommendation?: V2RecommendationContext | null; capabilities?: V2PracticeCapabilities; onBack?: () => void };
+type Props = Partial<V2PracticeRouteIntents> & { anchor?: Anchor | null; recommendation?: V2RecommendationContext | null; capabilities?: V2PracticeCapabilities; initialMode?: V2PracticeMode; onBack?: () => void };
 
-export function V2PracticeScreen({ anchor: suppliedAnchor, recommendation: suppliedRecommendation, capabilities, onBack, onPremiumCapabilityRequired, onCreateVision, onOpenVision, onReleaseRequested, onBeginPractice }: Props) {
+export function V2PracticeScreen({ anchor: suppliedAnchor, recommendation: suppliedRecommendation, capabilities, initialMode, onBack, onPremiumCapabilityRequired, onCreateVision, onOpenVision, onReleaseRequested, onBeginPractice }: Props) {
   const { selectedAnchor } = useV2SelectedAnchor();
   const fixedAnchor = suppliedAnchor === undefined ? selectedAnchor : suppliedAnchor;
   const model = useV2PracticeModel(fixedAnchor, suppliedRecommendation);
@@ -28,12 +28,16 @@ export function V2PracticeScreen({ anchor: suppliedAnchor, recommendation: suppl
     setPrepareSource(source);
     setPrepareMode(mode);
   };
+  useEffect(() => {
+    if (!initialMode || !fixedAnchor || prepareMode) return;
+    selectMode(initialMode, 'recommended_today');
+  }, [fixedAnchor?.id, initialMode, prepareMode]);
   if (!fixedAnchor) return <V2Screen testID="v2-practice-screen"><View style={styles.empty}><V2EmptyState title="No Anchor selected" message="Choose an Anchor before beginning a practice." /></View></V2Screen>;
   if (prepareMode) return <V2PracticePrepareScreen anchor={fixedAnchor} mode={prepareMode} vision={model.vision} source={prepareSource} onBack={() => setPrepareMode(null)} onCreateVision={onCreateVision ?? (() => undefined)} onOpenVision={onOpenVision} onReleaseRequested={onReleaseRequested ?? (() => undefined)} onBeginPractice={onBeginPractice} />;
-  const recommendedMode = model.recommendation ? V2_RECOMMENDATION_ACTION_TO_MODE[model.recommendation.recommendation.action] : 'focus';
+  const recommendedMode = model.recommendation ? V2_RECOMMENDATION_ACTION_TO_MODE[model.recommendation.recommendation.action] : null;
   return <V2Screen scroll testID="v2-practice-screen"><Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={onBack} disabled={!onBack} style={styles.back}><ArrowLeft size={20} color={colors.text.primary} /><Text style={styles.backText}>Practice</Text></Pressable><View style={styles.content}><V2PracticeAnchorContext anchor={fixedAnchor} />
     {model.thread ? <V2ThreadStrength testID="v2-practice-thread-strength" value={model.thread.value} category={model.thread.category} delta={model.thread.delta} trend={model.thread.trend} detail={model.thread.detail} /> : null}
-    <View style={styles.recommendation}><Text style={styles.sectionLabel}>RECOMMENDED TODAY</Text><V2RecommendedTodayRibbon testID="v2-recommended-today" mode={recommendedMode} onPress={() => selectMode(recommendedMode, 'recommended_today')} />{model.recommendationError ? <Text style={styles.hint}>Focus is ready whenever you are.</Text> : null}</View>
+    <View style={styles.recommendation}><Text style={styles.sectionLabel}>RECOMMENDED TODAY</Text>{model.loadingRecommendation ? <Text style={styles.hint}>Loading today’s practice…</Text> : recommendedMode ? <V2RecommendedTodayRibbon testID="v2-recommended-today" mode={recommendedMode} onPress={() => selectMode(recommendedMode, 'recommended_today')} /> : <Text style={styles.hint}>{model.recommendationError ?? 'No recommendation is available today.'}</Text>}</View>
     <View style={styles.all}><Text style={styles.allTitle}>All Practices</Text>{V2_PRACTICE_MODE_DEFINITIONS.map((item) => <V2PracticeModeRow key={item.mode} testID={`v2-practice-row-${item.mode}`} mode={item.mode} entitled={effectiveCapabilities[item.mode]} onPress={() => selectMode(item.mode, 'practice_hub')} />)}</View>
   </View></V2Screen>;
 }

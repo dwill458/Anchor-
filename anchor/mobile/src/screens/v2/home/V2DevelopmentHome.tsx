@@ -11,11 +11,11 @@ export function V2DevelopmentHome() {
   const navigation = useNavigation<any>();
   const intents = useMemo<V2DailyShellIntents>(
     () => ({
-      onOpenPractice: (anchorId) => navigation.navigate('V2Practice', { anchorId }),
+      onOpenPractice: (anchorId, recommendedMode) => navigation.navigate('V2Practice', { anchorId, recommendedMode }),
       onOpenVision: (anchorId) => navigation.navigate('V2Vision', { anchorId }),
       onCreateVision: (anchorId) => navigation.navigate('V2Vision', { anchorId }),
-      onOpenChart: (anchorId) => navigation.navigate('V2Chart', { courseId: anchorId }),
-      onCreateChart: (anchorId) => navigation.navigate('V2Chart', { courseId: anchorId }),
+      onOpenChart: (anchorId, courseId) => navigation.navigate('V2Chart', { anchorId, courseId }),
+      onCreateChart: (anchorId) => navigation.navigate('V2Chart', { anchorId }),
       onOpenProgress: (anchorId) => navigation.navigate('V2Progress', { anchorId }),
       onCreateAnchor: () => navigation.navigate('V2Creation'),
       onOpenProfile: () => navigation.navigate('V2SystemGallery'),

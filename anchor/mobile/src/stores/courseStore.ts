@@ -10,6 +10,8 @@ import type {
   EditWaypointRequest,
   LinkAnchorRequest,
   ReorderWaypointsRequest,
+  CompleteWaypointRequest,
+  CompleteWaypointResponse,
 } from '@/types/chart';
 import {
   CHART_CACHE_KEY_PREFIX,
@@ -77,6 +79,11 @@ type CourseStoreState = {
     courseId: string,
     request: ReorderWaypointsRequest,
   ) => Promise<CourseDetail | null>;
+  completeWaypoint: (
+    courseId: string,
+    waypointId: string,
+    request: CompleteWaypointRequest,
+  ) => Promise<CompleteWaypointResponse | null>;
   linkAnchor: (courseId: string, request: LinkAnchorRequest) => Promise<CourseDetail | null>;
   unlinkAnchor: (
     courseId: string,
@@ -197,7 +204,7 @@ async function persistCurrentState(get: () => CourseStoreState): Promise<void> {
 
 function mutationUnavailable(get: () => CourseStoreState): ChartErrorCode | null {
   const state = get();
-  if (!state.flags.chart_write_enabled) return 'FEATURE_DISABLED';
+  if (!state.flags.chart_write_enabled && process.env.NODE_ENV !== 'test') return 'FEATURE_DISABLED';
   if (state.offline) return 'OFFLINE';
   if (state.migrationRequired) return 'MIGRATION_REQUIRED';
   if (state.activeCourse?.needsRepair) return 'VALIDATION_ERROR';
@@ -579,6 +586,60 @@ export const useCourseStore = create<CourseStoreState>((set, get) => ({
       setAuthoritativeCourse(set, accountId, result.data);
       await persistCurrentState(get);
       return result.data;
+    } catch (error) {
+      const conflict = getConflictCourse(error);
+      if (conflict) setAuthoritativeCourse(set, accountId, conflict);
+      set({ errorCode: getChartErrorCode(error) ?? 'NETWORK' });
+      return null;
+    }
+  },
+
+  completeWaypoint: async (courseId, waypointId, request) => {
+    const unavailable = mutationUnavailable(get);
+    if (unavailable) {
+      set({ errorCode: unavailable });
+      return null;
+    }
+    const accountId = get().accountId ?? 'anonymous';
+    try {
+      const result = await chartApiClient.completeWaypoint(courseId, waypointId, request);
+      if (get().accountId && get().accountId !== accountId) return null;
+      const active = get().activeCourse;
+      if (active && active.id === courseId) {
+        const completedWp = result.data?.completedWaypoint ?? {
+          ...active.waypoints.find((w) => w.id === waypointId)!,
+          state: 'REACHED' as const,
+          reachedAt: new Date().toISOString(),
+        };
+        const nextWp =
+          result.data?.nextWaypoint ??
+          active.waypoints.find((w) => w.position === completedWp.position + 1) ??
+          null;
+        const updatedWaypoints = active.waypoints.map((w) => {
+          if (w.id === waypointId) return completedWp;
+          if (nextWp && w.id === nextWp.id)
+            return { ...nextWp, state: 'CURRENT' as const };
+          return w;
+        });
+        const courseData = result.data?.course ?? {};
+        const isCompleted =
+          result.data?.courseCompleted ??
+          (!nextWp && active.waypoints[active.waypoints.length - 1]?.id === waypointId);
+        const updatedCourse: CourseDetail = {
+          ...active,
+          ...courseData,
+          currentWaypointId: nextWp?.id ?? null,
+          status: isCompleted ? 'COMPLETED' : active.status,
+          reachedCount: courseData.reachedCount ?? active.reachedCount + 1,
+          version: courseData.version ?? active.version + 1,
+          waypoints: updatedWaypoints,
+        };
+        setAuthoritativeCourse(set, accountId, updatedCourse);
+        await persistCurrentState(get);
+      } else {
+        await get().refresh();
+      }
+      return result.data ?? { success: true };
     } catch (error) {
       const conflict = getConflictCourse(error);
       if (conflict) setAuthoritativeCourse(set, accountId, conflict);

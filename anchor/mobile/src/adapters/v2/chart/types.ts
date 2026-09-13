@@ -11,7 +11,13 @@ export type ChartRouteTemplate =
   | 'rising-arc'
   | 'double-bend';
 
-export type V2WaypointDisplayState = 'completed' | 'current' | 'upcoming';
+export type V2WaypointDisplayState =
+  | 'completed'
+  | 'current'
+  | 'upcoming'
+  | 'blocked'
+  | 'skipped'
+  | 'cancelled';
 
 export interface V2WaypointMove {
   id: string;
@@ -50,6 +56,8 @@ export interface V2ChartPresentationState {
   oneMove: V2WaypointMove | null;
   connectedVisionId?: string | null;
   hasConnectedVision: boolean;
+  connectedVisionAssetUrl?: string | null;
+  connectedVisionTitle?: string | null;
   raw: CourseDetail;
 }
 

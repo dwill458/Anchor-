@@ -221,6 +221,41 @@ export type ReorderWaypointsRequest = {
   orderedWaypointIds: string[];
 };
 
+export type SkipWaypointRequest = {
+  idempotencyKey: string;
+  expectedCourseVersion: number;
+  reason?: string;
+};
+
+export type CancelWaypointRequest = {
+  idempotencyKey: string;
+  expectedCourseVersion: number;
+};
+
+export type CompleteWaypointRequest = {
+  idempotencyKey: string;
+  expectedCourseVersion: number;
+  reflection?: {
+    body?: string;
+    structuredContent?: { whatHelped?: string; whatLearned?: string };
+    moodAfter?: ReflectionMood;
+    promptType: 'WAYPOINT_COMPLETION';
+    promptVersion: number;
+    idempotencyKey: string;
+  };
+  supportingPracticeSessionId?: string;
+};
+
+export type CompleteWaypointResponse = {
+  course: CourseSummary;
+  completedWaypoint: WaypointSummary;
+  nextWaypoint: WaypointSummary | null;
+  courseCompleted: boolean;
+  completionEventId: string;
+  replayed: boolean;
+  reflectionId?: string;
+};
+
 export type LinkAnchorRequest = {
   idempotencyKey: string;
   expectedCourseVersion: number;

@@ -1,16 +1,54 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Compass, Plus, UserRound } from 'lucide-react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { V2IconButton } from '@/components/v2';
 import { colors, spacing, typography } from '@/theme/v2';
 
 type Props = {
   greeting: string;
+  profileInitial?: string | null;
   onOpenChart?: () => void;
   onCreateAnchor?: () => void;
   onOpenProfile?: () => void;
   showChartUtility?: boolean;
 };
+
+function IconChart({ color = colors.text.primary }: { color?: string }) {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 22 22" fill="none">
+      <Path
+        d="M7.3 14.6 14.6 7.3"
+        stroke={color}
+        strokeWidth={1.6}
+        strokeLinecap="round"
+        strokeDasharray="1.4 3.4"
+      />
+      <Circle cx={5.2} cy={16.6} r={2.15} fill={color} />
+      <Circle cx={16.8} cy={5.2} r={2.15} fill="none" stroke={color} strokeWidth={1.7} />
+    </Svg>
+  );
+}
+
+function IconPlus({ color = colors.text.primary }: { color?: string }) {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 22 22" fill="none">
+      <Path
+        d="M11 4.5v13M4.5 11h13"
+        stroke={color}
+        strokeWidth={2.3}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+function IconProfileLetter({ letter, color = colors.text.primary }: { letter?: string | null; color?: string }) {
+  return (
+    <View style={styles.profileLetter}>
+      {letter ? <Text style={[styles.profileInitial, { color }]}>{letter}</Text> : null}
+    </View>
+  );
+}
 
 /**
  * Home greeting + contextual utilities. It exposes navigation intents only; it
@@ -18,6 +56,7 @@ type Props = {
  */
 export function V2HomeHeader({
   greeting,
+  profileInitial,
   onOpenChart,
   onCreateAnchor,
   onOpenProfile,
@@ -31,18 +70,18 @@ export function V2HomeHeader({
       <View style={styles.utilities}>
         {showChartUtility ? (
           <V2IconButton
-            icon={<Compass size={20} color={colors.text.primary} />}
+            icon={<IconChart color={colors.text.primary} />}
             accessibilityLabel="Open Chart"
             onPress={onOpenChart}
           />
         ) : null}
         <V2IconButton
-          icon={<Plus size={22} color={colors.text.primary} />}
+          icon={<IconPlus color={colors.text.primary} />}
           accessibilityLabel="Create Anchor"
           onPress={onCreateAnchor}
         />
-        <V2IconButton
-          icon={<UserRound size={20} color={colors.text.primary} />}
+          <V2IconButton
+            icon={<IconProfileLetter letter={profileInitial} color={colors.text.primary} />}
           accessibilityLabel="Open profile"
           onPress={onOpenProfile}
         />
@@ -53,12 +92,40 @@ export function V2HomeHeader({
 
 const styles = StyleSheet.create({
   bar: {
-    minHeight: 40,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing[2],
   },
-  greeting: { flex: 1, ...typography.bodyMD, fontFamily: typography.bodyMedium, color: colors.text.secondary, textTransform: 'none' },
-  utilities: { flexDirection: 'row', alignItems: 'center', marginRight: -8 },
+  greeting: {
+    flex: 1,
+    fontSize: 15,
+    lineHeight: 20,
+    fontFamily: typography.bodyMedium,
+    color: colors.text.primary,
+    letterSpacing: -0.1,
+    textTransform: 'none',
+  },
+  utilities: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginRight: -4,
+  },
+  profileLetter: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  profileInitial: {
+    fontSize: 14,
+    fontFamily: typography.bodyMedium,
+    lineHeight: 18,
+  },
 });

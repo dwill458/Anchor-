@@ -1,4 +1,5 @@
 import type { VisualizationScene } from '@/types/practice';
+import type { V2VisionPresentationState, V2VisionTile } from '@/adapters/v2/vision';
 
 /**
  * Honest Vision state for Home. The Vision domain currently persists only a
@@ -7,7 +8,17 @@ import type { VisualizationScene } from '@/types/practice';
  */
 export type HomeVisionState =
   | { state: 'none' }
-  | { state: 'ready'; visionId: string; previewText: string; previewUri?: string };
+  | { state: 'loading' }
+  | { state: 'error'; message: string }
+  | {
+      state: 'ready';
+      visionId: string;
+      previewText: string;
+      previewUri?: string;
+      title?: string | null;
+      tiles?: V2VisionTile[];
+      featuredTileId?: string;
+    };
 
 export function toHomeVisionState(scene: VisualizationScene | undefined | null): HomeVisionState {
   if (!scene) return { state: 'none' };
@@ -17,5 +28,33 @@ export function toHomeVisionState(scene: VisualizationScene | undefined | null):
     state: 'ready',
     visionId: scene.id ?? scene.anchorId,
     previewText: text,
+  };
+}
+
+/**
+ * Home's Vision preview is sourced from the V2 Vision read model. Empty text
+ * is preserved as empty; this adapter never invents a description for a real
+ * record. A Vision with neither usable copy nor a usable scene is omitted.
+ */
+export function toV2HomeVisionState(
+  presentation: V2VisionPresentationState,
+): HomeVisionState {
+  if (presentation.state === 'loading') return { state: 'loading' };
+  if (presentation.state === 'error') return { state: 'error', message: presentation.message };
+  if (presentation.state === 'none') return { state: 'none' };
+
+  const tiles = presentation.tiles.filter((tile) => Boolean(tile.imageUrl || tile.prompt?.trim()));
+  const previewText = presentation.description.trim();
+  if (!previewText && tiles.length === 0) return { state: 'none' };
+
+  return {
+    state: 'ready',
+    visionId: presentation.visionId,
+    previewText,
+    title: presentation.title,
+    tiles,
+    featuredTileId: tiles.some((tile) => tile.id === presentation.featuredTileId)
+      ? presentation.featuredTileId
+      : tiles[0]?.id,
   };
 }

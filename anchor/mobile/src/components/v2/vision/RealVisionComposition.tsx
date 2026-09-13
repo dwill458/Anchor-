@@ -82,10 +82,17 @@ export function RealVisionComposition({
                   accessibilityLabel={tile.prompt || `Vision scene ${index + 1}`}
                 />
               ) : (
-                <View style={[styles.placeholderTile, { backgroundColor: colors.grouped }]}>
-                  <Text numberOfLines={3} style={styles.promptFallback}>
-                    {tile.prompt || `Scene ${index + 1}`}
-                  </Text>
+                <View
+                  accessible={Boolean(tile.prompt)}
+                  accessibilityRole={tile.prompt ? 'image' : undefined}
+                  accessibilityLabel={tile.prompt ?? undefined}
+                  style={[styles.placeholderTile, { backgroundColor: colors.grouped }]}
+                >
+                  {tile.prompt ? (
+                    <Text numberOfLines={3} style={styles.promptFallback}>
+                      {tile.prompt}
+                    </Text>
+                  ) : null}
                 </View>
               )}
 

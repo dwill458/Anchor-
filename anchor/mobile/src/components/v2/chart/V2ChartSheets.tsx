@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import {
+  Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -8,14 +11,22 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
-import { ArrowDown, ArrowUp, Check, ChevronRight, Plus, X } from 'lucide-react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
+import {
+  ArrowDown,
+  ArrowUp,
+  Check,
+  ChevronRight,
+  Plus,
+  Trash2,
+  X,
+} from 'lucide-react-native';
 import type {
   ChartRouteTemplate,
-  V2WaypointMove,
   V2WaypointPresentation,
 } from '@/adapters/v2/chart';
 import { V2Button } from '@/components/v2';
+import { useV2ReduceMotion } from '@/hooks/v2/useV2ReduceMotion';
 import { colors, radii, spacing, typography } from '@/theme/v2';
 
 export function StarCelebrationArt({ done = true }: { done?: boolean }) {
@@ -39,6 +50,11 @@ export function StarCelebrationArt({ done = true }: { done?: boolean }) {
           stroke="#FFAE43"
           strokeWidth="2"
           strokeLinejoin="round"
+        />
+        <Path
+          d="m47 25 1 24 21-6-16 12 6 15-15-10-12 9 6-18-14-8 19 2Z"
+          fill="#FFB044"
+          opacity={0.5}
         />
         {done && (
           <Path
@@ -79,6 +95,8 @@ export function V2WaypointDetailSheet({
 
   if (!visible || !waypoint) return null;
 
+  const reduceMotion = useV2ReduceMotion();
+
   const handleAdd = () => {
     if (newMoveText.trim()) {
       onAddMove(waypoint.id, newMoveText.trim());
@@ -86,10 +104,16 @@ export function V2WaypointDetailSheet({
     }
   };
 
+  const getBadgeColor = () => {
+    if (waypoint.reached) return '#2FA879';
+    if (isCurrent) return '#3157D8';
+    return '#8E95A5';
+  };
+
   return (
     <Modal
       visible={visible}
-      animationType="slide"
+      animationType={reduceMotion ? 'none' : 'slide'}
       transparent
       onRequestClose={onClose}
     >
@@ -102,19 +126,23 @@ export function V2WaypointDetailSheet({
               onPress={onClose}
               accessibilityRole="button"
               accessibilityLabel="Close sheet"
+              hitSlop={10}
               style={styles.closeButton}
             >
               <X size={18} color={colors.text.secondary} />
             </Pressable>
           </View>
 
-          <ScrollView contentContainerStyle={styles.sheetScroll}>
+          <ScrollView
+            contentContainerStyle={styles.sheetScroll}
+            showsVerticalScrollIndicator={false}
+          >
             <Text style={styles.sheetTitle}>{waypoint.value}</Text>
             <View style={styles.badgeRow}>
               <View
                 style={[
                   styles.statusBadge,
-                  waypoint.reached && { backgroundColor: '#2FA879' },
+                  { backgroundColor: getBadgeColor() },
                 ]}
               >
                 <Text style={styles.statusBadgeText}>
@@ -123,33 +151,44 @@ export function V2WaypointDetailSheet({
               </View>
             </View>
 
-            {Boolean(waypoint.description) && (
-              <Text style={styles.sheetDesc}>{waypoint.description}</Text>
-            )}
+            <Text style={styles.sheetDesc}>
+              {waypoint.description ||
+                'One meaningful step toward your destination.'}
+            </Text>
 
             {/* Steps list */}
             <View style={styles.stepsSection}>
               <Text style={styles.sectionHeader}>STEPS</Text>
-              {waypoint.moves.map((move, idx) => (
-                <View key={move.id || idx} style={styles.moveRow}>
-                  <View
-                    style={[
-                      styles.tinyCheck,
-                      move.done && styles.tinyCheckDone,
-                    ]}
-                  >
-                    {move.done && <Check size={12} color={colors.surface} strokeWidth={3} />}
+              {waypoint.moves.length === 0 ? (
+                <Text style={styles.noStepsText}>No moves added yet.</Text>
+              ) : (
+                waypoint.moves.map((move, idx) => (
+                  <View key={move.id || idx} style={styles.moveRow}>
+                    <View
+                      style={[
+                        styles.tinyCheck,
+                        move.done && styles.tinyCheckDone,
+                      ]}
+                    >
+                      {move.done && (
+                        <Check
+                          size={12}
+                          color={colors.surface}
+                          strokeWidth={3}
+                        />
+                      )}
+                    </View>
+                    <Text
+                      style={[
+                        styles.moveText,
+                        move.done && styles.moveTextDone,
+                      ]}
+                    >
+                      {move.text}
+                    </Text>
                   </View>
-                  <Text
-                    style={[
-                      styles.moveText,
-                      move.done && styles.moveTextDone,
-                    ]}
-                  >
-                    {move.text}
-                  </Text>
-                </View>
-              ))}
+                ))
+              )}
 
               {!waypoint.reached && (
                 <View style={styles.addMoveInputRow}>
@@ -164,6 +203,7 @@ export function V2WaypointDetailSheet({
                   <Pressable
                     onPress={handleAdd}
                     disabled={!newMoveText.trim()}
+                    hitSlop={6}
                     style={[
                       styles.addButton,
                       !newMoveText.trim() && styles.addButtonDisabled,
@@ -193,6 +233,7 @@ export function V2WaypointDetailSheet({
                   onClose();
                   onReinforceAnchor?.();
                 }}
+                hitSlop={8}
                 style={styles.reinforceLink}
               >
                 <Text style={styles.reinforceLinkText}>
@@ -223,10 +264,16 @@ export function V2WaypointReachedModal({
   onConfirm,
   onCancel,
 }: V2WaypointReachedModalProps) {
+  const reduceMotion = useV2ReduceMotion();
   if (!visible) return null;
 
   return (
-    <Modal visible={visible} animationType="fade" transparent onRequestClose={onCancel}>
+    <Modal
+      visible={visible}
+      animationType={reduceMotion ? 'none' : 'fade'}
+      transparent
+      onRequestClose={onCancel}
+    >
       <View style={styles.overlay}>
         <View style={styles.modalCard}>
           <Text style={styles.sheetEyebrow}>MILESTONE CHECK</Text>
@@ -243,6 +290,7 @@ export function V2WaypointReachedModal({
               onPress={onCancel}
               accessibilityRole="button"
               accessibilityLabel="Keep going"
+              hitSlop={6}
               style={styles.secondaryModalButton}
             >
               <Text style={styles.secondaryModalText}>Keep going</Text>
@@ -252,6 +300,7 @@ export function V2WaypointReachedModal({
               onPress={onConfirm}
               accessibilityRole="button"
               accessibilityLabel="Yes, waypoint reached"
+              hitSlop={6}
               style={styles.primaryModalButton}
             >
               <Text style={styles.primaryModalText}>Yes, waypoint reached</Text>
@@ -279,10 +328,16 @@ export function V2WaypointCelebrationModal({
   nextWaypointTitle,
   onContinue,
 }: V2WaypointCelebrationModalProps) {
+  const reduceMotion = useV2ReduceMotion();
   if (!visible) return null;
 
   return (
-    <Modal visible={visible} animationType="fade" transparent onRequestClose={onContinue}>
+    <Modal
+      visible={visible}
+      animationType={reduceMotion ? 'none' : 'fade'}
+      transparent
+      onRequestClose={onContinue}
+    >
       <View style={styles.overlay}>
         <View style={[styles.modalCard, styles.celebrationCard]}>
           <StarCelebrationArt done />
@@ -301,7 +356,9 @@ export function V2WaypointCelebrationModal({
           </Text>
 
           <V2Button
-            accessibilityLabel="Continue your journey"
+            accessibilityLabel={
+              isDestination ? 'View your journey' : 'Continue your journey'
+            }
             onPress={onContinue}
           >
             {isDestination ? 'View your journey →' : 'Continue your journey →'}
@@ -322,9 +379,17 @@ export interface V2EditChartSheetProps {
   onReorder: (fromIdx: number, toIdx: number) => void;
   onUpdateTitle: (waypointId: string, title: string) => void;
   onAddWaypoint: (title: string) => void;
+  onDeleteWaypoint?: (waypointId: string) => void;
   onChangeTemplate: (tmpl: ChartRouteTemplate) => void;
   onToggleVision: () => void;
 }
+
+const TEMPLATE_NAMES: Record<ChartRouteTemplate, string> = {
+  'gentle-s': 'Gentle S curve',
+  'wide-zigzag': 'Wide zig-zag',
+  'rising-arc': 'Rising arc',
+  'double-bend': 'Double bend',
+};
 
 export function V2EditChartSheet({
   visible,
@@ -335,9 +400,11 @@ export function V2EditChartSheet({
   onReorder,
   onUpdateTitle,
   onAddWaypoint,
+  onDeleteWaypoint,
   onChangeTemplate,
   onToggleVision,
 }: V2EditChartSheetProps) {
+  const reduceMotion = useV2ReduceMotion();
   const [newWpTitle, setNewWpTitle] = useState('');
 
   if (!visible) return null;
@@ -350,46 +417,115 @@ export function V2EditChartSheet({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
+    <Modal
+      visible={visible}
+      animationType={reduceMotion ? 'none' : 'slide'}
+      transparent
+      onRequestClose={onClose}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.overlay}
+      >
         <View style={styles.sheetContainer}>
           <View style={styles.handle} />
           <View style={styles.sheetHeader}>
             <Text style={styles.sheetEyebrow}>EDIT CHART</Text>
-            <Pressable onPress={onClose} style={styles.closeButton}>
+            <Pressable
+              onPress={onClose}
+              hitSlop={10}
+              style={styles.closeButton}
+            >
               <X size={18} color={colors.text.secondary} />
             </Pressable>
           </View>
 
-          <ScrollView contentContainerStyle={styles.sheetScroll}>
-            {/* Waypoints reordering & renaming */}
+          <ScrollView
+            contentContainerStyle={styles.sheetScroll}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Waypoints reordering, renaming, & deleting */}
             <Text style={styles.sectionHeader}>WAYPOINTS</Text>
             {waypoints.map((wp, idx) => {
               const isLast = idx === waypoints.length - 1;
+              const canMoveUp =
+                idx > 0 &&
+                !isLast &&
+                waypoints[idx - 1]?.reached === wp.reached;
+              const canMoveDown =
+                idx < waypoints.length - 2 &&
+                waypoints[idx + 1]?.reached === wp.reached;
+              const canDelete =
+                waypoints.length > 2 && !isLast && !wp.reached;
+
               return (
                 <View key={wp.id} style={styles.editRow}>
                   <View style={styles.reorderControls}>
                     <Pressable
-                      disabled={idx === 0 || isLast}
+                      disabled={!canMoveUp}
                       onPress={() => onReorder(idx, idx - 1)}
-                      style={styles.reorderArrow}
+                      accessibilityLabel={`Move ${wp.value} up`}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      style={[
+                        styles.reorderArrow,
+                        !canMoveUp && styles.reorderArrowDisabled,
+                      ]}
                     >
-                      <ArrowUp size={14} color={idx === 0 || isLast ? colors.text.disabled : colors.text.primary} />
+                      <ArrowUp
+                        size={14}
+                        color={
+                          canMoveUp ? colors.text.primary : colors.text.disabled
+                        }
+                      />
                     </Pressable>
                     <Pressable
-                      disabled={idx >= waypoints.length - 2}
+                      disabled={!canMoveDown}
                       onPress={() => onReorder(idx, idx + 1)}
-                      style={styles.reorderArrow}
+                      accessibilityLabel={`Move ${wp.value} down`}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      style={[
+                        styles.reorderArrow,
+                        !canMoveDown && styles.reorderArrowDisabled,
+                      ]}
                     >
-                      <ArrowDown size={14} color={idx >= waypoints.length - 2 ? colors.text.disabled : colors.text.primary} />
+                      <ArrowDown
+                        size={14}
+                        color={
+                          canMoveDown
+                            ? colors.text.primary
+                            : colors.text.disabled
+                        }
+                      />
                     </Pressable>
                   </View>
 
-                  <TextInput
-                    defaultValue={wp.value}
-                    onEndEditing={(e) => onUpdateTitle(wp.id, e.nativeEvent.text)}
-                    style={styles.editTitleInput}
-                  />
+                  <View style={styles.editInputWrapper}>
+                    <Text style={styles.editItemLabel}>
+                      {isLast
+                        ? 'DESTINATION'
+                        : `WAYPOINT ${idx + 1}${wp.reached ? ' · REACHED' : ''}`}
+                    </Text>
+                    <TextInput
+                      defaultValue={wp.value}
+                      onEndEditing={(e) =>
+                        onUpdateTitle(wp.id, e.nativeEvent.text)
+                      }
+                      style={styles.editTitleInput}
+                      accessibilityLabel={`Waypoint ${idx + 1} label`}
+                      maxLength={120}
+                    />
+                  </View>
+
+                  {canDelete && onDeleteWaypoint && (
+                    <Pressable
+                      onPress={() => onDeleteWaypoint(wp.id)}
+                      accessibilityLabel={`Delete ${wp.value}`}
+                      hitSlop={8}
+                      style={styles.deleteWpButton}
+                    >
+                      <Trash2 size={16} color={colors.text.secondary} />
+                    </Pressable>
+                  )}
                 </View>
               );
             })}
@@ -406,7 +542,11 @@ export function V2EditChartSheet({
               <Pressable
                 onPress={handleAdd}
                 disabled={!newWpTitle.trim()}
-                style={[styles.addButton, !newWpTitle.trim() && styles.addButtonDisabled]}
+                hitSlop={6}
+                style={[
+                  styles.addButton,
+                  !newWpTitle.trim() && styles.addButtonDisabled,
+                ]}
               >
                 <Plus size={16} color={colors.surface} />
               </Pressable>
@@ -415,10 +555,18 @@ export function V2EditChartSheet({
             {/* Route shape templates */}
             <Text style={styles.sectionHeader}>ROUTE SHAPE</Text>
             <View style={styles.templatePicker}>
-              {(['gentle-s', 'wide-zigzag', 'rising-arc', 'double-bend'] as ChartRouteTemplate[]).map((t) => (
+              {(
+                [
+                  'gentle-s',
+                  'wide-zigzag',
+                  'rising-arc',
+                  'double-bend',
+                ] as ChartRouteTemplate[]
+              ).map((t) => (
                 <Pressable
                   key={t}
                   onPress={() => onChangeTemplate(t)}
+                  hitSlop={4}
                   style={[
                     styles.templateOption,
                     template === t && styles.templateOptionSelected,
@@ -430,16 +578,22 @@ export function V2EditChartSheet({
                       template === t && styles.templateOptionTextSelected,
                     ]}
                   >
-                    {t.replace('-', ' ').toUpperCase()}
+                    {TEMPLATE_NAMES[t]}
                   </Text>
                 </Pressable>
               ))}
             </View>
 
             {/* Connected Vision toggle */}
-            <Pressable onPress={onToggleVision} style={styles.toggleVisionButton}>
+            <Pressable
+              onPress={onToggleVision}
+              hitSlop={8}
+              style={styles.toggleVisionButton}
+            >
               <Text style={styles.toggleVisionText}>
-                {hasConnectedVision ? 'Disconnect Vision from Chart' : 'Connect Vision to Chart'}
+                {hasConnectedVision
+                  ? 'Disconnect Vision from Chart'
+                  : 'Connect Vision to Chart'}
               </Text>
             </Pressable>
 
@@ -448,60 +602,385 @@ export function V2EditChartSheet({
             </V2Button>
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
-// 5. Journey Overview Sheet
+// 5. Journey Overview / All Waypoints Sheet
 export interface V2JourneyOverviewSheetProps {
   visible: boolean;
   waypoints: V2WaypointPresentation[];
+  isJourneyMode?: boolean;
   onClose: () => void;
+  onSelectWaypoint?: (waypointId: string) => void;
+  onEditChartPress?: () => void;
 }
 
 export function V2JourneyOverviewSheet({
   visible,
   waypoints,
+  isJourneyMode = false,
   onClose,
+  onSelectWaypoint,
+  onEditChartPress,
 }: V2JourneyOverviewSheetProps) {
+  const reduceMotion = useV2ReduceMotion();
   if (!visible) return null;
 
+  const displayWaypoints = isJourneyMode
+    ? [...waypoints].filter((w) => w.reached).reverse()
+    : waypoints;
+
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      animationType={reduceMotion ? 'none' : 'slide'}
+      transparent
+      onRequestClose={onClose}
+    >
       <View style={styles.overlay}>
         <View style={styles.sheetContainer}>
           <View style={styles.handle} />
           <View style={styles.sheetHeader}>
-            <Text style={styles.sheetEyebrow}>YOUR JOURNEY</Text>
-            <Pressable onPress={onClose} style={styles.closeButton}>
+            <Text style={styles.sheetEyebrow}>
+              {isJourneyMode ? 'YOUR JOURNEY' : 'ALL WAYPOINTS'}
+            </Text>
+            <Pressable
+              onPress={onClose}
+              hitSlop={10}
+              style={styles.closeButton}
+            >
               <X size={18} color={colors.text.secondary} />
             </Pressable>
           </View>
 
-          <ScrollView contentContainerStyle={styles.sheetScroll}>
-            {waypoints.map((wp, idx) => (
-              <View key={wp.id} style={styles.journeyItem}>
-                <View
-                  style={[
-                    styles.journeyDot,
-                    wp.reached ? styles.journeyDotReached : styles.journeyDotUpcoming,
-                  ]}
+          <ScrollView
+            contentContainerStyle={styles.sheetScroll}
+            showsVerticalScrollIndicator={false}
+          >
+            {displayWaypoints.map((wp, idx) => {
+              const origIdx = waypoints.findIndex((w) => w.id === wp.id);
+              const isLast = origIdx === waypoints.length - 1;
+
+              return (
+                <Pressable
+                  key={wp.id}
+                  onPress={() => {
+                    onClose();
+                    onSelectWaypoint?.(wp.id);
+                  }}
+                  hitSlop={4}
+                  style={styles.journeyItem}
                 >
-                  {wp.reached && <Check size={12} color={colors.surface} />}
-                </View>
-                <View style={styles.journeyItemDetails}>
-                  <Text style={styles.journeyItemTitle}>{wp.value}</Text>
-                  <Text style={styles.journeyItemStatus}>
-                    {wp.reached
-                      ? `Reached${wp.reachedAt ? ` · ${new Date(wp.reachedAt).toLocaleDateString()}` : ''}`
-                      : idx === waypoints.length - 1
-                        ? 'Destination'
-                        : 'Upcoming'}
-                  </Text>
-                </View>
+                  <View
+                    style={[
+                      styles.journeyDot,
+                      wp.reached
+                        ? styles.journeyDotReached
+                        : wp.state === 'current'
+                          ? styles.journeyDotCurrent
+                          : isLast
+                            ? styles.journeyDotDestination
+                            : styles.journeyDotUpcoming,
+                    ]}
+                  >
+                    {wp.reached ? (
+                      <Check size={12} color={colors.surface} strokeWidth={3} />
+                    ) : isLast ? (
+                      <Text style={styles.destinationStarSymbol}>✦</Text>
+                    ) : null}
+                  </View>
+
+                  <View style={styles.journeyItemDetails}>
+                    <Text style={styles.journeyItemTitle}>{wp.value}</Text>
+                    <Text style={styles.journeyItemStatus}>
+                      {wp.state === 'current'
+                        ? 'Current waypoint'
+                        : wp.reached
+                          ? `Reached${wp.reachedAt ? ` · ${new Date(wp.reachedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : ''}`
+                          : isLast
+                            ? 'Destination'
+                            : 'Upcoming'}
+                    </Text>
+                  </View>
+
+                  <ChevronRight size={16} color={colors.text.secondary} />
+                </Pressable>
+              );
+            })}
+
+            {onEditChartPress && (
+              <Pressable
+                onPress={() => {
+                  onClose();
+                  onEditChartPress();
+                }}
+                hitSlop={8}
+                style={styles.editChartLink}
+              >
+                <Text style={styles.editChartLinkText}>Edit Chart →</Text>
+              </Pressable>
+            )}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// 6. Connected Vision Detail Sheet
+export interface V2VisionDetailSheetProps {
+  visible: boolean;
+  visionTitle?: string;
+  visionDescription?: string;
+  onClose: () => void;
+  onDisconnectVision?: () => void;
+}
+
+export function V2VisionDetailSheet({
+  visible,
+  visionTitle = 'A brighter future.',
+  visionDescription = 'A bigger impact. More people anchored to a brighter future.',
+  onClose,
+  onDisconnectVision,
+}: V2VisionDetailSheetProps) {
+  const reduceMotion = useV2ReduceMotion();
+  if (!visible) return null;
+
+  return (
+    <Modal
+      visible={visible}
+      animationType={reduceMotion ? 'none' : 'slide'}
+      transparent
+      onRequestClose={onClose}
+    >
+      <View style={styles.overlay}>
+        <View style={styles.sheetContainer}>
+          <View style={styles.handle} />
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetEyebrow}>CONNECTED VISION</Text>
+            <Pressable
+              onPress={onClose}
+              hitSlop={10}
+              style={styles.closeButton}
+            >
+              <X size={18} color={colors.text.secondary} />
+            </Pressable>
+          </View>
+
+          <ScrollView
+            contentContainerStyle={styles.sheetScroll}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.visionImageWrapper}>
+              <Image
+                source={require('@/../assets/chart/landscape.png')}
+                style={styles.visionImage}
+                resizeMode="cover"
+              />
+            </View>
+
+            <Text style={styles.sheetTitle}>{visionTitle}</Text>
+            <Text style={styles.sheetDesc}>{visionDescription}</Text>
+
+            <V2Button
+              accessibilityLabel="Return to Chart"
+              onPress={onClose}
+            >
+              Return to Chart
+            </V2Button>
+
+            {onDisconnectVision && (
+              <Pressable
+                onPress={() => {
+                  onDisconnectVision();
+                  onClose();
+                }}
+                hitSlop={8}
+                style={styles.disconnectVisionLink}
+              >
+                <Text style={styles.disconnectVisionLinkText}>
+                  Disconnect Vision from Chart
+                </Text>
+              </Pressable>
+            )}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// 7. Browse Visions Sheet
+export interface V2VisionBrowseSheetProps {
+  visible: boolean;
+  onClose: () => void;
+  onConnectVision: () => void;
+}
+
+export function V2VisionBrowseSheet({
+  visible,
+  onClose,
+  onConnectVision,
+}: V2VisionBrowseSheetProps) {
+  const reduceMotion = useV2ReduceMotion();
+  if (!visible) return null;
+
+  return (
+    <Modal
+      visible={visible}
+      animationType={reduceMotion ? 'none' : 'slide'}
+      transparent
+      onRequestClose={onClose}
+    >
+      <View style={styles.overlay}>
+        <View style={styles.sheetContainer}>
+          <View style={styles.handle} />
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetEyebrow}>BROWSE VISIONS</Text>
+            <Pressable
+              onPress={onClose}
+              hitSlop={10}
+              style={styles.closeButton}
+            >
+              <X size={18} color={colors.text.secondary} />
+            </Pressable>
+          </View>
+
+          <ScrollView
+            contentContainerStyle={styles.sheetScroll}
+            showsVerticalScrollIndicator={false}
+          >
+            <Text style={styles.sheetTitle}>Keep your future in sight.</Text>
+            <Text style={styles.sheetDesc}>
+              Connect a Vision to this Chart to ground your daily waypoints in what matters most.
+            </Text>
+
+            <View style={styles.visionImageWrapper}>
+              <Image
+                source={require('@/../assets/chart/landscape.png')}
+                style={styles.visionImage}
+                resizeMode="cover"
+              />
+            </View>
+
+            <V2Button
+              accessibilityLabel="Connect this Vision"
+              onPress={() => {
+                onConnectVision();
+                onClose();
+              }}
+            >
+              Connect this Vision
+            </V2Button>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// 8. Anchor Detail Sheet
+export interface V2AnchorDetailSheetProps {
+  visible: boolean;
+  anchorTitle?: string;
+  anchorDescription?: string;
+  anchorCategory?: string;
+  onClose: () => void;
+  onPracticeAnchor?: () => void;
+}
+
+export function V2AnchorDetailSheet({
+  visible,
+  anchorTitle = 'Your Anchor',
+  anchorDescription = 'The foundational intention grounding your journey.',
+  anchorCategory = 'GROUNDING',
+  onClose,
+  onPracticeAnchor,
+}: V2AnchorDetailSheetProps) {
+  const reduceMotion = useV2ReduceMotion();
+  if (!visible) return null;
+
+  return (
+    <Modal
+      visible={visible}
+      animationType={reduceMotion ? 'none' : 'slide'}
+      transparent
+      onRequestClose={onClose}
+    >
+      <View style={styles.overlay}>
+        <View style={styles.sheetContainer}>
+          <View style={styles.handle} />
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetEyebrow}>YOUR ANCHOR</Text>
+            <Pressable
+              onPress={onClose}
+              hitSlop={10}
+              style={styles.closeButton}
+            >
+              <X size={18} color={colors.text.secondary} />
+            </Pressable>
+          </View>
+
+          <ScrollView
+            contentContainerStyle={styles.sheetScroll}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.anchorArtWrapper}>
+              <Svg width={64} height={64} viewBox="0 0 24 24">
+                <Circle
+                  cx="12"
+                  cy="5"
+                  r="2.8"
+                  fill="none"
+                  stroke="#223B6A"
+                  strokeWidth="2.2"
+                />
+                <Path
+                  d="M12 7.8V19"
+                  stroke="#223B6A"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                />
+                <Path
+                  d="M7.5 11h9"
+                  stroke="#223B6A"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                />
+                <Path
+                  d="M4.5 13.5a7.5 7.5 0 0 0 15 0"
+                  stroke="#223B6A"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  fill="none"
+                />
+              </Svg>
+            </View>
+
+            <View style={styles.badgeRow}>
+              <View style={[styles.statusBadge, { backgroundColor: '#223B6A' }]}>
+                <Text style={styles.statusBadgeText}>
+                  {anchorCategory.toUpperCase()}
+                </Text>
               </View>
-            ))}
+            </View>
+
+            <Text style={styles.sheetTitle}>{anchorTitle}</Text>
+            <Text style={styles.sheetDesc}>{anchorDescription}</Text>
+
+            {onPracticeAnchor && (
+              <V2Button
+                accessibilityLabel="Reinforce this Anchor"
+                onPress={() => {
+                  onClose();
+                  onPracticeAnchor();
+                }}
+              >
+                Reinforce this Anchor →
+              </V2Button>
+            )}
           </ScrollView>
         </View>
       </View>
@@ -512,24 +991,26 @@ export function V2JourneyOverviewSheet({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(23, 23, 23, 0.45)',
+    backgroundColor: 'rgba(18, 32, 51, 0.45)',
     justifyContent: 'flex-end',
     alignItems: 'center',
   },
   sheetContainer: {
     width: '100%',
     maxHeight: '85%',
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radii.xl,
-    borderTopRightRadius: radii.xl,
+    backgroundColor: '#FDFBF8',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     paddingHorizontal: spacing[4],
     paddingBottom: spacing[6],
+    borderWidth: 1,
+    borderColor: '#E9E5DE',
   },
   handle: {
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.border.strong,
+    backgroundColor: '#D5D3CE',
     alignSelf: 'center',
     marginVertical: 10,
   },
@@ -541,12 +1022,15 @@ const styles = StyleSheet.create({
   },
   sheetEyebrow: {
     ...typography.caption,
-    color: colors.text.secondary,
-    letterSpacing: 0.8,
+    color: '#717686',
+    letterSpacing: 1,
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
   closeButton: {
-    width: 32,
-    height: 32,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -557,25 +1041,29 @@ const styles = StyleSheet.create({
   sheetTitle: {
     ...typography.headingMD,
     color: colors.text.primary,
+    fontSize: 22,
+    letterSpacing: -0.5,
   },
   badgeRow: {
     flexDirection: 'row',
   },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: radii.sm,
-    backgroundColor: '#3157D8',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   statusBadgeText: {
     ...typography.caption,
     color: colors.surface,
     fontWeight: '700',
     fontSize: 10,
+    letterSpacing: 0.5,
   },
   sheetDesc: {
     ...typography.bodyMD,
-    color: colors.text.secondary,
+    color: '#6B7280',
+    lineHeight: 22,
+    fontSize: 14,
   },
   stepsSection: {
     gap: spacing[2],
@@ -583,32 +1071,41 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     ...typography.caption,
+    color: '#717686',
+    letterSpacing: 0.9,
+    fontWeight: '700',
+    fontSize: 10,
+    textTransform: 'uppercase',
+  },
+  noStepsText: {
+    ...typography.bodyMD,
     color: colors.text.secondary,
-    letterSpacing: 0.8,
+    fontStyle: 'italic',
   },
   moveRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[2],
-    paddingVertical: 4,
+    gap: spacing[3],
+    paddingVertical: 6,
   },
   tinyCheck: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     borderWidth: 1.5,
-    borderColor: colors.border.strong,
+    borderColor: '#ABB2BC',
     alignItems: 'center',
     justifyContent: 'center',
   },
   tinyCheckDone: {
-    backgroundColor: '#3157D8',
-    borderColor: '#3157D8',
+    backgroundColor: '#2FA879',
+    borderColor: '#2FA879',
   },
   moveText: {
     ...typography.bodyMD,
     color: colors.text.primary,
     flex: 1,
+    fontSize: 13,
   },
   moveTextDone: {
     color: colors.text.disabled,
@@ -618,22 +1115,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[2],
-    marginTop: 4,
+    marginTop: 8,
   },
   addInput: {
     flex: 1,
-    height: 40,
+    height: 42,
     borderRadius: radii.md,
-    backgroundColor: colors.background,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: colors.border.subtle,
+    borderColor: '#EAE6DF',
     paddingHorizontal: spacing[3],
     ...typography.bodyMD,
     color: colors.text.primary,
+    fontSize: 13,
   },
   addButton: {
-    width: 40,
-    height: 40,
+    width: 42,
+    height: 42,
     borderRadius: radii.md,
     backgroundColor: '#3157D8',
     alignItems: 'center',
@@ -645,22 +1143,31 @@ const styles = StyleSheet.create({
   reinforceLink: {
     paddingVertical: 12,
     alignItems: 'center',
+    minHeight: 44,
   },
   reinforceLinkText: {
     ...typography.labelMD,
     color: '#3157D8',
     fontWeight: '600',
+    fontSize: 13,
   },
   // Modal Cards
   modalCard: {
     width: '90%',
-    backgroundColor: colors.surface,
-    borderRadius: radii.xl,
+    backgroundColor: '#FDFBF8',
+    borderRadius: 24,
     padding: spacing[5],
     gap: spacing[3],
     alignSelf: 'center',
     marginBottom: 'auto',
     marginTop: 'auto',
+    borderWidth: 1,
+    borderColor: '#E9E5DE',
+    shadowColor: '#182235',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 8,
   },
   celebrationCard: {
     alignItems: 'center',
@@ -669,11 +1176,13 @@ const styles = StyleSheet.create({
   modalTarget: {
     ...typography.headingSM,
     color: colors.text.primary,
+    fontSize: 18,
   },
   modalMessage: {
     ...typography.bodyMD,
-    color: colors.text.secondary,
+    color: '#6B7280',
     lineHeight: 22,
+    fontSize: 14,
   },
   modalActions: {
     flexDirection: 'row',
@@ -682,12 +1191,14 @@ const styles = StyleSheet.create({
   },
   secondaryModalButton: {
     flex: 1,
+    minHeight: 44,
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radii.md,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.border.default,
+    borderColor: '#EAE6DF',
+    backgroundColor: '#FFFFFF',
   },
   secondaryModalText: {
     ...typography.labelMD,
@@ -696,15 +1207,16 @@ const styles = StyleSheet.create({
   },
   primaryModalButton: {
     flex: 1.4,
+    minHeight: 44,
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radii.md,
+    borderRadius: 12,
     backgroundColor: '#3157D8',
   },
   primaryModalText: {
     ...typography.labelMD,
-    color: colors.surface,
+    color: '#FFFFFF',
     fontWeight: '700',
   },
   starWrap: {
@@ -712,20 +1224,24 @@ const styles = StyleSheet.create({
   },
   celebrationEyebrow: {
     ...typography.caption,
-    color: '#FFA32C',
-    letterSpacing: 1,
+    color: '#F28A2E',
+    letterSpacing: 1.2,
     fontWeight: '700',
+    fontSize: 10,
+    textTransform: 'uppercase',
   },
   celebrationTitle: {
     ...typography.headingMD,
     color: colors.text.primary,
     textAlign: 'center',
+    fontSize: 22,
   },
   celebrationBody: {
     ...typography.bodyMD,
-    color: colors.text.secondary,
+    color: '#6B7280',
     textAlign: 'center',
     lineHeight: 22,
+    fontSize: 14,
     marginBottom: spacing[2],
   },
   // Edit Chart
@@ -733,29 +1249,52 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[2],
+    paddingVertical: 4,
   },
   reorderControls: {
     flexDirection: 'row',
     gap: 4,
   },
   reorderArrow: {
-    width: 28,
-    height: 28,
+    width: 30,
+    height: 30,
     borderRadius: radii.sm,
-    backgroundColor: colors.background,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#EAE6DF',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  editTitleInput: {
+  reorderArrowDisabled: {
+    opacity: 0.35,
+  },
+  editInputWrapper: {
     flex: 1,
+    gap: 2,
+  },
+  editItemLabel: {
+    ...typography.caption,
+    fontSize: 9,
+    color: '#717686',
+    fontWeight: '700',
+    letterSpacing: 0.6,
+  },
+  editTitleInput: {
     height: 38,
     borderRadius: radii.sm,
-    backgroundColor: colors.background,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: colors.border.subtle,
-    paddingHorizontal: 8,
+    borderColor: '#EAE6DF',
+    paddingHorizontal: 10,
     ...typography.bodyMD,
     color: colors.text.primary,
+    fontSize: 13,
+  },
+  deleteWpButton: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   templatePicker: {
     flexDirection: 'row',
@@ -763,12 +1302,12 @@ const styles = StyleSheet.create({
     gap: spacing[2],
   },
   templateOption: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: radii.sm,
-    backgroundColor: colors.background,
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: colors.border.subtle,
+    borderColor: '#EAE6DF',
   },
   templateOptionSelected: {
     backgroundColor: '#3157D8',
@@ -776,44 +1315,61 @@ const styles = StyleSheet.create({
   },
   templateOptionText: {
     ...typography.caption,
-    color: colors.text.secondary,
+    color: '#717686',
     fontWeight: '600',
+    fontSize: 11.5,
   },
   templateOptionTextSelected: {
-    color: colors.surface,
+    color: '#FFFFFF',
     fontWeight: '700',
   },
   toggleVisionButton: {
-    paddingVertical: 10,
+    paddingVertical: 12,
     alignItems: 'center',
+    minHeight: 44,
   },
   toggleVisionText: {
     ...typography.labelMD,
     color: '#3157D8',
     fontWeight: '600',
+    fontSize: 13,
   },
-  // Journey
+  // Journey / All
   journeyItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[3],
-    paddingVertical: spacing[2],
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border.subtle,
+    borderBottomColor: '#EAE6DF',
+    minHeight: 48,
   },
   journeyDot: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   journeyDotReached: {
     backgroundColor: '#2FA879',
   },
+  journeyDotCurrent: {
+    backgroundColor: '#3157D8',
+  },
+  journeyDotDestination: {
+    backgroundColor: '#FFF0D4',
+    borderWidth: 1.5,
+    borderColor: '#FFA32C',
+  },
   journeyDotUpcoming: {
     borderWidth: 1.5,
-    borderColor: colors.border.strong,
+    borderColor: '#ABB2BC',
+  },
+  destinationStarSymbol: {
+    color: '#F28A2E',
+    fontSize: 12,
+    fontWeight: '700',
   },
   journeyItemDetails: {
     flex: 1,
@@ -822,9 +1378,60 @@ const styles = StyleSheet.create({
     ...typography.bodyMD,
     fontWeight: '600',
     color: colors.text.primary,
+    fontSize: 13.5,
   },
   journeyItemStatus: {
     ...typography.caption,
-    color: colors.text.secondary,
+    color: '#717686',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  editChartLink: {
+    paddingVertical: 14,
+    alignItems: 'center',
+    minHeight: 44,
+  },
+  editChartLinkText: {
+    ...typography.labelMD,
+    color: '#3157D8',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  // Vision Sheets
+  visionImageWrapper: {
+    width: '100%',
+    height: 150,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#FAF5EE',
+    borderWidth: 1,
+    borderColor: '#EAE6DF',
+    marginVertical: spacing[2],
+  },
+  visionImage: {
+    width: '100%',
+    height: '100%',
+  },
+  disconnectVisionLink: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    minHeight: 44,
+  },
+  disconnectVisionLinkText: {
+    ...typography.labelMD,
+    color: '#D32F2F',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  // Anchor Sheet
+  anchorArtWrapper: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#EEF2FC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginVertical: spacing[2],
   },
 });

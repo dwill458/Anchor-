@@ -7,7 +7,7 @@ import type { Anchor } from '@/types';
  * server-authoritative Thread movement contract (THREAD_V2) is available.
  */
 export type V2ThreadPresentation = {
-  value: number;
+  value: number | null;
   category?: string | null;
   /** Only set when a real, domain-provided movement value exists. */
   previousValue?: number;
@@ -25,7 +25,7 @@ export function toThreadPresentation(anchor: Pick<Anchor, 'category' | 'threadSt
   const stored = anchor.threadStrength;
   const hasStored = typeof stored === 'number' && Number.isFinite(stored);
   return {
-    value: hasStored ? clamp(stored as number) : 0,
+    value: hasStored ? clamp(stored as number) : null,
     category: anchor.category,
     unmeasured: !hasStored,
   };

@@ -55,10 +55,21 @@ function V2PracticeRouteScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<AnchorV2StackParamList, 'V2Practice'>>();
   const anchorId = route.params?.anchorId;
+  const recommendedMode = route.params?.recommendedMode;
+  const returnRoute = route.params?.returnRoute;
+
+  const handleBack = () => {
+    if (returnRoute) {
+      navigation.navigate(returnRoute, { anchorId });
+    } else {
+      navigation.goBack();
+    }
+  };
 
   return (
     <V2PracticeScreen
-      onBack={() => navigation.goBack()}
+      initialMode={recommendedMode}
+      onBack={handleBack}
       onPremiumCapabilityRequired={(req) => {
         navigation.navigate('V2Paywall', {
           context: req.capability === 'visualize' ? 'VISUALIZE' : req.capability === 'deep_prime' ? 'DEEP_PRIME' : 'PRACTICE',
@@ -82,7 +93,10 @@ function V2CreationRouteScreen() {
   const navigation = useNavigation<any>();
 
   const saveAnchor: CreationSaveAdapter = useCallback(async ({ draft, candidate }) => {
-    const userId = useAuthStore.getState().user?.id ?? 'v2-dev-user';
+    const userId = useAuthStore.getState().user?.id;
+    if (!userId) {
+      throw new Error('A signed-in account is required to save an Anchor.');
+    }
     const anchorId = draft.draftId || `anchor-${Date.now()}`;
     const now = new Date();
     const structureVariant: SigilVariationStyle =
@@ -113,7 +127,7 @@ function V2CreationRouteScreen() {
     if (type === 'vision' || type === 'vision_and_chart') {
       navigation.replace('V2Vision', { anchorId });
     } else if (type === 'chart') {
-      navigation.replace('V2Chart', { courseId: anchorId });
+      navigation.replace('V2Chart', { anchorId });
     } else {
       navigation.replace('V2DevelopmentHome');
     }

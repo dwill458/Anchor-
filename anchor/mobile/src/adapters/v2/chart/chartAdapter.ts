@@ -19,6 +19,15 @@ export function deriveWaypointDisplayState(
   if (wp.reachedAt !== null || wp.state === 'REACHED') {
     return 'completed';
   }
+  if (wp.state === 'BLOCKED') {
+    return 'blocked';
+  }
+  if (wp.state === 'SKIPPED') {
+    return 'skipped';
+  }
+  if (wp.state === 'CANCELLED') {
+    return 'cancelled';
+  }
   if (index === currentIndex) {
     return 'current';
   }
@@ -27,14 +36,14 @@ export function deriveWaypointDisplayState(
 
 /**
  * Parses or synthesizes moves from waypoint data cleanly.
- * If waypoint description has structured lines or steps, extracts them,
- * otherwise provides default action steps based on the waypoint title.
+ * If waypoint description has structured lines or steps, extracts them.
+ * If saved moves exist (including empty list), respects them.
  */
 export function extractWaypointMoves(
   wp: WaypointSummary,
   savedMoves?: V2WaypointMove[],
 ): V2WaypointMove[] {
-  if (savedMoves && savedMoves.length > 0) {
+  if (savedMoves !== undefined) {
     return savedMoves;
   }
 
@@ -54,15 +63,19 @@ export function extractWaypointMoves(
     }));
   }
 
-  // Baseline micro-moves anchored to this waypoint
-  return [
-    {
-      id: `${wp.id}-m0`,
-      waypointId: wp.id,
-      text: wp.description?.trim() || `Complete next step toward ${wp.title}`,
-      done: isReached,
-    },
-  ];
+  if (wp.description && wp.description.trim().length > 0) {
+    return [
+      {
+        id: `${wp.id}-m0`,
+        waypointId: wp.id,
+        text: wp.description.trim(),
+        done: isReached,
+      },
+    ];
+  }
+
+  // Waypoint has no description and no saved moves -> empty moves
+  return [];
 }
 
 /**
@@ -74,6 +87,8 @@ export function toV2ChartPresentationState(
   options?: {
     template?: ChartRouteTemplate;
     connectedVisionId?: string | null;
+    connectedVisionAssetUrl?: string | null;
+    connectedVisionTitle?: string | null;
     movesMap?: Record<string, V2WaypointMove[]>;
   },
 ): V2ChartPresentationState | null {
@@ -135,6 +150,8 @@ export function toV2ChartPresentationState(
     oneMove: isFinished ? null : pendingMove,
     connectedVisionId: options?.connectedVisionId ?? null,
     hasConnectedVision: Boolean(options?.connectedVisionId),
+    connectedVisionAssetUrl: options?.connectedVisionAssetUrl ?? null,
+    connectedVisionTitle: options?.connectedVisionTitle ?? null,
     raw: course,
   };
 }
