@@ -114,4 +114,26 @@ describe('PracticeCompletionService', () => {
     }));
     unregister();
   });
+
+  it('does not return to V2 while the canonical sync is still failing', async () => {
+    const accountId = 'account-completion-failed-sync';
+    useAuthStore.setState({ user: { id: accountId } as any });
+    const post = jest.spyOn(apiClient, 'post').mockRejectedValue(new Error('server unavailable'));
+    const returned = jest.fn();
+    const unregister = registerPracticeCompletionReturn(returned);
+
+    await PracticeCompletionService.completePracticeSession({
+      ...input(accountId, 'failed-sync-session'),
+      mode: 'focus',
+      metadata: { v2ReturnTarget: 'v2_practice' },
+    }, { flushImmediately: false });
+    await PracticeCompletionService.flush(accountId);
+    await PracticeCompletionService.flush(accountId);
+
+    expect(post).toHaveBeenCalled();
+    expect(returned).not.toHaveBeenCalled();
+    expect(useSessionStore.getState().practiceHistory[0].syncState).not.toBe('synced');
+
+    unregister();
+  });
 });
