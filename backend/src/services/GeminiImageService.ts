@@ -133,6 +133,7 @@ export class GeminiImageService {
     styleApproach: string;
     numberOfVariations: number;
     tier?: QualityTier;
+    category?: string;
   }): Promise<EnhancedSigilResult> {
     const {
       baseSigilSvg,
@@ -140,6 +141,7 @@ export class GeminiImageService {
       styleApproach,
       numberOfVariations,
       tier = 'premium',
+      category,
     } = params;
 
     if (!this.isAvailable()) {
@@ -154,6 +156,7 @@ export class GeminiImageService {
       intention: intentionText,
       style: styleApproach,
       tier,
+      category,
     });
 
     const startTime = Date.now();
@@ -163,7 +166,7 @@ export class GeminiImageService {
 
     // 2. Get model configuration
     const modelConfig = MODEL_CONFIGS[tier];
-    const prompt = this.createPrompt(intentionText, styleApproach, 0);
+    const prompt = this.createPrompt(intentionText, styleApproach, 0, category);
 
     // 3. Generate variations in batches of 2 (paid plan — no free-tier rate limit concerns).
     //    Two concurrent calls per batch cuts wall-clock time roughly in half vs sequential.
@@ -181,7 +184,7 @@ export class GeminiImageService {
         indices.map(idx =>
           this.generateVariation(
             baseImageBuffer,
-            this.createPrompt(intentionText, styleApproach, idx),
+            this.createPrompt(intentionText, styleApproach, idx, category),
             idx,
             modelConfig
           )
@@ -212,8 +215,13 @@ export class GeminiImageService {
     };
   }
 
-  private createPrompt(intention: string, style: string, variationIndex: number = 0): string {
-    return buildStylePrompt(intention, style, variationIndex);
+  private createPrompt(
+    intention: string,
+    style: string,
+    variationIndex: number = 0,
+    category?: string
+  ): string {
+    return buildStylePrompt(intention, style, variationIndex, { category });
   }
 
   private async generateVariation(
@@ -244,7 +252,7 @@ export class GeminiImageService {
 
       const response = await this.client.models.generateImages({
         model: modelConfig.modelId,
-        prompt: `${prompt}\n\nIMPORTANT: Preserve the exact geometric structure and lines of the supplied sigil design. Do not distort or warp the core shapes.\n\n${LITERAL_ANCHOR_EXCLUSION}`,
+        prompt: `${prompt}\n\nIMPORTANT: Preserve the exact geometric structure and lines of the Anchor design. Do not distort or warp the core shapes.\n\n${LITERAL_ANCHOR_EXCLUSION}`,
         config: {
           // numberOfImages: SDK accepts this at runtime; type def gap in some versions
           // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -337,7 +345,7 @@ export class GeminiImageService {
                 {
                   text: `${prompt}
 
-REFERENCE IMAGE INSTRUCTION: The attached image shows the abstract sigil geometry that must be preserved. Keep the main lines, circles, and geometric shapes EXACTLY as shown. Add structural enhancements AROUND and BEHIND the sigil geometry, not by altering its core linework.
+REFERENCE IMAGE INSTRUCTION: The attached image contains the exact Anchor structure that must be preserved. Keep all main lines, circles, intersections, angles, nodes, and geometric relationships exactly as shown. Build the selected visual world around this immutable structure. Enhancements may appear around it, behind it, beneath it, within the surrounding material field, through framing, atmosphere, lighting, surface treatment, and peripheral composition, but never by altering the Anchor geometry.
 
 ${LITERAL_ANCHOR_EXCLUSION}`,
                 },
