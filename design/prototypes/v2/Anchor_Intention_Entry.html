@@ -1,0 +1,1276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anchor — Intention Entry (Light Editorial)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@10..48,75..100,400..800&family=Figtree:ital,wght@0,300..900;1,300..900&display=swap" rel="stylesheet">
+  <style>
+    /* ==========================================================================
+       ANCHOR DESIGN SYSTEM — INTENTION ENTRY (LIGHT EDITORIAL)
+       Living Spec v0.3 / Anchor 2.0 Screen 10
+       Authoritative Specification extracted from Anchor 2.0 Screens
+       ========================================================================== */
+
+    :root {
+      --bg: #F4F1E9;
+      --surface: #FBF9F4;
+      --border: #D8D2C8;
+      --ink: #171717;
+      --ink2: #6C6861;
+      --ink3: #969088;
+      --cta: #20201E;
+      --cta-text: #F7F4EC;
+      --cta-disabled-bg: #DCD6C9;
+      --cta-disabled-text: #A39C8E;
+      --font-display: 'Bricolage Grotesque', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-ui: 'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background: #EAE6DD;
+      font-family: var(--font-ui);
+      color: var(--ink);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 36px 20px 80px;
+      overflow-x: auto;
+    }
+
+    /* Top Studio Bar */
+    .studio-bar {
+      width: min(100%, 920px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 30px;
+      padding: 12px 20px;
+      background: rgba(255, 255, 255, 0.65);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(216, 210, 200, 0.8);
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .studio-title-block {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .studio-badge {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: #20201E;
+      color: #F7F4EC;
+    }
+
+    .studio-title {
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    .studio-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .cat-selector {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: #ECE8DF;
+      padding: 4px;
+      border-radius: 10px;
+    }
+
+    .cat-btn {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      padding: 5px 10px;
+      border-radius: 7px;
+      font-family: var(--font-ui);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink2);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .cat-btn:hover {
+      color: var(--ink);
+    }
+
+    .cat-btn.active {
+      background: #FFFFFF;
+      color: var(--ink);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    }
+
+    .view-toggle-btn {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: #FFFFFF;
+      padding: 6px 12px;
+      border-radius: 9px;
+      font-family: var(--font-ui);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .view-toggle-btn:hover {
+      background: #FBF9F4;
+    }
+
+    /* Showcase Layout */
+    .showcase-container {
+      display: flex;
+      gap: 50px;
+      justify-content: center;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      width: 100%;
+      max-width: 1040px;
+    }
+
+    .frame-wrapper {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .frame-label {
+      font-family: var(--font-ui);
+      font-size: 13px;
+      font-weight: 700;
+      color: #5C5850;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      padding-left: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .frame-label .badge-mode {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 6px;
+      background: #D8D2C8;
+      color: #3D3A34;
+      text-transform: none;
+    }
+
+    /* iOS Device Frame */
+    .ios-device {
+      width: 390px;
+      height: 844px;
+      border-radius: 50px;
+      background: #000000;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 30px 70px rgba(0, 0, 0, 0.22), 0 0 0 12px #262523, 0 0 0 13px #3D3A36;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Dynamic Island */
+    .dynamic-island {
+      position: absolute;
+      top: 11px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 126px;
+      height: 37px;
+      border-radius: 24px;
+      background: #000000;
+      z-index: 60;
+    }
+
+    /* iOS Status Bar */
+    .ios-status-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 28px 0;
+      z-index: 55;
+      font-family: -apple-system, "SF Pro Text", system-ui, sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      color: #171717;
+      letter-spacing: -0.2px;
+      pointer-events: none;
+    }
+
+    .ios-status-time {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .ios-status-icons {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    /* Home Indicator */
+    .home-indicator {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 138px;
+      height: 5px;
+      border-radius: 100px;
+      background: rgba(0, 0, 0, 0.28);
+      z-index: 65;
+      pointer-events: none;
+    }
+
+    /* Screen Canvas */
+    .screen {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 58px 22px 4px;
+      flex-shrink: 0;
+    }
+
+    .back-btn {
+      width: 44px;
+      height: 44px;
+      margin-left: -10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ink);
+      border-radius: 12px;
+      cursor: pointer;
+      border: 0;
+      background: transparent;
+      transition: background 0.15s ease;
+    }
+
+    .back-btn:hover {
+      background: rgba(0, 0, 0, 0.04);
+    }
+
+    .content {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      scrollbar-width: none;
+    }
+
+    .content::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* Hero Block */
+    .hero-block {
+      padding: 16px 24px 0;
+    }
+
+    .eyebrow {
+      font-size: 12.5px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink2);
+      margin-bottom: 10px;
+      transition: opacity 0.2s ease, max-height 0.2s ease, margin 0.2s ease;
+    }
+
+    .hero {
+      font-family: var(--font-display);
+      font-weight: 600;
+      line-height: 1.14;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      font-size: 32px;
+      transition: font-size 0.2s ease;
+    }
+
+    .subhead {
+      font-size: 16px;
+      line-height: 1.5;
+      color: var(--ink2);
+      margin-top: 12px;
+      transition: opacity 0.2s ease, max-height 0.2s ease, margin 0.2s ease;
+    }
+
+    /* Focused State collapse */
+    .screen.is-focused .eyebrow {
+      opacity: 0;
+      max-height: 0;
+      margin-bottom: 0;
+      overflow: hidden;
+    }
+
+    .screen.is-focused .hero {
+      font-size: 24px;
+    }
+
+    .screen.is-focused .subhead {
+      opacity: 0;
+      max-height: 0;
+      margin-top: 0;
+      overflow: hidden;
+    }
+
+    /* Input Block */
+    .input-block {
+      padding: 22px 24px 0;
+    }
+
+    .field-label {
+      font-size: 12.5px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ink2);
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .char-counter {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0;
+      color: var(--ink3);
+      text-transform: none;
+    }
+
+    .intention-input {
+      width: 100%;
+      min-height: 118px;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 18px;
+      padding: 18px 20px;
+      font-family: var(--font-ui);
+      font-size: 17px;
+      line-height: 1.5;
+      color: var(--ink);
+      resize: none;
+      display: block;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .intention-input::placeholder {
+      color: var(--ink3);
+    }
+
+    .intention-input:focus {
+      outline: none;
+      border-color: var(--ink);
+      box-shadow: 0 0 0 3px rgba(23, 23, 23, 0.06);
+    }
+
+    /* Hint Block */
+    .hint-block {
+      margin-top: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .hint-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: baseline;
+    }
+
+    .hint-tag {
+      color: var(--ink2);
+    }
+
+    .hint-quote-bad {
+      color: var(--ink3);
+      font-style: italic;
+    }
+
+    .hint-tag-try {
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--ink2);
+    }
+
+    .hint-quote-good {
+      color: var(--ink);
+      font-weight: 600;
+    }
+
+    .hint-guidance {
+      color: var(--ink2);
+      font-style: italic;
+      font-size: 13.5px;
+      margin-top: 12px;
+    }
+
+    /* Principles Block (Short · Present · Felt) */
+    .spf-block {
+      padding: 26px 24px 0;
+    }
+
+    .spf-head {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 18px;
+    }
+
+    .spf-heading {
+      font-size: 11.5px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ink2);
+      white-space: nowrap;
+    }
+
+    .info-btn {
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ink3);
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      border-radius: 50%;
+      transition: color 0.15s ease;
+    }
+
+    .info-btn:hover {
+      color: var(--ink);
+    }
+
+    .principles {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .principle-row {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .principle-label {
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ink);
+    }
+
+    .principle-desc {
+      font-size: 15.5px;
+      line-height: 1.45;
+      color: var(--ink2);
+    }
+
+    .spacer-bottom {
+      height: 28px;
+    }
+
+    /* CTA Bar */
+    .cta-bar {
+      flex-shrink: 0;
+      padding: 14px 24px calc(20px + env(safe-area-inset-bottom, 14px));
+      background: var(--bg);
+    }
+
+    .cta-error {
+      font-size: 13px;
+      color: var(--ink2);
+      margin-bottom: 10px;
+      text-align: center;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .cta-btn {
+      width: 100%;
+      height: 56px;
+      border-radius: 16px;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-family: var(--font-ui);
+      font-size: 16.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+    }
+
+    .cta-btn.ready {
+      background: var(--cta);
+      color: var(--cta-text);
+    }
+
+    .cta-btn.notready {
+      background: var(--cta-disabled-bg);
+      color: var(--cta-disabled-text);
+    }
+
+    .cta-btn:active {
+      transform: scale(0.985);
+    }
+
+    /* Principles Bottom Sheet Modal */
+    .sheet-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(23, 23, 20, 0.38);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      z-index: 70;
+    }
+
+    .sheet-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .sheet {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--bg);
+      border-radius: 28px 28px 0 0;
+      padding: 14px 24px calc(28px + env(safe-area-inset-bottom, 14px));
+      transform: translateY(100%);
+      transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 75;
+      box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.14);
+    }
+
+    .sheet.open {
+      transform: translateY(0);
+    }
+
+    .sheet-handle {
+      width: 36px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border);
+      margin: 0 auto 18px;
+    }
+
+    .sheet-close {
+      position: absolute;
+      top: 16px;
+      right: 18px;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ink2);
+      cursor: pointer;
+    }
+
+    .sheet-title {
+      font-family: var(--font-display);
+      font-size: 19px;
+      font-weight: 600;
+      color: var(--ink);
+      margin-bottom: 18px;
+    }
+
+    .sheet-item {
+      margin-bottom: 16px;
+    }
+
+    .sheet-item-label {
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ink2);
+      margin-bottom: 4px;
+    }
+
+    .sheet-item-body {
+      font-size: 15px;
+      line-height: 1.5;
+      color: var(--ink);
+    }
+
+    .sheet-example {
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      font-size: 13.5px;
+    }
+
+    .sheet-dismiss {
+      width: 100%;
+      height: 48px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: none;
+      color: var(--ink);
+      font-family: var(--font-ui);
+      font-size: 15px;
+      font-weight: 600;
+      margin-top: 6px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .sheet-dismiss:hover {
+      background: rgba(0, 0, 0, 0.03);
+    }
+
+    /* iOS 26 Liquid Glass Keyboard Mockup (for frame B) */
+    .ios-keyboard-container {
+      flex-shrink: 0;
+      position: relative;
+      z-index: 25;
+      border-radius: 27px 27px 0 0;
+      overflow: hidden;
+      padding: 8px 0 26px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: rgba(230, 226, 218, 0.85);
+      backdrop-filter: blur(25px) saturate(180%);
+      -webkit-backdrop-filter: blur(25px) saturate(180%);
+      border-top: 0.5px solid rgba(0, 0, 0, 0.12);
+      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.04);
+    }
+
+    .keyboard-autocorrect {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      padding: 4px 22px 10px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .autocorrect-item {
+      flex: 1;
+      text-align: center;
+      font-family: -apple-system, system-ui;
+      font-size: 16px;
+      color: #333;
+      letter-spacing: -0.3px;
+    }
+
+    .autocorrect-sep {
+      width: 1px;
+      height: 20px;
+      background: #CCC;
+      opacity: 0.4;
+    }
+
+    .keyboard-keys-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 0 6px;
+      width: 100%;
+    }
+
+    .keyboard-row {
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+    }
+
+    .key-btn {
+      height: 42px;
+      border-radius: 8.5px;
+      flex: 1;
+      min-width: 0;
+      background: rgba(255, 255, 255, 0.88);
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, "SF Compact", system-ui;
+      font-size: 22px;
+      font-weight: 450;
+      color: #333;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .key-btn.special {
+      background: rgba(220, 216, 208, 0.92);
+    }
+
+    .key-btn.space {
+      flex: 4.5;
+    }
+
+    .key-btn.return-btn {
+      background: #0088FF;
+      color: #FFFFFF;
+      font-size: 15px;
+      font-weight: 600;
+      flex: 2.2;
+    }
+
+    .key-btn.shift-btn, .key-btn.del-btn {
+      flex: 1.35;
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      background: #20201E;
+      color: #F7F4EC;
+      padding: 12px 22px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+      z-index: 100;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: all 0.25s ease;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Studio Header -->
+  <header class="studio-bar">
+    <div class="studio-title-block">
+      <span class="studio-badge">Anchor 2.0</span>
+      <h1 class="studio-title">Intention Entry — Light Editorial Baseline</h1>
+    </div>
+    <div class="studio-controls">
+      <div class="cat-selector" id="catSelector" title="Preview Category-Specific Examples">
+        <button class="cat-btn active" data-cat="focus">Focus</button>
+        <button class="cat-btn" data-cat="performance">Performance</button>
+        <button class="cat-btn" data-cat="growth">Growth</button>
+        <button class="cat-btn" data-cat="personal">Personal</button>
+      </div>
+      <button class="view-toggle-btn" id="viewToggleBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18"/></svg>
+        <span id="viewToggleLabel">Dual View</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Showcase Canvas -->
+  <main class="showcase-container" id="showcase">
+    
+    <!-- FRAME A: DEFAULT -->
+    <div class="frame-wrapper" id="frameAWrapper">
+      <div class="frame-label">
+        DEFAULT <span class="badge-mode">Interactive</span>
+      </div>
+      <div class="ios-device">
+        <div class="dynamic-island"></div>
+        <div class="ios-status-bar">
+          <span class="ios-status-time">9:41</span>
+          <div class="ios-status-icons">
+            <svg width="18" height="12" viewBox="0 0 19 12"><rect x="0" y="7.5" width="3.2" height="4.5" rx="0.7" fill="#171717"/><rect x="4.8" y="5" width="3.2" height="7" rx="0.7" fill="#171717"/><rect x="9.6" y="2.5" width="3.2" height="9.5" rx="0.7" fill="#171717"/><rect x="14.4" y="0" width="3.2" height="12" rx="0.7" fill="#171717"/></svg>
+            <svg width="16" height="12" viewBox="0 0 17 12"><path d="M8.5 3.2C10.8 3.2 12.9 4.1 14.4 5.6L15.5 4.5C13.7 2.7 11.2 1.5 8.5 1.5C5.8 1.5 3.3 2.7 1.5 4.5L2.6 5.6C4.1 4.1 6.2 3.2 8.5 3.2Z" fill="#171717"/><circle cx="8.5" cy="10.5" r="1.5" fill="#171717"/></svg>
+            <svg width="25" height="12" viewBox="0 0 27 13"><rect x="0.5" y="0.5" width="23" height="12" rx="3.5" stroke="#171717" stroke-opacity="0.35" fill="none"/><rect x="2" y="2" width="20" height="9" rx="2" fill="#171717"/></svg>
+          </div>
+        </div>
+
+        <div class="screen" id="screenA">
+          <div class="header">
+            <button class="back-btn" id="backBtnA" aria-label="Back">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+
+          <div class="content">
+            <div class="hero-block">
+              <div class="eyebrow">Intention</div>
+              <h2 class="hero">Every Anchor starts here.</h2>
+              <p class="subhead">Write one clear intention.</p>
+            </div>
+
+            <div class="input-block">
+              <div class="field-label">
+                <span>Your intention</span>
+                <span class="char-counter" id="counterA">0/140</span>
+              </div>
+              <textarea
+                class="intention-input"
+                id="inputA"
+                placeholder="I am fully present with my work."
+                maxlength="140"
+              ></textarea>
+
+              <div class="hint-block" id="hintBlockA">
+                <div class="hint-row">
+                  <span class="hint-tag">Instead of</span>
+                  <span class="hint-quote-bad" id="hintBadA">“I want to stop getting distracted.”</span>
+                </div>
+                <div class="hint-row">
+                  <span class="hint-tag-try">Try</span>
+                  <span class="hint-quote-good" id="hintGoodA">“I am fully present with my work.”</span>
+                </div>
+              </div>
+
+              <div class="hint-guidance" id="guidanceA" style="display: none;">
+                Keep it short enough to hold in mind.
+              </div>
+            </div>
+
+            <div class="spf-block">
+              <div class="spf-head">
+                <span class="spf-heading">Short · Present · Felt</span>
+                <button class="info-btn" id="infoBtnA" aria-label="About these principles">
+                  <svg width="15" height="15" viewBox="0 0 15 15"><circle cx="7.5" cy="7.5" r="6.6" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="7.5" cy="4.7" r="0.85" fill="currentColor"/><rect x="6.75" y="6.6" width="1.5" height="4.3" rx="0.75" fill="currentColor"/></svg>
+                </button>
+              </div>
+              <div class="principles">
+                <div class="principle-row">
+                  <div class="principle-label">Short</div>
+                  <div class="principle-desc">One clear direction.</div>
+                </div>
+                <div class="principle-row">
+                  <div class="principle-label">Present</div>
+                  <div class="principle-desc">Say it as true now.</div>
+                </div>
+                <div class="principle-row">
+                  <div class="principle-label">Felt</div>
+                  <div class="principle-desc">Use words that matter to you.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="spacer-bottom"></div>
+          </div>
+
+          <div class="cta-bar">
+            <div class="cta-error" id="errorA" style="display: none;">Write one clear intention to continue.</div>
+            <button class="cta-btn notready" id="ctaBtnA">Continue &rarr;</button>
+          </div>
+
+          <!-- Bottom Sheet Modal A -->
+          <div class="sheet-backdrop" id="backdropA"></div>
+          <div class="sheet" id="sheetA">
+            <div class="sheet-handle"></div>
+            <button class="sheet-close" id="sheetCloseA" aria-label="Close">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M4 4l16 16M20 4L4 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            </button>
+            <div class="sheet-title">Short · Present · Felt</div>
+            <div class="sheet-item">
+              <div class="sheet-item-label">Short</div>
+              <div class="sheet-item-body">One intention. One direction.</div>
+            </div>
+            <div class="sheet-item">
+              <div class="sheet-item-label">Present</div>
+              <div class="sheet-item-body">Say it as already true, not as what you’re escaping.</div>
+              <div class="sheet-example">
+                <div><span class="hint-tag">Instead of</span> <span class="hint-quote-bad">“I don’t want to procrastinate.”</span></div>
+                <div><span class="hint-tag-try">Try</span> <span class="hint-quote-good">“I begin important work immediately.”</span></div>
+              </div>
+            </div>
+            <div class="sheet-item">
+              <div class="sheet-item-label">Felt</div>
+              <div class="sheet-item-body">Use words that feel personally meaningful.</div>
+            </div>
+            <button class="sheet-dismiss" id="sheetDismissA">Got it</button>
+          </div>
+        </div>
+
+        <div class="home-indicator"></div>
+      </div>
+    </div>
+
+    <!-- FRAME B: WRITING — KEYBOARD OPEN -->
+    <div class="frame-wrapper" id="frameBWrapper">
+      <div class="frame-label">
+        WRITING — KEYBOARD OPEN <span class="badge-mode">Active Focus</span>
+      </div>
+      <div class="ios-device">
+        <div class="dynamic-island"></div>
+        <div class="ios-status-bar">
+          <span class="ios-status-time">9:41</span>
+          <div class="ios-status-icons">
+            <svg width="18" height="12" viewBox="0 0 19 12"><rect x="0" y="7.5" width="3.2" height="4.5" rx="0.7" fill="#171717"/><rect x="4.8" y="5" width="3.2" height="7" rx="0.7" fill="#171717"/><rect x="9.6" y="2.5" width="3.2" height="9.5" rx="0.7" fill="#171717"/><rect x="14.4" y="0" width="3.2" height="12" rx="0.7" fill="#171717"/></svg>
+            <svg width="16" height="12" viewBox="0 0 17 12"><path d="M8.5 3.2C10.8 3.2 12.9 4.1 14.4 5.6L15.5 4.5C13.7 2.7 11.2 1.5 8.5 1.5C5.8 1.5 3.3 2.7 1.5 4.5L2.6 5.6C4.1 4.1 6.2 3.2 8.5 3.2Z" fill="#171717"/><circle cx="8.5" cy="10.5" r="1.5" fill="#171717"/></svg>
+            <svg width="25" height="12" viewBox="0 0 27 13"><rect x="0.5" y="0.5" width="23" height="12" rx="3.5" stroke="#171717" stroke-opacity="0.35" fill="none"/><rect x="2" y="2" width="20" height="9" rx="2" fill="#171717"/></svg>
+          </div>
+        </div>
+
+        <div class="screen is-focused" id="screenB">
+          <div class="header">
+            <button class="back-btn" id="backBtnB" aria-label="Back">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+
+          <div class="content">
+            <div class="hero-block">
+              <div class="eyebrow">Intention</div>
+              <h2 class="hero">Every Anchor starts here.</h2>
+              <p class="subhead">Write one clear intention.</p>
+            </div>
+
+            <div class="input-block">
+              <div class="field-label">
+                <span>Your intention</span>
+                <span class="char-counter" id="counterB">32/140</span>
+              </div>
+              <textarea
+                class="intention-input"
+                id="inputB"
+                placeholder="I am fully present with my work."
+                maxlength="140"
+              >I finish what matters each day.</textarea>
+
+              <div class="hint-block" id="hintBlockB" style="display: none;">
+                <div class="hint-row">
+                  <span class="hint-tag">Instead of</span>
+                  <span class="hint-quote-bad" id="hintBadB">“I want to stop getting distracted.”</span>
+                </div>
+                <div class="hint-row">
+                  <span class="hint-tag-try">Try</span>
+                  <span class="hint-quote-good" id="hintGoodB">“I am fully present with my work.”</span>
+                </div>
+              </div>
+
+              <div class="hint-guidance" id="guidanceB" style="display: none;">
+                Keep it short enough to hold in mind.
+              </div>
+            </div>
+
+            <div class="spf-block">
+              <div class="spf-head">
+                <span class="spf-heading">Short · Present · Felt</span>
+                <button class="info-btn" id="infoBtnB" aria-label="About these principles">
+                  <svg width="15" height="15" viewBox="0 0 15 15"><circle cx="7.5" cy="7.5" r="6.6" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="7.5" cy="4.7" r="0.85" fill="currentColor"/><rect x="6.75" y="6.6" width="1.5" height="4.3" rx="0.75" fill="currentColor"/></svg>
+                </button>
+              </div>
+              <div class="principles">
+                <div class="principle-row">
+                  <div class="principle-label">Short</div>
+                  <div class="principle-desc">One clear direction.</div>
+                </div>
+                <div class="principle-row">
+                  <div class="principle-label">Present</div>
+                  <div class="principle-desc">Say it as true now.</div>
+                </div>
+                <div class="principle-row">
+                  <div class="principle-label">Felt</div>
+                  <div class="principle-desc">Use words that matter to you.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="spacer-bottom"></div>
+          </div>
+
+          <div class="cta-bar">
+            <div class="cta-error" id="errorB" style="display: none;">Write one clear intention to continue.</div>
+            <button class="cta-btn ready" id="ctaBtnB">Continue &rarr;</button>
+          </div>
+
+          <!-- Bottom Sheet Modal B -->
+          <div class="sheet-backdrop" id="backdropB"></div>
+          <div class="sheet" id="sheetB">
+            <div class="sheet-handle"></div>
+            <button class="sheet-close" id="sheetCloseB" aria-label="Close">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M4 4l16 16M20 4L4 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            </button>
+            <div class="sheet-title">Short · Present · Felt</div>
+            <div class="sheet-item">
+              <div class="sheet-item-label">Short</div>
+              <div class="sheet-item-body">One intention. One direction.</div>
+            </div>
+            <div class="sheet-item">
+              <div class="sheet-item-label">Present</div>
+              <div class="sheet-item-body">Say it as already true, not as what you’re escaping.</div>
+              <div class="sheet-example">
+                <div><span class="hint-tag">Instead of</span> <span class="hint-quote-bad">“I don’t want to procrastinate.”</span></div>
+                <div><span class="hint-tag-try">Try</span> <span class="hint-quote-good">“I begin important work immediately.”</span></div>
+              </div>
+            </div>
+            <div class="sheet-item">
+              <div class="sheet-item-label">Felt</div>
+              <div class="sheet-item-body">Use words that feel personally meaningful.</div>
+            </div>
+            <button class="sheet-dismiss" id="sheetDismissB">Got it</button>
+          </div>
+        </div>
+
+        <!-- Simulated iOS Keyboard -->
+        <div class="ios-keyboard-container">
+          <div class="keyboard-autocorrect">
+            <div class="autocorrect-item">“The”</div>
+            <div class="autocorrect-sep"></div>
+            <div class="autocorrect-item" style="color: #000; font-weight: 500;">the</div>
+            <div class="autocorrect-sep"></div>
+            <div class="autocorrect-item">to</div>
+          </div>
+          <div class="keyboard-keys-grid">
+            <div class="keyboard-row">
+              <div class="key-btn">q</div><div class="key-btn">w</div><div class="key-btn">e</div><div class="key-btn">r</div><div class="key-btn">t</div>
+              <div class="key-btn">y</div><div class="key-btn">u</div><div class="key-btn">i</div><div class="key-btn">o</div><div class="key-btn">p</div>
+            </div>
+            <div class="keyboard-row" style="padding: 0 14px;">
+              <div class="key-btn">a</div><div class="key-btn">s</div><div class="key-btn">d</div><div class="key-btn">f</div><div class="key-btn">g</div>
+              <div class="key-btn">h</div><div class="key-btn">j</div><div class="key-btn">k</div><div class="key-btn">l</div>
+            </div>
+            <div class="keyboard-row">
+              <div class="key-btn special shift-btn">
+                <svg width="18" height="16" viewBox="0 0 19 17"><path d="M9.5 1L1 9.5h4.5V16h8V9.5H18L9.5 1z" fill="#404040"/></svg>
+              </div>
+              <div class="key-btn">z</div><div class="key-btn">x</div><div class="key-btn">c</div><div class="key-btn">v</div>
+              <div class="key-btn">b</div><div class="key-btn">n</div><div class="key-btn">m</div>
+              <div class="key-btn special del-btn">
+                <svg width="20" height="15" viewBox="0 0 23 17"><path d="M7 1h13a2 2 0 012 2v11a2 2 0 01-2 2H7l-6-7.5L7 1z" fill="none" stroke="#404040" stroke-width="1.6" stroke-linejoin="round"/><path d="M10 5l7 7M17 5l-7 7" stroke="#404040" stroke-width="1.6" stroke-linecap="round"/></svg>
+              </div>
+            </div>
+            <div class="keyboard-row">
+              <div class="key-btn special" style="flex: 2;">123</div>
+              <div class="key-btn space">space</div>
+              <div class="key-btn return-btn">return</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="home-indicator"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <div class="toast" id="toast">Intention ready to distill</div>
+
+  <script>
+    /* ==========================================================================
+       ANCHOR 2.0 INTENTION ENTRY JAVASCRIPT LOGIC
+       Full visual fidelity, state management, and real-time interaction
+       ========================================================================== */
+
+    const EXAMPLES = {
+      focus: { before: 'I want to stop getting distracted.', after: 'I am fully present with my work.' },
+      performance: { before: 'I hope I play well.', after: 'I compete with calm confidence.' },
+      growth: { before: 'I want my business to grow.', after: 'I build my business with consistent action.' },
+      personal: { before: "I don't want to doubt myself.", after: 'I trust myself when I make decisions.' }
+    };
+
+    let activeCategory = 'focus';
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2400);
+    }
+
+    function setupScreen(prefix) {
+      const screen = document.getElementById(`screen${prefix}`);
+      const input = document.getElementById(`input${prefix}`);
+      const counter = document.getElementById(`counter${prefix}`);
+      const hintBlock = document.getElementById(`hintBlock${prefix}`);
+      const guidance = document.getElementById(`guidance${prefix}`);
+      const hintBad = document.getElementById(`hintBad${prefix}`);
+      const hintGood = document.getElementById(`hintGood${prefix}`);
+      const ctaBtn = document.getElementById(`ctaBtn${prefix}`);
+      const errorMsg = document.getElementById(`errorA`);
+      const infoBtn = document.getElementById(`infoBtn${prefix}`);
+      const sheet = document.getElementById(`sheet${prefix}`);
+      const backdrop = document.getElementById(`backdrop${prefix}`);
+      const sheetClose = document.getElementById(`sheetClose${prefix}`);
+      const sheetDismiss = document.getElementById(`sheetDismiss${prefix}`);
+      const backBtn = document.getElementById(`backBtn${prefix}`);
+
+      function updateCategory(cat) {
+        if (EXAMPLES[cat]) {
+          hintBad.textContent = `“${EXAMPLES[cat].before}”`;
+          hintGood.textContent = `“${EXAMPLES[cat].after}”`;
+        }
+      }
+
+      function updateState() {
+        const text = input.value;
+        const trimmed = text.trim();
+        const wordCount = trimmed ? trimmed.split(/\s+/).length : 0;
+        const ready = trimmed.length > 2;
+        const tooLong = wordCount > 14;
+
+        counter.textContent = `${text.length}/140`;
+
+        if (trimmed.length === 0) {
+          hintBlock.style.display = 'flex';
+          guidance.style.display = 'none';
+        } else {
+          hintBlock.style.display = 'none';
+          guidance.style.display = tooLong ? 'block' : 'none';
+        }
+
+        if (ready) {
+          ctaBtn.classList.remove('notready');
+          ctaBtn.classList.add('ready');
+          if (errorMsg) errorMsg.style.display = 'none';
+        } else {
+          ctaBtn.classList.remove('ready');
+          ctaBtn.classList.add('notready');
+        }
+      }
+
+      input.addEventListener('input', updateState);
+
+      input.addEventListener('focus', () => {
+        screen.classList.add('is-focused');
+      });
+
+      input.addEventListener('blur', () => {
+        if (prefix === 'A') {
+          screen.classList.remove('is-focused');
+        }
+      });
+
+      ctaBtn.addEventListener('click', () => {
+        const trimmed = input.value.trim();
+        if (trimmed.length <= 2) {
+          if (errorMsg) errorMsg.style.display = 'block';
+        } else {
+          showToast(`Proceeding with: "${trimmed}"`);
+        }
+      });
+
+      backBtn.addEventListener('click', () => {
+        showToast('Navigation: Return to home / library');
+      });
+
+      // Sheet open/close
+      function openSheet() {
+        sheet.classList.add('open');
+        backdrop.classList.add('open');
+      }
+
+      function closeSheet() {
+        sheet.classList.remove('open');
+        backdrop.classList.remove('open');
+      }
+
+      infoBtn.addEventListener('click', openSheet);
+      backdrop.addEventListener('click', closeSheet);
+      sheetClose.addEventListener('click', closeSheet);
+      sheetDismiss.addEventListener('click', closeSheet);
+
+      updateCategory(activeCategory);
+      updateState();
+
+      return { updateCategory };
+    }
+
+    const screenA = setupScreen('A');
+    const screenB = setupScreen('B');
+
+    // Category Buttons
+    const catButtons = document.querySelectorAll('.cat-btn');
+    catButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        catButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeCategory = btn.dataset.cat;
+        screenA.updateCategory(activeCategory);
+        screenB.updateCategory(activeCategory);
+      });
+    });
+
+    // View Toggle Button (Dual vs Single)
+    const viewToggleBtn = document.getElementById('viewToggleBtn');
+    const viewToggleLabel = document.getElementById('viewToggleLabel');
+    const frameBWrapper = document.getElementById('frameBWrapper');
+    let isDual = true;
+
+    viewToggleBtn.addEventListener('click', () => {
+      isDual = !isDual;
+      if (isDual) {
+        frameBWrapper.style.display = 'flex';
+        viewToggleLabel.textContent = 'Dual View';
+      } else {
+        frameBWrapper.style.display = 'none';
+        viewToggleLabel.textContent = 'Single Frame';
+      }
+    });
+
+  </script>
+</body>
+</html>
