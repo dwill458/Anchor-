@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { PanResponder, Pressable, StyleSheet, Text, TextInput, View, type ViewStyle } from 'react-native';
-import { ArrowLeft } from 'lucide-react-native';
+import { Modal, PanResponder, Pressable, StyleSheet, Text, TextInput, View, type ViewStyle } from 'react-native';
+import { ArrowLeft, Info, X } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { CircularAnchorRenderer, V2Button, V2IconButton, V2Screen, V2Surface } from '@/components/v2';
@@ -109,6 +109,55 @@ function AnchorArt({ svg, category, expression, size, label }: { svg?: string; c
 const pointsToPath = (points: Array<{ x: number; y: number }>) =>
   points.length ? `M ${points[0].x} ${points[0].y} ${points.slice(1).map((point) => `L ${point.x} ${point.y}`).join(' ')}` : '';
 
+const INTENTION_EXAMPLES: Record<string, { before: string; after: string }> = {
+  focus: { before: 'I want to stop getting distracted.', after: 'I am fully present with my work.' },
+  performance: { before: 'I hope I play well.', after: 'I compete with calm confidence.' },
+  growth: { before: 'I want my business to grow.', after: 'I build my business with consistent action.' },
+  personal: { before: "I don't want to doubt myself.", after: 'I trust myself when I make decisions.' },
+  career: { before: 'I want to stop getting distracted.', after: 'I am fully present with my work.' },
+};
+
+function PrinciplesSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.sheetBackdrop} onPress={onClose}>
+        <Pressable style={styles.sheetContainer} onPress={(e) => e.stopPropagation()}>
+          <View style={styles.sheetHandle} />
+          <Pressable style={styles.sheetCloseBtn} onPress={onClose} accessibilityLabel="Close" accessibilityRole="button" hitSlop={8}>
+            <X size={15} color={colors.text.secondary} />
+          </Pressable>
+          <Text style={styles.sheetTitle}>Short · Present · Felt</Text>
+          <View style={styles.sheetItem}>
+            <Text style={styles.sheetItemLabel}>SHORT</Text>
+            <Text style={styles.sheetItemBody}>One intention. One direction.</Text>
+          </View>
+          <View style={styles.sheetItem}>
+            <Text style={styles.sheetItemLabel}>PRESENT</Text>
+            <Text style={styles.sheetItemBody}>Say it as already true, not as what you’re escaping.</Text>
+            <View style={styles.sheetExample}>
+              <View style={styles.hintRow}>
+                <Text style={styles.hintTag}>Instead of </Text>
+                <Text style={styles.hintQuoteBad}>“I don’t want to procrastinate.”</Text>
+              </View>
+              <View style={styles.hintRow}>
+                <Text style={styles.hintTagTry}>TRY </Text>
+                <Text style={styles.hintQuoteGood}>“I begin important work immediately.”</Text>
+              </View>
+            </View>
+          </View>
+          <View style={styles.sheetItem}>
+            <Text style={styles.sheetItemLabel}>FELT</Text>
+            <Text style={styles.sheetItemBody}>Use words that feel personally meaningful.</Text>
+          </View>
+          <V2Button variant="secondary" size="large" style={styles.sheetDismissBtn} onPress={onClose}>
+            Got it
+          </V2Button>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 /**
  * Integration-safe fallback: exactly two candidates that share one identical structure SVG.
  * Only the finish (`expression`) differs — the geometry is never regenerated per candidate.
@@ -186,6 +235,9 @@ export function V2CreationFlow({ saveAnchor, onContinue, generateCandidates }: V
   const failSave = useCreationStore((state) => state.failSave);
   const reduceMotion = useV2ReduceMotion();
   const [integrationError, setIntegrationError] = useState<string | null>(null);
+  const [isFocused, setIsFocused] = useState(false);
+  const [showValidationError, setShowValidationError] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   useEffect(() => {
     if (!draft) {
@@ -200,6 +252,14 @@ export function V2CreationFlow({ saveAnchor, onContinue, generateCandidates }: V
   const category = draft.category;
   const accent = getCategoryColor(category);
   const step = draft.currentStep;
+
+  const intentionTrimmed = draft.intention ? draft.intention.trim() : '';
+  const wordCount = intentionTrimmed ? intentionTrimmed.split(/\s+/).length : 0;
+  const isIntentionReady = intentionTrimmed.length > 2;
+  const isIntentionTooLong = wordCount > 14;
+  const intentionCategoryKey = draft.category?.toLowerCase() ?? 'focus';
+  const intentionExample = INTENTION_EXAMPLES[intentionCategoryKey] ?? INTENTION_EXAMPLES.focus;
+
   const goBack = () => {
     const target = backStep[step];
     if (target) {
@@ -212,6 +272,14 @@ export function V2CreationFlow({ saveAnchor, onContinue, generateCandidates }: V
     if (useCreationStore.getState().draft?.formationError) return;
     track('v2_creation_intention_completed');
     track('v2_creation_distillation_completed');
+  };
+  const handleIntentionContinue = () => {
+    if (!isIntentionReady) {
+      setShowValidationError(true);
+      return;
+    }
+    setShowValidationError(false);
+    goToStructure();
   };
   const chooseStructure = (structure: CanonicalStructure) => {
     v2Haptics.selection();
@@ -271,22 +339,104 @@ export function V2CreationFlow({ saveAnchor, onContinue, generateCandidates }: V
 
       {step === 'intention' && (
         <View style={styles.flow}>
-          <Text style={styles.eyebrow}>NEW ANCHOR</Text>
-          <Text style={styles.title}>What are you ready to hold?</Text>
-          <Text style={styles.body}>Keep it short, present, and felt.</Text>
-          <V2Surface style={styles.writingSurface}>
-            <TextInput
-              value={draft.intention}
-              onChangeText={setIntention}
-              placeholder="I finish what matters."
-              placeholderTextColor={colors.text.disabled}
-              multiline
-              style={styles.input}
-              accessibilityLabel="Your intention"
-            />
-          </V2Surface>
+          <View style={styles.heroBlock}>
+            {!isFocused && <Text style={styles.eyebrow}>INTENTION</Text>}
+            <Text style={[styles.heroHeadline, isFocused && styles.heroHeadlineFocused]}>
+              Every Anchor starts here.
+            </Text>
+            {!isFocused && <Text style={styles.heroSubhead}>Write one clear intention.</Text>}
+          </View>
+
+          <View style={styles.inputBlock}>
+            <View style={styles.fieldLabelRow}>
+              <Text style={styles.fieldLabel}>YOUR INTENTION</Text>
+              <Text style={styles.charCounter}>{draft.intention.length}/140</Text>
+            </View>
+            <View style={[styles.intentionSurface, isFocused && styles.intentionSurfaceFocused]}>
+              <TextInput
+                value={draft.intention}
+                onChangeText={(text) => {
+                  setIntention(text);
+                  if (showValidationError) setShowValidationError(false);
+                }}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+                placeholder="I am fully present with my work."
+                placeholderTextColor={colors.text.disabled}
+                multiline
+                maxLength={140}
+                style={styles.intentionInput}
+                accessibilityLabel="Your intention"
+              />
+            </View>
+
+            {!intentionTrimmed && (
+              <View style={styles.hintBlock}>
+                <View style={styles.hintRow}>
+                  <Text style={styles.hintTag}>Instead of </Text>
+                  <Text style={styles.hintQuoteBad}>“{intentionExample.before}”</Text>
+                </View>
+                <View style={styles.hintRow}>
+                  <Text style={styles.hintTagTry}>TRY </Text>
+                  <Text style={styles.hintQuoteGood}>“{intentionExample.after}”</Text>
+                </View>
+              </View>
+            )}
+
+            {!!intentionTrimmed && isIntentionTooLong && (
+              <Text style={styles.hintGuidance}>Keep it short enough to hold in mind.</Text>
+            )}
+          </View>
+
+          <View style={styles.spfBlock}>
+            <View style={styles.spfHead}>
+              <Text style={styles.spfHeading}>SHORT · PRESENT · FELT</Text>
+              <Pressable
+                style={styles.infoBtn}
+                onPress={() => setSheetOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel="About these principles"
+                hitSlop={8}
+              >
+                <Info size={15} color={colors.text.secondary} />
+              </Pressable>
+            </View>
+            <View style={styles.principles}>
+              <View style={styles.principleRow}>
+                <Text style={styles.principleLabel}>SHORT</Text>
+                <Text style={styles.principleDesc}>One clear direction.</Text>
+              </View>
+              <View style={styles.principleRow}>
+                <Text style={styles.principleLabel}>PRESENT</Text>
+                <Text style={styles.principleDesc}>Say it as true now.</Text>
+              </View>
+              <View style={styles.principleRow}>
+                <Text style={styles.principleLabel}>FELT</Text>
+                <Text style={styles.principleDesc}>Use words that matter to you.</Text>
+              </View>
+            </View>
+          </View>
+
+          {showValidationError ? (
+            <Text style={styles.ctaError} accessibilityRole="alert">
+              Write one clear intention to continue.
+            </Text>
+          ) : null}
           {draft.formationError ? <V2InlineError message={draft.formationError} /> : null}
-          <V2Button size="large" disabled={!draft.intention.trim()} onPress={goToStructure}>Distill intention</V2Button>
+
+          <V2Button
+            size="large"
+            style={[
+              styles.ctaButton,
+              !isIntentionReady && styles.ctaButtonNotReady,
+            ]}
+            onPress={handleIntentionContinue}
+            accessibilityLabel="Continue to distillation"
+          >
+            Continue →
+          </V2Button>
+
+          <PrinciplesSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} />
         </View>
       )}
 
@@ -489,4 +639,79 @@ const styles = StyleSheet.create({
   expressionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
   expressionOption: { width: '48%', minHeight: 132, alignItems: 'center', gap: spacing[1], paddingVertical: spacing[3], paddingHorizontal: spacing[2], borderWidth: 1, borderColor: colors.border.subtle, borderRadius: radii.lg, backgroundColor: colors.surface },
   candidate: { borderWidth: 1, borderColor: colors.border.subtle, backgroundColor: colors.surface, borderRadius: radii.lg, padding: spacing[4], alignItems: 'center', gap: spacing[2] },
+  heroBlock: { gap: spacing[2] },
+  heroHeadline: { ...typography.headingXL, fontSize: 32, lineHeight: 36, color: colors.text.primary },
+  heroHeadlineFocused: { fontSize: 24, lineHeight: 28 },
+  heroSubhead: { ...typography.bodyLG, color: colors.text.secondary },
+  inputBlock: { gap: spacing[2] },
+  fieldLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  fieldLabel: { ...typography.labelSM, color: colors.text.secondary },
+  charCounter: { ...typography.caption, color: colors.text.disabled },
+  intentionSurface: {
+    minHeight: 128,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: colors.border.default,
+    backgroundColor: colors.surface,
+    padding: spacing[4],
+  },
+  intentionSurfaceFocused: {
+    borderColor: colors.text.primary,
+  },
+  intentionInput: {
+    ...typography.bodyLG,
+    color: colors.text.primary,
+    minHeight: 96,
+    textAlignVertical: 'top',
+    padding: 0,
+  },
+  hintBlock: { marginTop: spacing[1], gap: 4 },
+  hintRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline' },
+  hintTag: { ...typography.bodySM, color: colors.text.secondary },
+  hintQuoteBad: { ...typography.bodySM, color: '#969088', fontStyle: 'italic' },
+  hintTagTry: { ...typography.labelSM, color: colors.text.secondary },
+  hintQuoteGood: { ...typography.bodySM, color: colors.text.primary, fontFamily: typography.bodyBold },
+  hintGuidance: { ...typography.bodySM, color: colors.text.secondary, fontStyle: 'italic', marginTop: spacing[2] },
+  spfBlock: { marginTop: spacing[2], gap: spacing[3] },
+  spfHead: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
+  spfHeading: { ...typography.labelSM, color: colors.text.secondary },
+  infoBtn: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
+  principles: { gap: spacing[3] },
+  principleRow: { gap: 2 },
+  principleLabel: { ...typography.labelSM, color: colors.text.primary },
+  principleDesc: { ...typography.bodyMD, color: colors.text.secondary },
+  ctaError: { ...typography.bodySM, color: colors.text.secondary, textAlign: 'center' },
+  ctaButton: { height: 56, borderRadius: 16 },
+  ctaButtonNotReady: { backgroundColor: '#DCD6C9', borderColor: '#DCD6C9' },
+  sheetBackdrop: { flex: 1, backgroundColor: 'rgba(23, 23, 20, 0.38)', justifyContent: 'flex-end' },
+  sheetContainer: {
+    backgroundColor: colors.background,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: spacing[6],
+    paddingTop: spacing[4],
+    paddingBottom: spacing[8],
+    gap: spacing[4],
+    position: 'relative',
+  },
+  sheetHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border.default, alignSelf: 'center', marginBottom: spacing[2] },
+  sheetCloseBtn: {
+    position: 'absolute',
+    top: spacing[4],
+    right: spacing[4],
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetTitle: { ...typography.headingMD, color: colors.text.primary },
+  sheetItem: { gap: 4 },
+  sheetItemLabel: { ...typography.labelSM, color: colors.text.secondary },
+  sheetItemBody: { ...typography.bodyMD, color: colors.text.primary },
+  sheetExample: { marginTop: spacing[1], gap: 4 },
+  sheetDismissBtn: { height: 48, borderRadius: 14, borderColor: colors.border.default },
 });

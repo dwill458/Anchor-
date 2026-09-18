@@ -133,4 +133,61 @@ describe('V2CreationFlow', () => {
     fireEvent.press(getByText('Create a Chart'));
     expect(onContinue).toHaveBeenCalledWith({ type: 'chart', anchorId: 'anchor-7' });
   });
+
+  describe('intention step visual & behavior', () => {
+    it('renders the intention screen with full visual hierarchy and category hint', () => {
+      setDraft({ currentStep: 'intention', intention: '', category: 'focus' });
+      const { getByText, getByPlaceholderText } = render(<V2CreationFlow />);
+
+      expect(getByText('INTENTION')).toBeTruthy();
+      expect(getByText('Every Anchor starts here.')).toBeTruthy();
+      expect(getByText('Write one clear intention.')).toBeTruthy();
+      expect(getByText('YOUR INTENTION')).toBeTruthy();
+      expect(getByText('0/140')).toBeTruthy();
+      expect(getByPlaceholderText('I am fully present with my work.')).toBeTruthy();
+      expect(getByText(/Instead of/)).toBeTruthy();
+      expect(getByText('“I want to stop getting distracted.”')).toBeTruthy();
+      expect(getByText('“I am fully present with my work.”')).toBeTruthy();
+      expect(getByText('SHORT · PRESENT · FELT')).toBeTruthy();
+      expect(getByText('Continue →')).toBeTruthy();
+    });
+
+    it('shows validation error when Continue is pressed with empty intention', () => {
+      setDraft({ currentStep: 'intention', intention: '   ' });
+      const { getByText, queryByText } = render(<V2CreationFlow />);
+
+      expect(queryByText('Write one clear intention to continue.')).toBeNull();
+      fireEvent.press(getByText('Continue →'));
+      expect(getByText('Write one clear intention to continue.')).toBeTruthy();
+    });
+
+    it('opens and closes the Principles bottom sheet', () => {
+      setDraft({ currentStep: 'intention', intention: '' });
+      const { getByLabelText, getByText, queryByText } = render(<V2CreationFlow />);
+
+      expect(queryByText('Short · Present · Felt')).toBeNull();
+      fireEvent.press(getByLabelText('About these principles'));
+      expect(getByText('Short · Present · Felt')).toBeTruthy();
+      expect(getByText('One intention. One direction.')).toBeTruthy();
+
+      fireEvent.press(getByText('Got it'));
+      expect(queryByText('Short · Present · Felt')).toBeNull();
+    });
+
+    it('shows word count guidance warning when intention exceeds 14 words', () => {
+      const longIntention = 'one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen';
+      setDraft({ currentStep: 'intention', intention: longIntention });
+      const { getByText } = render(<V2CreationFlow />);
+
+      expect(getByText('Keep it short enough to hold in mind.')).toBeTruthy();
+    });
+
+    it('transitions to distillation when Continue is pressed with valid intention', () => {
+      setDraft({ currentStep: 'intention', intention: 'I compete with calm confidence' });
+      const { getByText, getByTestId } = render(<V2CreationFlow />);
+
+      fireEvent.press(getByText('Continue →'));
+      expect(getByTestId('v2-creation-distillation')).toBeTruthy();
+    });
+  });
 });
