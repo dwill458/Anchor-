@@ -145,3 +145,49 @@ backend/uploads/
 
 # Claude Code scheduler session state (per-machine, not shareable)
 .claude/scheduled_tasks.lock
+
+# ----------------------------------------------------------------------------
+# Generated graphify output (root-level — anchor/mobile already covered above)
+# ----------------------------------------------------------------------------
+graphify-out/
+backend/graphify-out/
+
+# ----------------------------------------------------------------------------
+# OTA release build output
+# ----------------------------------------------------------------------------
+_ota-release/
+
+# ----------------------------------------------------------------------------
+# AI service Python environment and cache
+# ----------------------------------------------------------------------------
+ai-service/.venv/
+ai-service/src/__pycache__/
+ai-service/**/__pycache__/
+
+# ----------------------------------------------------------------------------
+# Test runner output
+# ----------------------------------------------------------------------------
+test-results/
+
+# ----------------------------------------------------------------------------
+# Anchor mobile artifacts (large locked screen-export HTML — get separately)
+# ----------------------------------------------------------------------------
+anchor/mobile/artifacts/
+
+# ----------------------------------------------------------------------------
+# Design extraction output (CSS/HTML unpacked from bundles)
+# ----------------------------------------------------------------------------
+design/extracted/
+
+# ----------------------------------------------------------------------------
+# Loose root-level scratch JS files (pattern: scratch_<hash>.js)
+# ----------------------------------------------------------------------------
+scratch_*.js
+
+# ----------------------------------------------------------------------------
+# Temp directories and unpack outputs
+# ----------------------------------------------------------------------------
+temp_frames/
+temp_backup_untracked/
+unpacked_handmade/
+unpacked_review/
