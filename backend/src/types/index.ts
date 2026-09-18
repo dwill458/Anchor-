@@ -18,6 +18,7 @@ export type SigilVariant = 'dense' | 'balanced' | 'minimal';
  * Launch library styles are organized as 12 core, 4 featured, and 4 seasonal styles.
  */
 export const AI_STYLE_IDS = [
+  // ── Existing 20 launch styles (strictly preserved IDs & order) ──────────────
   'architectural_trace',
   'lunar_etch',
   'resonance_rings',
@@ -38,9 +39,81 @@ export const AI_STYLE_IDS = [
   'tideglass',
   'sacred_geometry',
   'velvet_ember',
+  // ── Preserved production styles (OTA / existing clients) ────────────────────
+  'solar_veil',
+  'ink_bloom',
+  'prism_fold',
+  'ocean_current',
+  'halo_drift',
+  'harvest_gild',
+  'midnight_bloom',
+  'winter_halo',
+  'original',
+  // ── Anchor 2.0 V2 Styles ───────────────────────────────────────────────────
+  'cyanotype',
+  'cut_paper',
+  'risograph',
+  'screenprint',
+  'monoprint',
+  'charcoal_field',
+  'graphite_study',
+  'stone_relief',
+  'porcelain',
+  'copper_patina',
+  'topographic',
+  'botanical_etching',
+  'mineral_bloom',
+  'dreamscape',
+  'soft_monument',
+  'street_mark',
+  'collage_archive',
+  'lightfield',
 ] as const;
 
 export type AIStyle = (typeof AI_STYLE_IDS)[number];
+
+export type StyleLifecycleStatus = 'ACTIVE' | 'ROTATION' | 'LEGACY' | 'EXPERIMENTAL';
+
+export interface VisualLanguageDNA {
+  coreArtWorld?: string;
+  primaryMedium?: string;
+  substrate?: string;
+  edgeBehavior?: string;
+  lineBehavior?: string;
+  spatialBehavior?: string;
+  lightBehavior?: string;
+  textureLogic?: string;
+  depthLogic?: string;
+  ornamentSystem?: string;
+  framingLogic?: string;
+
+  signatureTraits?: string[];
+  shouldFeelLike?: string;
+  mustNotFeelLike?: string;
+  crossStyleAvoidances?: string[];
+
+  paletteBehavior?: string;
+  preferredPaletteLanes?: string[];
+  categoryColorBehavior?: string;
+  accentBehavior?: string;
+
+  allowedCompositionFamilies?: string[];
+  preferredCompositionFamilies?: string[];
+
+  motifVocabulary?: string[];
+  intentionMotifBehavior?: string;
+  prohibitedMotifs?: string[];
+  maxSupportingMotifs?: number;
+
+  directionalBehavior?: string;
+  densityBehavior?: string;
+  focalBehavior?: string;
+  atmosphericBehavior?: string;
+
+  negativePromptAdditions?: string[];
+  stylePromptDirectives?: string[];
+  visualFailureConditions?: string[];
+}
 
 /**
  * Legacy AI styles (deprecated, kept for backward compatibility)
