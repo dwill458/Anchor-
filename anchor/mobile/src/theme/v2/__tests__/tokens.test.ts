@@ -1,4 +1,4 @@
-import { categories, colors, getCategoryColor, getCategoryFieldColor, getCategorySoftTint, getPracticeCardTheme, getPracticeColor, getPracticeSoftTint, practiceColors } from '@/theme/v2';
+import { AnchorMotion, categories, colors, getCategoryColor, getCategoryFieldColor, getCategorySoftTint, getPracticeCardTheme, getPracticeColor, getPracticeSoftTint, practiceColors } from '@/theme/v2';
 
 describe('V2 design tokens', () => {
   it('exports the locked neutral palette', () => {
@@ -48,5 +48,18 @@ describe('V2 design tokens', () => {
     const releaseTheme = getPracticeCardTheme('release');
     expect(releaseTheme.accent).toBe('#DD5F2C');
     expect(releaseTheme.surface).toBe('#FDF8F4');
+  });
+
+  it('centralizes grounded V2 motion defaults for UI-thread consumers', () => {
+    expect(AnchorMotion.duration).toEqual({
+      micro: 120,
+      quick: 180,
+      standard: 280,
+      expressive: 420,
+      ambient: 3200,
+    });
+    expect(AnchorMotion.spring.carousel).toEqual({ damping: 26, stiffness: 190, mass: 1.1 });
+    expect(AnchorMotion.easing.enter).toBeDefined();
+    expect(AnchorMotion.easing.gentle).toBeDefined();
   });
 });

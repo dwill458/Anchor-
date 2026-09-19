@@ -3,7 +3,7 @@ export { typography } from './typography';
 export { spacing } from './spacing';
 export { radii } from './radii';
 export { shadows } from './shadows';
-export { motion } from './motion';
+export { AnchorMotion, motion } from './motion';
 export { categories, getCategoryColor, getCategoryFieldColor, getCategorySoftTint, getCategoryPalette } from './categories';
 export type { V2Category } from './categories';
 export { practiceColors, getPracticeColor, getPracticeSoftTint, practiceCardThemes, getPracticeCardTheme } from './practiceColors';
