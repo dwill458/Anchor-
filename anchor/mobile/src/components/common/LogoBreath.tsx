@@ -10,10 +10,10 @@
  * - Dissolve: 400-500ms (logo fades out, overlaps with next screen)
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { EaseView } from 'react-native-ease';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withSequence, withTiming } from 'react-native-reanimated';
 import { colors } from '@/theme';
 
 interface LogoBreathProps {
@@ -21,17 +21,29 @@ interface LogoBreathProps {
 }
 
 export const LogoBreath: React.FC<LogoBreathProps> = ({ onComplete }) => {
-    const [visible, setVisible] = useState(true);
+    const opacity = useSharedValue(0);
+    const scale = useSharedValue(0.96);
+    const logoStyle = useAnimatedStyle(() => ({
+        opacity: opacity.value,
+        transform: [{ scale: scale.value }],
+    }));
 
     useEffect(() => {
-        // Entrance: 0-300ms, hold: 300-400ms, dissolve: 400-500ms.
-        const dissolveTimer = setTimeout(() => setVisible(false), 400);
+        // Entrance: 0-300ms, hold: 300-400ms, dissolve: 400-500ms. The
+        // visual sequence stays on the UI thread; only navigation is timed in JS.
+        opacity.value = withSequence(
+            withTiming(1, { duration: 300, easing: Easing.out(Easing.ease) }),
+            withDelay(100, withTiming(0, { duration: 100, easing: Easing.linear })),
+        );
+        scale.value = withSequence(
+            withTiming(1, { duration: 300, easing: Easing.out(Easing.ease) }),
+            withDelay(100, withTiming(0.98, { duration: 100, easing: Easing.linear })),
+        );
         const completeTimer = setTimeout(onComplete, 500);
         return () => {
-            clearTimeout(dissolveTimer);
             clearTimeout(completeTimer);
         };
-    }, [onComplete]);
+    }, [onComplete, opacity, scale]);
 
     return (
         <View style={styles.container}>
@@ -48,13 +60,8 @@ export const LogoBreath: React.FC<LogoBreathProps> = ({ onComplete }) => {
             />
 
             {/* Logo mark */}
-            <EaseView
-                initialAnimate={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: visible ? 1 : 0, scale: visible ? 1 : 0.98 }}
-                transition={visible
-                    ? { type: 'timing', duration: 300, easing: 'easeOut' }
-                    : { type: 'timing', duration: 100, easing: 'linear' }}
-                style={styles.logoContainer}
+            <Animated.View
+                style={[styles.logoContainer, logoStyle]}
             >
                 {/* Official Logo */}
                 <Image
@@ -62,7 +69,7 @@ export const LogoBreath: React.FC<LogoBreathProps> = ({ onComplete }) => {
                     style={styles.logoImage}
                     resizeMode="contain"
                 />
-            </EaseView>
+            </Animated.View>
         </View>
     );
 };
