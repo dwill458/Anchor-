@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useRef } from 'react';
-import { Animated, AppState, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect } from 'react';
+import { AppState, ScrollView, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Ellipse, Path } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,7 +19,7 @@ import { useV2HomeModel } from '@/adapters/v2/home';
 import { useV2ReduceMotion } from '@/hooks/v2';
 import { useV2ThreadEventQueue } from '@/hooks/v2/threadEvents';
 import { V2ThreadEventModal } from '@/components/v2/threadEvents';
-import { colors, getCategoryColor, motion } from '@/theme/v2';
+import { colors, getCategoryColor } from '@/theme/v2';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { useV2DailyShellIntents, type V2DailyShellParamList } from './dailyShell';
 import { isWithinWeeklyInsightReviewWindow } from '@/adapters/v2/weeklyInsight';
@@ -107,32 +107,6 @@ export function V2HomeScreen() {
 
   const selectedId = model.selectedAnchor?.id ?? null;
 
-  /**
-   * One short cross-fade when the Anchor changes, so the whole context reads
-   * as a single swap rather than modules updating out of step.
-   *
-   * Deliberately a sequence rather than `setValue(0)` + `timing(1)`: with the
-   * native driver a JS-side `setValue` can land on the UI thread *after* the
-   * animation it was meant to precede, stranding the view at zero opacity.
-   * There is also no fade on first paint — the screen must never appear blank.
-   */
-  const fade = useRef(new Animated.Value(1)).current;
-  const fadedFrom = useRef<string | null>(null);
-  useEffect(() => {
-    const previous = fadedFrom.current;
-    fadedFrom.current = selectedId;
-    if (reduceMotion || !selectedId || previous === null || previous === selectedId) return;
-    const animation = Animated.sequence([
-      Animated.timing(fade, { toValue: 0, duration: 90, useNativeDriver: true }),
-      Animated.timing(fade, { toValue: 1, duration: motion.standard, useNativeDriver: true }),
-    ]);
-    animation.start();
-    return () => {
-      animation.stop();
-      fade.setValue(1);
-    };
-  }, [fade, reduceMotion, selectedId]);
-
   const categoryColor = getCategoryColor(model.selectedAnchor?.category);
 
   const header = (
@@ -212,7 +186,7 @@ export function V2HomeScreen() {
         {/* ── Cream hero world ── */}
         {header}
 
-        <Animated.View style={[styles.creamZone, { opacity: fade }]}>
+        <View style={styles.creamZone}>
           <V2HomeHero
             testID="v2-home-hero"
             anchors={model.anchorList}
@@ -236,13 +210,13 @@ export function V2HomeScreen() {
               navigation.navigate('V2AnchorLibrary');
             }}
           />
-        </Animated.View>
+        </View>
 
         {/* ── Centre splice: one continuous surface, not a floating card ── */}
         <V2HomeCreamSplice testID="v2-home-splice" />
 
         {/* ── Graphite system world ── */}
-        <Animated.View testID="v2-home-graphite-zone" style={[styles.graphiteZone, { opacity: fade, paddingBottom: 56 + insets.bottom }]}>
+        <View testID="v2-home-graphite-zone" style={[styles.graphiteZone, { paddingBottom: 56 + insets.bottom }]}>
           <V2HomeTodaySection
             testID="v2-home-today"
             today={model.today}
@@ -293,7 +267,7 @@ export function V2HomeScreen() {
               intents.onOpenProgress(selectedId ?? undefined);
             }}
           />
-        </Animated.View>
+        </View>
 
         {/* Keeps the graphite field unbroken under an overscroll bounce. */}
         <View style={styles.overscrollFill} pointerEvents="none" />

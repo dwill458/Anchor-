@@ -1,9 +1,20 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-import { Animated, PanResponder, Pressable, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  cancelAnimation,
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+  type SharedValue,
+} from 'react-native-reanimated';
 import Svg, { Circle, G, Path } from 'react-native-svg';
 import { CircularAnchorRenderer } from '@/components/v2';
 import { v2Haptics } from '@/hooks/v2';
-import { getCategoryColor } from '@/theme/v2';
+import { AnchorMotion, getCategoryColor } from '@/theme/v2';
 import { anchorArtworkSvg, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
 import type { V2HomeAnchorSummary } from '@/adapters/v2/home';
 
@@ -21,6 +32,9 @@ const NEIGHBOUR_HANG = Math.round(NEIGHBOUR_ANCHOR_SIZE * 0.62);
 const COMMIT_DISTANCE = 56;
 const DRAG_RESISTANCE = 0.42;
 const NEIGHBOUR_DRAG_RESISTANCE = 0.22;
+const MAX_DRAG_DISTANCE = 240;
+const FLICK_VELOCITY = 450;
+type Direction = -1 | 1;
 
 type Props = {
   anchors: V2HomeAnchorSummary[];
@@ -88,150 +102,40 @@ function ConstructionStrokes({ color, size }: { color: string; size: number }) {
  * selected-Anchor authority, so every other Home module re-derives from the new
  * Anchor in the same render.
  */
-export function V2HomeAnchorCarousel({ anchors, selectedIndex, onSelect, onOpenActive, reduceMotion = false, testID }: Props) {
-  const drag = useRef(new Animated.Value(0)).current;
-  const dragValue = useRef(0);
-  const committing = useRef(false);
+type NeighbourProps = {
+  summary: V2HomeAnchorSummary;
+  side: 'previous' | 'next';
+  drag: SharedValue<number>;
+  onCommit: (direction: Direction) => void;
+};
 
-  const total = anchors.length;
-  const index = selectedIndex >= 0 && selectedIndex < total ? selectedIndex : 0;
-  const active = anchors[index];
-  const previous = total > 1 ? anchors[(index - 1 + total) % total] : null;
-  const next = total > 1 ? anchors[(index + 1) % total] : null;
-  const canSwitch = total > 1;
-
-  useEffect(() => {
-    const listener = drag.addListener(({ value }) => {
-      dragValue.current = value;
-    });
-    return () => drag.removeListener(listener);
-  }, [drag]);
-
-  // A new selection is a completed swap: the cluster returns to rest instantly
-  // so the incoming Anchor is centred rather than sliding in from the old offset.
-  useEffect(() => {
-    committing.current = false;
-    drag.setValue(0);
-    dragValue.current = 0;
-  }, [drag, active?.anchor.id]);
-
-  const commit = useCallback(
-    (direction: -1 | 1) => {
-      if (!canSwitch || committing.current) return;
-      const target = anchors[(index + direction + total) % total];
-      if (!target) return;
-      committing.current = true;
-      v2Haptics.selection();
-      /**
-       * Return to rest before handing the selection over. The reset must not
-       * depend on the incoming Anchor differing from the outgoing one —
-       * otherwise a selection that does not move would strand the cluster
-       * mid-swipe with gestures permanently blocked.
-       */
-      const settle = () => {
-        drag.setValue(0);
-        dragValue.current = 0;
-        committing.current = false;
-        onSelect(target.anchor.id);
-      };
-      if (reduceMotion) {
-        settle();
-        return;
-      }
-      Animated.timing(drag, {
-        toValue: -direction * COMMIT_DISTANCE * 1.9,
-        duration: 150,
-        useNativeDriver: true,
-      }).start(settle);
-    },
-    [anchors, canSwitch, drag, index, onSelect, reduceMotion, total],
-  );
-
-  /** A deliberate sideways drag, not the start of a vertical page scroll. */
-  const horizontalIntent = useCallback(
-    (gesture: { dx: number; dy: number }) =>
-      canSwitch && Math.abs(gesture.dx) > 6 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.2,
-    [canSwitch],
-  );
-
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        /**
-         * Capture phase: the hero artwork is a Pressable, which claims the
-         * responder on touch-down. Without capturing, a horizontal drag that
-         * starts on the artwork — the natural place to grab it — would never
-         * reach this responder and the Anchor would not switch.
-         */
-        onMoveShouldSetPanResponderCapture: (_event, gesture) => horizontalIntent(gesture),
-        onMoveShouldSetPanResponder: (_event, gesture) => horizontalIntent(gesture),
-        // The vertical ScrollView must not be able to reclaim an active drag.
-        onPanResponderTerminationRequest: () => false,
-        onPanResponderMove: (_event, gesture) => {
-          if (committing.current) return;
-          drag.setValue(gesture.dx);
+function CarouselNeighbour({ summary, side, drag, onCommit }: NeighbourProps) {
+  const animatedStyle = useAnimatedStyle(() => {
+    const opacity =
+      side === 'previous'
+        ? interpolate(drag.value, [0, COMMIT_DISTANCE * 2], [0.42, 0.78], 'clamp')
+        : interpolate(drag.value, [-COMMIT_DISTANCE * 2, 0], [0.78, 0.42], 'clamp');
+    return {
+      opacity,
+      transform: [
+        {
+          translateX: interpolate(
+            drag.value,
+            [-MAX_DRAG_DISTANCE, 0, MAX_DRAG_DISTANCE],
+            [-MAX_DRAG_DISTANCE * NEIGHBOUR_DRAG_RESISTANCE, 0, MAX_DRAG_DISTANCE * NEIGHBOUR_DRAG_RESISTANCE],
+            'clamp',
+          ),
         },
-        onPanResponderRelease: (_event, gesture) => {
-          if (committing.current) return;
-          const travelled = gesture.dx;
-          const flung = Math.abs(gesture.vx) > 0.45;
-          if (travelled <= -COMMIT_DISTANCE || (flung && travelled < 0)) {
-            commit(1);
-            return;
-          }
-          if (travelled >= COMMIT_DISTANCE || (flung && travelled > 0)) {
-            commit(-1);
-            return;
-          }
-          // Physical resistance: it did not travel far enough, so it settles back.
-          Animated.spring(drag, { toValue: 0, useNativeDriver: true, speed: 16, bounciness: 5 }).start();
-        },
-        onPanResponderTerminate: () => {
-          Animated.spring(drag, { toValue: 0, useNativeDriver: true, speed: 16, bounciness: 5 }).start();
-        },
-      }),
-    [canSwitch, commit, drag, horizontalIntent],
-  );
-
-  if (!active) return null;
-
-  const activeColor = getCategoryColor(active.anchor.category);
-  const heroTranslate = drag.interpolate({
-    inputRange: [-240, 0, 240],
-    outputRange: [-240 * DRAG_RESISTANCE, 0, 240 * DRAG_RESISTANCE],
-    extrapolate: 'clamp',
-  });
-  const heroScale = drag.interpolate({
-    inputRange: [-COMMIT_DISTANCE * 2, 0, COMMIT_DISTANCE * 2],
-    outputRange: [0.94, 1, 0.94],
-    extrapolate: 'clamp',
-  });
-  const neighbourTranslate = drag.interpolate({
-    inputRange: [-240, 0, 240],
-    outputRange: [-240 * NEIGHBOUR_DRAG_RESISTANCE, 0, 240 * NEIGHBOUR_DRAG_RESISTANCE],
-    extrapolate: 'clamp',
-  });
-  const previousOpacity = drag.interpolate({
-    inputRange: [0, COMMIT_DISTANCE * 2],
-    outputRange: [0.42, 0.78],
-    extrapolate: 'clamp',
-  });
-  const nextOpacity = drag.interpolate({
-    inputRange: [-COMMIT_DISTANCE * 2, 0],
-    outputRange: [0.78, 0.42],
-    extrapolate: 'clamp',
+      ],
+    };
   });
 
-  const renderNeighbour = (
-    summary: V2HomeAnchorSummary,
-    side: 'previous' | 'next',
-    opacity: Animated.AnimatedInterpolation<number>,
-  ) => (
+  return (
     <Animated.View
       style={[
         styles.neighbour,
         side === 'previous' ? { left: -NEIGHBOUR_HANG } : { right: -NEIGHBOUR_HANG },
-        { opacity, transform: [{ translateX: neighbourTranslate }] },
+        animatedStyle,
       ]}
     >
       <Pressable
@@ -239,7 +143,7 @@ export function V2HomeAnchorCarousel({ anchors, selectedIndex, onSelect, onOpenA
         accessibilityRole="button"
         accessibilityLabel={`Switch to ${summary.anchor.intentionText}`}
         hitSlop={10}
-        onPress={() => commit(side === 'previous' ? -1 : 1)}
+        onPress={() => onCommit(side === 'previous' ? -1 : 1)}
       >
         <CircularAnchorRenderer
           svg={anchorArtworkSvg(summary.anchor)}
@@ -252,11 +156,132 @@ export function V2HomeAnchorCarousel({ anchors, selectedIndex, onSelect, onOpenA
       </Pressable>
     </Animated.View>
   );
+}
+
+export function V2HomeAnchorCarousel({ anchors, selectedIndex, onSelect, onOpenActive, reduceMotion = false, testID }: Props) {
+  const drag = useSharedValue(0);
+  const committing = useSharedValue(false);
+
+  const total = anchors.length;
+  const index = selectedIndex >= 0 && selectedIndex < total ? selectedIndex : 0;
+  const active = anchors[index];
+  const previous = total > 1 ? anchors[(index - 1 + total) % total] : null;
+  const next = total > 1 ? anchors[(index + 1) % total] : null;
+  const canSwitch = total > 1;
+
+  // A new selection is a completed swap: the cluster returns to rest instantly
+  // so the incoming Anchor is centred rather than sliding in from the old offset.
+  useEffect(() => {
+    cancelAnimation(drag);
+    committing.value = false;
+    drag.value = 0;
+  }, [active?.anchor.id, committing, drag]);
+
+  /** This is the only UI-thread → JS boundary: one final selection commit. */
+  const commitSelection = useCallback(
+    (direction: Direction) => {
+      const target = anchors[(index + direction + total) % total];
+      if (!target) return;
+      v2Haptics.selection();
+      onSelect(target.anchor.id);
+    },
+    [anchors, index, onSelect, total],
+  );
+
+  const commit = useCallback(
+    (direction: Direction) => {
+      if (!canSwitch || committing.value) return;
+      committing.value = true;
+      if (reduceMotion) {
+        drag.value = 0;
+        commitSelection(direction);
+        return;
+      }
+      drag.value = withTiming(
+        -direction * COMMIT_DISTANCE * 1.9,
+        { duration: AnchorMotion.duration.quick, easing: AnchorMotion.easing.standard },
+        (finished) => {
+          if (finished) runOnJS(commitSelection)(direction);
+        },
+      );
+    },
+    [canSwitch, committing, commitSelection, drag, reduceMotion],
+  );
+
+  const panGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .enabled(canSwitch)
+        // Let a vertical ScrollView keep vertical intent; claim deliberate swipes.
+        .activeOffsetX([-8, 8])
+        .failOffsetY([-12, 12])
+        .onUpdate((event) => {
+          if (!committing.value) {
+            drag.value = Math.max(-MAX_DRAG_DISTANCE, Math.min(MAX_DRAG_DISTANCE, event.translationX));
+          }
+        })
+        .onEnd((event) => {
+          if (committing.value) return;
+          const travelled = event.translationX;
+          const flung = Math.abs(event.velocityX) > FLICK_VELOCITY;
+          const direction: Direction | null =
+            travelled <= -COMMIT_DISTANCE || (flung && travelled < 0)
+              ? 1
+              : travelled >= COMMIT_DISTANCE || (flung && travelled > 0)
+              ? -1
+              : null;
+
+          if (direction) {
+            committing.value = true;
+            if (reduceMotion) {
+              drag.value = 0;
+              runOnJS(commitSelection)(direction);
+              return;
+            }
+            drag.value = withTiming(
+              -direction * COMMIT_DISTANCE * 1.9,
+              { duration: AnchorMotion.duration.quick, easing: AnchorMotion.easing.standard },
+              (finished) => {
+                if (finished) runOnJS(commitSelection)(direction);
+              },
+            );
+            return;
+          }
+
+          drag.value = reduceMotion ? 0 : withSpring(0, AnchorMotion.spring.carousel);
+        })
+        .onFinalize(() => {
+          if (!committing.value && drag.value !== 0) {
+            drag.value = reduceMotion ? 0 : withSpring(0, AnchorMotion.spring.carousel);
+          }
+        }),
+    [canSwitch, committing, commitSelection, drag, reduceMotion],
+  );
+
+  if (!active) return null;
+
+  const activeColor = getCategoryColor(active.anchor.category);
+  const heroStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateX: interpolate(
+          drag.value,
+          [-MAX_DRAG_DISTANCE, 0, MAX_DRAG_DISTANCE],
+          [-MAX_DRAG_DISTANCE * DRAG_RESISTANCE, 0, MAX_DRAG_DISTANCE * DRAG_RESISTANCE],
+          'clamp',
+        ),
+      },
+      {
+        scale: interpolate(drag.value, [-COMMIT_DISTANCE * 2, 0, COMMIT_DISTANCE * 2], [0.94, 1, 0.94], 'clamp'),
+      },
+    ],
+  }));
 
   return (
-    <View
-      testID={testID}
-      style={styles.track}
+    <GestureDetector gesture={panGesture}>
+      <View
+        testID={testID}
+        style={styles.track}
       /**
        * A swipe is not available to a screen reader, so the track also exposes
        * the switch as adjustable actions. It is deliberately NOT marked
@@ -276,33 +301,33 @@ export function V2HomeAnchorCarousel({ anchors, selectedIndex, onSelect, onOpenA
         if (event.nativeEvent.actionName === 'increment') commit(1);
         else if (event.nativeEvent.actionName === 'decrement') commit(-1);
       }}
-      {...(canSwitch ? panResponder.panHandlers : {})}
-    >
-      {previous ? renderNeighbour(previous, 'previous', previousOpacity) : null}
-      {next ? renderNeighbour(next, 'next', nextOpacity) : null}
+      >
+        {previous ? <CarouselNeighbour summary={previous} side="previous" drag={drag} onCommit={commit} /> : null}
+        {next ? <CarouselNeighbour summary={next} side="next" drag={drag} onCommit={commit} /> : null}
 
-      <Animated.View style={[styles.hero, { transform: [{ translateX: heroTranslate }, { scale: heroScale }] }]}>
-        <View style={styles.construction} pointerEvents="none">
-          <ConstructionStrokes color={activeColor} size={CONSTRUCTION_BOX} />
-        </View>
-        <Pressable
-          testID="v2-home-carousel-active"
-          accessibilityRole="button"
-          accessibilityLabel={`${active.anchor.intentionText}. ${categoryLabel(active.anchor.category)}. View Anchor details.`}
-          onPress={() => onOpenActive?.(active.anchor.id)}
-          disabled={!onOpenActive}
-          style={({ pressed }) => (pressed && onOpenActive ? styles.pressed : undefined)}
-        >
-          <CircularAnchorRenderer
-            svg={anchorArtworkSvg(active.anchor)}
-            category={active.anchor.category}
-            size={HERO_ANCHOR_SIZE}
-            appearance="paper"
-            accessibilityLabel={`${categoryLabel(active.anchor.category)} Anchor artwork`}
-          />
-        </Pressable>
-      </Animated.View>
-    </View>
+        <Animated.View style={[styles.hero, heroStyle]}>
+          <View style={styles.construction} pointerEvents="none">
+            <ConstructionStrokes color={activeColor} size={CONSTRUCTION_BOX} />
+          </View>
+          <Pressable
+            testID="v2-home-carousel-active"
+            accessibilityRole="button"
+            accessibilityLabel={`${active.anchor.intentionText}. ${categoryLabel(active.anchor.category)}. View Anchor details.`}
+            onPress={() => onOpenActive?.(active.anchor.id)}
+            disabled={!onOpenActive}
+            style={({ pressed }) => (pressed && onOpenActive ? styles.pressed : undefined)}
+          >
+            <CircularAnchorRenderer
+              svg={anchorArtworkSvg(active.anchor)}
+              category={active.anchor.category}
+              size={HERO_ANCHOR_SIZE}
+              appearance="paper"
+              accessibilityLabel={`${categoryLabel(active.anchor.category)} Anchor artwork`}
+            />
+          </Pressable>
+        </Animated.View>
+      </View>
+    </GestureDetector>
   );
 }
 
