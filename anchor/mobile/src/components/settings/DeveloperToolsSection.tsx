@@ -1,29 +1,33 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import NotificationService, { type NotificationType } from '@/services/NotificationService';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
+import { useFirstRunStore } from '@/stores/v2/firstRunStore';
 import {
   useDetectedPerformanceTier,
   usePerformanceTier,
   type PerformanceTierOverride,
 } from '@/hooks/usePerformanceTier';
-import { useSubscriptionStore } from '@/stores/subscriptionStore';
+import { settingsColors as v2Colors, settingsTypography as v2Typography } from './settingsTheme';
 import { SettingsRow } from './SettingsRow';
 import { SettingsSectionBlock } from './SettingsSectionBlock';
 
 interface DeveloperToolsSectionProps {
-  resetSettings: () => Promise<void> | void;
-  onResetOnboarding: () => Promise<void> | void;
+  resetSettings?: () => Promise<void> | void;
+  onResetOnboarding?: () => Promise<void> | void;
 }
 
 const TIERS: ReadonlyArray<{
-  value: 'pro' | 'trial' | 'expired';
+  value: 'pro' | 'trial' | 'expired' | 'free';
   label: string;
 }> = [
-  { value: 'pro', label: 'Paid' },
+  { value: 'pro', label: 'Pro' },
   { value: 'trial', label: 'Trial' },
   { value: 'expired', label: 'Expired' },
+  { value: 'free', label: 'Free' },
 ];
 
 const PERF_TIERS: ReadonlyArray<{ value: PerformanceTierOverride; label: string }> = [
@@ -31,6 +35,40 @@ const PERF_TIERS: ReadonlyArray<{ value: PerformanceTierOverride; label: string 
   { value: 'high', label: 'High' },
   { value: 'medium', label: 'Med' },
   { value: 'low', label: 'Low' },
+];
+
+const TEST_NOTIFICATION_DELAY_SECONDS = 5;
+
+const TEST_NOTIFICATION_OPTIONS: Array<{
+  type: NotificationType;
+  title: string;
+  subtitle: string;
+}> = [
+  {
+    type: 'daily_reminder',
+    title: 'Daily Practice Reminder',
+    subtitle: 'Return-to-anchor reminder payload',
+  },
+  {
+    type: 'daily_goal_checkpoint',
+    title: 'Goal Checkpoint',
+    subtitle: 'Daily progress checkpoint payload',
+  },
+  {
+    type: 'ritual_reminder',
+    title: 'Ritual Reminder',
+    subtitle: 'Anchor ritual reminder payload',
+  },
+  {
+    type: 'streak_protection',
+    title: 'Streak Protection',
+    subtitle: 'Momentum protection payload',
+  },
+  {
+    type: 'weekly_summary',
+    title: 'Weekly Summary',
+    subtitle: 'Weekly reflection payload',
+  },
 ];
 
 const PerfTierPicker: React.FC = () => {
@@ -55,6 +93,8 @@ const PerfTierPicker: React.FC = () => {
           return (
             <Pressable
               key={value}
+              accessibilityRole="button"
+              accessibilityLabel={`Set performance tier to ${label}`}
               onPress={() => setDevPerfTierOverride(value)}
               style={[styles.segmentButton, selected && styles.segmentButtonSelected]}
             >
@@ -66,60 +106,42 @@ const PerfTierPicker: React.FC = () => {
         })}
       </View>
       <Text style={styles.perfTierHint}>
-        Override forces all glow and animation components. Device shows raw hardware class; Auto
-        also reflects battery saver and reduce-motion.
+        Forces animation and glow tier. Device is raw hardware capability; Auto factors in battery saver and reduce-motion.
       </Text>
     </View>
   );
 };
-const TEST_NOTIFICATION_DELAY_SECONDS = 5;
-
-const TEST_NOTIFICATION_OPTIONS: Array<{
-  type: NotificationType;
-  title: string;
-  subtitle: string;
-}> = [
-  {
-    type: 'daily_reminder',
-    title: 'Test Daily Reminder',
-    subtitle: 'Return-to-anchor reminder payload',
-  },
-  {
-    type: 'daily_goal_checkpoint',
-    title: 'Test Goal Checkpoint',
-    subtitle: 'Daily progress checkpoint payload',
-  },
-  {
-    type: 'ritual_reminder',
-    title: 'Test Ritual Reminder',
-    subtitle: 'Anchor ritual reminder payload',
-  },
-  {
-    type: 'streak_protection',
-    title: 'Test Streak Protection',
-    subtitle: 'Momentum protection payload',
-  },
-  {
-    type: 'weekly_summary',
-    title: 'Test Weekly Summary',
-    subtitle: 'Weekly reflection payload',
-  },
-];
 
 export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
   resetSettings,
   onResetOnboarding,
 }) => {
+  // STRICT BUILD GATE: never render developer controls in production
+  if (!__DEV__) {
+    return null;
+  }
+
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showOnboardingTools, setShowOnboardingTools] = useState(true);
+  const [showSubscriptionTools, setShowSubscriptionTools] = useState(false);
+  const [showAnchorTools, setShowAnchorTools] = useState(false);
+  const [showRecommendationTools, setShowRecommendationTools] = useState(false);
+  const [showNotificationTools, setShowNotificationTools] = useState(false);
+  const [showDebugTools, setShowDebugTools] = useState(false);
+
+  const [isNotificationActionRunning, setIsNotificationActionRunning] = useState(false);
+  const [devStatusMessage, setDevStatusMessage] = useState<string | null>(null);
+
+  // Store bindings
   const anchors = useAnchorStore((state) => state.anchors);
   const currentAnchorId = useAnchorStore((state) => state.currentAnchorId);
+  const setCurrentAnchor = useAnchorStore((state) => state.setCurrentAnchor);
   const updateAnchorState = useAnchorStore((state) => state.updateAnchor);
-  const [isNotificationActionRunning, setIsNotificationActionRunning] = React.useState(false);
-  const [notificationStatus, setNotificationStatus] = React.useState<string | null>(null);
-  const [isExpanded, setIsExpanded] = React.useState(false);
-  const [showCoreTools, setShowCoreTools] = React.useState(true);
-  const [showNotificationTools, setShowNotificationTools] = React.useState(false);
-  const [showWeeklyTools, setShowWeeklyTools] = React.useState(false);
+
   const subStore = useSubscriptionStore();
+  const hasCompletedOnboarding = useAuthStore((state) => state.hasCompletedOnboarding);
+  const setHasCompletedOnboarding = useAuthStore((state) => state.setHasCompletedOnboarding);
+
   const developerModeEnabled = useSettingsStore((s) => s.developerModeEnabled);
   const setDeveloperModeEnabled = useSettingsStore((s) => s.setDeveloperModeEnabled);
   const developerMasterAccountEnabled = useSettingsStore((s) => s.developerMasterAccountEnabled);
@@ -132,68 +154,104 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
   const setDeveloperDeleteWithoutBurnEnabled = useSettingsStore((s) => s.setDeveloperDeleteWithoutBurnEnabled);
   const debugLoggingEnabled = useSettingsStore((s) => s.debugLoggingEnabled);
   const setDebugLoggingEnabled = useSettingsStore((s) => s.setDebugLoggingEnabled);
-
-  const settingsStore = {
-    developerModeEnabled, setDeveloperModeEnabled,
-    developerMasterAccountEnabled, setDeveloperMasterAccountEnabled,
-    developerSkipOnboardingEnabled, setDeveloperSkipOnboardingEnabled,
-    developerForceStreakBreakEnabled, setDeveloperForceStreakBreakEnabled,
-    developerDeleteWithoutBurnEnabled, setDeveloperDeleteWithoutBurnEnabled,
-    debugLoggingEnabled, setDebugLoggingEnabled,
-  };
-
-  const selectedTier =
-    subStore.devTierOverride === 'free' ? 'expired' : subStore.devTierOverride;
   const triggerDeveloperWeeklySummaryPreview = useSettingsStore(
     (state) => state.triggerDeveloperWeeklySummaryPreview
   );
-  const resettableAnchor = React.useMemo(() => {
-    const currentAnchor = currentAnchorId
-      ? anchors.find((anchor) => anchor.id === currentAnchorId || anchor.localId === currentAnchorId)
-      : undefined;
 
-    if (currentAnchor) {
-      return currentAnchor;
+  const activeAnchor = useMemo(() => {
+    if (currentAnchorId) {
+      const found = anchors.find((a) => a.id === currentAnchorId || a.localId === currentAnchorId);
+      if (found) return found;
     }
-
-    return anchors.find((anchor) => anchor.isCharged || (anchor.chargeCount ?? 0) > 0);
+    return anchors[0];
   }, [anchors, currentAnchorId]);
-  const resettableAnchorLabel = resettableAnchor
-    ? resettableAnchor.intentionText?.trim() || 'Untitled anchor'
-    : 'No charged anchor available';
 
-  const handleReset = () => {
+  const activeAnchorLabel = activeAnchor?.intentionText?.trim() || 'No active anchor';
+
+  // 1. Onboarding Actions
+  const handleSafeResetOnboarding = () => {
     Alert.alert(
-      'Reset Onboarding',
-      'Restart from first launch state?',
+      'Safe Reset Onboarding',
+      'This will reset the onboarding completion flag and first-run draft so you can re-experience first-run. Your account and saved anchors remain intact.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Reset',
+          text: 'Reset Onboarding',
           style: 'destructive',
           onPress: async () => {
-            await resetSettings();
-            await onResetOnboarding();
+            try {
+              try {
+                useFirstRunStore.getState().reset();
+              } catch {
+                // Ignore if firstRunStore reset fails
+              }
+              setHasCompletedOnboarding(false);
+              setDeveloperSkipOnboardingEnabled(false);
+              if (onResetOnboarding) await onResetOnboarding();
+              setDevStatusMessage('Onboarding reset. Relaunch or navigate to First Run.');
+            } catch (error) {
+              Alert.alert('Reset Failed', error instanceof Error ? error.message : 'Could not reset onboarding.');
+            }
           },
         },
       ]
     );
   };
 
+  const handleMarkOnboardingComplete = () => {
+    setHasCompletedOnboarding(true);
+    setDevStatusMessage('Marked onboarding as complete.');
+  };
+
+  // 2. Subscription Actions
+  const selectedTier = subStore.devTierOverride;
+
+  const handleClearSubscriptionOverrides = () => {
+    subStore.resetOverrides();
+    setDevStatusMessage('Subscription dev overrides cleared. Real RevenueCat authority restored.');
+  };
+
+  // 3. Anchor Actions
+  const handleResetFirstPrimeState = () => {
+    if (!activeAnchor) {
+      Alert.alert('No Anchor Available', 'Create or select an anchor first.');
+      return;
+    }
+
+    Alert.alert(
+      'Reset First Prime State',
+      `Reset "${activeAnchorLabel}" back to an unprimed state (chargeCount = 0)?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            await updateAnchorState(activeAnchor.id, {
+              isCharged: false,
+              chargedAt: undefined,
+              firstChargedAt: undefined,
+              chargeCount: 0,
+            });
+            setDevStatusMessage(`Reset "${activeAnchorLabel}" for first-prime retesting.`);
+          },
+        },
+      ]
+    );
+  };
+
+  // 4. Notifications Actions
   const handleScheduleNotificationTest = async (
     type: NotificationType,
     label: string
   ): Promise<void> => {
     setIsNotificationActionRunning(true);
-
     try {
       const granted = await NotificationService.requestPermissions();
       if (!granted) {
-        const message =
-          NotificationService.getLastError()?.message ??
-          'Notification permissions were denied.';
-        setNotificationStatus(message);
-        Alert.alert('Notification Permission Required', message);
+        const message = NotificationService.getLastError()?.message ?? 'Notification permissions were denied.';
+        setDevStatusMessage(message);
+        Alert.alert('Permission Required', message);
         return;
       }
 
@@ -203,17 +261,13 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
       );
 
       if (!identifier) {
-        const message =
-          NotificationService.getLastError()?.message ??
-          'Failed to schedule the notification test.';
-        setNotificationStatus(message);
-        Alert.alert('Notification Test Failed', message);
+        const message = NotificationService.getLastError()?.message ?? 'Failed to schedule test notification.';
+        setDevStatusMessage(message);
+        Alert.alert('Schedule Failed', message);
         return;
       }
 
-      setNotificationStatus(
-        `${label} scheduled for ${TEST_NOTIFICATION_DELAY_SECONDS} seconds from now.`
-      );
+      setDevStatusMessage(`${label} scheduled (+${TEST_NOTIFICATION_DELAY_SECONDS}s).`);
     } finally {
       setIsNotificationActionRunning(false);
     }
@@ -221,30 +275,23 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
 
   const handleInspectScheduledTests = async (): Promise<void> => {
     setIsNotificationActionRunning(true);
-
     try {
       const scheduled = await NotificationService.getDeveloperTestNotifications();
       const error = NotificationService.getLastError();
-
       if (error) {
-        setNotificationStatus(error.message);
-        Alert.alert('Notification Queue Error', error.message);
+        setDevStatusMessage(error.message);
+        Alert.alert('Queue Error', error.message);
         return;
       }
-
       if (scheduled.length === 0) {
-        const message = 'No developer notification tests are currently scheduled.';
-        setNotificationStatus(message);
-        Alert.alert('Scheduled Notification Tests', message);
+        const message = 'No developer notification tests are currently queued.';
+        setDevStatusMessage(message);
+        Alert.alert('Queue Empty', message);
         return;
       }
-
-      const message = scheduled
-        .map((notification, index) => `${index + 1}. ${notification.identifier}`)
-        .join('\n');
-
-      setNotificationStatus(`${scheduled.length} developer notification test(s) queued.`);
-      Alert.alert('Scheduled Notification Tests', message);
+      const message = scheduled.map((n, i) => `${i + 1}. ${n.identifier}`).join('\n');
+      setDevStatusMessage(`${scheduled.length} test notification(s) queued.`);
+      Alert.alert('Scheduled Tests', message);
     } finally {
       setIsNotificationActionRunning(false);
     }
@@ -252,52 +299,35 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
 
   const handleClearScheduledTests = async (): Promise<void> => {
     setIsNotificationActionRunning(true);
-
     try {
-      const clearedCount = await NotificationService.cancelDeveloperTestNotifications();
-      const error = NotificationService.getLastError();
-
-      if (error) {
-        setNotificationStatus(error.message);
-        Alert.alert('Notification Queue Error', error.message);
-        return;
-      }
-
-      const message =
-        clearedCount === 0
-          ? 'No developer notification tests were queued.'
-          : `Cleared ${clearedCount} developer notification test${
-              clearedCount === 1 ? '' : 's'
-            }.`;
-
-      setNotificationStatus(message);
+      const count = await NotificationService.cancelDeveloperTestNotifications();
+      setDevStatusMessage(count === 0 ? 'No tests were queued.' : `Cleared ${count} scheduled test(s).`);
     } finally {
       setIsNotificationActionRunning(false);
     }
   };
 
-  const handleResetFirstPrimeState = () => {
-    if (!resettableAnchor) {
-      Alert.alert('No Anchor Available', 'Charge an anchor first, then reset it here for retesting.');
-      return;
-    }
-
+  // 5. Destructive Master Reset
+  const handleMasterReset = () => {
     Alert.alert(
-      'Reset First Prime State',
-      `Reset "${resettableAnchorLabel}" back to an unprimed state?`,
+      'Reset All Developer Overrides',
+      'This will reset all developer flags, tier overrides, performance settings, and streak breaks back to their default values.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Reset',
+          text: 'Reset All',
           style: 'destructive',
           onPress: async () => {
-            await updateAnchorState(resettableAnchor.id, {
-              isCharged: false,
-              chargedAt: undefined,
-              firstChargedAt: undefined,
-              chargeCount: 0,
-            });
-            setNotificationStatus(`Reset "${resettableAnchorLabel}" for first-prime retesting.`);
+            subStore.resetOverrides();
+            setDeveloperModeEnabled(false);
+            setDeveloperMasterAccountEnabled(false);
+            setDeveloperSkipOnboardingEnabled(false);
+            setDeveloperForceStreakBreakEnabled(false);
+            setDeveloperDeleteWithoutBurnEnabled(false);
+            setDebugLoggingEnabled(false);
+            useSettingsStore.getState().setDevPerfTierOverride('auto');
+            if (resetSettings) await resetSettings();
+            setDevStatusMessage('All developer flags reset to defaults.');
           },
         },
       ]
@@ -310,65 +340,123 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
     expanded: boolean,
     onPress: () => void
   ) => (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.accordionHeader, pressed ? styles.accordionHeaderPressed : null]}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${title} section, ${expanded ? 'expanded' : 'collapsed'}`}
+      onPress={onPress}
+      style={({ pressed }) => [styles.accordionHeader, pressed && styles.accordionHeaderPressed]}
+    >
       <View style={styles.accordionHeaderCopy}>
         <Text style={styles.accordionTitle}>{title}</Text>
         <Text style={styles.accordionDescription}>{description}</Text>
       </View>
-      <Text style={[styles.accordionChevron, expanded ? styles.accordionChevronExpanded : null]}>⌃</Text>
+      <Text style={[styles.accordionChevron, expanded && styles.accordionChevronExpanded]}>›</Text>
     </Pressable>
   );
 
   return (
-    <View>
+    <View style={styles.wrapper}>
+      {/* Developer Tools Main Banner */}
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Developer Tools, ${isExpanded ? 'collapse' : 'expand'}`}
         onPress={() => setIsExpanded((current) => !current)}
-        style={({ pressed }) => [styles.devToolsHeader, pressed ? styles.devToolsHeaderPressed : null]}
+        style={({ pressed }) => [styles.devToolsHeader, pressed && styles.devToolsHeaderPressed]}
       >
-        <View>
-          <Text style={styles.label}>⌥ Developer Tools</Text>
-          <Text style={styles.description}>Build-only. Hidden in production.</Text>
+        <View style={styles.devToolsHeaderContent}>
+          <View style={styles.devToolsTitleRow}>
+            <Text style={styles.label}>⌥ Developer Tools</Text>
+            <View style={styles.buildBadge}>
+              <Text style={styles.buildBadgeText}>DEV ONLY</Text>
+            </View>
+          </View>
+          <Text style={styles.description}>Internal testing controls · Stripped in release builds</Text>
         </View>
-        <Text style={[styles.devToolsChevron, isExpanded ? styles.devToolsChevronExpanded : null]}>⌃</Text>
+        <Text style={[styles.devToolsChevron, isExpanded && styles.devToolsChevronExpanded]}>›</Text>
       </Pressable>
 
       {!isExpanded ? null : (
-        <>
+        <View style={styles.contentContainer}>
+          {/* Section A: Onboarding & First-Run */}
           <SettingsSectionBlock isDev>
             {renderAccordionHeader(
-              'Core Overrides',
-              'Developer flags, subscription overrides, and first-prime reset.',
-              showCoreTools,
-              () => setShowCoreTools((current) => !current)
+              'Onboarding & First-Run',
+              `Current: ${hasCompletedOnboarding ? 'Completed' : 'Pending'}`,
+              showOnboardingTools,
+              () => setShowOnboardingTools((c) => !c)
             )}
-
-            {showCoreTools ? (
+            {showOnboardingTools ? (
               <>
                 <SettingsRow
-                  title="Developer Mode"
-                  type="toggle"
-                  toggleValue={settingsStore.developerModeEnabled}
-                  onToggle={settingsStore.setDeveloperModeEnabled}
+                  title="Safe Reset Onboarding"
+                  subtitle="Reset first-run state without clearing account"
+                  type="none"
+                  onPress={handleSafeResetOnboarding}
                   isDev
+                  rightElement={
+                    <View style={styles.actionBadge}>
+                      <Text style={styles.actionBadgeText}>Reset</Text>
+                    </View>
+                  }
                 />
                 <SettingsRow
+                  title="Mark Onboarding Complete"
+                  subtitle="Instantly grant completed status"
+                  type="none"
+                  onPress={handleMarkOnboardingComplete}
+                  isDev
+                  rightElement={
+                    <View style={styles.actionBadge}>
+                      <Text style={styles.actionBadgeText}>Complete</Text>
+                    </View>
+                  }
+                />
+                <SettingsRow
+                  title="Sign In (Dev Master Account)"
+                  subtitle="Instantly sign in with test credentials"
+                  type="none"
+                  onPress={() => {
+                    useAuthStore.getState().enableDeveloperMasterAccount();
+                    setDevStatusMessage('Signed in with Developer Master Account.');
+                  }}
+                  isDev
+                  rightElement={
+                    <View style={styles.actionBadge}>
+                      <Text style={styles.actionBadgeText}>Sign In</Text>
+                    </View>
+                  }
+                />
+                <SettingsRow
+                  title="Skip Onboarding Gate"
+                  subtitle="Bypass root onboarding check"
+                  type="toggle"
+                  toggleValue={developerSkipOnboardingEnabled}
+                  onToggle={setDeveloperSkipOnboardingEnabled}
+                  isDev
+                  showDivider={false}
+                />
+              </>
+            ) : null}
+          </SettingsSectionBlock>
+
+          {/* Section B: Subscription & Paywall Testing */}
+          <SettingsSectionBlock isDev style={styles.subBlock}>
+            {renderAccordionHeader(
+              'Subscription & Paywall',
+              subStore.devOverrideEnabled ? `Simulating: ${selectedTier.toUpperCase()}` : 'Real RevenueCat authority',
+              showSubscriptionTools,
+              () => setShowSubscriptionTools((c) => !c)
+            )}
+            {showSubscriptionTools ? (
+              <>
+                <SettingsRow
                   title="Enable Dev Overrides"
-                  subtitle="Bypass paywalls & gate logic"
+                  subtitle="Bypass RevenueCat network authority"
                   type="toggle"
                   toggleValue={subStore.devOverrideEnabled}
                   onToggle={subStore.setDevOverrideEnabled}
                   isDev
                 />
-                <SettingsRow
-                  title="Master Account"
-                  subtitle="Use a synthetic dev account and skip auth gates"
-                  type="toggle"
-                  toggleValue={settingsStore.developerMasterAccountEnabled}
-                  onToggle={settingsStore.setDeveloperMasterAccountEnabled}
-                  isDev
-                />
-                <PerfTierPicker />
-
                 <View style={styles.segmentRow}>
                   <Text style={styles.segmentTitle}>Simulated Subscription Tier</Text>
                   <View style={styles.segmentedControl}>
@@ -377,62 +465,31 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
                       return (
                         <Pressable
                           key={value}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Select simulated tier ${label}`}
                           onPress={() => subStore.setDevTierOverride(value)}
-                          style={[
-                            styles.segmentButton,
-                            selected ? styles.segmentButtonSelected : null,
-                          ]}
+                          style={[styles.segmentButton, selected && styles.segmentButtonSelected]}
                         >
-                          <Text style={[styles.segmentText, selected ? styles.segmentTextSelected : null]}>
+                          <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>
                             {label}
                           </Text>
                         </Pressable>
                       );
                     })}
                   </View>
+                  <Text style={styles.segmentHint}>
+                    Overrides useTrialStatus() directly. Pro/Trial enable premium gates; Expired/Free test paywall triggers.
+                  </Text>
                 </View>
                 <SettingsRow
-                  title="Skip Onboarding"
-                  subtitle="Jump directly to home"
-                  type="toggle"
-                  toggleValue={settingsStore.developerSkipOnboardingEnabled}
-                  onToggle={settingsStore.setDeveloperSkipOnboardingEnabled}
-                  isDev
-                />
-                <SettingsRow
-                  title="Allow Direct Anchor Delete"
-                  subtitle="Delete without full ritual"
-                  type="toggle"
-                  toggleValue={settingsStore.developerDeleteWithoutBurnEnabled}
-                  onToggle={settingsStore.setDeveloperDeleteWithoutBurnEnabled}
-                  isDev
-                />
-                <SettingsRow
-                  title="Debug Console Logging"
-                  subtitle="Verbose app logging"
-                  type="toggle"
-                  toggleValue={settingsStore.debugLoggingEnabled}
-                  onToggle={settingsStore.setDebugLoggingEnabled}
-                  isDev
-                />
-                <SettingsRow
-                  title="Force Streak Break"
-                  subtitle="Test streak protection UI"
-                  type="toggle"
-                  toggleValue={settingsStore.developerForceStreakBreakEnabled}
-                  onToggle={settingsStore.setDeveloperForceStreakBreakEnabled}
-                  isDev
-                />
-                <SettingsRow
-                  title="Reset First Prime State"
-                  subtitle={resettableAnchorLabel}
+                  title="Clear Subscription Overrides"
+                  subtitle="Restore live RevenueCat state"
                   type="none"
-                  onPress={handleResetFirstPrimeState}
-                  disabled={!resettableAnchor}
+                  onPress={handleClearSubscriptionOverrides}
                   isDev
                   rightElement={
-                    <View style={styles.notificationBadge}>
-                      <Text style={styles.notificationBadgeText}>Reset</Text>
+                    <View style={styles.actionBadge}>
+                      <Text style={styles.actionBadgeText}>Restore</Text>
                     </View>
                   }
                   showDivider={false}
@@ -441,14 +498,114 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
             ) : null}
           </SettingsSectionBlock>
 
-          <SettingsSectionBlock isDev style={styles.notificationBlock}>
+          {/* Section C: Anchor & State Testing */}
+          <SettingsSectionBlock isDev style={styles.subBlock}>
+            {renderAccordionHeader(
+              'Anchor & Practice State',
+              `Active: ${activeAnchorLabel.slice(0, 24)}${activeAnchorLabel.length > 24 ? '…' : ''}`,
+              showAnchorTools,
+              () => setShowAnchorTools((c) => !c)
+            )}
+            {showAnchorTools ? (
+              <>
+                <View style={styles.anchorSwitcher}>
+                  <Text style={styles.segmentTitle}>Active Anchor ({anchors.length} Total)</Text>
+                  {anchors.length === 0 ? (
+                    <Text style={styles.emptyText}>No anchors found on this account.</Text>
+                  ) : (
+                    anchors.slice(0, 6).map((anchor) => {
+                      const isCurrent = anchor.id === (activeAnchor?.id);
+                      return (
+                        <Pressable
+                          key={anchor.id}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Switch to anchor ${anchor.intentionText}`}
+                          onPress={() => {
+                            setCurrentAnchor(anchor.id);
+                            setDevStatusMessage(`Active anchor set to "${anchor.intentionText?.slice(0, 20)}…"`);
+                          }}
+                          style={[styles.anchorRow, isCurrent && styles.anchorRowActive]}
+                        >
+                          <Text style={[styles.anchorRowText, isCurrent && styles.anchorRowTextActive]} numberOfLines={1}>
+                            {anchor.intentionText || 'Untitled'}
+                          </Text>
+                          {isCurrent ? (
+                            <View style={styles.activePill}>
+                              <Text style={styles.activePillText}>ACTIVE</Text>
+                            </View>
+                          ) : null}
+                        </Pressable>
+                      );
+                    })
+                  )}
+                </View>
+                <SettingsRow
+                  title="Reset First Prime State"
+                  subtitle={`Reset charged state on "${activeAnchorLabel.slice(0, 20)}…"`}
+                  type="none"
+                  onPress={handleResetFirstPrimeState}
+                  disabled={!activeAnchor}
+                  isDev
+                  rightElement={
+                    <View style={styles.actionBadge}>
+                      <Text style={styles.actionBadgeText}>Reset</Text>
+                    </View>
+                  }
+                  showDivider={false}
+                />
+              </>
+            ) : null}
+          </SettingsSectionBlock>
+
+          {/* Section D: Recommendation Outcomes */}
+          <SettingsSectionBlock isDev style={styles.subBlock}>
+            {renderAccordionHeader(
+              'Recommendation Engine (V2)',
+              'Test triggers for all 4 daily recommendation outcomes',
+              showRecommendationTools,
+              () => setShowRecommendationTools((c) => !c)
+            )}
+            {showRecommendationTools ? (
+              <View style={styles.outcomeContainer}>
+                <Text style={styles.outcomeDescription}>
+                  Anchor 2.0 evaluates daily recommendations authoritatively. Use these conditions to exercise each outcome:
+                </Text>
+                <View style={styles.outcomeCard}>
+                  <Text style={styles.outcomeTitle}>1. Release</Text>
+                  <Text style={styles.outcomeDetail}>
+                    Triggered when anchor has reached its destination or all course waypoints are completed.
+                  </Text>
+                </View>
+                <View style={styles.outcomeCard}>
+                  <Text style={styles.outcomeTitle}>2. Visualize</Text>
+                  <Text style={styles.outcomeDetail}>
+                    Triggered when an active Vision exists and has not been opened today.
+                  </Text>
+                </View>
+                <View style={styles.outcomeCard}>
+                  <Text style={styles.outcomeTitle}>3. Deep Prime</Text>
+                  <Text style={styles.outcomeDetail}>
+                    Triggered when thread strength is softening (7-day decay delta is negative).
+                  </Text>
+                </View>
+                <View style={styles.outcomeCard}>
+                  <Text style={styles.outcomeTitle}>4. Focus</Text>
+                  <Text style={styles.outcomeDetail}>
+                    Standard daily reinforcement when thread is healthy and no release/visualize signals are pending.
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+          </SettingsSectionBlock>
+
+          {/* Section E: Notification Tester */}
+          <SettingsSectionBlock isDev style={styles.subBlock}>
             {renderAccordionHeader(
               'Notification Tester',
-              `Schedule live test payloads in ${TEST_NOTIFICATION_DELAY_SECONDS} seconds.`,
+              `Schedule test payloads with +${TEST_NOTIFICATION_DELAY_SECONDS}s delay`,
               showNotificationTools,
-              () => setShowNotificationTools((current) => !current)
+              () => setShowNotificationTools((c) => !c)
             )}
-
             {showNotificationTools ? (
               <>
                 {TEST_NOTIFICATION_OPTIONS.map((option) => (
@@ -461,321 +618,436 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
                     disabled={isNotificationActionRunning}
                     isDev
                     rightElement={
-                      <View style={styles.notificationBadge}>
-                        <Text style={styles.notificationBadgeText}>
-                          +{TEST_NOTIFICATION_DELAY_SECONDS}s
-                        </Text>
+                      <View style={styles.actionBadge}>
+                        <Text style={styles.actionBadgeText}>+{TEST_NOTIFICATION_DELAY_SECONDS}s</Text>
                       </View>
                     }
                   />
                 ))}
-
                 <SettingsRow
-                  title="Show Scheduled Tests"
-                  subtitle="List queued developer notification tests"
+                  title="Inspect Queued Tests"
+                  subtitle="List scheduled developer test notifications"
                   type="none"
                   onPress={() => void handleInspectScheduledTests()}
                   disabled={isNotificationActionRunning}
                   isDev
                   rightElement={
-                    <View style={styles.notificationBadge}>
-                      <Text style={styles.notificationBadgeText}>Queue</Text>
+                    <View style={styles.actionBadge}>
+                      <Text style={styles.actionBadgeText}>Queue</Text>
                     </View>
                   }
                 />
                 <SettingsRow
-                  title="Clear Scheduled Tests"
-                  subtitle="Remove queued developer notification tests"
+                  title="Clear Queued Tests"
+                  subtitle="Cancel all scheduled developer notifications"
                   type="none"
                   onPress={() => void handleClearScheduledTests()}
                   disabled={isNotificationActionRunning}
                   isDev
                   rightElement={
-                    <View style={styles.notificationBadge}>
-                      <Text style={styles.notificationBadgeText}>Clear</Text>
+                    <View style={styles.actionBadge}>
+                      <Text style={styles.actionBadgeText}>Clear</Text>
                     </View>
                   }
                   showDivider={false}
                 />
               </>
             ) : null}
-
-            {notificationStatus ? (
-              <View style={styles.statusContainer}>
-                <Text style={styles.statusLabel}>Developer Status</Text>
-                <Text style={styles.statusText}>{notificationStatus}</Text>
-              </View>
-            ) : null}
           </SettingsSectionBlock>
 
-          <SettingsSectionBlock isDev style={styles.notificationBlock}>
+          {/* Section F: Performance & Debug Logging */}
+          <SettingsSectionBlock isDev style={styles.subBlock}>
             {renderAccordionHeader(
-              'Weekly Summary Preview',
-              'Force the in-app weekly summary sheet to appear on the next Sanctuary visit.',
-              showWeeklyTools,
-              () => setShowWeeklyTools((current) => !current)
+              'Performance & Debug Flags',
+              'Glow tiers, verbose logging, and streak testing',
+              showDebugTools,
+              () => setShowDebugTools((c) => !c)
             )}
-
-            {showWeeklyTools ? (
-              <SettingsRow
-                title="Show Weekly Summary Modal"
-                subtitle="Open the in-app weekly review sheet"
-                type="none"
-                onPress={() => {
-                  triggerDeveloperWeeklySummaryPreview();
-                  setNotificationStatus('Weekly summary modal primed for preview.');
-                }}
-                isDev
-                rightElement={
-                  <View style={styles.notificationBadge}>
-                    <Text style={styles.notificationBadgeText}>Open</Text>
-                  </View>
-                }
-                showDivider={false}
-              />
+            {showDebugTools ? (
+              <>
+                <PerfTierPicker />
+                <SettingsRow
+                  title="Debug Console Logging"
+                  subtitle="Verbose telemetry & network logs"
+                  type="toggle"
+                  toggleValue={debugLoggingEnabled}
+                  onToggle={setDebugLoggingEnabled}
+                  isDev
+                />
+                <SettingsRow
+                  title="Force Streak Break"
+                  subtitle="Simulate missed practice days"
+                  type="toggle"
+                  toggleValue={developerForceStreakBreakEnabled}
+                  onToggle={setDeveloperForceStreakBreakEnabled}
+                  isDev
+                />
+                <SettingsRow
+                  title="Direct Anchor Deletion"
+                  subtitle="Delete without requiring burn ritual"
+                  type="toggle"
+                  toggleValue={developerDeleteWithoutBurnEnabled}
+                  onToggle={setDeveloperDeleteWithoutBurnEnabled}
+                  isDev
+                />
+                <SettingsRow
+                  title="Weekly Summary Preview"
+                  subtitle="Force summary sheet on next visit"
+                  type="none"
+                  onPress={() => {
+                    triggerDeveloperWeeklySummaryPreview();
+                    setDevStatusMessage('Weekly summary modal primed.');
+                  }}
+                  isDev
+                  rightElement={
+                    <View style={styles.actionBadge}>
+                      <Text style={styles.actionBadgeText}>Prime</Text>
+                    </View>
+                  }
+                  showDivider={false}
+                />
+              </>
             ) : null}
           </SettingsSectionBlock>
 
-          <Pressable onPress={handleReset} style={({ pressed }) => [styles.resetButton, pressed ? styles.resetButtonPressed : null]}>
-            <View>
-              <Text style={styles.resetText}>Reset Onboarding</Text>
-              <Text style={styles.resetSubtext}>Restart from first launch state</Text>
+          {/* Developer Status Feedback Banner */}
+          {devStatusMessage ? (
+            <View style={styles.statusBox}>
+              <Text style={styles.statusBoxLabel}>DEVELOPER STATUS</Text>
+              <Text style={styles.statusBoxText}>{devStatusMessage}</Text>
             </View>
-            <Text style={styles.resetChevron}>›</Text>
+          ) : null}
+
+          {/* Master Reset Button */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Reset all developer overrides"
+            onPress={handleMasterReset}
+            style={({ pressed }) => [styles.masterResetButton, pressed && styles.masterResetButtonPressed]}
+          >
+            <View>
+              <Text style={styles.masterResetTitle}>Reset All Developer Overrides</Text>
+              <Text style={styles.masterResetSubtext}>Restores all developer flags to defaults</Text>
+            </View>
+            <Text style={styles.masterResetChevron}>›</Text>
           </Pressable>
-        </>
+        </View>
       )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  wrapper: {
+    marginVertical: 10,
+  },
   devToolsHeader: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 8,
+    marginHorizontal: 0,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(4, 120, 87, 0.25)',
+    backgroundColor: 'rgba(4, 120, 87, 0.05)',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderRadius: 14,
-    borderWidth: 0.5,
-    borderColor: 'rgba(74,222,128,0.2)',
-    backgroundColor: 'rgba(74,222,128,0.04)',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
   },
   devToolsHeaderPressed: {
-    backgroundColor: 'rgba(74,222,128,0.08)',
+    backgroundColor: 'rgba(4, 120, 87, 0.09)',
+  },
+  devToolsHeaderContent: {
+    flex: 1,
+    marginRight: 8,
+  },
+  devToolsTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   label: {
-    color: '#4ade80',
-    fontSize: 10,
-    fontFamily: 'Inter-SemiBold',
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    opacity: 0.85,
+    color: '#047857',
+    fontSize: 13,
+    fontFamily: v2Typography.bodySemiBold,
+    letterSpacing: 0.3,
+  },
+  buildBadge: {
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(4, 120, 87, 0.3)',
+    backgroundColor: 'rgba(4, 120, 87, 0.1)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  buildBadgeText: {
+    color: '#047857',
+    fontSize: 9.5,
+    fontFamily: v2Typography.bodyBold,
+    letterSpacing: 0.6,
   },
   description: {
-    color: '#4ade80',
-    fontSize: 11,
-    fontFamily: 'Inter-Regular',
+    marginTop: 4,
+    color: 'rgba(4, 120, 87, 0.75)',
+    fontSize: 12,
+    fontFamily: v2Typography.body,
     lineHeight: 16,
-    opacity: 0.5,
   },
   devToolsChevron: {
-    color: '#4ade80',
-    fontSize: 16,
-    opacity: 0.6,
-    transform: [{ rotate: '180deg' }],
+    color: '#047857',
+    fontSize: 18,
+    lineHeight: 18,
+    transform: [{ rotate: '0deg' }],
   },
   devToolsChevronExpanded: {
-    transform: [{ rotate: '0deg' }],
+    transform: [{ rotate: '90deg' }],
+  },
+  contentContainer: {
+    marginTop: 10,
+    gap: 8,
+  },
+  subBlock: {
+    marginTop: 2,
   },
   accordionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(74,222,128,0.2)',
+    borderBottomColor: 'rgba(4, 120, 87, 0.18)',
   },
   accordionHeaderPressed: {
-    backgroundColor: 'rgba(74,222,128,0.05)',
+    backgroundColor: 'rgba(4, 120, 87, 0.04)',
   },
   accordionHeaderCopy: {
     flex: 1,
-    marginRight: 12,
+    marginRight: 10,
   },
   accordionTitle: {
-    color: '#4ade80',
-    fontSize: 14,
-    fontFamily: 'Inter-SemiBold',
+    color: '#047857',
+    fontSize: 14.5,
+    fontFamily: v2Typography.bodySemiBold,
   },
   accordionDescription: {
-    marginTop: 4,
-    color: 'rgba(74,222,128,0.58)',
-    fontSize: 11,
-    fontFamily: 'Inter-Regular',
-    lineHeight: 16,
+    marginTop: 2,
+    color: 'rgba(4, 120, 87, 0.7)',
+    fontSize: 12,
+    fontFamily: v2Typography.body,
   },
   accordionChevron: {
-    color: '#4ade80',
-    fontSize: 14,
-    opacity: 0.5,
-    transform: [{ rotate: '180deg' }],
-  },
-  accordionChevronExpanded: {
+    color: '#047857',
+    fontSize: 16,
     transform: [{ rotate: '0deg' }],
   },
+  accordionChevronExpanded: {
+    transform: [{ rotate: '90deg' }],
+  },
   segmentRow: {
-    paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(74,222,128,0.2)',
+    borderBottomColor: 'rgba(4, 120, 87, 0.18)',
   },
   segmentTitle: {
     marginBottom: 8,
-    color: '#4ade80',
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
-    opacity: 0.9,
+    color: '#047857',
+    fontSize: 13,
+    fontFamily: v2Typography.bodyMedium,
   },
   segmentedControl: {
     flexDirection: 'row',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(4, 120, 87, 0.25)',
     overflow: 'hidden',
-    borderRadius: 10,
-    borderWidth: 0.5,
-    borderColor: 'rgba(74,222,128,0.2)',
   },
   segmentButton: {
     flex: 1,
-    borderRightWidth: 0.5,
-    borderRightColor: 'rgba(74,222,128,0.2)',
-    backgroundColor: 'rgba(74,222,128,0.04)',
-    paddingVertical: 10,
+    paddingVertical: 8,
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(4, 120, 87, 0.04)',
+    borderRightWidth: 0.5,
+    borderRightColor: 'rgba(4, 120, 87, 0.2)',
   },
   segmentButtonSelected: {
-    backgroundColor: 'rgba(74,222,128,0.15)',
+    backgroundColor: 'rgba(4, 120, 87, 0.18)',
   },
   segmentText: {
-    color: '#4ade80',
-    fontSize: 13,
-    fontFamily: 'Inter-Regular',
-    opacity: 0.5,
+    color: '#047857',
+    fontSize: 12,
+    fontFamily: v2Typography.body,
+    opacity: 0.65,
   },
   segmentTextSelected: {
     opacity: 1,
-    fontFamily: 'Inter-SemiBold',
+    fontFamily: v2Typography.bodySemiBold,
+  },
+  segmentHint: {
+    marginTop: 6,
+    color: 'rgba(4, 120, 87, 0.6)',
+    fontSize: 11,
+    fontFamily: v2Typography.body,
+    lineHeight: 15,
   },
   perfTierHeader: {
     flexDirection: 'row',
-    alignItems: 'baseline',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    alignItems: 'baseline',
   },
   perfTierDetected: {
-    color: 'rgba(74,222,128,0.5)',
-    fontSize: 10,
-    fontFamily: 'Inter-Regular',
-    letterSpacing: 0.5,
+    color: 'rgba(4, 120, 87, 0.6)',
+    fontSize: 10.5,
+    fontFamily: v2Typography.body,
     textTransform: 'uppercase',
   },
   perfTierHint: {
-    marginTop: 8,
-    color: 'rgba(74,222,128,0.4)',
-    fontSize: 10,
-    fontFamily: 'Inter-Regular',
-    lineHeight: 14,
-  },
-  notificationBlock: {
-    marginTop: 8,
-  },
-  notificationHeader: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 4,
-  },
-  notificationTitle: {
-    color: '#4ade80',
-    fontSize: 14,
-    fontFamily: 'Inter-SemiBold',
-  },
-  notificationDescription: {
-    marginTop: 4,
-    color: 'rgba(74,222,128,0.65)',
-    fontSize: 11,
-    fontFamily: 'Inter-Regular',
-    lineHeight: 16,
-  },
-  notificationBadge: {
-    borderRadius: 999,
-    borderWidth: 0.5,
-    borderColor: 'rgba(74,222,128,0.25)',
-    backgroundColor: 'rgba(74,222,128,0.08)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  notificationBadgeText: {
-    color: '#4ade80',
-    fontSize: 10,
-    fontFamily: 'Inter-SemiBold',
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
-  },
-  statusContainer: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(74,222,128,0.2)',
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 16,
-  },
-  statusLabel: {
-    color: 'rgba(74,222,128,0.6)',
-    fontSize: 10,
-    fontFamily: 'Inter-SemiBold',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-  },
-  statusText: {
     marginTop: 6,
-    color: '#4ade80',
-    fontSize: 12,
-    fontFamily: 'Inter-Regular',
-    lineHeight: 18,
+    color: 'rgba(4, 120, 87, 0.6)',
+    fontSize: 11,
+    fontFamily: v2Typography.body,
+    lineHeight: 15,
   },
-  resetButton: {
-    marginHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 4,
+  actionBadge: {
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(4, 120, 87, 0.3)',
+    backgroundColor: 'rgba(4, 120, 87, 0.08)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  actionBadgeText: {
+    color: '#047857',
+    fontSize: 11,
+    fontFamily: v2Typography.bodySemiBold,
+  },
+  anchorSwitcher: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(4, 120, 87, 0.18)',
+  },
+  emptyText: {
+    color: 'rgba(4, 120, 87, 0.6)',
+    fontSize: 12,
+    fontFamily: v2Typography.body,
+    fontStyle: 'italic',
+  },
+  anchorRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderRadius: 10,
-    borderWidth: 0.5,
-    borderColor: 'rgba(239,68,68,0.3)',
-    backgroundColor: 'transparent',
-    paddingHorizontal: 20,
-    paddingVertical: 13,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    marginBottom: 4,
+    backgroundColor: 'rgba(4, 120, 87, 0.03)',
   },
-  resetButtonPressed: {
-    backgroundColor: 'rgba(239,68,68,0.06)',
+  anchorRowActive: {
+    backgroundColor: 'rgba(4, 120, 87, 0.12)',
   },
-  resetText: {
-    color: '#ef4444',
-    fontSize: 14,
-    fontFamily: 'Inter-Regular',
+  anchorRowText: {
+    color: v2Colors.text.primary,
+    fontSize: 13,
+    fontFamily: v2Typography.body,
+    flex: 1,
   },
-  resetSubtext: {
+  anchorRowTextActive: {
+    color: '#047857',
+    fontFamily: v2Typography.bodySemiBold,
+  },
+  activePill: {
+    borderRadius: 4,
+    backgroundColor: '#047857',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    marginLeft: 8,
+  },
+  activePillText: {
+    color: '#FBF9F4',
+    fontSize: 9,
+    fontFamily: v2Typography.bodyBold,
+  },
+  outcomeContainer: {
+    padding: 16,
+    gap: 8,
+  },
+  outcomeDescription: {
+    color: 'rgba(4, 120, 87, 0.8)',
+    fontSize: 12,
+    fontFamily: v2Typography.body,
+    lineHeight: 16,
+    marginBottom: 4,
+  },
+  outcomeCard: {
+    borderRadius: 8,
+    backgroundColor: 'rgba(4, 120, 87, 0.05)',
+    padding: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(4, 120, 87, 0.15)',
+  },
+  outcomeTitle: {
+    color: '#047857',
+    fontSize: 12.5,
+    fontFamily: v2Typography.bodySemiBold,
+    marginBottom: 2,
+  },
+  outcomeDetail: {
+    color: v2Colors.text.secondary,
+    fontSize: 11.5,
+    fontFamily: v2Typography.body,
+    lineHeight: 15,
+  },
+  statusBox: {
+    marginHorizontal: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(4, 120, 87, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(4, 120, 87, 0.25)',
+    padding: 12,
+  },
+  statusBoxLabel: {
+    color: '#047857',
+    fontSize: 9.5,
+    fontFamily: v2Typography.bodyBold,
+    letterSpacing: 0.6,
+  },
+  statusBoxText: {
+    marginTop: 3,
+    color: '#047857',
+    fontSize: 12,
+    fontFamily: v2Typography.body,
+  },
+  masterResetButton: {
+    marginHorizontal: 0,
+    marginTop: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(182, 59, 56, 0.3)',
+    backgroundColor: 'rgba(182, 59, 56, 0.04)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  masterResetButtonPressed: {
+    backgroundColor: 'rgba(182, 59, 56, 0.08)',
+  },
+  masterResetTitle: {
+    color: '#B63B38',
+    fontSize: 13,
+    fontFamily: v2Typography.bodySemiBold,
+  },
+  masterResetSubtext: {
     marginTop: 2,
-    color: 'rgba(239,68,68,0.5)',
+    color: 'rgba(182, 59, 56, 0.7)',
     fontSize: 11,
-    fontFamily: 'Inter-Regular',
+    fontFamily: v2Typography.body,
   },
-  resetChevron: {
-    color: '#ef4444',
-    fontSize: 14,
-    opacity: 0.5,
+  masterResetChevron: {
+    color: '#B63B38',
+    fontSize: 16,
   },
 });

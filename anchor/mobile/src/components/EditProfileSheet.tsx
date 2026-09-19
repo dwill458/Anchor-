@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -10,15 +11,14 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { requireOptionalNativeModule } from 'expo-modules-core';
-import { Check, ChevronDown, X } from 'lucide-react-native';
-import { colors, typography } from '@/theme';
-import { withAlpha } from '@/utils/color';
-import { detectTimezoneLabel, TIMEZONE_OPTIONS, type ProfileMono, type StoredProfile } from '@/stores/profileStore';
-import { PROFILE_AVATAR_SLOTS, ProfileAvatar, ProfileAvatarMarkCell } from '@/components/profile/ProfileAvatar';
+import { T, settingsTypography } from '@/components/settings/settingsTheme';
+import { IconBack, IconPencil } from '@/components/settings/SettingsIcons';
+import type { StoredProfile } from '@/stores/profileStore';
 import { logger } from '@/utils/logger';
 
 interface EditProfileSheetProps {
@@ -28,7 +28,6 @@ interface EditProfileSheetProps {
   onSave: (updates: Pick<StoredProfile, 'name' | 'axiom' | 'timezone' | 'mono' | 'photo'>) => Promise<void> | void;
 }
 
-const SHEET_ANIMATION_DURATION_MS = 450;
 type ImagePickerModule = typeof import('expo-image-picker');
 
 function getImagePickerModule(): ImagePickerModule | null {
@@ -45,14 +44,6 @@ function getImagePickerModule(): ImagePickerModule | null {
   }
 }
 
-const FieldLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <Text style={styles.fieldLabel}>{children}</Text>
-);
-
-const FieldHint: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <Text style={styles.fieldHint}>{children}</Text>
-);
-
 export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
   open,
   profile,
@@ -61,56 +52,44 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
 }) => {
   const [rendered, setRendered] = useState(open);
   const [name, setName] = useState(profile.name);
-  const [axiom, setAxiom] = useState(profile.axiom);
-  const [timezone, setTimezone] = useState(profile.timezone);
-  const [mono, setMono] = useState<ProfileMono>(profile.mono);
   const [photo, setPhoto] = useState<string | null>(profile.photo);
-  const [timezoneOpen, setTimezoneOpen] = useState(false);
-  const [focusedField, setFocusedField] = useState<'name' | 'axiom' | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const translateY = useRef(new Animated.Value(520)).current;
+  const translateY = useRef(new Animated.Value(600)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
-  const displayName = useMemo(() => name.trim() || 'Practitioner', [name]);
 
   useEffect(() => {
     if (open) {
       setRendered(true);
       setName(profile.name);
-      setAxiom(profile.axiom);
-      setTimezone(profile.timezone || detectTimezoneLabel());
-      setMono(profile.mono);
       setPhoto(profile.photo);
-      setTimezoneOpen(false);
 
       Animated.parallel([
         Animated.timing(translateY, {
           toValue: 0,
-          duration: SHEET_ANIMATION_DURATION_MS,
+          duration: 280,
           useNativeDriver: true,
         }),
         Animated.timing(backdropOpacity, {
           toValue: 1,
-          duration: 260,
+          duration: 220,
           useNativeDriver: true,
         }),
       ]).start();
-
       return;
     }
 
-    if (!rendered) {
-      return;
-    }
+    if (!rendered) return;
 
     Animated.parallel([
       Animated.timing(translateY, {
-        toValue: 520,
-        duration: 260,
+        toValue: 600,
+        duration: 220,
         useNativeDriver: true,
       }),
       Animated.timing(backdropOpacity, {
         toValue: 0,
-        duration: 220,
+        duration: 180,
         useNativeDriver: true,
       }),
     ]).start(({ finished }) => {
@@ -118,26 +97,34 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
         setRendered(false);
       }
     });
-  }, [backdropOpacity, open, profile.axiom, profile.mono, profile.name, profile.photo, profile.timezone, rendered, translateY]);
+  }, [open, profile.name, profile.photo, rendered, translateY, backdropOpacity]);
 
-  if (!rendered) {
-    return null;
-  }
+  const trimmedName = name.trim();
+  const originalTrimmedName = (profile.name || '').trim();
+  const isDirty = (trimmedName !== originalTrimmedName && trimmedName.length > 0) || photo !== profile.photo;
 
   const handleSave = async () => {
-    await onSave({
-      name: name.trim() || 'Practitioner',
-      axiom: axiom.trim(),
-      timezone,
-      mono,
-      photo,
-    });
+    if (!isDirty || isSaving) return;
+    setIsSaving(true);
+    try {
+      await onSave({
+        ...profile,
+        name: trimmedName || 'Practitioner',
+        photo,
+      });
+      onClose();
+    } catch (error) {
+      logger.error('[EditProfileSheet] Failed to save profile', error);
+      Alert.alert('Save Failed', 'Could not save profile changes. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const pickFromLibrary = async () => {
     const ImagePicker = getImagePickerModule();
     if (!ImagePicker) {
-      Alert.alert('Photos unavailable', 'Photo selection is not available in this version of Anchor. Please update the app and try again.');
+      Alert.alert('Photos unavailable', 'Photo selection is not available in this version of Anchor.');
       return;
     }
 
@@ -148,6 +135,7 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
         return;
       }
     }
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
@@ -162,7 +150,7 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
   const takePhoto = async () => {
     const ImagePicker = getImagePickerModule();
     if (!ImagePicker) {
-      Alert.alert('Camera unavailable', 'The camera is not available in this version of Anchor. Please update the app and try again.');
+      Alert.alert('Camera unavailable', 'Camera is not available in this version of Anchor.');
       return;
     }
 
@@ -171,6 +159,7 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
       Alert.alert('Permission required', 'Please allow camera access in Settings.');
       return;
     }
+
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
       aspect: [1, 1],
@@ -193,214 +182,126 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
     Alert.alert('Profile Photo', undefined, buttons);
   };
 
+  if (!rendered) return null;
+
+  const displayInitial = (trimmedName.charAt(0) || 'P').toUpperCase();
+
   return (
     <Modal transparent visible onRequestClose={onClose} animationType="none">
       <View style={styles.modalRoot}>
         <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: backdropOpacity }]}>
-          <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose}>
-            <BlurView intensity={24} tint="dark" style={StyleSheet.absoluteFillObject} />
-            <View style={styles.backdropTint} />
-          </Pressable>
+          <Pressable style={styles.backdrop} onPress={onClose} />
         </Animated.View>
 
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.keyboardAvoiding}
         >
-          <Animated.View
-            style={[
-              styles.sheet,
-              {
-                transform: [{ translateY }],
-              },
-            ]}
-          >
-            <View pointerEvents="none" style={styles.sheetAtmosphere} />
-            <View style={styles.handle} />
-
-            <View style={styles.headerRow}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Cancel editing profile"
-                hitSlop={8}
-                onPress={onClose}
-                style={styles.headerAction}
-              >
-                <X color={colors.anchor15.ash} size={17} strokeWidth={1.35} />
-              </Pressable>
-              <View pointerEvents="none" style={styles.headerTitleGroup}>
-                <Text style={styles.headerEyebrow}>Account</Text>
-                <Text style={styles.title}>EDIT PROFILE</Text>
+          <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
+            <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
+              {/* Header */}
+              <View style={styles.header}>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel editing profile"
+                  onPress={onClose}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={styles.headerButton}
+                  activeOpacity={0.65}
+                >
+                  <IconBack size={22} color={T.ink} />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Edit profile</Text>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel="Save profile"
+                  disabled={!isDirty || isSaving}
+                  onPress={() => void handleSave()}
+                  style={styles.headerButton}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.saveText, isDirty && !isSaving ? styles.saveTextActive : styles.saveTextDisabled]}>
+                    {isSaving ? 'Saving…' : 'Save'}
+                  </Text>
+                </TouchableOpacity>
               </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Save profile"
-                hitSlop={8}
-                onPress={() => void handleSave()}
-                style={styles.saveAction}
-              >
-                <Text style={styles.saveActionText}>Save</Text>
-              </Pressable>
-            </View>
-            <View style={styles.headerRule} />
 
-            <ScrollView
-              style={styles.scrollView}
-              contentContainerStyle={styles.scrollContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.avatarSection}>
-                <View style={styles.sectionHeading}>
-                  <Text style={styles.sectionNumber}>01</Text>
-                  <Text style={styles.sectionTitle}>PROFILE MARK</Text>
-                </View>
-                <View style={styles.avatarRow}>
-                  <ProfileAvatar
-                    size={84}
-                    name={displayName}
-                    mono={mono}
-                    photoUri={photo}
-                    badgeSize={26}
+              <ScrollView
+                style={styles.scrollView}
+                contentContainerStyle={styles.scrollContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                {/* Avatar Section */}
+                <View style={styles.avatarSection}>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel="Change profile photo"
                     onPress={handlePhotoPress}
-                    onBadgePress={handlePhotoPress}
-                  />
-                  <View style={styles.avatarCopy}>
-                    <Text style={styles.avatarTitle}>{photo ? 'Profile photo selected' : 'Your profile mark'}</Text>
-                    <Text style={styles.photoHint}>Tap the mark to choose a photo, or choose a symbol below.</Text>
+                    activeOpacity={0.85}
+                    style={styles.avatarWrapper}
+                  >
+                    <View style={styles.avatarCircle}>
+                      {photo ? (
+                        <Image source={{ uri: photo }} style={styles.avatarImage} />
+                      ) : (
+                        <Text style={styles.avatarInitial}>{displayInitial}</Text>
+                      )}
+                    </View>
+                    <View style={styles.avatarBadge}>
+                      <IconPencil size={14} color={T.surface} />
+                    </View>
+                  </TouchableOpacity>
+
+                  <View style={styles.avatarActions}>
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      accessibilityLabel="Change photo"
+                      onPress={handlePhotoPress}
+                      style={styles.photoActionBtn}
+                      activeOpacity={0.65}
+                    >
+                      <Text style={styles.photoActionText}>Change photo</Text>
+                    </TouchableOpacity>
+                    {photo ? (
+                      <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityLabel="Remove photo"
+                        onPress={() => setPhoto(null)}
+                        style={styles.photoActionBtn}
+                        activeOpacity={0.65}
+                      >
+                        <Text style={styles.photoRemoveText}>Remove photo</Text>
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
                 </View>
-              </View>
 
-              <View style={styles.fieldBlock}>
-                <View style={styles.sectionHeading}>
-                  <Text style={styles.sectionNumber}>02</Text>
-                  <FieldLabel>DISPLAY NAME</FieldLabel>
-                </View>
-                <View
-                  style={[
-                    styles.textField,
-                    focusedField === 'name' ? styles.textFieldFocused : null,
-                  ]}
-                >
-                  <TextInput
-                    value={name}
-                    onChangeText={setName}
-                    maxLength={24}
-                    onFocus={() => setFocusedField('name')}
-                    onBlur={() => setFocusedField(null)}
-                    placeholder="Your name"
-                    placeholderTextColor={withAlpha(colors.anchor15.ash, 0.62)}
-                    selectionColor={colors.anchor15.gilt}
-                    style={styles.input}
-                  />
-                  <Text style={styles.counterText}>{name.length}/24</Text>
-                </View>
-              </View>
-
-              <View style={styles.fieldBlock}>
-                <View style={styles.sectionHeading}>
-                  <Text style={styles.sectionNumber}>03</Text>
-                  <FieldLabel>OPERATING PRINCIPLE</FieldLabel>
-                </View>
-                <FieldHint>One line. Your personal axiom. Shown beneath your name.</FieldHint>
-                <View
-                  style={[
-                    styles.textField,
-                    focusedField === 'axiom' || axiom.trim().length > 0
-                      ? styles.textFieldFocused
-                      : null,
-                  ]}
-                >
-                  <TextInput
-                    value={axiom}
-                    onChangeText={setAxiom}
-                    maxLength={40}
-                    onFocus={() => setFocusedField('axiom')}
-                    onBlur={() => setFocusedField(null)}
-                    placeholder="Build in silence."
-                    placeholderTextColor={withAlpha(colors.anchor15.ash, 0.62)}
-                    selectionColor={colors.anchor15.gilt}
-                    style={[styles.input, axiom.trim().length > 0 ? styles.axiomInput : null]}
-                  />
-                  <Text style={styles.counterText}>{axiom.length}/40</Text>
-                </View>
-              </View>
-
-              <View style={styles.fieldBlock}>
-                <View style={styles.sectionHeading}>
-                  <Text style={styles.sectionNumber}>04</Text>
-                  <FieldLabel>DEFAULT MARK</FieldLabel>
-                </View>
-                <FieldHint>Shown when no photo is set · choose the placeholder avatar you want</FieldHint>
-                <View style={styles.markGrid}>
-                  <ProfileAvatarMarkCell
-                    mono="initial"
-                    selected={mono === 'initial'}
-                    initial={displayName.charAt(0).toUpperCase() || 'P'}
-                    onPress={() => setMono('initial')}
-                  />
-                  {PROFILE_AVATAR_SLOTS.map((slotId) => (
-                    <ProfileAvatarMarkCell
-                      key={slotId}
-                      mono={slotId}
-                      selected={mono === slotId}
-                      initial={displayName.charAt(0).toUpperCase() || 'P'}
-                      onPress={() => setMono(slotId)}
+                {/* Display Name Input */}
+                <View style={styles.fieldSection}>
+                  <View style={styles.fieldHeader}>
+                    <Text style={styles.fieldLabel}>DISPLAY NAME</Text>
+                    <Text style={styles.fieldCounter}>{name.length}/24</Text>
+                  </View>
+                  <View style={styles.inputWrapper}>
+                    <TextInput
+                      value={name}
+                      onChangeText={setName}
+                      maxLength={24}
+                      placeholder="Your name"
+                      placeholderTextColor={T.ink3}
+                      selectionColor={T.ink}
+                      autoCapitalize="words"
+                      autoCorrect={false}
+                      style={styles.input}
                     />
-                  ))}
+                  </View>
+                  <Text style={styles.fieldHint}>
+                    Your display name appears in your personal reflections and profile header.
+                  </Text>
                 </View>
-              </View>
-
-              <View style={styles.fieldBlock}>
-                <View style={styles.sectionHeading}>
-                  <Text style={styles.sectionNumber}>05</Text>
-                  <FieldLabel>TIMEZONE</FieldLabel>
-                </View>
-                <FieldHint>Auto-detected · used for Constancy accuracy</FieldHint>
-                <Pressable
-                  onPress={() => setTimezoneOpen((value) => !value)}
-                  style={[
-                    styles.dropdownTrigger,
-                    timezoneOpen ? styles.dropdownTriggerOpen : null,
-                  ]}
-                >
-                  <Text style={styles.dropdownValue}>{timezone}</Text>
-                  <ChevronDown
-                    color={colors.gold}
-                    size={16}
-                    style={{
-                      transform: [{ rotate: timezoneOpen ? '180deg' : '0deg' }],
-                    }}
-                  />
-                </Pressable>
-                {timezoneOpen ? (
-                  <ScrollView
-                    style={styles.dropdownList}
-                    nestedScrollEnabled
-                    keyboardShouldPersistTaps="handled"
-                    showsVerticalScrollIndicator={false}
-                  >
-                    {TIMEZONE_OPTIONS.map((option) => {
-                      const selected = option === timezone;
-                      return (
-                        <Pressable
-                          key={option}
-                          onPress={() => {
-                            setTimezone(option);
-                            setTimezoneOpen(false);
-                          }}
-                          style={[styles.dropdownItem, selected ? styles.dropdownItemSelected : null]}
-                        >
-                          <Text style={[styles.dropdownItemText, selected ? styles.dropdownItemTextSelected : null]}>{option}</Text>
-                          {selected ? <Check color={colors.anchor15.gilt} size={15} strokeWidth={1.45} /> : null}
-                        </Pressable>
-                      );
-                    })}
-                  </ScrollView>
-                ) : null}
-              </View>
-            </ScrollView>
+              </ScrollView>
+            </SafeAreaView>
           </Animated.View>
         </KeyboardAvoidingView>
       </View>
@@ -413,244 +314,177 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
   },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(23, 23, 20, 0.45)',
+  },
   keyboardAvoiding: {
     flex: 1,
     justifyContent: 'flex-end',
   },
-  backdropTint: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(8, 11, 15, 0.78)',
-  },
   sheet: {
-    height: '94%',
-    backgroundColor: colors.anchor15.navy,
+    flex: 1,
+    marginTop: 50,
+    backgroundColor: T.bg,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: 0,
-    borderColor: colors.anchor15.goldHairline,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 25,
   },
-  sheetAtmosphere: {
-    position: 'absolute',
-    width: 320,
-    height: 320,
-    borderRadius: 160,
-    top: -210,
-    right: -112,
-    backgroundColor: 'rgba(217, 179, 108, 0.055)',
+  safeArea: {
+    flex: 1,
   },
-  handle: {
-    alignSelf: 'center',
-    width: 32,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(217, 179, 108, 0.42)',
-    marginTop: 13,
-    marginBottom: 8,
-  },
-  headerRow: {
-    minHeight: 48,
-    paddingHorizontal: 20,
-    paddingBottom: 11,
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: T.line,
   },
-  headerAction: {
-    width: 44,
-    height: 44,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-  },
-  headerTitleGroup: {
-    alignItems: 'center',
-    gap: 1,
-  },
-  headerEyebrow: {
-    color: colors.anchor15.ash,
-    fontFamily: typography.fontFamily.instrument,
-    fontSize: 9,
-    letterSpacing: 1.35,
-    textTransform: 'uppercase',
-  },
-  title: {
-    fontFamily: typography.fontFamily.ritualSemiBold,
-    fontSize: 10,
-    letterSpacing: 1.8,
-    color: colors.anchor15.bone,
-  },
-  saveAction: {
+  headerButton: {
     minWidth: 44,
-    height: 44,
-    alignItems: 'flex-end',
+    minHeight: 44,
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  saveActionText: {
-    color: colors.anchor15.gilt,
-    fontFamily: typography.fontFamily.ritualSemiBold,
-    fontSize: 10,
-    letterSpacing: 1.25,
-    textTransform: 'uppercase',
+  headerTitle: {
+    fontFamily: settingsTypography.displaySemiBold,
+    fontSize: 21,
+    color: T.ink,
+    letterSpacing: -0.2,
   },
-  headerRule: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.anchor15.hairline,
-    marginHorizontal: 20,
+  saveText: {
+    fontFamily: settingsTypography.bodyBold,
+    fontSize: 15,
+  },
+  saveTextActive: {
+    color: T.ink,
+  },
+  saveTextDisabled: {
+    color: T.ink3,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 26,
-    paddingBottom: 42,
+    paddingHorizontal: 22,
+    paddingTop: 28,
+    paddingBottom: 40,
   },
   avatarSection: {
-    paddingBottom: 28,
-    marginBottom: 27,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.anchor15.hairline,
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 36,
   },
-  sectionHeading: {
+  avatarWrapper: {
+    position: 'relative',
+    width: 92,
+    height: 92,
+  },
+  avatarCircle: {
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    backgroundColor: T.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: T.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  avatarInitial: {
+    fontFamily: settingsTypography.displayBold,
+    fontSize: 36,
+    color: T.ink,
+  },
+  avatarBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: T.ink,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2.5,
+    borderColor: T.bg,
+  },
+  avatarActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 9,
-    marginBottom: 12,
+    gap: 20,
   },
-  sectionNumber: {
-    color: 'rgba(217, 179, 108, 0.62)',
-    fontFamily: typography.fontFamily.instrument,
-    fontSize: 9,
-    letterSpacing: 0.75,
-    width: 17,
-  },
-  sectionTitle: {
-    color: colors.anchor15.gilt,
-    fontFamily: typography.fontFamily.ritualSemiBold,
-    fontSize: 9,
-    letterSpacing: 1.7,
-    textTransform: 'uppercase',
-  },
-  avatarRow: {
-    flexDirection: 'row',
+  photoActionBtn: {
+    minHeight: 36,
+    paddingHorizontal: 12,
     alignItems: 'center',
-    gap: 17,
+    justifyContent: 'center',
   },
-  avatarCopy: {
-    flex: 1,
-    minWidth: 0,
-    paddingRight: 8,
+  photoActionText: {
+    fontFamily: settingsTypography.bodySemiBold,
+    fontSize: 14,
+    color: T.ink,
   },
-  avatarTitle: {
-    color: colors.anchor15.bone,
-    fontFamily: typography.fontFamily.voice,
-    fontSize: 19,
-    lineHeight: 23,
+  photoRemoveText: {
+    fontFamily: settingsTypography.bodySemiBold,
+    fontSize: 14,
+    color: T.danger,
   },
-  photoHint: {
-    marginTop: 5,
-    fontFamily: typography.fontFamily.instrument,
-    fontSize: 11,
-    lineHeight: 16,
-    color: colors.anchor15.ash,
-  },
-  fieldBlock: {
-    marginBottom: 29,
-  },
-  fieldLabel: {
-    fontFamily: typography.fontFamily.ritualSemiBold,
-    fontSize: 9,
-    letterSpacing: 1.7,
-    color: colors.anchor15.gilt,
-  },
-  fieldHint: {
-    fontFamily: typography.fontFamily.instrument,
-    fontSize: 11,
-    lineHeight: 16,
-    color: colors.anchor15.ash,
-    marginTop: -3,
-    marginBottom: 9,
-  },
-  textField: {
-    minHeight: 55,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(244, 239, 230, 0.22)',
-    paddingHorizontal: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  textFieldFocused: {
-    borderBottomColor: colors.anchor15.gilt,
-  },
-  input: {
-    flex: 1,
-    minHeight: 48,
-    color: colors.anchor15.bone,
-    fontFamily: typography.fontFamily.voice,
-    fontSize: 19,
-    paddingVertical: 0,
-  },
-  axiomInput: {
-    fontFamily: typography.fontFamily.voiceItalic,
-    fontStyle: 'italic',
-  },
-  counterText: {
-    fontFamily: typography.fontFamily.instrument,
-    fontSize: 10,
-    color: 'rgba(135, 147, 157, 0.74)',
-    fontVariant: ['tabular-nums'],
-  },
-  markGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  fieldSection: {
     gap: 8,
   },
-  dropdownTrigger: {
-    minHeight: 55,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(244, 239, 230, 0.22)',
-    paddingHorizontal: 0,
+  fieldHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 4,
   },
-  dropdownTriggerOpen: {
-    borderBottomColor: colors.anchor15.gilt,
+  fieldLabel: {
+    fontFamily: settingsTypography.bodyBold,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: T.ink2,
   },
-  dropdownValue: {
-    flex: 1,
-    color: colors.anchor15.bone,
-    fontFamily: typography.fontFamily.instrument,
-    fontSize: 14,
-    marginRight: 10,
+  fieldCounter: {
+    fontFamily: settingsTypography.body,
+    fontSize: 12,
+    color: T.ink3,
   },
-  dropdownList: {
-    marginTop: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.anchor15.goldHairline,
-    backgroundColor: colors.anchor15.veil,
-    maxHeight: 180,
+  inputWrapper: {
+    backgroundColor: T.surface,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: T.line,
+    paddingHorizontal: 16,
+    height: 54,
+    justifyContent: 'center',
   },
-  dropdownItem: {
-    minHeight: 48,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.anchor15.hairline,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  input: {
+    fontFamily: settingsTypography.bodyMedium,
+    fontSize: 16,
+    color: T.ink,
+    padding: 0,
   },
-  dropdownItemSelected: {
-    backgroundColor: 'rgba(217, 179, 108, 0.07)',
-  },
-  dropdownItemText: {
-    fontFamily: typography.fontFamily.instrument,
-    fontSize: 13,
-    color: colors.anchor15.ash,
-  },
-  dropdownItemTextSelected: {
-    color: colors.anchor15.bone,
+  fieldHint: {
+    fontFamily: settingsTypography.body,
+    fontSize: 12.5,
+    color: T.ink3,
+    lineHeight: 17,
+    marginTop: 4,
   },
 });

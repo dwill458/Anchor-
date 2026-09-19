@@ -13,4 +13,13 @@ export const colors = {
   cream: '#F4F1E9',
   paper: '#FBF9F4',
   line: '#D8D2C8',
+  /** Home lower zone below the cream splice. */
+  graphite: {
+    base: '#0B0D11',
+    surface: '#14171E',
+    text: { primary: '#F4F6FA', secondary: 'rgba(244, 246, 250, 0.65)', tertiary: 'rgba(244, 246, 250, 0.38)' },
+    hairline: 'rgba(255, 255, 255, 0.09)',
+    hairlineStrong: 'rgba(255, 255, 255, 0.16)',
+    markInk: '#14161B',
+  },
 } as const;

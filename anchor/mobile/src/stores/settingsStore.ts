@@ -181,7 +181,7 @@ const deriveFocusSessionAudio = (persistedState: any): SessionAudioMode =>
   );
 
 const deriveDailyPracticeGoal = (persistedState: any): number =>
-  clampNumber(persistedState?.dailyPracticeGoal ?? 3, 1, 20);
+  clampNumber(persistedState?.dailyPracticeGoal ?? 1, 1, 20);
 
 const deriveDefaultChargeFromPrimeSession = (
   currentCharge: DefaultChargeSetting,
@@ -540,8 +540,8 @@ const DEFAULT_SETTINGS = {
   sessionAudioDefaultsOwnerInitialized: false,
   sessionAudioDefaultsUpdatedAt: null as string | null,
   openDailyAnchorAutomatically: false,
-  dailyPracticeGoal: 3,
-  dailyPracticeGoalPreset: 'three' as DailyPracticeGoalPreset,
+  dailyPracticeGoal: 1,
+  dailyPracticeGoalPreset: 'once' as DailyPracticeGoalPreset,
   threadStrengthSensitivity: 'balanced' as ThreadStrengthSensitivity,
   restDays: [] as number[],
   restDayPolicy: 'build' as RestDayPolicy,
@@ -813,10 +813,13 @@ export const useSettingsStore = create<SettingsState>()(
       setDailyPracticeGoal: (goal) => {
         triggerHaptic();
         const nextGoal = Math.max(1, Math.min(20, goal));
-        set({
+        set((state) => ({
           dailyPracticeGoal: nextGoal,
-          dailyPracticeGoalPreset: normalizeDailyPracticeGoalPreset(undefined, nextGoal),
-        });
+          dailyPracticeGoalPreset:
+            state.dailyPracticeGoalPreset === 'custom'
+              ? 'custom'
+              : normalizeDailyPracticeGoalPreset(state.dailyPracticeGoalPreset, nextGoal),
+        }));
       },
 
       setDailyPracticeGoalPreset: (preset) => {
@@ -1219,6 +1222,7 @@ export const useSettingsStore = create<SettingsState>()(
         hapticIntensity: state.hapticIntensity,
         soundEffectsEnabled: state.soundEffectsEnabled,
         mantraAudioByDefault: state.mantraAudioByDefault,
+        weeklySummaryEnabled: state.weeklySummaryEnabled,
         weeklySummaryDay: state.weeklySummaryDay,
         weeklySummaryTime: state.weeklySummaryTime,
         developerModeEnabled: state.developerModeEnabled,

@@ -1,6 +1,6 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { colors, typography } from '@/theme/v2';
 import type { HomeChartState } from '@/adapters/v2/home';
 
@@ -8,138 +8,302 @@ type Props = {
   chart: HomeChartState;
   categoryColor?: string;
   onOpenChart?: () => void;
-  onCreateChart?: () => void;
   onRetry?: () => void | Promise<void>;
+  testID?: string;
 };
 
-function ChartStarSvg({ done }: { done: boolean }) {
+const ROUTE_WIDTH = 300;
+const ROUTE_HEIGHT = 40;
+
+function ArrowRight({ color }: { color: string }) {
   return (
-    <Svg width={38} height={42} viewBox="0 0 52 58" fill="none" accessibilityElementsHidden>
-      <Path d="M26 3L25 9M42 8L37 14M49 25L42 26M8 10L12 16M2 28L10 29M16 46L12 51M45 44L49 49" stroke="#F9A733" strokeWidth={2.4} strokeLinecap="round" />
-      <Path d="M26 14L32 26L45 28L35 37L37 51L25 44L13 50L16 36L6 27L20 26Z" fill="#F9A72F" />
-      <Path d="M26 18L28 31L39 30L29 36L31 45L24 39L16 44L21 34L13 30L24 31Z" fill="#FFC257" opacity={0.75} />
-      {done ? <Path d="m17 31 7 7 13-15" fill="none" stroke="#FFFFFF" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" /> : null}
+    <Svg width={17} height={11} viewBox="0 0 17 11" fill="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <Path d="M0.8 5.5H15.4M10.9 1L15.4 5.5L10.9 10" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-function MiniRouteRibbon({
+/**
+ * An abstract contour of the route with physical character: a single thin,
+ * slightly uneven line, the travelled part struck in the category accent and
+ * the remainder left faint. Reached points are small filled marks and the
+ * current point is one restrained ring. No ribbon, no gradient, no ornament.
+ * The drift is deterministic, so the line never jitters between renders.
+ */
+function RouteContour({
   waypoints,
-  accentColor = '#3157D8',
+  accent,
 }: {
   waypoints: NonNullable<Extract<HomeChartState, { state: 'ready' }>['waypoints']>;
-  accentColor?: string;
+  accent: string;
 }) {
   if (waypoints.length === 0) return null;
-  const completed = waypoints.filter((waypoint) => waypoint.reached).length;
+
+  const inset = 6;
+  const span = ROUTE_WIDTH - inset * 2;
+  const step = waypoints.length > 1 ? span / (waypoints.length - 1) : 0;
+  const drift = (index: number) => [0, -4.5, 3, -2.5, 4, -3.5][index % 6];
+  const pointAt = (index: number) => ({
+    x: inset + step * index,
+    y: ROUTE_HEIGHT / 2 + drift(index),
+  });
+
+  const path = waypoints
+    .map((_, index) => {
+      const point = pointAt(index);
+      if (index === 0) return 'M ' + point.x + ' ' + point.y;
+      const previous = pointAt(index - 1);
+      const midX = (previous.x + point.x) / 2;
+      return 'C ' + midX + ' ' + previous.y + ', ' + midX + ' ' + point.y + ', ' + point.x + ' ' + point.y;
+    })
+    .join(' ');
+
   const currentIndex = waypoints.findIndex((waypoint) => waypoint.isCurrent);
-  const progressIndex = currentIndex >= 0 ? currentIndex : completed === waypoints.length ? waypoints.length - 1 : Math.max(0, completed - 1);
-  const strokePercent = waypoints.length > 1 ? Math.min(100, Math.max(0, (progressIndex / (waypoints.length - 1)) * 100)) : completed > 0 ? 100 : 0;
-  const routeWidth = Math.max(320, waypoints.length * 76);
+  const reachedCount = waypoints.filter((waypoint) => waypoint.reached).length;
+  const travelledIndex = currentIndex >= 0 ? currentIndex : reachedCount > 0 ? reachedCount - 1 : 0;
+  const travelledLength = waypoints.length > 1 ? (travelledIndex / (waypoints.length - 1)) * ROUTE_WIDTH * 1.06 : 0;
 
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ minWidth: routeWidth }} accessibilityLabel="Chart waypoints">
-      <View style={[styles.routeContainer, { width: routeWidth }]}>
-        <Svg width="100%" height={54} viewBox="0 0 320 54" preserveAspectRatio="none" style={styles.ribbonSvg} accessibilityElementsHidden>
-          <Defs>
-            <LinearGradient id="homeRouteGradient" x1="0" y1="0" x2="1" y2="0">
-              <Stop offset="0%" stopColor="#58C9C3" />
-              <Stop offset="50%" stopColor={accentColor} />
-              <Stop offset="100%" stopColor="#D8D4CE" />
-            </LinearGradient>
-          </Defs>
-          <Path d="M16 35C57 5 74 54 112 34S171 13 205 28S266 47 305 19" stroke="#E4E0D8" strokeWidth={6} strokeDasharray="9 7" strokeLinecap="round" fill="none" />
-          <Path d="M16 35C57 5 74 54 112 34S171 13 205 28S266 47 305 19" stroke="url(#homeRouteGradient)" strokeWidth={7} strokeDasharray={`${(strokePercent * 3.1).toFixed(0)} 400`} strokeLinecap="round" fill="none" />
-          <Path d="M16 33C57 3 74 52 112 32S171 11 205 26" stroke="#FFFFFF" strokeOpacity={0.5} strokeWidth={1.5} fill="none" />
-        </Svg>
-
-        <View style={styles.waypointsRow}>
-          {waypoints.map((waypoint, index) => (
-            <View key={waypoint.id} style={styles.waypointCol}>
-              <View style={styles.symbolHolder}>
-                {waypoint.isDestination ? (
-                  <ChartStarSvg done={waypoint.reached} />
-                ) : waypoint.reached ? (
-                  <View style={styles.nodeDone}><Text style={styles.doneCheck}>✓</Text></View>
-                ) : waypoint.isCurrent ? (
-                  <View style={styles.nodeCurrentOuter}><View style={styles.nodeCurrentInner} /></View>
-                ) : (
-                  <View style={styles.nodeUpcoming} />
-                )}
-              </View>
-              <Text numberOfLines={2} style={[styles.waypointTitle, waypoint.isCurrent && styles.waypointTitleCurrent]}>{waypoint.title}</Text>
-              <Text style={styles.waypointNum}>{index + 1} · waypoint</Text>
-              {waypoint.isCurrent ? <View style={styles.currentBadge}><Text style={styles.currentBadgeText}>CURRENT</Text></View> : null}
-            </View>
-          ))}
-        </View>
-      </View>
-    </ScrollView>
+    <Svg
+      width="100%"
+      height={ROUTE_HEIGHT}
+      viewBox={'0 0 ' + ROUTE_WIDTH + ' ' + ROUTE_HEIGHT}
+      preserveAspectRatio="xMidYMid meet"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
+      <Path d={path} stroke={colors.graphite.hairlineStrong} strokeWidth={1.2} fill="none" strokeLinecap="round" />
+      {travelledLength > 0 ? (
+        <Path
+          d={path}
+          stroke={accent}
+          strokeWidth={1.6}
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={travelledLength.toFixed(1) + ' ' + ROUTE_WIDTH * 2}
+          opacity={0.85}
+        />
+      ) : null}
+      {waypoints.map((waypoint, index) => {
+        const point = pointAt(index);
+        if (waypoint.isCurrent) {
+          return <Circle key={waypoint.id} cx={point.x} cy={point.y} r={4.2} fill="none" stroke={accent} strokeWidth={1.8} />;
+        }
+        return (
+          <Circle
+            key={waypoint.id}
+            cx={point.x}
+            cy={point.y}
+            r={waypoint.isDestination ? 2.8 : 2.1}
+            fill={waypoint.reached ? accent : colors.graphite.hairlineStrong}
+            opacity={waypoint.reached ? 0.8 : 1}
+          />
+        );
+      })}
+    </Svg>
   );
 }
 
-/** Home Chart preview, driven entirely by the active CourseDetail. */
-export function V2HomeChartSection({ chart, categoryColor, onOpenChart, onRetry }: Props) {
-  if (chart.state === 'none') return null;
+/**
+ * Chart on Home is strictly conditional, and the absent/unknown/in-flight
+ * distinction is load-bearing:
+ *
+ * - `none`      this Anchor has no Course. Render nothing at all: no heading,
+ *               no pill, no route, no waypoint, no reserved space.
+ * - `resolving` the relationship is not yet knowable. Also render nothing; an
+ *               unknown relationship must never surface as "Loading…".
+ * - `loading`   a Course link for THIS Anchor is known and its detail is in
+ *               flight. Only this earns a visible placeholder.
+ * - `error`     a known relationship failed to load. Show it and allow retry;
+ *               never silently substitute fallback content.
+ */
+export function V2HomeChartSection({ chart, categoryColor, onOpenChart, onRetry, testID }: Props) {
+  const accent = categoryColor ?? colors.semantic.info;
 
-  if (chart.state === 'loading' || chart.state === 'error') {
+  if (chart.state === 'none' || chart.state === 'resolving') return null;
+
+  if (chart.state === 'loading') {
     return (
-      <View testID={`v2-home-chart-${chart.state}`} style={styles.statusContainer}>
-        <Text style={styles.statusLabel}>{chart.state === 'loading' ? 'CHART' : 'CHART UNAVAILABLE'}</Text>
-        {chart.state === 'loading' ? <Text style={styles.statusCopy}>Loading your current Course…</Text> : <Text numberOfLines={2} style={styles.statusCopy}>{chart.message}</Text>}
-        {chart.state === 'error' && onRetry ? <Pressable accessibilityRole="button" accessibilityLabel="Retry Chart" onPress={onRetry}><Text style={styles.retry}>Retry</Text></Pressable> : null}
+      <View testID="v2-home-chart-loading" style={styles.container}>
+        <Text style={styles.kicker}>CHART</Text>
+        <View style={styles.skeletonGroup}>
+          <View style={[styles.skeletonLine, styles.skeletonTitle]} />
+          <View style={[styles.skeletonLine, styles.skeletonCopy]} />
+        </View>
       </View>
     );
   }
 
-  return (
-    <View testID="v2-home-chart" style={styles.container}>
-      <View style={styles.card}>
-        <View style={styles.heading}>
-          <Text style={styles.kicker}>NEXT ON YOUR CHART <Text style={styles.kickerStar}>✦</Text></Text>
-          <Pressable accessibilityRole="button" accessibilityLabel="View Chart" onPress={onOpenChart} style={({ pressed }) => [styles.viewChartLink, pressed && styles.pressed]}>
-            <Text style={styles.viewChartText}>View Chart</Text><Text style={styles.viewChartChevron}>›</Text>
+  if (chart.state === 'error') {
+    return (
+      <View testID="v2-home-chart-error" style={styles.container}>
+        <Text style={styles.kicker}>CHART</Text>
+        <Text style={styles.errorCopy}>{chart.message}</Text>
+        {onRetry ? (
+          <Pressable accessibilityRole="button" accessibilityLabel="Retry Chart" onPress={onRetry} style={({ pressed }) => [styles.retry, pressed ? styles.pressed : null]}>
+            <Text style={styles.retryText}>Try again</Text>
           </Pressable>
-        </View>
-        <Text style={styles.destination}>{chart.destinationText}</Text>
-        {chart.nextMove ? <Text style={styles.description}>{chart.nextMove}</Text> : null}
-        <Text style={styles.waypointCount}>{chart.reachedCount} of {chart.waypointCount} waypoints</Text>
-        <MiniRouteRibbon waypoints={chart.waypoints} accentColor={categoryColor} />
+        ) : null}
       </View>
-    </View>
+    );
+  }
+
+  const current = chart.waypoints.find((waypoint) => waypoint.isCurrent) ?? null;
+
+  return (
+    <Pressable
+      testID={testID ?? 'v2-home-chart'}
+      accessibilityRole="button"
+      accessibilityLabel="View Chart"
+      onPress={onOpenChart}
+      disabled={!onOpenChart}
+      style={({ pressed }) => [styles.container, pressed && onOpenChart ? styles.pressed : null]}
+    >
+      <View style={styles.kickerRow}>
+        <Text style={styles.kicker}>CHART</Text>
+        <Text testID="v2-home-chart-progress" style={styles.progress}>
+          {chart.reachedCount + ' of ' + chart.waypointCount + ' reached'}
+        </Text>
+      </View>
+
+      <Text testID="v2-home-chart-destination" style={styles.destination}>
+        {chart.destinationText}
+      </Text>
+
+      <View style={styles.route}>
+        <RouteContour waypoints={chart.waypoints} accent={accent} />
+      </View>
+
+      {current ? (
+        <View style={styles.waypointBlock}>
+          <Text style={styles.waypointLabel}>CURRENT WAYPOINT</Text>
+          <Text testID="v2-home-chart-waypoint" style={styles.waypointTitle}>
+            {current.title}
+          </Text>
+        </View>
+      ) : null}
+
+      {chart.nextMove ? (
+        <View style={styles.waypointBlock}>
+          <Text style={styles.waypointLabel}>ONE MOVE</Text>
+          <Text testID="v2-home-chart-one-move" style={styles.oneMove}>
+            {chart.nextMove}
+          </Text>
+        </View>
+      ) : null}
+
+      <View style={styles.link}>
+        <Text style={styles.linkText}>View Chart</Text>
+        <ArrowRight color={colors.graphite.text.tertiary} />
+      </View>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { marginHorizontal: 12, marginTop: 14 },
-  statusContainer: { marginHorizontal: 22, marginTop: 14, minHeight: 54, paddingHorizontal: 13, paddingVertical: 12, borderRadius: 14, borderWidth: 1, borderStyle: 'dashed', borderColor: '#DAD6CD', backgroundColor: '#FBF9F4', flexDirection: 'row', alignItems: 'center', gap: 10 },
-  statusLabel: { fontFamily: typography.utilitySemibold.fontFamily, fontSize: 9, fontWeight: '700', letterSpacing: 1.1, color: '#8054DC' },
-  statusCopy: { flex: 1, fontFamily: typography.utility.fontFamily, fontSize: 12, lineHeight: 17, color: '#62738B' },
-  retry: { fontFamily: typography.utilitySemibold.fontFamily, fontSize: 12, color: '#3157D8' },
-  card: { paddingVertical: 16, paddingHorizontal: 15, borderRadius: 20, backgroundColor: '#FBF9F4', borderWidth: 1, borderColor: '#EBE5DA', shadowColor: '#5C5130', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 16, elevation: 2 },
-  heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4 },
-  kicker: { fontFamily: typography.utilitySemibold.fontFamily, fontSize: 9, fontWeight: '700', letterSpacing: 1.1, color: '#8054DC', textTransform: 'uppercase' },
-  kickerStar: { color: '#F28A2E', fontSize: 13 },
-  viewChartLink: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4, paddingHorizontal: 6 },
-  viewChartText: { fontFamily: typography.utilitySemibold.fontFamily, fontSize: 11.5, fontWeight: '600', color: '#647188' },
-  viewChartChevron: { fontSize: 16, lineHeight: 14, color: '#647188', fontWeight: '600' },
-  destination: { fontFamily: typography.displayBold, fontSize: 23, lineHeight: 27, letterSpacing: -0.7, color: colors.text.primary, marginTop: 9 },
-  description: { fontFamily: typography.utility.fontFamily, fontSize: 13, lineHeight: 18, color: '#62738B', marginTop: 5, maxWidth: 300 },
-  waypointCount: { fontFamily: typography.utilityMedium.fontFamily, fontSize: 12, color: '#3D51A0', marginTop: 12, marginBottom: 4 },
-  routeContainer: { minHeight: 118, position: 'relative', marginTop: 8 },
-  ribbonSvg: { position: 'absolute', top: 0, left: 0, right: 0 },
-  waypointsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative', zIndex: 2 },
-  waypointCol: { flex: 1, alignItems: 'center', minWidth: 68, paddingHorizontal: 3 },
-  symbolHolder: { height: 57, width: '100%', alignItems: 'center', justifyContent: 'center', paddingTop: 6 },
-  nodeDone: { width: 23, height: 23, borderRadius: 12, backgroundColor: '#227889', alignItems: 'center', justifyContent: 'center' },
-  doneCheck: { color: '#56E2CD', fontSize: 14, fontWeight: '700', lineHeight: 16 },
-  nodeCurrentOuter: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#3157F6', borderWidth: 4, borderColor: '#B7C8FE', alignItems: 'center', justifyContent: 'center' },
-  nodeCurrentInner: { width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: '#FFFFFF' },
-  nodeUpcoming: { width: 17, height: 17, borderRadius: 9, borderWidth: 2, borderColor: '#BFC0BB', backgroundColor: '#FBF9F4' },
-  waypointTitle: { fontFamily: typography.utilitySemibold.fontFamily, fontSize: 10.5, lineHeight: 13, fontWeight: '600', color: colors.text.primary, textAlign: 'center', minHeight: 26 },
-  waypointTitleCurrent: { fontWeight: '800', color: '#334BE4' },
-  waypointNum: { fontFamily: typography.utility.fontFamily, fontSize: 9.5, lineHeight: 13, color: '#60718A', textAlign: 'center' },
-  currentBadge: { backgroundColor: '#E9E3FF', borderRadius: 9, paddingHorizontal: 5, paddingVertical: 2, marginTop: 4 },
-  currentBadgeText: { fontFamily: typography.utilitySemibold.fontFamily, fontSize: 8, fontWeight: '700', letterSpacing: 0.2, color: '#334BE4' },
-  pressed: { opacity: 0.75 },
+  container: {
+    marginTop: 30,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: colors.graphite.hairline,
+  },
+  kickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  kicker: {
+    fontFamily: typography.bodyBold,
+    fontSize: 10,
+    letterSpacing: 2.2,
+    color: colors.graphite.text.tertiary,
+  },
+  progress: {
+    fontFamily: typography.bodyMedium,
+    fontSize: 11,
+    color: colors.graphite.text.secondary,
+    fontVariant: ['tabular-nums'],
+  },
+  destination: {
+    fontFamily: typography.displayBold,
+    fontSize: 22,
+    lineHeight: 27,
+    letterSpacing: -0.6,
+    color: colors.graphite.text.primary,
+    marginTop: 12,
+  },
+  route: {
+    marginTop: 18,
+    marginBottom: 2,
+  },
+  waypointBlock: {
+    marginTop: 16,
+  },
+  waypointLabel: {
+    fontFamily: typography.bodyBold,
+    fontSize: 9,
+    letterSpacing: 1.8,
+    color: colors.graphite.text.tertiary,
+  },
+  waypointTitle: {
+    fontFamily: typography.bodySemiBold,
+    fontSize: 15,
+    lineHeight: 21,
+    color: colors.graphite.text.primary,
+    marginTop: 4,
+  },
+  oneMove: {
+    fontFamily: typography.body,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.graphite.text.secondary,
+    marginTop: 4,
+  },
+  link: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 18,
+  },
+  linkText: {
+    fontFamily: typography.bodyMedium,
+    fontSize: 13.5,
+    color: colors.graphite.text.secondary,
+  },
+  errorCopy: {
+    fontFamily: typography.body,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.graphite.text.secondary,
+    marginTop: 12,
+  },
+  retry: {
+    alignSelf: 'flex-start',
+    marginTop: 10,
+  },
+  retryText: {
+    fontFamily: typography.bodySemiBold,
+    fontSize: 13.5,
+    color: colors.graphite.text.primary,
+    textDecorationLine: 'underline',
+  },
+  skeletonGroup: {
+    marginTop: 14,
+    gap: 10,
+  },
+  skeletonLine: {
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: colors.graphite.hairlineStrong,
+  },
+  skeletonTitle: {
+    width: '58%',
+    height: 18,
+  },
+  skeletonCopy: {
+    width: '40%',
+  },
+  pressed: {
+    opacity: 0.78,
+  },
 });

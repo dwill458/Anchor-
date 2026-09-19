@@ -8,6 +8,7 @@
  */
 
 import type { V2PaywallContext } from './paywall';
+import type { V2PracticeMode } from './practice';
 import type { V2PaywallEntitlementResult } from '@/hooks/v2/paywall';
 import type { V2PaywallPlanId } from './paywall';
 
@@ -20,8 +21,22 @@ export const V2_PAYWALL_ROUTE = 'V2Paywall' as const;
  */
 export type V2PaywallResumeIntent =
   | { type: 'create_anchor' }
-  | { type: 'open_practice'; anchorId: string; mode?: 'focus' | 'deep' }
-  | { type: 'open_visualize'; anchorId: string }
+  | {
+      type: 'open_practice';
+      anchorId: string;
+      /** Legacy coarse hint retained for stored intents. */
+      mode?: 'focus' | 'deep';
+      /**
+       * The exact practice the user was trying to start. Carried so a
+       * successful purchase or trial start resumes THAT practice rather than
+       * dropping the user on the Practice hub. Typed, not a loose string, so a
+       * resume cannot smuggle a mode the app does not know how to open.
+       */
+      practiceMode?: V2PracticeMode;
+      durationSeconds?: number;
+      source?: 'practice_hub' | 'recommended_today';
+    }
+  | { type: 'open_visualize'; anchorId: string; durationSeconds?: number }
   | { type: 'vision_premium_action'; anchorId: string; action: string }
   | { type: 'none' };
 

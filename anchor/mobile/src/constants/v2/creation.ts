@@ -1,4 +1,7 @@
-export const CANONICAL_STRUCTURES = ['focused', 'contained', 'raw', 'drawn'] as const;
+/** Hard cap on the intention text in V2 creation (the backend accepts up to 500). */
+export const CREATION_MAX_INTENTION_LENGTH = 140;
+
+export const CANONICAL_STRUCTURES =['focused', 'contained', 'raw', 'drawn'] as const;
 export type CanonicalStructure = (typeof CANONICAL_STRUCTURES)[number];
 
 export const CREATION_STEPS = [
@@ -39,6 +42,38 @@ export const STRUCTURE_DESCRIPTIONS: Record<CanonicalStructure, string> = {
   raw: 'Less framing. More of the original form remains visible.',
   drawn: 'Shape the form with your own hand.',
 };
+
+/**
+ * Letter Distillation copy. The headline moves exactly once — from the phrase being reduced
+ * to the form left behind — and the status line names the pass currently on screen, so the
+ * user is told what they are watching instead of being shown a finished result.
+ */
+export const DISTILLATION_COPY = {
+  eyebrow: 'LETTER DISTILLATION',
+  /** While the phrase is still being reduced. */
+  titleTransforming: 'Your words, taking shape.',
+  /** Once the surviving letters have compacted and settled. */
+  titleSettled: 'The form beneath the words.',
+  status: {
+    whole: 'Starting with your intention',
+    vowels: 'Removing vowels',
+    repeats: 'Removing repeated letters',
+    compact: 'Keeping each remaining letter, in order',
+  },
+  settledLabel: 'DISTILLED FORM',
+  settledCopy: 'These letters become the source material for your Anchor.',
+  /** Shown in place of the primary action while the reduction is still playing. */
+  ctaPending: 'Distilling\u2026',
+  cta: 'Choose structure',
+  howThisWorks: 'How this works',
+  sheetIntro: 'We remove vowels and repeated letters. The remaining sequence is used to build your Anchor.',
+  /** The three mechanism lines in the "How this works" sheet, in order. */
+  mechanism: [
+    'Remove vowels.',
+    'Remove repeated letters, keeping the first of each.',
+    'Keep the remaining letters, in order.',
+  ],
+} as const;
 
 /**
  * The whole flow is a single central route; the nine steps above are store-internal state,

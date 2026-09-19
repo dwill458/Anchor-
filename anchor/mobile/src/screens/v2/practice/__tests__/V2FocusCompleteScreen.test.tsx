@@ -16,7 +16,7 @@ describe('V2FocusCompleteScreen', () => {
     const anchor = makeAnchor({
       id: 'a1',
       intentionText: 'Stay centered through change',
-      category: 'courage',
+      category: 'health',
       threadStrength: 50,
     });
 
@@ -38,7 +38,7 @@ describe('V2FocusCompleteScreen', () => {
     const anchor = makeAnchor({
       id: 'a1',
       intentionText: 'Stay centered through change',
-      category: 'calm',
+      category: 'learning',
       threadStrength: 50,
     });
 
@@ -57,7 +57,7 @@ describe('V2FocusCompleteScreen', () => {
   it('renders authoritative Thread Strength movement when before and after are provided', () => {
     const anchor = makeAnchor({
       id: 'a1',
-      category: 'focus',
+      category: 'desire',
       threadStrength: 54,
     });
 
@@ -83,28 +83,28 @@ describe('V2FocusCompleteScreen', () => {
     });
   });
 
-  it('renders "Not yet measured" when thread strength is unmeasured, strictly never fabricating prototype increments', () => {
+  it('renders "THREAD FORMING" when thread strength is unmeasured, strictly never fabricating prototype increments', () => {
     const anchor = makeAnchor({
       id: 'a1',
-      category: 'clarity',
-      threadStrength: null,
+      category: 'creativity',
+      threadStrength: undefined,
     });
 
     render(
       <V2FocusCompleteScreen
         anchor={anchor}
         durationSeconds={30}
-        beforeStrength={null}
-        afterStrength={null}
+        beforeStrength={undefined}
+        afterStrength={undefined}
         onDone={jest.fn()}
         onAgain={jest.fn()}
       />
     );
 
-    expect(screen.getByText('Not yet measured')).toBeTruthy();
+    expect(screen.getByText('THREAD FORMING')).toBeTruthy();
     expect(
       screen.getByText(
-        'Session recorded. Baseline calculation takes shape with daily practice.'
+        'Each return gives Anchor more signal. Keep reinforcing it and your baseline will take shape.'
       )
     ).toBeTruthy();
 

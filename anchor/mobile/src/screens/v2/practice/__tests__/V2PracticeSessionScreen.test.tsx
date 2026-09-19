@@ -37,6 +37,7 @@ jest.mock('@/utils/haptics', () => ({
   safeHaptics: {
     notification: jest.fn(),
     impact: jest.fn(),
+    selection: jest.fn(),
   },
 }));
 
@@ -57,7 +58,7 @@ describe('V2PracticeSessionScreen - Focus Flow Integration', () => {
     id: 'a1',
     userId: accountId,
     intentionText: 'Release and ground',
-    category: 'presence',
+    category: 'spirituality',
     threadStrength: 60,
   });
 
@@ -71,7 +72,7 @@ describe('V2PracticeSessionScreen - Focus Flow Integration', () => {
 
     useAnchorStore.setState({
       anchors: [mockAnchor],
-      activeAnchorId: 'a1',
+      currentAnchorId: 'a1',
     });
 
     useSettingsStore.setState({
@@ -93,6 +94,7 @@ describe('V2PracticeSessionScreen - Focus Flow Integration', () => {
       <V2PracticeSessionScreen
         anchorId="a1"
         mode="focus"
+        durationSeconds={30}
         source="practice_hub"
         onBack={jest.fn()}
         onCompleted={jest.fn()}
@@ -123,6 +125,12 @@ describe('V2PracticeSessionScreen - Focus Flow Integration', () => {
         />
       );
 
+      // Begin session from prepare state
+      fireEvent.press(screen.getByTestId('focus-prepare-begin-button'));
+      await act(async () => {
+        jest.advanceTimersByTime(500);
+      });
+
       // Simulate 30s elapsed
       mockTime += 30500;
 
@@ -130,9 +138,9 @@ describe('V2PracticeSessionScreen - Focus Flow Integration', () => {
         jest.advanceTimersByTime(1000);
       });
 
-      // Resolving delay (650ms)
+      // Resolving delay (850ms)
       await act(async () => {
-        jest.advanceTimersByTime(700);
+        jest.advanceTimersByTime(900);
       });
 
       // Verify PracticeCompletionService was called with correct data
@@ -182,6 +190,11 @@ describe('V2PracticeSessionScreen - Focus Flow Integration', () => {
         />
       );
 
+      fireEvent.press(screen.getByTestId('focus-prepare-begin-button'));
+      await act(async () => {
+        jest.advanceTimersByTime(500);
+      });
+
       mockTime += 10500;
 
       await act(async () => {
@@ -189,7 +202,7 @@ describe('V2PracticeSessionScreen - Focus Flow Integration', () => {
       });
 
       await act(async () => {
-        jest.advanceTimersByTime(700);
+        jest.advanceTimersByTime(900);
       });
 
       expect(screen.getByTestId('v2-focus-complete-screen')).toBeTruthy();
@@ -219,6 +232,11 @@ describe('V2PracticeSessionScreen - Focus Flow Integration', () => {
         />
       );
 
+      fireEvent.press(screen.getByTestId('focus-prepare-begin-button'));
+      await act(async () => {
+        jest.advanceTimersByTime(500);
+      });
+
       mockTime += 10500;
 
       await act(async () => {
@@ -226,7 +244,7 @@ describe('V2PracticeSessionScreen - Focus Flow Integration', () => {
       });
 
       await act(async () => {
-        jest.advanceTimersByTime(700);
+        jest.advanceTimersByTime(900);
       });
 
       expect(screen.getByTestId('v2-focus-complete-screen')).toBeTruthy();

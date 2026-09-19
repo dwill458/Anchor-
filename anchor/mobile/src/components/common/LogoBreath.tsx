@@ -10,9 +10,10 @@
  * - Dissolve: 400-500ms (logo fades out, overlaps with next screen)
  */
 
-import React, { useEffect, useRef } from 'react';
-import { View, Animated, StyleSheet, Easing, Image } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { EaseView } from 'react-native-ease';
 import { colors } from '@/theme';
 
 interface LogoBreathProps {
@@ -20,40 +21,17 @@ interface LogoBreathProps {
 }
 
 export const LogoBreath: React.FC<LogoBreathProps> = ({ onComplete }) => {
-    const logoOpacity = useRef(new Animated.Value(0)).current;
-    const logoScale = useRef(new Animated.Value(0.96)).current;
+    const [visible, setVisible] = useState(true);
 
     useEffect(() => {
-        // Entrance: 0-300ms (fade in + micro-scale)
-        Animated.parallel([
-            Animated.timing(logoOpacity, {
-                toValue: 1,
-                duration: 300,
-                easing: Easing.out(Easing.ease),
-                useNativeDriver: true,
-            }),
-            Animated.timing(logoScale, {
-                toValue: 1,
-                duration: 300,
-                easing: Easing.out(Easing.ease),
-                useNativeDriver: true,
-            }),
-        ]).start(() => {
-            // Hold: 100ms pause for stillness
-            setTimeout(() => {
-                // Dissolve: 100ms fade out
-                Animated.timing(logoOpacity, {
-                    toValue: 0,
-                    duration: 100,
-                    easing: Easing.linear,
-                    useNativeDriver: true,
-                }).start(() => {
-                    // Navigate to onboarding
-                    onComplete();
-                });
-            }, 100);
-        });
-    }, [logoOpacity, logoScale, onComplete]);
+        // Entrance: 0-300ms, hold: 300-400ms, dissolve: 400-500ms.
+        const dissolveTimer = setTimeout(() => setVisible(false), 400);
+        const completeTimer = setTimeout(onComplete, 500);
+        return () => {
+            clearTimeout(dissolveTimer);
+            clearTimeout(completeTimer);
+        };
+    }, [onComplete]);
 
     return (
         <View style={styles.container}>
@@ -70,14 +48,13 @@ export const LogoBreath: React.FC<LogoBreathProps> = ({ onComplete }) => {
             />
 
             {/* Logo mark */}
-            <Animated.View
-                style={[
-                    styles.logoContainer,
-                    {
-                        opacity: logoOpacity,
-                        transform: [{ scale: logoScale }],
-                    },
-                ]}
+            <EaseView
+                initialAnimate={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: visible ? 1 : 0, scale: visible ? 1 : 0.98 }}
+                transition={visible
+                    ? { type: 'timing', duration: 300, easing: 'easeOut' }
+                    : { type: 'timing', duration: 100, easing: 'linear' }}
+                style={styles.logoContainer}
             >
                 {/* Official Logo */}
                 <Image
@@ -85,7 +62,7 @@ export const LogoBreath: React.FC<LogoBreathProps> = ({ onComplete }) => {
                     style={styles.logoImage}
                     resizeMode="contain"
                 />
-            </Animated.View>
+            </EaseView>
         </View>
     );
 };

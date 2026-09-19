@@ -4,5 +4,13 @@ export { toThreadPresentation, threadQualitativeLabel } from './threadAdapter';
 export type { V2ThreadPresentation } from './threadAdapter';
 export { toHomeVisionState, toV2HomeVisionState } from './visionAdapter';
 export type { HomeVisionState } from './visionAdapter';
-export { toHomeChartState } from './chartAdapter';
-export type { HomeChartState } from './chartAdapter';
+export {
+  toHomeChartState,
+  resolveHomeChartState,
+  courseMatchesAnchor,
+  courseSummaryMatchesAnchor,
+  homeChartErrorMessage,
+} from './chartAdapter';
+export type { HomeChartState, HomeChartResolutionInput } from './chartAdapter';
+export { toHomeProgressState, HOME_PROGRESS_EVIDENCE_LIMIT } from './progressAdapter';
+export type { HomeProgressState, HomeProgressEvidence } from './progressAdapter';

@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, ChevronRight } from 'lucide-react-native';
+import { ArrowLeft, Sliders } from 'lucide-react-native';
 import { CircularAnchorRenderer, V2Button, V2Screen } from '@/components/v2';
-import { anchorArtworkSvg } from '@/components/v2/anchors/anchorPresentation';
+import { anchorArtworkSvg, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
 import { practiceColors } from '@/theme/v2/practiceColors';
-import { getCategoryColor, getCategoryFieldColor, colors, spacing, typography } from '@/theme/v2';
+import { getCategoryColor, getCategoryFieldColor, colors, radii, spacing, typography } from '@/theme/v2';
 import type { Anchor } from '@/types';
 import type { GuidanceVoice } from '@/types/sessionAudio';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { safeHaptics } from '@/utils/haptics';
+import * as Haptics from 'expo-haptics';
 import { V2FocusSettingsSheet } from './V2FocusSettingsSheet';
 
 export interface V2FocusPrepConfig {
@@ -51,6 +52,8 @@ export function V2FocusPrepScreen({
   const insets = useSafeAreaInsets();
   const sessionDefaults = useSettingsStore((state) => state.sessionAudioDefaults?.focus);
   const preferredDuration = useSettingsStore((state) => state.focusSessionDuration);
+  const hapticIntensity = useSettingsStore((state) => state.hapticIntensity);
+  const setHapticIntensity = useSettingsStore((state) => state.setHapticIntensity);
 
   const [duration, setDuration] = useState<number>(() => {
     if (initialDuration && DURATION_OPTIONS.includes(initialDuration as 10 | 30 | 60)) {
@@ -70,8 +73,13 @@ export function V2FocusPrepScreen({
   );
   const [sheetOpen, setSheetOpen] = useState(false);
 
+  const soundOn = ambient || voice !== 'none';
+  const hapticsOn = (hapticIntensity ?? 70) > 0;
+
+  const categoryColor = getCategoryColor(anchor.category);
+
   const formatDurationOption = (seconds: number) =>
-    seconds === 60 ? '1 MIN' : `${seconds} SEC`;
+    seconds === 60 ? '1 min' : `${seconds} sec`;
 
   const voiceLabel =
     voice === 'female'
@@ -85,6 +93,26 @@ export function V2FocusPrepScreen({
   const handleSelectDuration = (val: number) => {
     void safeHaptics.selection();
     setDuration(val);
+  };
+
+  const toggleSound = () => {
+    void safeHaptics.selection();
+    if (soundOn) {
+      setVoice('none');
+      setAmbient(false);
+    } else {
+      setVoice('female');
+      setAmbient(true);
+    }
+  };
+
+  const toggleHaptics = () => {
+    if (hapticsOn) {
+      setHapticIntensity(0);
+    } else {
+      setHapticIntensity(70);
+      void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
+    }
   };
 
   const handleBegin = () => {
@@ -113,99 +141,144 @@ export function V2FocusPrepScreen({
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Back"
+          accessibilityLabel="Back to Practice"
+          testID="focus-prep-back-button"
           onPress={onBack}
           hitSlop={12}
           style={styles.backButton}
         >
-          <ArrowLeft size={22} color={colors.text.primary} />
+          <ArrowLeft size={20} color={colors.text.primary} />
+          <Text style={styles.backText}>Practice</Text>
         </Pressable>
-        <Text style={styles.headerTitle}>Focus</Text>
-        <View style={styles.headerSpacer} />
       </View>
 
       <View style={styles.scrollContent}>
-        {/* Anchor Artwork Medallion with restrained halo */}
-        <View style={styles.artworkContainer}>
-          <View
-            style={[
-              styles.halo,
-              { backgroundColor: getCategoryFieldColor(anchor.category) },
-            ]}
-          />
-          <CircularAnchorRenderer
-            svg={anchorArtworkSvg(anchor)}
-            category={anchor.category}
-            size={212}
-            accessibilityLabel={`${anchor.category} Anchor artwork`}
-          />
-        </View>
+        {/* Practice Title Eyebrow */}
+        <Text style={styles.eyebrow}>FOCUS</Text>
 
-        {/* Intention info */}
-        <View style={styles.intentionBlock}>
-          <Text style={styles.eyebrow}>YOUR ANCHOR</Text>
-          <Text style={styles.intentionText}>
-            “<Text>{anchor.intentionText}</Text>”
+        {/* Hero Section: Centered prominent Anchor with organic halo */}
+        <View style={styles.heroSection}>
+          <View style={styles.artworkContainer}>
+            <View
+              style={[
+                styles.halo,
+                { backgroundColor: getCategoryFieldColor(anchor.category) },
+              ]}
+            />
+            <CircularAnchorRenderer
+              svg={anchorArtworkSvg(anchor)}
+              category={anchor.category}
+              size={186}
+              appearance="paper"
+              accessibilityLabel={`${categoryLabel(anchor.category)} Anchor artwork`}
+            />
+          </View>
+
+          {/* Intention info */}
+          <View style={styles.intentionBlock}>
+            <Text style={styles.intentionText}>{anchor.intentionText}</Text>
+            <View style={styles.categoryRow}>
+              <View style={[styles.categoryDot, { backgroundColor: categoryColor }]} />
+              <Text style={styles.categoryLabel}>{categoryLabel(anchor.category)}</Text>
+            </View>
+          </View>
+
+          <Text style={styles.explanationText}>
+            Return your attention to the intention you’ve chosen to reinforce.
           </Text>
         </View>
 
-        <Text style={styles.supportingCopy}>
-          Return to your Anchor for a few seconds.
-        </Text>
-
         {/* Duration Selector */}
-        <View style={styles.durationSelector}>
-          {DURATION_OPTIONS.map((opt, i) => {
-            const isSelected = duration === opt;
-            return (
-              <Pressable
-                key={opt}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isSelected }}
-                accessibilityLabel={`${formatDurationOption(opt)}${isSelected ? ', selected' : ''}`}
-                onPress={() => handleSelectDuration(opt)}
-                style={[
-                  styles.durationOption,
-                  i < DURATION_OPTIONS.length - 1 && styles.durationDivider,
-                ]}
-              >
-                <View
-                  style={[
-                    styles.durationIndicator,
-                    isSelected && styles.durationIndicatorActive,
-                  ]}
-                >
-                  <Text
+        <View style={styles.controlsSection}>
+          <View style={styles.durationsContainer}>
+            <Text style={styles.controlLabel}>HOW LONG?</Text>
+            <View style={styles.durations}>
+              {DURATION_OPTIONS.map((opt) => {
+                const isSelected = duration === opt;
+                const labelText = formatDurationOption(opt);
+                return (
+                  <Pressable
+                    key={opt}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isSelected }}
+                    accessibilityLabel={`${labelText}${isSelected ? ', selected' : ''}`}
+                    onPress={() => handleSelectDuration(opt)}
                     style={[
-                      styles.durationText,
-                      isSelected && styles.durationTextActive,
+                      styles.durationButton,
+                      isSelected && styles.durationButtonSelected,
                     ]}
                   >
-                    {formatDurationOption(opt)}
-                  </Text>
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
+                    <Text
+                      style={[
+                        styles.durationButtonText,
+                        isSelected && styles.durationButtonTextSelected,
+                      ]}
+                    >
+                      {labelText}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
 
-        {/* Audio / Guidance Summary Row */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Session guidance: ${audioSummary}. Tap to customize.`}
-          onPress={() => setSheetOpen(true)}
-          style={styles.summaryRow}
-        >
-          <Text style={styles.summaryLabel}>{audioSummary}</Text>
-          <ChevronRight size={16} color={colors.text.secondary} />
-        </Pressable>
+          {/* Interactive Utility Controls (Sound & Haptics) */}
+          <View style={styles.utilityBlock}>
+            <Pressable
+              accessibilityRole="switch"
+              accessibilityState={{ checked: soundOn }}
+              accessibilityLabel={`Sound: ${soundOn ? 'On' : 'Off'}. Tap to toggle.`}
+              testID="focus-sound-toggle"
+              onPress={toggleSound}
+              style={styles.utilityRow}
+            >
+              <View style={styles.utilityInfo}>
+                <Text style={styles.utilityLabel}>Sound</Text>
+                {soundOn ? (
+                  <Text style={styles.utilitySubtext}>{audioSummary}</Text>
+                ) : null}
+              </View>
+              <View style={styles.utilityRight}>
+                <Text style={[styles.utilityValue, soundOn && styles.utilityValueActive]}>
+                  {soundOn ? 'ON' : 'OFF'}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Customize audio guidance"
+                  testID="focus-audio-customize-button"
+                  onPress={() => setSheetOpen(true)}
+                  hitSlop={8}
+                  style={styles.settingsIconBtn}
+                >
+                  <Sliders size={15} color={colors.text.secondary} />
+                </Pressable>
+              </View>
+            </Pressable>
+
+            <View style={styles.utilityDivider} />
+
+            <Pressable
+              accessibilityRole="switch"
+              accessibilityState={{ checked: hapticsOn }}
+              accessibilityLabel={`Haptics: ${hapticsOn ? 'On' : 'Off'}. Tap to toggle.`}
+              testID="focus-haptics-toggle"
+              onPress={toggleHaptics}
+              style={styles.utilityRow}
+            >
+              <Text style={styles.utilityLabel}>Haptics</Text>
+              <Text style={[styles.utilityValue, hapticsOn && styles.utilityValueActive]}>
+                {hapticsOn ? 'ON' : 'OFF'}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
       </View>
 
-      {/* Bottom CTA */}
+      {/* Primary CTA */}
       <View
         style={[
           styles.footer,
-          { paddingBottom: Math.max(22, insets.bottom + 8) },
+          { paddingBottom: Math.max(24, insets.bottom + 12) },
         ]}
       >
         <V2Button
@@ -213,7 +286,7 @@ export function V2FocusPrepScreen({
           onPress={handleBegin}
           accessibilityLabel="Begin Focus"
           testID="v2-begin-focus"
-          style={{ backgroundColor: '#5C3A82' }}
+          style={styles.beginButton}
         >
           Begin Focus
         </V2Button>
@@ -238,130 +311,195 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingTop: 8,
-    paddingBottom: 6,
-    minHeight: 48,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
+    paddingHorizontal: spacing[4],
+    paddingTop: spacing[2],
+    minHeight: 44,
     justifyContent: 'center',
   },
-  headerTitle: {
-    ...typography.headingMD,
-    fontFamily: typography.displayBold,
-    fontSize: 22,
-    color: colors.text.primary,
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    minHeight: 44,
+    alignSelf: 'flex-start',
   },
-  headerSpacer: {
-    width: 44,
+  backText: {
+    ...typography.labelLG,
+    color: colors.text.primary,
   },
   scrollContent: {
     flex: 1,
     alignItems: 'center',
-    paddingTop: 8,
-  },
-  artworkContainer: {
-    position: 'relative',
-    width: 212,
-    height: 212,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-  halo: {
-    position: 'absolute',
-    width: 236,
-    height: 236,
-    borderRadius: 118,
-    opacity: 0.6,
-  },
-  intentionBlock: {
-    marginTop: 24,
-    alignItems: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: spacing[4],
+    paddingTop: spacing[1],
   },
   eyebrow: {
     ...typography.labelSM,
-    color: colors.text.secondary,
-    letterSpacing: 0.8,
+    letterSpacing: 1.4,
+    fontWeight: '700',
+    fontSize: 11,
+    color: practiceColors.focus,
+    marginTop: spacing[1],
   },
-  intentionText: {
-    ...typography.headingMD,
-    fontFamily: typography.displayBold,
-    fontSize: 23,
-    lineHeight: 30,
-    color: colors.text.primary,
-    textAlign: 'center',
-    marginTop: 8,
-    letterSpacing: -0.3,
-  },
-  supportingCopy: {
-    ...typography.bodyMD,
-    fontSize: 14.5,
-    color: colors.text.secondary,
-    textAlign: 'center',
-    marginTop: 14,
-    paddingHorizontal: 40,
-  },
-  durationSelector: {
-    flexDirection: 'row',
+  heroSection: {
+    alignItems: 'center',
+    marginTop: spacing[2],
     width: '100%',
-    marginTop: 28,
-    paddingHorizontal: 22,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: colors.border.default,
   },
-  durationOption: {
-    flex: 1,
+  artworkContainer: {
+    position: 'relative',
+    width: 194,
+    height: 194,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 13,
+    marginVertical: spacing[3],
   },
-  durationDivider: {
-    borderRightWidth: 1,
-    borderRightColor: colors.border.default,
+  halo: {
+    position: 'absolute',
+    width: 218,
+    height: 218,
+    borderRadius: 109,
+    opacity: 0.7,
   },
-  durationIndicator: {
-    paddingBottom: 6,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+  intentionBlock: {
+    alignItems: 'center',
+    paddingHorizontal: spacing[4],
+    marginTop: spacing[1],
   },
-  durationIndicatorActive: {
-    borderBottomColor: practiceColors.focus,
+  intentionText: {
+    ...typography.headingLG,
+    fontFamily: typography.displayBold,
+    fontSize: 22,
+    color: colors.text.primary,
+    textAlign: 'center',
+    letterSpacing: -0.3,
   },
-  durationText: {
-    ...typography.labelMD,
-    fontSize: 13,
-    fontFamily: typography.bodyBold,
-    letterSpacing: 0.5,
-    color: colors.text.disabled,
-  },
-  durationTextActive: {
-    color: '#5C3A82',
-  },
-  summaryRow: {
+  categoryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    paddingHorizontal: 22,
-    paddingVertical: 14,
-    minHeight: 46,
+    gap: 6,
+    marginTop: spacing[1],
   },
-  summaryLabel: {
-    ...typography.bodyMD,
-    fontSize: 13.5,
-    fontFamily: typography.bodySemiBold,
+  categoryDot: {
+    width: 6,
+    height: 6,
+    borderRadius: radii.round,
+  },
+  categoryLabel: {
+    ...typography.caption,
     color: colors.text.secondary,
+    fontWeight: '500',
+  },
+  explanationText: {
+    ...typography.bodyMD,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    paddingHorizontal: spacing[4],
+    marginTop: spacing[2],
+    lineHeight: 20,
+    fontSize: 14,
+  },
+  controlsSection: {
+    width: '100%',
+    marginTop: spacing[5],
+    gap: spacing[4],
+  },
+  durationsContainer: {
+    gap: spacing[2],
+  },
+  controlLabel: {
+    ...typography.labelSM,
+    color: colors.text.secondary,
+    letterSpacing: 0.8,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  durations: {
+    flexDirection: 'row',
+    gap: spacing[2],
+  },
+  durationButton: {
+    flex: 1,
+    minHeight: 52,
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
+    borderRadius: radii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+  },
+  durationButtonSelected: {
+    borderColor: practiceColors.focus,
+    backgroundColor: 'rgba(139, 92, 246, 0.08)',
+    borderWidth: 1.5,
+  },
+  durationButtonText: {
+    ...typography.labelMD,
+    color: colors.text.primary,
+    fontSize: 14,
+  },
+  durationButtonTextSelected: {
+    color: practiceColors.focus,
+    fontWeight: '700',
+  },
+  utilityBlock: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[1],
+  },
+  utilityRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing[3],
+    minHeight: 48,
+  },
+  utilityInfo: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  utilityLabel: {
+    ...typography.bodyMD,
+    color: colors.text.primary,
+    fontSize: 14,
+  },
+  utilitySubtext: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  utilityRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[3],
+  },
+  utilityValue: {
+    ...typography.labelSM,
+    color: colors.text.secondary,
+    fontWeight: '600',
+    fontSize: 12,
+    letterSpacing: 0.5,
+  },
+  utilityValueActive: {
+    color: colors.text.primary,
+    fontWeight: '700',
+  },
+  settingsIconBtn: {
+    padding: 4,
+  },
+  utilityDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border.subtle,
   },
   footer: {
-    paddingHorizontal: 22,
+    paddingHorizontal: spacing[4],
+  },
+  beginButton: {
+    backgroundColor: '#171717',
+    borderRadius: radii.round,
   },
 });

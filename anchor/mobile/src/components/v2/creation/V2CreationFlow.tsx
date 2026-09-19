@@ -1,7 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, PanResponder, Pressable, StyleSheet, Text, TextInput, View, type ViewStyle } from 'react-native';
-import { ArrowLeft, Info, X } from 'lucide-react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Keyboard, Modal, PanResponder, Platform, Pressable, StyleSheet, Text, TextInput, View, type LayoutChangeEvent, type ViewStyle } from 'react-native';
+import Animated, { FadeIn, useAnimatedStyle, withDelay, withTiming } from 'react-native-reanimated';
+import { ArrowLeft, Check, Info, X } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CircularAnchorRenderer, V2Button, V2IconButton, V2Screen, V2Surface } from '@/components/v2';
 import { V2ActivityIndicator, V2InlineError } from '@/components/v2/feedback/V2Feedback';
@@ -10,6 +12,8 @@ import { colors, getCategoryColor, getCategorySoftTint, radii, spacing, typograp
 import { useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
 import {
   ANCHOR_EXPRESSIONS,
+  CREATION_MAX_INTENTION_LENGTH,
+  DISTILLATION_COPY,
   EXPRESSION_LABELS,
   STRUCTURE_DESCRIPTIONS,
   STRUCTURE_LABELS,
@@ -25,6 +29,20 @@ import {
   type CreationDraft,
   type DrawnPath,
 } from '@/stores/v2/creationStore';
+import { InkUnderline } from './InkUnderline';
+import {
+  buildDistillationRenderModel,
+  computeCompactionTargets,
+  distillationSchedule,
+  isCellRemoved,
+  DISTILL_EASING,
+  DISTILL_TIMING,
+  type CompactionTarget,
+  type DistillationCell,
+  type DistillationStage,
+  type MeasuredLetter,
+} from './distillationMotion';
+import { assessIntention, type PrincipleState } from './intentionGuidance';
 
 export type CreationSaveAdapter = (input: {
   draft: CreationDraft;
@@ -117,23 +135,41 @@ const INTENTION_EXAMPLES: Record<string, { before: string; after: string }> = {
   career: { before: 'I want to stop getting distracted.', after: 'I am fully present with my work.' },
 };
 
+/** Enforces the limit even when text arrives by paste/autofill, and keeps the intention to one flowing line of prose. */
+export function sanitizeIntention(value: string): string {
+  let next = value.replace(/\s*[\r\n]+\s*/g, ' ');
+  if (next.length > CREATION_MAX_INTENTION_LENGTH) {
+    next = next.slice(0, CREATION_MAX_INTENTION_LENGTH);
+    // Never leave half of a surrogate pair (emoji) at the cut.
+    const last = next.charCodeAt(next.length - 1);
+    if (last >= 0xd800 && last <= 0xdbff) next = next.slice(0, -1);
+  }
+  return next;
+}
+
 function PrinciplesSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  // A sheet opened from a text field should not stack under a lingering keyboard.
+  useEffect(() => {
+    if (visible) Keyboard.dismiss();
+  }, [visible]);
+
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
       <Pressable style={styles.sheetBackdrop} onPress={onClose}>
         <Pressable style={styles.sheetContainer} onPress={(e) => e.stopPropagation()}>
+         <SafeAreaView edges={['bottom']} style={styles.sheetInner}>
           <View style={styles.sheetHandle} />
           <Pressable style={styles.sheetCloseBtn} onPress={onClose} accessibilityLabel="Close" accessibilityRole="button" hitSlop={8}>
             <X size={15} color={colors.text.secondary} />
           </Pressable>
-          <Text style={styles.sheetTitle}>Short · Present · Felt</Text>
+          <Text style={styles.sheetTitle} accessibilityRole="header">Short · Present · Felt</Text>
           <View style={styles.sheetItem}>
             <Text style={styles.sheetItemLabel}>SHORT</Text>
             <Text style={styles.sheetItemBody}>One intention. One direction.</Text>
           </View>
           <View style={styles.sheetItem}>
             <Text style={styles.sheetItemLabel}>PRESENT</Text>
-            <Text style={styles.sheetItemBody}>Say it as already true, not as what you’re escaping.</Text>
+            <Text style={styles.sheetItemBody}>Write it as true now, not as something you’re trying to escape.</Text>
             <View style={styles.sheetExample}>
               <View style={styles.hintRow}>
                 <Text style={styles.hintTag}>Instead of </Text>
@@ -149,9 +185,10 @@ function PrinciplesSheet({ visible, onClose }: { visible: boolean; onClose: () =
             <Text style={styles.sheetItemLabel}>FELT</Text>
             <Text style={styles.sheetItemBody}>Use words that feel personally meaningful.</Text>
           </View>
-          <V2Button variant="secondary" size="large" style={styles.sheetDismissBtn} onPress={onClose}>
+          <V2Button size="large" style={styles.sheetDismissBtn} onPress={onClose}>
             Got it
           </V2Button>
+         </SafeAreaView>
         </Pressable>
       </Pressable>
     </Modal>
@@ -236,7 +273,6 @@ export function V2CreationFlow({ saveAnchor, onContinue, generateCandidates }: V
   const reduceMotion = useV2ReduceMotion();
   const [integrationError, setIntegrationError] = useState<string | null>(null);
   const [isFocused, setIsFocused] = useState(false);
-  const [showValidationError, setShowValidationError] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
 
   useEffect(() => {
@@ -259,6 +295,8 @@ export function V2CreationFlow({ saveAnchor, onContinue, generateCandidates }: V
   const isIntentionTooLong = wordCount > 14;
   const intentionCategoryKey = draft.category?.toLowerCase() ?? 'focus';
   const intentionExample = INTENTION_EXAMPLES[intentionCategoryKey] ?? INTENTION_EXAMPLES.focus;
+  const guidance: Record<string, PrincipleState> = { ...assessIntention(draft.intention ?? '') };
+  const metPrinciples = (['short', 'present'] as const).filter((id) => guidance[id] === 'met');
 
   const goBack = () => {
     const target = backStep[step];
@@ -267,19 +305,15 @@ export function V2CreationFlow({ saveAnchor, onContinue, generateCandidates }: V
       setStep(target);
     }
   };
-  const goToStructure = () => {
+  const goToDistillation = () => {
     distill();
     if (useCreationStore.getState().draft?.formationError) return;
     track('v2_creation_intention_completed');
-    track('v2_creation_distillation_completed');
   };
-  const handleIntentionContinue = () => {
-    if (!isIntentionReady) {
-      setShowValidationError(true);
-      return;
-    }
-    setShowValidationError(false);
-    goToStructure();
+  /** Distillation is complete only once the user has watched the letters settle. */
+  const goToStructure = () => {
+    track('v2_creation_distillation_completed');
+    setStep('structure');
   };
   const chooseStructure = (structure: CanonicalStructure) => {
     v2Haptics.selection();
@@ -330,7 +364,16 @@ export function V2CreationFlow({ saveAnchor, onContinue, generateCandidates }: V
   };
 
   return (
-    <V2Screen scroll keyboardAvoiding={step === 'intention'} testID={`v2-creation-${step}`}>
+    <V2Screen
+      scroll
+      keyboardAvoiding={step === 'intention'}
+      // Intention is a text-entry step: taps on the CTA / info row must land while the keyboard is up,
+      // and the content fills the viewport so Continue rests on the bottom safe area.
+      keyboardShouldPersistTaps={step === 'intention' ? 'handled' : undefined}
+      keyboardDismissMode={step === 'intention' ? (Platform.OS === 'ios' ? 'interactive' : 'on-drag') : undefined}
+      contentContainerStyle={step === 'intention' ? styles.intentionContent : undefined}
+      testID={`v2-creation-${step}`}
+    >
       {backStep[step] ? (
         <View style={styles.top}>
           <V2IconButton icon={<ArrowLeft size={20} color={colors.text.primary} />} accessibilityLabel="Go back" onPress={goBack} />
@@ -338,35 +381,47 @@ export function V2CreationFlow({ saveAnchor, onContinue, generateCandidates }: V
       ) : null}
 
       {step === 'intention' && (
-        <View style={styles.flow}>
+        <View style={[styles.flow, styles.intentionFlow]}>
           <View style={styles.heroBlock}>
             {!isFocused && <Text style={styles.eyebrow}>INTENTION</Text>}
-            <Text style={[styles.heroHeadline, isFocused && styles.heroHeadlineFocused]}>
-              Every Anchor starts here.
-            </Text>
-            {!isFocused && <Text style={styles.heroSubhead}>Write one clear intention.</Text>}
+            <View accessible accessibilityRole="header" accessibilityLabel="Every Anchor starts here.">
+              <Text style={[styles.heroHeadline, isFocused && styles.heroHeadlineFocused]} accessible={false}>
+                Every Anchor starts
+              </Text>
+              <InkUnderline>
+                <Text style={[styles.heroHeadline, isFocused && styles.heroHeadlineFocused]} accessible={false}>here.</Text>
+              </InkUnderline>
+            </View>
+            <Text style={styles.heroSubhead}>Write one clear intention.</Text>
           </View>
 
           <View style={styles.inputBlock}>
             <View style={styles.fieldLabelRow}>
               <Text style={styles.fieldLabel}>YOUR INTENTION</Text>
-              <Text style={styles.charCounter}>{draft.intention.length}/140</Text>
+              <Text
+                style={[styles.charCounter, draft.intention.length >= CREATION_MAX_INTENTION_LENGTH - 10 && styles.charCounterNear]}
+                accessibilityLabel={`${draft.intention.length} of ${CREATION_MAX_INTENTION_LENGTH} characters`}
+              >
+                {draft.intention.length}/{CREATION_MAX_INTENTION_LENGTH}
+              </Text>
             </View>
             <View style={[styles.intentionSurface, isFocused && styles.intentionSurfaceFocused]}>
               <TextInput
                 value={draft.intention}
-                onChangeText={(text) => {
-                  setIntention(text);
-                  if (showValidationError) setShowValidationError(false);
-                }}
+                onChangeText={(text) => setIntention(sanitizeIntention(text))}
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
                 placeholder="I am fully present with my work."
                 placeholderTextColor={colors.text.disabled}
                 multiline
-                maxLength={140}
+                maxLength={CREATION_MAX_INTENTION_LENGTH}
+                returnKeyType="done"
+                submitBehavior="blurAndSubmit"
+                autoCapitalize="sentences"
+                selectionColor={colors.text.primary}
                 style={styles.intentionInput}
                 accessibilityLabel="Your intention"
+                testID="intention-input"
               />
             </View>
 
@@ -388,59 +443,61 @@ export function V2CreationFlow({ saveAnchor, onContinue, generateCandidates }: V
             )}
           </View>
 
-          <View style={styles.spfBlock}>
-            <View style={styles.spfHead}>
-              <Text style={styles.spfHeading}>SHORT · PRESENT · FELT</Text>
-              <Pressable
-                style={styles.infoBtn}
-                onPress={() => setSheetOpen(true)}
-                accessibilityRole="button"
-                accessibilityLabel="About these principles"
-                hitSlop={8}
-              >
-                <Info size={15} color={colors.text.secondary} />
-              </Pressable>
-            </View>
-            <View style={styles.principles}>
-              <View style={styles.principleRow}>
-                <Text style={styles.principleLabel}>SHORT</Text>
-                <Text style={styles.principleDesc}>One clear direction.</Text>
+          <View style={styles.intentionSpacer} />
+
+          <View style={styles.intentionBottom}>
+            <Pressable
+              style={styles.spfBlock}
+              onPress={() => setSheetOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel={`About these principles: short, present, felt.${metPrinciples.length ? ` Looks good: ${metPrinciples.join(', ')}.` : ''}`}
+              testID="intention-principles-row"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <View style={styles.spfHeadingRow}>
+                <View style={styles.spfList}>
+                  {(['short', 'present', 'felt'] as const).map((id, index) => {
+                    const met = guidance[id] === 'met';
+                    return (
+                      <React.Fragment key={id}>
+                        {index > 0 ? <Text style={styles.spfDot}>·</Text> : null}
+                        <View style={styles.spfItem}>
+                          <Text style={[styles.principleLabel, !met && styles.principleLabelQuiet]}>{id.toUpperCase()}</Text>
+                          {met ? (
+                            <View style={styles.spfCheck}>
+                              <Check size={11} color={colors.text.primary} strokeWidth={2.5} />
+                            </View>
+                          ) : null}
+                        </View>
+                      </React.Fragment>
+                    );
+                  })}
+                </View>
+                <View style={styles.spfInfoIcon}>
+                  <Info size={14} color={colors.text.secondary} />
+                </View>
               </View>
-              <View style={styles.principleRow}>
-                <Text style={styles.principleLabel}>PRESENT</Text>
-                <Text style={styles.principleDesc}>Say it as true now.</Text>
-              </View>
-              <View style={styles.principleRow}>
-                <Text style={styles.principleLabel}>FELT</Text>
-                <Text style={styles.principleDesc}>Use words that matter to you.</Text>
-              </View>
-            </View>
+              <Text style={styles.spfHint}>Three rules for a stronger intention.</Text>
+            </Pressable>
+
+            {draft.formationError ? <V2InlineError message={draft.formationError} /> : null}
+
+            <V2Button
+              size="large"
+              style={styles.ctaButton}
+              disabled={!isIntentionReady}
+              onPress={goToDistillation}
+              accessibilityLabel="Continue to distillation"
+            >
+              Continue →
+            </V2Button>
           </View>
-
-          {showValidationError ? (
-            <Text style={styles.ctaError} accessibilityRole="alert">
-              Write one clear intention to continue.
-            </Text>
-          ) : null}
-          {draft.formationError ? <V2InlineError message={draft.formationError} /> : null}
-
-          <V2Button
-            size="large"
-            style={[
-              styles.ctaButton,
-              !isIntentionReady && styles.ctaButtonNotReady,
-            ]}
-            onPress={handleIntentionContinue}
-            accessibilityLabel="Continue to distillation"
-          >
-            Continue →
-          </V2Button>
 
           <PrinciplesSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} />
         </View>
       )}
 
-      {step === 'distillation' && <Distillation draft={draft} reduceMotion={reduceMotion} onContinue={() => setStep('structure')} />}
+      {step === 'distillation' && <Distillation draft={draft} reduceMotion={reduceMotion} onContinue={goToStructure} />}
 
       {step === 'structure' && (
         <View style={styles.flow}>
@@ -578,31 +635,311 @@ export function V2CreationFlow({ saveAnchor, onContinue, generateCandidates }: V
   );
 }
 
+/** Gap between letters once they have closed up, in the compacted row. */
+const COMPACT_TRACKING = 14;
+
+/**
+ * One character of the intention. It is never replaced or re-mounted: the same view either
+ * fades away (if it is removed) or travels to its slot in the settled sequence (if it
+ * survives), which is what makes the sentence and the letters one object instead of two.
+ */
+function DistillationLetter({
+  cell,
+  stage,
+  target,
+  reduceMotion,
+  onMeasure,
+}: {
+  cell: DistillationCell;
+  stage: DistillationStage;
+  /** Present once the row has been measured; this is what the compaction travels along. */
+  target?: CompactionTarget;
+  reduceMotion: boolean;
+  onMeasure: (keptIndex: number, box: { x: number; y: number; width: number; height: number }) => void;
+}) {
+  const removed = isCellRemoved(cell, stage);
+  const compacting = cell.keep && Boolean(target) && (stage === 'compact' || stage === 'settled');
+  const delay = cell.staggerIndex * DISTILL_TIMING.letterStagger;
+
+  const handleLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      if (!cell.keep) return;
+      const { x, y, width, height } = event.nativeEvent.layout;
+      onMeasure(cell.keptIndex, { x, y, width, height });
+    },
+    [cell.keep, cell.keptIndex, onMeasure],
+  );
+
+  const animatedStyle = useAnimatedStyle(() => {
+    const dx = compacting && target ? target.dx : 0;
+    const dy = compacting && target ? target.dy : 0;
+    const settledScale = compacting && target ? target.scale : 1;
+    const opacity = removed ? 0 : 1;
+    // A removed character shrinks slightly as it goes — a soft withdrawal, never an error state.
+    const scale = removed ? 0.86 : settledScale;
+
+    if (reduceMotion) {
+      return { opacity, transform: [{ translateX: dx }, { translateY: dy }, { scale }] };
+    }
+
+    const fade = { duration: DISTILL_TIMING.letterFade, easing: DISTILL_EASING };
+    const travel = { duration: DISTILL_TIMING.compact, easing: DISTILL_EASING };
+    return {
+      opacity: withDelay(removed ? delay : 0, withTiming(opacity, fade)),
+      transform: [
+        { translateX: withTiming(dx, travel) },
+        { translateY: withTiming(dy, travel) },
+        { scale: withDelay(removed ? delay : 0, withTiming(scale, removed ? fade : travel)) },
+      ],
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [removed, compacting, target?.dx, target?.dy, target?.scale, delay, reduceMotion]);
+
+  return (
+    <Animated.Text
+      onLayout={handleLayout}
+      style={[styles.phraseChar, cell.keep && styles.phraseCharKept, animatedStyle]}
+    >
+      {cell.char}
+    </Animated.Text>
+  );
+}
+
+/** Optional, never forced: the three-line mechanism plus the user's own worked example. */
+function DistillationSheet({
+  visible,
+  onClose,
+  intention,
+  letters,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  intention: string;
+  letters: string[];
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
+      <Pressable style={styles.sheetBackdrop} onPress={onClose}>
+        <Pressable style={styles.sheetContainer} onPress={(e) => e.stopPropagation()}>
+          <SafeAreaView edges={['bottom']} style={styles.sheetInner}>
+            <View style={styles.sheetHandle} />
+            <Pressable style={styles.sheetCloseBtn} onPress={onClose} accessibilityLabel="Close" accessibilityRole="button" hitSlop={8}>
+              <X size={15} color={colors.text.secondary} />
+            </Pressable>
+            <Text style={styles.sheetTitle} accessibilityRole="header">{DISTILLATION_COPY.howThisWorks}</Text>
+            <Text style={styles.sheetItemBody}>{DISTILLATION_COPY.sheetIntro}</Text>
+            <View style={styles.mechanismList}>
+              {DISTILLATION_COPY.mechanism.map((mechanismStep, index) => (
+                <View key={mechanismStep} style={styles.mechanismRow}>
+                  <Text style={styles.mechanismIndex}>{index + 1}</Text>
+                  <Text style={styles.mechanismStep}>{mechanismStep}</Text>
+                </View>
+              ))}
+            </View>
+            {intention && letters.length ? (
+              <View style={styles.worked}>
+                <Text style={styles.workedLabel}>Your intention</Text>
+                <Text style={styles.workedIntention}>{intention}</Text>
+                <Text style={styles.workedLabel}>Your letters</Text>
+                <Text style={styles.workedLetters}>{letters.join('  ')}</Text>
+              </View>
+            ) : null}
+            <V2Button size="large" style={styles.sheetDismissBtn} onPress={onClose}>
+              Got it
+            </V2Button>
+          </SafeAreaView>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+/**
+ * Letter Distillation — one continuous reduction of the phrase the user just wrote.
+ *
+ * The intention arrives whole, the vowels go, the repeats go, and the letters left standing
+ * physically travel together into the sequence the Anchor is built from. Nothing crossfades
+ * into a separately-rendered result: the characters on screen at the end are the same views
+ * that spelled the sentence at the start, so the causal link is impossible to miss.
+ *
+ * Both the classification and the letters come from the production distillation algorithm
+ * (`@/utils/sigil/distillation`) — this step computes no letters of its own, and the
+ * sequence it settles on is exactly what `structureSvgForDraft` is handed next.
+ */
 function Distillation({ draft, reduceMotion, onContinue }: { draft: CreationDraft; reduceMotion: boolean; onContinue: () => void }) {
-  const [phase, setPhase] = useState(reduceMotion ? 2 : 0);
+  const intention = draft.normalizedIntention ?? '';
+  const model = useMemo(() => buildDistillationRenderModel(intention), [intention]);
+  const letters = draft.distilledLetters ?? [];
+
+  const [stage, setStage] = useState<DistillationStage>('whole');
+  const [targets, setTargets] = useState<Map<number, CompactionTarget> | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  const { keptCount, lastStaggerIndex } = model;
+
   useEffect(() => {
-    if (reduceMotion) { setPhase(2); return; }
-    const first = setTimeout(() => setPhase(1), 700);
-    const second = setTimeout(() => setPhase(2), 1400);
-    return () => { clearTimeout(first); clearTimeout(second); };
-  }, [reduceMotion]);
-  const message = phase === 0 ? 'Vowels fall away' : phase === 1 ? 'Repeated letters settle' : 'The remaining order becomes your source material';
+    setStage('whole');
+    if (reduceMotion) {
+      // Reduced motion still opens on the phrase, then presents the settled sequence
+      // outright — the causal story without the cascade or the travel.
+      const settle = setTimeout(() => setStage('settled'), DISTILL_TIMING.reducedHold);
+      return () => clearTimeout(settle);
+    }
+    const at = distillationSchedule(lastStaggerIndex);
+    const timers = [
+      setTimeout(() => setStage('vowels'), at.vowels),
+      setTimeout(() => setStage('repeats'), at.repeats),
+      setTimeout(() => setStage('compact'), at.compact),
+      setTimeout(() => setStage('settled'), at.settled),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, [intention, reduceMotion, lastStaggerIndex]);
+
+  /**
+   * Letter boxes arrive relative to their word and words relative to the stage, so the row
+   * is only solvable once every piece of both has landed — hence a recompute per arrival
+   * rather than a single measure pass.
+   */
+  const measured = useRef({
+    stage: null as { width: number; height: number } | null,
+    words: new Map<number, { x: number; y: number }>(),
+    letters: new Map<number, MeasuredLetter>(),
+  });
+
+  const recompute = useCallback(() => {
+    const { stage: box, words, letters: boxes } = measured.current;
+    if (!box || keptCount === 0) return;
+    if (boxes.size !== keptCount || words.size !== model.words.length) return;
+
+    const absolute: MeasuredLetter[] = [];
+    for (const [wordIndex, word] of model.words.entries()) {
+      const origin = words.get(wordIndex);
+      if (!origin) return;
+      for (const cell of word.cells) {
+        if (!cell.keep) continue;
+        const letter = boxes.get(cell.keptIndex);
+        if (!letter) return;
+        absolute.push({ ...letter, x: origin.x + letter.x, y: origin.y + letter.y });
+      }
+    }
+
+    setTargets(computeCompactionTargets(absolute, box, { tracking: COMPACT_TRACKING }));
+  }, [keptCount, model.words]);
+
+  useEffect(() => {
+    measured.current = { stage: null, words: new Map(), letters: new Map() };
+    setTargets(null);
+  }, [intention]);
+
+  const onStageLayout = (event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    measured.current.stage = { width, height };
+    recompute();
+  };
+  const onWordLayout = (wordIndex: number) => (event: LayoutChangeEvent) => {
+    const { x, y } = event.nativeEvent.layout;
+    measured.current.words.set(wordIndex, { x, y });
+    recompute();
+  };
+  const onLetterMeasure = useCallback(
+    (keptIndex: number, box: { x: number; y: number; width: number; height: number }) => {
+      measured.current.letters.set(keptIndex, { keptIndex, ...box });
+      recompute();
+    },
+    [recompute],
+  );
+
+  const settled = stage === 'settled';
+  // Reduced motion never measures a travel, so it presents the sequence as a settled line.
+  const presentAsRow = settled && (reduceMotion || !targets);
+  const enter = reduceMotion ? undefined : FadeIn.duration(DISTILL_TIMING.caption);
+  const lettersLabel = `Distilled letters: ${letters.join(', ')}`;
+  const status = settled ? DISTILLATION_COPY.status.compact : DISTILLATION_COPY.status[stage];
+
+  const ruleStyle = useAnimatedStyle(() => {
+    const visible = stage === 'compact' || stage === 'settled' ? 1 : 0;
+    if (reduceMotion) return { opacity: visible };
+    return { opacity: withTiming(visible, { duration: DISTILL_TIMING.compact, easing: DISTILL_EASING }) };
+  }, [stage, reduceMotion]);
+
   return (
     <View style={styles.flow}>
-      <Text style={styles.eyebrow}>LETTER DISTILLATION</Text>
-      <Text style={styles.title}>The form beneath the words</Text>
-      <V2Surface style={styles.distillSurface}>
-        <Text style={styles.sourceText}>{draft.normalizedIntention}</Text>
-        <Text style={styles.distillStage} accessibilityLiveRegion="polite">{message}</Text>
-        <View style={styles.rule} />
-        <Text
-          style={[styles.letters, phase < 2 && styles.lettersResolving]}
-          accessibilityLabel={`Distilled letters: ${(draft.distilledLetters ?? []).join(', ')}`}
-        >
-          {(draft.distilledLetters ?? []).join('  ')}
+      <Text style={styles.eyebrow}>{DISTILLATION_COPY.eyebrow}</Text>
+
+      {/* One headline at a time: the old one leaves before the new one fades in, and the
+          slot holds a two-line height so the swap never nudges the letters below it. */}
+      <View style={styles.titleSlot}>
+        <Animated.Text key={settled ? 'settled' : 'transforming'} entering={enter} style={styles.title}>
+          {settled ? DISTILLATION_COPY.titleSettled : DISTILLATION_COPY.titleTransforming}
+        </Animated.Text>
+      </View>
+
+      {/* No card: the words themselves are the hero, on the same cream canvas, at the same
+          margins and in the same type the intention was written in. */}
+      <View style={styles.distillStage} onLayout={onStageLayout}>
+        {presentAsRow ? (
+          <Animated.Text entering={enter} style={styles.settledRow} accessibilityLabel={lettersLabel}>
+            {letters.join('  ')}
+          </Animated.Text>
+        ) : (
+          <View style={styles.phrase} accessible accessibilityLabel={settled ? lettersLabel : intention} testID="distillation-phrase">
+            {model.words.map((word, wordIndex) => (
+              <View key={wordIndex} style={styles.phraseWord} onLayout={onWordLayout(wordIndex)}>
+                {word.cells.map((cell, cellIndex) => (
+                  <DistillationLetter
+                    key={cellIndex}
+                    cell={cell}
+                    stage={stage}
+                    target={targets?.get(cell.keptIndex)}
+                    reduceMotion={reduceMotion}
+                    onMeasure={onLetterMeasure}
+                  />
+                ))}
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+
+      {/* The one restrained handmade mark: a pencil rule that arrives as the letters land. */}
+      <Animated.View
+        style={[styles.rule, ruleStyle]}
+        pointerEvents="none"
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      />
+
+      {settled ? (
+        <Animated.View entering={enter} style={styles.settledCaption}>
+          <Text style={styles.settledLabel}>{DISTILLATION_COPY.settledLabel}</Text>
+          <Text style={styles.settledCopy}>{DISTILLATION_COPY.settledCopy}</Text>
+        </Animated.View>
+      ) : (
+        <Text style={styles.distillStatus} accessibilityLiveRegion="polite" testID="distillation-status">
+          {status}
         </Text>
-      </V2Surface>
-      <V2Button size="large" onPress={onContinue}>Choose structure</V2Button>
+      )}
+
+      <V2Button
+        size="large"
+        style={styles.ctaButton}
+        disabled={!settled}
+        onPress={onContinue}
+        accessibilityLabel={settled ? DISTILLATION_COPY.cta : 'Distilling your intention'}
+        testID="distillation-continue"
+      >
+        {settled ? DISTILLATION_COPY.cta : DISTILLATION_COPY.ctaPending}
+      </V2Button>
+
+      {settled ? (
+        <Animated.View entering={enter} style={styles.distillSecondary}>
+          <Pressable onPress={() => setSheetOpen(true)} accessibilityRole="button" accessibilityLabel={DISTILLATION_COPY.howThisWorks}>
+            <Text style={styles.distillLink}>{DISTILLATION_COPY.howThisWorks}</Text>
+          </Pressable>
+        </Animated.View>
+      ) : null}
+
+      <DistillationSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} intention={intention} letters={letters} />
     </View>
   );
 }
@@ -616,12 +953,32 @@ const styles = StyleSheet.create({
   body: { ...typography.bodyLG, color: colors.text.secondary },
   writingSurface: { minHeight: 168, padding: spacing[4] },
   input: { ...typography.headingMD, color: colors.text.primary, minHeight: 128, textAlignVertical: 'top' },
-  distillSurface: { alignItems: 'center', gap: spacing[4], paddingVertical: spacing[7] },
-  sourceText: { ...typography.bodyLG, color: colors.text.primary, textAlign: 'center', fontStyle: 'italic' },
-  distillStage: { ...typography.labelSM, color: colors.text.secondary, textAlign: 'center' },
-  rule: { width: 48, height: 1, backgroundColor: colors.border.strong },
+  // Letter Distillation. Two reserved slots — a two-line headline and a stage tall enough
+  // for the wrapped phrase — so neither the headline swap nor the compaction shifts layout.
+  titleSlot: { minHeight: typography.displayMedium.lineHeight * 2 },
+  distillStage: { minHeight: 136, justifyContent: 'center' },
+  phrase: { flexDirection: 'row', flexWrap: 'wrap', alignContent: 'center', justifyContent: 'center' },
+  // A word stays one unbreakable unit, so wrapping happens between words and never inside one.
+  phraseWord: { flexDirection: 'row', marginRight: spacing[2] },
+  phraseChar: { ...typography.headingXL, color: colors.text.tertiary },
+  phraseCharKept: { color: colors.text.primary },
+  settledRow: { ...typography.headingXL, color: colors.text.primary, textAlign: 'center', letterSpacing: 2 },
+  rule: { alignSelf: 'center', width: 64, height: 1, backgroundColor: colors.border.strong },
+  distillStatus: { ...typography.labelSM, color: colors.text.secondary, textAlign: 'center' },
+  settledCaption: { gap: spacing[2], alignItems: 'center' },
+  settledLabel: { ...typography.labelSM, color: colors.text.secondary },
+  settledCopy: { ...typography.bodyMD, color: colors.text.secondary, textAlign: 'center' },
+  distillSecondary: { alignItems: 'center' },
+  distillLink: { ...typography.labelMD, color: colors.text.secondary, textDecorationLine: 'underline' },
+  mechanismList: { gap: spacing[2], marginTop: spacing[3] },
+  mechanismRow: { flexDirection: 'row', alignItems: 'baseline', gap: spacing[3] },
+  mechanismIndex: { ...typography.labelSM, color: colors.text.tertiary, width: 14 },
+  mechanismStep: { ...typography.bodyMD, color: colors.text.primary, flex: 1 },
+  worked: { gap: spacing[1], marginTop: spacing[4], paddingTop: spacing[3], borderTopWidth: 1, borderTopColor: colors.border.subtle },
+  workedLabel: { ...typography.labelSM, color: colors.text.tertiary, marginTop: spacing[2] },
+  workedIntention: { ...typography.bodyMD, color: colors.text.primary, fontStyle: 'italic' },
+  workedLetters: { ...typography.headingSM, color: colors.text.primary, letterSpacing: 2 },
   letters: { ...typography.headingXL, color: colors.text.primary, textAlign: 'center', letterSpacing: 2 },
-  lettersResolving: { opacity: 0.62 },
   previewCenter: { alignItems: 'center', paddingVertical: spacing[3] },
   structureLock: { ...typography.bodySM, color: colors.text.secondary, textAlign: 'center' },
   choice: { minHeight: 96, borderRadius: radii.lg, borderWidth: 1, borderColor: colors.border.subtle, backgroundColor: colors.surface, padding: spacing[3], flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
@@ -640,49 +997,61 @@ const styles = StyleSheet.create({
   expressionOption: { width: '48%', minHeight: 132, alignItems: 'center', gap: spacing[1], paddingVertical: spacing[3], paddingHorizontal: spacing[2], borderWidth: 1, borderColor: colors.border.subtle, borderRadius: radii.lg, backgroundColor: colors.surface },
   candidate: { borderWidth: 1, borderColor: colors.border.subtle, backgroundColor: colors.surface, borderRadius: radii.lg, padding: spacing[4], alignItems: 'center', gap: spacing[2] },
   heroBlock: { gap: spacing[2] },
-  heroHeadline: { ...typography.headingXL, fontSize: 32, lineHeight: 36, color: colors.text.primary },
-  heroHeadlineFocused: { fontSize: 24, lineHeight: 28 },
-  heroSubhead: { ...typography.bodyLG, color: colors.text.secondary },
-  inputBlock: { gap: spacing[2] },
+  heroHeadline: { ...typography.headingXL, fontSize: 32, lineHeight: 38, letterSpacing: -1.1, color: colors.text.primary },
+  heroHeadlineFocused: { fontSize: 24, lineHeight: 30, letterSpacing: -0.8 },
+  heroSubhead: { ...typography.bodyMD, color: colors.text.secondary, marginTop: 2 },
+  inputBlock: { gap: spacing[3] },
   fieldLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   fieldLabel: { ...typography.labelSM, color: colors.text.secondary },
-  charCounter: { ...typography.caption, color: colors.text.disabled },
+  charCounter: { ...typography.caption, color: colors.text.secondary, fontVariant: ['tabular-nums'] },
+  charCounterNear: { color: colors.text.primary },
+  // A refined writing surface: warm fill, subtle hairline neutral border, no heavy shadow, no glass, no gold.
   intentionSurface: {
-    minHeight: 128,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: colors.border.default,
+    height: 236,
+    minHeight: 220,
+    maxHeight: 250,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border.subtle,
     backgroundColor: colors.surface,
     padding: spacing[4],
   },
   intentionSurfaceFocused: {
-    borderColor: colors.text.primary,
+    borderColor: colors.border.default,
   },
   intentionInput: {
-    ...typography.bodyLG,
+    fontFamily: typography.body,
+    fontSize: 18,
+    lineHeight: 26,
     color: colors.text.primary,
-    minHeight: 96,
+    flex: 1,
+    minHeight: 180,
     textAlignVertical: 'top',
     padding: 0,
   },
   hintBlock: { marginTop: spacing[1], gap: 4 },
   hintRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline' },
   hintTag: { ...typography.bodySM, color: colors.text.secondary },
-  hintQuoteBad: { ...typography.bodySM, color: '#969088', fontStyle: 'italic' },
+  hintQuoteBad: { ...typography.bodySM, color: colors.text.secondary, fontStyle: 'italic' },
   hintTagTry: { ...typography.labelSM, color: colors.text.secondary },
   hintQuoteGood: { ...typography.bodySM, color: colors.text.primary, fontFamily: typography.bodyBold },
   hintGuidance: { ...typography.bodySM, color: colors.text.secondary, fontStyle: 'italic', marginTop: spacing[2] },
-  spfBlock: { marginTop: spacing[2], gap: spacing[3] },
-  spfHead: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  spfHeading: { ...typography.labelSM, color: colors.text.secondary },
-  infoBtn: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
-  principles: { gap: spacing[3] },
-  principleRow: { gap: 2 },
+  // Content fills the viewport with balanced breathing room and comfortable safe-area margin.
+  intentionContent: { flexGrow: 1, paddingBottom: spacing[7] },
+  intentionFlow: { flex: 1, gap: spacing[5], paddingBottom: 0 },
+  intentionSpacer: { flex: 1, minHeight: spacing[5], maxHeight: 60 },
+  intentionBottom: { gap: spacing[4], paddingBottom: spacing[4] },
+  spfBlock: { alignSelf: 'flex-start', gap: 4, paddingVertical: spacing[1] },
+  spfHeadingRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  spfList: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
+  spfItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  spfCheck: { marginLeft: 1 },
+  spfDot: { ...typography.labelSM, color: colors.text.disabled },
+  spfInfoIcon: { marginLeft: 2, alignItems: 'center', justifyContent: 'center' },
+  spfHint: { ...typography.caption, color: colors.text.secondary },
   principleLabel: { ...typography.labelSM, color: colors.text.primary },
-  principleDesc: { ...typography.bodyMD, color: colors.text.secondary },
-  ctaError: { ...typography.bodySM, color: colors.text.secondary, textAlign: 'center' },
+  principleLabelQuiet: { color: colors.text.secondary },
   ctaButton: { height: 56, borderRadius: 16 },
-  ctaButtonNotReady: { backgroundColor: '#DCD6C9', borderColor: '#DCD6C9' },
   sheetBackdrop: { flex: 1, backgroundColor: 'rgba(23, 23, 20, 0.38)', justifyContent: 'flex-end' },
   sheetContainer: {
     backgroundColor: colors.background,
@@ -690,15 +1059,14 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     paddingHorizontal: spacing[6],
     paddingTop: spacing[4],
-    paddingBottom: spacing[8],
-    gap: spacing[4],
-    position: 'relative',
+    paddingBottom: spacing[2],
   },
+  sheetInner: { gap: spacing[4], position: 'relative' },
   sheetHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border.default, alignSelf: 'center', marginBottom: spacing[2] },
   sheetCloseBtn: {
     position: 'absolute',
-    top: spacing[4],
-    right: spacing[4],
+    top: 0,
+    right: 0,
     width: 28,
     height: 28,
     borderRadius: 14,
@@ -713,5 +1081,5 @@ const styles = StyleSheet.create({
   sheetItemLabel: { ...typography.labelSM, color: colors.text.secondary },
   sheetItemBody: { ...typography.bodyMD, color: colors.text.primary },
   sheetExample: { marginTop: spacing[1], gap: 4 },
-  sheetDismissBtn: { height: 48, borderRadius: 14, borderColor: colors.border.default },
+  sheetDismissBtn: { height: 52, borderRadius: 16, marginTop: spacing[2] },
 });

@@ -18,7 +18,7 @@ export function V2DevelopmentHome() {
       onCreateChart: (anchorId) => navigation.navigate('V2Chart', { anchorId }),
       onOpenProgress: (anchorId) => navigation.navigate('V2Progress', { anchorId }),
       onCreateAnchor: () => navigation.navigate('V2Creation'),
-      onOpenProfile: () => navigation.navigate('V2SystemGallery'),
+      onOpenProfile: () => navigation.navigate('V2Settings'),
       onOpenWeeklyInsight: () => navigation.navigate('V2WeeklyInsight'),
       onReleaseAnchor: (anchorId) => navigation.navigate('V2Release', { anchorId }),
     }),

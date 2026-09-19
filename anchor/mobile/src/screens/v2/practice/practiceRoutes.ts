@@ -10,8 +10,22 @@ export const V2_PRACTICE_ROUTE_MANIFEST = {
 } as const;
 
 export type V2PremiumCapability = 'focus' | 'deep_prime' | 'visualize';
-export type V2PremiumCapabilityRequest = { capability: V2PremiumCapability; anchorId: string; source: 'practice_hub' | 'recommended_today' };
-export type V2PracticeStartRequest = { anchorId: string; mode: Exclude<V2PracticeMode, 'release'>; durationSeconds: number; source: 'practice_hub' | 'recommended_today' };
+export type V2PremiumCapabilityRequest = {
+  capability: V2PremiumCapability;
+  anchorId: string;
+  source: 'practice_hub' | 'recommended_today';
+  durationSeconds?: number;
+};
+import type { GuidanceVoice } from '@/types/sessionAudio';
+
+export type V2PracticeStartRequest = {
+  anchorId: string;
+  mode: Exclude<V2PracticeMode, 'release'>;
+  durationSeconds: number;
+  source: 'practice_hub' | 'recommended_today';
+  voice?: GuidanceVoice;
+  ambient?: boolean;
+};
 export type V2PracticeRouteIntents = {
   onPremiumCapabilityRequired: (request: V2PremiumCapabilityRequest) => void;
   onCreateVision: (anchorId: string) => void;

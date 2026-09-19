@@ -3,20 +3,53 @@ import { StyleSheet, Text, View } from 'react-native';
 import { SigilSvg } from '@/components/common/SigilSvg';
 import { getCategoryColor, getCategoryFieldColor, radii } from '@/theme/v2';
 
-export type CircularAnchorSize = 'hero' | 'large' | 'medium' | 'thumbnail' | 'micro';
-const sizes: Record<CircularAnchorSize, number> = { hero: 266, large: 152, medium: 104, thumbnail: 64, micro: 44 };
-type Props = { svg: string; category?: string | null; size?: CircularAnchorSize; state?: 'active' | 'inactive'; accessibilityLabel?: string; testID?: string };
+import type { StyleProp, ViewStyle } from 'react-native';
+
+export type CircularAnchorSize = 'hero' | 'large' | 'medium' | 'thumbnail' | 'micro' | number;
+const sizes: Record<'hero' | 'large' | 'medium' | 'thumbnail' | 'micro', number> = { hero: 266, large: 152, medium: 104, thumbnail: 64, micro: 44 };
+
+/**
+ * `paper` is the cream artwork disc used where the Anchor is the hero.
+ * `tinted` is the category-washed chip used where it is secondary.
+ * `dark` is the subtle deep surface used in dark immersive practice environments.
+ *
+ * It must be stated explicitly whenever `size` is a number: a layout that owns
+ * its own scale (the Home hero carousel) still needs the paper treatment, and
+ * inferring it from the `'hero'` keyword alone would silently tint it.
+ */
+export type CircularAnchorAppearance = 'paper' | 'tinted' | 'dark';
+
+type Props = {
+  svg: string;
+  category?: string | null;
+  /** A named step, or an exact diameter in dp when the layout owns the scale. */
+  size?: CircularAnchorSize;
+  appearance?: CircularAnchorAppearance;
+  state?: 'active' | 'inactive';
+  accessibilityLabel?: string;
+  testID?: string;
+  style?: StyleProp<ViewStyle>;
+};
 
 /** A flat field + the existing stable SVG renderer. It deliberately has no rim, halo, or animation. */
-export const CircularAnchorRenderer = memo(function CircularAnchorRenderer({ svg, category, size = 'medium', state = 'active', accessibilityLabel, testID }: Props) {
-  const dimension = sizes[size];
+export const CircularAnchorRenderer = memo(function CircularAnchorRenderer({ svg, category, size = 'medium', appearance, state = 'active', accessibilityLabel, testID, style }: Props) {
+  const dimension = typeof size === 'number' ? size : (sizes[size] ?? 104);
   const color = getCategoryColor(category);
-  const isHero = size === 'hero';
-  const fieldColor = isHero ? '#FBF9F4' : getCategoryFieldColor(category);
-  const borderColor = isHero ? '#FBF9F4' : `${color}52`;
+  const isDark = appearance === 'dark';
+  const isPaper = !isDark && (appearance ?? (size === 'hero' ? 'paper' : 'tinted')) === 'paper';
+  const fieldColor = isDark
+    ? 'rgba(255, 255, 255, 0.035)'
+    : isPaper
+    ? '#FBF9F4'
+    : getCategoryFieldColor(category);
+  const borderColor = isDark
+    ? `${color}38`
+    : isPaper
+    ? '#FBF9F4'
+    : `${color}52`;
   const hasArtwork = typeof svg === 'string' && svg.trim().length > 0;
-  return <View testID={testID} accessible accessibilityRole="image" accessibilityLabel={accessibilityLabel ?? `${category ?? 'Custom'} Anchor artwork`} style={[styles.field, { width: dimension, height: dimension, borderRadius: dimension / 2, backgroundColor: fieldColor, borderColor, borderWidth: isHero ? 4 : 1, opacity: state === 'inactive' ? 0.48 : 1 }]}>
-    <View accessible={false} importantForAccessibility="no-hide-descendants" style={[styles.artwork, { width: dimension * (isHero ? 0.72 : 0.66), height: dimension * (isHero ? 0.72 : 0.66) }]}>{hasArtwork ? <SigilSvg xml={svg} width="100%" height="100%" color={color} /> : <Text style={styles.artworkUnavailable}>Artwork unavailable</Text>}</View>
+  return <View testID={testID} accessible accessibilityRole="image" accessibilityLabel={accessibilityLabel ?? `${category ?? 'Custom'} Anchor artwork`} style={[styles.field, { width: dimension, height: dimension, borderRadius: dimension / 2, backgroundColor: fieldColor, borderColor, borderWidth: isPaper ? 4 : 1, opacity: state === 'inactive' ? 0.48 : 1 }, style]}>
+    <View accessible={false} importantForAccessibility="no-hide-descendants" style={[styles.artwork, { width: dimension * (isPaper ? 0.72 : isDark ? 0.70 : 0.66), height: dimension * (isPaper ? 0.72 : isDark ? 0.70 : 0.66) }]}>{hasArtwork ? <SigilSvg xml={svg} width="100%" height="100%" color={color} /> : <Text style={styles.artworkUnavailable}>Artwork unavailable</Text>}</View>
   </View>;
 });
 export const circularAnchorSizes = sizes;

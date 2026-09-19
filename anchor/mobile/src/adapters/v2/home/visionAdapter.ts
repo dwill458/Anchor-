@@ -18,6 +18,11 @@ export type HomeVisionState =
       title?: string | null;
       tiles?: V2VisionTile[];
       featuredTileId?: string;
+      /**
+       * Server-computed against the client's IANA timezone, so it is a real
+       * local day rather than a UTC one. Home reads it; it never derives it.
+       */
+      seenToday?: boolean;
     };
 
 export function toHomeVisionState(scene: VisualizationScene | undefined | null): HomeVisionState {
@@ -56,5 +61,6 @@ export function toV2HomeVisionState(
     featuredTileId: tiles.some((tile) => tile.id === presentation.featuredTileId)
       ? presentation.featuredTileId
       : tiles[0]?.id,
+    seenToday: presentation.seenToday,
   };
 }

@@ -1,6 +1,6 @@
 import { toThreadPresentation, threadQualitativeLabel } from '../threadAdapter';
 import { toHomeVisionState } from '../visionAdapter';
-import { toHomeChartState } from '../chartAdapter';
+import { courseMatchesAnchor, toHomeChartState } from '../chartAdapter';
 import { makeAnchor } from './fixtures';
 import type { VisualizationScene } from '@/types/practice';
 import type { CourseDetail } from '@/types/chart';
@@ -79,7 +79,10 @@ describe('chartAdapter', () => {
       courseId: 'course-1',
       destinationText: 'Reach 1,000 active users',
       nextMove: 'Contact 3 creators',
-      reachedCount: 2,
+      // Derived from the waypoints actually supplied, not from the summary's
+      // own counter, so `reachedCount` and `waypointCount` can never disagree
+      // and render "2 of 2" for a route with one waypoint reached.
+      reachedCount: 1,
       waypointCount: 2,
       currentWaypointId: 'wp-2',
       currentWaypointIndex: 1,
@@ -89,6 +92,26 @@ describe('chartAdapter', () => {
         { id: 'wp-2', title: 'Contact 3 creators', state: 'CURRENT', reached: false, isCurrent: true, isDestination: true },
       ],
     });
+  });
+
+  it('requires an explicit Course-Anchor link before showing Chart context', () => {
+    const anchor = makeAnchor({ id: 'anchor-1', localId: 'anchor-1' });
+    expect(courseMatchesAnchor(course(), anchor)).toBe(false);
+    expect(courseMatchesAnchor(course({ destinationAnchorLink: { anchorId: 'anchor-1' } as never }), anchor)).toBe(true);
+    expect(courseMatchesAnchor(course({ destinationAnchorLink: { anchorId: 'anchor-2' } as never }), anchor)).toBe(false);
+  });
+
+  it('attributes an unlinked legacy Course only when it is the only active Anchor', () => {
+    const anchor = makeAnchor({ id: 'anchor-1', localId: 'anchor-1' });
+    // No link at all: attributable only under the explicit single-Anchor opt-in.
+    expect(courseMatchesAnchor(course(), anchor, { isOnlyActiveAnchor: true })).toBe(true);
+    expect(courseMatchesAnchor(course(), anchor, { isOnlyActiveAnchor: false })).toBe(false);
+    // The opt-in never overrides a link that points somewhere else.
+    expect(
+      courseMatchesAnchor(course({ destinationAnchorLink: { anchorId: 'anchor-2' } as never }), anchor, {
+        isOnlyActiveAnchor: true,
+      }),
+    ).toBe(false);
   });
 
   it('does not guess a current waypoint when the authoritative id is unresolved', () => {

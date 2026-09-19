@@ -109,3 +109,32 @@ describe("settingsStore Voice & Sound ownership", () => {
     jest.useRealTimers();
   });
 });
+
+describe("settingsStore Daily Practice Goal & Summary persistence", () => {
+  it("preserves custom preset when updating dailyPracticeGoal", () => {
+    useSettingsStore.getState().setDailyPracticeGoalPreset("custom");
+    expect(useSettingsStore.getState().dailyPracticeGoalPreset).toBe("custom");
+
+    // When goal is 1 (the default), it must stay custom and NOT get coerced to 'once'
+    useSettingsStore.getState().setDailyPracticeGoal(1);
+    expect(useSettingsStore.getState().dailyPracticeGoal).toBe(1);
+    expect(useSettingsStore.getState().dailyPracticeGoalPreset).toBe("custom");
+
+    // Incrementing goal to 3 must stay custom and NOT get coerced to 'three'
+    useSettingsStore.getState().setDailyPracticeGoal(3);
+    expect(useSettingsStore.getState().dailyPracticeGoal).toBe(3);
+    expect(useSettingsStore.getState().dailyPracticeGoalPreset).toBe("custom");
+
+    // Explicitly setting preset to 'once' sets it back
+    useSettingsStore.getState().setDailyPracticeGoalPreset("once");
+    expect(useSettingsStore.getState().dailyPracticeGoalPreset).toBe("once");
+  });
+
+  it("toggles and persists weeklySummaryEnabled", () => {
+    useSettingsStore.getState().setWeeklySummaryEnabled(false);
+    expect(useSettingsStore.getState().weeklySummaryEnabled).toBe(false);
+
+    useSettingsStore.getState().setWeeklySummaryEnabled(true);
+    expect(useSettingsStore.getState().weeklySummaryEnabled).toBe(true);
+  });
+});

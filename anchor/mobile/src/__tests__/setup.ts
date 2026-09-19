@@ -293,6 +293,8 @@ jest.mock('react-native-svg', () => ({
   Stop: 'Stop',
   LinearGradient: 'LinearGradient',
   RadialGradient: 'RadialGradient',
+  ClipPath: 'ClipPath',
+  Mask: 'Mask',
 }));
 
 jest.mock('react-native-webview', () => ({

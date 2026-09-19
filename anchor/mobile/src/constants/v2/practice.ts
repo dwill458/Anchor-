@@ -14,11 +14,13 @@ export type V2PracticeModeDefinition = {
   premium: boolean;
 };
 
+import { practiceColors } from '@/theme/v2/practiceColors';
+
 export const V2_PRACTICE_MODE_DEFINITIONS: readonly V2PracticeModeDefinition[] = [
-  { mode: 'focus', title: 'Focus', purpose: 'Return to your Anchor with one clear breath.', duration: '10 sec · 30 sec · 60 sec', accent: '#3157D8', premium: false },
-  { mode: 'deep_prime', title: 'Deep Prime', purpose: 'Settle into a longer, guided return.', duration: '2 min · 5 min · 10 min', accent: '#7C5CFA', premium: true },
-  { mode: 'visualize', title: 'Visualize', purpose: 'Rehearse the future held in your Vision.', duration: '1 min · 3 min · 5 min', accent: '#3157D8', premium: true },
-  { mode: 'release', title: 'Release', purpose: 'Close an intention when its work is complete.', duration: 'When ready', accent: '#F28A2E', premium: false },
+  { mode: 'focus', title: 'Focus', purpose: 'Return to your Anchor with one clear breath.', duration: '10 sec · 30 sec · 60 sec', accent: practiceColors.focus, premium: false },
+  { mode: 'deep_prime', title: 'Deep Prime', purpose: 'Settle into a longer, guided return.', duration: '2 min · 5 min · 10 min', accent: practiceColors.deepPrime, premium: true },
+  { mode: 'visualize', title: 'Visualize', purpose: 'Rehearse the future held in your Vision.', duration: '1 min · 3 min · 5 min', accent: practiceColors.visualize, premium: true },
+  { mode: 'release', title: 'Release', purpose: 'Close an intention when its work is complete.', duration: 'When ready', accent: practiceColors.release, premium: false },
 ];
 
 export const V2_PRACTICE_MODE_BY_ID: Readonly<Record<V2PracticeMode, V2PracticeModeDefinition>> =

@@ -1,35 +1,33 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, AppState, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { Animated, AppState, ScrollView, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Ellipse, Path } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { V2Button, V2EmptyState, V2InlineError } from '@/components/v2';
 import {
-  V2Button,
-  V2ActivityIndicator,
-  V2EmptyState,
-  V2InlineError,
-  V2Screen,
-  V2ThreadStrength,
-} from '@/components/v2';
-import {
-  V2AnchorQuickSwitch,
   V2HomeChartSection,
+  V2HomeCreamSplice,
   V2HomeHeader,
-  V2HomePracticeEntry,
+  V2HomeHero,
+  V2HomeProgressSection,
+  V2HomeTodaySection,
   V2HomeVisionSection,
-  V2SelectedAnchorHero,
 } from '@/components/v2/home';
 import { useV2HomeModel } from '@/adapters/v2/home';
-import { useV2SelectedAnchor } from '@/hooks/v2/home';
 import { useV2ReduceMotion } from '@/hooks/v2';
 import { useV2ThreadEventQueue } from '@/hooks/v2/threadEvents';
 import { V2ThreadEventModal } from '@/components/v2/threadEvents';
-import { getCategoryColor, motion } from '@/theme/v2';
+import { colors, getCategoryColor, motion } from '@/theme/v2';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { useV2DailyShellIntents, type V2DailyShellParamList } from './dailyShell';
 import { isWithinWeeklyInsightReviewWindow } from '@/adapters/v2/weeklyInsight';
 
 type Nav = NativeStackNavigationProp<V2DailyShellParamList, 'V2Home'>;
+
+/** Brief-mandated page inset for both zones. */
+const PAGE_INSET = 20;
 
 const track = (name: string, properties: Record<string, unknown> = {}) => {
   try {
@@ -39,60 +37,22 @@ const track = (name: string, properties: Record<string, unknown> = {}) => {
   }
 };
 
+/**
+ * The first-run empty state. It is the one place on Home with no Anchor to be
+ * the hero, so a drawn gesture stands in for the artwork rather than leaving
+ * the screen bare.
+ */
 function EmptyHomeGestureSvg() {
   return (
-    <Svg width={220} height={200} viewBox="0 0 220 200" fill="none" accessibilityElementsHidden>
+    <Svg width={220} height={200} viewBox="0 0 220 200" fill="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
       {/* Soft paper circular foundation */}
-      <Circle
-        cx={110}
-        cy={100}
-        r={76}
-        fill="#FBF9F4"
-        stroke="#DAD6CD"
-        strokeWidth={1}
-        strokeDasharray="6 6"
-      />
+      <Circle cx={110} cy={100} r={76} fill="#FBF9F4" stroke="#DAD6CD" strokeWidth={1} strokeDasharray="6 6" />
 
-      {/* Dynamic irregular brush arcs echoing Hero rings */}
-      <Ellipse
-        cx={110}
-        cy={100}
-        rx={86}
-        ry={82}
-        stroke="#7C5CFA"
-        strokeWidth={4}
-        strokeDasharray="160 30 110 40"
-        strokeLinecap="round"
-        opacity={0.4}
-        transform="rotate(-25 110 100)"
-      />
-      <Ellipse
-        cx={110}
-        cy={100}
-        rx={90}
-        ry={85}
-        stroke="#3157D8"
-        strokeWidth={3}
-        strokeDasharray="70 20 180 50"
-        strokeLinecap="round"
-        opacity={0.3}
-      />
-      <Path
-        d="M145 170 C175 160 196 135 198 105"
-        stroke="#53BDCC"
-        strokeWidth={4}
-        strokeLinecap="round"
-        opacity={0.45}
-      />
-
-      {/* Orange rays accent at top right */}
-      <Path
-        d="M182 48 L188 32 M196 52 L206 42 M200 62 L212 60"
-        stroke="#F28A2E"
-        strokeWidth={2.5}
-        strokeLinecap="round"
-        opacity={0.8}
-      />
+      {/* Dynamic irregular brush arcs echoing the hero's construction strokes */}
+      <Ellipse cx={110} cy={100} rx={86} ry={82} stroke="#7C5CFA" strokeWidth={4} strokeDasharray="160 30 110 40" strokeLinecap="round" opacity={0.4} transform="rotate(-25 110 100)" />
+      <Ellipse cx={110} cy={100} rx={90} ry={85} stroke="#3157D8" strokeWidth={3} strokeDasharray="70 20 180 50" strokeLinecap="round" opacity={0.3} />
+      <Path d="M145 170 C175 160 196 135 198 105" stroke="#53BDCC" strokeWidth={4} strokeLinecap="round" opacity={0.45} />
+      <Path d="M182 48 L188 32 M196 52 L206 42 M200 62 L212 60" stroke="#F28A2E" strokeWidth={2.5} strokeLinecap="round" opacity={0.8} />
 
       {/* Gentle center waypoint sigil */}
       <Circle cx={110} cy={100} r={16} stroke="#D8D2C8" strokeWidth={1.5} strokeDasharray="3 3" />
@@ -101,96 +61,125 @@ function EmptyHomeGestureSvg() {
   );
 }
 
+/**
+ * Anchor 2.0 Home.
+ *
+ * Two zones, one continuous surface: a cream hero world (header, Anchor
+ * context, hero carousel, intention, compact Thread Strength) spliced into a
+ * graphite system world (Today, All Practices, Vision, Chart, Progress).
+ *
+ * Every module below the splice is conditional on real data for the ACTIVE
+ * Anchor. Absent is not loading: Vision and Chart render nothing at all when
+ * the record does not exist, and nothing on this screen reserves space for a
+ * feature the user has not created.
+ */
 export function V2HomeScreen() {
   const navigation = useNavigation<Nav>();
   const model = useV2HomeModel();
-  const { selectAnchor } = useV2SelectedAnchor();
   const reduceMotion = useV2ReduceMotion();
+  const insets = useSafeAreaInsets();
   const intents = useV2DailyShellIntents();
   const threadEvents = useV2ThreadEventQueue({
     channel: 'HOME_CONTEXT',
     enabled: Boolean(model.selectedAnchor),
   });
 
+  const { refreshChart, refreshToday, refreshVision } = model;
+  const refreshHomeContext = useCallback(() => {
+    void refreshToday();
+    void refreshVision();
+    void refreshChart();
+  }, [refreshChart, refreshToday, refreshVision]);
+
+  // Returning from a Practice session must re-read Today, Thread and evidence.
   useEffect(() => {
-    if (!model.selectedAnchor) return undefined;
-    const refreshModules = () => {
-      void model.refreshVision();
-      void model.refreshToday();
-      void model.refreshChart();
-    };
-    const unsubscribeFocus = navigation.addListener('focus', refreshModules);
-    const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') {
-        refreshModules();
-      }
+    const listener = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refreshHomeContext();
     });
-    return () => {
-      unsubscribeFocus();
-      subscription.remove();
-    };
-  }, [model.refreshChart, model.refreshToday, model.refreshVision, model.selectedAnchor, navigation]);
+    return () => listener.remove();
+  }, [refreshHomeContext]);
+
+  useEffect(() => navigation.addListener('focus', refreshHomeContext), [navigation, refreshHomeContext]);
 
   useEffect(() => {
     track('v2_home_viewed', { anchorCount: model.anchorList.length });
   }, [model.anchorList.length]);
 
-  const selectedId = model.selectedAnchor
-    ? model.selectedAnchor.localId ?? model.selectedAnchor.id
-    : null;
+  const selectedId = model.selectedAnchor?.id ?? null;
 
+  /**
+   * One short cross-fade when the Anchor changes, so the whole context reads
+   * as a single swap rather than modules updating out of step.
+   *
+   * Deliberately a sequence rather than `setValue(0)` + `timing(1)`: with the
+   * native driver a JS-side `setValue` can land on the UI thread *after* the
+   * animation it was meant to precede, stranding the view at zero opacity.
+   * There is also no fade on first paint — the screen must never appear blank.
+   */
   const fade = useRef(new Animated.Value(1)).current;
+  const fadedFrom = useRef<string | null>(null);
   useEffect(() => {
-    if (reduceMotion || !selectedId) {
-      fade.setValue(1);
-      return;
-    }
-    fade.setValue(0);
-    const animation = Animated.timing(fade, {
-      toValue: 1,
-      duration: motion.standard,
-      useNativeDriver: true,
-    });
+    const previous = fadedFrom.current;
+    fadedFrom.current = selectedId;
+    if (reduceMotion || !selectedId || previous === null || previous === selectedId) return;
+    const animation = Animated.sequence([
+      Animated.timing(fade, { toValue: 0, duration: 90, useNativeDriver: true }),
+      Animated.timing(fade, { toValue: 1, duration: motion.standard, useNativeDriver: true }),
+    ]);
     animation.start();
-    return () => animation.stop();
+    return () => {
+      animation.stop();
+      fade.setValue(1);
+    };
   }, [fade, reduceMotion, selectedId]);
 
-  const openDetails = (anchorId: string) => {
-    track('v2_anchor_details_viewed', { from: 'home' });
-    navigation.navigate('V2AnchorDetails', { anchorId });
-  };
+  const categoryColor = getCategoryColor(model.selectedAnchor?.category);
 
-  const handleSwitch = (anchorId: string) => {
-    selectAnchor(anchorId);
-    track('v2_home_anchor_switched');
-  };
-
-  const catColor = getCategoryColor(model.selectedAnchor?.category);
-
-  return (
-    <V2Screen scroll testID="v2-home-screen">
+  const header = (
+    <View style={styles.headerInset}>
       <V2HomeHeader
         greeting={model.greeting}
         profileInitial={model.profileInitial}
-        onOpenChart={() => {
-          track('v2_home_chart_tapped');
-          intents.onOpenChart(selectedId ?? undefined, model.chart.state === 'ready' ? model.chart.courseId : undefined);
-        }}
+        showChartUtility={false}
         onCreateAnchor={() => {
           track('v2_home_create_anchor_tapped');
           intents.onCreateAnchor();
         }}
         onOpenProfile={intents.onOpenProfile}
       />
+    </View>
+  );
 
-      {model.anchorState === 'loading' ? (
-        <View style={styles.statusContainer}><V2ActivityIndicator label="Loading your Anchors" /></View>
-      ) : model.anchorState === 'error' ? (
-        <View style={styles.statusContainer}>
-          <V2InlineError message={model.anchorError ?? 'Unable to load your Anchors.'} />
+  if (model.anchorState === 'loading') {
+    return (
+      <SafeAreaView edges={TOP_EDGE} style={styles.creamScreen} testID="v2-home-screen">
+        {header}
+        {/* A restrained layout skeleton, not a pile of independent loading cards. */}
+        <View testID="v2-home-anchors-loading" style={styles.skeletonZone}>
+          <View style={styles.skeletonDisc} />
+          <View style={[styles.skeletonLine, styles.skeletonLineWide]} />
+          <View style={[styles.skeletonLine, styles.skeletonLineNarrow]} />
         </View>
-      ) : !model.selectedAnchor ? (
-        <View style={styles.emptyContainer}>
+      </SafeAreaView>
+    );
+  }
+
+  if (model.anchorState === 'error') {
+    return (
+      <SafeAreaView edges={TOP_EDGE} style={styles.creamScreen} testID="v2-home-screen">
+        {header}
+        <View testID="v2-home-anchors-error" style={styles.statusZone}>
+          <V2InlineError message={model.anchorError ?? 'Unable to load your Anchors.'} onRetry={model.refreshAnchors} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!model.selectedAnchor) {
+    return (
+      <SafeAreaView edges={TOP_EDGE} style={styles.creamScreen} testID="v2-home-screen">
+        {header}
+        <View style={styles.emptyZone}>
           <V2EmptyState
             gesture={<EmptyHomeGestureSvg />}
             title="No Anchor yet"
@@ -208,102 +197,107 @@ export function V2HomeScreen() {
             }
           />
         </View>
-      ) : (
-        <>
-          {/* Hero Artwork & Intention */}
-          <Animated.View style={{ opacity: fade }}>
-            <V2SelectedAnchorHero
-              testID="v2-home-hero"
-              anchor={model.selectedAnchor}
-              threadValue={model.thread?.value ?? undefined}
-              onPress={() => openDetails(selectedId as string)}
-            />
-          </Animated.View>
+      </SafeAreaView>
+    );
+  }
 
-          {/* Thread Strength */}
-          {model.thread ? (
-            <View testID="v2-home-thread" style={styles.threadSection}>
-              <V2ThreadStrength
-                testID="v2-home-thread-strength"
-                value={model.thread.value}
-                category={model.thread.category}
-                delta={model.thread.delta}
-                trend={model.thread.trend}
-                detail={model.thread.detail}
-                onPress={() => {
-                  track('v2_home_progress_tapped');
-                  intents.onOpenProgress(selectedId ?? undefined);
-                }}
-              />
-            </View>
-          ) : null}
+  return (
+    <SafeAreaView edges={TOP_EDGE} style={styles.creamScreen} testID="v2-home-screen">
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        // The hero must never be clipped or slide under the status bar.
+        contentInsetAdjustmentBehavior="never"
+      >
+        {/* ── Cream hero world ── */}
+        {header}
 
-          {/* Today / Practice Section */}
-          <V2HomePracticeEntry
-            today={model.today}
-            onRetry={model.refreshToday}
-            onStartPractice={(mode) => {
-              track('v2_home_practice_tapped');
-              intents.onOpenPractice(selectedId as string, mode);
+        <Animated.View style={[styles.creamZone, { opacity: fade }]}>
+          <V2HomeHero
+            testID="v2-home-hero"
+            anchors={model.anchorList}
+            selectedIndex={model.selectedIndex}
+            thread={model.thread}
+            reduceMotion={reduceMotion}
+            onSelect={(anchorId) => {
+              model.selectAnchor(anchorId);
+              track('v2_home_anchor_switched');
             }}
+            onOpenActive={(anchorId) => {
+              track('v2_anchor_details_viewed', { from: 'home' });
+              navigation.navigate('V2AnchorDetails', { anchorId });
+            }}
+            onOpenProgress={() => {
+              track('v2_home_progress_tapped');
+              intents.onOpenProgress(selectedId ?? undefined);
+            }}
+            onOpenAllAnchors={() => {
+              track('v2_anchor_library_viewed', { from: 'home' });
+              navigation.navigate('V2AnchorLibrary');
+            }}
+          />
+        </Animated.View>
+
+        {/* ── Centre splice: one continuous surface, not a floating card ── */}
+        <V2HomeCreamSplice testID="v2-home-splice" />
+
+        {/* ── Graphite system world ── */}
+        <Animated.View testID="v2-home-graphite-zone" style={[styles.graphiteZone, { opacity: fade, paddingBottom: 56 + insets.bottom }]}>
+          <V2HomeTodaySection
+            testID="v2-home-today"
+            today={model.today}
+            onBegin={() => {
+              track('v2_home_practice_tapped');
+              if (selectedId && model.today.state === 'ready') {
+                intents.onOpenPractice(selectedId, model.today.mode);
+              }
+            }}
+            onOpenAllPractices={() => {
+              track('v2_home_all_practices_tapped');
+              if (selectedId) intents.onOpenPractice(selectedId);
+            }}
+            onRetry={() => void model.refreshToday()}
           />
 
           {isWithinWeeklyInsightReviewWindow() ? (
-            <View testID="v2-home-weekly-review" style={styles.weeklyReviewSection}>
-              <V2Button
-                accessibilityLabel="Open Weekly Review"
-                variant="secondary"
-                onPress={intents.onOpenWeeklyInsight}
-              >
+            <View testID="v2-home-weekly-review" style={styles.weeklyReview}>
+              <V2Button accessibilityLabel="Open Weekly Review" variant="secondary" onPress={intents.onOpenWeeklyInsight}>
                 Weekly Review
               </V2Button>
             </View>
           ) : null}
 
-          {/* Hairline Divider */}
-          <View style={styles.dividerContainer}>
-            <View style={styles.hairlineDivider} />
-          </View>
-
-          {/* Vision Section */}
           <V2HomeVisionSection
             vision={model.vision}
-            category={model.selectedAnchor.category}
             onOpenVision={() => {
               track('v2_home_vision_tapped');
-              intents.onOpenVision(selectedId as string);
+              if (selectedId) intents.onOpenVision(selectedId);
             }}
           />
 
-          {/* Chart Section */}
           <V2HomeChartSection
             chart={model.chart}
-            categoryColor={catColor}
-            onRetry={model.refreshChart}
+            categoryColor={categoryColor}
             onOpenChart={() => {
               track('v2_home_chart_tapped');
-              intents.onOpenChart(selectedId ?? undefined, model.chart.state === 'ready' ? model.chart.courseId : undefined);
+              if (selectedId) intents.onOpenChart(selectedId, model.chart.state === 'ready' ? model.chart.courseId : undefined);
             }}
+            onRetry={model.refreshChart}
           />
 
-          {/* Hairline Divider */}
-          <View style={styles.dividerContainer}>
-            <View style={styles.hairlineDivider} />
-          </View>
+          <V2HomeProgressSection
+            progress={model.progress}
+            categoryColor={categoryColor}
+            onOpenProgress={() => {
+              track('v2_home_progress_tapped');
+              intents.onOpenProgress(selectedId ?? undefined);
+            }}
+          />
+        </Animated.View>
 
-          {/* Your Anchors Horizontal Rail */}
-          <View testID="v2-home-quick-switch">
-            <V2AnchorQuickSwitch
-              anchors={model.anchorList}
-              onSelect={handleSwitch}
-              onOpenAllAnchors={() => {
-                track('v2_anchor_library_viewed', { from: 'home' });
-                navigation.navigate('V2AnchorLibrary');
-              }}
-            />
-          </View>
-        </>
-      )}
+        {/* Keeps the graphite field unbroken under an overscroll bounce. */}
+        <View style={styles.overscrollFill} pointerEvents="none" />
+      </ScrollView>
 
       <V2ThreadEventModal
         bundle={threadEvents.active}
@@ -321,34 +315,76 @@ export function V2HomeScreen() {
           void threadEvents.dismiss();
         }}
       />
-    </V2Screen>
+    </SafeAreaView>
   );
 }
 
+const TOP_EDGE = ['top'] as const;
+
 const styles = StyleSheet.create({
-  statusContainer: {
-    paddingTop: 48,
-    paddingHorizontal: 22,
+  creamScreen: {
+    flex: 1,
+    backgroundColor: colors.canvas,
   },
-  emptyContainer: {
-    paddingTop: 48,
-    paddingBottom: 64,
+  scrollContent: {
+    flexGrow: 1,
+  },
+  headerInset: {
+    paddingHorizontal: PAGE_INSET,
+    paddingTop: 6,
+  },
+  creamZone: {
+    paddingHorizontal: PAGE_INSET,
+    paddingBottom: 10,
+    backgroundColor: colors.canvas,
+  },
+  graphiteZone: {
+    flexGrow: 1,
+    paddingHorizontal: PAGE_INSET,
+    paddingTop: 26,
+    backgroundColor: colors.graphite.base,
+  },
+  overscrollFill: {
+    height: 400,
+    marginBottom: -400,
+    backgroundColor: colors.graphite.base,
+  },
+  weeklyReview: {
+    marginTop: 22,
+  },
+  statusZone: {
+    paddingHorizontal: PAGE_INSET,
+    paddingVertical: 32,
+  },
+  emptyZone: {
+    flex: 1,
+    paddingHorizontal: PAGE_INSET,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  threadSection: {
-    marginTop: 0,
+  skeletonZone: {
+    paddingHorizontal: PAGE_INSET,
+    paddingTop: 48,
+    alignItems: 'center',
+    gap: 20,
   },
-  weeklyReviewSection: {
-    marginHorizontal: 22,
-    marginTop: 16,
+  skeletonDisc: {
+    width: 178,
+    height: 178,
+    borderRadius: 89,
+    backgroundColor: colors.grouped,
   },
-  dividerContainer: {
-    marginTop: 26,
-    paddingHorizontal: 22,
+  skeletonLine: {
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.grouped,
+    alignSelf: 'stretch',
   },
-  hairlineDivider: {
-    height: 1,
-    backgroundColor: '#D8D2C8',
+  skeletonLineWide: {
+    marginTop: 8,
+  },
+  skeletonLineNarrow: {
+    width: '60%',
+    alignSelf: 'flex-start',
   },
 });

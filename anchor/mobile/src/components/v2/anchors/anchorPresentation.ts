@@ -5,11 +5,19 @@ export function anchorArtworkSvg(anchor: Pick<Anchor, 'baseSigilSvg' | 'reinforc
   return anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg;
 }
 
-/** "career" -> "Career". Presentation only. */
+/**
+ * "career" -> "Career", "personal_growth" -> "Personal growth".
+ *
+ * Categories are stored as machine values, so the separators must be resolved
+ * here: without this an enum such as PERSONAL_GROWTH reaches the screen as an
+ * internal identifier. Presentation only.
+ */
 export function categoryLabel(category?: string | null): string {
   const value = category?.trim();
   if (!value) return 'Custom';
-  return value.charAt(0).toUpperCase() + value.slice(1);
+  const words = value.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!words) return 'Custom';
+  return words.charAt(0).toUpperCase() + words.slice(1).toLowerCase();
 }
 
 /** e.g. "Sep 3" */

@@ -1,6 +1,6 @@
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { AppState, BackHandler } from 'react-native';
+import { AppState } from 'react-native';
 import { V2FocusActiveScreen } from '../focus/V2FocusActiveScreen';
 import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
 import { safeHaptics } from '@/utils/haptics';
@@ -34,6 +34,7 @@ jest.mock('@/utils/haptics', () => ({
   safeHaptics: {
     notification: jest.fn(),
     impact: jest.fn(),
+    selection: jest.fn(),
   },
 }));
 
@@ -54,7 +55,7 @@ describe('V2FocusActiveScreen', () => {
   const mockAnchor = makeAnchor({
     id: 'a1',
     intentionText: 'Breathe with clarity',
-    category: 'focus',
+    category: 'career',
   });
 
   beforeEach(() => {
@@ -66,7 +67,7 @@ describe('V2FocusActiveScreen', () => {
     jest.useRealTimers();
   });
 
-  it('renders dark immersion canvas with intention and anchor artwork', () => {
+  it('renders Prepare state with PREPARE label, intention text, and BEGIN button', () => {
     render(
       <V2FocusActiveScreen
         anchor={mockAnchor}
@@ -79,10 +80,15 @@ describe('V2FocusActiveScreen', () => {
     );
 
     expect(screen.getByTestId('v2-focus-active-screen')).toBeTruthy();
+    expect(screen.getByText('PREPARE')).toBeTruthy();
     expect(screen.getByText('“Breathe with clarity”')).toBeTruthy();
+    expect(
+      screen.getByText('Return to it once. Then let the Anchor hold it.')
+    ).toBeTruthy();
+    expect(screen.getByTestId('focus-prepare-begin-button')).toBeTruthy();
   });
 
-  it('reveals controls on screen tap and allows pausing session', () => {
+  it('transitions from Prepare to Focus when BEGIN is pressed', () => {
     render(
       <V2FocusActiveScreen
         anchor={mockAnchor}
@@ -94,7 +100,31 @@ describe('V2FocusActiveScreen', () => {
       />
     );
 
-    // Controls initially hidden
+    fireEvent.press(screen.getByTestId('focus-prepare-begin-button'));
+
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+
+    expect(AnalyticsService.track).toHaveBeenCalledWith(
+      'practice_session_started',
+      expect.objectContaining({ practice_mode: 'focus' })
+    );
+  });
+
+  it('reveals controls on screen tap and allows pausing session', () => {
+    render(
+      <V2FocusActiveScreen
+        anchor={mockAnchor}
+        durationSeconds={30}
+        voice="female"
+        ambient={true}
+        initialStage="focus"
+        onExit={jest.fn()}
+        onComplete={jest.fn()}
+      />
+    );
+
     // Tap anywhere to reveal controls
     fireEvent.press(screen.getByTestId('v2-focus-active-screen'));
 
@@ -117,9 +147,10 @@ describe('V2FocusActiveScreen', () => {
         durationSeconds={30}
         voice="female"
         ambient={true}
+        initialStage="focus"
+        initialPaused={true}
         onExit={jest.fn()}
         onComplete={jest.fn()}
-        initialPaused={true}
       />
     );
 
@@ -136,9 +167,10 @@ describe('V2FocusActiveScreen', () => {
         durationSeconds={30}
         voice="female"
         ambient={true}
+        initialStage="focus"
+        initialControlsVisible={true}
         onExit={jest.fn()}
         onComplete={jest.fn()}
-        initialControlsVisible={true}
       />
     );
 
@@ -161,9 +193,10 @@ describe('V2FocusActiveScreen', () => {
         durationSeconds={30}
         voice="female"
         ambient={true}
+        initialStage="focus"
+        initialControlsVisible={true}
         onExit={onExit}
         onComplete={jest.fn()}
-        initialControlsVisible={true}
       />
     );
 
@@ -180,7 +213,6 @@ describe('V2FocusActiveScreen', () => {
   it('completes session naturally when monotonic clock reaches planned duration', () => {
     const onComplete = jest.fn();
 
-    // Mock performance.now to simulate 30 seconds advancing
     let mockTime = 1000;
     const originalPerformanceNow = global.performance.now;
     global.performance.now = jest.fn(() => mockTime);
@@ -192,6 +224,7 @@ describe('V2FocusActiveScreen', () => {
           durationSeconds={30}
           voice="female"
           ambient={true}
+          initialStage="focus"
           onExit={jest.fn()}
           onComplete={onComplete}
         />
@@ -201,13 +234,12 @@ describe('V2FocusActiveScreen', () => {
       mockTime += 30500;
 
       act(() => {
-        // Advance interval timer
         jest.advanceTimersByTime(1000);
       });
 
-      // Resolving delay takes 650ms before onComplete is invoked
+      // Resolving delay takes 850ms before onComplete is invoked
       act(() => {
-        jest.advanceTimersByTime(700);
+        jest.advanceTimersByTime(900);
       });
 
       expect(onComplete).toHaveBeenCalledTimes(1);
@@ -230,6 +262,7 @@ describe('V2FocusActiveScreen', () => {
         durationSeconds={30}
         voice="female"
         ambient={true}
+        initialStage="focus"
         onExit={jest.fn()}
         onComplete={jest.fn()}
       />

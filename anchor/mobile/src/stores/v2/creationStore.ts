@@ -6,7 +6,7 @@ import { distillIntention, validateIntention } from '@/utils/sigil/distillation'
 import { generateTrueSigil, type SigilVariant } from '@/utils/sigil/traditional-generator';
 import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
 import { CATEGORY_TO_TIER, type AnchorCategory } from '@/types';
-import type { AnchorExpression, CanonicalStructure, CreationStep } from '@/constants/v2/creation';
+import { CREATION_MAX_INTENTION_LENGTH, type AnchorExpression, type CanonicalStructure, type CreationStep } from '@/constants/v2/creation';
 
 export type DrawingPoint = { x: number; y: number };
 export type DrawnPath = { points: DrawingPoint[]; stroke?: string; strokeWidth?: number };
@@ -165,7 +165,7 @@ export const useCreationStore = create<CreationStore>()(
         const draft = state.draft;
         if (!draft) return state;
         // Same gate UI-B first-run applies before forming an Anchor.
-        const validation = validateIntention(draft.intention);
+        const validation = validateIntention(draft.intention, CREATION_MAX_INTENTION_LENGTH);
         if (!validation.isValid) {
           return { draft: { ...draft, formationError: validation.error ?? 'Write a little more before continuing.', updatedAt: now() } };
         }

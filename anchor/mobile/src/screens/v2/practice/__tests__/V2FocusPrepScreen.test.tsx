@@ -5,14 +5,22 @@ import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
 
+jest.mock('@/utils/haptics', () => ({
+  safeHaptics: {
+    notification: jest.fn(),
+    impact: jest.fn(),
+    selection: jest.fn(),
+  },
+}));
+
 const mockAnchor = makeAnchor({
   id: 'anchor-focus-test',
   intentionText: 'Stay centered and present',
   category: 'career',
 });
-
 describe('V2FocusPrepScreen', () => {
   beforeEach(() => {
+    jest.clearAllMocks();
     useSubscriptionStore.setState({
       rcTier: 'pro',
       hasActiveEntitlement: true,
@@ -29,7 +37,7 @@ describe('V2FocusPrepScreen', () => {
     });
   });
 
-  it('renders prominently with correct active Anchor intention and artwork', () => {
+  it('renders prominently with FOCUS eyebrow, active Anchor intention and artwork', () => {
     render(
       <V2FocusPrepScreen
         anchor={mockAnchor}
@@ -39,11 +47,10 @@ describe('V2FocusPrepScreen', () => {
       />
     );
 
-    expect(screen.getByText('Focus')).toBeTruthy();
-    expect(screen.getByText('YOUR ANCHOR')).toBeTruthy();
-    expect(screen.getByText('“Stay centered and present”')).toBeTruthy();
-    expect(screen.getByText('Return to your Anchor for a few seconds.')).toBeTruthy();
-    expect(screen.getByLabelText('career Anchor artwork')).toBeTruthy();
+    expect(screen.getByText('FOCUS')).toBeTruthy();
+    expect(screen.getByText('Stay centered and present')).toBeTruthy();
+    expect(screen.getByText('Career')).toBeTruthy();
+    expect(screen.getByLabelText('Career Anchor artwork')).toBeTruthy();
   });
 
   it('supports duration switching between 10s, 30s, and 60s (1 min)', () => {
@@ -58,15 +65,15 @@ describe('V2FocusPrepScreen', () => {
     );
 
     // Initial default is 30 SEC
-    expect(screen.getByLabelText('30 SEC, selected')).toBeTruthy();
+    expect(screen.getByLabelText('30 sec, selected')).toBeTruthy();
 
     // Select 10 SEC
-    fireEvent.press(screen.getByLabelText('10 SEC'));
-    expect(screen.getByLabelText('10 SEC, selected')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('10 sec'));
+    expect(screen.getByLabelText('10 sec, selected')).toBeTruthy();
 
     // Select 1 MIN
-    fireEvent.press(screen.getByLabelText('1 MIN'));
-    expect(screen.getByLabelText('1 MIN, selected')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('1 min'));
+    expect(screen.getByLabelText('1 min, selected')).toBeTruthy();
 
     // Tap Begin Focus with selected 60s
     fireEvent.press(screen.getByTestId('v2-begin-focus'));
@@ -75,25 +82,36 @@ describe('V2FocusPrepScreen', () => {
     );
   });
 
-  it('shows audio summary and opens the Focus Settings Sheet on tap', () => {
+  it('provides interactive Sound toggle controlling voice and ambient audio', () => {
+    const onBeginFocus = jest.fn();
     render(
       <V2FocusPrepScreen
         anchor={mockAnchor}
         source="practice_hub"
         onBack={jest.fn()}
-        onBeginFocus={jest.fn()}
+        onBeginFocus={onBeginFocus}
       />
     );
 
-    expect(screen.getByText('Female Voice · Ambient')).toBeTruthy();
-    fireEvent.press(screen.getByText('Female Voice · Ambient'));
+    // Sound toggle is on initially
+    const soundToggle = screen.getByTestId('focus-sound-toggle');
+    expect(soundToggle.props.accessibilityState.checked).toBe(true);
 
-    expect(screen.getByTestId('v2-focus-settings-sheet')).toBeTruthy();
-    expect(screen.getByText('Guidance')).toBeTruthy();
-    expect(screen.getByText('Background')).toBeTruthy();
+    // Toggle sound off
+    fireEvent.press(soundToggle);
+    expect(soundToggle.props.accessibilityState.checked).toBe(false);
+
+    // Tap Begin Focus: passes voice: 'none' and ambient: false
+    fireEvent.press(screen.getByTestId('v2-begin-focus'));
+    expect(onBeginFocus).toHaveBeenCalledWith(
+      expect.objectContaining({
+        voice: 'none',
+        ambient: false,
+      })
+    );
   });
 
-  it('updates audio configuration in settings sheet and reflects on prep screen', () => {
+  it('provides interactive Haptics toggle controlling device vibration cues', () => {
     render(
       <V2FocusPrepScreen
         anchor={mockAnchor}
@@ -103,50 +121,16 @@ describe('V2FocusPrepScreen', () => {
       />
     );
 
-    fireEvent.press(screen.getByText('Female Voice · Ambient'));
+    const hapticsToggle = screen.getByTestId('focus-haptics-toggle');
+    expect(hapticsToggle.props.accessibilityState.checked).toBe(true);
 
-    // Switch to Male Voice and Silence
-    fireEvent.press(screen.getByTestId('focus-voice-male'));
-    fireEvent.press(screen.getByTestId('focus-ambient-off'));
-    fireEvent.press(screen.getByTestId('focus-settings-done'));
+    // Toggle haptics off
+    fireEvent.press(hapticsToggle);
+    expect(hapticsToggle.props.accessibilityState.checked).toBe(false);
 
-    expect(screen.getByText('Male Voice · Silence')).toBeTruthy();
-  });
-
-  it('persists default audio preferences only when "Also make this my default" is checked', () => {
-    const setSessionAudioDefaultsSpy = jest.spyOn(
-      useSettingsStore.getState(),
-      'setSessionAudioDefaults'
-    );
-
-    render(
-      <V2FocusPrepScreen
-        anchor={mockAnchor}
-        source="practice_hub"
-        onBack={jest.fn()}
-        onBeginFocus={jest.fn()}
-      />
-    );
-
-    fireEvent.press(screen.getByText('Female Voice · Ambient'));
-    fireEvent.press(screen.getByTestId('focus-voice-none'));
-
-    // Done without checking make default: spy not called
-    fireEvent.press(screen.getByTestId('focus-settings-done'));
-    expect(setSessionAudioDefaultsSpy).not.toHaveBeenCalled();
-
-    // Re-open and check make default
-    fireEvent.press(screen.getByText('No Voice · Ambient'));
-    fireEvent.press(screen.getByTestId('focus-make-default-toggle'));
-    fireEvent.press(screen.getByTestId('focus-settings-done'));
-
-    expect(setSessionAudioDefaultsSpy).toHaveBeenCalledWith(
-      'focus',
-      { guidanceVoice: 'none', backgroundAudio: 'ambient' },
-      undefined
-    );
-
-    setSessionAudioDefaultsSpy.mockRestore();
+    // Toggle back on
+    fireEvent.press(hapticsToggle);
+    expect(hapticsToggle.props.accessibilityState.checked).toBe(true);
   });
 
   it('gates unentitled users at "Begin Focus" and preserves user selections', () => {
@@ -170,8 +154,8 @@ describe('V2FocusPrepScreen', () => {
       />
     );
 
-    // Switch duration to 10s and voice to male
-    fireEvent.press(screen.getByLabelText('10 SEC'));
+    // Switch duration to 10s
+    fireEvent.press(screen.getByLabelText('10 sec'));
 
     fireEvent.press(screen.getByTestId('v2-begin-focus'));
 
@@ -199,7 +183,7 @@ describe('V2FocusPrepScreen', () => {
       />
     );
 
-    fireEvent.press(screen.getByLabelText('Back'));
+    fireEvent.press(screen.getByTestId('focus-prep-back-button'));
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 });

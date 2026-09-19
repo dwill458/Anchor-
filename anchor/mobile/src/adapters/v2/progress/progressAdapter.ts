@@ -1,7 +1,9 @@
 import type { Anchor } from '@/types';
 import type { CourseLogEntry } from '@/types/chart';
 import type { SessionLogEntry } from '@/stores/sessionStore';
-import { threadQualitativeLabel } from '@/adapters/v2/home';
+// Imported from the module, not the Home barrel: the barrel now reaches back
+// into this file, and going through it would create an import cycle.
+import { threadQualitativeLabel } from '@/adapters/v2/home/threadAdapter';
 import type {
   CanonicalThreadEventType,
   ThreadEventSignificance,

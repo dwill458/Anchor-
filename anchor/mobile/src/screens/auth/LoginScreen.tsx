@@ -157,9 +157,25 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation, route }) =
     // Profile/settings auth is presented as a modal stack over Main. Close it
     // after sign-in so the user returns to the now-authenticated app surface.
     if (
-      (routeNames.includes('Profile') || routeNames.includes('Settings')) &&
+      (routeNames.includes('Profile') ||
+        routeNames.includes('Settings') ||
+        routeNames.includes('V2Settings')) &&
       navigation.canGoBack()
     ) {
+      navigation.goBack();
+      return;
+    }
+
+    if (routeNames.includes('V2DevelopmentHome')) {
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+      } else {
+        (navigation as any).replace('V2DevelopmentHome');
+      }
+      return;
+    }
+
+    if (navigation.canGoBack()) {
       navigation.goBack();
     }
   };

@@ -8,10 +8,14 @@ import { resolveGreeting } from '@/constants/v2/home';
 import { V2_RECOMMENDATION_ACTION_TO_MODE, type V2PracticeMode } from '@/constants/v2/practice';
 import { fetchV2RecommendationContext, type V2RecommendationContext } from '@/adapters/v2/practice';
 import { useSettingsStore } from '@/stores/settingsStore';
+import AuthHydrationService from '@/services/AuthHydrationService';
 import type { Anchor } from '@/types';
 import { toThreadPresentation, type V2ThreadPresentation } from './threadAdapter';
 import { toV2HomeVisionState, type HomeVisionState } from './visionAdapter';
-import { courseMatchesAnchor, toHomeChartState, type HomeChartState } from './chartAdapter';
+import { courseMatchesAnchor, resolveHomeChartState, type HomeChartState } from './chartAdapter';
+import { toHomeProgressState, type HomeProgressState } from './progressAdapter';
+import { useCourseLogStore } from '@/stores/courseLogStore';
+import { useSessionStore } from '@/stores/sessionStore';
 
 export type V2HomeAnchorSummary = {
   anchor: Anchor;
@@ -45,10 +49,15 @@ export type V2HomeModel = {
   anchorList: V2HomeAnchorSummary[];
   vision: HomeVisionState;
   chart: HomeChartState;
+  progress: HomeProgressState;
   today: V2HomeTodayState;
+  /** Index of the selected Anchor inside `anchorList`; -1 when there is none. */
+  selectedIndex: number;
+  selectAnchor: (anchorId: string) => void;
   refreshVision: () => Promise<void>;
   refreshToday: () => Promise<void>;
   refreshChart: () => Promise<void>;
+  refreshAnchors: () => Promise<void>;
 };
 
 function useV2HomeToday(
@@ -102,17 +111,20 @@ function useV2HomeToday(
 
 /** Home read model over the account-scoped Anchor, Vision, Course, and practice APIs. */
 export function useV2HomeModel(): V2HomeModel {
-  const { selectedAnchor, activeAnchors } = useV2SelectedAnchor();
+  const { selectedAnchor, activeAnchors, selectAnchor } = useV2SelectedAnchor();
   const displayName = useAuthStore((s) => s.user?.displayName ?? null);
   const accountId = useAuthStore((s) => s.user?.id ?? null);
   const chartServerFlags = useAuthStore((s) => s.user?.chartFlags ?? null);
-  const courseAccountId = useCourseStore((s) => s.accountId);
   const anchorLoading = useAnchorStore((s) => s.isLoading);
   const anchorError = useAnchorStore((s) => s.error);
+  const courseAccountId = useCourseStore((s) => s.accountId);
   const activeCourse = useCourseStore((s) => s.activeCourse);
-  const courseLoading = useCourseStore((s) => s.loading);
+  const courseSummaries = useCourseStore((s) => s.courses);
+  const chartEnabled = useCourseStore((s) => s.flags.chart_enabled);
   const courseInitializationStatus = useCourseStore((s) => s.initializationStatus);
   const courseError = useCourseStore((s) => s.errorCode);
+  const courseLogEntries = useCourseLogStore((s) => s.entries);
+  const sessionLog = useSessionStore((s) => s.sessionLog);
   const bindCourseAccount = useCourseStore((s) => s.bindAccount);
   const setCourseFeatureFlags = useCourseStore((s) => s.setFeatureFlags);
   const hydrateCourse = useCourseStore((s) => s.hydrateAndRefresh);
@@ -129,6 +141,18 @@ export function useV2HomeModel(): V2HomeModel {
     selectedAnchor?.id ?? null,
     todayDurations,
   );
+
+  const refreshAnchors = useCallback(async () => {
+    if (!accountId) return;
+    useAnchorStore.getState().setLoading(true);
+    try {
+      await AuthHydrationService.hydrateAuthenticatedData();
+    } catch (error) {
+      useAnchorStore.getState().setError(error instanceof Error ? error.message : 'Unable to load your Anchors.');
+    } finally {
+      useAnchorStore.getState().setLoading(false);
+    }
+  }, [accountId]);
 
   useEffect(() => {
     setCourseFeatureFlags(chartServerFlags);
@@ -147,26 +171,62 @@ export function useV2HomeModel(): V2HomeModel {
     ? toV2HomeVisionState(visionModel.state)
     : ({ state: 'none' } satisfies HomeVisionState);
 
-  const chart = useMemo<HomeChartState>(() => {
-    if (!selectedAnchor) return { state: 'none' };
-    const scopedCourse = activeCourse && courseAccountId === accountId && courseMatchesAnchor(activeCourse, selectedAnchor, { isOnlyActiveAnchor: activeAnchors.length === 1 })
-      ? activeCourse
-      : null;
-    if (scopedCourse) return toHomeChartState(scopedCourse);
-    if (courseLoading || courseInitializationStatus === 'hydrating') return { state: 'loading' };
-    if (courseError) return { state: 'error', message: String(courseError) };
-    return { state: 'none' };
-  }, [accountId, activeAnchors.length, activeCourse, courseAccountId, courseError, courseInitializationStatus, courseLoading, selectedAnchor]);
+  /**
+   * Absent, unknown and in-flight are three different Chart states. A busy
+   * Course store is never treated as evidence that this Anchor has a Chart.
+   */
+  const chart = useMemo<HomeChartState>(
+    () =>
+      resolveHomeChartState({
+        anchor: selectedAnchor,
+        chartEnabled,
+        accountId,
+        courseAccountId,
+        initializationStatus: courseInitializationStatus,
+        courses: courseSummaries,
+        activeCourse,
+        errorCode: courseError === null || courseError === undefined ? null : String(courseError),
+        isOnlyActiveAnchor: activeAnchors.length === 1,
+      }),
+    [accountId, activeAnchors.length, activeCourse, chartEnabled, courseAccountId, courseError, courseInitializationStatus, courseSummaries, selectedAnchor],
+  );
+
+  /** Course logs are account-scoped; only this Anchor's own Chart may supply evidence. */
+  const ownsActiveChart = Boolean(
+    selectedAnchor &&
+      activeCourse &&
+      courseAccountId === accountId &&
+      courseMatchesAnchor(activeCourse, selectedAnchor, { isOnlyActiveAnchor: activeAnchors.length === 1 }),
+  );
+
+  const progress = useMemo<HomeProgressState>(
+    () => toHomeProgressState({ anchor: selectedAnchor, courseLogs: courseLogEntries, sessions: sessionLog, ownsActiveChart }),
+    [courseLogEntries, ownsActiveChart, selectedAnchor, sessionLog],
+  );
 
   return useMemo(() => {
-    const anchorList = activeAnchors.map<V2HomeAnchorSummary>((anchor) => ({
+    /**
+     * Selection is resolved by reference, not by comparing ids.
+     * `selectedAnchor` is always an element of `activeAnchors`, so `indexOf`
+     * is exact. Comparing `localId === localId` looked equivalent but matched
+     * EVERY Anchor whose `localId` was undefined, which pinned the hero to
+     * index 0 while the shared store's selection moved underneath it — the
+     * carousel appeared frozen and Today/Vision/Chart could describe a
+     * different Anchor than the artwork on screen.
+     */
+    const selectedIndex = selectedAnchor ? activeAnchors.indexOf(selectedAnchor) : -1;
+    const anchorList = activeAnchors.map<V2HomeAnchorSummary>((anchor, index) => ({
       anchor,
       thread: toThreadPresentation(anchor),
-      isSelected:
-        !!selectedAnchor &&
-        (anchor.id === selectedAnchor.id || anchor.localId === selectedAnchor.localId),
+      isSelected: index === selectedIndex,
     }));
 
+    /**
+     * Strength comes from the Anchor record. The recommendation context does
+     * not carry a `strength` field on this backend — only `delta7d` — so there
+     * is nothing server-authoritative to prefer here yet. `null` is passed
+     * straight through and is never coerced to 0.
+     */
     const baseThread = selectedAnchor ? toThreadPresentation(selectedAnchor) : null;
     const thread = baseThread && today.state === 'ready' && today.threadDeltaStatus === 'AVAILABLE' && today.threadDelta !== null && Number.isFinite(today.threadDelta)
       ? {
@@ -187,23 +247,14 @@ export function useV2HomeModel(): V2HomeModel {
       anchorList,
       vision,
       chart,
+      progress,
+      selectedIndex,
+      selectAnchor,
       today,
       refreshVision: visionModel.refresh,
       refreshToday,
       refreshChart: () => refreshChartStore(accountId ?? undefined),
+      refreshAnchors,
     };
-  }, [
-    activeAnchors,
-    anchorError,
-    anchorState,
-    chart,
-    displayName,
-    refreshChartStore,
-    refreshToday,
-    selectedAnchor,
-    today,
-    vision,
-    visionModel.refresh,
-    accountId,
-  ]);
+  }, [activeAnchors, anchorError, anchorState, chart, displayName, progress, refreshAnchors, refreshChartStore, refreshToday, selectAnchor, selectedAnchor, today, vision, visionModel.refresh, accountId]);
 }

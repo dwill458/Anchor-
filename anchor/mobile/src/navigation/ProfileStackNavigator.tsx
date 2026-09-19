@@ -31,7 +31,7 @@ export const ProfileStackNavigator: React.FC = () => {
           headerShown: false,
           animation: 'slide_from_right',
           gestureEnabled: Platform.OS === 'ios',
-          contentStyle: { backgroundColor: '#080C10' },
+          contentStyle: { backgroundColor: '#F4F1E9' },
         }}
       >
         <Stack.Screen
