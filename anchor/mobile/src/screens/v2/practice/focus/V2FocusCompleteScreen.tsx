@@ -1,12 +1,14 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronRight } from 'lucide-react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import { CircularAnchorRenderer, V2Button, V2Screen } from '@/components/v2';
 import { anchorArtworkSvg } from '@/components/v2/anchors/anchorPresentation';
 import { practiceColors } from '@/theme/v2/practiceColors';
-import { getCategoryColor, getCategoryFieldColor, getCategoryPalette, colors, radii, spacing, typography } from '@/theme/v2';
+import { AnchorMotion, getCategoryColor, getCategoryFieldColor, getCategoryPalette, colors, radii, spacing, typography } from '@/theme/v2';
 import type { Anchor } from '@/types';
+import { useV2ReduceMotion } from '@/hooks/v2';
 
 export interface V2FocusCompleteScreenProps {
   anchor: Anchor;
@@ -34,6 +36,7 @@ export function V2FocusCompleteScreen({
   onSelectRecommended,
 }: V2FocusCompleteScreenProps) {
   const insets = useSafeAreaInsets();
+  const reduceMotion = useV2ReduceMotion();
   const categoryPalette = getCategoryPalette(anchor.category);
   const categoryColor = getCategoryColor(anchor.category);
 
@@ -56,36 +59,46 @@ export function V2FocusCompleteScreen({
 
   const delta = hasAuthoritativeMovement ? toVal - fromVal : 0;
 
-  // Animation for progress bar and transition into light UI
-  const [settled, setSettled] = useState(false);
-  const barAnim = useRef(new Animated.Value(fromVal)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  // Presentation only: the authoritative Thread values above are already
+  // resolved before this screen mounts. Reanimated owns the entrance and fill.
+  const contentOpacity = useSharedValue(reduceMotion ? 1 : 0);
+  const barProgress = useSharedValue(fromVal / 100);
+  const deltaOpacity = useSharedValue(reduceMotion ? 1 : 0);
+  const contentStyle = useAnimatedStyle(() => ({ opacity: contentOpacity.value }));
+  const barStyle = useAnimatedStyle(() => ({ transform: [{ scaleX: barProgress.value }] }));
+  const deltaStyle = useAnimatedStyle(() => ({ opacity: deltaOpacity.value }));
 
   useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 500,
-      useNativeDriver: true,
-    }).start();
+    if (reduceMotion) {
+      contentOpacity.value = 1;
+      barProgress.value = toVal / 100;
+      deltaOpacity.value = 1;
+      return;
+    }
 
-    const timer = setTimeout(() => {
-      setSettled(true);
-      Animated.timing(barAnim, {
-        toValue: toVal,
-        duration: 900,
-        useNativeDriver: false,
-      }).start();
-    }, 450);
-
-    return () => clearTimeout(timer);
-  }, [barAnim, fadeAnim, toVal]);
+    contentOpacity.value = withTiming(1, {
+      duration: AnchorMotion.duration.expressive,
+      easing: AnchorMotion.easing.enter,
+    });
+    barProgress.value = withDelay(
+      AnchorMotion.duration.quick,
+      withTiming(toVal / 100, {
+        duration: AnchorMotion.duration.expressive,
+        easing: AnchorMotion.easing.emphasized,
+      }),
+    );
+    deltaOpacity.value = withDelay(
+      AnchorMotion.duration.quick,
+      withTiming(1, { duration: AnchorMotion.duration.quick, easing: AnchorMotion.easing.enter }),
+    );
+  }, [barProgress, contentOpacity, deltaOpacity, reduceMotion, toVal]);
 
   const durationLabel =
     durationSeconds === 60 ? '1 min practiced' : `${durationSeconds} sec practiced`;
 
   return (
     <V2Screen testID="v2-focus-complete-screen" style={styles.screen}>
-      <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
+      <Animated.View style={[styles.content, contentStyle]}>
         <Text style={styles.eyebrow}>FOCUS COMPLETE</Text>
 
         {/* Real Anchor artwork with completed imprint / category field */}
@@ -133,34 +146,29 @@ export function V2FocusCompleteScreen({
               <View style={styles.threadHeader}>
                 <View style={styles.deltaGroup}>
                   <Text style={styles.threadTitle}>THREAD</Text>
-                  <Text
+                  <Animated.Text
                     testID="focus-thread-delta"
                     style={[
                       styles.threadDelta,
-                      { color: categoryPalette.deep, opacity: settled ? 1 : 0 },
+                      { color: categoryPalette.deep },
+                      deltaStyle,
                     ]}
                   >
                     +{delta}
-                  </Text>
+                  </Animated.Text>
                 </View>
                 <Text style={styles.strengthenedBadge}>STRENGTHENED</Text>
               </View>
 
               <View style={styles.valuesRow}>
                 <Text
-                  style={[
-                    styles.strengthValue,
-                    { color: settled && delta !== 0 ? colors.text.secondary : colors.text.primary },
-                  ]}
+                  style={[styles.strengthValue, { color: colors.text.secondary }]}
                 >
                   {fromVal}
                 </Text>
                 <Text style={styles.arrow}>→</Text>
                 <Text
-                  style={[
-                    styles.strengthValue,
-                    { color: settled ? colors.text.primary : colors.text.secondary },
-                  ]}
+                  style={[styles.strengthValue, { color: colors.text.primary }]}
                 >
                   {toVal}
                 </Text>
@@ -171,12 +179,9 @@ export function V2FocusCompleteScreen({
                   style={[
                     styles.progressBarFill,
                     {
-                      width: barAnim.interpolate({
-                        inputRange: [0, 100],
-                        outputRange: ['0%', '100%'],
-                      }),
                       backgroundColor: categoryPalette.deep,
                     },
+                    barStyle,
                   ]}
                 />
               </View>
@@ -192,12 +197,9 @@ export function V2FocusCompleteScreen({
                   style={[
                     styles.progressBarFill,
                     {
-                      width: barAnim.interpolate({
-                        inputRange: [0, 100],
-                        outputRange: ['0%', '100%'],
-                      }),
                       backgroundColor: categoryPalette.deep,
                     },
+                    barStyle,
                   ]}
                 />
               </View>
@@ -408,8 +410,10 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   progressBarFill: {
+    width: '100%',
     height: '100%',
     borderRadius: 5,
+    transformOrigin: 'left center',
   },
   recommendationCard: {
     flexDirection: 'row',

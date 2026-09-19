@@ -12,12 +12,21 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
+import Reanimated, {
+  Easing as ReanimatedEasing,
+  cancelAnimation,
+  useAnimatedProps,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useKeepAwake } from 'expo-keep-awake';
 import { CircularAnchorRenderer } from '@/components/v2';
 import { anchorArtworkSvg } from '@/components/v2/anchors/anchorPresentation';
 import { practiceColors } from '@/theme/v2/practiceColors';
-import { getCategoryFieldColor, radii, spacing, typography } from '@/theme/v2';
+import { AnchorMotion, getCategoryFieldColor, radii, spacing, typography } from '@/theme/v2';
 import type { Anchor } from '@/types';
 import type { GuidanceVoice } from '@/types/sessionAudio';
 import { useSessionAudio, type ManagedSessionAudioPlayer } from '@/hooks/useSessionAudio';
@@ -52,6 +61,8 @@ const CLOSING_CUES: Record<number, string> = {
   60: 'Hold your attention here.',
 };
 
+const AnimatedCircle = Reanimated.createAnimatedComponent(Circle);
+
 function fmtRemaining(ms: number): string {
   const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
   const m = Math.floor(totalSeconds / 60);
@@ -78,6 +89,12 @@ export function V2FocusActiveScreen({
   const { width } = useWindowDimensions();
   const reduceMotion = useReduceMotionEnabled();
   const totalMs = durationSeconds * 1000;
+  const anchorSize = Math.min(270, Math.max(210, Math.round(width * 0.54)));
+  const ringPadding = 24;
+  const ringSize = anchorSize + ringPadding * 2;
+  const strokeWidth = 2.5;
+  const radius = (ringSize - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
 
   // Use keep-awake while the practice is active
   useKeepAwake('focus-session');
@@ -101,14 +118,25 @@ export function V2FocusActiveScreen({
   const [controlsVisible, setControlsVisible] = useState<boolean>(initialControlsVisible);
   const [endConfirmVisible, setEndConfirmVisible] = useState<boolean>(initialEndConfirm);
   const [isResolving, setIsResolving] = useState<boolean>(initialResolving);
+  const elapsedMsRef = useRef(initialElapsedMs);
+  const displayedRemainingSecondsRef = useRef(Math.ceil(Math.max(0, totalMs - initialElapsedMs) / 1000));
 
-  // Animations
-  const breatheAnim = useRef(new Animated.Value(1)).current;
+  // Transient transitions below remain native-driver animations. Continuous
+  // Focus motion is owned by Reanimated shared values, never React state.
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const pulseOpacity = useRef(new Animated.Value(0.65)).current;
   const controlsOpacity = useRef(new Animated.Value(initialControlsVisible ? 1 : 0)).current;
   const prepareFadeAnim = useRef(new Animated.Value(1)).current;
   const anchorScaleAnim = useRef(new Animated.Value(defaultStage === 'prepare' ? 0.94 : 1)).current;
+  const visualProgress = useSharedValue(Math.min(1, Math.max(0, initialElapsedMs / totalMs)));
+  const breatheScale = useSharedValue(1);
+  const progressAnimatedProps = useAnimatedProps(
+    () => ({ strokeDashoffset: circumference * (1 - visualProgress.value) }),
+    [circumference],
+  );
+  const breathingStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: breatheScale.value }],
+  }));
 
   // Audio setup
   const { createSessionAudioPlayer } = useSessionAudio();
@@ -156,6 +184,21 @@ export function V2FocusActiveScreen({
       );
     },
     [initialElapsedMs, readClock]
+  );
+
+  const syncVisualProgress = useCallback(
+    (elapsed: number) => {
+      const normalized = Math.min(1, Math.max(0, elapsed / totalMs));
+      cancelAnimation(visualProgress);
+      visualProgress.value = normalized;
+      if (!reduceMotion && normalized < 1) {
+        visualProgress.value = withTiming(1, {
+          duration: Math.max(0, totalMs - elapsed),
+          easing: ReanimatedEasing.linear,
+        });
+      }
+    },
+    [reduceMotion, totalMs, visualProgress],
   );
 
   // Start the active focus timer & audio
@@ -234,6 +277,17 @@ export function V2FocusActiveScreen({
     }
   }, [audioPlan, createSessionAudioPlayer, defaultStage, readClock]);
 
+  // The progress ring is visual-only. It is always re-synchronised from the
+  // monotonic logical clock after a start or resume, so it can never become the
+  // authority for completion, audio, or persisted session time.
+  useEffect(() => {
+    if (stage !== 'focus' || isPaused || endConfirmVisible || isResolving) {
+      cancelAnimation(visualProgress);
+      return;
+    }
+    syncVisualProgress(calculateElapsed());
+  }, [calculateElapsed, cancelAnimation, endConfirmVisible, isPaused, isResolving, stage, syncVisualProgress, visualProgress]);
+
   // Auto-advance prepare state after ~3.5s
   useEffect(() => {
     if (stage === 'prepare' && autoAdvancePrepare) {
@@ -249,33 +303,24 @@ export function V2FocusActiveScreen({
     }
   }, [autoAdvancePrepare, stage, startFocusSession]);
 
-  // Micro-motion breathing animation in active focus
+  // Micro-motion breathing is a UI-thread-only environmental treatment.
   useEffect(() => {
+    cancelAnimation(breatheScale);
     if (reduceMotion || isPaused || isResolving || endConfirmVisible || stage !== 'focus') {
-      breatheAnim.setValue(1);
+      breatheScale.value = 1;
       return;
     }
 
-    const breatheLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(breatheAnim, {
-          toValue: 1.012,
-          duration: 3200,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(breatheAnim, {
-          toValue: 1,
-          duration: 3200,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ])
+    breatheScale.value = withRepeat(
+      withTiming(1.012, {
+        duration: AnchorMotion.duration.ambient,
+        easing: AnchorMotion.easing.gentle,
+      }),
+      -1,
+      true,
     );
-
-    breatheLoop.start();
-    return () => breatheLoop.stop();
-  }, [breatheAnim, endConfirmVisible, isPaused, isResolving, reduceMotion, stage]);
+    return () => cancelAnimation(breatheScale);
+  }, [breatheScale, endConfirmVisible, isPaused, isResolving, reduceMotion, stage]);
 
   // Controls fade animation
   useEffect(() => {
@@ -363,22 +408,32 @@ export function V2FocusActiveScreen({
     return () => clearTimeout(completeTimeout);
   }, [durationSeconds, onComplete, pulseAnim, pulseOpacity, reduceMotion]);
 
-  // Main timer tick
+  // Logical cadence only: audio cues and completion use the monotonic clock.
+  // React state changes at most once a second for the visible time label; the
+  // ring itself never waits for this interval and runs on the UI thread.
   useEffect(() => {
     if (stage !== 'focus' || isPaused || endConfirmVisible || isResolving) return;
 
     const interval = setInterval(() => {
       const currentElapsed = Math.min(totalMs, calculateElapsed());
-      setElapsedMs(currentElapsed);
+      elapsedMsRef.current = currentElapsed;
 
       const remaining = totalMs - currentElapsed;
+      const remainingSeconds = Math.ceil(Math.max(0, remaining) / 1000);
+      if (remainingSeconds !== displayedRemainingSecondsRef.current) {
+        displayedRemainingSecondsRef.current = remainingSeconds;
+        setElapsedMs(currentElapsed);
+      }
+      if (reduceMotion) {
+        syncVisualProgress(currentElapsed);
+      }
       checkVoiceCues(remaining);
 
       if (currentElapsed >= totalMs && !doneRef.current) {
         clearInterval(interval);
         handleNaturalCompletion();
       }
-    }, 50);
+    }, 250);
 
     return () => clearInterval(interval);
   }, [
@@ -389,6 +444,8 @@ export function V2FocusActiveScreen({
     isPaused,
     isResolving,
     stage,
+    reduceMotion,
+    syncVisualProgress,
     totalMs,
   ]);
 
@@ -414,6 +471,10 @@ export function V2FocusActiveScreen({
       if (stage !== 'focus' || isPaused || isResolving) return;
       const now = readClock();
       pausedAtMonotonicRef.current = now;
+      const pausedElapsed = Math.min(totalMs, calculateElapsed(now));
+      elapsedMsRef.current = pausedElapsed;
+      displayedRemainingSecondsRef.current = Math.ceil(Math.max(0, totalMs - pausedElapsed) / 1000);
+      setElapsedMs(pausedElapsed);
       setIsPaused(true);
       setControlsVisible(false);
 
@@ -425,7 +486,7 @@ export function V2FocusActiveScreen({
         reason,
       });
     },
-    [isPaused, isResolving, readClock, stage]
+    [calculateElapsed, isPaused, isResolving, readClock, stage, totalMs]
   );
 
   // Resume session
@@ -485,20 +546,10 @@ export function V2FocusActiveScreen({
     AnalyticsService.track(AnalyticsEvents.PRACTICE_SESSION_ENDED_EARLY, {
       practice_mode: 'focus',
       planned_duration_seconds: durationSeconds,
-      elapsed_seconds: Math.floor(elapsedMs / 1000),
+      elapsed_seconds: Math.floor(elapsedMsRef.current / 1000),
     });
     onExit();
   }, [durationSeconds, elapsedMs, onExit]);
-
-  // Proportions: 45–60% of useful viewport width
-  const anchorSize = Math.min(270, Math.max(210, Math.round(width * 0.54)));
-  const ringPadding = 24;
-  const ringSize = anchorSize + ringPadding * 2;
-  const strokeWidth = 2.5;
-  const radius = (ringSize - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const progress = Math.min(1, elapsedMs / totalMs);
-  const strokeDashoffset = circumference * (1 - progress);
 
   const voiceLabel =
     voice === 'female'
@@ -556,7 +607,7 @@ export function V2FocusActiveScreen({
                 fill="none"
               />
               {/* Active animated fill */}
-              <Circle
+              <AnimatedCircle
                 testID="focus-progress-fill"
                 cx={ringSize / 2}
                 cy={ringSize / 2}
@@ -565,7 +616,7 @@ export function V2FocusActiveScreen({
                 strokeWidth={strokeWidth}
                 strokeLinecap="round"
                 strokeDasharray={circumference}
-                strokeDashoffset={strokeDashoffset}
+                animatedProps={progressAnimatedProps}
                 fill="none"
               />
             </Svg>
@@ -577,19 +628,21 @@ export function V2FocusActiveScreen({
               styles.medallionWrapper,
               {
                 transform: [
-                  { scale: stage === 'prepare' ? anchorScaleAnim : breatheAnim },
+                  { scale: stage === 'prepare' ? anchorScaleAnim : 1 },
                 ],
                 opacity: isPaused ? 0.5 : 1,
               },
             ]}
           >
-            <CircularAnchorRenderer
-              svg={anchorArtworkSvg(anchor)}
-              category={anchor.category}
-              size={anchorSize}
-              appearance="dark"
-              accessibilityLabel={`${anchor.category} Anchor artwork`}
-            />
+            <Reanimated.View style={breathingStyle}>
+              <CircularAnchorRenderer
+                svg={anchorArtworkSvg(anchor)}
+                category={anchor.category}
+                size={anchorSize}
+                appearance="dark"
+                accessibilityLabel={`${anchor.category} Anchor artwork`}
+              />
+            </Reanimated.View>
           </Animated.View>
 
           {/* Completion Visual Pulse */}
