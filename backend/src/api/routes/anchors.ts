@@ -66,6 +66,12 @@ const ANCHOR_LIST_SELECT: Prisma.AnchorSelect = {
   lastActivatedAt: true,
   createdAt: true,
   updatedAt: true,
+  threadV2States: {
+    select: {
+      strength: true,
+    },
+    take: 1,
+  },
 };
 
 const router = Router();
@@ -300,15 +306,31 @@ function extractVariationReservation(metadata: unknown): {
   };
 }
 
-async function resolveAnchorArtworkUrls<T extends { enhancedImageUrl?: string | null }>(
-  anchor: T
-): Promise<T> {
+async function resolveAnchorArtworkUrls<
+  T extends {
+    enhancedImageUrl?: string | null;
+    threadV2States?: Array<{ strength: number }>;
+    threadStrength?: number;
+  }
+>(anchor: T): Promise<T & { threadStrength: number }> {
+  const existingStrength = anchor.threadStrength;
+  const threadStrength =
+    typeof existingStrength === 'number'
+      ? existingStrength
+      : Array.isArray(anchor.threadV2States) && anchor.threadV2States.length > 0
+        ? anchor.threadV2States[0].strength
+        : 50;
+
   if (!anchor?.enhancedImageUrl) {
-    return anchor;
+    return {
+      ...anchor,
+      threadStrength,
+    };
   }
 
   return {
     ...anchor,
+    threadStrength,
     enhancedImageUrl:
       (await resolveStoredAssetUrl(anchor.enhancedImageUrl, 7 * 24 * 60 * 60)) ?? null,
   };
@@ -950,6 +972,12 @@ router.get('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
             chargedAt: 'desc',
           },
           take: 5, // Last 5 charges
+        },
+        threadV2States: {
+          select: {
+            strength: true,
+          },
+          take: 1,
         },
       },
     });

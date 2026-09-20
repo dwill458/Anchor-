@@ -73,7 +73,7 @@ describe('V2 route registration', () => {
   });
 
   it('preserves the dedicated billing route', async () => {
-    const startedAt = new Date('2026-09-08T00:00:00.000Z');
+    const startedAt = new Date();
     mockPrisma.user.findUnique
       .mockResolvedValueOnce({ id: 'db-user-1', isComped: false, trialStartedAt: null })
       .mockResolvedValueOnce({ id: 'db-user-1', isComped: false, trialStartedAt: startedAt });

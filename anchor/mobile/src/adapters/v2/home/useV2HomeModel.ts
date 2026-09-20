@@ -16,6 +16,7 @@ import { courseMatchesAnchor, resolveHomeChartState, type HomeChartState } from 
 import { toHomeProgressState, type HomeProgressState } from './progressAdapter';
 import { useCourseLogStore } from '@/stores/courseLogStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import { toHomeRecentActivity, type HomeRecentActivityItem } from './recentActivityAdapter';
 
 export type V2HomeAnchorSummary = {
   anchor: Anchor;
@@ -34,6 +35,7 @@ export type V2HomeTodayState =
       reason: string;
       durationSeconds?: number;
       completionSignal: V2RecommendationContext['completionSignal'];
+      threadStrength?: number | null;
       threadDelta: number | null;
       threadDeltaStatus: V2RecommendationContext['thread']['delta7dStatus'];
     };
@@ -41,6 +43,7 @@ export type V2HomeTodayState =
 export type V2HomeModel = {
   greeting: string;
   profileInitial: string | null;
+  profilePictureUrl: string | null;
   anchorState: 'loading' | 'ready' | 'error';
   anchorError: string | null;
   hasAnchors: boolean;
@@ -50,6 +53,7 @@ export type V2HomeModel = {
   vision: HomeVisionState;
   chart: HomeChartState;
   progress: HomeProgressState;
+  recentActivity: HomeRecentActivityItem[];
   today: V2HomeTodayState;
   /** Index of the selected Anchor inside `anchorList`; -1 when there is none. */
   selectedIndex: number;
@@ -89,6 +93,7 @@ function useV2HomeToday(
         reason: context.recommendation.reason?.trim() ?? '',
         durationSeconds,
         completionSignal: context.completionSignal,
+        threadStrength: typeof context.thread.strength === 'number' ? context.thread.strength : null,
         threadDelta: context.thread.delta7d,
         threadDeltaStatus: context.thread.delta7dStatus,
       } });
@@ -115,6 +120,7 @@ function useV2HomeToday(
 export function useV2HomeModel(): V2HomeModel {
   const { selectedAnchor, activeAnchors, selectAnchor } = useV2SelectedAnchor();
   const displayName = useAuthStore((s) => s.user?.displayName ?? null);
+  const profilePictureUrl = useAuthStore((s) => s.user?.profilePictureUrl ?? null);
   const accountId = useAuthStore((s) => s.user?.id ?? null);
   const chartServerFlags = useAuthStore((s) => s.user?.chartFlags ?? null);
   const anchorLoading = useAnchorStore((s) => s.isLoading);
@@ -127,6 +133,7 @@ export function useV2HomeModel(): V2HomeModel {
   const courseError = useCourseStore((s) => s.errorCode);
   const courseLogEntries = useCourseLogStore((s) => s.entries);
   const sessionLog = useSessionStore((s) => s.sessionLog);
+  const practiceHistory = useSessionStore((s) => s.practiceHistory);
   const bindCourseAccount = useCourseStore((s) => s.bindAccount);
   const setCourseFeatureFlags = useCourseStore((s) => s.setFeatureFlags);
   const hydrateCourse = useCourseStore((s) => s.hydrateAndRefresh);
@@ -212,6 +219,12 @@ export function useV2HomeModel(): V2HomeModel {
     () => toHomeProgressState({ anchor: selectedAnchor, courseLogs: courseLogEntries, sessions: sessionLog, ownsActiveChart }),
     [courseLogEntries, ownsActiveChart, selectedAnchor, sessionLog],
   );
+  const recentActivity = useMemo(() => toHomeRecentActivity({
+    sessions: practiceHistory,
+    accountId,
+    anchorId: selectedAnchor?.id ?? null,
+    anchorLocalId: selectedAnchor?.localId,
+  }), [practiceHistory, accountId, selectedAnchor?.id, selectedAnchor?.localId]);
 
   /**
    * Selection is resolved by reference, not by comparing ids.
@@ -246,12 +259,19 @@ export function useV2HomeModel(): V2HomeModel {
 
   return useMemo(() => {
     /**
-     * Strength comes from the Anchor record. The recommendation context does
-     * not carry a `strength` field on this backend — only `delta7d` — so there
-     * is nothing server-authoritative to prefer here yet. `null` is passed
-     * straight through and is never coerced to 0.
+     * Strength comes from the server-authoritative recommendation context or Anchor record.
+     * `null` is passed straight through and is never coerced to 0.
      */
-    const baseThread = selectedAnchor ? toThreadPresentation(selectedAnchor) : null;
+    const effectiveStrength =
+      today.state === 'ready' && typeof today.threadStrength === 'number'
+        ? today.threadStrength
+        : selectedAnchor?.threadStrength;
+    const baseThread = selectedAnchor
+      ? toThreadPresentation({
+          ...selectedAnchor,
+          threadStrength: effectiveStrength,
+        })
+      : null;
     const thread = baseThread && today.state === 'ready' && today.threadDeltaStatus === 'AVAILABLE' && today.threadDelta !== null && Number.isFinite(today.threadDelta)
       ? {
           ...baseThread,
@@ -263,6 +283,7 @@ export function useV2HomeModel(): V2HomeModel {
     return {
       greeting: resolveGreeting(new Date(), displayName),
       profileInitial: displayName?.trim().charAt(0).toUpperCase() || null,
+      profilePictureUrl,
       anchorState,
       anchorError,
       hasAnchors: activeAnchors.length > 0,
@@ -272,6 +293,7 @@ export function useV2HomeModel(): V2HomeModel {
       vision,
       chart,
       progress,
+      recentActivity,
       selectedIndex,
       selectAnchor,
       today,
@@ -280,5 +302,5 @@ export function useV2HomeModel(): V2HomeModel {
       refreshChart: () => refreshChartStore(accountId ?? undefined),
       refreshAnchors,
     };
-  }, [activeAnchors, anchorError, anchorList, anchorState, chart, displayName, progress, refreshAnchors, refreshChartStore, refreshToday, selectAnchor, selectedAnchor, selectedIndex, today, vision, visionModel.refresh, accountId]);
+  }, [activeAnchors, anchorError, anchorList, anchorState, chart, displayName, profilePictureUrl, progress, recentActivity, refreshAnchors, refreshChartStore, refreshToday, selectAnchor, selectedAnchor, selectedIndex, today, vision, visionModel.refresh, accountId]);
 }

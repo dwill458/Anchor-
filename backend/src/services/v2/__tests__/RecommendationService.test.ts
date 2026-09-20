@@ -10,6 +10,16 @@ const mockPrisma = {
     findUnique: jest.fn(),
     create: jest.fn(),
   },
+  threadV2Movement: {
+    findMany: jest.fn().mockResolvedValue([]),
+    findUnique: jest.fn().mockResolvedValue(null),
+    create: jest.fn().mockResolvedValue({}),
+    update: jest.fn().mockResolvedValue({}),
+  },
+  threadV2State: {
+    upsert: jest.fn().mockResolvedValue({}),
+    update: jest.fn().mockResolvedValue({}),
+  },
 };
 
 const mockGetAnchorVision = jest.fn();
@@ -463,8 +473,8 @@ describe('RecommendationService (CCR-2 & Recommended Today)', () => {
       expect(ctx.recommendation.reason).toBe('daily_focus');
     });
 
-    it('documents THREAD_DELTA7D_BLOCKER in thread context', async () => {
-      mockPrisma.anchor.findFirst.mockResolvedValueOnce({
+    it('provides authoritative thread context with delta7d and strength', async () => {
+      mockPrisma.anchor.findFirst.mockResolvedValue({
         id: ANCHOR_ID,
         intentionText: 'Intention',
         category: 'career',
@@ -476,10 +486,10 @@ describe('RecommendationService (CCR-2 & Recommended Today)', () => {
       mockGetAnchorVision.mockResolvedValueOnce(null);
 
       const ctx = await recommendationService.getRecommendationContext(USER_ID, ANCHOR_ID);
-      expect(ctx.thread.delta7d).toBeNull();
-      expect(ctx.thread.delta7dStatus).toBe('UNAVAILABLE');
-      expect(ctx.thread.status).toBe('UNAVAILABLE');
-      expect(ctx.thread.blockerReason).toContain('THREAD_DELTA7D_BLOCKER');
+      expect(ctx.thread.strength).toBe(50);
+      expect(ctx.thread.delta7d).toBe(0);
+      expect(ctx.thread.delta7dStatus).toBe('AVAILABLE');
+      expect(ctx.thread.status).toBe('AVAILABLE');
     });
   });
 

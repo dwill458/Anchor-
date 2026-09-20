@@ -112,7 +112,10 @@ interface SessionState {
   recordSession: (entry: SessionRecordInput) => string;
   recordPracticeSession: (entry: PracticeSessionRecord) => string;
   appendCanonicalPracticeSession: (entry: PracticeSessionRecord) => string;
-  markPracticeSessionSynced: (id: string) => void;
+  markPracticeSessionSynced: (
+    id: string,
+    updates?: Partial<PracticeSessionRecord>,
+  ) => void;
   updatePracticeSessionNextAction: (
     id: string,
     nextAction: string | null,
@@ -621,10 +624,10 @@ export const useSessionStore = create<SessionState>()(
         return entry.id;
       },
 
-      markPracticeSessionSynced: (id) => {
+      markPracticeSessionSynced: (id, updates) => {
         set((state) => ({
           practiceHistory: state.practiceHistory.map((entry) =>
-            entry.id === id ? { ...entry, syncState: 'synced' } : entry,
+            entry.id === id ? { ...entry, ...updates, syncState: 'synced' } : entry,
           ),
         }));
       },

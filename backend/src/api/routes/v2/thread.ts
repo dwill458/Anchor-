@@ -21,15 +21,47 @@ const threadCompletionLimiter = rateLimit({
   },
 });
 
+router.get(
+  '/anchors/:anchorId',
+  authMiddleware,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { authUid: req.user!.uid },
+        select: { id: true },
+      });
+      if (!user) throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+      const timeZone = (req.query.timeZone as string) || 'UTC';
+      const threadState = await threadStrengthService.getAnchorThreadState(
+        user.id,
+        req.params.anchorId,
+        new Date(),
+        timeZone
+      );
+      const movements = await prisma.threadV2Movement.findMany({
+        where: { userId: user.id, anchorId: req.params.anchorId },
+        orderBy: { completedAt: 'desc' },
+        take: 20,
+      });
+      res.json({
+        success: true,
+        data: {
+          ...threadState,
+          movements,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 router.post(
   '/completions/:sessionId',
   authMiddleware,
   threadCompletionLimiter,
   async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-      if (process.env.THREAD_V2_AUTHORITY !== 'true') {
-        throw new AppError('Thread V2 authority is disabled.', 403, 'THREAD_V2_AUTHORITY_DISABLED');
-      }
       const user = await prisma.user.findUnique({
         where: { authUid: req.user!.uid },
         select: { id: true },

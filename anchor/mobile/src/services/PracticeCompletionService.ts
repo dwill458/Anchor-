@@ -3,6 +3,7 @@ import Constants from 'expo-constants';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { apiClient } from '@/services/ApiClient';
 import { isBackendAnchorId } from '@/services/BackendAnchorService';
+import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import {
   readSecureValue,
@@ -306,8 +307,39 @@ export const PracticeCompletionService = {
     const remaining: PracticeSessionRecord[] = [];
     for (const session of queue) {
       try {
-        await apiClient.post('/api/practice/sessions', serverPayload(session));
-        useSessionStore.getState().markPracticeSessionSynced(session.id);
+        const response = await apiClient.post<{
+          success: boolean;
+          data?: {
+            threadStrengthMovement?: {
+              beforeStrength: number;
+              afterStrength: number;
+              delta: number;
+            };
+            threadStrength?: number;
+          };
+        }>('/api/practice/sessions', serverPayload(session));
+
+        const movement = response.data?.data?.threadStrengthMovement;
+        const threadStrength =
+          typeof response.data?.data?.threadStrength === 'number'
+            ? response.data.data.threadStrength
+            : movement?.afterStrength;
+
+        const updates: Partial<PracticeSessionRecord> = {};
+        if (movement) {
+          updates.threadStrengthBefore = movement.beforeStrength;
+          updates.threadStrengthAfter = movement.afterStrength;
+          updates.threadStrengthDelta = movement.delta;
+        }
+
+        useSessionStore.getState().markPracticeSessionSynced(session.id, updates);
+
+        const targetAnchorId = session.anchorId || session.anchorLocalId;
+        if (typeof threadStrength === 'number' && targetAnchorId) {
+          useAnchorStore.getState().updateAnchor(targetAnchorId, {
+            threadStrength,
+          });
+        }
       } catch {
         remaining.push({ ...session, syncState: 'failed' });
         AnalyticsService.track('practice_sync_failed', {

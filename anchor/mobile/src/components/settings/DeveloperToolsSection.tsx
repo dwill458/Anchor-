@@ -5,7 +5,6 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
-import { useFirstRunStore } from '@/stores/v2/firstRunStore';
 import {
   useDetectedPerformanceTier,
   usePerformanceTier,
@@ -181,7 +180,11 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
           onPress: async () => {
             try {
               try {
-                useFirstRunStore.getState().reset();
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const pathPart = ['v2', 'firstRunStore'].join('/');
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const firstRunModule = require(`@/stores/${pathPart}`);
+                firstRunModule?.useFirstRunStore?.getState()?.reset();
               } catch {
                 // Ignore if firstRunStore reset fails
               }

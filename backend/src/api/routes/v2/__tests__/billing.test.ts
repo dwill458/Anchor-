@@ -30,7 +30,7 @@ describe('POST /api/v2/billing/trial/activate', () => {
   });
 
   it('starts an explicit trial exactly once and returns the server state', async () => {
-    const startedAt = new Date('2026-09-07T12:00:00.000Z');
+    const startedAt = new Date();
     mockPrisma.user.findUnique
       .mockResolvedValueOnce({ id: 'user-1', isComped: false, trialStartedAt: null })
       .mockResolvedValueOnce({ id: 'user-1', isComped: false, trialStartedAt: startedAt });

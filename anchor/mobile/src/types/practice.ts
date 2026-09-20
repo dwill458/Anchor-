@@ -139,6 +139,9 @@ export interface PracticeSessionRecord {
   nextAction: string | null;
   clientVersion: string | null;
   metadata?: Record<string, unknown>;
+  threadStrengthBefore?: number;
+  threadStrengthAfter?: number;
+  threadStrengthDelta?: number;
   syncState: PracticeSessionSyncState;
 }
 

@@ -54,10 +54,8 @@ describe('V2PracticeAnchorHeader', () => {
         anchor={anchor}
         thread={{
           value: 74,
-          tier: 'resonant',
-          sparkColor: '#000',
+          category: 'career',
           unmeasured: false,
-          label: '74%',
         }}
       />
     );

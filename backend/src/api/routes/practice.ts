@@ -25,6 +25,8 @@ import {
   threadStrengthService,
   type ThreadMovement,
 } from '../../services/v2/ThreadStrengthService';
+import { visionService } from '../../services/v2/VisionService';
+import { logger } from '../../utils/logger';
 
 const router = Router();
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -344,7 +346,29 @@ router.post('/sessions', async (req: AuthRequest, res: Response, next: NextFunct
       if (existing.userId !== user.id || !immutableSessionMatches(existing, input)) {
         throw new AppError('Session ID has already been used', 409, 'SESSION_ID_CONFLICT');
       }
-      res.json({ success: true, data: existing, idempotent: true });
+      let threadMovement: ThreadMovement | null = null;
+      if (existing.anchorId) {
+        try {
+          threadMovement = await threadStrengthService.calculateForPracticeSession({
+            userId: user.id,
+            sessionId: existing.id,
+            mode: 'authoritative',
+          });
+        } catch {
+          // ignore
+        }
+      }
+      res.json({
+        success: true,
+        data: threadMovement
+          ? {
+              ...existing,
+              threadStrengthMovement: threadMovement,
+              threadStrength: threadMovement.afterStrength,
+            }
+          : existing,
+        idempotent: true,
+      });
       return;
     }
 
@@ -465,27 +489,51 @@ router.post('/sessions', async (req: AuthRequest, res: Response, next: NextFunct
       }
       return session;
     });
-    // Shadow persistence is isolated behind a backend flag. It never changes
-    // the legacy response unless authority has been explicitly enabled.
-    const threadV2Enabled =
-      process.env.THREAD_V2_SHADOW === 'true' || process.env.THREAD_V2_AUTHORITY === 'true';
-    const threadV2Authority = process.env.THREAD_V2_AUTHORITY === 'true';
+    const isShadowOnly =
+      process.env.THREAD_V2_SHADOW === 'true' && process.env.THREAD_V2_AUTHORITY !== 'true';
+    const threadV2Authority = !isShadowOnly;
     let threadMovement: ThreadMovement | null = null;
-    if (threadV2Enabled) {
+    if (created.anchorId) {
       try {
         threadMovement = await threadStrengthService.calculateForPracticeSession({
           userId: user.id,
           sessionId: created.id,
           mode: threadV2Authority ? 'authoritative' : 'shadow',
         });
-      } catch {
-        // A shadow failure must not break canonical practice recording or the
-        // currently shipping client. The authority endpoint exposes failures.
+      } catch (err) {
+        logger.error('Failed to calculate Thread V2 strength movement', err);
       }
     }
+
+    if (created.anchorId && created.practiceMode === 'visualize') {
+      try {
+        const activeVision = await prisma.vision.findFirst({
+          where: { anchorId: created.anchorId, userId: user.id, status: 'ACTIVE' },
+          select: { id: true },
+        });
+        if (activeVision) {
+          const clientTimeZone = input.timeZone || 'UTC';
+          await visionService.recordVisionView(
+            user.id,
+            activeVision.id,
+            clientTimeZone,
+            new Date(created.completedAt)
+          );
+        }
+      } catch (err) {
+        logger.error('Failed to record vision view for visualize practice', err);
+      }
+    }
+
     res.status(201).json({
       success: true,
-      data: threadV2Authority ? { ...created, threadStrengthMovement: threadMovement } : created,
+      data: threadV2Authority
+        ? {
+            ...created,
+            threadStrengthMovement: threadMovement,
+            threadStrength: threadMovement?.afterStrength,
+          }
+        : created,
       idempotent: false,
     });
   } catch (error) {

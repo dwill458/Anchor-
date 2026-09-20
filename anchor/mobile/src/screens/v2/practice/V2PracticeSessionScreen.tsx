@@ -6,6 +6,7 @@ import { V2PracticeAnchorContext } from '@/components/v2/practice';
 import { V2_PRACTICE_MODE_BY_ID, type V2PracticeMode } from '@/constants/v2/practice';
 import { useAuthStore } from '@/stores/authStore';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { PracticeCompletionService } from '@/services/PracticeCompletionService';
 import { isBackendAnchorId } from '@/services/BackendAnchorService';
@@ -113,14 +114,22 @@ export function V2PracticeSessionScreen({
       const freshAnchor = useAnchorStore
         .getState()
         .anchors.find((a) => a.id === anchor.id || a.localId === anchor.id);
-      const afterStrength =
-        typeof freshAnchor?.threadStrength === 'number'
+      const sessionRecord = useSessionStore
+        .getState()
+        .practiceHistory.find((p) => p.id === sessionId);
+
+      const resolvedBefore =
+        sessionRecord?.threadStrengthBefore ??
+        (typeof beforeStrength === 'number' ? beforeStrength : null);
+      const resolvedAfter =
+        sessionRecord?.threadStrengthAfter ??
+        (typeof freshAnchor?.threadStrength === 'number'
           ? freshAnchor.threadStrength
-          : beforeStrength;
+          : resolvedBefore);
 
       setStrengthSnapshot({
-        before: beforeStrength,
-        after: afterStrength,
+        before: resolvedBefore,
+        after: resolvedAfter,
       });
       setFocusPhase('complete');
     },

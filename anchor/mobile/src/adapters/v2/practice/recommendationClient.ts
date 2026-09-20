@@ -7,7 +7,13 @@ export type V2RecommendationContext = {
   anchorId: string;
   completionSignal: { id: string; type: V2RecommendationSignalType; occurredAt: string } | null;
   vision: { exists: boolean; seenToday: boolean; visionId?: string | null };
-  thread: { delta7d: number | null; delta7dStatus: 'AVAILABLE' | 'UNAVAILABLE'; status: 'AVAILABLE' | 'UNAVAILABLE'; blockerReason?: string };
+  thread: {
+    strength?: number;
+    delta7d: number | null;
+    delta7dStatus: 'AVAILABLE' | 'UNAVAILABLE';
+    status: 'AVAILABLE' | 'UNAVAILABLE';
+    blockerReason?: string;
+  };
   recommendation: { action: V2RecommendationAction; reason: string };
 };
 

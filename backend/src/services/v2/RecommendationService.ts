@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { prisma } from '../../lib/prisma';
 import { AppError } from '../../api/middleware/errorHandler';
 import { visionService } from './VisionService';
+import { threadStrengthService } from './ThreadStrengthService';
 import {
   RecommendationContextResponse,
   RecommendationSignal,
@@ -9,6 +10,7 @@ import {
   WaypointReachedSignal,
   IntentionCompletedSignal,
   RecommendationEvaluation,
+  RecommendationThreadContext,
 } from '../../domain/v2/recommendation';
 
 function stablePart(value: string): string {
@@ -72,21 +74,37 @@ export class RecommendationService {
       visionId: vision?.id ?? null,
     };
 
-    // 3. Resolve Thread Context (Section 23: THREAD_DELTA7D_BLOCKER)
-    const threadContext =
-      delta7d === null
-        ? {
-            delta7d: null,
-            delta7dStatus: 'UNAVAILABLE' as const,
-            status: 'UNAVAILABLE' as const,
-            blockerReason:
-              'THREAD_DELTA7D_BLOCKER: Server stores completion-time history facts but does not execute continuous 7-day decay modeling without user sensitivity preferences.',
-          }
-        : {
-            delta7d,
-            delta7dStatus: 'AVAILABLE' as const,
-            status: 'AVAILABLE' as const,
-          };
+    // 3. Resolve Thread Context
+    let threadContext: RecommendationThreadContext;
+    if (delta7d !== null) {
+      threadContext = {
+        delta7d,
+        delta7dStatus: 'AVAILABLE' as const,
+        status: 'AVAILABLE' as const,
+      };
+    } else {
+      try {
+        const threadState = await threadStrengthService.getAnchorThreadState(
+          userId,
+          anchorId,
+          new Date(),
+          clientTimeZone
+        );
+        threadContext = {
+          strength: threadState.strength,
+          delta7d: threadState.delta7d,
+          delta7dStatus: 'AVAILABLE' as const,
+          status: 'AVAILABLE' as const,
+        };
+      } catch {
+        threadContext = {
+          strength: 50,
+          delta7d: 0,
+          delta7dStatus: 'AVAILABLE' as const,
+          status: 'AVAILABLE' as const,
+        };
+      }
+    }
 
     // 4. First-match-wins evaluation
     const recommendation = this.evaluateFirstMatchRecommendation(

@@ -47,6 +47,7 @@ export interface RecommendationVisionContext {
 }
 
 export interface RecommendationThreadContext {
+  strength?: number;
   delta7d: number | null;
   delta7dStatus: 'AVAILABLE' | 'UNAVAILABLE';
   /** Backward-compatible alias retained for the existing V2 response shape. */
