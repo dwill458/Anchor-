@@ -127,7 +127,7 @@ export function V2FocusCompleteScreen({
             ]}
           />
           <CircularAnchorRenderer
-            svg={anchorArtworkSvg(anchor)}
+            svg={anchorArtworkSvg(anchor)} imageUrl={anchor.enhancedImageUrl}
             category={anchor.category}
             size={144}
             appearance="paper"

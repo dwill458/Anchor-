@@ -305,11 +305,11 @@ describe('V2PracticeScreen', () => {
         capabilities={fullAccess}
       />
     );
-    expect(screen.getByText('Your first practice will establish your baseline.')).toBeTruthy();
+    expect(screen.getByText('Baseline not established')).toBeTruthy();
     expect(screen.queryByText('Not yet measured')).toBeNull();
   });
 
-  it('displays TODAY COMPLETE state when Anchor was reinforced today', () => {
+  it('displays TODAY COMPLETE state when Anchor was reinforced today, preserving hero artwork and using static fallback', () => {
     const today = new Date().toISOString();
     render(
       <V2PracticeScreen
@@ -320,6 +320,49 @@ describe('V2PracticeScreen', () => {
     );
     expect(screen.getByText('TODAY COMPLETE ✓')).toBeTruthy();
     expect(screen.getByText('You reinforced your Anchor today.')).toBeTruthy();
+    expect(screen.getByText('Your intention is holding strong.')).toBeTruthy();
+    expect(screen.queryByText(/Settle into the rest of your day/i)).toBeNull();
+
+    // Hero artwork is retained
+    expect(screen.getByTestId('v2-practice-artwork-focus-featured')).toBeTruthy();
+    // Looping video is stopped in completed state
+    expect(screen.queryByTestId('v2-hero-video-focus')).toBeNull();
+
+    // Practice again action is available and opens prep
+    expect(screen.getByLabelText('Practice again')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Practice again'));
+    expect(screen.getByTestId('v2-practice-prepare-focus')).toBeTruthy();
+  });
+
+  it('ensures completion state belongs to correct Anchor and does not bleed when switching Anchors', () => {
+    const today = new Date().toISOString();
+    const anchorA = makeAnchor({ id: 'a', intentionText: 'Anchor A Completed', chargedAt: today as any, userId: 'u1' });
+    const anchorB = makeAnchor({ id: 'b', intentionText: 'Anchor B Incomplete', chargedAt: undefined, userId: 'u1' });
+
+    const { useAuthStore } = require('@/stores/authStore');
+    const { useAnchorStore } = require('@/stores/anchorStore');
+    useAuthStore.setState({ user: { id: 'u1' } as any });
+    useAnchorStore.setState({ anchors: [anchorA, anchorB], currentAnchorId: 'a' });
+
+    const { rerender } = render(
+      <V2PracticeScreen
+        recommendation={context('Focus')}
+        capabilities={fullAccess}
+      />
+    );
+
+    // Anchor A should be complete
+    expect(screen.getByText('Anchor A Completed')).toBeTruthy();
+    expect(screen.getByText('TODAY COMPLETE ✓')).toBeTruthy();
+
+    // Switch to Anchor B
+    fireEvent.press(screen.getByTestId('v2-practice-anchor-header'));
+    fireEvent.press(screen.getByTestId('v2-anchor-switcher-item-b'));
+
+    // Anchor B should be active and NOT complete
+    expect(screen.getByText('Anchor B Incomplete')).toBeTruthy();
+    expect(screen.queryByText('TODAY COMPLETE ✓')).toBeNull();
+    expect(screen.getByLabelText(/Recommended today: Focus/)).toBeTruthy();
   });
 
   it('updates header and context when active Anchor changes', () => {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { ChevronRight } from 'lucide-react-native';
+import { ChevronDown } from 'lucide-react-native';
 import { CircularAnchorRenderer } from '@/components/v2';
 import { anchorArtworkSvg, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
 import type { V2ThreadPresentation } from '@/adapters/v2/home/threadAdapter';
@@ -30,13 +30,14 @@ export function V2PracticeAnchorHeader({
       onPress={onPress}
       accessibilityRole={onPress ? 'button' : undefined}
       accessibilityLabel={`Active Anchor: ${anchor.intentionText}, category ${categoryLabel(anchor.category)}${
-        isMeasured ? `, Thread Strength ${thread?.value}%` : ', baseline not yet established'
+        isMeasured ? `, Thread Strength ${thread?.value}%` : ', baseline not established'
       }. Tap to switch Anchor.`}
-      style={({ pressed }) => [styles.card, pressed && onPress && styles.pressed]}
+      style={({ pressed }) => [styles.row, pressed && onPress && styles.pressed]}
     >
       <View style={styles.artworkWrapper}>
         <CircularAnchorRenderer
           svg={anchorArtworkSvg(anchor)}
+          imageUrl={anchor.enhancedImageUrl}
           category={anchor.category}
           size="thumbnail"
           accessibilityLabel={`${categoryLabel(anchor.category)} Anchor artwork`}
@@ -48,74 +49,64 @@ export function V2PracticeAnchorHeader({
           {anchor.intentionText}
         </Text>
 
-        <View style={styles.categoryRow}>
+        <View style={styles.metaRow}>
           <View style={[styles.dot, { backgroundColor: categoryColor }]} />
-          <Text style={styles.categoryText}>{categoryLabel(anchor.category)}</Text>
-        </View>
-
-        <View style={styles.statusRow}>
+          <Text style={styles.metaCategory}>{categoryLabel(anchor.category)}</Text>
+          <Text style={styles.metaSeparator}>·</Text>
           {isMeasured ? (
-            <Text style={styles.strengthText}>
+            <Text style={styles.metaStatus}>
               Thread Strength{' '}
               <Text style={[styles.strengthValue, { color: categoryColor }]}>
                 {thread?.value}%
               </Text>
             </Text>
           ) : (
-            <Text numberOfLines={1} style={styles.baselineText}>
-              Your first practice will establish your baseline.
+            <Text numberOfLines={1} style={styles.metaStatus}>
+              Baseline not established
             </Text>
           )}
         </View>
       </View>
 
       <View style={styles.chevronWrapper}>
-        <ChevronRight size={18} color={colors.text.secondary} strokeWidth={2} />
+        <ChevronDown size={16} color={colors.text.secondary} strokeWidth={2} />
       </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[3],
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
-    borderRadius: radii.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.07)',
-    shadowColor: '#000000',
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1,
+    paddingHorizontal: spacing[1],
+    paddingVertical: spacing[1],
+    backgroundColor: 'transparent',
   },
   pressed: {
-    opacity: 0.84,
-    transform: [{ scale: 0.995 }],
+    opacity: 0.72,
   },
   artworkWrapper: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },
   info: {
     flex: 1,
-    gap: 2,
+    gap: 3,
     minWidth: 0,
+    justifyContent: 'center',
   },
   intention: {
     ...typography.labelLG,
     fontWeight: '700',
-    fontSize: 15.5,
-    lineHeight: 20,
+    fontSize: 15,
+    lineHeight: 19,
     color: colors.text.primary,
   },
-  categoryRow: {
+  metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
@@ -125,31 +116,27 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: radii.round,
   },
-  categoryText: {
+  metaCategory: {
     ...typography.caption,
     color: colors.text.secondary,
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: '500',
   },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  metaSeparator: {
+    ...typography.caption,
+    color: colors.text.disabled,
+    fontSize: 12,
   },
-  strengthText: {
+  metaStatus: {
     ...typography.caption,
     color: colors.text.secondary,
-    fontSize: 12,
+    fontSize: 12.5,
+    flexShrink: 1,
   },
   strengthValue: {
     ...typography.labelSM,
     fontWeight: '600',
-    fontSize: 12,
-  },
-  baselineText: {
-    ...typography.caption,
-    color: colors.text.secondary,
-    fontSize: 12,
-    flexShrink: 1,
+    fontSize: 12.5,
   },
   chevronWrapper: {
     justifyContent: 'center',

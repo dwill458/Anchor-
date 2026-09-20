@@ -24,7 +24,7 @@ export function V2AnchorGalleryItem({ anchor, released, selected = false, onPres
       style={({ pressed }) => [styles.cell, pressed && styles.pressed]}
     >
       <CircularAnchorRenderer
-        svg={anchorArtworkSvg(anchor)}
+        svg={anchorArtworkSvg(anchor)} imageUrl={anchor.enhancedImageUrl}
         category={anchor.category}
         size="large"
         state={released ? 'inactive' : 'active'}

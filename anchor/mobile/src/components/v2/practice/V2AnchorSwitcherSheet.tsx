@@ -72,13 +72,14 @@ export function V2AnchorSwitcherSheet({
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {anchors.map((anchor) => {
+          {anchors.map((anchor, index) => {
             const isSelected =
               anchor.id === selectedAnchorId ||
               Boolean(anchor.localId && anchor.localId === selectedAnchorId);
             const categoryColor = getCategoryColor(anchor.category);
             const hasStrength =
               typeof anchor.threadStrength === 'number' && anchor.threadStrength > 0;
+            const isLast = index === anchors.length - 1;
 
             return (
               <Pressable
@@ -95,6 +96,7 @@ export function V2AnchorSwitcherSheet({
                 }}
                 style={({ pressed }) => [
                   styles.anchorRow,
+                  !isLast && styles.anchorRowSeparator,
                   isSelected && styles.anchorRowSelected,
                   pressed && styles.pressed,
                 ]}
@@ -102,9 +104,10 @@ export function V2AnchorSwitcherSheet({
                 <View style={styles.artworkContainer}>
                   <CircularAnchorRenderer
                     svg={anchorArtworkSvg(anchor)}
+                    imageUrl={anchor.enhancedImageUrl}
                     category={anchor.category}
                     size="thumbnail"
-                    accessibilityLabel={`${categoryLabel(anchor.category)} Anchor sigil`}
+                    accessibilityLabel={`${categoryLabel(anchor.category)} Anchor artwork`}
                   />
                 </View>
 
@@ -132,19 +135,17 @@ export function V2AnchorSwitcherSheet({
                       </Text>
                     ) : (
                       <Text numberOfLines={1} style={styles.metaText}>
-                        Baseline not yet established
+                        Baseline not established
                       </Text>
                     )}
                   </View>
                 </View>
 
-                {isSelected ? (
-                  <View style={styles.checkPill}>
-                    <Check size={14} color="#FFFFFF" strokeWidth={2.6} />
-                  </View>
-                ) : (
-                  <View style={styles.unselectedIndicator} />
-                )}
+                <View style={styles.checkContainer}>
+                  {isSelected ? (
+                    <Check size={18} color={colors.text.primary} strokeWidth={2.4} />
+                  ) : null}
+                </View>
               </Pressable>
             );
           })}
@@ -209,7 +210,6 @@ const styles = StyleSheet.create({
     marginTop: spacing[2],
   },
   scrollContent: {
-    gap: spacing[2],
     paddingBottom: spacing[3],
   },
   anchorRow: {
@@ -217,22 +217,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing[3],
     paddingVertical: spacing[3],
-    paddingHorizontal: spacing[3],
-    borderRadius: radii.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border.subtle,
+    paddingHorizontal: spacing[2],
+    borderRadius: radii.md,
+    backgroundColor: 'transparent',
+  },
+  anchorRowSeparator: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border.subtle,
   },
   anchorRowSelected: {
-    backgroundColor: colors.grouped,
-    borderColor: colors.text.primary,
+    backgroundColor: 'rgba(0, 0, 0, 0.035)',
   },
   pressed: {
-    opacity: 0.75,
+    opacity: 0.72,
   },
   artworkContainer: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -245,6 +246,7 @@ const styles = StyleSheet.create({
     ...typography.labelLG,
     color: colors.text.primary,
     fontWeight: '600',
+    fontSize: 15,
   },
   metaRow: {
     flexDirection: 'row',
@@ -266,33 +268,28 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.text.secondary,
     fontWeight: '500',
+    fontSize: 12.5,
   },
   metaDot: {
     ...typography.caption,
     color: colors.text.disabled,
+    fontSize: 12,
   },
   metaText: {
     ...typography.caption,
     color: colors.text.secondary,
+    fontSize: 12.5,
     flexShrink: 1,
   },
   strengthValue: {
     ...typography.labelSM,
-    fontWeight: '700',
+    fontWeight: '600',
+    fontSize: 12.5,
   },
-  checkPill: {
-    width: 22,
-    height: 22,
-    borderRadius: radii.round,
-    backgroundColor: colors.text.primary,
+  checkContainer: {
+    width: 24,
+    height: 24,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  unselectedIndicator: {
-    width: 22,
-    height: 22,
-    borderRadius: radii.round,
-    borderWidth: 1.5,
-    borderColor: colors.border.default,
   },
 });

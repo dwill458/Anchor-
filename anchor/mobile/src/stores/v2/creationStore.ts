@@ -5,7 +5,7 @@ import { detectCategoryFromText } from '@/utils/categoryDetection';
 import { distillIntention, validateIntention } from '@/utils/sigil/distillation';
 import { generateTrueSigil, type SigilVariant } from '@/utils/sigil/traditional-generator';
 import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
-import { CATEGORY_TO_TIER, type AnchorCategory } from '@/types';
+import { CATEGORY_TO_TIER, type AnchorCategory, type EnhancementMetadata } from '@/types';
 import { CREATION_MAX_INTENTION_LENGTH, type AnchorExpression, type CanonicalStructure, type CreationStep } from '@/constants/v2/creation';
 
 export type DrawingPoint = { x: number; y: number };
@@ -17,8 +17,10 @@ export interface AnchorCandidate {
   id: string;
   structureSvg: string;
   expression: AnchorExpression;
-  /** A future generation provider may add its rendered asset here without changing formation truth. */
+  /** The generated (AI-enhanced) rendering of this candidate. The structure SVG stays the formation truth. */
   imageUrl?: string;
+  /** Provenance from the enhance endpoint; `variationId` + `reuseRequestId` let the backend claim the pool row on save. */
+  enhancementMetadata?: EnhancementMetadata;
 }
 
 export interface CreationDraft {

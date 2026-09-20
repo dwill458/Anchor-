@@ -113,13 +113,14 @@ const expressionCopy: Record<AnchorExpression, string> = {
 
 type ArtSize = 'hero' | 'large' | 'medium' | 'thumbnail';
 
-function AnchorArt({ svg, category, expression, size, label }: { svg?: string; category?: string; expression?: AnchorExpression; size: ArtSize; label: string }) {
+function AnchorArt({ svg, imageUrl, category, expression, size, label }: { svg?: string; imageUrl?: string; category?: string; expression?: AnchorExpression; size: ArtSize; label: string }) {
   if (!svg) {
     return <View style={[styles.artEmpty, size === 'thumbnail' && styles.artEmptyThumb]}><Text style={styles.artEmptyText}>Your form will appear here.</Text></View>;
   }
   return (
-    <View style={[styles.artWrap, expression ? expressionTreatment[expression] : undefined]}>
-      <CircularAnchorRenderer svg={svg} category={category} size={size} accessibilityLabel={label} />
+    // A generated image is already the finished rendering, so the wrapper-style finish stand-in is not layered on it.
+    <View style={[styles.artWrap, expression && !imageUrl ? expressionTreatment[expression] : undefined]}>
+      <CircularAnchorRenderer svg={svg} imageUrl={imageUrl} category={category} size={size} accessibilityLabel={label} />
     </View>
   );
 }
@@ -602,7 +603,7 @@ export function V2CreationFlow({ saveAnchor, onContinue, generateCandidates }: V
                 accessibilityState={{ selected }}
                 accessibilityLabel={`${EXPRESSION_LABELS[candidate.expression]} candidate`}
               >
-                <AnchorArt svg={candidate.structureSvg} category={category} expression={candidate.expression} size="medium" label={`${EXPRESSION_LABELS[candidate.expression]} candidate preview`} />
+                <AnchorArt svg={candidate.structureSvg} imageUrl={candidate.imageUrl} category={category} expression={candidate.expression} size="medium" label={`${EXPRESSION_LABELS[candidate.expression]} candidate preview`} />
                 <Text style={styles.choiceTitle}>{EXPRESSION_LABELS[candidate.expression]}</Text>
               </Pressable>
             );

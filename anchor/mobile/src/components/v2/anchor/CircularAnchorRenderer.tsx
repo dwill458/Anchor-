@@ -1,5 +1,5 @@
-import React, { memo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { memo, useEffect, useState } from 'react';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { SigilSvg } from '@/components/common/SigilSvg';
 import { getCategoryColor, getCategoryFieldColor, radii } from '@/theme/v2';
 
@@ -21,6 +21,8 @@ export type CircularAnchorAppearance = 'paper' | 'tinted' | 'dark';
 
 type Props = {
   svg: string;
+  /** The finished (AI-enhanced) artwork. It fills the disc; the SVG structure is the fallback if it is absent or fails to load. */
+  imageUrl?: string | null;
   category?: string | null;
   /** A named step, or an exact diameter in dp when the layout owns the scale. */
   size?: CircularAnchorSize;
@@ -32,7 +34,7 @@ type Props = {
 };
 
 /** A flat field + the existing stable SVG renderer. It deliberately has no rim, halo, or animation. */
-export const CircularAnchorRenderer = memo(function CircularAnchorRenderer({ svg, category, size = 'medium', appearance, state = 'active', accessibilityLabel, testID, style }: Props) {
+export const CircularAnchorRenderer = memo(function CircularAnchorRenderer({ svg, imageUrl, category, size = 'medium', appearance, state = 'active', accessibilityLabel, testID, style }: Props) {
   const dimension = typeof size === 'number' ? size : (sizes[size] ?? 104);
   const color = getCategoryColor(category);
   const isDark = appearance === 'dark';
@@ -47,9 +49,13 @@ export const CircularAnchorRenderer = memo(function CircularAnchorRenderer({ svg
     : isPaper
     ? '#FBF9F4'
     : `${color}52`;
+  const [imageFailed, setImageFailed] = useState(false);
+  useEffect(() => setImageFailed(false), [imageUrl]);
+  const showImage = typeof imageUrl === 'string' && imageUrl.length > 0 && !imageFailed;
+  const imageSize = dimension - (isPaper ? 8 : 2);
   const hasArtwork = typeof svg === 'string' && svg.trim().length > 0;
   return <View testID={testID} accessible accessibilityRole="image" accessibilityLabel={accessibilityLabel ?? `${category ?? 'Custom'} Anchor artwork`} style={[styles.field, { width: dimension, height: dimension, borderRadius: dimension / 2, backgroundColor: fieldColor, borderColor, borderWidth: isPaper ? 4 : 1, opacity: state === 'inactive' ? 0.48 : 1 }, style]}>
-    <View accessible={false} importantForAccessibility="no-hide-descendants" style={[styles.artwork, { width: dimension * (isPaper ? 0.72 : isDark ? 0.70 : 0.66), height: dimension * (isPaper ? 0.72 : isDark ? 0.70 : 0.66) }]}>{hasArtwork ? <SigilSvg xml={svg} width="100%" height="100%" color={color} /> : <Text style={styles.artworkUnavailable}>Artwork unavailable</Text>}</View>
+    {showImage ? <Image accessible={false} source={{ uri: imageUrl as string }} resizeMode="cover" onError={() => setImageFailed(true)} style={{ width: imageSize, height: imageSize, borderRadius: imageSize / 2 }} /> : <View accessible={false} importantForAccessibility="no-hide-descendants" style={[styles.artwork, { width: dimension * (isPaper ? 0.72 : isDark ? 0.70 : 0.66), height: dimension * (isPaper ? 0.72 : isDark ? 0.70 : 0.66) }]}>{hasArtwork ? <SigilSvg xml={svg} width="100%" height="100%" color={color} /> : <Text style={styles.artworkUnavailable}>Artwork unavailable</Text>}</View>}
   </View>;
 });
 export const circularAnchorSizes = sizes;

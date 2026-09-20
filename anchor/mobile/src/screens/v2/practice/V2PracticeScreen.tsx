@@ -77,7 +77,7 @@ export function V2PracticeScreen({
   const [prepareMode, setPrepareMode] = useState<V2PracticeMode | null>(null);
   const [prepareSource, setPrepareSource] = useState<'practice_hub' | 'recommended_today'>('practice_hub');
   const [activeSession, setActiveSession] = useState<V2PracticeStartRequest | null>(null);
-  const [justCompletedToday, setJustCompletedToday] = useState(false);
+  const [justCompletedTodayAnchorId, setJustCompletedTodayAnchorId] = useState<string | null>(null);
 
   const effectiveCapabilities = capabilities ?? model.capability;
 
@@ -87,11 +87,17 @@ export function V2PracticeScreen({
   const practiceHistory = useSessionStore((s) => s.practiceHistory);
 
   const isCompletedToday = useMemo(() => {
-    if (justCompletedToday) return true;
     if (!fixedAnchor) return false;
+    if (
+      justCompletedTodayAnchorId &&
+      (fixedAnchor.id === justCompletedTodayAnchorId || fixedAnchor.localId === justCompletedTodayAnchorId)
+    ) {
+      return true;
+    }
+    const anchorMatches = (id?: string | null) =>
+      Boolean(id && (id === fixedAnchor.id || id === fixedAnchor.localId));
+
     if (todayPractice?.date === todayKey && todayPractice.sessionsCount > 0) {
-      const anchorMatches = (id?: string | null) =>
-        id === fixedAnchor.id || id === fixedAnchor.localId;
       const inLog = sessionLog?.some(
         (s) =>
           anchorMatches(s.anchorId) &&
@@ -107,12 +113,28 @@ export function V2PracticeScreen({
       );
       if (inHist) return true;
     }
+    const inLogDirect = sessionLog?.some(
+      (s) =>
+        anchorMatches(s.anchorId) &&
+        s.completedAt &&
+        localDateString(new Date(s.completedAt)) === todayKey
+    );
+    if (inLogDirect) return true;
+
+    const inHistDirect = practiceHistory?.some(
+      (p) =>
+        (anchorMatches(p.anchorId) || anchorMatches(p.anchorLocalId)) &&
+        p.completedAt &&
+        localDateString(new Date(p.completedAt)) === todayKey
+    );
+    if (inHistDirect) return true;
+
     if (fixedAnchor.chargedAt) {
       const chargedDate = new Date(fixedAnchor.chargedAt);
       if (!isNaN(chargedDate.getTime()) && localDateString(chargedDate) === todayKey) return true;
     }
     return false;
-  }, [fixedAnchor, justCompletedToday, practiceHistory, sessionLog, todayKey, todayPractice]);
+  }, [fixedAnchor, justCompletedTodayAnchorId, practiceHistory, sessionLog, todayKey, todayPractice]);
 
   /**
    * Acknowledgement is an explicit-engagement action only. Mounting, fetching,
@@ -139,9 +161,11 @@ export function V2PracticeScreen({
   };
 
   const handleSessionCompleted = () => {
+    if (fixedAnchor) {
+      setJustCompletedTodayAnchorId(fixedAnchor.id);
+    }
     setActiveSession(null);
     setPrepareMode(null);
-    setJustCompletedToday(true);
     model.refetchRecommendation();
     onSessionCompleted?.();
   };

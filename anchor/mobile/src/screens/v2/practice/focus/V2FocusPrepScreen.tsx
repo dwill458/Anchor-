@@ -166,7 +166,7 @@ export function V2FocusPrepScreen({
               ]}
             />
             <CircularAnchorRenderer
-              svg={anchorArtworkSvg(anchor)}
+              svg={anchorArtworkSvg(anchor)} imageUrl={anchor.enhancedImageUrl}
               category={anchor.category}
               size={186}
               appearance="paper"

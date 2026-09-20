@@ -13,12 +13,20 @@ import {
 } from 'react-native';
 let VideoView: any = null;
 let useVideoPlayer: any = () => null;
+let isExpoVideoNativeAvailable = false;
+
 try {
+  const expoModulesCore = require('expo-modules-core');
+  if (typeof expoModulesCore.requireNativeModule === 'function') {
+    expoModulesCore.requireNativeModule('ExpoVideo');
+  }
   const expoVideo = require('expo-video');
   VideoView = expoVideo.VideoView;
   useVideoPlayer = expoVideo.useVideoPlayer;
+  isExpoVideoNativeAvailable = Boolean(VideoView && useVideoPlayer);
 } catch (_e) {
   // Safe fallback when native ExpoVideo module is not present in dev build
+  isExpoVideoNativeAvailable = false;
 }
 import type { V2PracticeMode } from '@/constants/v2/practice';
 
@@ -34,6 +42,7 @@ type ArtworkProps = {
   style?: StyleProp<ViewStyle>;
   active?: boolean;
   reduceMotion?: boolean;
+  completed?: boolean;
 };
 
 type Props = ArtworkProps & {
@@ -108,6 +117,36 @@ export function ReleaseArtwork(props: ArtworkProps) {
   return <V2PracticeArtwork mode="release" {...props} />;
 }
 
+class HeroVideoErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any) {
+    if (__DEV__) {
+      console.warn(
+        '[V2PracticeArtwork] HeroVideoPlayer native error captured, falling back to static image:',
+        error?.message
+      );
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return null;
+    }
+    return this.props.children;
+  }
+}
+
 function HeroVideoPlayer({
   videoSource,
   shouldPlay,
@@ -172,7 +211,7 @@ function HeroVideoPlayer({
     };
   }, [player, isReady, opacityAnim]);
 
-  if (hasError || !player) {
+  if (hasError || !player || !isExpoVideoNativeAvailable) {
     return null;
   }
 
@@ -199,6 +238,7 @@ export function V2PracticeArtwork({
   variant = 'card',
   active = true,
   reduceMotion,
+  completed = false,
   style,
   testID,
 }: Props) {
@@ -236,7 +276,7 @@ export function V2PracticeArtwork({
 
   if (variant === 'featured') {
     const mediaItem = HERO_MEDIA_BY_PRACTICE[key] ?? HERO_MEDIA_BY_PRACTICE.focus;
-    const canPlayVideo = Boolean(mediaItem.video) && !isReducedMotion;
+    const canPlayVideo = Boolean(mediaItem.video) && !isReducedMotion && !completed;
     const shouldPlay = canPlayVideo && active && appActive;
 
     return (
@@ -250,11 +290,13 @@ export function V2PracticeArtwork({
           resizeMode="cover"
         />
         {canPlayVideo ? (
-          <HeroVideoPlayer
-            videoSource={mediaItem.video}
-            shouldPlay={shouldPlay}
-            testID={`v2-hero-video-${key}`}
-          />
+          <HeroVideoErrorBoundary>
+            <HeroVideoPlayer
+              videoSource={mediaItem.video}
+              shouldPlay={shouldPlay}
+              testID={`v2-hero-video-${key}`}
+            />
+          </HeroVideoErrorBoundary>
         ) : null}
       </View>
     );

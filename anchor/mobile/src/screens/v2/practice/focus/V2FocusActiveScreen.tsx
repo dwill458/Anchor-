@@ -720,7 +720,7 @@ export function V2FocusActiveScreen({
           >
             <Reanimated.View style={breathingStyle}>
               <CircularAnchorRenderer
-                svg={anchorArtworkSvg(anchor)}
+                svg={anchorArtworkSvg(anchor)} imageUrl={anchor.enhancedImageUrl}
                 category={anchor.category}
                 size={anchorSize}
                 appearance="dark"

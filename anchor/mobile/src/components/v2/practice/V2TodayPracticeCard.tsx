@@ -51,30 +51,51 @@ export function V2TodayPracticeCard({
 
   if (isCompletedToday) {
     return (
-      <View testID={testID} style={[styles.card, styles.completedCard]}>
-        <View style={styles.completedHeaderRow}>
-          <View style={[styles.badge, styles.completedBadge]}>
-            <Check size={12} color="#22C55E" strokeWidth={2.5} />
-            <Text style={styles.completedBadgeText}>TODAY COMPLETE ✓</Text>
+      <View testID={testID} style={styles.card}>
+        {/* Featured Artwork Hero Banner - Preserved & Settled */}
+        <View style={styles.heroArtworkContainer}>
+          <V2PracticeArtwork
+            mode={mode}
+            height={190}
+            variant="featured"
+            active={false}
+            completed={true}
+          />
+          {/* Subtle calm softening overlay */}
+          <View style={styles.completedArtworkOverlay} />
+
+          <View style={styles.floatingBadgesRow}>
+            <View style={styles.completedBadge}>
+              <Check size={11} color={colors.semantic.success} strokeWidth={2.6} />
+              <Text style={styles.completedBadgeText}>TODAY COMPLETE ✓</Text>
+            </View>
+            <View style={styles.durationPill}>
+              <Text style={styles.durationBadge}>{durationText}</Text>
+            </View>
           </View>
         </View>
 
-        <View style={styles.completedBody}>
-          <Text style={styles.completedTitle}>You reinforced your Anchor today.</Text>
-          <Text style={styles.completedSubtitle}>
-            Your intention is holding strong. Settle into the rest of your day.
-          </Text>
-        </View>
+        {/* Featured Content Body - Completed State */}
+        <View style={styles.body}>
+          <View style={styles.heroCopy}>
+            <Text style={styles.completedTitle}>
+              You reinforced your Anchor today.
+            </Text>
+            <Text style={styles.completedSubtitle}>
+              Your intention is holding strong.
+            </Text>
+          </View>
 
-        <View style={styles.completedActions}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Practice again"
-            onPress={onPracticeAgain ?? onPress}
-            style={({ pressed }) => [styles.practiceAgainButton, pressed && styles.pressed]}
-          >
-            <Text style={styles.practiceAgainText}>Practice again</Text>
-          </Pressable>
+          <View style={styles.completedActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Practice again"
+              onPress={onPracticeAgain ?? onPress}
+              style={({ pressed }) => [styles.practiceAgainButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.practiceAgainText}>Practice again</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
     );
@@ -144,12 +165,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
-  },
-  completedCard: {
-    backgroundColor: `${colors.surface}CC`,
-    borderColor: '#22C55E33',
-    padding: spacing[4],
-    gap: spacing[3],
   },
   pressed: {
     opacity: 0.94,
@@ -237,48 +252,61 @@ const styles = StyleSheet.create({
   ctaRow: {
     paddingTop: spacing[1],
   },
-  completedHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  completedArtworkOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(244, 241, 233, 0.22)',
   },
   completedBadge: {
-    backgroundColor: '#22C55E1A',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(251, 249, 244, 0.94)',
+    borderWidth: 1,
+    borderColor: 'rgba(40, 125, 87, 0.22)',
+    shadowColor: '#000000',
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
   },
   completedBadgeText: {
     ...typography.labelSM,
-    color: '#22C55E',
+    color: colors.semantic.success,
     fontWeight: '700',
-    fontSize: 10,
+    fontSize: 10.5,
     letterSpacing: 0.8,
   },
-  completedBody: {
-    gap: 4,
-    paddingVertical: spacing[1],
-  },
   completedTitle: {
-    ...typography.headingSM,
+    fontFamily: typography.displayBold,
+    fontSize: 22,
+    lineHeight: 27,
+    letterSpacing: -0.4,
     color: colors.text.primary,
   },
   completedSubtitle: {
     ...typography.bodySM,
     color: colors.text.secondary,
+    lineHeight: 20,
+    fontSize: 14,
   },
   completedActions: {
     paddingTop: spacing[1],
     alignSelf: 'flex-start',
   },
   practiceAgainButton: {
-    paddingVertical: spacing[1],
-    paddingHorizontal: spacing[3],
-    borderRadius: radii.sm,
+    paddingVertical: spacing[2],
+    paddingHorizontal: spacing[4],
+    borderRadius: radii.md,
     backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.border.subtle,
+    borderColor: colors.border.default,
   },
   practiceAgainText: {
-    ...typography.caption,
-    color: colors.text.secondary,
+    ...typography.labelMD,
+    color: colors.text.primary,
     fontWeight: '600',
+    fontSize: 13.5,
   },
 });

@@ -19,6 +19,7 @@ import { SettingsScreen } from '@/screens/settings';
 import { LoginScreen } from '@/screens/auth';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
+import { generateEnhancedCandidates } from '@/services/v2/creationEnhancement';
 import type { Anchor, SigilVariationStyle } from '@/types';
 import type { V2PracticeMode } from '@/constants/v2/practice';
 import type { AnchorV2StackParamList } from './types';
@@ -146,6 +147,11 @@ function V2CreationRouteScreen() {
       classifierMeta: { v2Expression: candidate.expression },
       distilledLetters: draft.distilledLetters ?? [],
       baseSigilSvg: candidate.structureSvg,
+      enhancedImageUrl: candidate.imageUrl,
+      // The store round-trips through JSON, so `appliedAt` may have come back as a string.
+      enhancementMetadata: candidate.enhancementMetadata
+        ? { ...candidate.enhancementMetadata, appliedAt: new Date(candidate.enhancementMetadata.appliedAt) }
+        : undefined,
       structureVariant,
       isCharged: false,
       activationCount: 0,
@@ -169,7 +175,7 @@ function V2CreationRouteScreen() {
     }
   }, [navigation]);
 
-  return <V2CreationScreen saveAnchor={saveAnchor} onContinue={handleContinue} />;
+  return <V2CreationScreen saveAnchor={saveAnchor} onContinue={handleContinue} generateCandidates={generateEnhancedCandidates} />;
 }
 
 function V2ReleaseRouteScreen() {

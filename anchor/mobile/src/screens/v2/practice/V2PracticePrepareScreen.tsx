@@ -116,7 +116,7 @@ export function V2PracticePrepareScreen({
 
           <View style={styles.artworkContainer}>
             <CircularAnchorRenderer
-              svg={anchorArtworkSvg(anchor)}
+              svg={anchorArtworkSvg(anchor)} imageUrl={anchor.enhancedImageUrl}
               category={anchor.category}
               size="hero"
               accessibilityLabel={`${categoryLabel(anchor.category)} Anchor artwork`}

@@ -68,7 +68,7 @@ export function V2AnchorDetailsScreen() {
 
       <View style={styles.hero}>
         <CircularAnchorRenderer
-          svg={anchorArtworkSvg(anchor)}
+          svg={anchorArtworkSvg(anchor)} imageUrl={anchor.enhancedImageUrl}
           category={anchor.category}
           size="hero"
           accessibilityLabel={`${categoryLabel(anchor.category)} Anchor artwork`}
