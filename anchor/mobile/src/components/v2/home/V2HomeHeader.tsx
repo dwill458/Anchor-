@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { V2IconButton } from '@/components/v2';
@@ -54,7 +54,7 @@ function IconProfileLetter({ letter, color = colors.text.primary }: { letter?: s
  * Home greeting + contextual utilities. It exposes navigation intents only; it
  * does not register routes or assume a permanent tab bar.
  */
-export function V2HomeHeader({
+function V2HomeHeaderComponent({
   greeting,
   profileInitial,
   onOpenChart,
@@ -129,3 +129,11 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 });
+
+/**
+ * Memoised. Switching the Home Anchor re-renders this screen twice - once on
+ * selection and again when Today's recommendation settles - and most of these
+ * sections do not depend on Today at all. With stable props from V2HomeScreen
+ * they now render only when their own data actually changes.
+ */
+export const V2HomeHeader = memo(V2HomeHeaderComponent);

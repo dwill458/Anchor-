@@ -33,7 +33,21 @@ export const AnchorMotion = {
   spring: {
     snap: { damping: 24, stiffness: 280, mass: 0.8 },
     soft: { damping: 20, stiffness: 160, mass: 1.0 },
-    carousel: { damping: 26, stiffness: 190, mass: 1.1 },
+    /**
+     * The Home Anchor carousel settle. Tuned for "substantial but not heavy":
+     * damping ratio ~0.90 and a ~19.4 rad/s natural frequency settle in roughly
+     * 230ms, against ~340ms for the previous heavier profile. The rest
+     * thresholds are deliberate - Reanimated's defaults keep a spring alive for
+     * a long sub-pixel tail, and on Android every one of those frames is a
+     * Fabric commit that buys nothing the eye can see.
+     */
+    carousel: {
+      damping: 28,
+      stiffness: 300,
+      mass: 0.8,
+      restDisplacementThreshold: 0.5,
+      restSpeedThreshold: 2,
+    },
     reveal: { damping: 18, stiffness: 140, mass: 1.2 },
   },
 } as const;

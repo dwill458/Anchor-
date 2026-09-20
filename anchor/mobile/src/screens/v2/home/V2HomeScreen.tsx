@@ -109,16 +109,79 @@ export function V2HomeScreen() {
 
   const categoryColor = getCategoryColor(model.selectedAnchor?.category);
 
+  /**
+   * Every handler below is stable. The sections are memoised, and a memoised
+   * section with a freshly created arrow prop re-renders anyway - which is
+   * exactly the cascade a carousel commit used to trigger across the whole
+   * page. Inline arrows are cheap; the renders they force are not.
+   */
+  const { selectAnchor, refreshChart: refreshChartModel, refreshToday: refreshTodayModel, today, chart } = model;
+  const chartCourseId = chart.state === 'ready' ? chart.courseId : undefined;
+
+  const handleCreateAnchor = useCallback(() => {
+    track('v2_home_create_anchor_tapped');
+    intents.onCreateAnchor();
+  }, [intents]);
+
+  const handleSelectAnchor = useCallback(
+    (anchorId: string) => {
+      selectAnchor(anchorId);
+      track('v2_home_anchor_switched');
+    },
+    [selectAnchor],
+  );
+
+  const handleOpenActive = useCallback(
+    (anchorId: string) => {
+      track('v2_anchor_details_viewed', { from: 'home' });
+      navigation.navigate('V2AnchorDetails', { anchorId });
+    },
+    [navigation],
+  );
+
+  const handleOpenProgress = useCallback(() => {
+    track('v2_home_progress_tapped');
+    intents.onOpenProgress(selectedId ?? undefined);
+  }, [intents, selectedId]);
+
+  const handleOpenAllAnchors = useCallback(() => {
+    track('v2_anchor_library_viewed', { from: 'home' });
+    navigation.navigate('V2AnchorLibrary');
+  }, [navigation]);
+
+  const handleBeginToday = useCallback(() => {
+    track('v2_home_practice_tapped');
+    if (selectedId && today.state === 'ready') {
+      intents.onOpenPractice(selectedId, today.mode);
+    }
+  }, [intents, selectedId, today]);
+
+  const handleOpenAllPractices = useCallback(() => {
+    track('v2_home_all_practices_tapped');
+    if (selectedId) intents.onOpenPractice(selectedId);
+  }, [intents, selectedId]);
+
+  const handleRetryToday = useCallback(() => {
+    void refreshTodayModel();
+  }, [refreshTodayModel]);
+
+  const handleOpenVision = useCallback(() => {
+    track('v2_home_vision_tapped');
+    if (selectedId) intents.onOpenVision(selectedId);
+  }, [intents, selectedId]);
+
+  const handleOpenChart = useCallback(() => {
+    track('v2_home_chart_tapped');
+    if (selectedId) intents.onOpenChart(selectedId, chartCourseId);
+  }, [chartCourseId, intents, selectedId]);
+
   const header = (
     <View style={styles.headerInset}>
       <V2HomeHeader
         greeting={model.greeting}
         profileInitial={model.profileInitial}
         showChartUtility={false}
-        onCreateAnchor={() => {
-          track('v2_home_create_anchor_tapped');
-          intents.onCreateAnchor();
-        }}
+        onCreateAnchor={handleCreateAnchor}
         onOpenProfile={intents.onOpenProfile}
       />
     </View>
@@ -159,13 +222,7 @@ export function V2HomeScreen() {
             title="No Anchor yet"
             message="Create your first Anchor to begin. Everything on Home orients around one selected Anchor."
             action={
-              <V2Button
-                accessibilityLabel="Create your first Anchor"
-                onPress={() => {
-                  track('v2_home_create_anchor_tapped');
-                  intents.onCreateAnchor();
-                }}
-              >
+              <V2Button accessibilityLabel="Create your first Anchor" onPress={handleCreateAnchor}>
                 Create an Anchor
               </V2Button>
             }
@@ -193,22 +250,10 @@ export function V2HomeScreen() {
             selectedIndex={model.selectedIndex}
             thread={model.thread}
             reduceMotion={reduceMotion}
-            onSelect={(anchorId) => {
-              model.selectAnchor(anchorId);
-              track('v2_home_anchor_switched');
-            }}
-            onOpenActive={(anchorId) => {
-              track('v2_anchor_details_viewed', { from: 'home' });
-              navigation.navigate('V2AnchorDetails', { anchorId });
-            }}
-            onOpenProgress={() => {
-              track('v2_home_progress_tapped');
-              intents.onOpenProgress(selectedId ?? undefined);
-            }}
-            onOpenAllAnchors={() => {
-              track('v2_anchor_library_viewed', { from: 'home' });
-              navigation.navigate('V2AnchorLibrary');
-            }}
+            onSelect={handleSelectAnchor}
+            onOpenActive={handleOpenActive}
+            onOpenProgress={handleOpenProgress}
+            onOpenAllAnchors={handleOpenAllAnchors}
           />
         </View>
 
@@ -220,17 +265,9 @@ export function V2HomeScreen() {
           <V2HomeTodaySection
             testID="v2-home-today"
             today={model.today}
-            onBegin={() => {
-              track('v2_home_practice_tapped');
-              if (selectedId && model.today.state === 'ready') {
-                intents.onOpenPractice(selectedId, model.today.mode);
-              }
-            }}
-            onOpenAllPractices={() => {
-              track('v2_home_all_practices_tapped');
-              if (selectedId) intents.onOpenPractice(selectedId);
-            }}
-            onRetry={() => void model.refreshToday()}
+            onBegin={handleBeginToday}
+            onOpenAllPractices={handleOpenAllPractices}
+            onRetry={handleRetryToday}
           />
 
           {isWithinWeeklyInsightReviewWindow() ? (
@@ -243,29 +280,20 @@ export function V2HomeScreen() {
 
           <V2HomeVisionSection
             vision={model.vision}
-            onOpenVision={() => {
-              track('v2_home_vision_tapped');
-              if (selectedId) intents.onOpenVision(selectedId);
-            }}
+            onOpenVision={handleOpenVision}
           />
 
           <V2HomeChartSection
             chart={model.chart}
             categoryColor={categoryColor}
-            onOpenChart={() => {
-              track('v2_home_chart_tapped');
-              if (selectedId) intents.onOpenChart(selectedId, model.chart.state === 'ready' ? model.chart.courseId : undefined);
-            }}
-            onRetry={model.refreshChart}
+            onOpenChart={handleOpenChart}
+            onRetry={refreshChartModel}
           />
 
           <V2HomeProgressSection
             progress={model.progress}
             categoryColor={categoryColor}
-            onOpenProgress={() => {
-              track('v2_home_progress_tapped');
-              intents.onOpenProgress(selectedId ?? undefined);
-            }}
+            onOpenProgress={handleOpenProgress}
           />
         </View>
 

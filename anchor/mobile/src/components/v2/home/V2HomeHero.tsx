@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { colors, getCategoryColor, typography } from '@/theme/v2';
@@ -71,7 +71,7 @@ function ThreadReading({ thread, accent }: { thread: V2ThreadPresentation; accen
  * intention, and a compact strength reading. Everything here re-derives from
  * the selected Anchor, so a swipe replaces the whole block at once.
  */
-export function V2HomeHero({ anchors, selectedIndex, onSelect, onOpenActive, onOpenProgress, onOpenAllAnchors, thread, reduceMotion, testID }: Props) {
+function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, onOpenProgress, onOpenAllAnchors, thread, reduceMotion, testID }: Props) {
   const index = selectedIndex >= 0 && selectedIndex < anchors.length ? selectedIndex : 0;
   const active = anchors[index];
   if (!active) return null;
@@ -239,3 +239,11 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
 });
+
+/**
+ * Memoised. Switching the Home Anchor re-renders this screen twice - once on
+ * selection and again when Today's recommendation settles - and most of these
+ * sections do not depend on Today at all. With stable props from V2HomeScreen
+ * they now render only when their own data actually changes.
+ */
+export const V2HomeHero = memo(V2HomeHeroComponent);

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { colors, typography } from '@/theme/v2';
@@ -29,7 +29,7 @@ function ArrowRight({ color }: { color: string }) {
  * renders no strength-derived stage, so an earned stage can never appear to
  * regress when Thread Strength falls.
  */
-export function V2HomeProgressSection({ progress, categoryColor, onOpenProgress, testID }: Props) {
+function V2HomeProgressSectionComponent({ progress, categoryColor, onOpenProgress, testID }: Props) {
   if (progress.state === 'none') return null;
 
   const accent = categoryColor ?? colors.semantic.info;
@@ -151,3 +151,11 @@ const styles = StyleSheet.create({
     opacity: 0.78,
   },
 });
+
+/**
+ * Memoised. Switching the Home Anchor re-renders this screen twice - once on
+ * selection and again when Today's recommendation settles - and most of these
+ * sections do not depend on Today at all. With stable props from V2HomeScreen
+ * they now render only when their own data actually changes.
+ */
+export const V2HomeProgressSection = memo(V2HomeProgressSectionComponent);

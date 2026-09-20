@@ -167,9 +167,16 @@ export function useV2HomeModel(): V2HomeModel {
         ? 'error'
         : 'ready';
 
-  const vision = selectedAnchor
-    ? toV2HomeVisionState(visionModel.state)
-    : ({ state: 'none' } satisfies HomeVisionState);
+  /**
+   * Memoised for identity, not for cost. `toV2HomeVisionState` is cheap, but a
+   * fresh object every render means the memoised Vision section can never bail
+   * out — so Vision re-rendered on every Today, Chart and Progress change, and
+   * on every frame Home re-rendered for any other reason.
+   */
+  const vision = useMemo<HomeVisionState>(
+    () => (selectedAnchor ? toV2HomeVisionState(visionModel.state) : { state: 'none' }),
+    [selectedAnchor, visionModel.state],
+  );
 
   /**
    * Absent, unknown and in-flight are three different Chart states. A busy
@@ -204,23 +211,38 @@ export function useV2HomeModel(): V2HomeModel {
     [courseLogEntries, ownsActiveChart, selectedAnchor, sessionLog],
   );
 
-  return useMemo(() => {
-    /**
-     * Selection is resolved by reference, not by comparing ids.
-     * `selectedAnchor` is always an element of `activeAnchors`, so `indexOf`
-     * is exact. Comparing `localId === localId` looked equivalent but matched
-     * EVERY Anchor whose `localId` was undefined, which pinned the hero to
-     * index 0 while the shared store's selection moved underneath it — the
-     * carousel appeared frozen and Today/Vision/Chart could describe a
-     * different Anchor than the artwork on screen.
-     */
-    const selectedIndex = selectedAnchor ? activeAnchors.indexOf(selectedAnchor) : -1;
-    const anchorList = activeAnchors.map<V2HomeAnchorSummary>((anchor, index) => ({
-      anchor,
-      thread: toThreadPresentation(anchor),
-      isSelected: index === selectedIndex,
-    }));
+  /**
+   * Selection is resolved by reference, not by comparing ids.
+   * `selectedAnchor` is always an element of `activeAnchors`, so `indexOf`
+   * is exact. Comparing `localId === localId` looked equivalent but matched
+   * EVERY Anchor whose `localId` was undefined, which pinned the hero to
+   * index 0 while the shared store's selection moved underneath it — the
+   * carousel appeared frozen and Today/Vision/Chart could describe a
+   * different Anchor than the artwork on screen.
+   */
+  const selectedIndex = useMemo(
+    () => (selectedAnchor ? activeAnchors.indexOf(selectedAnchor) : -1),
+    [activeAnchors, selectedAnchor],
+  );
 
+  /**
+   * The carousel's own data, memoised on its own inputs. It depends on the
+   * Anchor list and the selection and on nothing else, so it must NOT be
+   * rebuilt inside the model-wide memo: doing so handed the Home hero a brand
+   * new array every time Today's recommendation moved between loading and
+   * ready, re-rendering the carousel on exactly the frames it is settling.
+   */
+  const anchorList = useMemo(
+    () =>
+      activeAnchors.map<V2HomeAnchorSummary>((anchor, index) => ({
+        anchor,
+        thread: toThreadPresentation(anchor),
+        isSelected: index === selectedIndex,
+      })),
+    [activeAnchors, selectedIndex],
+  );
+
+  return useMemo(() => {
     /**
      * Strength comes from the Anchor record. The recommendation context does
      * not carry a `strength` field on this backend — only `delta7d` — so there
@@ -256,5 +278,5 @@ export function useV2HomeModel(): V2HomeModel {
       refreshChart: () => refreshChartStore(accountId ?? undefined),
       refreshAnchors,
     };
-  }, [activeAnchors, anchorError, anchorState, chart, displayName, progress, refreshAnchors, refreshChartStore, refreshToday, selectAnchor, selectedAnchor, today, vision, visionModel.refresh, accountId]);
+  }, [activeAnchors, anchorError, anchorList, anchorState, chart, displayName, progress, refreshAnchors, refreshChartStore, refreshToday, selectAnchor, selectedAnchor, selectedIndex, today, vision, visionModel.refresh, accountId]);
 }

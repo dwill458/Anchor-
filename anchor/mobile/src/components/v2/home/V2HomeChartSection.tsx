@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { colors, typography } from '@/theme/v2';
@@ -117,7 +117,7 @@ function RouteContour({
  * - `error`     a known relationship failed to load. Show it and allow retry;
  *               never silently substitute fallback content.
  */
-export function V2HomeChartSection({ chart, categoryColor, onOpenChart, onRetry, testID }: Props) {
+function V2HomeChartSectionComponent({ chart, categoryColor, onOpenChart, onRetry, testID }: Props) {
   const accent = categoryColor ?? colors.semantic.info;
 
   if (chart.state === 'none' || chart.state === 'resolving') return null;
@@ -307,3 +307,11 @@ const styles = StyleSheet.create({
     opacity: 0.78,
   },
 });
+
+/**
+ * Memoised. Switching the Home Anchor re-renders this screen twice - once on
+ * selection and again when Today's recommendation settles - and most of these
+ * sections do not depend on Today at all. With stable props from V2HomeScreen
+ * they now render only when their own data actually changes.
+ */
+export const V2HomeChartSection = memo(V2HomeChartSectionComponent);

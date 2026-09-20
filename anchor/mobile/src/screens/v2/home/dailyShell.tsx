@@ -24,11 +24,23 @@ export type V2DailyShellIntents = {
   onOpenWeeklyInsight?: () => void;
 };
 
-const noopWarn = (name: string) => () => {
-  if (__DEV__) {
-    // eslint-disable-next-line no-console
-    console.warn(`[V2DailyShell] intent "${name}" is not wired. See REQUIRED_INTEGRATION_CHANGES.md`);
-  }
+/**
+ * One stable no-op per intent name. Building these on demand returned a fresh
+ * function on every render, which changed the identity of every intent on the
+ * shell and defeated memoisation in the screens that consume them.
+ */
+const noopWarnCache = new Map<string, () => void>();
+const noopWarn = (name: string) => {
+  const existing = noopWarnCache.get(name);
+  if (existing) return existing;
+  const fn = () => {
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.warn(`[V2DailyShell] intent "${name}" is not wired. See REQUIRED_INTEGRATION_CHANGES.md`);
+    }
+  };
+  noopWarnCache.set(name, fn);
+  return fn;
 };
 
 const IntentsContext = createContext<V2DailyShellIntents>({});
@@ -48,7 +60,13 @@ export function useV2DailyShellIntents(): Required<
   Pick<V2DailyShellIntents, 'onOpenPractice' | 'onOpenVision' | 'onCreateVision' | 'onOpenChart' | 'onCreateChart' | 'onOpenProgress' | 'onCreateAnchor' | 'onOpenProfile' | 'onReleaseAnchor' | 'onOpenWeeklyInsight'>
 > {
   const value = useContext(IntentsContext);
-  return {
+  /**
+   * Memoised on the context value. Home's sections are memoised and every one
+   * of its handlers closes over these intents, so re-deriving this object each
+   * render re-rendered the entire page on any state change - including on the
+   * frames where the Anchor carousel is settling.
+   */
+  return useMemo(() => ({
     onOpenPractice: value.onOpenPractice ?? noopWarn('onOpenPractice'),
     onOpenVision: value.onOpenVision ?? noopWarn('onOpenVision'),
     onCreateVision: value.onCreateVision ?? noopWarn('onCreateVision'),
@@ -59,7 +77,7 @@ export function useV2DailyShellIntents(): Required<
     onOpenProfile: value.onOpenProfile ?? noopWarn('onOpenProfile'),
     onReleaseAnchor: value.onReleaseAnchor ?? noopWarn('onReleaseAnchor'),
     onOpenWeeklyInsight: value.onOpenWeeklyInsight ?? noopWarn('onOpenWeeklyInsight'),
-  };
+  }), [value]);
 }
 
 export type V2DailyShellParamList = {

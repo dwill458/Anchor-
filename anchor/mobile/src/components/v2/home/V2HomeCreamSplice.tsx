@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { memo, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { colors } from '@/theme/v2';
@@ -75,7 +75,7 @@ function AnchorBrandMark() {
  * negative space immediately above that point. The splice itself is not an
  * anchor shape, and it is drawn — not stretched — at the measured width.
  */
-export function V2HomeCreamSplice({ testID }: { testID?: string }) {
+function V2HomeCreamSpliceComponent({ testID }: { testID?: string }) {
   const { width: windowWidth } = useWindowDimensions();
   const [measured, setMeasured] = useState<number | null>(null);
   const width = measured ?? windowWidth;
@@ -125,3 +125,11 @@ const styles = StyleSheet.create({
     height: MARK_SIZE,
   },
 });
+
+/**
+ * Memoised. Switching the Home Anchor re-renders this screen twice - once on
+ * selection and again when Today's recommendation settles - and most of these
+ * sections do not depend on Today at all. With stable props from V2HomeScreen
+ * they now render only when their own data actually changes.
+ */
+export const V2HomeCreamSplice = memo(V2HomeCreamSpliceComponent);

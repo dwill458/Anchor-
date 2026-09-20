@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import type { V2HomeTodayState } from '@/adapters/v2/home';
@@ -13,6 +13,13 @@ type Props = {
   onRetry?: () => void;
   testID?: string;
 };
+
+/**
+ * Height of the resolved Today body, measured from the styles below:
+ * headline (12 + 32) + reason (6 + 20) + Begin (20 + 42), less the skeleton
+ * group's own 14px offset.
+ */
+const TODAY_BODY_HEIGHT = 118;
 
 function ArrowRight({ color }: { color: string }) {
   return (
@@ -41,7 +48,7 @@ export function todayReasonCopy(reason: string, mode: keyof typeof V2_RECOMMENDA
  * below it is allowed to compete. Every value here comes from the server
  * recommendation for the ACTIVE Anchor; nothing is hardcoded.
  */
-export function V2HomeTodaySection({ today, onBegin, onOpenAllPractices, onRetry, testID }: Props) {
+function V2HomeTodaySectionComponent({ today, onBegin, onOpenAllPractices, onRetry, testID }: Props) {
   const allPractices = onOpenAllPractices ? (
     <Pressable
       testID="v2-home-all-practices"
@@ -210,6 +217,13 @@ const styles = StyleSheet.create({
   skeletonGroup: {
     marginTop: 14,
     gap: 10,
+    /**
+     * Reserves the height of the resolved recommendation (headline + reason +
+     * Begin). Switching the Home Anchor re-resolves Today, and without this the
+     * graphite zone collapsed by ~70px and sprang back again — two full layout
+     * passes landing on the frames where the Anchor carousel is settling.
+     */
+    minHeight: TODAY_BODY_HEIGHT,
   },
   skeletonLine: {
     height: 12,
@@ -227,3 +241,11 @@ const styles = StyleSheet.create({
     opacity: 0.68,
   },
 });
+
+/**
+ * Memoised. Switching the Home Anchor re-renders this screen twice - once on
+ * selection and again when Today's recommendation settles - and most of these
+ * sections do not depend on Today at all. With stable props from V2HomeScreen
+ * they now render only when their own data actually changes.
+ */
+export const V2HomeTodaySection = memo(V2HomeTodaySectionComponent);

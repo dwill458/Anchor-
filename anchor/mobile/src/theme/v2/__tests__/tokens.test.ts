@@ -58,7 +58,13 @@ describe('V2 design tokens', () => {
       expressive: 420,
       ambient: 3200,
     });
-    expect(AnchorMotion.spring.carousel).toEqual({ damping: 26, stiffness: 190, mass: 1.1 });
+    expect(AnchorMotion.spring.carousel).toEqual({
+      damping: 28,
+      stiffness: 300,
+      mass: 0.8,
+      restDisplacementThreshold: 0.5,
+      restSpeedThreshold: 2,
+    });
     expect(AnchorMotion.easing.enter).toBeDefined();
     expect(AnchorMotion.easing.gentle).toBeDefined();
   });
