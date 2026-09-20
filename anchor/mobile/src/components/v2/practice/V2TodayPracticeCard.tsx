@@ -14,6 +14,7 @@ type Props = {
   mode: V2PracticeMode;
   reason?: string | null;
   isCompletedToday?: boolean;
+  active?: boolean;
   onPress: () => void;
   onPracticeAgain?: () => void;
   testID?: string;
@@ -37,6 +38,7 @@ export function V2TodayPracticeCard({
   mode,
   reason: _reason,
   isCompletedToday = false,
+  active = true,
   onPress,
   onPracticeAgain,
   testID = 'v2-recommended-today',
@@ -93,7 +95,7 @@ export function V2TodayPracticeCard({
     >
       {/* Featured Artwork Hero Banner */}
       <View style={styles.heroArtworkContainer}>
-        <V2PracticeArtwork mode={mode} height={190} variant="featured" />
+        <V2PracticeArtwork mode={mode} height={190} variant="featured" active={active} />
         <View style={styles.floatingBadgesRow}>
           <View style={[styles.badge, { backgroundColor: theme.heroBadgeBg ?? theme.accent }]}>
             <Text style={styles.badgeText}>TODAY</Text>

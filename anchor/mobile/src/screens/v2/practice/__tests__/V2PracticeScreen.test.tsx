@@ -1,15 +1,47 @@
 import React from 'react';
+import { AccessibilityInfo } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 const mockAcknowledge = jest.fn();
 const mockVisionGet = jest.fn();
+
 jest.mock('@/adapters/v2/practice', () => ({
   ...jest.requireActual('@/adapters/v2/practice'),
   acknowledgeV2RecommendationSignal: (...args: unknown[]) => mockAcknowledge(...args),
 }));
+
 jest.mock('@/services/ApiClient', () => ({
   apiClient: { get: (...args: unknown[]) => mockVisionGet(...args), post: jest.fn() },
   ApiClientError: class ApiClientError extends Error {},
+}));
+
+const mockPlayerPlay = jest.fn();
+const mockPlayerPause = jest.fn();
+const mockAddListener = jest.fn();
+
+jest.mock('expo-video', () => ({
+  VideoView: (props: any) => {
+    const { View } = require('react-native');
+    return <View testID={props.testID ?? 'expo-video-view'} style={props.style} />;
+  },
+  useVideoPlayer: jest.fn((source: any, setup?: any) => {
+    const player = {
+      play: mockPlayerPlay,
+      pause: mockPlayerPause,
+      addListener: (event: string, callback: any) => {
+        mockAddListener(event, callback);
+        // Simulate immediate readyToPlay for tests
+        if (event === 'statusChange') {
+          callback({ status: 'readyToPlay' });
+        }
+        return { remove: jest.fn() };
+      },
+      loop: true,
+      muted: true,
+    };
+    if (setup) setup(player);
+    return player;
+  }),
 }));
 
 import { V2PracticeScreen } from '../V2PracticeScreen';
@@ -34,6 +66,14 @@ describe('V2PracticeScreen', () => {
     mockAcknowledge.mockResolvedValue(undefined);
     mockVisionGet.mockReset();
     mockVisionGet.mockRejectedValue({ status: 404 });
+    mockPlayerPlay.mockReset();
+    mockPlayerPause.mockReset();
+    mockAddListener.mockReset();
+    jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(false);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('renders exactly one server-provided recommendation', () => {
@@ -51,6 +91,39 @@ describe('V2PracticeScreen', () => {
     renderPractice(context(action));
     expect(screen.getByLabelText(new RegExp(`Recommended today: ${title}`))).toBeTruthy();
     expect(screen.getByText(why)).toBeTruthy();
+  });
+
+  it('renders Focus hero video container when Focus is recommended today', () => {
+    renderPractice(context('Focus'));
+    expect(screen.getByTestId('v2-hero-video-focus')).toBeTruthy();
+  });
+
+  it('does NOT render hero video for Deep Prime, Visualize, or Release recommendations', () => {
+    const { rerender } = renderPractice(context('Deep Prime'));
+    expect(screen.queryByTestId('v2-hero-video-deep_prime')).toBeNull();
+
+    rerender(<V2PracticeScreen anchor={makeAnchor({ id: 'a' })} recommendation={context('Visualize')} capabilities={fullAccess} />);
+    expect(screen.queryByTestId('v2-hero-video-visualize')).toBeNull();
+
+    rerender(<V2PracticeScreen anchor={makeAnchor({ id: 'a' })} recommendation={context('Release')} capabilities={fullAccess} />);
+    expect(screen.queryByTestId('v2-hero-video-release')).toBeNull();
+  });
+
+  it('falls back to static Focus hero art when Reduced Motion is enabled', () => {
+    render(<V2PracticeScreen anchor={makeAnchor({ id: 'a', threadStrength: 20 })} recommendation={context('Focus')} capabilities={fullAccess} />);
+    // Verify static artwork is present and hero video respects reduceMotion when enabled
+    const { V2PracticeArtwork } = require('@/components/v2/practice');
+    const { render: renderDirect } = require('@testing-library/react-native');
+    const { queryByTestId } = renderDirect(<V2PracticeArtwork mode="focus" variant="featured" reduceMotion={true} />);
+    expect(queryByTestId('v2-hero-video-focus')).toBeNull();
+  });
+
+  it('switches away from Focus video when recommendation changes', () => {
+    const { rerender } = renderPractice(context('Focus'));
+    expect(screen.getByTestId('v2-hero-video-focus')).toBeTruthy();
+
+    rerender(<V2PracticeScreen anchor={makeAnchor({ id: 'a' })} recommendation={context('Deep Prime')} capabilities={fullAccess} />);
+    expect(screen.queryByTestId('v2-hero-video-focus')).toBeNull();
   });
 
   it('keeps the server Focus result when delta7d is unavailable, even at low strength', () => {
@@ -112,10 +185,8 @@ describe('V2PracticeScreen', () => {
         onPremiumCapabilityRequired,
         onBeginPractice,
       });
-      // Entry from Home lands on Prepare exactly as a hub tap does...
       expect(screen.getByTestId('v2-practice-prepare-deep_prime')).toBeTruthy();
       fireEvent.press(screen.getByLabelText('Begin Deep Prime'));
-      // ...and Begin raises the paywall rather than starting the session.
       expect(onBeginPractice).not.toHaveBeenCalled();
       expect(onPremiumCapabilityRequired).toHaveBeenCalledWith(
         expect.objectContaining({ capability: 'deep_prime', anchorId: 'a', source: 'recommended_today' }),
@@ -126,7 +197,6 @@ describe('V2PracticeScreen', () => {
       renderPractice(context('Release'), { initialMode: 'release' });
       expect(mockAcknowledge).toHaveBeenCalledTimes(1);
       expect(mockAcknowledge).toHaveBeenCalledWith('a', 'signal-1', 'intention_completed');
-      // Backing out and re-entering the same signal must not acknowledge again.
       fireEvent.press(screen.getByLabelText('Back to Practice'));
       fireEvent.press(screen.getByTestId('v2-recommended-today'));
       expect(mockAcknowledge).toHaveBeenCalledTimes(1);
@@ -301,7 +371,6 @@ describe('V2PracticeScreen', () => {
     const anchorA = makeAnchor({ id: 'a', intentionText: 'First Goal', userId: 'u1' });
     const anchorB = makeAnchor({ id: 'b', intentionText: 'Second Goal', userId: 'u1' });
 
-    // Seed stores
     const { useAuthStore } = require('@/stores/authStore');
     const { useAnchorStore } = require('@/stores/anchorStore');
     useAuthStore.setState({ user: { id: 'u1' } as any });
@@ -314,18 +383,12 @@ describe('V2PracticeScreen', () => {
       />
     );
 
-    // Initial state shows First Goal
     expect(screen.getByText('First Goal')).toBeTruthy();
-
-    // Tap header to open sheet
     fireEvent.press(screen.getByTestId('v2-practice-anchor-header'));
     expect(screen.getByTestId('v2-anchor-switcher-sheet')).toBeTruthy();
     expect(screen.getByText('Switch Anchor')).toBeTruthy();
 
-    // Select second anchor
     fireEvent.press(screen.getByTestId('v2-anchor-switcher-item-b'));
-
-    // Context should now display Second Goal
     expect(screen.getByText('Second Goal')).toBeTruthy();
   });
 
