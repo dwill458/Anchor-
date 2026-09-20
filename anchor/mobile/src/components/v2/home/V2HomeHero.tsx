@@ -1,5 +1,5 @@
-import React, { memo, useCallback } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { memo, useCallback, useRef } from 'react';
+import { Pressable, StyleSheet, Text, View, type GestureResponderEvent } from 'react-native';
 import Animated, { interpolate, useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
 import Svg, { Circle, G, Path } from 'react-native-svg';
 import { colors, getCategoryColor, typography } from '@/theme/v2';
@@ -115,7 +115,28 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, thread, 
   const textMotion = useAnimatedStyle(() => ({
     opacity: interpolate(Math.abs(slot * spacing + offset.value), [0, spacing * 0.55], [1, 0], 'clamp'),
   }));
-  const handleOpen = useCallback(() => onOpenActive?.(anchor.id), [anchor.id, onOpenActive]);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const moved = useRef(false);
+  const recordTouchStart = useCallback((event: GestureResponderEvent) => {
+    touchStart.current = { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY };
+    moved.current = false;
+  }, []);
+  const recordTouchMove = useCallback((event: GestureResponderEvent) => {
+    const start = touchStart.current;
+    if (start && Math.hypot(event.nativeEvent.pageX - start.x, event.nativeEvent.pageY - start.y) > 5) {
+      moved.current = true;
+    }
+  }, []);
+  const handleOpen = useCallback((event?: GestureResponderEvent) => {
+    const start = touchStart.current;
+    const end = event?.nativeEvent;
+    const movedAtRelease = start && end && Math.hypot(end.pageX - start.x, end.pageY - start.y) > 5;
+    const wasSwipe = moved.current || movedAtRelease || Math.abs(offset.value) > 2;
+    touchStart.current = null;
+    moved.current = false;
+    if (wasSwipe) return;
+    onOpenActive?.(anchor.id);
+  }, [anchor.id, offset, onOpenActive]);
 
   return (
     <View style={styles.container}>
@@ -170,6 +191,7 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, thread, 
         <Pressable testID={slot === 0 ? 'v2-home-carousel-active' : undefined}
           accessibilityRole={slot === 0 ? 'button' : undefined}
           accessibilityLabel={`${anchor.intentionText}. ${categoryLabel(anchor.category)}. View Anchor details.`}
+          onPressIn={recordTouchStart} onTouchMove={recordTouchMove}
           onPress={handleOpen} disabled={slot !== 0 || !onOpenActive}>
           <CircularAnchorRenderer svg={anchorArtworkSvg(anchor)} imageUrl={anchor.enhancedImageUrl}
             category={anchor.category} size={HERO_ANCHOR_SIZE} appearance="paper"

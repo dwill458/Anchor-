@@ -152,6 +152,25 @@ describe('Home structure', () => {
     fireEvent.press(screen.getByTestId('v2-home-carousel-active'));
     expect(mockNavigate).toHaveBeenCalledWith('V2AnchorDetails', { anchorId: 'a' });
   });
+
+  it('does not open details when a press moves like a swipe', () => {
+    oneAnchor();
+    renderHome();
+    const artwork = screen.getByTestId('v2-home-carousel-active');
+    fireEvent(artwork, 'pressIn', { nativeEvent: { pageX: 100, pageY: 200 } });
+    fireEvent(artwork, 'touchMove', { nativeEvent: { pageX: 110, pageY: 200 } });
+    fireEvent.press(artwork, { nativeEvent: { pageX: 112, pageY: 200 } });
+    expect(mockNavigate).not.toHaveBeenCalledWith('V2AnchorDetails', { anchorId: 'a' });
+  });
+
+  it('still opens details on a deliberate tap with slight finger movement', () => {
+    oneAnchor();
+    renderHome();
+    const artwork = screen.getByTestId('v2-home-carousel-active');
+    fireEvent(artwork, 'pressIn', { nativeEvent: { pageX: 100, pageY: 200 } });
+    fireEvent.press(artwork, { nativeEvent: { pageX: 103, pageY: 202 } });
+    expect(mockNavigate).toHaveBeenCalledWith('V2AnchorDetails', { anchorId: 'a' });
+  });
 });
 
 describe('Thread Strength states', () => {
