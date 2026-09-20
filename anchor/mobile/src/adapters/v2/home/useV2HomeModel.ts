@@ -64,25 +64,25 @@ function useV2HomeToday(
   anchorId: string | null,
   durations: { focus: number; deep_prime: number; visualize: number },
 ): { today: V2HomeTodayState; refresh: () => Promise<void> } {
-  const [today, setToday] = useState<V2HomeTodayState>({ state: 'none' });
+  const [result, setResult] = useState<{ anchorId: string | null; today: V2HomeTodayState }>({ anchorId: null, today: { state: 'none' } });
   const activeController = useRef<AbortController | null>(null);
 
   const load = useCallback(async () => {
     activeController.current?.abort();
     if (!anchorId) {
-      setToday({ state: 'none' });
+      setResult({ anchorId: null, today: { state: 'none' } });
       return;
     }
 
     const controller = new AbortController();
     activeController.current = controller;
-    setToday({ state: 'loading' });
+    setResult({ anchorId, today: { state: 'loading' } });
     try {
       const context = await fetchV2RecommendationContext(anchorId, controller.signal);
       if (controller.signal.aborted) return;
       const mode = V2_RECOMMENDATION_ACTION_TO_MODE[context.recommendation.action];
       const durationSeconds = mode === 'release' ? undefined : durations[mode];
-      setToday({
+      setResult({ anchorId, today: {
         state: 'ready',
         mode,
         action: context.recommendation.action,
@@ -91,13 +91,13 @@ function useV2HomeToday(
         completionSignal: context.completionSignal,
         threadDelta: context.thread.delta7d,
         threadDeltaStatus: context.thread.delta7dStatus,
-      });
+      } });
     } catch (error: unknown) {
       if (controller.signal.aborted) return;
-      setToday({
+      setResult({ anchorId, today: {
         state: 'error',
         message: error instanceof Error ? error.message : 'Today’s practice is unavailable.',
-      });
+      } });
     }
   }, [anchorId, durations]);
 
@@ -106,7 +106,9 @@ function useV2HomeToday(
     return () => activeController.current?.abort();
   }, [load]);
 
-  return { today, refresh: load };
+  // Selection can change before the effect above starts the next request.
+  // Never expose the prior Anchor's recommendation or delta in that render.
+  return { today: result.anchorId === anchorId ? result.today : anchorId ? { state: 'loading' } : { state: 'none' }, refresh: load };
 }
 
 /** Home read model over the account-scoped Anchor, Vision, Course, and practice APIs. */

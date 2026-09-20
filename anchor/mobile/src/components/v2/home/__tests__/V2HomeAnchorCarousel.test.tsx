@@ -20,9 +20,10 @@ import {
   trackFinger,
   HERO_ANCHOR_SIZE,
   NEIGHBOUR_ANCHOR_SIZE,
+  carouselWindow,
 } from '../V2HomeAnchorCarousel';
 import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
-import { toThreadPresentation } from '@/adapters/v2/home';
+import { toThreadPresentation, type V2HomeAnchorSummary } from '@/adapters/v2/home';
 
 const summaries = (count: number, selected: number) => {
   const anchors = Array.from({ length: count }, (_, i) =>
@@ -93,11 +94,23 @@ describe('swipe commit decision', () => {
 });
 
 describe('mounted work', () => {
+  it('passes one intact Anchor model to each pre-rendered hero slot', () => {
+    const renderHero = jest.fn((summary: V2HomeAnchorSummary, _index: number, _slot: number) => <React.Fragment>{summary.anchor.intentionText}</React.Fragment>);
+    render(<V2HomeAnchorCarousel anchors={summaries(4, 1)} selectedIndex={1} onSelect={jest.fn()} renderHero={renderHero} />);
+    expect(renderHero.mock.calls.map(([summary, index, slot]) => [summary.anchor.id, index, slot]))
+      .toEqual([['a0', 0, -1], ['a2', 2, 1], ['a1', 1, 0]]);
+  });
+
   it('renders exactly three Anchors however long the list is', () => {
     render(<V2HomeAnchorCarousel anchors={summaries(12, 4)} selectedIndex={4} onSelect={jest.fn()} />);
     expect(artworkRenders).toHaveLength(3);
-    expect(artworkRenders.filter((size) => size === String(HERO_ANCHOR_SIZE))).toHaveLength(1);
-    expect(artworkRenders.filter((size) => size === String(NEIGHBOUR_ANCHOR_SIZE))).toHaveLength(2);
+    expect(artworkRenders.filter((size) => size === String(HERO_ANCHOR_SIZE))).toHaveLength(3);
+  });
+
+  it('keeps previous, current and next mounted in circular order', () => {
+    expect(carouselWindow(5, 2)).toEqual([1, 2, 3]);
+    expect(carouselWindow(5, 0)).toEqual([4, 0, 1]);
+    expect(carouselWindow(5, 4)).toEqual([3, 4, 0]);
   });
 
   it('renders one Anchor and no neighbours when there is nothing to switch to', () => {
@@ -108,6 +121,19 @@ describe('mounted work', () => {
 });
 
 describe('committing a switch', () => {
+  it('keeps the incoming artwork mounted when it becomes current', () => {
+    const mounts: string[] = [];
+    function Hero({ id }: { id: string }) {
+      React.useEffect(() => { mounts.push(id); }, [id]);
+      return <React.Fragment>{id}</React.Fragment>;
+    }
+    const renderHero = (summary: V2HomeAnchorSummary) => <Hero id={summary.anchor.id} />;
+    render(<V2HomeAnchorCarousel anchors={summaries(3, 0)} selectedIndex={0} onSelect={jest.fn()}
+      renderHero={renderHero} reduceMotion />);
+    fireEvent.press(screen.getByTestId('v2-home-carousel-next'));
+    expect(mounts.filter(id => id === 'a1')).toHaveLength(1);
+  });
+
   it('commits once from a neighbour tap', () => {
     const onSelect = jest.fn();
     render(
@@ -125,5 +151,12 @@ describe('committing a switch', () => {
     );
     fireEvent.press(screen.getByTestId('v2-home-carousel-previous'));
     expect(onSelect).toHaveBeenCalledWith('a2');
+  });
+
+  it('guards rapid duplicate taps during selection', () => {
+    const onSelect = jest.fn();
+    render(<V2HomeAnchorCarousel anchors={summaries(3, 0)} selectedIndex={0} onSelect={onSelect} reduceMotion />);
+    fireEvent.press(screen.getByTestId('v2-home-carousel-next'));
+    expect(onSelect).toHaveBeenCalledTimes(1);
   });
 });
