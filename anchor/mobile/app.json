@@ -10,7 +10,7 @@
       "android",
       "web"
     ],
-    "icon": "./assets/anchor-icon-v2.png",
+    "icon": "./assets/anchor-icon-v3.png",
     "userInterfaceStyle": "dark",
     "splash": {
       "image": "./assets/anchor-splash-artwork.jpg",
