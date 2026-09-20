@@ -140,11 +140,11 @@ async function buildSignedObjectUrl(
   // presigner's own parameter types to bridge the mismatch without `any`.
   type PresignParams = Parameters<typeof presignS3Request>;
   return presignS3Request(
-    client as PresignParams[0],
+    client as unknown as PresignParams[0],
     new GetObjectCommand({
       Bucket: bucket,
       Key: objectKey,
-    }) as PresignParams[1],
+    }) as unknown as PresignParams[1],
     { expiresIn }
   );
 }

@@ -78,10 +78,16 @@ export function applyDecay(
   return next;
 }
 
-function isThreadPracticeType(value: string): value is ThreadPracticeType {
-  return (
-    value === 'focus' || value === 'deep_prime' || value === 'visualize' || value === 'release'
-  );
+export function normalizeThreadPracticeType(value: string): ThreadPracticeType | null {
+  if (value === 'focus') return 'focus';
+  if (value === 'deep_prime' || value === 'prime' || value === 'deep') return 'deep_prime';
+  if (value === 'visualize' || value === 'visual') return 'visualize';
+  if (value === 'release') return 'release';
+  return null;
+}
+
+export function isThreadPracticeType(value: string): value is ThreadPracticeType {
+  return normalizeThreadPracticeType(value) !== null;
 }
 
 export class ThreadStrengthService {
@@ -107,11 +113,13 @@ export class ThreadStrengthService {
       where: { id: input.sessionId, userId: input.userId },
       select: { id: true, anchorId: true, practiceMode: true, completedAt: true },
     });
-    if (!session || !session.anchorId || !isThreadPracticeType(session.practiceMode)) return null;
+    if (!session || !session.anchorId) return null;
+    const practiceType = normalizeThreadPracticeType(session.practiceMode);
+    if (!practiceType) return null;
     return this.calculatePracticeCompletion({
       userId: input.userId,
       anchorId: session.anchorId,
-      practiceType: session.practiceMode,
+      practiceType,
       completedAt: session.completedAt,
       sessionId: session.id,
       mode: input.mode,
@@ -229,6 +237,44 @@ export class ThreadStrengthService {
   }
 
   /**
+   * Automatically synchronizes any completed practice sessions for an anchor
+   * that do not yet have corresponding Thread V2 movements.
+   */
+  async syncMissingMovementsForAnchor(userId: string, anchorId: string): Promise<void> {
+    const sessions = await prisma.practiceSession.findMany({
+      where: {
+        userId,
+        anchorId,
+        completionStatus: 'completed',
+      },
+      orderBy: [{ completedAt: 'asc' }, { id: 'asc' }],
+    });
+
+    if (sessions.length === 0) return;
+
+    const existingMovements = await prisma.threadV2Movement.findMany({
+      where: { userId, anchorId },
+      select: { sessionId: true },
+    });
+    const existingSessionIds = new Set(existingMovements.map(m => m.sessionId));
+
+    for (const session of sessions) {
+      if (existingSessionIds.has(session.id)) continue;
+      const normalizedType = normalizeThreadPracticeType(session.practiceMode);
+      if (!normalizedType) continue;
+
+      await this.calculatePracticeCompletion({
+        userId,
+        anchorId,
+        practiceType: normalizedType,
+        completedAt: session.completedAt,
+        sessionId: session.id,
+        mode: 'authoritative',
+      });
+    }
+  }
+
+  /**
    * Evaluates authoritative Thread Strength and delta7d for an anchor as of a given timestamp.
    */
   async getAnchorThreadState(
@@ -245,6 +291,8 @@ export class ThreadStrengthService {
     if (!anchor) {
       throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
     }
+
+    await this.syncMissingMovementsForAnchor(userId, anchorId);
 
     const movements = await prisma.threadV2Movement.findMany({
       where: { userId, anchorId },

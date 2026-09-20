@@ -73,4 +73,17 @@ describe('ThreadStrengthService', () => {
     expect(movement.idempotent).toBe(true);
     expect(mockTx.threadV2Movement.create).not.toHaveBeenCalled();
   });
+
+  it('normalizes legacy and V2 practice types correctly', () => {
+    const { normalizeThreadPracticeType } = require('../ThreadStrengthService');
+    expect(normalizeThreadPracticeType('focus')).toBe('focus');
+    expect(normalizeThreadPracticeType('deep_prime')).toBe('deep_prime');
+    expect(normalizeThreadPracticeType('prime')).toBe('deep_prime');
+    expect(normalizeThreadPracticeType('deep')).toBe('deep_prime');
+    expect(normalizeThreadPracticeType('visualize')).toBe('visualize');
+    expect(normalizeThreadPracticeType('visual')).toBe('visualize');
+    expect(normalizeThreadPracticeType('release')).toBe('release');
+    expect(normalizeThreadPracticeType('unknown')).toBeNull();
+  });
 });
+
