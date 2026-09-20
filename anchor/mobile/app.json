@@ -10,7 +10,7 @@
       "android",
       "web"
     ],
-    "icon": "./assets/anchor-icon.png",
+    "icon": "./assets/anchor-icon-v2.png",
     "userInterfaceStyle": "dark",
     "splash": {
       "image": "./assets/anchor-splash-artwork.jpg",
@@ -20,7 +20,7 @@
     "assetBundlePatterns": [
       "**/*"
     ],
-    "runtimeVersion": "1.5.0",
+    "runtimeVersion": "2.0",
     "updates": {
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
@@ -111,9 +111,9 @@
     "android": {
       "allowBackup": false,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/anchor-adaptive-foreground-v3.png",
-        "backgroundColor": "#260A4C",
-        "monochromeImage": "./assets/anchor-monochrome.png"
+        "foregroundImage": "./assets/anchor-adaptive-foreground-v4.png",
+        "backgroundColor": "#F7F0E1",
+        "monochromeImage": "./assets/anchor-monochrome-v2.png"
       },
       "package": "com.anchorintentions.app",
       "versionCode": 39,
@@ -180,6 +180,7 @@
       "@react-native-community/datetimepicker",
       "@sentry/react-native",
       "expo-audio",
+      "expo-video",
       "expo-asset",
       [
         "expo-notifications",

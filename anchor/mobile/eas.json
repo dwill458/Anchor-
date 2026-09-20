@@ -10,6 +10,7 @@
       "distribution": "internal",
       "channel": "development",
       "env": {
+        "EXPO_PUBLIC_API_URL": "https://anchor-production-26bf.up.railway.app",
         "EXPO_PUBLIC_APP_ENV": "development",
         "EXPO_PUBLIC_DEBUG_LOGGING": "true",
         "EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC": "false",
@@ -31,6 +32,7 @@
       "channel": "preview",
       "environment": "preview",
       "env": {
+        "EXPO_PUBLIC_API_URL": "https://anchor-production-26bf.up.railway.app",
         "EXPO_PUBLIC_APP_ENV": "staging",
         "EXPO_PUBLIC_DEBUG_LOGGING": "false",
         "EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC": "false",
@@ -53,6 +55,7 @@
       "channel": "production",
       "environment": "production",
       "env": {
+        "EXPO_PUBLIC_API_URL": "https://anchor-production-26bf.up.railway.app",
         "EXPO_PUBLIC_APP_ENV": "production",
         "EXPO_PUBLIC_DEBUG_LOGGING": "false",
         "EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC": "false",
@@ -73,6 +76,7 @@
       "channel": "production",
       "environment": "production",
       "env": {
+        "EXPO_PUBLIC_API_URL": "https://anchor-production-26bf.up.railway.app",
         "EXPO_PUBLIC_APP_ENV": "production",
         "EXPO_PUBLIC_DEBUG_LOGGING": "false",
         "EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC": "false",

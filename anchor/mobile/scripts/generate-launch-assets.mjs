@@ -41,10 +41,11 @@ const SPLASH_BACKGROUND = '#0F1419';
  * comfortably inside the mask.
  */
 const ADAPTIVE_ART_SCALE = 0.72;
+const LAUNCH_ICON_SOURCE = 'anchor-icon-v2.png';
+const ADAPTIVE_FOREGROUND_OUTPUT = 'anchor-adaptive-foreground-v4.png';
+const MONOCHROME_OUTPUT = 'anchor-monochrome-v2.png';
 /** 66dp of the 108dp canvas — survives circular masks, used for the themed layer. */
 const ADAPTIVE_SAFE_ZONE = 66 / 108;
-/** Fraction of the master artwork's width taken up by the decorative gold frame. */
-const FRAME_INSET = 0.166;
 
 /** Splash canvas is 288dp; art is 160dp so it fits inside the system icon plate. */
 const SPLASH_CANVAS_DP = 288;
@@ -106,29 +107,18 @@ function circleMask(size) {
   return Buffer.from(svg);
 }
 
-/** Crops the master artwork to the region inside its decorative gold frame. */
-async function innerArtwork() {
-  const src = path.join(assets, 'anchor-adaptive-foreground-v2.png');
-  const { width } = await sharp(src).metadata();
-  const inset = Math.round(width * FRAME_INSET);
-  return sharp(src)
-    .extract({ left: inset, top: inset, width: width - inset * 2, height: width - inset * 2 })
-    .png()
-    .toBuffer();
+/** Returns the current runtime-2.0 master icon artwork. */
+async function launchIconArtwork() {
+  return sharp(path.join(assets, LAUNCH_ICON_SOURCE)).png().toBuffer();
 }
 
 /**
- * The full-colour adaptive foreground.
- *
- * The master artwork is a poster: a gold frame around the head/brain mark,
- * filling ~70% of the canvas. That frame is wider than the 72dp viewport, so
- * launchers were slicing through it — and at any size a square frame either
- * gets cut or leaves gold slivers where it grazes the mask. Drop the frame and
- * use the artwork inside it, which reads cleanly under circle and squircle
- * masks alike.
+ * The full-colour adaptive foreground. The source is fitted to the adaptive
+ * icon viewport so the rounded artwork remains intact under circle and
+ * squircle launcher masks.
  */
 async function buildForeground() {
-  return fitInside(await innerArtwork(), 1024, ADAPTIVE_ART_SCALE);
+  return fitInside(await launchIconArtwork(), 1024, ADAPTIVE_ART_SCALE);
 }
 
 /**
@@ -141,22 +131,25 @@ async function buildForeground() {
  * same mark, and fit it to the safe zone.
  */
 async function buildMonochrome() {
-  // The frame is cropped off here too: flattened to a silhouette it would
-  // become a solid white border and swamp the mark.
-  const inner = await innerArtwork();
+  const inner = await launchIconArtwork();
 
-  // Luminance ramp rather than a hard threshold, so edges stay anti-aliased.
-  // Maps luma 90 -> fully transparent, 130 -> fully opaque.
+  // Invert the luminance ramp so the dark anchor strokes become opaque while
+  // the cream paper and gold star stay transparent. The ramp keeps edges
+  // anti-aliased instead of producing a hard threshold.
   const LO = 90;
   const HI = 130;
   const slope = 255 / (HI - LO);
-  const alpha = await sharp(inner)
+  const darkMask = await sharp(inner)
+    .removeAlpha()
     .greyscale()
-    // The cream neck fades into the purple background, so the raw ramp speckles
-    // along that edge. A touch of blur first keeps the silhouette edge clean.
     .blur(2)
-    .linear(slope, -LO * slope)
-    .toColourspace('b-w')
+    .linear(-slope, HI * slope)
+    .png()
+    .toBuffer();
+  const sourceAlpha = await sharp(inner).ensureAlpha().extractChannel(3).png().toBuffer();
+  const alpha = await sharp(darkMask)
+    .composite([{ input: sourceAlpha, blend: 'multiply' }])
+    .extractChannel(0)
     .png()
     .toBuffer();
 
@@ -224,8 +217,8 @@ async function main() {
   const splash = await buildSplashLogo();
 
   // Master artwork, consumed by app.json so `expo prebuild` reproduces this.
-  await fs.writeFile(path.join(assets, 'anchor-adaptive-foreground-v3.png'), foreground);
-  await fs.writeFile(path.join(assets, 'anchor-monochrome.png'), monochrome);
+  await fs.writeFile(path.join(assets, ADAPTIVE_FOREGROUND_OUTPUT), foreground);
+  await fs.writeFile(path.join(assets, MONOCHROME_OUTPUT), monochrome);
   await fs.writeFile(path.join(assets, 'anchor-splash-logo.png'), splash);
 
   // Checked-in native resources, which is what actually ships.
