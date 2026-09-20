@@ -15,6 +15,7 @@ import Svg, { Circle } from 'react-native-svg';
 import Reanimated, {
   Easing as ReanimatedEasing,
   cancelAnimation,
+  interpolate,
   useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
@@ -34,6 +35,7 @@ import { resolveSessionAudioPlan } from '@/services/SessionAudioManifest';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { safeHaptics } from '@/utils/haptics';
+import { V2FocusField } from './V2FocusField';
 
 export interface V2FocusActiveScreenProps {
   anchor: Anchor;
@@ -89,8 +91,9 @@ export function V2FocusActiveScreen({
   const { width } = useWindowDimensions();
   const reduceMotion = useReduceMotionEnabled();
   const totalMs = durationSeconds * 1000;
-  const anchorSize = Math.min(270, Math.max(210, Math.round(width * 0.54)));
-  const ringPadding = 24;
+  const anchorSize = Math.min(214, Math.max(176, Math.round(width * 0.48)));
+  const fieldSize = Math.min(330, Math.max(224, Math.round(width * 0.7)));
+  const ringPadding = 22;
   const ringSize = anchorSize + ringPadding * 2;
   const strokeWidth = 2.5;
   const radius = (ringSize - strokeWidth) / 2;
@@ -130,12 +133,32 @@ export function V2FocusActiveScreen({
   const anchorScaleAnim = useRef(new Animated.Value(defaultStage === 'prepare' ? 0.94 : 1)).current;
   const visualProgress = useSharedValue(Math.min(1, Math.max(0, initialElapsedMs / totalMs)));
   const breatheScale = useSharedValue(1);
+  const anchorDrift = useSharedValue(0);
+  const anchorLuminance = useSharedValue(1);
+  const washMotion = useSharedValue(0);
+  const fieldTransition = useSharedValue(defaultStage === 'prepare' ? 0 : 1);
+  const completionWash = useSharedValue(0);
   const progressAnimatedProps = useAnimatedProps(
     () => ({ strokeDashoffset: circumference * (1 - visualProgress.value) }),
     [circumference],
   );
   const breathingStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: breatheScale.value }],
+    transform: [
+      { scale: breatheScale.value },
+      { translateY: anchorDrift.value },
+    ],
+    opacity: anchorLuminance.value,
+  }));
+  const fieldTransitionStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(fieldTransition.value, [0, 1], [0.72, 1]),
+    transform: [{ scale: interpolate(fieldTransition.value, [0, 1], [0.94, 1.02]) }],
+  }));
+  const atmosphereStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(washMotion.value, [0, 1], [0.34, 0.48]),
+    transform: [{ scale: interpolate(washMotion.value, [0, 1], [0.97, 1.04]) }],
+  }));
+  const completionWashStyle = useAnimatedStyle(() => ({
+    opacity: completionWash.value,
   }));
 
   // Audio setup
@@ -212,6 +235,10 @@ export function V2FocusActiveScreen({
     }
 
     // Fade out prepare content and settle anchor size
+    fieldTransition.value = withTiming(1, {
+      duration: 520,
+      easing: ReanimatedEasing.out(ReanimatedEasing.ease),
+    });
     Animated.parallel([
       Animated.timing(prepareFadeAnim, {
         toValue: 0,
@@ -253,6 +280,7 @@ export function V2FocusActiveScreen({
     audioPlan,
     createSessionAudioPlayer,
     durationSeconds,
+    fieldTransition,
     prepareFadeAnim,
     readClock,
     stage,
@@ -306,8 +334,10 @@ export function V2FocusActiveScreen({
   // Micro-motion breathing is a UI-thread-only environmental treatment.
   useEffect(() => {
     cancelAnimation(breatheScale);
+    cancelAnimation(anchorDrift);
+    cancelAnimation(anchorLuminance);
+    cancelAnimation(washMotion);
     if (reduceMotion || isPaused || isResolving || endConfirmVisible || stage !== 'focus') {
-      breatheScale.value = 1;
       return;
     }
 
@@ -319,8 +349,37 @@ export function V2FocusActiveScreen({
       -1,
       true,
     );
-    return () => cancelAnimation(breatheScale);
-  }, [breatheScale, endConfirmVisible, isPaused, isResolving, reduceMotion, stage]);
+    anchorDrift.value = withRepeat(
+      withTiming(1.5, {
+        duration: 4700,
+        easing: AnchorMotion.easing.gentle,
+      }),
+      -1,
+      true,
+    );
+    anchorLuminance.value = withRepeat(
+      withTiming(0.965, {
+        duration: 6100,
+        easing: AnchorMotion.easing.gentle,
+      }),
+      -1,
+      true,
+    );
+    washMotion.value = withRepeat(
+      withTiming(1, {
+        duration: 11000,
+        easing: AnchorMotion.easing.gentle,
+      }),
+      -1,
+      true,
+    );
+    return () => {
+      cancelAnimation(breatheScale);
+      cancelAnimation(anchorDrift);
+      cancelAnimation(anchorLuminance);
+      cancelAnimation(washMotion);
+    };
+  }, [anchorDrift, anchorLuminance, breatheScale, endConfirmVisible, isPaused, isResolving, reduceMotion, stage, washMotion]);
 
   // Controls fade animation
   useEffect(() => {
@@ -364,6 +423,16 @@ export function V2FocusActiveScreen({
     setIsResolving(true);
     setStage('resolving');
     setControlsVisible(false);
+    fieldTransition.value = withTiming(1.08, {
+      duration: 480,
+      easing: ReanimatedEasing.out(ReanimatedEasing.ease),
+    });
+    completionWash.value = reduceMotion
+      ? 0.24
+      : withTiming(0.24, {
+          duration: 720,
+          easing: ReanimatedEasing.out(ReanimatedEasing.ease),
+        });
 
     // Subtle tactile success haptic
     void safeHaptics.notification(Haptics.NotificationFeedbackType.Success);
@@ -406,7 +475,7 @@ export function V2FocusActiveScreen({
     }, 850);
 
     return () => clearTimeout(completeTimeout);
-  }, [durationSeconds, onComplete, pulseAnim, pulseOpacity, reduceMotion]);
+  }, [completionWash, durationSeconds, fieldTransition, onComplete, pulseAnim, pulseOpacity, reduceMotion]);
 
   // Logical cadence only: audio cues and completion use the monotonic clock.
   // React state changes at most once a second for the visible time label; the
@@ -566,20 +635,35 @@ export function V2FocusActiveScreen({
       onPress={revealControls}
       style={styles.screen}
     >
+      <Reanimated.View pointerEvents="none" style={[styles.completionWash, completionWashStyle]} />
       {/* Center Stage: Anchor + Progress trace + Atmospheric pigment wash */}
       <View style={styles.centerStage} pointerEvents="box-none">
-        {/* Subtle radial category pigment field */}
-        <View
+        {/* A low-contrast category wash keeps the dark surface from feeling flat. */}
+        <Reanimated.View
           style={[
             styles.atmosphereWash,
             {
-              width: anchorSize * 1.34,
-              height: anchorSize * 1.34,
-              borderRadius: (anchorSize * 1.34) / 2,
+              width: fieldSize * 0.82,
+              height: fieldSize * 0.82,
+              borderRadius: (fieldSize * 0.82) / 2,
               backgroundColor: getCategoryFieldColor(anchor.category),
             },
+            atmosphereStyle,
           ]}
         />
+
+        <Reanimated.View
+          pointerEvents="none"
+          style={[styles.fieldLayer, { width: fieldSize, height: fieldSize }, fieldTransitionStyle]}
+        >
+          <V2FocusField
+            size={fieldSize}
+            progress={visualProgress}
+            category={anchor.category}
+            reduceMotion={reduceMotion}
+            motionActive={!isPaused && !endConfirmVisible && !isResolving}
+          />
+        </Reanimated.View>
 
         <View
           style={{
@@ -854,6 +938,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0E0F14',
   },
+  completionWash: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#FBF9F4',
+  },
   topHeader: {
     position: 'absolute',
     top: 0,
@@ -876,7 +964,11 @@ const styles = StyleSheet.create({
   },
   atmosphereWash: {
     position: 'absolute',
-    opacity: 0.55,
+  },
+  fieldLayer: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   progressSvg: {
     position: 'absolute',

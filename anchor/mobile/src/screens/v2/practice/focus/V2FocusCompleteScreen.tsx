@@ -6,9 +6,10 @@ import Animated, { useAnimatedStyle, useSharedValue, withDelay, withTiming } fro
 import { CircularAnchorRenderer, V2Button, V2Screen } from '@/components/v2';
 import { anchorArtworkSvg } from '@/components/v2/anchors/anchorPresentation';
 import { practiceColors } from '@/theme/v2/practiceColors';
-import { AnchorMotion, getCategoryColor, getCategoryFieldColor, getCategoryPalette, colors, radii, spacing, typography } from '@/theme/v2';
+import { AnchorMotion, getCategoryFieldColor, getCategoryPalette, colors, radii, spacing, typography } from '@/theme/v2';
 import type { Anchor } from '@/types';
 import { useV2ReduceMotion } from '@/hooks/v2';
+import { V2FocusField } from './V2FocusField';
 
 export interface V2FocusCompleteScreenProps {
   anchor: Anchor;
@@ -38,7 +39,6 @@ export function V2FocusCompleteScreen({
   const insets = useSafeAreaInsets();
   const reduceMotion = useV2ReduceMotion();
   const categoryPalette = getCategoryPalette(anchor.category);
-  const categoryColor = getCategoryColor(anchor.category);
 
   // Authoritative thread strength resolution:
   const hasAuthoritativeMovement =
@@ -64,6 +64,7 @@ export function V2FocusCompleteScreen({
   const contentOpacity = useSharedValue(reduceMotion ? 1 : 0);
   const barProgress = useSharedValue(fromVal / 100);
   const deltaOpacity = useSharedValue(reduceMotion ? 1 : 0);
+  const completionProgress = useSharedValue(1);
   const contentStyle = useAnimatedStyle(() => ({ opacity: contentOpacity.value }));
   const barStyle = useAnimatedStyle(() => ({ transform: [{ scaleX: barProgress.value }] }));
   const deltaStyle = useAnimatedStyle(() => ({ opacity: deltaOpacity.value }));
@@ -103,10 +104,20 @@ export function V2FocusCompleteScreen({
 
         {/* Real Anchor artwork with completed imprint / category field */}
         <View style={styles.artworkContainer}>
+          <View style={styles.fieldImprint}>
+            <V2FocusField
+              size={220}
+              progress={completionProgress}
+              category={anchor.category}
+              reduceMotion={reduceMotion}
+              motionActive={false}
+              imprint
+            />
+          </View>
           <View
             style={[
               styles.completedRing,
-              { borderColor: `${categoryColor}40` },
+              { borderColor: `${practiceColors.focus}70` },
             ]}
           />
           <View
@@ -279,17 +290,22 @@ const styles = StyleSheet.create({
   },
   artworkContainer: {
     position: 'relative',
-    width: 154,
-    height: 154,
+    width: 220,
+    height: 220,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: spacing[4],
     marginBottom: spacing[4],
   },
+  fieldImprint: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   completedRing: {
     position: 'absolute',
-    width: 172,
-    height: 172,
+    width: 176,
+    height: 176,
     borderRadius: 86,
     borderWidth: 1.5,
   },
