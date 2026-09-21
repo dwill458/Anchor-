@@ -251,9 +251,9 @@ export class RecommendationService {
   /**
    * Evaluates recommendation for an Anchor:
    * 1. Completed Chart arc (destination reached) -> Release
-   * 2. Vision exists -> Visualize
-   * 3. delta7d < 0 -> Deep Prime
-   * 4. Fallback rotation -> Deep Prime (65%) or Focus (35%)
+   * 2. delta7d < 0 -> Deep Prime (decaying thread)
+   * 3. Vision exists -> 35% Visualize / 33% Deep Prime / 32% Focus
+   * 4. No Vision -> 50% Deep Prime / 50% Focus
    */
   evaluateFirstMatchRecommendation(
     completionSignal: RecommendationSignal | null,
@@ -268,13 +268,6 @@ export class RecommendationService {
       };
     }
 
-    if (vision.exists) {
-      return {
-        action: 'Visualize',
-        reason: vision.seenToday ? 'vision_scene' : 'unseen_vision',
-      };
-    }
-
     if (delta7d !== null && delta7d < 0) {
       return {
         action: 'Deep Prime',
@@ -282,20 +275,38 @@ export class RecommendationService {
       };
     }
 
-    // Dynamic rotation between Deep Prime (~65%) and Focus (~35%) to avoid static Focus output
     let hashScore = 0;
     if (anchorId) {
       for (let i = 0; i < anchorId.length; i++) {
         hashScore = (hashScore * 31 + anchorId.charCodeAt(i)) | 0;
       }
       hashScore = Math.abs(hashScore);
-    } else {
-      hashScore = 0;
     }
 
-    const isDeepPrime = (hashScore % 100) < 65;
+    const roll = hashScore % 100;
 
-    if (isDeepPrime) {
+    if (vision.exists) {
+      // 35% Visualize, 33% Deep Prime, 32% Focus
+      if (roll < 35) {
+        return {
+          action: 'Visualize',
+          reason: vision.seenToday ? 'vision_scene' : 'unseen_vision',
+        };
+      }
+      if (roll < 68) {
+        return {
+          action: 'Deep Prime',
+          reason: 'deep_reinforcement',
+        };
+      }
+      return {
+        action: 'Focus',
+        reason: 'daily_focus',
+      };
+    }
+
+    // No Vision: 50% Deep Prime, 50% Focus
+    if (roll < 50) {
       return {
         action: 'Deep Prime',
         reason: 'deep_reinforcement',
