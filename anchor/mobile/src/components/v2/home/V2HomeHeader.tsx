@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { V2IconButton } from '@/components/v2';
 import { colors, spacing, typography } from '@/theme/v2';
@@ -7,6 +7,7 @@ import { colors, spacing, typography } from '@/theme/v2';
 type Props = {
   greeting: string;
   profileInitial?: string | null;
+  profilePictureUrl?: string | null;
   onOpenChart?: () => void;
   onCreateAnchor?: () => void;
   onOpenProfile?: () => void;
@@ -57,16 +58,26 @@ function IconProfileLetter({ letter, color = colors.text.primary }: { letter?: s
 function V2HomeHeaderComponent({
   greeting,
   profileInitial,
+  profilePictureUrl,
   onOpenChart,
   onCreateAnchor,
   onOpenProfile,
   showChartUtility = true,
 }: Props) {
+  const comma = greeting.indexOf(',');
+  const salutation = comma < 0 ? greeting : greeting.slice(0, comma + 1);
+  const name = comma < 0 ? '' : greeting.slice(comma + 1).trim();
   return (
     <View style={styles.bar}>
-      <Text numberOfLines={1} accessibilityRole="header" style={styles.greeting}>
-        {greeting}
-      </Text>
+      <View style={styles.identity}>
+        {profilePictureUrl ? <Image source={{ uri: profilePictureUrl }} style={styles.avatar} /> : (
+          <View style={styles.avatarFallback}><Text style={styles.avatarInitial}>{profileInitial ?? ''}</Text></View>
+        )}
+        <View style={styles.greetingGroup} accessibilityRole="header">
+          <Text numberOfLines={1} style={styles.salutation}>{salutation}</Text>
+          {name ? <Text numberOfLines={1} style={styles.greetingName}>{name}</Text> : null}
+        </View>
+      </View>
       <View style={styles.utilities}>
         {showChartUtility ? (
           <V2IconButton
@@ -92,21 +103,24 @@ function V2HomeHeaderComponent({
 
 const styles = StyleSheet.create({
   bar: {
-    minHeight: 44,
+    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing[2],
   },
-  greeting: {
-    flex: 1,
-    fontSize: 15,
-    lineHeight: 20,
-    fontFamily: typography.bodyMedium,
+  identity: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 9 },
+  greetingGroup: { flex: 1, minWidth: 0 },
+  avatar: { width: 27, height: 27, borderRadius: 14 },
+  avatarFallback: { width: 27, height: 27, borderRadius: 14, backgroundColor: colors.grouped, alignItems: 'center', justifyContent: 'center' },
+  avatarInitial: { fontFamily: typography.bodySemiBold, fontSize: 12, color: colors.text.primary },
+  salutation: {
+    fontSize: 14,
+    lineHeight: 17,
+    fontFamily: 'EBGaramond-Regular',
     color: colors.text.primary,
-    letterSpacing: -0.1,
-    textTransform: 'none',
   },
+  greetingName: { fontFamily: 'EBGaramond-Medium', fontSize: 18, lineHeight: 20, color: colors.text.primary },
   utilities: {
     flexDirection: 'row',
     alignItems: 'center',

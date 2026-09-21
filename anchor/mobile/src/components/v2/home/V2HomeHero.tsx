@@ -1,13 +1,14 @@
 import React, { memo, useCallback, useRef } from 'react';
-import { Pressable, StyleSheet, Text, View, type GestureResponderEvent } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions, type GestureResponderEvent } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { interpolate, useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
 import Svg, { Circle, G, Path } from 'react-native-svg';
 import { colors, getCategoryColor, typography } from '@/theme/v2';
-import { anchorPositionLabel } from '@/constants/v2/home';
 import { anchorArtworkSvg, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
 import { CircularAnchorRenderer } from '@/components/v2';
 import type { V2HomeAnchorSummary, V2ThreadPresentation } from '@/adapters/v2/home';
-import { HERO_ANCHOR_SIZE, V2HomeAnchorCarousel, type CarouselSlot } from './V2HomeAnchorCarousel';
+import { V2HomeAnchorCarousel, type CarouselSlot } from './V2HomeAnchorCarousel';
+import { resolveHomeHeroLayout } from './homeHeroLayout';
 
 type Props = {
   anchors: V2HomeAnchorSummary[];
@@ -36,8 +37,7 @@ function IntentionMark({ color }: { color: string }) {
 }
 
 /** The original handmade construction marks travel with each Anchor. */
-const ConstructionStrokes = memo(function ConstructionStrokes({ color }: { color: string }) {
-  const size = 238;
+const ConstructionStrokes = memo(function ConstructionStrokes({ color, size }: { color: string; size: number }) {
   const c = size / 2;
   const outer = size * 0.452;
   const inner = size * 0.418;
@@ -70,16 +70,16 @@ function ThreadReading({ thread, accent, active }: { thread: V2ThreadPresentatio
   const hasDelta = measured && typeof delta === 'number' && Number.isFinite(delta);
   return (
     <View testID={active ? 'v2-home-thread-reading' : undefined} style={styles.threadRow}>
+      <Text style={styles.threadLabel}>Thread Strength</Text>
       {measured ? (
         <Text testID={active ? 'v2-home-thread-value' : undefined} style={[styles.threadValue, { color: accent }]}>
           {`${thread.value}%`}
         </Text>
       ) : null}
-      <Text style={styles.threadLabel}>Thread Strength</Text>
       {measured ? (
         hasDelta ? (
           <Text testID={active ? 'v2-home-thread-delta' : undefined} style={styles.threadDelta}>
-            {`· ${(delta as number) > 0 ? '+' : ''}${delta} this week`}
+            {`${(delta as number) > 0 ? '↑ +' : (delta as number) < 0 ? '↓ ' : '— '}${delta}% this week`}
           </Text>
         ) : null
       ) : (
@@ -91,13 +91,16 @@ function ThreadReading({ thread, accent, active }: { thread: V2ThreadPresentatio
   );
 }
 
-function AnchorHeroItem({ summary, index, total, slot, offset, spacing, thread, onOpenActive, onOpenProgress, onOpenAllAnchors }: {
+function AnchorHeroItem({ summary, index, total, slot, offset, spacing, anchorSize, artworkBoxHeight, constructionSize, thread, onOpenActive, onOpenProgress, onOpenAllAnchors }: {
   summary: V2HomeAnchorSummary;
   index: number;
   total: number;
   slot: CarouselSlot;
   offset: SharedValue<number>;
   spacing: number;
+  anchorSize: number;
+  artworkBoxHeight: number;
+  constructionSize: number;
   thread: V2ThreadPresentation;
   onOpenActive?: (anchorId: string) => void;
   onOpenProgress?: () => void;
@@ -109,7 +112,7 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, thread, 
     const distance = Math.abs(slot * spacing + offset.value);
     return {
       opacity: interpolate(distance, [0, spacing], [1, 0.55], 'clamp'),
-      transform: [{ scale: interpolate(distance, [0, spacing], [1, 68 / HERO_ANCHOR_SIZE], 'clamp') }],
+      transform: [{ scale: interpolate(distance, [0, spacing], [1, 68 / anchorSize], 'clamp') }],
     };
   });
   const textMotion = useAnimatedStyle(() => ({
@@ -143,34 +146,18 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, thread, 
       <Animated.View style={[styles.contextRow, textMotion]} pointerEvents={slot === 0 ? 'auto' : 'none'}>
         <View style={styles.categoryGroup}>
           <View style={[styles.categoryDash, { backgroundColor: accent }]} />
-          <Text style={styles.categoryText}>{categoryLabel(anchor.category).toUpperCase()}</Text>
-        </View>
-        {total > 1 ? (
-          /**
-           * The numeric position is authoritative (the brief forbids a row of
-           * dots), and it doubles as the only route into the Anchor library
-           * now that the "Your Anchors" rail is gone.
-           */
+          <Text style={[styles.categoryText, { color: accent }]}>{categoryLabel(anchor.category).toUpperCase()}</Text>
+          <Text style={styles.categorySeparator}>·</Text>
           <Pressable
             testID={slot === 0 ? 'v2-home-anchor-position' : undefined}
             accessibilityRole={onOpenAllAnchors ? 'button' : undefined}
-            accessibilityLabel={
-              onOpenAllAnchors
-                ? `Anchor ${index + 1} of ${total}. View all Anchors.`
-                : `Anchor ${index + 1} of ${total}.`
-            }
+            accessibilityLabel={`Anchor ${index + 1} of ${total}. View all Anchors.`}
             onPress={onOpenAllAnchors}
             disabled={!onOpenAllAnchors}
-            hitSlop={12}
-            style={({ pressed }) => (pressed && onOpenAllAnchors ? styles.pressed : undefined)}
-          >
-            <Text style={styles.positionText}>{anchorPositionLabel(index, total)}</Text>
-          </Pressable>
-        ) : onOpenAllAnchors ? (
-          /**
-           * A single Anchor has no position to report, but the library still
-           * holds released Anchors, so the route must stay reachable.
-           */
+            hitSlop={10}
+          ><Text style={styles.positionText}>{`${index + 1} OF ${total}`}</Text></Pressable>
+        </View>
+        {onOpenAllAnchors ? (
           <Pressable
             testID={slot === 0 ? 'v2-home-all-anchors' : undefined}
             accessibilityRole="button"
@@ -179,24 +166,26 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, thread, 
             hitSlop={12}
             style={({ pressed }) => (pressed ? styles.pressed : undefined)}
           >
-            <Text style={styles.positionText}>ALL ANCHORS</Text>
+            <Text style={styles.allAnchorsText}>All Anchors ›</Text>
           </Pressable>
         ) : null}
       </Animated.View>
 
-      <Animated.View style={[styles.artworkBox, artworkMotion]}>
+      <Animated.View style={[styles.artworkBox, { height: artworkBoxHeight }, artworkMotion]}>
         <View style={styles.construction} pointerEvents="none">
-          <ConstructionStrokes color={accent} />
+          <ConstructionStrokes color={accent} size={constructionSize} />
         </View>
-        <Pressable testID={slot === 0 ? 'v2-home-carousel-active' : undefined}
-          accessibilityRole={slot === 0 ? 'button' : undefined}
-          accessibilityLabel={`${anchor.intentionText}. ${categoryLabel(anchor.category)}. View Anchor details.`}
-          onPressIn={recordTouchStart} onTouchMove={recordTouchMove}
-          onPress={handleOpen} disabled={slot !== 0 || !onOpenActive}>
-          <CircularAnchorRenderer svg={anchorArtworkSvg(anchor)} imageUrl={anchor.enhancedImageUrl}
-            category={anchor.category} size={HERO_ANCHOR_SIZE} appearance="paper"
-            accessibilityLabel={`${categoryLabel(anchor.category)} Anchor artwork`} />
-        </Pressable>
+        <View style={[styles.anchorMount, { width: anchorSize + 14, height: anchorSize + 14, borderRadius: (anchorSize + 14) / 2, borderColor: `${accent}30` }]}>
+          <Pressable testID={slot === 0 ? 'v2-home-carousel-active' : undefined}
+            accessibilityRole={slot === 0 ? 'button' : undefined}
+            accessibilityLabel={`${anchor.intentionText}. ${categoryLabel(anchor.category)}. View Anchor details.`}
+            onPressIn={recordTouchStart} onTouchMove={recordTouchMove}
+            onPress={handleOpen} disabled={slot !== 0 || !onOpenActive}>
+            <CircularAnchorRenderer svg={anchorArtworkSvg(anchor)} imageUrl={anchor.enhancedImageUrl}
+              category={anchor.category} size={anchorSize} appearance="paper"
+              accessibilityLabel={`${categoryLabel(anchor.category)} Anchor artwork`} />
+          </Pressable>
+        </View>
       </Animated.View>
 
       <Animated.View style={textMotion} pointerEvents={slot === 0 ? 'auto' : 'none'}>
@@ -232,13 +221,21 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, thread, 
 
 /** The entire visible hero is one of three mounted items on a shared track. */
 function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, onOpenProgress, onOpenAllAnchors, thread, reduceMotion, testID }: Props) {
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const layout = resolveHomeHeroLayout({
+    platform: Platform.OS,
+    width, height, topInset: insets.top, bottomInset: insets.bottom, selectedIndex,
+    intentions: anchors.map(({ anchor }) => anchor.intentionText),
+  });
   const renderHero = useCallback((summary: V2HomeAnchorSummary, index: number, slot: CarouselSlot, offset: SharedValue<number>, spacing: number) => (
     <AnchorHeroItem summary={summary} index={index} total={anchors.length} slot={slot} offset={offset} spacing={spacing}
+      anchorSize={layout.anchorSize} artworkBoxHeight={layout.artworkBoxHeight} constructionSize={layout.constructionSize}
       thread={index === selectedIndex && thread ? thread : summary.thread}
       onOpenActive={onOpenActive} onOpenProgress={onOpenProgress} onOpenAllAnchors={onOpenAllAnchors} />
-  ), [anchors.length, onOpenActive, onOpenAllAnchors, onOpenProgress, selectedIndex, thread]);
+  ), [anchors.length, layout.anchorSize, layout.artworkBoxHeight, layout.constructionSize, onOpenActive, onOpenAllAnchors, onOpenProgress, selectedIndex, thread]);
   return <View testID={testID}>
-    <V2HomeAnchorCarousel testID="v2-home-carousel" anchors={anchors} selectedIndex={selectedIndex}
+    <V2HomeAnchorCarousel testID="v2-home-carousel" anchors={anchors} selectedIndex={selectedIndex} heroHeight={layout.trackHeight}
       onSelect={onSelect} onOpenActive={onOpenActive} reduceMotion={reduceMotion} renderHero={renderHero} />
   </View>;
 }
@@ -249,7 +246,6 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   artworkBox: {
-    height: 238,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -257,11 +253,21 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
   },
+  anchorMount: {
+    padding: 6,
+    borderWidth: 1,
+    backgroundColor: '#FBF9F4',
+    shadowColor: '#352D25',
+    shadowOpacity: 0.10,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 3,
+  },
   contextRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: 18,
+    minHeight: 28,
   },
   categoryGroup: {
     flexDirection: 'row',
@@ -269,59 +275,64 @@ const styles = StyleSheet.create({
     gap: 9,
   },
   categoryDash: {
-    width: 20,
-    height: 3,
+    width: 22,
+    height: 6,
     borderRadius: 2,
   },
   categoryText: {
     fontFamily: typography.bodyBold,
-    fontSize: 10.5,
-    letterSpacing: 2,
+    fontSize: 10,
+    letterSpacing: 2.3,
     color: colors.text.secondary,
   },
   positionText: {
     fontFamily: typography.bodyMedium,
-    fontSize: 11,
-    letterSpacing: 1.4,
+    fontSize: 10,
+    letterSpacing: 1.2,
     color: colors.text.secondary,
     fontVariant: ['tabular-nums'],
   },
+  categorySeparator: { fontFamily: typography.bodyBold, color: colors.text.secondary, fontSize: 12 },
+  allAnchorsText: { fontFamily: 'EBGaramond-Regular', fontSize: 14, lineHeight: 18, color: colors.text.primary },
   intentionBlock: {
-    marginTop: 18,
+    marginTop: 3,
+    alignItems: 'center',
   },
   intention: {
-    fontFamily: typography.displayBold,
-    fontSize: 34,
-    lineHeight: 37,
-    letterSpacing: -1.3,
+    fontFamily: 'EBGaramond-Medium',
+    fontSize: 24,
+    lineHeight: 27,
+    letterSpacing: -0.5,
     color: colors.text.primary,
+    textAlign: 'center',
   },
   intentionMark: {
-    marginTop: 7,
-    marginLeft: 3,
+    marginTop: 3,
   },
   threadRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 8,
-    marginTop: 18,
+    justifyContent: 'center',
+    gap: 5,
+    marginTop: 5,
+    flexWrap: 'wrap',
   },
   threadValue: {
-    fontFamily: typography.displayBold,
-    fontSize: 19,
+    fontFamily: 'EBGaramond-Medium',
+    fontSize: 23,
     lineHeight: 24,
     letterSpacing: -0.5,
     fontVariant: ['tabular-nums'],
   },
   threadLabel: {
     fontFamily: typography.bodyMedium,
-    fontSize: 13,
+    fontSize: 12,
     lineHeight: 18,
     color: colors.text.primary,
   },
   threadDelta: {
     fontFamily: typography.body,
-    fontSize: 13,
+    fontSize: 12,
     lineHeight: 18,
     color: colors.text.secondary,
   },

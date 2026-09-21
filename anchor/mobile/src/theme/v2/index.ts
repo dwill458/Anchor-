@@ -6,5 +6,5 @@ export { shadows } from './shadows';
 export { AnchorMotion, motion } from './motion';
 export { categories, getCategoryColor, getCategoryFieldColor, getCategorySoftTint, getCategoryPalette } from './categories';
 export type { V2Category } from './categories';
-export { practiceColors, getPracticeColor, getPracticeSoftTint, practiceCardThemes, getPracticeCardTheme } from './practiceColors';
-export type { V2PracticeMode, PracticeCardTheme } from './practiceColors';
+export { practiceColors, getPracticeColor, getPracticeSoftTint, practiceCardThemes, practiceDarkText, getPracticeCardTheme } from './practiceColors';
+export type { V2PracticeMode, PracticeCardTheme, PracticeDarkSurface } from './practiceColors';

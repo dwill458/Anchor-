@@ -6,6 +6,7 @@ import type { HomeChartState } from '@/adapters/v2/home';
 
 type Props = {
   chart: HomeChartState;
+  expanded?: boolean;
   categoryColor?: string;
   onOpenChart?: () => void;
   onRetry?: () => void | Promise<void>;
@@ -13,7 +14,7 @@ type Props = {
 };
 
 const ROUTE_WIDTH = 300;
-const ROUTE_HEIGHT = 40;
+const ROUTE_HEIGHT = 88;
 
 function ArrowRight({ color }: { color: string }) {
   return (
@@ -33,19 +34,22 @@ function ArrowRight({ color }: { color: string }) {
 function RouteContour({
   waypoints,
   accent,
+  expanded,
 }: {
   waypoints: NonNullable<Extract<HomeChartState, { state: 'ready' }>['waypoints']>;
   accent: string;
+  expanded?: boolean;
 }) {
   if (waypoints.length === 0) return null;
 
   const inset = 6;
   const span = ROUTE_WIDTH - inset * 2;
   const step = waypoints.length > 1 ? span / (waypoints.length - 1) : 0;
-  const drift = (index: number) => [0, -4.5, 3, -2.5, 4, -3.5][index % 6];
+  const height = expanded ? 110 : ROUTE_HEIGHT;
+  const drift = (index: number) => [0, -8, 4, -5, 7, -6][index % 6];
   const pointAt = (index: number) => ({
     x: inset + step * index,
-    y: ROUTE_HEIGHT / 2 + drift(index),
+    y: height * 0.66 + drift(index),
   });
 
   const path = waypoints
@@ -66,12 +70,14 @@ function RouteContour({
   return (
     <Svg
       width="100%"
-      height={ROUTE_HEIGHT}
-      viewBox={'0 0 ' + ROUTE_WIDTH + ' ' + ROUTE_HEIGHT}
+      height={height}
+      viewBox={'0 0 ' + ROUTE_WIDTH + ' ' + height}
       preserveAspectRatio="xMidYMid meet"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     >
+      <Path d={`M0 ${height * 0.7} L36 ${height * 0.48} 65 ${height * 0.72} 95 ${height * 0.31} 137 ${height * 0.76} 170 ${height * 0.5} 207 ${height * 0.74} 253 ${height * 0.25} 300 ${height * 0.64}`} stroke={colors.graphite.hairlineStrong} strokeWidth={0.8} opacity={0.7} fill="none" />
+      <Path d={`M0 ${height * 0.9} L47 ${height * 0.65} 82 ${height * 0.87} 119 ${height * 0.59} 161 ${height * 0.93} 207 ${height * 0.58} 251 ${height * 0.8} 300 ${height * 0.49}`} stroke={colors.graphite.hairlineStrong} strokeWidth={0.65} opacity={0.45} fill="none" />
       <Path d={path} stroke={colors.graphite.hairlineStrong} strokeWidth={1.2} fill="none" strokeLinecap="round" />
       {travelledLength > 0 ? (
         <Path
@@ -117,7 +123,7 @@ function RouteContour({
  * - `error`     a known relationship failed to load. Show it and allow retry;
  *               never silently substitute fallback content.
  */
-function V2HomeChartSectionComponent({ chart, categoryColor, onOpenChart, onRetry, testID }: Props) {
+function V2HomeChartSectionComponent({ chart, expanded, categoryColor, onOpenChart, onRetry, testID }: Props) {
   const accent = categoryColor ?? colors.semantic.info;
 
   if (chart.state === 'none' || chart.state === 'resolving') return null;
@@ -161,18 +167,18 @@ function V2HomeChartSectionComponent({ chart, categoryColor, onOpenChart, onRetr
     >
       <View style={styles.kickerRow}>
         <Text style={styles.kicker}>CHART</Text>
-        <Text testID="v2-home-chart-progress" style={styles.progress}>
-          {chart.reachedCount + ' of ' + chart.waypointCount + ' reached'}
-        </Text>
       </View>
 
+      <View style={[styles.route, expanded && styles.expandedRoute]}>
+        <RouteContour waypoints={chart.waypoints} accent={accent} expanded={expanded} />
+      </View>
+
+      <Text testID="v2-home-chart-progress" style={styles.progress}>
+        {chart.reachedCount + ' of ' + chart.waypointCount + ' reached'}
+      </Text>
       <Text testID="v2-home-chart-destination" style={styles.destination}>
         {chart.destinationText}
       </Text>
-
-      <View style={styles.route}>
-        <RouteContour waypoints={chart.waypoints} accent={accent} />
-      </View>
 
       {current ? (
         <View style={styles.waypointBlock}>
@@ -220,22 +226,23 @@ const styles = StyleSheet.create({
   },
   progress: {
     fontFamily: typography.bodyMedium,
-    fontSize: 11,
+    fontSize: 12,
     color: colors.graphite.text.secondary,
     fontVariant: ['tabular-nums'],
   },
   destination: {
-    fontFamily: typography.displayBold,
-    fontSize: 22,
-    lineHeight: 27,
+    fontFamily: 'EBGaramond-Medium',
+    fontSize: 23,
+    lineHeight: 26,
     letterSpacing: -0.6,
     color: colors.graphite.text.primary,
-    marginTop: 12,
+    marginTop: 5,
   },
   route: {
-    marginTop: 18,
-    marginBottom: 2,
+    marginTop: 10,
+    marginBottom: 5,
   },
+  expandedRoute: { marginTop: 14, marginBottom: 10 },
   waypointBlock: {
     marginTop: 16,
   },

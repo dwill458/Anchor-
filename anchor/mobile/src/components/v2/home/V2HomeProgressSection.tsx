@@ -2,10 +2,12 @@ import React, { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { colors, typography } from '@/theme/v2';
-import type { HomeProgressState } from '@/adapters/v2/home';
+import type { HomeProgressState, V2ThreadPresentation } from '@/adapters/v2/home';
+import { threadQualitativeLabel } from '@/adapters/v2/home/threadAdapter';
 
 type Props = {
   progress: HomeProgressState;
+  thread?: V2ThreadPresentation | null;
   categoryColor?: string;
   onOpenProgress?: () => void;
   testID?: string;
@@ -29,7 +31,7 @@ function ArrowRight({ color }: { color: string }) {
  * renders no strength-derived stage, so an earned stage can never appear to
  * regress when Thread Strength falls.
  */
-function V2HomeProgressSectionComponent({ progress, categoryColor, onOpenProgress, testID }: Props) {
+function V2HomeProgressSectionComponent({ progress, thread, categoryColor, onOpenProgress, testID }: Props) {
   if (progress.state === 'none') return null;
 
   const accent = categoryColor ?? colors.semantic.info;
@@ -51,6 +53,11 @@ function V2HomeProgressSectionComponent({ progress, categoryColor, onOpenProgres
           </Text>
         ) : null}
       </View>
+
+      {thread ? <View style={styles.strengthRow}>
+        <Text testID="v2-home-progress-strength" style={[styles.strengthValue, { color: accent }]}>{thread.value === null ? '—' : `${thread.value}%`}</Text>
+        <Text style={styles.strengthStatus}>{thread.value === null ? 'Not yet measured' : threadQualitativeLabel(thread.value, thread.unmeasured)}</Text>
+      </View> : null}
 
       {progress.state === 'empty' ? (
         <Text testID="v2-home-progress-empty" style={styles.emptyCopy}>
@@ -101,6 +108,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.graphite.text.secondary,
   },
+  strengthRow: { flexDirection: 'row', alignItems: 'baseline', gap: 12, marginTop: 11 },
+  strengthValue: { fontFamily: 'EBGaramond-Medium', fontSize: 40, lineHeight: 43 },
+  strengthStatus: { fontFamily: typography.body, fontSize: 12, color: colors.graphite.text.secondary },
   evidenceList: {
     marginTop: 14,
   },

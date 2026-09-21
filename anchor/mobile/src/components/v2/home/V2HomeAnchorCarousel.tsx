@@ -8,7 +8,7 @@ import type { V2HomeAnchorSummary } from '@/adapters/v2/home';
 import { v2Haptics } from '@/hooks/v2';
 import { AnchorMotion } from '@/theme/v2';
 
-export const HERO_ANCHOR_SIZE = 178;
+export const HERO_ANCHOR_SIZE = 154;
 export const NEIGHBOUR_ANCHOR_SIZE = 68;
 const COMMIT_DISTANCE = 56;
 const MIN_COMMIT_TRAVEL = 14;
@@ -27,6 +27,7 @@ type Props = {
   testID?: string;
   /** A complete hero, including its own text, colour and Thread Strength. */
   renderHero?: (summary: V2HomeAnchorSummary, index: number, slot: CarouselSlot, offset: SharedValue<number>, spacing: number) => React.ReactNode;
+  heroHeight?: number;
 };
 
 export function trackFinger(translationX: number): number {
@@ -105,7 +106,7 @@ const TrackSlot = memo(function TrackSlot({
   );
 });
 
-function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpenActive, reduceMotion = false, renderHero, testID }: Props) {
+function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpenActive, reduceMotion = false, renderHero, heroHeight, testID }: Props) {
   const { width: screenWidth } = useWindowDimensions();
   const width = screenWidth - 40;
   // At rest, a 68px scaled neighbour still peeks roughly 40px past the inset.
@@ -224,7 +225,7 @@ function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpe
   if (!active) return null;
   return (
     <GestureDetector gesture={panGesture}>
-      <View testID={testID} style={[styles.track, { width, height: renderHero ? 444 : 238 }]}
+      <View testID={testID} style={[styles.track, { width, height: renderHero ? heroHeight ?? 308 : 216 }]}
         accessibilityRole={canSwitch ? 'adjustable' : undefined}
         accessibilityActions={accessibilityActions}
         onAccessibilityAction={handleAccessibilityAction}>

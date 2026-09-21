@@ -1,10 +1,12 @@
 import React, { memo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import { Image, Pressable, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Path, Polygon } from 'react-native-svg';
 import type { V2HomeTodayState } from '@/adapters/v2/home';
 import { V2_PRACTICE_MODE_BY_ID, V2_RECOMMENDATION_WHY } from '@/constants/v2/practice';
 import { V2_RECOMMENDATION_REASON_COPY } from '@/constants/v2/home';
 import { colors, typography } from '@/theme/v2';
+import { getPracticeCardTheme } from '@/theme/v2/practiceColors';
 
 type Props = {
   today: V2HomeTodayState;
@@ -20,6 +22,13 @@ type Props = {
  * group's own 14px offset.
  */
 const TODAY_BODY_HEIGHT = 118;
+
+const TODAY_ART: Record<string, ImageSourcePropType> = {
+  focus: require('@/assets/practice/today/focus.png'),
+  deep_prime: require('@/assets/practice/today/deep-prime.png'),
+  visualize: require('@/assets/practice/today/visualize.png'),
+  release: require('@/assets/practice/today/release.png'),
+};
 
 function ArrowRight({ color }: { color: string }) {
   return (
@@ -97,20 +106,32 @@ function V2HomeTodaySectionComponent({ today, onBegin, onOpenAllPractices, onRet
 
   const definition = V2_PRACTICE_MODE_BY_ID[today.mode];
   const duration = durationLabel(today.durationSeconds);
-  const headline = duration ? `${definition.title} · ${duration}` : definition.title;
+  const accent = getPracticeCardTheme(today.mode).heroBadgeBg;
 
   return (
     <View testID={testID} style={styles.container}>
+      <View style={styles.practiceArt} pointerEvents="none">
+        <Image
+          testID="v2-home-today-artwork"
+          source={TODAY_ART[today.mode]}
+          style={styles.practiceImage}
+          resizeMode="cover"
+          accessibilityIgnoresInvertColors
+        />
+        <LinearGradient colors={[colors.graphite.base, 'rgba(11,13,17,0)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.artLeftFade} />
+        <LinearGradient colors={['rgba(11,13,17,0)', colors.graphite.base]} style={styles.artBottomFade} />
+        <LinearGradient colors={[colors.graphite.base, 'rgba(11,13,17,0)']} style={styles.artTopFade} />
+      </View>
       <View style={styles.kickerRow}>
-        <Text style={styles.kicker}>TODAY</Text>
+        <View style={[styles.ribbon, { backgroundColor: accent }]}>
+          <Text style={styles.ribbonText}>TODAY</Text>
+          <Svg width={9} height={22} style={styles.ribbonTip}><Polygon points="0,0 9,11 0,22" fill={accent} /></Svg>
+        </View>
         {today.completionSignal ? <Text style={styles.returned}>Returned today</Text> : null}
       </View>
 
       <Text testID="v2-home-today-headline" style={styles.headline}>
-        {headline}
-      </Text>
-      <Text testID="v2-home-today-reason" style={styles.reason}>
-        {todayReasonCopy(today.reason, today.mode)}
+        {definition.title}
       </Text>
 
       <Pressable
@@ -121,9 +142,13 @@ function V2HomeTodaySectionComponent({ today, onBegin, onOpenAllPractices, onRet
         disabled={!onBegin}
         style={({ pressed }) => [styles.begin, pressed && styles.pressed]}
       >
-        <Text style={styles.beginText}>{today.mode === 'release' ? 'Open Release' : 'Begin'}</Text>
+        <Text style={styles.beginText}>{today.mode === 'release' ? 'Open Release' : duration ? `Begin · ${duration}` : 'Begin'}</Text>
         <ArrowRight color={colors.graphite.text.primary} />
       </Pressable>
+
+      <Text testID="v2-home-today-reason" style={styles.reason}>
+        {todayReasonCopy(today.reason, today.mode)}
+      </Text>
 
       {allPractices}
     </View>
@@ -132,7 +157,8 @@ function V2HomeTodaySectionComponent({ today, onBegin, onOpenAllPractices, onRet
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: 4,
+    paddingTop: 0,
+    minHeight: 155,
   },
   kickerRow: {
     flexDirection: 'row',
@@ -145,18 +171,22 @@ const styles = StyleSheet.create({
     letterSpacing: 2.2,
     color: colors.graphite.text.tertiary,
   },
+  ribbon: { alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 4 },
+  ribbonTip: { position: 'absolute', right: -9, top: 0 },
+  ribbonText: { fontFamily: typography.bodyBold, fontSize: 10, letterSpacing: 2.2, color: colors.graphite.text.primary },
   returned: {
     fontFamily: typography.bodyMedium,
     fontSize: 11,
     color: colors.graphite.text.secondary,
   },
   headline: {
-    fontFamily: typography.displayBold,
-    fontSize: 27,
-    lineHeight: 32,
+    fontFamily: 'EBGaramond-Medium',
+    fontSize: 32,
+    lineHeight: 34,
     letterSpacing: -0.8,
     color: colors.graphite.text.primary,
-    marginTop: 12,
+    marginTop: 7,
+    maxWidth: '52%',
   },
   reason: {
     fontFamily: typography.body,
@@ -164,37 +194,45 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: colors.graphite.text.secondary,
     marginTop: 6,
-    maxWidth: 300,
+    maxWidth: '52%',
   },
   begin: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginTop: 20,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: colors.graphite.hairlineStrong,
+    marginTop: 2,
+    paddingVertical: 4,
   },
+  practiceArt: {
+    position: 'absolute',
+    right: 0,
+    top: 2,
+    width: '58%',
+    height: 136,
+    overflow: 'hidden',
+  },
+  practiceImage: { width: '100%', height: '100%' },
+  artLeftFade: { position: 'absolute', left: 0, top: 0, bottom: 0, width: '36%' },
+  artBottomFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 44 },
+  artTopFade: { position: 'absolute', left: 0, right: 0, top: 0, height: 20 },
   beginText: {
-    fontFamily: typography.bodySemiBold,
-    fontSize: 15,
+    fontFamily: 'EBGaramond-Regular',
+    fontSize: 18,
     color: colors.graphite.text.primary,
   },
   allPractices: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginTop: 22,
-    paddingTop: 16,
+    marginTop: 10,
+    paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: colors.graphite.hairline,
   },
   allPracticesText: {
     fontFamily: typography.bodyMedium,
-    fontSize: 13.5,
+    fontSize: 12,
     color: colors.graphite.text.secondary,
   },
   errorCopy: {

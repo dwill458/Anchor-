@@ -10,7 +10,7 @@ function points(path: string): Array<{ x: number; y: number }> {
 
 describe('V2HomeCreamSplice geometry', () => {
   it('keeps a constant height regardless of device width', () => {
-    expect(V2_HOME_SPLICE_HEIGHT).toBe(72);
+    expect(V2_HOME_SPLICE_HEIGHT).toBe(46);
     for (const width of [360, 393, 412, 430]) {
       const deepest = Math.max(...points(buildSplicePath(width)).map((point) => point.y));
       expect(deepest).toBeCloseTo(V2_HOME_SPLICE_HEIGHT * 0.9722, 1);

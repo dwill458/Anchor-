@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect } from 'react';
-import { AppState, ScrollView, StyleSheet, View } from 'react-native';
+import { AppState, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Ellipse, Path } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,10 +8,12 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { V2Button, V2EmptyState, V2InlineError } from '@/components/v2';
 import {
   V2HomeChartSection,
+  V2HomeCategoryEnvironment,
   V2HomeCreamSplice,
   V2HomeHeader,
   V2HomeHero,
   V2HomeProgressSection,
+  V2HomeRecentActivitySection,
   V2HomeTodaySection,
   V2HomeVisionSection,
 } from '@/components/v2/home';
@@ -19,7 +21,7 @@ import { useV2HomeModel } from '@/adapters/v2/home';
 import { useV2ReduceMotion } from '@/hooks/v2';
 import { useV2ThreadEventQueue } from '@/hooks/v2/threadEvents';
 import { V2ThreadEventModal } from '@/components/v2/threadEvents';
-import { colors, getCategoryColor } from '@/theme/v2';
+import { colors, getCategoryColor, typography } from '@/theme/v2';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { useV2DailyShellIntents, type V2DailyShellParamList } from './dailyShell';
 import { isWithinWeeklyInsightReviewWindow } from '@/adapters/v2/weeklyInsight';
@@ -180,6 +182,7 @@ export function V2HomeScreen() {
       <V2HomeHeader
         greeting={model.greeting}
         profileInitial={model.profileInitial}
+        profilePictureUrl={model.profilePictureUrl}
         showChartUtility={false}
         onCreateAnchor={handleCreateAnchor}
         onOpenProfile={intents.onOpenProfile}
@@ -243,22 +246,25 @@ export function V2HomeScreen() {
         {/* ── Cream hero world ── */}
         {header}
 
-        <View style={styles.creamZone}>
-          <V2HomeHero
-            testID="v2-home-hero"
-            anchors={model.anchorList}
-            selectedIndex={model.selectedIndex}
-            thread={model.thread}
-            reduceMotion={reduceMotion}
-            onSelect={handleSelectAnchor}
-            onOpenActive={handleOpenActive}
-            onOpenProgress={handleOpenProgress}
-            onOpenAllAnchors={handleOpenAllAnchors}
-          />
-        </View>
+        <View style={styles.heroEnvironment}>
+          <V2HomeCategoryEnvironment category={model.selectedAnchor.category} reduceMotion={reduceMotion} />
+          <View style={styles.creamZone}>
+            <V2HomeHero
+              testID="v2-home-hero"
+              anchors={model.anchorList}
+              selectedIndex={model.selectedIndex}
+              thread={model.thread}
+              reduceMotion={reduceMotion}
+              onSelect={handleSelectAnchor}
+              onOpenActive={handleOpenActive}
+              onOpenProgress={handleOpenProgress}
+              onOpenAllAnchors={handleOpenAllAnchors}
+            />
+          </View>
 
-        {/* ── Centre splice: one continuous surface, not a floating card ── */}
-        <V2HomeCreamSplice testID="v2-home-splice" />
+          {/* The scene continues through the center of the divider. */}
+          <V2HomeCreamSplice testID="v2-home-splice" />
+        </View>
 
         {/* ── Graphite system world ── */}
         <View testID="v2-home-graphite-zone" style={[styles.graphiteZone, { paddingBottom: 56 + insets.bottom }]}>
@@ -270,31 +276,37 @@ export function V2HomeScreen() {
             onRetry={handleRetryToday}
           />
 
-          {isWithinWeeklyInsightReviewWindow() ? (
-            <View testID="v2-home-weekly-review" style={styles.weeklyReview}>
-              <V2Button accessibilityLabel="Open Weekly Review" variant="secondary" onPress={intents.onOpenWeeklyInsight}>
-                Weekly Review
-              </V2Button>
-            </View>
-          ) : null}
-
           <V2HomeVisionSection
             vision={model.vision}
+            expanded={model.vision.state === 'ready' && model.chart.state !== 'ready'}
             onOpenVision={handleOpenVision}
           />
 
           <V2HomeChartSection
             chart={model.chart}
             categoryColor={categoryColor}
+            expanded={model.chart.state === 'ready' && model.vision.state !== 'ready'}
             onOpenChart={handleOpenChart}
             onRetry={refreshChartModel}
           />
 
-          <V2HomeProgressSection
-            progress={model.progress}
-            categoryColor={categoryColor}
-            onOpenProgress={handleOpenProgress}
-          />
+          {model.vision.state !== 'ready' && model.chart.state !== 'ready' ? (
+            <V2HomeProgressSection
+              progress={model.progress}
+              thread={model.thread}
+              categoryColor={categoryColor}
+              onOpenProgress={handleOpenProgress}
+            />
+          ) : null}
+          <V2HomeRecentActivitySection items={model.recentActivity ?? []} />
+
+          {isWithinWeeklyInsightReviewWindow() ? (
+            <View testID="v2-home-weekly-review" style={styles.weeklyReview}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Open Weekly Review" onPress={intents.onOpenWeeklyInsight}>
+                <Text style={styles.weeklyReviewText}>Weekly Review  →</Text>
+              </Pressable>
+            </View>
+          ) : null}
         </View>
 
         {/* Keeps the graphite field unbroken under an overscroll bounce. */}
@@ -335,15 +347,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: PAGE_INSET,
     paddingTop: 6,
   },
-  creamZone: {
-    paddingHorizontal: PAGE_INSET,
-    paddingBottom: 10,
+  heroEnvironment: {
+    position: 'relative',
     backgroundColor: colors.canvas,
+  },
+  creamZone: {
+    position: 'relative',
+    paddingHorizontal: PAGE_INSET,
+    paddingBottom: 0,
   },
   graphiteZone: {
     flexGrow: 1,
     paddingHorizontal: PAGE_INSET,
-    paddingTop: 26,
+    paddingTop: 18,
     backgroundColor: colors.graphite.base,
   },
   overscrollFill: {
@@ -352,7 +368,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.graphite.base,
   },
   weeklyReview: {
-    marginTop: 22,
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.graphite.hairline,
+  },
+  weeklyReviewText: {
+    fontFamily: typography.bodyMedium,
+    fontSize: 12,
+    color: colors.graphite.text.secondary,
   },
   statusZone: {
     paddingHorizontal: PAGE_INSET,

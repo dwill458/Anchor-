@@ -1,11 +1,13 @@
 import React, { memo } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import { colors, typography } from '@/theme/v2';
 import type { HomeVisionState } from '@/adapters/v2/home';
 
 type Props = {
   vision: HomeVisionState;
+  expanded?: boolean;
   onOpenVision?: () => void;
   testID?: string;
 };
@@ -26,7 +28,7 @@ function ArrowRight({ color }: { color: string }) {
  * Vision" placeholder, no empty frame, no stock image, no reserved height. The
  * next section closes the gap. Only persisted Vision assets and copy render.
  */
-function V2HomeVisionSectionComponent({ vision, onOpenVision, testID }: Props) {
+function V2HomeVisionSectionComponent({ vision, expanded, onOpenVision, testID }: Props) {
   if (vision.state !== 'ready') return null;
 
   const tiles = vision.tiles ?? [];
@@ -52,25 +54,25 @@ function V2HomeVisionSectionComponent({ vision, onOpenVision, testID }: Props) {
         {vision.seenToday ? <Text style={styles.seen}>Seen today</Text> : null}
       </View>
 
-      {heroImage ? (
-        <Image testID="v2-home-vision-image" source={{ uri: heroImage }} style={styles.image} resizeMode="cover" accessibilityIgnoresInvertColors />
-      ) : null}
-
-      {title ? (
-        <Text testID="v2-home-vision-title" style={styles.title}>
-          {title}
-        </Text>
-      ) : null}
-      {body ? (
-        <Text numberOfLines={2} style={styles.body}>
-          {body}
-        </Text>
-      ) : null}
-
-      <View style={styles.link}>
-        <Text style={styles.linkText}>View Vision</Text>
-        <ArrowRight color={colors.graphite.text.tertiary} />
-      </View>
+      {expanded && heroImage ? (
+        <View style={styles.expandedFrame}>
+          <Image testID="v2-home-vision-image" source={{ uri: heroImage }} style={styles.expandedImage} resizeMode="cover" accessibilityIgnoresInvertColors />
+          <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.imageScrim} />
+          <View style={styles.imageCopy}>
+            {title || body ? <Text testID={title ? 'v2-home-vision-title' : undefined} numberOfLines={2} style={styles.imageTitle}>{title || body}</Text> : null}
+            <View style={styles.imageLink}><Text style={styles.imageLinkText}>Revisit your Vision</Text><ArrowRight color="#FFFFFF" /></View>
+          </View>
+        </View>
+      ) : (
+        <View style={styles.compactRow}>
+          {heroImage ? <Image testID="v2-home-vision-image" source={{ uri: heroImage }} style={styles.compactImage} resizeMode="cover" accessibilityIgnoresInvertColors /> : null}
+          <View style={styles.compactCopy}>
+            {title || body ? <Text testID={title ? 'v2-home-vision-title' : undefined} numberOfLines={2} style={styles.title}>{title || body}</Text> : null}
+            {title && body ? <Text numberOfLines={2} style={styles.body}>{body}</Text> : null}
+            <View style={styles.link}><Text style={styles.linkText}>Revisit your Vision</Text><ArrowRight color={colors.graphite.text.tertiary} /></View>
+          </View>
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -98,37 +100,38 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.graphite.text.secondary,
   },
-  image: {
-    width: '100%',
-    height: 168,
-    borderRadius: 4,
-    marginTop: 14,
-    backgroundColor: colors.graphite.surface,
-  },
+  expandedFrame: { marginTop: 12, height: 220, overflow: 'hidden', borderRadius: 5, backgroundColor: colors.graphite.surface },
+  expandedImage: { width: '100%', height: '100%' },
+  imageScrim: { ...StyleSheet.absoluteFillObject },
+  imageCopy: { position: 'absolute', left: 12, right: 12, bottom: 10 },
+  imageTitle: { fontFamily: 'EBGaramond-Medium', fontSize: 21, lineHeight: 24, color: '#FFFFFF' },
+  imageLink: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 5 },
+  imageLinkText: { fontFamily: typography.bodyMedium, fontSize: 12, color: '#FFFFFF' },
+  compactRow: { flexDirection: 'row', gap: 14, marginTop: 12, alignItems: 'center' },
+  compactImage: { width: 100, height: 84, borderRadius: 5, backgroundColor: colors.graphite.surface },
+  compactCopy: { flex: 1, minWidth: 0 },
   title: {
-    fontFamily: typography.displayBold,
-    fontSize: 22,
-    lineHeight: 27,
-    letterSpacing: -0.6,
+    fontFamily: 'EBGaramond-Regular',
+    fontSize: 18,
+    lineHeight: 21,
     color: colors.graphite.text.primary,
-    marginTop: 14,
   },
   body: {
     fontFamily: typography.body,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 12,
+    lineHeight: 16,
     color: colors.graphite.text.secondary,
-    marginTop: 6,
+    marginTop: 4,
   },
   link: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginTop: 14,
+    marginTop: 7,
   },
   linkText: {
     fontFamily: typography.bodyMedium,
-    fontSize: 13.5,
+    fontSize: 12,
     color: colors.graphite.text.secondary,
   },
   pressed: {

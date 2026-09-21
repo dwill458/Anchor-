@@ -197,7 +197,7 @@ describe('Thread Strength states', () => {
     oneAnchor();
     const anchor = useAnchorStore.getState().anchors[0];
     renderHome({}, { thread: { ...toThreadPresentation(anchor), delta: 8, trend: 'up' } });
-    expect(screen.getByTestId('v2-home-thread-delta').props.children).toBe('· +8 this week');
+    expect(screen.getByTestId('v2-home-thread-delta').props.children).toBe('↑ +8% this week');
   });
 });
 
@@ -205,7 +205,7 @@ describe('Today', () => {
   it('renders product language, never the server reason identifier', () => {
     oneAnchor();
     renderHome();
-    expect(screen.getByTestId('v2-home-today-headline').props.children).toBe('Focus · 30 sec');
+    expect(screen.getByTestId('v2-home-today-headline').props.children).toBe('Focus');
     expect(screen.getByTestId('v2-home-today-reason').props.children).toBe('Build the thread today.');
     expect(screen.queryByText('daily_focus')).toBeNull();
     expect(screen.queryByText(/_/)).toBeNull();
@@ -259,13 +259,14 @@ describe('Today', () => {
 });
 
 describe('Conditional Vision and Chart', () => {
-  it('state 1 — one Anchor, no Vision, no Chart: renders neither and reserves no space', () => {
+    it('state 1 — one Anchor, no Vision, no Chart: renders neither and reserves no space', () => {
     oneAnchor();
     renderHome();
     expect(screen.queryByTestId('v2-home-vision')).toBeNull();
     expect(screen.queryByTestId('v2-home-chart')).toBeNull();
     expect(screen.queryByText('VISION')).toBeNull();
-    expect(screen.queryByText('CHART')).toBeNull();
+      expect(screen.queryByText('CHART')).toBeNull();
+      expect(screen.getByTestId('v2-home-progress')).toBeTruthy();
   });
 
   it('renders NO Chart placeholder of any kind when no Course exists', () => {
@@ -290,22 +291,24 @@ describe('Conditional Vision and Chart', () => {
     expect(screen.getByTestId('v2-home-chart-loading')).toBeTruthy();
   });
 
-  it('state 2 — Vision, no Chart', () => {
+    it('state 2 — Vision, no Chart', () => {
     oneAnchor();
     renderHome({}, { vision: readyVision });
     expect(screen.getByTestId('v2-home-vision')).toBeTruthy();
     expect(screen.getByTestId('v2-home-vision-image')).toBeTruthy();
-    expect(screen.queryByTestId('v2-home-chart')).toBeNull();
+      expect(screen.queryByTestId('v2-home-chart')).toBeNull();
+      expect(screen.queryByTestId('v2-home-progress')).toBeNull();
   });
 
-  it('state 3 — Chart, no Vision, with real Course data', () => {
+    it('state 3 — Chart, no Vision, with real Course data', () => {
     oneAnchor();
     renderHome({}, { chart: readyChart });
     expect(screen.queryByTestId('v2-home-vision')).toBeNull();
     expect(screen.getByTestId('v2-home-chart-destination').props.children).toBe('Reach 1,000 active users');
     expect(screen.getByTestId('v2-home-chart-waypoint').props.children).toBe('Contact 3 creators');
     expect(screen.getByTestId('v2-home-chart-one-move').props.children).toBe('Contact 3 creators');
-    expect(screen.getByTestId('v2-home-chart-progress').props.children).toBe('1 of 2 reached');
+      expect(screen.getByTestId('v2-home-chart-progress').props.children).toBe('1 of 2 reached');
+      expect(screen.queryByTestId('v2-home-progress')).toBeNull();
   });
 
   it('state 4 — Vision and Chart both render from real data', () => {
@@ -313,6 +316,7 @@ describe('Conditional Vision and Chart', () => {
     renderHome({}, { vision: readyVision, chart: readyChart });
     expect(screen.getByTestId('v2-home-vision')).toBeTruthy();
     expect(screen.getByTestId('v2-home-chart')).toBeTruthy();
+    expect(screen.queryByTestId('v2-home-progress')).toBeNull();
   });
 
   it('renders nothing for Vision while loading or on failure — never a placeholder scene', () => {
@@ -351,7 +355,8 @@ describe('Hero carousel', () => {
   it('state 5 — shows peeking neighbours and a numeric position with multiple Anchors', () => {
     twoAnchors();
     renderHome();
-    expect(screen.getByText('01 / 02')).toBeTruthy();
+    expect(screen.getByText('1 OF 2')).toBeTruthy();
+    expect(screen.getByTestId('v2-home-all-anchors')).toBeTruthy();
     expect(screen.getByTestId('v2-home-carousel-previous')).toBeTruthy();
     expect(screen.getByTestId('v2-home-carousel-next')).toBeTruthy();
   });
@@ -371,12 +376,12 @@ describe('Hero carousel', () => {
     expect(useAnchorStore.getState().currentAnchorId).toBe('b');
   });
 
-  it('centres a single Anchor with no neighbours and no meaningless position indicator', () => {
+  it('centres a single Anchor with no neighbours and a truthful count', () => {
     oneAnchor();
     renderHome();
     expect(screen.queryByTestId('v2-home-carousel-previous')).toBeNull();
     expect(screen.queryByTestId('v2-home-carousel-next')).toBeNull();
-    expect(screen.queryByTestId('v2-home-anchor-position')).toBeNull();
+    expect(screen.getByText('1 OF 1')).toBeTruthy();
   });
 
   it('updates every contextual module atomically when the Anchor changes', () => {

@@ -1,9 +1,9 @@
 import React, { memo, useState } from 'react';
-import { StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
+import { Image, StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { colors } from '@/theme/v2';
 
-export const V2_HOME_SPLICE_HEIGHT = 72;
+export const V2_HOME_SPLICE_HEIGHT = 46;
 /** Where the keel point sits horizontally: exactly the centre axis. */
 export const V2_HOME_SPLICE_KEEL_RATIO = 0.5;
 
@@ -49,30 +49,19 @@ export function buildSplicePath(width: number, height: number = V2_HOME_SPLICE_H
   ].join(' ');
 }
 
-const MARK_SIZE = 26;
+const MARK_WIDTH = 23;
+const MARK_HEIGHT = 29;
 
 function AnchorBrandMark() {
-  return (
-    <Svg width={MARK_SIZE} height={MARK_SIZE} viewBox="0 0 32 32" fill="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <Path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M16 2.5L5.5 19H26.5L16 2.5ZM16 8.5C14.62 8.5 13.5 9.62 13.5 11C13.5 12.38 14.62 13.5 16 13.5C17.38 13.5 18.5 12.38 18.5 11C18.5 9.62 17.38 8.5 16 8.5Z"
-        fill={colors.graphite.markInk}
-      />
-      <Path
-        d="M3.5 21.5C6.8 26.2 11.1 28.5 16 28.5C20.9 28.5 25.2 26.2 28.5 21.5C25.2 23.8 20.8 25 16 25C11.2 25 6.8 23.8 3.5 21.5Z"
-        fill={colors.graphite.markInk}
-      />
-    </Svg>
-  );
+  return <Image source={require('@/assets/home/anchor-brand-mark.png')}
+    style={styles.brandArtwork} resizeMode="contain" />;
 }
 
 /**
  * Cream-to-graphite transition beneath the Home hero. One continuous physical
  * surface: the cream field narrows symmetrically into a single keel point on
- * the centre axis, with the black Anchor brand mark sitting in the cream
- * negative space immediately above that point. The splice itself is not an
+ * the centre axis, with the black Anchor brand mark sitting over the continuous
+ * landscape immediately above that point. The splice itself is not an
  * anchor shape, and it is drawn — not stretched — at the measured width.
  */
 function V2HomeCreamSpliceComponent({ testID }: { testID?: string }) {
@@ -100,7 +89,11 @@ function V2HomeCreamSpliceComponent({ testID }: { testID?: string }) {
         viewBox={'0 -2 ' + width + ' ' + (V2_HOME_SPLICE_HEIGHT + 2)}
         preserveAspectRatio="none"
       >
-        <Path d={buildSplicePath(width)} fill={colors.canvas} />
+        <Path
+          d={`M 0 -2 H ${width} V ${V2_HOME_SPLICE_HEIGHT} H 0 Z ${buildSplicePath(width)}`}
+          fillRule="evenodd"
+          fill={colors.graphite.base}
+        />
       </Svg>
       <View style={styles.mark}>
         <AnchorBrandMark />
@@ -114,16 +107,17 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: '100%',
     height: V2_HOME_SPLICE_HEIGHT,
-    backgroundColor: colors.graphite.base,
+    backgroundColor: 'transparent',
   },
   mark: {
     position: 'absolute',
-    top: 12,
+    top: 3,
     left: '50%',
-    marginLeft: -MARK_SIZE / 2,
-    width: MARK_SIZE,
-    height: MARK_SIZE,
+    marginLeft: -MARK_WIDTH / 2,
+    width: MARK_WIDTH,
+    height: MARK_HEIGHT,
   },
+  brandArtwork: { width: MARK_WIDTH, height: MARK_HEIGHT },
 });
 
 /**

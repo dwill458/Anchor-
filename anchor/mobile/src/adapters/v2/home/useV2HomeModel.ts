@@ -215,9 +215,14 @@ export function useV2HomeModel(): V2HomeModel {
       courseMatchesAnchor(activeCourse, selectedAnchor, { isOnlyActiveAnchor: activeAnchors.length === 1 }),
   );
 
+  const progressSessions = useMemo(() => {
+    if (Array.isArray(practiceHistory) && practiceHistory.length > 0) return practiceHistory;
+    return sessionLog ?? [];
+  }, [practiceHistory, sessionLog]);
+
   const progress = useMemo<HomeProgressState>(
-    () => toHomeProgressState({ anchor: selectedAnchor, courseLogs: courseLogEntries, sessions: sessionLog, ownsActiveChart }),
-    [courseLogEntries, ownsActiveChart, selectedAnchor, sessionLog],
+    () => toHomeProgressState({ anchor: selectedAnchor, courseLogs: courseLogEntries, sessions: progressSessions, ownsActiveChart }),
+    [courseLogEntries, ownsActiveChart, selectedAnchor, progressSessions],
   );
   const recentActivity = useMemo(() => toHomeRecentActivity({
     sessions: practiceHistory,
