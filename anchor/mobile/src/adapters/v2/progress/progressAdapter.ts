@@ -16,12 +16,13 @@ import type {
 } from './types';
 
 export function resolveEvolutionStage(
-  threadStrength: number,
-): 'Forming' | 'Grounded' | 'Rooted' | 'Embedded' | 'Sovereign' {
-  if (threadStrength >= 90) return 'Sovereign';
-  if (threadStrength >= 75) return 'Embedded';
-  if (threadStrength >= 50) return 'Rooted';
-  if (threadStrength >= 25) return 'Grounded';
+  threadStrength: number | null,
+): 'Unestablished' | 'Forming' | 'Building' | 'Established' | 'Integrated' | 'Reinforced' {
+  if (threadStrength === null) return 'Unestablished';
+  if (threadStrength >= 90) return 'Reinforced';
+  if (threadStrength >= 75) return 'Integrated';
+  if (threadStrength >= 50) return 'Established';
+  if (threadStrength >= 25) return 'Building';
   return 'Forming';
 }
 
@@ -302,7 +303,7 @@ export function toV2ProgressModel(
 
   const storedStrength = anchor.threadStrength;
   const hasStored = typeof storedStrength === 'number' && Number.isFinite(storedStrength);
-  const threadStrength = hasStored ? Math.min(100, Math.max(0, Math.round(storedStrength as number))) : 0;
+  const threadStrength = hasStored ? Math.min(100, Math.max(0, Math.round(storedStrength as number))) : null;
   const unmeasured = !hasStored;
 
   const qualitativeLabel = threadQualitativeLabel(threadStrength, unmeasured);

@@ -90,14 +90,14 @@ describe('V2 Progress Adapter', () => {
     it('maps strength to locked evolution stages correctly', () => {
       expect(resolveEvolutionStage(0)).toBe('Forming');
       expect(resolveEvolutionStage(24)).toBe('Forming');
-      expect(resolveEvolutionStage(25)).toBe('Grounded');
-      expect(resolveEvolutionStage(49)).toBe('Grounded');
-      expect(resolveEvolutionStage(50)).toBe('Rooted');
-      expect(resolveEvolutionStage(74)).toBe('Rooted');
-      expect(resolveEvolutionStage(75)).toBe('Embedded');
-      expect(resolveEvolutionStage(89)).toBe('Embedded');
-      expect(resolveEvolutionStage(90)).toBe('Sovereign');
-      expect(resolveEvolutionStage(100)).toBe('Sovereign');
+      expect(resolveEvolutionStage(25)).toBe('Building');
+      expect(resolveEvolutionStage(49)).toBe('Building');
+      expect(resolveEvolutionStage(50)).toBe('Established');
+      expect(resolveEvolutionStage(74)).toBe('Established');
+      expect(resolveEvolutionStage(75)).toBe('Integrated');
+      expect(resolveEvolutionStage(89)).toBe('Integrated');
+      expect(resolveEvolutionStage(90)).toBe('Reinforced');
+      expect(resolveEvolutionStage(100)).toBe('Reinforced');
     });
   });
 
@@ -169,7 +169,7 @@ describe('V2 Progress Adapter', () => {
       expect(model).not.toBeNull();
       expect(model?.anchorId).toBe('anchor-100');
       expect(model?.threadStrength).toBe(65);
-      expect(model?.highestEvolutionStage).toBe('Rooted');
+      expect(model?.highestEvolutionStage).toBe('Established');
       expect(model?.practiceSummary.totalSessions).toBe(3);
       expect(model?.waypointsReachedCount).toBe(2);
       expect(model?.events.length).toBeGreaterThan(0);
@@ -178,9 +178,9 @@ describe('V2 Progress Adapter', () => {
     it('handles unmeasured thread strength gracefully', () => {
       const unmeasuredAnchor = { ...mockAnchor, threadStrength: undefined };
       const model = toV2ProgressModel(unmeasuredAnchor, [], []);
-      expect(model?.threadStrength).toBe(0);
+      expect(model?.threadStrength).toBeNull();
       expect(model?.unmeasured).toBe(true);
-      expect(model?.highestEvolutionStage).toBe('Forming');
+      expect(model?.highestEvolutionStage).toBe('Unestablished');
     });
   });
 });

@@ -22,9 +22,9 @@ describe('threadAdapter', () => {
   });
 
   it('labels strength qualitatively without inventing movement', () => {
-    expect(threadQualitativeLabel(50, false)).toBe('Taking shape');
-    expect(threadQualitativeLabel(0, true)).toBe('Not yet measured');
-    expect(threadQualitativeLabel(95, false)).toBe('Fully tensioned');
+    expect(threadQualitativeLabel(50, false)).toBe('Established');
+    expect(threadQualitativeLabel(null, true)).toBe('Not established');
+    expect(threadQualitativeLabel(95, false)).toBe('Reinforced');
   });
 });
 

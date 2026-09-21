@@ -44,21 +44,30 @@ export const DORMANT_FLOOR = 10;
 
 export function calculateEffectivePracticeGain(
   currentStrength: number | null,
-  practiceType: ThreadPracticeType
+  practiceType: ThreadPracticeType,
+  sameDaySessionCount: number = 1
 ): { beforeStrength: number; afterStrength: number; delta: number } {
   const baseGain = BASE_PRACTICE_GAINS[practiceType];
+  const sameDayMultiplier = sameDaySessionCount <= 1 ? 1.0 : sameDaySessionCount === 2 ? 0.5 : 0.0;
+
   if (currentStrength === null) {
-    if (baseGain === 0) {
+    if (baseGain === 0 || sameDayMultiplier === 0) {
       return { beforeStrength: 0, afterStrength: 0, delta: 0 };
     }
-    const effectiveGain = Math.max(1, Math.round(baseGain * (1 - INITIAL_ESTABLISHED_BASE / 120)));
+    const effectiveGain = Math.max(
+      1,
+      Math.round(baseGain * sameDayMultiplier * (1 - INITIAL_ESTABLISHED_BASE / 120))
+    );
     const afterStrength = INITIAL_ESTABLISHED_BASE + effectiveGain;
     return { beforeStrength: 0, afterStrength, delta: afterStrength };
   }
-  if (baseGain === 0) {
+  if (baseGain === 0 || sameDayMultiplier === 0) {
     return { beforeStrength: currentStrength, afterStrength: currentStrength, delta: 0 };
   }
-  const effectiveGain = Math.max(1, Math.round(baseGain * (1 - currentStrength / 120)));
+  const effectiveGain = Math.max(
+    1,
+    Math.round(baseGain * sameDayMultiplier * (1 - currentStrength / 120))
+  );
   const afterStrength = Math.min(100, currentStrength + effectiveGain);
   const delta = afterStrength - currentStrength;
   return { beforeStrength: currentStrength, afterStrength, delta };
@@ -230,14 +239,24 @@ export class ThreadStrengthService {
     let strength: number | null = null;
     let previous: Date | null = null;
     let requested: ThreadMovement | null = null;
+    let currentDateKey: string | null = null;
+    let sameDaySessionCount = 0;
     for (const movement of movements) {
+      const dateKey = movement.completedAt.toISOString().slice(0, 10);
+      if (dateKey === currentDateKey) {
+        sameDaySessionCount += 1;
+      } else {
+        currentDateKey = dateKey;
+        sameDaySessionCount = 1;
+      }
       if (previous) {
         const missedDays = countDecayEligibleDays(previous, movement.completedAt);
         strength = applyDecay(strength, missedDays);
       }
       const { beforeStrength, afterStrength, delta } = calculateEffectivePracticeGain(
         strength,
-        movement.practiceType as ThreadPracticeType
+        movement.practiceType as ThreadPracticeType,
+        sameDaySessionCount
       );
       await tx.threadV2Movement.update({
         where: { id: movement.id },
@@ -423,9 +442,19 @@ export class ThreadStrengthService {
 
     let strength: number | null = null;
     let cursor: Date | null = null;
+    let currentDateKey: string | null = null;
+    let sameDaySessionCount = 0;
 
     for (const movement of movements) {
       if (movement.completedAt > targetDate) break;
+
+      const dateKey = movement.completedAt.toISOString().slice(0, 10);
+      if (dateKey === currentDateKey) {
+        sameDaySessionCount += 1;
+      } else {
+        currentDateKey = dateKey;
+        sameDaySessionCount = 1;
+      }
 
       if (cursor) {
         const missedDays = countDecayEligibleDays(cursor, movement.completedAt, restDays);
@@ -434,7 +463,8 @@ export class ThreadStrengthService {
 
       const { afterStrength } = calculateEffectivePracticeGain(
         strength,
-        movement.practiceType as ThreadPracticeType
+        movement.practiceType as ThreadPracticeType,
+        sameDaySessionCount
       );
       strength = afterStrength;
       cursor = movement.completedAt;

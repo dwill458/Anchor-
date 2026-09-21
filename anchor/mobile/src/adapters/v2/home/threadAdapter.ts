@@ -8,6 +8,7 @@ import type { Anchor } from '@/types';
  */
 export type V2ThreadPresentation = {
   value: number | null;
+  status?: 'unestablished' | 'active' | 'grace' | 'decaying' | 'dormant';
   category?: string | null;
   /** Only set when a real, domain-provided movement value exists. */
   previousValue?: number;
@@ -21,23 +22,36 @@ export type V2ThreadPresentation = {
 const clamp = (value: number): number =>
   Math.min(100, Math.max(0, Math.round(Number.isFinite(value) ? value : 0)));
 
-export function toThreadPresentation(anchor: Pick<Anchor, 'category' | 'threadStrength'>): V2ThreadPresentation {
+export function toThreadPresentation(
+  anchor: Pick<Anchor, 'category' | 'threadStrength'> & {
+    threadStatus?: 'unestablished' | 'active' | 'grace' | 'decaying' | 'dormant';
+  }
+): V2ThreadPresentation {
   const stored = anchor.threadStrength;
   const hasStored = typeof stored === 'number' && Number.isFinite(stored);
   return {
     value: hasStored ? clamp(stored as number) : null,
+    status: anchor.threadStatus ?? (hasStored ? 'active' : 'unestablished'),
     category: anchor.category,
     unmeasured: !hasStored,
   };
 }
 
-/** Grounded qualitative label for a strength value. Mirrors the locked mockup copy. */
-export function threadQualitativeLabel(value: number, unmeasured: boolean): string {
-  if (unmeasured) return 'Not yet measured';
-  if (value === 0) return 'Dormant';
-  if (value < 25) return 'Fraying';
-  if (value < 45) return 'Slipping';
-  if (value < 70) return 'Taking shape';
-  if (value < 90) return 'Holding strong';
-  return 'Fully tensioned';
+/** Qualitative label for a strength value matching Anchor's progression levels. */
+export function threadQualitativeLabel(value: number | null, unmeasured: boolean): string {
+  if (unmeasured || value === null) return 'Not established';
+  if (value <= 10) return 'Dormant';
+  if (value < 25) return 'Forming';
+  if (value < 50) return 'Building';
+  if (value < 75) return 'Established';
+  if (value < 90) return 'Integrated';
+  return 'Reinforced';
+}
+
+export function threadStatusSublabel(value: number | null, status?: string): string {
+  if (value === null || status === 'unestablished') return 'Begin reinforcing';
+  if (value <= 10 || status === 'dormant') return 'Ready to rebuild';
+  if (status === 'grace') return 'Grace period active';
+  if (status === 'decaying') return 'Softening';
+  return 'Active reinforcement';
 }

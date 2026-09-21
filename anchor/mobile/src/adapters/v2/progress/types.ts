@@ -55,10 +55,10 @@ export interface V2ProgressModel {
   anchorId: string;
   intention: string;
   category?: string | null;
-  threadStrength: number;
+  threadStrength: number | null;
   unmeasured: boolean;
   qualitativeLabel: string;
-  highestEvolutionStage: 'Forming' | 'Grounded' | 'Rooted' | 'Embedded' | 'Sovereign';
+  highestEvolutionStage: 'Unestablished' | 'Forming' | 'Building' | 'Established' | 'Integrated' | 'Reinforced';
   practiceSummary: V2PracticeModeBreakdown;
   waypointsReachedCount: number;
   events: V2ThreadEventItem[];
