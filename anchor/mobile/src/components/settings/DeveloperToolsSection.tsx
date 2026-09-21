@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import NotificationService, { type NotificationType } from '@/services/NotificationService';
+import { resetFirstRunStore } from '@/services/devOnboardingService';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -179,15 +180,7 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
           style: 'destructive',
           onPress: async () => {
             try {
-              try {
-                // eslint-disable-next-line @typescript-eslint/no-var-requires
-                const pathPart = ['v2', 'firstRunStore'].join('/');
-                // eslint-disable-next-line @typescript-eslint/no-var-requires
-                const firstRunModule = require(`@/stores/${pathPart}`);
-                firstRunModule?.useFirstRunStore?.getState()?.reset();
-              } catch {
-                // Ignore if firstRunStore reset fails
-              }
+              await resetFirstRunStore();
               setHasCompletedOnboarding(false);
               setDeveloperSkipOnboardingEnabled(false);
               if (onResetOnboarding) await onResetOnboarding();

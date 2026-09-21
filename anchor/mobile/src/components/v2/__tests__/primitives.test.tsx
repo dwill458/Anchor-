@@ -29,7 +29,7 @@ describe('V2 interactive primitives', () => {
     const renderer = getByTestId('anchor');
     expect(renderer.props.accessibilityRole).toBe('image');
     expect(renderer.props.accessibilityLabel).toContain('Career');
-    expect(renderer.props.style).toEqual(expect.arrayContaining([expect.objectContaining({ width: 64, height: 64, backgroundColor: '#3157D81F' })]));
+    expect(renderer.props.style).toEqual(expect.arrayContaining([expect.objectContaining({ width: 64, height: 64, backgroundColor: '#A879321F' })]));
   });
 
   it('clamps display values only and uses direct values in reduced-motion mode', () => {

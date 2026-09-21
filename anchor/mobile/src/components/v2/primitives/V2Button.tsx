@@ -13,6 +13,9 @@ type Props = {
   iconRight?: React.ReactNode;
   loading?: boolean;
   disabled?: boolean;
+  /** Overrides the label colour when the container background is overridden
+   *  too — a light accent fill cannot carry the default inverse label. */
+  textColor?: string;
   accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
   testID?: string;
@@ -27,6 +30,7 @@ export function V2Button({
   iconRight,
   loading = false,
   disabled = false,
+  textColor: textColorOverride,
   accessibilityLabel,
   style,
   testID,
@@ -34,9 +38,10 @@ export function V2Button({
   const inactive = disabled || loading;
   const textColor = inactive
     ? colors.text.disabled
-    : variant === 'primary' || variant === 'destructive'
-    ? colors.text.inverse
-    : colors.text.primary;
+    : textColorOverride ??
+      (variant === 'primary' || variant === 'destructive'
+        ? colors.text.inverse
+        : colors.text.primary);
 
   return (
     <Pressable

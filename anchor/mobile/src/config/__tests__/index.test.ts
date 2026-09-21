@@ -37,4 +37,38 @@ describe('config google auth defaults', () => {
       expect(config.GOOGLE_IOS_CLIENT_ID).toBe('ios-client-id');
     });
   });
+
+  it('resolves API_URL prioritizing EXPO_PUBLIC_API_URL even in __DEV__', () => {
+    (global as any).__DEV__ = true;
+    process.env.EXPO_PUBLIC_DEV_API_URL = 'http://127.0.0.1:8000';
+    process.env.EXPO_PUBLIC_API_URL = 'https://anchor-production-26bf.up.railway.app';
+
+    jest.isolateModules(() => {
+      const config = require('../index');
+      expect(config.API_URL).toBe('https://anchor-production-26bf.up.railway.app');
+    });
+  });
+
+  it('falls back to EXPO_PUBLIC_DEV_API_URL in __DEV__ when EXPO_PUBLIC_API_URL is unset', () => {
+    (global as any).__DEV__ = true;
+    process.env.EXPO_PUBLIC_DEV_API_URL = 'http://127.0.0.1:8000';
+    delete process.env.EXPO_PUBLIC_API_URL;
+
+    jest.isolateModules(() => {
+      const config = require('../index');
+      expect(config.API_URL).toBe('http://127.0.0.1:8000');
+    });
+  });
+
+  it('resolves API_URL in production from EXPO_PUBLIC_API_URL', () => {
+    (global as any).__DEV__ = false;
+    process.env.EXPO_PUBLIC_DEV_API_URL = 'http://127.0.0.1:8000';
+    process.env.EXPO_PUBLIC_API_URL = 'https://anchor-production-26bf.up.railway.app';
+
+    jest.isolateModules(() => {
+      const config = require('../index');
+      expect(config.API_URL).toBe('https://anchor-production-26bf.up.railway.app');
+    });
+  });
 });
+
