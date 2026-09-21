@@ -346,26 +346,28 @@ export class ThreadStrengthService {
    * Evaluates thread strength as of a target point in time based on historical movements and decay.
    */
   calculateStrengthAtDate(
-    createdAt: Date,
+    _createdAt: Date,
     movements: Array<{ practiceType: string; completedAt: Date }>,
     targetDate: Date,
     restDays: readonly number[] = []
   ): number {
     let strength = STARTING_STRENGTH;
-    let cursor = createdAt;
+    let cursor: Date | null = null;
 
     for (const movement of movements) {
       if (movement.completedAt > targetDate) break;
 
-      const missedDays = countDecayEligibleDays(cursor, movement.completedAt, restDays);
-      strength = applyDecay(strength, missedDays);
+      if (cursor) {
+        const missedDays = countDecayEligibleDays(cursor, movement.completedAt, restDays);
+        strength = applyDecay(strength, missedDays);
+      }
 
       const gain = LEGACY_V1_DEFAULT_GAIN[movement.practiceType as ThreadPracticeType] ?? 25;
       strength = Math.min(100, strength + gain);
       cursor = movement.completedAt;
     }
 
-    if (targetDate > cursor) {
+    if (cursor && targetDate > cursor) {
       const missedDays = countDecayEligibleDays(cursor, targetDate, restDays);
       strength = applyDecay(strength, missedDays);
     }

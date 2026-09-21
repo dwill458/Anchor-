@@ -63,6 +63,13 @@ describe('visionAdapter', () => {
       });
     });
 
+    it('does not show the previous Anchor Vision during selection changes', () => {
+      expect(toV2VisionPresentationState(mockVision, 'anchor-other')).toEqual({
+        state: 'none',
+        anchorId: 'anchor-other',
+      });
+    });
+
     it('returns state none when all scenes are archived', () => {
       const allArchived: VisionReadModel = {
         ...mockVision,

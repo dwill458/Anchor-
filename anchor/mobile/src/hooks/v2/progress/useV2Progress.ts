@@ -31,7 +31,12 @@ export function useV2Progress(options: UseV2ProgressOptions = {}): UseV2Progress
   const refreshCourseLogs = useCourseLogStore((s) => s.refresh);
   const courseLogLoading = useCourseLogStore((s) => s.loading);
 
+  const practiceHistory = useSessionStore((s) => s.practiceHistory);
   const sessionLog = useSessionStore((s) => s.sessionLog);
+  const sessions = useMemo(() => {
+    if (Array.isArray(practiceHistory) && practiceHistory.length > 0) return practiceHistory;
+    return sessionLog ?? [];
+  }, [practiceHistory, sessionLog]);
 
   // Resolve target Anchor
   const targetId = options.anchorId || currentAnchorId;
@@ -46,8 +51,8 @@ export function useV2Progress(options: UseV2ProgressOptions = {}): UseV2Progress
 
   // Compute V2ProgressModel
   const model = useMemo(() => {
-    return toV2ProgressModel(targetAnchor, courseLogEntries, sessionLog);
-  }, [targetAnchor, courseLogEntries, sessionLog]);
+    return toV2ProgressModel(targetAnchor, courseLogEntries, sessions);
+  }, [targetAnchor, courseLogEntries, sessions]);
 
   const refresh = useCallback(async () => {
     setIsRefreshing(true);

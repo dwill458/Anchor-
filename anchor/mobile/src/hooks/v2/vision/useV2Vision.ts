@@ -55,16 +55,25 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
   const [error, setError] = useState<string | null>(null);
   const [isOffline, setIsOffline] = useState<boolean>(false);
   const isMountedRef = useRef<boolean>(true);
+  const currentAnchorId = useRef(anchorId);
+  currentAnchorId.current = anchorId;
+  const requestId = useRef(0);
+  const activeRequest = useRef<AbortController | null>(null);
 
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
+      activeRequest.current?.abort();
     };
   }, []);
 
   const fetchVision = useCallback(
     async (isRefresh = false) => {
+      const thisRequest = ++requestId.current;
+      activeRequest.current?.abort();
+      const controller = new AbortController();
+      activeRequest.current = controller;
       if (!anchorId) {
         setLoading(false);
         setVision(null);
@@ -83,13 +92,15 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
           `/api/v2/anchors/${encodeURIComponent(anchorId)}/vision`,
           {
             params: { timeZone },
+            signal: controller.signal,
           },
         );
-        if (!isMountedRef.current) return;
+        if (!isMountedRef.current || currentAnchorId.current !== anchorId || requestId.current !== thisRequest) return;
         setVision(response.data);
         setIsOffline(false);
       } catch (err: unknown) {
-        if (!isMountedRef.current) return;
+        if (controller.signal.aborted) return;
+        if (!isMountedRef.current || currentAnchorId.current !== anchorId || requestId.current !== thisRequest) return;
         const status =
           (err instanceof ApiClientError ? err.status : undefined) ??
           (typeof err === 'object' && err !== null ? (err as { status?: number }).status : undefined);
@@ -104,7 +115,7 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
           setIsOffline(true);
         }
       } finally {
-        if (isMountedRef.current) {
+        if (isMountedRef.current && currentAnchorId.current === anchorId && requestId.current === thisRequest) {
           setLoading(false);
           setRefreshing(false);
         }
@@ -269,7 +280,7 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
   const refresh = useCallback(() => fetchVision(true), [fetchVision]);
 
   const presentationState = toV2VisionPresentationState(
-    vision,
+    vision?.anchorId === anchorId ? vision : null,
     anchorId,
     error ? { error, isOffline } : undefined,
   );

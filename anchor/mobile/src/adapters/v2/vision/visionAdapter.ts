@@ -25,7 +25,7 @@ export function toV2VisionPresentationState(
     };
   }
 
-  if (!raw || raw.status === 'ARCHIVED') {
+  if (!raw || raw.anchorId !== anchorId || raw.status === 'ARCHIVED') {
     return { state: 'none', anchorId };
   }
 

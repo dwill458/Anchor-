@@ -1,6 +1,9 @@
 import type { Anchor } from '@/types';
 import type { CourseLogEntry } from '@/types/chart';
 import type { SessionLogEntry } from '@/stores/sessionStore';
+import type { PracticeSessionRecord } from '@/types/practice';
+
+export type AnyProgressSession = SessionLogEntry | PracticeSessionRecord;
 // Imported from the module, not the Home barrel: the barrel now reaches back
 // into this file, and going through it would create an import cycle.
 import { threadQualitativeLabel } from '@/adapters/v2/home/threadAdapter';
@@ -52,12 +55,13 @@ function formatTime(val: Date | string | undefined | null): string {
  * Aggregates practice sessions for a specific Anchor into a mode breakdown.
  */
 export function aggregatePracticeSessions(
-  sessions: SessionLogEntry[],
+  sessions: AnyProgressSession[],
   anchorId: string,
 ): V2PracticeModeBreakdown {
-  const matching = sessions.filter(
-    (s) => s.anchorId === anchorId || (s as any).anchor_id === anchorId,
-  );
+  const matching = sessions.filter((s) => {
+    const aid = s.anchorId || (s as any).anchorLocalId || (s as any).anchor_id;
+    return aid === anchorId;
+  });
 
   let focusCount = 0;
   let focusSeconds = 0;
@@ -69,16 +73,26 @@ export function aggregatePracticeSessions(
   let releaseSeconds = 0;
 
   for (const s of matching) {
-    const duration = s.durationSeconds || 0;
-    const mode = s.mode || s.type;
+    const duration =
+      'completedDurationSeconds' in s && typeof s.completedDurationSeconds === 'number'
+        ? s.completedDurationSeconds
+        : 'durationSeconds' in s && typeof s.durationSeconds === 'number'
+          ? s.durationSeconds
+          : 0;
+    const rawMode =
+      'practiceMode' in s && s.practiceMode
+        ? s.practiceMode
+        : 'type' in s && s.type
+          ? s.type
+          : (s as any).mode || 'focus';
 
-    if (s.type === 'reinforce' || mode === 'ambient') {
+    if (rawMode === 'deep_prime' || rawMode === 'reinforce' || (s as any).mode === 'ambient') {
       deepPrimeCount++;
       deepPrimeSeconds += duration;
-    } else if (s.type === 'visualize') {
+    } else if (rawMode === 'visualize') {
       visualizeCount++;
       visualizeSeconds += duration;
-    } else if ((s.type as string) === 'release') {
+    } else if (rawMode === 'release' || rawMode === 'burn') {
       releaseCount++;
       releaseSeconds += duration;
     } else {
@@ -113,7 +127,7 @@ export function aggregatePracticeSessions(
 export function deriveThreadEvents(
   anchor: Anchor,
   courseLogs: CourseLogEntry[],
-  practiceSessions: SessionLogEntry[],
+  practiceSessions: AnyProgressSession[],
 ): V2ThreadEventItem[] {
   const events: V2ThreadEventItem[] = [];
   const intentionText = (anchor as any).intention || anchor.intentionText || 'Your Anchor';
@@ -163,9 +177,10 @@ export function deriveThreadEvents(
   }
 
   // 3. Practice Milestones
-  const anchorSessions = practiceSessions.filter(
-    (s) => s.anchorId === anchor.id || (s as any).anchor_id === anchor.id,
-  );
+  const anchorSessions = practiceSessions.filter((s) => {
+    const aid = s.anchorId || (s as any).anchorLocalId || (s as any).anchor_id;
+    return aid === anchor.id || (anchor.localId && aid === anchor.localId);
+  });
   const totalCount = anchorSessions.length;
   const milestones = [10, 25, 50].filter((m) => totalCount >= m);
 
@@ -281,7 +296,7 @@ export function deriveThreadEvents(
 export function toV2ProgressModel(
   anchor: Anchor | null | undefined,
   courseLogs: CourseLogEntry[] = [],
-  sessions: SessionLogEntry[] = [],
+  sessions: AnyProgressSession[] = [],
 ): V2ProgressModel | null {
   if (!anchor) return null;
 
