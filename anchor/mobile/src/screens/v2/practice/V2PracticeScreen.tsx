@@ -325,17 +325,27 @@ export function V2PracticeScreen({
               onPracticeAgain={() => selectMode(recommendedMode, 'recommended_today')}
             />
           ) : (
-            <Text style={styles.hint}>
-              {model.recommendationError ?? 'No recommendation is available today.'}
-            </Text>
+            <View style={styles.unavailableToday}>
+              <Text style={styles.hint}>Today’s practice could not be loaded.</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Retry Today"
+                onPress={model.refetchRecommendation}
+                style={({ pressed }) => [styles.retry, pressed && styles.retryPressed]}
+              >
+                <Text style={styles.retryText}>Try again</Text>
+              </Pressable>
+            </View>
           )}
         </View>
 
         {/* Layer 3: All Practices 2x2 Grid */}
-        <V2PracticeGrid
-          capabilities={effectiveCapabilities}
-          onSelectMode={(mode) => selectMode(mode, 'practice_hub')}
-        />
+        <View style={styles.gridSection}>
+          <V2PracticeGrid
+            capabilities={effectiveCapabilities}
+            onSelectMode={(mode) => selectMode(mode, 'practice_hub')}
+          />
+        </View>
       </View>
     </V2Screen>
   );
@@ -354,17 +364,39 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
   },
   content: {
-    gap: spacing[5],
-    paddingTop: spacing[2],
+    // Section rhythm is set per-section below rather than by a uniform gap,
+    // so the Today hero and the practice library read as distinct beats.
+    paddingTop: spacing[3],
     paddingBottom: spacing[6],
   },
   recommendationSection: {
-    gap: spacing[2],
+    // The context header and the hero it frames are one beat, so the air
+    // between them stays smaller than the air before the practice library.
+    marginTop: spacing[5],
+  },
+  gridSection: {
+    // A wider beat than the one above the hero: the library is the next
+    // section, not a continuation of the recommendation.
+    marginTop: spacing[6],
   },
   hint: {
     ...typography.caption,
     color: colors.text.secondary,
     paddingTop: spacing[1],
+  },
+  unavailableToday: {
+    gap: spacing[2],
+  },
+  retry: {
+    alignSelf: 'flex-start',
+  },
+  retryPressed: {
+    opacity: 0.68,
+  },
+  retryText: {
+    ...typography.labelMD,
+    color: colors.text.primary,
+    textDecorationLine: 'underline',
   },
   empty: {
     flex: 1,

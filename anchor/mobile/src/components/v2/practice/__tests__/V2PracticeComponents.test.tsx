@@ -1,5 +1,7 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { getPracticeCardTheme } from '@/theme/v2';
 import { V2PracticeAnchorHeader } from '../V2PracticeAnchorHeader';
 import { V2AnchorSwitcherSheet } from '../V2AnchorSwitcherSheet';
 import { V2TodayPracticeCard } from '../V2TodayPracticeCard';
@@ -64,6 +66,35 @@ describe('V2PracticeAnchorHeader', () => {
     expect(screen.getByText('Career')).toBeTruthy();
     expect(screen.getByText(/Thread Strength/)).toBeTruthy();
     expect(screen.getByText('74%')).toBeTruthy();
+  });
+
+  it('labels the selector with an ACTIVE ANCHOR eyebrow rather than a card chrome', () => {
+    render(<V2PracticeAnchorHeader anchor={makeAnchor({ id: 'a3' })} onPress={jest.fn()} />);
+
+    expect(screen.getByText('ACTIVE ANCHOR')).toBeTruthy();
+  });
+
+  it('lets a long intention wrap instead of truncating it to one line', () => {
+    const longIntention =
+      'Build a calm, deliberate morning practice that I return to every single day without fail';
+    render(
+      <V2PracticeAnchorHeader
+        anchor={makeAnchor({ id: 'a4', intentionText: longIntention })}
+        onPress={jest.fn()}
+      />
+    );
+
+    const intention = screen.getByText(longIntention);
+    // No numberOfLines cap: the row grows with the intention.
+    expect(intention.props.numberOfLines).toBeUndefined();
+  });
+
+  it('keeps the whole selector tappable, not just the chevron', () => {
+    const onPress = jest.fn();
+    render(<V2PracticeAnchorHeader anchor={makeAnchor({ id: 'a5' })} onPress={onPress} />);
+
+    fireEvent.press(screen.getByTestId('v2-practice-anchor-header'));
+    expect(onPress).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -151,6 +182,34 @@ describe('V2TodayPracticeCard', () => {
     fireEvent.press(practiceAgainBtn);
     expect(onPracticeAgain).toHaveBeenCalledTimes(1);
   });
+
+  it.each([
+    ['focus', 'Focus', 'Begin Focus'],
+    ['deep_prime', 'Deep Prime', 'Begin Deep Prime'],
+    ['visualize', 'Visualize', 'Begin Visualize'],
+    ['release', 'Release', 'Begin Release'],
+  ] as const)(
+    'inherits the %s identity — label, artwork and CTA — rather than hard-coding Focus',
+    (mode, label, cta) => {
+      render(<V2TodayPracticeCard mode={mode} isCompletedToday={false} onPress={jest.fn()} />);
+
+      expect(screen.getByTestId(`v2-practice-artwork-${mode}-featured`)).toBeTruthy();
+      expect(screen.getByText(label)).toBeTruthy();
+      expect(screen.getByText(cta)).toBeTruthy();
+      expect(screen.getByText('TODAY')).toBeTruthy();
+    }
+  );
+
+  it.each(['focus', 'deep_prime', 'visualize', 'release'] as const)(
+    'renders %s on its own dark practice surface, not a light body',
+    (mode) => {
+      render(<V2TodayPracticeCard mode={mode} isCompletedToday={false} onPress={jest.fn()} />);
+
+      const card = screen.getByTestId('v2-recommended-today');
+      const flat = StyleSheet.flatten(card.props.style) as { backgroundColor?: string };
+      expect(flat.backgroundColor).toBe(getPracticeCardTheme(mode).dark.surface);
+    }
+  );
 
   it.each(['deep_prime', 'visualize', 'release'] as const)(
     'retains corresponding hero artwork in completed state for %s',

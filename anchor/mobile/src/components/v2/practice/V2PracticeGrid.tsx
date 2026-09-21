@@ -1,12 +1,13 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowRight, Crown } from 'lucide-react-native';
 import {
   V2_PRACTICE_MODE_DEFINITIONS,
   type V2PracticeMode,
 } from '@/constants/v2/practice';
 import type { V2PracticeCapabilities } from '@/hooks/v2/practice';
-import { colors, getPracticeCardTheme, radii, spacing, typography } from '@/theme/v2';
+import { colors, getPracticeCardTheme, practiceDarkText, radii, spacing, typography } from '@/theme/v2';
 import { V2PracticeArtwork } from './V2PracticeArtwork';
 
 type Props = {
@@ -14,7 +15,15 @@ type Props = {
   onSelectMode: (mode: V2PracticeMode) => void;
 };
 
+const ARTWORK_HEIGHT = 95;
+/** The dissolve only occupies the bottom third of the scene, so the
+ *  illustration itself keeps its colours and reads unobstructed. */
+const ARTWORK_FADE_HEIGHT = 34;
+
 export function V2PracticeGrid({ capabilities, onSelectMode }: Props) {
+  const { width } = useWindowDimensions();
+  const cardWidth = Math.max(0, Math.floor((width - spacing[6] * 2 - spacing[3]) / 2));
+
   return (
     <View style={styles.container}>
       <Text style={styles.sectionTitle}>CHOOSE ANOTHER PRACTICE</Text>
@@ -35,19 +44,27 @@ export function V2PracticeGrid({ capabilities, onSelectMode }: Props) {
               onPress={() => onSelectMode(item.mode)}
               style={({ pressed }) => [
                 styles.card,
+                { width: cardWidth },
                 {
-                  backgroundColor: theme.surface,
-                  borderColor: theme.border,
+                  backgroundColor: theme.dark.surface,
+                  borderColor: theme.dark.border,
                 },
                 pressed && styles.pressed,
               ]}
             >
               {/* Artwork scene header */}
-              <View style={styles.artworkContainer}>
-                <V2PracticeArtwork mode={item.mode} height={108} variant="card" />
+              <View style={[styles.artworkContainer, { backgroundColor: theme.dark.surface }]}>
+                <V2PracticeArtwork mode={item.mode} height={ARTWORK_HEIGHT} variant="card" />
+                {/* Atmospheric dissolve so the scene and the body are one object. */}
+                <LinearGradient
+                  pointerEvents="none"
+                  colors={[...theme.dark.fade]}
+                  locations={[0, 0.62, 1]}
+                  style={styles.artworkFade}
+                />
                 {showPro ? (
                   <View style={styles.proBadge}>
-                    <Crown size={10} color={colors.text.secondary} />
+                    <Crown size={10} color={practiceDarkText.title} />
                     <Text style={styles.proText}>PRO</Text>
                   </View>
                 ) : null}
@@ -55,24 +72,26 @@ export function V2PracticeGrid({ capabilities, onSelectMode }: Props) {
 
               {/* Lower text content */}
               <View style={styles.content}>
-                <Text style={[styles.modeTag, { color: theme.labelColor }]}>
+                {/* Group 1 — identity */}
+                <Text style={[styles.modeTag, { color: theme.dark.label }]}>
                   {item.mode === 'deep_prime' ? 'DEEP PRIME' : item.mode.toUpperCase()}
                 </Text>
 
                 <View style={styles.titleRow}>
-                  <Text numberOfLines={1} style={styles.title}>
+                  <Text numberOfLines={2} style={styles.title}>
                     {item.title}
                   </Text>
-                  <View style={[styles.actionCircle, { backgroundColor: theme.actionCircleBg }]}>
-                    <ArrowRight size={14} color={theme.accent} strokeWidth={2.4} />
+                  <View style={[styles.actionCircle, { backgroundColor: theme.dark.actionBg }]}>
+                    <ArrowRight size={13} color={theme.dark.arrow} strokeWidth={2.4} />
                   </View>
                 </View>
 
-                <Text numberOfLines={1} style={styles.duration}>
+                {/* Group 2 — what it costs you, then what it does */}
+                <Text numberOfLines={2} style={styles.duration}>
                   {item.duration}
                 </Text>
 
-                <Text numberOfLines={2} style={styles.purpose}>
+                <Text numberOfLines={3} style={styles.purpose}>
                   {item.purpose}
                 </Text>
               </View>
@@ -84,37 +103,42 @@ export function V2PracticeGrid({ capabilities, onSelectMode }: Props) {
   );
 }
 
+/** One padding value drives the left edge of every line in the body. */
+const BODY_INSET = 14;
+
 const styles = StyleSheet.create({
   container: {
+    // Deliberately half the space above the label, which binds it to the grid.
     gap: spacing[2],
   },
   sectionTitle: {
     ...typography.labelSM,
     color: colors.text.secondary,
-    letterSpacing: 0.8,
+    letterSpacing: 0.9,
     fontSize: 10.5,
     fontWeight: '700',
     textTransform: 'uppercase',
-    marginBottom: 2,
   },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: spacing[3],
+    columnGap: spacing[3],
+    rowGap: spacing[3],
   },
   card: {
-    // 2-column layout: (100% - gap) / 2
-    width: '48%',
+    // The width is calculated from the actual iOS window so percentage sizing
+    // cannot wrap the second column on narrow screens when gap is applied.
+    flexShrink: 0,
     borderRadius: radii.lg,
     borderWidth: 1,
     overflow: 'hidden',
     justifyContent: 'flex-start',
     shadowColor: '#000000',
-    shadowOpacity: 0.02,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
   },
   pressed: {
     opacity: 0.88,
@@ -123,8 +147,14 @@ const styles = StyleSheet.create({
   artworkContainer: {
     position: 'relative',
     width: '100%',
-    height: 108,
-    backgroundColor: colors.surface,
+    height: ARTWORK_HEIGHT,
+  },
+  artworkFade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: ARTWORK_FADE_HEIGHT,
   },
   proBadge: {
     position: 'absolute',
@@ -133,67 +163,67 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    backgroundColor: 'rgba(12, 10, 16, 0.72)',
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: 4,
-    shadowColor: '#000000',
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 2,
   },
   proText: {
     ...typography.labelSM,
     fontSize: 9,
-    color: colors.text.secondary,
+    color: practiceDarkText.title,
     fontWeight: '700',
   },
   content: {
-    padding: spacing[3],
-    paddingTop: spacing[2],
-    gap: 2,
-    minHeight: 116,
+    paddingHorizontal: BODY_INSET,
+    paddingTop: 13,
+    paddingBottom: BODY_INSET,
   },
   modeTag: {
     ...typography.labelSM,
     fontSize: 9.5,
-    letterSpacing: 0.8,
+    letterSpacing: 0.9,
     fontWeight: '700',
-    marginBottom: 1,
+    // Small gap: the label belongs to the title.
+    marginBottom: 3,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing[1],
+    // Tight enough that "Deep Prime" holds one line at the default text size,
+    // and the title wraps rather than truncating when it is scaled up.
+    gap: 6,
   },
   title: {
     fontFamily: typography.displayBold,
     fontSize: 17,
     lineHeight: 22,
     letterSpacing: -0.3,
-    color: colors.text.primary,
+    color: practiceDarkText.title,
     flex: 1,
   },
   actionCircle: {
-    width: 26,
-    height: 26,
+    width: 24,
+    height: 24,
     borderRadius: radii.round,
     alignItems: 'center',
     justifyContent: 'center',
   },
   duration: {
     ...typography.caption,
-    color: colors.text.secondary,
+    color: practiceDarkText.meta,
     fontSize: 11,
     lineHeight: 15,
-    marginTop: 2,
+    // Medium gap: opens the secondary information group.
+    marginTop: 11,
   },
   purpose: {
     ...typography.bodySM,
-    color: colors.text.secondary,
+    color: practiceDarkText.body,
     fontSize: 11,
-    lineHeight: 15,
-    marginTop: 4,
+    lineHeight: 15.5,
+    // Medium-small gap: stays bound to the duration above it.
+    marginTop: 5,
   },
 });

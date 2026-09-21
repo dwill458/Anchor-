@@ -405,6 +405,20 @@ describe('V2PracticeScreen', () => {
     expect(screen.getByTestId('v2-practice-screen')).toBeTruthy();
   });
 
+  it('hides recommendation transport details and offers a retry action', async () => {
+    render(
+      <V2PracticeScreen
+        anchor={makeAnchor({ id: 'a' })}
+        recommendation={null}
+        capabilities={fullAccess}
+      />
+    );
+
+    expect(await screen.findByText('Today’s practice could not be loaded.')).toBeTruthy();
+    expect(screen.queryByText(/Cannot GET/i)).toBeNull();
+    expect(screen.getByLabelText('Retry Today')).toBeTruthy();
+  });
+
   it('renders CHOOSE ANOTHER PRACTICE grid title and mode action buttons', () => {
     renderPractice();
     expect(screen.getByText('CHOOSE ANOTHER PRACTICE')).toBeTruthy();

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Check } from 'lucide-react-native';
 import { V2Button } from '@/components/v2';
 import {
@@ -7,7 +8,7 @@ import {
   V2_RECOMMENDATION_WHY,
   type V2PracticeMode,
 } from '@/constants/v2/practice';
-import { colors, getPracticeCardTheme, radii, spacing, typography } from '@/theme/v2';
+import { getPracticeCardTheme, practiceDarkText, radii, spacing, typography } from '@/theme/v2';
 import { V2PracticeArtwork } from './V2PracticeArtwork';
 
 type Props = {
@@ -34,6 +35,16 @@ const MODE_DEFAULT_DURATIONS: Record<V2PracticeMode, string> = {
   release: 'When ready',
 };
 
+const ARTWORK_HEIGHT = 190;
+/**
+ * The hero runs the same dissolve as the practice-library cards, given room to
+ * breathe: a taller ramp over a taller scene, so the illustration enters the
+ * body as atmosphere rather than meeting it at a visible seam. The artwork
+ * keeps its own colour across the upper two thirds.
+ */
+const ARTWORK_FADE_HEIGHT = 62;
+const ARTWORK_FADE_LOCATIONS = [0, 0.52, 1] as const;
+
 export function V2TodayPracticeCard({
   mode,
   reason: _reason,
@@ -49,24 +60,36 @@ export function V2TodayPracticeCard({
   const durationText = MODE_DEFAULT_DURATIONS[mode];
   const theme = getPracticeCardTheme(mode);
 
+  /** One surface for the whole object: artwork bed, dissolve target and body. */
+  const surfaceStyle = {
+    backgroundColor: theme.dark.surface,
+    borderColor: theme.dark.border,
+  };
+
   if (isCompletedToday) {
     return (
-      <View testID={testID} style={styles.card}>
+      <View testID={testID} style={[styles.card, surfaceStyle]}>
         {/* Featured Artwork Hero Banner - Preserved & Settled */}
-        <View style={styles.heroArtworkContainer}>
+        <View style={[styles.heroArtworkContainer, { backgroundColor: theme.dark.surface }]}>
           <V2PracticeArtwork
             mode={mode}
-            height={190}
+            height={ARTWORK_HEIGHT}
             variant="featured"
             active={false}
             completed={true}
           />
-          {/* Subtle calm softening overlay */}
+          {/* Subtle calm settling overlay */}
           <View style={styles.completedArtworkOverlay} />
+          <LinearGradient
+            pointerEvents="none"
+            colors={[...theme.dark.fade]}
+            locations={[...ARTWORK_FADE_LOCATIONS]}
+            style={styles.heroArtworkFade}
+          />
 
           <View style={styles.floatingBadgesRow}>
             <View style={styles.completedBadge}>
-              <Check size={11} color={colors.semantic.success} strokeWidth={2.6} />
+              <Check size={11} color={practiceDarkText.title} strokeWidth={2.6} />
               <Text style={styles.completedBadgeText}>TODAY COMPLETE ✓</Text>
             </View>
             <View style={styles.durationPill}>
@@ -91,7 +114,11 @@ export function V2TodayPracticeCard({
               accessibilityRole="button"
               accessibilityLabel="Practice again"
               onPress={onPracticeAgain ?? onPress}
-              style={({ pressed }) => [styles.practiceAgainButton, pressed && styles.pressed]}
+              style={({ pressed }) => [
+                styles.practiceAgainButton,
+                { backgroundColor: theme.dark.actionBg, borderColor: theme.dark.border },
+                pressed && styles.pressed,
+              ]}
             >
               <Text style={styles.practiceAgainText}>Practice again</Text>
             </Pressable>
@@ -111,12 +138,20 @@ export function V2TodayPracticeCard({
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
+        surfaceStyle,
         pressed && styles.pressed,
       ]}
     >
       {/* Featured Artwork Hero Banner */}
-      <View style={styles.heroArtworkContainer}>
-        <V2PracticeArtwork mode={mode} height={190} variant="featured" active={active} />
+      <View style={[styles.heroArtworkContainer, { backgroundColor: theme.dark.surface }]}>
+        <V2PracticeArtwork mode={mode} height={ARTWORK_HEIGHT} variant="featured" active={active} />
+        {/* Atmospheric dissolve so the scene and the body are one object. */}
+        <LinearGradient
+          pointerEvents="none"
+          colors={[...theme.dark.fade]}
+          locations={[...ARTWORK_FADE_LOCATIONS]}
+          style={styles.heroArtworkFade}
+        />
         <View style={styles.floatingBadgesRow}>
           <View style={[styles.badge, { backgroundColor: theme.heroBadgeBg ?? theme.accent }]}>
             <Text style={styles.badgeText}>TODAY</Text>
@@ -130,7 +165,7 @@ export function V2TodayPracticeCard({
       {/* Featured Content Body */}
       <View style={styles.body}>
         <View style={styles.heroCopy}>
-          <Text style={[styles.modeName, { color: theme.labelColor }]}>
+          <Text style={[styles.modeName, { color: theme.dark.label }]}>
             {definition.title}
           </Text>
           <Text style={styles.headline}>{headline}</Text>
@@ -143,6 +178,7 @@ export function V2TodayPracticeCard({
             size="medium"
             accessibilityLabel={ctaLabel}
             onPress={onPress}
+            textColor={theme.ctaText}
             style={{ backgroundColor: theme.accent, borderColor: theme.accent }}
           >
             {ctaLabel}
@@ -153,18 +189,20 @@ export function V2TodayPracticeCard({
   );
 }
 
+/** The large-format counterpart to the library card's body inset. */
+const BODY_INSET = 18;
+
 const styles = StyleSheet.create({
   card: {
     borderRadius: 20,
-    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.08)',
     overflow: 'hidden',
+    // Slightly deeper than a library card: the hero sits closest to the reader.
     shadowColor: '#000000',
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    shadowOpacity: 0.13,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 5,
   },
   pressed: {
     opacity: 0.94,
@@ -173,8 +211,7 @@ const styles = StyleSheet.create({
   heroArtworkContainer: {
     position: 'relative',
     width: '100%',
-    height: 190,
-    backgroundColor: colors.surface,
+    height: ARTWORK_HEIGHT,
   },
   floatingBadgesRow: {
     position: 'absolute',
@@ -222,39 +259,56 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
   },
   body: {
-    padding: spacing[4],
-    gap: spacing[3],
+    position: 'relative',
+    paddingHorizontal: BODY_INSET,
+    // The dissolve has already carried the scene into the surface, so the body
+    // opens close beneath it rather than restating that gap.
+    paddingTop: 14,
+    paddingBottom: spacing[5],
+  },
+  heroArtworkFade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: ARTWORK_FADE_HEIGHT,
+    zIndex: 5,
   },
   heroCopy: {
-    gap: 4,
+    // Spacing between these lines is deliberate, not uniform.
   },
   modeName: {
     ...typography.labelSM,
     letterSpacing: 0.9,
     fontSize: 11,
     fontWeight: '700',
-    marginBottom: 2,
+    // Small gap: the mode labels the recommendation beneath it.
+    marginBottom: 6,
     textTransform: 'uppercase',
   },
   headline: {
     fontFamily: typography.displayBold,
-    fontSize: 22,
-    lineHeight: 27,
+    fontSize: 23,
+    lineHeight: 29,
     letterSpacing: -0.4,
-    color: colors.text.primary,
+    color: practiceDarkText.title,
   },
   subExplanation: {
     ...typography.bodySM,
-    color: colors.text.secondary,
+    color: practiceDarkText.body,
     lineHeight: 19,
     fontSize: 13.5,
+    // Medium gap: the explanation trails the recommendation.
+    marginTop: 8,
   },
   ctaRow: {
-    paddingTop: spacing[1],
+    // Largest gap on the card: the action separates from the copy.
+    marginTop: spacing[5],
   },
   completedArtworkOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(244, 241, 233, 0.22)',
+    // Settles the scene into the dark body instead of washing it toward cream.
+    backgroundColor: 'rgba(10, 8, 14, 0.30)',
   },
   completedBadge: {
     paddingHorizontal: 9,
@@ -263,49 +317,48 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(251, 249, 244, 0.94)',
+    backgroundColor: 'rgba(12, 10, 16, 0.72)',
     borderWidth: 1,
-    borderColor: 'rgba(40, 125, 87, 0.22)',
+    borderColor: 'rgba(242, 238, 228, 0.24)',
     shadowColor: '#000000',
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.18,
     shadowRadius: 3,
     elevation: 2,
   },
   completedBadgeText: {
     ...typography.labelSM,
-    color: colors.semantic.success,
+    color: practiceDarkText.title,
     fontWeight: '700',
     fontSize: 10.5,
     letterSpacing: 0.8,
   },
   completedTitle: {
     fontFamily: typography.displayBold,
-    fontSize: 22,
-    lineHeight: 27,
+    fontSize: 23,
+    lineHeight: 29,
     letterSpacing: -0.4,
-    color: colors.text.primary,
+    color: practiceDarkText.title,
   },
   completedSubtitle: {
     ...typography.bodySM,
-    color: colors.text.secondary,
+    color: practiceDarkText.body,
     lineHeight: 20,
     fontSize: 14,
+    marginTop: 8,
   },
   completedActions: {
-    paddingTop: spacing[1],
+    marginTop: spacing[5],
     alignSelf: 'flex-start',
   },
   practiceAgainButton: {
     paddingVertical: spacing[2],
     paddingHorizontal: spacing[4],
     borderRadius: radii.md,
-    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.border.default,
   },
   practiceAgainText: {
     ...typography.labelMD,
-    color: colors.text.primary,
+    color: practiceDarkText.title,
     fontWeight: '600',
     fontSize: 13.5,
   },
