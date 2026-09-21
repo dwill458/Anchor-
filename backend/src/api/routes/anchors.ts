@@ -310,16 +310,16 @@ async function resolveAnchorArtworkUrls<
   T extends {
     enhancedImageUrl?: string | null;
     threadV2States?: Array<{ strength: number }>;
-    threadStrength?: number;
+    threadStrength?: number | null;
   }
->(anchor: T): Promise<T & { threadStrength: number }> {
+>(anchor: T): Promise<T & { threadStrength: number | null }> {
   const existingStrength = anchor.threadStrength;
   const threadStrength =
     typeof existingStrength === 'number'
       ? existingStrength
       : Array.isArray(anchor.threadV2States) && anchor.threadV2States.length > 0
         ? anchor.threadV2States[0].strength
-        : 50;
+        : null;
 
   if (!anchor?.enhancedImageUrl) {
     return {

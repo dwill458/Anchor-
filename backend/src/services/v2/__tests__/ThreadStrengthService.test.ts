@@ -42,9 +42,9 @@ describe('ThreadStrengthService', () => {
       mode: 'shadow',
     });
     expect(movement).toMatchObject({
-      beforeStrength: 50,
-      afterStrength: 75,
-      delta: 25,
+      beforeStrength: 0,
+      afterStrength: 21,
+      delta: 21,
       reason: 'practice_completed',
       idempotent: false,
     });
@@ -58,9 +58,9 @@ describe('ThreadStrengthService', () => {
     mockTx.threadV2Movement.findUnique.mockResolvedValue({
       userId: 'user-1',
       anchorId: 'anchor-1',
-      beforeStrength: 50,
-      afterStrength: 75,
-      delta: 25,
+      beforeStrength: 0,
+      afterStrength: 21,
+      delta: 21,
     });
     const movement = await service.calculatePracticeCompletion({
       userId: 'user-1',

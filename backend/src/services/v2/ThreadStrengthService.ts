@@ -5,6 +5,13 @@ import { AppError } from '../../api/middleware/errorHandler';
 export type ThreadPracticeType = 'focus' | 'deep_prime' | 'visualize' | 'release';
 export type ThreadAuthorityMode = 'shadow' | 'authoritative';
 
+export type ThreadStrengthStatus =
+  | 'unestablished'
+  | 'active'
+  | 'grace'
+  | 'decaying'
+  | 'dormant';
+
 export type ThreadMovement = {
   beforeStrength: number;
   afterStrength: number;
@@ -15,26 +22,52 @@ export type ThreadMovement = {
 
 export type AnchorThreadState = {
   anchorId: string;
-  strength: number;
-  delta7d: number;
-  delta7dStatus: 'AVAILABLE';
+  strength: number | null;
+  status: ThreadStrengthStatus;
+  delta7d: number | null;
+  delta7dStatus: 'AVAILABLE' | 'UNAVAILABLE';
   lastCompletedAt: Date | null;
   ruleVersion: string;
 };
 
-const LEGACY_V1_DEFAULT_GAIN: Record<ThreadPracticeType, number> = {
-  focus: 25,
-  deep_prime: 40,
-  visualize: 40,
-  release: 25,
+export const BASE_PRACTICE_GAINS: Record<ThreadPracticeType, number> = {
+  focus: 7,
+  deep_prime: 11,
+  visualize: 9,
+  release: 0,
 };
-const STARTING_STRENGTH = 50;
+
+export const INITIAL_ESTABLISHED_BASE = 15;
+export const GRACE_DAYS = 2;
+export const DAILY_DECAY = 3;
+export const DORMANT_FLOOR = 10;
+
+export function calculateEffectivePracticeGain(
+  currentStrength: number | null,
+  practiceType: ThreadPracticeType
+): { beforeStrength: number; afterStrength: number; delta: number } {
+  const baseGain = BASE_PRACTICE_GAINS[practiceType];
+  if (currentStrength === null) {
+    if (baseGain === 0) {
+      return { beforeStrength: 0, afterStrength: 0, delta: 0 };
+    }
+    const effectiveGain = Math.max(1, Math.round(baseGain * (1 - INITIAL_ESTABLISHED_BASE / 120)));
+    const afterStrength = INITIAL_ESTABLISHED_BASE + effectiveGain;
+    return { beforeStrength: 0, afterStrength, delta: afterStrength };
+  }
+  if (baseGain === 0) {
+    return { beforeStrength: currentStrength, afterStrength: currentStrength, delta: 0 };
+  }
+  const effectiveGain = Math.max(1, Math.round(baseGain * (1 - currentStrength / 120)));
+  const afterStrength = Math.min(100, currentStrength + effectiveGain);
+  const delta = afterStrength - currentStrength;
+  return { beforeStrength: currentStrength, afterStrength, delta };
+}
 
 export function calculateThreadDecay(missedDays: number): number {
   const normalized = Math.max(0, Math.floor(missedDays));
-  // Balanced sensitivity default: decay starts at day 2 (day 1 is grace period)
-  if (normalized < 2) return 0;
-  return 30 + (normalized - 2) * 15;
+  if (normalized <= GRACE_DAYS) return 0;
+  return (normalized - GRACE_DAYS) * DAILY_DECAY;
 }
 
 export function countDecayEligibleDays(
@@ -65,17 +98,33 @@ export function countDecayEligibleDays(
 }
 
 export function applyDecay(
-  score: number,
+  score: number | null,
   missedDays: number
-): number {
-  let next = score;
-  for (let day = 1; day <= missedDays; day += 1) {
-    const delta = calculateThreadDecay(day) - calculateThreadDecay(day - 1);
-    if (delta > 0) {
-      next = Math.max(5, next - delta);
-    }
+): number | null {
+  if (score === null) return null;
+  const decayAmount = calculateThreadDecay(missedDays);
+  if (decayAmount <= 0) return score;
+  return Math.max(DORMANT_FLOOR, score - decayAmount);
+}
+
+export function determineThreadStatus(
+  hasMovements: boolean,
+  strength: number | null,
+  daysSinceLastPractice: number
+): ThreadStrengthStatus {
+  if (!hasMovements || strength === null) {
+    return 'unestablished';
   }
-  return next;
+  if (daysSinceLastPractice <= 1) {
+    return 'active';
+  }
+  if (daysSinceLastPractice <= GRACE_DAYS) {
+    return 'grace';
+  }
+  if (strength <= DORMANT_FLOOR) {
+    return 'dormant';
+  }
+  return 'decaying';
 }
 
 export function normalizeThreadPracticeType(value: string): ThreadPracticeType | null {
@@ -155,7 +204,7 @@ export class ThreadStrengthService {
 
     await tx.threadV2State.upsert({
       where: { userId_anchorId: { userId: input.userId, anchorId: input.anchorId } },
-      create: { userId: input.userId, anchorId: input.anchorId, strength: STARTING_STRENGTH },
+      create: { userId: input.userId, anchorId: input.anchorId, strength: 0 },
       update: {},
     });
     await tx.threadV2Movement.create({
@@ -178,7 +227,7 @@ export class ThreadStrengthService {
       where: { userId: input.userId, anchorId: input.anchorId },
       orderBy: [{ completedAt: 'asc' }, { sessionId: 'asc' }],
     });
-    let strength = STARTING_STRENGTH;
+    let strength: number | null = null;
     let previous: Date | null = null;
     let requested: ThreadMovement | null = null;
     for (const movement of movements) {
@@ -186,10 +235,10 @@ export class ThreadStrengthService {
         const missedDays = countDecayEligibleDays(previous, movement.completedAt);
         strength = applyDecay(strength, missedDays);
       }
-      const beforeStrength = strength;
-      const gain = LEGACY_V1_DEFAULT_GAIN[movement.practiceType as ThreadPracticeType];
-      const afterStrength = Math.min(100, beforeStrength + gain);
-      const delta = afterStrength - beforeStrength;
+      const { beforeStrength, afterStrength, delta } = calculateEffectivePracticeGain(
+        strength,
+        movement.practiceType as ThreadPracticeType
+      );
       await tx.threadV2Movement.update({
         where: { id: movement.id },
         data: { beforeStrength, afterStrength, delta },
@@ -208,7 +257,7 @@ export class ThreadStrengthService {
     const latest = movements[movements.length - 1];
     await tx.threadV2State.update({
       where: { userId_anchorId: { userId: input.userId, anchorId: input.anchorId } },
-      data: { strength, lastCompletedAt: latest?.completedAt ?? null },
+      data: { strength: strength ?? 0, lastCompletedAt: latest?.completedAt ?? null },
     });
     if (!requested) throw new Error('Thread movement was not persisted');
     // Append the canonical fact in the same transaction as the authoritative
@@ -299,6 +348,18 @@ export class ThreadStrengthService {
       orderBy: [{ completedAt: 'asc' }, { sessionId: 'asc' }],
     });
 
+    if (movements.length === 0) {
+      return {
+        anchorId,
+        strength: null,
+        status: 'unestablished',
+        delta7d: null,
+        delta7dStatus: 'AVAILABLE',
+        lastCompletedAt: null,
+        ruleVersion: 'v2-authoritative',
+      };
+    }
+
     const currentStrength = this.calculateStrengthAtDate(
       anchor.createdAt,
       movements,
@@ -314,7 +375,8 @@ export class ThreadStrengthService {
       restDays
     );
 
-    const delta7d = currentStrength - pastStrength;
+    const delta7d =
+      currentStrength !== null && pastStrength !== null ? currentStrength - pastStrength : null;
     const latest = movements[movements.length - 1];
 
     // Ensure ThreadV2State table is synced with the latest authoritative strength
@@ -323,18 +385,24 @@ export class ThreadStrengthService {
       create: {
         userId,
         anchorId,
-        strength: currentStrength,
+        strength: currentStrength ?? 0,
         lastCompletedAt: latest?.completedAt ?? null,
       },
       update: {
-        strength: currentStrength,
+        strength: currentStrength ?? 0,
         lastCompletedAt: latest?.completedAt ?? null,
       },
     });
 
+    const daysSinceLastPractice = latest
+      ? Math.max(0, Math.floor((asOfDate.getTime() - latest.completedAt.getTime()) / 86_400_000))
+      : 999;
+    const status = determineThreadStatus(true, currentStrength, daysSinceLastPractice);
+
     return {
       anchorId,
       strength: currentStrength,
+      status,
       delta7d,
       delta7dStatus: 'AVAILABLE',
       lastCompletedAt: latest?.completedAt ?? null,
@@ -350,8 +418,10 @@ export class ThreadStrengthService {
     movements: Array<{ practiceType: string; completedAt: Date }>,
     targetDate: Date,
     restDays: readonly number[] = []
-  ): number {
-    let strength = STARTING_STRENGTH;
+  ): number | null {
+    if (movements.length === 0) return null;
+
+    let strength: number | null = null;
     let cursor: Date | null = null;
 
     for (const movement of movements) {
@@ -362,8 +432,11 @@ export class ThreadStrengthService {
         strength = applyDecay(strength, missedDays);
       }
 
-      const gain = LEGACY_V1_DEFAULT_GAIN[movement.practiceType as ThreadPracticeType] ?? 25;
-      strength = Math.min(100, strength + gain);
+      const { afterStrength } = calculateEffectivePracticeGain(
+        strength,
+        movement.practiceType as ThreadPracticeType
+      );
+      strength = afterStrength;
       cursor = movement.completedAt;
     }
 
@@ -372,7 +445,7 @@ export class ThreadStrengthService {
       strength = applyDecay(strength, missedDays);
     }
 
-    return Math.max(0, Math.min(100, Math.round(strength)));
+    return strength !== null ? Math.max(0, Math.min(100, Math.round(strength))) : null;
   }
 }
 
