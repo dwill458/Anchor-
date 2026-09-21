@@ -91,7 +91,7 @@ export class RecommendationService {
           clientTimeZone
         );
         threadContext = {
-          strength: threadState.strength,
+          strength: threadState.strength ?? undefined,
           delta7d: threadState.delta7d,
           delta7dStatus: 'AVAILABLE' as const,
           status: 'AVAILABLE' as const,
@@ -110,7 +110,8 @@ export class RecommendationService {
     const recommendation = this.evaluateFirstMatchRecommendation(
       completionSignal,
       visionContext,
-      threadContext.delta7d
+      threadContext.delta7d,
+      anchor.id
     );
 
     return {
@@ -248,28 +249,29 @@ export class RecommendationService {
   }
 
   /**
-   * First-Match-Wins recommendation evaluator:
-   * 1. completion context -> Release
-   * 2. Vision exists + unseen today -> Visualize
+   * Evaluates recommendation for an Anchor:
+   * 1. Completed Chart arc (destination reached) -> Release
+   * 2. Vision exists -> Visualize
    * 3. delta7d < 0 -> Deep Prime
-   * 4. otherwise -> Focus
+   * 4. Fallback rotation -> Deep Prime (65%) or Focus (35%)
    */
   evaluateFirstMatchRecommendation(
     completionSignal: RecommendationSignal | null,
     vision: { exists: boolean; seenToday: boolean },
-    delta7d: number | null
+    delta7d: number | null,
+    anchorId?: string
   ): RecommendationEvaluation {
-    if (completionSignal) {
+    if (completionSignal?.type === 'destination_reached') {
       return {
         action: 'Release',
         reason: completionSignal.type,
       };
     }
 
-    if (vision.exists && !vision.seenToday) {
+    if (vision.exists) {
       return {
         action: 'Visualize',
-        reason: 'unseen_vision',
+        reason: vision.seenToday ? 'vision_scene' : 'unseen_vision',
       };
     }
 
@@ -277,6 +279,26 @@ export class RecommendationService {
       return {
         action: 'Deep Prime',
         reason: 'thread_decay',
+      };
+    }
+
+    // Dynamic rotation between Deep Prime (~65%) and Focus (~35%) to avoid static Focus output
+    let hashScore = 0;
+    if (anchorId) {
+      for (let i = 0; i < anchorId.length; i++) {
+        hashScore = (hashScore * 31 + anchorId.charCodeAt(i)) | 0;
+      }
+      hashScore = Math.abs(hashScore);
+    } else {
+      hashScore = 0;
+    }
+
+    const isDeepPrime = (hashScore % 100) < 65;
+
+    if (isDeepPrime) {
+      return {
+        action: 'Deep Prime',
+        reason: 'deep_reinforcement',
       };
     }
 

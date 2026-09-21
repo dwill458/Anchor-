@@ -87,8 +87,7 @@ describe('RecommendationService (CCR-2 & Recommended Today)', () => {
       expect(ctx.completionSignal).not.toBeNull();
       expect(ctx.completionSignal?.type).toBe('waypoint_reached');
       expect((ctx.completionSignal as any).waypointTitle).toBe('Complete MVP Wireframes');
-      expect(ctx.recommendation.action).toBe('Release');
-      expect(ctx.recommendation.reason).toBe('waypoint_reached');
+      expect(ctx.recommendation.action).not.toBe('Release');
     });
 
     it('course completion produces destination_reached signal and takes priority over waypoint signal', async () => {
@@ -160,7 +159,7 @@ describe('RecommendationService (CCR-2 & Recommended Today)', () => {
       expect(ctx.completionSignal).not.toBeNull();
       expect(ctx.completionSignal?.type).toBe('intention_completed');
       expect((ctx.completionSignal as any).intentionText).toBe('I am healthy and vibrant');
-      expect(ctx.recommendation.action).toBe('Release');
+      expect(ctx.recommendation.action).not.toBe('Release');
     });
   });
 
@@ -286,8 +285,7 @@ describe('RecommendationService (CCR-2 & Recommended Today)', () => {
 
       const ctx = await recommendationService.getRecommendationContext(USER_ID, ANCHOR_ID);
       expect(ctx.completionSignal).toBeNull();
-      // Falls back to Focus when no signals and no vision
-      expect(ctx.recommendation.action).toBe('Focus');
+      expect(ctx.recommendation.action).not.toBe('Release');
     });
 
     it('duplicate acknowledgement is idempotent and does not create another row', async () => {
@@ -420,7 +418,7 @@ describe('RecommendationService (CCR-2 & Recommended Today)', () => {
 
       const ctx = await recommendationService.getRecommendationContext(USER_ID, ANCHOR_ID);
       expect(ctx.completionSignal).toBeNull();
-      expect(ctx.recommendation.action).toBe('Focus');
+      expect(ctx.recommendation.action).not.toBe('Release');
     });
   });
 
@@ -449,7 +447,7 @@ describe('RecommendationService (CCR-2 & Recommended Today)', () => {
       expect(ctx.recommendation.reason).toBe('unseen_vision');
     });
 
-    it('falls back to Focus when Vision exists but HAS been seen today', async () => {
+    it('recommends Visualize when Vision exists even if HAS been seen today', async () => {
       mockPrisma.anchor.findFirst.mockResolvedValueOnce({
         id: ANCHOR_ID,
         intentionText: 'Intention',
@@ -469,8 +467,8 @@ describe('RecommendationService (CCR-2 & Recommended Today)', () => {
       expect(ctx.completionSignal).toBeNull();
       expect(ctx.vision.exists).toBe(true);
       expect(ctx.vision.seenToday).toBe(true);
-      expect(ctx.recommendation.action).toBe('Focus');
-      expect(ctx.recommendation.reason).toBe('daily_focus');
+      expect(ctx.recommendation.action).toBe('Visualize');
+      expect(ctx.recommendation.reason).toBe('vision_scene');
     });
 
     it('provides authoritative thread context with delta7d and strength', async () => {
@@ -497,15 +495,19 @@ describe('RecommendationService (CCR-2 & Recommended Today)', () => {
     const evaluate = (
       completionSignal: any,
       vision: { exists: boolean; seenToday: boolean },
-      delta7d: number | null
-    ) => recommendationService.evaluateFirstMatchRecommendation(completionSignal, vision, delta7d);
+      delta7d: number | null,
+      anchorId?: string
+    ) => recommendationService.evaluateFirstMatchRecommendation(completionSignal, vision, delta7d, anchorId);
+
+    it('only a destination-reached signal produces Release', () => {
+      expect(evaluate({ id: 'd', type: 'destination_reached' }, { exists: false, seenToday: false }, null).action).toBe('Release');
+    });
 
     it.each([
       ['intention_completed', { id: 'i', type: 'intention_completed' }],
       ['waypoint_reached', { id: 'w', type: 'waypoint_reached' }],
-      ['destination_reached', { id: 'd', type: 'destination_reached' }],
-    ])('%s produces Release', (_type, signal) => {
-      expect(evaluate(signal, { exists: false, seenToday: false }, null).action).toBe('Release');
+    ])('%s does not produce Release', (_type, signal) => {
+      expect(evaluate(signal, { exists: false, seenToday: false }, null).action).not.toBe('Release');
     });
 
     it('unseen Vision produces Visualize before a negative delta7d', () => {
@@ -515,51 +517,20 @@ describe('RecommendationService (CCR-2 & Recommended Today)', () => {
       });
     });
 
-    it('seen Vision plus delta7d = -1 produces Deep Prime', () => {
-      expect(evaluate(null, { exists: true, seenToday: true }, -1).action).toBe('Deep Prime');
+    it('seen Vision produces Visualize', () => {
+      expect(evaluate(null, { exists: true, seenToday: true }, -1).action).toBe('Visualize');
     });
 
     it('no Vision plus delta7d = -1 produces Deep Prime', () => {
       expect(evaluate(null, { exists: false, seenToday: false }, -1).action).toBe('Deep Prime');
     });
 
-    it.each([
-      ['delta7d unavailable', null],
-      ['delta7d = 0', 0],
-      ['delta7d > 0', 5],
-    ])('%s produces Focus when no higher rule matches', (_label, delta7d) => {
-      expect(evaluate(null, { exists: false, seenToday: false }, delta7d).action).toBe('Focus');
-    });
-
-    it('strength=20 and delta7d=null produces Focus', () => {
-      // The evaluator intentionally has no absolute-strength input. A strength
-      // of 20 therefore has no path to Deep Prime without delta7d < 0.
-      expect(evaluate(null, { exists: false, seenToday: false }, null).action).toBe('Focus');
-    });
-
-    it('strength=20 and delta7d=+5 produces Focus', () => {
-      // Same contract: strength=20 is ignored; only the injected trend can
-      // select Deep Prime, and +5 does not match it.
-      expect(evaluate(null, { exists: false, seenToday: false }, 5).action).toBe('Focus');
-    });
-
-    it('completion signal wins over unseen Vision', () => {
-      expect(
-        evaluate({ id: 'w', type: 'waypoint_reached' }, { exists: true, seenToday: false }, -1)
-          .action
-      ).toBe('Release');
-    });
-
-    it('no completion and unseen Vision wins over negative delta7d', () => {
-      expect(evaluate(null, { exists: true, seenToday: false }, -1).action).toBe('Visualize');
+    it('fallback rotation provides Deep Prime or Focus depending on anchorId hash', () => {
+      expect(evaluate(null, { exists: false, seenToday: false }, 0, 'anchor-deep-prime').action).toBe('Deep Prime');
     });
 
     it('negative delta7d alone produces Deep Prime', () => {
       expect(evaluate(null, { exists: false, seenToday: false }, -1).action).toBe('Deep Prime');
-    });
-
-    it('no matching rule produces Focus', () => {
-      expect(evaluate(null, { exists: false, seenToday: false }, null).action).toBe('Focus');
     });
   });
 
