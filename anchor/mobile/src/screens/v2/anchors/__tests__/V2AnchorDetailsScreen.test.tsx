@@ -1,5 +1,9 @@
 import React from 'react';
-import { render, fireEvent, screen } from '@testing-library/react-native';
+import { Image, StyleSheet } from 'react-native';
+import { render, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { getPracticeCardTheme } from '@/theme/v2';
+import { fetchV2RecommendationContext } from '@/adapters/v2/practice';
+jest.mock('@/adapters/v2/practice', () => ({ fetchV2RecommendationContext: jest.fn() }));
 
 const mockNavigate = jest.fn();
 const mockGoBack = jest.fn();
@@ -27,6 +31,10 @@ const renderDetails = (intents = {}) =>
   );
 
 beforeEach(() => {
+  (fetchV2RecommendationContext as jest.Mock).mockResolvedValue({
+    recommendation: { action: 'Focus', reason: 'daily_reinforcement' },
+    thread: { status: 'AVAILABLE', strength: 50, delta7d: null, delta7dStatus: 'UNAVAILABLE' },
+  });
   mockNavigate.mockClear();
   destructiveSpy.mockClear();
   mockParams = { anchorId: 'a' };
@@ -53,39 +61,101 @@ describe('V2AnchorDetailsScreen', () => {
     expect(screen.getByTestId('v2-thread-strength-value').props.children).toBe(50);
   });
 
-  it('shows editorial formation provenance', () => {
+  it('shows the enhanced Anchor image when one exists', () => {
+    const enhancedImageUrl = 'https://example.test/enhanced-anchor.png';
     useAnchorStore.setState({
-      anchors: [
-        makeAnchor({
-          id: 'a',
-          intentionText: 'I finish what I start',
-          distilledLetters: ['F', 'N', 'S', 'H', 'W', 'T', 'R'],
-          structureVariant: 'balanced',
-        }),
-      ],
+      anchors: [makeAnchor({ id: 'a', enhancedImageUrl, category: 'desire' })],
     });
     renderDetails();
-    fireEvent.press(screen.getByLabelText('How this Anchor was formed'));
-    expect(screen.getByText('F N S H W T R')).toBeTruthy();
-    expect(screen.getByText('Focused')).toBeTruthy();
-    expect(screen.getByText(/Vowels removed/)).toBeTruthy();
+    expect(screen.UNSAFE_getAllByType(Image).some((node) => node.props.source?.uri === enhancedImageUrl)).toBe(true);
   });
 
-  it('fires Practice, Vision and Chart as navigation callbacks', () => {
+  it('uses the server recommendation and routes Vision and Chart', async () => {
     const onOpenPractice = jest.fn();
     const onOpenVision = jest.fn();
     const onOpenChart = jest.fn();
     useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a' })] });
     renderDetails({ onOpenPractice, onOpenVision, onOpenChart });
 
-    fireEvent.press(screen.getByLabelText('Practice this Anchor'));
-    expect(onOpenPractice).toHaveBeenCalledWith('a');
+    await waitFor(() => expect(screen.getByTestId('v2-anchor-today')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('v2-anchor-today'));
+    expect(onOpenPractice).toHaveBeenCalledWith('a', 'focus');
 
-    fireEvent.press(screen.getByText('Vision'));
+    fireEvent.press(screen.getByLabelText('Vision'));
     expect(onOpenVision).toHaveBeenCalledWith('a');
 
-    fireEvent.press(screen.getByText('Chart'));
-    expect(onOpenChart).toHaveBeenCalledWith('a');
+    fireEvent.press(screen.getByLabelText('Chart'));
+    expect(onOpenChart).toHaveBeenCalledWith('a', undefined);
+  });
+
+  it.each([
+    ['Desire', 'desire'],
+    ['Health', 'health'],
+    ['Career', 'career'],
+  ])('uses the %s Anchor category and intention', (label, category) => {
+    useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a', category: category as 'desire' | 'health' | 'career', intentionText: 'An actual intention' })] });
+    renderDetails();
+    expect(screen.getByText(label.toUpperCase())).toBeTruthy();
+    expect(screen.getByText('An actual intention')).toBeTruthy();
+  });
+
+  it.each([
+    ['Deep Prime', 'deep_prime'],
+    ['Visualize', 'visualize'],
+  ])('opens the server selected %s practice', async (action, mode) => {
+    (fetchV2RecommendationContext as jest.Mock).mockResolvedValue({
+      recommendation: { action, reason: 'daily_reinforcement' },
+      thread: { status: 'AVAILABLE', strength: 42, delta7d: -4, delta7dStatus: 'AVAILABLE' },
+    });
+    const onOpenPractice = jest.fn();
+    useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a' })] });
+    renderDetails({ onOpenPractice });
+    await waitFor(() => expect(screen.getByTestId('v2-anchor-today')).toBeTruthy());
+    expect(screen.getByText('↓ -4% this week')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('v2-anchor-today'));
+    expect(onOpenPractice).toHaveBeenCalledWith('a', mode);
+  });
+
+  it.each([
+    ['Focus', 'focus'],
+    ['Deep Prime', 'deep_prime'],
+    ['Visualize', 'visualize'],
+    ['Release', 'release'],
+  ] as const)('renders the Today card on the %s dark practice surface', async (action, mode) => {
+    (fetchV2RecommendationContext as jest.Mock).mockResolvedValue({
+      recommendation: { action, reason: 'daily_reinforcement' },
+      thread: { status: 'AVAILABLE', strength: 42, delta7d: 1, delta7dStatus: 'AVAILABLE' },
+    });
+    useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a' })] });
+    renderDetails();
+
+    await waitFor(() => expect(screen.getByTestId('v2-anchor-today')).toBeTruthy());
+    const card = screen.getByTestId('v2-anchor-today');
+    const flat = StyleSheet.flatten(card.props.style) as { backgroundColor?: string };
+    expect(flat.backgroundColor).toBe(getPracticeCardTheme(mode).dark.surface);
+  });
+
+  it('opens Release when the server recommends it', async () => {
+    (fetchV2RecommendationContext as jest.Mock).mockResolvedValue({
+      recommendation: { action: 'Release', reason: 'destination_reached' },
+      thread: { status: 'AVAILABLE', strength: 78, delta7d: 6, delta7dStatus: 'AVAILABLE' },
+    });
+    const onReleaseAnchor = jest.fn();
+    useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a' })] });
+    renderDetails({ onReleaseAnchor });
+    await waitFor(() => expect(screen.getByTestId('v2-anchor-today')).toBeTruthy());
+    expect(screen.getByText('↑ +6% this week')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('v2-anchor-today'));
+    expect(onReleaseAnchor).toHaveBeenCalledWith('a');
+  });
+
+  it('routes Progress with the canonical Anchor id when a local id also exists', () => {
+    mockParams = { anchorId: 'local-a' };
+    const onOpenProgress = jest.fn();
+    useAnchorStore.setState({ anchors: [makeAnchor({ id: 'server-a', localId: 'local-a' })] });
+    renderDetails({ onOpenProgress });
+    fireEvent.press(screen.getByTestId('v2-anchor-thread'));
+    expect(onOpenProgress).toHaveBeenCalledWith('server-a');
   });
 
   it('exposes Release as an intent only — it never calls the legacy destructive store actions', () => {

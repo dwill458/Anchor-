@@ -12,6 +12,8 @@ export type V2RecentPracticeEntry = {
   label: string;
   completedAt: string;
   durationSeconds: number;
+  strengthDelta: number | null;
+  strengthAfter: number | null;
 };
 
 export type V2FormationProvenance = {
@@ -85,6 +87,8 @@ export function useV2AnchorDetail(anchorId: string): V2AnchorDetailModel {
       label: MODE_LABEL[s.practiceMode] ?? s.practiceMode,
       completedAt: s.completedAt,
       durationSeconds: s.completedDurationSeconds,
+      strengthDelta: typeof s.threadStrengthDelta === 'number' ? s.threadStrengthDelta : null,
+      strengthAfter: typeof s.threadStrengthAfter === 'number' ? s.threadStrengthAfter : null,
     }));
 
     return {

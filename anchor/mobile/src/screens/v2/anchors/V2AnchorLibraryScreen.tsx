@@ -70,5 +70,5 @@ export function V2AnchorLibraryScreen() {
 }
 
 const styles = StyleSheet.create({
-  filter: { marginTop: spacing[4], marginBottom: spacing[6] },
+  filter: { marginTop: spacing[4], marginBottom: spacing[7] },
 });
