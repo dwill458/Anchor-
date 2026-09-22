@@ -76,7 +76,7 @@ export interface ThreadStrengthProps {
   height?: number;
   /** Optional status word (e.g. ROOTED, EMBEDDED, GROUNDED) displayed beside header. */
   status?: string;
-  /** Optional header label (defaults to "THREAD STRENGTH"). */
+  /** Optional header label (defaults to "CONSISTENCY", the user-facing name). */
   label?: string;
   /** Indicator arrow style: 'triangle' ('▲' / '▼') or 'arrow' ('↑' / '↓') (default: 'triangle'). */
   arrowStyle?: 'triangle' | 'arrow';
@@ -86,6 +86,19 @@ export interface ThreadStrengthProps {
   reduceMotion?: boolean;
   /** Optional container style. */
   style?: StyleProp<ViewStyle>;
+  /**
+   * Render the percentage count-up and delta row (default: true). Surfaces
+   * that already print the value beside the thread (Home Progress) turn this
+   * off and keep only the track, so the number is never shown twice.
+   */
+  showMetrics?: boolean;
+  /**
+   * Colour and opacity of the loose, unwoven strands past the percentage
+   * point. The defaults are tuned for the cream Details surface; on graphite
+   * they would all but vanish, so dark surfaces pass a lighter strand.
+   */
+  inactiveColor?: string;
+  inactiveOpacity?: number;
   /** Test identifier. */
   testID?: string;
 }
@@ -105,11 +118,14 @@ export function ThreadStrength({
   duration = 1400,
   height = 48,
   status,
-  label = 'THREAD STRENGTH',
+  label = 'CONSISTENCY',
   arrowStyle = 'triangle',
   showDelta,
   reduceMotion: reduceMotionOverride,
   style,
+  showMetrics = true,
+  inactiveColor = colors.text.disabled,
+  inactiveOpacity = 0.35,
   testID = 'thread-strength',
 }: ThreadStrengthProps) {
   // Respect in-app preference; avoid false-positive zero animator scale on Android
@@ -543,7 +559,7 @@ export function ThreadStrength({
       ) : null}
 
       {/* Percentage Count-up and Delta Pill Row */}
-      <View style={styles.metricsRow}>
+      {showMetrics ? <View style={styles.metricsRow}>
         <AnimatedTextInput
           ref={inputRef}
           underlineColorAndroid="transparent"
@@ -551,7 +567,7 @@ export function ThreadStrength({
           animatedProps={animatedTextProps}
           defaultValue={`${effectiveReduceMotion ? clampedPercent : 0}%`}
           style={styles.percentageText}
-          accessibilityLabel={`Thread Strength ${clampedPercent}%`}
+          accessibilityLabel={`Consistency ${clampedPercent}%`}
         />
 
         {hasDelta ? (
@@ -563,7 +579,7 @@ export function ThreadStrength({
             </Text>
           </Animated.View>
         ) : null}
-      </View>
+      </View> : null}
 
       {/* Wavy Thread SVG Track */}
       <View
@@ -586,38 +602,38 @@ export function ThreadStrength({
                     viewBox={`0 0 ${trackWidth} ${height}`}
                     style={styles.svg}
                   >
-                    <G opacity={0.35}>
+                    <G opacity={inactiveOpacity}>
                       <Path
                         d={grayPath1}
-                        stroke={colors.text.disabled}
+                        stroke={inactiveColor}
                         strokeWidth={1.5}
                         strokeLinecap="round"
                         fill="none"
                       />
                       <Path
                         d={grayPath2}
-                        stroke={colors.text.disabled}
+                        stroke={inactiveColor}
                         strokeWidth={1.3}
                         strokeLinecap="round"
                         fill="none"
                       />
                       <Path
                         d={grayPath3}
-                        stroke={colors.text.disabled}
+                        stroke={inactiveColor}
                         strokeWidth={1.3}
                         strokeLinecap="round"
                         fill="none"
                       />
                       <Path
                         d={grayPath4}
-                        stroke={colors.text.disabled}
+                        stroke={inactiveColor}
                         strokeWidth={1.0}
                         strokeLinecap="round"
                         fill="none"
                       />
                       <Path
                         d={grayPath5}
-                        stroke={colors.text.disabled}
+                        stroke={inactiveColor}
                         strokeWidth={0.8}
                         strokeLinecap="round"
                         fill="none"

@@ -2,6 +2,7 @@ import React from 'react';
 import { render, waitFor, fireEvent } from '@testing-library/react-native';
 import { V2VisionScreen } from '../V2VisionScreen';
 import { apiClient } from '@/services/ApiClient';
+import { resetV2VisionReadCache } from '@/hooks/v2/vision/useV2Vision';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { toV2VisionCompactState } from '@/adapters/v2/vision';
 
@@ -99,12 +100,14 @@ describe('V2VisionScreen', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Vision reads are cached per Anchor for the app session; each case starts cold.
+    resetV2VisionReadCache();
     useAnchorStore.setState({
       anchors: [mockAnchor as any],
     });
   });
 
-  it('renders GhostVisionComposition / Creation flow when no vision exists', async () => {
+  it('renders a real Create Vision entry when no vision exists', async () => {
     const { ApiClientError } = jest.requireActual('@/services/ApiClient');
     (apiClient.get as jest.Mock).mockRejectedValueOnce(
       new ApiClientError('Not found', 'NOT_FOUND', 404),
@@ -116,10 +119,10 @@ describe('V2VisionScreen', () => {
 
     const emptyFlow = await findByTestId('v2-vision-creation-flow-empty');
     expect(emptyFlow).toBeTruthy();
-    expect(getByTestId('ghost-vision-composition')).toBeTruthy();
+    expect(getByTestId('v2-vision-creation-flow-empty')).toBeTruthy();
   });
 
-  it('renders RealVisionComposition when real data exists', async () => {
+  it('renders the saved hero and description when real data exists', async () => {
     (apiClient.get as jest.Mock).mockResolvedValueOnce({
       data: mockVisionData,
     });
@@ -133,11 +136,12 @@ describe('V2VisionScreen', () => {
 
     const screen = await findByTestId('v2-vision-screen');
     expect(screen).toBeTruthy();
-    expect(findByTestId('real-vision-composition')).toBeTruthy();
+    expect(getByText('1/3')).toBeTruthy();
+    expect(getByText('Begin Visualize')).toBeTruthy();
     expect(getByText('A quiet, sunlit workspace with completed projects.')).toBeTruthy();
   });
 
-  it('viewing Vision triggers seen-today server call', async () => {
+  it('records seen-today only after Begin Visualize is pressed', async () => {
     (apiClient.get as jest.Mock).mockResolvedValueOnce({
       data: { ...mockVisionData, seenToday: false },
     });
@@ -145,7 +149,14 @@ describe('V2VisionScreen', () => {
       data: { seenToday: true },
     });
 
-    render(<V2VisionScreen anchorId="anchor-1" />);
+    const { findByLabelText } = render(<V2VisionScreen anchorId="anchor-1" />);
+
+    const begin = await findByLabelText('Begin Visualize');
+    expect(apiClient.post).not.toHaveBeenCalledWith(
+      expect.stringContaining('/api/v2/visions/vision-101/view'),
+      expect.anything(),
+    );
+    fireEvent.press(begin);
 
     await waitFor(() => {
       expect(apiClient.post).toHaveBeenCalledWith(

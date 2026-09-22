@@ -30,7 +30,7 @@ export type V2FormationProvenance = {
 
 const MODE_LABEL: Record<PracticeMode, string> = {
   focus: 'Focus',
-  deep_prime: 'Deep Prime',
+  deep_prime: 'Deep Focus',
   visualize: 'Visualize',
   release: 'Release',
 };

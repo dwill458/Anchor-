@@ -16,9 +16,15 @@ export type V2PracticeModeDefinition = {
 
 import { practiceColors } from '@/theme/v2/practiceColors';
 
+/**
+ * `deep_prime` (and the server's `'Deep Prime'` recommendation action) are
+ * stable internal identifiers: persisted session records, analytics, API
+ * contracts and asset names all use them. Users only ever see the `title`,
+ * which is "Deep Focus" - read every user-facing mode name from here.
+ */
 export const V2_PRACTICE_MODE_DEFINITIONS: readonly V2PracticeModeDefinition[] = [
   { mode: 'focus', title: 'Focus', purpose: 'Return to your Anchor with one clear breath.', duration: '10 sec · 30 sec · 60 sec', accent: practiceColors.focus, premium: false },
-  { mode: 'deep_prime', title: 'Deep Prime', purpose: 'Settle into a longer, guided return.', duration: '2 min · 5 min · 10 min', accent: practiceColors.deepPrime, premium: true },
+  { mode: 'deep_prime', title: 'Deep Focus', purpose: 'A longer, guided session with your Anchor.', duration: '2 min · 5 min · 10 min', accent: practiceColors.deepPrime, premium: true },
   { mode: 'visualize', title: 'Visualize', purpose: 'Rehearse the future held in your Vision.', duration: '1 min · 3 min · 5 min', accent: practiceColors.visualize, premium: true },
   { mode: 'release', title: 'Release', purpose: 'Close an intention when its work is complete.', duration: 'When ready', accent: practiceColors.release, premium: false },
 ];
@@ -44,9 +50,14 @@ export const V2_RECOMMENDATION_ACTION_TO_MODE: Readonly<Record<V2RecommendationA
 export const V2_RECOMMENDATION_WHY: Readonly<Record<V2PracticeMode, string>> = {
   release: 'Reached a meaningful milestone',
   visualize: 'Reconnect with your Vision today',
-  deep_prime: 'Thread has softened over the last 7 days',
+  deep_prime: 'A longer session to go deeper.',
   focus: 'Daily reinforcement for your Anchor',
 };
+
+/** User-facing name for a practice mode id. Never render the id itself. */
+export function v2PracticeModeTitle(mode: V2PracticeMode): string {
+  return V2_PRACTICE_MODE_BY_ID[mode].title;
+}
 
 export function v2PracticeDurationLabel(seconds: number): string {
   if (seconds < 60) return `${seconds} sec`;

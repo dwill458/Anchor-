@@ -1,20 +1,23 @@
 import React, { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { cancelAnimation, runOnJS, useAnimatedStyle, useSharedValue, withSpring, type SharedValue } from 'react-native-reanimated';
 import { CircularAnchorRenderer } from '@/components/v2';
-import { anchorArtworkSvg, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
+import { anchorRenderProps, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
 import type { V2HomeAnchorSummary } from '@/adapters/v2/home';
 import { v2Haptics } from '@/hooks/v2';
 import { AnchorMotion } from '@/theme/v2';
 
 export const HERO_ANCHOR_SIZE = 154;
 export const NEIGHBOUR_ANCHOR_SIZE = 68;
+/** Resting scale of a neighbour and how much of it stays on screen (fraction of its width). */
+export const NEIGHBOUR_SCALE = 0.72;
+const PEEK_FRACTION = 0.28;
+const MOUNT_PADDING = 14;
 const COMMIT_DISTANCE = 56;
 const MIN_COMMIT_TRAVEL = 14;
 const VELOCITY_PROJECTION = 0.12;
-const RUBBER_BAND = 0.34;
-const MAX_DRAG_DISTANCE = 240;
+const RUBBER_BAND = 0.25;
 type Direction = -1 | 1;
 export type CarouselSlot = -1 | 0 | 1;
 
@@ -28,14 +31,42 @@ type Props = {
   /** A complete hero, including its own text, colour and Thread Strength. */
   renderHero?: (summary: V2HomeAnchorSummary, index: number, slot: CarouselSlot, offset: SharedValue<number>, spacing: number) => React.ReactNode;
   heroHeight?: number;
+  /** Centre Anchor size, used to derive how far neighbours sit off-screen. */
+  anchorSize?: number;
 };
 
-export function trackFinger(translationX: number): number {
+/** Centre-to-centre distance that leaves PEEK_FRACTION of a neighbour inside the screen edge. */
+export function carouselSpacing(screenWidth: number, anchorSize: number): number {
+  const neighbourWidth = (anchorSize + MOUNT_PADDING) * NEIGHBOUR_SCALE;
+  return screenWidth / 2 + neighbourWidth * (0.5 - PEEK_FRACTION);
+}
+
+/**
+ * The whole carousel geometry as pure data, so centring and edge symmetry can be
+ * asserted at any width. Slot centres sit at `trackWidth / 2 + slot * spacing`;
+ * the track must therefore span the full viewport and be symmetric about it.
+ */
+export function carouselGeometry(trackWidth: number, anchorSize: number) {
+  const spacing = carouselSpacing(trackWidth, anchorSize);
+  const neighbourWidth = (anchorSize + MOUNT_PADDING) * NEIGHBOUR_SCALE;
+  const slotCenterX = (slot: CarouselSlot) => trackWidth / 2 + slot * spacing;
+  return {
+    spacing,
+    neighbourWidth,
+    activeCenterX: slotCenterX(0),
+    slotCenterX,
+    /** Neighbour width visible inside the left and right screen edges. */
+    leftExposure: Math.max(0, slotCenterX(-1) + neighbourWidth / 2),
+    rightExposure: Math.max(0, trackWidth - (slotCenterX(1) - neighbourWidth / 2)),
+  };
+}
+
+/** 1:1 with the finger up to one slot, then resisted so the strip never leaves its window. */
+export function trackFinger(translationX: number, spacing: number): number {
   'worklet';
-  const clamped = Math.max(-MAX_DRAG_DISTANCE, Math.min(MAX_DRAG_DISTANCE, translationX));
-  const magnitude = Math.abs(clamped);
-  if (magnitude <= COMMIT_DISTANCE) return clamped;
-  return Math.sign(clamped) * (COMMIT_DISTANCE + (magnitude - COMMIT_DISTANCE) * RUBBER_BAND);
+  const magnitude = Math.abs(translationX);
+  if (magnitude <= spacing) return translationX;
+  return Math.sign(translationX) * (spacing + Math.min(magnitude - spacing, spacing) * RUBBER_BAND);
 }
 
 export function resolveSwipeCommit(translationX: number, velocityX: number): Direction | null {
@@ -60,9 +91,7 @@ function DefaultHero({ summary, active, onOpen }: { summary: V2HomeAnchorSummary
       disabled={!active || !onOpen}
     >
       <CircularAnchorRenderer
-        svg={anchorArtworkSvg(summary.anchor)}
-        imageUrl={summary.anchor.enhancedImageUrl}
-        category={summary.anchor.category}
+        {...anchorRenderProps(summary.anchor)}
         size={HERO_ANCHOR_SIZE}
         appearance="paper"
         accessibilityLabel={`${categoryLabel(summary.anchor.category)} Anchor artwork`}
@@ -106,11 +135,19 @@ const TrackSlot = memo(function TrackSlot({
   );
 });
 
-function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpenActive, reduceMotion = false, renderHero, heroHeight, testID }: Props) {
-  const { width: screenWidth } = useWindowDimensions();
-  const width = screenWidth - 40;
-  // At rest, a 68px scaled neighbour still peeks roughly 40px past the inset.
-  const spacing = Math.max(160, width * 0.48);
+function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpenActive, reduceMotion = false, renderHero, heroHeight, anchorSize = HERO_ANCHOR_SIZE, testID }: Props) {
+  // The track is `width: 100%` of a full-bleed parent, and its geometry is
+  // derived from its *measured* width. It must never inherit a page gutter, or
+  // the slot centres (trackWidth / 2) stop matching the viewport centre and the
+  // device edge stops being the crop. The window width is only the first-frame guess.
+  const { width: windowWidth } = useWindowDimensions();
+  const [measuredWidth, setMeasuredWidth] = useState<number | null>(null);
+  const width = measuredWidth ?? windowWidth;
+  const handleTrackLayout = useCallback((event: LayoutChangeEvent) => {
+    const next = event.nativeEvent.layout.width;
+    if (next > 0) setMeasuredWidth(previous => (previous !== null && Math.abs(previous - next) < 0.01 ? previous : next));
+  }, []);
+  const spacing = carouselSpacing(width, anchorSize);
   const offset = useSharedValue(0);
   const busy = useSharedValue(false);
   const [visualIndex, setVisualIndex] = useState(selectedIndex);
@@ -194,7 +231,7 @@ function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpe
     .activeOffsetX([-6, 6])
     .failOffsetY([-10, 10])
     .onUpdate(event => {
-      if (!busy.value) offset.value = trackFinger(event.translationX);
+      if (!busy.value) offset.value = trackFinger(event.translationX, spacing);
     })
     .onEnd(event => {
       if (busy.value) return;
@@ -225,7 +262,7 @@ function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpe
   if (!active) return null;
   return (
     <GestureDetector gesture={panGesture}>
-      <View testID={testID} style={[styles.track, { width, height: renderHero ? heroHeight ?? 308 : 216 }]}
+      <View testID={testID} onLayout={handleTrackLayout} style={[styles.track, { height: renderHero ? heroHeight ?? 308 : 216 }]}
         accessibilityRole={canSwitch ? 'adjustable' : undefined}
         accessibilityActions={accessibilityActions}
         onAccessibilityAction={handleAccessibilityAction}>
@@ -247,7 +284,7 @@ function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpe
 }
 
 const styles = StyleSheet.create({
-  track: { position: 'relative', alignSelf: 'center', overflow: 'hidden' },
+  track: { position: 'relative', alignSelf: 'stretch', width: '100%', overflow: 'hidden' },
   slot: { position: 'absolute', top: 0, left: 0, right: 0, alignItems: 'center' },
   neighbourHit: { position: 'absolute', top: 85, left: 0, right: 0, height: 96 },
 });

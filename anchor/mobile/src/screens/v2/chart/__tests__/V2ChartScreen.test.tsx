@@ -44,7 +44,7 @@ describe('V2ChartScreen', () => {
     plottedAt: '2026-09-01T00:00:00Z',
     completedAt: null,
     archivedAt: null,
-    destinationAnchorLink: null,
+    destinationAnchorLink: { anchorId: 'anchor-1' } as CourseDetail['destinationAnchorLink'],
     waypoints: [
       {
         id: 'wp-1',

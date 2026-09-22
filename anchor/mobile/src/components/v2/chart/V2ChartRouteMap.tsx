@@ -35,7 +35,7 @@ export interface V2ChartRouteMapProps {
   testID?: string;
 }
 
-const landscapeImage = require('../../../../assets/chart/landscape.png');
+const landscapeImage = require('../../../../assets/chart/landscape.jpg');
 
 const TEMPLATES: Record<ChartRouteTemplate, [number, number][]> = {
   'gentle-s': [
@@ -359,7 +359,7 @@ export function V2ChartRouteMap({
               svg={activeAnchorSvg}
               category={activeAnchorCategory}
               size="micro"
-              accessibilityLabel="Start Anchor sigil"
+              accessibilityLabel="Start: your Anchor"
             />
           ) : (
             <View style={styles.fallbackStartCircle} />

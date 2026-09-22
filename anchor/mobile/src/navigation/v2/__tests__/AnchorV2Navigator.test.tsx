@@ -96,9 +96,9 @@ jest.mock('@/screens/v2/creation', () => {
     V2CreationScreen: (props: any) => (
       <RNPressable
         accessibilityRole="button"
-        onPress={() => props.onContinue({ type: 'vision_and_chart', anchorId: 'anchor-42' })}
+        onPress={() => props.onPaywall()}
       >
-        <RNText>continue-vision-and-chart</RNText>
+        <RNText>creation-refused-second-anchor</RNText>
       </RNPressable>
     ),
   };
@@ -159,16 +159,11 @@ describe('AnchorV2Navigator Vision <-> Chart wiring', () => {
     expect(screen.getByText('practice:visualize')).toBeTruthy();
   });
 
-  it('continues the vision_and_chart creation continuation into a real, working Vision screen (not a dead end)', () => {
+  it('sends a refused second Anchor to the SECOND_ANCHOR paywall, resuming creation after', () => {
     mockRoute = { name: 'V2Creation' };
     render(<AnchorV2Navigator />);
 
-    fireEvent.press(screen.getByText('continue-vision-and-chart'));
-    screen.rerender(<AnchorV2Navigator />);
-    expect(screen.getByText('vision-for:anchor-42')).toBeTruthy();
-
-    fireEvent.press(screen.getByText('open-chart'));
-    screen.rerender(<AnchorV2Navigator />);
-    expect(screen.getByText('chart-for:anchor-42')).toBeTruthy();
+    fireEvent.press(screen.getByText('creation-refused-second-anchor'));
+    expect(mockRoute).toEqual({ name: 'V2Paywall', params: { context: 'SECOND_ANCHOR', resumeIntent: { type: 'create_anchor' } } });
   });
 });

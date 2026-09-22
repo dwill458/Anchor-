@@ -179,6 +179,19 @@ describe('POST /api/anchors', () => {
     expect(mockPrisma.anchor.create).toHaveBeenCalledTimes(1);
   });
 
+  it('never starts the trial when an Anchor is created', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    (mockPrisma.anchor.create as jest.Mock).mockResolvedValue(MOCK_ANCHOR);
+    (mockPrisma.user.update as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+
+    const res = await request(buildApp()).post('/api/anchors').send(VALID_CREATE_BODY);
+
+    expect(res.status).toBe(201);
+    for (const [args] of (mockPrisma.user.update as jest.Mock).mock.calls) {
+      expect(args.data).not.toHaveProperty('trialStartedAt');
+    }
+  });
+
   it('returns 400 when intentionText is missing', async () => {
     const res = await request(buildApp())
       .post('/api/anchors')
@@ -574,6 +587,41 @@ describe('PUT /api/anchors/:id', () => {
 
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe('ANCHOR_NOT_FOUND');
+  });
+
+  it('merges a kept expression into classifierMeta without dropping classification data', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    (mockPrisma.anchor.findFirst as jest.Mock).mockResolvedValue({
+      classifierMeta: { confidenceScore: 0.9, v2Expression: 'original' },
+    });
+    (mockPrisma.anchor.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (mockPrisma.anchor.findUnique as jest.Mock).mockResolvedValue(MOCK_ANCHOR);
+
+    const res = await request(buildApp()).put('/api/anchors/anchor-1').send({ expression: 'foil' });
+
+    expect(res.status).toBe(200);
+    const update = (mockPrisma.anchor.updateMany as jest.Mock).mock.calls.at(-1)[0];
+    expect(update.where).toEqual({ id: 'anchor-1', userId: MOCK_DB_USER.id });
+    expect(update.data.classifierMeta).toEqual({ confidenceScore: 0.9, v2Expression: 'foil' });
+    // Appearance only: no structure field is written.
+    expect(update.data.reinforcedSigilSvg).toBeUndefined();
+    expect(update.data.structureVariant).toBeUndefined();
+  });
+
+  it('rejects an expression outside the known vocabulary', async () => {
+    const res = await request(buildApp()).put('/api/anchors/anchor-1').send({ expression: 'nebula' });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('returns 404 for an expression update on an Anchor the user does not own', async () => {
+    (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue(MOCK_DB_USER);
+    (mockPrisma.anchor.findFirst as jest.Mock).mockResolvedValue(null);
+
+    const res = await request(buildApp()).put('/api/anchors/someone-else').send({ expression: 'ink' });
+
+    expect(res.status).toBe(404);
+    expect(mockPrisma.anchor.updateMany).not.toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'someone-else', userId: MOCK_DB_USER.id } }));
   });
 });
 

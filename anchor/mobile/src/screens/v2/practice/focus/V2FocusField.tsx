@@ -10,7 +10,7 @@ import Reanimated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import { AnchorMotion, getCategoryColor } from '@/theme/v2';
+import { AnchorMotion, colors, getCategoryColor } from '@/theme/v2';
 import { practiceColors } from '@/theme/v2/practiceColors';
 import type { SharedValue } from 'react-native-reanimated';
 
@@ -124,7 +124,7 @@ export function V2FocusField({
   }));
 
   const stroke = imprint ? categoryColor : `${categoryColor}D0`;
-  const fieldBackground = imprint ? 'transparent' : '#11131A';
+  const fieldBackground = imprint ? 'transparent' : colors.ink.raised;
 
   return (
     <View

@@ -256,6 +256,17 @@ describe('stylePromptLibrary', () => {
       expect(prompt).toContain('The Anchor geometry is the identity of the piece.');
     });
 
+    it('frames the Anchor as a personal mark of intent, not a seal, without loosening geometry', () => {
+      const prompt = buildStylePrompt('steady focus and growth', 'gold_leaf', 0);
+
+      expect(prompt).toContain('PERSONAL MARK OF INTENT');
+      expect(prompt).toContain('Do not enclose it in added rings, borders, medallions, cartouches, or ceremonial frames.');
+      expect(prompt).toContain('It must not become a corporate logo, an icon-set glyph, or an alphabet monogram.');
+      // The identity directive sits before the preservation contract and does not replace it.
+      expect(prompt.indexOf('PERSONAL MARK OF INTENT')).toBeLessThan(prompt.indexOf('STRUCTURAL PRESERVATION — ABSOLUTE PRIORITY'));
+      expect(getStyleNegativePrompt('gold_leaf')).toContain('talisman');
+    });
+
     it('renders style-specific DNA fields for upgraded and V2 styles without placeholders', () => {
       const prompt = buildStylePrompt('radiant confidence', 'cut_paper', 0);
 

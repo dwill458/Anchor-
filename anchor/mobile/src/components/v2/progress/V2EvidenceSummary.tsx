@@ -59,10 +59,10 @@ export const V2EvidenceSummary: React.FC<V2EvidenceSummaryProps> = ({
           </View>
           <View style={styles.modeRow}>
             <Text style={styles.modeItem}>Focus: {practiceSummary.focusCount}</Text>
-            <Text style={styles.modeItem}>Prime: {practiceSummary.deepPrimeCount}</Text>
+            <Text style={styles.modeItem}>Deep Focus: {practiceSummary.deepPrimeCount}</Text>
           </View>
           <View style={styles.modeRow}>
-            <Text style={styles.modeItem}>Vision: {practiceSummary.visualizeCount}</Text>
+            <Text style={styles.modeItem}>Visualize: {practiceSummary.visualizeCount}</Text>
             <Text style={styles.modeItem}>Release: {practiceSummary.releaseCount}</Text>
           </View>
         </View>
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     ...typography.labelSM,
-    color: colors.text.secondary,
+    color: colors.ink.text.secondary,
     letterSpacing: 1.1,
     marginBottom: spacing.sm,
   },
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
   card: {
     flex: 1,
     minWidth: '47%',
-    backgroundColor: '#141820',
+    backgroundColor: colors.ink.raised,
     borderRadius: radii.md,
     padding: spacing.md,
     borderWidth: 1,
@@ -113,12 +113,12 @@ const styles = StyleSheet.create({
   },
   cardLabel: {
     ...typography.caption,
-    color: colors.text.secondary,
+    color: colors.ink.text.secondary,
     fontWeight: '600',
   },
   cardValue: {
     ...typography.headingMD,
-    color: colors.text.primary,
+    color: colors.ink.text.primary,
     marginBottom: 2,
   },
   stageValue: {
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   },
   cardSubtext: {
     ...typography.caption,
-    color: colors.text.secondary,
+    color: colors.ink.text.secondary,
   },
   modeRow: {
     flexDirection: 'row',
@@ -136,6 +136,6 @@ const styles = StyleSheet.create({
   },
   modeItem: {
     ...typography.caption,
-    color: colors.text.secondary,
+    color: colors.ink.text.secondary,
   },
 });

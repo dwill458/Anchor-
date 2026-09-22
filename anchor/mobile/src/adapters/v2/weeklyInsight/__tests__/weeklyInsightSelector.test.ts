@@ -17,12 +17,12 @@ describe('WeeklyInsightSelector', () => {
     it('1. matches prototype state "consistency"', () => {
       const snapshot = selectWeeklyInsight(PROTOTYPE_WEEKLY_INSIGHT_FIXTURES.consistency);
       expect(snapshot.ruleType).toBe('CONSISTENCY');
-      expect(snapshot.headline).toBe('You kept the Thread steady.');
+      expect(snapshot.headline).toBe('You kept your Consistency steady.');
       expect(snapshot.visualType).toBe('activity');
       expect(snapshot.evidence).toHaveLength(3);
       expect(snapshot.evidence[0]).toEqual(['4', 'Active days', 'Across the week']);
       expect(snapshot.evidence[1]).toEqual(['5', 'Practices', 'Same as last week']);
-      expect(snapshot.evidence[2]).toEqual(['68 → 71', 'Thread', 'Stable movement']);
+      expect(snapshot.evidence[2]).toEqual(['68 → 71', 'Consistency', 'Stable movement']);
       expect(snapshot.comparisonTone).toBe('neutral');
     });
 
@@ -32,8 +32,8 @@ describe('WeeklyInsightSelector', () => {
       expect(snapshot.headline).toBe('You went deeper, not more often.');
       expect(snapshot.visualType).toBe('anchor');
       expect(snapshot.accentKey).toBe('prime');
-      expect(snapshot.evidence[0]).toEqual(['3', 'Deep Prime', 'Of 4 Practices']);
-      expect(snapshot.evidence[1]).toEqual(['+14', 'Thread', '62 → 76']);
+      expect(snapshot.evidence[0]).toEqual(['3', 'Deep Focus', 'Of 4 Practices']);
+      expect(snapshot.evidence[1]).toEqual(['+14', 'Consistency', '62 → 76']);
     });
 
     it('3. matches prototype state "recovery"', () => {
@@ -52,7 +52,7 @@ describe('WeeklyInsightSelector', () => {
       expect(snapshot.headline).toBe('Your Career Anchor carried most of your momentum.');
       expect(snapshot.visualType).toBe('anchor');
       expect(snapshot.evidence[0]).toEqual(['4 of 6', 'Practices', 'Career Anchor']);
-      expect(snapshot.evidence[1]).toEqual(['+14', 'Thread', '62 → 76']);
+      expect(snapshot.evidence[1]).toEqual(['+14', 'Consistency', '62 → 76']);
       expect(snapshot.evidence[2]).toEqual(['67%', 'Attention', 'One Anchor']);
     });
 
@@ -81,7 +81,7 @@ describe('WeeklyInsightSelector', () => {
       expect(snapshot.headline).toBe('Your Career Anchor became Rooted this week.');
       expect(snapshot.visualType).toBe('evolution');
       expect(snapshot.evidence[0]).toEqual(['Rooted', 'Current stage', 'Reached Thu']);
-      expect(snapshot.evidence[1]).toEqual(['76', 'Thread', 'At transition']);
+      expect(snapshot.evidence[1]).toEqual(['76', 'Consistency', 'At transition']);
     });
 
     it('8. matches prototype state "release"', () => {
@@ -91,7 +91,7 @@ describe('WeeklyInsightSelector', () => {
       expect(snapshot.visualType).toBe('release');
       expect(snapshot.accentKey).toBe('release');
       expect(snapshot.evidence[0]).toEqual(['22', 'Practices', 'Lifetime']);
-      expect(snapshot.evidence[1]).toEqual(['76', 'Final Thread', 'Snapshot']);
+      expect(snapshot.evidence[1]).toEqual(['76', 'Final Consistency', 'Snapshot']);
       expect(snapshot.evidence[2]).toEqual(['Sat', 'Released', 'Completed week']);
     });
 

@@ -130,10 +130,19 @@ export class VisionService {
       throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
     }
 
-    // Check if an active Vision already exists
+    // A generated candidate is bound to the Vision that requested it.
     const existing = await prisma.vision.findFirst({
       where: { anchorId, userId, status: 'ACTIVE' },
     });
+
+    if (input.scenes?.length) {
+      if (new Set(input.scenes.map(scene => scene.assetId)).size !== input.scenes.length) {
+        throw new AppError('Choose distinct images', 400, 'VALIDATION_ERROR');
+      }
+      for (const scene of input.scenes) {
+        await this.validateSceneAsset(userId, anchorId, scene.assetId, scene.sourceType, existing?.id);
+      }
+    }
 
     let visionId: string;
     if (existing) {
@@ -147,43 +156,49 @@ export class VisionService {
       });
       visionId = updated.id;
     } else {
-      const created = await prisma.vision.create({
-        data: {
-          id: randomUUID(),
-          userId,
-          anchorId,
-          title: input.title ?? null,
-          description: input.description ?? null,
-          status: 'ACTIVE',
-        },
-      });
-      visionId = created.id;
-    }
-
-    // If scenes were supplied, create them
-    if (input.scenes && input.scenes.length > 0) {
-      for (let i = 0; i < input.scenes.length; i++) {
-        const scene = input.scenes[i];
-        if (scene.assetId) {
-          const asset = await prisma.asset.findFirst({
-            where: { id: scene.assetId, userId },
-          });
-          if (!asset) {
-            throw new AppError('Asset not found or not owned by user', 404, 'ASSET_NOT_FOUND');
-          }
-        }
-        await prisma.visionScene.create({
+      try {
+        const created = await prisma.vision.create({
           data: {
-            id: randomUUID(),
-            visionId,
-            userId,
-            sourceType: scene.sourceType,
-            assetId: scene.assetId ?? null,
-            prompt: scene.prompt ?? null,
-            sortOrder: scene.sortOrder ?? i,
-            isArchived: false,
+            id: randomUUID(), userId, anchorId,
+            title: input.title ?? null, description: input.description ?? null, status: 'ACTIVE',
           },
         });
+        visionId = created.id;
+      } catch (error) {
+        if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002')) throw error;
+        const concurrent = await prisma.vision.findFirst({ where: { anchorId, userId, status: 'ACTIVE' } });
+        if (!concurrent) throw error;
+        const updated = await prisma.vision.update({
+          where: { id: concurrent.id },
+          data: { title: input.title ?? concurrent.title, description: input.description ?? concurrent.description },
+        });
+        visionId = updated.id;
+      }
+    }
+
+    // If scenes were supplied, add only assets not already selected. Replayed saves are idempotent.
+    if (input.scenes && input.scenes.length > 0) {
+      const alreadySelected = await prisma.visionScene.findMany({
+        where: { visionId, isArchived: false }, select: { assetId: true },
+      });
+      const selectedIds = new Set(alreadySelected.map(scene => scene.assetId));
+      const missing = input.scenes.filter(scene => !selectedIds.has(scene.assetId));
+      if (alreadySelected.length + missing.length > 5) throw new AppError('A Vision can contain up to five images', 400, 'VISION_IMAGE_LIMIT');
+      for (let i = 0; i < input.scenes.length; i++) {
+        const scene = input.scenes[i];
+        if (selectedIds.has(scene.assetId)) continue;
+        try {
+          await prisma.visionScene.create({
+            data: {
+              id: randomUUID(), visionId, userId, sourceType: scene.sourceType,
+              assetId: scene.assetId ?? null, prompt: scene.prompt ?? null,
+              sortOrder: scene.sortOrder ?? i, isArchived: false,
+            },
+          });
+        } catch (error) {
+          if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002')) throw error;
+        }
+        selectedIds.add(scene.assetId);
       }
     }
 
@@ -263,14 +278,23 @@ export class VisionService {
       throw new AppError('Active vision not found', 404, 'VISION_NOT_FOUND');
     }
 
-    if (input.assetId) {
-      const asset = await prisma.asset.findFirst({
-        where: { id: input.assetId, userId },
-      });
-      if (!asset) {
-        throw new AppError('Asset not found or not owned by user', 404, 'ASSET_NOT_FOUND');
-      }
+    const existing = await prisma.visionScene.findFirst({
+      where: { visionId, userId, assetId: input.assetId, isArchived: false },
+      include: { asset: true },
+    });
+    if (existing) {
+      const resolvedImageUrl = existing.asset?.storageKey ? await resolveStorageKeyUrl(existing.asset.storageKey) : null;
+      return {
+        id: existing.id, visionId, sourceType: existing.sourceType as 'USER_UPLOAD' | 'AI_GENERATED',
+        assetId: existing.assetId, resolvedImageUrl: resolvedImageUrl ?? null, prompt: existing.prompt,
+        sortOrder: existing.sortOrder, isArchived: false,
+        createdAt: existing.createdAt.toISOString(), updatedAt: existing.updatedAt.toISOString(),
+      };
     }
+
+    const count = await prisma.visionScene.count({ where: { visionId, isArchived: false } });
+    if (count >= 5) throw new AppError('A Vision can contain up to five images', 400, 'VISION_IMAGE_LIMIT');
+    await this.validateSceneAsset(userId, vision.anchorId, input.assetId, input.sourceType, vision.id);
 
     let sortOrder = input.sortOrder;
     if (sortOrder === undefined) {
@@ -314,6 +338,19 @@ export class VisionService {
     };
   }
 
+  private async validateSceneAsset(userId: string, anchorId: string, assetId: string, sourceType: 'USER_UPLOAD' | 'AI_GENERATED', visionId?: string): Promise<void> {
+    const asset = await prisma.asset.findFirst({ where: { id: assetId, userId } });
+    if (!asset) throw new AppError('Asset not found or not owned by user', 404, 'ASSET_NOT_FOUND');
+    if (sourceType === 'AI_GENERATED') {
+      const candidate = await prisma.visionGenerationCandidate.findFirst({
+        where: { assetId, generation: { userId, anchorId, visionId: visionId ?? '' } }, select: { id: true },
+      });
+      if (!candidate) throw new AppError('Generated image does not belong to this Anchor', 400, 'INVALID_VISION_CANDIDATE');
+    } else if (!asset.storageKey.includes('vision-assets')) {
+      throw new AppError('Uploaded image is not a Vision asset', 400, 'INVALID_VISION_ASSET');
+    }
+  }
+
   async reorderScenes(
     userId: string,
     visionId: string,
@@ -324,6 +361,17 @@ export class VisionService {
     });
     if (!vision) {
       throw new AppError('Active vision not found', 404, 'VISION_NOT_FOUND');
+    }
+
+    const activeScenes = await prisma.visionScene.findMany({
+      where: { visionId, userId, isArchived: false }, select: { id: true },
+    });
+    const existingIds = activeScenes.map(scene => scene.id).sort();
+    const requestedIds = input.sceneOrders.map(item => item.id).sort();
+    const requestedOrders = input.sceneOrders.map(item => item.sortOrder).sort((a, b) => a - b);
+    if (JSON.stringify(existingIds) !== JSON.stringify(requestedIds) ||
+        requestedOrders.some((order, index) => order !== index)) {
+      throw new AppError('Image order must include every active image exactly once', 400, 'INVALID_VISION_ORDER');
     }
 
     await prisma.$transaction(
@@ -372,6 +420,11 @@ export class VisionService {
     });
     if (!scene) {
       throw new AppError('Scene not found', 404, 'SCENE_NOT_FOUND');
+    }
+
+    if (!scene.isArchived) {
+      const count = await prisma.visionScene.count({ where: { visionId, userId, isArchived: false } });
+      if (count <= 1) throw new AppError('Keep at least one image in your Vision', 400, 'VISION_IMAGE_MINIMUM');
     }
 
     await prisma.visionScene.update({

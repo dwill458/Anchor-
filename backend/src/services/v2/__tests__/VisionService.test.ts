@@ -11,6 +11,7 @@ const mockPrisma = {
   visionScene: {
     findFirst: jest.fn(),
     findMany: jest.fn(),
+    count: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
     updateMany: jest.fn(),
@@ -43,6 +44,8 @@ describe('VisionService (Anchor 2.0 V2)', () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
+    mockPrisma.visionScene.findMany.mockResolvedValue([]);
+    mockPrisma.visionScene.count.mockResolvedValue(0);
     (resolveStorageKeyUrl as jest.Mock).mockImplementation((key: string) =>
       Promise.resolve(`https://signed.cdn/${key}`)
     );
@@ -110,6 +113,7 @@ describe('VisionService (Anchor 2.0 V2)', () => {
       mockPrisma.asset.findFirst.mockResolvedValueOnce({
         id: 'asset-1',
         userId: USER_ID,
+        storageKey: 'vision-assets/user-test-1/asset-1.png',
       });
       mockPrisma.visionScene.create.mockResolvedValueOnce({
         id: 'scene-1',
@@ -302,6 +306,7 @@ describe('VisionService (Anchor 2.0 V2)', () => {
         status: 'ACTIVE',
       });
       mockPrisma.$transaction.mockResolvedValueOnce([]);
+      mockPrisma.visionScene.findMany.mockResolvedValueOnce([{ id: 'scene-1' }, { id: 'scene-2' }]);
       mockPrisma.visionScene.findMany.mockResolvedValueOnce([
         {
           id: 'scene-2',
@@ -340,6 +345,7 @@ describe('VisionService (Anchor 2.0 V2)', () => {
     });
 
     it('archives a scene', async () => {
+      mockPrisma.visionScene.count.mockResolvedValueOnce(2);
       mockPrisma.visionScene.findFirst.mockResolvedValueOnce({
         id: 'scene-1',
         visionId: VISION_ID,
@@ -356,6 +362,22 @@ describe('VisionService (Anchor 2.0 V2)', () => {
         where: { id: 'scene-1' },
         data: { isArchived: true },
       });
+    });
+
+    it('rejects an order that omits an active image', async () => {
+      mockPrisma.vision.findFirst.mockResolvedValueOnce({ id: VISION_ID, userId: USER_ID, status: 'ACTIVE' });
+      mockPrisma.visionScene.findMany.mockResolvedValueOnce([{ id: 'scene-1' }, { id: 'scene-2' }]);
+      await expect(visionService.reorderScenes(USER_ID, VISION_ID, {
+        sceneOrders: [{ id: 'scene-1', sortOrder: 0 }],
+      })).rejects.toThrow('every active image');
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('keeps the final image when removal is requested', async () => {
+      mockPrisma.visionScene.findFirst.mockResolvedValueOnce({ id: 'scene-1', visionId: VISION_ID, userId: USER_ID, isArchived: false });
+      mockPrisma.visionScene.count.mockResolvedValueOnce(1);
+      await expect(visionService.archiveScene(USER_ID, VISION_ID, 'scene-1')).rejects.toThrow('Keep at least one image');
+      expect(mockPrisma.visionScene.update).not.toHaveBeenCalled();
     });
   });
 });

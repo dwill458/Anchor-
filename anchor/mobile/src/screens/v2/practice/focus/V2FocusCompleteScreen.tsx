@@ -1,15 +1,14 @@
 import React, { useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronRight } from 'lucide-react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
-import { CircularAnchorRenderer, V2Button, V2Screen } from '@/components/v2';
+import { V2Button, V2Screen } from '@/components/v2';
 import { anchorArtworkSvg } from '@/components/v2/anchors/anchorPresentation';
-import { practiceColors } from '@/theme/v2/practiceColors';
-import { AnchorMotion, getCategoryFieldColor, getCategoryPalette, colors, radii, spacing, typography } from '@/theme/v2';
+import { AnchorMotion, getCategoryPalette, colors, radii, spacing, typography } from '@/theme/v2';
 import type { Anchor } from '@/types';
 import { useV2ReduceMotion } from '@/hooks/v2';
-import { V2FocusField } from './V2FocusField';
+import { V2FocusAnchorArtwork } from './V2FocusAnchorArtwork';
 
 export interface V2FocusCompleteScreenProps {
   anchor: Anchor;
@@ -28,7 +27,6 @@ export interface V2FocusCompleteScreenProps {
 
 export function V2FocusCompleteScreen({
   anchor,
-  durationSeconds,
   beforeStrength: propBefore,
   afterStrength: propAfter,
   contextualRecommendation,
@@ -37,8 +35,11 @@ export function V2FocusCompleteScreen({
   onSelectRecommended,
 }: V2FocusCompleteScreenProps) {
   const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
   const reduceMotion = useV2ReduceMotion();
   const categoryPalette = getCategoryPalette(anchor.category);
+  const artworkSize = Math.round(Math.min(188, Math.max(148, height * 0.22)));
+  const footerBottomPadding = insets.bottom + Math.round(Math.min(20, Math.max(12, height * 0.018)));
 
   // Authoritative thread strength resolution:
   const hasAuthoritativeMovement =
@@ -61,24 +62,32 @@ export function V2FocusCompleteScreen({
 
   // Presentation only: the authoritative Thread values above are already
   // resolved before this screen mounts. Reanimated owns the entrance and fill.
+  // The Anchor is visible on the first cream frame. This avoids a blank beat
+  // between the resolving session field and the same Anchor on completion.
   const contentOpacity = useSharedValue(reduceMotion ? 1 : 0);
+  const inkOverlayOpacity = useSharedValue(reduceMotion ? 0 : 1);
   const barProgress = useSharedValue(fromVal / 100);
   const deltaOpacity = useSharedValue(reduceMotion ? 1 : 0);
-  const completionProgress = useSharedValue(1);
   const contentStyle = useAnimatedStyle(() => ({ opacity: contentOpacity.value }));
+  const inkOverlayStyle = useAnimatedStyle(() => ({ opacity: inkOverlayOpacity.value }));
   const barStyle = useAnimatedStyle(() => ({ transform: [{ scaleX: barProgress.value }] }));
   const deltaStyle = useAnimatedStyle(() => ({ opacity: deltaOpacity.value }));
 
   useEffect(() => {
     if (reduceMotion) {
       contentOpacity.value = 1;
+      inkOverlayOpacity.value = 0;
       barProgress.value = toVal / 100;
       deltaOpacity.value = 1;
       return;
     }
 
     contentOpacity.value = withTiming(1, {
-      duration: AnchorMotion.duration.expressive,
+      duration: 600,
+      easing: AnchorMotion.easing.enter,
+    });
+    inkOverlayOpacity.value = withTiming(0, {
+      duration: 600,
       easing: AnchorMotion.easing.enter,
     });
     barProgress.value = withDelay(
@@ -92,83 +101,59 @@ export function V2FocusCompleteScreen({
       AnchorMotion.duration.quick,
       withTiming(1, { duration: AnchorMotion.duration.quick, easing: AnchorMotion.easing.enter }),
     );
-  }, [barProgress, contentOpacity, deltaOpacity, reduceMotion, toVal]);
-
-  const durationLabel =
-    durationSeconds === 60 ? '1 min practiced' : `${durationSeconds} sec practiced`;
+  }, [barProgress, contentOpacity, deltaOpacity, inkOverlayOpacity, reduceMotion, toVal]);
 
   return (
     <V2Screen testID="v2-focus-complete-screen" style={styles.screen}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} animated />
       <Animated.View style={[styles.content, contentStyle]}>
-        <Text style={styles.eyebrow}>FOCUS COMPLETE</Text>
-
-        {/* Real Anchor artwork with completed imprint / category field */}
-        <View style={styles.artworkContainer}>
-          <View style={styles.fieldImprint}>
-            <V2FocusField
-              size={220}
-              progress={completionProgress}
-              category={anchor.category}
-              reduceMotion={reduceMotion}
-              motionActive={false}
-              imprint
-            />
-          </View>
-          <View
-            style={[
-              styles.completedRing,
-              { borderColor: `${practiceColors.focus}70` },
-            ]}
-          />
-          <View
-            style={[
-              styles.halo,
-              { backgroundColor: getCategoryFieldColor(anchor.category) },
-            ]}
-          />
-          <CircularAnchorRenderer
+        <View style={[styles.artworkContainer, { width: artworkSize, height: artworkSize }]}>
+          <View style={[styles.artworkAtmosphere, { backgroundColor: categoryPalette.soft }]} />
+          <V2FocusAnchorArtwork
             svg={anchorArtworkSvg(anchor)} imageUrl={anchor.enhancedImageUrl}
             category={anchor.category}
-            size={144}
-            appearance="paper"
+            size={artworkSize}
+            surface={colors.background}
             accessibilityLabel={`${anchor.category} Anchor artwork`}
+            testID="focus-complete-anchor-artwork"
           />
         </View>
 
-        {/* Heading & practiced duration */}
         <View style={styles.headingBlock}>
-          <Text style={styles.headline}>You returned.</Text>
-          <Text style={styles.durationSubtitle}>{durationLabel}</Text>
+          <Text style={styles.eyebrow}>FOCUS COMPLETE</Text>
+          <Text style={styles.headline}>Focus complete</Text>
+          <Text style={styles.durationSubtitle}>You reinforced this Anchor.</Text>
         </View>
 
-        {/* Authoritative Thread Strength Feedback */}
+        {/* Authoritative Consistency (Thread Strength) feedback */}
         <View testID="focus-complete-thread-bar" style={styles.threadBlock}>
           {isUnmeasured ? (
             <View style={styles.unmeasuredContainer}>
               <View style={styles.threadHeader}>
-                <Text style={styles.formingTitle}>THREAD FORMING</Text>
+                <Text style={styles.threadTitle}>CONSISTENCY</Text>
               </View>
               <Text style={styles.unmeasuredHint}>
-                Each return gives Anchor more signal. Keep reinforcing it and your baseline will take shape.
+                Session recorded. Consistency appears once it is established.
               </Text>
             </View>
-          ) : hasAuthoritativeMovement && delta > 0 ? (
+          ) : hasAuthoritativeMovement ? (
             <View style={styles.measuredCard}>
               <View style={styles.threadHeader}>
                 <View style={styles.deltaGroup}>
-                  <Text style={styles.threadTitle}>THREAD</Text>
-                  <Animated.Text
-                    testID="focus-thread-delta"
-                    style={[
-                      styles.threadDelta,
-                      { color: categoryPalette.deep },
-                      deltaStyle,
-                    ]}
-                  >
-                    +{delta}
-                  </Animated.Text>
+                  <Text style={styles.threadTitle}>CONSISTENCY</Text>
+                  {delta !== 0 ? (
+                    <Animated.Text
+                      testID="focus-thread-delta"
+                      style={[
+                        styles.threadDelta,
+                        { color: categoryPalette.deep },
+                        deltaStyle,
+                      ]}
+                    >
+                      {delta > 0 ? '+' : ''}{delta}
+                    </Animated.Text>
+                  ) : null}
                 </View>
-                <Text style={styles.strengthenedBadge}>STRENGTHENED</Text>
               </View>
 
               <View style={styles.valuesRow}>
@@ -200,7 +185,7 @@ export function V2FocusCompleteScreen({
           ) : (
             <View style={styles.measuredCard}>
               <View style={styles.threadHeader}>
-                <Text style={styles.formingTitle}>SESSION RECORDED</Text>
+                <Text style={styles.threadTitle}>CONSISTENCY</Text>
                 <Text style={styles.currentStrengthLabel}>{toVal}</Text>
               </View>
               <View style={styles.progressBarTrack}>
@@ -239,12 +224,11 @@ export function V2FocusCompleteScreen({
           </Pressable>
         ) : null}
       </Animated.View>
-
       {/* Action buttons */}
       <View
         style={[
           styles.footer,
-          { paddingBottom: Math.max(24, insets.bottom + 12) },
+          { paddingBottom: footerBottomPadding },
         ]}
       >
         <V2Button
@@ -254,7 +238,7 @@ export function V2FocusCompleteScreen({
           testID="focus-complete-done-button"
           style={styles.doneButton}
         >
-          Done
+          Continue
         </V2Button>
         <Pressable
           accessibilityRole="button"
@@ -266,6 +250,7 @@ export function V2FocusCompleteScreen({
           <Text style={styles.againText}>Focus again</Text>
         </Pressable>
       </View>
+      <Animated.View pointerEvents="none" style={[styles.inkOverlay, inkOverlayStyle]} />
     </V2Screen>
   );
 }
@@ -275,6 +260,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  inkOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.ink.base,
+  },
   content: {
     flex: 1,
     alignItems: 'center',
@@ -283,56 +272,41 @@ const styles = StyleSheet.create({
   },
   eyebrow: {
     ...typography.labelSM,
-    color: practiceColors.focus,
-    letterSpacing: 1.4,
-    fontWeight: '700',
-    fontSize: 11,
+    color: colors.text.secondary,
+    letterSpacing: 1.8,
+    fontWeight: '600',
+    fontSize: 10,
   },
   artworkContainer: {
     position: 'relative',
-    width: 220,
-    height: 220,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: spacing[4],
-    marginBottom: spacing[4],
+    marginBottom: spacing[3],
   },
-  fieldImprint: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  completedRing: {
+  artworkAtmosphere: {
     position: 'absolute',
-    width: 176,
-    height: 176,
-    borderRadius: 86,
-    borderWidth: 1.5,
-  },
-  halo: {
-    position: 'absolute',
-    width: 164,
-    height: 164,
-    borderRadius: 82,
-    opacity: 0.65,
+    width: '84%',
+    height: '84%',
+    borderRadius: 999,
+    opacity: 0.32,
   },
   headingBlock: {
     alignItems: 'center',
     marginBottom: spacing[5],
+    gap: 6,
   },
   headline: {
     ...typography.headingXL,
-    fontFamily: typography.displayBold,
-    fontSize: 27,
+    fontFamily: typography.display,
+    fontSize: 26,
     color: colors.text.primary,
     letterSpacing: -0.4,
   },
   durationSubtitle: {
     ...typography.bodyMD,
-    fontFamily: typography.bodySemiBold,
+    fontFamily: typography.body,
     fontSize: 14,
     color: colors.text.secondary,
-    marginTop: 6,
     letterSpacing: 0.2,
   },
   threadBlock: {
@@ -340,11 +314,8 @@ const styles = StyleSheet.create({
     maxWidth: 296,
   },
   unmeasuredContainer: {
-    padding: spacing[4],
-    backgroundColor: colors.surface,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.border.subtle,
+    paddingVertical: spacing[2],
+    paddingHorizontal: spacing[1],
     gap: spacing[2],
   },
   formingTitle: {
@@ -361,11 +332,8 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
   measuredCard: {
-    padding: spacing[4],
-    backgroundColor: colors.surface,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.border.subtle,
+    paddingVertical: spacing[2],
+    paddingHorizontal: spacing[1],
     gap: spacing[2],
   },
   threadHeader: {
@@ -388,14 +356,7 @@ const styles = StyleSheet.create({
   threadDelta: {
     ...typography.labelLG,
     fontFamily: typography.bodyBold,
-    fontSize: 16,
-  },
-  strengthenedBadge: {
-    ...typography.caption,
-    fontFamily: typography.bodyBold,
-    color: practiceColors.focus,
-    letterSpacing: 0.8,
-    fontSize: 11,
+    fontSize: 14,
   },
   currentStrengthLabel: {
     ...typography.labelMD,
@@ -410,8 +371,8 @@ const styles = StyleSheet.create({
   },
   strengthValue: {
     ...typography.headingMD,
-    fontFamily: typography.displayBold,
-    fontSize: 19,
+    fontFamily: typography.display,
+    fontSize: 18,
   },
   arrow: {
     ...typography.bodyMD,
@@ -419,16 +380,16 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
   },
   progressBarTrack: {
-    height: 8,
-    borderRadius: 5,
-    backgroundColor: colors.border.default,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: colors.border.strong,
     overflow: 'hidden',
     marginTop: 6,
   },
   progressBarFill: {
     width: '100%',
     height: '100%',
-    borderRadius: 5,
+    borderRadius: 1,
     transformOrigin: 'left center',
   },
   recommendationCard: {
@@ -451,7 +412,7 @@ const styles = StyleSheet.create({
   recommendationEyebrow: {
     ...typography.caption,
     fontWeight: '700',
-    color: practiceColors.deepPrime,
+    color: colors.text.secondary,
     letterSpacing: 1,
     fontSize: 10,
   },
@@ -470,10 +431,11 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingHorizontal: spacing[6],
-    gap: 2,
+    gap: 0,
   },
   doneButton: {
-    backgroundColor: '#5C3A82',
+    width: '100%',
+    maxWidth: 320,
     borderRadius: radii.round,
   },
   againLink: {

@@ -45,7 +45,7 @@ export const V2ThreadEventDetailSheet: React.FC<V2ThreadEventDetailSheetProps> =
               testID={`${testID}-close`}
               hitSlop={12}
             >
-              <X size={20} color={colors.text.secondary} />
+              <X size={20} color={colors.ink.text.secondary} />
             </Pressable>
           </View>
 
@@ -65,9 +65,9 @@ export const V2ThreadEventDetailSheet: React.FC<V2ThreadEventDetailSheetProps> =
             <Text style={styles.infoText}>{event.why}</Text>
           </View>
 
-          {/* Thread Delta — Strictly Server Authoritative */}
+          {/* Consistency (Thread Strength) delta — strictly server authoritative */}
           <View style={styles.infoBlock}>
-            <Text style={styles.infoLabel}>THREAD DELTA</Text>
+            <Text style={styles.infoLabel}>CONSISTENCY CHANGE</Text>
             {event.authoritativeDelta !== null ? (
               <Text style={styles.deltaValue}>
                 {event.authoritativeDelta > 0 ? `+${event.authoritativeDelta}` : event.authoritativeDelta}
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   sheetContainer: {
-    backgroundColor: '#141820',
+    backgroundColor: colors.ink.raised,
     borderTopLeftRadius: radii.xl,
     borderTopRightRadius: radii.xl,
     padding: spacing.lg,
@@ -143,12 +143,12 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.headingMD,
-    color: colors.text.primary,
+    color: colors.ink.text.primary,
     marginBottom: 2,
   },
   timestamp: {
     ...typography.caption,
-    color: colors.text.secondary,
+    color: colors.ink.text.secondary,
     marginBottom: spacing.lg,
   },
   infoBlock: {
@@ -156,13 +156,13 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     ...typography.labelSM,
-    color: colors.text.secondary,
+    color: colors.ink.text.secondary,
     letterSpacing: 0.8,
     marginBottom: 4,
   },
   infoText: {
     ...typography.bodyMD,
-    color: colors.text.secondary,
+    color: colors.ink.text.secondary,
   },
   deltaValue: {
     ...typography.numericMedium,
@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
   },
   emptyDeltaText: {
     ...typography.caption,
-    color: colors.text.secondary,
+    color: colors.ink.text.secondary,
     fontStyle: 'italic',
   },
   provenanceBlock: {
@@ -180,6 +180,6 @@ const styles = StyleSheet.create({
   provenanceText: {
     ...typography.caption,
     fontSize: 10,
-    color: colors.text.secondary,
+    color: colors.ink.text.secondary,
   },
 });

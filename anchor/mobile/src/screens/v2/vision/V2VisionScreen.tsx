@@ -1,28 +1,22 @@
-import React, { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
-import { ArrowRight, Compass, Edit3, Eye } from 'lucide-react-native';
-import {
-  GhostVisionComposition,
-  RealVisionComposition,
-  V2VisionCreationFlow,
-} from '@/components/v2/vision';
-import { V2Button, V2EmptyState, V2Screen, V2TopBar } from '@/components/v2';
-import { useV2Vision } from '@/hooks/v2/vision';
+import { V2VisionCreationFlow } from '@/components/v2/vision';
+import { V2SavedVision } from '@/components/v2/vision/V2SavedVision';
+import { V2EmptyState, V2Screen, V2TopBar } from '@/components/v2';
+import { useV2Vision, useV2VisionGeneration } from '@/hooks/v2/vision';
 import { useAnchorStore } from '@/stores/anchorStore';
-import { colors, getCategoryColor, radii, spacing, typography } from '@/theme/v2';
+import { anchorRenderProps } from '@/components/v2/anchors/anchorPresentation';
+import { resolveAnchorCategory } from '@/utils/categoryDetection';
+import { colors } from '@/theme/v2';
 import type { V2VisualizeHandoff } from '@/adapters/v2/vision';
 
 export interface V2VisionRouteParams {
   anchorId: string;
   initialMode?: 'view' | 'create' | 'ready';
+  resumeGeneration?: boolean;
 }
 
 export interface V2VisionScreenProps {
@@ -36,268 +30,132 @@ export interface V2VisionScreenProps {
 
 export function V2VisionScreen(props: V2VisionScreenProps) {
   const route = useRoute<RouteProp<Record<string, V2VisionRouteParams>, string>>();
-  const navigation = useNavigation();
-
+  const navigation = useNavigation<any>();
   const anchorId = props.anchorId ?? route.params?.anchorId ?? '';
-  const initialMode = props.initialMode ?? route.params?.initialMode ?? 'view';
-
-  const anchor = useAnchorStore((s) => s.anchors.find((a) => a.id === anchorId || a.localId === anchorId));
-  const categoryColor = getCategoryColor(anchor?.category);
-
-  const {
-    state,
-    vision,
-    tiles,
-    description,
-    seenToday,
-    loading,
-    error,
-    visualizeHandoff,
-    recordVisionView,
-    createVision,
-  } = useV2Vision(anchorId);
-
-  const [mode, setMode] = useState<'view' | 'create' | 'ready'>(initialMode);
+  const anchor = useAnchorStore(state => state.anchors.find(item => item.id === anchorId || item.localId === anchorId));
+  const model = useV2Vision(anchorId);
+  const generation = useV2VisionGeneration(anchorId);
+  const [mode, setMode] = useState<'view' | 'create' | 'ready' | 'add'>(props.initialMode ?? route.params?.initialMode ?? 'view');
+  useEffect(() => {
+    if (route.params?.resumeGeneration) setMode('create');
+  }, [route.params?.resumeGeneration]);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const anchorIntention = (anchor as { intention?: string } | undefined)?.intention ?? anchor?.intentionText ?? 'Your Anchor';
+  const anchorArt = useMemo(() => (anchor ? anchorRenderProps(anchor) : null), [anchor]);
+  // The Anchor's persisted category is the only source: art, accent and label all read it.
+  const anchorCategory = anchor ? resolveAnchorCategory(anchor.category) : undefined;
 
   const handleBack = () => {
-    if (mode === 'create') {
-      if (state.state === 'ready') {
-        setMode('view');
-        return;
-      }
+    if ((mode === 'create' || mode === 'add') && model.state.state === 'ready') {
+      setMode('view');
+      return;
     }
-    if (props.onBack) {
-      props.onBack();
-    } else if (navigation?.canGoBack && navigation.canGoBack()) {
-      navigation.goBack();
+    if (props.onBack) props.onBack();
+    else if (navigation.canGoBack()) navigation.goBack();
+  };
+
+  const openPaywall = () => navigation.navigate('V2Paywall', {
+    context: 'VISION_PREMIUM_ACTION',
+    resumeIntent: { type: 'vision_premium_action', anchorId, action: 'generate' },
+  });
+
+  const addOwnImage = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permission.status !== 'granted') { setActionError('Allow photo library access to add an image.'); return; }
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.85 });
+      if (result.canceled || !result.assets?.[0]) return;
+      const item = result.assets[0];
+      const mimeType = item.mimeType ?? 'image/jpeg';
+      const base64 = await FileSystem.readAsStringAsync(item.uri, { encoding: FileSystem.EncodingType.Base64 });
+      const uploaded = await model.uploadAsset({ base64Image: `data:${mimeType};base64,${base64}`, mimeType });
+      if (!uploaded.ok) { setActionError(uploaded.message); return; }
+      const saved = await model.addScene({ assetId: uploaded.asset.id, sourceType: 'USER_UPLOAD' });
+      if (!saved) setActionError('Image uploaded, but could not be added to your Vision. Please try again.');
+      else setActionError(null);
+    } catch (cause) {
+      setActionError(cause instanceof Error ? cause.message : 'Unable to add this image.');
     }
   };
 
-  // Crucial seen-today semantics: Mark seen on server ONLY when user genuinely views the Vision surface
-  useEffect(() => {
-    if (state.state === 'ready' && !seenToday && mode === 'view') {
-      recordVisionView();
-    }
-  }, [state.state, seenToday, mode, recordVisionView]);
-
-  if (loading && !vision) {
-    return (
-      <V2Screen testID="v2-vision-screen-loading">
-        <V2TopBar title="Vision" onBackPress={handleBack} />
-        <View style={styles.centerContainer}>
-          <ActivityIndicator color={categoryColor} size="large" />
-        </View>
-      </V2Screen>
-    );
-  }
-
-  // Creation or Empty flow
-  if (mode === 'create' || mode === 'ready' || state.state === 'none') {
-    return (
-      <V2VisionCreationFlow
-        anchorId={anchorId}
-        anchorIntention={(anchor as any)?.intention ?? anchor?.intentionText ?? 'Your Anchor'}
-        anchorCategory={anchor?.category}
-        initialStep={mode === 'ready' ? 'ready' : state.state === 'none' ? 'empty' : 'prompt'}
-        onBack={handleBack}
-        onAssemble={async ({ description: desc, source, selectedAssets }) => {
-          await createVision({
-            description: desc,
-            scenes: selectedAssets.map((asset, index) => ({
-              assetId: asset.assetId,
-              prompt: asset.prompt,
-              sourceType: source,
-            })),
-          });
-          setMode('view');
-        }}
-      />
-    );
-  }
-
-  if (state.state === 'error' && !vision) {
-    return (
-      <V2Screen testID="v2-vision-screen-error">
-        <V2TopBar title="Vision" onBackPress={handleBack} />
-        <V2EmptyState
-          title="Unable to load Vision"
-          message={error ?? 'Please check your connection and try again.'}
-        />
-      </V2Screen>
-    );
-  }
-
-  // Active Vision surface (SEE)
-  return (
-    <V2Screen testID={props.testID ?? 'v2-vision-screen'}>
-      <V2TopBar
-        title="Vision"
-        onBackPress={handleBack}
-        utility={
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Edit Vision"
-            onPress={() => setMode('create')}
-            style={styles.headerAction}
-          >
-            <Edit3 size={18} color={colors.text.primary} />
-          </Pressable>
-        }
-      />
-
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Anchor intention mini badge */}
-        <View style={styles.anchorMiniBar}>
-          <Text numberOfLines={1} style={styles.anchorIntention}>
-            {(anchor as any)?.intention ?? anchor?.intentionText ?? 'Anchor Intention'}
-          </Text>
-          <View style={[styles.categoryPill, { borderColor: categoryColor }]}>
-            <Text style={styles.categoryPillText}>{anchor?.category ?? 'Anchor'}</Text>
-          </View>
-        </View>
-
-        {/* Locked ApertureGrid */}
-        <View style={styles.compositionWrapper}>
-          <RealVisionComposition
-            tiles={tiles}
-            category={anchor?.category}
-            height={260}
-          />
-        </View>
-
-        {/* Future Description Card */}
-        <View style={styles.descriptionCard}>
-          <Text style={styles.descriptionEyebrow}>WHAT THIS LOOKS LIKE IN FULL</Text>
-          <Text style={styles.descriptionBody}>{description}</Text>
-        </View>
-
-        {/* Connected Movement Loops */}
-        <View style={styles.actionSection}>
-          {/* SEE -> REINFORCE: Visualize CTA */}
-          <V2Button
-            accessibilityLabel="Visualize your future"
-            onPress={() => props.onVisualize?.(visualizeHandoff)}
-          >
-            <View style={styles.buttonInner}>
-              <Eye size={18} color={colors.text.inverse} />
-              <Text style={styles.buttonLabel}>Visualize this Future</Text>
-              <ArrowRight size={16} color={colors.text.inverse} />
-            </View>
-          </V2Button>
-
-          {/* SEE -> MOVE: Chart CTA */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Open on Chart"
-            onPress={() => props.onChart?.(anchorId)}
-            style={styles.chartLink}
-          >
-            <View style={styles.chartLinkInner}>
-              <Compass size={18} color={categoryColor} />
-              <Text style={styles.chartLinkText}>Open on your Chart</Text>
-              <ArrowRight size={16} color={categoryColor} />
-            </View>
-          </Pressable>
-        </View>
-      </ScrollView>
+  if (model.loading && !model.vision) return (
+    <V2Screen testID="v2-vision-screen-loading">
+      <V2TopBar title="Vision" onBackPress={handleBack} />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={colors.text.primary} /></View>
     </V2Screen>
   );
-}
 
-const styles = StyleSheet.create({
-  centerContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scrollContent: {
-    padding: spacing[4],
-    gap: spacing[4],
-    paddingBottom: spacing[8],
-  },
-  headerAction: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  anchorMiniBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing[1],
-  },
-  anchorIntention: {
-    ...typography.headingSM,
-    color: colors.text.primary,
-    flex: 1,
-    marginRight: 8,
-  },
-  categoryPill: {
-    borderWidth: 1,
-    borderRadius: radii.sm,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  categoryPillText: {
-    ...typography.caption,
-    color: colors.text.secondary,
-    textTransform: 'uppercase',
-    fontWeight: '700',
-  },
-  compositionWrapper: {
-    width: '100%',
-  },
-  descriptionCard: {
-    padding: spacing[4],
-    borderRadius: radii.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border.subtle,
-    gap: spacing[2],
-  },
-  descriptionEyebrow: {
-    ...typography.caption,
-    color: colors.text.secondary,
-    letterSpacing: 0.8,
-  },
-  descriptionBody: {
-    ...typography.bodyMD,
-    color: colors.text.primary,
-    lineHeight: 22,
-  },
-  actionSection: {
-    gap: spacing[3],
-    marginTop: spacing[2],
-  },
-  buttonInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing[2],
-  },
-  buttonLabel: {
-    ...typography.labelMD,
-    color: colors.text.inverse,
-    fontWeight: '700',
-  },
-  chartLink: {
-    paddingVertical: spacing[3],
-    paddingHorizontal: spacing[4],
-    borderRadius: radii.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border.subtle,
-  },
-  chartLinkInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing[2],
-  },
-  chartLinkText: {
-    ...typography.labelMD,
-    color: colors.text.primary,
-    fontWeight: '600',
-  },
-});
+  if (model.state.state === 'error' && !model.vision) return (
+    <V2Screen testID="v2-vision-screen-error">
+      <V2TopBar title="Vision" onBackPress={handleBack} />
+      <V2EmptyState title="Unable to load Vision" message={model.error ?? 'Please check your connection and try again.'} />
+    </V2Screen>
+  );
+
+  if (mode === 'create' || mode === 'ready' || mode === 'add' || model.state.state === 'none') return (
+    <V2VisionCreationFlow
+      anchorId={anchorId}
+      anchorIntention={anchorIntention}
+      anchorCategory={anchorCategory}
+      anchorImageUrl={anchor?.enhancedImageUrl}
+      anchorArt={anchorArt}
+      initialDescription={model.vision?.description ?? ''}
+      initialStep={mode === 'add' ? 'curation' : mode === 'ready' ? 'ready' : mode === 'create' ? 'prompt' : 'empty'}
+      resumeGeneration={route.params?.resumeGeneration}
+      onResumeGenerationConsumed={() => navigation.setParams({ resumeGeneration: false })}
+      onBack={handleBack}
+      onPremiumRequired={openPaywall}
+      onSaveDescription={async description => {
+        setMode('create');
+        const saved = await model.createVision({ description });
+        return Boolean(saved);
+      }}
+      onUploadAsset={model.uploadAsset}
+      onAssemble={async ({ description, selectedAssets }) => {
+        const saved = await model.createVision({
+          description,
+          scenes: selectedAssets.map(asset => ({
+            assetId: asset.assetId, prompt: asset.prompt, sourceType: asset.sourceType,
+          })),
+        });
+        if (!saved) return false;
+        setMode('view');
+        return true;
+      }}
+    />
+  );
+
+  if (model.state.state !== 'ready') return null;
+
+  return (
+    <V2SavedVision
+      testID={props.testID ?? 'v2-vision-screen'}
+      anchorIntention={anchorIntention}
+      anchorCategory={anchorCategory}
+      anchorImageUrl={anchor?.enhancedImageUrl}
+      anchorArt={anchorArt}
+      description={model.description}
+      tiles={model.tiles}
+      error={actionError ?? model.error}
+      onBack={handleBack}
+      onVisualize={() => {
+        void model.recordVisionView();
+        if (props.onVisualize) props.onVisualize(model.visualizeHandoff);
+        else navigation.navigate('V2Practice', {
+          anchorId, resumeMode: 'visualize', resumeSource: 'practice_hub', returnRoute: 'V2Vision',
+        });
+      }}
+      onChart={() => {
+        if (props.onChart) props.onChart(anchorId);
+        else navigation.navigate('V2Chart', { anchorId });
+      }}
+      onUpdateDescription={async description => Boolean(await model.updateVision({ description }))}
+      onReorder={async sceneOrders => Boolean(await model.reorderScenes(sceneOrders))}
+      onRemove={async sceneId => Boolean(await model.deleteScene(sceneId))}
+      onAddOwn={addOwnImage}
+      onGenerateMore={() => setMode('add')}
+      canGenerateMore={!generation.job || generation.job.setNumber < 3}
+      onArchive={model.archiveVision}
+    />
+  );
+}

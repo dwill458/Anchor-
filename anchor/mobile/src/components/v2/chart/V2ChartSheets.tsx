@@ -775,7 +775,7 @@ export function V2VisionDetailSheet({
           >
             <View style={styles.visionImageWrapper}>
               <Image
-                source={require('@/../assets/chart/landscape.png')}
+                source={require('@/../assets/chart/landscape.jpg')}
                 style={styles.visionImage}
                 resizeMode="cover"
               />
@@ -859,7 +859,7 @@ export function V2VisionBrowseSheet({
 
             <View style={styles.visionImageWrapper}>
               <Image
-                source={require('@/../assets/chart/landscape.png')}
+                source={require('@/../assets/chart/landscape.jpg')}
                 style={styles.visionImage}
                 resizeMode="cover"
               />

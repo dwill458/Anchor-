@@ -59,8 +59,8 @@ describe('V2 design tokens', () => {
       ambient: 3200,
     });
     expect(AnchorMotion.spring.carousel).toEqual({
-      damping: 28,
-      stiffness: 300,
+      damping: 22,
+      stiffness: 230,
       mass: 0.8,
       restDisplacementThreshold: 0.5,
       restSpeedThreshold: 2,

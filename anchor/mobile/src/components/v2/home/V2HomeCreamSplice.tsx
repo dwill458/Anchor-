@@ -1,5 +1,5 @@
 import React, { memo, useState } from 'react';
-import { Image, StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
+import { StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { colors } from '@/theme/v2';
 
@@ -26,7 +26,8 @@ const SPLICE_SWEEP_C2_Y = 0.3056;
 const SPLICE_SHOULDER_Y = 0.5;
 const SPLICE_THROAT_C1_Y = 0.5972;
 const SPLICE_THROAT_C2_Y = 0.75;
-const SPLICE_TIP_Y = 0.9722;
+/** Depth of the keel point as a share of the splice height. */
+export const V2_HOME_SPLICE_TIP_RATIO = 0.9722;
 
 export function buildSplicePath(width: number, height: number = V2_HOME_SPLICE_HEIGHT): string {
   const w = Math.max(1, width);
@@ -41,7 +42,7 @@ export function buildSplicePath(width: number, height: number = V2_HOME_SPLICE_H
     // Right edge sweeping inward to the shoulder.
     'C ' + x(SPLICE_SWEEP_C1_X) + ' ' + y(SPLICE_SWEEP_C1_Y) + ', ' + x(SPLICE_SWEEP_C2_X) + ' ' + y(SPLICE_SWEEP_C2_Y) + ', ' + x(SPLICE_SHOULDER_X) + ' ' + y(SPLICE_SHOULDER_Y),
     // Shoulder narrowing into the single keel point on the centre axis.
-    'C ' + x(SPLICE_THROAT_C1_X) + ' ' + y(SPLICE_THROAT_C1_Y) + ', ' + x(SPLICE_THROAT_C2_X) + ' ' + y(SPLICE_THROAT_C2_Y) + ', ' + x(V2_HOME_SPLICE_KEEL_RATIO) + ' ' + y(SPLICE_TIP_Y),
+    'C ' + x(SPLICE_THROAT_C1_X) + ' ' + y(SPLICE_THROAT_C1_Y) + ', ' + x(SPLICE_THROAT_C2_X) + ' ' + y(SPLICE_THROAT_C2_Y) + ', ' + x(V2_HOME_SPLICE_KEEL_RATIO) + ' ' + y(V2_HOME_SPLICE_TIP_RATIO),
     // Mirrored back out to the left shoulder.
     'C ' + mirror(SPLICE_THROAT_C2_X) + ' ' + y(SPLICE_THROAT_C2_Y) + ', ' + mirror(SPLICE_THROAT_C1_X) + ' ' + y(SPLICE_THROAT_C1_Y) + ', ' + mirror(SPLICE_SHOULDER_X) + ' ' + y(SPLICE_SHOULDER_Y),
     'C ' + mirror(SPLICE_SWEEP_C2_X) + ' ' + y(SPLICE_SWEEP_C2_Y) + ', ' + mirror(SPLICE_SWEEP_C1_X) + ' ' + y(SPLICE_SWEEP_C1_Y) + ', 0 0',
@@ -49,20 +50,14 @@ export function buildSplicePath(width: number, height: number = V2_HOME_SPLICE_H
   ].join(' ');
 }
 
-const MARK_WIDTH = 23;
-const MARK_HEIGHT = 29;
-
-function AnchorBrandMark() {
-  return <Image source={require('@/assets/home/anchor-brand-mark.png')}
-    style={styles.brandArtwork} resizeMode="contain" />;
-}
-
 /**
  * Cream-to-graphite transition beneath the Home hero. One continuous physical
  * surface: the cream field narrows symmetrically into a single keel point on
- * the centre axis, with the black Anchor brand mark sitting over the continuous
- * landscape immediately above that point. The splice itself is not an
- * anchor shape, and it is drawn — not stretched — at the measured width.
+ * the centre axis and terminates there on its own. It carries nothing at the
+ * point: the Anchor brand mark is a separate element in the ink field below
+ * (`V2HomeBrandMark`), so the landscape never reads as hanging an ornament.
+ * The splice itself is not an anchor shape, and it is drawn — not stretched —
+ * at the measured width.
  */
 function V2HomeCreamSpliceComponent({ testID }: { testID?: string }) {
   const { width: windowWidth } = useWindowDimensions();
@@ -95,9 +90,6 @@ function V2HomeCreamSpliceComponent({ testID }: { testID?: string }) {
           fill={colors.graphite.base}
         />
       </Svg>
-      <View style={styles.mark}>
-        <AnchorBrandMark />
-      </View>
     </View>
   );
 }
@@ -109,15 +101,6 @@ const styles = StyleSheet.create({
     height: V2_HOME_SPLICE_HEIGHT,
     backgroundColor: 'transparent',
   },
-  mark: {
-    position: 'absolute',
-    top: 3,
-    left: '50%',
-    marginLeft: -MARK_WIDTH / 2,
-    width: MARK_WIDTH,
-    height: MARK_HEIGHT,
-  },
-  brandArtwork: { width: MARK_WIDTH, height: MARK_HEIGHT },
 });
 
 /**

@@ -103,6 +103,26 @@ const aiHourlyLimiter = rateLimit({
 
 const StructureVariantEnum = z.enum(['dense', 'balanced', 'minimal']);
 
+/**
+ * How an Anchor's structure appears (Anchor 2.0 "expression"). Appearance only: it never
+ * changes the stored geometry. Kept in `classifierMeta.v2Expression`.
+ */
+const AnchorExpressionEnum = z.enum([
+  'original',
+  'monoline',
+  'architectural',
+  'foil',
+  'embossed',
+  'etched',
+  'ink',
+  'halo',
+  'glass',
+  'radiant',
+  'organic',
+  'woven',
+  'cut_paper',
+]);
+
 const CreateAnchorSchema = z.object({
   intentionText: z.string().min(1).max(500),
   category: z.string().min(1),
@@ -214,6 +234,7 @@ const UpdateAnchorSchema = z.object({
   archivedAt: z.string().nullable().optional(),
   isShared: z.boolean().optional(),
   sharedAt: z.string().nullable().optional(),
+  expression: AnchorExpressionEnum.optional(),
 });
 
 const ChargeAnchorSchema = z.object({
@@ -1046,6 +1067,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
       archivedAt,
       isShared,
       sharedAt,
+      expression,
     } = validate(UpdateAnchorSchema, req.body);
 
     // Build update object with only the allowed fields that were provided
@@ -1067,6 +1089,7 @@ router.put('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
       archivedAt?: Date | null;
       isShared?: boolean;
       sharedAt?: Date | null;
+      classifierMeta?: Prisma.InputJsonValue;
       updatedAt: Date;
     };
 
@@ -1092,6 +1115,21 @@ router.put('/:id', async (req: AuthRequest, res: Response, next: NextFunction) =
       allowedUpdates.archivedAt = archivedAt ? new Date(archivedAt) : null;
     if (isShared !== undefined) allowedUpdates.isShared = Boolean(isShared);
     if (sharedAt !== undefined) allowedUpdates.sharedAt = sharedAt ? new Date(sharedAt) : null;
+    if (expression !== undefined) {
+      // Merge rather than replace: classifierMeta also carries classification provenance.
+      const current = await prisma.anchor.findFirst({
+        where: { id, userId },
+        select: { classifierMeta: true },
+      });
+      if (!current) {
+        throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
+      }
+      const meta =
+        current.classifierMeta && typeof current.classifierMeta === 'object' && !Array.isArray(current.classifierMeta)
+          ? (current.classifierMeta as Prisma.JsonObject)
+          : {};
+      allowedUpdates.classifierMeta = { ...meta, v2Expression: expression };
+    }
 
     // Archiving is an Anchor-owned lifecycle operation, but closing Chart
     // links must commit atomically with it. Other edits retain the existing

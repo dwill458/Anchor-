@@ -36,7 +36,7 @@ export interface V2ChartEmptyStateProps {
   testID?: string;
 }
 
-const landscapeImage = require('../../../../assets/chart/landscape.png');
+const landscapeImage = require('../../../../assets/chart/landscape.jpg');
 
 const ROUTE_TEMPLATES: Array<{ id: ChartRouteTemplate; label: string }> = [
   { id: 'gentle-s', label: 'Gentle S curve' },

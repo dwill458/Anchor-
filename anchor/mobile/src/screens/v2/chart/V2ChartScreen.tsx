@@ -80,7 +80,7 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
     createChart,
     activeAnchor,
     refresh,
-  } = useV2Chart(courseId);
+  } = useV2Chart(courseId, anchorId);
 
   const anchorFromStore = useAnchorStore((s) =>
     anchorId
@@ -558,7 +558,7 @@ const styles = StyleSheet.create({
     left: 20,
     right: 20,
     zIndex: 50,
-    backgroundColor: '#1F2937',
+    backgroundColor: colors.ink.raised,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,

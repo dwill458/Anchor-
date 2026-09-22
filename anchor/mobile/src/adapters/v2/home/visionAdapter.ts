@@ -25,6 +25,37 @@ export type HomeVisionState =
       seenToday?: boolean;
     };
 
+/**
+ * The one hero image Home ever shows for a Vision: the featured tile if one is
+ * marked and has an image, else the first tile that has an image. Shared by
+ * the Vision section itself and by Today (which borrows it only when the
+ * active recommendation is Visualize), so the two surfaces can never disagree
+ * about which photograph is "the" Vision cover.
+ */
+export function resolveVisionHeroImage(vision: HomeVisionState): string | null {
+  if (vision.state !== 'ready') return null;
+  const tiles = vision.tiles ?? [];
+  const featured = tiles.find((tile) => tile.id === vision.featuredTileId) ?? tiles.find((tile) => tile.imageUrl) ?? tiles[0];
+  return featured?.imageUrl?.trim() || null;
+}
+
+/**
+ * A second, distinct Vision photograph for Today's Visualize hero — never the
+ * same image object Home already shows in the Vision section below. `null`
+ * when the Vision has only one image (or none), so Today falls back to
+ * reusing the hero image itself with a different focus/crop instead.
+ */
+export function resolveVisionAlternateImage(vision: HomeVisionState): string | null {
+  if (vision.state !== 'ready') return null;
+  const heroUri = resolveVisionHeroImage(vision);
+  const tiles = vision.tiles ?? [];
+  const alternate = tiles.find((tile) => {
+    const uri = tile.imageUrl?.trim();
+    return Boolean(uri) && uri !== heroUri;
+  });
+  return alternate?.imageUrl?.trim() || null;
+}
+
 export function toHomeVisionState(scene: VisualizationScene | undefined | null): HomeVisionState {
   if (!scene) return { state: 'none' };
   const text = scene.currentText?.trim() || scene.originalSuggestion?.trim() || '';

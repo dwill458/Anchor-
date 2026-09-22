@@ -3,157 +3,145 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { detectCategoryFromText } from '@/utils/categoryDetection';
 import { distillIntention, validateIntention } from '@/utils/sigil/distillation';
-import { generateTrueSigil, type SigilVariant } from '@/utils/sigil/traditional-generator';
+import { describeTrueSigil, type SigilFormation } from '@/utils/sigil/traditional-generator';
 import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
-import { CATEGORY_TO_TIER, type AnchorCategory, type EnhancementMetadata } from '@/types';
-import { CREATION_MAX_INTENTION_LENGTH, type AnchorExpression, type CanonicalStructure, type CreationStep } from '@/constants/v2/creation';
+import { CATEGORY_TO_TIER, type AnchorCategory } from '@/types';
+import {
+  CREATION_MAX_INTENTION_LENGTH,
+  CREATION_STRUCTURE,
+  DESTINATION_COPY,
+  type AnchorExpression,
+  type CanonicalStructure,
+  type CreationStep,
+} from '@/constants/v2/creation';
 
-export type DrawingPoint = { x: number; y: number };
-export type DrawnPath = { points: DrawingPoint[]; stroke?: string; strokeWidth?: number };
-export type GenerationState = 'idle' | 'generating' | 'success' | 'retry' | 'error';
 export type SaveState = 'draft' | 'saving' | 'saved' | 'error';
-
-export interface AnchorCandidate {
-  id: string;
-  structureSvg: string;
-  expression: AnchorExpression;
-  /** The generated (AI-enhanced) rendering of this candidate. The structure SVG stays the formation truth. */
-  imageUrl?: string;
-  /** Provenance from the enhance endpoint; `variationId` + `reuseRequestId` let the backend claim the pool row on save. */
-  enhancementMetadata?: EnhancementMetadata;
-}
+/** Why a save failed, which decides what the user is offered next. */
+export type SaveFailure = 'network' | 'auth' | 'server' | 'second_anchor' | 'limit';
+export type DestinationState = 'idle' | 'saving' | 'saved' | 'skipped' | 'error';
 
 export interface CreationDraft {
   draftId: string;
+  /**
+   * The idempotency key for the one server write. Stable across retries of the same
+   * structure, so a retry after a lost response returns the Anchor already made instead of
+   * making a second one.
+   */
   clientRequestId: string;
   intention: string;
   normalizedIntention?: string;
   category?: AnchorCategory;
   distilledLetters?: string[];
   structureType?: CanonicalStructure;
+  /** The generated structure. Locked from `reveal` onward: nothing after formation writes it. */
   structureSvg?: string;
-  drawnPaths?: DrawnPath[];
-  expression?: AnchorExpression;
-  generationState: GenerationState;
-  generationJobId?: string;
-  candidates?: AnchorCandidate[];
-  selectedCandidateId?: string;
+  expression: AnchorExpression;
   saveState: SaveState;
+  saveFailure?: SaveFailure;
+  /** True once a save has been sent. After that the key can no longer safely change. */
+  saveAttempted: boolean;
   anchorPersisted: boolean;
   persistedAnchorId?: string;
+  destination: string;
+  destinationState: DestinationState;
   currentStep: CreationStep;
-  /** Set when validateIntention rejects the intention; cleared on the next edit or a valid distill. */
+  /** Set when validation rejects the intention or the structure could not be formed. */
   formationError?: string;
   updatedAt: string;
 }
 
-export type CreationContinuation =
-  | { type: 'home'; anchorId: string }
-  | { type: 'vision'; anchorId: string }
-  | { type: 'chart'; anchorId: string }
-  | { type: 'vision_and_chart'; anchorId: string };
-
 const STORAGE_KEY = 'anchor-v2-creation-draft';
+/** v2: the 2.0 continuous flow. Drafts from the earlier step machine are not resumable. */
+const STORAGE_VERSION = 2;
 const makeId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 const now = () => new Date().toISOString();
 
-/**
- * The one place UI-C maps its user-facing structures onto the shared sigil engine.
- * This is the SAME engine UI-B first-run uses (`generateTrueSigil`); UI-C only widens
- * the variant it is invoked with. UI-B always uses `balanced`.
- */
-const structureVariant = (structure: CanonicalStructure): SigilVariant => {
-  if (structure === 'contained') return 'dense';
-  if (structure === 'raw') return 'minimal';
-  return 'balanced';
-};
+/** The same deterministic engine UI-B first-run uses: distilled letters + category grid. */
+export function formationForLetters(letters: string[], category: AnchorCategory | undefined): SigilFormation {
+  return describeTrueSigil(letters, CATEGORY_TO_TIER[category ?? 'custom'], 'balanced');
+}
 
-/** Deterministic structure geometry, shared with UI-B: distilled letters + category tier + variant. */
-const generateStructureSvg = (
-  letters: string[],
-  structure: CanonicalStructure,
-  category: AnchorCategory | undefined,
-): string =>
-  generateTrueSigil(letters, CATEGORY_TO_TIER[category ?? 'custom'], structureVariant(structure)).svg;
-
-export const pathsToSvg = (paths: DrawnPath[]): string => {
-  const renderedPaths = paths
-    .filter((path) => path.points.length > 1)
-    .map((path) => {
-      const [first, ...rest] = path.points;
-      const data = `M ${first.x} ${first.y} ${rest.map((point) => `L ${point.x} ${point.y}`).join(' ')}`;
-      return `<path d="${data}" fill="none" stroke="${path.stroke ?? '#171717'}" stroke-width="${path.strokeWidth ?? 3}" stroke-linecap="round" stroke-linejoin="round"/>`;
-    }).join('');
-  return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">${renderedPaths}</svg>`;
-};
+/** The formation behind a draft, for anything that needs to draw or explain it. */
+export function formationForDraft(draft: Pick<CreationDraft, 'distilledLetters' | 'category'>): SigilFormation | null {
+  if (!draft.distilledLetters?.length) return null;
+  return formationForLetters(draft.distilledLetters, draft.category);
+}
 
 const freshDraft = (): CreationDraft => ({
   draftId: makeId('creation'),
   clientRequestId: makeId('create-request'),
   intention: '',
-  generationState: 'idle',
+  expression: 'original',
   saveState: 'draft',
+  saveAttempted: false,
   anchorPersisted: false,
+  destination: '',
+  destinationState: 'idle',
   currentStep: 'intention',
   updatedAt: now(),
 });
 
-/** Intention changes invalidate every formation descendant. Expression changes do not. */
+/**
+ * Editing the intention invalidates everything formed from it. Expression is kept — it is a
+ * preference about appearance, not something derived from the words.
+ */
 export const invalidateFromIntention = (draft: CreationDraft, intention: string): CreationDraft => ({
   ...draft,
+  // Before any save was sent the key is free to change, and must: a new intention is a new
+  // Anchor. After one was sent, a lost response may already have created an Anchor under the
+  // old key, so the key stays and the server remains the judge.
+  clientRequestId: draft.saveAttempted ? draft.clientRequestId : makeId('create-request'),
   intention,
   normalizedIntention: undefined,
   category: undefined,
   distilledLetters: undefined,
   structureType: undefined,
   structureSvg: undefined,
-  drawnPaths: undefined,
-  expression: undefined,
-  generationState: 'idle',
-  generationJobId: undefined,
-  candidates: undefined,
-  selectedCandidateId: undefined,
   saveState: 'draft',
-  anchorPersisted: false,
-  persistedAnchorId: undefined,
+  saveFailure: undefined,
   currentStep: 'intention',
   formationError: undefined,
   updatedAt: now(),
 });
 
-export const invalidateFromStructure = (draft: CreationDraft, structureType: CanonicalStructure): CreationDraft => ({
-  ...draft,
-  structureType,
-  structureSvg: undefined,
-  drawnPaths: structureType === 'drawn' ? draft.drawnPaths : undefined,
-  generationState: 'idle',
-  generationJobId: undefined,
-  candidates: undefined,
-  selectedCandidateId: undefined,
-  saveState: 'draft',
-  anchorPersisted: false,
-  persistedAnchorId: undefined,
-  currentStep: structureType === 'drawn' ? 'draw' : 'expression',
-  updatedAt: now(),
-});
+/** Steps Back returns to. Everything else (intention, destination, handoff) is not a back hop. */
+const BACK: Partial<Record<CreationStep, CreationStep>> = {
+  distillation: 'intention',
+  formation: 'intention',
+  reveal: 'intention',
+  expression: 'reveal',
+};
 
 type CreationStore = {
   draft: CreationDraft | null;
   start: () => void;
   discard: () => void;
-  setStep: (step: CreationStep) => void;
   setIntention: (intention: string) => void;
-  distill: () => void;
-  selectStructure: (structure: CanonicalStructure) => void;
-  setDrawnPaths: (paths: DrawnPath[]) => void;
+  /** VALIDATING → DISTILLING. Returns false (with `formationError`) if the intention is not usable. */
+  distill: () => boolean;
+  /** DISTILLING → GENERATING: forms the structure from the distilled letters. */
+  formAnchor: () => boolean;
+  /** GENERATING → REVEALING, once the structure exists. */
+  completeFormation: () => void;
+  openExpression: () => void;
+  /** Appearance only. Never touches the structure; refused once the Anchor is being saved. */
   selectExpression: (expression: AnchorExpression) => void;
-  setGenerationState: (state: GenerationState, jobId?: string) => void;
-  setCandidates: (candidates: AnchorCandidate[]) => void;
-  selectCandidate: (candidateId: string) => void;
+  /** Deterministic back. Returns false when Back should leave the flow instead. */
+  goBack: () => boolean;
+  /** Returns the idempotency key, or null when a save is already running or not allowed. */
   beginSave: () => string | null;
   completeSave: (anchorId: string) => void;
-  failSave: () => void;
+  failSave: (failure: SaveFailure) => void;
+  setDestination: (text: string) => void;
+  beginDestinationSave: () => boolean;
+  completeDestination: () => void;
+  failDestination: () => void;
+  skipDestination: () => void;
 };
+
+const update = (draft: CreationDraft, patch: Partial<CreationDraft>): { draft: CreationDraft } => ({
+  draft: { ...draft, ...patch, updatedAt: now() },
+});
 
 export const useCreationStore = create<CreationStore>()(
   persist(
@@ -161,68 +149,166 @@ export const useCreationStore = create<CreationStore>()(
       draft: null,
       start: () => set({ draft: freshDraft() }),
       discard: () => set({ draft: null }),
-      setStep: (currentStep) => set((state) => state.draft ? { draft: { ...state.draft, currentStep, updatedAt: now() } } : state),
-      setIntention: (intention) => set((state) => ({ draft: invalidateFromIntention(state.draft ?? freshDraft(), intention) })),
-      distill: () => set((state) => {
-        const draft = state.draft;
-        if (!draft) return state;
+
+      setIntention: (intention) => set((state) => {
+        const draft = state.draft ?? freshDraft();
+        if (draft.anchorPersisted || draft.saveState === 'saving') return state;
+        return { draft: invalidateFromIntention(draft, intention) };
+      }),
+
+      distill: () => {
+        const draft = get().draft;
+        if (!draft || draft.currentStep !== 'intention') return false;
         // Same gate UI-B first-run applies before forming an Anchor.
         const validation = validateIntention(draft.intention, CREATION_MAX_INTENTION_LENGTH);
         if (!validation.isValid) {
-          return { draft: { ...draft, formationError: validation.error ?? 'Write a little more before continuing.', updatedAt: now() } };
+          set(update(draft, { formationError: validation.error ?? 'Write a little more before continuing.' }));
+          return false;
         }
         const result = distillIntention(draft.intention);
-        return {
-          draft: {
-            ...draft,
-            normalizedIntention: draft.intention.trim().replace(/\s+/g, ' '),
-            category: detectCategoryFromText(draft.intention),
-            distilledLetters: result.finalLetters,
+        if (!result.finalLetters.length) {
+          set(update(draft, { formationError: 'Use a few more letters so your Anchor has something to be made from.' }));
+          return false;
+        }
+        set(update(draft, {
+          normalizedIntention: draft.intention.trim().replace(/\s+/g, ' '),
+          category: detectCategoryFromText(draft.intention),
+          distilledLetters: result.finalLetters,
+          formationError: undefined,
+          currentStep: 'distillation',
+        }));
+        return true;
+      },
+
+      formAnchor: () => {
+        const draft = get().draft;
+        if (!draft || (draft.currentStep !== 'distillation' && draft.currentStep !== 'formation')) return false;
+        if (!draft.distilledLetters?.length) return false;
+        try {
+          const { svg } = formationForLetters(draft.distilledLetters, draft.category);
+          set(update(draft, {
+            structureType: CREATION_STRUCTURE,
+            structureSvg: svg,
             formationError: undefined,
-            currentStep: 'distillation',
-            updatedAt: now(),
-          },
-        };
-      }),
-      selectStructure: (structureType) => set((state) => {
-        const invalidated = invalidateFromStructure(state.draft ?? freshDraft(), structureType);
-        const structureSvg = structureType === 'drawn'
-          ? invalidated.structureSvg
-          : invalidated.distilledLetters?.length
-            ? generateStructureSvg(invalidated.distilledLetters, structureType, invalidated.category)
-            : undefined;
-        return { draft: { ...invalidated, structureSvg } };
-      }),
-      setDrawnPaths: (drawnPaths) => set((state) => {
+            currentStep: 'formation',
+          }));
+          return true;
+        } catch {
+          set(update(draft, { structureSvg: undefined, formationError: 'formation_failed', currentStep: 'formation' }));
+          return false;
+        }
+      },
+
+      completeFormation: () => set((state) => {
         const draft = state.draft;
-        if (!draft) return state;
-        return { draft: { ...draft, structureType: 'drawn', drawnPaths, structureSvg: pathsToSvg(drawnPaths), currentStep: 'expression', updatedAt: now() } };
+        if (!draft || draft.currentStep !== 'formation' || !draft.structureSvg) return state;
+        return update(draft, { currentStep: 'reveal' });
       }),
+
+      openExpression: () => set((state) => {
+        const draft = state.draft;
+        if (!draft || draft.currentStep !== 'reveal') return state;
+        return update(draft, { currentStep: 'expression' });
+      }),
+
       selectExpression: (expression) => set((state) => {
         const draft = state.draft;
-        if (!draft) return state;
-        // Expression changes only rendered treatment, never the distilled or structural source.
-        return { draft: { ...draft, expression, generationState: 'idle', candidates: undefined, selectedCandidateId: undefined, saveState: 'draft', anchorPersisted: false, persistedAnchorId: undefined, currentStep: 'generation', updatedAt: now() } };
+        if (!draft || draft.anchorPersisted || draft.saveState === 'saving' || draft.expression === expression) return state;
+        return update(draft, { expression });
       }),
-      setGenerationState: (generationState, generationJobId) => set((state) => state.draft ? { draft: { ...state.draft, generationState, generationJobId, currentStep: generationState === 'success' ? 'candidates' : 'generation', updatedAt: now() } } : state),
-      setCandidates: (candidates) => set((state) => state.draft ? { draft: { ...state.draft, candidates, generationState: 'success', currentStep: 'candidates', updatedAt: now() } } : state),
-      selectCandidate: (selectedCandidateId) => set((state) => state.draft ? { draft: { ...state.draft, selectedCandidateId, currentStep: 'save', updatedAt: now() } } : state),
+
+      goBack: () => {
+        const draft = get().draft;
+        if (!draft || draft.saveState === 'saving' || draft.anchorPersisted) return draft ? draft.currentStep !== 'intention' : false;
+        const target = BACK[draft.currentStep];
+        if (!target) return false;
+        set(update(draft, { currentStep: target, formationError: undefined }));
+        return true;
+      },
+
       beginSave: () => {
         const draft = get().draft;
-        if (!draft?.selectedCandidateId || draft.saveState === 'saving') return null;
-        set({ draft: { ...draft, saveState: 'saving', updatedAt: now() } });
+        if (!draft || draft.currentStep !== 'expression' || !draft.structureSvg) return null;
+        if (draft.saveState === 'saving' || draft.anchorPersisted) return null;
+        set(update(draft, { saveState: 'saving', saveFailure: undefined, saveAttempted: true }));
         return draft.clientRequestId;
       },
-      completeSave: (persistedAnchorId) => set((state) => state.draft ? { draft: { ...state.draft, saveState: 'saved', anchorPersisted: true, persistedAnchorId, currentStep: 'continue', updatedAt: now() } } : state),
-      failSave: () => set((state) => state.draft ? { draft: { ...state.draft, saveState: 'error', updatedAt: now() } } : state),
+
+      completeSave: (persistedAnchorId) => set((state) => {
+        const draft = state.draft;
+        if (!draft) return state;
+        return update(draft, {
+          saveState: 'saved',
+          saveFailure: undefined,
+          anchorPersisted: true,
+          persistedAnchorId,
+          currentStep: 'destination',
+        });
+      }),
+
+      failSave: (saveFailure) => set((state) => (state.draft ? update(state.draft, { saveState: 'error', saveFailure }) : state)),
+
+      setDestination: (text) => set((state) => {
+        const draft = state.draft;
+        if (!draft || draft.currentStep !== 'destination' || draft.destinationState === 'saving') return state;
+        const destination = text.replace(/\s*[\r\n]+\s*/g, ' ').slice(0, DESTINATION_COPY.maxLength);
+        return update(draft, { destination, destinationState: draft.destinationState === 'error' ? 'idle' : draft.destinationState });
+      }),
+
+      beginDestinationSave: () => {
+        const draft = get().draft;
+        if (!draft || draft.currentStep !== 'destination' || !draft.anchorPersisted) return false;
+        if (draft.destinationState === 'saving' || draft.destination.trim().length < DESTINATION_COPY.minLength) return false;
+        set(update(draft, { destinationState: 'saving' }));
+        return true;
+      },
+
+      completeDestination: () => set((state) => (state.draft
+        ? update(state.draft, { destinationState: 'saved', currentStep: 'handoff' })
+        : state)),
+
+      failDestination: () => set((state) => (state.draft ? update(state.draft, { destinationState: 'error' }) : state)),
+
+      skipDestination: () => set((state) => {
+        const draft = state.draft;
+        if (!draft || draft.currentStep !== 'destination' || draft.destinationState === 'saving') return state;
+        return update(draft, { destinationState: 'skipped', currentStep: 'handoff' });
+      }),
     }),
-    { name: STORAGE_KEY, storage: createJSONStorage(() => encryptedPersistStorage), partialize: (state) => ({ draft: state.draft }) },
+    {
+      name: STORAGE_KEY,
+      version: STORAGE_VERSION,
+      storage: createJSONStorage(() => encryptedPersistStorage),
+      partialize: (state) => ({ draft: state.draft }),
+      // A draft from the earlier step machine has no path through this flow.
+      migrate: () => ({ draft: null }),
+      merge: (persisted, current) => ({ ...current, draft: resumableDraft((persisted as { draft?: CreationDraft | null } | undefined)?.draft ?? null) }),
+    },
   ),
 );
 
-/** Uses the established deterministic generator, shared with UI-B. Drawn paths stay untouched. */
-export function structureSvgForDraft(draft: CreationDraft): string | undefined {
-  if (draft.structureType === 'drawn') return draft.structureSvg;
-  if (!draft.structureType || !draft.distilledLetters?.length) return undefined;
-  return generateStructureSvg(draft.distilledLetters, draft.structureType, draft.category);
+/**
+ * What a draft read back from storage may resume as.
+ *
+ * - A draft whose Anchor was saved is finished work, never progress: resuming it would land
+ *   the user in the middle of a flow for an Anchor that already exists. It is dropped.
+ * - A save that was in flight when the app died has an unknown outcome. It resumes as a
+ *   failed save; retrying reuses the same key, so the server either finishes it or returns
+ *   the Anchor it already made.
+ */
+export function resumableDraft(draft: CreationDraft | null): CreationDraft | null {
+  if (!draft || draft.anchorPersisted) return null;
+  if (draft.saveState === 'saving') return { ...draft, saveState: 'error', saveFailure: 'network' };
+  return draft;
+}
+
+/** Resolves once the persisted draft has been read back (immediately if it already has). */
+export function whenCreationHydrated(): Promise<void> {
+  if (useCreationStore.persist.hasHydrated()) return Promise.resolve();
+  return new Promise((resolve) => {
+    const unsubscribe = useCreationStore.persist.onFinishHydration(() => {
+      unsubscribe();
+      resolve();
+    });
+  });
 }

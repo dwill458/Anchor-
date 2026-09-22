@@ -86,7 +86,7 @@ export function V2ThreadStrength({
   const content = (
     <>
       <View style={styles.heading}>
-        <Text style={styles.label}>Thread Strength</Text>
+        <Text style={styles.label}>Consistency</Text>
         <View style={styles.arrowIcon}>
           <ArrowUpRightIcon color={colors.text.secondary} />
         </View>
@@ -96,7 +96,7 @@ export function V2ThreadStrength({
           testID="v2-thread-strength-value"
           style={[styles.value, { color: accent }, !measured && styles.unmeasuredValue]}
         >
-          {measured ? displayed : 'Not yet measured'}
+          {measured ? displayed : 'Not established'}
         </Text>
         {measured ? <Text style={styles.outOf}>/ 100</Text> : null}
         {displayDelta ? (
@@ -108,16 +108,30 @@ export function V2ThreadStrength({
           >
             {displayDelta}
           </Text>
+        ) : !measured ? (
+          <Text style={[styles.delta, { color: colors.text.secondary }]}>
+            Begin reinforcing
+          </Text>
+        ) : target <= 10 ? (
+          <Text style={[styles.delta, { color: colors.text.secondary }]}>
+            Ready to rebuild
+          </Text>
         ) : null}
       </View>
-      {measured ? <View style={styles.track} accessibilityElementsHidden>
-        <View
-          style={[
-            styles.fill,
-            { width: `${target}%`, backgroundColor: accent },
-          ]}
-        />
-      </View> : null}
+      {measured ? (
+        <View style={styles.track} accessibilityElementsHidden>
+          <View
+            style={[
+              styles.fill,
+              { width: `${target}%`, backgroundColor: accent },
+            ]}
+          />
+        </View>
+      ) : (
+        <View style={styles.track} accessibilityElementsHidden>
+          <View style={[styles.fill, { width: '0%', backgroundColor: colors.text.tertiary }]} />
+        </View>
+      )}
     </>
   );
 
@@ -129,11 +143,11 @@ export function V2ThreadStrength({
       accessibilityRole={onPress ? 'button' : undefined}
       accessibilityLabel={
         accessibilityLabel ??
-        measured ? `Thread Strength ${target}${
+        measured ? `Consistency ${target}${
           delta !== undefined
             ? `, ${delta > 0 ? 'up' : delta < 0 ? 'down' : 'unchanged'} ${Math.abs(delta)}`
             : ''
-        }` : 'Thread Strength not yet measured'
+        }` : 'Consistency not established yet'
       }
       style={({ pressed }) => [
         styles.container,

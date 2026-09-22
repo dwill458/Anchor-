@@ -1,5 +1,5 @@
 import { toThreadPresentation, threadQualitativeLabel } from '../threadAdapter';
-import { toHomeVisionState } from '../visionAdapter';
+import { toHomeVisionState, resolveVisionHeroImage, resolveVisionAlternateImage, type HomeVisionState } from '../visionAdapter';
 import { courseMatchesAnchor, toHomeChartState } from '../chartAdapter';
 import { makeAnchor } from './fixtures';
 import type { VisualizationScene } from '@/types/practice';
@@ -23,7 +23,7 @@ describe('threadAdapter', () => {
 
   it('labels strength qualitatively without inventing movement', () => {
     expect(threadQualitativeLabel(50, false)).toBe('Established');
-    expect(threadQualitativeLabel(null, true)).toBe('Not established');
+    expect(threadQualitativeLabel(null, true)).toBe('Not established yet');
     expect(threadQualitativeLabel(95, false)).toBe('Reinforced');
   });
 });
@@ -44,6 +44,77 @@ describe('visionAdapter', () => {
     const result = toHomeVisionState(scene);
     expect(result).toEqual({ state: 'ready', visionId: 'scene-1', previewText: 'A calm studio at dawn' });
     expect((result as { previewUri?: string }).previewUri).toBeUndefined();
+  });
+});
+
+describe('resolveVisionHeroImage', () => {
+  it('returns null for a non-ready Vision', () => {
+    expect(resolveVisionHeroImage({ state: 'none' })).toBeNull();
+    expect(resolveVisionHeroImage({ state: 'loading' })).toBeNull();
+    expect(resolveVisionHeroImage({ state: 'error', message: 'x' })).toBeNull();
+  });
+
+  it('returns null rather than a placeholder when a ready Vision has no image on any tile', () => {
+    const vision: HomeVisionState = {
+      state: 'ready',
+      visionId: 'v1',
+      previewText: 'A future without a cover yet',
+      tiles: [{ id: 't1', sceneId: 's1', imageUrl: undefined, prompt: 'a studio', sortOrder: 0, isHero: true } as never],
+    };
+    expect(resolveVisionHeroImage(vision)).toBeNull();
+  });
+
+  it('prefers the featured tile among multiple images', () => {
+    const vision: HomeVisionState = {
+      state: 'ready',
+      visionId: 'v1',
+      previewText: 'Multiple tiles',
+      featuredTileId: 't2',
+      tiles: [
+        { id: 't1', sceneId: 's1', imageUrl: 'https://assets.test/one.png', prompt: null, sortOrder: 0, isHero: false } as never,
+        { id: 't2', sceneId: 's1', imageUrl: 'https://assets.test/two.png', prompt: null, sortOrder: 1, isHero: true } as never,
+      ],
+    };
+    expect(resolveVisionHeroImage(vision)).toBe('https://assets.test/two.png');
+  });
+
+  it('falls back to the first tile with an image when the featured id does not match one', () => {
+    const vision: HomeVisionState = {
+      state: 'ready',
+      visionId: 'v1',
+      previewText: 'One tile, single image',
+      featuredTileId: 'missing',
+      tiles: [{ id: 't1', sceneId: 's1', imageUrl: 'https://assets.test/one.png', prompt: null, sortOrder: 0, isHero: true } as never],
+    };
+    expect(resolveVisionHeroImage(vision)).toBe('https://assets.test/one.png');
+  });
+});
+
+describe('resolveVisionAlternateImage', () => {
+  it('returns null for a non-ready Vision or one with only a single image', () => {
+    expect(resolveVisionAlternateImage({ state: 'none' })).toBeNull();
+    const single: HomeVisionState = {
+      state: 'ready',
+      visionId: 'v1',
+      previewText: 'One image',
+      featuredTileId: 't1',
+      tiles: [{ id: 't1', sceneId: 's1', imageUrl: 'https://assets.test/one.png', prompt: null, sortOrder: 0, isHero: true } as never],
+    };
+    expect(resolveVisionAlternateImage(single)).toBeNull();
+  });
+
+  it('returns a second image distinct from the hero when one exists', () => {
+    const multi: HomeVisionState = {
+      state: 'ready',
+      visionId: 'v1',
+      previewText: 'Two images',
+      featuredTileId: 't1',
+      tiles: [
+        { id: 't1', sceneId: 's1', imageUrl: 'https://assets.test/one.png', prompt: null, sortOrder: 0, isHero: true } as never,
+        { id: 't2', sceneId: 's1', imageUrl: 'https://assets.test/two.png', prompt: null, sortOrder: 1, isHero: false } as never,
+      ],
+    };
+    expect(resolveVisionAlternateImage(multi)).toBe('https://assets.test/two.png');
   });
 });
 

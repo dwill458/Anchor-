@@ -34,6 +34,33 @@ export function evolutionStageForPersistedThreshold(value: unknown): V2Evolution
     : null;
 }
 
+/**
+ * User-facing names for ledger event types. The `THREAD_*` identifiers are the
+ * persisted server contract and stay as they are; users read Consistency.
+ */
+export const V2_THREAD_EVENT_LABELS: Record<V2ThreadEventType, string> = {
+  ANCHOR_CREATED: 'Anchor created',
+  THREAD_STRENGTHENED: 'Consistency rose',
+  THREAD_STABILIZED: 'Consistency held steady',
+  THREAD_RECOVERED: 'Consistency recovered',
+  THREAD_SOFTENED: 'Consistency dipped',
+  THREAD_RETURNED: 'Back to practice',
+  EVOLUTION_STAGE_REACHED: 'New stage reached',
+  PRACTICE_MILESTONE_REACHED: 'Practice milestone',
+  ONE_MOVE_COMPLETED: 'One Move completed',
+  WAYPOINT_REACHED: 'Waypoint reached',
+  DESTINATION_REACHED: 'Destination reached',
+  COURSE_RESUMED: 'Chart resumed',
+  ANCHOR_COMPLETED: 'Intention completed',
+  RELEASE_RECOMMENDED: 'Ready to release',
+  ANCHOR_RELEASED: 'Anchor released',
+};
+
+export function threadEventLabel(eventType: string): string {
+  return (V2_THREAD_EVENT_LABELS as Record<string, string>)[eventType]
+    ?? eventType.replaceAll('_', ' ').toLowerCase().replace(/^./, (letter) => letter.toUpperCase());
+}
+
 export const V2_THREAD_EVENT_PRIORITY: Record<V2ThreadEventType, number> = {
   DESTINATION_REACHED: 130,
   ANCHOR_RELEASED: 120,

@@ -326,10 +326,10 @@ describe('NotificationsSubscreen', () => {
   it('disables child notification toggles when practice reminders are off', () => {
     render(<NotificationsSubscreen onBack={jest.fn()} />);
 
-    const dailyPrimeRow = screen.getAllByLabelText('Daily prime reminder')[0];
+    const dailyPrimeRow = screen.getAllByLabelText('Daily practice reminder')[0];
     expect(dailyPrimeRow.props.accessibilityState.disabled).toBe(true);
 
-    const threadAlertsRow = screen.getByTestId('settings-row-Thread strength alerts');
+    const threadAlertsRow = screen.getByTestId('settings-row-Consistency alerts');
     expect(threadAlertsRow.props.accessibilityState.disabled).toBe(true);
 
     const weeklyRecapRow = screen.getByTestId('settings-row-Weekly recap');

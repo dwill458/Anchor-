@@ -92,7 +92,7 @@ describe('ThreadStrength component', () => {
       />
     );
 
-    expect(getByText('THREAD STRENGTH')).toBeTruthy();
+    expect(getByText('CONSISTENCY')).toBeTruthy();
     expect(getByText('EMBEDDED')).toBeTruthy();
   });
 

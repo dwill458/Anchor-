@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiClient, ApiClientError } from '@/services/ApiClient';
+import { visionApiData } from './visionApi';
 import {
   toV2VisionPresentationState,
   toVisualizeHandoff,
@@ -38,7 +39,12 @@ export interface UseV2VisionResult {
   reorderScenes: (sceneOrders: Array<{ id: string; sortOrder: number }>) => Promise<VisionReadModel | null>;
   deleteScene: (sceneId: string) => Promise<VisionReadModel | null>;
   archiveVision: () => Promise<boolean>;
+  uploadAsset: (input: { base64Image: string; mimeType: string }) => Promise<UploadAssetResult>;
 }
+
+export type UploadAssetResult =
+  | { ok: true; asset: { id: string; resolvedUrl: string | null; mimeType: string; fileSizeBytes: number | null; createdAt: string } }
+  | { ok: false; message: string };
 
 function resolveUserTimeZone(): string {
   try {
@@ -48,9 +54,30 @@ function resolveUserTimeZone(): string {
   }
 }
 
+/**
+ * Last Vision read per Anchor for this app session (`null` = the Anchor has no
+ * Vision). Home, Anchor Details, Practice and the Vision screen each mount
+ * this hook for the same Anchor; seeding from the previous read lets them
+ * render the real Vision on their first frame and revalidate behind it,
+ * instead of drawing a spinner or an "Add Vision" card that flips a moment
+ * after the navigation transition.
+ */
+const visionReadCache = new Map<string, VisionReadModel | null>();
+
+/** Drops every cached Vision read (sign-out, account switch, tests). */
+export function resetV2VisionReadCache(): void {
+  visionReadCache.clear();
+}
+
+function sameVision(a: VisionReadModel | null, b: VisionReadModel | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 export function useV2Vision(anchorId: string): UseV2VisionResult {
-  const [vision, setVision] = useState<VisionReadModel | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [vision, setVision] = useState<VisionReadModel | null>(() => (anchorId ? visionReadCache.get(anchorId) ?? null : null));
+  const [loading, setLoading] = useState<boolean>(() => !(anchorId && visionReadCache.has(anchorId)));
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [isOffline, setIsOffline] = useState<boolean>(false);
@@ -68,6 +95,12 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
     };
   }, []);
 
+  /** Every server read lands here: cached for the next mount, and identity kept when unchanged. */
+  const commitVision = useCallback((next: VisionReadModel | null, forAnchorId: string) => {
+    if (forAnchorId) visionReadCache.set(forAnchorId, next);
+    setVision((previous) => (sameVision(previous, next) ? previous : next));
+  }, []);
+
   const fetchVision = useCallback(
     async (isRefresh = false) => {
       const thisRequest = ++requestId.current;
@@ -79,7 +112,13 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
         setVision(null);
         return;
       }
-      if (isRefresh) {
+      if (visionReadCache.has(anchorId)) {
+        // Already known: show it now and revalidate without a loading state.
+        const cached = visionReadCache.get(anchorId) ?? null;
+        setVision((previous) => (sameVision(previous, cached) ? previous : cached));
+        setLoading(false);
+        setRefreshing(true);
+      } else if (isRefresh) {
         setRefreshing(true);
       } else {
         setLoading(true);
@@ -96,7 +135,7 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
           },
         );
         if (!isMountedRef.current || currentAnchorId.current !== anchorId || requestId.current !== thisRequest) return;
-        setVision(response.data);
+        commitVision(visionApiData<VisionReadModel | null>(response), anchorId);
         setIsOffline(false);
       } catch (err: unknown) {
         if (controller.signal.aborted) return;
@@ -107,7 +146,7 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
 
         if (status === 404) {
           // No active vision exists for this anchor - this is an honest empty state
-          setVision(null);
+          commitVision(null, anchorId);
           setIsOffline(false);
         } else {
           const message = err instanceof Error ? err.message : 'Unable to load Vision';
@@ -121,7 +160,7 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
         }
       }
     },
-    [anchorId],
+    [anchorId, commitVision],
   );
 
   useEffect(() => {
@@ -142,6 +181,8 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
         `/api/v2/visions/${encodeURIComponent(vision.id)}/view`,
         { timeZone },
       );
+      const cached = visionReadCache.get(anchorId);
+      if (cached) visionReadCache.set(anchorId, { ...cached, seenToday: true });
       if (isMountedRef.current) {
         setVision((prev) => (prev ? { ...prev, seenToday: true } : prev));
       }
@@ -150,7 +191,7 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
       // Degrade silently; failure to record view does not block the user
       return false;
     }
-  }, [vision?.id, vision?.seenToday]);
+  }, [anchorId, vision?.id, vision?.seenToday]);
 
   const createVision = useCallback(
     async (input: {
@@ -164,16 +205,16 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
           input,
         );
         if (isMountedRef.current) {
-          setVision(response.data);
+          commitVision(visionApiData<VisionReadModel>(response), anchorId);
         }
-        return response.data;
+        return visionApiData<VisionReadModel>(response);
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Failed to create Vision';
         setError(message);
         return null;
       }
     },
-    [anchorId],
+    [anchorId, commitVision],
   );
 
   const updateVision = useCallback(
@@ -185,17 +226,24 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
           input,
         );
         if (isMountedRef.current) {
-          setVision(response.data);
+          commitVision(visionApiData<VisionReadModel>(response), anchorId);
         }
-        return response.data;
+        return visionApiData<VisionReadModel>(response);
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Failed to update Vision';
         setError(message);
         return null;
       }
     },
-    [vision?.id],
+    [anchorId, commitVision, vision?.id],
   );
+
+  const reloadAfterMutation = useCallback(async (): Promise<VisionReadModel | null> => {
+    const response = await apiClient.get<VisionReadModel>(`/api/v2/anchors/${encodeURIComponent(anchorId)}/vision`);
+    const latest = visionApiData<VisionReadModel | null>(response);
+    if (isMountedRef.current) commitVision(latest, anchorId);
+    return latest;
+  }, [anchorId, commitVision]);
 
   const addScene = useCallback(
     async (input: {
@@ -206,68 +254,60 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
     }): Promise<VisionReadModel | null> => {
       if (!vision?.id) return null;
       try {
-        const response = await apiClient.post<VisionReadModel>(
+        await apiClient.post(
           `/api/v2/visions/${encodeURIComponent(vision.id)}/scenes`,
           input,
         );
-        if (isMountedRef.current) {
-          setVision(response.data);
-        }
-        return response.data;
+        return await reloadAfterMutation();
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Failed to add scene';
         setError(message);
         return null;
       }
     },
-    [vision?.id],
+    [reloadAfterMutation, vision?.id],
   );
 
   const reorderScenes = useCallback(
     async (sceneOrders: Array<{ id: string; sortOrder: number }>): Promise<VisionReadModel | null> => {
       if (!vision?.id) return null;
       try {
-        const response = await apiClient.put<VisionReadModel>(
+        await apiClient.put(
           `/api/v2/visions/${encodeURIComponent(vision.id)}/scenes/reorder`,
           { sceneOrders },
         );
-        if (isMountedRef.current) {
-          setVision(response.data);
-        }
-        return response.data;
+        return await reloadAfterMutation();
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Failed to reorder scenes';
         setError(message);
         return null;
       }
     },
-    [vision?.id],
+    [reloadAfterMutation, vision?.id],
   );
 
   const deleteScene = useCallback(
     async (sceneId: string): Promise<VisionReadModel | null> => {
       if (!vision?.id) return null;
       try {
-        const response = await apiClient.delete<VisionReadModel>(
+        await apiClient.delete(
           `/api/v2/visions/${encodeURIComponent(vision.id)}/scenes/${encodeURIComponent(sceneId)}`,
         );
-        if (isMountedRef.current) {
-          setVision(response.data);
-        }
-        return response.data;
+        return await reloadAfterMutation();
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Failed to remove scene';
         setError(message);
         return null;
       }
     },
-    [vision?.id],
+    [reloadAfterMutation, vision?.id],
   );
 
   const archiveVision = useCallback(async (): Promise<boolean> => {
     if (!vision?.id) return false;
     try {
       await apiClient.delete(`/api/v2/visions/${encodeURIComponent(vision.id)}`);
+      if (anchorId) visionReadCache.set(anchorId, null);
       if (isMountedRef.current) {
         setVision(null);
       }
@@ -275,14 +315,35 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
     } catch {
       return false;
     }
-  }, [vision?.id]);
+  }, [anchorId, vision?.id]);
+
+  const uploadAsset = useCallback(async (input: { base64Image: string; mimeType: string }): Promise<UploadAssetResult> => {
+    try {
+      const response = await apiClient.post<{ id: string; resolvedUrl: string | null; mimeType: string; fileSizeBytes: number | null; createdAt: string }>(
+        '/api/v2/assets/upload', input,
+      );
+      return { ok: true, asset: visionApiData<{ id: string; resolvedUrl: string | null; mimeType: string; fileSizeBytes: number | null; createdAt: string }>(response) };
+    } catch (cause) {
+      return { ok: false, message: cause instanceof Error ? cause.message : 'Image upload failed' };
+    }
+  }, []);
 
   const refresh = useCallback(() => fetchVision(true), [fetchVision]);
 
-  const presentationState = toV2VisionPresentationState(
-    vision?.anchorId === anchorId ? vision : null,
-    anchorId,
-    error ? { error, isOffline } : undefined,
+  // Memoised for identity: consumers memoise on `state`, and a fresh object per
+  // render made every one of them re-render whenever their host did.
+  const presentationState = useMemo(
+    () =>
+      toV2VisionPresentationState(
+        vision?.anchorId === anchorId ? vision : null,
+        anchorId,
+        error ? { error, isOffline } : undefined,
+      ),
+    [anchorId, error, isOffline, vision],
+  );
+  const state = useMemo<V2VisionPresentationState>(
+    () => (loading ? { state: 'loading', anchorId } : presentationState),
+    [anchorId, loading, presentationState],
   );
 
   const activeTiles = presentationState.state === 'ready' ? presentationState.tiles : [];
@@ -290,7 +351,7 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
   const activeSeenToday = presentationState.state === 'ready' ? presentationState.seenToday : false;
 
   return {
-    state: loading ? { state: 'loading', anchorId } : presentationState,
+    state,
     vision,
     tiles: activeTiles,
     description: activeDesc,
@@ -308,5 +369,6 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
     reorderScenes,
     deleteScene,
     archiveVision,
+    uploadAsset,
   };
 }

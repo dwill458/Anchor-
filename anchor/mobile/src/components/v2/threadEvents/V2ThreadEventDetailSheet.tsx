@@ -4,6 +4,7 @@ import { X } from 'lucide-react-native';
 import { V2Button } from '@/components/v2/primitives/V2Button';
 import { colors, radii, spacing, typography } from '@/theme/v2';
 import type { V2PersistedThreadEvent } from '@/adapters/v2/threadEvents';
+import { threadEventLabel } from '@/constants/v2/threadEvents';
 
 type Props = { event: V2PersistedThreadEvent | null; visible: boolean; onClose: () => void; testID?: string };
 const formatTimestamp = (value: string) => new Date(value).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
@@ -13,16 +14,16 @@ export function V2ThreadEventDetailSheet({ event, visible, onClose, testID = 'v2
   if (!event) return null;
   const fields = [
     ['Occurred', formatTimestamp(event.occurredAt)],
-    ['Event type', event.eventType.replaceAll('_', ' ')],
+    ['Event', threadEventLabel(event.eventType)],
     ['Anchor', event.metadata.anchorName],
     ['Waypoint', event.metadata.waypointTitle],
     ['Stage', event.metadata.stageName],
-    ['Thread Strength', typeof event.metadata.threadValue === 'number' ? String(event.metadata.threadValue) : undefined],
+    ['Consistency', typeof event.metadata.threadValue === 'number' ? `${event.metadata.threadValue}%` : undefined],
     ['Ledger ID', event.eventId],
   ].filter((field): field is [string, string] => Boolean(field[1]));
   return <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} testID={testID}><View style={styles.overlay}><Pressable style={StyleSheet.absoluteFill} onPress={onClose} /><View style={styles.sheet}>
     <Pressable accessibilityRole="button" accessibilityLabel="Close event details" onPress={onClose} style={styles.close}><X size={20} color={colors.text.secondary} /></Pressable>
-    <Text style={styles.kicker}>THREAD EVENT</Text><Text accessibilityRole="header" style={styles.title}>{event.eventType.replaceAll('_', ' ')}</Text>
+    <Text style={styles.kicker}>ANCHOR HISTORY</Text><Text accessibilityRole="header" style={styles.title}>{threadEventLabel(event.eventType)}</Text>
     <View style={styles.list}>{fields.map(([label, value]) => <View key={label} style={styles.row}><Text style={styles.label}>{label}</Text><Text style={styles.value}>{value}</Text></View>)}</View>
     <V2Button variant="tertiary" onPress={onClose} testID={`${testID}-close`}>Close</V2Button>
   </View></View></Modal>;

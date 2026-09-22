@@ -4,235 +4,262 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { V2VisionCreationFlow } from '../V2VisionCreationFlow';
 import type { UploadAssetResult } from '@/hooks/v2/vision';
 
-jest.mock('expo-modules-core', () => ({
-  requireOptionalNativeModule: jest.fn(() => ({})),
-}));
-
 const mockLaunchImageLibraryAsync = jest.fn();
-const mockRequestMediaLibraryPermissionsAsync = jest.fn(() => Promise.resolve({ status: 'granted' }));
+const mockRequestPermission = jest.fn(() => Promise.resolve({ status: 'granted' }));
+const mockUseGeneration = jest.fn();
 
 jest.mock('expo-image-picker', () => ({
-  requestMediaLibraryPermissionsAsync: (...args: unknown[]) => mockRequestMediaLibraryPermissionsAsync(...args),
-  launchImageLibraryAsync: (...args: unknown[]) => mockLaunchImageLibraryAsync(...args),
+  requestMediaLibraryPermissionsAsync: () => mockRequestPermission(),
+  launchImageLibraryAsync: () => mockLaunchImageLibraryAsync(),
+}));
+jest.mock('@/hooks/v2/vision', () => ({
+  useV2VisionGeneration: () => mockUseGeneration(),
 }));
 
-function pickedAsset(uri: string, mimeType = 'image/jpeg') {
-  return { canceled: false, assets: [{ uri, mimeType }] };
-}
+const candidates = Array.from({ length: 8 }, (_, index) => ({
+  id: `candidate-${index}`,
+  assetId: `real-asset-${index}`,
+  role: `Scene ${index}`,
+  prompt: `A meaningful moment ${index}`,
+  sortOrder: index,
+  imageUrl: `https://cdn.example.com/${index}.jpg`,
+}));
 
-function canceledPick() {
-  return { canceled: true, assets: null };
+const baseProps = {
+  anchorId: 'anchor-1',
+  anchorIntention: 'I build what matters.',
+  anchorCategory: 'career',
+  onBack: jest.fn(),
+};
+
+function renderFlow(overrides?: {
+  initialStep?: 'prompt' | 'curation';
+  job?: any;
+  onUploadAsset?: (input: { base64Image: string; mimeType: string }) => Promise<UploadAssetResult>;
+  onAssemble?: (input: any) => Promise<boolean>;
+}) {
+  mockUseGeneration.mockReturnValue({
+    job: overrides?.job ?? null,
+    loading: false,
+    error: null,
+    start: jest.fn(async () => true),
+    retry: jest.fn(async () => true),
+  });
+  const onUploadAsset = overrides?.onUploadAsset ?? jest.fn(async () => ({
+    ok: true,
+    asset: { id: 'personal-asset', resolvedUrl: 'https://cdn.example.com/personal.jpg', mimeType: 'image/jpeg', fileSizeBytes: 100, createdAt: 'now' },
+  } as UploadAssetResult));
+  const onAssemble = overrides?.onAssemble ?? jest.fn(async () => true);
+  const utils = render(
+    <V2VisionCreationFlow {...baseProps} initialStep={overrides?.initialStep ?? 'prompt'}
+      initialDescription="A studio full of finished work." onUploadAsset={onUploadAsset} onAssemble={onAssemble} />,
+  );
+  return { ...utils, onUploadAsset, onAssemble };
 }
 
 describe('V2VisionCreationFlow', () => {
-  const baseProps = {
-    anchorId: 'anchor-1',
-    anchorIntention: 'I build what matters.',
-    anchorCategory: 'Career',
-    onBack: jest.fn(),
-  };
-
   beforeEach(() => {
     jest.clearAllMocks();
     (FileSystem.getInfoAsync as jest.Mock).mockResolvedValue({ exists: true });
-    (FileSystem.readAsStringAsync as jest.Mock).mockResolvedValue('ZmFrZS1pbWFnZS1ieXRlcw==');
+    (FileSystem.readAsStringAsync as jest.Mock).mockResolvedValue('aW1hZ2U=');
   });
 
-  function renderAtUpload(overrides?: {
-    onUploadAsset?: jest.Mock<Promise<UploadAssetResult>, [{ base64Image: string; mimeType: string }]>;
-    onAssemble?: jest.Mock<Promise<boolean>, [any]>;
-  }) {
-    const onUploadAsset =
-      overrides?.onUploadAsset ??
-      jest.fn(async () => ({ ok: true, asset: { id: 'asset-real-1', resolvedUrl: null, mimeType: 'image/jpeg', fileSizeBytes: 10, createdAt: 'now' } } as UploadAssetResult));
-    const onAssemble = overrides?.onAssemble ?? jest.fn(async () => true);
+  it('keeps generation and upload on the description screen', () => {
+    const { getByTestId, getByText } = renderFlow();
+    expect(getByText('What does this look like when it’s real?')).toBeTruthy();
+    expect(getByTestId('vision-generate')).toBeTruthy();
+    expect(getByTestId('vision-add-photos')).toBeTruthy();
+  });
 
-    const utils = render(
-      <V2VisionCreationFlow
-        {...baseProps}
-        initialStep="prompt"
-        onUploadAsset={onUploadAsset}
-        onAssemble={onAssemble}
-      />,
-    );
-
-    fireEvent.changeText(utils.getByTestId('vision-prompt-input'), 'A studio full of finished work.');
-    fireEvent.press(utils.getByLabelText('Continue to add photos'));
-
-    return { ...utils, onUploadAsset, onAssemble };
-  }
-
-  it('picker cancellation adds no images and never calls upload', async () => {
-    mockLaunchImageLibraryAsync.mockResolvedValueOnce(canceledPick());
-    const { getByTestId, onUploadAsset, queryByTestId } = renderAtUpload();
-
-    await act(async () => {
-      fireEvent.press(getByTestId('vision-add-photos'));
-      await Promise.resolve();
-    });
-
+  it('does not upload when the picker is cancelled', async () => {
+    mockLaunchImageLibraryAsync.mockResolvedValueOnce({ canceled: true, assets: null });
+    const { getByTestId, onUploadAsset } = renderFlow();
+    await act(async () => { fireEvent.press(getByTestId('vision-add-photos')); });
     expect(onUploadAsset).not.toHaveBeenCalled();
-    expect(queryByTestId(/vision-upload-item-/)).toBeNull();
   });
 
-  it('a successful selection proceeds to upload and finalizes with the real server-issued asset id', async () => {
-    mockLaunchImageLibraryAsync.mockResolvedValueOnce(pickedAsset('file:///tmp/photo-1.jpg'));
-    const onUploadAsset = jest.fn(
-      async () =>
-        ({ ok: true, asset: { id: 'asset-real-99', resolvedUrl: 'https://cdn.example.com/99.jpg', mimeType: 'image/jpeg', fileSizeBytes: 10, createdAt: 'now' } }) as UploadAssetResult,
-    );
-    const { getByTestId, findByText } = renderAtUpload({ onUploadAsset });
-
-    await act(async () => {
-      fireEvent.press(getByTestId('vision-add-photos'));
+  it('saves a real server asset after adding a personal photo', async () => {
+    mockLaunchImageLibraryAsync.mockResolvedValueOnce({
+      canceled: false, assets: [{ uri: 'file:///photo.jpg', mimeType: 'image/jpeg' }],
     });
-
-    await waitFor(() => expect(onUploadAsset).toHaveBeenCalledTimes(1));
-    expect(onUploadAsset).toHaveBeenCalledWith(
-      expect.objectContaining({ mimeType: 'image/jpeg', base64Image: expect.stringContaining('data:image/jpeg;base64,') }),
-    );
-    await findByText('1 added · Add 2 more');
+    const { getByTestId, getByLabelText, onUploadAsset, onAssemble } = renderFlow();
+    await act(async () => { fireEvent.press(getByTestId('vision-add-photos')); });
+    await waitFor(() => expect(onUploadAsset).toHaveBeenCalledWith({
+      base64Image: 'data:image/jpeg;base64,aW1hZ2U=', mimeType: 'image/jpeg',
+    }));
+    fireEvent.press(getByLabelText('Continue'));
+    await waitFor(() => expect(onAssemble).toHaveBeenCalledWith(expect.objectContaining({
+      selectedAssets: [expect.objectContaining({ assetId: 'personal-asset', sourceType: 'USER_UPLOAD' })],
+    })));
   });
 
-  it('cannot finalize while an upload is still pending', async () => {
-    let resolveUpload: (value: UploadAssetResult) => void = () => {};
-    const pending = new Promise<UploadAssetResult>((resolve) => {
-      resolveUpload = resolve;
+  it('selects generated assets and rejects a sixth selection', async () => {
+    const { getByTestId, getByText, onAssemble } = renderFlow({
+      initialStep: 'curation',
+      job: { id: 'job-1', status: 'COMPLETE', stage: 'complete', setNumber: 1, retryCount: 0, candidates },
     });
-    mockLaunchImageLibraryAsync.mockResolvedValueOnce(pickedAsset('file:///tmp/photo-1.jpg'));
-    const onUploadAsset = jest.fn(() => pending);
-    const { getByTestId, getByLabelText, findByText } = renderAtUpload({ onUploadAsset });
-
-    await act(async () => {
-      fireEvent.press(getByTestId('vision-add-photos'));
-    });
-
-    await findByText('Uploading 1 photo…');
-    expect(getByLabelText('Assemble Vision').props.accessibilityState?.disabled).toBe(true);
-
-    await act(async () => {
-      resolveUpload({ ok: true, asset: { id: 'asset-real-1', resolvedUrl: null, mimeType: 'image/jpeg', fileSizeBytes: 10, createdAt: 'now' } });
-      await pending;
-    });
+    for (let index = 0; index < 6; index++) fireEvent.press(getByTestId(`candidate-card-candidate-${index}`));
+    expect(getByText('A Vision can contain up to five images.')).toBeTruthy();
+    expect(getByText('Continue (5/5) →')).toBeTruthy();
+    fireEvent.press(getByText('Continue (5/5) →'));
+    await waitFor(() => expect(onAssemble).toHaveBeenCalledWith(expect.objectContaining({
+      selectedAssets: expect.arrayContaining([expect.objectContaining({ assetId: 'real-asset-0', sourceType: 'AI_GENERATED' })]),
+    })));
+    expect((onAssemble as jest.Mock).mock.calls[0][0].selectedAssets).toHaveLength(5);
   });
 
-  it('upload failure shows an error and allows retry, without using a fake asset id', async () => {
-    mockLaunchImageLibraryAsync.mockResolvedValueOnce(pickedAsset('file:///tmp/photo-1.jpg'));
-    const onUploadAsset = jest
-      .fn<Promise<UploadAssetResult>, [any]>()
-      .mockResolvedValueOnce({ ok: false, message: 'Network error. Please check your connection.' })
-      .mockResolvedValueOnce({ ok: true, asset: { id: 'asset-real-1', resolvedUrl: null, mimeType: 'image/jpeg', fileSizeBytes: 10, createdAt: 'now' } });
-
-    const { getByTestId, findByText } = renderAtUpload({ onUploadAsset });
-
-    await act(async () => {
-      fireEvent.press(getByTestId('vision-add-photos'));
+  it('saves generated and uploaded images together with server asset IDs', async () => {
+    mockLaunchImageLibraryAsync.mockResolvedValueOnce({
+      canceled: false, assets: [{ uri: 'file:///photo.jpg', mimeType: 'image/jpeg' }],
     });
-
-    await findByText('Network error. Please check your connection.');
-    expect(onUploadAsset).toHaveBeenCalledTimes(1);
-
-    const retryButton = await findByText('Retry');
-    await act(async () => {
-      fireEvent.press(retryButton);
+    const { getByTestId, getByLabelText, onAssemble } = renderFlow({
+      initialStep: 'curation',
+      job: { id: 'job-1', status: 'COMPLETE', stage: 'complete', setNumber: 1, retryCount: 0, candidates },
     });
-
-    await waitFor(() => expect(onUploadAsset).toHaveBeenCalledTimes(2));
-    await findByText('1 added · Add 2 more');
+    fireEvent.press(getByTestId('candidate-card-candidate-0'));
+    await act(async () => { fireEvent.press(getByTestId('vision-add-photos')); });
+    fireEvent.press(getByLabelText('Continue'));
+    await waitFor(() => expect(onAssemble).toHaveBeenCalledWith(expect.objectContaining({
+      selectedAssets: [
+        expect.objectContaining({ assetId: 'real-asset-0', sourceType: 'AI_GENERATED' }),
+        expect.objectContaining({ assetId: 'personal-asset', sourceType: 'USER_UPLOAD' }),
+      ],
+    })));
   });
 
-  it('does not report a fake success when Vision creation fails after real uploads', async () => {
-    mockLaunchImageLibraryAsync
-      .mockResolvedValueOnce(pickedAsset('file:///tmp/1.jpg'))
-      .mockResolvedValueOnce(pickedAsset('file:///tmp/2.jpg'))
-      .mockResolvedValueOnce(pickedAsset('file:///tmp/3.jpg'));
-
-    let counter = 0;
-    const onUploadAsset = jest.fn(async () => {
-      counter += 1;
-      return { ok: true, asset: { id: `asset-real-${counter}`, resolvedUrl: null, mimeType: 'image/jpeg', fileSizeBytes: 10, createdAt: 'now' } } as UploadAssetResult;
+  it('shows actual job progress and retry after a provider failure', () => {
+    const { getByText } = renderFlow({
+      job: { id: 'job-1', status: 'FAILED', stage: 'failed', setNumber: 1, retryCount: 0, error: 'Retry this set.', candidates: [] },
     });
-    const onAssemble = jest.fn(async () => false);
-    const { getByTestId, findByText, getByLabelText } = renderAtUpload({ onUploadAsset, onAssemble });
+    expect(getByText('Retry this set')).toBeTruthy();
+    expect(getByText('Your Vision paused')).toBeTruthy();
+  });
 
-    for (let i = 0; i < 3; i += 1) {
-      await act(async () => {
-        fireEvent.press(getByTestId('vision-add-photos'));
+  it('reports only images the server has actually created', () => {
+    const { getByText, getByTestId } = renderFlow({
+      job: { id: 'job-1', status: 'PARTIAL', stage: 'creating_images', setNumber: 1, retryCount: 0, error: null, candidates: candidates.slice(0, 3) },
+    });
+    expect(getByTestId('v2-vision-creation-flow-generating')).toBeTruthy();
+    expect(getByText('Your future\nis taking shape.')).toBeTruthy();
+    expect(getByText('Finding the moments that make it real.')).toBeTruthy();
+    expect(getByText('3 of 8 images ready')).toBeTruthy();
+  });
+
+  it('shows no empty image frame before the first image exists', () => {
+    const { getByTestId } = renderFlow({
+      job: { id: 'job-1', status: 'RUNNING', stage: 'planning', setNumber: 1, retryCount: 0, error: null, candidates: [] },
+    });
+    const stack = getByTestId('vision-generation-stack');
+    expect(stack.findAllByType(require('react-native').Image)).toHaveLength(0);
+    expect(getByTestId('v2-vision-creation-flow-generating')).toBeTruthy();
+  });
+
+  it('keeps finished images when a set pauses and offers both paths', () => {
+    const { getByText, queryByTestId } = renderFlow({
+      job: { id: 'job-1', status: 'FAILED', stage: 'failed', setNumber: 1, retryCount: 0, error: 'Retry this set.', candidates: candidates.slice(0, 7) },
+    });
+    expect(queryByTestId('v2-vision-creation-flow-generating')).toBeTruthy();
+    expect(getByText('7 of 8 images ready')).toBeTruthy();
+    expect(getByText('Retry this set')).toBeTruthy();
+    expect(getByText('Choose available images')).toBeTruthy();
+  });
+
+  it('moves to choosing only after the finished set has been shown', async () => {
+    jest.useFakeTimers();
+    try {
+      const job = (status: string, count: number) => ({
+        id: 'job-1', status, stage: status === 'COMPLETE' ? 'complete' : 'creating_images', setNumber: 1, retryCount: 0,
+        error: null, candidates: candidates.slice(0, count),
       });
-      await waitFor(() => expect(onUploadAsset).toHaveBeenCalledTimes(i + 1));
+      const generationState = (value: object) => ({ job: value, loading: false, error: null, start: jest.fn(), retry: jest.fn() });
+      mockUseGeneration.mockReturnValue(generationState(job('PARTIAL', 7)));
+      const onUploadAsset = jest.fn();
+      const onAssemble = jest.fn();
+      // A fresh element each time: re-rendering the same element object is a no-op.
+      const element = () => (
+        <V2VisionCreationFlow {...baseProps} initialStep="prompt" onUploadAsset={onUploadAsset} onAssemble={onAssemble} />
+      );
+      const { queryByTestId, rerender } = render(element());
+      expect(queryByTestId('v2-vision-creation-flow-generating')).toBeTruthy();
+
+      // The last image and COMPLETE arrive in the same poll.
+      mockUseGeneration.mockReturnValue(generationState(job('COMPLETE', 8)));
+      rerender(element());
+      const advance = async (ms: number) => {
+        await act(async () => { for (let t = 0; t < 6; t++) await Promise.resolve(); jest.advanceTimersByTime(ms); for (let t = 0; t < 6; t++) await Promise.resolve(); });
+      };
+      await advance(1000);
+      // Still showing the eighth image arrive, not jumping straight to choosing.
+      expect(queryByTestId('v2-vision-creation-flow-generating')).toBeTruthy();
+
+      for (let i = 0; i < 8; i++) await advance(500);
+      expect(queryByTestId('v2-vision-creation-flow-curation')).toBeTruthy();
+    } finally {
+      jest.useRealTimers();
     }
+  });
 
-    await findByText('3 added');
-    await act(async () => {
-      fireEvent.press(getByLabelText('Assemble Vision'));
-    });
-
-    expect(onAssemble).toHaveBeenCalledWith(
-      expect.objectContaining({
-        source: 'USER_UPLOAD',
-        selectedAssets: [
-          { assetId: 'asset-real-1' },
-          { assetId: 'asset-real-2' },
-          { assetId: 'asset-real-3' },
-        ],
-      }),
+  it('starts one generation however many times Continue is tapped', async () => {
+    const start = jest.fn(async () => true);
+    let resolveSave: (value: boolean) => void = () => undefined;
+    const onSaveDescription = jest.fn(() => new Promise<boolean>(resolve => { resolveSave = resolve; }));
+    mockUseGeneration.mockReturnValue({ job: null, loading: false, error: null, start, retry: jest.fn() });
+    const { getByTestId } = render(
+      <V2VisionCreationFlow {...baseProps} initialStep="prompt" initialDescription="A studio full of finished work."
+        onSaveDescription={onSaveDescription} onUploadAsset={jest.fn()} onAssemble={jest.fn()} />,
     );
-    await findByText("We couldn't save your Vision. Please try again.");
+    fireEvent.press(getByTestId('vision-generate'));
+    fireEvent.press(getByTestId('vision-generate'));
+    fireEvent.press(getByTestId('vision-generate'));
+    await act(async () => { resolveSave(true); });
+    expect(onSaveDescription).toHaveBeenCalledTimes(1);
+    expect(start).toHaveBeenCalledTimes(1);
   });
 
-  it('a successful creation calls onAssemble with only real, uploaded asset ids', async () => {
-    mockLaunchImageLibraryAsync
-      .mockResolvedValueOnce(pickedAsset('file:///tmp/1.jpg'))
-      .mockResolvedValueOnce(pickedAsset('file:///tmp/2.jpg'))
-      .mockResolvedValueOnce(pickedAsset('file:///tmp/3.jpg'));
-
-    let counter = 0;
-    const onUploadAsset = jest.fn(async () => {
-      counter += 1;
-      return { ok: true, asset: { id: `asset-real-${counter}`, resolvedUrl: null, mimeType: 'image/jpeg', fileSizeBytes: 10, createdAt: 'now' } } as UploadAssetResult;
-    });
-    const onAssemble = jest.fn(async () => true);
-    const { getByTestId, findByText, getByLabelText } = renderAtUpload({ onUploadAsset, onAssemble });
-
-    for (let i = 0; i < 3; i += 1) {
-      await act(async () => {
-        fireEvent.press(getByTestId('vision-add-photos'));
-      });
-      await waitFor(() => expect(onUploadAsset).toHaveBeenCalledTimes(i + 1));
-    }
-
-    await findByText('3 added');
-    await act(async () => {
-      fireEvent.press(getByLabelText('Assemble Vision'));
-    });
-
-    await waitFor(() => expect(onAssemble).toHaveBeenCalledTimes(1));
-    expect(onAssemble.mock.calls[0][0].selectedAssets).toEqual([
-      { assetId: 'asset-real-1' },
-      { assetId: 'asset-real-2' },
-      { assetId: 'asset-real-3' },
-    ]);
+  it('uses the ink primary button for Create Vision', () => {
+    mockUseGeneration.mockReturnValue({ job: null, loading: false, error: null, start: jest.fn(), retry: jest.fn() });
+    const { getByLabelText } = render(
+      <V2VisionCreationFlow {...baseProps} initialStep="empty" onUploadAsset={jest.fn()} onAssemble={jest.fn()} />,
+    );
+    const button = getByLabelText('Create Vision');
+    const flat = require('react-native').StyleSheet.flatten(button.props.style);
+    expect(flat.backgroundColor).toBe('#171717');
   });
 
-  it('does not upload again after unmount', async () => {
-    let resolveUpload: (value: UploadAssetResult) => void = () => {};
-    const pending = new Promise<UploadAssetResult>((resolve) => {
-      resolveUpload = resolve;
-    });
-    mockLaunchImageLibraryAsync.mockResolvedValueOnce(pickedAsset('file:///tmp/1.jpg'));
-    const onUploadAsset = jest.fn(() => pending);
-    const { getByTestId, unmount } = renderAtUpload({ onUploadAsset });
+  it('teaches detail without blocking a short description', () => {
+    const { getByTestId } = renderFlow();
+    const input = getByTestId('vision-prompt-input');
+    fireEvent.changeText(input, 'I open my laptop and see ten thousand active users for my app today.');
+    expect(getByTestId('vision-detail-hint').props.children).toBe('14 words · Add a little more detail for stronger images');
+    expect(getByTestId('vision-generate').props.accessibilityState).toEqual(expect.objectContaining({ disabled: false }));
+    fireEvent.changeText(input, Array.from({ length: 60 }, (_, index) => `word${index}`).join(' '));
+    expect(getByTestId('vision-detail-hint').props.children).toBe('60 words · Great detail');
+  });
 
-    await act(async () => {
-      fireEvent.press(getByTestId('vision-add-photos'));
-    });
+  it('uses the Anchor intention to choose its worked example', () => {
+    mockUseGeneration.mockReturnValue({ job: null, loading: false, error: null, start: jest.fn(), retry: jest.fn() });
+    const { getByTestId, rerender } = render(
+      <V2VisionCreationFlow {...baseProps} anchorIntention="Anchor has ten thousand users" anchorCategory="desire"
+        onUploadAsset={jest.fn()} onAssemble={jest.fn()} />,
+    );
+    expect(getByTestId('vision-prompt-input').props.placeholder).toMatch(/people using what I built/);
+    rerender(
+      <V2VisionCreationFlow {...baseProps} anchorIntention="I feel at peace" anchorCategory="spirituality"
+        onUploadAsset={jest.fn()} onAssemble={jest.fn()} />,
+    );
+    expect(getByTestId('vision-prompt-input').props.placeholder).not.toMatch(/people using what I built/);
+  });
 
-    unmount();
-
-    await act(async () => {
-      resolveUpload({ ok: true, asset: { id: 'asset-real-1', resolvedUrl: null, mimeType: 'image/jpeg', fileSizeBytes: 10, createdAt: 'now' } });
-      await pending;
+  it('keeps the order images were chosen in, so the first choice is the cover', async () => {
+    const { getByTestId, getByLabelText, onAssemble } = renderFlow({
+      initialStep: 'curation',
+      job: { id: 'job-1', status: 'COMPLETE', stage: 'complete', setNumber: 1, retryCount: 0, candidates },
     });
-    // No React "state update on an unmounted component" warning/crash means the isMountedRef guard held.
+    fireEvent.press(getByTestId('candidate-card-candidate-4'));
+    fireEvent.press(getByTestId('candidate-card-candidate-1'));
+    fireEvent.press(getByLabelText('Continue'));
+    await waitFor(() => expect(onAssemble).toHaveBeenCalled());
+    expect((onAssemble as jest.Mock).mock.calls[0][0].selectedAssets.map((asset: { assetId: string }) => asset.assetId))
+      .toEqual(['real-asset-4', 'real-asset-1']);
   });
 });

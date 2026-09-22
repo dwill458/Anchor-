@@ -34,16 +34,27 @@ export const AnchorMotion = {
     snap: { damping: 24, stiffness: 280, mass: 0.8 },
     soft: { damping: 20, stiffness: 160, mass: 1.0 },
     /**
-     * The Home Anchor carousel settle. Tuned for "substantial but not heavy":
-     * damping ratio ~0.90 and a ~19.4 rad/s natural frequency settle in roughly
-     * 230ms, against ~340ms for the previous heavier profile. The rest
-     * thresholds are deliberate - Reanimated's defaults keep a spring alive for
-     * a long sub-pixel tail, and on Android every one of those frames is a
-     * Fabric commit that buys nothing the eye can see.
+     * The Home Anchor carousel settle. Damping ratio
+     * ζ = damping / (2·√(stiffness·mass)) ≈ 0.81 at a natural frequency of
+     * ≈ 17 rad/s: ~1% overshoot from rest, more when a flick hands it velocity,
+     * settled in ~290ms. It sits between the two earlier profiles: 28/300/0.8
+     * (ζ≈0.90) landed with no perceptible settle, and 19/190/0.9 (ζ≈0.73)
+     * overshot ~4% with a ~380ms tail after a fast flick. The rest
+     * thresholds are deliberate - Reanimated's defaults
+     * keep a spring alive for a long sub-pixel tail, and on Android every one
+     * of those frames is a Fabric commit that buys nothing the eye can see.
      */
     carousel: {
-      damping: 28,
-      stiffness: 300,
+      damping: 22,
+      stiffness: 230,
+      mass: 0.8,
+      restDisplacementThreshold: 0.5,
+      restSpeedThreshold: 2,
+    },
+    /** Interactive sheets: the carousel's physics, so every dragged surface lands the same way. */
+    sheet: {
+      damping: 22,
+      stiffness: 230,
       mass: 0.8,
       restDisplacementThreshold: 0.5,
       restSpeedThreshold: 2,

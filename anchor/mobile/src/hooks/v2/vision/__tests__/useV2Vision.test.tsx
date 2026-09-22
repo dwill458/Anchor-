@@ -118,7 +118,7 @@ describe('useV2Vision', () => {
 
   it('createVision unwraps the envelope and sets the real persisted Vision', async () => {
     mockGet.mockRejectedValueOnce(Object.assign(new Error('Not found'), { status: 404 }));
-    mockPost.mockResolvedValueOnce(envelope(vision('vision-new')));
+    mockPost.mockResolvedValueOnce(envelope({ ...vision('vision-new'), anchorId: 'anchor-1' }));
 
     const { result } = renderHook(() => useV2Vision('anchor-1'));
     await waitFor(() => expect(result.current.loading).toBe(false));

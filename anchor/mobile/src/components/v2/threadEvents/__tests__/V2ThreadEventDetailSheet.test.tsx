@@ -7,9 +7,12 @@ const persistedEvent: V2PersistedThreadEvent = { eventId: 'te-10', ledgerSequenc
 
 describe('V2ThreadEventDetailSheet', () => {
   it('renders only stored event facts and never a client-calculated Thread gain', () => {
-    const { getByText, queryByText } = render(<V2ThreadEventDetailSheet event={persistedEvent} visible onClose={jest.fn()} />);
-    expect(getByText('Thread Strength')).toBeTruthy();
-    expect(getByText('10')).toBeTruthy();
+    const { getByText, getAllByText, queryByText } = render(<V2ThreadEventDetailSheet event={persistedEvent} visible onClose={jest.fn()} />);
+    expect(getByText('Consistency')).toBeTruthy();
+    expect(getByText('10%')).toBeTruthy();
+    // The persisted enum never renders raw.
+    expect(getAllByText('New stage reached').length).toBeGreaterThan(0);
+    expect(queryByText(/EVOLUTION STAGE REACHED/)).toBeNull();
     expect(queryByText(/\+/)).toBeNull();
     expect(queryByText(/delta/i)).toBeNull();
   });

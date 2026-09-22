@@ -5,29 +5,29 @@ import {
   BackHandler,
   Easing,
   Pressable,
+  StatusBar,
   StyleSheet,
   Text,
   useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import Reanimated, {
   Easing as ReanimatedEasing,
   cancelAnimation,
   interpolate,
-  useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useKeepAwake } from 'expo-keep-awake';
-import { CircularAnchorRenderer } from '@/components/v2';
 import { anchorArtworkSvg } from '@/components/v2/anchors/anchorPresentation';
-import { practiceColors } from '@/theme/v2/practiceColors';
-import { AnchorMotion, getCategoryFieldColor, radii, spacing, typography } from '@/theme/v2';
+import { Pause } from 'lucide-react-native';
+import { AnchorMotion, colors, getCategoryColor, radii, spacing, typography } from '@/theme/v2';
 import type { Anchor } from '@/types';
 import type { GuidanceVoice } from '@/types/sessionAudio';
 import { useSessionAudio, type ManagedSessionAudioPlayer } from '@/hooks/useSessionAudio';
@@ -35,7 +35,7 @@ import { resolveSessionAudioPlan } from '@/services/SessionAudioManifest';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { safeHaptics } from '@/utils/haptics';
-import { V2FocusField } from './V2FocusField';
+import { V2FocusAnchorArtwork } from './V2FocusAnchorArtwork';
 
 export interface V2FocusActiveScreenProps {
   anchor: Anchor;
@@ -51,19 +51,10 @@ export interface V2FocusActiveScreenProps {
   /** Test instrumentation overrides */
   initialElapsedMs?: number;
   initialPaused?: boolean;
-  initialControlsVisible?: boolean;
-  initialEndConfirm?: boolean;
   initialResolving?: boolean;
   initialStage?: 'prepare' | 'focus';
   autoAdvancePrepare?: boolean;
 }
-
-const CLOSING_CUES: Record<number, string> = {
-  30: 'Come back to what matters.',
-  60: 'Hold your attention here.',
-};
-
-const AnimatedCircle = Reanimated.createAnimatedComponent(Circle);
 
 function fmtRemaining(ms: number): string {
   const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
@@ -81,23 +72,23 @@ export function V2FocusActiveScreen({
   onComplete,
   initialElapsedMs = 0,
   initialPaused = false,
-  initialControlsVisible = false,
-  initialEndConfirm = false,
   initialResolving = false,
   initialStage,
   autoAdvancePrepare = true,
 }: V2FocusActiveScreenProps) {
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const reduceMotion = useReduceMotionEnabled();
   const totalMs = durationSeconds * 1000;
-  const anchorSize = Math.min(214, Math.max(176, Math.round(width * 0.48)));
-  const fieldSize = Math.min(330, Math.max(224, Math.round(width * 0.7)));
-  const ringPadding = 22;
-  const ringSize = anchorSize + ringPadding * 2;
-  const strokeWidth = 2.5;
-  const radius = (ringSize - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
+  // The field is calculated from usable height, so short screens close gaps
+  // before the Anchor needs to shrink.
+  const usableHeight = Math.max(320, height - insets.top - insets.bottom);
+  const bottomControlGap = Math.round(Math.min(16, Math.max(8, usableHeight * 0.018)));
+  const anchorSize = Math.round(
+    Math.min(width * 0.84, usableHeight * 0.48, 380),
+  );
+  const atmosphereId = `focus-atmosphere-${anchor.id.replace(/[^a-zA-Z0-9]/g, '')}`;
+  const categoryColor = getCategoryColor(anchor.category);
 
   // Use keep-awake while the practice is active
   useKeepAwake('focus-session');
@@ -112,36 +103,27 @@ export function V2FocusActiveScreen({
   const pausedAtMonotonicRef = useRef<number | null>(null);
   const accumulatedPausedMsRef = useRef<number>(0);
   const doneRef = useRef<boolean>(initialResolving);
-  const hideControlsTimerRef = useRef<NodeJS.Timeout | null>(null);
   const autoAdvanceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const completionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Session State
   const [elapsedMs, setElapsedMs] = useState<number>(initialElapsedMs);
   const [isPaused, setIsPaused] = useState<boolean>(initialPaused);
-  const [controlsVisible, setControlsVisible] = useState<boolean>(initialControlsVisible);
-  const [endConfirmVisible, setEndConfirmVisible] = useState<boolean>(initialEndConfirm);
   const [isResolving, setIsResolving] = useState<boolean>(initialResolving);
   const elapsedMsRef = useRef(initialElapsedMs);
   const displayedRemainingSecondsRef = useRef(Math.ceil(Math.max(0, totalMs - initialElapsedMs) / 1000));
 
   // Transient transitions below remain native-driver animations. Continuous
   // Focus motion is owned by Reanimated shared values, never React state.
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const pulseOpacity = useRef(new Animated.Value(0.65)).current;
-  const controlsOpacity = useRef(new Animated.Value(initialControlsVisible ? 1 : 0)).current;
   const prepareFadeAnim = useRef(new Animated.Value(1)).current;
   const anchorScaleAnim = useRef(new Animated.Value(defaultStage === 'prepare' ? 0.94 : 1)).current;
-  const visualProgress = useSharedValue(Math.min(1, Math.max(0, initialElapsedMs / totalMs)));
   const breatheScale = useSharedValue(1);
   const anchorDrift = useSharedValue(0);
   const anchorLuminance = useSharedValue(1);
   const washMotion = useSharedValue(0);
+  const sessionProgress = useSharedValue(Math.min(1, initialElapsedMs / totalMs));
   const fieldTransition = useSharedValue(defaultStage === 'prepare' ? 0 : 1);
-  const completionWash = useSharedValue(0);
-  const progressAnimatedProps = useAnimatedProps(
-    () => ({ strokeDashoffset: circumference * (1 - visualProgress.value) }),
-    [circumference],
-  );
+  const resolvingContentOpacity = useSharedValue(1);
   const breathingStyle = useAnimatedStyle(() => ({
     transform: [
       { scale: breatheScale.value },
@@ -149,17 +131,31 @@ export function V2FocusActiveScreen({
     ],
     opacity: anchorLuminance.value,
   }));
-  const fieldTransitionStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(fieldTransition.value, [0, 1], [0.72, 1]),
-    transform: [{ scale: interpolate(fieldTransition.value, [0, 1], [0.94, 1.02]) }],
+  const anchorEntranceStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(fieldTransition.value, [0, 1], [0.76, 1]),
+    transform: [{ scale: interpolate(fieldTransition.value, [0, 1], [0.95, 1]) }],
   }));
   const atmosphereStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(washMotion.value, [0, 1], [0.34, 0.48]),
-    transform: [{ scale: interpolate(washMotion.value, [0, 1], [0.97, 1.04]) }],
+    opacity: interpolate(washMotion.value, [0, 1], [0.12, 0.19]),
+    transform: [{ scale: interpolate(washMotion.value, [0, 1], [0.98, 1.025]) }],
   }));
-  const completionWashStyle = useAnimatedStyle(() => ({
-    opacity: completionWash.value,
+  const outerAtmosphereStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(washMotion.value, [0, 1], [0.14, 0.09]),
+    transform: [{ scale: interpolate(washMotion.value, [0, 1], [1.025, 0.985]) }],
   }));
+  const sessionProgressStyle = useAnimatedStyle(() => ({
+    transform: [{ scaleX: sessionProgress.value }],
+  }));
+  const resolvingContentStyle = useAnimatedStyle(() => ({
+    opacity: resolvingContentOpacity.value,
+  }));
+
+  useEffect(() => {
+    const nextProgress = Math.min(1, Math.max(0, elapsedMs / totalMs));
+    sessionProgress.value = reduceMotion
+      ? nextProgress
+      : withTiming(nextProgress, { duration: 850, easing: AnchorMotion.easing.gentle });
+  }, [elapsedMs, reduceMotion, sessionProgress, totalMs]);
 
   // Audio setup
   const { createSessionAudioPlayer } = useSessionAudio();
@@ -207,21 +203,6 @@ export function V2FocusActiveScreen({
       );
     },
     [initialElapsedMs, readClock]
-  );
-
-  const syncVisualProgress = useCallback(
-    (elapsed: number) => {
-      const normalized = Math.min(1, Math.max(0, elapsed / totalMs));
-      cancelAnimation(visualProgress);
-      visualProgress.value = normalized;
-      if (!reduceMotion && normalized < 1) {
-        visualProgress.value = withTiming(1, {
-          duration: Math.max(0, totalMs - elapsed),
-          easing: ReanimatedEasing.linear,
-        });
-      }
-    },
-    [reduceMotion, totalMs, visualProgress],
   );
 
   // Start the active focus timer & audio
@@ -305,17 +286,6 @@ export function V2FocusActiveScreen({
     }
   }, [audioPlan, createSessionAudioPlayer, defaultStage, readClock]);
 
-  // The progress ring is visual-only. It is always re-synchronised from the
-  // monotonic logical clock after a start or resume, so it can never become the
-  // authority for completion, audio, or persisted session time.
-  useEffect(() => {
-    if (stage !== 'focus' || isPaused || endConfirmVisible || isResolving) {
-      cancelAnimation(visualProgress);
-      return;
-    }
-    syncVisualProgress(calculateElapsed());
-  }, [calculateElapsed, cancelAnimation, endConfirmVisible, isPaused, isResolving, stage, syncVisualProgress, visualProgress]);
-
   // Auto-advance prepare state after ~3.5s
   useEffect(() => {
     if (stage === 'prepare' && autoAdvancePrepare) {
@@ -337,7 +307,7 @@ export function V2FocusActiveScreen({
     cancelAnimation(anchorDrift);
     cancelAnimation(anchorLuminance);
     cancelAnimation(washMotion);
-    if (reduceMotion || isPaused || isResolving || endConfirmVisible || stage !== 'focus') {
+    if (reduceMotion || isPaused || isResolving || stage !== 'focus') {
       return;
     }
 
@@ -379,16 +349,7 @@ export function V2FocusActiveScreen({
       cancelAnimation(anchorLuminance);
       cancelAnimation(washMotion);
     };
-  }, [anchorDrift, anchorLuminance, breatheScale, endConfirmVisible, isPaused, isResolving, reduceMotion, stage, washMotion]);
-
-  // Controls fade animation
-  useEffect(() => {
-    Animated.timing(controlsOpacity, {
-      toValue: controlsVisible && !isPaused && !endConfirmVisible && !isResolving ? 1 : 0,
-      duration: 250,
-      useNativeDriver: true,
-    }).start();
-  }, [controlsOpacity, controlsVisible, endConfirmVisible, isPaused, isResolving]);
+  }, [anchorDrift, anchorLuminance, breatheScale, isPaused, isResolving, reduceMotion, stage, washMotion]);
 
   // Trigger voice cues based on remaining time
   const checkVoiceCues = useCallback(
@@ -415,73 +376,97 @@ export function V2FocusActiveScreen({
     [audioPlan, createSessionAudioPlayer]
   );
 
-  // Natural completion sequence
-  const handleNaturalCompletion = useCallback(() => {
-    if (doneRef.current) return;
-    doneRef.current = true;
+  /**
+   * The only route into completion. The ref is flipped before any state update
+   * or persistence work, so a timer tick and rapid manual taps cannot create
+   * two completed practice records.
+   */
+  const beginEnding = useCallback(
+    (trigger: 'automatic' | 'manual') => {
+      if (doneRef.current) return;
+      doneRef.current = true;
 
-    setIsResolving(true);
-    setStage('resolving');
-    setControlsVisible(false);
-    fieldTransition.value = withTiming(1.08, {
-      duration: 480,
-      easing: ReanimatedEasing.out(ReanimatedEasing.ease),
-    });
-    completionWash.value = reduceMotion
-      ? 0.24
-      : withTiming(0.24, {
-          duration: 720,
-          easing: ReanimatedEasing.out(ReanimatedEasing.ease),
-        });
+      const finalElapsedMs =
+        trigger === 'automatic'
+          ? totalMs
+          : Math.min(totalMs, Math.max(0, calculateElapsed()));
+      const actualDurationSeconds = Math.max(1, Math.ceil(finalElapsedMs / 1000));
+      elapsedMsRef.current = finalElapsedMs;
+      setElapsedMs(finalElapsedMs);
+      setIsResolving(true);
+      setStage('resolving');
 
-    // Subtle tactile success haptic
-    void safeHaptics.notification(Haptics.NotificationFeedbackType.Success);
-
-    // Fade ambient audio
-    if (ambientPlayerRef.current) {
-      ambientPlayerRef.current.setVolume(0.04);
-      setTimeout(() => {
-        ambientPlayerRef.current?.stop();
-      }, 700);
-    }
-
-    // Resolving pulse animation
-    if (!reduceMotion) {
-      pulseAnim.setValue(1);
-      pulseOpacity.setValue(0.65);
-      Animated.parallel([
-        Animated.timing(pulseAnim, {
-          toValue: 1.25,
-          duration: 700,
-          easing: Easing.out(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseOpacity, {
-          toValue: 0,
-          duration: 700,
-          easing: Easing.out(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-
-    // Deliver completion after brief resolving hold
-    const completeTimeout = setTimeout(() => {
-      onComplete({
-        plannedDurationSeconds: durationSeconds,
-        actualDurationSeconds: durationSeconds,
-        completedAt: new Date().toISOString(),
+      // Phase 1: return the visual motion to rest over a perceptible settle.
+      cancelAnimation(breatheScale);
+      cancelAnimation(anchorDrift);
+      cancelAnimation(anchorLuminance);
+      cancelAnimation(washMotion);
+      breatheScale.value = withTiming(1, { duration: 300, easing: AnchorMotion.easing.gentle });
+      anchorDrift.value = withTiming(0, { duration: 300, easing: AnchorMotion.easing.gentle });
+      anchorLuminance.value = withTiming(1, { duration: 300, easing: AnchorMotion.easing.gentle });
+      washMotion.value = withTiming(0, { duration: 300, easing: AnchorMotion.easing.gentle });
+      fieldTransition.value = withTiming(0.92, {
+        duration: 300,
+        easing: ReanimatedEasing.out(ReanimatedEasing.ease),
       });
-    }, 850);
 
-    return () => clearTimeout(completeTimeout);
-  }, [completionWash, durationSeconds, fieldTransition, onComplete, pulseAnim, pulseOpacity, reduceMotion]);
+      // Phase 2 (1,050ms): the whole active composition fades into the ink
+      // base. Phase 3 is the remaining 400ms black hold before completion.
+      resolvingContentOpacity.value = reduceMotion
+        ? 0
+        : withDelay(300, withTiming(0, {
+            duration: 1050,
+            easing: ReanimatedEasing.inOut(ReanimatedEasing.ease),
+          }));
+
+      ambientPlayerRef.current?.setVolume(0.04);
+      setTimeout(() => ambientPlayerRef.current?.stop(), 300);
+      voicePlayerRef.current?.stop();
+
+      if (trigger === 'manual') {
+        AnalyticsService.track(AnalyticsEvents.PRACTICE_SESSION_ENDED_EARLY, {
+          practice_mode: 'focus',
+          planned_duration_seconds: durationSeconds,
+          elapsed_seconds: actualDurationSeconds,
+        });
+      }
+      void safeHaptics.notification(Haptics.NotificationFeedbackType.Success);
+
+      completionTimerRef.current = setTimeout(() => {
+        onComplete({
+          plannedDurationSeconds: durationSeconds,
+          actualDurationSeconds,
+          completedAt: new Date().toISOString(),
+        });
+      }, reduceMotion ? 0 : 1750);
+    },
+    [
+      anchorDrift,
+      anchorLuminance,
+      breatheScale,
+      calculateElapsed,
+      durationSeconds,
+      fieldTransition,
+      onComplete,
+      reduceMotion,
+      resolvingContentOpacity,
+      totalMs,
+      washMotion,
+    ]
+  );
+
+  useEffect(
+    () => () => {
+      if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
+    },
+    []
+  );
 
   // Logical cadence only: audio cues and completion use the monotonic clock.
   // React state changes at most once a second for the visible time label; the
   // ring itself never waits for this interval and runs on the UI thread.
   useEffect(() => {
-    if (stage !== 'focus' || isPaused || endConfirmVisible || isResolving) return;
+    if (stage !== 'focus' || isPaused || isResolving) return;
 
     const interval = setInterval(() => {
       const currentElapsed = Math.min(totalMs, calculateElapsed());
@@ -493,14 +478,11 @@ export function V2FocusActiveScreen({
         displayedRemainingSecondsRef.current = remainingSeconds;
         setElapsedMs(currentElapsed);
       }
-      if (reduceMotion) {
-        syncVisualProgress(currentElapsed);
-      }
       checkVoiceCues(remaining);
 
       if (currentElapsed >= totalMs && !doneRef.current) {
         clearInterval(interval);
-        handleNaturalCompletion();
+        beginEnding('automatic');
       }
     }, 250);
 
@@ -508,36 +490,25 @@ export function V2FocusActiveScreen({
   }, [
     calculateElapsed,
     checkVoiceCues,
-    endConfirmVisible,
-    handleNaturalCompletion,
+    beginEnding,
     isPaused,
     isResolving,
     stage,
-    reduceMotion,
-    syncVisualProgress,
     totalMs,
   ]);
 
-  // Reveal controls with 3-second auto-dismiss
+  // The artwork is the only tappable surface during preparation; active
+  // controls remain together in the persistent bottom-control region.
   const revealControls = useCallback(() => {
     if (stage === 'prepare') {
       startFocusSession();
-      return;
     }
-    if (isPaused || endConfirmVisible || isResolving) return;
-    setControlsVisible(true);
-    if (hideControlsTimerRef.current) {
-      clearTimeout(hideControlsTimerRef.current);
-    }
-    hideControlsTimerRef.current = setTimeout(() => {
-      setControlsVisible(false);
-    }, 3000);
-  }, [endConfirmVisible, isPaused, isResolving, stage, startFocusSession]);
+  }, [stage, startFocusSession]);
 
   // Pause session
   const pauseSession = useCallback(
     (reason: string = 'user') => {
-      if (stage !== 'focus' || isPaused || isResolving) return;
+      if (stage !== 'focus' || isPaused || isResolving || doneRef.current) return;
       const now = readClock();
       pausedAtMonotonicRef.current = now;
       const pausedElapsed = Math.min(totalMs, calculateElapsed(now));
@@ -545,7 +516,6 @@ export function V2FocusActiveScreen({
       displayedRemainingSecondsRef.current = Math.ceil(Math.max(0, totalMs - pausedElapsed) / 1000);
       setElapsedMs(pausedElapsed);
       setIsPaused(true);
-      setControlsVisible(false);
 
       ambientPlayerRef.current?.pause();
       voicePlayerRef.current?.pause();
@@ -567,8 +537,6 @@ export function V2FocusActiveScreen({
       pausedAtMonotonicRef.current = null;
     }
     setIsPaused(false);
-    setEndConfirmVisible(false);
-
     ambientPlayerRef.current?.play();
     voicePlayerRef.current?.play();
 
@@ -595,30 +563,13 @@ export function V2FocusActiveScreen({
         onExit();
         return true;
       }
-      if (endConfirmVisible) {
-        setEndConfirmVisible(false);
-        return true;
-      }
       pauseSession('hardware_back');
-      setEndConfirmVisible(true);
       return true;
     };
 
     const backSub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => backSub.remove();
-  }, [endConfirmVisible, isResolving, onExit, pauseSession, stage]);
-
-  // Early end confirmed
-  const handleConfirmEnd = useCallback(() => {
-    ambientPlayerRef.current?.stop();
-    voicePlayerRef.current?.stop();
-    AnalyticsService.track(AnalyticsEvents.PRACTICE_SESSION_ENDED_EARLY, {
-      practice_mode: 'focus',
-      planned_duration_seconds: durationSeconds,
-      elapsed_seconds: Math.floor(elapsedMsRef.current / 1000),
-    });
-    onExit();
-  }, [durationSeconds, elapsedMs, onExit]);
+  }, [isResolving, onExit, pauseSession, stage]);
 
   const voiceLabel =
     voice === 'female'
@@ -635,154 +586,84 @@ export function V2FocusActiveScreen({
       onPress={revealControls}
       style={styles.screen}
     >
-      <Reanimated.View pointerEvents="none" style={[styles.completionWash, completionWashStyle]} />
-      {/* Center Stage: Anchor + Progress trace + Atmospheric pigment wash */}
-      <View style={styles.centerStage} pointerEvents="box-none">
-        {/* A low-contrast category wash keeps the dark surface from feeling flat. */}
-        <Reanimated.View
-          style={[
-            styles.atmosphereWash,
-            {
-              width: fieldSize * 0.82,
-              height: fieldSize * 0.82,
-              borderRadius: (fieldSize * 0.82) / 2,
-              backgroundColor: getCategoryFieldColor(anchor.category),
-            },
-            atmosphereStyle,
-          ]}
-        />
+      <StatusBar barStyle="light-content" backgroundColor={colors.ink.base} animated />
+      {/* Two diffuse fields start at the Anchor and fall away without a visible frame. */}
+      <Reanimated.View pointerEvents="none" style={[styles.outerAtmosphere, outerAtmosphereStyle, resolvingContentStyle]}>
+        <Svg width={width} height={height}>
+          <Defs>
+            <RadialGradient id={`${atmosphereId}-outer`} cx="50%" cy="46%" rx="58%" ry="54%">
+              <Stop offset="0%" stopColor={categoryColor} stopOpacity={0.44} />
+              <Stop offset="42%" stopColor={categoryColor} stopOpacity={0.14} />
+              <Stop offset="100%" stopColor={categoryColor} stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+          <Rect width={width} height={height} fill={`url(#${atmosphereId}-outer)`} />
+        </Svg>
+      </Reanimated.View>
+      <Reanimated.View pointerEvents="none" style={[styles.atmosphere, atmosphereStyle, resolvingContentStyle]}>
+        <Svg width={width} height={height}>
+          <Defs>
+            <RadialGradient id={atmosphereId} cx="50%" cy="46%" rx="32%" ry="32%">
+              <Stop offset="0%" stopColor={categoryColor} stopOpacity={0.7} />
+              <Stop offset="48%" stopColor={categoryColor} stopOpacity={0.22} />
+              <Stop offset="100%" stopColor={colors.ink.base} stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+          <Rect width={width} height={height} fill={`url(#${atmosphereId})`} />
+        </Svg>
+      </Reanimated.View>
+      <Reanimated.View style={[styles.centerStage, resolvingContentStyle]} pointerEvents="box-none">
+        <View style={[styles.intentionRegion, { paddingTop: Math.max(insets.top + 42, 66) }]}>
+          <Text style={styles.sessionIntention}>{anchor.intentionText}</Text>
+        </View>
 
-        <Reanimated.View
-          pointerEvents="none"
-          style={[styles.fieldLayer, { width: fieldSize, height: fieldSize }, fieldTransitionStyle]}
-        >
-          <V2FocusField
-            size={fieldSize}
-            progress={visualProgress}
-            category={anchor.category}
-            reduceMotion={reduceMotion}
-            motionActive={!isPaused && !endConfirmVisible && !isResolving}
-          />
-        </Reanimated.View>
-
-        <View
-          style={{
-            width: ringSize,
-            height: ringSize,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          {/* Circular Progress Trace - visible during active focus */}
-          {stage !== 'prepare' && (
-            <Svg
-              width={ringSize}
-              height={ringSize}
-              viewBox={`0 0 ${ringSize} ${ringSize}`}
-              style={styles.progressSvg}
-            >
-              {/* Subtle background track */}
-              <Circle
-                cx={ringSize / 2}
-                cy={ringSize / 2}
-                r={radius}
-                stroke="rgba(255, 255, 255, 0.08)"
-                strokeWidth={strokeWidth}
-                fill="none"
-              />
-              {/* Active animated fill */}
-              <AnimatedCircle
-                testID="focus-progress-fill"
-                cx={ringSize / 2}
-                cy={ringSize / 2}
-                r={radius}
-                stroke={practiceColors.focus}
-                strokeWidth={strokeWidth}
-                strokeLinecap="round"
-                strokeDasharray={circumference}
-                animatedProps={progressAnimatedProps}
-                fill="none"
-              />
-            </Svg>
-          )}
-
-          {/* Anchor Artwork Medallion */}
+        <Reanimated.View style={[styles.anchorRegion, anchorEntranceStyle]}>
           <Animated.View
             style={[
-              styles.medallionWrapper,
+              styles.artworkShell,
               {
-                transform: [
-                  { scale: stage === 'prepare' ? anchorScaleAnim : 1 },
-                ],
+                transform: [{ scale: stage === 'prepare' ? anchorScaleAnim : 1 }],
                 opacity: isPaused ? 0.5 : 1,
               },
             ]}
           >
             <Reanimated.View style={breathingStyle}>
-              <CircularAnchorRenderer
+              <V2FocusAnchorArtwork
                 svg={anchorArtworkSvg(anchor)} imageUrl={anchor.enhancedImageUrl}
                 category={anchor.category}
                 size={anchorSize}
-                appearance="dark"
+                surface={colors.ink.base}
                 accessibilityLabel={`${anchor.category} Anchor artwork`}
+                testID="focus-anchor-artwork"
               />
             </Reanimated.View>
           </Animated.View>
+        </Reanimated.View>
 
-          {/* Completion Visual Pulse */}
-          {isResolving && !reduceMotion ? (
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                styles.pulseRing,
-                {
-                  width: ringSize,
-                  height: ringSize,
-                  borderRadius: ringSize / 2,
-                  borderColor: practiceColors.focus,
-                  transform: [{ scale: pulseAnim }],
-                  opacity: pulseOpacity,
-                },
-              ]}
-            />
-          ) : null}
-        </View>
-
-        {/* State 2: Prepare Transition Content */}
         {stage === 'prepare' ? (
-          <Animated.View
-            style={[
-              styles.prepareContent,
-              { opacity: prepareFadeAnim },
-            ]}
-          >
-            <Text style={styles.prepareIntention}>
-              “{anchor.intentionText}”
-            </Text>
-            <Text style={styles.prepareSupportCopy}>
-              Return to it once. Then let the Anchor hold it.
-            </Text>
+          <Animated.View style={[styles.prepareContent, { opacity: prepareFadeAnim }]}>
+            <Text style={styles.prepareSupportCopy}>Let the Anchor hold your attention.</Text>
           </Animated.View>
-        ) : (
+        ) : isResolving ? (
           <View style={styles.focusQuietContainer}>
-            <Text style={styles.focusQuietHint}>
-              Return to the Anchor.
-            </Text>
+            <Text style={styles.acknowledgementTitle}>Well done.</Text>
+            <Text style={styles.focusQuietHint}>Let it settle.</Text>
           </View>
-        )}
-      </View>
+        ) : null}
+      </Reanimated.View>
 
       {/* Top Header Label */}
-      <View
+      <Reanimated.View
         style={[
           styles.topHeader,
+          resolvingContentStyle,
           { paddingTop: Math.max(48, insets.top + 14) },
         ]}
       >
         <Text style={styles.topLabel}>
-          {stage === 'prepare' ? 'PREPARE' : 'FOCUS'}
+          FOCUS
         </Text>
-      </View>
+      </Reanimated.View>
 
       {/* Prepare State Bottom Action (Begin Session CTA) */}
       {stage === 'prepare' && (
@@ -795,6 +676,15 @@ export function V2FocusActiveScreen({
             },
           ]}
         >
+          <View style={styles.sessionProgressTrack} accessibilityElementsHidden>
+            <Reanimated.View
+              style={[
+                styles.sessionProgressFill,
+                { backgroundColor: categoryColor },
+                sessionProgressStyle,
+              ]}
+            />
+          </View>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Begin Session"
@@ -807,76 +697,59 @@ export function V2FocusActiveScreen({
         </Animated.View>
       )}
 
-      {/* Active Focus Bottom Minimal Pause Control */}
-      {stage === 'focus' && !controlsVisible && !isPaused && !endConfirmVisible && (
-        <View
+      {/* Timer, progress and actions are one bounded safe-area control group. */}
+      {stage === 'focus' && !isPaused && !isResolving && (
+        <Reanimated.View
           style={[
-            styles.bottomMinimalBar,
-            { paddingBottom: Math.max(26, insets.bottom + 12) },
+            styles.bottomControlRegion,
+            resolvingContentStyle,
+            { paddingBottom: insets.bottom + 12, gap: bottomControlGap },
           ]}
         >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Pause Focus"
-            testID="focus-pause-button"
-            onPress={() => pauseSession('user_button')}
-            style={styles.minimalPauseBtn}
-          >
-            <Text style={styles.minimalPauseText}>Pause</Text>
-          </Pressable>
-        </View>
+          <Text testID="focus-remaining-time" style={styles.bottomTimer}>
+            {fmtRemaining(totalMs - elapsedMs)}
+          </Text>
+          <View style={styles.sessionProgressTrack} accessibilityElementsHidden>
+            <Reanimated.View
+              style={[
+                styles.sessionProgressFill,
+                { backgroundColor: categoryColor },
+                sessionProgressStyle,
+              ]}
+            />
+          </View>
+          <View style={styles.bottomControlActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Pause Focus"
+              testID="focus-pause-button"
+              onPress={(event) => {
+                event?.stopPropagation?.();
+                pauseSession('user_button');
+              }}
+              style={styles.controlButton}
+            >
+              <Pause size={14} color="#FFFFFF" strokeWidth={2} />
+              <Text style={styles.pauseButtonText}>Pause</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="End session"
+              testID="focus-end-button"
+              onPress={(event) => {
+                event?.stopPropagation?.();
+                beginEnding('manual');
+              }}
+              style={styles.controlButton}
+            >
+              <Text style={styles.endButtonText}>End Session</Text>
+            </Pressable>
+          </View>
+        </Reanimated.View>
       )}
 
-      {/* Tapped Chrome Controls Container (Remaining time + Pause/End buttons) */}
-      <Animated.View
-        pointerEvents={controlsVisible && !isPaused && !endConfirmVisible ? 'auto' : 'none'}
-        style={[
-          styles.chromeContainer,
-          { opacity: controlsOpacity },
-        ]}
-      >
-        <View style={[styles.topBar, { paddingTop: Math.max(50, insets.top + 16) }]}>
-          <Text testID="focus-remaining-time" style={styles.remainingText}>
-            {fmtRemaining(totalMs - elapsedMs)} remaining
-          </Text>
-        </View>
-
-        <View
-          style={[
-            styles.bottomBar,
-            { paddingBottom: Math.max(28, insets.bottom + 16) },
-          ]}
-        >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Pause Focus"
-            testID="focus-pause-button"
-            onPress={(e) => {
-              e?.stopPropagation?.();
-              pauseSession('user_button');
-            }}
-            style={styles.controlButton}
-          >
-            <Text style={styles.pauseButtonText}>Pause</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="End Focus"
-            testID="focus-end-button"
-            onPress={(e) => {
-              e?.stopPropagation?.();
-              pauseSession('user_button');
-              setEndConfirmVisible(true);
-            }}
-            style={styles.controlButton}
-          >
-            <Text style={styles.endButtonText}>End</Text>
-          </Pressable>
-        </View>
-      </Animated.View>
-
       {/* Paused Overlay */}
-      {isPaused && !endConfirmVisible && (
+      {isPaused && !isResolving && (
         <View testID="focus-paused-overlay" style={styles.pausedOverlay}>
           <Text style={styles.pausedTitle}>Paused</Text>
           <View style={styles.pausedActions}>
@@ -891,8 +764,9 @@ export function V2FocusActiveScreen({
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="End Focus"
-              onPress={() => setEndConfirmVisible(true)}
+              accessibilityLabel="End session"
+              testID="focus-paused-end-button"
+              onPress={() => beginEnding('manual')}
               style={styles.endFocusLink}
             >
               <Text style={styles.endFocusLinkText}>End Focus</Text>
@@ -901,34 +775,6 @@ export function V2FocusActiveScreen({
         </View>
       )}
 
-      {/* End Confirmation Modal */}
-      {endConfirmVisible && (
-        <View testID="focus-end-confirm-modal" style={styles.confirmOverlay}>
-          <View style={styles.confirmCard}>
-            <Text style={styles.confirmTitle}>End Focus?</Text>
-            <View style={styles.confirmActions}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Keep going"
-                testID="focus-keep-going-button"
-                onPress={() => setEndConfirmVisible(false)}
-                style={styles.keepGoingButton}
-              >
-                <Text style={styles.keepGoingButtonText}>Keep going</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="End session"
-                testID="focus-confirm-end-session"
-                onPress={handleConfirmEnd}
-                style={styles.confirmEndButton}
-              >
-                <Text style={styles.confirmEndButtonText}>End session</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      )}
     </Pressable>
   );
 }
@@ -936,11 +782,7 @@ export function V2FocusActiveScreen({
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#0E0F14',
-  },
-  completionWash: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#FBF9F4',
+    backgroundColor: colors.ink.base,
   },
   topHeader: {
     position: 'absolute',
@@ -952,54 +794,56 @@ const styles = StyleSheet.create({
   },
   topLabel: {
     ...typography.labelSM,
-    letterSpacing: 2,
-    fontWeight: '700',
-    fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.45)',
+    letterSpacing: 2.2,
+    fontWeight: '600',
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.4)',
   },
   centerStage: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  atmosphereWash: {
-    position: 'absolute',
+  atmosphere: {
+    ...StyleSheet.absoluteFillObject,
   },
-  fieldLayer: {
-    position: 'absolute',
+  outerAtmosphere: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  intentionRegion: {
+    width: '100%',
+    alignItems: 'center',
+    paddingHorizontal: spacing[6],
+  },
+  sessionIntention: {
+    ...typography.headingMD,
+    fontFamily: typography.display,
+    color: 'rgba(255, 255, 255, 0.82)',
+    fontSize: 18,
+    lineHeight: 25,
+    letterSpacing: -0.1,
+    maxWidth: 320,
+    textAlign: 'center',
+  },
+  anchorRegion: {
+    flex: 1,
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingTop: spacing[1],
+    paddingBottom: spacing[3],
   },
-  progressSvg: {
-    position: 'absolute',
-    transform: [{ rotate: '-90deg' }],
-  },
-  medallionWrapper: {
-    borderRadius: 200,
-    overflow: 'hidden',
+  artworkShell: {
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.6,
-    shadowRadius: 36,
-    elevation: 16,
-  },
-  pulseRing: {
-    position: 'absolute',
-    borderWidth: 2,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.42,
+    shadowRadius: 28,
+    elevation: 10,
   },
   prepareContent: {
     alignItems: 'center',
     paddingHorizontal: spacing[6],
-    marginTop: spacing[5],
+    marginBottom: spacing[8],
     maxWidth: 340,
-  },
-  prepareIntention: {
-    ...typography.headingMD,
-    fontFamily: typography.displayBold,
-    fontSize: 20,
-    color: 'rgba(255, 255, 255, 0.95)',
-    textAlign: 'center',
-    letterSpacing: -0.2,
   },
   prepareSupportCopy: {
     ...typography.bodyMD,
@@ -1018,7 +862,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[6],
   },
   prepareBeginBtn: {
-    backgroundColor: practiceColors.focus,
+    backgroundColor: '#FBF9F4',
     paddingVertical: 14,
     paddingHorizontal: 44,
     borderRadius: radii.round,
@@ -1031,17 +875,54 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 14,
     letterSpacing: 1.2,
-    color: '#FFFFFF',
+    color: '#171717',
   },
   focusQuietContainer: {
-    marginTop: spacing[6],
+    minHeight: 54,
+    marginBottom: spacing[4],
     alignItems: 'center',
+    justifyContent: 'center',
   },
   focusQuietHint: {
     ...typography.bodyMD,
     fontSize: 13.5,
     color: 'rgba(255, 255, 255, 0.38)',
     letterSpacing: 0.2,
+  },
+  sessionTimer: {
+    ...typography.numericLarge,
+    fontFamily: typography.displayBold,
+    fontSize: 31,
+    letterSpacing: -1,
+    color: 'rgba(255, 255, 255, 0.84)',
+  },
+  bottomControlRegion: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    paddingHorizontal: spacing[6],
+  },
+  bottomTimer: {
+    ...typography.numericLarge,
+    fontFamily: typography.displayBold,
+    fontSize: 28,
+    letterSpacing: -0.8,
+    color: 'rgba(255, 255, 255, 0.88)',
+  },
+  bottomControlActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 18,
+  },
+  acknowledgementTitle: {
+    ...typography.headingLG,
+    fontFamily: typography.displayBold,
+    color: 'rgba(255, 255, 255, 0.94)',
+    fontSize: 24,
+    marginBottom: 6,
   },
   bottomMinimalBar: {
     position: 'absolute',
@@ -1052,10 +933,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   minimalPauseBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 22,
+    flexDirection: 'row',
+    gap: 7,
+    paddingVertical: 8,
+    paddingHorizontal: 15,
     borderRadius: radii.round,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.045)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
   },
@@ -1064,6 +947,19 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.75)',
     fontSize: 13,
     fontWeight: '600',
+  },
+  sessionProgressTrack: {
+    width: 154,
+    height: 2,
+    borderRadius: 1,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.11)',
+  },
+  sessionProgressFill: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 1,
+    transformOrigin: 'left center',
   },
   chromeContainer: {
     ...StyleSheet.absoluteFillObject,
@@ -1092,6 +988,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   controlButton: {
+    flexDirection: 'row',
+    gap: 7,
     paddingVertical: 10,
     paddingHorizontal: 16,
     minHeight: 44,
@@ -1131,7 +1029,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   resumeButton: {
-    backgroundColor: practiceColors.focus,
+    backgroundColor: '#FBF9F4',
     paddingVertical: 15,
     paddingHorizontal: 20,
     borderRadius: radii.md,
@@ -1142,7 +1040,7 @@ const styles = StyleSheet.create({
     ...typography.labelLG,
     fontFamily: typography.bodyBold,
     fontSize: 15.5,
-    color: '#FFFFFF',
+    color: '#171717',
   },
   endFocusLink: {
     paddingVertical: 12,
@@ -1165,7 +1063,7 @@ const styles = StyleSheet.create({
   confirmCard: {
     width: '100%',
     maxWidth: 290,
-    backgroundColor: '#1C1D24',
+    backgroundColor: colors.ink.raised,
     borderRadius: radii.lg,
     paddingVertical: 26,
     paddingHorizontal: 24,
@@ -1185,7 +1083,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   keepGoingButton: {
-    backgroundColor: practiceColors.focus,
+    backgroundColor: '#FBF9F4',
     paddingVertical: 13,
     paddingHorizontal: 20,
     borderRadius: radii.md,
@@ -1196,7 +1094,7 @@ const styles = StyleSheet.create({
     ...typography.labelMD,
     fontFamily: typography.bodyBold,
     fontSize: 14.5,
-    color: '#FFFFFF',
+    color: '#171717',
   },
   confirmEndButton: {
     paddingVertical: 9,

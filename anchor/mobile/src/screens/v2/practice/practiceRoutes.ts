@@ -25,6 +25,8 @@ export type V2PracticeStartRequest = {
   source: 'practice_hub' | 'recommended_today';
   voice?: GuidanceVoice;
   ambient?: boolean;
+  /** Session-only haptics choice from setup; unset keeps the saved setting. */
+  haptics?: boolean;
 };
 export type V2PracticeRouteIntents = {
   onPremiumCapabilityRequired: (request: V2PremiumCapabilityRequest) => void;

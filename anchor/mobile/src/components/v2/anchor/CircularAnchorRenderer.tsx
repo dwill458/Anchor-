@@ -1,7 +1,9 @@
 import React, { memo, useEffect, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { SigilSvg } from '@/components/common/SigilSvg';
+import type { AnchorExpression } from '@/constants/v2/creation';
 import { getCategoryColor, getCategoryFieldColor, radii } from '@/theme/v2';
+import { AnchorMark } from './AnchorMark';
 
 import type { StyleProp, ViewStyle } from 'react-native';
 
@@ -27,6 +29,12 @@ type Props = {
   /** The finished (AI-enhanced) artwork. It fills the disc; the SVG structure is the fallback if it is absent or fails to load. */
   imageUrl?: string | null;
   category?: string | null;
+  /**
+   * How the structure appears. When set, the mark is drawn through `AnchorMark` so the kept
+   * expression shows here exactly as it did when it was chosen. Unset keeps the plain stored
+   * SVG, which is what Anchors without a recorded expression have always shown.
+   */
+  expression?: AnchorExpression | null;
   /** A named step, or an exact diameter in dp when the layout owns the scale. */
   size?: CircularAnchorSize;
   appearance?: CircularAnchorAppearance;
@@ -37,7 +45,7 @@ type Props = {
 };
 
 /** A flat field + the existing stable SVG renderer. It deliberately has no rim, halo, or animation. */
-export const CircularAnchorRenderer = memo(function CircularAnchorRenderer({ svg, imageUrl, category, size = 'medium', appearance, state = 'active', accessibilityLabel, testID, style }: Props) {
+export const CircularAnchorRenderer = memo(function CircularAnchorRenderer({ svg, imageUrl, category, expression, size = 'medium', appearance, state = 'active', accessibilityLabel, testID, style }: Props) {
   const dimension = typeof size === 'number' ? size : (sizes[size] ?? 104);
   const color = getCategoryColor(category);
   const isBare = appearance === 'bare';
@@ -62,8 +70,9 @@ export const CircularAnchorRenderer = memo(function CircularAnchorRenderer({ svg
   const showImage = typeof imageUrl === 'string' && imageUrl.length > 0 && !imageFailed;
   const imageSize = isBare ? dimension : dimension - (isPaper ? 8 : 2);
   const hasArtwork = typeof svg === 'string' && svg.trim().length > 0;
+  const artworkSize = dimension * (isBare ? 0.94 : isPaper ? 0.72 : isDark ? 0.70 : 0.66);
   return <View testID={testID} accessible accessibilityRole="image" accessibilityLabel={accessibilityLabel ?? `${category ?? 'Custom'} Anchor artwork`} style={[styles.field, { width: dimension, height: dimension, borderRadius: dimension / 2, backgroundColor: fieldColor, borderColor, borderWidth: isBare ? 0 : isPaper ? 4 : 1, opacity: state === 'inactive' ? 0.48 : 1 }, style]}>
-    {showImage ? <Image accessible={false} source={{ uri: imageUrl as string }} resizeMode="cover" onError={() => setImageFailed(true)} style={{ width: imageSize, height: imageSize, borderRadius: imageSize / 2 }} /> : <View accessible={false} importantForAccessibility="no-hide-descendants" style={[styles.artwork, { width: dimension * (isBare ? 0.94 : isPaper ? 0.72 : isDark ? 0.70 : 0.66), height: dimension * (isBare ? 0.94 : isPaper ? 0.72 : isDark ? 0.70 : 0.66) }, isBare && styles.artworkUnclipped]}>{hasArtwork ? <SigilSvg xml={svg} width="100%" height="100%" color={color} /> : <Text style={styles.artworkUnavailable}>Artwork unavailable</Text>}</View>}
+    {showImage ? <Image accessible={false} source={{ uri: imageUrl as string }} resizeMode="cover" onError={() => setImageFailed(true)} style={{ width: imageSize, height: imageSize, borderRadius: imageSize / 2 }} /> : <View accessible={false} importantForAccessibility="no-hide-descendants" style={[styles.artwork, { width: artworkSize, height: artworkSize }, (isBare || expression) && styles.artworkUnclipped]}>{hasArtwork ? (expression ? <AnchorMark svg={svg} category={category} expression={expression} size={artworkSize} /> : <SigilSvg xml={svg} width="100%" height="100%" color={color} />) : <Text style={styles.artworkUnavailable}>Artwork unavailable</Text>}</View>}
   </View>;
 });
 export const circularAnchorSizes = sizes;

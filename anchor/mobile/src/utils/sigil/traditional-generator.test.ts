@@ -61,6 +61,17 @@ describe('TRUE Sigil Generator', () => {
         expect((minimal.svg.match(/<path/g) || []).length).toBe(1);
     });
 
+    it('holds the dense (Contained) mark in one hand-drawn perimeter with no added seal ring', () => {
+        const dense = generateTrueSigil(['C', 'N', 'S', 'T'], undefined, 'dense');
+        const balanced = generateTrueSigil(['C', 'N', 'S', 'T'], undefined, 'balanced');
+
+        // Exactly the perimeter + the intention-derived path; no geometric outer circle.
+        expect((dense.svg.match(/<path/g) || []).length).toBe(2);
+        expect(dense.svg).not.toContain('<circle');
+        // The intention-derived path itself does not depend on the perimeter.
+        expect(balanced.svg).not.toContain('<circle');
+    });
+
     it('should not include marker attributes in any variant', () => {
         // Markers were removed because react-native-svg does not reliably
         // support marker-start/marker-end and they caused crashes on device.

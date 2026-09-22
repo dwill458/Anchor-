@@ -1,7 +1,6 @@
 import React from 'react';
-import { Image, StyleSheet } from 'react-native';
+import { Image } from 'react-native';
 import { render, fireEvent, screen, waitFor } from '@testing-library/react-native';
-import { getPracticeCardTheme } from '@/theme/v2';
 import { fetchV2RecommendationContext } from '@/adapters/v2/practice';
 jest.mock('@/adapters/v2/practice', () => ({ fetchV2RecommendationContext: jest.fn() }));
 
@@ -17,9 +16,20 @@ jest.mock('@react-navigation/native', () => ({
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useCourseStore } from '@/stores/courseStore';
+import { resetV2VisionReadCache } from '@/hooks/v2/vision/useV2Vision';
 import { V2AnchorDetailsScreen } from '../V2AnchorDetailsScreen';
 import { V2DailyShellIntentsProvider } from '@/screens/v2/home/dailyShell';
 import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
+import { apiClient } from '@/services/ApiClient';
+
+jest.mock('@/services/ApiClient', () => ({
+  apiClient: {
+    get: jest.fn(),
+    post: jest.fn(),
+  },
+  ApiClientError: class extends Error {},
+}));
 
 const destructiveSpy = jest.fn();
 
@@ -31,14 +41,22 @@ const renderDetails = (intents = {}) =>
   );
 
 beforeEach(() => {
+  resetV2VisionReadCache();
+  (apiClient.get as jest.Mock).mockResolvedValue({
+    data: {
+      success: true,
+      data: null,
+    },
+  });
   (fetchV2RecommendationContext as jest.Mock).mockResolvedValue({
     recommendation: { action: 'Focus', reason: 'daily_reinforcement' },
     thread: { status: 'AVAILABLE', strength: 50, delta7d: null, delta7dStatus: 'UNAVAILABLE' },
   });
   mockNavigate.mockClear();
+  mockGoBack.mockClear();
   destructiveSpy.mockClear();
   mockParams = { anchorId: 'a' };
-  useSettingsStore.setState({ reduceMotion: 'on' });
+  useSettingsStore.setState({ reduceMotion: 'on', focusSessionDuration: 120 });
   // Replace the legacy destructive store actions with a spy: the V2 profile
   // must never call them.
   useAnchorStore.setState({
@@ -48,10 +66,24 @@ beforeEach(() => {
     removeAnchor: destructiveSpy,
   });
   useSessionStore.setState({ practiceHistory: [] });
+  useCourseStore.setState({
+    flags: {
+      chart_enabled: false,
+      chart_write_enabled: false,
+      chart_ai_planner_enabled: false,
+      chart_reflections_enabled: false,
+      chart_notifications_enabled: false,
+      chart_existing_user_intro_enabled: false,
+    },
+    courses: [],
+    activeCourse: null,
+    initializationStatus: 'idle',
+    errorCode: null,
+  });
 });
 
 describe('V2AnchorDetailsScreen', () => {
-  it('renders the correct Anchor profile', () => {
+  it('renders the correct Anchor profile with enlarged artwork and metadata', () => {
     useAnchorStore.setState({
       anchors: [makeAnchor({ id: 'a', intentionText: 'I finish what I start', category: 'career', threadStrength: 50 })],
     });
@@ -117,11 +149,11 @@ describe('V2AnchorDetailsScreen', () => {
   });
 
   it.each([
-    ['Focus', 'focus'],
-    ['Deep Prime', 'deep_prime'],
-    ['Visualize', 'visualize'],
-    ['Release', 'release'],
-  ] as const)('renders the Today card on the %s dark practice surface', async (action, mode) => {
+    ['Focus', 'focus', 'Focus'],
+    ['Deep Prime', 'deep_prime', 'Deep Focus'],
+    ['Visualize', 'visualize', 'Visualize'],
+    ['Release', 'release', 'Release'],
+  ] as const)('renders the Today card for %s recommendation', async (action, mode, expectedTitle) => {
     (fetchV2RecommendationContext as jest.Mock).mockResolvedValue({
       recommendation: { action, reason: 'daily_reinforcement' },
       thread: { status: 'AVAILABLE', strength: 42, delta7d: 1, delta7dStatus: 'AVAILABLE' },
@@ -130,9 +162,48 @@ describe('V2AnchorDetailsScreen', () => {
     renderDetails();
 
     await waitFor(() => expect(screen.getByTestId('v2-anchor-today')).toBeTruthy());
-    const card = screen.getByTestId('v2-anchor-today');
-    const flat = StyleSheet.flatten(card.props.style) as { backgroundColor?: string };
-    expect(flat.backgroundColor).toBe(getPracticeCardTheme(mode).dark.surface);
+    expect(screen.getByText(expectedTitle)).toBeTruthy();
+    expect(screen.getByText('Recommended Practice')).toBeTruthy();
+  });
+
+  it('renders Vision photographic section when a vision exists with scenes', async () => {
+    (apiClient.get as jest.Mock).mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          id: 'v-123',
+          anchorId: 'a',
+          status: 'ACTIVE',
+          description: 'My RevenueCat dashboard shows 10 thousand active users for Anchor',
+          seenToday: true,
+          scenes: [
+            {
+              id: 's-1',
+              resolvedImageUrl: 'https://example.test/vision-cover.jpg',
+              prompt: 'Desk setup with monitor',
+              sortOrder: 0,
+              isArchived: false,
+            },
+            {
+              id: 's-2',
+              resolvedImageUrl: 'https://example.test/vision-scene-2.jpg',
+              prompt: 'Celebration dinner',
+              sortOrder: 1,
+              isArchived: false,
+            },
+          ],
+        },
+      },
+    });
+
+    useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a' })] });
+    renderDetails();
+
+    await waitFor(() =>
+      expect(screen.getByText('My RevenueCat dashboard shows 10 thousand active users for Anchor')).toBeTruthy(),
+    );
+    expect(screen.getByText('Seen today ✓')).toBeTruthy();
+    expect(screen.UNSAFE_getAllByType(Image).some((node) => node.props.source?.uri === 'https://example.test/vision-cover.jpg')).toBe(true);
   });
 
   it('opens Release when the server recommends it', async () => {
@@ -166,6 +237,35 @@ describe('V2AnchorDetailsScreen', () => {
     fireEvent.press(screen.getByLabelText('Release this Anchor'));
     expect(onReleaseAnchor).toHaveBeenCalledWith('a');
     expect(destructiveSpy).not.toHaveBeenCalled();
+  });
+
+  it('renders Recent Practice items with relative dates and duration', () => {
+    const onOpenProgress = jest.fn();
+    useAnchorStore.setState({
+      anchors: [makeAnchor({ id: 'a' })],
+    });
+    useSessionStore.setState({
+      practiceHistory: [
+        {
+          id: 's1',
+          anchorId: 'a',
+          mode: 'visualize',
+          completedAt: new Date().toISOString(),
+          durationSeconds: 5,
+        } as any,
+        {
+          id: 's2',
+          anchorId: 'a',
+          mode: 'focus',
+          completedAt: new Date('2026-09-03T12:00:00Z').toISOString(),
+          durationSeconds: 10,
+        } as any,
+      ],
+    });
+
+    renderDetails({ onOpenProgress });
+    expect(screen.getByText('Recent Practice')).toBeTruthy();
+    expect(screen.getByText('Today')).toBeTruthy();
   });
 
   it('renders a not-found state for an unknown Anchor', () => {

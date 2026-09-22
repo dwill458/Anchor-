@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { ArrowLeft } from 'lucide-react-native';
-import { CircularAnchorRenderer, V2Button, V2EmptyState, V2Screen } from '@/components/v2';
-import { anchorArtworkSvg, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
+import { CircularAnchorRenderer, V2Button, V2EmptyState } from '@/components/v2';
+import { V2PracticeSetupLayout } from '@/components/v2/practice/V2PracticeSetupLayout';
+import { resolvePracticeSetupMetrics } from '@/components/v2/practice/practiceSetupLayout';
+import { useV2Responsive } from '@/hooks/v2';
+import { anchorRenderProps, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
 import {
   V2_PRACTICE_DURATIONS,
   V2_PRACTICE_MODE_BY_ID,
@@ -14,6 +16,7 @@ import { colors, getCategoryColor, radii, spacing, typography } from '@/theme/v2
 import type { Anchor } from '@/types';
 import type { HomeVisionState } from '@/adapters/v2/home';
 import type { V2PracticeStartRequest, V2PremiumCapabilityRequest } from './practiceRoutes';
+import { V2VisualizePrepareScreen as V2VisionVisualizePrepare } from './visualize/V2VisualizePrepareScreen';
 
 type Props = {
   anchor: Anchor;
@@ -32,7 +35,7 @@ type Props = {
 
 const MODE_SETUP_EXPLANATIONS: Record<V2PracticeMode, string> = {
   focus: "Return your attention to the intention you've chosen to reinforce.",
-  deep_prime: 'Settle into a longer guided return to deepen your thread.',
+  deep_prime: 'A longer, guided session to go deeper with your intention.',
   visualize: 'Rehearse the future held in your Vision.',
   release:
     'Release closes this intention when its work is complete. It preserves this Anchor and its history in your vault, but removes it from active daily reinforcement.',
@@ -52,6 +55,8 @@ export function V2PracticePrepareScreen({
   onBeginPractice,
   onPremiumRequired,
 }: Props) {
+  const viewport = useV2Responsive();
+  const metrics = resolvePracticeSetupMetrics(viewport, 'hero');
   const definition = V2_PRACTICE_MODE_BY_ID[mode];
   const durations = mode === 'release' ? [] : V2_PRACTICE_DURATIONS[mode];
   const defaultDuration = initialDuration ?? (durations[1] ?? durations[0]);
@@ -91,39 +96,79 @@ export function V2PracticePrepareScreen({
     });
   };
 
+  // Visualize with a Vision: the Vision's photography leads the setup.
+  if (mode === 'visualize' && vision.state === 'ready') {
+    return (
+      <V2VisionVisualizePrepare
+        anchor={anchor}
+        statement={vision.previewText}
+        tiles={vision.tiles ?? []}
+        initialDuration={initialDuration}
+        onBack={onBack}
+        onOpenVision={onOpenVision}
+        onBegin={(config) => {
+          if (!entitled) {
+            onPremiumRequired?.({ capability: 'visualize', anchorId: anchor.id, source, durationSeconds: config.durationSeconds });
+            return;
+          }
+          onBeginPractice?.({
+            anchorId: anchor.id,
+            mode: 'visualize',
+            durationSeconds: config.durationSeconds,
+            source,
+            voice: config.voice,
+            ambient: config.ambient,
+            haptics: config.haptics,
+          });
+        }}
+      />
+    );
+  }
+
   const categoryColor = getCategoryColor(anchor.category);
   const visionTile = vision.state === 'ready' && vision.tiles && vision.tiles.length > 0 ? vision.tiles[0] : null;
   const visionImageUrl = visionTile?.imageUrl;
 
   return (
-    <V2Screen scroll testID={`v2-practice-prepare-${mode}`}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Back to Practice"
-        onPress={onBack}
-        style={styles.back}
-      >
-        <ArrowLeft size={20} color={colors.text.primary} />
-        <Text style={styles.backText}>Practice</Text>
-      </Pressable>
-
-      <View style={styles.content}>
+    <V2PracticeSetupLayout
+      testID={`v2-practice-prepare-${mode}`}
+      onBack={onBack}
+      sidePadding={metrics.sidePadding}
+      footerPaddingBottom={metrics.footerPaddingBottom}
+      footer={!isVisionEmpty ? (
+        <V2Button
+          size="large"
+          variant={mode === 'release' ? 'secondary' : 'primary'}
+          accessibilityLabel={
+            mode === 'release'
+              ? 'Continue to Release'
+              : `Begin ${definition.title}`
+          }
+          onPress={begin}
+        >
+          {mode === 'release'
+            ? 'Continue to Release'
+            : `Begin ${definition.title}`}
+        </V2Button>
+      ) : null}
+    >
+      <View style={[styles.content, { gap: metrics.bodyGap }]}>
         {/* Visual focal point: Large Real Anchor Artwork */}
         <View style={styles.heroSection}>
           <Text style={[styles.eyebrow, { color: definition.accent }]}>
             {definition.title.toUpperCase()}
           </Text>
 
-          <View style={styles.artworkContainer}>
+          <View style={[styles.artworkContainer, { marginVertical: metrics.artworkGap }]}>
             <CircularAnchorRenderer
-              svg={anchorArtworkSvg(anchor)} imageUrl={anchor.enhancedImageUrl}
-              category={anchor.category}
-              size="hero"
+              {...anchorRenderProps(anchor)}
+              size={metrics.artworkSize}
+              appearance="paper"
               accessibilityLabel={`${categoryLabel(anchor.category)} Anchor artwork`}
             />
           </View>
 
-          <Text style={styles.intentionText}>{anchor.intentionText}</Text>
+          <Text style={styles.intentionText} numberOfLines={3}>{anchor.intentionText}</Text>
 
           <View style={styles.categoryRow}>
             <View style={[styles.categoryDot, { backgroundColor: categoryColor }]} />
@@ -230,27 +275,8 @@ export function V2PracticePrepareScreen({
           </View>
         )}
 
-        {/* Primary Action Button */}
-        {!isVisionEmpty ? (
-          <View style={styles.bottomAction}>
-            <V2Button
-              size="large"
-              variant={mode === 'release' ? 'secondary' : 'primary'}
-              accessibilityLabel={
-                mode === 'release'
-                  ? 'Continue to Release'
-                  : `Begin ${definition.title}`
-              }
-              onPress={begin}
-            >
-              {mode === 'release'
-                ? 'Continue to Release'
-                : `Begin ${definition.title}`}
-            </V2Button>
-          </View>
-        ) : null}
       </View>
-    </V2Screen>
+    </V2PracticeSetupLayout>
   );
 }
 
@@ -268,21 +294,8 @@ export const V2ReleasePrepareScreen = (props: Omit<Props, 'mode'>) => (
 );
 
 const styles = StyleSheet.create({
-  back: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
-    minHeight: 44,
-  },
-  backText: {
-    ...typography.labelLG,
-    color: colors.text.primary,
-  },
   content: {
-    gap: spacing[6],
     paddingTop: spacing[2],
-    paddingBottom: spacing[8],
   },
   heroSection: {
     alignItems: 'center',
@@ -296,7 +309,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   artworkContainer: {
-    marginVertical: spacing[3],
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -416,8 +428,5 @@ const styles = StyleSheet.create({
     ...typography.bodyMD,
     color: colors.text.secondary,
     lineHeight: 20,
-  },
-  bottomAction: {
-    paddingTop: spacing[2],
   },
 });

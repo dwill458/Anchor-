@@ -134,7 +134,7 @@ export const RELEASE_CONSEQUENCE_BASE: ReadonlyArray<{
   {
     id: 'history',
     label: 'History',
-    detail: 'Thread Strength, Course Log, and session counts stay readable in Your Anchors.',
+    detail: 'Consistency, Course Log, and session counts stay readable in Your Anchors.',
     tone: 'preserved',
   },
 ] as const;

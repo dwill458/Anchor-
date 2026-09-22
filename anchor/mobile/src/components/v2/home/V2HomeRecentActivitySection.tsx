@@ -22,7 +22,10 @@ function V2HomeRecentActivitySectionComponent({ items }: { items: HomeRecentActi
 }
 
 const styles = StyleSheet.create({
-  container: { marginTop: 30, paddingTop: 20, borderTopWidth: 1, borderTopColor: colors.graphite.hairline },
+  // A wider gap than the other section dividers: Vision (and, when Vision is
+  // absent, Chart) is now the visually heaviest module above this one, and
+  // Recent Activity needs to read as history rather than part of it.
+  container: { marginTop: 44, paddingTop: 20, borderTopWidth: 1, borderTopColor: colors.graphite.hairline },
   kicker: { fontFamily: typography.bodyBold, fontSize: 10, letterSpacing: 2.2, color: colors.graphite.text.tertiary, marginBottom: 10 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 9 },
   mark: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },

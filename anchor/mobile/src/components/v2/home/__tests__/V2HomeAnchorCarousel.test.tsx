@@ -18,6 +18,7 @@ import {
   V2HomeAnchorCarousel,
   resolveSwipeCommit,
   trackFinger,
+  carouselSpacing,
   HERO_ANCHOR_SIZE,
   NEIGHBOUR_ANCHOR_SIZE,
   carouselWindow,
@@ -46,24 +47,25 @@ beforeEach(() => {
  * which is what the previous flat 0.42 multiplier did.
  */
 describe('finger tracking', () => {
-  it('follows the finger exactly up to the point where a swipe commits', () => {
-    expect(trackFinger(0)).toBe(0);
-    expect(trackFinger(20)).toBe(20);
-    expect(trackFinger(-20)).toBe(-20);
-    expect(trackFinger(56)).toBe(56);
-    expect(trackFinger(-56)).toBe(-56);
+  const spacing = 250;
+  it('follows the finger exactly for a full slot, symmetrically', () => {
+    expect(trackFinger(0, spacing)).toBe(0);
+    expect(trackFinger(120, spacing)).toBe(120);
+    expect(trackFinger(-250, spacing)).toBe(-250);
   });
 
-  it('resists only past the decision point, symmetrically', () => {
-    // 56 + (156 - 56) * 0.34
-    expect(trackFinger(156)).toBeCloseTo(90, 5);
-    expect(trackFinger(-156)).toBeCloseTo(-90, 5);
+  it('resists past one slot and clamps an unbounded drag', () => {
+    expect(trackFinger(350, spacing)).toBeCloseTo(275, 5);
+    expect(trackFinger(-350, spacing)).toBeCloseTo(-275, 5);
+    expect(trackFinger(5000, spacing)).toBeCloseTo(312.5, 5);
   });
 
-  it('clamps an unbounded drag instead of letting the Anchor leave the page', () => {
-    const limit = trackFinger(240);
-    expect(trackFinger(400)).toBeCloseTo(limit, 5);
-    expect(limit).toBeLessThan(HERO_ANCHOR_SIZE);
+  it('leaves roughly a quarter of a neighbour on screen at every width', () => {
+    for (const w of [360, 393, 412]) {
+      const size = (154 + 14) * 0.72;
+      const visible = w / 2 + size / 2 - carouselSpacing(w, 154) + w / 2 - w / 2;
+      expect(visible / size).toBeCloseTo(0.28, 5);
+    }
   });
 });
 

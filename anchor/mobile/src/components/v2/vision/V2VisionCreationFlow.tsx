@@ -1,584 +1,556 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+  ActivityIndicator, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text,
+  TextInput, useWindowDimensions, View,
 } from 'react-native';
-import { Check, ChevronRight, Image as ImageIcon, Sparkles, Upload } from 'lucide-react-native';
-import { GhostVisionComposition } from './GhostVisionComposition';
-import { V2Button, V2TopBar } from '@/components/v2';
+import Animated, { Easing, interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import { Compass, Eye, Image as ImageIcon, MapPin, PenLine, RefreshCw } from 'lucide-react-native';
+import { V2Button } from '@/components/v2';
+import { useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
+import { useV2VisionGeneration, type VisionGenerationCandidate, type UploadAssetResult } from '@/hooks/v2/vision';
 import { colors, getCategoryColor, radii, spacing, typography } from '@/theme/v2';
 import type { VisionSceneSource } from '@/adapters/v2/vision';
+import { VisionPhoto } from './VisionPhoto';
+import { VisionHeaderRow, VisionIdentity, type VisionAnchorArt } from './VisionChrome';
+import { visionPossibleFuturePhoto } from './visionArt';
+import {
+  VISION_DESCRIPTION_MAX_CHARS, VISION_DESCRIPTION_MIN_CHARS, VISION_DESCRIPTION_PROMPTS,
+  visionDescriptionExample, visionDetailHint, visionDetailLevel,
+} from './visionGuidance';
+import { visionGenerationProgress } from './visionGenerationProgress';
+import { useVisionPresentationQueue, VISION_REVEAL_TIMING } from './useVisionPresentationQueue';
+import { VisionContactRail, VisionGenerationMeter, VisionGenerationStack, VisionGenerationSteps } from './VisionGenerationStage';
+
+type SelectedAsset = { assetId: string; prompt: string; imageUrl?: string; sourceType: VisionSceneSource };
+type UploadItem = { key: string; uri: string; mimeType: string; assetId?: string; imageUrl?: string | null; status: 'uploading' | 'ready' | 'failed'; error?: string };
+/** Selection order is meaningful: the first chosen image becomes the Vision cover. */
+type Selection = { kind: 'candidate'; id: string } | { kind: 'upload'; key: string };
+
+const MAX_IMAGES = 5;
+const MAX_SETS = 3;
+const TILE_GAP = 10;
+
+const PROMPT_ICONS = { where: MapPin, doing: PenLine, see: Eye, different: Compass } as const;
 
 export interface V2VisionCreationFlowProps {
   anchorId: string;
   anchorIntention: string;
   anchorCategory?: string | null;
+  anchorImageUrl?: string | null;
+  /** The real Anchor artwork for the identity row (`anchorRenderProps(anchor)`). */
+  anchorArt?: VisionAnchorArt | null;
+  initialDescription?: string;
   initialStep?: 'ready' | 'empty' | 'prompt' | 'curation';
   onBack: () => void;
-  onAssemble: (result: {
-    description: string;
-    source: VisionSceneSource;
-    selectedAssets: Array<{ assetId: string; prompt: string; imageUrl?: string }>;
-  }) => Promise<void>;
+  onPremiumRequired?: () => void;
+  onSaveDescription?: (description: string) => Promise<boolean>;
+  resumeGeneration?: boolean;
+  onResumeGenerationConsumed?: () => void;
+  onUploadAsset: (input: { base64Image: string; mimeType: string }) => Promise<UploadAssetResult>;
+  onAssemble: (result: { description: string; selectedAssets: SelectedAsset[] }) => Promise<boolean | void>;
   testID?: string;
 }
 
-// Preset candidate scenes for curation
-const PRESET_CANDIDATES = [
-  {
-    id: 'cand-1',
-    prompt: 'Focused creative desk at morning light',
-    imageUrl: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=600&q=80',
-  },
-  {
-    id: 'cand-2',
-    prompt: 'Calm library sanctuary with notebooks open',
-    imageUrl: 'https://images.unsplash.com/photo-1507842229451-79b1be886a29?w=600&q=80',
-  },
-  {
-    id: 'cand-3',
-    prompt: 'Open horizon landscape over quiet waters',
-    imageUrl: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=600&q=80',
-  },
-  {
-    id: 'cand-4',
-    prompt: 'Collaborative workshop table with real blueprints',
-    imageUrl: 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?w=600&q=80',
-  },
-  {
-    id: 'cand-5',
-    prompt: 'Evening reflections in a quiet studio space',
-    imageUrl: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=600&q=80',
-  },
-];
+/** Fades and settles a newly arrived image into place. Shared values, not a layout animation. */
+function Reveal({ children, style, reduceMotion, delay = 0 }: { children: React.ReactNode; style?: any; reduceMotion: boolean; delay?: number }) {
+  const progress = useSharedValue(reduceMotion ? 1 : 0);
+  useEffect(() => {
+    if (reduceMotion) return;
+    const timer = setTimeout(() => {
+      progress.value = withTiming(1, { duration: 900, easing: Easing.out(Easing.cubic) });
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [delay, progress, reduceMotion]);
+  const animated = useAnimatedStyle(() => ({
+    opacity: progress.value,
+    transform: [{ scale: 0.965 + progress.value * 0.035 }],
+  }));
+  return <Animated.View style={[style, animated]}>{children}</Animated.View>;
+}
 
 export function V2VisionCreationFlow({
-  anchorId,
-  anchorIntention,
-  anchorCategory,
-  initialStep = 'prompt',
-  onBack,
-  onAssemble,
+  anchorId, anchorIntention, anchorCategory, anchorImageUrl, anchorArt, initialDescription = '',
+  initialStep = 'prompt', onBack, onPremiumRequired, onSaveDescription, resumeGeneration, onResumeGenerationConsumed, onUploadAsset, onAssemble,
   testID = 'v2-vision-creation-flow',
 }: V2VisionCreationFlowProps) {
-  const [step, setStep] = useState<'ready' | 'empty' | 'prompt' | 'source' | 'curation'>(
-    initialStep,
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const reduceMotion = useV2ReduceMotion();
+  const [step, setStep] = useState<'empty' | 'prompt' | 'generating' | 'curation'>(
+    initialStep === 'ready' || initialStep === 'empty' ? 'empty' : initialStep,
   );
-  const [descriptionText, setDescriptionText] = useState('');
-  const [sourceType, setSourceType] = useState<VisionSceneSource>('AI_GENERATED');
-  const [keptIds, setKeptIds] = useState<Record<string, boolean>>({
-    'cand-1': true,
-    'cand-2': true,
-    'cand-3': true,
-  });
-  const [isAssembling, setIsAssembling] = useState(false);
-
+  const [description, setDescription] = useState(initialDescription);
+  const [selection, setSelection] = useState<Selection[]>([]);
+  const [uploads, setUploads] = useState<UploadItem[]>([]);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
+  const generation = useV2VisionGeneration(anchorId, onPremiumRequired);
   const categoryColor = getCategoryColor(anchorCategory);
-  const isPromptValid = descriptionText.trim().length >= 12;
-  const keptCount = Object.values(keptIds).filter(Boolean).length;
-  const canAssemble = keptCount >= 3;
+  const possibleFuture = visionPossibleFuturePhoto(anchorCategory);
+  const candidates = generation.job?.candidates ?? [];
+  const trimmed = description.trim();
+  const validDescription = trimmed.length >= VISION_DESCRIPTION_MIN_CHARS && trimmed.length <= VISION_DESCRIPTION_MAX_CHARS;
+  const selectedCount = selection.length;
+  const tileWidth = Math.floor((width - spacing[5] * 2 - TILE_GAP) / 2);
+  const example = useMemo(() => visionDescriptionExample(anchorIntention, anchorCategory), [anchorCategory, anchorIntention]);
+  // The network delivers images; this queue decides when each one is shown.
+  const presentation = useVisionPresentationQueue(generation.job?.id, candidates, { reduceMotion });
+  const progress = visionGenerationProgress(generation.job, presentation.idle);
+  const startingRef = useRef(false);
 
-  const toggleKept = (id: string) => {
-    setKeptIds((prev) => ({ ...prev, [id]: !prev[id] }));
+  // Describe: typing brings the field forward and lets the cues recede.
+  const scrollRef = useRef<ScrollView>(null);
+  const inputOffset = useRef(0);
+  const focusAmount = useSharedValue(0);
+  useEffect(() => {
+    focusAmount.value = withTiming(inputFocused ? 1 : 0, { duration: reduceMotion ? 0 : 280, easing: Easing.out(Easing.quad) });
+  }, [focusAmount, inputFocused, reduceMotion]);
+  const guideStyle = useAnimatedStyle(() => ({ opacity: 1 - focusAmount.value * 0.5 }));
+  const inputFrameStyle = useAnimatedStyle(() => ({
+    borderColor: interpolateColor(focusAmount.value, [0, 1], [colors.border.default, colors.text.primary]),
+    shadowOpacity: focusAmount.value * 0.12,
+  }));
+  const focusInput = () => {
+    setInputFocused(true);
+    // Bring the field above the keyboard once, smoothly, rather than letting it jump.
+    setTimeout(() => scrollRef.current?.scrollTo({ y: Math.max(0, inputOffset.current - spacing[8]), animated: !reduceMotion }), 120);
   };
 
-  const handleAssemble = async () => {
-    if (!canAssemble || isAssembling) return;
-    setIsAssembling(true);
-    const selected = PRESET_CANDIDATES.filter((c) => keptIds[c.id]).map((c) => ({
-      assetId: c.id,
-      prompt: c.prompt,
-      imageUrl: c.imageUrl,
-    }));
+  useEffect(() => {
+    if (!generation.job) return;
+    if (['QUEUED', 'RUNNING', 'PARTIAL'].includes(generation.job.status)) setStep('generating');
+    // A paused set stays on the generating screen with every finished image
+    // kept, offering Retry or choosing from what exists.
+    else if (generation.job.status === 'FAILED') setStep(current => (current === 'curation' ? current : 'generating'));
+  }, [generation.job?.id, generation.job?.status]);
+
+  // A finished set moves on only after the screen has shown what arrived.
+  const setComplete = generation.job?.status === 'COMPLETE' && candidates.length > 0;
+  useEffect(() => {
+    if (!setComplete) return;
+    if (step !== 'generating') {
+      if (step !== 'curation' && step !== 'prompt') setStep('curation');
+      return;
+    }
+    if (!presentation.idle) return;
+    const timer = setTimeout(() => setStep('curation'), reduceMotion ? 500 : VISION_REVEAL_TIMING.finalDwellMs);
+    return () => clearTimeout(timer);
+  }, [presentation.idle, reduceMotion, setComplete, step]);
+
+  // A set that has been replaced leaves nothing selectable behind.
+  useEffect(() => {
+    setSelection(prev => prev.filter(item => item.kind === 'upload' || candidates.some(candidate => candidate.id === item.id)));
+  }, [generation.job?.id]);
+
+  const selectedAssets = useMemo<SelectedAsset[]>(() => selection.flatMap<SelectedAsset>(item => {
+    if (item.kind === 'candidate') {
+      const candidate = candidates.find(value => value.id === item.id);
+      return candidate ? [{ assetId: candidate.assetId, prompt: candidate.prompt, imageUrl: candidate.imageUrl ?? undefined, sourceType: 'AI_GENERATED' }] : [];
+    }
+    const upload = uploads.find(value => value.key === item.key);
+    return upload?.status === 'ready' && upload.assetId
+      ? [{ assetId: upload.assetId, prompt: '', imageUrl: upload.imageUrl ?? upload.uri, sourceType: 'USER_UPLOAD' }]
+      : [];
+  }), [candidates, selection, uploads]);
+
+  const generate = async () => {
+    if (!validDescription) { setNotice(`Describe your Vision in at least ${VISION_DESCRIPTION_MIN_CHARS} characters.`); return; }
+    // One request per tap sequence: saving the description is awaited before
+    // the job starts, so a second tap in that window must not start another.
+    if (startingRef.current) return;
+    startingRef.current = true;
+    setStarting(true);
+    setNotice(null);
     try {
-      await onAssemble({
-        description: descriptionText.trim() || 'A clear picture of where this Anchor is taking you.',
-        source: sourceType,
-        selectedAssets: selected,
-      });
+      if (onSaveDescription && !(await onSaveDescription(trimmed))) {
+        setNotice('Your description could not be saved. Please try again.');
+        return;
+      }
+      const started = await generation.start(trimmed);
+      if (started) { setSelection(prev => prev.filter(item => item.kind === 'upload')); setStep('generating'); }
     } finally {
-      setIsAssembling(false);
+      startingRef.current = false;
+      setStarting(false);
     }
   };
 
-  // Step 1: Anchor Ready
-  if (step === 'ready') {
-    return (
-      <View testID={`${testID}-ready`} style={styles.screen}>
-        <V2TopBar title="Vision" onBackPress={onBack} />
-        <ScrollView contentContainerStyle={styles.centerContent}>
-          <Text style={styles.eyebrow}>YOUR ANCHOR IS READY</Text>
-          <Text style={styles.intentionHeading}>{anchorIntention}</Text>
-          <View style={[styles.categoryBadge, { borderColor: categoryColor }]}>
-            <View style={[styles.categoryDot, { backgroundColor: categoryColor }]} />
-            <Text style={styles.categoryText}>{anchorCategory ?? 'Anchor'}</Text>
-          </View>
+  useEffect(() => {
+    if (!resumeGeneration || !validDescription || generation.loading) return;
+    onResumeGenerationConsumed?.();
+    void generate();
+  }, [resumeGeneration, validDescription, generation.loading]);
 
-          <View style={styles.readyCard}>
-            <Text style={styles.cardTitle}>Give it a future you can see</Text>
-            <Text style={styles.cardBody}>
-              Create a visual picture of where this Anchor is taking you.
-            </Text>
-            <V2Button
-              accessibilityLabel="Create Vision"
-              onPress={() => setStep('prompt')}
-            >
-              Create Vision →
-            </V2Button>
-            <Pressable
-              onPress={onBack}
-              accessibilityRole="button"
-              accessibilityLabel="Not now"
-              style={styles.notNowButton}
-            >
-              <Text style={styles.notNowText}>Not now</Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-      </View>
-    );
-  }
+  const uploadOne = async (item: UploadItem, mimeType: string) => {
+    setUploads(prev => prev.map(value => value.key === item.key ? { ...value, status: 'uploading', error: undefined } : value));
+    try {
+      const info = await FileSystem.getInfoAsync(item.uri);
+      if (!info.exists) throw new Error('Photo is no longer available. Choose it again.');
+      const base64 = await FileSystem.readAsStringAsync(item.uri, { encoding: FileSystem.EncodingType.Base64 });
+      const result = await onUploadAsset({ base64Image: `data:${mimeType};base64,${base64}`, mimeType });
+      if (!result.ok) throw new Error(result.message);
+      setUploads(prev => prev.map(value => value.key === item.key
+        ? { ...value, assetId: result.asset.id, imageUrl: result.asset.resolvedUrl, status: 'ready' } : value));
+    } catch (cause) {
+      setUploads(prev => prev.map(value => value.key === item.key
+        ? { ...value, status: 'failed', error: cause instanceof Error ? cause.message : 'Upload failed' } : value));
+    }
+  };
 
-  // Step 2: Empty
-  if (step === 'empty') {
-    return (
-      <View testID={`${testID}-empty`} style={styles.screen}>
-        <V2TopBar title="Vision" onBackPress={onBack} />
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.miniHeader}>
-            <Text numberOfLines={1} style={styles.miniIntention}>
-              {anchorIntention}
-            </Text>
-            <Text style={styles.miniCategory}>{anchorCategory ?? 'Anchor'}</Text>
-          </View>
+  const pickImages = async () => {
+    if (!validDescription) { setNotice('Describe your Vision first.'); return; }
+    const remaining = MAX_IMAGES - selectedCount;
+    if (remaining < 1) { setNotice('A Vision can contain up to five images.'); return; }
+    try {
+      if (Platform.OS === 'ios') {
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (permission.status !== 'granted') { setNotice('Allow photo library access to add your images.'); return; }
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'], allowsMultipleSelection: true, selectionLimit: remaining, quality: 0.85,
+      });
+      if (result.canceled || !result.assets?.length) return;
+      const picked = result.assets.slice(0, remaining).map((asset, index) => ({
+        key: `${Date.now()}-${index}`, uri: asset.uri, mimeType: asset.mimeType ?? 'image/jpeg',
+      }));
+      const supported = picked.filter(item => ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(item.mimeType));
+      if (supported.length !== picked.length) setNotice('Choose JPEG, PNG, WebP, or GIF images.');
+      setStep('curation');
+      const items: UploadItem[] = supported.map(item => ({ key: item.key, uri: item.uri, mimeType: item.mimeType, status: 'uploading' }));
+      setUploads(prev => [...prev, ...items]);
+      // Personal photos are chosen deliberately, so they arrive selected.
+      setSelection(prev => [...prev, ...items.map(item => ({ kind: 'upload' as const, key: item.key }))]);
+      await Promise.all(supported.map((item, index) => uploadOne(items[index], item.mimeType)));
+    } catch (cause) {
+      setNotice(cause instanceof Error ? cause.message : 'Unable to open your photos.');
+    }
+  };
 
-          <GhostVisionComposition />
+  const toggleCandidate = (candidate: VisionGenerationCandidate) => {
+    if (selection.some(item => item.kind === 'candidate' && item.id === candidate.id)) {
+      v2Haptics.selection();
+      setSelection(prev => prev.filter(item => !(item.kind === 'candidate' && item.id === candidate.id)));
+      return;
+    }
+    if (selectedCount >= MAX_IMAGES) { setNotice('A Vision can contain up to five images.'); return; }
+    v2Haptics.selection();
+    setNotice(null);
+    setSelection(prev => [...prev, { kind: 'candidate', id: candidate.id }]);
+  };
 
-          <View style={styles.emptyActionBlock}>
-            <Text style={styles.sectionTitle}>
-              Give this Anchor a future you can see.
-            </Text>
-            <V2Button
-              accessibilityLabel="Create Vision"
-              onPress={() => setStep('prompt')}
-            >
-              Create Vision →
-            </V2Button>
-          </View>
-        </ScrollView>
-      </View>
-    );
-  }
+  const removeUpload = (key: string) => {
+    setUploads(prev => prev.filter(value => value.key !== key));
+    setSelection(prev => prev.filter(item => !(item.kind === 'upload' && item.key === key)));
+  };
 
-  // Step 3: Prompt Description
-  if (step === 'prompt') {
-    return (
-      <View testID={`${testID}-prompt`} style={styles.screen}>
-        <V2TopBar title="Vision" onBackPress={onBack} />
-        <View style={styles.flexOne}>
-          <ScrollView contentContainerStyle={styles.scrollContent}>
-            <View style={styles.miniHeader}>
-              <Text numberOfLines={1} style={styles.miniIntention}>
-                {anchorIntention}
-              </Text>
-              <Text style={styles.miniCategory}>{anchorCategory ?? 'Anchor'}</Text>
-            </View>
+  const save = async () => {
+    if (!validDescription || selectedAssets.length < 1 || selectedAssets.length > MAX_IMAGES || saving) return;
+    setSaving(true);
+    setNotice(null);
+    try {
+      const result = await onAssemble({ description: trimmed, selectedAssets });
+      if (result === false) setNotice('Vision could not be saved. Please try again.');
+    } catch (cause) {
+      setNotice(cause instanceof Error ? cause.message : 'Vision could not be saved.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
-            <Text style={styles.sectionTitle}>
-              What would this look like if it became real?
-            </Text>
-            <TextInput
-              testID="vision-prompt-input"
-              value={descriptionText}
-              onChangeText={setDescriptionText}
-              placeholder="I work on this full time, thousands of people are affected by it, and I have the freedom to spend my days building something meaningful…"
-              placeholderTextColor={colors.text.disabled}
-              multiline
-              numberOfLines={6}
-              style={styles.textInput}
-              accessibilityLabel="Future description"
-            />
-            {!isPromptValid && descriptionText.length > 0 && (
-              <Text style={styles.hintText}>
-                Please enter at least 12 characters to picture your future.
-              </Text>
-            )}
-          </ScrollView>
+  const identity = (tone: 'light' | 'dark' = 'light') => (
+    <VisionIdentity intention={anchorIntention} category={anchorCategory} art={anchorArt} imageUrl={anchorImageUrl} tone={tone} />
+  );
+  const orderOf = (match: (item: Selection) => boolean) => {
+    const index = selection.findIndex(match);
+    return index < 0 ? null : index + 1;
+  };
 
-          <View style={styles.bottomBar}>
-            <V2Button
-              accessibilityLabel="Continue to photo source"
-              disabled={!isPromptValid}
-              onPress={() => setStep('source')}
-            >
-              Continue →
-            </V2Button>
-          </View>
+  if (step === 'empty') return (
+    <View testID={`${testID}-empty`} style={styles.stage}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.ink.base} animated />
+      <VisionPhoto source={possibleFuture} category={anchorCategory} tint={0.12} scrim="both" bottomScrimColor={colors.canvas} style={styles.emptyPhoto}>
+        <View pointerEvents="none" style={styles.emptyTextShade} />
+        <View style={[styles.photoContent, { paddingTop: insets.top }]}>
+          <VisionHeaderRow title="Vision" onBack={onBack} />
+          {identity()}
+          <Text accessibilityRole="header" style={styles.emptyTitle}>See your future.</Text>
+          <Text style={styles.emptyBody}>Turn your intention into a visual future you can step into.</Text>
         </View>
+      </VisionPhoto>
+      <View style={[styles.emptyFooter, { paddingBottom: insets.bottom + spacing[4] }]}>
+        <View style={styles.rule} />
+        <Text style={styles.quote}>A clear Vision changes everything.</Text>
+        <View style={styles.rule} />
+        <V2Button size="large" accessibilityLabel="Create Vision" onPress={() => setStep('prompt')} style={styles.fullWidth}>
+          Create Vision →
+        </V2Button>
       </View>
-    );
-  }
+    </View>
+  );
 
-  // Step 4: Source Choice
-  if (step === 'source') {
+  if (step === 'generating') {
+    // Portrait cards, sized so the whole forming screen fits without scrolling on most phones.
+    const cardHeight = Math.round(Math.min(height * 0.36, width * 0.5 * (16 / 9)));
+    const cardWidth = Math.round(cardHeight * (9 / 16));
+    const failed = generation.job?.status === 'FAILED';
     return (
-      <View testID={`${testID}-source`} style={styles.screen}>
-        <V2TopBar title="Vision" onBackPress={() => setStep('prompt')} />
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <Text style={styles.sectionTitle}>How should we picture it?</Text>
+      <View testID={`${testID}-generating`} style={[styles.stage, styles.inkStage]}>
+        <StatusBar barStyle="light-content" backgroundColor={colors.ink.base} animated />
+        {/* Atmosphere, not content: the category's future, out of focus, far behind. */}
+        <Image source={possibleFuture} blurRadius={26} resizeMode="cover" style={[styles.atmosphere, { width, height }]} />
+        <LinearGradient pointerEvents="none" colors={[`${colors.ink.base}D9`, `${colors.ink.base}F2`, colors.ink.base]}
+          locations={[0, 0.5, 1]} style={StyleSheet.absoluteFill} />
+        <ScrollView contentContainerStyle={[styles.inkPage, { paddingTop: insets.top, paddingBottom: insets.bottom + spacing[6] }]}>
+          <VisionHeaderRow title="Creating your Vision" onBack={onBack} />
+          {identity()}
+          <Text accessibilityRole="header" style={styles.inkTitle}>Your future{'\n'}is taking shape.</Text>
+          <Text style={styles.inkBody}>Finding the moments that make it real.</Text>
 
-          <Pressable
-            testID="source-generated-option"
-            accessibilityRole="button"
-            accessibilityLabel="Generate scenes"
-            onPress={() => {
-              setSourceType('AI_GENERATED');
-              setStep('curation');
-            }}
-            style={styles.sourceOption}
-          >
-            <View style={styles.sourceIconBox}>
-              <Sparkles size={22} color={categoryColor} />
-            </View>
-            <View style={styles.sourceTextGroup}>
-              <Text style={styles.sourceTitle}>Generate scenes</Text>
-              <Text style={styles.sourceDesc}>
-                Draft a few scenes from your description — you choose what fits.
-              </Text>
-            </View>
-            <ChevronRight size={18} color={colors.text.secondary} />
-          </Pressable>
+          <VisionGenerationStack presented={presentation.presented} cardWidth={cardWidth} cardHeight={cardHeight}
+            accent={categoryColor} reduceMotion={reduceMotion} />
+          <VisionContactRail presented={presentation.presented} total={progress.total} reduceMotion={reduceMotion} />
+          <VisionGenerationSteps steps={progress.steps} accent={categoryColor} reduceMotion={reduceMotion} />
+          <View accessibilityLiveRegion="polite">
+            <VisionGenerationMeter ready={progress.ready} total={progress.total} accent={categoryColor} reduceMotion={reduceMotion} />
+          </View>
 
-          <Pressable
-            testID="source-upload-option"
-            accessibilityRole="button"
-            accessibilityLabel="Add my own images"
-            onPress={() => {
-              setSourceType('USER_UPLOAD');
-              setStep('curation');
-            }}
-            style={styles.sourceOption}
-          >
-            <View style={styles.sourceIconBox}>
-              <Upload size={22} color={categoryColor} />
-            </View>
-            <View style={styles.sourceTextGroup}>
-              <Text style={styles.sourceTitle}>Add my own images</Text>
-              <Text style={styles.sourceDesc}>
-                Bring your own photos of places, work, and people.
+          {failed && generation.job ? (
+            <View style={styles.failure}>
+              <Text style={styles.failureTitle}>{progress.title}</Text>
+              <Text style={styles.darkBody}>
+                {progress.ready > 0
+                  ? `${progress.ready} ${progress.ready === 1 ? 'image is' : 'images are'} saved. ${generation.job.error ?? 'Some images could not be created.'}`
+                  : generation.job.error ?? 'Image creation was interrupted.'}
               </Text>
+              {generation.job.retryCount < 2 && (
+                <V2Button variant="secondary" onPress={() => { void generation.retry(); }}>Retry this set</V2Button>
+              )}
+              {generation.job.candidates.length > 0 && (
+                <Pressable accessibilityRole="button" onPress={() => setStep('curation')} style={styles.darkLinkHit}>
+                  <Text style={styles.darkLink}>Choose available images</Text>
+                </Pressable>
+              )}
             </View>
-            <ChevronRight size={18} color={colors.text.secondary} />
-          </Pressable>
+          ) : (
+            <Text style={styles.footnote}>This can take a few moments. You can leave — your images keep arriving.</Text>
+          )}
+          {generation.error ? <Text style={styles.darkError}>{generation.error}</Text> : null}
         </ScrollView>
       </View>
     );
   }
 
-  // Step 5: Curation
-  return (
-    <View testID={`${testID}-curation`} style={styles.screen}>
-      <V2TopBar title="Vision" onBackPress={() => setStep('source')} />
-      <View style={styles.flexOne}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <Text style={styles.sectionTitle}>Choose what feels like your future</Text>
-          <Text style={styles.subTitle}>Keep the ones that feel true.</Text>
-
-          <View style={styles.candidatesGrid}>
-            {PRESET_CANDIDATES.map((cand) => {
-              const isKept = Boolean(keptIds[cand.id]);
+  if (step === 'curation') {
+    const setNumber = generation.job?.setNumber ?? 0;
+    const canGenerateAnother = Boolean(generation.job && setNumber < MAX_SETS && generation.job.status !== 'RUNNING');
+    const busyUploading = uploads.some(item => item.status === 'uploading');
+    return (
+      <View testID={`${testID}-curation`} style={[styles.stage, styles.inkStage]}>
+        <StatusBar barStyle="light-content" backgroundColor={colors.ink.base} animated />
+        <ScrollView contentContainerStyle={[styles.inkPage, { paddingTop: insets.top, paddingBottom: spacing[6] }]}>
+          <VisionHeaderRow title="Choose Your Images" onBack={() => setStep('prompt')} />
+          {identity()}
+          <Text accessibilityRole="header" style={styles.curationTitle}>Select up to {MAX_IMAGES} images</Text>
+          <Text style={styles.inkBody}>Choose the images that best represent your future. These are moments you can return to.</Text>
+          <View style={styles.grid}>
+            {candidates.map((candidate, index) => {
+              const order = orderOf(item => item.kind === 'candidate' && item.id === candidate.id);
               return (
-                <View
-                  key={cand.id}
-                  testID={`candidate-card-${cand.id}`}
-                  style={[
-                    styles.candidateCard,
-                    isKept && { borderColor: categoryColor, borderWidth: 2 },
-                  ]}
-                >
-                  <Image
-                    source={{ uri: cand.imageUrl }}
-                    style={styles.candidateImage}
-                    resizeMode="cover"
-                  />
-                  {isKept && (
-                    <View
-                      style={[
-                        styles.keptIndicator,
-                        { backgroundColor: categoryColor },
-                      ]}
-                    >
-                      <Check size={14} color={colors.surface} />
+                <Reveal key={candidate.id} reduceMotion={reduceMotion} delay={Math.min(index, 7) * 70}>
+                  <Pressable testID={`candidate-card-${candidate.id}`} onPress={() => toggleCandidate(candidate)}
+                    accessibilityRole="button" accessibilityState={{ selected: order !== null }}
+                    accessibilityLabel={order ? `Remove ${candidate.role}` : `Select ${candidate.role}`}
+                    style={({ pressed }) => [styles.tile, { width: tileWidth, height: tileWidth },
+                      order !== null && { borderColor: categoryColor, borderWidth: 3 }, pressed && styles.tilePressed]}>
+                    {candidate.imageUrl ? <Image source={{ uri: candidate.imageUrl }} style={styles.fillImage} />
+                      : <View style={styles.imageUnavailable}><Text style={styles.unavailableText}>Image unavailable</Text></View>}
+                    <View style={[styles.badge, order !== null && { backgroundColor: categoryColor, borderColor: categoryColor }]}>
+                      {order !== null ? <Text style={styles.badgeText}>{order}</Text> : null}
                     </View>
-                  )}
-                  <View style={styles.cardFooter}>
-                    <Text numberOfLines={2} style={styles.candPrompt}>
-                      {cand.prompt}
-                    </Text>
-                    <Pressable
-                      onPress={() => toggleKept(cand.id)}
-                      accessibilityRole="button"
-                      accessibilityLabel={isKept ? `Kept ${cand.prompt}` : `Keep ${cand.prompt}`}
-                      style={[
-                        styles.keepButton,
-                        isKept
-                          ? { backgroundColor: categoryColor, borderColor: categoryColor }
-                          : { borderColor: colors.border.default },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.keepButtonText,
-                          isKept ? { color: colors.surface } : { color: colors.text.primary },
-                        ]}
-                      >
-                        {isKept ? 'Kept' : 'Keep'}
-                      </Text>
-                    </Pressable>
-                  </View>
-                </View>
+                  </Pressable>
+                </Reveal>
+              );
+            })}
+            {uploads.map(item => {
+              const order = orderOf(value => value.kind === 'upload' && value.key === item.key);
+              return (
+                <Pressable key={item.key} testID={`vision-upload-item-${item.key}`} accessibilityRole="button"
+                  accessibilityLabel={item.status === 'failed' ? 'Retry image upload' : item.status === 'ready' ? 'Remove personal image' : 'Uploading personal image'}
+                  onPress={() => {
+                    if (item.status === 'failed') void uploadOne(item, item.mimeType);
+                    else if (item.status === 'ready') removeUpload(item.key);
+                  }}
+                  style={[styles.tile, { width: tileWidth, height: tileWidth }, order !== null && item.status === 'ready' && { borderColor: categoryColor, borderWidth: 3 }]}>
+                  <Image source={{ uri: item.imageUrl ?? item.uri }} style={styles.fillImage} />
+                  {item.status === 'uploading' && <View style={styles.uploadShade}><ActivityIndicator color={colors.paper} /></View>}
+                  {item.status === 'failed' && <View style={styles.uploadShade}><Text style={styles.uploadError}>Upload failed. Tap to retry.</Text></View>}
+                  {item.status === 'ready' && order !== null ? (
+                    <View style={[styles.badge, { backgroundColor: categoryColor, borderColor: categoryColor }]}><Text style={styles.badgeText}>{order}</Text></View>
+                  ) : null}
+                </Pressable>
               );
             })}
           </View>
+          {selectedCount > 0 ? <Text style={styles.coverHint}>Your first choice becomes the cover.</Text> : null}
         </ScrollView>
-
-        <View style={styles.bottomBar}>
-          <Text style={styles.countText}>
-            {canAssemble
-              ? `${keptCount} kept`
-              : keptCount === 0
-                ? 'Choose 3 images to continue'
-                : `${keptCount} kept · Choose ${3 - keptCount} more`}
-          </Text>
-          <V2Button
-            accessibilityLabel="Assemble Vision"
-            disabled={!canAssemble || isAssembling}
-            onPress={handleAssemble}
-          >
-            {isAssembling ? 'Assembling…' : 'Assemble Vision →'}
+        <View style={[styles.curationFooter, { paddingBottom: insets.bottom + spacing[3] }]}>
+          <View style={styles.secondaryRow}>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Generate another set, ${setNumber} of ${MAX_SETS} used`} accessibilityState={{ disabled: !canGenerateAnother }}
+              onPress={() => { if (canGenerateAnother) void generate(); }}
+              disabled={!canGenerateAnother} style={[styles.secondaryAction, !canGenerateAnother && styles.disabled]}>
+              <RefreshCw size={15} color={colors.text.primary} />
+              <Text style={styles.secondaryText} numberOfLines={1}>Generate another set</Text>
+            </Pressable>
+            <Pressable testID="vision-add-photos" accessibilityRole="button" accessibilityLabel="Add my own images" onPress={() => { void pickImages(); }} style={styles.secondaryAction}>
+              <ImageIcon size={15} color={colors.text.primary} /><Text style={styles.secondaryText} numberOfLines={1}>Add my own</Text>
+            </Pressable>
+          </View>
+          {notice && <Text style={styles.error}>{notice}</Text>}
+          <V2Button size="large" accessibilityLabel="Continue" disabled={selectedCount < 1 || saving || busyUploading} onPress={() => { void save(); }}>
+            {saving ? 'Saving…' : `Continue (${selectedCount}/${MAX_IMAGES}) →`}
           </V2Button>
         </View>
       </View>
+    );
+  }
+
+  const hint = visionDetailHint(description);
+  const level = visionDetailLevel(description);
+  return (
+    <View testID={`${testID}-prompt`} style={styles.stage}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.ink.base} animated />
+      <KeyboardAvoidingView style={styles.flex} behavior="padding">
+        <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: insets.bottom + spacing[6] }} keyboardShouldPersistTaps="handled">
+          <VisionPhoto source={possibleFuture} category={anchorCategory} tint={0.12} scrim="both" style={styles.describeHero}>
+            <View style={[styles.describeTint]} pointerEvents="none" />
+            <View style={[styles.photoContent, { paddingTop: insets.top, paddingBottom: spacing[5] }]}>
+              <VisionHeaderRow title="Create Vision" onBack={onBack} />
+              {identity()}
+              <Text accessibilityRole="header" style={styles.describeTitle}>What does this look like when it’s real?</Text>
+              <Text style={styles.inkBody}>Make it specific. The more detail you give, the more personal your Vision becomes.</Text>
+              {/* Cues, not a form: quiet enough that the question and the field lead. */}
+              <Animated.View style={[styles.guide, guideStyle]}>
+                {VISION_DESCRIPTION_PROMPTS.map(prompt => {
+                  const Icon = PROMPT_ICONS[prompt.key];
+                  return (
+                    <View key={prompt.key} style={styles.guideCell}>
+                      <Icon size={14} color={colors.ink.text.tertiary} />
+                      <View style={styles.flex}>
+                        <Text style={styles.guideLabel} numberOfLines={1}>{prompt.label}</Text>
+                        <Text style={styles.guideHint} numberOfLines={2}>{prompt.hint}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </Animated.View>
+            </View>
+          </VisionPhoto>
+          <View style={styles.describeBody} onLayout={event => { inputOffset.current = event.nativeEvent.layout.y; }}>
+            <Animated.View style={[styles.inputFrame, inputFrameStyle, inputFocused && styles.inputFrameFocused]}>
+              <TextInput testID="vision-prompt-input" accessibilityLabel="Vision description" accessibilityHint="Describe where you are, what you’re doing, what you can see and what has changed."
+                multiline maxLength={VISION_DESCRIPTION_MAX_CHARS}
+                value={description} onChangeText={setDescription} placeholder={`Example: ${example}`} placeholderTextColor={colors.text.disabled}
+                onFocus={focusInput} onBlur={() => setInputFocused(false)}
+                style={styles.input} textAlignVertical="top" />
+            </Animated.View>
+            <View style={styles.meter}>
+              <Text testID="vision-detail-hint" style={[styles.meterHint, level === 'rich' && { color: colors.semantic.success }]} numberOfLines={2}>
+                {hint ?? 'Where you are · what you’re doing · what you see · what’s different'}
+              </Text>
+              <Text style={styles.counter}>{description.length}/{VISION_DESCRIPTION_MAX_CHARS}</Text>
+            </View>
+            {notice && <Text style={styles.error}>{notice}</Text>}
+            {generation.error && <Text style={styles.error}>{generation.error}</Text>}
+            <V2Button testID="vision-generate" size="large" accessibilityLabel="Continue to create your Vision"
+              disabled={!validDescription} loading={starting} onPress={() => { void generate(); }}>
+              Continue
+            </V2Button>
+            <Pressable testID="vision-add-photos" accessibilityRole="button" accessibilityLabel="Add my own images"
+              disabled={!validDescription} onPress={() => { void pickImages(); }} style={[styles.textAction, !validDescription && styles.disabled]}>
+              <ImageIcon size={15} color={colors.text.secondary} />
+              <Text style={styles.textActionLabel}>Use my own photos instead</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: colors.background,
+  flex: { flex: 1 },
+  fullWidth: { alignSelf: 'stretch' },
+  stage: { flex: 1, backgroundColor: colors.canvas },
+  inkStage: { backgroundColor: colors.ink.base },
+  photoContent: { paddingHorizontal: spacing[5], gap: spacing[3] },
+  // Empty state
+  emptyPhoto: { flex: 1 },
+  // Photographs vary; this keeps the headline legible over a bright window.
+  emptyTextShade: { position: 'absolute', left: 0, right: 0, top: 0, height: '52%', backgroundColor: colors.ink.base, opacity: 0.46 },
+  emptyTitle: { ...typography.displayMedium, color: colors.ink.text.primary, marginTop: spacing[5] },
+  emptyBody: { ...typography.bodyLG, color: colors.ink.text.primary, opacity: 0.88, maxWidth: 320, textShadowColor: 'rgba(14,21,28,0.55)', textShadowRadius: 8 },
+  emptyFooter: { paddingHorizontal: spacing[5], paddingTop: spacing[5], gap: spacing[3], alignItems: 'center', backgroundColor: colors.canvas },
+  rule: { width: 28, height: StyleSheet.hairlineWidth * 2, backgroundColor: colors.border.strong },
+  quote: { ...typography.bodyMD, color: colors.text.secondary, textAlign: 'center' },
+  // Describe
+  describeHero: { width: '100%' },
+  describeTint: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.ink.base, opacity: 0.5 },
+  describeTitle: { ...typography.headingXL, color: colors.ink.text.primary, marginTop: spacing[3] },
+  guide: {
+    marginTop: spacing[1], flexDirection: 'row', flexWrap: 'wrap', rowGap: spacing[3], columnGap: spacing[3],
+    paddingTop: spacing[4], borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.ink.hairlineStrong,
   },
-  flexOne: {
-    flex: 1,
+  guideCell: { width: '47%', flexDirection: 'row', alignItems: 'flex-start', gap: spacing[2] },
+  guideLabel: { ...typography.caption, fontFamily: typography.labelMD.fontFamily, color: colors.ink.text.secondary },
+  guideHint: { ...typography.caption, color: colors.ink.text.tertiary },
+  describeBody: { paddingHorizontal: spacing[5], paddingTop: spacing[5], gap: spacing[3] },
+  inputFrame: {
+    borderRadius: radii.md, borderWidth: 1, borderColor: colors.border.default, backgroundColor: colors.surface,
+    shadowColor: colors.ink.base, shadowOffset: { width: 0, height: 6 }, shadowRadius: 16, shadowOpacity: 0,
   },
-  scrollContent: {
-    padding: spacing[4],
-    gap: spacing[3],
-  },
-  centerContent: {
-    padding: spacing[5],
-    alignItems: 'center',
-    gap: spacing[3],
-  },
-  eyebrow: {
-    ...typography.caption,
-    color: colors.text.secondary,
-    letterSpacing: 1.2,
-  },
-  intentionHeading: {
-    ...typography.headingMD,
-    color: colors.text.primary,
-    textAlign: 'center',
-  },
-  categoryBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: radii.sm,
-    borderWidth: 1,
-  },
-  categoryDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  categoryText: {
-    ...typography.caption,
-    color: colors.text.secondary,
-    fontWeight: '600',
-  },
-  readyCard: {
-    width: '100%',
-    marginTop: spacing[4],
-    padding: spacing[4],
-    borderRadius: radii.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border.subtle,
-    gap: spacing[3],
-  },
-  cardTitle: {
-    ...typography.headingSM,
-    color: colors.text.primary,
-  },
-  cardBody: {
-    ...typography.bodyMD,
-    color: colors.text.secondary,
-  },
-  notNowButton: {
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  notNowText: {
-    ...typography.bodyMD,
-    color: colors.text.secondary,
-    fontWeight: '600',
-  },
-  miniHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing[2],
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.subtle,
-  },
-  miniIntention: {
-    ...typography.labelMD,
-    color: colors.text.primary,
-    flex: 1,
-    marginRight: 8,
-  },
-  miniCategory: {
-    ...typography.caption,
-    color: colors.text.secondary,
-    textTransform: 'uppercase',
-  },
-  sectionTitle: {
-    ...typography.headingSM,
-    color: colors.text.primary,
-    marginTop: spacing[2],
-  },
-  subTitle: {
-    ...typography.bodyMD,
-    color: colors.text.secondary,
-  },
-  emptyActionBlock: {
-    marginTop: spacing[4],
-    gap: spacing[3],
-  },
-  textInput: {
-    ...typography.bodyMD,
-    color: colors.text.primary,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    borderRadius: radii.md,
-    padding: spacing[3],
-    minHeight: 120,
-    textAlignVertical: 'top',
-  },
-  hintText: {
-    ...typography.caption,
-    color: colors.semantic.warning,
-  },
-  sourceOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[3],
-    padding: spacing[4],
-    borderRadius: radii.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border.subtle,
-    marginTop: spacing[2],
-  },
-  sourceIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: radii.md,
-    backgroundColor: colors.grouped,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sourceTextGroup: {
-    flex: 1,
-  },
-  sourceTitle: {
-    ...typography.labelMD,
-    color: colors.text.primary,
-    fontWeight: '700',
-  },
-  sourceDesc: {
-    ...typography.caption,
-    color: colors.text.secondary,
-    marginTop: 2,
-  },
-  candidatesGrid: {
-    gap: spacing[3],
-    marginTop: spacing[2],
-  },
-  candidateCard: {
-    borderRadius: radii.lg,
-    overflow: 'hidden',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border.subtle,
-    position: 'relative',
-  },
-  candidateImage: {
-    width: '100%',
-    height: 180,
-  },
-  keptIndicator: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardFooter: {
-    padding: spacing[3],
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing[2],
-  },
-  candPrompt: {
-    ...typography.bodySM,
-    color: colors.text.primary,
-    flex: 1,
-  },
-  keepButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: radii.sm,
-    borderWidth: 1,
-  },
-  keepButtonText: {
-    ...typography.labelSM,
-    fontWeight: '700',
-  },
-  bottomBar: {
-    padding: spacing[4],
-    borderTopWidth: 1,
-    borderTopColor: colors.border.subtle,
-    backgroundColor: colors.surface,
-    gap: spacing[2],
-  },
-  countText: {
-    ...typography.labelSM,
-    color: colors.text.secondary,
-    textAlign: 'center',
-    fontWeight: '600',
-  },
+  // Android cannot animate elevation smoothly; it steps with focus instead.
+  inputFrameFocused: Platform.OS === 'android' ? { elevation: 3 } : {},
+  input: { ...typography.bodyLG, color: colors.text.primary, minHeight: 176, padding: spacing[4] },
+  meter: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing[3], marginTop: -spacing[1] },
+  meterHint: { ...typography.caption, color: colors.text.secondary, flex: 1 },
+  counter: { ...typography.caption, color: colors.text.tertiary },
+  textAction: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing[2], minHeight: 44 },
+  textActionLabel: { ...typography.labelMD, color: colors.text.secondary },
+  // Ink pages
+  inkPage: { paddingHorizontal: spacing[5], gap: spacing[3] },
+  inkTitle: { ...typography.displayMedium, color: colors.ink.text.primary, marginTop: spacing[4] },
+  inkBody: { ...typography.bodyMD, color: colors.ink.text.secondary },
+  // Generation
+  atmosphere: { position: 'absolute', left: 0, top: 0, opacity: 0.5 },
+  fillImage: { width: '100%', height: '100%' },
+  footnote: { ...typography.caption, color: colors.ink.text.tertiary, textAlign: 'center', marginTop: spacing[3] },
+  failure: { gap: spacing[3], alignItems: 'center', marginTop: spacing[4] },
+  failureTitle: { ...typography.headingMD, color: colors.ink.text.primary, textAlign: 'center' },
+  darkBody: { ...typography.bodyMD, color: colors.ink.text.secondary, textAlign: 'center' },
+  darkError: { ...typography.bodyMD, color: colors.ink.text.primary, textAlign: 'center' },
+  darkLinkHit: { minHeight: 44, justifyContent: 'center' },
+  darkLink: { ...typography.labelMD, color: colors.ink.text.primary, textDecorationLine: 'underline' },
+  // Curation
+  curationTitle: { ...typography.headingXL, color: colors.ink.text.primary, marginTop: spacing[3] },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: TILE_GAP, marginTop: spacing[2] },
+  tile: { borderRadius: radii.md, overflow: 'hidden', borderWidth: 1, borderColor: colors.ink.hairline, backgroundColor: colors.ink.raised },
+  tilePressed: { transform: [{ scale: 0.985 }] },
+  imageUnavailable: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  unavailableText: { ...typography.caption, color: colors.ink.text.tertiary },
+  badge: { position: 'absolute', right: 8, top: 8, width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: 'rgba(251,249,244,0.85)', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(14,21,28,0.28)' },
+  badgeText: { ...typography.labelMD, fontSize: 12, color: colors.paper },
+  uploadShade: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(10,15,20,0.55)' },
+  uploadError: { ...typography.caption, color: colors.paper, textAlign: 'center', padding: 8 },
+  coverHint: { ...typography.caption, color: colors.ink.text.tertiary, textAlign: 'center' },
+  curationFooter: { paddingHorizontal: spacing[5], paddingTop: spacing[4], gap: spacing[3], backgroundColor: colors.canvas, borderTopLeftRadius: radii.lg, borderTopRightRadius: radii.lg },
+  secondaryRow: { flexDirection: 'row', gap: spacing[2] },
+  secondaryAction: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, paddingHorizontal: 6, borderRadius: radii.md, borderWidth: 1, borderColor: colors.border.default, backgroundColor: colors.surface },
+  secondaryText: { ...typography.caption, color: colors.text.primary, flexShrink: 1 },
+  disabled: { opacity: 0.45 },
+  error: { ...typography.caption, color: colors.semantic.error },
 });

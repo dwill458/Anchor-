@@ -101,7 +101,7 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
             accessibilityRole="button"
             accessibilityLabel="Back"
           >
-            <ArrowLeft size={22} color={colors.text.primary} />
+            <ArrowLeft size={22} color={colors.ink.text.primary} />
           </Pressable>
         ) : (
           <View style={styles.headerSpacer} />
@@ -117,7 +117,7 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
           accessibilityRole="button"
           accessibilityLabel="Refresh progress"
         >
-          <RefreshCw size={18} color={colors.text.secondary} />
+          <RefreshCw size={18} color={colors.ink.text.secondary} />
         </Pressable>
       </View>
 
@@ -162,13 +162,13 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
           )}
         </View>
 
-        {/* 1. Hero Anchor Intention + Thread Strength */}
+        {/* 1. Hero Anchor Intention + Consistency */}
         <V2ProgressHero model={model} testID={`${testID}-hero`} />
 
         {/* 2. Verifiable Evidence Summary */}
         <V2EvidenceSummary model={model} testID={`${testID}-summary`} />
 
-        {/* 3. Durable Thread Events Timeline */}
+        {/* 3. Durable Thread Events Timeline (shown as "History") */}
         <V2ThreadEventTimeline
           events={model.events}
           onSelectEvent={setSelectedEvent}
@@ -190,28 +190,28 @@ export const V2ProgressScreen: React.FC<V2ProgressScreenProps> = ({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#0A0D12',
+    backgroundColor: colors.ink.base,
   },
   centerContainer: {
     flex: 1,
-    backgroundColor: '#0A0D12',
+    backgroundColor: colors.ink.base,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
   },
   loadingText: {
     ...typography.caption,
-    color: colors.text.secondary,
+    color: colors.ink.text.secondary,
     marginTop: spacing.md,
   },
   errorTitle: {
     ...typography.headingMD,
-    color: colors.text.primary,
+    color: colors.ink.text.primary,
     marginBottom: spacing.xs,
   },
   errorSubtext: {
     ...typography.bodyMD,
-    color: colors.text.secondary,
+    color: colors.ink.text.secondary,
     textAlign: 'center',
     marginBottom: spacing.lg,
   },
@@ -220,12 +220,12 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     ...typography.headingMD,
-    color: colors.text.primary,
+    color: colors.ink.text.primary,
     marginBottom: spacing.xs,
   },
   emptySubtext: {
     ...typography.bodyMD,
-    color: colors.text.secondary,
+    color: colors.ink.text.secondary,
     textAlign: 'center',
     marginBottom: spacing.lg,
   },
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     ...typography.labelSM,
-    color: colors.text.secondary,
+    color: colors.ink.text.secondary,
     letterSpacing: 1.2,
   },
   refreshButton: {
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
   },
   trianglePillText: {
     ...typography.caption,
-    color: colors.text.secondary,
+    color: colors.ink.text.secondary,
     fontWeight: '600',
   },
 });

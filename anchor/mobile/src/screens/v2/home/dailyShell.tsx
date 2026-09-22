@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useMemo } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { colors } from '@/theme/v2';
+import { useV2ReduceMotion } from '@/hooks/v2';
+import { v2ScreenBackground, v2StackScreenOptions } from '@/navigation/v2/transitions';
 import { V2HomeScreen } from './V2HomeScreen';
 import { V2AnchorLibraryScreen } from '@/screens/v2/anchors/V2AnchorLibraryScreen';
 import { V2AnchorDetailsScreen } from '@/screens/v2/anchors/V2AnchorDetailsScreen';
@@ -95,19 +96,20 @@ const Stack = createNativeStackNavigator<V2DailyShellParamList>();
  */
 export function V2DailyShellNavigator({ intents = {} }: { intents?: V2DailyShellIntents }) {
   const value = useMemo(() => intents, [intents]);
+  const reduceMotion = useV2ReduceMotion();
+  // Same transition system as the central V2 stack, so Home -> Details moves
+  // exactly like Home -> Practice. (This stack used to run Android's 400ms
+  // full-width slide while every other V2 push used the platform default.)
+  const screenOptions = useMemo(() => v2StackScreenOptions(reduceMotion), [reduceMotion]);
   return (
     <IntentsContext.Provider value={value}>
-      <Stack.Navigator
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: colors.canvas },
-          animation: 'slide_from_right',
-        }}
-      >
+      <Stack.Navigator screenOptions={screenOptions}>
         <Stack.Screen name="V2Home" component={V2HomeScreen} />
         <Stack.Screen name="V2AnchorLibrary" component={V2AnchorLibraryScreen} />
-        <Stack.Screen name="V2AnchorDetails" component={V2AnchorDetailsScreen} />
+        <Stack.Screen name="V2AnchorDetails" component={V2AnchorDetailsScreen} options={DETAILS_OPTIONS} />
       </Stack.Navigator>
     </IntentsContext.Provider>
   );
 }
+
+const DETAILS_OPTIONS = v2ScreenBackground('paper');

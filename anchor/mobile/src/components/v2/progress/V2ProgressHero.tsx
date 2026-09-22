@@ -16,7 +16,7 @@ export const V2ProgressHero: React.FC<V2ProgressHeroProps> = ({ model, testID = 
   const strokeWidth = 8;
   const radius = 54;
   const circumference = 2 * Math.PI * radius;
-  const progress = unmeasured ? 0 : (threadStrength / 100) * circumference;
+  const progress = unmeasured || threadStrength === null ? 0 : (threadStrength / 100) * circumference;
 
   return (
     <View style={styles.container} testID={testID} accessible accessibilityRole="header">
@@ -25,7 +25,7 @@ export const V2ProgressHero: React.FC<V2ProgressHeroProps> = ({ model, testID = 
         {intention}
       </Text>
 
-      {/* Living Color Thread Strength Visual */}
+      {/* Consistency ring (Thread Strength engine value) */}
       <View style={styles.ringContainer}>
         {/* Soft atmospheric aura glow */}
         <View style={styles.auraGlow} />
@@ -68,9 +68,9 @@ export const V2ProgressHero: React.FC<V2ProgressHeroProps> = ({ model, testID = 
 
         <View style={styles.ringContentCenter}>
           <Text style={styles.strengthNumber}>
-            {unmeasured ? '—' : threadStrength}
+            {unmeasured ? '—' : `${threadStrength}%`}
           </Text>
-          <Text style={styles.strengthScale}>/ 100</Text>
+          <Text style={styles.strengthScale}>Consistency</Text>
         </View>
       </View>
 
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.md,
-    backgroundColor: '#0F1218',
+    backgroundColor: colors.ink.raised,
     borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
   },
   intentionText: {
     ...typography.headingMD,
-    color: colors.text.primary,
+    color: colors.ink.text.primary,
     textAlign: 'center',
     marginBottom: spacing.lg,
     paddingHorizontal: spacing.sm,
@@ -128,11 +128,11 @@ const styles = StyleSheet.create({
   },
   strengthNumber: {
     ...typography.numericLarge,
-    color: colors.text.primary,
+    color: colors.ink.text.primary,
   },
   strengthScale: {
     ...typography.caption,
-    color: colors.text.secondary,
+    color: colors.ink.text.secondary,
   },
   stageTag: {
     alignItems: 'center',
@@ -144,6 +144,6 @@ const styles = StyleSheet.create({
   },
   stageSubtext: {
     ...typography.caption,
-    color: colors.text.secondary,
+    color: colors.ink.text.secondary,
   },
 });

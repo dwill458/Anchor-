@@ -70,13 +70,18 @@ export const CreateVisionSceneSchema = z
 
 export const CreateVisionSchema = z.object({
   title: z.string().trim().max(140).optional().nullable(),
-  description: z.string().trim().max(2000).optional().nullable(),
-  scenes: z.array(CreateVisionSceneSchema).max(20).optional(),
+  description: z.string().trim().min(12).max(2000).optional().nullable(),
+  scenes: z.array(CreateVisionSceneSchema).max(5).optional(),
 });
+
+export const StartVisionGenerationSchema = z.object({
+  description: z.string().trim().min(12).max(2000),
+  idempotencyKey: z.string().regex(/^[A-Za-z0-9-]{12,100}$/),
+}).strict();
 
 export const UpdateVisionSchema = z.object({
   title: z.string().trim().max(140).optional().nullable(),
-  description: z.string().trim().max(2000).optional().nullable(),
+  description: z.string().trim().min(12).max(2000).optional().nullable(),
   status: z.enum(VISION_STATUSES).optional(),
 });
 
@@ -89,7 +94,7 @@ export const ReorderScenesSchema = z.object({
       })
     )
     .min(1)
-    .max(50),
+    .max(5),
 });
 
 export const RecordVisionViewSchema = z.object({

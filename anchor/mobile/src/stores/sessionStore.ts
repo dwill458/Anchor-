@@ -87,8 +87,8 @@ interface SessionState {
   sessionLog: SessionLogEntry[];
 
   // Thread Strength fields
-  /** 0–100. Decays on missed days, recovers on priming sessions. */
-  threadStrength: number;
+  /** 0–100 or null if unestablished. Decays on missed days, recovers on practice sessions. */
+  threadStrength: number | null;
   /** Lifetime priming session count — never decrements. */
   totalSessionsCount: number;
   /** YYYY-MM-DD of last priming session, or null. */
@@ -180,7 +180,7 @@ const createInitialSessionState = (): Omit<
   weeklyPractice: EMPTY_WEEK(),
   lastGraceDayUsedAt: null,
   sessionLog: [],
-  threadStrength: 50,
+  threadStrength: null,
   totalSessionsCount: 0,
   lastPrimedAt: null,
   weekHistory: EMPTY_WEEK_HISTORY(),

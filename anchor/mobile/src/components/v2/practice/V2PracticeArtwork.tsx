@@ -8,6 +8,7 @@ import {
   StyleSheet,
   View,
   type ImageSourcePropType,
+  type ImageStyle,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -29,6 +30,7 @@ try {
   isExpoVideoNativeAvailable = false;
 }
 import type { V2PracticeMode } from '@/constants/v2/practice';
+import { V2_TRANSITION_SETTLE_MS } from '@/navigation/v2/transitions';
 
 export type PracticeHeroMediaItem = {
   image: ImageSourcePropType;
@@ -40,6 +42,8 @@ type ArtworkProps = {
   height?: number;
   variant?: 'card' | 'featured';
   style?: StyleProp<ViewStyle>;
+  /** Optional crop tuning for compact consumers of the unchanged source artwork. */
+  imageStyle?: StyleProp<ImageStyle>;
   active?: boolean;
   reduceMotion?: boolean;
   completed?: boolean;
@@ -61,19 +65,19 @@ export function normalizePracticeMode(mode?: string | null): 'focus' | 'deep_pri
 
 export const HERO_MEDIA_BY_PRACTICE: Record<string, PracticeHeroMediaItem> = {
   focus: {
-    image: require('@/assets/practice/today/focus.png'),
+    image: require('@/assets/practice/today/focus.jpg'),
     video: require('@/assets/practice/today/focus-loop.mp4'),
   },
   deep_prime: {
-    image: require('@/assets/practice/today/deep-prime.png'),
+    image: require('@/assets/practice/today/deep-prime.jpg'),
     video: null,
   },
   visualize: {
-    image: require('@/assets/practice/today/visualize.png'),
+    image: require('@/assets/practice/today/visualize.jpg'),
     video: null,
   },
   release: {
-    image: require('@/assets/practice/today/release.png'),
+    image: require('@/assets/practice/today/release.jpg'),
     video: null,
   },
 };
@@ -93,10 +97,10 @@ HERO_ART_BY_PRACTICE['deepprime'] = HERO_ART_BY_PRACTICE.deep_prime;
 HERO_ART_BY_PRACTICE['deep-prime'] = HERO_ART_BY_PRACTICE.deep_prime;
 
 export const GRID_ART_BY_PRACTICE: Record<string, ImageSourcePropType> = {
-  focus: require('@/assets/practice/grid/focus.png'),
-  deep_prime: require('@/assets/practice/grid/deep-prime.png'),
-  visualize: require('@/assets/practice/grid/visualize.png'),
-  release: require('@/assets/practice/grid/release.png'),
+  focus: require('@/assets/practice/grid/focus.jpg'),
+  deep_prime: require('@/assets/practice/grid/deep-prime.jpg'),
+  visualize: require('@/assets/practice/grid/visualize.jpg'),
+  release: require('@/assets/practice/grid/release.jpg'),
 };
 GRID_ART_BY_PRACTICE['deepprime'] = GRID_ART_BY_PRACTICE.deep_prime;
 GRID_ART_BY_PRACTICE['deep-prime'] = GRID_ART_BY_PRACTICE.deep_prime;
@@ -240,14 +244,82 @@ export function V2PracticeArtwork({
   reduceMotion,
   completed = false,
   style,
+  imageStyle,
   testID,
 }: Props) {
   const key = normalizePracticeMode(mode);
 
+  if (variant === 'featured') {
+    return (
+      <FeaturedPracticeArtwork
+        practiceKey={key}
+        width={width}
+        height={height}
+        active={active}
+        reduceMotion={reduceMotion}
+        completed={completed}
+        style={style}
+        imageStyle={imageStyle}
+        testID={testID ?? `v2-practice-artwork-${key}-${variant}`}
+      />
+    );
+  }
+
+  // Grid card variant: a still image, so it carries no motion or app-state listeners.
+  const source = GRID_ART_BY_PRACTICE[key] ?? GRID_ART_BY_PRACTICE.focus;
+
+  return (
+    <View
+      testID={testID ?? `v2-practice-artwork-${key}-${variant}`}
+      style={[styles.container, { width, height }, style]}
+    >
+      <Image
+        source={source}
+          style={[styles.image, imageStyle]}
+        resizeMode="cover"
+      />
+    </View>
+  );
+}
+
+/**
+ * The hero image is on screen from the first frame; the video loop joins it
+ * only after the screen's push transition has settled. Creating the native
+ * player (and its first decode) inside the transition competed with the push
+ * for the main thread, and the loop fades in over an identical still anyway.
+ */
+function FeaturedPracticeArtwork({
+  practiceKey,
+  width,
+  height,
+  active,
+  reduceMotion,
+  completed,
+  style,
+  imageStyle,
+  testID,
+}: {
+  practiceKey: ReturnType<typeof normalizePracticeMode>;
+  width: DimensionValue;
+  height: number;
+  active: boolean;
+  reduceMotion?: boolean;
+  completed: boolean;
+  style?: StyleProp<ViewStyle>;
+  imageStyle?: StyleProp<ImageStyle>;
+  testID: string;
+}) {
   const [isReducedMotionState, setIsReducedMotionState] = useState(false);
   const [appActive, setAppActive] = useState(true);
+  const [transitionSettled, setTransitionSettled] = useState(false);
 
   useEffect(() => {
+    const timer = setTimeout(() => setTransitionSettled(true), V2_TRANSITION_SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (reduceMotion !== undefined) return;
     let mounted = true;
     AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
       if (mounted) setIsReducedMotionState(enabled);
@@ -261,7 +333,7 @@ export function V2PracticeArtwork({
       mounted = false;
       sub?.remove();
     };
-  }, []);
+  }, [reduceMotion]);
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (nextState) => {
@@ -273,48 +345,29 @@ export function V2PracticeArtwork({
   }, []);
 
   const isReducedMotion = reduceMotion ?? isReducedMotionState;
-
-  if (variant === 'featured') {
-    const mediaItem = HERO_MEDIA_BY_PRACTICE[key] ?? HERO_MEDIA_BY_PRACTICE.focus;
-    const canPlayVideo = Boolean(mediaItem.video) && !isReducedMotion && !completed;
-    const shouldPlay = canPlayVideo && active && appActive;
-
-    return (
-      <View
-        testID={testID ?? `v2-practice-artwork-${key}-${variant}`}
-        style={[styles.container, { width, height }, style]}
-      >
-        <Image
-          source={mediaItem.image}
-          style={styles.image}
-          resizeMode="cover"
-        />
-        {canPlayVideo ? (
-          <HeroVideoErrorBoundary>
-            <HeroVideoPlayer
-              videoSource={mediaItem.video}
-              shouldPlay={shouldPlay}
-              testID={`v2-hero-video-${key}`}
-            />
-          </HeroVideoErrorBoundary>
-        ) : null}
-      </View>
-    );
-  }
-
-  // Grid card variant
-  const source = GRID_ART_BY_PRACTICE[key] ?? GRID_ART_BY_PRACTICE.focus;
+  const mediaItem = HERO_MEDIA_BY_PRACTICE[practiceKey] ?? HERO_MEDIA_BY_PRACTICE.focus;
+  const canPlayVideo = Boolean(mediaItem.video) && !isReducedMotion && !completed;
+  const shouldPlay = canPlayVideo && active && appActive;
 
   return (
     <View
-      testID={testID ?? `v2-practice-artwork-${key}-${variant}`}
+      testID={testID}
       style={[styles.container, { width, height }, style]}
     >
       <Image
-        source={source}
-        style={styles.image}
+        source={mediaItem.image}
+        style={[styles.image, imageStyle]}
         resizeMode="cover"
       />
+      {canPlayVideo && transitionSettled ? (
+        <HeroVideoErrorBoundary>
+          <HeroVideoPlayer
+            videoSource={mediaItem.video}
+            shouldPlay={shouldPlay}
+            testID={`v2-hero-video-${practiceKey}`}
+          />
+        </HeroVideoErrorBoundary>
+      ) : null}
     </View>
   );
 }

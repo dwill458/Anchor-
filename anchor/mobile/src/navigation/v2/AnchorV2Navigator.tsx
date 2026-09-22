@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -6,7 +6,12 @@ import { ArrowLeft } from 'lucide-react-native';
 import { V2DevelopmentHome } from '@/screens/v2/home';
 import { V2SystemGallery } from '@/screens/v2/system';
 import { V2FirstRunFlow } from '@/screens/v2/onboarding';
-import { V2CreationScreen, type CreationSaveAdapter, type CreationContinuation } from '@/screens/v2/creation';
+import {
+  V2CreationScreen,
+  type CreationDestinationAdapter,
+  type CreationHandoff,
+  type CreationSaveAdapter,
+} from '@/screens/v2/creation';
 import { V2PaywallScreen, type V2PaywallEntitlementResult } from '@/screens/v2/paywall';
 import { V2PracticeScreen } from '@/screens/v2/practice';
 import { V2VisionScreen } from '@/screens/v2/vision';
@@ -18,11 +23,12 @@ import { V2WeeklyInsightScreen } from '@/screens/v2/weeklyInsight';
 import { SettingsScreen } from '@/screens/settings';
 import { LoginScreen } from '@/screens/auth';
 import { useAnchorStore } from '@/stores/anchorStore';
-import { useAuthStore } from '@/stores/authStore';
-import { generateEnhancedCandidates } from '@/services/v2/creationEnhancement';
-import type { Anchor, SigilVariationStyle } from '@/types';
+import { persistCreatedAnchor, persistDestination } from '@/services/v2/creationPersistence';
 import type { V2PracticeMode } from '@/constants/v2/practice';
 import type { AnchorV2StackParamList } from './types';
+import { useV2ReduceMotion } from '@/hooks/v2';
+import { v2ScreenBackground, v2StackScreenOptions } from './transitions';
+import { handOffToHome } from './creationHandoff';
 
 const Stack = createNativeStackNavigator<AnchorV2StackParamList>();
 
@@ -57,6 +63,12 @@ function V2PaywallRouteScreen() {
       });
     } else if (resume.type === 'create_anchor') {
       navigation.navigate('V2Creation');
+    } else if (resume.type === 'vision_premium_action') {
+      navigation.navigate('V2Vision', {
+        anchorId: resume.anchorId,
+        initialMode: 'create',
+        resumeGeneration: resume.action === 'generate',
+      });
     }
   }, [navigation, params]);
 
@@ -128,54 +140,44 @@ function V2PracticeRouteScreen() {
 
 function V2CreationRouteScreen() {
   const navigation = useNavigation<any>();
+  const reduceMotion = useV2ReduceMotion();
 
-  const saveAnchor: CreationSaveAdapter = useCallback(async ({ draft, candidate }) => {
-    const userId = useAuthStore.getState().user?.id;
-    if (!userId) {
-      throw new Error('A signed-in account is required to save an Anchor.');
-    }
-    const anchorId = draft.draftId || `anchor-${Date.now()}`;
-    const now = new Date();
-    const structureVariant: SigilVariationStyle =
-      draft.structureType === 'raw' ? 'minimal' : draft.structureType === 'contained' ? 'dense' : 'balanced';
-    const newAnchor: Anchor = {
-      id: anchorId,
-      localId: anchorId,
-      userId,
-      intentionText: draft.intention,
-      category: draft.category ?? 'career',
-      classifierMeta: { v2Expression: candidate.expression },
-      distilledLetters: draft.distilledLetters ?? [],
-      baseSigilSvg: candidate.structureSvg,
-      enhancedImageUrl: candidate.imageUrl,
-      // The store round-trips through JSON, so `appliedAt` may have come back as a string.
-      enhancementMetadata: candidate.enhancementMetadata
-        ? { ...candidate.enhancementMetadata, appliedAt: new Date(candidate.enhancementMetadata.appliedAt) }
-        : undefined,
-      structureVariant,
-      isCharged: false,
-      activationCount: 0,
-      chargeCount: 0,
-      threadStrength: 0,
-      createdAt: now,
-      updatedAt: now,
-    };
-    useAnchorStore.getState().addAnchor(newAnchor);
+  const saveAnchor: CreationSaveAdapter = useCallback(async ({ draft, idempotencyKey }) => {
+    const { anchorId } = await persistCreatedAnchor({ draft, idempotencyKey });
     return { anchorId };
   }, []);
 
-  const handleContinue = useCallback((continuation: CreationContinuation) => {
-    const { type, anchorId } = continuation;
-    if (type === 'vision' || type === 'vision_and_chart') {
-      navigation.replace('V2Vision', { anchorId });
-    } else if (type === 'chart') {
-      navigation.replace('V2Chart', { anchorId });
-    } else {
-      navigation.replace('V2DevelopmentHome');
-    }
+  const saveDestination: CreationDestinationAdapter = useCallback(
+    ({ anchorId, description }) => persistDestination({ anchorId, description }),
+    [],
+  );
+
+  const handleComplete = useCallback((handoff: CreationHandoff) => {
+    void handOffToHome(navigation, handoff, { reduceMotion });
+  }, [navigation, reduceMotion]);
+
+  const handleExit = useCallback(() => {
+    if (navigation.canGoBack()) navigation.goBack();
   }, [navigation]);
 
-  return <V2CreationScreen saveAnchor={saveAnchor} onContinue={handleContinue} generateCandidates={generateEnhancedCandidates} />;
+  // The server refused a second Anchor on the free plan. The draft stays put; the paywall's
+  // `create_anchor` resume brings the user straight back to it.
+  const handlePaywall = useCallback(() => {
+    navigation.navigate('V2Paywall', { context: 'SECOND_ANCHOR', resumeIntent: { type: 'create_anchor' } });
+  }, [navigation]);
+
+  const handleSignIn = useCallback(() => navigation.navigate('Login'), [navigation]);
+
+  return (
+    <V2CreationScreen
+      saveAnchor={saveAnchor}
+      saveDestination={saveDestination}
+      onComplete={handleComplete}
+      onExit={handleExit}
+      onPaywall={handlePaywall}
+      onSignIn={handleSignIn}
+    />
+  );
 }
 
 function V2ReleaseRouteScreen() {
@@ -215,26 +217,37 @@ function V2LoginRouteScreen() {
  * Anchor 2.0 central stack navigator.
  */
 export function AnchorV2Navigator() {
+  const reduceMotion = useV2ReduceMotion();
+  const screenOptions = useMemo(() => v2StackScreenOptions(reduceMotion), [reduceMotion]);
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen name="V2DevelopmentHome" component={V2DevelopmentHome} />
       <Stack.Screen name="V2FirstRun" component={V2FirstRunFlow} />
       <Stack.Screen name="V2SystemGallery" component={V2SystemGallery} />
-      <Stack.Screen name="V2Creation" component={V2CreationRouteScreen} />
+      {/* Creation owns its back behaviour (a state machine, not a stack), so the edge swipe
+          must not pop the route out from under a save or the hand-off. */}
+      <Stack.Screen name="V2Creation" component={V2CreationRouteScreen} options={CREATION_OPTIONS} />
       <Stack.Screen name="V2AnchorLibrary" component={V2AnchorLibraryScreen} />
-      <Stack.Screen name="V2AnchorDetails" component={V2AnchorDetailsScreen} />
-      <Stack.Screen name="V2Paywall" component={V2PaywallRouteScreen} />
+      <Stack.Screen name="V2AnchorDetails" component={V2AnchorDetailsScreen} options={PAPER_BACKGROUND} />
+      {/* The paywall draws a sheet over a deliberately transparent root. */}
+      <Stack.Screen name="V2Paywall" component={V2PaywallRouteScreen} options={TRANSPARENT_BACKGROUND} />
       <Stack.Screen name="V2Practice" component={V2PracticeRouteScreen} />
-      <Stack.Screen name="V2Vision" component={V2VisionScreen} />
+      <Stack.Screen name="V2Vision" component={V2VisionScreen} options={PAPER_BACKGROUND} />
       <Stack.Screen name="V2Chart" component={V2ChartScreen} />
-      <Stack.Screen name="V2Progress" component={V2ProgressScreen} />
+      <Stack.Screen name="V2Progress" component={V2ProgressScreen} options={GRAPHITE_BACKGROUND} />
       <Stack.Screen name="V2Release" component={V2ReleaseRouteScreen} />
       <Stack.Screen name="V2WeeklyInsight" component={V2WeeklyInsightRouteScreen} />
-      <Stack.Screen name="V2Settings" component={SettingsScreen} />
-      <Stack.Screen name="Login" component={V2LoginRouteScreen} />
+      {/* Legacy dark surfaces keep the app's transparent default. */}
+      <Stack.Screen name="V2Settings" component={SettingsScreen} options={TRANSPARENT_BACKGROUND} />
+      <Stack.Screen name="Login" component={V2LoginRouteScreen} options={TRANSPARENT_BACKGROUND} />
     </Stack.Navigator>
   );
 }
+
+const PAPER_BACKGROUND = v2ScreenBackground('paper');
+const CREATION_OPTIONS = { gestureEnabled: false };
+const GRAPHITE_BACKGROUND = v2ScreenBackground('graphite');
+const TRANSPARENT_BACKGROUND = { contentStyle: { backgroundColor: 'transparent' } };
 
 const styles = StyleSheet.create({
   loginContainer: {

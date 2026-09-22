@@ -39,7 +39,7 @@ export function bundleV2ThreadEvents(events: V2PersistedThreadEvent[]): V2Thread
 /** CCR-TE-01 API contract: this client is read/presentation-only and creates no domain event. */
 export async function fetchV2EligibleThreadEvents(channel: V2ThreadEventChannel, signal?: AbortSignal): Promise<V2PersistedThreadEvent[]> {
   const response = await apiClient.get<Envelope<V2PersistedThreadEvent[]>>('/api/v2/thread-events/eligible', { signal, params: { channel } });
-  if (!response.data.success || !response.data.data) throw new Error(response.data.error?.message ?? 'Thread Events are unavailable.');
+  if (!response.data.success || !response.data.data) throw new Error(response.data.error?.message ?? 'Anchor history is unavailable.');
   return response.data.data;
 }
 

@@ -114,16 +114,16 @@ export const NotificationsSubscreen: React.FC<Props> = ({ onBack }) => {
             />
           ) : null}
           <SettingsToggleRow
-            label="Daily prime reminder"
+            label="Daily practice reminder"
             on={dailyPrimeEnabled}
             disabled={!remindersEnabled}
             onToggle={(val) => void updateNotificationPreferences({ dailyPrimeEnabled: val })}
           />
 
-          <SectionLabel>Thread Alerts</SectionLabel>
+          <SectionLabel>Consistency Alerts</SectionLabel>
           <SettingsToggleRow
-            label="Thread strength alerts"
-            desc="Notify when a Thread's strength drops below your threshold."
+            label="Consistency alerts"
+            desc="Notify when an Anchor's Consistency drops below your threshold."
             on={threadAlertsEnabled}
             disabled={!remindersEnabled}
             onToggle={(val) => void updateNotificationPreferences({ threadStrengthAlertsEnabled: val })}

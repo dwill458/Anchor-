@@ -65,6 +65,7 @@ jest.mock('@/components/v2/home', () => {
     V2HomeChartSection: wrap('Chart', actual.V2HomeChartSection),
     V2HomeProgressSection: wrap('Progress', actual.V2HomeProgressSection),
     V2HomeCreamSplice: wrap('Splice', actual.V2HomeCreamSplice),
+    V2HomeBrandMark: wrap('BrandMark', actual.V2HomeBrandMark),
   };
 });
 
@@ -155,9 +156,10 @@ it('does not re-render Home a second time when Today resolves after a switch', (
   expect(onSwitch.Hero).toBe(1);
   expect(onSwitch.Carousel).toBe(1);
   expect(onSwitch.Today).toBe(1);
-  // The greeting and the splice have nothing to do with the selected Anchor.
+  // The greeting, the splice and the brand mark have nothing to do with the selected Anchor.
   expect(onSwitch.Header).toBeUndefined();
   expect(onSwitch.Splice).toBeUndefined();
+  expect(onSwitch.BrandMark).toBeUndefined();
 
   // 2. Today's recommendation arrives. The carousel is mid-entrance here.
   mockModel.mockReturnValue(model(1, READY_TODAY));

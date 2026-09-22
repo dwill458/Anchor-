@@ -37,10 +37,15 @@ export function toThreadPresentation(
   };
 }
 
-/** Qualitative label for a strength value matching Anchor's progression levels. */
+/**
+ * Qualitative label for a strength value, shown beside it as Consistency
+ * ("26% - Building"). Labels only; the bands never feed any calculation.
+ */
 export function threadQualitativeLabel(value: number | null, unmeasured: boolean): string {
-  if (unmeasured || value === null) return 'Not established';
-  if (value <= 10) return 'Dormant';
+  if (unmeasured || value === null) return 'Not established yet';
+  // Same bands as Anchor Details (`resolveEvolutionStage`) so one value never
+  // carries two names. There is no separate "Dormant" band: a low but active
+  // Consistency is still forming.
   if (value < 25) return 'Forming';
   if (value < 50) return 'Building';
   if (value < 75) return 'Established';
@@ -49,9 +54,9 @@ export function threadQualitativeLabel(value: number | null, unmeasured: boolean
 }
 
 export function threadStatusSublabel(value: number | null, status?: string): string {
-  if (value === null || status === 'unestablished') return 'Begin reinforcing';
+  if (value === null || status === 'unestablished') return 'Practice to establish it';
   if (value <= 10 || status === 'dormant') return 'Ready to rebuild';
   if (status === 'grace') return 'Grace period active';
-  if (status === 'decaying') return 'Softening';
+  if (status === 'decaying') return 'Dipping';
   return 'Active reinforcement';
 }

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, Sliders } from 'lucide-react-native';
-import { CircularAnchorRenderer, V2Button, V2Screen } from '@/components/v2';
-import { anchorArtworkSvg, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
+import { Sliders } from 'lucide-react-native';
+import { CircularAnchorRenderer, V2Button } from '@/components/v2';
+import { V2PracticeSetupLayout } from '@/components/v2/practice/V2PracticeSetupLayout';
+import { resolvePracticeSetupMetrics, SETUP_CONTROL_MIN_HEIGHT } from '@/components/v2/practice/practiceSetupLayout';
+import { useV2Responsive } from '@/hooks/v2';
+import { anchorRenderProps, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
 import { practiceColors } from '@/theme/v2/practiceColors';
 import { getCategoryColor, getCategoryFieldColor, colors, radii, spacing, typography } from '@/theme/v2';
 import type { Anchor } from '@/types';
@@ -49,7 +51,8 @@ export function V2FocusPrepScreen({
   onBeginFocus,
   onPremiumRequired,
 }: V2FocusPrepScreenProps) {
-  const insets = useSafeAreaInsets();
+  const viewport = useV2Responsive();
+  const metrics = resolvePracticeSetupMetrics(viewport, 'focus');
   const sessionDefaults = useSettingsStore((state) => state.sessionAudioDefaults?.focus);
   const preferredDuration = useSettingsStore((state) => state.focusSessionDuration);
   const hapticIntensity = useSettingsStore((state) => state.hapticIntensity);
@@ -136,39 +139,51 @@ export function V2FocusPrepScreen({
   };
 
   return (
-    <V2Screen testID="v2-practice-prepare-focus" style={styles.screen}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Back to Practice"
-          testID="focus-prep-back-button"
-          onPress={onBack}
-          hitSlop={12}
-          style={styles.backButton}
+    <V2PracticeSetupLayout
+      testID="v2-practice-prepare-focus"
+      backTestID="focus-prep-back-button"
+      onBack={onBack}
+      centered
+      sidePadding={metrics.sidePadding}
+      footerPaddingBottom={metrics.footerPaddingBottom}
+      footer={
+        <V2Button
+          size="large"
+          onPress={handleBegin}
+          accessibilityLabel="Begin Focus"
+          testID="v2-begin-focus"
+          style={styles.beginButton}
         >
-          <ArrowLeft size={20} color={colors.text.primary} />
-          <Text style={styles.backText}>Practice</Text>
-        </Pressable>
-      </View>
-
-      <View style={styles.scrollContent}>
+          Begin Focus
+        </V2Button>
+      }
+      overlay={
+        <V2FocusSettingsSheet
+          visible={sheetOpen}
+          voice={voice}
+          ambient={ambient}
+          onVoiceChange={setVoice}
+          onAmbientChange={setAmbient}
+          onClose={() => setSheetOpen(false)}
+        />
+      }
+    >
+      <>
         {/* Practice Title Eyebrow */}
-        <Text style={styles.eyebrow}>FOCUS</Text>
+        <Text style={[styles.eyebrow, { marginTop: metrics.heroTop / 2 }]}>FOCUS</Text>
 
         {/* Hero Section: Centered prominent Anchor with organic halo */}
-        <View style={styles.heroSection}>
-          <View style={styles.artworkContainer}>
+        <View style={[styles.heroSection, { marginTop: metrics.heroTop }]}>
+          <View style={[styles.artworkContainer, { width: metrics.artworkFrameSize, height: metrics.artworkFrameSize, marginVertical: metrics.artworkGap }]}>
             <View
               style={[
                 styles.halo,
-                { backgroundColor: getCategoryFieldColor(anchor.category) },
+                { width: metrics.haloSize, height: metrics.haloSize, borderRadius: metrics.haloSize / 2, backgroundColor: getCategoryFieldColor(anchor.category) },
               ]}
             />
             <CircularAnchorRenderer
-              svg={anchorArtworkSvg(anchor)} imageUrl={anchor.enhancedImageUrl}
-              category={anchor.category}
-              size={186}
+              {...anchorRenderProps(anchor)}
+              size={metrics.artworkSize}
               appearance="paper"
               accessibilityLabel={`${categoryLabel(anchor.category)} Anchor artwork`}
             />
@@ -176,7 +191,7 @@ export function V2FocusPrepScreen({
 
           {/* Intention info */}
           <View style={styles.intentionBlock}>
-            <Text style={styles.intentionText}>{anchor.intentionText}</Text>
+            <Text style={styles.intentionText} numberOfLines={3}>{anchor.intentionText}</Text>
             <View style={styles.categoryRow}>
               <View style={[styles.categoryDot, { backgroundColor: categoryColor }]} />
               <Text style={styles.categoryLabel}>{categoryLabel(anchor.category)}</Text>
@@ -189,7 +204,7 @@ export function V2FocusPrepScreen({
         </View>
 
         {/* Duration Selector */}
-        <View style={styles.controlsSection}>
+        <View style={[styles.controlsSection, { marginTop: metrics.sectionGap, gap: metrics.controlGap }]}>
           <View style={styles.durationsContainer}>
             <Text style={styles.controlLabel}>HOW LONG?</Text>
             <View style={styles.durations}>
@@ -272,67 +287,12 @@ export function V2FocusPrepScreen({
             </Pressable>
           </View>
         </View>
-      </View>
-
-      {/* Primary CTA */}
-      <View
-        style={[
-          styles.footer,
-          { paddingBottom: Math.max(24, insets.bottom + 12) },
-        ]}
-      >
-        <V2Button
-          size="large"
-          onPress={handleBegin}
-          accessibilityLabel="Begin Focus"
-          testID="v2-begin-focus"
-          style={styles.beginButton}
-        >
-          Begin Focus
-        </V2Button>
-      </View>
-
-      {/* Focus Settings Sheet */}
-      <V2FocusSettingsSheet
-        visible={sheetOpen}
-        voice={voice}
-        ambient={ambient}
-        onVoiceChange={setVoice}
-        onAmbientChange={setAmbient}
-        onClose={() => setSheetOpen(false)}
-      />
-    </V2Screen>
+      </>
+    </V2PracticeSetupLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    paddingHorizontal: spacing[4],
-    paddingTop: spacing[2],
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
-    minHeight: 44,
-    alignSelf: 'flex-start',
-  },
-  backText: {
-    ...typography.labelLG,
-    color: colors.text.primary,
-  },
-  scrollContent: {
-    flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: spacing[4],
-    paddingTop: spacing[1],
-  },
   eyebrow: {
     ...typography.labelSM,
     letterSpacing: 1.4,
@@ -343,22 +303,15 @@ const styles = StyleSheet.create({
   },
   heroSection: {
     alignItems: 'center',
-    marginTop: spacing[2],
     width: '100%',
   },
   artworkContainer: {
     position: 'relative',
-    width: 194,
-    height: 194,
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: spacing[3],
   },
   halo: {
     position: 'absolute',
-    width: 218,
-    height: 218,
-    borderRadius: 109,
     opacity: 0.7,
   },
   intentionBlock: {
@@ -401,8 +354,6 @@ const styles = StyleSheet.create({
   },
   controlsSection: {
     width: '100%',
-    marginTop: spacing[5],
-    gap: spacing[4],
   },
   durationsContainer: {
     gap: spacing[2],
@@ -420,7 +371,7 @@ const styles = StyleSheet.create({
   },
   durationButton: {
     flex: 1,
-    minHeight: 52,
+    minHeight: SETUP_CONTROL_MIN_HEIGHT + 4,
     borderWidth: 1,
     borderColor: colors.border.subtle,
     borderRadius: radii.md,
@@ -495,11 +446,8 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.border.subtle,
   },
-  footer: {
-    paddingHorizontal: spacing[4],
-  },
   beginButton: {
-    backgroundColor: '#171717',
+    backgroundColor: colors.ink.base,
     borderRadius: radii.round,
   },
 });

@@ -98,7 +98,8 @@ describe('V2ProgressScreen', () => {
 
     // Renders intention & thread strength
     expect(getByText('Build lasting clarity and momentum')).toBeTruthy();
-    expect(getByText('65')).toBeTruthy();
+    expect(getByText('65%')).toBeTruthy();
+    expect(getByText('Consistency')).toBeTruthy();
     expect(getAllByText('Rooted').length).toBeGreaterThanOrEqual(1);
 
     // Renders evidence summary

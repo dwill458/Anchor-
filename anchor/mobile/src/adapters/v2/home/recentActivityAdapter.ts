@@ -1,5 +1,6 @@
 import { evidenceDayLabel } from '@/constants/v2/home';
-import { PRACTICE_MODE_LABELS, type PracticeSessionRecord, type PracticeMode } from '@/types/practice';
+import { v2PracticeModeTitle } from '@/constants/v2/practice';
+import type { PracticeSessionRecord, PracticeMode } from '@/types/practice';
 
 export type HomeRecentActivityItem = {
   id: string;
@@ -28,7 +29,7 @@ export function toHomeRecentActivity(input: {
     .slice(0, 3)
     .map((session) => ({
       id: session.id,
-      title: PRACTICE_MODE_LABELS[session.practiceMode],
+      title: v2PracticeModeTitle(session.practiceMode),
       dayLabel: evidenceDayLabel(session.completedAt, now),
       mode: session.practiceMode,
       durationSeconds: session.completedDurationSeconds,

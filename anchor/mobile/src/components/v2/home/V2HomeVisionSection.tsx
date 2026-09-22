@@ -3,11 +3,12 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, typography } from '@/theme/v2';
-import type { HomeVisionState } from '@/adapters/v2/home';
+import { resolveVisionHeroImage, type HomeVisionState } from '@/adapters/v2/home';
+import { v2Haptics } from '@/hooks/v2';
 
 type Props = {
   vision: HomeVisionState;
-  expanded?: boolean;
+  categoryColor?: string;
   onOpenVision?: () => void;
   testID?: string;
 };
@@ -27,60 +28,101 @@ function ArrowRight({ color }: { color: string }) {
  * resolving, or if the read failed — this renders NOTHING: no "Create your
  * Vision" placeholder, no empty frame, no stock image, no reserved height. The
  * next section closes the gap. Only persisted Vision assets and copy render.
+ *
+ * When a Vision does exist, it renders as one large photographic doorway
+ * rather than a small card: the real cover image at near-full content width,
+ * a dark bottom gradient, the actual Vision statement overlaid near the
+ * bottom, and a single CTA whose wording and header both depend on the real
+ * seen-today state — never a client-fabricated one. The entire frame is one
+ * tap target into that Anchor's Vision.
  */
-function V2HomeVisionSectionComponent({ vision, expanded, onOpenVision, testID }: Props) {
+function V2HomeVisionSectionComponent({ vision, categoryColor, onOpenVision, testID }: Props) {
   if (vision.state !== 'ready') return null;
 
-  const tiles = vision.tiles ?? [];
-  const featured = tiles.find((tile) => tile.id === vision.featuredTileId) ?? tiles.find((tile) => tile.imageUrl) ?? tiles[0];
-  const heroImage = featured?.imageUrl?.trim() || null;
+  const heroImage = resolveVisionHeroImage(vision);
   const body = vision.previewText?.trim();
   const title = vision.title?.trim();
+  const statement = title || body;
 
   // Nothing persisted worth showing: stay silent rather than render a shell.
-  if (!heroImage && !body && !title) return null;
+  if (!heroImage && !statement) return null;
+
+  const seenToday = Boolean(vision.seenToday);
+  const ctaText = seenToday ? 'Revisit Vision' : 'Enter Vision';
+
+  const handlePress = () => {
+    if (!onOpenVision) return;
+    v2Haptics.selection();
+    onOpenVision();
+  };
 
   return (
-    <Pressable
-      testID={testID ?? 'v2-home-vision'}
-      accessibilityRole="button"
-      accessibilityLabel="View Vision"
-      onPress={onOpenVision}
-      disabled={!onOpenVision}
-      style={({ pressed }) => [styles.container, pressed && onOpenVision ? styles.pressed : null]}
-    >
+    <View style={styles.container}>
       <View style={styles.kickerRow}>
-        <Text style={styles.kicker}>VISION</Text>
-        {vision.seenToday ? <Text style={styles.seen}>Seen today</Text> : null}
+        <Text style={styles.kicker}>YOUR VISION</Text>
+        {seenToday ? <Text testID="v2-home-vision-seen" style={styles.seen}>Seen today  ✓</Text> : null}
       </View>
 
-      {expanded && heroImage ? (
-        <View style={styles.expandedFrame}>
-          <Image testID="v2-home-vision-image" source={{ uri: heroImage }} style={styles.expandedImage} resizeMode="cover" accessibilityIgnoresInvertColors />
-          <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.imageScrim} />
-          <View style={styles.imageCopy}>
-            {title || body ? <Text testID={title ? 'v2-home-vision-title' : undefined} numberOfLines={2} style={styles.imageTitle}>{title || body}</Text> : null}
-            <View style={styles.imageLink}><Text style={styles.imageLinkText}>Revisit your Vision</Text><ArrowRight color="#FFFFFF" /></View>
+      {heroImage ? (
+        <Pressable
+          testID={testID ?? 'v2-home-vision'}
+          accessibilityRole="button"
+          accessibilityLabel={seenToday ? 'Revisit your Vision' : 'Enter your Vision'}
+          onPress={handlePress}
+          disabled={!onOpenVision}
+          style={({ pressed }) => [styles.frame, pressed && onOpenVision ? styles.framePressed : null]}
+        >
+          <Image testID="v2-home-vision-image" source={{ uri: heroImage }} style={styles.image} resizeMode="cover" accessibilityIgnoresInvertColors />
+
+          {/* A very restrained category grade, not a colour wash: ~10% influence, never covering skin/photo detail. */}
+          {categoryColor ? <View pointerEvents="none" style={[styles.tint, { backgroundColor: categoryColor }]} /> : null}
+
+          <LinearGradient pointerEvents="none" colors={['transparent', 'transparent', 'rgba(11, 15, 19, 0.92)']} locations={[0, 0.42, 1]} style={styles.scrim} />
+
+          <View style={styles.copy}>
+            {statement ? (
+              <Text testID={title ? 'v2-home-vision-title' : 'v2-home-vision-statement'} numberOfLines={3} style={styles.statement}>
+                {statement}
+              </Text>
+            ) : null}
+            <View style={styles.link}>
+              <Text style={styles.linkText}>{ctaText}</Text>
+              <ArrowRight color="#FFFFFF" />
+            </View>
           </View>
-        </View>
+        </Pressable>
       ) : (
-        <View style={styles.compactRow}>
-          {heroImage ? <Image testID="v2-home-vision-image" source={{ uri: heroImage }} style={styles.compactImage} resizeMode="cover" accessibilityIgnoresInvertColors /> : null}
-          <View style={styles.compactCopy}>
-            {title || body ? <Text testID={title ? 'v2-home-vision-title' : undefined} numberOfLines={2} style={styles.title}>{title || body}</Text> : null}
-            {title && body ? <Text numberOfLines={2} style={styles.body}>{body}</Text> : null}
-            <View style={styles.link}><Text style={styles.linkText}>Revisit your Vision</Text><ArrowRight color={colors.graphite.text.tertiary} /></View>
+        // No cover image persisted yet — real Vision text still renders, but
+        // nothing here fabricates a photograph to fill the frame.
+        <Pressable
+          testID={testID ?? 'v2-home-vision'}
+          accessibilityRole="button"
+          accessibilityLabel={seenToday ? 'Revisit your Vision' : 'Enter your Vision'}
+          onPress={handlePress}
+          disabled={!onOpenVision}
+          style={({ pressed }) => [styles.textOnlyFrame, pressed && onOpenVision ? styles.pressed : null]}
+        >
+          {statement ? (
+            <Text testID={title ? 'v2-home-vision-title' : 'v2-home-vision-statement'} numberOfLines={3} style={styles.textOnlyStatement}>
+              {statement}
+            </Text>
+          ) : null}
+          <View style={styles.link}>
+            <Text style={styles.linkTextDark}>{ctaText}</Text>
+            <ArrowRight color={colors.graphite.text.secondary} />
           </View>
-        </View>
+        </Pressable>
       )}
-    </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // Tighter than Today's other dividers on purpose: Today flows into Vision
+  // rather than floating apart from it as an unrelated module.
   container: {
-    marginTop: 30,
-    paddingTop: 20,
+    marginTop: 20,
+    paddingTop: 14,
     borderTopWidth: 1,
     borderTopColor: colors.graphite.hairline,
   },
@@ -100,39 +142,64 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.graphite.text.secondary,
   },
-  expandedFrame: { marginTop: 12, height: 220, overflow: 'hidden', borderRadius: 5, backgroundColor: colors.graphite.surface },
-  expandedImage: { width: '100%', height: '100%' },
-  imageScrim: { ...StyleSheet.absoluteFillObject },
-  imageCopy: { position: 'absolute', left: 12, right: 12, bottom: 10 },
-  imageTitle: { fontFamily: 'EBGaramond-Medium', fontSize: 21, lineHeight: 24, color: '#FFFFFF' },
-  imageLink: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 5 },
-  imageLinkText: { fontFamily: typography.bodyMedium, fontSize: 12, color: '#FFFFFF' },
-  compactRow: { flexDirection: 'row', gap: 14, marginTop: 12, alignItems: 'center' },
-  compactImage: { width: 100, height: 84, borderRadius: 5, backgroundColor: colors.graphite.surface },
-  compactCopy: { flex: 1, minWidth: 0 },
-  title: {
-    fontFamily: 'EBGaramond-Regular',
-    fontSize: 18,
-    lineHeight: 21,
-    color: colors.graphite.text.primary,
+  // Photographic and immersive: near-full content width, bounded height so a
+  // large phone never stretches it absurdly tall, restrained radius. Wider
+  // and shorter than a first pass at this (~1.05, portrait-ish) — a cinematic
+  // window rather than a poster/feed image, roughly a 15-20% shorter card.
+  frame: {
+    marginTop: 14,
+    width: '100%',
+    aspectRatio: 1.3,
+    minHeight: 215,
+    maxHeight: 300,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: colors.graphite.surface,
   },
-  body: {
-    fontFamily: typography.body,
-    fontSize: 12,
-    lineHeight: 16,
-    color: colors.graphite.text.secondary,
-    marginTop: 4,
+  framePressed: {
+    transform: [{ scale: 0.988 }],
+  },
+  image: { ...StyleSheet.absoluteFillObject },
+  tint: { ...StyleSheet.absoluteFillObject, opacity: 0.1 },
+  scrim: { ...StyleSheet.absoluteFillObject },
+  copy: {
+    position: 'absolute',
+    left: 18,
+    right: 18,
+    bottom: 18,
+  },
+  statement: {
+    fontFamily: 'EBGaramond-Medium',
+    fontSize: 25,
+    lineHeight: 29,
+    color: '#FFFFFF',
   },
   link: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginTop: 7,
+    gap: 9,
+    marginTop: 12,
   },
   linkText: {
     fontFamily: typography.bodyMedium,
-    fontSize: 12,
+    fontSize: 13,
+    letterSpacing: 0.2,
+    color: '#FFFFFF',
+  },
+  linkTextDark: {
+    fontFamily: typography.bodyMedium,
+    fontSize: 13,
+    letterSpacing: 0.2,
     color: colors.graphite.text.secondary,
+  },
+  textOnlyFrame: {
+    marginTop: 14,
+  },
+  textOnlyStatement: {
+    fontFamily: 'EBGaramond-Medium',
+    fontSize: 21,
+    lineHeight: 25,
+    color: colors.graphite.text.primary,
   },
   pressed: {
     opacity: 0.78,

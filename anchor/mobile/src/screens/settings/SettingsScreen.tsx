@@ -380,7 +380,7 @@ export const SettingsScreen: React.FC = () => {
           <SettingsRow
             icon={<IconBell size={20} color={T.ink2} />}
             label="Notifications & reminders"
-            desc="Daily prime, thread alerts, and recap"
+            desc="Daily reminder, consistency alerts, and recap"
             onPress={() => setActiveSubscreen('notifications')}
             testID="settings-row-Notifications & reminders"
           />

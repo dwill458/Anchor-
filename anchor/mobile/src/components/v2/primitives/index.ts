@@ -10,3 +10,5 @@ export { V2Badge } from './V2Badge';
 export { V2SectionHeader } from './V2SectionHeader';
 export { V2ListRow } from './V2ListRow';
 export { V2SegmentedControl } from './V2SegmentedControl';
+export { V2DissolvedArtwork } from './V2DissolvedArtwork';
+export { V2AssetPrewarm } from './V2AssetPrewarm';

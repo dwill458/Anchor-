@@ -31,7 +31,7 @@ export const V2ThreadEventTimeline: React.FC<V2ThreadEventTimelineProps> = ({
   if (events.length === 0) {
     return (
       <View style={styles.emptyContainer} testID={`${testID}-empty`}>
-        <Text style={styles.emptyTitle}>No Thread Events Yet</Text>
+        <Text style={styles.emptyTitle}>Nothing recorded yet</Text>
         <Text style={styles.emptySubtext}>
           Practice sessions, reaching waypoints, and structural milestones will create permanent,
           verifiable markers here.
@@ -42,7 +42,7 @@ export const V2ThreadEventTimeline: React.FC<V2ThreadEventTimelineProps> = ({
 
   return (
     <View style={styles.container} testID={testID}>
-      <Text style={styles.sectionHeader}>DURABLE THREAD EVENTS</Text>
+      <Text style={styles.sectionHeader}>HISTORY</Text>
 
       <View style={styles.timelineList}>
         {events.map((event, index) => {
@@ -78,7 +78,7 @@ export const V2ThreadEventTimeline: React.FC<V2ThreadEventTimelineProps> = ({
 
                 <View style={styles.titleRow}>
                   <Text style={styles.eventTitle}>{event.title}</Text>
-                  <ChevronRight size={16} color={colors.text.secondary} />
+                  <ChevronRight size={16} color={colors.ink.text.secondary} />
                 </View>
 
                 <Text style={styles.eventCopy} numberOfLines={2}>
@@ -99,25 +99,25 @@ const styles = StyleSheet.create({
   },
   sectionHeader: {
     ...typography.labelSM,
-    color: colors.text.secondary,
+    color: colors.ink.text.secondary,
     letterSpacing: 1.1,
     marginBottom: spacing.sm,
   },
   emptyContainer: {
     padding: spacing.xl,
-    backgroundColor: '#141820',
+    backgroundColor: colors.ink.raised,
     borderRadius: radii.md,
     alignItems: 'center',
     marginBottom: spacing.xl,
   },
   emptyTitle: {
     ...typography.headingSM,
-    color: colors.text.primary,
+    color: colors.ink.text.primary,
     marginBottom: spacing.xs,
   },
   emptySubtext: {
     ...typography.bodySM,
-    color: colors.text.secondary,
+    color: colors.ink.text.secondary,
     textAlign: 'center',
   },
   timelineList: {
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
   },
   contentCard: {
     flex: 1,
-    backgroundColor: '#141820',
+    backgroundColor: colors.ink.raised,
     borderRadius: radii.md,
     padding: spacing.md,
     borderWidth: 1,
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
   },
   eventDate: {
     ...typography.caption,
-    color: colors.text.secondary,
+    color: colors.ink.text.secondary,
   },
   domainBadge: {
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontSize: 9,
     fontWeight: '600',
-    color: colors.text.secondary,
+    color: colors.ink.text.secondary,
     letterSpacing: 0.5,
   },
   titleRow: {
@@ -185,11 +185,11 @@ const styles = StyleSheet.create({
   eventTitle: {
     ...typography.headingSM,
     fontSize: 15,
-    color: colors.text.primary,
+    color: colors.ink.text.primary,
     flex: 1,
   },
   eventCopy: {
     ...typography.bodySM,
-    color: colors.text.secondary,
+    color: colors.ink.text.secondary,
   },
 });

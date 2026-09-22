@@ -53,8 +53,11 @@ export const V2_RECOMMENDATION_REASON_COPY: Readonly<Record<string, string>> = {
   waypoint_reached: 'A waypoint is behind you. Mark it before moving on.',
   intention_completed: 'This intention is complete. Release it.',
   unseen_vision: 'You have not seen your Vision today.',
-  thread_decay: 'The thread softened this week. Go deeper.',
-  daily_focus: 'Build the thread today.',
+  vision_scene: 'Step back into your Vision.',
+  // `thread_decay` is the server's code for a negative 7-day Consistency delta.
+  thread_decay: 'Consistency dipped this week. Go deeper.',
+  deep_reinforcement: 'A longer session to go deeper.',
+  daily_focus: 'Build consistency today.',
 };
 
 /** `01 / 03` — the authoritative position indicator for the hero carousel. */

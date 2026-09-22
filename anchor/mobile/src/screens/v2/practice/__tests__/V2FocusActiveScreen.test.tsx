@@ -67,7 +67,7 @@ describe('V2FocusActiveScreen', () => {
     jest.useRealTimers();
   });
 
-  it('renders Prepare state with PREPARE label, intention text, and BEGIN button', () => {
+  it('renders the Focus orientation, intention text, and BEGIN button', () => {
     render(
       <V2FocusActiveScreen
         anchor={mockAnchor}
@@ -80,10 +80,10 @@ describe('V2FocusActiveScreen', () => {
     );
 
     expect(screen.getByTestId('v2-focus-active-screen')).toBeTruthy();
-    expect(screen.getByText('PREPARE')).toBeTruthy();
-    expect(screen.getByText('“Breathe with clarity”')).toBeTruthy();
+    expect(screen.getByText('FOCUS')).toBeTruthy();
+    expect(screen.getByText('Breathe with clarity')).toBeTruthy();
     expect(
-      screen.getByText('Return to it once. Then let the Anchor hold it.')
+      screen.getByText('Let the Anchor hold your attention.')
     ).toBeTruthy();
     expect(screen.getByTestId('focus-prepare-begin-button')).toBeTruthy();
   });
@@ -160,33 +160,9 @@ describe('V2FocusActiveScreen', () => {
     expect(screen.queryByTestId('focus-paused-overlay')).toBeNull();
   });
 
-  it('shows End confirmation modal when End button is pressed, and allows cancellation', () => {
-    render(
-      <V2FocusActiveScreen
-        anchor={mockAnchor}
-        durationSeconds={30}
-        voice="female"
-        ambient={true}
-        initialStage="focus"
-        initialControlsVisible={true}
-        onExit={jest.fn()}
-        onComplete={jest.fn()}
-      />
-    );
-
-    fireEvent.press(screen.getByTestId('focus-end-button'));
-
-    expect(screen.getByTestId('focus-end-confirm-modal')).toBeTruthy();
-    expect(screen.getByText('End Focus?')).toBeTruthy();
-
-    // Keep going dismisses modal
-    fireEvent.press(screen.getByTestId('focus-keep-going-button'));
-    expect(screen.queryByTestId('focus-end-confirm-modal')).toBeNull();
-  });
-
-  it('calls onExit and tracks abandoned when End session is confirmed', () => {
+  it('ends with one End Session press and enters the shared completion path', () => {
+    const onComplete = jest.fn();
     const onExit = jest.fn();
-
     render(
       <V2FocusActiveScreen
         anchor={mockAnchor}
@@ -194,16 +170,25 @@ describe('V2FocusActiveScreen', () => {
         voice="female"
         ambient={true}
         initialStage="focus"
-        initialControlsVisible={true}
         onExit={onExit}
-        onComplete={jest.fn()}
+        onComplete={onComplete}
       />
     );
 
-    fireEvent.press(screen.getByTestId('focus-end-button'));
-    fireEvent.press(screen.getByTestId('focus-confirm-end-session'));
+    const endButton = screen.getByTestId('focus-end-button');
+    fireEvent.press(endButton);
+    fireEvent.press(endButton);
 
-    expect(onExit).toHaveBeenCalledTimes(1);
+    act(() => {
+      jest.advanceTimersByTime(1800);
+    });
+
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({
+      plannedDurationSeconds: 30,
+      actualDurationSeconds: expect.any(Number),
+    }));
+    expect(onExit).not.toHaveBeenCalled();
     expect(AnalyticsService.track).toHaveBeenCalledWith(
       'practice_session_ended_early',
       expect.objectContaining({ practice_mode: 'focus' })
@@ -237,9 +222,9 @@ describe('V2FocusActiveScreen', () => {
         jest.advanceTimersByTime(1000);
       });
 
-      // Resolving delay takes 850ms before onComplete is invoked
+      // Resolving sequence holds briefly before the completion view appears.
       act(() => {
-        jest.advanceTimersByTime(900);
+        jest.advanceTimersByTime(1900);
       });
 
       expect(onComplete).toHaveBeenCalledTimes(1);

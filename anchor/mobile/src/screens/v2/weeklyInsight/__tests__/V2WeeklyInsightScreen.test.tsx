@@ -36,10 +36,10 @@ describe('V2WeeklyInsightScreen', () => {
     expect(getByTestId('v2-weekly-insight-screen')).toBeTruthy();
     expect(getByText('AUG 31 – SEP 6')).toBeTruthy();
     expect(getByText('Completed week')).toBeTruthy();
-    expect(getByText('You kept the Thread steady.')).toBeTruthy();
+    expect(getByText('You kept your Consistency steady.')).toBeTruthy();
     expect(
       getByText(
-        'You practiced across 4 different days and avoided meaningful softening, even without adding more sessions.',
+        'You practiced across 4 different days and avoided a meaningful dip, even without adding more sessions.',
       ),
     ).toBeTruthy();
 
@@ -60,7 +60,7 @@ describe('V2WeeklyInsightScreen', () => {
     ).toBeTruthy();
     expect(getByText('NEXT WEEK')).toBeTruthy();
     expect(
-      getByText('Keep the same rhythm. Short Focus sessions are enough to maintain this Thread.'),
+      getByText('Keep the same rhythm. Short Focus sessions are enough to stay consistent.'),
     ).toBeTruthy();
   });
 
@@ -71,7 +71,7 @@ describe('V2WeeklyInsightScreen', () => {
 
     expect(getByText('You went deeper, not more often.')).toBeTruthy();
     expect(getByTestId('v2-weekly-insight-screen-visual-anchor')).toBeTruthy();
-    expect(getByText('DEEP PRIME')).toBeTruthy();
+    expect(getByText('DEEP FOCUS')).toBeTruthy();
   });
 
   it('3. activity breakdown accurately aggregates session counts and durations', () => {
@@ -93,7 +93,7 @@ describe('V2WeeklyInsightScreen', () => {
     expect(getByText('16')).toBeTruthy(); // Minutes (960s = 16min)
     expect(getByText('Practice mix')).toBeTruthy();
     expect(getByText('Focus')).toBeTruthy();
-    expect(getByText('Deep Prime')).toBeTruthy();
+    expect(getByText('Deep Focus')).toBeTruthy();
   });
 
   it('4. historical snapshot list opens in drawer and selects past snapshot without data leaks', () => {
@@ -162,7 +162,7 @@ describe('V2WeeklyInsightScreen', () => {
     const { getByText: getByTextNoVision, queryByText: queryByTextNoVision } = render(
       <V2WeeklyInsightScreen factsOverride={PROTOTYPE_WEEKLY_INSIGHT_FIXTURES.noVision} />,
     );
-    expect(getByTextNoVision(/You kept the Thread steady/i)).toBeTruthy();
+    expect(getByTextNoVision(/You kept your Consistency steady/i)).toBeTruthy();
     expect(queryByTextNoVision(/Vision:/i)).toBeNull();
   });
 

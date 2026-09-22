@@ -1,6 +1,7 @@
 {
   "expo": {
     "name": "Anchor: Visual Goal Setting",
+    "orientation": "portrait",
     "slug": "anchor",
     "scheme": "anchor",
     "version": "2.0.0",

@@ -64,6 +64,7 @@ model User {
   proposals           AIPlanProposal[]
   threadV2States      ThreadV2State[]
   visions             Vision[]
+  visionGenerations    VisionGeneration[]
   visionScenes        VisionScene[]
   visionViews         VisionView[]
   assets              Asset[]
@@ -175,6 +176,7 @@ model Anchor {
   threadV2States     ThreadV2State[]
   threadEventLedger  ThreadEventLedger[]
   visions            Vision[]
+  visionGenerations VisionGeneration[]
 
   // INTENTION COMPLETION (CCR-1)
   intentionCompletedAt DateTime? @map("intention_completed_at")
@@ -490,6 +492,7 @@ model Course {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   destinationText       String       @map("destination_text") @db.VarChar(140)
+  startingContext       String?      @map("starting_context") @db.VarChar(500)
   status                CourseStatus @default(DRAFT)
   currentWaypointId     String?      @unique @map("current_waypoint_id")
   currentWaypoint       Waypoint?    @relation("CourseCurrentWaypoint", fields: [currentWaypointId], references: [id], onDelete: SetNull)
@@ -630,6 +633,7 @@ model AIPlanProposal {
   modelVersion              String    @map("model_version")
   inputHash                 String    @map("input_hash")
   destinationInterpretation String    @map("destination_interpretation") @db.VarChar(280)
+  startingContext           String?   @map("starting_context") @db.VarChar(500)
   waypoints                 Json
   generationSource          String    @map("generation_source")
   fallbackReason            String?   @map("fallback_reason")
@@ -829,6 +833,7 @@ model Vision {
 
   scenes      VisionScene[]
   views       VisionView[]
+  generations VisionGeneration[]
 
   @@index([userId, status])
   @@index([anchorId, status])
@@ -858,6 +863,54 @@ model VisionScene {
   @@map("vision_scenes")
 }
 
+enum VisionGenerationStatus {
+  QUEUED
+  RUNNING
+  PARTIAL
+  COMPLETE
+  FAILED
+}
+
+model VisionGeneration {
+  id          String @id @default(uuid())
+  userId      String @map("user_id")
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anchorId    String @map("anchor_id")
+  anchor      Anchor @relation(fields: [anchorId], references: [id], onDelete: Cascade)
+  visionId    String @map("vision_id")
+  vision      Vision @relation(fields: [visionId], references: [id], onDelete: Cascade)
+  description String @db.Text
+  plan        Json?
+  setNumber   Int @map("set_number")
+  retryCount  Int @default(0) @map("retry_count")
+  status      VisionGenerationStatus @default(QUEUED)
+  stage       String @default("planning")
+  error       String? @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  candidates  VisionGenerationCandidate[]
+
+  @@unique([visionId, setNumber])
+  @@index([userId, anchorId, createdAt])
+  @@map("vision_generations")
+}
+
+model VisionGenerationCandidate {
+  id           String @id @default(uuid())
+  generationId String @map("generation_id")
+  generation   VisionGeneration @relation(fields: [generationId], references: [id], onDelete: Cascade)
+  assetId      String @map("asset_id")
+  asset        Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  role         String
+  prompt       String @db.Text
+  sortOrder    Int @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@unique([generationId, sortOrder])
+  @@index([assetId])
+  @@map("vision_generation_candidates")
+}
+
 model VisionView {
   id           String   @id @default(uuid())
   visionId     String   @map("vision_id")
@@ -879,6 +932,7 @@ model Asset {
   id            String   @id @default(uuid())
   userId        String   @map("user_id")
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  visionCandidates VisionGenerationCandidate[]
 
   storageKey    String   @map("storage_key")
   mimeType      String   @map("mime_type")

@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { ArrowLeft } from 'lucide-react-native';
 import { V2EmptyState, V2Screen } from '@/components/v2';
 import {
@@ -17,12 +18,59 @@ import { useV2PracticeModel, type V2PracticeCapabilities } from '@/hooks/v2/prac
 import { acknowledgeV2RecommendationSignal, type V2RecommendationContext } from '@/adapters/v2/practice';
 import { useSessionStore } from '@/stores/sessionStore';
 import { localDateString } from '@/utils/primingAnalytics';
-import { colors, spacing, typography } from '@/theme/v2';
+import { AnchorMotion, colors, spacing, typography } from '@/theme/v2';
 import type { Anchor } from '@/types';
 import type { V2PracticeRouteIntents, V2PracticeStartRequest } from './practiceRoutes';
 import { V2PracticePrepareScreen } from './V2PracticePrepareScreen';
 import { V2PracticeSessionScreen } from './V2PracticeSessionScreen';
 import { V2FocusPrepScreen } from './focus';
+import { useV2ReduceMotion } from '@/hooks/v2';
+import { V2_LAYER_ENTER_MS, V2_LAYER_TRAVEL, V2_TRANSITION_SETTLE_MS } from '@/navigation/v2/transitions';
+
+/**
+ * Hub and prepare are layers of one route. Swapping them used to be a hard
+ * cut; each now arrives with a short UI-thread settle in the direction of
+ * travel. Driven by shared values rather than a Reanimated layout animation:
+ * layout animations running while react-native-screens attaches the route's
+ * fragment can crash Android (null child in dispatchAttachedToWindow). For the
+ * same reason nothing animates while the route's own push is still moving.
+ */
+function PracticeLayer({ layerKey, depth, reduceMotion, children }: { layerKey: string; depth: number; reduceMotion: boolean; children: React.ReactNode }) {
+  const previous = useRef<{ key: string; depth: number } | null>(null);
+  const mountedAt = useRef(Date.now());
+  const entering = useRef(false);
+  const translateY = useSharedValue(0);
+  const opacity = useSharedValue(1);
+
+  // The incoming layer's starting pose is written in the render that swaps
+  // layers, so its first frame is already offset (never a frame in place
+  // followed by a jump). The settle itself starts once it is committed.
+  const last = previous.current;
+  if (
+    last && last.key !== layerKey && !entering.current && !reduceMotion &&
+    Date.now() - mountedAt.current >= V2_TRANSITION_SETTLE_MS
+  ) {
+    entering.current = true;
+    translateY.value = depth > last.depth ? V2_LAYER_TRAVEL : -V2_LAYER_TRAVEL;
+    opacity.value = 0.94;
+  }
+
+  useLayoutEffect(() => {
+    previous.current = { key: layerKey, depth };
+    if (!entering.current) return;
+    entering.current = false;
+    const config = { duration: V2_LAYER_ENTER_MS, easing: AnchorMotion.easing.enter };
+    translateY.value = withTiming(0, config);
+    opacity.value = withTiming(1, config);
+  }, [depth, layerKey, opacity, translateY]);
+
+  const style = useAnimatedStyle(() => ({ opacity: opacity.value, transform: [{ translateY: translateY.value }] }));
+  return (
+    <Animated.View style={[styles.layer, style]}>
+      {children}
+    </Animated.View>
+  );
+}
 
 type Props = Partial<V2PracticeRouteIntents> & {
   anchor?: Anchor | null;
@@ -53,6 +101,7 @@ export function V2PracticeScreen({
   onSessionCompleted,
 }: Props) {
   const { selectedAnchor, activeAnchors, selectAnchor } = useV2SelectedAnchor();
+  const reduceMotion = useV2ReduceMotion();
   const [selectedOverrideId, setSelectedOverrideId] = useState<string | null>(null);
   const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
   const prevSuppliedAnchorIdRef = useRef(suppliedAnchor?.id);
@@ -78,6 +127,7 @@ export function V2PracticeScreen({
   const [prepareSource, setPrepareSource] = useState<'practice_hub' | 'recommended_today'>('practice_hub');
   const [activeSession, setActiveSession] = useState<V2PracticeStartRequest | null>(null);
   const [justCompletedTodayAnchorId, setJustCompletedTodayAnchorId] = useState<string | null>(null);
+  const [justCompletedMode, setJustCompletedMode] = useState<V2PracticeMode | null>(null);
 
   const effectiveCapabilities = capabilities ?? model.capability;
 
@@ -85,6 +135,76 @@ export function V2PracticeScreen({
   const todayPractice = useSessionStore((s) => s.todayPractice);
   const sessionLog = useSessionStore((s) => s.sessionLog);
   const practiceHistory = useSessionStore((s) => s.practiceHistory);
+
+  /** Most recent practice per Anchor, derived from existing history; nothing new is persisted. */
+  const lastPracticedAtByAnchorId = useMemo(() => {
+    const latest: Record<string, number> = {};
+    const note = (id: string | null | undefined, completedAt: string | undefined) => {
+      if (!id || !completedAt) return;
+      const at = new Date(completedAt).getTime();
+      if (!Number.isNaN(at) && at > (latest[id] ?? 0)) latest[id] = at;
+    };
+    sessionLog?.forEach((s) => note(s.anchorId, s.completedAt));
+    practiceHistory?.forEach((p) => {
+      note(p.anchorId, p.completedAt);
+      note(p.anchorLocalId, p.completedAt);
+    });
+    return latest;
+  }, [practiceHistory, sessionLog]);
+
+  const lastCompletedModeToday = useMemo<V2PracticeMode | null>(() => {
+    if (!fixedAnchor) return null;
+    if (
+      justCompletedMode &&
+      justCompletedTodayAnchorId &&
+      (fixedAnchor.id === justCompletedTodayAnchorId || fixedAnchor.localId === justCompletedTodayAnchorId)
+    ) {
+      return justCompletedMode;
+    }
+    const anchorMatches = (id?: string | null) =>
+      Boolean(id && (id === fixedAnchor.id || id === fixedAnchor.localId));
+
+    let latestTime = 0;
+    let latestMode: V2PracticeMode | null = null;
+
+    practiceHistory?.forEach((p) => {
+      if ((anchorMatches(p.anchorId) || anchorMatches(p.anchorLocalId)) && p.completedAt) {
+        if (localDateString(new Date(p.completedAt)) === todayKey) {
+          const t = new Date(p.completedAt).getTime();
+          if (
+            t >= latestTime &&
+            (p.practiceMode === 'focus' ||
+              p.practiceMode === 'deep_prime' ||
+              p.practiceMode === 'visualize' ||
+              p.practiceMode === 'release')
+          ) {
+            latestTime = t;
+            latestMode = p.practiceMode;
+          }
+        }
+      }
+    });
+
+    sessionLog?.forEach((s) => {
+      if (anchorMatches(s.anchorId) && s.completedAt) {
+        if (localDateString(new Date(s.completedAt)) === todayKey) {
+          const t = new Date(s.completedAt).getTime();
+          if (t >= latestTime) {
+            let mode: V2PracticeMode | null = null;
+            if (s.type === 'activate') mode = 'focus';
+            else if (s.type === 'reinforce') mode = 'deep_prime';
+            else if (s.type === 'visualize') mode = 'visualize';
+            if (mode) {
+              latestTime = t;
+              latestMode = mode;
+            }
+          }
+        }
+      }
+    });
+
+    return latestMode;
+  }, [fixedAnchor, justCompletedMode, justCompletedTodayAnchorId, practiceHistory, sessionLog, todayKey]);
 
   const isCompletedToday = useMemo(() => {
     if (!fixedAnchor) return false;
@@ -163,6 +283,9 @@ export function V2PracticeScreen({
   const handleSessionCompleted = () => {
     if (fixedAnchor) {
       setJustCompletedTodayAnchorId(fixedAnchor.id);
+      if (activeSession) {
+        setJustCompletedMode(activeSession.mode);
+      }
     }
     setActiveSession(null);
     setPrepareMode(null);
@@ -187,9 +310,11 @@ export function V2PracticeScreen({
     }
   }, [fixedAnchor?.id, resumeDuration, resumeMode, resumeSource]);
 
-  // Handle initial mode passed from navigation once upon entry
+  // Handle initial mode passed from navigation once upon entry. A layout
+  // effect, so when the recommendation is already known the route's first
+  // painted frame is the prepare layer, not a frame of the hub it replaces.
   const initialModeConsumedRef = useRef(false);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (initialModeConsumedRef.current) return;
     if (model.loadingRecommendation || !initialMode || !fixedAnchor || prepareMode || activeSession) return;
     initialModeConsumedRef.current = true;
@@ -219,8 +344,10 @@ export function V2PracticeScreen({
         source={activeSession.source}
         voice={activeSession.voice}
         ambient={activeSession.ambient}
+        haptics={activeSession.haptics}
         onBack={() => setActiveSession(null)}
         onCompleted={handleSessionCompleted}
+        onFocusAgain={() => setActiveSession(null)}
       />
     );
   }
@@ -229,6 +356,7 @@ export function V2PracticeScreen({
   if (prepareMode) {
     if (prepareMode === 'focus') {
       return (
+        <PracticeLayer layerKey="prepare-focus" depth={1} reduceMotion={reduceMotion}>
         <V2FocusPrepScreen
           anchor={fixedAnchor}
           source={prepareSource}
@@ -253,10 +381,12 @@ export function V2PracticeScreen({
             });
           } : undefined}
         />
+        </PracticeLayer>
       );
     }
 
     return (
+      <PracticeLayer layerKey={`prepare-${prepareMode}`} depth={1} reduceMotion={reduceMotion}>
       <V2PracticePrepareScreen
         anchor={fixedAnchor}
         mode={prepareMode}
@@ -270,6 +400,7 @@ export function V2PracticeScreen({
         onBeginPractice={handleBeginPractice}
         onPremiumRequired={onPremiumCapabilityRequired}
       />
+      </PracticeLayer>
     );
   }
 
@@ -277,8 +408,14 @@ export function V2PracticeScreen({
     ? V2_RECOMMENDATION_ACTION_TO_MODE[model.recommendation.recommendation.action]
     : null;
 
+  const displayHeroMode = isCompletedToday
+    ? (lastCompletedModeToday ?? recommendedMode ?? 'focus')
+    : recommendedMode;
+
   return (
-    <V2Screen scroll testID="v2-practice-screen">
+    <PracticeLayer layerKey="hub" depth={0} reduceMotion={reduceMotion}>
+    <StatusBar barStyle="light-content" backgroundColor={colors.ink.base} animated />
+    <V2Screen scroll style={styles.screen} testID="v2-practice-screen">
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Back"
@@ -286,7 +423,7 @@ export function V2PracticeScreen({
         disabled={!onBack}
         style={styles.back}
       >
-        <ArrowLeft size={20} color={colors.text.primary} />
+        <ArrowLeft size={20} color={colors.ink.text.primary} />
         <Text style={styles.backText}>Practice</Text>
       </Pressable>
 
@@ -303,6 +440,7 @@ export function V2PracticeScreen({
           visible={isSwitcherOpen}
           anchors={activeAnchors.length > 0 ? activeAnchors : [fixedAnchor]}
           selectedAnchorId={fixedAnchor.id}
+          lastPracticedAtByAnchorId={lastPracticedAtByAnchorId}
           onSelect={(anchorId) => {
             setSelectedOverrideId(anchorId);
             selectAnchor(anchorId);
@@ -313,16 +451,16 @@ export function V2PracticeScreen({
 
         {/* Layer 2: Recommended Today Hero */}
         <View style={styles.recommendationSection}>
-          {model.loadingRecommendation ? (
+          {model.loadingRecommendation && !isCompletedToday ? (
             <Text style={styles.hint}>Loading today’s practice…</Text>
-          ) : recommendedMode ? (
+          ) : displayHeroMode ? (
             <V2TodayPracticeCard
               testID="v2-recommended-today"
-              mode={recommendedMode}
+              mode={displayHeroMode}
               reason={model.recommendation?.recommendation.reason}
               isCompletedToday={isCompletedToday}
-              onPress={() => selectMode(recommendedMode, 'recommended_today')}
-              onPracticeAgain={() => selectMode(recommendedMode, 'recommended_today')}
+              onPress={() => selectMode(displayHeroMode, 'recommended_today')}
+              onPracticeAgain={() => selectMode(displayHeroMode, 'recommended_today')}
             />
           ) : (
             <View style={styles.unavailableToday}>
@@ -343,15 +481,23 @@ export function V2PracticeScreen({
         <View style={styles.gridSection}>
           <V2PracticeGrid
             capabilities={effectiveCapabilities}
+            heroMode={displayHeroMode}
             onSelectMode={(mode) => selectMode(mode, 'practice_hub')}
           />
         </View>
       </View>
     </V2Screen>
+    </PracticeLayer>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    backgroundColor: colors.ink.base,
+  },
+  layer: {
+    flex: 1,
+  },
   back: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
@@ -360,28 +506,30 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   backText: {
-    ...typography.labelLG,
-    color: colors.text.primary,
+    fontFamily: typography.displayBold,
+    fontSize: 20,
+    letterSpacing: -0.2,
+    color: colors.ink.text.primary,
   },
   content: {
     // Section rhythm is set per-section below rather than by a uniform gap,
     // so the Today hero and the practice library read as distinct beats.
-    paddingTop: spacing[3],
-    paddingBottom: spacing[6],
+    paddingTop: spacing[2],
+    paddingBottom: spacing[8],
   },
   recommendationSection: {
     // The context header and the hero it frames are one beat, so the air
     // between them stays smaller than the air before the practice library.
-    marginTop: spacing[5],
+    marginTop: spacing[4],
   },
   gridSection: {
     // A wider beat than the one above the hero: the library is the next
     // section, not a continuation of the recommendation.
-    marginTop: spacing[6],
+    marginTop: spacing[5],
   },
   hint: {
     ...typography.caption,
-    color: colors.text.secondary,
+    color: colors.ink.text.secondary,
     paddingTop: spacing[1],
   },
   unavailableToday: {
@@ -395,11 +543,12 @@ const styles = StyleSheet.create({
   },
   retryText: {
     ...typography.labelMD,
-    color: colors.text.primary,
+    color: colors.ink.text.primary,
     textDecorationLine: 'underline',
   },
   empty: {
     flex: 1,
     justifyContent: 'center',
+    backgroundColor: colors.ink.base,
   },
 });

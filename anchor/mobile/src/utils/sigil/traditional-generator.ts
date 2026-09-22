@@ -59,11 +59,18 @@ function normalizeLettersInput(letters: unknown): string {
   return rawText.toUpperCase().replace(/[^A-Z]/g, '');
 }
 
+/** One point of the path: the letter it came from and the grid cell that letter reduces to. */
+interface IntentPoint {
+  /** Null only for the empty-input centre fallback. */
+  letter: string | null;
+  value: number;
+}
+
 /**
  * Clean and reduce the intent string (Austin Osman Spare method)
  */
-function processIntent(rawText: string, variant: SigilVariant, maxValue: number): number[] {
-  if (!rawText) return [Math.ceil(maxValue / 2) || 1]; // Fallback to center point
+function processIntent(rawText: string, variant: SigilVariant, maxValue: number): IntentPoint[] {
+  if (!rawText) return [{ letter: null, value: Math.ceil(maxValue / 2) || 1 }]; // Fallback to center point
 
   let processed = rawText;
 
@@ -76,7 +83,7 @@ function processIntent(rawText: string, variant: SigilVariant, maxValue: number)
   processed = Array.from(new Set(processed.split(''))).join('');
 
   // Step 3: Map to numbers
-  let points = processed.split('').map(char => letterToNumber(char, maxValue));
+  let points = processed.split('').map(char => ({ letter: char, value: letterToNumber(char, maxValue) }));
 
   // Variant Logic:
   // Minimal: Simplify path further if too long
@@ -115,26 +122,50 @@ function jitter(val: number, seed: number, salt: number, intensity: number = 2):
   return Number((val + offset).toFixed(2));
 }
 
+/** A drawn vertex: where on the page the letter's grid cell landed, after the hand-drawn jitter. */
+export interface SigilVertex {
+  letter: string | null;
+  /** The grid cell (1..maxValue) the letter reduced to. */
+  value: number;
+  /** The undisturbed centre of that cell. */
+  cell: { x: number; y: number };
+  /** The point the path actually passes through. */
+  x: number;
+  y: number;
+}
+
 /**
- * Generate the SVG Path Data (d attribute)
+ * Place each reduced letter on its grid cell, in order. The path data is built from exactly
+ * these vertices, so anything that draws or explains the path draws the real one.
  */
-function createSigilPath(points: number[], seed: number, gridConfig: GridConfig): string {
-  if (points.length === 0) return '';
+function placeVertices(points: IntentPoint[], seed: number, gridConfig: GridConfig): SigilVertex[] {
+  if (points.length === 0) return [];
 
-  const start = gridConfig.coords[points[0]];
-  if (!start) return '';
+  const start = gridConfig.coords[points[0].value];
+  if (!start) return [];
 
-  let path = `M ${jitter(start.x, seed, 1)},${jitter(start.y, seed, 2)}`;
+  const vertices: SigilVertex[] = [
+    { letter: points[0].letter, value: points[0].value, cell: start, x: jitter(start.x, seed, 1), y: jitter(start.y, seed, 2) },
+  ];
 
   for (let i = 1; i < points.length; i++) {
-    const curr = gridConfig.coords[points[i]];
+    const curr = gridConfig.coords[points[i].value];
     if (curr) {
       const saltBase = i * 2 + 1;
-      path += ` L ${jitter(curr.x, seed, saltBase)},${jitter(curr.y, seed, saltBase + 1)}`;
+      vertices.push({ letter: points[i].letter, value: points[i].value, cell: curr, x: jitter(curr.x, seed, saltBase), y: jitter(curr.y, seed, saltBase + 1) });
     }
   }
 
-  return path;
+  return vertices;
+}
+
+/**
+ * Generate the SVG Path Data (d attribute)
+ */
+function createSigilPath(vertices: SigilVertex[]): string {
+  if (vertices.length === 0) return '';
+  const [first, ...rest] = vertices;
+  return rest.reduce((path, vertex) => `${path} L ${vertex.x},${vertex.y}`, `M ${first.x},${first.y}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -156,11 +187,11 @@ function createBorder(variant: SigilVariant): string {
     Q ${c + r},${c - r} ${c + r},${c}
   `;
 
-  // Dense gets a double ring
-  if (variant === 'dense') {
-    return `<path d="${d}" stroke="currentColor" stroke-width="1.5" fill="none" opacity="0.8" /><circle cx="50" cy="50" r="48" stroke="currentColor" stroke-width="0.5" fill="none" opacity="0.4" />`;
-  }
-
+  // Dense ("Contained") is defined by one hand-drawn perimeter holding the
+  // mark. It used to add a second, perfectly geometric ring outside it; that
+  // double ring is what made the form read as a ceremonial seal rather than a
+  // personal mark, so only the imperfect perimeter remains. The intention-
+  // derived path is untouched. Already-saved Anchors keep their stored SVG.
   return `<path d="${d}" stroke="currentColor" stroke-width="1.5" fill="none" opacity="0.8" />`;
 }
 
@@ -179,6 +210,75 @@ function calculateStrokeWidth(tier: PlanetaryTier, variant: SigilVariant, gridCo
   return baseDensity[gridConfig.size]?.[variant] ?? 2;
 }
 
+/**
+ * The formation of one sigil, laid bare: the grid it was drawn on, each letter's cell and
+ * vertex in drawing order, and the SVG that results. `svg` is byte-identical to
+ * `generateTrueSigil` for the same input — this is the same computation, not a re-creation.
+ */
+export interface SigilFormation extends SigilGenerationResult {
+  tier: PlanetaryTier;
+  /** Cells per side of the grid (3 for Saturn … 7 for Venus). */
+  gridSize: number;
+  /** Every cell centre on the grid, ordered by cell number. */
+  gridCells: Array<{ value: number; x: number; y: number }>;
+  vertices: SigilVertex[];
+  pathData: string;
+  strokeWidth: number;
+  /** True when the variant adds the hand-drawn perimeter around the path. */
+  hasPerimeter: boolean;
+}
+
+const SIGIL_FORMATION_CACHE = new Map<string, SigilFormation>();
+
+export function describeTrueSigil(
+  letters: any,
+  tier: PlanetaryTier = PlanetaryTier.SATURN,
+  variant: SigilVariant = 'balanced'
+): SigilFormation {
+  const normalizedLetters = normalizeLettersInput(letters);
+  const cacheKey = `${tier}:${variant}:${normalizedLetters || 'CENTER'}`;
+  const cachedFormation = SIGIL_FORMATION_CACHE.get(cacheKey);
+
+  if (cachedFormation) {
+    return cachedFormation;
+  }
+
+  const gridConfig = getGridConfig(tier);
+
+  // 1. Logic Layer
+  const points = processIntent(normalizedLetters, variant, gridConfig.maxValue);
+
+  // 2. Geometry Layer
+  const seed = createSeed(cacheKey);
+  const vertices = placeVertices(points, seed, gridConfig);
+  const pathData = createSigilPath(vertices);
+
+  const strokeWidth = calculateStrokeWidth(tier, variant, gridConfig);
+
+  // Assemble
+  // NOTE: Do not add <filter>, <marker>, or marker-start/marker-end here.
+  // react-native-svg does not reliably support these and they cause crashes.
+  const svg = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" color="#FFFFFF"><g>${createBorder(variant)}<path d="${pathData}" stroke="currentColor" stroke-width="${strokeWidth}" fill="none" stroke-linecap="round" stroke-linejoin="round" /></g></svg>`;
+
+  const formation: SigilFormation = {
+    svg,
+    variant,
+    tier,
+    gridSize: gridConfig.size,
+    gridCells: Object.entries(gridConfig.coords)
+      .map(([value, point]) => ({ value: Number(value), x: point.x, y: point.y }))
+      .sort((a, b) => a.value - b.value),
+    vertices,
+    pathData,
+    strokeWidth,
+    hasPerimeter: createBorder(variant) !== '',
+  };
+
+  SIGIL_FORMATION_CACHE.set(cacheKey, formation);
+
+  return formation;
+}
+
 export function generateTrueSigil(
   letters: any,
   tier: PlanetaryTier = PlanetaryTier.SATURN,
@@ -192,22 +292,7 @@ export function generateTrueSigil(
     return cachedResult;
   }
 
-  const gridConfig = getGridConfig(tier);
-
-  // 1. Logic Layer
-  const points = processIntent(normalizedLetters, variant, gridConfig.maxValue);
-
-  // 2. Geometry Layer
-  const seed = createSeed(cacheKey);
-  const pathData = createSigilPath(points, seed, gridConfig);
-
-  const strokeWidth = calculateStrokeWidth(tier, variant, gridConfig);
-
-  // Assemble
-  // NOTE: Do not add <filter>, <marker>, or marker-start/marker-end here.
-  // react-native-svg does not reliably support these and they cause crashes.
-  const svg = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" color="#FFFFFF"><g>${createBorder(variant)}<path d="${pathData}" stroke="currentColor" stroke-width="${strokeWidth}" fill="none" stroke-linecap="round" stroke-linejoin="round" /></g></svg>`;
-
+  const { svg } = describeTrueSigil(letters, tier, variant);
   const result = {
     svg,
     variant,
@@ -239,7 +324,7 @@ export function generateAllVariants(letters: any, tier: PlanetaryTier = Planetar
 export const VARIANT_METADATA = {
   dense: {
     title: 'Practice',
-    description: 'Dense geometry with containing circles',
+    description: 'Dense geometry held by one perimeter',
   },
   balanced: {
     title: 'Focused',

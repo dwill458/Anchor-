@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { CircularAnchorRenderer } from '@/components/v2';
 import { colors, spacing, typography } from '@/theme/v2';
 import type { Anchor } from '@/types';
-import { anchorArtworkSvg, categoryLabel } from './anchorPresentation';
+import { anchorRenderProps, categoryLabel } from './anchorPresentation';
 
 type Props = {
   anchor: Anchor;
@@ -36,9 +36,7 @@ export function V2AnchorGalleryItem({
     >
       <View style={[styles.artworkContainer, { width: '100%', height: artworkSize }]}>
         <CircularAnchorRenderer
-          svg={anchorArtworkSvg(anchor)}
-          imageUrl={anchor.enhancedImageUrl}
-          category={anchor.category}
+          {...anchorRenderProps(anchor)}
           size={artworkSize}
           state={released ? 'inactive' : 'active'}
           accessibilityLabel={`${state} Anchor`}

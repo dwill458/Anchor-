@@ -241,6 +241,7 @@ export const PracticeCompletionService = {
     backgroundAudio: BackgroundAudioMode;
     sceneSnapshot: string;
     source?: PracticeCompletionSource;
+    metadata?: Record<string, unknown>;
   }): Promise<PracticeSessionRecord> {
     const result = await this.completePracticeSession(
       {
@@ -260,6 +261,7 @@ export const PracticeCompletionService = {
         guidanceVoice: params.guidanceVoice,
         backgroundAudio: params.backgroundAudio,
         sceneSnapshot: params.sceneSnapshot,
+        metadata: params.metadata,
       },
       { mirrorLegacySession: true },
     );

@@ -15,7 +15,7 @@ describe('Home recent activity', () => {
     ];
     const result = toHomeRecentActivity({ sessions, accountId: 'user-1', anchorId: 'anchor-a', now: new Date('2026-09-20T15:00:00.000Z') });
     expect(result.map((item) => item.id)).toEqual(['a-new', 'a-old']);
-    expect(result[0].title).toBe('Deep Prime');
+    expect(result[0].title).toBe('Deep Focus');
     expect(result[0].dayLabel).toBe('Yesterday');
   });
 });

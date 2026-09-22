@@ -7,4 +7,5 @@ export { V2HomeVisionSection } from './V2HomeVisionSection';
 export { V2HomeChartSection } from './V2HomeChartSection';
 export { V2HomeProgressSection } from './V2HomeProgressSection';
 export { V2HomeRecentActivitySection } from './V2HomeRecentActivitySection';
-export { V2HomeCreamSplice, buildSplicePath, V2_HOME_SPLICE_HEIGHT, V2_HOME_SPLICE_KEEL_RATIO } from './V2HomeCreamSplice';
+export { V2HomeCreamSplice, buildSplicePath, V2_HOME_SPLICE_HEIGHT, V2_HOME_SPLICE_KEEL_RATIO, V2_HOME_SPLICE_TIP_RATIO } from './V2HomeCreamSplice';
+export { V2HomeBrandMark, brandMarkSpacing, V2_HOME_BRAND_MARK_HEIGHT, V2_HOME_BRAND_MARK_WIDTH } from './V2HomeBrandMark';

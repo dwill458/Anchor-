@@ -16,7 +16,7 @@ const threadCompletionLimiter = rateLimit({
     success: false,
     error: {
       code: 'TOO_MANY_REQUESTS',
-      message: 'Too many Thread completion attempts. Please try again later.',
+      message: 'Too many practice completion attempts. Please try again later.',
     },
   },
 });
@@ -74,7 +74,7 @@ router.post(
       });
       if (!movement)
         throw new AppError(
-          'Practice session cannot update Thread Strength.',
+          'This practice session cannot update Consistency.',
           422,
           'THREAD_SESSION_INELIGIBLE'
         );

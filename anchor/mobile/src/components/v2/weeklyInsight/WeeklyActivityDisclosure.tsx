@@ -91,10 +91,10 @@ export const WeeklyActivityDisclosure: React.FC<WeeklyActivityDisclosureProps> =
             </View>
           </View>
 
-          {/* 2. Thread Strength Mini-Chart */}
+          {/* 2. Consistency (Thread Strength) mini-chart */}
           <View style={styles.block}>
             <View style={styles.headingRow}>
-              <Text style={styles.headingTitle}>Thread Strength</Text>
+              <Text style={styles.headingTitle}>Consistency</Text>
               <Text style={styles.headingSub}>
                 {threadStart} → {threadEnd}
               </Text>

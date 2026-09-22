@@ -2,33 +2,46 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowRight, Crown } from 'lucide-react-native';
-import {
-  V2_PRACTICE_MODE_DEFINITIONS,
-  type V2PracticeMode,
-} from '@/constants/v2/practice';
+import { V2_PRACTICE_MODE_BY_ID, type V2PracticeMode } from '@/constants/v2/practice';
 import type { V2PracticeCapabilities } from '@/hooks/v2/practice';
 import { colors, getPracticeCardTheme, practiceDarkText, radii, spacing, typography } from '@/theme/v2';
 import { V2PracticeArtwork } from './V2PracticeArtwork';
 
 type Props = {
   capabilities: V2PracticeCapabilities;
+  heroMode?: V2PracticeMode | null;
   onSelectMode: (mode: V2PracticeMode) => void;
 };
 
 const ARTWORK_HEIGHT = 95;
+const SLIM_ARTWORK_HEIGHT = 82;
 /** The dissolve only occupies the bottom third of the scene, so the
  *  illustration itself keeps its colours and reads unobstructed. */
 const ARTWORK_FADE_HEIGHT = 34;
 
-export function V2PracticeGrid({ capabilities, onSelectMode }: Props) {
+/** Dark edge scrims for the Release slim row: left text block and right descriptor/arrow. */
+const RELEASE_SCRIM_COLORS = ['rgba(10, 8, 14, 0.78)', 'rgba(10, 8, 14, 0)', 'rgba(10, 8, 14, 0)', 'rgba(10, 8, 14, 0.74)'] as const;
+const RELEASE_SCRIM_LOCATIONS = [0, 0.4, 0.62, 1] as const;
+
+const FIXED_MODE_ORDER: readonly V2PracticeMode[] = ['focus', 'deep_prime', 'visualize', 'release'];
+
+const modeLabel = (mode: V2PracticeMode) => V2_PRACTICE_MODE_BY_ID[mode].title.toUpperCase();
+
+export function V2PracticeGrid({ capabilities, heroMode, onSelectMode }: Props) {
   const { width } = useWindowDimensions();
   const cardWidth = Math.max(0, Math.floor((width - spacing[6] * 2 - spacing[3]) / 2));
+  const slimMode: V2PracticeMode = heroMode === 'release' ? 'visualize' : 'release';
+  const tileModes = FIXED_MODE_ORDER.filter((mode) => mode !== heroMode && mode !== slimMode);
+  const slimItem = V2_PRACTICE_MODE_BY_ID[slimMode];
+  const slimTheme = getPracticeCardTheme(slimMode);
+  const slimShowPro = slimItem.premium && !capabilities[slimMode];
 
   return (
     <View style={styles.container}>
       <Text style={styles.sectionTitle}>CHOOSE ANOTHER PRACTICE</Text>
       <View style={styles.grid}>
-        {V2_PRACTICE_MODE_DEFINITIONS.map((item) => {
+        {tileModes.map((mode) => {
+          const item = V2_PRACTICE_MODE_BY_ID[mode];
           const isEntitled = capabilities[item.mode];
           const showPro = item.premium && !isEntitled;
           const theme = getPracticeCardTheme(item.mode);
@@ -45,23 +58,12 @@ export function V2PracticeGrid({ capabilities, onSelectMode }: Props) {
               style={({ pressed }) => [
                 styles.card,
                 { width: cardWidth },
-                {
-                  backgroundColor: theme.dark.surface,
-                  borderColor: theme.dark.border,
-                },
                 pressed && styles.pressed,
               ]}
             >
               {/* Artwork scene header */}
-              <View style={[styles.artworkContainer, { backgroundColor: theme.dark.surface }]}>
+              <View style={styles.artworkContainer}>
                 <V2PracticeArtwork mode={item.mode} height={ARTWORK_HEIGHT} variant="card" />
-                {/* Atmospheric dissolve so the scene and the body are one object. */}
-                <LinearGradient
-                  pointerEvents="none"
-                  colors={[...theme.dark.fade]}
-                  locations={[0, 0.62, 1]}
-                  style={styles.artworkFade}
-                />
                 {showPro ? (
                   <View style={styles.proBadge}>
                     <Crown size={10} color={practiceDarkText.title} />
@@ -70,28 +72,28 @@ export function V2PracticeGrid({ capabilities, onSelectMode }: Props) {
                 ) : null}
               </View>
 
-              {/* Lower text content */}
+              {/* Lower cream text content */}
               <View style={styles.content}>
                 {/* Group 1 — identity */}
-                <Text style={[styles.modeTag, { color: theme.dark.label }]}>
-                  {item.mode === 'deep_prime' ? 'DEEP PRIME' : item.mode.toUpperCase()}
+                <Text style={[styles.modeTag, { color: theme.labelColor }]}>
+                  {modeLabel(item.mode)}
                 </Text>
 
                 <View style={styles.titleRow}>
-                  <Text numberOfLines={2} style={styles.title}>
+                  <Text numberOfLines={1} style={styles.title}>
                     {item.title}
                   </Text>
-                  <View style={[styles.actionCircle, { backgroundColor: theme.dark.actionBg }]}>
-                    <ArrowRight size={13} color={theme.dark.arrow} strokeWidth={2.4} />
+                  <View style={styles.actionCircle}>
+                    <ArrowRight size={13} color="#121820" strokeWidth={2.4} />
                   </View>
                 </View>
 
-                {/* Group 2 — what it costs you, then what it does */}
-                <Text numberOfLines={2} style={styles.duration}>
+                {/* Group 2 — duration and purpose */}
+                <Text numberOfLines={1} style={styles.duration}>
                   {item.duration}
                 </Text>
 
-                <Text numberOfLines={3} style={styles.purpose}>
+                <Text numberOfLines={2} style={styles.purpose}>
                   {item.purpose}
                 </Text>
               </View>
@@ -99,6 +101,41 @@ export function V2PracticeGrid({ capabilities, onSelectMode }: Props) {
           );
         })}
       </View>
+      <Pressable
+        testID={`v2-practice-row-${slimMode}`}
+        accessibilityRole="button"
+        accessibilityLabel={`${slimItem.title}. ${slimItem.duration}.${slimShowPro ? ' Premium required.' : ''}`}
+        onPress={() => onSelectMode(slimMode)}
+        style={({ pressed }) => [styles.slimRow, { backgroundColor: slimTheme.dark.surface, borderColor: 'rgba(255, 255, 255, 0.12)' }, pressed && styles.pressed]}
+      >
+        <View style={[styles.slimArtwork, { backgroundColor: slimTheme.dark.surface }]}>
+          <V2PracticeArtwork mode={slimMode} height={SLIM_ARTWORK_HEIGHT} variant="card" imageStyle={slimMode === 'release' ? styles.releaseSlimCrop : styles.visualizeSlimCrop} />
+          {/* Edge scrims sit behind the text blocks only, so the sun/ribbon in the middle stays vivid. */}
+          {slimMode === 'release' ? (
+            <LinearGradient
+              pointerEvents="none"
+              colors={[...RELEASE_SCRIM_COLORS]}
+              locations={[...RELEASE_SCRIM_LOCATIONS]}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={StyleSheet.absoluteFillObject}
+            />
+          ) : (
+            <LinearGradient pointerEvents="none" colors={[...slimTheme.dark.fade]} locations={[0, 0.62, 1]} style={styles.slimArtworkFade} />
+          )}
+        </View>
+        <View style={styles.slimContent}>
+          <View style={styles.slimTitleGroup}>
+            <Text style={[styles.modeTag, { color: slimMode === 'release' ? 'rgba(244, 246, 250, 0.7)' : slimTheme.dark.label }]}>{modeLabel(slimMode)}</Text>
+            <Text numberOfLines={1} style={styles.slimTitle}>{slimItem.title}</Text>
+          </View>
+          <Text numberOfLines={1} style={[styles.slimDescriptor, slimMode === 'release' && styles.releaseSlimDescriptor]}>{slimMode === 'release' ? 'When ready' : '1 min · 3 min · 5 min'}</Text>
+          {slimShowPro ? <View style={styles.slimProBadge}><Crown size={10} color={practiceDarkText.title} /><Text style={styles.proText}>PRO</Text></View> : null}
+          <View style={[styles.slimActionCircle, slimMode === 'release' ? styles.releaseSlimAction : { backgroundColor: slimTheme.dark.actionBg }]}>
+            <ArrowRight size={15} color={slimMode === 'release' ? '#FFFFFF' : slimTheme.dark.arrow} strokeWidth={2.1} />
+          </View>
+        </View>
+      </Pressable>
     </View>
   );
 }
@@ -113,11 +150,12 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...typography.labelSM,
-    color: colors.text.secondary,
-    letterSpacing: 0.9,
-    fontSize: 10.5,
+    color: colors.ink.text.secondary,
+    letterSpacing: 1.1,
+    fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
+    marginBottom: 4,
   },
   grid: {
     flexDirection: 'row',
@@ -126,19 +164,33 @@ const styles = StyleSheet.create({
     columnGap: spacing[3],
     rowGap: spacing[3],
   },
+  slimRow: { height: SLIM_ARTWORK_HEIGHT, borderRadius: 18, borderWidth: 1, overflow: 'hidden', position: 'relative', shadowColor: '#000000', shadowOpacity: 0.12, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
+  slimArtwork: { ...StyleSheet.absoluteFillObject },
+  slimArtworkFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '100%' },
+  releaseSlimCrop: { transform: [{ scale: 1.16 }, { translateY: -5 }] },
+  visualizeSlimCrop: { transform: [{ scale: 1.16 }, { translateY: 5 }] },
+  slimContent: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: BODY_INSET, gap: spacing[3] },
+  slimTitleGroup: { width: 96, justifyContent: 'center' },
+  slimTitle: { fontFamily: typography.displayBold, fontSize: 17, lineHeight: 20, letterSpacing: -0.3, color: practiceDarkText.title },
+  slimDescriptor: { ...typography.caption, flex: 1, color: practiceDarkText.meta, fontSize: 12, textAlign: 'right' },
+  slimProBadge: { position: 'absolute', top: 8, right: 46, flexDirection: 'row', alignItems: 'center', gap: 3 },
+  slimActionCircle: { width: 28, height: 28, borderRadius: radii.round, alignItems: 'center', justifyContent: 'center' },
+  releaseSlimDescriptor: { color: 'rgba(242, 238, 228, 0.92)' },
+  // Muted/outlined, no accent fill; cream outline stays clearly visible over the art.
+  releaseSlimAction: { borderWidth: 1, borderColor: 'rgba(242, 238, 228, 0.7)', backgroundColor: 'rgba(12, 10, 16, 0.35)' },
   card: {
-    // The width is calculated from the actual iOS window so percentage sizing
-    // cannot wrap the second column on narrow screens when gap is applied.
     flexShrink: 0,
-    borderRadius: radii.lg,
+    backgroundColor: '#F4EFE6',
+    borderRadius: 18,
     borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     overflow: 'hidden',
     justifyContent: 'flex-start',
     shadowColor: '#000000',
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
   },
   pressed: {
     opacity: 0.88,
@@ -148,13 +200,6 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: '100%',
     height: ARTWORK_HEIGHT,
-  },
-  artworkFade: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: ARTWORK_FADE_HEIGHT,
   },
   proBadge: {
     position: 'absolute',
@@ -175,55 +220,53 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   content: {
-    paddingHorizontal: BODY_INSET,
-    paddingTop: 13,
-    paddingBottom: BODY_INSET,
+    backgroundColor: '#F4EFE6',
+    paddingHorizontal: 13,
+    paddingTop: 12,
+    paddingBottom: 16,
   },
   modeTag: {
     ...typography.labelSM,
-    fontSize: 9.5,
-    letterSpacing: 0.9,
+    fontSize: 10,
+    letterSpacing: 0.8,
     fontWeight: '700',
-    // Small gap: the label belongs to the title.
-    marginBottom: 3,
+    marginBottom: 4,
+    textTransform: 'uppercase',
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    // Tight enough that "Deep Prime" holds one line at the default text size,
-    // and the title wraps rather than truncating when it is scaled up.
     gap: 6,
   },
   title: {
     fontFamily: typography.displayBold,
-    fontSize: 17,
+    fontSize: 18,
     lineHeight: 22,
     letterSpacing: -0.3,
-    color: practiceDarkText.title,
+    color: '#121820',
     flex: 1,
   },
   actionCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: radii.round,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#E5DFD5',
     alignItems: 'center',
     justifyContent: 'center',
   },
   duration: {
     ...typography.caption,
-    color: practiceDarkText.meta,
+    color: '#6B7280',
     fontSize: 11,
     lineHeight: 15,
-    // Medium gap: opens the secondary information group.
-    marginTop: 11,
+    marginTop: 8,
   },
   purpose: {
     ...typography.bodySM,
-    color: practiceDarkText.body,
-    fontSize: 11,
+    color: '#4B5563',
+    fontSize: 11.5,
     lineHeight: 15.5,
-    // Medium-small gap: stays bound to the duration above it.
-    marginTop: 5,
+    marginTop: 4,
   },
 });

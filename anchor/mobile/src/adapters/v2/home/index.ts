@@ -2,7 +2,7 @@ export { useV2HomeModel } from './useV2HomeModel';
 export type { V2HomeModel, V2HomeAnchorSummary, V2HomeTodayState } from './useV2HomeModel';
 export { toThreadPresentation, threadQualitativeLabel } from './threadAdapter';
 export type { V2ThreadPresentation } from './threadAdapter';
-export { toHomeVisionState, toV2HomeVisionState } from './visionAdapter';
+export { toHomeVisionState, toV2HomeVisionState, resolveVisionHeroImage, resolveVisionAlternateImage } from './visionAdapter';
 export type { HomeVisionState } from './visionAdapter';
 export {
   toHomeChartState,

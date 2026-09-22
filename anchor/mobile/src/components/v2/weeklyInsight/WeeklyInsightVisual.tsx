@@ -112,7 +112,7 @@ export const WeeklyInsightVisual: React.FC<WeeklyInsightVisualProps> = ({
         <View style={styles.threadTop}>
           <View style={styles.threadBigWrap}>
             <Text style={styles.threadBig}>{visualData.endScore}</Text>
-            <Text style={styles.threadSmall}>THREAD</Text>
+            <Text style={styles.threadSmall}>CONSISTENCY</Text>
           </View>
           <Text style={styles.threadNote}>
             {visualData.note || `${visualData.startScore} → ${visualData.endScore} this week`}

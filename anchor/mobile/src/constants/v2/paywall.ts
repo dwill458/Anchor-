@@ -68,9 +68,9 @@ export type V2PaywallCopy = {
 
 /** Three confirmation rows — not a feature-marketing wall. */
 export const V2_PAYWALL_BENEFITS: readonly string[] = [
-  'Focus, Deep Prime & Visualize',
+  'Focus, Deep Focus & Visualize',
   'Create your Vision',
-  'Track Thread Strength',
+  'Track your Consistency',
 ] as const;
 
 const PRACTICE_COPY: V2PaywallCopy = {
@@ -96,8 +96,8 @@ export const V2_PAYWALL_COPY: Record<V2PaywallContext, V2PaywallCopy> = {
   PRACTICE: PRACTICE_COPY,
   DEEP_PRIME: {
     ...PRACTICE_COPY,
-    headline: 'Go deeper with Deep Prime',
-    body: 'Your first 7 days are free. Deep Prime and every guided mode unlock together.',
+    headline: 'Go deeper with Deep Focus',
+    body: 'Your first 7 days are free. Deep Focus and every guided mode unlock together.',
     tone: 'deepPrime',
   },
   VISUALIZE: {
@@ -130,7 +130,7 @@ export const V2_PAYWALL_COPY: Record<V2PaywallContext, V2PaywallCopy> = {
   GENERAL_UPGRADE: {
     eyebrow: 'Anchor Pro',
     headline: 'Unlock the complete Anchor',
-    body: 'Your first 7 days are free. Every practice mode, Vision, and Thread Strength included.',
+    body: 'Your first 7 days are free. Every practice mode, Vision, and Consistency tracking included.',
     trialCta: 'Start 7-Day Free Trial',
     paidCta: 'Continue with Pro',
     artifact: 'none',

@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, AppState, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
 import { V2Button, V2EmptyState, V2InlineError, V2Screen } from '@/components/v2';
 import { V2PracticeAnchorContext } from '@/components/v2/practice';
@@ -10,9 +10,12 @@ import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { PracticeCompletionService } from '@/services/PracticeCompletionService';
 import { isBackendAnchorId } from '@/services/BackendAnchorService';
+import { useV2Vision } from '@/hooks/v2/vision';
 import { colors, spacing, typography } from '@/theme/v2';
 import type { GuidanceVoice } from '@/types/sessionAudio';
 import { V2FocusActiveScreen, V2FocusCompleteScreen } from './focus';
+import { V2VisualizeSessionScreen } from './visualize/V2VisualizeSessionScreen';
+import { isV2VisualizeDuration } from './visualize/visualizeVisionPlan';
 
 type Props = {
   anchorId: string;
@@ -21,8 +24,10 @@ type Props = {
   source: 'practice_hub' | 'recommended_today';
   voice?: GuidanceVoice;
   ambient?: boolean;
+  haptics?: boolean;
   onBack: () => void;
   onCompleted: () => void;
+  onFocusAgain: () => void;
 };
 
 type SessionStatus = 'active' | 'completing' | 'error';
@@ -34,8 +39,10 @@ export function V2PracticeSessionScreen({
   source,
   voice,
   ambient,
+  haptics,
   onBack,
   onCompleted,
+  onFocusAgain,
 }: Props) {
   const accountId = useAuthStore((state) => state.user?.id ?? null);
   const anchors = useAnchorStore((state) => state.anchors);
@@ -50,15 +57,19 @@ export function V2PracticeSessionScreen({
       ) ?? null,
     [accountId, anchorId, anchors]
   );
+  const visionModel = useV2Vision(mode === 'visualize' ? anchorId : '');
 
   const defaultFocusSettings = useSettingsStore((state) => state.sessionAudioDefaults?.focus);
+  const defaultVisualizeSettings = useSettingsStore((state) => state.sessionAudioDefaults?.visualize);
+  const hapticIntensity = useSettingsStore((state) => state.hapticIntensity);
   const resolvedVoice = voice ?? defaultFocusSettings?.guidanceVoice ?? 'female';
   const resolvedAmbient = ambient ?? (defaultFocusSettings?.backgroundAudio !== 'off');
 
   // Focus redesign state
   const startedAtRef = useRef(new Date());
+  const legacyClockStartedRef = useRef(false);
   const [focusPhase, setFocusPhase] = useState<'active' | 'complete'>('active');
-  const [focusKey, setFocusKey] = useState<number>(0);
+  const focusCompletionStartedRef = useRef(false);
   const [strengthSnapshot, setStrengthSnapshot] = useState<{
     before: number | null;
     after: number | null;
@@ -71,6 +82,31 @@ export function V2PracticeSessionScreen({
 
   const definition = V2_PRACTICE_MODE_BY_ID[mode];
 
+  // The non-Focus practice modes use their own active-time clock. Background
+  // time is excluded and a delayed JS tick catches up from the monotonic wall
+  // timestamp rather than adding one second per callback.
+  useEffect(() => {
+    // Focus and Visualize own their clocks (Visualize: the shared session engine).
+    if (mode === 'focus' || mode === 'visualize' || legacyStatus !== 'active') return;
+    if (!legacyClockStartedRef.current) {
+      startedAtRef.current = new Date();
+      legacyClockStartedRef.current = true;
+    }
+    let lastTick = Date.now();
+    let appIsActive = AppState.currentState === 'active';
+    const subscription = AppState.addEventListener('change', state => {
+      appIsActive = state === 'active';
+      lastTick = Date.now();
+    });
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const delta = appIsActive ? Math.max(0, now - lastTick) : 0;
+      lastTick = now;
+      if (delta > 0) setElapsedSeconds(previous => Math.min(durationSeconds, previous + delta / 1000));
+    }, 250);
+    return () => { clearInterval(interval); subscription.remove(); };
+  }, [durationSeconds, legacyStatus, mode, visionModel.state.state]);
+
   // Focus completion handler
   const handleFocusComplete = useCallback(
     async (sessionData: {
@@ -78,7 +114,10 @@ export function V2PracticeSessionScreen({
       actualDurationSeconds: number;
       completedAt: string;
     }) => {
-      if (!anchor) return;
+      if (!anchor || focusCompletionStartedRef.current) return;
+      // Lock before the asynchronous completion service begins. Both automatic
+      // and manual endings enter here through the same active-screen callback.
+      focusCompletionStartedRef.current = true;
       const resolvedAccountId = accountId ?? anchor.userId ?? 'local-user';
 
       const beforeStrength =
@@ -106,7 +145,10 @@ export function V2PracticeSessionScreen({
           { flushImmediately: false }
         );
 
-        await PracticeCompletionService.flush(resolvedAccountId);
+        // The canonical record is already durable locally. Network sync must
+        // not hold the completion surface hostage when the account API is slow
+        // or unavailable; `flush` retains the queued record on failure.
+        void PracticeCompletionService.flush(resolvedAccountId).catch(() => undefined);
       } catch {
         // PracticeCompletionService durably persists to encrypted queue on failure
       }
@@ -137,18 +179,14 @@ export function V2PracticeSessionScreen({
   );
 
   const handleDone = useCallback(() => {
-    if (source === 'recommended_today') {
-      onCompleted();
-    } else {
-      onBack();
-    }
-  }, [onBack, onCompleted, source]);
+    // Continue has a semantic destination: the Practice hub. The parent clears
+    // both the session and setup layers, rather than relying on stack history.
+    onCompleted();
+  }, [onCompleted]);
 
   const handleAgain = useCallback(() => {
-    startedAtRef.current = new Date();
-    setFocusPhase('active');
-    setFocusKey((k) => k + 1);
-  }, []);
+    onFocusAgain();
+  }, [onFocusAgain]);
 
   if (!anchor) {
     return (
@@ -163,12 +201,54 @@ export function V2PracticeSessionScreen({
     );
   }
 
+  if (mode === 'visualize' && visionModel.state.state !== 'ready') {
+    return (
+      <V2Screen testID="v2-practice-session-vision-unavailable">
+        <View style={styles.empty}>
+          {visionModel.loading ? <ActivityIndicator color={definition.accent} /> : (
+            <V2EmptyState title="Vision unavailable" message={visionModel.error ?? 'Open this Anchor’s Vision and try again.'}
+              action={<V2Button onPress={() => { void visionModel.refresh(); }}>Retry Vision</V2Button>} />
+          )}
+        </View>
+      </V2Screen>
+    );
+  }
+
+  // Visualize: immersive Vision session. It records completion itself, only
+  // when the full duration has run, through the Visualize completion contract.
+  if (mode === 'visualize') {
+    if (!isV2VisualizeDuration(durationSeconds)) {
+      return (
+        <V2Screen testID="v2-practice-session">
+          <View style={styles.empty}>
+            <V2EmptyState title="Visualize unavailable" message="Choose 1, 3 or 5 minutes and begin again." />
+          </View>
+        </V2Screen>
+      );
+    }
+    return (
+      <V2VisualizeSessionScreen
+        anchor={anchor}
+        accountId={accountId}
+        tiles={visionModel.tiles}
+        statement={visionModel.description}
+        visionId={visionModel.vision?.id ?? null}
+        durationSeconds={durationSeconds}
+        voice={voice ?? defaultVisualizeSettings?.guidanceVoice ?? 'female'}
+        ambient={ambient ?? (defaultVisualizeSettings?.backgroundAudio !== 'off')}
+        haptics={haptics ?? (hapticIntensity ?? 70) > 0}
+        source={source}
+        onExit={onBack}
+        onContinue={onCompleted}
+      />
+    );
+  }
+
   // Focus Mode Redesign
   if (mode === 'focus') {
     if (focusPhase === 'active') {
       return (
         <V2FocusActiveScreen
-          key={focusKey}
           anchor={anchor}
           durationSeconds={durationSeconds}
           voice={resolvedVoice}
@@ -217,7 +297,9 @@ export function V2PracticeSessionScreen({
         },
         { flushImmediately: false }
       );
-      await PracticeCompletionService.flush(accountId);
+      // Leave the session immediately after the local record is queued. Sync
+      // continues in the background and the queue is retried later if needed.
+      void PracticeCompletionService.flush(accountId).catch(() => undefined);
       onCompleted();
     } catch (cause) {
       setLegacyError(cause instanceof Error ? cause.message : 'This session could not be saved.');
@@ -237,7 +319,7 @@ export function V2PracticeSessionScreen({
         <ArrowLeft size={20} color={colors.text.primary} />
         <Text style={styles.backText}>Practice</Text>
       </Pressable>
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content}>
         <Text style={[styles.eyebrow, { color: definition.accent }]}>
           {definition.title.toUpperCase()}
         </Text>
@@ -274,7 +356,7 @@ export function V2PracticeSessionScreen({
         >
           {remaining > 0 ? `Finish ${definition.title}` : `Complete ${definition.title}`}
         </V2Button>
-      </View>
+      </ScrollView>
     </V2Screen>
   );
 }
@@ -289,7 +371,7 @@ const styles = StyleSheet.create({
   },
   backText: { ...typography.labelLG, color: colors.text.primary },
   content: {
-    flex: 1,
+    flexGrow: 1,
     gap: spacing[5],
     paddingTop: spacing[4],
     justifyContent: 'space-between',
@@ -297,7 +379,7 @@ const styles = StyleSheet.create({
   },
   eyebrow: { ...typography.labelSM },
   title: { ...typography.displayMedium, color: colors.text.primary },
-  timerBlock: { alignItems: 'center', gap: spacing[2], paddingVertical: spacing[8] },
+  timerBlock: { alignItems: 'center', gap: spacing[2], paddingVertical: spacing[4] },
   timer: { ...typography.numericLarge },
   hint: { ...typography.bodyMD, color: colors.text.secondary, textAlign: 'center' },
   empty: { flex: 1, justifyContent: 'center' },

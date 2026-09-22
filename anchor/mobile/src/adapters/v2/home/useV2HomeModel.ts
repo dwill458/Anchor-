@@ -7,6 +7,7 @@ import { useV2Vision } from '@/hooks/v2/vision';
 import { resolveGreeting } from '@/constants/v2/home';
 import { V2_RECOMMENDATION_ACTION_TO_MODE, type V2PracticeMode } from '@/constants/v2/practice';
 import { fetchV2RecommendationContext, type V2RecommendationContext } from '@/adapters/v2/practice';
+import { peekV2RecommendationContext } from '@/adapters/v2/practice/recommendationCache';
 import { useSettingsStore } from '@/stores/settingsStore';
 import AuthHydrationService from '@/services/AuthHydrationService';
 import type { Anchor } from '@/types';
@@ -64,13 +65,57 @@ export type V2HomeModel = {
   refreshAnchors: () => Promise<void>;
 };
 
+type TodayDurations = { focus: number; deep_prime: number; visualize: number };
+type ReadyToday = Extract<V2HomeTodayState, { state: 'ready' }>;
+
+function toReadyToday(context: V2RecommendationContext, durations: TodayDurations): ReadyToday {
+  const mode = V2_RECOMMENDATION_ACTION_TO_MODE[context.recommendation.action];
+  return {
+    state: 'ready',
+    mode,
+    action: context.recommendation.action,
+    reason: context.recommendation.reason?.trim() ?? '',
+    durationSeconds: mode === 'release' ? undefined : durations[mode],
+    completionSignal: context.completionSignal,
+    threadStrength: typeof context.thread.strength === 'number' ? context.thread.strength : null,
+    threadDelta: context.thread.delta7d,
+    threadDeltaStatus: context.thread.delta7dStatus,
+  };
+}
+
+function sameReadyToday(a: ReadyToday, b: ReadyToday): boolean {
+  return (
+    a.mode === b.mode &&
+    a.action === b.action &&
+    a.reason === b.reason &&
+    a.durationSeconds === b.durationSeconds &&
+    (a.completionSignal?.id ?? null) === (b.completionSignal?.id ?? null) &&
+    a.threadStrength === b.threadStrength &&
+    a.threadDelta === b.threadDelta &&
+    a.threadDeltaStatus === b.threadDeltaStatus
+  );
+}
+
+/** The cached recommendation for this Anchor as a Today state, or loading when none has been seen. */
+function initialToday(anchorId: string | null, durations: TodayDurations): V2HomeTodayState {
+  if (!anchorId) return { state: 'none' };
+  const cached = peekV2RecommendationContext(anchorId);
+  return cached ? toReadyToday(cached, durations) : { state: 'loading' };
+}
+
 function useV2HomeToday(
   anchorId: string | null,
-  durations: { focus: number; deep_prime: number; visualize: number },
+  durations: TodayDurations,
 ): { today: V2HomeTodayState; refresh: () => Promise<void> } {
-  const [result, setResult] = useState<{ anchorId: string | null; today: V2HomeTodayState }>({ anchorId: null, today: { state: 'none' } });
+  const [result, setResult] = useState<{ anchorId: string | null; today: V2HomeTodayState }>(() => ({ anchorId, today: initialToday(anchorId, durations) }));
   const activeController = useRef<AbortController | null>(null);
 
+  /**
+   * Stale-while-revalidate. A refresh never takes a ready Today card back to
+   * its skeleton: Home refreshes on every focus, and that swap used to happen
+   * on the frames of the back transition. A revalidation that returns the same
+   * recommendation keeps the same object, so memoised sections do not render.
+   */
   const load = useCallback(async () => {
     activeController.current?.abort();
     if (!anchorId) {
@@ -80,29 +125,30 @@ function useV2HomeToday(
 
     const controller = new AbortController();
     activeController.current = controller;
-    setResult({ anchorId, today: { state: 'loading' } });
+    setResult((previous) =>
+      previous.anchorId === anchorId && previous.today.state === 'ready'
+        ? previous
+        : { anchorId, today: initialToday(anchorId, durations) },
+    );
     try {
       const context = await fetchV2RecommendationContext(anchorId, controller.signal);
       if (controller.signal.aborted) return;
-      const mode = V2_RECOMMENDATION_ACTION_TO_MODE[context.recommendation.action];
-      const durationSeconds = mode === 'release' ? undefined : durations[mode];
-      setResult({ anchorId, today: {
-        state: 'ready',
-        mode,
-        action: context.recommendation.action,
-        reason: context.recommendation.reason?.trim() ?? '',
-        durationSeconds,
-        completionSignal: context.completionSignal,
-        threadStrength: typeof context.thread.strength === 'number' ? context.thread.strength : null,
-        threadDelta: context.thread.delta7d,
-        threadDeltaStatus: context.thread.delta7dStatus,
-      } });
+      const next = toReadyToday(context, durations);
+      setResult((previous) =>
+        previous.anchorId === anchorId && previous.today.state === 'ready' && sameReadyToday(previous.today, next)
+          ? previous
+          : { anchorId, today: next },
+      );
     } catch (error: unknown) {
       if (controller.signal.aborted) return;
-      setResult({ anchorId, today: {
-        state: 'error',
-        message: error instanceof Error ? error.message : 'Today’s practice is unavailable.',
-      } });
+      setResult((previous) =>
+        previous.anchorId === anchorId && previous.today.state === 'ready'
+          ? previous
+          : { anchorId, today: {
+              state: 'error',
+              message: error instanceof Error ? error.message : 'Today’s practice is unavailable.',
+            } },
+      );
     }
   }, [anchorId, durations]);
 
@@ -112,8 +158,13 @@ function useV2HomeToday(
   }, [load]);
 
   // Selection can change before the effect above starts the next request.
-  // Never expose the prior Anchor's recommendation or delta in that render.
-  return { today: result.anchorId === anchorId ? result.today : anchorId ? { state: 'loading' } : { state: 'none' }, refresh: load };
+  // Never expose the prior Anchor's recommendation or delta in that render;
+  // a recommendation already cached for the new Anchor is shown immediately.
+  const pendingToday = useMemo(
+    () => (result.anchorId === anchorId ? null : initialToday(anchorId, durations)),
+    [anchorId, durations, result.anchorId],
+  );
+  return { today: pendingToday ?? result.today, refresh: load };
 }
 
 /** Home read model over the account-scoped Anchor, Vision, Course, and practice APIs. */
@@ -162,6 +213,9 @@ export function useV2HomeModel(): V2HomeModel {
       useAnchorStore.getState().setLoading(false);
     }
   }, [accountId]);
+
+  // Stable, so Home's focus listener is not re-subscribed on every model change.
+  const refreshChart = useCallback(() => refreshChartStore(accountId ?? undefined), [accountId, refreshChartStore]);
 
   useEffect(() => {
     setCourseFeatureFlags(chartServerFlags);
@@ -304,8 +358,8 @@ export function useV2HomeModel(): V2HomeModel {
       today,
       refreshVision: visionModel.refresh,
       refreshToday,
-      refreshChart: () => refreshChartStore(accountId ?? undefined),
+      refreshChart,
       refreshAnchors,
     };
-  }, [activeAnchors, anchorError, anchorList, anchorState, chart, displayName, profilePictureUrl, progress, recentActivity, refreshAnchors, refreshChartStore, refreshToday, selectAnchor, selectedAnchor, selectedIndex, today, vision, visionModel.refresh, accountId]);
+  }, [activeAnchors, anchorError, anchorList, anchorState, chart, displayName, profilePictureUrl, progress, recentActivity, refreshAnchors, refreshChart, refreshToday, selectAnchor, selectedAnchor, selectedIndex, today, vision, visionModel.refresh]);
 }

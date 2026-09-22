@@ -12,7 +12,7 @@ describe('V2FocusCompleteScreen', () => {
     jest.useRealTimers();
   });
 
-  it('renders "You returned." headline and practice duration', () => {
+  it('renders the Focus completion hierarchy', () => {
     const anchor = makeAnchor({
       id: 'a1',
       intentionText: 'Stay centered through change',
@@ -29,12 +29,12 @@ describe('V2FocusCompleteScreen', () => {
       />
     );
 
-    expect(screen.getByText('You returned.')).toBeTruthy();
-    expect(screen.getByText('30 sec practiced')).toBeTruthy();
+    expect(screen.getByText('Focus complete')).toBeTruthy();
+    expect(screen.getByText('You reinforced this Anchor.')).toBeTruthy();
     expect(screen.getByText('FOCUS COMPLETE')).toBeTruthy();
   });
 
-  it('renders "1 min practiced" for 60 second duration', () => {
+  it('keeps the completion hierarchy concise for a 60 second duration', () => {
     const anchor = makeAnchor({
       id: 'a1',
       intentionText: 'Stay centered through change',
@@ -51,7 +51,8 @@ describe('V2FocusCompleteScreen', () => {
       />
     );
 
-    expect(screen.getByText('1 min practiced')).toBeTruthy();
+    expect(screen.getByText('Focus complete')).toBeTruthy();
+    expect(screen.getByText('You reinforced this Anchor.')).toBeTruthy();
   });
 
   it('renders authoritative Thread Strength movement when before and after are provided', () => {
@@ -83,7 +84,7 @@ describe('V2FocusCompleteScreen', () => {
     });
   });
 
-  it('renders "THREAD FORMING" when thread strength is unmeasured, strictly never fabricating prototype increments', () => {
+  it('records completion without fabricating a Thread movement when strength is unmeasured', () => {
     const anchor = makeAnchor({
       id: 'a1',
       category: 'creativity',
@@ -101,10 +102,10 @@ describe('V2FocusCompleteScreen', () => {
       />
     );
 
-    expect(screen.getByText('THREAD FORMING')).toBeTruthy();
+    expect(screen.getByText('CONSISTENCY')).toBeTruthy();
     expect(
       screen.getByText(
-        'Each return gives Anchor more signal. Keep reinforcing it and your baseline will take shape.'
+        'Session recorded. Consistency appears once it is established.'
       )
     ).toBeTruthy();
 
@@ -113,7 +114,7 @@ describe('V2FocusCompleteScreen', () => {
     expect(screen.queryByText('+14')).toBeNull();
   });
 
-  it('triggers onDone when Done button is pressed', () => {
+  it('triggers onDone when Continue button is pressed', () => {
     const onDone = jest.fn();
     const anchor = makeAnchor({ id: 'a1' });
 

@@ -1,5 +1,6 @@
 import { apiClient } from '@/services/ApiClient';
 import type { V2RecommendationAction } from '@/constants/v2/practice';
+import { invalidateV2RecommendationContext, rememberV2RecommendationContext } from './recommendationCache';
 
 export type V2RecommendationSignalType = 'destination_reached' | 'waypoint_reached' | 'intention_completed';
 
@@ -28,10 +29,13 @@ export async function fetchV2RecommendationContext(anchorId: string, signal?: Ab
     { signal, params: { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' } },
   );
   if (!response.data.success || !response.data.data) throw new Error(response.data.error?.message ?? 'Recommendation is unavailable.');
+  rememberV2RecommendationContext(anchorId, response.data.data);
   return response.data.data;
 }
 
 /** This is intentionally called only from an explicit recommendation engagement/dismissal handler. */
 export async function acknowledgeV2RecommendationSignal(anchorId: string, signalId: string, signalType: V2RecommendationSignalType): Promise<void> {
   await apiClient.post(`/api/v2/anchors/${encode(anchorId)}/recommendation-signals/${encode(signalId)}/ack`, { signalType });
+  // An acknowledged signal changes what the next read returns.
+  invalidateV2RecommendationContext(anchorId);
 }

@@ -48,7 +48,7 @@ export function useV2ThreadEventQueue(options: QueueOptions = {}) {
     if (!enabled) return;
     setLoading(true); setError(null);
     try { await enqueue({ events: await fetchEligible(channel) }); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Thread Events are unavailable.'); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Anchor history is unavailable.'); }
     finally { setLoading(false); }
   }, [channel, enabled, enqueue, fetchEligible]);
 

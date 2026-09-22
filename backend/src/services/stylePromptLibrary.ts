@@ -88,7 +88,7 @@ export interface IntentionSignal {
 // ============================================================================
 
 export const GLOBAL_NEGATIVE_PROMPT =
-  'text, words, letters, phrases, captions, numbers, numerals, readable characters, fake writing, runes, invented alphabets, inscriptions, labels, readable diagrams, currency symbols, dollar sign, coins, cash, banknotes, credit cards, bank logos, charts, graphs, stock ticker, brand logos, watermark, copyright mark, clipart, sticker, icon pack, emoji, flat app icon, photorealistic human face, human figure, portrait, hands, body, literal scene, literal intention illustration, literal object explanation, literal nautical anchor, ship anchor, boat anchor, physical anchor, metal anchor, anchor object, anchor icon, anchor logo, anchor emoji, recognizable anchor silhouette, maritime imagery, harbor, ship, boat, generic mystical poster, generic occult poster, repetitive mandala, repetitive concentric-circle framing, generic sacred emblem, default glowing halo, stock fantasy glow, astrology wheel, zodiac poster, occult seal, distorted geometry, altered structure, altered shape, warped lines, broken Anchor, melted Anchor, obscured Anchor, broken sigil, melted sigil, blurry, muddy detail, low quality, random artifacts, overcrowded ornament';
+  'text, words, letters, phrases, captions, numbers, numerals, readable characters, fake writing, runes, invented alphabets, inscriptions, labels, readable diagrams, currency symbols, dollar sign, coins, cash, banknotes, credit cards, bank logos, charts, graphs, stock ticker, brand logos, watermark, copyright mark, clipart, sticker, icon pack, emoji, flat app icon, photorealistic human face, human figure, portrait, hands, body, literal scene, literal intention illustration, literal object explanation, literal nautical anchor, ship anchor, boat anchor, physical anchor, metal anchor, anchor object, anchor icon, anchor logo, anchor emoji, recognizable anchor silhouette, maritime imagery, harbor, ship, boat, generic mystical poster, generic occult poster, repetitive mandala, repetitive concentric-circle framing, generic sacred emblem, talisman, amulet, ceremonial border, medallion frame, added ring around the Anchor, default glowing halo, stock fantasy glow, astrology wheel, zodiac poster, occult seal, distorted geometry, altered structure, altered shape, warped lines, broken Anchor, melted Anchor, obscured Anchor, broken sigil, melted sigil, blurry, muddy detail, low quality, random artifacts, overcrowded ornament';
 
 export const LITERAL_ANCHOR_EXCLUSION = `
 LITERAL SUBJECT EXCLUSION — ABSOLUTE:
@@ -708,6 +708,15 @@ This Anchor embodies the intention "${cleanIntention}".
 The attached reference image contains the canonical Anchor geometry derived from the user’s intention.
 
 The Anchor geometry is the identity of the piece.
+
+PERSONAL MARK OF INTENT
+--------------------------------------------------
+The finished piece is the owner's personal mark of intent: closer to a private emblem, a maker's mark, a notebook stamp, or an athletic insignia than to a magical seal, talisman, or amulet.
+
+- The Anchor geometry is the hero. Give it clear presence and room to breathe.
+- Do not enclose it in added rings, borders, medallions, cartouches, or ceremonial frames. If the geometry itself contains a perimeter, preserve that perimeter exactly and add no other.
+- Keep it individual and handmade, with the character of this specific geometry. It must not become a corporate logo, an icon-set glyph, or an alphabet monogram.
+- Surrounding style belongs to the material and the field around the mark, never to decorative framing added around it.
 
 STRUCTURAL PRESERVATION — ABSOLUTE PRIORITY
 --------------------------------------------------

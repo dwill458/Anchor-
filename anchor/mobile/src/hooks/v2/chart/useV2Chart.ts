@@ -14,6 +14,7 @@ import {
 } from '@/adapters/v2/chart';
 import type { CourseDetail } from '@/types/chart';
 import type { Anchor } from '@/types';
+import { courseMatchesAnchor, courseSummaryMatchesAnchor } from '@/adapters/v2/home/chartAdapter';
 
 export interface UseV2ChartResult {
   chart: V2ChartPresentationState | null;
@@ -44,6 +45,7 @@ export interface UseV2ChartResult {
 
 export function useV2Chart(courseIdProp?: string, anchorIdProp?: string): UseV2ChartResult {
   const activeCourseFromStore = useCourseStore((s) => s.activeCourse);
+  const courseSummaries = useCourseStore((s) => s.courses);
   const fetchCourseDetail = useCourseStore((s) => s.fetchCourseDetail);
   const editWaypointInStore = useCourseStore((s) => s.editWaypoint);
   const reorderWaypointsInStore = useCourseStore((s) => s.reorderWaypoints);
@@ -70,8 +72,11 @@ export function useV2Chart(courseIdProp?: string, anchorIdProp?: string): UseV2C
   const resolvedAnchorId = activeAnchor?.id ?? '';
   const { vision, tiles } = useV2Vision(resolvedAnchorId);
 
-  const [course, setCourse] = useState<CourseDetail | null>(activeCourseFromStore);
-  const [loading, setLoading] = useState<boolean>(Boolean(courseIdProp && !activeCourseFromStore));
+  const linkedActiveCourse = activeCourseFromStore && activeAnchor && courseMatchesAnchor(activeCourseFromStore, activeAnchor)
+    ? activeCourseFromStore : null;
+  const linkedSummary = activeAnchor ? courseSummaries.find(summary => summary.status === 'ACTIVE' && courseSummaryMatchesAnchor(summary, activeAnchor)) : null;
+  const [course, setCourse] = useState<CourseDetail | null>(anchorIdProp ? linkedActiveCourse : activeCourseFromStore);
+  const [loading, setLoading] = useState<boolean>(Boolean(courseIdProp && !linkedActiveCourse));
   const [error, setError] = useState<string | null>(null);
   const [isReaching, setIsReaching] = useState<boolean>(false);
   const [template, setTemplateState] = useState<ChartRouteTemplate>('gentle-s');
@@ -88,15 +93,18 @@ export function useV2Chart(courseIdProp?: string, anchorIdProp?: string): UseV2C
     };
   }, []);
 
-  const targetCourseId = courseIdProp ?? activeCourseFromStore?.id ?? '';
+  const targetCourseId = courseIdProp ?? linkedActiveCourse?.id ?? linkedSummary?.id ?? (anchorIdProp ? '' : activeCourseFromStore?.id ?? '');
 
   // Synchronize with active course from store
   useEffect(() => {
-    if (activeCourseFromStore && (!courseIdProp || activeCourseFromStore.id === courseIdProp)) {
+    if (activeCourseFromStore && (!courseIdProp || activeCourseFromStore.id === courseIdProp) && (!anchorIdProp || linkedActiveCourse)) {
       setCourse(activeCourseFromStore);
       setLoading(false);
+    } else if (anchorIdProp && !targetCourseId) {
+      setCourse(null);
+      setLoading(false);
     }
-  }, [activeCourseFromStore, courseIdProp]);
+  }, [activeCourseFromStore, anchorIdProp, courseIdProp, linkedActiveCourse, targetCourseId]);
 
   // Load custom moves and preferences from encrypted storage whenever course changes
   useEffect(() => {
@@ -147,7 +155,11 @@ export function useV2Chart(courseIdProp?: string, anchorIdProp?: string): UseV2C
     try {
       const fetched = await fetchCourseDetail(targetCourseId);
       if (fetched && isMountedRef.current) {
-        setCourse(fetched);
+        if (anchorIdProp && (!activeAnchor || !courseMatchesAnchor(fetched, activeAnchor))) {
+          setError('This Chart does not belong to the selected Anchor.');
+        } else {
+          setCourse(fetched);
+        }
       }
     } catch (err: unknown) {
       if (!isMountedRef.current) return;
@@ -158,13 +170,13 @@ export function useV2Chart(courseIdProp?: string, anchorIdProp?: string): UseV2C
         setLoading(false);
       }
     }
-  }, [targetCourseId, fetchCourseDetail]);
+  }, [targetCourseId, fetchCourseDetail, anchorIdProp, activeAnchor]);
 
   useEffect(() => {
-    if (!course && targetCourseId) {
+    if (!course && targetCourseId && !error) {
       loadCourse();
     }
-  }, [course, targetCourseId, loadCourse]);
+  }, [course, targetCourseId, loadCourse, error]);
 
   const setTemplate = useCallback((tmpl: ChartRouteTemplate) => {
     setTemplateState(tmpl);

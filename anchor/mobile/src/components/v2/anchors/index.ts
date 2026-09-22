@@ -4,6 +4,8 @@ export { V2FormationProvenance } from './V2FormationProvenance';
 export { V2AnchorRecentPractice } from './V2AnchorRecentPractice';
 export {
   anchorArtworkSvg,
+  anchorKeptExpression,
+  anchorRenderProps,
   categoryLabel,
   shortDate,
   durationLabel,

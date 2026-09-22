@@ -1,14 +1,18 @@
-import React, { memo, useCallback, useRef } from 'react';
+import React, { memo, useCallback, useEffect, useRef } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions, type GestureResponderEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { interpolate, useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
 import Svg, { Circle, G, Path } from 'react-native-svg';
 import { colors, getCategoryColor, typography } from '@/theme/v2';
-import { anchorArtworkSvg, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
+import { anchorRenderProps, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
 import { CircularAnchorRenderer } from '@/components/v2';
 import type { V2HomeAnchorSummary, V2ThreadPresentation } from '@/adapters/v2/home';
-import { V2HomeAnchorCarousel, type CarouselSlot } from './V2HomeAnchorCarousel';
-import { resolveHomeHeroLayout } from './homeHeroLayout';
+import { V2HomeAnchorCarousel, NEIGHBOUR_SCALE, type CarouselSlot } from './V2HomeAnchorCarousel';
+import { resolveHomeHeroLayout, HERO_INTENTION_MAX_LINES } from './homeHeroLayout';
+import { useHomeArrivalContext } from './homeArrival';
+
+/** Share of the paper disc the mark itself occupies (CircularAnchorRenderer's paper artwork). */
+const PAPER_ARTWORK_SHARE = 0.72;
 
 type Props = {
   anchors: V2HomeAnchorSummary[];
@@ -36,41 +40,45 @@ function IntentionMark({ color }: { color: string }) {
   );
 }
 
-/** The original handmade construction marks travel with each Anchor. */
+/**
+ * One hand-drawn, slightly open pencil line around the paper disc. It belongs
+ * to the carousel's presentation - the frame the mark is shown in - and never
+ * to the Anchor mark itself. It is deliberately a single stroke: a second
+ * orbit and cardinal tick marks read as a seal or compass rose, not as a
+ * personal mark sitting on paper.
+ */
 const ConstructionStrokes = memo(function ConstructionStrokes({ color, size }: { color: string; size: number }) {
   const c = size / 2;
   const outer = size * 0.452;
-  const inner = size * 0.418;
-  const tickGap = size * 0.478;
-  const tick = size * 0.022;
   return <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
     <G strokeLinecap="round" fill="none">
-      <Circle cx={c - size * 0.005} cy={c + size * 0.004} r={outer} stroke={color} strokeWidth={1.3}
-        strokeOpacity={0.42} strokeDasharray={`${outer * 5.4} ${outer * 0.5}`} transform={`rotate(-24 ${c} ${c})`} />
-      <Circle cx={c + size * 0.008} cy={c - size * 0.006} r={inner} stroke={color} strokeWidth={0.8}
-        strokeOpacity={0.2} strokeDasharray={`${inner * 2.1} ${inner * 0.9} ${inner * 3.3} ${inner * 0.35}`}
-        transform={`rotate(118 ${c} ${c})`} />
-      <Path d={`M ${c} ${c - tickGap} l 0 ${-tick * 1.6}`} stroke={color} strokeOpacity={0.34} strokeWidth={1.2} />
-      <Path d={`M ${c + tickGap} ${c + size * 0.004} l ${tick * 1.3} 0`} stroke={color} strokeOpacity={0.24} strokeWidth={1.1} />
-      <Path d={`M ${c - size * 0.008} ${c + tickGap} l 0 ${tick * 1.9}`} stroke={color} strokeOpacity={0.3} strokeWidth={1.1} />
-      <Path d={`M ${c - tickGap} ${c - size * 0.01} l ${-tick * 1.1} 0`} stroke={color} strokeOpacity={0.18} strokeWidth={1} />
+      <Circle cx={c - size * 0.005} cy={c + size * 0.004} r={outer} stroke={color} strokeWidth={1.2}
+        strokeOpacity={0.34} strokeDasharray={`${outer * 5.4} ${outer * 0.5}`} transform={`rotate(-24 ${c} ${c})`} />
     </G>
   </Svg>;
 });
 
 /**
- * Compact contextual Thread Strength reading. The brief is explicit that this
+ * Compact contextual Consistency reading (the Thread Strength engine's value,
+ * presented under its user-facing name). The brief is explicit that this
  * belongs inside the cream hero and that "Not yet measured" must never be the
  * largest typography on Home, so the null state stays in this same small row.
  * `value` and `delta` are server-authoritative; nothing here derives movement.
  */
+/** Server delta7d as a direction + magnitude: `↑ 5% this week`, `↓ 21% this week`. */
+export function consistencyDeltaLabel(delta: number): string {
+  if (delta > 0) return `↑ ${delta}% this week`;
+  if (delta < 0) return `↓ ${Math.abs(delta)}% this week`;
+  return 'Steady this week';
+}
+
 function ThreadReading({ thread, accent, active }: { thread: V2ThreadPresentation; accent: string; active: boolean }) {
   const measured = thread.value !== null;
   const delta = thread.delta;
   const hasDelta = measured && typeof delta === 'number' && Number.isFinite(delta);
   return (
     <View testID={active ? 'v2-home-thread-reading' : undefined} style={styles.threadRow}>
-      <Text style={styles.threadLabel}>Thread Strength</Text>
+      <Text style={styles.threadLabel}>Consistency</Text>
       {measured ? (
         <Text testID={active ? 'v2-home-thread-value' : undefined} style={[styles.threadValue, { color: accent }]}>
           {`${thread.value}%`}
@@ -79,25 +87,26 @@ function ThreadReading({ thread, accent, active }: { thread: V2ThreadPresentatio
       {measured ? (
         hasDelta ? (
           <Text testID={active ? 'v2-home-thread-delta' : undefined} style={styles.threadDelta}>
-            {`${(delta as number) > 0 ? '↑ +' : (delta as number) < 0 ? '↓ ' : '— '}${delta}% this week`}
+            {consistencyDeltaLabel(delta as number)}
           </Text>
         ) : null
       ) : (
         <Text testID={active ? 'v2-home-thread-unmeasured' : undefined} style={styles.threadDelta}>
-          · Not yet measured
+          · Not established yet
         </Text>
       )}
     </View>
   );
 }
 
-function AnchorHeroItem({ summary, index, total, slot, offset, spacing, anchorSize, artworkBoxHeight, constructionSize, thread, onOpenActive, onOpenProgress, onOpenAllAnchors }: {
+function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, anchorSize, artworkBoxHeight, constructionSize, thread, onOpenActive, onOpenProgress, onOpenAllAnchors }: {
   summary: V2HomeAnchorSummary;
   index: number;
   total: number;
   slot: CarouselSlot;
   offset: SharedValue<number>;
   spacing: number;
+  gutter: number;
   anchorSize: number;
   artworkBoxHeight: number;
   constructionSize: number;
@@ -111,13 +120,39 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, anchorSi
   const artworkMotion = useAnimatedStyle(() => {
     const distance = Math.abs(slot * spacing + offset.value);
     return {
-      opacity: interpolate(distance, [0, spacing], [1, 0.55], 'clamp'),
-      transform: [{ scale: interpolate(distance, [0, spacing], [1, 68 / anchorSize], 'clamp') }],
+      opacity: interpolate(distance, [0, spacing], [1, 0.7], 'clamp'),
+      transform: [{ scale: interpolate(distance, [0, spacing], [1, NEIGHBOUR_SCALE], 'clamp') }],
     };
   });
   const textMotion = useAnimatedStyle(() => ({
     opacity: interpolate(Math.abs(slot * spacing + offset.value), [0, spacing * 0.55], [1, 0], 'clamp'),
   }));
+  // A just-created Anchor arriving from creation needs to know exactly where its mark will rest.
+  const arrival = useHomeArrivalContext();
+  const discRef = useRef<View>(null);
+  const measuring = Boolean(arrival?.active && arrival.phase === 'staging' && slot === 0);
+  const reportTarget = arrival?.reportTarget;
+  useEffect(() => {
+    if (!measuring || !reportTarget) return undefined;
+    // One beat for Home to settle at the top of the page before it is measured.
+    const timer = setTimeout(() => {
+      const disc = discRef.current;
+      if (!disc || typeof disc.measureInWindow !== 'function') {
+        reportTarget(null);
+        return;
+      }
+      disc.measureInWindow((x, y, width, height) => {
+        if (![x, y, width, height].every(Number.isFinite) || width <= 0) {
+          reportTarget(null);
+          return;
+        }
+        const art = width * PAPER_ARTWORK_SHARE;
+        reportTarget({ x: x + (width - art) / 2, y: y + (height - art) / 2, width: art, height: art });
+      });
+    }, 60);
+    return () => clearTimeout(timer);
+  }, [measuring, reportTarget]);
+
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const moved = useRef(false);
   const recordTouchStart = useCallback((event: GestureResponderEvent) => {
@@ -142,7 +177,7 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, anchorSi
   }, [anchor.id, offset, onOpenActive]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingHorizontal: gutter }]}>
       <Animated.View style={[styles.contextRow, textMotion]} pointerEvents={slot === 0 ? 'auto' : 'none'}>
         <View style={styles.categoryGroup}>
           <View style={[styles.categoryDash, { backgroundColor: accent }]} />
@@ -172,7 +207,19 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, anchorSi
       </Animated.View>
 
       <Animated.View style={[styles.artworkBox, { height: artworkBoxHeight }, artworkMotion]}>
-        <View style={styles.construction} pointerEvents="none">
+        <View
+          style={[
+            styles.construction,
+            {
+              width: constructionSize,
+              height: constructionSize,
+              left: '50%',
+              top: (artworkBoxHeight - constructionSize) / 2,
+              marginLeft: -constructionSize / 2,
+            },
+          ]}
+          pointerEvents="none"
+        >
           <ConstructionStrokes color={accent} size={constructionSize} />
         </View>
         <View style={[styles.anchorMount, { width: anchorSize + 14, height: anchorSize + 14, borderRadius: (anchorSize + 14) / 2, borderColor: `${accent}30` }]}>
@@ -181,16 +228,17 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, anchorSi
             accessibilityLabel={`${anchor.intentionText}. ${categoryLabel(anchor.category)}. View Anchor details.`}
             onPressIn={recordTouchStart} onTouchMove={recordTouchMove}
             onPress={handleOpen} disabled={slot !== 0 || !onOpenActive}>
-            <CircularAnchorRenderer svg={anchorArtworkSvg(anchor)} imageUrl={anchor.enhancedImageUrl}
-              category={anchor.category} size={anchorSize} appearance="paper"
-              accessibilityLabel={`${categoryLabel(anchor.category)} Anchor artwork`} />
+            <View ref={discRef} collapsable={false}>
+              <CircularAnchorRenderer {...anchorRenderProps(anchor)} size={anchorSize} appearance="paper"
+                accessibilityLabel={`${categoryLabel(anchor.category)} Anchor artwork`} />
+            </View>
           </Pressable>
         </View>
       </Animated.View>
 
       <Animated.View style={textMotion} pointerEvents={slot === 0 ? 'auto' : 'none'}>
         <View style={styles.intentionBlock}>
-        <Text testID={slot === 0 ? 'v2-home-intention' : undefined} style={styles.intention}>
+        <Text testID={slot === 0 ? 'v2-home-intention' : undefined} style={styles.intention} numberOfLines={HERO_INTENTION_MAX_LINES}>
           {anchor.intentionText}
         </Text>
         <View style={styles.intentionMark}>
@@ -204,8 +252,8 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, anchorSi
           accessibilityRole={onOpenProgress ? 'button' : undefined}
           accessibilityLabel={
             thread.value === null
-              ? 'Thread Strength not yet measured. Open Progress.'
-              : `Thread Strength ${thread.value} percent. Open Progress.`
+              ? 'Consistency not established yet. Open Progress.'
+              : `Consistency ${thread.value} percent. Open Progress.`
           }
           onPress={onOpenProgress}
           disabled={!onOpenProgress}
@@ -229,13 +277,13 @@ function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, o
     intentions: anchors.map(({ anchor }) => anchor.intentionText),
   });
   const renderHero = useCallback((summary: V2HomeAnchorSummary, index: number, slot: CarouselSlot, offset: SharedValue<number>, spacing: number) => (
-    <AnchorHeroItem summary={summary} index={index} total={anchors.length} slot={slot} offset={offset} spacing={spacing}
+    <AnchorHeroItem summary={summary} index={index} total={anchors.length} slot={slot} offset={offset} spacing={spacing} gutter={layout.gutter}
       anchorSize={layout.anchorSize} artworkBoxHeight={layout.artworkBoxHeight} constructionSize={layout.constructionSize}
       thread={index === selectedIndex && thread ? thread : summary.thread}
       onOpenActive={onOpenActive} onOpenProgress={onOpenProgress} onOpenAllAnchors={onOpenAllAnchors} />
-  ), [anchors.length, layout.anchorSize, layout.artworkBoxHeight, layout.constructionSize, onOpenActive, onOpenAllAnchors, onOpenProgress, selectedIndex, thread]);
+  ), [anchors.length, layout.gutter, layout.anchorSize, layout.artworkBoxHeight, layout.constructionSize, onOpenActive, onOpenAllAnchors, onOpenProgress, selectedIndex, thread]);
   return <View testID={testID}>
-    <V2HomeAnchorCarousel testID="v2-home-carousel" anchors={anchors} selectedIndex={selectedIndex} heroHeight={layout.trackHeight}
+    <V2HomeAnchorCarousel testID="v2-home-carousel" anchors={anchors} selectedIndex={selectedIndex} heroHeight={layout.trackHeight} anchorSize={layout.anchorSize}
       onSelect={onSelect} onOpenActive={onOpenActive} reduceMotion={reduceMotion} renderHero={renderHero} />
   </View>;
 }
@@ -251,7 +299,6 @@ const styles = StyleSheet.create({
   },
   construction: {
     position: 'absolute',
-    top: 0,
   },
   anchorMount: {
     padding: 6,

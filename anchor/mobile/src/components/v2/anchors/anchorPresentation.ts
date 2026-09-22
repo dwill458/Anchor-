@@ -1,8 +1,34 @@
 import type { Anchor } from '@/types';
+import type { AnchorExpression } from '@/constants/v2/creation';
+import { normalizeExpression } from '@/components/v2/anchor/anchorExpressions';
 
 /** The stable artwork source: user-reinforced geometry if present, else base. */
 export function anchorArtworkSvg(anchor: Pick<Anchor, 'baseSigilSvg' | 'reinforcedSigilSvg'>): string {
   return anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg;
+}
+
+/**
+ * The kept expression, or undefined for an Anchor that never recorded one — those keep
+ * rendering their stored SVG exactly as they always have.
+ */
+export function anchorKeptExpression(anchor: Pick<Anchor, 'classifierMeta'>): AnchorExpression | undefined {
+  const stored = anchor.classifierMeta?.v2Expression;
+  return typeof stored === 'string' && stored ? normalizeExpression(stored) : undefined;
+}
+
+/**
+ * Structure + expression + finished artwork for one Anchor, resolved in one place so every
+ * surface that spreads it into `CircularAnchorRenderer` shows the same Anchor the same way.
+ */
+export function anchorRenderProps(
+  anchor: Pick<Anchor, 'baseSigilSvg' | 'reinforcedSigilSvg' | 'enhancedImageUrl' | 'category' | 'classifierMeta'>,
+): { svg: string; imageUrl?: string; category: string; expression?: AnchorExpression } {
+  return {
+    svg: anchorArtworkSvg(anchor),
+    imageUrl: anchor.enhancedImageUrl,
+    category: anchor.category,
+    expression: anchorKeptExpression(anchor),
+  };
 }
 
 /**

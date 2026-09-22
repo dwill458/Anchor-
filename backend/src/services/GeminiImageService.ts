@@ -9,6 +9,9 @@ import { GoogleGenAI } from '@google/genai';
 import sharp from 'sharp';
 import { logger } from '../utils/logger';
 import { buildStylePrompt, getStyleNegativePrompt } from './stylePromptLibrary';
+import {
+  buildVisionScenePlannerPrompt, parseVisionScenePlan, VISION_IMAGE_ASPECT_RATIO, type VisionScenePlanItem,
+} from './v2/visionScenePlanning';
 
 // Re-exporting interfaces for compatibility
 export interface ImageVariation {
@@ -40,6 +43,8 @@ interface ModelConfig {
 // Flash model: used for all standard enhancements (paid default)
 // Pro model: reserved for regenerations (attempt 3+) and 4K downloads
 const FLASH_MODEL = process.env.GEMINI_FLASH_MODEL || 'gemini-3.1-flash-image-preview';
+const SCENE_PLANNER_MODEL = process.env.GEMINI_SCENE_PLANNER_MODEL || 'gemini-3.6-flash';
+const VISION_IMAGE_MODEL = process.env.GEMINI_VISION_IMAGE_MODEL || 'gemini-3.1-flash-image';
 const PRO_MODEL = process.env.GEMINI_PRO_MODEL || 'gemini-3-pro-image-preview';
 
 const MODEL_CONFIGS: Record<QualityTier, ModelConfig> = {
@@ -131,6 +136,45 @@ export class GeminiImageService {
       min: baseTime * 3,
       max: baseTime * 6,
     };
+  }
+
+  /** Vision uses the Anchor image provider and credentials, with its own scene direction. */
+  async planVisionScenes(
+    intention: string,
+    category: string,
+    description: string,
+    avoidScenes: string[] = [],
+  ): Promise<VisionScenePlanItem[]> {
+    if (!this.isAvailable()) throw new GeminiError(GeminiErrorType.INVALID_API_KEY, 'Image provider unavailable');
+    const response = await this.client.models.generateContent({
+      model: SCENE_PLANNER_MODEL,
+      contents: [{ role: 'user', parts: [{ text: buildVisionScenePlannerPrompt({ intention, category, description, avoidScenes }) }] }],
+      config: { responseMimeType: 'application/json', temperature: 1 },
+    });
+    const plan = parseVisionScenePlan(response.text);
+    if (!plan) throw new GeminiError(GeminiErrorType.INVALID_IMAGE, 'Scene planning returned an invalid result', true);
+    return plan;
+  }
+
+  async generateVisionScene(prompt: string): Promise<Buffer> {
+    if (!this.isAvailable()) throw new GeminiError(GeminiErrorType.INVALID_API_KEY, 'Image provider unavailable');
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 90000);
+    try {
+      const response = await this.client.models.generateContent({
+        model: VISION_IMAGE_MODEL,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        // Portrait-first: Visualize is a full-screen portrait experience, so the
+        // model composes for it rather than having a square cropped later.
+        config: { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: VISION_IMAGE_ASPECT_RATIO }, abortSignal: controller.signal },
+      });
+      const data = response.candidates?.flatMap(candidate => candidate.content?.parts ?? [])
+        .find(part => typeof part.inlineData?.data === 'string')?.inlineData?.data;
+      if (!data) throw new GeminiError(GeminiErrorType.INVALID_IMAGE, 'Image provider returned no image', true);
+      return Buffer.from(data, 'base64');
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   async enhanceSigil(params: {

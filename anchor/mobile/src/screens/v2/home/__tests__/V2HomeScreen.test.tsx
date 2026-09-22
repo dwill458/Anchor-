@@ -1,4 +1,5 @@
 import React from 'react';
+import { Image } from 'react-native';
 import { render, fireEvent, screen } from '@testing-library/react-native';
 
 const mockNavigate = jest.fn();
@@ -108,6 +109,8 @@ beforeEach(() => {
   useCourseStore.setState({ activeCourse: null });
 });
 
+type ReactTestInstance = ReturnType<typeof screen.getByTestId>;
+
 const oneAnchor = () =>
   useAnchorStore.setState({
     anchors: [makeAnchor({ id: 'a', localId: 'a', intentionText: 'I finish what matters', category: 'desire', threadStrength: 74 })],
@@ -128,11 +131,31 @@ describe('Home structure', () => {
     expect(screen.queryByText('See all')).toBeNull();
   });
 
-  it('keeps Thread Strength as a compact hero reading, not a giant block', () => {
+  it('signs the brand mark into the ink field, detached from the splice and ahead of Today', () => {
+    oneAnchor();
+    renderHome();
+    const splice = screen.getByTestId('v2-home-splice', { includeHiddenElements: true });
+    const graphite = screen.getByTestId('v2-home-graphite-zone');
+    expect(screen.getByTestId('v2-home-brand-mark', { includeHiddenElements: true })).toBeTruthy();
+    // The cream landscape carries nothing at its point.
+    expect(splice.findAll((node: ReactTestInstance) => node.props.source != null, { deep: true }).length).toBe(0);
+    // The mark opens the ink zone, before Today.
+    const order = graphite
+      .findAll((node: ReactTestInstance) => typeof node.props.testID === 'string' && node.props.testID.startsWith('v2-home-'), { deep: true })
+      .map((node: ReactTestInstance) => node.props.testID as string)
+      .filter((id: string, index: number, all: string[]) => all.indexOf(id) === index);
+    expect(order.indexOf('v2-home-brand-mark')).toBeGreaterThanOrEqual(0);
+    expect(order.indexOf('v2-home-brand-mark')).toBeLessThan(order.indexOf('v2-home-today'));
+  });
+
+  it('keeps Consistency as a compact hero reading, not a giant block', () => {
     oneAnchor();
     renderHome();
     const reading = screen.getByTestId('v2-home-thread-reading');
     expect(reading).toBeTruthy();
+    // Thread Strength is presented to users as Consistency.
+    expect(screen.getByText('Consistency')).toBeTruthy();
+    expect(screen.queryByText(/Thread Strength/)).toBeNull();
     expect(screen.getByTestId('v2-home-thread-value').props.children).toBe('74%');
     // The old 53pt numeric block no longer exists on Home.
     expect(screen.queryByTestId('v2-thread-strength-value')).toBeNull();
@@ -173,14 +196,14 @@ describe('Home structure', () => {
   });
 });
 
-describe('Thread Strength states', () => {
-  it('shows "Not yet measured" only inside the small hero row when strength is null', () => {
+describe('Consistency (Thread Strength) states', () => {
+  it('shows "Not established yet" only inside the small hero row when strength is null', () => {
     useAnchorStore.setState({
       anchors: [makeAnchor({ id: 'a', localId: 'a', threadStrength: undefined })],
       currentAnchorId: 'a',
     });
     renderHome();
-    expect(screen.getByTestId('v2-home-thread-unmeasured')).toBeTruthy();
+    expect(screen.getByTestId('v2-home-thread-unmeasured').props.children).toBe('· Not established yet');
     // Never coerced to a number.
     expect(screen.queryByTestId('v2-home-thread-value')).toBeNull();
     expect(screen.queryByText('0%')).toBeNull();
@@ -193,11 +216,20 @@ describe('Thread Strength states', () => {
     expect(screen.queryByText(/this week/i)).toBeNull();
   });
 
-  it('renders the server-supplied delta verbatim when it exists', () => {
+  it('renders the server-supplied delta as direction + magnitude when it exists', () => {
     oneAnchor();
     const anchor = useAnchorStore.getState().anchors[0];
-    renderHome({}, { thread: { ...toThreadPresentation(anchor), delta: 8, trend: 'up' } });
-    expect(screen.getByTestId('v2-home-thread-delta').props.children).toBe('↑ +8% this week');
+    for (const [delta, trend, expected] of [
+      [8, 'up', '↑ 8% this week'],
+      [-21, 'down', '↓ 21% this week'],
+      [0, 'flat', 'Steady this week'],
+    ] as const) {
+      const view = renderHome({}, { thread: { ...toThreadPresentation(anchor), delta, trend } });
+      expect(screen.getByTestId('v2-home-thread-delta').props.children).toBe(expected);
+      // The established value is unchanged by the delta; nothing is re-derived client side.
+      expect(screen.getByTestId('v2-home-thread-value').props.children).toBe('74%');
+      view.unmount();
+    }
   });
 });
 
@@ -206,7 +238,7 @@ describe('Today', () => {
     oneAnchor();
     renderHome();
     expect(screen.getByTestId('v2-home-today-headline').props.children).toBe('Focus');
-    expect(screen.getByTestId('v2-home-today-reason').props.children).toBe('Build the thread today.');
+    expect(screen.getByTestId('v2-home-today-reason').props.children).toBe('Build consistency today.');
     expect(screen.queryByText('daily_focus')).toBeNull();
     expect(screen.queryByText(/_/)).toBeNull();
   });
@@ -215,7 +247,9 @@ describe('Today', () => {
     oneAnchor();
     for (const [reason, mode, expected] of [
       ['unseen_vision', 'visualize', 'You have not seen your Vision today.'],
-      ['thread_decay', 'deep_prime', 'The thread softened this week. Go deeper.'],
+      ['thread_decay', 'deep_prime', 'Consistency dipped this week. Go deeper.'],
+      ['deep_reinforcement', 'deep_prime', 'A longer session to go deeper.'],
+      ['vision_scene', 'visualize', 'Step back into your Vision.'],
       ['destination_reached', 'release', 'You reached your destination. Close the loop.'],
     ] as const) {
       const view = renderHome({}, { today: { state: 'ready', mode, action: 'Focus', reason, completionSignal: null, threadStrength: null, threadDelta: null, threadDeltaStatus: 'UNAVAILABLE', durationSeconds: mode === 'release' ? undefined : 120 } });
@@ -227,6 +261,21 @@ describe('Today', () => {
     renderHome({}, { today: { state: 'ready', mode: 'focus', action: 'Focus', reason: 'some_future_code', completionSignal: null, threadStrength: null, threadDelta: null, threadDeltaStatus: 'UNAVAILABLE', durationSeconds: 30 } });
     expect(screen.queryByText('some_future_code')).toBeNull();
     expect(screen.getByTestId('v2-home-today-reason').props.children).toBe('Daily reinforcement for your Anchor');
+  });
+
+  it('presents every recommended mode by its user-facing name (Deep Prime shows as Deep Focus)', () => {
+    oneAnchor();
+    for (const [mode, action, reason, title] of [
+      ['focus', 'Focus', 'daily_focus', 'Focus'],
+      ['deep_prime', 'Deep Prime', 'thread_decay', 'Deep Focus'],
+      ['visualize', 'Visualize', 'unseen_vision', 'Visualize'],
+      ['release', 'Release', 'destination_reached', 'Release'],
+    ] as const) {
+      const view = renderHome({}, { today: { state: 'ready', mode, action, reason, completionSignal: null, threadStrength: 26, threadDelta: mode === 'deep_prime' ? -21 : 0, threadDeltaStatus: 'AVAILABLE', durationSeconds: mode === 'release' ? undefined : 120 } });
+      expect(screen.getByTestId('v2-home-today-headline').props.children).toBe(title);
+      expect(screen.queryByText(/Deep Prime/)).toBeNull();
+      view.unmount();
+    }
   });
 
   it('starts the recommended practice for the active Anchor', () => {
@@ -264,7 +313,7 @@ describe('Conditional Vision and Chart', () => {
     renderHome();
     expect(screen.queryByTestId('v2-home-vision')).toBeNull();
     expect(screen.queryByTestId('v2-home-chart')).toBeNull();
-    expect(screen.queryByText('VISION')).toBeNull();
+    expect(screen.queryByText('YOUR VISION')).toBeNull();
       expect(screen.queryByText('CHART')).toBeNull();
       expect(screen.getByTestId('v2-home-progress')).toBeTruthy();
   });
@@ -327,7 +376,7 @@ describe('Conditional Vision and Chart', () => {
 
     renderHome({}, { vision: { state: 'error', message: 'offline' } });
     expect(screen.queryByTestId('v2-home-vision')).toBeNull();
-    expect(screen.queryByText('VISION')).toBeNull();
+    expect(screen.queryByText('YOUR VISION')).toBeNull();
   });
 
   it('routes Vision and Chart to their real surfaces for the active Anchor', () => {
@@ -339,6 +388,102 @@ describe('Conditional Vision and Chart', () => {
     expect(onOpenVision).toHaveBeenCalledWith('a');
     fireEvent.press(screen.getByTestId('v2-home-chart'));
     expect(onOpenChart).toHaveBeenCalledWith('a', 'c1');
+  });
+
+  it('state A — Vision unseen today: "YOUR VISION", never a false "Seen today", CTA is Enter Vision', () => {
+    oneAnchor();
+    renderHome({}, { vision: readyVision });
+    expect(screen.getByText('YOUR VISION')).toBeTruthy();
+    expect(screen.queryByTestId('v2-home-vision-seen')).toBeNull();
+    expect(screen.getByText('Enter Vision')).toBeTruthy();
+    expect(screen.queryByText('Revisit Vision')).toBeNull();
+  });
+
+  it('state B — Vision seen today, from the real backend flag: "YOUR VISION" + "Seen today", CTA is Revisit Vision', () => {
+    oneAnchor();
+    renderHome({}, { vision: { ...readyVision, seenToday: true } });
+    expect(screen.getByText('YOUR VISION')).toBeTruthy();
+    expect(screen.getByTestId('v2-home-vision-seen')).toBeTruthy();
+    expect(screen.getByText('Revisit Vision')).toBeTruthy();
+    expect(screen.queryByText('Enter Vision')).toBeNull();
+  });
+
+  it('renders the real Vision statement, and the whole photograph is one tap target', () => {
+    const onOpenVision = jest.fn();
+    oneAnchor();
+    renderHome({ onOpenVision }, { vision: readyVision });
+    expect(screen.getByTestId('v2-home-vision-title').props.children).toBe('Studio at dawn');
+    fireEvent.press(screen.getByTestId('v2-home-vision'));
+    expect(onOpenVision).toHaveBeenCalledWith('a');
+  });
+
+  it('a Vision with real text but no cover image renders without fabricating a photograph', () => {
+    oneAnchor();
+    renderHome({}, { vision: { state: 'ready', visionId: 'v2', previewText: 'A future with only words so far', tiles: [], seenToday: false } });
+    expect(screen.getByTestId('v2-home-vision')).toBeTruthy();
+    expect(screen.queryByTestId('v2-home-vision-image')).toBeNull();
+    expect(screen.getByText('A future with only words so far')).toBeTruthy();
+  });
+
+  it('Today borrows the real Vision cover only when the recommendation is Visualize', () => {
+    oneAnchor();
+    const visualizeToday = { state: 'ready' as const, mode: 'visualize' as const, action: 'Visualize' as const, reason: 'unseen_vision', completionSignal: null, threadStrength: null, threadDelta: null, threadDeltaStatus: 'UNAVAILABLE' as const, durationSeconds: 90 };
+
+    // Visualize + a real Vision cover: Today's artwork is the Vision photo.
+    let view = renderHome({}, { today: visualizeToday, vision: readyVision });
+    expect(screen.getByTestId('v2-home-today-artwork-vision')).toBeTruthy();
+    view.unmount();
+
+    // Visualize but no Vision (or no cover): Today keeps its illustrated artwork.
+    view = renderHome({}, { today: visualizeToday, vision: { state: 'none' } });
+    expect(screen.getByTestId('v2-home-today-artwork')).toBeTruthy();
+    expect(screen.queryByTestId('v2-home-today-artwork-vision')).toBeNull();
+    view.unmount();
+
+    // Focus keeps its own illustrated artwork even when a Vision cover exists.
+    renderHome({}, { vision: readyVision });
+    expect(screen.getByTestId('v2-home-today-artwork')).toBeTruthy();
+    expect(screen.queryByTestId('v2-home-today-artwork-vision')).toBeNull();
+  });
+
+  it('prefers a second Vision image for the Visualize hero so the same photo never appears twice on Home', () => {
+    oneAnchor();
+    const visualizeToday = { state: 'ready' as const, mode: 'visualize' as const, action: 'Visualize' as const, reason: 'unseen_vision', completionSignal: null, threadStrength: null, threadDelta: null, threadDeltaStatus: 'UNAVAILABLE' as const, durationSeconds: 90 };
+    const twoImageVision = {
+      ...readyVision,
+      tiles: [
+        { id: 't1', sceneId: 's1', imageUrl: 'https://assets.test/vision.png', prompt: null, sortOrder: 0, isHero: true },
+        { id: 't2', sceneId: 's1', imageUrl: 'https://assets.test/vision-alt.png', prompt: null, sortOrder: 1, isHero: false },
+      ],
+    };
+
+    renderHome({}, { today: visualizeToday, vision: twoImageVision });
+    const todayImage = screen.getByTestId('v2-home-today-artwork-vision').findByType(Image);
+    const visionImage = screen.getByTestId('v2-home-vision-image');
+    expect(todayImage.props.source).toEqual({ uri: 'https://assets.test/vision-alt.png' });
+    expect(visionImage.props.source).toEqual({ uri: 'https://assets.test/vision.png' });
+    expect(todayImage.props.source).not.toEqual(visionImage.props.source);
+  });
+
+  it('reuses the single Vision image for the Visualize hero with a different crop when there is only one', () => {
+    oneAnchor();
+    const visualizeToday = { state: 'ready' as const, mode: 'visualize' as const, action: 'Visualize' as const, reason: 'unseen_vision', completionSignal: null, threadStrength: null, threadDelta: null, threadDeltaStatus: 'UNAVAILABLE' as const, durationSeconds: 90 };
+
+    renderHome({}, { today: visualizeToday, vision: readyVision });
+    const todayImage = screen.getByTestId('v2-home-today-artwork-vision').findByType(Image);
+    const visionImage = screen.getByTestId('v2-home-vision-image');
+    expect(todayImage.props.source).toEqual({ uri: 'https://assets.test/vision.png' });
+    expect(visionImage.props.source).toEqual({ uri: 'https://assets.test/vision.png' });
+  });
+
+  it('truncates a long Vision statement on Home rather than clipping into the CTA', () => {
+    oneAnchor();
+    const longStatement = Array.from({ length: 6 }, () => 'My RevenueCat dashboard shows ten thousand active users for Anchor.').join(' ');
+    renderHome({}, { vision: { ...readyVision, title: undefined, previewText: longStatement } });
+    const statement = screen.getByTestId('v2-home-vision-statement');
+    expect(statement.props.numberOfLines).toBe(3);
+    expect(statement.props.children).toBe(longStatement);
+    expect(screen.getByText('Enter Vision')).toBeTruthy();
   });
 });
 
@@ -404,7 +549,7 @@ describe('Hero carousel', () => {
 });
 
 describe('Progress', () => {
-  it('renders real evidence with real local day labels', () => {
+  it('renders the real session count and the shared Thread visualization', () => {
     oneAnchor();
     renderHome({}, {
       progress: {
@@ -413,9 +558,11 @@ describe('Progress', () => {
         evidence: [{ id: 'e1', title: 'Anchor created', dayLabel: 'Yesterday', occurredAt: '2026-09-16T09:00:00.000Z' }],
       },
     });
-    expect(screen.getByTestId('v2-home-progress-item-e1')).toBeTruthy();
-    expect(screen.getByText('Yesterday')).toBeTruthy();
     expect(screen.getByTestId('v2-home-progress-sessions').props.children).toBe('4 practices');
+    // The same ThreadStrength track Anchor Details uses, without its own number row.
+    expect(screen.getByTestId('v2-home-progress-thread-track')).toBeTruthy();
+    // Evidence lives in Progress itself; the Home preview carries only the count.
+    expect(screen.queryByTestId('v2-home-progress-item-e1')).toBeNull();
     // None of the HTML reference's illustrative content is present.
     expect(screen.queryByText(/Portfolio direction clarified/i)).toBeNull();
     expect(screen.queryByText(/Two prospects selected/i)).toBeNull();

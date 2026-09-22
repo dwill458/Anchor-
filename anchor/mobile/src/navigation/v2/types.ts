@@ -22,7 +22,7 @@ export type AnchorV2StackParamList = {
     resumeSource?: 'practice_hub' | 'recommended_today';
   };
   V2PracticePrepare: { anchorId: string; mode?: V2PracticeMode };
-  V2Vision: { anchorId?: string };
+  V2Vision: { anchorId?: string; initialMode?: 'view' | 'create' | 'ready'; resumeGeneration?: boolean };
   V2Chart: { courseId?: string; anchorId?: string };
   V2Progress: { anchorId?: string };
   V2Release: V2ReleaseRouteParams;

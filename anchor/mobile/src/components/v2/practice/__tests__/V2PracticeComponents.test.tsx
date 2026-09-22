@@ -3,8 +3,9 @@ import { StyleSheet } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { getPracticeCardTheme } from '@/theme/v2';
 import { V2PracticeAnchorHeader } from '../V2PracticeAnchorHeader';
-import { V2AnchorSwitcherSheet } from '../V2AnchorSwitcherSheet';
+import { V2AnchorSwitcherSheet, orderAnchorsForSwitcher } from '../V2AnchorSwitcherSheet';
 import { V2TodayPracticeCard } from '../V2TodayPracticeCard';
+import { V2PracticeGrid } from '../V2PracticeGrid';
 import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
 
 jest.mock('expo-video', () => ({
@@ -64,8 +65,8 @@ describe('V2PracticeAnchorHeader', () => {
 
     expect(screen.getByText('Lead engineering team')).toBeTruthy();
     expect(screen.getByText('Career')).toBeTruthy();
-    expect(screen.getByText(/Thread Strength/)).toBeTruthy();
-    expect(screen.getByText('74%')).toBeTruthy();
+    expect(screen.queryByText(/Thread Strength/)).toBeNull();
+    expect(screen.getByTestId('v2-practice-thread-strength')).toBeTruthy();
   });
 
   it('labels the selector with an ACTIVE ANCHOR eyebrow rather than a card chrome', () => {
@@ -74,7 +75,7 @@ describe('V2PracticeAnchorHeader', () => {
     expect(screen.getByText('ACTIVE ANCHOR')).toBeTruthy();
   });
 
-  it('lets a long intention wrap instead of truncating it to one line', () => {
+  it('clamps a long intention to two lines with a tail ellipsis', () => {
     const longIntention =
       'Build a calm, deliberate morning practice that I return to every single day without fail';
     render(
@@ -85,8 +86,8 @@ describe('V2PracticeAnchorHeader', () => {
     );
 
     const intention = screen.getByText(longIntention);
-    // No numberOfLines cap: the row grows with the intention.
-    expect(intention.props.numberOfLines).toBeUndefined();
+    expect(intention.props.numberOfLines).toBe(2);
+    expect(intention.props.ellipsizeMode).toBe('tail');
   });
 
   it('keeps the whole selector tappable, not just the chevron', () => {
@@ -95,6 +96,35 @@ describe('V2PracticeAnchorHeader', () => {
 
     fireEvent.press(screen.getByTestId('v2-practice-anchor-header'));
     expect(onPress).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('V2PracticeGrid', () => {
+  const capabilities = { focus: true, deep_prime: true, visualize: true, release: true };
+
+  it.each([
+    ['focus', ['deep_prime', 'visualize'], 'release'],
+    ['deep_prime', ['focus', 'visualize'], 'release'],
+    ['visualize', ['focus', 'deep_prime'], 'release'],
+    ['release', ['focus', 'deep_prime'], 'visualize'],
+  ] as const)('excludes %s hero and keeps two tiles plus the correct slim row', (heroMode, tiles, slimMode) => {
+    const onSelectMode = jest.fn();
+    render(<V2PracticeGrid capabilities={capabilities} heroMode={heroMode} onSelectMode={onSelectMode} />);
+
+    expect(screen.queryByTestId(`v2-practice-row-${heroMode}`)).toBeNull();
+    tiles.forEach((mode) => expect(screen.getByTestId(`v2-practice-row-${mode}`)).toBeTruthy());
+    fireEvent.press(screen.getByTestId(`v2-practice-row-${slimMode}`));
+    expect(onSelectMode).toHaveBeenCalledWith(slimMode);
+  });
+
+  it('renders all 3 tile modes plus slim release row when heroMode is null (today failed to load)', () => {
+    const onSelectMode = jest.fn();
+    render(<V2PracticeGrid capabilities={capabilities} heroMode={null} onSelectMode={onSelectMode} />);
+
+    expect(screen.getByTestId('v2-practice-row-focus')).toBeTruthy();
+    expect(screen.getByTestId('v2-practice-row-deep_prime')).toBeTruthy();
+    expect(screen.getByTestId('v2-practice-row-visualize')).toBeTruthy();
+    expect(screen.getByTestId('v2-practice-row-release')).toBeTruthy();
   });
 });
 
@@ -136,6 +166,28 @@ describe('V2AnchorSwitcherSheet', () => {
     expect(onSelect).toHaveBeenCalledWith('a2');
     expect(onClose).toHaveBeenCalled();
   });
+
+  it('does not repeat "Thread Strength" on rows and shows the compact line with a percentage', () => {
+    render(
+      <V2AnchorSwitcherSheet visible anchors={anchors} selectedAnchorId="a1" onSelect={jest.fn()} onClose={jest.fn()} />
+    );
+
+    expect(screen.queryByText(/Thread Strength/)).toBeNull();
+    expect(screen.getByText('74%')).toBeTruthy();
+    expect(screen.getByText('42%')).toBeTruthy();
+    // No baseline yet: no line, the existing status copy instead.
+    expect(screen.getByText('Baseline not established')).toBeTruthy();
+  });
+
+  it('pins the active Anchor first, then orders by most recently practiced', () => {
+    expect(
+      orderAnchorsForSwitcher(anchors, 'a3', { a1: 100, a2: 900 }).map((a) => a.id)
+    ).toEqual(['a3', 'a2', 'a1']);
+  });
+
+  it('keeps incoming order for Anchors with no practice history', () => {
+    expect(orderAnchorsForSwitcher(anchors, 'a2').map((a) => a.id)).toEqual(['a2', 'a1', 'a3']);
+  });
 });
 
 describe('V2TodayPracticeCard', () => {
@@ -151,11 +203,20 @@ describe('V2TodayPracticeCard', () => {
 
     expect(screen.getByText('TODAY')).toBeTruthy();
     expect(screen.getByText('30 sec')).toBeTruthy();
-    expect(screen.getByText('Build the thread today.')).toBeTruthy();
+    expect(screen.getByText('Build consistency today.')).toBeTruthy();
     expect(screen.getByText('Begin Focus')).toBeTruthy();
 
     fireEvent.press(screen.getByText('Begin Focus'));
     expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the completed-arc Release copy and omits its duration pill', () => {
+    render(<V2TodayPracticeCard mode="release" isCompletedToday={false} onPress={jest.fn()} />);
+
+    expect(screen.getByText('This intention is complete.')).toBeTruthy();
+    expect(screen.getByText('Close it with intention.')).toBeTruthy();
+    expect(screen.getByText('Begin Release')).toBeTruthy();
+    expect(screen.queryByText('When ready')).toBeNull();
   });
 
   it('transforms into settled completed hero state preserving artwork and concise copy', () => {
@@ -172,7 +233,7 @@ describe('V2TodayPracticeCard', () => {
     );
 
     expect(screen.getByTestId('v2-practice-artwork-focus-featured')).toBeTruthy();
-    expect(screen.getByText('TODAY COMPLETE ✓')).toBeTruthy();
+    expect(screen.getByText('TODAY COMPLETE')).toBeTruthy();
     expect(screen.getByText('You reinforced your Anchor today.')).toBeTruthy();
     expect(screen.getByText('Your intention is holding strong.')).toBeTruthy();
     expect(screen.queryByText(/Settle into the rest of your day/i)).toBeNull();
@@ -185,7 +246,7 @@ describe('V2TodayPracticeCard', () => {
 
   it.each([
     ['focus', 'Focus', 'Begin Focus'],
-    ['deep_prime', 'Deep Prime', 'Begin Deep Prime'],
+    ['deep_prime', 'Deep Focus', 'Begin Deep Focus'],
     ['visualize', 'Visualize', 'Begin Visualize'],
     ['release', 'Release', 'Begin Release'],
   ] as const)(
@@ -201,13 +262,13 @@ describe('V2TodayPracticeCard', () => {
   );
 
   it.each(['focus', 'deep_prime', 'visualize', 'release'] as const)(
-    'renders %s on its own dark practice surface, not a light body',
+    'renders %s on the warm cream split surface',
     (mode) => {
       render(<V2TodayPracticeCard mode={mode} isCompletedToday={false} onPress={jest.fn()} />);
 
       const card = screen.getByTestId('v2-recommended-today');
       const flat = StyleSheet.flatten(card.props.style) as { backgroundColor?: string };
-      expect(flat.backgroundColor).toBe(getPracticeCardTheme(mode).dark.surface);
+      expect(flat.backgroundColor).toBe('#F4EFE6');
     }
   );
 
@@ -222,7 +283,7 @@ describe('V2TodayPracticeCard', () => {
         />
       );
       expect(screen.getByTestId(`v2-practice-artwork-${mode}-featured`)).toBeTruthy();
-      expect(screen.getByText('TODAY COMPLETE ✓')).toBeTruthy();
+      expect(screen.getByText('TODAY COMPLETE')).toBeTruthy();
     }
   );
 });

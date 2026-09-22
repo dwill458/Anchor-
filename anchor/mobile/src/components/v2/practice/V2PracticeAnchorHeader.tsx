@@ -2,7 +2,8 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ChevronDown } from 'lucide-react-native';
 import { CircularAnchorRenderer } from '@/components/v2';
-import { anchorArtworkSvg, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
+import { anchorRenderProps, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
+import { HandDrawnThreadLine } from '@/components/v2/thread/HandDrawnThreadLine';
 import type { V2ThreadPresentation } from '@/adapters/v2/home/threadAdapter';
 import { colors, getCategoryColor, spacing, typography } from '@/theme/v2';
 import type { Anchor } from '@/types';
@@ -47,7 +48,7 @@ export function V2PracticeAnchorHeader({
       onPress={onPress}
       accessibilityRole={onPress ? 'button' : undefined}
       accessibilityLabel={`Active Anchor: ${anchor.intentionText}, category ${categoryLabel(anchor.category)}${
-        isMeasured ? `, Thread Strength ${thread?.value}%` : ', baseline not established'
+        isMeasured ? `, Consistency ${thread?.value}%` : ', Consistency not established yet'
       }. Tap to switch Anchor.`}
       style={({ pressed }) => [styles.container, pressed && onPress && styles.pressed]}
     >
@@ -57,9 +58,7 @@ export function V2PracticeAnchorHeader({
       <View style={styles.row}>
         <View style={styles.artworkWrapper}>
           <CircularAnchorRenderer
-            svg={anchorArtworkSvg(anchor)}
-            imageUrl={anchor.enhancedImageUrl}
-            category={anchor.category}
+            {...anchorRenderProps(anchor)}
             size={ARTWORK_SIZE}
             appearance="bare"
             accessibilityLabel={`${categoryLabel(anchor.category)} Anchor artwork`}
@@ -67,27 +66,31 @@ export function V2PracticeAnchorHeader({
         </View>
 
         <View style={styles.info}>
-          {/* Long intentions wrap; the row grows with them rather than clipping. */}
-          <Text style={styles.intention}>{anchor.intentionText}</Text>
+          <Text numberOfLines={2} ellipsizeMode="tail" style={styles.intention}>
+            {anchor.intentionText}
+          </Text>
 
-          <View style={styles.metaRow}>
-            <Text style={[styles.metaCategory, { color: categoryColor }]}>
-              {categoryLabel(anchor.category)}
-            </Text>
-            <Text style={styles.metaSeparator}>·</Text>
-            {isMeasured ? (
-              <Text style={styles.metaStatus}>
-                Thread Strength{' '}
-                <Text style={styles.strengthValue}>{thread?.value}%</Text>
-              </Text>
-            ) : (
-              <Text style={styles.metaStatus}>Baseline not established</Text>
-            )}
+          <View style={styles.threadBlock}>
+            <View style={styles.metaRow}>
+              <Text style={[styles.metaCategory, { color: categoryColor }]}>{categoryLabel(anchor.category)}</Text>
+              {!isMeasured ? <Text style={styles.metaStatus}>Baseline not established</Text> : null}
+            </View>
+            {/* DEFERRED: braided multi-strand ThreadStrength replaced here by the single hand-drawn line; other screens still use it.
+            <ThreadStrength percent={isMeasured ? thread!.value! : 0} color={colors.text.secondary} height={18} showMetrics={false} reduceMotion inactiveColor={colors.text.disabled} inactiveOpacity={0.35} testID="v2-practice-thread-strength" style={styles.threadStrength} /> */}
+            <HandDrawnThreadLine
+              percent={isMeasured ? thread!.value! : 0}
+              unmeasured={!isMeasured}
+              color={categoryColor}
+              trackColor="rgba(255, 255, 255, 0.18)"
+              labelColor={colors.ink.text.primary}
+              testID="v2-practice-thread-strength"
+              style={styles.threadStrength}
+            />
           </View>
         </View>
 
         <View style={styles.chevronWrapper}>
-          <ChevronDown size={CHEVRON_SIZE} color={colors.text.disabled} strokeWidth={2} />
+          <ChevronDown size={CHEVRON_SIZE} color={colors.ink.text.secondary} strokeWidth={2} />
         </View>
       </View>
     </Pressable>
@@ -96,7 +99,7 @@ export function V2PracticeAnchorHeader({
 
 const styles = StyleSheet.create({
   container: {
-    // No card, no glass, no rule: this is type set directly on the cream canvas.
+    // No card, no glass, no rule: this is type set directly on the dark canvas.
     backgroundColor: 'transparent',
     paddingVertical: spacing[1],
   },
@@ -105,7 +108,7 @@ const styles = StyleSheet.create({
   },
   eyebrow: {
     ...typography.labelSM,
-    color: colors.text.secondary,
+    color: colors.ink.text.secondary,
     fontSize: 9.5,
     letterSpacing: 1,
     fontWeight: '700',
@@ -136,7 +139,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: INTENTION_LINE_HEIGHT,
     letterSpacing: -0.3,
-    color: colors.text.primary,
+    color: colors.ink.text.primary,
   },
   metaRow: {
     flexDirection: 'row',
@@ -145,6 +148,8 @@ const styles = StyleSheet.create({
     gap: 5,
     marginTop: 4,
   },
+  threadBlock: { marginTop: 4 },
+  threadStrength: { marginTop: 1 },
   /** The only colour in the group — category accent at punctuation weight. */
   metaCategory: {
     ...typography.labelSM,
@@ -153,23 +158,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textTransform: 'none',
   },
-  metaSeparator: {
-    ...typography.caption,
-    color: colors.text.disabled,
-    fontSize: 12,
-  },
   metaStatus: {
     ...typography.caption,
-    color: colors.text.secondary,
+    color: colors.ink.text.secondary,
     fontSize: 12.5,
     flexShrink: 1,
-  },
-  strengthValue: {
-    ...typography.labelSM,
-    color: colors.text.primary,
-    fontWeight: '700',
-    fontSize: 12.5,
-    textTransform: 'none',
   },
   chevronWrapper: {
     alignItems: 'center',

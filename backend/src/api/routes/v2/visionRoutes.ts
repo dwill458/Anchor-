@@ -1,4 +1,5 @@
 import { Router, Response, NextFunction } from 'express';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { AuthRequest, authMiddleware } from '../../middleware/auth';
 import { AppError } from '../../middleware/errorHandler';
 import { getAuthenticatedUserId } from './authHelper';
@@ -9,13 +10,23 @@ import {
   CreateVisionSceneSchema,
   ReorderScenesSchema,
   RecordVisionViewSchema,
+  StartVisionGenerationSchema,
 } from '../../../domain/v2/vision';
+import { visionGenerationService } from '../../../services/v2/VisionGenerationService';
 import { uploadImageAssetFromBuffer } from '../../../services/StorageService';
 import sharp from 'sharp';
 import { z } from 'zod';
 
 const router = Router();
 router.use(authMiddleware);
+
+const generationLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 12,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: req => (req as AuthRequest).user?.uid || ipKeyGenerator(req.ip ?? ''),
+});
 
 function validateBody<T>(schema: z.ZodSchema<T>, data: unknown): T {
   const result = schema.safeParse(data);
@@ -79,6 +90,30 @@ router.post(
 // ─────────────────────────────────────────────────────────────
 // Vision Mutation endpoints
 // ─────────────────────────────────────────────────────────────
+
+router.get('/anchors/:anchorId/vision/generation', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = await getAuthenticatedUserId(req);
+    res.json({ success: true, data: await visionGenerationService.latest(userId, req.params.anchorId) });
+  } catch (error) { next(error); }
+});
+
+router.post('/anchors/:anchorId/vision/generation', generationLimiter, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = await getAuthenticatedUserId(req);
+    const input = validateBody(StartVisionGenerationSchema, req.body);
+    const job = await visionGenerationService.start(userId, req.params.anchorId, input.description, input.idempotencyKey);
+    res.status(202).json({ success: true, data: job });
+  } catch (error) { next(error); }
+});
+
+router.post('/anchors/:anchorId/vision/generation/:jobId/retry', generationLimiter, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = await getAuthenticatedUserId(req);
+    const job = await visionGenerationService.retry(userId, req.params.anchorId, req.params.jobId);
+    res.status(202).json({ success: true, data: job });
+  } catch (error) { next(error); }
+});
 
 router.patch('/visions/:visionId', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {

@@ -22,10 +22,12 @@ type Props = {
 };
 
 const MODE_EDITORIAL_HEADLINES: Record<V2PracticeMode, string> = {
-  release: 'Your next waypoint is closed — this one’s ready.',
+  release: 'This intention is complete.',
   visualize: 'Your Vision hasn’t been part of today yet.',
-  deep_prime: 'You’ve slipped this week — deepen it today.',
-  focus: 'Build the thread today.',
+  // Deep Focus is recommended both for a Consistency dip and on rotation, so
+  // this headline must not claim a dip; the reason line carries that.
+  deep_prime: 'Go deeper with a longer session.',
+  focus: 'Build consistency today.',
 };
 
 const MODE_DEFAULT_DURATIONS: Record<V2PracticeMode, string> = {
@@ -60,17 +62,11 @@ export function V2TodayPracticeCard({
   const durationText = MODE_DEFAULT_DURATIONS[mode];
   const theme = getPracticeCardTheme(mode);
 
-  /** One surface for the whole object: artwork bed, dissolve target and body. */
-  const surfaceStyle = {
-    backgroundColor: theme.dark.surface,
-    borderColor: theme.dark.border,
-  };
-
   if (isCompletedToday) {
     return (
-      <View testID={testID} style={[styles.card, surfaceStyle]}>
-        {/* Featured Artwork Hero Banner - Preserved & Settled */}
-        <View style={[styles.heroArtworkContainer, { backgroundColor: theme.dark.surface }]}>
+      <View testID={testID} style={styles.card}>
+        {/* Featured Artwork Hero Banner - Preserved & Dominant */}
+        <View style={styles.heroArtworkContainer}>
           <V2PracticeArtwork
             mode={mode}
             height={ARTWORK_HEIGHT}
@@ -78,27 +74,20 @@ export function V2TodayPracticeCard({
             active={false}
             completed={true}
           />
-          {/* Subtle calm settling overlay */}
-          <View style={styles.completedArtworkOverlay} />
-          <LinearGradient
-            pointerEvents="none"
-            colors={[...theme.dark.fade]}
-            locations={[...ARTWORK_FADE_LOCATIONS]}
-            style={styles.heroArtworkFade}
-          />
-
           <View style={styles.floatingBadgesRow}>
             <View style={styles.completedBadge}>
-              <Check size={11} color={practiceDarkText.title} strokeWidth={2.6} />
-              <Text style={styles.completedBadgeText}>TODAY COMPLETE ✓</Text>
+              <Check size={11} color="#FFFFFF" strokeWidth={2.6} />
+              <Text style={styles.completedBadgeText}>TODAY COMPLETE</Text>
             </View>
-            <View style={styles.durationPill}>
-              <Text style={styles.durationBadge}>{durationText}</Text>
-            </View>
+            {mode !== 'release' ? (
+              <View style={styles.durationPill}>
+                <Text style={styles.durationBadge}>{durationText}</Text>
+              </View>
+            ) : null}
           </View>
         </View>
 
-        {/* Featured Content Body - Completed State */}
+        {/* Featured Content Body - Cream Split Surface */}
         <View style={styles.body}>
           <View style={styles.heroCopy}>
             <Text style={styles.completedTitle}>
@@ -116,7 +105,6 @@ export function V2TodayPracticeCard({
               onPress={onPracticeAgain ?? onPress}
               style={({ pressed }) => [
                 styles.practiceAgainButton,
-                { backgroundColor: theme.dark.actionBg, borderColor: theme.dark.border },
                 pressed && styles.pressed,
               ]}
             >
@@ -128,7 +116,8 @@ export function V2TodayPracticeCard({
     );
   }
 
-  const ctaLabel = `Begin ${definition.title}`;
+  const ctaLabel = mode === 'release' ? 'Begin Release' : `Begin ${definition.title}`;
+  const subhead = mode === 'release' ? 'Close it with intention.' : whyCopy;
 
   return (
     <Pressable
@@ -138,38 +127,32 @@ export function V2TodayPracticeCard({
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
-        surfaceStyle,
         pressed && styles.pressed,
       ]}
     >
       {/* Featured Artwork Hero Banner */}
-      <View style={[styles.heroArtworkContainer, { backgroundColor: theme.dark.surface }]}>
+      <View style={styles.heroArtworkContainer}>
         <V2PracticeArtwork mode={mode} height={ARTWORK_HEIGHT} variant="featured" active={active} />
-        {/* Atmospheric dissolve so the scene and the body are one object. */}
-        <LinearGradient
-          pointerEvents="none"
-          colors={[...theme.dark.fade]}
-          locations={[...ARTWORK_FADE_LOCATIONS]}
-          style={styles.heroArtworkFade}
-        />
         <View style={styles.floatingBadgesRow}>
           <View style={[styles.badge, { backgroundColor: theme.heroBadgeBg ?? theme.accent }]}>
             <Text style={styles.badgeText}>TODAY</Text>
           </View>
-          <View style={styles.durationPill}>
-            <Text style={styles.durationBadge}>{durationText}</Text>
-          </View>
+          {mode !== 'release' ? (
+            <View style={styles.durationPill}>
+              <Text style={styles.durationBadge}>{durationText}</Text>
+            </View>
+          ) : null}
         </View>
       </View>
 
-      {/* Featured Content Body */}
+      {/* Featured Content Body - Cream Split Surface */}
       <View style={styles.body}>
         <View style={styles.heroCopy}>
-          <Text style={[styles.modeName, { color: theme.dark.label }]}>
+          <Text style={[styles.modeName, { color: theme.labelColor }]}>
             {definition.title}
           </Text>
           <Text style={styles.headline}>{headline}</Text>
-          <Text style={styles.subExplanation}>{whyCopy}</Text>
+          <Text style={styles.subExplanation}>{subhead}</Text>
         </View>
 
         <View style={styles.ctaRow}>
@@ -194,14 +177,15 @@ const BODY_INSET = 18;
 
 const styles = StyleSheet.create({
   card: {
+    backgroundColor: '#F4EFE6',
     borderRadius: 20,
     borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     overflow: 'hidden',
-    // Slightly deeper than a library card: the hero sits closest to the reader.
     shadowColor: '#000000',
-    shadowOpacity: 0.13,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
     elevation: 5,
   },
   pressed: {
@@ -260,19 +244,10 @@ const styles = StyleSheet.create({
   },
   body: {
     position: 'relative',
+    backgroundColor: '#F4EFE6',
     paddingHorizontal: BODY_INSET,
-    // The dissolve has already carried the scene into the surface, so the body
-    // opens close beneath it rather than restating that gap.
-    paddingTop: 14,
-    paddingBottom: spacing[5],
-  },
-  heroArtworkFade: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: ARTWORK_FADE_HEIGHT,
-    zIndex: 5,
+    paddingTop: 16,
+    paddingBottom: 20,
   },
   heroCopy: {
     // Spacing between these lines is deliberate, not uniform.
@@ -282,33 +257,25 @@ const styles = StyleSheet.create({
     letterSpacing: 0.9,
     fontSize: 11,
     fontWeight: '700',
-    // Small gap: the mode labels the recommendation beneath it.
-    marginBottom: 6,
+    marginBottom: 4,
     textTransform: 'uppercase',
   },
   headline: {
     fontFamily: typography.displayBold,
-    fontSize: 23,
-    lineHeight: 29,
+    fontSize: 22,
+    lineHeight: 28,
     letterSpacing: -0.4,
-    color: practiceDarkText.title,
+    color: '#121820',
   },
   subExplanation: {
     ...typography.bodySM,
-    color: practiceDarkText.body,
+    color: '#5C6470',
     lineHeight: 19,
     fontSize: 13.5,
-    // Medium gap: the explanation trails the recommendation.
-    marginTop: 8,
+    marginTop: 6,
   },
   ctaRow: {
-    // Largest gap on the card: the action separates from the copy.
-    marginTop: spacing[5],
-  },
-  completedArtworkOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    // Settles the scene into the dark body instead of washing it toward cream.
-    backgroundColor: 'rgba(10, 8, 14, 0.30)',
+    marginTop: 16,
   },
   completedBadge: {
     paddingHorizontal: 9,
@@ -317,9 +284,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(12, 10, 16, 0.72)',
+    backgroundColor: 'rgba(18, 26, 34, 0.75)',
     borderWidth: 1,
-    borderColor: 'rgba(242, 238, 228, 0.24)',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
     shadowColor: '#000000',
     shadowOpacity: 0.18,
     shadowRadius: 3,
@@ -327,38 +294,37 @@ const styles = StyleSheet.create({
   },
   completedBadgeText: {
     ...typography.labelSM,
-    color: practiceDarkText.title,
+    color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 10.5,
     letterSpacing: 0.8,
   },
   completedTitle: {
     fontFamily: typography.displayBold,
-    fontSize: 23,
-    lineHeight: 29,
+    fontSize: 22,
+    lineHeight: 28,
     letterSpacing: -0.4,
-    color: practiceDarkText.title,
+    color: '#121820',
   },
   completedSubtitle: {
     ...typography.bodySM,
-    color: practiceDarkText.body,
+    color: '#5C6470',
     lineHeight: 20,
     fontSize: 14,
-    marginTop: 8,
+    marginTop: 6,
   },
   completedActions: {
-    marginTop: spacing[5],
+    marginTop: 16,
     alignSelf: 'flex-start',
   },
   practiceAgainButton: {
-    paddingVertical: spacing[2],
-    paddingHorizontal: spacing[4],
-    borderRadius: radii.md,
-    borderWidth: 1,
+    backgroundColor: '#2E271F',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 14,
   },
   practiceAgainText: {
-    ...typography.labelMD,
-    color: practiceDarkText.title,
+    color: '#F4EFE6',
     fontWeight: '600',
     fontSize: 13.5,
   },

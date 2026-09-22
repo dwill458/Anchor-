@@ -1,5 +1,6 @@
 export { V2ThreadStrength } from './V2ThreadStrength';
 export { ThreadStrength, type ThreadStrengthProps } from './ThreadStrength';
+export { HandDrawnThreadLine, type HandDrawnThreadLineProps } from './HandDrawnThreadLine';
 export {
   generateWavePath,
   getWaveY,

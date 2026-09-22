@@ -1,6 +1,6 @@
 import React from 'react';
 import { AccessibilityInfo } from 'react-native';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 const mockAcknowledge = jest.fn();
 const mockVisionGet = jest.fn();
@@ -47,6 +47,10 @@ jest.mock('expo-video', () => ({
 import { V2PracticeScreen } from '../V2PracticeScreen';
 import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
 import type { V2RecommendationContext } from '@/adapters/v2/practice';
+import { invalidateV2RecommendationContext } from '@/adapters/v2/practice/recommendationCache';
+import { resetV2VisionReadCache } from '@/hooks/v2/vision/useV2Vision';
+
+import { useSessionStore } from '@/stores/sessionStore';
 
 const context = (action: V2RecommendationContext['recommendation']['action']): V2RecommendationContext => ({
   anchorId: 'a',
@@ -56,12 +60,22 @@ const context = (action: V2RecommendationContext['recommendation']['action']): V
   recommendation: { action, reason: 'server_authoritative' },
 });
 
+/** The switcher animates out before unmounting; this suite's large tree slows every poll. */
+const SHEET_EXIT_TIMEOUT = 6000;
+
 const fullAccess = { focus: true, deep_prime: true, visualize: true, release: true };
 const renderPractice = (recommendation = context('Focus'), props: Partial<React.ComponentProps<typeof V2PracticeScreen>> = {}) =>
   render(<V2PracticeScreen anchor={makeAnchor({ id: 'a', threadStrength: 20 })} recommendation={recommendation} capabilities={fullAccess} {...props} />);
 
 describe('V2PracticeScreen', () => {
   beforeEach(() => {
+    invalidateV2RecommendationContext();
+    resetV2VisionReadCache();
+    useSessionStore.setState({
+      practiceHistory: [],
+      sessionLog: [],
+      todayPractice: { date: '', sessionsCount: 0, totalSeconds: 0 },
+    });
     mockAcknowledge.mockReset();
     mockAcknowledge.mockResolvedValue(undefined);
     mockVisionGet.mockReset();
@@ -79,13 +93,14 @@ describe('V2PracticeScreen', () => {
   it('renders exactly one server-provided recommendation', () => {
     renderPractice(context('Focus'));
     expect(screen.getAllByTestId('v2-recommended-today')).toHaveLength(1);
-    expect(screen.getAllByText('Focus')).toHaveLength(2);
+    expect(screen.getByText('Focus')).toBeTruthy();
   });
 
   it.each([
-    ['Release', 'Release', 'Reached a meaningful milestone'],
+    ['Release', 'Release', 'Close it with intention.'],
     ['Visualize', 'Visualize', 'Reconnect with your Vision today'],
-    ['Deep Prime', 'Deep Prime', 'Thread has softened over the last 7 days'],
+    // Server action stays 'Deep Prime' (API contract); users see Deep Focus.
+    ['Deep Prime', 'Deep Focus', 'A longer session to go deeper.'],
     ['Focus', 'Focus', 'Daily reinforcement for your Anchor'],
   ] as const)('presents the %s recommendation and locked why-copy', (action, title, why) => {
     renderPractice(context(action));
@@ -93,9 +108,11 @@ describe('V2PracticeScreen', () => {
     expect(screen.getByText(why)).toBeTruthy();
   });
 
-  it('renders Focus hero video container when Focus is recommended today', () => {
+  it('renders Focus hero video container when Focus is recommended today', async () => {
     renderPractice(context('Focus'));
-    expect(screen.getByTestId('v2-hero-video-focus')).toBeTruthy();
+    // The loop joins the still once the push transition has settled.
+    expect(screen.queryByTestId('v2-hero-video-focus')).toBeNull();
+    expect(await screen.findByTestId('v2-hero-video-focus', {}, { timeout: 2000 })).toBeTruthy();
   });
 
   it('does NOT render hero video for Deep Prime, Visualize, or Release recommendations', () => {
@@ -118,9 +135,9 @@ describe('V2PracticeScreen', () => {
     expect(queryByTestId('v2-hero-video-focus')).toBeNull();
   });
 
-  it('switches away from Focus video when recommendation changes', () => {
+  it('switches away from Focus video when recommendation changes', async () => {
     const { rerender } = renderPractice(context('Focus'));
-    expect(screen.getByTestId('v2-hero-video-focus')).toBeTruthy();
+    expect(await screen.findByTestId('v2-hero-video-focus', {}, { timeout: 2000 })).toBeTruthy();
 
     rerender(<V2PracticeScreen anchor={makeAnchor({ id: 'a' })} recommendation={context('Deep Prime')} capabilities={fullAccess} />);
     expect(screen.queryByTestId('v2-hero-video-focus')).toBeNull();
@@ -129,7 +146,7 @@ describe('V2PracticeScreen', () => {
   it('keeps the server Focus result when delta7d is unavailable, even at low strength', () => {
     renderPractice(context('Focus'));
     expect(screen.getByLabelText(/Recommended today: Focus/)).toBeTruthy();
-    expect(screen.queryByLabelText(/Recommended today: Deep Prime/)).toBeNull();
+    expect(screen.queryByLabelText(/Recommended today: Deep Focus/)).toBeNull();
   });
 
   it('does not acknowledge on mount and acknowledges a signal only after explicit recommendation engagement', () => {
@@ -139,9 +156,9 @@ describe('V2PracticeScreen', () => {
     expect(mockAcknowledge).toHaveBeenCalledWith('a', 'signal-1', 'intention_completed');
   });
 
-  it('keeps all four mode rows available beneath the recommendation in a compact 2x2 grid', () => {
+  it('excludes the hero from the two tiles and keeps Release as the slim row', () => {
     renderPractice();
-    expect(screen.getByTestId('v2-practice-row-focus')).toBeTruthy();
+    expect(screen.queryByTestId('v2-practice-row-focus')).toBeNull();
     expect(screen.getByTestId('v2-practice-row-deep_prime')).toBeTruthy();
     expect(screen.getByTestId('v2-practice-row-visualize')).toBeTruthy();
     expect(screen.getByTestId('v2-practice-row-release')).toBeTruthy();
@@ -151,21 +168,21 @@ describe('V2PracticeScreen', () => {
     const anchor = makeAnchor({ id: 'a', intentionText: 'Ship a trustworthy Practice hub' });
     render(<V2PracticeScreen anchor={anchor} recommendation={context('Focus')} capabilities={fullAccess} />);
     expect(screen.getByText('Ship a trustworthy Practice hub')).toBeTruthy();
-    fireEvent.press(screen.getByTestId('v2-practice-row-focus'));
-    expect(screen.getByTestId('v2-practice-prepare-focus')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('v2-practice-row-deep_prime'));
+    expect(screen.getByTestId('v2-practice-prepare-deep_prime')).toBeTruthy();
     expect(screen.getByText('Ship a trustworthy Practice hub')).toBeTruthy();
   });
 
-  it('allows entering Deep Prime setup when unentitled and gates on Begin Deep Prime', () => {
+  it('allows entering Deep Focus setup when unentitled and gates on Begin Deep Focus', () => {
     const onPremiumCapabilityRequired = jest.fn();
     renderPractice(context('Deep Prime'), { capabilities: { ...fullAccess, deep_prime: false }, onPremiumCapabilityRequired });
-    fireEvent.press(screen.getByTestId('v2-practice-row-deep_prime'));
+    fireEvent.press(screen.getByTestId('v2-recommended-today'));
     expect(screen.getByTestId('v2-practice-prepare-deep_prime')).toBeTruthy();
-    fireEvent.press(screen.getByLabelText('Begin Deep Prime'));
+    fireEvent.press(screen.getByLabelText('Begin Deep Focus'));
     expect(onPremiumCapabilityRequired).toHaveBeenCalledWith({
       capability: 'deep_prime',
       anchorId: 'a',
-      source: 'practice_hub',
+      source: 'recommended_today',
       durationSeconds: 300,
     });
   });
@@ -186,7 +203,7 @@ describe('V2PracticeScreen', () => {
         onBeginPractice,
       });
       expect(screen.getByTestId('v2-practice-prepare-deep_prime')).toBeTruthy();
-      fireEvent.press(screen.getByLabelText('Begin Deep Prime'));
+      fireEvent.press(screen.getByLabelText('Begin Deep Focus'));
       expect(onBeginPractice).not.toHaveBeenCalled();
       expect(onPremiumCapabilityRequired).toHaveBeenCalledWith(
         expect.objectContaining({ capability: 'deep_prime', anchorId: 'a', source: 'recommended_today' }),
@@ -213,7 +230,7 @@ describe('V2PracticeScreen', () => {
   it('opens Focus setup, allows duration selection, and begins with selected duration', () => {
     const onBeginPractice = jest.fn();
     renderPractice(context('Focus'), { onBeginPractice });
-    fireEvent.press(screen.getByTestId('v2-practice-row-focus'));
+    fireEvent.press(screen.getByTestId('v2-recommended-today'));
     expect(screen.getByTestId('v2-practice-prepare-focus')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('1 min'));
     fireEvent.press(screen.getByLabelText('Begin Focus'));
@@ -222,7 +239,7 @@ describe('V2PracticeScreen', () => {
         anchorId: 'a',
         mode: 'focus',
         durationSeconds: 60,
-        source: 'practice_hub',
+        source: 'recommended_today',
       })
     );
   });
@@ -245,13 +262,13 @@ describe('V2PracticeScreen', () => {
       />
     );
     expect(screen.getByTestId('v2-practice-session')).toBeTruthy();
-    expect(screen.getByText('DEEP PRIME')).toBeTruthy();
+    expect(screen.getByText('DEEP FOCUS')).toBeTruthy();
   });
 
   it('offers the Vision creation handoff without fabricating a Vision', async () => {
     const onCreateVision = jest.fn();
     renderPractice(context('Visualize'), { onCreateVision });
-    fireEvent.press(screen.getByTestId('v2-practice-row-visualize'));
+    fireEvent.press(screen.getByTestId('v2-recommended-today'));
     expect(await screen.findByText('Create a Vision first')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Create a Vision for this Anchor'));
     expect(onCreateVision).toHaveBeenCalledWith('a');
@@ -284,7 +301,7 @@ describe('V2PracticeScreen', () => {
       },
     });
     renderPractice(context('Visualize'));
-    fireEvent.press(screen.getByTestId('v2-practice-row-visualize'));
+    fireEvent.press(screen.getByTestId('v2-recommended-today'));
     expect(await screen.findByText('A serene mountain peak at sunrise')).toBeTruthy();
     expect(screen.getByLabelText('Begin Visualize')).toBeTruthy();
   });
@@ -292,7 +309,7 @@ describe('V2PracticeScreen', () => {
   it('hands Release off without calling a destructive legacy endpoint', () => {
     const onReleaseRequested = jest.fn();
     renderPractice(context('Release'), { onReleaseRequested });
-    fireEvent.press(screen.getByTestId('v2-practice-row-release'));
+    fireEvent.press(screen.getByTestId('v2-recommended-today'));
     fireEvent.press(screen.getByLabelText('Continue to Release'));
     expect(onReleaseRequested).toHaveBeenCalledWith('a', 'practice_prepare');
   });
@@ -318,7 +335,7 @@ describe('V2PracticeScreen', () => {
         capabilities={fullAccess}
       />
     );
-    expect(screen.getByText('TODAY COMPLETE ✓')).toBeTruthy();
+    expect(screen.getByText('TODAY COMPLETE')).toBeTruthy();
     expect(screen.getByText('You reinforced your Anchor today.')).toBeTruthy();
     expect(screen.getByText('Your intention is holding strong.')).toBeTruthy();
     expect(screen.queryByText(/Settle into the rest of your day/i)).toBeNull();
@@ -334,7 +351,52 @@ describe('V2PracticeScreen', () => {
     expect(screen.getByTestId('v2-practice-prepare-focus')).toBeTruthy();
   });
 
-  it('ensures completion state belongs to correct Anchor and does not bleed when switching Anchors', () => {
+  it('displays the hero of the mode just practiced today (e.g. Visualize) instead of default server recommendation', () => {
+    const today = new Date().toISOString();
+    const { useSessionStore } = require('@/stores/sessionStore');
+    useSessionStore.setState({
+      practiceHistory: [
+        {
+          id: 'p-1',
+          anchorId: 'a',
+          practiceMode: 'visualize',
+          completedAt: today,
+          completedDurationSeconds: 180,
+          plannedDurationSeconds: 180,
+          startedAt: today,
+          source: 'practice_screen',
+          guidanceVoice: 'female',
+          backgroundAudio: 'ambient',
+          schemaVersion: 1,
+          syncState: 'synced',
+        },
+      ],
+      todayPractice: {
+        date: today.slice(0, 10),
+        sessionsCount: 1,
+        totalSeconds: 180,
+      },
+    });
+
+    render(
+      <V2PracticeScreen
+        anchor={makeAnchor({ id: 'a', chargedAt: today as any })}
+        recommendation={context('Deep Prime')}
+        capabilities={fullAccess}
+      />
+    );
+
+    expect(screen.getByText('TODAY COMPLETE')).toBeTruthy();
+    // Hero artwork is Visualize (the mode practiced today), not Deep Prime
+    expect(screen.getByTestId('v2-practice-artwork-visualize-featured')).toBeTruthy();
+    expect(screen.queryByTestId('v2-practice-artwork-deep_prime-featured')).toBeNull();
+
+    // Practice again opens Visualize prep
+    fireEvent.press(screen.getByLabelText('Practice again'));
+    expect(screen.getByTestId('v2-practice-prepare-visualize')).toBeTruthy();
+  });
+
+  it('ensures completion state belongs to correct Anchor and does not bleed when switching Anchors', async () => {
     const today = new Date().toISOString();
     const anchorA = makeAnchor({ id: 'a', intentionText: 'Anchor A Completed', chargedAt: today as any, userId: 'u1' });
     const anchorB = makeAnchor({ id: 'b', intentionText: 'Anchor B Incomplete', chargedAt: undefined, userId: 'u1' });
@@ -353,15 +415,17 @@ describe('V2PracticeScreen', () => {
 
     // Anchor A should be complete
     expect(screen.getByText('Anchor A Completed')).toBeTruthy();
-    expect(screen.getByText('TODAY COMPLETE ✓')).toBeTruthy();
+    expect(screen.getByText('TODAY COMPLETE')).toBeTruthy();
 
     // Switch to Anchor B
     fireEvent.press(screen.getByTestId('v2-practice-anchor-header'));
     fireEvent.press(screen.getByTestId('v2-anchor-switcher-item-b'));
+    // The sheet animates away before it unmounts.
+    await waitFor(() => expect(screen.queryByText('Switch Anchor')).toBeNull(), { timeout: SHEET_EXIT_TIMEOUT });
 
     // Anchor B should be active and NOT complete
     expect(screen.getByText('Anchor B Incomplete')).toBeTruthy();
-    expect(screen.queryByText('TODAY COMPLETE ✓')).toBeNull();
+    expect(screen.queryByText('TODAY COMPLETE')).toBeNull();
     expect(screen.getByLabelText(/Recommended today: Focus/)).toBeTruthy();
   });
 
@@ -387,7 +451,7 @@ describe('V2PracticeScreen', () => {
 
   it('navigates back to Practice Hub when Back is pressed in setup interstitial', () => {
     renderPractice(context('Focus'));
-    fireEvent.press(screen.getByTestId('v2-practice-row-focus'));
+    fireEvent.press(screen.getByTestId('v2-recommended-today'));
     expect(screen.getByTestId('v2-practice-prepare-focus')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Back to Practice'));
     expect(screen.getByTestId('v2-practice-screen')).toBeTruthy();
@@ -405,7 +469,7 @@ describe('V2PracticeScreen', () => {
     expect(screen.getByTestId('v2-practice-screen')).toBeTruthy();
   });
 
-  it('hides recommendation transport details and offers a retry action', async () => {
+  it('hides recommendation transport details and offers a retry action with 3 tile modes over 1 long release mode', async () => {
     render(
       <V2PracticeScreen
         anchor={makeAnchor({ id: 'a' })}
@@ -417,6 +481,10 @@ describe('V2PracticeScreen', () => {
     expect(await screen.findByText('Today’s practice could not be loaded.')).toBeTruthy();
     expect(screen.queryByText(/Cannot GET/i)).toBeNull();
     expect(screen.getByLabelText('Retry Today')).toBeTruthy();
+    expect(screen.getByTestId('v2-practice-row-focus')).toBeTruthy();
+    expect(screen.getByTestId('v2-practice-row-deep_prime')).toBeTruthy();
+    expect(screen.getByTestId('v2-practice-row-visualize')).toBeTruthy();
+    expect(screen.getByTestId('v2-practice-row-release')).toBeTruthy();
   });
 
   it('renders CHOOSE ANOTHER PRACTICE grid title and mode action buttons', () => {
@@ -424,7 +492,7 @@ describe('V2PracticeScreen', () => {
     expect(screen.getByText('CHOOSE ANOTHER PRACTICE')).toBeTruthy();
   });
 
-  it('opens the anchor switcher sheet on header tap, selects an anchor, and updates context', () => {
+  it('opens the anchor switcher sheet on header tap, selects an anchor, and updates context', async () => {
     const anchorA = makeAnchor({ id: 'a', intentionText: 'First Goal', userId: 'u1' });
     const anchorB = makeAnchor({ id: 'b', intentionText: 'Second Goal', userId: 'u1' });
 
@@ -446,10 +514,11 @@ describe('V2PracticeScreen', () => {
     expect(screen.getByText('Switch Anchor')).toBeTruthy();
 
     fireEvent.press(screen.getByTestId('v2-anchor-switcher-item-b'));
+    await waitFor(() => expect(screen.queryByText('Switch Anchor')).toBeNull(), { timeout: SHEET_EXIT_TIMEOUT });
     expect(screen.getByText('Second Goal')).toBeTruthy();
   });
 
-  it('allows dismissing the anchor switcher sheet without changing selection', () => {
+  it('allows dismissing the anchor switcher sheet without changing selection', async () => {
     const anchorA = makeAnchor({ id: 'a', intentionText: 'First Goal', userId: 'u1' });
     const { useAuthStore } = require('@/stores/authStore');
     const { useAnchorStore } = require('@/stores/anchorStore');
@@ -467,7 +536,7 @@ describe('V2PracticeScreen', () => {
     expect(screen.getByTestId('v2-anchor-switcher-sheet')).toBeTruthy();
 
     fireEvent.press(screen.getByLabelText('Close anchor switcher'));
-    expect(screen.queryByText('Switch Anchor')).toBeNull();
+    await waitFor(() => expect(screen.queryByText('Switch Anchor')).toBeNull(), { timeout: SHEET_EXIT_TIMEOUT });
     expect(screen.getByText('First Goal')).toBeTruthy();
   });
 });
