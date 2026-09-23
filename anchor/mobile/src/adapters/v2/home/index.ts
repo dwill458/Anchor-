@@ -7,6 +7,7 @@ export type { HomeVisionState } from './visionAdapter';
 export {
   toHomeChartState,
   resolveHomeChartState,
+  resolveAnchorChartState,
   courseMatchesAnchor,
   courseSummaryMatchesAnchor,
   homeChartErrorMessage,

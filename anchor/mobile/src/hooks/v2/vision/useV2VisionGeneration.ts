@@ -5,11 +5,12 @@ import { visionApiData } from './visionApi';
 
 export interface VisionGenerationCandidate {
   id: string;
-  assetId: string;
+  assetId: string | null;
   role: string;
   prompt: string;
   sortOrder: number;
   imageUrl: string | null;
+  status?: 'PENDING' | 'SUCCEEDED' | 'FAILED';
 }
 
 export interface VisionGenerationJob {
@@ -78,13 +79,13 @@ export function useV2VisionGeneration(anchorId: string, onPremiumRequired?: () =
     return () => clearInterval(timer);
   }, [active, foreground, refresh]);
 
-  const start = useCallback(async (description: string): Promise<boolean> => {
+  const start = useCallback(async (description: string, appearanceReferenceId?: string | null): Promise<boolean> => {
     if (pendingKey.current) return false;
     const key = `vision-${Date.now()}-${Math.floor(Math.random() * 1e12)}`;
     pendingKey.current = key;
     setError(null);
     try {
-      const response = await apiClient.post<VisionGenerationJob>(path, { description, idempotencyKey: key });
+      const response = await apiClient.post<VisionGenerationJob>(path, { description, idempotencyKey: key, appearanceReferenceId: appearanceReferenceId ?? null });
       if (mounted.current) setJob(visionApiData<VisionGenerationJob>(response));
       return true;
     } catch (cause) {

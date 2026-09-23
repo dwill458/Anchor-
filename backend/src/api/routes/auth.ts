@@ -216,6 +216,7 @@ function buildSettingsUpsertData(settings: {
   sessionAudioDefaults?: SessionAudioDefaultsPayload;
   hapticIntensity?: number;
   vaultViewType?: 'grid' | 'list';
+  useProfilePhotoForVision?: boolean;
 }): {
   notificationsEnabled?: boolean;
   dailyReminderTime?: string;
@@ -230,6 +231,7 @@ function buildSettingsUpsertData(settings: {
   sessionAudioDefaults?: Prisma.InputJsonValue;
   hapticIntensity?: number;
   vaultViewType?: 'grid' | 'list';
+  useProfilePhotoForVision?: boolean;
 } {
   const {
     notificationsEnabled,
@@ -245,6 +247,7 @@ function buildSettingsUpsertData(settings: {
     sessionAudioDefaults,
     hapticIntensity,
     vaultViewType,
+    useProfilePhotoForVision,
   } = settings;
 
   return {
@@ -261,6 +264,7 @@ function buildSettingsUpsertData(settings: {
     ...(sessionAudioDefaults !== undefined && { sessionAudioDefaults }),
     ...(hapticIntensity !== undefined && { hapticIntensity }),
     ...(vaultViewType && { vaultViewType }),
+    ...(useProfilePhotoForVision !== undefined && { useProfilePhotoForVision }),
   };
 }
 
@@ -309,6 +313,7 @@ const UpdateSettingsSchema = z.object({
   sessionAudioDefaults: SessionAudioDefaultsByTypeSchema.optional(),
   hapticIntensity: z.number().min(1).max(5).optional(),
   vaultViewType: z.enum(['grid', 'list']).optional(),
+  useProfilePhotoForVision: z.boolean().optional(),
 });
 
 const PushTokensSchema = z.object({
@@ -919,6 +924,7 @@ router.put(
         sessionAudioDefaults,
         hapticIntensity,
         vaultViewType,
+        useProfilePhotoForVision,
       } = validate(UpdateSettingsSchema, req.body);
 
       const settingsData = buildSettingsUpsertData({
@@ -935,6 +941,7 @@ router.put(
         sessionAudioDefaults,
         hapticIntensity,
         vaultViewType,
+        useProfilePhotoForVision,
       });
 
       const settings = await prisma.$transaction(async tx => {

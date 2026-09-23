@@ -7,6 +7,7 @@ import { GeminiError, GeminiErrorType, GeminiImageService } from '../GeminiImage
 import { resolveStorageKeyUrl, uploadImageAssetFromBuffer } from '../StorageService';
 import { getMonetizationAccess } from '../MonetizationAccessService';
 import { visionService } from './VisionService';
+import { visionAppearanceReferenceService } from './VisionAppearanceReferenceService';
 import { logger } from '../../utils/logger';
 import {
   buildVisionImagePrompt, isStoredVisionScenePlan, VISION_IMAGE_ASPECT_RATIO, VISION_IMAGE_HEIGHT, VISION_IMAGE_WIDTH,
@@ -52,12 +53,13 @@ export class VisionGenerationService {
         role: candidate.role,
         prompt: candidate.prompt,
         sortOrder: candidate.sortOrder,
-        imageUrl: await resolveStorageKeyUrl(candidate.asset.storageKey),
+        status: candidate.status,
+        imageUrl: candidate.asset?.storageKey ? await resolveStorageKeyUrl(candidate.asset.storageKey) : null,
       }))),
     };
   }
 
-  async start(userId: string, anchorId: string, description: string, idempotencyKey: string) {
+  async start(userId: string, anchorId: string, description: string, idempotencyKey: string, appearanceReferenceId?: string | null) {
     const access = await getMonetizationAccess(userId);
     if (!access.hasProAccess) throw new AppError('Vision generation requires access', 403, 'VISION_PREMIUM_REQUIRED');
     const anchor = await prisma.anchor.findFirst({
@@ -68,6 +70,9 @@ export class VisionGenerationService {
     const trimmed = description.trim();
     if (trimmed.length < 12 || trimmed.length > 2000) throw new AppError('Describe your Vision in 12 to 2000 characters', 400, 'VALIDATION_ERROR');
 
+    // Validate explicit consent/ownership before a job is accepted. The actual
+    // bytes stay inside the backend and are read only by the provider worker.
+    if (appearanceReferenceId) await visionAppearanceReferenceService.resolveForGeneration(userId, appearanceReferenceId);
     const existingJob = await prisma.visionGeneration.findFirst({
       where: { userId, anchorId, id: idempotencyKey, vision: { status: 'ACTIVE' } },
     });
@@ -98,6 +103,7 @@ export class VisionGenerationService {
           setNumber,
           status: 'QUEUED',
           stage: 'planning',
+          appearanceReferenceId: appearanceReferenceId ?? null,
         },
       });
     } catch (error) {
@@ -157,14 +163,27 @@ export class VisionGenerationService {
    * error should not stop the set; if it fails twice the job pauses as
    * FAILED with every finished image kept, and a retry resumes from there.
    */
-  private async renderScene(provider: GeminiImageService, prompt: string): Promise<Buffer> {
+  private async renderScene(provider: GeminiImageService, prompt: string, reference?: { buffer: Buffer; mimeType: string } | null): Promise<Buffer> {
+    const attempt = async (appearance?: { buffer: Buffer; mimeType: string } | null) => {
+      try {
+        return await provider.generateVisionScene(prompt, appearance ?? undefined);
+      } catch (error) {
+        if (error instanceof GeminiError && error.type === GeminiErrorType.INVALID_API_KEY) throw error;
+        logger.warn('[VisionGeneration] Image attempt failed; retrying once', error);
+        await new Promise(resolve => setTimeout(resolve, SCENE_RETRY_DELAY_MS));
+        return provider.generateVisionScene(prompt, appearance ?? undefined);
+      }
+    };
     try {
-      return await provider.generateVisionScene(prompt);
+      return await attempt(reference);
     } catch (error) {
       if (error instanceof GeminiError && error.type === GeminiErrorType.INVALID_API_KEY) throw error;
-      logger.warn('[VisionGeneration] Image attempt failed; retrying once', error);
-      await new Promise(resolve => setTimeout(resolve, SCENE_RETRY_DELAY_MS));
-      return provider.generateVisionScene(prompt);
+      if (!reference) throw error;
+      // Appearance is optional. If the provider rejects the reference or its
+      // likeness path, preserve the person's requested future as a POV /
+      // identity-neutral scene rather than failing the complete Vision.
+      logger.warn('[VisionGeneration] Appearance reference unavailable; using identity-neutral scene');
+      return attempt(null);
     }
   }
 
@@ -178,11 +197,19 @@ export class VisionGenerationService {
     if (claimed.count !== 1) return;
     try {
       const provider = new GeminiImageService();
+      let reference: { id: string; buffer: Buffer; mimeType: string } | null = null;
+      try {
+        reference = await visionAppearanceReferenceService.resolveForGeneration(job.userId, job.appearanceReferenceId);
+      } catch {
+        // Consent can be withdrawn or a generation-scoped reference can
+        // expire while work is queued. Continue safely without a likeness.
+        logger.warn('[VisionGeneration] Appearance reference unavailable before scene planning; using identity-neutral scenes');
+      }
       const attempt = job.retryCount;
       const savedPlan = job.plan;
       const plan: VisionScenePlanItem[] = isStoredVisionScenePlan(savedPlan)
         ? savedPlan
-        : await provider.planVisionScenes(intention, category, job.description, await this.previousScenes(job));
+        : await provider.planVisionScenes(intention, category, job.description, await this.previousScenes(job), Boolean(reference));
       const afterPlanning = await prisma.visionGeneration.findUnique({
         where: { id: jobId }, select: { status: true, retryCount: true },
       });
@@ -191,6 +218,7 @@ export class VisionGenerationService {
         where: { id: jobId }, data: { plan: plan as unknown as Prisma.InputJsonValue },
       });
       await prisma.visionGeneration.update({ where: { id: jobId }, data: { stage: 'creating_images' } });
+      let succeeded = 0;
       for (let i = 0; i < plan.length; i++) {
         const current = await prisma.visionGeneration.findUnique({
           where: { id: jobId }, select: { status: true, retryCount: true },
@@ -199,49 +227,39 @@ export class VisionGenerationService {
         const prior = await prisma.visionGenerationCandidate.findUnique({
           where: { generationId_sortOrder: { generationId: jobId, sortOrder: i } },
         });
-        if (prior) continue;
+        if (prior?.status === 'SUCCEEDED') { succeeded += 1; continue; }
         const scene = plan[i];
-        const prompt = buildVisionImagePrompt({ intention, category, description: job.description, scene });
-        const raw = await this.renderScene(provider, prompt);
-        const afterProvider = await prisma.visionGeneration.findUnique({
-          where: { id: jobId }, select: { status: true, retryCount: true },
-        });
-        if (!afterProvider || afterProvider.retryCount !== attempt || !['RUNNING', 'PARTIAL'].includes(afterProvider.status)) return;
-        // Keep the provider's portrait composition: bound it to the canonical
-        // size without cropping or upscaling. Surfaces crop at display time.
-        const { data: image, info } = await sharp(raw).rotate()
-          .resize({ width: VISION_IMAGE_WIDTH, height: VISION_IMAGE_HEIGHT, fit: 'inside', withoutEnlargement: true })
-          .jpeg({ quality: 86 }).toBuffer({ resolveWithObject: true });
-        const uploaded = await uploadImageAssetFromBuffer(image, job.userId, job.anchorId, i, {
-          visibility: 'private', contentType: 'image/jpeg',
-        });
-        const asset = await visionService.createAsset(job.userId, {
-          storageKey: uploaded.objectKey,
-          mimeType: 'image/jpeg',
-          fileSizeBytes: image.length,
-          metadata: {
-            visionGenerationId: jobId, role: scene.role,
-            width: info.width, height: info.height, aspectRatio: VISION_IMAGE_ASPECT_RATIO,
-          },
-        });
-        await prisma.visionGenerationCandidate.create({
-          data: { id: randomUUID(), generationId: jobId, assetId: asset.id, role: scene.role, prompt: scene.scene, sortOrder: i },
-        });
-        await prisma.visionGeneration.update({
-          where: { id: jobId },
-          data: { status: 'PARTIAL', stage: 'creating_images' },
-        });
+        const prompt = buildVisionImagePrompt({ intention, category, description: job.description, scene, hasAppearanceReference: Boolean(reference) });
+        try {
+          const raw = await this.renderScene(provider, prompt, reference);
+          const afterProvider = await prisma.visionGeneration.findUnique({ where: { id: jobId }, select: { status: true, retryCount: true } });
+          if (!afterProvider || afterProvider.retryCount !== attempt || !['RUNNING', 'PARTIAL'].includes(afterProvider.status)) return;
+          const { data: image, info } = await sharp(raw).rotate()
+            .resize({ width: VISION_IMAGE_WIDTH, height: VISION_IMAGE_HEIGHT, fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 86 }).toBuffer({ resolveWithObject: true });
+          const uploaded = await uploadImageAssetFromBuffer(image, job.userId, job.anchorId, i, { visibility: 'private', contentType: 'image/jpeg' });
+          const asset = await visionService.createAsset(job.userId, { storageKey: uploaded.objectKey, mimeType: 'image/jpeg', fileSizeBytes: image.length,
+            metadata: { visionGenerationId: jobId, role: scene.role, width: info.width, height: info.height, aspectRatio: VISION_IMAGE_ASPECT_RATIO } });
+          if (prior) await prisma.visionGenerationCandidate.update({ where: { id: prior.id }, data: { assetId: asset.id, status: 'SUCCEEDED', error: null, role: scene.role, prompt: scene.scene } });
+          else await prisma.visionGenerationCandidate.create({ data: { id: randomUUID(), generationId: jobId, assetId: asset.id, role: scene.role, prompt: scene.scene, sortOrder: i, status: 'SUCCEEDED' } });
+          succeeded += 1;
+          await prisma.visionGeneration.update({ where: { id: jobId }, data: { status: 'PARTIAL', stage: 'creating_images' } });
+        } catch (sceneError) {
+          logger.warn('[VisionGeneration] Scene failed; continuing with remaining moments', { jobId, scene: i });
+          if (prior) await prisma.visionGenerationCandidate.update({ where: { id: prior.id }, data: { status: 'FAILED', error: 'Scene unavailable' } });
+          else await prisma.visionGenerationCandidate.create({ data: { id: randomUUID(), generationId: jobId, assetId: null, role: scene.role, prompt: scene.scene, sortOrder: i, status: 'FAILED', error: 'Scene unavailable' } });
+        }
       }
-      await prisma.visionGeneration.updateMany({
-        where: { id: jobId, retryCount: attempt, status: { in: ['RUNNING', 'PARTIAL'] } },
-        data: { status: 'COMPLETE', stage: 'complete', error: null },
-      });
+      await prisma.visionGeneration.updateMany({ where: { id: jobId, retryCount: attempt, status: { in: ['RUNNING', 'PARTIAL'] } },
+        data: succeeded ? { status: 'COMPLETE', stage: 'complete', error: null } : { status: 'FAILED', stage: 'failed', error: 'Images could not be created. Retry this set.' } });
     } catch (error) {
       logger.error('[VisionGeneration] Provider or storage error', error);
       await prisma.visionGeneration.updateMany({
         where: { id: jobId, retryCount: job.retryCount, status: { in: ['RUNNING', 'PARTIAL'] } },
         data: { status: 'FAILED', stage: 'failed', error: 'Some images could not be created. Retry this set.' },
       });
+    } finally {
+      await visionAppearanceReferenceService.cleanupGenerationScoped(job.appearanceReferenceId);
     }
   }
 }

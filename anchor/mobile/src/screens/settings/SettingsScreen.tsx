@@ -35,6 +35,7 @@ import {
   SettingsMetric,
   SettingsRow,
   SettingsRule,
+  SettingsToggleRow,
 } from '@/components/settings/SettingsPrimitives';
 import { EditProfileSheet } from '@/components/EditProfileSheet';
 import { PracticeSubscreen } from './PracticeSubscreen';
@@ -54,6 +55,7 @@ import { persistProfilePhoto } from '@/services/ProfileMediaService';
 import { useAuthStore } from '@/stores/authStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useVisionAppearanceReference } from '@/hooks/v2/vision';
 import { logger } from '@/utils/logger';
 import type { ApiResponse, User } from '@/types';
 import type { ProfileStackParamList } from '@/navigation/ProfileStackNavigator';
@@ -90,6 +92,7 @@ export const SettingsScreen: React.FC = () => {
 
   // Profile Store
   const { name, axiom, timezone, mono, photo, memberSince, updateProfile, syncFromUser } = useProfileStore();
+  const visionAppearance = useVisionAppearanceReference();
 
   // Metrics
   const totalSessionsCount = useSessionStore((s) => s.totalSessionsCount);
@@ -200,6 +203,12 @@ export const SettingsScreen: React.FC = () => {
         : updates.photo;
     const nextUpdates = { ...updates, photo: persistedPhoto };
     updateProfile(nextUpdates);
+
+    // A changed profile image is not silently repurposed for generation.
+    // Keep the profile itself, but require a fresh Vision opt-in next time.
+    if (persistedPhoto !== photo && visionAppearance.enabledByPreference) {
+      await visionAppearance.setProfilePreference(false);
+    }
 
     if (user) {
       setUser({ ...user, displayName: nextUpdates.name });
@@ -390,6 +399,14 @@ export const SettingsScreen: React.FC = () => {
             desc="Haptics, sound, motion, and tips"
             onPress={() => setActiveSubscreen('experience')}
             testID="settings-row-App experience"
+          />
+          <SettingsToggleRow
+            label="Use profile photo for Vision"
+            desc={photo ? 'Use it as an appearance reference only when you choose to appear in a Vision.' : 'Add a profile photo to make it available as an appearance reference.'}
+            on={visionAppearance.enabledByPreference}
+            disabled={!photo || visionAppearance.saving}
+            onToggle={(next) => { void visionAppearance.setProfilePreference(next); }}
+            testID="settings-toggle-vision-profile-photo"
           />
 
           {/* More Section */}

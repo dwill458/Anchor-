@@ -28,7 +28,7 @@ const CreateCourseSchema = z
           })
           .strict()
       )
-      .max(7)
+      .max(12)
       .optional(),
     fromProposalId: z.string().min(1).max(200).optional(),
   })
@@ -41,8 +41,15 @@ const UpdateCourseSchema = z
   })
   .strict();
 const ExpectedVersionSchema = z.object({ expectedCourseVersion: CourseVersion }).strict();
+const MetricFields = {
+  kind: z.enum(['MILESTONE', 'METRIC', 'CAPABILITY']).optional(),
+  metricLabel: z.string().trim().max(40).nullable().optional(),
+  metricBaseline: z.number().finite().min(0).max(1e12).nullable().optional(),
+  metricTarget: z.number().finite().positive().max(1e12).nullable().optional(),
+};
 const AddWaypointSchema = z
   .object({
+    ...MetricFields,
     idempotencyKey: IdempotencyKey,
     expectedCourseVersion: CourseVersion,
     title: z.string().trim().min(1).max(60),
@@ -52,6 +59,7 @@ const AddWaypointSchema = z
   .strict();
 const EditWaypointSchema = z
   .object({
+    ...MetricFields,
     expectedCourseVersion: CourseVersion,
     title: z.string().trim().min(1).max(60).optional(),
     description: z.string().trim().max(400).nullable().optional(),
@@ -60,7 +68,7 @@ const EditWaypointSchema = z
 const ReorderSchema = z
   .object({
     expectedCourseVersion: CourseVersion,
-    orderedWaypointIds: z.array(z.string().min(1).max(200)).max(7),
+    orderedWaypointIds: z.array(z.string().min(1).max(200)).max(12),
   })
   .strict();
 const CompleteSchema = z

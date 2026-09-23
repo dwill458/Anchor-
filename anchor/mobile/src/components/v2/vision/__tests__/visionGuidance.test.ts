@@ -32,29 +32,27 @@ describe('visionGenerationProgress', () => {
     id: 'job', visionId: 'v', anchorId: 'a', setNumber: 1, retryCount: 0, error: null, candidates: [], ...overrides,
   }) as any;
 
-  it('follows the job, not a timer', () => {
-    expect(visionGenerationProgress(job({ status: 'QUEUED', stage: 'planning' })).phase).toBe('reading');
-    expect(visionGenerationProgress(job({ status: 'RUNNING', stage: 'planning' })).steps.map(step => step.state))
-      .toEqual(['done', 'active', 'pending', 'pending']);
-    expect(visionGenerationProgress(job({ status: 'RUNNING', stage: 'creating_images' })).phase).toBe('building');
+  it('uses one experiential status line, never a progress checklist', () => {
+    const queued = visionGenerationProgress(job({ status: 'QUEUED', stage: 'planning' }));
+    expect(queued.phase).toBe('forming');
+    expect(queued.title).toBe('Finding the first moment…');
+    expect(visionGenerationProgress(job({ status: 'RUNNING', stage: 'creating_images' })).phase).toBe('forming');
     const partial = visionGenerationProgress(job({ status: 'PARTIAL', stage: 'creating_images', candidates: [{}, {}, {}] }));
-    expect(partial.phase).toBe('shaping');
-    expect(partial.detail).toBe('3 of 8 images ready');
-    expect(visionGenerationProgress(job({ status: 'COMPLETE', stage: 'complete', candidates: Array(8).fill({}) })).steps
-      .every(step => step.state === 'done')).toBe(true);
+    expect(partial.phase).toBe('revealing');
+    expect(partial.title).toBe('Finding another moment…');
+    expect(visionGenerationProgress(job({ status: 'COMPLETE', stage: 'complete', candidates: Array(8).fill({}) })).title)
+      .toBe('Your Vision is ready.');
   });
 
-  it('is only "Almost ready" once every image exists, and done once it has been shown', () => {
-    const seven = job({ status: 'PARTIAL', stage: 'creating_images', candidates: Array(7).fill({}) });
-    expect(visionGenerationProgress(seven).steps.map(step => step.state)).toEqual(['done', 'done', 'active', 'pending']);
+  it('holds the ready copy until the cinematic presentation has settled', () => {
     const complete = job({ status: 'COMPLETE', stage: 'complete', candidates: Array(8).fill({}) });
-    expect(visionGenerationProgress(complete, false).steps.map(step => step.state)).toEqual(['done', 'done', 'done', 'active']);
-    expect(visionGenerationProgress(complete, true).steps[3].state).toBe('done');
+    expect(visionGenerationProgress(complete, false).title).toBe('Bringing your future into focus…');
+    expect(visionGenerationProgress(complete, true).title).toBe('Your Vision is ready.');
   });
 
   it('never completes a paused set', () => {
     const failed = job({ status: 'FAILED', stage: 'failed', candidates: Array(5).fill({}) });
-    const states = visionGenerationProgress(failed).steps.map(step => step.state);
-    expect(states).toEqual(['done', 'done', 'pending', 'pending']);
+    expect(visionGenerationProgress(failed).phase).toBe('failed');
+    expect(visionGenerationProgress(failed).title).toBe('Your Vision paused.');
   });
 });

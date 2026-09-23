@@ -328,6 +328,7 @@ export async function updateUserSettings(
       | 'primeSessionAudio'
       | 'visualizeSessionDuration'
       | 'sessionAudioDefaults'
+      | 'useProfilePhotoForVision'
     >
   >
 ): Promise<UserSettings> {

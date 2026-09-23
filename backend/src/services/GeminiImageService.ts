@@ -144,11 +144,12 @@ export class GeminiImageService {
     category: string,
     description: string,
     avoidScenes: string[] = [],
+    hasAppearanceReference: boolean = false,
   ): Promise<VisionScenePlanItem[]> {
     if (!this.isAvailable()) throw new GeminiError(GeminiErrorType.INVALID_API_KEY, 'Image provider unavailable');
     const response = await this.client.models.generateContent({
       model: SCENE_PLANNER_MODEL,
-      contents: [{ role: 'user', parts: [{ text: buildVisionScenePlannerPrompt({ intention, category, description, avoidScenes }) }] }],
+      contents: [{ role: 'user', parts: [{ text: buildVisionScenePlannerPrompt({ intention, category, description, avoidScenes, hasAppearanceReference }) }] }],
       config: { responseMimeType: 'application/json', temperature: 1 },
     });
     const plan = parseVisionScenePlan(response.text);
@@ -156,14 +157,22 @@ export class GeminiImageService {
     return plan;
   }
 
-  async generateVisionScene(prompt: string): Promise<Buffer> {
+  async generateVisionScene(prompt: string, reference?: { buffer: Buffer; mimeType: string }): Promise<Buffer> {
     if (!this.isAvailable()) throw new GeminiError(GeminiErrorType.INVALID_API_KEY, 'Image provider unavailable');
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 90000);
     try {
       const response = await this.client.models.generateContent({
         model: VISION_IMAGE_MODEL,
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        contents: [{
+          role: 'user',
+          parts: [
+            { text: reference
+              ? `${prompt}\n\nThe attached image is an optional approved appearance reference. Use it only when the person is visibly represented; preserve broad likeness without naming or inferring demographic attributes. Do not force a face into the composition.`
+              : `${prompt}\n\nNo appearance reference was supplied. Do not imply an invented protagonist is the user; prefer first-person, identity-neutral, obscured, or environmental composition when a person would otherwise be central.` },
+            ...(reference ? [{ inlineData: { mimeType: reference.mimeType, data: reference.buffer.toString('base64') } }] : []),
+          ],
+        }],
         // Portrait-first: Visualize is a full-screen portrait experience, so the
         // model composes for it rather than having a square cropped later.
         config: { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: VISION_IMAGE_ASPECT_RATIO }, abortSignal: controller.signal },

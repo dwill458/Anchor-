@@ -4,7 +4,7 @@ import { BackHandler, StyleSheet, View } from 'react-native';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
 import { colors } from '@/theme/v2';
-import type { AnchorExpression, CreationStep } from '@/constants/v2/creation';
+import type { AnchorExpression, CreationStep, GeneratedAnchorCandidate } from '@/constants/v2/creation';
 import { useCreationStore, whenCreationHydrated, type CreationDraft, type SaveFailure } from '@/stores/v2/creationStore';
 import { CreationStage, type WindowRect } from './CreationStage';
 import { IntentionStep } from './IntentionStep';
@@ -19,8 +19,8 @@ export type { WindowRect } from './CreationStage';
  */
 export type CreationSaveAdapter = (input: { draft: CreationDraft; idempotencyKey: string }) => Promise<{ anchorId: string }>;
 
-/** Persists the Destination for the saved Anchor. */
-export type CreationDestinationAdapter = (input: { anchorId: string; description: string }) => Promise<void>;
+/** Starts the existing visual-expression generation for the canonical structure. */
+export type CreationGenerationAdapter = (input: { draft: CreationDraft; generationAttempt: number }) => Promise<{ candidates: GeneratedAnchorCandidate[]; metadata?: Record<string, unknown> }>;
 
 /** Everything the next screen needs to receive the Anchor exactly where creation left it. */
 export type CreationHandoff = {
@@ -30,11 +30,12 @@ export type CreationHandoff = {
   svg: string;
   category?: string;
   expression: AnchorExpression;
+  imageUrl?: string;
 };
 
 export interface V2CreationFlowProps {
   saveAnchor: CreationSaveAdapter;
-  saveDestination: CreationDestinationAdapter;
+  generateExpression: CreationGenerationAdapter;
   /** Creation is finished and the Anchor is saved; carry it into Home. */
   onComplete: (handoff: CreationHandoff) => void;
   /** Leave creation from its first step. The draft is kept and resumes next time. */
@@ -57,16 +58,22 @@ const failureOf = (error: unknown): SaveFailure => {
   return failure ?? 'server';
 };
 
+const generationFailureMessage = (error: unknown): string => {
+  const failure = (error as { failure?: string } | null)?.failure;
+  if (failure === 'network') return 'You look to be offline. Your structure is safe. Try again when you are connected.';
+  return 'Your structure is safe. We could not finish this expression. Try again.';
+};
+
 /**
  * Anchor 2.0 creation: one route, one state machine.
  *
- *   Intention → Distillation → Formation → Reveal → Expression → Destination → Home
+ *   Intention → Distillation → Formation → Reveal → Expression → Generation → Choose → Home
  *
  * The intention is written on its own page; from the moment it is accepted everything
  * happens on one continuous stage, so the letters, the grid, the traced line and the finished
  * mark are the same objects throughout rather than a sequence of screens.
  */
-export function V2CreationFlow({ saveAnchor, saveDestination, onComplete, onExit, onPaywall, onSignIn }: V2CreationFlowProps) {
+export function V2CreationFlow({ saveAnchor, generateExpression, onComplete, onExit, onPaywall, onSignIn }: V2CreationFlowProps) {
   const draft = useCreationStore((state) => state.draft);
   const store = useCreationStore;
   const reduceMotion = useV2ReduceMotion();
@@ -164,24 +171,25 @@ export function V2CreationFlow({ saveAnchor, saveDestination, onComplete, onExit
     }
   }, [onPaywall, saveAnchor, store]);
 
-  const submitDestination = useCallback(async () => {
-    if (!store.getState().beginDestinationSave()) return;
+  const generationAttempt = useRef(0);
+  const generate = useCallback(async () => {
+    const began = store.getState().beginGeneration();
+    if (!began) return;
     const current = store.getState().draft;
-    if (!current?.persistedAnchorId) return;
+    if (!current) return;
+    generationAttempt.current += 1;
+    track('v2_creation_generation_started', { expression: current.expression, attempt: generationAttempt.current });
     try {
-      await saveDestination({ anchorId: current.persistedAnchorId, description: current.destination.trim() });
-      store.getState().completeDestination();
-      track('v2_creation_destination_saved');
-    } catch {
-      store.getState().failDestination();
-      track('v2_creation_destination_failed');
+      const result = await generateExpression({ draft: current, generationAttempt: generationAttempt.current });
+      store.getState().completeGeneration(result.candidates, result.metadata);
+      v2Haptics.confirmation();
+      track('v2_creation_generation_completed', { expression: current.expression, candidateCount: result.candidates.length });
+    } catch (error) {
+      store.getState().failGeneration(generationFailureMessage(error));
+      track('v2_creation_generation_failed', { expression: current.expression });
+      v2Haptics.warning();
     }
-  }, [saveDestination, store]);
-
-  const skipDestination = useCallback(() => {
-    store.getState().skipDestination();
-    track('v2_creation_destination_skipped');
-  }, [store]);
+  }, [generateExpression, store]);
 
   const handoff = useCallback((markRect: WindowRect | null) => {
     const current = store.getState().draft;
@@ -194,6 +202,7 @@ export function V2CreationFlow({ saveAnchor, saveDestination, onComplete, onExit
       svg: current.structureSvg,
       category: current.category,
       expression: current.expression,
+      imageUrl: current.enhancedImageUrl,
     });
   }, [onComplete, store]);
 
@@ -222,11 +231,11 @@ export function V2CreationFlow({ saveAnchor, saveDestination, onComplete, onExit
       onOpenExpression={store.getState().openExpression}
       onSelectExpression={store.getState().selectExpression}
       onKeep={keep}
+      onGenerate={generate}
+      onKeepOriginal={store.getState().keepOriginal}
+      onSelectCandidate={store.getState().selectCandidate}
       onSignIn={onSignIn}
       onPaywall={onPaywall}
-      onDestinationChange={store.getState().setDestination}
-      onDestinationSubmit={submitDestination}
-      onDestinationSkip={skipDestination}
       onHandoff={handoff}
     />
   );

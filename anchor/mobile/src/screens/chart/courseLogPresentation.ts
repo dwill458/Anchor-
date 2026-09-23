@@ -17,6 +17,8 @@ export const COURSE_EVENT_COPY: Record<CourseLogEntry['eventType'], string> = {
   COURSE_COMPLETED: 'Destination reached.',
   COURSE_ARCHIVED: 'Course archived.',
   COURSE_RESTORED: 'Course restored.',
+  MOVE_COMPLETED: 'Move completed.',
+  ROUTE_ADJUSTED: 'Route adjusted.',
 };
 
 export function courseLogEventCopy(entry: CourseLogEntry): string {
@@ -24,6 +26,10 @@ export function courseLogEventCopy(entry: CourseLogEntry): string {
   if (title && entry.eventType === 'WAYPOINT_REACHED') return `${title} reached.`;
   if (title && entry.eventType === 'WAYPOINT_SKIPPED') return `${title} skipped.`;
   if (title && entry.eventType === 'WAYPOINT_BLOCKED') return `${title} needs a new Anchor.`;
+  if (title && entry.eventType === 'WAYPOINT_ADDED') return `${title} added.`;
+  if (title && entry.eventType === 'WAYPOINT_CANCELLED') return `${title} removed from the route.`;
+  const moveTitle = typeof entry.snapshot?.moveTitle === 'string' ? entry.snapshot.moveTitle : null;
+  if (moveTitle && entry.eventType === 'MOVE_COMPLETED') return `Move completed: ${moveTitle}`;
   if (entry.eventType === 'PRACTICE_COMPLETED' && entry.practiceSession) return `Completed a ${entry.practiceSession.practiceMode} practice.`;
   return COURSE_EVENT_COPY[entry.eventType];
 }

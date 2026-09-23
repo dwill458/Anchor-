@@ -2,7 +2,7 @@ import React from 'react';
 
 import {
   V2CreationFlow,
-  type CreationDestinationAdapter,
+  type CreationGenerationAdapter,
   type CreationHandoff,
   type CreationSaveAdapter,
   type V2CreationFlowProps,
@@ -19,4 +19,4 @@ export function V2CreationScreen(props: V2CreationScreenProps) {
   return <V2CreationFlow {...props} />;
 }
 
-export type { CreationDestinationAdapter, CreationHandoff, CreationSaveAdapter, CreationDraft };
+export type { CreationGenerationAdapter, CreationHandoff, CreationSaveAdapter, CreationDraft };

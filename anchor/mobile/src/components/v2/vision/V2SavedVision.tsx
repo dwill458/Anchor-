@@ -7,6 +7,7 @@ import { colors, getCategoryColor, radii, spacing, typography } from '@/theme/v2
 import { practiceColors } from '@/theme/v2/practiceColors';
 import { useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
 import type { V2VisionTile } from '@/adapters/v2/vision';
+import type { ChartSummary } from '@/adapters/v2/chart/chartV2Model';
 import { VisionHeaderRow, VisionIdentity, VisionInkBand, type VisionAnchorArt } from './VisionChrome';
 import { VISION_DESCRIPTION_MAX_CHARS, VISION_DESCRIPTION_MIN_CHARS, visionDetailHint } from './visionGuidance';
 
@@ -21,6 +22,8 @@ type Props = {
   onBack: () => void;
   onVisualize: () => void;
   onChart: () => void;
+  /** Real Chart state for this Anchor; null when there is no route. */
+  chartSummary?: ChartSummary | null;
   onUpdateDescription: (description: string) => Promise<boolean>;
   onReorder: (sceneOrders: Array<{ id: string; sortOrder: number }>) => Promise<boolean>;
   onRemove: (sceneId: string) => Promise<boolean>;
@@ -34,6 +37,7 @@ type Props = {
 const PAGE_GUTTER = spacing[5];
 
 export function V2SavedVision({
+  chartSummary = null,
   anchorIntention, anchorCategory, anchorImageUrl, anchorArt, description, tiles, error,
   onBack, onVisualize, onChart, onUpdateDescription, onReorder, onRemove,
   onAddOwn, onGenerateMore, canGenerateMore, onArchive, testID = 'v2-vision-screen',
@@ -200,8 +204,27 @@ export function V2SavedVision({
                 <View style={styles.actions}>
                   <Pressable accessibilityRole="button" accessibilityLabel="Edit Vision" onPress={() => setMode('edit')} style={({ pressed }) => [styles.action, pressed && styles.pressed]}><Pencil size={18} color={colors.text.primary} /><Text style={styles.actionText}>Edit Vision</Text></Pressable>
                   <Pressable accessibilityRole="button" accessibilityLabel="Manage Images" onPress={() => setMode('manage')} style={({ pressed }) => [styles.action, pressed && styles.pressed]}><ImageIcon size={18} color={colors.text.primary} /><Text style={styles.actionText}>Manage Images</Text></Pressable>
-                  <Pressable accessibilityRole="button" accessibilityLabel="View on Chart" onPress={onChart} style={({ pressed }) => [styles.action, pressed && styles.pressed]}><ArrowRight size={18} color={colors.text.primary} /><Text style={styles.actionText}>View on Chart</Text></Pressable>
+                  <Pressable accessibilityRole="button" accessibilityLabel={chartSummary ? 'View on Chart' : 'Create a Chart'} onPress={onChart} style={({ pressed }) => [styles.action, pressed && styles.pressed]}><ArrowRight size={18} color={colors.text.primary} /><Text style={styles.actionText}>{chartSummary ? 'View on Chart' : 'Create a Chart'}</Text></Pressable>
                 </View>
+                {chartSummary ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`On your Chart: ${chartSummary.isFinished ? 'destination reached' : `waypoint ${chartSummary.waypointNumber} of ${chartSummary.total}, ${chartSummary.waypointTitle}`}. View Chart.`}
+                    onPress={onChart}
+                    testID="vision-on-your-chart"
+                    style={({ pressed }) => [styles.chartCard, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.chartEyebrow}>ON YOUR CHART</Text>
+                    <Text style={styles.chartPosition}>
+                      {chartSummary.isFinished ? 'Destination reached' : `Waypoint ${chartSummary.waypointNumber} of ${chartSummary.total}`}
+                    </Text>
+                    <Text style={styles.chartTitle}>{chartSummary.waypointTitle}</Text>
+                    <View style={styles.chartLink}>
+                      <Text style={styles.chartLinkText}>View Chart</Text>
+                      <ArrowRight size={15} color={colors.text.primary} />
+                    </View>
+                  </Pressable>
+                ) : null}
               </>
             )}
             {(notice || error) && <Text style={styles.error}>{notice || error}</Text>}
@@ -254,4 +277,18 @@ const styles = StyleSheet.create({
   dim: { opacity: 0.35 },
   manageActions: { gap: spacing[2], marginTop: spacing[2] },
   error: { ...typography.caption, color: colors.semantic.error },
+  chartCard: {
+    marginTop: spacing[4],
+    padding: spacing[4],
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    backgroundColor: colors.surface,
+    gap: 4,
+  },
+  chartEyebrow: { ...typography.labelSM, color: colors.text.secondary, letterSpacing: 1.1 },
+  chartPosition: { ...typography.labelMD, color: colors.text.secondary, marginTop: spacing[1] },
+  chartTitle: { ...typography.headingSM, color: colors.text.primary },
+  chartLink: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing[2] },
+  chartLinkText: { ...typography.labelMD, color: colors.text.primary },
 });

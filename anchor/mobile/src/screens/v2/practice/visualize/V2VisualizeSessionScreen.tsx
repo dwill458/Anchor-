@@ -27,6 +27,7 @@ import {
   buildVisionSceneSchedule, buildVisionSceneSnapshot, preloadVisionImages, V2_VISUALIZE_TIMING as T, visionImageFit,
   visionSceneSlotAt, visualizePromptAt, visualizeReflectionPrompts, type V2VisualizeDuration,
 } from './visualizeVisionPlan';
+import { ChartMoveHandoff } from '@/components/v2/chart/ChartMoveHandoff';
 
 type Props = {
   anchor: Anchor;
@@ -505,6 +506,8 @@ export function V2VisualizeSessionScreen({
           </Animated.View>
           <Animated.View style={[styles.continueWrap, { bottom: insets.bottom + spacing[6] }, continueStyle]}
             pointerEvents={continueReady && settled ? 'auto' : 'none'}>
+            {/* SEE → MOVE: the Anchor's real One Move, once the ending has settled. */}
+            <ChartMoveHandoff anchorId={anchor.id} surface="visualize" tone="ink" visible={continueReady && settled} />
             {/* The Anchor 2.0 primary: an ink pill with cream text, lifted from the dark ground by a hairline. */}
             <V2Button size="large" accessibilityLabel="Continue" disabled={!continueReady || !settled} onPress={handleContinue}
               style={styles.continueButton} textColor={colors.paper}>
@@ -547,7 +550,7 @@ const styles = StyleSheet.create({
   ending: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', paddingBottom: spacing[8] },
   lineWrap: { marginTop: spacing[8], paddingHorizontal: spacing[6], alignItems: 'center' },
   line: { ...typography.headingMD, color: colors.ink.text.primary, textAlign: 'center' },
-  continueWrap: { position: 'absolute', left: spacing[5], right: spacing[5], alignItems: 'center' },
+  continueWrap: { position: 'absolute', left: spacing[5], right: spacing[5], alignItems: 'center', gap: spacing[4] },
   continueButton: { alignSelf: 'stretch', maxWidth: 360, backgroundColor: '#0A0F14', borderColor: colors.ink.hairlineStrong },
   extensionShade: { backgroundColor: colors.ink.deep, opacity: 0.38 },
 });

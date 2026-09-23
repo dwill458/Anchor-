@@ -23,10 +23,19 @@ export type AnchorV2StackParamList = {
   };
   V2PracticePrepare: { anchorId: string; mode?: V2PracticeMode };
   V2Vision: { anchorId?: string; initialMode?: 'view' | 'create' | 'ready'; resumeGeneration?: boolean };
-  V2Chart: { courseId?: string; anchorId?: string };
+  V2Chart: {
+    courseId?: string;
+    anchorId?: string;
+    source?: string;
+    reached?: { completedTitle: string; nextTitle: string | null; reachedCount: number; total: number; destinationReached: boolean };
+  };
+  V2ChartWaypoint: { anchorId: string; waypointId: string };
+  V2ChartAdjust: { anchorId: string };
+  V2ChartJourney: { anchorId: string };
   V2Progress: { anchorId?: string };
   V2Release: V2ReleaseRouteParams;
   V2WeeklyInsight: V2WeeklyInsightRouteParams | undefined;
   V2Settings: undefined;
+  V2Auth: { initialMode?: 'signin' | 'create' } | undefined;
   Login: AuthScreenParams | undefined;
 };

@@ -1,2 +1,1 @@
-export * from './types';
-export * from './chartAdapter';
+export * from './chartV2Model';

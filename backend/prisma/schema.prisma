@@ -67,6 +67,7 @@ model User {
   visionGenerations    VisionGeneration[]
   visionScenes        VisionScene[]
   visionViews         VisionView[]
+  visionAppearanceReferences VisionAppearanceReference[]
   assets              Asset[]
   recommendationSignalAcks RecommendationSignalAck[]
   threadEventLedger       ThreadEventLedger[]
@@ -173,6 +174,7 @@ model Anchor {
   practiceSessions   PracticeSession[]
   visualizationScene VisualizationScene?
   courseAnchorLinks  CourseAnchorLink[]
+  courses            Course[]           @relation("AnchorCourses")
   threadV2States     ThreadV2State[]
   threadEventLedger  ThreadEventLedger[]
   visions            Vision[]
@@ -484,6 +486,8 @@ enum CourseEventType {
   COURSE_COMPLETED
   COURSE_ARCHIVED
   COURSE_RESTORED
+  MOVE_COMPLETED
+  ROUTE_ADJUSTED
 }
 
 model Course {
@@ -493,6 +497,15 @@ model Course {
 
   destinationText       String       @map("destination_text") @db.VarChar(140)
   startingContext       String?      @map("starting_context") @db.VarChar(500)
+  // Anchor 2.0: a Chart belongs to exactly one Anchor. Nullable for legacy
+  // Courses; Release never deletes the Anchor row, so history keeps this link.
+  anchorId              String?      @map("anchor_id")
+  anchor                Anchor?      @relation("AnchorCourses", fields: [anchorId], references: [id], onDelete: SetNull)
+  // Plain reference (no FK): archived/replaced Visions must not erase history.
+  visionId              String?      @map("vision_id")
+  complexity            String?      @db.VarChar(16)
+  currentMoveId         String?      @unique @map("current_move_id")
+  currentMove           Move?        @relation("CourseCurrentMove", fields: [currentMoveId], references: [id], onDelete: SetNull)
   status                CourseStatus @default(DRAFT)
   currentWaypointId     String?      @unique @map("current_waypoint_id")
   currentWaypoint       Waypoint?    @relation("CourseCurrentWaypoint", fields: [currentWaypointId], references: [id], onDelete: SetNull)
@@ -512,10 +525,12 @@ model Course {
   events      CourseEvent[]
   reflections Reflection[]
   proposals   AIPlanProposal[]
+  moves       Move[]
 
   @@index([userId, status])
   @@index([userId, deletedAt])
   @@index([userId, updatedAt])
+  @@index([anchorId])
   @@map("courses")
 }
 
@@ -532,6 +547,13 @@ model Waypoint {
   cancelledAt                 DateTime? @map("cancelled_at")
   archivedAt                  DateTime? @map("archived_at")
   supportingPracticeSessionId String?   @map("supporting_practice_session_id")
+  // MILESTONE | METRIC | CAPABILITY. Metric fields only describe measurable
+  // progress; they never complete a waypoint on their own.
+  kind                        String    @default("MILESTONE") @db.VarChar(16)
+  metricLabel                 String?   @map("metric_label") @db.VarChar(40)
+  metricBaseline              Float?    @map("metric_baseline")
+  metricTarget                Float?    @map("metric_target")
+  metricCurrent               Float?    @map("metric_current")
   createdAt                   DateTime  @default(now()) @map("created_at")
   updatedAt                   DateTime  @updatedAt @map("updated_at")
 
@@ -539,11 +561,40 @@ model Waypoint {
   anchorLinks      CourseAnchorLink[]
   events           CourseEvent[]
   reflections      Reflection[]
+  moves            Move[]
 
   @@unique([courseId, position])
   @@index([courseId, reachedAt])
   @@index([userId])
   @@map("waypoints")
+}
+
+// A Move is the next concrete action toward a waypoint. AI suggestions are
+// stored as SUGGESTED and only become commitments when the user accepts them.
+model Move {
+  id             String    @id @default(uuid())
+  userId         String    @map("user_id")
+  courseId       String    @map("course_id")
+  course         Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  waypointId     String    @map("waypoint_id")
+  waypoint       Waypoint  @relation(fields: [waypointId], references: [id], onDelete: Cascade)
+  title          String    @db.VarChar(120)
+  rationale      String?   @db.VarChar(280)
+  source         String    @db.VarChar(16) // AI | USER
+  status         String    @db.VarChar(16) // SUGGESTED | ACTIVE | COMPLETED | DISMISSED
+  position       Int
+  completedAt    DateTime? @map("completed_at")
+  dismissedAt    DateTime? @map("dismissed_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  idempotencyKey String?   @unique @map("idempotency_key")
+
+  currentForCourse Course? @relation("CourseCurrentMove")
+
+  @@index([courseId, status])
+  @@index([waypointId, status])
+  @@index([userId, completedAt])
+  @@map("moves")
 }
 
 model CourseAnchorLink {
@@ -634,6 +685,12 @@ model AIPlanProposal {
   inputHash                 String    @map("input_hash")
   destinationInterpretation String    @map("destination_interpretation") @db.VarChar(280)
   startingContext           String?   @map("starting_context") @db.VarChar(500)
+  anchorId                  String?   @map("anchor_id")
+  // CREATE (new route) | ADJUST (revision of a draft or active route)
+  kind                      String    @default("CREATE") @db.VarChar(16)
+  complexity                String?   @db.VarChar(16)
+  suggestedOneMove          Json?     @map("suggested_one_move")
+  guidance                  String?   @db.VarChar(280)
   waypoints                 Json
   generationSource          String    @map("generation_source")
   fallbackReason            String?   @map("fallback_reason")
@@ -760,6 +817,9 @@ model UserSettings {
 
   // UI Preferences
   vaultViewType String @default("grid") // 'grid' or 'list'
+  // Explicit consent gate. A profile image is never sent to an image provider
+  // unless this preference is true and the current generation opts in.
+  useProfilePhotoForVision Boolean @default(false) @map("use_profile_photo_for_vision")
 
   updatedAt DateTime @updatedAt
 
@@ -871,6 +931,37 @@ enum VisionGenerationStatus {
   FAILED
 }
 
+enum VisionAppearanceReferenceSource {
+  PROFILE
+  CUSTOM
+}
+
+enum VisionGenerationCandidateStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+// A private, Vision-only copy of an appearance image. Profile images remain
+// logically separate; CUSTOM references are removed once their job ends.
+model VisionAppearanceReference {
+  id               String @id @default(uuid())
+  userId           String @map("user_id")
+  user             User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assetId          String @unique @map("asset_id")
+  asset            Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  source           VisionAppearanceReferenceSource
+  profileFingerprint String? @map("profile_fingerprint")
+  expiresAt        DateTime? @map("expires_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  generations      VisionGeneration[]
+
+  @@index([userId, source])
+  @@index([userId, expiresAt])
+  @@map("vision_appearance_references")
+}
+
 model VisionGeneration {
   id          String @id @default(uuid())
   userId      String @map("user_id")
@@ -886,6 +977,8 @@ model VisionGeneration {
   status      VisionGenerationStatus @default(QUEUED)
   stage       String @default("planning")
   error       String? @db.Text
+  appearanceReferenceId String? @map("appearance_reference_id")
+  appearanceReference VisionAppearanceReference? @relation(fields: [appearanceReferenceId], references: [id], onDelete: SetNull)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
   candidates  VisionGenerationCandidate[]
@@ -899,11 +992,13 @@ model VisionGenerationCandidate {
   id           String @id @default(uuid())
   generationId String @map("generation_id")
   generation   VisionGeneration @relation(fields: [generationId], references: [id], onDelete: Cascade)
-  assetId      String @map("asset_id")
-  asset        Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  assetId      String? @map("asset_id")
+  asset        Asset? @relation(fields: [assetId], references: [id], onDelete: Cascade)
   role         String
   prompt       String @db.Text
   sortOrder    Int @map("sort_order")
+  status       VisionGenerationCandidateStatus @default(PENDING)
+  error        String? @db.Text
   createdAt    DateTime @default(now()) @map("created_at")
 
   @@unique([generationId, sortOrder])
@@ -933,6 +1028,7 @@ model Asset {
   userId        String   @map("user_id")
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   visionCandidates VisionGenerationCandidate[]
+  visionAppearanceReferences VisionAppearanceReference[]
 
   storageKey    String   @map("storage_key")
   mimeType      String   @map("mime_type")

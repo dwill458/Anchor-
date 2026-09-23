@@ -14,6 +14,9 @@ export const COURSE_EVENT_SNAPSHOT_KEYS = [
   'fromPosition',
   'toPosition',
   'blockedReason',
+  'moveTitle',
+  'waypointCount',
+  'adjustmentReason',
 ] as const;
 
 type SnapshotKey = (typeof COURSE_EVENT_SNAPSHOT_KEYS)[number];
@@ -37,6 +40,8 @@ export const COURSE_EVENT_MESSAGES: Record<CourseEventType, string> = {
   COURSE_COMPLETED: 'Course completed.',
   COURSE_ARCHIVED: 'Course archived.',
   COURSE_RESTORED: 'Course restored.',
+  MOVE_COMPLETED: 'Move completed.',
+  ROUTE_ADJUSTED: 'Route adjusted.',
 };
 
 export type CreateCourseEventInput = {

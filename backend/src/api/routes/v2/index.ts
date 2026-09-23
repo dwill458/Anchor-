@@ -5,6 +5,7 @@ import recommendationRoutes from './recommendationRoutes';
 import releaseRoutes from './releaseRoutes';
 import threadEventRoutes from './threadEvents';
 import weeklyInsightRoutes from './weeklyInsightRoutes';
+import chartRoutes from './chartRoutes';
 
 const v2Router = Router();
 
@@ -20,5 +21,6 @@ v2Router.use('/', recommendationRoutes);
 v2Router.use('/', releaseRoutes);
 v2Router.use('/', threadEventRoutes);
 v2Router.use('/', weeklyInsightRoutes);
+v2Router.use('/', chartRoutes);
 
 export default v2Router;

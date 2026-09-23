@@ -1,5 +1,6 @@
 import type { Anchor } from '@/types';
 import type { CourseDetail, CourseSummary, WaypointSummary } from '@/types/chart';
+import type { ChartForAnchor, ChartRequestError } from '@/services/v2/chartV2Api';
 
 /**
  * Chart context for Home, derived from the existing Course/Waypoint domain.
@@ -43,10 +44,13 @@ export type HomeChartState =
       }>;
     };
 
-function nextMoveTitle(course: CourseDetail, currentWaypointId: string | null): string | null {
-  if (!currentWaypointId) return null;
-  const current = course.waypoints.find((wp: WaypointSummary) => wp.id === currentWaypointId);
-  return current?.title ?? null;
+/**
+ * The real One Move: the server's current Move. Never the waypoint title — a
+ * waypoint is a state to reach, not an action.
+ */
+function oneMoveTitle(course: CourseDetail): string | null {
+  if (!course.currentMoveId) return null;
+  return course.moves?.find((move) => move.id === course.currentMoveId)?.title ?? null;
 }
 
 /** Anchor ids a Course link may legitimately point at. */
@@ -89,7 +93,9 @@ export function courseMatchesAnchor(
 
 export function toHomeChartState(course: CourseDetail | null | undefined): HomeChartState {
   if (!course || course.status !== 'ACTIVE') return { state: 'none' };
-  const waypoints = [...(course.waypoints ?? [])].sort((a, b) => a.position - b.position);
+  const waypoints = [...(course.waypoints ?? [])]
+    .filter((waypoint: WaypointSummary) => waypoint.state !== 'CANCELLED' && !waypoint.cancelledAt)
+    .sort((a, b) => a.position - b.position);
   const currentWaypointIndex = course.currentWaypointId
     ? waypoints.findIndex((waypoint) => waypoint.id === course.currentWaypointId)
     : waypoints.findIndex((waypoint) => waypoint.state === 'CURRENT');
@@ -102,7 +108,7 @@ export function toHomeChartState(course: CourseDetail | null | undefined): HomeC
     state: 'ready',
     courseId: course.id,
     destinationText: course.destinationText,
-    nextMove: nextMoveTitle(course, resolvedCurrentIndex === null ? null : waypoints[resolvedCurrentIndex].id),
+    nextMove: oneMoveTitle(course),
     reachedCount,
     waypointCount: waypoints.length,
       currentWaypointId: resolvedCurrentIndex === null ? null : waypoints[resolvedCurrentIndex].id,
@@ -184,4 +190,18 @@ export function homeChartErrorMessage(errorCode: string): string {
   if (errorCode === 'NETWORK') return 'Your Chart could not be reached.';
   if (errorCode === 'MIGRATION_REQUIRED') return 'Your Chart needs to be updated.';
   return 'Your Chart could not be loaded.';
+}
+
+/**
+ * Home / Anchor Details Chart state from the per-Anchor Chart read model
+ * (Anchor 2.0: one route per Anchor). Unknown renders nothing; a failed read
+ * without a cached Chart also renders nothing rather than advertising Chart.
+ */
+export function resolveAnchorChartState(input: {
+  data: ChartForAnchor | null;
+  loading: boolean;
+  error: ChartRequestError | null;
+}): HomeChartState {
+  if (!input.data) return input.loading ? { state: 'resolving' } : { state: 'none' };
+  return toHomeChartState(input.data.chart);
 }

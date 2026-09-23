@@ -280,6 +280,33 @@ export async function resolveStorageKeyUrl(
   }
 }
 
+/** Read a private Vision asset inside the trusted backend only. Never log or return its bytes. */
+export async function readPrivateImageAsset(storageKey: string): Promise<Buffer> {
+  const client = getR2Client();
+  if (!client) {
+    const localPath = path.join(getLocalUploadsDir(), storageKey);
+    return fs.promises.readFile(localPath);
+  }
+  const result = await client.send(new GetObjectCommand({ Bucket: getPrivateBucketName(), Key: storageKey })) as { Body?: unknown };
+  const body = result.Body as { transformToByteArray?: () => Promise<Uint8Array> } | undefined;
+  if (!body?.transformToByteArray) throw new Error('Private Vision asset could not be read');
+  return Buffer.from(await body.transformToByteArray());
+}
+
+/** Best-effort removal for generation-scoped appearance references. */
+export async function deletePrivateImageAsset(storageKey: string): Promise<void> {
+  try {
+    const client = getR2Client();
+    if (!client) {
+      await fs.promises.rm(path.join(getLocalUploadsDir(), storageKey), { force: true });
+      return;
+    }
+    await client.send(new DeleteObjectCommand({ Bucket: getPrivateBucketName(), Key: storageKey }));
+  } catch (error) {
+    logger.warn('[Storage] Failed to remove private Vision asset', { error: error instanceof Error ? error.message : 'Unknown error' });
+  }
+}
+
 function sanitizePathSegment(value: string): string {
   const trimmed = (value || '').trim();
   const sanitized = trimmed.replace(/[^a-zA-Z0-9_-]/g, '-').replace(/-+/g, '-');

@@ -225,6 +225,55 @@ export function deriveThreadEvents(
         sourceDomain: 'COURSE_EVENT',
         rawDomainEventId: log.id,
       });
+    } else if (log.eventType === 'MOVE_COMPLETED') {
+      const moveTitle = (log.snapshot?.moveTitle as string) || 'Move completed';
+      events.push({
+        id: `evt-move-${log.id}`,
+        type: 'ONE_MOVE_COMPLETED',
+        title: moveTitle,
+        copy: 'A real-world move toward your destination.',
+        why: 'Completed on your Chart.',
+        significance: 'LOW',
+        occurredAt: log.occurredAt,
+        formattedDate: formatDate(log.occurredAt),
+        formattedTime: formatTime(log.occurredAt),
+        authoritativeDelta: null,
+        authoritativeThreadRange: null,
+        sourceDomain: 'COURSE_EVENT',
+        rawDomainEventId: log.id,
+      });
+    } else if (log.eventType === 'COURSE_CREATED') {
+      events.push({
+        id: `evt-chart-${log.id}`,
+        type: 'CHART_CREATED',
+        title: 'Chart created',
+        copy: 'This Anchor was given somewhere to go.',
+        why: 'A route from here to your destination.',
+        significance: 'MEDIUM',
+        occurredAt: log.occurredAt,
+        formattedDate: formatDate(log.occurredAt),
+        formattedTime: formatTime(log.occurredAt),
+        authoritativeDelta: null,
+        authoritativeThreadRange: null,
+        sourceDomain: 'COURSE_EVENT',
+        rawDomainEventId: log.id,
+      });
+    } else if (log.eventType === 'ROUTE_ADJUSTED') {
+      events.push({
+        id: `evt-route-${log.id}`,
+        type: 'ROUTE_ADJUSTED',
+        title: 'Route adjusted',
+        copy: 'The way ahead was updated as the path became clearer.',
+        why: 'Reached waypoints stay as they were.',
+        significance: 'LOW',
+        occurredAt: log.occurredAt,
+        formattedDate: formatDate(log.occurredAt),
+        formattedTime: formatTime(log.occurredAt),
+        authoritativeDelta: null,
+        authoritativeThreadRange: null,
+        sourceDomain: 'COURSE_EVENT',
+        rawDomainEventId: log.id,
+      });
     } else if (log.eventType === 'COURSE_COMPLETED') {
       events.push({
         id: `evt-dest-${log.id}`,

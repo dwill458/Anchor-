@@ -119,7 +119,7 @@ describe('v2 creation state machine', () => {
       expect(draft().currentStep).toBe('expression');
       store().completeSave('anchor-1');
       expect(store().goBack()).toBe(true);
-      expect(draft().currentStep).toBe('destination');
+      expect(draft().currentStep).toBe('handoff');
     });
   });
 
@@ -165,7 +165,7 @@ describe('v2 creation state machine', () => {
       store().completeSave('anchor-1');
       expect(draft().anchorPersisted).toBe(true);
       expect(draft().persistedAnchorId).toBe('anchor-1');
-      expect(draft().currentStep).toBe('destination');
+      expect(draft().currentStep).toBe('handoff');
       store().selectExpression('foil');
       store().setIntention('something else');
       expect(draft().expression).toBe('original');
@@ -173,7 +173,7 @@ describe('v2 creation state machine', () => {
       expect(store().beginSave()).toBeNull();
     });
 
-    it('does not save from anywhere but the expression step', () => {
+    it('does not save from anywhere but the expression or choose step', () => {
       store().setIntention('I finish the project');
       store().distill();
       store().formAnchor();
@@ -182,33 +182,44 @@ describe('v2 creation state machine', () => {
     });
   });
 
-  describe('destination', () => {
-    beforeEach(() => {
+  describe('generation and final choice', () => {
+    it('keeps the canonical structure fixed while generation and candidate selection change', () => {
       walkToExpression();
-      store().beginSave();
-      store().completeSave('anchor-1');
+      store().selectExpression('foil');
+      const structure = draft().structureSvg;
+      expect(store().beginGeneration()).toBe(true);
+      expect(draft().currentStep).toBe('generating');
+      store().completeGeneration([
+        { imageUrl: 'https://cdn.test/a.png', variationId: 'a' },
+        { imageUrl: 'https://cdn.test/b.png', variationId: 'b' },
+      ]);
+      expect(draft().currentStep).toBe('choose');
+      store().selectCandidate(1);
+      expect(draft().enhancedImageUrl).toBe('https://cdn.test/b.png');
+      expect(draft().structureSvg).toBe(structure);
     });
 
-    it('needs a real sentence before it saves', () => {
-      store().setDestination('short');
-      expect(store().beginDestinationSave()).toBe(false);
-      store().setDestination('I walk out of the review proud of the work.');
-      expect(store().beginDestinationSave()).toBe(true);
-      expect(store().beginDestinationSave()).toBe(false);
-      store().completeDestination();
-      expect(draft().destinationState).toBe('saved');
-      expect(draft().currentStep).toBe('handoff');
+    it('keeps a failed generation retryable without losing the structure or expression', () => {
+      walkToExpression();
+      store().selectExpression('etched');
+      const structure = draft().structureSvg;
+      store().beginGeneration();
+      store().failGeneration('network');
+      expect(draft().currentStep).toBe('generating');
+      expect(draft().generationState).toBe('error');
+      expect(draft().expression).toBe('etched');
+      expect(draft().structureSvg).toBe(structure);
+      expect(store().beginGeneration()).toBe(true);
     });
 
-    it('keeps the text on failure and can be skipped', () => {
-      store().setDestination('I walk out of the review proud of the work.');
-      store().beginDestinationSave();
-      store().failDestination();
-      expect(draft().destinationState).toBe('error');
-      expect(draft().destination).toBe('I walk out of the review proud of the work.');
-      store().skipDestination();
-      expect(draft().destinationState).toBe('skipped');
-      expect(draft().currentStep).toBe('handoff');
+    it('backs from candidate choice to expression without discarding candidates', () => {
+      walkToExpression();
+      store().selectExpression('ink');
+      store().beginGeneration();
+      store().completeGeneration([{ imageUrl: 'a' }, { imageUrl: 'b' }]);
+      expect(store().goBack()).toBe(true);
+      expect(draft().currentStep).toBe('expression');
+      expect(draft().generatedCandidates).toHaveLength(2);
     });
   });
 });
@@ -219,18 +230,19 @@ describe('resumableDraft', () => {
     clientRequestId: 'k',
     intention: 'I finish the project',
     expression: 'original',
+    generatedCandidates: [],
+    selectedCandidateIndex: 0,
+    generationState: 'idle',
     saveState: 'draft',
     saveAttempted: false,
     anchorPersisted: false,
-    destination: '',
-    destinationState: 'idle',
     currentStep: 'reveal',
     updatedAt: new Date().toISOString(),
     ...overrides,
   });
 
   it('never resumes a finished Anchor', () => {
-    expect(resumableDraft(base({ anchorPersisted: true, currentStep: 'destination' }))).toBeNull();
+    expect(resumableDraft(base({ anchorPersisted: true, currentStep: 'choose' }))).toBeNull();
     expect(resumableDraft(base({ anchorPersisted: true, currentStep: 'handoff' }))).toBeNull();
   });
 

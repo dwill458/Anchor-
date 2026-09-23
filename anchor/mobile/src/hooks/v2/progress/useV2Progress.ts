@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useAnchorStore } from '@/stores/anchorStore';
-import { useCourseLogStore } from '@/stores/courseLogStore';
+import { useAnchorCourseLog } from '@/hooks/v2/chart/useAnchorCourseLog';
 import { useSessionStore } from '@/stores/sessionStore';
 import { toV2ProgressModel } from '@/adapters/v2/progress/progressAdapter';
 import type { V2ProgressModel, V2ThreadEventItem } from '@/adapters/v2/progress/types';
@@ -27,9 +27,6 @@ export function useV2Progress(options: UseV2ProgressOptions = {}): UseV2Progress
   const anchorStoreLoading = useAnchorStore((s) => s.isLoading);
   const anchorStoreError = useAnchorStore((s) => s.error);
 
-  const courseLogEntries = useCourseLogStore((s) => s.entries);
-  const refreshCourseLogs = useCourseLogStore((s) => s.refresh);
-  const courseLogLoading = useCourseLogStore((s) => s.loading);
 
   const practiceHistory = useSessionStore((s) => s.practiceHistory);
   const sessionLog = useSessionStore((s) => s.sessionLog);
@@ -48,6 +45,12 @@ export function useV2Progress(options: UseV2ProgressOptions = {}): UseV2Progress
     // Fallback to first non-archived anchor
     return anchors.find((a) => !a.archivedAt && !(a as any).isArchived) || anchors[0] || null;
   }, [anchors, targetId]);
+
+  // Chart evidence for this Anchor only (its live route and earlier routes).
+  const courseLog = useAnchorCourseLog(targetAnchor?.id ?? null);
+  const courseLogEntries = courseLog.entries;
+  const refreshCourseLogs = courseLog.refresh;
+  const courseLogLoading = courseLog.loading;
 
   // Compute V2ProgressModel
   const model = useMemo(() => {

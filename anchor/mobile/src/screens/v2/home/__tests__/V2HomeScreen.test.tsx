@@ -356,7 +356,7 @@ describe('Conditional Vision and Chart', () => {
     expect(screen.getByTestId('v2-home-chart-destination').props.children).toBe('Reach 1,000 active users');
     expect(screen.getByTestId('v2-home-chart-waypoint').props.children).toBe('Contact 3 creators');
     expect(screen.getByTestId('v2-home-chart-one-move').props.children).toBe('Contact 3 creators');
-      expect(screen.getByTestId('v2-home-chart-progress').props.children).toBe('1 of 2 reached');
+      expect(screen.getByTestId('v2-home-chart-progress').props.children).toBe('Waypoint 2 of 2');
       expect(screen.queryByTestId('v2-home-progress')).toBeNull();
   });
 

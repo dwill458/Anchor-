@@ -7,6 +7,10 @@ import type { UploadAssetResult } from '@/hooks/v2/vision';
 const mockLaunchImageLibraryAsync = jest.fn();
 const mockRequestPermission = jest.fn(() => Promise.resolve({ status: 'granted' }));
 const mockUseGeneration = jest.fn();
+const mockUseAppearance = jest.fn(() => ({
+  profilePhoto: null, enabledByPreference: false, reference: null, loading: false, saving: false,
+  upload: jest.fn(), remove: jest.fn(), setProfilePreference: jest.fn(),
+}));
 
 jest.mock('expo-image-picker', () => ({
   requestMediaLibraryPermissionsAsync: () => mockRequestPermission(),
@@ -14,6 +18,7 @@ jest.mock('expo-image-picker', () => ({
 }));
 jest.mock('@/hooks/v2/vision', () => ({
   useV2VisionGeneration: () => mockUseGeneration(),
+  useVisionAppearanceReference: () => mockUseAppearance(),
 }));
 
 const candidates = Array.from({ length: 8 }, (_, index) => ({
@@ -132,7 +137,7 @@ describe('V2VisionCreationFlow', () => {
       job: { id: 'job-1', status: 'FAILED', stage: 'failed', setNumber: 1, retryCount: 0, error: 'Retry this set.', candidates: [] },
     });
     expect(getByText('Retry this set')).toBeTruthy();
-    expect(getByText('Your Vision paused')).toBeTruthy();
+    expect(getByText('Your Vision needs another moment.')).toBeTruthy();
   });
 
   it('reports only images the server has actually created', () => {
@@ -142,15 +147,15 @@ describe('V2VisionCreationFlow', () => {
     expect(getByTestId('v2-vision-creation-flow-generating')).toBeTruthy();
     expect(getByText('Your future\nis taking shape.')).toBeTruthy();
     expect(getByText('Finding the moments that make it real.')).toBeTruthy();
-    expect(getByText('3 of 8 images ready')).toBeTruthy();
+    expect(getByText('Finding another moment…')).toBeTruthy();
   });
 
   it('shows no empty image frame before the first image exists', () => {
     const { getByTestId } = renderFlow({
       job: { id: 'job-1', status: 'RUNNING', stage: 'planning', setNumber: 1, retryCount: 0, error: null, candidates: [] },
     });
-    const stack = getByTestId('vision-generation-stack');
-    expect(stack.findAllByType(require('react-native').Image)).toHaveLength(0);
+    const stage = getByTestId('vision-generation-stage');
+    expect(stage.findAllByType(require('react-native').Image)).toHaveLength(0);
     expect(getByTestId('v2-vision-creation-flow-generating')).toBeTruthy();
   });
 
@@ -159,7 +164,6 @@ describe('V2VisionCreationFlow', () => {
       job: { id: 'job-1', status: 'FAILED', stage: 'failed', setNumber: 1, retryCount: 0, error: 'Retry this set.', candidates: candidates.slice(0, 7) },
     });
     expect(queryByTestId('v2-vision-creation-flow-generating')).toBeTruthy();
-    expect(getByText('7 of 8 images ready')).toBeTruthy();
     expect(getByText('Retry this set')).toBeTruthy();
     expect(getByText('Choose available images')).toBeTruthy();
   });
@@ -261,5 +265,29 @@ describe('V2VisionCreationFlow', () => {
     await waitFor(() => expect(onAssemble).toHaveBeenCalled());
     expect((onAssemble as jest.Mock).mock.calls[0][0].selectedAssets.map((asset: { assetId: string }) => asset.assetId))
       .toEqual(['real-asset-4', 'real-asset-1']);
+  });
+
+  it('handles Create Vision CTA tap with cinematic transition handoff', async () => {
+    jest.useFakeTimers();
+    try {
+      mockUseGeneration.mockReturnValue({ job: null, loading: false, error: null, start: jest.fn(), retry: jest.fn() });
+      const { getByLabelText, getByTestId, queryByTestId } = render(
+        <V2VisionCreationFlow {...baseProps} initialStep="empty" focalPoint={{ x: 0.68, y: 0.62 }} onUploadAsset={jest.fn()} onAssemble={jest.fn()} />,
+      );
+      expect(getByTestId('v2-vision-creation-flow-empty')).toBeTruthy();
+      const button = getByLabelText('Create Vision');
+      fireEvent.press(button);
+
+      // Advance timer for transition handoff
+      await act(async () => {
+        jest.advanceTimersByTime(350);
+      });
+
+      await waitFor(() => {
+        expect(queryByTestId('v2-vision-creation-flow-prompt')).toBeTruthy();
+      });
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

@@ -31,8 +31,8 @@ import {
   CreationSaveError,
   buildCreatePayload,
   classifySaveFailure,
+  generateExpressionCandidates,
   persistCreatedAnchor,
-  persistDestination,
 } from '../creationPersistence';
 
 const SVG = '<svg viewBox="0 0 100 100"><path d="M 20,20 L 80,80" stroke="currentColor" stroke-width="2" fill="none"/></svg>';
@@ -47,11 +47,12 @@ const draft = (overrides: Partial<CreationDraft> = {}): CreationDraft => ({
   structureType: 'focused',
   structureSvg: SVG,
   expression: 'foil',
+  generatedCandidates: [],
+  selectedCandidateIndex: 0,
+  generationState: 'idle',
   saveState: 'saving',
   saveAttempted: true,
   anchorPersisted: false,
-  destination: '',
-  destinationState: 'idle',
   currentStep: 'expression',
   updatedAt: new Date().toISOString(),
   ...overrides,
@@ -160,17 +161,40 @@ describe('persistCreatedAnchor', () => {
   it('never calls a billing or trial endpoint', async () => {
     mockPost.mockResolvedValue({ data: { success: true, data: serverAnchor() } });
     await persistCreatedAnchor({ draft: draft(), idempotencyKey: 'k' });
-    await persistDestination({ anchorId: 'a', description: 'I walk out proud of the work.' });
     const urls = [...mockPost.mock.calls, ...mockPut.mock.calls].map((call) => call[0] as string);
     expect(urls.some((url) => /billing|trial|subscription/i.test(url))).toBe(false);
   });
 });
 
-describe('persistDestination', () => {
-  it('writes the destination as the Anchor’s Vision description', async () => {
-    mockPost.mockResolvedValue({ data: { success: true } });
-    await persistDestination({ anchorId: 'anchor 1', description: '  I walk out proud of the work.  ' });
-    expect(mockPost).toHaveBeenCalledWith('/api/v2/anchors/anchor%201/vision', { description: 'I walk out proud of the work.' });
+describe('generateExpressionCandidates', () => {
+  it('uses the existing enhancement endpoint with the canonical SVG and selected expression', async () => {
+    mockPost.mockResolvedValue({ data: {
+      variations: [
+        { imageUrl: 'https://cdn.test/a.png', variationId: 'a', structurePreserved: true },
+        { imageUrl: 'https://cdn.test/b.png', variationId: 'b', structurePreserved: true },
+      ],
+      provider: 'gemini',
+      model: 'test-model',
+    } });
+    const result = await generateExpressionCandidates({ draft: draft({ expression: 'architectural' }), generationAttempt: 2 });
+    expect(mockPost).toHaveBeenCalledWith('/api/ai/enhance', expect.objectContaining({
+      sigilSvg: SVG,
+      styleChoice: 'architectural_trace',
+      generationAttempt: 2,
+      validateStructure: true,
+    }), { timeout: 180000 });
+    expect(result.candidates).toHaveLength(2);
+    expect(result.candidates[0].imageUrl).toBe('https://cdn.test/a.png');
+  });
+
+  it('does not offer an interpretation that failed structure preservation', async () => {
+    mockPost.mockResolvedValue({ data: {
+      variations: [
+        { imageUrl: 'https://cdn.test/a.png', structurePreserved: true },
+        { imageUrl: 'https://cdn.test/not-the-anchor.png', structurePreserved: false },
+      ],
+    } });
+    await expect(generateExpressionCandidates({ draft: draft({ expression: 'ink' }) })).rejects.toMatchObject({ failure: 'server' });
   });
 });
 

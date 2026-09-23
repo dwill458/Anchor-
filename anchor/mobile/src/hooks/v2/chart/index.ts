@@ -1,1 +1,1 @@
-export * from './useV2Chart';
+export * from './useAnchorChart';

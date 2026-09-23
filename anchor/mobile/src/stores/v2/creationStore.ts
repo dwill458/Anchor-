@@ -9,7 +9,7 @@ import { CATEGORY_TO_TIER, type AnchorCategory } from '@/types';
 import {
   CREATION_MAX_INTENTION_LENGTH,
   CREATION_STRUCTURE,
-  DESTINATION_COPY,
+  type GeneratedAnchorCandidate,
   type AnchorExpression,
   type CanonicalStructure,
   type CreationStep,
@@ -18,7 +18,7 @@ import {
 export type SaveState = 'draft' | 'saving' | 'saved' | 'error';
 /** Why a save failed, which decides what the user is offered next. */
 export type SaveFailure = 'network' | 'auth' | 'server' | 'second_anchor' | 'limit';
-export type DestinationState = 'idle' | 'saving' | 'saved' | 'skipped' | 'error';
+export type GenerationState = 'idle' | 'generating' | 'complete' | 'error';
 
 export interface CreationDraft {
   draftId: string;
@@ -36,14 +36,20 @@ export interface CreationDraft {
   /** The generated structure. Locked from `reveal` onward: nothing after formation writes it. */
   structureSvg?: string;
   expression: AnchorExpression;
+  /** The selected AI results. The canonical SVG remains the source of truth. */
+  generatedCandidates: GeneratedAnchorCandidate[];
+  selectedCandidateIndex: number;
+  generationState: GenerationState;
+  generationError?: string;
+  enhancementMetadata?: Record<string, unknown>;
+  /** The selected final visual, absent when the original structure is kept. */
+  enhancedImageUrl?: string;
   saveState: SaveState;
   saveFailure?: SaveFailure;
   /** True once a save has been sent. After that the key can no longer safely change. */
   saveAttempted: boolean;
   anchorPersisted: boolean;
   persistedAnchorId?: string;
-  destination: string;
-  destinationState: DestinationState;
   currentStep: CreationStep;
   /** Set when validation rejects the intention or the structure could not be formed. */
   formationError?: string;
@@ -72,11 +78,12 @@ const freshDraft = (): CreationDraft => ({
   clientRequestId: makeId('create-request'),
   intention: '',
   expression: 'original',
+  generatedCandidates: [],
+  selectedCandidateIndex: 0,
+  generationState: 'idle',
   saveState: 'draft',
   saveAttempted: false,
   anchorPersisted: false,
-  destination: '',
-  destinationState: 'idle',
   currentStep: 'intention',
   updatedAt: now(),
 });
@@ -97,6 +104,12 @@ export const invalidateFromIntention = (draft: CreationDraft, intention: string)
   distilledLetters: undefined,
   structureType: undefined,
   structureSvg: undefined,
+  generatedCandidates: [],
+  selectedCandidateIndex: 0,
+  generationState: 'idle',
+  generationError: undefined,
+  enhancementMetadata: undefined,
+  enhancedImageUrl: undefined,
   saveState: 'draft',
   saveFailure: undefined,
   currentStep: 'intention',
@@ -104,12 +117,14 @@ export const invalidateFromIntention = (draft: CreationDraft, intention: string)
   updatedAt: now(),
 });
 
-/** Steps Back returns to. Everything else (intention, destination, handoff) is not a back hop. */
+/** Steps Back returns to. Handoff is terminal and returns false. */
 const BACK: Partial<Record<CreationStep, CreationStep>> = {
   distillation: 'intention',
   formation: 'intention',
   reveal: 'intention',
   expression: 'reveal',
+  generating: 'expression',
+  choose: 'expression',
 };
 
 type CreationStore = {
@@ -126,17 +141,18 @@ type CreationStore = {
   openExpression: () => void;
   /** Appearance only. Never touches the structure; refused once the Anchor is being saved. */
   selectExpression: (expression: AnchorExpression) => void;
+  beginGeneration: () => boolean;
+  completeGeneration: (candidates: GeneratedAnchorCandidate[], metadata?: Record<string, unknown>) => void;
+  failGeneration: (message?: string) => void;
+  selectCandidate: (index: number) => void;
+  /** Expression → saving for original, or expression → generating for AI. */
+  keepOriginal: () => void;
   /** Deterministic back. Returns false when Back should leave the flow instead. */
   goBack: () => boolean;
   /** Returns the idempotency key, or null when a save is already running or not allowed. */
   beginSave: () => string | null;
   completeSave: (anchorId: string) => void;
   failSave: (failure: SaveFailure) => void;
-  setDestination: (text: string) => void;
-  beginDestinationSave: () => boolean;
-  completeDestination: () => void;
-  failDestination: () => void;
-  skipDestination: () => void;
 };
 
 const update = (draft: CreationDraft, patch: Partial<CreationDraft>): { draft: CreationDraft } => ({
@@ -214,7 +230,61 @@ export const useCreationStore = create<CreationStore>()(
       selectExpression: (expression) => set((state) => {
         const draft = state.draft;
         if (!draft || draft.anchorPersisted || draft.saveState === 'saving' || draft.expression === expression) return state;
-        return update(draft, { expression });
+        if (draft.expression === expression) return state;
+        return update(draft, {
+          expression,
+          // A new expression invalidates previously rendered candidates; backing out of the
+          // choice screen without changing expression leaves them intact for comparison.
+          generatedCandidates: [],
+          selectedCandidateIndex: 0,
+          enhancedImageUrl: undefined,
+          generationState: 'idle',
+          generationError: undefined,
+          saveState: draft.saveState === 'error' ? 'draft' : draft.saveState,
+          saveFailure: undefined,
+        });
+      }),
+
+      beginGeneration: () => {
+        const draft = get().draft;
+        if (!draft || (draft.currentStep !== 'expression' && draft.currentStep !== 'generating' && draft.currentStep !== 'choose') || draft.expression === 'original' || draft.saveState === 'saving' || draft.generationState === 'generating') return false;
+        set(update(draft, { currentStep: 'generating', generationState: 'generating', generationError: undefined }));
+        return true;
+      },
+
+      completeGeneration: (generatedCandidates, enhancementMetadata) => set((state) => {
+        const draft = state.draft;
+        if (!draft || draft.currentStep !== 'generating') return state;
+        const candidates = (generatedCandidates ?? []).filter((candidate) => candidate.imageUrl).slice(0, 2);
+        if (candidates.length < 2) return update(draft, { generationState: 'error', generationError: 'We could not finish both interpretations. Try again.' });
+        return update(draft, {
+          generatedCandidates: candidates,
+          selectedCandidateIndex: 0,
+          enhancedImageUrl: candidates[0]?.imageUrl,
+          generationState: 'complete',
+          generationError: undefined,
+          enhancementMetadata,
+          currentStep: 'choose',
+        });
+      }),
+
+      failGeneration: (message) => set((state) => {
+        const draft = state.draft;
+        if (!draft || draft.currentStep !== 'generating') return state;
+        return update(draft, { currentStep: 'generating', generationState: 'error', generationError: message ?? 'Your Anchor is safe. Try generating the expression again.' });
+      }),
+
+      selectCandidate: (index) => set((state) => {
+        const draft = state.draft;
+        const candidates = draft?.generatedCandidates ?? [];
+        if (!draft || draft.currentStep !== 'choose' || index < 0 || index >= candidates.length) return state;
+        return update(draft, { selectedCandidateIndex: index, enhancedImageUrl: candidates[index]?.imageUrl });
+      }),
+
+      keepOriginal: () => set((state) => {
+        const draft = state.draft;
+        if (!draft || draft.currentStep !== 'expression' || draft.expression !== 'original') return state;
+        return update(draft, { enhancedImageUrl: undefined, generatedCandidates: [], generationState: 'idle' });
       }),
 
       goBack: () => {
@@ -228,7 +298,7 @@ export const useCreationStore = create<CreationStore>()(
 
       beginSave: () => {
         const draft = get().draft;
-        if (!draft || draft.currentStep !== 'expression' || !draft.structureSvg) return null;
+        if (!draft || (draft.currentStep !== 'expression' && draft.currentStep !== 'choose') || !draft.structureSvg) return null;
         if (draft.saveState === 'saving' || draft.anchorPersisted) return null;
         set(update(draft, { saveState: 'saving', saveFailure: undefined, saveAttempted: true }));
         return draft.clientRequestId;
@@ -242,38 +312,12 @@ export const useCreationStore = create<CreationStore>()(
           saveFailure: undefined,
           anchorPersisted: true,
           persistedAnchorId,
-          currentStep: 'destination',
+          currentStep: 'handoff',
         });
       }),
 
       failSave: (saveFailure) => set((state) => (state.draft ? update(state.draft, { saveState: 'error', saveFailure }) : state)),
 
-      setDestination: (text) => set((state) => {
-        const draft = state.draft;
-        if (!draft || draft.currentStep !== 'destination' || draft.destinationState === 'saving') return state;
-        const destination = text.replace(/\s*[\r\n]+\s*/g, ' ').slice(0, DESTINATION_COPY.maxLength);
-        return update(draft, { destination, destinationState: draft.destinationState === 'error' ? 'idle' : draft.destinationState });
-      }),
-
-      beginDestinationSave: () => {
-        const draft = get().draft;
-        if (!draft || draft.currentStep !== 'destination' || !draft.anchorPersisted) return false;
-        if (draft.destinationState === 'saving' || draft.destination.trim().length < DESTINATION_COPY.minLength) return false;
-        set(update(draft, { destinationState: 'saving' }));
-        return true;
-      },
-
-      completeDestination: () => set((state) => (state.draft
-        ? update(state.draft, { destinationState: 'saved', currentStep: 'handoff' })
-        : state)),
-
-      failDestination: () => set((state) => (state.draft ? update(state.draft, { destinationState: 'error' }) : state)),
-
-      skipDestination: () => set((state) => {
-        const draft = state.draft;
-        if (!draft || draft.currentStep !== 'destination' || draft.destinationState === 'saving') return state;
-        return update(draft, { destinationState: 'skipped', currentStep: 'handoff' });
-      }),
     }),
     {
       name: STORAGE_KEY,
@@ -298,8 +342,14 @@ export const useCreationStore = create<CreationStore>()(
  */
 export function resumableDraft(draft: CreationDraft | null): CreationDraft | null {
   if (!draft || draft.anchorPersisted) return null;
-  if (draft.saveState === 'saving') return { ...draft, saveState: 'error', saveFailure: 'network' };
-  return draft;
+  const normalized: CreationDraft = {
+    ...draft,
+    generatedCandidates: Array.isArray(draft.generatedCandidates) ? draft.generatedCandidates : [],
+    selectedCandidateIndex: Number.isFinite(draft.selectedCandidateIndex) ? draft.selectedCandidateIndex : 0,
+    generationState: draft.generationState ?? 'idle',
+  };
+  if (normalized.saveState === 'saving') return { ...normalized, saveState: 'error', saveFailure: 'network' };
+  return normalized;
 }
 
 /** Resolves once the persisted draft has been read back (immediately if it already has). */

@@ -11,11 +11,9 @@ import { ThreadStrength } from '@/components/v2/thread';
 import { anchorRenderProps, categoryLabel, durationLabel, shortDate } from '@/components/v2/anchors';
 import { useV2AnchorDetail } from '@/hooks/v2/anchors';
 import { useV2Vision } from '@/hooks/v2/vision';
-import { useCourseStore } from '@/stores/courseStore';
-import { useAnchorStore } from '@/stores/anchorStore';
-import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { resolveHomeChartState } from '@/adapters/v2/home/chartAdapter';
+import { resolveAnchorChartState, type HomeChartState } from '@/adapters/v2/home/chartAdapter';
+import { useAnchorChart } from '@/hooks/v2/chart/useAnchorChart';
 import { resolveEvolutionStage } from '@/adapters/v2/progress/progressAdapter';
 import { fetchV2RecommendationContext, type V2RecommendationContext } from '@/adapters/v2/practice';
 import { isV2RecommendationContextFresh, peekV2RecommendationContext } from '@/adapters/v2/practice/recommendationCache';
@@ -381,7 +379,7 @@ function ChartSection({
   chartCourseId,
   onOpenChart,
 }: {
-  chart: ReturnType<typeof resolveHomeChartState>;
+  chart: HomeChartState;
   chartCourseId?: string;
   onOpenChart: (courseId?: string) => void;
 }) {
@@ -463,32 +461,17 @@ export function V2AnchorDetailsScreen() {
   const recommendation = useRecommendation(serverId);
   const vision = useV2Vision(serverId);
 
-  const chartEnabled = useCourseStore((s) => s.flags.chart_enabled);
-  const courseAccountId = useCourseStore((s) => s.accountId);
-  const courseInitializationStatus = useCourseStore((s) => s.initializationStatus);
-  const courses = useCourseStore((s) => s.courses);
-  const activeCourse = useCourseStore((s) => s.activeCourse);
-  const courseErrorCode = useCourseStore((s) => s.errorCode);
-  const accountId = useAuthStore((s) => s.user?.id ?? null);
-  const activeAnchorCount = useAnchorStore((s) => s.anchors.filter((a) => !a.isReleased && !a.archivedAt).length);
+  const anchorChart = useAnchorChart(serverId || null);
   const focusDuration = useSettingsStore((s) => s.focusSessionDuration);
   const primeDuration = useSettingsStore((s) => s.primeSessionDuration);
   const visualizeDuration = useSettingsStore((s) => s.visualizeSessionDuration);
 
   const chart = useMemo(
     () =>
-      resolveHomeChartState({
-        anchor: detail.anchor,
-        chartEnabled,
-        accountId,
-        courseAccountId,
-        initializationStatus: courseInitializationStatus,
-        courses,
-        activeCourse,
-        errorCode: courseErrorCode,
-        isOnlyActiveAnchor: activeAnchorCount === 1,
-      }),
-    [accountId, activeAnchorCount, activeCourse, chartEnabled, courseAccountId, courseErrorCode, courseInitializationStatus, courses, detail.anchor],
+      detail.anchor
+        ? resolveAnchorChartState({ data: anchorChart.data, loading: anchorChart.loading, error: anchorChart.error })
+        : ({ state: 'none' } as const),
+    [anchorChart.data, anchorChart.error, anchorChart.loading, detail.anchor],
   );
 
   const history = useMemo(

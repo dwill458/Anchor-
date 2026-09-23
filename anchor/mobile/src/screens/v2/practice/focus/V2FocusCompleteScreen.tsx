@@ -9,6 +9,7 @@ import { AnchorMotion, getCategoryPalette, colors, radii, spacing, typography } 
 import type { Anchor } from '@/types';
 import { useV2ReduceMotion } from '@/hooks/v2';
 import { V2FocusAnchorArtwork } from './V2FocusAnchorArtwork';
+import { ChartMoveHandoff } from '@/components/v2/chart/ChartMoveHandoff';
 
 export interface V2FocusCompleteScreenProps {
   anchor: Anchor;
@@ -203,6 +204,13 @@ export function V2FocusCompleteScreen({
           )}
         </View>
 
+        {/* The route's next action — only when no practice recommendation is competing for attention. */}
+        {!contextualRecommendation ? (
+          <View style={styles.handoff}>
+            <ChartMoveHandoff anchorId={anchor.id} surface="practice" tone="cream" />
+          </View>
+        ) : null}
+
         {/* Contextual Next Recommendation (if available) */}
         {contextualRecommendation ? (
           <Pressable
@@ -256,6 +264,7 @@ export function V2FocusCompleteScreen({
 }
 
 const styles = StyleSheet.create({
+  handoff: { marginTop: spacing[4] },
   screen: {
     flex: 1,
     backgroundColor: colors.background,

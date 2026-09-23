@@ -74,5 +74,7 @@ describe('buildVisionImagePrompt', () => {
     expect(prompt).toContain('Detail frame');
     expect(prompt).toContain('No readable text');
     expect(prompt).toContain('documentary / editorial photography');
+    expect(prompt).toContain('No appearance reference exists');
+    expect(prompt).toContain('highest visual specificity');
   });
 });

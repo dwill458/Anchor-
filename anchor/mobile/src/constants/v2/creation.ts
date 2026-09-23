@@ -11,13 +11,13 @@ export type CanonicalStructure = (typeof CANONICAL_STRUCTURES)[number];
  *   distillation DISTILLING — the real reduction, played on the user's own words
  *   formation    GENERATING — the real grid, points and path, drawn
  *   reveal       REVEALING — the finished mark; structure is locked from here
- *   expression   EXPLORING_EXPRESSION → SAVING_EXPRESSION (saveState) — the one server write
- *   destination  SETTING_DESTINATION — optional Vision description, Anchor already saved
+ *   expression   EXPLORING_EXPRESSION — local expression choice or original-structure save
+ *   generating   DEVELOPING_EXPRESSION — the only networked step
+ *   choose      CHOOSING_CANDIDATE — two finished circular interpretations
  *   handoff      FINALIZING → TRANSITIONING_HOME → COMPLETE
  *
- * Errors are carried on the draft (`formationError`, `saveState: 'error'`,
- * `destinationState: 'error'`) rather than as a separate step, so a retry resumes exactly
- * where it failed.
+ * Errors are carried on the draft (`formationError`, `generationError`, `saveState: 'error'`)
+ * rather than as a separate step, so a retry resumes exactly where it failed.
  */
 export const CREATION_STEPS = [
   'intention',
@@ -25,7 +25,8 @@ export const CREATION_STEPS = [
   'formation',
   'reveal',
   'expression',
-  'destination',
+  'generating',
+  'choose',
   'handoff',
 ] as const;
 export type CreationStep = (typeof CREATION_STEPS)[number];
@@ -35,6 +36,17 @@ export const ANCHOR_EXPRESSIONS = [
   'halo', 'glass', 'radiant', 'organic', 'woven', 'cut_paper',
 ] as const;
 export type AnchorExpression = (typeof ANCHOR_EXPRESSIONS)[number];
+
+/** A finished AI interpretation kept beside the canonical structure. */
+export type GeneratedAnchorCandidate = {
+  imageUrl: string;
+  variationId?: string;
+  structureMatchScore?: number;
+  structurePreserved?: boolean;
+  classification?: string;
+  provider?: string;
+  model?: string;
+};
 
 export const EXPRESSION_LABELS: Record<AnchorExpression, string> = {
   original: 'Original', monoline: 'Monoline', architectural: 'Architectural',
@@ -113,6 +125,7 @@ export const FORMATION_COPY = {
 export const REVEAL_COPY = {
   eyebrow: 'YOUR ANCHOR',
   title: 'This is your Anchor.',
+  body: 'Formed from your words alone.',
   cta: 'Choose how it appears',
   howItFormed: 'See how it was formed',
   /** The formation sheet's second half, after the distillation mechanism. */
@@ -122,9 +135,27 @@ export const REVEAL_COPY = {
 
 export const EXPRESSION_COPY = {
   eyebrow: 'EXPRESSION',
-  title: 'How it appears.',
-  principle: 'Structure stays yours. Expression changes how it appears.',
-  cta: 'Keep this Anchor',
+  title: 'How should it appear?',
+  principle: 'Your structure stays the same. Choose an expression to bring it to life.',
+  microcopy: 'Each expression adapts uniquely to your Anchor.',
+  generate: 'Generate Anchor →',
+  original: 'Keep original structure',
+} as const;
+
+export const GENERATION_COPY = {
+  eyebrow: 'CREATING',
+  title: 'Bringing your Anchor to life.',
+  body: 'Your structure stays present while the expression develops around it.',
+  retry: 'Try again',
+  back: 'Back to expressions',
+} as const;
+
+export const CHOOSE_COPY = {
+  eyebrow: 'YOUR ANCHOR',
+  title: 'Choose yours.',
+  body: 'Two expressions of the same structure.',
+  keep: 'Keep this Anchor →',
+  retry: 'Try again',
 } as const;
 
 /** Save failures, by what the user can do about them. */
@@ -135,38 +166,6 @@ export const CREATION_SAVE_ERRORS = {
   limit: 'You have created the most Anchors allowed for today. This one will be here tomorrow.',
   second_anchor: 'Your first Anchor is free. More Anchors are part of Pro. This one will wait here.',
 } as const;
-
-export const DESTINATION_COPY = {
-  eyebrow: 'DESTINATION',
-  title: 'What does getting there look like?',
-  fromLabel: 'FROM YOUR INTENTION',
-  fieldLabel: 'PICTURE THIS',
-  guidance: 'Describe the moment it is true: where you are, what you notice, how it feels.',
-  cta: 'Set destination',
-  skip: 'Not now',
-  /** The Vision description contract's own minimum. */
-  minLength: 12,
-  maxLength: 400,
-  error: 'Your destination was not saved. Try again, or add it later from your Anchor.',
-} as const;
-
-/**
- * Category-matched examples for the Destination field. They are placeholders that show the
- * kind of sentence that works — never pre-filled, never submitted on the user's behalf.
- */
-export const DESTINATION_EXAMPLES: Record<string, string> = {
-  career: 'I walk out of the review knowing the work spoke for itself.',
-  abundance: 'I check my account without flinching and decide what to build next.',
-  health: 'I finish the morning run with breath to spare and the day ahead of me.',
-  relationships: 'We laugh at dinner and nobody reaches for a phone.',
-  family: 'The kids tell me about their day and I hear every word.',
-  creativity: 'I close the notebook on a finished piece I am proud of.',
-  learning: 'I explain it out loud, simply, and it makes sense.',
-  desire: 'I am standing in the place I kept picturing, and it feels ordinary now.',
-  spirituality: 'I sit in the quiet and nothing in me is rushing.',
-  adventure: 'I step off the train somewhere new, and I am calm.',
-  custom: 'I notice it has become normal, and I am proud of how I got here.',
-};
 
 /**
  * The whole flow is a single central route; the steps above are store-internal state,
@@ -179,6 +178,6 @@ export const CREATION_ROUTE_MANIFEST = {
   routeName: CREATION_ROUTE_NAME,
   entryComponent: 'V2CreationScreen',
   steps: CREATION_STEPS,
-  requiredProps: ['saveAnchor', 'saveDestination', 'onComplete'] as const,
+  requiredProps: ['saveAnchor', 'generateExpression', 'onComplete'] as const,
   optionalProps: ['onExit', 'onPaywall', 'onSignIn'] as const,
 } as const;

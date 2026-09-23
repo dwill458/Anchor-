@@ -3,7 +3,7 @@
  *
  * Grounded editorial theme matching Anchor 2.0 design language:
  * Warm neutral canvas (#F4F1E9), paper surface (#FBF9F4), deep ink (#171717),
- * muted secondary (#6C6861), hairline borders (#D8D2C8), and Figtree / Bricolage Grotesque typography.
+ * muted secondary (#6C6861), hairline borders (#D8D2C8), and neutral Inter typography.
  */
 
 export const settingsTheme = {
@@ -78,12 +78,12 @@ export const practiceSettingsTheme = {
 } as const;
 
 export const settingsTypography = {
-  display: 'BricolageGrotesque-Regular',
-  displaySemiBold: 'BricolageGrotesque-SemiBold',
-  displayBold: 'BricolageGrotesque-Bold',
-  displayExtraBold: 'BricolageGrotesque-ExtraBold',
-  body: 'Figtree-Regular',
-  bodyMedium: 'Figtree-Medium',
-  bodySemiBold: 'Figtree-SemiBold',
-  bodyBold: 'Figtree-Bold',
+  display: 'Inter-Regular',
+  displaySemiBold: 'Inter-SemiBold',
+  displayBold: 'Inter-SemiBold',
+  displayExtraBold: 'Inter-SemiBold',
+  body: 'Inter-Regular',
+  bodyMedium: 'Inter-SemiBold',
+  bodySemiBold: 'Inter-SemiBold',
+  bodyBold: 'Inter-SemiBold',
 } as const;

@@ -11,6 +11,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { Compass, Eye, Image as ImageIcon, MapPin, PenLine, RefreshCw } from 'lucide-react-native';
 import { V2Button } from '@/components/v2';
 import { useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
+import { useVisionAppearanceReference } from '@/hooks/v2/vision';
 import { useV2VisionGeneration, type VisionGenerationCandidate, type UploadAssetResult } from '@/hooks/v2/vision';
 import { colors, getCategoryColor, radii, spacing, typography } from '@/theme/v2';
 import type { VisionSceneSource } from '@/adapters/v2/vision';
@@ -23,7 +24,7 @@ import {
 } from './visionGuidance';
 import { visionGenerationProgress } from './visionGenerationProgress';
 import { useVisionPresentationQueue, VISION_REVEAL_TIMING } from './useVisionPresentationQueue';
-import { VisionContactRail, VisionGenerationMeter, VisionGenerationStack, VisionGenerationSteps } from './VisionGenerationStage';
+import { VisionGenerationStage } from './VisionGenerationStage';
 
 type SelectedAsset = { assetId: string; prompt: string; imageUrl?: string; sourceType: VisionSceneSource };
 type UploadItem = { key: string; uri: string; mimeType: string; assetId?: string; imageUrl?: string | null; status: 'uploading' | 'ready' | 'failed'; error?: string };
@@ -45,6 +46,8 @@ export interface V2VisionCreationFlowProps {
   anchorArt?: VisionAnchorArt | null;
   initialDescription?: string;
   initialStep?: 'ready' | 'empty' | 'prompt' | 'curation';
+  /** Optional normalized focal point for entrance image motion (x: 0.0-1.0, y: 0.0-1.0). */
+  focalPoint?: { x: number; y: number } | null;
   onBack: () => void;
   onPremiumRequired?: () => void;
   onSaveDescription?: (description: string) => Promise<boolean>;
@@ -56,7 +59,7 @@ export interface V2VisionCreationFlowProps {
 }
 
 /** Fades and settles a newly arrived image into place. Shared values, not a layout animation. */
-function Reveal({ children, style, reduceMotion, delay = 0 }: { children: React.ReactNode; style?: any; reduceMotion: boolean; delay?: number }) {
+function Reveal({ children, style, reduceMotion, delay = 0, fromStage = false }: { children: React.ReactNode; style?: any; reduceMotion: boolean; delay?: number; fromStage?: boolean }) {
   const progress = useSharedValue(reduceMotion ? 1 : 0);
   useEffect(() => {
     if (reduceMotion) return;
@@ -67,14 +70,133 @@ function Reveal({ children, style, reduceMotion, delay = 0 }: { children: React.
   }, [delay, progress, reduceMotion]);
   const animated = useAnimatedStyle(() => ({
     opacity: progress.value,
-    transform: [{ scale: 0.965 + progress.value * 0.035 }],
+    transform: [{ scale: (fromStage ? 1.08 : 0.965) + progress.value * (fromStage ? -0.08 : 0.035) }],
   }));
   return <Animated.View style={[style, animated]}>{children}</Animated.View>;
 }
 
+function VisionEntranceStage({
+  possibleFuture, anchorCategory, anchorIntention, anchorArt, anchorImageUrl, focalPoint, insets, onBack, onStartCreate, testID,
+}: {
+  possibleFuture: any;
+  anchorCategory?: string | null;
+  anchorIntention: string;
+  anchorArt?: VisionAnchorArt | null;
+  anchorImageUrl?: string | null;
+  focalPoint?: { x: number; y: number } | null;
+  insets: any;
+  onBack: () => void;
+  onStartCreate: () => void;
+  testID: string;
+}) {
+  const reduceMotion = useV2ReduceMotion();
+  const [isExiting, setIsExiting] = useState(false);
+  const isExitingRef = useRef(false);
+
+  const headerProgress = useSharedValue(reduceMotion ? 1 : 0);
+  const titleProgress = useSharedValue(reduceMotion ? 1 : 0);
+  const bodyProgress = useSharedValue(reduceMotion ? 1 : 0);
+  const footerProgress = useSharedValue(reduceMotion ? 1 : 0);
+  const exitOpacity = useSharedValue(1);
+
+  useEffect(() => {
+    if (reduceMotion) return;
+    headerProgress.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.quad) });
+    const timer1 = setTimeout(() => {
+      titleProgress.value = withTiming(1, { duration: 450, easing: Easing.out(Easing.quad) });
+    }, 150);
+    const timer2 = setTimeout(() => {
+      bodyProgress.value = withTiming(1, { duration: 450, easing: Easing.out(Easing.quad) });
+    }, 300);
+    const timer3 = setTimeout(() => {
+      footerProgress.value = withTiming(1, { duration: 450, easing: Easing.out(Easing.quad) });
+    }, 450);
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+    };
+  }, [bodyProgress, footerProgress, headerProgress, reduceMotion, titleProgress]);
+
+  const handleCreatePress = () => {
+    if (isExitingRef.current) return;
+    isExitingRef.current = true;
+    setIsExiting(true);
+    if (reduceMotion) {
+      onStartCreate();
+      return;
+    }
+    exitOpacity.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) });
+    setTimeout(() => {
+      onStartCreate();
+    }, 300);
+  };
+
+  const headerStyle = useAnimatedStyle(() => ({
+    opacity: headerProgress.value * exitOpacity.value,
+    transform: [{ translateY: (1 - headerProgress.value) * 6 }],
+  }));
+
+  const titleStyle = useAnimatedStyle(() => ({
+    opacity: titleProgress.value * exitOpacity.value,
+    transform: [{ translateY: (1 - titleProgress.value) * 8 }],
+  }));
+
+  const bodyStyle = useAnimatedStyle(() => ({
+    opacity: bodyProgress.value * exitOpacity.value,
+  }));
+
+  const footerStyle = useAnimatedStyle(() => ({
+    opacity: footerProgress.value * exitOpacity.value,
+  }));
+
+  const identity = (tone: 'light' | 'dark' = 'light') => (
+    <VisionIdentity intention={anchorIntention} category={anchorCategory} art={anchorArt} imageUrl={anchorImageUrl} tone={tone} />
+  );
+
+  return (
+    <View testID={`${testID}-empty`} style={styles.stage}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.ink.base} animated />
+      <VisionPhoto
+        source={possibleFuture}
+        category={anchorCategory}
+        tint={0.12}
+        scrim="both"
+        bottomScrimColor={colors.canvas}
+        cinematic={true}
+        focalPoint={focalPoint}
+        isExiting={isExiting}
+        style={styles.emptyPhoto}
+      >
+        <View pointerEvents="none" style={styles.emptyTextShade} />
+        <View style={[styles.photoContent, { paddingTop: insets.top }]}>
+          <Animated.View style={headerStyle}>
+            <VisionHeaderRow title="Vision" onBack={onBack} />
+            {identity()}
+          </Animated.View>
+          <Animated.View style={titleStyle}>
+            <Text accessibilityRole="header" style={styles.emptyTitle}>See your future.</Text>
+          </Animated.View>
+          <Animated.View style={bodyStyle}>
+            <Text style={styles.emptyBody}>Turn your intention into a visual future you can step into.</Text>
+          </Animated.View>
+        </View>
+      </VisionPhoto>
+      <Animated.View style={[styles.emptyFooter, { paddingBottom: insets.bottom + spacing[4] }, footerStyle]}>
+        <View style={styles.rule} />
+        <Text style={styles.quote}>A clear Vision changes everything.</Text>
+        <View style={styles.rule} />
+        <V2Button size="large" accessibilityLabel="Create Vision" onPress={handleCreatePress} style={styles.fullWidth}>
+          Create Vision →
+        </V2Button>
+      </Animated.View>
+    </View>
+  );
+}
+
 export function V2VisionCreationFlow({
   anchorId, anchorIntention, anchorCategory, anchorImageUrl, anchorArt, initialDescription = '',
-  initialStep = 'prompt', onBack, onPremiumRequired, onSaveDescription, resumeGeneration, onResumeGenerationConsumed, onUploadAsset, onAssemble,
+  initialStep = 'prompt', focalPoint, onBack, onPremiumRequired, onSaveDescription, resumeGeneration, onResumeGenerationConsumed, onUploadAsset, onAssemble,
   testID = 'v2-vision-creation-flow',
 }: V2VisionCreationFlowProps) {
   const { width, height } = useWindowDimensions();
@@ -91,8 +213,12 @@ export function V2VisionCreationFlow({
   const [starting, setStarting] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
   const generation = useV2VisionGeneration(anchorId, onPremiumRequired);
+  const appearance = useVisionAppearanceReference();
+  const [useAppearance, setUseAppearance] = useState(false);
+  const [curationOriginId, setCurationOriginId] = useState<string | null>(null);
+  const appearanceHydrated = useRef(false);
   const categoryColor = getCategoryColor(anchorCategory);
-  const possibleFuture = visionPossibleFuturePhoto(anchorCategory);
+  const possibleFuture = visionPossibleFuturePhoto(anchorCategory, anchorId);
   const candidates = generation.job?.candidates ?? [];
   const trimmed = description.trim();
   const validDescription = trimmed.length >= VISION_DESCRIPTION_MIN_CHARS && trimmed.length <= VISION_DESCRIPTION_MAX_CHARS;
@@ -103,6 +229,14 @@ export function V2VisionCreationFlow({
   const presentation = useVisionPresentationQueue(generation.job?.id, candidates, { reduceMotion });
   const progress = visionGenerationProgress(generation.job, presentation.idle);
   const startingRef = useRef(false);
+
+  // This setting is an explicit future-session preference, never a silent
+  // reinterpretation of a profile image in the same session.
+  useEffect(() => {
+    if (appearance.loading || appearanceHydrated.current) return;
+    appearanceHydrated.current = true;
+    if (appearance.enabledByPreference && appearance.reference?.source === 'PROFILE') setUseAppearance(true);
+  }, [appearance.enabledByPreference, appearance.loading, appearance.reference?.source]);
 
   // Describe: typing brings the field forward and lets the cues recede.
   const scrollRef = useRef<ScrollView>(null);
@@ -139,7 +273,10 @@ export function V2VisionCreationFlow({
       return;
     }
     if (!presentation.idle) return;
-    const timer = setTimeout(() => setStep('curation'), reduceMotion ? 500 : VISION_REVEAL_TIMING.finalDwellMs);
+    const timer = setTimeout(() => {
+      setCurationOriginId(presentation.presented.at(-1)?.id ?? null);
+      setStep('curation');
+    }, reduceMotion ? 500 : VISION_REVEAL_TIMING.finalDwellMs);
     return () => clearTimeout(timer);
   }, [presentation.idle, reduceMotion, setComplete, step]);
 
@@ -151,7 +288,7 @@ export function V2VisionCreationFlow({
   const selectedAssets = useMemo<SelectedAsset[]>(() => selection.flatMap<SelectedAsset>(item => {
     if (item.kind === 'candidate') {
       const candidate = candidates.find(value => value.id === item.id);
-      return candidate ? [{ assetId: candidate.assetId, prompt: candidate.prompt, imageUrl: candidate.imageUrl ?? undefined, sourceType: 'AI_GENERATED' }] : [];
+      return candidate?.assetId ? [{ assetId: candidate.assetId, prompt: candidate.prompt, imageUrl: candidate.imageUrl ?? undefined, sourceType: 'AI_GENERATED' }] : [];
     }
     const upload = uploads.find(value => value.key === item.key);
     return upload?.status === 'ready' && upload.assetId
@@ -172,7 +309,7 @@ export function V2VisionCreationFlow({
         setNotice('Your description could not be saved. Please try again.');
         return;
       }
-      const started = await generation.start(trimmed);
+      const started = await generation.start(trimmed, useAppearance ? appearance.reference?.id : null);
       if (started) { setSelection(prev => prev.filter(item => item.kind === 'upload')); setStep('generating'); }
     } finally {
       startingRef.current = false;
@@ -231,6 +368,29 @@ export function V2VisionCreationFlow({
     }
   };
 
+  const pickAppearanceReference = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permission.status !== 'granted') { setNotice('Allow photo library access to add a reference photo.'); return; }
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.9, allowsEditing: false });
+      const item = result.assets?.[0];
+      if (result.canceled || !item) return;
+      const next = await appearance.upload(item.uri, 'CUSTOM');
+      if (!next) { setNotice('That photo could not be used as a reference. Choose a clear photo of one person.'); return; }
+      setUseAppearance(true);
+      setNotice(null);
+    } catch { setNotice('Unable to open your photos.'); }
+  };
+
+  const enableProfileAppearance = async () => {
+    if (!appearance.profilePhoto) return;
+    if (appearance.reference?.source === 'PROFILE' && appearance.enabledByPreference) { setUseAppearance(value => !value); return; }
+    const saved = await appearance.setProfilePreference(true);
+    if (!saved) { setNotice('Your profile photo could not be prepared for Vision.'); return; }
+    setUseAppearance(true);
+    setNotice(null);
+  };
+
   const toggleCandidate = (candidate: VisionGenerationCandidate) => {
     if (selection.some(item => item.kind === 'candidate' && item.id === candidate.id)) {
       v2Haptics.selection();
@@ -271,32 +431,23 @@ export function V2VisionCreationFlow({
   };
 
   if (step === 'empty') return (
-    <View testID={`${testID}-empty`} style={styles.stage}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.ink.base} animated />
-      <VisionPhoto source={possibleFuture} category={anchorCategory} tint={0.12} scrim="both" bottomScrimColor={colors.canvas} style={styles.emptyPhoto}>
-        <View pointerEvents="none" style={styles.emptyTextShade} />
-        <View style={[styles.photoContent, { paddingTop: insets.top }]}>
-          <VisionHeaderRow title="Vision" onBack={onBack} />
-          {identity()}
-          <Text accessibilityRole="header" style={styles.emptyTitle}>See your future.</Text>
-          <Text style={styles.emptyBody}>Turn your intention into a visual future you can step into.</Text>
-        </View>
-      </VisionPhoto>
-      <View style={[styles.emptyFooter, { paddingBottom: insets.bottom + spacing[4] }]}>
-        <View style={styles.rule} />
-        <Text style={styles.quote}>A clear Vision changes everything.</Text>
-        <View style={styles.rule} />
-        <V2Button size="large" accessibilityLabel="Create Vision" onPress={() => setStep('prompt')} style={styles.fullWidth}>
-          Create Vision →
-        </V2Button>
-      </View>
-    </View>
+    <VisionEntranceStage
+      possibleFuture={possibleFuture}
+      anchorCategory={anchorCategory}
+      anchorIntention={anchorIntention}
+      anchorArt={anchorArt}
+      anchorImageUrl={anchorImageUrl}
+      focalPoint={focalPoint}
+      insets={insets}
+      onBack={onBack}
+      onStartCreate={() => setStep('prompt')}
+      testID={testID}
+    />
   );
 
   if (step === 'generating') {
-    // Portrait cards, sized so the whole forming screen fits without scrolling on most phones.
-    const cardHeight = Math.round(Math.min(height * 0.36, width * 0.5 * (16 / 9)));
-    const cardWidth = Math.round(cardHeight * (9 / 16));
+    const stageWidth = width - spacing[5] * 2;
+    const stageHeight = Math.round(Math.max(340, Math.min(height * 0.55, 540)));
     const failed = generation.job?.status === 'FAILED';
     return (
       <View testID={`${testID}-generating`} style={[styles.stage, styles.inkStage]}>
@@ -311,21 +462,19 @@ export function V2VisionCreationFlow({
           <Text accessibilityRole="header" style={styles.inkTitle}>Your future{'\n'}is taking shape.</Text>
           <Text style={styles.inkBody}>Finding the moments that make it real.</Text>
 
-          <VisionGenerationStack presented={presentation.presented} cardWidth={cardWidth} cardHeight={cardHeight}
+          <VisionGenerationStage presented={presentation.presented} width={stageWidth} height={stageHeight}
             accent={categoryColor} reduceMotion={reduceMotion} />
-          <VisionContactRail presented={presentation.presented} total={progress.total} reduceMotion={reduceMotion} />
-          <VisionGenerationSteps steps={progress.steps} accent={categoryColor} reduceMotion={reduceMotion} />
-          <View accessibilityLiveRegion="polite">
-            <VisionGenerationMeter ready={progress.ready} total={progress.total} accent={categoryColor} reduceMotion={reduceMotion} />
+          <View accessibilityLiveRegion="polite" style={styles.livingStatus}>
+            <Text style={styles.livingStatusText}>{progress.title}</Text>
           </View>
 
           {failed && generation.job ? (
             <View style={styles.failure}>
-              <Text style={styles.failureTitle}>{progress.title}</Text>
+              <Text style={styles.failureTitle}>Your Vision needs another moment.</Text>
               <Text style={styles.darkBody}>
                 {progress.ready > 0
-                  ? `${progress.ready} ${progress.ready === 1 ? 'image is' : 'images are'} saved. ${generation.job.error ?? 'Some images could not be created.'}`
-                  : generation.job.error ?? 'Image creation was interrupted.'}
+                  ? 'The moments already here are ready to choose from. You can also try again.'
+                  : 'We could not bring your Vision into view just yet. Please try again.'}
               </Text>
               {generation.job.retryCount < 2 && (
                 <V2Button variant="secondary" onPress={() => { void generation.retry(); }}>Retry this set</V2Button>
@@ -336,9 +485,7 @@ export function V2VisionCreationFlow({
                 </Pressable>
               )}
             </View>
-          ) : (
-            <Text style={styles.footnote}>This can take a few moments. You can leave — your images keep arriving.</Text>
-          )}
+          ) : null}
           {generation.error ? <Text style={styles.darkError}>{generation.error}</Text> : null}
         </ScrollView>
       </View>
@@ -349,6 +496,11 @@ export function V2VisionCreationFlow({
     const setNumber = generation.job?.setNumber ?? 0;
     const canGenerateAnother = Boolean(generation.job && setNumber < MAX_SETS && generation.job.status !== 'RUNNING');
     const busyUploading = uploads.some(item => item.status === 'uploading');
+    // The current cinematic scene leads the existing grid, so the handoff
+    // resolves as a pull-back into the collection rather than an unrelated cut.
+    const curationCandidates = curationOriginId
+      ? [...candidates].sort((a, b) => (a.id === curationOriginId ? -1 : b.id === curationOriginId ? 1 : a.sortOrder - b.sortOrder))
+      : candidates;
     return (
       <View testID={`${testID}-curation`} style={[styles.stage, styles.inkStage]}>
         <StatusBar barStyle="light-content" backgroundColor={colors.ink.base} animated />
@@ -358,10 +510,10 @@ export function V2VisionCreationFlow({
           <Text accessibilityRole="header" style={styles.curationTitle}>Select up to {MAX_IMAGES} images</Text>
           <Text style={styles.inkBody}>Choose the images that best represent your future. These are moments you can return to.</Text>
           <View style={styles.grid}>
-            {candidates.map((candidate, index) => {
+            {curationCandidates.map((candidate, index) => {
               const order = orderOf(item => item.kind === 'candidate' && item.id === candidate.id);
               return (
-                <Reveal key={candidate.id} reduceMotion={reduceMotion} delay={Math.min(index, 7) * 70}>
+                <Reveal key={candidate.id} reduceMotion={reduceMotion} delay={Math.min(index, 7) * 70} fromStage={candidate.id === curationOriginId}>
                   <Pressable testID={`candidate-card-${candidate.id}`} onPress={() => toggleCandidate(candidate)}
                     accessibilityRole="button" accessibilityState={{ selected: order !== null }}
                     accessibilityLabel={order ? `Remove ${candidate.role}` : `Select ${candidate.role}`}
@@ -432,7 +584,7 @@ export function V2VisionCreationFlow({
               <VisionHeaderRow title="Create Vision" onBack={onBack} />
               {identity()}
               <Text accessibilityRole="header" style={styles.describeTitle}>What does this look like when it’s real?</Text>
-              <Text style={styles.inkBody}>Make it specific. The more detail you give, the more personal your Vision becomes.</Text>
+              <Text style={styles.inkBody}>Make it yours. The more specific you are, the more accurately we can create your Vision.</Text>
               {/* Cues, not a form: quiet enough that the question and the field lead. */}
               <Animated.View style={[styles.guide, guideStyle]}>
                 {VISION_DESCRIPTION_PROMPTS.map(prompt => {
@@ -466,6 +618,43 @@ export function V2VisionCreationFlow({
             </View>
             {notice && <Text style={styles.error}>{notice}</Text>}
             {generation.error && <Text style={styles.error}>{generation.error}</Text>}
+            <View style={styles.appearanceCard}>
+              <View style={styles.appearanceCopy}>
+                <Text style={styles.appearanceTitle}>Make it look like you</Text>
+                <Text style={styles.appearanceBody}>{appearance.profilePhoto
+                  ? 'Use your profile photo as a reference when you appear in generated scenes.'
+                  : 'Optional — add a reference photo when you want yourself represented in your Vision.'}</Text>
+              </View>
+              {appearance.reference ? (
+                <View style={styles.appearanceReady}>
+                  <Image source={{ uri: appearance.reference.source === 'PROFILE' && appearance.profilePhoto ? appearance.profilePhoto : appearance.reference.previewUrl ?? undefined }} style={styles.appearanceThumb} />
+                  <View style={styles.appearanceActions}>
+                    <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: useAppearance }} onPress={() => {
+                      if (appearance.reference?.source === 'PROFILE' && !appearance.enabledByPreference) void enableProfileAppearance();
+                      else setUseAppearance(value => !value);
+                    }} style={[styles.appearanceChoice, useAppearance && { borderColor: categoryColor }]}>
+                      <Text style={styles.appearanceChoiceText}>{appearance.saving ? 'Preparing…' : useAppearance ? 'Use my photo ✓' : 'Use my photo'}</Text>
+                    </Pressable>
+                    <Pressable accessibilityRole="button" onPress={() => { void pickAppearanceReference(); }}><Text style={styles.appearanceLink}>Change</Text></Pressable>
+                    <Pressable accessibilityRole="button" onPress={() => { void appearance.remove(); setUseAppearance(false); }}><Text style={styles.appearanceLink}>Remove</Text></Pressable>
+                  </View>
+                </View>
+              ) : appearance.profilePhoto ? (
+                <View style={styles.appearanceReady}>
+                  <Image source={{ uri: appearance.profilePhoto }} style={styles.appearanceThumb} />
+                  <View style={styles.appearanceActions}>
+                    <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: useAppearance }} onPress={() => { void enableProfileAppearance(); }} style={[styles.appearanceChoice, useAppearance && { borderColor: categoryColor }]}>
+                      <Text style={styles.appearanceChoiceText}>{appearance.saving ? 'Preparing…' : useAppearance ? 'Use my photo ✓' : 'Use my photo'}</Text>
+                    </Pressable>
+                    <Pressable accessibilityRole="button" onPress={() => { void pickAppearanceReference(); }}><Text style={styles.appearanceLink}>Change</Text></Pressable>
+                  </View>
+                </View>
+              ) : (
+                <Pressable accessibilityRole="button" onPress={() => { void pickAppearanceReference(); }} style={styles.addReference}>
+                  <Text style={styles.addReferenceText}>+ Add reference photo</Text>
+                </Pressable>
+              )}
+            </View>
             <V2Button testID="vision-generate" size="large" accessibilityLabel="Continue to create your Vision"
               disabled={!validDescription} loading={starting} onPress={() => { void generate(); }}>
               Continue
@@ -516,6 +705,18 @@ const styles = StyleSheet.create({
   // Android cannot animate elevation smoothly; it steps with focus instead.
   inputFrameFocused: Platform.OS === 'android' ? { elevation: 3 } : {},
   input: { ...typography.bodyLG, color: colors.text.primary, minHeight: 176, padding: spacing[4] },
+  appearanceCard: { gap: spacing[2], padding: spacing[3], borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border.default, borderRadius: radii.md, backgroundColor: colors.surface },
+  appearanceCopy: { gap: 3 },
+  appearanceTitle: { ...typography.labelLG, color: colors.text.primary },
+  appearanceBody: { ...typography.caption, color: colors.text.secondary, lineHeight: 17 },
+  appearanceReady: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], marginTop: spacing[1] },
+  appearanceThumb: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.canvas },
+  appearanceActions: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing[3], flexWrap: 'wrap' },
+  appearanceChoice: { borderWidth: 1, borderColor: colors.border.default, borderRadius: radii.pill, paddingHorizontal: spacing[3], paddingVertical: 7 },
+  appearanceChoiceText: { ...typography.caption, color: colors.text.primary, fontFamily: typography.labelMD.fontFamily },
+  appearanceLink: { ...typography.caption, color: colors.text.secondary, textDecorationLine: 'underline' },
+  addReference: { alignSelf: 'flex-start', marginTop: spacing[1], paddingVertical: 4 },
+  addReferenceText: { ...typography.labelMD, color: colors.text.primary },
   meter: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing[3], marginTop: -spacing[1] },
   meterHint: { ...typography.caption, color: colors.text.secondary, flex: 1 },
   counter: { ...typography.caption, color: colors.text.tertiary },
@@ -528,7 +729,8 @@ const styles = StyleSheet.create({
   // Generation
   atmosphere: { position: 'absolute', left: 0, top: 0, opacity: 0.5 },
   fillImage: { width: '100%', height: '100%' },
-  footnote: { ...typography.caption, color: colors.ink.text.tertiary, textAlign: 'center', marginTop: spacing[3] },
+  livingStatus: { alignSelf: 'center', minHeight: 24, justifyContent: 'center', marginTop: spacing[1] },
+  livingStatusText: { ...typography.bodySM, color: colors.ink.text.secondary, textAlign: 'center' },
   failure: { gap: spacing[3], alignItems: 'center', marginTop: spacing[4] },
   failureTitle: { ...typography.headingMD, color: colors.ink.text.primary, textAlign: 'center' },
   darkBody: { ...typography.bodyMD, color: colors.ink.text.secondary, textAlign: 'center' },

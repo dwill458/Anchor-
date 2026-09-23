@@ -139,6 +139,17 @@ describe('chartAdapter', () => {
       ...overrides,
     }) as CourseDetail;
 
+  it('uses the server One Move, not the waypoint title', () => {
+    const withMove = course({
+      currentMoveId: 'move-1',
+      moves: [
+        { id: 'move-1', courseId: 'course-1', waypointId: 'wp-2', title: 'Email three creators', rationale: null, source: 'USER', status: 'ACTIVE', position: 100, isCurrent: true, completedAt: null, createdAt: '2026-09-01T00:00:00Z' },
+      ],
+    } as never);
+    const state = toHomeChartState(withMove);
+    expect(state.state === 'ready' && state.nextMove).toBe('Email three creators');
+  });
+
   it('is "none" without an active course', () => {
     expect(toHomeChartState(null)).toEqual({ state: 'none' });
     expect(toHomeChartState(course({ status: 'COMPLETED' }))).toEqual({ state: 'none' });
@@ -149,7 +160,8 @@ describe('chartAdapter', () => {
       state: 'ready',
       courseId: 'course-1',
       destinationText: 'Reach 1,000 active users',
-      nextMove: 'Contact 3 creators',
+      // The One Move is the server's current Move, never the waypoint title.
+      nextMove: null,
       // Derived from the waypoints actually supplied, not from the summary's
       // own counter, so `reachedCount` and `waypointCount` can never disagree
       // and render "2 of 2" for a route with one waypoint reached.

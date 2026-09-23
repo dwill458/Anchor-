@@ -42,6 +42,16 @@ export interface AssetReadModel {
   createdAt: string;
 }
 
+export const VISION_APPEARANCE_REFERENCE_SOURCES = ['PROFILE', 'CUSTOM'] as const;
+export type VisionAppearanceReferenceSource = (typeof VISION_APPEARANCE_REFERENCE_SOURCES)[number];
+
+export interface VisionAppearanceReferenceReadModel {
+  id: string;
+  source: VisionAppearanceReferenceSource;
+  previewUrl: string | null;
+  expiresAt: string | null;
+}
+
 // Validation schemas
 export const TimeZoneSchema = z
   .string()
@@ -77,6 +87,16 @@ export const CreateVisionSchema = z.object({
 export const StartVisionGenerationSchema = z.object({
   description: z.string().trim().min(12).max(2000),
   idempotencyKey: z.string().regex(/^[A-Za-z0-9-]{12,100}$/),
+  // The server resolves this private asset itself. Clients never send raw
+  // URLs or bytes to the generation endpoint.
+  appearanceReferenceId: z.string().uuid().optional().nullable(),
+}).strict();
+
+export const CreateVisionAppearanceReferenceSchema = z.object({
+  base64Image: z.string().min(1).max(7_000_000),
+  mimeType: z.enum(['image/png', 'image/jpeg', 'image/webp']).default('image/jpeg'),
+  source: z.enum(VISION_APPEARANCE_REFERENCE_SOURCES),
+  profileFingerprint: z.string().trim().min(8).max(256).optional().nullable(),
 }).strict();
 
 export const UpdateVisionSchema = z.object({

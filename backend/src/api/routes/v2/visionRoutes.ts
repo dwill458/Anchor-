@@ -11,14 +11,50 @@ import {
   ReorderScenesSchema,
   RecordVisionViewSchema,
   StartVisionGenerationSchema,
+  CreateVisionAppearanceReferenceSchema,
 } from '../../../domain/v2/vision';
 import { visionGenerationService } from '../../../services/v2/VisionGenerationService';
+import { visionAppearanceReferenceService } from '../../../services/v2/VisionAppearanceReferenceService';
 import { uploadImageAssetFromBuffer } from '../../../services/StorageService';
 import sharp from 'sharp';
 import { z } from 'zod';
 
 const router = Router();
 router.use(authMiddleware);
+const AppearanceReferenceParamsSchema = z.object({ referenceId: z.string().uuid() }).strict();
+
+const appearanceReferenceLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 8,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: req => (req as AuthRequest).user?.uid || ipKeyGenerator(req.ip ?? ''),
+});
+
+// Appearance media is a private, explicit-use input—not a Vision scene and
+// not a profile-photo mutation. Its signed preview is never persisted client-side.
+router.get('/vision/appearance-reference', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    res.json({ success: true, data: await visionAppearanceReferenceService.latest(await getAuthenticatedUserId(req)) });
+  } catch (error) { next(error); }
+});
+
+router.post('/vision/appearance-reference', appearanceReferenceLimiter, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const input = validateBody(CreateVisionAppearanceReferenceSchema, req.body);
+    const reference = await visionAppearanceReferenceService.create(await getAuthenticatedUserId(req), input);
+    res.status(201).json({ success: true, data: reference });
+  } catch (error) { next(error); }
+});
+
+router.delete('/vision/appearance-reference/:referenceId', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const params = AppearanceReferenceParamsSchema.safeParse(req.params);
+    if (!params.success) throw new AppError('Appearance reference is invalid', 400, 'INVALID_VISION_REFERENCE');
+    await visionAppearanceReferenceService.destroy(params.data.referenceId, await getAuthenticatedUserId(req));
+    res.json({ success: true, data: { success: true } });
+  } catch (error) { next(error); }
+});
 
 const generationLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -102,7 +138,7 @@ router.post('/anchors/:anchorId/vision/generation', generationLimiter, async (re
   try {
     const userId = await getAuthenticatedUserId(req);
     const input = validateBody(StartVisionGenerationSchema, req.body);
-    const job = await visionGenerationService.start(userId, req.params.anchorId, input.description, input.idempotencyKey);
+    const job = await visionGenerationService.start(userId, req.params.anchorId, input.description, input.idempotencyKey, input.appearanceReferenceId);
     res.status(202).json({ success: true, data: job });
   } catch (error) { next(error); }
 });

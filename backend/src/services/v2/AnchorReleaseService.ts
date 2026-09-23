@@ -52,17 +52,37 @@ export class AnchorReleaseService {
           where: {
             userId,
             archivedAt: null,
-            anchorLinks: { some: { anchorId, unlinkedAt: null } },
+            OR: [{ anchorId }, { anchorLinks: { some: { anchorId, unlinkedAt: null } } }],
           },
           select: { id: true },
         });
         const courseIds = linkedCourses.map(course => course.id);
-        const courses = courseIds.length
+        // A reached destination stays COMPLETED: the journey becomes history, not
+        // an abandoned route. Only unfinished routes change status. Archived
+        // routes drop their live pointers so they satisfy the Course invariants.
+        const completedCourses = courseIds.length
           ? await tx.course.updateMany({
-              where: { id: { in: courseIds }, userId, archivedAt: null },
-              data: { archivedAt: now, status: 'ARCHIVED' },
+              where: { id: { in: courseIds }, userId, archivedAt: null, status: 'COMPLETED' },
+              data: { archivedAt: now, currentMoveId: null },
             })
           : { count: 0 };
+        const openCourses = courseIds.length
+          ? await tx.course.updateMany({
+              where: {
+                id: { in: courseIds },
+                userId,
+                archivedAt: null,
+                status: { not: 'COMPLETED' },
+              },
+              data: {
+                archivedAt: now,
+                status: 'ARCHIVED',
+                currentWaypointId: null,
+                currentMoveId: null,
+              },
+            })
+          : { count: 0 };
+        const courses = { count: completedCourses.count + openCourses.count };
         const waypoints = courseIds.length
           ? await tx.waypoint.updateMany({
               where: { userId, courseId: { in: courseIds }, archivedAt: null },

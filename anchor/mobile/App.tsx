@@ -27,6 +27,11 @@ import {
 } from '@expo-google-fonts/cinzel';
 import { Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import {
+  BricolageGrotesque_400Regular,
+  BricolageGrotesque_600SemiBold,
+  BricolageGrotesque_700Bold,
+} from '@expo-google-fonts/bricolage-grotesque';
+import {
   CrimsonPro_400Regular,
   CrimsonPro_400Regular_Italic,
 } from '@expo-google-fonts/crimson-pro';
@@ -35,18 +40,6 @@ import {
   EBGaramond_400Regular_Italic,
   EBGaramond_500Medium,
 } from '@expo-google-fonts/eb-garamond';
-import {
-  BricolageGrotesque_400Regular,
-  BricolageGrotesque_600SemiBold,
-  BricolageGrotesque_700Bold,
-  BricolageGrotesque_800ExtraBold,
-} from '@expo-google-fonts/bricolage-grotesque';
-import {
-  Figtree_400Regular,
-  Figtree_500Medium,
-  Figtree_600SemiBold,
-  Figtree_700Bold,
-} from '@expo-google-fonts/figtree';
 import { RootNavigator } from './src/navigation';
 import { AnchorV2Navigator } from './src/navigation/v2';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
@@ -288,6 +281,9 @@ export default function App() {
     'Cinzel-Bold': Cinzel_700Bold,
     'Inter-Regular': Inter_400Regular,
     'Inter-SemiBold': Inter_600SemiBold,
+    'BricolageGrotesque-Regular': BricolageGrotesque_400Regular,
+    'BricolageGrotesque-SemiBold': BricolageGrotesque_600SemiBold,
+    'BricolageGrotesque-Bold': BricolageGrotesque_700Bold,
     'CrimsonPro-Regular': CrimsonPro_400Regular,
     'CrimsonPro-Italic': CrimsonPro_400Regular_Italic,
     'EBGaramond-Regular': EBGaramond_400Regular,
@@ -295,15 +291,6 @@ export default function App() {
     'EBGaramond-Medium': EBGaramond_500Medium,
     'CormorantGaramond-Regular': CrimsonPro_400Regular,
     'CormorantGaramond-Italic': CrimsonPro_400Regular_Italic,
-    // Loaded alongside the legacy set; only the opt-in V2 shell references them.
-    'BricolageGrotesque-Regular': BricolageGrotesque_400Regular,
-    'BricolageGrotesque-SemiBold': BricolageGrotesque_600SemiBold,
-    'BricolageGrotesque-Bold': BricolageGrotesque_700Bold,
-    'BricolageGrotesque-ExtraBold': BricolageGrotesque_800ExtraBold,
-    'Figtree-Regular': Figtree_400Regular,
-    'Figtree-Medium': Figtree_500Medium,
-    'Figtree-SemiBold': Figtree_600SemiBold,
-    'Figtree-Bold': Figtree_700Bold,
   });
   const startup = useAppStartup({
     fontsReady: fontsLoaded || Boolean(fontLoadError),

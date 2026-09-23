@@ -15,7 +15,9 @@ export type CanonicalThreadEventType =
   | 'COURSE_RESUMED'
   | 'ANCHOR_COMPLETED'
   | 'RELEASE_RECOMMENDED'
-  | 'ANCHOR_RELEASED';
+  | 'ANCHOR_RELEASED'
+  | 'CHART_CREATED'
+  | 'ROUTE_ADJUSTED';
 
 export interface V2ThreadEventItem {
   id: string;

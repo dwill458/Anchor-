@@ -100,12 +100,26 @@ describe('resolveHomeChartState — absence is never loading', () => {
       state: 'ready',
       courseId: 'course-1',
       destinationText: 'Reach 1,000 active users',
-      nextMove: 'Contact 3 creators',
+      nextMove: null,
       currentWaypointId: 'wp-2',
     });
   });
 
   it('is ABSENT with no Anchor at all', () => {
     expect(resolveHomeChartState(input({ anchor: null }))).toEqual({ state: 'none' });
+  });
+});
+
+describe('resolveAnchorChartState — per-Anchor Chart (Anchor 2.0)', () => {
+  const { resolveAnchorChartState } = jest.requireActual('../chartAdapter');
+  it('renders nothing while unknown or when the read failed without a cached Chart', () => {
+    expect(resolveAnchorChartState({ data: null, loading: true, error: null })).toEqual({ state: 'resolving' });
+    expect(resolveAnchorChartState({ data: null, loading: false, error: { kind: 'offline' } })).toEqual({ state: 'none' });
+  });
+  it('is none when this Anchor has no Chart, ready when it has one', () => {
+    const anchorSummary = { id: 'anchor-1', intentionText: 'x', category: 'career', enhancedImageUrl: null, released: false };
+    expect(resolveAnchorChartState({ data: { anchor: anchorSummary, chart: null, history: [], stats: null }, loading: false, error: null })).toEqual({ state: 'none' });
+    const ready = resolveAnchorChartState({ data: { anchor: anchorSummary, chart: detail(), history: [], stats: null }, loading: false, error: null });
+    expect(ready.state).toBe('ready');
   });
 });

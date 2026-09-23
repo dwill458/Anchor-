@@ -80,7 +80,7 @@ const INTENTION_EXAMPLES: Array<{ test: RegExp; example: string }> = [
 ];
 
 const CATEGORY_EXAMPLES: Record<string, string> = {
-  career: 'I walk into a workday I designed. The project I lead is moving, my calendar has room to think, and people come to me because they trust how I work.',
+  career: 'I walk through the glass doors of the office building onto the floor where my team works. The leadership meeting is set, my workstation overlooks the city skyline, and the position I worked for is finally mine.',
   health: 'I wake up rested, move my body before breakfast and feel strong doing it. Food, sleep and energy are steady, and I trust myself to keep going.',
   relationships: 'I’m sitting across from someone I love, fully present. We talk easily, nothing is left unsaid, and I feel safe and close.',
   creativity: 'I’m in my own studio space with the finished work in front of me. I make something every day, and it feels like mine.',

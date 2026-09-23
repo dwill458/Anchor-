@@ -160,13 +160,17 @@ function V2HomeChartSectionComponent({ chart, expanded, categoryColor, onOpenCha
     <Pressable
       testID={testID ?? 'v2-home-chart'}
       accessibilityRole="button"
-      accessibilityLabel="View Chart"
+      accessibilityLabel={
+        current
+          ? 'Open Chart. Waypoint ' + ((chart.currentWaypointIndex ?? 0) + 1) + ' of ' + chart.waypointCount + ': ' + current.title + (chart.nextMove ? '. One Move: ' + chart.nextMove : '')
+          : 'Open Chart'
+      }
       onPress={onOpenChart}
       disabled={!onOpenChart}
       style={({ pressed }) => [styles.container, pressed && onOpenChart ? styles.pressed : null]}
     >
       <View style={styles.kickerRow}>
-        <Text style={styles.kicker}>CHART</Text>
+        <Text style={styles.kicker}>YOUR CHART</Text>
       </View>
 
       <View style={[styles.route, expanded && styles.expandedRoute]}>
@@ -174,7 +178,11 @@ function V2HomeChartSectionComponent({ chart, expanded, categoryColor, onOpenCha
       </View>
 
       <Text testID="v2-home-chart-progress" style={styles.progress}>
-        {chart.reachedCount + ' of ' + chart.waypointCount + ' reached'}
+        {chart.isFinished
+          ? 'Destination reached'
+          : chart.currentWaypointIndex !== null && chart.currentWaypointIndex >= 0
+            ? 'Waypoint ' + (chart.currentWaypointIndex + 1) + ' of ' + chart.waypointCount
+            : chart.reachedCount + ' of ' + chart.waypointCount + ' reached'}
       </Text>
       <Text testID="v2-home-chart-destination" style={styles.destination}>
         {chart.destinationText}
@@ -199,7 +207,7 @@ function V2HomeChartSectionComponent({ chart, expanded, categoryColor, onOpenCha
       ) : null}
 
       <View style={styles.link}>
-        <Text style={styles.linkText}>View Chart</Text>
+        <Text style={styles.linkText}>Open Chart</Text>
         <ArrowRight color={colors.graphite.text.tertiary} />
       </View>
     </Pressable>

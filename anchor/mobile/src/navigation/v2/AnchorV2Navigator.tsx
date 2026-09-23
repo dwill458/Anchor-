@@ -6,16 +6,17 @@ import { ArrowLeft } from 'lucide-react-native';
 import { V2DevelopmentHome } from '@/screens/v2/home';
 import { V2SystemGallery } from '@/screens/v2/system';
 import { V2FirstRunFlow } from '@/screens/v2/onboarding';
+import { V2AuthScreen } from '@/screens/v2/auth';
 import {
   V2CreationScreen,
-  type CreationDestinationAdapter,
+  type CreationGenerationAdapter,
   type CreationHandoff,
   type CreationSaveAdapter,
 } from '@/screens/v2/creation';
 import { V2PaywallScreen, type V2PaywallEntitlementResult } from '@/screens/v2/paywall';
 import { V2PracticeScreen } from '@/screens/v2/practice';
 import { V2VisionScreen } from '@/screens/v2/vision';
-import { V2ChartScreen } from '@/screens/v2/chart';
+import { V2ChartAdjustScreen, V2ChartJourneyScreen, V2ChartScreen, V2ChartWaypointScreen } from '@/screens/v2/chart';
 import { V2ProgressScreen } from '@/screens/v2/progress';
 import { V2AnchorLibraryScreen, V2AnchorDetailsScreen } from '@/screens/v2/anchors';
 import { V2ReleaseScreen } from '@/screens/v2/release';
@@ -23,7 +24,9 @@ import { V2WeeklyInsightScreen } from '@/screens/v2/weeklyInsight';
 import { SettingsScreen } from '@/screens/settings';
 import { LoginScreen } from '@/screens/auth';
 import { useAnchorStore } from '@/stores/anchorStore';
-import { persistCreatedAnchor, persistDestination } from '@/services/v2/creationPersistence';
+import { useAuthStore } from '@/stores/authStore';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { generateExpressionCandidates, persistCreatedAnchor } from '@/services/v2/creationPersistence';
 import type { V2PracticeMode } from '@/constants/v2/practice';
 import type { AnchorV2StackParamList } from './types';
 import { useV2ReduceMotion } from '@/hooks/v2';
@@ -147,8 +150,8 @@ function V2CreationRouteScreen() {
     return { anchorId };
   }, []);
 
-  const saveDestination: CreationDestinationAdapter = useCallback(
-    ({ anchorId, description }) => persistDestination({ anchorId, description }),
+  const generateExpression: CreationGenerationAdapter = useCallback(
+    ({ draft, generationAttempt }) => generateExpressionCandidates({ draft, generationAttempt }),
     [],
   );
 
@@ -171,7 +174,7 @@ function V2CreationRouteScreen() {
   return (
     <V2CreationScreen
       saveAnchor={saveAnchor}
-      saveDestination={saveDestination}
+      generateExpression={generateExpression}
       onComplete={handleComplete}
       onExit={handleExit}
       onPaywall={handlePaywall}
@@ -213,14 +216,41 @@ function V2LoginRouteScreen() {
   );
 }
 
+function V2AuthRouteScreen() {
+  const navigation = useNavigation<any>();
+  const route = useRoute<RouteProp<AnchorV2StackParamList, 'V2Auth'>>();
+
+  return (
+    <V2AuthScreen
+      initialMode={route.params?.initialMode}
+      onBack={() => navigation.goBack()}
+    />
+  );
+}
+
 /**
  * Anchor 2.0 central stack navigator.
  */
 export function AnchorV2Navigator() {
   const reduceMotion = useV2ReduceMotion();
+  const user = useAuthStore((state) => state.user);
+  const hasCompletedOnboarding = useAuthStore((state) => state.hasCompletedOnboarding);
+  const developerSkipOnboardingEnabled = useSettingsStore((state) => state.developerSkipOnboardingEnabled);
+  const developerMasterAccountEnabled = useSettingsStore((state) => state.developerMasterAccountEnabled);
   const screenOptions = useMemo(() => v2StackScreenOptions(reduceMotion), [reduceMotion]);
+  // The app shell withholds this navigator until Firebase restoration settles.
+  // Remount on trusted auth/onboarding changes so a restored account never
+  // briefly lands in first-run, and a new account returns to its draft.
+  const shouldBypassOnboarding = __DEV__ && (developerSkipOnboardingEnabled || developerMasterAccountEnabled);
+  const initialRouteName = shouldBypassOnboarding || (user?.id && hasCompletedOnboarding)
+    ? 'V2DevelopmentHome'
+    : 'V2FirstRun';
   return (
-    <Stack.Navigator screenOptions={screenOptions}>
+    <Stack.Navigator
+      key={`${initialRouteName}:${user?.id ?? 'guest'}`}
+      initialRouteName={initialRouteName}
+      screenOptions={screenOptions}
+    >
       <Stack.Screen name="V2DevelopmentHome" component={V2DevelopmentHome} />
       <Stack.Screen name="V2FirstRun" component={V2FirstRunFlow} />
       <Stack.Screen name="V2SystemGallery" component={V2SystemGallery} />
@@ -233,12 +263,16 @@ export function AnchorV2Navigator() {
       <Stack.Screen name="V2Paywall" component={V2PaywallRouteScreen} options={TRANSPARENT_BACKGROUND} />
       <Stack.Screen name="V2Practice" component={V2PracticeRouteScreen} />
       <Stack.Screen name="V2Vision" component={V2VisionScreen} options={PAPER_BACKGROUND} />
-      <Stack.Screen name="V2Chart" component={V2ChartScreen} />
+      <Stack.Screen name="V2Chart" component={V2ChartScreen} options={GRAPHITE_BACKGROUND} />
+      <Stack.Screen name="V2ChartWaypoint" component={V2ChartWaypointScreen} options={GRAPHITE_BACKGROUND} />
+      <Stack.Screen name="V2ChartAdjust" component={V2ChartAdjustScreen} options={GRAPHITE_BACKGROUND} />
+      <Stack.Screen name="V2ChartJourney" component={V2ChartJourneyScreen} options={GRAPHITE_BACKGROUND} />
       <Stack.Screen name="V2Progress" component={V2ProgressScreen} options={GRAPHITE_BACKGROUND} />
       <Stack.Screen name="V2Release" component={V2ReleaseRouteScreen} />
       <Stack.Screen name="V2WeeklyInsight" component={V2WeeklyInsightRouteScreen} />
       {/* Legacy dark surfaces keep the app's transparent default. */}
       <Stack.Screen name="V2Settings" component={SettingsScreen} options={TRANSPARENT_BACKGROUND} />
+      <Stack.Screen name="V2Auth" component={V2AuthRouteScreen} options={TRANSPARENT_BACKGROUND} />
       <Stack.Screen name="Login" component={V2LoginRouteScreen} options={TRANSPARENT_BACKGROUND} />
     </Stack.Navigator>
   );

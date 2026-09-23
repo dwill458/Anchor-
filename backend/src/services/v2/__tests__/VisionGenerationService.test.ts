@@ -118,7 +118,7 @@ describe('VisionGenerationService', () => {
 
     await (service as any).run('job-1', 'I create freely', 'DESIRE');
 
-    expect(mockPlanVisionScenes).toHaveBeenCalledWith('I create freely', 'DESIRE', description, []);
+    expect(mockPlanVisionScenes).toHaveBeenCalledWith('I create freely', 'DESIRE', description, [], false);
     expect(mockGenerateVisionScene).toHaveBeenCalledTimes(8);
     expect(mockPrisma.visionGenerationCandidate.create).toHaveBeenCalledTimes(8);
     expect(mockPrisma.visionGenerationCandidate.create.mock.calls.map(([call]) => call.data.role)).toEqual(plan.map(item => item.role));
@@ -177,19 +177,23 @@ describe('VisionGenerationService', () => {
     }));
   });
 
-  it('keeps finished images and pauses as FAILED when an image fails twice', async () => {
+  it('keeps successful moments when one scene fails twice', async () => {
     const plan = Array.from({ length: 8 }, (_, index) => ({ role: `Role ${index}`, scene: `Different scene ${index}` }));
     arrangeRun(plan);
     const portrait = await sharp({ create: { width: 9, height: 16, channels: 3, background: '#556677' } }).png().toBuffer();
     mockGenerateVisionScene
       .mockResolvedValueOnce(portrait).mockResolvedValueOnce(portrait)
-      .mockRejectedValueOnce(new Error('down')).mockRejectedValueOnce(new Error('still down'));
+      .mockRejectedValueOnce(new Error('down')).mockRejectedValueOnce(new Error('still down'))
+      .mockResolvedValue(portrait);
 
     await (service as any).run('job-1', 'I create freely', 'DESIRE');
 
-    expect(mockPrisma.visionGenerationCandidate.create).toHaveBeenCalledTimes(2);
+    expect(mockPrisma.visionGenerationCandidate.create).toHaveBeenCalledTimes(8);
+    expect(mockPrisma.visionGenerationCandidate.create.mock.calls[2][0].data).toEqual(expect.objectContaining({
+      status: 'FAILED', assetId: null,
+    }));
     expect(mockPrisma.visionGeneration.updateMany).toHaveBeenLastCalledWith(expect.objectContaining({
-      data: expect.objectContaining({ status: 'FAILED' }),
+      data: expect.objectContaining({ status: 'COMPLETE' }),
     }));
   });
 
@@ -207,6 +211,6 @@ describe('VisionGenerationService', () => {
     expect(mockPrisma.visionGeneration.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: { visionId: 'vision-1', setNumber: { lt: 2 } },
     }));
-    expect(mockPlanVisionScenes).toHaveBeenCalledWith('I create freely', 'DESIRE', description, earlier.map(item => item.scene));
+    expect(mockPlanVisionScenes).toHaveBeenCalledWith('I create freely', 'DESIRE', description, earlier.map(item => item.scene), false);
   });
 });

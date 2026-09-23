@@ -1,15 +1,15 @@
 import type { TextStyle } from 'react-native';
 
-const display = 'BricolageGrotesque-Regular';
-const displaySemiBold = 'BricolageGrotesque-SemiBold';
-const displayBold = 'BricolageGrotesque-Bold';
-const displayExtraBold = 'BricolageGrotesque-ExtraBold';
-const body = 'Figtree-Regular';
-const bodyMedium = 'Figtree-Medium';
-const bodySemiBold = 'Figtree-SemiBold';
-const bodyBold = 'Figtree-Bold';
+const display = 'Inter-Regular';
+const displaySemiBold = 'Inter-SemiBold';
+const displayBold = 'Inter-SemiBold';
+const displayExtraBold = 'Inter-SemiBold';
+const body = 'Inter-Regular';
+const bodyMedium = 'Inter-SemiBold';
+const bodySemiBold = 'Inter-SemiBold';
+const bodyBold = 'Inter-SemiBold';
 
-/** V2-only type roles. Bricolage creates hierarchy; Figtree carries the interface. */
+/** V2 type roles using Anchor 2.0 neutral typography. */
 export const typography = {
   display,
   displaySemiBold,

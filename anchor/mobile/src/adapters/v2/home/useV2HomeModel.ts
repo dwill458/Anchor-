@@ -13,9 +13,10 @@ import AuthHydrationService from '@/services/AuthHydrationService';
 import type { Anchor } from '@/types';
 import { toThreadPresentation, type V2ThreadPresentation } from './threadAdapter';
 import { toV2HomeVisionState, type HomeVisionState } from './visionAdapter';
-import { courseMatchesAnchor, resolveHomeChartState, type HomeChartState } from './chartAdapter';
+import { resolveAnchorChartState, type HomeChartState } from './chartAdapter';
+import { useAnchorChart } from '@/hooks/v2/chart/useAnchorChart';
+import { useAnchorCourseLog } from '@/hooks/v2/chart/useAnchorCourseLog';
 import { toHomeProgressState, type HomeProgressState } from './progressAdapter';
-import { useCourseLogStore } from '@/stores/courseLogStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { toHomeRecentActivity, type HomeRecentActivityItem } from './recentActivityAdapter';
 
@@ -176,13 +177,6 @@ export function useV2HomeModel(): V2HomeModel {
   const chartServerFlags = useAuthStore((s) => s.user?.chartFlags ?? null);
   const anchorLoading = useAnchorStore((s) => s.isLoading);
   const anchorError = useAnchorStore((s) => s.error);
-  const courseAccountId = useCourseStore((s) => s.accountId);
-  const activeCourse = useCourseStore((s) => s.activeCourse);
-  const courseSummaries = useCourseStore((s) => s.courses);
-  const chartEnabled = useCourseStore((s) => s.flags.chart_enabled);
-  const courseInitializationStatus = useCourseStore((s) => s.initializationStatus);
-  const courseError = useCourseStore((s) => s.errorCode);
-  const courseLogEntries = useCourseLogStore((s) => s.entries);
   const sessionLog = useSessionStore((s) => s.sessionLog);
   const practiceHistory = useSessionStore((s) => s.practiceHistory);
   const bindCourseAccount = useCourseStore((s) => s.bindAccount);
@@ -193,6 +187,9 @@ export function useV2HomeModel(): V2HomeModel {
   const primeDuration = useSettingsStore((s) => s.primeSessionDuration);
   const visualizeDuration = useSettingsStore((s) => s.visualizeSessionDuration);
   const visionModel = useV2Vision(selectedAnchor?.id ?? '');
+  const anchorChart = useAnchorChart(selectedAnchor?.id ?? null);
+  // Evidence from this Anchor's own routes only.
+  const anchorCourseLog = useAnchorCourseLog(selectedAnchor?.id ?? null);
   const todayDurations = useMemo(
     () => ({ focus: focusDuration, deep_prime: primeDuration, visualize: visualizeDuration }),
     [focusDuration, primeDuration, visualizeDuration],
@@ -215,7 +212,10 @@ export function useV2HomeModel(): V2HomeModel {
   }, [accountId]);
 
   // Stable, so Home's focus listener is not re-subscribed on every model change.
-  const refreshChart = useCallback(() => refreshChartStore(accountId ?? undefined), [accountId, refreshChartStore]);
+  const refreshAnchorChart = anchorChart.refresh;
+  const refreshChart = useCallback(async () => {
+    await Promise.all([refreshChartStore(accountId ?? undefined), refreshAnchorChart()]);
+  }, [accountId, refreshAnchorChart, refreshChartStore]);
 
   useEffect(() => {
     setCourseFeatureFlags(chartServerFlags);
@@ -247,27 +247,14 @@ export function useV2HomeModel(): V2HomeModel {
    */
   const chart = useMemo<HomeChartState>(
     () =>
-      resolveHomeChartState({
-        anchor: selectedAnchor,
-        chartEnabled,
-        accountId,
-        courseAccountId,
-        initializationStatus: courseInitializationStatus,
-        courses: courseSummaries,
-        activeCourse,
-        errorCode: courseError === null || courseError === undefined ? null : String(courseError),
-        isOnlyActiveAnchor: activeAnchors.length === 1,
-      }),
-    [accountId, activeAnchors.length, activeCourse, chartEnabled, courseAccountId, courseError, courseInitializationStatus, courseSummaries, selectedAnchor],
+      selectedAnchor
+        ? resolveAnchorChartState({ data: anchorChart.data, loading: anchorChart.loading, error: anchorChart.error })
+        : { state: 'none' },
+    [anchorChart.data, anchorChart.error, anchorChart.loading, selectedAnchor],
   );
 
-  /** Course logs are account-scoped; only this Anchor's own Chart may supply evidence. */
-  const ownsActiveChart = Boolean(
-    selectedAnchor &&
-      activeCourse &&
-      courseAccountId === accountId &&
-      courseMatchesAnchor(activeCourse, selectedAnchor, { isOnlyActiveAnchor: activeAnchors.length === 1 }),
-  );
+  /** The log is already scoped to this Anchor's routes. */
+  const ownsActiveChart = Boolean(selectedAnchor && anchorCourseLog.hasChart);
 
   const progressSessions = useMemo(() => {
     if (Array.isArray(practiceHistory) && practiceHistory.length > 0) return practiceHistory;
@@ -275,8 +262,8 @@ export function useV2HomeModel(): V2HomeModel {
   }, [practiceHistory, sessionLog]);
 
   const progress = useMemo<HomeProgressState>(
-    () => toHomeProgressState({ anchor: selectedAnchor, courseLogs: courseLogEntries, sessions: progressSessions, ownsActiveChart }),
-    [courseLogEntries, ownsActiveChart, selectedAnchor, progressSessions],
+    () => toHomeProgressState({ anchor: selectedAnchor, courseLogs: anchorCourseLog.entries, sessions: progressSessions, ownsActiveChart }),
+    [anchorCourseLog.entries, ownsActiveChart, selectedAnchor, progressSessions],
   );
   const recentActivity = useMemo(() => toHomeRecentActivity({
     sessions: practiceHistory,

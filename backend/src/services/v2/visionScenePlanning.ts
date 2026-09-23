@@ -63,6 +63,7 @@ export function buildVisionScenePlannerPrompt(input: {
   description: string;
   /** Scenes from earlier sets of the same Vision, to be deliberately avoided. */
   avoidScenes?: string[];
+  hasAppearanceReference?: boolean;
 }): string {
   const avoid = (input.avoidScenes ?? []).filter(Boolean).slice(0, 24);
   return [
@@ -80,9 +81,13 @@ export function buildVisionScenePlannerPrompt(input: {
     `- Mix camera distance: at least two "wide", two "medium", two "close" or "detail".`,
     '- When the outcome lives on a screen, at most three photographs show that screen, each from a different viewpoint; it is never legible. Otherwise at most one photograph shows a screen.',
     '- At least two photographs contain no face at all (hands only, an empty space, an object, a person from behind).',
+    ...(input.hasAppearanceReference
+      ? ['- A visible person may appear in a few natural moments, but do not make the set repeated portraiture.']
+      : ['- No appearance reference exists. Do not present an invented visible protagonist as the user; use POV, over-the-shoulder, partial-body, hands only when useful, or environmental composition.']),
     '- Vary light and time of day where the description allows it.',
     '- Stay grounded in the description. Do not invent luxury, specific places, other people, relationships, achievements or wealth the description does not support. When other people are implied, keep them peripheral and unidentifiable.',
     '- Believable documentary/editorial photography only: no fantasy, surrealism, cyberpunk, floating objects, symbols, or advertising gloss.',
+    '- For Career intentions: depict the outcome as ALREADY REAL in an authentic professional workplace (corporate office floor, established company workstation, meeting room, industry workspace, leadership setting or workplace arrival). Avoid defaulting to generic WFH laptops, home desks, coffee cups, or empty desk still lifes.',
     '- No readable text, numbers, logos, interface elements or signage in any photograph.',
     ...(avoid.length ? [
       '',
@@ -153,6 +158,7 @@ export function buildVisionImagePrompt(input: {
   category: string;
   description: string;
   scene: VisionScenePlanItem;
+  hasAppearanceReference?: boolean;
 }): string {
   const { scene } = input;
   return [
@@ -165,7 +171,13 @@ export function buildVisionImagePrompt(input: {
     ...(scene.feeling ? [`Emotional texture: ${JSON.stringify(scene.feeling)}`] : []),
     LENS_BY_FRAMING[scene.framing ?? ''] ?? 'Natural candid framing.',
     VISION_PORTRAIT_COMPOSITION,
-    `Context only (never render as text) - Vision description: ${JSON.stringify(input.description)}; Anchor intention: ${JSON.stringify(input.intention)}; category: ${JSON.stringify(input.category)}.`,
+    `What has become true (Anchor intention): ${JSON.stringify(input.intention)}.`,
+    `What that reality looks like from inside it (highest visual specificity): ${JSON.stringify(input.description)}.`,
+    `Category context, secondary to the description: ${JSON.stringify(input.category)}. Never replace a concrete described environment with a generic category setting.`,
+    ...(input.hasAppearanceReference
+      ? ['A user-approved appearance reference is supplied separately. It may inform the user when they naturally appear, but do not force their face into every frame.']
+      : ['No appearance reference exists. Do not invent a visible protagonist and imply they are the user. Prefer first-person, over-the-shoulder, partial-body, hands only when useful, or identity-neutral environmental composition.']),
+    ...(input.category === 'career' ? ['Career Art Direction: Depict the outcome inside an authentic professional workplace (established office building, corporate floor, workplace workstation, meeting setting, or leadership environment). Avoid generic home-office laptops, coffee cups, or generic WFH imagery.'] : []),
     'Style: documentary / editorial photography, natural available light, realistic muted colour, soft natural contrast, fine grain, small real-world imperfections, believable lived-in spaces. Cinematic composition without movie-poster styling.',
     'Screens, if present at all, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.',
     'Avoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people.',

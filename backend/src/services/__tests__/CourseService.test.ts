@@ -67,6 +67,7 @@ function courseRow(overrides: Record<string, unknown> = {}) {
       },
     ],
     anchorLinks: [],
+    moves: [],
     ...overrides,
   };
 }

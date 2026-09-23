@@ -10,10 +10,11 @@ import { CREATION_EXPRESSION_SPECS } from '@/components/v2/anchor/anchorExpressi
 import { categoryLabel } from '@/components/v2/anchors/anchorPresentation';
 import {
   CREATION_SAVE_ERRORS,
-  DESTINATION_COPY,
   DISTILLATION_COPY,
   EXPRESSION_COPY,
   FORMATION_COPY,
+  GENERATION_COPY,
+  CHOOSE_COPY,
   REVEAL_COPY,
   type AnchorExpression,
   type CreationStep,
@@ -31,13 +32,13 @@ import {
   stageFitScale,
   type FormationTimeline,
 } from './creationMotion';
-import { DestinationPanel } from './DestinationPanel';
 import { DistillationLetters } from './DistillationLetters';
 import type { DistillationStage } from './distillationMotion';
 import { ExpressionPreview } from './ExpressionPreview';
-import { ExpressionRail } from './ExpressionRail';
+import { ExpressionCards } from './ExpressionCards';
 import { FormationLayer, vertexArrivals } from './FormationLayer';
 import { FormationSheet } from './FormationSheet';
+import { CircularAnchorRenderer } from '@/components/v2/anchor/CircularAnchorRenderer';
 
 export type WindowRect = { x: number; y: number; width: number; height: number };
 
@@ -52,8 +53,9 @@ const HEADLINES: Record<CreationStep, { eyebrow: string; title: string }> = {
   formation: { eyebrow: FORMATION_COPY.eyebrow, title: FORMATION_COPY.title },
   reveal: { eyebrow: REVEAL_COPY.eyebrow, title: REVEAL_COPY.title },
   expression: { eyebrow: EXPRESSION_COPY.eyebrow, title: EXPRESSION_COPY.title },
-  destination: { eyebrow: DESTINATION_COPY.eyebrow, title: DESTINATION_COPY.title },
-  handoff: { eyebrow: DESTINATION_COPY.eyebrow, title: DESTINATION_COPY.title },
+  generating: { eyebrow: GENERATION_COPY.eyebrow, title: GENERATION_COPY.title },
+  choose: { eyebrow: CHOOSE_COPY.eyebrow, title: CHOOSE_COPY.title },
+  handoff: { eyebrow: CHOOSE_COPY.eyebrow, title: CHOOSE_COPY.title },
 };
 
 const REDUCED_TIMELINE: FormationTimeline = { total: FORMATION_TIMING.reducedTotal, gridEnd: 0.35, pathStart: 0.35, pathEnd: 0.6 };
@@ -69,11 +71,11 @@ export interface CreationStageProps {
   onOpenExpression: () => void;
   onSelectExpression: (expression: AnchorExpression) => void;
   onKeep: () => void;
+  onGenerate: () => void;
+  onKeepOriginal: () => void;
+  onSelectCandidate: (index: number) => void;
   onSignIn?: () => void;
   onPaywall?: () => void;
-  onDestinationChange: (text: string) => void;
-  onDestinationSubmit: () => void;
-  onDestinationSkip: () => void;
   onHandoff: (markRect: WindowRect | null) => void;
 }
 
@@ -87,11 +89,11 @@ export function CreationStage({
   onOpenExpression,
   onSelectExpression,
   onKeep,
+  onGenerate,
+  onKeepOriginal,
+  onSelectCandidate,
   onSignIn,
   onPaywall,
-  onDestinationChange,
-  onDestinationSubmit,
-  onDestinationSkip,
   onHandoff,
 }: CreationStageProps) {
   const step = draft.currentStep;
@@ -111,7 +113,7 @@ export function CreationStage({
     () => (reduceMotion ? REDUCED_TIMELINE : formationTimeline(formation?.vertices.length ?? 0)),
     [formation, reduceMotion],
   );
-  const formed = step === 'reveal' || step === 'expression' || step === 'destination' || step === 'handoff';
+  const formed = step === 'reveal' || step === 'expression' || step === 'generating' || step === 'choose' || step === 'handoff';
 
   /* ── shared motion state ─────────────────────────────────────────────── */
   const progress = useSharedValue(formed ? 1 : 0);
@@ -247,10 +249,9 @@ export function CreationStage({
     // An expression set from outside the rail (resume) lands without a sweep.
     if (Math.round(railPosition.value) !== expressionIndex && step !== 'expression') railPosition.value = expressionIndex;
   }, [expressionIndex, railPosition, step]);
-  const commitExpression = useCallback((index: number) => {
-    const spec = specs[index];
-    if (spec) onSelectExpression(spec.id);
-  }, [onSelectExpression, specs]);
+  const commitExpression = useCallback((expression: AnchorExpression) => {
+    onSelectExpression(expression);
+  }, [onSelectExpression]);
 
   /* ── hand-off to Home ─────────────────────────────────────────────────── */
   const handedOff = useRef(false);
@@ -330,7 +331,7 @@ export function CreationStage({
   }, [accent, formation, letters, progress, reduceMotion, timeline]);
   const headline = HEADLINES[shown];
   const saving = draft.saveState === 'saving';
-  const canGoBack = (step === 'distillation' || step === 'formation' || step === 'reveal' || step === 'expression') && !saving;
+  const canGoBack = (step === 'distillation' || step === 'formation' || step === 'reveal' || step === 'expression' || step === 'generating' || step === 'choose') && !saving;
   const [sheetOpen, setSheetOpen] = useState(false);
   const categoryText = getCategoryTextColor(draft.category, colors.canvas, colors.text.primary);
   const intention = draft.normalizedIntention ?? draft.intention;
@@ -357,6 +358,7 @@ export function CreationStage({
       case 'reveal':
         return (
           <View style={styles.panelStack}>
+            <Text style={styles.principle}>{REVEAL_COPY.body}</Text>
             <View style={styles.caption}>
               <Text style={styles.quote} numberOfLines={3} testID="reveal-intention">“{intention}”</Text>
               <View style={styles.categoryRow}>
@@ -374,18 +376,8 @@ export function CreationStage({
         const failure = draft.saveState === 'error' ? draft.saveFailure : undefined;
         return (
           <View style={styles.panelStack}>
-            {svg ? (
-              <ExpressionRail
-                specs={specs}
-                position={railPosition}
-                svg={svg}
-                category={draft.category}
-                disabled={saving}
-                reduceMotion={reduceMotion}
-                onSelect={commitExpression}
-              />
-            ) : null}
             <Text style={styles.principle}>{EXPRESSION_COPY.principle}</Text>
+            <ExpressionCards selected={draft.expression} category={draft.category} intention={intention} disabled={saving} onSelect={commitExpression} />
             {failure ? (
               <View style={styles.failure}>
                 <V2InlineError message={CREATION_SAVE_ERRORS[failure]} offline={failure === 'network'} />
@@ -399,33 +391,67 @@ export function CreationStage({
               style={styles.cta}
               loading={saving}
               disabled={failure === 'limit'}
-              onPress={failure === 'second_anchor' && onPaywall ? onPaywall : onKeep}
-              accessibilityLabel={failure === 'second_anchor' ? 'See Anchor Pro' : EXPRESSION_COPY.cta}
-              testID="expression-keep"
+              onPress={() => {
+                if (failure === 'second_anchor' && onPaywall) return onPaywall();
+                if (failure) return onKeep();
+                if (draft.expression === 'original') {
+                  onKeepOriginal();
+                  return onKeep();
+                }
+                onGenerate();
+              }}
+              accessibilityLabel={failure === 'second_anchor' ? 'See Anchor Pro' : draft.expression === 'original' ? EXPRESSION_COPY.original : EXPRESSION_COPY.generate}
+              testID={draft.expression === 'original' ? 'expression-keep' : 'expression-generate'}
             >
-              {failure === 'second_anchor' ? 'See Pro' : failure === 'network' || failure === 'server' ? 'Try again' : EXPRESSION_COPY.cta}
+              {failure === 'second_anchor' ? 'See Pro' : failure ? 'Try again' : draft.expression === 'original' ? EXPRESSION_COPY.original : EXPRESSION_COPY.generate}
             </V2Button>
           </View>
         );
       }
-      case 'destination':
+      case 'generating':
         return (
-          <DestinationPanel
-            intention={intention}
-            category={draft.category}
-            value={draft.destination}
-            saving={draft.destinationState === 'saving'}
-            error={draft.destinationState === 'error'}
-            onChange={onDestinationChange}
-            onSubmit={onDestinationSubmit}
-            onSkip={onDestinationSkip}
-          />
+          <View style={styles.panelStack}>
+            <Text style={styles.generationBody}>{GENERATION_COPY.body}</Text>
+            {draft.generationError ? <V2InlineError message={draft.generationError} offline={draft.generationError.toLowerCase().includes('network')} /> : null}
+            <V2Button size="large" style={styles.cta} loading={draft.generationState === 'generating'} disabled={draft.generationState === 'generating'} onPress={onGenerate} testID="generation-retry">{draft.generationError ? GENERATION_COPY.retry : 'Developing expression…'}</V2Button>
+            <Pressable onPress={onBack} accessibilityRole="button" style={styles.link} testID="generation-back"><Text style={styles.linkText}>{GENERATION_COPY.back}</Text></Pressable>
+          </View>
         );
+      case 'choose': {
+        const candidates = (draft.generatedCandidates ?? []).slice(0, 2);
+        const chooseFailure = draft.saveState === 'error' ? draft.saveFailure : undefined;
+        return (
+          <View style={styles.panelStack}>
+            <Text style={styles.generationBody}>{CHOOSE_COPY.body}</Text>
+            <View style={styles.candidateRow}>
+              {candidates.map((candidate, index) => (
+                <Pressable
+                  key={`${candidate.variationId ?? candidate.imageUrl}-${index}`}
+                  onPress={() => onSelectCandidate(index)}
+                  accessibilityRole="radio"
+                  accessibilityLabel={`Anchor option ${index === 0 ? 'A' : 'B'}`}
+                  accessibilityState={{ selected: draft.selectedCandidateIndex === index }}
+                  testID={`candidate-${index}`}
+                  style={[styles.candidate, draft.selectedCandidateIndex === index && styles.candidateSelected]}
+                >
+                  <CircularAnchorRenderer svg={svg ?? ''} imageUrl={candidate.imageUrl} category={draft.category} size={132} appearance="paper" accessibilityLabel={`Generated Anchor option ${index === 0 ? 'A' : 'B'}`} />
+                  <Text style={styles.candidateLabel}>{index === 0 ? 'A' : 'B'}</Text>
+                </Pressable>
+              ))}
+            </View>
+            {chooseFailure ? <V2InlineError message={CREATION_SAVE_ERRORS[chooseFailure]} offline={chooseFailure === 'network'} /> : null}
+            <V2Button size="large" style={styles.cta} loading={saving} onPress={onKeep} testID="choose-keep">{CHOOSE_COPY.keep}</V2Button>
+            <Pressable onPress={onGenerate} accessibilityRole="button" style={styles.link} testID="choose-retry"><Text style={styles.linkText}>{CHOOSE_COPY.retry}</Text></Pressable>
+          </View>
+        );
+      }
       default:
         return null;
     }
   })();
 
+  const generatedCandidates = draft.generatedCandidates ?? [];
+  const selectedCandidate = generatedCandidates[draft.selectedCandidateIndex ?? 0];
   const markLabel = formed
     ? `Your Anchor, ${specs[expressionIndex]?.label ?? 'Original'} expression`
     : step === 'formation' ? 'Your Anchor, forming' : undefined;
@@ -476,7 +502,11 @@ export function CreationStage({
                   <FormationLayer svg={svg} formation={formation} size={markSize} progress={progress} timeline={timeline} accent={accent} reduceMotion={reduceMotion} />
                 ) : null}
                 <Animated.View style={[StyleSheet.absoluteFill, colourIn]}>
-                  <ExpressionPreview svg={svg} category={draft.category} size={markSize} specs={specs} position={railPosition} testID="expression-preview" />
+                  {step === 'choose' && selectedCandidate ? (
+                    <CircularAnchorRenderer svg={svg} imageUrl={selectedCandidate.imageUrl} category={draft.category} size={markSize} appearance="paper" />
+                  ) : (
+                    <ExpressionPreview svg={svg} category={draft.category} size={markSize} specs={specs} position={railPosition} testID="expression-preview" />
+                  )}
                 </Animated.View>
               </Animated.View>
             ) : null}
@@ -542,6 +572,11 @@ const styles = StyleSheet.create({
   categoryDash: { width: 18, height: 5, borderRadius: 2 },
   categoryText: { fontFamily: typography.bodyBold, fontSize: 10, letterSpacing: 2.2 },
   principle: { ...typography.caption, color: colors.text.secondary, textAlign: 'center' },
+  generationBody: { ...typography.bodyMD, color: colors.text.secondary, textAlign: 'center' },
+  candidateRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing[2] },
+  candidate: { flex: 1, alignItems: 'center', gap: spacing[2], paddingVertical: spacing[2], borderWidth: 1, borderColor: colors.border.subtle, borderRadius: 16 },
+  candidateSelected: { borderColor: colors.text.primary, backgroundColor: '#F6F0E4' },
+  candidateLabel: { ...typography.labelMD, color: colors.text.primary },
   failure: { gap: spacing[2] },
   cta: { height: 56, borderRadius: 16 },
   link: { alignSelf: 'center', paddingVertical: spacing[1] },

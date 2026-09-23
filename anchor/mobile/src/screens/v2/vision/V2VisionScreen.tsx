@@ -12,6 +12,8 @@ import { anchorRenderProps } from '@/components/v2/anchors/anchorPresentation';
 import { resolveAnchorCategory } from '@/utils/categoryDetection';
 import { colors } from '@/theme/v2';
 import type { V2VisualizeHandoff } from '@/adapters/v2/vision';
+import { toChartSummary } from '@/adapters/v2/chart/chartV2Model';
+import { useAnchorChart } from '@/hooks/v2/chart/useAnchorChart';
 
 export interface V2VisionRouteParams {
   anchorId: string;
@@ -35,6 +37,8 @@ export function V2VisionScreen(props: V2VisionScreenProps) {
   const anchor = useAnchorStore(state => state.anchors.find(item => item.id === anchorId || item.localId === anchorId));
   const model = useV2Vision(anchorId);
   const generation = useV2VisionGeneration(anchorId);
+  const anchorChart = useAnchorChart(anchor?.id ?? null);
+  const chartSummary = useMemo(() => toChartSummary(anchorChart.data?.chart), [anchorChart.data?.chart]);
   const [mode, setMode] = useState<'view' | 'create' | 'ready' | 'add'>(props.initialMode ?? route.params?.initialMode ?? 'view');
   useEffect(() => {
     if (route.params?.resumeGeneration) setMode('create');
@@ -145,9 +149,10 @@ export function V2VisionScreen(props: V2VisionScreenProps) {
           anchorId, resumeMode: 'visualize', resumeSource: 'practice_hub', returnRoute: 'V2Vision',
         });
       }}
+      chartSummary={chartSummary}
       onChart={() => {
         if (props.onChart) props.onChart(anchorId);
-        else navigation.navigate('V2Chart', { anchorId });
+        else navigation.navigate('V2Chart', { anchorId, source: 'vision' });
       }}
       onUpdateDescription={async description => Boolean(await model.updateVision({ description }))}
       onReorder={async sceneOrders => Boolean(await model.reorderScenes(sceneOrders))}

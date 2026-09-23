@@ -288,6 +288,8 @@ export interface UserSettings {
   sessionAudioDefaults?: SessionAudioDefaultsByType;
   hapticIntensity: number; // 1-5 scale
   vaultViewType: 'grid' | 'list';
+  /** Explicit consent gate for profile-photo use in future Vision generations. */
+  useProfilePhotoForVision?: boolean;
   updatedAt: Date;
 }
 

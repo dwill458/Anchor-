@@ -30,10 +30,10 @@ jest.mock('@react-navigation/native-stack', () => ({
     // Mirrors real react-navigation's default behavior: the first
     // <Stack.Screen> in whichever branch is currently rendered is the
     // initial/active route.
-    Navigator: ({ children }: any) => {
+    Navigator: ({ children, initialRouteName }: any) => {
       const screens = mockFlattenScreens(children);
-      const first: any = screens[0];
-      const Comp = first?.props?.component;
+      const active: any = screens.find((screen: any) => screen.props?.name === initialRouteName) ?? screens[0];
+      const Comp = active?.props?.component;
       return Comp ? require('react').createElement(Comp) : null;
     },
     Screen: () => null,
@@ -119,6 +119,7 @@ describe('AnchorV2Navigator onboarding lifecycle resolver', () => {
 
   it('sends an existing user (onboarding complete) straight to V2Home', () => {
     mockAuthState.hasCompletedOnboarding = true;
+    mockAuthState.user = { id: 'existing-user' };
     render(<AnchorV2Navigator />);
     expect(screen.getByText('home-screen')).toBeTruthy();
     expect(screen.queryByText('first-run-screen')).toBeNull();
@@ -145,6 +146,7 @@ describe('AnchorV2Navigator onboarding lifecycle resolver', () => {
     fireEvent.press(screen.getByText('complete-first-run'));
     expect(mockCompleteOnboarding).toHaveBeenCalled();
     expect(mockAuthState.hasCompletedOnboarding).toBe(true);
+    mockAuthState.user = { id: 'newly-authenticated-user' };
 
     screen.rerender(<AnchorV2Navigator />);
     expect(screen.getByText('home-screen')).toBeTruthy();
@@ -153,6 +155,7 @@ describe('AnchorV2Navigator onboarding lifecycle resolver', () => {
 
   it('restarts a completed account directly at Home on relaunch (a fresh navigator mount)', () => {
     mockAuthState.hasCompletedOnboarding = true;
+    mockAuthState.user = { id: 'existing-user' };
     const { unmount } = render(<AnchorV2Navigator />);
     expect(screen.getByText('home-screen')).toBeTruthy();
     unmount();
@@ -163,10 +166,12 @@ describe('AnchorV2Navigator onboarding lifecycle resolver', () => {
 
   it('re-evaluates to first-run after sign-out clears canonical onboarding state (production parity: authStore.signOut() resets hasCompletedOnboarding)', () => {
     mockAuthState.hasCompletedOnboarding = true;
+    mockAuthState.user = { id: 'existing-user' };
     render(<AnchorV2Navigator />);
     expect(screen.getByText('home-screen')).toBeTruthy();
 
     mockAuthState.hasCompletedOnboarding = false;
+    mockAuthState.user = null;
     screen.rerender(<AnchorV2Navigator />);
     expect(screen.getByText('first-run-screen')).toBeTruthy();
   });
