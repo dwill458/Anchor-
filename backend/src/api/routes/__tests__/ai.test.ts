@@ -38,7 +38,10 @@ jest.mock('../../../services/AIEnhancer', () => ({
 
 const mockUploadImageFromUrl = jest.fn();
 const mockResolveStoredAssetUrl = jest.fn();
+// Our own stored objects live under this host in these tests; everything else is upstream.
+const STORED_HOST = 'https://assets.anchor.test/';
 jest.mock('../../../services/StorageService', () => ({
+  isServerStoredAssetUrl: (url: string) => typeof url === 'string' && url.startsWith(STORED_HOST),
   uploadImageFromUrl: (...args: unknown[]) => mockUploadImageFromUrl(...args),
   resolveStoredAssetUrl: (...args: unknown[]) => mockResolveStoredAssetUrl(...args),
 }));
@@ -274,6 +277,110 @@ describe('POST /api/ai/enhance-controlnet', () => {
     expect(res.body.variations).toHaveLength(2);
     expect(res.body.variations[0].variationId).toBe('pool-a');
     expect(res.body.variations[1].variationId).toBe('pool-b');
+  });
+});
+
+describe('POST /api/ai/enhance — storage and partial retries', () => {
+  const variation = (imageUrl: string, seed: number) => ({
+    imageUrl,
+    structureMatch: {
+      combinedScore: 0.94,
+      iouScore: 0.94,
+      edgeOverlapScore: 0.92,
+      structurePreserved: true,
+      classification: 'Structure Preserved',
+    },
+    wasComposited: false,
+    seed,
+  });
+  const result = (variations: ReturnType<typeof variation>[]) => ({
+    variations,
+    passingCount: variations.length,
+    bestVariationIndex: 0,
+    model: 'gemini-3.1-flash-image-preview',
+    prompt: 'prompt',
+    negativePrompt: 'negative',
+    generationTime: 10,
+    controlMethod: 'lineart',
+    styleApplied: 'minimal_line',
+    structureThreshold: 0.85,
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockResolveStoredAssetUrl.mockImplementation(async (url: string) => `${url}?signed=1`);
+    mockPrisma.user.findUnique.mockResolvedValue({ id: 'db-user-1' });
+    mockPrisma.anchor.findFirst.mockResolvedValue({ id: 'anchor-1' });
+    mockPrisma.anchorVariationPool.updateMany.mockResolvedValue({ count: 0 });
+    mockPrisma.anchorVariationPool.findMany.mockResolvedValue([]);
+    mockPrisma.anchorVariationPool.create.mockImplementation(async ({ data }: any) => ({
+      id: `pool-${data.imageUrl.split('/').pop()}`,
+      ...data,
+    }));
+  });
+
+  it('returns images the generator already stored without downloading them again', async () => {
+    // Production regression: the Gemini path uploads to our bucket, and re-fetching that
+    // (non-public) URL failed for every variation, so every generation answered 502.
+    mockEnhanceSigilWithAI.mockResolvedValue(
+      result([variation(`${STORED_HOST}anchors/u/a-0.png`, 1), variation(`${STORED_HOST}anchors/u/a-1.png`, 2)])
+    );
+
+    const res = await request(buildApp()).post('/api/ai/enhance').send({
+      sigilSvg: '<svg><path d="M 1,1 L 2,2"/></svg>',
+      styleChoice: 'minimal_line',
+      anchorId: 'temp-creation-1',
+    });
+
+    expect(res.status).toBe(200);
+    expect(mockUploadImageFromUrl).not.toHaveBeenCalled();
+    expect(res.body.variations.map((v: { imageUrl: string }) => v.imageUrl)).toEqual([
+      `${STORED_HOST}anchors/u/a-0.png?signed=1`,
+      `${STORED_HOST}anchors/u/a-1.png?signed=1`,
+    ]);
+  });
+
+  it('still copies an upstream (provider-hosted) image into storage', async () => {
+    mockEnhanceSigilWithAI.mockResolvedValue(result([variation('https://replicate.example/out.png', 3)]));
+    mockUploadImageFromUrl.mockResolvedValue(`${STORED_HOST}anchors/u/copied.png`);
+
+    const res = await request(buildApp()).post('/api/ai/enhance').send({
+      sigilSvg: '<svg/>',
+      styleChoice: 'minimal_line',
+      anchorId: 'temp-creation-2',
+      variationCount: 1,
+    });
+
+    expect(res.status).toBe(200);
+    expect(mockUploadImageFromUrl).toHaveBeenCalledTimes(1);
+    expect(res.body.variations).toHaveLength(1);
+  });
+
+  it('generates only the requested number of interpretations', async () => {
+    mockEnhanceSigilWithAI.mockResolvedValue(result([variation(`${STORED_HOST}anchors/u/b-0.png`, 4)]));
+
+    const res = await request(buildApp()).post('/api/ai/enhance').send({
+      sigilSvg: '<svg/>',
+      styleChoice: 'minimal_line',
+      anchorId: 'temp-creation-3',
+      variationCount: 1,
+    });
+
+    expect(res.status).toBe(200);
+    expect(mockEnhanceSigilWithAI).toHaveBeenCalledWith(expect.objectContaining({ numberOfVariations: 1 }));
+    expect(mockPrisma.anchorVariationPool.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 1 }));
+  });
+
+  it('rejects a variation count outside the two-candidate contract', async () => {
+    const res = await request(buildApp()).post('/api/ai/enhance').send({
+      sigilSvg: '<svg/>',
+      styleChoice: 'minimal_line',
+      anchorId: 'temp-creation-4',
+      variationCount: 3,
+    });
+
+    expect(res.status).toBe(400);
+    expect(mockEnhanceSigilWithAI).not.toHaveBeenCalled();
   });
 });
 

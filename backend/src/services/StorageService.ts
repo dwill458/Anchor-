@@ -199,6 +199,29 @@ export function extractStorageObjectKey(assetUrl: string): string | null {
   return null;
 }
 
+/**
+ * True when a URL points at an image this server already stored: an object in our R2
+ * bucket (public-domain or endpoint form), a local development upload, or an inline data
+ * URI. Such a URL must never be re-downloaded to be "uploaded" again — the bucket is not
+ * publicly readable, so fetching its public URL fails, and a data URI cannot be fetched.
+ */
+export function isServerStoredAssetUrl(assetUrl: string | null | undefined): boolean {
+  if (!assetUrl) {
+    return false;
+  }
+  if (assetUrl.startsWith('data:image/')) {
+    return true;
+  }
+  if (extractStorageObjectKey(assetUrl)) {
+    return true;
+  }
+  try {
+    return new URL(assetUrl).pathname.startsWith('/uploads/anchors/');
+  } catch {
+    return false;
+  }
+}
+
 export async function resolveStoredAssetUrl(
   assetUrl: string | null | undefined,
   expiresIn: number = 3600
