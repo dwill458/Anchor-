@@ -71,7 +71,7 @@ import {
 } from './src/services/NotificationSyncService';
 import { initWidgetDataSync } from './src/widgets/widgetDataBridge';
 import { WIDGETS_ENABLED } from './src/config';
-import { isAnchorV2DevEnabled } from './src/config/v2FeatureFlag';
+import { isAnchorV2Enabled } from './src/config/v2FeatureFlag';
 import { useAppStartup } from './src/hooks/useAppStartup';
 import { SplashController } from './src/components/splash/SplashController';
 import { SPLASH_BACKGROUND_COLOR } from './src/components/splash/splashAnimation.constants';
@@ -90,11 +90,12 @@ function isNetworkError(error: unknown): boolean {
 }
 
 const isWeb = Platform.OS === 'web';
-// V2 is deliberately unavailable in release builds. Its development entry is
-// opt-in so the production navigation tree remains the default during buildout.
-const anchorV2DevEnabled = isAnchorV2DevEnabled(
+// V2 remains opt-in. Staging preview APKs can exercise the release-mode V2 app,
+// while production builds remain on the legacy navigator until rollout.
+const anchorV2Enabled = isAnchorV2Enabled(
   process.env.EXPO_PUBLIC_ANCHOR_V2_ENABLED,
-  __DEV__
+  __DEV__,
+  process.env.EXPO_PUBLIC_APP_ENV
 );
 
 if (!isWeb) {
@@ -823,7 +824,7 @@ export default function App() {
                     }}
                   >
                     <StatusBar style="light" />
-                    {anchorV2DevEnabled ? <AnchorV2Navigator /> : <RootNavigator />}
+                    {anchorV2Enabled ? <AnchorV2Navigator /> : <RootNavigator />}
                   </NavigationContainer>
                 </SettingsRevealProvider>
               </View>

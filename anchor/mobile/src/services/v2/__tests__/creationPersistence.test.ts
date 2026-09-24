@@ -182,19 +182,42 @@ describe('generateExpressionCandidates', () => {
       styleChoice: 'architectural_trace',
       generationAttempt: 2,
       validateStructure: true,
+      variationCount: 2,
     }), { timeout: 180000 });
     expect(result.candidates).toHaveLength(2);
     expect(result.candidates[0].imageUrl).toBe('https://cdn.test/a.png');
   });
 
-  it('does not offer an interpretation that failed structure preservation', async () => {
+  it('does not offer an interpretation that failed structure preservation, but keeps the one that passed', async () => {
     mockPost.mockResolvedValue({ data: {
       variations: [
         { imageUrl: 'https://cdn.test/a.png', structurePreserved: true },
         { imageUrl: 'https://cdn.test/not-the-anchor.png', structurePreserved: false },
       ],
     } });
+    const result = await generateExpressionCandidates({ draft: draft({ expression: 'ink' }) });
+    expect(result.candidates.map((candidate) => candidate.imageUrl)).toEqual(['https://cdn.test/a.png']);
+  });
+
+  it('rejects only when nothing finished', async () => {
+    mockPost.mockResolvedValue({ data: { variations: [{ imageUrl: 'https://cdn.test/x.png', structurePreserved: false }] } });
     await expect(generateExpressionCandidates({ draft: draft({ expression: 'ink' }) })).rejects.toMatchObject({ failure: 'server' });
+  });
+
+  it('asks only for the missing interpretation and uses the chosen library style', async () => {
+    mockPost.mockResolvedValue({ data: { variations: [{ imageUrl: 'https://cdn.test/c.png', structurePreserved: true }] } });
+    await generateExpressionCandidates({ draft: draft({ expression: 'etched', styleChoice: 'cosmic' }), count: 1 });
+    expect(mockPost).toHaveBeenCalledWith('/api/ai/enhance', expect.objectContaining({ styleChoice: 'cosmic', variationCount: 1 }), { timeout: 180000 });
+  });
+
+  it('records the chosen library style with the Anchor', () => {
+    const payload = buildCreatePayload(draft({ expression: 'etched', styleChoice: 'cosmic' }), 'key');
+    expect(payload.classifierMeta).toMatchObject({ v2Expression: 'etched', v2StyleChoice: 'cosmic' });
+    expect(buildCreatePayload(draft({ expression: 'original' }), 'key').classifierMeta).not.toHaveProperty('v2StyleChoice');
+  });
+
+  it('classifies an exhausted daily allowance as a limit, not a failure', () => {
+    expect(classifySaveFailure(new ApiClientError('x', 'Daily generation limit reached', 429))).toBe('limit');
   });
 });
 

@@ -87,10 +87,15 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
   // Re-read on focus so completions made elsewhere (Home, Practice) show here.
   const refresh = chart.refresh;
   const hasData = Boolean(chart.data);
+  // Keep the focus callback stable while letting it see the latest error. If
+  // an initial read failed before any Chart was cached, reopening this screen
+  // must retry rather than leave the old unavailable message in place.
+  const shouldRefreshOnFocus = useRef(false);
+  shouldRefreshOnFocus.current = hasData || Boolean(chart.error);
   useFocusEffect(
     useCallback(() => {
-      if (hasData) void refresh();
-    }, [hasData, refresh])
+      if (shouldRefreshOnFocus.current) void refresh();
+    }, [refresh])
   );
 
   const handleBack = () => {

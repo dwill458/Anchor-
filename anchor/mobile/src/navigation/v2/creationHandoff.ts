@@ -15,6 +15,24 @@ type HandoffNavigation = {
 const ARRIVAL_EXPIRY_MS = 5000;
 
 /**
+ * Tell Home an Anchor is arriving as soon as it exists — while creation is still resolving it
+ * into its circle — so Home has that whole beat to select it, pose, and measure where it will
+ * rest. Waiting until creation was ready to leave left Home too little time on a busy JS
+ * thread, and a Home that missed its staging window cut in instead of receiving the flight.
+ */
+export function prepareHomeArrival(handoff: Omit<CreationHandoff, 'markRect'>): number {
+  useAnchorStore.getState().setCurrentAnchor(handoff.anchorId);
+  return useHomeArrivalStore.getState().stage({
+    anchorId: handoff.anchorId,
+    svg: handoff.svg,
+    category: handoff.category,
+    expression: handoff.expression,
+    imageUrl: handoff.imageUrl,
+    fromRect: null,
+  });
+}
+
+/**
  * Carry a just-created Anchor into the real Home.
  *
  * Home is the root of the V2 stack, mounted underneath creation the whole time. It is told
@@ -30,17 +48,17 @@ export async function handOffToHome(
   handoff: CreationHandoff,
   options: { reduceMotion: boolean },
 ): Promise<void> {
-  // Home orients around the selected Anchor; the new one becomes it before Home poses.
-  useAnchorStore.getState().setCurrentAnchor(handoff.anchorId);
-
-  const arrivals = useHomeArrivalStore.getState();
-  const id = arrivals.stage({
-    anchorId: handoff.anchorId,
-    svg: handoff.svg,
-    category: handoff.category,
-    expression: handoff.expression,
-    fromRect: options.reduceMotion ? null : handoff.markRect,
-  });
+  // Reuse the arrival staged when the Anchor was saved; stage one now if there is none.
+  const staged = useHomeArrivalStore.getState().arrival;
+  const fromRect = options.reduceMotion ? null : handoff.markRect;
+  let id: number;
+  if (staged && staged.anchorId === handoff.anchorId && staged.phase !== 'arriving') {
+    id = staged.id;
+    useHomeArrivalStore.getState().setFromRect(id, fromRect);
+  } else {
+    id = prepareHomeArrival(handoff);
+    useHomeArrivalStore.getState().setFromRect(id, fromRect);
+  }
 
   const ready = await whenHomeReady(id, CREATION_TIMING.handoffWait);
   const seamless = ready && !options.reduceMotion && Boolean(useHomeArrivalStore.getState().arrival?.targetRect);

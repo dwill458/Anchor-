@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Sliders } from 'lucide-react-native';
 import { CircularAnchorRenderer, V2Button } from '@/components/v2';
@@ -20,6 +20,9 @@ export interface V2FocusPrepConfig {
   durationSeconds: number;
   voice: GuidanceVoice;
   ambient: boolean;
+  haptics: boolean;
+  anchorCenterY?: number;
+  anchorSize?: number;
 }
 
 export interface V2FocusPrepScreenProps {
@@ -75,6 +78,8 @@ export function V2FocusPrepScreen({
     () => initialAmbient ?? (sessionDefaults?.backgroundAudio !== 'off')
   );
   const [sheetOpen, setSheetOpen] = useState(false);
+  const artworkRef = useRef<View>(null);
+  const anchorCenterYRef = useRef<number | undefined>(undefined);
 
   const soundOn = ambient || voice !== 'none';
   const hapticsOn = (hapticIntensity ?? 70) > 0;
@@ -119,6 +124,7 @@ export function V2FocusPrepScreen({
   };
 
   const handleBegin = () => {
+    if (hapticsOn) void safeHaptics.selection();
     const isPro = useSubscriptionStore.getState().getEffectiveTier() === 'pro';
     if (!isPro && onPremiumRequired) {
       onPremiumRequired({
@@ -135,6 +141,9 @@ export function V2FocusPrepScreen({
       durationSeconds: duration,
       voice,
       ambient,
+      haptics: hapticsOn,
+      anchorCenterY: anchorCenterYRef.current,
+      anchorSize: metrics.artworkSize,
     });
   };
 
@@ -174,7 +183,13 @@ export function V2FocusPrepScreen({
 
         {/* Hero Section: Centered prominent Anchor with organic halo */}
         <View style={[styles.heroSection, { marginTop: metrics.heroTop }]}>
-          <View style={[styles.artworkContainer, { width: metrics.artworkFrameSize, height: metrics.artworkFrameSize, marginVertical: metrics.artworkGap }]}>
+          <View
+            ref={artworkRef}
+            onLayout={() => artworkRef.current?.measureInWindow((_x, y, _width, height) => {
+              anchorCenterYRef.current = y + height / 2;
+            })}
+            style={[styles.artworkContainer, { width: metrics.artworkFrameSize, height: metrics.artworkFrameSize, marginVertical: metrics.artworkGap }]}
+          >
             <View
               style={[
                 styles.halo,

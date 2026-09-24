@@ -1,5 +1,6 @@
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { AppState } from 'react-native';
 import { V2PracticeSessionScreen } from '../V2PracticeSessionScreen';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -53,7 +54,14 @@ jest.mock('@/services/AnalyticsService', () => ({
 }));
 
 describe('V2PracticeSessionScreen - Focus Flow Integration', () => {
-  const accountId = 'user-123';
+const accountId = 'user-123';
+
+function emitAppState(nextState: 'active' | 'background') {
+  const listeners = (AppState.addEventListener as jest.Mock).mock.calls
+    .filter(([eventName]) => eventName === 'change')
+    .map(([, listener]) => listener as (state: string) => void);
+  act(() => listeners.forEach((listener) => listener(nextState)));
+}
   const mockAnchor = makeAnchor({
     id: 'a1',
     userId: accountId,
@@ -110,12 +118,7 @@ describe('V2PracticeSessionScreen - Focus Flow Integration', () => {
     const onCompleted = jest.fn();
     const onBack = jest.fn();
 
-    let mockTime = 1000;
-    const originalPerformanceNow = global.performance.now;
-    global.performance.now = jest.fn(() => mockTime);
-
-    try {
-      render(
+    render(
         <V2PracticeSessionScreen
           anchorId="a1"
           mode="focus"
@@ -125,52 +128,46 @@ describe('V2PracticeSessionScreen - Focus Flow Integration', () => {
         onCompleted={onCompleted}
         onFocusAgain={jest.fn()}
         />
-      );
+    );
+    emitAppState('active');
 
-      // Begin session from prepare state
-      fireEvent.press(screen.getByTestId('focus-prepare-begin-button'));
-      await act(async () => {
-        jest.advanceTimersByTime(500);
-      });
+    // The outer Focus setup enters the session through its 800ms transition.
+    await act(async () => {
+      jest.advanceTimersByTime(800);
+    });
 
-      // Simulate 30s elapsed
-      mockTime += 30500;
+    fireEvent.press(screen.getByTestId('v2-focus-active-screen'));
+    fireEvent.press(screen.getByTestId('focus-end-button'));
 
-      await act(async () => {
-        jest.advanceTimersByTime(1000);
-      });
+    await act(async () => {
+      jest.advanceTimersByTime(1900);
+    });
 
-      // Settle, fade, black hold, then mount the completion surface.
-      await act(async () => {
-        jest.advanceTimersByTime(1900);
-      });
+    // Settle, fade, black hold, then mount the completion surface.
 
-      // Verify PracticeCompletionService was called with correct data
-      expect(PracticeCompletionService.completePracticeSession).toHaveBeenCalledWith(
+    // Verify PracticeCompletionService was called with correct data
+    expect(PracticeCompletionService.completePracticeSession).toHaveBeenCalledWith(
         expect.objectContaining({
           accountId,
           mode: 'focus',
           plannedDurationSeconds: 30,
-          actualDurationSeconds: 30,
+          actualDurationSeconds: 1,
           source: 'practice_screen',
           metadata: { v2_entry_source: 'practice_hub' },
         }),
         { flushImmediately: false }
-      );
-      expect(PracticeCompletionService.flush).toHaveBeenCalledWith(accountId);
+    );
+    expect(PracticeCompletionService.flush).toHaveBeenCalledWith(accountId);
 
-      // Verify V2FocusCompleteScreen is rendered
-      expect(screen.getByTestId('v2-focus-complete-screen')).toBeTruthy();
-      expect(screen.getByText('Focus complete')).toBeTruthy();
-      expect(screen.getByText('You reinforced this Anchor.')).toBeTruthy();
+    // Verify V2FocusCompleteScreen is rendered
+    expect(screen.getByTestId('v2-focus-complete-screen')).toBeTruthy();
+    expect(screen.getByText('Focus complete')).toBeTruthy();
+    expect(screen.getByText('Reinforced today ✓')).toBeTruthy();
 
-      // Continue returns to the Practice hub through the semantic completion callback.
-      fireEvent.press(screen.getByTestId('focus-complete-done-button'));
-      expect(onCompleted).toHaveBeenCalledTimes(1);
-      expect(onBack).not.toHaveBeenCalled();
-    } finally {
-      global.performance.now = originalPerformanceNow;
-    }
+    // Continue returns to the Practice hub through the semantic completion callback.
+    fireEvent.press(screen.getByTestId('focus-complete-done-button'));
+    expect(onCompleted).toHaveBeenCalledTimes(1);
+    expect(onBack).not.toHaveBeenCalled();
   });
 
   it('shows completion without waiting for a signed-in account sync to finish', async () => {
@@ -196,14 +193,17 @@ describe('V2PracticeSessionScreen - Focus Flow Integration', () => {
           onFocusAgain={jest.fn()}
         />
       );
+      emitAppState('active');
 
-      fireEvent.press(screen.getByTestId('focus-prepare-begin-button'));
       await act(async () => {
-        jest.advanceTimersByTime(500);
+        jest.advanceTimersByTime(800);
       });
-      mockTime += 10500;
       await act(async () => {
-        jest.advanceTimersByTime(1000);
+        jest.advanceTimersByTime(0);
+      });
+      fireEvent.press(screen.getByTestId('v2-focus-active-screen'));
+      fireEvent.press(screen.getByTestId('focus-end-button'));
+      await act(async () => {
         jest.advanceTimersByTime(1900);
       });
 
@@ -212,6 +212,35 @@ describe('V2PracticeSessionScreen - Focus Flow Integration', () => {
       resolveFlush();
       global.performance.now = originalPerformanceNow;
     }
+  });
+
+  it('does not report reinforcement when durable session recording fails', async () => {
+    (PracticeCompletionService.completePracticeSession as jest.Mock).mockRejectedValueOnce(
+      new Error('encrypted session queue unavailable')
+    );
+    render(
+      <V2PracticeSessionScreen
+        anchorId="a1"
+        mode="focus"
+        durationSeconds={30}
+        source="practice_hub"
+        onBack={jest.fn()}
+        onCompleted={jest.fn()}
+        onFocusAgain={jest.fn()}
+      />
+    );
+    emitAppState('active');
+    await act(async () => {
+      jest.advanceTimersByTime(800);
+    });
+    fireEvent.press(screen.getByTestId('v2-focus-active-screen'));
+    fireEvent.press(screen.getByTestId('focus-end-button'));
+    await act(async () => {
+      jest.advanceTimersByTime(1900);
+    });
+
+    expect(screen.getByText('This session could not be saved. Thread Strength was not updated.')).toBeTruthy();
+    expect(screen.queryByText('Reinforced today ✓')).toBeNull();
   });
 
   it('records one completion when End Session is tapped rapidly', async () => {
@@ -226,12 +255,13 @@ describe('V2PracticeSessionScreen - Focus Flow Integration', () => {
         onFocusAgain={jest.fn()}
       />
     );
+    emitAppState('active');
 
-    fireEvent.press(screen.getByTestId('focus-prepare-begin-button'));
     await act(async () => {
-      jest.advanceTimersByTime(500);
+      jest.advanceTimersByTime(800);
     });
 
+    fireEvent.press(screen.getByTestId('v2-focus-active-screen'));
     const endButton = screen.getByTestId('focus-end-button');
     fireEvent.press(endButton);
     fireEvent.press(endButton);
@@ -247,12 +277,7 @@ describe('V2PracticeSessionScreen - Focus Flow Integration', () => {
     const onCompleted = jest.fn();
     const onBack = jest.fn();
 
-    let mockTime = 1000;
-    const originalPerformanceNow = global.performance.now;
-    global.performance.now = jest.fn(() => mockTime);
-
-    try {
-      render(
+    render(
         <V2PracticeSessionScreen
           anchorId="a1"
           mode="focus"
@@ -262,41 +287,30 @@ describe('V2PracticeSessionScreen - Focus Flow Integration', () => {
         onCompleted={onCompleted}
         onFocusAgain={jest.fn()}
         />
-      );
-
-      fireEvent.press(screen.getByTestId('focus-prepare-begin-button'));
-      await act(async () => {
-        jest.advanceTimersByTime(500);
-      });
-
-      mockTime += 10500;
+    );
+    emitAppState('active');
 
       await act(async () => {
-        jest.advanceTimersByTime(1000);
+        jest.advanceTimersByTime(800);
       });
 
-      await act(async () => {
-        jest.advanceTimersByTime(1900);
-      });
+    fireEvent.press(screen.getByTestId('v2-focus-active-screen'));
+    fireEvent.press(screen.getByTestId('focus-end-button'));
 
-      expect(screen.getByTestId('v2-focus-complete-screen')).toBeTruthy();
+    await act(async () => {
+      jest.advanceTimersByTime(1900);
+    });
 
-      fireEvent.press(screen.getByTestId('focus-complete-done-button'));
-      expect(onCompleted).toHaveBeenCalledTimes(1);
-      expect(onBack).not.toHaveBeenCalled();
-    } finally {
-      global.performance.now = originalPerformanceNow;
-    }
+    expect(screen.getByTestId('v2-focus-complete-screen')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('focus-complete-done-button'));
+    expect(onCompleted).toHaveBeenCalledTimes(1);
+    expect(onBack).not.toHaveBeenCalled();
   });
 
   it('allows focusing again from the completion screen', async () => {
     const onFocusAgain = jest.fn();
-    let mockTime = 1000;
-    const originalPerformanceNow = global.performance.now;
-    global.performance.now = jest.fn(() => mockTime);
-
-    try {
-      render(
+    render(
         <V2PracticeSessionScreen
           anchorId="a1"
           mode="focus"
@@ -306,31 +320,25 @@ describe('V2PracticeSessionScreen - Focus Flow Integration', () => {
           onCompleted={jest.fn()}
           onFocusAgain={onFocusAgain}
         />
-      );
-
-      fireEvent.press(screen.getByTestId('focus-prepare-begin-button'));
-      await act(async () => {
-        jest.advanceTimersByTime(500);
-      });
-
-      mockTime += 10500;
+    );
+    emitAppState('active');
 
       await act(async () => {
-        jest.advanceTimersByTime(1000);
+        jest.advanceTimersByTime(800);
       });
 
-      await act(async () => {
-        jest.advanceTimersByTime(1900);
-      });
+    fireEvent.press(screen.getByTestId('v2-focus-active-screen'));
+    fireEvent.press(screen.getByTestId('focus-end-button'));
 
-      expect(screen.getByTestId('v2-focus-complete-screen')).toBeTruthy();
+    await act(async () => {
+      jest.advanceTimersByTime(1900);
+    });
 
-      // Press Focus again
-      fireEvent.press(screen.getByTestId('focus-complete-again-button'));
+    expect(screen.getByTestId('v2-focus-complete-screen')).toBeTruthy();
 
-      expect(onFocusAgain).toHaveBeenCalledTimes(1);
-    } finally {
-      global.performance.now = originalPerformanceNow;
-    }
+    // Press Focus again
+    fireEvent.press(screen.getByTestId('focus-complete-again-button'));
+
+    expect(onFocusAgain).toHaveBeenCalledTimes(1);
   });
 });

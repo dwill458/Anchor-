@@ -1,13 +1,15 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle, Rect } from 'react-native-svg';
 
 import { AnchorMark } from '@/components/v2/anchor/AnchorMark';
 import { categoryLabel } from '@/components/v2/anchors/anchorPresentation';
 import { DISTILLATION_COPY, REVEAL_COPY } from '@/constants/v2/creation';
 import { colors, spacing, typography } from '@/theme/v2';
 import type { SigilFormation } from '@/utils/sigil/traditional-generator';
+import { V2Button } from '@/components/v2';
 import { CreationSheet, sheetText } from './CreationSheet';
+import { kameaGeometry } from './FormationLayer';
 
 const DIAGRAM = 132;
 
@@ -18,6 +20,7 @@ const DIAGRAM = 132;
 export function FormationSheet({
   visible,
   onClose,
+  onReplay,
   intention,
   letters,
   category,
@@ -26,6 +29,8 @@ export function FormationSheet({
 }: {
   visible: boolean;
   onClose: () => void;
+  /** Plays the whole formation again on the stage, exactly as it first happened. */
+  onReplay?: () => void;
   intention: string;
   letters: string[];
   category?: string | null;
@@ -62,6 +67,7 @@ export function FormationSheet({
           </View>
           <View style={styles.diagram} accessible accessibilityLabel={`Your ${formation.vertices.length} points joined on a ${formation.gridSize} by ${formation.gridSize} grid`}>
             <Svg width={DIAGRAM} height={DIAGRAM} viewBox="0 0 100 100" style={StyleSheet.absoluteFill}>
+              <Rect {...squareOf(formation)} stroke={colors.ink.base} strokeOpacity={0.24} strokeWidth={0.6} fill="none" />
               {formation.gridCells.map((cell) => (
                 <Circle key={cell.value} cx={cell.x} cy={cell.y} r={1.1} fill={colors.ink.base} fillOpacity={0.28} />
               ))}
@@ -70,8 +76,16 @@ export function FormationSheet({
           </View>
         </View>
       ) : null}
+      {onReplay && formation ? (
+        <V2Button variant="secondary" onPress={onReplay} testID="formation-replay">{REVEAL_COPY.replay}</V2Button>
+      ) : null}
     </CreationSheet>
   );
+}
+
+function squareOf(formation: SigilFormation) {
+  const { left, top, side } = kameaGeometry(formation);
+  return { x: left, y: top, width: side, height: side };
 }
 
 const styles = StyleSheet.create({

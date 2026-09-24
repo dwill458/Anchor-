@@ -16,7 +16,10 @@ jest.mock('@/stores/authStore', () => ({
 }));
 
 jest.mock('@/stores/anchorStore', () => ({
-  useAnchorStore: { getState: () => ({ getAnchorById: jest.fn(), addAnchor: jest.fn() }) },
+  useAnchorStore: Object.assign(
+    (select: (state: { anchors: unknown[] }) => unknown) => select({ anchors: [] }),
+    { getState: () => ({ getAnchorById: jest.fn(), addAnchor: jest.fn() }) },
+  ),
 }));
 
 jest.mock('@/services/AnalyticsService', () => ({
@@ -69,5 +72,17 @@ describe('V2FirstRunFlow returning-user sign in', () => {
     render(<V2FirstRunFlow />);
     fireEvent.press(screen.getByText('Sign in'));
     expect(mockNavigate).toHaveBeenCalledWith('V2Auth', { initialMode: 'signin' });
+  });
+});
+
+describe('V2FirstRunFlow first Anchor', () => {
+  beforeEach(() => {
+    draft.currentStep = 'intention';
+  });
+
+  it('makes the first Anchor with the same creation flow as every later one', () => {
+    render(<V2FirstRunFlow />);
+    expect(screen.getByTestId('v2-creation-intention')).toBeTruthy();
+    expect(screen.getByText('Every Anchor starts')).toBeTruthy();
   });
 });

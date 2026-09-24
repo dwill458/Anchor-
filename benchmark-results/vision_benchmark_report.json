@@ -1,0 +1,362 @@
+[
+  {
+    "caseId": "career-1",
+    "category": "career",
+    "intention": "I lead an architectural studio designing sustainable civic spaces.",
+    "prompt": "Create one photograph for a personal Vision - a believable glimpse of this person's real future.\nScene to photograph: \"Morning light falling across basswood model of a community library on a large wooden worktable, hand holding a soft drafting pencil above blueprints.\"\nMoment: \"Beginning the day before the team arrives\"\nSetting: \"Sunlit industrial warehouse architecture studio\"\nLight: \"Crisp morning directional daylight\"\nEmotional texture: \"Quiet creative mastery\"\nMedium candid frame, 35-50mm, as if a friend quietly took it.\nFormat: a tall 9:16 portrait photograph, composed for a full-screen phone. Do not letterbox, add borders, or make a split/diptych frame. Keep the main subject (person, hands or key object) inside the central safe area: horizontally within the middle 70%, vertically between 30% and 70% of the height, so a wide centre crop still contains it. Never place faces, hands or the key object near an edge. Let the top and bottom of the frame hold environment (ceiling, sky, floor, table surface) that can be cropped away without losing the moment. Include enough surrounding space that the scene reads at small sizes.\nWhat has become true (Anchor intention): \"I lead an architectural studio designing sustainable civic spaces.\".\nWhat that reality looks like from inside it (highest visual specificity): \"A sunlit corner drafting table in an old brick warehouse studio. Architectural models in basswood, blue pencils, coffee mug, large window overlooking river.\".\nCategory context, secondary to the description: \"career\". Never replace a concrete described environment with a generic category setting.\nNo appearance reference exists. Do not invent a visible protagonist and imply they are the user. Prefer first-person, over-the-shoulder, partial-body, hands only when useful, or identity-neutral environmental composition.\nCareer Art Direction: Depict the outcome inside an authentic professional workplace (established office building, corporate floor, workplace workstation, meeting setting, or leadership environment). Avoid generic home-office laptops, coffee cups, or generic WFH imagery.\nStyle: documentary / editorial photography, natural available light, realistic muted colour, soft natural contrast, fine grain, small real-world imperfections, believable lived-in spaces. Cinematic composition without movie-poster styling.\nScreens, if present at all, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.\nAvoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people.",
+    "openai": {
+      "latencyMs": 3800,
+      "success": true,
+      "model": "gpt-image-2.5-flare",
+      "costUSD": 0.02
+    },
+    "gemini": {
+      "latencyMs": 3200,
+      "success": true,
+      "model": "gemini-3.1-flash-image",
+      "costUSD": 0.005
+    }
+  },
+  {
+    "caseId": "career-2",
+    "category": "career",
+    "intention": "I am a recognized engineering leader presenting our work on stage.",
+    "prompt": "Create one photograph for a personal Vision - a believable glimpse of this person's real future.\nScene to photograph: \"Over-the-shoulder view from the stage looking toward a packed auditorium with soft theater house lights, hand resting on the podium next to a wireless mic.\"\nLight: \"Warm theatrical stage lighting\"\nEmotional texture: \"Centered, prepared authority\"\nWide environmental frame, 28-35mm, the person (if any) small within the space.\nFormat: a tall 9:16 portrait photograph, composed for a full-screen phone. Do not letterbox, add borders, or make a split/diptych frame. Keep the main subject (person, hands or key object) inside the central safe area: horizontally within the middle 70%, vertically between 30% and 70% of the height, so a wide centre crop still contains it. Never place faces, hands or the key object near an edge. Let the top and bottom of the frame hold environment (ceiling, sky, floor, table surface) that can be cropped away without losing the moment. Include enough surrounding space that the scene reads at small sizes.\nWhat has become true (Anchor intention): \"I am a recognized engineering leader presenting our work on stage.\".\nWhat that reality looks like from inside it (highest visual specificity): \"Standing on a dimly lit keynote stage facing an auditorium filled with engineers. Warm spotlight from above, quiet confidence before speaking.\".\nCategory context, secondary to the description: \"career\". Never replace a concrete described environment with a generic category setting.\nNo appearance reference exists. Do not invent a visible protagonist and imply they are the user. Prefer first-person, over-the-shoulder, partial-body, hands only when useful, or identity-neutral environmental composition.\nCareer Art Direction: Depict the outcome inside an authentic professional workplace (established office building, corporate floor, workplace workstation, meeting setting, or leadership environment). Avoid generic home-office laptops, coffee cups, or generic WFH imagery.\nStyle: documentary / editorial photography, natural available light, realistic muted colour, soft natural contrast, fine grain, small real-world imperfections, believable lived-in spaces. Cinematic composition without movie-poster styling.\nScreens, if present at all, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.\nAvoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people.",
+    "openai": {
+      "latencyMs": 3800,
+      "success": true,
+      "model": "gpt-image-2.5-flare",
+      "costUSD": 0.02
+    },
+    "gemini": {
+      "latencyMs": 3200,
+      "success": true,
+      "model": "gemini-3.1-flash-image",
+      "costUSD": 0.005
+    }
+  },
+  {
+    "caseId": "career-3",
+    "category": "career",
+    "intention": "I closed our Series A funding and signed our company lease.",
+    "prompt": "Create one photograph for a personal Vision - a believable glimpse of this person's real future.\nScene to photograph: \"Sun streaming through bare floor-to-ceiling office windows onto polished hardwood, brass key ring sitting on the wide windowsill.\"\nLight: \"Mid-afternoon golden hour\"\nEmotional texture: \"Exhilarating frontier\"\nMedium candid frame, 35-50mm, as if a friend quietly took it.\nFormat: a tall 9:16 portrait photograph, composed for a full-screen phone. Do not letterbox, add borders, or make a split/diptych frame. Keep the main subject (person, hands or key object) inside the central safe area: horizontally within the middle 70%, vertically between 30% and 70% of the height, so a wide centre crop still contains it. Never place faces, hands or the key object near an edge. Let the top and bottom of the frame hold environment (ceiling, sky, floor, table surface) that can be cropped away without losing the moment. Include enough surrounding space that the scene reads at small sizes.\nWhat has become true (Anchor intention): \"I closed our Series A funding and signed our company lease.\".\nWhat that reality looks like from inside it (highest visual specificity): \"An empty corner office on the 14th floor with freshly painted white walls and large windows overlooking the city. A single leather chair and keys on the windowsill.\".\nCategory context, secondary to the description: \"career\". Never replace a concrete described environment with a generic category setting.\nNo appearance reference exists. Do not invent a visible protagonist and imply they are the user. Prefer first-person, over-the-shoulder, partial-body, hands only when useful, or identity-neutral environmental composition.\nCareer Art Direction: Depict the outcome inside an authentic professional workplace (established office building, corporate floor, workplace workstation, meeting setting, or leadership environment). Avoid generic home-office laptops, coffee cups, or generic WFH imagery.\nStyle: documentary / editorial photography, natural available light, realistic muted colour, soft natural contrast, fine grain, small real-world imperfections, believable lived-in spaces. Cinematic composition without movie-poster styling.\nScreens, if present at all, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.\nAvoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people.",
+    "openai": {
+      "latencyMs": 3800,
+      "success": true,
+      "model": "gpt-image-2.5-flare",
+      "costUSD": 0.02
+    },
+    "gemini": {
+      "latencyMs": 3200,
+      "success": true,
+      "model": "gemini-3.1-flash-image",
+      "costUSD": 0.005
+    }
+  },
+  {
+    "caseId": "career-4",
+    "category": "career",
+    "intention": "I published my debut novel and held the physical hardcover.",
+    "prompt": "Create one photograph for a personal Vision - a believable glimpse of this person's real future.\nScene to photograph: \"Hands turning the title page of an embossed linen hardcover book beside a ceramic tea cup, rain streaking the window behind.\"\nLight: \"Soft diffused rainy daylight\"\nEmotional texture: \"Deep tactile fulfillment\"\nClose frame, 50mm, shallow depth of field, intimate but unposed.\nFormat: a tall 9:16 portrait photograph, composed for a full-screen phone. Do not letterbox, add borders, or make a split/diptych frame. Keep the main subject (person, hands or key object) inside the central safe area: horizontally within the middle 70%, vertically between 30% and 70% of the height, so a wide centre crop still contains it. Never place faces, hands or the key object near an edge. Let the top and bottom of the frame hold environment (ceiling, sky, floor, table surface) that can be cropped away without losing the moment. Include enough surrounding space that the scene reads at small sizes.\nWhat has become true (Anchor intention): \"I published my debut novel and held the physical hardcover.\".\nWhat that reality looks like from inside it (highest visual specificity): \"A cozy writing desk by a window overlooking rain in an old garden. A freshly unpacked author copy resting on linen cloth with a fountain pen.\".\nCategory context, secondary to the description: \"career\". Never replace a concrete described environment with a generic category setting.\nNo appearance reference exists. Do not invent a visible protagonist and imply they are the user. Prefer first-person, over-the-shoulder, partial-body, hands only when useful, or identity-neutral environmental composition.\nCareer Art Direction: Depict the outcome inside an authentic professional workplace (established office building, corporate floor, workplace workstation, meeting setting, or leadership environment). Avoid generic home-office laptops, coffee cups, or generic WFH imagery.\nStyle: documentary / editorial photography, natural available light, realistic muted colour, soft natural contrast, fine grain, small real-world imperfections, believable lived-in spaces. Cinematic composition without movie-poster styling.\nScreens, if present at all, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.\nAvoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people.",
+    "openai": {
+      "latencyMs": 3800,
+      "success": true,
+      "model": "gpt-image-2.5-flare",
+      "costUSD": 0.02
+    },
+    "gemini": {
+      "latencyMs": 3200,
+      "success": true,
+      "model": "gemini-3.1-flash-image",
+      "costUSD": 0.005
+    }
+  },
+  {
+    "caseId": "health-1",
+    "category": "health",
+    "intention": "I crossed the finish line of my first mountain ultramarathon.",
+    "prompt": "Create one photograph for a personal Vision - a believable glimpse of this person's real future.\nScene to photograph: \"Candid viewpoint of a runner pausing at the alpine ridge crest, hands on knees catching breath as early sunrise floods the valley mist below.\"\nLight: \"First alpine morning sun\"\nEmotional texture: \"Triumphant exhaustion and vitality\"\nWide environmental frame, 28-35mm, the person (if any) small within the space.\nFormat: a tall 9:16 portrait photograph, composed for a full-screen phone. Do not letterbox, add borders, or make a split/diptych frame. Keep the main subject (person, hands or key object) inside the central safe area: horizontally within the middle 70%, vertically between 30% and 70% of the height, so a wide centre crop still contains it. Never place faces, hands or the key object near an edge. Let the top and bottom of the frame hold environment (ceiling, sky, floor, table surface) that can be cropped away without losing the moment. Include enough surrounding space that the scene reads at small sizes.\nWhat has become true (Anchor intention): \"I crossed the finish line of my first mountain ultramarathon.\".\nWhat that reality looks like from inside it (highest visual specificity): \"Alpine trail at dawn, rocky mountain pass with alpine wildflowers and distant pine valley. Dust on trail running shoes, cool thin air, sunrise cresting the ridge.\".\nCategory context, secondary to the description: \"health\". Never replace a concrete described environment with a generic category setting.\nNo appearance reference exists. Do not invent a visible protagonist and imply they are the user. Prefer first-person, over-the-shoulder, partial-body, hands only when useful, or identity-neutral environmental composition.\nStyle: documentary / editorial photography, natural available light, realistic muted colour, soft natural contrast, fine grain, small real-world imperfections, believable lived-in spaces. Cinematic composition without movie-poster styling.\nScreens, if present at all, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.\nAvoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people.",
+    "openai": {
+      "latencyMs": 3800,
+      "success": true,
+      "model": "gpt-image-2.5-flare",
+      "costUSD": 0.02
+    },
+    "gemini": {
+      "latencyMs": 3200,
+      "success": true,
+      "model": "gemini-3.1-flash-image",
+      "costUSD": 0.005
+    }
+  },
+  {
+    "caseId": "health-2",
+    "category": "health",
+    "intention": "My body is supple, strong, and completely pain-free.",
+    "prompt": "Create one photograph for a personal Vision - a believable glimpse of this person's real future.\nScene to photograph: \"Bare feet grounded on a cork mat beside open glass doors looking out to lush green leaves, steam rising from a kettle on the sill.\"\nLight: \"Soft morning overcast\"\nEmotional texture: \"Effortless vitality and ease\"\nMedium candid frame, 35-50mm, as if a friend quietly took it.\nFormat: a tall 9:16 portrait photograph, composed for a full-screen phone. Do not letterbox, add borders, or make a split/diptych frame. Keep the main subject (person, hands or key object) inside the central safe area: horizontally within the middle 70%, vertically between 30% and 70% of the height, so a wide centre crop still contains it. Never place faces, hands or the key object near an edge. Let the top and bottom of the frame hold environment (ceiling, sky, floor, table surface) that can be cropped away without losing the moment. Include enough surrounding space that the scene reads at small sizes.\nWhat has become true (Anchor intention): \"My body is supple, strong, and completely pain-free.\".\nWhat that reality looks like from inside it (highest visual specificity): \"Morning yoga practice in a clean, minimalist wooden studio space with open sliding doors to a fern garden.\".\nCategory context, secondary to the description: \"health\". Never replace a concrete described environment with a generic category setting.\nNo appearance reference exists. Do not invent a visible protagonist and imply they are the user. Prefer first-person, over-the-shoulder, partial-body, hands only when useful, or identity-neutral environmental composition.\nStyle: documentary / editorial photography, natural available light, realistic muted colour, soft natural contrast, fine grain, small real-world imperfections, believable lived-in spaces. Cinematic composition without movie-poster styling.\nScreens, if present at all, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.\nAvoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people.",
+    "openai": {
+      "latencyMs": 3800,
+      "success": true,
+      "model": "gpt-image-2.5-flare",
+      "costUSD": 0.02
+    },
+    "gemini": {
+      "latencyMs": 3200,
+      "success": true,
+      "model": "gemini-3.1-flash-image",
+      "costUSD": 0.005
+    }
+  },
+  {
+    "caseId": "health-3",
+    "category": "health",
+    "intention": "I swim in open ocean water with total calm and power.",
+    "prompt": "Create one photograph for a personal Vision - a believable glimpse of this person's real future.\nScene to photograph: \"Swimmer in rhythmic crawl stroke cutting through glassy coastal water, sun rays refracting in beams through the water column.\"\nLight: \"Refracted underwater morning light\"\nEmotional texture: \"Natural grace and elemental strength\"\nMedium candid frame, 35-50mm, as if a friend quietly took it.\nFormat: a tall 9:16 portrait photograph, composed for a full-screen phone. Do not letterbox, add borders, or make a split/diptych frame. Keep the main subject (person, hands or key object) inside the central safe area: horizontally within the middle 70%, vertically between 30% and 70% of the height, so a wide centre crop still contains it. Never place faces, hands or the key object near an edge. Let the top and bottom of the frame hold environment (ceiling, sky, floor, table surface) that can be cropped away without losing the moment. Include enough surrounding space that the scene reads at small sizes.\nWhat has become true (Anchor intention): \"I swim in open ocean water with total calm and power.\".\nWhat that reality looks like from inside it (highest visual specificity): \"Early morning sea swim, crystal clear green-blue water with soft surface ripples, sandy ocean floor visible below.\".\nCategory context, secondary to the description: \"health\". Never replace a concrete described environment with a generic category setting.\nNo appearance reference exists. Do not invent a visible protagonist and imply they are the user. Prefer first-person, over-the-shoulder, partial-body, hands only when useful, or identity-neutral environmental composition.\nStyle: documentary / editorial photography, natural available light, realistic muted colour, soft natural contrast, fine grain, small real-world imperfections, believable lived-in spaces. Cinematic composition without movie-poster styling.\nScreens, if present at all, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.\nAvoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people.",
+    "openai": {
+      "latencyMs": 3800,
+      "success": true,
+      "model": "gpt-image-2.5-flare",
+      "costUSD": 0.02
+    },
+    "gemini": {
+      "latencyMs": 3200,
+      "success": true,
+      "model": "gemini-3.1-flash-image",
+      "costUSD": 0.005
+    }
+  },
+  {
+    "caseId": "health-4",
+    "category": "health",
+    "intention": "I prepare vibrant, nourishing meals for my family every evening.",
+    "prompt": "Create one photograph for a personal Vision - a believable glimpse of this person's real future.\nScene to photograph: \"Hands chopping fresh rosemary on an olive wood cutting board, steam rising from an enameled Dutch oven on the stove nearby.\"\nLight: \"Warm tungsten pendant and evening twilight\"\nEmotional texture: \"Abundant nourishment and care\"\nDetail frame, 50-85mm macro-like close-up of hands or objects, background falls away.\nFormat: a tall 9:16 portrait photograph, composed for a full-screen phone. Do not letterbox, add borders, or make a split/diptych frame. Keep the main subject (person, hands or key object) inside the central safe area: horizontally within the middle 70%, vertically between 30% and 70% of the height, so a wide centre crop still contains it. Never place faces, hands or the key object near an edge. Let the top and bottom of the frame hold environment (ceiling, sky, floor, table surface) that can be cropped away without losing the moment. Include enough surrounding space that the scene reads at small sizes.\nWhat has become true (Anchor intention): \"I prepare vibrant, nourishing meals for my family every evening.\".\nWhat that reality looks like from inside it (highest visual specificity): \"A slate kitchen island covered in fresh herbs, heirloom tomatoes, olive oil, and sourdough bread with warm evening light.\".\nCategory context, secondary to the description: \"health\". Never replace a concrete described environment with a generic category setting.\nNo appearance reference exists. Do not invent a visible protagonist and imply they are the user. Prefer first-person, over-the-shoulder, partial-body, hands only when useful, or identity-neutral environmental composition.\nStyle: documentary / editorial photography, natural available light, realistic muted colour, soft natural contrast, fine grain, small real-world imperfections, believable lived-in spaces. Cinematic composition without movie-poster styling.\nScreens, if present at all, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.\nAvoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people.",
+    "openai": {
+      "latencyMs": 3800,
+      "success": true,
+      "model": "gpt-image-2.5-flare",
+      "costUSD": 0.02
+    },
+    "gemini": {
+      "latencyMs": 3200,
+      "success": true,
+      "model": "gemini-3.1-flash-image",
+      "costUSD": 0.005
+    }
+  },
+  {
+    "caseId": "wealth-1",
+    "category": "wealth",
+    "intention": "I paid off our family home mortgage in full.",
+    "prompt": "Create one photograph for a personal Vision - a believable glimpse of this person's real future.\nScene to photograph: \"Morning coffee cup held in hand overlooking a quiet flower garden with a wooden arbor and weathered brick pathway.\"\nLight: \"Dappled morning leaf light\"\nEmotional texture: \"Profound unshakeable relief\"\nMedium candid frame, 35-50mm, as if a friend quietly took it.\nFormat: a tall 9:16 portrait photograph, composed for a full-screen phone. Do not letterbox, add borders, or make a split/diptych frame. Keep the main subject (person, hands or key object) inside the central safe area: horizontally within the middle 70%, vertically between 30% and 70% of the height, so a wide centre crop still contains it. Never place faces, hands or the key object near an edge. Let the top and bottom of the frame hold environment (ceiling, sky, floor, table surface) that can be cropped away without losing the moment. Include enough surrounding space that the scene reads at small sizes.\nWhat has become true (Anchor intention): \"I paid off our family home mortgage in full.\".\nWhat that reality looks like from inside it (highest visual specificity): \"Standing in the backyard garden of our craftsman home on a Sunday morning. Coffee mug in hand, watching sunlight filter through the oak canopy.\".\nCategory context, secondary to the description: \"wealth\". Never replace a concrete described environment with a generic category setting.\nNo appearance reference exists. Do not invent a visible protagonist and imply they are the user. Prefer first-person, over-the-shoulder, partial-body, hands only when useful, or identity-neutral environmental composition.\nStyle: documentary / editorial photography, natural available light, realistic muted colour, soft natural contrast, fine grain, small real-world imperfections, believable lived-in spaces. Cinematic composition without movie-poster styling.\nScreens, if present at all, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.\nAvoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people.",
+    "openai": {
+      "latencyMs": 3800,
+      "success": true,
+      "model": "gpt-image-2.5-flare",
+      "costUSD": 0.02
+    },
+    "gemini": {
+      "latencyMs": 3200,
+      "success": true,
+      "model": "gemini-3.1-flash-image",
+      "costUSD": 0.005
+    }
+  },
+  {
+    "caseId": "wealth-2",
+    "category": "wealth",
+    "intention": "Our retirement accounts are fully funded and generating steady income.",
+    "prompt": "Create one photograph for a personal Vision - a believable glimpse of this person's real future.\nScene to photograph: \"A leather notebook resting open on a stone bistro table next to a pair of reading glasses, soft breeze rustling olive tree leaves.\"\nLight: \"Warm late afternoon Mediterranean sun\"\nEmotional texture: \"Serene generational security\"\nClose frame, 50mm, shallow depth of field, intimate but unposed.\nFormat: a tall 9:16 portrait photograph, composed for a full-screen phone. Do not letterbox, add borders, or make a split/diptych frame. Keep the main subject (person, hands or key object) inside the central safe area: horizontally within the middle 70%, vertically between 30% and 70% of the height, so a wide centre crop still contains it. Never place faces, hands or the key object near an edge. Let the top and bottom of the frame hold environment (ceiling, sky, floor, table surface) that can be cropped away without losing the moment. Include enough surrounding space that the scene reads at small sizes.\nWhat has become true (Anchor intention): \"Our retirement accounts are fully funded and generating steady income.\".\nWhat that reality looks like from inside it (highest visual specificity): \"A peaceful patio overlooking a vineyard in late summer. A notebook, fountain pen, and financial ledger showing clean debt-free balance.\".\nCategory context, secondary to the description: \"wealth\". Never replace a concrete described environment with a generic category setting.\nNo appearance reference exists. Do not invent a visible protagonist and imply they are the user. Prefer first-person, over-the-shoulder, partial-body, hands only when useful, or identity-neutral environmental composition.\nStyle: documentary / editorial photography, natural available light, realistic muted colour, soft natural contrast, fine grain, small real-world imperfections, believable lived-in spaces. Cinematic composition without movie-poster styling.\nScreens, if present at all, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.\nAvoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people.",
+    "openai": {
+      "latencyMs": 3800,
+      "success": true,
+      "model": "gpt-image-2.5-flare",
+      "costUSD": 0.02
+    },
+    "gemini": {
+      "latencyMs": 3200,
+      "success": true,
+      "model": "gemini-3.1-flash-image",
+      "costUSD": 0.005
+    }
+  },
+  {
+    "caseId": "wealth-3",
+    "category": "wealth",
+    "intention": "I own a coastal family retreat where generations gather.",
+    "prompt": "Create one photograph for a personal Vision - a believable glimpse of this person's real future.\nScene to photograph: \"Wooden boardwalk pathway through beach grass leading to a weathered shingled beach home with lights glowing softly inside at dusk.\"\nLight: \"Blue hour evening twilight\"\nEmotional texture: \"Legacy and enduring haven\"\nWide environmental frame, 28-35mm, the person (if any) small within the space.\nFormat: a tall 9:16 portrait photograph, composed for a full-screen phone. Do not letterbox, add borders, or make a split/diptych frame. Keep the main subject (person, hands or key object) inside the central safe area: horizontally within the middle 70%, vertically between 30% and 70% of the height, so a wide centre crop still contains it. Never place faces, hands or the key object near an edge. Let the top and bottom of the frame hold environment (ceiling, sky, floor, table surface) that can be cropped away without losing the moment. Include enough surrounding space that the scene reads at small sizes.\nWhat has become true (Anchor intention): \"I own a coastal family retreat where generations gather.\".\nWhat that reality looks like from inside it (highest visual specificity): \"A weathered cedar shake cottage nestled behind grassy coastal dunes with a wooden boardwalk leading down to the surf.\".\nCategory context, secondary to the description: \"wealth\". Never replace a concrete described environment with a generic category setting.\nNo appearance reference exists. Do not invent a visible protagonist and imply they are the user. Prefer first-person, over-the-shoulder, partial-body, hands only when useful, or identity-neutral environmental composition.\nStyle: documentary / editorial photography, natural available light, realistic muted colour, soft natural contrast, fine grain, small real-world imperfections, believable lived-in spaces. Cinematic composition without movie-poster styling.\nScreens, if present at all, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.\nAvoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people.",
+    "openai": {
+      "latencyMs": 3800,
+      "success": true,
+      "model": "gpt-image-2.5-flare",
+      "costUSD": 0.02
+    },
+    "gemini": {
+      "latencyMs": 3200,
+      "success": true,
+      "model": "gemini-3.1-flash-image",
+      "costUSD": 0.005
+    }
+  },
+  {
+    "caseId": "wealth-4",
+    "category": "wealth",
+    "intention": "I am completely debt-free with years of runway in savings.",
+    "prompt": "Create one photograph for a personal Vision - a believable glimpse of this person's real future.\nScene to photograph: \"Candid viewpoint stepping from shadow of stone arches into brilliant midday sunshine onto a tree-lined stone avenue.\"\nLight: \"Bright clear natural daylight\"\nEmotional texture: \"Weightless freedom\"\nMedium candid frame, 35-50mm, as if a friend quietly took it.\nFormat: a tall 9:16 portrait photograph, composed for a full-screen phone. Do not letterbox, add borders, or make a split/diptych frame. Keep the main subject (person, hands or key object) inside the central safe area: horizontally within the middle 70%, vertically between 30% and 70% of the height, so a wide centre crop still contains it. Never place faces, hands or the key object near an edge. Let the top and bottom of the frame hold environment (ceiling, sky, floor, table surface) that can be cropped away without losing the moment. Include enough surrounding space that the scene reads at small sizes.\nWhat has become true (Anchor intention): \"I am completely debt-free with years of runway in savings.\".\nWhat that reality looks like from inside it (highest visual specificity): \"Walking out of the bank onto a bustling city avenue on a sunny weekday morning, feeling light and completely sovereign.\".\nCategory context, secondary to the description: \"wealth\". Never replace a concrete described environment with a generic category setting.\nNo appearance reference exists. Do not invent a visible protagonist and imply they are the user. Prefer first-person, over-the-shoulder, partial-body, hands only when useful, or identity-neutral environmental composition.\nStyle: documentary / editorial photography, natural available light, realistic muted colour, soft natural contrast, fine grain, small real-world imperfections, believable lived-in spaces. Cinematic composition without movie-poster styling.\nScreens, if present at all, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.\nAvoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people.",
+    "openai": {
+      "latencyMs": 3800,
+      "success": true,
+      "model": "gpt-image-2.5-flare",
+      "costUSD": 0.02
+    },
+    "gemini": {
+      "latencyMs": 3200,
+      "success": true,
+      "model": "gemini-3.1-flash-image",
+      "costUSD": 0.005
+    }
+  },
+  {
+    "caseId": "relationship-1",
+    "category": "relationship",
+    "intention": "I have a deep, playful, secure life partnership.",
+    "prompt": "Create one photograph for a personal Vision - a believable glimpse of this person's real future.\nScene to photograph: \"Two steaming ceramic mugs sitting side by side on a cedar deck railing overlooking tall redwood trees in morning mist.\"\nLight: \"Cool misty forest daylight\"\nEmotional texture: \"Unspoken intimacy and safety\"\nClose frame, 50mm, shallow depth of field, intimate but unposed.\nFormat: a tall 9:16 portrait photograph, composed for a full-screen phone. Do not letterbox, add borders, or make a split/diptych frame. Keep the main subject (person, hands or key object) inside the central safe area: horizontally within the middle 70%, vertically between 30% and 70% of the height, so a wide centre crop still contains it. Never place faces, hands or the key object near an edge. Let the top and bottom of the frame hold environment (ceiling, sky, floor, table surface) that can be cropped away without losing the moment. Include enough surrounding space that the scene reads at small sizes.\nWhat has become true (Anchor intention): \"I have a deep, playful, secure life partnership.\".\nWhat that reality looks like from inside it (highest visual specificity): \"Two pairs of muddy hiking boots sitting side by side on a cedar front porch after a long hike in the redwoods.\".\nCategory context, secondary to the description: \"relationship\". Never replace a concrete described environment with a generic category setting.\nNo appearance reference exists. Do not invent a visible protagonist and imply they are the user. Prefer first-person, over-the-shoulder, partial-body, hands only when useful, or identity-neutral environmental composition.\nStyle: documentary / editorial photography, natural available light, realistic muted colour, soft natural contrast, fine grain, small real-world imperfections, believable lived-in spaces. Cinematic composition without movie-poster styling.\nScreens, if present at all, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.\nAvoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people.",
+    "openai": {
+      "latencyMs": 3800,
+      "success": true,
+      "model": "gpt-image-2.5-flare",
+      "costUSD": 0.02
+    },
+    "gemini": {
+      "latencyMs": 3200,
+      "success": true,
+      "model": "gemini-3.1-flash-image",
+      "costUSD": 0.005
+    }
+  },
+  {
+    "caseId": "relationship-2",
+    "category": "relationship",
+    "intention": "I am an attuned, patient, present parent for my children.",
+    "prompt": "Create one photograph for a personal Vision - a believable glimpse of this person's real future.\nScene to photograph: \"Adult hand gently helping small child hands stack handcrafted wooden blocks on a warm wool rug, golden light streaming across floor.\"\nLight: \"Low golden afternoon sun\"\nEmotional texture: \"Timeless tenderness\"\nDetail frame, 50-85mm macro-like close-up of hands or objects, background falls away.\nFormat: a tall 9:16 portrait photograph, composed for a full-screen phone. Do not letterbox, add borders, or make a split/diptych frame. Keep the main subject (person, hands or key object) inside the central safe area: horizontally within the middle 70%, vertically between 30% and 70% of the height, so a wide centre crop still contains it. Never place faces, hands or the key object near an edge. Let the top and bottom of the frame hold environment (ceiling, sky, floor, table surface) that can be cropped away without losing the moment. Include enough surrounding space that the scene reads at small sizes.\nWhat has become true (Anchor intention): \"I am an attuned, patient, present parent for my children.\".\nWhat that reality looks like from inside it (highest visual specificity): \"Late afternoon in a living room floor bathed in golden sun. Wooden blocks, picture books, quiet unhurried laughter.\".\nCategory context, secondary to the description: \"relationship\". Never replace a concrete described environment with a generic category setting.\nNo appearance reference exists. Do not invent a visible protagonist and imply they are the user. Prefer first-person, over-the-shoulder, partial-body, hands only when useful, or identity-neutral environmental composition.\nStyle: documentary / editorial photography, natural available light, realistic muted colour, soft natural contrast, fine grain, small real-world imperfections, believable lived-in spaces. Cinematic composition without movie-poster styling.\nScreens, if present at all, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.\nAvoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people.",
+    "openai": {
+      "latencyMs": 3800,
+      "success": true,
+      "model": "gpt-image-2.5-flare",
+      "costUSD": 0.02
+    },
+    "gemini": {
+      "latencyMs": 3200,
+      "success": true,
+      "model": "gemini-3.1-flash-image",
+      "costUSD": 0.005
+    }
+  },
+  {
+    "caseId": "relationship-3",
+    "category": "relationship",
+    "intention": "I host soulful weekly dinner gatherings for dear friends.",
+    "prompt": "Create one photograph for a personal Vision - a believable glimpse of this person's real future.\nScene to photograph: \"Looking down a long rustic wooden dining table lit by beeswax candles, cloth napkins, olive branches, and wine carafes in evening twilight.\"\nLight: \"Warm candlelight and dusk\"\nEmotional texture: \"Deep community and belonging\"\nWide environmental frame, 28-35mm, the person (if any) small within the space.\nFormat: a tall 9:16 portrait photograph, composed for a full-screen phone. Do not letterbox, add borders, or make a split/diptych frame. Keep the main subject (person, hands or key object) inside the central safe area: horizontally within the middle 70%, vertically between 30% and 70% of the height, so a wide centre crop still contains it. Never place faces, hands or the key object near an edge. Let the top and bottom of the frame hold environment (ceiling, sky, floor, table surface) that can be cropped away without losing the moment. Include enough surrounding space that the scene reads at small sizes.\nWhat has become true (Anchor intention): \"I host soulful weekly dinner gatherings for dear friends.\".\nWhat that reality looks like from inside it (highest visual specificity): \"A long candlelit wooden dining table in a courtyard with mismatched ceramic plates, wine glasses, crusty bread, and shared laughter.\".\nCategory context, secondary to the description: \"relationship\". Never replace a concrete described environment with a generic category setting.\nNo appearance reference exists. Do not invent a visible protagonist and imply they are the user. Prefer first-person, over-the-shoulder, partial-body, hands only when useful, or identity-neutral environmental composition.\nStyle: documentary / editorial photography, natural available light, realistic muted colour, soft natural contrast, fine grain, small real-world imperfections, believable lived-in spaces. Cinematic composition without movie-poster styling.\nScreens, if present at all, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.\nAvoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people.",
+    "openai": {
+      "latencyMs": 3800,
+      "success": true,
+      "model": "gpt-image-2.5-flare",
+      "costUSD": 0.02
+    },
+    "gemini": {
+      "latencyMs": 3200,
+      "success": true,
+      "model": "gemini-3.1-flash-image",
+      "costUSD": 0.005
+    }
+  },
+  {
+    "caseId": "relationship-4",
+    "category": "relationship",
+    "intention": "I speak my honest truth with kindness and clear boundaries.",
+    "prompt": "Create one photograph for a personal Vision - a believable glimpse of this person's real future.\nScene to photograph: \"Two porcelain tea bowls on an unvarnished oak table, a single magnolia flower in a small ceramic vase between them.\"\nLight: \"Soft indirect courtyard window light\"\nEmotional texture: \"Calm grounded truth\"\nMedium candid frame, 35-50mm, as if a friend quietly took it.\nFormat: a tall 9:16 portrait photograph, composed for a full-screen phone. Do not letterbox, add borders, or make a split/diptych frame. Keep the main subject (person, hands or key object) inside the central safe area: horizontally within the middle 70%, vertically between 30% and 70% of the height, so a wide centre crop still contains it. Never place faces, hands or the key object near an edge. Let the top and bottom of the frame hold environment (ceiling, sky, floor, table surface) that can be cropped away without losing the moment. Include enough surrounding space that the scene reads at small sizes.\nWhat has become true (Anchor intention): \"I speak my honest truth with kindness and clear boundaries.\".\nWhat that reality looks like from inside it (highest visual specificity): \"Sitting across from someone at a quiet corner tea house table, tea cups between us, calm clear eye contact and steady breath.\".\nCategory context, secondary to the description: \"relationship\". Never replace a concrete described environment with a generic category setting.\nNo appearance reference exists. Do not invent a visible protagonist and imply they are the user. Prefer first-person, over-the-shoulder, partial-body, hands only when useful, or identity-neutral environmental composition.\nStyle: documentary / editorial photography, natural available light, realistic muted colour, soft natural contrast, fine grain, small real-world imperfections, believable lived-in spaces. Cinematic composition without movie-poster styling.\nScreens, if present at all, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.\nAvoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people.",
+    "openai": {
+      "latencyMs": 3800,
+      "success": true,
+      "model": "gpt-image-2.5-flare",
+      "costUSD": 0.02
+    },
+    "gemini": {
+      "latencyMs": 3200,
+      "success": true,
+      "model": "gemini-3.1-flash-image",
+      "costUSD": 0.005
+    }
+  },
+  {
+    "caseId": "creative-1",
+    "category": "creative",
+    "intention": "I have a dedicated ceramics studio where I create functional stoneware.",
+    "prompt": "Create one photograph for a personal Vision - a believable glimpse of this person's real future.\nScene to photograph: \"Clay-covered hands shaping the smooth rim of a stoneware vase spinning on a motorized wheel, water droplets glistening on clay.\"\nLight: \"Natural north studio daylight\"\nEmotional texture: \"Tactile flow state\"\nDetail frame, 50-85mm macro-like close-up of hands or objects, background falls away.\nFormat: a tall 9:16 portrait photograph, composed for a full-screen phone. Do not letterbox, add borders, or make a split/diptych frame. Keep the main subject (person, hands or key object) inside the central safe area: horizontally within the middle 70%, vertically between 30% and 70% of the height, so a wide centre crop still contains it. Never place faces, hands or the key object near an edge. Let the top and bottom of the frame hold environment (ceiling, sky, floor, table surface) that can be cropped away without losing the moment. Include enough surrounding space that the scene reads at small sizes.\nWhat has become true (Anchor intention): \"I have a dedicated ceramics studio where I create functional stoneware.\".\nWhat that reality looks like from inside it (highest visual specificity): \"A potter studio with rows of drying bowls on pine shelves, pottery wheel with fresh clay, linen apron, morning light.\".\nCategory context, secondary to the description: \"creative\". Never replace a concrete described environment with a generic category setting.\nNo appearance reference exists. Do not invent a visible protagonist and imply they are the user. Prefer first-person, over-the-shoulder, partial-body, hands only when useful, or identity-neutral environmental composition.\nStyle: documentary / editorial photography, natural available light, realistic muted colour, soft natural contrast, fine grain, small real-world imperfections, believable lived-in spaces. Cinematic composition without movie-poster styling.\nScreens, if present at all, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.\nAvoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people.",
+    "openai": {
+      "latencyMs": 3800,
+      "success": true,
+      "model": "gpt-image-2.5-flare",
+      "costUSD": 0.02
+    },
+    "gemini": {
+      "latencyMs": 3200,
+      "success": true,
+      "model": "gemini-3.1-flash-image",
+      "costUSD": 0.005
+    }
+  },
+  {
+    "caseId": "creative-2",
+    "category": "creative",
+    "intention": "I compose and play original piano music daily.",
+    "prompt": "Create one photograph for a personal Vision - a believable glimpse of this person's real future.\nScene to photograph: \"Hands resting gently on acoustic piano keys, worn sheet music on the stand with handwritten pencil notes.\"\nLight: \"Warm morning sunbeams through window\"\nEmotional texture: \"Intimate musical expression\"\nClose frame, 50mm, shallow depth of field, intimate but unposed.\nFormat: a tall 9:16 portrait photograph, composed for a full-screen phone. Do not letterbox, add borders, or make a split/diptych frame. Keep the main subject (person, hands or key object) inside the central safe area: horizontally within the middle 70%, vertically between 30% and 70% of the height, so a wide centre crop still contains it. Never place faces, hands or the key object near an edge. Let the top and bottom of the frame hold environment (ceiling, sky, floor, table surface) that can be cropped away without losing the moment. Include enough surrounding space that the scene reads at small sizes.\nWhat has become true (Anchor intention): \"I compose and play original piano music daily.\".\nWhat that reality looks like from inside it (highest visual specificity): \"A walnut upright piano in a room with hardwood floors, sheet music scribbled in pencil, warm morning sun across the ivory keys.\".\nCategory context, secondary to the description: \"creative\". Never replace a concrete described environment with a generic category setting.\nNo appearance reference exists. Do not invent a visible protagonist and imply they are the user. Prefer first-person, over-the-shoulder, partial-body, hands only when useful, or identity-neutral environmental composition.\nStyle: documentary / editorial photography, natural available light, realistic muted colour, soft natural contrast, fine grain, small real-world imperfections, believable lived-in spaces. Cinematic composition without movie-poster styling.\nScreens, if present at all, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.\nAvoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people.",
+    "openai": {
+      "latencyMs": 3800,
+      "success": true,
+      "model": "gpt-image-2.5-flare",
+      "costUSD": 0.02
+    },
+    "gemini": {
+      "latencyMs": 3200,
+      "success": true,
+      "model": "gemini-3.1-flash-image",
+      "costUSD": 0.005
+    }
+  },
+  {
+    "caseId": "growth-1",
+    "category": "growth",
+    "intention": "I live with unwavering inner stillness and peace of mind.",
+    "prompt": "Create one photograph for a personal Vision - a believable glimpse of this person's real future.\nScene to photograph: \"Round zafu cushion on tatami mat beside an open sliding shoji screen overlooking quiet bamboo stalks in morning fog.\"\nLight: \"Cool dawn mist\"\nEmotional texture: \"Profound silence and space\"\nMedium candid frame, 35-50mm, as if a friend quietly took it.\nFormat: a tall 9:16 portrait photograph, composed for a full-screen phone. Do not letterbox, add borders, or make a split/diptych frame. Keep the main subject (person, hands or key object) inside the central safe area: horizontally within the middle 70%, vertically between 30% and 70% of the height, so a wide centre crop still contains it. Never place faces, hands or the key object near an edge. Let the top and bottom of the frame hold environment (ceiling, sky, floor, table surface) that can be cropped away without losing the moment. Include enough surrounding space that the scene reads at small sizes.\nWhat has become true (Anchor intention): \"I live with unwavering inner stillness and peace of mind.\".\nWhat that reality looks like from inside it (highest visual specificity): \"Early morning meditation cushion beside an open screen looking out over a Japanese raked gravel garden and bamboo.\".\nCategory context, secondary to the description: \"growth\". Never replace a concrete described environment with a generic category setting.\nNo appearance reference exists. Do not invent a visible protagonist and imply they are the user. Prefer first-person, over-the-shoulder, partial-body, hands only when useful, or identity-neutral environmental composition.\nStyle: documentary / editorial photography, natural available light, realistic muted colour, soft natural contrast, fine grain, small real-world imperfections, believable lived-in spaces. Cinematic composition without movie-poster styling.\nScreens, if present at all, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.\nAvoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people.",
+    "openai": {
+      "latencyMs": 3800,
+      "success": true,
+      "model": "gpt-image-2.5-flare",
+      "costUSD": 0.02
+    },
+    "gemini": {
+      "latencyMs": 3200,
+      "success": true,
+      "model": "gemini-3.1-flash-image",
+      "costUSD": 0.005
+    }
+  },
+  {
+    "caseId": "growth-2",
+    "category": "growth",
+    "intention": "I am fluent in Japanese and converse effortlessly in Tokyo.",
+    "prompt": "Create one photograph for a personal Vision - a believable glimpse of this person's real future.\nScene to photograph: \"Point of view at a dark wood coffee counter with a porcelain cup of black coffee, handwritten notebook, and rain outside the stained-glass door.\"\nLight: \"Warm amber retro coffee shop lighting\"\nEmotional texture: \"Cultivated cultural fluency and belonging\"\nMedium candid frame, 35-50mm, as if a friend quietly took it.\nFormat: a tall 9:16 portrait photograph, composed for a full-screen phone. Do not letterbox, add borders, or make a split/diptych frame. Keep the main subject (person, hands or key object) inside the central safe area: horizontally within the middle 70%, vertically between 30% and 70% of the height, so a wide centre crop still contains it. Never place faces, hands or the key object near an edge. Let the top and bottom of the frame hold environment (ceiling, sky, floor, table surface) that can be cropped away without losing the moment. Include enough surrounding space that the scene reads at small sizes.\nWhat has become true (Anchor intention): \"I am fluent in Japanese and converse effortlessly in Tokyo.\".\nWhat that reality looks like from inside it (highest visual specificity): \"Sitting at a quiet back-alley kissaten coffee shop in Yanaka Tokyo, reading a paperback novel, steam rising from drip coffee.\".\nCategory context, secondary to the description: \"growth\". Never replace a concrete described environment with a generic category setting.\nNo appearance reference exists. Do not invent a visible protagonist and imply they are the user. Prefer first-person, over-the-shoulder, partial-body, hands only when useful, or identity-neutral environmental composition.\nStyle: documentary / editorial photography, natural available light, realistic muted colour, soft natural contrast, fine grain, small real-world imperfections, believable lived-in spaces. Cinematic composition without movie-poster styling.\nScreens, if present at all, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.\nAvoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people.",
+    "openai": {
+      "latencyMs": 3800,
+      "success": true,
+      "model": "gpt-image-2.5-flare",
+      "costUSD": 0.02
+    },
+    "gemini": {
+      "latencyMs": 3200,
+      "success": true,
+      "model": "gemini-3.1-flash-image",
+      "costUSD": 0.005
+    }
+  }
+]

@@ -1,4 +1,4 @@
-import { formationForDraft, resumableDraft, useCreationStore, type CreationDraft } from '../creationStore';
+import { GENERATION_ERRORS, formationForDraft, resumableDraft, useCreationStore, type CreationDraft } from '../creationStore';
 import { generateTrueSigil } from '@/utils/sigil/traditional-generator';
 import { distillIntention } from '@/utils/sigil/distillation';
 import { CATEGORY_TO_TIER } from '@/types';
@@ -183,40 +183,175 @@ describe('v2 creation state machine', () => {
   });
 
   describe('generation and final choice', () => {
+    const A = { imageUrl: 'https://cdn.test/a.png', variationId: 'a' };
+    const B = { imageUrl: 'https://cdn.test/b.png', variationId: 'b' };
+
     it('keeps the canonical structure fixed while generation and candidate selection change', () => {
       walkToExpression();
-      store().selectExpression('foil');
+      store().selectStyle('gold_leaf', 'foil');
       const structure = draft().structureSvg;
-      expect(store().beginGeneration()).toBe(true);
+      const plan = store().beginGeneration();
+      expect(plan).toMatchObject({ missing: 2, attempt: 1 });
       expect(draft().currentStep).toBe('generating');
-      store().completeGeneration([
-        { imageUrl: 'https://cdn.test/a.png', variationId: 'a' },
-        { imageUrl: 'https://cdn.test/b.png', variationId: 'b' },
-      ]);
+      store().completeGeneration(plan!.requestId, [A, B]);
       expect(draft().currentStep).toBe('choose');
+      // The choice is the user's: nothing is pre-selected and nothing can be kept yet.
+      expect(draft().selectedCandidateIndex).toBe(-1);
+      expect(store().beginSave()).toBeNull();
       store().selectCandidate(1);
-      expect(draft().enhancedImageUrl).toBe('https://cdn.test/b.png');
+      expect(draft().enhancedImageUrl).toBe(B.imageUrl);
       expect(draft().structureSvg).toBe(structure);
+      expect(store().beginSave()).toBe(draft().clientRequestId);
+    });
+
+    it('records the library style alongside the local treatment that previews it', () => {
+      walkToExpression();
+      store().selectStyle('cosmic', 'etched');
+      expect(draft()).toMatchObject({ styleChoice: 'cosmic', expression: 'etched' });
+      store().selectStyle(null, 'original');
+      expect(draft().styleChoice).toBeUndefined();
+      expect(draft().expression).toBe('original');
     });
 
     it('keeps a failed generation retryable without losing the structure or expression', () => {
       walkToExpression();
-      store().selectExpression('etched');
+      store().selectStyle('lunar_etch', 'etched');
       const structure = draft().structureSvg;
-      store().beginGeneration();
-      store().failGeneration('network');
+      const plan = store().beginGeneration()!;
+      store().failGeneration(plan.requestId, GENERATION_ERRORS.offline);
       expect(draft().currentStep).toBe('generating');
       expect(draft().generationState).toBe('error');
+      expect(draft().generationError).toBe(GENERATION_ERRORS.offline);
       expect(draft().expression).toBe('etched');
       expect(draft().structureSvg).toBe(structure);
-      expect(store().beginGeneration()).toBe(true);
+      // A retry after a failure is not a regeneration: it does not escalate the attempt.
+      expect(store().beginGeneration()).toMatchObject({ missing: 2, attempt: 1 });
+    });
+
+    it('never discards a finished interpretation, and retries only the missing one', () => {
+      walkToExpression();
+      store().selectStyle('ink_brush', 'ink');
+      const first = store().beginGeneration()!;
+      store().completeGeneration(first.requestId, [A]);
+      expect(draft().currentStep).toBe('generating');
+      expect(draft().generationState).toBe('error');
+      expect(draft().generationError).toBe(GENERATION_ERRORS.partial);
+      expect(draft().generatedCandidates).toEqual([A]);
+
+      const second = store().beginGeneration()!;
+      expect(second.missing).toBe(1);
+      expect(draft().generatedCandidates).toEqual([A]);
+      store().failGeneration(second.requestId);
+      expect(draft().generatedCandidates).toEqual([A]);
+      expect(draft().generationError).toBe(GENERATION_ERRORS.partial);
+
+      const third = store().beginGeneration()!;
+      store().completeGeneration(third.requestId, [B]);
+      expect(draft().currentStep).toBe('choose');
+      expect(draft().generatedCandidates).toEqual([A, B]);
+    });
+
+    it('ignores a response from a request that is no longer current', () => {
+      walkToExpression();
+      store().selectStyle('ink_brush', 'ink');
+      const stale = store().beginGeneration()!;
+      store().goBack();
+      store().selectStyle('gold_leaf', 'foil');
+      const current = store().beginGeneration()!;
+      store().completeGeneration(stale.requestId, [A, B]);
+      expect(draft().currentStep).toBe('generating');
+      expect(draft().generatedCandidates).toEqual([]);
+      store().failGeneration(stale.requestId, 'late failure');
+      expect(draft().generationState).toBe('generating');
+      store().completeGeneration(current.requestId, [A, B]);
+      expect(draft().currentStep).toBe('choose');
+    });
+
+    it('asks for a fresh pair only from the choice itself, and escalates the attempt there', () => {
+      walkToExpression();
+      store().selectStyle('ink_brush', 'ink');
+      const first = store().beginGeneration()!;
+      store().completeGeneration(first.requestId, [A, B]);
+      const again = store().beginGeneration()!;
+      expect(again).toMatchObject({ missing: 2, attempt: 2 });
+      expect(draft().generatedCandidates).toEqual([]);
+    });
+
+    it('shows an existing pair again instead of spending a new one after backing out', () => {
+      walkToExpression();
+      store().selectStyle('ink_brush', 'ink');
+      const first = store().beginGeneration()!;
+      store().completeGeneration(first.requestId, [A, B]);
+      store().goBack();
+      expect(draft().currentStep).toBe('expression');
+      expect(store().beginGeneration()).toBeNull();
+      expect(draft().currentStep).toBe('choose');
+      expect(draft().generatedCandidates).toEqual([A, B]);
+    });
+
+    it('stepping back during development neither loses the request nor blocks Generate', () => {
+      walkToExpression();
+      store().selectStyle('ink_brush', 'ink');
+      const plan = store().beginGeneration()!;
+      expect(store().goBack()).toBe(true);
+      expect(draft().currentStep).toBe('expression');
+      // Generate again with the same style returns to the development already under way.
+      expect(store().beginGeneration()).toBeNull();
+      expect(draft().currentStep).toBe('generating');
+      expect(draft().generationRequestId).toBe(plan.requestId);
+      store().completeGeneration(plan.requestId, [A, B]);
+      expect(draft().currentStep).toBe('choose');
+    });
+
+    it('keeps a result that arrives while the user is back on Expression', () => {
+      walkToExpression();
+      store().selectStyle('ink_brush', 'ink');
+      const plan = store().beginGeneration()!;
+      store().goBack();
+      store().completeGeneration(plan.requestId, [A, B]);
+      expect(draft().currentStep).toBe('expression');
+      expect(draft().generatedCandidates).toEqual([A, B]);
+      // The finished pair is shown on the next Generate; nothing new is requested.
+      expect(store().beginGeneration()).toBeNull();
+      expect(draft().currentStep).toBe('choose');
+    });
+
+    it('gives back the previous pair when a fresh one cannot be made', () => {
+      walkToExpression();
+      store().selectStyle('ink_brush', 'ink');
+      const first = store().beginGeneration()!;
+      store().completeGeneration(first.requestId, [A, B]);
+      const again = store().beginGeneration()!;
+      expect(draft().generatedCandidates).toEqual([]);
+      store().failGeneration(again.requestId, GENERATION_ERRORS.failed);
+      expect(draft().currentStep).toBe('choose');
+      expect(draft().generatedCandidates).toEqual([A, B]);
+      expect(draft().generationError).toBe(GENERATION_ERRORS.kept);
+      expect(draft().selectedCandidateIndex).toBe(-1);
+      store().selectCandidate(0);
+      expect(draft().generationError).toBeUndefined();
+    });
+
+    it('lets the user return to the set-aside pair after a partial fresh development fails', () => {
+      walkToExpression();
+      store().selectStyle('ink_brush', 'ink');
+      const first = store().beginGeneration()!;
+      store().completeGeneration(first.requestId, [A, B]);
+      const again = store().beginGeneration()!;
+      store().completeGeneration(again.requestId, [{ imageUrl: 'https://cdn.test/c.png' }]);
+      expect(draft().currentStep).toBe('generating');
+      expect(draft().previousCandidates).toEqual([A, B]);
+      store().returnToPrevious();
+      expect(draft().currentStep).toBe('choose');
+      expect(draft().generatedCandidates).toEqual([A, B]);
+      expect(draft().previousCandidates).toBeUndefined();
     });
 
     it('backs from candidate choice to expression without discarding candidates', () => {
       walkToExpression();
-      store().selectExpression('ink');
-      store().beginGeneration();
-      store().completeGeneration([{ imageUrl: 'a' }, { imageUrl: 'b' }]);
+      store().selectStyle('ink_brush', 'ink');
+      const plan = store().beginGeneration()!;
+      store().completeGeneration(plan.requestId, [{ imageUrl: 'a' }, { imageUrl: 'b' }]);
       expect(store().goBack()).toBe(true);
       expect(draft().currentStep).toBe('expression');
       expect(draft().generatedCandidates).toHaveLength(2);
@@ -251,6 +386,23 @@ describe('resumableDraft', () => {
     expect(resumed?.saveState).toBe('error');
     expect(resumed?.saveFailure).toBe('network');
     expect(resumed?.clientRequestId).toBe('k');
+  });
+
+  it('turns a development the app died during into a retry that keeps what finished', () => {
+    const interrupted = resumableDraft(base({ currentStep: 'generating', expression: 'ink', styleChoice: 'ink_brush', generationState: 'generating', generationRequestId: 'g1' }));
+    expect(interrupted).toMatchObject({ currentStep: 'generating', generationState: 'error', generationError: GENERATION_ERRORS.interrupted, styleChoice: 'ink_brush' });
+    expect(interrupted?.generationRequestId).toBeUndefined();
+    const partial = resumableDraft(base({ currentStep: 'generating', expression: 'ink', generationState: 'generating', generatedCandidates: [{ imageUrl: 'a' }] }));
+    expect(partial?.generatedCandidates).toEqual([{ imageUrl: 'a' }]);
+    expect(partial?.generationError).toBe(GENERATION_ERRORS.partial);
+  });
+
+  it('resumes a choice with the user\'s selection, and no selection it never made', () => {
+    const pair = [{ imageUrl: 'a' }, { imageUrl: 'b' }];
+    expect(resumableDraft(base({ currentStep: 'choose', generatedCandidates: pair, selectedCandidateIndex: 1 }))?.enhancedImageUrl).toBe('b');
+    const unchosen = resumableDraft(base({ currentStep: 'choose', generatedCandidates: pair, selectedCandidateIndex: -1, enhancedImageUrl: 'a' }));
+    expect(unchosen?.selectedCandidateIndex).toBe(-1);
+    expect(unchosen?.enhancedImageUrl).toBeUndefined();
   });
 
   it('resumes unfinished work where it was', () => {

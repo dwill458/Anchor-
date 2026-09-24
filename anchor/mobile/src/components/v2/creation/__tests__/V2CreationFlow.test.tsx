@@ -67,9 +67,9 @@ describe('V2CreationFlow', () => {
     fireEvent.press(screen.getByTestId('intention-continue'));
     expect(current().distilledLetters).toEqual(LETTERS);
     layoutStage();
-    await waitFor(() => expect(current().currentStep).toBe('formation'), { timeout: 1500 });
+    await waitFor(() => expect(current().currentStep).toBe('formation'), { timeout: 3000 });
     expect(current().structureSvg).toBe(STRUCTURE);
-    await waitFor(() => expect(current().currentStep).toBe('reveal'), { timeout: 1500 });
+    await waitFor(() => expect(current().currentStep).toBe('reveal'), { timeout: 3000 });
     expect(screen.getByText('This is your Anchor.')).toBeTruthy();
     expect(screen.getByTestId('reveal-intention').props.children.join('')).toContain(INTENTION);
   });
@@ -80,27 +80,58 @@ describe('V2CreationFlow', () => {
     await act(async () => fireEvent.press(screen.getByTestId('expression-keep')));
     expect(props.generateExpression).not.toHaveBeenCalled();
     expect(props.saveAnchor).toHaveBeenCalledWith(expect.objectContaining({ draft: expect.objectContaining({ expression: 'original', enhancedImageUrl: undefined }) }));
-    await waitFor(() => expect(props.onComplete).toHaveBeenCalledTimes(1), { timeout: 1000 });
+    await waitFor(() => expect(props.onComplete).toHaveBeenCalledTimes(1), { timeout: 3000 });
+  });
+
+  it('offers the full expression library with the structure itself in every choice', () => {
+    seed(draftAt({ currentStep: 'expression' }));
+    const { screen } = setup();
+    // Library styles beyond the six the old screen showed.
+    expect(screen.getByTestId('expression-style-cosmic')).toBeTruthy();
+    expect(screen.getByTestId('expression-style-obsidian_mono')).toBeTruthy();
+    expect(screen.getByText('YOUR STRUCTURE')).toBeTruthy();
+    expect(screen.getByText('The structure stays the same. Its expression changes.')).toBeTruthy();
   });
 
   it('starts generation only after an expression is explicitly selected', async () => {
     seed(draftAt({ currentStep: 'expression' }));
     const generateExpression = jest.fn(async () => ({ candidates: CANDIDATES, metadata: { styleApplied: 'architectural_trace' } }));
-    const { screen, props } = setup({ generateExpression });
+    const { screen, props, layoutStage } = setup({ generateExpression });
     expect(generateExpression).not.toHaveBeenCalled();
-    fireEvent.press(screen.getByTestId('expression-card-architectural'));
+    fireEvent.press(screen.getByTestId('expression-style-architectural_trace'));
     expect(current().expression).toBe('architectural');
+    expect(current().styleChoice).toBe('architectural_trace');
     fireEvent.press(screen.getByTestId('expression-generate'));
     expect(current().currentStep).toBe('generating');
-    await waitFor(() => expect(current().currentStep).toBe('choose'), { timeout: 1000 });
+    expect(generateExpression).toHaveBeenCalledWith(expect.objectContaining({ count: 2, generationAttempt: 1 }));
+    await waitFor(() => expect(current().currentStep).toBe('choose'), { timeout: 3000 });
+    layoutStage();
     expect(generateExpression).toHaveBeenCalledTimes(1);
-    expect(screen.getByText('Two expressions of the same structure.')).toBeTruthy();
+    expect(screen.getByText('Choose your Anchor.')).toBeTruthy();
     expect(screen.getByTestId('candidate-0')).toBeTruthy();
     expect(screen.getByTestId('candidate-1')).toBeTruthy();
+    // Nothing is kept until the user chooses.
+    expect(screen.getByTestId('choose-keep').props.accessibilityState).toMatchObject({ disabled: true });
     fireEvent.press(screen.getByTestId('candidate-1'));
     expect(current().selectedCandidateIndex).toBe(1);
     await act(async () => fireEvent.press(screen.getByTestId('choose-keep')));
     expect(props.saveAnchor).toHaveBeenCalledWith(expect.objectContaining({ draft: expect.objectContaining({ enhancedImageUrl: CANDIDATES[1].imageUrl, structureSvg: STRUCTURE }) }));
+  });
+
+  it('keeps a finished interpretation and asks only for the missing one', async () => {
+    seed(draftAt({ currentStep: 'expression', expression: 'architectural', styleChoice: 'architectural_trace' }));
+    const generateExpression = jest.fn()
+      .mockResolvedValueOnce({ candidates: [CANDIDATES[0]] })
+      .mockResolvedValueOnce({ candidates: [CANDIDATES[1]] });
+    const { screen } = setup({ generateExpression });
+    fireEvent.press(screen.getByTestId('expression-generate'));
+    await waitFor(() => expect(current().generationState).toBe('error'), { timeout: 3000 });
+    expect(current().generatedCandidates).toEqual([CANDIDATES[0]]);
+    expect(screen.getByText('One interpretation is ready. The second did not finish. Try again for the second.')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('generation-retry'));
+    expect(generateExpression).toHaveBeenLastCalledWith(expect.objectContaining({ count: 1 }));
+    await waitFor(() => expect(current().currentStep).toBe('choose'), { timeout: 3000 });
+    expect(current().generatedCandidates).toEqual(CANDIDATES);
   });
 
   it('preserves the canonical structure when generation fails and retries cleanly', async () => {
@@ -108,11 +139,29 @@ describe('V2CreationFlow', () => {
     const generateExpression = jest.fn().mockRejectedValueOnce(new Error('Network error')).mockResolvedValueOnce({ candidates: CANDIDATES });
     const { screen } = setup({ generateExpression });
     fireEvent.press(screen.getByTestId('expression-generate'));
-    await waitFor(() => expect(current().generationState).toBe('error'), { timeout: 1000 });
+    await waitFor(() => expect(current().generationState).toBe('error'), { timeout: 3000 });
     expect(current().structureSvg).toBe(STRUCTURE);
     fireEvent.press(screen.getByTestId('generation-retry'));
-    await waitFor(() => expect(current().currentStep).toBe('choose'), { timeout: 1000 });
+    await waitFor(() => expect(current().currentStep).toBe('choose'), { timeout: 3000 });
     expect(generateExpression).toHaveBeenCalledTimes(2);
+  });
+
+  it('never locks Keep after a sign-in failure on the choice', async () => {
+    seed(draftAt({ currentStep: 'choose', expression: 'architectural', styleChoice: 'architectural_trace', generatedCandidates: CANDIDATES, generationState: 'complete', selectedCandidateIndex: 1, enhancedImageUrl: CANDIDATES[1].imageUrl }));
+    const saveAnchor = jest.fn()
+      .mockRejectedValueOnce(Object.assign(new Error('auth'), { failure: 'auth' }))
+      .mockResolvedValueOnce({ anchorId: 'server-anchor-1' });
+    const { screen, props, layoutStage } = setup({ saveAnchor });
+    layoutStage();
+    await act(async () => fireEvent.press(screen.getByTestId('choose-keep')));
+    expect(current().saveFailure).toBe('auth');
+    expect(screen.getByTestId('choose-sign-in')).toBeTruthy();
+    // Back from signing in, Keep still works and saves the chosen interpretation.
+    expect(screen.getByTestId('choose-keep').props.accessibilityState).toMatchObject({ disabled: false });
+    await act(async () => fireEvent.press(screen.getByTestId('choose-keep')));
+    expect(saveAnchor).toHaveBeenCalledTimes(2);
+    expect(current().anchorPersisted).toBe(true);
+    await waitFor(() => expect(props.onComplete).toHaveBeenCalledTimes(1), { timeout: 3000 });
   });
 
   it('walks back from choose to expression without discarding candidates', () => {

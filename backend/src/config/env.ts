@@ -34,6 +34,18 @@ export interface EnvConfig {
 
   // AI Services
   REPLICATE_API_TOKEN?: string; // Optional - mock mode available
+  OPENAI_API_KEY?: string;
+  VISION_PRIMARY_PROVIDER?: 'openai' | 'gemini';
+  VISION_FALLBACK_PROVIDER?: 'openai' | 'gemini';
+  ANCHOR_PRIMARY_PROVIDER?: 'gemini' | 'openai';
+  ANCHOR_FALLBACK_PROVIDER?: 'openai' | 'gemini';
+  OPENAI_VISION_MODEL?: string;
+  OPENAI_ANCHOR_MODEL?: string;
+  OPENAI_FALLBACK_MODEL?: string;
+  GEMINI_VISION_MODEL?: string;
+  GEMINI_ANCHOR_MODEL?: string;
+  GEMINI_ANCHOR_PREMIUM_MODEL?: string;
+  VISION_AB_TEST_ENABLED?: boolean;
 
   // Storage (Cloudflare R2)
   CLOUDFLARE_ACCOUNT_ID?: string;
@@ -178,6 +190,48 @@ export function validateEnv(): EnvConfig {
 
       // AI Services (optional - mock mode available)
       REPLICATE_API_TOKEN: validateString('REPLICATE_API_TOKEN', process.env.REPLICATE_API_TOKEN),
+      OPENAI_API_KEY: validateString('OPENAI_API_KEY', process.env.OPENAI_API_KEY),
+      VISION_PRIMARY_PROVIDER: validateEnum<'openai' | 'gemini'>(
+        'VISION_PRIMARY_PROVIDER',
+        process.env.VISION_PRIMARY_PROVIDER,
+        ['openai', 'gemini'],
+        'openai'
+      ),
+      VISION_FALLBACK_PROVIDER: validateEnum<'openai' | 'gemini'>(
+        'VISION_FALLBACK_PROVIDER',
+        process.env.VISION_FALLBACK_PROVIDER,
+        ['openai', 'gemini'],
+        'gemini'
+      ),
+      ANCHOR_PRIMARY_PROVIDER: validateEnum<'gemini' | 'openai'>(
+        'ANCHOR_PRIMARY_PROVIDER',
+        process.env.ANCHOR_PRIMARY_PROVIDER,
+        ['gemini', 'openai'],
+        'gemini'
+      ),
+      ANCHOR_FALLBACK_PROVIDER: validateEnum<'openai' | 'gemini'>(
+        'ANCHOR_FALLBACK_PROVIDER',
+        process.env.ANCHOR_FALLBACK_PROVIDER,
+        ['openai', 'gemini'],
+        'openai'
+      ),
+      OPENAI_VISION_MODEL: validateString('OPENAI_VISION_MODEL', process.env.OPENAI_VISION_MODEL),
+      OPENAI_ANCHOR_MODEL: validateString('OPENAI_ANCHOR_MODEL', process.env.OPENAI_ANCHOR_MODEL),
+      OPENAI_FALLBACK_MODEL: validateString(
+        'OPENAI_FALLBACK_MODEL',
+        process.env.OPENAI_FALLBACK_MODEL
+      ),
+      GEMINI_VISION_MODEL: validateString('GEMINI_VISION_MODEL', process.env.GEMINI_VISION_MODEL),
+      GEMINI_ANCHOR_MODEL: validateString('GEMINI_ANCHOR_MODEL', process.env.GEMINI_ANCHOR_MODEL),
+      GEMINI_ANCHOR_PREMIUM_MODEL: validateString(
+        'GEMINI_ANCHOR_PREMIUM_MODEL',
+        process.env.GEMINI_ANCHOR_PREMIUM_MODEL
+      ),
+      VISION_AB_TEST_ENABLED: validateBoolean(
+        'VISION_AB_TEST_ENABLED',
+        process.env.VISION_AB_TEST_ENABLED,
+        false
+      ),
 
       // Storage (optional - mock mode available)
       CLOUDFLARE_ACCOUNT_ID: validateString(

@@ -25,6 +25,8 @@ type Props = {
   voice?: GuidanceVoice;
   ambient?: boolean;
   haptics?: boolean;
+  focusEntryAnchorCenterY?: number;
+  focusEntryAnchorSize?: number;
   onBack: () => void;
   onCompleted: () => void;
   onFocusAgain: () => void;
@@ -40,6 +42,8 @@ export function V2PracticeSessionScreen({
   voice,
   ambient,
   haptics,
+  focusEntryAnchorCenterY,
+  focusEntryAnchorSize,
   onBack,
   onCompleted,
   onFocusAgain,
@@ -62,6 +66,10 @@ export function V2PracticeSessionScreen({
   const defaultFocusSettings = useSettingsStore((state) => state.sessionAudioDefaults?.focus);
   const defaultVisualizeSettings = useSettingsStore((state) => state.sessionAudioDefaults?.visualize);
   const hapticIntensity = useSettingsStore((state) => state.hapticIntensity);
+  const [focusSessionId, setFocusSessionId] = useState<string | null>(null);
+  const focusSessionRecord = useSessionStore((state) =>
+    focusSessionId ? state.practiceHistory.find((record) => record.id === focusSessionId) : undefined
+  );
   const resolvedVoice = voice ?? defaultFocusSettings?.guidanceVoice ?? 'female';
   const resolvedAmbient = ambient ?? (defaultFocusSettings?.backgroundAudio !== 'off');
 
@@ -69,6 +77,7 @@ export function V2PracticeSessionScreen({
   const startedAtRef = useRef(new Date());
   const legacyClockStartedRef = useRef(false);
   const [focusPhase, setFocusPhase] = useState<'active' | 'complete'>('active');
+  const [focusPersistenceFailed, setFocusPersistenceFailed] = useState(false);
   const focusCompletionStartedRef = useRef(false);
   const [strengthSnapshot, setStrengthSnapshot] = useState<{
     before: number | null;
@@ -112,6 +121,7 @@ export function V2PracticeSessionScreen({
     async (sessionData: {
       plannedDurationSeconds: number;
       actualDurationSeconds: number;
+      startedAt: string;
       completedAt: string;
     }) => {
       if (!anchor || focusCompletionStartedRef.current) return;
@@ -123,6 +133,7 @@ export function V2PracticeSessionScreen({
       const beforeStrength =
         typeof anchor.threadStrength === 'number' ? anchor.threadStrength : null;
       const sessionId = `v2-focus-${anchor.id}-${Date.now()}`;
+      setFocusSessionId(sessionId);
 
       try {
         await PracticeCompletionService.completePracticeSession(
@@ -135,7 +146,7 @@ export function V2PracticeSessionScreen({
             mode: 'focus',
             plannedDurationSeconds: sessionData.plannedDurationSeconds,
             actualDurationSeconds: sessionData.actualDurationSeconds,
-            startedAt: startedAtRef.current.toISOString(),
+            startedAt: sessionData.startedAt,
             completedAt: sessionData.completedAt,
             source: 'practice_screen',
             guidanceVoice: resolvedVoice,
@@ -150,7 +161,9 @@ export function V2PracticeSessionScreen({
         // or unavailable; `flush` retains the queued record on failure.
         void PracticeCompletionService.flush(resolvedAccountId).catch(() => undefined);
       } catch {
-        // PracticeCompletionService durably persists to encrypted queue on failure
+        // A rejection can mean the local durable write failed. Do not report
+        // reinforcement unless PracticeCompletionService accepted the record.
+        setFocusPersistenceFailed(true);
       }
 
       const freshAnchor = useAnchorStore
@@ -200,6 +213,15 @@ export function V2PracticeSessionScreen({
       </V2Screen>
     );
   }
+
+  const currentBeforeStrength = focusSessionRecord?.threadStrengthBefore ?? strengthSnapshot.before;
+  const currentAfterStrength =
+    focusSessionRecord?.threadStrengthAfter ??
+    (focusSessionRecord?.syncState === 'synced'
+      ? typeof anchor.threadStrength === 'number'
+        ? anchor.threadStrength
+        : currentBeforeStrength
+      : strengthSnapshot.after);
 
   if (mode === 'visualize' && visionModel.state.state !== 'ready') {
     return (
@@ -253,6 +275,10 @@ export function V2PracticeSessionScreen({
           durationSeconds={durationSeconds}
           voice={resolvedVoice}
           ambient={resolvedAmbient}
+          haptics={haptics ?? (hapticIntensity ?? 70) > 0}
+          initialStage="entry"
+          entryStartCenterY={focusEntryAnchorCenterY}
+          entryStartSize={focusEntryAnchorSize}
           onExit={onBack}
           onComplete={handleFocusComplete}
         />
@@ -263,8 +289,9 @@ export function V2PracticeSessionScreen({
       <V2FocusCompleteScreen
         anchor={anchor}
         durationSeconds={durationSeconds}
-        beforeStrength={strengthSnapshot.before}
-        afterStrength={strengthSnapshot.after}
+        beforeStrength={currentBeforeStrength}
+        afterStrength={currentAfterStrength}
+        sessionSaved={!focusPersistenceFailed}
         onDone={handleDone}
         onAgain={handleAgain}
       />

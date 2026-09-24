@@ -27,6 +27,8 @@ export type V2PracticeStartRequest = {
   ambient?: boolean;
   /** Session-only haptics choice from setup; unset keeps the saved setting. */
   haptics?: boolean;
+  focusEntryAnchorCenterY?: number;
+  focusEntryAnchorSize?: number;
 };
 export type V2PracticeRouteIntents = {
   onPremiumCapabilityRequired: (request: V2PremiumCapabilityRequest) => void;

@@ -10,7 +10,7 @@ import type { FirstRunDirection } from '@/constants/v2/firstRun';
 export type FirstRunStep = 'direction' | 'intention' | 'formation' | 'anchor' | 'expression' | 'vision' | 'focus' | 'auth' | 'complete';
 export type FirstRunExpression = 'original' | 'monoline' | 'architectural' | 'foil' | 'embossed' | 'etched' | 'ink' | 'halo' | 'glass' | 'radiant' | 'organic' | 'woven' | 'cutpaper';
 export type VisionChoice = 'create_now' | 'chart_only' | 'skip_for_now' | 'vision_and_chart';
-export type FirstRunDraft = { direction?: FirstRunDirection; intention?: string; normalizedFormationInput?: string; category?: AnchorCategory; distilledLetters?: string[]; structure?: 'balanced'; anchorSvg?: string; expression?: FirstRunExpression; selectedAnchorCandidate?: string; anchorLocalId?: string; focusSessionId?: string; visionChoice?: VisionChoice; visionDraft?: { requested: boolean; chartRequested: boolean }; firstFocusCompleted?: boolean; focusCompletionRecorded?: boolean; authCompleted?: boolean; anchorPersisted?: boolean; currentStep: FirstRunStep };
+export type FirstRunDraft = { direction?: FirstRunDirection; intention?: string; normalizedFormationInput?: string; category?: AnchorCategory; distilledLetters?: string[]; structure?: 'balanced'; anchorSvg?: string; expression?: FirstRunExpression; styleChoice?: string; enhancedImageUrl?: string; selectedAnchorCandidate?: string; anchorLocalId?: string; focusSessionId?: string; visionChoice?: VisionChoice; visionDraft?: { requested: boolean; chartRequested: boolean }; firstFocusCompleted?: boolean; focusCompletionRecorded?: boolean; authCompleted?: boolean; anchorPersisted?: boolean; currentStep: FirstRunStep };
 
 const initialDraft = (): FirstRunDraft => ({ currentStep: 'direction' });
 const id = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -35,9 +35,21 @@ export function formFirstRunAnchor(draft: FirstRunDraft): FirstRunDraft {
   return { ...draft, normalizedFormationInput: intention, category, distilledLetters: letters, structure: 'balanced', expression, anchorSvg: anchor.svg, selectedAnchorCandidate: anchor.svg, anchorLocalId: draft.anchorLocalId ?? id('v2-first-anchor'), focusSessionId: draft.focusSessionId ?? id('v2-first-focus') };
 }
 
-type FirstRunState = { draft: FirstRunDraft; hydrated: boolean; setDirection: (direction: FirstRunDirection) => void; setIntention: (intention: string) => void; form: () => void; setExpression: (expression: FirstRunExpression) => void; setVisionChoice: (choice: VisionChoice) => void; setStep: (step: FirstRunStep) => void; markFocusCompleted: () => void; markFocusRecorded: () => void; markAuthCompleted: () => void; markAnchorPersisted: () => void; complete: () => void; reset: () => void };
-export const useFirstRunStore = create<FirstRunState>()(persist((set) => ({
+/** What the shared creation flow hands first-run once the user has made their first Anchor. */
+export type FirstRunCreation = { intention: string; category?: AnchorCategory; distilledLetters: string[]; anchorSvg: string; expression: string; styleChoice?: string; enhancedImageUrl?: string };
+
+type FirstRunState = { draft: FirstRunDraft; hydrated: boolean; adoptCreation: (creation: FirstRunCreation) => string; setDirection: (direction: FirstRunDirection) => void; setIntention: (intention: string) => void; form: () => void; setExpression: (expression: FirstRunExpression) => void; setVisionChoice: (choice: VisionChoice) => void; setStep: (step: FirstRunStep) => void; markFocusCompleted: () => void; markFocusRecorded: () => void; markAuthCompleted: () => void; markAnchorPersisted: () => void; complete: () => void; reset: () => void };
+export const useFirstRunStore = create<FirstRunState>()(persist((set, get) => ({
   draft: initialDraft(), hydrated: false,
+  // The first Anchor is made by the same creation flow as every other; first-run keeps it
+  // locally (there is no account yet) until the user saves it at the end of onboarding.
+  adoptCreation: (creation) => {
+    const current = get().draft;
+    const anchorLocalId = current.anchorLocalId ?? id('v2-first-anchor');
+    const expression = (creation.expression === 'cut_paper' ? 'cutpaper' : creation.expression) as FirstRunExpression;
+    set({ draft: { ...current, intention: creation.intention, normalizedFormationInput: creation.intention, category: creation.category, distilledLetters: creation.distilledLetters, structure: 'balanced', anchorSvg: creation.anchorSvg, selectedAnchorCandidate: creation.anchorSvg, expression, styleChoice: creation.styleChoice, enhancedImageUrl: creation.enhancedImageUrl, anchorLocalId, focusSessionId: current.focusSessionId ?? id('v2-first-focus'), firstFocusCompleted: false, focusCompletionRecorded: false, anchorPersisted: false } });
+    return anchorLocalId;
+  },
   setDirection: (direction) => set((state) => ({ draft: { ...state.draft, direction, currentStep: 'intention' } })),
   setIntention: (intention) => set((state) => { const unchanged = state.draft.intention === intention; const draft = unchanged ? state.draft : invalidateFormation({ ...state.draft, intention }); return { draft: { ...draft, intention, currentStep: 'intention' } }; }),
   form: () => set((state) => ({ draft: { ...formFirstRunAnchor(state.draft), currentStep: 'formation' } })),

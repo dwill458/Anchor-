@@ -15,7 +15,7 @@ import { normalizeExpression } from '@/components/v2/anchor/anchorExpressions';
 import type { CreationDraft, SaveFailure } from '@/stores/v2/creationStore';
 import type { AnchorExpression } from '@/constants/v2/creation';
 import type { GeneratedAnchorCandidate } from '@/constants/v2/creation';
-import { expressionOption } from '@/components/v2/creation/expressionOptions';
+import { generationStyleFor } from '@/components/v2/creation/expressionOptions';
 import { logger } from '@/utils/logger';
 
 /** A save failure the flow can explain and route on. */
@@ -68,6 +68,7 @@ export function buildCreatePayload(draft: CreationDraft, idempotencyKey: string)
     classifierMeta: {
       v2Expression: draft.expression,
       v2Structure: draft.structureType ?? 'focused',
+      ...(draft.expression !== 'original' && draft.styleChoice ? { v2StyleChoice: draft.styleChoice } : {}),
       source: 'v2_creation',
     },
     ...(draft.enhancedImageUrl ? { enhancedImageUrl: draft.enhancedImageUrl } : {}),
@@ -93,35 +94,46 @@ type EnhanceResponse = {
   reuseRequestId?: string;
 };
 
+/** Why a generation failed, which decides the copy the user sees. */
+export type GenerationFailure = SaveFailure;
+
 /**
  * Reuses the production enhancement endpoint. It is intentionally a user action adapter, not
  * an effect: mounting the Expression screen cannot spend an AI generation.
+ *
+ * `count` is how many interpretations are still needed. The answer may hold fewer — one
+ * finished interpretation is returned rather than discarded, and the caller asks again only
+ * for the one that is missing. Only an answer with none rejects.
  */
 export async function generateExpressionCandidates({
   draft,
-  generationAttempt = 0,
+  generationAttempt = 1,
+  count = 2,
 }: {
   draft: CreationDraft;
   generationAttempt?: number;
+  count?: number;
 }): Promise<{ candidates: GeneratedAnchorCandidate[]; metadata: Record<string, unknown> }> {
   if (!draft.structureSvg || draft.expression === 'original') throw new CreationSaveError('server', 'Choose an expression first.');
-  const option = expressionOption(draft.expression);
-  if (!option?.styleChoice) throw new CreationSaveError('server', 'That expression is not available right now.');
+  const styleChoice = generationStyleFor(draft);
+  if (!styleChoice) throw new CreationSaveError('server', 'That expression is not available right now.');
+  const wanted = Math.min(2, Math.max(1, Math.round(count)));
 
   try {
     const response = await apiClient.post<EnhanceResponse>('/api/ai/enhance', {
       sigilSvg: draft.structureSvg,
-      styleChoice: option.styleChoice,
+      styleChoice,
       intentionText: draft.normalizedIntention ?? draft.intention.trim(),
       anchorId: `temp-${draft.draftId}`,
       provider: 'gemini',
       tier: 'premium',
       generationAttempt,
       validateStructure: true,
+      variationCount: wanted,
     }, { timeout: 180000 });
     const candidates = (response.data.variations ?? [])
       .filter((variation) => variation.structurePreserved === true && typeof variation.imageUrl === 'string' && variation.imageUrl.length > 0)
-      .slice(0, 2)
+      .slice(0, wanted)
       .map((variation) => ({
         imageUrl: variation.imageUrl as string,
         variationId: variation.variationId,
@@ -131,11 +143,11 @@ export async function generateExpressionCandidates({
         provider: response.data.provider,
         model: response.data.model,
       }));
-    if (candidates.length < 2) throw new CreationSaveError('server', 'The expression did not return two finished interpretations.');
+    if (candidates.length === 0) throw new CreationSaveError('server', 'The expression did not return a finished interpretation.');
     return {
       candidates,
       metadata: {
-        styleApplied: option.styleChoice,
+        styleApplied: styleChoice,
         modelUsed: response.data.model ?? 'unknown-model',
         provider: response.data.provider ?? 'unknown',
         controlMethod: response.data.controlMethod ?? 'lineart',
@@ -206,6 +218,10 @@ export async function persistCreatedAnchor({
   const record: Anchor = withExpression(
     {
       ...created,
+      // The server hands back a freshly signed URL for the same stored image. Home would have to
+      // fetch it again, so the circle arrived blank; the URL the user just chose from is already
+      // decoded and names the same object. The next sync replaces it with the server's own.
+      ...(draft.enhancedImageUrl && created.enhancedImageUrl ? { enhancedImageUrl: draft.enhancedImageUrl } : {}),
       localId: draft.draftId,
       userId: created.userId ?? userId,
       createdAt: toDate(created.createdAt) ?? new Date(),

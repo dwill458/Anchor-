@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
-import Animated, { interpolateColor, useAnimatedStyle, withDelay, withTiming, type SharedValue } from 'react-native-reanimated';
+import Animated, { interpolate, interpolateColor, useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
 
 import { colors, typography } from '@/theme/v2';
+import { creationDelay, creationSequence, creationTiming } from './creationMotion';
 import {
   buildDistillationRenderModel,
   computeCompactionTargets,
@@ -17,20 +18,27 @@ import {
 } from './distillationMotion';
 
 /** Gap between letters once they have closed up, in the compacted row. */
-const COMPACT_TRACKING = 14;
+const COMPACT_TRACKING = 16;
+/** How far a dimmed letter fades before it withdraws: still legible, clearly leaving. */
+const DIMMED = 0.3;
 
-type Glow = { progress: SharedValue<number>; arrivals: number[]; accent: string };
+/** Formation's clock, lighting each letter as it leaves the row for its cell. */
+export type DistillationGlow = { progress: SharedValue<number>; departures: number[]; accent: string };
+
+/** Where each surviving letter settled, by its slot, in the stage's own coordinates. */
+export type SettledSlots = Map<number, { x: number; y: number }>;
 
 /**
  * One character of the intention. It is never replaced or re-mounted: the same view either
- * fades away (if it is removed) or travels to its slot in the settled sequence (if it
- * survives), and later lights up when formation places its point.
+ * dims and withdraws (if it is removed) or travels to its slot in the settled sequence (if it
+ * survives), and later lights up when formation carries it to its cell.
  */
 function DistillationLetter({
   cell,
   stage,
   target,
   reduceMotion,
+  instant,
   glow,
   onMeasure,
 }: {
@@ -38,7 +46,9 @@ function DistillationLetter({
   stage: DistillationStage;
   target?: CompactionTarget;
   reduceMotion: boolean;
-  glow?: Glow;
+  /** Place the letter where it belongs without travel (a resumed formation). */
+  instant: boolean;
+  glow?: DistillationGlow;
   onMeasure: (keptIndex: number, box: { x: number; y: number; width: number; height: number }) => void;
 }) {
   const removed = isCellRemoved(cell, stage);
@@ -58,38 +68,49 @@ function DistillationLetter({
     const dx = compacting && target ? target.dx : 0;
     const dy = compacting && target ? target.dy : 0;
     const settledScale = compacting && target ? target.scale : 1;
-    const opacity = removed ? 0 : 1;
-    // A removed character shrinks slightly as it goes — a soft withdrawal, never an error state.
-    const scale = removed ? 0.86 : settledScale;
 
-    if (reduceMotion) {
-      return { opacity, transform: [{ translateX: dx }, { translateY: dy }, { scale }] };
+    if (reduceMotion || instant) {
+      return { opacity: removed ? 0 : 1, transform: [{ translateX: dx }, { translateY: dy }, { scale: removed ? 0.86 : settledScale }] };
     }
 
-    const fade = { duration: DISTILL_TIMING.letterFade, easing: DISTILL_EASING };
     const travel = { duration: DISTILL_TIMING.compact, easing: DISTILL_EASING };
+    if (removed) {
+      // Dim first, so the eye can see which letters are leaving; then withdraw, slightly
+      // smaller and lower — a quiet release, never an error state.
+      const dim = { duration: DISTILL_TIMING.letterDim, easing: DISTILL_EASING };
+      const fade = { duration: DISTILL_TIMING.letterFade, easing: DISTILL_EASING };
+      return {
+        opacity: creationDelay(delay, creationSequence(creationTiming(DIMMED, dim), creationDelay(DISTILL_TIMING.dimHold, creationTiming(0, fade)))),
+        transform: [
+          { translateX: 0 },
+          { translateY: creationDelay(delay + DISTILL_TIMING.letterDim + DISTILL_TIMING.dimHold, creationTiming(5, fade)) },
+          { scale: creationDelay(delay + DISTILL_TIMING.letterDim + DISTILL_TIMING.dimHold, creationTiming(0.84, fade)) },
+        ],
+      };
+    }
     return {
-      opacity: withDelay(removed ? delay : 0, withTiming(opacity, fade)),
+      opacity: creationTiming(1, { duration: DISTILL_TIMING.letterFade }),
       transform: [
-        { translateX: withTiming(dx, travel) },
-        { translateY: withTiming(dy, travel) },
-        { scale: withDelay(removed ? delay : 0, withTiming(scale, removed ? fade : travel)) },
+        { translateX: creationTiming(dx, travel) },
+        { translateY: creationTiming(dy, travel) },
+        { scale: creationTiming(settledScale, travel) },
       ],
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [removed, compacting, target?.dx, target?.dy, target?.scale, delay, reduceMotion]);
+  }, [removed, compacting, target?.dx, target?.dy, target?.scale, delay, reduceMotion, instant]);
 
   // Kept separate from the motion style so formation's per-frame progress never restarts the
   // distillation timings.
-  const arrival = cell.keep && glow ? glow.arrivals[cell.keptIndex] ?? -1 : -1;
+  const departure = cell.keep && glow ? glow.departures[cell.keptIndex] ?? -1 : -1;
   const glowStyle = useAnimatedStyle(() => {
-    if (!glow || arrival < 0) return {};
-    const lit = glow.progress.value >= arrival ? 1 : 0;
+    if (!glow || departure < 0) return {};
+    // The letter warms to the accent as it leaves for its cell, rather than switching.
+    const lit = interpolate(glow.progress.value, [departure - 0.015, departure], [0, 1], 'clamp');
     return { color: interpolateColor(lit, [0, 1], [colors.text.primary, glow.accent]) };
-  }, [arrival, glow]);
+  }, [departure, glow]);
 
   return (
-    <Animated.Text onLayout={handleLayout} style={[styles.char, cell.keep && styles.charKept, motionStyle, glowStyle]}>
+    <Animated.Text onLayout={handleLayout} style={[styles.char, motionStyle, glowStyle]}>
       {cell.char}
     </Animated.Text>
   );
@@ -98,37 +119,64 @@ function DistillationLetter({
 /**
  * Letter Distillation — one continuous reduction of the phrase the user just wrote.
  *
- * The intention arrives whole, the vowels go, the repeats go, and the letters left standing
- * physically travel together into the sequence the Anchor is built from. Both the
- * classification and the letters come from the production distillation algorithm — this
- * component computes no letters of its own.
+ * The intention arrives whole and untouched. Then, pass by pass, the letters the method
+ * removes dim and withdraw — the vowels, then the repeats — and the letters left standing
+ * physically travel together into the sequence the Anchor is built from, while the original
+ * sentence stays faintly above so the relationship is never lost. Both the classification and
+ * the letters come from the production distillation algorithm — this component computes no
+ * letters of its own.
  */
 export function DistillationLetters({
   intention,
   letters,
   reduceMotion,
   glow,
+  showSource = true,
+  startSettled = false,
   onStage,
+  onSlots,
 }: {
   intention: string;
   letters: string[];
   reduceMotion: boolean;
-  /** Formation's progress, lighting each letter as its point is placed. */
-  glow?: Glow;
+  /**
+   * Open on the settled sequence, already in place — for a formation resumed after the app
+   * was closed. The letters are still the measured, travelling views formation carries on
+   * from, so nothing jumps when they leave for their cells.
+   */
+  startSettled?: boolean;
+  glow?: DistillationGlow;
+  /** The original sentence, kept faintly present while it is being reduced. */
+  showSource?: boolean;
   onStage?: (stage: DistillationStage) => void;
+  /** Where the survivors settled, so formation can carry each one on to its cell. */
+  onSlots?: (slots: SettledSlots) => void;
 }) {
   const model = useMemo(() => buildDistillationRenderModel(intention), [intention]);
-  const [stage, setStage] = useState<DistillationStage>('whole');
+  const [stage, setStage] = useState<DistillationStage>(startSettled ? 'settled' : 'whole');
   const [targets, setTargets] = useState<Map<number, CompactionTarget> | null>(null);
   const { keptCount, lastStaggerIndex } = model;
   const onStageRef = useRef(onStage);
   onStageRef.current = onStage;
+  const onSlotsRef = useRef(onSlots);
+  onSlotsRef.current = onSlots;
 
   useEffect(() => {
     onStageRef.current?.(stage);
   }, [stage]);
 
   useEffect(() => {
+    if (!targets) return;
+    const slots: SettledSlots = new Map();
+    targets.forEach((target, keptIndex) => slots.set(keptIndex, { x: target.cx, y: target.cy }));
+    onSlotsRef.current?.(slots);
+  }, [targets]);
+
+  useEffect(() => {
+    if (startSettled) {
+      setStage('settled');
+      return undefined;
+    }
     setStage('whole');
     if (reduceMotion) {
       // Reduced motion still opens on the phrase, then presents the settled sequence
@@ -144,7 +192,7 @@ export function DistillationLetters({
       setTimeout(() => setStage('settled'), at.settled),
     ];
     return () => timers.forEach(clearTimeout);
-  }, [intention, reduceMotion, lastStaggerIndex]);
+  }, [intention, reduceMotion, lastStaggerIndex, startSettled]);
 
   /**
    * Letter boxes arrive relative to their word and words relative to the stage, so the row
@@ -201,10 +249,18 @@ export function DistillationLetters({
   const settled = stage === 'settled';
   const lettersLabel = `Distilled letters: ${letters.join(', ')}`;
   // Reduced motion never measures a travel, so it presents the sequence as a settled line.
-  const presentAsRow = settled && (reduceMotion || !targets);
+  const presentAsRow = settled && reduceMotion && !startSettled;
+
+  const sourceVisible = showSource && stage !== 'whole' && !startSettled;
+  const sourceStyle = useAnimatedStyle(() => ({
+    opacity: reduceMotion ? (sourceVisible ? 0.62 : 0) : creationTiming(sourceVisible ? 0.62 : 0, { duration: 600, easing: DISTILL_EASING }),
+  }), [reduceMotion, sourceVisible]);
 
   return (
     <View style={styles.stage} onLayout={onStageLayout} pointerEvents="none">
+      <Animated.View style={[styles.source, sourceStyle]} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+        <Text style={styles.sourceText} numberOfLines={2}>“{intention}”</Text>
+      </Animated.View>
       {presentAsRow ? (
         <Text style={styles.settledRow} accessibilityLabel={lettersLabel} testID="distillation-letters">
           {letters.join('  ')}
@@ -220,6 +276,7 @@ export function DistillationLetters({
                   stage={stage}
                   target={targets?.get(cell.keptIndex)}
                   reduceMotion={reduceMotion}
+                  instant={startSettled}
                   glow={glow}
                   onMeasure={onLetterMeasure}
                 />
@@ -236,10 +293,13 @@ const styles = StyleSheet.create({
   stage: { flex: 1, justifyContent: 'center' },
   // The phrase fills the stage, so every measured word and letter position is stage-relative,
   // which is what the compaction targets are solved in.
-  phrase: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', alignContent: 'center', justifyContent: 'center' },
+  // Padded (not offset) so it still starts at the stage origin while leaving the top line to
+  // the original sentence.
+  phrase: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', alignContent: 'center', justifyContent: 'center', paddingTop: 52 },
   // A word stays one unbreakable unit, so wrapping happens between words and never inside one.
-  word: { flexDirection: 'row', marginRight: 8 },
-  char: { ...typography.headingXL, color: colors.text.tertiary },
-  charKept: { color: colors.text.primary },
+  word: { flexDirection: 'row', marginRight: 10 },
+  char: { ...typography.headingXL, color: colors.text.primary },
   settledRow: { ...typography.headingXL, color: colors.text.primary, textAlign: 'center', letterSpacing: 2 },
+  source: { position: 'absolute', top: 6, left: 0, right: 0, alignItems: 'center' },
+  sourceText: { fontFamily: 'EBGaramond-Medium', fontSize: 19, lineHeight: 24, letterSpacing: -0.2, color: colors.text.secondary, textAlign: 'center' },
 });

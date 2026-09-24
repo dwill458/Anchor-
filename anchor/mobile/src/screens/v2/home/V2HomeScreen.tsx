@@ -35,6 +35,7 @@ import { ANCHOR_DETAIL_EMPTY_ART, ANCHOR_DETAIL_HERO_ART } from '@/components/v2
 import { GRID_ART_BY_PRACTICE } from '@/components/v2/practice/V2PracticeArtwork';
 import { useSessionStore } from '@/stores/sessionStore';
 import { HomeArrivalOverlay, HomeArrivalProvider, useHomeArrival } from '@/components/v2/home/homeArrival';
+import { ProgressiveFocusTransition, useProgressiveFocusTransition } from '@/navigation/v2/ProgressiveFocusTransition';
 
 type Nav = NativeStackNavigationProp<V2DailyShellParamList, 'V2Home'>;
 
@@ -98,6 +99,7 @@ function EmptyHomeGestureSvg() {
  */
 export function V2HomeScreen() {
   const navigation = useNavigation<Nav>();
+  const focusTransition = useProgressiveFocusTransition();
   const model = useV2HomeModel();
   const reduceMotion = useV2ReduceMotion();
   const insets = useSafeAreaInsets();
@@ -241,9 +243,10 @@ export function V2HomeScreen() {
   const handleOpenActive = useCallback(
     (anchorId: string) => {
       track('v2_anchor_details_viewed', { from: 'home' });
+      focusTransition.begin();
       navigation.navigate('V2AnchorDetails', { anchorId });
     },
-    [navigation],
+    [focusTransition, navigation],
   );
 
   const handleOpenProgress = useCallback(() => {
@@ -465,6 +468,7 @@ export function V2HomeScreen() {
       {arrival.arrival ? (
         <HomeArrivalOverlay arrival={arrival.arrival} progress={arrival.context.progress} origin={arrival.origin} onOrigin={arrival.reportOrigin} />
       ) : null}
+      <ProgressiveFocusTransition role="source" />
     </SafeAreaView>
     </HomeArrivalProvider>
   );

@@ -1,13 +1,15 @@
-import { isAnchorV2DevEnabled } from '../v2FeatureFlag';
+import { isAnchorV2Enabled } from '../v2FeatureFlag';
 
-describe('Anchor V2 development entry flag', () => {
-  it('keeps the production navigator selected when disabled', () => {
-    expect(isAnchorV2DevEnabled('false', true)).toBe(false);
-    expect(isAnchorV2DevEnabled(undefined, true)).toBe(false);
+describe('Anchor V2 entry flag', () => {
+  it('keeps the legacy navigator when disabled', () => {
+    expect(isAnchorV2Enabled('false', true, 'development')).toBe(false);
+    expect(isAnchorV2Enabled(undefined, true, 'development')).toBe(false);
   });
 
-  it('allows V2 only in an approved development build', () => {
-    expect(isAnchorV2DevEnabled('true', true)).toBe(true);
-    expect(isAnchorV2DevEnabled('true', false)).toBe(false);
+  it('allows the opt-in in development and staging preview builds only', () => {
+    expect(isAnchorV2Enabled('true', true, 'development')).toBe(true);
+    expect(isAnchorV2Enabled('true', false, 'staging')).toBe(true);
+    expect(isAnchorV2Enabled('true', false, 'production')).toBe(false);
+    expect(isAnchorV2Enabled('true', false, undefined)).toBe(false);
   });
 });

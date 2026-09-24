@@ -2,6 +2,7 @@ import React, { createContext, useContext, useMemo } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useV2ReduceMotion } from '@/hooks/v2';
 import { v2ScreenBackground, v2StackScreenOptions } from '@/navigation/v2/transitions';
+import { ProgressiveFocusTransitionProvider } from '@/navigation/v2/ProgressiveFocusTransition';
 import { V2HomeScreen } from './V2HomeScreen';
 import { V2AnchorLibraryScreen } from '@/screens/v2/anchors/V2AnchorLibraryScreen';
 import { V2AnchorDetailsScreen } from '@/screens/v2/anchors/V2AnchorDetailsScreen';
@@ -54,7 +55,11 @@ export function V2DailyShellIntentsProvider({
   intents: V2DailyShellIntents;
   children: React.ReactNode;
 }) {
-  return <IntentsContext.Provider value={intents}>{children}</IntentsContext.Provider>;
+  return (
+    <ProgressiveFocusTransitionProvider>
+      <IntentsContext.Provider value={intents}>{children}</IntentsContext.Provider>
+    </ProgressiveFocusTransitionProvider>
+  );
 }
 
 export function useV2DailyShellIntents(): Required<
@@ -102,13 +107,15 @@ export function V2DailyShellNavigator({ intents = {} }: { intents?: V2DailyShell
   // full-width slide while every other V2 push used the platform default.)
   const screenOptions = useMemo(() => v2StackScreenOptions(reduceMotion), [reduceMotion]);
   return (
-    <IntentsContext.Provider value={value}>
-      <Stack.Navigator screenOptions={screenOptions}>
-        <Stack.Screen name="V2Home" component={V2HomeScreen} />
-        <Stack.Screen name="V2AnchorLibrary" component={V2AnchorLibraryScreen} />
-        <Stack.Screen name="V2AnchorDetails" component={V2AnchorDetailsScreen} options={DETAILS_OPTIONS} />
-      </Stack.Navigator>
-    </IntentsContext.Provider>
+    <ProgressiveFocusTransitionProvider>
+      <IntentsContext.Provider value={value}>
+        <Stack.Navigator screenOptions={screenOptions}>
+          <Stack.Screen name="V2Home" component={V2HomeScreen} />
+          <Stack.Screen name="V2AnchorLibrary" component={V2AnchorLibraryScreen} />
+          <Stack.Screen name="V2AnchorDetails" component={V2AnchorDetailsScreen} options={DETAILS_OPTIONS} />
+        </Stack.Navigator>
+      </IntentsContext.Provider>
+    </ProgressiveFocusTransitionProvider>
   );
 }
 

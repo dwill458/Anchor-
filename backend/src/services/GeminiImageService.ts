@@ -10,7 +10,10 @@ import sharp from 'sharp';
 import { logger } from '../utils/logger';
 import { buildStylePrompt, getStyleNegativePrompt } from './stylePromptLibrary';
 import {
-  buildVisionScenePlannerPrompt, parseVisionScenePlan, VISION_IMAGE_ASPECT_RATIO, type VisionScenePlanItem,
+  buildVisionScenePlannerPrompt,
+  parseVisionScenePlan,
+  VISION_IMAGE_ASPECT_RATIO,
+  type VisionScenePlanItem,
 } from './v2/visionScenePlanning';
 
 // Re-exporting interfaces for compatibility
@@ -144,42 +147,90 @@ export class GeminiImageService {
     category: string,
     description: string,
     avoidScenes: string[] = [],
-    hasAppearanceReference: boolean = false,
+    hasAppearanceReference: boolean = false
   ): Promise<VisionScenePlanItem[]> {
-    if (!this.isAvailable()) throw new GeminiError(GeminiErrorType.INVALID_API_KEY, 'Image provider unavailable');
+    if (!this.isAvailable())
+      throw new GeminiError(GeminiErrorType.INVALID_API_KEY, 'Image provider unavailable');
     const response = await this.client.models.generateContent({
       model: SCENE_PLANNER_MODEL,
-      contents: [{ role: 'user', parts: [{ text: buildVisionScenePlannerPrompt({ intention, category, description, avoidScenes, hasAppearanceReference }) }] }],
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: buildVisionScenePlannerPrompt({
+                intention,
+                category,
+                description,
+                avoidScenes,
+                hasAppearanceReference,
+              }),
+            },
+          ],
+        },
+      ],
       config: { responseMimeType: 'application/json', temperature: 1 },
     });
     const plan = parseVisionScenePlan(response.text);
-    if (!plan) throw new GeminiError(GeminiErrorType.INVALID_IMAGE, 'Scene planning returned an invalid result', true);
+    if (!plan)
+      throw new GeminiError(
+        GeminiErrorType.INVALID_IMAGE,
+        'Scene planning returned an invalid result',
+        true
+      );
     return plan;
   }
 
-  async generateVisionScene(prompt: string, reference?: { buffer: Buffer; mimeType: string }): Promise<Buffer> {
-    if (!this.isAvailable()) throw new GeminiError(GeminiErrorType.INVALID_API_KEY, 'Image provider unavailable');
+  async generateVisionScene(
+    prompt: string,
+    reference?: { buffer: Buffer; mimeType: string }
+  ): Promise<Buffer> {
+    if (!this.isAvailable())
+      throw new GeminiError(GeminiErrorType.INVALID_API_KEY, 'Image provider unavailable');
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 90000);
     try {
       const response = await this.client.models.generateContent({
         model: VISION_IMAGE_MODEL,
-        contents: [{
-          role: 'user',
-          parts: [
-            { text: reference
-              ? `${prompt}\n\nThe attached image is an optional approved appearance reference. Use it only when the person is visibly represented; preserve broad likeness without naming or inferring demographic attributes. Do not force a face into the composition.`
-              : `${prompt}\n\nNo appearance reference was supplied. Do not imply an invented protagonist is the user; prefer first-person, identity-neutral, obscured, or environmental composition when a person would otherwise be central.` },
-            ...(reference ? [{ inlineData: { mimeType: reference.mimeType, data: reference.buffer.toString('base64') } }] : []),
-          ],
-        }],
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                text: reference
+                  ? `${prompt}\n\nThe attached image is an optional approved appearance reference. Use it only when the person is visibly represented; preserve broad likeness without naming or inferring demographic attributes. Do not force a face into the composition.`
+                  : `${prompt}\n\nNo appearance reference was supplied. Do not imply an invented protagonist is the user; prefer first-person, identity-neutral, obscured, or environmental composition when a person would otherwise be central.`,
+              },
+              ...(reference
+                ? [
+                    {
+                      inlineData: {
+                        mimeType: reference.mimeType,
+                        data: reference.buffer.toString('base64'),
+                      },
+                    },
+                  ]
+                : []),
+            ],
+          },
+        ],
         // Portrait-first: Visualize is a full-screen portrait experience, so the
         // model composes for it rather than having a square cropped later.
-        config: { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: VISION_IMAGE_ASPECT_RATIO }, abortSignal: controller.signal },
+        config: {
+          responseModalities: ['IMAGE'],
+          imageConfig: { aspectRatio: VISION_IMAGE_ASPECT_RATIO },
+          abortSignal: controller.signal,
+        },
       });
-      const data = response.candidates?.flatMap(candidate => candidate.content?.parts ?? [])
+      const data = response.candidates
+        ?.flatMap(candidate => candidate.content?.parts ?? [])
         .find(part => typeof part.inlineData?.data === 'string')?.inlineData?.data;
-      if (!data) throw new GeminiError(GeminiErrorType.INVALID_IMAGE, 'Image provider returned no image', true);
+      if (!data)
+        throw new GeminiError(
+          GeminiErrorType.INVALID_IMAGE,
+          'Image provider returned no image',
+          true
+        );
       return Buffer.from(data, 'base64');
     } finally {
       clearTimeout(timer);
@@ -1559,13 +1610,50 @@ Integration rules:
   ): Promise<ImageVariation> {
     // Route to Nano Banana if configured
     if (modelConfig.useNanoBanana) {
-      return this.generateVariationWithNanoBanana(
-        baseImageBuffer,
-        prompt,
-        variationIndex,
-        modelConfig,
-        retryCount
-      );
+      try {
+        return await this.generateVariationWithNanoBanana(
+          baseImageBuffer,
+          prompt,
+          variationIndex,
+          modelConfig,
+          retryCount
+        );
+      } catch (nanoBananaError) {
+        const geminiError =
+          nanoBananaError instanceof GeminiError
+            ? nanoBananaError
+            : this.parseError(nanoBananaError);
+
+        // OpenAI redundancy fallback for Anchor artwork
+        const openAiKey = process.env.OPENAI_API_KEY?.trim();
+        const allowFallback = process.env.ANCHOR_FALLBACK_PROVIDER !== 'none';
+        const isRetryableInfraFailure =
+          geminiError.retryable ||
+          geminiError.type === GeminiErrorType.NETWORK_ERROR ||
+          geminiError.type === GeminiErrorType.RATE_LIMIT;
+
+        if (openAiKey && allowFallback && isRetryableInfraFailure) {
+          logger.warn(
+            `[GeminiImageService] Nano Banana failed for variation ${variationIndex + 1}. Falling back to OpenAI Image Provider.`,
+            { error: geminiError.message, type: geminiError.type }
+          );
+          try {
+            return await this.generateVariationWithOpenAI(
+              baseImageBuffer,
+              prompt,
+              variationIndex,
+              modelConfig
+            );
+          } catch (openAiError) {
+            logger.error(
+              `[GeminiImageService] OpenAI fallback also failed for variation ${variationIndex + 1}: ${openAiError instanceof Error ? openAiError.message : String(openAiError)}`
+            );
+            throw geminiError;
+          }
+        }
+
+        throw geminiError;
+      }
     }
 
     // Fallback to Imagen (legacy)
@@ -1783,5 +1871,41 @@ REFERENCE IMAGE INSTRUCTION: The attached image contains the exact Anchor struct
     } catch (error) {
       throw new GeminiError(GeminiErrorType.INVALID_IMAGE, 'Failed to convert SVG to PNG', false);
     }
+  }
+
+  private async generateVariationWithOpenAI(
+    baseImageBuffer: Buffer,
+    prompt: string,
+    variationIndex: number,
+    modelConfig: ModelConfig
+  ): Promise<ImageVariation> {
+    const { OpenAIImageProviderAdapter } =
+      await import('./image/adapters/OpenAIImageProviderAdapter');
+    const adapter = new OpenAIImageProviderAdapter();
+    const result = await adapter.generate(
+      {
+        type: 'anchor',
+        prompt,
+        referenceImages: [{ buffer: baseImageBuffer, mimeType: 'image/png', role: 'structure' }],
+        numberOfVariations: 1,
+        quality: modelConfig.modelId.includes('pro') ? 'pro_upgrade' : 'premium',
+      },
+      2
+    );
+
+    const firstImage = result.images[0];
+    if (!firstImage) {
+      throw new GeminiError(
+        GeminiErrorType.INVALID_IMAGE,
+        'No image data returned from OpenAI fallback',
+        true
+      );
+    }
+
+    return {
+      base64: firstImage.base64 || firstImage.buffer.toString('base64'),
+      seed: firstImage.seed || Math.floor(Math.random() * 1000000),
+      variationIndex: variationIndex + 1,
+    };
   }
 }

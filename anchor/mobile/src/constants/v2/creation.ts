@@ -114,7 +114,8 @@ export const FORMATION_COPY = {
   eyebrow: 'FORMATION',
   title: 'Building your Anchor.',
   status: {
-    grid: 'Each letter becomes a point.',
+    grid: 'Each letter becomes a number on the square.',
+    map: 'Each number becomes a point.',
     path: 'One line connects them, in order.',
     settle: 'Formed from your words alone.',
   },
@@ -128,6 +129,7 @@ export const REVEAL_COPY = {
   body: 'Formed from your words alone.',
   cta: 'Choose how it appears',
   howItFormed: 'See how it was formed',
+  replay: 'Watch it form again',
   /** The formation sheet's second half, after the distillation mechanism. */
   gridIntro:
     'Each remaining letter becomes a number, and each number a point on a grid chosen by the kind of intention it is. One unbroken line joins the points in the order you wrote them.',
@@ -136,24 +138,36 @@ export const REVEAL_COPY = {
 export const EXPRESSION_COPY = {
   eyebrow: 'EXPRESSION',
   title: 'How should it appear?',
-  principle: 'Your structure stays the same. Choose an expression to bring it to life.',
+  structureLabel: 'YOUR STRUCTURE',
+  principle: 'The structure stays the same. Its expression changes.',
+  suggested: 'SUGGESTED FOR THIS ANCHOR',
+  all: 'ALL EXPRESSIONS',
   microcopy: 'Each expression adapts uniquely to your Anchor.',
   generate: 'Generate Anchor →',
   original: 'Keep original structure',
+  originalBody: 'Use the structure formed from your words, unchanged.',
 } as const;
 
 export const GENERATION_COPY = {
   eyebrow: 'CREATING',
   title: 'Bringing your Anchor to life.',
   body: 'Your structure stays present while the expression develops around it.',
+  /** Named for what is on screen, never for how far the server has got. */
+  phase: {
+    structure: 'Your structure, exactly as it was formed.',
+    expression: 'Its expression develops around it.',
+    surface: 'Bringing it into its final form.',
+    extended: 'Still developing. Some expressions take a little longer.',
+  },
   retry: 'Try again',
   back: 'Back to expressions',
+  previous: 'Return to your previous pair',
 } as const;
 
 export const CHOOSE_COPY = {
   eyebrow: 'YOUR ANCHOR',
-  title: 'Choose yours.',
-  body: 'Two expressions of the same structure.',
+  title: 'Choose your Anchor.',
+  body: 'Two interpretations of the same structure.',
   keep: 'Keep this Anchor →',
   retry: 'Try again',
 } as const;

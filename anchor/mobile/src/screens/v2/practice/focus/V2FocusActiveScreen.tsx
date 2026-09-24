@@ -36,24 +36,29 @@ import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { safeHaptics } from '@/utils/haptics';
 import { V2FocusAnchorArtwork } from './V2FocusAnchorArtwork';
+import { V2FocusField } from './V2FocusField';
 
 export interface V2FocusActiveScreenProps {
   anchor: Anchor;
   durationSeconds: number;
   voice: GuidanceVoice;
   ambient: boolean;
+  haptics?: boolean;
   onExit: () => void;
   onComplete: (sessionData: {
     plannedDurationSeconds: number;
     actualDurationSeconds: number;
+    startedAt: string;
     completedAt: string;
   }) => void;
   /** Test instrumentation overrides */
   initialElapsedMs?: number;
   initialPaused?: boolean;
   initialResolving?: boolean;
-  initialStage?: 'prepare' | 'focus';
+  initialStage?: 'prepare' | 'focus' | 'entry';
   autoAdvancePrepare?: boolean;
+  entryStartCenterY?: number;
+  entryStartSize?: number;
 }
 
 function fmtRemaining(ms: number): string {
@@ -68,6 +73,7 @@ export function V2FocusActiveScreen({
   durationSeconds,
   voice,
   ambient,
+  haptics = true,
   onExit,
   onComplete,
   initialElapsedMs = 0,
@@ -75,6 +81,8 @@ export function V2FocusActiveScreen({
   initialResolving = false,
   initialStage,
   autoAdvancePrepare = true,
+  entryStartCenterY,
+  entryStartSize,
 }: V2FocusActiveScreenProps) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
@@ -87,6 +95,7 @@ export function V2FocusActiveScreen({
   const anchorSize = Math.round(
     Math.min(width * 0.84, usableHeight * 0.48, 380),
   );
+  const fieldSize = anchorSize + Math.min(36, Math.round(anchorSize * 0.1));
   const atmosphereId = `focus-atmosphere-${anchor.id.replace(/[^a-zA-Z0-9]/g, '')}`;
   const categoryColor = getCategoryColor(anchor.category);
 
@@ -96,10 +105,11 @@ export function V2FocusActiveScreen({
   // Stage state: 'prepare' -> 'focus' -> 'resolving'
   const defaultStage =
     initialStage ?? (initialElapsedMs > 0 || initialResolving ? 'focus' : 'prepare');
-  const [stage, setStage] = useState<'prepare' | 'focus' | 'resolving'>(defaultStage);
+  const [stage, setStage] = useState<'prepare' | 'entry' | 'focus' | 'resolving'>(defaultStage);
 
   // Clock references
   const startedAtMonotonicRef = useRef<number | null>(null);
+  const startedAtWallRef = useRef<string | null>(null);
   const pausedAtMonotonicRef = useRef<number | null>(null);
   const accumulatedPausedMsRef = useRef<number>(0);
   const doneRef = useRef<boolean>(initialResolving);
@@ -110,6 +120,11 @@ export function V2FocusActiveScreen({
   const [elapsedMs, setElapsedMs] = useState<number>(initialElapsedMs);
   const [isPaused, setIsPaused] = useState<boolean>(initialPaused);
   const [isResolving, setIsResolving] = useState<boolean>(initialResolving);
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(ambient || voice !== 'none');
+  const hasConfiguredSound = ambient || voice !== 'none';
+  const [controlsVisible, setControlsVisible] = useState(false);
+  const [entryTargetCenterY, setEntryTargetCenterY] = useState<number | null>(null);
+  const fieldFrameRef = useRef<View>(null);
   const elapsedMsRef = useRef(initialElapsedMs);
   const displayedRemainingSecondsRef = useRef(Math.ceil(Math.max(0, totalMs - initialElapsedMs) / 1000));
 
@@ -122,7 +137,9 @@ export function V2FocusActiveScreen({
   const anchorLuminance = useSharedValue(1);
   const washMotion = useSharedValue(0);
   const sessionProgress = useSharedValue(Math.min(1, initialElapsedMs / totalMs));
-  const fieldTransition = useSharedValue(defaultStage === 'prepare' ? 0 : 1);
+  const controlsOpacity = useSharedValue(0);
+  const fieldTransition = useSharedValue(defaultStage === 'focus' ? 1 : 0);
+  const entryCurtain = useSharedValue(defaultStage === 'entry' ? 1 : 0);
   const resolvingContentOpacity = useSharedValue(1);
   const breathingStyle = useAnimatedStyle(() => ({
     transform: [
@@ -143,12 +160,25 @@ export function V2FocusActiveScreen({
     opacity: interpolate(washMotion.value, [0, 1], [0.14, 0.09]),
     transform: [{ scale: interpolate(washMotion.value, [0, 1], [1.025, 0.985]) }],
   }));
-  const sessionProgressStyle = useAnimatedStyle(() => ({
-    transform: [{ scaleX: sessionProgress.value }],
-  }));
+  const controlsStyle = useAnimatedStyle(() => ({ opacity: controlsOpacity.value }));
   const resolvingContentStyle = useAnimatedStyle(() => ({
     opacity: resolvingContentOpacity.value,
   }));
+  const entryCurtainStyle = useAnimatedStyle(() => ({ opacity: entryCurtain.value }));
+  const entryArtworkStyle = useAnimatedStyle(() => {
+    if (reduceMotion) return { transform: [{ translateY: 0 }, { scale: 1 }] };
+    const progress = fieldTransition.value;
+    const startScale = entryStartSize ? entryStartSize / anchorSize : 0.94;
+    const translateY = entryStartCenterY != null && entryTargetCenterY != null
+      ? entryStartCenterY - entryTargetCenterY
+      : 0;
+    return {
+      transform: [
+        { translateY: translateY * (1 - progress) },
+        { scale: interpolate(progress, [0, 1], [startScale, 1]) },
+      ],
+    };
+  });
 
   useEffect(() => {
     const nextProgress = Math.min(1, Math.max(0, elapsedMs / totalMs));
@@ -205,10 +235,32 @@ export function V2FocusActiveScreen({
     [initialElapsedMs, readClock]
   );
 
+  const activateFocusedClock = useCallback(() => {
+    if (startedAtMonotonicRef.current != null) return;
+    startedAtMonotonicRef.current = readClock();
+    startedAtWallRef.current = new Date().toISOString();
+    if (soundEnabled && audioPlan.shouldPlayAmbient && audioPlan.ambientTrack) {
+      const player = createSessionAudioPlayer(audioPlan.ambientTrack.asset, {
+        loop: true,
+        volume: 0.14,
+      });
+      if (player) {
+        ambientPlayerRef.current = player;
+        player.play();
+      }
+    }
+    AnalyticsService.track(AnalyticsEvents.PRACTICE_SESSION_STARTED, {
+      practice_mode: 'focus',
+      duration_seconds: durationSeconds,
+      voice,
+      ambient,
+    });
+  }, [ambient, audioPlan, createSessionAudioPlayer, durationSeconds, readClock, soundEnabled, voice]);
+
   // Start the active focus timer & audio
   const startFocusSession = useCallback(() => {
     if (stage !== 'prepare') return;
-    void safeHaptics.selection();
+    if (haptics) void safeHaptics.selection();
 
     if (autoAdvanceTimerRef.current) {
       clearTimeout(autoAdvanceTimerRef.current);
@@ -235,56 +287,65 @@ export function V2FocusActiveScreen({
       }),
     ]).start(() => {
       setStage('focus');
-      startedAtMonotonicRef.current = readClock();
-
-      // Start ambient audio
-      if (audioPlan.shouldPlayAmbient && audioPlan.ambientTrack) {
-        const player = createSessionAudioPlayer(audioPlan.ambientTrack.asset, {
-          loop: true,
-          volume: 0.14,
-        });
-        if (player) {
-          ambientPlayerRef.current = player;
-          player.play();
-        }
-      }
-
-      AnalyticsService.track(AnalyticsEvents.PRACTICE_SESSION_STARTED, {
-        practice_mode: 'focus',
-        duration_seconds: durationSeconds,
-        voice,
-        ambient,
-      });
+      activateFocusedClock();
     });
   }, [
     anchorScaleAnim,
-    audioPlan,
-    createSessionAudioPlayer,
-    durationSeconds,
+    activateFocusedClock,
     fieldTransition,
     prepareFadeAnim,
-    readClock,
     stage,
-    voice,
-    ambient,
+    haptics,
   ]);
 
-  // If initialStage was focus, immediately initialize clock & audio
+  // Setup to active entry resolves over 800ms. The session clock begins only
+  // after the cream environment has yielded to the active field.
   useEffect(() => {
-    if (defaultStage === 'focus' && startedAtMonotonicRef.current == null) {
-      startedAtMonotonicRef.current = readClock();
-      if (audioPlan.shouldPlayAmbient && audioPlan.ambientTrack) {
-        const player = createSessionAudioPlayer(audioPlan.ambientTrack.asset, {
-          loop: true,
-          volume: 0.14,
-        });
-        if (player) {
-          ambientPlayerRef.current = player;
-          player.play();
-        }
+    if (stage !== 'entry' || (entryStartCenterY != null && entryTargetCenterY == null)) return;
+    const transitionMs = reduceMotion ? 0 : 800;
+    let timer: NodeJS.Timeout | null = null;
+    const beginEntry = () => {
+      if (timer || startedAtMonotonicRef.current != null) return;
+      entryCurtain.value = withTiming(0, {
+        duration: transitionMs,
+        easing: AnchorMotion.easing.enter,
+      });
+      fieldTransition.value = withTiming(1, {
+        duration: transitionMs,
+        easing: AnchorMotion.easing.enter,
+      });
+      timer = setTimeout(() => {
+        timer = null;
+        activateFocusedClock();
+        setStage('focus');
+      }, transitionMs);
+    };
+    const appStateSubscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        beginEntry();
+        return;
       }
-    }
-  }, [audioPlan, createSessionAudioPlayer, defaultStage, readClock]);
+      if (timer) clearTimeout(timer);
+      timer = null;
+      cancelAnimation(entryCurtain);
+      cancelAnimation(fieldTransition);
+      entryCurtain.value = 1;
+      fieldTransition.value = 0;
+    });
+    // React Native can report null while the initial native app-state query
+    // is still resolving. Treat that startup state as foreground; explicit
+    // background/inactive states still defer the entry until an active event.
+    if (AppState.currentState == null || AppState.currentState === 'active') beginEntry();
+    return () => {
+      if (timer) clearTimeout(timer);
+      appStateSubscription.remove();
+    };
+  }, [activateFocusedClock, entryCurtain, entryStartCenterY, entryTargetCenterY, fieldTransition, reduceMotion, stage]);
+
+  // Resumed sessions that start directly in Focus initialize their clock/audio.
+  useEffect(() => {
+    if (defaultStage === 'focus') activateFocusedClock();
+  }, [activateFocusedClock, defaultStage]);
 
   // Auto-advance prepare state after ~3.5s
   useEffect(() => {
@@ -354,7 +415,7 @@ export function V2FocusActiveScreen({
   // Trigger voice cues based on remaining time
   const checkVoiceCues = useCallback(
     (remainingMs: number) => {
-      if (!audioPlan.shouldPlayVoice) return;
+      if (!soundEnabled || !audioPlan.shouldPlayVoice) return;
 
       for (const cue of audioPlan.voiceCues) {
         if (playedCuePhasesRef.current.has(cue.phaseId)) continue;
@@ -373,7 +434,7 @@ export function V2FocusActiveScreen({
         }
       }
     },
-    [audioPlan, createSessionAudioPlayer]
+    [audioPlan, createSessionAudioPlayer, soundEnabled]
   );
 
   /**
@@ -393,6 +454,11 @@ export function V2FocusActiveScreen({
       const actualDurationSeconds = Math.max(1, Math.ceil(finalElapsedMs / 1000));
       elapsedMsRef.current = finalElapsedMs;
       setElapsedMs(finalElapsedMs);
+      if (trigger === 'automatic') {
+        sessionProgress.value = reduceMotion
+          ? 1
+          : withTiming(1, { duration: 220, easing: AnchorMotion.easing.gentle });
+      }
       setIsResolving(true);
       setStage('resolving');
 
@@ -412,9 +478,10 @@ export function V2FocusActiveScreen({
 
       // Phase 2 (1,050ms): the whole active composition fades into the ink
       // base. Phase 3 is the remaining 400ms black hold before completion.
+      const resolveDelay = trigger === 'automatic' ? 550 : 300;
       resolvingContentOpacity.value = reduceMotion
         ? 0
-        : withDelay(300, withTiming(0, {
+        : withDelay(resolveDelay, withTiming(0, {
             duration: 1050,
             easing: ReanimatedEasing.inOut(ReanimatedEasing.ease),
           }));
@@ -430,15 +497,20 @@ export function V2FocusActiveScreen({
           elapsed_seconds: actualDurationSeconds,
         });
       }
-      void safeHaptics.notification(Haptics.NotificationFeedbackType.Success);
+      const playCompletionHaptic = () => {
+        if (haptics) void safeHaptics.notification(Haptics.NotificationFeedbackType.Success);
+      };
+      if (trigger === 'automatic' && !reduceMotion) setTimeout(playCompletionHaptic, 240);
+      else playCompletionHaptic();
 
       completionTimerRef.current = setTimeout(() => {
         onComplete({
           plannedDurationSeconds: durationSeconds,
           actualDurationSeconds,
+          startedAt: startedAtWallRef.current ?? new Date().toISOString(),
           completedAt: new Date().toISOString(),
         });
-      }, reduceMotion ? 0 : 1750);
+      }, reduceMotion ? 0 : trigger === 'automatic' ? 1900 : 1750);
     },
     [
       anchorDrift,
@@ -447,9 +519,11 @@ export function V2FocusActiveScreen({
       calculateElapsed,
       durationSeconds,
       fieldTransition,
+      haptics,
       onComplete,
       reduceMotion,
       resolvingContentOpacity,
+      sessionProgress,
       totalMs,
       washMotion,
     ]
@@ -497,13 +571,44 @@ export function V2FocusActiveScreen({
     totalMs,
   ]);
 
-  // The artwork is the only tappable surface during preparation; active
-  // controls remain together in the persistent bottom-control region.
+  const controlsTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const showControls = useCallback(() => {
+    if (stage !== 'focus' || isPaused || isResolving) return;
+    setControlsVisible(true);
+    controlsOpacity.value = withTiming(1, { duration: 180, easing: AnchorMotion.easing.enter });
+    if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+    controlsTimerRef.current = setTimeout(() => {
+      controlsOpacity.value = withTiming(0, { duration: 420, easing: AnchorMotion.easing.enter });
+      controlsTimerRef.current = setTimeout(() => setControlsVisible(false), 430);
+    }, 3200);
+  }, [controlsOpacity, isPaused, isResolving, stage]);
+
+  useEffect(() => () => {
+    if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+  }, []);
+
+  const toggleSound = useCallback(() => {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    if (next) {
+      if (ambient) ambientPlayerRef.current?.play();
+      voicePlayerRef.current?.play();
+    } else {
+      ambientPlayerRef.current?.pause();
+      voicePlayerRef.current?.pause();
+    }
+    showControls();
+  }, [ambient, showControls, soundEnabled]);
+
+  // The setup screen owns duration and audio selection. Active controls are
+  // intentionally hidden until requested, then fade away after inactivity.
   const revealControls = useCallback(() => {
     if (stage === 'prepare') {
       startFocusSession();
+    } else {
+      showControls();
     }
-  }, [stage, startFocusSession]);
+  }, [showControls, stage, startFocusSession]);
 
   // Pause session
   const pauseSession = useCallback(
@@ -513,6 +618,8 @@ export function V2FocusActiveScreen({
       pausedAtMonotonicRef.current = now;
       const pausedElapsed = Math.min(totalMs, calculateElapsed(now));
       elapsedMsRef.current = pausedElapsed;
+      cancelAnimation(sessionProgress);
+      sessionProgress.value = Math.min(1, pausedElapsed / totalMs);
       displayedRemainingSecondsRef.current = Math.ceil(Math.max(0, totalMs - pausedElapsed) / 1000);
       setElapsedMs(pausedElapsed);
       setIsPaused(true);
@@ -525,7 +632,7 @@ export function V2FocusActiveScreen({
         reason,
       });
     },
-    [calculateElapsed, isPaused, isResolving, readClock, stage, totalMs]
+    [calculateElapsed, isPaused, isResolving, readClock, sessionProgress, stage, totalMs]
   );
 
   // Resume session
@@ -537,13 +644,15 @@ export function V2FocusActiveScreen({
       pausedAtMonotonicRef.current = null;
     }
     setIsPaused(false);
-    ambientPlayerRef.current?.play();
-    voicePlayerRef.current?.play();
+    if (soundEnabled) {
+      ambientPlayerRef.current?.play();
+      voicePlayerRef.current?.play();
+    }
 
     AnalyticsService.track(AnalyticsEvents.PRACTICE_SESSION_RESUMED, {
       practice_mode: 'focus',
     });
-  }, [isPaused, readClock]);
+  }, [isPaused, readClock, soundEnabled]);
 
   // AppState background handling
   useEffect(() => {
@@ -571,22 +680,24 @@ export function V2FocusActiveScreen({
     return () => backSub.remove();
   }, [isResolving, onExit, pauseSession, stage]);
 
-  const voiceLabel =
-    voice === 'female'
-      ? 'Female Voice'
-      : voice === 'male'
-      ? 'Male Voice'
-      : 'No Voice';
-  const ambientLabel = ambient ? 'Ambient' : 'Silence';
-  const audioSummary = `${voiceLabel} · ${ambientLabel}`;
-
   return (
     <Pressable
       testID="v2-focus-active-screen"
       onPress={revealControls}
+      accessible={stage === 'focus' && !controlsVisible && !isPaused && !isResolving}
+      accessibilityRole="button"
+      accessibilityLabel="Show Focus controls"
       style={styles.screen}
+      accessibilityHint="Activates to reveal the remaining time, sound, pause, and end controls."
+      accessibilityActions={[{ name: 'activate', label: 'Show Focus controls' }]}
+      onAccessibilityAction={(event) => {
+        if (event.nativeEvent.actionName === 'activate') revealControls();
+      }}
     >
-      <StatusBar barStyle="light-content" backgroundColor={colors.ink.base} animated />
+      <StatusBar barStyle={stage === 'entry' ? 'dark-content' : 'light-content'} backgroundColor={stage === 'entry' ? colors.canvas : colors.ink.base} animated />
+      {stage === 'entry' ? (
+        <Reanimated.View pointerEvents="none" style={[styles.entryCurtain, entryCurtainStyle]} />
+      ) : null}
       {/* Two diffuse fields start at the Anchor and fall away without a visible frame. */}
       <Reanimated.View pointerEvents="none" style={[styles.outerAtmosphere, outerAtmosphereStyle, resolvingContentStyle]}>
         <Svg width={width} height={height}>
@@ -627,15 +738,35 @@ export function V2FocusActiveScreen({
               },
             ]}
           >
-            <Reanimated.View style={breathingStyle}>
-              <V2FocusAnchorArtwork
-                svg={anchorArtworkSvg(anchor)} imageUrl={anchor.enhancedImageUrl}
+            <Reanimated.View
+              ref={fieldFrameRef}
+              onLayout={() => fieldFrameRef.current?.measureInWindow((_x, y, _width, height) => setEntryTargetCenterY(y + height / 2))}
+              style={[styles.focusFieldFrame, { width: fieldSize, height: fieldSize }, entryArtworkStyle]}
+            >
+              <V2FocusField
+                size={fieldSize}
+                progress={sessionProgress}
                 category={anchor.category}
-                size={anchorSize}
-                surface={colors.ink.base}
-                accessibilityLabel={`${anchor.category} Anchor artwork`}
-                testID="focus-anchor-artwork"
+                reduceMotion={reduceMotion}
+                motionActive={stage === 'focus' && !isPaused && !isResolving}
               />
+              <View
+                accessible
+                accessibilityRole="progressbar"
+                accessibilityLabel="Focus progress"
+                accessibilityValue={{ min: 0, max: 100, now: Math.round((elapsedMs / totalMs) * 100) }}
+                style={styles.accessibleProgress}
+              />
+              <Reanimated.View style={[breathingStyle, styles.anchorArtworkOverlay]}>
+                <V2FocusAnchorArtwork
+                  svg={anchorArtworkSvg(anchor)} imageUrl={anchor.enhancedImageUrl}
+                  category={anchor.category}
+                  size={anchorSize}
+                  surface={colors.ink.base}
+                  accessibilityLabel={`${anchor.category} Anchor artwork`}
+                  testID="focus-anchor-artwork"
+                />
+              </Reanimated.View>
             </Reanimated.View>
           </Animated.View>
         </Reanimated.View>
@@ -676,15 +807,6 @@ export function V2FocusActiveScreen({
             },
           ]}
         >
-          <View style={styles.sessionProgressTrack} accessibilityElementsHidden>
-            <Reanimated.View
-              style={[
-                styles.sessionProgressFill,
-                { backgroundColor: categoryColor },
-                sessionProgressStyle,
-              ]}
-            />
-          </View>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Begin Session"
@@ -698,27 +820,33 @@ export function V2FocusActiveScreen({
       )}
 
       {/* Timer, progress and actions are one bounded safe-area control group. */}
-      {stage === 'focus' && !isPaused && !isResolving && (
+      {stage === 'focus' && !isPaused && !isResolving && controlsVisible && (
         <Reanimated.View
           style={[
             styles.bottomControlRegion,
+            controlsStyle,
             resolvingContentStyle,
             { paddingBottom: insets.bottom + 12, gap: bottomControlGap },
           ]}
+          pointerEvents={controlsVisible ? 'auto' : 'none'}
+          accessibilityElementsHidden={!controlsVisible}
+          importantForAccessibility={controlsVisible ? 'auto' : 'no-hide-descendants'}
         >
           <Text testID="focus-remaining-time" style={styles.bottomTimer}>
             {fmtRemaining(totalMs - elapsedMs)}
           </Text>
-          <View style={styles.sessionProgressTrack} accessibilityElementsHidden>
-            <Reanimated.View
-              style={[
-                styles.sessionProgressFill,
-                { backgroundColor: categoryColor },
-                sessionProgressStyle,
-              ]}
-            />
-          </View>
           <View style={styles.bottomControlActions}>
+            <Pressable
+              accessibilityRole="switch"
+              accessibilityLabel={`Sound: ${soundEnabled ? 'On' : 'Off'}`}
+              accessibilityState={{ checked: soundEnabled }}
+              testID="focus-sound-active-toggle"
+              disabled={!hasConfiguredSound}
+              onPress={(event) => { event?.stopPropagation?.(); toggleSound(); }}
+              style={styles.controlButton}
+            >
+              <Text style={styles.pauseButtonText}>Sound {soundEnabled ? 'on' : 'off'}</Text>
+            </Pressable>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Pause Focus"
@@ -754,6 +882,17 @@ export function V2FocusActiveScreen({
           <Text style={styles.pausedTitle}>Paused</Text>
           <View style={styles.pausedActions}>
             <Pressable
+              accessibilityRole="switch"
+              accessibilityLabel={`Sound: ${soundEnabled ? 'On' : 'Off'}`}
+              accessibilityState={{ checked: soundEnabled, disabled: !hasConfiguredSound }}
+              testID="focus-sound-paused-toggle"
+              disabled={!hasConfiguredSound}
+              onPress={(event) => { event?.stopPropagation?.(); toggleSound(); }}
+              style={styles.controlButton}
+            >
+              <Text style={styles.pauseButtonText}>Sound {soundEnabled ? 'on' : 'off'}</Text>
+            </Pressable>
+            <Pressable
               accessibilityRole="button"
               accessibilityLabel="Resume Focus"
               testID="focus-resume-button"
@@ -783,6 +922,11 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.ink.base,
+  },
+  entryCurtain: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 20,
+    backgroundColor: colors.canvas,
   },
   topHeader: {
     position: 'absolute',
@@ -831,6 +975,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingTop: spacing[1],
     paddingBottom: spacing[3],
+  },
+  focusFieldFrame: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accessibleProgress: { position: 'absolute', left: 0, top: 0, width: 1, height: 1, opacity: 0 },
+  anchorArtworkOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   artworkShell: {
     shadowColor: '#000',

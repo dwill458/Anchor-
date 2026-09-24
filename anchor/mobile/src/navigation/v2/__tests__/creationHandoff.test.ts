@@ -3,7 +3,7 @@ jest.mock('@/stores/anchorStore', () => ({
   useAnchorStore: { getState: () => ({ setCurrentAnchor: mockSetCurrentAnchor }) },
 }));
 
-import { handOffToHome } from '../creationHandoff';
+import { handOffToHome, prepareHomeArrival } from '../creationHandoff';
 import { useHomeArrivalStore } from '@/stores/v2/homeArrivalStore';
 
 const handoff = {
@@ -62,6 +62,35 @@ describe('handOffToHome', () => {
     unsubscribe();
     expect(useHomeArrivalStore.getState().arrival?.fromRect).toBeNull();
     expect(navigation.setOptions).toHaveBeenCalledWith({ animation: 'fade', gestureEnabled: false });
+  });
+
+  it('lets Home prepare while creation is still resolving, then reuses that arrival', async () => {
+    const { markRect: _unused, ...saved } = handoff;
+    const id = prepareHomeArrival({ ...saved, imageUrl: 'https://assets.test/chosen.png' });
+    expect(mockSetCurrentAnchor).toHaveBeenCalledWith('anchor-1');
+    expect(useHomeArrivalStore.getState().arrival).toMatchObject({ id, phase: 'staging', fromRect: null, imageUrl: 'https://assets.test/chosen.png' });
+
+    // Home answers during the resolve, long before creation is ready to leave.
+    useHomeArrivalStore.getState().reportReady(id, { x: 140, y: 180, width: 110, height: 110 });
+    const navigation = makeNavigation();
+    await handOffToHome(navigation, handoff, { reduceMotion: false });
+
+    const arrival = useHomeArrivalStore.getState().arrival!;
+    expect(arrival.id).toBe(id);
+    expect(arrival.fromRect).toEqual(handoff.markRect);
+    expect(arrival.phase).toBe('arriving');
+    expect(navigation.setOptions).toHaveBeenCalledWith({ animation: 'none', gestureEnabled: false });
+  });
+
+  it('accepts a Home measurement that lands after Home stopped waiting', () => {
+    const { markRect: _unused, ...saved } = handoff;
+    const id = prepareHomeArrival(saved);
+    useHomeArrivalStore.getState().reportReady(id, null);
+    useHomeArrivalStore.getState().reportReady(id, { x: 1, y: 2, width: 3, height: 3 });
+    expect(useHomeArrivalStore.getState().arrival?.targetRect).toEqual({ x: 1, y: 2, width: 3, height: 3 });
+    useHomeArrivalStore.getState().release(id);
+    useHomeArrivalStore.getState().reportReady(id, { x: 9, y: 9, width: 9, height: 9 });
+    expect(useHomeArrivalStore.getState().arrival?.targetRect).toEqual({ x: 1, y: 2, width: 3, height: 3 });
   });
 
   it('resets onto Home when there is nothing beneath creation', async () => {

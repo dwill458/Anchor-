@@ -1,30 +1,116 @@
 import React, { memo, useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Animated, { interpolate, useAnimatedStyle, useDerivedValue, type SharedValue } from 'react-native-reanimated';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Line, Rect } from 'react-native-svg';
 
 import { AnchorMark } from '@/components/v2/anchor/AnchorMark';
 import { colors, typography } from '@/theme/v2';
 import type { SigilFormation } from '@/utils/sigil/traditional-generator';
-import { vertexArrivalFractions, type FormationTimeline } from './creationMotion';
+import { constructionFraction, vertexArrivalFractions, type FormationTimeline } from './creationMotion';
 
 const INK = colors.ink.base;
-const POINT = 7;
+const POINT = 8;
+const PEN = 5;
 
-/** Where along the whole formation each vertex is reached (fractions of formation progress). */
-export function vertexArrivals(formation: SigilFormation, timeline: FormationTimeline): number[] {
-  const span = timeline.pathEnd - timeline.pathStart;
-  return vertexArrivalFractions(formation.vertices).map((fraction) => timeline.pathStart + fraction * span);
+export type StagePoint = { x: number; y: number };
+
+/** Geometry of the square a formation is drawn on, in the structure's 100-unit box. */
+export function kameaGeometry(formation: Pick<SigilFormation, 'gridSize' | 'gridCells'>) {
+  const cells = formation.gridCells;
+  const n = Math.max(1, formation.gridSize);
+  const xs = cells.map((cell) => cell.x);
+  const ys = cells.map((cell) => cell.y);
+  const min = { x: Math.min(...xs), y: Math.min(...ys) };
+  const max = { x: Math.max(...xs), y: Math.max(...ys) };
+  const pitch = n > 1 ? (max.x - min.x) / (n - 1) : 30;
+  return { n, pitch, left: min.x - pitch / 2, top: min.y - pitch / 2, side: pitch * n };
 }
 
+/**
+ * Where a cell's number sits, in px. The resting (ink) number and its lit (accent) twin share
+ * this exactly, so the lit one lands precisely on top rather than beside it.
+ */
+function numeralBox(cell: { x: number; y: number }, pitch: number, unit: number) {
+  const font = Math.max(8, Math.min(4.2, pitch * 0.22) * unit);
+  return {
+    left: (cell.x - pitch / 2) * unit + pitch * unit * 0.08,
+    top: (cell.y - pitch / 2) * unit + pitch * unit * 0.05,
+    fontSize: font,
+    lineHeight: Math.round(font * 1.2),
+  };
+}
+
+/**
+ * The square as an instrument: a ruled table of the grid's cells, each carrying the number a
+ * letter reduces to. Numbers sit in the cell's corner so the point a letter becomes, at the
+ * cell's centre, is never covered.
+ */
+const KameaSquare = memo(function KameaSquare({ formation, size }: { formation: SigilFormation; size: number }) {
+  const { n, pitch, left, top, side } = kameaGeometry(formation);
+  const unit = size / 100;
+  const rules = [];
+  for (let i = 1; i < n; i += 1) {
+    rules.push(<Line key={`v${i}`} x1={left + pitch * i} y1={top} x2={left + pitch * i} y2={top + side} stroke={INK} strokeOpacity={0.12} strokeWidth={0.22} />);
+    rules.push(<Line key={`h${i}`} x1={left} y1={top + pitch * i} x2={left + side} y2={top + pitch * i} stroke={INK} strokeOpacity={0.12} strokeWidth={0.22} />);
+  }
+  return (
+    <View style={StyleSheet.absoluteFill}>
+      <Svg width={size} height={size} viewBox="0 0 100 100">
+        <Rect x={left} y={top} width={side} height={side} stroke={INK} strokeOpacity={0.26} strokeWidth={0.3} fill={colors.surface} fillOpacity={0.55} />
+        {rules}
+      </Svg>
+      {formation.gridCells.map((cell) => (
+        <Text key={cell.value} style={[styles.cellNumber, styles.cellNumberRest, numeralBox(cell, pitch, unit)]}>
+          {cell.value}
+        </Text>
+      ))}
+    </View>
+  );
+});
+
+/** A cell's number lighting when a letter lands on it: this letter became this number. */
+const CellHighlight = memo(function CellHighlight({
+  value,
+  box,
+  landing,
+  fadeStart,
+  fadeEnd,
+  progress,
+  accent,
+}: {
+  value: number;
+  box: ReturnType<typeof numeralBox>;
+  landing: number;
+  fadeStart: number;
+  fadeEnd: number;
+  progress: SharedValue<number>;
+  accent: string;
+}) {
+  const style = useAnimatedStyle(() => ({
+    opacity:
+      interpolate(progress.value, [landing - 0.012, landing], [0, 1], 'clamp') *
+      interpolate(progress.value, [fadeStart, fadeEnd], [1, 0], 'clamp'),
+  }));
+  return (
+    <Animated.Text style={[styles.cellNumber, box, { color: accent, backgroundColor: colors.surface }, style]}>
+      {value}
+    </Animated.Text>
+  );
+});
+
+/**
+ * One point of the structure. It appears when its letter lands on its cell, answers when the
+ * line reaches it, and withdraws with the rest of the construction once the mark is whole.
+ */
 const VertexPoint = memo(function VertexPoint({
   x,
   y,
   letter,
   stack,
+  landing,
   arrival,
-  settleStart,
-  settleEnd,
+  fadeStart,
+  fadeEnd,
   progress,
   accent,
 }: {
@@ -33,20 +119,26 @@ const VertexPoint = memo(function VertexPoint({
   letter: string | null;
   /** How many earlier letters already landed on this cell, so labels do not sit on each other. */
   stack: number;
+  landing: number;
   arrival: number;
-  settleStart: number;
-  settleEnd: number;
+  fadeStart: number;
+  fadeEnd: number;
   progress: SharedValue<number>;
   accent: string;
 }) {
   const style = useAnimatedStyle(() => {
-    const appear = interpolate(progress.value, [arrival, arrival + 0.025], [0, 1], 'clamp');
-    const leave = interpolate(progress.value, [settleStart, settleEnd], [1, 0], 'clamp');
+    const appear = interpolate(progress.value, [landing - 0.01, landing + 0.012], [0, 1], 'clamp');
+    const leave = interpolate(progress.value, [fadeStart, fadeEnd], [1, 0], 'clamp');
     return { opacity: appear * leave, transform: [{ scale: 0.4 + appear * 0.6 }] };
+  });
+  // The destination point responds as the line arrives; only the point, never its label.
+  const dotStyle = useAnimatedStyle(() => {
+    const answer = interpolate(progress.value, [arrival - 0.006, arrival + 0.008, arrival + 0.03], [0, 1, 0], 'clamp');
+    return { transform: [{ scale: 1 + answer * 0.7 }] };
   });
   return (
     <Animated.View pointerEvents="none" style={[styles.pointWrap, { left: x - POINT / 2, top: y - POINT / 2 }, style]}>
-      <View style={[styles.point, { backgroundColor: accent }]} />
+      <Animated.View style={[styles.point, { backgroundColor: accent }, dotStyle]} />
       {letter ? (
         <Animated.Text style={[styles.pointLabel, { color: accent, left: POINT + 2 + stack * 9 }]}>{letter}</Animated.Text>
       ) : null}
@@ -55,9 +147,10 @@ const VertexPoint = memo(function VertexPoint({
 });
 
 /**
- * Formation, drawn from the real computation: the grid the intention's category selects, each
- * distilled letter placed on its own cell in order, and the one line that joins them traced
- * at constant speed. Every point here is a vertex of the saved structure.
+ * Formation, drawn from the real computation: the square the intention's category selects,
+ * each distilled letter carried onto the cell its number names, and the one line that joins
+ * them in order — drawn segment by segment, pausing at each point. Every point here is a vertex
+ * of the saved structure and the line is the saved path itself.
  */
 export const FormationLayer = memo(function FormationLayer({
   svg,
@@ -77,7 +170,6 @@ export const FormationLayer = memo(function FormationLayer({
   accent: string;
   reduceMotion: boolean;
 }) {
-  const arrivals = useMemo(() => vertexArrivals(formation, timeline), [formation, timeline]);
   const stacks = useMemo(() => {
     const seen = new Map<number, number>();
     return formation.vertices.map((vertex) => {
@@ -86,60 +178,193 @@ export const FormationLayer = memo(function FormationLayer({
       return count;
     });
   }, [formation]);
+  const geometry = useMemo(() => kameaGeometry(formation), [formation]);
   const unit = size / 100;
-  const settleStart = timeline.pathEnd;
-  const settleEnd = timeline.pathEnd + (1 - timeline.pathEnd) * 0.55;
+  const fadeStart = timeline.settleStart;
+  const fadeEnd = timeline.settleStart + (1 - timeline.settleStart) * 0.6;
 
-  const trace = useDerivedValue(() => {
-    const span = timeline.pathEnd - timeline.pathStart;
-    if (span <= 0) return progress.value >= timeline.pathStart ? 1 : 0;
-    return Math.min(1, Math.max(0, (progress.value - timeline.pathStart) / span));
+  // One highlight per cell that receives a letter, lit by the first letter to land there.
+  const lit = useMemo(() => {
+    const first = new Map<number, number>();
+    formation.vertices.forEach((vertex, index) => {
+      if (!first.has(vertex.value)) first.set(vertex.value, index);
+    });
+    return [...first.entries()].map(([value, index]) => ({ value, landing: timeline.landings[index] ?? 0, cell: formation.vertices[index].cell }));
+  }, [formation, timeline.landings]);
+
+  const clockIn = timeline.clockIn;
+  const clockOut = timeline.clockOut;
+  const trace = useDerivedValue(() => constructionFraction(progress.value, clockIn, clockOut));
+
+  // The pen: where the line is being drawn right now, along the real path.
+  const along = useMemo(() => vertexArrivalFractions(formation.vertices), [formation]);
+  const px = useMemo(() => formation.vertices.map((vertex) => vertex.x * unit), [formation, unit]);
+  const py = useMemo(() => formation.vertices.map((vertex) => vertex.y * unit), [formation, unit]);
+  const penStyle = useAnimatedStyle(() => {
+    const drawn = trace.value;
+    let x = px[0] ?? 0;
+    let y = py[0] ?? 0;
+    for (let i = 1; i < along.length; i += 1) {
+      if (drawn <= along[i]) {
+        const span = along[i] - along[i - 1];
+        const t = span <= 0 ? 1 : (drawn - along[i - 1]) / span;
+        x = px[i - 1] + (px[i] - px[i - 1]) * t;
+        y = py[i - 1] + (py[i] - py[i - 1]) * t;
+        break;
+      }
+      x = px[i];
+      y = py[i];
+    }
+    const visible =
+      interpolate(progress.value, [timeline.constructStart, timeline.constructStart + 0.01], [0, 1], 'clamp') *
+      interpolate(progress.value, [timeline.constructEnd, timeline.constructEnd + 0.02], [1, 0], 'clamp');
+    return { opacity: visible, transform: [{ translateX: x - PEN / 2 }, { translateY: y - PEN / 2 }] };
   });
 
-  const gridStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      progress.value,
-      [0, timeline.gridEnd * 0.85, settleStart, settleEnd],
-      [0, 1, 1, 0],
-      'clamp',
-    ),
-  }));
+  const gridStyle = useAnimatedStyle(() => {
+    const arrive = interpolate(progress.value, [0, timeline.gridEnd * 0.9], [0, 1], 'clamp');
+    const recede = interpolate(progress.value, [fadeStart, fadeEnd], [1, 0], 'clamp');
+    return { opacity: arrive * recede, transform: [{ scale: 0.96 + arrive * 0.04 + (1 - recede) * 0.03 }] };
+  });
 
   const stagedStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [timeline.gridEnd * 0.5, timeline.pathEnd], [0, 1], 'clamp'),
+    opacity: interpolate(progress.value, [timeline.constructStart, timeline.constructEnd], [0, 1], 'clamp'),
   }));
 
   return (
     <View style={[StyleSheet.absoluteFill, { width: size, height: size }]} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <Animated.View style={[StyleSheet.absoluteFill, gridStyle]}>
-        <Svg width={size} height={size} viewBox="0 0 100 100">
-          {formation.gridCells.map((cell) => (
-            <Circle key={cell.value} cx={cell.x} cy={cell.y} r={formation.gridSize > 5 ? 0.7 : 0.9} fill={INK} fillOpacity={0.24} />
-          ))}
-        </Svg>
+      <Animated.View style={[StyleSheet.absoluteFill, gridStyle]} renderToHardwareTextureAndroid>
+        <KameaSquare formation={formation} size={size} />
       </Animated.View>
+      {lit.map((entry) => (
+        <CellHighlight
+          key={entry.value}
+          value={entry.value}
+          box={numeralBox(entry.cell, geometry.pitch, unit)}
+          landing={entry.landing}
+          fadeStart={fadeStart}
+          fadeEnd={fadeEnd}
+          progress={progress}
+          accent={accent}
+        />
+      ))}
       {/* The line in ink while it is being made; colour arrives once it is whole. Reduced
           motion stages it in by opacity instead of tracing it. */}
       <Animated.View style={[StyleSheet.absoluteFill, reduceMotion ? stagedStyle : null]}>
         <AnchorMark svg={svg} size={size} strokeColor={INK} drawProgress={reduceMotion ? undefined : trace} />
       </Animated.View>
-      {reduceMotion
-        ? null
-        : formation.vertices.map((vertex, index) => (
-            <VertexPoint
-              key={index}
-              x={vertex.x * unit}
-              y={vertex.y * unit}
-              letter={vertex.letter}
-              stack={stacks[index]}
-              arrival={arrivals[index]}
-              settleStart={settleStart}
-              settleEnd={settleEnd}
-              progress={progress}
-              accent={accent}
-            />
-          ))}
+      {formation.vertices.map((vertex, index) => (
+        <VertexPoint
+          key={index}
+          x={vertex.x * unit}
+          y={vertex.y * unit}
+          letter={vertex.letter}
+          stack={stacks[index]}
+          landing={timeline.landings[index] ?? 0}
+          arrival={reduceMotion ? 2 : timeline.vertexArrivals[index] ?? 2}
+          fadeStart={fadeStart}
+          fadeEnd={fadeEnd}
+          progress={progress}
+          accent={accent}
+        />
+      ))}
+      {reduceMotion ? null : <Animated.View style={[styles.pen, penStyle]} />}
     </View>
+  );
+});
+
+/**
+ * The letters themselves, carried from the distilled row to the cells their numbers name.
+ * Drawn above the stage (not inside the mark) because the journey starts outside it. Each
+ * letter shows the number it becomes as it travels, and hands over to its point on landing.
+ */
+export const MappingTokens = memo(function MappingTokens({
+  letters,
+  numbers,
+  origins,
+  targets,
+  departures,
+  landings,
+  progress,
+  accent,
+  fontSize,
+}: {
+  letters: string[];
+  numbers: number[];
+  /** Where each letter sits in the lifted row (stage coordinates), or null if unknown. */
+  origins: Array<StagePoint | null>;
+  /** Where its point lands (stage coordinates). */
+  targets: StagePoint[];
+  departures: number[];
+  landings: number[];
+  progress: SharedValue<number>;
+  accent: string;
+  fontSize: number;
+}) {
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      {letters.map((letter, index) =>
+        targets[index] ? (
+          <MappingToken
+            key={`${letter}-${index}`}
+            letter={letter}
+            number={numbers[index]}
+            origin={origins[index] ?? targets[index]}
+            target={targets[index]}
+            departure={departures[index] ?? 0}
+            landing={landings[index] ?? 0}
+            progress={progress}
+            accent={accent}
+            fontSize={fontSize}
+          />
+        ) : null,
+      )}
+    </View>
+  );
+});
+
+const TOKEN = 44;
+
+const MappingToken = memo(function MappingToken({
+  letter,
+  number,
+  origin,
+  target,
+  departure,
+  landing,
+  progress,
+  accent,
+  fontSize,
+}: {
+  letter: string;
+  number: number;
+  origin: StagePoint;
+  target: StagePoint;
+  departure: number;
+  landing: number;
+  progress: SharedValue<number>;
+  accent: string;
+  fontSize: number;
+}) {
+  const style = useAnimatedStyle(() => {
+    const raw = interpolate(progress.value, [departure, landing], [0, 1], 'clamp');
+    // Leaves gently, lands softly: an ease-in-out without overshoot.
+    const t = raw < 0.5 ? 4 * raw * raw * raw : 1 - Math.pow(-2 * raw + 2, 3) / 2;
+    const visible =
+      interpolate(progress.value, [departure, departure + 0.008], [0, 1], 'clamp') *
+      interpolate(progress.value, [landing - 0.01, landing + 0.004], [1, 0], 'clamp');
+    const x = origin.x + (target.x - origin.x) * t;
+    const y = origin.y + (target.y - origin.y) * t;
+    return { opacity: visible, transform: [{ translateX: x - TOKEN / 2 }, { translateY: y - TOKEN / 2 }, { scale: 1 - t * 0.45 }] };
+  });
+  const numberStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [departure + (landing - departure) * 0.15, departure + (landing - departure) * 0.45], [0, 1], 'clamp'),
+  }));
+  return (
+    <Animated.View style={[styles.token, style]}>
+      <Animated.Text style={[styles.tokenLetter, { color: accent, fontSize, lineHeight: fontSize * 1.1 }]}>{letter}</Animated.Text>
+      <Animated.Text style={[styles.tokenNumber, { color: accent }, numberStyle]}>{number}</Animated.Text>
+    </Animated.View>
   );
 });
 
@@ -154,4 +379,10 @@ const styles = StyleSheet.create({
     lineHeight: 12,
     letterSpacing: 0.4,
   },
+  cellNumber: { position: 'absolute', fontFamily: typography.bodyBold, includeFontPadding: false },
+  cellNumberRest: { color: INK, opacity: 0.34 },
+  pen: { position: 'absolute', left: 0, top: 0, width: PEN, height: PEN, borderRadius: PEN / 2, backgroundColor: INK },
+  token: { position: 'absolute', left: 0, top: 0, width: TOKEN, height: TOKEN, alignItems: 'center', justifyContent: 'center' },
+  tokenLetter: { fontFamily: typography.displayBold },
+  tokenNumber: { position: 'absolute', right: 0, top: 2, fontFamily: typography.bodyBold, fontSize: 11, lineHeight: 13 },
 });

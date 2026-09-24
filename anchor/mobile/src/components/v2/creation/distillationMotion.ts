@@ -36,15 +36,19 @@ export const DISTILL_EASING = Easing.bezier(0.2, 0.75, 0.2, 1);
  */
 export const DISTILL_TIMING = {
   /** Long enough to read your own sentence back before anything touches it. */
-  holdWhole: 850,
+  holdWhole: 1100,
   /** Beat between passes, so "vowels gone" registers before the repeats start leaving. */
-  stage: 900,
-  letterStagger: 24,
-  letterFade: 340,
+  stage: 1400,
+  letterStagger: 26,
+  /** A letter about to go first dims, so the eye sees which ones are leaving… */
+  letterDim: 300,
+  dimHold: 380,
+  /** …and only then withdraws. */
+  letterFade: 360,
   /** The travel is the moment the screen exists for; it gets the most room. */
-  compact: 900,
-  /** Beat between the letters landing and the CTA arming, so the form reads as settled. */
-  settle: 400,
+  compact: 1000,
+  /** Beat between the letters landing and formation taking them, so the row reads as settled. */
+  settle: 450,
   /** Entrance for the settled caption, label and secondary action. */
   caption: 320,
   /** Reduced motion: show the phrase, then present the settled sequence outright. */
@@ -118,7 +122,7 @@ export function buildDistillationRenderModel(text: string): DistillationRenderMo
  * the cascade it contains.
  */
 export function distillationSchedule(lastStaggerIndex: number): Record<Exclude<DistillationStage, 'whole'>, number> {
-  const cascade = lastStaggerIndex * DISTILL_TIMING.letterStagger + DISTILL_TIMING.letterFade;
+  const cascade = lastStaggerIndex * DISTILL_TIMING.letterStagger + DISTILL_TIMING.letterDim + DISTILL_TIMING.dimHold + DISTILL_TIMING.letterFade;
   const pass = Math.max(DISTILL_TIMING.stage, cascade);
   const vowels = DISTILL_TIMING.holdWhole;
   const repeats = vowels + pass;
@@ -150,6 +154,9 @@ export interface CompactionTarget {
   dy: number;
   /** Uniform shrink applied only when the sequence cannot otherwise fit one line. */
   scale: number;
+  /** Centre of the letter once it has settled, in stage coordinates. */
+  cx: number;
+  cy: number;
 }
 
 export interface CompactionOptions {
@@ -208,7 +215,7 @@ export function computeCompactionTargets(
     // `scale` pivots on the view's own centre, so correct for the half-width it absorbs.
     const dx = cursor - letter.x - (letter.width - scaledWidth) / 2;
     const dy = rowCenterY - scaledHeight / 2 - letter.y - (letter.height - scaledHeight) / 2;
-    targets.set(letter.keptIndex, { dx, dy, scale });
+    targets.set(letter.keptIndex, { dx, dy, scale, cx: cursor + scaledWidth / 2, cy: rowCenterY });
     cursor += scaledWidth + tracking;
   }
 

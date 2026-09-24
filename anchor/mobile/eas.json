@@ -34,6 +34,7 @@
       "env": {
         "EXPO_PUBLIC_API_URL": "https://anchor-production-26bf.up.railway.app",
         "EXPO_PUBLIC_APP_ENV": "staging",
+        "EXPO_PUBLIC_ANCHOR_V2_ENABLED": "true",
         "EXPO_PUBLIC_DEBUG_LOGGING": "false",
         "EXPO_PUBLIC_ENABLE_LEGACY_SUPABASE_SYNC": "false",
         "EXPO_PUBLIC_ENABLE_MERCH": "false",

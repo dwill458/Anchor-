@@ -49,3 +49,22 @@ describe('V2 first-run draft', () => {
     expect(useFirstRunStore.getState().draft.currentStep).toBe('complete');
   });
 });
+
+describe('adoptCreation', () => {
+  it('keeps the Anchor the shared creation flow made, locally, for the end of onboarding', () => {
+    const id = useFirstRunStore.getState().adoptCreation({
+      intention: 'I finish the project',
+      category: 'career',
+      distilledLetters: ['F', 'N', 'S'],
+      anchorSvg: '<svg/>',
+      expression: 'cut_paper',
+      styleChoice: 'ember_trace',
+      enhancedImageUrl: 'https://assets.test/chosen.png',
+    });
+    const draft = useFirstRunStore.getState().draft;
+    expect(draft.anchorLocalId).toBe(id);
+    expect(draft).toMatchObject({ intention: 'I finish the project', anchorSvg: '<svg/>', expression: 'cutpaper', styleChoice: 'ember_trace', enhancedImageUrl: 'https://assets.test/chosen.png', anchorPersisted: false });
+    // A second creation (the user went back) replaces it under the same local id.
+    expect(useFirstRunStore.getState().adoptCreation({ intention: 'x', distilledLetters: ['X'], anchorSvg: '<svg/>', expression: 'original' })).toBe(id);
+  });
+});

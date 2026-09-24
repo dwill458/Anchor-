@@ -131,6 +131,7 @@ describe('V2FocusActiveScreen', () => {
     expect(screen.getByTestId('focus-remaining-time')).toBeTruthy();
     expect(screen.getByTestId('focus-pause-button')).toBeTruthy();
     expect(screen.getByTestId('focus-end-button')).toBeTruthy();
+    expect(screen.getByTestId('focus-sound-active-toggle').props.accessibilityState.checked).toBe(true);
 
     // Tap pause
     fireEvent.press(screen.getByTestId('focus-pause-button'));
@@ -138,6 +139,53 @@ describe('V2FocusActiveScreen', () => {
     expect(screen.getByTestId('focus-paused-overlay')).toBeTruthy();
     expect(screen.getByText('Paused')).toBeTruthy();
     expect(screen.getByTestId('focus-resume-button')).toBeTruthy();
+  });
+
+  it('exposes an accessibility action to reveal the hidden Focus controls', () => {
+    render(
+      <V2FocusActiveScreen
+        anchor={mockAnchor}
+        durationSeconds={30}
+        voice="female"
+        ambient={true}
+        initialStage="focus"
+        onExit={jest.fn()}
+        onComplete={jest.fn()}
+      />
+    );
+
+    const session = screen.getByTestId('v2-focus-active-screen');
+    expect(session.props.accessibilityRole).toBe('button');
+    expect(session.props.accessibilityLabel).toBe('Show Focus controls');
+    fireEvent(session, 'accessibilityAction', {
+      nativeEvent: { actionName: 'activate' },
+    });
+
+    expect(screen.getByTestId('focus-pause-button')).toBeTruthy();
+  });
+
+  it('mutes configured audio and fades controls away after inactivity', () => {
+    render(
+      <V2FocusActiveScreen
+        anchor={mockAnchor}
+        durationSeconds={30}
+        voice="female"
+        ambient={true}
+        initialStage="focus"
+        onExit={jest.fn()}
+        onComplete={jest.fn()}
+      />
+    );
+
+    fireEvent.press(screen.getByTestId('v2-focus-active-screen'));
+    fireEvent.press(screen.getByTestId('focus-sound-active-toggle'));
+    expect(screen.getByTestId('focus-sound-active-toggle').props.accessibilityState.checked).toBe(false);
+    expect(mockPause).toHaveBeenCalled();
+
+    act(() => {
+      jest.advanceTimersByTime(3700);
+    });
+    expect(screen.queryByTestId('focus-pause-button')).toBeNull();
   });
 
   it('resumes from pause when Resume button is pressed', () => {
@@ -175,6 +223,9 @@ describe('V2FocusActiveScreen', () => {
       />
     );
 
+    expect(screen.queryByTestId('focus-remaining-time')).toBeNull();
+    expect(screen.queryByTestId('focus-end-button')).toBeNull();
+    fireEvent.press(screen.getByTestId('v2-focus-active-screen'));
     const endButton = screen.getByTestId('focus-end-button');
     fireEvent.press(endButton);
     fireEvent.press(endButton);
@@ -195,7 +246,7 @@ describe('V2FocusActiveScreen', () => {
     );
   });
 
-  it('completes session naturally when monotonic clock reaches planned duration', () => {
+  it.each([10, 30, 60])('completes a %s second session at its planned duration', (durationSeconds) => {
     const onComplete = jest.fn();
 
     let mockTime = 1000;
@@ -206,7 +257,7 @@ describe('V2FocusActiveScreen', () => {
       render(
         <V2FocusActiveScreen
           anchor={mockAnchor}
-          durationSeconds={30}
+          durationSeconds={durationSeconds}
           voice="female"
           ambient={true}
           initialStage="focus"
@@ -216,7 +267,7 @@ describe('V2FocusActiveScreen', () => {
       );
 
       // Advance simulated monotonic time by 30 seconds
-      mockTime += 30500;
+      mockTime += durationSeconds * 1000 + 500;
 
       act(() => {
         jest.advanceTimersByTime(1000);
@@ -230,8 +281,8 @@ describe('V2FocusActiveScreen', () => {
       expect(onComplete).toHaveBeenCalledTimes(1);
       expect(onComplete).toHaveBeenCalledWith(
         expect.objectContaining({
-          plannedDurationSeconds: 30,
-          actualDurationSeconds: 30,
+          plannedDurationSeconds: durationSeconds,
+          actualDurationSeconds: durationSeconds,
         })
       );
       expect(safeHaptics.notification).toHaveBeenCalled();

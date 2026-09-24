@@ -18,6 +18,8 @@ export type HomeArrival = {
   svg: string;
   category?: string;
   expression: AnchorExpression;
+  /** The chosen interpretation, when one was kept: it travels as itself, in its circle. */
+  imageUrl?: string;
   /** The mark's square as creation last showed it (window coordinates). Null skips the flight. */
   fromRect: ArrivalRect | null;
   /** Where Home will draw the mark at rest (window coordinates). */
@@ -28,6 +30,8 @@ export type HomeArrival = {
 type HomeArrivalState = {
   arrival: HomeArrival | null;
   stage: (input: Omit<HomeArrival, 'id' | 'targetRect' | 'phase'>) => number;
+  /** Where creation last showed the mark, once it is known (staging can begin before). */
+  setFromRect: (id: number, rect: ArrivalRect | null) => void;
   /** Home is posed; `rect` is where the mark will land (null when it could not be measured). */
   reportReady: (id: number, rect: ArrivalRect | null) => void;
   /** Creation has let go; Home plays the arrival. */
@@ -44,10 +48,19 @@ export const useHomeArrivalStore = create<HomeArrivalState>()((set, get) => ({
     set({ arrival: { ...input, id: serial, targetRect: null, phase: 'staging' } });
     return serial;
   },
+  setFromRect: (id, rect) => {
+    const arrival = get().arrival;
+    if (!arrival || arrival.id !== id || arrival.phase === 'arriving') return;
+    set({ arrival: { ...arrival, fromRect: rect } });
+  },
   reportReady: (id, rect) => {
     const arrival = get().arrival;
-    if (!arrival || arrival.id !== id || arrival.phase !== 'staging') return;
-    set({ arrival: { ...arrival, targetRect: rect, phase: 'ready' } });
+    if (!arrival || arrival.id !== id) return;
+    // A measurement that lands after Home gave up waiting still gives the flight its target,
+    // as long as creation has not let go yet.
+    const upgrade = arrival.phase === 'ready' && !arrival.targetRect && rect;
+    if (arrival.phase !== 'staging' && !upgrade) return;
+    set({ arrival: { ...arrival, targetRect: rect ?? arrival.targetRect, phase: 'ready' } });
   },
   release: (id) => {
     const arrival = get().arrival;

@@ -1,4 +1,8 @@
-/** V2 must never activate in a release build, regardless of environment text. */
-export function isAnchorV2DevEnabled(value: string | undefined, isDevelopment: boolean): boolean {
-  return isDevelopment && value === 'true';
+/** V2 is opt-in in development and in the explicitly marked staging preview build. */
+export function isAnchorV2Enabled(
+  value: string | undefined,
+  isDevelopment: boolean,
+  appEnvironment: string | undefined
+): boolean {
+  return value === 'true' && (isDevelopment || appEnvironment === 'staging');
 }

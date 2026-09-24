@@ -22,6 +22,7 @@ import { todayReasonCopy } from '@/components/v2/home/V2HomeTodaySection';
 import { colors, getCategoryColor, getCategoryTextColor, getPracticeColor, typography } from '@/theme/v2';
 import { useV2DailyShellIntents, type V2DailyShellParamList } from '@/screens/v2/home/dailyShell';
 import { ANCHOR_DETAIL_EMPTY_ART, ANCHOR_DETAIL_HERO_ART, ANCHOR_DETAIL_PRACTICE_ART } from '@/components/v2/anchors/anchorDetailArt';
+import { ProgressiveFocusTransition, useProgressiveFocusTransition } from '@/navigation/v2/ProgressiveFocusTransition';
 
 type Nav = NativeStackNavigationProp<V2DailyShellParamList, 'V2AnchorDetails'>;
 type Route = RouteProp<V2DailyShellParamList, 'V2AnchorDetails'>;
@@ -452,6 +453,7 @@ function EmptyCardChevron() {
 
 export function V2AnchorDetailsScreen() {
   const navigation = useNavigation<Nav>();
+  const focusTransition = useProgressiveFocusTransition();
   const { params } = useRoute<Route>();
   const { width, height } = useWindowDimensions();
   const intents = useV2DailyShellIntents();
@@ -465,6 +467,15 @@ export function V2AnchorDetailsScreen() {
   const focusDuration = useSettingsStore((s) => s.focusSessionDuration);
   const primeDuration = useSettingsStore((s) => s.primeSessionDuration);
   const visualizeDuration = useSettingsStore((s) => s.visualizeSessionDuration);
+
+  useEffect(() => navigation.addListener('beforeRemove', (event) => {
+    const state = navigation.getState();
+    const previous = state.routes[state.index - 1];
+    const actionType = (event.data as { action?: { type?: string } }).action?.type;
+    if (previous?.name === 'V2Home' && ['GO_BACK', 'POP', 'POP_TO_TOP'].includes(actionType ?? '')) {
+      focusTransition.reverse();
+    }
+  }), [focusTransition, navigation]);
 
   const chart = useMemo(
     () =>
@@ -485,10 +496,12 @@ export function V2AnchorDetailsScreen() {
 
   if (!detail.anchor) {
     return (
-      <V2Screen testID="v2-anchor-details-screen">
-        <V2TopBar title="Anchor" onBackPress={() => navigation.goBack()} />
-        <V2EmptyState title="Anchor not found" message="This Anchor may have been removed." />
-      </V2Screen>
+      <ProgressiveFocusTransition role="destination">
+        <V2Screen testID="v2-anchor-details-screen">
+          <V2TopBar title="Anchor" onBackPress={() => navigation.goBack()} />
+          <V2EmptyState title="Anchor not found" message="This Anchor may have been removed." />
+        </V2Screen>
+      </ProgressiveFocusTransition>
     );
   }
 
@@ -518,9 +531,10 @@ export function V2AnchorDetailsScreen() {
   const medallionSize = Math.max(190, Math.min(220, Math.round(width * 0.52)));
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
-      <ScrollView testID="v2-anchor-details-screen" showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+    <ProgressiveFocusTransition role="destination">
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
+        <ScrollView testID="v2-anchor-details-screen" showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <Hero
           anchor={detail.anchor}
           paintingHeight={paintingHeight}
@@ -582,8 +596,9 @@ export function V2AnchorDetailsScreen() {
             </Pressable>
           ) : null}
         </View>
-      </ScrollView>
-    </SafeAreaView>
+        </ScrollView>
+      </SafeAreaView>
+    </ProgressiveFocusTransition>
   );
 }
 

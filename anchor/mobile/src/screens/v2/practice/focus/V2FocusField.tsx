@@ -11,7 +11,6 @@ import Reanimated, {
   withTiming,
 } from 'react-native-reanimated';
 import { AnchorMotion, colors, getCategoryColor } from '@/theme/v2';
-import { practiceColors } from '@/theme/v2/practiceColors';
 import type { SharedValue } from 'react-native-reanimated';
 
 const AnimatedCircle = Reanimated.createAnimatedComponent(Circle);
@@ -25,7 +24,8 @@ type V2FocusFieldProps = {
   imprint?: boolean;
 };
 
-const TRACE_CIRCUMFERENCE = 2 * Math.PI * 71;
+const TRACE_RADIUS = 94;
+const TRACE_CIRCUMFERENCE = 2 * Math.PI * TRACE_RADIUS;
 
 /**
  * The Focus field is intentionally abstract: hand-drawn traces and contours,
@@ -138,9 +138,9 @@ export function V2FocusField({
           <AnimatedCircle
             cx="100"
             cy="100"
-            r="71"
-            stroke={practiceColors.focus}
-            strokeWidth="1.35"
+            r={TRACE_RADIUS}
+            stroke={categoryColor}
+            strokeWidth="1.15"
             strokeDasharray={TRACE_CIRCUMFERENCE}
             strokeLinecap="round"
             animatedProps={progressProps}

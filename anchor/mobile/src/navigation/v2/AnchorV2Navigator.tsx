@@ -31,7 +31,8 @@ import type { V2PracticeMode } from '@/constants/v2/practice';
 import type { AnchorV2StackParamList } from './types';
 import { useV2ReduceMotion } from '@/hooks/v2';
 import { v2ScreenBackground, v2StackScreenOptions } from './transitions';
-import { handOffToHome } from './creationHandoff';
+import { ProgressiveFocusTransitionProvider } from './ProgressiveFocusTransition';
+import { handOffToHome, prepareHomeArrival } from './creationHandoff';
 
 const Stack = createNativeStackNavigator<AnchorV2StackParamList>();
 
@@ -151,13 +152,17 @@ function V2CreationRouteScreen() {
   }, []);
 
   const generateExpression: CreationGenerationAdapter = useCallback(
-    ({ draft, generationAttempt }) => generateExpressionCandidates({ draft, generationAttempt }),
+    ({ draft, generationAttempt, count }) => generateExpressionCandidates({ draft, generationAttempt, count }),
     [],
   );
 
   const handleComplete = useCallback((handoff: CreationHandoff) => {
     void handOffToHome(navigation, handoff, { reduceMotion });
   }, [navigation, reduceMotion]);
+
+  const handlePrepareHandoff = useCallback((handoff: Omit<CreationHandoff, 'markRect'>) => {
+    prepareHomeArrival(handoff);
+  }, []);
 
   const handleExit = useCallback(() => {
     if (navigation.canGoBack()) navigation.goBack();
@@ -176,6 +181,7 @@ function V2CreationRouteScreen() {
       saveAnchor={saveAnchor}
       generateExpression={generateExpression}
       onComplete={handleComplete}
+      onPrepareHandoff={handlePrepareHandoff}
       onExit={handleExit}
       onPaywall={handlePaywall}
       onSignIn={handleSignIn}
@@ -224,6 +230,18 @@ function V2AuthRouteScreen() {
     <V2AuthScreen
       initialMode={route.params?.initialMode}
       onBack={() => navigation.goBack()}
+      onSuccess={(user) => {
+        if (user.hasCompletedOnboarding) {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'V2DevelopmentHome' }],
+          });
+        } else if (navigation.canGoBack()) {
+          navigation.goBack();
+        } else {
+          navigation.replace('V2FirstRun');
+        }
+      }}
     />
   );
 }
@@ -246,35 +264,37 @@ export function AnchorV2Navigator() {
     ? 'V2DevelopmentHome'
     : 'V2FirstRun';
   return (
-    <Stack.Navigator
-      key={`${initialRouteName}:${user?.id ?? 'guest'}`}
-      initialRouteName={initialRouteName}
-      screenOptions={screenOptions}
-    >
-      <Stack.Screen name="V2DevelopmentHome" component={V2DevelopmentHome} />
-      <Stack.Screen name="V2FirstRun" component={V2FirstRunFlow} />
-      <Stack.Screen name="V2SystemGallery" component={V2SystemGallery} />
-      {/* Creation owns its back behaviour (a state machine, not a stack), so the edge swipe
+    <ProgressiveFocusTransitionProvider>
+      <Stack.Navigator
+        key={`${initialRouteName}:${user?.id ?? 'guest'}`}
+        initialRouteName={initialRouteName}
+        screenOptions={screenOptions}
+      >
+        <Stack.Screen name="V2DevelopmentHome" component={V2DevelopmentHome} />
+        <Stack.Screen name="V2FirstRun" component={V2FirstRunFlow} />
+        <Stack.Screen name="V2SystemGallery" component={V2SystemGallery} />
+        {/* Creation owns its back behaviour (a state machine, not a stack), so the edge swipe
           must not pop the route out from under a save or the hand-off. */}
-      <Stack.Screen name="V2Creation" component={V2CreationRouteScreen} options={CREATION_OPTIONS} />
-      <Stack.Screen name="V2AnchorLibrary" component={V2AnchorLibraryScreen} />
-      <Stack.Screen name="V2AnchorDetails" component={V2AnchorDetailsScreen} options={PAPER_BACKGROUND} />
-      {/* The paywall draws a sheet over a deliberately transparent root. */}
-      <Stack.Screen name="V2Paywall" component={V2PaywallRouteScreen} options={TRANSPARENT_BACKGROUND} />
-      <Stack.Screen name="V2Practice" component={V2PracticeRouteScreen} />
-      <Stack.Screen name="V2Vision" component={V2VisionScreen} options={PAPER_BACKGROUND} />
-      <Stack.Screen name="V2Chart" component={V2ChartScreen} options={GRAPHITE_BACKGROUND} />
-      <Stack.Screen name="V2ChartWaypoint" component={V2ChartWaypointScreen} options={GRAPHITE_BACKGROUND} />
-      <Stack.Screen name="V2ChartAdjust" component={V2ChartAdjustScreen} options={GRAPHITE_BACKGROUND} />
-      <Stack.Screen name="V2ChartJourney" component={V2ChartJourneyScreen} options={GRAPHITE_BACKGROUND} />
-      <Stack.Screen name="V2Progress" component={V2ProgressScreen} options={GRAPHITE_BACKGROUND} />
-      <Stack.Screen name="V2Release" component={V2ReleaseRouteScreen} />
-      <Stack.Screen name="V2WeeklyInsight" component={V2WeeklyInsightRouteScreen} />
-      {/* Legacy dark surfaces keep the app's transparent default. */}
-      <Stack.Screen name="V2Settings" component={SettingsScreen} options={TRANSPARENT_BACKGROUND} />
-      <Stack.Screen name="V2Auth" component={V2AuthRouteScreen} options={TRANSPARENT_BACKGROUND} />
-      <Stack.Screen name="Login" component={V2LoginRouteScreen} options={TRANSPARENT_BACKGROUND} />
-    </Stack.Navigator>
+        <Stack.Screen name="V2Creation" component={V2CreationRouteScreen} options={CREATION_OPTIONS} />
+        <Stack.Screen name="V2AnchorLibrary" component={V2AnchorLibraryScreen} />
+        <Stack.Screen name="V2AnchorDetails" component={V2AnchorDetailsScreen} options={PAPER_BACKGROUND} />
+        {/* The paywall draws a sheet over a deliberately transparent root. */}
+        <Stack.Screen name="V2Paywall" component={V2PaywallRouteScreen} options={TRANSPARENT_BACKGROUND} />
+        <Stack.Screen name="V2Practice" component={V2PracticeRouteScreen} />
+        <Stack.Screen name="V2Vision" component={V2VisionScreen} options={PAPER_BACKGROUND} />
+        <Stack.Screen name="V2Chart" component={V2ChartScreen} options={GRAPHITE_BACKGROUND} />
+        <Stack.Screen name="V2ChartWaypoint" component={V2ChartWaypointScreen} options={GRAPHITE_BACKGROUND} />
+        <Stack.Screen name="V2ChartAdjust" component={V2ChartAdjustScreen} options={GRAPHITE_BACKGROUND} />
+        <Stack.Screen name="V2ChartJourney" component={V2ChartJourneyScreen} options={GRAPHITE_BACKGROUND} />
+        <Stack.Screen name="V2Progress" component={V2ProgressScreen} options={GRAPHITE_BACKGROUND} />
+        <Stack.Screen name="V2Release" component={V2ReleaseRouteScreen} />
+        <Stack.Screen name="V2WeeklyInsight" component={V2WeeklyInsightRouteScreen} />
+        {/* Legacy dark surfaces keep the app's transparent default. */}
+        <Stack.Screen name="V2Settings" component={SettingsScreen} options={TRANSPARENT_BACKGROUND} />
+        <Stack.Screen name="V2Auth" component={V2AuthRouteScreen} options={TRANSPARENT_BACKGROUND} />
+        <Stack.Screen name="Login" component={V2LoginRouteScreen} options={TRANSPARENT_BACKGROUND} />
+      </Stack.Navigator>
+    </ProgressiveFocusTransitionProvider>
   );
 }
 

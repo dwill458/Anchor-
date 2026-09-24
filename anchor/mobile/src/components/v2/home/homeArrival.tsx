@@ -2,6 +2,7 @@ import React, { createContext, memo, useCallback, useContext, useEffect, useMemo
 import { StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
+  ReduceMotion,
   cancelAnimation,
   interpolate,
   useAnimatedStyle,
@@ -10,7 +11,7 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 
-import { AnchorMark } from '@/components/v2/anchor/AnchorMark';
+import { CircularAnchorRenderer } from '@/components/v2/anchor/CircularAnchorRenderer';
 import { useHomeArrivalStore, type ArrivalRect, type HomeArrival } from '@/stores/v2/homeArrivalStore';
 
 /**
@@ -23,23 +24,27 @@ import { useHomeArrivalStore, type ArrivalRect, type HomeArrival } from '@/store
  */
 export const ARRIVAL_TIMING = {
   /** The whole arrival when the mark flies in from creation. */
-  withFlight: 1500,
+  withFlight: 1700,
   /** The arrival when there is no flight (reduced motion, or no measurement). */
   withoutFlight: 700,
   /** Longest Home waits for its hero to be measured before posing without a target. */
-  measureWait: 350,
+  measureWait: 1000,
 } as const;
 
-/** AnchorMotion's emphasized curve, as a function a worklet can call directly. */
-const EMPHASIZED = Easing.bezierFn(0.05, 0.7, 0.1, 1);
+/**
+ * The flight's curve: leaves and lands gently, symmetric, so the eye can follow the same Anchor
+ * the whole way. (An emphasized, front-loaded curve covered most of the distance in the first
+ * frames — on device the flight read as a jump.) A function a worklet can call directly.
+ */
+const FLIGHT_EASING = Easing.bezierFn(0.45, 0, 0.25, 1);
 
 /** Progress windows, as fractions of the arrival. */
 const WINDOWS = {
-  flight: [0, 0.48],
+  flight: [0, 0.52],
   environment: [0.1, 0.55],
   header: [0.3, 0.6],
-  hero: [0.46, 0.7],
-  overlayOut: [0.5, 0.68],
+  hero: [0.5, 0.72],
+  overlayOut: [0.54, 0.72],
   lower: [0.58, 0.95],
 } as const;
 const WINDOWS_WITHOUT_FLIGHT = {
@@ -98,7 +103,8 @@ export function useHomeArrival({
   const tryReady = useCallback(() => {
     const current = useHomeArrivalStore.getState().arrival;
     const { id, target, origin: known } = pending.current;
-    if (!current || current.phase !== 'staging' || id !== current.id || target === undefined || !known) return;
+    const waiting = current?.phase === 'staging' || (current?.phase === 'ready' && !current.targetRect);
+    if (!current || !waiting || id !== current.id || target === undefined || !known) return;
     if (waitTimer.current) clearTimeout(waitTimer.current);
     useHomeArrivalStore.getState().reportReady(current.id, target);
   }, []);
@@ -136,7 +142,9 @@ export function useHomeArrival({
     if (!arrival || !active || arrival.phase !== 'arriving' || playedId.current === arrival.id) return undefined;
     playedId.current = arrival.id;
     const duration = flight && arrival.targetRect ? ARRIVAL_TIMING.withFlight : ARRIVAL_TIMING.withoutFlight;
-    progress.value = withTiming(1, { duration, easing: Easing.linear });
+    // Reduced motion is decided by the app (the flight is skipped above); the OS animator
+    // scale must not silently collapse the arrival into a jump.
+    progress.value = withTiming(1, { duration, easing: Easing.linear, reduceMotion: ReduceMotion.Never });
     const id = arrival.id;
     const done = setTimeout(() => {
       progress.value = 1;
@@ -178,10 +186,14 @@ export function HomeArrivalProvider({ value, children }: { value: ArrivalContext
   return <HomeArrivalContext.Provider value={value}>{children}</HomeArrivalContext.Provider>;
 }
 
+/** Share of the paper disc the mark occupies (CircularAnchorRenderer's paper artwork). */
+const PAPER_ART_SHARE = 0.72;
+
 /**
- * The arriving mark itself, drawn above Home from where creation left it to where the hero
- * will hold it. It is the same renderer, structure and expression as both ends of its path,
- * so at each end it is indistinguishable from the mark it stands in for.
+ * The arriving Anchor itself, drawn above Home from where creation left it to where the hero
+ * will hold it: the same circle, structure, expression and (when one was kept) the same
+ * chosen image as both ends of its path, so at each end it is indistinguishable from the
+ * Anchor it stands in for. Both rects are the mark's own square; the circle is drawn around it.
  */
 export const HomeArrivalOverlay = memo(function HomeArrivalOverlay({
   arrival,
@@ -211,7 +223,7 @@ export const HomeArrivalOverlay = memo(function HomeArrivalOverlay({
 
   const style = useAnimatedStyle(() => {
     const raw = interpolate(progress.value, [WINDOWS.flight[0], WINDOWS.flight[1]], [0, 1], 'clamp');
-    const t = EMPHASIZED(raw);
+    const t = FLIGHT_EASING(raw);
     return {
       opacity: interpolate(progress.value, [WINDOWS.overlayOut[0], WINDOWS.overlayOut[1]], [1, 0], 'clamp'),
       transform: [
@@ -226,7 +238,17 @@ export const HomeArrivalOverlay = memo(function HomeArrivalOverlay({
     <View ref={hostRef} style={StyleSheet.absoluteFill} pointerEvents="none" onLayout={measureOrigin} collapsable={false} testID="v2-home-arrival">
       {to && origin ? (
         <Animated.View style={[styles.mark, { left: to.x - origin.x, top: to.y - origin.y, width: size, height: size }, style]}>
-          <AnchorMark svg={arrival.svg} category={arrival.category} expression={arrival.expression} size={size} />
+          <View style={[styles.disc, { left: (size - size / PAPER_ART_SHARE) / 2, top: (size - size / PAPER_ART_SHARE) / 2 }]}>
+            <CircularAnchorRenderer
+              svg={arrival.svg}
+              imageUrl={arrival.imageUrl}
+              category={arrival.category}
+              expression={arrival.expression}
+              size={size / PAPER_ART_SHARE}
+              appearance="paper"
+              accessibilityLabel="Your new Anchor"
+            />
+          </View>
         </Animated.View>
       ) : null}
     </View>
@@ -235,4 +257,5 @@ export const HomeArrivalOverlay = memo(function HomeArrivalOverlay({
 
 const styles = StyleSheet.create({
   mark: { position: 'absolute' },
+  disc: { position: 'absolute' },
 });

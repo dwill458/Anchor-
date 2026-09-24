@@ -1,9 +1,9 @@
 import React, { memo, useCallback, useEffect, useRef } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions, type GestureResponderEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { interpolate, useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
+import Animated, { interpolate, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 import Svg, { Circle, G, Path } from 'react-native-svg';
-import { colors, getCategoryColor, typography } from '@/theme/v2';
+import { AnchorMotion, colors, getCategoryColor, typography } from '@/theme/v2';
 import { anchorRenderProps, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
 import { CircularAnchorRenderer } from '@/components/v2';
 import type { V2HomeAnchorSummary, V2ThreadPresentation } from '@/adapters/v2/home';
@@ -99,7 +99,7 @@ function ThreadReading({ thread, accent, active }: { thread: V2ThreadPresentatio
   );
 }
 
-function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, anchorSize, artworkBoxHeight, constructionSize, thread, onOpenActive, onOpenProgress, onOpenAllAnchors }: {
+function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, anchorSize, artworkBoxHeight, constructionSize, thread, reduceMotion, onOpenActive, onOpenProgress, onOpenAllAnchors }: {
   summary: V2HomeAnchorSummary;
   index: number;
   total: number;
@@ -111,6 +111,7 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
   artworkBoxHeight: number;
   constructionSize: number;
   thread: V2ThreadPresentation;
+  reduceMotion: boolean;
   onOpenActive?: (anchorId: string) => void;
   onOpenProgress?: () => void;
   onOpenAllAnchors?: () => void;
@@ -124,6 +125,8 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
       transform: [{ scale: interpolate(distance, [0, spacing], [1, NEIGHBOUR_SCALE], 'clamp') }],
     };
   });
+  const tapScale = useSharedValue(1);
+  const tapScaleStyle = useAnimatedStyle(() => ({ transform: [{ scale: tapScale.value }] }));
   const textMotion = useAnimatedStyle(() => ({
     opacity: interpolate(Math.abs(slot * spacing + offset.value), [0, spacing * 0.55], [1, 0], 'clamp'),
   }));
@@ -226,12 +229,19 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
           <Pressable testID={slot === 0 ? 'v2-home-carousel-active' : undefined}
             accessibilityRole={slot === 0 ? 'button' : undefined}
             accessibilityLabel={`${anchor.intentionText}. ${categoryLabel(anchor.category)}. View Anchor details.`}
-            onPressIn={recordTouchStart} onTouchMove={recordTouchMove}
+            onPressIn={(event) => {
+              recordTouchStart(event);
+              if (slot === 0 && !reduceMotion) tapScale.value = withTiming(0.98, { duration: AnchorMotion.duration.micro });
+            }}
+            onPressOut={() => { tapScale.value = withTiming(1, { duration: AnchorMotion.duration.micro }); }}
+            onTouchMove={recordTouchMove}
             onPress={handleOpen} disabled={slot !== 0 || !onOpenActive}>
-            <View ref={discRef} collapsable={false}>
-              <CircularAnchorRenderer {...anchorRenderProps(anchor)} size={anchorSize} appearance="paper"
-                accessibilityLabel={`${categoryLabel(anchor.category)} Anchor artwork`} />
-            </View>
+            <Animated.View style={tapScaleStyle}>
+              <View ref={discRef} collapsable={false}>
+                <CircularAnchorRenderer {...anchorRenderProps(anchor)} size={anchorSize} appearance="paper"
+                  accessibilityLabel={`${categoryLabel(anchor.category)} Anchor artwork`} />
+              </View>
+            </Animated.View>
           </Pressable>
         </View>
       </Animated.View>
@@ -279,9 +289,9 @@ function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, o
   const renderHero = useCallback((summary: V2HomeAnchorSummary, index: number, slot: CarouselSlot, offset: SharedValue<number>, spacing: number) => (
     <AnchorHeroItem summary={summary} index={index} total={anchors.length} slot={slot} offset={offset} spacing={spacing} gutter={layout.gutter}
       anchorSize={layout.anchorSize} artworkBoxHeight={layout.artworkBoxHeight} constructionSize={layout.constructionSize}
-      thread={index === selectedIndex && thread ? thread : summary.thread}
+      thread={index === selectedIndex && thread ? thread : summary.thread} reduceMotion={Boolean(reduceMotion)}
       onOpenActive={onOpenActive} onOpenProgress={onOpenProgress} onOpenAllAnchors={onOpenAllAnchors} />
-  ), [anchors.length, layout.gutter, layout.anchorSize, layout.artworkBoxHeight, layout.constructionSize, onOpenActive, onOpenAllAnchors, onOpenProgress, selectedIndex, thread]);
+  ), [anchors.length, layout.gutter, layout.anchorSize, layout.artworkBoxHeight, layout.constructionSize, onOpenActive, onOpenAllAnchors, onOpenProgress, reduceMotion, selectedIndex, thread]);
   return <View testID={testID}>
     <V2HomeAnchorCarousel testID="v2-home-carousel" anchors={anchors} selectedIndex={selectedIndex} heroHeight={layout.trackHeight} anchorSize={layout.anchorSize}
       onSelect={onSelect} onOpenActive={onOpenActive} reduceMotion={reduceMotion} renderHero={renderHero} />

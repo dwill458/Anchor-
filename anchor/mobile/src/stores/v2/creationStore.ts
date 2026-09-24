@@ -5,7 +5,7 @@ import { detectCategoryFromText } from '@/utils/categoryDetection';
 import { distillIntention, validateIntention } from '@/utils/sigil/distillation';
 import { describeTrueSigil, type SigilFormation } from '@/utils/sigil/traditional-generator';
 import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
-import { CATEGORY_TO_TIER, type AnchorCategory } from '@/types';
+import { CATEGORY_TO_TIER, type AIStyle, type AnchorCategory } from '@/types';
 import {
   CREATION_MAX_INTENTION_LENGTH,
   CREATION_STRUCTURE,
@@ -19,6 +19,28 @@ export type SaveState = 'draft' | 'saving' | 'saved' | 'error';
 /** Why a save failed, which decides what the user is offered next. */
 export type SaveFailure = 'network' | 'auth' | 'server' | 'second_anchor' | 'limit';
 export type GenerationState = 'idle' | 'generating' | 'complete' | 'error';
+
+/** What one press of Generate (or Try again) asks the server for. */
+export type GenerationPlan = {
+  /** Identifies this request; a response for any other request is ignored. */
+  requestId: string;
+  /** How many interpretations are still needed: 2 for a fresh pair, 1 to finish a partial one. */
+  missing: number;
+  /** 1 for the first pair of this expression, higher when the user asks for a new pair. */
+  attempt: number;
+};
+
+/** The two-candidate contract. */
+export const CANDIDATE_COUNT = 2;
+
+export const GENERATION_ERRORS = {
+  failed: 'Your structure is safe. We could not finish this expression. Try again.',
+  partial: 'One interpretation is ready. The second did not finish. Try again for the second.',
+  interrupted: 'Your structure is safe. Development was interrupted. Try again to continue.',
+  offline: 'You look to be offline. Your structure is safe. Try again when you are connected.',
+  limit: 'You have developed as many expressions as allowed for today. Your structure is safe here.',
+  kept: 'We could not develop a new pair. Your previous two are still here.',
+} as const;
 
 export interface CreationDraft {
   draftId: string;
@@ -36,11 +58,30 @@ export interface CreationDraft {
   /** The generated structure. Locked from `reveal` onward: nothing after formation writes it. */
   structureSvg?: string;
   expression: AnchorExpression;
-  /** The selected AI results. The canonical SVG remains the source of truth. */
+  /**
+   * The production style the user chose from the expression library. `expression` is the
+   * local treatment that previews it on the structure; this is what generation is asked for.
+   * Absent when the original structure is kept.
+   */
+  styleChoice?: AIStyle;
+  /**
+   * Finished interpretations. The canonical SVG remains the source of truth. May hold one while
+   * the second is being retried — a finished interpretation is never thrown away.
+   */
   generatedCandidates: GeneratedAnchorCandidate[];
+  /** -1 until the user chooses; the choice is theirs, never a default. */
   selectedCandidateIndex: number;
   generationState: GenerationState;
   generationError?: string;
+  /** The request currently allowed to write results (see `GenerationPlan`). */
+  generationRequestId?: string;
+  /** How many times a fresh pair has been asked for this expression (0 = first pair). */
+  generationRound?: number;
+  /**
+   * The finished pair set aside while a fresh one is being made ("Try again" on the choice).
+   * If the new pair cannot be made, these come back; nothing finished is ever lost.
+   */
+  previousCandidates?: GeneratedAnchorCandidate[];
   enhancementMetadata?: Record<string, unknown>;
   /** The selected final visual, absent when the original structure is kept. */
   enhancedImageUrl?: string;
@@ -79,8 +120,9 @@ const freshDraft = (): CreationDraft => ({
   intention: '',
   expression: 'original',
   generatedCandidates: [],
-  selectedCandidateIndex: 0,
+  selectedCandidateIndex: -1,
   generationState: 'idle',
+  generationRound: 0,
   saveState: 'draft',
   saveAttempted: false,
   anchorPersisted: false,
@@ -105,9 +147,11 @@ export const invalidateFromIntention = (draft: CreationDraft, intention: string)
   structureType: undefined,
   structureSvg: undefined,
   generatedCandidates: [],
-  selectedCandidateIndex: 0,
+  selectedCandidateIndex: -1,
   generationState: 'idle',
   generationError: undefined,
+  generationRequestId: undefined,
+  generationRound: 0,
   enhancementMetadata: undefined,
   enhancedImageUrl: undefined,
   saveState: 'draft',
@@ -141,9 +185,21 @@ type CreationStore = {
   openExpression: () => void;
   /** Appearance only. Never touches the structure; refused once the Anchor is being saved. */
   selectExpression: (expression: AnchorExpression) => void;
-  beginGeneration: () => boolean;
-  completeGeneration: (candidates: GeneratedAnchorCandidate[], metadata?: Record<string, unknown>) => void;
-  failGeneration: (message?: string) => void;
+  /**
+   * Choose a style from the expression library (null keeps the original structure). The
+   * structure previews it through its local treatment `expression`.
+   */
+  selectStyle: (styleChoice: AIStyle | null, expression: AnchorExpression) => void;
+  /**
+   * Start (or continue) generation. From Expression or Choose it asks for a fresh pair; from a
+   * failed or partial Generation it asks only for what is missing. Null when not allowed.
+   */
+  beginGeneration: () => GenerationPlan | null;
+  /** Adds finished interpretations from `requestId`; two of them open the choice. */
+  completeGeneration: (requestId: string, candidates: GeneratedAnchorCandidate[], metadata?: Record<string, unknown>) => void;
+  failGeneration: (requestId: string, message?: string) => void;
+  /** Leave a failed fresh development and choose from the pair set aside for it. */
+  returnToPrevious: () => void;
   selectCandidate: (index: number) => void;
   /** Expression → saving for original, or expression → generating for AI. */
   keepOriginal: () => void;
@@ -157,6 +213,17 @@ type CreationStore = {
 
 const update = (draft: CreationDraft, patch: Partial<CreationDraft>): { draft: CreationDraft } => ({
   draft: { ...draft, ...patch, updatedAt: now() },
+});
+
+/** A fresh pair could not be made: the pair the user already had comes back, unchosen. */
+const restorePrevious = (draft: CreationDraft, message: string) => update(draft, {
+  generatedCandidates: draft.previousCandidates ?? [],
+  previousCandidates: undefined,
+  selectedCandidateIndex: -1,
+  enhancedImageUrl: undefined,
+  generationState: 'complete',
+  generationError: message,
+  currentStep: draft.currentStep === 'generating' ? 'choose' : draft.currentStep,
 });
 
 export const useCreationStore = create<CreationStore>()(
@@ -227,19 +294,30 @@ export const useCreationStore = create<CreationStore>()(
         return update(draft, { currentStep: 'expression' });
       }),
 
-      selectExpression: (expression) => set((state) => {
+      selectExpression: (expression) => {
+        const draft = get().draft;
+        if (!draft) return;
+        get().selectStyle(expression === 'original' ? null : draft.styleChoice ?? null, expression);
+      },
+
+      selectStyle: (styleChoice, expression) => set((state) => {
         const draft = state.draft;
-        if (!draft || draft.anchorPersisted || draft.saveState === 'saving' || draft.expression === expression) return state;
-        if (draft.expression === expression) return state;
+        if (!draft || draft.anchorPersisted || draft.saveState === 'saving') return state;
+        const nextStyle = expression === 'original' ? undefined : styleChoice ?? undefined;
+        if (draft.expression === expression && draft.styleChoice === nextStyle) return state;
         return update(draft, {
           expression,
+          styleChoice: nextStyle,
           // A new expression invalidates previously rendered candidates; backing out of the
           // choice screen without changing expression leaves them intact for comparison.
           generatedCandidates: [],
-          selectedCandidateIndex: 0,
+          selectedCandidateIndex: -1,
           enhancedImageUrl: undefined,
           generationState: 'idle',
           generationError: undefined,
+          generationRequestId: undefined,
+          generationRound: 0,
+          previousCandidates: undefined,
           saveState: draft.saveState === 'error' ? 'draft' : draft.saveState,
           saveFailure: undefined,
         });
@@ -247,44 +325,105 @@ export const useCreationStore = create<CreationStore>()(
 
       beginGeneration: () => {
         const draft = get().draft;
-        if (!draft || (draft.currentStep !== 'expression' && draft.currentStep !== 'generating' && draft.currentStep !== 'choose') || draft.expression === 'original' || draft.saveState === 'saving' || draft.generationState === 'generating') return false;
-        set(update(draft, { currentStep: 'generating', generationState: 'generating', generationError: undefined }));
-        return true;
+        if (!draft || (draft.currentStep !== 'expression' && draft.currentStep !== 'generating' && draft.currentStep !== 'choose')) return null;
+        if (draft.expression === 'original' || draft.saveState === 'saving') return null;
+        // Still developing from before the user stepped back: return to it rather than starting
+        // (and paying for) a second request.
+        if (draft.generationState === 'generating') {
+          if (draft.currentStep !== 'generating') set(update(draft, { currentStep: 'generating' }));
+          return null;
+        }
+        const existing = (draft.generatedCandidates ?? []).filter((candidate) => candidate.imageUrl);
+        // Continuing a failed or partial development keeps every finished interpretation and
+        // asks only for the rest. Coming from Expression with a full pair already made (the
+        // user backed out to compare) shows that pair again rather than spending a new one.
+        // Only "Try again" on the choice itself asks for a fresh pair.
+        const fresh = draft.currentStep === 'choose';
+        if (!fresh && existing.length >= CANDIDATE_COUNT) {
+          set(update(draft, { currentStep: 'choose', generationState: 'complete', generationError: undefined }));
+          return null;
+        }
+        const kept = fresh ? [] : existing.slice(0, CANDIDATE_COUNT);
+        const round = (draft.generationRound ?? 0) + (fresh ? 1 : 0);
+        const requestId = makeId('generation');
+        set(update(draft, {
+          currentStep: 'generating',
+          generationState: 'generating',
+          generationError: undefined,
+          generationRequestId: requestId,
+          generationRound: round,
+          previousCandidates: fresh ? existing.slice(0, CANDIDATE_COUNT) : draft.previousCandidates,
+          generatedCandidates: kept,
+          selectedCandidateIndex: -1,
+          enhancedImageUrl: undefined,
+        }));
+        return { requestId, missing: CANDIDATE_COUNT - kept.length, attempt: round + 1 };
       },
 
-      completeGeneration: (generatedCandidates, enhancementMetadata) => set((state) => {
+      completeGeneration: (requestId, generatedCandidates, enhancementMetadata) => set((state) => {
         const draft = state.draft;
-        if (!draft || draft.currentStep !== 'generating') return state;
-        const candidates = (generatedCandidates ?? []).filter((candidate) => candidate.imageUrl).slice(0, 2);
-        if (candidates.length < 2) return update(draft, { generationState: 'error', generationError: 'We could not finish both interpretations. Try again.' });
+        // The request may finish after the user stepped back to Expression; its result is kept
+        // (it is theirs, and it was paid for) and shown when they return to it.
+        if (!draft || draft.generationRequestId !== requestId || draft.generationState !== 'generating') return state;
+        const watching = draft.currentStep === 'generating';
+        const merged: GeneratedAnchorCandidate[] = [];
+        for (const candidate of [...(draft.generatedCandidates ?? []), ...(generatedCandidates ?? [])]) {
+          if (!candidate?.imageUrl || merged.some((kept) => kept.imageUrl === candidate.imageUrl)) continue;
+          merged.push(candidate);
+        }
+        const candidates = merged.slice(0, CANDIDATE_COUNT);
+        if (candidates.length === 0 && draft.previousCandidates?.length === CANDIDATE_COUNT) {
+          return restorePrevious(draft, GENERATION_ERRORS.kept);
+        }
+        if (candidates.length < CANDIDATE_COUNT) {
+          return update(draft, {
+            generatedCandidates: candidates,
+            generationState: 'error',
+            generationError: candidates.length ? GENERATION_ERRORS.partial : GENERATION_ERRORS.failed,
+            enhancementMetadata: enhancementMetadata ?? draft.enhancementMetadata,
+          });
+        }
         return update(draft, {
           generatedCandidates: candidates,
-          selectedCandidateIndex: 0,
-          enhancedImageUrl: candidates[0]?.imageUrl,
+          previousCandidates: undefined,
+          selectedCandidateIndex: -1,
+          enhancedImageUrl: undefined,
           generationState: 'complete',
           generationError: undefined,
-          enhancementMetadata,
-          currentStep: 'choose',
+          enhancementMetadata: enhancementMetadata ?? draft.enhancementMetadata,
+          currentStep: watching ? 'choose' : draft.currentStep,
         });
       }),
 
-      failGeneration: (message) => set((state) => {
+      failGeneration: (requestId, message) => set((state) => {
         const draft = state.draft;
-        if (!draft || draft.currentStep !== 'generating') return state;
-        return update(draft, { currentStep: 'generating', generationState: 'error', generationError: message ?? 'Your Anchor is safe. Try generating the expression again.' });
+        if (!draft || draft.generationRequestId !== requestId || draft.generationState !== 'generating') return state;
+        const kept = draft.generatedCandidates ?? [];
+        if (!kept.length && draft.previousCandidates?.length === CANDIDATE_COUNT) return restorePrevious(draft, GENERATION_ERRORS.kept);
+        const generic = !message || message === GENERATION_ERRORS.failed;
+        return update(draft, {
+          generationState: 'error',
+          generationError: kept.length && generic ? GENERATION_ERRORS.partial : message ?? GENERATION_ERRORS.failed,
+        });
+      }),
+
+      returnToPrevious: () => set((state) => {
+        const draft = state.draft;
+        if (!draft || draft.generationState === 'generating' || draft.previousCandidates?.length !== CANDIDATE_COUNT) return state;
+        return update(restorePrevious(draft, '').draft, { generationError: undefined, currentStep: 'choose' });
       }),
 
       selectCandidate: (index) => set((state) => {
         const draft = state.draft;
         const candidates = draft?.generatedCandidates ?? [];
-        if (!draft || draft.currentStep !== 'choose' || index < 0 || index >= candidates.length) return state;
-        return update(draft, { selectedCandidateIndex: index, enhancedImageUrl: candidates[index]?.imageUrl });
+        if (!draft || draft.currentStep !== 'choose' || draft.saveState === 'saving' || index < 0 || index >= candidates.length) return state;
+        return update(draft, { selectedCandidateIndex: index, enhancedImageUrl: candidates[index]?.imageUrl, generationError: undefined });
       }),
 
       keepOriginal: () => set((state) => {
         const draft = state.draft;
         if (!draft || draft.currentStep !== 'expression' || draft.expression !== 'original') return state;
-        return update(draft, { enhancedImageUrl: undefined, generatedCandidates: [], generationState: 'idle' });
+        return update(draft, { enhancedImageUrl: undefined, generatedCandidates: [], selectedCandidateIndex: -1, generationState: 'idle', styleChoice: undefined });
       }),
 
       goBack: () => {
@@ -300,6 +439,8 @@ export const useCreationStore = create<CreationStore>()(
         const draft = get().draft;
         if (!draft || (draft.currentStep !== 'expression' && draft.currentStep !== 'choose') || !draft.structureSvg) return null;
         if (draft.saveState === 'saving' || draft.anchorPersisted) return null;
+        // The final Anchor is the one the user chose; nothing is kept on their behalf.
+        if (draft.currentStep === 'choose' && !(draft.selectedCandidateIndex >= 0 && draft.enhancedImageUrl)) return null;
         set(update(draft, { saveState: 'saving', saveFailure: undefined, saveAttempted: true }));
         return draft.clientRequestId;
       },
@@ -342,12 +483,39 @@ export const useCreationStore = create<CreationStore>()(
  */
 export function resumableDraft(draft: CreationDraft | null): CreationDraft | null {
   if (!draft || draft.anchorPersisted) return null;
-  const normalized: CreationDraft = {
+  const candidates = Array.isArray(draft.generatedCandidates) ? draft.generatedCandidates.filter((candidate) => candidate?.imageUrl) : [];
+  const selected = Number.isFinite(draft.selectedCandidateIndex) && draft.selectedCandidateIndex < candidates.length ? draft.selectedCandidateIndex : -1;
+  let normalized: CreationDraft = {
     ...draft,
-    generatedCandidates: Array.isArray(draft.generatedCandidates) ? draft.generatedCandidates : [],
-    selectedCandidateIndex: Number.isFinite(draft.selectedCandidateIndex) ? draft.selectedCandidateIndex : 0,
+    generatedCandidates: candidates,
+    selectedCandidateIndex: selected,
+    enhancedImageUrl: selected >= 0 ? candidates[selected]?.imageUrl : draft.currentStep === 'choose' ? undefined : draft.enhancedImageUrl,
     generationState: draft.generationState ?? 'idle',
+    generationRound: draft.generationRound ?? 0,
   };
+  // A development the app died during has no response coming. Every finished interpretation
+  // (and everything upstream) is kept; the user continues it with one tap.
+  if (normalized.generationState === 'generating' && !candidates.length && normalized.previousCandidates?.length === CANDIDATE_COUNT) {
+    normalized = {
+      ...normalized,
+      generatedCandidates: normalized.previousCandidates,
+      previousCandidates: undefined,
+      selectedCandidateIndex: -1,
+      enhancedImageUrl: undefined,
+      generationState: 'complete',
+      generationError: GENERATION_ERRORS.kept,
+      generationRequestId: undefined,
+      currentStep: normalized.currentStep === 'generating' ? 'choose' : normalized.currentStep,
+    };
+  } else if (normalized.generationState === 'generating') {
+    normalized = {
+      ...normalized,
+      currentStep: normalized.currentStep === 'expression' ? 'expression' : 'generating',
+      generationState: 'error',
+      generationError: candidates.length ? GENERATION_ERRORS.partial : GENERATION_ERRORS.interrupted,
+      generationRequestId: undefined,
+    };
+  }
   if (normalized.saveState === 'saving') return { ...normalized, saveState: 'error', saveFailure: 'network' };
   return normalized;
 }

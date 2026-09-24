@@ -53,7 +53,8 @@ function TracedPath({ progress, window, ...pathProps }: React.ComponentProps<typ
   const animatedProps = useAnimatedProps(() => {
     const span = end - start || 1;
     const local = Math.min(1, Math.max(0, (progress.value - start) / span));
-    return { strokeDashoffset: length * (1 - local) };
+    // Untraced, a round cap would still paint a dot at the path's far end.
+    return { strokeDashoffset: length * (1 - local), opacity: local > 0 ? 1 : 0 };
   });
   return <AnimatedPath {...pathProps} strokeDasharray={[length, length]} animatedProps={animatedProps} />;
 }

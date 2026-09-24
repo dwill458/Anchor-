@@ -27,7 +27,11 @@ import {
 } from '../../services/AIEnhancer';
 import { VALID_AI_STYLES } from '../../services/stylePromptLibrary';
 import { generateMantra, getRecommendedMantraStyle } from '../../services/MantraGenerator';
-import { resolveStoredAssetUrl, uploadImageFromUrl } from '../../services/StorageService';
+import {
+  isServerStoredAssetUrl,
+  resolveStoredAssetUrl,
+  uploadImageFromUrl,
+} from '../../services/StorageService';
 import {
   generateAllMantraAudio,
   isTTSAvailable,
@@ -108,6 +112,9 @@ const EnhanceSchema = z.object({
   provider: z.enum(['gemini', 'replicate', 'auto']).optional(),
   tier: z.enum(['draft', 'premium']).optional(),
   generationAttempt: z.number().int().min(0).max(100).optional(),
+  // How many interpretations this request should return. A client that already holds one
+  // finished interpretation asks only for the one that is missing.
+  variationCount: z.number().int().min(1).max(TOTAL_VARIATION_OPTIONS).optional(),
 });
 
 const MantraSchema = z.object({
@@ -258,7 +265,9 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
       provider, // Optional: 'gemini' | 'replicate' | 'auto' (default: 'auto')
       tier, // Optional: 'draft' | 'premium' (default: 'premium')
       generationAttempt, // Optional: int starting at 1; pro users upgrade to pro model at attempt 3+
+      variationCount,
     } = parsed;
+    const requestedVariations = variationCount ?? TOTAL_VARIATION_OPTIONS;
 
     // Support both field names for maximum compatibility
     const intentionText = bodyIntentionText || bodyIntention;
@@ -389,7 +398,7 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
         orderBy: {
           createdAt: 'asc',
         },
-        take: MAX_REUSED_VARIATIONS,
+        take: Math.min(MAX_REUSED_VARIATIONS, requestedVariations),
       });
 
       if (poolCandidates.length > 0) {
@@ -442,7 +451,10 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
       reservedPoolRows = [];
     }
 
-    const numberOfVariationsToGenerate = TOTAL_VARIATION_OPTIONS - reservedPoolVariations.length;
+    const numberOfVariationsToGenerate = Math.max(
+      0,
+      requestedVariations - reservedPoolVariations.length
+    );
 
     let promptUsed = '';
     let negativePromptUsed = '';
@@ -545,9 +557,11 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
       usedProvider =
         modelLower.includes('gemini') || modelLower.includes('imagen')
           ? 'gemini'
-          : modelLower.includes('controlnet')
-            ? 'replicate'
-            : 'unknown';
+          : modelLower.includes('openai') || modelLower.includes('gpt-image')
+            ? 'openai'
+            : modelLower.includes('controlnet')
+              ? 'replicate'
+              : 'unknown';
 
       // --- Upload variations to R2 (per-variation error handling) ---
       const uploadedVariations: ClientVariation[] = [];
@@ -556,9 +570,14 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
         const variation = enhancementResult.variations[i];
         let permanentUrl: string;
         try {
-          permanentUrl = await uploadImageFromUrl(variation.imageUrl, user.id, storageAnchorId, i, {
-            baseUrl: requestBaseUrl,
-          });
+          // The Gemini path has already written the image to our own storage. Re-fetching
+          // that URL to upload it a second time failed on every request (the bucket is not
+          // publicly readable), which turned each successful generation into a 502.
+          permanentUrl = isServerStoredAssetUrl(variation.imageUrl)
+            ? variation.imageUrl
+            : await uploadImageFromUrl(variation.imageUrl, user.id, storageAnchorId, i, {
+                baseUrl: requestBaseUrl,
+              });
         } catch (uploadError) {
           logger.error('[AI Enhance] Failed to upload variation to storage', {
             variationIndex: i,

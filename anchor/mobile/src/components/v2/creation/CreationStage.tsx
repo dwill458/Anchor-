@@ -1,12 +1,23 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Keyboard, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { AccessibilityInfo, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { cancelAnimation, Easing, interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, {
+  cancelAnimation,
+  Easing,
+  interpolate,
+  useAnimatedStyle,
+  useDerivedValue,
+  useSharedValue,
+  type SharedValue,
+} from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft } from 'lucide-react-native';
 
 import { V2Button, V2IconButton } from '@/components/v2';
 import { V2InlineError } from '@/components/v2/feedback/V2Feedback';
-import { CREATION_EXPRESSION_SPECS } from '@/components/v2/anchor/anchorExpressions';
+import { AnchorMark } from '@/components/v2/anchor/AnchorMark';
+import { expressionSpec } from '@/components/v2/anchor/anchorExpressions';
+import { CircularAnchorRenderer } from '@/components/v2/anchor/CircularAnchorRenderer';
 import { categoryLabel } from '@/components/v2/anchors/anchorPresentation';
 import {
   CREATION_SAVE_ERRORS,
@@ -19,35 +30,57 @@ import {
   type AnchorExpression,
   type CreationStep,
 } from '@/constants/v2/creation';
-import { formationForDraft, type CreationDraft } from '@/stores/v2/creationStore';
-import { useV2Responsive } from '@/hooks/v2';
-import { AnchorMotion, colors, getCategoryColor, getCategoryTextColor, spacing, typography } from '@/theme/v2';
+import { GENERATION_ERRORS, formationForDraft, type CreationDraft } from '@/stores/v2/creationStore';
+import { useV2Responsive, v2Haptics } from '@/hooks/v2';
+import { colors, getCategoryColor, getCategoryTextColor, spacing, typography } from '@/theme/v2';
+import type { AIStyle } from '@/types';
 import {
   CREATION_EASING,
+  CREATION_PACE,
   CREATION_TIMING,
   FORMATION_TIMING,
+  GENERATION_TIMING,
+  KAMEA_CORE,
+  MARK_CORE,
+  PAPER_ART_SHARE,
   creationMarkSize,
+  creationRepeat,
+  creationSequence,
+  creationTiming,
   formationTimeline,
   letterVertexIndexes,
+  reducedFormationTimeline,
   stageFitScale,
-  type FormationTimeline,
 } from './creationMotion';
-import { DistillationLetters } from './DistillationLetters';
+import { DistillationLetters, type SettledSlots } from './DistillationLetters';
 import type { DistillationStage } from './distillationMotion';
 import { ExpressionPreview } from './ExpressionPreview';
-import { ExpressionCards } from './ExpressionCards';
-import { FormationLayer, vertexArrivals } from './FormationLayer';
+import { ExpressionLibrary } from './ExpressionLibrary';
+import { styleOption, type CreationStyleOption } from './expressionOptions';
+import { FormationLayer, MappingTokens, type StagePoint } from './FormationLayer';
 import { FormationSheet } from './FormationSheet';
-import { CircularAnchorRenderer } from '@/components/v2/anchor/CircularAnchorRenderer';
 
 export type WindowRect = { x: number; y: number; width: number; height: number };
 
 /** Room kept above the grid for the lifted letter row during formation. */
 const LETTER_ROW = 46;
+/** How much the lifted letter row shrinks. */
+const LIFTED_SCALE = 0.78;
 /** Below this the stage cannot show the mark legibly; it steps aside for the panel. */
 const MIN_STAGE_FOR_MARK = 76;
+/** Room above the mark for the Expression stage's label. */
+const STAGE_LABEL_ROOM = 22;
+/** The mark inside its paper circle: the circle is what must fit. */
+const DISC_CORE = 1 / PAPER_ART_SHARE;
+const PAPER = '#FBF9F4';
+/** The second-Anchor paywall action, the same on every panel and for assistive tech. */
+const PRO_LABEL = 'See Anchor Pro';
 
-const HEADLINES: Record<CreationStep, { eyebrow: string; title: string }> = {
+/** What the stage is showing. A replay of the formation plays inside Reveal. */
+type Scene = CreationStep;
+type Replay = null | 'distillation' | 'formation';
+
+const HEADLINES: Record<Scene, { eyebrow: string; title: string }> = {
   intention: { eyebrow: '', title: '' },
   distillation: { eyebrow: DISTILLATION_COPY.eyebrow, title: DISTILLATION_COPY.title },
   formation: { eyebrow: FORMATION_COPY.eyebrow, title: FORMATION_COPY.title },
@@ -55,25 +88,30 @@ const HEADLINES: Record<CreationStep, { eyebrow: string; title: string }> = {
   expression: { eyebrow: EXPRESSION_COPY.eyebrow, title: EXPRESSION_COPY.title },
   generating: { eyebrow: GENERATION_COPY.eyebrow, title: GENERATION_COPY.title },
   choose: { eyebrow: CHOOSE_COPY.eyebrow, title: CHOOSE_COPY.title },
-  handoff: { eyebrow: CHOOSE_COPY.eyebrow, title: CHOOSE_COPY.title },
+  handoff: { eyebrow: REVEAL_COPY.eyebrow, title: REVEAL_COPY.title },
 };
 
-const REDUCED_TIMELINE: FormationTimeline = { total: FORMATION_TIMING.reducedTotal, gridEnd: 0.35, pathStart: 0.35, pathEnd: 0.6 };
+type FormationPhase = keyof typeof FORMATION_COPY.status;
+type GenerationPhase = keyof typeof GENERATION_COPY.phase;
 
 export interface CreationStageProps {
   draft: CreationDraft;
   reduceMotion: boolean;
   /** The step the flow was opened on. A resumed flow does not replay what already happened. */
   entryStep: CreationStep;
+  /** Stage pace multiplier (see `CREATION_PACE`). */
+  pace?: number;
   onBack: () => void;
   onFormAnchor: () => void;
   onFormationDone: () => void;
   onOpenExpression: () => void;
-  onSelectExpression: (expression: AnchorExpression) => void;
+  onSelectStyle: (styleChoice: AIStyle | null, expression: AnchorExpression) => void;
   onKeep: () => void;
   onGenerate: () => void;
   onKeepOriginal: () => void;
   onSelectCandidate: (index: number) => void;
+  /** Back to the pair set aside when a fresh one was asked for. */
+  onReturnToPrevious?: () => void;
   onSignIn?: () => void;
   onPaywall?: () => void;
   onHandoff: (markRect: WindowRect | null) => void;
@@ -83,15 +121,17 @@ export function CreationStage({
   draft,
   reduceMotion,
   entryStep,
+  pace = CREATION_PACE.first,
   onBack,
   onFormAnchor,
   onFormationDone,
   onOpenExpression,
-  onSelectExpression,
+  onSelectStyle,
   onKeep,
   onGenerate,
   onKeepOriginal,
   onSelectCandidate,
+  onReturnToPrevious,
   onSignIn,
   onPaywall,
   onHandoff,
@@ -102,44 +142,63 @@ export function CreationStage({
   const markSize = creationMarkSize(viewport);
   const svg = draft.structureSvg;
   const accent = getCategoryColor(draft.category);
-  const specs = CREATION_EXPRESSION_SPECS;
-  const expressionIndex = Math.max(0, specs.findIndex((spec) => spec.id === draft.expression));
+  // The chosen look: the local treatment plus the chosen style's own colour, if it has one.
+  // Until Expression, the Anchor is shown as the structure itself: a style kept from an earlier
+  // intention is applied only once the user arrives at the choice of how it appears.
+  const expressed = step === 'expression' || step === 'generating' || step === 'choose' || step === 'handoff';
+  const lookExpression: AnchorExpression = expressed ? draft.expression : 'original';
+  const lookTint = expressed ? styleOption(draft.expression === 'original' ? undefined : draft.styleChoice)?.tint : undefined;
   const letters = useMemo(() => draft.distilledLetters ?? [], [draft.distilledLetters]);
   const formation = useMemo(
     () => formationForDraft({ distilledLetters: letters, category: draft.category }),
     [letters, draft.category],
   );
   const timeline = useMemo(
-    () => (reduceMotion ? REDUCED_TIMELINE : formationTimeline(formation?.vertices.length ?? 0)),
-    [formation, reduceMotion],
+    () => (reduceMotion ? reducedFormationTimeline(formation?.vertices.length ?? 0) : formationTimeline(formation?.vertices ?? [], pace)),
+    [formation, pace, reduceMotion],
   );
   const formed = step === 'reveal' || step === 'expression' || step === 'generating' || step === 'choose' || step === 'handoff';
+  const candidates = useMemo(() => (draft.generatedCandidates ?? []).slice(0, 2), [draft.generatedCandidates]);
+  const chosenIndex = draft.selectedCandidateIndex ?? -1;
+  const keptCandidate = step === 'handoff' && chosenIndex >= 0 && Boolean(candidates[chosenIndex]);
+
+  /* ── replay of the formation, inside Reveal ───────────────────────────── */
+  const [replay, setReplay] = useState<Replay>(null);
+  const [replayKey, setReplayKey] = useState(0);
+  useEffect(() => {
+    if (step !== 'reveal' && replay) setReplay(null);
+  }, [replay, step]);
 
   /* ── shared motion state ─────────────────────────────────────────────── */
   const progress = useSharedValue(formed ? 1 : 0);
-  const railPosition = useSharedValue(expressionIndex);
+  const mix = useSharedValue(1);
   const chrome = useSharedValue(1);
   const markY = useSharedValue(0);
   const markScale = useSharedValue(1);
   const markVisible = useSharedValue(1);
+  const gen = useSharedValue(step === 'generating' || step === 'choose' || keptCandidate ? 1 : 0);
+  const breath = useSharedValue(0);
+  const emerge = useSharedValue(step === 'choose' || step === 'handoff' ? 1 : 0);
+  const resolve = useSharedValue(0);
 
-  /* ── displayed step: the headline and panel swap out, then in ─────────── */
-  const [shown, setShown] = useState<CreationStep>(step);
+  /* ── displayed scene: the headline and panel swap out, then in ────────── */
+  const target: Scene = replay ?? step;
+  const [shown, setShown] = useState<Scene>(target);
   const swap = useSharedValue(1);
   useEffect(() => {
-    if (shown === step) return undefined;
-    if (step === 'handoff') return undefined; // hand-off keeps the last panel while it fades
+    if (shown === target) return undefined;
+    if (target === 'handoff') return undefined; // hand-off keeps the last panel while it fades
     if (reduceMotion) {
-      setShown(step);
+      setShown(target);
       return undefined;
     }
-    swap.value = withTiming(0, { duration: CREATION_TIMING.swapOut, easing: CREATION_EASING.deliberate });
+    swap.value = creationTiming(0, { duration: CREATION_TIMING.swapOut, easing: CREATION_EASING.exit });
     const timer = setTimeout(() => {
-      setShown(step);
-      swap.value = withTiming(1, { duration: CREATION_TIMING.swapIn, easing: CREATION_EASING.enter });
+      setShown(target);
+      swap.value = creationTiming(1, { duration: CREATION_TIMING.swapIn, easing: CREATION_EASING.enter });
     }, CREATION_TIMING.swapOut + 10);
     return () => clearTimeout(timer);
-  }, [reduceMotion, shown, step, swap]);
+  }, [reduceMotion, shown, target, swap]);
 
   /* ── stage layout → where and how large the mark sits ─────────────────── */
   const stageRef = useRef<View>(null);
@@ -150,12 +209,18 @@ export function CreationStage({
   }, []);
 
   const placement = useMemo(() => {
-    const lifted = shown === 'formation' || shown === 'distillation';
-    const room = { width: stage.width, height: Math.max(0, stage.height - (lifted ? LETTER_ROW * 2 : 0)) };
-    const scale = stageFitScale(room, markSize);
-    const centerY = stage.height / 2 + (lifted ? LETTER_ROW / 2 : 0);
-    return { scale, top: centerY - markSize / 2, visible: stage.height >= MIN_STAGE_FOR_MARK };
-  }, [markSize, shown, stage]);
+    const scene = shown === 'handoff' ? 'handoff' : target === 'formation' || target === 'distillation' ? target : shown;
+    const lifted = scene === 'formation' || scene === 'distillation';
+    const inCircle = scene === 'generating' || scene === 'choose' || scene === 'handoff';
+    const core = lifted ? KAMEA_CORE : inCircle ? DISC_CORE : MARK_CORE;
+    // The "YOUR STRUCTURE" label sits above the mark on Expression; the mark keeps clear of it.
+    const labelRoom = scene === 'expression' ? STAGE_LABEL_ROOM : 0;
+    const room = { width: stage.width, height: Math.max(0, stage.height - (lifted ? LETTER_ROW * 2 : 0) - (scene === 'handoff' ? 40 : 0) - labelRoom) };
+    const scale = stageFitScale(room, markSize, core);
+    const centerY = stage.height / 2 + (lifted ? LETTER_ROW / 2 : 0) - (scene === 'handoff' ? 20 : 0) + labelRoom / 2;
+    const visible = stage.height >= MIN_STAGE_FOR_MARK && scene !== 'distillation' && scene !== 'choose' && !(scene === 'handoff' && keptCandidate);
+    return { scale, top: centerY - markSize / 2, centerY, visible };
+  }, [keptCandidate, markSize, shown, stage, target]);
   const placementRef = useRef(placement);
   placementRef.current = placement;
 
@@ -170,47 +235,80 @@ export function CreationStage({
       markVisible.value = placement.visible ? 1 : 0;
       return;
     }
-    markY.value = withTiming(placement.top, timing);
-    markScale.value = withTiming(placement.scale, timing);
-    markVisible.value = withTiming(placement.visible ? 1 : 0, timing);
+    markY.value = creationTiming(placement.top, timing);
+    markScale.value = creationTiming(placement.scale, timing);
+    markVisible.value = creationTiming(placement.visible ? 1 : 0, timing);
   }, [markScale, markVisible, markY, placement, reduceMotion, stage.height]);
 
   /* ── distillation → formation ─────────────────────────────────────────── */
   const [distillStage, setDistillStage] = useState<DistillationStage>('whole');
+  const [slots, setSlots] = useState<SettledSlots | null>(null);
   const formRequested = useRef(false);
   const onDistillStage = useCallback((next: DistillationStage) => setDistillStage(next), []);
   useEffect(() => {
-    if (step !== 'distillation' || distillStage !== 'settled' || formRequested.current) return undefined;
+    if (distillStage !== 'settled' || formRequested.current) return undefined;
+    if (step !== 'distillation' && replay !== 'distillation') return undefined;
     const timer = setTimeout(() => {
       formRequested.current = true;
-      onFormAnchor();
+      if (replay === 'distillation') setReplay('formation');
+      else onFormAnchor();
     }, reduceMotion ? 120 : CREATION_TIMING.distillHold);
     return () => clearTimeout(timer);
-  }, [distillStage, onFormAnchor, reduceMotion, step]);
+  }, [distillStage, onFormAnchor, reduceMotion, replay, step]);
 
-  /* ── formation: one progress value drives grid, points, trace and colour ─ */
-  const [formationPhase, setFormationPhase] = useState<keyof typeof FORMATION_COPY.status>('grid');
+  /* ── formation: one progress value drives square, letters, points, line ── */
+  const [formationPhase, setFormationPhase] = useState<FormationPhase>('grid');
   const formationTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const formationRunning = useRef(false);
   const clearFormationTimers = () => {
     formationTimers.current.forEach(clearTimeout);
     formationTimers.current = [];
   };
+  const forming = step === 'formation' || replay === 'formation';
+  const replayRef = useRef(replay);
+  replayRef.current = replay;
 
   const runFormation = useCallback(
-    (duration: number) => {
+    (hurried = false) => {
       clearFormationTimers();
       const from = progress.value;
-      const remaining = Math.max(0, 1 - from);
-      const total = Math.max(1, duration);
-      progress.value = withTiming(1, { duration: total, easing: Easing.linear });
-      const at = (fraction: number) => Math.max(0, ((fraction - from) / (remaining || 1)) * total);
-      if (from < timeline.pathStart) formationTimers.current.push(setTimeout(() => setFormationPhase('path'), at(timeline.pathStart)));
-      if (from < timeline.pathEnd) formationTimers.current.push(setTimeout(() => setFormationPhase('settle'), at(timeline.pathEnd)));
+      const normal = (a: number, b: number) => Math.max(0, (b - a) * timeline.total);
+      let total: number;
+      let at: (fraction: number) => number;
+      if (!hurried || from >= timeline.constructEnd) {
+        total = Math.max(1, normal(from, 1));
+        progress.value = creationTiming(1, { duration: total, easing: Easing.linear });
+        at = (fraction) => normal(from, fraction);
+      } else {
+        // A tap hurries what is still being drawn, never the hold that follows it: the finished
+        // geometry still breathes and the grid still recedes at their own pace.
+        const pivot = timeline.constructEnd;
+        const quick = FORMATION_TIMING.hurry;
+        const tail = Math.max(1, normal(pivot, 1));
+        total = quick + tail;
+        progress.value = creationSequence(
+          creationTiming(pivot, { duration: quick, easing: Easing.linear }),
+          creationTiming(1, { duration: tail, easing: Easing.linear }),
+        );
+        at = (fraction) => (fraction <= pivot ? ((fraction - from) / (pivot - from || 1)) * quick : quick + normal(pivot, fraction));
+      }
+      const phases: Array<[number, FormationPhase]> = [
+        [timeline.departures[0] ?? timeline.gridEnd, 'map'],
+        [timeline.constructStart, 'path'],
+        [timeline.constructEnd, 'settle'],
+      ];
+      for (const [fraction, phase] of phases) {
+        if (from < fraction) formationTimers.current.push(setTimeout(() => setFormationPhase(phase), at(fraction)));
+        else setFormationPhase(phase);
+      }
       // Completion does not wait for an animation callback: the timer is the contract, and it
       // still holds when frames are paused (backgrounded app, tests).
       formationTimers.current.push(setTimeout(() => {
         formationRunning.current = false;
+        if (replayRef.current === 'formation') {
+          setReplay(null);
+          return;
+        }
         onFormationDone();
       }, total + 40));
     },
@@ -218,55 +316,158 @@ export function CreationStage({
   );
 
   useEffect(() => {
-    if (step !== 'formation' || !svg || draft.formationError || formationRunning.current) return undefined;
+    if (!forming || !svg || draft.formationError || formationRunning.current) return undefined;
     formationRunning.current = true;
-    runFormation(timeline.total * (1 - progress.value));
+    if (replay === 'formation') progress.value = 0;
+    setFormationPhase('grid');
+    runFormation(false);
     return undefined;
-  }, [draft.formationError, progress, runFormation, step, svg, timeline.total]);
+  }, [draft.formationError, forming, progress, replay, runFormation, svg]);
 
   useEffect(() => () => clearFormationTimers(), []);
 
   // Leaving formation early (Back) stops it cleanly; returning replays it from the start.
   useEffect(() => {
-    if (step === 'formation' || formed) return;
+    if (forming || formed || replay) return;
     clearFormationTimers();
     formationRunning.current = false;
     formRequested.current = false;
     cancelAnimation(progress);
     progress.value = 0;
     setFormationPhase('grid');
-  }, [formed, progress, step]);
+    setSlots(null);
+  }, [formed, forming, progress, replay]);
 
   /** A tap during formation finishes it briskly instead of skipping what it shows. */
   const hurry = useCallback(() => {
-    if (step !== 'formation' || !formationRunning.current || progress.value > 0.92) return;
+    if (!forming || !formationRunning.current || progress.value >= timeline.constructEnd) return;
     cancelAnimation(progress);
-    runFormation(FORMATION_TIMING.hurry);
-  }, [progress, runFormation, step]);
+    runFormation(true);
+  }, [forming, progress, runFormation, timeline.constructEnd]);
 
-  /* ── expression ───────────────────────────────────────────────────────── */
+  const startReplay = useCallback(() => {
+    if (step !== 'reveal' || replay) return;
+    formRequested.current = false;
+    setDistillStage('whole');
+    setSlots(null);
+    setReplayKey((key) => key + 1);
+    setReplay('distillation');
+  }, [replay, step]);
+
+  /* ── expression: the structure adopts the chosen treatment ─────────────── */
+  type Look = { expression: AnchorExpression; tint?: string };
+  const [look, setLook] = useState<{ from: Look; to: Look }>(() => {
+    const initial = { expression: lookExpression, tint: lookTint };
+    return { from: initial, to: initial };
+  });
+  const lookRef = useRef(look);
+  lookRef.current = look;
   useEffect(() => {
-    // An expression set from outside the rail (resume) lands without a sweep.
-    if (Math.round(railPosition.value) !== expressionIndex && step !== 'expression') railPosition.value = expressionIndex;
-  }, [expressionIndex, railPosition, step]);
-  const commitExpression = useCallback((expression: AnchorExpression) => {
-    onSelectExpression(expression);
-  }, [onSelectExpression]);
+    const next: Look = { expression: lookExpression, tint: lookTint };
+    const shownLook = lookRef.current.to;
+    if (shownLook.expression === next.expression && shownLook.tint === next.tint) return undefined;
+    if (reduceMotion || step !== 'expression') {
+      setLook({ from: next, to: next });
+      mix.value = 1;
+      return undefined;
+    }
+    // Only the look being left and the look being chosen take part in the change.
+    setLook({ from: shownLook, to: next });
+    mix.value = 0;
+    mix.value = creationTiming(1, { duration: CREATION_TIMING.expressionBlend, easing: CREATION_EASING.deliberate });
+    const settle = setTimeout(() => setLook({ from: next, to: next }), CREATION_TIMING.expressionBlend + 40);
+    return () => clearTimeout(settle);
+  }, [lookExpression, lookTint, mix, reduceMotion, step]);
+
+  const selectStyle = useCallback((option: CreationStyleOption | null) => {
+    v2Haptics.selection();
+    onSelectStyle(option?.styleChoice ?? null, option?.expression ?? 'original');
+  }, [onSelectStyle]);
+
+  /* ── generation: structure → expression → surface, then an honest wait ─── */
+  const developing = step === 'generating' && draft.generationState === 'generating';
+  const [generationPhase, setGenerationPhase] = useState<GenerationPhase>('structure');
+  useEffect(() => {
+    if (step !== 'generating') {
+      cancelAnimation(breath);
+      breath.value = 0;
+      return undefined;
+    }
+    if (!developing) {
+      // A failure holds the structure exactly where it is; nothing pretends to continue.
+      cancelAnimation(gen);
+      cancelAnimation(breath);
+      breath.value = creationTiming(0, { duration: 400 });
+      return undefined;
+    }
+    const total = GENERATION_TIMING.structure + GENERATION_TIMING.expression + GENERATION_TIMING.surface;
+    // A retry for the one missing interpretation continues from the resolved circle; a fresh
+    // development starts from the plain structure.
+    const from = reduceMotion ? 1 : candidates.length ? Math.min(1, Math.max(0, gen.value)) : 0;
+    if (reduceMotion) {
+      gen.value = 1;
+      setGenerationPhase('surface');
+    } else {
+      gen.value = from;
+      gen.value = creationTiming(1, { duration: Math.max(1, total * (1 - from)), easing: Easing.linear });
+      setGenerationPhase(from >= 1 ? 'surface' : 'structure');
+    }
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    if (!reduceMotion) {
+      const elapsed = from * total;
+      const after = (ms: number) => Math.max(0, ms - elapsed);
+      timers.push(setTimeout(() => setGenerationPhase('expression'), after(GENERATION_TIMING.structure)));
+      timers.push(setTimeout(() => setGenerationPhase('surface'), after(GENERATION_TIMING.structure + GENERATION_TIMING.expression)));
+      // Once the sequence has resolved, the circle rests with the slowest of breaths — an
+      // honest "still working", not a progress claim.
+      timers.push(setTimeout(() => {
+        breath.value = creationRepeat(creationTiming(1, { duration: 2600, easing: Easing.inOut(Easing.sin) }));
+      }, after(total)));
+    }
+    timers.push(setTimeout(() => setGenerationPhase('extended'), GENERATION_TIMING.extendedAfter));
+    return () => timers.forEach(clearTimeout);
+    // The sequence restarts per attempt, not per candidate change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [developing, draft.generationRequestId, reduceMotion, step]);
+
+  /* ── the choice: two interpretations emerge from the one structure ─────── */
+  const lastStep = useRef(step);
+  useEffect(() => {
+    const previous = lastStep.current;
+    lastStep.current = step;
+    if (step === 'choose' && previous !== 'choose') {
+      if (reduceMotion || previous !== 'generating') emerge.value = 1;
+      else {
+        emerge.value = 0;
+        emerge.value = creationTiming(1, { duration: GENERATION_TIMING.reveal, easing: CREATION_EASING.enter });
+      }
+    }
+    if (step !== 'choose' && step !== 'handoff') emerge.value = 0;
+  }, [emerge, reduceMotion, step]);
 
   /* ── hand-off to Home ─────────────────────────────────────────────────── */
   const handedOff = useRef(false);
-  const stageWidthRef = useRef(0);
-  stageWidthRef.current = stage.width;
+  const handoffTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(() => () => handoffTimers.current.forEach(clearTimeout), []);
+  const stageSizeRef = useRef(stage);
+  stageSizeRef.current = stage;
   const onHandoffRef = useRef(onHandoff);
   onHandoffRef.current = onHandoff;
+  const keptCandidateRef = useRef(keptCandidate);
+  keptCandidateRef.current = keptCandidate;
   useEffect(() => {
     if (step !== 'handoff' || handedOff.current) return undefined;
     handedOff.current = true;
     Keyboard.dismiss();
-    chrome.value = reduceMotion ? 0 : withTiming(0, { duration: CREATION_TIMING.handoffFade, easing: AnchorMotion.easing.exit });
-    // The panel steps aside, so the mark returns to its full place before it travels.
-    setTimeout(() => setShown('handoff'), reduceMotion ? 0 : CREATION_TIMING.handoffFade);
-    setTimeout(() => {
+    const fade = reduceMotion ? 0 : CREATION_TIMING.handoffFade;
+    const settle = reduceMotion ? 60 : CREATION_TIMING.handoffResolve + 380;
+    chrome.value = reduceMotion ? 0 : creationTiming(0, { duration: fade, easing: CREATION_EASING.exit });
+    resolve.value = reduceMotion ? 1 : creationTiming(1, { duration: CREATION_TIMING.handoffResolve, easing: CREATION_EASING.deliberate });
+    // Kept as the original structure, the panel steps aside so the mark takes its full place
+    // in its circle before it travels. A kept interpretation already sits in its circle; its
+    // stage keeps its size so nothing under it moves.
+    if (!keptCandidateRef.current) handoffTimers.current.push(setTimeout(() => setShown('handoff'), fade));
+    handoffTimers.current.push(setTimeout(() => {
       const view = stageRef.current;
       if (!view || typeof view.measureInWindow !== 'function') {
         onHandoffRef.current(null);
@@ -283,15 +484,19 @@ export function CreationStage({
         if (answered) return;
         answered = true;
         clearTimeout(fallback);
-        const { scale, top } = placementRef.current;
-        const size = markSize * scale;
-        const rect = Number.isFinite(x) && Number.isFinite(y) && size > 0
-          ? { x: x + stageWidthRef.current / 2 - size / 2, y: y + top + markSize / 2 - size / 2, width: size, height: size }
+        const { width } = stageSizeRef.current;
+        const { scale, centerY } = placementRef.current;
+        // The rect handed over is the mark's own square inside the circle, which is what
+        // Home's hero reports for its resting place.
+        const art = markSize * scale;
+        const rect = Number.isFinite(x) && Number.isFinite(y) && art > 0
+          ? { x: x + width / 2 - art / 2, y: y + centerY - art / 2, width: art, height: art }
           : null;
         onHandoffRef.current(rect);
       });
-    }, reduceMotion ? 60 : CREATION_TIMING.handoffFade + CREATION_TIMING.stageFit + 40);
-    // Deliberately not cleaned up on re-render: once begun, the hand-off must complete.
+    }, settle));
+    // Deliberately not cleaned up on re-render: once begun, the hand-off must complete. Only
+    // the screen going away (below) cancels it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
@@ -305,36 +510,109 @@ export function CreationStage({
     opacity: markVisible.value,
     transform: [{ translateY: markY.value }, { scale: markScale.value }],
   }));
+  const settleStart = timeline.settleStart;
   const colourIn = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [timeline.pathEnd, timeline.pathEnd + (1 - timeline.pathEnd) * 0.45], [0, 1], 'clamp'),
-    transform: [{ scale: interpolate(progress.value, [timeline.pathEnd, 1], [0.975, 1], 'clamp') }],
-  }));
+    opacity: interpolate(progress.value, [settleStart, settleStart + (1 - settleStart) * 0.5], [0, 1], 'clamp'),
+    transform: [{ scale: interpolate(progress.value, [settleStart, 1], [0.975, 1], 'clamp') }],
+  }), [settleStart]);
+  const lift = timeline.gridEnd;
   const lettersStyle = useAnimatedStyle(() => {
-    const settleStart = timeline.pathEnd;
-    const lift = interpolate(progress.value, [0, timeline.gridEnd], [0, 1], 'clamp');
+    const up = interpolate(progress.value, [0, lift], [0, 1], 'clamp');
     return {
       opacity: interpolate(progress.value, [settleStart, settleStart + (1 - settleStart) * 0.5], [1, 0], 'clamp'),
       transform: [
-        { translateY: -lift * Math.max(0, stage.height / 2 - LETTER_ROW / 2) },
-        { scale: 1 - lift * 0.22 },
+        { translateY: -up * Math.max(0, stage.height / 2 - LETTER_ROW / 2) },
+        { scale: 1 - up * (1 - LIFTED_SCALE) },
       ],
     };
-  }, [stage.height, timeline]);
+  }, [lift, settleStart, stage.height]);
+
+  // Generation: the expressed mark gives way to a plain ink re-drawing of the structure, then
+  // returns as the expression settles back onto it, then the circle forms around it.
+  const s1 = GENERATION_TIMING.structure / (GENERATION_TIMING.structure + GENERATION_TIMING.expression + GENERATION_TIMING.surface);
+  const s2 = (GENERATION_TIMING.structure + GENERATION_TIMING.expression) / (GENERATION_TIMING.structure + GENERATION_TIMING.expression + GENERATION_TIMING.surface);
+  const inGeneration = shown === 'generating' || step === 'generating';
+  const showGenerationLayers = inGeneration || step === 'choose' || (step === 'handoff' && !keptCandidate);
+  const genPreviewStyle = useAnimatedStyle(() => {
+    if (!inGeneration) return { opacity: 1 };
+    return { opacity: interpolate(gen.value, [0, s1 * 0.35, s1, s2], [1, 0.14, 0.14, 1], 'clamp') };
+  }, [inGeneration, s1, s2]);
+  const retrace = useDerivedValue(() => interpolate(gen.value, [s1 * 0.2, s1], [0, 1], 'clamp'));
+  const inkStyle = useAnimatedStyle(() => ({
+    opacity: inGeneration ? interpolate(gen.value, [0, s1 * 0.2, s1 + (s2 - s1) * 0.3, s2], [0, 1, 1, 0], 'clamp') : 0,
+  }), [inGeneration, s1, s2]);
+  const discStyle = useAnimatedStyle(() => {
+    const surfaced = step === 'handoff' ? Math.max(interpolate(gen.value, [s2, 1], [0, 1], 'clamp'), resolve.value) : interpolate(gen.value, [s2, 1], [0, 1], 'clamp');
+    return { opacity: surfaced, transform: [{ scale: 0.9 + surfaced * 0.1 }] };
+  }, [s2, step]);
+  const breathStyle = useAnimatedStyle(() => ({ opacity: interpolate(gen.value, [0.96, 1], [0, 1], 'clamp') * (0.1 + breath.value * 0.3) }));
+  const handoffCaptionStyle = useResolveStyle(resolve);
 
   /* ── derived presentation ─────────────────────────────────────────────── */
-  const lettersVisible = (step === 'distillation' || step === 'formation') && letters.length > 0;
+  const lettersVisible = (target === 'distillation' || target === 'formation') && letters.length > 0;
+  const vertexIndexes = useMemo(
+    () => (formation ? letterVertexIndexes(letters, formation.vertices.map((vertex) => vertex.letter)) : []),
+    [formation, letters],
+  );
   const glow = useMemo(() => {
     if (!formation || reduceMotion) return undefined;
-    const vertexTimes = vertexArrivals(formation, timeline);
-    const indexes = letterVertexIndexes(letters, formation.vertices.map((vertex) => vertex.letter));
-    return { progress, arrivals: indexes.map((index) => (index >= 0 ? vertexTimes[index] : -1)), accent };
-  }, [accent, formation, letters, progress, reduceMotion, timeline]);
+    return { progress, departures: vertexIndexes.map((index) => (index >= 0 ? timeline.departures[index] : -1)), accent };
+  }, [accent, formation, progress, reduceMotion, timeline, vertexIndexes]);
+
+  // Each letter's journey, in stage coordinates: from where it sits in the lifted row to the
+  // point its cell holds inside the formation square.
+  const tokens = useMemo(() => {
+    if (!formation || reduceMotion || !forming || stage.width <= 0) return null;
+    const cx = stage.width / 2;
+    const cy = stage.height / 2;
+    const raise = Math.max(0, stage.height / 2 - LETTER_ROW / 2);
+    const { scale, top } = placement;
+    const left = (stage.width - markSize) / 2;
+    const unit = markSize / 100;
+    const toStage = (vx: number, vy: number): StagePoint => ({
+      x: left + markSize / 2 + (vx * unit - markSize / 2) * scale,
+      y: top + markSize / 2 + (vy * unit - markSize / 2) * scale,
+    });
+    const vertexLetter: string[] = [];
+    const numbers: number[] = [];
+    const origins: Array<StagePoint | null> = [];
+    const targets: StagePoint[] = [];
+    formation.vertices.forEach((vertex, index) => {
+      const letterIndex = vertexIndexes.indexOf(index);
+      const slot = letterIndex >= 0 ? slots?.get(letterIndex) : undefined;
+      vertexLetter.push(vertex.letter ?? '');
+      numbers.push(vertex.value);
+      origins.push(slot ? { x: cx + (slot.x - cx) * LIFTED_SCALE, y: cy - raise + (slot.y - cy) * LIFTED_SCALE } : null);
+      targets.push(toStage(vertex.x, vertex.y));
+    });
+    return { letters: vertexLetter, numbers, origins, targets };
+  }, [formation, forming, markSize, placement, reduceMotion, slots, stage, vertexIndexes]);
+
   const headline = HEADLINES[shown];
+  const spokenStatus = shown === 'distillation'
+    ? DISTILLATION_COPY.status[distillStage]
+    : shown === 'formation'
+    ? FORMATION_COPY.status[formationPhase]
+    : shown === 'generating' && draft.generationState === 'generating'
+    ? GENERATION_COPY.phase[generationPhase]
+    : null;
+  useEffect(() => {
+    if (Platform.OS !== 'ios' || !spokenStatus) return;
+    AccessibilityInfo.announceForAccessibility(spokenStatus);
+  }, [spokenStatus]);
   const saving = draft.saveState === 'saving';
-  const canGoBack = (step === 'distillation' || step === 'formation' || step === 'reveal' || step === 'expression' || step === 'generating' || step === 'choose') && !saving;
+  const canGoBack = !replay && (step === 'distillation' || step === 'formation' || step === 'reveal' || step === 'expression' || step === 'generating' || step === 'choose') && !saving;
   const [sheetOpen, setSheetOpen] = useState(false);
   const categoryText = getCategoryTextColor(draft.category, colors.canvas, colors.text.primary);
   const intention = draft.normalizedIntention ?? draft.intention;
+  const keepingOriginal = draft.expression === 'original';
+
+  const categoryRow = (
+    <View style={styles.categoryRow}>
+      <View style={[styles.categoryDash, { backgroundColor: accent }]} />
+      <Text style={[styles.categoryText, { color: categoryText }]}>{categoryLabel(draft.category).toUpperCase()}</Text>
+    </View>
+  );
 
   const panel = (() => {
     switch (shown) {
@@ -361,10 +639,7 @@ export function CreationStage({
             <Text style={styles.principle}>{REVEAL_COPY.body}</Text>
             <View style={styles.caption}>
               <Text style={styles.quote} numberOfLines={3} testID="reveal-intention">“{intention}”</Text>
-              <View style={styles.categoryRow}>
-                <View style={[styles.categoryDash, { backgroundColor: accent }]} />
-                <Text style={[styles.categoryText, { color: categoryText }]}>{categoryLabel(draft.category).toUpperCase()}</Text>
-              </View>
+              {categoryRow}
             </View>
             <V2Button size="large" style={styles.cta} onPress={onOpenExpression} testID="reveal-continue">{REVEAL_COPY.cta}</V2Button>
             <Pressable onPress={() => setSheetOpen(true)} accessibilityRole="button" hitSlop={10} style={styles.link} testID="reveal-how-formed">
@@ -372,17 +647,45 @@ export function CreationStage({
             </Pressable>
           </View>
         );
-      case 'expression': {
-        const failure = draft.saveState === 'error' ? draft.saveFailure : undefined;
+      case 'generating': {
+        const failed = draft.generationState === 'error';
         return (
           <View style={styles.panelStack}>
-            <Text style={styles.principle}>{EXPRESSION_COPY.principle}</Text>
-            <ExpressionCards selected={draft.expression} category={draft.category} intention={intention} disabled={saving} onSelect={commitExpression} />
-            {failure ? (
+            {failed ? (
+              <>
+                <V2InlineError message={draft.generationError ?? GENERATION_COPY.body} offline={draft.generationError === GENERATION_ERRORS.offline} />
+                {/* An exhausted daily allowance is not fixed by trying again today. */}
+                {draft.generationError === GENERATION_ERRORS.limit ? null : (
+                  <V2Button size="large" style={styles.cta} onPress={onGenerate} testID="generation-retry">{GENERATION_COPY.retry}</V2Button>
+                )}
+                {draft.previousCandidates?.length === 2 && onReturnToPrevious ? (
+                  <Pressable onPress={onReturnToPrevious} accessibilityRole="button" style={styles.link} testID="generation-previous">
+                    <Text style={styles.linkText}>{GENERATION_COPY.previous}</Text>
+                  </Pressable>
+                ) : null}
+              </>
+            ) : (
+              <Text style={styles.generationBody} accessibilityLiveRegion="polite" testID="generation-status">
+                {GENERATION_COPY.phase[generationPhase]}
+              </Text>
+            )}
+            <Pressable onPress={onBack} accessibilityRole="button" style={styles.link} testID="generation-back">
+              <Text style={styles.linkText}>{GENERATION_COPY.back}</Text>
+            </Pressable>
+          </View>
+        );
+      }
+      case 'choose': {
+        const chooseFailure = draft.saveState === 'error' ? draft.saveFailure : undefined;
+        return (
+          <View style={styles.panelStack}>
+            <Text style={styles.generationBody}>{CHOOSE_COPY.body}</Text>
+            {draft.generationError && !chooseFailure ? <V2InlineError message={draft.generationError} /> : null}
+            {chooseFailure ? (
               <View style={styles.failure}>
-                <V2InlineError message={CREATION_SAVE_ERRORS[failure]} offline={failure === 'network'} />
-                {failure === 'auth' && onSignIn ? (
-                  <V2Button variant="secondary" onPress={onSignIn} testID="creation-sign-in">Sign in</V2Button>
+                <V2InlineError message={CREATION_SAVE_ERRORS[chooseFailure]} offline={chooseFailure === 'network'} />
+                {chooseFailure === 'auth' && onSignIn ? (
+                  <V2Button variant="secondary" onPress={onSignIn} testID="choose-sign-in">Sign in</V2Button>
                 ) : null}
               </View>
             ) : null}
@@ -390,58 +693,16 @@ export function CreationStage({
               size="large"
               style={styles.cta}
               loading={saving}
-              disabled={failure === 'limit'}
-              onPress={() => {
-                if (failure === 'second_anchor' && onPaywall) return onPaywall();
-                if (failure) return onKeep();
-                if (draft.expression === 'original') {
-                  onKeepOriginal();
-                  return onKeep();
-                }
-                onGenerate();
-              }}
-              accessibilityLabel={failure === 'second_anchor' ? 'See Anchor Pro' : draft.expression === 'original' ? EXPRESSION_COPY.original : EXPRESSION_COPY.generate}
-              testID={draft.expression === 'original' ? 'expression-keep' : 'expression-generate'}
+              disabled={chosenIndex < 0 || chooseFailure === 'limit'}
+              onPress={() => (chooseFailure === 'second_anchor' && onPaywall ? onPaywall() : onKeep())}
+              accessibilityLabel={chooseFailure === 'second_anchor' ? PRO_LABEL : undefined}
+              testID="choose-keep"
             >
-              {failure === 'second_anchor' ? 'See Pro' : failure ? 'Try again' : draft.expression === 'original' ? EXPRESSION_COPY.original : EXPRESSION_COPY.generate}
+              {chooseFailure === 'second_anchor' ? PRO_LABEL : chooseFailure ? 'Try again' : CHOOSE_COPY.keep}
             </V2Button>
-          </View>
-        );
-      }
-      case 'generating':
-        return (
-          <View style={styles.panelStack}>
-            <Text style={styles.generationBody}>{GENERATION_COPY.body}</Text>
-            {draft.generationError ? <V2InlineError message={draft.generationError} offline={draft.generationError.toLowerCase().includes('network')} /> : null}
-            <V2Button size="large" style={styles.cta} loading={draft.generationState === 'generating'} disabled={draft.generationState === 'generating'} onPress={onGenerate} testID="generation-retry">{draft.generationError ? GENERATION_COPY.retry : 'Developing expression…'}</V2Button>
-            <Pressable onPress={onBack} accessibilityRole="button" style={styles.link} testID="generation-back"><Text style={styles.linkText}>{GENERATION_COPY.back}</Text></Pressable>
-          </View>
-        );
-      case 'choose': {
-        const candidates = (draft.generatedCandidates ?? []).slice(0, 2);
-        const chooseFailure = draft.saveState === 'error' ? draft.saveFailure : undefined;
-        return (
-          <View style={styles.panelStack}>
-            <Text style={styles.generationBody}>{CHOOSE_COPY.body}</Text>
-            <View style={styles.candidateRow}>
-              {candidates.map((candidate, index) => (
-                <Pressable
-                  key={`${candidate.variationId ?? candidate.imageUrl}-${index}`}
-                  onPress={() => onSelectCandidate(index)}
-                  accessibilityRole="radio"
-                  accessibilityLabel={`Anchor option ${index === 0 ? 'A' : 'B'}`}
-                  accessibilityState={{ selected: draft.selectedCandidateIndex === index }}
-                  testID={`candidate-${index}`}
-                  style={[styles.candidate, draft.selectedCandidateIndex === index && styles.candidateSelected]}
-                >
-                  <CircularAnchorRenderer svg={svg ?? ''} imageUrl={candidate.imageUrl} category={draft.category} size={132} appearance="paper" accessibilityLabel={`Generated Anchor option ${index === 0 ? 'A' : 'B'}`} />
-                  <Text style={styles.candidateLabel}>{index === 0 ? 'A' : 'B'}</Text>
-                </Pressable>
-              ))}
-            </View>
-            {chooseFailure ? <V2InlineError message={CREATION_SAVE_ERRORS[chooseFailure]} offline={chooseFailure === 'network'} /> : null}
-            <V2Button size="large" style={styles.cta} loading={saving} onPress={onKeep} testID="choose-keep">{CHOOSE_COPY.keep}</V2Button>
-            <Pressable onPress={onGenerate} accessibilityRole="button" style={styles.link} testID="choose-retry"><Text style={styles.linkText}>{CHOOSE_COPY.retry}</Text></Pressable>
+            <Pressable onPress={onGenerate} disabled={saving} accessibilityRole="button" style={styles.link} testID="choose-retry">
+              <Text style={styles.linkText}>{CHOOSE_COPY.retry}</Text>
+            </Pressable>
           </View>
         );
       }
@@ -450,79 +711,196 @@ export function CreationStage({
     }
   })();
 
-  const generatedCandidates = draft.generatedCandidates ?? [];
-  const selectedCandidate = generatedCandidates[draft.selectedCandidateIndex ?? 0];
+  const expressionPanel = (() => {
+    if (shown !== 'expression' || !svg) return null;
+    const failure = draft.saveState === 'error' ? draft.saveFailure : undefined;
+    return (
+      <View style={styles.expressionPanel}>
+        <Text style={styles.principle}>{EXPRESSION_COPY.principle}</Text>
+        <View style={styles.libraryWrap}>
+          <ScrollView
+            style={styles.flex}
+            contentContainerStyle={styles.libraryContent}
+            showsVerticalScrollIndicator
+            persistentScrollbar
+            testID="expression-library"
+          >
+            <ExpressionLibrary
+              svg={svg}
+              category={draft.category}
+              intention={intention}
+              selectedStyle={draft.styleChoice}
+              keepOriginal={keepingOriginal}
+              disabled={saving}
+              onSelect={selectStyle}
+            />
+          </ScrollView>
+          {/* More below: the grid visibly continues under a soft edge. */}
+          <LinearGradient pointerEvents="none" colors={[`${colors.canvas}00`, colors.canvas]} style={styles.libraryFade} />
+        </View>
+        {failure ? (
+          <View style={styles.failure}>
+            <V2InlineError message={CREATION_SAVE_ERRORS[failure]} offline={failure === 'network'} />
+            {failure === 'auth' && onSignIn ? (
+              <V2Button variant="secondary" onPress={onSignIn} testID="creation-sign-in">Sign in</V2Button>
+            ) : null}
+          </View>
+        ) : null}
+        <V2Button
+          size="large"
+          style={styles.cta}
+          loading={saving}
+          disabled={failure === 'limit'}
+          onPress={() => {
+            if (failure === 'second_anchor' && onPaywall) return onPaywall();
+            if (failure) return onKeep();
+            if (keepingOriginal) {
+              onKeepOriginal();
+              return onKeep();
+            }
+            onGenerate();
+          }}
+          accessibilityLabel={failure === 'second_anchor' ? PRO_LABEL : keepingOriginal ? EXPRESSION_COPY.original : EXPRESSION_COPY.generate}
+          testID={keepingOriginal ? 'expression-keep' : 'expression-generate'}
+        >
+          {failure === 'second_anchor' ? PRO_LABEL : failure ? 'Try again' : keepingOriginal ? EXPRESSION_COPY.original : EXPRESSION_COPY.generate}
+        </V2Button>
+      </View>
+    );
+  })();
+
   const markLabel = formed
-    ? `Your Anchor, ${specs[expressionIndex]?.label ?? 'Original'} expression`
+    ? `Your Anchor, ${expressed && draft.styleChoice ? styleOption(draft.styleChoice)?.name ?? expressionSpec(draft.expression).label : 'original'} expression`
     : step === 'formation' ? 'Your Anchor, forming' : undefined;
+  const discSize = markSize / PAPER_ART_SHARE;
+  const showCandidates = (step === 'choose' || keptCandidate) && candidates.length === 2 && stage.width > 0;
 
   return (
     // Insets from the provider, not a native safe-area view: a freshly mounted native one
     // applies them a beat late, which visibly shifts the whole stage.
     <View style={[styles.safe, { paddingTop: insets.top, paddingBottom: insets.bottom }]} testID={`v2-creation-${step}`}>
-      {/* Edge-to-edge: Android does not resize for the keyboard, so both platforms avoid it here. */}
-      <KeyboardAvoidingView style={styles.flex} behavior="padding">
-        <View style={[styles.frame, { paddingHorizontal: viewport.gutter }]}>
-          <Animated.View style={[styles.top, chromeStyle]}>
-            {canGoBack ? (
-              <V2IconButton icon={<ArrowLeft size={20} color={colors.text.primary} />} accessibilityLabel="Go back" onPress={onBack} testID="creation-back" />
-            ) : (
-              <View style={styles.topSpacer} />
-            )}
-          </Animated.View>
+      <View style={[styles.frame, { paddingHorizontal: viewport.gutter }]}>
+        <Animated.View style={[styles.top, chromeStyle]}>
+          {canGoBack ? (
+            <V2IconButton icon={<ArrowLeft size={20} color={colors.text.primary} />} accessibilityLabel="Go back" onPress={onBack} testID="creation-back" />
+          ) : (
+            <View style={styles.topSpacer} />
+          )}
+        </Animated.View>
 
-          <Animated.View style={[styles.headline, swapStyle]}>
-            {headline.eyebrow ? <Text style={styles.eyebrow}>{headline.eyebrow}</Text> : null}
-            <Text style={styles.title} accessibilityRole="header" testID="creation-title">{headline.title}</Text>
-          </Animated.View>
+        <Animated.View style={[styles.headline, swapStyle]}>
+          {headline.eyebrow ? <Text style={styles.eyebrow}>{headline.eyebrow}</Text> : null}
+          <Text style={styles.title} accessibilityRole="header" testID="creation-title">{headline.title}</Text>
+        </Animated.View>
 
-          <View ref={stageRef} style={styles.stage} onLayout={onStageLayout} collapsable={false} testID="creation-stage">
-            {lettersVisible ? (
-              <Animated.View style={[StyleSheet.absoluteFill, lettersStyle]} pointerEvents="none">
-                <DistillationLetters
-                  intention={intention}
-                  letters={letters}
-                  reduceMotion={reduceMotion || entryStep === 'formation'}
-                  glow={step === 'formation' ? glow : undefined}
-                  onStage={onDistillStage}
-                />
-              </Animated.View>
-            ) : null}
+        <View ref={stageRef} style={styles.stage} onLayout={onStageLayout} collapsable={false} testID="creation-stage">
+          {shown === 'expression' ? (
+            <Animated.Text style={[styles.stageLabel, swapStyle]}>{EXPRESSION_COPY.structureLabel}</Animated.Text>
+          ) : null}
 
-            {svg && stage.width > 0 ? (
-              <Animated.View
-                style={[styles.mark, { width: markSize, height: markSize, left: (stage.width - markSize) / 2 }, markStyle]}
-                pointerEvents="none"
-                accessible={Boolean(markLabel)}
-                accessibilityRole="image"
-                accessibilityLabel={markLabel}
-                testID="creation-mark"
-              >
-                {step === 'formation' && formation ? (
-                  <FormationLayer svg={svg} formation={formation} size={markSize} progress={progress} timeline={timeline} accent={accent} reduceMotion={reduceMotion} />
-                ) : null}
-                <Animated.View style={[StyleSheet.absoluteFill, colourIn]}>
-                  {step === 'choose' && selectedCandidate ? (
-                    <CircularAnchorRenderer svg={svg} imageUrl={selectedCandidate.imageUrl} category={draft.category} size={markSize} appearance="paper" />
-                  ) : (
-                    <ExpressionPreview svg={svg} category={draft.category} size={markSize} specs={specs} position={railPosition} testID="expression-preview" />
-                  )}
+          {lettersVisible ? (
+            <Animated.View style={[StyleSheet.absoluteFill, lettersStyle]} pointerEvents="none">
+              <DistillationLetters
+                key={replayKey}
+                intention={intention}
+                letters={letters}
+                reduceMotion={reduceMotion}
+                startSettled={entryStep === 'formation' && !replay}
+                glow={forming ? glow : undefined}
+                showSource={!forming}
+                onStage={onDistillStage}
+                onSlots={setSlots}
+              />
+            </Animated.View>
+          ) : null}
+
+          {svg && stage.width > 0 ? (
+            <Animated.View
+              style={[styles.mark, { width: markSize, height: markSize, left: (stage.width - markSize) / 2 }, markStyle]}
+              pointerEvents="none"
+              accessible={Boolean(markLabel)}
+              accessibilityRole="image"
+              accessibilityLabel={markLabel}
+              testID="creation-mark"
+            >
+              {showGenerationLayers ? (
+                <>
+                  <Animated.View style={[styles.disc, { width: discSize, height: discSize, borderRadius: discSize / 2, left: (markSize - discSize) / 2, top: (markSize - discSize) / 2 }, discStyle]} />
+                  <Animated.View style={[styles.discRing, { width: discSize + 18, height: discSize + 18, borderRadius: (discSize + 18) / 2, left: (markSize - discSize - 18) / 2, top: (markSize - discSize - 18) / 2 }, breathStyle]} />
+                </>
+              ) : null}
+              {forming && formation ? (
+                <FormationLayer svg={svg} formation={formation} size={markSize} progress={progress} timeline={timeline} accent={accent} reduceMotion={reduceMotion} />
+              ) : null}
+              <Animated.View style={[StyleSheet.absoluteFill, colourIn]}>
+                <Animated.View style={[StyleSheet.absoluteFill, genPreviewStyle]}>
+                  <ExpressionPreview svg={svg} category={draft.category} size={markSize} from={look.from.expression} to={look.to.expression} fromTint={look.from.tint} toTint={look.to.tint} mix={mix} testID="expression-preview" />
                 </Animated.View>
               </Animated.View>
-            ) : null}
+              {inGeneration ? (
+                <Animated.View style={[StyleSheet.absoluteFill, inkStyle]}>
+                  <AnchorMark svg={svg} size={markSize} strokeColor={colors.ink.base} drawProgress={retrace} />
+                </Animated.View>
+              ) : null}
+            </Animated.View>
+          ) : null}
 
-            {step === 'formation' ? (
-              <Pressable
-                style={StyleSheet.absoluteFill}
-                onPress={hurry}
-                accessibilityRole="button"
-                accessibilityLabel="Finish forming"
-                accessibilityHint="Completes the formation animation"
-                testID="formation-hurry"
-              />
-            ) : null}
-          </View>
+          {tokens ? (
+            <MappingTokens
+              letters={tokens.letters}
+              numbers={tokens.numbers}
+              origins={tokens.origins}
+              targets={tokens.targets}
+              departures={timeline.departures}
+              landings={timeline.landings}
+              progress={progress}
+              accent={accent}
+              fontSize={Math.round(30 * LIFTED_SCALE)}
+            />
+          ) : null}
 
+          {showCandidates && svg ? (
+            <CandidatePair
+              svg={svg}
+              category={draft.category}
+              candidates={candidates}
+              chosen={chosenIndex}
+              stage={stage}
+              originSize={discSize * placement.scale}
+              originY={placement.centerY}
+              emerge={emerge}
+              resolve={resolve}
+              handingOff={keptCandidate}
+              disabled={saving || step !== 'choose'}
+              reduceMotion={reduceMotion}
+              onSelect={(index) => {
+                v2Haptics.selection();
+                onSelectCandidate(index);
+              }}
+            />
+          ) : null}
+
+          {step === 'handoff' ? (
+            <Animated.View style={[styles.handoffCaption, { top: placement.centerY + (discSize * placement.scale) / 2 + spacing[3] }, handoffCaptionStyle]} pointerEvents="none">
+              {categoryRow}
+            </Animated.View>
+          ) : null}
+
+          {forming ? (
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={hurry}
+              accessibilityRole="button"
+              accessibilityLabel="Finish forming"
+              accessibilityHint="Completes the formation animation"
+              testID="formation-hurry"
+            />
+          ) : null}
+        </View>
+
+        {shown === 'expression' ? (
+          <Animated.View style={[styles.expressionWrap, viewport.heightClass === 'short' && styles.expressionWrapShort, swapStyle]}>{expressionPanel}</Animated.View>
+        ) : (
           <Animated.View style={[styles.panelWrap, swapStyle]}>
             <ScrollView
               style={styles.panelScroll}
@@ -534,12 +912,16 @@ export function CreationStage({
               {panel}
             </ScrollView>
           </Animated.View>
-        </View>
-      </KeyboardAvoidingView>
+        )}
+      </View>
 
       <FormationSheet
         visible={sheetOpen}
         onClose={() => setSheetOpen(false)}
+        onReplay={() => {
+          setSheetOpen(false);
+          startReplay();
+        }}
         intention={intention}
         letters={letters}
         category={draft.category}
@@ -547,6 +929,163 @@ export function CreationStage({
         svg={svg}
       />
     </View>
+  );
+}
+
+/** Fades the hand-off caption in once the Anchor has taken its place. */
+function useResolveStyle(resolve: SharedValue<number>) {
+  return useAnimatedStyle(() => ({
+    opacity: interpolate(resolve.value, [0.55, 1], [0, 1], 'clamp'),
+    transform: [{ translateY: interpolate(resolve.value, [0.55, 1], [6, 0], 'clamp') }],
+  }));
+}
+
+/**
+ * The two interpretations. They emerge from the one circle the structure was developed in,
+ * sit side by side large enough to compare, answer a choice clearly, and — once one is kept —
+ * the chosen one takes the centre in its circle while the other withdraws.
+ */
+function CandidatePair({
+  svg,
+  category,
+  candidates,
+  chosen,
+  stage,
+  originSize,
+  originY,
+  emerge,
+  resolve,
+  handingOff,
+  disabled,
+  reduceMotion,
+  onSelect,
+}: {
+  svg: string;
+  category?: string;
+  candidates: CreationDraft['generatedCandidates'];
+  chosen: number;
+  stage: { width: number; height: number };
+  /** The developing circle's on-screen diameter, where both begin. */
+  originSize: number;
+  originY: number;
+  emerge: SharedValue<number>;
+  resolve: SharedValue<number>;
+  handingOff: boolean;
+  disabled: boolean;
+  reduceMotion: boolean;
+  onSelect: (index: number) => void;
+}) {
+  const gap = spacing[3];
+  const size = Math.max(96, Math.min((stage.width - gap) / 2, stage.height * 0.8));
+  const centerY = Math.min(originY, stage.height / 2);
+  const slots = [stage.width / 2 - (size + gap) / 2, stage.width / 2 + (size + gap) / 2];
+  const heroSize = originSize;
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+      {candidates.slice(0, 2).map((candidate, index) => (
+        <Candidate
+          key={`${candidate.variationId ?? candidate.imageUrl}-${index}`}
+          index={index}
+          svg={svg}
+          category={category}
+          imageUrl={candidate.imageUrl}
+          size={size}
+          slotX={slots[index]}
+          slotY={centerY}
+          originX={stage.width / 2}
+          originY={originY}
+          originScale={originSize / size}
+          heroScale={heroSize / size}
+          chosen={chosen}
+          emerge={emerge}
+          resolve={resolve}
+          handingOff={handingOff}
+          disabled={disabled}
+          reduceMotion={reduceMotion}
+          onSelect={onSelect}
+        />
+      ))}
+    </View>
+  );
+}
+
+function Candidate({
+  index,
+  svg,
+  category,
+  imageUrl,
+  size,
+  slotX,
+  slotY,
+  originX,
+  originY,
+  originScale,
+  heroScale,
+  chosen,
+  emerge,
+  resolve,
+  handingOff,
+  disabled,
+  reduceMotion,
+  onSelect,
+}: {
+  index: number;
+  svg: string;
+  category?: string;
+  imageUrl: string;
+  size: number;
+  slotX: number;
+  slotY: number;
+  originX: number;
+  originY: number;
+  originScale: number;
+  heroScale: number;
+  chosen: number;
+  emerge: SharedValue<number>;
+  resolve: SharedValue<number>;
+  handingOff: boolean;
+  disabled: boolean;
+  reduceMotion: boolean;
+  onSelect: (index: number) => void;
+}) {
+  const isChosen = chosen === index;
+  const someoneChosen = chosen >= 0;
+  const response = useSharedValue(0); // 1 chosen, -1 set aside, 0 undecided
+  useEffect(() => {
+    const next = !someoneChosen ? 0 : isChosen ? 1 : -1;
+    response.value = reduceMotion ? next : creationTiming(next, { duration: 280, easing: CREATION_EASING.deliberate });
+  }, [isChosen, reduceMotion, response, someoneChosen]);
+
+  const style = useAnimatedStyle(() => {
+    const e = emerge.value;
+    const r = handingOff && isChosen ? resolve.value : 0;
+    const away = handingOff && !isChosen ? resolve.value : 0;
+    // Emerge: from the developing circle to this slot. Resolve: the kept one to the centre.
+    const x = originX + (slotX - originX) * e + (originX - slotX) * r;
+    const y = originY + (slotY - originY) * e + (originY - slotY) * r;
+    const baseScale = originScale + (1 - originScale) * e;
+    const chosenScale = response.value > 0 ? 1 : 1 + response.value * 0.08;
+    const scale = (baseScale * chosenScale) * (1 - r) + heroScale * r;
+    const opacity = interpolate(e, [0, 0.35], [0, 1], 'clamp') * (response.value < 0 ? 1 + response.value * 0.5 : 1) * (1 - away);
+    return { opacity, transform: [{ translateX: x - size / 2 }, { translateY: y - size / 2 }, { scale }] };
+  }, [handingOff, isChosen, originScale, originX, originY, heroScale, size, slotX, slotY]);
+  const ringStyle = useAnimatedStyle(() => ({ opacity: Math.max(0, response.value) * (1 - (handingOff ? resolve.value : 0)) }), [handingOff]);
+
+  return (
+    <Animated.View style={[styles.candidate, { width: size, height: size }, style]}>
+      <Pressable
+        onPress={() => onSelect(index)}
+        disabled={disabled}
+        accessibilityRole="radio"
+        accessibilityLabel={`Anchor interpretation ${index === 0 ? 'one' : 'two'}`}
+        accessibilityState={{ selected: isChosen, disabled }}
+        testID={`candidate-${index}`}
+        style={styles.flex}
+      >
+        <Animated.View style={[styles.candidateRing, { width: size + 14, height: size + 14, borderRadius: (size + 14) / 2 }, ringStyle]} />
+        <CircularAnchorRenderer svg={svg} imageUrl={imageUrl} category={category} size={size} appearance="paper" accessibilityLabel={`Generated Anchor interpretation ${index === 0 ? 'one' : 'two'}`} />
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -560,23 +1099,32 @@ const styles = StyleSheet.create({
   eyebrow: { ...typography.labelSM, color: colors.text.secondary },
   title: { fontFamily: typography.displayBold, fontSize: 30, lineHeight: 34, letterSpacing: -1, color: colors.text.primary },
   stage: { flex: 1, minHeight: 0, overflow: 'visible' },
+  stageLabel: { ...typography.labelSM, color: colors.text.secondary, position: 'absolute', top: 0, left: 0 },
   mark: { position: 'absolute', top: 0 },
+  disc: { position: 'absolute', backgroundColor: PAPER },
+  discRing: { position: 'absolute', borderWidth: 1, borderColor: colors.ink.base },
   panelWrap: { flexShrink: 1 },
   panelScroll: { flexGrow: 0, flexShrink: 1 },
   panel: { gap: spacing[4], paddingTop: spacing[2] },
   panelStack: { gap: spacing[4] },
+  expressionWrap: { flex: 1.6, minHeight: 0 },
+  // A short screen keeps the structure legible: the library scrolls in a little less room.
+  expressionWrapShort: { flex: 1.25 },
+  expressionPanel: { flex: 1, gap: spacing[3], paddingTop: spacing[2], paddingBottom: spacing[3] },
+  libraryWrap: { flex: 1, minHeight: 0 },
+  libraryContent: { paddingBottom: spacing[6] },
+  libraryFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 36 },
   status: { ...typography.labelSM, color: colors.text.secondary, textAlign: 'center', paddingVertical: spacing[5] },
   caption: { alignItems: 'center', gap: spacing[2] },
   quote: { fontFamily: 'EBGaramond-Medium', fontSize: 22, lineHeight: 27, letterSpacing: -0.3, color: colors.text.primary, textAlign: 'center' },
-  categoryRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  categoryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   categoryDash: { width: 18, height: 5, borderRadius: 2 },
   categoryText: { fontFamily: typography.bodyBold, fontSize: 10, letterSpacing: 2.2 },
+  handoffCaption: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
   principle: { ...typography.caption, color: colors.text.secondary, textAlign: 'center' },
-  generationBody: { ...typography.bodyMD, color: colors.text.secondary, textAlign: 'center' },
-  candidateRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing[2] },
-  candidate: { flex: 1, alignItems: 'center', gap: spacing[2], paddingVertical: spacing[2], borderWidth: 1, borderColor: colors.border.subtle, borderRadius: 16 },
-  candidateSelected: { borderColor: colors.text.primary, backgroundColor: '#F6F0E4' },
-  candidateLabel: { ...typography.labelMD, color: colors.text.primary },
+  generationBody: { ...typography.bodyMD, color: colors.text.secondary, textAlign: 'center', paddingVertical: spacing[2] },
+  candidate: { position: 'absolute', left: 0, top: 0, alignItems: 'center', justifyContent: 'center' },
+  candidateRing: { position: 'absolute', left: -7, top: -7, borderWidth: 1.5, borderColor: colors.text.primary },
   failure: { gap: spacing[2] },
   cta: { height: 56, borderRadius: 16 },
   link: { alignSelf: 'center', paddingVertical: spacing[1] },

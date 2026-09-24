@@ -370,6 +370,9 @@ export function V2PracticeScreen({
               source: prepareSource,
               voice: config.voice,
               ambient: config.ambient,
+              haptics: config.haptics,
+              focusEntryAnchorCenterY: config.anchorCenterY,
+              focusEntryAnchorSize: config.anchorSize,
             });
           }}
           onPremiumRequired={onPremiumCapabilityRequired ? (intent) => {
