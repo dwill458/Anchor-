@@ -15,6 +15,35 @@ describe('onboarding context for Vision and Chart', () => {
     expect(OnboardingContextSchema.safeParse({ ...onboarding, lifeChanges: ['A fabricated change'] }).success).toBe(false);
   });
 
+  it('accepts current onboarding, which no longer asks about life changes', () => {
+    const { lifeChanges: _retired, ...current } = onboarding;
+    const parsed = OnboardingContextSchema.safeParse(current);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(parsed.data.lifeChanges).toEqual([]);
+
+    const visionPrompt = buildVisionScenePlannerPrompt({
+      intention: 'I create more time with my family',
+      category: 'family',
+      description: 'We share dinner together on weeknights.',
+      onboarding: parsed.data,
+    });
+    expect(visionPrompt).toContain('More freedom');
+    expect(visionPrompt).not.toContain('Life changes');
+
+    const chartPrompt = buildPlanningUserMessage({
+      intention: 'I create more time with my family',
+      category: 'family',
+      onboarding: parsed.data,
+      startingContext: 'I currently work late four nights a week.',
+      vision: null,
+      followUp: null,
+      adjustment: null,
+    }, { allowFollowUp: true });
+    expect(chartPrompt).toContain('More freedom');
+    expect(chartPrompt).not.toContain('lifeChanges');
+  });
+
   it('passes onboarding to Vision as supporting context behind the explicit description', () => {
     const prompt = buildVisionScenePlannerPrompt({
       intention: 'I create more time with my family',

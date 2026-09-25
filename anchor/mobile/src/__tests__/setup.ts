@@ -206,6 +206,7 @@ jest.mock('@shopify/react-native-skia', () => {
     Rect: 'Rect',
     Blur: 'Blur',
     LinearGradient: 'SkiaLinearGradient',
+    RadialGradient: 'SkiaRadialGradient',
     // Decoded images resolve immediately so screens that wait on artwork can proceed.
     useImage: jest.fn(() => ({ width: () => 1, height: () => 1 })),
     vec: (x: number, y: number) => ({ x, y }),

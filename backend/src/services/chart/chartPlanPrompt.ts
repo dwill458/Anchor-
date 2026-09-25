@@ -113,7 +113,7 @@ export function buildPlanningUserMessage(
       ...(context.onboarding.motivation ? { motivation: limit(context.onboarding.motivation, 240) } : {}),
       ...(context.onboarding.customAnswer ? { customAnswer: limit(context.onboarding.customAnswer, 240) } : {}),
       desiredChange: limit(context.onboarding.desiredChange, 500),
-      lifeChanges: context.onboarding.lifeChanges.map(value => limit(value, 80)),
+      ...(context.onboarding.lifeChanges.length ? { lifeChanges: context.onboarding.lifeChanges.map(value => limit(value, 80)) } : {}),
       primaryNeed: limit(context.onboarding.primaryNeed, 120),
     } } : {}),
     whatWouldMakeItReal: limit(context.startingContext, 500),

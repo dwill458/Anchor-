@@ -6,6 +6,9 @@
  * illustration the user picked on Screen 3 is the transition object — it detaches from its
  * card and travels to the hero position here; nothing new is drawn in its place.
  *
+ * Screen 4 → 5 is the same pattern in reverse: this screen's copy clears on Screen 5's clock
+ * and the illustration is handed to Screen 5, which carries it up into its hero position.
+ *
  * The outcome choice is onboarding context only, stored alongside Screen 3's focus area. It
  * never becomes an Anchor, never starts AI generation, and never begins a trial.
  */
@@ -17,7 +20,6 @@ import {
   Text,
   View,
   useWindowDimensions,
-  type ImageSourcePropType,
 } from "react-native";
 import Animated, {
   Easing,
@@ -32,10 +34,13 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowRight } from "lucide-react-native";
 import type { AnchorCategory } from "@/types";
-import { PRIMARY_FOCUS_AREAS, focusAreaLabel, outcomeOptionsFor } from "@/constants/v2/onboarding";
-import { colors, getCategoryColor } from "@/theme/v2";
+import { focusAreaLabel, outcomeOptionsFor } from "@/constants/v2/onboarding";
+import { colors } from "@/theme/v2";
 import { v2Haptics } from "@/hooks/v2";
 import { isCompactPhoneViewport, isShortPhoneViewport } from "@/utils/layout";
+import { accentFor, heroArtFor } from "./onboardingArt";
+import { ONBOARDING_METRICS, solveOutcomeHero } from "./screen5Layout";
+import type { SystemHandoffTimeline } from "./systemHandoff";
 import {
   easeOutCubic,
   outcomeHandoffTimeline,
@@ -45,28 +50,10 @@ import {
   type Window,
 } from "./outcomeHandoff";
 
-const PRIMARY_ART: Partial<Record<AnchorCategory, ImageSourcePropType>> = {
-  health: require("@/assets/onboarding/screen3/category-health.png"),
-  career: require("@/assets/onboarding/screen3/category-career.png"),
-  relationships: require("@/assets/onboarding/screen3/category-relationships.png"),
-};
-/** The eight categories reached through "Something else" have no dedicated illustration of
- * their own — the same treatment Screen 3 already gives them in its fourth card slot. */
-const FALLBACK_ART: ImageSourcePropType = require("@/assets/onboarding/screen3/category-something-else.png");
-const heroArtFor = (category: AnchorCategory): ImageSourcePropType => PRIMARY_ART[category] ?? FALLBACK_ART;
-
-/** The three primary areas keep Screen 3's own accents; every other category falls back to
- * the shared category palette, exactly like Screen 3's "Something else" sheet does. */
-const PRIMARY_ACCENTS = PRIMARY_FOCUS_AREAS.reduce<Partial<Record<AnchorCategory, string>>>((acc, area) => {
-  if (area.accent && area.id !== "something_else") acc[area.id as AnchorCategory] = area.accent;
-  return acc;
-}, {});
-const accentFor = (category: AnchorCategory): string => PRIMARY_ACCENTS[category] ?? getCategoryColor(category);
-
 const CREAM = colors.background;
 const INK = "#14162B";
 const ROW_BORDER = "rgba(20, 22, 43, 0.07)";
-const M = { sidePad: 22, headerHeight: 48, ctaHeight: 56 };
+const M = ONBOARDING_METRICS;
 
 export type { OutcomeOriginFrame };
 
@@ -83,12 +70,20 @@ type Props = {
   onContinue: () => void;
   /** The selected Screen 3 card's measured window frame, or null if it couldn't be measured. */
   originFrame?: OutcomeOriginFrame | null;
+  /** Screen 4 → 5 handoff clock (0 until Continue) and its timeline. */
+  systemClock: SharedValue<number>;
+  systemTimeline: SystemHandoffTimeline;
 };
 
-function reveal(t: number, window: Window, reduceMotion: boolean, rise = 12) {
+/** Arrives on this screen's clock, then steps back on Screen 5's. */
+function reveal(t: number, window: Window, reduceMotion: boolean, rise = 12, outT = 0, outWindow: Window = [0, 1]) {
   "worklet";
   const p = easeOutCubic(seg(t, window));
-  return { opacity: p, transform: [{ translateY: (reduceMotion ? 6 : rise) * (1 - p) }] };
+  const out = outT > 0 ? easeOutCubic(seg(outT, outWindow)) : 0;
+  return {
+    opacity: p * (1 - out),
+    transform: [{ translateY: (reduceMotion ? 6 : rise) * (1 - p) - (reduceMotion ? 0 : 10) * out }],
+  };
 }
 
 function OutcomeChoiceRow({
@@ -101,6 +96,8 @@ function OutcomeChoiceRow({
   timeline,
   reduceMotion,
   onPress,
+  systemClock,
+  outWindow,
 }: {
   index: number;
   label: string;
@@ -111,6 +108,8 @@ function OutcomeChoiceRow({
   timeline: OutcomeHandoffTimeline;
   reduceMotion: boolean;
   onPress: () => void;
+  systemClock: SharedValue<number>;
+  outWindow: Window;
 }) {
   const start = timeline.choicesStart + index * timeline.choiceStagger;
   const window: Window = [start, start + timeline.choiceDuration];
@@ -122,10 +121,11 @@ function OutcomeChoiceRow({
 
   const enterStyle = useAnimatedStyle(() => {
     const p = easeOutCubic(seg(clock.value, window));
+    const out = systemClock.value > 0 ? easeOutCubic(seg(systemClock.value, outWindow)) : 0;
     return {
-      opacity: p,
+      opacity: p * (1 - out),
       transform: [
-        { translateY: (reduceMotion ? 6 : 12) * (1 - p) },
+        { translateY: (reduceMotion ? 6 : 12) * (1 - p) - (reduceMotion ? 0 : 10) * out },
         { scale: (reduceMotion ? 1 : 0.985 + 0.015 * p) * press.value },
       ],
     };
@@ -189,6 +189,8 @@ export function V2OnboardingOutcome({
   onSelect,
   onContinue,
   originFrame,
+  systemClock,
+  systemTimeline,
 }: Props) {
   const { width: W, height: H } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -201,11 +203,10 @@ export function V2OnboardingOutcome({
   const art = heroArtFor(category);
 
   // Hero destination: the upper third of the content area, never more than a fixed cap so it
-  // stays substantial without crowding the choices on a short device.
-  const heroHeight = Math.min(H * (compact ? 0.26 : 0.32), compact ? 176 : 224);
-  const heroWidth = Math.min(W - M.sidePad * 2, heroHeight * 1.05);
-  const heroTop = insets.top + M.headerHeight + (compact ? 10 : 18);
-  const heroLeft = (W - heroWidth) / 2;
+  // stays substantial without crowding the choices on a short device. Screen 5 flies the
+  // artwork from exactly this frame.
+  const { x: heroLeft, y: heroTop, width: heroWidth, height: heroHeight } = solveOutcomeHero(W, H, insets);
+  const leaveUi = systemTimeline.s4UiOut;
   const rowHeight = compact ? 56 : 64;
   const rowGap = compact ? 8 : 10;
 
@@ -214,13 +215,24 @@ export function V2OnboardingOutcome({
     ctaOn.value = withTiming(selected ? 1 : 0, { duration: 240, easing: Easing.out(Easing.quad), reduceMotion: ReduceMotion.Never });
   }, [ctaOn, selected]);
 
+  // Nothing here is drawn behind Screen 3 before the handoff reaches it: the cream arrives as
+  // Screen 3's runner recedes (or at once when this screen is entered directly).
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: entry === "handoff" ? seg(clock.value, timeline.s3EnvOut) : active ? 1 : 0,
+  }));
+
   const heroStyle = useAnimatedStyle(() => {
     const dest = { left: heroLeft, top: heroTop, width: heroWidth, height: heroHeight };
+    // Screen 4 → 5: from the first frame Screen 5's clock moves, Screen 5 draws this artwork
+    // at this exact frame, so it stops being drawn here. Under Reduce Motion the two
+    // cross-fade in place instead.
+    const kept =
+      systemClock.value > 0 ? (reduceMotion ? 1 - easeOutCubic(seg(systemClock.value, leaveUi)) : 0) : 1;
 
     if (reduceMotion) {
       // No lateral or scale travel under Reduce Motion: settle at the destination with a fade.
       const p = easeOutCubic(seg(clock.value, timeline.heroSettle));
-      return { ...dest, opacity: p, transform: [{ scale: 0.99 + 0.01 * p }] };
+      return { ...dest, opacity: p * kept, transform: [{ scale: 0.99 + 0.01 * p }] };
     }
     if (entry === "handoff" && originFrame) {
       const travel = easeOutCubic(seg(clock.value, timeline.heroFlight));
@@ -230,7 +242,7 @@ export function V2OnboardingOutcome({
         top: originFrame.y + (dest.top - originFrame.y) * travel,
         width: originFrame.width + (dest.width - originFrame.width) * travel,
         height: originFrame.height + (dest.height - originFrame.height) * travel,
-        opacity: 1,
+        opacity: kept,
         // A slight overshoot settles down once the artwork has essentially arrived.
         transform: [{ scale: 1.02 - 0.02 * settle }],
       };
@@ -238,18 +250,26 @@ export function V2OnboardingOutcome({
     if (entry === "handoff") {
       // Handoff started but no measured frame to fly from: appear immediately, matching the
       // instant the original card's artwork was hidden.
-      return { ...dest, opacity: 1, transform: [{ scale: 1 }] };
+      return { ...dest, opacity: kept, transform: [{ scale: 1 }] };
     }
     // Direct entry (restore, back): a quick local fade/scale, independent of the handoff's
     // mid-timeline settle window.
     const p = easeOutCubic(seg(clock.value, [0, 320]));
-    return { ...dest, opacity: p, transform: [{ scale: 0.99 + 0.01 * p }] };
+    return { ...dest, opacity: p * kept, transform: [{ scale: 0.99 + 0.01 * p }] };
   });
 
-  const categoryStyle = useAnimatedStyle(() => reveal(clock.value, timeline.category, reduceMotion, 8));
-  const questionStyle = useAnimatedStyle(() => reveal(clock.value, timeline.question, reduceMotion));
-  const supportStyle = useAnimatedStyle(() => reveal(clock.value, timeline.support, reduceMotion));
-  const ctaEnterStyle = useAnimatedStyle(() => reveal(clock.value, timeline.cta, reduceMotion, 10));
+  const categoryStyle = useAnimatedStyle(() =>
+    reveal(clock.value, timeline.category, reduceMotion, 8, systemClock.value, leaveUi),
+  );
+  const questionStyle = useAnimatedStyle(() =>
+    reveal(clock.value, timeline.question, reduceMotion, 12, systemClock.value, leaveUi),
+  );
+  const supportStyle = useAnimatedStyle(() =>
+    reveal(clock.value, timeline.support, reduceMotion, 12, systemClock.value, leaveUi),
+  );
+  const ctaEnterStyle = useAnimatedStyle(() =>
+    reveal(clock.value, timeline.cta, reduceMotion, 10, systemClock.value, leaveUi),
+  );
   const ctaStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(ctaOn.value, [0, 1], ["#E9E1D3", "#F4DDB8"]),
     shadowOpacity: 0.16 * ctaOn.value,
@@ -263,6 +283,7 @@ export function V2OnboardingOutcome({
 
   return (
     <View style={styles.root} testID="v2-onboarding-outcome" pointerEvents={active ? "auto" : "none"}>
+      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFillObject, styles.cream, backdropStyle]} />
       <Animated.View
         style={[styles.hero, heroStyle]}
         pointerEvents="none"
@@ -303,6 +324,8 @@ export function V2OnboardingOutcome({
               timeline={timeline}
               reduceMotion={reduceMotion}
               onPress={() => select(option)}
+              systemClock={systemClock}
+              outWindow={leaveUi}
             />
           ))}
         </View>
@@ -333,7 +356,8 @@ export function V2OnboardingOutcome({
 }
 
 const styles = StyleSheet.create({
-  root: { ...StyleSheet.absoluteFillObject, backgroundColor: CREAM, overflow: "hidden" },
+  root: { ...StyleSheet.absoluteFillObject, overflow: "hidden" },
+  cream: { backgroundColor: CREAM },
   hero: { position: "absolute" },
   heroImage: { width: "100%", height: "100%" },
   content: { position: "absolute", left: 0, right: 0, bottom: 0, top: 0, paddingHorizontal: M.sidePad },
