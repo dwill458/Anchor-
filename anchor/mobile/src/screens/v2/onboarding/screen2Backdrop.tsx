@@ -9,7 +9,7 @@ import { LinearGradient } from "expo-linear-gradient";
  * keep the aspect below in sync with the file.
  */
 export const screen2Environment = require("@/assets/onboarding/screen2/environment.jpg");
-const ENV_ASPECT = 941 / 1672;
+const ENV_ASPECT = 1536 / 2732;
 /** Horizontal focal point: keeps the window frame, plant and sun in frame when the sides crop. */
 const ENV_FOCAL_X = 0.3;
 
