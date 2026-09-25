@@ -12,7 +12,9 @@ import {
   useWindowDimensions,
 } from "react-native";
 import Animated, {
+  Easing,
   FadeIn,
+  FadeInDown,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -41,10 +43,11 @@ import { colors } from "@/theme/v2";
 import { useV2ReduceMotion, v2Haptics } from "@/hooks/v2";
 import { detectCategoryFromText } from "@/utils/categoryDetection";
 
-const panorama = require("@/assets/onboarding/welcome-panorama.jpg");
+const panorama = require("@/assets/onboarding/welcome-panorama.png");
 const story = require("@/assets/onboarding/personalization-story.jpg");
 const desk = require("@/assets/onboarding/creation-desk.png");
-const mark = require("@/assets/home/anchor-brand-mark-light.png");
+const brandMark = require("@/assets/home/anchor-brand-mark.png");
+const lightMark = require("@/assets/home/anchor-brand-mark-light.png");
 const areaArt: Record<string, number> = {
   career: require("@/assets/onboarding/area-career.jpg"),
   health: require("@/assets/onboarding/area-health.jpg"),
@@ -241,25 +244,47 @@ function Welcome({
   reduceMotion: boolean;
 }) {
   const { width, height } = useWindowDimensions();
-  // Keep the approved panorama near its native resolution on tall phones. A
-  // full-height cover crop magnifies this ultra-wide source several times.
-  const panoramaHeight = Math.min(height * 0.34, width * 0.74);
-  const panoramaWidth = panoramaHeight * (1280 / 427);
+  const insets = useSafeAreaInsets();
+
+  // The supplied locked panoramic artwork (3:1 aspect ratio) owns the entire screen.
+  // The device is a vertical camera window looking into a wider cinematic world.
+  const PANORAMA_ASPECT = 1024 / 341;
+  const panoramaHeight = height;
+  const panoramaWidth = panoramaHeight * PANORAMA_ASPECT;
+  const maxTravel = Math.max(0, panoramaWidth - width);
+  // Subtle atmospheric GTA-style camera pan revealing Real World -> Illustrated transition
+  const panDistance = Math.min(maxTravel, Math.max(220, width * 0.55));
+
   const pan = useSharedValue(0);
   const wash = useSharedValue(0);
   const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [transitioning, setTransitioning] = useState(false);
+
   useEffect(() => {
-    if (reduceMotion) return;
-    pan.value = withRepeat(withTiming(1, { duration: 16000 }), -1, true);
+    if (reduceMotion) {
+      pan.value = 0;
+      return;
+    }
+    pan.value = withRepeat(
+      withTiming(1, {
+        duration: 10000,
+        easing: Easing.inOut(Easing.sin),
+      }),
+      -1,
+      true,
+    );
   }, [reduceMotion, pan]);
+
   useEffect(() => () => {
     if (transitionTimer.current) clearTimeout(transitionTimer.current);
   }, []);
+
   const panStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: -Math.max(0, panoramaWidth - width) * pan.value }],
+    transform: [{ translateX: -panDistance * pan.value }],
   }));
+
   const washStyle = useAnimatedStyle(() => ({ opacity: wash.value }));
+
   const start = () => {
     if (transitioning) return;
     setTransitioning(true);
@@ -267,52 +292,90 @@ function Welcome({
     wash.value = withTiming(1, { duration: reduceMotion ? 180 : 560 });
     transitionTimer.current = setTimeout(onStart, reduceMotion ? 180 : 560);
   };
+
   return (
     <View style={styles.fullBleed} testID="v2-onboarding-welcome">
-      <View style={styles.fullBleed}>
-        <Animated.Image
-          source={panorama}
-          resizeMode="stretch"
-            style={[
-              styles.panorama,
-              {
-                width: panoramaWidth,
-                height: panoramaHeight,
-                top: height * 0.21,
-                left: 0,
-              },
-              panStyle,
-            ]}
-          accessibilityIgnoresInvertColors
-        />
-        <View style={styles.welcomeShade} />
-        <LinearGradient
-          colors={["transparent", "rgba(7,13,18,0.22)", "rgba(7,13,18,0.70)"]}
-          locations={[0, 0.36, 1]}
-          style={StyleSheet.absoluteFillObject}
-          pointerEvents="none"
-        />
-        <View style={styles.welcomeCenter}>
+      <StatusBar style="dark" translucent backgroundColor="transparent" />
+      {/* 1. PANORAMIC ENVIRONMENTAL ARTWORK */}
+      <Animated.Image
+        source={panorama}
+        resizeMode="cover"
+        style={[
+          styles.panorama,
+          {
+            width: panoramaWidth,
+            height: panoramaHeight,
+          },
+          panStyle,
+        ]}
+        accessibilityIgnoresInvertColors
+      />
+
+      {/* 2. NATURAL DARK GRADIENT OVERLAY (Grounds lower copy & CTA without darkening the sky) */}
+      <LinearGradient
+        colors={[
+          "transparent",
+          "rgba(10, 15, 24, 0.0)",
+          "rgba(10, 15, 24, 0.38)",
+          "rgba(10, 15, 24, 0.74)",
+          "rgba(10, 15, 24, 0.94)",
+        ]}
+        locations={[0, 0.4, 0.62, 0.82, 1.0]}
+        style={StyleSheet.absoluteFillObject}
+        pointerEvents="none"
+      />
+
+      {/* 3. STATIC UI OVERLAY */}
+      <View
+        style={[
+          styles.welcomeContentContainer,
+          {
+            paddingTop: Math.max(insets.top, 16) + 14,
+            paddingBottom: Math.max(insets.bottom, 16) + 12,
+          },
+        ]}
+      >
+        {/* Stationary Anchor 2.0 Deep Ink Brand Mark & Wordmark */}
+        <Animated.View
+          entering={reduceMotion ? undefined : FadeInDown.delay(160).duration(600)}
+          style={styles.welcomeCenter}
+        >
           <Image
-            source={mark}
+            source={brandMark}
             resizeMode="contain"
             style={styles.brandMark}
-            accessibilityLabel="Anchor symbol"
+            accessibilityLabel="Anchor brand mark"
           />
           <Text style={styles.wordmark}>ANCHOR</Text>
           <Text style={styles.brandSub}>VISUAL GOAL SETTING</Text>
-        </View>
-        <View style={styles.welcomeBottom}>
+        </Animated.View>
+
+        {/* Editorial Copy & Primary CTA */}
+        <Animated.View
+          entering={reduceMotion ? undefined : FadeInDown.delay(380).duration(700)}
+          style={styles.welcomeBottom}
+        >
           <Text style={styles.welcomeTitle}>
             Turn intention{"\n"}into movement.
           </Text>
           <Text style={styles.welcomeBody}>
-            A visual goal setting system to help you see it, reinforce it, and
-            move toward what matters.
+            A visual goal setting system to help you see it, reinforce it, and move toward what matters.
           </Text>
-          <Cta label="Get started" onPress={start} disabled={transitioning} />
+
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel="Get started"
+            disabled={transitioning}
+            onPress={start}
+            style={[styles.welcomeCta, transitioning && styles.disabled]}
+          >
+            <Text style={styles.welcomeCtaText}>Get started</Text>
+            <ArrowRight size={20} color="#14162B" strokeWidth={2.2} />
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Already use Anchor? Sign in"
             onPress={onSignIn}
             style={styles.signIn}
           >
@@ -321,9 +384,11 @@ function Welcome({
               <Text style={styles.signInUnderline}>Sign in</Text>
             </Text>
           </Pressable>
-        </View>
-        <Animated.View pointerEvents="none" style={[styles.transitionWash, washStyle]} />
+        </Animated.View>
       </View>
+
+      {/* Cream wash transition for step handoff */}
+      <Animated.View pointerEvents="none" style={[styles.transitionWash, washStyle]} />
     </View>
   );
 }
@@ -380,7 +445,7 @@ function SystemDiagram({ reduceMotion }: { reduceMotion: boolean }) {
           >
             <View style={[styles.stageArt, styles.stageArtMasked]}>
               {name === "Vision" ? <Image source={require("@/assets/vision/vision-future-window-wide.jpg")} resizeMode="cover" style={styles.stageImage} /> : null}
-              {name === "Practice" ? <View style={styles.practiceMiniature}><Image source={mark} resizeMode="contain" style={styles.practiceMark} /></View> : null}
+              {name === "Practice" ? <View style={styles.practiceMiniature}><Image source={lightMark} resizeMode="contain" style={styles.practiceMark} /></View> : null}
               {name === "Chart" ? <Image source={require("@/assets/anchor-details/chart-empty-card.jpg")} resizeMode="cover" style={styles.stageImage} /> : null}
             </View>
             <Text style={styles.stageVerb}>{verb}</Text>
@@ -426,7 +491,7 @@ function StoryBridge({ reduceMotion, skipReveal }: { reduceMotion: boolean; skip
       <Image source={story} resizeMode="contain" style={styles.storyImage} accessibilityLabel="A person looking toward a horizon, surrounded by scenes of possible futures" />
       <Animated.View style={[styles.storySunGlow, glowStyle]} pointerEvents="none" />
       <View style={styles.storyAnchorMask} pointerEvents="none">
-        <Animated.Image source={mark} resizeMode="contain" style={[styles.storyAnchor, anchorStyle]} accessibilityLabel="Example Anchor symbol" accessibilityRole="image" />
+        <Animated.Image source={lightMark} resizeMode="contain" style={[styles.storyAnchor, anchorStyle]} accessibilityLabel="Example Anchor symbol" accessibilityRole="image" />
       </View>
     </View>
   );
@@ -483,13 +548,8 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
 
   if (step === "welcome")
     return (
-      <View
-        style={[
-          styles.screen,
-          { paddingTop: insets.top, paddingBottom: insets.bottom },
-        ]}
-      >
-        <StatusBar style="light" translucent backgroundColor="transparent" />
+      <View style={styles.screen}>
+        <StatusBar style="dark" translucent backgroundColor="transparent" />
         <Welcome
           onStart={() => setNext("bridge")}
           onSignIn={onSignIn}
@@ -716,34 +776,89 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   paperScreen: { backgroundColor: colors.background },
   darkScreen: { backgroundColor: colors.ink.base },
-  fullBleed: { flex: 1, backgroundColor: colors.ink.base },
+  fullBleed: { flex: 1, backgroundColor: "#0E151C", overflow: "hidden" },
   panorama: { position: "absolute", top: 0, left: 0 },
   transitionWash: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.background, zIndex: 5 },
-  welcomeShade: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(9,15,20,0.18)",
+  welcomeContentContainer: {
+    flex: 1,
+    justifyContent: "space-between",
+    paddingHorizontal: 28,
   },
   welcomeCenter: {
     alignItems: "center",
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
+    alignSelf: "center",
   },
-  brandMark: { width: 62, height: 82 },
+  brandMark: {
+    width: 36,
+    height: 46,
+    tintColor: "#14162B",
+  },
   wordmark: {
-    color: "#FBF1DF",
-    fontSize: 21,
-    letterSpacing: 7,
-    fontFamily: "Inter-Regular",
-    marginTop: 4,
+    color: "#14162B",
+    fontSize: 18,
+    letterSpacing: 7.5,
+    fontFamily: "Inter-SemiBold",
+    marginTop: 6,
   },
-  brandSub: { color: "#FBF1DF", fontSize: 7, letterSpacing: 2.6, marginTop: 3 },
+  brandSub: {
+    color: "rgba(20, 22, 43, 0.72)",
+    fontSize: 8.5,
+    letterSpacing: 2.8,
+    fontFamily: "Inter-SemiBold",
+    marginTop: 3,
+  },
   welcomeBottom: {
-    marginTop: "auto",
-    paddingHorizontal: 28,
-    paddingBottom: 18,
+    alignSelf: "stretch",
+    alignItems: "stretch",
+  },
+  welcomeTitle: {
+    color: "#FFFFFF",
+    fontSize: 34,
+    lineHeight: 40,
+    fontFamily: "Inter-SemiBold",
+    letterSpacing: -0.6,
+    textAlign: "left",
+  },
+  welcomeBody: {
+    color: "rgba(255, 255, 255, 0.82)",
+    fontSize: 15,
+    lineHeight: 22,
+    fontFamily: "Inter-Regular",
+    textAlign: "left",
+    marginTop: 12,
+    marginBottom: 26,
+    maxWidth: 340,
+  },
+  welcomeCta: {
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#F4DDB8",
+    paddingHorizontal: 24,
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    alignSelf: "stretch",
+  },
+  welcomeCtaText: {
+    color: "#14162B",
+    fontFamily: "Inter-SemiBold",
+    fontSize: 16,
+  },
+  signIn: {
+    alignSelf: "center",
+    paddingTop: 16,
+    paddingBottom: 4,
+  },
+  signInText: {
+    color: "rgba(255, 255, 255, 0.75)",
+    fontSize: 13.5,
+    fontFamily: "Inter-Regular",
+    textAlign: "center",
+  },
+  signInUnderline: {
+    color: "#F4DDB8",
+    fontFamily: "Inter-SemiBold",
+    textDecorationLine: "underline",
   },
   storyFrame: { height: 300, width: "100%", alignItems: "center", justifyContent: "center", overflow: "hidden", marginBottom: 8 },
   storyImage: { width: "100%", height: "100%" },
@@ -751,25 +866,6 @@ const styles = StyleSheet.create({
   storyAnchorMask: { position: "absolute", top: "43%", left: "50%", width: 62, height: 86, marginLeft: -31, overflow: "hidden", alignItems: "center", justifyContent: "flex-start" },
   storyAnchor: { width: 46, height: 76, tintColor: "#F4DDB8" },
   reassurance: { color: colors.text.secondary, fontSize: 12, textAlign: "center", marginTop: 2 },
-  welcomeTitle: {
-    color: "#FFF9EF",
-    fontSize: 32,
-    lineHeight: 36,
-    fontFamily: "EBGaramond-Regular",
-    textAlign: "center",
-  },
-  welcomeBody: {
-    color: "#F8F3E9",
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: "center",
-    marginTop: 10,
-    marginBottom: 20,
-    maxWidth: 310,
-  },
-  signIn: { padding: 16, marginTop: 4 },
-  signInText: { color: "#F7EFE3", fontSize: 13 },
-  signInUnderline: { textDecorationLine: "underline", color: "#F7D99F" },
   header: {
     height: 54,
     flexDirection: "row",
