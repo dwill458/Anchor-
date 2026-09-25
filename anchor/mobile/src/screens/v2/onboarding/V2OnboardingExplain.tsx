@@ -36,8 +36,8 @@ import { StatusBar } from "expo-status-bar";
 import { useFonts } from "expo-font";
 import { Allison_400Regular } from "@expo-google-fonts/allison";
 import { ArrowRight } from "lucide-react-native";
-import { colors } from "@/theme/v2";
 import { Screen2Backdrop } from "./screen2Backdrop";
+import { easeInOutCubic, easeOutCubic as handoffEaseOut, handoffTimeline, seg as handoffSeg } from "./openingHandoff";
 
 const notebook = require("@/assets/onboarding/screen2/notebook.png");
 const markInk = require("@/assets/onboarding/screen2/anchor-mark-ink.png");
@@ -106,7 +106,6 @@ const RM = {
 } as const;
 const RM_CTA_READY_MS = 1950;
 
-const EXIT_MS = 640;
 
 // --- Notebook page geometry (in notebook.png pixels, 1200 × 794) --------------------------
 const NB_W = 1200;
@@ -163,14 +162,20 @@ function bezier(a: number, c: number, b: number, p: number): number {
   return q * q * a + 2 * q * p * c + p * p * b;
 }
 
-/** Explanatory UI: rises 8pt into place, then steps back first when leaving. */
-function uiReveal(t: number, exitProgress: number, window: readonly [number, number], reduceMotion: boolean) {
+/** Explanatory UI: rises 8pt into place, then steps back first when leaving (Phase A). */
+function uiReveal(
+  t: number,
+  handoff: number,
+  window: readonly [number, number],
+  leaveWindow: readonly [number, number],
+  reduceMotion: boolean,
+) {
   "worklet";
   const p = easeOut(seg(t, window));
-  const leave = seg(exitProgress, [0, 0.4]);
+  const leave = easeOut(handoffSeg(handoff, leaveWindow));
   return {
     opacity: p * (1 - leave),
-    transform: [{ translateY: (reduceMotion ? 0 : 8 * (1 - p)) - 6 * leave }],
+    transform: [{ translateY: (reduceMotion ? 0 : 8 * (1 - p)) - (reduceMotion ? 0 : 10 * leave) }],
   };
 }
 
@@ -306,19 +311,27 @@ function ConstructionNode({ point, gold, clock }: { point: Point; gold?: boolean
 }
 
 type Props = {
-  header: React.ReactNode;
+  /** Optional in-screen header; the journey normally keeps progress in a persistent header. */
+  header?: React.ReactNode;
   reduceMotion: boolean;
+  /**
+   * Shared Screen 2 → 3 handoff clock (ms from Continue). Screen 2 only reads it: its
+   * explanatory UI, example Anchor and world each leave on their own window.
+   */
+  handoff: SharedValue<number>;
+  /** Screen 3 is mounted and decoded beneath; Continue waits for it so nothing pops in. */
+  nextReady?: boolean;
+  /** Called the moment Continue is pressed; the owner starts the handoff clock. */
   onContinue: () => void;
 };
 
-export function V2OnboardingExplain({ header, reduceMotion, onContinue }: Props) {
+export function V2OnboardingExplain({ header, reduceMotion, handoff, nextReady = true, onContinue }: Props) {
   const { width: W, height: H } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [fontsLoaded] = useFonts({ [HANDWRITING_FONT]: Allison_400Regular });
 
   const clock = useSharedValue(0);
   const idle = useSharedValue(0.5);
-  const exit = useSharedValue(0);
   const lineWidths = [useSharedValue(0), useSharedValue(0)];
   const [ctaReady, setCtaReady] = useState(false);
   const leaving = useRef(false);
@@ -414,27 +427,39 @@ export function V2OnboardingExplain({ header, reduceMotion, onContinue }: Props)
     };
   }, [clock, idle, reduceMotion]);
 
+  const canContinue = ctaReady && nextReady;
   const handleContinue = () => {
-    if (!ctaReady || leaving.current) return;
+    if (!canContinue || leaving.current) return;
     leaving.current = true;
-    exit.value = withTiming(1, { duration: EXIT_MS, easing: Easing.inOut(Easing.quad), reduceMotion: ReduceMotion.Never });
-    timers.current.push(setTimeout(onContinue, EXIT_MS));
+    onContinue();
   };
+  const H2 = handoffTimeline(reduceMotion);
 
   // --- Animated styles ------------------------------------------------------------------
   const plateStyle = useAnimatedStyle(() => {
     if (reduceMotion) return {};
     const drift = seg(clock.value, [0, T.end]);
+    // The camera keeps travelling left into the handoff: 1.02 → 1.04, a little further left.
+    const onward = handoffEaseOut(handoffSeg(handoff.value, H2.s2Drift));
     return {
       transform: [
-        { translateX: -4 * drift + (idle.value - 0.5) * 1.5 },
-        { scale: 1 + 0.02 * drift },
+        { translateX: -4 * drift + (idle.value - 0.5) * 1.5 - 24 * onward },
+        { scale: 1 + 0.02 * drift + 0.02 * onward },
       ],
     };
   });
 
+  // Screen 2's world (plate, grade, notebook, fragments, readability gradient) thins over
+  // Screen 3's runner, which is already moving beneath it.
+  const worldStyle = useAnimatedStyle(() => ({
+    opacity: 1 - easeInOutCubic(handoffSeg(handoff.value, H2.s2World)),
+  }));
+  const worldTopStyle = useAnimatedStyle(() => ({
+    opacity: 1 - easeInOutCubic(handoffSeg(handoff.value, H2.s2Ground)),
+  }));
+
   const headerStyle = useAnimatedStyle(() => ({
-    opacity: seg(clock.value, [0, 400]) * (1 - seg(exit.value, [0, 0.4])),
+    opacity: seg(clock.value, [0, 400]) * (1 - handoffSeg(handoff.value, H2.s2Ui)),
   }));
 
   const notebookStyle = useAnimatedStyle(() => {
@@ -480,28 +505,37 @@ export function V2OnboardingExplain({ header, reduceMotion, onContinue }: Props)
     opacity: 1 - seg(clock.value, T.constructionOut),
   }));
 
+  // Anchor handoff: the example mark survives into the move — shrinks to .8, lifts ~20pt and
+  // fades — bridging understanding into personalization. It is gone before the question.
+  const handoffMarkStyle = useAnimatedStyle(() => {
+    const p = handoffSeg(handoff.value, H2.anchor);
+    if (reduceMotion) return { opacity: 1 - p };
+    return {
+      opacity: 1 - easeInOutCubic(p),
+      transform: [{ translateY: -20 * handoffEaseOut(p) }, { scale: 1 - 0.2 * handoffEaseOut(p) }],
+    };
+  });
+
   const markStyle = useAnimatedStyle(() => {
     const t = clock.value;
-    const leave = seg(exit.value, [0.35, 0.85]);
     if (reduceMotion) {
-      return { opacity: seg(t, RM.dissolve) * (1 - leave) };
+      return { opacity: seg(t, RM.dissolve) };
     }
     const up = easeOut(seg(t, T.markScaleUp));
     const settle = easeInOut(seg(t, T.markSettle));
     return {
-      opacity: easeOut(seg(t, T.markIn)) * (1 - leave),
+      opacity: easeOut(seg(t, T.markIn)),
       transform: [{ scale: 0.9 + 0.12 * up - 0.02 * settle }],
     };
   });
 
   const diamondStyle = useAnimatedStyle(() => {
     const t = clock.value;
-    const leave = seg(exit.value, [0.35, 0.85]);
     if (reduceMotion) {
-      return { opacity: seg(t, RM.dissolve) * (1 - leave) };
+      return { opacity: seg(t, RM.dissolve) };
     }
     const p = easeOut(seg(t, T.diamondIn));
-    return { opacity: p * (1 - leave), transform: [{ scale: 0.72 + 0.28 * p }] };
+    return { opacity: p, transform: [{ scale: 0.72 + 0.28 * p }] };
   });
 
   const gradientStyle = useAnimatedStyle(() => ({
@@ -510,20 +544,17 @@ export function V2OnboardingExplain({ header, reduceMotion, onContinue }: Props)
 
   // Shared values are read directly in each style so every platform tracks them as inputs.
   const headlineStyle = useAnimatedStyle(() =>
-    uiReveal(clock.value, exit.value, reduceMotion ? RM.copy : T.headline, reduceMotion),
+    uiReveal(clock.value, handoff.value, reduceMotion ? RM.copy : T.headline, H2.s2Ui, reduceMotion),
   );
   const supportStyle = useAnimatedStyle(() =>
-    uiReveal(clock.value, exit.value, reduceMotion ? RM.copy : T.support, reduceMotion),
+    uiReveal(clock.value, handoff.value, reduceMotion ? RM.copy : T.support, H2.s2Ui, reduceMotion),
   );
   const verbsStyle = useAnimatedStyle(() =>
-    uiReveal(clock.value, exit.value, reduceMotion ? RM.copy : T.verbs, reduceMotion),
+    uiReveal(clock.value, handoff.value, reduceMotion ? RM.copy : T.verbs, H2.s2Ui, reduceMotion),
   );
   const ctaStyle = useAnimatedStyle(() =>
-    uiReveal(clock.value, exit.value, reduceMotion ? RM.cta : T.cta, reduceMotion),
+    uiReveal(clock.value, handoff.value, reduceMotion ? RM.cta : T.cta, H2.s2Ui, reduceMotion),
   );
-
-  // Hands off to Screen 3's paper background so the cut lands on a matching frame.
-  const washStyle = useAnimatedStyle(() => ({ opacity: seg(exit.value, [0.3, 1]) }));
 
   const { mark, nb, k, fontSize, fragments } = layout;
   const handwriting = fontsLoaded ? HANDWRITING_FONT : HANDWRITING_FALLBACK;
@@ -533,7 +564,7 @@ export function V2OnboardingExplain({ header, reduceMotion, onContinue }: Props)
   const lineStyles = [line1Style, line2Style];
 
   return (
-    <View style={styles.screen} testID="v2-onboarding-bridge">
+    <View style={styles.screen} testID="v2-onboarding-bridge" pointerEvents="box-none">
       <StatusBar style="light" translucent backgroundColor="transparent" />
 
       {/* Measures each handwritten line once so the reveal ends exactly where the ink does. */}
@@ -552,6 +583,7 @@ export function V2OnboardingExplain({ header, reduceMotion, onContinue }: Props)
         ))}
       </View>
 
+      <Animated.View style={[StyleSheet.absoluteFill, styles.world, worldStyle]} pointerEvents="none">
       {/* 1–2. Locked environment + cinematic grade */}
       <Screen2Backdrop width={W} height={H} plateStyle={plateStyle} />
 
@@ -628,29 +660,38 @@ export function V2OnboardingExplain({ header, reduceMotion, onContinue }: Props)
           </Animated.View>
         )}
 
-        {/* 7. The supplied brand mark: ink geometry, then the gold centre locks in */}
-        <Animated.View style={[styles.abs, mark, markStyle]}>
-          <Image source={markInk} style={styles.fill} resizeMode="contain" />
-        </Animated.View>
-        <Animated.View style={[styles.abs, mark, diamondStyle]}>
-          <Image source={markDiamond} style={styles.fill} resizeMode="contain" />
-        </Animated.View>
       </View>
-
-      {/* 8. Readability gradient */}
-      <Animated.View
-        pointerEvents="none"
-        style={[styles.abs, { left: 0, right: 0, top: copyTop - 140, bottom: 0 }, gradientStyle]}
-      >
-        <LinearGradient
-          colors={["rgba(9, 11, 18, 0)", "rgba(9, 11, 18, 0.62)", "rgba(8, 10, 16, 0.9)", "#07090F"]}
-          locations={[0, 0.28, 0.58, 1]}
-          style={styles.fill}
-        />
       </Animated.View>
 
-      {/* Progress: 2 / 8 for the whole sequence */}
-      <Animated.View style={[styles.header, { paddingTop: insets.top }, headerStyle]}>{header}</Animated.View>
+      {/* 7. The supplied brand mark: ink geometry, then the gold centre locks in.
+          Outside the world layer so it survives briefly into the handoff. */}
+      <Animated.View style={[styles.abs, mark, handoffMarkStyle]} pointerEvents="none">
+        <Animated.View style={[StyleSheet.absoluteFill, markStyle]}>
+          <Image source={markInk} style={styles.fill} resizeMode="contain" />
+        </Animated.View>
+        <Animated.View style={[StyleSheet.absoluteFill, diamondStyle]}>
+          <Image source={markDiamond} style={styles.fill} resizeMode="contain" />
+        </Animated.View>
+      </Animated.View>
+
+      {/* 8. Readability gradient */}
+      <Animated.View style={[StyleSheet.absoluteFill, worldTopStyle]} pointerEvents="none">
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.abs, { left: 0, right: 0, top: copyTop - 140, bottom: 0 }, gradientStyle]}
+        >
+          <LinearGradient
+            colors={["rgba(9, 11, 18, 0)", "rgba(9, 11, 18, 0.62)", "rgba(8, 10, 16, 0.9)", "#07090F"]}
+            locations={[0, 0.28, 0.58, 1]}
+            style={styles.fill}
+          />
+        </Animated.View>
+      </Animated.View>
+
+      {/* Progress: 2 / 8 for the whole sequence (the journey normally owns this header) */}
+      {header ? (
+        <Animated.View style={[styles.header, { paddingTop: insets.top }, headerStyle]}>{header}</Animated.View>
+      ) : null}
 
       {/* 9–10. Explanatory UI + CTA */}
       <View style={[styles.copy, { paddingBottom: bottomPad }]} onLayout={onCopyLayout}>
@@ -666,12 +707,12 @@ export function V2OnboardingExplain({ header, reduceMotion, onContinue }: Props)
             SEE · REINFORCE · MOVE
           </Text>
         </Animated.View>
-        <Animated.View style={ctaStyle} pointerEvents={ctaReady ? "auto" : "none"}>
+        <Animated.View style={ctaStyle} pointerEvents={canContinue ? "auto" : "none"}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Continue"
-            accessibilityState={{ disabled: !ctaReady }}
-            disabled={!ctaReady}
+            accessibilityState={{ disabled: !canContinue }}
+            disabled={!canContinue}
             onPress={handleContinue}
             style={styles.cta}
           >
@@ -681,13 +722,14 @@ export function V2OnboardingExplain({ header, reduceMotion, onContinue }: Props)
         </Animated.View>
       </View>
 
-      <Animated.View pointerEvents="none" style={[styles.wash, washStyle]} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#0E151C", overflow: "hidden" },
+  // Transparent: Screen 3 is mounted beneath and shows through as the world layer thins.
+  screen: { ...StyleSheet.absoluteFillObject, overflow: "hidden" },
+  world: { backgroundColor: "#0E151C" },
   abs: { position: "absolute" },
   fill: { width: "100%", height: "100%" },
   fragment: { position: "absolute", left: 0, top: 0 },
@@ -736,5 +778,4 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   ctaText: { color: "#14162B", fontFamily: "Inter-SemiBold", fontSize: 16 },
-  wash: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.background },
 });

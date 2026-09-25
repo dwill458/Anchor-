@@ -1,9 +1,15 @@
 import { apiClient } from "@/services/ApiClient";
-import type { ApiResponse } from "@/types";
+import type { AnchorCategory, ApiResponse } from "@/types";
 import type { FirstRunDraft } from "@/stores/v2/firstRunStore";
 
 export type SavedOnboardingContext = {
-  motivation: string;
+  /**
+   * Screen 3's "What matters most to you right now?" choice. Personalization context only —
+   * it is never used as the category of the user's Anchors.
+   */
+  focusCategory?: AnchorCategory;
+  /** Free-text motivation from the earlier onboarding; kept for drafts that still carry it. */
+  motivation?: string;
   desiredChange: string;
   lifeChanges: string[];
   primaryNeed: string;
@@ -14,13 +20,21 @@ export function buildOnboardingContext(
   draft: FirstRunDraft,
 ): SavedOnboardingContext {
   const motivation = (draft.motivation ?? "").trim();
+  const focusCategory = draft.focusCategory;
   const customAnswer = draft.customDesiredChange?.trim();
   const desiredChange = (draft.desiredOutcome ?? "").trim();
-  if (!motivation || (motivation === "Something else" && !customAnswer) || !desiredChange || !draft.lifeChanges?.length || !draft.primaryNeed) {
+  if (
+    (!motivation && !focusCategory) ||
+    (motivation === "Something else" && !customAnswer) ||
+    !desiredChange ||
+    !draft.lifeChanges?.length ||
+    !draft.primaryNeed
+  ) {
     throw new Error("Finish the onboarding questions before saving your progress.");
   }
   return {
-    motivation,
+    ...(focusCategory ? { focusCategory } : {}),
+    ...(motivation ? { motivation } : {}),
     desiredChange,
     lifeChanges: draft.lifeChanges,
     primaryNeed: draft.primaryNeed,
