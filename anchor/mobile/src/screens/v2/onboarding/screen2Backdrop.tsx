@@ -8,10 +8,10 @@ import { LinearGradient } from "expo-linear-gradient";
  * Screen 2 environment plate. Swapping in a different plate is a one-line change:
  * keep the aspect below in sync with the file.
  */
-export const screen2Environment = require("@/assets/onboarding/creation-desk.png");
-const ENV_ASPECT = 1024 / 1536;
-/** Horizontal focal point: keeps the window, plant and skyline in frame when the sides crop. */
-const ENV_FOCAL_X = 0.42;
+export const screen2Environment = require("@/assets/onboarding/screen2/environment.jpg");
+const ENV_ASPECT = 941 / 1672;
+/** Horizontal focal point: keeps the window frame, plant and sun in frame when the sides crop. */
+const ENV_FOCAL_X = 0.3;
 
 export function getScreen2EnvironmentFrame(width: number, height: number) {
   const coverWidth = Math.max(width, height * ENV_ASPECT);
