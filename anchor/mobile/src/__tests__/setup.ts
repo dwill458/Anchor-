@@ -203,6 +203,7 @@ jest.mock('@shopify/react-native-skia', () => {
     Group: 'Group',
     Image: 'SkiaImage',
     Mask: 'Mask',
+    Path: 'Path',
     Rect: 'Rect',
     Blur: 'Blur',
     LinearGradient: 'SkiaLinearGradient',

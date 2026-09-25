@@ -1,11 +1,20 @@
 /**
  * Onboarding Screen 2 — "What does Anchor actually do?"
  *
- * One screen, one continuous shot: ESTABLISH → INTENTION → DISTILL → FORM → EXPLAIN.
- * The phases are internal animation states, not pages; the user stays on 2 / 8 throughout.
+ * One screen, one continuous transformation:
+ *   thought → written intention → reduction → fragments → visual Anchor.
  *
+ * The notebook arrives blank. A pen writes the intention stroke by stroke (the nib leads each
+ * stroke). The finished sentence holds, then loosens and leaves the page as its own strokes,
+ * letter-sized pieces that travel, turn and fade into the mark. Each of the mark's guide
+ * strokes starts where its pieces land, and the textured mark is painted in along those
+ * guides — it is never swapped in whole. Only then does the gold centre lock and the mark
+ * settle, hold, and hand over to the copy and CTA.
+ *
+ * The phases are internal animation states, not pages; the user stays on 2 / 8 throughout.
  * Every layer reads a single time-based clock (ms) on the UI thread, so the sequence runs at
- * the same speed on iOS and Android and nothing re-renders per frame.
+ * the same speed on iOS and Android and nothing re-renders per frame. The timeline and the
+ * ink plan live in screen2Timeline.ts.
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -22,22 +31,53 @@ import Animated, {
   Easing,
   ReduceMotion,
   cancelAnimation,
-  useAnimatedProps,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
   withRepeat,
   withTiming,
   type SharedValue,
 } from "react-native-reanimated";
-import Svg, { Circle, Path } from "react-native-svg";
+import {
+  BlurMask,
+  Canvas,
+  Circle as SkiaCircle,
+  Group,
+  Image as SkiaImage,
+  Mask,
+  Path as SkiaPath,
+  Rect as SkiaRect,
+  useImage,
+} from "@shopify/react-native-skia";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
-import { useFonts } from "expo-font";
-import { Allison_400Regular } from "@expo-google-fonts/allison";
 import { ArrowRight } from "lucide-react-native";
 import { Screen2Backdrop } from "./screen2Backdrop";
 import { easeInOutCubic, easeOutCubic as handoffEaseOut, handoffTimeline, seg as handoffSeg } from "./openingHandoff";
+import { HANDWRITING_LINES } from "./handwritingStrokes";
+import {
+  CTA_READY_MS,
+  EM_PAGE_PX,
+  LINE_ORIGINS,
+  MARK,
+  MARK_H,
+  MARK_STROKES,
+  MARK_W,
+  NB_H,
+  NB_W,
+  PAGE_E1,
+  PAGE_E2,
+  PAGE_ORIGIN,
+  RM,
+  RM_CTA_READY_MS,
+  T,
+  planInk,
+  pointAlong,
+  polylineToSvg,
+  type Point,
+  type Window,
+} from "./screen2Timeline";
 
 const notebook = require("@/assets/onboarding/screen2/notebook.png");
 const markInk = require("@/assets/onboarding/screen2/anchor-mark-ink.png");
@@ -59,89 +99,12 @@ const FRAGMENT_ART = {
   goldB: { source: require("@/assets/onboarding/screen2/fragments/gold-b.png"), w: 58, h: 80 },
 } as const;
 
-const HANDWRITING_FONT = "Allison-Regular";
-const HANDWRITING_FALLBACK = "EBGaramond-Italic";
 const INK = "#1B1F2A";
 const GOLD = "#E4C48A";
-
-// --- Timeline (ms) -----------------------------------------------------------------------
-const T = {
-  notebookIn: [0, 820],
-  line1: [860, 1340],
-  line2: [1400, 1820],
-  // 1820 → 2000: the pause once both lines are written.
-  textLift: [2000, 2460],
-  notebookDim: [2900, 3800],
-  axis: [3000, 3420],
-  topBar: [3120, 3520],
-  diagonals: [3220, 3680],
-  lowerBar: [3340, 3720],
-  lowerV: [3400, 3800],
-  ring: [3460, 3820],
-  nodes: [3560, 3800],
-  constructionOut: [3960, 4360],
-  markIn: [3650, 4050],
-  markScaleUp: [3650, 4000],
-  markSettle: [4000, 4260],
-  diamondIn: [3960, 4280],
-  fragmentsOut: [3860, 4160],
-  residualRest: [4000, 4700],
-  gradientIn: [3300, 4500],
-  headline: [4300, 4800],
-  support: [4450, 4950],
-  verbs: [4600, 5050],
-  cta: [4750, 5200],
-  end: 5300,
-} as const;
-const CTA_READY_MS = 4800;
-
-// Reduce Motion: controlled crossfades only — notebook, brief hold, dissolve to the mark, copy.
-const RM = {
-  notebookIn: [0, 360],
-  dissolve: [1300, 1850],
-  gradientIn: [1450, 1950],
-  copy: [1800, 2250],
-  cta: [1900, 2350],
-  end: 2400,
-} as const;
-const RM_CTA_READY_MS = 1950;
-
-
-// --- Notebook page geometry (in notebook.png pixels, 1200 × 794) --------------------------
-const NB_W = 1200;
-const NB_H = 794;
-/** Top-left page corner and the page's ruled-line direction (≈ -13.4°). */
-const PAGE_ORIGIN = { x: 86, y: 168 };
-const PAGE_ANGLE_DEG = -13.4;
-const PAGE_E1 = { x: Math.cos((PAGE_ANGLE_DEG * Math.PI) / 180), y: Math.sin((PAGE_ANGLE_DEG * Math.PI) / 180) };
-const PAGE_E2 = { x: -PAGE_E1.y, y: PAGE_E1.x };
-/** Handwriting lines in page space: start x, baseline y, written length. Line 2 ends at the pen tip. */
-const LINES = [
-  { text: "A healthier me", x: 84, baseline: 178, length: 510 },
-  { text: "A stronger me", x: 100, baseline: 282, length: 444 },
-] as const;
-
-// --- Brand mark geometry (anchor-mark-*.png pixels, 720 × 801) ----------------------------
-const MARK_W = 720;
-const MARK_H = 801;
-const MARK = {
-  ringTop: { x: 355, y: 28 },
-  topLeft: { x: 78, y: 227 },
-  topRight: { x: 628, y: 227 },
-  center: { x: 355, y: 435 },
-  lowerLeft: { x: 110, y: 639 },
-  lowerRight: { x: 602, y: 640 },
-  base: { x: 352, y: 795 },
-} as const;
-const CONSTRUCTION = [
-  { d: "M355 128 L355 792", length: 664, window: T.axis },
-  { d: "M78 227 L628 227", length: 550, window: T.topBar },
-  { d: "M78 227 L602 640", length: 668, window: T.diagonals },
-  { d: "M628 227 L110 639", length: 662, window: T.diagonals },
-  { d: "M110 639 L602 640", length: 492, window: T.lowerBar },
-  { d: "M110 639 L352 795 L602 640", length: 583, window: T.lowerV },
-] as const;
-const RING = { cx: 355, cy: 76, r: 50, length: 2 * Math.PI * 50 };
+/** Brush width (mark pixels) that paints the textured mark in along its guides. */
+const BRUSH_WIDTH = 92;
+/** Guide stroke width (mark pixels). */
+const GUIDE_WIDTH = 4;
 
 // --- Worklet helpers ----------------------------------------------------------------------
 function seg(t: number, window: readonly [number, number]): number {
@@ -156,10 +119,20 @@ function easeInOut(p: number): number {
   "worklet";
   return p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
 }
+/** A hand's pace along one stroke: a soft start and finish, never a stall. */
+function penPace(p: number): number {
+  "worklet";
+  return 0.7 * p + 0.3 * (0.5 - 0.5 * Math.cos(Math.PI * p));
+}
 function bezier(a: number, c: number, b: number, p: number): number {
   "worklet";
   const q = 1 - p;
   return q * q * a + 2 * q * p * c + p * p * b;
+}
+/** The notebook sinks away once the writing has left it; pieces still on the page ride along. */
+function notebookSink(t: number): number {
+  "worklet";
+  return 14 * easeInOut(seg(t, T.notebookDim));
 }
 
 /** Explanatory UI: rises 8pt into place, then steps back first when leaving (Phase A). */
@@ -179,7 +152,256 @@ function uiReveal(
   };
 }
 
-type Point = { x: number; y: number };
+// --- Handwriting: written ink, then the same ink breaking away ---------------------------
+
+type ScreenStroke = {
+  write: Window;
+  length: number;
+  /** Screen-space polyline as flat x,y pairs, with cumulative lengths, for the nib. */
+  xy: number[];
+  cumulative: number[];
+};
+
+type ScreenPiece = {
+  key: string;
+  d: string;
+  centroid: Point;
+  ctrl: Point;
+  dest: Point;
+  lift: Point;
+  spin: number;
+  flight: Window;
+  write: Window;
+  strokeLength: number;
+  offset: number;
+  length: number;
+};
+
+/**
+ * One letter-sized piece of the handwriting. It is drawn by the pen during its stroke's write
+ * window (trimmed from the pen's current position), holds, then loosens, lifts, turns and
+ * travels to the part of the mark it becomes, shrinking and fading as it arrives.
+ */
+function InkPiece({
+  piece,
+  clock,
+  strokeWidth,
+  reduceMotion,
+}: {
+  piece: ScreenPiece;
+  clock: SharedValue<number>;
+  strokeWidth: number;
+  reduceMotion: boolean;
+}) {
+  const end = useDerivedValue(() => {
+    if (reduceMotion) return 1;
+    const drawn = piece.strokeLength * penPace(seg(clock.value, piece.write));
+    return Math.min(1, Math.max(0, (drawn - piece.offset) / piece.length));
+  });
+  const opacity = useDerivedValue(() => {
+    const t = clock.value;
+    if (reduceMotion) return seg(t, RM.notebookIn) * (1 - seg(t, RM.dissolve));
+    if (end.value <= 0) return 0; // An untraced round cap would still paint a dot.
+    const p = seg(t, piece.flight);
+    return 0.9 * (1 - easeInOut(Math.max(0, (p - 0.62) / 0.38)));
+  });
+  const transform = useDerivedValue(() => {
+    if (reduceMotion) return [{ translateX: 0 }];
+    const t = clock.value;
+    const p = seg(t, piece.flight);
+    // Loosen: the stroke lifts off the page before it travels.
+    const loosen = easeOut(Math.min(1, p / 0.22));
+    const travel = easeInOut(Math.max(0, (p - 0.12) / 0.88));
+    const hold = 1 - travel;
+    const { centroid, ctrl, dest, lift } = piece;
+    const x = bezier(centroid.x, ctrl.x, dest.x, travel) - centroid.x + lift.x * loosen * hold;
+    const y =
+      bezier(centroid.y, ctrl.y, dest.y, travel) - centroid.y + lift.y * loosen * hold + notebookSink(t) * hold;
+    return [
+      { translateX: x },
+      { translateY: y },
+      { rotate: piece.spin * (0.12 * loosen + travel) },
+      { scale: 1 + 0.08 * loosen * hold - 0.55 * travel },
+    ];
+  });
+  return (
+    <SkiaPath
+      path={piece.d}
+      style="stroke"
+      strokeWidth={strokeWidth}
+      strokeCap="round"
+      strokeJoin="round"
+      color={INK}
+      start={0}
+      end={end}
+      opacity={opacity}
+      origin={piece.centroid}
+      transform={transform}
+    />
+  );
+}
+
+/** The pen's nib: leads every stroke, lifts between strokes, and rests where the pen lies. */
+function PenNib({
+  strokes,
+  clock,
+  size,
+}: {
+  strokes: ScreenStroke[];
+  clock: SharedValue<number>;
+  size: number;
+}) {
+  const nib = useDerivedValue(() => {
+    const t = clock.value;
+    let x = 0;
+    let y = 0;
+    let down = 0;
+    for (let i = 0; i < strokes.length; i++) {
+      const s = strokes[i];
+      if (t < s.write[0]) {
+        if (i === 0) {
+          x = s.xy[0];
+          y = s.xy[1];
+        } else {
+          // Pen lifted, travelling to the next stroke.
+          const prev = strokes[i - 1];
+          const n = prev.xy.length;
+          const f = easeInOut(seg(t, [prev.write[1], s.write[0]]));
+          x = prev.xy[n - 2] + (s.xy[0] - prev.xy[n - 2]) * f;
+          y = prev.xy[n - 1] + (s.xy[1] - prev.xy[n - 1]) * f - 3 * Math.sin(Math.PI * f);
+        }
+        break;
+      }
+      if (t <= s.write[1] || i === strokes.length - 1) {
+        const drawn = s.length * penPace(seg(t, s.write));
+        const c = s.cumulative;
+        let j = 1;
+        while (j < c.length - 1 && c[j] < drawn) j++;
+        const span = c[j] - c[j - 1];
+        const f = span > 0 ? Math.min(1, Math.max(0, (drawn - c[j - 1]) / span)) : 1;
+        x = s.xy[2 * (j - 1)] + (s.xy[2 * j] - s.xy[2 * (j - 1)]) * f;
+        y = s.xy[2 * (j - 1) + 1] + (s.xy[2 * j + 1] - s.xy[2 * (j - 1) + 1]) * f;
+        down = t <= s.write[1] ? 1 : 0;
+        break;
+      }
+    }
+    const visible = seg(t, [T.nib[0], T.nib[0] + 200]) * (1 - seg(t, [T.nib[1] - 300, T.nib[1]]));
+    return { x, y, down, visible };
+  });
+  const cx = useDerivedValue(() => nib.value.x);
+  const cy = useDerivedValue(() => nib.value.y);
+  const tipOpacity = useDerivedValue(() => nib.value.visible * (0.45 + 0.5 * nib.value.down));
+  const glowOpacity = useDerivedValue(() => nib.value.visible * (0.25 + 0.35 * nib.value.down));
+  return (
+    <Group>
+      <SkiaCircle cx={cx} cy={cy} r={size * 3.2} color={GOLD} opacity={glowOpacity}>
+        <BlurMask blur={size * 2.2} style="normal" />
+      </SkiaCircle>
+      <SkiaCircle cx={cx} cy={cy} r={size * 0.95} color={INK} opacity={tipOpacity} />
+    </Group>
+  );
+}
+
+// --- The mark, built from its own strokes -------------------------------------------------
+
+/** One guide stroke of the mark (pencil-thin), traced as its fragments land. */
+function GuideStroke({ d, window, clock }: { d: string; window: Window; clock: SharedValue<number> }) {
+  const end = useDerivedValue(() => easeInOut(seg(clock.value, window)));
+  const opacity = useDerivedValue(() => (end.value > 0 ? 0.82 * (1 - seg(clock.value, T.guidesOut)) : 0));
+  return (
+    <SkiaPath
+      path={d}
+      style="stroke"
+      strokeWidth={GUIDE_WIDTH}
+      strokeCap="round"
+      strokeJoin="round"
+      color={INK}
+      start={0}
+      end={end}
+      opacity={opacity}
+    />
+  );
+}
+
+/** A wide brush along the same guide: where it has passed, the textured mark shows. */
+function BrushStroke({ d, window, clock }: { d: string; window: Window; clock: SharedValue<number> }) {
+  const end = useDerivedValue(() => easeInOut(seg(clock.value, [window[0] + T.brushLag, window[1] + T.brushLag])));
+  const opacity = useDerivedValue(() => (end.value > 0 ? 1 : 0));
+  return (
+    <SkiaPath
+      path={d}
+      style="stroke"
+      strokeWidth={BRUSH_WIDTH}
+      strokeCap="round"
+      strokeJoin="round"
+      color="white"
+      start={0}
+      end={end}
+      opacity={opacity}
+    />
+  );
+}
+
+function ConstructionNode({ point, gold, clock }: { point: Point; gold?: boolean; clock: SharedValue<number> }) {
+  const opacity = useDerivedValue(() => seg(clock.value, T.nodes) * (1 - seg(clock.value, T.guidesOut)));
+  return <SkiaCircle cx={point.x} cy={point.y} r={gold ? 8 : 6.5} color={gold ? GOLD : INK} opacity={opacity} />;
+}
+
+const MARK_PARTS = MARK_STROKES.map((part, index) => ({
+  window: T.guides[index],
+  paths: part.map(polylineToSvg),
+}));
+
+function MarkBuild({
+  width,
+  height,
+  clock,
+  reduceMotion,
+}: {
+  width: number;
+  height: number;
+  clock: SharedValue<number>;
+  reduceMotion: boolean;
+}) {
+  const ink = useImage(markInk);
+  const fill = useDerivedValue(() => (reduceMotion ? 1 : easeInOut(seg(clock.value, T.markComplete))));
+  const scale = width / MARK_W;
+  return (
+    <Canvas style={{ width, height }} pointerEvents="none">
+      <Group transform={[{ scale }]}>
+        <Mask
+          mode="alpha"
+          mask={
+            <Group>
+              {reduceMotion
+                ? null
+                : MARK_PARTS.flatMap((part, index) =>
+                    part.paths.map((d) => <BrushStroke key={`${index}-${d}`} d={d} window={part.window} clock={clock} />),
+                  )}
+              <SkiaRect x={0} y={0} width={MARK_W} height={MARK_H} color="white" opacity={fill} />
+            </Group>
+          }
+        >
+          {ink ? <SkiaImage image={ink} fit="contain" x={0} y={0} width={MARK_W} height={MARK_H} /> : null}
+        </Mask>
+        {reduceMotion ? null : (
+          <Group>
+            {MARK_PARTS.flatMap((part, index) =>
+              part.paths.map((d) => <GuideStroke key={`${index}-${d}`} d={d} window={part.window} clock={clock} />),
+            )}
+            {[MARK.topLeft, MARK.topRight, MARK.lowerLeft, MARK.lowerRight, MARK.base].map((point) => (
+              <ConstructionNode key={`${point.x}-${point.y}`} point={point} clock={clock} />
+            ))}
+            <ConstructionNode point={MARK.center} gold clock={clock} />
+          </Group>
+        )}
+      </Group>
+    </Canvas>
+  );
+}
+
+// --- Supplied fragment artwork: torn paper, shards, ink and gold ----------------------------
+
 type FragmentSpec = {
   key: keyof typeof FRAGMENT_ART;
   width: number;
@@ -188,9 +410,9 @@ type FragmentSpec = {
   end: Point;
   /** Nearly-static resting place after the mark resolves; omitted pieces fade out. */
   rest?: Point;
-  flight: readonly [number, number];
-  fadeIn: readonly [number, number];
-  fadeOut: readonly [number, number];
+  flight: Window;
+  fadeIn: Window;
+  fadeOut: Window;
   rotate: readonly [number, number];
   scale: readonly [number, number];
   /** Extra scale at mid-flight, suggesting the piece lifts toward the viewer. */
@@ -241,75 +463,6 @@ function Fragment({
   );
 }
 
-const AnimatedPath = Animated.createAnimatedComponent(Path);
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-
-function ConstructionLine({
-  d,
-  length,
-  window,
-  clock,
-  strokeWidth,
-}: {
-  d: string;
-  length: number;
-  window: readonly [number, number];
-  clock: SharedValue<number>;
-  strokeWidth: number;
-}) {
-  const animatedProps = useAnimatedProps(() => {
-    const p = easeInOut(seg(clock.value, window));
-    // Untraced, a round cap would still paint a dot at the path's start.
-    return { strokeDashoffset: length * (1 - p), strokeOpacity: p > 0 ? 0.82 : 0 };
-  });
-  return (
-    <AnimatedPath
-      d={d}
-      stroke={INK}
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      fill="none"
-      strokeDasharray={[length, length]}
-      animatedProps={animatedProps}
-    />
-  );
-}
-
-function ConstructionRing({ clock, strokeWidth }: { clock: SharedValue<number>; strokeWidth: number }) {
-  const animatedProps = useAnimatedProps(() => {
-    const p = easeInOut(seg(clock.value, T.ring));
-    return { strokeDashoffset: RING.length * (1 - p), strokeOpacity: p > 0 ? 0.82 : 0 };
-  });
-  return (
-    <AnimatedCircle
-      cx={RING.cx}
-      cy={RING.cy}
-      r={RING.r}
-      stroke={INK}
-      strokeWidth={strokeWidth}
-      fill="none"
-      strokeDasharray={[RING.length, RING.length]}
-      rotation={90}
-      origin={`${RING.cx}, ${RING.cy}`}
-      animatedProps={animatedProps}
-    />
-  );
-}
-
-function ConstructionNode({ point, gold, clock }: { point: Point; gold?: boolean; clock: SharedValue<number> }) {
-  const animatedProps = useAnimatedProps(() => ({ opacity: seg(clock.value, T.nodes) }));
-  return (
-    <AnimatedCircle
-      cx={point.x}
-      cy={point.y}
-      r={gold ? 7 : 5.5}
-      fill={gold ? GOLD : INK}
-      animatedProps={animatedProps}
-    />
-  );
-}
-
 type Props = {
   /** Optional in-screen header; the journey normally keeps progress in a persistent header. */
   header?: React.ReactNode;
@@ -325,14 +478,14 @@ type Props = {
   onContinue: () => void;
 };
 
+const INK_PLAN = planInk();
+
 export function V2OnboardingExplain({ header, reduceMotion, handoff, nextReady = true, onContinue }: Props) {
   const { width: W, height: H } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const [fontsLoaded] = useFonts({ [HANDWRITING_FONT]: Allison_400Regular });
 
   const clock = useSharedValue(0);
   const idle = useSharedValue(0.5);
-  const lineWidths = [useSharedValue(0), useSharedValue(0)];
   const [ctaReady, setCtaReady] = useState(false);
   const leaving = useRef(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -363,14 +516,17 @@ export function V2OnboardingExplain({ header, reduceMotion, handoff, nextReady =
     const nbH = (nbW * NB_H) / NB_W;
     const nb = { left: (W - nbW) / 2, top: H * 0.5, width: nbW, height: nbH };
     const k = nbW / NB_W;
-    const fontSize = nbW * 0.1;
+    const em = EM_PAGE_PX * k;
 
-    const pagePoint = (x: number, y: number): Point => ({
-      x: nb.left + (PAGE_ORIGIN.x + x * PAGE_E1.x + y * PAGE_E2.x) * k,
-      y: nb.top + (PAGE_ORIGIN.y + x * PAGE_E1.y + y * PAGE_E2.y) * k,
+    const pagePoint = (p: Point): Point => ({
+      x: nb.left + (PAGE_ORIGIN.x + p.x * PAGE_E1.x + p.y * PAGE_E2.x) * k,
+      y: nb.top + (PAGE_ORIGIN.y + p.x * PAGE_E1.y + p.y * PAGE_E2.y) * k,
     });
     const onLine = (line: 0 | 1, frac: number): Point =>
-      pagePoint(LINES[line].x + LINES[line].length * frac, LINES[line].baseline - fontSize * 0.35 / k);
+      pagePoint({
+        x: LINE_ORIGINS[line].x + HANDWRITING_LINES[line].width * EM_PAGE_PX * frac,
+        y: LINE_ORIGINS[line].baseline - 0.3 * EM_PAGE_PX,
+      });
     const onMark = (p: Point): Point => ({
       x: mark.left + (p.x / MARK_W) * mark.width,
       y: mark.top + (p.y / MARK_H) * mark.height,
@@ -382,25 +538,68 @@ export function V2OnboardingExplain({ header, reduceMotion, handoff, nextReady =
     const textCenter = lerp(onLine(0, 0.5), onLine(1, 0.5), 0.5);
     const heroCenter = onMark(MARK.center);
 
+    // Pen strokes in screen space, for the nib.
+    const strokes: ScreenStroke[] = INK_PLAN.strokes.map((stroke) => {
+      const points = stroke.points.map(pagePoint);
+      const cumulative = [0];
+      for (let i = 1; i < points.length; i++) {
+        cumulative.push(cumulative[i - 1] + Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y));
+      }
+      return {
+        write: stroke.write,
+        length: cumulative[cumulative.length - 1],
+        xy: points.flatMap((p) => [p.x, p.y]),
+        cumulative,
+      };
+    });
+
+    // The written pieces, each landing along the part of the mark it becomes.
+    const pieces: ScreenPiece[] = INK_PLAN.chunks.map((chunk, index) => {
+      const points = chunk.points.map(pagePoint);
+      const centroid = points.reduce((acc, p) => ({ x: acc.x + p.x / points.length, y: acc.y + p.y / points.length }), { x: 0, y: 0 });
+      const part = MARK_STROKES[chunk.target];
+      const along = part.length > 1 ? chunk.landing * part.length : chunk.landing;
+      const polyline = part[Math.min(part.length - 1, Math.floor(along))];
+      const dest = onMark(pointAlong(polyline, part.length > 1 ? along % 1 : along));
+      const ctrl = lerp(centroid, dest, 0.45, chunk.jitter * W * 0.16, -H * 0.06 - Math.abs(chunk.jitter) * H * 0.03);
+      return {
+        key: `ink-${index}`,
+        d: polylineToSvg(points),
+        centroid,
+        ctrl,
+        dest,
+        lift: { x: chunk.jitter * 7, y: -7 - Math.abs(chunk.jitter) * 5 },
+        spin: chunk.jitter * 0.55,
+        flight: chunk.flight,
+        write: INK_PLAN.strokes[chunk.stroke].write,
+        // The page → screen map is a rotation and a uniform scale, so lengths scale by k.
+        strokeLength: INK_PLAN.strokes[chunk.stroke].length * k,
+        offset: chunk.offset * k,
+        length: chunk.length * k,
+      };
+    });
+
+    // Supplied artwork travelling with the writing: torn paper and shards leave the written
+    // lines as they break, ink and gold pieces converge on the vertices the guides pass through.
+    const B = T.breakStart;
     const fragments: FragmentSpec[] = [
-      // Paper: the written page lifting away. Born on the lines, gone before the mark forms.
-      { key: "paperA", width: W * 0.27, start: onLine(0, 0.45), ctrl: lerp(onLine(0, 0.45), heroCenter, 0.55, -W * 0.18), end: onMark({ x: 230, y: 520 }), flight: [2000, 3350], fadeIn: [2000, 2180], fadeOut: [2850, 3300], rotate: [-14, -52], scale: [0.7, 0.32], depth: 0.35 },
-      { key: "paperB", width: W * 0.21, start: onLine(1, 0.55), ctrl: lerp(onLine(1, 0.55), heroCenter, 0.6, W * 0.2), end: onMark({ x: 500, y: 380 }), flight: [2060, 3400], fadeIn: [2060, 2240], fadeOut: [2900, 3350], rotate: [16, 64], scale: [0.7, 0.32], depth: 0.35 },
-      { key: "shardA", width: W * 0.06, start: onLine(0, 0.15), ctrl: lerp(onLine(0, 0.15), heroCenter, 0.4, -W * 0.22), end: onMark({ x: 150, y: 300 }), flight: [2020, 3200], fadeIn: [2020, 2160], fadeOut: [2700, 3150], rotate: [0, -120], scale: [0.8, 0.6], depth: 0.3 },
-      { key: "shardB", width: W * 0.065, start: onLine(0, 0.82), ctrl: lerp(onLine(0, 0.82), heroCenter, 0.5, W * 0.2), end: onMark({ x: 600, y: 300 }), flight: [2080, 3250], fadeIn: [2080, 2220], fadeOut: [2750, 3200], rotate: [20, 140], scale: [0.8, 0.6], depth: 0.3 },
-      { key: "shardC", width: W * 0.055, start: onLine(1, 0.2), ctrl: lerp(onLine(1, 0.2), heroCenter, 0.3, -W * 0.26), end: onMark({ x: 120, y: 560 }), flight: [2140, 3300], fadeIn: [2140, 2280], fadeOut: [2800, 3250], rotate: [-30, -160], scale: [0.8, 0.6], depth: 0.25 },
-      { key: "shardD", width: W * 0.055, start: onLine(1, 0.9), ctrl: lerp(onLine(1, 0.9), heroCenter, 0.35, W * 0.24), end: onMark({ x: 620, y: 560 }), flight: [2200, 3350], fadeIn: [2200, 2340], fadeOut: [2850, 3300], rotate: [10, 110], scale: [0.8, 0.6], depth: 0.25 },
-      // Ink + gold: geometry emerging from the rising paper, each settling on a vertex of the mark.
-      { key: "inkA", width: W * 0.1, start: lerp(textCenter, heroCenter, 0.35, -W * 0.14), ctrl: lerp(textCenter, heroCenter, 0.7, -W * 0.3), end: onMark(MARK.topLeft), flight: [2380, 3620], fadeIn: [2380, 2640], fadeOut: T.fragmentsOut, rotate: [-40, -8], scale: [0.7, 0.62], depth: 0.2 },
-      { key: "inkB", width: W * 0.095, start: lerp(textCenter, heroCenter, 0.38, W * 0.16), ctrl: lerp(textCenter, heroCenter, 0.72, W * 0.32), end: onMark(MARK.topRight), rest: onMark({ x: MARK.topRight.x + 90, y: MARK.topRight.y - 40 }), flight: [2420, 3660], fadeIn: [2420, 2680], fadeOut: T.fragmentsOut, rotate: [34, 12], scale: [0.7, 0.55], depth: 0.2 },
-      { key: "inkC", width: W * 0.055, start: lerp(textCenter, heroCenter, 0.28, -W * 0.08), ctrl: lerp(textCenter, heroCenter, 0.45, -W * 0.34), end: onMark(MARK.lowerLeft), rest: onMark({ x: MARK.lowerLeft.x - 90, y: MARK.lowerLeft.y + 30 }), flight: [2480, 3700], fadeIn: [2480, 2740], fadeOut: T.fragmentsOut, rotate: [-60, -20], scale: [0.8, 0.75], depth: 0.15 },
-      { key: "inkD", width: W * 0.06, start: lerp(textCenter, heroCenter, 0.3, W * 0.1), ctrl: lerp(textCenter, heroCenter, 0.5, W * 0.36), end: onMark(MARK.lowerRight), flight: [2520, 3720], fadeIn: [2520, 2780], fadeOut: T.fragmentsOut, rotate: [50, 16], scale: [0.8, 0.7], depth: 0.15 },
-      { key: "inkE", width: W * 0.07, start: lerp(textCenter, heroCenter, 0.25), ctrl: lerp(textCenter, heroCenter, 0.35, -W * 0.06), end: onMark(MARK.base), flight: [2560, 3760], fadeIn: [2560, 2820], fadeOut: T.fragmentsOut, rotate: [-20, 30], scale: [0.8, 0.6], depth: 0.15 },
-      { key: "goldA", width: W * 0.06, start: lerp(textCenter, heroCenter, 0.42, W * 0.04), ctrl: lerp(textCenter, heroCenter, 0.8, W * 0.12), end: heroCenter, flight: [2600, 3880], fadeIn: [2600, 2860], fadeOut: [3960, 4200], rotate: [-30, 0], scale: [0.8, 0.55], depth: 0.2 },
-      { key: "goldB", width: W * 0.036, start: lerp(textCenter, heroCenter, 0.45, -W * 0.02), ctrl: lerp(textCenter, heroCenter, 0.95, -W * 0.16), end: onMark(MARK.ringTop), rest: onMark({ x: MARK.ringTop.x + 110, y: MARK.ringTop.y + 20 }), flight: [2450, 3700], fadeIn: [2450, 2710], fadeOut: T.fragmentsOut, rotate: [20, -10], scale: [0.9, 0.8], depth: 0.15 },
+      { key: "paperA", width: W * 0.27, start: onLine(0, 0.45), ctrl: lerp(onLine(0, 0.45), heroCenter, 0.55, -W * 0.18), end: onMark({ x: 230, y: 520 }), flight: [B, B + 1350], fadeIn: [B, B + 180], fadeOut: [B + 850, B + 1300], rotate: [-14, -52], scale: [0.7, 0.32], depth: 0.35 },
+      { key: "paperB", width: W * 0.21, start: onLine(1, 0.55), ctrl: lerp(onLine(1, 0.55), heroCenter, 0.6, W * 0.2), end: onMark({ x: 500, y: 380 }), flight: [B + 60, B + 1400], fadeIn: [B + 60, B + 240], fadeOut: [B + 900, B + 1350], rotate: [16, 64], scale: [0.7, 0.32], depth: 0.35 },
+      { key: "shardA", width: W * 0.06, start: onLine(0, 0.15), ctrl: lerp(onLine(0, 0.15), heroCenter, 0.4, -W * 0.22), end: onMark({ x: 150, y: 300 }), flight: [B + 20, B + 1200], fadeIn: [B + 20, B + 160], fadeOut: [B + 700, B + 1150], rotate: [0, -120], scale: [0.8, 0.6], depth: 0.3 },
+      { key: "shardB", width: W * 0.065, start: onLine(0, 0.82), ctrl: lerp(onLine(0, 0.82), heroCenter, 0.5, W * 0.2), end: onMark({ x: 600, y: 300 }), flight: [B + 80, B + 1250], fadeIn: [B + 80, B + 220], fadeOut: [B + 750, B + 1200], rotate: [20, 140], scale: [0.8, 0.6], depth: 0.3 },
+      { key: "shardC", width: W * 0.055, start: onLine(1, 0.2), ctrl: lerp(onLine(1, 0.2), heroCenter, 0.3, -W * 0.26), end: onMark({ x: 120, y: 560 }), flight: [B + 140, B + 1300], fadeIn: [B + 140, B + 280], fadeOut: [B + 800, B + 1250], rotate: [-30, -160], scale: [0.8, 0.6], depth: 0.25 },
+      { key: "shardD", width: W * 0.055, start: onLine(1, 0.9), ctrl: lerp(onLine(1, 0.9), heroCenter, 0.35, W * 0.24), end: onMark({ x: 620, y: 560 }), flight: [B + 200, B + 1350], fadeIn: [B + 200, B + 340], fadeOut: [B + 850, B + 1300], rotate: [10, 110], scale: [0.8, 0.6], depth: 0.25 },
+      { key: "inkA", width: W * 0.1, start: lerp(textCenter, heroCenter, 0.35, -W * 0.14), ctrl: lerp(textCenter, heroCenter, 0.7, -W * 0.3), end: onMark(MARK.topLeft), flight: [B + 380, B + 1620], fadeIn: [B + 380, B + 640], fadeOut: T.fragmentsOut, rotate: [-40, -8], scale: [0.7, 0.62], depth: 0.2 },
+      { key: "inkB", width: W * 0.095, start: lerp(textCenter, heroCenter, 0.38, W * 0.16), ctrl: lerp(textCenter, heroCenter, 0.72, W * 0.32), end: onMark(MARK.topRight), rest: onMark({ x: MARK.topRight.x + 90, y: MARK.topRight.y - 40 }), flight: [B + 420, B + 1660], fadeIn: [B + 420, B + 680], fadeOut: T.fragmentsOut, rotate: [34, 12], scale: [0.7, 0.55], depth: 0.2 },
+      { key: "inkC", width: W * 0.055, start: lerp(textCenter, heroCenter, 0.28, -W * 0.08), ctrl: lerp(textCenter, heroCenter, 0.45, -W * 0.34), end: onMark(MARK.lowerLeft), rest: onMark({ x: MARK.lowerLeft.x - 90, y: MARK.lowerLeft.y + 30 }), flight: [B + 480, B + 1900], fadeIn: [B + 480, B + 740], fadeOut: T.fragmentsOut, rotate: [-60, -20], scale: [0.8, 0.75], depth: 0.15 },
+      { key: "inkD", width: W * 0.06, start: lerp(textCenter, heroCenter, 0.3, W * 0.1), ctrl: lerp(textCenter, heroCenter, 0.5, W * 0.36), end: onMark(MARK.lowerRight), flight: [B + 520, B + 1920], fadeIn: [B + 520, B + 780], fadeOut: T.fragmentsOut, rotate: [50, 16], scale: [0.8, 0.7], depth: 0.15 },
+      { key: "inkE", width: W * 0.07, start: lerp(textCenter, heroCenter, 0.25), ctrl: lerp(textCenter, heroCenter, 0.35, -W * 0.06), end: onMark(MARK.base), flight: [B + 560, B + 1960], fadeIn: [B + 560, B + 820], fadeOut: T.fragmentsOut, rotate: [-20, 30], scale: [0.8, 0.6], depth: 0.15 },
+      // The gold centre: arrives last, and hands straight over to the diamond.
+      { key: "goldA", width: W * 0.06, start: lerp(textCenter, heroCenter, 0.42, W * 0.04), ctrl: lerp(textCenter, heroCenter, 0.8, W * 0.12), end: heroCenter, flight: [B + 900, B + 2950], fadeIn: [B + 900, B + 1160], fadeOut: [B + 2950, B + 3200], rotate: [-30, 0], scale: [0.8, 0.55], depth: 0.2 },
+      { key: "goldB", width: W * 0.036, start: lerp(textCenter, heroCenter, 0.45, -W * 0.02), ctrl: lerp(textCenter, heroCenter, 0.95, -W * 0.16), end: onMark(MARK.ringTop), rest: onMark({ x: MARK.ringTop.x + 110, y: MARK.ringTop.y + 20 }), flight: [B + 450, B + 1700], fadeIn: [B + 450, B + 710], fadeOut: T.fragmentsOut, rotate: [20, -10], scale: [0.9, 0.8], depth: 0.15 },
     ];
 
-    return { mark, nb, k, fontSize, fragments };
+    return { mark, nb, k, em, strokes, pieces, fragments };
   }, [H, W, copyTop, insets.top]);
 
   // Start the single clock. Reduce Motion owns its own crossfade timeline, so the system
@@ -468,13 +667,9 @@ export function V2OnboardingExplain({ header, reduceMotion, handoff, nextReady =
       return { opacity: seg(t, RM.notebookIn) };
     }
     const enter = easeOut(seg(t, T.notebookIn));
-    const dim = easeInOut(seg(t, T.notebookDim));
     return {
       opacity: enter,
-      transform: [
-        { translateY: 20 * (1 - enter) + 14 * dim },
-        { scale: 0.97 + 0.03 * enter },
-      ],
+      transform: [{ translateY: 20 * (1 - enter) + notebookSink(t) }, { scale: 0.97 + 0.03 * enter }],
     };
   });
 
@@ -482,27 +677,6 @@ export function V2OnboardingExplain({ header, reduceMotion, handoff, nextReady =
   // under a silhouette of itself and settles into the readability gradient.
   const notebookShadeStyle = useAnimatedStyle(() => ({
     opacity: 0.55 * easeInOut(seg(clock.value, reduceMotion ? RM.dissolve : T.notebookDim)),
-  }));
-
-  const writingStyle = useAnimatedStyle(() => {
-    if (reduceMotion) return { opacity: 1 - seg(clock.value, RM.dissolve) };
-    const lift = easeInOut(seg(clock.value, T.textLift));
-    return { opacity: 1 - lift, transform: [{ translateY: -8 * lift }] };
-  });
-
-  const line1Style = useAnimatedStyle(() => {
-    const full = lineWidths[0].value || layout.fontSize * 4.8;
-    const p = reduceMotion ? 1 : easeInOut(seg(clock.value, T.line1));
-    return { width: full * p };
-  });
-  const line2Style = useAnimatedStyle(() => {
-    const full = lineWidths[1].value || layout.fontSize * 4.6;
-    const p = reduceMotion ? 1 : easeInOut(seg(clock.value, T.line2));
-    return { width: full * p };
-  });
-
-  const constructionStyle = useAnimatedStyle(() => ({
-    opacity: 1 - seg(clock.value, T.constructionOut),
   }));
 
   // Anchor handoff: the example mark survives into the move — shrinks to .8, lifts ~20pt and
@@ -516,17 +690,16 @@ export function V2OnboardingExplain({ header, reduceMotion, handoff, nextReady =
     };
   });
 
+  // The mark gathers itself as it is built, swells slightly as the centre locks, and settles.
   const markStyle = useAnimatedStyle(() => {
     const t = clock.value;
     if (reduceMotion) {
       return { opacity: seg(t, RM.dissolve) };
     }
-    const up = easeOut(seg(t, T.markScaleUp));
-    const settle = easeInOut(seg(t, T.markSettle));
-    return {
-      opacity: easeOut(seg(t, T.markIn)),
-      transform: [{ scale: 0.9 + 0.12 * up - 0.02 * settle }],
-    };
+    const build = easeOut(seg(t, T.build));
+    const up = easeInOut(seg(t, T.settleUp));
+    const down = easeInOut(seg(t, T.settleDown));
+    return { opacity: 1, transform: [{ scale: 0.97 + 0.03 * build + 0.025 * up - 0.025 * down }] };
   });
 
   const diamondStyle = useAnimatedStyle(() => {
@@ -535,7 +708,7 @@ export function V2OnboardingExplain({ header, reduceMotion, handoff, nextReady =
       return { opacity: seg(t, RM.dissolve) };
     }
     const p = easeOut(seg(t, T.diamondIn));
-    return { opacity: p, transform: [{ scale: 0.72 + 0.28 * p }] };
+    return { opacity: p, transform: [{ scale: 0.6 + 0.4 * p }] };
   });
 
   const gradientStyle = useAnimatedStyle(() => ({
@@ -556,32 +729,12 @@ export function V2OnboardingExplain({ header, reduceMotion, handoff, nextReady =
     uiReveal(clock.value, handoff.value, reduceMotion ? RM.cta : T.cta, H2.s2Ui, reduceMotion),
   );
 
-  const { mark, nb, k, fontSize, fragments } = layout;
-  const handwriting = fontsLoaded ? HANDWRITING_FONT : HANDWRITING_FALLBACK;
-  const lineHeight = fontSize * 1.45;
-  const swashPad = fontSize * 0.3;
-  const strokeWidth = Math.max(2.4, (1.3 * MARK_W) / mark.width);
-  const lineStyles = [line1Style, line2Style];
+  const { mark, nb, em, strokes, pieces, fragments } = layout;
+  const penWidth = Math.max(1.3, em * 0.058);
 
   return (
     <View style={styles.screen} testID="v2-onboarding-bridge" pointerEvents="box-none">
       <StatusBar style="light" translucent backgroundColor="transparent" />
-
-      {/* Measures each handwritten line once so the reveal ends exactly where the ink does. */}
-      <View style={styles.measureHost} pointerEvents="none" importantForAccessibility="no-hide-descendants">
-        {LINES.map((line, index) => (
-          <Text
-            key={line.text}
-            accessible={false}
-            style={[styles.handwriting, styles.measure, { fontFamily: handwriting, fontSize, lineHeight }]}
-            onLayout={(event) => {
-              lineWidths[index].value = event.nativeEvent.layout.width + swashPad * 1.6;
-            }}
-          >
-            {line.text}
-          </Text>
-        ))}
-      </View>
 
       <Animated.View style={[StyleSheet.absoluteFill, styles.world, worldStyle]} pointerEvents="none">
       {/* 1–2. Locked environment + cinematic grade */}
@@ -592,89 +745,42 @@ export function V2OnboardingExplain({ header, reduceMotion, handoff, nextReady =
         pointerEvents="none"
         accessible
         accessibilityRole="image"
-        accessibilityLabel="A written intention breaks into fragments that come together as an example Anchor symbol."
+        accessibilityLabel="An intention is handwritten in a notebook, breaks into fragments, and those fragments build an example Anchor symbol."
       >
-        {/* 3–4. Notebook + native handwriting */}
+        {/* 3. Notebook, arriving blank */}
         <Animated.View style={[styles.abs, nb, notebookStyle]}>
           <Image source={notebook} style={styles.fill} resizeMode="contain" />
-          <Animated.View
-            style={[
-              styles.page,
-              {
-                left: PAGE_ORIGIN.x * k,
-                top: PAGE_ORIGIN.y * k,
-                width: 760 * k,
-                height: 420 * k,
-                transform: [{ rotate: `${PAGE_ANGLE_DEG}deg` }],
-              },
-            ]}
-          >
-            <Animated.View style={[styles.fill, writingStyle]}>
-            {LINES.map((line, index) => (
-              <Animated.View
-                key={line.text}
-                style={[
-                  styles.lineClip,
-                  {
-                    left: line.x * k - swashPad,
-                    top: line.baseline * k - lineHeight * 0.8,
-                    height: lineHeight + fontSize * 0.4,
-                  },
-                  lineStyles[index],
-                ]}
-              >
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    styles.handwriting,
-                    { fontFamily: handwriting, fontSize, lineHeight, width: fontSize * 7, paddingLeft: swashPad },
-                  ]}
-                >
-                  {line.text}
-                </Text>
-              </Animated.View>
-            ))}
-            </Animated.View>
-          </Animated.View>
           <Animated.Image source={notebook} style={[styles.notebookShade, notebookShadeStyle]} resizeMode="contain" />
         </Animated.View>
 
-        {/* 5. Fragments (none under Reduce Motion) */}
+        {/* 4. The intention: written by the pen, then broken into its own strokes, which
+            travel to the mark. Same ink throughout — nothing is swapped. */}
+        <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
+          {pieces.map((piece) => (
+            <InkPiece key={piece.key} piece={piece} clock={clock} strokeWidth={penWidth} reduceMotion={reduceMotion} />
+          ))}
+          {reduceMotion ? null : <PenNib strokes={strokes} clock={clock} size={penWidth} />}
+        </Canvas>
+
+        {/* 5. Supplied fragment artwork (none under Reduce Motion) */}
         {reduceMotion
           ? null
           : fragments.map((spec) => <Fragment key={spec.key} spec={spec} clock={clock} idle={idle} />)}
-
-        {/* 6. Construction geometry, drawn on the mark's own structure */}
-        {reduceMotion ? null : (
-          <Animated.View style={[styles.abs, mark, constructionStyle]}>
-            <Svg width="100%" height="100%" viewBox={`0 0 ${MARK_W} ${MARK_H}`}>
-              {CONSTRUCTION.map((line) => (
-                <ConstructionLine key={line.d} {...line} clock={clock} strokeWidth={strokeWidth} />
-              ))}
-              <ConstructionRing clock={clock} strokeWidth={strokeWidth} />
-              {[MARK.topLeft, MARK.topRight, MARK.lowerLeft, MARK.lowerRight, MARK.base].map((point) => (
-                <ConstructionNode key={`${point.x}-${point.y}`} point={point} clock={clock} />
-              ))}
-              <ConstructionNode point={MARK.center} gold clock={clock} />
-            </Svg>
-          </Animated.View>
-        )}
-
       </View>
       </Animated.View>
 
-      {/* 7. The supplied brand mark: ink geometry, then the gold centre locks in.
-          Outside the world layer so it survives briefly into the handoff. */}
+      {/* 6. The Anchor, built from guide strokes and painted in along them; then the gold
+          centre locks in. Outside the world layer so it survives briefly into the handoff. */}
       <Animated.View style={[styles.abs, mark, handoffMarkStyle]} pointerEvents="none">
         <Animated.View style={[StyleSheet.absoluteFill, markStyle]}>
-          <Image source={markInk} style={styles.fill} resizeMode="contain" />
-        </Animated.View>
-        <Animated.View style={[StyleSheet.absoluteFill, diamondStyle]}>
-          <Image source={markDiamond} style={styles.fill} resizeMode="contain" />
+          <MarkBuild width={mark.width} height={mark.height} clock={clock} reduceMotion={reduceMotion} />
+          <Animated.View style={[StyleSheet.absoluteFill, diamondStyle]}>
+            <Image source={markDiamond} style={styles.fill} resizeMode="contain" />
+          </Animated.View>
         </Animated.View>
       </Animated.View>
 
-      {/* 8. Readability gradient */}
+      {/* 7. Readability gradient */}
       <Animated.View style={[StyleSheet.absoluteFill, worldTopStyle]} pointerEvents="none">
         <Animated.View
           pointerEvents="none"
@@ -693,7 +799,7 @@ export function V2OnboardingExplain({ header, reduceMotion, handoff, nextReady =
         <Animated.View style={[styles.header, { paddingTop: insets.top }, headerStyle]}>{header}</Animated.View>
       ) : null}
 
-      {/* 9–10. Explanatory UI + CTA */}
+      {/* 8–9. Explanatory UI + CTA */}
       <View style={[styles.copy, { paddingBottom: bottomPad }]} onLayout={onCopyLayout}>
         <Animated.Text style={[styles.headline, headlineStyle]} accessibilityRole="header">
           Give what matters{"\n"}a <Text style={styles.headlineGold}>shape.</Text>
@@ -733,12 +839,7 @@ const styles = StyleSheet.create({
   abs: { position: "absolute" },
   fill: { width: "100%", height: "100%" },
   fragment: { position: "absolute", left: 0, top: 0 },
-  page: { position: "absolute", transformOrigin: "left top" },
-  handwriting: { color: INK, opacity: 0.9 },
   notebookShade: { ...StyleSheet.absoluteFillObject, width: "100%", height: "100%", tintColor: "#07090F" },
-  measureHost: { position: "absolute", left: 0, top: 0, width: 2000, opacity: 0 },
-  measure: { alignSelf: "flex-start" },
-  lineClip: { position: "absolute", overflow: "hidden" },
   header: { position: "absolute", top: 0, left: 0, right: 0 },
   copy: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 28, alignItems: "stretch" },
   headline: {

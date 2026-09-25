@@ -108,11 +108,12 @@ describe('V2FirstRunFlow returning-user sign in', () => {
     // A demonstration, not the user's Anchor.
     expect(screen.queryByText(/your anchor/i)).toBeNull();
 
-    // The CTA only arms once the explanation has formed.
+    // The CTA only arms once the intention has been written, transformed into the Anchor,
+    // and the finished Anchor has held.
     fireEvent.press(screen.getByLabelText('Continue'));
     expect(mockSetStep).not.toHaveBeenCalledWith('motivation');
     await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 5000));
+      await new Promise((resolve) => setTimeout(resolve, 11500));
     });
 
     // Screen 3 is already mounted beneath Screen 2 (decoded before Continue), with nothing chosen.
@@ -131,7 +132,7 @@ describe('V2FirstRunFlow returning-user sign in', () => {
     expect(screen.getByTestId('v2-onboarding-focus')).toBeTruthy();
     expect(screen.getByLabelText('Step 3 of 8')).toBeTruthy();
     expect(screen.getByText(/What matters most\s+to you right now\?/)).toBeTruthy();
-  }, 15000);
+  }, 25000);
 });
 
 describe('V2FirstRunFlow Screen 3 — what matters most', () => {
