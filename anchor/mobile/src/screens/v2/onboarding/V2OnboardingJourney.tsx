@@ -20,8 +20,10 @@ import Animated, {
   useSharedValue,
   withDelay,
   withRepeat,
+  withSequence,
   withTiming,
 } from "react-native-reanimated";
+import Svg, { Defs, RadialGradient, Rect, Stop } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
@@ -62,7 +64,19 @@ const OUTCOME_PRELOAD_DELAY_MS = 250;
  * and Chart artwork is decoded before Continue. */
 const SYSTEM_PRELOAD_DELAY_MS = 400;
 
-const panorama = require("@/assets/onboarding/welcome-panorama.png");
+/**
+ * Screen 1 hero: full-resolution master of the locked panorama (5760 × 1920, about 2.3 source
+ * pixels per point at full screen height), rendered as-is with no blur or resize step.
+ * welcome-panorama.png is the old 1024 × 341 preview of the same artwork, which is what made
+ * the hero soft. Keep PANORAMA_SIZE in sync with the file.
+ */
+const panorama = require("@/assets/onboarding/welcome-panorama-master.jpg");
+const PANORAMA_SIZE = { width: 5760, height: 1920 };
+/** One leg of the opening camera move. Long enough to read as a drift, not an animation. */
+const HERO_PAN_MS = 42000;
+/** The shot opens slightly pushed in, and keeps pushing in by a hair over each leg. */
+const HERO_SCALE_START = 1.06;
+const HERO_SCALE_DRIFT = 0.035;
 const desk = require("@/assets/onboarding/creation-desk.png");
 const brandMark = require("@/assets/home/anchor-brand-mark.png");
 const lightMark = require("@/assets/home/anchor-brand-mark-light.png");
@@ -250,33 +264,43 @@ function Welcome({
 
   // The supplied locked panoramic artwork (3:1 aspect ratio) owns the entire screen.
   // The device is a vertical camera window looking into a wider cinematic world.
-  const PANORAMA_ASPECT = 1024 / 341;
+  const PANORAMA_ASPECT = PANORAMA_SIZE.width / PANORAMA_SIZE.height;
   const panoramaHeight = height;
   const panoramaWidth = panoramaHeight * PANORAMA_ASPECT;
   const maxTravel = Math.max(0, panoramaWidth - width);
-  // Subtle atmospheric GTA-style camera pan revealing Real World -> Illustrated transition
+  // A slow camera move across the room, toward the illustrated world beyond it.
   const panDistance = Math.min(maxTravel, Math.max(220, width * 0.55));
 
   const pan = useSharedValue(0);
+  const push = useSharedValue(0);
   const wash = useSharedValue(0);
   const uiOut = useSharedValue(0);
   const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [transitioning, setTransitioning] = useState(false);
 
+  // Opening shot: already moving on the first frame (ease-out, never a standing start), then
+  // an unhurried sine drift back and forth. Each leg is ~42s and turns around at zero
+  // velocity, so there is no loop point, snap or bounce — just a camera that never settles.
   useEffect(() => {
     if (reduceMotion) {
       pan.value = 0;
+      push.value = 0;
       return;
     }
-    pan.value = withRepeat(
-      withTiming(1, {
-        duration: 10000,
-        easing: Easing.inOut(Easing.sin),
-      }),
-      -1,
-      true,
+    const drift = (easing: (value: number) => number) => ({ duration: HERO_PAN_MS, easing });
+    pan.value = withSequence(
+      withTiming(1, drift(Easing.out(Easing.sin))),
+      withRepeat(withTiming(0, drift(Easing.inOut(Easing.sin))), -1, true),
     );
-  }, [reduceMotion, pan]);
+    push.value = withSequence(
+      withTiming(1, drift(Easing.out(Easing.sin))),
+      withRepeat(withTiming(0.4, drift(Easing.inOut(Easing.sin))), -1, true),
+    );
+    return () => {
+      cancelAnimation(pan);
+      cancelAnimation(push);
+    };
+  }, [reduceMotion, pan, push]);
 
   useEffect(() => () => {
     if (transitionTimer.current) clearTimeout(transitionTimer.current);
@@ -284,6 +308,11 @@ function Welcome({
 
   const panStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: -panDistance * pan.value }],
+  }));
+  // Scale is applied around the screen centre (not the far wider image's centre), so the
+  // push-in crops evenly and the pan range stays inside the artwork.
+  const pushStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: reduceMotion ? 1 : HERO_SCALE_START + HERO_SCALE_DRIFT * push.value }],
   }));
 
   const washStyle = useAnimatedStyle(() => ({ opacity: wash.value }));
@@ -316,20 +345,48 @@ function Welcome({
   return (
     <View style={styles.fullBleed} testID="v2-onboarding-welcome">
       <StatusBar style="dark" translucent backgroundColor="transparent" />
-      {/* 1. PANORAMIC ENVIRONMENTAL ARTWORK */}
-      <Animated.Image
-        source={panorama}
-        resizeMode="cover"
+      {/* 1. PANORAMIC ENVIRONMENTAL ARTWORK — full detail, never blurred; the only
+          readability treatment is the graded overlay below. */}
+      <Animated.View style={[StyleSheet.absoluteFill, pushStyle]} pointerEvents="none">
+        <Animated.Image
+          source={panorama}
+          resizeMode="cover"
+          resizeMethod="scale"
+          fadeDuration={0}
+          style={[
+            styles.panorama,
+            {
+              width: panoramaWidth,
+              height: panoramaHeight,
+            },
+            panStyle,
+          ]}
+          accessibilityIgnoresInvertColors
+        />
+      </Animated.View>
+
+      {/* Soft light behind the brand lockup. No shape, no edge: it only lifts the sky and
+          window frame directly behind the mark enough for the ink to separate. */}
+      <Animated.View
+        pointerEvents="none"
         style={[
-          styles.panorama,
-          {
-            width: panoramaWidth,
-            height: panoramaHeight,
-          },
-          panStyle,
+          styles.brandHalo,
+          { top: Math.max(insets.top, 16) + 14 - 66, left: width / 2 - 150 },
+          uiOutStyle,
         ]}
-        accessibilityIgnoresInvertColors
-      />
+      >
+        <Svg width={300} height={236}>
+          <Defs>
+            <RadialGradient id="welcome-brand-halo" cx="50%" cy="50%" rx="50%" ry="50%">
+              <Stop offset="0%" stopColor="#FFF4E0" stopOpacity={0.6} />
+              <Stop offset="40%" stopColor="#FBE7C6" stopOpacity={0.36} />
+              <Stop offset="70%" stopColor="#F8E1BC" stopOpacity={0.12} />
+              <Stop offset="100%" stopColor="#F6DDB4" stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+          <Rect x={0} y={0} width={300} height={236} fill="url(#welcome-brand-halo)" />
+        </Svg>
+      </Animated.View>
 
       {/* 2. NATURAL DARK GRADIENT OVERLAY (Grounds lower copy & CTA without darkening the sky) */}
       <LinearGradient
@@ -939,6 +996,7 @@ const styles = StyleSheet.create({
   fullBleed: { flex: 1, backgroundColor: "#0E151C", overflow: "hidden" },
   panorama: { position: "absolute", top: 0, left: 0 },
   transitionWash: { ...StyleSheet.absoluteFillObject, zIndex: 5 },
+  brandHalo: { position: "absolute", width: 300, height: 236 },
   welcomeContentContainer: {
     flex: 1,
     justifyContent: "space-between",
@@ -952,6 +1010,11 @@ const styles = StyleSheet.create({
     width: 36,
     height: 46,
     tintColor: "#14162B",
+    // iOS: a soft light edge so the mark's silhouette separates from dark foliage.
+    shadowColor: "#FFF6E6",
+    shadowOpacity: 0.9,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 0 },
   },
   wordmark: {
     color: "#14162B",
@@ -959,6 +1022,9 @@ const styles = StyleSheet.create({
     letterSpacing: 7.5,
     fontFamily: "Inter-SemiBold",
     marginTop: 6,
+    textShadowColor: "rgba(255, 246, 230, 0.85)",
+    textShadowRadius: 6,
+    textShadowOffset: { width: 0, height: 0 },
   },
   brandSub: {
     color: "rgba(20, 22, 43, 0.72)",
@@ -966,6 +1032,9 @@ const styles = StyleSheet.create({
     letterSpacing: 2.8,
     fontFamily: "Inter-SemiBold",
     marginTop: 3,
+    textShadowColor: "rgba(255, 246, 230, 0.85)",
+    textShadowRadius: 5,
+    textShadowOffset: { width: 0, height: 0 },
   },
   welcomeBottom: {
     alignSelf: "stretch",
