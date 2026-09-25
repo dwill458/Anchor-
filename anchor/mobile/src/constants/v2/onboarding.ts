@@ -97,6 +97,8 @@ export type OnboardingStep =
   | "bridge"
   | "motivation"
   | "outcome"
+  | "system"
+  /** Retired "What changes first?" step; restored drafts that stopped on it resume on "system". */
   | "life"
   | "need"
   | "summary"
@@ -110,7 +112,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
   "bridge",
   "motivation",
   "outcome",
-  "life",
+  "system",
   "need",
   "summary",
   "handoff",

@@ -1,13 +1,17 @@
 /**
- * Progress chrome shared by Screen 2 and Screen 3. It stays mounted across the handoff, so
- * the step changes in place — the next segment fills and "02" rolls up into "03" — instead
- * of a new header arriving with a new page.
+ * Progress chrome shared by Screens 2–5. It stays mounted across every handoff, so the step
+ * changes in place — the next segment fills and "02" rolls up into "03" — instead of a new
+ * header arriving with a new page.
+ *
+ * Its tone follows the surface beneath it: light over the Screen 2/3 photography, ink over
+ * the cream of Screens 4 and 5, blending as the surface changes.
  */
 import React, { useEffect } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import Animated, {
   Easing,
   ReduceMotion,
+  interpolateColor,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -16,6 +20,16 @@ import Animated, {
 import { ChevronLeft } from "lucide-react-native";
 
 const TOTAL = 8;
+
+/** [over photography, over cream] */
+const TONE = {
+  backFill: ["rgba(20, 22, 32, 0.32)", "rgba(122, 98, 60, 0.10)"],
+  backBorder: ["rgba(255, 255, 255, 0.34)", "rgba(20, 22, 43, 0.10)"],
+  track: ["rgba(255, 255, 255, 0.34)", "rgba(20, 22, 43, 0.12)"],
+  fill: ["#E4C48A", "#CFA862"],
+  text: ["rgba(255, 255, 255, 0.86)", "rgba(20, 22, 43, 0.78)"],
+} as const;
+const INK = "#14162B";
 const pad = (n: number) => String(n).padStart(2, "0");
 
 function seg(t: number, window: readonly [number, number]): number {
@@ -38,7 +52,30 @@ type Props = {
   /** Disables and recedes the chrome, e.g. while a sheet is open or during the handoff. */
   interactive: boolean;
   dimmed?: boolean;
+  /** 0 over photography, 1 over cream. Omitted: always photography. */
+  paper?: SharedValue<number>;
 };
+
+type Tone = SharedValue<number> | undefined;
+const toneOf = (paper: Tone) => {
+  "worklet";
+  return paper ? paper.value : 0;
+};
+
+function Segment({ done, filling, fill, paper }: { done: boolean; filling: boolean; fill: object; paper: Tone }) {
+  const trackStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(toneOf(paper), [0, 1], [...TONE.track]),
+  }));
+  const fillColor = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(toneOf(paper), [0, 1], [...TONE.fill]),
+  }));
+  return (
+    <Animated.View style={[styles.segment, trackStyle]}>
+      {done ? <Animated.View style={[styles.segmentFill, fillColor]} /> : null}
+      {filling ? <Animated.View style={[styles.segmentFill, styles.fillOrigin, fillColor, fill]} /> : null}
+    </Animated.View>
+  );
+}
 
 export function OpeningProgressHeader({
   topInset,
@@ -51,6 +88,7 @@ export function OpeningProgressHeader({
   onBack,
   interactive,
   dimmed = false,
+  paper,
 }: Props) {
   const appear = useSharedValue(0);
   const dim = useSharedValue(dimmed ? 1 : 0);
@@ -71,6 +109,13 @@ export function OpeningProgressHeader({
     return { opacity: p, transform: [{ translateY: reduceMotion ? 0 : 8 * (1 - p) }] };
   });
   const fill = useAnimatedStyle(() => ({ transform: [{ scaleX: seg(clock.value, window) }] }));
+  const backStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(toneOf(paper), [0, 1], [...TONE.backFill]),
+    borderColor: interpolateColor(toneOf(paper), [0, 1], [...TONE.backBorder]),
+  }));
+  const lightIcon = useAnimatedStyle(() => ({ opacity: 1 - toneOf(paper) }));
+  const inkIcon = useAnimatedStyle(() => ({ opacity: toneOf(paper) }));
+  const textTone = useAnimatedStyle(() => ({ color: interpolateColor(toneOf(paper), [0, 1], [...TONE.text]) }));
 
   const rolls = from !== to;
   return (
@@ -79,14 +124,15 @@ export function OpeningProgressHeader({
       pointerEvents={interactive ? "box-none" : "none"}
     >
       <View style={styles.row}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-          onPress={onBack}
-          hitSlop={10}
-          style={styles.back}
-        >
-          <ChevronLeft size={20} color="#FFFFFF" strokeWidth={2} />
+        <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={onBack} hitSlop={10}>
+          <Animated.View style={[styles.back, backStyle]}>
+            <Animated.View style={[styles.icon, lightIcon]}>
+              <ChevronLeft size={20} color="#FFFFFF" strokeWidth={2} />
+            </Animated.View>
+            <Animated.View style={[styles.icon, inkIcon]}>
+              <ChevronLeft size={20} color={INK} strokeWidth={2} />
+            </Animated.View>
+          </Animated.View>
         </Pressable>
         <View
           style={styles.track}
@@ -97,26 +143,21 @@ export function OpeningProgressHeader({
           {Array.from({ length: TOTAL }, (_, index) => {
             const done = index < from;
             const filling = rolls && index === from;
-            return (
-              <View key={index} style={styles.segment}>
-                {done ? <View style={styles.segmentFill} /> : null}
-                {filling ? <Animated.View style={[styles.segmentFill, styles.fillOrigin, fill]} /> : null}
-              </View>
-            );
+            return <Segment key={index} done={done} filling={filling} fill={fill} paper={paper} />;
           })}
         </View>
         <View style={styles.counter} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
           <View style={styles.digits}>
             {rolls ? (
               <>
-                <Animated.Text style={[styles.counterText, styles.digitLayer, outgoing]}>{pad(from)}</Animated.Text>
-                <Animated.Text style={[styles.counterText, incoming]}>{pad(to)}</Animated.Text>
+                <Animated.Text style={[styles.counterText, styles.digitLayer, textTone, outgoing]}>{pad(from)}</Animated.Text>
+                <Animated.Text style={[styles.counterText, textTone, incoming]}>{pad(to)}</Animated.Text>
               </>
             ) : (
-              <Text style={styles.counterText}>{pad(from)}</Text>
+              <Animated.Text style={[styles.counterText, textTone]}>{pad(from)}</Animated.Text>
             )}
           </View>
-          <Text style={styles.counterText}> / {pad(TOTAL)}</Text>
+          <Animated.Text style={[styles.counterText, textTone]}> / {pad(TOTAL)}</Animated.Text>
         </View>
       </View>
     </Animated.View>
@@ -136,6 +177,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "rgba(255, 255, 255, 0.34)",
   },
+  icon: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" },
   track: { flex: 1, flexDirection: "row", gap: 5, paddingHorizontal: 10 },
   segment: {
     flex: 1,

@@ -11,7 +11,8 @@ export type SavedOnboardingContext = {
   /** Free-text motivation from the earlier onboarding; kept for drafts that still carry it. */
   motivation?: string;
   desiredChange: string;
-  lifeChanges: string[];
+  /** Retired question; only drafts from the earlier onboarding still carry answers. */
+  lifeChanges?: string[];
   primaryNeed: string;
   customAnswer?: string;
 };
@@ -27,7 +28,6 @@ export function buildOnboardingContext(
     (!motivation && !focusCategory) ||
     (motivation === "Something else" && !customAnswer) ||
     !desiredChange ||
-    !draft.lifeChanges?.length ||
     !draft.primaryNeed
   ) {
     throw new Error("Finish the onboarding questions before saving your progress.");
@@ -36,7 +36,7 @@ export function buildOnboardingContext(
     ...(focusCategory ? { focusCategory } : {}),
     ...(motivation ? { motivation } : {}),
     desiredChange,
-    lifeChanges: draft.lifeChanges,
+    ...(draft.lifeChanges?.length ? { lifeChanges: draft.lifeChanges } : {}),
     primaryNeed: draft.primaryNeed,
     ...(motivation === "Something else" && customAnswer ? { customAnswer } : {}),
   };

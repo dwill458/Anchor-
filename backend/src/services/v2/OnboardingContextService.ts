@@ -31,8 +31,10 @@ export const OnboardingContextSchema = z
           'How other people experience me',
         ])
       )
-      .min(1)
-      .max(6),
+      .max(6)
+      // Retired from onboarding (Anchor 2.0 Screen 5 took its slot). Accounts created
+      // earlier still carry answers; new ones send none.
+      .default([]),
     primaryNeed: z.enum([
       'Knowing what to do next',
       'Staying consistent',

@@ -133,7 +133,7 @@ export function buildVisionScenePlannerPrompt(input: {
       ...(input.onboarding.motivation ? [`Reason for change (data): ${JSON.stringify(input.onboarding.motivation)}`] : []),
       ...(input.onboarding.customAnswer ? [`Their own words (data): ${JSON.stringify(input.onboarding.customAnswer)}`] : []),
       `Desired outcome (data): ${JSON.stringify(input.onboarding.desiredChange)}`,
-      `Life changes (data): ${JSON.stringify(input.onboarding.lifeChanges)}`,
+      ...(input.onboarding.lifeChanges.length ? [`Life changes (data): ${JSON.stringify(input.onboarding.lifeChanges)}`] : []),
     ] : []),
   ].join('\n');
 }

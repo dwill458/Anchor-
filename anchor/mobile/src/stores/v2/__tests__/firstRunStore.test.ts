@@ -94,6 +94,18 @@ describe('Screen 3 focus area', () => {
     });
   });
 
+  it('saves without the retired life-changes question', () => {
+    const store = useFirstRunStore.getState();
+    store.setFocusCategory('health');
+    store.setDesiredOutcome('More energy');
+    store.setPrimaryNeed('Staying consistent');
+    expect(buildOnboardingContext(useFirstRunStore.getState().draft)).toEqual({
+      focusCategory: 'health',
+      desiredChange: 'More energy',
+      primaryNeed: 'Staying consistent',
+    });
+  });
+
   it('never decides the first Anchor category: the intention is still auto-detected', () => {
     const store = useFirstRunStore.getState();
     store.setFocusCategory('career');

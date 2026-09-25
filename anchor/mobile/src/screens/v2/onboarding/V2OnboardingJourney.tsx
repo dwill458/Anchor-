@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  AccessibilityInfo,
   Image,
   ImageBackground,
   Pressable,
@@ -17,6 +16,7 @@ import Animated, {
   ReduceMotion,
   cancelAnimation,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
   withDelay,
   withRepeat,
@@ -34,7 +34,6 @@ import {
 } from "lucide-react-native";
 import { useFirstRunStore } from "@/stores/v2/firstRunStore";
 import {
-  LIFE_CHANGES,
   ONBOARDING_STEPS,
   PRIMARY_NEEDS,
   type OnboardingStep,
@@ -45,9 +44,11 @@ import type { AnchorCategory } from "@/types";
 import { V2OnboardingExplain } from "./V2OnboardingExplain";
 import { V2OnboardingFocusArea } from "./V2OnboardingFocusArea";
 import { V2OnboardingOutcome } from "./V2OnboardingOutcome";
+import { V2OnboardingSystem } from "./V2OnboardingSystem";
 import { OpeningProgressHeader } from "./OpeningProgressHeader";
-import { handoffTimeline } from "./openingHandoff";
+import { handoffTimeline, seg } from "./openingHandoff";
 import { outcomeHandoffTimeline, type OutcomeOriginFrame } from "./outcomeHandoff";
+import { systemHandoffTimeline } from "./systemHandoff";
 import { Screen2Backdrop } from "./screen2Backdrop";
 
 /** Screen 3 mounts beneath Screen 2 this long after Screen 2 starts, so it is decoded before Continue. */
@@ -57,6 +58,9 @@ const FOCUS_READY_FALLBACK_MS = 3000;
 /** Screen 4 mounts beneath Screen 3 this long after Screen 3 is reached. It reuses Screen 3's
  * own card art, already decoded, so this only needs to clear the mount past the entrance. */
 const OUTCOME_PRELOAD_DELAY_MS = 250;
+/** Screen 5 mounts beneath Screen 4 this long after Screen 4 is reached, so its SEE, Anchor
+ * and Chart artwork is decoded before Continue. */
+const SYSTEM_PRELOAD_DELAY_MS = 400;
 
 const panorama = require("@/assets/onboarding/welcome-panorama.png");
 const desk = require("@/assets/onboarding/creation-desk.png");
@@ -500,12 +504,14 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
     setStep,
     setFocusCategory,
     setDesiredOutcome,
-    toggleLifeChange,
     setPrimaryNeed,
     markAnswersComplete,
   } = useFirstRunStore();
-  const step = ONBOARDING_STEPS.includes(draft.currentStep as OnboardingStep)
-    ? (draft.currentStep as OnboardingStep)
+  // A draft saved on the retired "What changes first?" step resumes on the screen that took
+  // its place.
+  const savedStep = draft.currentStep === "life" ? "system" : draft.currentStep;
+  const step = ONBOARDING_STEPS.includes(savedStep as OnboardingStep)
+    ? (savedStep as OnboardingStep)
     : "welcome";
   const stepNumber = ONBOARDING_STEPS.indexOf(step) + 1;
   const dark = step === "need";
@@ -540,6 +546,16 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
   const [outcomeOriginFrame, setOutcomeOriginFrame] = useState<OutcomeOriginFrame | null>(null);
   const outcomeTimeline = outcomeHandoffTimeline(reduceMotion);
 
+  // --- Screen 4 → Screen 5 handoff ---------------------------------------------------------
+  // Same pattern again: Screen 4's artwork rises and shrinks into Screen 5's hero while
+  // Screen 4's copy clears and Screen 5's arrives behind it.
+  const systemClock = useSharedValue(0);
+  const systemHandoffStarted = useRef(false);
+  const [systemEntry, setSystemEntry] = useState<"handoff" | "direct">("direct");
+  const [systemMounted, setSystemMounted] = useState(step === "system");
+  const [handingOffToSystem, setHandingOffToSystem] = useState(false);
+  const systemTimeline = systemHandoffTimeline(reduceMotion);
+
   const resetHandoff = () => {
     cancelAnimation(handoff);
     handoff.value = 0;
@@ -549,6 +565,11 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
     cancelAnimation(outcomeClock);
     outcomeClock.value = 0;
     outcomeHandoffStarted.current = false;
+  };
+  const resetSystemHandoff = () => {
+    cancelAnimation(systemClock);
+    systemClock.value = 0;
+    systemHandoffStarted.current = false;
   };
 
   useEffect(() => {
@@ -571,6 +592,12 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
     return () => clearTimeout(timer);
   }, [outcomeMounted, step]);
 
+  useEffect(() => {
+    if (step !== "outcome" || systemMounted) return;
+    const timer = setTimeout(() => setSystemMounted(true), SYSTEM_PRELOAD_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [systemMounted, step]);
+
   // Arriving on Screen 3 any other way (restore, back from Screen 4) plays its own entrance.
   useEffect(() => {
     if (step !== "motivation" || handoffStarted.current) return;
@@ -588,6 +615,17 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
     outcomeClock.value = withTiming(outcomeTimeline.end, { duration: outcomeTimeline.end, easing: Easing.linear, reduceMotion: ReduceMotion.Never });
     outcomeHandoffStarted.current = true;
   }, [outcomeClock, step, outcomeTimeline.end]);
+
+  // Arriving on Screen 5 any other way (restore, back from Screen 6) plays its own entrance,
+  // skipping the part of the clock that belongs to the flight from Screen 4.
+  useEffect(() => {
+    if (step !== "system" || systemHandoffStarted.current) return;
+    setSystemEntry("direct");
+    const from = systemTimeline.directFrom;
+    systemClock.value = from;
+    systemClock.value = withTiming(systemTimeline.end, { duration: systemTimeline.end - from, easing: Easing.linear, reduceMotion: ReduceMotion.Never });
+    systemHandoffStarted.current = true;
+  }, [systemClock, step, systemTimeline.directFrom, systemTimeline.end]);
 
   const startHandoff = () => {
     if (handingOff) return;
@@ -622,6 +660,23 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
     }, outcomeTimeline.commitStep);
   };
 
+  const startSystemHandoff = () => {
+    // The ref, not state, guards a second tap landing before the re-render.
+    if (handingOffToSystem || systemHandoffStarted.current) return;
+    v2Haptics.selection();
+    systemHandoffStarted.current = true;
+    setSystemMounted(true);
+    setSystemEntry("handoff");
+    setHandingOffToSystem(true);
+    systemClock.value = 0;
+    systemClock.value = withTiming(systemTimeline.end, { duration: systemTimeline.end, easing: Easing.linear, reduceMotion: ReduceMotion.Never });
+    // Screen 4 is released only once Screen 5's cream fully covers it.
+    advanceTimer.current = setTimeout(() => {
+      setStep("system");
+      setHandingOffToSystem(false);
+    }, systemTimeline.commitStep);
+  };
+
   const back = () => {
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
     if (stepNumber <= 1) return;
@@ -629,6 +684,8 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
     // Screen 3's entrance must be hidden again before its screen reappears.
     if (previous === "bridge" || previous === "motivation") resetHandoff();
     if (previous === "motivation" || previous === "outcome") resetOutcomeHandoff();
+    // Returning to Screen 4 hands its artwork back; returning to Screen 5 replays its entrance.
+    if (previous === "outcome" || previous === "system") resetSystemHandoff();
     setStep(previous);
   };
   const onHeroReady = useCallback(() => setFocusReady(true), []);
@@ -640,6 +697,13 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
   const effectiveChange = (draft.desiredOutcome ?? "").trim();
   // Screen 4's hero and outcome choices follow the Screen 3 choice directly.
   const screen4Category: AnchorCategory = draft.focusCategory ?? "custom";
+
+  // Chrome tone: light over Screen 2/3 photography, ink over the cream of Screens 4 and 5.
+  const onCream = step === "outcome" || step === "system";
+  const paper = useDerivedValue(() => {
+    if (handingOffToOutcome) return seg(outcomeClock.value, outcomeTimeline.s3EnvOut);
+    return onCream ? 1 : 0;
+  }, [handingOffToOutcome, onCream, outcomeTimeline]);
   const footer = (label: string, next: () => void, disabled = false) => (
     <View style={styles.footer}>
       <Cta label={label} onPress={next} dark={!dark} disabled={disabled} />
@@ -658,19 +722,25 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
       </View>
     );
 
-  if (step === "bridge" || step === "motivation" || step === "outcome") {
+  if (step === "bridge" || step === "motivation" || step === "outcome" || step === "system") {
     const rolls = step === "bridge" || focusEntry === "handoff";
     // The shared header represents whichever handoff is currently in flight (or, at rest,
-    // the screen the user is actually on): 2 → 3, then 3 → 4, one clock at a time.
-    const header = handingOffToOutcome
-      ? { from: 3, to: 4, current: 3, clock: outcomeClock, window: outcomeTimeline.progress }
-      : step === "outcome"
-        ? { from: 4, to: 4, current: 4, clock: outcomeClock, window: outcomeTimeline.progress }
-        : { from: rolls ? 2 : 3, to: 3, current: step === "bridge" ? 2 : 3, clock: handoff, window: timeline.progress };
+    // the screen the user is actually on): 2 → 3, 3 → 4, then 4 → 5, one clock at a time.
+    const header = handingOffToSystem
+      ? { from: 4, to: 5, current: 4, clock: systemClock, window: systemTimeline.progress }
+      : step === "system"
+        ? { from: 5, to: 5, current: 5, clock: systemClock, window: systemTimeline.progress }
+        : handingOffToOutcome
+          ? { from: 3, to: 4, current: 3, clock: outcomeClock, window: outcomeTimeline.progress }
+          : step === "outcome"
+            ? { from: 4, to: 4, current: 4, clock: outcomeClock, window: outcomeTimeline.progress }
+            : { from: rolls ? 2 : 3, to: 3, current: step === "bridge" ? 2 : 3, clock: handoff, window: timeline.progress };
     return (
       <View style={[styles.screen, styles.openingScreen]} testID={step === "motivation" ? "v2-onboarding-motivation" : undefined}>
-        <StatusBar style="light" translucent backgroundColor="transparent" />
-        {focusMounted ? (
+        <StatusBar style={onCream ? "dark" : "light"} translucent backgroundColor="transparent" />
+        {/* Each screen is also rendered whenever it is the current step, so back navigation
+            from a restored later step always has a screen to land on. */}
+        {focusMounted || step === "motivation" ? (
           <V2OnboardingFocusArea
             key="focus-area"
             clock={handoff}
@@ -695,18 +765,32 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
             onContinue={startHandoff}
           />
         ) : null}
-        {outcomeMounted ? (
+        {outcomeMounted || step === "outcome" ? (
           <V2OnboardingOutcome
             key="outcome"
             clock={outcomeClock}
             entry={outcomeEntry}
-            active={step === "outcome" || handingOffToOutcome}
+            active={(step === "outcome" || handingOffToOutcome) && !handingOffToSystem}
             reduceMotion={reduceMotion}
             category={screen4Category}
             selected={draft.desiredOutcome}
             onSelect={selectOutcome}
-            onContinue={() => setNext("life")}
+            onContinue={startSystemHandoff}
             originFrame={outcomeOriginFrame}
+            systemClock={systemClock}
+            systemTimeline={systemTimeline}
+          />
+        ) : null}
+        {systemMounted || step === "system" ? (
+          <V2OnboardingSystem
+            key="system"
+            clock={systemClock}
+            entry={systemEntry}
+            active={step === "system"}
+            reduceMotion={reduceMotion}
+            category={screen4Category}
+            outcome={draft.desiredOutcome}
+            onContinue={() => setNext("need")}
           />
         ) : null}
         <OpeningProgressHeader
@@ -719,8 +803,9 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
           window={header.window}
           reduceMotion={reduceMotion}
           onBack={back}
-          interactive={!handingOff && !handingOffToOutcome && !sheetOpen}
+          interactive={!handingOff && !handingOffToOutcome && !handingOffToSystem && !sheetOpen}
           dimmed={sheetOpen}
+          paper={paper}
         />
       </View>
     );
@@ -759,34 +844,6 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {step === "life" && (
-          <>
-            <SectionHeading
-              compact
-              title={"Picture this working out.\nWhat changes first?"}
-              support="Select all that apply."
-            />
-            <View style={styles.list}>
-              {LIFE_CHANGES.map((change, index) => (
-                <ChoiceRow
-                  key={change}
-                  label={change}
-                  index={index}
-                  compact
-                  multi
-                  selected={draft.lifeChanges?.includes(change) ?? false}
-                  onPress={() => {
-                    toggleLifeChange(change);
-                    v2Haptics.selection();
-                    AccessibilityInfo.announceForAccessibility(
-                      `${change} ${draft.lifeChanges?.includes(change) ? "deselected" : "selected"}`,
-                    );
-                  }}
-                />
-              ))}
-            </View>
-          </>
-        )}
         {step === "need" && (
           <>
             <SectionHeading
@@ -845,9 +902,6 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
           </>
         )}
       </ScrollView>
-      {step === "life"
-        ? footer("Continue", () => setNext("need"), !draft.lifeChanges?.length)
-        : null}
       {step === "need"
         ? footer("Continue", () => setNext("summary"), !draft.primaryNeed)
         : null}
@@ -872,7 +926,9 @@ function personalizedReflection(
   const hope = motivation === "Something else" ? customMotivation : motivation;
   const changes = lifeChanges.join(" and ");
   const opening = hope ? `“${hope}.” ` : "";
-  return `${opening}You want ${outcome}. First, ${changes.toLowerCase()} shift. ${primaryNeed} would help most.`;
+  // Only drafts from the earlier onboarding still carry life changes.
+  const first = changes ? `First, ${changes.toLowerCase()} shift. ` : "";
+  return `${opening}You want ${outcome}. ${first}${primaryNeed} would help most.`;
 }
 
 const styles = StyleSheet.create({
