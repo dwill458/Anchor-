@@ -73,6 +73,38 @@ describe('V2 first-run draft', () => {
   });
 });
 
+describe('Screen 3 focus area', () => {
+  beforeEach(() => useFirstRunStore.getState().reset());
+
+  it('starts with no focus area chosen', () => {
+    expect(useFirstRunStore.getState().draft.focusCategory).toBeUndefined();
+  });
+
+  it('saves the focus area as onboarding context alongside the later answers', () => {
+    const store = useFirstRunStore.getState();
+    store.setFocusCategory('career');
+    store.setDesiredOutcome('I lead a team I believe in.');
+    store.toggleLifeChange('How I feel');
+    store.setPrimaryNeed('Seeing progress');
+    expect(buildOnboardingContext(useFirstRunStore.getState().draft)).toEqual({
+      focusCategory: 'career',
+      desiredChange: 'I lead a team I believe in.',
+      lifeChanges: ['How I feel'],
+      primaryNeed: 'Seeing progress',
+    });
+  });
+
+  it('never decides the first Anchor category: the intention is still auto-detected', () => {
+    const store = useFirstRunStore.getState();
+    store.setFocusCategory('career');
+    store.setIntention('I have a stronger relationship with my wife');
+    store.form();
+    const draft = useFirstRunStore.getState().draft;
+    expect(draft.focusCategory).toBe('career');
+    expect(draft.category).toBe('relationships');
+  });
+});
+
 describe('adoptCreation', () => {
   it('keeps the Anchor the shared creation flow made, locally, for the end of onboarding', () => {
     const id = useFirstRunStore.getState().adoptCreation({

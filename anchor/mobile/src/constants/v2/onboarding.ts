@@ -1,3 +1,5 @@
+import type { AnchorCategory } from "@/types";
+
 export const MOTIVATIONS = [
   "Something at work needs to change",
   "I want to feel healthier",
@@ -11,6 +13,45 @@ export const MOTIVATIONS = [
   "I want a life that feels like mine",
   "Something else",
 ] as const;
+
+/**
+ * Screen 3 — "What matters most to you right now?"
+ * Four areas are shown first; the rest of the established categories are disclosed only
+ * behind "Something else". The choice is onboarding context, never the first Anchor's
+ * category: that is still detected from the intention the user writes later.
+ */
+export type FocusAreaId = "health" | "career" | "relationships" | "something_else";
+
+export const PRIMARY_FOCUS_AREAS: ReadonlyArray<{
+  id: FocusAreaId;
+  label: string;
+  /** Selection accent. `null` keeps the card neutral. */
+  accent: string | null;
+}> = [
+  { id: "health", label: "Health", accent: "#2FA879" },
+  { id: "career", label: "Career", accent: "#3157D8" },
+  { id: "relationships", label: "Relationships", accent: "#E56F7A" },
+  { id: "something_else", label: "Something else", accent: null },
+];
+
+export const MORE_FOCUS_AREAS: ReadonlyArray<{ id: AnchorCategory; label: string }> = [
+  { id: "desire", label: "Desire" },
+  { id: "creativity", label: "Creativity" },
+  { id: "spirituality", label: "Spirituality" },
+  { id: "abundance", label: "Abundance" },
+  { id: "family", label: "Family" },
+  { id: "learning", label: "Learning" },
+  { id: "adventure", label: "Adventure" },
+  { id: "custom", label: "Custom" },
+];
+
+export function focusAreaLabel(category?: AnchorCategory | null): string | undefined {
+  if (!category) return undefined;
+  return (
+    PRIMARY_FOCUS_AREAS.find((area) => area.id === category)?.label ??
+    MORE_FOCUS_AREAS.find((area) => area.id === category)?.label
+  );
+}
 
 export const LIFE_CHANGES = [
   "What I do every day",
