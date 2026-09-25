@@ -7,7 +7,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
   useWindowDimensions,
 } from "react-native";
@@ -42,39 +41,27 @@ import {
 } from "@/constants/v2/onboarding";
 import { colors } from "@/theme/v2";
 import { useV2ReduceMotion, v2Haptics } from "@/hooks/v2";
-import { detectCategoryFromText } from "@/utils/categoryDetection";
 import type { AnchorCategory } from "@/types";
 import { V2OnboardingExplain } from "./V2OnboardingExplain";
 import { V2OnboardingFocusArea } from "./V2OnboardingFocusArea";
+import { V2OnboardingOutcome } from "./V2OnboardingOutcome";
 import { OpeningProgressHeader } from "./OpeningProgressHeader";
 import { handoffTimeline } from "./openingHandoff";
+import { outcomeHandoffTimeline, type OutcomeOriginFrame } from "./outcomeHandoff";
 import { Screen2Backdrop } from "./screen2Backdrop";
 
 /** Screen 3 mounts beneath Screen 2 this long after Screen 2 starts, so it is decoded before Continue. */
 const FOCUS_PRELOAD_DELAY_MS = 600;
 /** If the runner plate never reports ready (e.g. decode failure), don't hold Screen 2's CTA forever. */
 const FOCUS_READY_FALLBACK_MS = 3000;
+/** Screen 4 mounts beneath Screen 3 this long after Screen 3 is reached. It reuses Screen 3's
+ * own card art, already decoded, so this only needs to clear the mount past the entrance. */
+const OUTCOME_PRELOAD_DELAY_MS = 250;
 
 const panorama = require("@/assets/onboarding/welcome-panorama.png");
 const desk = require("@/assets/onboarding/creation-desk.png");
 const brandMark = require("@/assets/home/anchor-brand-mark.png");
 const lightMark = require("@/assets/home/anchor-brand-mark-light.png");
-const areaArt: Record<string, number> = {
-  career: require("@/assets/onboarding/area-career.jpg"),
-  health: require("@/assets/onboarding/area-health.jpg"),
-  relationships: require("@/assets/onboarding/area-relationships.jpg"),
-  creativity: require("@/assets/onboarding/area-creativity.jpg"),
-  spirituality: require("@/assets/onboarding/area-spirituality.jpg"),
-  abundance: require("@/assets/onboarding/area-abundance.jpg"),
-  family: require("@/assets/onboarding/area-family.jpg"),
-  learning: require("@/assets/onboarding/area-learning.jpg"),
-  adventure: require("@/assets/onboarding/area-adventure.jpg"),
-  desire: require("@/assets/onboarding/area-desire.jpg"),
-  custom: require("@/assets/onboarding/area-custom.jpg"),
-};
-function areaFor(context: string): string {
-  return detectCategoryFromText(context);
-}
 
 type Props = { onSignIn: () => void; onCreate: () => void };
 
@@ -521,7 +508,7 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
     ? (draft.currentStep as OnboardingStep)
     : "welcome";
   const stepNumber = ONBOARDING_STEPS.indexOf(step) + 1;
-  const dark = step === "outcome" || step === "need";
+  const dark = step === "need";
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
@@ -542,10 +529,26 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const timeline = handoffTimeline(reduceMotion);
 
+  // --- Screen 3 → Screen 4 handoff ---------------------------------------------------------
+  // Same pattern, one step later: the selected category illustration is the transition
+  // object, travelling from its measured Screen 3 card frame to the Screen 4 hero position.
+  const outcomeClock = useSharedValue(0);
+  const outcomeHandoffStarted = useRef(false);
+  const [outcomeEntry, setOutcomeEntry] = useState<"handoff" | "direct">("direct");
+  const [outcomeMounted, setOutcomeMounted] = useState(step === "outcome");
+  const [handingOffToOutcome, setHandingOffToOutcome] = useState(false);
+  const [outcomeOriginFrame, setOutcomeOriginFrame] = useState<OutcomeOriginFrame | null>(null);
+  const outcomeTimeline = outcomeHandoffTimeline(reduceMotion);
+
   const resetHandoff = () => {
     cancelAnimation(handoff);
     handoff.value = 0;
     handoffStarted.current = false;
+  };
+  const resetOutcomeHandoff = () => {
+    cancelAnimation(outcomeClock);
+    outcomeClock.value = 0;
+    outcomeHandoffStarted.current = false;
   };
 
   useEffect(() => {
@@ -560,6 +563,14 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
     return () => clearTimeout(timer);
   }, [focusMounted, focusReady]);
 
+  // Screen 4 reuses Screen 3's own card art (already decoded), so it mounts as soon as
+  // Screen 3 is reachable — no separate readiness gate is needed.
+  useEffect(() => {
+    if (step !== "motivation" || outcomeMounted) return;
+    const timer = setTimeout(() => setOutcomeMounted(true), OUTCOME_PRELOAD_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [outcomeMounted, step]);
+
   // Arriving on Screen 3 any other way (restore, back from Screen 4) plays its own entrance.
   useEffect(() => {
     if (step !== "motivation" || handoffStarted.current) return;
@@ -568,6 +579,15 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
     handoff.value = withTiming(timeline.end, { duration: timeline.end, easing: Easing.linear, reduceMotion: ReduceMotion.Never });
     handoffStarted.current = true;
   }, [handoff, step, timeline.end]);
+
+  // Arriving on Screen 4 any other way (restore, back from Screen 5) plays its own entrance.
+  useEffect(() => {
+    if (step !== "outcome" || outcomeHandoffStarted.current) return;
+    setOutcomeEntry("direct");
+    outcomeClock.value = 0;
+    outcomeClock.value = withTiming(outcomeTimeline.end, { duration: outcomeTimeline.end, easing: Easing.linear, reduceMotion: ReduceMotion.Never });
+    outcomeHandoffStarted.current = true;
+  }, [outcomeClock, step, outcomeTimeline.end]);
 
   const startHandoff = () => {
     if (handingOff) return;
@@ -585,23 +605,41 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
     }, timeline.commitStep);
   };
 
+  const startOutcomeHandoff = (originFrame: OutcomeOriginFrame | null) => {
+    if (handingOffToOutcome) return;
+    v2Haptics.selection();
+    outcomeHandoffStarted.current = true;
+    setOutcomeOriginFrame(originFrame);
+    setOutcomeMounted(true);
+    setOutcomeEntry("handoff");
+    setHandingOffToOutcome(true);
+    outcomeClock.value = 0;
+    outcomeClock.value = withTiming(outcomeTimeline.end, { duration: outcomeTimeline.end, easing: Easing.linear, reduceMotion: ReduceMotion.Never });
+    // Screen 3 unmounts only once every one of its layers is transparent.
+    advanceTimer.current = setTimeout(() => {
+      setStep("outcome");
+      setHandingOffToOutcome(false);
+    }, outcomeTimeline.commitStep);
+  };
+
   const back = () => {
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
     if (stepNumber <= 1) return;
     const previous = ONBOARDING_STEPS[stepNumber - 2];
     // Screen 3's entrance must be hidden again before its screen reappears.
     if (previous === "bridge" || previous === "motivation") resetHandoff();
+    if (previous === "motivation" || previous === "outcome") resetOutcomeHandoff();
     setStep(previous);
   };
   const onHeroReady = useCallback(() => setFocusReady(true), []);
   const selectFocus = useCallback((category: AnchorCategory) => setFocusCategory(category), [setFocusCategory]);
+  const selectOutcome = useCallback((outcome: string) => setDesiredOutcome(outcome), [setDesiredOutcome]);
 
   // Legacy drafts may still carry a free-text motivation; new drafts carry a focus area.
   const motivation = (draft.motivation ?? "").trim();
   const effectiveChange = (draft.desiredOutcome ?? "").trim();
-  const detectedArea = areaFor(`${motivation === "Something else" ? draft.customDesiredChange ?? "" : motivation} ${effectiveChange}`);
-  // Illustration only: the outcome text wins; the Screen 3 choice fills in until it says something.
-  const outcomeArea = detectedArea !== "custom" ? detectedArea : draft.focusCategory ?? "custom";
+  // Screen 4's hero and outcome choices follow the Screen 3 choice directly.
+  const screen4Category: AnchorCategory = draft.focusCategory ?? "custom";
   const footer = (label: string, next: () => void, disabled = false) => (
     <View style={styles.footer}>
       <Cta label={label} onPress={next} dark={!dark} disabled={disabled} />
@@ -620,8 +658,15 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
       </View>
     );
 
-  if (step === "bridge" || step === "motivation") {
+  if (step === "bridge" || step === "motivation" || step === "outcome") {
     const rolls = step === "bridge" || focusEntry === "handoff";
+    // The shared header represents whichever handoff is currently in flight (or, at rest,
+    // the screen the user is actually on): 2 → 3, then 3 → 4, one clock at a time.
+    const header = handingOffToOutcome
+      ? { from: 3, to: 4, current: 3, clock: outcomeClock, window: outcomeTimeline.progress }
+      : step === "outcome"
+        ? { from: 4, to: 4, current: 4, clock: outcomeClock, window: outcomeTimeline.progress }
+        : { from: rolls ? 2 : 3, to: 3, current: step === "bridge" ? 2 : 3, clock: handoff, window: timeline.progress };
     return (
       <View style={[styles.screen, styles.openingScreen]} testID={step === "motivation" ? "v2-onboarding-motivation" : undefined}>
         <StatusBar style="light" translucent backgroundColor="transparent" />
@@ -634,7 +679,9 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
             reduceMotion={reduceMotion}
             selected={draft.focusCategory}
             onSelect={selectFocus}
-            onContinue={() => setStep("outcome")}
+            outcomeClock={outcomeClock}
+            outcomeTimeline={outcomeTimeline}
+            onContinue={startOutcomeHandoff}
             onSheetChange={setSheetOpen}
             onHeroReady={onHeroReady}
           />
@@ -648,17 +695,31 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
             onContinue={startHandoff}
           />
         ) : null}
+        {outcomeMounted ? (
+          <V2OnboardingOutcome
+            key="outcome"
+            clock={outcomeClock}
+            entry={outcomeEntry}
+            active={step === "outcome" || handingOffToOutcome}
+            reduceMotion={reduceMotion}
+            category={screen4Category}
+            selected={draft.desiredOutcome}
+            onSelect={selectOutcome}
+            onContinue={() => setNext("life")}
+            originFrame={outcomeOriginFrame}
+          />
+        ) : null}
         <OpeningProgressHeader
           key="progress"
           topInset={insets.top}
-          from={rolls ? 2 : 3}
-          to={3}
-          current={step === "bridge" ? 2 : 3}
-          clock={handoff}
-          window={timeline.progress}
+          from={header.from}
+          to={header.to}
+          current={header.current}
+          clock={header.clock}
+          window={header.window}
           reduceMotion={reduceMotion}
           onBack={back}
-          interactive={!handingOff && !sheetOpen}
+          interactive={!handingOff && !handingOffToOutcome && !sheetOpen}
           dimmed={sheetOpen}
         />
       </View>
@@ -698,18 +759,6 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {step === "outcome" && (
-          <>
-            <SectionHeading compact dark title={"If this changed,\nwhat would be different\nin your life?"} support="Put the outcome in your own words." />
-            <TextInput value={draft.desiredOutcome ?? ""} onChangeText={setDesiredOutcome} placeholder="What would you like to see change?" placeholderTextColor="#B8B2A8" accessibilityLabel="Describe the outcome you want" maxLength={500} multiline style={[styles.customInput, styles.outcomeInput]} />
-            <Image
-              source={areaArt[outcomeArea] ?? areaArt.custom}
-              resizeMode="cover"
-              style={styles.changeArt}
-              accessibilityLabel="Illustration chosen from your answer"
-            />
-          </>
-        )}
         {step === "life" && (
           <>
             <SectionHeading
@@ -796,7 +845,6 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
           </>
         )}
       </ScrollView>
-      {step === "outcome" ? footer("Continue", () => setNext("life"), !effectiveChange) : null}
       {step === "life"
         ? footer("Continue", () => setNext("need"), !draft.lifeChanges?.length)
         : null}
@@ -1007,34 +1055,6 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     borderWidth: 1,
     borderColor: "#87847E",
-  },
-  customInput: {
-    color: colors.surface,
-    borderBottomWidth: 1,
-    borderColor: "#D9C199",
-    minHeight: 48,
-    marginTop: 14,
-    fontSize: 15,
-  },
-  changeArt: {
-    width: "100%",
-    height: 190,
-    overflow: "hidden",
-    marginTop: 12,
-    borderRadius: 4,
-  },
-  outcomeInput: { minHeight: 84, paddingTop: 8, paddingBottom: 8, textAlignVertical: "top" },
-  changeArtImage: { borderRadius: 5 },
-  changeArtShade: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(8,16,21,0.33)",
-  },
-  changeArtText: {
-    color: "#FFF5E4",
-    fontFamily: "EBGaramond-Italic",
-    fontSize: 20,
-    textAlign: "center",
-    zIndex: 1,
   },
   footer: { paddingHorizontal: 27, paddingTop: 9, paddingBottom: 12 },
   cta: {
