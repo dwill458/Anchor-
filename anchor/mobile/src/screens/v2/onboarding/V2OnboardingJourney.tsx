@@ -15,6 +15,7 @@ import Animated, {
   Easing,
   FadeIn,
   FadeInDown,
+  ReduceMotion,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -42,9 +43,10 @@ import {
 import { colors } from "@/theme/v2";
 import { useV2ReduceMotion, v2Haptics } from "@/hooks/v2";
 import { detectCategoryFromText } from "@/utils/categoryDetection";
+import { V2OnboardingExplain } from "./V2OnboardingExplain";
+import { Screen2Backdrop } from "./screen2Backdrop";
 
 const panorama = require("@/assets/onboarding/welcome-panorama.png");
-const story = require("@/assets/onboarding/personalization-story.jpg");
 const desk = require("@/assets/onboarding/creation-desk.png");
 const brandMark = require("@/assets/home/anchor-brand-mark.png");
 const lightMark = require("@/assets/home/anchor-brand-mark-light.png");
@@ -257,6 +259,7 @@ function Welcome({
 
   const pan = useSharedValue(0);
   const wash = useSharedValue(0);
+  const uiOut = useSharedValue(0);
   const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [transitioning, setTransitioning] = useState(false);
 
@@ -284,13 +287,30 @@ function Welcome({
   }));
 
   const washStyle = useAnimatedStyle(() => ({ opacity: wash.value }));
+  const uiOutStyle = useAnimatedStyle(() => ({
+    opacity: 1 - uiOut.value,
+    transform: [{ translateY: -6 * uiOut.value }],
+  }));
 
   const start = () => {
     if (transitioning) return;
     setTransitioning(true);
-    // The screen remains mounted under the cream wash until the JS handoff.
-    wash.value = withTiming(1, { duration: reduceMotion ? 180 : 560 });
-    transitionTimer.current = setTimeout(onStart, reduceMotion ? 180 : 560);
+    // UI steps back first, the panorama keeps drifting left, and Screen 2's own
+    // environment dissolves in over it. Screen 2's first frame is that same backdrop.
+    // Reduce Motion still gets a crossfade, never a hard cut, so bypass Reanimated's system skip.
+    uiOut.value = withTiming(1, { duration: reduceMotion ? 160 : 320, reduceMotion: ReduceMotion.Never });
+    if (!reduceMotion) {
+      const maxPan = panDistance > 0 ? maxTravel / panDistance : 0;
+      pan.value = withTiming(Math.min(maxPan, pan.value + 0.12), {
+        duration: 900,
+        easing: Easing.out(Easing.cubic),
+      });
+    }
+    wash.value = withDelay(
+      reduceMotion ? 0 : 120,
+      withTiming(1, { duration: reduceMotion ? 260 : 520, reduceMotion: ReduceMotion.Never }),
+    );
+    transitionTimer.current = setTimeout(onStart, reduceMotion ? 280 : 660);
   };
 
   return (
@@ -326,13 +346,14 @@ function Welcome({
       />
 
       {/* 3. STATIC UI OVERLAY */}
-      <View
+      <Animated.View
         style={[
           styles.welcomeContentContainer,
           {
             paddingTop: Math.max(insets.top, 16) + 14,
             paddingBottom: Math.max(insets.bottom, 16) + 12,
           },
+          uiOutStyle,
         ]}
       >
         {/* Stationary Anchor 2.0 Deep Ink Brand Mark & Wordmark */}
@@ -385,10 +406,12 @@ function Welcome({
             </Text>
           </Pressable>
         </Animated.View>
-      </View>
+      </Animated.View>
 
-      {/* Cream wash transition for step handoff */}
-      <Animated.View pointerEvents="none" style={[styles.transitionWash, washStyle]} />
+      {/* Handoff: Screen 2's environment, mounted from the start so it is decoded before it shows */}
+      <Animated.View pointerEvents="none" style={[styles.transitionWash, washStyle]}>
+        <Screen2Backdrop width={width} height={height} />
+      </Animated.View>
     </View>
   );
 }
@@ -473,30 +496,6 @@ function SystemDiagram({ reduceMotion }: { reduceMotion: boolean }) {
   );
 }
 
-function StoryBridge({ reduceMotion, skipReveal }: { reduceMotion: boolean; skipReveal: boolean }) {
-  const reveal = useSharedValue(0);
-  useEffect(() => {
-    reveal.value = withDelay(
-      skipReveal || reduceMotion ? 0 : 160,
-      withTiming(1, { duration: skipReveal ? 0 : reduceMotion ? 360 : 1320 }),
-    );
-  }, [reduceMotion, reveal, skipReveal]);
-  const anchorStyle = useAnimatedStyle(() => ({
-    opacity: reveal.value,
-    transform: [{ translateY: reduceMotion ? 0 : 64 * (1 - reveal.value) }],
-  }));
-  const glowStyle = useAnimatedStyle(() => ({ opacity: reveal.value * 0.24 }));
-  return (
-    <View style={styles.storyFrame}>
-      <Image source={story} resizeMode="contain" style={styles.storyImage} accessibilityLabel="A person looking toward a horizon, surrounded by scenes of possible futures" />
-      <Animated.View style={[styles.storySunGlow, glowStyle]} pointerEvents="none" />
-      <View style={styles.storyAnchorMask} pointerEvents="none">
-        <Animated.Image source={lightMark} resizeMode="contain" style={[styles.storyAnchor, anchorStyle]} accessibilityLabel="Example Anchor symbol" accessibilityRole="image" />
-      </View>
-    </View>
-  );
-}
-
 export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
   const insets = useSafeAreaInsets();
   const reduceMotion = useV2ReduceMotion();
@@ -515,10 +514,6 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
     : "welcome";
   const stepNumber = ONBOARDING_STEPS.indexOf(step) + 1;
   const dark = step === "outcome" || step === "need";
-  const bridgeRevealPlayed = useRef(false);
-  useEffect(() => {
-    if (step === "bridge") bridgeRevealPlayed.current = true;
-  }, [step]);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
@@ -558,6 +553,15 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
       </View>
     );
 
+  if (step === "bridge")
+    return (
+      <V2OnboardingExplain
+        header={<Header step={stepNumber} onBack={back} dark />}
+        reduceMotion={reduceMotion}
+        onContinue={() => setNext("motivation")}
+      />
+    );
+
   return (
     <View
       style={[
@@ -591,13 +595,6 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {step === "bridge" && (
-          <>
-            <StoryBridge reduceMotion={reduceMotion} skipReveal={bridgeRevealPlayed.current} />
-            <SectionHeading title="Let's make Anchor yours." support="Answer a few quick questions about what you want to change and what matters most right now. We'll use your answers to help shape your Vision and Chart around where you want to go." />
-            <Text style={styles.reassurance}>Takes about a minute.</Text>
-          </>
-        )}
         {step === "motivation" && (
           <>
             <SectionHeading
@@ -738,7 +735,6 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
           </>
         )}
       </ScrollView>
-      {step === "bridge" ? footer("Continue", () => setNext("motivation")) : null}
       {step === "motivation" && draft.motivation === "Something else"
         ? footer("Continue", () => setNext("outcome"), !(draft.customDesiredChange ?? "").trim())
         : null}
@@ -778,7 +774,7 @@ const styles = StyleSheet.create({
   darkScreen: { backgroundColor: colors.ink.base },
   fullBleed: { flex: 1, backgroundColor: "#0E151C", overflow: "hidden" },
   panorama: { position: "absolute", top: 0, left: 0 },
-  transitionWash: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.background, zIndex: 5 },
+  transitionWash: { ...StyleSheet.absoluteFillObject, zIndex: 5 },
   welcomeContentContainer: {
     flex: 1,
     justifyContent: "space-between",
@@ -860,12 +856,6 @@ const styles = StyleSheet.create({
     fontFamily: "Inter-SemiBold",
     textDecorationLine: "underline",
   },
-  storyFrame: { height: 300, width: "100%", alignItems: "center", justifyContent: "center", overflow: "hidden", marginBottom: 8 },
-  storyImage: { width: "100%", height: "100%" },
-  storySunGlow: { position: "absolute", top: "40%", left: "50%", width: 70, height: 70, marginLeft: -35, borderRadius: 35, backgroundColor: "rgba(244,221,184,0.36)", shadowColor: "#E9B96E", shadowOpacity: 0.42, shadowRadius: 22, shadowOffset: { width: 0, height: 0 } },
-  storyAnchorMask: { position: "absolute", top: "43%", left: "50%", width: 62, height: 86, marginLeft: -31, overflow: "hidden", alignItems: "center", justifyContent: "flex-start" },
-  storyAnchor: { width: 46, height: 76, tintColor: "#F4DDB8" },
-  reassurance: { color: colors.text.secondary, fontSize: 12, textAlign: "center", marginTop: 2 },
   header: {
     height: 54,
     flexDirection: "row",

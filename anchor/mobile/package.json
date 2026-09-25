@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@bacons/apple-targets": "^4.0.7",
+    "@expo-google-fonts/allison": "^0.4.2",
     "@expo-google-fonts/bricolage-grotesque": "^0.4.1",
     "@expo-google-fonts/cinzel": "^0.4.2",
     "@expo-google-fonts/crimson-pro": "^0.4.2",

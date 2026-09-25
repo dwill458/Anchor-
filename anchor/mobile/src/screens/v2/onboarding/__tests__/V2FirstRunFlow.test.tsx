@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 const mockSetSession = jest.fn();
 let mockHasCompletedOnboarding = true;
@@ -78,20 +78,41 @@ describe('V2FirstRunFlow returning-user sign in', () => {
     expect(mockNavigate).toHaveBeenCalledWith('V2Auth', { initialMode: 'signin' });
   });
 
-  it('explains personalization before asking a human question, without category choices', async () => {
+  it('explains what Anchor does on Screen 2 before personalization begins', async () => {
     const view = render(<V2FirstRunFlow />);
     fireEvent.press(screen.getByText('Get started'));
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 700));
+    });
     expect(mockSetStep).toHaveBeenCalledWith('bridge');
     view.rerender(<V2FirstRunFlow />);
-    expect(screen.getByText("Let's make Anchor yours.")).toBeTruthy();
-    expect(screen.getByText('Takes about a minute.')).toBeTruthy();
+
+    expect(screen.getByTestId('v2-onboarding-bridge')).toBeTruthy();
+    expect(screen.getByText('2 / 8')).toBeTruthy();
+    expect(screen.getByText(/Give what matters\s+a/)).toBeTruthy();
+    expect(screen.getByText('shape.')).toBeTruthy();
+    expect(
+      screen.getByText('Anchor turns an intention into a visual you can return to, reinforce, and act on.'),
+    ).toBeTruthy();
+    expect(screen.getByText('SEE · REINFORCE · MOVE')).toBeTruthy();
+    // A demonstration, not the user's Anchor.
+    expect(screen.queryByText(/your anchor/i)).toBeNull();
+
+    // The CTA only arms once the explanation has formed.
     fireEvent.press(screen.getByText('Continue'));
+    expect(mockSetStep).not.toHaveBeenCalledWith('motivation');
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+    });
+    fireEvent.press(screen.getByText('Continue'));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 700));
+    });
     expect(mockSetStep).toHaveBeenLastCalledWith('motivation');
     view.rerender(<V2FirstRunFlow />);
     expect(screen.getByText(/What are you hoping\s+will change/)).toBeTruthy();
     expect(screen.queryByText('Career')).toBeNull();
-  });
+  }, 15000);
 });
 
 describe('V2FirstRunFlow first Anchor', () => {
