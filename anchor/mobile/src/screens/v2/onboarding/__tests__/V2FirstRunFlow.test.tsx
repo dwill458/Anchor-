@@ -33,10 +33,11 @@ jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: mockNavigate, reset: jest.fn() }),
 }));
 
-const draft: { currentStep: string; focusCategory?: string } = { currentStep: 'welcome' };
+const draft: { currentStep: string; focusCategory?: string; desiredOutcome?: string } = { currentStep: 'welcome' };
 const mockResetFirstRun = jest.fn();
 const mockSetStep = jest.fn((step: string) => { draft.currentStep = step; });
 const mockSetFocusCategory = jest.fn((category: string) => { draft.focusCategory = category; });
+const mockSetDesiredOutcome = jest.fn((outcome: string) => { draft.desiredOutcome = outcome; });
 jest.mock('@/stores/v2/firstRunStore', () => ({
   useFirstRunStore: Object.assign(() => ({
     draft,
@@ -48,6 +49,10 @@ jest.mock('@/stores/v2/firstRunStore', () => ({
     setVisionChoice: jest.fn(),
     setStep: mockSetStep,
     setFocusCategory: mockSetFocusCategory,
+    setDesiredOutcome: mockSetDesiredOutcome,
+    toggleLifeChange: jest.fn(),
+    setPrimaryNeed: jest.fn(),
+    markAnswersComplete: jest.fn(),
     markFocusCompleted: jest.fn(),
     markFocusRecorded: jest.fn(),
     markAuthCompleted: jest.fn(),
@@ -166,8 +171,11 @@ describe('V2FirstRunFlow Screen 3 — what matters most', () => {
     expect(screen.getByTestId('focus-card-career').props.accessibilityState).toMatchObject({ selected: false });
 
     fireEvent.press(screen.getByTestId('focus-continue'));
+    // Continuous handoff: no navigation until every Screen 3 layer has faded and the
+    // selected artwork has finished travelling to Screen 4.
+    expect(mockSetStep).not.toHaveBeenCalledWith('outcome');
     await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 350));
+      await new Promise((resolve) => setTimeout(resolve, 800));
     });
     expect(mockSetStep).toHaveBeenLastCalledWith('outcome');
   });
@@ -193,6 +201,47 @@ describe('V2FirstRunFlow Screen 3 — what matters most', () => {
     expect(screen.getByTestId('focus-card-something_else').props.accessibilityLabel).toBe('Creativity');
     expect(screen.getByTestId('focus-continue').props.accessibilityState).toMatchObject({ disabled: false });
     expect(draft.currentStep).toBe('motivation');
+  });
+});
+
+describe('V2FirstRunFlow Screen 4 — what would changing this give you', () => {
+  beforeEach(() => {
+    draft.currentStep = 'outcome';
+    draft.focusCategory = 'career';
+    delete draft.desiredOutcome;
+    mockSetStep.mockClear();
+    mockSetDesiredOutcome.mockClear();
+  });
+
+  it('shows outcomes for the Screen 3 category chosen, none selected, with Continue disabled', () => {
+    render(<V2FirstRunFlow />);
+    expect(screen.getByTestId('v2-onboarding-outcome')).toBeTruthy();
+    expect(screen.getByText(/What would changing\s+this give you\?/)).toBeTruthy();
+    expect(screen.getByText('Choose what feels closest.')).toBeTruthy();
+    expect(screen.getByText('CAREER')).toBeTruthy();
+    for (const [index, label] of ['More freedom', 'More confidence', 'More stability', 'A bigger impact'].entries()) {
+      expect(screen.getByTestId(`outcome-row-${index}`).props.accessibilityState).toMatchObject({ selected: false });
+      expect(screen.getByText(label)).toBeTruthy();
+    }
+    // A different category's outcomes are not shown.
+    expect(screen.queryByText('A healthier life')).toBeNull();
+    expect(screen.getByTestId('outcome-continue').props.accessibilityState).toMatchObject({ disabled: true });
+  });
+
+  it('selects one outcome, enables Continue, and persists it as onboarding context', () => {
+    const view = render(<V2FirstRunFlow />);
+    fireEvent.press(screen.getByTestId('outcome-row-1'));
+    expect(mockSetDesiredOutcome).toHaveBeenLastCalledWith('More confidence');
+    expect(mockSetStep).not.toHaveBeenCalledWith('life');
+
+    draft.desiredOutcome = 'More confidence';
+    view.rerender(<V2FirstRunFlow />);
+    expect(screen.getByTestId('outcome-row-1').props.accessibilityState).toMatchObject({ selected: true });
+    expect(screen.getByTestId('outcome-continue').props.accessibilityState).toMatchObject({ disabled: false });
+
+    // Screen 4 → 5 is a minimum clean exit, not another choreographed handoff.
+    fireEvent.press(screen.getByTestId('outcome-continue'));
+    expect(mockSetStep).toHaveBeenLastCalledWith('life');
   });
 });
 

@@ -52,6 +52,7 @@ import {
   solveScreen3Layout,
 } from "./screen3Hero";
 import { easeInOutCubic, easeOutCubic, handoffTimeline, seg, type Window } from "./openingHandoff";
+import type { OutcomeHandoffTimeline, OutcomeOriginFrame } from "./outcomeHandoff";
 
 const CARD_ART: Record<FocusAreaId, ImageSourcePropType> = {
   health: require("@/assets/onboarding/screen3/category-health.png"),
@@ -64,7 +65,6 @@ const CREAM = colors.background;
 const INK = "#14162B";
 const NEUTRAL_ACCENT = "#3A3C4A";
 const CARD_BORDER = "rgba(20, 22, 43, 0.07)";
-const EXIT_MS = 280;
 const PRIMARY_IDS = new Set<string>(["health", "career", "relationships"]);
 
 type Props = {
@@ -76,15 +76,31 @@ type Props = {
   reduceMotion: boolean;
   selected?: AnchorCategory;
   onSelect: (category: AnchorCategory) => void;
-  onContinue: () => void;
+  /** Screen 3 → 4 handoff clock and timeline: drives this screen's own leaving animation. */
+  outcomeClock: SharedValue<number>;
+  outcomeTimeline: OutcomeHandoffTimeline;
+  /** Called once the selected card's frame has been measured (or measurement failed). */
+  onContinue: (originFrame: OutcomeOriginFrame | null) => void;
   onSheetChange?: (open: boolean) => void;
   onHeroReady?: () => void;
 };
 
-function reveal(t: number, window: Window, reduceMotion: boolean, rise = 12) {
+/** Fades a layer in over `inWindow`, then back out over `outWindow` as Screen 4 is entered. */
+function revealThenHide(
+  inT: number,
+  inWindow: Window,
+  outT: number,
+  outWindow: Window,
+  reduceMotion: boolean,
+  rise = 12,
+) {
   "worklet";
-  const p = easeOutCubic(seg(t, window));
-  return { opacity: p, transform: [{ translateY: (reduceMotion ? 6 : rise) * (1 - p) }] };
+  const inP = easeOutCubic(seg(inT, inWindow));
+  const outP = easeOutCubic(seg(outT, outWindow));
+  return {
+    opacity: inP * (1 - outP),
+    transform: [{ translateY: (reduceMotion ? 6 : rise) * (1 - inP) - (reduceMotion ? 4 : 10) * outP }],
+  };
 }
 
 function FocusCard({
@@ -99,6 +115,10 @@ function FocusCard({
   reduceMotion,
   onPress,
   accessibilityHint,
+  outcomeClock,
+  outWindow,
+  artHidden,
+  cardRef,
 }: {
   id: FocusAreaId;
   label: string;
@@ -111,6 +131,12 @@ function FocusCard({
   reduceMotion: boolean;
   onPress: () => void;
   accessibilityHint?: string;
+  /** Screen 3 → 4 handoff clock and this card's own leaving window. */
+  outcomeClock: SharedValue<number>;
+  outWindow: Window;
+  /** True the instant this card's artwork has handed off to the travelling clone. */
+  artHidden: boolean;
+  cardRef?: React.Ref<View>;
 }) {
   const timeline = handoffTimeline(reduceMotion);
   const start = timeline.cardsStart + index * timeline.cardStagger;
@@ -123,10 +149,11 @@ function FocusCard({
 
   const enterStyle = useAnimatedStyle(() => {
     const p = easeOutCubic(seg(clock.value, window));
+    const outP = easeOutCubic(seg(outcomeClock.value, outWindow));
     return {
-      opacity: p,
+      opacity: p * (1 - outP),
       transform: [
-        { translateY: (reduceMotion ? 6 : 12) * (1 - p) },
+        { translateY: (reduceMotion ? 6 : 12) * (1 - p) - (reduceMotion ? 4 : 10) * outP },
         { scale: (reduceMotion ? 1 : 0.985 + 0.015 * p) * press.value },
       ],
     };
@@ -152,7 +179,7 @@ function FocusCard({
   };
 
   return (
-    <Animated.View style={[{ width, height }, enterStyle]}>
+    <Animated.View ref={cardRef} style={[{ width, height }, enterStyle]}>
       <Pressable
         testID={`focus-card-${id}`}
         accessibilityRole="radio"
@@ -165,7 +192,14 @@ function FocusCard({
         <Animated.View style={[styles.card, frameStyle]}>
           <Animated.View pointerEvents="none" style={[styles.cardTint, { backgroundColor: `${accent}0D` }, tintStyle]} />
           <View style={styles.artBox} pointerEvents="none">
-            <Image source={CARD_ART[id]} resizeMode="contain" style={styles.art} accessibilityIgnoresInvertColors />
+            {/* Hidden the instant the handoff starts: the artwork survives as the travelling
+             * clone on Screen 4, never doubled here. */}
+            <Image
+              source={CARD_ART[id]}
+              resizeMode="contain"
+              style={[styles.art, artHidden && styles.artHidden]}
+              accessibilityIgnoresInvertColors
+            />
           </View>
           <View style={styles.cardFooter}>
             <Text style={styles.cardLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} maxFontSizeMultiplier={1.3}>
@@ -284,6 +318,8 @@ export function V2OnboardingFocusArea({
   reduceMotion,
   selected,
   onSelect,
+  outcomeClock,
+  outcomeTimeline,
   onContinue,
   onSheetChange,
   onHeroReady,
@@ -293,13 +329,15 @@ export function V2OnboardingFocusArea({
   const layout = React.useMemo(() => solveScreen3Layout(W, H, insets), [H, W, insets]);
   const timeline = handoffTimeline(reduceMotion);
   const [sheetOpen, setSheetOpen] = useState(false);
+  /** Set the instant Continue is pressed: hides that card's art, in favour of the clone that
+   * is now travelling to Screen 4. */
+  const [departingId, setDepartingId] = useState<FocusAreaId | null>(null);
   const leaving = useRef(false);
-  const exitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cardRefs = useRef<Partial<Record<FocusAreaId, View | null>>>({});
   const sheetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const drift = useSharedValue(0);
   const ctaOn = useSharedValue(selected ? 1 : 0);
-  const exit = useSharedValue(0);
 
   // Idle camera: a slow drift once the entrance camera has settled. Never under Reduce Motion.
   useEffect(() => {
@@ -324,13 +362,12 @@ export function V2OnboardingFocusArea({
     if (!active) {
       // Back on Screen 2: reset so a later Continue plays the entrance again.
       leaving.current = false;
-      exit.value = 0;
+      setDepartingId(null);
       setSheetOpen(false);
     }
-  }, [active, exit]);
+  }, [active]);
 
   useEffect(() => () => {
-    if (exitTimer.current) clearTimeout(exitTimer.current);
     if (sheetTimer.current) clearTimeout(sheetTimer.current);
   }, []);
 
@@ -346,26 +383,42 @@ export function V2OnboardingFocusArea({
 
   const cameraStyle = useAnimatedStyle(() => {
     const direct = entry === "direct" ? seg(clock.value, [0, 320]) : 1;
-    if (reduceMotion) return { opacity: direct, transform: [{ translateX: 0 }, { scale: 1 }] };
+    // Phase B of the 3 → 4 handoff: the runner recedes underneath the departing card.
+    const recede = easeInOutCubic(seg(outcomeClock.value, outcomeTimeline.s3EnvOut));
+    if (reduceMotion) {
+      return { opacity: direct * (1 - recede), transform: [{ translateX: 0 }, { scale: 1 }] };
+    }
     const p = easeOutCubic(seg(clock.value, timeline.s3Camera));
     return {
-      opacity: direct,
+      opacity: direct * (1 - recede),
       transform: [
         { translateX: CAMERA.enterX * (1 - p) + CAMERA.driftX * drift.value },
-        { scale: CAMERA.enterScale - (CAMERA.enterScale - CAMERA.settledScale) * p + CAMERA.driftScale * drift.value },
+        { translateY: -16 * recede },
+        {
+          scale:
+            CAMERA.enterScale -
+            (CAMERA.enterScale - CAMERA.settledScale) * p +
+            CAMERA.driftScale * drift.value +
+            0.025 * recede,
+        },
       ],
     };
   });
 
-  const questionStyle = useAnimatedStyle(() => reveal(clock.value, timeline.question, reduceMotion));
-  const supportStyle = useAnimatedStyle(() => reveal(clock.value, timeline.support, reduceMotion));
-  const ctaEnterStyle = useAnimatedStyle(() => reveal(clock.value, timeline.cta, reduceMotion, 10));
+  const questionStyle = useAnimatedStyle(() =>
+    revealThenHide(clock.value, timeline.question, outcomeClock.value, outcomeTimeline.s3UiOut, reduceMotion),
+  );
+  const supportStyle = useAnimatedStyle(() =>
+    revealThenHide(clock.value, timeline.support, outcomeClock.value, outcomeTimeline.s3UiOut, reduceMotion),
+  );
+  const ctaEnterStyle = useAnimatedStyle(() =>
+    revealThenHide(clock.value, timeline.cta, outcomeClock.value, outcomeTimeline.s3UiOut, reduceMotion, 10),
+  );
   const ctaStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(ctaOn.value, [0, 1], ["#E9E1D3", "#F4DDB8"]),
     shadowOpacity: 0.16 * ctaOn.value,
   }));
   const ctaContentStyle = useAnimatedStyle(() => ({ opacity: 0.42 + 0.58 * ctaOn.value }));
-  const exitStyle = useAnimatedStyle(() => ({ opacity: easeInOutCubic(exit.value) }));
 
   const select = (category: AnchorCategory) => {
     if (leaving.current) return;
@@ -384,9 +437,25 @@ export function V2OnboardingFocusArea({
     if (!selected || leaving.current) return;
     leaving.current = true;
     v2Haptics.selection();
-    // Minimum clean exit: settle onto Screen 4's ink surface, then hand over.
-    exit.value = withTiming(1, { duration: EXIT_MS, easing: Easing.inOut(Easing.quad), reduceMotion: ReduceMotion.Never });
-    exitTimer.current = setTimeout(onContinue, EXIT_MS);
+    const cardId: FocusAreaId = PRIMARY_IDS.has(selected) ? (selected as FocusAreaId) : "something_else";
+    // Hide this card's artwork in the same tick Screen 4's clone starts, so there is never a
+    // frame with both visible.
+    setDepartingId(cardId);
+    let settled = false;
+    const proceed = (frame: OutcomeOriginFrame | null) => {
+      if (settled) return;
+      settled = true;
+      onContinue(frame);
+    };
+    const node = cardRefs.current[cardId];
+    if (node?.measureInWindow) {
+      node.measureInWindow((x, y, width, height) => proceed({ x, y, width, height }));
+      // A real device resolves this within a frame; this guards the rare host environment
+      // where the callback never fires, so the handoff can never stall waiting on it.
+      setTimeout(() => proceed(null), 80);
+    } else {
+      proceed(null);
+    }
   };
 
   const onHeroReadyStable = useCallback(() => onHeroReady?.(), [onHeroReady]);
@@ -453,6 +522,12 @@ export function V2OnboardingFocusArea({
                 clock={clock}
                 reduceMotion={reduceMotion}
                 accessibilityHint={isMore ? "Shows more areas to choose from" : undefined}
+                outcomeClock={outcomeClock}
+                outWindow={area.id === departingId ? outcomeTimeline.s3CardShell : outcomeTimeline.s3UiOut}
+                artHidden={area.id === departingId}
+                cardRef={(node) => {
+                  cardRefs.current[area.id] = node;
+                }}
                 onPress={() => {
                   if (isMore) {
                     if (!leaving.current) setSheetOpen(true);
@@ -492,9 +567,6 @@ export function V2OnboardingFocusArea({
         onChoose={chooseMore}
         onClose={() => setSheetOpen(false)}
       />
-
-      {/* Leaving: settle onto Screen 4's ink surface so the step change lands on a matching frame. */}
-      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.exitWash, exitStyle]} />
     </View>
   );
 }
@@ -538,6 +610,7 @@ const styles = StyleSheet.create({
   cardTint: { ...StyleSheet.absoluteFillObject },
   artBox: { position: "absolute", left: 8, right: 8, top: 3, bottom: 25, alignItems: "center", justifyContent: "center" },
   art: { width: "100%", height: "100%" },
+  artHidden: { opacity: 0 },
   cardFooter: {
     position: "absolute",
     left: 12,
@@ -639,5 +712,4 @@ const styles = StyleSheet.create({
   optionPressed: { opacity: 0.7 },
   optionDot: { width: 8, height: 8, borderRadius: 4 },
   optionLabel: { flex: 1, color: INK, fontFamily: "Inter-Regular", fontSize: 15 },
-  exitWash: { backgroundColor: colors.ink.base },
 });
