@@ -295,6 +295,17 @@ export function V2HomeScreen() {
         onCreateAnchor={handleCreateAnchor}
         onOpenProfile={intents.onOpenProfile}
       />
+      {__DEV__ ? <View style={styles.materialLabRow}>
+        <Pressable
+          testID="v2-home-material-lab"
+          accessibilityRole="button"
+          accessibilityLabel="Open Evolving Anchors material lab"
+          onPress={intents.onOpenMaterialLab}
+          hitSlop={8}
+        >
+          <Text style={styles.materialLabLink}>Material lab  →</Text>
+        </Pressable>
+      </View> : null}
     </View>
   );
 
@@ -416,6 +427,7 @@ export function V2HomeScreen() {
           <V2HomeChartSection
             chart={model.chart}
             categoryColor={categoryColor}
+            category={model.selectedAnchor.category}
             expanded={model.chart.state === 'ready' && model.vision.state !== 'ready'}
             onOpenChart={handleOpenChart}
             onRetry={refreshChartModel}
@@ -492,6 +504,15 @@ const styles = StyleSheet.create({
   },
   headerInset: {
     paddingTop: 6,
+  },
+  materialLabRow: {
+    alignItems: 'flex-end',
+    paddingBottom: 4,
+  },
+  materialLabLink: {
+    ...typography.labelSM,
+    color: colors.text.secondary,
+    letterSpacing: 0.2,
   },
   heroEnvironment: {
     position: 'relative',

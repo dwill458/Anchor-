@@ -189,7 +189,7 @@ beforeEach(async () => {
 });
 
 describe('V2ChartScreen — no Chart', () => {
-  it('without Vision: shows the empty state, asks where they are starting from, no fake imagery', async () => {
+  it('without Vision: shows the empty state, asks what would make it real, no fake imagery', async () => {
     serve({ chart: readModel(null), vision: null });
     const screen = render(<V2ChartScreen />);
     expect(await screen.findByText('Give this Anchor somewhere to go.')).toBeTruthy();
@@ -199,7 +199,19 @@ describe('V2ChartScreen — no Chart', () => {
     fireEvent.press(screen.getByTestId('chart-create-cta'));
     expect(await screen.findByTestId('chart-starting-context')).toBeTruthy();
     expect(screen.queryByTestId('chart-vision-context')).toBeNull();
-    expect(screen.getByText('What would make this recognizably real?')).toBeTruthy();
+    expect(screen.getByText('What would make this real?')).toBeTruthy();
+    expect(screen.getByText('Describe what ‘real’ looks like')).toBeTruthy();
+    // Continue waits for something concrete.
+    expect(screen.getByTestId('chart-context-continue').props.accessibilityState).toMatchObject({ disabled: true });
+    fireEvent.changeText(screen.getByTestId('chart-starting-input'), 'ok');
+    expect(screen.getByTestId('chart-context-continue').props.accessibilityState).toMatchObject({ disabled: true });
+
+    // Thought starters teach without writing into the field.
+    fireEvent.press(screen.getByTestId('chart-starter-measure'));
+    expect(screen.getByTestId('chart-starter-hint')).toBeTruthy();
+    expect(screen.getByTestId('chart-starting-input').props.value).toBe('ok');
+    fireEvent.press(screen.getByTestId('chart-starter-measure'));
+    expect(screen.queryByTestId('chart-starter-hint')).toBeNull();
   });
 
   it('with Vision: acknowledges the real Vision instead of asking for the destination again', async () => {
@@ -229,6 +241,13 @@ describe('V2ChartScreen — no Chart', () => {
     expect(await screen.findByText('Here’s a route to start with.', {}, { timeout: 3000 })).toBeTruthy();
     expect(screen.getByText('We found 4 meaningful waypoints for this destination. Keep what fits. Change what doesn’t.')).toBeTruthy();
 
+    // The route and the One Move are different things: four numbered waypoints, then a separate move for waypoint 1.
+    expect(screen.getByText('YOUR ROUTE')).toBeTruthy();
+    expect(screen.getByText('4 waypoints')).toBeTruthy();
+    expect(screen.getByText('ONE MOVE')).toBeTruthy();
+    expect(screen.getByText('For waypoint 1')).toBeTruthy();
+    expect(screen.getByTestId('chart-review-one-move-card')).toBeTruthy();
+
     const planBody = post.mock.calls.find(([url]) => url.endsWith('/chart/plan'))![1];
     expect(planBody).toMatchObject({ startingContext: 'App is launched but only has 100 users.', followUp: null });
 
@@ -239,6 +258,8 @@ describe('V2ChartScreen — no Chart', () => {
 
     fireEvent.press(screen.getByTestId('chart-review-confirm'));
     expect(await screen.findByText('Your route is ready.')).toBeTruthy();
+    // The saved Chart now exists on the server, as it would after the create call.
+    serve({ chart: readModel(activeChart({ id: 'course-new' })), vision: null });
     fireEvent.press(screen.getByTestId('chart-explore'));
     expect(await screen.findByTestId('chart-current-waypoint')).toBeTruthy();
     const createCall = post.mock.calls.find(([url]) => url === '/api/v2/anchors/anchor-1/chart')!;

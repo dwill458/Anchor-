@@ -52,7 +52,7 @@ export const DISTILL_TIMING = {
   /** Entrance for the settled caption, label and secondary action. */
   caption: 320,
   /** Reduced motion: show the phrase, then present the settled sequence outright. */
-  reducedHold: 260,
+  reducedHold: 500,
 } as const;
 
 /** The reduction passes, in the order the user watches them. */
@@ -221,3 +221,23 @@ export function computeCompactionTargets(
 
   return targets;
 }
+
+/**
+ * Deterministic mathematical estimation of compaction targets before native onLayout
+ * measurements resolve. Ensures formation slots are immediately available and never null.
+ */
+export function estimateCompactionTargets(
+  keptLetters: string[],
+  stage: { width: number; height: number },
+  options: CompactionOptions = {},
+): Map<number, CompactionTarget> {
+  const estimated: MeasuredLetter[] = keptLetters.map((_, index) => ({
+    keptIndex: index,
+    x: index * 26,
+    y: 0,
+    width: 22,
+    height: 32,
+  }));
+  return computeCompactionTargets(estimated, stage, options);
+}
+

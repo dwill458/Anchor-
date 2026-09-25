@@ -23,6 +23,9 @@ import { colors, getCategoryColor, getCategoryTextColor, getPracticeColor, typog
 import { useV2DailyShellIntents, type V2DailyShellParamList } from '@/screens/v2/home/dailyShell';
 import { ANCHOR_DETAIL_EMPTY_ART, ANCHOR_DETAIL_HERO_ART, ANCHOR_DETAIL_PRACTICE_ART } from '@/components/v2/anchors/anchorDetailArt';
 import { ProgressiveFocusTransition, useProgressiveFocusTransition } from '@/navigation/v2/ProgressiveFocusTransition';
+import { ChartPreview } from '@/components/v2/chart/ChartPreview';
+import type { ChartMarker } from '@/components/v2/chart/ChartLandscape';
+import { chartWindowAroundRoutePoint } from '@/components/v2/chart/chartRouteGeometry';
 
 type Nav = NativeStackNavigationProp<V2DailyShellParamList, 'V2AnchorDetails'>;
 type Route = RouteProp<V2DailyShellParamList, 'V2AnchorDetails'>;
@@ -378,52 +381,112 @@ function RecentPractice({
 function ChartSection({
   chart,
   chartCourseId,
+  category,
+  width,
   onOpenChart,
+  onRetry,
 }: {
   chart: HomeChartState;
   chartCourseId?: string;
+  category?: string | null;
+  width: number;
   onOpenChart: (courseId?: string) => void;
+  onRetry: () => void | Promise<void>;
 }) {
   const isReady = chart.state === 'ready';
+  const mapWidth = Math.max(1, width - (width < 370 ? 40 : 48));
+  const current = isReady ? chart.waypoints.find((waypoint) => waypoint.isCurrent) ?? null : null;
+  const markers: ChartMarker[] = isReady
+    ? chart.waypoints.map((waypoint, index) => ({
+        id: waypoint.id,
+        number: index + 1,
+        state: waypoint.reached ? 'completed' : waypoint.isCurrent ? 'current' : 'upcoming',
+        accessibilityLabel: waypoint.title,
+      }))
+    : [];
+  const currentFraction = isReady && chart.waypointCount > 0
+    ? Math.min(1, chart.reachedCount / chart.waypointCount)
+    : 0.7;
+  const chartWindow = chartWindowAroundRoutePoint(currentFraction, mapWidth, 108);
   return (
     <View style={styles.sectionBlock}>
       <Text style={styles.sectionHeaderTitle}>Chart</Text>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Chart"
+        accessibilityLabel={current && isReady
+          ? `Open Chart. Waypoint ${(chart.currentWaypointIndex ?? 0) + 1} of ${chart.waypointCount}: ${current.title}. Toward: ${chart.destinationText}.${chart.nextMove ? ` Next move: ${chart.nextMove}` : ''}`
+          : isReady && chart.isFinished
+            ? `Chart complete. Destination: ${chart.destinationText}. Open Chart.`
+            : isReady
+              ? `Open Chart. Destination: ${chart.destinationText}.`
+              : chart.state === 'none'
+                ? 'Create Chart. Map the path from here.'
+                : chart.state === 'error' ? `Chart unavailable. ${chart.message}` : 'Your Chart is loading.'}
         onPress={() => onOpenChart(chartCourseId)}
-        style={({ pressed }) => [styles.chartPhotoCard, !isReady && styles.emptyArtCard, pressed && styles.pressed]}
+        style={({ pressed }) => [styles.chartPortal, pressed && styles.pressed]}
       >
-        {chart.state === 'ready' ? (
-          <>
-            <View style={styles.chartReadyFrame}>
-              <Image source={EMPTY_ART.chart} style={styles.emptyCardImage} resizeMode="cover" accessibilityIgnoresInvertColors />
-              <LinearGradient
-                pointerEvents="none"
-                colors={['transparent', 'rgba(14,21,28,0.75)', 'rgba(14,21,28,0.92)']}
-                locations={[0, 0.45, 1]}
-                style={styles.emptyArtScrim}
-              />
-            </View>
-            <View style={styles.chartReadyContent}>
-              <Text style={styles.chartReadyTitle}>Your Path</Text>
-              <Text style={styles.chartReadySubtitle}>{`${chart.reachedCount} of ${chart.waypointCount} waypoints`}</Text>
-            </View>
-            <View style={styles.chartChevronCircle}>
-              <ChevronRight size={20} color="#FFFFFF" />
-            </View>
-          </>
-        ) : (
-          <>
-            <EmptyCardArtwork source={EMPTY_ART.chart} testID="v2-chart-empty-art" />
-            <View style={styles.emptyCardContent}>
-              <Text style={styles.emptyCardTitle}>{DETAIL_ACTION_COPY.chartTitle}</Text>
-              <Text style={styles.emptyCardPayoff}>{DETAIL_ACTION_COPY.chartPayoff}</Text>
-            </View>
-            <EmptyCardChevron />
-          </>
-        )}
+        <View style={styles.chartMapFrame}>
+          <ChartPreview
+            width={mapWidth}
+            category={category}
+            window={chartWindow}
+            showRoute={isReady && chart.waypointCount > 0}
+            markers={markers}
+            travelledFraction={isReady && chart.waypointCount > 0 ? chart.reachedCount / chart.waypointCount : 0}
+            testID="v2-details-chart-map"
+            style={{ alignSelf: 'center' }}
+          />
+          <LinearGradient
+            pointerEvents="none"
+            colors={['rgba(14,21,28,0.16)', 'rgba(14,21,28,0.76)']}
+            locations={[0.15, 1]}
+            style={styles.chartMapScrim}
+          />
+          <View pointerEvents="none" style={styles.chartMapCopy}>
+            {isReady && current ? (
+              <Text style={styles.chartMapEyebrow}>CHART · {`${(chart.currentWaypointIndex ?? 0) + 1} OF ${chart.waypointCount}`}</Text>
+            ) : isReady && chart.isFinished ? (
+              <Text style={styles.chartMapEyebrow}>CHART · COMPLETE</Text>
+            ) : isReady ? (
+              <Text style={styles.chartMapEyebrow}>CHART</Text>
+            ) : chart.state === 'none' ? (
+              <Text style={styles.chartMapEyebrow}>CREATE CHART</Text>
+            ) : chart.state === 'error' ? (
+              <Text style={styles.chartMapEyebrow}>CHART UNAVAILABLE</Text>
+            ) : (
+              <Text style={styles.chartMapEyebrow}>FINDING YOUR CHART</Text>
+            )}
+          </View>
+          <ChevronRight size={19} color="#FFFFFF" style={styles.chartPortalChevron} />
+        </View>
+        <Text style={styles.chartPortalTitle}>
+          {isReady && current
+            ? current.title
+            : isReady
+              ? chart.destinationText
+              : chart.state === 'none'
+                ? DETAIL_ACTION_COPY.chartPayoff
+                : chart.state === 'error'
+                  ? chart.message
+                  : 'Your Chart is loading.'}
+        </Text>
+        {isReady && chart.nextMove ? (
+          <View style={styles.chartNextMove}>
+            <Text style={styles.chartNextMoveLabel}>Next move:</Text>
+            <Text style={styles.chartNextMoveTitle}>{chart.nextMove}</Text>
+          </View>
+        ) : null}
       </Pressable>
+      {chart.state === 'error' ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Retry Chart"
+          onPress={onRetry}
+          style={({ pressed }) => [styles.chartRetry, pressed && styles.pressed]}
+        >
+          <Text style={styles.chartRetryText}>Try again</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -575,6 +638,9 @@ export function V2AnchorDetailsScreen() {
           <ChartSection
             chart={chart}
             chartCourseId={chartCourseId}
+            category={detail.anchor.category}
+            width={width}
+            onRetry={anchorChart.refresh}
             onOpenChart={(courseId) => intents.onOpenChart(serverId, courseId)}
           />
 
@@ -896,46 +962,77 @@ const styles = StyleSheet.create({
   },
 
   /* Chart */
-  chartPhotoCard: {
+  chartPortal: {
     width: '100%',
+    marginTop: 10,
+  },
+  chartMapFrame: {
     height: 108,
-    borderRadius: 14,
+    width: '100%',
     overflow: 'hidden',
     position: 'relative',
     backgroundColor: '#18212A',
-    marginTop: 10,
   },
-  chartReadyFrame: {
+  chartMapScrim: {
     ...StyleSheet.absoluteFillObject,
   },
-  chartReadyContent: {
+  chartMapCopy: {
     position: 'absolute',
     left: 16,
-    bottom: 14,
+    right: 44,
+    top: 12,
     zIndex: 1,
   },
-  chartReadyTitle: {
-    fontFamily: typography.displaySemiBold,
-    fontSize: 18,
-    lineHeight: 22,
-    color: '#FFFFFF',
+  chartMapEyebrow: {
+    fontFamily: typography.bodyBold,
+    fontSize: 9,
+    lineHeight: 13,
+    letterSpacing: 1.6,
+    color: 'rgba(255,255,255,0.78)',
+    marginBottom: 3,
   },
-  chartReadySubtitle: {
+  chartPortalTitle: {
+    fontFamily: typography.displaySemiBold,
+    fontSize: 17,
+    lineHeight: 22,
+    color: colors.text.primary,
+    marginTop: 8,
+  },
+  chartPortalChevron: {
+    position: 'absolute',
+    right: 13,
+    top: '50%',
+    marginTop: -9,
+  },
+  chartNextMove: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    flexWrap: 'wrap',
+    columnGap: 5,
+    rowGap: 2,
+    paddingTop: 8,
+  },
+  chartNextMoveLabel: {
     fontFamily: typography.body,
     fontSize: 12.5,
-    color: 'rgba(255,255,255,0.75)',
-    marginTop: 2,
+    color: colors.text.secondary,
   },
-  chartChevronCircle: {
-    position: 'absolute',
-    right: 14,
-    top: '50%',
-    marginTop: -16,
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1,
+  chartNextMoveTitle: {
+    flexShrink: 1,
+    fontFamily: typography.bodySemiBold,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: colors.text.primary,
+  },
+  chartRetry: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+  },
+  chartRetryText: {
+    fontFamily: typography.bodySemiBold,
+    fontSize: 13,
+    color: colors.text.secondary,
+    textDecorationLine: 'underline',
   },
 
   /* Empty Cards */

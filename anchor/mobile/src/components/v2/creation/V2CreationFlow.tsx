@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { BackHandler, Image, StyleSheet, View } from 'react-native';
 
 import { AnalyticsService } from '@/services/AnalyticsService';
-import { useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
+import { useCreationReduceMotion, useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
 import { colors } from '@/theme/v2';
 import type { AnchorExpression, CreationStep, GeneratedAnchorCandidate } from '@/constants/v2/creation';
 import { useAnchorStore } from '@/stores/anchorStore';
@@ -102,7 +102,7 @@ async function imagesReady(urls: string[], timeoutMs: number): Promise<void> {
 export function V2CreationFlow({ saveAnchor, generateExpression, onComplete, onPrepareHandoff, onExit, onPaywall, onSignIn }: V2CreationFlowProps) {
   const draft = useCreationStore((state) => state.draft);
   const store = useCreationStore;
-  const reduceMotion = useV2ReduceMotion();
+  const reduceMotion = useCreationReduceMotion();
   // The first Anchor is watched at full length; the pace for later ones is tuned in one place.
   const isFirstAnchor = useAnchorStore((state) => (state.anchors?.length ?? 0) === 0);
   const pace = isFirstAnchor ? CREATION_PACE.first : CREATION_PACE.repeat;

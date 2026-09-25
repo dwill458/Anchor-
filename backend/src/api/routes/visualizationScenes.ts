@@ -1,6 +1,4 @@
 import { NextFunction, Response, Router } from 'express';
-import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
-import { RedisStore } from 'rate-limit-redis';
 import { z } from 'zod';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
@@ -12,29 +10,12 @@ import {
   validateVisualizationScene,
   VISUALIZATION_SCENE_MAX_LENGTH,
 } from '../../services/VisualizationSceneService';
+import {
+  globalAiCeilingLimiter,
+  aiPlanningLimiter,
+} from '../middleware/aiRateLimit';
 
 const router = Router();
-
-const generationLimiterStore =
-  process.env.NODE_ENV === 'test' || !process.env.REDIS_URL
-    ? undefined
-    : new RedisStore({
-        prefix: 'rl:visualize-scenes:',
-        sendCommand: (...args: string[]) => redisClient.sendCommand(args),
-      });
-
-const generationLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 12,
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: req => (req as AuthRequest).user?.uid || ipKeyGenerator(req.ip ?? ''),
-  store: generationLimiterStore,
-  message: {
-    success: false,
-    error: { code: 'SCENE_GENERATION_LIMIT', message: 'Try another suggestion later.' },
-  },
-});
 
 const PutSceneSchema = z
   .object({
@@ -192,7 +173,8 @@ router.put(
 
 router.post(
   '/:id/visualization-scene/suggestions',
-  generationLimiter,
+  globalAiCeilingLimiter,
+  aiPlanningLimiter,
   async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const { anchor } = await resolveOwnedAnchor(req);

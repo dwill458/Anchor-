@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import sharp from 'sharp';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
+import { getOnboardingContext } from './OnboardingContextService';
 import { AppError } from '../../api/middleware/errorHandler';
 import { GeminiError, GeminiErrorType, GeminiImageService } from '../GeminiImageService';
 import { imageGenerationService, ImageProviderError, ImageProviderErrorType } from '../image';
@@ -311,6 +312,7 @@ export class VisionGenerationService {
       }
       const attempt = job.retryCount;
       const savedPlan = job.plan;
+      const onboarding = await getOnboardingContext(job.userId).catch(() => null);
       const plan: VisionScenePlanItem[] = isStoredVisionScenePlan(savedPlan)
         ? savedPlan
         : await provider.planVisionScenes(
@@ -318,8 +320,29 @@ export class VisionGenerationService {
             category,
             job.description,
             await this.previousScenes(job),
-            Boolean(reference)
+            Boolean(reference),
+            onboarding
           );
+      if (process.env.NODE_ENV !== 'production') {
+        const manifest = plan[0]?.identifiedConcepts ?? [];
+        const coveredConcepts = [...new Set(plan.flatMap(scene => scene.covers ?? []))];
+        logger.info('[VisionGeneration] Scene plan semantic coverage and diversity', {
+          jobId,
+          userDescription: job.description,
+          identifiedConceptsCount: manifest.length,
+          identifiedConcepts: manifest,
+          coveredConceptsCount: coveredConcepts.length,
+          coveredConcepts,
+          scenes: plan.map((scene, index) => ({
+            index: index + 1,
+            role: scene.role,
+            purpose: scene.purpose ?? scene.role,
+            covers: scene.covers ?? [],
+            setting: scene.setting,
+            framing: scene.framing,
+          })),
+        });
+      }
       const afterPlanning = await prisma.visionGeneration.findUnique({
         where: { id: jobId },
         select: { status: true, retryCount: true },
@@ -364,6 +387,7 @@ export class VisionGenerationService {
           category,
           description: job.description,
           scene,
+          plannedScenes: plan,
           hasAppearanceReference: Boolean(reference),
         });
         try {

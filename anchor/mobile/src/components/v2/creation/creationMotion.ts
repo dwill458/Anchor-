@@ -83,14 +83,17 @@ export const CREATION_PACE = { first: 1, repeat: 1 } as const;
 
 export const FORMATION_TIMING = {
   /** The square emerges behind the letters while they lift to make room. */
-  gridIn: 1000,
-  /** Letters leave the row for their cells one after another. */
-  mapStagger: 320,
-  mapTravel: 680,
+  gridIn: 900,
+  /** A letter travels from the lifted row to its Kamea cell. */
+  mapTravel: 540,
+  /** Pause on the highlighted cell before the next letter begins moving. */
+  mapLetterPause: 200,
+  /** Letters leave the row one after another, strictly sequential. */
+  mapStagger: 740,
   /** Longest the whole mapping may take, however many letters there are. */
-  mapMax: 3000,
+  mapMax: 6000,
   /** Every point placed, before the line begins. */
-  mapHold: 420,
+  mapHold: 450,
   /** The construction: the line joining the points, in order. */
   constructMin: 2800,
   constructMax: 4200,
@@ -102,9 +105,9 @@ export const FORMATION_TIMING = {
   /** Grid recedes, colour arrives, the mark settles. */
   recede: 1000,
   /** Reduced motion: staged opacity, no travel, no tracing. */
-  reducedTotal: 1000,
-  /** A tap during formation finishes it this quickly rather than skipping it. */
-  hurry: 520,
+  reducedTotal: 1200,
+  /** A tap during formation finishes it briskly rather than skipping it. */
+  hurry: 900,
 } as const;
 
 /**
@@ -150,16 +153,21 @@ export function vertexArrivalFractions(vertices: AnchorPoint[]): number[] {
  * Construction time is shared between segments by length, with a floor so a short segment is
  * still seen being drawn rather than blinking into place; the line then waits briefly at each
  * point it reaches, which is what lets the eye follow it from point to point in order.
+ *
+ * The letter mapping is strictly sequential (the Causal Chain): each letter completes its
+ * travel and lands on its Kamea cell with a highlight before the next letter begins its journey
+ * (stagger >= travel + pause).
  */
 export function formationTimeline(vertices: AnchorPoint[], pace = 1): FormationTimeline {
   const count = vertices.length;
   const t = (ms: number) => ms * pace;
   const gridIn = t(FORMATION_TIMING.gridIn);
 
-  const stagger = count > 1
-    ? Math.min(t(FORMATION_TIMING.mapStagger), (t(FORMATION_TIMING.mapMax) - t(FORMATION_TIMING.mapTravel)) / (count - 1))
-    : 0;
-  const mapping = count > 0 ? stagger * (count - 1) + t(FORMATION_TIMING.mapTravel) : 0;
+  const travel = t(FORMATION_TIMING.mapTravel);
+  const letterPause = t(FORMATION_TIMING.mapLetterPause);
+  // Ensure each letter completes its travel and lands before the next letter departs
+  const stagger = count > 1 ? Math.max(travel + letterPause, t(FORMATION_TIMING.mapStagger)) : 0;
+  const mapping = count > 0 ? stagger * (count - 1) + travel + letterPause : 0;
   const mapHold = t(FORMATION_TIMING.mapHold);
 
   const segments = Math.max(0, count - 1);
@@ -177,7 +185,7 @@ export function formationTimeline(vertices: AnchorPoint[], pace = 1): FormationT
   for (let i = 0; i < count; i += 1) {
     const leave = gridIn + stagger * i;
     departures.push(at(leave));
-    landings.push(at(leave + t(FORMATION_TIMING.mapTravel)));
+    landings.push(at(leave + travel));
   }
 
   const constructStartMs = gridIn + mapping + mapHold;

@@ -71,6 +71,8 @@ class PostAuthFlowService {
 
       if (didFinalizePendingFirstAnchor) {
         await hydrateAuthenticatedData(false);
+      } else {
+        throw new Error(useAuthStore.getState().pendingFirstAnchorError ?? 'Your first Anchor could not be saved yet. Try again.');
       }
     }
 

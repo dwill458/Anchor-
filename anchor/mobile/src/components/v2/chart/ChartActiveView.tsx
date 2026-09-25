@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
+import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
 import { ArrowRight, Check, ChevronRight, Flag, MoreHorizontal, WifiOff } from 'lucide-react-native';
 import { V2SheetModal } from '@/components/v2/primitives/V2SheetModal';
 import { VisionHeaderRow, VisionIdentity } from '@/components/v2/vision/VisionChrome';
@@ -11,6 +11,7 @@ import { colors, getCategoryColor, radii, spacing, typography } from '@/theme/v2
 import { ChartEyebrow, ChartInkButton, ChartInkCard, ChartInkScreen, type ChartIdentity } from './ChartChrome';
 import { ChartLandscape, type ChartAnchorArt, type ChartMarker } from './ChartLandscape';
 import { CHART_WINDOWS } from './chartRouteGeometry';
+import { CHART_EASING, CHART_PROGRESS_TIMING as PT, CHART_TRANSITION_TIMING as TT, chartDelay, chartTiming } from './chartMotion';
 
 export type ChartVisionPreview = { imageUrl: string | null; description: string | null; title: string | null };
 
@@ -38,8 +39,26 @@ type Props = {
   onOpenLog: () => void;
   onAdjust: () => void;
   actionError: string | null;
+  /**
+   * How the screen was reached. 'reveal' continues straight from the creation
+   * reveal (the map is already in place, so only the content arrives); 'open'
+   * is an ordinary visit (the route settles once, then everything is still).
+   */
+  entrance?: 'reveal' | 'open';
   testID?: string;
 };
+
+/** Content cards arrive in order with a restrained stagger. */
+const ENTRY_CARDS = 4;
+const ENTRY_TOTAL = TT.cardIn + TT.cardStagger * (ENTRY_CARDS - 1);
+
+function EntryCard({ index, entry, children }: { index: number; entry: SharedValue<number>; children: React.ReactNode }) {
+  const style = useAnimatedStyle(() => {
+    const local = Math.max(0, Math.min(1, (entry.value * ENTRY_TOTAL - index * TT.cardStagger) / TT.cardIn));
+    return { opacity: local, transform: [{ translateY: (1 - local) * 10 }] };
+  });
+  return <Animated.View style={style}>{children}</Animated.View>;
+}
 
 /** Travelled fraction: the Anchor sits at the last reached waypoint (0 = START). */
 export function travelledFraction(view: Pick<ChartViewModel, 'reachedCount' | 'total' | 'isFinished'>): number {
@@ -65,13 +84,21 @@ export function ChartActiveView({
   onOpenLog,
   onAdjust,
   actionError,
+  entrance = 'open',
   testID,
 }: Props) {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const categoryColor = getCategoryColor(identity.category);
   const target = travelledFraction(view);
-  const travelled = useSharedValue(celebration ? celebration.fromFraction : target);
+  // An ordinary visit settles the lit route from START; everything else starts where it is.
+  const settleRoute = entrance === 'open' && !celebration && !reducedMotion && target > 0;
+  const travelled = useSharedValue(celebration ? celebration.fromFraction : settleRoute ? 0 : target);
+  const entry = useSharedValue(reducedMotion ? 1 : 0);
+  const currentPulse = useSharedValue(0);
+  const stretchReveal = useSharedValue(reducedMotion || !celebration ? 1 : 0);
+  const engrave = useSharedValue(reducedMotion ? 1 : 0);
+  const [engraveId, setEngraveId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(insets.top + 116);
   const [checkingMove, setCheckingMove] = useState<string | null>(null);
@@ -79,26 +106,63 @@ export function ChartActiveView({
   const bannerOpacity = useSharedValue(0);
   const celebrationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Waypoint reached: the lit route and the Anchor travel forward, then the next stretch is current.
+  // Entry: the map is already present; the route settles, the current waypoint gets one
+  // quiet ripple, and the content arrives in order. Then nothing moves until something changes.
+  useEffect(() => {
+    if (reducedMotion) return undefined;
+    const settleMs = settleRoute ? PT.entryRoute : 0;
+    if (settleRoute) {
+      travelled.value = chartTiming(target, { duration: PT.entryRoute, easing: CHART_EASING.draw });
+    }
+    entry.value = chartDelay(entrance === 'reveal' ? 120 : 60, chartTiming(1, { duration: ENTRY_TOTAL, easing: CHART_EASING.settle }));
+    if (!celebration) {
+      currentPulse.value = chartDelay(settleMs + 240, chartTiming(1, { duration: 1100, easing: CHART_EASING.settle }));
+    }
+    return () => {
+      [entry, currentPulse].forEach((value) => cancelAnimation(value));
+    };
+    // Entry runs once per visit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Waypoint reached: the Anchor travels the stretch it just completed, the waypoint engraves,
+  // the route behind it is established, and the next stretch draws in with the emphasis.
+  const settledOnce = useRef(false);
   useEffect(() => {
     if (!celebration) {
-      travelled.value = reducedMotion ? target : withTiming(target, { duration: 400 });
-      return;
+      // The first pass belongs to the entry settle above; later target changes ease in place.
+      if (settleRoute && !settledOnce.current) {
+        settledOnce.current = true;
+        return undefined;
+      }
+      travelled.value = reducedMotion ? target : chartTiming(target, { duration: 400, easing: CHART_EASING.settle });
+      return undefined;
     }
+    const reachedId = view.waypoints[Math.max(0, view.reachedCount - 1)]?.id ?? null;
+    setEngraveId(reachedId);
     if (reducedMotion) {
       travelled.value = target;
-      bannerOpacity.value = withTiming(1, { duration: 200 });
+      engrave.value = 1;
+      stretchReveal.value = 1;
+      bannerOpacity.value = chartTiming(1, { duration: 200 });
     } else {
+      const arrive = PT.travelDelay + PT.travel;
       travelled.value = celebration.fromFraction;
-      travelled.value = withDelay(500, withTiming(target, { duration: 1600, easing: Easing.inOut(Easing.cubic) }));
-      bannerOpacity.value = withTiming(1, { duration: 420 });
+      engrave.value = 0;
+      stretchReveal.value = 0;
+      travelled.value = chartDelay(PT.travelDelay, chartTiming(target, { duration: PT.travel, easing: CHART_EASING.deliberate }));
+      engrave.value = chartDelay(arrive - 160, chartTiming(1, { duration: PT.engrave, easing: CHART_EASING.settle }));
+      stretchReveal.value = chartDelay(arrive + PT.engrave * 0.5, chartTiming(1, { duration: PT.nextStretch, easing: CHART_EASING.draw }));
+      currentPulse.value = 0;
+      currentPulse.value = chartDelay(arrive + PT.engrave * 0.5 + PT.nextStretch * 0.8, chartTiming(1, { duration: 1100, easing: CHART_EASING.settle }));
+      bannerOpacity.value = chartTiming(1, { duration: PT.banner });
     }
     celebrationTimer.current = setTimeout(() => {
-      bannerOpacity.value = withTiming(0, { duration: 300 });
+      bannerOpacity.value = chartTiming(0, { duration: 300 });
       // Route evolution: a quiet check-in at a meaningful transition, never a nag.
       if (celebration.nextTitle) setShowStillRight(true);
       onCelebrationDone();
-    }, reducedMotion ? 2600 : 4200);
+    }, reducedMotion ? PT.bannerHoldReduced : PT.bannerHold);
     return () => {
       if (celebrationTimer.current) clearTimeout(celebrationTimer.current);
     };
@@ -120,6 +184,14 @@ export function ChartActiveView({
 
   const current = view.current;
   const oneMove = view.oneMove;
+  // The stretch being travelled now: from the Anchor's position to the current waypoint.
+  const stretch = useMemo(
+    () =>
+      view.isFinished || view.total === 0
+        ? null
+        : { from: view.reachedCount / view.total, to: Math.min(1, (view.reachedCount + 1) / view.total) },
+    [view.isFinished, view.reachedCount, view.total]
+  );
   const mapSummary = current
     ? `Chart map. Waypoint ${current.number} of ${view.total} is current: ${current.title}. Destination: ${view.destination}.`
     : `Chart map. Destination: ${view.destination}.`;
@@ -141,6 +213,11 @@ export function ChartActiveView({
             window={CHART_WINDOWS.hero}
             markers={markers}
             travelled={travelled}
+            stretch={stretch}
+            stretchReveal={stretchReveal}
+            engraveId={engraveId}
+            engrave={engrave}
+            currentPulse={currentPulse}
             anchorArt={anchorArt}
             destinationImageUrl={vision?.imageUrl ?? null}
             destinationLabel={view.destination}
@@ -191,26 +268,28 @@ export function ChartActiveView({
           ) : null}
 
           {current ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Current waypoint, ${current.number} of ${view.total}: ${current.title}${current.metric ? `, ${current.metric.display}` : ''}. Open waypoint.`}
-              onPress={() => onOpenWaypoint(current.id)}
-              testID="chart-current-waypoint"
-            >
-              <ChartInkCard>
-                <View style={styles.cardHeader}>
-                  <ChartEyebrow color="#F2E6CB">{CHART_COPY.labels.currentWaypoint}</ChartEyebrow>
-                  <Text style={styles.position}>{view.positionLabel}</Text>
-                </View>
-                <Text style={styles.waypointTitle}>{current.title}</Text>
-                {current.metric ? <MetricBar metric={current.metric} color={categoryColor} /> : null}
-                {!current.metric && current.rationale ? (
-                  <Text style={styles.rationale} numberOfLines={2}>
-                    {current.rationale}
-                  </Text>
-                ) : null}
-              </ChartInkCard>
-            </Pressable>
+            <EntryCard index={0} entry={entry}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Current waypoint, ${current.number} of ${view.total}: ${current.title}${current.metric ? `, ${current.metric.display}` : ''}. Open waypoint.`}
+                onPress={() => onOpenWaypoint(current.id)}
+                testID="chart-current-waypoint"
+              >
+                <ChartInkCard>
+                  <View style={styles.cardHeader}>
+                    <ChartEyebrow color="#F2E6CB">{CHART_COPY.labels.currentWaypoint}</ChartEyebrow>
+                    <Text style={styles.position}>{view.positionLabel}</Text>
+                  </View>
+                  <Text style={styles.waypointTitle}>{current.title}</Text>
+                  {current.metric ? <MetricBar metric={current.metric} color={categoryColor} /> : null}
+                  {!current.metric && current.rationale ? (
+                    <Text style={styles.rationale} numberOfLines={2}>
+                      {current.rationale}
+                    </Text>
+                  ) : null}
+                </ChartInkCard>
+              </Pressable>
+            </EntryCard>
           ) : null}
 
           {showStillRight ? (
@@ -230,85 +309,91 @@ export function ChartActiveView({
             </ChartInkCard>
           ) : null}
 
-          <ChartInkCard testID="chart-one-move">
-            <ChartEyebrow color="#F2E6CB">{CHART_COPY.labels.oneMove}</ChartEyebrow>
-            {oneMove ? (
-              <View style={styles.moveRow}>
-                <Pressable
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: checkingMove === oneMove.id, busy: busyKey === `move:${oneMove.id}` }}
-                  accessibilityLabel={`Complete move: ${oneMove.title}`}
-                  onPress={() => void completeOneMove()}
-                  hitSlop={10}
-                  style={[styles.checkbox, checkingMove === oneMove.id && styles.checkboxOn]}
-                  testID="chart-one-move-check"
-                >
-                  {checkingMove === oneMove.id ? <Check size={14} color={colors.ink.base} strokeWidth={3} /> : null}
-                </Pressable>
-                <Text style={styles.moveTitle}>{oneMove.title}</Text>
+          <EntryCard index={1} entry={entry}>
+            <ChartInkCard testID="chart-one-move">
+              <ChartEyebrow color="#F2E6CB">{CHART_COPY.labels.oneMove}</ChartEyebrow>
+              {oneMove ? (
+                <View style={styles.moveRow}>
+                  <Pressable
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: checkingMove === oneMove.id, busy: busyKey === `move:${oneMove.id}` }}
+                    accessibilityLabel={`Complete move: ${oneMove.title}`}
+                    onPress={() => void completeOneMove()}
+                    hitSlop={10}
+                    style={[styles.checkbox, checkingMove === oneMove.id && styles.checkboxOn]}
+                    testID="chart-one-move-check"
+                  >
+                    {checkingMove === oneMove.id ? <Check size={14} color={colors.ink.base} strokeWidth={3} /> : null}
+                  </Pressable>
+                  <Text style={styles.moveTitle}>{oneMove.title}</Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Open waypoint moves"
+                    onPress={() => current && onOpenWaypoint(current.id)}
+                    hitSlop={8}
+                    style={styles.arrowButton}
+                  >
+                    <ArrowRight size={16} color={colors.ink.text.primary} />
+                  </Pressable>
+                </View>
+              ) : (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Open waypoint moves"
+                  accessibilityLabel={CHART_COPY.active.noMoveCta}
                   onPress={() => current && onOpenWaypoint(current.id)}
-                  hitSlop={8}
-                  style={styles.arrowButton}
+                  style={styles.moveEmpty}
+                  testID="chart-one-move-empty"
                 >
-                  <ArrowRight size={16} color={colors.ink.text.primary} />
+                  <Text style={styles.moveEmptyText}>{CHART_COPY.active.noMove}</Text>
+                  <ChevronRight size={18} color={colors.ink.text.secondary} />
                 </Pressable>
-              </View>
-            ) : (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={CHART_COPY.active.noMoveCta}
-                onPress={() => current && onOpenWaypoint(current.id)}
-                style={styles.moveEmpty}
-                testID="chart-one-move-empty"
-              >
-                <Text style={styles.moveEmptyText}>{CHART_COPY.active.noMove}</Text>
-                <ChevronRight size={18} color={colors.ink.text.secondary} />
-              </Pressable>
-            )}
-            {actionError ? <Text style={styles.error}>{actionError}</Text> : null}
-          </ChartInkCard>
-
-          <ChartInkCard testID="chart-destination">
-            <ChartEyebrow>{CHART_COPY.labels.yourDestination}</ChartEyebrow>
-            <View style={styles.destinationRow}>
-              {vision?.imageUrl ? (
-                <Image source={{ uri: vision.imageUrl }} style={styles.destinationThumb} accessibilityIgnoresInvertColors accessibilityLabel="Your Vision" />
-              ) : (
-                <View style={[styles.destinationMark, { borderColor: categoryColor }]}>
-                  <Flag size={18} color={categoryColor} />
-                </View>
               )}
-              <View style={styles.flex}>
-                <Text style={styles.destinationTitle}>{view.destination}</Text>
-                {vision?.description ? (
-                  <Text style={styles.destinationDescription} numberOfLines={2}>
-                    {vision.description}
-                  </Text>
-                ) : null}
-                {vision ? (
-                  <Pressable accessibilityRole="button" accessibilityLabel={CHART_COPY.active.viewVision} onPress={onOpenVision} style={styles.inlineLink} testID="chart-view-vision">
-                    <Text style={styles.inlineLinkText}>{CHART_COPY.active.viewVision}</Text>
-                    <ArrowRight size={14} color={colors.ink.text.primary} />
-                  </Pressable>
-                ) : null}
-              </View>
-            </View>
-          </ChartInkCard>
+              {actionError ? <Text style={styles.error}>{actionError}</Text> : null}
+            </ChartInkCard>
+          </EntryCard>
 
-          <Pressable accessibilityRole="button" accessibilityLabel={CHART_COPY.active.courseLogCta} onPress={onOpenLog} testID="chart-course-log">
-            <View style={styles.logRow}>
-              <View style={styles.flex}>
-                <ChartEyebrow>{CHART_COPY.labels.courseLog}</ChartEyebrow>
-                <Text style={styles.logText}>
-                  {view.reachedCount} of {view.total} waypoints · {view.completedMoveCount} move{view.completedMoveCount === 1 ? '' : 's'} completed
-                </Text>
+          <EntryCard index={2} entry={entry}>
+            <ChartInkCard testID="chart-destination">
+              <ChartEyebrow>{CHART_COPY.labels.yourDestination}</ChartEyebrow>
+              <View style={styles.destinationRow}>
+                {vision?.imageUrl ? (
+                  <Image source={{ uri: vision.imageUrl }} style={styles.destinationThumb} accessibilityIgnoresInvertColors accessibilityLabel="Your Vision" />
+                ) : (
+                  <View style={[styles.destinationMark, { borderColor: categoryColor }]}>
+                    <Flag size={18} color={categoryColor} />
+                  </View>
+                )}
+                <View style={styles.flex}>
+                  <Text style={styles.destinationTitle}>{view.destination}</Text>
+                  {vision?.description ? (
+                    <Text style={styles.destinationDescription} numberOfLines={2}>
+                      {vision.description}
+                    </Text>
+                  ) : null}
+                  {vision ? (
+                    <Pressable accessibilityRole="button" accessibilityLabel={CHART_COPY.active.viewVision} onPress={onOpenVision} style={styles.inlineLink} testID="chart-view-vision">
+                      <Text style={styles.inlineLinkText}>{CHART_COPY.active.viewVision}</Text>
+                      <ArrowRight size={14} color={colors.ink.text.primary} />
+                    </Pressable>
+                  ) : null}
+                </View>
               </View>
-              <ChevronRight size={18} color={colors.ink.text.secondary} />
-            </View>
-          </Pressable>
+            </ChartInkCard>
+          </EntryCard>
+
+          <EntryCard index={3} entry={entry}>
+            <Pressable accessibilityRole="button" accessibilityLabel={CHART_COPY.active.courseLogCta} onPress={onOpenLog} testID="chart-course-log">
+              <View style={styles.logRow}>
+                <View style={styles.flex}>
+                  <ChartEyebrow>{CHART_COPY.labels.courseLog}</ChartEyebrow>
+                  <Text style={styles.logText}>
+                    {view.reachedCount} of {view.total} waypoints · {view.completedMoveCount} move{view.completedMoveCount === 1 ? '' : 's'} completed
+                  </Text>
+                </View>
+                <ChevronRight size={18} color={colors.ink.text.secondary} />
+              </View>
+            </Pressable>
+          </EntryCard>
         </View>
       </ScrollView>
 

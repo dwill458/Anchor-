@@ -147,7 +147,8 @@ export class GeminiImageService {
     category: string,
     description: string,
     avoidScenes: string[] = [],
-    hasAppearanceReference: boolean = false
+    hasAppearanceReference: boolean = false,
+    onboarding?: { motivation?: string; customAnswer?: string; desiredChange: string; lifeChanges: string[] } | null
   ): Promise<VisionScenePlanItem[]> {
     if (!this.isAvailable())
       throw new GeminiError(GeminiErrorType.INVALID_API_KEY, 'Image provider unavailable');
@@ -164,6 +165,7 @@ export class GeminiImageService {
                 description,
                 avoidScenes,
                 hasAppearanceReference,
+                onboarding,
               }),
             },
           ],

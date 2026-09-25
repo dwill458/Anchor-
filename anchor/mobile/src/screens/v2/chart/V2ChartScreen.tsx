@@ -59,6 +59,8 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
   // The creation flow stays on screen through its reveal ("Your route is
   // ready.") even though the saved Chart is already in the shared cache.
   const [revealing, setRevealing] = useState(false);
+  // "Explore your Chart" continues into the permanent Chart without replaying the map.
+  const arrivedFromReveal = useRef(false);
   const opened = useRef(false);
 
   useEffect(() => {
@@ -172,6 +174,7 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
           chart.commitChart(created);
         }}
         onExplore={() => {
+          arrivedFromReveal.current = true;
           setRevealing(false);
           void chart.refresh();
         }}
@@ -218,6 +221,7 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
       onOpenLog={() => navigation.navigate('V2ChartJourney', { anchorId })}
       onAdjust={() => navigation.navigate('V2ChartAdjust', { anchorId })}
       actionError={actionErrorCopy(chart.lastError)}
+      entrance={arrivedFromReveal.current ? 'reveal' : 'open'}
       testID={props.testID ?? 'v2-chart-screen'}
     />
   );

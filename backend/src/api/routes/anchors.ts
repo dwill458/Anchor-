@@ -5,7 +5,6 @@
  */
 
 import { Router, Response, NextFunction } from 'express';
-import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { GoogleGenAI } from '@google/genai';
 import { RedisStore } from 'rate-limit-redis';
 import { z } from 'zod';
@@ -19,6 +18,7 @@ import { resolveMonetizationAccess } from '../../services/MonetizationAccessServ
 import { logger } from '../../utils/logger';
 import { resolveStoredAssetUrl } from '../../services/StorageService';
 import { courseService } from '../../services/CourseService';
+import { globalAiCeilingLimiter, anchorEnhanceLimiter } from '../middleware/aiRateLimit';
 
 // Whitelist of columns that may be used in ORDER BY to prevent injection
 const ALLOWED_ORDER_BY = [
@@ -76,28 +76,6 @@ const ANCHOR_LIST_SELECT: Prisma.AnchorSelect = {
 
 const router = Router();
 const PAID_PRO_DAILY_ANCHOR_LIMIT = 10;
-
-const aiHourlyLimiterStore =
-  process.env.NODE_ENV === 'test' || !process.env.REDIS_URL
-    ? undefined
-    : new RedisStore({
-        prefix: 'rl:anchors:classify-tier:',
-        sendCommand: (...args: string[]) => redisClient.sendCommand(args),
-      });
-
-const aiHourlyLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: req => (req as AuthRequest).user?.uid || ipKeyGenerator(req.ip ?? ''),
-  skip: req => (req as AuthRequest).user?.uid === DEV_MASTER_UID,
-  message: {
-    error: 'Too many AI classification requests',
-    message: 'You have reached the AI classification limit. Please try again in an hour.',
-  },
-  store: aiHourlyLimiterStore,
-});
 
 // --- Zod schemas ---
 
@@ -491,7 +469,8 @@ router.use(async (req: AuthRequest, res: Response, next: NextFunction) => {
  */
 router.post(
   '/classify-tier',
-  aiHourlyLimiter,
+  globalAiCeilingLimiter,
+  anchorEnhanceLimiter,
   async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const { intentionText } = validate(ClassifyTierSchema, req.body);

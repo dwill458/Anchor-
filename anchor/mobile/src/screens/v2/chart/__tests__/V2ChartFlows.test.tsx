@@ -334,7 +334,10 @@ describe('Generation stage honesty', () => {
       <ChartGenerationStage width={390} height={600} category="career" markers={null} reducedMotion onRevealed={onRevealed} />
     );
     expect(screen.queryAllByLabelText(/^Waypoint \d of/)).toHaveLength(0);
-    expect(screen.getByLabelText('Analyzing your intention')).toBeTruthy();
+    expect(screen.getByLabelText('Reading your destination')).toBeTruthy();
+    // No completion is claimed while the request is still running.
+    expect(screen.queryByLabelText('Chart ready')).toBeNull();
+    expect(screen.queryByLabelText('Building your first route')).toBeNull();
     expect(onRevealed).not.toHaveBeenCalled();
 
     screen.rerender(
@@ -351,6 +354,7 @@ describe('Generation stage honesty', () => {
       />
     );
     expect(screen.getAllByLabelText(/^Waypoint \d of 2/)).toHaveLength(2);
-    await waitFor(() => expect(onRevealed).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(onRevealed).toHaveBeenCalledTimes(1), { timeout: 3000 });
+    expect(screen.getByLabelText('Chart ready')).toBeTruthy();
   });
 });

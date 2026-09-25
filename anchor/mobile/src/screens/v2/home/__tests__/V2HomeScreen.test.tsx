@@ -308,20 +308,24 @@ describe('Today', () => {
 });
 
 describe('Conditional Vision and Chart', () => {
-    it('state 1 — one Anchor, no Vision, no Chart: renders neither and reserves no space', () => {
+    it('state 1 — one Anchor, no Vision, no Chart: shows the inactive Chart environment and entry action', () => {
     oneAnchor();
     renderHome();
     expect(screen.queryByTestId('v2-home-vision')).toBeNull();
-    expect(screen.queryByTestId('v2-home-chart')).toBeNull();
+    expect(screen.getByTestId('v2-home-chart-empty')).toBeTruthy();
+    expect(screen.getByTestId('v2-home-chart-map')).toBeTruthy();
+    expect(screen.getByText('Create Chart')).toBeTruthy();
     expect(screen.queryByText('YOUR VISION')).toBeNull();
       expect(screen.queryByText('CHART')).toBeNull();
       expect(screen.getByTestId('v2-home-progress')).toBeTruthy();
   });
 
-  it('renders NO Chart placeholder of any kind when no Course exists', () => {
+  it('renders an inactive Chart environment without route markers when no Course exists', () => {
     oneAnchor();
     renderHome({}, { chart: { state: 'none' } });
-    expect(screen.queryByTestId('v2-home-chart')).toBeNull();
+    expect(screen.getByTestId('v2-home-chart-empty')).toBeTruthy();
+    expect(screen.getByTestId('v2-home-chart-map')).toBeTruthy();
+    expect(screen.getByText('Create Chart')).toBeTruthy();
     expect(screen.queryByTestId('v2-home-chart-loading')).toBeNull();
     expect(screen.queryByTestId('v2-home-chart-error')).toBeNull();
     expect(screen.queryByText(/Loading your current Course/i)).toBeNull();
@@ -345,7 +349,7 @@ describe('Conditional Vision and Chart', () => {
     renderHome({}, { vision: readyVision });
     expect(screen.getByTestId('v2-home-vision')).toBeTruthy();
     expect(screen.getByTestId('v2-home-vision-image')).toBeTruthy();
-      expect(screen.queryByTestId('v2-home-chart')).toBeNull();
+      expect(screen.getByTestId('v2-home-chart-empty')).toBeTruthy();
       expect(screen.queryByTestId('v2-home-progress')).toBeNull();
   });
 
@@ -353,10 +357,11 @@ describe('Conditional Vision and Chart', () => {
     oneAnchor();
     renderHome({}, { chart: readyChart });
     expect(screen.queryByTestId('v2-home-vision')).toBeNull();
-    expect(screen.getByTestId('v2-home-chart-destination').props.children).toBe('Reach 1,000 active users');
+    expect(screen.getByTestId('v2-home-chart-destination').props.children).toContain('Reach 1,000 active users');
     expect(screen.getByTestId('v2-home-chart-waypoint').props.children).toBe('Contact 3 creators');
     expect(screen.getByTestId('v2-home-chart-one-move').props.children).toBe('Contact 3 creators');
-      expect(screen.getByTestId('v2-home-chart-progress').props.children).toBe('Waypoint 2 of 2');
+      expect(screen.queryByTestId('v2-home-chart-progress')).toBeNull();
+      expect(screen.getByTestId('v2-home-chart-map')).toBeTruthy();
       expect(screen.queryByTestId('v2-home-progress')).toBeNull();
   });
 
@@ -541,7 +546,7 @@ describe('Hero carousel', () => {
     useAnchorStore.setState({ currentAnchorId: 'b' });
     renderHome({}, { vision: { state: 'none' }, chart: { state: 'none' } });
     expect(screen.getByTestId('v2-home-intention').props.children).toBe('Second intention');
-    expect(screen.queryByTestId('v2-home-chart')).toBeNull();
+    expect(screen.getByTestId('v2-home-chart-empty')).toBeTruthy();
     expect(screen.queryByTestId('v2-home-vision')).toBeNull();
     expect(screen.queryByText('Reach 1,000 active users')).toBeNull();
     expect(screen.queryByText('A bright open studio at dawn')).toBeNull();

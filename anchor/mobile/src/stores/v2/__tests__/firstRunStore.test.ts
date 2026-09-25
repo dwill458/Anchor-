@@ -1,4 +1,5 @@
 import { formFirstRunAnchor, invalidateFormation, useFirstRunStore } from '../firstRunStore';
+import { buildOnboardingContext } from '@/services/v2/onboardingContext';
 
 describe('V2 first-run draft', () => {
   beforeEach(() => useFirstRunStore.getState().reset());
@@ -47,6 +48,28 @@ describe('V2 first-run draft', () => {
   it('keeps a completed run complete, preventing replay after resume', () => {
     useFirstRunStore.getState().complete();
     expect(useFirstRunStore.getState().draft.currentStep).toBe('complete');
+  });
+
+  it('keeps the motivation, outcome, multi-selects, and need for account save', () => {
+    const store = useFirstRunStore.getState();
+    store.setMotivation('Something else');
+    store.setCustomDesiredChange('  I want more room to create  ');
+    store.setDesiredOutcome('  I finish a personal project and share it.  ');
+    store.toggleLifeChange('What I do every day');
+    store.toggleLifeChange('Where I spend my time');
+    store.setPrimaryNeed('Staying consistent');
+    expect(buildOnboardingContext(useFirstRunStore.getState().draft)).toEqual({
+      motivation: 'Something else',
+      customAnswer: 'I want more room to create',
+      desiredChange: 'I finish a personal project and share it.',
+      lifeChanges: ['What I do every day', 'Where I spend my time'],
+      primaryNeed: 'Staying consistent',
+    });
+    store.toggleLifeChange('What I do every day');
+    expect(useFirstRunStore.getState().draft.lifeChanges).toEqual(['Where I spend my time']);
+    store.setDesiredOutcome('');
+    expect(useFirstRunStore.getState().draft.desiredOutcome).toBe('');
+    expect(() => buildOnboardingContext(useFirstRunStore.getState().draft)).toThrow('Finish the onboarding questions');
   });
 });
 

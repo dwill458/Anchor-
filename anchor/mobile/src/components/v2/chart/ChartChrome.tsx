@@ -116,6 +116,8 @@ export function ChartTextArea({
   tone = 'ink',
   accessibilityLabel,
   autoFocus,
+  minHeight,
+  maxHeight,
   testID,
   ...rest
 }: {
@@ -126,6 +128,9 @@ export function ChartTextArea({
   tone?: 'ink' | 'cream';
   accessibilityLabel: string;
   autoFocus?: boolean;
+  /** The field grows with its text up to maxHeight, then scrolls inside itself. */
+  minHeight?: number;
+  maxHeight?: number;
   testID?: string;
 } & Pick<TextInputProps, 'onFocus' | 'onBlur'>) {
   const onInk = tone === 'ink';
@@ -142,7 +147,12 @@ export function ChartTextArea({
         autoFocus={autoFocus}
         accessibilityLabel={accessibilityLabel}
         textAlignVertical="top"
-        style={[styles.textArea, { color: onInk ? colors.ink.text.primary : colors.text.primary }]}
+        style={[
+          styles.textArea,
+          { color: onInk ? colors.ink.text.primary : colors.text.primary },
+          minHeight !== undefined && { minHeight },
+          maxHeight !== undefined && { maxHeight },
+        ]}
         {...rest}
       />
       <Text style={[styles.counter, { color: onInk ? colors.ink.text.tertiary : colors.text.tertiary }]}>

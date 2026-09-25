@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { ArrowLeft } from 'lucide-react-native';
 import { V2DevelopmentHome } from '@/screens/v2/home';
-import { V2SystemGallery } from '@/screens/v2/system';
+import { V2EvolvingAnchorPrototype, V2SystemGallery } from '@/screens/v2/system';
 import { V2FirstRunFlow } from '@/screens/v2/onboarding';
 import { V2AuthScreen } from '@/screens/v2/auth';
 import {
@@ -25,6 +25,7 @@ import { SettingsScreen } from '@/screens/settings';
 import { LoginScreen } from '@/screens/auth';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useFirstRunStore } from '@/stores/v2/firstRunStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { generateExpressionCandidates, persistCreatedAnchor } from '@/services/v2/creationPersistence';
 import type { V2PracticeMode } from '@/constants/v2/practice';
@@ -253,6 +254,7 @@ export function AnchorV2Navigator() {
   const reduceMotion = useV2ReduceMotion();
   const user = useAuthStore((state) => state.user);
   const hasCompletedOnboarding = useAuthStore((state) => state.hasCompletedOnboarding);
+  const firstRunStep = useFirstRunStore((state) => state.draft.currentStep);
   const developerSkipOnboardingEnabled = useSettingsStore((state) => state.developerSkipOnboardingEnabled);
   const developerMasterAccountEnabled = useSettingsStore((state) => state.developerMasterAccountEnabled);
   const screenOptions = useMemo(() => v2StackScreenOptions(reduceMotion), [reduceMotion]);
@@ -260,19 +262,20 @@ export function AnchorV2Navigator() {
   // Remount on trusted auth/onboarding changes so a restored account never
   // briefly lands in first-run, and a new account returns to its draft.
   const shouldBypassOnboarding = __DEV__ && (developerSkipOnboardingEnabled || developerMasterAccountEnabled);
-  const initialRouteName = shouldBypassOnboarding || (user?.id && hasCompletedOnboarding)
+  const initialRouteName = shouldBypassOnboarding || (user?.id && hasCompletedOnboarding && firstRunStep !== 'auth')
     ? 'V2DevelopmentHome'
     : 'V2FirstRun';
   return (
     <ProgressiveFocusTransitionProvider>
       <Stack.Navigator
-        key={`${initialRouteName}:${user?.id ?? 'guest'}`}
+        key={`${initialRouteName}:${firstRunStep === 'auth' ? 'onboarding-save' : user?.id ?? 'guest'}`}
         initialRouteName={initialRouteName}
         screenOptions={screenOptions}
       >
         <Stack.Screen name="V2DevelopmentHome" component={V2DevelopmentHome} />
         <Stack.Screen name="V2FirstRun" component={V2FirstRunFlow} />
         <Stack.Screen name="V2SystemGallery" component={V2SystemGallery} />
+        {__DEV__ ? <Stack.Screen name="V2EvolvingAnchor" component={V2EvolvingAnchorPrototype} /> : null}
         {/* Creation owns its back behaviour (a state machine, not a stack), so the edge swipe
           must not pop the route out from under a save or the hand-off. */}
         <Stack.Screen name="V2Creation" component={V2CreationRouteScreen} options={CREATION_OPTIONS} />

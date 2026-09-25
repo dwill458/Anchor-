@@ -46,6 +46,16 @@ describe('formationTimeline', () => {
     departures.forEach((departure, i) => expect(landings[i]).toBeGreaterThan(departure));
   });
 
+  it('strictly enforces the causal chain: each letter lands before the next departs', () => {
+    for (const formation of SAMPLES) {
+      const { departures, landings } = formationTimeline(formation.vertices);
+      for (let i = 1; i < departures.length; i += 1) {
+        expect(departures[i]).toBeGreaterThan(landings[i - 1]);
+      }
+    }
+  });
+
+
   it('draws the real path segment by segment, following the mapped order', () => {
     const { vertices } = SAMPLES[1];
     const timeline = formationTimeline(vertices);

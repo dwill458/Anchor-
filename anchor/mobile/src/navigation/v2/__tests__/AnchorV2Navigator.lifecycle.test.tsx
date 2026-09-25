@@ -88,7 +88,7 @@ jest.mock('@/screens/v2/onboarding', () => {
     },
   };
 });
-jest.mock('@/screens/v2/system', () => { const { Text: RNText } = require('react-native'); return { V2SystemGallery: () => <RNText>system-gallery</RNText> }; });
+jest.mock('@/screens/v2/system', () => { const { Text: RNText } = require('react-native'); return { V2SystemGallery: () => <RNText>system-gallery</RNText>, V2EvolvingAnchorPrototype: () => <RNText>evolving-anchor</RNText> }; });
 jest.mock('@/screens/v2/paywall', () => { const { Text: RNText } = require('react-native'); return { V2PaywallScreen: () => <RNText>paywall</RNText> }; });
 jest.mock('@/screens/v2/practice', () => { const { Text: RNText } = require('react-native'); return { V2PracticeScreen: () => <RNText>practice</RNText>, V2PracticeSessionScreen: () => <RNText>practice-session</RNText> }; });
 jest.mock('@/screens/v2/creation', () => { const { Text: RNText } = require('react-native'); return { V2CreationScreen: () => <RNText>creation</RNText> }; });

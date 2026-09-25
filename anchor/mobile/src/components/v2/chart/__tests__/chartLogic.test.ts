@@ -1,5 +1,7 @@
 import {
+  CHART_CATEGORY_PACK,
   CHART_LANDSCAPES,
+  CHART_PACKS,
   CHART_ROUTE_CONTROL_POINTS,
   CHART_WINDOWS,
   chartArtFor,
@@ -11,6 +13,7 @@ import {
   waypointFractions,
 } from '../chartRouteGeometry';
 import { moveItem } from '../ChartRouteEditor';
+import { CHART_COPY, CHART_THOUGHT_STARTERS, chartRealityGuide, chartRealityTheme } from '@/constants/v2/chartCopy';
 import { manualOutline, toDraft } from '../ChartCreationFlow';
 import { journeyRows } from '../ChartDestinationReached';
 import { travelledFraction } from '../ChartActiveView';
@@ -21,16 +24,23 @@ import { toChartViewModel } from '@/adapters/v2/chart/chartV2Model';
 import type { ChartProposal } from '@/services/v2/chartV2Api';
 import type { CourseDetail } from '@/types/chart';
 
-jest.mock('@/assets/chart/chart-landscape-night.jpg', () => 1, { virtual: true });
-
-const art = { width: 896, height: 1200 };
+const art = { width: 1200, height: 1600 };
 
 describe('shared route geometry', () => {
-  it('uses one trail for every category', () => {
+  it('gives every category an environment that shares one trail', () => {
     const categories = Object.keys(CHART_LANDSCAPES);
     expect(categories).toHaveLength(12);
-    expect(new Set(categories.map((key) => CHART_LANDSCAPES[key])).size).toBe(1);
-    expect(chartArtFor('Career')).toBe(chartArtFor('unknown-category'));
+    // Several environments, not one mountain valley for everything.
+    expect(new Set(Object.values(CHART_CATEGORY_PACK)).size).toBeGreaterThanOrEqual(4);
+    expect(chartArtFor('Career')).toBe(CHART_PACKS.city);
+    expect(chartArtFor('health')).toBe(CHART_PACKS.botanical);
+    expect(chartArtFor('creativity')).toBe(CHART_PACKS.canyon);
+    expect(chartArtFor('desire')).toBe(CHART_PACKS.valley);
+    expect(chartArtFor('unknown-category')).toBe(CHART_PACKS.valley);
+    // Same aspect for every pack, so the normalized trail lands in the same place.
+    const aspects = new Set(Object.values(CHART_PACKS).map((pack) => pack.height / pack.width));
+    expect(aspects.size).toBe(1);
+    Object.values(CHART_PACKS).forEach((pack) => expect(pack.tintable).toBe(false));
   });
 
   it('runs from START (lower left) to the destination (upper right)', () => {
@@ -57,6 +67,44 @@ describe('shared route geometry', () => {
     expect(routePathData(frame, art, 0.5, 0.5)).toBe('');
     expect(routePathData(frame, art)).toMatch(/^M[\d.]+ [\d.]+ L/);
     expect(routeLength(frame, art, 0, 0.5)).toBeCloseTo(routeLength(frame, art) / 2, 5);
+  });
+});
+
+describe('"What would make this real?" teaching', () => {
+  it('picks an example from the person’s own intention before falling back to the category', () => {
+    expect(chartRealityTheme('Launch my app and make it my full-time work', 'desire')).toBe('venture');
+    expect(chartRealityGuide('Launch my app', 'desire').example).toMatch(/launched my app/);
+    expect(chartRealityTheme('Finish my novel', 'career')).toBe('writing');
+    expect(chartRealityTheme('Feel stronger in my body', 'custom')).toBe('body');
+    // No keyword: the Anchor's category decides.
+    expect(chartRealityTheme('Become the person I mean to be', 'health')).toBe('body');
+    expect(chartRealityTheme('Become the person I mean to be', 'career')).toBe('work');
+    expect(chartRealityTheme('Become the person I mean to be', null)).toBe('general');
+  });
+
+  it('is not the entrepreneurial example for everyone', () => {
+    const examples = new Set(
+      ['health', 'career', 'creativity', 'relationships', 'abundance', 'learning', 'spirituality', 'adventure', 'focus', 'desire'].map(
+        (category) => chartRealityGuide('Something I want', category).example
+      )
+    );
+    expect(examples.size).toBeGreaterThanOrEqual(8);
+  });
+
+  it('offers three thought starters, each with a hint for every theme', () => {
+    expect(CHART_THOUGHT_STARTERS.map((item) => item.label)).toEqual([
+      'What would change?',
+      'What could you measure?',
+      'What would you be doing differently?',
+    ]);
+    const guide = chartRealityGuide('Run a marathon', 'health');
+    CHART_THOUGHT_STARTERS.forEach((item) => expect(guide.hints[item.key].length).toBeGreaterThan(20));
+  });
+
+  it('asks one question about observable reality, not a starting point', () => {
+    expect(CHART_COPY.creation.realQuestion).toBe('What would make this real?');
+    expect(CHART_COPY.creation.realLabel).toBe('Describe what ‘real’ looks like');
+    expect(JSON.stringify(CHART_COPY.creation)).not.toMatch(/starting from|stand today/i);
   });
 });
 

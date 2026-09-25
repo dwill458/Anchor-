@@ -41,29 +41,73 @@ function numeralBox(cell: { x: number; y: number }, pitch: number, unit: number)
 }
 
 /**
- * The square as an instrument: a ruled table of the grid's cells, each carrying the number a
- * letter reduces to. Numbers sit in the cell's corner so the point a letter becomes, at the
- * cell's centre, is never covered.
+ * The square as an instrument: an engraved drafting plate of the grid's cells, each carrying the
+ * number a letter reduces to. Numbers sit in the cell's corner so the point a letter becomes,
+ * at the cell's centre, is never covered.
  */
-const KameaSquare = memo(function KameaSquare({ formation, size }: { formation: SigilFormation; size: number }) {
+const KameaSquare = memo(function KameaSquare({
+  formation,
+  size,
+  fadeStart,
+  fadeEnd,
+  progress,
+}: {
+  formation: SigilFormation;
+  size: number;
+  fadeStart: number;
+  fadeEnd: number;
+  progress: SharedValue<number>;
+}) {
   const { n, pitch, left, top, side } = kameaGeometry(formation);
   const unit = size / 100;
   const rules = [];
+  const PLATE_STROKE = 'rgba(244, 246, 250, 0.24)';
+  const RULE_STROKE = 'rgba(244, 246, 250, 0.11)';
+
   for (let i = 1; i < n; i += 1) {
-    rules.push(<Line key={`v${i}`} x1={left + pitch * i} y1={top} x2={left + pitch * i} y2={top + side} stroke={INK} strokeOpacity={0.12} strokeWidth={0.22} />);
-    rules.push(<Line key={`h${i}`} x1={left} y1={top + pitch * i} x2={left + side} y2={top + pitch * i} stroke={INK} strokeOpacity={0.12} strokeWidth={0.22} />);
+    rules.push(<Line key={`v${i}`} x1={left + pitch * i} y1={top} x2={left + pitch * i} y2={top + side} stroke={RULE_STROKE} strokeWidth={0.22} />);
+    rules.push(<Line key={`h${i}`} x1={left} y1={top + pitch * i} x2={left + side} y2={top + pitch * i} stroke={RULE_STROKE} strokeWidth={0.22} />);
   }
+
+  // Corner registration ticks to evoke a precision drafting instrument
+  const tick = 1.4;
+  const corners = [
+    // Top-left
+    <Line key="tl-h" x1={left - tick} y1={top} x2={left + tick} y2={top} stroke={PLATE_STROKE} strokeWidth={0.28} />,
+    <Line key="tl-v" x1={left} y1={top - tick} x2={left} y2={top + tick} stroke={PLATE_STROKE} strokeWidth={0.28} />,
+    // Top-right
+    <Line key="tr-h" x1={left + side - tick} y1={top} x2={left + side + tick} y2={top} stroke={PLATE_STROKE} strokeWidth={0.28} />,
+    <Line key="tr-v" x1={left + side} y1={top - tick} x2={left + side} y2={top + tick} stroke={PLATE_STROKE} strokeWidth={0.28} />,
+    // Bottom-left
+    <Line key="bl-h" x1={left - tick} y1={top + side} x2={left + tick} y2={top + side} stroke={PLATE_STROKE} strokeWidth={0.28} />,
+    <Line key="bl-v" x1={left} y1={top + side - tick} x2={left} y2={top + side + tick} stroke={PLATE_STROKE} strokeWidth={0.28} />,
+    // Bottom-right
+    <Line key="br-h" x1={left + side - tick} y1={top + side} x2={left + side + tick} y2={top + side} stroke={PLATE_STROKE} strokeWidth={0.28} />,
+    <Line key="br-v" x1={left + side} y1={top + side - tick} x2={left + side} y2={top + side + tick} stroke={PLATE_STROKE} strokeWidth={0.28} />,
+  ];
+
+  const numbersStyle = useAnimatedStyle(() => {
+    // Secondary numbers soften and dissolve first in the withdrawal
+    const nFadeEnd = fadeStart + (fadeEnd - fadeStart) * 0.45;
+    const opacity = interpolate(progress.value, [fadeStart, nFadeEnd], [1, 0], 'clamp');
+    return { opacity };
+  });
+
   return (
     <View style={StyleSheet.absoluteFill}>
       <Svg width={size} height={size} viewBox="0 0 100 100">
-        <Rect x={left} y={top} width={side} height={side} stroke={INK} strokeOpacity={0.26} strokeWidth={0.3} fill={colors.surface} fillOpacity={0.55} />
+        {/* Dark technical plate fill */}
+        <Rect x={left} y={top} width={side} height={side} stroke={PLATE_STROKE} strokeWidth={0.32} fill="#0E151C" fillOpacity={0.88} />
         {rules}
+        {corners}
       </Svg>
-      {formation.gridCells.map((cell) => (
-        <Text key={cell.value} style={[styles.cellNumber, styles.cellNumberRest, numeralBox(cell, pitch, unit)]}>
-          {cell.value}
-        </Text>
-      ))}
+      <Animated.View style={[StyleSheet.absoluteFill, numbersStyle]} pointerEvents="none">
+        {formation.gridCells.map((cell) => (
+          <Text key={cell.value} style={[styles.cellNumber, styles.cellNumberRest, numeralBox(cell, pitch, unit)]}>
+            {cell.value}
+          </Text>
+        ))}
+      </Animated.View>
     </View>
   );
 });
@@ -89,10 +133,10 @@ const CellHighlight = memo(function CellHighlight({
   const style = useAnimatedStyle(() => ({
     opacity:
       interpolate(progress.value, [landing - 0.012, landing], [0, 1], 'clamp') *
-      interpolate(progress.value, [fadeStart, fadeEnd], [1, 0], 'clamp'),
+      interpolate(progress.value, [fadeStart, fadeStart + (fadeEnd - fadeStart) * 0.5], [1, 0], 'clamp'),
   }));
   return (
-    <Animated.Text style={[styles.cellNumber, box, { color: accent, backgroundColor: colors.surface }, style]}>
+    <Animated.Text style={[styles.cellNumber, box, { color: accent }, style]}>
       {value}
     </Animated.Text>
   );
@@ -128,7 +172,7 @@ const VertexPoint = memo(function VertexPoint({
 }) {
   const style = useAnimatedStyle(() => {
     const appear = interpolate(progress.value, [landing - 0.01, landing + 0.012], [0, 1], 'clamp');
-    const leave = interpolate(progress.value, [fadeStart, fadeEnd], [1, 0], 'clamp');
+    const leave = interpolate(progress.value, [fadeStart + (fadeEnd - fadeStart) * 0.35, fadeEnd], [1, 0], 'clamp');
     return { opacity: appear * leave, transform: [{ scale: 0.4 + appear * 0.6 }] };
   });
   // The destination point responds as the line arrives; only the point, never its label.
@@ -234,7 +278,7 @@ export const FormationLayer = memo(function FormationLayer({
   return (
     <View style={[StyleSheet.absoluteFill, { width: size, height: size }]} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
       <Animated.View style={[StyleSheet.absoluteFill, gridStyle]} renderToHardwareTextureAndroid>
-        <KameaSquare formation={formation} size={size} />
+        <KameaSquare formation={formation} size={size} fadeStart={fadeStart} fadeEnd={fadeEnd} progress={progress} />
       </Animated.View>
       {lit.map((entry) => (
         <CellHighlight
@@ -248,10 +292,10 @@ export const FormationLayer = memo(function FormationLayer({
           accent={accent}
         />
       ))}
-      {/* The line in ink while it is being made; colour arrives once it is whole. Reduced
-          motion stages it in by opacity instead of tracing it. */}
+      {/* The authoritative line drawn in clean off-white / silver ink on the dark drafting plate.
+          Colour arrives once the mark is whole. Reduced motion stages it in by opacity instead of tracing. */}
       <Animated.View style={[StyleSheet.absoluteFill, reduceMotion ? stagedStyle : null]}>
-        <AnchorMark svg={svg} size={size} strokeColor={INK} drawProgress={reduceMotion ? undefined : trace} />
+        <AnchorMark svg={svg} size={size} strokeColor="#F4F6FA" drawProgress={reduceMotion ? undefined : trace} />
       </Animated.View>
       {formation.vertices.map((vertex, index) => (
         <VertexPoint
@@ -362,7 +406,7 @@ const MappingToken = memo(function MappingToken({
   }));
   return (
     <Animated.View style={[styles.token, style]}>
-      <Animated.Text style={[styles.tokenLetter, { color: accent, fontSize, lineHeight: fontSize * 1.1 }]}>{letter}</Animated.Text>
+      <Animated.Text style={[styles.tokenLetter, { color: '#F4F6FA', fontSize, lineHeight: fontSize * 1.1 }]}>{letter}</Animated.Text>
       <Animated.Text style={[styles.tokenNumber, { color: accent }, numberStyle]}>{number}</Animated.Text>
     </Animated.View>
   );
@@ -380,8 +424,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   cellNumber: { position: 'absolute', fontFamily: typography.bodyBold, includeFontPadding: false },
-  cellNumberRest: { color: INK, opacity: 0.34 },
-  pen: { position: 'absolute', left: 0, top: 0, width: PEN, height: PEN, borderRadius: PEN / 2, backgroundColor: INK },
+  cellNumberRest: { color: 'rgba(244, 246, 250, 0.38)' },
+  pen: { position: 'absolute', left: 0, top: 0, width: PEN, height: PEN, borderRadius: PEN / 2, backgroundColor: '#F4F6FA' },
   token: { position: 'absolute', left: 0, top: 0, width: TOKEN, height: TOKEN, alignItems: 'center', justifyContent: 'center' },
   tokenLetter: { fontFamily: typography.displayBold },
   tokenNumber: { position: 'absolute', right: 0, top: 2, fontFamily: typography.bodyBold, fontSize: 11, lineHeight: 13 },

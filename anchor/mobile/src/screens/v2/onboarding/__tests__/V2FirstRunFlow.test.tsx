@@ -3,17 +3,19 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 
 const mockSetSession = jest.fn();
 let mockHasCompletedOnboarding = true;
-jest.mock('@/stores/authStore', () => ({
-  useAuthStore: {
-    getState: () => ({
+jest.mock('@/stores/authStore', () => {
+  const state = {
+    user: null,
       setSession: mockSetSession,
       completeOnboarding: jest.fn(),
       get hasCompletedOnboarding() {
         return mockHasCompletedOnboarding;
       },
-    }),
-  },
-}));
+  };
+  const useAuthStore: any = (selector: (value: typeof state) => unknown) => selector(state);
+  useAuthStore.getState = () => state;
+  return { useAuthStore };
+});
 
 jest.mock('@/stores/anchorStore', () => ({
   useAnchorStore: Object.assign(
@@ -31,10 +33,11 @@ jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: mockNavigate, reset: jest.fn() }),
 }));
 
-const draft: { currentStep: string } = { currentStep: 'direction' };
+const draft: { currentStep: string } = { currentStep: 'welcome' };
 const mockResetFirstRun = jest.fn();
-jest.mock('@/stores/v2', () => ({
-  useFirstRunStore: () => ({
+const mockSetStep = jest.fn((step: string) => { draft.currentStep = step; });
+jest.mock('@/stores/v2/firstRunStore', () => ({
+  useFirstRunStore: Object.assign(() => ({
     draft,
     hydrated: true,
     setDirection: jest.fn(),
@@ -42,24 +45,25 @@ jest.mock('@/stores/v2', () => ({
     form: jest.fn(),
     setExpression: jest.fn(),
     setVisionChoice: jest.fn(),
-    setStep: jest.fn(),
+    setStep: mockSetStep,
     markFocusCompleted: jest.fn(),
     markFocusRecorded: jest.fn(),
     markAuthCompleted: jest.fn(),
     markAnchorPersisted: jest.fn(),
     complete: jest.fn(),
     reset: mockResetFirstRun,
-  }),
+  }), { getState: () => ({ draft }) }),
 }));
 
 import { V2FirstRunFlow } from '../V2FirstRunFlow';
 
 describe('V2FirstRunFlow returning-user sign in', () => {
   beforeEach(() => {
-    draft.currentStep = 'direction';
+    draft.currentStep = 'welcome';
     mockSetSession.mockReset();
     mockNavigate.mockReset();
     mockResetFirstRun.mockReset();
+    mockSetStep.mockClear();
     mockHasCompletedOnboarding = true;
   });
 
@@ -73,11 +77,26 @@ describe('V2FirstRunFlow returning-user sign in', () => {
     fireEvent.press(screen.getByText('Sign in'));
     expect(mockNavigate).toHaveBeenCalledWith('V2Auth', { initialMode: 'signin' });
   });
+
+  it('explains personalization before asking a human question, without category choices', async () => {
+    const view = render(<V2FirstRunFlow />);
+    fireEvent.press(screen.getByText('Get started'));
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    expect(mockSetStep).toHaveBeenCalledWith('bridge');
+    view.rerender(<V2FirstRunFlow />);
+    expect(screen.getByText("Let's make Anchor yours.")).toBeTruthy();
+    expect(screen.getByText('Takes about a minute.')).toBeTruthy();
+    fireEvent.press(screen.getByText('Continue'));
+    expect(mockSetStep).toHaveBeenLastCalledWith('motivation');
+    view.rerender(<V2FirstRunFlow />);
+    expect(screen.getByText(/What are you hoping\s+will change/)).toBeTruthy();
+    expect(screen.queryByText('Career')).toBeNull();
+  });
 });
 
 describe('V2FirstRunFlow first Anchor', () => {
   beforeEach(() => {
-    draft.currentStep = 'intention';
+    draft.currentStep = 'creation';
   });
 
   it('makes the first Anchor with the same creation flow as every later one', () => {

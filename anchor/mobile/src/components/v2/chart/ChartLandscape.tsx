@@ -27,6 +27,16 @@ const AnimatedPath = Animated.createAnimatedComponent(Path);
 /** Warm lamplight for the travelled route: reads as "lit by use", not as gold ornament. */
 export const ROUTE_LIGHT = '#F2E6CB';
 const ROUTE_AHEAD = 'rgba(242, 230, 203, 0.5)';
+const ROUTE_SURVEY = 'rgba(242, 230, 203, 0.34)';
+
+/**
+ * Markers resolve as the drawn route passes them. `routeReveal` runs past 1
+ * (to ROUTE_REVEAL_END) so the destination — at exactly 1 — gets the same
+ * resolve-and-ripple as every other waypoint; the path itself clamps at 1.
+ */
+export const ROUTE_REVEAL_END = 1.14;
+const MARKER_RESOLVE = 0.03;
+const MARKER_RIPPLE = 0.12;
 
 export type ChartMarker = {
   id: string;
@@ -54,14 +64,33 @@ type Props = {
    * trail and the Anchor's position. Animate it to move the Anchor forward.
    */
   travelled?: SharedValue<number>;
-  /** 0–1: how much of the trail ahead is drawn (generation reveal). Defaults to fully drawn. */
+  /** Static travelled position for read-only snapshots; animation stays with the full Chart. */
+  travelledFraction?: number;
+  /** How much of the route ahead is drawn, 0…ROUTE_REVEAL_END. Defaults to fully drawn. */
   routeReveal?: SharedValue<number>;
+  /** Markers appear as `routeReveal` passes them (with one quiet ripple each). */
+  markersFollowRoute?: boolean;
   /** Markers revealed so far, 0…markers.length (fractional values fade in). */
   markerReveal?: SharedValue<number>;
+  /** 0–1 pencil survey trace reaching toward the destination (mapping, before a route exists). */
+  surveyReveal?: SharedValue<number>;
+  /** 0–1 position of a single light pass along the route; `sweepOpacity` fades it. */
+  sweep?: SharedValue<number>;
+  sweepOpacity?: SharedValue<number>;
   /** 0–1 darkness over the scene (generation starts restrained). */
   veil?: SharedValue<number>;
-  /** 0–1 opacity of the destination treatment. */
+  /** 0–1 presence of START, the Anchor and the HERE caption. */
+  hereReveal?: SharedValue<number>;
+  /** 0–1 opacity of the destination treatment (and the THERE point before markers exist). */
   destinationReveal?: SharedValue<number>;
+  /** The stretch being travelled now (route fractions), drawn a little brighter than the rest ahead. */
+  stretch?: { from: number; to: number } | null;
+  stretchReveal?: SharedValue<number>;
+  /** A waypoint that has just been reached engraves (fills) with this 0–1 value. */
+  engraveId?: string | null;
+  engrave?: SharedValue<number>;
+  /** 0–1 one-shot ripple on the current waypoint (entry emphasis). */
+  currentPulse?: SharedValue<number>;
   anchorArt?: ChartAnchorArt | null;
   /** Real Vision image for the destination. Never a stand-in. */
   destinationImageUrl?: string | null;
@@ -82,9 +111,14 @@ function withAlpha(hex: string, alpha: number): string {
   return `${hex.slice(0, 7)}${Math.round(alpha * 255).toString(16).padStart(2, '0')}`;
 }
 
+function clamp01(value: number): number {
+  'worklet';
+  return Math.max(0, Math.min(1, value));
+}
+
 /**
- * The Chart map: the category landscape with the route embedded in its trail.
- * The art, route geometry and marker placement all come from
+ * The Chart map: a category environment (terrain) with the route drawn over it
+ * (navigation). The art, route geometry and marker placement all come from
  * `chartRouteGeometry`, so every Chart surface agrees on where things are.
  */
 export function ChartLandscape({
@@ -94,10 +128,21 @@ export function ChartLandscape({
   showRoute = true,
   markers = [],
   travelled,
+  travelledFraction,
   routeReveal,
+  markersFollowRoute = false,
   markerReveal,
+  surveyReveal,
+  sweep,
+  sweepOpacity,
   veil,
+  hereReveal,
   destinationReveal,
+  stretch,
+  stretchReveal,
+  engraveId,
+  engrave,
+  currentPulse,
   anchorArt,
   destinationImageUrl,
   destinationLabel,
@@ -119,6 +164,15 @@ export function ChartLandscape({
   const fractions = useMemo(() => waypointFractions(markers.length), [markers.length]);
   const startPoint = useMemo(() => toFramePoint(pointAt(0, art), frame), [art, frame]);
   const endPoint = useMemo(() => toFramePoint(pointAt(1, art), frame), [art, frame]);
+  const stretchPath = useMemo(
+    () => (stretch && stretch.to > stretch.from ? routePathData(frame, art, stretch.from, stretch.to) : ''),
+    [art, frame, stretch]
+  );
+  const stretchLength = useMemo(
+    () => (stretch && stretch.to > stretch.from ? routeLength(frame, art, stretch.from, stretch.to) : 0),
+    [art, frame, stretch]
+  );
+  const sweepLength = Math.min(72, length * 0.16);
   // Lookup table so the Anchor can travel along the trail on the UI thread.
   const lut = useMemo(
     () => Array.from({ length: 101 }, (_, index) => toFramePoint(pointAt(index / 100, art), frame)),
@@ -126,25 +180,50 @@ export function ChartLandscape({
   );
 
   const travelledProps = useAnimatedProps(() => {
-    const t = travelled ? travelled.value : 0;
-    return { strokeDashoffset: length * (1 - Math.max(0, Math.min(1, t))) };
-  });
+    const t = travelled ? travelled.value : travelledFraction ?? 0;
+    return { strokeDashoffset: length * (1 - clamp01(t)) };
+  }, [length, travelledFraction]);
   const aheadProps = useAnimatedProps(() => {
     const t = routeReveal ? routeReveal.value : 1;
-    return { strokeDashoffset: length * (1 - Math.max(0, Math.min(1, t))) };
+    return { strokeDashoffset: length * (1 - clamp01(t)) };
+  });
+  const surveyProps = useAnimatedProps(() => {
+    const t = surveyReveal ? surveyReveal.value : 0;
+    return { strokeDashoffset: length * (1 - clamp01(t)) };
+  });
+  const stretchProps = useAnimatedProps(() => {
+    const t = stretchReveal ? stretchReveal.value : 1;
+    return { strokeDashoffset: stretchLength * (1 - clamp01(t)) };
+  });
+  const sweepProps = useAnimatedProps(() => {
+    // The lit dash's head travels 0 → length + dash, so it enters and leaves cleanly.
+    const head = (sweep ? clamp01(sweep.value) : 0) * (length + sweepLength);
+    return {
+      strokeDashoffset: sweepLength - head,
+      strokeOpacity: sweepOpacity ? sweepOpacity.value : 0,
+    };
   });
   const veilStyle = useAnimatedStyle(() => ({ opacity: veil ? veil.value : 0 }));
   const destinationStyle = useAnimatedStyle(() => ({ opacity: destinationReveal ? destinationReveal.value : 1 }));
+  const endPointStyle = useAnimatedStyle(() => {
+    const value = destinationReveal ? destinationReveal.value : 1;
+    return { opacity: value, transform: [{ scale: 0.7 + 0.3 * value }] };
+  });
+  const hereCaptionStyle = useAnimatedStyle(() => ({ opacity: hereReveal ? hereReveal.value : 1 }));
   const hereStyle = useAnimatedStyle(() => {
-    const t = Math.max(0, Math.min(1, travelled ? travelled.value : 0)) * 100;
+    const t = clamp01(travelled ? travelled.value : 0) * 100;
     const index = Math.floor(t);
     const a = lut[index];
     const b = lut[Math.min(100, index + 1)];
     const local = t - index;
+    const presence = hereReveal ? hereReveal.value : 1;
     return {
+      opacity: presence,
       transform: [
         { translateX: a.x + (b.x - a.x) * local - HERE_SIZE / 2 },
         { translateY: a.y + (b.y - a.y) * local - HERE_SIZE / 2 },
+        // Settles into place: a few percent of scale, never a bounce.
+        { scale: 0.9 + 0.1 * presence },
       ],
     };
   });
@@ -201,7 +280,23 @@ export function ChartLandscape({
 
       {showRoute ? (
         <Svg width={frame.width} height={frame.height} style={StyleSheet.absoluteFill} pointerEvents="none">
-          {/* The way ahead: a quiet dashed trace along the trail. */}
+          {/* Mapping: a fine pencil survey reaching toward the destination before a route exists. */}
+          {surveyReveal ? (
+            <AnimatedPath
+              d={fullPath}
+              stroke={ROUTE_SURVEY}
+              strokeWidth={1}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              fill="none"
+              strokeDasharray={[length, length]}
+              animatedProps={surveyProps}
+            />
+          ) : (
+            // At rest, a faint engraved shadow under the route keeps it seated in the terrain.
+            <Path d={fullPath} stroke={colors.ink.deep} strokeOpacity={0.35} strokeWidth={1} strokeDasharray={[3, 7]} fill="none" />
+          )}
+          {/* The way ahead. */}
           <AnimatedPath
             d={fullPath}
             stroke={ROUTE_AHEAD}
@@ -212,13 +307,26 @@ export function ChartLandscape({
             strokeDasharray={[length, length]}
             animatedProps={aheadProps}
           />
-          <Path d={fullPath} stroke={colors.ink.deep} strokeOpacity={0.35} strokeWidth={1} strokeDasharray={[3, 7]} fill="none" />
-          {/* The travelled route: lit, with a soft (non-blurred) underlay for depth. */}
+          {/* The stretch being travelled now: the next segment carries the emphasis. */}
+          {stretchPath ? (
+            <AnimatedPath
+              d={stretchPath}
+              stroke={ROUTE_LIGHT}
+              strokeOpacity={0.78}
+              strokeWidth={2.25}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              fill="none"
+              strokeDasharray={[stretchLength, stretchLength]}
+              animatedProps={stretchProps}
+            />
+          ) : null}
+          {/* The travelled route: established, with a soft (non-blurred) underlay for depth. */}
           <AnimatedPath
             d={fullPath}
             stroke={ROUTE_LIGHT}
-            strokeOpacity={0.22}
-            strokeWidth={7}
+            strokeOpacity={0.18}
+            strokeWidth={6}
             strokeLinecap="round"
             strokeLinejoin="round"
             fill="none"
@@ -235,33 +343,58 @@ export function ChartLandscape({
             strokeDasharray={[length, length]}
             animatedProps={travelledProps}
           />
+          {/* One light pass along the finished route: an instrument completing its calculation. */}
+          {sweep ? (
+            <AnimatedPath
+              d={fullPath}
+              stroke={ROUTE_LIGHT}
+              strokeWidth={3}
+              strokeLinecap="round"
+              fill="none"
+              strokeDasharray={[sweepLength, length * 2]}
+              animatedProps={sweepProps}
+            />
+          ) : null}
         </Svg>
       ) : null}
 
       {showRoute ? (
-        <View pointerEvents="none" style={[styles.startDot, { left: startPoint.x - 4, top: startPoint.y - 4 }]} />
+        <Animated.View pointerEvents="none" style={[styles.startDot, { left: startPoint.x - 4, top: startPoint.y - 4 }, hereCaptionStyle]} />
       ) : null}
 
       {showRoute && hereCaption ? (
-        <View pointerEvents="none" style={[styles.caption, { left: startPoint.x + HERE_SIZE / 2 + 8, top: startPoint.y - 8 }]}>
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.caption, { left: startPoint.x + HERE_SIZE / 2 + 8, top: startPoint.y - 8 }, hereCaptionStyle]}
+        >
           <Text style={styles.captionTitle}>{hereCaption}</Text>
-        </View>
+        </Animated.View>
+      ) : null}
+
+      {/* Before waypoints exist, THERE is a quiet ring at the end of the trail. */}
+      {showRoute && markers.length === 0 && (thereCaption || destinationReveal) ? (
+        <Animated.View pointerEvents="none" style={[styles.endPoint, { left: endPoint.x - 7, top: endPoint.y - 7 }, endPointStyle]} />
       ) : null}
 
       {showRoute
         ? markers.map((marker, index) => {
-            const point = toFramePoint(pointAt(fractions[index], art), frame);
+            const fraction = fractions[index];
+            const point = toFramePoint(pointAt(fraction, art), frame);
             const isLast = index === markers.length - 1;
             return (
               <MarkerView
                 key={marker.id}
                 marker={marker}
                 index={index}
+                fraction={fraction}
                 x={point.x}
                 y={point.y}
                 isDestination={isLast}
                 categoryColor={categoryColor}
                 reveal={markerReveal}
+                routeReveal={markersFollowRoute ? routeReveal : undefined}
+                engrave={engraveId === marker.id ? engrave : undefined}
+                pulse={marker.state === 'current' ? currentPulse : undefined}
                 onPress={onMarkerPress}
               />
             );
@@ -320,31 +453,62 @@ const DEST_CARD_WIDTH = 96;
 function MarkerView({
   marker,
   index,
+  fraction,
   x,
   y,
   isDestination,
   categoryColor,
   reveal,
+  routeReveal,
+  engrave,
+  pulse,
   onPress,
 }: {
   marker: ChartMarker;
   index: number;
+  fraction: number;
   x: number;
   y: number;
   isDestination: boolean;
   categoryColor: string;
   reveal?: SharedValue<number>;
+  routeReveal?: SharedValue<number>;
+  engrave?: SharedValue<number>;
+  pulse?: SharedValue<number>;
   onPress?: (id: string) => void;
 }) {
   const revealStyle = useAnimatedStyle(() => {
-    const value = reveal ? Math.max(0, Math.min(1, reveal.value - index)) : 1;
-    return { opacity: value, transform: [{ scale: 0.8 + value * 0.2 }] };
+    let value = 1;
+    if (routeReveal) value = clamp01((routeReveal.value - fraction + MARKER_RESOLVE) / MARKER_RESOLVE);
+    else if (reveal) value = clamp01(reveal.value - index);
+    return { opacity: value, transform: [{ scale: 0.82 + value * 0.18 }] };
+  });
+  // One restrained ripple as the route reaches the marker, or on the current waypoint's entry pulse.
+  const rippleStyle = useAnimatedStyle(() => {
+    let progress = -1;
+    if (routeReveal) progress = (routeReveal.value - fraction) / MARKER_RIPPLE;
+    else if (pulse) progress = pulse.value;
+    const visible = progress > 0 && progress < 1;
+    return {
+      opacity: visible ? 0.5 * (1 - progress) : 0,
+      transform: [{ scale: visible ? 0.8 + 1.3 * progress : 0.8 }],
+    };
+  });
+  // Reached: the dot fills from its centre, like ink settling into an engraving.
+  const engraveStyle = useAnimatedStyle(() => {
+    const value = engrave ? clamp01(engrave.value) : 1;
+    return { opacity: value, transform: [{ scale: 0.35 + 0.65 * value }] };
   });
   const size =
     marker.state === 'current' ? 28 : isDestination ? 22 : marker.state === 'completed' ? 16 : 13;
   const hit = Math.max(size, 36);
+  const completed = marker.state === 'completed';
   return (
     <Animated.View style={[styles.markerSlot, { left: x - hit / 2, top: y - hit / 2, width: hit, height: hit }, revealStyle]}>
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.ripple, { width: size + 14, height: size + 14, borderRadius: (size + 14) / 2 }, rippleStyle]}
+      />
       <Pressable
         disabled={!onPress}
         onPress={() => onPress?.(marker.id)}
@@ -359,14 +523,19 @@ function MarkerView({
           style={[
             styles.markerDot,
             { width: size, height: size, borderRadius: size / 2 },
-            marker.state === 'completed' && styles.markerCompleted,
+            completed && (engrave ? styles.markerEngraving : styles.markerCompleted),
             marker.state === 'current' && [styles.markerCurrent, { backgroundColor: categoryColor }],
             marker.state === 'upcoming' && styles.markerUpcoming,
             isDestination && marker.state !== 'current' && styles.markerDestination,
           ]}
         >
-          {marker.state === 'completed' ? (
-            <Check size={10} color={colors.ink.base} strokeWidth={3} />
+          {completed && engrave ? (
+            <Animated.View style={[StyleSheet.absoluteFill, styles.engraveFill, { borderRadius: size / 2 }, engraveStyle]} />
+          ) : null}
+          {completed ? (
+            <Animated.View style={engrave ? engraveStyle : undefined}>
+              <Check size={10} color={colors.ink.base} strokeWidth={3} />
+            </Animated.View>
           ) : marker.state === 'current' ? (
             <Text style={styles.markerNumber}>{marker.number}</Text>
           ) : isDestination ? (
@@ -389,17 +558,29 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: ROUTE_LIGHT,
   },
+  endPoint: {
+    position: 'absolute',
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1.5,
+    borderColor: ROUTE_LIGHT,
+    backgroundColor: 'rgba(14, 21, 28, 0.7)',
+  },
   caption: { position: 'absolute' },
   captionTitle: { ...typography.labelSM, color: ROUTE_LIGHT, letterSpacing: 1.2 },
-  markerSlot: { position: 'absolute' },
-  markerHit: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  markerDot: { alignItems: 'center', justifyContent: 'center' },
+  markerSlot: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
+  markerHit: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  markerDot: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   markerCompleted: { backgroundColor: ROUTE_LIGHT },
+  markerEngraving: { borderWidth: 1.5, borderColor: ROUTE_LIGHT, backgroundColor: 'rgba(14, 21, 28, 0.7)' },
+  engraveFill: { backgroundColor: ROUTE_LIGHT },
   markerCurrent: { borderWidth: 2, borderColor: ROUTE_LIGHT },
   markerUpcoming: { backgroundColor: 'rgba(14, 21, 28, 0.7)', borderWidth: 1.5, borderColor: ROUTE_AHEAD },
   markerDestination: { backgroundColor: 'rgba(14, 21, 28, 0.85)', borderWidth: 1.5, borderColor: ROUTE_LIGHT },
   markerNumber: { ...typography.labelMD, fontSize: 12, color: '#FFFFFF' },
   currentHalo: { position: 'absolute', width: 40, height: 40, borderRadius: 20, borderWidth: 6 },
+  ripple: { position: 'absolute', borderWidth: 1, borderColor: ROUTE_LIGHT },
   here: { position: 'absolute', left: 0, top: 0 },
   destination: { position: 'absolute', width: DEST_CARD_WIDTH },
   destinationInner: { alignItems: 'flex-start', gap: 4 },

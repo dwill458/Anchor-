@@ -8,9 +8,11 @@ import express, { Application, Request, Response } from 'express';
 import * as Sentry from '@sentry/node';
 import cors from 'cors';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import dotenv from 'dotenv';
 import path from 'path';
+import { optionalAuthMiddleware, AuthRequest } from './api/middleware/auth';
+import { isAiDeveloper } from './api/middleware/aiRateLimit';
 import authRoutes from './api/routes/auth';
 import usersRoutes from './api/routes/users';
 import anchorRoutes from './api/routes/anchors';
@@ -244,17 +246,22 @@ app.use('/api/v2/assets/upload', express.json({ limit: '8mb' }));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
+// Resolve authentication token optionally before global rate limiting so
+// authenticated requests can be identified and developers elevated.
+app.use('/api/', optionalAuthMiddleware);
+
 // Global rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: env.NODE_ENV === 'development' ? 10_000 : 100, // Limit each IP (relaxed in dev)
+  max: (req: Request) => (env.NODE_ENV === 'development' || isAiDeveloper(req) ? 10_000 : 100),
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  keyGenerator: req => (req as AuthRequest).user?.uid || ipKeyGenerator(req.ip ?? ''),
   message: {
     success: false,
     error: {
       code: 'TOO_MANY_REQUESTS',
-      message: 'Too many requests from this IP, please try again after 15 minutes',
+      message: 'Too many requests, please try again after 15 minutes',
     },
   },
 });

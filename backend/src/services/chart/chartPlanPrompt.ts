@@ -23,6 +23,7 @@ export type ChartAdjustmentReason =
 export type ChartPlanningContext = {
   intention: string;
   category: string;
+  onboarding?: { motivation?: string; customAnswer?: string; desiredChange: string; lifeChanges: string[]; primaryNeed: string } | null;
   startingContext: string | null;
   vision: { title: string | null; description: string | null } | null;
   followUp: { question: string; answer: string } | null;
@@ -68,6 +69,14 @@ const REASON_GUIDANCE: Record<ChartAdjustmentReason, string> = {
   OTHER: 'Follow the person’s detail.',
 };
 
+/**
+ * The person answers "What would make this real?" — an observable destination,
+ * not a starting point and not a plan. Charts created before that question
+ * stored a starting-point description in the same field, so read it either way.
+ */
+const REALITY_INSTRUCTION =
+  'whatWouldMakeItReal is the person’s own answer to "What would make this real?": the observable state they are reaching for. Use it to state the DESTINATION concretely and to choose waypoints as the state changes between today and that state. If it also says where things stand today, treat that as the starting point and skip anything already true. (Older Charts may hold a description of the starting point here instead; read it either way.)';
+
 export const CHART_PLANNER_SYSTEM = [
   'You plan routes for Anchor, an intention practice app. A Chart turns one intention into a route from where the person is now to a recognisable destination.',
   '',
@@ -100,7 +109,14 @@ export function buildPlanningUserMessage(
   const data: Record<string, unknown> = {
     intention: limit(context.intention, 300),
     category: context.category,
-    startingPoint: limit(context.startingContext, 500),
+    ...(context.onboarding ? { onboarding: {
+      ...(context.onboarding.motivation ? { motivation: limit(context.onboarding.motivation, 240) } : {}),
+      ...(context.onboarding.customAnswer ? { customAnswer: limit(context.onboarding.customAnswer, 240) } : {}),
+      desiredChange: limit(context.onboarding.desiredChange, 500),
+      lifeChanges: context.onboarding.lifeChanges.map(value => limit(value, 80)),
+      primaryNeed: limit(context.onboarding.primaryNeed, 120),
+    } } : {}),
+    whatWouldMakeItReal: limit(context.startingContext, 500),
     vision: context.vision
       ? { title: limit(context.vision.title, 140), description: limit(context.vision.description) }
       : null,
@@ -128,6 +144,10 @@ export function buildPlanningUserMessage(
   }
 
   const instructions: string[] = [`Lens for this category: ${lens}`];
+  if (context.onboarding) instructions.push('Onboarding answers may help tailor the explanation or follow-up. The Anchor intention, user-provided destination, and current reality determine the route; never substitute the onboarding wish for them.');
+  if (context.startingContext) {
+    instructions.push(REALITY_INSTRUCTION);
+  }
   if (context.vision) {
     instructions.push(
       'The person has already pictured the destination in their Vision. Use it to understand what "arrived" looks like; do not ask them to describe the destination again.'
@@ -177,7 +197,7 @@ export function buildMoveSuggestionMessage(input: {
         intention: limit(input.intention, 300),
         category: input.category,
         destination: limit(input.destination, 140),
-        startingPoint: limit(input.startingContext, 400),
+        whatWouldMakeItReal: limit(input.startingContext, 400),
         waypoint: {
           title: limit(input.waypoint.title, 60),
           rationale: limit(input.waypoint.rationale, 280),

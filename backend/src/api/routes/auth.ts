@@ -17,6 +17,7 @@ import { logger } from '../../utils/logger';
 import { getChartFeatureFlags } from '../../config/chartFlags';
 import { hasLegacyMigrationAccess } from '../../services/MonetizationAccessService';
 import { getTrialState, type TrialState } from '../../services/v2/TrialLifecycleService';
+import { OnboardingContextSchema } from '../../services/v2/OnboardingContextService';
 
 const router = Router();
 
@@ -878,6 +879,33 @@ router.put(
     }
   }
 );
+
+/** Personalization is recorded only after the authenticated account owns its first Anchor. */
+router.put('/onboarding-context', authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user) throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
+    const context = validate(OnboardingContextSchema, req.body);
+    const user = await prisma.user.findUnique({ where: { authUid: req.user.uid }, select: { id: true } });
+    if (!user) throw new AppError('Account not found', 404, 'USER_NOT_FOUND');
+    const anchor = await prisma.anchor.findFirst({ where: { userId: user.id, isArchived: false }, select: { id: true } });
+    if (!anchor) throw new AppError('Create your first Anchor before saving onboarding.', 409, 'FIRST_ANCHOR_REQUIRED');
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: { onboardingContext: context as Prisma.InputJsonValue, hasCompletedOnboarding: true },
+      select: { onboardingContext: true, hasCompletedOnboarding: true },
+    });
+    res.json({ success: true, data: updated });
+  } catch (error) { next(error); }
+});
+
+router.get('/onboarding-context', authMiddleware, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user) throw new AppError('User not authenticated', 401, 'UNAUTHORIZED');
+    const user = await prisma.user.findUnique({ where: { authUid: req.user.uid }, select: { onboardingContext: true } });
+    if (!user) throw new AppError('Account not found', 404, 'USER_NOT_FOUND');
+    res.json({ success: true, data: user.onboardingContext });
+  } catch (error) { next(error); }
+});
 
 /**
  * PUT /api/auth/settings

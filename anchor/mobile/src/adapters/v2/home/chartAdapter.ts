@@ -194,14 +194,25 @@ export function homeChartErrorMessage(errorCode: string): string {
 
 /**
  * Home / Anchor Details Chart state from the per-Anchor Chart read model
- * (Anchor 2.0: one route per Anchor). Unknown renders nothing; a failed read
- * without a cached Chart also renders nothing rather than advertising Chart.
+ * (Anchor 2.0: one route per Anchor). Unknown remains hidden, confirmed
+ * absence stays distinct from an error, and cached Course data stays usable.
  */
 export function resolveAnchorChartState(input: {
   data: ChartForAnchor | null;
   loading: boolean;
   error: ChartRequestError | null;
 }): HomeChartState {
-  if (!input.data) return input.loading ? { state: 'resolving' } : { state: 'none' };
+  if (!input.data) {
+    if (input.loading) return { state: 'resolving' };
+    if (input.error) {
+      const message = input.error.kind === 'offline'
+        ? 'Your Chart could not be reached.'
+        : input.error.kind === 'disabled'
+          ? 'Your Chart is unavailable right now.'
+          : 'Your Chart could not be loaded.';
+      return { state: 'error', message };
+    }
+    return { state: 'none' };
+  }
   return toHomeChartState(input.data.chart);
 }

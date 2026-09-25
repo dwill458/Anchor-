@@ -7,6 +7,7 @@ import {
   normalizeMoveSuggestions,
 } from '../chartPlanSchema';
 import { buildTemplateRoute, parseNumericTarget } from '../chartTemplateRoute';
+import { buildPlanningUserMessage } from '../chartPlanPrompt';
 import { toOpenAiStrictSchema } from '../chartModelProviders';
 import { GENERATION_JSON_SCHEMA } from '../chartPlanSchema';
 
@@ -183,6 +184,15 @@ describe('deterministic template route', () => {
     expect(result.waypoints.every(item => item.kind === 'METRIC' && item.metricBaseline === 100)).toBe(true);
   });
 
+  it('takes the target from "what would make this real" when the intention has no number', () => {
+    const result = buildTemplateRoute({
+      intention: 'Build a business I love',
+      startingContext: 'The app is live and 1,000 people use it every week',
+    });
+    expect(result.needsNaming).toBe(false);
+    expect(result.waypoints[result.waypoints.length - 1]).toMatchObject({ kind: 'METRIC', metricTarget: 1000, metricBaseline: null });
+  });
+
   it('falls back to a plain outline the user is invited to rename', () => {
     const result = buildTemplateRoute({ intention: 'I trust my own decisions', startingContext: null });
     expect(result.needsNaming).toBe(true);
@@ -197,5 +207,32 @@ describe('provider schema adaptation', () => {
       properties: { suggestedOneMove: { anyOf: Array<{ type: string }> } };
     };
     expect(adapted.properties.suggestedOneMove.anyOf.map(item => item.type)).toEqual(['object', 'null']);
+  });
+});
+
+describe('planning prompt', () => {
+  it('passes the answer to "What would make this real?" as the destination reality, not a starting point', () => {
+    const message = buildPlanningUserMessage(
+      {
+        intention: 'Build a business I love',
+        category: 'career',
+        startingContext: 'The app is live and people use it every week',
+        vision: null,
+        followUp: null,
+        adjustment: null,
+      },
+      { allowFollowUp: true }
+    );
+    expect(message).toContain('"whatWouldMakeItReal": "The app is live and people use it every week"');
+    expect(message).not.toContain('startingPoint');
+    expect(message).toContain('Use it to state the DESTINATION concretely');
+  });
+
+  it('omits the reality instruction when the person wrote nothing', () => {
+    const message = buildPlanningUserMessage(
+      { intention: 'Run a marathon', category: 'health', startingContext: null, vision: null, followUp: null, adjustment: null },
+      { allowFollowUp: true }
+    );
+    expect(message).not.toContain('whatWouldMakeItReal is');
   });
 });

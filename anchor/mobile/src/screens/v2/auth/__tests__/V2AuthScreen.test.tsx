@@ -5,6 +5,11 @@ import { V2AuthScreen } from '../V2AuthScreen';
 import { AuthService } from '@/services/AuthService';
 import PostAuthFlowService from '@/services/PostAuthFlowService';
 
+let mockSignedInUser: { id: string } | null = null;
+jest.mock('@/stores/authStore', () => ({
+  useAuthStore: (selector: (state: { user: typeof mockSignedInUser }) => unknown) => selector({ user: mockSignedInUser }),
+}));
+
 jest.mock('expo-apple-authentication', () => ({
   isAvailableAsync: jest.fn().mockResolvedValue(true),
   AppleAuthenticationButton: ({ onPress }: { onPress: () => void }) => {
@@ -31,7 +36,38 @@ jest.mock('@/services/PostAuthFlowService', () => ({
 }));
 
 describe('V2AuthScreen', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => { jest.clearAllMocks(); mockSignedInUser = null; });
+
+  it('retries a failed onboarding save with the signed-in account without registering again', async () => {
+    mockSignedInUser = { id: 'new-account' };
+    const onSuccess = jest.fn().mockRejectedValueOnce(new Error('Your answers could not be saved.')).mockResolvedValueOnce(undefined);
+    render(<V2AuthScreen initialMode="create" saveProgress onBack={jest.fn()} onSuccess={onSuccess} />);
+    expect(screen.queryByLabelText('Email')).toBeNull();
+    fireEvent.press(screen.getByTestId('v2-auth-save-retry'));
+    await waitFor(() => expect(screen.getByText('Your answers could not be saved.')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('v2-auth-save-retry'));
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(2));
+    expect(AuthService.signUpWithEmail).not.toHaveBeenCalled();
+    expect(onSuccess).toHaveBeenCalledWith(expect.objectContaining({ id: 'new-account' }));
+  });
+
+  it('recovers when post-auth first Anchor finalization fails after registration', async () => {
+    (AuthService.signUpWithEmail as jest.Mock).mockResolvedValue({ user: { id: 'new-account' }, token: 'token' });
+    (PostAuthFlowService.run as jest.Mock).mockImplementationOnce(async () => {
+      mockSignedInUser = { id: 'new-account' };
+      throw new Error('Your first Anchor could not be saved yet.');
+    });
+    const onSuccess = jest.fn().mockResolvedValue(undefined);
+    const view = render(<V2AuthScreen initialMode="create" saveProgress onBack={jest.fn()} onSuccess={onSuccess} />);
+    fireEvent.changeText(screen.getByLabelText('Email'), 'new@example.com');
+    fireEvent.changeText(screen.getByLabelText('Password'), 'password123');
+    fireEvent.press(screen.getByTestId('v2-auth-submit'));
+    await waitFor(() => expect(screen.getByText('Your first Anchor could not be saved yet.')).toBeTruthy());
+    view.rerender(<V2AuthScreen initialMode="create" saveProgress onBack={jest.fn()} onSuccess={onSuccess} />);
+    fireEvent.press(screen.getByTestId('v2-auth-save-retry'));
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith(expect.objectContaining({ id: 'new-account' })));
+    expect(AuthService.signUpWithEmail).toHaveBeenCalledTimes(1);
+  });
 
   it('transforms one screen between sign in and create account without stale validation', () => {
     render(<V2AuthScreen onBack={jest.fn()} />);

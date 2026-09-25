@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { AccessibilityInfo, Image, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   cancelAnimation,
   Easing,
   interpolate,
+  interpolateColor,
   useAnimatedStyle,
   useDerivedValue,
   useSharedValue,
@@ -19,6 +20,7 @@ import { AnchorMark } from '@/components/v2/anchor/AnchorMark';
 import { expressionSpec } from '@/components/v2/anchor/anchorExpressions';
 import { CircularAnchorRenderer } from '@/components/v2/anchor/CircularAnchorRenderer';
 import { categoryLabel } from '@/components/v2/anchors/anchorPresentation';
+import { homeCategoryArt } from '@/components/v2/home/homeCategoryArt';
 import {
   CREATION_SAVE_ERRORS,
   DISTILLATION_COPY,
@@ -59,8 +61,44 @@ import { ExpressionLibrary } from './ExpressionLibrary';
 import { styleOption, type CreationStyleOption } from './expressionOptions';
 import { FormationLayer, MappingTokens, type StagePoint } from './FormationLayer';
 import { FormationSheet } from './FormationSheet';
+import { creationTimingTracker, type CreationTimingRecord } from './creationTelemetry';
 
 export type WindowRect = { x: number; y: number; width: number; height: number };
+
+function CreationTimingHud({ reduceMotion }: { reduceMotion: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [records, setRecords] = useState<CreationTimingRecord[]>([]);
+
+  useEffect(() => {
+    return creationTimingTracker.subscribe((latest) => setRecords(latest));
+  }, []);
+
+  if (!__DEV__) return null;
+
+  return (
+    <View style={styles.hudContainer} pointerEvents="box-none">
+      <Pressable style={styles.hudPill} onPress={() => setOpen((prev) => !prev)}>
+        <Text style={styles.hudPillText}>
+          ⏱ Timing {records.length}/9 {open ? '▲' : '▼'}
+        </Text>
+      </Pressable>
+      {open ? (
+        <View style={styles.hudPanel}>
+          <Text style={styles.hudHeader}>
+            {Platform.OS.toUpperCase()} | {reduceMotion ? 'Reduced Motion' : 'Full Motion'}
+          </Text>
+          {records.map((r) => (
+            <View key={r.stepNumber} style={styles.hudRow}>
+              <Text style={styles.hudStep}>{r.stepNumber}. {r.label}</Text>
+              <Text style={styles.hudTime}>{r.elapsedMs}ms (+{r.deltaMs})</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 
 /** Room kept above the grid for the lifted letter row during formation. */
 const LETTER_ROW = 46;
@@ -200,6 +238,13 @@ export function CreationStage({
     return () => clearTimeout(timer);
   }, [reduceMotion, shown, target, swap]);
 
+  useEffect(() => {
+    if (shown === 'reveal') {
+      creationTimingTracker.record('reveal_complete');
+    }
+  }, [shown]);
+
+
   /* ── stage layout → where and how large the mark sits ─────────────────── */
   const stageRef = useRef<View>(null);
   const [stage, setStage] = useState({ width: 0, height: 0 });
@@ -256,6 +301,43 @@ export function CreationStage({
     return () => clearTimeout(timer);
   }, [distillStage, onFormAnchor, reduceMotion, replay, step]);
 
+  /* ── tonal environment progression (cream <-> ink) ─────────────────────── */
+  const darkTone = useSharedValue(entryStep === 'formation' || entryStep === 'generating' ? 1 : 0);
+
+  useEffect(() => {
+    if (reduceMotion) {
+      darkTone.value = (target === 'formation' || target === 'generating') ? 1 : 0;
+      return;
+    }
+    if (target === 'distillation') {
+      // Room subtly deepens through distillation stages
+      if (distillStage === 'whole') {
+        darkTone.value = creationTiming(0.12, { duration: 900, easing: CREATION_EASING.deliberate });
+      } else if (distillStage === 'vowels') {
+        darkTone.value = creationTiming(0.42, { duration: 1000, easing: CREATION_EASING.deliberate });
+      } else if (distillStage === 'repeats') {
+        darkTone.value = creationTiming(0.75, { duration: 1000, easing: CREATION_EASING.deliberate });
+      } else if (distillStage === 'compact' || distillStage === 'settled') {
+        darkTone.value = creationTiming(1.0, { duration: 900, easing: CREATION_EASING.deliberate });
+      }
+    } else if (target === 'formation') {
+      darkTone.value = creationTiming(1.0, { duration: 500, easing: CREATION_EASING.deliberate });
+    } else if (target === 'reveal') {
+      // Light returns around the finished Anchor
+      darkTone.value = creationTiming(0, { duration: 850, easing: CREATION_EASING.deliberate });
+    } else if (target === 'expression') {
+      darkTone.value = 0;
+    } else if (target === 'generating') {
+      // Return to darkness for material refinement
+      darkTone.value = creationTiming(1.0, { duration: 650, easing: CREATION_EASING.deliberate });
+    } else if (target === 'choose') {
+      // Light returns as two interpretations split
+      darkTone.value = creationTiming(0, { duration: 750, easing: CREATION_EASING.deliberate });
+    } else if (target === 'handoff') {
+      darkTone.value = 0;
+    }
+  }, [darkTone, distillStage, reduceMotion, target]);
+
   /* ── formation: one progress value drives square, letters, points, line ── */
   const [formationPhase, setFormationPhase] = useState<FormationPhase>('grid');
   const formationTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -268,9 +350,12 @@ export function CreationStage({
   const replayRef = useRef(replay);
   replayRef.current = replay;
 
+  const formationStartedAt = useRef(0);
   const runFormation = useCallback(
     (hurried = false) => {
       clearFormationTimers();
+      formationStartedAt.current = Date.now();
+      creationTimingTracker.record('kamea_mapping_begin', { hurried, pace });
       const from = progress.value;
       const normal = (a: number, b: number) => Math.max(0, (b - a) * timeline.total);
       let total: number;
@@ -301,10 +386,37 @@ export function CreationStage({
         if (from < fraction) formationTimers.current.push(setTimeout(() => setFormationPhase(phase), at(fraction)));
         else setFormationPhase(phase);
       }
+
+      // Step 4: First letter begins movement
+      if (timeline.departures[0] !== undefined) {
+        formationTimers.current.push(setTimeout(() => {
+          creationTimingTracker.record('first_letter_movement');
+        }, at(timeline.departures[0])));
+      }
+
+      // Step 5: Final letter reaches mapped position
+      const finalLanding = timeline.landings[timeline.landings.length - 1];
+      if (finalLanding !== undefined) {
+        formationTimers.current.push(setTimeout(() => {
+          creationTimingTracker.record('final_letter_mapped');
+        }, at(finalLanding)));
+      }
+
+      // Step 6: First geometry stroke begins
+      formationTimers.current.push(setTimeout(() => {
+        creationTimingTracker.record('first_geometry_stroke');
+      }, at(timeline.constructStart)));
+
+      // Step 7: Final geometry stroke completes
+      formationTimers.current.push(setTimeout(() => {
+        creationTimingTracker.record('final_geometry_stroke');
+      }, at(timeline.constructEnd)));
+
       // Completion does not wait for an animation callback: the timer is the contract, and it
       // still holds when frames are paused (backgrounded app, tests).
       formationTimers.current.push(setTimeout(() => {
         formationRunning.current = false;
+        creationTimingTracker.record('final_reveal_begin');
         if (replayRef.current === 'formation') {
           setReplay(null);
           return;
@@ -312,7 +424,7 @@ export function CreationStage({
         onFormationDone();
       }, total + 40));
     },
-    [onFormationDone, progress, timeline],
+    [onFormationDone, pace, progress, timeline],
   );
 
   useEffect(() => {
@@ -340,10 +452,13 @@ export function CreationStage({
 
   /** A tap during formation finishes it briskly instead of skipping what it shows. */
   const hurry = useCallback(() => {
+    // 1200ms grace period to avoid touch-through / lingering taps from truncating formation
+    if (Date.now() - formationStartedAt.current < 1200) return;
     if (!forming || !formationRunning.current || progress.value >= timeline.constructEnd) return;
     cancelAnimation(progress);
     runFormation(true);
   }, [forming, progress, runFormation, timeline.constructEnd]);
+
 
   const startReplay = useCallback(() => {
     if (step !== 'reveal' || replay) return;
@@ -548,6 +663,28 @@ export function CreationStage({
   const breathStyle = useAnimatedStyle(() => ({ opacity: interpolate(gen.value, [0.96, 1], [0, 1], 'clamp') * (0.1 + breath.value * 0.3) }));
   const handoffCaptionStyle = useResolveStyle(resolve);
 
+  /* ── dynamic tone styles ──────────────────────────────────────────────── */
+  const bgToneStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(darkTone.value, [0, 1], [colors.canvas, colors.ink.base]),
+  }));
+  const dynamicTitleStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(darkTone.value, [0, 1], [colors.text.primary, colors.ink.text.primary]),
+  }));
+  const dynamicEyebrowStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(darkTone.value, [0, 1], [colors.text.secondary, colors.ink.text.secondary]),
+  }));
+  const dynamicStatusStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(darkTone.value, [0, 1], [colors.text.secondary, 'rgba(244, 246, 250, 0.72)']),
+  }));
+  const categoryArt = useMemo(() => homeCategoryArt(draft.category), [draft.category]);
+  const categoryWorldStyle = useAnimatedStyle(() => {
+    const isReveal = shown === 'reveal';
+    const targetOpacity = isReveal ? 0.24 : 0;
+    return {
+      opacity: reduceMotion ? targetOpacity : creationTiming(targetOpacity, { duration: 800, easing: CREATION_EASING.enter }),
+    };
+  }, [reduceMotion, shown]);
+
   /* ── derived presentation ─────────────────────────────────────────────── */
   const lettersVisible = (target === 'distillation' || target === 'formation') && letters.length > 0;
   const vertexIndexes = useMemo(
@@ -582,11 +719,15 @@ export function CreationStage({
       const slot = letterIndex >= 0 ? slots?.get(letterIndex) : undefined;
       vertexLetter.push(vertex.letter ?? '');
       numbers.push(vertex.value);
-      origins.push(slot ? { x: cx + (slot.x - cx) * LIFTED_SCALE, y: cy - raise + (slot.y - cy) * LIFTED_SCALE } : null);
+      const fallbackOrigin: StagePoint = {
+        x: cx + (letterIndex >= 0 ? (letterIndex - (letters.length - 1) / 2) * (26 * LIFTED_SCALE + 12) : 0),
+        y: cy - raise,
+      };
+      origins.push(slot ? { x: cx + (slot.x - cx) * LIFTED_SCALE, y: cy - raise + (slot.y - cy) * LIFTED_SCALE } : fallbackOrigin);
       targets.push(toStage(vertex.x, vertex.y));
     });
     return { letters: vertexLetter, numbers, origins, targets };
-  }, [formation, forming, markSize, placement, reduceMotion, slots, stage, vertexIndexes]);
+  }, [formation, forming, letters.length, markSize, placement, reduceMotion, slots, stage, vertexIndexes]);
 
   const headline = HEADLINES[shown];
   const spokenStatus = shown === 'distillation'
@@ -618,9 +759,9 @@ export function CreationStage({
     switch (shown) {
       case 'distillation':
         return (
-          <Text style={styles.status} accessibilityLiveRegion="polite" testID="distillation-status">
+          <Animated.Text style={[styles.status, dynamicStatusStyle]} accessibilityLiveRegion="polite" testID="distillation-status">
             {DISTILLATION_COPY.status[distillStage]}
-          </Text>
+          </Animated.Text>
         );
       case 'formation':
         return draft.formationError ? (
@@ -629,9 +770,9 @@ export function CreationStage({
             <V2Button size="large" style={styles.cta} onPress={onFormAnchor} testID="formation-retry">{FORMATION_COPY.retry}</V2Button>
           </View>
         ) : (
-          <Text style={styles.status} accessibilityLiveRegion="polite" testID="formation-status">
+          <Animated.Text style={[styles.status, dynamicStatusStyle]} accessibilityLiveRegion="polite" testID="formation-status">
             {FORMATION_COPY.status[formationPhase]}
-          </Text>
+          </Animated.Text>
         );
       case 'reveal':
         return (
@@ -665,9 +806,9 @@ export function CreationStage({
                 ) : null}
               </>
             ) : (
-              <Text style={styles.generationBody} accessibilityLiveRegion="polite" testID="generation-status">
+              <Animated.Text style={[styles.generationBody, dynamicStatusStyle]} accessibilityLiveRegion="polite" testID="generation-status">
                 {GENERATION_COPY.phase[generationPhase]}
-              </Text>
+              </Animated.Text>
             )}
             <Pressable onPress={onBack} accessibilityRole="button" style={styles.link} testID="generation-back">
               <Text style={styles.linkText}>{GENERATION_COPY.back}</Text>
@@ -778,22 +919,29 @@ export function CreationStage({
   return (
     // Insets from the provider, not a native safe-area view: a freshly mounted native one
     // applies them a beat late, which visibly shifts the whole stage.
-    <View style={[styles.safe, { paddingTop: insets.top, paddingBottom: insets.bottom }]} testID={`v2-creation-${step}`}>
+    <Animated.View style={[styles.safe, bgToneStyle, { paddingTop: insets.top, paddingBottom: insets.bottom }]} testID={`v2-creation-${step}`}>
+      <CreationTimingHud reduceMotion={reduceMotion} />
       <View style={[styles.frame, { paddingHorizontal: viewport.gutter }]}>
         <Animated.View style={[styles.top, chromeStyle]}>
           {canGoBack ? (
-            <V2IconButton icon={<ArrowLeft size={20} color={colors.text.primary} />} accessibilityLabel="Go back" onPress={onBack} testID="creation-back" />
+            <V2IconButton icon={<ArrowLeft size={20} color={shown === 'formation' || shown === 'generating' || (shown === 'distillation' && distillStage !== 'whole') ? colors.ink.text.primary : colors.text.primary} />} accessibilityLabel="Go back" onPress={onBack} testID="creation-back" />
           ) : (
             <View style={styles.topSpacer} />
           )}
         </Animated.View>
 
         <Animated.View style={[styles.headline, swapStyle]}>
-          {headline.eyebrow ? <Text style={styles.eyebrow}>{headline.eyebrow}</Text> : null}
-          <Text style={styles.title} accessibilityRole="header" testID="creation-title">{headline.title}</Text>
+          {headline.eyebrow ? <Animated.Text style={[styles.eyebrow, dynamicEyebrowStyle]}>{headline.eyebrow}</Animated.Text> : null}
+          <Animated.Text style={[styles.title, dynamicTitleStyle]} accessibilityRole="header" testID="creation-title">{headline.title}</Animated.Text>
         </Animated.View>
 
         <View ref={stageRef} style={styles.stage} onLayout={onStageLayout} collapsable={false} testID="creation-stage">
+          {shown === 'reveal' && categoryArt ? (
+            <Animated.View style={[styles.categoryWorld, categoryWorldStyle]} pointerEvents="none">
+              <Image source={categoryArt} style={styles.categoryWorldImg} resizeMode="contain" />
+            </Animated.View>
+          ) : null}
+
           {shown === 'expression' ? (
             <Animated.Text style={[styles.stageLabel, swapStyle]}>{EXPRESSION_COPY.structureLabel}</Animated.Text>
           ) : null}
@@ -839,7 +987,7 @@ export function CreationStage({
               </Animated.View>
               {inGeneration ? (
                 <Animated.View style={[StyleSheet.absoluteFill, inkStyle]}>
-                  <AnchorMark svg={svg} size={markSize} strokeColor={colors.ink.base} drawProgress={retrace} />
+                  <AnchorMark svg={svg} size={markSize} strokeColor="#F4F6FA" drawProgress={retrace} />
                 </Animated.View>
               ) : null}
             </Animated.View>
@@ -928,7 +1076,7 @@ export function CreationStage({
         formation={formation}
         svg={svg}
       />
-    </View>
+    </Animated.View>
   );
 }
 
@@ -976,7 +1124,7 @@ function CandidatePair({
   onSelect: (index: number) => void;
 }) {
   const gap = spacing[3];
-  const size = Math.max(96, Math.min((stage.width - gap) / 2, stage.height * 0.8));
+  const size = Math.max(104, Math.min((stage.width - gap) * 0.47, stage.height * 0.84));
   const centerY = Math.min(originY, stage.height / 2);
   const slots = [stage.width / 2 - (size + gap) / 2, stage.width / 2 + (size + gap) / 2];
   const heroSize = originSize;
@@ -1064,9 +1212,9 @@ function Candidate({
     const x = originX + (slotX - originX) * e + (originX - slotX) * r;
     const y = originY + (slotY - originY) * e + (originY - slotY) * r;
     const baseScale = originScale + (1 - originScale) * e;
-    const chosenScale = response.value > 0 ? 1 : 1 + response.value * 0.08;
+    const chosenScale = response.value > 0 ? 1.03 : response.value < 0 ? 0.96 : 1;
     const scale = (baseScale * chosenScale) * (1 - r) + heroScale * r;
-    const opacity = interpolate(e, [0, 0.35], [0, 1], 'clamp') * (response.value < 0 ? 1 + response.value * 0.5 : 1) * (1 - away);
+    const opacity = interpolate(e, [0, 0.35], [0, 1], 'clamp') * (response.value < 0 ? 0.74 : 1) * (1 - away);
     return { opacity, transform: [{ translateX: x - size / 2 }, { translateY: y - size / 2 }, { scale }] };
   }, [handingOff, isChosen, originScale, originX, originY, heroScale, size, slotX, slotY]);
   const ringStyle = useAnimatedStyle(() => ({ opacity: Math.max(0, response.value) * (1 - (handingOff ? resolve.value : 0)) }), [handingOff]);
@@ -1097,7 +1245,7 @@ const styles = StyleSheet.create({
   topSpacer: { height: 44 },
   headline: { gap: spacing[2], minHeight: 92, paddingTop: spacing[1] },
   eyebrow: { ...typography.labelSM, color: colors.text.secondary },
-  title: { fontFamily: typography.displayBold, fontSize: 30, lineHeight: 34, letterSpacing: -1, color: colors.text.primary },
+  title: { fontFamily: 'EBGaramond-Regular', fontSize: 34, lineHeight: 38, letterSpacing: -0.5, color: colors.text.primary },
   stage: { flex: 1, minHeight: 0, overflow: 'visible' },
   stageLabel: { ...typography.labelSM, color: colors.text.secondary, position: 'absolute', top: 0, left: 0 },
   mark: { position: 'absolute', top: 0 },
@@ -1116,7 +1264,7 @@ const styles = StyleSheet.create({
   libraryFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 36 },
   status: { ...typography.labelSM, color: colors.text.secondary, textAlign: 'center', paddingVertical: spacing[5] },
   caption: { alignItems: 'center', gap: spacing[2] },
-  quote: { fontFamily: 'EBGaramond-Medium', fontSize: 22, lineHeight: 27, letterSpacing: -0.3, color: colors.text.primary, textAlign: 'center' },
+  quote: { fontFamily: 'EBGaramond-Medium', fontStyle: 'italic', fontSize: 24, lineHeight: 30, letterSpacing: -0.4, color: colors.text.primary, textAlign: 'center' },
   categoryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   categoryDash: { width: 18, height: 5, borderRadius: 2 },
   categoryText: { fontFamily: typography.bodyBold, fontSize: 10, letterSpacing: 2.2 },
@@ -1124,9 +1272,42 @@ const styles = StyleSheet.create({
   principle: { ...typography.caption, color: colors.text.secondary, textAlign: 'center' },
   generationBody: { ...typography.bodyMD, color: colors.text.secondary, textAlign: 'center', paddingVertical: spacing[2] },
   candidate: { position: 'absolute', left: 0, top: 0, alignItems: 'center', justifyContent: 'center' },
-  candidateRing: { position: 'absolute', left: -7, top: -7, borderWidth: 1.5, borderColor: colors.text.primary },
+  candidateRing: {
+    position: 'absolute',
+    left: -8,
+    top: -8,
+    borderWidth: 2,
+    borderColor: colors.text.primary,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  categoryWorld: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryWorldImg: {
+    width: '100%',
+    height: '100%',
+  },
   failure: { gap: spacing[2] },
   cta: { height: 56, borderRadius: 16 },
   link: { alignSelf: 'center', paddingVertical: spacing[1] },
   linkText: { ...typography.labelMD, color: colors.text.secondary, textDecorationLine: 'underline' },
+  hudContainer: { position: 'absolute', top: 12, right: 12, zIndex: 9999 },
+  hudPill: { backgroundColor: 'rgba(0,0,0,0.75)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  hudPillText: { color: '#FFF', fontSize: 11, fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }) },
+  hudPanel: { backgroundColor: 'rgba(20,20,20,0.92)', padding: 10, borderRadius: 8, marginTop: 4, width: 280, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 6, elevation: 8 },
+  hudHeader: { color: '#AAA', fontSize: 10, marginBottom: 6, fontWeight: '700' },
+  hudRow: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 2 },
+  hudStep: { color: '#EEE', fontSize: 10, flex: 1 },
+  hudTime: { color: '#6EE7B7', fontSize: 10, fontWeight: '600', marginLeft: 8 },
 });
+

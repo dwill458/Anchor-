@@ -3,6 +3,7 @@ import { Image } from 'react-native';
 import { render, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { fetchV2RecommendationContext } from '@/adapters/v2/practice';
 jest.mock('@/adapters/v2/practice', () => ({ fetchV2RecommendationContext: jest.fn() }));
+jest.mock('@/hooks/v2/chart/useAnchorChart', () => ({ useAnchorChart: jest.fn() }));
 
 const mockNavigate = jest.fn();
 const mockGoBack = jest.fn();
@@ -18,6 +19,7 @@ import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useCourseStore } from '@/stores/courseStore';
 import { resetV2VisionReadCache } from '@/hooks/v2/vision/useV2Vision';
+import { useAnchorChart } from '@/hooks/v2/chart/useAnchorChart';
 import { V2AnchorDetailsScreen } from '../V2AnchorDetailsScreen';
 import { V2DailyShellIntentsProvider } from '@/screens/v2/home/dailyShell';
 import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
@@ -32,6 +34,28 @@ jest.mock('@/services/ApiClient', () => ({
 }));
 
 const destructiveSpy = jest.fn();
+const mockUseAnchorChart = useAnchorChart as jest.MockedFunction<typeof useAnchorChart>;
+
+function chartReadModel(overrides: Record<string, unknown> = {}) {
+  return {
+    anchor: { id: 'a', intentionText: 'A real intention', category: 'career', enhancedImageUrl: null, released: false },
+    chart: {
+      id: 'course-1',
+      status: 'ACTIVE',
+      destinationText: 'Reach 1,000 active users',
+      currentWaypointId: 'waypoint-2',
+      currentMoveId: 'move-1',
+      waypoints: [
+        { id: 'waypoint-1', position: 0, title: 'Ship the first version', state: 'REACHED' },
+        { id: 'waypoint-2', position: 1, title: 'Reach the first 100 users', state: 'CURRENT' },
+      ],
+      moves: [{ id: 'move-1', title: 'Ask three users for feedback' }],
+    },
+    history: [],
+    stats: null,
+    ...overrides,
+  };
+}
 
 const renderDetails = (intents = {}) =>
   render(
@@ -56,6 +80,7 @@ beforeEach(() => {
   mockGoBack.mockClear();
   destructiveSpy.mockClear();
   mockParams = { anchorId: 'a' };
+  mockUseAnchorChart.mockReturnValue({ data: null, loading: false, error: null, refresh: jest.fn() } as never);
   useSettingsStore.setState({ reduceMotion: 'on', focusSessionDuration: 120 });
   // Replace the legacy destructive store actions with a spy: the V2 profile
   // must never call them.
@@ -116,8 +141,46 @@ describe('V2AnchorDetailsScreen', () => {
     fireEvent.press(screen.getByLabelText('Vision'));
     expect(onOpenVision).toHaveBeenCalledWith('a');
 
-    fireEvent.press(screen.getByLabelText('Chart'));
+    expect(screen.getByLabelText('Create Chart. Map the path from here.')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Create Chart. Map the path from here.'));
     expect(onOpenChart).toHaveBeenCalledWith('a', undefined);
+  });
+
+  it('shows the real current waypoint, destination, and One Move on the Chart portal', () => {
+    mockUseAnchorChart.mockReturnValue({ data: chartReadModel() as never, loading: false, error: null, refresh: jest.fn() } as never);
+    useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a', category: 'career' })] });
+    renderDetails();
+
+    expect(screen.getByTestId('v2-details-chart-map')).toBeTruthy();
+    expect(screen.getByText('Reach the first 100 users')).toBeTruthy();
+    expect(screen.getByText('Ask three users for feedback')).toBeTruthy();
+    expect(screen.getByLabelText(/Waypoint 2 of 2: Reach the first 100 users\. Toward: Reach 1,000 active users\. Next move: Ask three users for feedback/)).toBeTruthy();
+  });
+
+  it('announces the actual destination for a completed Chart', () => {
+    const completed = chartReadModel({
+      chart: {
+        id: 'course-1', status: 'ACTIVE', destinationText: 'Reach 1,000 active users', currentWaypointId: null,
+        waypoints: [{ id: 'waypoint-1', position: 0, title: 'Reach 1,000 active users', state: 'REACHED' }], moves: [],
+      },
+    });
+    mockUseAnchorChart.mockReturnValue({ data: completed as never, loading: false, error: null, refresh: jest.fn() } as never);
+    useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a', category: 'career' })] });
+    renderDetails();
+
+    expect(screen.getByLabelText('Chart complete. Destination: Reach 1,000 active users. Open Chart.')).toBeTruthy();
+    expect(screen.getByText('CHART · COMPLETE')).toBeTruthy();
+  });
+
+  it('shows a truthful fetch error and retries it', () => {
+    const refresh = jest.fn();
+    mockUseAnchorChart.mockReturnValue({ data: null, loading: false, error: { kind: 'offline' } as never, refresh } as never);
+    useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a', category: 'career' })] });
+    renderDetails();
+
+    expect(screen.getByText('Your Chart could not be reached.')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Retry Chart'));
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 
   it.each([

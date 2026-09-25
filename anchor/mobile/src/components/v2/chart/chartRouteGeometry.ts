@@ -14,41 +14,68 @@ export type ChartArt = {
   /** Natural pixel size; only the ratio matters for layout. */
   width: number;
   height: number;
-  /** Neutral art takes a restrained category wash; bespoke category art does not. */
+  /** Neutral art takes a restrained category wash; bespoke category packs do not. */
   tintable: boolean;
 };
 
-const NIGHT_LANDSCAPE: ChartArt = {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  source: require('../../../assets/chart/chart-landscape-night.jpg'),
-  width: 896,
-  height: 1200,
-  tintable: true,
+/**
+ * Category environments. Each is an editorial, engraved survey drawing painted
+ * around the same trail (the art supplies terrain; the app supplies the route),
+ * graded to one ink palette with the ground at matched exposure so the route
+ * overlay reads identically on every pack. Source prompts and the grading pass
+ * are documented in docs/chart/CHART_ILLUSTRATION_PACKS.md.
+ */
+const pack = (source: ImageSourcePropType): ChartArt => ({ source, width: 1200, height: 1600, tintable: false });
+
+/* eslint-disable @typescript-eslint/no-var-requires */
+export const CHART_PACKS = {
+  /** Expansive terrain: a mountain valley toward a distant horizon. */
+  valley: pack(require('../../../assets/chart/chart-landscape-valley.jpg')),
+  /** A road across worked land toward a distant city. */
+  city: pack(require('../../../assets/chart/chart-landscape-city.jpg')),
+  /** Botanical terrain: large natural forms, orchards, a garden clearing. */
+  botanical: pack(require('../../../assets/chart/chart-landscape-botanical.jpg')),
+  /** Clifftops and an open sea horizon, ending at a headland light. */
+  coast: pack(require('../../../assets/chart/chart-landscape-coast.jpg')),
+  /** Sculptural, wind-carved stone; the trail ends at an arch. */
+  canyon: pack(require('../../../assets/chart/chart-landscape-canyon.jpg')),
+} as const;
+/* eslint-enable @typescript-eslint/no-var-requires */
+
+export type ChartPackKey = keyof typeof CHART_PACKS;
+
+/** Category → environment. Every pack shares the trail, so any mapping is safe. */
+export const CHART_CATEGORY_PACK: Record<string, ChartPackKey> = {
+  desire: 'valley',
+  adventure: 'valley',
+  custom: 'valley',
+  career: 'city',
+  abundance: 'city',
+  learning: 'city',
+  health: 'botanical',
+  family: 'botanical',
+  relationships: 'coast',
+  spirituality: 'coast',
+  creativity: 'canyon',
+  focus: 'canyon',
 };
 
-/**
- * Per-category slots. Every category currently shares the night landscape;
- * approved category art drops in here (same trail, `tintable: false`)
- * without any other code change.
- */
-export const CHART_LANDSCAPES: Record<string, ChartArt> = {
-  desire: NIGHT_LANDSCAPE,
-  health: NIGHT_LANDSCAPE,
-  career: NIGHT_LANDSCAPE,
-  relationships: NIGHT_LANDSCAPE,
-  creativity: NIGHT_LANDSCAPE,
-  spirituality: NIGHT_LANDSCAPE,
-  abundance: NIGHT_LANDSCAPE,
-  family: NIGHT_LANDSCAPE,
-  learning: NIGHT_LANDSCAPE,
-  adventure: NIGHT_LANDSCAPE,
-  focus: NIGHT_LANDSCAPE,
-  custom: NIGHT_LANDSCAPE,
-};
+export const CHART_LANDSCAPES: Record<string, ChartArt> = Object.fromEntries(
+  Object.entries(CHART_CATEGORY_PACK).map(([category, key]) => [category, CHART_PACKS[key]])
+);
 
 export function chartArtFor(category?: string | null): ChartArt {
   const key = category?.trim().toLowerCase() ?? '';
-  return CHART_LANDSCAPES[key] ?? NIGHT_LANDSCAPE;
+  return CHART_LANDSCAPES[key] ?? CHART_PACKS.valley;
+}
+
+/** A compact portal crop centered on the actual current waypoint. */
+export function chartWindowAroundRoutePoint(fraction: number, width: number, height: number): ChartWindow {
+  const imageHeight = (width * CHART_PACKS.valley.height) / CHART_PACKS.valley.width;
+  const span = Math.min(1, Math.max(0.12, height / imageHeight));
+  const center = pointAt(fraction, CHART_PACKS.valley).y;
+  const top = Math.max(0, Math.min(1 - span, center - span / 2));
+  return { top, bottom: top + span };
 }
 
 export type RoutePoint = { x: number; y: number };
@@ -94,8 +121,10 @@ export const CHART_WINDOWS = {
   full: { top: 0.0, bottom: 1.0 },
   /** Active Chart hero: the whole trail, a little sky above the clearing. */
   hero: { top: 0.2, bottom: 0.965 },
-  /** Waypoint detail: a compact strip of the trail. */
-  strip: { top: 0.44, bottom: 0.8 },
+  /** Home snapshot: a compact view across the waypoints toward the destination. */
+  home: { top: 0.49, bottom: 0.82 },
+  /** Waypoint detail: a tighter crop into the same route. */
+  strip: { top: 0.49, bottom: 0.77 },
 } as const;
 
 export type ChartWindow = { top: number; bottom: number };

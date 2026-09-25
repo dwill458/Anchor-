@@ -8,12 +8,17 @@ import { distillIntention } from '@/utils/sigil/distillation';
 import { generateTrueSigil } from '@/utils/sigil/traditional-generator';
 import { CATEGORY_TO_TIER } from '@/types';
 import { CREATION_MAX_INTENTION_LENGTH } from '@/constants/v2/creation';
-import { useV2ReduceMotion } from '@/hooks/v2';
+import { useCreationReduceMotion, useV2ReduceMotion } from '@/hooks/v2';
 
 jest.mock('@/services/AnalyticsService', () => ({ AnalyticsService: { track: jest.fn() } }));
-jest.mock('@/hooks/v2', () => ({ ...jest.requireActual('@/hooks/v2'), useV2ReduceMotion: jest.fn(() => true) }));
+jest.mock('@/hooks/v2', () => ({
+  ...jest.requireActual('@/hooks/v2'),
+  useV2ReduceMotion: jest.fn(() => true),
+  useCreationReduceMotion: jest.fn(() => true),
+}));
 
-const reduceMotion = useV2ReduceMotion as jest.MockedFunction<typeof useV2ReduceMotion>;
+const reduceMotion = useCreationReduceMotion as jest.MockedFunction<typeof useCreationReduceMotion>;
+
 const INTENTION = 'I finish the project';
 const LETTERS = distillIntention(INTENTION).finalLetters;
 const STRUCTURE = generateTrueSigil(LETTERS, CATEGORY_TO_TIER.career, 'balanced').svg;

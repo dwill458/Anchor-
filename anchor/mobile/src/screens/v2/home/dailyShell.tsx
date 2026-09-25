@@ -24,6 +24,7 @@ export type V2DailyShellIntents = {
   onOpenProfile?: () => void;
   onReleaseAnchor?: (anchorId: string) => void;
   onOpenWeeklyInsight?: () => void;
+  onOpenMaterialLab?: () => void;
 };
 
 /**
@@ -63,7 +64,7 @@ export function V2DailyShellIntentsProvider({
 }
 
 export function useV2DailyShellIntents(): Required<
-  Pick<V2DailyShellIntents, 'onOpenPractice' | 'onOpenVision' | 'onCreateVision' | 'onOpenChart' | 'onCreateChart' | 'onOpenProgress' | 'onCreateAnchor' | 'onOpenProfile' | 'onReleaseAnchor' | 'onOpenWeeklyInsight'>
+  Pick<V2DailyShellIntents, 'onOpenPractice' | 'onOpenVision' | 'onCreateVision' | 'onOpenChart' | 'onCreateChart' | 'onOpenProgress' | 'onCreateAnchor' | 'onOpenProfile' | 'onReleaseAnchor' | 'onOpenWeeklyInsight' | 'onOpenMaterialLab'>
 > {
   const value = useContext(IntentsContext);
   /**
@@ -83,6 +84,7 @@ export function useV2DailyShellIntents(): Required<
     onOpenProfile: value.onOpenProfile ?? noopWarn('onOpenProfile'),
     onReleaseAnchor: value.onReleaseAnchor ?? noopWarn('onReleaseAnchor'),
     onOpenWeeklyInsight: value.onOpenWeeklyInsight ?? noopWarn('onOpenWeeklyInsight'),
+    onOpenMaterialLab: value.onOpenMaterialLab ?? noopWarn('onOpenMaterialLab'),
   }), [value]);
 }
 

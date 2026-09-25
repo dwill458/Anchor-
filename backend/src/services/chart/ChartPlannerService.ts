@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { AppError } from '../../api/middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
+import { getOnboardingContext } from '../v2/OnboardingContextService';
 import { getChartFeatureFlags } from '../../config/chartFlags';
 import { logger } from '../../utils/logger';
 import {
@@ -215,10 +216,12 @@ export class ChartPlannerService {
     }
 
     const { anchor, vision } = await this.loadAnchorContext(userId, input.anchorId);
+    const onboarding = await getOnboardingContext(userId).catch(() => null);
     const startingContext = input.startingContext?.trim() || null;
     const context: ChartPlanningContext = {
       intention: anchor.intentionText,
       category: anchor.category,
+      onboarding,
       startingContext,
       vision: vision && (vision.title || vision.description) ? { title: vision.title, description: vision.description } : null,
       followUp: input.followUp?.answer?.trim() ? input.followUp : null,
@@ -290,6 +293,7 @@ export class ChartPlannerService {
     }
 
     const { anchor, vision } = await this.loadAnchorContext(userId, input.anchorId);
+    const onboarding = await getOnboardingContext(userId).catch(() => null);
     let destination: string;
     let route: ChartRouteWaypointContext[];
     let completedMoveCount = 0;
@@ -328,6 +332,7 @@ export class ChartPlannerService {
     const context: ChartPlanningContext = {
       intention: anchor.intentionText,
       category: anchor.category,
+      onboarding,
       startingContext,
       vision: vision && (vision.title || vision.description) ? { title: vision.title, description: vision.description } : null,
       followUp: null,

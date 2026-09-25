@@ -8,6 +8,7 @@ export type AnchorV2StackParamList = {
   V2FirstRun: undefined;
   V2DevelopmentHome: undefined;
   V2SystemGallery: undefined;
+  V2EvolvingAnchor: undefined;
   V2Creation: undefined;
   V2AnchorLibrary: undefined;
   V2AnchorDetails: { anchorId: string };

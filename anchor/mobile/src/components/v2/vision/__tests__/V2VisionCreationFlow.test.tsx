@@ -240,6 +240,34 @@ describe('V2VisionCreationFlow', () => {
     expect(getByTestId('vision-detail-hint').props.children).toBe('60 words · Great detail');
   });
 
+  it('keeps Continue available beside the focused multiline description and submits from focused state', async () => {
+    const { getByTestId, queryByTestId } = renderFlow();
+    const input = getByTestId('vision-prompt-input');
+    const testVision = 'My RevenueCat dashboard shows 10 thousand active users for Anchor. A recommendation on the App Store. And me working on the beach with the family.';
+    fireEvent.changeText(input, testVision);
+    expect(input.props.value).toBe(testVision);
+
+    fireEvent(input, 'focus');
+    const focusedContinue = getByTestId('vision-generate-focused');
+    expect(focusedContinue).toBeTruthy();
+    expect(queryByTestId('vision-generate')).toBeNull();
+
+    // Verify submission works directly while focused
+    fireEvent.press(focusedContinue);
+
+    fireEvent(input, 'blur');
+    expect(getByTestId('vision-generate')).toBeTruthy();
+  });
+
+  it('supports multiline input near the 500-character limit without disabling continue', () => {
+    const { getByTestId } = renderFlow();
+    const input = getByTestId('vision-prompt-input');
+    const longVision = 'A'.repeat(480);
+    fireEvent.changeText(input, longVision);
+    expect(getByTestId('vision-detail-hint')).toBeTruthy();
+    expect(getByTestId('vision-generate').props.accessibilityState).toEqual(expect.objectContaining({ disabled: false }));
+  });
+
   it('uses the Anchor intention to choose its worked example', () => {
     mockUseGeneration.mockReturnValue({ job: null, loading: false, error: null, start: jest.fn(), retry: jest.fn() });
     const { getByTestId, rerender } = render(

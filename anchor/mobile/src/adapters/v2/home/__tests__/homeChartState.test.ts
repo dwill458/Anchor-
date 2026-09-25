@@ -112,9 +112,9 @@ describe('resolveHomeChartState — absence is never loading', () => {
 
 describe('resolveAnchorChartState — per-Anchor Chart (Anchor 2.0)', () => {
   const { resolveAnchorChartState } = jest.requireActual('../chartAdapter');
-  it('renders nothing while unknown or when the read failed without a cached Chart', () => {
+  it('keeps unknown hidden and surfaces a failed read without inventing a Chart', () => {
     expect(resolveAnchorChartState({ data: null, loading: true, error: null })).toEqual({ state: 'resolving' });
-    expect(resolveAnchorChartState({ data: null, loading: false, error: { kind: 'offline' } })).toEqual({ state: 'none' });
+    expect(resolveAnchorChartState({ data: null, loading: false, error: { kind: 'offline' } })).toEqual({ state: 'error', message: 'Your Chart could not be reached.' });
   });
   it('is none when this Anchor has no Chart, ready when it has one', () => {
     const anchorSummary = { id: 'anchor-1', intentionText: 'x', category: 'career', enhancedImageUrl: null, released: false };

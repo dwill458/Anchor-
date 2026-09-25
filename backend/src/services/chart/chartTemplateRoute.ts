@@ -66,10 +66,15 @@ export function buildTemplateRoute(input: {
   startingContext: string | null;
 }): TemplateRoute {
   const destination = clip(input.intention.replace(/[.!]+$/, ''), DESTINATION_MAX);
-  const target = parseNumericTarget(input.intention);
+  const intentionTarget = parseNumericTarget(input.intention);
+  // "What would make this real?" often carries the number the intention lacks
+  // ("…and 1,000 people use it"). That number is the target, never a baseline.
+  const realityTarget = !intentionTarget && input.startingContext ? parseNumericTarget(input.startingContext) : null;
+  const target = intentionTarget ?? realityTarget;
 
   if (target && target.value >= 4) {
-    const baselineTarget = input.startingContext ? parseNumericTarget(input.startingContext) : null;
+    const baselineTarget =
+      intentionTarget && input.startingContext ? parseNumericTarget(input.startingContext) : null;
     const baseline =
       baselineTarget &&
       baselineTarget.value < target.value &&

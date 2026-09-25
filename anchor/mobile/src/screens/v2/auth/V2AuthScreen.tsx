@@ -31,6 +31,7 @@ import { ArrowRight, ChevronLeft, Eye, EyeOff, LockKeyhole, Mail, UserRound } fr
 import { V2Screen } from '@/components/v2';
 import { AuthService } from '@/services/AuthService';
 import PostAuthFlowService from '@/services/PostAuthFlowService';
+import { useAuthStore } from '@/stores/authStore';
 import { colors, spacing, typography, AnchorMotion } from '@/theme/v2';
 import type { User } from '@/types';
 import { GoogleIcon, AppleIcon } from './components/AuthSocialIcons';
@@ -40,8 +41,9 @@ type Mode = 'signin' | 'create';
 
 type Props = {
   initialMode?: Mode;
+  saveProgress?: boolean;
   onBack: () => void;
-  onSuccess?: (user: User) => void;
+  onSuccess?: (user: User) => void | Promise<void>;
 };
 
 function validationMessage(mode: Mode, email: string, password: string): string | null {
@@ -66,7 +68,7 @@ function readableAuthError(error: unknown, mode: Mode): string {
   return mode === 'signin' ? 'We could not sign you in. Try again.' : 'We could not create your account. Try again.';
 }
 
-export function V2AuthScreen({ initialMode = 'signin', onBack, onSuccess }: Props) {
+export function V2AuthScreen({ initialMode = 'signin', saveProgress = false, onBack, onSuccess }: Props) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<Mode>(initialMode);
@@ -77,6 +79,7 @@ export function V2AuthScreen({ initialMode = 'signin', onBack, onSuccess }: Prop
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [appleAvailable, setAppleAvailable] = useState(false);
+  const signedInUser = useAuthStore((state) => state.user);
   const emailRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
 
@@ -117,7 +120,7 @@ export function V2AuthScreen({ initialMode = 'signin', onBack, onSuccess }: Prop
         token: result.token,
         preserveCompletedOnboarding: result.user.hasCompletedOnboarding === true,
       });
-      onSuccess?.(result.user);
+      await onSuccess?.(result.user);
     } catch (cause) {
       const message = readableAuthError(cause, mode);
       if (message) setError(message);
@@ -127,6 +130,14 @@ export function V2AuthScreen({ initialMode = 'signin', onBack, onSuccess }: Prop
   };
 
   const submit = () => {
+    if (saveProgress && signedInUser) {
+      setError(null);
+      setLoading(true);
+      void Promise.resolve(onSuccess?.(signedInUser))
+        .catch((cause) => setError(readableAuthError(cause, mode)))
+        .finally(() => setLoading(false));
+      return;
+    }
     const validation = validationMessage(mode, email, password);
     if (validation) {
       setError(validation);
@@ -176,6 +187,23 @@ export function V2AuthScreen({ initialMode = 'signin', onBack, onSuccess }: Prop
   };
 
   const isCompact = height < 750;
+
+  if (saveProgress && signedInUser) {
+    return (
+      <V2Screen scroll edges={['top']} testID="v2-auth-save-progress">
+        <View style={{ flex: 1, minHeight: height - insets.top - insets.bottom - 60, justifyContent: 'center', paddingHorizontal: 28, backgroundColor: colors.background }}>
+          <Text style={{ color: colors.text.primary, fontFamily: 'EBGaramond-Regular', fontSize: 38, textAlign: 'center', marginBottom: 12 }}>Save your progress.</Text>
+          <Text style={{ color: colors.text.secondary, fontSize: 16, textAlign: 'center', marginBottom: 32 }}>Your account is ready. Finish saving your first Anchor and answers.</Text>
+          {error ? <Text accessibilityRole="alert" style={styles.errorText}>{error}</Text> : null}
+          <TouchableOpacity testID="v2-auth-save-retry" accessibilityRole="button" accessibilityLabel="Save my progress" disabled={loading} onPress={submit} style={styles.primaryCtaWrap}>
+            <LinearGradient colors={['#DFC08A', '#C5A065']} style={styles.primaryGradient}>
+              {loading ? <ActivityIndicator color="#121A22" /> : <Text style={styles.primaryCtaText}>SAVE MY PROGRESS</Text>}
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </V2Screen>
+    );
+  }
 
   return (
     <View style={styles.root}>
@@ -231,7 +259,7 @@ export function V2AuthScreen({ initialMode = 'signin', onBack, onSuccess }: Prop
             <View style={styles.editorialDivider} />
 
             <Text style={styles.editorialCopy}>
-              {mode === 'signin'
+              {saveProgress ? 'Your work now exists.\nCreate an account to save it.' : mode === 'signin'
                 ? 'Return to what matters.'
                 : 'A stronger tomorrow\nstarts with what you create today.'}
             </Text>

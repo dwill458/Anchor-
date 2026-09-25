@@ -8,6 +8,7 @@ import {
   buildDistillationRenderModel,
   computeCompactionTargets,
   distillationSchedule,
+  estimateCompactionTargets,
   isCellRemoved,
   DISTILL_EASING,
   DISTILL_TIMING,
@@ -16,6 +17,8 @@ import {
   type DistillationStage,
   type MeasuredLetter,
 } from './distillationMotion';
+import { creationTimingTracker } from './creationTelemetry';
+
 
 /** Gap between letters once they have closed up, in the compacted row. */
 const COMPACT_TRACKING = 16;
@@ -103,11 +106,19 @@ function DistillationLetter({
   // distillation timings.
   const departure = cell.keep && glow ? glow.departures[cell.keptIndex] ?? -1 : -1;
   const glowStyle = useAnimatedStyle(() => {
-    if (!glow || departure < 0) return {};
-    // The letter warms to the accent as it leaves for its cell, rather than switching.
-    const lit = interpolate(glow.progress.value, [departure - 0.015, departure], [0, 1], 'clamp');
-    return { color: interpolateColor(lit, [0, 1], [colors.text.primary, glow.accent]) };
-  }, [departure, glow]);
+    if (!cell.keep) return {};
+    if (glow) {
+      if (departure < 0) return { color: '#F4F6FA' };
+      // The letter warms to the accent as it leaves for its cell, rather than switching.
+      const lit = interpolate(glow.progress.value, [departure - 0.015, departure], [0, 1], 'clamp');
+      return { color: interpolateColor(lit, [0, 1], ['#F4F6FA', glow.accent]) };
+    }
+    // As the distillation stage advances and background deepens toward ink, transition text color to off-white
+    const isDarkening = stage === 'compact' || stage === 'settled';
+    const isHalfDark = stage === 'repeats';
+    const targetColor = isDarkening ? '#F4F6FA' : isHalfDark ? '#C7CAD0' : colors.text.primary;
+    return { color: targetColor };
+  }, [cell.keep, departure, glow, stage]);
 
   return (
     <Animated.Text onLayout={handleLayout} style={[styles.char, motionStyle, glowStyle]}>
@@ -163,6 +174,9 @@ export function DistillationLetters({
 
   useEffect(() => {
     onStageRef.current?.(stage);
+    if (stage === 'settled') {
+      creationTimingTracker.record('distillation_end');
+    }
   }, [stage]);
 
   useEffect(() => {
@@ -173,6 +187,7 @@ export function DistillationLetters({
   }, [targets]);
 
   useEffect(() => {
+    creationTimingTracker.record('distillation_begin', { intention, letterCount: letters.length, reduceMotion });
     if (startSettled) {
       setStage('settled');
       return undefined;
@@ -192,7 +207,7 @@ export function DistillationLetters({
       setTimeout(() => setStage('settled'), at.settled),
     ];
     return () => timers.forEach(clearTimeout);
-  }, [intention, reduceMotion, lastStaggerIndex, startSettled]);
+  }, [intention, reduceMotion, lastStaggerIndex, startSettled, letters.length]);
 
   /**
    * Letter boxes arrive relative to their word and words relative to the stage, so the row
@@ -231,6 +246,9 @@ export function DistillationLetters({
   const onStageLayout = (event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
     measured.current.stage = { width, height };
+    if (!targets && width > 0 && height > 0 && model.keptLetters.length > 0) {
+      setTargets(estimateCompactionTargets(model.keptLetters, { width, height }, { tracking: COMPACT_TRACKING }));
+    }
     recompute();
   };
   const onWordLayout = (wordIndex: number) => (event: LayoutChangeEvent) => {
@@ -299,7 +317,7 @@ const styles = StyleSheet.create({
   // A word stays one unbreakable unit, so wrapping happens between words and never inside one.
   word: { flexDirection: 'row', marginRight: 10 },
   char: { ...typography.headingXL, color: colors.text.primary },
-  settledRow: { ...typography.headingXL, color: colors.text.primary, textAlign: 'center', letterSpacing: 2 },
+  settledRow: { ...typography.headingXL, color: '#F4F6FA', textAlign: 'center', letterSpacing: 4 },
   source: { position: 'absolute', top: 6, left: 0, right: 0, alignItems: 'center' },
-  sourceText: { fontFamily: 'EBGaramond-Medium', fontSize: 19, lineHeight: 24, letterSpacing: -0.2, color: colors.text.secondary, textAlign: 'center' },
+  sourceText: { fontFamily: 'EBGaramond-Medium', fontSize: 20, lineHeight: 25, letterSpacing: -0.2, color: 'rgba(244, 246, 250, 0.65)', textAlign: 'center', fontStyle: 'italic' },
 });

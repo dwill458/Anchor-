@@ -39,6 +39,8 @@ type Props = {
   onChange: (next: DraftWaypoint[]) => void;
   /** Optional hook for analytics on structural edits. */
   onEdit?: (kind: 'reorder' | 'rename' | 'remove' | 'add') => void;
+  /** Join the numbered waypoints with a thin rail, so the list reads as one route. */
+  showRail?: boolean;
   testID?: string;
 };
 
@@ -46,7 +48,7 @@ type Props = {
  * Editable route. The human owns the Chart: every AI waypoint can be renamed,
  * removed, reordered, and new ones added. Locked (reached) rows stay put.
  */
-export function ChartRouteEditor({ waypoints, onChange, onEdit, testID }: Props) {
+export function ChartRouteEditor({ waypoints, onChange, onEdit, showRail = false, testID }: Props) {
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState('');
   const dragIndex = useSharedValue(-1);
@@ -129,6 +131,7 @@ export function ChartRouteEditor({ waypoints, onChange, onEdit, testID }: Props)
           dragIndex={dragIndex}
           dragY={dragY}
           canRemove={waypoints.filter((item) => !item.locked).length > 1}
+          showRail={showRail}
         />
       ))}
       {waypoints.length < MAX_WAYPOINTS ? (
@@ -162,6 +165,7 @@ function Row({
   dragIndex,
   dragY,
   canRemove,
+  showRail,
 }: {
   waypoint: DraftWaypoint;
   index: number;
@@ -177,6 +181,7 @@ function Row({
   dragIndex: SharedValue<number>;
   dragY: SharedValue<number>;
   canRemove: boolean;
+  showRail: boolean;
 }) {
   const locked = Boolean(waypoint.locked);
   const pan = Gesture.Pan()
@@ -221,6 +226,12 @@ function Row({
 
   return (
     <Animated.View style={[styles.row, animated]}>
+      {showRail && total > 1 ? (
+        <View
+          pointerEvents="none"
+          style={[styles.rail, { top: index === 0 ? ROW_HEIGHT / 2 : 0, bottom: index === total - 1 ? ROW_HEIGHT / 2 : 0 }]}
+        />
+      ) : null}
       <View style={[styles.badge, locked && styles.badgeLocked]}>
         {locked ? <Check size={14} color={colors.text.inverse} strokeWidth={3} /> : <Text style={styles.badgeText}>{number}</Text>}
       </View>
@@ -300,6 +311,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   badgeLocked: { backgroundColor: colors.semantic.success },
+  rail: { position: 'absolute', left: 13.5, width: 1, backgroundColor: colors.border.default },
   badgeText: { ...typography.labelMD, color: colors.text.inverse },
   titleButton: { flex: 1, justifyContent: 'center', minHeight: 44 },
   title: { ...typography.bodyMD, color: colors.text.primary },

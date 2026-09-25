@@ -1,5 +1,4 @@
 import { Router, Response, NextFunction } from 'express';
-import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { z } from 'zod';
 import { AuthRequest, authMiddleware } from '../../middleware/auth';
 import { AppError } from '../../middleware/errorHandler';
@@ -9,6 +8,13 @@ import { getAuthenticatedUserId } from './authHelper';
 import { chartService } from '../../../services/chart/ChartService';
 import { chartPlannerService } from '../../../services/chart/ChartPlannerService';
 
+import {
+  globalAiCeilingLimiter,
+  chartPlanLimiter,
+  chartAdjustLimiter,
+  chartPlanConcurrencyGuard,
+} from '../../middleware/aiRateLimit';
+
 /**
  * Anchor 2.0 Chart API. A Chart is addressed through its Anchor; route-level
  * operations use the Chart (Course) id. Waypoint completion, edits, reorder and
@@ -16,20 +22,6 @@ import { chartPlannerService } from '../../../services/chart/ChartPlannerService
  */
 const router = Router();
 router.use(authMiddleware);
-
-const planLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: req => (req as AuthRequest).user?.uid || ipKeyGenerator(req.ip ?? ''),
-  handler: (_req, res) => {
-    res.status(429).json({
-      success: false,
-      error: { code: 'CHART_PLAN_RATE_LIMITED', message: 'Too many route requests. Try again shortly.' },
-    });
-  },
-});
 
 const IdempotencyKey = z.string().trim().min(8).max(200);
 const Id = z.string().min(1).max(200);
@@ -191,7 +183,9 @@ router.get(
 
 router.post(
   '/anchors/:anchorId/chart/plan',
-  planLimiter,
+  globalAiCeilingLimiter,
+  chartPlanLimiter,
+  chartPlanConcurrencyGuard,
   handle(async (req, res) => {
     const userId = await writeUser(req);
     const body = validate(PlanSchema, req.body);
@@ -207,7 +201,8 @@ router.post(
 
 router.post(
   '/anchors/:anchorId/chart/plan/adjust',
-  planLimiter,
+  globalAiCeilingLimiter,
+  chartAdjustLimiter,
   handle(async (req, res) => {
     const userId = await writeUser(req);
     const body = validate(AdjustSchema, req.body);
@@ -302,7 +297,8 @@ router.post(
 
 router.post(
   '/charts/:courseId/waypoints/:waypointId/suggest-moves',
-  planLimiter,
+  globalAiCeilingLimiter,
+  chartAdjustLimiter,
   handle(async (req, res) => {
     const userId = await writeUser(req);
     const { courseId, waypointId } = req.params;

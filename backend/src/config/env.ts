@@ -46,6 +46,7 @@ export interface EnvConfig {
   GEMINI_ANCHOR_MODEL?: string;
   GEMINI_ANCHOR_PREMIUM_MODEL?: string;
   VISION_AB_TEST_ENABLED?: boolean;
+  AI_DEV_ALLOWLIST?: string;
 
   // Storage (Cloudflare R2)
   CLOUDFLARE_ACCOUNT_ID?: string;
@@ -232,6 +233,7 @@ export function validateEnv(): EnvConfig {
         process.env.VISION_AB_TEST_ENABLED,
         false
       ),
+      AI_DEV_ALLOWLIST: validateString('AI_DEV_ALLOWLIST', process.env.AI_DEV_ALLOWLIST),
 
       // Storage (optional - mock mode available)
       CLOUDFLARE_ACCOUNT_ID: validateString(

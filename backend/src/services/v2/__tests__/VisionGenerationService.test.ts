@@ -118,7 +118,7 @@ describe('VisionGenerationService', () => {
 
     await (service as any).run('job-1', 'I create freely', 'DESIRE');
 
-    expect(mockPlanVisionScenes).toHaveBeenCalledWith('I create freely', 'DESIRE', description, [], false);
+    expect(mockPlanVisionScenes).toHaveBeenCalledWith('I create freely', 'DESIRE', description, [], false, null);
     expect(mockGenerateVisionScene).toHaveBeenCalledTimes(8);
     expect(mockPrisma.visionGenerationCandidate.create).toHaveBeenCalledTimes(8);
     expect(mockPrisma.visionGenerationCandidate.create.mock.calls.map(([call]) => call.data.role)).toEqual(plan.map(item => item.role));
@@ -211,6 +211,6 @@ describe('VisionGenerationService', () => {
     expect(mockPrisma.visionGeneration.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: { visionId: 'vision-1', setNumber: { lt: 2 } },
     }));
-    expect(mockPlanVisionScenes).toHaveBeenCalledWith('I create freely', 'DESIRE', description, earlier.map(item => item.scene), false);
+    expect(mockPlanVisionScenes).toHaveBeenCalledWith('I create freely', 'DESIRE', description, earlier.map(item => item.scene), false, null);
   });
 });

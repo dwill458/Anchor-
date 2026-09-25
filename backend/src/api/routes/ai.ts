@@ -9,7 +9,6 @@
 
 import express, { Response } from 'express';
 import { createHash, randomUUID } from 'crypto';
-import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { z } from 'zod';
 import {
   AuthRequest,
@@ -17,6 +16,12 @@ import {
   optionalAuthMiddleware,
   DEV_MASTER_UID,
 } from '../middleware/auth';
+import {
+  globalAiCeilingLimiter,
+  anchorEnhanceLimiter,
+  anchorEnhanceConcurrencyGuard,
+  aiPlanningLimiter,
+} from '../middleware/aiRateLimit';
 import { prisma } from '../../lib/prisma';
 import {
   getCostEstimate,
@@ -38,66 +43,11 @@ import {
   getAvailableVoicePresets,
 } from '../../services/TTSService';
 import { logger } from '../../utils/logger';
-import { RedisStore } from 'rate-limit-redis';
-import { redisClient } from '../../lib/redis';
 
 const router = express.Router();
 const TOTAL_VARIATION_OPTIONS = 2;
 const MAX_REUSED_VARIATIONS = 2;
 const RESERVATION_TTL_MINUTES = 30;
-
-const aiHourlyLimiterStore =
-  process.env.NODE_ENV === 'test' || !process.env.REDIS_URL
-    ? undefined
-    : new RedisStore({
-        prefix: 'rl:ai:hourly:',
-        sendCommand: (...args: string[]) => redisClient.sendCommand(args),
-      });
-
-const aiDailyLimiterStore =
-  process.env.NODE_ENV === 'test' || !process.env.REDIS_URL
-    ? undefined
-    : new RedisStore({
-        prefix: 'rl:ai:daily:',
-        sendCommand: (...args: string[]) => redisClient.sendCommand(args),
-      });
-
-// Per-user rate limiter for the AI image generation endpoint.
-// Keyed on the authenticated user's Firebase UID (set by authMiddleware before
-// this runs), falling back to IP for any unauthenticated edge cases.
-// Limit: 20 generations per hour — generous for normal use, tight enough to
-// prevent accidental loops or abuse.
-const aiHourlyLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: req => (req as AuthRequest).user?.uid || ipKeyGenerator(req.ip ?? ''),
-  skip: req => (req as AuthRequest).user?.uid === DEV_MASTER_UID,
-  message: {
-    error: 'Too many AI generation requests',
-    message: 'You have reached the AI enhancement limit. Please try again in an hour.',
-  },
-  store: aiHourlyLimiterStore,
-});
-
-// Daily AI generation limit per user — prevents runaway API costs.
-// Dev master account is exempt. Configurable via AI_DAILY_LIMIT env var.
-// NOTE: Uses RedisStore to persist across Railway restarts/multi-instance.
-const AI_DAILY_LIMIT = parseInt(process.env.AI_DAILY_LIMIT || '10', 10);
-const aiDailyLimiter = rateLimit({
-  windowMs: 24 * 60 * 60 * 1000, // 24 hours
-  max: AI_DAILY_LIMIT,
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: req => (req as AuthRequest).user?.uid || ipKeyGenerator(req.ip ?? ''),
-  skip: req => (req as AuthRequest).user?.uid === DEV_MASTER_UID,
-  message: {
-    error: 'Daily generation limit reached',
-    message: `You have reached your daily limit of ${AI_DAILY_LIMIT} AI generations. Try again tomorrow.`,
-  },
-  store: aiDailyLimiterStore,
-});
 
 // --- Zod schemas ---
 
@@ -710,13 +660,21 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
 }
 
 // Primary route
-router.post('/enhance', optionalAuthMiddleware, aiDailyLimiter, aiHourlyLimiter, handleEnhance);
+router.post(
+  '/enhance',
+  optionalAuthMiddleware,
+  globalAiCeilingLimiter,
+  anchorEnhanceLimiter,
+  anchorEnhanceConcurrencyGuard,
+  handleEnhance
+);
 // Legacy alias — keeps older mobile builds working
 router.post(
   '/enhance-controlnet',
   optionalAuthMiddleware,
-  aiDailyLimiter,
-  aiHourlyLimiter,
+  globalAiCeilingLimiter,
+  anchorEnhanceLimiter,
+  anchorEnhanceConcurrencyGuard,
   handleEnhance
 );
 
@@ -724,7 +682,12 @@ router.post(
  * POST /api/ai/mantra
  * Generate mantra from distilled letters
  */
-router.post('/mantra', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+router.post(
+  '/mantra',
+  authMiddleware,
+  globalAiCeilingLimiter,
+  aiPlanningLimiter,
+  async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const parsed = validateOrRespond(MantraSchema, req.body, res);
     if (!parsed) return;
@@ -756,6 +719,8 @@ router.post('/mantra', authMiddleware, async (req: AuthRequest, res: Response): 
 router.post(
   '/mantra/audio',
   authMiddleware,
+  globalAiCeilingLimiter,
+  aiPlanningLimiter,
   async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const parsed = validateOrRespond(MantraAudioSchema, req.body, res);

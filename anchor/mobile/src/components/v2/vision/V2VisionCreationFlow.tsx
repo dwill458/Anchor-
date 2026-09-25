@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text,
+  ActivityIndicator, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text,
   TextInput, useWindowDimensions, View,
 } from 'react-native';
 import Animated, { Easing, interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -252,9 +252,25 @@ export function V2VisionCreationFlow({
   }));
   const focusInput = () => {
     setInputFocused(true);
-    // Bring the field above the keyboard once, smoothly, rather than letting it jump.
-    setTimeout(() => scrollRef.current?.scrollTo({ y: Math.max(0, inputOffset.current - spacing[8]), animated: !reduceMotion }), 120);
   };
+  useEffect(() => {
+    if (!inputFocused) return;
+    const revealInput = () => {
+      scrollRef.current?.scrollTo({
+        y: Math.max(0, inputOffset.current - spacing[3]),
+        animated: !reduceMotion,
+      });
+    };
+    const show = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      revealInput,
+    );
+    const fallback = setTimeout(revealInput, 150);
+    return () => {
+      show.remove();
+      clearTimeout(fallback);
+    };
+  }, [inputFocused, reduceMotion]);
 
   useEffect(() => {
     if (!generation.job) return;
@@ -577,7 +593,16 @@ export function V2VisionCreationFlow({
     <View testID={`${testID}-prompt`} style={styles.stage}>
       <StatusBar barStyle="light-content" backgroundColor={colors.ink.base} animated />
       <KeyboardAvoidingView style={styles.flex} behavior="padding">
-        <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: insets.bottom + spacing[6] }} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          ref={scrollRef}
+          style={styles.flex}
+          contentContainerStyle={{
+            paddingBottom: insets.bottom + (inputFocused ? spacing[3] : spacing[6]),
+          }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+          showsVerticalScrollIndicator={false}
+        >
           <VisionPhoto source={possibleFuture} category={anchorCategory} tint={0.12} scrim="both" style={styles.describeHero}>
             <View style={[styles.describeTint]} pointerEvents="none" />
             <View style={[styles.photoContent, { paddingTop: insets.top, paddingBottom: spacing[5] }]}>
@@ -608,7 +633,7 @@ export function V2VisionCreationFlow({
                 multiline maxLength={VISION_DESCRIPTION_MAX_CHARS}
                 value={description} onChangeText={setDescription} placeholder={`Example: ${example}`} placeholderTextColor={colors.text.disabled}
                 onFocus={focusInput} onBlur={() => setInputFocused(false)}
-                style={styles.input} textAlignVertical="top" />
+                style={[styles.input, { maxHeight: Math.max(180, Math.min(260, height * 0.32)) }]} textAlignVertical="top" scrollEnabled />
             </Animated.View>
             <View style={styles.meter}>
               <Text testID="vision-detail-hint" style={[styles.meterHint, level === 'rich' && { color: colors.semantic.success }]} numberOfLines={2}>
@@ -655,17 +680,27 @@ export function V2VisionCreationFlow({
                 </Pressable>
               )}
             </View>
-            <V2Button testID="vision-generate" size="large" accessibilityLabel="Continue to create your Vision"
-              disabled={!validDescription} loading={starting} onPress={() => { void generate(); }}>
-              Continue
-            </V2Button>
-            <Pressable testID="vision-add-photos" accessibilityRole="button" accessibilityLabel="Add my own images"
-              disabled={!validDescription} onPress={() => { void pickImages(); }} style={[styles.textAction, !validDescription && styles.disabled]}>
-              <ImageIcon size={15} color={colors.text.secondary} />
-              <Text style={styles.textActionLabel}>Use my own photos instead</Text>
-            </Pressable>
+            {!inputFocused ? <>
+              <V2Button testID="vision-generate" size="large" accessibilityLabel="Continue to create your Vision"
+                disabled={!validDescription} loading={starting} onPress={() => { void generate(); }}>
+                Continue
+              </V2Button>
+              <Pressable testID="vision-add-photos" accessibilityRole="button" accessibilityLabel="Add my own images"
+                disabled={!validDescription} onPress={() => { void pickImages(); }} style={[styles.textAction, !validDescription && styles.disabled]}>
+                <ImageIcon size={15} color={colors.text.secondary} />
+                <Text style={styles.textActionLabel}>Use my own photos instead</Text>
+              </Pressable>
+            </> : null}
           </View>
         </ScrollView>
+        {inputFocused ? (
+          <View style={[styles.focusedFooter, { paddingBottom: Math.max(insets.bottom, spacing[2]) }]}>
+            <V2Button testID="vision-generate-focused" size="large" accessibilityLabel="Continue to create your Vision"
+              disabled={!validDescription} loading={starting} onPress={() => { Keyboard.dismiss(); void generate(); }}>
+              Continue
+            </V2Button>
+          </View>
+        ) : null}
       </KeyboardAvoidingView>
     </View>
   );
@@ -698,6 +733,13 @@ const styles = StyleSheet.create({
   guideLabel: { ...typography.caption, fontFamily: typography.labelMD.fontFamily, color: colors.ink.text.secondary },
   guideHint: { ...typography.caption, color: colors.ink.text.tertiary },
   describeBody: { paddingHorizontal: spacing[5], paddingTop: spacing[5], gap: spacing[3] },
+  focusedFooter: {
+    paddingHorizontal: spacing[5],
+    paddingTop: spacing[2],
+    backgroundColor: colors.canvas,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border.default,
+  },
   inputFrame: {
     borderRadius: radii.md, borderWidth: 1, borderColor: colors.border.default, backgroundColor: colors.surface,
     shadowColor: colors.ink.base, shadowOffset: { width: 0, height: 6 }, shadowRadius: 16, shadowOpacity: 0,

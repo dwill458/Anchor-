@@ -1,20 +1,22 @@
 import React, { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { colors, typography } from '@/theme/v2';
 import type { HomeChartState } from '@/adapters/v2/home';
+import { ChartPreview } from '@/components/v2/chart/ChartPreview';
+import type { ChartMarker } from '@/components/v2/chart/ChartLandscape';
+import { CHART_WINDOWS } from '@/components/v2/chart/chartRouteGeometry';
+import { useV2Responsive } from '@/hooks/v2/useV2Responsive';
 
 type Props = {
   chart: HomeChartState;
   expanded?: boolean;
   categoryColor?: string;
+  category?: string | null;
   onOpenChart?: () => void;
   onRetry?: () => void | Promise<void>;
   testID?: string;
 };
-
-const ROUTE_WIDTH = 300;
-const ROUTE_HEIGHT = 88;
 
 function ArrowRight({ color }: { color: string }) {
   return (
@@ -25,97 +27,11 @@ function ArrowRight({ color }: { color: string }) {
 }
 
 /**
- * An abstract contour of the route with physical character: a single thin,
- * slightly uneven line, the travelled part struck in the category accent and
- * the remainder left faint. Reached points are small filled marks and the
- * current point is one restrained ring. No ribbon, no gradient, no ornament.
- * The drift is deterministic, so the line never jitters between renders.
- */
-function RouteContour({
-  waypoints,
-  accent,
-  expanded,
-}: {
-  waypoints: NonNullable<Extract<HomeChartState, { state: 'ready' }>['waypoints']>;
-  accent: string;
-  expanded?: boolean;
-}) {
-  if (waypoints.length === 0) return null;
-
-  const inset = 6;
-  const span = ROUTE_WIDTH - inset * 2;
-  const step = waypoints.length > 1 ? span / (waypoints.length - 1) : 0;
-  const height = expanded ? 110 : ROUTE_HEIGHT;
-  const drift = (index: number) => [0, -8, 4, -5, 7, -6][index % 6];
-  const pointAt = (index: number) => ({
-    x: inset + step * index,
-    y: height * 0.66 + drift(index),
-  });
-
-  const path = waypoints
-    .map((_, index) => {
-      const point = pointAt(index);
-      if (index === 0) return 'M ' + point.x + ' ' + point.y;
-      const previous = pointAt(index - 1);
-      const midX = (previous.x + point.x) / 2;
-      return 'C ' + midX + ' ' + previous.y + ', ' + midX + ' ' + point.y + ', ' + point.x + ' ' + point.y;
-    })
-    .join(' ');
-
-  const currentIndex = waypoints.findIndex((waypoint) => waypoint.isCurrent);
-  const reachedCount = waypoints.filter((waypoint) => waypoint.reached).length;
-  const travelledIndex = currentIndex >= 0 ? currentIndex : reachedCount > 0 ? reachedCount - 1 : 0;
-  const travelledLength = waypoints.length > 1 ? (travelledIndex / (waypoints.length - 1)) * ROUTE_WIDTH * 1.06 : 0;
-
-  return (
-    <Svg
-      width="100%"
-      height={height}
-      viewBox={'0 0 ' + ROUTE_WIDTH + ' ' + height}
-      preserveAspectRatio="xMidYMid meet"
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-    >
-      <Path d={`M0 ${height * 0.7} L36 ${height * 0.48} 65 ${height * 0.72} 95 ${height * 0.31} 137 ${height * 0.76} 170 ${height * 0.5} 207 ${height * 0.74} 253 ${height * 0.25} 300 ${height * 0.64}`} stroke={colors.graphite.hairlineStrong} strokeWidth={0.8} opacity={0.7} fill="none" />
-      <Path d={`M0 ${height * 0.9} L47 ${height * 0.65} 82 ${height * 0.87} 119 ${height * 0.59} 161 ${height * 0.93} 207 ${height * 0.58} 251 ${height * 0.8} 300 ${height * 0.49}`} stroke={colors.graphite.hairlineStrong} strokeWidth={0.65} opacity={0.45} fill="none" />
-      <Path d={path} stroke={colors.graphite.hairlineStrong} strokeWidth={1.2} fill="none" strokeLinecap="round" />
-      {travelledLength > 0 ? (
-        <Path
-          d={path}
-          stroke={accent}
-          strokeWidth={1.6}
-          fill="none"
-          strokeLinecap="round"
-          strokeDasharray={travelledLength.toFixed(1) + ' ' + ROUTE_WIDTH * 2}
-          opacity={0.85}
-        />
-      ) : null}
-      {waypoints.map((waypoint, index) => {
-        const point = pointAt(index);
-        if (waypoint.isCurrent) {
-          return <Circle key={waypoint.id} cx={point.x} cy={point.y} r={4.2} fill="none" stroke={accent} strokeWidth={1.8} />;
-        }
-        return (
-          <Circle
-            key={waypoint.id}
-            cx={point.x}
-            cy={point.y}
-            r={waypoint.isDestination ? 2.8 : 2.1}
-            fill={waypoint.reached ? accent : colors.graphite.hairlineStrong}
-            opacity={waypoint.reached ? 0.8 : 1}
-          />
-        );
-      })}
-    </Svg>
-  );
-}
-
-/**
  * Chart on Home is strictly conditional, and the absent/unknown/in-flight
  * distinction is load-bearing:
  *
- * - `none`      this Anchor has no Course. Render nothing at all: no heading,
- *               no pill, no route, no waypoint, no reserved space.
+ * - `none`      confirmed absence. Show only category terrain and the real
+ *               Chart entry action: no route, waypoint, or progress.
  * - `resolving` the relationship is not yet knowable. Also render nothing; an
  *               unknown relationship must never surface as "Loading…".
  * - `loading`   a Course link for THIS Anchor is known and its detail is in
@@ -123,10 +39,41 @@ function RouteContour({
  * - `error`     a known relationship failed to load. Show it and allow retry;
  *               never silently substitute fallback content.
  */
-function V2HomeChartSectionComponent({ chart, expanded, categoryColor, onOpenChart, onRetry, testID }: Props) {
-  const accent = categoryColor ?? colors.semantic.info;
+function V2HomeChartSectionComponent({ chart, category, onOpenChart, onRetry, testID }: Props) {
+  const { width: windowWidth, gutter } = useV2Responsive();
+  const mapWidth = Math.max(1, windowWidth - gutter * 2);
 
-  if (chart.state === 'none' || chart.state === 'resolving') return null;
+  if (chart.state === 'resolving') return null;
+
+  if (chart.state === 'none') {
+    return (
+      <Pressable
+        testID={testID ?? 'v2-home-chart-empty'}
+        accessibilityRole="button"
+        accessibilityLabel="Create Chart. Map the path from here."
+        onPress={onOpenChart}
+        disabled={!onOpenChart}
+        style={({ pressed }) => [styles.container, pressed && onOpenChart ? styles.pressed : null]}
+      >
+        <View style={styles.kickerRow}><Text style={styles.kicker}>YOUR CHART</Text></View>
+        <View style={styles.route}>
+          <ChartPreview
+            width={mapWidth}
+            category={category}
+            window={CHART_WINDOWS.home}
+            showRoute={false}
+            testID="v2-home-chart-map"
+            style={{ alignSelf: 'center' }}
+          />
+        </View>
+        <Text style={styles.waypointTitle}>Map the path from here.</Text>
+        <View style={styles.link}>
+          <Text style={styles.linkText}>Create Chart</Text>
+          <ArrowRight color={colors.graphite.text.tertiary} />
+        </View>
+      </Pressable>
+    );
+  }
 
   if (chart.state === 'loading') {
     return (
@@ -155,6 +102,13 @@ function V2HomeChartSectionComponent({ chart, expanded, categoryColor, onOpenCha
   }
 
   const current = chart.waypoints.find((waypoint) => waypoint.isCurrent) ?? null;
+  const markers: ChartMarker[] = chart.waypoints.map((waypoint, index) => ({
+    id: waypoint.id,
+    number: index + 1,
+    state: waypoint.reached ? 'completed' : waypoint.isCurrent ? 'current' : 'upcoming',
+    accessibilityLabel: waypoint.title,
+  }));
+  const travelled = chart.waypointCount > 0 ? Math.min(1, chart.reachedCount / chart.waypointCount) : 0;
 
   return (
     <Pressable
@@ -162,8 +116,10 @@ function V2HomeChartSectionComponent({ chart, expanded, categoryColor, onOpenCha
       accessibilityRole="button"
       accessibilityLabel={
         current
-          ? 'Open Chart. Waypoint ' + ((chart.currentWaypointIndex ?? 0) + 1) + ' of ' + chart.waypointCount + ': ' + current.title + (chart.nextMove ? '. One Move: ' + chart.nextMove : '')
-          : 'Open Chart'
+          ? `Open Chart. Waypoint ${(chart.currentWaypointIndex ?? 0) + 1} of ${chart.waypointCount}: ${current.title}. Toward: ${chart.destinationText}.${chart.nextMove ? ` One Move: ${chart.nextMove}` : ''}`
+          : chart.isFinished
+            ? `Open Chart. Destination reached: ${chart.destinationText}.`
+            : 'Open Chart'
       }
       onPress={onOpenChart}
       disabled={!onOpenChart}
@@ -173,27 +129,35 @@ function V2HomeChartSectionComponent({ chart, expanded, categoryColor, onOpenCha
         <Text style={styles.kicker}>YOUR CHART</Text>
       </View>
 
-      <View style={[styles.route, expanded && styles.expandedRoute]}>
-        <RouteContour waypoints={chart.waypoints} accent={accent} expanded={expanded} />
+      <View style={styles.route}>
+        <ChartPreview
+          width={mapWidth}
+          category={category}
+          window={CHART_WINDOWS.home}
+          showRoute={chart.waypointCount > 0}
+          markers={markers}
+          travelledFraction={travelled}
+          testID="v2-home-chart-map"
+          style={{ alignSelf: 'center' }}
+        />
       </View>
-
-      <Text testID="v2-home-chart-progress" style={styles.progress}>
-        {chart.isFinished
-          ? 'Destination reached'
-          : chart.currentWaypointIndex !== null && chart.currentWaypointIndex >= 0
-            ? 'Waypoint ' + (chart.currentWaypointIndex + 1) + ' of ' + chart.waypointCount
-            : chart.reachedCount + ' of ' + chart.waypointCount + ' reached'}
-      </Text>
-      <Text testID="v2-home-chart-destination" style={styles.destination}>
-        {chart.destinationText}
-      </Text>
 
       {current ? (
         <View style={styles.waypointBlock}>
-          <Text style={styles.waypointLabel}>CURRENT WAYPOINT</Text>
+          <Text style={styles.waypointLabel}>{chart.isFinished ? 'DESTINATION REACHED' : `WAYPOINT ${(chart.currentWaypointIndex ?? 0) + 1} OF ${chart.waypointCount}`}</Text>
           <Text testID="v2-home-chart-waypoint" style={styles.waypointTitle}>
             {current.title}
           </Text>
+          <Text testID="v2-home-chart-destination" style={styles.toward}>Toward: {chart.destinationText}</Text>
+        </View>
+      ) : chart.isFinished ? (
+        <View style={styles.waypointBlock}>
+          <Text style={styles.waypointLabel}>DESTINATION REACHED</Text>
+          <Text testID="v2-home-chart-destination" style={styles.waypointTitle}>{chart.destinationText}</Text>
+        </View>
+      ) : chart.waypointCount === 0 ? (
+        <View style={styles.waypointBlock}>
+          <Text style={styles.waypointTitle}>{chart.destinationText}</Text>
         </View>
       ) : null}
 
@@ -232,25 +196,7 @@ const styles = StyleSheet.create({
     letterSpacing: 2.2,
     color: colors.graphite.text.tertiary,
   },
-  progress: {
-    fontFamily: typography.bodyMedium,
-    fontSize: 12,
-    color: colors.graphite.text.secondary,
-    fontVariant: ['tabular-nums'],
-  },
-  destination: {
-    fontFamily: 'EBGaramond-Medium',
-    fontSize: 23,
-    lineHeight: 26,
-    letterSpacing: -0.6,
-    color: colors.graphite.text.primary,
-    marginTop: 5,
-  },
-  route: {
-    marginTop: 10,
-    marginBottom: 5,
-  },
-  expandedRoute: { marginTop: 14, marginBottom: 10 },
+  route: { height: 154, overflow: 'hidden', marginTop: 8, marginBottom: 8 },
   waypointBlock: {
     marginTop: 16,
   },
@@ -266,6 +212,13 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     color: colors.graphite.text.primary,
     marginTop: 4,
+  },
+  toward: {
+    fontFamily: typography.body,
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.graphite.text.tertiary,
+    marginTop: 3,
   },
   oneMove: {
     fontFamily: typography.body,

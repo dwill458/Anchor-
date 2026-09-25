@@ -32,6 +32,7 @@ model User {
   updatedAt              DateTime  @updatedAt
   lastSeenAt             DateTime?
   hasCompletedOnboarding Boolean   @default(false)
+  onboardingContext      Json?     @map("onboarding_context")
   chartSchemaVersion     Int       @default(0) @map("chart_schema_version")
 
   // Stats

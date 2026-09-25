@@ -50,3 +50,17 @@ export const useReduceMotionEnabled = (): boolean => {
 
   return preference === 'on';
 };
+
+/**
+ * For sacred ritual flows (like Anchor Creation) that exist to be watched as a deliberate,
+ * meaningful sequence rather than a generic UI utility transition.
+ *
+ * It only reduces motion if the user explicitly enabled 'reduceMotion: on' in Anchor settings.
+ * It is NOT automatically collapsed by Android OS developer settings (animator_duration_scale=0)
+ * or vendor accessibility flags (Samsung One UI "Remove animations").
+ */
+export const useCreationReduceMotion = (): boolean => {
+  const preference = useSettingsStore((state) => state.reduceMotion ?? 'system');
+  return preference === 'on';
+};
+

@@ -37,6 +37,7 @@ const mockPrisma = {
   },
   anchor: {
     findMany: jest.fn(),
+    findFirst: jest.fn(),
   },
   activation: {
     findMany: jest.fn(),
@@ -163,6 +164,42 @@ beforeEach(() => {
   mockedAuthMiddleware.mockImplementation((req: any, _res: any, next: any) => {
     req.user = MOCK_USER_AUTH;
     next();
+  });
+});
+
+describe('authenticated onboarding context', () => {
+  const answers = {
+    focusCategory: 'career',
+    desiredChange: 'More freedom',
+    lifeChanges: ['What I do every day'],
+    primaryNeed: 'Staying consistent',
+  };
+
+  it('saves answers and completes onboarding only after the account owns an Anchor', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ id: 'db-user-1' });
+    mockPrisma.anchor.findFirst.mockResolvedValue({ id: 'anchor-1' });
+    mockPrisma.user.update.mockResolvedValue({ onboardingContext: answers, hasCompletedOnboarding: true });
+    const response = await request(buildApp()).put('/api/auth/onboarding-context').send(answers);
+    expect(response.status).toBe(200);
+    expect(response.body.data).toEqual({ onboardingContext: answers, hasCompletedOnboarding: true });
+    expect(mockPrisma.anchor.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'db-user-1', isArchived: false } }));
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'db-user-1' }, data: { onboardingContext: answers, hasCompletedOnboarding: true } }));
+  });
+
+  it('refuses to mark onboarding complete before first Anchor persistence', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ id: 'db-user-1' });
+    mockPrisma.anchor.findFirst.mockResolvedValue(null);
+    const response = await request(buildApp()).put('/api/auth/onboarding-context').send(answers);
+    expect(response.status).toBe(409);
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('returns only the authenticated account’s saved answers', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ onboardingContext: answers });
+    const response = await request(buildApp()).get('/api/auth/onboarding-context');
+    expect(response.status).toBe(200);
+    expect(response.body.data).toEqual(answers);
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({ where: { authUid: 'firebase-uid-1' }, select: { onboardingContext: true } });
   });
 });
 

@@ -32,6 +32,7 @@ export function V2DevelopmentHome() {
       },
       onOpenProfile: () => navigation.navigate('V2Settings'),
       onOpenWeeklyInsight: () => navigation.navigate('V2WeeklyInsight'),
+      onOpenMaterialLab: () => navigation.navigate('V2EvolvingAnchor'),
       onReleaseAnchor: (anchorId) => navigation.navigate('V2Release', { anchorId }),
     }),
     [navigation],

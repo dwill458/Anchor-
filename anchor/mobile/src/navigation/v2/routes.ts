@@ -8,6 +8,7 @@ export const ANCHOR_V2_ROUTES = {
   firstRun: 'V2FirstRun',
   developmentHome: 'V2DevelopmentHome',
   systemGallery: 'V2SystemGallery',
+  evolvingAnchor: 'V2EvolvingAnchor',
   creation: CREATION_ROUTE_NAME,
   anchorLibrary: 'V2AnchorLibrary',
   anchorDetails: 'V2AnchorDetails',
