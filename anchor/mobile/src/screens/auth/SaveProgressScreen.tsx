@@ -34,6 +34,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { AuthService } from '@/services/AuthService';
 import { useAuthStore } from '@/stores/authStore';
+import { useAnchorStore } from '@/stores/anchorStore';
+import { navigateToVaultDestination } from '@/navigation/firstAnchorGate';
 import type { Anchor, RootStackParamList } from '@/types';
 import { colors, spacing, typography } from '@/theme';
 import { withAlpha } from '@/utils/color';
@@ -314,6 +316,16 @@ export const SaveProgressScreen: React.FC = () => {
   const wave3Style = useEntranceStyle(wave3);
   const wave4Style = useEntranceStyle(wave4);
 
+  const navigateAfterSaveOrSkip = React.useCallback((targetAnchorId?: string) => {
+    clearPendingFirstAnchorError();
+    if (anchor.isCharged) {
+      navigateToVaultDestination(navigation, 'replace');
+      return;
+    }
+    const resolvedAnchorId = targetAnchorId ?? anchor.id;
+    navigation.replace('PrimeYourAnchor', { anchorId: resolvedAnchorId });
+  }, [anchor.id, anchor.isCharged, clearPendingFirstAnchorError, navigation]);
+
   useFocusEffect(
     React.useCallback(() => {
       if (!isAuthenticated) {
@@ -321,7 +333,7 @@ export const SaveProgressScreen: React.FC = () => {
       }
 
       if (!pendingFirstAnchorDraft) {
-        navigation.replace('PrimeYourAnchor', { anchorId: anchor.id });
+        navigateAfterSaveOrSkip();
         return;
       }
 
@@ -334,7 +346,8 @@ export const SaveProgressScreen: React.FC = () => {
         const didFinalize = await finalizePendingFirstAnchorDraft();
         if (!cancelled && didFinalize) {
           useFirstAnchorFlowStore.getState().clearDraft();
-          navigation.replace('PrimeYourAnchor', { anchorId: anchor.id });
+          const currentAnchorId = useAnchorStore.getState().currentAnchorId ?? anchor.id;
+          navigateAfterSaveOrSkip(currentAnchorId);
         }
       })();
 
@@ -345,7 +358,7 @@ export const SaveProgressScreen: React.FC = () => {
       finalizePendingFirstAnchorDraft,
       isAuthenticated,
       isFinalizingPendingFirstAnchor,
-      navigation,
+      navigateAfterSaveOrSkip,
       pendingFirstAnchorDraft,
       pendingFirstAnchorError,
     ])
@@ -373,8 +386,13 @@ export const SaveProgressScreen: React.FC = () => {
     const didFinalize = await finalizePendingFirstAnchorDraft();
     if (didFinalize) {
       useFirstAnchorFlowStore.getState().clearDraft();
-      navigation.replace('PrimeYourAnchor', { anchorId: anchor.id });
+      const currentAnchorId = useAnchorStore.getState().currentAnchorId ?? anchor.id;
+      navigateAfterSaveOrSkip(currentAnchorId);
     }
+  };
+
+  const handleContinueToSanctuary = () => {
+    navigateAfterSaveOrSkip();
   };
 
   const handleSwitchAccount = async () => {
@@ -418,7 +436,12 @@ export const SaveProgressScreen: React.FC = () => {
                       <Text style={styles.retryText}>Finish Saving My Anchor</Text>
                     </LinearGradient>
                   </Pressable>
-                  <Pressable onPress={handleSwitchAccount} hitSlop={12}>
+                  <Pressable onPress={handleContinueToSanctuary} hitSlop={12} style={{ marginTop: 12 }}>
+                    <Text style={[styles.secondary, { color: colors.gold }]}>
+                      Continue to Sanctuary
+                    </Text>
+                  </Pressable>
+                  <Pressable onPress={handleSwitchAccount} hitSlop={12} style={{ marginTop: 10 }}>
                     <Text style={styles.secondary}>Use a different account</Text>
                   </Pressable>
                 </>

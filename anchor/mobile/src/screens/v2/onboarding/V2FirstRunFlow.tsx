@@ -9,6 +9,7 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { generateExpressionCandidates } from '@/services/v2/creationPersistence';
 import { saveOnboardingContext } from '@/services/v2/onboardingContext';
+import { logger } from '@/utils/logger';
 import { CATEGORY_TO_TIER, type Anchor } from '@/types';
 import { colors } from '@/theme/v2';
 
@@ -59,6 +60,10 @@ export function V2FirstRunFlow() {
   useEffect(() => {
     if (!hydrated) return;
     if (draft.accountId && draft.accountId !== user?.id) { reset(); return; }
+    if (user?.id && user.hasCompletedOnboarding) {
+      navigation.reset({ index: 0, routes: [{ name: 'V2DevelopmentHome' }] });
+      return;
+    }
     if (draft.currentStep === 'complete') {
       if (!user) reset();
       else navigation.reset({ index: 0, routes: [{ name: 'V2DevelopmentHome' }] });
@@ -88,7 +93,11 @@ export function V2FirstRunFlow() {
           if (!finalized) throw new Error(useAuthStore.getState().pendingFirstAnchorError ?? 'Your first Anchor has not finished saving. Try again.');
         }
         bindAccount(user.id);
-        await saveOnboardingContext(useFirstRunStore.getState().draft);
+        try {
+          await saveOnboardingContext(useFirstRunStore.getState().draft);
+        } catch (contextError) {
+          logger.warn('[V2FirstRunFlow] Could not save onboarding context', contextError);
+        }
         markAnchorPersisted();
         markAuthCompleted();
         useAuthStore.getState().completeOnboarding();

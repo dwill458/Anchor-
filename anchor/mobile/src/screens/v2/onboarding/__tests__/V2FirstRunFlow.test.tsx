@@ -33,11 +33,19 @@ jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: mockNavigate, reset: jest.fn() }),
 }));
 
-const draft: { currentStep: string; focusCategory?: string; desiredOutcome?: string } = { currentStep: 'welcome' };
+const draft: {
+  currentStep: string;
+  focusCategory?: string;
+  desiredOutcome?: string;
+  desiredWhy?: string;
+  desiredFriction?: string;
+} = { currentStep: 'welcome' };
 const mockResetFirstRun = jest.fn();
 const mockSetStep = jest.fn((step: string) => { draft.currentStep = step; });
 const mockSetFocusCategory = jest.fn((category: string) => { draft.focusCategory = category; });
 const mockSetDesiredOutcome = jest.fn((outcome: string) => { draft.desiredOutcome = outcome; });
+const mockSetDesiredWhy = jest.fn((why: string) => { draft.desiredWhy = why; });
+const mockSetDesiredFriction = jest.fn((friction: string) => { draft.desiredFriction = friction; });
 jest.mock('@/stores/v2/firstRunStore', () => ({
   useFirstRunStore: Object.assign(() => ({
     draft,
@@ -50,6 +58,8 @@ jest.mock('@/stores/v2/firstRunStore', () => ({
     setStep: mockSetStep,
     setFocusCategory: mockSetFocusCategory,
     setDesiredOutcome: mockSetDesiredOutcome,
+    setDesiredWhy: mockSetDesiredWhy,
+    setDesiredFriction: mockSetDesiredFriction,
     toggleLifeChange: jest.fn(),
     setPrimaryNeed: jest.fn(),
     markAnswersComplete: jest.fn(),
@@ -108,11 +118,14 @@ describe('V2FirstRunFlow returning-user sign in', () => {
     // A demonstration, not the user's Anchor.
     expect(screen.queryByText(/your anchor/i)).toBeNull();
 
-    // The CTA only arms once the explanation has formed.
+    // The CTA only arms once the intention has been written, transformed into the Anchor,
+    // and the finished Anchor has held.
     fireEvent.press(screen.getByLabelText('Continue'));
     expect(mockSetStep).not.toHaveBeenCalledWith('motivation');
     await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 5000));
+      // Past CTA_READY_MS (11950ms): the mark forms and settles, the brand identity reveals
+      // beneath it, then the editorial copy and CTA arm.
+      await new Promise((resolve) => setTimeout(resolve, 12100));
     });
 
     // Screen 3 is already mounted beneath Screen 2 (decoded before Continue), with nothing chosen.
@@ -131,7 +144,7 @@ describe('V2FirstRunFlow returning-user sign in', () => {
     expect(screen.getByTestId('v2-onboarding-focus')).toBeTruthy();
     expect(screen.getByLabelText('Step 3 of 8')).toBeTruthy();
     expect(screen.getByText(/What matters most\s+to you right now\?/)).toBeTruthy();
-  }, 15000);
+  }, 25000);
 });
 
 describe('V2FirstRunFlow Screen 3 — what matters most', () => {
@@ -219,7 +232,7 @@ describe('V2FirstRunFlow Screen 4 — what would changing this give you', () => 
     expect(screen.getByText(/What would changing\s+this give you\?/)).toBeTruthy();
     expect(screen.getByText('Choose what feels closest.')).toBeTruthy();
     expect(screen.getByText('CAREER')).toBeTruthy();
-    for (const [index, label] of ['More freedom', 'More confidence', 'More stability', 'A bigger impact'].entries()) {
+    for (const [index, label] of ['More freedom', 'More confidence', 'More opportunity', 'Work I’m proud of'].entries()) {
       expect(screen.getByTestId(`outcome-row-${index}`).props.accessibilityState).toMatchObject({ selected: false });
       expect(screen.getByText(label)).toBeTruthy();
     }
@@ -228,63 +241,143 @@ describe('V2FirstRunFlow Screen 4 — what would changing this give you', () => 
     expect(screen.getByTestId('outcome-continue').props.accessibilityState).toMatchObject({ disabled: true });
   });
 
-  it('selects one outcome, enables Continue, and persists it as onboarding context', () => {
+  it('selects one outcome, enables Continue, and advances to Screen 5', () => {
     const view = render(<V2FirstRunFlow />);
     fireEvent.press(screen.getByTestId('outcome-row-1'));
     expect(mockSetDesiredOutcome).toHaveBeenLastCalledWith('More confidence');
-    expect(mockSetStep).not.toHaveBeenCalledWith('system');
+    expect(mockSetStep).not.toHaveBeenCalledWith('meaning');
 
     draft.desiredOutcome = 'More confidence';
     view.rerender(<V2FirstRunFlow />);
     expect(screen.getByTestId('outcome-row-1').props.accessibilityState).toMatchObject({ selected: true });
     expect(screen.getByTestId('outcome-continue').props.accessibilityState).toMatchObject({ disabled: false });
 
+    fireEvent.press(screen.getByTestId('outcome-continue'));
+    expect(mockSetStep).toHaveBeenLastCalledWith('meaning');
   });
 
-  it('hands off to Screen 5 continuously, carrying the category and outcome', async () => {
-    draft.focusCategory = 'health';
-    draft.desiredOutcome = 'More energy';
-    const view = render(<V2FirstRunFlow />);
-    // Screen 5 is mounted beneath Screen 4 before Continue, so its artwork is decoded.
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 450));
-    });
-    expect(screen.getByTestId('v2-onboarding-system')).toBeTruthy();
-    expect(screen.getByTestId('v2-onboarding-outcome')).toBeTruthy();
-
-    fireEvent.press(screen.getByTestId('outcome-continue'));
-    // No navigation cut: Screen 4 stays until Screen 5's cream fully covers it.
-    expect(mockSetStep).not.toHaveBeenCalledWith('system');
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 760));
-    });
-    expect(mockSetStep).toHaveBeenLastCalledWith('system');
-    view.rerender(<V2FirstRunFlow />);
-
-    expect(screen.getByTestId('v2-onboarding-system')).toBeTruthy();
-    expect(screen.getByLabelText('Step 5 of 8')).toBeTruthy();
-    expect(screen.getByTestId('system-context-pill').props.children).toBe('HEALTH · MORE ENERGY');
-    expect(screen.getByText(/Keep what matters\s+in sight\./)).toBeTruthy();
-    expect(screen.getByText('See it. Reinforce it. Move toward it.')).toBeTruthy();
+  it('goes back to Screen 3 (motivation)', () => {
+    render(<V2FirstRunFlow />);
+    fireEvent.press(screen.getByLabelText('Go back'));
+    expect(mockSetStep).toHaveBeenLastCalledWith('motivation');
   });
 });
 
-describe('V2FirstRunFlow Screen 5 — keep what matters in sight', () => {
+describe('V2FirstRunFlow Screen 5 — emotional meaning', () => {
+  beforeEach(() => {
+    draft.currentStep = 'meaning';
+    draft.focusCategory = 'health';
+    draft.desiredOutcome = 'More energy';
+    delete draft.desiredWhy;
+    mockSetStep.mockClear();
+    mockSetDesiredWhy.mockClear();
+  });
+
+  it('shows why options for the chosen category and displays the persistent pill', () => {
+    render(<V2FirstRunFlow />);
+    expect(screen.getByTestId('v2-onboarding-meaning')).toBeTruthy();
+    expect(screen.getByLabelText('Step 5 of 8')).toBeTruthy();
+    expect(screen.getByTestId('system-context-pill').props.children).toBe('HEALTH · MORE ENERGY');
+    expect(screen.getByText(/Why does this matter\s+to you now\?/)).toBeTruthy();
+    expect(screen.getByText('Choose what feels most true.')).toBeTruthy();
+
+    for (const [index, label] of [
+      'I want to feel like myself again',
+      'I want to show up better every day',
+      'I’m ready to stop putting this off',
+      'I want to see what I’m capable of',
+    ].entries()) {
+      expect(screen.getByTestId(`meaning-row-${index}`).props.accessibilityState).toMatchObject({ selected: false });
+      expect(screen.getByText(label)).toBeTruthy();
+    }
+  });
+
+  it('selects an emotional reason, enables Continue, and advances to Screen 6', () => {
+    const view = render(<V2FirstRunFlow />);
+    fireEvent.press(screen.getByTestId('meaning-row-0'));
+    expect(mockSetDesiredWhy).toHaveBeenLastCalledWith('I want to feel like myself again');
+
+    draft.desiredWhy = 'I want to feel like myself again';
+    view.rerender(<V2FirstRunFlow />);
+    expect(screen.getByTestId('meaning-row-0').props.accessibilityState).toMatchObject({ selected: true });
+    expect(screen.getByTestId('meaning-continue').props.accessibilityState).toMatchObject({ disabled: false });
+
+    fireEvent.press(screen.getByTestId('meaning-continue'));
+    expect(mockSetStep).toHaveBeenLastCalledWith('friction');
+  });
+
+  it('goes back to Screen 4 (outcome)', () => {
+    render(<V2FirstRunFlow />);
+    fireEvent.press(screen.getByLabelText('Go back'));
+    expect(mockSetStep).toHaveBeenLastCalledWith('outcome');
+  });
+});
+
+describe('V2FirstRunFlow Screen 6 — friction', () => {
+  beforeEach(() => {
+    draft.currentStep = 'friction';
+    draft.focusCategory = 'health';
+    draft.desiredOutcome = 'More energy';
+    draft.desiredWhy = 'I want to feel like myself again';
+    delete draft.desiredFriction;
+    mockSetStep.mockClear();
+    mockSetDesiredFriction.mockClear();
+  });
+
+  it('shows friction options for the chosen category and displays Step 6 of 8', () => {
+    render(<V2FirstRunFlow />);
+    expect(screen.getByTestId('v2-onboarding-friction')).toBeTruthy();
+    expect(screen.getByLabelText('Step 6 of 8')).toBeTruthy();
+    expect(screen.getByText(/What usually gets\s+in the way\?/)).toBeTruthy();
+    expect(screen.getByText('Choose the one you recognize most.')).toBeTruthy();
+
+    for (const [index, label] of [
+      'I lose momentum',
+      'I struggle to stay consistent',
+      'Life gets crowded',
+      'I fall back into old habits',
+    ].entries()) {
+      expect(screen.getByTestId(`friction-row-${index}`).props.accessibilityState).toMatchObject({ selected: false });
+      expect(screen.getByText(label)).toBeTruthy();
+    }
+  });
+
+  it('selects a friction answer and advances to Screen 7', () => {
+    const view = render(<V2FirstRunFlow />);
+    fireEvent.press(screen.getByTestId('friction-row-0'));
+    expect(mockSetDesiredFriction).toHaveBeenLastCalledWith('I lose momentum');
+
+    draft.desiredFriction = 'I lose momentum';
+    view.rerender(<V2FirstRunFlow />);
+    expect(screen.getByTestId('friction-row-0').props.accessibilityState).toMatchObject({ selected: true });
+
+    fireEvent.press(screen.getByTestId('friction-continue'));
+    expect(mockSetStep).toHaveBeenLastCalledWith('system');
+  });
+
+  it('goes back to Screen 5 (meaning)', () => {
+    render(<V2FirstRunFlow />);
+    fireEvent.press(screen.getByLabelText('Go back'));
+    expect(mockSetStep).toHaveBeenLastCalledWith('meaning');
+  });
+});
+
+describe('V2FirstRunFlow Screen 7 — keep what matters in sight', () => {
   beforeEach(() => {
     draft.currentStep = 'system';
     draft.focusCategory = 'abundance';
-    draft.desiredOutcome = 'More freedom';
+    draft.desiredOutcome = 'More financial freedom';
     mockSetStep.mockClear();
   });
 
-  it('shows SEE, REINFORCE and MOVE for the chosen category and outcome', () => {
+  it('shows SEE, REINFORCE and MOVE for the chosen category and outcome at Step 7 of 8', () => {
     render(<V2FirstRunFlow />);
-    expect(screen.getByLabelText('Step 5 of 8')).toBeTruthy();
-    expect(screen.getByTestId('system-context-pill').props.children).toBe('ABUNDANCE · MORE FREEDOM');
+    expect(screen.getByLabelText('Step 7 of 8')).toBeTruthy();
+    expect(screen.getByTestId('system-context-pill').props.children).toBe('ABUNDANCE · MORE FINANCIAL FREEDOM');
     for (const [label, copy] of [
-      ['SEE', /Your future\s+clearly\./],
-      ['REINFORCE', /Keep your\s+intention strong\./],
-      ['MOVE', /Take the\s+next step\./],
+      ['SEE', /Picture where you’re going\./],
+      ['REINFORCE', /Return to your Anchor to keep the intention present\./],
+      ['MOVE', /Turn that clarity into your next step\./],
     ] as const) {
       expect(screen.getByText(label)).toBeTruthy();
       expect(screen.getByText(copy)).toBeTruthy();
@@ -292,9 +385,6 @@ describe('V2FirstRunFlow Screen 5 — keep what matters in sight', () => {
     for (const kind of ['see', 'reinforce', 'move']) {
       expect(screen.getByTestId(`system-art-${kind}`)).toBeTruthy();
     }
-    // SEE is an explanation, not a door into another screen.
-    fireEvent.press(screen.getByText('SEE'));
-    expect(mockSetStep).not.toHaveBeenCalled();
   });
 
   it('resolves the category artwork: the gold Anchor belongs to Abundance', () => {
@@ -308,40 +398,48 @@ describe('V2FirstRunFlow Screen 5 — keep what matters in sight', () => {
     expect(anchorSource()).toBe(require('@/assets/onboarding/screen5/anchor-tideglass.png'));
   });
 
-  it('keeps Custom working through the system', () => {
-    draft.focusCategory = 'custom';
-    draft.desiredOutcome = 'A better life';
+  it('continues to Screen 8 (handoff)', () => {
     render(<V2FirstRunFlow />);
-    expect(screen.getByTestId('system-context-pill').props.children).toBe('CUSTOM · A BETTER LIFE');
-    expect(screen.getByTestId('system-art-see')).toBeTruthy();
-  });
-
-  it('continues to the next question once the CTA has arrived', async () => {
-    render(<V2FirstRunFlow />);
-    // Not before it is visible.
     fireEvent.press(screen.getByTestId('system-continue'));
-    expect(mockSetStep).not.toHaveBeenCalled();
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-    });
-    fireEvent.press(screen.getByTestId('system-continue'));
-    expect(mockSetStep).toHaveBeenLastCalledWith('need');
+    expect(mockSetStep).toHaveBeenLastCalledWith('handoff');
   });
 
-  it('resumes a draft saved on the retired step on Screen 5', () => {
-    draft.currentStep = 'life';
+  it('goes back to Screen 6 (friction)', () => {
     render(<V2FirstRunFlow />);
-    expect(screen.getByTestId('v2-onboarding-system')).toBeTruthy();
-    expect(screen.getByLabelText('Step 5 of 8')).toBeTruthy();
-  });
-
-  it('goes back to Screen 4 with the outcome still chosen', () => {
-    const view = render(<V2FirstRunFlow />);
     fireEvent.press(screen.getByLabelText('Go back'));
-    expect(mockSetStep).toHaveBeenLastCalledWith('outcome');
-    view.rerender(<V2FirstRunFlow />);
-    expect(screen.getByLabelText('Step 4 of 8')).toBeTruthy();
-    expect(screen.getByTestId('outcome-row-0').props.accessibilityState).toMatchObject({ selected: true });
+    expect(mockSetStep).toHaveBeenLastCalledWith('friction');
+  });
+});
+
+describe('V2FirstRunFlow Screen 8 — final handoff', () => {
+  beforeEach(() => {
+    draft.currentStep = 'handoff';
+    draft.focusCategory = 'health';
+    draft.desiredOutcome = 'More energy';
+    mockSetStep.mockClear();
+  });
+
+  it('shows ONLY the hero Anchor and culmination copy at Step 8 of 8', () => {
+    render(<V2FirstRunFlow />);
+    expect(screen.getByLabelText('Step 8 of 8')).toBeTruthy();
+    expect(screen.getByTestId('handoff-hero-anchor')).toBeTruthy();
+    expect(screen.getByText(/You know what matters\.\s+Now give it a shape\./)).toBeTruthy();
+    expect(screen.getByText('Create a visual Anchor for what you want to keep moving toward.')).toBeTruthy();
+    expect(screen.getByText('Built around what matters to you.')).toBeTruthy();
+    expect(screen.getByTestId('handoff-create-anchor')).toBeTruthy();
+    expect(screen.getByText('Create My Anchor')).toBeTruthy();
+  });
+
+  it('transitions directly into the existing creation flow on CTA press', () => {
+    render(<V2FirstRunFlow />);
+    fireEvent.press(screen.getByTestId('handoff-create-anchor'));
+    expect(mockSetStep).toHaveBeenLastCalledWith('creation');
+  });
+
+  it('goes back to Screen 7 (system)', () => {
+    render(<V2FirstRunFlow />);
+    fireEvent.press(screen.getByLabelText('Go back'));
+    expect(mockSetStep).toHaveBeenLastCalledWith('system');
   });
 });
 

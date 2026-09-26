@@ -120,7 +120,7 @@ export function OpeningProgressHeader({
   const rolls = from !== to;
   return (
     <Animated.View
-      style={[styles.root, { paddingTop: topInset }, rootStyle]}
+      style={[styles.root, { paddingTop: Math.max(topInset, 16) }, rootStyle]}
       pointerEvents={interactive ? "box-none" : "none"}
     >
       <View style={styles.row}>
