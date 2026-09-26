@@ -18,6 +18,7 @@
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Dimensions,
   Image,
   Pressable,
   StyleSheet,
@@ -365,6 +366,9 @@ function MarkBuild({
 }) {
   const ink = useImage(markInk);
   const fill = useDerivedValue(() => (reduceMotion ? 1 : easeInOut(seg(clock.value, T.markComplete))));
+  if (width <= 0 || height <= 0 || !Number.isFinite(width) || !Number.isFinite(height)) {
+    return null;
+  }
   const scale = width / MARK_W;
   return (
     <Canvas style={{ width, height }} pointerEvents="none">
@@ -467,6 +471,8 @@ type Props = {
   /** Optional in-screen header; the journey normally keeps progress in a persistent header. */
   header?: React.ReactNode;
   reduceMotion: boolean;
+  /** Mount the notebook behind Welcome without starting its writing clock. */
+  active?: boolean;
   /**
    * Shared Screen 2 → 3 handoff clock (ms from Continue). Screen 2 only reads it: its
    * explanatory UI, example Anchor and world each leave on their own window.
@@ -480,8 +486,11 @@ type Props = {
 
 const INK_PLAN = planInk();
 
-export function V2OnboardingExplain({ header, reduceMotion, handoff, nextReady = true, onContinue }: Props) {
-  const { width: W, height: H } = useWindowDimensions();
+export function V2OnboardingExplain({ header, reduceMotion, active = true, handoff, nextReady = true, onContinue }: Props) {
+  const windowDim = useWindowDimensions();
+  const screenDim = Dimensions.get("window");
+  const W = windowDim.width || screenDim.width || 390;
+  const H = windowDim.height || screenDim.height || 844;
   const insets = useSafeAreaInsets();
 
   const clock = useSharedValue(0);
@@ -500,13 +509,17 @@ export function V2OnboardingExplain({ header, reduceMotion, handoff, nextReady =
 
   const layout = useMemo(() => {
     const heroTop = insets.top + 54 + 8;
-    const heroBottom = Math.max(heroTop + 160, copyTop - 14);
-    const heroH = heroBottom - heroTop;
-    const markH = Math.min(heroH * 0.9, W * 0.66 * (MARK_H / MARK_W), 330);
+    const lockupH = 46;
+    const lockupGap = 12;
+    const headlineGap = 36;
+    const maxMarkBottom = Math.max(heroTop + 140, copyTop - headlineGap - lockupH - lockupGap);
+    const availableHeroH = maxMarkBottom - heroTop;
+    const markH = Math.min(availableHeroH, W * 0.54 * (MARK_H / MARK_W), 240);
     const markW = (markH * MARK_W) / MARK_H;
+    const markTop = heroTop + (availableHeroH - markH) / 2;
     const mark = {
       left: (W - markW) / 2,
-      top: heroTop + (heroH - markH) / 2,
+      top: markTop,
       width: markW,
       height: markH,
     };
@@ -605,7 +618,16 @@ export function V2OnboardingExplain({ header, reduceMotion, handoff, nextReady =
   // Start the single clock. Reduce Motion owns its own crossfade timeline, so the system
   // reduce-motion shortcut in Reanimated (which would jump straight to the end) is bypassed.
   useEffect(() => {
+    if (!active) {
+      cancelAnimation(clock);
+      cancelAnimation(idle);
+      clock.value = 0;
+      setCtaReady(false);
+      return;
+    }
     const end = reduceMotion ? RM.end : T.end;
+    cancelAnimation(clock);
+    cancelAnimation(idle);
     clock.value = 0;
     clock.value = withTiming(end, { duration: end, easing: Easing.linear, reduceMotion: ReduceMotion.Never });
     if (!reduceMotion) {
@@ -613,6 +635,8 @@ export function V2OnboardingExplain({ header, reduceMotion, handoff, nextReady =
         withTiming(1, { duration: 3200, easing: Easing.inOut(Easing.sin), reduceMotion: ReduceMotion.Never }),
         -1,
         true,
+        undefined,
+        ReduceMotion.Never,
       );
     }
     // Enabling the CTA is the only JS-side event; animation itself never touches JS.
@@ -624,13 +648,22 @@ export function V2OnboardingExplain({ header, reduceMotion, handoff, nextReady =
       timers.current.forEach(clearTimeout);
       timers.current = [];
     };
-  }, [clock, idle, reduceMotion]);
+  }, [active, clock, idle, reduceMotion]);
 
-  const canContinue = ctaReady && nextReady;
+  const canContinue = active && ctaReady && nextReady;
   const handleContinue = () => {
     if (!canContinue || leaving.current) return;
     leaving.current = true;
     onContinue();
+  };
+  // Lets a returning or impatient user tap past the transformation instead of waiting it out.
+  const handleSkip = () => {
+    if (!active || ctaReady || leaving.current) return;
+    cancelAnimation(clock);
+    clock.value = reduceMotion ? RM.end : T.end;
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
+    setCtaReady(true);
   };
   const H2 = handoffTimeline(reduceMotion);
 
@@ -715,6 +748,25 @@ export function V2OnboardingExplain({ header, reduceMotion, handoff, nextReady =
     opacity: seg(clock.value, reduceMotion ? RM.gradientIn : T.gradientIn),
   }));
 
+  // Brand identity: reveals beneath the settled mark, ANCHOR first then VISUAL GOAL SETTING
+  // just after it, and leaves with the mark itself during the Screen 2 → 3 handoff.
+  const brandWordmarkStyle = useAnimatedStyle(() => {
+    const p = easeOut(seg(clock.value, reduceMotion ? RM.brandWordmark : T.brandWordmark));
+    const leave = easeInOutCubic(handoffSeg(handoff.value, H2.anchor));
+    return {
+      opacity: p * (1 - leave),
+      transform: [{ translateY: (reduceMotion ? 0 : 8 * (1 - p)) - (reduceMotion ? 0 : 20 * leave) }],
+    };
+  });
+  const brandSubStyle = useAnimatedStyle(() => {
+    const p = easeOut(seg(clock.value, reduceMotion ? RM.brandSub : T.brandSub));
+    const leave = easeInOutCubic(handoffSeg(handoff.value, H2.anchor));
+    return {
+      opacity: p * (1 - leave),
+      transform: [{ translateY: (reduceMotion ? 0 : 6 * (1 - p)) - (reduceMotion ? 0 : 20 * leave) }],
+    };
+  });
+
   // Shared values are read directly in each style so every platform tracks them as inputs.
   const headlineStyle = useAnimatedStyle(() =>
     uiReveal(clock.value, handoff.value, reduceMotion ? RM.copy : T.headline, H2.s2Ui, reduceMotion),
@@ -733,7 +785,12 @@ export function V2OnboardingExplain({ header, reduceMotion, handoff, nextReady =
   const penWidth = Math.max(1.3, em * 0.058);
 
   return (
-    <View style={styles.screen} testID="v2-onboarding-bridge" pointerEvents="box-none">
+    <Pressable
+      style={styles.screen}
+      testID="v2-onboarding-bridge"
+      onPress={handleSkip}
+      disabled={!active || ctaReady}
+    >
       <StatusBar style="light" translucent backgroundColor="transparent" />
 
       <Animated.View style={[StyleSheet.absoluteFill, styles.world, worldStyle]} pointerEvents="none">
@@ -787,12 +844,24 @@ export function V2OnboardingExplain({ header, reduceMotion, handoff, nextReady =
           style={[styles.abs, { left: 0, right: 0, top: copyTop - 140, bottom: 0 }, gradientStyle]}
         >
           <LinearGradient
-            colors={["rgba(9, 11, 18, 0)", "rgba(9, 11, 18, 0.62)", "rgba(8, 10, 16, 0.9)", "#07090F"]}
+            colors={["rgba(9, 11, 18, 0)", "rgba(9, 11, 18, 0.74)", "rgba(8, 10, 16, 0.96)", "#07090F"]}
             locations={[0, 0.28, 0.58, 1]}
             style={styles.fill}
           />
         </Animated.View>
       </Animated.View>
+
+      {/* 6b. Brand identity, directly beneath the settled mark: ANCHOR, then VISUAL GOAL
+          SETTING just after it. Above the readability gradient so it stays luminous and crisp. */}
+      <View
+        style={[styles.abs, { left: 0, right: 0, top: mark.top + mark.height + 12 }, styles.brandLockup]}
+        pointerEvents="none"
+        accessible
+        accessibilityLabel="Anchor. Visual goal setting."
+      >
+        <Animated.Text style={[styles.brandWordmark, brandWordmarkStyle]}>ANCHOR</Animated.Text>
+        <Animated.Text style={[styles.brandSub, brandSubStyle]}>VISUAL GOAL SETTING</Animated.Text>
+      </View>
 
       {/* Progress: 2 / 8 for the whole sequence (the journey normally owns this header) */}
       {header ? (
@@ -828,7 +897,7 @@ export function V2OnboardingExplain({ header, reduceMotion, handoff, nextReady =
         </Animated.View>
       </View>
 
-    </View>
+    </Pressable>
   );
 }
 
@@ -851,6 +920,26 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   headlineGold: { color: GOLD, fontFamily: "Inter-SemiBold" },
+  brandLockup: { alignItems: "center" },
+  brandWordmark: {
+    color: "#FFFFFF",
+    fontFamily: "Inter-SemiBold",
+    fontSize: 22,
+    letterSpacing: 9,
+    textShadowColor: "rgba(0, 0, 0, 0.6)",
+    textShadowRadius: 10,
+    textShadowOffset: { width: 0, height: 1 },
+  },
+  brandSub: {
+    color: "rgba(255, 255, 255, 0.78)",
+    fontFamily: "Inter-SemiBold",
+    fontSize: 10.5,
+    letterSpacing: 3.2,
+    marginTop: 6,
+    textShadowColor: "rgba(0, 0, 0, 0.6)",
+    textShadowRadius: 6,
+    textShadowOffset: { width: 0, height: 1 },
+  },
   support: {
     color: "rgba(255, 255, 255, 0.8)",
     fontFamily: "Inter-Regular",

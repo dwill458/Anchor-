@@ -28,11 +28,12 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSequence,
+  withSpring,
   withTiming,
   type SharedValue,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowRight } from "lucide-react-native";
+import { ArrowRight, Check } from "lucide-react-native";
 import type { AnchorCategory } from "@/types";
 import { focusAreaLabel, outcomeOptionsFor } from "@/constants/v2/onboarding";
 import { colors } from "@/theme/v2";
@@ -114,10 +115,83 @@ function OutcomeChoiceRow({
   const start = timeline.choicesStart + index * timeline.choiceStagger;
   const window: Window = [start, start + timeline.choiceDuration];
   const on = useSharedValue(selected ? 1 : 0);
-  const press = useSharedValue(1);
+  const pressScale = useSharedValue(1);
+  const indicatorScale = useSharedValue(selected ? 1 : 0.85);
+  const checkOpacity = useSharedValue(selected ? 1 : 0);
+  const checkScale = useSharedValue(selected ? 1 : 0.7);
+
   useEffect(() => {
-    on.value = withTiming(selected ? 1 : 0, { duration: 200, easing: Easing.out(Easing.quad), reduceMotion: ReduceMotion.Never });
-  }, [on, selected]);
+    if (selected) {
+      if (reduceMotion) {
+        on.value = withTiming(1, { duration: 150 });
+        indicatorScale.value = 1;
+        checkOpacity.value = withTiming(1, { duration: 150 });
+        checkScale.value = 1;
+      } else {
+        // Border & surface tint activation over ~200ms
+        on.value = withTiming(1, {
+          duration: 210,
+          easing: Easing.out(Easing.quad),
+          reduceMotion: ReduceMotion.Never,
+        });
+        // Check indicator scale: 0.85 -> 1.08 -> 1.0 with restrained spring
+        indicatorScale.value = 0.85;
+        indicatorScale.value = withSequence(
+          withTiming(1.08, {
+            duration: 130,
+            easing: Easing.out(Easing.quad),
+            reduceMotion: ReduceMotion.Never,
+          }),
+          withSpring(1.0, {
+            damping: 17,
+            stiffness: 240,
+            mass: 0.75,
+            reduceMotion: ReduceMotion.Never,
+          }),
+        );
+        // Fade check from 0 -> 1 simultaneously
+        checkOpacity.value = withTiming(1, {
+          duration: 220,
+          easing: Easing.out(Easing.quad),
+          reduceMotion: ReduceMotion.Never,
+        });
+        checkScale.value = withSpring(1.0, {
+          damping: 18,
+          stiffness: 250,
+          mass: 0.75,
+          reduceMotion: ReduceMotion.Never,
+        });
+      }
+    } else {
+      if (reduceMotion) {
+        on.value = withTiming(0, { duration: 150 });
+        indicatorScale.value = 1;
+        checkOpacity.value = withTiming(0, { duration: 150 });
+        checkScale.value = 0.7;
+      } else {
+        on.value = withTiming(0, {
+          duration: 190,
+          easing: Easing.out(Easing.quad),
+          reduceMotion: ReduceMotion.Never,
+        });
+        indicatorScale.value = withTiming(1.0, {
+          duration: 180,
+          easing: Easing.out(Easing.quad),
+          reduceMotion: ReduceMotion.Never,
+        });
+        checkOpacity.value = withTiming(0, {
+          duration: 160,
+          easing: Easing.in(Easing.quad),
+          reduceMotion: ReduceMotion.Never,
+        });
+        checkScale.value = withTiming(0.7, {
+          duration: 160,
+          easing: Easing.in(Easing.quad),
+          reduceMotion: ReduceMotion.Never,
+        });
+      }
+    }
+  }, [checkOpacity, checkScale, indicatorScale, on, reduceMotion, selected]);
 
   const enterStyle = useAnimatedStyle(() => {
     const p = easeOutCubic(seg(clock.value, window));
@@ -125,30 +199,71 @@ function OutcomeChoiceRow({
     return {
       opacity: p * (1 - out),
       transform: [
-        { translateY: (reduceMotion ? 6 : 12) * (1 - p) - (reduceMotion ? 0 : 10) * out },
-        { scale: (reduceMotion ? 1 : 0.985 + 0.015 * p) * press.value },
+        { translateY: (reduceMotion ? 0 : 8) * (1 - p) - (reduceMotion ? 0 : 10) * out },
+        { scale: (reduceMotion ? 1 : 0.985 + 0.015 * p) * pressScale.value },
       ],
     };
   });
+
   const frameStyle = useAnimatedStyle(() => ({
     borderColor: interpolateColor(on.value, [0, 1], [ROW_BORDER, accent]),
-    borderWidth: 1 + 0.5 * on.value,
-    backgroundColor: interpolateColor(on.value, [0, 1], ["#FCFAF6", `${accent}0F`]),
-  }));
-  const accentBarStyle = useAnimatedStyle(() => ({ opacity: on.value }));
-  const radioRingStyle = useAnimatedStyle(() => ({
-    borderColor: interpolateColor(on.value, [0, 1], ["#C7C1B6", accent]),
-  }));
-  const radioFillStyle = useAnimatedStyle(() => ({
-    opacity: on.value,
-    transform: [{ scale: 0.4 + 0.6 * on.value }],
+    borderWidth: 1 + 1 * on.value,
+    shadowOpacity: 0.05 + 0.05 * on.value,
+    elevation: 1 + 1 * on.value,
   }));
 
-  const handlePress = () => {
+  const tintStyle = useAnimatedStyle(() => ({
+    opacity: on.value,
+  }));
+
+  // A quiet empty selection circle when unselected; a small clean filled category-colored
+  // badge with check when selected.
+  const radioRingStyle = useAnimatedStyle(() => ({
+    borderColor: interpolateColor(on.value, [0, 1], ["rgba(20, 22, 43, 0.22)", accent]),
+    backgroundColor: interpolateColor(on.value, [0, 1], ["transparent", accent]),
+    transform: [{ scale: reduceMotion ? 1 : indicatorScale.value }],
+  }));
+
+  const radioCheckStyle = useAnimatedStyle(() => ({
+    opacity: checkOpacity.value,
+    transform: [{ scale: reduceMotion ? (selected ? 1 : 0.7) : checkScale.value }],
+  }));
+
+  const handlePressIn = () => {
     if (!reduceMotion) {
-      press.value = withSequence(
-        withTiming(0.985, { duration: 90, easing: Easing.out(Easing.quad) }),
-        withTiming(1, { duration: 160, easing: Easing.out(Easing.quad) }),
+      pressScale.value = withTiming(0.985, {
+        duration: 90,
+        easing: Easing.out(Easing.quad),
+        reduceMotion: ReduceMotion.Never,
+      });
+    }
+  };
+
+  const handlePressOut = () => {
+    if (!reduceMotion) {
+      pressScale.value = withSpring(1.0, {
+        damping: 18,
+        stiffness: 250,
+        mass: 0.8,
+        reduceMotion: ReduceMotion.Never,
+      });
+    }
+  };
+
+  const handlePress = () => {
+    if (!reduceMotion && pressScale.value === 1) {
+      pressScale.value = withSequence(
+        withTiming(0.985, {
+          duration: 90,
+          easing: Easing.out(Easing.quad),
+          reduceMotion: ReduceMotion.Never,
+        }),
+        withSpring(1.0, {
+          damping: 18,
+          stiffness: 250,
+          mass: 0.8,
+          reduceMotion: ReduceMotion.Never,
+        }),
       );
     }
     onPress();
@@ -161,18 +276,30 @@ function OutcomeChoiceRow({
         accessibilityRole="radio"
         accessibilityLabel={label}
         accessibilityState={{ selected, checked: selected }}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
         onPress={handlePress}
         style={styles.rowPress}
       >
         <Animated.View style={[styles.row, frameStyle]}>
-          <Animated.View pointerEvents="none" style={[styles.rowAccent, { backgroundColor: accent }, accentBarStyle]} />
-          <Text style={styles.rowLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} maxFontSizeMultiplier={1.3}>
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.rowTint, { backgroundColor: `${accent}0F` }, tintStyle]}
+          />
+          <Text
+            style={styles.rowLabel}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.85}
+            maxFontSizeMultiplier={1.3}
+          >
             {label}
           </Text>
-          <View style={styles.radioOuter}>
-            <Animated.View style={[styles.radioRing, radioRingStyle]} />
-            <Animated.View pointerEvents="none" style={[styles.radioFill, { backgroundColor: accent }, radioFillStyle]} />
-          </View>
+          <Animated.View style={[styles.radio, radioRingStyle]}>
+            <Animated.View pointerEvents="none" style={[styles.radioCheck, radioCheckStyle]}>
+              <Check size={12} color="#FFFFFF" strokeWidth={3} />
+            </Animated.View>
+          </Animated.View>
         </Animated.View>
       </Pressable>
     </Animated.View>
@@ -205,7 +332,7 @@ export function V2OnboardingOutcome({
   // Hero destination: the upper third of the content area, never more than a fixed cap so it
   // stays substantial without crowding the choices on a short device. Screen 5 flies the
   // artwork from exactly this frame.
-  const { x: heroLeft, y: heroTop, width: heroWidth, height: heroHeight } = solveOutcomeHero(W, H, insets);
+  const { x: heroLeft, y: heroTop, width: heroWidth, height: heroHeight } = solveOutcomeHero(W, H, insets, options.length);
   const leaveUi = systemTimeline.s4UiOut;
   const rowHeight = compact ? 56 : 64;
   const rowGap = compact ? 8 : 10;
@@ -396,16 +523,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     overflow: "hidden",
     shadowColor: "#5B4A30",
-    shadowOpacity: 0.06,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 3 },
-    elevation: 1,
   },
-  rowAccent: { position: "absolute", left: 0, top: "22%", bottom: "22%", width: 3, borderRadius: 2 },
-  rowLabel: { flex: 1, color: INK, fontFamily: "Inter-Regular", fontSize: 17, letterSpacing: -0.2, marginRight: 10 },
-  radioOuter: { width: 22, height: 22, alignItems: "center", justifyContent: "center" },
-  radioRing: { position: "absolute", width: 22, height: 22, borderRadius: 11, borderWidth: 1.5 },
-  radioFill: { width: 12, height: 12, borderRadius: 6 },
+  rowTint: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 18,
+  },
+  rowLabel: {
+    flex: 1,
+    color: INK,
+    fontFamily: "Inter-Regular",
+    fontSize: 17,
+    letterSpacing: -0.2,
+    marginRight: 10,
+    userSelect: "none",
+  },
+  radio: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  radioCheck: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
   cta: {
     height: M.ctaHeight,
     borderRadius: 28,

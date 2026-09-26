@@ -96,7 +96,9 @@ function V2PracticeRouteScreen() {
   const resumeSource = route.params?.resumeSource;
   const returnRoute = route.params?.returnRoute;
 
-  const anchors = useAnchorStore((s) => s.anchors);
+  const anchors = typeof useAnchorStore === 'function'
+    ? useAnchorStore((s) => s.anchors)
+    : (useAnchorStore.getState?.()?.anchors ?? []);
   const suppliedAnchor = anchorId
     ? anchors.find((a) => a.id === anchorId || a.localId === anchorId)
     : undefined;
@@ -196,6 +198,31 @@ function V2ReleaseRouteScreen() {
   return <V2ReleaseScreen {...route.params} onCancel={() => navigation.goBack()} onReleaseCompleted={() => navigation.replace('V2DevelopmentHome')} />;
 }
 
+function V2VisionRouteScreen() {
+  const navigation = useNavigation<any>();
+  const route = useRoute<RouteProp<AnchorV2StackParamList, 'V2Vision'>>();
+  const anchorId = route.params?.anchorId;
+
+  return (
+    <V2VisionScreen
+      anchorId={anchorId}
+      initialMode={route.params?.initialMode}
+      onBack={() => {
+        if (navigation.canGoBack()) navigation.goBack();
+      }}
+      onChart={(id: string) => {
+        navigation.navigate('V2Chart', { anchorId: id });
+      }}
+      onVisualize={(_handoff) => {
+        navigation.navigate('V2Practice', {
+          anchorId,
+          recommendedMode: 'visualize',
+        });
+      }}
+    />
+  );
+}
+
 function V2WeeklyInsightRouteScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<AnchorV2StackParamList, 'V2WeeklyInsight'>>();
@@ -262,13 +289,13 @@ export function AnchorV2Navigator() {
   // Remount on trusted auth/onboarding changes so a restored account never
   // briefly lands in first-run, and a new account returns to its draft.
   const shouldBypassOnboarding = __DEV__ && (developerSkipOnboardingEnabled || developerMasterAccountEnabled);
-  const initialRouteName = shouldBypassOnboarding || (user?.id && hasCompletedOnboarding && firstRunStep !== 'auth')
+  const initialRouteName = shouldBypassOnboarding || (user?.id && hasCompletedOnboarding)
     ? 'V2DevelopmentHome'
     : 'V2FirstRun';
   return (
     <ProgressiveFocusTransitionProvider>
       <Stack.Navigator
-        key={`${initialRouteName}:${firstRunStep === 'auth' ? 'onboarding-save' : user?.id ?? 'guest'}`}
+        key={`${initialRouteName}:${user?.id && hasCompletedOnboarding ? 'user' : firstRunStep === 'auth' ? 'onboarding-save' : user?.id ?? 'guest'}`}
         initialRouteName={initialRouteName}
         screenOptions={screenOptions}
       >
@@ -284,7 +311,7 @@ export function AnchorV2Navigator() {
         {/* The paywall draws a sheet over a deliberately transparent root. */}
         <Stack.Screen name="V2Paywall" component={V2PaywallRouteScreen} options={TRANSPARENT_BACKGROUND} />
         <Stack.Screen name="V2Practice" component={V2PracticeRouteScreen} />
-        <Stack.Screen name="V2Vision" component={V2VisionScreen} options={PAPER_BACKGROUND} />
+        <Stack.Screen name="V2Vision" component={V2VisionRouteScreen} options={PAPER_BACKGROUND} />
         <Stack.Screen name="V2Chart" component={V2ChartScreen} options={GRAPHITE_BACKGROUND} />
         <Stack.Screen name="V2ChartWaypoint" component={V2ChartWaypointScreen} options={GRAPHITE_BACKGROUND} />
         <Stack.Screen name="V2ChartAdjust" component={V2ChartAdjustScreen} options={GRAPHITE_BACKGROUND} />

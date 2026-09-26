@@ -55,24 +55,33 @@ export const T = {
   residualRest: [9400, 10200] as Window,
   // 10400 → 10800: quiet hold on the finished Anchor.
   gradientIn: [9300, 10800] as Window,
-  headline: [10800, 11300] as Window,
-  support: [10950, 11450] as Window,
-  verbs: [11100, 11550] as Window,
-  cta: [11250, 11700] as Window,
-  end: 11800,
+  // 10400 → 10450: Anchor settles into its final position.
+  // 10450: THEN "ANCHOR" fades/slides into place beneath it.
+  // 10850: THEN "VISUAL GOAL SETTING" appears beneath ANCHOR.
+  // 11400: THEN final composition (headline, support, verbs, CTA) settles.
+  brandWordmark: [10450, 10850] as Window,
+  brandSub: [10850, 11200] as Window,
+  headline: [11400, 11850] as Window,
+  support: [11550, 12000] as Window,
+  verbs: [11700, 12100] as Window,
+  cta: [11850, 12300] as Window,
+  end: 12400,
 } as const;
-export const CTA_READY_MS = 11300;
+export const CTA_READY_MS = 12000;
 
 /** Reduce Motion: controlled crossfades only — notebook with its intention, hold, dissolve to the mark, copy. */
 export const RM = {
   notebookIn: [0, 360] as Window,
   dissolve: [1300, 1850] as Window,
   gradientIn: [1450, 1950] as Window,
-  copy: [1800, 2250] as Window,
-  cta: [1900, 2350] as Window,
-  end: 2400,
+  /** Brand identity crossfades in sequentially just ahead of the rest of the copy. */
+  brandWordmark: [1700, 1950] as Window,
+  brandSub: [1850, 2050] as Window,
+  copy: [2000, 2350] as Window,
+  cta: [2100, 2450] as Window,
+  end: 2500,
 } as const;
-export const RM_CTA_READY_MS = 1950;
+export const RM_CTA_READY_MS = 2200;
 
 // --- Notebook page geometry (notebook.png pixels, 1200 × 794) -------------------------------
 export const NB_W = 1200;

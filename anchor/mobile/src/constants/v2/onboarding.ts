@@ -57,22 +57,16 @@ export function focusAreaLabel(category?: AnchorCategory | null): string | undef
  * Screen 4 — "What would changing this give you?" Four short outcomes per category, keyed
  * to the area chosen on Screen 3. Personalization context only, never a new Anchor concept.
  */
-export const CATEGORY_OUTCOME_OPTIONS: Record<AnchorCategory, readonly [string, string, string, string]> = {
-  health: ["More energy", "More confidence", "More strength", "A healthier life"],
-  career: ["More freedom", "More confidence", "More stability", "A bigger impact"],
-  relationships: ["More connection", "More trust", "A stronger family", "More love"],
-  desire: ["More clarity", "More motivation", "A clearer path", "A sense of fulfillment"],
-  creativity: ["More inspiration", "More confidence", "A stronger voice", "A sense of flow"],
-  spirituality: ["More peace", "More clarity", "A calmer mind", "A sense of purpose"],
-  abundance: ["More freedom", "More security", "More confidence", "A wealthier life"],
-  family: ["More connection", "More presence", "A stronger bond", "A happier home"],
-  learning: ["More confidence", "More mastery", "A sharper mind", "A clearer path"],
-  adventure: ["More freedom", "More confidence", "A fuller life", "A sense of aliveness"],
-  custom: ["More clarity", "More confidence", "A clearer path", "A better life"],
-};
+export {
+  ONBOARDING_QUESTIONS,
+  outcomeOptionsFor as outcomeQuestionOptionsFor,
+  whyOptionsFor as whyQuestionOptionsFor,
+  frictionOptionsFor as frictionQuestionOptionsFor,
+} from "./onboardingQuestions";
+import { outcomeOptionsFor as getOutcomeQuestions } from "./onboardingQuestions";
 
 export function outcomeOptionsFor(category?: AnchorCategory | null): readonly string[] {
-  return CATEGORY_OUTCOME_OPTIONS[category ?? "custom"] ?? CATEGORY_OUTCOME_OPTIONS.custom;
+  return getOutcomeQuestions(category).map((opt) => opt.label);
 }
 
 export const LIFE_CHANGES = [
@@ -97,12 +91,14 @@ export type OnboardingStep =
   | "bridge"
   | "motivation"
   | "outcome"
+  | "meaning"
+  | "friction"
   | "system"
-  /** Retired "What changes first?" step; restored drafts that stopped on it resume on "system". */
+  | "handoff"
+  /** Retired steps; restored drafts that stopped on them resume gracefully. */
   | "life"
   | "need"
   | "summary"
-  | "handoff"
   | "creation"
   | "auth"
   | "complete";
@@ -112,9 +108,9 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
   "bridge",
   "motivation",
   "outcome",
+  "meaning",
+  "friction",
   "system",
-  "need",
-  "summary",
   "handoff",
 ];
 

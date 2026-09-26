@@ -171,8 +171,8 @@ function FocusCard({
   const handlePress = () => {
     if (!reduceMotion) {
       press.value = withSequence(
-        withTiming(0.97, { duration: 90, easing: Easing.out(Easing.quad) }),
-        withTiming(1, { duration: 160, easing: Easing.out(Easing.quad) }),
+        withTiming(0.97, { duration: 90, easing: Easing.out(Easing.quad), reduceMotion: ReduceMotion.Never }),
+        withTiming(1, { duration: 160, easing: Easing.out(Easing.quad), reduceMotion: ReduceMotion.Never }),
       );
     }
     onPress();

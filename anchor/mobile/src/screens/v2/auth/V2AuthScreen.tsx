@@ -27,11 +27,13 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { ArrowRight, ChevronLeft, Eye, EyeOff, LockKeyhole, Mail, UserRound } from 'lucide-react-native';
 import { V2Screen } from '@/components/v2';
 import { AuthService } from '@/services/AuthService';
 import PostAuthFlowService from '@/services/PostAuthFlowService';
 import { useAuthStore } from '@/stores/authStore';
+import { useFirstRunStore } from '@/stores/v2/firstRunStore';
 import { colors, spacing, typography, AnchorMotion } from '@/theme/v2';
 import type { User } from '@/types';
 import { GoogleIcon, AppleIcon } from './components/AuthSocialIcons';
@@ -186,6 +188,20 @@ export function V2AuthScreen({ initialMode = 'signin', saveProgress = false, onB
     void Linking.openURL('https://anchor-app.com/privacy').catch(() => undefined);
   };
 
+  const navigation = useNavigation<any>();
+
+  const handleContinueToHome = () => {
+    useAuthStore.getState?.()?.completeOnboarding?.();
+    useFirstRunStore.getState?.()?.complete?.();
+    navigation?.reset?.({ index: 0, routes: [{ name: 'V2DevelopmentHome' }] });
+  };
+
+  const handleSignOut = async () => {
+    setError(null);
+    await AuthService.signOut().catch(() => undefined);
+    await useAuthStore.getState?.()?.signOut?.();
+  };
+
   const isCompact = height < 750;
 
   if (saveProgress && signedInUser) {
@@ -199,6 +215,28 @@ export function V2AuthScreen({ initialMode = 'signin', saveProgress = false, onB
             <LinearGradient colors={['#DFC08A', '#C5A065']} style={styles.primaryGradient}>
               {loading ? <ActivityIndicator color="#121A22" /> : <Text style={styles.primaryCtaText}>SAVE MY PROGRESS</Text>}
             </LinearGradient>
+          </TouchableOpacity>
+          <TouchableOpacity
+            testID="v2-auth-continue-home"
+            accessibilityRole="button"
+            accessibilityLabel="Continue to Sanctuary"
+            onPress={handleContinueToHome}
+            style={{ marginTop: 16, alignItems: 'center', paddingVertical: 12 }}
+          >
+            <Text style={{ color: '#DFC08A', fontFamily: typography.utilityMedium.fontFamily, fontSize: 14 }}>
+              Continue to Sanctuary
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            testID="v2-auth-switch-account"
+            accessibilityRole="button"
+            accessibilityLabel="Use a different account"
+            onPress={handleSignOut}
+            style={{ marginTop: 4, alignItems: 'center', paddingVertical: 10 }}
+          >
+            <Text style={{ color: 'rgba(244, 246, 250, 0.45)', fontFamily: typography.utility.fontFamily, fontSize: 13 }}>
+              Use a different account
+            </Text>
           </TouchableOpacity>
         </View>
       </V2Screen>

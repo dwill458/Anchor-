@@ -8,9 +8,13 @@ export type SavedOnboardingContext = {
    * it is never used as the category of the user's Anchors.
    */
   focusCategory?: AnchorCategory;
+  selectedCategory?: AnchorCategory;
   /** Free-text motivation from the earlier onboarding; kept for drafts that still carry it. */
   motivation?: string;
   desiredChange: string;
+  selectedOutcome?: string;
+  selectedWhy?: string;
+  selectedFriction?: string;
   /** Retired question; only drafts from the earlier onboarding still carry answers. */
   lifeChanges?: string[];
   primaryNeed: string;
@@ -21,23 +25,28 @@ export function buildOnboardingContext(
   draft: FirstRunDraft,
 ): SavedOnboardingContext {
   const motivation = (draft.motivation ?? "").trim();
-  const focusCategory = draft.focusCategory;
+  const focusCategory = draft.selectedCategory ?? draft.focusCategory;
   const customAnswer = draft.customDesiredChange?.trim();
-  const desiredChange = (draft.desiredOutcome ?? "").trim();
+  const desiredChange = (draft.selectedOutcome ?? draft.desiredOutcome ?? "").trim();
+  const selectedWhy = (draft.selectedWhy ?? draft.desiredWhy ?? "").trim();
+  const selectedFriction = (draft.selectedFriction ?? draft.desiredFriction ?? "").trim();
+  const primaryNeed = draft.primaryNeed ?? selectedWhy ?? "Keeping the goal in front of me";
   if (
     (!motivation && !focusCategory) ||
     (motivation === "Something else" && !customAnswer) ||
-    !desiredChange ||
-    !draft.primaryNeed
+    !desiredChange
   ) {
     throw new Error("Finish the onboarding questions before saving your progress.");
   }
   return {
-    ...(focusCategory ? { focusCategory } : {}),
+    ...(focusCategory ? { focusCategory, selectedCategory: focusCategory } : {}),
     ...(motivation ? { motivation } : {}),
     desiredChange,
+    ...(desiredChange ? { selectedOutcome: desiredChange } : {}),
+    ...(selectedWhy ? { selectedWhy } : {}),
+    ...(selectedFriction ? { selectedFriction } : {}),
     ...(draft.lifeChanges?.length ? { lifeChanges: draft.lifeChanges } : {}),
-    primaryNeed: draft.primaryNeed,
+    primaryNeed,
     ...(motivation === "Something else" && customAnswer ? { customAnswer } : {}),
   };
 }

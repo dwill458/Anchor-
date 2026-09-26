@@ -9,8 +9,11 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Clear the auth storage (includes onboarding state)
-AsyncStorage.removeItem('anchor-auth-storage')
+// Clear the auth storage and v2 first-run onboarding storage
+Promise.all([
+  AsyncStorage.removeItem('anchor-auth-storage'),
+  AsyncStorage.removeItem('anchor:v2:first-run'),
+])
   .then(() => {
     console.log('✅ Onboarding state reset! Reload the app to see onboarding.');
   })

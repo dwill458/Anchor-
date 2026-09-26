@@ -11,7 +11,43 @@ import type { OnboardingStep } from '@/constants/v2/onboarding';
 export type FirstRunStep = OnboardingStep | 'direction' | 'intention' | 'formation' | 'anchor' | 'expression' | 'vision' | 'focus';
 export type FirstRunExpression = 'original' | 'monoline' | 'architectural' | 'foil' | 'embossed' | 'etched' | 'ink' | 'halo' | 'glass' | 'radiant' | 'organic' | 'woven' | 'cutpaper';
 export type VisionChoice = 'create_now' | 'chart_only' | 'skip_for_now' | 'vision_and_chart';
-export type FirstRunDraft = { direction?: FirstRunDirection; intention?: string; normalizedFormationInput?: string; category?: AnchorCategory; focusCategory?: AnchorCategory; motivation?: string; desiredOutcome?: string; customDesiredChange?: string; desiredChange?: string; lifeChanges?: string[]; primaryNeed?: string; onboardingAnswersComplete?: boolean; accountId?: string; distilledLetters?: string[]; structure?: 'balanced'; anchorSvg?: string; expression?: FirstRunExpression; styleChoice?: string; enhancedImageUrl?: string; selectedAnchorCandidate?: string; anchorLocalId?: string; focusSessionId?: string; visionChoice?: VisionChoice; visionDraft?: { requested: boolean; chartRequested: boolean }; firstFocusCompleted?: boolean; focusCompletionRecorded?: boolean; authCompleted?: boolean; anchorPersisted?: boolean; currentStep: FirstRunStep };
+export type FirstRunDraft = {
+  direction?: FirstRunDirection;
+  intention?: string;
+  normalizedFormationInput?: string;
+  category?: AnchorCategory;
+  focusCategory?: AnchorCategory;
+  selectedCategory?: AnchorCategory;
+  motivation?: string;
+  desiredOutcome?: string;
+  selectedOutcome?: string;
+  desiredWhy?: string;
+  selectedWhy?: string;
+  desiredFriction?: string;
+  selectedFriction?: string;
+  customDesiredChange?: string;
+  desiredChange?: string;
+  lifeChanges?: string[];
+  primaryNeed?: string;
+  onboardingAnswersComplete?: boolean;
+  accountId?: string;
+  distilledLetters?: string[];
+  structure?: 'balanced';
+  anchorSvg?: string;
+  expression?: FirstRunExpression;
+  styleChoice?: string;
+  enhancedImageUrl?: string;
+  selectedAnchorCandidate?: string;
+  anchorLocalId?: string;
+  focusSessionId?: string;
+  visionChoice?: VisionChoice;
+  visionDraft?: { requested: boolean; chartRequested: boolean };
+  firstFocusCompleted?: boolean;
+  focusCompletionRecorded?: boolean;
+  authCompleted?: boolean;
+  anchorPersisted?: boolean;
+  currentStep: FirstRunStep;
+};
 
 const initialDraft = (): FirstRunDraft => ({ currentStep: 'welcome', lifeChanges: [] });
 const id = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -39,7 +75,34 @@ export function formFirstRunAnchor(draft: FirstRunDraft): FirstRunDraft {
 /** What the shared creation flow hands first-run once the user has made their first Anchor. */
 export type FirstRunCreation = { intention: string; category?: AnchorCategory; distilledLetters: string[]; anchorSvg: string; expression: string; styleChoice?: string; enhancedImageUrl?: string };
 
-type FirstRunState = { draft: FirstRunDraft; hydrated: boolean; adoptCreation: (creation: FirstRunCreation) => string; setFocusCategory: (category: AnchorCategory) => void; setMotivation: (motivation: string) => void; setDesiredOutcome: (outcome: string) => void; setCustomDesiredChange: (change: string) => void; setDesiredChange: (change: string) => void; toggleLifeChange: (change: string) => void; setPrimaryNeed: (need: string) => void; markAnswersComplete: () => void; bindAccount: (accountId: string) => void; setDirection: (direction: FirstRunDirection) => void; setIntention: (intention: string) => void; form: () => void; setExpression: (expression: FirstRunExpression) => void; setVisionChoice: (choice: VisionChoice) => void; setStep: (step: FirstRunStep) => void; markFocusCompleted: () => void; markFocusRecorded: () => void; markAuthCompleted: () => void; markAnchorPersisted: () => void; complete: () => void; reset: () => void };
+type FirstRunState = {
+  draft: FirstRunDraft;
+  hydrated: boolean;
+  adoptCreation: (creation: FirstRunCreation) => string;
+  setFocusCategory: (category: AnchorCategory) => void;
+  setMotivation: (motivation: string) => void;
+  setDesiredOutcome: (outcome: string) => void;
+  setDesiredWhy: (why: string) => void;
+  setDesiredFriction: (friction: string) => void;
+  setCustomDesiredChange: (change: string) => void;
+  setDesiredChange: (change: string) => void;
+  toggleLifeChange: (change: string) => void;
+  setPrimaryNeed: (need: string) => void;
+  markAnswersComplete: () => void;
+  bindAccount: (accountId: string) => void;
+  setDirection: (direction: FirstRunDirection) => void;
+  setIntention: (intention: string) => void;
+  form: () => void;
+  setExpression: (expression: FirstRunExpression) => void;
+  setVisionChoice: (choice: VisionChoice) => void;
+  setStep: (step: FirstRunStep) => void;
+  markFocusCompleted: () => void;
+  markFocusRecorded: () => void;
+  markAuthCompleted: () => void;
+  markAnchorPersisted: () => void;
+  complete: () => void;
+  reset: () => void;
+};
 export const useFirstRunStore = create<FirstRunState>()(persist((set, get) => ({
   draft: initialDraft(), hydrated: false,
   // The first Anchor is made by the same creation flow as every other; first-run keeps it
@@ -51,9 +114,11 @@ export const useFirstRunStore = create<FirstRunState>()(persist((set, get) => ({
     set({ draft: { ...current, intention: creation.intention, normalizedFormationInput: creation.intention, category: creation.category, distilledLetters: creation.distilledLetters, structure: 'balanced', anchorSvg: creation.anchorSvg, selectedAnchorCandidate: creation.anchorSvg, expression, styleChoice: creation.styleChoice, enhancedImageUrl: creation.enhancedImageUrl, anchorLocalId, focusSessionId: current.focusSessionId ?? id('v2-first-focus'), firstFocusCompleted: false, focusCompletionRecorded: false, anchorPersisted: false } });
     return anchorLocalId;
   },
-  setFocusCategory: (focusCategory) => set((state) => ({ draft: { ...state.draft, focusCategory, desiredChange: undefined, customDesiredChange: undefined } })),
+  setFocusCategory: (focusCategory) => set((state) => ({ draft: { ...state.draft, focusCategory, selectedCategory: focusCategory, desiredChange: undefined, customDesiredChange: undefined } })),
   setMotivation: (motivation) => set((state) => ({ draft: { ...state.draft, motivation, customDesiredChange: undefined, desiredOutcome: undefined, currentStep: 'motivation' } })),
-  setDesiredOutcome: (desiredOutcome) => set((state) => ({ draft: { ...state.draft, desiredOutcome, currentStep: 'outcome' } })),
+  setDesiredOutcome: (desiredOutcome) => set((state) => ({ draft: { ...state.draft, desiredOutcome, selectedOutcome: desiredOutcome, currentStep: 'outcome' } })),
+  setDesiredWhy: (desiredWhy) => set((state) => ({ draft: { ...state.draft, desiredWhy, selectedWhy: desiredWhy, currentStep: 'meaning' } })),
+  setDesiredFriction: (desiredFriction) => set((state) => ({ draft: { ...state.draft, desiredFriction, selectedFriction: desiredFriction, currentStep: 'friction' } })),
   setDesiredChange: (desiredChange) => set((state) => ({ draft: { ...state.draft, desiredChange, currentStep: 'motivation' } })),
   setCustomDesiredChange: (customDesiredChange) => set((state) => ({ draft: { ...state.draft, customDesiredChange } })),
   toggleLifeChange: (change) => set((state) => ({ draft: { ...state.draft, lifeChanges: state.draft.lifeChanges?.includes(change) ? state.draft.lifeChanges.filter((item) => item !== change) : [...(state.draft.lifeChanges ?? []), change] } })),
@@ -71,4 +136,14 @@ export const useFirstRunStore = create<FirstRunState>()(persist((set, get) => ({
   markAuthCompleted: () => set((state) => ({ draft: { ...state.draft, authCompleted: true } })),
   markAnchorPersisted: () => set((state) => ({ draft: { ...state.draft, anchorPersisted: true } })),
   complete: () => set((state) => ({ draft: { ...state.draft, currentStep: 'complete' } })), reset: () => set({ draft: initialDraft() }),
-}), { name: 'anchor:v2:first-run', storage: createJSONStorage(() => encryptedPersistStorage), partialize: (state) => ({ draft: state.draft }), onRehydrateStorage: () => () => { useFirstRunStore.setState({ hydrated: true }); } }));
+}), {
+  name: 'anchor:v2:first-run',
+  storage: createJSONStorage(() => encryptedPersistStorage),
+  partialize: (state) => ({ draft: state.draft.accountId ? state.draft : initialDraft() }),
+  onRehydrateStorage: () => (state) => {
+    if (state && !state.draft?.accountId) {
+      state.reset();
+    }
+    useFirstRunStore.setState({ hydrated: true });
+  },
+}));
