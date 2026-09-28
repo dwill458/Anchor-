@@ -28,6 +28,7 @@ import {
   visionSceneSlotAt, visualizePromptAt, visualizeReflectionPrompts, type V2VisualizeDuration,
 } from './visualizeVisionPlan';
 import { ChartMoveHandoff } from '@/components/v2/chart/ChartMoveHandoff';
+import { useAnchorTransitionReveal } from '@/navigation/v2/ProgressiveFocusTransition';
 
 type Props = {
   anchor: Anchor;
@@ -156,6 +157,10 @@ export function V2VisualizeSessionScreen({
   const [lineVisible, setLineVisible] = useState(false);
   const [continueReady, setContinueReady] = useState(false);
   const [settled, setSettled] = useState(false);
+  // Entering with the shared Anchor transition, the Anchor comes first and the
+  // Vision opens around it; the session's controls arrive last.
+  const topChromeReveal = useAnchorTransitionReveal('visualizeSession', 3);
+  const bottomChromeReveal = useAnchorTransitionReveal('visualizeSession', 3);
 
   const complete = useCallback(async ({ startedAt, completedAt }: { startedAt: string; completedAt: string }) => {
     // The engine reaches this once, and only when the full duration has run.
@@ -459,7 +464,7 @@ export function V2VisualizeSessionScreen({
       </Animated.View>
 
       {/* Peripheral chrome */}
-      <Animated.View pointerEvents={endingStarted ? 'none' : 'box-none'} style={[styles.topBar, { top: insets.top + spacing[2] }]}>
+      <Animated.View pointerEvents={endingStarted ? 'none' : 'box-none'} style={[styles.topBar, { top: insets.top + spacing[2] }, topChromeReveal]}>
         <Animated.View style={chromeStyle} pointerEvents={controlsVisible ? 'auto' : 'none'}>
           <Pressable accessibilityRole="button" accessibilityLabel="End Visualize" onPress={requestExit} hitSlop={10} style={styles.iconButton}>
             <X size={20} color={colors.ink.text.primary} />
@@ -469,7 +474,7 @@ export function V2VisualizeSessionScreen({
           {formatTime(engine.remainingSeconds)}
         </Animated.Text>
       </Animated.View>
-      <Animated.View pointerEvents={controlsVisible && !endingStarted ? 'box-none' : 'none'} style={[styles.bottomBar, { bottom: insets.bottom + spacing[5] }, chromeStyle]}>
+      <Animated.View pointerEvents={controlsVisible && !endingStarted ? 'box-none' : 'none'} style={[styles.bottomBar, { bottom: insets.bottom + spacing[5] }, chromeStyle, bottomChromeReveal]}>
         {images.length > 1 ? (
           <View style={styles.dots} accessibilityLabel={`Scene ${slot.imageIndex + 1} of ${images.length}`}>
             {images.map((_, index) => <View key={index} style={[styles.dot, index === slot.imageIndex && styles.dotActive]} />)}

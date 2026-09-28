@@ -7,12 +7,15 @@ import { HandDrawnThreadLine } from '@/components/v2/thread/HandDrawnThreadLine'
 import type { V2ThreadPresentation } from '@/adapters/v2/home/threadAdapter';
 import { colors, getCategoryColor, spacing, typography } from '@/theme/v2';
 import type { Anchor } from '@/types';
+import type { AnchorTransitionPlaceBinding } from '@/navigation/v2/ProgressiveFocusTransition';
 
 type Props = {
   anchor: Anchor;
   thread?: V2ThreadPresentation | null;
   onPress?: () => void;
   testID?: string;
+  /** Registers the mark as the Anchor transition's `practice` place. */
+  artworkPlace?: AnchorTransitionPlaceBinding;
 };
 
 /**
@@ -37,6 +40,7 @@ export function V2PracticeAnchorHeader({
   thread,
   onPress,
   testID = 'v2-practice-anchor-header',
+  artworkPlace,
 }: Props) {
   const categoryColor = getCategoryColor(anchor.category);
   const isMeasured = Boolean(thread && !thread.unmeasured && typeof thread.value === 'number');
@@ -56,7 +60,7 @@ export function V2PracticeAnchorHeader({
       <Text style={styles.eyebrow}>ACTIVE ANCHOR</Text>
 
       <View style={styles.row}>
-        <View style={styles.artworkWrapper}>
+        <View ref={artworkPlace?.ref} collapsable={false} onLayout={artworkPlace?.onLayout} style={[styles.artworkWrapper, artworkPlace?.hidden && styles.hidden]}>
           <CircularAnchorRenderer
             {...anchorRenderProps(anchor)}
             size={ARTWORK_SIZE}
@@ -124,6 +128,7 @@ const styles = StyleSheet.create({
     gap: ARTWORK_GUTTER,
     minHeight: 44,
   },
+  hidden: { opacity: 0 },
   artworkWrapper: {
     width: ARTWORK_SIZE,
     height: ARTWORK_SIZE,

@@ -10,6 +10,7 @@ import type { V2HomeAnchorSummary, V2ThreadPresentation } from '@/adapters/v2/ho
 import { V2HomeAnchorCarousel, NEIGHBOUR_SCALE, type CarouselSlot } from './V2HomeAnchorCarousel';
 import { resolveHomeHeroLayout, HERO_INTENTION_MAX_LINES } from './homeHeroLayout';
 import { useHomeArrivalContext } from './homeArrival';
+import { useProgressiveFocusTransition, type AnchorWindowRect } from '@/navigation/v2/ProgressiveFocusTransition';
 
 /** Share of the paper disc the mark itself occupies (CircularAnchorRenderer's paper artwork). */
 const PAPER_ARTWORK_SHARE = 0.72;
@@ -18,12 +19,13 @@ type Props = {
   anchors: V2HomeAnchorSummary[];
   selectedIndex: number;
   onSelect: (anchorId: string) => void;
-  onOpenActive?: (anchorId: string) => void;
+  onOpenActive?: (anchorId: string, source?: AnchorWindowRect) => void;
   onOpenProgress?: () => void;
   /** Opens the full Anchor library. Home is the only entry point to it. */
   onOpenAllAnchors?: () => void;
   thread: V2ThreadPresentation | null;
   reduceMotion?: boolean;
+  frozen?: boolean;
   testID?: string;
 };
 
@@ -112,7 +114,7 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
   constructionSize: number;
   thread: V2ThreadPresentation;
   reduceMotion: boolean;
-  onOpenActive?: (anchorId: string) => void;
+  onOpenActive?: (anchorId: string, source?: AnchorWindowRect) => void;
   onOpenProgress?: () => void;
   onOpenAllAnchors?: () => void;
 }) {
@@ -133,6 +135,7 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
   // A just-created Anchor arriving from creation needs to know exactly where its mark will rest.
   const arrival = useHomeArrivalContext();
   const discRef = useRef<View>(null);
+  const transition = useProgressiveFocusTransition();
   const measuring = Boolean(arrival?.active && arrival.phase === 'staging' && slot === 0);
   const reportTarget = arrival?.reportTarget;
   useEffect(() => {
@@ -176,7 +179,14 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
     touchStart.current = null;
     moved.current = false;
     if (wasSwipe) return;
-    onOpenActive?.(anchor.id);
+    const disc = discRef.current;
+    if (!disc?.measureInWindow) {
+      onOpenActive?.(anchor.id);
+      return;
+    }
+    disc.measureInWindow((x, y, width, height) => {
+      onOpenActive?.(anchor.id, { x, y, width, height });
+    });
   }, [anchor.id, offset, onOpenActive]);
 
   return (
@@ -209,7 +219,9 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
         ) : null}
       </Animated.View>
 
-      <Animated.View style={[styles.artworkBox, { height: artworkBoxHeight }, artworkMotion]}>
+      {slot === 0 && transition.copyMounted && transition.sourcePlace === 'home' ? (
+        <View style={[styles.artworkBox, { height: artworkBoxHeight }]} />
+      ) : <Animated.View style={[styles.artworkBox, { height: artworkBoxHeight }, artworkMotion]}>
         <View
           style={[
             styles.construction,
@@ -237,14 +249,14 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
             onTouchMove={recordTouchMove}
             onPress={handleOpen} disabled={slot !== 0 || !onOpenActive}>
             <Animated.View style={tapScaleStyle}>
-              <View ref={discRef} collapsable={false}>
+              <Animated.View ref={discRef} collapsable={false} testID={slot === 0 ? 'v2-home-anchor-disc' : undefined}>
                 <CircularAnchorRenderer {...anchorRenderProps(anchor)} size={anchorSize} appearance="paper"
                   accessibilityLabel={`${categoryLabel(anchor.category)} Anchor artwork`} />
-              </View>
+              </Animated.View>
             </Animated.View>
           </Pressable>
         </View>
-      </Animated.View>
+      </Animated.View>}
 
       <Animated.View style={textMotion} pointerEvents={slot === 0 ? 'auto' : 'none'}>
         <View style={styles.intentionBlock}>
@@ -278,7 +290,7 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
 }
 
 /** The entire visible hero is one of three mounted items on a shared track. */
-function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, onOpenProgress, onOpenAllAnchors, thread, reduceMotion, testID }: Props) {
+function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, onOpenProgress, onOpenAllAnchors, thread, reduceMotion, frozen, testID }: Props) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const layout = resolveHomeHeroLayout({
@@ -294,7 +306,7 @@ function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, o
   ), [anchors.length, layout.gutter, layout.anchorSize, layout.artworkBoxHeight, layout.constructionSize, onOpenActive, onOpenAllAnchors, onOpenProgress, reduceMotion, selectedIndex, thread]);
   return <View testID={testID}>
     <V2HomeAnchorCarousel testID="v2-home-carousel" anchors={anchors} selectedIndex={selectedIndex} heroHeight={layout.trackHeight} anchorSize={layout.anchorSize}
-      onSelect={onSelect} onOpenActive={onOpenActive} reduceMotion={reduceMotion} renderHero={renderHero} />
+      onSelect={onSelect} onOpenActive={onOpenActive} reduceMotion={reduceMotion} frozen={frozen} renderHero={renderHero} />
   </View>;
 }
 

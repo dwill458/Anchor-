@@ -11,12 +11,17 @@ const AnimatedRect = Animated.createAnimatedComponent(Rect);
 
 export type AnchorPresence = 'Surface' | 'Grounded' | 'Rooted' | 'Embedded' | 'Sovereign';
 
-const PRESENCE: Record<AnchorPresence, { intensity: number; pace: number }> = {
-  Surface: { intensity: 0, pace: 0 },
-  Grounded: { intensity: 0.12, pace: 49000 },
-  Rooted: { intensity: 0.2, pace: 42000 },
-  Embedded: { intensity: 0.29, pace: 36000 },
-  Sovereign: { intensity: 0.38, pace: 33000 },
+/**
+ * Each stage differs on three axes at once — ambient opacity, sweep speed, and how much of the
+ * mark's own line the sheen covers (`band`) — so the five presences read as distinct steps rather
+ * than near-identical variations of the same subtle glow.
+ */
+const PRESENCE: Record<AnchorPresence, { intensity: number; pace: number; band: number; highlight: number }> = {
+  Surface: { intensity: 0, pace: 0, band: 1, highlight: 0 },
+  Grounded: { intensity: 0.18, pace: 16000, band: 1.4, highlight: 0.35 },
+  Rooted: { intensity: 0.3, pace: 12000, band: 1.9, highlight: 0.5 },
+  Embedded: { intensity: 0.45, pace: 9000, band: 2.4, highlight: 0.65 },
+  Sovereign: { intensity: 0.62, pace: 6000, band: 3, highlight: 0.85 },
 };
 
 type Props = {
@@ -43,8 +48,9 @@ export function EvolvingAnchor({ svg, imageUrl, category, expression = 'original
   const gradientId = `evolving-anchor-${presence.toLowerCase()}-${size}`;
   const maskId = `evolving-anchor-mask-${presence.toLowerCase()}-${size}`;
   const showImage = Boolean(imageUrl && !imageFailed);
-  const fieldStyle = useAnimatedStyle(() => ({ opacity: Math.min(0.92, config.intensity + event.value * 0.56) }));
-  const animatedRectProps = useAnimatedProps(() => ({ x: -structure!.box.width + (travel.value * structure!.box.width) }));
+  const fieldStyle = useAnimatedStyle(() => ({ opacity: Math.min(0.95, config.intensity + event.value * 1.4) }));
+  const boxWidth = structure?.box.width ?? 0;
+  const animatedRectProps = useAnimatedProps(() => ({ x: -boxWidth + (travel.value * boxWidth) }));
 
   useEffect(() => {
     cancelAnimation(travel);
@@ -94,13 +100,13 @@ export function EvolvingAnchor({ svg, imageUrl, category, expression = 'original
           <Mask id={maskId} maskUnits="userSpaceOnUse" x={structure.box.minX} y={structure.box.minY} width={structure.box.width} height={structure.box.height}>
             <Rect x={structure.box.minX} y={structure.box.minY} width={structure.box.width} height={structure.box.height} fill="black" />
             <G fill="none" stroke="white" strokeLinecap="round" strokeLinejoin="round">
-              {structure.strokes.map((stroke, index) => <Path key={index} d={stroke.d} strokeWidth={stroke.strokeWidth * Math.min(3, Math.max(1, 1.35 / (stroke.strokeWidth * scale)))} opacity={stroke.opacity} />)}
+              {structure.strokes.map((stroke, index) => <Path key={index} d={stroke.d} strokeWidth={stroke.strokeWidth * Math.min(3, Math.max(1, 1.35 / (stroke.strokeWidth * scale))) * config.band} opacity={stroke.opacity} />)}
             </G>
           </Mask>
           <LinearGradient id={gradientId} gradientUnits="userSpaceOnUse" x1={structure.box.minX} y1={structure.box.minY + structure.box.height * 0.2} x2={structure.box.minX + structure.box.width} y2={structure.box.minY + structure.box.height * 0.8}>
             <Stop offset="0" stopColor={color} stopOpacity="0" />
-            <Stop offset="0.42" stopColor="#FFFFFF" stopOpacity="0.42" />
-            <Stop offset="0.58" stopColor={color} stopOpacity="0.28" />
+            <Stop offset="0.42" stopColor="#FFFFFF" stopOpacity={config.highlight} />
+            <Stop offset="0.58" stopColor={color} stopOpacity={Math.min(0.6, 0.28 + config.highlight * 0.3)} />
             <Stop offset="1" stopColor={color} stopOpacity="0" />
           </LinearGradient>
         </Defs>

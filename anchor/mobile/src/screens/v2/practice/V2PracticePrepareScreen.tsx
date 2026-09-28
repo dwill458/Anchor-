@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { CircularAnchorRenderer, V2Button, V2EmptyState } from '@/components/v2';
 import { V2PracticeSetupLayout } from '@/components/v2/practice/V2PracticeSetupLayout';
 import { resolvePracticeSetupMetrics } from '@/components/v2/practice/practiceSetupLayout';
@@ -17,6 +17,7 @@ import type { Anchor } from '@/types';
 import type { HomeVisionState } from '@/adapters/v2/home';
 import type { V2PracticeStartRequest, V2PremiumCapabilityRequest } from './practiceRoutes';
 import { V2VisualizePrepareScreen as V2VisionVisualizePrepare } from './visualize/V2VisualizePrepareScreen';
+import { useAnchorTransitionPlace } from '@/navigation/v2/ProgressiveFocusTransition';
 
 type Props = {
   anchor: Anchor;
@@ -28,6 +29,8 @@ type Props = {
   onBack: () => void;
   onCreateVision: (anchorId: string) => void;
   onOpenVision?: (anchorId: string) => void;
+  /** The shared Anchor transition carries Begin into the session; setup skips its own hand-off veil. */
+  anchorHandoff?: boolean;
   onReleaseRequested: (anchorId: string, reason?: string) => void;
   onBeginPractice?: (request: V2PracticeStartRequest) => void;
   onPremiumRequired?: (request: V2PremiumCapabilityRequest) => void;
@@ -54,6 +57,7 @@ export function V2PracticePrepareScreen({
   onReleaseRequested,
   onBeginPractice,
   onPremiumRequired,
+  anchorHandoff,
 }: Props) {
   const viewport = useV2Responsive();
   const metrics = resolvePracticeSetupMetrics(viewport, 'hero');
@@ -106,6 +110,7 @@ export function V2PracticePrepareScreen({
         initialDuration={initialDuration}
         onBack={onBack}
         onOpenVision={onOpenVision}
+        anchorHandoff={anchorHandoff}
         onBegin={(config) => {
           if (!entitled) {
             onPremiumRequired?.({ capability: 'visualize', anchorId: anchor.id, source, durationSeconds: config.durationSeconds });
@@ -160,12 +165,7 @@ export function V2PracticePrepareScreen({
           </Text>
 
           <View style={[styles.artworkContainer, { marginVertical: metrics.artworkGap }]}>
-            <CircularAnchorRenderer
-              {...anchorRenderProps(anchor)}
-              size={metrics.artworkSize}
-              appearance="paper"
-              accessibilityLabel={`${categoryLabel(anchor.category)} Anchor artwork`}
-            />
+            <SetupAnchor anchor={anchor} size={metrics.artworkSize} />
           </View>
 
           <Text style={styles.intentionText} numberOfLines={3}>{anchor.intentionText}</Text>
@@ -286,6 +286,26 @@ export const V2FocusPrepareScreen = (props: Omit<Props, 'mode'>) => (
 export const V2DeepPrimePrepareScreen = (props: Omit<Props, 'mode'>) => (
   <V2PracticePrepareScreen {...props} mode="deep_prime" />
 );
+/**
+ * The setup's hero Anchor, registered as the transition's `practiceSetup`
+ * place. Its own component so the Vision-led Visualize branch above, which
+ * registers its identity mark instead, never registers a second one.
+ */
+function SetupAnchor({ anchor, size }: { anchor: Anchor; size: number }) {
+  // A pushed Android screen settles beneath the status bar a beat after its first layout.
+  const place = useAnchorTransitionPlace('practiceSetup', anchor.id, 'paper', { measureDelayMs: Platform.OS === 'android' ? 120 : 0 });
+  return (
+    <View ref={place.ref} collapsable={false} onLayout={place.onLayout} style={{ width: size, height: size, opacity: place.hidden ? 0 : 1 }}>
+      <CircularAnchorRenderer
+        {...anchorRenderProps(anchor)}
+        size={size}
+        appearance="paper"
+        accessibilityLabel={`${categoryLabel(anchor.category)} Anchor artwork`}
+      />
+    </View>
+  );
+}
+
 export const V2VisualizePrepareScreen = (props: Omit<Props, 'mode'>) => (
   <V2PracticePrepareScreen {...props} mode="visualize" />
 );

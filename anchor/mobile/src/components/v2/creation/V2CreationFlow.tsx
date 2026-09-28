@@ -9,7 +9,7 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { GENERATION_ERRORS, useCreationStore, whenCreationHydrated, type CreationDraft, type SaveFailure } from '@/stores/v2/creationStore';
 import { CreationStage, type WindowRect } from './CreationStage';
 import { CREATION_PACE, GENERATION_TIMING } from './creationMotion';
-import { IntentionStep } from './IntentionStep';
+import { IntentionStep, type IntentionSuggestionContext } from './IntentionStep';
 
 export { sanitizeIntention } from './IntentionStep';
 export type { WindowRect } from './CreationStage';
@@ -53,6 +53,7 @@ export interface V2CreationFlowProps {
   /** The server refused a second Anchor on the free plan. The draft is kept for the return. */
   onPaywall?: () => void;
   onSignIn?: () => void;
+  suggestionContext?: IntentionSuggestionContext;
 }
 
 const track = (event: string, properties?: Record<string, string | boolean | number>) => {
@@ -99,7 +100,7 @@ async function imagesReady(urls: string[], timeoutMs: number): Promise<void> {
  * happens on one continuous stage, so the letters, the grid, the traced line and the finished
  * mark are the same objects throughout rather than a sequence of screens.
  */
-export function V2CreationFlow({ saveAnchor, generateExpression, onComplete, onPrepareHandoff, onExit, onPaywall, onSignIn }: V2CreationFlowProps) {
+export function V2CreationFlow({ saveAnchor, generateExpression, onComplete, onPrepareHandoff, onExit, onPaywall, onSignIn, suggestionContext }: V2CreationFlowProps) {
   const draft = useCreationStore((state) => state.draft);
   const store = useCreationStore;
   const reduceMotion = useCreationReduceMotion();
@@ -271,6 +272,7 @@ export function V2CreationFlow({ saveAnchor, generateExpression, onComplete, onP
         onChange={store.getState().setIntention}
         onSubmit={submitIntention}
         onExit={onExit}
+        suggestionContext={suggestionContext}
       />
     );
   }

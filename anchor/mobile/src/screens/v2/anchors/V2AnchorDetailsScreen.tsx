@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StatusBar, StyleSheet, Text, useWindowDimensions, View, type ImageSourcePropType } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, BackHandler, Image, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, useWindowDimensions, View, type ImageSourcePropType } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, ChevronRight, MoreHorizontal, Sparkle } from 'lucide-react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,10 +22,12 @@ import { todayReasonCopy } from '@/components/v2/home/V2HomeTodaySection';
 import { colors, getCategoryColor, getCategoryTextColor, getPracticeColor, typography } from '@/theme/v2';
 import { useV2DailyShellIntents, type V2DailyShellParamList } from '@/screens/v2/home/dailyShell';
 import { ANCHOR_DETAIL_EMPTY_ART, ANCHOR_DETAIL_HERO_ART, ANCHOR_DETAIL_PRACTICE_ART } from '@/components/v2/anchors/anchorDetailArt';
-import { ProgressiveFocusTransition, useProgressiveFocusTransition } from '@/navigation/v2/ProgressiveFocusTransition';
+import { AnchorTransitionScene, useAnchorTransitionPlace, useProgressiveFocusTransition } from '@/navigation/v2/ProgressiveFocusTransition';
 import { ChartPreview } from '@/components/v2/chart/ChartPreview';
 import type { ChartMarker } from '@/components/v2/chart/ChartLandscape';
 import { chartWindowAroundRoutePoint } from '@/components/v2/chart/chartRouteGeometry';
+import { predictPracticeSetupAnchorRect, resolveAnchorDetailsHeroGeometry } from '@/navigation/v2/anchorHeroGeometry';
+import { useV2Responsive } from '@/hooks/v2';
 
 type Nav = NativeStackNavigationProp<V2DailyShellParamList, 'V2AnchorDetails'>;
 type Route = RouteProp<V2DailyShellParamList, 'V2AnchorDetails'>;
@@ -95,13 +97,23 @@ function Hero({
   medallionSize,
   onBack,
   onMore,
+  anchorId,
+  reduceMotion,
 }: {
   anchor: NonNullable<ReturnType<typeof useV2AnchorDetail>['anchor']>;
   paintingHeight: number;
   medallionSize: number;
   onBack: () => void;
   onMore: () => void;
+  /** The id the Anchor transition knows this Details screen by (its route param). */
+  anchorId: string;
+  reduceMotion?: boolean;
 }) {
+  // The medallion is the Anchor transition's `details` place: Home's flight
+  // lands here and the Practice flight leaves from here. Android moves a newly
+  // pushed native screen beneath the status bar after its first layout
+  // callback, so the settled position is measured one beat later.
+  const place = useAnchorTransitionPlace('details', anchorId, 'paper', { measureDelayMs: reduceMotion ? 0 : 120 });
   const accent = getCategoryColor(anchor.category);
   // Small tracked caps on cream must clear WCAG AA; darkens within the same hue when the raw token would not.
   const categoryText = getCategoryTextColor(anchor.category, colors.surface, colors.text.primary);
@@ -124,13 +136,14 @@ function Hero({
           <Path d="M0 0 Q200 48 400 0 L400 32 L0 32 Z" fill={colors.surface} />
         </Svg>
       </View>
-      <CircularAnchorRenderer
-        {...anchorRenderProps(anchor)}
-        size={medallionSize}
-        appearance="paper"
-        accessibilityLabel={categoryLabel(anchor.category) + ' Anchor artwork'}
-        style={[styles.glyph, { top: paintingHeight - medallionSize * 0.58 }]}
-      />
+      <View ref={place.ref} collapsable={false} onLayout={place.onLayout} style={[styles.glyph, { top: paintingHeight - medallionSize * 0.58, opacity: place.hidden ? 0 : 1 }]}>
+        <CircularAnchorRenderer
+          {...anchorRenderProps(anchor)}
+          size={medallionSize}
+          appearance="paper"
+          accessibilityLabel={categoryLabel(anchor.category) + ' Anchor artwork'}
+        />
+      </View>
       <View style={[styles.heroCopy, { paddingTop: medallionSize * 0.42 + 16 }]}>
         <Text accessibilityRole="header" style={styles.intention}>{anchor.intentionText}</Text>
         <Text style={[styles.category, { color: categoryText }]}>{categoryLabel(anchor.category).toUpperCase()}</Text>
@@ -517,8 +530,11 @@ function EmptyCardChevron() {
 export function V2AnchorDetailsScreen() {
   const navigation = useNavigation<Nav>();
   const focusTransition = useProgressiveFocusTransition();
+  const backDispatchingRef = useRef(false);
   const { params } = useRoute<Route>();
   const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const viewport = useV2Responsive();
   const intents = useV2DailyShellIntents();
   const detail = useV2AnchorDetail(params.anchorId);
   const anchorId = detail.anchor?.localId ?? detail.anchor?.id ?? '';
@@ -526,19 +542,34 @@ export function V2AnchorDetailsScreen() {
   const recommendation = useRecommendation(serverId);
   const vision = useV2Vision(serverId);
 
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (navigation.isFocused && !navigation.isFocused()) return false;
+      navigation.goBack();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [navigation]);
+
   const anchorChart = useAnchorChart(serverId || null);
   const focusDuration = useSettingsStore((s) => s.focusSessionDuration);
   const primeDuration = useSettingsStore((s) => s.primeSessionDuration);
   const visualizeDuration = useSettingsStore((s) => s.visualizeSessionDuration);
 
   useEffect(() => navigation.addListener('beforeRemove', (event) => {
+    if (backDispatchingRef.current) return;
     const state = navigation.getState();
     const previous = state.routes[state.index - 1];
     const actionType = (event.data as { action?: { type?: string } }).action?.type;
     if (previous?.name === 'V2Home' && ['GO_BACK', 'POP', 'POP_TO_TOP'].includes(actionType ?? '')) {
-      focusTransition.reverse();
+      event.preventDefault();
+      const completeBack = () => {
+        backDispatchingRef.current = true;
+        navigation.dispatch(event.data.action);
+      };
+      if (!focusTransition.closeAnchor(params.anchorId, completeBack)) completeBack();
     }
-  }), [focusTransition, navigation]);
+  }), [focusTransition, navigation, params.anchorId]);
 
   const chart = useMemo(
     () =>
@@ -559,12 +590,12 @@ export function V2AnchorDetailsScreen() {
 
   if (!detail.anchor) {
     return (
-      <ProgressiveFocusTransition role="destination">
+      <AnchorTransitionScene place="details">
         <V2Screen testID="v2-anchor-details-screen">
           <V2TopBar title="Anchor" onBackPress={() => navigation.goBack()} />
           <V2EmptyState title="Anchor not found" message="This Anchor may have been removed." />
         </V2Screen>
-      </ProgressiveFocusTransition>
+      </AnchorTransitionScene>
     );
   }
 
@@ -584,17 +615,28 @@ export function V2AnchorDetailsScreen() {
       : focusDuration;
 
   const openPractice = (mode: V2PracticeMode) => {
-    if (mode === 'release') intents.onReleaseAnchor(anchorId);
-    else intents.onOpenPractice(anchorId, mode);
+    if (mode === 'release') {
+      intents.onReleaseAnchor(anchorId);
+      return;
+    }
+    // The medallion travels into the Practice setup this CTA opens.
+    focusTransition.startAnchorTransition({
+      anchor: detail.anchor!,
+      from: 'details',
+      to: {
+        target: 'practiceSetup',
+        rect: predictPracticeSetupAnchorRect({ viewport, topInset: insets.top, mode, hasVision: vision.state.state === 'ready' }),
+      },
+      onNavigate: (withHero) => intents.onOpenPractice(anchorId, mode, { anchorTransition: withHero }),
+    });
   };
 
-  // Top category painting: reduced ~40-45% vertically from the original ~275px
-  const paintingHeight = Math.max(145, Math.min(175, Math.round(height * 0.18)));
-  // Hero medallion: enlarged from 172 to ~210px responsive
-  const medallionSize = Math.max(190, Math.min(220, Math.round(width * 0.52)));
+  const { paintingHeight, medallionSize } = resolveAnchorDetailsHeroGeometry({
+    width, height, topInset: insets.top, platform: Platform.OS,
+  });
 
   return (
-    <ProgressiveFocusTransition role="destination">
+    <AnchorTransitionScene place="details">
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
         <ScrollView testID="v2-anchor-details-screen" showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
@@ -602,6 +644,8 @@ export function V2AnchorDetailsScreen() {
           anchor={detail.anchor}
           paintingHeight={paintingHeight}
           medallionSize={medallionSize}
+          anchorId={params.anchorId}
+          reduceMotion={focusTransition.reduceMotion}
           onBack={() => navigation.goBack()}
           onMore={() =>
             Alert.alert('Anchor', undefined, [
@@ -664,7 +708,7 @@ export function V2AnchorDetailsScreen() {
         </View>
         </ScrollView>
       </SafeAreaView>
-    </ProgressiveFocusTransition>
+    </AnchorTransitionScene>
   );
 }
 

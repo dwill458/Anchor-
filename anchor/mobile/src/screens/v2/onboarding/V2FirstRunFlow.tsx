@@ -79,6 +79,12 @@ export function V2FirstRunFlow() {
       onComplete={() => setStep('auth')}
       onExit={() => setStep('handoff')}
       onSignIn={() => navigation.navigate('V2Auth', { initialMode: 'signin' })}
+      suggestionContext={{
+        category: draft.focusCategory,
+        desiredOutcome: draft.desiredOutcome,
+        desiredWhy: draft.desiredWhy,
+        desiredFriction: draft.desiredFriction,
+      }}
     />;
   }
 

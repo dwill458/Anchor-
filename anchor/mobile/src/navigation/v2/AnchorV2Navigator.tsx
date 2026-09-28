@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -31,7 +31,7 @@ import { generateExpressionCandidates, persistCreatedAnchor } from '@/services/v
 import type { V2PracticeMode } from '@/constants/v2/practice';
 import type { AnchorV2StackParamList } from './types';
 import { useV2ReduceMotion } from '@/hooks/v2';
-import { v2ScreenBackground, v2StackScreenOptions } from './transitions';
+import { V2_TRANSITION_SETTLE_MS, v2ScreenBackground, v2StackScreenOptions } from './transitions';
 import { ProgressiveFocusTransitionProvider } from './ProgressiveFocusTransition';
 import { handOffToHome, prepareHomeArrival } from './creationHandoff';
 
@@ -95,6 +95,19 @@ function V2PracticeRouteScreen() {
   const resumeDuration = route.params?.resumeDuration;
   const resumeSource = route.params?.resumeSource;
   const returnRoute = route.params?.returnRoute;
+  const anchorTransition = route.params?.anchorTransition === true;
+  const reduceMotion = useV2ReduceMotion();
+
+  // Arriving with the Anchor, the push ran without an animation of its own
+  // (see PRACTICE_OPTIONS). Once it has landed, leaving gets the ordinary V2
+  // pop back, including the iOS edge swipe.
+  useEffect(() => {
+    if (!anchorTransition) return undefined;
+    const timer = setTimeout(() => {
+      navigation.setOptions({ animation: v2StackScreenOptions(reduceMotion).animation });
+    }, V2_TRANSITION_SETTLE_MS + 200);
+    return () => clearTimeout(timer);
+  }, [anchorTransition, navigation, reduceMotion]);
 
   const anchors = typeof useAnchorStore === 'function'
     ? useAnchorStore((s) => s.anchors)
@@ -307,10 +320,10 @@ export function AnchorV2Navigator() {
           must not pop the route out from under a save or the hand-off. */}
         <Stack.Screen name="V2Creation" component={V2CreationRouteScreen} options={CREATION_OPTIONS} />
         <Stack.Screen name="V2AnchorLibrary" component={V2AnchorLibraryScreen} />
-        <Stack.Screen name="V2AnchorDetails" component={V2AnchorDetailsScreen} options={PAPER_BACKGROUND} />
+        <Stack.Screen name="V2AnchorDetails" component={V2AnchorDetailsScreen} options={{ ...PAPER_BACKGROUND, animation: 'none' }} />
         {/* The paywall draws a sheet over a deliberately transparent root. */}
         <Stack.Screen name="V2Paywall" component={V2PaywallRouteScreen} options={TRANSPARENT_BACKGROUND} />
-        <Stack.Screen name="V2Practice" component={V2PracticeRouteScreen} />
+        <Stack.Screen name="V2Practice" component={V2PracticeRouteScreen} options={PRACTICE_OPTIONS} />
         <Stack.Screen name="V2Vision" component={V2VisionRouteScreen} options={PAPER_BACKGROUND} />
         <Stack.Screen name="V2Chart" component={V2ChartScreen} options={GRAPHITE_BACKGROUND} />
         <Stack.Screen name="V2ChartWaypoint" component={V2ChartWaypointScreen} options={GRAPHITE_BACKGROUND} />
@@ -332,6 +345,9 @@ const PAPER_BACKGROUND = v2ScreenBackground('paper');
 const CREATION_OPTIONS = { gestureEnabled: false };
 const GRAPHITE_BACKGROUND = v2ScreenBackground('graphite');
 const TRANSPARENT_BACKGROUND = { contentStyle: { backgroundColor: 'transparent' } };
+/** When the Anchor flies in from Details, the shared transition owns all the motion. */
+const PRACTICE_OPTIONS = ({ route }: { route: RouteProp<AnchorV2StackParamList, 'V2Practice'> }) =>
+  (route.params?.anchorTransition ? { animation: 'none' as const } : {});
 
 const styles = StyleSheet.create({
   loginContainer: {

@@ -59,6 +59,22 @@ describe('V2CreationFlow', () => {
     expect(screen.getByTestId('v2-creation-intention')).toBeTruthy();
     expect(screen.getByText('Every Anchor starts')).toBeTruthy();
     expect(screen.getByText('SHORT')).toBeTruthy();
+    expect(screen.getByTestId('intention-input').props.placeholder).toBe('I am fully present with my work.');
+    expect(screen.getByLabelText('Go back')).toBeTruthy();
+  });
+
+  it('offers editable intention suggestions from first-run discovery context', () => {
+    const { screen } = setup({ suggestionContext: {
+      category: 'career', desiredOutcome: 'More opportunity', desiredWhy: 'I want more freedom', desiredFriction: 'I overthink my next move',
+    } });
+    expect(screen.getByTestId('intention-suggestion-0').props.accessibilityLabel).toBe('Use suggestion: I am open to more opportunity in my career.');
+    expect(screen.getByTestId('intention-suggestion-1').props.accessibilityLabel).toBe('Use suggestion: I am making room for more freedom in my career.');
+    expect(screen.getByTestId('intention-suggestion-2').props.accessibilityLabel).toBe('Use suggestion: I trust myself to choose my next move.');
+    fireEvent.press(screen.getByTestId('intention-suggestion-0'));
+    expect(screen.getByTestId('intention-input').props.value).toBe('I am open to more opportunity in my career.');
+    fireEvent.changeText(screen.getByTestId('intention-input'), 'I build a career with freedom');
+    expect(screen.getByTestId('intention-input').props.value).toBe('I build a career with freedom');
+    expect(screen.queryByText('I want to stop getting distracted.')).toBeNull();
   });
 
   it('sanitizes pasted intentions', () => {
@@ -79,9 +95,18 @@ describe('V2CreationFlow', () => {
     expect(screen.getByTestId('reveal-intention').props.children.join('')).toContain(INTENTION);
   });
 
-  it('keeps the original structure without calling generation', async () => {
+  it('defaults to the first suggested style on entering expression screen', () => {
+    seed(draftAt({ currentStep: 'expression' }));
+    const { screen } = setup();
+    expect(screen.getByTestId('expression-generate')).toBeTruthy();
+    expect(current().styleChoice).toBeDefined();
+    expect(current().expression).not.toBe('original');
+  });
+
+  it('keeps the original structure without calling generation when user selects it', async () => {
     seed(draftAt({ currentStep: 'expression' }));
     const { screen, props } = setup();
+    await act(async () => fireEvent.press(screen.getByTestId('expression-keep-original')));
     await act(async () => fireEvent.press(screen.getByTestId('expression-keep')));
     expect(props.generateExpression).not.toHaveBeenCalled();
     expect(props.saveAnchor).toHaveBeenCalledWith(expect.objectContaining({ draft: expect.objectContaining({ expression: 'original', enhancedImageUrl: undefined }) }));
@@ -113,6 +138,7 @@ describe('V2CreationFlow', () => {
     layoutStage();
     expect(generateExpression).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Choose your Anchor.')).toBeTruthy();
+    expect(screen.queryByTestId('choose-retry')).toBeNull();
     expect(screen.getByTestId('candidate-0')).toBeTruthy();
     expect(screen.getByTestId('candidate-1')).toBeTruthy();
     // Nothing is kept until the user chooses.

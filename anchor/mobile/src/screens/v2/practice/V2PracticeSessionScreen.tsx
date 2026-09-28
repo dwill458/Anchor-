@@ -16,6 +16,8 @@ import type { GuidanceVoice } from '@/types/sessionAudio';
 import { V2FocusActiveScreen, V2FocusCompleteScreen } from './focus';
 import { V2VisualizeSessionScreen } from './visualize/V2VisualizeSessionScreen';
 import { isV2VisualizeDuration } from './visualize/visualizeVisionPlan';
+import Animated from 'react-native-reanimated';
+import { useAnchorTransitionPlace, useAnchorTransitionReveal } from '@/navigation/v2/ProgressiveFocusTransition';
 
 type Props = {
   anchorId: string;
@@ -27,6 +29,8 @@ type Props = {
   haptics?: boolean;
   focusEntryAnchorCenterY?: number;
   focusEntryAnchorSize?: number;
+  /** The shared Anchor transition is carrying the Anchor in; the session hands its entry to it. */
+  anchorTransition?: boolean;
   onBack: () => void;
   onCompleted: () => void;
   onFocusAgain: () => void;
@@ -44,6 +48,7 @@ export function V2PracticeSessionScreen({
   haptics,
   focusEntryAnchorCenterY,
   focusEntryAnchorSize,
+  anchorTransition = false,
   onBack,
   onCompleted,
   onFocusAgain,
@@ -90,6 +95,10 @@ export function V2PracticeSessionScreen({
   const [legacyError, setLegacyError] = useState<string | null>(null);
 
   const definition = V2_PRACTICE_MODE_BY_ID[mode];
+  // Deep Focus: the context mark is where the travelling Anchor lands, and the
+  // timer and its action arrive after it.
+  const deepPlace = useAnchorTransitionPlace('deepFocusSession', anchor?.id, 'tinted');
+  const deepControlsReveal = useAnchorTransitionReveal('deepFocusSession', 3);
 
   // The non-Focus practice modes use their own active-time clock. Background
   // time is excluded and a delayed JS tick catches up from the monotonic wall
@@ -277,6 +286,7 @@ export function V2PracticeSessionScreen({
           ambient={resolvedAmbient}
           haptics={haptics ?? (hapticIntensity ?? 70) > 0}
           initialStage="entry"
+          anchorHandoff={anchorTransition}
           entryStartCenterY={focusEntryAnchorCenterY}
           entryStartSize={focusEntryAnchorSize}
           onExit={onBack}
@@ -351,7 +361,8 @@ export function V2PracticeSessionScreen({
           {definition.title.toUpperCase()}
         </Text>
         <Text style={styles.title}>Stay with your Anchor.</Text>
-        <V2PracticeAnchorContext anchor={anchor} />
+        <V2PracticeAnchorContext anchor={anchor} artworkPlace={deepPlace} />
+        <Animated.View style={deepControlsReveal}>
         <View style={styles.timerBlock} accessibilityLiveRegion="polite">
           <Text
             testID="v2-practice-session-timer"
@@ -383,6 +394,7 @@ export function V2PracticeSessionScreen({
         >
           {remaining > 0 ? `Finish ${definition.title}` : `Complete ${definition.title}`}
         </V2Button>
+        </Animated.View>
       </ScrollView>
     </V2Screen>
   );

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Image } from 'react-native';
-import { render, fireEvent, screen } from '@testing-library/react-native';
+import { render, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 const mockNavigate = jest.fn();
 jest.mock('@react-navigation/native', () => ({
@@ -169,11 +169,21 @@ describe('Home structure', () => {
     expect(onOpenProgress).toHaveBeenCalledWith('a');
   });
 
-  it('opens Anchor details from the hero artwork', () => {
+  it('opens Anchor details after the measured artwork copy is mounted', async () => {
     oneAnchor();
     renderHome();
+    (screen.getByTestId('v2-home-anchor-disc').parent?.instance.measureInWindow as jest.Mock)
+      .mockImplementation((callback) => callback(100, 200, 154, 154));
     fireEvent.press(screen.getByTestId('v2-home-carousel-active'));
-    expect(mockNavigate).toHaveBeenCalledWith('V2AnchorDetails', { anchorId: 'a' });
+    fireEvent.press(screen.getByTestId('v2-home-carousel-active'));
+    expect(mockNavigate).not.toHaveBeenCalled();
+    const layer = screen.getByTestId('v2-anchor-transition-layer', { includeHiddenElements: true });
+    (layer.parent?.instance.measureInWindow as jest.Mock)
+      .mockImplementation((callback) => callback(0, 0, 400, 800));
+    fireEvent(layer, 'layout');
+    expect(screen.getByTestId('v2-anchor-transition-copy', { includeHiddenElements: true })).toBeTruthy();
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('V2AnchorDetails', { anchorId: 'a' }));
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
   });
 
   it('does not open details when a press moves like a swipe', () => {
@@ -186,13 +196,19 @@ describe('Home structure', () => {
     expect(mockNavigate).not.toHaveBeenCalledWith('V2AnchorDetails', { anchorId: 'a' });
   });
 
-  it('still opens details on a deliberate tap with slight finger movement', () => {
+  it('still opens details on a deliberate tap with slight finger movement', async () => {
     oneAnchor();
     renderHome();
+    (screen.getByTestId('v2-home-anchor-disc').parent?.instance.measureInWindow as jest.Mock)
+      .mockImplementation((callback) => callback(100, 200, 154, 154));
     const artwork = screen.getByTestId('v2-home-carousel-active');
     fireEvent(artwork, 'pressIn', { nativeEvent: { pageX: 100, pageY: 200 } });
     fireEvent.press(artwork, { nativeEvent: { pageX: 103, pageY: 202 } });
-    expect(mockNavigate).toHaveBeenCalledWith('V2AnchorDetails', { anchorId: 'a' });
+    const layer = screen.getByTestId('v2-anchor-transition-layer', { includeHiddenElements: true });
+    (layer.parent?.instance.measureInWindow as jest.Mock)
+      .mockImplementation((callback) => callback(0, 0, 400, 800));
+    fireEvent(layer, 'layout');
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('V2AnchorDetails', { anchorId: 'a' }));
   });
 });
 
@@ -308,24 +324,24 @@ describe('Today', () => {
 });
 
 describe('Conditional Vision and Chart', () => {
-    it('state 1 — one Anchor, no Vision, no Chart: shows the inactive Chart environment and entry action', () => {
+    it('state 1 — one Anchor, no Vision, no Chart: hides the Chart section', () => {
     oneAnchor();
     renderHome();
     expect(screen.queryByTestId('v2-home-vision')).toBeNull();
-    expect(screen.getByTestId('v2-home-chart-empty')).toBeTruthy();
-    expect(screen.getByTestId('v2-home-chart-map')).toBeTruthy();
-    expect(screen.getByText('Create Chart')).toBeTruthy();
+    expect(screen.queryByTestId('v2-home-chart-empty')).toBeNull();
+    expect(screen.queryByTestId('v2-home-chart-map')).toBeNull();
+    expect(screen.queryByText('Create Chart')).toBeNull();
     expect(screen.queryByText('YOUR VISION')).toBeNull();
       expect(screen.queryByText('CHART')).toBeNull();
       expect(screen.getByTestId('v2-home-progress')).toBeTruthy();
   });
 
-  it('renders an inactive Chart environment without route markers when no Course exists', () => {
+  it('renders no Chart section when no Course exists', () => {
     oneAnchor();
     renderHome({}, { chart: { state: 'none' } });
-    expect(screen.getByTestId('v2-home-chart-empty')).toBeTruthy();
-    expect(screen.getByTestId('v2-home-chart-map')).toBeTruthy();
-    expect(screen.getByText('Create Chart')).toBeTruthy();
+    expect(screen.queryByTestId('v2-home-chart-empty')).toBeNull();
+    expect(screen.queryByTestId('v2-home-chart-map')).toBeNull();
+    expect(screen.queryByText('Create Chart')).toBeNull();
     expect(screen.queryByTestId('v2-home-chart-loading')).toBeNull();
     expect(screen.queryByTestId('v2-home-chart-error')).toBeNull();
     expect(screen.queryByText(/Loading your current Course/i)).toBeNull();
@@ -349,7 +365,7 @@ describe('Conditional Vision and Chart', () => {
     renderHome({}, { vision: readyVision });
     expect(screen.getByTestId('v2-home-vision')).toBeTruthy();
     expect(screen.getByTestId('v2-home-vision-image')).toBeTruthy();
-      expect(screen.getByTestId('v2-home-chart-empty')).toBeTruthy();
+      expect(screen.queryByTestId('v2-home-chart-empty')).toBeNull();
       expect(screen.queryByTestId('v2-home-progress')).toBeNull();
   });
 
@@ -546,7 +562,7 @@ describe('Hero carousel', () => {
     useAnchorStore.setState({ currentAnchorId: 'b' });
     renderHome({}, { vision: { state: 'none' }, chart: { state: 'none' } });
     expect(screen.getByTestId('v2-home-intention').props.children).toBe('Second intention');
-    expect(screen.getByTestId('v2-home-chart-empty')).toBeTruthy();
+    expect(screen.queryByTestId('v2-home-chart-empty')).toBeNull();
     expect(screen.queryByTestId('v2-home-vision')).toBeNull();
     expect(screen.queryByText('Reach 1,000 active users')).toBeNull();
     expect(screen.queryByText('A bright open studio at dawn')).toBeNull();

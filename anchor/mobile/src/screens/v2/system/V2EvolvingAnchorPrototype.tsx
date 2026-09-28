@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { ArrowLeft, Sparkles } from 'lucide-react-native';
 import { EvolvingAnchor, type AnchorPresence } from '@/components/v2/anchor/EvolvingAnchor';
+import { parseAnchorStructure } from '@/components/v2/anchor/anchorStructure';
 import type { AnchorExpression } from '@/constants/v2/creation';
 import { useV2SelectedAnchor } from '@/hooks/v2/home/useV2SelectedAnchor';
 import { useV2ReduceMotion } from '@/hooks/v2';
@@ -20,6 +21,14 @@ export function V2EvolvingAnchorPrototype() {
   const [eventKey, setEventKey] = useState(0);
   const accent = getCategoryColor(selectedAnchor?.category);
   const expression = (selectedAnchor?.classifierMeta?.v2Expression ?? 'original') as AnchorExpression;
+  const structure = selectedAnchor ? parseAnchorStructure(selectedAnchor.baseSigilSvg) : null;
+  const canAnimate = Boolean(structure);
+
+  useEffect(() => {
+    if (selectedAnchor && !structure) {
+      console.warn('[EvolvingAnchorPrototype] baseSigilSvg did not parse — material animation disabled for this Anchor', selectedAnchor.baseSigilSvg?.slice(0, 200));
+    }
+  }, [selectedAnchor, structure]);
 
   useEffect(() => {
     if (!strengthening) return undefined;
@@ -50,7 +59,7 @@ export function V2EvolvingAnchorPrototype() {
       <View style={styles.hero}>
         <EvolvingAnchor svg={selectedAnchor.baseSigilSvg} imageUrl={selectedAnchor.enhancedImageUrl} category={selectedAnchor.category} expression={expression} presence={presence} size={218} active={isFocused} reduceMotion={reduceMotion} strengthening={strengthening} testID="evolving-anchor-active" />
         <Text style={styles.heroState}>{presence.toUpperCase()}</Text>
-        <Text style={styles.heroCaption}>Same generated paths · changing light only</Text>
+        <Text style={styles.heroCaption}>{canAnimate ? 'Same generated paths · changing light only' : 'This Anchor\'s stored SVG is an older/unsupported format — no material animation to show'}</Text>
       </View>
 
       <View style={styles.statePicker} accessibilityRole="radiogroup">
@@ -62,8 +71,8 @@ export function V2EvolvingAnchorPrototype() {
         })}
       </View>
 
-      <Pressable onPress={playStrengthening} disabled={reduceMotion} accessibilityRole="button" accessibilityLabel="Play strengthening animation" style={[styles.strengthenButton, { backgroundColor: accent }, reduceMotion && styles.disabled]}>
-        <Sparkles size={17} color="#FFFFFF" /><Text style={styles.strengthenText}>{reduceMotion ? 'Motion reduced' : 'Play strengthening animation'}</Text>
+      <Pressable onPress={playStrengthening} disabled={reduceMotion || !canAnimate} accessibilityRole="button" accessibilityLabel="Play strengthening animation" style={[styles.strengthenButton, { backgroundColor: accent }, (reduceMotion || !canAnimate) && styles.disabled]}>
+        <Sparkles size={17} color="#FFFFFF" /><Text style={styles.strengthenText}>{reduceMotion ? 'Motion reduced' : !canAnimate ? 'Unavailable for this Anchor' : 'Play strengthening animation'}</Text>
       </Pressable>
 
       <View style={styles.comparison}>

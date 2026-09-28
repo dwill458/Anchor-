@@ -257,8 +257,13 @@ export function V2OnboardingContinuousFlow({
     }
   }, [targetStepNumber, reduceMotion, systemReveal]);
 
-  // The preloaded cream scene stays invisible until Screen 3 starts handing over its world.
+  // While preloaded under Screen 3, this entire flow stays hidden until handoff starts.
   const rootStyle = useAnimatedStyle(() => ({
+    opacity: step === "motivation" ? (entry === "handoff" ? 1 : 0) : 1,
+  }));
+
+  // The preloaded cream scene stays invisible until Screen 3 starts handing over its world.
+  const envStyle = useAnimatedStyle(() => ({
     opacity: step === "motivation"
       ? entry === "handoff" ? easeOutCubic(seg(outcomeClock.value, outcomeTimeline.s3EnvOut)) : 0
       : 1,
@@ -308,7 +313,7 @@ export function V2OnboardingContinuousFlow({
         top: originFrame.y + (outcomeHero.y - originFrame.y) * travel,
         width: originFrame.width + (outcomeHero.width - originFrame.width) * travel,
         height: originFrame.height + (outcomeHero.height - originFrame.height) * travel,
-        opacity: 1,
+        opacity: outcomeClock.value >= outcomeTimeline.heroFlight[0] ? 1 : 0,
         transform: [{ scale: 1.02 - 0.02 * settle }],
       };
     }
@@ -603,21 +608,23 @@ export function V2OnboardingContinuousFlow({
       }
     >
       {/* Cream paper held within a soft ink environment. */}
-      <View style={[StyleSheet.absoluteFillObject, styles.inkUnderlay]} pointerEvents="none" />
-      <Animated.View style={[StyleSheet.absoluteFillObject, styles.cream, creamSceneStyle]} pointerEvents="none" />
-      <Animated.View style={[StyleSheet.absoluteFillObject, atmosphereStyle]} pointerEvents="none">
-        <LinearGradient
-          colors={["rgba(11,24,39,0.30)", "rgba(11,24,39,0.02)", "rgba(11,24,39,0.02)", "rgba(11,24,39,0.34)"]}
-          locations={[0, 0.22, 0.72, 1]}
-          start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
-          style={StyleSheet.absoluteFillObject}
-        />
-        <LinearGradient
-          colors={["rgba(11,24,39,0.20)", "rgba(11,24,39,0)", "rgba(11,24,39,0)", "rgba(11,24,39,0.20)"]}
-          locations={[0, 0.2, 0.8, 1]}
-          start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-          style={StyleSheet.absoluteFillObject}
-        />
+      <Animated.View style={[StyleSheet.absoluteFillObject, envStyle]} pointerEvents="none">
+        <View style={[StyleSheet.absoluteFillObject, styles.inkUnderlay]} />
+        <Animated.View style={[StyleSheet.absoluteFillObject, styles.cream, creamSceneStyle]} />
+        <Animated.View style={[StyleSheet.absoluteFillObject, atmosphereStyle]}>
+          <LinearGradient
+            colors={["rgba(11,24,39,0.30)", "rgba(11,24,39,0.02)", "rgba(11,24,39,0.02)", "rgba(11,24,39,0.34)"]}
+            locations={[0, 0.22, 0.72, 1]}
+            start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
+            style={StyleSheet.absoluteFillObject}
+          />
+          <LinearGradient
+            colors={["rgba(11,24,39,0.20)", "rgba(11,24,39,0)", "rgba(11,24,39,0)", "rgba(11,24,39,0.20)"]}
+            locations={[0, 0.2, 0.8, 1]}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+            style={StyleSheet.absoluteFillObject}
+          />
+        </Animated.View>
       </Animated.View>
 
       {/* 2. Persistent Category Flower Illustration */}
@@ -771,7 +778,7 @@ export function V2OnboardingContinuousFlow({
           minimumFontScale={0.85}
           maxFontSizeMultiplier={1.1}
         >
-          Anchor turns what matters to you into a system you can see, reinforce, and move on.
+          {selectedOutcome ? `Your choice, ${selectedOutcome.toLowerCase()}, stays in view.` : `Your ${categoryLabel.toLowerCase()} intention stays in view.`}
         </Animated.Text>
       </Animated.View>
 

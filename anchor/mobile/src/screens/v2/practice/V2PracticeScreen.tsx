@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { ArrowLeft } from 'lucide-react-native';
 import { V2EmptyState, V2Screen } from '@/components/v2';
@@ -26,6 +26,22 @@ import { V2PracticeSessionScreen } from './V2PracticeSessionScreen';
 import { V2FocusPrepScreen } from './focus';
 import { useV2ReduceMotion } from '@/hooks/v2';
 import { V2_LAYER_ENTER_MS, V2_LAYER_TRAVEL, V2_TRANSITION_SETTLE_MS } from '@/navigation/v2/transitions';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useV2Responsive } from '@/hooks/v2';
+import {
+  AnchorTransitionScene,
+  useAnchorTransitionPlace,
+  useOptionalAnchorTransition,
+  type AnchorTransitionDestination,
+} from '@/navigation/v2/ProgressiveFocusTransition';
+import { predictPracticeSetupAnchorRect, predictSessionAnchorRect } from '@/navigation/v2/anchorHeroGeometry';
+
+/** Where the Anchor comes to rest in each session. */
+const SESSION_PLACE: Record<V2PracticeStartRequest['mode'], AnchorTransitionDestination> = {
+  focus: 'focusSession',
+  deep_prime: 'deepFocusSession',
+  visualize: 'visualizeSession',
+};
 
 /**
  * Hub and prepare are layers of one route. Swapping them used to be a hard
@@ -35,7 +51,7 @@ import { V2_LAYER_ENTER_MS, V2_LAYER_TRAVEL, V2_TRANSITION_SETTLE_MS } from '@/n
  * fragment can crash Android (null child in dispatchAttachedToWindow). For the
  * same reason nothing animates while the route's own push is still moving.
  */
-function PracticeLayer({ layerKey, depth, reduceMotion, children }: { layerKey: string; depth: number; reduceMotion: boolean; children: React.ReactNode }) {
+function PracticeLayer({ layerKey, depth, reduceMotion, settle = true, children }: { layerKey: string; depth: number; reduceMotion: boolean; settle?: boolean; children: React.ReactNode }) {
   const previous = useRef<{ key: string; depth: number } | null>(null);
   const mountedAt = useRef(Date.now());
   const entering = useRef(false);
@@ -47,7 +63,7 @@ function PracticeLayer({ layerKey, depth, reduceMotion, children }: { layerKey: 
   // followed by a jump). The settle itself starts once it is committed.
   const last = previous.current;
   if (
-    last && last.key !== layerKey && !entering.current && !reduceMotion &&
+    last && last.key !== layerKey && !entering.current && !reduceMotion && settle &&
     Date.now() - mountedAt.current >= V2_TRANSITION_SETTLE_MS
   ) {
     entering.current = true;
@@ -122,6 +138,17 @@ export function V2PracticeScreen({
   }, [activeAnchors, selectedOverrideId, selectedAnchor, suppliedAnchor]);
 
   const model = useV2PracticeModel(fixedAnchor, suppliedRecommendation);
+
+  // The shared Anchor transition: the hub's ACTIVE ANCHOR mark flies into
+  // setup, and setup's Anchor flies into the session. While the Anchor is in
+  // the air, the layer swap it causes adds no settle of its own: the setup
+  // Anchor is measured on arrival and must already be where it will rest.
+  const transition = useOptionalAnchorTransition();
+  const anchorInFlight = Boolean(transition?.active);
+  const viewport = useV2Responsive();
+  const insets = useSafeAreaInsets();
+  const windowSize = useWindowDimensions();
+  const headerPlace = useAnchorTransitionPlace('practice', fixedAnchor?.id, 'bare');
 
   const [prepareMode, setPrepareMode] = useState<V2PracticeMode | null>(null);
   const [prepareSource, setPrepareSource] = useState<'practice_hub' | 'recommended_today'>('practice_hub');
@@ -275,9 +302,53 @@ export function V2PracticeScreen({
     setPrepareMode(mode);
   };
 
+  /** Hub -> setup. The ACTIVE ANCHOR mark travels to where setup shows it. */
+  const openModeFromHub = (mode: V2PracticeMode, source: 'practice_hub' | 'recommended_today') => {
+    if (!fixedAnchor) return;
+    if (!transition) {
+      selectMode(mode, source);
+      return;
+    }
+    transition.startAnchorTransition({
+      anchor: fixedAnchor,
+      from: 'practice',
+      to: {
+        target: 'practiceSetup',
+        rect: predictPracticeSetupAnchorRect({ viewport, topInset: insets.top, mode, hasVision: model.vision.state === 'ready' }),
+      },
+      onNavigate: () => selectMode(mode, source),
+    });
+  };
+
+  /**
+   * Setup -> session. Begin is refused while another flight owns the Anchor,
+   * so repeated taps never start a second session. The session learns whether
+   * the Anchor is arriving with it or whether it runs its own entry.
+   */
   const handleBeginPractice = (request: V2PracticeStartRequest) => {
-    onBeginPractice?.(request);
-    setActiveSession(request);
+    const begin = (withHero: boolean) => {
+      onBeginPractice?.(request);
+      setActiveSession({ ...request, anchorTransition: withHero });
+    };
+    if (!transition || !fixedAnchor) {
+      begin(false);
+      return;
+    }
+    transition.startAnchorTransition({
+      anchor: fixedAnchor,
+      from: 'practiceSetup',
+      to: {
+        target: SESSION_PLACE[request.mode],
+        rect: predictSessionAnchorRect({
+          width: windowSize.width,
+          height: windowSize.height,
+          topInset: insets.top,
+          bottomInset: insets.bottom,
+          mode: request.mode,
+        }),
+      },
+      onNavigate: begin,
+    });
   };
 
   const handleSessionCompleted = () => {
@@ -337,7 +408,9 @@ export function V2PracticeScreen({
   // Active immersive session layer
   if (activeSession) {
     return (
+      <AnchorTransitionScene place={SESSION_PLACE[activeSession.mode]}>
       <V2PracticeSessionScreen
+        anchorTransition={activeSession.anchorTransition === true}
         anchorId={activeSession.anchorId}
         mode={activeSession.mode}
         durationSeconds={activeSession.durationSeconds}
@@ -349,6 +422,7 @@ export function V2PracticeScreen({
         onCompleted={handleSessionCompleted}
         onFocusAgain={() => setActiveSession(null)}
       />
+      </AnchorTransitionScene>
     );
   }
 
@@ -356,7 +430,8 @@ export function V2PracticeScreen({
   if (prepareMode) {
     if (prepareMode === 'focus') {
       return (
-        <PracticeLayer layerKey="prepare-focus" depth={1} reduceMotion={reduceMotion}>
+        <AnchorTransitionScene place="practiceSetup">
+        <PracticeLayer layerKey="prepare-focus" depth={1} reduceMotion={reduceMotion} settle={!anchorInFlight}>
         <V2FocusPrepScreen
           anchor={fixedAnchor}
           source={prepareSource}
@@ -385,11 +460,13 @@ export function V2PracticeScreen({
           } : undefined}
         />
         </PracticeLayer>
+        </AnchorTransitionScene>
       );
     }
 
     return (
-      <PracticeLayer layerKey={`prepare-${prepareMode}`} depth={1} reduceMotion={reduceMotion}>
+      <AnchorTransitionScene place="practiceSetup">
+      <PracticeLayer layerKey={`prepare-${prepareMode}`} depth={1} reduceMotion={reduceMotion} settle={!anchorInFlight}>
       <V2PracticePrepareScreen
         anchor={fixedAnchor}
         mode={prepareMode}
@@ -402,8 +479,10 @@ export function V2PracticeScreen({
         onReleaseRequested={onReleaseRequested ?? (() => undefined)}
         onBeginPractice={handleBeginPractice}
         onPremiumRequired={onPremiumCapabilityRequired}
+        anchorHandoff={Boolean(transition) && !transition?.reduceMotion}
       />
       </PracticeLayer>
+      </AnchorTransitionScene>
     );
   }
 
@@ -416,7 +495,8 @@ export function V2PracticeScreen({
     : recommendedMode;
 
   return (
-    <PracticeLayer layerKey="hub" depth={0} reduceMotion={reduceMotion}>
+    <AnchorTransitionScene place="practice">
+    <PracticeLayer layerKey="hub" depth={0} reduceMotion={reduceMotion} settle={!anchorInFlight}>
     <StatusBar barStyle="light-content" backgroundColor={colors.ink.base} animated />
     <V2Screen scroll style={styles.screen} testID="v2-practice-screen">
       <Pressable
@@ -436,6 +516,7 @@ export function V2PracticeScreen({
           anchor={fixedAnchor}
           thread={model.thread}
           onPress={() => setIsSwitcherOpen(true)}
+          artworkPlace={headerPlace}
         />
 
         {/* Anchor Switcher Modal / Bottom Sheet */}
@@ -462,8 +543,8 @@ export function V2PracticeScreen({
               mode={displayHeroMode}
               reason={model.recommendation?.recommendation.reason}
               isCompletedToday={isCompletedToday}
-              onPress={() => selectMode(displayHeroMode, 'recommended_today')}
-              onPracticeAgain={() => selectMode(displayHeroMode, 'recommended_today')}
+              onPress={() => openModeFromHub(displayHeroMode, 'recommended_today')}
+              onPracticeAgain={() => openModeFromHub(displayHeroMode, 'recommended_today')}
             />
           ) : (
             <View style={styles.unavailableToday}>
@@ -485,12 +566,13 @@ export function V2PracticeScreen({
           <V2PracticeGrid
             capabilities={effectiveCapabilities}
             heroMode={displayHeroMode}
-            onSelectMode={(mode) => selectMode(mode, 'practice_hub')}
+            onSelectMode={(mode) => openModeFromHub(mode, 'practice_hub')}
           />
         </View>
       </View>
     </V2Screen>
     </PracticeLayer>
+    </AnchorTransitionScene>
   );
 }
 

@@ -136,7 +136,7 @@ describe('V2AnchorDetailsScreen', () => {
 
     await waitFor(() => expect(screen.getByTestId('v2-anchor-today')).toBeTruthy());
     fireEvent.press(screen.getByTestId('v2-anchor-today'));
-    expect(onOpenPractice).toHaveBeenCalledWith('a', 'focus');
+    expect(onOpenPractice).toHaveBeenCalledWith('a', 'focus', { anchorTransition: false });
 
     fireEvent.press(screen.getByLabelText('Vision'));
     expect(onOpenVision).toHaveBeenCalledWith('a');
@@ -144,6 +144,26 @@ describe('V2AnchorDetailsScreen', () => {
     expect(screen.getByLabelText('Create Chart. Map the path from here.')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Create Chart. Map the path from here.'));
     expect(onOpenChart).toHaveBeenCalledWith('a', undefined);
+  });
+
+  it('carries the medallion into Practice setup when motion is allowed', async () => {
+    useSettingsStore.setState({ reduceMotion: 'off' });
+    // Every mocked native view shares one measureInWindow: answer with an on-screen rect.
+    const nativeMethodsModule = require('react-native/jest/MockNativeMethods');
+    const nativeMethods = (nativeMethodsModule.default ?? nativeMethodsModule) as { measureInWindow: jest.Mock };
+    nativeMethods.measureInWindow.mockImplementation((callback: (...rect: number[]) => void) => callback(90, 60, 210, 210));
+    const onOpenPractice = jest.fn();
+    useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a' })] });
+    renderDetails({ onOpenPractice });
+
+    await waitFor(() => expect(screen.getByTestId('v2-anchor-today')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('v2-anchor-today'));
+    // Practice is not pushed until the medallion has left its place.
+    expect(onOpenPractice).not.toHaveBeenCalled();
+    fireEvent(screen.getByTestId('v2-anchor-transition-layer', { includeHiddenElements: true }), 'layout');
+    await waitFor(() => expect(onOpenPractice).toHaveBeenCalledWith('a', 'focus', { anchorTransition: true }));
+    expect(onOpenPractice).toHaveBeenCalledTimes(1);
+    nativeMethods.measureInWindow.mockReset();
   });
 
   it('shows the real current waypoint, destination, and One Move on the Chart portal', () => {
@@ -208,7 +228,7 @@ describe('V2AnchorDetailsScreen', () => {
     await waitFor(() => expect(screen.getByTestId('v2-anchor-today')).toBeTruthy());
     expect(screen.getByText('↓ -4% this week')).toBeTruthy();
     fireEvent.press(screen.getByTestId('v2-anchor-today'));
-    expect(onOpenPractice).toHaveBeenCalledWith('a', mode);
+    expect(onOpenPractice).toHaveBeenCalledWith('a', mode, { anchorTransition: false });
   });
 
   it.each([

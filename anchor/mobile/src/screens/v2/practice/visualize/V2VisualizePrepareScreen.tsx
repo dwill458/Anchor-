@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, Text, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useV2ReduceMotion } from '@/hooks/v2';
@@ -16,6 +16,7 @@ import { DEFAULT_SESSION_AUDIO_DEFAULTS, type BackgroundAudioMode, type Guidance
 import type { Anchor } from '@/types';
 import type { V2VisionTile } from '@/adapters/v2/vision';
 import { preloadVisionImages, V2_VISUALIZE_DURATIONS, V2_VISUALIZE_TIMING } from './visualizeVisionPlan';
+import { useAnchorTransitionPlace } from '@/navigation/v2/ProgressiveFocusTransition';
 
 export type V2VisualizeBeginConfig = {
   durationSeconds: number;
@@ -32,6 +33,8 @@ type Props = {
   onBack: () => void;
   onOpenVision?: (anchorId: string) => void;
   onBegin: (config: V2VisualizeBeginConfig) => void;
+  /** The shared Anchor transition darkens setup and carries the Anchor into the session. */
+  anchorHandoff?: boolean;
 };
 
 const ACCENT = practiceColors.visualize;
@@ -41,7 +44,7 @@ const ACCENT = practiceColors.visualize;
  * photography is the hero and the Anchor is a small line of provenance.
  * Sound and haptics apply to this session only; saved defaults are untouched.
  */
-export function V2VisualizePrepareScreen({ anchor, statement, tiles, initialDuration, onBack, onOpenVision, onBegin }: Props) {
+export function V2VisualizePrepareScreen({ anchor, statement, tiles, initialDuration, onBack, onOpenVision, onBegin, anchorHandoff = false }: Props) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const defaults = useSettingsStore(state => state.sessionAudioDefaults?.visualize);
@@ -54,6 +57,8 @@ export function V2VisualizePrepareScreen({ anchor, statement, tiles, initialDura
   const [soundOn, setSoundOn] = useState(savedVoice !== 'none' || savedAmbient !== 'off');
   const [hapticsOn, setHapticsOn] = useState((hapticIntensity ?? 70) > 0);
   const art = useMemo(() => anchorRenderProps(anchor), [anchor]);
+  // The identity mark is where the Anchor rests in setup, and what travels into the Vision.
+  const place = useAnchorTransitionPlace('practiceSetup', anchor.id, 'paper', { measureDelayMs: Platform.OS === 'android' ? 120 : 0 });
   const cover = tiles.find(tile => Boolean(tile.imageUrl))?.imageUrl ?? null;
   const photoHeight = Math.round(Math.min((width - spacing[5] * 2) * 0.72, height * 0.36));
 
@@ -75,7 +80,7 @@ export function V2VisualizePrepareScreen({ anchor, statement, tiles, initialDura
     const voice: GuidanceVoice = soundOn ? (savedVoice !== 'none' || savedAmbient !== 'off' ? savedVoice : DEFAULT_SESSION_AUDIO_DEFAULTS.visualize.guidanceVoice) : 'none';
     const ambient = soundOn ? (savedVoice !== 'none' || savedAmbient !== 'off' ? savedAmbient !== 'off' : true) : false;
     const config = { durationSeconds: duration, voice, ambient, haptics: hapticsOn };
-    if (reduceMotion) { onBegin(config); return; }
+    if (reduceMotion || anchorHandoff) { onBegin(config); return; }
     veil.value = withTiming(1, { duration: V2_VISUALIZE_TIMING.handoffMs, easing: Easing.in(Easing.quad) });
     setTimeout(() => onBegin(config), V2_VISUALIZE_TIMING.handoffMs);
   };
@@ -86,7 +91,7 @@ export function V2VisualizePrepareScreen({ anchor, statement, tiles, initialDura
         <VisionInkBand>
           <View style={styles.band}>
             <VisionHeaderRow title="Visualize" onBack={onBack} backLabel="Back to Practice" />
-            <VisionIdentity intention={anchor.intentionText} category={anchor.category} art={art} />
+            <VisionIdentity intention={anchor.intentionText} category={anchor.category} art={art} artworkPlace={place} />
             <Text accessibilityRole="header" style={styles.title}>Rehearse{'\n'}the future.</Text>
             <Text style={styles.subtitle}>Step into the moments you’ve created and let them feel real.</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="Open this Anchor’s Vision" disabled={!onOpenVision}

@@ -33,6 +33,7 @@ type Props = {
   heroHeight?: number;
   /** Centre Anchor size, used to derive how far neighbours sit off-screen. */
   anchorSize?: number;
+  frozen?: boolean;
 };
 
 /** Centre-to-centre distance that leaves PEEK_FRACTION of a neighbour inside the screen edge. */
@@ -135,7 +136,7 @@ const TrackSlot = memo(function TrackSlot({
   );
 });
 
-function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpenActive, reduceMotion = false, renderHero, heroHeight, anchorSize = HERO_ANCHOR_SIZE, testID }: Props) {
+function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpenActive, reduceMotion = false, renderHero, heroHeight, anchorSize = HERO_ANCHOR_SIZE, frozen = false, testID }: Props) {
   // The track is `width: 100%` of a full-bleed parent, and its geometry is
   // derived from its *measured* width. It must never inherit a page gutter, or
   // the slot centres (trackWidth / 2) stop matching the viewport centre and the
@@ -150,6 +151,17 @@ function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpe
   const spacing = carouselSpacing(width, anchorSize);
   const offset = useSharedValue(0);
   const busy = useSharedValue(false);
+  const frozenValue = useSharedValue(frozen);
+  useLayoutEffect(() => {
+    frozenValue.value = frozen;
+    if (frozen) {
+      cancelAnimation(offset);
+      offset.value = 0;
+      busy.value = true;
+    } else {
+      busy.value = false;
+    }
+  }, [busy, frozen, frozenValue, offset]);
   const [visualIndex, setVisualIndex] = useState(selectedIndex);
   const pendingId = useRef<string | null>(null);
   const total = anchors.length;
@@ -215,7 +227,7 @@ function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpe
   }, [busy, offset, onSelect, visualIndex]);
 
   const move = useCallback((direction: Direction) => {
-    if (!canSwitch || busy.value) return;
+    if (!canSwitch || busy.value || frozenValue.value) return;
     busy.value = true;
     if (reduceMotion) {
       complete(direction);
@@ -224,17 +236,17 @@ function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpe
     offset.value = withSpring(-direction * spacing, AnchorMotion.spring.carousel, finished => {
       if (finished) runOnJS(complete)(direction);
     });
-  }, [busy, canSwitch, complete, offset, reduceMotion, spacing]);
+  }, [busy, canSwitch, complete, frozenValue, offset, reduceMotion, spacing]);
 
   const panGesture = useMemo(() => Gesture.Pan()
-    .enabled(canSwitch)
+    .enabled(canSwitch && !frozen)
     .activeOffsetX([-6, 6])
     .failOffsetY([-10, 10])
     .onUpdate(event => {
-      if (!busy.value) offset.value = trackFinger(event.translationX, spacing);
+      if (!busy.value && !frozenValue.value) offset.value = trackFinger(event.translationX, spacing);
     })
     .onEnd(event => {
-      if (busy.value) return;
+      if (busy.value || frozenValue.value) return;
       const direction = resolveSwipeCommit(event.translationX, event.velocityX);
       if (!direction) {
         offset.value = reduceMotion ? 0 : withSpring(0, AnchorMotion.spring.carousel);
@@ -251,7 +263,7 @@ function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpe
     })
     .onFinalize(() => {
       if (!busy.value && offset.value !== 0) offset.value = reduceMotion ? 0 : withSpring(0, AnchorMotion.spring.carousel);
-    }), [busy, canSwitch, complete, offset, reduceMotion, spacing]);
+    }), [busy, canSwitch, complete, frozen, frozenValue, offset, reduceMotion, spacing]);
 
   const accessibilityActions = canSwitch ? [{ name: 'increment', label: 'Next Anchor' }, { name: 'decrement', label: 'Previous Anchor' }] : undefined;
   const handleAccessibilityAction = useCallback((event: { nativeEvent: { actionName: string } }) => {

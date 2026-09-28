@@ -6,6 +6,7 @@ import { ArrowLeft } from 'lucide-react-native';
 import { CircularAnchorRenderer } from '@/components/v2/anchor';
 import { categoryLabel } from '@/components/v2/anchors/anchorPresentation';
 import type { AnchorExpression } from '@/constants/v2/creation';
+import type { AnchorTransitionPlaceBinding } from '@/navigation/v2/ProgressiveFocusTransition';
 import { colors, getCategoryColor, spacing, typography } from '@/theme/v2';
 
 /** What the identity row needs to draw the real Anchor (see `anchorRenderProps`). */
@@ -19,7 +20,7 @@ export type VisionTone = 'light' | 'dark';
  * where it came from.
  */
 export function VisionIdentity({
-  intention, category, art, imageUrl, tone = 'light', size = 44, testID,
+  intention, category, art, imageUrl, tone = 'light', size = 44, testID, artworkPlace,
 }: {
   intention: string;
   category?: string | null;
@@ -29,26 +30,33 @@ export function VisionIdentity({
   tone?: VisionTone;
   size?: number;
   testID?: string;
+  /** Registers the mark as an Anchor transition place (Visualize setup). */
+  artworkPlace?: AnchorTransitionPlaceBinding;
 }) {
   const categoryColor = getCategoryColor(category);
   const onDark = tone === 'light';
+  const mark = art?.svg || art?.imageUrl ? (
+    <CircularAnchorRenderer
+      svg={art.svg}
+      imageUrl={art.imageUrl ?? undefined}
+      category={art.category ?? category}
+      expression={art.expression ?? undefined}
+      size={size}
+      appearance="paper"
+      accessibilityLabel={`${categoryLabel(category)} Anchor`}
+    />
+  ) : imageUrl ? (
+    <Image source={{ uri: imageUrl }} style={{ width: size, height: size, borderRadius: size / 2 }} />
+  ) : (
+    <View style={[styles.medallionFallback, { width: size, height: size, borderRadius: size / 2, borderColor: categoryColor }]} />
+  );
   return (
     <View testID={testID} style={styles.identity}>
-      {art?.svg || art?.imageUrl ? (
-        <CircularAnchorRenderer
-          svg={art.svg}
-          imageUrl={art.imageUrl ?? undefined}
-          category={art.category ?? category}
-          expression={art.expression ?? undefined}
-          size={size}
-          appearance="paper"
-          accessibilityLabel={`${categoryLabel(category)} Anchor`}
-        />
-      ) : imageUrl ? (
-        <Image source={{ uri: imageUrl }} style={{ width: size, height: size, borderRadius: size / 2 }} />
-      ) : (
-        <View style={[styles.medallionFallback, { width: size, height: size, borderRadius: size / 2, borderColor: categoryColor }]} />
-      )}
+      {artworkPlace ? (
+        <View ref={artworkPlace.ref} collapsable={false} onLayout={artworkPlace.onLayout} style={{ width: size, height: size, opacity: artworkPlace.hidden ? 0 : 1 }}>
+          {mark}
+        </View>
+      ) : mark}
       <View style={styles.identityCopy}>
         <Text style={[styles.intention, { color: onDark ? colors.ink.text.primary : colors.text.primary }]} numberOfLines={2}>{intention}</Text>
         <View style={styles.categoryRow}>

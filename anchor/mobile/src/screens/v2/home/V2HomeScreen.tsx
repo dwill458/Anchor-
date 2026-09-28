@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated from 'react-native-reanimated';
+import { AppState, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Svg, { Circle, Ellipse, Path } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
@@ -35,7 +35,8 @@ import { ANCHOR_DETAIL_EMPTY_ART, ANCHOR_DETAIL_HERO_ART } from '@/components/v2
 import { GRID_ART_BY_PRACTICE } from '@/components/v2/practice/V2PracticeArtwork';
 import { useSessionStore } from '@/stores/sessionStore';
 import { HomeArrivalOverlay, HomeArrivalProvider, useHomeArrival } from '@/components/v2/home/homeArrival';
-import { ProgressiveFocusTransition, useProgressiveFocusTransition } from '@/navigation/v2/ProgressiveFocusTransition';
+import { useProgressiveFocusTransition, type AnchorWindowRect } from '@/navigation/v2/ProgressiveFocusTransition';
+import { resolveAnchorDetailsHeroGeometry } from '@/navigation/v2/anchorHeroGeometry';
 
 type Nav = NativeStackNavigationProp<V2DailyShellParamList, 'V2Home'>;
 
@@ -100,6 +101,8 @@ function EmptyHomeGestureSvg() {
 export function V2HomeScreen() {
   const navigation = useNavigation<Nav>();
   const focusTransition = useProgressiveFocusTransition();
+  const homeExitStyle = useAnimatedStyle(() => ({ opacity: 1 - focusTransition.exitProgress.value }));
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const model = useV2HomeModel();
   const reduceMotion = useV2ReduceMotion();
   const insets = useSafeAreaInsets();
@@ -241,12 +244,18 @@ export function V2HomeScreen() {
   );
 
   const handleOpenActive = useCallback(
-    (anchorId: string) => {
-      track('v2_anchor_details_viewed', { from: 'home' });
-      focusTransition.begin();
-      navigation.navigate('V2AnchorDetails', { anchorId });
+    (anchorId: string, source?: AnchorWindowRect) => {
+      const anchor = model.anchorList.find((item) => item.anchor.id === anchorId)?.anchor;
+      if (!anchor) return;
+      const destination = resolveAnchorDetailsHeroGeometry({
+        width: windowWidth, height: windowHeight, topInset: insets.top, platform: Platform.OS,
+      }).rect;
+      const accepted = focusTransition.openAnchor(anchor, source ?? { x: NaN, y: NaN, width: 0, height: 0 }, destination, () => {
+        navigation.navigate('V2AnchorDetails', { anchorId });
+      });
+      if (accepted) track('v2_anchor_details_viewed', { from: 'home' });
     },
-    [focusTransition, navigation],
+    [focusTransition, insets.top, model.anchorList, navigation, windowHeight, windowWidth],
   );
 
   const handleOpenProgress = useCallback(() => {
@@ -375,7 +384,7 @@ export function V2HomeScreen() {
         bounces
         overScrollMode={elastic.enabled ? 'never' : 'auto'}
       >
-        <Animated.View style={[styles.elasticContent, elastic.elasticStyle]}>
+        <Animated.View style={[styles.elasticContent, elastic.elasticStyle, homeExitStyle]}>
         {/* ── Cream hero world ── */}
         <Animated.View style={arrival.headerStyle}>{header}</Animated.View>
 
@@ -390,6 +399,7 @@ export function V2HomeScreen() {
               selectedIndex={model.selectedIndex}
               thread={model.thread}
               reduceMotion={reduceMotion}
+              frozen={focusTransition.active}
               onSelect={handleSelectAnchor}
               onOpenActive={handleOpenActive}
               onOpenProgress={handleOpenProgress}
@@ -480,7 +490,6 @@ export function V2HomeScreen() {
       {arrival.arrival ? (
         <HomeArrivalOverlay arrival={arrival.arrival} progress={arrival.context.progress} origin={arrival.origin} onOrigin={arrival.reportOrigin} />
       ) : null}
-      <ProgressiveFocusTransition role="source" />
     </SafeAreaView>
     </HomeArrivalProvider>
   );

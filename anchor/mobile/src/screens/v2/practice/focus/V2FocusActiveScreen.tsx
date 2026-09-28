@@ -37,6 +37,7 @@ import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { safeHaptics } from '@/utils/haptics';
 import { V2FocusAnchorArtwork } from './V2FocusAnchorArtwork';
 import { V2FocusField } from './V2FocusField';
+import { ANCHOR_SESSION_ENTRY_MS, useAnchorTransitionPlace, useAnchorTransitionReveal } from '@/navigation/v2/ProgressiveFocusTransition';
 
 export interface V2FocusActiveScreenProps {
   anchor: Anchor;
@@ -59,6 +60,12 @@ export interface V2FocusActiveScreenProps {
   autoAdvancePrepare?: boolean;
   entryStartCenterY?: number;
   entryStartSize?: number;
+  /**
+   * The shared Anchor transition carries the Anchor from setup into the field,
+   * over a ground setup has already darkened. The entry then has no curtain
+   * and no artwork motion of its own; the Anchor appears on the frame it lands.
+   */
+  anchorHandoff?: boolean;
 }
 
 function fmtRemaining(ms: number): string {
@@ -83,6 +90,7 @@ export function V2FocusActiveScreen({
   autoAdvancePrepare = true,
   entryStartCenterY,
   entryStartSize,
+  anchorHandoff = false,
 }: V2FocusActiveScreenProps) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
@@ -124,7 +132,10 @@ export function V2FocusActiveScreen({
   const hasConfiguredSound = ambient || voice !== 'none';
   const [controlsVisible, setControlsVisible] = useState(false);
   const [entryTargetCenterY, setEntryTargetCenterY] = useState<number | null>(null);
-  const fieldFrameRef = useRef<View>(null);
+  // The field frame is the Anchor's `focusSession` place; the artwork is centred in it.
+  const focusPlace = useAnchorTransitionPlace('focusSession', anchor.id, 'dark', { artSize: anchorSize, plainMark: true });
+  const intentionReveal = useAnchorTransitionReveal('focusSession', 3);
+  const labelReveal = useAnchorTransitionReveal('focusSession', 3);
   const elapsedMsRef = useRef(initialElapsedMs);
   const displayedRemainingSecondsRef = useRef(Math.ceil(Math.max(0, totalMs - initialElapsedMs) / 1000));
 
@@ -138,8 +149,8 @@ export function V2FocusActiveScreen({
   const washMotion = useSharedValue(0);
   const sessionProgress = useSharedValue(Math.min(1, initialElapsedMs / totalMs));
   const controlsOpacity = useSharedValue(0);
-  const fieldTransition = useSharedValue(defaultStage === 'focus' ? 1 : 0);
-  const entryCurtain = useSharedValue(defaultStage === 'entry' ? 1 : 0);
+  const fieldTransition = useSharedValue(defaultStage === 'focus' || anchorHandoff ? 1 : 0);
+  const entryCurtain = useSharedValue(defaultStage === 'entry' && !anchorHandoff ? 1 : 0);
   const resolvingContentOpacity = useSharedValue(1);
   const breathingStyle = useAnimatedStyle(() => ({
     transform: [
@@ -302,7 +313,8 @@ export function V2FocusActiveScreen({
   // after the cream environment has yielded to the active field.
   useEffect(() => {
     if (stage !== 'entry' || (entryStartCenterY != null && entryTargetCenterY == null)) return;
-    const transitionMs = reduceMotion ? 0 : 800;
+    // Arriving with the shared transition, the clock starts as the Anchor lands.
+    const transitionMs = reduceMotion ? 0 : anchorHandoff ? ANCHOR_SESSION_ENTRY_MS : 800;
     let timer: NodeJS.Timeout | null = null;
     const beginEntry = () => {
       if (timer || startedAtMonotonicRef.current != null) return;
@@ -329,6 +341,7 @@ export function V2FocusActiveScreen({
       timer = null;
       cancelAnimation(entryCurtain);
       cancelAnimation(fieldTransition);
+      if (anchorHandoff) return;
       entryCurtain.value = 1;
       fieldTransition.value = 0;
     });
@@ -340,7 +353,7 @@ export function V2FocusActiveScreen({
       if (timer) clearTimeout(timer);
       appStateSubscription.remove();
     };
-  }, [activateFocusedClock, entryCurtain, entryStartCenterY, entryTargetCenterY, fieldTransition, reduceMotion, stage]);
+  }, [activateFocusedClock, anchorHandoff, entryCurtain, entryStartCenterY, entryTargetCenterY, fieldTransition, reduceMotion, stage]);
 
   // Resumed sessions that start directly in Focus initialize their clock/audio.
   useEffect(() => {
@@ -694,8 +707,8 @@ export function V2FocusActiveScreen({
         if (event.nativeEvent.actionName === 'activate') revealControls();
       }}
     >
-      <StatusBar barStyle={stage === 'entry' ? 'dark-content' : 'light-content'} backgroundColor={stage === 'entry' ? colors.canvas : colors.ink.base} animated />
-      {stage === 'entry' ? (
+      <StatusBar barStyle={stage === 'entry' && !anchorHandoff ? 'dark-content' : 'light-content'} backgroundColor={stage === 'entry' && !anchorHandoff ? colors.canvas : colors.ink.base} animated />
+      {stage === 'entry' && !anchorHandoff ? (
         <Reanimated.View pointerEvents="none" style={[styles.entryCurtain, entryCurtainStyle]} />
       ) : null}
       {/* Two diffuse fields start at the Anchor and fall away without a visible frame. */}
@@ -724,9 +737,9 @@ export function V2FocusActiveScreen({
         </Svg>
       </Reanimated.View>
       <Reanimated.View style={[styles.centerStage, resolvingContentStyle]} pointerEvents="box-none">
-        <View style={[styles.intentionRegion, { paddingTop: Math.max(insets.top + 42, 66) }]}>
+        <Reanimated.View style={[styles.intentionRegion, { paddingTop: Math.max(insets.top + 42, 66) }, intentionReveal]}>
           <Text style={styles.sessionIntention}>{anchor.intentionText}</Text>
-        </View>
+        </Reanimated.View>
 
         <Reanimated.View style={[styles.anchorRegion, anchorEntranceStyle]}>
           <Animated.View
@@ -739,8 +752,12 @@ export function V2FocusActiveScreen({
             ]}
           >
             <Reanimated.View
-              ref={fieldFrameRef}
-              onLayout={() => fieldFrameRef.current?.measureInWindow((_x, y, _width, height) => setEntryTargetCenterY(y + height / 2))}
+              ref={focusPlace.ref}
+              collapsable={false}
+              onLayout={() => {
+                focusPlace.onLayout();
+                focusPlace.ref.current?.measureInWindow((_x, y, _width, height) => setEntryTargetCenterY(y + height / 2));
+              }}
               style={[styles.focusFieldFrame, { width: fieldSize, height: fieldSize }, entryArtworkStyle]}
             >
               <V2FocusField
@@ -757,7 +774,7 @@ export function V2FocusActiveScreen({
                 accessibilityValue={{ min: 0, max: 100, now: Math.round((elapsedMs / totalMs) * 100) }}
                 style={styles.accessibleProgress}
               />
-              <Reanimated.View style={[breathingStyle, styles.anchorArtworkOverlay]}>
+              <Reanimated.View style={[breathingStyle, styles.anchorArtworkOverlay, focusPlace.hidden && styles.hiddenArtwork]}>
                 <V2FocusAnchorArtwork
                   svg={anchorArtworkSvg(anchor)} imageUrl={anchor.enhancedImageUrl}
                   category={anchor.category}
@@ -788,6 +805,7 @@ export function V2FocusActiveScreen({
         style={[
           styles.topHeader,
           resolvingContentStyle,
+          labelReveal,
           { paddingTop: Math.max(48, insets.top + 14) },
         ]}
       >
@@ -923,6 +941,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.ink.base,
   },
+  hiddenArtwork: { opacity: 0 },
   entryCurtain: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 20,

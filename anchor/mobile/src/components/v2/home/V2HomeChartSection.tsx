@@ -30,8 +30,7 @@ function ArrowRight({ color }: { color: string }) {
  * Chart on Home is strictly conditional, and the absent/unknown/in-flight
  * distinction is load-bearing:
  *
- * - `none`      confirmed absence. Show only category terrain and the real
- *               Chart entry action: no route, waypoint, or progress.
+ * - `none`      confirmed absence. Home has no Chart section for this Anchor.
  * - `resolving` the relationship is not yet knowable. Also render nothing; an
  *               unknown relationship must never surface as "Loading…".
  * - `loading`   a Course link for THIS Anchor is known and its detail is in
@@ -46,33 +45,7 @@ function V2HomeChartSectionComponent({ chart, category, onOpenChart, onRetry, te
   if (chart.state === 'resolving') return null;
 
   if (chart.state === 'none') {
-    return (
-      <Pressable
-        testID={testID ?? 'v2-home-chart-empty'}
-        accessibilityRole="button"
-        accessibilityLabel="Create Chart. Map the path from here."
-        onPress={onOpenChart}
-        disabled={!onOpenChart}
-        style={({ pressed }) => [styles.container, pressed && onOpenChart ? styles.pressed : null]}
-      >
-        <View style={styles.kickerRow}><Text style={styles.kicker}>YOUR CHART</Text></View>
-        <View style={styles.route}>
-          <ChartPreview
-            width={mapWidth}
-            category={category}
-            window={CHART_WINDOWS.home}
-            showRoute={false}
-            testID="v2-home-chart-map"
-            style={{ alignSelf: 'center' }}
-          />
-        </View>
-        <Text style={styles.waypointTitle}>Map the path from here.</Text>
-        <View style={styles.link}>
-          <Text style={styles.linkText}>Create Chart</Text>
-          <ArrowRight color={colors.graphite.text.tertiary} />
-        </View>
-      </Pressable>
-    );
+    return null;
   }
 
   if (chart.state === 'loading') {

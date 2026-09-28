@@ -29,6 +29,8 @@ export type V2PracticeStartRequest = {
   haptics?: boolean;
   focusEntryAnchorCenterY?: number;
   focusEntryAnchorSize?: number;
+  /** Set by the Practice screen: the shared Anchor transition is carrying the Anchor into this session. */
+  anchorTransition?: boolean;
 };
 export type V2PracticeRouteIntents = {
   onPremiumCapabilityRequired: (request: V2PremiumCapabilityRequest) => void;

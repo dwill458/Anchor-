@@ -14,7 +14,8 @@ import type { V2PracticeMode } from '@/constants/v2/practice';
  * REQUIRED_INTEGRATION_CHANGES.md.
  */
 export type V2DailyShellIntents = {
-  onOpenPractice?: (anchorId: string, recommendedMode?: V2PracticeMode) => void;
+  /** `anchorTransition`: the Anchor is travelling into Practice, so the route must not animate itself. */
+  onOpenPractice?: (anchorId: string, recommendedMode?: V2PracticeMode, options?: { anchorTransition?: boolean }) => void;
   onOpenVision?: (anchorId: string) => void;
   onCreateVision?: (anchorId: string) => void;
   onOpenChart?: (anchorId?: string, courseId?: string) => void;
@@ -104,9 +105,8 @@ const Stack = createNativeStackNavigator<V2DailyShellParamList>();
 export function V2DailyShellNavigator({ intents = {} }: { intents?: V2DailyShellIntents }) {
   const value = useMemo(() => intents, [intents]);
   const reduceMotion = useV2ReduceMotion();
-  // Same transition system as the central V2 stack, so Home -> Details moves
-  // exactly like Home -> Practice. (This stack used to run Android's 400ms
-  // full-width slide while every other V2 push used the platform default.)
+  // Keep the shared default for other routes; Details uses the Anchor hero
+  // layer and disables its native stack animation below.
   const screenOptions = useMemo(() => v2StackScreenOptions(reduceMotion), [reduceMotion]);
   return (
     <ProgressiveFocusTransitionProvider>
@@ -121,4 +121,4 @@ export function V2DailyShellNavigator({ intents = {} }: { intents?: V2DailyShell
   );
 }
 
-const DETAILS_OPTIONS = v2ScreenBackground('paper');
+const DETAILS_OPTIONS = { ...v2ScreenBackground('paper'), animation: 'none' as const };

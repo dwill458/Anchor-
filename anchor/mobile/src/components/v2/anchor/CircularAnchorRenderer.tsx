@@ -68,12 +68,23 @@ export const CircularAnchorRenderer = memo(function CircularAnchorRenderer({ svg
   const [imageFailed, setImageFailed] = useState(false);
   useEffect(() => setImageFailed(false), [imageUrl]);
   const showImage = typeof imageUrl === 'string' && imageUrl.length > 0 && !imageFailed;
-  const imageSize = isBare ? dimension : dimension - (isPaper ? 8 : 2);
+  const resolvedAppearance: CircularAnchorAppearance = isBare ? 'bare' : isDark ? 'dark' : isPaper ? 'paper' : 'tinted';
+  const imageSize = dimension * circularAnchorArtworkShare(resolvedAppearance, dimension, true);
   const hasArtwork = typeof svg === 'string' && svg.trim().length > 0;
-  const artworkSize = dimension * (isBare ? 0.94 : isPaper ? 0.72 : isDark ? 0.70 : 0.66);
+  const artworkSize = dimension * circularAnchorArtworkShare(resolvedAppearance, dimension, false);
   return <View testID={testID} accessible accessibilityRole="image" accessibilityLabel={accessibilityLabel ?? `${category ?? 'Custom'} Anchor artwork`} style={[styles.field, { width: dimension, height: dimension, borderRadius: dimension / 2, backgroundColor: fieldColor, borderColor, borderWidth: isBare ? 0 : isPaper ? 4 : 1, opacity: state === 'inactive' ? 0.48 : 1 }, style]}>
     {showImage ? <Image accessible={false} source={{ uri: imageUrl as string }} resizeMode="cover" onError={() => setImageFailed(true)} style={{ width: imageSize, height: imageSize, borderRadius: imageSize / 2 }} /> : <View accessible={false} importantForAccessibility="no-hide-descendants" style={[styles.artwork, { width: artworkSize, height: artworkSize }, (isBare || expression) && styles.artworkUnclipped]}>{hasArtwork ? (expression ? <AnchorMark svg={svg} category={category} expression={expression} size={artworkSize} /> : <SigilSvg xml={svg} width="100%" height="100%" color={color} />) : <Text style={styles.artworkUnavailable}>Artwork unavailable</Text>}</View>}
   </View>;
 });
 export const circularAnchorSizes = sizes;
+
+/**
+ * Share of the disc's diameter the mark itself occupies. The Anchor transition
+ * layer scales copies so this mark, not the disc around it, is what keeps its
+ * size when one appearance hands over to another, so both read from here.
+ */
+export function circularAnchorArtworkShare(appearance: CircularAnchorAppearance, dimension: number, image: boolean): number {
+  if (image) return appearance === 'bare' ? 1 : (dimension - (appearance === 'paper' ? 8 : 2)) / dimension;
+  return appearance === 'bare' ? 0.94 : appearance === 'paper' ? 0.72 : appearance === 'dark' ? 0.70 : 0.66;
+}
 const styles = StyleSheet.create({ field: { alignItems: 'center', justifyContent: 'center' }, artwork: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: radii.round }, artworkUnclipped: { overflow: 'visible', borderRadius: 0 }, artworkUnavailable: { color: '#7B8189', textAlign: 'center', fontSize: 11 } });

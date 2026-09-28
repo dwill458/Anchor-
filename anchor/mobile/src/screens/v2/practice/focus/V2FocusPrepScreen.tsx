@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Sliders } from 'lucide-react-native';
 import { CircularAnchorRenderer, V2Button } from '@/components/v2';
 import { V2PracticeSetupLayout } from '@/components/v2/practice/V2PracticeSetupLayout';
@@ -15,6 +15,7 @@ import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { safeHaptics } from '@/utils/haptics';
 import * as Haptics from 'expo-haptics';
 import { V2FocusSettingsSheet } from './V2FocusSettingsSheet';
+import { useAnchorTransitionPlace } from '@/navigation/v2/ProgressiveFocusTransition';
 
 export interface V2FocusPrepConfig {
   durationSeconds: number;
@@ -43,6 +44,8 @@ export interface V2FocusPrepScreenProps {
 }
 
 const DURATION_OPTIONS = [10, 30, 60] as const;
+/** A pushed Android screen settles beneath the status bar a beat after its first layout. */
+const SETUP_PLACE_MEASURE_DELAY_MS = Platform.OS === 'android' ? 120 : 0;
 
 export function V2FocusPrepScreen({
   anchor,
@@ -80,6 +83,8 @@ export function V2FocusPrepScreen({
   const [sheetOpen, setSheetOpen] = useState(false);
   const artworkRef = useRef<View>(null);
   const anchorCenterYRef = useRef<number | undefined>(undefined);
+  // Where the Anchor lands from Details or the Practice hub, and leaves from for the session.
+  const place = useAnchorTransitionPlace('practiceSetup', anchor.id, 'paper', { measureDelayMs: SETUP_PLACE_MEASURE_DELAY_MS });
 
   const soundOn = ambient || voice !== 'none';
   const hapticsOn = (hapticIntensity ?? 70) > 0;
@@ -196,12 +201,14 @@ export function V2FocusPrepScreen({
                 { width: metrics.haloSize, height: metrics.haloSize, borderRadius: metrics.haloSize / 2, backgroundColor: getCategoryFieldColor(anchor.category) },
               ]}
             />
-            <CircularAnchorRenderer
-              {...anchorRenderProps(anchor)}
-              size={metrics.artworkSize}
-              appearance="paper"
-              accessibilityLabel={`${categoryLabel(anchor.category)} Anchor artwork`}
-            />
+            <View ref={place.ref} collapsable={false} onLayout={place.onLayout} style={{ width: metrics.artworkSize, height: metrics.artworkSize, opacity: place.hidden ? 0 : 1 }}>
+              <CircularAnchorRenderer
+                {...anchorRenderProps(anchor)}
+                size={metrics.artworkSize}
+                appearance="paper"
+                accessibilityLabel={`${categoryLabel(anchor.category)} Anchor artwork`}
+              />
+            </View>
           </View>
 
           {/* Intention info */}

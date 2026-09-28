@@ -58,7 +58,7 @@ import { DistillationLetters, type SettledSlots } from './DistillationLetters';
 import type { DistillationStage } from './distillationMotion';
 import { ExpressionPreview } from './ExpressionPreview';
 import { ExpressionLibrary } from './ExpressionLibrary';
-import { styleOption, type CreationStyleOption } from './expressionOptions';
+import { styleOption, creationStyleLibrary, type CreationStyleOption } from './expressionOptions';
 import { FormationLayer, MappingTokens, type StagePoint } from './FormationLayer';
 import { FormationSheet } from './FormationSheet';
 import { creationTimingTracker, type CreationTimingRecord } from './creationTelemetry';
@@ -494,10 +494,25 @@ export function CreationStage({
     return () => clearTimeout(settle);
   }, [lookExpression, lookTint, mix, reduceMotion, step]);
 
+  const hasInteracted = useRef(false);
+
   const selectStyle = useCallback((option: CreationStyleOption | null) => {
+    hasInteracted.current = true;
     v2Haptics.selection();
     onSelectStyle(option?.styleChoice ?? null, option?.expression ?? 'original');
   }, [onSelectStyle]);
+
+  useEffect(() => {
+    if (shown !== 'expression' || hasInteracted.current) return;
+    if (draft.expression === 'original' && draft.styleChoice === undefined) {
+      const intentionText = draft.normalizedIntention ?? draft.intention;
+      const library = creationStyleLibrary(draft.category, intentionText);
+      const defaultOption = library.suggested[0] ?? library.all[0];
+      if (defaultOption) {
+        onSelectStyle(defaultOption.styleChoice, defaultOption.expression);
+      }
+    }
+  }, [draft.category, draft.expression, draft.intention, draft.normalizedIntention, draft.styleChoice, onSelectStyle, shown]);
 
   /* ── generation: structure → expression → surface, then an honest wait ─── */
   const developing = step === 'generating' && draft.generationState === 'generating';
@@ -841,9 +856,6 @@ export function CreationStage({
             >
               {chooseFailure === 'second_anchor' ? PRO_LABEL : chooseFailure ? 'Try again' : CHOOSE_COPY.keep}
             </V2Button>
-            <Pressable onPress={onGenerate} disabled={saving} accessibilityRole="button" style={styles.link} testID="choose-retry">
-              <Text style={styles.linkText}>{CHOOSE_COPY.retry}</Text>
-            </Pressable>
           </View>
         );
       }
@@ -1310,4 +1322,3 @@ const styles = StyleSheet.create({
   hudStep: { color: '#EEE', fontSize: 10, flex: 1 },
   hudTime: { color: '#6EE7B7', fontSize: 10, fontWeight: '600', marginLeft: 8 },
 });
-

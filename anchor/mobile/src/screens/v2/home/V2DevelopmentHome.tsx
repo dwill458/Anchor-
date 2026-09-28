@@ -17,7 +17,11 @@ export function V2DevelopmentHome() {
   creationGate.current = gate;
   const intents = useMemo<V2DailyShellIntents>(
     () => ({
-      onOpenPractice: (anchorId, recommendedMode) => navigation.navigate('V2Practice', { anchorId, recommendedMode }),
+      onOpenPractice: (anchorId, recommendedMode, options) => navigation.navigate('V2Practice', {
+        anchorId,
+        recommendedMode,
+        ...(options?.anchorTransition ? { anchorTransition: true } : {}),
+      }),
       onOpenVision: (anchorId) => navigation.navigate('V2Vision', { anchorId }),
       onCreateVision: (anchorId) => navigation.navigate('V2Vision', { anchorId }),
       onOpenChart: (anchorId, courseId) => navigation.navigate('V2Chart', { anchorId, courseId }),
