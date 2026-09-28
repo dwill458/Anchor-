@@ -71,6 +71,7 @@ export function useV2Release(options: UseV2ReleaseOptions): UseV2ReleaseResult {
   const idempotencyKeyRef = useRef<string | null>(null);
   const submitLockRef = useRef(false);
   const reconciledRef = useRef(false);
+  const committedSnapshot = useRef<V2ReleaseConsequenceSnapshot | null>(null);
 
   const linkedCourse: V2ReleaseLinkedCourse | null = useMemo(() => {
     if (!activeCourse) return null;
@@ -130,9 +131,10 @@ export function useV2Release(options: UseV2ReleaseOptions): UseV2ReleaseResult {
 
   const startRelease = useCallback(() => {
     if (started) return;
+    committedSnapshot.current = snapshot;
     setStarted(true);
     void runSubmission();
-  }, [started, runSubmission]);
+  }, [started, runSubmission, snapshot]);
 
   const markDissolutionComplete = useCallback(() => {
     setDissolutionDone(true);
@@ -143,6 +145,7 @@ export function useV2Release(options: UseV2ReleaseOptions): UseV2ReleaseResult {
   }, [runSubmission]);
 
   const reset = useCallback(() => {
+    committedSnapshot.current = null;
     idempotencyKeyRef.current = null;
     reconciledRef.current = false;
     submitLockRef.current = false;
@@ -170,12 +173,12 @@ export function useV2Release(options: UseV2ReleaseOptions): UseV2ReleaseResult {
   }, [started, dissolutionDone, submissionState]);
 
   return {
-    snapshot,
+    snapshot: started ? committedSnapshot.current ?? snapshot : snapshot,
     stage,
     message: result?.message ?? null,
     retryable: result?.retryable ?? false,
     result,
-    anchorMissing: !anchor,
+    anchorMissing: !anchor && !committedSnapshot.current,
     startRelease,
     markDissolutionComplete,
     retry,

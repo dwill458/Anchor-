@@ -364,6 +364,47 @@ describe('ImageGenerationService & Multi-Provider Architecture', () => {
       expect(mockGemini.generate).not.toHaveBeenCalled();
     });
 
+    it('falls back to Gemini when OpenAI rejects the request shape (INVALID_REQUEST)', async () => {
+      // A provider 400 for a malformed request is our bug, not the user's input,
+      // so the other provider should still be given the chance to render.
+      const mockOpenAi = createMockAdapter('openai', true, async () => {
+        throw new ImageProviderError(
+          'openai',
+          ImageProviderErrorType.INVALID_REQUEST,
+          "Bad request: Unknown parameter: 'response_format'.",
+          false,
+          400
+        );
+      });
+
+      const mockGemini = createMockAdapter('gemini', true, async () => ({
+        images: [
+          {
+            buffer: Buffer.from('vision_gemini_invalid_request_fallback'),
+            base64: 'gemini_b64',
+            mimeType: 'image/png',
+            seed: 701,
+            variationIndex: 1,
+          },
+        ],
+        model: 'gemini-3.1-flash-image',
+        estimatedCost: 0.005,
+      }));
+
+      const service = new ImageGenerationService({
+        geminiAdapter: mockGemini,
+        openAiAdapter: mockOpenAi,
+      });
+
+      const result = await service.generate({ type: 'vision', prompt: 'Morning run at sunrise' });
+
+      expect(mockOpenAi.generate).toHaveBeenCalledTimes(1);
+      expect(mockGemini.generate).toHaveBeenCalledTimes(1);
+      expect(result.fallbackUsed).toBe(true);
+      expect(result.provider).toBe('gemini');
+      expect(result.attempts[0].failureReason).toBe(ImageProviderErrorType.INVALID_REQUEST);
+    });
+
     it('throws controlled error when both providers fail', async () => {
       const mockOpenAi = createMockAdapter('openai', true, async () => {
         throw new ImageProviderError(

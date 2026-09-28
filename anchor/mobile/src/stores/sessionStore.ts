@@ -11,6 +11,7 @@ import { useTeachingStore } from './teachingStore';
 import { apiClient } from '@/services/ApiClient';
 import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { HomeStartupProfiler } from '@/utils/homeStartupProfiler';
 import {
   JOURNEY_MILESTONE_IDS,
   JOURNEY_TEACHING_CONTENT_ID_BY_MILESTONE,
@@ -1045,6 +1046,16 @@ export const useSessionStore = create<SessionState>()(
         }
 
         return migratedState as SessionState;
+      },
+      onRehydrateStorage: () => {
+        const span = HomeStartupProfiler.start('session_store_persisted_hydration');
+        return (state, error) => {
+          span({
+            ok: !error,
+            sessionCount: state?.practiceHistory?.length ?? 0,
+            hasThreadStrength: typeof state?.threadStrength === 'number',
+          });
+        };
       },
     },
   ),

@@ -234,6 +234,14 @@ describe('V2FocusActiveScreen', () => {
       jest.advanceTimersByTime(1800);
     });
 
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(screen.getByText('Well done.')).toBeTruthy();
+    expect(screen.getByText('Let it settle.')).toBeTruthy();
+
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+
     expect(onComplete).toHaveBeenCalledTimes(1);
     expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({
       plannedDurationSeconds: 30,
@@ -275,7 +283,7 @@ describe('V2FocusActiveScreen', () => {
 
       // Resolving sequence holds briefly before the completion view appears.
       act(() => {
-        jest.advanceTimersByTime(1900);
+        jest.advanceTimersByTime(2300);
       });
 
       expect(onComplete).toHaveBeenCalledTimes(1);

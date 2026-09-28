@@ -47,7 +47,7 @@ export const RELEASE_CEREMONY_TIMELINE_MS = {
   burnLate: 1950,
   finalEmber: 2800,
   emptyPause: 3050,
-  completion: 3450,
+  completion: 3350,
 } as const;
 
 /**
@@ -68,6 +68,9 @@ export const RELEASE_CEREMONY_EMBER_COUNT = 8;
 /** Controlled dark exception during the dissolution ceremony ("Ceremony Chamber"). */
 export const RELEASE_CEREMONY_CHAMBER_BG = '#0B0C0D';
 
+/** Android captured-texture handoff remains blank; retain fire code and use the verified fade until resolved. */
+export const RELEASE_FIRE_ENABLED = false;
+
 /** Warm neutral the chamber crossfades back to at completion. Matches theme/v2 colors.canvas. */
 export const RELEASE_CANVAS_BG = '#F4F1E9';
 
@@ -75,7 +78,7 @@ export const RELEASE_CANVAS_BG = '#F4F1E9';
 export const RELEASE_HOLD_SUSTAIN_LABEL_AT = 0.12;
 
 export const RELEASE_COPY = {
-  preflightKicker: 'RELEASE',
+  preflightKicker: 'Release this intention',
   preflightTitle: 'What releasing this Anchor means',
   preflightSubtitle:
     'Release moves this intention out of active use and seals it into your history. Nothing is deleted.',
@@ -94,8 +97,8 @@ export const RELEASE_COPY = {
     'Nothing was changed. Your Anchor is still active. Review the consequences and hold again to retry.',
   retryCta: 'Try again',
   offlineRetryCta: 'Retry now',
-  completionKicker: 'RELEASED',
-  completionTitle: 'Honoring what you built',
+  completionKicker: 'Released',
+  completionTitle: 'A little more space.',
   completionBody: 'This intention has moved into your history.',
   completionPrimaryCta: 'Return home',
   completionSecondaryCta: 'View in Your Anchors',

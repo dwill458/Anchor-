@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { chartApiClient } from '@/services/ChartApiClient';
+import { HomeStartupProfiler } from '@/utils/homeStartupProfiler';
 import { AnalyticsService } from '@/services/AnalyticsService';
+import { useAuthStore } from '@/stores/authStore';
 import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
 import {
   chartActionKey,
@@ -23,25 +25,33 @@ import type { CourseDetail } from '@/types/chart';
 const memory = new Map<string, ChartForAnchor>();
 const listeners = new Map<string, Set<(value: ChartForAnchor) => void>>();
 const inflight = new Map<string, Promise<ChartForAnchor>>();
-const storageKey = (anchorId: string) => `anchor:v2:chart2:${anchorId}`;
+const persistedReads = new Map<string, Promise<ChartForAnchor | null>>();
+const currentAccountId = () => useAuthStore.getState().user?.id ?? null;
+const cacheKey = (anchorId: string, accountId = currentAccountId()) => `${accountId ?? 'anonymous'}:${anchorId}`;
+const storageKey = (anchorId: string, accountId: string) =>
+  `anchor:v2:chart2:${encodeURIComponent(accountId)}:${encodeURIComponent(anchorId)}`;
 
-function publish(anchorId: string, value: ChartForAnchor): void {
-  memory.set(anchorId, value);
-  listeners.get(anchorId)?.forEach((listener) => listener(value));
-  Promise.resolve(encryptedPersistStorage.setItem(storageKey(anchorId), JSON.stringify(value))).catch(() => undefined);
+function publish(anchorId: string, value: ChartForAnchor, accountId = currentAccountId()): void {
+  const key = cacheKey(anchorId, accountId);
+  memory.set(key, value);
+  listeners.get(key)?.forEach((listener) => listener(value));
+  if (accountId) {
+    Promise.resolve(encryptedPersistStorage.setItem(storageKey(anchorId, accountId), JSON.stringify(value))).catch(() => undefined);
+  }
 }
 
 /** Replace only the Chart inside the cached read model. */
-function publishChart(anchorId: string, chart: CourseDetail): void {
-  const previous = memory.get(anchorId);
+function publishChart(anchorId: string, chart: CourseDetail, accountId = currentAccountId()): void {
+  const previous = memory.get(cacheKey(anchorId, accountId));
   if (!previous) return;
-  publish(anchorId, { ...previous, chart });
+  publish(anchorId, { ...previous, chart }, accountId);
 }
 
 export function resetAnchorChartCache(): void {
   memory.clear();
   listeners.clear();
   inflight.clear();
+  persistedReads.clear();
 }
 
 /** Seed the shared cache (fixture previews and tests); surfaces update immediately. */
@@ -50,32 +60,49 @@ export function primeAnchorChart(anchorId: string, value: ChartForAnchor): void 
 }
 
 export function peekAnchorChart(anchorId: string): ChartForAnchor | null {
-  return memory.get(anchorId) ?? null;
+  return memory.get(cacheKey(anchorId)) ?? null;
 }
 
-async function readPersisted(anchorId: string): Promise<ChartForAnchor | null> {
+async function readPersisted(anchorId: string, accountId: string | null): Promise<ChartForAnchor | null> {
+  if (!accountId) return null;
+  const key = cacheKey(anchorId, accountId);
+  const existing = persistedReads.get(key);
+  if (existing) return existing;
+  const request = (async () => {
   try {
-    const raw = await encryptedPersistStorage.getItem(storageKey(anchorId));
+    const raw = await encryptedPersistStorage.getItem(storageKey(anchorId, accountId));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as ChartForAnchor;
-    return parsed && typeof parsed === 'object' && 'anchor' in parsed ? parsed : null;
+    return parsed && typeof parsed === 'object' && parsed.anchor?.id === anchorId ? parsed : null;
   } catch {
     return null;
   }
+  })();
+  persistedReads.set(key, request);
+  void request.finally(() => {
+    if (persistedReads.get(key) === request) persistedReads.delete(key);
+  });
+  return request;
 }
 
 /** Fetch (deduplicated) and publish. Throws a classified ChartRequestError. */
-export function loadAnchorChart(anchorId: string): Promise<ChartForAnchor> {
-  const existing = inflight.get(anchorId);
+export function loadAnchorChart(anchorId: string, accountId = currentAccountId()): Promise<ChartForAnchor> {
+  const key = cacheKey(anchorId, accountId);
+  const existing = inflight.get(key);
   if (existing) return existing;
+  const span = HomeStartupProfiler.start('chart_request', { anchorId });
   const request = chartV2Api
     .getForAnchor(anchorId)
     .then((value) => {
-      publish(anchorId, value);
+      span({ ok: true });
+      publish(anchorId, value, accountId);
       return value;
+    }, (error: unknown) => {
+      span({ ok: false });
+      throw error;
     })
-    .finally(() => inflight.delete(anchorId));
-  inflight.set(anchorId, request);
+    .finally(() => inflight.delete(key));
+  inflight.set(key, request);
   return request;
 }
 
@@ -124,14 +151,25 @@ export type UseAnchorChartResult = {
 
 export function useAnchorChart(anchorId: string | null | undefined): UseAnchorChartResult {
   const id = anchorId ?? '';
-  const [data, setData] = useState<ChartForAnchor | null>(() => (id ? memory.get(id) ?? null : null));
-  const [loading, setLoading] = useState<boolean>(() => Boolean(id) && !memory.has(id));
+  const accountId = useAuthStore((state) => state.user?.id ?? null);
+  const scope = cacheKey(id, accountId);
+  const [data, setData] = useState<ChartForAnchor | null>(() => (id ? memory.get(scope) ?? null : null));
+  const [loading, setLoading] = useState<boolean>(() => Boolean(id) && !memory.has(scope));
   const [stale, setStale] = useState(false);
   const [error, setError] = useState<ChartRequestError | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [lastError, setLastError] = useState<ChartRequestError | null>(null);
   const locks = useRef(new Set<string>());
   const mounted = useRef(true);
+  const currentScope = useRef(scope);
+
+  if (currentScope.current !== scope) {
+    currentScope.current = scope;
+    setData(id ? memory.get(scope) ?? null : null);
+    setLoading(Boolean(id) && !memory.has(scope));
+    setStale(false);
+    setError(null);
+  }
 
   useEffect(() => {
     mounted.current = true;
@@ -142,55 +180,68 @@ export function useAnchorChart(anchorId: string | null | undefined): UseAnchorCh
 
   useEffect(() => {
     if (!id) return undefined;
-    const set = listeners.get(id) ?? new Set();
+    const set = listeners.get(scope) ?? new Set();
     const listener = (value: ChartForAnchor) => {
-      if (mounted.current) setData(value);
+      if (mounted.current && currentScope.current === scope) setData(value);
     };
     set.add(listener);
-    listeners.set(id, set);
+    listeners.set(scope, set);
     return () => {
       set.delete(listener);
     };
-  }, [id]);
+  }, [id, scope]);
 
   const refresh = useCallback(async () => {
     if (!id) return;
-    if (!memory.has(id)) setLoading(true);
+    if (!memory.has(scope)) setLoading(true);
     setError(null);
+    // Disk and network reads overlap. If a local Chart copy exists, expose it
+    // as stale presentation data while the server remains the authority.
+    const persistedRead = memory.has(scope) ? Promise.resolve(null) : readPersisted(id, accountId);
+    const serverRead = loadAnchorChart(id, accountId);
+    void persistedRead.then((cached) => {
+      if (!cached || memory.has(scope) || !mounted.current || currentScope.current !== scope) return;
+      memory.set(scope, cached);
+      listeners.get(scope)?.forEach((listener) => listener(cached));
+      setData(cached);
+      setStale(true);
+      setLoading(false);
+    });
     try {
-      const value = await loadAnchorChart(id);
-      if (!mounted.current) return;
+      const value = await serverRead;
+      if (!mounted.current || currentScope.current !== scope) return;
       setData(value);
       setStale(false);
     } catch (caught) {
       const classified = classifyChartError(caught);
-      if (!mounted.current) return;
-      const cached = memory.get(id) ?? (await readPersisted(id));
+      if (!mounted.current || currentScope.current !== scope) return;
+      const cached = memory.get(scope) ?? (await persistedRead);
       if (cached && (classified.kind === 'offline' || classified.kind === 'unavailable')) {
-        memory.set(id, cached);
+        memory.set(scope, cached);
         setData(cached);
         setStale(true);
       } else {
         setError(classified);
       }
     } finally {
-      if (mounted.current) setLoading(false);
+      if (mounted.current && currentScope.current === scope) setLoading(false);
     }
-  }, [id]);
+  }, [accountId, id, scope]);
 
   useEffect(() => {
-    setData(id ? memory.get(id) ?? null : null);
+    setData(id ? memory.get(scope) ?? null : null);
+    setStale(false);
     void refresh();
-  }, [id, refresh]);
+  }, [id, refresh, scope]);
 
   const commitChart = useCallback(
     (chart: CourseDetail) => {
       if (!id) return;
-      const previous = memory.get(id);
-      if (previous) publishChart(id, chart);
+      const previous = memory.get(scope);
+      if (previous) publishChart(id, chart, accountId);
       else void refresh();
     },
-    [id, refresh]
+    [accountId, id, refresh, scope]
   );
 
   /**
@@ -225,11 +276,11 @@ export function useAnchorChart(anchorId: string | null | undefined): UseAnchorCh
       if (!chart) return false;
       const result = await run(`move:${moveId}`, () => chartV2Api.completeMove(chart.id, moveId));
       if (!result) return false;
-      publishChart(id, result.chart);
+      publishChart(id, result.chart, accountId);
       if (!result.replayed) trackChart('chart_move_completed', { courseId: chart.id, hasNextMove: Boolean(result.nextMoveId) });
       return true;
     },
-    [chart, id, run]
+    [accountId, chart, id, run]
   );
 
   const addMove = useCallback(
@@ -240,11 +291,11 @@ export function useAnchorChart(anchorId: string | null | undefined): UseAnchorCh
         chartV2Api.addMove(chart.id, { idempotencyKey: key, waypointId, title: title.trim(), makeCurrent: options?.makeCurrent })
       );
       if (!result) return false;
-      publishChart(id, result);
+      publishChart(id, result, accountId);
       trackChart('chart_move_created', { courseId: chart.id, source: 'user' });
       return true;
     },
-    [chart, id, run]
+    [accountId, chart, id, run]
   );
 
   const acceptMove = useCallback(
@@ -254,11 +305,11 @@ export function useAnchorChart(anchorId: string | null | undefined): UseAnchorCh
         chartV2Api.updateMove(chart.id, moveId, { accept: true, makeCurrent: options?.makeCurrent })
       );
       if (!result) return false;
-      publishChart(id, result);
+      publishChart(id, result, accountId);
       trackChart('chart_move_created', { courseId: chart.id, source: 'suggestion' });
       return true;
     },
-    [chart, id, run]
+    [accountId, chart, id, run]
   );
 
   const editMove = useCallback(
@@ -266,10 +317,10 @@ export function useAnchorChart(anchorId: string | null | undefined): UseAnchorCh
       if (!chart || !title.trim()) return false;
       const result = await run(`move-edit:${moveId}`, () => chartV2Api.updateMove(chart.id, moveId, { title: title.trim() }));
       if (!result) return false;
-      publishChart(id, result);
+      publishChart(id, result, accountId);
       return true;
     },
-    [chart, id, run]
+    [accountId, chart, id, run]
   );
 
   const dismissMove = useCallback(
@@ -277,10 +328,10 @@ export function useAnchorChart(anchorId: string | null | undefined): UseAnchorCh
       if (!chart) return false;
       const result = await run(`move-dismiss:${moveId}`, () => chartV2Api.dismissMove(chart.id, moveId));
       if (!result) return false;
-      publishChart(id, result);
+      publishChart(id, result, accountId);
       return true;
     },
-    [chart, id, run]
+    [accountId, chart, id, run]
   );
 
   const suggestMoves = useCallback(
@@ -289,10 +340,10 @@ export function useAnchorChart(anchorId: string | null | undefined): UseAnchorCh
       const result = await run(`suggest:${waypointId}`, () => chartV2Api.suggestMoves(chart.id, waypointId));
       if (!result) return 'failed';
       if (!result.available || !result.chart) return 'unavailable';
-      publishChart(id, result.chart);
+      publishChart(id, result.chart, accountId);
       return 'ok';
     },
-    [chart, id, run]
+    [accountId, chart, id, run]
   );
 
   const updateProgress = useCallback(
@@ -302,10 +353,10 @@ export function useAnchorChart(anchorId: string | null | undefined): UseAnchorCh
         chartV2Api.updateProgress(chart.id, waypointId, { expectedCourseVersion: chart.version, metricCurrent: value })
       );
       if (!result) return false;
-      publishChart(id, result);
+      publishChart(id, result, accountId);
       return true;
     },
-    [chart, id, run]
+    [accountId, chart, id, run]
   );
 
   const reachWaypoint = useCallback(
@@ -322,7 +373,7 @@ export function useAnchorChart(anchorId: string | null | undefined): UseAnchorCh
         return { response: response.data, detail: detail.data };
       });
       if (!result) return null;
-      publishChart(id, result.detail);
+      publishChart(id, result.detail, accountId);
       const destinationReached = result.response.courseCompleted;
       trackChart(destinationReached ? 'chart_destination_reached' : 'chart_waypoint_completed', {
         courseId: chart.id,
@@ -335,7 +386,7 @@ export function useAnchorChart(anchorId: string | null | undefined): UseAnchorCh
         chart: result.detail,
       };
     },
-    [chart, id, run]
+    [accountId, chart, id, run]
   );
 
   const editWaypoint = useCallback(
@@ -352,11 +403,11 @@ export function useAnchorChart(anchorId: string | null | undefined): UseAnchorCh
         })
       );
       if (!result) return false;
-      publishChart(id, result.data);
+      publishChart(id, result.data, accountId);
       trackChart('chart_waypoint_edited', { courseId: chart.id });
       return true;
     },
-    [chart, id, run]
+    [accountId, chart, id, run]
   );
 
   const addWaypoint = useCallback(
@@ -376,11 +427,11 @@ export function useAnchorChart(anchorId: string | null | undefined): UseAnchorCh
         })
       );
       if (!result) return false;
-      publishChart(id, result.data);
+      publishChart(id, result.data, accountId);
       trackChart('chart_waypoint_added', { courseId: chart.id });
       return true;
     },
-    [chart, id, run]
+    [accountId, chart, id, run]
   );
 
   const removeWaypoint = useCallback(
@@ -391,10 +442,10 @@ export function useAnchorChart(anchorId: string | null | undefined): UseAnchorCh
         chartApiClient.cancelWaypoint(chart.id, waypointId, { idempotencyKey: key, expectedCourseVersion: chart.version })
       );
       if (!result) return false;
-      publishChart(id, result.data);
+      publishChart(id, result.data, accountId);
       return true;
     },
-    [chart, id, run]
+    [accountId, chart, id, run]
   );
 
   const reorderWaypoints = useCallback(
@@ -404,10 +455,10 @@ export function useAnchorChart(anchorId: string | null | undefined): UseAnchorCh
         chartApiClient.reorderWaypoints(chart.id, { expectedCourseVersion: chart.version, orderedWaypointIds: orderedIds })
       );
       if (!result) return false;
-      publishChart(id, result.data);
+      publishChart(id, result.data, accountId);
       return true;
     },
-    [chart, id, run]
+    [accountId, chart, id, run]
   );
 
   const view = useMemo(() => (chart ? toChartViewModel(chart, data?.stats) : null), [chart, data?.stats]);

@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
   },
   inkOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.ink.base,
+    backgroundColor: '#0B0F18',
   },
   content: {
     flex: 1,

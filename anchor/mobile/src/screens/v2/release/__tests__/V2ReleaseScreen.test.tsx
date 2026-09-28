@@ -69,12 +69,11 @@ describe('V2ReleaseScreen', () => {
       />,
     );
 
-    expect(getByText('What releasing this Anchor means')).toBeTruthy();
+    expect(getByText('What changes when you release')).toBeTruthy();
     expect(getByText(/Publish my novel/)).toBeTruthy();
     expect(getByTestId('v2-release-intention')).toBeTruthy();
     expect(getByTestId('v2-release-consequence-intention')).toBeTruthy();
     expect(getByTestId('v2-release-consequence-anchor')).toBeTruthy();
-    expect(getByTestId('v2-release-consequence-reminders')).toBeTruthy();
     expect(getByTestId('v2-release-consequence-history')).toBeTruthy();
   });
 
@@ -214,4 +213,32 @@ describe('V2ReleaseScreen', () => {
     expect(mockReleaseAnchor).not.toHaveBeenCalled();
     expect(queryByTestId('v2-release-completion')).toBeNull();
   });
+  it.each([360, 900, 1620])('cancels at %sms and never submits after leaving preflight', (duration) => {
+    const adapter = fakeAdapter({ status: 'released', anchorId: 'anchor-1' });
+    const { getByTestId, unmount } = render(<V2ReleaseScreen anchorId="anchor-1" releaseAdapter={adapter} onReleaseCompleted={jest.fn()} onCancel={jest.fn()} />);
+    act(() => fireEvent(getByTestId('v2-hold-to-release-target'), 'pressIn'));
+    act(() => jest.advanceTimersByTime(duration));
+    act(() => fireEvent(getByTestId('v2-hold-to-release-target'), 'pressOut'));
+    unmount();
+    act(() => jest.advanceTimersByTime(5000));
+    expect(adapter.submitRelease).not.toHaveBeenCalled();
+  });
+
+  it('keeps the 300ms empty interval and never claims pending is success', async () => {
+    const adapter = fakeAdapter({ status: 'pending', anchorId: 'anchor-1', retryable: true });
+    const { getByTestId, queryByTestId } = render(<V2ReleaseScreen anchorId="anchor-1" releaseAdapter={adapter} onReleaseCompleted={jest.fn()} onCancel={jest.fn()} />);
+    act(() => fireEvent(getByTestId('v2-hold-to-release-target'), 'pressIn'));
+    act(() => jest.advanceTimersByTime(1800));
+    await flush();
+    act(() => jest.advanceTimersByTime(3050));
+    expect(getByTestId('v2-dissolution-phase-emptyPause')).toBeTruthy();
+    expect(queryByTestId('v2-release-status-confirming')).toBeNull();
+    expect(queryByTestId('v2-release-completion')).toBeNull();
+    act(() => jest.advanceTimersByTime(299));
+    expect(queryByTestId('v2-release-status-confirming')).toBeNull();
+    act(() => jest.advanceTimersByTime(1));
+    expect(getByTestId('v2-release-status-confirming')).toBeTruthy();
+    expect(mockReleaseAnchor).not.toHaveBeenCalled();
+  });
+
 });

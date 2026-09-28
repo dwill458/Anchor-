@@ -65,7 +65,7 @@ const renderHome = (intents = {}, overrides: Record<string, unknown> = {}) => {
   mockUseV2HomeModel.mockReturnValue({
     greeting: 'Good morning, Deontrez',
     profileInitial: 'D',
-    anchorState: 'ready',
+    anchorState: anchors.length > 0 ? 'ready' : 'empty',
     anchorError: null,
     hasAnchors: anchors.length > 0,
     selectedAnchor,
@@ -601,13 +601,14 @@ describe('Account and loading states', () => {
   it('shows a restrained skeleton rather than a pile of loading cards', () => {
     renderHome({}, { anchorState: 'loading', selectedAnchor: null, anchorList: [], selectedIndex: -1, thread: null });
     expect(screen.getByTestId('v2-home-anchors-loading')).toBeTruthy();
+    expect(screen.queryByText('No Anchor yet')).toBeNull();
     expect(screen.queryByTestId('v2-home-today')).toBeNull();
     expect(screen.queryByTestId('v2-home-chart-loading')).toBeNull();
   });
 
   it('offers the create path with no Anchors and renders no modules', () => {
     const onCreateAnchor = jest.fn();
-    renderHome({ onCreateAnchor }, { selectedAnchor: null, anchorList: [], selectedIndex: -1, thread: null, hasAnchors: false });
+    renderHome({ onCreateAnchor }, { anchorState: 'empty', selectedAnchor: null, anchorList: [], selectedIndex: -1, thread: null, hasAnchors: false });
     expect(screen.getByText('No Anchor yet')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Create your first Anchor'));
     expect(onCreateAnchor).toHaveBeenCalled();

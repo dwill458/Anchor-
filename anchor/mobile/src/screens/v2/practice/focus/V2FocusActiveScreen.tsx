@@ -29,6 +29,7 @@ import { anchorArtworkSvg } from '@/components/v2/anchors/anchorPresentation';
 import { Pause } from 'lucide-react-native';
 import { AnchorMotion, colors, getCategoryColor, radii, spacing, typography } from '@/theme/v2';
 import type { Anchor } from '@/types';
+import { resolveFocusSessionGeometry } from '@/navigation/v2/anchorHeroGeometry';
 import type { GuidanceVoice } from '@/types/sessionAudio';
 import { useSessionAudio, type ManagedSessionAudioPlayer } from '@/hooks/useSessionAudio';
 import { resolveSessionAudioPlan } from '@/services/SessionAudioManifest';
@@ -39,6 +40,8 @@ import { V2FocusAnchorArtwork } from './V2FocusAnchorArtwork';
 import { V2FocusField } from './V2FocusField';
 import { ANCHOR_SESSION_ENTRY_MS, useAnchorTransitionPlace, useAnchorTransitionReveal } from '@/navigation/v2/ProgressiveFocusTransition';
 
+export const FOCUS_SCREEN_BACKGROUND = '#0B0F18';
+
 export interface V2FocusActiveScreenProps {
   anchor: Anchor;
   durationSeconds: number;
@@ -46,6 +49,12 @@ export interface V2FocusActiveScreenProps {
   ambient: boolean;
   haptics?: boolean;
   onExit: () => void;
+  onEnding?: (sessionData: {
+    plannedDurationSeconds: number;
+    actualDurationSeconds: number;
+    startedAt: string;
+    completedAt: string;
+  }) => void;
   onComplete: (sessionData: {
     plannedDurationSeconds: number;
     actualDurationSeconds: number;
@@ -82,6 +91,7 @@ export function V2FocusActiveScreen({
   ambient,
   haptics = true,
   onExit,
+  onEnding,
   onComplete,
   initialElapsedMs = 0,
   initialPaused = false,
@@ -100,10 +110,13 @@ export function V2FocusActiveScreen({
   // before the Anchor needs to shrink.
   const usableHeight = Math.max(320, height - insets.top - insets.bottom);
   const bottomControlGap = Math.round(Math.min(16, Math.max(8, usableHeight * 0.018)));
-  const anchorSize = Math.round(
-    Math.min(width * 0.84, usableHeight * 0.48, 380),
-  );
-  const fieldSize = anchorSize + Math.min(36, Math.round(anchorSize * 0.1));
+  const focusGeometry = resolveFocusSessionGeometry({
+    width,
+    height,
+    topInset: insets.top,
+    bottomInset: insets.bottom,
+  });
+  const { anchorSize, fieldSize } = focusGeometry;
   const atmosphereId = `focus-atmosphere-${anchor.id.replace(/[^a-zA-Z0-9]/g, '')}`;
   const categoryColor = getCategoryColor(anchor.category);
 
@@ -144,37 +157,40 @@ export function V2FocusActiveScreen({
   const prepareFadeAnim = useRef(new Animated.Value(1)).current;
   const anchorScaleAnim = useRef(new Animated.Value(defaultStage === 'prepare' ? 0.94 : 1)).current;
   const breatheScale = useSharedValue(1);
-  const anchorDrift = useSharedValue(0);
-  const anchorLuminance = useSharedValue(1);
-  const washMotion = useSharedValue(0);
   const sessionProgress = useSharedValue(Math.min(1, initialElapsedMs / totalMs));
   const controlsOpacity = useSharedValue(0);
   const fieldTransition = useSharedValue(defaultStage === 'focus' || anchorHandoff ? 1 : 0);
   const entryCurtain = useSharedValue(defaultStage === 'entry' && !anchorHandoff ? 1 : 0);
   const resolvingContentOpacity = useSharedValue(1);
-  const breathingStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: breatheScale.value },
-      { translateY: anchorDrift.value },
-    ],
-    opacity: anchorLuminance.value,
-  }));
+  const completionAnchorProgress = useSharedValue(initialResolving ? 1 : 0);
+  const completionCopyOpacity = useSharedValue(initialResolving ? 1 : 0);
+  const completionScrimOpacity = useSharedValue(initialResolving ? 0.38 : 0);
+  const breathingStyle = useAnimatedStyle(() => ({ transform: [{ scale: breatheScale.value }] }));
   const anchorEntranceStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(fieldTransition.value, [0, 1], [0.76, 1]),
-    transform: [{ scale: interpolate(fieldTransition.value, [0, 1], [0.95, 1]) }],
+    opacity:
+      interpolate(fieldTransition.value, [0, 1], [0.76, 1]) *
+      interpolate(completionAnchorProgress.value, [0, 1], [1, 0.82]),
+    transform: [
+      { translateY: focusGeometry.centerY - height * 0.52 },
+      {
+        scale:
+          interpolate(fieldTransition.value, [0, 1], [0.95, 1]) *
+          interpolate(completionAnchorProgress.value, [0, 1], [1, 0.985]),
+      },
+    ],
   }));
   const atmosphereStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(washMotion.value, [0, 1], [0.12, 0.19]),
-    transform: [{ scale: interpolate(washMotion.value, [0, 1], [0.98, 1.025]) }],
+    opacity: interpolate(resolvingContentOpacity.value, [0, 1], [0, 0.14]),
   }));
   const outerAtmosphereStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(washMotion.value, [0, 1], [0.14, 0.09]),
-    transform: [{ scale: interpolate(washMotion.value, [0, 1], [1.025, 0.985]) }],
+    opacity: interpolate(resolvingContentOpacity.value, [0, 1], [0, 0.1]),
   }));
   const controlsStyle = useAnimatedStyle(() => ({ opacity: controlsOpacity.value }));
   const resolvingContentStyle = useAnimatedStyle(() => ({
     opacity: resolvingContentOpacity.value,
   }));
+  const completionCopyStyle = useAnimatedStyle(() => ({ opacity: completionCopyOpacity.value }));
+  const completionScrimStyle = useAnimatedStyle(() => ({ opacity: completionScrimOpacity.value }));
   const entryCurtainStyle = useAnimatedStyle(() => ({ opacity: entryCurtain.value }));
   const entryArtworkStyle = useAnimatedStyle(() => {
     if (reduceMotion) return { transform: [{ translateY: 0 }, { scale: 1 }] };
@@ -378,40 +394,13 @@ export function V2FocusActiveScreen({
   // Micro-motion breathing is a UI-thread-only environmental treatment.
   useEffect(() => {
     cancelAnimation(breatheScale);
-    cancelAnimation(anchorDrift);
-    cancelAnimation(anchorLuminance);
-    cancelAnimation(washMotion);
     if (reduceMotion || isPaused || isResolving || stage !== 'focus') {
       return;
     }
 
     breatheScale.value = withRepeat(
-      withTiming(1.012, {
+      withTiming(1.015, {
         duration: AnchorMotion.duration.ambient,
-        easing: AnchorMotion.easing.gentle,
-      }),
-      -1,
-      true,
-    );
-    anchorDrift.value = withRepeat(
-      withTiming(1.5, {
-        duration: 4700,
-        easing: AnchorMotion.easing.gentle,
-      }),
-      -1,
-      true,
-    );
-    anchorLuminance.value = withRepeat(
-      withTiming(0.965, {
-        duration: 6100,
-        easing: AnchorMotion.easing.gentle,
-      }),
-      -1,
-      true,
-    );
-    washMotion.value = withRepeat(
-      withTiming(1, {
-        duration: 11000,
         easing: AnchorMotion.easing.gentle,
       }),
       -1,
@@ -419,11 +408,8 @@ export function V2FocusActiveScreen({
     );
     return () => {
       cancelAnimation(breatheScale);
-      cancelAnimation(anchorDrift);
-      cancelAnimation(anchorLuminance);
-      cancelAnimation(washMotion);
     };
-  }, [anchorDrift, anchorLuminance, breatheScale, isPaused, isResolving, reduceMotion, stage, washMotion]);
+  }, [breatheScale, isPaused, isResolving, reduceMotion, stage]);
 
   // Trigger voice cues based on remaining time
   const checkVoiceCues = useCallback(
@@ -477,17 +463,24 @@ export function V2FocusActiveScreen({
 
       // Phase 1: return the visual motion to rest over a perceptible settle.
       cancelAnimation(breatheScale);
-      cancelAnimation(anchorDrift);
-      cancelAnimation(anchorLuminance);
-      cancelAnimation(washMotion);
       breatheScale.value = withTiming(1, { duration: 300, easing: AnchorMotion.easing.gentle });
-      anchorDrift.value = withTiming(0, { duration: 300, easing: AnchorMotion.easing.gentle });
-      anchorLuminance.value = withTiming(1, { duration: 300, easing: AnchorMotion.easing.gentle });
-      washMotion.value = withTiming(0, { duration: 300, easing: AnchorMotion.easing.gentle });
       fieldTransition.value = withTiming(0.92, {
         duration: 300,
         easing: ReanimatedEasing.out(ReanimatedEasing.ease),
       });
+
+      completionScrimOpacity.value = reduceMotion
+        ? 0.38
+        : withTiming(0.38, { duration: 1500, easing: ReanimatedEasing.inOut(ReanimatedEasing.ease) });
+      completionAnchorProgress.value = reduceMotion
+        ? 1
+        : withTiming(1, { duration: 1200, easing: AnchorMotion.easing.gentle });
+      completionCopyOpacity.value = reduceMotion
+        ? 1
+        : withDelay(
+            850,
+            withTiming(1, { duration: 650, easing: AnchorMotion.easing.enter }),
+          );
 
       // Phase 2 (1,050ms): the whole active composition fades into the ink
       // base. Phase 3 is the remaining 400ms black hold before completion.
@@ -516,6 +509,13 @@ export function V2FocusActiveScreen({
       if (trigger === 'automatic' && !reduceMotion) setTimeout(playCompletionHaptic, 240);
       else playCompletionHaptic();
 
+      onEnding?.({
+        plannedDurationSeconds: durationSeconds,
+        actualDurationSeconds,
+        startedAt: startedAtWallRef.current ?? new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+      });
+
       completionTimerRef.current = setTimeout(() => {
         onComplete({
           plannedDurationSeconds: durationSeconds,
@@ -523,22 +523,23 @@ export function V2FocusActiveScreen({
           startedAt: startedAtWallRef.current ?? new Date().toISOString(),
           completedAt: new Date().toISOString(),
         });
-      }, reduceMotion ? 0 : trigger === 'automatic' ? 1900 : 1750);
+      }, reduceMotion ? 0 : trigger === 'automatic' ? 2300 : 2050);
     },
     [
-      anchorDrift,
-      anchorLuminance,
       breatheScale,
       calculateElapsed,
+      completionAnchorProgress,
+      completionCopyOpacity,
+      completionScrimOpacity,
       durationSeconds,
       fieldTransition,
       haptics,
+      onEnding,
       onComplete,
       reduceMotion,
       resolvingContentOpacity,
       sessionProgress,
       totalMs,
-      washMotion,
     ]
   );
 
@@ -707,12 +708,17 @@ export function V2FocusActiveScreen({
         if (event.nativeEvent.actionName === 'activate') revealControls();
       }}
     >
-      <StatusBar barStyle={stage === 'entry' && !anchorHandoff ? 'dark-content' : 'light-content'} backgroundColor={stage === 'entry' && !anchorHandoff ? colors.canvas : colors.ink.base} animated />
+      <StatusBar barStyle={stage === 'entry' && !anchorHandoff ? 'dark-content' : 'light-content'} backgroundColor={stage === 'entry' && !anchorHandoff ? colors.canvas : FOCUS_SCREEN_BACKGROUND} animated />
+      <Reanimated.View
+        pointerEvents="none"
+        testID="focus-completion-scrim"
+        style={[styles.completionScrim, completionScrimStyle]}
+      />
       {stage === 'entry' && !anchorHandoff ? (
         <Reanimated.View pointerEvents="none" style={[styles.entryCurtain, entryCurtainStyle]} />
       ) : null}
       {/* Two diffuse fields start at the Anchor and fall away without a visible frame. */}
-      <Reanimated.View pointerEvents="none" style={[styles.outerAtmosphere, outerAtmosphereStyle, resolvingContentStyle]}>
+      <Reanimated.View pointerEvents="none" style={[styles.outerAtmosphere, outerAtmosphereStyle]}>
         <Svg width={width} height={height}>
           <Defs>
             <RadialGradient id={`${atmosphereId}-outer`} cx="50%" cy="46%" rx="58%" ry="54%">
@@ -724,20 +730,27 @@ export function V2FocusActiveScreen({
           <Rect width={width} height={height} fill={`url(#${atmosphereId}-outer)`} />
         </Svg>
       </Reanimated.View>
-      <Reanimated.View pointerEvents="none" style={[styles.atmosphere, atmosphereStyle, resolvingContentStyle]}>
+      <Reanimated.View pointerEvents="none" style={[styles.atmosphere, atmosphereStyle]}>
         <Svg width={width} height={height}>
           <Defs>
             <RadialGradient id={atmosphereId} cx="50%" cy="46%" rx="32%" ry="32%">
               <Stop offset="0%" stopColor={categoryColor} stopOpacity={0.7} />
               <Stop offset="48%" stopColor={categoryColor} stopOpacity={0.22} />
-              <Stop offset="100%" stopColor={colors.ink.base} stopOpacity={0} />
+              <Stop offset="100%" stopColor={FOCUS_SCREEN_BACKGROUND} stopOpacity={0} />
             </RadialGradient>
           </Defs>
           <Rect width={width} height={height} fill={`url(#${atmosphereId})`} />
         </Svg>
       </Reanimated.View>
-      <Reanimated.View style={[styles.centerStage, resolvingContentStyle]} pointerEvents="box-none">
-        <Reanimated.View style={[styles.intentionRegion, { paddingTop: Math.max(insets.top + 42, 66) }, intentionReveal]}>
+      <Reanimated.View style={styles.centerStage} pointerEvents="box-none">
+        <Reanimated.View
+          style={[
+            styles.intentionRegion,
+            { paddingTop: Math.max(insets.top + 42, 66) },
+            intentionReveal,
+            resolvingContentStyle,
+          ]}
+        >
           <Text style={styles.sessionIntention}>{anchor.intentionText}</Text>
         </Reanimated.View>
 
@@ -766,6 +779,7 @@ export function V2FocusActiveScreen({
                 category={anchor.category}
                 reduceMotion={reduceMotion}
                 motionActive={stage === 'focus' && !isPaused && !isResolving}
+                imprint={isResolving}
               />
               <View
                 accessible
@@ -779,7 +793,7 @@ export function V2FocusActiveScreen({
                   svg={anchorArtworkSvg(anchor)} imageUrl={anchor.enhancedImageUrl}
                   category={anchor.category}
                   size={anchorSize}
-                  surface={colors.ink.base}
+                  surface={FOCUS_SCREEN_BACKGROUND}
                   accessibilityLabel={`${anchor.category} Anchor artwork`}
                   testID="focus-anchor-artwork"
                 />
@@ -793,10 +807,10 @@ export function V2FocusActiveScreen({
             <Text style={styles.prepareSupportCopy}>Let the Anchor hold your attention.</Text>
           </Animated.View>
         ) : isResolving ? (
-          <View style={styles.focusQuietContainer}>
+          <Reanimated.View testID="focus-completion-copy" style={[styles.focusQuietContainer, completionCopyStyle]}>
             <Text style={styles.acknowledgementTitle}>Well done.</Text>
             <Text style={styles.focusQuietHint}>Let it settle.</Text>
-          </View>
+          </Reanimated.View>
         ) : null}
       </Reanimated.View>
 
@@ -939,13 +953,17 @@ export function V2FocusActiveScreen({
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.ink.base,
+    backgroundColor: FOCUS_SCREEN_BACKGROUND,
   },
   hiddenArtwork: { opacity: 0 },
   entryCurtain: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 20,
     backgroundColor: colors.canvas,
+  },
+  completionScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000000',
   },
   topHeader: {
     position: 'absolute',

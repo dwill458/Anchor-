@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiClient, ApiClientError } from '@/services/ApiClient';
+import { HomeStartupProfiler } from '@/utils/homeStartupProfiler';
+import { useAuthStore } from '@/stores/authStore';
+import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
 import { visionApiData } from './visionApi';
 import {
   toV2VisionPresentationState,
@@ -63,10 +66,121 @@ function resolveUserTimeZone(): string {
  * after the navigation transition.
  */
 const visionReadCache = new Map<string, VisionReadModel | null>();
+const persistedVisionReads = new Map<string, Promise<VisionReadModel | null | undefined>>();
+const currentAccountId = () => useAuthStore.getState().user?.id ?? null;
+const visionCacheKey = (anchorId: string, accountId = currentAccountId()) => `${accountId ?? 'anonymous'}:${anchorId}`;
+const visionStorageKey = (anchorId: string, accountId: string) =>
+  `anchor:v2:vision-read:${encodeURIComponent(accountId)}:${encodeURIComponent(anchorId)}`;
+
+function persistVisionRead(anchorId: string, accountId: string | null, value: VisionReadModel | null): void {
+  if (!anchorId || !accountId) return;
+  const snapshot = { schemaVersion: 1, accountId, anchorId, value };
+  void Promise.resolve(encryptedPersistStorage.setItem(visionStorageKey(anchorId, accountId), JSON.stringify(snapshot))).catch(() => undefined);
+}
+
+async function restoreVisionRead(anchorId: string, accountId: string | null): Promise<VisionReadModel | null | undefined> {
+  if (!anchorId) return undefined;
+  const key = visionCacheKey(anchorId, accountId);
+  if (visionReadCache.has(key)) return visionReadCache.get(key) ?? null;
+  if (!accountId) return undefined;
+
+  let pending = persistedVisionReads.get(key);
+  if (!pending) {
+    pending = (async () => {
+      try {
+        const raw = await encryptedPersistStorage.getItem(visionStorageKey(anchorId, accountId));
+        if (!raw) return undefined;
+        const parsed = JSON.parse(raw) as {
+          schemaVersion?: number;
+          accountId?: string;
+          anchorId?: string;
+          value?: unknown;
+        };
+        if (parsed.schemaVersion !== 1 || parsed.accountId !== accountId || parsed.anchorId !== anchorId) return undefined;
+        if (parsed.value === null) return null;
+        if (!parsed.value || typeof parsed.value !== 'object' || (parsed.value as VisionReadModel).anchorId !== anchorId) return undefined;
+        return parsed.value as VisionReadModel;
+      } catch {
+        return undefined;
+      }
+    })();
+    persistedVisionReads.set(key, pending);
+    void pending.finally(() => {
+      if (persistedVisionReads.get(key) === pending) persistedVisionReads.delete(key);
+    });
+  }
+
+  const restored = await pending;
+  if (visionReadCache.has(key)) return visionReadCache.get(key) ?? null;
+  if (restored !== undefined) visionReadCache.set(key, restored);
+  return restored;
+}
 
 /** Drops every cached Vision read (sign-out, account switch, tests). */
 export function resetV2VisionReadCache(): void {
   visionReadCache.clear();
+  persistedVisionReads.clear();
+}
+
+/** Synchronously checks if Vision is already cached for this Anchor. */
+export function peekV2Vision(anchorId: string, accountId = currentAccountId()): VisionReadModel | null | undefined {
+  const key = visionCacheKey(anchorId, accountId);
+  if (!anchorId || !visionReadCache.has(key)) return undefined;
+  return visionReadCache.get(key) ?? null;
+}
+
+const inFlightVision = new Map<string, Promise<VisionReadModel | null>>();
+
+/** One shared request path for bootstrap prefetch and mounted Home hooks. */
+function requestV2Vision(anchorId: string, signal?: AbortSignal, accountId = currentAccountId()): Promise<VisionReadModel | null> {
+  const key = visionCacheKey(anchorId, accountId);
+  const existing = inFlightVision.get(key);
+  if (existing) return existing;
+
+  const span = HomeStartupProfiler.start('vision_request', { anchorId });
+  const request = (async () => {
+    const timeZone = resolveUserTimeZone();
+    try {
+      const response = await apiClient.get<VisionReadModel>(
+        `/api/v2/anchors/${encodeURIComponent(anchorId)}/vision`,
+        { params: { timeZone }, signal },
+      );
+      const data = visionApiData<VisionReadModel | null>(response);
+      visionReadCache.set(key, data);
+      persistVisionRead(anchorId, accountId, data);
+      span({ ok: true });
+      return data;
+    } catch (err: unknown) {
+      const status =
+        (err instanceof ApiClientError ? err.status : undefined) ??
+        (typeof err === 'object' && err !== null ? (err as { status?: number }).status : undefined);
+      if (status === 404) {
+        visionReadCache.set(key, null);
+        persistVisionRead(anchorId, accountId, null);
+      }
+      span({ ok: status === 404, status: status ?? null });
+      throw err;
+    } finally {
+      inFlightVision.delete(key);
+    }
+  })();
+
+  inFlightVision.set(key, request);
+  return request;
+}
+
+/** Pre-warms Vision cache in the background; never throws on failure. */
+export async function prefetchV2Vision(anchorId: string, signal?: AbortSignal): Promise<VisionReadModel | null> {
+  if (!anchorId) return null;
+  const accountId = currentAccountId();
+  const key = visionCacheKey(anchorId, accountId);
+  if (visionReadCache.has(key)) return visionReadCache.get(key) ?? null;
+  void restoreVisionRead(anchorId, accountId);
+  try {
+    return await requestV2Vision(anchorId, signal, accountId);
+  } catch {
+    return visionReadCache.get(key) ?? null;
+  }
 }
 
 function sameVision(a: VisionReadModel | null, b: VisionReadModel | null): boolean {
@@ -76,14 +190,27 @@ function sameVision(a: VisionReadModel | null, b: VisionReadModel | null): boole
 }
 
 export function useV2Vision(anchorId: string): UseV2VisionResult {
-  const [vision, setVision] = useState<VisionReadModel | null>(() => (anchorId ? visionReadCache.get(anchorId) ?? null : null));
-  const [loading, setLoading] = useState<boolean>(() => !(anchorId && visionReadCache.has(anchorId)));
+  const accountId = useAuthStore((state) => state.user?.id ?? null);
+  const key = visionCacheKey(anchorId, accountId);
+  const [vision, setVision] = useState<VisionReadModel | null>(() => (anchorId ? visionReadCache.get(key) ?? null : null));
+  const [loading, setLoading] = useState<boolean>(() => !(anchorId && visionReadCache.has(key)));
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [isOffline, setIsOffline] = useState<boolean>(false);
   const isMountedRef = useRef<boolean>(true);
-  const currentAnchorId = useRef(anchorId);
-  currentAnchorId.current = anchorId;
+  const currentCacheKey = useRef(key);
+
+  // Synchronize state immediately if anchorId changes during rendering
+  if (currentCacheKey.current !== key) {
+    currentCacheKey.current = key;
+    const cached = anchorId ? visionReadCache.get(key) ?? null : null;
+    const hasCache = Boolean(anchorId && visionReadCache.has(key));
+    setVision(cached);
+    setLoading(!hasCache);
+    setRefreshing(hasCache);
+    setError(null);
+  }
+
   const requestId = useRef(0);
   const activeRequest = useRef<AbortController | null>(null);
 
@@ -96,10 +223,16 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
   }, []);
 
   /** Every server read lands here: cached for the next mount, and identity kept when unchanged. */
-  const commitVision = useCallback((next: VisionReadModel | null, forAnchorId: string) => {
-    if (forAnchorId) visionReadCache.set(forAnchorId, next);
-    setVision((previous) => (sameVision(previous, next) ? previous : next));
-  }, []);
+  const commitVision = useCallback((next: VisionReadModel | null, forAnchorId: string, forAccountId = accountId) => {
+    if (forAnchorId) {
+      const forKey = visionCacheKey(forAnchorId, forAccountId);
+      visionReadCache.set(forKey, next);
+      persistVisionRead(forAnchorId, forAccountId, next);
+      if (currentCacheKey.current === forKey) {
+        setVision((previous) => (sameVision(previous, next) ? previous : next));
+      }
+    }
+  }, [accountId]);
 
   const fetchVision = useCallback(
     async (isRefresh = false) => {
@@ -112,9 +245,9 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
         setVision(null);
         return;
       }
-      if (visionReadCache.has(anchorId)) {
+      if (visionReadCache.has(key)) {
         // Already known: show it now and revalidate without a loading state.
-        const cached = visionReadCache.get(anchorId) ?? null;
+        const cached = visionReadCache.get(key) ?? null;
         setVision((previous) => (sameVision(previous, cached) ? previous : cached));
         setLoading(false);
         setRefreshing(true);
@@ -125,21 +258,14 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
       }
       setError(null);
 
-      const timeZone = resolveUserTimeZone();
       try {
-        const response = await apiClient.get<VisionReadModel>(
-          `/api/v2/anchors/${encodeURIComponent(anchorId)}/vision`,
-          {
-            params: { timeZone },
-            signal: controller.signal,
-          },
-        );
-        if (!isMountedRef.current || currentAnchorId.current !== anchorId || requestId.current !== thisRequest) return;
-        commitVision(visionApiData<VisionReadModel | null>(response), anchorId);
+        const nextVision = await requestV2Vision(anchorId, controller.signal, accountId);
+        if (!isMountedRef.current || currentCacheKey.current !== key || requestId.current !== thisRequest) return;
+        commitVision(nextVision, anchorId);
         setIsOffline(false);
       } catch (err: unknown) {
         if (controller.signal.aborted) return;
-        if (!isMountedRef.current || currentAnchorId.current !== anchorId || requestId.current !== thisRequest) return;
+        if (!isMountedRef.current || currentCacheKey.current !== key || requestId.current !== thisRequest) return;
         const status =
           (err instanceof ApiClientError ? err.status : undefined) ??
           (typeof err === 'object' && err !== null ? (err as { status?: number }).status : undefined);
@@ -149,23 +275,47 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
           commitVision(null, anchorId);
           setIsOffline(false);
         } else {
-          const message = err instanceof Error ? err.message : 'Unable to load Vision';
-          setError(message);
           setIsOffline(true);
+          // Keep a last-known Vision visible when revalidation is unavailable.
+          // A cached absence is not enough to claim the server still has none.
+          if (visionReadCache.get(key)) {
+            setError(null);
+          } else {
+            const message = err instanceof Error ? err.message : 'Unable to load Vision';
+            setError(message);
+          }
         }
       } finally {
-        if (isMountedRef.current && currentAnchorId.current === anchorId && requestId.current === thisRequest) {
+        if (isMountedRef.current && currentCacheKey.current === key && requestId.current === thisRequest) {
           setLoading(false);
           setRefreshing(false);
         }
       }
     },
-    [anchorId, commitVision],
+    [accountId, anchorId, commitVision, key],
   );
 
   useEffect(() => {
     fetchVision(false);
   }, [fetchVision]);
+
+  // Reconstruct the last-known Vision presentation from encrypted storage
+  // while the server request above continues independently.
+  useEffect(() => {
+    if (!anchorId || !accountId) return undefined;
+    let cancelled = false;
+    void restoreVisionRead(anchorId, accountId).then((cached) => {
+      if (cancelled || cached === undefined || currentCacheKey.current !== key) return;
+      const cacheKey = visionCacheKey(anchorId, accountId);
+      if (!visionReadCache.has(cacheKey)) visionReadCache.set(cacheKey, cached);
+      setVision((previous) => (sameVision(previous, cached) ? previous : cached));
+      setLoading(false);
+      if (cached) setError(null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, anchorId, key]);
 
   /**
    * Records a genuine view of the Vision surface.
@@ -181,9 +331,13 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
         `/api/v2/visions/${encodeURIComponent(vision.id)}/view`,
         { timeZone },
       );
-      const cached = visionReadCache.get(anchorId);
-      if (cached) visionReadCache.set(anchorId, { ...cached, seenToday: true });
-      if (isMountedRef.current) {
+      const cached = visionReadCache.get(key);
+      if (cached) {
+        const updated = { ...cached, seenToday: true };
+        visionReadCache.set(key, updated);
+        persistVisionRead(anchorId, accountId, updated);
+      }
+      if (isMountedRef.current && currentCacheKey.current === key) {
         setVision((prev) => (prev ? { ...prev, seenToday: true } : prev));
       }
       return true;
@@ -191,7 +345,7 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
       // Degrade silently; failure to record view does not block the user
       return false;
     }
-  }, [anchorId, vision?.id, vision?.seenToday]);
+  }, [anchorId, key, vision?.id, vision?.seenToday]);
 
   const createVision = useCallback(
     async (input: {
@@ -307,15 +461,18 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
     if (!vision?.id) return false;
     try {
       await apiClient.delete(`/api/v2/visions/${encodeURIComponent(vision.id)}`);
-      if (anchorId) visionReadCache.set(anchorId, null);
-      if (isMountedRef.current) {
+      if (anchorId) {
+        visionReadCache.set(key, null);
+        persistVisionRead(anchorId, accountId, null);
+      }
+      if (isMountedRef.current && currentCacheKey.current === key) {
         setVision(null);
       }
       return true;
     } catch {
       return false;
     }
-  }, [anchorId, vision?.id]);
+  }, [anchorId, key, vision?.id]);
 
   const uploadAsset = useCallback(async (input: { base64Image: string; mimeType: string }): Promise<UploadAssetResult> => {
     try {

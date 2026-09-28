@@ -1,5 +1,6 @@
 import React from 'react';
-import { render, waitFor, fireEvent } from '@testing-library/react-native';
+import { Alert } from 'react-native';
+import { act, render, waitFor, fireEvent } from '@testing-library/react-native';
 import { V2VisionScreen } from '../V2VisionScreen';
 import { apiClient } from '@/services/ApiClient';
 import { resetV2VisionReadCache } from '@/hooks/v2/vision/useV2Vision';
@@ -7,9 +8,11 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { toV2VisionCompactState } from '@/adapters/v2/vision';
 
 // Mock navigation
+const mockNavigate = jest.fn();
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({
-    navigate: jest.fn(),
+    navigate: mockNavigate,
+    setParams: jest.fn(),
     goBack: jest.fn(),
     canGoBack: () => true,
   }),
@@ -136,9 +139,73 @@ describe('V2VisionScreen', () => {
 
     const screen = await findByTestId('v2-vision-screen');
     expect(screen).toBeTruthy();
-    expect(getByText('1/3')).toBeTruthy();
     expect(getByText('Begin Visualize')).toBeTruthy();
     expect(getByText('A quiet, sunlit workspace with completed projects.')).toBeTruthy();
+  });
+
+  it('shows the Vision as a board: every photo, and the Anchor with its intention at the centre', async () => {
+    (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: mockVisionData });
+    const view = render(<V2VisionScreen anchorId="anchor-1" />);
+    await view.findByTestId('vision-board');
+    for (const id of ['sc-1', 'sc-2', 'sc-3']) expect(view.getByTestId(`vision-board-photo-${id}`)).toBeTruthy();
+    // The intention is written on the card as well as in the identity row.
+    expect(view.getAllByText('I build what matters.').length).toBeGreaterThanOrEqual(2);
+    expect(view.getByLabelText('Your Anchor, Career. I build what matters.')).toBeTruthy();
+  });
+
+  it('no longer offers the separate Edit / Manage / Chart buttons; the Chart stays one tap away', async () => {
+    (apiClient.get as jest.Mock).mockImplementation((url: string) => (url.includes('/vision')
+      ? Promise.resolve({ data: mockVisionData })
+      : Promise.reject(Object.assign(new Error('not found'), { status: 404 }))));
+    const view = render(<V2VisionScreen anchorId="anchor-1" />);
+    await view.findByTestId('vision-board');
+    expect(view.queryByLabelText('Edit Vision')).toBeNull();
+    expect(view.queryByLabelText('Manage Images')).toBeNull();
+    expect(view.queryByLabelText('View on Chart')).toBeNull();
+    fireEvent.press(view.getByTestId('vision-on-your-chart'));
+    expect(mockNavigate).toHaveBeenCalledWith('V2Chart', { anchorId: 'anchor-1', source: 'vision' });
+  });
+
+  it('reorders photos through accessibility actions and persists the order', async () => {
+    (apiClient.get as jest.Mock).mockResolvedValue({ data: mockVisionData });
+    (apiClient.put as jest.Mock).mockResolvedValue({ data: [] });
+    const view = render(<V2VisionScreen anchorId="anchor-1" />);
+    const first = await view.findByLabelText('Vision image 1 of 3');
+    await act(async () => { fireEvent(first, 'accessibilityAction', { nativeEvent: { actionName: 'moveLater' } }); });
+    expect(apiClient.put).toHaveBeenCalledWith('/api/v2/visions/vision-101/scenes/reorder', {
+      sceneOrders: [{ id: 'sc-2', sortOrder: 0 }, { id: 'sc-1', sortOrder: 1 }, { id: 'sc-3', sortOrder: 2 }],
+    });
+  });
+
+  it('focusing a photo offers Replace, Regenerate and Remove; Remove confirms and archives it', async () => {
+    (apiClient.get as jest.Mock).mockResolvedValue({ data: mockVisionData });
+    (apiClient.delete as jest.Mock).mockResolvedValue({ data: { success: true } });
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    const view = render(<V2VisionScreen anchorId="anchor-1" />);
+    const second = await view.findByLabelText('Vision image 2 of 3');
+    const focus = () => act(() => { fireEvent(second, 'accessibilityAction', { nativeEvent: { actionName: 'activate' } }); });
+    focus();
+    expect(view.getByLabelText('Replace')).toBeTruthy();
+    expect(view.getByLabelText('Regenerate')).toBeTruthy();
+    // Back returns the camera to the whole board.
+    fireEvent.press(view.getByLabelText('Back to the whole board'));
+    expect(view.queryByLabelText('Replace')).toBeNull();
+    focus();
+    fireEvent.press(view.getByLabelText('Remove'));
+    const buttons = alert.mock.calls[0][2] as Array<{ text: string; onPress?: () => void }>;
+    await act(async () => { buttons.find(button => button.text === 'Remove')?.onPress?.(); });
+    expect(apiClient.delete).toHaveBeenCalledWith('/api/v2/visions/vision-101/scenes/sc-2');
+    // The photo leaves at once, and with it the focus.
+    expect(view.queryByLabelText('Replace')).toBeNull();
+    alert.mockRestore();
+  });
+
+  it('tapping the Anchor card focuses it and opens Vision editing in place', async () => {
+    (apiClient.get as jest.Mock).mockResolvedValue({ data: mockVisionData });
+    const view = render(<V2VisionScreen anchorId="anchor-1" />);
+    fireEvent.press(await view.findByLabelText('Your Anchor, Career. I build what matters.'));
+    fireEvent.press(view.getByLabelText('Edit Vision'));
+    expect(view.getByTestId('vision-edit-description').props.value).toBe('A quiet, sunlit workspace with completed projects.');
   });
 
   it('records seen-today only after Begin Visualize is pressed', async () => {

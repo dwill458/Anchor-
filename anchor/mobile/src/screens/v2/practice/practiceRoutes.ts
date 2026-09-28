@@ -32,6 +32,11 @@ export type V2PracticeStartRequest = {
   /** Set by the Practice screen: the shared Anchor transition is carrying the Anchor into this session. */
   anchorTransition?: boolean;
 };
+export type V2PracticeCompletionResult = {
+  mode: Exclude<V2PracticeMode, 'release'>;
+  durationSeconds: number;
+  saved: boolean;
+};
 export type V2PracticeRouteIntents = {
   onPremiumCapabilityRequired: (request: V2PremiumCapabilityRequest) => void;
   onCreateVision: (anchorId: string) => void;

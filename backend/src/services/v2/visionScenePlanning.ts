@@ -29,6 +29,16 @@ export const VISION_PORTRAIT_COMPOSITION = [
 ].join(' ');
 
 /**
+ * Every Vision image is one photograph on the person's Vision board. The app
+ * supplies the board, torn photo frames, tape, pins and the Anchor card; the
+ * model must never draw any of them, or they end up doubled on screen.
+ */
+export const VISION_BOARD_PHOTO_RULES = [
+  "This photograph will be printed and pinned on its own on the person's Vision board; the app adds the frame, paper, tape, pins and board.",
+  'Deliver exactly one standalone photograph: never a collage, grid, split screen, diptych, mood board, cork or pin board, scrapbook page, polaroid or photo-print treatment, border, frame, caption, sticker, tape, pin or torn paper edge.',
+].join(' ');
+
+/**
  * One planned shot. `role` and `scene` are the persisted contract (the job's
  * `plan` column and each candidate's `prompt`); the direction fields are
  * optional so plans saved before this change still replay on retry.
@@ -81,6 +91,8 @@ export function buildVisionScenePlannerPrompt(input: {
   const avoid = (input.avoidScenes ?? []).filter(Boolean).slice(0, 24);
   return [
     `You are the director of photography for one person's Vision of their future. Plan ${VISION_SCENE_COUNT} photographs that together feel like a contact sheet from a single real future - the SAME future seen through ${VISION_SCENE_COUNT} different moments.`,
+    '',
+    `These photographs are the individual pictures on one Vision board: together they tell the story of this future, each one a separate, standalone photograph of one moment. Never plan a collage, a board, or several moments inside one frame.`,
     '',
     'Read the description for what it implies, not only what it literally says. Every photograph must be recognisably part of THIS Vision: someone who reads the description should see at once why each frame belongs. Generic lifestyle moments that could illustrate anyone\'s life (making tea, cooking, a walk in a park) are not allowed unless the description implies them.',
     '',
@@ -229,6 +241,7 @@ export function buildVisionImagePrompt(input: {
     ...(scene.feeling ? [`Emotional texture: ${JSON.stringify(scene.feeling)}`] : []),
     LENS_BY_FRAMING[scene.framing ?? ''] ?? 'Natural candid framing.',
     VISION_PORTRAIT_COMPOSITION,
+    VISION_BOARD_PHOTO_RULES,
     'Focus exclusively on depicting this specific moment and setting. Do NOT combine with or introduce other unrelated activities, settings, or aspirations into this photograph.',
     `Anchor intention (high-level background context): ${JSON.stringify(input.intention)}.`,
     `Category context: ${JSON.stringify(input.category)}. Never replace a concrete described environment with a generic category setting.`,
@@ -238,6 +251,6 @@ export function buildVisionImagePrompt(input: {
     ...(input.category === 'career' ? ['Career Art Direction: Depict the outcome inside an authentic professional workplace (established office building, corporate floor, workplace workstation, meeting setting, or leadership environment). Avoid generic home-office laptops, coffee cups, or generic WFH imagery.'] : []),
     'Style: documentary / editorial photography, natural available light, realistic muted colour, soft natural contrast, fine grain, small real-world imperfections, believable lived-in spaces. Cinematic composition without movie-poster styling.',
     'Screens, if present at all, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.',
-    'Avoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people.',
+    'Avoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people, collage, vision-board or scrapbook styling, picture frames, borders, captions.',
   ].join('\n');
 }

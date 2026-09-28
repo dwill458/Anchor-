@@ -2,6 +2,17 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 const mockGet = jest.fn();
 const mockPost = jest.fn();
+const mockPersistedGet = jest.fn();
+
+jest.mock('@/stores/encryptedPersistStorage', () => ({
+  encryptedPersistStorage: {
+    getItem: (...args: unknown[]) => mockPersistedGet(...args),
+    setItem: jest.fn().mockResolvedValue(undefined),
+    removeItem: jest.fn().mockResolvedValue(undefined),
+  },
+  readSecureValue: jest.fn().mockResolvedValue(null),
+  writeSecureValue: jest.fn().mockResolvedValue(undefined),
+}));
 
 jest.mock('@/services/ApiClient', () => ({
   apiClient: {
@@ -17,7 +28,8 @@ jest.mock('@/services/ApiClient', () => ({
   },
 }));
 
-import { useV2Vision } from '../useV2Vision';
+import { resetV2VisionReadCache, useV2Vision } from '../useV2Vision';
+import { useAuthStore } from '@/stores/authStore';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -58,6 +70,9 @@ const envelope = <T,>(data: T) => ({ data: { success: true, data } });
 describe('useV2Vision', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPersistedGet.mockResolvedValue(null);
+    useAuthStore.setState({ user: { id: 'vision-cache-user' } as never });
+    resetV2VisionReadCache();
   });
 
   it('cancels the previous Anchor request and ignores its late response', async () => {
@@ -154,6 +169,45 @@ describe('useV2Vision', () => {
     expect(created).toBeNull();
     expect(result.current.vision).toBeNull();
     expect(result.current.error).toBe('Asset not found or not owned by user');
+  });
+
+  it('restores the encrypted Vision presentation while server authority revalidates', async () => {
+    const cached = { ...vision('vision-cached'), anchorId: 'anchor-1' };
+    const snapshot = {
+      schemaVersion: 1,
+      accountId: 'vision-cache-user',
+      anchorId: 'anchor-1',
+      value: cached,
+    };
+    mockPersistedGet.mockImplementation(async (key: string) =>
+      key === 'anchor:v2:vision-read:vision-cache-user:anchor-1' ? JSON.stringify(snapshot) : null,
+    );
+    const server = deferred<ReturnType<typeof envelope>>();
+    mockGet.mockReturnValueOnce(server.promise);
+
+    const { result } = renderHook(() => useV2Vision('anchor-1'));
+    await waitFor(() => expect(result.current.vision?.id).toBe('vision-cached'));
+    expect(result.current.loading).toBe(false);
+    expect(mockGet).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      server.resolve(envelope(vision('vision-anchor-1')));
+      await server.promise;
+    });
+    await waitFor(() => expect(result.current.vision?.id).toBe('vision-anchor-1'));
+  });
+
+  it('keeps the cached Vision presentation when server revalidation fails', async () => {
+    const cached = { ...vision('vision-cached'), anchorId: 'anchor-1' };
+    mockPersistedGet.mockImplementation(async (key: string) => key.endsWith(':anchor-1')
+      ? JSON.stringify({ schemaVersion: 1, accountId: 'vision-cache-user', anchorId: 'anchor-1', value: cached })
+      : null,
+    );
+    mockGet.mockRejectedValueOnce(new Error('offline'));
+
+    const { result } = renderHook(() => useV2Vision('anchor-1'));
+    await waitFor(() => expect(result.current.vision?.id).toBe('vision-cached'));
+    expect(result.current.state.state).toBe('ready');
   });
 
   it('uploadAsset returns the real server-issued Asset id on success', async () => {

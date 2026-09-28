@@ -23,11 +23,17 @@ const mockPrisma = {
 };
 
 const mockGetAnchorVision = jest.fn();
+const mockGetAnchorThreadState = jest.fn();
 
 jest.mock('../../../lib/prisma', () => ({ prisma: mockPrisma }));
 jest.mock('../VisionService', () => ({
   visionService: {
     getAnchorVision: (...args: unknown[]) => mockGetAnchorVision(...args),
+  },
+}));
+jest.mock('../ThreadStrengthService', () => ({
+  threadStrengthService: {
+    getAnchorThreadState: (...args: unknown[]) => mockGetAnchorThreadState(...args),
   },
 }));
 
@@ -40,6 +46,7 @@ describe('RecommendationService (CCR-2 & Recommended Today)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetAnchorThreadState.mockResolvedValue({ strength: 50, delta7d: 0 });
   });
 
   describe('Signal detection and priority', () => {
@@ -480,12 +487,84 @@ describe('RecommendationService (CCR-2 & Recommended Today)', () => {
       mockPrisma.recommendationSignalAck.findMany.mockResolvedValueOnce([]);
       mockPrisma.courseAnchorLink.findMany.mockResolvedValueOnce([]);
       mockGetAnchorVision.mockResolvedValueOnce(null);
+      mockGetAnchorThreadState.mockResolvedValueOnce({ strength: 67, delta7d: 7 });
 
       const ctx = await recommendationService.getRecommendationContext(USER_ID, ANCHOR_ID);
-      expect(ctx.thread.strength).toBe(50);
-      expect(ctx.thread.delta7d).toBe(0);
+      expect(ctx.thread.strength).toBe(67);
+      expect(ctx.thread.delta7d).toBe(7);
       expect(ctx.thread.delta7dStatus).toBe('AVAILABLE');
       expect(ctx.thread.status).toBe('AVAILABLE');
+    });
+
+    it('starts completion, Vision, and Thread Strength reads concurrently after Anchor lookup', async () => {
+      mockPrisma.anchor.findFirst.mockResolvedValueOnce({
+        id: ANCHOR_ID,
+        intentionText: 'Intention',
+        category: 'career',
+        intentionCompletedAt: null,
+        createdAt: new Date(),
+      });
+
+      let finishAcks!: (value: Array<{ signalKey: string }>) => void;
+      let finishLinks!: (value: unknown[]) => void;
+      let finishVision!: (value: null) => void;
+      let finishThread!: (value: { strength: number; delta7d: number }) => void;
+      const acknowledgements = new Promise<Array<{ signalKey: string }>>((resolve) => { finishAcks = resolve; });
+      const links = new Promise<unknown[]>((resolve) => { finishLinks = resolve; });
+      const vision = new Promise<null>((resolve) => { finishVision = resolve; });
+      const thread = new Promise<{ strength: number; delta7d: number }>((resolve) => { finishThread = resolve; });
+      mockPrisma.recommendationSignalAck.findMany.mockReturnValueOnce(acknowledgements);
+      mockPrisma.courseAnchorLink.findMany.mockReturnValueOnce(links);
+      mockGetAnchorVision.mockReturnValueOnce(vision);
+      mockGetAnchorThreadState.mockReturnValueOnce(thread);
+      const observedStages: string[] = [];
+
+      const pending = recommendationService.getRecommendationContext(
+        USER_ID,
+        ANCHOR_ID,
+        'UTC',
+        null,
+        (stage) => observedStages.push(stage),
+      );
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(mockPrisma.recommendationSignalAck.findMany).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.courseAnchorLink.findMany).toHaveBeenCalledTimes(1);
+      expect(mockGetAnchorVision).toHaveBeenCalledTimes(1);
+      expect(mockGetAnchorThreadState).toHaveBeenCalledTimes(1);
+      finishAcks([]);
+      finishLinks([]);
+      finishVision(null);
+      finishThread({ strength: 61, delta7d: 2 });
+      const result = await pending;
+
+      expect(result.thread.strength).toBe(61);
+      expect(observedStages).toEqual(expect.arrayContaining([
+        'anchor-lookup',
+        'completion-signal',
+        'vision-context',
+        'thread-strength',
+      ]));
+    });
+
+    it('does not invent Thread Strength when the authoritative calculation fails', async () => {
+      mockPrisma.anchor.findFirst.mockResolvedValueOnce({
+        id: ANCHOR_ID,
+        intentionText: 'Intention',
+        category: 'career',
+        intentionCompletedAt: null,
+        createdAt: new Date(),
+      });
+      mockPrisma.recommendationSignalAck.findMany.mockResolvedValueOnce([]);
+      mockPrisma.courseAnchorLink.findMany.mockResolvedValueOnce([]);
+      mockGetAnchorVision.mockResolvedValueOnce(null);
+      mockGetAnchorThreadState.mockRejectedValueOnce(new Error('thread store unavailable'));
+
+      const ctx = await recommendationService.getRecommendationContext(USER_ID, ANCHOR_ID);
+      expect(ctx.thread.strength).toBeUndefined();
+      expect(ctx.thread.delta7d).toBeNull();
+      expect(ctx.thread.delta7dStatus).toBe('UNAVAILABLE');
+      expect(ctx.thread.status).toBe('UNAVAILABLE');
     });
   });
 

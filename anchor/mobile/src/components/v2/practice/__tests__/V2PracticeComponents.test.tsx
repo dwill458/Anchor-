@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { getPracticeCardTheme } from '@/theme/v2';
+import { V2_PRACTICE_MODE_BY_ID } from '@/constants/v2/practice';
 import { V2PracticeAnchorHeader } from '../V2PracticeAnchorHeader';
 import { V2AnchorSwitcherSheet, orderAnchorsForSwitcher } from '../V2AnchorSwitcherSheet';
 import { V2TodayPracticeCard } from '../V2TodayPracticeCard';
@@ -219,7 +220,7 @@ describe('V2TodayPracticeCard', () => {
     expect(screen.queryByText('When ready')).toBeNull();
   });
 
-  it('transforms into settled completed hero state preserving artwork and concise copy', () => {
+  it('shows a compact completed-today state with the Practice, duration and repeat action', () => {
     const onPress = jest.fn();
     const onPracticeAgain = jest.fn();
 
@@ -227,6 +228,7 @@ describe('V2TodayPracticeCard', () => {
       <V2TodayPracticeCard
         mode="focus"
         isCompletedToday={true}
+        completedDurationSeconds={10}
         onPress={onPress}
         onPracticeAgain={onPracticeAgain}
       />
@@ -234,8 +236,8 @@ describe('V2TodayPracticeCard', () => {
 
     expect(screen.getByTestId('v2-practice-artwork-focus-featured')).toBeTruthy();
     expect(screen.getByText('TODAY COMPLETE')).toBeTruthy();
+    expect(screen.getByText('Focus · 10 sec')).toBeTruthy();
     expect(screen.getByText('You reinforced your Anchor today.')).toBeTruthy();
-    expect(screen.getByText('Your intention is holding strong.')).toBeTruthy();
     expect(screen.queryByText(/Settle into the rest of your day/i)).toBeNull();
 
     const practiceAgainBtn = screen.getByLabelText('Practice again');
@@ -273,7 +275,7 @@ describe('V2TodayPracticeCard', () => {
   );
 
   it.each(['deep_prime', 'visualize', 'release'] as const)(
-    'retains corresponding hero artwork in completed state for %s',
+    'shows the completed Practice identity with dynamic hero artwork for %s',
     (mode) => {
       render(
         <V2TodayPracticeCard
@@ -284,6 +286,7 @@ describe('V2TodayPracticeCard', () => {
       );
       expect(screen.getByTestId(`v2-practice-artwork-${mode}-featured`)).toBeTruthy();
       expect(screen.getByText('TODAY COMPLETE')).toBeTruthy();
+      expect(screen.getAllByText(new RegExp(V2_PRACTICE_MODE_BY_ID[mode].title)).length).toBeGreaterThanOrEqual(1);
     }
   );
 });

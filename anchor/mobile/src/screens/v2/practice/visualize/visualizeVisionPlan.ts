@@ -24,83 +24,69 @@ export function isV2VisualizeDuration(value: number): value is V2VisualizeDurati
  * Ending offsets are measured from the moment the timer reaches zero.
  */
 export const V2_VISUALIZE_TIMING = {
-  kenBurnsFrom: 1.02,
-  kenBurnsTo: 1.06,
-  crossfadeMs: 2600,
-  reducedCrossfadeMs: 1400,
   openingDelayMs: 1400,
   openingHoldMs: 6800,
   textFadeMs: 1200,
   promptHoldMs: 5200,
   controlsIdleMs: 4000,
-  /** Setup fades to darkness before the session opens on the first image. */
+  /** Setup fades to darkness before the session opens on the board. */
   handoffMs: 480,
-  /** The first image rises out of that darkness. */
+  /** The board rises out of that darkness. */
   openingRevealMs: 1600,
   /**
-   * SEE -> REINFORCE. The final image holds, quiets, and is drawn in toward
-   * its centre while the Anchor sharpens out of the same centre; for a moment
-   * both are present, then only the Anchor remains. The transformation itself
-   * (transformAtMs -> anchor fully present) is ~2.2s.
+   * The camera over the Vision board. The session opens on the Anchor card,
+   * pushes in slightly, then glides photograph to photograph; each glide is
+   * 1.2-1.8s depending on distance, then the camera holds with a barely
+   * perceptible push while the person stays with the scene.
+   */
+  board: {
+    /** Scene layout scale; the deepest zoom stays sharp. */
+    renderScale: 2.6,
+    /** Opening on the Anchor before the first photograph. */
+    openingAnchorMs: 7000,
+    openingPush: 1.05,
+    travelMinMs: 1200,
+    travelMaxMs: 1800,
+    /** Drift during a hold, as a scale multiple. */
+    holdPush: 1.035,
+    /** A photograph fills this much of the screen (the tighter axis wins). */
+    photoFill: 0.86,
+    anchorFill: 0.72,
+    /** Zoom limits relative to the whole-board view. */
+    minZoom: 1.6,
+    maxZoom: 3,
+    /** A short session still gives every photograph this long. */
+    minDwellMs: 8000,
+    /** Reduce Motion: a quiet dip between photographs instead of travel. */
+    reducedDipOutMs: 500,
+    reducedDipInMs: 800,
+  },
+  /**
+   * SEE -> REINFORCE. The camera pulls back to reveal the whole board, holds,
+   * then settles around the Anchor at its centre while the edges quiet.
    */
   ending: {
     chromeOutMs: 500,
-    /** The final image holds, Ken Burns easing to rest. */
-    settleMs: 1200,
-    transformAtMs: 1200,
-    /** Desaturate, darken, soften. */
-    quietMs: 1400,
-    /** The Vision is drawn inward: scale 1 -> compressTo, corners rounding. */
-    compressAtMs: 1300,
-    compressMs: 2100,
-    compressTo: 0.58,
-    photoOutAtMs: 1900,
-    photoOutMs: 1500,
-    anchorAtMs: 1600,
-    /** Anchor opacity keyframes after `anchorAtMs`: 0 -> 0.25 -> 0.6 -> 1. */
-    anchorStepsMs: [500, 600, 700] as const,
-    anchorFromScale: 1.1,
-    lineAtMs: 4000,
-    continueAtMs: 5200,
+    pullBackMs: 2600,
+    settleAtMs: 3300,
+    settleMs: 2200,
+    /** The finale frames the Anchor card at this multiple of the whole-board zoom. */
+    settleZoom: 1.45,
+    quietAtMs: 3000,
+    quietMs: 1800,
+    lineAtMs: 5000,
+    continueAtMs: 6200,
     fadeInMs: 900,
   },
   reducedEnding: {
     chromeOutMs: 300,
-    crossAtMs: 900,
-    crossMs: 1600,
-    lineAtMs: 3000,
-    continueAtMs: 4000,
+    crossAtMs: 600,
+    crossMs: 1400,
+    lineAtMs: 2400,
+    continueAtMs: 3200,
     fadeInMs: 700,
   },
 } as const;
-
-/**
- * How a Vision image fills the portrait session. Portrait-first images fill
- * the screen with only a sliver cropped. Images far wider than the screen
- * (older square sets, landscape uploads) are not cut down to a narrow strip:
- * they are scaled only as far as `maxOverscan` beyond "fit", and a soft
- * extension of the same image fills the rest.
- */
-export function visionImageFit(
-  image: { width: number; height: number } | null | undefined,
-  frame: { width: number; height: number },
-  maxOverscan = 1.25,
-): { width: number; height: number; left: number; top: number; extended: boolean } {
-  if (!image || image.width <= 0 || image.height <= 0) {
-    return { width: frame.width, height: frame.height, left: 0, top: 0, extended: false };
-  }
-  const cover = Math.max(frame.width / image.width, frame.height / image.height);
-  const contain = Math.min(frame.width / image.width, frame.height / image.height);
-  const scale = Math.min(cover, contain * maxOverscan);
-  const width = image.width * scale;
-  const height = image.height * scale;
-  return {
-    width, height,
-    left: (frame.width - width) / 2,
-    top: (frame.height - height) / 2,
-    extended: scale < cover - 1e-6,
-  };
-}
 
 /** Warm the image cache ahead of a transition. Fire-and-forget; failures are harmless. */
 export function preloadVisionImages(uris: string[]): void {
@@ -120,26 +106,43 @@ export type VisionSceneSlot = { index: number; imageIndex: number; startMs: numb
 export function visionSceneSlotCount(durationSeconds: number, imageCount: number): number {
   const images = Math.max(1, Math.floor(imageCount));
   if (durationSeconds <= 60) return Math.min(images, 2);
-  if (durationSeconds <= 180) return Math.min(images, 5);
+  if (durationSeconds <= 180) return Math.min(images, 6);
   if (images === 1) return 1;
   return Math.min(Math.max(images, 5), images * 2);
 }
 
-export function buildVisionSceneSchedule(durationSeconds: number, imageCount: number): VisionSceneSlot[] {
-  const totalMs = Math.max(1, durationSeconds) * 1000;
-  const images = Math.max(1, Math.floor(imageCount));
-  const slots = visionSceneSlotCount(durationSeconds, images);
-  const slotMs = totalMs / slots;
-  return Array.from({ length: slots }, (_, index) => ({
-    index,
-    imageIndex: index % images,
-    startMs: Math.round(index * slotMs),
-    endMs: index === slots - 1 ? totalMs : Math.round((index + 1) * slotMs),
-  }));
-}
-
 export function visionSceneSlotAt(schedule: VisionSceneSlot[], elapsedMs: number): VisionSceneSlot {
   return schedule.find(slot => elapsedMs < slot.endMs) ?? schedule[schedule.length - 1];
+}
+
+/**
+ * The camera's visits across the Vision board. The session opens on the
+ * Anchor for `openingMs`; the rest of the duration is shared between
+ * photographs. A short session visits every photograph it can give at least
+ * `minDwellMs`; three minutes visits each once; five minutes revisits, as
+ * `visionSceneSlotCount` always has.
+ */
+export function buildBoardVisitSchedule(
+  durationSeconds: number,
+  imageCount: number,
+  openingMs: number = V2_VISUALIZE_TIMING.board.openingAnchorMs,
+  minDwellMs: number = V2_VISUALIZE_TIMING.board.minDwellMs,
+): VisionSceneSlot[] {
+  const images = Math.max(0, Math.floor(imageCount));
+  const totalMs = Math.max(1, durationSeconds) * 1000;
+  if (images === 0) return [];
+  const start = Math.min(openingMs, totalMs * 0.25);
+  const available = totalMs - start;
+  const visits = durationSeconds <= 60
+    ? Math.max(1, Math.min(images, Math.floor(available / minDwellMs)))
+    : visionSceneSlotCount(durationSeconds, images);
+  const slotMs = available / visits;
+  return Array.from({ length: visits }, (_, index) => ({
+    index,
+    imageIndex: index % images,
+    startMs: Math.round(start + index * slotMs),
+    endMs: index === visits - 1 ? totalMs : Math.round(start + (index + 1) * slotMs),
+  }));
 }
 
 export type VisualizeReflectionPrompt = { id: string; atMs: number; text: string };

@@ -29,6 +29,8 @@ export const colors = {
   navy: '#0B203E',
   cream: '#F4F1E9',
   paper: '#FBF9F4',
+  frame: '#F4EDE0',
+  frameEdge: 'rgba(20, 22, 43, 0.08)',
   line: '#D8D2C8',
   ink,
   /**

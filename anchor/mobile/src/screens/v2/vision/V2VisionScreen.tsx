@@ -14,6 +14,7 @@ import { colors } from '@/theme/v2';
 import type { V2VisualizeHandoff } from '@/adapters/v2/vision';
 import { toChartSummary } from '@/adapters/v2/chart/chartV2Model';
 import { useAnchorChart } from '@/hooks/v2/chart/useAnchorChart';
+import { VISION_BOARD_MAX_IMAGES } from '@/components/v2/vision/board/visionBoardLayouts';
 
 export interface V2VisionRouteParams {
   anchorId: string;
@@ -44,6 +45,10 @@ export function V2VisionScreen(props: V2VisionScreenProps) {
     if (route.params?.resumeGeneration) setMode('create');
   }, [route.params?.resumeGeneration]);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Choosing generated images for one place on the board (Regenerate), or for any free places (add).
+  const [replaceSceneId, setReplaceSceneId] = useState<string | null>(null);
+  // The board as it was before leaving to add images, so it can recompose on return.
+  const [arrivedFrom, setArrivedFrom] = useState<string[] | null>(null);
   const anchorIntention = (anchor as { intention?: string } | undefined)?.intention ?? anchor?.intentionText ?? 'Your Anchor';
   const anchorArt = useMemo(() => (anchor ? anchorRenderProps(anchor) : null), [anchor]);
   // The Anchor's persisted category is the only source: art, accent and label all read it.
@@ -51,6 +56,7 @@ export function V2VisionScreen(props: V2VisionScreenProps) {
 
   const handleBack = () => {
     if ((mode === 'create' || mode === 'add') && model.state.state === 'ready') {
+      setReplaceSceneId(null);
       setMode('view');
       return;
     }
@@ -63,23 +69,66 @@ export function V2VisionScreen(props: V2VisionScreenProps) {
     resumeIntent: { type: 'vision_premium_action', anchorId, action: 'generate' },
   });
 
+  /** Picks one of the person's photos and uploads it as a Vision asset; null when cancelled or failed. */
+  const pickAndUploadOwnImage = async (): Promise<string | null> => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permission.status !== 'granted') { setActionError('Allow photo library access to add an image.'); return null; }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.85 });
+    if (result.canceled || !result.assets?.[0]) return null;
+    const item = result.assets[0];
+    const mimeType = item.mimeType ?? 'image/jpeg';
+    const base64 = await FileSystem.readAsStringAsync(item.uri, { encoding: FileSystem.EncodingType.Base64 });
+    const uploaded = await model.uploadAsset({ base64Image: `data:${mimeType};base64,${base64}`, mimeType });
+    if (!uploaded.ok) { setActionError(uploaded.message); return null; }
+    return uploaded.asset.id;
+  };
+
   const addOwnImage = async () => {
     try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (permission.status !== 'granted') { setActionError('Allow photo library access to add an image.'); return; }
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.85 });
-      if (result.canceled || !result.assets?.[0]) return;
-      const item = result.assets[0];
-      const mimeType = item.mimeType ?? 'image/jpeg';
-      const base64 = await FileSystem.readAsStringAsync(item.uri, { encoding: FileSystem.EncodingType.Base64 });
-      const uploaded = await model.uploadAsset({ base64Image: `data:${mimeType};base64,${base64}`, mimeType });
-      if (!uploaded.ok) { setActionError(uploaded.message); return; }
-      const saved = await model.addScene({ assetId: uploaded.asset.id, sourceType: 'USER_UPLOAD' });
+      const assetId = await pickAndUploadOwnImage();
+      if (!assetId) return;
+      const saved = await model.addScene({ assetId, sourceType: 'USER_UPLOAD' });
       if (!saved) setActionError('Image uploaded, but could not be added to your Vision. Please try again.');
       else setActionError(null);
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : 'Unable to add this image.');
     }
+  };
+
+  /**
+   * Puts a new image where an old one was: the new scene takes the old one's
+   * sort order, then the old one is archived. A full board archives first so
+   * the image limit is never exceeded.
+   */
+  const replaceScene = async (
+    sceneId: string,
+    next: { assetId: string; sourceType: 'USER_UPLOAD' | 'AI_GENERATED'; prompt?: string },
+  ): Promise<boolean> => {
+    const old = model.tiles.find(tile => tile.sceneId === sceneId);
+    if (!old) return false;
+    const full = model.tiles.length >= VISION_BOARD_MAX_IMAGES;
+    if (full && !(await model.deleteScene(sceneId))) { setActionError('Image could not be replaced.'); return false; }
+    const added = await model.addScene({ ...next, sortOrder: old.sortOrder });
+    if (!added) { setActionError('The new image could not be added to your Vision. Please try again.'); return false; }
+    if (!full && !(await model.deleteScene(sceneId))) { setActionError('The new image was added, but the old one could not be removed.'); return false; }
+    setActionError(null);
+    return true;
+  };
+
+  const replaceWithOwnImage = async (sceneId: string) => {
+    try {
+      const assetId = await pickAndUploadOwnImage();
+      if (assetId) await replaceScene(sceneId, { assetId, sourceType: 'USER_UPLOAD' });
+    } catch (cause) {
+      setActionError(cause instanceof Error ? cause.message : 'Unable to replace this image.');
+    }
+  };
+
+  const openImageGeneration = (forSceneId: string | null) => {
+    // Adding recomposes the board on return; a replacement simply appears in its place.
+    setArrivedFrom(forSceneId ? null : model.tiles.map(tile => tile.sceneId));
+    setReplaceSceneId(forSceneId);
+    setMode('add');
   };
 
   if (model.loading && !model.vision) return (
@@ -105,6 +154,9 @@ export function V2VisionScreen(props: V2VisionScreenProps) {
       anchorArt={anchorArt}
       initialDescription={model.vision?.description ?? ''}
       initialStep={mode === 'add' ? 'curation' : mode === 'ready' ? 'ready' : mode === 'create' ? 'prompt' : 'empty'}
+      selectionLimit={mode === 'add'
+        ? (replaceSceneId ? 1 : Math.max(1, VISION_BOARD_MAX_IMAGES - model.tiles.length))
+        : VISION_BOARD_MAX_IMAGES}
       resumeGeneration={route.params?.resumeGeneration}
       onResumeGenerationConsumed={() => navigation.setParams({ resumeGeneration: false })}
       onBack={handleBack}
@@ -116,6 +168,14 @@ export function V2VisionScreen(props: V2VisionScreenProps) {
       }}
       onUploadAsset={model.uploadAsset}
       onAssemble={async ({ description, selectedAssets }) => {
+        if (mode === 'add' && replaceSceneId && selectedAssets[0]) {
+          const [asset] = selectedAssets;
+          const replaced = await replaceScene(replaceSceneId, { assetId: asset.assetId, sourceType: asset.sourceType, prompt: asset.prompt });
+          if (!replaced) return false;
+          setReplaceSceneId(null);
+          setMode('view');
+          return true;
+        }
         const saved = await model.createVision({
           description,
           scenes: selectedAssets.map(asset => ({
@@ -158,7 +218,10 @@ export function V2VisionScreen(props: V2VisionScreenProps) {
       onReorder={async sceneOrders => Boolean(await model.reorderScenes(sceneOrders))}
       onRemove={async sceneId => Boolean(await model.deleteScene(sceneId))}
       onAddOwn={addOwnImage}
-      onGenerateMore={() => setMode('add')}
+      onReplace={replaceWithOwnImage}
+      onRegenerate={sceneId => openImageGeneration(sceneId)}
+      onGenerateMore={() => openImageGeneration(null)}
+      arrivedFrom={arrivedFrom}
       canGenerateMore={!generation.job || generation.job.setNumber < 3}
       onArchive={model.archiveVision}
     />

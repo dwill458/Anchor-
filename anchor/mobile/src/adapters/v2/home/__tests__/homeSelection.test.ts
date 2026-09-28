@@ -34,6 +34,8 @@ describe('useV2HomeModel selection identity', () => {
       ],
       currentAnchorId: 'a',
       isLoading: false,
+      persistedHydrated: true,
+      remoteAnchorState: 'loading',
     });
   });
 
@@ -66,5 +68,46 @@ describe('useV2HomeModel selection identity', () => {
     const { result } = renderHook(() => useV2HomeModel());
     expect(result.current.selectedIndex).toBe(-1);
     expect(result.current.selectedAnchor).toBeNull();
+    expect(result.current.anchorState).toBe('loading');
+  });
+
+  it('keeps a confirmed-empty account distinct from unknown or in-flight anchors', () => {
+    useAnchorStore.setState({
+      anchors: [],
+      currentAnchorId: undefined,
+      persistedHydrated: true,
+      isLoading: false,
+      remoteAnchorState: 'confirmed',
+    });
+    const { result } = renderHook(() => useV2HomeModel());
+    expect(result.current.anchorState).toBe('empty');
+    expect(result.current.selectedAnchor).toBeNull();
+  });
+
+  it('keeps a failed authoritative refresh distinct from a confirmed-empty account', () => {
+    useAnchorStore.setState({
+      anchors: [],
+      currentAnchorId: undefined,
+      persistedHydrated: true,
+      isLoading: false,
+      remoteAnchorState: 'error',
+      error: 'Unable to load your Anchors.',
+    });
+    const { result } = renderHook(() => useV2HomeModel());
+    expect(result.current.anchorState).toBe('error');
+    expect(result.current.anchorState).not.toBe('empty');
+  });
+
+  it('renders a persisted selected Anchor while server revalidation remains in flight', () => {
+    useAnchorStore.setState({
+      anchors: [makeAnchor({ id: 'cached-anchor', intentionText: 'Cached intention', category: 'career' })],
+      currentAnchorId: 'cached-anchor',
+      persistedHydrated: true,
+      isLoading: true,
+      remoteAnchorState: 'loading',
+    });
+    const { result } = renderHook(() => useV2HomeModel());
+    expect(result.current.anchorState).toBe('ready');
+    expect(result.current.selectedAnchor?.intentionText).toBe('Cached intention');
   });
 });

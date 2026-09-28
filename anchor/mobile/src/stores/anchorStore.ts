@@ -14,6 +14,7 @@ import AnchorSyncService from '@/services/AnchorSyncService';
 import { useAuthStore } from '@/stores/authStore';
 import { getAdjustedDateString } from '@/utils/dateUtils';
 import { logger } from '@/utils/logger';
+import { HomeStartupProfiler } from '@/utils/homeStartupProfiler';
 import { useVisualizationSceneStore } from './visualizationSceneStore';
 import {
   JOURNEY_MILESTONE_IDS,
@@ -67,6 +68,10 @@ const calculateTotalPrimes = (anchors: Anchor[]): number =>
 interface AnchorState {
   // State
   anchors: Anchor[];
+  /** Local encrypted store has finished rehydrating this process. */
+  persistedHydrated: boolean;
+  /** A successful server confirmation is required before showing the empty state. */
+  remoteAnchorState: 'unknown' | 'loading' | 'confirmed' | 'error';
   totalPrimes: number;
   primeStreak: number;
   lastPrimedDate: string | null;
@@ -85,6 +90,8 @@ interface AnchorState {
   getAnchorById: (id: string) => Anchor | undefined;
   getActiveAnchors: () => Anchor[];
   setLoading: (loading: boolean) => void;
+  setRemoteAnchorState: (state: AnchorState['remoteAnchorState']) => void;
+  setPersistedHydrated: (hydrated: boolean) => void;
   setError: (error: string | null) => void;
   markSynced: () => void;
   clearAnchors: () => void;
@@ -102,6 +109,8 @@ export const useAnchorStore = create<AnchorState>()(
     (set, get) => ({
       // Initial state
       anchors: [],
+      persistedHydrated: false,
+      remoteAnchorState: 'unknown',
       totalPrimes: 0,
       primeStreak: 0,
       lastPrimedDate: null,
@@ -258,6 +267,9 @@ export const useAnchorStore = create<AnchorState>()(
           isLoading: loading,
         }),
 
+      setRemoteAnchorState: (remoteAnchorState) => set({ remoteAnchorState }),
+      setPersistedHydrated: (persistedHydrated) => set({ persistedHydrated }),
+
       setError: (error) =>
         set({
           error,
@@ -272,6 +284,7 @@ export const useAnchorStore = create<AnchorState>()(
       clearAnchors: () =>
         set({
           anchors: [],
+          remoteAnchorState: 'unknown',
           totalPrimes: 0,
           primeStreak: 0,
           lastPrimedDate: null,
@@ -420,13 +433,20 @@ export const useAnchorStore = create<AnchorState>()(
         lastSyncedAt: state.lastSyncedAt,
         currentAnchorId: state.currentAnchorId,
       }),
-      onRehydrateStorage: () => (state) => {
-        if (!state) {
-          return;
-        }
+      onRehydrateStorage: () => {
+        const span = HomeStartupProfiler.start('anchor_store_persisted_hydration');
+        return (state, error) => {
+          if (!state) {
+            useAnchorStore.getState().setPersistedHydrated(true);
+            span({ ok: false, error: Boolean(error) });
+            return;
+          }
 
-        state.anchors = mergeAnchors([], state.anchors ?? []);
-        state.totalPrimes = calculateTotalPrimes(state.anchors);
+          state.anchors = mergeAnchors([], state.anchors ?? []);
+          state.totalPrimes = calculateTotalPrimes(state.anchors);
+          state.setPersistedHydrated(true);
+          span({ ok: !error, anchorCount: state.anchors.length, hasSelectedAnchor: Boolean(state.currentAnchorId) });
+        };
       },
     }
   )

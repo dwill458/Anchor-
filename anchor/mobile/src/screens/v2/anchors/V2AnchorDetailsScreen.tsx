@@ -1,3 +1,4 @@
+import { releaseArtworkRect } from '@/components/v2/release/releaseBurn';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, BackHandler, Image, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, useWindowDimensions, View, type ImageSourcePropType } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,6 +29,7 @@ import type { ChartMarker } from '@/components/v2/chart/ChartLandscape';
 import { chartWindowAroundRoutePoint } from '@/components/v2/chart/chartRouteGeometry';
 import { predictPracticeSetupAnchorRect, resolveAnchorDetailsHeroGeometry } from '@/navigation/v2/anchorHeroGeometry';
 import { useV2Responsive } from '@/hooks/v2';
+import { VisualProfiler } from '@/utils/visualProfiler';
 
 type Nav = NativeStackNavigationProp<V2DailyShellParamList, 'V2AnchorDetails'>;
 type Route = RouteProp<V2DailyShellParamList, 'V2AnchorDetails'>;
@@ -543,6 +545,21 @@ export function V2AnchorDetailsScreen() {
   const vision = useV2Vision(serverId);
 
   useEffect(() => {
+    VisualProfiler.record('detailsScreenMounted', { anchorId: params.anchorId });
+  }, [params.anchorId]);
+
+  useEffect(() => {
+    if (!__DEV__) return undefined;
+    const start = navigation.addListener('transitionStart', (event) => {
+      VisualProfiler.record('screenTransition', { screen: 'details', phase: 'start', closing: event.data.closing });
+    });
+    const end = navigation.addListener('transitionEnd', (event) => {
+      VisualProfiler.record('screenTransition', { screen: 'details', phase: 'end', closing: event.data.closing });
+    });
+    return () => { start(); end(); };
+  }, [navigation]);
+
+  useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       if (navigation.isFocused && !navigation.isFocused()) return false;
       navigation.goBack();
@@ -614,9 +631,15 @@ export function V2AnchorDetailsScreen() {
       ? visualizeDuration
       : focusDuration;
 
+  const openRelease = () => focusTransition.startAnchorTransition({
+    anchor: detail.anchor!, from: 'details',
+    to: { target: 'release', rect: releaseArtworkRect(width, height) },
+    onNavigate: (withHero) => withHero ? intents.onReleaseAnchor(anchorId, { anchorTransition: true }) : intents.onReleaseAnchor(anchorId),
+  });
+
   const openPractice = (mode: V2PracticeMode) => {
     if (mode === 'release') {
-      intents.onReleaseAnchor(anchorId);
+      openRelease();
       return;
     }
     // The medallion travels into the Practice setup this CTA opens.
@@ -637,7 +660,7 @@ export function V2AnchorDetailsScreen() {
 
   return (
     <AnchorTransitionScene place="details">
-      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']} onLayout={__DEV__ ? () => VisualProfiler.record('detailsLayoutReady', { anchorId: params.anchorId }) : undefined}>
         <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
         <ScrollView testID="v2-anchor-details-screen" showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <Hero
@@ -650,7 +673,7 @@ export function V2AnchorDetailsScreen() {
           onMore={() =>
             Alert.alert('Anchor', undefined, [
               { text: 'View Progress', onPress: () => intents.onOpenProgress(serverId) },
-              ...(!detail.anchor?.isReleased ? [{ text: 'Release this Anchor', onPress: () => intents.onReleaseAnchor(anchorId) }] : []),
+              ...(!detail.anchor?.isReleased ? [{ text: 'Release this Anchor', onPress: openRelease }] : []),
               { text: 'Cancel', style: 'cancel' },
             ])
           }
@@ -692,7 +715,7 @@ export function V2AnchorDetailsScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Release this Anchor"
-              onPress={() => intents.onReleaseAnchor(anchorId)}
+              onPress={openRelease}
               style={styles.releaseRow}
             >
               <View style={styles.releaseIconWrap}>

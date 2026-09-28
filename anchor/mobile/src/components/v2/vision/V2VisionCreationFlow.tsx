@@ -25,13 +25,13 @@ import {
 import { visionGenerationProgress } from './visionGenerationProgress';
 import { useVisionPresentationQueue, VISION_REVEAL_TIMING } from './useVisionPresentationQueue';
 import { VisionGenerationStage } from './VisionGenerationStage';
+import { VISION_BOARD_MAX_IMAGES } from './board/visionBoardLayouts';
 
 type SelectedAsset = { assetId: string; prompt: string; imageUrl?: string; sourceType: VisionSceneSource };
 type UploadItem = { key: string; uri: string; mimeType: string; assetId?: string; imageUrl?: string | null; status: 'uploading' | 'ready' | 'failed'; error?: string };
 /** Selection order is meaningful: the first chosen image becomes the Vision cover. */
 type Selection = { kind: 'candidate'; id: string } | { kind: 'upload'; key: string };
 
-const MAX_IMAGES = 5;
 const MAX_SETS = 3;
 const TILE_GAP = 10;
 
@@ -45,6 +45,8 @@ export interface V2VisionCreationFlowProps {
   /** The real Anchor artwork for the identity row (`anchorRenderProps(anchor)`). */
   anchorArt?: VisionAnchorArt | null;
   initialDescription?: string;
+  /** How many images may be chosen in this pass (a board with room left, or one replacement). */
+  selectionLimit?: number;
   initialStep?: 'ready' | 'empty' | 'prompt' | 'curation';
   /** Optional normalized focal point for entrance image motion (x: 0.0-1.0, y: 0.0-1.0). */
   focalPoint?: { x: number; y: number } | null;
@@ -196,7 +198,7 @@ function VisionEntranceStage({
 
 export function V2VisionCreationFlow({
   anchorId, anchorIntention, anchorCategory, anchorImageUrl, anchorArt, initialDescription = '',
-  initialStep = 'prompt', focalPoint, onBack, onPremiumRequired, onSaveDescription, resumeGeneration, onResumeGenerationConsumed, onUploadAsset, onAssemble,
+  initialStep = 'prompt', selectionLimit = VISION_BOARD_MAX_IMAGES, focalPoint, onBack, onPremiumRequired, onSaveDescription, resumeGeneration, onResumeGenerationConsumed, onUploadAsset, onAssemble,
   testID = 'v2-vision-creation-flow',
 }: V2VisionCreationFlowProps) {
   const { width, height } = useWindowDimensions();
@@ -223,6 +225,8 @@ export function V2VisionCreationFlow({
   const trimmed = description.trim();
   const validDescription = trimmed.length >= VISION_DESCRIPTION_MIN_CHARS && trimmed.length <= VISION_DESCRIPTION_MAX_CHARS;
   const selectedCount = selection.length;
+  const MAX_IMAGES = Math.max(1, Math.min(VISION_BOARD_MAX_IMAGES, selectionLimit));
+  const limitNotice = MAX_IMAGES === 1 ? 'Choose one image for this place on your board.' : `You can add up to ${MAX_IMAGES} images.`;
   const tileWidth = Math.floor((width - spacing[5] * 2 - TILE_GAP) / 2);
   const example = useMemo(() => visionDescriptionExample(anchorIntention, anchorCategory), [anchorCategory, anchorIntention]);
   // The network delivers images; this queue decides when each one is shown.
@@ -358,7 +362,7 @@ export function V2VisionCreationFlow({
   const pickImages = async () => {
     if (!validDescription) { setNotice('Describe your Vision first.'); return; }
     const remaining = MAX_IMAGES - selectedCount;
-    if (remaining < 1) { setNotice('A Vision can contain up to five images.'); return; }
+    if (remaining < 1) { setNotice(limitNotice); return; }
     try {
       if (Platform.OS === 'ios') {
         const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -413,7 +417,7 @@ export function V2VisionCreationFlow({
       setSelection(prev => prev.filter(item => !(item.kind === 'candidate' && item.id === candidate.id)));
       return;
     }
-    if (selectedCount >= MAX_IMAGES) { setNotice('A Vision can contain up to five images.'); return; }
+    if (selectedCount >= MAX_IMAGES) { setNotice(limitNotice); return; }
     v2Haptics.selection();
     setNotice(null);
     setSelection(prev => [...prev, { kind: 'candidate', id: candidate.id }]);
@@ -523,7 +527,7 @@ export function V2VisionCreationFlow({
         <ScrollView contentContainerStyle={[styles.inkPage, { paddingTop: insets.top, paddingBottom: spacing[6] }]}>
           <VisionHeaderRow title="Choose Your Images" onBack={() => setStep('prompt')} />
           {identity()}
-          <Text accessibilityRole="header" style={styles.curationTitle}>Select up to {MAX_IMAGES} images</Text>
+          <Text accessibilityRole="header" style={styles.curationTitle}>{MAX_IMAGES === 1 ? 'Choose a new image' : `Select up to ${MAX_IMAGES} images`}</Text>
           <Text style={styles.inkBody}>Choose the images that best represent your future. These are moments you can return to.</Text>
           <View style={styles.grid}>
             {curationCandidates.map((candidate, index) => {

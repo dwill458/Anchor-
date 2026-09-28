@@ -8,6 +8,8 @@ import type {
   V2ReleaseConsequenceSnapshot,
   V2ReleaseSnapshotInput,
 } from './types';
+import { anchorKeptExpression } from '@/components/v2/anchors/anchorPresentation';
+import type { Anchor } from '@/types';
 
 /**
  * Builds the preflight consequence snapshot from authoritative Anchor data.
@@ -45,6 +47,8 @@ export function buildReleaseConsequenceSnapshot(
     intentionText: anchor.intentionText,
     category: anchor.category ?? null,
     artworkSvg: anchor.reinforcedSigilSvg ?? anchor.baseSigilSvg ?? '',
+    imageUrl: anchor.enhancedImageUrl,
+    expression: anchorKeptExpression(anchor as Pick<Anchor, 'classifierMeta'>),
     hasLinkedCourse,
     hasLinkedVision: hasVision,
     consequences,

@@ -67,6 +67,9 @@ export const TimeZoneSchema = z
     }
   }, 'Must be a valid IANA time zone');
 
+/** A Vision is a board of at most this many photographs (the app composes 0-6). */
+export const VISION_MAX_IMAGES = 6;
+
 export const CreateVisionSceneSchema = z
   .object({
     sourceType: z.enum(VISION_SCENE_SOURCES),
@@ -81,7 +84,7 @@ export const CreateVisionSceneSchema = z
 export const CreateVisionSchema = z.object({
   title: z.string().trim().max(140).optional().nullable(),
   description: z.string().trim().min(12).max(2000).optional().nullable(),
-  scenes: z.array(CreateVisionSceneSchema).max(5).optional(),
+  scenes: z.array(CreateVisionSceneSchema).max(VISION_MAX_IMAGES).optional(),
 });
 
 export const StartVisionGenerationSchema = z.object({
@@ -114,7 +117,7 @@ export const ReorderScenesSchema = z.object({
       })
     )
     .min(1)
-    .max(5),
+    .max(VISION_MAX_IMAGES),
 });
 
 export const RecordVisionViewSchema = z.object({

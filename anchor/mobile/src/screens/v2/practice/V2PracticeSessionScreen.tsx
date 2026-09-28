@@ -16,6 +16,7 @@ import type { GuidanceVoice } from '@/types/sessionAudio';
 import { V2FocusActiveScreen, V2FocusCompleteScreen } from './focus';
 import { V2VisualizeSessionScreen } from './visualize/V2VisualizeSessionScreen';
 import { isV2VisualizeDuration } from './visualize/visualizeVisionPlan';
+import type { V2PracticeCompletionResult } from './practiceRoutes';
 import Animated from 'react-native-reanimated';
 import { useAnchorTransitionPlace, useAnchorTransitionReveal } from '@/navigation/v2/ProgressiveFocusTransition';
 
@@ -32,7 +33,7 @@ type Props = {
   /** The shared Anchor transition is carrying the Anchor in; the session hands its entry to it. */
   anchorTransition?: boolean;
   onBack: () => void;
-  onCompleted: () => void;
+  onCompleted: (result?: V2PracticeCompletionResult) => void;
   onFocusAgain: () => void;
 };
 
@@ -72,6 +73,7 @@ export function V2PracticeSessionScreen({
   const defaultVisualizeSettings = useSettingsStore((state) => state.sessionAudioDefaults?.visualize);
   const hapticIntensity = useSettingsStore((state) => state.hapticIntensity);
   const [focusSessionId, setFocusSessionId] = useState<string | null>(null);
+  const [focusActualDurationSeconds, setFocusActualDurationSeconds] = useState<number | null>(null);
   const focusSessionRecord = useSessionStore((state) =>
     focusSessionId ? state.practiceHistory.find((record) => record.id === focusSessionId) : undefined
   );
@@ -125,6 +127,99 @@ export function V2PracticeSessionScreen({
     return () => { clearInterval(interval); subscription.remove(); };
   }, [durationSeconds, legacyStatus, mode, visionModel.state.state]);
 
+  const focusEndingPromiseRef = useRef<Promise<void> | null>(null);
+
+  const startFocusPersistence = useCallback(
+    (sessionData: {
+      plannedDurationSeconds: number;
+      actualDurationSeconds: number;
+      startedAt: string;
+      completedAt: string;
+    }) => {
+      if (focusEndingPromiseRef.current) return focusEndingPromiseRef.current;
+      setFocusActualDurationSeconds(sessionData.actualDurationSeconds);
+      const resolvedAccountId = accountId ?? anchor?.userId ?? 'local-user';
+
+      const beforeStrength =
+        typeof anchor?.threadStrength === 'number' ? anchor.threadStrength : null;
+      const sessionId = `v2-focus-${anchor?.id}-${Date.now()}`;
+      setFocusSessionId(sessionId);
+
+      const promise = (async () => {
+        try {
+          await PracticeCompletionService.completePracticeSession(
+            {
+              sessionId,
+              accountId: resolvedAccountId,
+              anchorId: anchor && isBackendAnchorId(anchor.id) ? anchor.id : null,
+              anchorLocalId: anchor?.localId ?? anchor?.id,
+              anchorServerId: anchor && isBackendAnchorId(anchor.id) ? anchor.id : null,
+              mode: 'focus',
+              plannedDurationSeconds: sessionData.plannedDurationSeconds,
+              actualDurationSeconds: sessionData.actualDurationSeconds,
+              startedAt: sessionData.startedAt,
+              completedAt: sessionData.completedAt,
+              source: 'practice_screen',
+              guidanceVoice: resolvedVoice,
+              backgroundAudio: resolvedAmbient ? 'ambient' : 'off',
+              metadata: { v2_entry_source: source },
+            },
+            { flushImmediately: false }
+          );
+
+          // The canonical record is already durable locally. Network sync must
+          // not hold the completion surface hostage when the account API is slow
+          // or unavailable; `flush` retains the queued record on failure.
+          void PracticeCompletionService.flush(resolvedAccountId).catch(() => undefined);
+        } catch {
+          // A rejection can mean the local durable write failed. Do not report
+          // reinforcement unless PracticeCompletionService accepted the record.
+          setFocusPersistenceFailed(true);
+        }
+
+        const freshAnchor = anchor
+          ? useAnchorStore
+              .getState()
+              .anchors.find((a) => a.id === anchor.id || a.localId === anchor.id)
+          : undefined;
+        const sessionRecord = useSessionStore
+          .getState()
+          .practiceHistory.find((p) => p.id === sessionId);
+
+        const resolvedBefore =
+          sessionRecord?.threadStrengthBefore ??
+          (typeof beforeStrength === 'number' ? beforeStrength : null);
+        const resolvedAfter =
+          sessionRecord?.threadStrengthAfter ??
+          (typeof freshAnchor?.threadStrength === 'number'
+            ? freshAnchor.threadStrength
+            : resolvedBefore);
+
+        setStrengthSnapshot({
+          before: resolvedBefore,
+          after: resolvedAfter,
+        });
+      })();
+
+      focusEndingPromiseRef.current = promise;
+      return promise;
+    },
+    [accountId, anchor, resolvedAmbient, resolvedVoice, source]
+  );
+
+  const handleFocusEnding = useCallback(
+    (sessionData: {
+      plannedDurationSeconds: number;
+      actualDurationSeconds: number;
+      startedAt: string;
+      completedAt: string;
+    }) => {
+      if (!anchor) return;
+      void startFocusPersistence(sessionData);
+    },
+    [anchor, startFocusPersistence]
+  );
+
   // Focus completion handler
   const handleFocusComplete = useCallback(
     async (sessionData: {
@@ -137,74 +232,30 @@ export function V2PracticeSessionScreen({
       // Lock before the asynchronous completion service begins. Both automatic
       // and manual endings enter here through the same active-screen callback.
       focusCompletionStartedRef.current = true;
-      const resolvedAccountId = accountId ?? anchor.userId ?? 'local-user';
 
-      const beforeStrength =
-        typeof anchor.threadStrength === 'number' ? anchor.threadStrength : null;
-      const sessionId = `v2-focus-${anchor.id}-${Date.now()}`;
-      setFocusSessionId(sessionId);
-
-      try {
-        await PracticeCompletionService.completePracticeSession(
-          {
-            sessionId,
-            accountId: resolvedAccountId,
-            anchorId: isBackendAnchorId(anchor.id) ? anchor.id : null,
-            anchorLocalId: anchor.localId ?? anchor.id,
-            anchorServerId: isBackendAnchorId(anchor.id) ? anchor.id : null,
-            mode: 'focus',
-            plannedDurationSeconds: sessionData.plannedDurationSeconds,
-            actualDurationSeconds: sessionData.actualDurationSeconds,
-            startedAt: sessionData.startedAt,
-            completedAt: sessionData.completedAt,
-            source: 'practice_screen',
-            guidanceVoice: resolvedVoice,
-            backgroundAudio: resolvedAmbient ? 'ambient' : 'off',
-            metadata: { v2_entry_source: source },
-          },
-          { flushImmediately: false }
-        );
-
-        // The canonical record is already durable locally. Network sync must
-        // not hold the completion surface hostage when the account API is slow
-        // or unavailable; `flush` retains the queued record on failure.
-        void PracticeCompletionService.flush(resolvedAccountId).catch(() => undefined);
-      } catch {
-        // A rejection can mean the local durable write failed. Do not report
-        // reinforcement unless PracticeCompletionService accepted the record.
-        setFocusPersistenceFailed(true);
+      const persistence =
+        focusEndingPromiseRef.current ?? startFocusPersistence(sessionData);
+      if (persistence) {
+        await persistence;
       }
-
-      const freshAnchor = useAnchorStore
-        .getState()
-        .anchors.find((a) => a.id === anchor.id || a.localId === anchor.id);
-      const sessionRecord = useSessionStore
-        .getState()
-        .practiceHistory.find((p) => p.id === sessionId);
-
-      const resolvedBefore =
-        sessionRecord?.threadStrengthBefore ??
-        (typeof beforeStrength === 'number' ? beforeStrength : null);
-      const resolvedAfter =
-        sessionRecord?.threadStrengthAfter ??
-        (typeof freshAnchor?.threadStrength === 'number'
-          ? freshAnchor.threadStrength
-          : resolvedBefore);
-
-      setStrengthSnapshot({
-        before: resolvedBefore,
-        after: resolvedAfter,
-      });
       setFocusPhase('complete');
     },
-    [accountId, anchor, resolvedAmbient, resolvedVoice, source]
+    [anchor, startFocusPersistence]
   );
 
   const handleDone = useCallback(() => {
     // Continue has a semantic destination: the Practice hub. The parent clears
     // both the session and setup layers, rather than relying on stack history.
+    if (mode === 'focus') {
+      onCompleted({
+        mode: 'focus',
+        durationSeconds: focusActualDurationSeconds ?? durationSeconds,
+        saved: !focusPersistenceFailed,
+      });
+      return;
+    }
     onCompleted();
-  }, [onCompleted]);
+  }, [durationSeconds, focusActualDurationSeconds, focusPersistenceFailed, mode, onCompleted]);
 
   const handleAgain = useCallback(() => {
     onFocusAgain();
@@ -290,6 +341,7 @@ export function V2PracticeSessionScreen({
           entryStartCenterY={focusEntryAnchorCenterY}
           entryStartSize={focusEntryAnchorSize}
           onExit={onBack}
+          onEnding={handleFocusEnding}
           onComplete={handleFocusComplete}
         />
       );

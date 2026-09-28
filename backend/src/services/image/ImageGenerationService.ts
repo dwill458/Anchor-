@@ -214,10 +214,13 @@ export class ImageGenerationService {
     }
 
     // 2. Evaluate Fallback Eligibility
-    // Only fall back on retryable infrastructure errors (timeout, 429, 5xx, network error, provider outage).
-    // Do NOT fall back on safety filter rejections or bad user input.
+    // Fall back on retryable infrastructure errors (timeout, 429, 5xx, network error, provider outage)
+    // and on INVALID_REQUEST: a provider 400 for a malformed request is a fault in our adapter,
+    // not the user's input, and the other provider can still render it.
+    // Do NOT fall back on safety filter rejections.
     const isRetryableError =
       primaryError?.retryable ||
+      primaryError?.type === ImageProviderErrorType.INVALID_REQUEST ||
       primaryError?.type === ImageProviderErrorType.TIMEOUT ||
       primaryError?.type === ImageProviderErrorType.RATE_LIMIT ||
       primaryError?.type === ImageProviderErrorType.SERVER_ERROR ||

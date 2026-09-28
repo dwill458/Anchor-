@@ -49,14 +49,22 @@ function V2AssetPrewarmComponent({ sources, remoteUris, delayMs = 700 }: Props) 
   const remoteKey = (remoteUris ?? []).filter(Boolean).join(',');
   useEffect(() => {
     if (!remoteKey) return;
+    const remoteDelay = Math.min(delayMs, 50);
     const timer = setTimeout(() => {
       remoteKey
         .split(',')
         .slice(0, MAX_REMOTE_PREFETCH)
         .forEach((uri) => {
-          void Image.prefetch(uri).catch(() => undefined);
+          try {
+            const result = Image.prefetch?.(uri);
+            if (result && typeof result.catch === 'function') {
+              result.catch(() => undefined);
+            }
+          } catch {
+            // Ignore prefetch errors in tests or environments without prefetch support
+          }
         });
-    }, delayMs);
+    }, remoteDelay);
     return () => clearTimeout(timer);
   }, [remoteKey, delayMs]);
 

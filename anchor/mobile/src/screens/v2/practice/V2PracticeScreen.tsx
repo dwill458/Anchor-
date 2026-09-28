@@ -20,7 +20,7 @@ import { useSessionStore } from '@/stores/sessionStore';
 import { localDateString } from '@/utils/primingAnalytics';
 import { AnchorMotion, colors, spacing, typography } from '@/theme/v2';
 import type { Anchor } from '@/types';
-import type { V2PracticeRouteIntents, V2PracticeStartRequest } from './practiceRoutes';
+import type { V2PracticeCompletionResult, V2PracticeRouteIntents, V2PracticeStartRequest } from './practiceRoutes';
 import { V2PracticePrepareScreen } from './V2PracticePrepareScreen';
 import { V2PracticeSessionScreen } from './V2PracticeSessionScreen';
 import { V2FocusPrepScreen } from './focus';
@@ -155,6 +155,7 @@ export function V2PracticeScreen({
   const [activeSession, setActiveSession] = useState<V2PracticeStartRequest | null>(null);
   const [justCompletedTodayAnchorId, setJustCompletedTodayAnchorId] = useState<string | null>(null);
   const [justCompletedMode, setJustCompletedMode] = useState<V2PracticeMode | null>(null);
+  const [justCompletedDurationSeconds, setJustCompletedDurationSeconds] = useState<number | null>(null);
 
   const effectiveCapabilities = capabilities ?? model.capability;
 
@@ -179,20 +180,23 @@ export function V2PracticeScreen({
     return latest;
   }, [practiceHistory, sessionLog]);
 
-  const lastCompletedModeToday = useMemo<V2PracticeMode | null>(() => {
+  const lastCompletedPracticeToday = useMemo<{ mode: V2PracticeMode; durationSeconds?: number } | null>(() => {
     if (!fixedAnchor) return null;
+    const anchorMatches = (id?: string | null) =>
+      Boolean(id && (id === fixedAnchor.id || id === fixedAnchor.localId));
     if (
       justCompletedMode &&
       justCompletedTodayAnchorId &&
-      (fixedAnchor.id === justCompletedTodayAnchorId || fixedAnchor.localId === justCompletedTodayAnchorId)
+      anchorMatches(justCompletedTodayAnchorId)
     ) {
-      return justCompletedMode;
+      return {
+        mode: justCompletedMode,
+        durationSeconds: justCompletedDurationSeconds ?? undefined,
+      };
     }
-    const anchorMatches = (id?: string | null) =>
-      Boolean(id && (id === fixedAnchor.id || id === fixedAnchor.localId));
 
     let latestTime = 0;
-    let latestMode: V2PracticeMode | null = null;
+    let latest: { mode: V2PracticeMode; durationSeconds?: number } | null = null;
 
     practiceHistory?.forEach((p) => {
       if ((anchorMatches(p.anchorId) || anchorMatches(p.anchorLocalId)) && p.completedAt) {
@@ -206,7 +210,13 @@ export function V2PracticeScreen({
               p.practiceMode === 'release')
           ) {
             latestTime = t;
-            latestMode = p.practiceMode;
+            const durationSeconds =
+              typeof p.completedDurationSeconds === 'number' && p.completedDurationSeconds > 0
+                ? p.completedDurationSeconds
+                : typeof p.plannedDurationSeconds === 'number' && p.plannedDurationSeconds > 0
+                  ? p.plannedDurationSeconds
+                  : undefined;
+            latest = { mode: p.practiceMode, durationSeconds };
           }
         }
       }
@@ -216,22 +226,22 @@ export function V2PracticeScreen({
       if (anchorMatches(s.anchorId) && s.completedAt) {
         if (localDateString(new Date(s.completedAt)) === todayKey) {
           const t = new Date(s.completedAt).getTime();
-          if (t >= latestTime) {
+          if (t > latestTime) {
             let mode: V2PracticeMode | null = null;
             if (s.type === 'activate') mode = 'focus';
             else if (s.type === 'reinforce') mode = 'deep_prime';
             else if (s.type === 'visualize') mode = 'visualize';
             if (mode) {
               latestTime = t;
-              latestMode = mode;
+              latest = { mode };
             }
           }
         }
       }
     });
 
-    return latestMode;
-  }, [fixedAnchor, justCompletedMode, justCompletedTodayAnchorId, practiceHistory, sessionLog, todayKey]);
+    return latest;
+  }, [fixedAnchor, justCompletedDurationSeconds, justCompletedMode, justCompletedTodayAnchorId, practiceHistory, sessionLog, todayKey]);
 
   const isCompletedToday = useMemo(() => {
     if (!fixedAnchor) return false;
@@ -351,12 +361,15 @@ export function V2PracticeScreen({
     });
   };
 
-  const handleSessionCompleted = () => {
-    if (fixedAnchor) {
+  const handleSessionCompleted = (completion?: V2PracticeCompletionResult) => {
+    if (fixedAnchor && completion?.saved !== false) {
       setJustCompletedTodayAnchorId(fixedAnchor.id);
-      if (activeSession) {
-        setJustCompletedMode(activeSession.mode);
-      }
+      const completedMode = completion?.mode ?? activeSession?.mode;
+      if (completedMode) setJustCompletedMode(completedMode);
+      const completedDuration = completion?.durationSeconds ?? activeSession?.durationSeconds;
+      setJustCompletedDurationSeconds(
+        typeof completedDuration === 'number' && completedDuration > 0 ? completedDuration : null,
+      );
     }
     setActiveSession(null);
     setPrepareMode(null);
@@ -491,7 +504,7 @@ export function V2PracticeScreen({
     : null;
 
   const displayHeroMode = isCompletedToday
-    ? (lastCompletedModeToday ?? recommendedMode ?? 'focus')
+    ? (lastCompletedPracticeToday?.mode ?? recommendedMode ?? 'focus')
     : recommendedMode;
 
   return (
@@ -543,6 +556,11 @@ export function V2PracticeScreen({
               mode={displayHeroMode}
               reason={model.recommendation?.recommendation.reason}
               isCompletedToday={isCompletedToday}
+              completedDurationSeconds={
+                lastCompletedPracticeToday?.mode === displayHeroMode
+                  ? lastCompletedPracticeToday.durationSeconds
+                  : undefined
+              }
               onPress={() => openModeFromHub(displayHeroMode, 'recommended_today')}
               onPracticeAgain={() => openModeFromHub(displayHeroMode, 'recommended_today')}
             />

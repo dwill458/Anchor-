@@ -296,10 +296,13 @@ describe('V2 API Routes (/api/v2)', () => {
 
       expect(res.body.success).toBe(true);
       expect(res.body.data.recommendation.action).toBe('Release');
+      expect(res.headers['server-timing']).toMatch(/recommendation-context;dur=/);
       expect(mockRecommendationService.getRecommendationContext).toHaveBeenCalledWith(
         'db-user-1',
         'anchor-1',
-        'UTC'
+        'UTC',
+        null,
+        expect.any(Function),
       );
     });
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { V2Button } from '@/components/v2';
-import { typography } from '@/theme/v2';
+import { releaseTypography } from './releaseTypography';
 import { RELEASE_CEREMONY_CHAMBER_BG, RELEASE_COPY } from '@/constants/v2/release';
 
 interface Props {
@@ -81,12 +81,12 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   title: {
-    ...typography.headingLG,
+    ...releaseTypography.title,
     color: INK,
     textAlign: 'center',
   },
   detail: {
-    ...typography.bodyMD,
+    ...releaseTypography.body,
     color: MUTED,
     textAlign: 'center',
   },

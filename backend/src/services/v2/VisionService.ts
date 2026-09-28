@@ -11,6 +11,7 @@ import {
   UpdateVisionSchema,
   CreateVisionSceneSchema,
   ReorderScenesSchema,
+  VISION_MAX_IMAGES,
 } from '../../domain/v2/vision';
 import { z } from 'zod';
 
@@ -183,7 +184,7 @@ export class VisionService {
       });
       const selectedIds = new Set(alreadySelected.map(scene => scene.assetId));
       const missing = input.scenes.filter(scene => !selectedIds.has(scene.assetId));
-      if (alreadySelected.length + missing.length > 5) throw new AppError('A Vision can contain up to five images', 400, 'VISION_IMAGE_LIMIT');
+      if (alreadySelected.length + missing.length > VISION_MAX_IMAGES) throw new AppError(`A Vision can contain up to ${VISION_MAX_IMAGES} images`, 400, 'VISION_IMAGE_LIMIT');
       for (let i = 0; i < input.scenes.length; i++) {
         const scene = input.scenes[i];
         if (selectedIds.has(scene.assetId)) continue;
@@ -293,7 +294,7 @@ export class VisionService {
     }
 
     const count = await prisma.visionScene.count({ where: { visionId, isArchived: false } });
-    if (count >= 5) throw new AppError('A Vision can contain up to five images', 400, 'VISION_IMAGE_LIMIT');
+    if (count >= VISION_MAX_IMAGES) throw new AppError(`A Vision can contain up to ${VISION_MAX_IMAGES} images`, 400, 'VISION_IMAGE_LIMIT');
     await this.validateSceneAsset(userId, vision.anchorId, input.assetId, input.sourceType, vision.id);
 
     let sortOrder = input.sortOrder;

@@ -219,9 +219,9 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
         ) : null}
       </Animated.View>
 
-      {slot === 0 && transition.copyMounted && transition.sourcePlace === 'home' ? (
-        <View style={[styles.artworkBox, { height: artworkBoxHeight }]} />
-      ) : <Animated.View style={[styles.artworkBox, { height: artworkBoxHeight }, artworkMotion]}>
+      <Animated.View style={[styles.artworkBox, { height: artworkBoxHeight }, artworkMotion]}>
+        {/* Hidden in place (never unmounted) while the travelling copy stands in for it, leaving or returning. */}
+        <View style={[styles.artworkLayer, slot === 0 && transition.copyMounted && (transition.sourcePlace === 'home' || transition.targetPlace === 'home') ? styles.artworkHidden : null]}>
         <View
           style={[
             styles.construction,
@@ -237,7 +237,7 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
         >
           <ConstructionStrokes color={accent} size={constructionSize} />
         </View>
-        <View style={[styles.anchorMount, { width: anchorSize + 14, height: anchorSize + 14, borderRadius: (anchorSize + 14) / 2, borderColor: `${accent}30` }]}>
+        <View style={[styles.anchorMount, { width: anchorSize + 14, height: anchorSize + 14, borderRadius: (anchorSize + 14) / 2 }]}>
           <Pressable testID={slot === 0 ? 'v2-home-carousel-active' : undefined}
             accessibilityRole={slot === 0 ? 'button' : undefined}
             accessibilityLabel={`${anchor.intentionText}. ${categoryLabel(anchor.category)}. View Anchor details.`}
@@ -256,7 +256,8 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
             </Animated.View>
           </Pressable>
         </View>
-      </Animated.View>}
+        </View>
+      </Animated.View>
 
       <Animated.View style={textMotion} pointerEvents={slot === 0 ? 'auto' : 'none'}>
         <View style={styles.intentionBlock}>
@@ -319,17 +320,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  artworkLayer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  artworkHidden: {
+    opacity: 0,
+  },
   construction: {
     position: 'absolute',
   },
   anchorMount: {
     padding: 6,
-    borderWidth: 1,
-    backgroundColor: '#FBF9F4',
-    shadowColor: '#352D25',
-    shadowOpacity: 0.10,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 5 },
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(20, 22, 43, 0.06)',
+    backgroundColor: colors.frame,
+    shadowColor: '#14162B',
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
     elevation: 3,
   },
   contextRow: {

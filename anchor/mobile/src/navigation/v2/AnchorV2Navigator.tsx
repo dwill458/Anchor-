@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { releaseArtworkRect } from '@/components/v2/release/releaseBurn';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { BackHandler, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { ArrowLeft } from 'lucide-react-native';
@@ -29,10 +30,11 @@ import { useFirstRunStore } from '@/stores/v2/firstRunStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { generateExpressionCandidates, persistCreatedAnchor } from '@/services/v2/creationPersistence';
 import type { V2PracticeMode } from '@/constants/v2/practice';
+import type { Anchor } from '@/types';
 import type { AnchorV2StackParamList } from './types';
 import { useV2ReduceMotion } from '@/hooks/v2';
 import { V2_TRANSITION_SETTLE_MS, v2ScreenBackground, v2StackScreenOptions } from './transitions';
-import { ProgressiveFocusTransitionProvider } from './ProgressiveFocusTransition';
+import { ProgressiveFocusTransitionProvider, useOptionalAnchorTransition } from './ProgressiveFocusTransition';
 import { handOffToHome, prepareHomeArrival } from './creationHandoff';
 
 const Stack = createNativeStackNavigator<AnchorV2StackParamList>();
@@ -90,6 +92,8 @@ function V2PracticeRouteScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<AnchorV2StackParamList, 'V2Practice'>>();
   const anchorId = route.params?.anchorId;
+  const transition = useOptionalAnchorTransition();
+  const viewport = useWindowDimensions();
   const recommendedMode = route.params?.recommendedMode;
   const resumeMode = route.params?.resumeMode;
   const resumeDuration = route.params?.resumeDuration;
@@ -109,9 +113,10 @@ function V2PracticeRouteScreen() {
     return () => clearTimeout(timer);
   }, [anchorTransition, navigation, reduceMotion]);
 
-  const anchors = typeof useAnchorStore === 'function'
-    ? useAnchorStore((s) => s.anchors)
-    : (useAnchorStore.getState?.()?.anchors ?? []);
+  const anchorStore = useAnchorStore as typeof useAnchorStore | { getState?: () => { anchors?: Anchor[] } };
+  const anchors = typeof anchorStore === 'function'
+    ? anchorStore((s) => s.anchors)
+    : (anchorStore.getState?.()?.anchors ?? []);
   const suppliedAnchor = anchorId
     ? anchors.find((a) => a.id === anchorId || a.localId === anchorId)
     : undefined;
@@ -152,7 +157,9 @@ function V2PracticeRouteScreen() {
         navigation.navigate('V2Vision', { anchorId: id });
       }}
       onReleaseRequested={(id, reason) => {
-        navigation.navigate('V2Release', { anchorId: id, reason });
+        const navigate = (withHero: boolean) => navigation.navigate('V2Release', { anchorId: id, reason, ...(withHero ? { anchorTransition: true } : {}) });
+        if (suppliedAnchor && transition) transition.startAnchorTransition({ anchor: suppliedAnchor, from: 'practiceSetup', to: { target: 'release', rect: releaseArtworkRect(viewport.width, viewport.height) }, onNavigate: navigate });
+        else navigate(false);
       }}
     />
   );
@@ -208,7 +215,21 @@ function V2CreationRouteScreen() {
 function V2ReleaseRouteScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<AnchorV2StackParamList, 'V2Release'>>();
-  return <V2ReleaseScreen {...route.params} onCancel={() => navigation.goBack()} onReleaseCompleted={() => navigation.replace('V2DevelopmentHome')} />;
+  const [active, setActive] = useState(false);
+  const reduceMotion = useV2ReduceMotion();
+  useEffect(() => {
+    if (!active) return;
+    const unsubscribe = navigation.addListener('beforeRemove', (event: { preventDefault: () => void }) => event.preventDefault());
+    const hardwareBack = BackHandler.addEventListener('hardwareBackPress', () => true);
+    return () => { unsubscribe(); hardwareBack.remove(); };
+  }, [active, navigation]);
+  useEffect(() => { navigation.setOptions({ gestureEnabled: !active }); }, [active, navigation]);
+  useEffect(() => {
+    if (!route.params.anchorTransition) return;
+    const timer = setTimeout(() => navigation.setOptions({ animation: v2StackScreenOptions(reduceMotion).animation }), V2_TRANSITION_SETTLE_MS + 200);
+    return () => clearTimeout(timer);
+  }, [navigation, reduceMotion, route.params.anchorTransition]);
+  return <V2ReleaseScreen {...route.params} onSessionActiveChange={setActive} onCancel={() => navigation.goBack()} onReleaseCompleted={() => navigation.replace('V2DevelopmentHome')} onViewHistory={() => navigation.replace('V2AnchorLibrary')} />;
 }
 
 function V2VisionRouteScreen() {
@@ -330,7 +351,7 @@ export function AnchorV2Navigator() {
         <Stack.Screen name="V2ChartAdjust" component={V2ChartAdjustScreen} options={GRAPHITE_BACKGROUND} />
         <Stack.Screen name="V2ChartJourney" component={V2ChartJourneyScreen} options={GRAPHITE_BACKGROUND} />
         <Stack.Screen name="V2Progress" component={V2ProgressScreen} options={GRAPHITE_BACKGROUND} />
-        <Stack.Screen name="V2Release" component={V2ReleaseRouteScreen} />
+        <Stack.Screen name="V2Release" component={V2ReleaseRouteScreen} options={({ route }) => route.params?.anchorTransition ? { animation: 'none' } : {}} />
         <Stack.Screen name="V2WeeklyInsight" component={V2WeeklyInsightRouteScreen} />
         {/* Legacy dark surfaces keep the app's transparent default. */}
         <Stack.Screen name="V2Settings" component={SettingsScreen} options={TRANSPARENT_BACKGROUND} />

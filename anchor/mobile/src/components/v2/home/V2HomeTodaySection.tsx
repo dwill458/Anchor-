@@ -1,12 +1,14 @@
-import React, { memo } from 'react';
+import React, { memo, useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
 import Svg, { Path, Polygon } from 'react-native-svg';
 import type { V2HomeTodayState } from '@/adapters/v2/home';
 import { V2_PRACTICE_MODE_BY_ID, V2_RECOMMENDATION_WHY } from '@/constants/v2/practice';
 import { V2_RECOMMENDATION_REASON_COPY } from '@/constants/v2/home';
 import { V2DissolvedArtwork } from '@/components/v2/primitives';
+import { VisualProfiler } from '@/utils/visualProfiler';
 import { colors, typography } from '@/theme/v2';
 import { getPracticeCardTheme } from '@/theme/v2/practiceColors';
+import { resolvePracticeArtwork } from '@/components/v2/practice';
 
 type Props = {
   today: V2HomeTodayState;
@@ -34,13 +36,6 @@ type Props = {
  * skeleton's reserved height matching the resolved layout.
  */
 const TODAY_BODY_HEIGHT = 122;
-
-const TODAY_ART: Record<string, ImageSourcePropType> = {
-  focus: require('@/assets/practice/today/focus.jpg'),
-  deep_prime: require('@/assets/practice/today/deep-prime.jpg'),
-  visualize: require('@/assets/practice/today/visualize.jpg'),
-  release: require('@/assets/practice/today/release.jpg'),
-};
 
 /**
  * The practice illustrations share one composition — a glowing focal element
@@ -96,7 +91,20 @@ export function todayReasonCopy(reason: string, mode: keyof typeof V2_RECOMMENDA
  * below it is allowed to compete. Every value here comes from the server
  * recommendation for the ACTIVE Anchor; nothing is hardcoded.
  */
+type ReadyToday = Extract<V2HomeTodayState, { state: 'ready' }>;
+
 function V2HomeTodaySectionComponent({ today, visionCoverUri, visionCoverIsReused, onBegin, onOpenAllPractices, onRetry, testID }: Props) {
+  const lastReadyRef = useRef<ReadyToday | null>(today.state === 'ready' ? today : null);
+  if (today.state === 'ready') {
+    lastReadyRef.current = today;
+  }
+
+  useEffect(() => {
+    if (today.state === 'ready') {
+      VisualProfiler.record('todayContentChange', { mode: today.mode, reason: today.reason });
+    }
+  }, [today]);
+
   const allPractices = onOpenAllPractices ? (
     <Pressable
       testID="v2-home-all-practices"
@@ -110,8 +118,8 @@ function V2HomeTodaySectionComponent({ today, visionCoverUri, visionCoverIsReuse
     </Pressable>
   ) : null;
 
-  // Resolving: render the section's frame only, never a fabricated recommendation.
-  if (today.state === 'none' || today.state === 'loading') {
+  // Resolving on cold start or explicitly none: render skeleton on cold start only
+  if ((today.state === 'none' || today.state === 'loading') && !lastReadyRef.current) {
     return (
       <View testID={testID} style={styles.container}>
         <Text style={styles.kicker}>TODAY</Text>
@@ -126,7 +134,7 @@ function V2HomeTodaySectionComponent({ today, visionCoverUri, visionCoverIsReuse
     );
   }
 
-  if (today.state === 'error') {
+  if (today.state === 'error' && !lastReadyRef.current) {
     return (
       <View testID={testID} style={styles.container}>
         <Text style={styles.kicker}>TODAY</Text>
@@ -143,13 +151,16 @@ function V2HomeTodaySectionComponent({ today, visionCoverUri, visionCoverIsReuse
     );
   }
 
-  const definition = V2_PRACTICE_MODE_BY_ID[today.mode];
-  const duration = durationLabel(today.durationSeconds);
-  const accent = getPracticeCardTheme(today.mode).heroBadgeBg;
+  const activeToday = today.state === 'ready' ? today : lastReadyRef.current;
+  if (!activeToday) return null;
+
+  const definition = V2_PRACTICE_MODE_BY_ID[activeToday.mode];
+  const duration = durationLabel(activeToday.durationSeconds);
+  const accent = getPracticeCardTheme(activeToday.mode).heroBadgeBg;
   // Visualize is the one recommendation that borrows the Anchor's own future
   // rather than illustrated Practice art — but only when a real cover exists.
-  const usesVisionArt = today.mode === 'visualize' && Boolean(visionCoverUri);
-  const artSource = usesVisionArt ? { uri: visionCoverUri } : TODAY_ART[today.mode];
+  const usesVisionArt = activeToday.mode === 'visualize' && Boolean(visionCoverUri);
+  const artSource = usesVisionArt ? { uri: visionCoverUri } : resolvePracticeArtwork(activeToday.mode);
   const artFocus = usesVisionArt && visionCoverIsReused ? TODAY_ART_FOCUS_REUSED_VISION : TODAY_ART_FOCUS;
 
   return (
@@ -169,7 +180,7 @@ function V2HomeTodaySectionComponent({ today, visionCoverUri, visionCoverIsReuse
           <Text style={styles.ribbonText}>TODAY</Text>
           <Svg width={9} height={22} style={styles.ribbonTip}><Polygon points="0,0 9,11 0,22" fill={accent} /></Svg>
         </View>
-        {today.completionSignal ? <Text style={styles.returned}>Returned today</Text> : null}
+        {activeToday.completionSignal ? <Text style={styles.returned}>Returned today</Text> : null}
       </View>
 
       <Text testID="v2-home-today-headline" style={styles.headline}>
@@ -179,17 +190,17 @@ function V2HomeTodaySectionComponent({ today, visionCoverUri, visionCoverIsReuse
       <Pressable
         testID="v2-home-today-begin"
         accessibilityRole="button"
-        accessibilityLabel={today.mode === 'release' ? 'Open Release' : `Begin ${definition.title} practice`}
+        accessibilityLabel={activeToday.mode === 'release' ? 'Open Release' : `Begin ${definition.title} practice`}
         onPress={onBegin}
         disabled={!onBegin}
         style={({ pressed }) => [styles.begin, pressed && styles.pressed]}
       >
-        <Text style={styles.beginText}>{today.mode === 'release' ? 'Open Release' : duration ? `Begin · ${duration}` : 'Begin'}</Text>
+        <Text style={styles.beginText}>{activeToday.mode === 'release' ? 'Open Release' : duration ? `Begin · ${duration}` : 'Begin'}</Text>
         <ArrowRight color={colors.graphite.text.primary} />
       </Pressable>
 
       <Text testID="v2-home-today-reason" style={styles.reason}>
-        {todayReasonCopy(today.reason, today.mode)}
+        {todayReasonCopy(activeToday.reason, activeToday.mode)}
       </Text>
 
       {allPractices}

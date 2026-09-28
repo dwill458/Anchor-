@@ -3,6 +3,7 @@ import {
   buildVisionScenePlannerPrompt,
   isStoredVisionScenePlan,
   parseVisionScenePlan,
+  VISION_BOARD_PHOTO_RULES,
 } from '../visionScenePlanning';
 
 const input = {
@@ -160,3 +161,19 @@ describe('buildVisionImagePrompt', () => {
   });
 });
 
+describe('Vision board photographs', () => {
+  it('plans individual photographs for a board, never a collage', () => {
+    const prompt = buildVisionScenePlannerPrompt(input);
+    expect(prompt).toMatch(/individual pictures on one Vision board/);
+    expect(prompt).toMatch(/Never plan a collage/);
+  });
+
+  it('asks the image model for one standalone photograph with no frame, board, tape or caption of its own', () => {
+    const prompt = buildVisionImagePrompt({ ...input, scene: plan()[0] as never });
+    expect(prompt).toContain(VISION_BOARD_PHOTO_RULES);
+    for (const forbidden of ['collage', 'cork or pin board', 'polaroid', 'border', 'caption', 'tape']) {
+      expect(VISION_BOARD_PHOTO_RULES).toContain(forbidden);
+    }
+    expect(prompt).toMatch(/No readable text/);
+  });
+});

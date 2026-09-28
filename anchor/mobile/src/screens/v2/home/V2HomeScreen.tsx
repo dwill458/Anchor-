@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { AppState, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Svg, { Circle, Ellipse, Path } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
@@ -21,7 +21,10 @@ import {
   V2HomeVisionSection,
 } from '@/components/v2/home';
 import { resolveVisionAlternateImage, resolveVisionHeroImage, useV2HomeModel } from '@/adapters/v2/home';
+import { useHomePrewarm } from '@/hooks/v2/home';
 import { useV2ReduceMotion, useV2Responsive } from '@/hooks/v2';
+import { VisualProfiler } from '@/utils/visualProfiler';
+import { HomeStartupProfiler } from '@/utils/homeStartupProfiler';
 import { useV2ThreadEventQueue } from '@/hooks/v2/threadEvents';
 import { V2ThreadEventModal } from '@/components/v2/threadEvents';
 import { colors, getCategoryColor, typography } from '@/theme/v2';
@@ -100,8 +103,9 @@ function EmptyHomeGestureSvg() {
  */
 export function V2HomeScreen() {
   const navigation = useNavigation<Nav>();
+  // Home never fades during an Anchor flight: it stays fully drawn until Details covers it,
+  // and is already drawn when Details is removed. Only the travelling copy moves.
   const focusTransition = useProgressiveFocusTransition();
-  const homeExitStyle = useAnimatedStyle(() => ({ opacity: 1 - focusTransition.exitProgress.value }));
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const model = useV2HomeModel();
   const reduceMotion = useV2ReduceMotion();
@@ -115,6 +119,8 @@ export function V2HomeScreen() {
   });
 
   const { refreshChart, refreshToday, refreshVision } = model;
+  const reportedHydratedAnchors = useRef(new Set<string>());
+  const reportedFirstMeaningfulHome = useRef(false);
   // Each model already loads on mount, so the first focus is not a reason to refetch.
   const lastRefresh = useRef({ at: Date.now(), practice: practiceMarker() });
   const refreshHomeContext = useCallback(() => {
@@ -130,6 +136,7 @@ export function V2HomeScreen() {
     });
     return () => listener.remove();
   }, [refreshHomeContext]);
+
 
   /**
    * Returning from a Practice session must re-read Today, Thread and evidence.
@@ -178,8 +185,57 @@ export function V2HomeScreen() {
     reduceMotion,
   });
 
+  useHomePrewarm(model.anchorList, model.selectedIndex);
+
   const selectedId = model.selectedAnchor?.id ?? null;
   const selectedCategory = model.selectedAnchor?.category?.toLowerCase() ?? '';
+
+  useEffect(() => {
+    if (selectedId) VisualProfiler.record('activeAnchorIdCommit', { anchorId: selectedId });
+    if (reportedFirstMeaningfulHome.current) return;
+    if (!selectedId && model.anchorState !== 'empty' && model.anchorState !== 'error') return;
+    reportedFirstMeaningfulHome.current = true;
+    HomeStartupProfiler.mark('first_meaningful_home_render', {
+      anchorId: selectedId,
+      anchorState: model.anchorState,
+    });
+  }, [model.anchorState, selectedId]);
+
+  useEffect(() => {
+    if (!selectedId || reportedHydratedAnchors.current.has(selectedId)) return;
+    const dependenciesSettled =
+      model.today.state !== 'loading' &&
+      !model.progressLoading &&
+      model.vision.state !== 'loading' &&
+      model.chart.state !== 'resolving' &&
+      model.chart.state !== 'loading';
+    if (!dependenciesSettled) return;
+    reportedHydratedAnchors.current.add(selectedId);
+    HomeStartupProfiler.mark('final_home_hydration', {
+      anchorId: selectedId,
+      todayState: model.today.state,
+      visionState: model.vision.state,
+      chartState: model.chart.state,
+      progressState: model.progress.state,
+    });
+  }, [model.chart.state, model.progress.state, model.progressLoading, model.today.state, model.vision.state, selectedId]);
+
+  useEffect(() => {
+    if (!__DEV__) return undefined;
+    VisualProfiler.record('homeMounted');
+    HomeStartupProfiler.mark('home_mounted');
+    const start = navigation.addListener('transitionStart', (event) => {
+      VisualProfiler.record('screenTransition', { screen: 'home', phase: 'start', closing: event.data.closing });
+    });
+    const end = navigation.addListener('transitionEnd', (event) => {
+      VisualProfiler.record('screenTransition', { screen: 'home', phase: 'end', closing: event.data.closing });
+    });
+    return () => { start(); end(); };
+  }, [navigation]);
+
+  useEffect(() => {
+    HomeStartupProfiler.mark('home_first_content_state', { anchorState: model.anchorState, hasAnchor: Boolean(selectedId) });
+  }, [model.anchorState, selectedId]);
 
   /**
    * The two destinations one tap away from Home are Anchor Details and
@@ -221,6 +277,13 @@ export function V2HomeScreen() {
   const todayVisionUri = visionAlternateUri ?? visionCoverUri;
   const todayVisionIsReused = Boolean(todayVisionUri) && !visionAlternateUri;
 
+  const prewarmRemoteUris = useMemo(() => {
+    const uris = [...anchorArtUris];
+    if (todayVisionUri) uris.push(todayVisionUri);
+    if (visionCoverUri && visionCoverUri !== todayVisionUri) uris.push(visionCoverUri);
+    return uris;
+  }, [anchorArtUris, todayVisionUri, visionCoverUri]);
+
   /**
    * Every handler below is stable. The sections are memoised, and a memoised
    * section with a freshly created arrow prop re-renders anyway - which is
@@ -251,6 +314,7 @@ export function V2HomeScreen() {
         width: windowWidth, height: windowHeight, topInset: insets.top, platform: Platform.OS,
       }).rect;
       const accepted = focusTransition.openAnchor(anchor, source ?? { x: NaN, y: NaN, width: 0, height: 0 }, destination, () => {
+        VisualProfiler.record('detailsNavigationStart', { anchorId });
         navigation.navigate('V2AnchorDetails', { anchorId });
       });
       if (accepted) track('v2_anchor_details_viewed', { from: 'home' });
@@ -318,7 +382,7 @@ export function V2HomeScreen() {
     </View>
   );
 
-  if (model.anchorState === 'loading') {
+  if (model.anchorState === 'loading' || (model.anchorState === 'ready' && !model.selectedAnchor)) {
     return (
       <SafeAreaView edges={TOP_EDGE} style={styles.creamScreen} testID="v2-home-screen">
         {header}
@@ -343,7 +407,7 @@ export function V2HomeScreen() {
     );
   }
 
-  if (!model.selectedAnchor) {
+  if (model.anchorState === 'empty' && !model.selectedAnchor) {
     return (
       <SafeAreaView edges={TOP_EDGE} style={styles.creamScreen} testID="v2-home-screen">
         {header}
@@ -366,7 +430,7 @@ export function V2HomeScreen() {
   return (
     <HomeArrivalProvider value={arrival.context}>
     <SafeAreaView edges={TOP_EDGE} style={styles.creamScreen} testID="v2-home-screen">
-      <V2AssetPrewarm sources={nextScreenArt} remoteUris={anchorArtUris} />
+      <V2AssetPrewarm sources={nextScreenArt} remoteUris={prewarmRemoteUris} />
       <GestureDetector gesture={elastic.elasticPan}>
       <View style={styles.scrollHost}>
       <GestureDetector gesture={elastic.nativeScroll}>
@@ -384,13 +448,13 @@ export function V2HomeScreen() {
         bounces
         overScrollMode={elastic.enabled ? 'never' : 'auto'}
       >
-        <Animated.View style={[styles.elasticContent, elastic.elasticStyle, homeExitStyle]}>
+        <Animated.View style={[styles.elasticContent, elastic.elasticStyle]}>
         {/* ── Cream hero world ── */}
         <Animated.View style={arrival.headerStyle}>{header}</Animated.View>
 
         <View style={styles.heroEnvironment}>
           <Animated.View style={[StyleSheet.absoluteFill, arrival.environmentStyle]} pointerEvents="none">
-            <V2HomeCategoryEnvironment category={model.selectedAnchor.category} reduceMotion={reduceMotion} />
+            <V2HomeCategoryEnvironment category={model.selectedAnchor!.category} reduceMotion={reduceMotion} />
           </Animated.View>
           <Animated.View style={[styles.creamZone, arrival.heroStyle]}>
             <V2HomeHero
@@ -437,7 +501,7 @@ export function V2HomeScreen() {
           <V2HomeChartSection
             chart={model.chart}
             categoryColor={categoryColor}
-            category={model.selectedAnchor.category}
+            category={model.selectedAnchor!.category}
             expanded={model.chart.state === 'ready' && model.vision.state !== 'ready'}
             onOpenChart={handleOpenChart}
             onRetry={refreshChartModel}

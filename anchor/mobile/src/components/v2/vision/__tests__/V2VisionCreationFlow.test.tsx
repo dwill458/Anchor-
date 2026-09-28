@@ -39,6 +39,7 @@ const baseProps = {
 
 function renderFlow(overrides?: {
   initialStep?: 'prompt' | 'curation';
+  selectionLimit?: number;
   job?: any;
   onUploadAsset?: (input: { base64Image: string; mimeType: string }) => Promise<UploadAssetResult>;
   onAssemble?: (input: any) => Promise<boolean>;
@@ -56,7 +57,7 @@ function renderFlow(overrides?: {
   } as UploadAssetResult));
   const onAssemble = overrides?.onAssemble ?? jest.fn(async () => true);
   const utils = render(
-    <V2VisionCreationFlow {...baseProps} initialStep={overrides?.initialStep ?? 'prompt'}
+    <V2VisionCreationFlow {...baseProps} initialStep={overrides?.initialStep ?? 'prompt'} selectionLimit={overrides?.selectionLimit}
       initialDescription="A studio full of finished work." onUploadAsset={onUploadAsset} onAssemble={onAssemble} />,
   );
   return { ...utils, onUploadAsset, onAssemble };
@@ -98,19 +99,32 @@ describe('V2VisionCreationFlow', () => {
     })));
   });
 
-  it('selects generated assets and rejects a sixth selection', async () => {
+  it('selects generated assets and rejects a seventh selection', async () => {
     const { getByTestId, getByText, onAssemble } = renderFlow({
       initialStep: 'curation',
       job: { id: 'job-1', status: 'COMPLETE', stage: 'complete', setNumber: 1, retryCount: 0, candidates },
     });
-    for (let index = 0; index < 6; index++) fireEvent.press(getByTestId(`candidate-card-candidate-${index}`));
-    expect(getByText('A Vision can contain up to five images.')).toBeTruthy();
-    expect(getByText('Continue (5/5) →')).toBeTruthy();
-    fireEvent.press(getByText('Continue (5/5) →'));
+    for (let index = 0; index < 7; index++) fireEvent.press(getByTestId(`candidate-card-candidate-${index}`));
+    expect(getByText('You can add up to 6 images.')).toBeTruthy();
+    expect(getByText('Continue (6/6) →')).toBeTruthy();
+    fireEvent.press(getByText('Continue (6/6) →'));
     await waitFor(() => expect(onAssemble).toHaveBeenCalledWith(expect.objectContaining({
       selectedAssets: expect.arrayContaining([expect.objectContaining({ assetId: 'real-asset-0', sourceType: 'AI_GENERATED' })]),
     })));
-    expect((onAssemble as jest.Mock).mock.calls[0][0].selectedAssets).toHaveLength(5);
+    expect((onAssemble as jest.Mock).mock.calls[0][0].selectedAssets).toHaveLength(6);
+  });
+
+  it('limits a replacement to a single image for that place on the board', () => {
+    const { getByTestId, getByText } = renderFlow({
+      initialStep: 'curation',
+      selectionLimit: 1,
+      job: { id: 'job-1', status: 'COMPLETE', stage: 'complete', setNumber: 1, retryCount: 0, candidates },
+    });
+    expect(getByText('Choose a new image')).toBeTruthy();
+    fireEvent.press(getByTestId('candidate-card-candidate-0'));
+    fireEvent.press(getByTestId('candidate-card-candidate-1'));
+    expect(getByText('Choose one image for this place on your board.')).toBeTruthy();
+    expect(getByText('Continue (1/1) →')).toBeTruthy();
   });
 
   it('saves generated and uploaded images together with server asset IDs', async () => {

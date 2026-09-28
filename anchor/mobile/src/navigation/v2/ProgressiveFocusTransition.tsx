@@ -1,10 +1,11 @@
 import React, { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, View, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { Easing, cancelAnimation, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withDelay, withTiming, type SharedValue } from 'react-native-reanimated';
 import { CircularAnchorRenderer } from '@/components/v2';
 import { circularAnchorArtworkShare, type CircularAnchorAppearance } from '@/components/v2/anchor';
 import { anchorRenderProps } from '@/components/v2/anchors/anchorPresentation';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
+import { VisualProfiler } from '@/utils/visualProfiler';
 import { colors } from '@/theme/v2';
 import type { Anchor } from '@/types';
 
@@ -37,6 +38,7 @@ export type AnchorTransitionDestination =
   | 'details'
   | 'practice'
   | 'practiceSetup'
+  | 'release'
   | 'focusSession'
   | 'deepFocusSession'
   | 'visualizeSession';
@@ -60,21 +62,29 @@ type TimingProfile = {
 };
 
 /**
- * Every duration of the motion language, in one place. Home -> Details keeps
- * the values it shipped with; the later hops use the same easing so they read
- * as one family. Totals: Details ~436ms, Practice ~500ms, Session ~620ms
- * (Visualize then lets the Anchor dissolve into the Vision).
+ * Every duration of the motion language, in one place. The later hops use the
+ * same easing so they read as one family. Totals: Details ~300ms, Practice
+ * ~500ms, Session ~620ms (Visualize then lets the Anchor dissolve into the Vision).
+ *
+ * Home <-> Details and Details -> Practice never fade a screen (`exitMs: 0`,
+ * `navigateAtMs: 0`): every hop that changes route is a cut under the
+ * travelling copy. The screen being left stays
+ * fully drawn until the one being entered is attached on top of it (forward),
+ * or is removed to uncover it (back). Fading the source first left a frame
+ * range with neither screen drawn - only the cream route background and the
+ * copy - while Details was still mounting.
  */
 export const ANCHOR_TRANSITION_TIMING = {
-  details: { exitMs: 120, navigateAtMs: 120, travelDelayMs: 16, travelMs: 420, revealDelayMs: 0, revealMs: 0, dissolveMs: 0 },
+  details: { exitMs: 0, navigateAtMs: 0, travelDelayMs: 0, travelMs: 300, revealDelayMs: 0, revealMs: 0, dissolveMs: 0 },
   practice: { exitMs: 120, navigateAtMs: 130, travelDelayMs: 80, travelMs: 400, revealDelayMs: 200, revealMs: 300, dissolveMs: 0 },
+  /** Details -> Practice (another route): a cut under the copy, like Home <-> Details. */
+  fromDetails: { exitMs: 0, navigateAtMs: 0, travelDelayMs: 0, travelMs: 320, revealDelayMs: 0, revealMs: 0, dissolveMs: 0 },
   session: { exitMs: 220, navigateAtMs: 220, travelDelayMs: 60, travelMs: 500, revealDelayMs: 280, revealMs: 340, dissolveMs: 0 },
   visualize: { exitMs: 220, navigateAtMs: 220, travelDelayMs: 60, travelMs: 500, revealDelayMs: 280, revealMs: 340, dissolveMs: 420 },
-  /** Details -> Home: Details leaves, then Home returns under the travelling copy. */
-  back: { exitMs: 150, navigateAtMs: 120, travelDelayMs: 16, travelMs: 420, revealDelayMs: 0, revealMs: 0, dissolveMs: 0 },
-  backReturnMs: 300,
-  /** Reduce Motion, Home <-> Details: a short cross-dissolve in place. Other hops use the route's own fade. */
-  reduced: { exitMs: 90, navigateAtMs: 90, crossfadeMs: 140 },
+  /** Details -> Home: Details is popped at once, uncovering Home, and the copy travels home over it. */
+  back: { exitMs: 0, navigateAtMs: 0, travelDelayMs: 0, travelMs: 300, revealDelayMs: 0, revealMs: 0, dissolveMs: 0 },
+  /** Reduce Motion, Home <-> Details: the route cuts at once and the copy cross-dissolves in place. */
+  reduced: { exitMs: 0, navigateAtMs: 0, crossfadeMs: 140 },
   /** A destination measured after travel has ended is reached this quickly. */
   settleMs: 140,
   /**
@@ -105,6 +115,7 @@ type DestinationPreset = {
 };
 
 const DESTINATIONS: Record<AnchorTransitionDestination, DestinationPreset> = {
+  release: { timing: ANCHOR_TRANSITION_TIMING.fromDetails, appearance: 'paper', backdrop: null, settle: 'handoff', plainMark: false },
   details: { timing: ANCHOR_TRANSITION_TIMING.details, appearance: 'paper', backdrop: null, settle: 'handoff', plainMark: false },
   practice: { timing: ANCHOR_TRANSITION_TIMING.practice, appearance: 'bare', backdrop: null, settle: 'handoff', plainMark: false },
   practiceSetup: { timing: ANCHOR_TRANSITION_TIMING.practice, appearance: 'paper', backdrop: null, settle: 'handoff', plainMark: false },
@@ -253,6 +264,8 @@ function RootTransitionProvider({ children }: { children: React.ReactNode }) {
   const unclaimedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const phaseRef = useRef({ startedAt: 0, travelDone: false, revealDone: false, gliding: false, settling: false });
   const flightIdRef = useRef(0);
+  /** Where the overlay sits in the window. Constant per window size, so measured once. */
+  const overlayOriginRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
   const placesRef = useRef<Partial<Record<AnchorTransitionDestination, PlaceEntry>>>({});
 
   const clearTimers = useCallback(() => {
@@ -270,6 +283,7 @@ function RootTransitionProvider({ children }: { children: React.ReactNode }) {
 
   const reset = useCallback(() => {
     const completed = flightRef.current;
+    if (completed) VisualProfiler.record('overlayRemoved', { direction: completed.direction, targetPlace: completed.targetPlace });
     if (completed?.direction === 'forward' && completed.sourcePlace === 'home' && completed.targetPlace === 'details' && completed.destination) {
       lastCompletedFlightRef.current = completed;
     }
@@ -322,6 +336,7 @@ function RootTransitionProvider({ children }: { children: React.ReactNode }) {
     const current = flightRef.current;
     if (current?.id !== id) return;
     phaseRef.current.travelDone = true;
+    VisualProfiler.record('detailsTransitionFinished', { direction: current.direction, targetPlace: current.targetPlace, measured: Boolean(current.destination) });
     if (current.settle === 'handoff' && !current.destination && current.targetPlace !== 'details') {
       unclaimedTimerRef.current = setTimeout(() => {
         unclaimedTimerRef.current = null;
@@ -407,6 +422,7 @@ function RootTransitionProvider({ children }: { children: React.ReactNode }) {
     }
     busyRef.current = true;
     lastCompletedFlightRef.current = null;
+    VisualProfiler.record('detailsTransitionLaunch', { anchorId: anchor.id });
     launch({
       anchor,
       direction: 'forward',
@@ -434,6 +450,7 @@ function RootTransitionProvider({ children }: { children: React.ReactNode }) {
     }
     const previous = lastCompletedFlightRef.current;
     if (!previous?.destination || previous.anchor.id !== anchorId) return false;
+    VisualProfiler.record('backRequested', { anchorId });
     busyRef.current = true;
     launch({
       anchor: previous.anchor,
@@ -488,8 +505,9 @@ function RootTransitionProvider({ children }: { children: React.ReactNode }) {
         destinationAppearance: known?.appearance ?? to.appearance ?? preset.appearance,
         destinationPlainMark: known ? known.plainMark === true : preset.plainMark,
         targetPlace: to.target,
-        timing: preset.timing,
-        backdrop: preset.backdrop,
+        // Leaving Details changes route: cut, never fade (see ANCHOR_TRANSITION_TIMING).
+        timing: sourcePlace === 'details' ? ANCHOR_TRANSITION_TIMING.fromDetails : preset.timing,
+        backdrop: sourcePlace === 'details' ? null : preset.backdrop,
         settle: preset.settle,
         reduced: false,
       }, onNavigate);
@@ -578,25 +596,40 @@ function RootTransitionProvider({ children }: { children: React.ReactNode }) {
     const current = flightRef.current;
     if (!current || copyReady.value) return;
     copyReady.value = true;
+    VisualProfiler.record('overlayMounted', { direction: current.direction, sourcePlace: current.sourcePlace, targetPlace: current.targetPlace });
     setCopyMounted(true);
     phaseRef.current.startedAt = Date.now();
     const id = current.id;
     const goingBack = current.direction === 'back';
+    // A route change due at once is dispatched now, so it lands in the same
+    // render as the copy taking over. A zero timeout queued it behind that
+    // render, and the screen being left stayed up for another ~60ms.
+    const after = (delayMs: number, run: () => void) => {
+      if (delayMs <= 0) {
+        run();
+        return;
+      }
+      navigationTimerRef.current = setTimeout(() => {
+        navigationTimerRef.current = null;
+        run();
+      }, delayMs);
+    };
 
     if (current.reduced) {
       const reduced = ANCHOR_TRANSITION_TIMING.reduced;
-      exitProgress.value = withTiming(1, { duration: reduced.exitMs });
-      navigationTimerRef.current = setTimeout(() => {
-        navigationTimerRef.current = null;
+      if (reduced.exitMs > 0) exitProgress.value = withTiming(1, { duration: reduced.exitMs });
+      after(reduced.navigateAtMs, () => {
+        VisualProfiler.record('detailsNavigationDispatched', { reduced: true });
         navigateOnce(true);
         if (goingBack) reset();
         // Forward: the cross-dissolve starts once Details reports where it rests.
-      }, reduced.navigateAtMs);
+      });
       return;
     }
 
     const t = current.timing;
-    exitProgress.value = withTiming(1, { duration: t.exitMs });
+    // A source with no exit (Home <-> Details) stays fully drawn until the route change covers or uncovers it.
+    if (t.exitMs > 0) exitProgress.value = withTiming(1, { duration: t.exitMs });
     progress.value = withDelay(t.travelDelayMs, withTiming(1, { duration: t.travelMs, easing: HERO_EASE }, (finished) => {
       if (finished) runOnJS(finishTravel)(id);
     }));
@@ -605,14 +638,10 @@ function RootTransitionProvider({ children }: { children: React.ReactNode }) {
         if (finished) runOnJS(finishReveal)(id);
       }));
     }
-    navigationTimerRef.current = setTimeout(() => {
-      navigationTimerRef.current = null;
+    after(t.navigateAtMs, () => {
+      VisualProfiler.record('detailsNavigationDispatched', { direction: current.direction, targetPlace: current.targetPlace, exitProgress: exitProgress.value });
       navigateOnce(true);
-      if (goingBack) {
-        exitProgress.value = 1;
-        exitProgress.value = withTiming(0, { duration: ANCHOR_TRANSITION_TIMING.backReturnMs });
-      }
-    }, t.navigateAtMs);
+    });
   }, [copyReady, exitProgress, finishReveal, finishTravel, navigateOnce, progress, reset, revealProgress]);
 
   const value = useMemo<FocusTransitionContextValue>(() => ({
@@ -653,6 +682,7 @@ function RootTransitionProvider({ children }: { children: React.ReactNode }) {
       targetX={targetX}
       targetY={targetY}
       targetMark={targetMark}
+      originCache={overlayOriginRef}
       onLayout={onCopyLayout}
     /> : null}
   </FocusTransitionContext.Provider>;
@@ -692,17 +722,28 @@ const TransitionArtwork = memo(function TransitionArtwork({ anchor, size, appear
 const SHRINKING_WINDOWS = { arriveIn: [0.45, 0.8], departOut: [0.8, 1] } as const;
 const GROWING_WINDOWS = { arriveIn: [0.1, 0.45], departOut: [0.45, 0.7] } as const;
 
-function AnchorTransitionLayer({ flight, progress, dissolve, targetX, targetY, targetMark, onLayout }: {
+function AnchorTransitionLayer({ flight, progress, dissolve, targetX, targetY, targetMark, originCache, onLayout }: {
   flight: Flight;
   progress: SharedValue<number>;
   dissolve: SharedValue<number>;
   targetX: SharedValue<number>;
   targetY: SharedValue<number>;
   targetMark: SharedValue<number>;
+  originCache: React.MutableRefObject<{ x: number; y: number; width: number; height: number } | null>;
   onLayout: () => void;
 }) {
   const layerRef = useRef<View>(null);
-  const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
+  const windowSize = useWindowDimensions();
+  const cached = originCache.current && originCache.current.width === windowSize.width && originCache.current.height === windowSize.height ? originCache.current : null;
+  const [origin, setOrigin] = useState<{ x: number; y: number } | null>(cached);
+  // With a known origin the copy is drawn in the first commit, and taking over
+  // in a layout effect hides the source in that same commit - no round trip to
+  // measure the overlay before anything moves.
+  useLayoutEffect(() => {
+    if (cached) onLayout();
+    // Once per flight: the layer mounts per flight.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const { anchor, source, sourceAppearance, destinationAppearance, reduced } = flight;
   const sourceX = source.x + source.width / 2;
   const sourceY = source.y + source.height / 2;
@@ -741,8 +782,10 @@ function AnchorTransitionLayer({ flight, progress, dissolve, targetX, targetY, t
   }, [arriveFrom, arriveTo, arrivalMark, sourceMark, sourceX, sourceY]);
 
   return <View ref={layerRef} collapsable={false} testID="v2-anchor-transition-layer" pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.overlay} onLayout={() => {
+    if (cached) return;
     layerRef.current?.measureInWindow((x, y) => {
       if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+      originCache.current = { x, y, width: windowSize.width, height: windowSize.height };
       setOrigin({ x, y });
       onLayout();
     });
@@ -827,15 +870,41 @@ export function useAnchorTransitionPlace(
   return { ref, onLayout, hidden: isPlaceHidden(ctx, place, anchorId) };
 }
 
-type SceneRole = 'idle' | 'exit' | 'veil' | 'reveal' | 'revealDetails';
+export type AnchorTransitionSceneRole = 'idle' | 'exit' | 'veil' | 'reveal';
+type SceneState = Pick<FocusTransitionContextValue, 'active' | 'direction' | 'sourcePlace' | 'targetPlace' | 'backdrop'>;
 
-function sceneRole(ctx: FocusTransitionContextValue | null, place: AnchorTransitionPlace): SceneRole {
-  if (!ctx?.active) return 'idle';
-  if (ctx.direction === 'back') return ctx.sourcePlace === place ? 'exit' : 'idle';
-  if (ctx.sourcePlace === place) return ctx.backdrop ? 'veil' : 'exit';
-  if (ctx.targetPlace === place) return place === 'details' ? 'revealDetails' : 'reveal';
+/**
+ * Flights that change route: Home <-> Details and Details -> Practice. Home
+ * and Details are each their own route, so any flight leaving or returning to
+ * one is a cut under the copy, never a fade. (Hops inside Practice - hub,
+ * setup, session - are layer swaps within one route and keep their staging.)
+ */
+function isRouteCut(state: SceneState): boolean {
+  return state.sourcePlace === 'home' || state.sourcePlace === 'details' || state.targetPlace === 'home' || state.targetPlace === 'release';
+}
+
+/**
+ * What a place's UI does during the current flight. A route-changing flight is
+ * always idle: both screens stay fully opaque and the native stack swaps them
+ * in one frame, so there is never a frame with neither.
+ */
+export function anchorTransitionSceneRole(state: SceneState | null, place: AnchorTransitionPlace): AnchorTransitionSceneRole {
+  if (!state?.active || isRouteCut(state)) return 'idle';
+  if (state.direction === 'back') return state.sourcePlace === place ? 'exit' : 'idle';
+  if (state.sourcePlace === place) return state.backdrop ? 'veil' : 'exit';
+  if (state.targetPlace === place) return 'reveal';
   return 'idle';
 }
+
+/** Opacity of a place's UI for its role. A worklet, so the scene style and the tests share it. */
+export function anchorTransitionSceneOpacity(role: AnchorTransitionSceneRole, exitProgress: number, revealProgress: number): number {
+  'worklet';
+  if (role === 'exit') return 1 - exitProgress;
+  if (role === 'reveal') return interpolate(revealProgress, [0, 0.45], [0, 1], 'clamp');
+  return 1;
+}
+
+const sceneRole = anchorTransitionSceneRole;
 
 /**
  * The UI around an Anchor place. As a flight's source it fades out (or darkens
@@ -847,22 +916,12 @@ export function AnchorTransitionScene({ place, children, style }: { place: Ancho
   const role = sceneRole(ctx, place);
   const reduceMotion = ctx?.reduceMotion ?? false;
   const idleValue = useSharedValue(0);
-  const progress = ctx?.progress ?? idleValue;
   const exitProgress = ctx?.exitProgress ?? idleValue;
   const revealProgress = ctx?.revealProgress ?? idleValue;
   const backdrop = role === 'veil' ? ctx?.backdrop ?? null : null;
-  const sceneStyle = useAnimatedStyle(() => {
-    switch (role) {
-      case 'exit':
-        return { opacity: 1 - exitProgress.value };
-      case 'reveal':
-        return { opacity: interpolate(revealProgress.value, [0, 0.45], [0, 1], 'clamp') };
-      case 'revealDetails':
-        return { opacity: reduceMotion ? progress.value : interpolate(progress.value, [0, 0.28, 0.86, 1], [0.25, 0.25, 1, 1], 'clamp') };
-      default:
-        return { opacity: 1 };
-    }
-  }, [reduceMotion, role]);
+  const sceneStyle = useAnimatedStyle(() => ({
+    opacity: anchorTransitionSceneOpacity(role, exitProgress.value, revealProgress.value),
+  }), [role]);
   const veilStyle = useAnimatedStyle(() => ({ opacity: exitProgress.value }));
   return <Animated.View style={[styles.scene, style, sceneStyle]}>
     {children}

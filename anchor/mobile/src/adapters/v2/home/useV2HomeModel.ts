@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
-import { useCourseStore } from '@/stores/courseStore';
 import { useV2SelectedAnchor } from '@/hooks/v2/home/useV2SelectedAnchor';
 import { useV2Vision } from '@/hooks/v2/vision';
 import { resolveGreeting } from '@/constants/v2/home';
 import { V2_RECOMMENDATION_ACTION_TO_MODE, type V2PracticeMode } from '@/constants/v2/practice';
 import { fetchV2RecommendationContext, type V2RecommendationContext } from '@/adapters/v2/practice';
-import { peekV2RecommendationContext } from '@/adapters/v2/practice/recommendationCache';
+import { hydrateV2RecommendationContext, peekV2RecommendationContext } from '@/adapters/v2/practice/recommendationCache';
 import { useSettingsStore } from '@/stores/settingsStore';
 import AuthHydrationService from '@/services/AuthHydrationService';
 import type { Anchor } from '@/types';
@@ -19,6 +18,7 @@ import { useAnchorCourseLog } from '@/hooks/v2/chart/useAnchorCourseLog';
 import { toHomeProgressState, type HomeProgressState } from './progressAdapter';
 import { useSessionStore } from '@/stores/sessionStore';
 import { toHomeRecentActivity, type HomeRecentActivityItem } from './recentActivityAdapter';
+import { HomeStartupProfiler } from '@/utils/homeStartupProfiler';
 
 export type V2HomeAnchorSummary = {
   anchor: Anchor;
@@ -46,7 +46,7 @@ export type V2HomeModel = {
   greeting: string;
   profileInitial: string | null;
   profilePictureUrl: string | null;
-  anchorState: 'loading' | 'ready' | 'error';
+  anchorState: 'loading' | 'empty' | 'ready' | 'error';
   anchorError: string | null;
   hasAnchors: boolean;
   selectedAnchor: Anchor | null;
@@ -55,6 +55,7 @@ export type V2HomeModel = {
   vision: HomeVisionState;
   chart: HomeChartState;
   progress: HomeProgressState;
+  progressLoading: boolean;
   recentActivity: HomeRecentActivityItem[];
   today: V2HomeTodayState;
   /** Index of the selected Anchor inside `anchorList`; -1 when there is none. */
@@ -107,8 +108,9 @@ function initialToday(anchorId: string | null, durations: TodayDurations): V2Hom
 function useV2HomeToday(
   anchorId: string | null,
   durations: TodayDurations,
+  accountId: string | null,
 ): { today: V2HomeTodayState; refresh: () => Promise<void> } {
-  const [result, setResult] = useState<{ anchorId: string | null; today: V2HomeTodayState }>(() => ({ anchorId, today: initialToday(anchorId, durations) }));
+  const [result, setResult] = useState<{ anchorId: string | null; accountId: string | null; today: V2HomeTodayState }>(() => ({ anchorId, accountId, today: initialToday(anchorId, durations) }));
   const activeController = useRef<AbortController | null>(null);
 
   /**
@@ -120,50 +122,70 @@ function useV2HomeToday(
   const load = useCallback(async () => {
     activeController.current?.abort();
     if (!anchorId) {
-      setResult({ anchorId: null, today: { state: 'none' } });
+      setResult({ anchorId: null, accountId, today: { state: 'none' } });
       return;
     }
 
     const controller = new AbortController();
     activeController.current = controller;
     setResult((previous) =>
-      previous.anchorId === anchorId && previous.today.state === 'ready'
+      previous.anchorId === anchorId && previous.accountId === accountId && previous.today.state === 'ready'
         ? previous
-        : { anchorId, today: initialToday(anchorId, durations) },
+        : { anchorId, accountId, today: initialToday(anchorId, durations) },
     );
     try {
       const context = await fetchV2RecommendationContext(anchorId, controller.signal);
       if (controller.signal.aborted) return;
       const next = toReadyToday(context, durations);
       setResult((previous) =>
-        previous.anchorId === anchorId && previous.today.state === 'ready' && sameReadyToday(previous.today, next)
+        previous.anchorId === anchorId && previous.accountId === accountId && previous.today.state === 'ready' && sameReadyToday(previous.today, next)
           ? previous
-          : { anchorId, today: next },
+          : { anchorId, accountId, today: next },
       );
     } catch (error: unknown) {
       if (controller.signal.aborted) return;
       setResult((previous) =>
-        previous.anchorId === anchorId && previous.today.state === 'ready'
+        previous.anchorId === anchorId && previous.accountId === accountId && previous.today.state === 'ready'
           ? previous
-          : { anchorId, today: {
+          : { anchorId, accountId, today: {
               state: 'error',
               message: error instanceof Error ? error.message : 'Today’s practice is unavailable.',
             } },
       );
     }
-  }, [anchorId, durations]);
+  }, [accountId, anchorId, durations]);
 
   useEffect(() => {
     void load();
     return () => activeController.current?.abort();
   }, [load]);
 
+  // Restore the encrypted presentation fallback concurrently with the server
+  // request. A network response that wins the race is never replaced by an
+  // older disk snapshot.
+  useEffect(() => {
+    if (!anchorId) return undefined;
+    let canceled = false;
+    void hydrateV2RecommendationContext(anchorId, accountId).then((context) => {
+      if (!context || canceled) return;
+      const cached = toReadyToday(context, durations);
+      setResult((previous) =>
+        previous.anchorId === anchorId && previous.accountId === accountId && previous.today.state !== 'ready'
+          ? { anchorId, accountId, today: cached }
+          : previous,
+      );
+    });
+    return () => {
+      canceled = true;
+    };
+  }, [accountId, anchorId, durations]);
+
   // Selection can change before the effect above starts the next request.
   // Never expose the prior Anchor's recommendation or delta in that render;
   // a recommendation already cached for the new Anchor is shown immediately.
   const pendingToday = useMemo(
-    () => (result.anchorId === anchorId ? null : initialToday(anchorId, durations)),
-    [anchorId, durations, result.anchorId],
+    () => (result.anchorId === anchorId && result.accountId === accountId ? null : initialToday(anchorId, durations)),
+    [accountId, anchorId, durations, result.accountId, result.anchorId],
   );
   return { today: pendingToday ?? result.today, refresh: load };
 }
@@ -171,18 +193,16 @@ function useV2HomeToday(
 /** Home read model over the account-scoped Anchor, Vision, Course, and practice APIs. */
 export function useV2HomeModel(): V2HomeModel {
   const { selectedAnchor, activeAnchors, selectAnchor } = useV2SelectedAnchor();
+  const lastProfiledAnchorId = useRef<string | null>(null);
   const displayName = useAuthStore((s) => s.user?.displayName ?? null);
   const profilePictureUrl = useAuthStore((s) => s.user?.profilePictureUrl ?? null);
   const accountId = useAuthStore((s) => s.user?.id ?? null);
-  const chartServerFlags = useAuthStore((s) => s.user?.chartFlags ?? null);
   const anchorLoading = useAnchorStore((s) => s.isLoading);
   const anchorError = useAnchorStore((s) => s.error);
+  const anchorsPersistedHydrated = useAnchorStore((s) => s.persistedHydrated);
+  const remoteAnchorState = useAnchorStore((s) => s.remoteAnchorState);
   const sessionLog = useSessionStore((s) => s.sessionLog);
   const practiceHistory = useSessionStore((s) => s.practiceHistory);
-  const bindCourseAccount = useCourseStore((s) => s.bindAccount);
-  const setCourseFeatureFlags = useCourseStore((s) => s.setFeatureFlags);
-  const hydrateCourse = useCourseStore((s) => s.hydrateAndRefresh);
-  const refreshChartStore = useCourseStore((s) => s.refresh);
   const focusDuration = useSettingsStore((s) => s.focusSessionDuration);
   const primeDuration = useSettingsStore((s) => s.primeSessionDuration);
   const visualizeDuration = useSettingsStore((s) => s.visualizeSessionDuration);
@@ -197,6 +217,7 @@ export function useV2HomeModel(): V2HomeModel {
   const { today, refresh: refreshToday } = useV2HomeToday(
     selectedAnchor?.id ?? null,
     todayDurations,
+    accountId,
   );
 
   const refreshAnchors = useCallback(async () => {
@@ -213,22 +234,18 @@ export function useV2HomeModel(): V2HomeModel {
 
   // Stable, so Home's focus listener is not re-subscribed on every model change.
   const refreshAnchorChart = anchorChart.refresh;
-  const refreshChart = useCallback(async () => {
-    await Promise.all([refreshChartStore(accountId ?? undefined), refreshAnchorChart()]);
-  }, [accountId, refreshAnchorChart, refreshChartStore]);
+  // Home reads the authenticated per-Anchor Chart model directly. The legacy
+  // account-wide Course store has no Home consumer; hydrating it here added a
+  // separate initialize -> list request chain beside Today, Vision, and Chart.
+  const refreshChart = refreshAnchorChart;
 
-  useEffect(() => {
-    setCourseFeatureFlags(chartServerFlags);
-    bindCourseAccount(accountId);
-    if (accountId) void hydrateCourse(accountId);
-  }, [accountId, bindCourseAccount, chartServerFlags, hydrateCourse, setCourseFeatureFlags]);
-
-  const anchorState: V2HomeModel['anchorState'] =
-    activeAnchors.length === 0 && anchorLoading
+  const anchorState: V2HomeModel['anchorState'] = activeAnchors.length > 0
+    ? 'ready'
+    : !anchorsPersistedHydrated || anchorLoading || remoteAnchorState === 'unknown' || remoteAnchorState === 'loading'
       ? 'loading'
-      : anchorError && activeAnchors.length === 0
-        ? 'error'
-        : 'ready';
+      : remoteAnchorState === 'confirmed'
+        ? 'empty'
+        : 'error';
 
   /**
    * Memoised for identity, not for cost. `toV2HomeVisionState` is cheap, but a
@@ -262,7 +279,12 @@ export function useV2HomeModel(): V2HomeModel {
   }, [practiceHistory, sessionLog]);
 
   const progress = useMemo<HomeProgressState>(
-    () => toHomeProgressState({ anchor: selectedAnchor, courseLogs: anchorCourseLog.entries, sessions: progressSessions, ownsActiveChart }),
+    () => {
+      const span = HomeStartupProfiler.start('progress_calculation', { anchorId: selectedAnchor?.id ?? null });
+      const result = toHomeProgressState({ anchor: selectedAnchor, courseLogs: anchorCourseLog.entries, sessions: progressSessions, ownsActiveChart });
+      span({ state: result.state, evidenceCount: result.state === 'ready' ? result.evidence.length : 0 });
+      return result;
+    },
     [anchorCourseLog.entries, ownsActiveChart, selectedAnchor, progressSessions],
   );
   const recentActivity = useMemo(() => toHomeRecentActivity({
@@ -285,6 +307,14 @@ export function useV2HomeModel(): V2HomeModel {
     () => (selectedAnchor ? activeAnchors.indexOf(selectedAnchor) : -1),
     [activeAnchors, selectedAnchor],
   );
+
+  useEffect(() => {
+    const anchorId = selectedAnchor?.id ?? null;
+    if (anchorId && anchorId !== lastProfiledAnchorId.current) {
+      HomeStartupProfiler.mark('selected_anchor_resolved', { anchorId, cachedAnchorCount: activeAnchors.length });
+      lastProfiledAnchorId.current = anchorId;
+    }
+  }, [activeAnchors.length, selectedAnchor?.id]);
 
   /**
    * The carousel's own data, memoised on its own inputs. It depends on the
@@ -339,6 +369,7 @@ export function useV2HomeModel(): V2HomeModel {
       vision,
       chart,
       progress,
+      progressLoading: anchorCourseLog.loading,
       recentActivity,
       selectedIndex,
       selectAnchor,
@@ -348,5 +379,5 @@ export function useV2HomeModel(): V2HomeModel {
       refreshChart,
       refreshAnchors,
     };
-  }, [activeAnchors, anchorError, anchorList, anchorState, chart, displayName, profilePictureUrl, progress, recentActivity, refreshAnchors, refreshChart, refreshToday, selectAnchor, selectedAnchor, selectedIndex, today, vision, visionModel.refresh]);
+  }, [activeAnchors, anchorCourseLog.loading, anchorError, anchorList, anchorState, chart, displayName, profilePictureUrl, progress, recentActivity, refreshAnchors, refreshChart, refreshToday, selectAnchor, selectedAnchor, selectedIndex, today, vision, visionModel.refresh]);
 }

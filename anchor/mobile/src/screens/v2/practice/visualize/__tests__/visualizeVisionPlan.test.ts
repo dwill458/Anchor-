@@ -1,91 +1,78 @@
 import {
-  buildVisionSceneSchedule,
+  buildBoardVisitSchedule,
   buildVisionSceneSnapshot,
   isValidVisualizeSceneSnapshot,
   V2_VISUALIZE_TIMING,
-  visionImageFit,
   visionSceneSlotAt,
   visualizePromptAt,
   visualizeReflectionPrompts,
 } from '../visualizeVisionPlan';
 import type { Anchor } from '@/types';
 
-describe('buildVisionSceneSchedule', () => {
-  it('shows fewer scenes in one minute so each can be seen', () => {
-    const schedule = buildVisionSceneSchedule(60, 5);
-    expect(schedule.map(slot => slot.imageIndex)).toEqual([0, 1]);
-    expect(schedule.map(slot => slot.endMs - slot.startMs)).toEqual([30_000, 30_000]);
+const OPENING = V2_VISUALIZE_TIMING.board.openingAnchorMs;
+
+describe('buildBoardVisitSchedule', () => {
+  it('opens on the Anchor before the first photograph', () => {
+    const schedule = buildBoardVisitSchedule(180, 4);
+    expect(schedule[0].startMs).toBe(OPENING);
   });
 
-  it('gives each of five scenes ~36 seconds in three minutes', () => {
-    const schedule = buildVisionSceneSchedule(180, 5);
-    expect(schedule).toHaveLength(5);
-    expect(schedule[0].endMs - schedule[0].startMs).toBe(36_000);
-    expect(schedule[schedule.length - 1].endMs).toBe(180_000);
+  it('visits every photograph in one minute when each can still be seen', () => {
+    const schedule = buildBoardVisitSchedule(60, 5);
+    expect(schedule.map(slot => slot.imageIndex)).toEqual([0, 1, 2, 3, 4]);
+    for (const slot of schedule) expect(slot.endMs - slot.startMs).toBeGreaterThanOrEqual(V2_VISUALIZE_TIMING.board.minDwellMs);
   });
 
-  it('holds longer rather than slideshowing when there are few images', () => {
-    const schedule = buildVisionSceneSchedule(180, 2);
-    expect(schedule.map(slot => slot.endMs - slot.startMs)).toEqual([90_000, 90_000]);
+  it('never rushes: a minute with six photographs keeps the dwell floor', () => {
+    const schedule = buildBoardVisitSchedule(60, 6);
+    expect(schedule.length).toBeLessThanOrEqual(6);
+    for (const slot of schedule) expect(slot.endMs - slot.startMs).toBeGreaterThanOrEqual(V2_VISUALIZE_TIMING.board.minDwellMs);
   });
 
-  it('revisits scenes naturally in five minutes', () => {
-    expect(buildVisionSceneSchedule(300, 2).map(slot => slot.imageIndex)).toEqual([0, 1, 0, 1]);
-    expect(buildVisionSceneSchedule(300, 3).map(slot => slot.imageIndex)).toEqual([0, 1, 2, 0, 1]);
-    expect(buildVisionSceneSchedule(300, 5)).toHaveLength(5);
-    expect(buildVisionSceneSchedule(300, 1)).toHaveLength(1);
+  it('visits each photograph once in three minutes, holding longer when there are few', () => {
+    expect(buildBoardVisitSchedule(180, 5).map(slot => slot.imageIndex)).toEqual([0, 1, 2, 3, 4]);
+    const two = buildBoardVisitSchedule(180, 2);
+    expect(two.map(slot => slot.endMs - slot.startMs)).toEqual([86_500, 86_500]);
+  });
+
+  it('revisits photographs naturally in five minutes', () => {
+    expect(buildBoardVisitSchedule(300, 2).map(slot => slot.imageIndex)).toEqual([0, 1, 0, 1]);
+    expect(buildBoardVisitSchedule(300, 3).map(slot => slot.imageIndex)).toEqual([0, 1, 2, 0, 1]);
+    expect(buildBoardVisitSchedule(300, 6)).toHaveLength(6);
+    expect(buildBoardVisitSchedule(300, 1)).toHaveLength(1);
+  });
+
+  it('has nothing to visit without photographs', () => {
+    expect(buildBoardVisitSchedule(180, 0)).toEqual([]);
   });
 
   it('always ends exactly at the session boundary', () => {
     for (const duration of [60, 180, 300]) {
-      for (let images = 1; images <= 5; images++) {
-        const schedule = buildVisionSceneSchedule(duration, images);
-        expect(schedule[0].startMs).toBe(0);
+      for (let images = 1; images <= 6; images++) {
+        const schedule = buildBoardVisitSchedule(duration, images);
         expect(schedule[schedule.length - 1].endMs).toBe(duration * 1000);
+        for (let index = 1; index < schedule.length; index++) expect(schedule[index].startMs).toBe(schedule[index - 1].endMs);
         expect(visionSceneSlotAt(schedule, duration * 1000 + 5_000)).toBe(schedule[schedule.length - 1]);
       }
     }
   });
 });
 
-describe('visionImageFit', () => {
-  const phone = { width: 390, height: 844 };
-
-  it('fills the screen from a portrait original with only a sliver cropped', () => {
-    const fit = visionImageFit({ width: 1080, height: 1920 }, phone);
-    expect(fit.extended).toBe(false);
-    expect(fit.height).toBeCloseTo(844);
-    // 9:16 on a 19.5:9 phone: under a tenth of each side is lost.
-    expect(-fit.left / fit.width).toBeLessThan(0.1);
-  });
-
-  it('never cuts a square or landscape image to a narrow strip', () => {
-    for (const image of [{ width: 1024, height: 1024 }, { width: 1600, height: 900 }]) {
-      const fit = visionImageFit(image, phone);
-      expect(fit.extended).toBe(true);
-      // At most 25% beyond "fit" - most of the photograph stays visible.
-      expect(fit.width / phone.width).toBeLessThanOrEqual(1.25 + 1e-9);
-      expect(fit.top).toBeGreaterThan(0);
-    }
-  });
-
-  it('falls back to plain cover until the size is known', () => {
-    expect(visionImageFit(undefined, phone)).toEqual({ width: 390, height: 844, left: 0, top: 0, extended: false });
-  });
-});
-
 describe('ending timing', () => {
-  it('transforms the Vision into the Anchor in roughly two seconds, then speaks', () => {
+  it('pulls back to the whole board, then settles on the Anchor before speaking', () => {
     const E = V2_VISUALIZE_TIMING.ending;
-    const anchorPresentAt = E.anchorAtMs + E.anchorStepsMs.reduce((sum, ms) => sum + ms, 0);
-    const transformation = anchorPresentAt - E.transformAtMs;
-    expect(transformation).toBeGreaterThanOrEqual(1500);
-    expect(transformation).toBeLessThanOrEqual(2500);
-    // Vision and Anchor coexist: the Anchor starts before the photo has gone.
-    expect(E.anchorAtMs).toBeLessThan(E.photoOutAtMs + E.photoOutMs);
-    expect(E.photoOutAtMs + E.photoOutMs).toBeLessThanOrEqual(anchorPresentAt + 100);
-    expect(E.lineAtMs).toBeGreaterThan(anchorPresentAt);
+    expect(E.pullBackMs).toBeGreaterThanOrEqual(1800);
+    expect(E.settleAtMs).toBeGreaterThan(E.pullBackMs);
+    expect(E.lineAtMs).toBeGreaterThanOrEqual(E.settleAtMs + E.settleMs * 0.6);
     expect(E.continueAtMs).toBeGreaterThan(E.lineAtMs);
+    const R = V2_VISUALIZE_TIMING.reducedEnding;
+    expect(R.continueAtMs).toBeLessThan(E.continueAtMs);
+  });
+
+  it('keeps camera travel inside the cinematic range', () => {
+    const B = V2_VISUALIZE_TIMING.board;
+    expect(B.travelMinMs).toBeGreaterThanOrEqual(1200);
+    expect(B.travelMaxMs).toBeLessThanOrEqual(1800);
   });
 });
 

@@ -132,12 +132,12 @@ export class OpenAIImageProviderAdapter implements ImageProviderAdapter {
 - Believable, emotionally resonant editorial documentary aesthetic with natural lighting and lived-in environment.`;
         }
 
+        // No response_format: GPT-Image models reject it and always return b64_json.
         const requestBody = {
           model,
           prompt: enhancedPrompt,
           size,
           n: 1,
-          response_format: 'b64_json',
         };
 
         const response = await fetch(`${this.baseUrl}/images/generations`, {

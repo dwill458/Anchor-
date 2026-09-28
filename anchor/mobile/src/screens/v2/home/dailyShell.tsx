@@ -4,6 +4,7 @@ import { useV2ReduceMotion } from '@/hooks/v2';
 import { v2ScreenBackground, v2StackScreenOptions } from '@/navigation/v2/transitions';
 import { ProgressiveFocusTransitionProvider } from '@/navigation/v2/ProgressiveFocusTransition';
 import { V2HomeScreen } from './V2HomeScreen';
+import { VisualProfiler } from '@/utils/visualProfiler'; // TEMP-PROFILER
 import { V2AnchorLibraryScreen } from '@/screens/v2/anchors/V2AnchorLibraryScreen';
 import { V2AnchorDetailsScreen } from '@/screens/v2/anchors/V2AnchorDetailsScreen';
 import type { V2PracticeMode } from '@/constants/v2/practice';
@@ -23,7 +24,7 @@ export type V2DailyShellIntents = {
   onOpenProgress?: (anchorId?: string) => void;
   onCreateAnchor?: () => void;
   onOpenProfile?: () => void;
-  onReleaseAnchor?: (anchorId: string) => void;
+  onReleaseAnchor?: (anchorId: string, options?: { anchorTransition?: boolean }) => void;
   onOpenWeeklyInsight?: () => void;
   onOpenMaterialLab?: () => void;
 };
@@ -111,11 +112,13 @@ export function V2DailyShellNavigator({ intents = {} }: { intents?: V2DailyShell
   return (
     <ProgressiveFocusTransitionProvider>
       <IntentsContext.Provider value={value}>
+        {/* TEMP-PROFILER */}<React.Profiler id="dailyShell" onRender={(_id, phase, actual) => { if (__DEV__ && actual > 4) VisualProfiler.record('commit', { phase, ms: Math.round(actual) }); }}>
         <Stack.Navigator screenOptions={screenOptions}>
           <Stack.Screen name="V2Home" component={V2HomeScreen} />
           <Stack.Screen name="V2AnchorLibrary" component={V2AnchorLibraryScreen} />
           <Stack.Screen name="V2AnchorDetails" component={V2AnchorDetailsScreen} options={DETAILS_OPTIONS} />
         </Stack.Navigator>
+        </React.Profiler>
       </IntentsContext.Provider>
     </ProgressiveFocusTransitionProvider>
   );

@@ -1,0 +1,318 @@
+import React, { memo, useEffect } from 'react';
+import { Image, StyleSheet, Text, View, type AccessibilityActionEvent } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue, type SharedValue,
+} from 'react-native-reanimated';
+import { colors, typography } from '@/theme/v2';
+import { BOARD_ATTACHMENT_ART, BOARD_FRAME_IMAGES } from './visionBoardAssets';
+import {
+  BOARD_FRAME_KINDS, BOARD_FRAME_WINDOW, boardAttachmentFor, type BoardFrameKind,
+} from './visionBoardLayouts';
+import {
+  boardDelay, boardRecomposeEasing, boardSpring, boardTiming, VISION_BOARD_MOTION as MOTION,
+} from './visionBoardMotion';
+import { boardSlotAtPoint, swapBoardOrder } from './visionBoardReorder';
+import type { BoardSlotRect, VisionBoardShared } from './useVisionBoardScene';
+
+const W = BOARD_FRAME_WINDOW;
+/** Photographs run a little under the torn frame so no linen shows along the window. */
+const BLEED = 0.012;
+
+export type VisionBoardPhotoProps = {
+  sceneId: string;
+  imageUrl: string | null;
+  accessibilityLabel: string;
+  initialRect: BoardSlotRect | null;
+  entering: boolean;
+  exiting: boolean;
+  shared: VisionBoardShared;
+  reduceMotion: boolean;
+  /** Taps and drags are only wired on the interactive board, never in Visualize. */
+  interactive: boolean;
+  dragEnabled: boolean;
+  onPress?: (sceneId: string) => void;
+  onDragActive?: (active: boolean) => void;
+  onSwap?: () => void;
+  onOrderCommit?: (order: string[]) => void;
+  onExited?: (sceneId: string) => void;
+  onMove?: (sceneId: string, direction: -1 | 1) => void;
+  canMoveEarlier?: boolean;
+  canMoveLater?: boolean;
+  testID?: string;
+};
+
+function kindWeight(kind: number, target: number) {
+  'worklet';
+  return kind === target ? 1 : 0;
+}
+
+/**
+ * One Vision photograph on the board:
+ *   shadow (the frame's own silhouette) -> photograph clipped to the window
+ *   -> torn frame -> pin or tape.
+ * Its slot comes from the board's shared order/slots, so the UI thread moves
+ * it for swaps and recompositions without any React render.
+ */
+export const VisionBoardPhoto = memo(function VisionBoardPhoto({
+  sceneId, imageUrl, accessibilityLabel, initialRect, entering, exiting, shared, reduceMotion,
+  interactive, dragEnabled, onPress, onDragActive, onSwap, onOrderCommit, onExited, onMove,
+  canMoveEarlier = false, canMoveLater = false, testID,
+}: VisionBoardPhotoProps) {
+  const start = initialRect ?? { x: 0, y: 0, width: 1, height: 1, rotation: 0, zIndex: 12, frame: 0 };
+  const x = useSharedValue(start.x);
+  const y = useSharedValue(start.y);
+  const width = useSharedValue(start.width);
+  const height = useSharedValue(start.height);
+  const rotation = useSharedValue(start.rotation);
+  const z = useSharedValue(start.zIndex);
+  const landscape = useSharedValue(kindWeight(0, start.frame));
+  const portrait = useSharedValue(kindWeight(1, start.frame));
+  const square = useSharedValue(kindWeight(2, start.frame));
+  const dragX = useSharedValue(0);
+  const dragY = useSharedValue(0);
+  const lift = useSharedValue(0);
+  const presence = useSharedValue(entering ? 0 : 1);
+  const presenceScale = useSharedValue<number>(entering && !reduceMotion ? MOTION.recompose.enterFromScale : 1);
+  const presenceLift = useSharedValue<number>(entering && !reduceMotion ? MOTION.recompose.enterFromLift : 0);
+  const orderAtDragStart = useSharedValue('');
+  const reduced = useSharedValue(reduceMotion);
+  useEffect(() => { reduced.value = reduceMotion; }, [reduceMotion, reduced]);
+
+  // Arrive: the others make room first, then this one is laid into its place.
+  useEffect(() => {
+    if (!entering) return;
+    const { enterDelayMs, enterMs } = MOTION.recompose;
+    if (reduceMotion) {
+      presence.value = boardDelay(MOTION.reduced.recomposeMs, boardTiming(1, { duration: MOTION.reduced.recomposeMs }));
+      return;
+    }
+    presence.value = boardDelay(enterDelayMs, boardTiming(1, { duration: enterMs * 0.7 }));
+    presenceScale.value = boardDelay(enterDelayMs, boardTiming(1, { duration: enterMs, easing: boardRecomposeEasing }));
+    presenceLift.value = boardDelay(enterDelayMs, boardTiming(0, { duration: enterMs, easing: boardRecomposeEasing }));
+    // Mount-time only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Leave: lift away and fade while the board recomposes beneath.
+  useEffect(() => {
+    if (!exiting) return;
+    const duration = reduceMotion ? MOTION.reduced.recomposeMs : MOTION.recompose.exitMs;
+    const done = (finished?: boolean) => {
+      'worklet';
+      if (finished && onExited) runOnJS(onExited)(sceneId);
+    };
+    presence.value = boardTiming(0, { duration }, done);
+    if (!reduceMotion) presenceScale.value = boardTiming(MOTION.recompose.exitToScale, { duration });
+  }, [exiting, onExited, presence, presenceScale, reduceMotion, sceneId]);
+
+  // Follow this photo's slot. A new composition travels on the recompose
+  // curve; a swap within the same composition settles on the spring.
+  useAnimatedReaction(
+    () => {
+      const index = shared.order.value.indexOf(sceneId);
+      return { index, version: shared.layoutVersion.value, rect: index >= 0 ? shared.slots.value[index] : null };
+    },
+    (next, previous) => {
+      if (!next.rect || shared.dragging.value === sceneId) return;
+      if (!previous) return; // placed at mount
+      if (previous.index === next.index && previous.version === next.version && previous.rect === next.rect) return;
+      const rect = next.rect;
+      const recomposing = previous.version !== next.version;
+      const move = (to: number) => {
+        'worklet';
+        if (reduced.value) return boardTiming(to, { duration: recomposing ? MOTION.reduced.recomposeMs : MOTION.reduced.swapMs });
+        return recomposing ? boardTiming(to, { duration: MOTION.recompose.moveMs, easing: boardRecomposeEasing }) : boardSpring(to);
+      };
+      x.value = move(rect.x);
+      y.value = move(rect.y);
+      width.value = move(rect.width);
+      height.value = move(rect.height);
+      rotation.value = move(rect.rotation);
+      z.value = rect.zIndex;
+      const fade = { duration: reduced.value ? 0 : MOTION.frameCrossfadeMs };
+      landscape.value = boardTiming(kindWeight(0, rect.frame), fade);
+      portrait.value = boardTiming(kindWeight(1, rect.frame), fade);
+      square.value = boardTiming(kindWeight(2, rect.frame), fade);
+    },
+    [sceneId],
+  );
+
+  const settleIntoSlot = () => {
+    'worklet';
+    const index = shared.order.value.indexOf(sceneId);
+    const rect = index >= 0 ? shared.slots.value[index] : null;
+    // Carry the finger offset into the position, then settle from where it is.
+    x.value += dragX.value;
+    y.value += dragY.value;
+    dragX.value = 0;
+    dragY.value = 0;
+    if (rect) {
+      const settle = (to: number) => {
+        'worklet';
+        return reduced.value ? boardTiming(to, { duration: MOTION.reduced.swapMs }) : boardSpring(to);
+      };
+      x.value = settle(rect.x);
+      y.value = settle(rect.y);
+      width.value = settle(rect.width);
+      height.value = settle(rect.height);
+      rotation.value = settle(rect.rotation);
+      z.value = rect.zIndex;
+      landscape.value = boardTiming(kindWeight(0, rect.frame), { duration: MOTION.frameCrossfadeMs });
+      portrait.value = boardTiming(kindWeight(1, rect.frame), { duration: MOTION.frameCrossfadeMs });
+      square.value = boardTiming(kindWeight(2, rect.frame), { duration: MOTION.frameCrossfadeMs });
+    }
+    lift.value = reduced.value ? boardTiming(0, { duration: MOTION.reduced.swapMs }) : boardSpring(0);
+    shared.dragging.value = '';
+  };
+
+  const pan = Gesture.Pan()
+    .enabled(interactive && dragEnabled && !exiting)
+    .activateAfterLongPress(MOTION.lift.longPressMs)
+    .onStart(() => {
+      shared.dragging.value = sceneId;
+      orderAtDragStart.value = shared.order.value.join('|');
+      lift.value = reduced.value ? boardTiming(1, { duration: MOTION.reduced.swapMs }) : boardSpring(1);
+      if (onDragActive) runOnJS(onDragActive)(true);
+    })
+    .onUpdate(event => {
+      const scale = shared.cameraScale.value || 1;
+      dragX.value = event.translationX / scale;
+      dragY.value = event.translationY / scale;
+      const order = shared.order.value;
+      const from = order.indexOf(sceneId);
+      if (from < 0) return;
+      const centre = { x: x.value + width.value / 2 + dragX.value, y: y.value + height.value / 2 + dragY.value };
+      const to = boardSlotAtPoint(centre, shared.slots.value, from);
+      if (to >= 0) {
+        shared.order.value = swapBoardOrder(order, from, to);
+        if (onSwap) runOnJS(onSwap)();
+      }
+    })
+    .onFinalize((_event, success) => {
+      if (shared.dragging.value !== sceneId) return;
+      settleIntoSlot();
+      if (onDragActive) runOnJS(onDragActive)(false);
+      const order = shared.order.value;
+      if (success && onOrderCommit && order.join('|') !== orderAtDragStart.value) runOnJS(onOrderCommit)(order);
+    });
+
+  const tap = Gesture.Tap()
+    .enabled(interactive && !exiting)
+    .maxDuration(MOTION.lift.longPressMs - 20)
+    .onEnd((_event, success) => {
+      if (success && onPress) runOnJS(onPress)(sceneId);
+    });
+
+  const gesture = Gesture.Race(pan, tap);
+
+  const containerStyle = useAnimatedStyle(() => ({
+    left: x.value,
+    top: y.value,
+    width: width.value,
+    height: height.value,
+    zIndex: z.value + (shared.dragging.value === sceneId ? 100 : 0),
+    opacity: presence.value,
+    transform: [
+      { translateX: dragX.value },
+      { translateY: dragY.value + presenceLift.value },
+      { rotate: `${rotation.value}deg` },
+      { scale: presenceScale.value * (1 + (MOTION.lift.scale - 1) * lift.value) },
+    ],
+  }));
+
+  const windowStyle = useAnimatedStyle(() => {
+    const total = landscape.value + portrait.value + square.value || 1;
+    const blend = (key: 'left' | 'top' | 'right' | 'bottom') =>
+      (W.landscape[key] * landscape.value + W.portrait[key] * portrait.value + W.square[key] * square.value) / total;
+    const left = blend('left') - BLEED;
+    const top = blend('top') - BLEED;
+    const right = blend('right') + BLEED;
+    const bottom = blend('bottom') + BLEED;
+    return {
+      left: left * width.value,
+      top: top * height.value,
+      width: (right - left) * width.value,
+      height: (bottom - top) * height.value,
+    };
+  });
+
+  // The frame's own silhouette, offset and faint, reads as a soft paper shadow;
+  // lifting a photo deepens and lengthens it.
+  const shadowFor = (weight: SharedValue<number>) => {
+    'worklet';
+    const offset = MOTION.lift.restShadowOffset + (MOTION.lift.shadowOffset - MOTION.lift.restShadowOffset) * lift.value;
+    const opacity = MOTION.lift.restShadowOpacity + (MOTION.lift.shadowOpacity - MOTION.lift.restShadowOpacity) * lift.value;
+    return { opacity: opacity * weight.value, transform: [{ translateX: offset * 0.4 }, { translateY: offset }] };
+  };
+  const landscapeShadow = useAnimatedStyle(() => shadowFor(landscape));
+  const portraitShadow = useAnimatedStyle(() => shadowFor(portrait));
+  const squareShadow = useAnimatedStyle(() => shadowFor(square));
+  const landscapeStyle = useAnimatedStyle(() => ({ opacity: landscape.value }));
+  const portraitStyle = useAnimatedStyle(() => ({ opacity: portrait.value }));
+  const squareStyle = useAnimatedStyle(() => ({ opacity: square.value }));
+  const kindStyles = { landscape: landscapeStyle, portrait: portraitStyle, square: squareStyle } satisfies Record<BoardFrameKind, unknown>;
+  const shadowStyles = { landscape: landscapeShadow, portrait: portraitShadow, square: squareShadow } satisfies Record<BoardFrameKind, unknown>;
+
+  const attachment = BOARD_ATTACHMENT_ART[boardAttachmentFor(sceneId)];
+
+  const actions = [
+    { name: 'activate', label: 'Focus image' },
+    ...(canMoveEarlier ? [{ name: 'moveEarlier', label: 'Move earlier' }] : []),
+    ...(canMoveLater ? [{ name: 'moveLater', label: 'Move later' }] : []),
+  ];
+  const onAccessibilityAction = (event: AccessibilityActionEvent) => {
+    if (event.nativeEvent.actionName === 'activate') onPress?.(sceneId);
+    else if (event.nativeEvent.actionName === 'moveEarlier') onMove?.(sceneId, -1);
+    else if (event.nativeEvent.actionName === 'moveLater') onMove?.(sceneId, 1);
+  };
+
+  const body = (
+    <Animated.View
+      testID={testID}
+      style={[styles.photo, containerStyle]}
+      accessible={interactive && !exiting}
+      accessibilityRole={interactive ? 'imagebutton' : 'image'}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={interactive ? 'Double tap to bring it forward. Actions can move it.' : undefined}
+      accessibilityActions={interactive ? actions : undefined}
+      onAccessibilityAction={interactive ? onAccessibilityAction : undefined}
+      importantForAccessibility={exiting ? 'no-hide-descendants' : 'auto'}
+    >
+      {BOARD_FRAME_KINDS.map(kind => (
+        <Animated.Image key={`shadow-${kind}`} source={BOARD_FRAME_IMAGES[kind]} resizeMode="stretch" tintColor="#000"
+          accessible={false} style={[styles.layer, shadowStyles[kind]]} />
+      ))}
+      <Animated.View style={[styles.window, windowStyle]}>
+        {imageUrl ? (
+          <Image source={{ uri: imageUrl }} resizeMode="cover" accessible={false} accessibilityIgnoresInvertColors style={styles.fill} />
+        ) : (
+          <View style={styles.unavailable}><Text style={styles.unavailableText}>Image unavailable</Text></View>
+        )}
+      </Animated.View>
+      {BOARD_FRAME_KINDS.map(kind => (
+        <Animated.Image key={`frame-${kind}`} source={BOARD_FRAME_IMAGES[kind]} resizeMode="stretch" accessible={false}
+          style={[styles.layer, kindStyles[kind]]} />
+      ))}
+      <Image source={attachment.source} accessible={false} resizeMode="contain" style={[styles.attachment, {
+        left: `${(attachment.x - attachment.width / 2) * 100}%`,
+        top: `${attachment.y * 100}%`,
+        width: `${attachment.width * 100}%`,
+        aspectRatio: attachment.aspect,
+        transform: [{ translateY: '-50%' }, { rotate: `${attachment.rotation}deg` }],
+      }]} />
+    </Animated.View>
+  );
+
+  return interactive ? <GestureDetector gesture={gesture}>{body}</GestureDetector> : body;
+});
+
+const styles = StyleSheet.create({
+  photo: { position: 'absolute' },
+  layer: { position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' },
+  window: { position: 'absolute', overflow: 'hidden', backgroundColor: '#D9D2C4' },
+  fill: { width: '100%', height: '100%' },
+  unavailable: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#CFC6B6' },
+  unavailableText: { ...typography.caption, color: colors.text.secondary },
+  attachment: { position: 'absolute' },
+});

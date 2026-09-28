@@ -1,15 +1,16 @@
-import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Alert, BackHandler, Image, Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AccessibilityInfo, Alert, BackHandler, Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, {
-  cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withDelay, withSequence, withTiming,
+  cancelAnimation, Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withDelay, withSequence, withTiming,
+  type SharedValue, type WithTimingConfig,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useKeepAwake } from 'expo-keep-awake';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { Pause, Play, X } from 'lucide-react-native';
-import { CircularAnchorRenderer, V2Button } from '@/components/v2';
-import { anchorRenderProps, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
+import { V2Button } from '@/components/v2';
+import { anchorRenderProps } from '@/components/v2/anchors/anchorPresentation';
 import { useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
 import { PracticeCompletionService } from '@/services/PracticeCompletionService';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
@@ -23,10 +24,18 @@ import { colors, spacing, typography } from '@/theme/v2';
 import type { Anchor } from '@/types';
 import type { GuidanceVoice } from '@/types/sessionAudio';
 import type { V2VisionTile } from '@/adapters/v2/vision';
+import { VisionBoardScene } from '@/components/v2/vision/board/VisionBoardScene';
+import { useVisionBoardScene } from '@/components/v2/vision/board/useVisionBoardScene';
 import {
-  buildVisionSceneSchedule, buildVisionSceneSnapshot, preloadVisionImages, V2_VISUALIZE_TIMING as T, visionImageFit,
+  boardSizeForWidth, selectBoardLayout, toSceneRect, VISION_BOARD_MAX_IMAGES,
+} from '@/components/v2/vision/board/visionBoardLayouts';
+import { focusCamera, type CameraState } from '@/components/v2/vision/board/visionBoardCamera';
+import { boardCameraEasing } from '@/components/v2/vision/board/visionBoardMotion';
+import {
+  buildBoardVisitSchedule, buildVisionSceneSnapshot, preloadVisionImages, V2_VISUALIZE_TIMING as T,
   visionSceneSlotAt, visualizePromptAt, visualizeReflectionPrompts, type V2VisualizeDuration,
 } from './visualizeVisionPlan';
+import { planVisualizeCamera, visualizeCameraPhaseAt } from './visualizeBoardCamera';
 import { ChartMoveHandoff } from '@/components/v2/chart/ChartMoveHandoff';
 import { useAnchorTransitionReveal } from '@/navigation/v2/ProgressiveFocusTransition';
 
@@ -50,90 +59,17 @@ type Props = {
 
 const KeepAwake = () => { useKeepAwake('v2-visualize-session'); return null; };
 
-type ImageSize = { width: number; height: number };
-
-function useVisionImageSizes(uris: string[]): Record<string, ImageSize> {
-  const [sizes, setSizes] = useState<Record<string, ImageSize>>({});
-  useEffect(() => {
-    preloadVisionImages(uris);
-    let alive = true;
-    for (const uri of uris) {
-      if (typeof Image.getSize !== 'function') break;
-      try {
-        Image.getSize(uri, (w, h) => {
-          if (alive && w > 0 && h > 0) setSizes(prev => (prev[uri] ? prev : { ...prev, [uri]: { width: w, height: h } }));
-        }, () => undefined);
-      } catch { /* sizing is an enhancement; cover framing remains */ }
-    }
-    return () => { alive = false; };
-  }, [uris]);
-  return sizes;
-}
-
 const formatTime = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
-type LayerRole = 'active' | 'outgoing' | 'idle';
-
-/**
- * One Vision image. The incoming scene fades in above the outgoing one, which
- * holds until the crossfade completes, so the change never dips to black.
- * Slow Ken Burns (1.02 -> 1.06) runs for the length of its slot and freezes
- * while paused; it is skipped entirely under Reduce Motion.
- */
-const SceneLayer = memo(function SceneLayer({
-  uri, imageSize, role, activationKey, slotMs, paused, settling, reduceMotion, width, height,
-}: {
-  uri: string; imageSize?: { width: number; height: number }; role: LayerRole; activationKey: number; slotMs: number;
-  paused: boolean; settling: boolean; reduceMotion: boolean; width: number; height: number;
-}) {
-  const fit = visionImageFit(imageSize, { width, height });
-  // The opening scene is revealed by the stage expanding, so it starts opaque.
-  const opacity = useSharedValue(0);
-  const scale = useSharedValue<number>(T.kenBurnsFrom);
-  const crossfade = reduceMotion ? T.reducedCrossfadeMs : T.crossfadeMs;
-  const kenBurnsMs = slotMs + crossfade;
-
-  useEffect(() => {
-    if (role === 'active') {
-      if (!reduceMotion) scale.value = T.kenBurnsFrom;
-      opacity.value = activationKey === 0 ? 1 : withTiming(1, { duration: crossfade, easing: Easing.inOut(Easing.quad) });
-    } else if (role === 'outgoing') {
-      opacity.value = withDelay(crossfade, withTiming(0, { duration: 0 }));
-    } else {
-      opacity.value = 0;
-    }
-  }, [activationKey, crossfade, opacity, reduceMotion, role, scale]);
-
-  useEffect(() => {
-    if (reduceMotion) return;
-    if (settling) {
-      // The movement comes to rest rather than stopping dead.
-      cancelAnimation(scale);
-      scale.value = withTiming(Math.min(T.kenBurnsTo + 0.01, scale.value + 0.006), { duration: T.ending.settleMs, easing: Easing.out(Easing.cubic) });
-      return;
-    }
-    if (role !== 'active') return;
-    if (paused) { cancelAnimation(scale); return; }
-    const remaining = Math.max(0, (T.kenBurnsTo - scale.value) / (T.kenBurnsTo - T.kenBurnsFrom)) * kenBurnsMs;
-    scale.value = withTiming(T.kenBurnsTo, { duration: remaining, easing: Easing.linear });
-  }, [activationKey, kenBurnsMs, paused, reduceMotion, role, scale, settling]);
-
-  const style = useAnimatedStyle(() => ({ opacity: opacity.value, transform: [{ scale: scale.value }] }));
-  return (
-    <Animated.View pointerEvents="none" style={[styles.layer, { zIndex: role === 'active' ? 2 : role === 'outgoing' ? 1 : 0 }, style]}>
-      {fit.extended ? (
-        // A wide image is not cut to a strip: the same photograph, softened
-        // and dimmed, carries the frame beyond its edges.
-        <>
-          <Image source={{ uri }} blurRadius={28} resizeMode="cover" style={{ width, height }} />
-          <View style={[StyleSheet.absoluteFill, styles.extensionShade]} />
-        </>
-      ) : null}
-      <Image source={{ uri }} resizeMode="cover" accessibilityIgnoresInvertColors
-        style={{ position: 'absolute', left: fit.left, top: fit.top, width: fit.width, height: fit.height }} />
-    </Animated.View>
-  );
-});
+/** Camera moves in Visualize are decided by the session itself; system animator scale must not skip them. */
+const cameraTiming = (toValue: number, duration: number, easing: WithTimingConfig['easing'] = boardCameraEasing) => {
+  'worklet';
+  return withTiming(toValue, { duration: Math.max(0, duration), easing, reduceMotion: ReduceMotion.Never });
+};
+function cameraDelay<V>(delayMs: number, animation: V): V {
+  'worklet';
+  return withDelay(Math.max(0, delayMs), animation as never, ReduceMotion.Never) as V;
+}
 
 export function V2VisualizeSessionScreen({
   anchor, accountId, tiles, statement, visionId, durationSeconds, voice, ambient, haptics, source, onExit, onContinue,
@@ -141,10 +77,11 @@ export function V2VisualizeSessionScreen({
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const reduceMotion = useV2ReduceMotion();
-  const images = useMemo(() => tiles.filter(tile => Boolean(tile.imageUrl)).map(tile => tile.imageUrl as string), [tiles]);
-  // Every scene is decoded before its turn, and sized so it can be framed without brutal cropping.
-  const imageSizes = useVisionImageSizes(images);
-  const schedule = useMemo(() => buildVisionSceneSchedule(durationSeconds, images.length), [durationSeconds, images.length]);
+  // Only the person's chosen photographs, in their chosen order, on the board they arranged.
+  const boardTiles = useMemo(() => tiles.filter(tile => Boolean(tile.imageUrl)).slice(0, VISION_BOARD_MAX_IMAGES), [tiles]);
+  const images = useMemo(() => boardTiles.map(tile => tile.imageUrl as string), [boardTiles]);
+  useEffect(() => { preloadVisionImages(images); }, [images]);
+  const schedule = useMemo(() => buildBoardVisitSchedule(durationSeconds, images.length), [durationSeconds, images.length]);
   const prompts = useMemo(() => visualizeReflectionPrompts(durationSeconds), [durationSeconds]);
   const sceneSnapshot = useMemo(() => buildVisionSceneSnapshot(statement, anchor), [anchor, statement]);
   const backgroundAudio = ambient ? 'ambient' as const : 'off' as const;
@@ -222,7 +159,31 @@ export function V2VisualizeSessionScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Opening: setup has faded to darkness; the first image rises out of it.
+  // ── The board and its camera. The scene is laid out large so the deepest
+  // zoom stays sharp; the camera is one transform on its parent.
+  const viewport = useMemo(() => ({ width, height }), [height, width]);
+  const scene = useMemo(() => boardSizeForWidth(width * T.board.renderScale), [width]);
+  const art = useMemo(() => anchorRenderProps(anchor), [anchor]);
+  const anchorIntention = anchor.intentionText || statement;
+  const openingCamera = useMemo(() => {
+    const card = toSceneRect(selectBoardLayout(boardTiles.length).card, scene);
+    return focusCamera(card, scene, viewport, { fill: T.board.anchorFill, minZoom: T.board.minZoom, maxZoom: T.board.maxZoom, clamp: false });
+  }, [boardTiles.length, scene, viewport]);
+  const board = useVisionBoardScene(boardTiles, scene, openingCamera.scale);
+  const plan = useMemo(() => planVisualizeCamera({
+    schedule, photoRects: board.slotRects, cardRect: toSceneRect(board.layout.card, scene), scene, viewport,
+  }), [board.layout.card, board.slotRects, scene, schedule, viewport]);
+  const cameraX = useSharedValue(openingCamera.x);
+  const cameraY = useSharedValue(openingCamera.y);
+  const cameraScale = board.shared.cameraScale;
+  const boardPresence = useSharedValue(1);
+  const stopCamera = useCallback(() => {
+    cancelAnimation(cameraX);
+    cancelAnimation(cameraY);
+    cancelAnimation(cameraScale);
+  }, [cameraScale, cameraX, cameraY]);
+
+  // ── Opening: setup has faded to darkness; the board rises out of it, on the Anchor.
   const intro = useSharedValue(0);
   const openingText = useSharedValue(0);
   useEffect(() => {
@@ -232,17 +193,69 @@ export function V2VisualizeSessionScreen({
       withDelay(T.openingHoldMs, withTiming(0, { duration: T.textFadeMs })),
     ));
   }, [intro, openingText, reduceMotion]);
-  // ── Ending: the Vision is drawn in toward its centre (see `T.ending`).
-  const compress = useSharedValue(0);
-  const introStyle = useAnimatedStyle(() => {
-    const scale = reduceMotion ? 1 : (1.035 - intro.value * 0.035) * (1 - compress.value * (1 - T.ending.compressTo));
-    return {
-      opacity: intro.value,
-      borderRadius: compress.value * width * 0.5,
-      transform: [{ scale }],
-    };
-  });
   const openingStyle = useAnimatedStyle(() => ({ opacity: openingText.value }));
+
+  // ── The journey: one timed move per phase, planned up front. Pausing stops
+  // the camera where it is; resuming continues towards where it belongs.
+  const phase = visualizeCameraPhaseAt(plan, engine.elapsedMs);
+  const elapsedRef = useRef(engine.elapsedMs);
+  elapsedRef.current = engine.elapsedMs;
+  const running = engine.state === 'running';
+  const paused = engine.state === 'paused';
+  useEffect(() => {
+    if (endingStarted) return;
+    if (!running) { stopCamera(); return; }
+    const current = visualizeCameraPhaseAt(plan, elapsedRef.current);
+    if (reduceMotion) {
+      // No travel: a quiet dip, and the next photograph is simply there.
+      const target = current.kind === 'opening' ? plan.anchor : current.visit.target;
+      if (Math.abs(cameraX.value - target.x) < 1 && Math.abs(cameraY.value - target.y) < 1 && Math.abs(cameraScale.value - target.scale) < 0.001) return;
+      boardPresence.value = withTiming(0, { duration: T.board.reducedDipOutMs, reduceMotion: ReduceMotion.Never }, finished => {
+        'worklet';
+        if (!finished) return;
+        cameraX.value = target.x;
+        cameraY.value = target.y;
+        cameraScale.value = target.scale;
+        boardPresence.value = withTiming(1, { duration: T.board.reducedDipInMs, reduceMotion: ReduceMotion.Never });
+      });
+      return;
+    }
+    const linear = Easing.linear;
+    if (current.kind === 'opening') {
+      const ease = Easing.out(Easing.quad);
+      cameraX.value = cameraTiming(current.to.x, current.remainingMs, ease);
+      cameraY.value = cameraTiming(current.to.y, current.remainingMs, ease);
+      cameraScale.value = cameraTiming(current.to.scale, current.remainingMs, ease);
+    } else if (current.kind === 'travel') {
+      const { target, drift } = current.visit;
+      const glide = (value: SharedValue<number>, to: number, then: number) => {
+        value.value = withSequence(
+          ReduceMotion.Never,
+          cameraTiming(to, current.remainingTravelMs),
+          cameraTiming(then, current.remainingHoldMs, linear),
+        );
+      };
+      glide(cameraX, target.x, drift.x);
+      glide(cameraY, target.y, drift.y);
+      glide(cameraScale, target.scale, drift.scale);
+    } else {
+      const { drift } = current.visit;
+      cameraX.value = cameraTiming(drift.x, current.remainingMs, linear);
+      cameraY.value = cameraTiming(drift.y, current.remainingMs, linear);
+      cameraScale.value = cameraTiming(drift.scale, current.remainingMs, linear);
+    }
+    // One move per phase, re-planned only when the phase, pause state or plan changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase.key, running, endingStarted, plan, reduceMotion]);
+
+  const cameraStyle = useAnimatedStyle(() => ({
+    opacity: intro.value * boardPresence.value,
+    transform: [
+      { translateX: -cameraScale.value * cameraX.value },
+      { translateY: -cameraScale.value * cameraY.value },
+      { scale: cameraScale.value },
+    ],
+  }));
 
   // ── Sparse reflection prompts.
   const prompt = engine.state === 'running' || engine.state === 'paused' ? visualizePromptAt(prompts, engine.elapsedMs) : null;
@@ -274,15 +287,8 @@ export function V2VisualizeSessionScreen({
   const timerPresence = useSharedValue(1);
   const timerStyle = useAnimatedStyle(() => ({ opacity: timerPresence.value * (chrome.value * 0.55 + (1 - chrome.value) * 0.32) }));
 
-  // ── Ending: Vision resolves into the Anchor.
-  const photoGroup = useSharedValue(1);
-  const blurred = useSharedValue(0);
+  // ── Ending: the camera pulls back to the whole board, then settles around the Anchor.
   const quiet = useSharedValue(0);
-  const vignette = useSharedValue(0);
-  const anchorOpacity = useSharedValue(0);
-  const anchorScale = useSharedValue<number>(reduceMotion ? 1 : T.ending.anchorFromScale);
-  // A soft, slightly larger echo of the Anchor that dissolves as the Anchor sharpens.
-  const anchorEcho = useSharedValue(0);
   const line = useSharedValue(0);
   const continueOpacity = useSharedValue(0);
 
@@ -291,12 +297,21 @@ export function V2VisualizeSessionScreen({
     setEndingStarted(true);
     AccessibilityInfo.announceForAccessibility?.('Visualize complete.');
     const timers: ReturnType<typeof setTimeout>[] = [];
+    stopCamera();
     if (reduceMotion) {
       const R = T.reducedEnding;
       chrome.value = withTiming(0, { duration: R.chromeOutMs });
       timerPresence.value = withTiming(0, { duration: R.chromeOutMs });
-      photoGroup.value = withDelay(R.crossAtMs, withTiming(0, { duration: R.crossMs }));
-      anchorOpacity.value = withDelay(R.crossAtMs, withTiming(1, { duration: R.crossMs }));
+      const finale = plan.finale;
+      boardPresence.value = cameraDelay(R.crossAtMs, withTiming(0.2, { duration: R.crossMs / 2, reduceMotion: ReduceMotion.Never }, finished => {
+        'worklet';
+        if (!finished) return;
+        cameraX.value = finale.x;
+        cameraY.value = finale.y;
+        cameraScale.value = finale.scale;
+        boardPresence.value = withTiming(1, { duration: R.crossMs / 2, reduceMotion: ReduceMotion.Never });
+      }));
+      quiet.value = cameraDelay(R.crossAtMs, withTiming(1, { duration: R.crossMs, reduceMotion: ReduceMotion.Never }));
       line.value = withDelay(R.lineAtMs, withTiming(1, { duration: R.fadeInMs }));
       continueOpacity.value = withDelay(R.continueAtMs, withTiming(1, { duration: R.fadeInMs }));
       timers.push(setTimeout(() => setLineVisible(true), R.lineAtMs));
@@ -304,33 +319,25 @@ export function V2VisualizeSessionScreen({
       timers.push(setTimeout(() => { if (haptics) void v2Haptics.completion(); }, R.crossAtMs + R.crossMs));
     } else {
       const E = T.ending;
-      const [a, b, c] = E.anchorStepsMs;
-      const inOut = Easing.bezier(0.45, 0, 0.2, 1);
       chrome.value = withTiming(0, { duration: E.chromeOutMs });
       timerPresence.value = withTiming(0, { duration: E.chromeOutMs });
-      // Quiet: the detail softens, colour drains, light lowers.
-      blurred.value = withDelay(E.transformAtMs, withTiming(1, { duration: E.quietMs, easing: inOut }));
-      quiet.value = withDelay(E.transformAtMs, withTiming(1, { duration: E.quietMs, easing: inOut }));
-      vignette.value = withDelay(E.transformAtMs, withTiming(1, { duration: E.quietMs }));
-      // Compress: the whole Vision is drawn in toward the centre the Anchor emerges from.
-      compress.value = withDelay(E.compressAtMs, withTiming(1, { duration: E.compressMs, easing: inOut }));
-      photoGroup.value = withDelay(E.photoOutAtMs, withTiming(0, { duration: E.photoOutMs, easing: Easing.in(Easing.quad) }));
-      // Sharpen: the Anchor arrives from soft and slightly large to present and exact.
-      anchorOpacity.value = withDelay(E.anchorAtMs, withSequence(
-        withTiming(0.25, { duration: a, easing: Easing.in(Easing.quad) }),
-        withTiming(0.6, { duration: b }),
-        withTiming(1, { duration: c, easing: Easing.out(Easing.cubic) }),
-      ));
-      anchorScale.value = withDelay(E.anchorAtMs, withTiming(1, { duration: a + b + c, easing: Easing.out(Easing.cubic) }));
-      anchorEcho.value = withDelay(E.anchorAtMs, withSequence(
-        withTiming(0.4, { duration: a, easing: Easing.out(Easing.quad) }),
-        withTiming(0, { duration: b + c, easing: Easing.in(Easing.quad) }),
-      ));
+      // Pull back: the whole board, every photograph at once, the Anchor at its heart.
+      const toRestThenFinale = (value: SharedValue<number>, rest: number, finale: number) => {
+        value.value = withSequence(
+          ReduceMotion.Never,
+          cameraTiming(rest, E.pullBackMs),
+          cameraDelay(E.settleAtMs - E.pullBackMs, cameraTiming(finale, E.settleMs)),
+        );
+      };
+      toRestThenFinale(cameraX, plan.rest.x, plan.finale.x);
+      toRestThenFinale(cameraY, plan.rest.y, plan.finale.y);
+      toRestThenFinale(cameraScale, plan.rest.scale, plan.finale.scale);
+      quiet.value = cameraDelay(E.quietAtMs, withTiming(1, { duration: E.quietMs, reduceMotion: ReduceMotion.Never }));
       line.value = withDelay(E.lineAtMs, withTiming(1, { duration: E.fadeInMs }));
       continueOpacity.value = withDelay(E.continueAtMs, withTiming(1, { duration: E.fadeInMs }));
       timers.push(setTimeout(() => setLineVisible(true), E.lineAtMs));
       timers.push(setTimeout(() => setContinueReady(true), E.continueAtMs));
-      timers.push(setTimeout(() => { if (haptics) void v2Haptics.completion(); }, E.anchorAtMs + a + b + c));
+      timers.push(setTimeout(() => { if (haptics) void v2Haptics.completion(); }, E.settleAtMs + E.settleMs));
     }
     let cancelled = false;
     void Promise.allSettled([engine.completionPromise ?? Promise.resolve(), sessionAudio.finishCompletion()])
@@ -340,16 +347,7 @@ export function V2VisualizeSessionScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engine.state]);
 
-  const photoGroupStyle = useAnimatedStyle(() => ({ opacity: photoGroup.value }));
-  const blurredStyle = useAnimatedStyle(() => ({ opacity: blurred.value }));
-  const desaturateStyle = useAnimatedStyle(() => ({ opacity: quiet.value * 0.7 }));
-  const darkenStyle = useAnimatedStyle(() => ({ opacity: quiet.value * 0.5 }));
-  const vignetteStyle = useAnimatedStyle(() => ({ opacity: vignette.value }));
-  const anchorStyle = useAnimatedStyle(() => ({ opacity: anchorOpacity.value, transform: [{ scale: anchorScale.value }] }));
-  const anchorEchoStyle = useAnimatedStyle(() => ({
-    opacity: anchorEcho.value,
-    transform: [{ scale: anchorScale.value * 1.08 }],
-  }));
+  const quietStyle = useAnimatedStyle(() => ({ opacity: quiet.value }));
   const shadeStyle = useAnimatedStyle(() => ({ opacity: timerPresence.value }));
   const lineStyle = useAnimatedStyle(() => ({ opacity: line.value }));
   const continueStyle = useAnimatedStyle(() => ({ opacity: continueOpacity.value }));
@@ -398,57 +396,51 @@ export function V2VisualizeSessionScreen({
     onContinue();
   };
 
-  const slot = visionSceneSlotAt(schedule, engine.elapsedMs);
-  const previous = slot.index > 0 ? schedule[slot.index - 1] : null;
-  const crossfade = reduceMotion ? T.reducedCrossfadeMs : T.crossfadeMs;
-  const outgoingImage = previous && previous.imageIndex !== slot.imageIndex && engine.elapsedMs - slot.startMs < crossfade + 400
-    ? previous.imageIndex : null;
-  const lastSlot = schedule[schedule.length - 1];
-  const finalImage = images[lastSlot.imageIndex] ?? null;
-  const onFinalSlot = slot.index === lastSlot.index;
-  const paused = engine.state === 'paused';
-  const anchorSize = Math.round(Math.min(width * 0.52, 228));
-  const art = useMemo(() => anchorRenderProps(anchor), [anchor]);
+  const visit = schedule.length ? visionSceneSlotAt(schedule, engine.elapsedMs) : null;
+  const onPhotograph = Boolean(visit && engine.elapsedMs >= visit.startMs);
 
   return (
     <View testID="v2-visualize-session" style={styles.root}>
       <StatusBar hidden={immersive} barStyle="light-content" backgroundColor={colors.ink.deep} animated />
       {immersive ? <KeepAwake /> : null}
 
-      <Animated.View style={[styles.fill, photoGroupStyle]} pointerEvents="none">
-        <Animated.View style={[styles.fill, styles.stage, introStyle]}>
-          {images.map((uri, index) => (
-            <SceneLayer key={`${index}-${uri}`} uri={uri} imageSize={imageSizes[uri]} width={width} height={height}
-              role={index === slot.imageIndex ? 'active' : index === outgoingImage ? 'outgoing' : 'idle'}
-              activationKey={index === slot.imageIndex ? slot.index : -1}
-              slotMs={slot.endMs - slot.startMs} paused={paused} settling={endingStarted}
-              reduceMotion={reduceMotion} />
-          ))}
-          {finalImage && onFinalSlot && !reduceMotion ? (
-            <Animated.View style={[styles.fill, styles.overlay, blurredStyle]}>
-              <Image source={{ uri: finalImage }} blurRadius={18} resizeMode="cover" style={[{ width, height }, styles.blurScale]} />
-            </Animated.View>
-          ) : null}
-          <Animated.View style={[styles.fill, styles.overlay, styles.desaturate, desaturateStyle]} />
-          <Animated.View style={[styles.fill, styles.overlay, styles.darken, darkenStyle]} />
-          <Animated.View style={[styles.fill, styles.overlay, vignetteStyle]}>
-            <Svg width={width} height={height}>
-              <Defs>
-                <RadialGradient id="visualize-vignette" cx="50%" cy="48%" r="70%" rx="70%" ry="62%" fx="50%" fy="48%">
-                  <Stop offset="0.35" stopColor={colors.ink.deep} stopOpacity="0" />
-                  <Stop offset="1" stopColor={colors.ink.deep} stopOpacity="0.92" />
-                </RadialGradient>
-              </Defs>
-              <Rect x="0" y="0" width={width} height={height} fill="url(#visualize-vignette)" />
-            </Svg>
-          </Animated.View>
+      <View style={styles.fill} pointerEvents="none">
+        <Animated.View style={[styles.scene, {
+          width: scene.width, height: scene.height,
+          left: (width - scene.width) / 2, top: (height - scene.height) / 2,
+        }, cameraStyle]}>
+          <VisionBoardScene
+            scene={scene}
+            roster={board.roster}
+            entering={board.entering}
+            layout={board.layout}
+            shared={board.shared}
+            initialRectFor={board.initialRectFor}
+            intention={anchorIntention}
+            category={anchor.category}
+            art={art}
+            reduceMotion={reduceMotion}
+            anchorTestID="v2-visualize-anchor"
+          />
         </Animated.View>
-        {/* Text protection only - never a card. It leaves with the chrome so the ending is the image alone. */}
+        {/* The ending quiets the edges so the Anchor at the centre holds the eye. */}
+        <Animated.View style={[styles.fill, quietStyle]}>
+          <Svg width={width} height={height}>
+            <Defs>
+              <RadialGradient id="visualize-vignette" cx="50%" cy="46%" r="70%" rx="62%" ry="52%" fx="50%" fy="46%">
+                <Stop offset="0.42" stopColor={colors.ink.deep} stopOpacity="0" />
+                <Stop offset="1" stopColor={colors.ink.deep} stopOpacity="0.9" />
+              </RadialGradient>
+            </Defs>
+            <Rect x="0" y="0" width={width} height={height} fill="url(#visualize-vignette)" />
+          </Svg>
+        </Animated.View>
+        {/* Text protection only - never a card. It leaves with the chrome so the ending is the board alone. */}
         <Animated.View pointerEvents="none" style={[styles.fill, shadeStyle]}>
           <LinearGradient pointerEvents="none" colors={['rgba(14,21,28,0.55)', 'rgba(14,21,28,0)']} style={[styles.topShade, { height: insets.top + 110 }]} />
           <LinearGradient pointerEvents="none" colors={['rgba(14,21,28,0)', 'rgba(14,21,28,0.72)']} style={styles.bottomShade} />
         </Animated.View>
-      </Animated.View>
+      </View>
 
       {!endingStarted ? (
         <Pressable accessibilityLabel="Show session controls" style={styles.fill} onPress={() => setControlsVisible(value => !value)} />
@@ -476,8 +468,8 @@ export function V2VisualizeSessionScreen({
       </Animated.View>
       <Animated.View pointerEvents={controlsVisible && !endingStarted ? 'box-none' : 'none'} style={[styles.bottomBar, { bottom: insets.bottom + spacing[5] }, chromeStyle, bottomChromeReveal]}>
         {images.length > 1 ? (
-          <View style={styles.dots} accessibilityLabel={`Scene ${slot.imageIndex + 1} of ${images.length}`}>
-            {images.map((_, index) => <View key={index} style={[styles.dot, index === slot.imageIndex && styles.dotActive]} />)}
+          <View style={styles.dots} accessibilityLabel={onPhotograph && visit ? `Image ${visit.imageIndex + 1} of ${images.length}` : 'Your Anchor'}>
+            {images.map((_, index) => <View key={index} style={[styles.dot, onPhotograph && index === visit?.imageIndex && styles.dotActive]} />)}
           </View>
         ) : null}
         <Pressable accessibilityRole="button" accessibilityLabel={paused ? 'Resume Visualize' : 'Pause Visualize'} onPress={togglePlayback} style={styles.playButton}>
@@ -488,24 +480,7 @@ export function V2VisualizeSessionScreen({
 
       {endingStarted ? (
         <View style={styles.ending} pointerEvents="box-none">
-          <View style={{ width: anchorSize, height: anchorSize }}>
-            {!reduceMotion ? (
-              <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, anchorEchoStyle]}
-                accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-                <CircularAnchorRenderer {...art} size={anchorSize} appearance="dark" />
-              </Animated.View>
-            ) : null}
-            <Animated.View style={anchorStyle}>
-              <CircularAnchorRenderer
-                {...art}
-                testID="v2-visualize-anchor"
-                size={anchorSize}
-                appearance="dark"
-                accessibilityLabel={`${categoryLabel(anchor.category)} Anchor`}
-              />
-            </Animated.View>
-          </View>
-          <Animated.View style={[styles.lineWrap, lineStyle]} accessibilityElementsHidden={!lineVisible}
+          <Animated.View style={[styles.lineWrap, { bottom: insets.bottom + 168 }, lineStyle]} accessibilityElementsHidden={!lineVisible}
             importantForAccessibility={lineVisible ? 'auto' : 'no-hide-descendants'}>
             <Text style={styles.line}>Hold onto what you saw.</Text>
           </Animated.View>
@@ -528,13 +503,7 @@ export function V2VisualizeSessionScreen({
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.ink.deep },
   fill: { ...StyleSheet.absoluteFillObject },
-  stage: { overflow: 'hidden', backgroundColor: colors.ink.deep },
-  layer: { position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 },
-  overlay: { zIndex: 3 },
-  blurScale: { transform: [{ scale: T.kenBurnsTo }] },
-  // Blends to grey luminance where the platform supports blend modes; elsewhere a soft grey veil.
-  desaturate: { backgroundColor: '#7B8087', mixBlendMode: 'saturation' },
-  darken: { backgroundColor: colors.ink.deep },
+  scene: { position: 'absolute' },
   topShade: { position: 'absolute', left: 0, right: 0, top: 0 },
   bottomShade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '42%' },
   opening: { ...StyleSheet.absoluteFillObject, justifyContent: 'flex-end', alignItems: 'center', paddingHorizontal: spacing[7], gap: spacing[3] },
@@ -551,11 +520,10 @@ const styles = StyleSheet.create({
   dotActive: { backgroundColor: colors.ink.text.primary },
   playButton: { width: 52, height: 52, borderRadius: 26, borderWidth: 1.5, borderColor: colors.ink.text.secondary, alignItems: 'center', justifyContent: 'center' },
   pausedText: { ...typography.caption, color: colors.ink.text.secondary },
-  // Anchor and line share one centred column; the line is always laid out (transparent) so nothing shifts when it appears.
-  ending: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', paddingBottom: spacing[8] },
-  lineWrap: { marginTop: spacing[8], paddingHorizontal: spacing[6], alignItems: 'center' },
+  // The Anchor is on the board at the centre; the line and Continue sit beneath it.
+  ending: { ...StyleSheet.absoluteFillObject },
+  lineWrap: { position: 'absolute', left: spacing[6], right: spacing[6], alignItems: 'center' },
   line: { ...typography.headingMD, color: colors.ink.text.primary, textAlign: 'center' },
   continueWrap: { position: 'absolute', left: spacing[5], right: spacing[5], alignItems: 'center', gap: spacing[4] },
   continueButton: { alignSelf: 'stretch', maxWidth: 360, backgroundColor: '#0A0F14', borderColor: colors.ink.hairlineStrong },
-  extensionShade: { backgroundColor: colors.ink.deep, opacity: 0.38 },
 });
