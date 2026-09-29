@@ -196,13 +196,13 @@ export function validateEnv(): EnvConfig {
         'VISION_PRIMARY_PROVIDER',
         process.env.VISION_PRIMARY_PROVIDER,
         ['openai', 'gemini'],
-        'openai'
+        'gemini'
       ),
       VISION_FALLBACK_PROVIDER: validateEnum<'openai' | 'gemini'>(
         'VISION_FALLBACK_PROVIDER',
         process.env.VISION_FALLBACK_PROVIDER,
         ['openai', 'gemini'],
-        'gemini'
+        'openai'
       ),
       ANCHOR_PRIMARY_PROVIDER: validateEnum<'gemini' | 'openai'>(
         'ANCHOR_PRIMARY_PROVIDER',

@@ -20,7 +20,7 @@ export type VisionTone = 'light' | 'dark';
  * where it came from.
  */
 export function VisionIdentity({
-  intention, category, art, imageUrl, tone = 'light', size = 44, testID, artworkPlace,
+  intention, category, art, imageUrl, tone = 'light', size = 44, testID, artworkPlace, showAnchor = true,
 }: {
   intention: string;
   category?: string | null;
@@ -32,33 +32,41 @@ export function VisionIdentity({
   testID?: string;
   /** Registers the mark as an Anchor transition place (Visualize setup). */
   artworkPlace?: AnchorTransitionPlaceBinding;
+  /** When false, omits the circular Anchor thumbnail so intention copy reclaims full horizontal width. */
+  showAnchor?: boolean;
 }) {
   const categoryColor = getCategoryColor(category);
   const onDark = tone === 'light';
-  const mark = art?.svg || art?.imageUrl ? (
-    <CircularAnchorRenderer
-      svg={art.svg}
-      imageUrl={art.imageUrl ?? undefined}
-      category={art.category ?? category}
-      expression={art.expression ?? undefined}
-      size={size}
-      appearance="paper"
-      accessibilityLabel={`${categoryLabel(category)} Anchor`}
-    />
-  ) : imageUrl ? (
-    <Image source={{ uri: imageUrl }} style={{ width: size, height: size, borderRadius: size / 2 }} />
-  ) : (
-    <View style={[styles.medallionFallback, { width: size, height: size, borderRadius: size / 2, borderColor: categoryColor }]} />
-  );
+  const mark = showAnchor ? (
+    art?.svg || art?.imageUrl ? (
+      <CircularAnchorRenderer
+        svg={art.svg}
+        imageUrl={art.imageUrl ?? undefined}
+        category={art.category ?? category}
+        expression={art.expression ?? undefined}
+        size={size}
+        appearance="paper"
+        accessibilityLabel={`${categoryLabel(category)} Anchor`}
+      />
+    ) : imageUrl ? (
+      <Image source={{ uri: imageUrl }} style={{ width: size, height: size, borderRadius: size / 2 }} />
+    ) : (
+      <View style={[styles.medallionFallback, { width: size, height: size, borderRadius: size / 2, borderColor: categoryColor }]} />
+    )
+  ) : null;
   return (
     <View testID={testID} style={styles.identity}>
-      {artworkPlace ? (
-        <View ref={artworkPlace.ref} collapsable={false} onLayout={artworkPlace.onLayout} style={{ width: size, height: size, opacity: artworkPlace.hidden ? 0 : 1 }}>
-          {mark}
-        </View>
-      ) : mark}
+      {mark ? (
+        artworkPlace ? (
+          <View ref={artworkPlace.ref} collapsable={false} onLayout={artworkPlace.onLayout} style={{ width: size, height: size, opacity: artworkPlace.hidden ? 0 : 1 }}>
+            {mark}
+          </View>
+        ) : mark
+      ) : null}
       <View style={styles.identityCopy}>
-        <Text style={[styles.intention, { color: onDark ? colors.ink.text.primary : colors.text.primary }]} numberOfLines={2}>{intention}</Text>
+        <Text style={[styles.intention, showAnchor ? null : styles.intentionHero, { color: onDark ? colors.ink.text.primary : colors.text.primary }]} numberOfLines={2}>
+          {intention}
+        </Text>
         <View style={styles.categoryRow}>
           <View style={[styles.categoryDot, { backgroundColor: categoryColor }]} />
           <Text style={[styles.category, { color: onDark ? colors.ink.text.secondary : colors.text.secondary }]}>
@@ -113,6 +121,7 @@ const styles = StyleSheet.create({
   identity: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   identityCopy: { flex: 1, gap: 3 },
   intention: { ...typography.labelMD },
+  intentionHero: { ...typography.headingSM },
   categoryRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   categoryDot: { width: 6, height: 6, borderRadius: 3 },
   category: { ...typography.labelSM, fontSize: 10, letterSpacing: 1 },

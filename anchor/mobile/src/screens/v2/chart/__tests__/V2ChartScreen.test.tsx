@@ -5,6 +5,7 @@ import { apiClient } from '@/services/ApiClient';
 import { resetV2VisionReadCache } from '@/hooks/v2/vision/useV2Vision';
 import { resetAnchorChartCache } from '@/hooks/v2/chart/useAnchorChart';
 import { useAnchorStore } from '@/stores/anchorStore';
+import { useAuthStore } from '@/stores/authStore';
 import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
 import type { ChartForAnchor, ChartProposal } from '@/services/v2/chartV2Api';
 import type { CourseDetail } from '@/types/chart';
@@ -180,7 +181,8 @@ function serve(options: { chart: ChartForAnchor | Error; vision?: typeof vision 
 
 beforeEach(async () => {
   jest.clearAllMocks();
-  await encryptedPersistStorage.removeItem('anchor:v2:chart2:anchor-1');
+  useAuthStore.setState({ user: { id: 'chart-screen-user' } as never });
+  await encryptedPersistStorage.removeItem('anchor:v2:chart2:chart-screen-user:anchor-1');
   mockParams = { anchorId: 'anchor-1' };
   mockReduceMotion = true;
   resetAnchorChartCache();
@@ -368,7 +370,10 @@ describe('V2ChartScreen — active Chart', () => {
     serve({ chart: readModel(activeChart()), vision: null });
     const screen = render(<V2ChartScreen />);
     fireEvent.press(await screen.findByTestId('chart-current-waypoint'));
-    expect(mockNavigate).toHaveBeenCalledWith('V2ChartWaypoint', { anchorId: 'anchor-1', waypointId: 'w2' });
+    expect(await screen.findByTestId('chart-waypoint-content')).toBeTruthy();
+    expect(mockNavigate).not.toHaveBeenCalledWith('V2ChartWaypoint', expect.anything());
+    fireEvent.press(screen.getByLabelText('Back to Chart'));
+    expect(await screen.findByTestId('chart-current-waypoint')).toBeTruthy();
     fireEvent.press(screen.getByTestId('chart-course-log'));
     expect(mockNavigate).toHaveBeenCalledWith('V2ChartJourney', { anchorId: 'anchor-1' });
   });

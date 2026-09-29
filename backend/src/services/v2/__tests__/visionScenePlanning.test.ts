@@ -1,6 +1,7 @@
 import {
   buildVisionImagePrompt,
   buildVisionScenePlannerPrompt,
+  buildVisionSceneVariantPlan,
   isStoredVisionScenePlan,
   parseVisionScenePlan,
   VISION_BOARD_PHOTO_RULES,
@@ -95,6 +96,12 @@ describe('isStoredVisionScenePlan', () => {
     expect(isStoredVisionScenePlan(Array.from({ length: 8 }, (_, i) => ({ role: `r${i}`, scene: `s${i}` })))).toBe(true);
     expect(isStoredVisionScenePlan(null)).toBe(false);
   });
+
+  it('accepts the two-shot plan of a described scene, but not an empty or oversized one', () => {
+    expect(isStoredVisionScenePlan(buildVisionSceneVariantPlan('A beach house with my family'))).toBe(true);
+    expect(isStoredVisionScenePlan([])).toBe(false);
+    expect(isStoredVisionScenePlan(Array.from({ length: 9 }, (_, i) => ({ role: `r${i}`, scene: `s${i}` })))).toBe(false);
+  });
 });
 
 describe('buildVisionImagePrompt', () => {
@@ -175,5 +182,26 @@ describe('Vision board photographs', () => {
       expect(VISION_BOARD_PHOTO_RULES).toContain(forbidden);
     }
     expect(prompt).toMatch(/No readable text/);
+  });
+});
+
+describe('a described scene', () => {
+  it("is planned as two differently framed shots of the person's own words", () => {
+    const [first, second] = buildVisionSceneVariantPlan('  Working from a beach house   with my family  ');
+    expect(first.scene).toBe('Working from a beach house with my family');
+    expect(second.scene).toBe(first.scene);
+    expect(first.framing).not.toBe(second.framing);
+  });
+
+  it('joins the board without repeating it, and leaves generated sets untouched', () => {
+    const scene = buildVisionSceneVariantPlan('A beach house with my family')[0];
+    const base = { intention: 'I build freely', category: 'career', description: 'A calm life by the water', scene };
+    const joined = buildVisionImagePrompt({ ...base, boardScenes: ['A quiet dock at dawn'] });
+    expect(joined).toContain('A quiet dock at dawn');
+    expect(joined).toContain('A calm life by the water');
+    expect(joined).toContain('do not repeat any of these compositions');
+    const plain = buildVisionImagePrompt(base);
+    expect(plain).not.toContain('A calm life by the water');
+    expect(plain).not.toContain('do not repeat any of these compositions');
   });
 });

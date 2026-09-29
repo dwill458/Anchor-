@@ -23,6 +23,7 @@ export interface V2ChartRouteParams {
 
 export interface V2ChartScreenProps {
   anchorId?: string;
+  initialWaypointId?: string | null;
   onBack?: () => void;
   testID?: string;
 }
@@ -56,6 +57,7 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
   const chart = useAnchorChart(anchorId);
   const context = useChartContext(anchorId, chart.data);
   const [celebration, setCelebration] = useState<ChartCelebration | null>(null);
+  const [spatialFocused, setSpatialFocused] = useState(Boolean(props.initialWaypointId));
   // The creation flow stays on screen through its reveal ("Your route is
   // ready.") even though the saved Chart is already in the shared cache.
   const [revealing, setRevealing] = useState(false);
@@ -105,6 +107,10 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
     else if (navigation.canGoBack()) navigation.goBack();
     else navigation.navigate('V2DevelopmentHome');
   };
+
+  useEffect(() => {
+    navigation.setOptions?.({ gestureEnabled: !spatialFocused, animation: 'none' });
+  }, [navigation, spatialFocused]);
 
   const openVision = () => {
     trackChart('chart_vision_opened', { from: 'chart' });
@@ -183,7 +189,7 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
     );
   }
 
-  if (view.isFinished || data.anchor.released) {
+  if ((view.isFinished && !spatialFocused) || data.anchor.released) {
     return (
       <ChartDestinationReached
         view={view}
@@ -212,7 +218,18 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
       celebration={celebration}
       onCelebrationDone={() => setCelebration(null)}
       onBack={handleBack}
-      onOpenWaypoint={(waypointId) => navigation.navigate('V2ChartWaypoint', { anchorId, waypointId })}
+      chartActions={chart}
+      initialWaypointId={props.initialWaypointId}
+      onSpatialModeChange={setSpatialFocused}
+      onWaypointReached={(result, previousReachedCount, total) => {
+        if (!result.destinationReached) {
+          setCelebration({
+            completedTitle: result.completedTitle,
+            nextTitle: result.nextTitle,
+            fromFraction: total > 0 ? previousReachedCount / total : 0,
+          });
+        }
+      }}
       onCompleteMove={async (moveId) => {
         chart.clearLastError();
         return chart.completeMove(moveId);

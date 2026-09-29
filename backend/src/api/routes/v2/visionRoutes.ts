@@ -10,6 +10,7 @@ import {
   ReorderScenesSchema,
   RecordVisionViewSchema,
   StartVisionGenerationSchema,
+  StartVisionSceneGenerationSchema,
   CreateVisionAppearanceReferenceSchema,
 } from '../../../domain/v2/vision';
 import { visionGenerationService } from '../../../services/v2/VisionGenerationService';
@@ -139,6 +140,28 @@ router.post(
     } catch (error) { next(error); }
   }
 );
+
+// One described scene for the board: two candidates, never one of the three numbered sets.
+router.post(
+  '/anchors/:anchorId/vision/scene-generation',
+  globalAiCeilingLimiter,
+  visionGenerationLimiter,
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const userId = await getAuthenticatedUserId(req);
+      const input = validateBody(StartVisionSceneGenerationSchema, req.body);
+      const job = await visionGenerationService.startScene(userId, req.params.anchorId, input.sceneDescription, input.idempotencyKey);
+      res.status(202).json({ success: true, data: job });
+    } catch (error) { next(error); }
+  }
+);
+
+router.get('/anchors/:anchorId/vision/scene-generation/:jobId', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const userId = await getAuthenticatedUserId(req);
+    res.json({ success: true, data: await visionGenerationService.latest(userId, req.params.anchorId, req.params.jobId) });
+  } catch (error) { next(error); }
+});
 
 router.post(
   '/anchors/:anchorId/vision/generation/:jobId/retry',

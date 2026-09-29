@@ -89,6 +89,13 @@ export const CHART_PROGRESS_TIMING = {
   bannerHoldReduced: 2600,
 } as const;
 
+/** Full Chart ↔ focused waypoint camera choreography. */
+export const CHART_CAMERA_TIMING = {
+  focus: 760,
+  return: 680,
+  reduced: 220,
+} as const;
+
 /** withTiming with Chart's explicit reduced-motion policy. */
 export function chartTiming(toValue: number, config: Omit<WithTimingConfig, 'reduceMotion'> = {}, callback?: (finished?: boolean) => void) {
   'worklet';

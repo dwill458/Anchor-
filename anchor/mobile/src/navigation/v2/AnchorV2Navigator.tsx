@@ -347,7 +347,7 @@ export function AnchorV2Navigator() {
         <Stack.Screen name="V2Practice" component={V2PracticeRouteScreen} options={PRACTICE_OPTIONS} />
         <Stack.Screen name="V2Vision" component={V2VisionRouteScreen} options={PAPER_BACKGROUND} />
         <Stack.Screen name="V2Chart" component={V2ChartScreen} options={GRAPHITE_BACKGROUND} />
-        <Stack.Screen name="V2ChartWaypoint" component={V2ChartWaypointScreen} options={GRAPHITE_BACKGROUND} />
+        <Stack.Screen name="V2ChartWaypoint" component={V2ChartWaypointScreen} options={{ ...GRAPHITE_BACKGROUND, animation: 'none', gestureEnabled: false }} />
         <Stack.Screen name="V2ChartAdjust" component={V2ChartAdjustScreen} options={GRAPHITE_BACKGROUND} />
         <Stack.Screen name="V2ChartJourney" component={V2ChartJourneyScreen} options={GRAPHITE_BACKGROUND} />
         <Stack.Screen name="V2Progress" component={V2ProgressScreen} options={GRAPHITE_BACKGROUND} />

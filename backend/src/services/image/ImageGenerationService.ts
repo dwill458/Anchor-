@@ -51,7 +51,7 @@ export class ImageGenerationService {
    *
    * When VISION_AB_TEST_ENABLED is true and a userId is provided, deterministically
    * hashes the userId so a user stably receives either OpenAI or Gemini across sessions.
-   * Otherwise returns the configured VISION_PRIMARY_PROVIDER (default: 'openai').
+   * Otherwise returns the configured VISION_PRIMARY_PROVIDER (default: 'gemini').
    */
   public selectVisionProvider(userId?: string): string {
     const isAbTestEnabled = process.env.VISION_AB_TEST_ENABLED === 'true';
@@ -62,7 +62,7 @@ export class ImageGenerationService {
       return numericVal % 2 === 0 ? 'openai' : 'gemini';
     }
 
-    return (process.env.VISION_PRIMARY_PROVIDER || 'openai').toLowerCase();
+    return (process.env.VISION_PRIMARY_PROVIDER || 'gemini').toLowerCase();
   }
 
   public resolveRouting(request: GenerateImageRequest): {

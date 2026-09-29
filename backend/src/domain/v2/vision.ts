@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const VISION_STATUSES = ['ACTIVE', 'ARCHIVED'] as const;
 export type VisionStatus = (typeof VISION_STATUSES)[number];
 
-export const VISION_SCENE_SOURCES = ['USER_UPLOAD', 'AI_GENERATED'] as const;
+export const VISION_SCENE_SOURCES = ['USER_UPLOAD', 'AI_GENERATED', 'USER_CAMERA'] as const;
 export type VisionSceneSource = (typeof VISION_SCENE_SOURCES)[number];
 
 export interface VisionSceneReadModel {
@@ -93,6 +93,12 @@ export const StartVisionGenerationSchema = z.object({
   // The server resolves this private asset itself. Clients never send raw
   // URLs or bytes to the generation endpoint.
   appearanceReferenceId: z.string().uuid().optional().nullable(),
+}).strict();
+
+/** One described scene to add to an existing Vision board (two candidates come back). */
+export const StartVisionSceneGenerationSchema = z.object({
+  sceneDescription: z.string().trim().min(6).max(400),
+  idempotencyKey: z.string().regex(/^[A-Za-z0-9-]{12,100}$/),
 }).strict();
 
 export const CreateVisionAppearanceReferenceSchema = z.object({

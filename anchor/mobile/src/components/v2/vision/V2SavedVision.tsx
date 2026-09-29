@@ -11,10 +11,12 @@ import { useV2ReduceMotion } from '@/hooks/v2';
 import type { V2VisionTile } from '@/adapters/v2/vision';
 import type { ChartSummary } from '@/adapters/v2/chart/chartV2Model';
 import { VisionHeaderRow, VisionIdentity, VisionInkBand, type VisionAnchorArt } from './VisionChrome';
+import { VisionEnvironment } from './environment/VisionEnvironment';
 import { VISION_DESCRIPTION_MAX_CHARS, VISION_DESCRIPTION_MIN_CHARS, visionDetailHint } from './visionGuidance';
 import { VisionBoard } from './board/VisionBoard';
 import { orderTiles, toSceneOrders } from './board/visionBoardReorder';
 import { VISION_BOARD_MAX_IMAGES } from './board/visionBoardLayouts';
+import { VisionAddSheet, type VisionAddChoice } from './VisionAddSheet';
 
 type Props = {
   anchorIntention: string;
@@ -32,13 +34,14 @@ type Props = {
   onUpdateDescription: (description: string) => Promise<boolean>;
   onReorder: (sceneOrders: Array<{ id: string; sortOrder: number }>) => Promise<boolean>;
   onRemove: (sceneId: string) => Promise<boolean>;
-  /** Adds one of the person's own photos. */
-  onAddOwn: () => Promise<void>;
+  /** Starts adding a photo the person chooses or takes; it is previewed before anything is saved. */
+  onAddPhoto: (source: 'library' | 'camera') => void;
+  /** Opens "Add to your Vision": describe a scene and choose a generated image. */
+  onAddGenerate: () => void;
   /** Swaps one photo for one of the person's own, in the same place on the board. */
   onReplace: (sceneId: string) => Promise<void>;
   /** Opens image generation to choose a new image for this place on the board. */
   onRegenerate: (sceneId: string) => void;
-  onGenerateMore: () => void;
   canGenerateMore: boolean;
   onArchive: () => Promise<boolean>;
   /** Scene ids on the board before images were added elsewhere; the board recomposes from them. */
@@ -56,7 +59,7 @@ export function V2SavedVision({
   chartSummary = null,
   anchorIntention, anchorCategory, anchorImageUrl, anchorArt, description, tiles, error,
   onBack, onVisualize, onChart, onUpdateDescription, onReorder, onRemove,
-  onAddOwn, onReplace, onRegenerate, onGenerateMore, canGenerateMore, onArchive, arrivedFrom = null, testID = 'v2-vision-screen',
+  onAddPhoto, onAddGenerate, onReplace, onRegenerate, canGenerateMore, onArchive, arrivedFrom = null, testID = 'v2-vision-screen',
 }: Props) {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -68,6 +71,7 @@ export function V2SavedVision({
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [addSheetOpen, setAddSheetOpen] = useState(false);
   // Board edits show at once; the server catches up behind them.
   const [localOrder, setLocalOrder] = useState<string[] | null>(null);
   const [pendingRemovals, setPendingRemovals] = useState<ReadonlySet<string>>(() => new Set());
@@ -155,14 +159,12 @@ export function V2SavedVision({
     void onReplace(sceneId).finally(() => { setBusy(false); setReplaceTarget(null); });
   }, [boardTiles, onReplace, tiles]);
 
-  const addImage = useCallback(() => {
-    const choices = [
-      { text: 'Choose a photo', onPress: () => { void onAddOwn(); } },
-      ...(canGenerateMore ? [{ text: 'Generate images', onPress: onGenerateMore }] : []),
-      { text: 'Cancel', style: 'cancel' as const },
-    ];
-    Alert.alert('Add to your Vision', undefined, choices);
-  }, [canGenerateMore, onAddOwn, onGenerateMore]);
+  const addImage = useCallback(() => setAddSheetOpen(true), []);
+  const closeAddSheet = useCallback(() => setAddSheetOpen(false), []);
+  const chooseAdd = useCallback((choice: VisionAddChoice) => {
+    if (choice === 'generate') onAddGenerate();
+    else onAddPhoto(choice);
+  }, [onAddGenerate, onAddPhoto]);
 
   const archive = () => {
     setMenuOpen(false);
@@ -193,9 +195,10 @@ export function V2SavedVision({
         <ScrollView scrollEnabled={!dragging} contentContainerStyle={{ paddingBottom: insets.bottom + spacing[6] }}
           keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <VisionInkBand>
+            <VisionEnvironment category={anchorCategory} boardWidth={boardWidth} reduceMotion={reduceMotion} />
             <View style={styles.bandContent}>
               {header}
-              <VisionIdentity intention={anchorIntention} category={anchorCategory} art={anchorArt} imageUrl={anchorImageUrl} />
+              <VisionIdentity intention={anchorIntention} category={anchorCategory} art={anchorArt} imageUrl={anchorImageUrl} showAnchor={false} />
             </View>
             {mode === 'view' ? (
               <View style={styles.boardWrap}>
@@ -271,6 +274,7 @@ export function V2SavedVision({
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      <VisionAddSheet visible={addSheetOpen} onClose={closeAddSheet} onChoose={chooseAdd} />
       {menuOpen && mode === 'view' && (
         <Pressable accessibilityRole="button" accessibilityLabel="Archive Vision" onPress={archive} style={[styles.menu, { top: insets.top + 50 }]}>
           <Text style={styles.archiveText}>Archive Vision</Text>

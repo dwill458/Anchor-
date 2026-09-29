@@ -15,6 +15,8 @@ export interface VisionGenerationCandidate {
 
 export interface VisionGenerationJob {
   id: string;
+  /** SET = a numbered image set; SCENE = one described scene added to the board. */
+  kind?: 'SET' | 'SCENE';
   visionId: string;
   anchorId: string;
   setNumber: number;
@@ -25,7 +27,7 @@ export interface VisionGenerationJob {
   candidates: VisionGenerationCandidate[];
 }
 
-function generationMessage(cause: unknown): string {
+export function generationMessage(cause: unknown): string {
   if (cause instanceof ApiClientError) {
     if (cause.code === 'VISION_GENERATION_LIMIT') return 'You have used all three generated image sets for this Vision.';
     if (cause.code === 'VISION_RETRY_LIMIT') return 'This image set cannot be retried again.';

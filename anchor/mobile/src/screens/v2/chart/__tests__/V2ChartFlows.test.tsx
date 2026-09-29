@@ -170,7 +170,7 @@ describe('Waypoint detail', () => {
     );
   });
 
-  it('asks before completing a waypoint, uses one stable key, and returns to the Chart with the real result', async () => {
+  it('asks before completing a waypoint, uses one stable key, and reverses into the shared Chart', async () => {
     serve(chart());
     post.mockResolvedValue({
       data: {
@@ -189,14 +189,12 @@ describe('Waypoint detail', () => {
     fireEvent.press(await screen.findByTestId('chart-mark-waypoint'));
     expect(post).not.toHaveBeenCalled();
     fireEvent.press(await screen.findByTestId('chart-reach-yes'));
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalled());
+    await waitFor(() => expect(post).toHaveBeenCalled());
     const [url, body] = post.mock.calls[0];
     expect(url).toBe('/api/courses/course-1/waypoints/w2/complete');
     expect(body).toEqual({ idempotencyKey: 'chart2:reach:course-1:w2:7', expectedCourseVersion: 7 });
-    expect(mockNavigate).toHaveBeenCalledWith('V2Chart', {
-      anchorId: 'anchor-1',
-      reached: { completedTitle: 'Reach 1,000 active users', nextTitle: 'Reach 10,000 active users', reachedCount: 2, total: 3, destinationReached: false },
-    });
+    expect(mockNavigate).not.toHaveBeenCalledWith('V2Chart', expect.anything());
+    expect(await screen.findByTestId('chart-current-waypoint')).toBeTruthy();
   });
 
   it('shows reached waypoints as history without completion or suggestions', async () => {

@@ -2,6 +2,7 @@ import React, { memo, useEffect } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { AnchorMark } from '@/components/v2/anchor/AnchorMark';
+import { CircularAnchorRenderer } from '@/components/v2/anchor/CircularAnchorRenderer';
 import { categoryLabel } from '@/components/v2/anchors/anchorPresentation';
 import type { AnchorExpression } from '@/constants/v2/creation';
 import { BOARD_CARD_PIN, VISION_BOARD_IMAGES } from './visionBoardAssets';
@@ -12,7 +13,7 @@ import { boardRecomposeEasing, boardTiming, VISION_BOARD_MOTION as MOTION } from
 const INK = '#1E2126';
 const INK_SOFT = 'rgba(30,33,38,0.55)';
 
-export type VisionBoardCardArt = { svg: string; category?: string | null; expression?: AnchorExpression | null };
+export type VisionBoardCardArt = { svg: string; imageUrl?: string | null; category?: string | null; expression?: AnchorExpression | null };
 
 /** Longer intentions get a smaller hand so they still sit inside the paper. */
 export function intentionTypeScale(intention: string): { fontScale: number; lines: number } {
@@ -78,7 +79,12 @@ export const VisionBoardIntentionCard = memo(function VisionBoardIntentionCard({
         <View style={{ width: markSize, height: markSize, alignItems: 'center', justifyContent: 'center' }}>
           <Image source={VISION_BOARD_IMAGES.compassRose} resizeMode="contain" accessible={false}
             style={[styles.compass, { width: markSize * 1.32, height: markSize * 1.32 }]} />
-          {art?.svg ? (
+          {art?.imageUrl ? (
+            // The finished (enhanced) artwork, exactly as the Anchor's other screens show it; the
+            // renderer falls back to the stored structure if the image cannot load.
+            <CircularAnchorRenderer testID={anchorTestID} svg={art.svg} imageUrl={art.imageUrl} category={art.category ?? category}
+              size={markSize} appearance="paper" accessibilityLabel={`${categoryLabel(category)} Anchor`} />
+          ) : art?.svg ? (
             // The Anchor's own structure, drawn in ink as if by hand on the paper: foil
             // and colour expressions belong to the Anchor's screens, not to this sheet.
             <AnchorMark testID={anchorTestID} svg={art.svg} category={art.category ?? category}

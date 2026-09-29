@@ -1,17 +1,21 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { BackHandler, Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
+import Animated, { cancelAnimation, runOnJS, useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
 import { ArrowRight, Check, ChevronRight, Flag, MoreHorizontal, WifiOff } from 'lucide-react-native';
 import { V2SheetModal } from '@/components/v2/primitives/V2SheetModal';
 import { VisionHeaderRow, VisionIdentity } from '@/components/v2/vision/VisionChrome';
 import { CHART_COPY } from '@/constants/v2/chartCopy';
 import type { ChartViewModel } from '@/adapters/v2/chart/chartV2Model';
+import type { UseAnchorChartResult, WaypointReachResult } from '@/hooks/v2/chart/useAnchorChart';
 import { colors, getCategoryColor, radii, spacing, typography } from '@/theme/v2';
 import { ChartEyebrow, ChartInkButton, ChartInkCard, ChartInkScreen, type ChartIdentity } from './ChartChrome';
 import { ChartLandscape, type ChartAnchorArt, type ChartMarker } from './ChartLandscape';
+import { ChartMetricBar } from './ChartMetricBar';
+import { ChartWaypointContent } from './ChartWaypointContent';
+import { chartEnvironmentFor } from './chartEnvironment';
 import { CHART_WINDOWS } from './chartRouteGeometry';
-import { CHART_EASING, CHART_PROGRESS_TIMING as PT, CHART_TRANSITION_TIMING as TT, chartDelay, chartTiming } from './chartMotion';
+import { CHART_CAMERA_TIMING, CHART_EASING, CHART_PROGRESS_TIMING as PT, CHART_TRANSITION_TIMING as TT, chartDelay, chartTiming } from './chartMotion';
 
 export type ChartVisionPreview = { imageUrl: string | null; description: string | null; title: string | null };
 
@@ -33,7 +37,23 @@ type Props = {
   celebration: ChartCelebration | null;
   onCelebrationDone: () => void;
   onBack: () => void;
-  onOpenWaypoint: (waypointId: string) => void;
+  onOpenWaypoint?: (waypointId: string) => void;
+  chartActions?: Pick<
+    UseAnchorChartResult,
+    | 'busy'
+    | 'addMove'
+    | 'acceptMove'
+    | 'completeMove'
+    | 'dismissMove'
+    | 'suggestMoves'
+    | 'updateProgress'
+    | 'reachWaypoint'
+    | 'editWaypoint'
+    | 'removeWaypoint'
+  >;
+  initialWaypointId?: string | null;
+  onWaypointReached?: (result: WaypointReachResult, previousReachedCount: number, total: number) => void;
+  onSpatialModeChange?: (focused: boolean) => void;
   onCompleteMove: (moveId: string) => Promise<boolean>;
   onOpenVision: () => void;
   onOpenLog: () => void;
@@ -79,6 +99,10 @@ export function ChartActiveView({
   onCelebrationDone,
   onBack,
   onOpenWaypoint,
+  chartActions,
+  initialWaypointId = null,
+  onWaypointReached,
+  onSpatialModeChange,
   onCompleteMove,
   onOpenVision,
   onOpenLog,
@@ -90,6 +114,7 @@ export function ChartActiveView({
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const categoryColor = getCategoryColor(identity.category);
+  const environment = chartEnvironmentFor(identity.category);
   const target = travelledFraction(view);
   // An ordinary visit settles the lit route from START; everything else starts where it is.
   const settleRoute = entrance === 'open' && !celebration && !reducedMotion && target > 0;
@@ -105,6 +130,71 @@ export function ChartActiveView({
   const [showStillRight, setShowStillRight] = useState(false);
   const bannerOpacity = useSharedValue(0);
   const celebrationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const cameraProgress = useSharedValue(initialWaypointId ? 1 : 0);
+  const [selectedWaypointId, setSelectedWaypointId] = useState<string | null>(initialWaypointId);
+  const [spatialMode, setSpatialMode] = useState<'chart' | 'focusing' | 'waypoint' | 'returning'>(initialWaypointId ? 'waypoint' : 'chart');
+
+  const setMode = (mode: 'chart' | 'focusing' | 'waypoint' | 'returning') => setSpatialMode(mode);
+
+  const focusWaypoint = (waypointId: string) => {
+    if (spatialMode !== 'chart') return;
+    if (!chartActions) {
+      onOpenWaypoint?.(waypointId);
+      return;
+    }
+    setSelectedWaypointId(waypointId);
+    setSpatialMode('focusing');
+    onSpatialModeChange?.(true);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+    if (reducedMotion) {
+      cameraProgress.value = 1;
+      setSpatialMode('waypoint');
+      return;
+    }
+    cameraProgress.value = chartTiming(1, { duration: CHART_CAMERA_TIMING.focus, easing: CHART_EASING.deliberate }, (finished) => {
+      if (finished) runOnJS(setMode)('waypoint');
+    });
+  };
+
+  const returnToChart = () => {
+    if (!selectedWaypointId || spatialMode === 'returning') return;
+    setSpatialMode('returning');
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+    const finish = () => {
+      setSelectedWaypointId(null);
+      setSpatialMode('chart');
+      onSpatialModeChange?.(false);
+    };
+    if (reducedMotion) {
+      cameraProgress.value = 0;
+      finish();
+      return;
+    }
+    cameraProgress.value = chartTiming(0, { duration: CHART_CAMERA_TIMING.return, easing: CHART_EASING.deliberate }, (finished) => {
+      if (finished) runOnJS(finish)();
+    });
+  };
+
+  useEffect(() => {
+    if (!selectedWaypointId) return undefined;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      returnToChart();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [selectedWaypointId, spatialMode]);
+
+  useEffect(() => () => cancelAnimation(cameraProgress), [cameraProgress]);
+
+  useEffect(() => {
+    if (!selectedWaypointId || view.waypoints.some((waypoint) => waypoint.id === selectedWaypointId)) return;
+    cancelAnimation(cameraProgress);
+    cameraProgress.value = 0;
+    setSelectedWaypointId(null);
+    setSpatialMode('chart');
+    onSpatialModeChange?.(false);
+  }, [cameraProgress, onSpatialModeChange, selectedWaypointId, view.waypoints]);
 
   // Entry: the map is already present; the route settles, the current waypoint gets one
   // quiet ripple, and the content arrives in order. Then nothing moves until something changes.
@@ -170,6 +260,7 @@ export function ChartActiveView({
   }, [celebration, target]);
 
   const bannerStyle = useAnimatedStyle(() => ({ opacity: bannerOpacity.value }));
+  const waypointContentStyle = useAnimatedStyle(() => ({ opacity: cameraProgress.value }));
 
   const markers: ChartMarker[] = useMemo(
     () =>
@@ -205,7 +296,7 @@ export function ChartActiveView({
 
   return (
     <ChartInkScreen testID={testID ?? 'chart-active'}>
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + spacing[8] }} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: selectedWaypointId ? 0 : insets.bottom + spacing[8] }} showsVerticalScrollIndicator={false}>
         <View>
           <ChartLandscape
             width={width}
@@ -218,12 +309,16 @@ export function ChartActiveView({
             engraveId={engraveId}
             engrave={engrave}
             currentPulse={currentPulse}
+            cameraProgress={cameraProgress}
+            selectedMarkerId={selectedWaypointId}
+            cameraZoom={reducedMotion ? 1.03 : environment?.camera.preferredZoom ?? 1.35}
+            cameraFocalPoint={environment?.camera.focalPoint}
             anchorArt={anchorArt}
             destinationImageUrl={vision?.imageUrl ?? null}
             destinationLabel={view.destination}
             scrimTop
             scrimBottom={colors.ink.base}
-            onMarkerPress={onOpenWaypoint}
+            onMarkerPress={focusWaypoint}
             onDestinationPress={vision ? onOpenVision : undefined}
             accessibilityLabel={mapSummary}
             style={{ marginTop: Math.max(0, headerHeight - 28) }}
@@ -232,7 +327,7 @@ export function ChartActiveView({
           <View style={[styles.overlayHeader, { paddingTop: insets.top }]} onLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)}>
             <VisionHeaderRow
               title={CHART_COPY.title}
-              onBack={onBack}
+              onBack={selectedWaypointId ? returnToChart : onBack}
               tone="light"
               utility={
                 <Pressable accessibilityRole="button" accessibilityLabel="Chart options" hitSlop={8} onPress={() => setMenuOpen(true)}>
@@ -246,6 +341,26 @@ export function ChartActiveView({
           </View>
         </View>
 
+        {selectedWaypointId && (spatialMode === 'waypoint' || spatialMode === 'returning') && chartActions ? (
+          <Animated.View style={waypointContentStyle}>
+          <ChartWaypointContent
+            view={view}
+            waypointId={selectedWaypointId}
+            chart={chartActions}
+            category={identity.category}
+            reducedMotion={reducedMotion}
+            actionError={actionError}
+            bottomInset={insets.bottom}
+            onBack={returnToChart}
+            onReached={(result) => {
+              onWaypointReached?.(result, view.reachedCount, view.total);
+              returnToChart();
+            }}
+          />
+          </Animated.View>
+        ) : spatialMode === 'focusing' ? (
+          <View style={styles.transitionSpace} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />
+        ) : (
         <View style={styles.body}>
           {/* Below the map, so the Anchor's travel along the route stays visible. */}
           {celebration ? (
@@ -272,22 +387,22 @@ export function ChartActiveView({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`Current waypoint, ${current.number} of ${view.total}: ${current.title}${current.metric ? `, ${current.metric.display}` : ''}. Open waypoint.`}
-                onPress={() => onOpenWaypoint(current.id)}
+                onPress={() => focusWaypoint(current.id)}
                 testID="chart-current-waypoint"
               >
-                <ChartInkCard>
+                <View style={styles.compactSection}>
                   <View style={styles.cardHeader}>
                     <ChartEyebrow color="#F2E6CB">{CHART_COPY.labels.currentWaypoint}</ChartEyebrow>
                     <Text style={styles.position}>{view.positionLabel}</Text>
                   </View>
                   <Text style={styles.waypointTitle}>{current.title}</Text>
-                  {current.metric ? <MetricBar metric={current.metric} color={categoryColor} /> : null}
+                  {current.metric ? <ChartMetricBar metric={current.metric} color={categoryColor} /> : null}
                   {!current.metric && current.rationale ? (
                     <Text style={styles.rationale} numberOfLines={2}>
                       {current.rationale}
                     </Text>
                   ) : null}
-                </ChartInkCard>
+                </View>
               </Pressable>
             </EntryCard>
           ) : null}
@@ -310,7 +425,7 @@ export function ChartActiveView({
           ) : null}
 
           <EntryCard index={1} entry={entry}>
-            <ChartInkCard testID="chart-one-move">
+            <View style={[styles.compactSection, styles.primarySection]} testID="chart-one-move">
               <ChartEyebrow color="#F2E6CB">{CHART_COPY.labels.oneMove}</ChartEyebrow>
               {oneMove ? (
                 <View style={styles.moveRow}>
@@ -329,7 +444,7 @@ export function ChartActiveView({
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="Open waypoint moves"
-                    onPress={() => current && onOpenWaypoint(current.id)}
+                    onPress={() => current && focusWaypoint(current.id)}
                     hitSlop={8}
                     style={styles.arrowButton}
                   >
@@ -340,7 +455,7 @@ export function ChartActiveView({
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={CHART_COPY.active.noMoveCta}
-                  onPress={() => current && onOpenWaypoint(current.id)}
+                  onPress={() => current && focusWaypoint(current.id)}
                   style={styles.moveEmpty}
                   testID="chart-one-move-empty"
                 >
@@ -349,11 +464,11 @@ export function ChartActiveView({
                 </Pressable>
               )}
               {actionError ? <Text style={styles.error}>{actionError}</Text> : null}
-            </ChartInkCard>
+            </View>
           </EntryCard>
 
           <EntryCard index={2} entry={entry}>
-            <ChartInkCard testID="chart-destination">
+            <View style={styles.compactSection} testID="chart-destination">
               <ChartEyebrow>{CHART_COPY.labels.yourDestination}</ChartEyebrow>
               <View style={styles.destinationRow}>
                 {vision?.imageUrl ? (
@@ -378,7 +493,7 @@ export function ChartActiveView({
                   ) : null}
                 </View>
               </View>
-            </ChartInkCard>
+            </View>
           </EntryCard>
 
           <EntryCard index={3} entry={entry}>
@@ -395,6 +510,7 @@ export function ChartActiveView({
             </Pressable>
           </EntryCard>
         </View>
+        )}
       </ScrollView>
 
       <V2SheetModal visible={menuOpen} onClose={() => setMenuOpen(false)} reduceMotion={reducedMotion} testID="chart-menu">
@@ -416,37 +532,7 @@ function MenuItem({ label, onPress }: { label: string; onPress: () => void }) {
   );
 }
 
-export function MetricBar({
-  metric,
-  color,
-  tone = 'ink',
-}: {
-  metric: NonNullable<ChartViewModel['waypoints'][number]['metric']>;
-  color: string;
-  tone?: 'ink' | 'cream';
-}) {
-  const fraction = metric.fraction ?? 0;
-  const onInk = tone === 'ink';
-  return (
-    <View
-      style={styles.metric}
-      accessible
-      accessibilityRole="progressbar"
-      accessibilityLabel={`${metric.display}${metric.label ? ` ${metric.label}` : ''}`}
-      accessibilityValue={{ min: 0, max: 100, now: Math.round(fraction * 100) }}
-    >
-      <Text style={[styles.metricText, { color: onInk ? colors.ink.text.primary : colors.text.primary }]}>{metric.display}</Text>
-      <View style={styles.metricRow}>
-        <View style={[styles.metricTrack, { backgroundColor: onInk ? colors.ink.hairlineStrong : colors.border.subtle }]}>
-          <View style={[styles.metricFill, { width: `${fraction * 100}%`, backgroundColor: color }]} />
-        </View>
-        {metric.percentLabel ? (
-          <Text style={[styles.metricPercent, { color: onInk ? colors.ink.text.secondary : colors.text.secondary }]}>{metric.percentLabel}</Text>
-        ) : null}
-      </View>
-    </View>
-  );
-}
+export { ChartMetricBar as MetricBar } from './ChartMetricBar';
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
@@ -463,7 +549,14 @@ const styles = StyleSheet.create({
   celebrationTitle: { ...typography.headingLG, color: colors.ink.text.primary },
   celebrationNext: { marginTop: spacing[2], gap: 2 },
   celebrationNextTitle: { ...typography.bodyMD, color: colors.ink.text.primary },
-  body: { paddingHorizontal: spacing[4], gap: spacing[3], marginTop: -spacing[2] },
+  body: { paddingHorizontal: spacing[5], gap: 0, marginTop: -spacing[2] },
+  compactSection: {
+    paddingVertical: spacing[5],
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.ink.hairlineStrong,
+  },
+  primarySection: { paddingVertical: spacing[6] },
+  transitionSpace: { minHeight: 240 },
   offline: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], paddingHorizontal: spacing[1] },
   offlineText: { ...typography.bodySM, color: colors.ink.text.secondary },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -505,12 +598,6 @@ const styles = StyleSheet.create({
   inlineLinkText: { ...typography.labelMD, color: colors.ink.text.primary },
   logRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing[2], paddingVertical: spacing[3], minHeight: 56 },
   logText: { ...typography.bodySM, color: colors.ink.text.secondary, marginTop: 4 },
-  metric: { marginTop: spacing[3], gap: spacing[2] },
-  metricText: { ...typography.bodyMD },
-  metricRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
-  metricTrack: { flex: 1, height: 6, borderRadius: 3, overflow: 'hidden' },
-  metricFill: { height: 6, borderRadius: 3 },
-  metricPercent: { ...typography.labelMD, minWidth: 38, textAlign: 'right' },
   menu: { paddingHorizontal: spacing[5], paddingBottom: spacing[4] },
   menuItem: { minHeight: 52, justifyContent: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border.subtle },
   menuText: { ...typography.labelLG, color: colors.text.primary },

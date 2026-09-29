@@ -1,6 +1,7 @@
 export type VisionStatus = 'ACTIVE' | 'ARCHIVED';
 
-export type VisionSceneSource = 'USER_UPLOAD' | 'AI_GENERATED';
+/** Where a board image came from: the person's library, their camera, or the image generator. */
+export type VisionSceneSource = 'USER_UPLOAD' | 'AI_GENERATED' | 'USER_CAMERA';
 
 export interface VisionSceneReadModel {
   id: string;

@@ -9,6 +9,8 @@
  */
 
 export const VISION_SCENE_COUNT = 8;
+/** A single described scene comes back as this many candidates to choose between. */
+export const VISION_SCENE_VARIANT_COUNT = 2;
 
 /**
  * Vision assets are portrait-first. Visualize fills a phone screen, so the
@@ -206,7 +208,7 @@ export function parseVisionScenePlan(text: string | undefined | null): VisionSce
 
 /** True for a plan persisted on a job, in either the old or the new shape. */
 export function isStoredVisionScenePlan(value: unknown): value is VisionScenePlanItem[] {
-  return Array.isArray(value) && value.length === VISION_SCENE_COUNT && value.every(
+  return Array.isArray(value) && value.length >= 1 && value.length <= VISION_SCENE_COUNT && value.every(
     item => item && typeof item === 'object' && typeof (item as { role?: unknown }).role === 'string' &&
       typeof (item as { scene?: unknown }).scene === 'string',
   );
@@ -227,7 +229,10 @@ export function buildVisionImagePrompt(input: {
   /** The complete plan gives each image prompt context about earlier/later beats. */
   plannedScenes?: VisionScenePlanItem[];
   hasAppearanceReference?: boolean;
+  /** Moments already on the person's board: the new photograph belongs beside them without repeating them. */
+  boardScenes?: string[];
 }): string {
+  const board = (input.boardScenes ?? []).filter(Boolean).slice(0, 8);
   const { scene } = input;
   return [
     'Create one photograph for a personal Vision - a believable glimpse of this person\'s real future.',
@@ -239,6 +244,11 @@ export function buildVisionImagePrompt(input: {
     ...(scene.composition ? [`Composition: ${JSON.stringify(scene.composition)}`] : []),
     ...(scene.light ? [`Light: ${JSON.stringify(scene.light)}`] : []),
     ...(scene.feeling ? [`Emotional texture: ${JSON.stringify(scene.feeling)}`] : []),
+    ...(input.boardScenes && input.description.trim() ? [`The person's Vision, for continuity of world, mood and detail (data): ${JSON.stringify(input.description.trim().slice(0, 600))}`] : []),
+    ...(board.length ? [
+      'This photograph joins a board that already shows the moments below. Keep the same world, season, light quality and grade so it clearly belongs to the same Vision, but do not repeat any of these compositions:',
+      ...board.map(item => `- ${item}`),
+    ] : []),
     LENS_BY_FRAMING[scene.framing ?? ''] ?? 'Natural candid framing.',
     VISION_PORTRAIT_COMPOSITION,
     VISION_BOARD_PHOTO_RULES,
@@ -253,4 +263,24 @@ export function buildVisionImagePrompt(input: {
     'Screens, if present at all, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.',
     'Avoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people, collage, vision-board or scrapbook styling, picture frames, borders, captions.',
   ].join('\n');
+}
+
+const VARIANT_DIRECTION: Array<Pick<VisionScenePlanItem, 'role' | 'framing' | 'composition' | 'light'>> = [
+  { role: 'The moment itself', framing: 'medium', composition: 'The described moment as it happens, seen from a natural first-person or over-the-shoulder viewpoint', light: 'Natural available light suited to the setting' },
+  { role: 'The place around it', framing: 'wide', composition: 'The same moment from farther away, so the surrounding place and atmosphere read clearly', light: 'Soft, slightly different time of day from the first' },
+];
+
+/**
+ * The plan for one described scene: the person's own words are the scene, shot
+ * two different ways so they have a real choice. No planner call is needed; the
+ * description already names the moment.
+ */
+export function buildVisionSceneVariantPlan(sceneDescription: string): VisionScenePlanItem[] {
+  const scene = clip(sceneDescription, MAX_SCENE) ?? '';
+  return VARIANT_DIRECTION.slice(0, VISION_SCENE_VARIANT_COUNT).map(direction => ({
+    ...direction,
+    scene,
+    purpose: 'The scene the person asked to add',
+    covers: [scene.slice(0, MAX_FIELD)],
+  }));
 }
