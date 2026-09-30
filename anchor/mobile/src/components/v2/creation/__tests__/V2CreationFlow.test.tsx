@@ -48,6 +48,8 @@ function setup(overrides: Partial<V2CreationFlowProps> = {}) {
   return { screen, props, layoutStage };
 }
 
+jest.setTimeout(20000);
+
 beforeEach(() => {
   reduceMotion.mockReturnValue(true);
   act(() => useCreationStore.setState({ draft: null }));
@@ -134,7 +136,7 @@ describe('V2CreationFlow', () => {
     fireEvent.press(screen.getByTestId('expression-generate'));
     expect(current().currentStep).toBe('generating');
     expect(generateExpression).toHaveBeenCalledWith(expect.objectContaining({ count: 2, generationAttempt: 1 }));
-    await waitFor(() => expect(current().currentStep).toBe('choose'), { timeout: 3000 });
+    await waitFor(() => expect(current().currentStep).toBe('choose'), { timeout: 10000 });
     layoutStage();
     expect(generateExpression).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Choose your Anchor.')).toBeTruthy();
@@ -156,12 +158,12 @@ describe('V2CreationFlow', () => {
       .mockResolvedValueOnce({ candidates: [CANDIDATES[1]] });
     const { screen } = setup({ generateExpression });
     fireEvent.press(screen.getByTestId('expression-generate'));
-    await waitFor(() => expect(current().generationState).toBe('error'), { timeout: 3000 });
+    await waitFor(() => expect(current().generationState).toBe('error'), { timeout: 10000 });
     expect(current().generatedCandidates).toEqual([CANDIDATES[0]]);
     expect(screen.getByText('One interpretation is ready. The second did not finish. Try again for the second.')).toBeTruthy();
     fireEvent.press(screen.getByTestId('generation-retry'));
     expect(generateExpression).toHaveBeenLastCalledWith(expect.objectContaining({ count: 1 }));
-    await waitFor(() => expect(current().currentStep).toBe('choose'), { timeout: 3000 });
+    await waitFor(() => expect(current().currentStep).toBe('choose'), { timeout: 10000 });
     expect(current().generatedCandidates).toEqual(CANDIDATES);
   });
 
@@ -170,10 +172,10 @@ describe('V2CreationFlow', () => {
     const generateExpression = jest.fn().mockRejectedValueOnce(new Error('Network error')).mockResolvedValueOnce({ candidates: CANDIDATES });
     const { screen } = setup({ generateExpression });
     fireEvent.press(screen.getByTestId('expression-generate'));
-    await waitFor(() => expect(current().generationState).toBe('error'), { timeout: 3000 });
+    await waitFor(() => expect(current().generationState).toBe('error'), { timeout: 10000 });
     expect(current().structureSvg).toBe(STRUCTURE);
     fireEvent.press(screen.getByTestId('generation-retry'));
-    await waitFor(() => expect(current().currentStep).toBe('choose'), { timeout: 3000 });
+    await waitFor(() => expect(current().currentStep).toBe('choose'), { timeout: 10000 });
     expect(generateExpression).toHaveBeenCalledTimes(2);
   });
 

@@ -9,6 +9,7 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { GENERATION_ERRORS, useCreationStore, whenCreationHydrated, type CreationDraft, type SaveFailure } from '@/stores/v2/creationStore';
 import { CreationStage, type WindowRect } from './CreationStage';
 import { CREATION_PACE, GENERATION_TIMING } from './creationMotion';
+import { startEtching, finishEtching, etchingRevealDelay } from './generationPerformance';
 import { IntentionStep, type IntentionSuggestionContext } from './IntentionStep';
 
 export { sanitizeIntention } from './IntentionStep';
@@ -222,6 +223,7 @@ export function V2CreationFlow({ saveAnchor, generateExpression, onComplete, onP
     const current = store.getState().draft;
     if (!current) return;
     const startedAt = Date.now();
+    startEtching(plan.requestId, startedAt);
     const style = current.styleChoice ?? current.expression;
     track('v2_creation_generation_started', { expression: current.expression, style, attempt: plan.attempt, requested: plan.missing });
     try {
@@ -230,7 +232,8 @@ export function V2CreationFlow({ saveAnchor, generateExpression, onComplete, onP
       // Nothing is revealed until it exists and can be shown: the images are decoded first,
       // and ordinary latency is covered by the development sequence already on screen.
       await imagesReady(fresh.map((candidate) => candidate.imageUrl), GENERATION_TIMING.imageWait);
-      if (!reduceMotionRef.current) await wait(GENERATION_TIMING.minimumBeforeReveal - (Date.now() - startedAt));
+      await wait(etchingRevealDelay(Date.now() - startedAt));
+      finishEtching(plan.requestId);
       store.getState().completeGeneration(plan.requestId, fresh, result.metadata);
       const after = store.getState().draft;
       if (after?.generationState === 'complete') {
@@ -241,6 +244,7 @@ export function V2CreationFlow({ saveAnchor, generateExpression, onComplete, onP
         v2Haptics.warning();
       }
     } catch (error) {
+      finishEtching(plan.requestId);
       store.getState().failGeneration(plan.requestId, generationFailureMessage(error));
       track('v2_creation_generation_failed', { expression: current.expression, style, failure: (error as { failure?: string } | null)?.failure ?? 'unknown' });
       v2Haptics.warning();

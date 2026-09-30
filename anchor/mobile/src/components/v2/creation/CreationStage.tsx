@@ -66,6 +66,8 @@ import { FormationLayer, MappingTokens, type StagePoint } from './FormationLayer
 import { FormationSheet } from './FormationSheet';
 import { DraftingSurface } from './DraftingSurface';
 import { draftingInk, draftingCopyOpacity } from './draftingTone';
+import { GenerationEtching } from './GenerationEtching';
+import { FOIL_STOPS } from '@/components/v2/anchor/anchorExpressions';
 import { useAudio } from '@/hooks/useAudio';
 import * as Haptics from 'expo-haptics';
 import { creationTimingTracker, type CreationTimingRecord } from './creationTelemetry';
@@ -1047,7 +1049,7 @@ export function CreationStage({
               accessibilityLabel={markLabel}
               testID="creation-mark"
             >
-              {showGenerationLayers ? (
+              {showGenerationLayers && !inGeneration ? (
                 <>
                   <Animated.View style={[styles.disc, { width: discSize, height: discSize, borderRadius: discSize / 2, left: (markSize - discSize) / 2, top: (markSize - discSize) / 2 }, discStyle]} />
                   {/* // DEFERRED: outer breathing ring removed; surface etching owns the wait. */}
@@ -1066,16 +1068,17 @@ export function CreationStage({
                   </Animated.View>
                 </>
               ) : null}
-              <Animated.View style={[StyleSheet.absoluteFill, colourIn, shown === 'reveal' ? { opacity: 0 } : null]}>
+              <Animated.View style={[StyleSheet.absoluteFill, colourIn, shown === 'reveal' || inGeneration ? { opacity: 0 } : null]}>
                 <Animated.View style={[StyleSheet.absoluteFill, genPreviewStyle]}>
                   <ExpressionPreview svg={svg} category={draft.category} size={markSize} from={look.from.expression} to={look.to.expression} fromTint={look.from.tint} toTint={look.to.tint} mix={mix} testID="expression-preview" />
                 </Animated.View>
               </Animated.View>
-              {inGeneration ? (
-                <Animated.View style={[StyleSheet.absoluteFill, inkStyle]}>
-                  <AnchorMark svg={svg} size={markSize} strokeColor={colors.ink.base} drawProgress={retrace} />
-                </Animated.View>
+              {inGeneration && formation ? (
+                <GenerationEtching points={formation.vertices} size={markSize}
+                  color={lookTint ?? (lookExpression === 'foil' ? FOIL_STOPS[1].color : colors.ink.base)}
+                  requestId={draft.generationRequestId} running={developing} reduceMotion={reduceMotion} />
               ) : null}
+              {/* // DEFERRED: static developing circle and uniform retrace replaced by expression etching. */}
             </Animated.View>
           ) : null}
 
