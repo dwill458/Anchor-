@@ -6,6 +6,8 @@ import Animated, {
   Easing,
   interpolate,
   interpolateColor,
+  runOnJS,
+  useAnimatedReaction,
   useAnimatedStyle,
   useDerivedValue,
   useSharedValue,
@@ -13,6 +15,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft } from 'lucide-react-native';
+import { StatusBar } from 'expo-status-bar';
 
 import { V2Button, V2IconButton } from '@/components/v2';
 import { V2InlineError } from '@/components/v2/feedback/V2Feedback';
@@ -61,6 +64,8 @@ import { ExpressionLibrary } from './ExpressionLibrary';
 import { styleOption, creationStyleLibrary, type CreationStyleOption } from './expressionOptions';
 import { FormationLayer, MappingTokens, type StagePoint } from './FormationLayer';
 import { FormationSheet } from './FormationSheet';
+import { DraftingSurface } from './DraftingSurface';
+import { draftingInk, draftingCopyOpacity } from './draftingTone';
 import { creationTimingTracker, type CreationTimingRecord } from './creationTelemetry';
 
 export type WindowRect = { x: number; y: number; width: number; height: number };
@@ -263,7 +268,7 @@ export function CreationStage({
     const room = { width: stage.width, height: Math.max(0, stage.height - (lifted ? LETTER_ROW * 2 : 0) - (scene === 'handoff' ? 40 : 0) - labelRoom) };
     const scale = stageFitScale(room, markSize, core);
     const centerY = stage.height / 2 + (lifted ? LETTER_ROW / 2 : 0) - (scene === 'handoff' ? 20 : 0) + labelRoom / 2;
-    const visible = stage.height >= MIN_STAGE_FOR_MARK && scene !== 'distillation' && scene !== 'choose' && !(scene === 'handoff' && keptCandidate);
+    const visible = stage.height >= MIN_STAGE_FOR_MARK && scene !== 'distillation' && !(scene === 'handoff' && keptCandidate);
     return { scale, top: centerY - markSize / 2, centerY, visible };
   }, [keptCandidate, markSize, shown, stage, target]);
   const placementRef = useRef(placement);
@@ -303,6 +308,13 @@ export function CreationStage({
 
   /* ── tonal environment progression (cream <-> ink) ─────────────────────── */
   const darkTone = useSharedValue(entryStep === 'formation' || entryStep === 'generating' ? 1 : 0);
+  const [darkStatusBar, setDarkStatusBar] = useState(entryStep !== 'formation' && entryStep !== 'generating');
+  useAnimatedReaction(
+    () => darkTone.value < 0.8,
+    (isDark, previous) => {
+      if (isDark !== previous) runOnJS(setDarkStatusBar)(isDark);
+    },
+  );
 
   useEffect(() => {
     if (reduceMotion) {
@@ -637,14 +649,16 @@ export function CreationStage({
     transform: [{ translateY: (1 - swap.value) * 8 }],
   }));
   const markStyle = useAnimatedStyle(() => ({
-    opacity: markVisible.value,
+    opacity: markVisible.value * (step === 'choose' ? interpolate(emerge.value, [0, 0.45], [1, 0], 'clamp') : 1),
     transform: [{ translateY: markY.value }, { scale: markScale.value }],
-  }));
+  }), [step]);
   const settleStart = timeline.settleStart;
+  const inGeneration = shown === 'generating' || step === 'generating';
+  const showGenerationLayers = inGeneration || step === 'choose' || (step === 'handoff' && !keptCandidate);
   const colourIn = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [settleStart, settleStart + (1 - settleStart) * 0.5], [0, 1], 'clamp'),
+    opacity: interpolate(progress.value, [settleStart, settleStart + (1 - settleStart) * 0.5], [0, 1], 'clamp') * (showGenerationLayers ? 1 : interpolate(darkTone.value, [0, 0.15], [1, 0], 'clamp')),
     transform: [{ scale: interpolate(progress.value, [settleStart, 1], [0.975, 1], 'clamp') }],
-  }), [settleStart]);
+  }), [settleStart, showGenerationLayers]);
   const lift = timeline.gridEnd;
   const lettersStyle = useAnimatedStyle(() => {
     const up = interpolate(progress.value, [0, lift], [0, 1], 'clamp');
@@ -661,15 +675,13 @@ export function CreationStage({
   // returns as the expression settles back onto it, then the circle forms around it.
   const s1 = GENERATION_TIMING.structure / (GENERATION_TIMING.structure + GENERATION_TIMING.expression + GENERATION_TIMING.surface);
   const s2 = (GENERATION_TIMING.structure + GENERATION_TIMING.expression) / (GENERATION_TIMING.structure + GENERATION_TIMING.expression + GENERATION_TIMING.surface);
-  const inGeneration = shown === 'generating' || step === 'generating';
-  const showGenerationLayers = inGeneration || step === 'choose' || (step === 'handoff' && !keptCandidate);
   const genPreviewStyle = useAnimatedStyle(() => {
     if (!inGeneration) return { opacity: 1 };
     return { opacity: interpolate(gen.value, [0, s1 * 0.35, s1, s2], [1, 0.14, 0.14, 1], 'clamp') };
   }, [inGeneration, s1, s2]);
   const retrace = useDerivedValue(() => interpolate(gen.value, [s1 * 0.2, s1], [0, 1], 'clamp'));
   const inkStyle = useAnimatedStyle(() => ({
-    opacity: inGeneration ? interpolate(gen.value, [0, s1 * 0.2, s1 + (s2 - s1) * 0.3, s2], [0, 1, 1, 0], 'clamp') : 0,
+    opacity: inGeneration ? interpolate(gen.value, [0, s1 * 0.2, s2, 1], [0, 1, 1, 0], 'clamp') : 0,
   }), [inGeneration, s1, s2]);
   const discStyle = useAnimatedStyle(() => {
     const surfaced = step === 'handoff' ? Math.max(interpolate(gen.value, [s2, 1], [0, 1], 'clamp'), resolve.value) : interpolate(gen.value, [s2, 1], [0, 1], 'clamp');
@@ -677,19 +689,35 @@ export function CreationStage({
   }, [s2, step]);
   const breathStyle = useAnimatedStyle(() => ({ opacity: interpolate(gen.value, [0.96, 1], [0, 1], 'clamp') * (0.1 + breath.value * 0.3) }));
   const handoffCaptionStyle = useResolveStyle(resolve);
+  const darkMarkStyle = useAnimatedStyle(() => ({ opacity: darkTone.value >= 0.8 ? 1 : 0 }));
+  const neutralMarkStyle = useAnimatedStyle(() => ({
+    opacity: darkTone.value < 0.8 ? interpolate(darkTone.value, [0, 0.15], [0, 1], 'clamp') : 0,
+  }));
+  const backInkStyle = useAnimatedStyle(() => ({ opacity: darkTone.value < 0.8 ? 1 : 0 }));
+  const backPaperStyle = useAnimatedStyle(() => ({ opacity: darkTone.value < 0.8 ? 0 : 1 }));
+  const quietChromeStyle = useAnimatedStyle(() => ({
+    opacity: swap.value * chrome.value * (target === 'formation' || shown === 'formation' ? interpolate(progress.value, [0, timeline.gridEnd, timeline.constructEnd], [0.5, 0, 0], 'clamp') : 1),
+    transform: [{ translateY: (1 - swap.value) * 8 }],
+  }), [target, shown, timeline.gridEnd, timeline.constructEnd]);
+  const quietStatusStyle = useAnimatedStyle(() => ({
+    opacity: draftingCopyOpacity(darkTone.value) * (target === 'formation' || shown === 'formation' ? interpolate(progress.value, [timeline.constructEnd, timeline.settleStart], [1, 0], 'clamp') : 1),
+    color: draftingInk(darkTone.value),
+  }), [target, shown, timeline.constructEnd, timeline.settleStart]);
 
   /* ── dynamic tone styles ──────────────────────────────────────────────── */
   const bgToneStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(darkTone.value, [0, 1], [colors.canvas, colors.ink.base]),
   }));
   const dynamicTitleStyle = useAnimatedStyle(() => ({
-    color: interpolateColor(darkTone.value, [0, 1], [colors.text.primary, colors.ink.text.primary]),
+    color: draftingInk(darkTone.value),
   }));
   const dynamicEyebrowStyle = useAnimatedStyle(() => ({
-    color: interpolateColor(darkTone.value, [0, 1], [colors.text.secondary, colors.ink.text.secondary]),
+    color: draftingInk(darkTone.value),
+    opacity: draftingCopyOpacity(darkTone.value),
   }));
   const dynamicStatusStyle = useAnimatedStyle(() => ({
-    color: interpolateColor(darkTone.value, [0, 1], [colors.text.secondary, 'rgba(244, 246, 250, 0.72)']),
+    color: draftingInk(darkTone.value),
+    opacity: draftingCopyOpacity(darkTone.value),
   }));
   const categoryArt = useMemo(() => homeCategoryArt(draft.category), [draft.category]);
   const categoryWorldStyle = useAnimatedStyle(() => {
@@ -781,11 +809,11 @@ export function CreationStage({
       case 'formation':
         return draft.formationError ? (
           <View style={styles.panelStack}>
-            <V2InlineError message={FORMATION_COPY.error} />
+            <View style={styles.darkError}><V2InlineError message={FORMATION_COPY.error} /></View>
             <V2Button size="large" style={styles.cta} onPress={onFormAnchor} testID="formation-retry">{FORMATION_COPY.retry}</V2Button>
           </View>
         ) : (
-          <Animated.Text style={[styles.status, dynamicStatusStyle]} accessibilityLiveRegion="polite" testID="formation-status">
+          <Animated.Text style={[styles.status, quietStatusStyle]} accessibilityLiveRegion="polite" testID="formation-status">
             {FORMATION_COPY.status[formationPhase]}
           </Animated.Text>
         );
@@ -809,14 +837,14 @@ export function CreationStage({
           <View style={styles.panelStack}>
             {failed ? (
               <>
-                <V2InlineError message={draft.generationError ?? GENERATION_COPY.body} offline={draft.generationError === GENERATION_ERRORS.offline} />
+                <View style={styles.darkError}><V2InlineError message={draft.generationError ?? GENERATION_COPY.body} offline={draft.generationError === GENERATION_ERRORS.offline} /></View>
                 {/* An exhausted daily allowance is not fixed by trying again today. */}
                 {draft.generationError === GENERATION_ERRORS.limit ? null : (
                   <V2Button size="large" style={styles.cta} onPress={onGenerate} testID="generation-retry">{GENERATION_COPY.retry}</V2Button>
                 )}
                 {draft.previousCandidates?.length === 2 && onReturnToPrevious ? (
                   <Pressable onPress={onReturnToPrevious} accessibilityRole="button" style={styles.link} testID="generation-previous">
-                    <Text style={styles.linkText}>{GENERATION_COPY.previous}</Text>
+                    <Animated.Text style={[styles.linkText, dynamicStatusStyle]}>{GENERATION_COPY.previous}</Animated.Text>
                   </Pressable>
                 ) : null}
               </>
@@ -826,7 +854,7 @@ export function CreationStage({
               </Animated.Text>
             )}
             <Pressable onPress={onBack} accessibilityRole="button" style={styles.link} testID="generation-back">
-              <Text style={styles.linkText}>{GENERATION_COPY.back}</Text>
+              <Animated.Text style={[styles.linkText, dynamicStatusStyle]}>{GENERATION_COPY.back}</Animated.Text>
             </Pressable>
           </View>
         );
@@ -932,17 +960,24 @@ export function CreationStage({
     // Insets from the provider, not a native safe-area view: a freshly mounted native one
     // applies them a beat late, which visibly shifts the whole stage.
     <Animated.View style={[styles.safe, bgToneStyle, { paddingTop: insets.top, paddingBottom: insets.bottom }]} testID={`v2-creation-${step}`}>
+      <StatusBar style={darkStatusBar ? 'dark' : 'light'} />
+      <DraftingSurface />
       <CreationTimingHud reduceMotion={reduceMotion} />
       <View style={[styles.frame, { paddingHorizontal: viewport.gutter }]}>
         <Animated.View style={[styles.top, chromeStyle]}>
           {canGoBack ? (
-            <V2IconButton icon={<ArrowLeft size={20} color={shown === 'formation' || shown === 'generating' || (shown === 'distillation' && distillStage !== 'whole') ? colors.ink.text.primary : colors.text.primary} />} accessibilityLabel="Go back" onPress={onBack} testID="creation-back" />
+            <V2IconButton icon={
+              <View style={{ width: 20, height: 20 }}>
+                <Animated.View style={[StyleSheet.absoluteFill, backInkStyle]}><ArrowLeft size={20} color={colors.text.primary} /></Animated.View>
+                <Animated.View style={[StyleSheet.absoluteFill, backPaperStyle]}><ArrowLeft size={20} color={colors.paper} /></Animated.View>
+              </View>
+            } accessibilityLabel="Go back" onPress={onBack} testID="creation-back" />
           ) : (
             <View style={styles.topSpacer} />
           )}
         </Animated.View>
 
-        <Animated.View style={[styles.headline, swapStyle]}>
+        <Animated.View style={[styles.headline, quietChromeStyle]}>
           {headline.eyebrow ? <Animated.Text style={[styles.eyebrow, dynamicEyebrowStyle]}>{headline.eyebrow}</Animated.Text> : null}
           <Animated.Text style={[styles.title, dynamicTitleStyle]} accessibilityRole="header" testID="creation-title">{headline.title}</Animated.Text>
         </Animated.View>
@@ -967,6 +1002,7 @@ export function CreationStage({
                 reduceMotion={reduceMotion}
                 startSettled={entryStep === 'formation' && !replay}
                 glow={forming ? glow : undefined}
+                tone={darkTone}
                 showSource={!forming}
                 onStage={onDistillStage}
                 onSlots={setSlots}
@@ -991,6 +1027,16 @@ export function CreationStage({
               ) : null}
               {forming && formation ? (
                 <FormationLayer svg={svg} formation={formation} size={markSize} progress={progress} timeline={timeline} accent={accent} reduceMotion={reduceMotion} />
+              ) : null}
+              {!forming && !showGenerationLayers ? (
+                <>
+                  <Animated.View style={[StyleSheet.absoluteFill, darkMarkStyle]}>
+                    <AnchorMark svg={svg} size={markSize} strokeColor={colors.paper} />
+                  </Animated.View>
+                  <Animated.View style={[StyleSheet.absoluteFill, neutralMarkStyle]}>
+                    <AnchorMark svg={svg} size={markSize} strokeColor={colors.text.primary} />
+                  </Animated.View>
+                </>
               ) : null}
               <Animated.View style={[StyleSheet.absoluteFill, colourIn]}>
                 <Animated.View style={[StyleSheet.absoluteFill, genPreviewStyle]}>
@@ -1136,9 +1182,16 @@ function CandidatePair({
   onSelect: (index: number) => void;
 }) {
   const gap = spacing[3];
-  const size = Math.max(104, Math.min((stage.width - gap) * 0.47, stage.height * 0.84));
-  const centerY = Math.min(originY, stage.height / 2);
-  const slots = [stage.width / 2 - (size + gap) / 2, stage.width / 2 + (size + gap) / 2];
+  // Portrait compositions give each interpretation a generous diagonal field. On short
+  // stages they remain side by side so neither overlaps the controls or safe area.
+  const portrait = stage.height >= stage.width * 1.05;
+  const size = portrait
+    ? Math.min(stage.width * 0.64, (stage.height - gap - 24) / 2)
+    : Math.min((stage.width - gap - 24) / 2, stage.height * 0.84);
+  const centerY = stage.height / 2;
+  const slots = portrait
+    ? [stage.width * 0.38, stage.width * 0.62]
+    : [stage.width / 2 - (size + gap) / 2, stage.width / 2 + (size + gap) / 2];
   const heroSize = originSize;
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
@@ -1151,7 +1204,7 @@ function CandidatePair({
           imageUrl={candidate.imageUrl}
           size={size}
           slotX={slots[index]}
-          slotY={centerY}
+          slotY={portrait ? centerY + (index === 0 ? -1 : 1) * (size + gap) / 2 : centerY}
           originX={stage.width / 2}
           originY={originY}
           originScale={originSize / size}
@@ -1224,9 +1277,9 @@ function Candidate({
     const x = originX + (slotX - originX) * e + (originX - slotX) * r;
     const y = originY + (slotY - originY) * e + (originY - slotY) * r;
     const baseScale = originScale + (1 - originScale) * e;
-    const chosenScale = response.value > 0 ? 1.03 : response.value < 0 ? 0.96 : 1;
+    const chosenScale = 1 + response.value * (response.value >= 0 ? 0.025 : 0.035);
     const scale = (baseScale * chosenScale) * (1 - r) + heroScale * r;
-    const opacity = interpolate(e, [0, 0.35], [0, 1], 'clamp') * (response.value < 0 ? 0.74 : 1) * (1 - away);
+    const opacity = interpolate(e, [0, 0.55], [0, 1], 'clamp') * (1 + Math.min(0, response.value) * 0.22) * (1 - away);
     return { opacity, transform: [{ translateX: x - size / 2 }, { translateY: y - size / 2 }, { scale }] };
   }, [handingOff, isChosen, originScale, originX, originY, heroScale, size, slotX, slotY]);
   const ringStyle = useAnimatedStyle(() => ({ opacity: Math.max(0, response.value) * (1 - (handingOff ? resolve.value : 0)) }), [handingOff]);
@@ -1267,9 +1320,9 @@ const styles = StyleSheet.create({
   panelScroll: { flexGrow: 0, flexShrink: 1 },
   panel: { gap: spacing[4], paddingTop: spacing[2] },
   panelStack: { gap: spacing[4] },
-  expressionWrap: { flex: 1.6, minHeight: 0 },
+  expressionWrap: { flex: 1.1, minHeight: 0 },
   // A short screen keeps the structure legible: the library scrolls in a little less room.
-  expressionWrapShort: { flex: 1.25 },
+  expressionWrapShort: { flex: 1.1 },
   expressionPanel: { flex: 1, gap: spacing[3], paddingTop: spacing[2], paddingBottom: spacing[3] },
   libraryWrap: { flex: 1, minHeight: 0 },
   libraryContent: { paddingBottom: spacing[6] },
@@ -1288,13 +1341,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: -8,
     top: -8,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: colors.text.primary,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.16,
-    shadowRadius: 10,
-    elevation: 4,
   },
   categoryWorld: {
     position: 'absolute',
@@ -1310,6 +1358,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   failure: { gap: spacing[2] },
+  darkError: { backgroundColor: colors.surface, padding: spacing[3], borderRadius: 8 },
   cta: { height: 56, borderRadius: 16 },
   link: { alignSelf: 'center', paddingVertical: spacing[1] },
   linkText: { ...typography.labelMD, color: colors.text.secondary, textDecorationLine: 'underline' },

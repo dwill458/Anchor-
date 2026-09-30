@@ -94,6 +94,8 @@ function VisionEntranceStage({
   testID: string;
 }) {
   const reduceMotion = useV2ReduceMotion();
+  const { width, height } = useWindowDimensions();
+  const heroHeight = Math.round(Math.max(220, Math.min(width * 0.95, height * 0.4)));
   const [isExiting, setIsExiting] = useState(false);
   const isExitingRef = useRef(false);
 
@@ -159,20 +161,9 @@ function VisionEntranceStage({
   );
 
   return (
-    <View testID={`${testID}-empty`} style={styles.stage}>
+    <View testID={`${testID}-empty`} style={[styles.stage, styles.inkStage]}>
       <StatusBar barStyle="light-content" backgroundColor={colors.ink.base} animated />
-      <VisionPhoto
-        source={possibleFuture}
-        category={anchorCategory}
-        tint={0.12}
-        scrim="both"
-        bottomScrimColor={colors.canvas}
-        cinematic={true}
-        focalPoint={focalPoint}
-        isExiting={isExiting}
-        style={styles.emptyPhoto}
-      >
-        <View pointerEvents="none" style={styles.emptyTextShade} />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.entranceScroll}>
         <View style={[styles.photoContent, { paddingTop: insets.top }]}>
           <Animated.View style={headerStyle}>
             <VisionHeaderRow title="Vision" onBack={onBack} />
@@ -184,13 +175,16 @@ function VisionEntranceStage({
           <Animated.View style={bodyStyle}>
             <Text style={styles.emptyBody}>Turn your intention into a visual future you can step into.</Text>
           </Animated.View>
+          <Animated.View style={bodyStyle}>
+            <VisionPhoto source={possibleFuture} category={anchorCategory} tint={0} scrim="none"
+              focalPoint={focalPoint} isExiting={isExiting} testID="vision-entrance-photograph"
+              style={[styles.entrancePhotograph, { height: heroHeight }]} />
+          </Animated.View>
         </View>
-      </VisionPhoto>
+      </ScrollView>
       <Animated.View style={[styles.emptyFooter, { paddingBottom: insets.bottom + spacing[4] }, footerStyle]}>
-        <View style={styles.rule} />
-        <Text style={styles.quote}>A clear Vision changes everything.</Text>
-        <View style={styles.rule} />
-        <V2Button size="large" accessibilityLabel="Create Vision" onPress={handleCreatePress} style={styles.fullWidth}>
+        <Text style={styles.entranceCaption}>A clear Vision changes everything.</Text>
+        <V2Button size="large" accessibilityLabel="Create Vision" onPress={handleCreatePress} style={[styles.fullWidth, styles.entranceCTA]}>
           Create Vision →
         </V2Button>
       </Animated.View>
@@ -597,13 +591,18 @@ const styles = StyleSheet.create({
   stage: { flex: 1, backgroundColor: colors.canvas },
   inkStage: { backgroundColor: colors.ink.base },
   photoContent: { paddingHorizontal: spacing[5], gap: spacing[3] },
+  // Entrance: keep the photograph visible, with no full-height gradient hiding it.
+  entranceScroll: { flexGrow: 1, paddingBottom: spacing[4] },
+  entrancePhotograph: { width: '100%', borderRadius: radii.lg, marginTop: spacing[4] },
+  entranceCTA: { borderWidth: 1, borderColor: colors.ink.hairlineStrong },
+  entranceCaption: { ...typography.bodyMD, color: colors.ink.text.secondary, textAlign: 'center' },
   // Empty state
   emptyPhoto: { flex: 1 },
   // Photographs vary; this keeps the headline legible over a bright window.
   emptyTextShade: { position: 'absolute', left: 0, right: 0, top: 0, height: '52%', backgroundColor: colors.ink.base, opacity: 0.46 },
   emptyTitle: { ...typography.displayMedium, color: colors.ink.text.primary, marginTop: spacing[5] },
   emptyBody: { ...typography.bodyLG, color: colors.ink.text.primary, opacity: 0.88, maxWidth: 320, textShadowColor: 'rgba(14,21,28,0.55)', textShadowRadius: 8 },
-  emptyFooter: { paddingHorizontal: spacing[5], paddingTop: spacing[5], gap: spacing[3], alignItems: 'center', backgroundColor: colors.canvas },
+  emptyFooter: { paddingHorizontal: spacing[5], paddingTop: spacing[3], gap: spacing[3], alignItems: 'center', backgroundColor: colors.ink.base },
   rule: { width: 28, height: StyleSheet.hairlineWidth * 2, backgroundColor: colors.border.strong },
   quote: { ...typography.bodyMD, color: colors.text.secondary, textAlign: 'center' },
   // Describe

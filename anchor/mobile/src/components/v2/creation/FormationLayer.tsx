@@ -9,7 +9,7 @@ import type { SigilFormation } from '@/utils/sigil/traditional-generator';
 import { constructionFraction, vertexArrivalFractions, type FormationTimeline } from './creationMotion';
 
 const INK = colors.ink.base;
-const POINT = 8;
+const POINT = 6;
 const PEN = 5;
 
 export type StagePoint = { x: number; y: number };
@@ -61,8 +61,8 @@ const KameaSquare = memo(function KameaSquare({
   const { n, pitch, left, top, side } = kameaGeometry(formation);
   const unit = size / 100;
   const rules = [];
-  const PLATE_STROKE = 'rgba(244, 246, 250, 0.24)';
-  const RULE_STROKE = 'rgba(244, 246, 250, 0.11)';
+  const PLATE_STROKE = 'rgba(244, 241, 233, 0.42)';
+  const RULE_STROKE = 'rgba(244, 241, 233, 0.24)';
 
   for (let i = 1; i < n; i += 1) {
     rules.push(<Line key={`v${i}`} x1={left + pitch * i} y1={top} x2={left + pitch * i} y2={top + side} stroke={RULE_STROKE} strokeWidth={0.22} />);
@@ -92,15 +92,25 @@ const KameaSquare = memo(function KameaSquare({
     const opacity = interpolate(progress.value, [fadeStart, nFadeEnd], [1, 0], 'clamp');
     return { opacity };
   });
+  const rulesStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [fadeStart + (fadeEnd - fadeStart) * 0.2, fadeStart + (fadeEnd - fadeStart) * 0.8], [1, 0], 'clamp'),
+  }));
+  const plateStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [fadeStart + (fadeEnd - fadeStart) * 0.45, fadeEnd], [1, 0], 'clamp'),
+  }));
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <Svg width={size} height={size} viewBox="0 0 100 100">
-        {/* Dark technical plate fill */}
-        <Rect x={left} y={top} width={side} height={side} stroke={PLATE_STROKE} strokeWidth={0.32} fill="#0E151C" fillOpacity={0.88} />
-        {rules}
-        {corners}
-      </Svg>
+      <Animated.View style={[StyleSheet.absoluteFill, plateStyle]}>
+        <Svg width={size} height={size} viewBox="0 0 100 100">
+          {/* Dark technical plate fill */}
+          <Rect x={left} y={top} width={side} height={side} stroke={PLATE_STROKE} strokeWidth={0.28} fill={colors.ink.deep} fillOpacity={0.5} />
+          {corners}
+        </Svg>
+      </Animated.View>
+      <Animated.View style={[StyleSheet.absoluteFill, rulesStyle]}>
+        <Svg width={size} height={size} viewBox="0 0 100 100">{rules}</Svg>
+      </Animated.View>
       <Animated.View style={[StyleSheet.absoluteFill, numbersStyle]} pointerEvents="none">
         {formation.gridCells.map((cell) => (
           <Text key={cell.value} style={[styles.cellNumber, styles.cellNumberRest, numeralBox(cell, pitch, unit)]}>
@@ -132,7 +142,7 @@ const CellHighlight = memo(function CellHighlight({
 }) {
   const style = useAnimatedStyle(() => ({
     opacity:
-      interpolate(progress.value, [landing - 0.012, landing], [0, 1], 'clamp') *
+      interpolate(progress.value, [landing - 0.012, landing, landing + 0.04], [0, 1, 0.3], 'clamp') *
       interpolate(progress.value, [fadeStart, fadeStart + (fadeEnd - fadeStart) * 0.5], [1, 0], 'clamp'),
   }));
   return (
@@ -267,8 +277,7 @@ export const FormationLayer = memo(function FormationLayer({
 
   const gridStyle = useAnimatedStyle(() => {
     const arrive = interpolate(progress.value, [0, timeline.gridEnd * 0.9], [0, 1], 'clamp');
-    const recede = interpolate(progress.value, [fadeStart, fadeEnd], [1, 0], 'clamp');
-    return { opacity: arrive * recede, transform: [{ scale: 0.96 + arrive * 0.04 + (1 - recede) * 0.03 }] };
+    return { opacity: arrive };
   });
 
   const stagedStyle = useAnimatedStyle(() => ({
@@ -295,7 +304,7 @@ export const FormationLayer = memo(function FormationLayer({
       {/* The authoritative line drawn in clean off-white / silver ink on the dark drafting plate.
           Colour arrives once the mark is whole. Reduced motion stages it in by opacity instead of tracing. */}
       <Animated.View style={[StyleSheet.absoluteFill, reduceMotion ? stagedStyle : null]}>
-        <AnchorMark svg={svg} size={size} strokeColor="#F4F6FA" drawProgress={reduceMotion ? undefined : trace} />
+        <AnchorMark svg={svg} size={size} strokeColor={colors.paper} drawProgress={reduceMotion ? undefined : trace} />
       </Animated.View>
       {formation.vertices.map((vertex, index) => (
         <VertexPoint
@@ -423,8 +432,8 @@ const styles = StyleSheet.create({
     lineHeight: 12,
     letterSpacing: 0.4,
   },
-  cellNumber: { position: 'absolute', fontFamily: typography.bodyBold, includeFontPadding: false },
-  cellNumberRest: { color: 'rgba(244, 246, 250, 0.38)' },
+  cellNumber: { position: 'absolute', fontFamily: typography.body, fontVariant: ['tabular-nums'], includeFontPadding: false },
+  cellNumberRest: { color: 'rgba(244, 241, 233, 0.6)' },
   pen: { position: 'absolute', left: 0, top: 0, width: PEN, height: PEN, borderRadius: PEN / 2, backgroundColor: '#F4F6FA' },
   token: { position: 'absolute', left: 0, top: 0, width: TOKEN, height: TOKEN, alignItems: 'center', justifyContent: 'center' },
   tokenLetter: { fontFamily: typography.displayBold },

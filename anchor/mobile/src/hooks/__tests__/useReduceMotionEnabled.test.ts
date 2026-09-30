@@ -1,6 +1,6 @@
 import { renderHook, waitFor } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
-import { useReduceMotionEnabled } from '../useReduceMotionEnabled';
+import { useCreationReduceMotion, useReduceMotionEnabled } from '../useReduceMotionEnabled';
 import { useSettingsStore } from '@/stores/settingsStore';
 
 jest.mock('@react-native-async-storage/async-storage', () =>
@@ -17,7 +17,10 @@ jest.spyOn(AccessibilityInfo, 'addEventListener').mockReturnValue({
   remove: jest.fn(),
 } as never);
 
-describe('useReduceMotionEnabled', () => {
+describe.each([
+  ['useReduceMotionEnabled', useReduceMotionEnabled],
+  ['useCreationReduceMotion', useCreationReduceMotion],
+] as const)('%s', (_name, useMotionPreference) => {
   beforeEach(() => {
     useSettingsStore.setState({ reduceMotion: 'system' });
   });
@@ -25,7 +28,7 @@ describe('useReduceMotionEnabled', () => {
   it('follows the system flag when the preference is "system"', async () => {
     mockIsReduceMotionEnabled.mockResolvedValue(true);
 
-    const { result } = renderHook(() => useReduceMotionEnabled());
+    const { result } = renderHook(() => useMotionPreference());
 
     await waitFor(() => expect(result.current).toBe(true));
   });
@@ -34,7 +37,7 @@ describe('useReduceMotionEnabled', () => {
     mockIsReduceMotionEnabled.mockResolvedValue(true);
     useSettingsStore.setState({ reduceMotion: 'off' });
 
-    const { result } = renderHook(() => useReduceMotionEnabled());
+    const { result } = renderHook(() => useMotionPreference());
 
     await waitFor(() => expect(mockIsReduceMotionEnabled).toHaveBeenCalled());
     expect(result.current).toBe(false);
@@ -44,7 +47,7 @@ describe('useReduceMotionEnabled', () => {
     mockIsReduceMotionEnabled.mockResolvedValue(false);
     useSettingsStore.setState({ reduceMotion: 'on' });
 
-    const { result } = renderHook(() => useReduceMotionEnabled());
+    const { result } = renderHook(() => useMotionPreference());
 
     await waitFor(() => expect(mockIsReduceMotionEnabled).toHaveBeenCalled());
     expect(result.current).toBe(true);

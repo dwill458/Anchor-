@@ -18,6 +18,7 @@ import {
   type MeasuredLetter,
 } from './distillationMotion';
 import { creationTimingTracker } from './creationTelemetry';
+import { draftingInk, draftingCopyOpacity } from './draftingTone';
 
 
 /** Gap between letters once they have closed up, in the compacted row. */
@@ -43,6 +44,7 @@ function DistillationLetter({
   reduceMotion,
   instant,
   glow,
+  tone,
   onMeasure,
 }: {
   cell: DistillationCell;
@@ -52,6 +54,7 @@ function DistillationLetter({
   /** Place the letter where it belongs without travel (a resumed formation). */
   instant: boolean;
   glow?: DistillationGlow;
+  tone: SharedValue<number>;
   onMeasure: (keptIndex: number, box: { x: number; y: number; width: number; height: number }) => void;
 }) {
   const removed = isCellRemoved(cell, stage);
@@ -106,19 +109,19 @@ function DistillationLetter({
   // distillation timings.
   const departure = cell.keep && glow ? glow.departures[cell.keptIndex] ?? -1 : -1;
   const glowStyle = useAnimatedStyle(() => {
-    if (!cell.keep) return {};
+    const neutral = draftingInk(tone.value);
+    if (!cell.keep) return { color: neutral };
     if (glow) {
       if (departure < 0) return { color: '#F4F6FA' };
       // The letter warms to the accent as it leaves for its cell, rather than switching.
       const lit = interpolate(glow.progress.value, [departure - 0.015, departure], [0, 1], 'clamp');
-      return { color: interpolateColor(lit, [0, 1], ['#F4F6FA', glow.accent]) };
+      return {
+        color: interpolateColor(lit, [0, 1], [colors.paper, glow.accent]),
+        opacity: interpolate(glow.progress.value, [departure, departure + 0.008], [1, 0], 'clamp'),
+      };
     }
-    // As the distillation stage advances and background deepens toward ink, transition text color to off-white
-    const isDarkening = stage === 'compact' || stage === 'settled';
-    const isHalfDark = stage === 'repeats';
-    const targetColor = isDarkening ? '#F4F6FA' : isHalfDark ? '#C7CAD0' : colors.text.primary;
-    return { color: targetColor };
-  }, [cell.keep, departure, glow, stage]);
+    return { color: neutral };
+  }, [cell.keep, departure, glow, tone]);
 
   return (
     <Animated.Text onLayout={handleLayout} style={[styles.char, motionStyle, glowStyle]}>
@@ -142,6 +145,7 @@ export function DistillationLetters({
   letters,
   reduceMotion,
   glow,
+  tone,
   showSource = true,
   startSettled = false,
   onStage,
@@ -157,6 +161,7 @@ export function DistillationLetters({
    */
   startSettled?: boolean;
   glow?: DistillationGlow;
+  tone: SharedValue<number>;
   /** The original sentence, kept faintly present while it is being reduced. */
   showSource?: boolean;
   onStage?: (stage: DistillationStage) => void;
@@ -273,16 +278,21 @@ export function DistillationLetters({
   const sourceStyle = useAnimatedStyle(() => ({
     opacity: reduceMotion ? (sourceVisible ? 0.62 : 0) : creationTiming(sourceVisible ? 0.62 : 0, { duration: 600, easing: DISTILL_EASING }),
   }), [reduceMotion, sourceVisible]);
+  const sourceInkStyle = useAnimatedStyle(() => ({
+    color: draftingInk(tone.value),
+    opacity: draftingCopyOpacity(tone.value),
+  }));
+  const settledInkStyle = useAnimatedStyle(() => ({ color: draftingInk(tone.value) }));
 
   return (
     <View style={styles.stage} onLayout={onStageLayout} pointerEvents="none">
       <Animated.View style={[styles.source, sourceStyle]} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
-        <Text style={styles.sourceText} numberOfLines={2}>“{intention}”</Text>
+        <Animated.Text style={[styles.sourceText, sourceInkStyle]} numberOfLines={2}>“{intention}”</Animated.Text>
       </Animated.View>
       {presentAsRow ? (
-        <Text style={styles.settledRow} accessibilityLabel={lettersLabel} testID="distillation-letters">
+        <Animated.Text style={[styles.settledRow, settledInkStyle]} accessibilityLabel={lettersLabel} testID="distillation-letters">
           {letters.join('  ')}
-        </Text>
+        </Animated.Text>
       ) : (
         <View style={styles.phrase} accessible accessibilityLabel={settled ? lettersLabel : intention} testID="distillation-phrase">
           {model.words.map((word, wordIndex) => (
@@ -296,6 +306,7 @@ export function DistillationLetters({
                   reduceMotion={reduceMotion}
                   instant={startSettled}
                   glow={glow}
+                  tone={tone}
                   onMeasure={onLetterMeasure}
                 />
               ))}

@@ -340,7 +340,7 @@ export function V2PracticeScreen({
       onBeginPractice?.(request);
       setActiveSession({ ...request, anchorTransition: withHero });
     };
-    if (!transition || !fixedAnchor) {
+    if (request.mode === 'visualize' || !transition || !fixedAnchor) {
       begin(false);
       return;
     }
@@ -381,7 +381,7 @@ export function V2PracticeScreen({
   useEffect(() => {
     if (!resumeMode || !fixedAnchor) return;
     const source = resumeSource ?? 'practice_hub';
-    if (resumeDuration && resumeMode !== 'release') {
+    if (resumeDuration && resumeMode !== 'release' && resumeMode !== 'visualize') {
       setActiveSession({
         anchorId: fixedAnchor.id,
         mode: resumeMode,
@@ -431,6 +431,7 @@ export function V2PracticeScreen({
         voice={activeSession.voice}
         ambient={activeSession.ambient}
         haptics={activeSession.haptics}
+        preparedVisualize={activeSession.preparedVisualize}
         onBack={() => setActiveSession(null)}
         onCompleted={handleSessionCompleted}
         onFocusAgain={() => setActiveSession(null)}
@@ -485,6 +486,7 @@ export function V2PracticeScreen({
         mode={prepareMode}
         vision={model.vision}
         source={prepareSource}
+        initialDuration={prepareMode === resumeMode ? resumeDuration ?? undefined : undefined}
         entitled={effectiveCapabilities[prepareMode]}
         onBack={() => setPrepareMode(null)}
         onCreateVision={onCreateVision ?? (() => undefined)}

@@ -88,7 +88,7 @@ export interface IntentionSignal {
 // ============================================================================
 
 export const GLOBAL_NEGATIVE_PROMPT =
-  'text, words, letters, phrases, captions, numbers, numerals, readable characters, fake writing, runes, invented alphabets, inscriptions, labels, readable diagrams, currency symbols, dollar sign, coins, cash, banknotes, credit cards, bank logos, charts, graphs, stock ticker, brand logos, watermark, copyright mark, clipart, sticker, icon pack, emoji, flat app icon, photorealistic human face, human figure, portrait, hands, body, literal scene, literal intention illustration, literal object explanation, literal nautical anchor, ship anchor, boat anchor, physical anchor, metal anchor, anchor object, anchor icon, anchor logo, anchor emoji, recognizable anchor silhouette, maritime imagery, harbor, ship, boat, generic mystical poster, generic occult poster, repetitive mandala, repetitive concentric-circle framing, generic sacred emblem, talisman, amulet, ceremonial border, medallion frame, added ring around the Anchor, default glowing halo, stock fantasy glow, astrology wheel, zodiac poster, occult seal, distorted geometry, altered structure, altered shape, warped lines, broken Anchor, melted Anchor, obscured Anchor, broken sigil, melted sigil, blurry, muddy detail, low quality, random artifacts, overcrowded ornament';
+  'text, words, letters, phrases, captions, numbers, numerals, readable characters, fake writing, runes, invented alphabets, inscriptions, labels, readable diagrams, currency symbols, dollar sign, coins, cash, banknotes, credit cards, bank logos, charts, graphs, stock ticker, brand logos, watermark, copyright mark, clipart, sticker, icon pack, emoji, flat app icon, photorealistic human face, human figure, portrait, hands, body, literal scene, literal intention illustration, literal object explanation, literal nautical anchor, ship anchor, boat anchor, physical anchor, metal anchor, anchor object, anchor icon, anchor logo, anchor emoji, recognizable anchor silhouette, maritime imagery, harbor, ship, boat, generic mystical poster, generic occult poster, repetitive mandala, repetitive concentric-circle framing, generic sacred emblem, talisman, amulet, ceremonial border, medallion frame, added ring around the Anchor, borders, frames, boxes, rectangles, square containers, rectangular containers, framing devices, plaques, cards, slabs, stone tablets, pedestals, windows, canvases, enclosing shapes, four-sided enclosures, bounding boxes, mats, shadowbox enclosures, mounting board, presentation plates, rectangular borders around the symbol, small glyph inside large composition, default glowing halo, stock fantasy glow, astrology wheel, zodiac poster, occult seal, distorted geometry, altered structure, altered shape, warped lines, broken Anchor, melted Anchor, obscured Anchor, broken sigil, melted sigil, blurry, muddy detail, low quality, random artifacts, overcrowded ornament';
 
 export const LITERAL_ANCHOR_EXCLUSION = `
 LITERAL SUBJECT EXCLUSION — ABSOLUTE:
@@ -472,10 +472,10 @@ export const COMPOSITION_VARIANTS: Record<string, string[]> = {
     'Edge-to-edge material resonance that cradles the Anchor without competing with its primary lines.',
   ],
   OBJECT_PRESENTATION: [
-    'Present the Anchor as a physical artifact, relic, or crafted plate resting in shallow dimensional space.',
-    'Physical specimen staging with realistic directional raking light and tangible surface depth.',
-    'Editorial gallery framing with quiet museum-grade mounting and natural material drop shadow.',
-    'Shallow tactile depth that presents the Anchor as an authentic handmade or architectural object.',
+    'Present the Anchor itself as a standalone sculptural mark carved or cast in physical material, filling 75-85% of the frame without any substrate plaque, plate, or mounting card.',
+    'Physical mark staging with realistic directional raking light directly on the Anchor geometry and strokes.',
+    'Editorial studio lighting on the standalone symbol with deep material texture directly on the linework and empty boundless field.',
+    'Tactile dimensional depth on the Anchor geometry itself, standing entirely free with no enclosing borders or tablet boundaries.',
   ],
   CENTRED_AXIS: [
     'Concentric light layers and orbital atmosphere balanced evenly along the central vertical axis.',
@@ -718,6 +718,19 @@ The finished piece is the owner's personal mark of intent: closer to a private e
 - Keep it individual and handmade, with the character of this specific geometry. It must not become a corporate logo, an icon-set glyph, or an alphabet monogram.
 - Surrounding style belongs to the material and the field around the mark, never to decorative framing added around it.
 
+STANDALONE ANCHOR ARTWORK REQUIREMENT
+--------------------------------------------------
+Generate a SINGLE standalone abstract geometric Anchor derived from the supplied Anchor structure.
+- The Anchor must occupy approximately 75–85% of the available canvas width and height.
+- Composition should radiate outward and make intentional use of the full canvas.
+- Preserve comfortable negative space around the outer edge so strokes are never clipped.
+- DO NOT generate borders, frames, boxes, rectangles, square containers, plaques, cards, windows, canvases, or enclosing shapes around the Anchor.
+- DO NOT place a small glyph in the center of a larger decorative composition.
+- DO NOT generate a background as part of the Anchor. Prefer transparent-background Anchor artwork so presentation/background treatment remains controlled by the app.
+- The result should read instantly as one unified symbol when displayed inside a circle.
+- Organic curves, intersections, diagonals, arcs, and structural geometry are allowed. Large rectangular framing devices are strictly forbidden.
+- Important: A rectangle may only survive when it is a small, clearly integral component of the distilled Anchor geometry. A dominant four-sided enclosure around the symbol is ALWAYS INVALID.
+
 STRUCTURAL PRESERVATION — ABSOLUTE PRIORITY
 --------------------------------------------------
 Preserve every primary line, circle, node, intersection, angle, and structural relationship exactly as shown.
@@ -757,7 +770,6 @@ Styling may affect only:
 - material
 - atmosphere
 - lighting
-- framing
 - color
 - density
 - texture
@@ -1138,12 +1150,12 @@ Enhancements may appear:
 - behind
 - beneath
 - within the material field
-- in framing
 - in atmosphere
 - in surface treatment
 - in peripheral composition
 
-Never alter the core geometry.`;
+Never alter the core geometry.
+Never add rectangular frames, boxes, plaques, or enclosing containers around the Anchor.`;
 }
 
 // ============================================================================
@@ -1186,7 +1198,7 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       textureLogic: 'Drafting linen tooth, graphite dusting along construction rails',
       depthLogic: 'Layered orthographic planes fading before the Anchor structure',
       ornamentSystem: 'Calibration ticks, survey marks, datum references (all non-readable)',
-      framingLogic: 'Measured drafting margins with faint border datum lines',
+      framingLogic: 'Measured drafting margins with no enclosing rectangular border or box',
       signatureTraits: ['Blueprint grid logic', 'Silver calibration marks', 'Graphite guide rails'],
       shouldFeelLike: 'An archival architectural masterplan drafted by a master geometer',
       mustNotFeelLike: 'Mystical mandala, occult circle, glowing sci-fi HUD',
@@ -1584,7 +1596,7 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     styleNativeMotif: 'black-glass reflections, graphite polish, and low reflective shadow',
     defaultDensity: 'sparse',
     promptStyleBlock:
-      'Polished obsidian, graphite, silver edge light, and smoke gray reflection. The Anchor remains exact while glossy highlights, black glass depth, and lower-weighted reflection make the image feel protected and grounded. Avoid color noise, soft painterly treatment, or flat monochrome poster styling.',
+      'Polished obsidian, graphite, silver edge light, and smoke gray reflection directly on the standalone Anchor lines. The Anchor occupies 75-85% of the canvas while glossy highlights and black glass depth make the symbol feel protected and grounded. Standalone geometry only, no square tablet, plaque, or rectangular slab.',
     negativePrompt: getStyleNegativePrompt('obsidian_mono'),
     accentMotifs: [
       'a low horizontal reflection shelf beneath the field',
@@ -1594,7 +1606,7 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
     visualLanguage: {
       coreArtWorld: 'Volcanic glass, polished obsidian stone, graphite luster, light on deep shadow',
       primaryMedium: 'Polished obsidian stone and graphite carving',
-      substrate: 'Honed black volcanic glass tablet with micro-beveled facets',
+      substrate: 'Honed black volcanic glass material geometry with micro-beveled facets directly on the Anchor lines and intersections',
       edgeBehavior: 'Sharp conchoidal fracture edges, crisp specular glints',
       lineBehavior: 'Subtle etched relief or precision silver edge-catches on black ground',
       spatialBehavior: 'Lower-weighted anchored mass, deep tonal absorption',
@@ -1602,9 +1614,9 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       textureLogic: 'Mirror-polished stone planes, matte graphite zones, volcanic micro-texture',
       depthLogic: 'Black-on-black depth separation through variable gloss and reflection',
       ornamentSystem: 'Low reflective shadow shelves, faint graphite calibration lines',
-      framingLogic: 'Deep stone tablet boundaries with low-weighted shadows',
+      framingLogic: 'Pure obsidian material geometry radiating outward into boundless space, no rectangular stone tablet or enclosing borders',
       signatureTraits: ['Polished black glass reflections', 'Conchoidal fractures', 'Low-weighted anchor mass'],
-      shouldFeelLike: 'A sacred monolith of volcanic glass carved by ancient precision tools',
+      shouldFeelLike: 'A sacred monolithic mark of volcanic glass carved by precision tools, standing free with no enclosing plaque or tablet',
       mustNotFeelLike: 'Flat grayscale vector, sci-fi metallic armor, plastic phone case',
       crossStyleAvoidances: ['Obsidian Mono must not inherit soft painterly treatment or bright color noise'],
       paletteBehavior: 'Black glass, graphite, smoke gray, cold silver specular highlight',
@@ -2325,7 +2337,7 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       textureLogic: 'Heavy cardstock grain, clean paper edges, matte non-reflective fiber',
       depthLogic: '3 to 5 discrete physical paper layers stepping toward the viewer',
       ornamentSystem: 'Layered contour cutouts, negative space apertures, paper bevels',
-      framingLogic: 'Shadowbox enclosure with clean paper borders',
+      framingLogic: 'Layered dimensional relief with no enclosing shadowbox frame or rectangular border',
       signatureTraits: ['Scalpel-cut paper edges', 'Tangible directional cast shadows', 'Layered dimensional relief'],
       shouldFeelLike: 'A handmade museum-grade paper relief sculpture lit by soft studio raking light',
       mustNotFeelLike: 'Flat digital vector, painterly smudge, glossy plastic, 3D clay',
@@ -2437,7 +2449,7 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       textureLogic: 'Screen mesh texture (150-mesh weave visible under scrutiny), matte ink body',
       depthLogic: 'Discrete flat color passes layered in physical print sequence',
       ornamentSystem: 'Flat color blocks, registration crosses, graphic perimeter fields',
-      framingLogic: 'Traditional poster margins with clean border matte',
+      framingLogic: 'Generous open margins with no enclosing border or rectangular matte',
       signatureTraits: ['Flat opaque ink deposit', 'Screen mesh texture', 'Bold high-contrast graphics'],
       shouldFeelLike: 'A limited-edition serigraph poster hand-pulled in a master print shop',
       mustNotFeelLike: 'Smooth digital vector, 3D render, watercolor wash, glowing neon',
@@ -2493,7 +2505,7 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       textureLogic: 'Biting roller texture, wiping rag striations, rich ink plate tone',
       depthLogic: 'Ghost impressions and varied ink film thicknesses',
       ornamentSystem: 'Plate tone variations, wiping marks, roller passes',
-      framingLogic: 'Visible plate indentation (platemark) pressed into heavy rag paper',
+      framingLogic: 'Open paper field with no visible rectangular plate impression or border',
       signatureTraits: ['Plate tone and wiping striations', 'Unique impression texture', 'Embossed platemark'],
       shouldFeelLike: 'A singular, irreplaceable monoprint impression pulled from an etched plate',
       mustNotFeelLike: 'Repetitive pattern, digital wallpaper, clean vector, corporate illustration',
@@ -2661,7 +2673,7 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       textureLogic: 'Limestone porosity, chisel tool marks, mineral veining',
       depthLogic: 'Shallow bas-relief plane (5mm depth) integrated into solid stone wall',
       ornamentSystem: 'Architectural moldings, shallow carved margins, mineral fossils',
-      framingLogic: 'Recessed stone panel border with weathered bevel',
+      framingLogic: 'Carved stone relief mark standing free with no recessed rectangular panel or border',
       signatureTraits: ['Chiseled bas-relief depth', 'Raking stone shadow', 'Limestone mineral texture'],
       shouldFeelLike: 'An ancient architectural bas-relief carving preserved in a temple wall',
       mustNotFeelLike: 'CGI video game rock, 3D foam prop, plastic casting, magical glowing ruin',
@@ -2717,7 +2729,7 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       textureLogic: 'Smooth glass glaze, subtle craquelure (ice crackle), kaolin clay purity',
       depthLogic: 'Underglaze depth beneath a layer of clear vitreous glass',
       ornamentSystem: 'Fine celadon crackle patterns, iron-spot glaze flecks, subtle rim luster',
-      framingLogic: 'Organic ceramic rim or tile perimeter with rounded glazed edge',
+      framingLogic: 'Porcelain ceramic mark with smooth glazed edges, standing free without tile perimeter or box',
       signatureTraits: ['Vitreous glaze luster', 'Delicate craquelure network', 'Cobalt underglaze purity'],
       shouldFeelLike: 'An imperial Song Dynasty white porcelain vessel with subtle ice crackle glaze',
       mustNotFeelLike: 'Cheap plastic plate, glossy kitchen tile, cartoon pottery, 3D ceramic render',
@@ -2773,7 +2785,7 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       textureLogic: 'Granular verdigris crust, acid-etched pitting, brushed copper grain',
       depthLogic: 'Layers of turquoise copper carbonate blooming over deep reddish bronze base',
       ornamentSystem: 'Oxidation tide lines, mineral bloom crusts, etched calibration traces',
-      framingLogic: 'Weathered copper plate edges with concentrated oxidation corners',
+      framingLogic: 'Weathered copper patina mark standing free without rectangular plate edges',
       signatureTraits: ['Turquoise-teal verdigris patina', 'Raw copper metallic warmth', 'Mineral oxidation crust'],
       shouldFeelLike: 'A century-old copper dome plate weathered by sea air and rain',
       mustNotFeelLike: 'Gold leaf duplicate, flat green vector, digital camouflage, fantasy slime',
@@ -2829,7 +2841,7 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       textureLogic: 'Matte map vellum, micro geodetic point grids, smooth line tension',
       depthLogic: 'Terraced stepped elevation layers creating non-literal 3D landscape rhythm',
       ornamentSystem: 'Index contour weight variations, spot elevation markers, datum lines',
-      framingLogic: 'Geodetic survey frame with subtle edge coordinate ticks',
+      framingLogic: 'Topographic contour field without geodetic box frame or border ticks',
       signatureTraits: ['Flowing elevation contour fields', 'Geodetic line discipline', 'Abstract terrain rhythm'],
       shouldFeelLike: 'A master geodetic survey map depicting abstract mathematical landscapes',
       mustNotFeelLike: 'Readable hiking map, GPS screen, fingerprint graphic, zebra stripes',
@@ -2885,7 +2897,7 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       textureLogic: 'Copperplate line bite, faint age foxing spots, organic cellular grain',
       depthLogic: 'Layered botanical linework receding behind the primary structure',
       ornamentSystem: 'Abstract leaf venation patterns, seed pod cross-sections, cellular grids',
-      framingLogic: 'Archival herbarium plate border with faint ruled margin',
+      framingLogic: 'Botanical mark standing free without archival ruled plate border',
       signatureTraits: ['Copperplate botanical linework', 'Cellular venation patterns', 'Archival herbarium paper'],
       shouldFeelLike: 'An archival plate from a master 18th-century botanical compendium',
       mustNotFeelLike: 'Clip-art flowers, cartoon leaves, tattoo flash, wallpaper floral print',
@@ -2941,7 +2953,7 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       textureLogic: 'Polished agate banding, druzy quartz crystal texture, mineral inclusions',
       depthLogic: 'Translucent mineral strata receding inward into crystalline cavity',
       ornamentSystem: 'Concentric mineral bands, micro crystalline druzy fields, strata lines',
-      framingLogic: 'Rough volcanic rock crust framing polished interior geode',
+      framingLogic: 'Crystalline mineral growth radiating outward without rectangular rock crust frame',
       signatureTraits: ['Agate-like concentric mineral bands', 'Subsurface crystal glow', 'Geological strata'],
       shouldFeelLike: 'A polished cross-section slice of a rare natural agate or malachite geode',
       mustNotFeelLike: 'Tie-dye swirl, psychedelic fractal, digital fluid simulation, cheap resin pour',
@@ -3165,7 +3177,7 @@ export const STYLE_PROMPT_LIBRARY: Record<AIStyle, StylePromptDefinition> = {
       textureLogic: 'Torn fibrous paper edges, aged book cloth, halftone photo texture fragments',
       depthLogic: 'Physical paper overlap steps creating 1-2mm archival collage depth',
       ornamentSystem: 'Non-readable catalog grid fragments, paper tape strips, specimen mounts',
-      framingLogic: 'Archival mounting board border with mounting corners',
+      framingLogic: 'Archival mark composition without mounting board border or mounting corners',
       signatureTraits: ['Hand-torn paper edges', 'Tactile paper montage', 'Archival catalog materiality'],
       shouldFeelLike: 'An archival museum collage board assembled from rare historical ephemera',
       mustNotFeelLike: 'Digital Photoshop collage, chaotic scrapbooking, pop art cutout, magazine faces',

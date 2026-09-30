@@ -1,8 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, useWindowDimensions, View } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useV2ReduceMotion } from '@/hooks/v2';
 import { ArrowRight, Eye } from 'lucide-react-native';
 import { V2Button } from '@/components/v2';
 import { anchorRenderProps } from '@/components/v2/anchors/anchorPresentation';
@@ -17,7 +15,10 @@ import { practiceColors } from '@/theme/v2/practiceColors';
 import { DEFAULT_SESSION_AUDIO_DEFAULTS, type BackgroundAudioMode, type GuidanceVoice } from '@/types/sessionAudio';
 import type { Anchor } from '@/types';
 import type { V2VisionTile } from '@/adapters/v2/vision';
-import { preloadVisionImages, V2_VISUALIZE_DURATIONS, V2_VISUALIZE_TIMING } from './visualizeVisionPlan';
+import { V2_VISUALIZE_DURATIONS } from './visualizeVisionPlan';
+import { V2CinematicSessionScreen, type PreparedCinematicSession } from './V2CinematicSessionScreen';
+import { getVisualizeMonotonicNow } from '@/screens/visualize/useVisualizeSessionEngine';
+import { useAuthStore } from '@/stores/authStore';
 import { useAnchorTransitionPlace } from '@/navigation/v2/ProgressiveFocusTransition';
 
 export type V2VisualizeBeginConfig = {
@@ -25,11 +26,13 @@ export type V2VisualizeBeginConfig = {
   voice: GuidanceVoice;
   ambient: boolean;
   haptics: boolean;
+  prepared: PreparedCinematicSession;
 };
 
 type Props = {
   anchor: Anchor;
   statement: string;
+  visionId?: string;
   tiles: V2VisionTile[];
   initialDuration?: number;
   onBack: () => void;
@@ -46,11 +49,17 @@ const ACCENT = practiceColors.visualize;
  * photography is the hero and the Anchor is a small line of provenance.
  * Sound and haptics apply to this session only; saved defaults are untouched.
  */
-export function V2VisualizePrepareScreen({ anchor, statement, tiles, initialDuration, onBack, onOpenVision, onBegin, anchorHandoff = false }: Props) {
-  const [prototypeOpen, setPrototypeOpen] = useState(false);
-  // Do not initialize Skia or mount the diagnostic reel during a real session.
-  const Prototype = __DEV__ && prototypeOpen
-    ? require('./prototype/VisualizeSignaturePrototype').VisualizeSignaturePrototype : null;
+export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, initialDuration, onBack, onOpenVision, onBegin }: Props) {
+  const accountId = useAuthStore(state => state.user?.id ?? null);
+  const [prepared, setPrepared] = useState<PreparedCinematicSession | null>(null);
+  const [preparationIssue, setPreparationIssue] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const [useAvailable, setUseAvailable] = useState<(() => void) | null>(null);
+  const offerAvailable = useCallback((useImages: () => void) => setUseAvailable(() => useImages), []);
+  const acceptPrepared = useCallback((session: PreparedCinematicSession) => {
+    setPrepared(session); setPreparationIssue(null); setUseAvailable(null);
+  }, []);
+  const reportIssue = useCallback((message: string) => setPreparationIssue(message), []);
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const defaults = useSettingsStore(state => state.sessionAudioDefaults?.visualize);
@@ -68,46 +77,39 @@ export function V2VisualizePrepareScreen({ anchor, statement, tiles, initialDura
   const place = useAnchorTransitionPlace('practiceSetup', anchor.id, 'paper', { measureDelayMs: Platform.OS === 'android' ? 120 : 0 });
   const boardTiles = useMemo(() => tiles.filter(tile => Boolean(tile.imageUrl)).slice(0, VISION_BOARD_MAX_IMAGES), [tiles]);
   const boardSize = useMemo(() => boardSizeForWidth(width - spacing[5] * 2), [width]);
-  const board = useVisionBoardScene(boardTiles, boardSize);
 
-  // Decode every Vision image now, so the session never shows one loading.
-  const imageUrls = useMemo(() => tiles.map(tile => tile.imageUrl).filter((uri): uri is string => Boolean(uri)), [tiles]);
-  useEffect(() => { preloadVisionImages(imageUrls); }, [imageUrls]);
-
-  // Setup hands over to the session through darkness, never a hard cut.
-  const reduceMotion = useV2ReduceMotion();
-  const veil = useSharedValue(0);
-  const veilStyle = useAnimatedStyle(() => ({ opacity: veil.value }));
+  // Keep the real setup board visible while the exact session textures and geometry prepare.
+  const preparationKey = useMemo(() => JSON.stringify([accountId, anchor.id, anchor.enhancedImageUrl, art.svg,
+    anchor.intentionText, statement, visionId, boardTiles.map(tile => [tile.sceneId, tile.imageUrl]), width, height, attempt]),
+    [accountId, anchor.id, anchor.enhancedImageUrl, art.svg, anchor.intentionText, statement, visionId, boardTiles, width, height, attempt]);
   const beganRef = useRef(false);
+  const preparedKey = useRef<string | null>(null);
+  const onPrepared = useCallback((session: PreparedCinematicSession) => {
+    preparedKey.current = preparationKey;
+    acceptPrepared(session);
+  }, [acceptPrepared, preparationKey]);
+  const ready = prepared !== null && preparedKey.current === preparationKey;
+  const board = useVisionBoardScene(ready ? prepared.assets.tiles : boardTiles, boardSize);
+  const retry = () => { setUseAvailable(null); setPreparationIssue(null); setPrepared(null); setAttempt(value => value + 1); };
 
   const begin = () => {
-    if (beganRef.current) return;
+    if (beganRef.current || !ready || !prepared) return;
     beganRef.current = true;
     // Turning sound on when the saved defaults are fully silent uses the
     // product defaults rather than starting a silent "sound on" session.
     const voice: GuidanceVoice = soundOn ? (savedVoice !== 'none' || savedAmbient !== 'off' ? savedVoice : DEFAULT_SESSION_AUDIO_DEFAULTS.visualize.guidanceVoice) : 'none';
     const ambient = soundOn ? (savedVoice !== 'none' || savedAmbient !== 'off' ? savedAmbient !== 'off' : true) : false;
-    const config = { durationSeconds: duration, voice, ambient, haptics: hapticsOn };
-    if (reduceMotion || anchorHandoff) { onBegin(config); return; }
-    veil.value = withTiming(1, { duration: V2_VISUALIZE_TIMING.handoffMs, easing: Easing.in(Easing.quad) });
-    setTimeout(() => onBegin(config), V2_VISUALIZE_TIMING.handoffMs);
+    onBegin({ durationSeconds: duration, voice, ambient, haptics: hapticsOn, prepared: { ...prepared, beginAtMs: getVisualizeMonotonicNow() } });
   };
 
   return (
     <View testID="v2-practice-prepare-visualize" style={styles.root}>
-      {Prototype && <Modal visible animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={() => setPrototypeOpen(false)}>
-        <Prototype anchor={anchor} tiles={tiles} onClose={() => setPrototypeOpen(false)} />
-      </Modal>}
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <VisionInkBand>
+        <VisionInkBand fadeTo={colors.ink.deep}>
           <View style={styles.band}>
             <VisionHeaderRow title="Visualize" onBack={onBack} backLabel="Back to Practice" />
-            {__DEV__ && <Pressable accessibilityRole="button" accessibilityLabel="Open cinematic transition prototype"
-              onPress={() => setPrototypeOpen(true)} style={{ minHeight: 44, justifyContent: 'center' }}>
-              <Text style={styles.label}>DEV · Cinematic transition prototype</Text>
-            </Pressable>}
             <VisionIdentity intention={anchor.intentionText} category={anchor.category} art={art} artworkPlace={place} />
-            <Text accessibilityRole="header" style={styles.title}>Rehearse{'\n'}the future.</Text>
+            <Text accessibilityRole="header" style={styles.title}>Step into your Vision.</Text>
             <Text style={styles.subtitle}>Step into the moments you’ve created and let them feel real.</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="Open this Anchor’s Vision" disabled={!onOpenVision}
               onPress={() => onOpenVision?.(anchor.id)} style={({ pressed }) => [pressed && styles.pressed]}>
@@ -149,39 +151,51 @@ export function V2VisualizePrepareScreen({ anchor, statement, tiles, initialDura
             </View>
           </View>
         </View>
-      </ScrollView>
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing[3] }]}>
         {boardTiles.length === 0 ? <Text style={styles.emptyHint}>Add a Vision image before beginning.</Text> : null}
-        <V2Button size="large" accessibilityLabel="Begin Visualize" onPress={begin} disabled={boardTiles.length === 0}
-          iconLeft={<Eye size={18} color={ACCENT} />} iconRight={<ArrowRight size={17} color={colors.paper} />}>
+        {boardTiles.length > 0 && !ready ? <Text accessibilityLiveRegion="polite" style={styles.emptyHint}>
+          {preparationIssue ?? 'Preparing your Vision...'}
+        </Text> : null}
+        {useAvailable && !ready ? <V2Button variant="secondary" onPress={useAvailable}>Continue with available images</V2Button> : null}
+        {preparationIssue ? <V2Button variant="secondary" onPress={retry}>Retry Vision</V2Button> : null}
+        <V2Button size="large" accessibilityLabel="Begin Visualize" onPress={begin} disabled={boardTiles.length === 0 || !ready || beganRef.current}
+          style={styles.beginButton} iconLeft={<Eye size={18} color={ACCENT} />} iconRight={<ArrowRight size={17} color={colors.paper} />}>
           Begin Visualize
         </V2Button>
       </View>
-      <Animated.View pointerEvents="none" style={[styles.veil, veilStyle]} />
+      </ScrollView>
+      <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
+        style={styles.preparationSurface}>
+        {boardTiles.length > 0 ? <V2CinematicSessionScreen key={preparationKey} anchor={anchor} accountId={accountId}
+          tiles={boardTiles} statement={statement} visionId={visionId} durationSeconds={180} voice="none" ambient={false}
+          haptics={false} source="practice_hub" prepareOnly onPrepared={onPrepared} onPreparationIssue={reportIssue} onAvailableImages={offerAvailable}
+          onExit={onBack} onContinue={() => undefined} /> : null}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.canvas },
+  root: { flex: 1, backgroundColor: colors.ink.deep },
   scroll: { paddingBottom: spacing[5] },
   band: { paddingHorizontal: spacing[5], gap: spacing[3], paddingBottom: spacing[2] },
-  // Same display scale as the Vision entrance ("See your future."), so setup reads as one family.
-  title: { ...typography.displayMedium, color: colors.ink.text.primary, marginTop: spacing[4] },
+  // The board leads; introductory copy stays subordinate to the photographs.
+  title: { ...typography.headingLG, color: colors.ink.text.primary, marginTop: spacing[4] },
   subtitle: { ...typography.bodyLG, color: colors.ink.text.secondary, maxWidth: 320 },
   board: { marginTop: spacing[3], borderRadius: radii.lg, overflow: 'hidden' },
   pressed: { opacity: 0.85 },
   controls: { paddingHorizontal: spacing[5], paddingTop: spacing[4], gap: spacing[2] },
-  label: { ...typography.labelSM, fontSize: 10, letterSpacing: 0.8, color: colors.text.secondary },
-  durations: { flexDirection: 'row', gap: spacing[2], marginBottom: spacing[2] },
-  duration: { flex: 1, minHeight: 52, borderRadius: radii.md, borderWidth: 1, borderColor: colors.border.subtle, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
-  durationText: { ...typography.labelMD, color: colors.text.primary },
+  label: { ...typography.labelSM, fontSize: 10, letterSpacing: 0.8, color: colors.ink.text.secondary },
+  durations: { flexDirection: 'row', gap: spacing[1], padding: spacing[1], borderRadius: radii.md, backgroundColor: colors.ink.raised, marginBottom: spacing[2] },
+  duration: { flex: 1, minHeight: 44, borderRadius: radii.sm, borderWidth: 1, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
+  durationText: { ...typography.labelMD, color: colors.ink.text.primary },
   durationTextSelected: { fontFamily: typography.utilityBold.fontFamily, color: ACCENT },
-  veil: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.ink.deep, opacity: 0 },
-  toggles: { borderRadius: radii.md, borderWidth: 1, borderColor: colors.border.subtle, backgroundColor: colors.surface, paddingHorizontal: spacing[4] },
-  toggleRow: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  toggleLabel: { ...typography.bodyMD, color: colors.text.primary },
+  preparationSurface: { ...StyleSheet.absoluteFillObject, opacity: 0 },
+  toggles: { paddingHorizontal: spacing[1] },
+  toggleRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  toggleLabel: { ...typography.bodyMD, color: colors.ink.text.primary },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border.subtle },
-  footer: { paddingHorizontal: spacing[5], paddingTop: spacing[3], backgroundColor: colors.canvas },
-  emptyHint: { ...typography.bodyMD, color: colors.text.secondary, textAlign: 'center', marginBottom: spacing[2] },
+  footer: { paddingHorizontal: spacing[5], paddingTop: spacing[3], backgroundColor: colors.ink.deep },
+  beginButton: { borderWidth: 1, borderColor: colors.ink.hairlineStrong },
+  emptyHint: { ...typography.bodyMD, color: colors.ink.text.secondary, textAlign: 'center', marginBottom: spacing[2] },
 });

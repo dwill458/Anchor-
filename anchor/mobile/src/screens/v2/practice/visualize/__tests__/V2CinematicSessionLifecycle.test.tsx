@@ -226,7 +226,7 @@ describe('V2 cinematic session readiness and lifecycle', () => {
     alert.mockRestore();
   });
 
-  it('records one completion and offers Done once after the engine reaches completion', async () => {
+  it('records one completion and enters Thread once after the final board hold', async () => {
     const view = renderReadySession();
     measureMark();
     expect(mockEngine.start).toHaveBeenCalledTimes(1);
@@ -243,9 +243,65 @@ describe('V2 cinematic session readiness and lifecycle', () => {
       statement="My saved intention feels calm and clear." durationSeconds={60} voice="none" ambient={false} haptics={false}
       source="practice_hub" onExit={view.onExit} onContinue={view.onContinue} />);
     await act(async () => { await Promise.resolve(); });
-    fireEvent.press(view.getByLabelText('Done'));
-    fireEvent.press(view.getByLabelText('Done'));
+    expect(view.queryByLabelText('Done')).toBeNull();
     expect(mockEngine.markCompleted).toHaveBeenCalledTimes(1);
     expect(view.onContinue).toHaveBeenCalledTimes(1);
   });
+  it('prepares the exact geometry without starting a hidden practice session', () => {
+    resetEngine('preparing');
+    mockUseCinematicAssets.mockReturnValue({ resources: null, ready: true, select: () => ({ tiles, images: [{}] }) });
+    const onPrepared = jest.fn();
+    const view = render(<V2CinematicSessionScreen anchor={anchor} accountId="user-1" tiles={tiles}
+      statement="Saved Vision" durationSeconds={180} voice="none" ambient={false} haptics={false}
+      source="practice_hub" prepareOnly onPrepared={onPrepared} onExit={jest.fn()} onContinue={jest.fn()} />);
+    measureMark();
+    expect(onPrepared).toHaveBeenCalledWith(expect.objectContaining({ anchor, statement: 'Saved Vision', markLocal: expect.any(Object) }));
+    expect(mockEngine.start).not.toHaveBeenCalled();
+    expect(mockCompletion).not.toHaveBeenCalled();
+    expect(view.queryByTestId('cinematic-stage')).toBeNull();
+  });
+
+  it('freezes duration, audio and content even when live props change', async () => {
+    const view = renderReadySession();
+    measureMark();
+    view.rerender(<V2CinematicSessionScreen anchor={{ ...anchor, intentionText: 'Changed later' }} accountId="other-account" tiles={[]}
+      statement="Changed later" durationSeconds={300} voice="male" ambient haptics
+      source="recommended_today" onExit={view.onExit} onContinue={view.onContinue} />);
+    const last = mockEngineHook.mock.calls[mockEngineHook.mock.calls.length - 1][0];
+    expect(last.durationSeconds).toBe(60);
+    await act(async () => { await last.onComplete({ startedAt: '2026-09-30T10:00:00.000Z', completedAt: '2026-09-30T10:01:00.000Z' }); });
+    expect(mockCompletion).toHaveBeenCalledWith(expect.objectContaining({ accountId: 'user-1', anchor, durationSeconds: 60, guidanceVoice: 'none', backgroundAudio: 'off' }));
+  });
+
+  it('holds completion in background and enters Thread once on foreground', async () => {
+    const view = renderReadySession(); measureMark();
+    changeAppState('background');
+    mockEngine.state = 'completing'; mockEngine.elapsedMs = 60000;
+    view.rerender(<V2CinematicSessionScreen anchor={anchor} accountId="user-1" tiles={tiles}
+      statement="Saved Vision" durationSeconds={60} voice="none" ambient={false} haptics={false}
+      source="practice_hub" onExit={view.onExit} onContinue={view.onContinue} />);
+    await act(async () => { await Promise.resolve(); });
+    expect(view.onContinue).not.toHaveBeenCalled();
+    changeAppState('active'); changeAppState('active');
+    expect(view.onContinue).toHaveBeenCalledTimes(1);
+  });
+
+  it('begins with the same prepared textures without another asset request or measurement', () => {
+    resetEngine('preparing');
+    mockUseCinematicAssets.mockReturnValue({ resources: null, ready: true, select: () => ({ tiles, images: [{}] }) });
+    const onPrepared = jest.fn();
+    const preparation = render(<V2CinematicSessionScreen anchor={anchor} accountId="user-1" tiles={tiles}
+      statement="Saved Vision" durationSeconds={180} voice="none" ambient={false} haptics={false}
+      source="practice_hub" prepareOnly onPrepared={onPrepared} onExit={jest.fn()} onContinue={jest.fn()} />);
+    measureMark();
+    const prepared = onPrepared.mock.calls[0][0];
+    preparation.unmount(); mockUseCinematicAssets.mockClear();
+    const view = render(<V2CinematicSessionScreen anchor={anchor} accountId="user-1" tiles={tiles}
+      statement="Saved Vision" durationSeconds={60} voice="none" ambient={false} haptics={false}
+      source="practice_hub" prepared={prepared} onExit={jest.fn()} onContinue={jest.fn()} />);
+    expect(mockUseCinematicAssets).not.toHaveBeenCalled();
+    expect(view.getByTestId('cinematic-stage')).toBeTruthy();
+    expect(mockEngine.start).toHaveBeenCalledTimes(1);
+  });
+
 });

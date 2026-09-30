@@ -15,7 +15,7 @@ export interface V2FocusCompleteScreenProps {
   afterStrength?: number | null;
   sessionSaved?: boolean;
   /** Shared completion presentation; Focus keeps its original copy by default. */
-  practiceTitle?: 'Deep Focus';
+  practiceTitle?: 'Deep Focus' | 'Visualize';
   onDone: () => void;
   onAgain: () => void;
 }

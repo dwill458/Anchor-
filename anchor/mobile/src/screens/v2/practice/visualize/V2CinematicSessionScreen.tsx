@@ -12,12 +12,13 @@ import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
 import { trackSessionStartedWithAudio } from '@/services/SessionAudioAnalytics';
 import { resolveSessionAudioPlan } from '@/services/SessionAudioManifest';
 import { getVisualizeSessionAudioManifest } from '@/services/visualizeAudioManifest';
-import { useVisualizeSessionEngine } from '@/screens/visualize/useVisualizeSessionEngine';
+import { getVisualizeMonotonicNow, useVisualizeSessionEngine } from '@/screens/visualize/useVisualizeSessionEngine';
 import { useVisualizeSessionAudio } from '@/screens/visualize/useVisualizeSessionAudio';
 import { useVisualizeImmersiveMode } from '@/screens/visualize/useVisualizeImmersiveMode';
 import { colors, spacing, typography } from '@/theme/v2';
 import type { Anchor } from '@/types';
 import type { GuidanceVoice } from '@/types/sessionAudio';
+import type { PracticeSessionRecord } from '@/types/practice';
 import type { V2VisionTile } from '@/adapters/v2/vision';
 import { anchorArtworkSvg } from '@/components/v2/anchors/anchorPresentation';
 import { VisionBoardScene } from '@/components/v2/vision/board/VisionBoardScene';
@@ -33,16 +34,46 @@ import { CinematicSessionStage } from './CinematicSessionStage';
 import { ENHANCED_ANCHOR_MASK_SHADER } from './enhancedAnchorMask';
 import { photoWindow, rotatedChild, type Rect } from './prototype/cinematicGeometry';
 
+export type PreparedCinematicSession = {
+  anchor: Anchor; statement: string; visionId?: string | null; assets: CinematicAssets;
+  markLocal: Rect; viewport: { width: number; height: number }; beginAtMs?: number; frameImage: NonNullable<ReturnType<typeof useImage>>;
+  attachmentImage: NonNullable<ReturnType<typeof useImage>>;
+  svgText: string; svg: SkSVG | null; enhancedMaskEffect: NonNullable<ReturnType<typeof Skia.RuntimeEffect.Make>> | null;
+};
+export type CinematicCompletion = { record: PracticeSessionRecord | null; saved: boolean };
 export type CinematicSessionProps = {
   anchor: Anchor; accountId: string | null; tiles: V2VisionTile[]; statement: string; visionId?: string | null;
   durationSeconds: V2VisualizeDuration; voice: GuidanceVoice; ambient: boolean; haptics: boolean;
-  source: 'practice_hub' | 'recommended_today'; onExit: () => void; onContinue: () => void;
+  source: 'practice_hub' | 'recommended_today'; onExit: () => void; onContinue: (result: CinematicCompletion) => void;
+  prepared?: PreparedCinematicSession;
+  prepareOnly?: boolean;
+  onPrepared?: (session: PreparedCinematicSession) => void;
+  onPreparationIssue?: (message: string) => void;
+  onAvailableImages?: (useAvailable: () => void) => void;
 };
 const KeepAwake = () => { useKeepAwake('v2-visualize-session'); return null; };
 const formatTime = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
 /** Asset failures resolve before the clock, preserving the same available board at both ends. */
 export function V2CinematicSessionScreen(props: CinematicSessionProps) {
+  // Preferences and content cannot be replaced by a store refresh during playback.
+  const [frozen] = useState(() => ({ ...props, ...(props.prepared ? {
+    anchor: props.prepared.anchor, statement: props.prepared.statement,
+    visionId: props.prepared.visionId, tiles: props.prepared.assets.tiles,
+  } : {}) }));
+  return <CinematicLoader {...frozen} onContinue={props.onContinue} onExit={props.onExit}
+    onPrepared={props.onPrepared} onPreparationIssue={props.onPreparationIssue} onAvailableImages={props.onAvailableImages} />;
+}
+function CinematicLoader(props: CinematicSessionProps) {
+  if (props.prepared) return <PreparedRun {...props} prepared={props.prepared} />;
+  return <LoadingRun {...props} />;
+}
+function PreparedRun(props: CinematicSessionProps & { prepared: PreparedCinematicSession }) {
+  return <CinematicRun {...props} assets={props.prepared.assets} svgText={props.prepared.svgText} svg={props.prepared.svg}
+    enhancedMaskEffect={props.prepared.enhancedMaskEffect} onRetry={props.onExit} />;
+}
+
+function LoadingRun(props: CinematicSessionProps) {
   const [snapshot] = useState(() => ({ anchor: { ...props.anchor }, accountId: props.accountId,
     statement: props.statement, visionId: props.visionId, tiles: freezeCinematicTiles(props.tiles) }));
   const enhancedImageUrl = snapshot.anchor.enhancedImageUrl;
@@ -61,8 +92,19 @@ export function V2CinematicSessionScreen(props: CinematicSessionProps) {
     catch { return null; }
   }, [svgText]);
   useEffect(() => { if (!selected && assets.ready) setSelected(assets.select(snapshot.tiles)); }, [assets.ready, selected, snapshot]);
+  useEffect(() => {
+    if (assets.unavailable || assets.partial) props.onPreparationIssue?.('Some Vision assets could not load. Retry before beginning.');
+  }, [assets.unavailable, assets.partial, props.onPreparationIssue]);
   const hasUsableArtwork = Boolean(svg || enhancedImageUrl);
   const enhancedMaskReady = !enhancedImageUrl || Boolean(enhancedMaskEffect);
+  useEffect(() => {
+    if (assets.partial && assets.enhancedReady && hasUsableArtwork && enhancedMaskReady)
+      props.onAvailableImages?.(() => setSelected(assets.select(assets.available)));
+  }, [assets.partial, assets.enhancedReady, assets.available, hasUsableArtwork, enhancedMaskReady, props.onAvailableImages]);
+
+  useEffect(() => {
+    if (!hasUsableArtwork || !enhancedMaskReady) props.onPreparationIssue?.('The actual Anchor artwork could not be prepared.');
+  }, [hasUsableArtwork, enhancedMaskReady, props.onPreparationIssue]);
   if (selected && hasUsableArtwork && enhancedMaskReady && (!enhancedImageUrl || selected.enhancedAnchor)) return <View style={styles.root}>{assets.resources}<CinematicRun {...props} {...snapshot}
     assets={selected} svgText={svgText} svg={svg} enhancedMaskEffect={enhancedMaskEffect}
     onRetry={() => { setSelected(null); assets.retry(); }} /></View>;
@@ -91,26 +133,27 @@ export function V2CinematicSessionScreen(props: CinematicSessionProps) {
 }
 
 function CinematicRun({ anchor, accountId, statement, visionId, durationSeconds, voice, ambient, haptics, source,
-  onExit, onContinue, onRetry, assets, svgText, svg, enhancedMaskEffect }: CinematicSessionProps & {
+  onExit, onContinue, onRetry, assets, svgText, svg, enhancedMaskEffect, prepared, prepareOnly, onPrepared, onPreparationIssue }: CinematicSessionProps & {
   assets: CinematicAssets; svgText: string; svg: SkSVG | null;
   enhancedMaskEffect: NonNullable<ReturnType<typeof Skia.RuntimeEffect.Make>> | null; onRetry: () => void;
 }) {
-  const { width, height } = useWindowDimensions();
+  const window = useWindowDimensions();
+  const [{ width, height }] = useState(() => prepared?.viewport ?? ({ width: window.width, height: window.height }));
   const viewport = useMemo(() => ({ width, height }), [width, height]);
   const insets = useSafeAreaInsets();
   const reduced = useV2ReduceMotion();
   const scene = useMemo(() => boardSizeForWidth(width * 2), [width]);
   const board = useVisionBoardScene(assets.tiles, scene);
-  const [markLocal, setMarkLocal] = useState<Rect | null>(null);
-  const onMarkLayout = useCallback((rect: Rect) => setMarkLocal(previous => previous &&
-    Math.abs(previous.x - rect.x) < 0.01 && Math.abs(previous.y - rect.y) < 0.01 &&
-    previous.width === rect.width && previous.height === rect.height ? previous : rect), []);
+  const [markLocal, setMarkLocal] = useState<Rect | null>(prepared?.markLocal ?? null);
+  const onMarkLayout = useCallback((rect: Rect) => setMarkLocal(previous => previous ?? rect), []);
   const card = useMemo(() => toSceneRect(board.layout.card, scene), [board.layout.card, scene]);
   const mark = useMemo(() => markLocal ? rotatedChild(card, markLocal) : null, [card, markLocal]);
   const photo = useMemo(() => photoWindow(toSceneRect(board.layout.photos[0], scene), board.layout.photos[0].frame), [board.layout.photos, scene]);
   const [frameError, setFrameError] = useState(false);
-  const frameImage = useImage(BOARD_FRAME_IMAGES[board.layout.photos[0].frame] as number, () => setFrameError(true));
-  const attachmentImage = useImage(BOARD_ATTACHMENT_ART[boardAttachmentFor(assets.tiles[0].sceneId)].source as number, () => setFrameError(true));
+  const loadedFrameImage = useImage(prepared ? null : BOARD_FRAME_IMAGES[board.layout.photos[0].frame] as number, () => setFrameError(true));
+  const loadedAttachmentImage = useImage(prepared ? null : BOARD_ATTACHMENT_ART[boardAttachmentFor(assets.tiles[0].sceneId)].source as number, () => setFrameError(true));
+  const frameImage = prepared?.frameImage ?? loadedFrameImage;
+  const attachmentImage = prepared?.attachmentImage ?? loadedAttachmentImage;
   const ready = Boolean(mark && mark.width > 0 && mark.height > 0 && frameImage && attachmentImage &&
     (!assets.enhancedAnchor || enhancedMaskEffect));
   useEffect(() => {
@@ -118,6 +161,12 @@ function CinematicRun({ anchor, accountId, statement, visionId, durationSeconds,
     const timeout = setTimeout(() => setFrameError(true), 20_000);
     return () => clearTimeout(timeout);
   }, [frameError, ready]);
+  useEffect(() => {
+    if (prepareOnly && ready && markLocal && frameImage && attachmentImage) {
+      onPrepared?.({ anchor, statement, visionId, assets, markLocal, viewport, frameImage, attachmentImage, svgText, svg, enhancedMaskEffect });
+    }
+  }, [prepareOnly, ready, markLocal, frameImage, attachmentImage, onPrepared, anchor, statement, visionId, assets, viewport, svgText, svg, enhancedMaskEffect]);
+  useEffect(() => { if (frameError) onPreparationIssue?.('The board could not be prepared. Retry before beginning.'); }, [frameError, onPreparationIssue]);
   const timeline = useMemo(() => buildCinematicTimeline(durationSeconds, assets.tiles.length), [assets.tiles.length, durationSeconds]);
   const audioPlan = useMemo(() => resolveSessionAudioPlan({ sessionType: 'visualize', durationSeconds,
     configuration: { guidanceVoice: voice, backgroundAudio: ambient ? 'ambient' : 'off', source: 'session_override' },
@@ -136,6 +185,7 @@ function CinematicRun({ anchor, accountId, statement, visionId, durationSeconds,
   const sceneSnapshot = useMemo(() => buildVisionSceneSnapshot(statement, anchor), [anchor, statement]);
   const backgroundAudio = ambient ? 'ambient' as const : 'off' as const;
   const sessionId = useRef(`visualize:${accountId ?? 'guest'}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`);
+  const completionResult = useRef<CinematicCompletion>({ record: null, saved: false });
   const completionStarted = useRef(false); const exiting = useRef(false); const continued = useRef(false);
   const [appActive, setAppActive] = useState(AppState.currentState === 'active');
   const appActiveRef = useRef(appActive);
@@ -163,11 +213,11 @@ function CinematicRun({ anchor, accountId, statement, visionId, durationSeconds,
     completionStarted.current = true;
     let outcome: 'queued' | 'failed' | 'not_recorded' = 'not_recorded';
     if (accountId) try {
-      await PracticeCompletionService.commitVisualizeCompletion({
+      const record = await PracticeCompletionService.commitVisualizeCompletion({
         id: sessionId.current, accountId, anchor, durationSeconds, startedAt, completedAt,
         guidanceVoice: voice, backgroundAudio, sceneSnapshot, source: 'practice_screen',
         metadata: { v2_entry_source: source, ...(visionId ? { vision_id: visionId } : {}) },
-      }); outcome = 'queued';
+      }); completionResult.current = { record, saved: true }; outcome = 'queued';
     } catch { outcome = 'failed'; }
     AnalyticsService.track(AnalyticsEvents.PRACTICE_SESSION_COMPLETED, {
       practice_mode: 'visualize', session_id: sessionId.current, anchor_id: anchor.id, duration_seconds: durationSeconds,
@@ -183,17 +233,19 @@ function CinematicRun({ anchor, accountId, statement, visionId, durationSeconds,
   useVisualizeImmersiveMode(immersive);
   const started = useRef(false);
   useEffect(() => {
-    if (!ready || frameError || started.current || !appActive || !appActiveRef.current ||
+    if (prepareOnly || !ready || frameError || started.current || !appActive || !appActiveRef.current ||
       exitPromptOpen || exitPromptOpenRef.current || exiting.current ||
       engine.state === 'ended_early' || engine.state === 'completed' || engine.state === 'completing') return;
     started.current = true; engine.start();
     AnalyticsService.track(AnalyticsEvents.PRACTICE_SESSION_STARTED, {
       practice_mode: 'visualize', session_id: sessionId.current, anchor_id: anchor.id, duration_seconds: durationSeconds,
       guidance_voice: voice, background_audio: backgroundAudio, started_at: new Date().toISOString(), v2: true,
+      assets_prepared_in_setup: Boolean(prepared),
+      ...(prepared?.beginAtMs != null ? { begin_to_clock_ms: Math.max(0, getVisualizeMonotonicNow() - prepared.beginAtMs) } : {}),
     });
     trackSessionStartedWithAudio(audioPlan);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, frameError, appActive, exitPromptOpen, engine.state]);
+  }, [prepareOnly, ready, frameError, appActive, exitPromptOpen, engine.state]);
   const elapsed = useSharedValue(0);
   const elapsedRef = useRef(engine.elapsedMs); elapsedRef.current = engine.elapsedMs;
   useEffect(() => {
@@ -256,10 +308,14 @@ function CinematicRun({ anchor, accountId, statement, visionId, durationSeconds,
     if (engine.state === 'paused') engine.resume(); else if (engine.state === 'running') engine.pause('user');
     setControlsVisible(true);
   };
-  const done = () => {
-    if (!settled || continued.current) return;
-    continued.current = true; engine.markCompleted(); onContinue();
-  };
+  useEffect(() => {
+    // The engine includes Carry and the silent board hold in the selected duration.
+    // Only the settled final board can enter the existing Thread experience.
+    if (!settled || !appActive || engine.state !== 'completing' || continued.current) return;
+    continued.current = true;
+    engine.markCompleted();
+    onContinue(completionResult.current);
+  }, [settled, appActive, engine.state, engine.markCompleted, onContinue]);
   const controls = controlsVisible || engine.state === 'paused' || screenReader;
   useEffect(() => {
     if (!controlsVisible || engine.state !== 'running' || screenReader) return;
@@ -272,13 +328,15 @@ function CinematicRun({ anchor, accountId, statement, visionId, durationSeconds,
   const cue = cinematicGuidanceAt(guidance, engine.elapsedMs);
   const fixedText = segment.kind === 'feeling' ? 'Hold the feeling.' : segment.kind === 'carry' ? 'Carry it with you.' : null;
   const line = fixedText ?? cue?.text ?? null;
+  const [displayLine, setDisplayLine] = useState<string | null>(null);
   const textOpacity = useSharedValue(0);
   useEffect(() => {
     if (engine.state === 'paused') { cancelAnimation(textOpacity); return; }
+    if (line) setDisplayLine(line);
     textOpacity.value = withTiming(line ? 1 : 0, { duration: reduced ? 0 : 500 });
   }, [line, engine.state, reduced, textOpacity]);
   const textStyle = useAnimatedStyle(() => ({ opacity: textOpacity.value, transform: [{ translateY: (1 - textOpacity.value) * 6 }] }));
-  const showDone = engine.state === 'completing' && settled;
+
   if (frameError && !started.current) return <View testID="v2-visualize-session" style={styles.root}>
     <View style={styles.recovery}>
       <Text style={styles.recoveryTitle}>Vision unavailable</Text>
@@ -287,10 +345,16 @@ function CinematicRun({ anchor, accountId, statement, visionId, durationSeconds,
       <V2Button onPress={onExit} accessibilityLabel="Back to Practice">Back to Practice</V2Button>
     </View>
   </View>;
+  if (prepareOnly) return <View style={styles.measureBoard} pointerEvents="none">
+    <VisionBoardScene scene={scene} roster={board.roster} entering={board.entering} layout={board.layout} shared={board.shared}
+      initialRectFor={board.initialRectFor} intention={anchor.intentionText || statement} category={anchor.category}
+      art={{ svg: svgText, imageUrl: anchor.enhancedImageUrl }} reduceMotion
+      cinematic={{ photoId: '', photoOpacity: elapsed, onMarkLayout }} />
+  </View>;
   return <View testID="v2-visualize-session" style={styles.root}>
     <StatusBar hidden={immersive} barStyle="light-content" backgroundColor={colors.ink.deep} />
     {immersive ? <KeepAwake /> : null}
-    {mark && geometry && frameImage && attachmentImage ? <CinematicSessionStage tiles={assets.tiles} images={assets.images}
+    {!prepareOnly && mark && geometry && frameImage && attachmentImage ? <CinematicSessionStage tiles={assets.tiles} images={assets.images}
       intention={anchor.intentionText || statement} category={anchor.category} svgText={svgText} enhancedImageUrl={anchor.enhancedImageUrl}
       enhancedAnchor={assets.enhancedAnchor} enhancedMaskEffect={enhancedMaskEffect} svg={svg}
       scene={scene} viewport={viewport} mark={mark} geometry={geometry} timeline={timeline} elapsed={elapsed}
@@ -303,7 +367,7 @@ function CinematicRun({ anchor, accountId, statement, visionId, durationSeconds,
     <Pressable accessibilityRole="button" accessibilityLabel="Show session controls" style={StyleSheet.absoluteFill}
       onPress={() => setControlsVisible(value => !value)} />
     <Animated.View pointerEvents="none" style={[styles.guidance, { bottom: insets.bottom + 160 }, textStyle]}>
-      {line ? <Text numberOfLines={2} style={styles.guidanceText}>{line}</Text> : null}
+      {displayLine ? <Text numberOfLines={2} style={styles.guidanceText}>{displayLine}</Text> : null}
     </Animated.View>
     <Animated.View style={[styles.topBar, { top: insets.top + spacing[2] }, chromeStyle]}
       pointerEvents={controls ? 'box-none' : 'none'} accessibilityElementsHidden={!controls}>
@@ -324,9 +388,7 @@ function CinematicRun({ anchor, accountId, statement, visionId, durationSeconds,
       </Pressable>
       {engine.state === 'paused' ? <Text style={styles.counter}>Paused</Text> : null}
     </Animated.View> : null}
-    {showDone ? <View style={[styles.done, { bottom: insets.bottom + spacing[5] }]}>
-      <V2Button size="large" accessibilityLabel="Done" onPress={done}>Done</V2Button>
-    </View> : null}
+
   </View>;
 }
 
@@ -337,7 +399,7 @@ const styles = StyleSheet.create({
   recoveryCopy: { ...typography.bodyMD, color: colors.ink.text.secondary, textAlign: 'center' },
   recoveryActions: { alignSelf: 'stretch', gap: spacing[3] },
   recoveryBack: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  measureBoard: { position: 'absolute', left: 0, top: 0, opacity: 0.6 },
+  measureBoard: { position: 'absolute', left: 0, top: 0, opacity: 0 },
   topBar: { position: 'absolute', left: spacing[4], right: spacing[5], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   timer: { ...typography.labelMD, color: colors.ink.text.primary, fontVariant: ['tabular-nums'] },

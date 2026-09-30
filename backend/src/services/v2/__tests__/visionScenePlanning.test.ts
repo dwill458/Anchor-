@@ -205,3 +205,15 @@ describe('a described scene', () => {
     expect(plain).not.toContain('do not repeat any of these compositions');
   });
 });
+
+
+describe('fullscreen photographic quality constraints', () => {
+  it('preserves requested screens and realistic anatomy without invented achievements', () => {
+    const prompt = buildVisionImagePrompt({ intention: 'I build my app', category: 'desire', description: 'I check my app on my phone',
+      scene: { role: 'The moment', scene: 'I check my app on my phone' } });
+    expect(prompt).toContain('coherent hands and fingers');
+    expect(prompt).toContain('preserve that object and its role');
+    expect(prompt).toContain('Do not invent a brand, achievement, metric');
+    expect(prompt).toContain('9:16');
+  });
+});

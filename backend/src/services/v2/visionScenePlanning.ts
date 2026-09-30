@@ -260,7 +260,10 @@ export function buildVisionImagePrompt(input: {
       : ['No appearance reference exists. Never invent a visible protagonist. Strictly prefer first-person POV, over-the-shoulder, partial-body, hands only when useful, or identity-neutral environmental composition.']),
     ...(input.category === 'career' ? ['Career Art Direction: Depict the outcome inside an authentic professional workplace (established office building, corporate floor, workplace workstation, meeting setting, or leadership environment). Avoid generic home-office laptops, coffee cups, or generic WFH imagery.'] : []),
     'Style: documentary / editorial photography, natural available light, realistic muted colour, soft natural contrast, fine grain, small real-world imperfections, believable lived-in spaces. Cinematic composition without movie-poster styling.',
-    'Screens, if present at all, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.',
+    'Anatomy and objects: physically plausible proportions, coherent hands and fingers, natural joints and grips, and the correct objects explicitly requested in the scene. Keep identity consistent with the supplied appearance reference when present.',
+    'When the person explicitly requests a screen or interface, preserve that object and its role in the moment: believable device geometry, reflections and a coherent screen layout. Never replace the requested screen with an unrelated generic object.',
+    'Do not invent a brand, achievement, metric, relationship or setting unsupported by the scene. First-person or over-the-shoulder framing should feel like an ordinary memory from the person\'s future.',
+    'Screens, when not requested, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.',
     'Avoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people, collage, vision-board or scrapbook styling, picture frames, borders, captions.',
   ].join('\n');
 }

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Check, ChevronLeft, Info } from 'lucide-react-native';
+import { StatusBar } from 'expo-status-bar';
 
 import { V2Button, V2IconButton } from '@/components/v2';
 import { useV2Responsive } from '@/hooks/v2';
@@ -11,6 +12,7 @@ import { colors, spacing, typography } from '@/theme/v2';
 import { CreationSheet, sheetText } from './CreationSheet';
 import { InkUnderline } from './InkUnderline';
 import { assessIntention } from './intentionGuidance';
+import { DraftingSurface } from './DraftingSurface';
 
 /** Enforces the limit even when text arrives by paste/autofill, and keeps the intention to one flowing line of prose. */
 export function sanitizeIntention(value: string): string {
@@ -149,9 +151,11 @@ export function IntentionStep({
 
   return (
     <View style={[styles.safe, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <StatusBar style="dark" />
     {/* The app draws edge to edge, so Android no longer resizes the window for the keyboard:
         both platforms avoid it here, keeping Continue above the keyboard. */}
     <KeyboardAvoidingView style={styles.safe} behavior="padding">
+    <DraftingSurface />
     <ScrollView
       // Taps on the CTA / principles row must land while the keyboard is up, and the content
       // fills the viewport so Continue rests on the bottom safe area.
@@ -315,36 +319,29 @@ const styles = StyleSheet.create({
   heroSubhead: { fontFamily: typography.body, fontSize: 15, lineHeight: 22, color: colors.text.secondary, marginTop: 2 },
   inputBlock: { gap: spacing[3] },
   suggestionList: { gap: spacing[2] },
-  suggestionChip: { alignSelf: 'flex-start', maxWidth: '100%', borderRadius: 16, borderWidth: 1, borderColor: colors.border.subtle, backgroundColor: colors.surface, paddingHorizontal: spacing[3], paddingVertical: spacing[2] },
+  suggestionChip: { alignSelf: 'flex-start', maxWidth: '100%', borderBottomWidth: 1, borderColor: colors.border.subtle, paddingVertical: spacing[2] },
   suggestionText: { ...typography.bodySM, color: colors.text.primary },
   fieldLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   fieldLabel: { ...typography.labelSM, color: colors.text.secondary, letterSpacing: 1 },
   charCounter: { ...typography.caption, color: colors.text.secondary, fontVariant: ['tabular-nums'] },
   charCounterNear: { color: colors.text.primary },
-  // A refined tactile writing surface: warm fine paper tone, hairline deckle border, subtle material presence
+  // The intention is written on the room's paper, with a single baseline rather than a card.
   intentionSurface: {
     minHeight: 180,
     maxHeight: 260,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(216, 210, 200, 0.75)',
-    backgroundColor: '#FAF7F0',
-    paddingHorizontal: spacing[4],
+    borderBottomWidth: 1,
+    borderColor: colors.border.strong,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
     paddingVertical: spacing[4],
-    shadowColor: '#171717',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
   },
   intentionSurfaceFocused: {
-    borderColor: colors.border.strong,
-    backgroundColor: '#FCFAF5',
+    borderColor: colors.text.primary,
   },
   intentionInput: {
     fontFamily: 'EBGaramond-Medium',
-    fontSize: 23,
-    lineHeight: 31,
+    fontSize: 28,
+    lineHeight: 36,
     letterSpacing: -0.2,
     color: colors.text.primary,
     flex: 1,

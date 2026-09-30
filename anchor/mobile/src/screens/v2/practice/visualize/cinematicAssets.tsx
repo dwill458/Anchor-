@@ -38,8 +38,12 @@ function ImageResource({ id, imageUrl, onReady, onFailure }: {
   onReady: (id: string, image: SkImage) => void;
   onFailure: (id: string) => void;
 }) {
-  const image = useImage(imageUrl, () => onFailure(id));
-  useEffect(() => { if (image) onReady(id, image); }, [image, onReady, id]);
+  const readyRef = useRef(onReady);
+  const failureRef = useRef(onFailure);
+  readyRef.current = onReady; failureRef.current = onFailure;
+  const failure = useCallback(() => failureRef.current(id), [id]);
+  const image = useImage(imageUrl, failure);
+  useEffect(() => { if (image) readyRef.current(id, image); }, [image, id]);
   return null;
 }
 

@@ -15,6 +15,7 @@ import {
   VISION_IMAGE_ASPECT_RATIO,
   type VisionScenePlanItem,
 } from './v2/visionScenePlanning';
+import { validateAnchorArtwork } from '../utils/artworkValidation';
 
 // Re-exporting interfaces for compatibility
 export interface ImageVariation {
@@ -74,13 +75,16 @@ const MODEL_CONFIGS: Record<QualityTier, ModelConfig> = {
   },
 };
 
-const _STRUCTURAL_PRESERVATION_SYSTEM_INSTRUCTION = `You are a high-fidelity rendering engine. Your primary directive is to preserve the exact structural integrity of input images while enhancing them artistically.
+const _STRUCTURAL_PRESERVATION_SYSTEM_INSTRUCTION = `You are a high-fidelity rendering engine. Your primary directive is to preserve the exact structural integrity of input images while enhancing them artistically as a single standalone abstract geometric Anchor.
 CRITICAL RULES:
 1. Treat the input image as a strict structural anchor.
-2. Do NOT warp, melt, bend, or alter the core lines and geometry.
-3. Apply materials, lighting, and environmental textures ONLY to the existing geometry.
-4. The silhouette and edge structure must remain pixel-perfect.
-5. Think of yourself as applying a texture shader to a 3D model.
+2. Do NOT warp, melt, bend, or alter the core lines, nodes, arcs, and geometry.
+3. The Anchor must occupy approximately 75–85% of the available canvas width and height. Composition should radiate outward and make intentional use of the full canvas while preserving comfortable negative space around the outer edge so strokes are never clipped.
+4. ABSOLUTELY DO NOT generate borders, frames, boxes, rectangles, square containers, plaques, cards, windows, canvases, or enclosing shapes around the Anchor.
+5. DO NOT place a small glyph in the center of a larger decorative composition or slab.
+6. DO NOT generate a background as part of the Anchor. Render the Anchor on a transparent or pure clean background so presentation remains controlled by the app.
+7. A rectangle may only survive when it is a small, clearly integral component of the distilled Anchor geometry. A dominant four-sided enclosure around the symbol is ALWAYS INVALID.
+8. The result must read instantly as one unified standalone symbol when displayed inside a circle.
 
 Generate a high-quality IMAGE output based on the user's prompt and the reference sigil.`;
 
@@ -1761,7 +1765,15 @@ Integration rules:
                 {
                   text: `${prompt}
 
-REFERENCE IMAGE INSTRUCTION: The attached image contains the exact Anchor structure that must be preserved. Keep all main lines, circles, intersections, angles, nodes, and geometric relationships exactly as shown. Build the selected visual world around this immutable structure. Enhancements may appear around it, behind it, beneath it, within the surrounding material field, through framing, atmosphere, lighting, surface treatment, and peripheral composition, but never by altering the Anchor geometry.`,
+REFERENCE IMAGE INSTRUCTION: The attached image contains the exact Anchor structure that must be preserved. Keep all main lines, circles, intersections, angles, nodes, and geometric relationships exactly as shown.
+STANDALONE ARTWORK MANDATE:
+- Generate a SINGLE standalone abstract geometric Anchor occupying approximately 75–85% of the available canvas width and height.
+- Composition should radiate outward and make intentional use of the full canvas, while preserving comfortable negative space around the outer edge so strokes are never clipped.
+- DO NOT generate borders, frames, boxes, rectangles, square containers, plaques, cards, windows, canvases, or enclosing shapes around the Anchor.
+- DO NOT place a small glyph in the center of a larger decorative composition.
+- DO NOT generate a background as part of the Anchor. Render the standalone symbol on a clean/transparent background.
+- A rectangle may only survive when it is a small, clearly integral component of the distilled Anchor geometry. A dominant four-sided enclosure around the symbol is ALWAYS INVALID.
+- The result must read instantly as one unified symbol when displayed inside a circle.`,
                 },
                 {
                   inlineData: {
@@ -1791,6 +1803,38 @@ REFERENCE IMAGE INSTRUCTION: The attached image contains the exact Anchor struct
           GeminiErrorType.INVALID_IMAGE,
           'No image data in Nano Banana response',
           true
+        );
+      }
+
+      // Post-generation artwork validation: ensure geometry occupies >= 70% and has no dominant rectangular enclosure
+      const generatedBuffer = Buffer.from(imageData, 'base64');
+      const validation = await validateAnchorArtwork(generatedBuffer);
+
+      if (!validation.isValid && retryCount < maxRetries) {
+        logger.warn(
+          `[GeminiImageService] Variation ${variationIndex + 1} rejected by post-generation validation: ${validation.reason}. Retrying (attempt ${retryCount + 1}/${maxRetries})...`,
+          {
+            widthRatio: validation.widthRatio.toFixed(3),
+            heightRatio: validation.heightRatio.toFixed(3),
+            hasEnclosure: validation.hasDominantRectangularEnclosure,
+          }
+        );
+        const retryPrompt = `${prompt}
+
+CORRECTION NOTICE FOR RE-GENERATION:
+The previous generation was REJECTED: ${validation.reason}.
+You MUST generate a SINGLE standalone Anchor occupying 75–85% of canvas width and height.
+ABSOLUTELY NO borders, frames, boxes, rectangles, square containers, plaques, cards, windows, canvases, or enclosing shapes.
+The symbol must radiate into open space and fill the frame comfortably without any enclosing border.`;
+
+        const waitTime = Math.pow(2, retryCount) * 1000;
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        return this.generateVariationWithNanoBanana(
+          baseImageBuffer,
+          retryPrompt,
+          variationIndex,
+          modelConfig,
+          retryCount + 1
         );
       }
 
@@ -1863,15 +1907,55 @@ REFERENCE IMAGE INSTRUCTION: The attached image contains the exact Anchor struct
     }
 
     try {
-      return await sharp(Buffer.from(styledSvg))
+      // First render SVG with transparent background
+      const rendered = await sharp(Buffer.from(styledSvg))
         .resize(1024, 1024, {
           fit: 'contain',
-          background: '#0F1419',
+          background: { r: 0, g: 0, b: 0, alpha: 0 },
         })
         .png()
         .toBuffer();
+
+      // Trim transparent padding to get exact geometry bounding box
+      const trimmed = await sharp(rendered)
+        .trim()
+        .toBuffer({ resolveWithObject: true });
+
+      // Target geometry size: 80% of 1024 = ~820px
+      const TARGET_DIMENSION = 820;
+      const resizedGeometry = await sharp(trimmed.data)
+        .resize(TARGET_DIMENSION, TARGET_DIMENSION, {
+          fit: 'inside', // Preserves aspect ratio, fits within 820x820 (80% of canvas)
+          background: { r: 0, g: 0, b: 0, alpha: 0 },
+        })
+        .toBuffer();
+
+      // Center the resized geometry onto a 1024x1024 transparent canvas
+      // This guarantees the geometry occupies ~80% of the canvas with ~10% comfortable negative space margin!
+      return await sharp({
+        create: {
+          width: 1024,
+          height: 1024,
+          channels: 4,
+          background: { r: 0, g: 0, b: 0, alpha: 0 },
+        },
+      })
+        .composite([{ input: resizedGeometry, gravity: 'center' }])
+        .png()
+        .toBuffer();
     } catch (error) {
-      throw new GeminiError(GeminiErrorType.INVALID_IMAGE, 'Failed to convert SVG to PNG', false);
+      // If trim fails (e.g. empty SVG), fall back to standard resize
+      try {
+        return await sharp(Buffer.from(styledSvg))
+          .resize(1024, 1024, {
+            fit: 'contain',
+            background: { r: 0, g: 0, b: 0, alpha: 0 },
+          })
+          .png()
+          .toBuffer();
+      } catch (fallbackError) {
+        throw new GeminiError(GeminiErrorType.INVALID_IMAGE, 'Failed to convert SVG to PNG', false);
+      }
     }
   }
 

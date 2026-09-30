@@ -1,0 +1,11 @@
+PASS src/screens/v2/practice/visualize/__tests__/V2CinematicSessionLifecycle.test.tsx (9.907 s)
+PASS src/components/v2/vision/__tests__/V2VisionCreationFlow.test.tsx
+PASS src/screens/v2/practice/visualize/__tests__/V2CinematicSessionReadiness.test.tsx
+PASS src/screens/v2/practice/__tests__/V2PracticeSessionScreen.test.tsx (6.642 s)
+PASS src/screens/v2/practice/visualize/__tests__/cinematicAssets.test.tsx
+
+Test Suites: 5 passed, 5 total
+Tests:       48 passed, 48 total
+Snapshots:   0 total
+Time:        23.681 s
+Ran all test suites matching /src\\screens\\v2\\practice\\visualize\\__tests__\\V2CinematicSessionLifecycle.test.tsx|src\\screens\\v2\\practice\\visualize\\__tests__\\cinematicAssets.test.tsx|src\\screens\\v2\\practice\\visualize\\__tests__\\V2CinematicSessionReadiness.test.tsx|src\\screens\\v2\\practice\\__tests__\\V2PracticeSessionScreen.test.tsx|src\\components\\v2\\vision\\__tests__\\V2VisionCreationFlow.test.tsx/i.

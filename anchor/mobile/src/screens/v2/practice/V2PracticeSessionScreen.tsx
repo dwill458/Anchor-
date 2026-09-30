@@ -16,7 +16,7 @@ import type { GuidanceVoice } from '@/types/sessionAudio';
 import { V2FocusActiveScreen, V2FocusCompleteScreen } from './focus';
 import { V2DeepFocusActiveScreen } from './deepFocus/V2DeepFocusActiveScreen';
 import { isDeepFocusDuration } from './deepFocus/deepFocusTimeline';
-import { V2CinematicSessionScreen } from './visualize/V2CinematicSessionScreen';
+import { V2CinematicSessionScreen, type PreparedCinematicSession, type CinematicCompletion } from './visualize/V2CinematicSessionScreen';
 import { isV2VisualizeDuration } from './visualize/visualizeVisionPlan';
 import type { V2PracticeCompletionResult } from './practiceRoutes';
 
@@ -26,6 +26,7 @@ type Props = {
   durationSeconds: number;
   source: 'practice_hub' | 'recommended_today';
   voice?: GuidanceVoice;
+  preparedVisualize?: PreparedCinematicSession;
   ambient?: boolean;
   haptics?: boolean;
   focusEntryAnchorCenterY?: number;
@@ -45,6 +46,7 @@ export function V2PracticeSessionScreen({
   durationSeconds,
   source,
   voice,
+  preparedVisualize,
   ambient,
   haptics,
   focusEntryAnchorCenterY,
@@ -73,6 +75,15 @@ export function V2PracticeSessionScreen({
   const defaultDeepFocusSettings = useSettingsStore((state) => state.sessionAudioDefaults?.deep_prime);
   const defaultVisualizeSettings = useSettingsStore((state) => state.sessionAudioDefaults?.visualize);
   const hapticIntensity = useSettingsStore((state) => state.hapticIntensity);
+  const [visualizeCompletion, setVisualizeCompletion] = useState<CinematicCompletion | null>(null);
+  const visualizeReturned = useRef(false);
+  const finishVisualize = useCallback(() => {
+    if (!visualizeCompletion || visualizeReturned.current) return;
+    visualizeReturned.current = true;
+    onCompleted({ mode: 'visualize', durationSeconds, saved: visualizeCompletion.saved });
+  }, [durationSeconds, onCompleted, visualizeCompletion]);
+  const visualizeRecord = useSessionStore(state => visualizeCompletion?.record?.id
+    ? state.practiceHistory.find(record => record.id === visualizeCompletion.record!.id) : undefined);
   const [focusSessionId, setFocusSessionId] = useState<string | null>(null);
   const [focusActualDurationSeconds, setFocusActualDurationSeconds] = useState<number | null>(null);
   const focusSessionRecord = useSessionStore((state) =>
@@ -281,7 +292,7 @@ export function V2PracticeSessionScreen({
         : currentBeforeStrength
       : strengthSnapshot.after);
 
-  if (mode === 'visualize' && visionModel.state.state !== 'ready') {
+  if (mode === 'visualize' && !preparedVisualize && !visualizeCompletion && visionModel.state.state !== 'ready') {
     return (
       <V2Screen testID="v2-practice-session-vision-unavailable">
         <View style={styles.empty}>
@@ -297,6 +308,13 @@ export function V2PracticeSessionScreen({
   // Visualize: immersive Vision session. It records completion itself, only
   // when the full duration has run, through the Visualize completion contract.
   if (mode === 'visualize') {
+    if (visualizeCompletion) return <V2FocusCompleteScreen
+      anchor={preparedVisualize?.anchor ?? anchor} practiceTitle="Visualize" durationSeconds={durationSeconds}
+      beforeStrength={visualizeRecord?.threadStrengthBefore ?? visualizeCompletion.record?.threadStrengthBefore}
+      afterStrength={visualizeRecord?.threadStrengthAfter ?? visualizeCompletion.record?.threadStrengthAfter}
+      sessionSaved={visualizeCompletion.saved}
+      onDone={finishVisualize}
+      onAgain={onFocusAgain} />;
     if (!isV2VisualizeDuration(durationSeconds)) {
       return (
         <V2Screen testID="v2-practice-session">
@@ -319,7 +337,8 @@ export function V2PracticeSessionScreen({
         haptics={haptics ?? (hapticIntensity ?? 70) > 0}
         source={source}
         onExit={onBack}
-        onContinue={onCompleted}
+        prepared={preparedVisualize}
+        onContinue={setVisualizeCompletion}
       />
     );
   }

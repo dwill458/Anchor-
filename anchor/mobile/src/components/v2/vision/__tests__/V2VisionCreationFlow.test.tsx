@@ -332,4 +332,14 @@ describe('V2VisionCreationFlow', () => {
       jest.useRealTimers();
     }
   });
+  it('gives the entrance photograph a bounded visible area beside the introduction', () => {
+    mockUseGeneration.mockReturnValue({ job: null, loading: false, error: null, start: jest.fn(), retry: jest.fn() });
+    const view = render(<V2VisionCreationFlow {...baseProps} initialStep="empty" onUploadAsset={jest.fn()} onAssemble={jest.fn()} />);
+    const photo = view.getByTestId('vision-entrance-photograph');
+    const style = require('react-native').StyleSheet.flatten(photo.props.style);
+    expect(style.height).toBeGreaterThanOrEqual(220);
+    expect(style.height).toBeLessThanOrEqual(Math.max(220, Math.round(require('react-native').Dimensions.get('window').height * 0.4)));
+    expect(view.getByLabelText('Create Vision')).toBeTruthy();
+  });
+
 });

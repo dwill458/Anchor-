@@ -143,4 +143,18 @@ describe('CircularAnchorRenderer + anchorRenderProps', () => {
     const tree = render(<CircularAnchorRenderer {...props} size="hero" />);
     expect(tree.UNSAFE_root.findAll((node: { type: unknown }) => node.type === ('SvgXml' as never))).toHaveLength(1);
   });
+
+  it('renders enhanced image artwork in a circular container with circular image radius', () => {
+    const withImage = { ...anchor, enhancedImageUrl: 'https://cdn.example.com/artwork.png' };
+    const tree = render(<CircularAnchorRenderer {...anchorRenderProps(withImage)} size="hero" appearance="paper" />);
+    const images = tree.UNSAFE_root.findAll((node: { type: unknown }) => node.type === ('Image' as never));
+    expect(images).toHaveLength(1);
+    const imageProps = images[0].props;
+    expect(imageProps.source).toEqual({ uri: 'https://cdn.example.com/artwork.png' });
+    expect(imageProps.resizeMode).toBe('cover');
+    // Hero dimension is 266; for paper appearance, imageSize is 266 - 8 = 258
+    expect(imageProps.style.borderRadius).toBe(258 / 2);
+    expect(imageProps.style.width).toBe(258);
+    expect(imageProps.style.height).toBe(258);
+  });
 });

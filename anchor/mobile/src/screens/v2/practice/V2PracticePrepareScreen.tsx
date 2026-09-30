@@ -106,6 +106,7 @@ export function V2PracticePrepareScreen({
       <V2VisionVisualizePrepare
         anchor={anchor}
         statement={vision.previewText}
+        visionId={vision.visionId}
         tiles={vision.tiles ?? []}
         initialDuration={initialDuration}
         onBack={onBack}
@@ -124,6 +125,7 @@ export function V2PracticePrepareScreen({
             voice: config.voice,
             ambient: config.ambient,
             haptics: config.haptics,
+            preparedVisualize: config.prepared,
           });
         }}
       />
