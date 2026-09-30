@@ -6,6 +6,7 @@ import Svg, { Line, Rect } from 'react-native-svg';
 import { AnchorMark } from '@/components/v2/anchor/AnchorMark';
 import { colors, typography } from '@/theme/v2';
 import type { SigilFormation } from '@/utils/sigil/traditional-generator';
+import { EtchedStroke } from './EtchedStroke';
 import { constructionFraction, vertexArrivalFractions, type FormationTimeline } from './creationMotion';
 
 const INK = colors.ink.base;
@@ -31,7 +32,7 @@ export function kameaGeometry(formation: Pick<SigilFormation, 'gridSize' | 'grid
  * this exactly, so the lit one lands precisely on top rather than beside it.
  */
 function numeralBox(cell: { x: number; y: number }, pitch: number, unit: number) {
-  const font = Math.max(8, Math.min(4.2, pitch * 0.22) * unit);
+  const font = Math.max(12, Math.min(5.2, pitch * 0.28) * unit);
   return {
     left: (cell.x - pitch / 2) * unit + pitch * unit * 0.08,
     top: (cell.y - pitch / 2) * unit + pitch * unit * 0.05,
@@ -61,8 +62,8 @@ const KameaSquare = memo(function KameaSquare({
   const { n, pitch, left, top, side } = kameaGeometry(formation);
   const unit = size / 100;
   const rules = [];
-  const PLATE_STROKE = 'rgba(244, 241, 233, 0.42)';
-  const RULE_STROKE = 'rgba(244, 241, 233, 0.24)';
+  const PLATE_STROKE = colors.ink.text.secondary;
+  const RULE_STROKE = colors.ink.text.tertiary;
 
   for (let i = 1; i < n; i += 1) {
     rules.push(<Line key={`v${i}`} x1={left + pitch * i} y1={top} x2={left + pitch * i} y2={top + side} stroke={RULE_STROKE} strokeWidth={0.22} />);
@@ -304,7 +305,10 @@ export const FormationLayer = memo(function FormationLayer({
       {/* The authoritative line drawn in clean off-white / silver ink on the dark drafting plate.
           Colour arrives once the mark is whole. Reduced motion stages it in by opacity instead of tracing. */}
       <Animated.View style={[StyleSheet.absoluteFill, reduceMotion ? stagedStyle : null]}>
-        <AnchorMark svg={svg} size={size} strokeColor={colors.paper} drawProgress={reduceMotion ? undefined : trace} />
+        {reduceMotion ? <AnchorMark svg={svg} size={size} strokeColor={colors.paper} /> : (
+          <EtchedStroke points={formation.vertices} size={size} progress={trace} color={colors.paper} activeTip width={size * 0.012} />
+        )}
+        {/* // DEFERRED: uniform AnchorMark trace replaced by pressure ink during formation only. */}
       </Animated.View>
       {formation.vertices.map((vertex, index) => (
         <VertexPoint
@@ -321,7 +325,7 @@ export const FormationLayer = memo(function FormationLayer({
           accent={accent}
         />
       ))}
-      {reduceMotion ? null : <Animated.View style={[styles.pen, penStyle]} />}
+      {/* // DEFERRED: pen dot replaced by a gold hairline trailing the stroke tip. */}
     </View>
   );
 });
@@ -415,7 +419,7 @@ const MappingToken = memo(function MappingToken({
   }));
   return (
     <Animated.View style={[styles.token, style]}>
-      <Animated.Text style={[styles.tokenLetter, { color: '#F4F6FA', fontSize, lineHeight: fontSize * 1.1 }]}>{letter}</Animated.Text>
+      <Animated.Text style={[styles.tokenLetter, { color: colors.ink.text.primary, fontSize, lineHeight: fontSize * 1.1 }]}>{letter}</Animated.Text>
       <Animated.Text style={[styles.tokenNumber, { color: accent }, numberStyle]}>{number}</Animated.Text>
     </Animated.View>
   );
@@ -433,8 +437,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   cellNumber: { position: 'absolute', fontFamily: typography.body, fontVariant: ['tabular-nums'], includeFontPadding: false },
-  cellNumberRest: { color: 'rgba(244, 241, 233, 0.6)' },
-  pen: { position: 'absolute', left: 0, top: 0, width: PEN, height: PEN, borderRadius: PEN / 2, backgroundColor: '#F4F6FA' },
+  cellNumberRest: { color: colors.ink.text.primary },
+  pen: { position: 'absolute', left: 0, top: 0, width: PEN, height: PEN, borderRadius: PEN / 2, backgroundColor: colors.ink.text.primary },
   token: { position: 'absolute', left: 0, top: 0, width: TOKEN, height: TOKEN, alignItems: 'center', justifyContent: 'center' },
   tokenLetter: { fontFamily: typography.displayBold },
   tokenNumber: { position: 'absolute', right: 0, top: 2, fontFamily: typography.bodyBold, fontSize: 11, lineHeight: 13 },

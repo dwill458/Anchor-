@@ -66,6 +66,8 @@ import { FormationLayer, MappingTokens, type StagePoint } from './FormationLayer
 import { FormationSheet } from './FormationSheet';
 import { DraftingSurface } from './DraftingSurface';
 import { draftingInk, draftingCopyOpacity } from './draftingTone';
+import { useAudio } from '@/hooks/useAudio';
+import * as Haptics from 'expo-haptics';
 import { creationTimingTracker, type CreationTimingRecord } from './creationTelemetry';
 
 export type WindowRect = { x: number; y: number; width: number; height: number };
@@ -180,6 +182,13 @@ export function CreationStage({
   onHandoff,
 }: CreationStageProps) {
   const step = draft.currentStep;
+  const { createManagedPlayer } = useAudio();
+  // Optional drone deliberately stays silent until the real asset is supplied.
+  const FORGE_DRONE_ENABLED = false;
+  // DEFERRED: awaiting assets/sounds/forge-drone.wav
+  // const forgeDrone = require('../../../assets/sounds/forge-drone.wav');
+  void FORGE_DRONE_ENABLED;
+  const soundedLandings = useRef(new Set<number>());
   const viewport = useV2Responsive();
   const insets = useSafeAreaInsets();
   const markSize = creationMarkSize(viewport);
@@ -266,7 +275,9 @@ export function CreationStage({
     // The "YOUR STRUCTURE" label sits above the mark on Expression; the mark keeps clear of it.
     const labelRoom = scene === 'expression' ? STAGE_LABEL_ROOM : 0;
     const room = { width: stage.width, height: Math.max(0, stage.height - (lifted ? LETTER_ROW * 2 : 0) - (scene === 'handoff' ? 40 : 0) - labelRoom) };
-    const scale = stageFitScale(room, markSize, core);
+    const scale = lifted
+      ? Math.min(stage.width / (markSize * KAMEA_CORE), Math.max(0.24, room.height / (markSize * KAMEA_CORE)))
+      : stageFitScale(room, markSize, core);
     const centerY = stage.height / 2 + (lifted ? LETTER_ROW / 2 : 0) - (scene === 'handoff' ? 20 : 0) + labelRoom / 2;
     const visible = stage.height >= MIN_STAGE_FOR_MARK && scene !== 'distillation' && !(scene === 'handoff' && keptCandidate);
     return { scale, top: centerY - markSize / 2, centerY, visible };
@@ -369,6 +380,7 @@ export function CreationStage({
       formationStartedAt.current = Date.now();
       creationTimingTracker.record('kamea_mapping_begin', { hurried, pace });
       const from = progress.value;
+      if (from === 0) soundedLandings.current.clear();
       const normal = (a: number, b: number) => Math.max(0, (b - a) * timeline.total);
       let total: number;
       let at: (fraction: number) => number;
@@ -398,6 +410,17 @@ export function CreationStage({
         if (from < fraction) formationTimers.current.push(setTimeout(() => setFormationPhase(phase), at(fraction)));
         else setFormationPhase(phase);
       }
+
+      timeline.landings.forEach((landing, index) => {
+        if (landing < from || soundedLandings.current.has(index)) return;
+        formationTimers.current.push(setTimeout(() => {
+          soundedLandings.current.add(index);
+          const player = createManagedPlayer('letter-drop');
+          player?.setRate(1 + 0.06 * index);
+          player?.play();
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        }, at(landing)));
+      });
 
       // Step 4: First letter begins movement
       if (timeline.departures[0] !== undefined) {
@@ -436,7 +459,7 @@ export function CreationStage({
         onFormationDone();
       }, total + 40));
     },
-    [onFormationDone, pace, progress, timeline],
+    [createManagedPlayer, onFormationDone, pace, progress, timeline],
   );
 
   useEffect(() => {
@@ -963,7 +986,7 @@ export function CreationStage({
       <StatusBar style={darkStatusBar ? 'dark' : 'light'} />
       <DraftingSurface />
       <CreationTimingHud reduceMotion={reduceMotion} />
-      <View style={[styles.frame, { paddingHorizontal: viewport.gutter }]}>
+      <View style={[styles.frame, { paddingHorizontal: 32 }]}>
         <Animated.View style={[styles.top, chromeStyle]}>
           {canGoBack ? (
             <V2IconButton icon={

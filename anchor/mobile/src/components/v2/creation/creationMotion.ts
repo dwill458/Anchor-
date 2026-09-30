@@ -85,11 +85,11 @@ export const FORMATION_TIMING = {
   /** The square emerges behind the letters while they lift to make room. */
   gridIn: 900,
   /** A letter travels from the lifted row to its Kamea cell. */
-  mapTravel: 540,
+  mapTravel: 450,
   /** Pause on the highlighted cell before the next letter begins moving. */
   mapLetterPause: 200,
   /** Letters leave the row one after another, strictly sequential. */
-  mapStagger: 740,
+  mapStagger: 650,
   /** Longest the whole mapping may take, however many letters there are. */
   mapMax: 6000,
   /** Every point placed, before the line begins. */

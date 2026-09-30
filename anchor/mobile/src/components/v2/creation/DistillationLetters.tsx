@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
-import Animated, { interpolate, interpolateColor, useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
+import Animated, { interpolate, interpolateColor, useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
 
 import { colors, typography } from '@/theme/v2';
 import { creationDelay, creationSequence, creationTiming } from './creationMotion';
@@ -61,6 +61,13 @@ function DistillationLetter({
   const compacting = cell.keep && Boolean(target) && (stage === 'compact' || stage === 'settled');
   const delay = cell.staggerIndex * DISTILL_TIMING.letterStagger;
 
+  const fall = useSharedValue(0);
+  useEffect(() => {
+    fall.value = removed && !reduceMotion && !instant
+      ? creationDelay(delay, creationTiming(1, { duration: 500, easing: (t: number) => t * t }))
+      : 0;
+  }, [delay, fall, instant, reduceMotion, removed]);
+
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {
       if (!cell.keep) return;
@@ -89,7 +96,8 @@ function DistillationLetter({
         opacity: creationDelay(delay, creationSequence(creationTiming(DIMMED, dim), creationDelay(DISTILL_TIMING.dimHold, creationTiming(0, fade)))),
         transform: [
           { translateX: 0 },
-          { translateY: creationDelay(delay + DISTILL_TIMING.letterDim + DISTILL_TIMING.dimHold, creationTiming(5, fade)) },
+          { translateY: fall.value * 160 },
+          { rotate: `${fall.value * (cell.staggerIndex % 2 ? 9 : -9)}deg` },
           { scale: creationDelay(delay + DISTILL_TIMING.letterDim + DISTILL_TIMING.dimHold, creationTiming(0.84, fade)) },
         ],
       };
@@ -112,7 +120,7 @@ function DistillationLetter({
     const neutral = draftingInk(tone.value);
     if (!cell.keep) return { color: neutral };
     if (glow) {
-      if (departure < 0) return { color: '#F4F6FA' };
+      if (departure < 0) return { color: colors.ink.text.primary };
       // The letter warms to the accent as it leaves for its cell, rather than switching.
       const lit = interpolate(glow.progress.value, [departure - 0.015, departure], [0, 1], 'clamp');
       return {
@@ -328,7 +336,7 @@ const styles = StyleSheet.create({
   // A word stays one unbreakable unit, so wrapping happens between words and never inside one.
   word: { flexDirection: 'row', marginRight: 10 },
   char: { ...typography.headingXL, color: colors.text.primary },
-  settledRow: { ...typography.headingXL, color: '#F4F6FA', textAlign: 'center', letterSpacing: 4 },
+  settledRow: { ...typography.headingXL, color: colors.ink.text.primary, textAlign: 'center', letterSpacing: 4 },
   source: { position: 'absolute', top: 6, left: 0, right: 0, alignItems: 'center' },
   sourceText: { fontFamily: 'EBGaramond-Medium', fontSize: 20, lineHeight: 25, letterSpacing: -0.2, color: 'rgba(244, 246, 250, 0.65)', textAlign: 'center', fontStyle: 'italic' },
 });

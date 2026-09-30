@@ -23,6 +23,8 @@ export type ManagedAudioPlayer = {
   play: () => void;
   setVolume: (volume: number) => void;
   stop: () => void;
+  /** Playback pitch follows rate; no speech pitch correction. */
+  setRate: (rate: number) => void;
 };
 
 export function useAudio() {
@@ -126,6 +128,16 @@ export function useAudio() {
           setVolume: (value: number) => {
             if (!didCleanUp) {
               player.volume = Math.max(0, Math.min(1, value));
+            }
+          },
+          setRate: (rate: number) => {
+            if (!didCleanUp) {
+              try {
+                player.shouldCorrectPitch = false;
+                player.setPlaybackRate(Math.max(0.5, Math.min(2, rate)));
+              } catch {
+                // Pitch support is best-effort; audio must never interrupt the gesture.
+              }
             }
           },
           stop: cleanup,
