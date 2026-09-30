@@ -65,9 +65,9 @@ export function formatMetricNumber(value: number): string {
 }
 
 export function toMetricView(metric: WaypointSummary['metric']): ChartMetricView | null {
-  if (!metric || typeof metric.target !== 'number' || metric.target <= 0) return null;
-  const current = typeof metric.current === 'number' ? metric.current : null;
-  const baseline = typeof metric.baseline === 'number' && metric.baseline < metric.target ? metric.baseline : 0;
+  if (!metric || !Number.isFinite(metric.target) || metric.target <= 0) return null;
+  const current = typeof metric.current === 'number' && Number.isFinite(metric.current) ? metric.current : null;
+  const baseline = typeof metric.baseline === 'number' && Number.isFinite(metric.baseline) && metric.baseline < metric.target ? metric.baseline : 0;
   const fraction =
     current === null ? null : Math.max(0, Math.min(1, (current - baseline) / (metric.target - baseline)));
   return {

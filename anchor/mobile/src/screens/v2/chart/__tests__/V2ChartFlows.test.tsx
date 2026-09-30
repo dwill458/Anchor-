@@ -351,6 +351,10 @@ describe('Generation stage honesty', () => {
         onRevealed={onRevealed}
       />
     );
+    expect(screen.queryAllByLabelText(/^Waypoint \d of 2/)).toHaveLength(0);
+    for (const layer of ['sky','city','midground','road','foreground']) {
+      fireEvent(screen.getByTestId(`chart-world-layer-${layer}`, { includeHiddenElements: true }), 'load');
+    }
     expect(screen.getAllByLabelText(/^Waypoint \d of 2/)).toHaveLength(2);
     await waitFor(() => expect(onRevealed).toHaveBeenCalledTimes(1), { timeout: 3000 });
     expect(screen.getByLabelText('Chart ready')).toBeTruthy();

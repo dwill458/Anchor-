@@ -20,7 +20,7 @@ export type VisionTone = 'light' | 'dark';
  * where it came from.
  */
 export function VisionIdentity({
-  intention, category, art, imageUrl, tone = 'light', size = 44, testID, artworkPlace, showAnchor = true,
+  intention, category, art, imageUrl, tone = 'light', size = 44, testID, artworkPlace, showAnchor = false,
 }: {
   intention: string;
   category?: string | null;

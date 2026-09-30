@@ -1,3 +1,4 @@
+import { chartTypography as typography } from './chartTypography';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BackHandler,
@@ -24,7 +25,7 @@ import {
 } from '@/services/v2/chartV2Api';
 import { trackChart } from '@/hooks/v2/chart/useAnchorChart';
 import type { CourseDetail } from '@/types/chart';
-import { colors, radii, spacing, typography } from '@/theme/v2';
+import { colors, radii, spacing } from '@/theme/v2';
 import { ChartAdjustPanel, type ChartAdjustRequest } from './ChartAdjustPanel';
 import {
   ChartCreamPanel,
@@ -37,10 +38,10 @@ import {
 } from './ChartChrome';
 import { ChartGenerationStage } from './ChartGenerationStage';
 import { ChartKeyboardFrame } from './ChartKeyboardFrame';
-import { ChartLandscape, type ChartAnchorArt, type ChartMarker } from './ChartLandscape';
+import type { ChartAnchorArt, ChartMarker } from './ChartLandscape';
+import { ChartJourneyWorld } from './ChartJourneyWorld';
 import { ChartRealityInput } from './ChartRealityInput';
 import { ChartRouteEditor, type DraftWaypoint } from './ChartRouteEditor';
-import { CHART_WINDOWS, chartArtFor } from './chartRouteGeometry';
 import { CHART_EASING, CHART_TRANSITION_TIMING as TT, chartTiming } from './chartMotion';
 
 export type ChartCreationVision = {
@@ -416,15 +417,9 @@ export function ChartCreationFlow({
       later(onExplore, 180);
       return;
     }
-    const finish = (pageY: number) => {
-      const art = chartArtFor(identity.category);
-      const imageHeight = (width * art.height) / art.width;
-      const stageHeight = stageSize.height || height;
-      // Where the art's top edge is now (the settled camera drifts 5pt down) …
-      const currentTop = pageY + stageHeight - STAGE_FOOTER - imageHeight + 5;
-      // … and where the permanent Chart's hero window will put it.
-      const targetTop = pageY - ACTIVE_MAP_TUCK - CHART_WINDOWS.hero.top * imageHeight;
-      exploreDelta.value = targetTop - currentTop;
+    const finish = (_pageY: number) => {
+      // The reusable world owns cover/camera projection; creation does not reposition its layers.
+      exploreDelta.value = 0;
       explore.value = chartTiming(1, { duration: TT.explore, easing: CHART_EASING.deliberate });
       later(onExplore, TT.explore);
     };
@@ -531,14 +526,11 @@ export function ChartCreationFlow({
             <Text style={styles.support}>{CHART_COPY.empty.support}</Text>
           </View>
           <View style={styles.flexEnd}>
-            <ChartLandscape
+            <ChartJourneyWorld
               width={width}
+              height={Math.max(260, height * .42)}
               category={identity.category}
-              window={CHART_WINDOWS.full}
-              showRoute={false}
-              scrimTop
-              scrimBottom={colors.canvas}
-              accessibilityLabel="A landscape with a path toward the horizon"
+              accessibilityLabel="A road toward the city"
               style={styles.introLandscape}
             />
             <ChartCreamPanel style={{ paddingBottom: insets.bottom + spacing[4] }}>

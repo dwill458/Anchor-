@@ -40,6 +40,8 @@ export type VisionBoardPhotoProps = {
   canMoveEarlier?: boolean;
   canMoveLater?: boolean;
   testID?: string;
+  /** Optional cinematic owner; ordinary board gestures and presence remain unchanged. */
+  cinematicOpacity?: SharedValue<number>;
 };
 
 function kindWeight(kind: number, target: number) {
@@ -57,7 +59,7 @@ function kindWeight(kind: number, target: number) {
 export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   sceneId, imageUrl, accessibilityLabel, initialRect, entering, exiting, shared, reduceMotion,
   interactive, dragEnabled, onPress, onDragActive, onSwap, onOrderCommit, onExited, onMove,
-  canMoveEarlier = false, canMoveLater = false, testID,
+  canMoveEarlier = false, canMoveLater = false, testID, cinematicOpacity,
 }: VisionBoardPhotoProps) {
   const start = initialRect ?? { x: 0, y: 0, width: 1, height: 1, rotation: 0, zIndex: 12, frame: 0 };
   const x = useSharedValue(start.x);
@@ -212,7 +214,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
     width: width.value,
     height: height.value,
     zIndex: z.value + (shared.dragging.value === sceneId ? 100 : 0),
-    opacity: presence.value,
+    opacity: presence.value * (cinematicOpacity?.value ?? 1),
     transform: [
       { translateX: dragX.value },
       { translateY: dragY.value + presenceLift.value },

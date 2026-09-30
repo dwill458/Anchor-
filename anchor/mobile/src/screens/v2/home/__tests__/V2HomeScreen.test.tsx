@@ -324,16 +324,17 @@ describe('Today', () => {
 });
 
 describe('Conditional Vision and Chart', () => {
-    it('state 1 — one Anchor, no Vision, no Chart: hides the Chart section', () => {
+    it('state 1 — one Anchor, no Vision, no Chart: hides Vision and Chart, shows Progress', () => {
     oneAnchor();
     renderHome();
     expect(screen.queryByTestId('v2-home-vision')).toBeNull();
+    expect(screen.queryByTestId('v2-home-vision-empty')).toBeNull();
+    expect(screen.queryByText('Your Vision')).toBeNull();
     expect(screen.queryByTestId('v2-home-chart-empty')).toBeNull();
     expect(screen.queryByTestId('v2-home-chart-map')).toBeNull();
     expect(screen.queryByText('Create Chart')).toBeNull();
-    expect(screen.queryByText('YOUR VISION')).toBeNull();
-      expect(screen.queryByText('CHART')).toBeNull();
-      expect(screen.getByTestId('v2-home-progress')).toBeTruthy();
+    expect(screen.queryByText('Your Chart')).toBeNull();
+    expect(screen.getByTestId('v2-home-progress')).toBeTruthy();
   });
 
   it('renders no Chart section when no Course exists', () => {
@@ -351,7 +352,7 @@ describe('Conditional Vision and Chart', () => {
     oneAnchor();
     renderHome({}, { chart: { state: 'resolving' } });
     expect(screen.queryByTestId('v2-home-chart-loading')).toBeNull();
-    expect(screen.queryByText('CHART')).toBeNull();
+    expect(screen.queryByText('Your Chart')).toBeNull();
   });
 
   it('shows a Chart placeholder only for a known relationship in flight', () => {
@@ -369,16 +370,18 @@ describe('Conditional Vision and Chart', () => {
       expect(screen.queryByTestId('v2-home-progress')).toBeNull();
   });
 
-    it('state 3 — Chart, no Vision, with real Course data', () => {
+    it('state 3 — Chart, no Vision, with real Course data: shows Chart and Progress, hides Vision', () => {
     oneAnchor();
     renderHome({}, { chart: readyChart });
     expect(screen.queryByTestId('v2-home-vision')).toBeNull();
-    expect(screen.getByTestId('v2-home-chart-destination').props.children).toContain('Reach 1,000 active users');
+    expect(screen.queryByText('Your Vision')).toBeNull();
+    expect(screen.queryByTestId('v2-home-chart-destination')).toBeNull();
+    expect(screen.getByTestId('v2-home-chart').props.accessibilityLabel).not.toContain('Reach 1,000 active users');
     expect(screen.getByTestId('v2-home-chart-waypoint').props.children).toBe('Contact 3 creators');
     expect(screen.getByTestId('v2-home-chart-one-move').props.children).toBe('Contact 3 creators');
       expect(screen.queryByTestId('v2-home-chart-progress')).toBeNull();
       expect(screen.getByTestId('v2-home-chart-map')).toBeTruthy();
-      expect(screen.queryByTestId('v2-home-progress')).toBeNull();
+      expect(screen.getByTestId('v2-home-progress')).toBeTruthy();
   });
 
   it('state 4 — Vision and Chart both render from real data', () => {
@@ -397,7 +400,7 @@ describe('Conditional Vision and Chart', () => {
 
     renderHome({}, { vision: { state: 'error', message: 'offline' } });
     expect(screen.queryByTestId('v2-home-vision')).toBeNull();
-    expect(screen.queryByText('YOUR VISION')).toBeNull();
+    expect(screen.queryByText('Your Vision')).toBeNull();
   });
 
   it('routes Vision and Chart to their real surfaces for the active Anchor', () => {
@@ -411,21 +414,32 @@ describe('Conditional Vision and Chart', () => {
     expect(onOpenChart).toHaveBeenCalledWith('a', 'c1');
   });
 
-  it('state A — Vision unseen today: "YOUR VISION", never a false "Seen today", CTA is Enter Vision', () => {
+  it('keeps both View all actions on their existing destinations', () => {
+    const onOpenVision = jest.fn();
+    const onOpenChart = jest.fn();
+    oneAnchor();
+    renderHome({ onOpenVision, onOpenChart }, { vision: readyVision, chart: readyChart });
+    fireEvent.press(screen.getByLabelText('View all Vision'));
+    fireEvent.press(screen.getByLabelText('View all Chart'));
+    expect(onOpenVision).toHaveBeenCalledWith('a');
+    expect(onOpenChart).toHaveBeenCalledWith('a', 'c1');
+  });
+
+  it('state A — Vision unseen today: title case, View all, and an Enter Vision tap target', () => {
     oneAnchor();
     renderHome({}, { vision: readyVision });
-    expect(screen.getByText('YOUR VISION')).toBeTruthy();
+    expect(screen.getByText('Your Vision')).toBeTruthy();
     expect(screen.queryByTestId('v2-home-vision-seen')).toBeNull();
-    expect(screen.getByText('Enter Vision')).toBeTruthy();
+    expect(screen.getByLabelText('Enter your Vision')).toBeTruthy();
     expect(screen.queryByText('Revisit Vision')).toBeNull();
   });
 
-  it('state B — Vision seen today, from the real backend flag: "YOUR VISION" + "Seen today", CTA is Revisit Vision', () => {
+  it('state B — Vision seen today, from the real backend flag: title case and a Revisit Vision tap target', () => {
     oneAnchor();
     renderHome({}, { vision: { ...readyVision, seenToday: true } });
-    expect(screen.getByText('YOUR VISION')).toBeTruthy();
-    expect(screen.getByTestId('v2-home-vision-seen')).toBeTruthy();
-    expect(screen.getByText('Revisit Vision')).toBeTruthy();
+    expect(screen.getByText('Your Vision')).toBeTruthy();
+    expect(screen.queryByTestId('v2-home-vision-seen')).toBeNull();
+    expect(screen.getByLabelText('Revisit your Vision')).toBeTruthy();
     expect(screen.queryByText('Enter Vision')).toBeNull();
   });
 
@@ -502,9 +516,9 @@ describe('Conditional Vision and Chart', () => {
     const longStatement = Array.from({ length: 6 }, () => 'My RevenueCat dashboard shows ten thousand active users for Anchor.').join(' ');
     renderHome({}, { vision: { ...readyVision, title: undefined, previewText: longStatement } });
     const statement = screen.getByTestId('v2-home-vision-statement');
-    expect(statement.props.numberOfLines).toBe(3);
+    expect(statement.props.numberOfLines).toBe(2);
     expect(statement.props.children).toBe(longStatement);
-    expect(screen.getByText('Enter Vision')).toBeTruthy();
+    expect(screen.getByLabelText('Enter your Vision')).toBeTruthy();
   });
 });
 
@@ -569,8 +583,8 @@ describe('Hero carousel', () => {
   });
 });
 
-describe('Progress', () => {
-  it('renders the real session count and the shared Thread visualization', () => {
+describe('Home section order', () => {
+  it('renders progress and recent activity while keeping weekly review out of Home when no vision', () => {
     oneAnchor();
     renderHome({}, {
       progress: {
@@ -578,22 +592,27 @@ describe('Progress', () => {
         totalSessions: 4,
         evidence: [{ id: 'e1', title: 'Anchor created', dayLabel: 'Yesterday', occurredAt: '2026-09-16T09:00:00.000Z' }],
       },
+      recentActivity: [{ id: 's1', title: 'Visualize', dayLabel: 'Thursday', mode: 'visualize', durationSeconds: 60 }],
     });
-    expect(screen.getByTestId('v2-home-progress-sessions').props.children).toBe('4 practices');
-    // The same ThreadStrength track Anchor Details uses, without its own number row.
-    expect(screen.getByTestId('v2-home-progress-thread-track')).toBeTruthy();
-    // Evidence lives in Progress itself; the Home preview carries only the count.
-    expect(screen.queryByTestId('v2-home-progress-item-e1')).toBeNull();
-    // None of the HTML reference's illustrative content is present.
-    expect(screen.queryByText(/Portfolio direction clarified/i)).toBeNull();
-    expect(screen.queryByText(/Two prospects selected/i)).toBeNull();
+    expect(screen.getByTestId('v2-home-progress')).toBeTruthy();
+    expect(screen.queryByTestId('v2-home-weekly-review')).toBeNull();
+    expect(screen.getByText('Recent Practice')).toBeTruthy();
   });
 
-  it('states the empty case plainly rather than inventing activity', () => {
+  it('omits progress when vision is present (feature dynamic)', () => {
     oneAnchor();
-    renderHome({}, { progress: { state: 'empty' } });
-    expect(screen.getByTestId('v2-home-progress-empty')).toBeTruthy();
-    expect(screen.queryByTestId('v2-home-progress-sessions')).toBeNull();
+    renderHome({}, {
+      vision: readyVision,
+      progress: {
+        state: 'ready',
+        totalSessions: 4,
+        evidence: [{ id: 'e1', title: 'Anchor created', dayLabel: 'Yesterday', occurredAt: '2026-09-16T09:00:00.000Z' }],
+      },
+      recentActivity: [{ id: 's1', title: 'Visualize', dayLabel: 'Thursday', mode: 'visualize', durationSeconds: 60 }],
+    });
+    expect(screen.getByTestId('v2-home-vision')).toBeTruthy();
+    expect(screen.queryByTestId('v2-home-progress')).toBeNull();
+    expect(screen.getByText('Recent Practice')).toBeTruthy();
   });
 });
 

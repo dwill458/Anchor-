@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Camera, Images, Sparkles } from 'lucide-react-native';
+import { Camera, ChevronRight, Images, Sparkles } from 'lucide-react-native';
 import { V2SheetGrabZone, V2SheetModal, V2_SHEET_SKIRT } from '@/components/v2/primitives/V2SheetModal';
 import { useV2ReduceMotion } from '@/hooks/v2';
 import { colors, radii, spacing, typography } from '@/theme/v2';
@@ -48,17 +48,23 @@ export function VisionAddSheet({ visible, onClose, onChoose, testID = 'vision-ad
           <Text style={styles.subtitle}>Another moment from the future around this Anchor.</Text>
         </V2SheetGrabZone>
         <View style={styles.options}>
-          {OPTIONS.map(({ choice, title, detail, Icon }) => (
-            <Pressable key={choice} testID={`${testID}-${choice}`} accessibilityRole="button" accessibilityLabel={title}
-              accessibilityHint={detail} onPress={() => choose(choice)}
-              style={({ pressed }) => [styles.option, pressed && styles.pressed]}>
-              <View style={styles.iconWell}><Icon size={20} color={colors.text.primary} /></View>
-              <View style={styles.copy}>
-                <Text style={styles.optionTitle}>{title}</Text>
-                <Text style={styles.optionDetail}>{detail}</Text>
-              </View>
-            </Pressable>
-          ))}
+          {OPTIONS.map(({ choice, title, detail, Icon }) => {
+            const isFeatured = choice === 'generate';
+            return (
+              <Pressable key={choice} testID={`${testID}-${choice}`} accessibilityRole="button" accessibilityLabel={title}
+                accessibilityHint={detail} onPress={() => choose(choice)}
+                style={({ pressed }) => [styles.option, isFeatured && styles.optionFeatured, pressed && styles.pressed]}>
+                <View style={[styles.iconWell, isFeatured && styles.iconWellFeatured]}>
+                  <Icon size={20} color={isFeatured ? '#8B5CF6' : colors.text.primary} />
+                </View>
+                <View style={styles.copy}>
+                  <Text style={[styles.optionTitle, isFeatured && styles.optionTitleFeatured]}>{title}</Text>
+                  <Text style={styles.optionDetail}>{detail}</Text>
+                </View>
+                {isFeatured && <ChevronRight size={18} color="#8B5CF6" style={styles.chevron} />}
+              </Pressable>
+            );
+          })}
         </View>
       </SafeAreaView>
     </V2SheetModal>
@@ -90,9 +96,19 @@ const styles = StyleSheet.create({
     minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingHorizontal: spacing[3],
     borderRadius: radii.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border.default, backgroundColor: colors.canvas,
   },
+  optionFeatured: {
+    backgroundColor: '#F5EEFA',
+    borderColor: '#E9D5FF',
+  },
   iconWell: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border.default },
+  iconWellFeatured: {
+    backgroundColor: '#EDE4F7',
+    borderColor: '#D8B4FE',
+  },
   copy: { flex: 1, gap: 1 },
   optionTitle: { ...typography.labelLG, color: colors.text.primary },
+  optionTitleFeatured: { color: '#6B21A8' },
   optionDetail: { ...typography.caption, color: colors.text.secondary },
+  chevron: { marginLeft: spacing[1] },
   pressed: { opacity: 0.72 },
 });

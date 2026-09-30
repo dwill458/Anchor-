@@ -1,7 +1,8 @@
+import { chartTypography as typography } from './chartTypography';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { ChartViewModel } from '@/adapters/v2/chart/chartV2Model';
-import { colors, spacing, typography } from '@/theme/v2';
+import { colors, spacing } from '@/theme/v2';
 
 export function ChartMetricBar({ metric, color, tone = 'ink' }: {
   metric: NonNullable<ChartViewModel['waypoints'][number]['metric']>;

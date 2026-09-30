@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image } from 'react-native';
+import { Image, Text } from 'react-native';
 import { render, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { fetchV2RecommendationContext } from '@/adapters/v2/practice';
 jest.mock('@/adapters/v2/practice', () => ({ fetchV2RecommendationContext: jest.fn() }));
@@ -63,6 +63,37 @@ const renderDetails = (intents = {}) =>
       <V2AnchorDetailsScreen />
     </V2DailyShellIntentsProvider>,
   );
+
+it('keeps an unavailable Vision distinct from absence and offers a real retry', async () => {
+  useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a' })] });
+  (apiClient.get as jest.Mock).mockRejectedValue(new Error('Offline'));
+  renderDetails();
+  await waitFor(() => expect(screen.getByLabelText('Retry Vision')).toBeTruthy());
+  expect(screen.queryByText('Add Vision')).toBeNull();
+  const calls = (apiClient.get as jest.Mock).mock.calls.length;
+  fireEvent.press(screen.getByLabelText('Retry Vision'));
+  await waitFor(() => expect((apiClient.get as jest.Mock).mock.calls.length).toBeGreaterThan(calls));
+});
+
+it.each([[true, true], [true, false], [false, true], [false, false]])('keeps the workspace hierarchy with Vision=%s Chart=%s', async (hasVision, hasChart) => {
+  useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a' })] });
+  if (hasVision) (apiClient.get as jest.Mock).mockResolvedValue({ data: { success: true, data: {
+    id: 'v-a', anchorId: 'a', status: 'ACTIVE', description: 'My real future',
+    scenes: [{ id: 's-a', resolvedImageUrl: 'https://assets.test/real.jpg', sortOrder: 0, isArchived: false }],
+  } } });
+  if (hasChart) mockUseAnchorChart.mockReturnValue({ data: chartReadModel() as never, loading: false, error: null, refresh: jest.fn() } as never);
+  const onOpenVision = jest.fn();
+  renderDetails({ onOpenVision });
+  await waitFor(() => expect(screen.getByTestId('v2-anchor-today')).toBeTruthy());
+  if (hasVision) {
+    await waitFor(() => expect(screen.getByTestId('v2-details-vision')).toBeTruthy());
+    fireEvent.press(screen.getByLabelText('Edit Vision'));
+    expect(onOpenVision).toHaveBeenCalledWith('a', { edit: true });
+  }
+  const labels = screen.UNSAFE_getAllByType(Text).map(node => node.props.children);
+  const order = ['Thread Strength', 'Vision', 'Recommended Practice', 'Chart', 'Recent Practice', 'Release this Anchor'].map(label => labels.indexOf(label));
+  expect(order.every((position, index) => position >= 0 && (index === 0 || position > order[index - 1]))).toBe(true);
+});
 
 beforeEach(() => {
   resetV2VisionReadCache();
@@ -166,21 +197,21 @@ describe('V2AnchorDetailsScreen', () => {
     nativeMethods.measureInWindow.mockReset();
   });
 
-  it('shows the real current waypoint, destination, and One Move on the Chart portal', () => {
+  it('keeps the Chart portal compact and includes destination and One Move in its accessible summary', () => {
     mockUseAnchorChart.mockReturnValue({ data: chartReadModel() as never, loading: false, error: null, refresh: jest.fn() } as never);
     useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a', category: 'career' })] });
     renderDetails();
 
     expect(screen.getByTestId('v2-details-chart-map')).toBeTruthy();
     expect(screen.getByText('Reach the first 100 users')).toBeTruthy();
-    expect(screen.getByText('Ask three users for feedback')).toBeTruthy();
+    expect(screen.queryByText('Ask three users for feedback')).toBeNull();
     expect(screen.getByLabelText(/Waypoint 2 of 2: Reach the first 100 users\. Toward: Reach 1,000 active users\. Next move: Ask three users for feedback/)).toBeTruthy();
   });
 
   it('announces the actual destination for a completed Chart', () => {
     const completed = chartReadModel({
       chart: {
-        id: 'course-1', status: 'ACTIVE', destinationText: 'Reach 1,000 active users', currentWaypointId: null,
+        id: 'course-1', status: 'COMPLETED', destinationText: 'Reach 1,000 active users', currentWaypointId: null,
         waypoints: [{ id: 'waypoint-1', position: 0, title: 'Reach 1,000 active users', state: 'REACHED' }], moves: [],
       },
     });
@@ -189,7 +220,7 @@ describe('V2AnchorDetailsScreen', () => {
     renderDetails();
 
     expect(screen.getByLabelText('Chart complete. Destination: Reach 1,000 active users. Open Chart.')).toBeTruthy();
-    expect(screen.getByText('CHART · COMPLETE')).toBeTruthy();
+    expect(screen.getByText('DESTINATION REACHED')).toBeTruthy();
   });
 
   it('shows a truthful fetch error and retries it', () => {

@@ -1,21 +1,24 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { chartTypography as typography } from './chartTypography';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { cancelAnimation, runOnJS, useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
+import Animated, { cancelAnimation, runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
 import { ArrowRight, Check, ChevronRight, Flag, MoreHorizontal, WifiOff } from 'lucide-react-native';
 import { V2SheetModal } from '@/components/v2/primitives/V2SheetModal';
 import { VisionHeaderRow, VisionIdentity } from '@/components/v2/vision/VisionChrome';
 import { CHART_COPY } from '@/constants/v2/chartCopy';
 import type { ChartViewModel } from '@/adapters/v2/chart/chartV2Model';
 import type { UseAnchorChartResult, WaypointReachResult } from '@/hooks/v2/chart/useAnchorChart';
-import { colors, getCategoryColor, radii, spacing, typography } from '@/theme/v2';
+import { colors, getCategoryColor, radii, spacing } from '@/theme/v2';
 import { ChartEyebrow, ChartInkButton, ChartInkCard, ChartInkScreen, type ChartIdentity } from './ChartChrome';
-import { ChartLandscape, type ChartAnchorArt, type ChartMarker } from './ChartLandscape';
+import type { ChartAnchorArt, ChartMarker } from './ChartLandscape';
+import { ChartJourneyWorld } from './ChartJourneyWorld';
+import { getJourneyRouteProgress } from './chartJourneyGeometry';
+import { useChartJourneyCamera } from './useChartJourneyCamera';
+import { ChartCompletionPanel } from './ChartDestinationReached';
 import { ChartMetricBar } from './ChartMetricBar';
 import { ChartWaypointContent } from './ChartWaypointContent';
-import { chartEnvironmentFor } from './chartEnvironment';
-import { CHART_WINDOWS } from './chartRouteGeometry';
-import { CHART_CAMERA_TIMING, CHART_EASING, CHART_PROGRESS_TIMING as PT, CHART_TRANSITION_TIMING as TT, chartDelay, chartTiming } from './chartMotion';
+import { CHART_CAMERA_TIMING, CHART_EASING, CHART_PROGRESS_TIMING as PT, CHART_TRANSITION_TIMING as TT, chartTiming } from './chartMotion';
 
 export type ChartVisionPreview = { imageUrl: string | null; description: string | null; title: string | null };
 
@@ -58,6 +61,7 @@ type Props = {
   onOpenVision: () => void;
   onOpenLog: () => void;
   onAdjust: () => void;
+  onRelease?: () => void;
   actionError: string | null;
   /**
    * How the screen was reached. 'reveal' continues straight from the creation
@@ -107,23 +111,23 @@ export function ChartActiveView({
   onOpenVision,
   onOpenLog,
   onAdjust,
+  onRelease,
   actionError,
   entrance = 'open',
   testID,
 }: Props) {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const categoryColor = getCategoryColor(identity.category);
-  const environment = chartEnvironmentFor(identity.category);
-  const target = travelledFraction(view);
-  // An ordinary visit settles the lit route from START; everything else starts where it is.
-  const settleRoute = entrance === 'open' && !celebration && !reducedMotion && target > 0;
-  const travelled = useSharedValue(celebration ? celebration.fromFraction : settleRoute ? 0 : target);
+  const target = getJourneyRouteProgress(view.total, view.current ? view.currentIndex : -1, view.current?.metric?.fraction, view.isFinished);
+  const journey = useChartJourneyCamera(view.courseId, target, reducedMotion);
+  const [arrivalSettled, setArrivalSettled] = useState(view.isFinished);
+  const finishArrival = useCallback(() => setArrivalSettled(true), []);
+  useAnimatedReaction(() => journey.progress.value, (value, previous) => {
+    if (view.isFinished && value >= .9999 && previous !== value) runOnJS(finishArrival)();
+  }, [view.isFinished, finishArrival]);
+  useEffect(() => { if (view.isFinished && reducedMotion) setArrivalSettled(true); }, [view.isFinished, reducedMotion]);
   const entry = useSharedValue(reducedMotion ? 1 : 0);
-  const currentPulse = useSharedValue(0);
-  const stretchReveal = useSharedValue(reducedMotion || !celebration ? 1 : 0);
-  const engrave = useSharedValue(reducedMotion ? 1 : 0);
-  const [engraveId, setEngraveId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(insets.top + 116);
   const [checkingMove, setCheckingMove] = useState<string | null>(null);
@@ -135,7 +139,22 @@ export function ChartActiveView({
   const [selectedWaypointId, setSelectedWaypointId] = useState<string | null>(initialWaypointId);
   const [spatialMode, setSpatialMode] = useState<'chart' | 'focusing' | 'waypoint' | 'returning'>(initialWaypointId ? 'waypoint' : 'chart');
 
-  const setMode = (mode: 'chart' | 'focusing' | 'waypoint' | 'returning') => setSpatialMode(mode);
+  const finishFocus = useCallback(() => setSpatialMode('waypoint'), []);
+  const finishReturn = useCallback(() => {
+    setSelectedWaypointId(null);
+    setSpatialMode('chart');
+    onSpatialModeChange?.(false);
+  }, [onSpatialModeChange]);
+
+  useAnimatedReaction(
+    () => cameraProgress.value,
+    (current, previous) => {
+      if (previous === null) return;
+      if (current >= 0.999 && previous < 0.999) runOnJS(finishFocus)();
+      if (current <= 0.001 && previous > 0.001) runOnJS(finishReturn)();
+    },
+    [finishFocus, finishReturn]
+  );
 
   const focusWaypoint = (waypointId: string) => {
     if (spatialMode !== 'chart') return;
@@ -149,31 +168,22 @@ export function ChartActiveView({
     scrollRef.current?.scrollTo({ y: 0, animated: false });
     if (reducedMotion) {
       cameraProgress.value = 1;
-      setSpatialMode('waypoint');
+      finishFocus();
       return;
     }
-    cameraProgress.value = chartTiming(1, { duration: CHART_CAMERA_TIMING.focus, easing: CHART_EASING.deliberate }, (finished) => {
-      if (finished) runOnJS(setMode)('waypoint');
-    });
+    cameraProgress.value = chartTiming(1, { duration: CHART_CAMERA_TIMING.focus, easing: CHART_EASING.deliberate });
   };
 
   const returnToChart = () => {
     if (!selectedWaypointId || spatialMode === 'returning') return;
     setSpatialMode('returning');
     scrollRef.current?.scrollTo({ y: 0, animated: false });
-    const finish = () => {
-      setSelectedWaypointId(null);
-      setSpatialMode('chart');
-      onSpatialModeChange?.(false);
-    };
     if (reducedMotion) {
       cameraProgress.value = 0;
-      finish();
+      finishReturn();
       return;
     }
-    cameraProgress.value = chartTiming(0, { duration: CHART_CAMERA_TIMING.return, easing: CHART_EASING.deliberate }, (finished) => {
-      if (finished) runOnJS(finish)();
-    });
+    cameraProgress.value = chartTiming(0, { duration: CHART_CAMERA_TIMING.return, easing: CHART_EASING.deliberate });
   };
 
   useEffect(() => {
@@ -196,68 +206,22 @@ export function ChartActiveView({
     onSpatialModeChange?.(false);
   }, [cameraProgress, onSpatialModeChange, selectedWaypointId, view.waypoints]);
 
-  // Entry: the map is already present; the route settles, the current waypoint gets one
-  // quiet ripple, and the content arrives in order. Then nothing moves until something changes.
   useEffect(() => {
-    if (reducedMotion) return undefined;
-    const settleMs = settleRoute ? PT.entryRoute : 0;
-    if (settleRoute) {
-      travelled.value = chartTiming(target, { duration: PT.entryRoute, easing: CHART_EASING.draw });
-    }
-    entry.value = chartDelay(entrance === 'reveal' ? 120 : 60, chartTiming(1, { duration: ENTRY_TOTAL, easing: CHART_EASING.settle }));
-    if (!celebration) {
-      currentPulse.value = chartDelay(settleMs + 240, chartTiming(1, { duration: 1100, easing: CHART_EASING.settle }));
-    }
-    return () => {
-      [entry, currentPulse].forEach((value) => cancelAnimation(value));
-    };
-    // Entry runs once per visit.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!journey.ready) return;
+    entry.value = reducedMotion ? 1 : chartTiming(1, { duration: ENTRY_TOTAL, easing: CHART_EASING.settle });
+    return () => cancelAnimation(entry);
+  }, [journey.ready, reducedMotion, entry]);
 
-  // Waypoint reached: the Anchor travels the stretch it just completed, the waypoint engraves,
-  // the route behind it is established, and the next stretch draws in with the emphasis.
-  const settledOnce = useRef(false);
   useEffect(() => {
-    if (!celebration) {
-      // The first pass belongs to the entry settle above; later target changes ease in place.
-      if (settleRoute && !settledOnce.current) {
-        settledOnce.current = true;
-        return undefined;
-      }
-      travelled.value = reducedMotion ? target : chartTiming(target, { duration: 400, easing: CHART_EASING.settle });
-      return undefined;
-    }
-    const reachedId = view.waypoints[Math.max(0, view.reachedCount - 1)]?.id ?? null;
-    setEngraveId(reachedId);
-    if (reducedMotion) {
-      travelled.value = target;
-      engrave.value = 1;
-      stretchReveal.value = 1;
-      bannerOpacity.value = chartTiming(1, { duration: 200 });
-    } else {
-      const arrive = PT.travelDelay + PT.travel;
-      travelled.value = celebration.fromFraction;
-      engrave.value = 0;
-      stretchReveal.value = 0;
-      travelled.value = chartDelay(PT.travelDelay, chartTiming(target, { duration: PT.travel, easing: CHART_EASING.deliberate }));
-      engrave.value = chartDelay(arrive - 160, chartTiming(1, { duration: PT.engrave, easing: CHART_EASING.settle }));
-      stretchReveal.value = chartDelay(arrive + PT.engrave * 0.5, chartTiming(1, { duration: PT.nextStretch, easing: CHART_EASING.draw }));
-      currentPulse.value = 0;
-      currentPulse.value = chartDelay(arrive + PT.engrave * 0.5 + PT.nextStretch * 0.8, chartTiming(1, { duration: 1100, easing: CHART_EASING.settle }));
-      bannerOpacity.value = chartTiming(1, { duration: PT.banner });
-    }
+    if (!celebration) return;
+    bannerOpacity.value = reducedMotion ? 1 : chartTiming(1, { duration: PT.banner });
     celebrationTimer.current = setTimeout(() => {
       bannerOpacity.value = chartTiming(0, { duration: 300 });
-      // Route evolution: a quiet check-in at a meaningful transition, never a nag.
       if (celebration.nextTitle) setShowStillRight(true);
       onCelebrationDone();
     }, reducedMotion ? PT.bannerHoldReduced : PT.bannerHold);
-    return () => {
-      if (celebrationTimer.current) clearTimeout(celebrationTimer.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [celebration, target]);
+    return () => { if (celebrationTimer.current) clearTimeout(celebrationTimer.current); };
+  }, [celebration, reducedMotion, onCelebrationDone, bannerOpacity]);
 
   const bannerStyle = useAnimatedStyle(() => ({ opacity: bannerOpacity.value }));
   const waypointContentStyle = useAnimatedStyle(() => ({ opacity: cameraProgress.value }));
@@ -275,14 +239,6 @@ export function ChartActiveView({
 
   const current = view.current;
   const oneMove = view.oneMove;
-  // The stretch being travelled now: from the Anchor's position to the current waypoint.
-  const stretch = useMemo(
-    () =>
-      view.isFinished || view.total === 0
-        ? null
-        : { from: view.reachedCount / view.total, to: Math.min(1, (view.reachedCount + 1) / view.total) },
-    [view.isFinished, view.reachedCount, view.total]
-  );
   const mapSummary = current
     ? `Chart map. Waypoint ${current.number} of ${view.total} is current: ${current.title}. Destination: ${view.destination}.`
     : `Chart map. Destination: ${view.destination}.`;
@@ -298,30 +254,18 @@ export function ChartActiveView({
     <ChartInkScreen testID={testID ?? 'chart-active'}>
       <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: selectedWaypointId ? 0 : insets.bottom + spacing[8] }} showsVerticalScrollIndicator={false}>
         <View>
-          <ChartLandscape
+          <ChartJourneyWorld
             width={width}
+            height={Math.max(280, Math.min(height * .55, height - headerHeight - 160))}
             category={identity.category}
-            window={CHART_WINDOWS.hero}
             markers={markers}
-            travelled={travelled}
-            stretch={stretch}
-            stretchReveal={stretchReveal}
-            engraveId={engraveId}
-            engrave={engrave}
-            currentPulse={currentPulse}
-            cameraProgress={cameraProgress}
+            progress={journey.progress}
+            inspectionBlend={cameraProgress}
             selectedMarkerId={selectedWaypointId}
-            cameraZoom={reducedMotion ? 1.03 : environment?.camera.preferredZoom ?? 1.35}
-            cameraFocalPoint={environment?.camera.focalPoint}
-            anchorArt={anchorArt}
-            destinationImageUrl={vision?.imageUrl ?? null}
-            destinationLabel={view.destination}
-            scrimTop
-            scrimBottom={colors.ink.base}
+            onReady={journey.onReady}
             onMarkerPress={focusWaypoint}
-            onDestinationPress={vision ? onOpenVision : undefined}
             accessibilityLabel={mapSummary}
-            style={{ marginTop: Math.max(0, headerHeight - 28) }}
+            style={{ marginTop: headerHeight }}
             testID="chart-hero-map"
           />
           <View style={[styles.overlayHeader, { paddingTop: insets.top }]} onLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)}>
@@ -341,7 +285,9 @@ export function ChartActiveView({
           </View>
         </View>
 
-        {selectedWaypointId && (spatialMode === 'waypoint' || spatialMode === 'returning') && chartActions ? (
+        {view.isFinished && !selectedWaypointId ? (
+          arrivalSettled ? <ChartCompletionPanel view={view} vision={vision} onViewJourney={onOpenLog} onRelease={onRelease ?? onAdjust} /> : <View style={styles.transitionSpace} />
+        ) : selectedWaypointId && (spatialMode === 'waypoint' || spatialMode === 'returning') && chartActions ? (
           <Animated.View style={waypointContentStyle}>
           <ChartWaypointContent
             view={view}
@@ -377,7 +323,7 @@ export function ChartActiveView({
           ) : null}
           {stale ? (
             <View style={styles.offline} accessibilityLiveRegion="polite">
-              <WifiOff size={14} color={colors.ink.text.secondary} />
+              <WifiOff size={14} color={colors.text.secondary} />
               <Text style={styles.offlineText}>{CHART_COPY.active.offline}</Text>
             </View>
           ) : null}
@@ -392,11 +338,11 @@ export function ChartActiveView({
               >
                 <View style={styles.compactSection}>
                   <View style={styles.cardHeader}>
-                    <ChartEyebrow color="#F2E6CB">{CHART_COPY.labels.currentWaypoint}</ChartEyebrow>
+                    <ChartEyebrow tone="cream">{CHART_COPY.labels.currentWaypoint}</ChartEyebrow>
                     <Text style={styles.position}>{view.positionLabel}</Text>
                   </View>
                   <Text style={styles.waypointTitle}>{current.title}</Text>
-                  {current.metric ? <ChartMetricBar metric={current.metric} color={categoryColor} /> : null}
+                  {current.metric ? <ChartMetricBar metric={current.metric} color={categoryColor} tone="cream" /> : null}
                   {!current.metric && current.rationale ? (
                     <Text style={styles.rationale} numberOfLines={2}>
                       {current.rationale}
@@ -426,7 +372,7 @@ export function ChartActiveView({
 
           <EntryCard index={1} entry={entry}>
             <View style={[styles.compactSection, styles.primarySection]} testID="chart-one-move">
-              <ChartEyebrow color="#F2E6CB">{CHART_COPY.labels.oneMove}</ChartEyebrow>
+              <ChartEyebrow tone="cream">{CHART_COPY.labels.oneMove}</ChartEyebrow>
               {oneMove ? (
                 <View style={styles.moveRow}>
                   <Pressable
@@ -448,7 +394,7 @@ export function ChartActiveView({
                     hitSlop={8}
                     style={styles.arrowButton}
                   >
-                    <ArrowRight size={16} color={colors.ink.text.primary} />
+                    <ArrowRight size={16} color={colors.text.primary} />
                   </Pressable>
                 </View>
               ) : (
@@ -460,7 +406,7 @@ export function ChartActiveView({
                   testID="chart-one-move-empty"
                 >
                   <Text style={styles.moveEmptyText}>{CHART_COPY.active.noMove}</Text>
-                  <ChevronRight size={18} color={colors.ink.text.secondary} />
+                  <ChevronRight size={18} color={colors.text.secondary} />
                 </Pressable>
               )}
               {actionError ? <Text style={styles.error}>{actionError}</Text> : null}
@@ -469,7 +415,7 @@ export function ChartActiveView({
 
           <EntryCard index={2} entry={entry}>
             <View style={styles.compactSection} testID="chart-destination">
-              <ChartEyebrow>{CHART_COPY.labels.yourDestination}</ChartEyebrow>
+              <ChartEyebrow tone="cream">{CHART_COPY.labels.yourDestination}</ChartEyebrow>
               <View style={styles.destinationRow}>
                 {vision?.imageUrl ? (
                   <Image source={{ uri: vision.imageUrl }} style={styles.destinationThumb} accessibilityIgnoresInvertColors accessibilityLabel="Your Vision" />
@@ -488,7 +434,7 @@ export function ChartActiveView({
                   {vision ? (
                     <Pressable accessibilityRole="button" accessibilityLabel={CHART_COPY.active.viewVision} onPress={onOpenVision} style={styles.inlineLink} testID="chart-view-vision">
                       <Text style={styles.inlineLinkText}>{CHART_COPY.active.viewVision}</Text>
-                      <ArrowRight size={14} color={colors.ink.text.primary} />
+                      <ArrowRight size={14} color={colors.text.primary} />
                     </Pressable>
                   ) : null}
                 </View>
@@ -500,12 +446,12 @@ export function ChartActiveView({
             <Pressable accessibilityRole="button" accessibilityLabel={CHART_COPY.active.courseLogCta} onPress={onOpenLog} testID="chart-course-log">
               <View style={styles.logRow}>
                 <View style={styles.flex}>
-                  <ChartEyebrow>{CHART_COPY.labels.courseLog}</ChartEyebrow>
+                  <ChartEyebrow tone="cream">{CHART_COPY.labels.courseLog}</ChartEyebrow>
                   <Text style={styles.logText}>
                     {view.reachedCount} of {view.total} waypoints · {view.completedMoveCount} move{view.completedMoveCount === 1 ? '' : 's'} completed
                   </Text>
                 </View>
-                <ChevronRight size={18} color={colors.ink.text.secondary} />
+                <ChevronRight size={18} color={colors.text.secondary} />
               </View>
             </Pressable>
           </EntryCard>
@@ -549,21 +495,21 @@ const styles = StyleSheet.create({
   celebrationTitle: { ...typography.headingLG, color: colors.ink.text.primary },
   celebrationNext: { marginTop: spacing[2], gap: 2 },
   celebrationNextTitle: { ...typography.bodyMD, color: colors.ink.text.primary },
-  body: { paddingHorizontal: spacing[5], gap: 0, marginTop: -spacing[2] },
+  body: { paddingHorizontal: spacing[5], paddingBottom: spacing[5], gap: 0, backgroundColor: colors.canvas, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl },
   compactSection: {
     paddingVertical: spacing[5],
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.ink.hairlineStrong,
+    borderBottomColor: colors.border.subtle,
   },
   primarySection: { paddingVertical: spacing[6] },
   transitionSpace: { minHeight: 240 },
   offline: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], paddingHorizontal: spacing[1] },
-  offlineText: { ...typography.bodySM, color: colors.ink.text.secondary },
+  offlineText: { ...typography.bodySM, color: colors.text.secondary },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  position: { ...typography.labelMD, color: colors.ink.text.secondary },
-  waypointTitle: { ...typography.headingLG, color: colors.ink.text.primary, marginTop: spacing[2] },
-  rationale: { ...typography.bodySM, color: colors.ink.text.secondary, marginTop: spacing[1] },
-  cardTitle: { ...typography.headingSM, color: colors.ink.text.primary, marginBottom: spacing[3] },
+  position: { ...typography.labelMD, color: colors.text.secondary },
+  waypointTitle: { ...typography.headingLG, fontFamily: 'BricolageGrotesque-SemiBold', color: colors.text.primary, marginTop: spacing[2] },
+  rationale: { ...typography.bodySM, color: colors.text.secondary, marginTop: spacing[1] },
+  cardTitle: { ...typography.headingSM, color: colors.text.primary, marginBottom: spacing[3] },
   row: { flexDirection: 'row', gap: spacing[3] },
   moveRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], marginTop: spacing[3] },
   checkbox: {
@@ -571,33 +517,33 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 6,
     borderWidth: 1.5,
-    borderColor: colors.ink.text.secondary,
+    borderColor: colors.text.secondary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkboxOn: { backgroundColor: '#F2E6CB', borderColor: '#F2E6CB' },
-  moveTitle: { flex: 1, ...typography.bodyLG, color: colors.ink.text.primary },
+  moveTitle: { flex: 1, ...typography.bodyLG, fontFamily: 'Figtree-Regular', color: colors.text.primary },
   arrowButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: colors.ink.hairlineStrong,
+    borderColor: colors.border.subtle,
     alignItems: 'center',
     justifyContent: 'center',
   },
   moveEmpty: { flexDirection: 'row', alignItems: 'center', marginTop: spacing[3], minHeight: 44 },
-  moveEmptyText: { flex: 1, ...typography.bodyMD, color: colors.ink.text.secondary },
+  moveEmptyText: { flex: 1, ...typography.bodyMD, color: colors.text.secondary },
   error: { ...typography.bodySM, color: '#E7A19C', marginTop: spacing[2] },
   destinationRow: { flexDirection: 'row', gap: spacing[4], marginTop: spacing[3] },
   destinationThumb: { width: 86, height: 86, borderRadius: radii.md, borderWidth: 1, borderColor: 'rgba(242, 230, 203, 0.4)' },
   destinationMark: { width: 56, height: 56, borderRadius: 28, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  destinationTitle: { ...typography.headingSM, color: colors.ink.text.primary },
-  destinationDescription: { ...typography.bodySM, color: colors.ink.text.secondary, marginTop: 4 },
+  destinationTitle: { ...typography.headingSM, color: colors.text.primary },
+  destinationDescription: { ...typography.bodySM, color: colors.text.secondary, marginTop: 4 },
   inlineLink: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing[2], minHeight: 32 },
-  inlineLinkText: { ...typography.labelMD, color: colors.ink.text.primary },
+  inlineLinkText: { ...typography.labelMD, color: colors.text.primary },
   logRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing[2], paddingVertical: spacing[3], minHeight: 56 },
-  logText: { ...typography.bodySM, color: colors.ink.text.secondary, marginTop: 4 },
+  logText: { ...typography.bodySM, color: colors.text.secondary, marginTop: 4 },
   menu: { paddingHorizontal: spacing[5], paddingBottom: spacing[4] },
   menuItem: { minHeight: 52, justifyContent: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border.subtle },
   menuText: { ...typography.labelLG, color: colors.text.primary },

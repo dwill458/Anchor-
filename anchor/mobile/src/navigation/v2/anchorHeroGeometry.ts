@@ -58,7 +58,7 @@ export function predictPracticeSetupAnchorRect({
 export function predictSessionAnchorRect({
   width, height, topInset, bottomInset, mode,
 }: { width: number; height: number; topInset: number; bottomInset: number; mode: Exclude<V2PracticeMode, 'release'> }): AnchorWindowRect {
-  if (mode === 'focus') {
+  if (mode === 'focus' || mode === 'deep_prime') {
     // Mirrors V2FocusActiveScreen: centred in the field below the intention.
     const geometry = resolveFocusSessionGeometry({ width, height, topInset, bottomInset });
     return {
@@ -68,13 +68,10 @@ export function predictSessionAnchorRect({
       height: geometry.anchorSize,
     };
   }
-  if (mode === 'visualize') {
-    // The Vision stage's focal point, where its closing Anchor also rests.
-    const size = Math.round(Math.min(width * 0.52, 228));
-    return { x: (width - size) / 2, y: height * 0.48 - size / 2, width: size, height: size };
-  }
-  // Deep Focus: the 64pt context mark under the session title.
-  return { x: spacing[6], y: topInset + 44 + spacing[4] + 14 + spacing[5] + 70 + spacing[5], width: 64, height: 64 };
+  // The remaining mode is Visualize: the Vision stage's focal point, where
+  // its closing Anchor also rests.
+  const size = Math.round(Math.min(width * 0.52, 228));
+  return { x: (width - size) / 2, y: height * 0.48 - size / 2, width: size, height: size };
 }
 
 /** Shared active Focus geometry for the screen and its pre-mount hero target. */

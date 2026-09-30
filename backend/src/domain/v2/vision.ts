@@ -99,6 +99,7 @@ export const StartVisionGenerationSchema = z.object({
 export const StartVisionSceneGenerationSchema = z.object({
   sceneDescription: z.string().trim().min(6).max(400),
   idempotencyKey: z.string().regex(/^[A-Za-z0-9-]{12,100}$/),
+  appearanceReferenceId: z.string().uuid().optional().nullable(),
 }).strict();
 
 export const CreateVisionAppearanceReferenceSchema = z.object({

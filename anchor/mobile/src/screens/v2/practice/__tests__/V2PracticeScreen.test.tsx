@@ -261,8 +261,8 @@ describe('V2PracticeScreen', () => {
         resumeSource="recommended_today"
       />
     );
-    expect(screen.getByTestId('v2-practice-session')).toBeTruthy();
-    expect(screen.getByText('DEEP FOCUS')).toBeTruthy();
+    expect(screen.getByTestId('v2-deep-focus-active-screen')).toBeTruthy();
+    expect(screen.queryByTestId('v2-practice-session-timer')).toBeNull();
   });
 
   it('offers the Vision creation handoff without fabricating a Vision', async () => {
@@ -302,8 +302,9 @@ describe('V2PracticeScreen', () => {
     });
     renderPractice(context('Visualize'));
     fireEvent.press(screen.getByTestId('v2-recommended-today'));
-    expect(await screen.findByText('A serene mountain peak at sunrise')).toBeTruthy();
-    expect(screen.getByLabelText('Begin Visualize')).toBeTruthy();
+    expect(await screen.findByTestId('v2-visualize-prepare-vision')).toBeTruthy();
+    expect(screen.getByText('Add a Vision image before beginning.')).toBeTruthy();
+    expect(screen.getByLabelText('Begin Visualize').props.accessibilityState.disabled).toBe(true);
   });
 
   it('hands Release off without calling a destructive legacy endpoint', () => {

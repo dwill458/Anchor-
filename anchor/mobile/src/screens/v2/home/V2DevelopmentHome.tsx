@@ -22,7 +22,7 @@ export function V2DevelopmentHome() {
         recommendedMode,
         ...(options?.anchorTransition ? { anchorTransition: true } : {}),
       }),
-      onOpenVision: (anchorId) => navigation.navigate('V2Vision', { anchorId }),
+      onOpenVision: (anchorId, options) => navigation.navigate('V2Vision', { anchorId, ...(options?.edit ? { edit: true } : {}) }),
       onCreateVision: (anchorId) => navigation.navigate('V2Vision', { anchorId }),
       onOpenChart: (anchorId, courseId) => navigation.navigate('V2Chart', { anchorId, courseId }),
       onCreateChart: (anchorId) => navigation.navigate('V2Chart', { anchorId }),

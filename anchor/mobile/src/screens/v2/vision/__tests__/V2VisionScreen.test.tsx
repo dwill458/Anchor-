@@ -143,6 +143,14 @@ describe('V2VisionScreen', () => {
     expect(getByText('A quiet, sunlit workspace with completed projects.')).toBeTruthy();
   });
 
+  it('opens the existing editor directly from Anchor Details Edit', async () => {
+    (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: mockVisionData });
+    const view = render(<V2VisionScreen anchorId="anchor-1" edit />);
+    const input = await view.findByTestId('vision-edit-description');
+    expect(input.props.value).toBe(mockVisionData.description);
+    expect(view.queryByTestId('vision-board')).toBeNull();
+  });
+
   it('shows the Vision as a board: every photo, and the Anchor with its intention at the centre', async () => {
     (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: mockVisionData });
     const view = render(<V2VisionScreen anchorId="anchor-1" />);

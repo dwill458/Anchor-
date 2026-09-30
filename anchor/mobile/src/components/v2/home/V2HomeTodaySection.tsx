@@ -156,7 +156,8 @@ function V2HomeTodaySectionComponent({ today, visionCoverUri, visionCoverIsReuse
 
   const definition = V2_PRACTICE_MODE_BY_ID[activeToday.mode];
   const duration = durationLabel(activeToday.durationSeconds);
-  const accent = getPracticeCardTheme(activeToday.mode).heroBadgeBg;
+  const practiceTheme = getPracticeCardTheme(activeToday.mode);
+  const accent = practiceTheme.accent;
   // Visualize is the one recommendation that borrows the Anchor's own future
   // rather than illustrated Practice art — but only when a real cover exists.
   const usesVisionArt = activeToday.mode === 'visualize' && Boolean(visionCoverUri);
@@ -177,7 +178,7 @@ function V2HomeTodaySectionComponent({ today, visionCoverUri, visionCoverIsReuse
       />
       <View style={styles.kickerRow}>
         <View style={[styles.ribbon, { backgroundColor: accent }]}>
-          <Text style={styles.ribbonText}>TODAY</Text>
+          <Text style={[styles.ribbonText, { color: practiceTheme.ctaText }]}>TODAY</Text>
           <Svg width={9} height={22} style={styles.ribbonTip}><Polygon points="0,0 9,11 0,22" fill={accent} /></Svg>
         </View>
         {activeToday.completionSignal ? <Text style={styles.returned}>Returned today</Text> : null}
@@ -235,16 +236,16 @@ const styles = StyleSheet.create({
     color: colors.graphite.text.secondary,
   },
   headline: {
-    fontFamily: 'EBGaramond-Medium',
-    fontSize: 31,
-    lineHeight: 33,
-    letterSpacing: -0.7,
+    fontFamily: 'BricolageGrotesque-SemiBold',
+    fontSize: 30,
+    lineHeight: 35,
+    letterSpacing: -0.45,
     color: colors.graphite.text.primary,
     marginTop: 8,
     maxWidth: '52%',
   },
   reason: {
-    fontFamily: typography.body,
+    fontFamily: 'Figtree-Regular',
     fontSize: 14,
     lineHeight: 19,
     color: colors.graphite.text.secondary,
@@ -277,8 +278,8 @@ const styles = StyleSheet.create({
     aspectRatio: 1.32,
   },
   beginText: {
-    fontFamily: 'EBGaramond-Regular',
-    fontSize: 18,
+    fontFamily: 'Figtree-Regular',
+    fontSize: 17,
     color: colors.graphite.text.primary,
   },
   allPractices: {

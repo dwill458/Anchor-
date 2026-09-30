@@ -17,7 +17,7 @@ import type { V2PracticeMode } from '@/constants/v2/practice';
 export type V2DailyShellIntents = {
   /** `anchorTransition`: the Anchor is travelling into Practice, so the route must not animate itself. */
   onOpenPractice?: (anchorId: string, recommendedMode?: V2PracticeMode, options?: { anchorTransition?: boolean }) => void;
-  onOpenVision?: (anchorId: string) => void;
+  onOpenVision?: (anchorId: string, options?: { edit?: boolean }) => void;
   onCreateVision?: (anchorId: string) => void;
   onOpenChart?: (anchorId?: string, courseId?: string) => void;
   onCreateChart?: (anchorId: string) => void;

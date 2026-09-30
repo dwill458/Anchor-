@@ -1,0 +1,35 @@
+PASS src/screens/v2/home/__tests__/V2HomeScreen.test.tsx (21.218 s)
+PASS src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx
+PASS src/screens/v2/anchors/__tests__/V2AnchorDetailsScreen.test.tsx
+PASS src/screens/v2/vision/__tests__/V2VisionScreen.test.tsx
+PASS src/screens/v2/home/__tests__/homeRenderBudget.test.tsx
+PASS src/components/v2/home/__tests__/V2HomeAnchorCarousel.test.tsx
+PASS src/components/v2/chart/__tests__/chartLogic.test.ts
+PASS src/navigation/v2/__tests__/homeDetailsCoverage.test.tsx
+PASS src/components/v2/home/__tests__/V2HomeBrandMark.test.tsx
+PASS src/components/v2/home/__tests__/homeHeroLayout.test.ts
+PASS src/adapters/v2/home/__tests__/homeSelection.test.ts
+PASS src/components/v2/home/__tests__/homeArrival.test.tsx
+PASS src/components/v2/vision/__tests__/VisionBoardPreview.test.tsx
+PASS src/hooks/v2/chart/__tests__/useAnchorCourseLog.test.ts
+PASS src/components/v2/home/__tests__/homeResponsiveGeometry.test.ts
+PASS src/hooks/v2/chart/__tests__/useAnchorChart.test.ts
+PASS src/components/v2/home/__tests__/V2HomeCreamSplice.test.tsx
+PASS src/components/v2/chart/__tests__/ChartWorldPreview.test.tsx
+PASS src/components/v2/vision/board/__tests__/VisionBoardIntentionCard.test.tsx
+PASS src/screens/v2/home/__tests__/homeElasticScroll.test.ts
+PASS src/adapters/v2/practice/__tests__/recommendationCache.test.ts
+PASS src/components/v2/vision/board/__tests__/visionBoard.test.ts
+PASS src/adapters/v2/home/__tests__/isolation.test.ts
+PASS src/components/v2/home/__tests__/homeCategoryArt.test.ts
+PASS src/components/v2/chart/__tests__/chartEnvironment.test.ts
+PASS src/components/v2/chart/__tests__/chartSpatialGeometry.test.ts
+PASS src/adapters/v2/home/__tests__/homeProgress.test.ts
+PASS src/adapters/v2/home/__tests__/homeChartState.test.ts
+PASS src/adapters/v2/home/__tests__/adapters.test.ts
+PASS src/adapters/v2/home/__tests__/recentActivityAdapter.test.ts
+
+Test Suites: 30 passed, 30 total
+Tests:       314 passed, 314 total
+Snapshots:   0 total
+Time:        45.304 s

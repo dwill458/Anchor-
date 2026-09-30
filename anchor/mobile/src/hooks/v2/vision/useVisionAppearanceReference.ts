@@ -33,6 +33,8 @@ export function useVisionAppearanceReference() {
     try {
       const response = await apiClient.get<VisionAppearanceReference | null>('/api/v2/vision/appearance-reference');
       setReference(visionApiData<VisionAppearanceReference | null>(response));
+    } catch {
+      setReference(null);
     } finally { setLoading(false); }
   }, []);
 

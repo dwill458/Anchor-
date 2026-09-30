@@ -1,8 +1,9 @@
+import { chartTypography as typography } from './chartTypography';
 import React from 'react';
 import { ActivityIndicator, Pressable, StatusBar, StyleSheet, Text, TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { VisionHeaderRow, VisionIdentity, type VisionAnchorArt } from '@/components/v2/vision/VisionChrome';
-import { colors, radii, spacing, typography } from '@/theme/v2';
+import { colors, radii, spacing } from '@/theme/v2';
 
 /**
  * Chart shares Vision's ink chrome: the same header row and Anchor identity,

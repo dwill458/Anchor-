@@ -25,6 +25,8 @@ import {
 import { visionGenerationProgress } from './visionGenerationProgress';
 import { useVisionPresentationQueue, VISION_REVEAL_TIMING } from './useVisionPresentationQueue';
 import { VisionGenerationStage } from './VisionGenerationStage';
+import { VisionGenerationBoard } from './VisionGenerationBoard';
+import { VisionMomentInput } from './VisionMomentInput';
 import { VISION_BOARD_MAX_IMAGES } from './board/visionBoardLayouts';
 
 type SelectedAsset = { assetId: string; prompt: string; imageUrl?: string; sourceType: VisionSceneSource };
@@ -466,49 +468,22 @@ export function V2VisionCreationFlow({
   );
 
   if (step === 'generating') {
-    const stageWidth = width - spacing[5] * 2;
-    const stageHeight = Math.round(Math.max(340, Math.min(height * 0.55, 540)));
-    const failed = generation.job?.status === 'FAILED';
     return (
-      <View testID={`${testID}-generating`} style={[styles.stage, styles.inkStage]}>
-        <StatusBar barStyle="light-content" backgroundColor={colors.ink.base} animated />
-        {/* Atmosphere, not content: the category's future, out of focus, far behind. */}
-        <Image source={possibleFuture} blurRadius={26} resizeMode="cover" style={[styles.atmosphere, { width, height }]} />
-        <LinearGradient pointerEvents="none" colors={[`${colors.ink.base}D9`, `${colors.ink.base}F2`, colors.ink.base]}
-          locations={[0, 0.5, 1]} style={StyleSheet.absoluteFill} />
-        <ScrollView contentContainerStyle={[styles.inkPage, { paddingTop: insets.top, paddingBottom: insets.bottom + spacing[6] }]}>
-          <VisionHeaderRow title="Creating your Vision" onBack={onBack} />
-          {identity()}
-          <Text accessibilityRole="header" style={styles.inkTitle}>Your future{'\n'}is taking shape.</Text>
-          <Text style={styles.inkBody}>Finding the moments that make it real.</Text>
-
-          <VisionGenerationStage presented={presentation.presented} width={stageWidth} height={stageHeight}
-            accent={categoryColor} reduceMotion={reduceMotion} />
-          <View accessibilityLiveRegion="polite" style={styles.livingStatus}>
-            <Text style={styles.livingStatusText}>{progress.title}</Text>
-          </View>
-
-          {failed && generation.job ? (
-            <View style={styles.failure}>
-              <Text style={styles.failureTitle}>Your Vision needs another moment.</Text>
-              <Text style={styles.darkBody}>
-                {progress.ready > 0
-                  ? 'The moments already here are ready to choose from. You can also try again.'
-                  : 'We could not bring your Vision into view just yet. Please try again.'}
-              </Text>
-              {generation.job.retryCount < 2 && (
-                <V2Button variant="secondary" onPress={() => { void generation.retry(); }}>Retry this set</V2Button>
-              )}
-              {generation.job.candidates.length > 0 && (
-                <Pressable accessibilityRole="button" onPress={() => setStep('curation')} style={styles.darkLinkHit}>
-                  <Text style={styles.darkLink}>Choose available images</Text>
-                </Pressable>
-              )}
-            </View>
-          ) : null}
-          {generation.error ? <Text style={styles.darkError}>{generation.error}</Text> : null}
-        </ScrollView>
-      </View>
+      <VisionGenerationBoard
+        mode="initial"
+        anchorIntention={anchorIntention}
+        anchorCategory={anchorCategory}
+        anchorArt={anchorArt}
+        anchorImageUrl={anchorImageUrl}
+        job={generation.job}
+        statusMessage={progress.title}
+        onBack={onBack}
+        onRetry={() => {
+          void generation.retry();
+        }}
+        onReadyToSelect={() => setStep('curation')}
+        testID={`${testID}-generating`}
+      />
     );
   }
 
@@ -591,122 +566,28 @@ export function V2VisionCreationFlow({
     );
   }
 
-  const hint = visionDetailHint(description);
-  const level = visionDetailLevel(description);
   return (
-    <View testID={`${testID}-prompt`} style={styles.stage}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.ink.base} animated />
-      <KeyboardAvoidingView style={styles.flex} behavior="padding">
-        <ScrollView
-          ref={scrollRef}
-          style={styles.flex}
-          contentContainerStyle={{
-            paddingBottom: insets.bottom + (inputFocused ? spacing[3] : spacing[6]),
-          }}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-          showsVerticalScrollIndicator={false}
-        >
-          <VisionPhoto source={possibleFuture} category={anchorCategory} tint={0.12} scrim="both" style={styles.describeHero}>
-            <View style={[styles.describeTint]} pointerEvents="none" />
-            <View style={[styles.photoContent, { paddingTop: insets.top, paddingBottom: spacing[5] }]}>
-              <VisionHeaderRow title="Create Vision" onBack={onBack} />
-              {identity()}
-              <Text accessibilityRole="header" style={styles.describeTitle}>What does this look like when it’s real?</Text>
-              <Text style={styles.inkBody}>Make it yours. The more specific you are, the more accurately we can create your Vision.</Text>
-              {/* Cues, not a form: quiet enough that the question and the field lead. */}
-              <Animated.View style={[styles.guide, guideStyle]}>
-                {VISION_DESCRIPTION_PROMPTS.map(prompt => {
-                  const Icon = PROMPT_ICONS[prompt.key];
-                  return (
-                    <View key={prompt.key} style={styles.guideCell}>
-                      <Icon size={14} color={colors.ink.text.tertiary} />
-                      <View style={styles.flex}>
-                        <Text style={styles.guideLabel} numberOfLines={1}>{prompt.label}</Text>
-                        <Text style={styles.guideHint} numberOfLines={2}>{prompt.hint}</Text>
-                      </View>
-                    </View>
-                  );
-                })}
-              </Animated.View>
-            </View>
-          </VisionPhoto>
-          <View style={styles.describeBody} onLayout={event => { inputOffset.current = event.nativeEvent.layout.y; }}>
-            <Animated.View style={[styles.inputFrame, inputFrameStyle, inputFocused && styles.inputFrameFocused]}>
-              <TextInput testID="vision-prompt-input" accessibilityLabel="Vision description" accessibilityHint="Describe where you are, what you’re doing, what you can see and what has changed."
-                multiline maxLength={VISION_DESCRIPTION_MAX_CHARS}
-                value={description} onChangeText={setDescription} placeholder={`Example: ${example}`} placeholderTextColor={colors.text.disabled}
-                onFocus={focusInput} onBlur={() => setInputFocused(false)}
-                style={[styles.input, { maxHeight: Math.max(180, Math.min(260, height * 0.32)) }]} textAlignVertical="top" scrollEnabled />
-            </Animated.View>
-            <View style={styles.meter}>
-              <Text testID="vision-detail-hint" style={[styles.meterHint, level === 'rich' && { color: colors.semantic.success }]} numberOfLines={2}>
-                {hint ?? 'Where you are · what you’re doing · what you see · what’s different'}
-              </Text>
-              <Text style={styles.counter}>{description.length}/{VISION_DESCRIPTION_MAX_CHARS}</Text>
-            </View>
-            {notice && <Text style={styles.error}>{notice}</Text>}
-            {generation.error && <Text style={styles.error}>{generation.error}</Text>}
-            <View style={styles.appearanceCard}>
-              <View style={styles.appearanceCopy}>
-                <Text style={styles.appearanceTitle}>Make it look like you</Text>
-                <Text style={styles.appearanceBody}>{appearance.profilePhoto
-                  ? 'Use your profile photo as a reference when you appear in generated scenes.'
-                  : 'Optional — add a reference photo when you want yourself represented in your Vision.'}</Text>
-              </View>
-              {appearance.reference ? (
-                <View style={styles.appearanceReady}>
-                  <Image source={{ uri: appearance.reference.source === 'PROFILE' && appearance.profilePhoto ? appearance.profilePhoto : appearance.reference.previewUrl ?? undefined }} style={styles.appearanceThumb} />
-                  <View style={styles.appearanceActions}>
-                    <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: useAppearance }} onPress={() => {
-                      if (appearance.reference?.source === 'PROFILE' && !appearance.enabledByPreference) void enableProfileAppearance();
-                      else setUseAppearance(value => !value);
-                    }} style={[styles.appearanceChoice, useAppearance && { borderColor: categoryColor }]}>
-                      <Text style={styles.appearanceChoiceText}>{appearance.saving ? 'Preparing…' : useAppearance ? 'Use my photo ✓' : 'Use my photo'}</Text>
-                    </Pressable>
-                    <Pressable accessibilityRole="button" onPress={() => { void pickAppearanceReference(); }}><Text style={styles.appearanceLink}>Change</Text></Pressable>
-                    <Pressable accessibilityRole="button" onPress={() => { void appearance.remove(); setUseAppearance(false); }}><Text style={styles.appearanceLink}>Remove</Text></Pressable>
-                  </View>
-                </View>
-              ) : appearance.profilePhoto ? (
-                <View style={styles.appearanceReady}>
-                  <Image source={{ uri: appearance.profilePhoto }} style={styles.appearanceThumb} />
-                  <View style={styles.appearanceActions}>
-                    <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: useAppearance }} onPress={() => { void enableProfileAppearance(); }} style={[styles.appearanceChoice, useAppearance && { borderColor: categoryColor }]}>
-                      <Text style={styles.appearanceChoiceText}>{appearance.saving ? 'Preparing…' : useAppearance ? 'Use my photo ✓' : 'Use my photo'}</Text>
-                    </Pressable>
-                    <Pressable accessibilityRole="button" onPress={() => { void pickAppearanceReference(); }}><Text style={styles.appearanceLink}>Change</Text></Pressable>
-                  </View>
-                </View>
-              ) : (
-                <Pressable accessibilityRole="button" onPress={() => { void pickAppearanceReference(); }} style={styles.addReference}>
-                  <Text style={styles.addReferenceText}>+ Add reference photo</Text>
-                </Pressable>
-              )}
-            </View>
-            {!inputFocused ? <>
-              <V2Button testID="vision-generate" size="large" accessibilityLabel="Continue to create your Vision"
-                disabled={!validDescription} loading={starting} onPress={() => { void generate(); }}>
-                Continue
-              </V2Button>
-              <Pressable testID="vision-add-photos" accessibilityRole="button" accessibilityLabel="Add my own images"
-                disabled={!validDescription} onPress={() => { void pickImages(); }} style={[styles.textAction, !validDescription && styles.disabled]}>
-                <ImageIcon size={15} color={colors.text.secondary} />
-                <Text style={styles.textActionLabel}>Use my own photos instead</Text>
-              </Pressable>
-            </> : null}
-          </View>
-        </ScrollView>
-        {inputFocused ? (
-          <View style={[styles.focusedFooter, { paddingBottom: Math.max(insets.bottom, spacing[2]) }]}>
-            <V2Button testID="vision-generate-focused" size="large" accessibilityLabel="Continue to create your Vision"
-              disabled={!validDescription} loading={starting} onPress={() => { Keyboard.dismiss(); void generate(); }}>
-              Continue
-            </V2Button>
-          </View>
-        ) : null}
-      </KeyboardAvoidingView>
-    </View>
+    <VisionMomentInput
+      mode="create"
+      anchorId={anchorId}
+      anchorIntention={anchorIntention}
+      anchorCategory={anchorCategory}
+      anchorArt={anchorArt}
+      anchorImageUrl={anchorImageUrl}
+      initialDescription={description}
+      description={description}
+      onChangeDescription={setDescription}
+      onBack={onBack}
+      onSubmit={async () => {
+        await generate();
+      }}
+      onAddPhotos={() => {
+        void pickImages();
+      }}
+      loading={starting}
+      error={notice || generation.error}
+      testID={`${testID}-prompt`}
+    />
   );
 }
 

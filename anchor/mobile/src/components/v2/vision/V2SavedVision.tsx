@@ -23,6 +23,7 @@ type Props = {
   anchorCategory?: string | null;
   anchorImageUrl?: string | null;
   anchorArt?: VisionAnchorArt | null;
+  initialEdit?: boolean;
   description: string;
   tiles: V2VisionTile[];
   error?: string | null;
@@ -57,7 +58,7 @@ const ARRIVAL_RECOMPOSE_DELAY_MS = 450;
 
 export function V2SavedVision({
   chartSummary = null,
-  anchorIntention, anchorCategory, anchorImageUrl, anchorArt, description, tiles, error,
+  anchorIntention, anchorCategory, anchorImageUrl, anchorArt, description, tiles, error, initialEdit = false,
   onBack, onVisualize, onChart, onUpdateDescription, onReorder, onRemove,
   onAddPhoto, onAddGenerate, onReplace, onRegenerate, canGenerateMore, onArchive, arrivedFrom = null, testID = 'v2-vision-screen',
 }: Props) {
@@ -65,7 +66,7 @@ export function V2SavedVision({
   const insets = useSafeAreaInsets();
   const reduceMotion = useV2ReduceMotion();
   const boardWidth = Math.min(width - BOARD_GUTTER * 2, 520);
-  const [mode, setMode] = useState<'view' | 'edit'>('view');
+  const [mode, setMode] = useState<'view' | 'edit'>(initialEdit ? 'edit' : 'view');
   const [draft, setDraft] = useState(description);
   const [menuOpen, setMenuOpen] = useState(false);
   const [busy, setBusy] = useState(false);

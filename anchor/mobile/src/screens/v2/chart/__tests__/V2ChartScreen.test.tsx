@@ -240,6 +240,9 @@ describe('V2ChartScreen — no Chart', () => {
     fireEvent.press(screen.getByTestId('chart-context-continue'));
 
     expect(await screen.findByText('Mapping the space between.')).toBeTruthy();
+    for (const layer of ['sky','city','midground','road','foreground']) {
+      fireEvent(screen.getByTestId(`chart-world-layer-${layer}`, { includeHiddenElements: true }), 'load');
+    }
     expect(await screen.findByText('Here’s a route to start with.', {}, { timeout: 3000 })).toBeTruthy();
     expect(screen.getByText('We found 4 meaningful waypoints for this destination. Keep what fits. Change what doesn’t.')).toBeTruthy();
 

@@ -1,6 +1,6 @@
-import React, { memo, useEffect } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import React, { memo, useEffect, useRef } from 'react';
+import { Image, Pressable, StyleSheet, Text, View, type LayoutRectangle } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
 import { AnchorMark } from '@/components/v2/anchor/AnchorMark';
 import { CircularAnchorRenderer } from '@/components/v2/anchor/CircularAnchorRenderer';
 import { categoryLabel } from '@/components/v2/anchors/anchorPresentation';
@@ -32,6 +32,12 @@ type Props = {
   reduceMotion: boolean;
   onPress?: () => void;
   anchorTestID?: string;
+  /** A cinematic compositor can own the same mark without duplicating it. */
+  hideMark?: boolean;
+  onMarkLayout?: (rect: LayoutRectangle) => void;
+  /** Optional independent layers for the cinematic return; ordinary boards default to fully visible. */
+  paperOpacity?: SharedValue<number>;
+  pinOpacity?: SharedValue<number>;
 };
 
 /**
@@ -40,8 +46,16 @@ type Props = {
  * baked into the paper, so it works for every Anchor.
  */
 export const VisionBoardIntentionCard = memo(function VisionBoardIntentionCard({
-  rect, intention, category, art, reduceMotion, onPress, anchorTestID,
+  rect, intention, category, art, reduceMotion, onPress, anchorTestID, hideMark = false, onMarkLayout,
+  paperOpacity, pinOpacity,
 }: Props) {
+  const contentLayout = useRef<LayoutRectangle | null>(null);
+  const markLayout = useRef<LayoutRectangle | null>(null);
+  const reportMark = () => {
+    const content = contentLayout.current;
+    const mark = markLayout.current;
+    if (content && mark) onMarkLayout?.({ x: content.x + mark.x, y: content.y + mark.y, width: mark.width, height: mark.height });
+  };
   const x = useSharedValue(rect.x);
   const y = useSharedValue(rect.y);
   const width = useSharedValue(rect.width);
@@ -65,6 +79,8 @@ export const VisionBoardIntentionCard = memo(function VisionBoardIntentionCard({
     height: height.value,
     transform: [{ rotate: `${rotation.value}deg` }],
   }));
+  const paperStyle = useAnimatedStyle(() => ({ opacity: paperOpacity?.value ?? 1 }));
+  const pinStyle = useAnimatedStyle(() => ({ opacity: pinOpacity?.value ?? 1 }));
 
   // Type is laid out for the target size; the card's own motion is small.
   const markSize = rect.width * 0.52;
@@ -74,12 +90,14 @@ export const VisionBoardIntentionCard = memo(function VisionBoardIntentionCard({
 
   const content = (
     <>
-      <Image source={VISION_BOARD_IMAGES.intentionPaper} resizeMode="stretch" accessible={false} style={styles.fill} />
-      <View style={styles.content} pointerEvents="none">
-        <View style={{ width: markSize, height: markSize, alignItems: 'center', justifyContent: 'center' }}>
+      <Animated.View style={[styles.fill, paperStyle]}>
+        <Image source={VISION_BOARD_IMAGES.intentionPaper} resizeMode="stretch" accessible={false} style={styles.fill} />
+        <View testID="vision-board-card-content" style={styles.content} pointerEvents="none" onLayout={onMarkLayout ? event => { contentLayout.current = event.nativeEvent.layout; reportMark(); } : undefined}>
+        <View testID="vision-board-card-mark-slot" onLayout={onMarkLayout ? event => { markLayout.current = event.nativeEvent.layout; reportMark(); } : undefined}
+          style={{ width: markSize, height: markSize, alignItems: 'center', justifyContent: 'center' }}>
           <Image source={VISION_BOARD_IMAGES.compassRose} resizeMode="contain" accessible={false}
             style={[styles.compass, { width: markSize * 1.32, height: markSize * 1.32 }]} />
-          {art?.imageUrl ? (
+          {hideMark ? null : art?.imageUrl ? (
             // The finished (enhanced) artwork, exactly as the Anchor's other screens show it; the
             // renderer falls back to the stored structure if the image cannot load.
             <CircularAnchorRenderer testID={anchorTestID} svg={art.svg} imageUrl={art.imageUrl} category={art.category ?? category}
@@ -97,9 +115,10 @@ export const VisionBoardIntentionCard = memo(function VisionBoardIntentionCard({
           {intention}
         </Text>
         <View style={[styles.underline, { width: rect.width * 0.34 }]} />
-      </View>
-      <Image source={BOARD_CARD_PIN} resizeMode="contain" accessible={false}
-        style={[styles.pin, { width: rect.width * 0.1, height: rect.width * 0.1, left: rect.width * 0.45, top: rect.width * 0.02 }]} />
+        </View>
+      </Animated.View>
+      <Animated.Image source={BOARD_CARD_PIN} resizeMode="contain" accessible={false}
+        style={[styles.pin, { width: rect.width * 0.1, height: rect.width * 0.1, left: rect.width * 0.45, top: rect.width * 0.02 }, pinStyle]} />
     </>
   );
 

@@ -10,6 +10,7 @@ describe('Focus session geometry', () => {
     const progressDiameter = geometry.fieldSize * 0.92;
     const ringGap = (progressDiameter - geometry.anchorSize) / 2;
     const predicted = predictSessionAnchorRect({ ...viewport, mode: 'focus' });
+    expect(predictSessionAnchorRect({ ...viewport, mode: 'deep_prime' })).toEqual(predicted);
 
     expect(geometry.fieldSize).toBeGreaterThan(geometry.anchorSize);
     expect(ringGap).toBeGreaterThanOrEqual(8);

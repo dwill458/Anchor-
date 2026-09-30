@@ -150,7 +150,7 @@ router.post(
     try {
       const userId = await getAuthenticatedUserId(req);
       const input = validateBody(StartVisionSceneGenerationSchema, req.body);
-      const job = await visionGenerationService.startScene(userId, req.params.anchorId, input.sceneDescription, input.idempotencyKey);
+      const job = await visionGenerationService.startScene(userId, req.params.anchorId, input.sceneDescription, input.idempotencyKey, input.appearanceReferenceId);
       res.status(202).json({ success: true, data: job });
     } catch (error) { next(error); }
   }

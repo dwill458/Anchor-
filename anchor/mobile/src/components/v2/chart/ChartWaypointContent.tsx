@@ -1,3 +1,4 @@
+import { chartTypography as typography } from './chartTypography';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Check, Pencil, Plus, Sparkles, Star, X } from 'lucide-react-native';
@@ -6,7 +7,7 @@ import { V2SheetModal } from '@/components/v2/primitives/V2SheetModal';
 import { CHART_COPY } from '@/constants/v2/chartCopy';
 import type { ChartViewModel } from '@/adapters/v2/chart/chartV2Model';
 import type { UseAnchorChartResult, WaypointReachResult } from '@/hooks/v2/chart/useAnchorChart';
-import { colors, getCategoryColor, radii, spacing, typography } from '@/theme/v2';
+import { colors, getCategoryColor, radii, spacing } from '@/theme/v2';
 import type { MoveSummary } from '@/types/chart';
 import { ChartCreamPanel, ChartEyebrow } from './ChartChrome';
 import { ChartMetricBar } from './ChartMetricBar';

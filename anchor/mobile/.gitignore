@@ -70,3 +70,4 @@ expo-qr-code.png
 # Local export/build output checks
 dist_android_check/
 dist_android_check2/
+.visualize-cinematic*

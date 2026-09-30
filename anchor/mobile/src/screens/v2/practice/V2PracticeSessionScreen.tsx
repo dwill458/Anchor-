@@ -14,11 +14,11 @@ import { useV2Vision } from '@/hooks/v2/vision';
 import { colors, spacing, typography } from '@/theme/v2';
 import type { GuidanceVoice } from '@/types/sessionAudio';
 import { V2FocusActiveScreen, V2FocusCompleteScreen } from './focus';
-import { V2VisualizeSessionScreen } from './visualize/V2VisualizeSessionScreen';
+import { V2DeepFocusActiveScreen } from './deepFocus/V2DeepFocusActiveScreen';
+import { isDeepFocusDuration } from './deepFocus/deepFocusTimeline';
+import { V2CinematicSessionScreen } from './visualize/V2CinematicSessionScreen';
 import { isV2VisualizeDuration } from './visualize/visualizeVisionPlan';
 import type { V2PracticeCompletionResult } from './practiceRoutes';
-import Animated from 'react-native-reanimated';
-import { useAnchorTransitionPlace, useAnchorTransitionReveal } from '@/navigation/v2/ProgressiveFocusTransition';
 
 type Props = {
   anchorId: string;
@@ -70,6 +70,7 @@ export function V2PracticeSessionScreen({
   const visionModel = useV2Vision(mode === 'visualize' ? anchorId : '');
 
   const defaultFocusSettings = useSettingsStore((state) => state.sessionAudioDefaults?.focus);
+  const defaultDeepFocusSettings = useSettingsStore((state) => state.sessionAudioDefaults?.deep_prime);
   const defaultVisualizeSettings = useSettingsStore((state) => state.sessionAudioDefaults?.visualize);
   const hapticIntensity = useSettingsStore((state) => state.hapticIntensity);
   const [focusSessionId, setFocusSessionId] = useState<string | null>(null);
@@ -77,8 +78,9 @@ export function V2PracticeSessionScreen({
   const focusSessionRecord = useSessionStore((state) =>
     focusSessionId ? state.practiceHistory.find((record) => record.id === focusSessionId) : undefined
   );
-  const resolvedVoice = voice ?? defaultFocusSettings?.guidanceVoice ?? 'female';
-  const resolvedAmbient = ambient ?? (defaultFocusSettings?.backgroundAudio !== 'off');
+  const audioDefaults = mode === 'deep_prime' ? defaultDeepFocusSettings : defaultFocusSettings;
+  const resolvedVoice = voice ?? audioDefaults?.guidanceVoice ?? 'female';
+  const resolvedAmbient = ambient ?? (audioDefaults?.backgroundAudio !== 'off');
 
   // Focus redesign state
   const startedAtRef = useRef(new Date());
@@ -97,17 +99,13 @@ export function V2PracticeSessionScreen({
   const [legacyError, setLegacyError] = useState<string | null>(null);
 
   const definition = V2_PRACTICE_MODE_BY_ID[mode];
-  // Deep Focus: the context mark is where the travelling Anchor lands, and the
-  // timer and its action arrive after it.
-  const deepPlace = useAnchorTransitionPlace('deepFocusSession', anchor?.id, 'tinted');
-  const deepControlsReveal = useAnchorTransitionReveal('deepFocusSession', 3);
 
   // The non-Focus practice modes use their own active-time clock. Background
   // time is excluded and a delayed JS tick catches up from the monotonic wall
   // timestamp rather than adding one second per callback.
   useEffect(() => {
     // Focus and Visualize own their clocks (Visualize: the shared session engine).
-    if (mode === 'focus' || mode === 'visualize' || legacyStatus !== 'active') return;
+    if (mode === 'focus' || mode === 'deep_prime' || mode === 'visualize' || legacyStatus !== 'active') return;
     if (!legacyClockStartedRef.current) {
       startedAtRef.current = new Date();
       legacyClockStartedRef.current = true;
@@ -142,7 +140,7 @@ export function V2PracticeSessionScreen({
 
       const beforeStrength =
         typeof anchor?.threadStrength === 'number' ? anchor.threadStrength : null;
-      const sessionId = `v2-focus-${anchor?.id}-${Date.now()}`;
+      const sessionId = `v2-${mode}-${anchor?.id}-${Date.now()}`;
       setFocusSessionId(sessionId);
 
       const promise = (async () => {
@@ -154,7 +152,7 @@ export function V2PracticeSessionScreen({
               anchorId: anchor && isBackendAnchorId(anchor.id) ? anchor.id : null,
               anchorLocalId: anchor?.localId ?? anchor?.id,
               anchorServerId: anchor && isBackendAnchorId(anchor.id) ? anchor.id : null,
-              mode: 'focus',
+              mode,
               plannedDurationSeconds: sessionData.plannedDurationSeconds,
               actualDurationSeconds: sessionData.actualDurationSeconds,
               startedAt: sessionData.startedAt,
@@ -204,7 +202,7 @@ export function V2PracticeSessionScreen({
       focusEndingPromiseRef.current = promise;
       return promise;
     },
-    [accountId, anchor, resolvedAmbient, resolvedVoice, source]
+    [accountId, anchor, mode, resolvedAmbient, resolvedVoice, source]
   );
 
   const handleFocusEnding = useCallback(
@@ -246,9 +244,9 @@ export function V2PracticeSessionScreen({
   const handleDone = useCallback(() => {
     // Continue has a semantic destination: the Practice hub. The parent clears
     // both the session and setup layers, rather than relying on stack history.
-    if (mode === 'focus') {
+    if (mode === 'focus' || mode === 'deep_prime') {
       onCompleted({
-        mode: 'focus',
+        mode,
         durationSeconds: focusActualDurationSeconds ?? durationSeconds,
         saved: !focusPersistenceFailed,
       });
@@ -309,7 +307,7 @@ export function V2PracticeSessionScreen({
       );
     }
     return (
-      <V2VisualizeSessionScreen
+      <V2CinematicSessionScreen
         anchor={anchor}
         accountId={accountId}
         tiles={visionModel.tiles}
@@ -327,8 +325,17 @@ export function V2PracticeSessionScreen({
   }
 
   // Focus Mode Redesign
-  if (mode === 'focus') {
+  if (mode === 'focus' || mode === 'deep_prime') {
     if (focusPhase === 'active') {
+      if (mode === 'deep_prime') {
+        if (!isDeepFocusDuration(durationSeconds)) {
+          return <V2Screen><V2EmptyState title="Deep Focus unavailable" message="Choose 2, 5 or 10 minutes and begin again."
+            action={<V2Button onPress={onBack}>Back to Practice</V2Button>} /></V2Screen>;
+        }
+        return <V2DeepFocusActiveScreen anchor={anchor} durationSeconds={durationSeconds}
+          voice={resolvedVoice} ambient={resolvedAmbient} haptics={haptics ?? (hapticIntensity ?? 70) > 0}
+          onComplete={handleFocusComplete} />;
+      }
       return (
         <V2FocusActiveScreen
           anchor={anchor}
@@ -350,6 +357,7 @@ export function V2PracticeSessionScreen({
     return (
       <V2FocusCompleteScreen
         anchor={anchor}
+        practiceTitle={mode === 'deep_prime' ? 'Deep Focus' : undefined}
         durationSeconds={durationSeconds}
         beforeStrength={currentBeforeStrength}
         afterStrength={currentAfterStrength}
@@ -413,8 +421,8 @@ export function V2PracticeSessionScreen({
           {definition.title.toUpperCase()}
         </Text>
         <Text style={styles.title}>Stay with your Anchor.</Text>
-        <V2PracticeAnchorContext anchor={anchor} artworkPlace={deepPlace} />
-        <Animated.View style={deepControlsReveal}>
+        <V2PracticeAnchorContext anchor={anchor} />
+        <View>
         <View style={styles.timerBlock} accessibilityLiveRegion="polite">
           <Text
             testID="v2-practice-session-timer"
@@ -446,7 +454,7 @@ export function V2PracticeSessionScreen({
         >
           {remaining > 0 ? `Finish ${definition.title}` : `Complete ${definition.title}`}
         </V2Button>
-        </Animated.View>
+        </View>
       </ScrollView>
     </V2Screen>
   );

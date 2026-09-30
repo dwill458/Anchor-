@@ -62,13 +62,17 @@ export function useV2VisionSceneGeneration(anchorId: string, onPremiumRequired?:
     return () => clearInterval(timer);
   }, [active, foreground, refresh]);
 
-  const start = useCallback(async (sceneDescription: string): Promise<boolean> => {
+  const start = useCallback(async (sceneDescription: string, appearanceReferenceId?: string | null): Promise<boolean> => {
     if (starting.current) return false;
     starting.current = true;
     setError(null);
     try {
       const idempotencyKey = `vision-scene-${Date.now()}-${Math.floor(Math.random() * 1e12)}`;
-      const response = await apiClient.post<VisionGenerationJob>(`${base}/scene-generation`, { sceneDescription, idempotencyKey });
+      const response = await apiClient.post<VisionGenerationJob>(`${base}/scene-generation`, {
+        sceneDescription,
+        idempotencyKey,
+        appearanceReferenceId: appearanceReferenceId ?? null,
+      });
       const next = visionApiData<VisionGenerationJob>(response);
       if (mounted.current) setJob(next);
       return true;

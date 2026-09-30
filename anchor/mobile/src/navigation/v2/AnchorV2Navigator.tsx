@@ -241,6 +241,7 @@ function V2VisionRouteScreen() {
     <V2VisionScreen
       anchorId={anchorId}
       initialMode={route.params?.initialMode}
+      edit={route.params?.edit}
       onBack={() => {
         if (navigation.canGoBack()) navigation.goBack();
       }}

@@ -86,10 +86,10 @@ export function chartArtFor(category?: string | null): ChartArt {
 }
 
 /** A compact portal crop centered on the actual current waypoint. */
-export function chartWindowAroundRoutePoint(fraction: number, width: number, height: number): ChartWindow {
-  const imageHeight = (width * CHART_PACKS.valley.height) / CHART_PACKS.valley.width;
+export function chartWindowAroundRoutePoint(fraction: number, width: number, height: number, art: ChartArt = CHART_PACKS.valley): ChartWindow {
+  const imageHeight = (width * art.height) / art.width;
   const span = Math.min(1, Math.max(0.12, height / imageHeight));
-  const center = pointAt(fraction, CHART_PACKS.valley).y;
+  const center = pointAt(fraction, art).y;
   const top = Math.max(0, Math.min(1 - span, center - span / 2));
   return { top, bottom: top + span };
 }

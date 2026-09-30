@@ -121,7 +121,7 @@ const DESTINATIONS: Record<AnchorTransitionDestination, DestinationPreset> = {
   practiceSetup: { timing: ANCHOR_TRANSITION_TIMING.practice, appearance: 'paper', backdrop: null, settle: 'handoff', plainMark: false },
   // Focus keeps its own dark treatment and draws the stored structure only.
   focusSession: { timing: ANCHOR_TRANSITION_TIMING.session, appearance: 'dark', backdrop: colors.ink.base, settle: 'handoff', plainMark: true },
-  deepFocusSession: { timing: ANCHOR_TRANSITION_TIMING.session, appearance: 'tinted', backdrop: null, settle: 'handoff', plainMark: false },
+  deepFocusSession: { timing: ANCHOR_TRANSITION_TIMING.session, appearance: 'dark', backdrop: colors.ink.base, settle: 'handoff', plainMark: true },
   visualizeSession: { timing: ANCHOR_TRANSITION_TIMING.visualize, appearance: 'dark', backdrop: colors.ink.deep, settle: 'dissolve', plainMark: false },
 };
 

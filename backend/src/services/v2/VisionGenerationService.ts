@@ -180,7 +180,13 @@ export class VisionGenerationService {
    * the job is a separate kind: it never uses up one of the three image sets and
    * never rewrites the Vision's own description.
    */
-  async startScene(userId: string, anchorId: string, sceneDescription: string, idempotencyKey: string) {
+  async startScene(
+    userId: string,
+    anchorId: string,
+    sceneDescription: string,
+    idempotencyKey: string,
+    appearanceReferenceId?: string | null
+  ) {
     const access = await getMonetizationAccess(userId);
     if (!access.hasProAccess)
       throw new AppError('Vision generation requires access', 403, 'VISION_PREMIUM_REQUIRED');
@@ -192,6 +198,9 @@ export class VisionGenerationService {
     const trimmed = sceneDescription.trim();
     if (trimmed.length < 6 || trimmed.length > 400)
       throw new AppError('Describe the scene in 6 to 400 characters', 400, 'VALIDATION_ERROR');
+
+    if (appearanceReferenceId)
+      await visionAppearanceReferenceService.resolveForGeneration(userId, appearanceReferenceId);
 
     const existingJob = await prisma.visionGeneration.findFirst({
       where: { userId, anchorId, id: idempotencyKey, vision: { status: 'ACTIVE' } },
@@ -242,6 +251,7 @@ export class VisionGenerationService {
           setNumber: (latest?.setNumber ?? 0) + 1,
           status: 'QUEUED',
           stage: 'creating_images',
+          appearanceReferenceId: appearanceReferenceId ?? null,
           plan: buildVisionSceneVariantPlan(trimmed) as unknown as Prisma.InputJsonValue,
         },
       });

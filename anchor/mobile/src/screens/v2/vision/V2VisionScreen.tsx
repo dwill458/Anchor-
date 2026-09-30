@@ -18,12 +18,14 @@ import { useAnchorChart } from '@/hooks/v2/chart/useAnchorChart';
 import { VISION_BOARD_MAX_IMAGES } from '@/components/v2/vision/board/visionBoardLayouts';
 
 export interface V2VisionRouteParams {
+  edit?: boolean;
   anchorId: string;
   initialMode?: 'view' | 'create' | 'ready';
   resumeGeneration?: boolean;
 }
 
 export interface V2VisionScreenProps {
+  edit?: boolean;
   anchorId?: string;
   initialMode?: 'view' | 'create' | 'ready';
   onBack?: () => void;
@@ -216,6 +218,7 @@ export function V2VisionScreen(props: V2VisionScreenProps) {
       anchorCategory={anchorCategory}
       anchorArt={anchorArt}
       anchorImageUrl={anchor?.enhancedImageUrl}
+      existingTiles={model.tiles}
       onPremiumRequired={openPaywall}
       onCancel={() => setMode('view')}
       onAdd={addGeneratedScene}
@@ -275,6 +278,7 @@ export function V2VisionScreen(props: V2VisionScreenProps) {
       anchorCategory={anchorCategory}
       anchorImageUrl={anchor?.enhancedImageUrl}
       anchorArt={anchorArt}
+      initialEdit={props.edit ?? route.params?.edit}
       description={model.description}
       tiles={model.tiles}
       error={actionError ?? model.error}

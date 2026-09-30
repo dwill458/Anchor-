@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import { anchorRenderProps } from '@/components/v2/anchors/anchorPresentation';
 import { VisionBoardIntentionCard, intentionTypeScale } from '../VisionBoardIntentionCard';
 
@@ -25,6 +25,22 @@ const storedAnchor = {
 
 describe('VisionBoardIntentionCard', () => {
   beforeEach(() => { mockMarkProps.length = 0; });
+
+  it('lets the compositor own the mark while retaining the original paper and intention', () => {
+    const view = render(<VisionBoardIntentionCard rect={rect} intention="My saved intention" art={anchorRenderProps(storedAnchor)} hideMark reduceMotion />);
+    expect(mockMarkProps).toHaveLength(0);
+    expect(view.getByText('My saved intention')).toBeTruthy();
+    expect(view.getByTestId('vision-board-card-mark-slot').props.style.width).toBe(156);
+  });
+
+  it.each([true, false])('reports the measured mark in paper coordinates regardless of layout event order: %s', contentFirst => {
+    const onMarkLayout = jest.fn();
+    const view = render(<VisionBoardIntentionCard rect={rect} intention="Real intention" onMarkLayout={onMarkLayout} hideMark reduceMotion />);
+    const content = () => fireEvent(view.getByTestId('vision-board-card-content'), 'layout', { nativeEvent: { layout: { x: 33, y: 49.4, width: 234, height: 292.6 } } });
+    const mark = () => fireEvent(view.getByTestId('vision-board-card-mark-slot'), 'layout', { nativeEvent: { layout: { x: 39, y: 17, width: 156, height: 156 } } });
+    if (contentFirst) { content(); mark(); } else { mark(); content(); }
+    expect(onMarkLayout).toHaveBeenLastCalledWith({ x: 72, y: 66.4, width: 156, height: 156 });
+  });
 
   it('draws the Anchor\'s own stored structure, never a re-drawn one', () => {
     const art = anchorRenderProps(storedAnchor);

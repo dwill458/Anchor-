@@ -30,7 +30,6 @@ import { V2ThreadEventModal } from '@/components/v2/threadEvents';
 import { colors, getCategoryColor, typography } from '@/theme/v2';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { useV2DailyShellIntents, type V2DailyShellParamList } from './dailyShell';
-import { isWithinWeeklyInsightReviewWindow } from '@/adapters/v2/weeklyInsight';
 import { useHomeElasticScroll } from './homeElasticScroll';
 import { V2_TRANSITION_SETTLE_MS } from '@/navigation/v2/transitions';
 import { V2AssetPrewarm } from '@/components/v2/primitives/V2AssetPrewarm';
@@ -284,6 +283,13 @@ export function V2HomeScreen() {
     return uris;
   }, [anchorArtUris, todayVisionUri, visionCoverUri]);
 
+  const hasVision = useMemo(() => {
+    if (model.vision.state !== 'ready') return false;
+    const heroImage = resolveVisionHeroImage(model.vision);
+    const statement = model.vision.title?.trim() || model.vision.previewText?.trim();
+    return Boolean(heroImage || statement);
+  }, [model.vision]);
+
   /**
    * Every handler below is stable. The sections are memoised, and a memoised
    * section with a freshly created arrow prop re-renders anyway - which is
@@ -492,38 +498,31 @@ export function V2HomeScreen() {
             onRetry={handleRetryToday}
           />
 
-          <V2HomeVisionSection
-            vision={model.vision}
-            categoryColor={categoryColor}
-            onOpenVision={handleOpenVision}
-          />
-
-          <V2HomeChartSection
-            chart={model.chart}
-            categoryColor={categoryColor}
-            category={model.selectedAnchor!.category}
-            expanded={model.chart.state === 'ready' && model.vision.state !== 'ready'}
-            onOpenChart={handleOpenChart}
-            onRetry={refreshChartModel}
-          />
-
-          {model.vision.state !== 'ready' && model.chart.state !== 'ready' ? (
+          {hasVision ? (
+            <V2HomeVisionSection
+              vision={model.vision}
+              categoryColor={categoryColor}
+              onOpenVision={handleOpenVision}
+            />
+          ) : (
             <V2HomeProgressSection
               progress={model.progress}
               thread={model.thread}
               categoryColor={categoryColor}
               onOpenProgress={handleOpenProgress}
             />
-          ) : null}
-          <V2HomeRecentActivitySection items={model.recentActivity ?? []} />
+          )}
 
-          {isWithinWeeklyInsightReviewWindow() ? (
-            <View testID="v2-home-weekly-review" style={styles.weeklyReview}>
-              <Pressable accessibilityRole="button" accessibilityLabel="Open Weekly Review" onPress={intents.onOpenWeeklyInsight}>
-                <Text style={styles.weeklyReviewText}>Weekly Review  →</Text>
-              </Pressable>
-            </View>
-          ) : null}
+          <V2HomeChartSection
+            chart={model.chart}
+            categoryColor={categoryColor}
+            category={model.selectedAnchor!.category}
+            expanded={model.chart.state === 'ready' && !hasVision}
+            onOpenChart={handleOpenChart}
+            onRetry={refreshChartModel}
+          />
+
+          <V2HomeRecentActivitySection items={model.recentActivity ?? []} onViewAll={handleOpenProgress} />
         </Animated.View>
 
         {/* Keeps the graphite field unbroken under an overscroll bounce. */}
@@ -612,17 +611,6 @@ const styles = StyleSheet.create({
     marginTop: -2,
     marginBottom: -400,
     backgroundColor: colors.graphite.base,
-  },
-  weeklyReview: {
-    marginTop: 14,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.graphite.hairline,
-  },
-  weeklyReviewText: {
-    fontFamily: typography.bodyMedium,
-    fontSize: 12,
-    color: colors.graphite.text.secondary,
   },
   statusZone: {
     paddingHorizontal: PAGE_INSET,

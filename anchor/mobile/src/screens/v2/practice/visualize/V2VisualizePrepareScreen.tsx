@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, useWindowDimensions, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useV2ReduceMotion } from '@/hooks/v2';
@@ -7,7 +7,9 @@ import { ArrowRight, Eye } from 'lucide-react-native';
 import { V2Button } from '@/components/v2';
 import { anchorRenderProps } from '@/components/v2/anchors/anchorPresentation';
 import { VisionHeaderRow, VisionIdentity, VisionInkBand } from '@/components/v2/vision/VisionChrome';
-import { VisionPhoto } from '@/components/v2/vision/VisionPhoto';
+import { VisionBoardScene } from '@/components/v2/vision/board/VisionBoardScene';
+import { useVisionBoardScene } from '@/components/v2/vision/board/useVisionBoardScene';
+import { boardSizeForWidth, VISION_BOARD_MAX_IMAGES } from '@/components/v2/vision/board/visionBoardLayouts';
 import { v2PracticeDurationLabel } from '@/constants/v2/practice';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { colors, radii, spacing, typography } from '@/theme/v2';
@@ -45,6 +47,10 @@ const ACCENT = practiceColors.visualize;
  * Sound and haptics apply to this session only; saved defaults are untouched.
  */
 export function V2VisualizePrepareScreen({ anchor, statement, tiles, initialDuration, onBack, onOpenVision, onBegin, anchorHandoff = false }: Props) {
+  const [prototypeOpen, setPrototypeOpen] = useState(false);
+  // Do not initialize Skia or mount the diagnostic reel during a real session.
+  const Prototype = __DEV__ && prototypeOpen
+    ? require('./prototype/VisualizeSignaturePrototype').VisualizeSignaturePrototype : null;
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const defaults = useSettingsStore(state => state.sessionAudioDefaults?.visualize);
@@ -56,11 +62,13 @@ export function V2VisualizePrepareScreen({ anchor, statement, tiles, initialDura
   );
   const [soundOn, setSoundOn] = useState(savedVoice !== 'none' || savedAmbient !== 'off');
   const [hapticsOn, setHapticsOn] = useState((hapticIntensity ?? 70) > 0);
+  // Visualize keeps the saved SVG as its only Anchor source across identity,
+  // transition, board, and cinematic stage. Do not substitute raster/expression art.
   const art = useMemo(() => anchorRenderProps(anchor), [anchor]);
-  // The identity mark is where the Anchor rests in setup, and what travels into the Vision.
   const place = useAnchorTransitionPlace('practiceSetup', anchor.id, 'paper', { measureDelayMs: Platform.OS === 'android' ? 120 : 0 });
-  const cover = tiles.find(tile => Boolean(tile.imageUrl))?.imageUrl ?? null;
-  const photoHeight = Math.round(Math.min((width - spacing[5] * 2) * 0.72, height * 0.36));
+  const boardTiles = useMemo(() => tiles.filter(tile => Boolean(tile.imageUrl)).slice(0, VISION_BOARD_MAX_IMAGES), [tiles]);
+  const boardSize = useMemo(() => boardSizeForWidth(width - spacing[5] * 2), [width]);
+  const board = useVisionBoardScene(boardTiles, boardSize);
 
   // Decode every Vision image now, so the session never shows one loading.
   const imageUrls = useMemo(() => tiles.map(tile => tile.imageUrl).filter((uri): uri is string => Boolean(uri)), [tiles]);
@@ -87,21 +95,27 @@ export function V2VisualizePrepareScreen({ anchor, statement, tiles, initialDura
 
   return (
     <View testID="v2-practice-prepare-visualize" style={styles.root}>
+      {Prototype && <Modal visible animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={() => setPrototypeOpen(false)}>
+        <Prototype anchor={anchor} tiles={tiles} onClose={() => setPrototypeOpen(false)} />
+      </Modal>}
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <VisionInkBand>
           <View style={styles.band}>
             <VisionHeaderRow title="Visualize" onBack={onBack} backLabel="Back to Practice" />
+            {__DEV__ && <Pressable accessibilityRole="button" accessibilityLabel="Open cinematic transition prototype"
+              onPress={() => setPrototypeOpen(true)} style={{ minHeight: 44, justifyContent: 'center' }}>
+              <Text style={styles.label}>DEV · Cinematic transition prototype</Text>
+            </Pressable>}
             <VisionIdentity intention={anchor.intentionText} category={anchor.category} art={art} artworkPlace={place} />
             <Text accessibilityRole="header" style={styles.title}>Rehearse{'\n'}the future.</Text>
             <Text style={styles.subtitle}>Step into the moments you’ve created and let them feel real.</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="Open this Anchor’s Vision" disabled={!onOpenVision}
               onPress={() => onOpenVision?.(anchor.id)} style={({ pressed }) => [pressed && styles.pressed]}>
-              <VisionPhoto testID="v2-visualize-prepare-vision" source={cover} scrim="bottom" style={[styles.photo, { height: photoHeight }]}>
-                <View style={styles.caption}>
-                  <Text style={styles.captionKicker}>YOUR VISION</Text>
-                  <Text numberOfLines={3} style={styles.statement}>{statement}</Text>
-                </View>
-              </VisionPhoto>
+              <View testID="v2-visualize-prepare-vision" style={[styles.board, { width: boardSize.width, height: boardSize.height }]}>
+                <VisionBoardScene scene={boardSize} roster={board.roster} entering={board.entering} layout={board.layout}
+                  shared={board.shared} initialRectFor={board.initialRectFor} intention={anchor.intentionText || statement}
+                  category={anchor.category} art={art} reduceMotion onAddPress={onOpenVision ? () => onOpenVision(anchor.id) : undefined} />
+              </View>
             </Pressable>
           </View>
         </VisionInkBand>
@@ -137,7 +151,8 @@ export function V2VisualizePrepareScreen({ anchor, statement, tiles, initialDura
         </View>
       </ScrollView>
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing[3] }]}>
-        <V2Button size="large" accessibilityLabel="Begin Visualize" onPress={begin}
+        {boardTiles.length === 0 ? <Text style={styles.emptyHint}>Add a Vision image before beginning.</Text> : null}
+        <V2Button size="large" accessibilityLabel="Begin Visualize" onPress={begin} disabled={boardTiles.length === 0}
           iconLeft={<Eye size={18} color={ACCENT} />} iconRight={<ArrowRight size={17} color={colors.paper} />}>
           Begin Visualize
         </V2Button>
@@ -154,10 +169,7 @@ const styles = StyleSheet.create({
   // Same display scale as the Vision entrance ("See your future."), so setup reads as one family.
   title: { ...typography.displayMedium, color: colors.ink.text.primary, marginTop: spacing[4] },
   subtitle: { ...typography.bodyLG, color: colors.ink.text.secondary, maxWidth: 320 },
-  photo: { borderRadius: radii.lg, marginTop: spacing[3], justifyContent: 'flex-end' },
-  caption: { padding: spacing[4], gap: spacing[1] },
-  captionKicker: { ...typography.labelSM, fontSize: 10, letterSpacing: 2, color: colors.ink.text.secondary },
-  statement: { ...typography.headingSM, color: colors.ink.text.primary },
+  board: { marginTop: spacing[3], borderRadius: radii.lg, overflow: 'hidden' },
   pressed: { opacity: 0.85 },
   controls: { paddingHorizontal: spacing[5], paddingTop: spacing[4], gap: spacing[2] },
   label: { ...typography.labelSM, fontSize: 10, letterSpacing: 0.8, color: colors.text.secondary },
@@ -171,4 +183,5 @@ const styles = StyleSheet.create({
   toggleLabel: { ...typography.bodyMD, color: colors.text.primary },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border.subtle },
   footer: { paddingHorizontal: spacing[5], paddingTop: spacing[3], backgroundColor: colors.canvas },
+  emptyHint: { ...typography.bodyMD, color: colors.text.secondary, textAlign: 'center', marginBottom: spacing[2] },
 });

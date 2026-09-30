@@ -1,6 +1,6 @@
 import React, { memo, useEffect, useMemo } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import { Image, Pressable, StyleSheet, Text, View, type LayoutRectangle } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
 import { Plus } from 'lucide-react-native';
 import { typography } from '@/theme/v2';
 import type { V2VisionTile } from '@/adapters/v2/vision';
@@ -77,6 +77,13 @@ export type VisionBoardSceneProps = {
   /** Empty board: tasteful placeholders where the first photos will go. */
   onAddPress?: () => void;
   anchorTestID?: string;
+  cinematic?: {
+    photoId: string;
+    photoOpacity: SharedValue<number>;
+    paperOpacity?: SharedValue<number>;
+    pinOpacity?: SharedValue<number>;
+    onMarkLayout: (rect: LayoutRectangle) => void;
+  };
 };
 
 /**
@@ -87,7 +94,7 @@ export type VisionBoardSceneProps = {
 export const VisionBoardScene = memo(function VisionBoardScene({
   scene, roster, entering, layout, shared, initialRectFor, intention, category, art, reduceMotion,
   interactive = false, dragEnabled = false, onPhotoPress, onCardPress, onBackgroundPress, onDragActive, onSwap,
-  onOrderCommit, onPhotoExited, onMovePhoto, onAddPress, anchorTestID,
+  onOrderCommit, onPhotoExited, onMovePhoto, onAddPress, anchorTestID, cinematic,
 }: VisionBoardSceneProps) {
   const cardRect = useMemo(() => toSceneRect(layout.card, scene), [layout.card, scene]);
   const decorByAsset = useMemo(() => new Map(layout.decor.map(item => [item.asset, item])), [layout.decor]);
@@ -127,6 +134,7 @@ export const VisionBoardScene = memo(function VisionBoardScene({
             testID={`vision-board-photo-${tile.sceneId}`}
             sceneId={tile.sceneId}
             imageUrl={tile.imageUrl}
+            cinematicOpacity={cinematic?.photoId === tile.sceneId ? cinematic.photoOpacity : undefined}
             accessibilityLabel={`Vision image ${index + 1} of ${activeCount}`}
             initialRect={initialRectFor(tile.sceneId)}
             entering={entering.has(tile.sceneId)}
@@ -147,7 +155,9 @@ export const VisionBoardScene = memo(function VisionBoardScene({
         );
       })}
       <VisionBoardIntentionCard rect={cardRect} intention={intention} category={category} art={art}
-        reduceMotion={reduceMotion} onPress={interactive ? onCardPress : undefined} anchorTestID={anchorTestID} />
+        reduceMotion={reduceMotion} onPress={interactive ? onCardPress : undefined} anchorTestID={anchorTestID}
+        hideMark={Boolean(cinematic)} onMarkLayout={cinematic?.onMarkLayout}
+        paperOpacity={cinematic?.paperOpacity} pinOpacity={cinematic?.pinOpacity} />
     </View>
   );
 });
