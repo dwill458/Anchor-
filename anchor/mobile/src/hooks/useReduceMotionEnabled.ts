@@ -58,5 +58,7 @@ export const useReduceMotionEnabled = (): boolean => {
  * collapse a timeline whose JavaScript stages are still running.
  */
 export const useCreationReduceMotion = (): boolean => {
-  return useReduceMotionEnabled();
+  const preference = useReduceMotionEnabled();
+  const system = useSystemReduceMotionEnabled();
+  return preference || system;
 };

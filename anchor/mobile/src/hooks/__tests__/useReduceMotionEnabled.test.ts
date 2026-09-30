@@ -33,14 +33,14 @@ describe.each([
     await waitFor(() => expect(result.current).toBe(true));
   });
 
-  it('ignores the system flag when the user turned reduce motion off', async () => {
+  it('honours the OS flag during creation even with the in-app preference off', async () => {
     mockIsReduceMotionEnabled.mockResolvedValue(true);
     useSettingsStore.setState({ reduceMotion: 'off' });
 
     const { result } = renderHook(() => useMotionPreference());
 
     await waitFor(() => expect(mockIsReduceMotionEnabled).toHaveBeenCalled());
-    expect(result.current).toBe(false);
+    await waitFor(() => expect(result.current).toBe(_name === 'useCreationReduceMotion'));
   });
 
   it('reduces motion when the user turned it on despite the system flag being off', async () => {

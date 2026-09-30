@@ -308,7 +308,9 @@ export const FormationLayer = memo(function FormationLayer({
         {reduceMotion ? <AnchorMark svg={svg} size={size} strokeColor={colors.paper} /> : (
           <EtchedStroke points={formation.vertices} size={size} progress={trace} color={colors.paper} activeTip width={size * 0.012} />
         )}
-        {/* // DEFERRED: uniform AnchorMark trace replaced by pressure ink during formation only. */}
+        {/* // DEFERRED: uniform trace replaced by pressure ink during formation only.
+        <AnchorMark svg={svg} size={size} strokeColor={colors.paper} drawProgress={reduceMotion ? undefined : trace} />
+        */}
       </Animated.View>
       {formation.vertices.map((vertex, index) => (
         <VertexPoint
@@ -325,7 +327,9 @@ export const FormationLayer = memo(function FormationLayer({
           accent={accent}
         />
       ))}
-      {/* // DEFERRED: pen dot replaced by a gold hairline trailing the stroke tip. */}
+      {/* // DEFERRED: pen dot replaced by a gold hairline trailing the stroke tip.
+      {reduceMotion ? null : <Animated.View style={[styles.pen, penStyle]} />}
+      */}
     </View>
   );
 });

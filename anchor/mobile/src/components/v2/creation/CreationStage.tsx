@@ -62,11 +62,12 @@ import type { DistillationStage } from './distillationMotion';
 import { ExpressionPreview } from './ExpressionPreview';
 import { ExpressionLibrary } from './ExpressionLibrary';
 import { styleOption, creationStyleLibrary, type CreationStyleOption } from './expressionOptions';
-import { FormationLayer, MappingTokens, type StagePoint } from './FormationLayer';
+import { FormationLayer, MappingTokens, kameaGeometry, type StagePoint } from './FormationLayer';
 import { FormationSheet } from './FormationSheet';
 import { DraftingSurface } from './DraftingSurface';
 import { draftingInk, draftingCopyOpacity } from './draftingTone';
 import { CandidatePager } from './CandidatePager';
+import { lockSeal, unlockSeal } from './sealCommitment';
 import { GenerationEtching } from './GenerationEtching';
 import { FOIL_STOPS } from '@/components/v2/anchor/anchorExpressions';
 import { useAudio } from '@/hooks/useAudio';
@@ -185,6 +186,9 @@ export function CreationStage({
   onHandoff,
 }: CreationStageProps) {
   const step = draft.currentStep;
+  const [sealCommitted, setSealCommitted] = useState(false);
+  const sealRect = useRef<WindowRect | null>(null);
+  useEffect(() => () => unlockSeal(draft.draftId), [draft.draftId]);
   const { createManagedPlayer } = useAudio();
   // Optional drone deliberately stays silent until the real asset is supplied.
   const FORGE_DRONE_ENABLED = false;
@@ -282,13 +286,14 @@ export function CreationStage({
     // The "YOUR STRUCTURE" label sits above the mark on Expression; the mark keeps clear of it.
     const labelRoom = scene === 'expression' ? STAGE_LABEL_ROOM : 0;
     const room = { width: stage.width, height: Math.max(0, stage.height - (lifted ? LETTER_ROW * 2 : 0) - (scene === 'handoff' ? 40 : 0) - labelRoom) };
+    const gridShare = formation ? kameaGeometry(formation).side / 100 : KAMEA_CORE;
     const scale = lifted
-      ? Math.min(stage.width / (markSize * KAMEA_CORE), Math.max(0.24, room.height / (markSize * KAMEA_CORE)))
+      ? Math.min(stage.width / (markSize * gridShare), Math.max(0.24, room.height / (markSize * gridShare)))
       : stageFitScale(room, markSize, core);
     const centerY = stage.height / 2 + (lifted ? LETTER_ROW / 2 : 0) - (scene === 'handoff' ? 20 : 0) + labelRoom / 2;
     const visible = stage.height >= MIN_STAGE_FOR_MARK && scene !== 'distillation' && !(scene === 'handoff' && keptCandidate);
     return { scale, top: centerY - markSize / 2, centerY, visible };
-  }, [keptCandidate, markSize, shown, stage, target]);
+  }, [formation, keptCandidate, markSize, shown, stage, target]);
   const placementRef = useRef(placement);
   placementRef.current = placement;
 
@@ -626,6 +631,10 @@ export function CreationStage({
     // stage keeps its size so nothing under it moves.
     if (!keptCandidateRef.current) handoffTimers.current.push(setTimeout(() => setShown('handoff'), fade));
     handoffTimers.current.push(setTimeout(() => {
+      if (sealRect.current) {
+        onHandoffRef.current(reduceMotion ? null : sealRect.current);
+        return;
+      }
       const view = stageRef.current;
       if (!view || typeof view.measureInWindow !== 'function') {
         onHandoffRef.current(null);
@@ -801,7 +810,7 @@ export function CreationStage({
     AccessibilityInfo.announceForAccessibility(spokenStatus);
   }, [spokenStatus]);
   const saving = draft.saveState === 'saving';
-  const canGoBack = !replay && (step === 'distillation' || step === 'formation' || step === 'reveal' || step === 'expression' || step === 'generating' || step === 'choose') && !saving;
+  const canGoBack = !replay && (step === 'distillation' || step === 'formation' || step === 'reveal' || step === 'expression' || step === 'generating' || step === 'choose') && !saving && !sealCommitted;
   const [sheetOpen, setSheetOpen] = useState(false);
   const [stillnessCancelled, setStillnessCancelled] = useState(false);
   const stillnessPlayed = useRef(false);
@@ -812,9 +821,10 @@ export function CreationStage({
       const tone = createManagedPlayer('forge-seal', { volume: 0.28 });
       tone?.play();
     }
-    const timer = setTimeout(onOpenExpression, 1500);
+    const wipeRemaining = !reduceMotion && iris.value < 1 ? 400 : 0;
+    const timer = setTimeout(onOpenExpression, 1500 + wipeRemaining);
     return () => clearTimeout(timer);
-  }, [createManagedPlayer, onOpenExpression, replay, sheetOpen, shown, step, stillnessCancelled]);
+  }, [createManagedPlayer, iris, onOpenExpression, reduceMotion, replay, sheetOpen, shown, step, stillnessCancelled]);
   const categoryText = getCategoryTextColor(draft.category, colors.canvas, colors.text.primary);
   const intention = draft.normalizedIntention ?? draft.intention;
   const keepingOriginal = draft.expression === 'original';
@@ -901,6 +911,7 @@ export function CreationStage({
                 ) : null}
               </View>
             ) : null}
+            {/* // DEFERRED: the old keep button; completion now comes from the selected medallion.
             <V2Button
               size="large"
               style={styles.cta}
@@ -912,6 +923,10 @@ export function CreationStage({
             >
               {chooseFailure === 'second_anchor' ? PRO_LABEL : chooseFailure ? 'Try again' : CHOOSE_COPY.keep}
             </V2Button>
+            */}
+            {chooseFailure ? <V2Button size="large" loading={saving} disabled={chooseFailure === 'limit'}
+              onPress={() => chooseFailure === 'second_anchor' && onPaywall ? onPaywall() : onKeep()}
+              testID="seal-save-retry">{chooseFailure === 'second_anchor' ? PRO_LABEL : 'Try again'}</V2Button> : null}
           </View>
         );
       }
@@ -1056,7 +1071,9 @@ export function CreationStage({
               {showGenerationLayers && !inGeneration ? (
                 <>
                   <Animated.View style={[styles.disc, { width: discSize, height: discSize, borderRadius: discSize / 2, left: (markSize - discSize) / 2, top: (markSize - discSize) / 2 }, discStyle]} />
-                  {/* // DEFERRED: outer breathing ring removed; surface etching owns the wait. */}
+                  {/* // DEFERRED: outer breathing ring; surface etching owns the wait.
+                  <Animated.View style={[styles.discRing, { width: discSize + 18, height: discSize + 18, borderRadius: (discSize + 18) / 2, left: (markSize - discSize - 18) / 2, top: (markSize - discSize - 18) / 2 }, breathStyle]} />
+                  */}
                 </>
               ) : null}
               {forming && formation ? (
@@ -1082,7 +1099,11 @@ export function CreationStage({
                   color={lookTint ?? (lookExpression === 'foil' ? FOIL_STOPS[1].color : colors.ink.base)}
                   requestId={draft.generationRequestId} running={developing} reduceMotion={reduceMotion} />
               ) : null}
-              {/* // DEFERRED: static developing circle and uniform retrace replaced by expression etching. */}
+              {/* // DEFERRED: uniform retrace replaced by expression etching.
+              <Animated.View style={[StyleSheet.absoluteFill, inkStyle]}>
+                <AnchorMark svg={svg} size={markSize} strokeColor={colors.ink.text.primary} drawProgress={retrace} />
+              </Animated.View>
+              */}
             </Animated.View>
           ) : null}
 
@@ -1109,6 +1130,10 @@ export function CreationStage({
               stage={stage}
               disabled={saving || step !== 'choose'}
               reduceMotion={reduceMotion}
+              points={formation?.vertices ?? []}
+              onKeep={onKeep}
+              onCommitted={() => { lockSeal(draft.draftId); setSealCommitted(true); }}
+              onMeasure={(rect) => { sealRect.current = rect; }}
               onSelect={(index) => {
                 v2Haptics.selection();
                 onSelectCandidate(index);
@@ -1398,11 +1423,11 @@ const styles = StyleSheet.create({
   link: { alignSelf: 'center', paddingVertical: spacing[1] },
   linkText: { ...typography.labelMD, color: colors.text.secondary, textDecorationLine: 'underline' },
   hudContainer: { position: 'absolute', top: 12, right: 12, zIndex: 9999 },
-  hudPill: { backgroundColor: 'rgba(0,0,0,0.75)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  hudPillText: { color: '#FFF', fontSize: 11, fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }) },
-  hudPanel: { backgroundColor: 'rgba(20,20,20,0.92)', padding: 10, borderRadius: 8, marginTop: 4, width: 280, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 6, elevation: 8 },
-  hudHeader: { color: '#AAA', fontSize: 10, marginBottom: 6, fontWeight: '700' },
+  hudPill: { backgroundColor: colors.ink.deep, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  hudPillText: { color: colors.paper, fontSize: 11, fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }) },
+  hudPanel: { backgroundColor: colors.ink.raised, padding: 10, borderRadius: 8, marginTop: 4, width: 280, shadowColor: colors.ink.deep, shadowOpacity: 0.3, shadowRadius: 6, elevation: 8 },
+  hudHeader: { color: colors.ink.text.secondary, fontSize: 10, marginBottom: 6, fontWeight: '700' },
   hudRow: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 2 },
-  hudStep: { color: '#EEE', fontSize: 10, flex: 1 },
-  hudTime: { color: '#6EE7B7', fontSize: 10, fontWeight: '600', marginLeft: 8 },
+  hudStep: { color: colors.ink.text.primary, fontSize: 10, flex: 1 },
+  hudTime: { color: colors.paper, fontSize: 10, fontWeight: '600', marginLeft: 8 },
 });

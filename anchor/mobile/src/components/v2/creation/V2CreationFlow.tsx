@@ -9,7 +9,8 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { GENERATION_ERRORS, useCreationStore, whenCreationHydrated, type CreationDraft, type SaveFailure } from '@/stores/v2/creationStore';
 import { CreationStage, type WindowRect } from './CreationStage';
 import { CREATION_PACE, GENERATION_TIMING } from './creationMotion';
-import { startEtching, finishEtching, etchingRevealDelay } from './generationPerformance';
+import { ETCHING, startEtching, finishEtching, requestEtchingCut } from './generationPerformance';
+import { sealIsCommitted } from './sealCommitment';
 import { IntentionStep, type IntentionSuggestionContext } from './IntentionStep';
 
 export { sanitizeIntention } from './IntentionStep';
@@ -156,6 +157,7 @@ export function V2CreationFlow({ saveAnchor, generateExpression, onComplete, onP
   }, [step]);
 
   const goBack = useCallback(() => {
+    if (sealIsCommitted(store.getState().draft?.draftId)) return;
     if (store.getState().goBack()) return;
     if (store.getState().draft?.currentStep === 'intention') onExit?.();
   }, [onExit, store]);
@@ -232,7 +234,8 @@ export function V2CreationFlow({ saveAnchor, generateExpression, onComplete, onP
       // Nothing is revealed until it exists and can be shown: the images are decoded first,
       // and ordinary latency is covered by the development sequence already on screen.
       await imagesReady(fresh.map((candidate) => candidate.imageUrl), GENERATION_TIMING.imageWait);
-      await wait(etchingRevealDelay(Date.now() - startedAt));
+      await wait(ETCHING.minimum - (Date.now() - startedAt));
+      if (!reduceMotionRef.current) await requestEtchingCut(plan.requestId);
       finishEtching(plan.requestId);
       store.getState().completeGeneration(plan.requestId, fresh, result.metadata);
       const after = store.getState().draft;

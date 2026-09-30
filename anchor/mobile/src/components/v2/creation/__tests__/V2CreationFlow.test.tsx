@@ -56,6 +56,20 @@ beforeEach(() => {
 });
 
 describe('V2CreationFlow', () => {
+  it('holds the stillness beat then advances without the old button', () => {
+    jest.useFakeTimers(); seed(draftAt({ currentStep: 'reveal' }));
+    const { screen } = setup();
+    expect(screen.queryByTestId('reveal-continue')).toBeNull();
+    act(() => jest.advanceTimersByTime(1499)); expect(current().currentStep).toBe('reveal');
+    act(() => jest.advanceTimersByTime(1)); expect(current().currentStep).toBe('expression');
+    jest.useRealTimers();
+  });
+  it('cancels automatic advance when the formation link is opened', () => {
+    jest.useFakeTimers(); seed(draftAt({ currentStep: 'reveal' }));
+    const { screen } = setup(); fireEvent.press(screen.getByTestId('reveal-how-formed'));
+    act(() => jest.advanceTimersByTime(3000)); expect(current().currentStep).toBe('reveal');
+    jest.useRealTimers();
+  });
   it('starts at intention and preserves the established guidance', () => {
     const { screen } = setup();
     expect(screen.getByTestId('v2-creation-intention')).toBeTruthy();
@@ -147,7 +161,10 @@ describe('V2CreationFlow', () => {
     expect(current().selectedCandidateIndex).toBe(0);
     fireEvent.press(screen.getByTestId('candidate-1'));
     expect(current().selectedCandidateIndex).toBe(1);
-    await act(async () => fireEvent.press(screen.getByTestId('choose-keep')));
+    jest.useFakeTimers();
+    await act(async () => fireEvent(screen.getByTestId('seal-hold'), 'pressIn'));
+    await act(async () => jest.advanceTimersByTime(4000));
+    jest.useRealTimers();
     expect(props.saveAnchor).toHaveBeenCalledWith(expect.objectContaining({ draft: expect.objectContaining({ enhancedImageUrl: CANDIDATES[1].imageUrl, structureSvg: STRUCTURE }) }));
   });
 
@@ -186,12 +203,15 @@ describe('V2CreationFlow', () => {
       .mockResolvedValueOnce({ anchorId: 'server-anchor-1' });
     const { screen, props, layoutStage } = setup({ saveAnchor });
     layoutStage();
-    await act(async () => fireEvent.press(screen.getByTestId('choose-keep')));
+    jest.useFakeTimers();
+    await act(async () => fireEvent(screen.getByTestId('seal-hold'), 'pressIn'));
+    await act(async () => jest.advanceTimersByTime(4000));
+    jest.useRealTimers();
     expect(current().saveFailure).toBe('auth');
     expect(screen.getByTestId('choose-sign-in')).toBeTruthy();
     // Back from signing in, Keep still works and saves the chosen interpretation.
-    expect(screen.getByTestId('choose-keep').props.accessibilityState).toMatchObject({ disabled: false });
-    await act(async () => fireEvent.press(screen.getByTestId('choose-keep')));
+    expect(screen.getByTestId('seal-save-retry').props.accessibilityState).toMatchObject({ disabled: false });
+    await act(async () => fireEvent.press(screen.getByTestId('seal-save-retry')));
     expect(saveAnchor).toHaveBeenCalledTimes(2);
     expect(current().anchorPersisted).toBe(true);
     await waitFor(() => expect(props.onComplete).toHaveBeenCalledTimes(1), { timeout: 3000 });

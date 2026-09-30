@@ -29,6 +29,8 @@ export type ManagedAudioPlayer = {
 
 export function useAudio() {
   const soundEffectsEnabled = useSettingsStore((state) => state.soundEffectsEnabled);
+  const enabledRef = useRef(soundEffectsEnabled);
+  enabledRef.current = soundEffectsEnabled;
   const activePlayersRef = useRef<Set<AudioPlayer>>(new Set());
 
   const cleanupPlayer = useCallback((player: AudioPlayer, subscription?: { remove: () => void }) => {
@@ -85,7 +87,7 @@ export function useAudio() {
       key: SoundKey,
       { loop = false, onFinish, volume = 1 }: ManagedAudioPlayerOptions = {}
     ): ManagedAudioPlayer | null => {
-      if (!soundEffectsEnabled) {
+      if (!enabledRef.current) {
         return null;
       }
 
