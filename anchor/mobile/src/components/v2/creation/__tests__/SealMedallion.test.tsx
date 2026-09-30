@@ -1,5 +1,5 @@
 import React from 'react';
-import { AccessibilityInfo, PanResponder, View } from 'react-native';
+import { AccessibilityInfo, View } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import { SealMedallion } from '../SealMedallion';
 import { AnalyticsService } from '@/services/AnalyticsService';
@@ -19,8 +19,8 @@ beforeEach(() => {
   useSettingsStore.setState({ soundEffectsEnabled: true });
 });
 afterEach(() => { jest.clearAllTimers(); jest.useRealTimers(); jest.restoreAllMocks(); });
-it('holds for 1.2 seconds, shows provenance, and invokes keep once after its beat', async () => {
-  const { props, screen } = setup();
+it.each([true, false])('holds for 1.2 seconds in reduced-motion=%s and invokes keep once', async (reduceMotion) => {
+  const { props, screen } = setup(reduceMotion);
   await act(async () => {});
   fireEvent(screen.getByTestId('seal-hold'), 'pressIn');
   act(() => jest.advanceTimersByTime(1199));
@@ -28,7 +28,7 @@ it('holds for 1.2 seconds, shows provenance, and invokes keep once after its bea
   act(() => jest.advanceTimersByTime(17));
   expect(props.onCommitted).toHaveBeenCalledTimes(1);
   fireEvent(screen.getByTestId('seal-hold'), 'pressOut');
-  act(() => jest.advanceTimersByTime(230));
+  act(() => jest.advanceTimersByTime(600));
   expect(screen.getByTestId('seal-provenance').props.children).toMatch(/^Anchor No\. \d+ · Forged /);
   expect(props.onKeep).not.toHaveBeenCalled();
   act(() => jest.advanceTimersByTime(2000));
@@ -70,34 +70,12 @@ it('uses the hold for a screen reader even with full motion', async () => {
   expect(screen.getByTestId('seal-hold')).toBeTruthy();
   expect(screen.queryByTestId('seal-trace')).toBeNull();
 });
-it('traces the ordered guide and calls keep exactly once', async () => {
-  jest.spyOn(PanResponder, 'create').mockImplementation((config) => ({ panHandlers: {
-    onResponderGrant: config.onPanResponderGrant, onResponderMove: config.onPanResponderMove, onResponderRelease: config.onPanResponderRelease,
-  } }) as ReturnType<typeof PanResponder.create>);
+it('uses hold in full motion without showing any trace interaction or hint', async () => {
   const { props, screen } = setup(false); await act(async () => {});
-  const guide = screen.getByTestId('seal-trace');
-  const event = (x: number) => ({ nativeEvent: { locationX: x, locationY: 42.4 } });
-  fireEvent(guide, 'responderGrant', event(42.4));
-  for (const x of [80, 120, 157.6]) fireEvent(guide, 'responderMove', event(x));
-  expect(props.onCommitted).toHaveBeenCalledTimes(1);
-  fireEvent(guide, 'responderMove', event(157.6));
-  fireEvent(guide, 'responderRelease', event(157.6));
-  act(() => jest.advanceTimersByTime(3000));
+  expect(screen.getByText('Hold to seal.')).toBeTruthy();
+  expect(screen.queryByTestId('seal-trace')).toBeNull();
+  expect(screen.queryByText('Trace to seal.')).toBeNull();
+  fireEvent(screen.getByTestId('seal-hold'), 'pressIn');
+  act(() => jest.advanceTimersByTime(4000));
   expect(props.onKeep).toHaveBeenCalledTimes(1);
-  expect(AnalyticsService.track).toHaveBeenCalledWith('anchor_seal_started');
-});
-it('decays an unfinished trace and releases its interaction lock', async () => {
-  jest.spyOn(PanResponder, 'create').mockImplementation((config) => ({ panHandlers: {
-    onResponderGrant: config.onPanResponderGrant, onResponderMove: config.onPanResponderMove, onResponderRelease: config.onPanResponderRelease,
-  } }) as ReturnType<typeof PanResponder.create>);
-  const { props, screen } = setup(false); await act(async () => {});
-  const guide = screen.getByTestId('seal-trace');
-  fireEvent(guide, 'responderGrant', { nativeEvent: { locationX: 42.4, locationY: 42.4 } });
-  fireEvent(guide, 'responderMove', { nativeEvent: { locationX: 80, locationY: 42.4 } });
-  fireEvent(guide, 'responderRelease', {});
-  act(() => jest.advanceTimersByTime(399));
-  expect(props.onInteraction).toHaveBeenLastCalledWith(true);
-  act(() => jest.advanceTimersByTime(1));
-  expect(props.onInteraction).toHaveBeenLastCalledWith(false);
-  expect(props.onKeep).not.toHaveBeenCalled();
 });

@@ -157,6 +157,11 @@ describe('V2CreationFlow', () => {
     expect(screen.queryByTestId('choose-retry')).toBeNull();
     expect(screen.getByTestId('candidate-0')).toBeTruthy();
     expect(screen.getByTestId('candidate-1')).toBeTruthy();
+    expect(screen.getByTestId('candidate-pair')).toBeTruthy();
+    expect(screen.queryByTestId('candidate-pager')).toBeNull();
+    expect(screen.getByText('Form I')).toBeTruthy();
+    expect(screen.getByText('Form II')).toBeTruthy();
+    expect(screen.queryByTestId('seal-trace')).toBeNull();
     // Form I is selected on arrival; saving still requires commitment.
     expect(current().selectedCandidateIndex).toBe(0);
     fireEvent.press(screen.getByTestId('candidate-1'));

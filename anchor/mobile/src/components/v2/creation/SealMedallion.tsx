@@ -1,42 +1,26 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, AppState, PanResponder, Pressable, StyleSheet, Text, View, type GestureResponderEvent } from 'react-native';
-import { Canvas, Circle, DashPathEffect, Path, Skia } from '@shopify/react-native-skia';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useAudio, type ManagedAudioPlayer } from '@/hooks/useAudio';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { colors, typography } from '@/theme/v2';
-import { colors as appColors } from '@/theme';
 import { useAnchorStore } from '@/stores/anchorStore';
 import type { AnchorPoint } from '@/components/v2/anchor/anchorStructure';
 import { PAPER_ART_SHARE, creationSequence, creationTiming } from './creationMotion';
 import { SurfaceSweep } from './SurfaceSweep';
-import { advanceSeal, nearSealStart, sealPath } from './sealGeometry';
 
 const track = (event: string) => { try { AnalyticsService.track(event); } catch { /* non-critical */ } };
 const impact = (style: Haptics.ImpactFeedbackStyle) => { void Haptics.impactAsync(style).catch(() => {}); };
 
-export function SealMedallion({ children, points, size, active, disabled, reduceMotion, onKeep, onInteraction, onCommitted, onMeasure }: {
+export function SealMedallion({ children, size, active, disabled, reduceMotion, onKeep, onInteraction, onCommitted, onMeasure }: {
   children: React.ReactNode; points: AnchorPoint[]; size: number; active: boolean; disabled: boolean; reduceMotion: boolean;
   onKeep: () => void; onInteraction: (locked: boolean) => void; onCommitted: () => void;
   onMeasure: (rect: { x: number; y: number; width: number; height: number }) => void;
 }) {
   const { createManagedPlayer, playSound } = useAudio();
   const count = useAnchorStore((state) => state.anchors.length);
-  const [screenReader, setScreenReader] = useState(false);
-  useEffect(() => {
-    let alive = true;
-    void AccessibilityInfo.isScreenReaderEnabled().then((enabled) => { if (alive) setScreenReader(enabled); }).catch(() => {});
-    const subscription = AccessibilityInfo.addEventListener('screenReaderChanged', setScreenReader);
-    return () => { alive = false; subscription.remove(); };
-  }, []);
-  const geometry = useMemo(() => sealPath(points, size, PAPER_ART_SHARE), [points, size]);
-  const fallback = reduceMotion || screenReader || geometry.total <= 0;
-  const drawnPath = useMemo(() => {
-    const path = Skia.Path.Make();
-    geometry.points.forEach((p, i) => { if (i === 0) path.moveTo(p.x, p.y); else path.lineTo(p.x, p.y); });
-    return path;
-  }, [geometry]);
+  // DEFERRED: tracing and its dotted guide. Every user now holds the selected form.
   const progress = useSharedValue(0);
   const press = useSharedValue(1);
   const pressStyle = useAnimatedStyle(() => ({ transform: [{ scale: press.value }] }));
@@ -102,11 +86,9 @@ export function SealMedallion({ children, points, size, active, disabled, reduce
     tone.current = createManagedPlayer('haptic-tone', { loop: true, volume: 0.08 });
     tone.current?.setRate(0.65); tone.current?.play();
     impact(Haptics.ImpactFeedbackStyle.Light);
-    if (fallback) {
-      const start = Date.now();
-      hold.current = setInterval(() => { const fraction = Math.min(1, (Date.now() - start) / 1200); distance.current = fraction; update(fraction); }, 16);
-    }
-  }, [active, createManagedPlayer, disabled, fallback, progress, update]);
+    const start = Date.now();
+    hold.current = setInterval(() => { const fraction = Math.min(1, (Date.now() - start) / 1200); distance.current = fraction; update(fraction); }, 16);
+  }, [active, createManagedPlayer, disabled, progress, update]);
   const release = useCallback(() => {
     touching.current = false;
     if (complete.current) return;
@@ -117,18 +99,7 @@ export function SealMedallion({ children, points, size, active, disabled, reduce
       decay.current = null; distance.current = 0; callbacks.current.onInteraction(false);
     }, reduceMotion ? 80 : 400);
   }, [later, progress, reduceMotion, stopHold, stopTone]);
-  const touch = (event: GestureResponderEvent) => ({ x: event.nativeEvent.locationX, y: event.nativeEvent.locationY });
-  const responder = useMemo(() => PanResponder.create({
-    onStartShouldSetPanResponder: (event) => active && !disabled && !complete.current && !fallback && nearSealStart(geometry, touch(event)),
-    onPanResponderGrant: begin,
-    onPanResponderMove: (event) => {
-      if (!touching.current || complete.current || fallback) return;
-      distance.current = advanceSeal(geometry, distance.current, touch(event));
-      update(distance.current / geometry.total);
-    },
-    onPanResponderRelease: release, onPanResponderTerminate: release,
-    onPanResponderTerminationRequest: () => !touching.current,
-  }), [active, begin, disabled, fallback, geometry, release, update]);
+  // DEFERRED: ordered-path PanResponder removed from the active interaction.
   useEffect(() => {
     if (!active && touching.current && !complete.current) release();
   }, [active, release]);
@@ -144,22 +115,15 @@ export function SealMedallion({ children, points, size, active, disabled, reduce
   return <View style={{ width: size }}>
     <Animated.View ref={medallion} collapsable={false} style={[{ width: size, height: size }, pressStyle]}>
       {children}
-      {active ? <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <Canvas style={StyleSheet.absoluteFill}>
-          <Path path={drawnPath} style="stroke" strokeWidth={1.2} color={colors.paper} opacity={0.42}><DashPathEffect intervals={[2, 5]} /></Path>
-          <Path path={drawnPath} style="stroke" strokeWidth={1} color={appColors.gold} end={progress} />
-          {geometry.points[0] ? <Circle cx={geometry.points[0].x} cy={geometry.points[0].y} r={2} color={appColors.gold} /> : null}
-        </Canvas>
-      </View> : null}
-      {active && fallback ? <Pressable style={StyleSheet.absoluteFill} onPressIn={begin} onPressOut={release}
+      {/* // DEFERRED: the dotted trace guide and gold path overlay. */}
+      {active ? <Pressable style={StyleSheet.absoluteFill} onPressIn={begin} onPressOut={release}
         disabled={disabled || complete.current} accessibilityRole="button" accessibilityLabel="Hold to seal."
         accessibilityActions={[{ name: 'activate', label: 'Hold to seal.' }]}
-        onAccessibilityAction={(event) => { if (event.nativeEvent.actionName === 'activate') begin(); }} testID="seal-hold" />
-        : active ? <View style={StyleSheet.absoluteFill} {...responder.panHandlers} testID="seal-trace" /> : null}
+        onAccessibilityAction={(event) => { if (event.nativeEvent.actionName === 'activate') begin(); }} testID="seal-hold" /> : null}
       <SurfaceSweep size={size} play={flash} reduceMotion={reduceMotion} duration={320} />
     </Animated.View>
     {active ? <Text style={styles.hint} testID={provenance ? 'seal-provenance' : 'seal-hint'}>
-      {provenance ?? (complete.current ? '' : fallback ? 'Hold to seal.' : 'Trace to seal.')}
+      {provenance ?? (complete.current ? '' : 'Hold to seal.')}
     </Text> : <Text style={styles.hint}> </Text>}
   </View>;
 }

@@ -1128,6 +1128,11 @@ export function CreationStage({
               candidates={candidates}
               chosen={chosenIndex}
               stage={stage}
+              originSize={discSize * placement.scale}
+              originY={placement.centerY}
+              emerge={emerge}
+              resolve={resolve}
+              handingOff={keptCandidate}
               disabled={saving || step !== 'choose'}
               reduceMotion={reduceMotion}
               points={formation?.vertices ?? []}
