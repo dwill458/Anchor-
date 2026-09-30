@@ -21,6 +21,8 @@ import {
 
 /** The prototypes' shared easing — `cubic-bezier(.2,.75,.2,1)`. */
 export const DISTILL_EASING = Easing.bezier(0.2, 0.75, 0.2, 1);
+/** Reanimated's built-in easing is a worklet; a JS-only lambda crashes native playback. */
+export const DISTILL_GRAVITY = Easing.in(Easing.quad);
 
 /**
  * One continuous reduction of the phrase the user just wrote: hold it whole, drop the

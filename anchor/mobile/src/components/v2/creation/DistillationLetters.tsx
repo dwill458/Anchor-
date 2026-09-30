@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
-import Animated, { interpolate, interpolateColor, useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
+import Animated, { cancelAnimation, interpolate, interpolateColor, useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
 
 import { colors, typography } from '@/theme/v2';
-import { creationDelay, creationSequence, creationTiming } from './creationMotion';
+import { creationDelay, creationTiming } from './creationMotion';
 import {
   buildDistillationRenderModel,
   computeCompactionTargets,
@@ -11,6 +11,7 @@ import {
   estimateCompactionTargets,
   isCellRemoved,
   DISTILL_EASING,
+  DISTILL_GRAVITY,
   DISTILL_TIMING,
   type CompactionTarget,
   type DistillationCell,
@@ -64,8 +65,9 @@ function DistillationLetter({
   const fall = useSharedValue(0);
   useEffect(() => {
     fall.value = removed && !reduceMotion && !instant
-      ? creationDelay(delay, creationTiming(1, { duration: 500, easing: (t: number) => t * t }))
+      ? creationDelay(delay, creationTiming(1, { duration: 500, easing: DISTILL_GRAVITY }))
       : 0;
+    return () => cancelAnimation(fall);
   }, [delay, fall, instant, reduceMotion, removed]);
 
   const handleLayout = useCallback(
@@ -88,17 +90,15 @@ function DistillationLetter({
 
     const travel = { duration: DISTILL_TIMING.compact, easing: DISTILL_EASING };
     if (removed) {
-      // Dim first, so the eye can see which letters are leaving; then withdraw, slightly
-      // smaller and lower — a quiet release, never an error state.
-      const dim = { duration: DISTILL_TIMING.letterDim, easing: DISTILL_EASING };
-      const fade = { duration: DISTILL_TIMING.letterFade, easing: DISTILL_EASING };
+      // One clock owns gravity, rotation, scale and opacity. Reading it must not start
+      // another timing on every frame, which would repeatedly restart the fade.
       return {
-        opacity: creationDelay(delay, creationSequence(creationTiming(DIMMED, dim), creationDelay(DISTILL_TIMING.dimHold, creationTiming(0, fade)))),
+        opacity: interpolate(fall.value, [0, 0.2, 1], [1, DIMMED, 0], 'clamp'),
         transform: [
           { translateX: 0 },
           { translateY: fall.value * 160 },
           { rotate: `${fall.value * (cell.staggerIndex % 2 ? 9 : -9)}deg` },
-          { scale: creationDelay(delay + DISTILL_TIMING.letterDim + DISTILL_TIMING.dimHold, creationTiming(0.84, fade)) },
+          { scale: 1 - fall.value * 0.16 },
         ],
       };
     }
