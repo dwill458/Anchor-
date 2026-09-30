@@ -117,7 +117,7 @@ const MIN_STAGE_FOR_MARK = 76;
 const STAGE_LABEL_ROOM = 22;
 /** The mark inside its paper circle: the circle is what must fit. */
 const DISC_CORE = 1 / PAPER_ART_SHARE;
-const PAPER = '#FBF9F4';
+const PAPER = colors.surface;
 /** The second-Anchor paywall action, the same on every panel and for assistive tech. */
 const PRO_LABEL = 'See Anchor Pro';
 
@@ -259,6 +259,7 @@ export function CreationStage({
   }, [shown]);
 
 
+  // Shared-element fallback: the same mounted mark scales and moves into expressions.
   /* ── stage layout → where and how large the mark sits ─────────────────── */
   const stageRef = useRef<View>(null);
   const [stage, setStage] = useState({ width: 0, height: 0 });
@@ -317,49 +318,35 @@ export function CreationStage({
     return () => clearTimeout(timer);
   }, [distillStage, onFormAnchor, reduceMotion, replay, step]);
 
-  /* ── tonal environment progression (cream <-> ink) ─────────────────────── */
-  const darkTone = useSharedValue(entryStep === 'formation' || entryStep === 'generating' ? 1 : 0);
-  const [darkStatusBar, setDarkStatusBar] = useState(entryStep !== 'formation' && entryStep !== 'generating');
-  useAnimatedReaction(
-    () => darkTone.value < 0.8,
-    (isDark, previous) => {
-      if (isDark !== previous) runOnJS(setDarkStatusBar)(isDark);
-    },
-  );
-
+  /* One ink-to-paper wipe; the later scenes stay in the paper world. */
+  const initiallyDark = entryStep === 'distillation' || entryStep === 'formation';
+  const darkTone = useSharedValue(initiallyDark ? 1 : 0);
+  const iris = useSharedValue(initiallyDark ? 0 : 1);
+  const [darkStatusBar, setDarkStatusBar] = useState(!initiallyDark);
+  const worldStep = useRef<Scene>(entryStep);
   useEffect(() => {
-    if (reduceMotion) {
-      darkTone.value = (target === 'formation' || target === 'generating') ? 1 : 0;
+    const previous = worldStep.current;
+    worldStep.current = target;
+    const dark = target === 'distillation' || target === 'formation';
+    if (dark) {
+      darkTone.value = 1;
+      iris.value = 0;
+      setDarkStatusBar(false);
       return;
     }
-    if (target === 'distillation') {
-      // Room subtly deepens through distillation stages
-      if (distillStage === 'whole') {
-        darkTone.value = creationTiming(0.12, { duration: 900, easing: CREATION_EASING.deliberate });
-      } else if (distillStage === 'vowels') {
-        darkTone.value = creationTiming(0.42, { duration: 1000, easing: CREATION_EASING.deliberate });
-      } else if (distillStage === 'repeats') {
-        darkTone.value = creationTiming(0.75, { duration: 1000, easing: CREATION_EASING.deliberate });
-      } else if (distillStage === 'compact' || distillStage === 'settled') {
-        darkTone.value = creationTiming(1.0, { duration: 900, easing: CREATION_EASING.deliberate });
-      }
-    } else if (target === 'formation') {
-      darkTone.value = creationTiming(1.0, { duration: 500, easing: CREATION_EASING.deliberate });
-    } else if (target === 'reveal') {
-      // Light returns around the finished Anchor
-      darkTone.value = creationTiming(0, { duration: 850, easing: CREATION_EASING.deliberate });
-    } else if (target === 'expression') {
-      darkTone.value = 0;
-    } else if (target === 'generating') {
-      // Return to darkness for material refinement
-      darkTone.value = creationTiming(1.0, { duration: 650, easing: CREATION_EASING.deliberate });
-    } else if (target === 'choose') {
-      // Light returns as two interpretations split
-      darkTone.value = creationTiming(0, { duration: 750, easing: CREATION_EASING.deliberate });
-    } else if (target === 'handoff') {
-      darkTone.value = 0;
+    if (target === 'reveal' && (previous === 'formation' || previous === 'distillation') && !reduceMotion) {
+      iris.value = 0;
+      iris.value = creationTiming(1, { duration: 600, easing: CREATION_EASING.deliberate });
+      const contrast = setTimeout(() => { darkTone.value = 0; setDarkStatusBar(true); }, 280);
+      return () => clearTimeout(contrast);
     }
-  }, [darkTone, distillStage, reduceMotion, target]);
+    iris.value = 1;
+    darkTone.value = 0;
+    setDarkStatusBar(true);
+  }, [darkTone, iris, reduceMotion, target]);
+  const irisDiameter = Math.hypot(viewport.width, viewport.height) * 2;
+  const irisStyle = useAnimatedStyle(() => ({ transform: [{ scale: iris.value }] }));
+  // DEFERRED: the old tonal cross-fade returned to ink during generation.
 
   /* ── formation: one progress value drives square, letters, points, line ── */
   const [formationPhase, setFormationPhase] = useState<FormationPhase>('grid');
@@ -714,7 +701,7 @@ export function CreationStage({
   const handoffCaptionStyle = useResolveStyle(resolve);
   const darkMarkStyle = useAnimatedStyle(() => ({ opacity: darkTone.value >= 0.8 ? 1 : 0 }));
   const neutralMarkStyle = useAnimatedStyle(() => ({
-    opacity: darkTone.value < 0.8 ? interpolate(darkTone.value, [0, 0.15], [0, 1], 'clamp') : 0,
+    opacity: shown === 'reveal' ? 1 : darkTone.value < 0.8 ? interpolate(darkTone.value, [0, 0.15], [0, 1], 'clamp') : 0,
   }));
   const backInkStyle = useAnimatedStyle(() => ({ opacity: darkTone.value < 0.8 ? 1 : 0 }));
   const backPaperStyle = useAnimatedStyle(() => ({ opacity: darkTone.value < 0.8 ? 0 : 1 }));
@@ -729,7 +716,7 @@ export function CreationStage({
 
   /* ── dynamic tone styles ──────────────────────────────────────────────── */
   const bgToneStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(darkTone.value, [0, 1], [colors.canvas, colors.ink.base]),
+    backgroundColor: colors.ink.base,
   }));
   const dynamicTitleStyle = useAnimatedStyle(() => ({
     color: draftingInk(darkTone.value),
@@ -810,6 +797,18 @@ export function CreationStage({
   const saving = draft.saveState === 'saving';
   const canGoBack = !replay && (step === 'distillation' || step === 'formation' || step === 'reveal' || step === 'expression' || step === 'generating' || step === 'choose') && !saving;
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [stillnessCancelled, setStillnessCancelled] = useState(false);
+  const stillnessPlayed = useRef(false);
+  useEffect(() => {
+    if (shown !== 'reveal' || step !== 'reveal' || replay || stillnessCancelled || sheetOpen) return;
+    if (!stillnessPlayed.current) {
+      stillnessPlayed.current = true;
+      const tone = createManagedPlayer('forge-seal', { volume: 0.28 });
+      tone?.play();
+    }
+    const timer = setTimeout(onOpenExpression, 1500);
+    return () => clearTimeout(timer);
+  }, [createManagedPlayer, onOpenExpression, replay, sheetOpen, shown, step, stillnessCancelled]);
   const categoryText = getCategoryTextColor(draft.category, colors.canvas, colors.text.primary);
   const intention = draft.normalizedIntention ?? draft.intention;
   const keepingOriginal = draft.expression === 'original';
@@ -848,8 +847,8 @@ export function CreationStage({
               <Text style={styles.quote} numberOfLines={3} testID="reveal-intention">“{intention}”</Text>
               {categoryRow}
             </View>
-            <V2Button size="large" style={styles.cta} onPress={onOpenExpression} testID="reveal-continue">{REVEAL_COPY.cta}</V2Button>
-            <Pressable onPress={() => setSheetOpen(true)} accessibilityRole="button" hitSlop={10} style={styles.link} testID="reveal-how-formed">
+            {/* // DEFERRED: <V2Button size="large" style={styles.cta} onPress={onOpenExpression} testID="reveal-continue">{REVEAL_COPY.cta}</V2Button> */}
+            <Pressable onPress={() => { setStillnessCancelled(true); setSheetOpen(true); }} accessibilityRole="button" hitSlop={10} style={styles.link} testID="reveal-how-formed">
               <Text style={styles.linkText}>{REVEAL_COPY.howItFormed}</Text>
             </Pressable>
           </View>
@@ -984,6 +983,12 @@ export function CreationStage({
     // applies them a beat late, which visibly shifts the whole stage.
     <Animated.View style={[styles.safe, bgToneStyle, { paddingTop: insets.top, paddingBottom: insets.bottom }]} testID={`v2-creation-${step}`}>
       <StatusBar style={darkStatusBar ? 'dark' : 'light'} />
+      <Animated.View pointerEvents="none" style={[{
+        position: 'absolute', width: irisDiameter, height: irisDiameter, borderRadius: irisDiameter / 2,
+        left: (viewport.width - irisDiameter) / 2,
+        top: insets.top + 48 + 92 + stage.height / 2 - irisDiameter / 2,
+        backgroundColor: colors.canvas,
+      }, irisStyle]} />
       <DraftingSurface />
       <CreationTimingHud reduceMotion={reduceMotion} />
       <View style={[styles.frame, { paddingHorizontal: 32 }]}>
@@ -1045,7 +1050,7 @@ export function CreationStage({
               {showGenerationLayers ? (
                 <>
                   <Animated.View style={[styles.disc, { width: discSize, height: discSize, borderRadius: discSize / 2, left: (markSize - discSize) / 2, top: (markSize - discSize) / 2 }, discStyle]} />
-                  <Animated.View style={[styles.discRing, { width: discSize + 18, height: discSize + 18, borderRadius: (discSize + 18) / 2, left: (markSize - discSize - 18) / 2, top: (markSize - discSize - 18) / 2 }, breathStyle]} />
+                  {/* // DEFERRED: outer breathing ring removed; surface etching owns the wait. */}
                 </>
               ) : null}
               {forming && formation ? (
@@ -1061,14 +1066,14 @@ export function CreationStage({
                   </Animated.View>
                 </>
               ) : null}
-              <Animated.View style={[StyleSheet.absoluteFill, colourIn]}>
+              <Animated.View style={[StyleSheet.absoluteFill, colourIn, shown === 'reveal' ? { opacity: 0 } : null]}>
                 <Animated.View style={[StyleSheet.absoluteFill, genPreviewStyle]}>
                   <ExpressionPreview svg={svg} category={draft.category} size={markSize} from={look.from.expression} to={look.to.expression} fromTint={look.from.tint} toTint={look.to.tint} mix={mix} testID="expression-preview" />
                 </Animated.View>
               </Animated.View>
               {inGeneration ? (
                 <Animated.View style={[StyleSheet.absoluteFill, inkStyle]}>
-                  <AnchorMark svg={svg} size={markSize} strokeColor="#F4F6FA" drawProgress={retrace} />
+                  <AnchorMark svg={svg} size={markSize} strokeColor={colors.ink.base} drawProgress={retrace} />
                 </Animated.View>
               ) : null}
             </Animated.View>
@@ -1115,6 +1120,10 @@ export function CreationStage({
             </Animated.View>
           ) : null}
 
+          {shown === 'reveal' && !replay && !sheetOpen ? (
+            <Pressable style={StyleSheet.absoluteFill} onPress={onOpenExpression}
+              accessibilityRole="button" accessibilityLabel={REVEAL_COPY.cta} testID="reveal-tap" />
+          ) : null}
           {forming ? (
             <Pressable
               style={StyleSheet.absoluteFill}
