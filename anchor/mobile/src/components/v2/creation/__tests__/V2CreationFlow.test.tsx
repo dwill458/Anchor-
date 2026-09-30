@@ -143,8 +143,8 @@ describe('V2CreationFlow', () => {
     expect(screen.queryByTestId('choose-retry')).toBeNull();
     expect(screen.getByTestId('candidate-0')).toBeTruthy();
     expect(screen.getByTestId('candidate-1')).toBeTruthy();
-    // Nothing is kept until the user chooses.
-    expect(screen.getByTestId('choose-keep').props.accessibilityState).toMatchObject({ disabled: true });
+    // Form I is selected on arrival; saving still requires commitment.
+    expect(current().selectedCandidateIndex).toBe(0);
     fireEvent.press(screen.getByTestId('candidate-1'));
     expect(current().selectedCandidateIndex).toBe(1);
     await act(async () => fireEvent.press(screen.getByTestId('choose-keep')));

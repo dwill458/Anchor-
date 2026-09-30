@@ -66,6 +66,7 @@ import { FormationLayer, MappingTokens, type StagePoint } from './FormationLayer
 import { FormationSheet } from './FormationSheet';
 import { DraftingSurface } from './DraftingSurface';
 import { draftingInk, draftingCopyOpacity } from './draftingTone';
+import { CandidatePager } from './CandidatePager';
 import { GenerationEtching } from './GenerationEtching';
 import { FOIL_STOPS } from '@/components/v2/anchor/anchorExpressions';
 import { useAudio } from '@/hooks/useAudio';
@@ -214,6 +215,9 @@ export function CreationStage({
   const formed = step === 'reveal' || step === 'expression' || step === 'generating' || step === 'choose' || step === 'handoff';
   const candidates = useMemo(() => (draft.generatedCandidates ?? []).slice(0, 2), [draft.generatedCandidates]);
   const chosenIndex = draft.selectedCandidateIndex ?? -1;
+  useEffect(() => {
+    if (step === 'choose' && candidates.length === 2 && chosenIndex < 0) onSelectCandidate(0);
+  }, [candidates.length, chosenIndex, onSelectCandidate, step]);
   const keptCandidate = step === 'handoff' && chosenIndex >= 0 && Boolean(candidates[chosenIndex]);
 
   /* ── replay of the formation, inside Reveal ───────────────────────────── */
@@ -1097,17 +1101,12 @@ export function CreationStage({
           ) : null}
 
           {showCandidates && svg ? (
-            <CandidatePair
+            <CandidatePager
               svg={svg}
               category={draft.category}
               candidates={candidates}
               chosen={chosenIndex}
               stage={stage}
-              originSize={discSize * placement.scale}
-              originY={placement.centerY}
-              emerge={emerge}
-              resolve={resolve}
-              handingOff={keptCandidate}
               disabled={saving || step !== 'choose'}
               reduceMotion={reduceMotion}
               onSelect={(index) => {
@@ -1186,157 +1185,158 @@ function useResolveStyle(resolve: SharedValue<number>) {
  * sit side by side large enough to compare, answer a choice clearly, and — once one is kept —
  * the chosen one takes the centre in its circle while the other withdraws.
  */
-function CandidatePair({
-  svg,
-  category,
-  candidates,
-  chosen,
-  stage,
-  originSize,
-  originY,
-  emerge,
-  resolve,
-  handingOff,
-  disabled,
-  reduceMotion,
-  onSelect,
-}: {
-  svg: string;
-  category?: string;
-  candidates: CreationDraft['generatedCandidates'];
-  chosen: number;
-  stage: { width: number; height: number };
-  /** The developing circle's on-screen diameter, where both begin. */
-  originSize: number;
-  originY: number;
-  emerge: SharedValue<number>;
-  resolve: SharedValue<number>;
-  handingOff: boolean;
-  disabled: boolean;
-  reduceMotion: boolean;
-  onSelect: (index: number) => void;
-}) {
-  const gap = spacing[3];
-  // Portrait compositions give each interpretation a generous diagonal field. On short
-  // stages they remain side by side so neither overlaps the controls or safe area.
-  const portrait = stage.height >= stage.width * 1.05;
-  const size = portrait
-    ? Math.min(stage.width * 0.64, (stage.height - gap - 24) / 2)
-    : Math.min((stage.width - gap - 24) / 2, stage.height * 0.84);
-  const centerY = stage.height / 2;
-  const slots = portrait
-    ? [stage.width * 0.38, stage.width * 0.62]
-    : [stage.width / 2 - (size + gap) / 2, stage.width / 2 + (size + gap) / 2];
-  const heroSize = originSize;
-  return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      {candidates.slice(0, 2).map((candidate, index) => (
-        <Candidate
-          key={`${candidate.variationId ?? candidate.imageUrl}-${index}`}
-          index={index}
-          svg={svg}
-          category={category}
-          imageUrl={candidate.imageUrl}
-          size={size}
-          slotX={slots[index]}
-          slotY={portrait ? centerY + (index === 0 ? -1 : 1) * (size + gap) / 2 : centerY}
-          originX={stage.width / 2}
-          originY={originY}
-          originScale={originSize / size}
-          heroScale={heroSize / size}
-          chosen={chosen}
-          emerge={emerge}
-          resolve={resolve}
-          handingOff={handingOff}
-          disabled={disabled}
-          reduceMotion={reduceMotion}
-          onSelect={onSelect}
-        />
-      ))}
-    </View>
-  );
-}
-
-function Candidate({
-  index,
-  svg,
-  category,
-  imageUrl,
-  size,
-  slotX,
-  slotY,
-  originX,
-  originY,
-  originScale,
-  heroScale,
-  chosen,
-  emerge,
-  resolve,
-  handingOff,
-  disabled,
-  reduceMotion,
-  onSelect,
-}: {
-  index: number;
-  svg: string;
-  category?: string;
-  imageUrl: string;
-  size: number;
-  slotX: number;
-  slotY: number;
-  originX: number;
-  originY: number;
-  originScale: number;
-  heroScale: number;
-  chosen: number;
-  emerge: SharedValue<number>;
-  resolve: SharedValue<number>;
-  handingOff: boolean;
-  disabled: boolean;
-  reduceMotion: boolean;
-  onSelect: (index: number) => void;
-}) {
-  const isChosen = chosen === index;
-  const someoneChosen = chosen >= 0;
-  const response = useSharedValue(0); // 1 chosen, -1 set aside, 0 undecided
-  useEffect(() => {
-    const next = !someoneChosen ? 0 : isChosen ? 1 : -1;
-    response.value = reduceMotion ? next : creationTiming(next, { duration: 280, easing: CREATION_EASING.deliberate });
-  }, [isChosen, reduceMotion, response, someoneChosen]);
-
-  const style = useAnimatedStyle(() => {
-    const e = emerge.value;
-    const r = handingOff && isChosen ? resolve.value : 0;
-    const away = handingOff && !isChosen ? resolve.value : 0;
-    // Emerge: from the developing circle to this slot. Resolve: the kept one to the centre.
-    const x = originX + (slotX - originX) * e + (originX - slotX) * r;
-    const y = originY + (slotY - originY) * e + (originY - slotY) * r;
-    const baseScale = originScale + (1 - originScale) * e;
-    const chosenScale = 1 + response.value * (response.value >= 0 ? 0.025 : 0.035);
-    const scale = (baseScale * chosenScale) * (1 - r) + heroScale * r;
-    const opacity = interpolate(e, [0, 0.55], [0, 1], 'clamp') * (1 + Math.min(0, response.value) * 0.22) * (1 - away);
-    return { opacity, transform: [{ translateX: x - size / 2 }, { translateY: y - size / 2 }, { scale }] };
-  }, [handingOff, isChosen, originScale, originX, originY, heroScale, size, slotX, slotY]);
-  const ringStyle = useAnimatedStyle(() => ({ opacity: Math.max(0, response.value) * (1 - (handingOff ? resolve.value : 0)) }), [handingOff]);
-
-  return (
-    <Animated.View style={[styles.candidate, { width: size, height: size }, style]}>
-      <Pressable
-        onPress={() => onSelect(index)}
-        disabled={disabled}
-        accessibilityRole="radio"
-        accessibilityLabel={`Anchor interpretation ${index === 0 ? 'one' : 'two'}`}
-        accessibilityState={{ selected: isChosen, disabled }}
-        testID={`candidate-${index}`}
-        style={styles.flex}
-      >
-        <Animated.View style={[styles.candidateRing, { width: size + 14, height: size + 14, borderRadius: (size + 14) / 2 }, ringStyle]} />
-        <CircularAnchorRenderer svg={svg} imageUrl={imageUrl} category={category} size={size} appearance="paper" accessibilityLabel={`Generated Anchor interpretation ${index === 0 ? 'one' : 'two'}`} />
-      </Pressable>
-    </Animated.View>
-  );
-}
-
+// DEFERRED: stacked medallions replaced by the full-width pager.
+// DEFERRED: function CandidatePair({
+// DEFERRED:   svg,
+// DEFERRED:   category,
+// DEFERRED:   candidates,
+// DEFERRED:   chosen,
+// DEFERRED:   stage,
+// DEFERRED:   originSize,
+// DEFERRED:   originY,
+// DEFERRED:   emerge,
+// DEFERRED:   resolve,
+// DEFERRED:   handingOff,
+// DEFERRED:   disabled,
+// DEFERRED:   reduceMotion,
+// DEFERRED:   onSelect,
+// DEFERRED: }: {
+// DEFERRED:   svg: string;
+// DEFERRED:   category?: string;
+// DEFERRED:   candidates: CreationDraft['generatedCandidates'];
+// DEFERRED:   chosen: number;
+// DEFERRED:   stage: { width: number; height: number };
+// DEFERRED:   /** The developing circle's on-screen diameter, where both begin. */
+// DEFERRED:   originSize: number;
+// DEFERRED:   originY: number;
+// DEFERRED:   emerge: SharedValue<number>;
+// DEFERRED:   resolve: SharedValue<number>;
+// DEFERRED:   handingOff: boolean;
+// DEFERRED:   disabled: boolean;
+// DEFERRED:   reduceMotion: boolean;
+// DEFERRED:   onSelect: (index: number) => void;
+// DEFERRED: }) {
+// DEFERRED:   const gap = spacing[3];
+// DEFERRED:   // Portrait compositions give each interpretation a generous diagonal field. On short
+// DEFERRED:   // stages they remain side by side so neither overlaps the controls or safe area.
+// DEFERRED:   const portrait = stage.height >= stage.width * 1.05;
+// DEFERRED:   const size = portrait
+// DEFERRED:     ? Math.min(stage.width * 0.64, (stage.height - gap - 24) / 2)
+// DEFERRED:     : Math.min((stage.width - gap - 24) / 2, stage.height * 0.84);
+// DEFERRED:   const centerY = stage.height / 2;
+// DEFERRED:   const slots = portrait
+// DEFERRED:     ? [stage.width * 0.38, stage.width * 0.62]
+// DEFERRED:     : [stage.width / 2 - (size + gap) / 2, stage.width / 2 + (size + gap) / 2];
+// DEFERRED:   const heroSize = originSize;
+// DEFERRED:   return (
+// DEFERRED:     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+// DEFERRED:       {candidates.slice(0, 2).map((candidate, index) => (
+// DEFERRED:         <Candidate
+// DEFERRED:           key={`${candidate.variationId ?? candidate.imageUrl}-${index}`}
+// DEFERRED:           index={index}
+// DEFERRED:           svg={svg}
+// DEFERRED:           category={category}
+// DEFERRED:           imageUrl={candidate.imageUrl}
+// DEFERRED:           size={size}
+// DEFERRED:           slotX={slots[index]}
+// DEFERRED:           slotY={portrait ? centerY + (index === 0 ? -1 : 1) * (size + gap) / 2 : centerY}
+// DEFERRED:           originX={stage.width / 2}
+// DEFERRED:           originY={originY}
+// DEFERRED:           originScale={originSize / size}
+// DEFERRED:           heroScale={heroSize / size}
+// DEFERRED:           chosen={chosen}
+// DEFERRED:           emerge={emerge}
+// DEFERRED:           resolve={resolve}
+// DEFERRED:           handingOff={handingOff}
+// DEFERRED:           disabled={disabled}
+// DEFERRED:           reduceMotion={reduceMotion}
+// DEFERRED:           onSelect={onSelect}
+// DEFERRED:         />
+// DEFERRED:       ))}
+// DEFERRED:     </View>
+// DEFERRED:   );
+// DEFERRED: }
+// DEFERRED: 
+// DEFERRED: function Candidate({
+// DEFERRED:   index,
+// DEFERRED:   svg,
+// DEFERRED:   category,
+// DEFERRED:   imageUrl,
+// DEFERRED:   size,
+// DEFERRED:   slotX,
+// DEFERRED:   slotY,
+// DEFERRED:   originX,
+// DEFERRED:   originY,
+// DEFERRED:   originScale,
+// DEFERRED:   heroScale,
+// DEFERRED:   chosen,
+// DEFERRED:   emerge,
+// DEFERRED:   resolve,
+// DEFERRED:   handingOff,
+// DEFERRED:   disabled,
+// DEFERRED:   reduceMotion,
+// DEFERRED:   onSelect,
+// DEFERRED: }: {
+// DEFERRED:   index: number;
+// DEFERRED:   svg: string;
+// DEFERRED:   category?: string;
+// DEFERRED:   imageUrl: string;
+// DEFERRED:   size: number;
+// DEFERRED:   slotX: number;
+// DEFERRED:   slotY: number;
+// DEFERRED:   originX: number;
+// DEFERRED:   originY: number;
+// DEFERRED:   originScale: number;
+// DEFERRED:   heroScale: number;
+// DEFERRED:   chosen: number;
+// DEFERRED:   emerge: SharedValue<number>;
+// DEFERRED:   resolve: SharedValue<number>;
+// DEFERRED:   handingOff: boolean;
+// DEFERRED:   disabled: boolean;
+// DEFERRED:   reduceMotion: boolean;
+// DEFERRED:   onSelect: (index: number) => void;
+// DEFERRED: }) {
+// DEFERRED:   const isChosen = chosen === index;
+// DEFERRED:   const someoneChosen = chosen >= 0;
+// DEFERRED:   const response = useSharedValue(0); // 1 chosen, -1 set aside, 0 undecided
+// DEFERRED:   useEffect(() => {
+// DEFERRED:     const next = !someoneChosen ? 0 : isChosen ? 1 : -1;
+// DEFERRED:     response.value = reduceMotion ? next : creationTiming(next, { duration: 280, easing: CREATION_EASING.deliberate });
+// DEFERRED:   }, [isChosen, reduceMotion, response, someoneChosen]);
+// DEFERRED: 
+// DEFERRED:   const style = useAnimatedStyle(() => {
+// DEFERRED:     const e = emerge.value;
+// DEFERRED:     const r = handingOff && isChosen ? resolve.value : 0;
+// DEFERRED:     const away = handingOff && !isChosen ? resolve.value : 0;
+// DEFERRED:     // Emerge: from the developing circle to this slot. Resolve: the kept one to the centre.
+// DEFERRED:     const x = originX + (slotX - originX) * e + (originX - slotX) * r;
+// DEFERRED:     const y = originY + (slotY - originY) * e + (originY - slotY) * r;
+// DEFERRED:     const baseScale = originScale + (1 - originScale) * e;
+// DEFERRED:     const chosenScale = 1 + response.value * (response.value >= 0 ? 0.025 : 0.035);
+// DEFERRED:     const scale = (baseScale * chosenScale) * (1 - r) + heroScale * r;
+// DEFERRED:     const opacity = interpolate(e, [0, 0.55], [0, 1], 'clamp') * (1 + Math.min(0, response.value) * 0.22) * (1 - away);
+// DEFERRED:     return { opacity, transform: [{ translateX: x - size / 2 }, { translateY: y - size / 2 }, { scale }] };
+// DEFERRED:   }, [handingOff, isChosen, originScale, originX, originY, heroScale, size, slotX, slotY]);
+// DEFERRED:   const ringStyle = useAnimatedStyle(() => ({ opacity: Math.max(0, response.value) * (1 - (handingOff ? resolve.value : 0)) }), [handingOff]);
+// DEFERRED: 
+// DEFERRED:   return (
+// DEFERRED:     <Animated.View style={[styles.candidate, { width: size, height: size }, style]}>
+// DEFERRED:       <Pressable
+// DEFERRED:         onPress={() => onSelect(index)}
+// DEFERRED:         disabled={disabled}
+// DEFERRED:         accessibilityRole="radio"
+// DEFERRED:         accessibilityLabel={`Anchor interpretation ${index === 0 ? 'one' : 'two'}`}
+// DEFERRED:         accessibilityState={{ selected: isChosen, disabled }}
+// DEFERRED:         testID={`candidate-${index}`}
+// DEFERRED:         style={styles.flex}
+// DEFERRED:       >
+// DEFERRED:         <Animated.View style={[styles.candidateRing, { width: size + 14, height: size + 14, borderRadius: (size + 14) / 2 }, ringStyle]} />
+// DEFERRED:         <CircularAnchorRenderer svg={svg} imageUrl={imageUrl} category={category} size={size} appearance="paper" accessibilityLabel={`Generated Anchor interpretation ${index === 0 ? 'one' : 'two'}`} />
+// DEFERRED:       </Pressable>
+// DEFERRED:     </Animated.View>
+// DEFERRED:   );
+// DEFERRED: }
+// DEFERRED: 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.canvas },
   flex: { flex: 1 },
