@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { ArrowRight } from 'lucide-react-native';
+import { ArrowRight, Info } from 'lucide-react-native';
 import { V2Button } from '@/components/v2/primitives/V2Button';
 import { CHART_COPY } from '@/constants/v2/chartCopy';
 import type { ChartAdjustmentReason } from '@/services/v2/chartV2Api';
@@ -10,14 +10,15 @@ import { ChartTextArea } from './ChartChrome';
 export type ChartAdjustRequest = { reason: ChartAdjustmentReason; detail: string | null };
 
 /**
- * "What needs to change?" — structured options and optional detail. The
- * conversation happens under the hood; the person never sees a chat.
+ * "Where does the route need to change?" — structured options and optional detail.
+ * The conversation happens under the hood; the person never sees a chat.
  */
 export function ChartAdjustPanel({
   onSubmit,
   loading,
   error,
   protectedNote,
+  categoryColor,
   testID,
 }: {
   onSubmit: (request: ChartAdjustRequest) => void;
@@ -25,12 +26,16 @@ export function ChartAdjustPanel({
   error?: string | null;
   /** Shown on an active Chart: reached waypoints are never rewritten. */
   protectedNote?: boolean;
+  categoryColor?: string;
   testID?: string;
 }) {
   const [reason, setReason] = useState<ChartAdjustmentReason | null>(null);
   const [detail, setDetail] = useState('');
-  const needsDetail = reason === 'OTHER' || reason === 'CHANGE_DESTINATION';
-  const canSubmit = Boolean(reason) && (!needsDetail || detail.trim().length > 0);
+
+  // Primary CTA is disabled until a chip is selected OR text is entered.
+  // When 'OTHER' is selected, detail is required.
+  const effectiveReason = reason ?? (detail.trim().length > 0 ? 'OTHER' : null);
+  const canSubmit = Boolean(effectiveReason) && (effectiveReason !== 'OTHER' || detail.trim().length > 0);
 
   return (
     <View testID={testID} style={styles.panel}>
@@ -40,43 +45,62 @@ export function ChartAdjustPanel({
           return (
             <Pressable
               key={option.key}
-              onPress={() => setReason(option.key)}
+              onPress={() => setReason(selected ? null : option.key)}
               accessibilityRole="radio"
               accessibilityState={{ selected }}
               accessibilityLabel={option.label}
-              style={({ pressed }) => [styles.chip, selected && styles.chipSelected, pressed && styles.pressed]}
+              style={({ pressed }) => [
+                styles.chip,
+                selected && {
+                  backgroundColor: categoryColor ?? colors.text.primary,
+                  borderColor: categoryColor ?? colors.text.primary,
+                },
+                pressed && styles.pressed,
+              ]}
               testID={`chart-adjust-${option.key}`}
             >
-              <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{option.label}</Text>
+              <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+                {option.label}
+              </Text>
             </Pressable>
           );
         })}
       </View>
+
       <ChartTextArea
         tone="cream"
         value={detail}
         onChangeText={setDetail}
-        placeholder={CHART_COPY.adjust.detailPlaceholder}
+        placeholder="Tell us more (optional)..."
         maxLength={500}
         accessibilityLabel="Tell us more about what should change"
         testID="chart-adjust-detail"
       />
-      {protectedNote ? <Text style={styles.note}>{CHART_COPY.adjust.protected}</Text> : null}
+
+      {protectedNote ? (
+        <View style={styles.infoNoteRow}>
+          <Info size={16} color={colors.text.secondary} style={styles.infoIcon} />
+          <Text style={styles.note}>{CHART_COPY.adjust.protected}</Text>
+        </View>
+      ) : null}
+
       {error ? (
         <Text style={styles.error} accessibilityLiveRegion="polite">
           {error}
         </Text>
       ) : null}
+
       <V2Button
         size="large"
-        onPress={() => reason && onSubmit({ reason, detail: detail.trim() || null })}
+        onPress={() => effectiveReason && onSubmit({ reason: effectiveReason, detail: detail.trim() || null })}
         disabled={!canSubmit}
         loading={loading}
+        style={canSubmit && categoryColor ? { backgroundColor: categoryColor } : undefined}
         iconRight={<ArrowRight size={18} color={canSubmit ? colors.text.inverse : colors.text.disabled} />}
         accessibilityLabel={CHART_COPY.adjust.cta}
         testID="chart-adjust-submit"
       >
-        {CHART_COPY.adjust.cta}
+        {CHART_COPY.adjust.cta} -{'>'}
       </V2Button>
     </View>
   );
@@ -93,11 +117,34 @@ const styles = StyleSheet.create({
     borderColor: colors.border.default,
     backgroundColor: colors.surface,
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  chipSelected: { backgroundColor: colors.text.primary, borderColor: colors.text.primary },
-  chipText: { ...typography.labelMD, color: colors.text.primary },
-  chipTextSelected: { color: colors.text.inverse },
-  note: { ...typography.bodySM, color: colors.text.secondary },
-  error: { ...typography.bodySM, color: colors.semantic.error },
-  pressed: { opacity: 0.8 },
+  chipText: {
+    ...typography.labelMD,
+    color: colors.text.primary,
+  },
+  chipTextSelected: {
+    color: colors.text.inverse,
+    fontWeight: '600',
+  },
+  infoNoteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+  },
+  infoIcon: {
+    marginTop: 1,
+  },
+  note: {
+    flex: 1,
+    ...typography.bodySM,
+    color: colors.text.secondary,
+  },
+  error: {
+    ...typography.bodySM,
+    color: colors.semantic.error,
+  },
+  pressed: {
+    opacity: 0.8,
+  },
 });

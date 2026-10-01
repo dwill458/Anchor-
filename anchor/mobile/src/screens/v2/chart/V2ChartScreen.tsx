@@ -119,6 +119,11 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
     navigation.navigate('V2Vision', { anchorId });
   };
 
+  const openPractice = () => {
+    trackChart('chart_practice_opened', { from: 'chart' });
+    navigation.navigate('V2Practice', { anchorId });
+  };
+
   if (!anchorId) {
     return (
       <ChartInkScreen testID="v2-chart-screen-missing">
@@ -245,6 +250,7 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
         return chart.completeMove(moveId);
       }}
       onOpenVision={openVision}
+      onOpenPractice={openPractice}
       onOpenLog={() => navigation.navigate('V2ChartJourney', { anchorId })}
       onAdjust={() => navigation.navigate('V2ChartAdjust', { anchorId })}
       onRelease={() => navigation.navigate('V2Release', { anchorId, reason: 'destination_completed' })}
