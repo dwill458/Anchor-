@@ -25,16 +25,18 @@ export const VISION_IMAGE_HEIGHT = 1920;
 /** Composition rules that keep one tall original useful at every crop. */
 export const VISION_PORTRAIT_COMPOSITION = [
   'Format: a tall 9:16 portrait photograph, composed for a full-screen phone. Do not letterbox, add borders, or make a split/diptych frame.',
-  'Keep the main subject (person, hands or key object) inside the central safe area: horizontally within the middle 70%, vertically between 30% and 70% of the height, so a wide centre crop still contains it.',
+  'Keep the main subject (person, hands or key object) inside the central safe area: horizontally within the middle 70%, vertically between 30% and 65% of the height, so a wide centre crop still contains it. Place faces and the key focal object between 45% and 55% of the height for compact Home and Details previews.',
   'Never place faces, hands or the key object near an edge. Let the top and bottom of the frame hold environment (ceiling, sky, floor, table surface) that can be cropped away without losing the moment.',
   'Include enough surrounding space that the scene reads at small sizes.',
+  'Presentation: the editorial Vision hero is a 1.12:1 centre crop of this 9:16 original; supporting apertures are 0.70:1 to 1.04:1. Keep ALL essential faces, hands and objects between 30% and 65% of the image height. Keep the lower corners free of essential subjects for a subtle paper edge and the user\'s Anchor at the image transition. The full original remains available in Visualize.',
 ].join(' ');
 
 /**
  * Every Vision image is one photograph on the person's Vision board. The app
- * supplies the board, torn photo frames, tape, pins and the Anchor card; the
+ * supplies the editorial canvas, subtle paper edges and the user's Anchor; the
  * model must never draw any of them, or they end up doubled on screen.
  */
+// DEFERRED: Reject generated candidates containing words with a vision-model check after measuring the prompt-only guard.
 export const VISION_BOARD_PHOTO_RULES = [
   "This photograph will be printed and pinned on its own on the person's Vision board; the app adds the frame, paper, tape, pins and board.",
   'Deliver exactly one standalone photograph: never a collage, grid, split screen, diptych, mood board, cork or pin board, scrapbook page, polaroid or photo-print treatment, border, frame, caption, sticker, tape, pin or torn paper edge.',
@@ -128,6 +130,7 @@ export function buildVisionScenePlannerPrompt(input: {
     '- Believable documentary/editorial photography only: no fantasy, surrealism, cyberpunk, floating objects, symbols, or advertising gloss.',
     '- For Career intentions: depict the outcome as ALREADY REAL in an authentic professional workplace (corporate office floor, established company workstation, meeting room, industry workspace, leadership setting or workplace arrival). Avoid defaulting to generic WFH laptops, home desks, coffee cups, or empty desk still lifes.',
     '- No readable text, numbers, logos, interface elements or signage in any photograph.',
+    "- An outcome stated in words (a recommendation, ranking, headline, review, message) is shown by the setting and the person's reaction, never as words in the frame. A screen that would carry such words is angled away, in shadow, or defocused.",
     ...(avoid.length ? [
       '',
       'This person has already seen the scenes below for this Vision. Plan NEW moments: different settings, different framings, different consequences. Do not rephrase these:',
@@ -262,6 +265,7 @@ export function buildVisionImagePrompt(input: {
     'Style: documentary / editorial photography, natural available light, realistic muted colour, soft natural contrast, fine grain, small real-world imperfections, believable lived-in spaces. Cinematic composition without movie-poster styling.',
     'Anatomy and objects: physically plausible proportions, coherent hands and fingers, natural joints and grips, and the correct objects explicitly requested in the scene. Keep identity consistent with the supplied appearance reference when present.',
     'When the person explicitly requests a screen or interface, preserve that object and its role in the moment: believable device geometry, reflections and a coherent screen layout. Never replace the requested screen with an unrelated generic object.',
+    "An outcome stated in words (a recommendation, ranking, headline, review, message) is shown by the setting and the person's reaction, never as words in the frame. A screen that would carry such words is angled away, in shadow, or defocused.",
     'Do not invent a brand, achievement, metric, relationship or setting unsupported by the scene. First-person or over-the-shoulder framing should feel like an ordinary memory from the person\'s future.',
     'Screens, when not requested, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.',
     'Avoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people, collage, vision-board or scrapbook styling, picture frames, borders, captions.',

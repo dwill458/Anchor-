@@ -208,6 +208,13 @@ describe('a described scene', () => {
 
 
 describe('fullscreen photographic quality constraints', () => {
+  it('depicts written outcomes through setting and reaction instead of on-image claims', () => {
+    const claim = { ...input, description: 'Anchor is a recommended app on the app store' };
+    const clause = "An outcome stated in words (a recommendation, ranking, headline, review, message) is shown by the setting and the person's reaction, never as words in the frame. A screen that would carry such words is angled away, in shadow, or defocused.";
+    expect(buildVisionScenePlannerPrompt(claim)).toContain(clause);
+    expect(buildVisionImagePrompt({ ...claim, scene: { role: 'Recognition', scene: claim.description } })).toContain(clause);
+  });
+
   it('preserves requested screens and realistic anatomy without invented achievements', () => {
     const prompt = buildVisionImagePrompt({ intention: 'I build my app', category: 'desire', description: 'I check my app on my phone',
       scene: { role: 'The moment', scene: 'I check my app on my phone' } });
