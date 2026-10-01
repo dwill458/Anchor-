@@ -9,6 +9,7 @@ const bodyMedium = 'Inter-SemiBold';
 const bodySemiBold = 'Inter-SemiBold';
 const bodyBold = 'Inter-SemiBold';
 
+// DEFERRED: Vision serif roles (M4) require CrimsonPro-SemiBold, which is not loaded; keep existing roles until it is bundled.
 /** V2 type roles using Anchor 2.0 neutral typography. */
 export const typography = {
   display,

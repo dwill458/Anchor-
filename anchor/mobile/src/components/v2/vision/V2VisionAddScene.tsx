@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useV2ReduceMotion } from '@/hooks/v2';
 import { useV2VisionSceneGeneration, type VisionGenerationCandidate } from '@/hooks/v2/vision';
 import type { V2VisionTile } from '@/adapters/v2/vision';
 import type { VisionAnchorArt } from './VisionChrome';
+import { useVisionImageArrival, type VisionImageRect } from './VisionImageArrival';
 import { VisionMomentInput } from './VisionMomentInput';
 import { VisionGenerationBoard } from './VisionGenerationBoard';
 import { VisionCandidateSelection } from './VisionCandidateSelection';
@@ -44,6 +45,7 @@ export function V2VisionAddScene({
   onAdd,
   testID = 'v2-vision-add-scene',
 }: V2VisionAddSceneProps) {
+  const arrival = useVisionImageArrival();
   const reduceMotion = useV2ReduceMotion();
   const generation = useV2VisionSceneGeneration(anchorId, onPremiumRequired);
   const [step, setStep] = useState<Step>('describe');
@@ -52,6 +54,7 @@ export function V2VisionAddScene({
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const startingRef = useRef(false);
+  const referenceId = useRef<string | null>(null);
 
   const { job } = generation;
   const candidates = useMemo(() => job?.candidates ?? [], [job?.candidates]);
@@ -74,6 +77,7 @@ export function V2VisionAddScene({
 
   const handleGenerate = async (sceneDescription: string, appearanceReferenceId?: string | null) => {
     setDescription(sceneDescription);
+    referenceId.current = appearanceReferenceId ?? null;
     if (startingRef.current) return;
     startingRef.current = true;
     setStarting(true);
@@ -88,14 +92,17 @@ export function V2VisionAddScene({
     }
   };
 
-  const handleAddSelected = async (candidate: VisionGenerationCandidate) => {
+  const handleAddSelected = async (candidate: VisionGenerationCandidate, source?: VisionImageRect) => {
     if (!candidate.assetId || saving) return;
+    if (candidate.imageUrl && source) arrival?.begin(candidate.imageUrl, source);
     setSaving(true);
     setNotice(null);
     try {
       const saved = await onAdd({ assetId: candidate.assetId, prompt: candidate.prompt || trimmed });
+      if (!saved) arrival?.cancel();
       if (!saved) setNotice('The image could not be added to your Vision. Please try again.');
     } catch (cause) {
+      arrival?.cancel();
       setNotice(cause instanceof Error ? cause.message : 'The image could not be added to your Vision.');
     } finally {
       setSaving(false);
@@ -134,7 +141,8 @@ export function V2VisionAddScene({
           candidates={candidates}
           onBack={() => setStep('describe')}
           onConfirm={handleAddSelected}
-          onRegenerate={() => { void handleGenerate(trimmed); }}
+          onRegenerate={() => { void handleGenerate(trimmed, referenceId.current); }}
+          error={notice ?? generation.error}
           isSaving={saving}
           testID="v2-vision-add-scene-selection"
         />
@@ -151,6 +159,7 @@ export function V2VisionAddScene({
       anchorArt={anchorArt}
       anchorImageUrl={anchorImageUrl}
       initialDescription={description}
+      previewImageUrl={existingTiles[0]?.imageUrl}
       onBack={onCancel}
       onSubmit={(desc, refId) => handleGenerate(desc, refId)}
       loading={starting}

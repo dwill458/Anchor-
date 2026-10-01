@@ -77,6 +77,7 @@ import { WIDGETS_ENABLED } from './src/config';
 import { isAnchorV2Enabled } from './src/config/v2FeatureFlag';
 import { useAppStartup } from './src/hooks/useAppStartup';
 import { ChartLabDevHost } from './src/screens/v2/system/ChartLabDevHost';
+import { VisionVisualQADevHost } from './src/screens/v2/system/VisionVisualQADevHost';
 import { SplashController } from './src/components/splash/SplashController';
 import { SPLASH_BACKGROUND_COLOR } from './src/components/splash/splashAnimation.constants';
 
@@ -870,6 +871,7 @@ export default function App() {
                     {anchorV2Enabled ? <AnchorV2Navigator /> : <RootNavigator />}
                   </NavigationContainer>
                   {__DEV__ ? <ChartLabDevHost /> : null}
+                  {__DEV__ ? <VisionVisualQADevHost /> : null}
                 </SettingsRevealProvider>
               </View>
               <SplashController

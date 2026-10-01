@@ -1,45 +1,17 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ActionSheetIOS,
-  Alert,
-  Image,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import { ActionSheetIOS, Alert, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import {
-  Compass,
-  Eye,
-  Image as ImageIcon,
-  MapPin,
-  PenLine,
-  User as UserIcon,
-  ChevronRight,
-  X,
-  RefreshCw,
-} from 'lucide-react-native';
+import { Compass, Eye, Image as ImageIcon, MapPin, PenLine, User as UserIcon, ChevronRight } from 'lucide-react-native';
 import { V2Button } from '@/components/v2';
 import { useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
 import { useVisionAppearanceReference } from '@/hooks/v2/vision';
-import { colors, radii, spacing, typography, getCategoryColor } from '@/theme/v2';
-import { VisionHeaderRow, VisionIdentity, type VisionAnchorArt } from './VisionChrome';
-import { VisionPhoto } from './VisionPhoto';
-import { visionPossibleFuturePhoto } from './visionArt';
-import {
-  visionDescriptionExample,
-  visionDetailHint,
-  visionDetailLevel,
-} from './visionGuidance';
+import { colors, radii, spacing, typography } from '@/theme/v2';
+import { VisionHeaderRow, VisionIdentity, VisionStatusBarScrim, type VisionAnchorArt } from './VisionChrome';
+import { VisionImageEdge } from './VisionImageEdge';
+import { VISION_HERO_ASPECT } from './board/visionBoardLayouts';
+
+import { visionDescriptionExample, visionDetailHint, visionDetailLevel } from './visionGuidance';
 
 export interface VisionMomentInputProps {
   mode: 'create' | 'add';
@@ -48,6 +20,7 @@ export interface VisionMomentInputProps {
   anchorCategory?: string | null;
   anchorArt?: VisionAnchorArt | null;
   anchorImageUrl?: string | null;
+  previewImageUrl?: string | null;
   initialDescription?: string;
   description?: string;
   onChangeDescription?: (val: string) => void;
@@ -75,6 +48,7 @@ export function VisionMomentInput({
   anchorCategory,
   anchorArt,
   anchorImageUrl,
+  previewImageUrl,
   initialDescription = '',
   description: propDescription,
   onChangeDescription: propOnChangeDescription,
@@ -117,7 +91,6 @@ export function VisionMomentInput({
   const hint = visionDetailHint(description);
   const level = visionDetailLevel(description);
 
-  const possibleFuture = visionPossibleFuturePhoto(anchorCategory, anchorId);
   const appearance = useVisionAppearanceReference();
   const [useAppearance, setUseAppearance] = useState(true);
 
@@ -237,17 +210,11 @@ export function VisionMomentInput({
           showsVerticalScrollIndicator={false}
         >
           {/* Top Hero Section */}
-          <VisionPhoto
-            source={possibleFuture}
-            category={anchorCategory}
-            tint={0.16}
-            scrim="both"
-            style={styles.heroSection}
-          >
+          <View style={styles.heroSection}>
             <View style={styles.heroTint} pointerEvents="none" />
             <View style={[styles.heroContent, { paddingTop: insets.top, paddingBottom: spacing[4] }]}>
               <VisionHeaderRow
-                title={isCreate ? 'Create Vision' : 'Add to your Vision'}
+                title={isCreate ? 'Create Vision' : 'Add Image'}
                 onBack={onBack}
               />
               <VisionIdentity
@@ -258,19 +225,21 @@ export function VisionMomentInput({
                 showAnchor={false}
                 tone="light"
               />
-
+              {!isCreate && previewImageUrl ? <View style={{ aspectRatio: VISION_HERO_ASPECT, marginHorizontal: -spacing[5], overflow: 'hidden' }}>
+                <Image source={{ uri: previewImageUrl }} resizeMode="cover" accessibilityLabel="Your current Vision" style={StyleSheet.absoluteFill} />
+                <VisionImageEdge hero color={colors.ink.base} />
+              </View> : null}
               <Text accessibilityRole="header" style={styles.heroTitle}>
-                {isCreate ? 'What does this look like when it’s real?' : 'What else does this future look like?'}
+                {isCreate ? 'Describe your Vision' : 'Describe your image'}
               </Text>
-              {!isCreate && <Text style={{ position: 'absolute', opacity: 0, height: 0 }}>What do you want to see?</Text>}
               <Text style={styles.heroSubtitle}>
                 {isCreate
-                  ? 'Describe one ordinary moment where this is already your life.'
-                  : 'Describe another ordinary moment where this is already your life.'}
+                  ? 'Tell us what you want to see in your vision.'
+                  : 'Tell us what you want to see in your vision.'}
               </Text>
 
               {/* Four guidance chips */}
-              <View style={styles.chipsContainer}>
+              {isCreate ? <View style={styles.chipsContainer}>
                 <View style={styles.chipsRow}>
                   {PROMPT_CHIPS.slice(0, 2).map(({ key, label, icon: Icon, cue }) => (
                     <Pressable
@@ -303,9 +272,9 @@ export function VisionMomentInput({
                     </Pressable>
                   ))}
                 </View>
-              </View>
+              </View> : null}
             </View>
-          </VisionPhoto>
+          </View>
 
           {/* Lower Input Section */}
           <View style={styles.bodySection}>
@@ -351,7 +320,7 @@ export function VisionMomentInput({
               style={({ pressed }) => [styles.referenceCard, pressed && styles.cardPressed]}
             >
               <View style={styles.referenceIconWell}>
-                <UserIcon size={18} color={colors.text.primary} />
+                <UserIcon size={18} color={colors.ink.text.primary} />
               </View>
               <View style={styles.referenceCopy}>
                 <Text style={styles.referenceTitle}>Make it look like you</Text>
@@ -360,10 +329,10 @@ export function VisionMomentInput({
               {activeReferenceUrl ? (
                 <View style={styles.thumbWrapper}>
                   <Image source={{ uri: activeReferenceUrl }} style={styles.referenceThumb} />
-                  <ChevronRight size={16} color={colors.text.tertiary} style={styles.thumbChevron} />
+                  <ChevronRight size={16} color={colors.ink.text.tertiary} style={styles.thumbChevron} />
                 </View>
               ) : (
-                <ChevronRight size={18} color={colors.text.tertiary} />
+                <ChevronRight size={18} color={colors.ink.text.tertiary} />
               )}
             </Pressable>
 
@@ -380,6 +349,7 @@ export function VisionMomentInput({
                 <V2Button
                   testID={isCreate ? 'vision-generate' : 'vision-scene-generate'}
                   size="large"
+                  variant="secondary"
                   accessibilityLabel={isCreate ? 'Continue to create your Vision' : 'Generate image'}
                   disabled={!isValid || loading}
                   loading={loading}
@@ -398,7 +368,7 @@ export function VisionMomentInput({
                     onPress={onAddPhotos}
                     style={[styles.textAction, !isValid && styles.disabled]}
                   >
-                    <ImageIcon size={15} color={colors.text.secondary} />
+                    <ImageIcon size={15} color={colors.ink.text.secondary} />
                     <Text style={styles.textActionLabel}>Use my own photos instead</Text>
                   </Pressable>
                 )}
@@ -413,6 +383,7 @@ export function VisionMomentInput({
             <V2Button
               testID={isCreate ? 'vision-generate-focused' : 'vision-scene-generate-focused'}
               size="large"
+              variant="secondary"
               accessibilityLabel={isCreate ? 'Continue to create your Vision' : 'Generate image'}
               disabled={!isValid || loading}
               loading={loading}
@@ -424,22 +395,22 @@ export function VisionMomentInput({
           </View>
         ) : null}
       </KeyboardAvoidingView>
+      <VisionStatusBarScrim />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  stage: { flex: 1, backgroundColor: colors.canvas },
+  stage: { flex: 1, backgroundColor: colors.ink.base },
   scrollContent: { flexGrow: 1 },
   heroSection: { width: '100%' },
   heroTint: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.ink.base, opacity: 0.52 },
   heroContent: { paddingHorizontal: spacing[5], gap: spacing[3] },
   heroTitle: {
-    ...typography.displayMedium,
+    ...typography.headingLG,
     color: colors.ink.text.primary,
     marginTop: spacing[3],
-    lineHeight: 38,
   },
   heroSubtitle: {
     ...typography.bodyMD,
@@ -462,7 +433,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 9,
     paddingHorizontal: 12,
-    borderRadius: radii.full,
+    borderRadius: radii.pill,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.18)',
@@ -481,13 +452,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[5],
     paddingTop: spacing[4],
     gap: spacing[3],
-    backgroundColor: colors.canvas,
+    backgroundColor: colors.ink.base,
   },
   inputFrame: {
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: colors.border.default,
-    backgroundColor: colors.surface,
+    borderColor: colors.ink.hairlineStrong,
+    backgroundColor: colors.ink.raised,
     padding: spacing[3],
   },
   inputFrameFocused: {
@@ -495,7 +466,7 @@ const styles = StyleSheet.create({
   },
   textInput: {
     ...typography.bodyLG,
-    color: colors.text.primary,
+    color: colors.ink.text.primary,
     lineHeight: 24,
   },
   counterRow: {
@@ -505,7 +476,7 @@ const styles = StyleSheet.create({
   },
   counterText: {
     ...typography.caption,
-    color: colors.text.tertiary,
+    color: colors.ink.text.tertiary,
     fontSize: 12,
   },
   referenceCard: {
@@ -516,8 +487,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[3],
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: colors.border.default,
-    backgroundColor: colors.surface,
+    borderColor: colors.ink.hairlineStrong,
+    backgroundColor: colors.ink.raised,
   },
   cardPressed: {
     opacity: 0.8,
@@ -528,7 +499,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.canvas,
+    backgroundColor: colors.ink.base,
   },
   referenceCopy: {
     flex: 1,
@@ -536,12 +507,12 @@ const styles = StyleSheet.create({
   },
   referenceTitle: {
     ...typography.labelMD,
-    color: colors.text.primary,
+    color: colors.ink.text.primary,
     fontWeight: '600',
   },
   referenceSubtitle: {
     ...typography.caption,
-    color: colors.text.secondary,
+    color: colors.ink.text.secondary,
     fontSize: 12,
   },
   thumbWrapper: {
@@ -571,13 +542,13 @@ const styles = StyleSheet.create({
   },
   addPhotosText: {
     ...typography.labelMD,
-    color: colors.text.secondary,
+    color: colors.ink.text.secondary,
     textDecorationLine: 'underline',
   },
   meter: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing[3], marginTop: -spacing[1] },
-  meterHint: { ...typography.caption, color: colors.text.secondary, flex: 1 },
+  meterHint: { ...typography.caption, color: colors.ink.text.secondary, flex: 1 },
   textAction: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing[2], minHeight: 44 },
-  textActionLabel: { ...typography.labelMD, color: colors.text.secondary },
+  textActionLabel: { ...typography.labelMD, color: colors.ink.text.secondary },
   disabled: {
     opacity: 0.45,
   },
@@ -588,7 +559,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     paddingHorizontal: spacing[5],
     paddingTop: spacing[2],
-    backgroundColor: colors.canvas,
+    backgroundColor: colors.ink.base,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border.default,
   },

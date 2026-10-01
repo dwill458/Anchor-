@@ -107,7 +107,7 @@ export function V2ReleaseScreen({ anchorId = '', reason, releaseAdapter, hasLink
           </ScrollView>
         </Animated.View>
         <Animated.View style={[styles.controls, { bottom: insets.bottom + 12 }, controlsStyle]}>
-          <V2HoldToReleaseControl artworkSvg={snapshot.artworkSvg} category={snapshot.category}
+          <V2HoldToReleaseControl artworkSvg={snapshot.artworkSvg} imageUrl={snapshot.imageUrl} category={snapshot.category}
             progress={hold.progress} visualProgress={hold.visualProgress} isHolding={hold.isHolding} showArtwork={false}
             disabled={hold.isComplete} accessibilityLabel={snapshot.intentionText} onHoldStart={handleHoldStart} onHoldEnd={hold.endHold} />
           <Animated.View style={keepStyle}><Pressable accessibilityRole="button" onPress={handleCancel} style={styles.keepControl} testID="v2-release-keep-active"><Text style={styles.keepLabel}>{RELEASE_COPY.keepAnchorCta}</Text></Pressable></Animated.View>

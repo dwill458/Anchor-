@@ -1,18 +1,11 @@
+import { AnalyticsService } from '@/services/AnalyticsService';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiClient, ApiClientError } from '@/services/ApiClient';
 import { HomeStartupProfiler } from '@/utils/homeStartupProfiler';
 import { useAuthStore } from '@/stores/authStore';
 import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
 import { visionApiData } from './visionApi';
-import {
-  toV2VisionPresentationState,
-  toVisualizeHandoff,
-  type VisionReadModel,
-  type V2VisionPresentationState,
-  type V2VisionTile,
-  type V2VisualizeHandoff,
-  type VisionSceneSource,
-} from '@/adapters/v2/vision';
+import { toV2VisionPresentationState, toVisualizeHandoff, type VisionReadModel, type V2VisionPresentationState, type V2VisionTile, type V2VisualizeHandoff, type VisionSceneSource } from '@/adapters/v2/vision';
 
 export interface UseV2VisionResult {
   state: V2VisionPresentationState;
@@ -361,6 +354,7 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
         if (isMountedRef.current) {
           commitVision(visionApiData<VisionReadModel>(response), anchorId);
         }
+        if (input.scenes?.length) AnalyticsService.track('vision_created', { anchor_id: anchorId, vision_id: visionApiData<VisionReadModel>(response).id });
         return visionApiData<VisionReadModel>(response);
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Failed to create Vision';
@@ -412,6 +406,7 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
           `/api/v2/visions/${encodeURIComponent(vision.id)}/scenes`,
           input,
         );
+        AnalyticsService.track('vision_image_selected', { vision_id: vision.id, asset_id: input.assetId, source_type: input.sourceType });
         return await reloadAfterMutation();
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Failed to add scene';
@@ -447,6 +442,7 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
         await apiClient.delete(
           `/api/v2/visions/${encodeURIComponent(vision.id)}/scenes/${encodeURIComponent(sceneId)}`,
         );
+        AnalyticsService.track('vision_image_removed', { vision_id: vision.id, scene_id: sceneId });
         return await reloadAfterMutation();
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Failed to remove scene';

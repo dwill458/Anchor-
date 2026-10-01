@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Image } from 'react-native';
 import { act, render } from '@testing-library/react-native';
 import { Asset } from 'expo-asset';
@@ -10,10 +10,6 @@ const mockUseImage = jest.fn();
 
 jest.mock('expo-asset', () => ({ Asset: { loadAsync: jest.fn() } }));
 jest.mock('@shopify/react-native-skia', () => ({ useImage: (...args: unknown[]) => mockUseImage(...args) }));
-jest.mock('@/components/v2/vision/board/visionBoardAssets', () => ({
-  VISION_BOARD_IMAGES: { background: 1 }, BOARD_FRAME_IMAGES: { photo: 2 }, BOARD_DECOR_IMAGES: { leaf: 3 },
-  BOARD_ATTACHMENT_ART: { pin: { source: 4 } }, BOARD_CARD_PIN: 5,
-}));
 jest.mock('@/components/v2/vision/board/visionBoardLayouts', () => ({ VISION_BOARD_MAX_IMAGES: 6 }));
 
 type Deferred<T> = { promise: Promise<T>; resolve: (value: T) => void; reject: (reason?: unknown) => void };

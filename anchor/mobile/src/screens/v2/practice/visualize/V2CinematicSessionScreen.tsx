@@ -1,8 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, ActivityIndicator, Alert, AppState, BackHandler, Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useKeepAwake } from 'expo-keep-awake';
-import { useImage, Skia, type SkSVG } from '@shopify/react-native-skia';
+import { Skia, type SkSVG } from '@shopify/react-native-skia';
 import Animated, { cancelAnimation, Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Pause, Play, X } from 'lucide-react-native';
 import { V2Button } from '@/components/v2';
@@ -23,8 +23,7 @@ import type { V2VisionTile } from '@/adapters/v2/vision';
 import { anchorArtworkSvg } from '@/components/v2/anchors/anchorPresentation';
 import { VisionBoardScene } from '@/components/v2/vision/board/VisionBoardScene';
 import { useVisionBoardScene } from '@/components/v2/vision/board/useVisionBoardScene';
-import { BOARD_ATTACHMENT_ART, BOARD_FRAME_IMAGES } from '@/components/v2/vision/board/visionBoardAssets';
-import { boardAttachmentFor, boardSizeForWidth, toSceneRect } from '@/components/v2/vision/board/visionBoardLayouts';
+import { boardSizeForWidth, toSceneRect } from '@/components/v2/vision/board/visionBoardLayouts';
 import { buildVisionSceneSnapshot, type V2VisualizeDuration } from './visualizeVisionPlan';
 import { useCinematicAssets, freezeCinematicTiles, type CinematicAssets } from './cinematicAssets';
 import { buildCinematicTimeline, cinematicSegmentAt } from './prototype/cinematicTimeline';
@@ -36,8 +35,7 @@ import { photoWindow, rotatedChild, type Rect } from './prototype/cinematicGeome
 
 export type PreparedCinematicSession = {
   anchor: Anchor; statement: string; visionId?: string | null; assets: CinematicAssets;
-  markLocal: Rect; viewport: { width: number; height: number }; beginAtMs?: number; frameImage: NonNullable<ReturnType<typeof useImage>>;
-  attachmentImage: NonNullable<ReturnType<typeof useImage>>;
+  markLocal: Rect; viewport: { width: number; height: number }; beginAtMs?: number; canvasFrame?: Rect;
   svgText: string; svg: SkSVG | null; enhancedMaskEffect: NonNullable<ReturnType<typeof Skia.RuntimeEffect.Make>> | null;
 };
 export type CinematicCompletion = { record: PracticeSessionRecord | null; saved: boolean };
@@ -117,9 +115,9 @@ function LoadingRun(props: CinematicSessionProps) {
       <Text style={styles.recoveryCopy}>{!hasUsableArtwork ? 'The actual Anchor artwork is unavailable.' : !enhancedMaskReady ? 'The enhanced Anchor artwork could not be prepared.' : assets.enhancedFailed ? 'The enhanced Anchor artwork could not load.' : snapshot.tiles.length === 0 ?
         'Add a Vision image before beginning.' : assets.oversizedCount > 0 ?
           'Some images are too large for this session. Retry to load them.' :
-          assets.unavailable ? 'The board or Vision images could not load.' :
+          assets.unavailable ? 'The Vision images could not load.' :
           assets.partial ? `${assets.available.length} image${assets.available.length === 1 ? '' : 's'} ready to visualize.` :
-            'Your session begins when the images and board are ready.'}</Text>
+            'Your session begins when the images and canvas are ready.'}</Text>
       <View style={styles.recoveryActions}>
         <V2Button onPress={assets.retry} accessibilityLabel="Retry Vision images">Retry</V2Button>
         {assets.partial && hasUsableArtwork && assets.enhancedReady ? <V2Button onPress={() => setSelected(assets.select(assets.available))}
@@ -142,7 +140,7 @@ function CinematicRun({ anchor, accountId, statement, visionId, durationSeconds,
   const viewport = useMemo(() => ({ width, height }), [width, height]);
   const insets = useSafeAreaInsets();
   const reduced = useV2ReduceMotion();
-  const scene = useMemo(() => boardSizeForWidth(width * 2), [width]);
+  const scene = useMemo(() => boardSizeForWidth(width * 2, assets.tiles.length), [width, assets.tiles.length]);
   const board = useVisionBoardScene(assets.tiles, scene);
   const [markLocal, setMarkLocal] = useState<Rect | null>(prepared?.markLocal ?? null);
   const onMarkLayout = useCallback((rect: Rect) => setMarkLocal(previous => previous ?? rect), []);
@@ -150,11 +148,7 @@ function CinematicRun({ anchor, accountId, statement, visionId, durationSeconds,
   const mark = useMemo(() => markLocal ? rotatedChild(card, markLocal) : null, [card, markLocal]);
   const photo = useMemo(() => photoWindow(toSceneRect(board.layout.photos[0], scene), board.layout.photos[0].frame), [board.layout.photos, scene]);
   const [frameError, setFrameError] = useState(false);
-  const loadedFrameImage = useImage(prepared ? null : BOARD_FRAME_IMAGES[board.layout.photos[0].frame] as number, () => setFrameError(true));
-  const loadedAttachmentImage = useImage(prepared ? null : BOARD_ATTACHMENT_ART[boardAttachmentFor(assets.tiles[0].sceneId)].source as number, () => setFrameError(true));
-  const frameImage = prepared?.frameImage ?? loadedFrameImage;
-  const attachmentImage = prepared?.attachmentImage ?? loadedAttachmentImage;
-  const ready = Boolean(mark && mark.width > 0 && mark.height > 0 && frameImage && attachmentImage &&
+  const ready = Boolean(mark && mark.width > 0 && mark.height > 0 &&
     (!assets.enhancedAnchor || enhancedMaskEffect));
   useEffect(() => {
     if (ready || frameError) return;
@@ -162,11 +156,11 @@ function CinematicRun({ anchor, accountId, statement, visionId, durationSeconds,
     return () => clearTimeout(timeout);
   }, [frameError, ready]);
   useEffect(() => {
-    if (prepareOnly && ready && markLocal && frameImage && attachmentImage) {
-      onPrepared?.({ anchor, statement, visionId, assets, markLocal, viewport, frameImage, attachmentImage, svgText, svg, enhancedMaskEffect });
+    if (prepareOnly && ready && markLocal) {
+      onPrepared?.({ anchor, statement, visionId, assets, markLocal, viewport, svgText, svg, enhancedMaskEffect });
     }
-  }, [prepareOnly, ready, markLocal, frameImage, attachmentImage, onPrepared, anchor, statement, visionId, assets, viewport, svgText, svg, enhancedMaskEffect]);
-  useEffect(() => { if (frameError) onPreparationIssue?.('The board could not be prepared. Retry before beginning.'); }, [frameError, onPreparationIssue]);
+  }, [prepareOnly, ready, markLocal, onPrepared, anchor, statement, visionId, assets, viewport, svgText, svg, enhancedMaskEffect]);
+  useEffect(() => { if (frameError) onPreparationIssue?.('The canvas could not be prepared. Retry before beginning.'); }, [frameError, onPreparationIssue]);
   const timeline = useMemo(() => buildCinematicTimeline(durationSeconds, assets.tiles.length), [assets.tiles.length, durationSeconds]);
   const audioPlan = useMemo(() => resolveSessionAudioPlan({ sessionType: 'visualize', durationSeconds,
     configuration: { guidanceVoice: voice, backgroundAudio: ambient ? 'ambient' : 'off', source: 'session_override' },
@@ -180,8 +174,8 @@ function CinematicRun({ anchor, accountId, statement, visionId, durationSeconds,
     recordingWindows: audioManifest.cues.map(item => ({ startMs: item.startSeconds * 1000,
       endMs: item.startSeconds * 1000 + Math.max(item.expectedClipDurationSeconds.female, item.expectedClipDurationSeconds.male) * 1000 + 500 })),
   }), [audioManifest, statement, timeline]);
-  const geometry = useMemo(() => mark ? cinematicSessionGeometry(scene, viewport, photo, mark, assets.tiles.length) : null,
-    [assets.tiles.length, mark, photo, scene, viewport]);
+  const geometry = useMemo(() => mark ? cinematicSessionGeometry(scene, viewport, photo, mark, assets.tiles.length, prepared?.canvasFrame) : null,
+    [assets.tiles.length, mark, photo, scene, viewport, prepared?.canvasFrame]);
   const sceneSnapshot = useMemo(() => buildVisionSceneSnapshot(statement, anchor), [anchor, statement]);
   const backgroundAudio = ambient ? 'ambient' as const : 'off' as const;
   const sessionId = useRef(`visualize:${accountId ?? 'guest'}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`);
@@ -340,7 +334,7 @@ function CinematicRun({ anchor, accountId, statement, visionId, durationSeconds,
   if (frameError && !started.current) return <View testID="v2-visualize-session" style={styles.root}>
     <View style={styles.recovery}>
       <Text style={styles.recoveryTitle}>Vision unavailable</Text>
-      <Text style={styles.recoveryCopy}>The board could not be prepared.</Text>
+      <Text style={styles.recoveryCopy}>The canvas could not be prepared.</Text>
       <V2Button onPress={onRetry} accessibilityLabel="Retry board assets">Retry</V2Button>
       <V2Button onPress={onExit} accessibilityLabel="Back to Practice">Back to Practice</V2Button>
     </View>
@@ -354,11 +348,11 @@ function CinematicRun({ anchor, accountId, statement, visionId, durationSeconds,
   return <View testID="v2-visualize-session" style={styles.root}>
     <StatusBar hidden={immersive} barStyle="light-content" backgroundColor={colors.ink.deep} />
     {immersive ? <KeepAwake /> : null}
-    {!prepareOnly && mark && geometry && frameImage && attachmentImage ? <CinematicSessionStage tiles={assets.tiles} images={assets.images}
+    {!prepareOnly && mark && geometry ? <CinematicSessionStage tiles={assets.tiles} images={assets.images}
       intention={anchor.intentionText || statement} category={anchor.category} svgText={svgText} enhancedImageUrl={anchor.enhancedImageUrl}
       enhancedAnchor={assets.enhancedAnchor} enhancedMaskEffect={enhancedMaskEffect} svg={svg}
       scene={scene} viewport={viewport} mark={mark} geometry={geometry} timeline={timeline} elapsed={elapsed}
-      frameImage={frameImage} attachmentImage={attachmentImage} reduced={reduced} onMarkLayout={onMarkLayout} /> :
+      reduced={reduced} onMarkLayout={onMarkLayout} /> :
       <View style={styles.measureBoard} pointerEvents="none">
         <VisionBoardScene scene={scene} roster={board.roster} entering={board.entering} layout={board.layout} shared={board.shared}
           initialRectFor={board.initialRectFor} intention={anchor.intentionText || statement} category={anchor.category}

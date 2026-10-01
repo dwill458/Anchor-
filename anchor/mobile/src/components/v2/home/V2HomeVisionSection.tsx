@@ -1,7 +1,7 @@
-import React, { memo } from 'react';
+import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { VisionBoardPreview } from '@/components/v2/vision/VisionBoardPreview';
-import { colors } from '@/theme/v2';
+import { colors, typography } from '@/theme/v2';
 import { resolveVisionHeroImage, type HomeVisionState } from '@/adapters/v2/home';
 import { v2Haptics } from '@/hooks/v2';
 
@@ -9,12 +9,18 @@ type Props = {
   vision: HomeVisionState;
   categoryColor?: string;
   onOpenVision?: () => void;
+  onRetry?: () => void;
   testID?: string;
 };
 
-/** Vision on Home is strictly conditional: absent is not loading, and renders nothing when not created. */
-function V2HomeVisionSectionComponent({ vision, categoryColor, onOpenVision, testID }: Props) {
-  if (vision.state !== 'ready') return null;
+/** Home distinguishes confirmed empty, loading, error, and saved Vision. */
+function V2HomeVisionSectionComponent({ vision, categoryColor, onOpenVision, onRetry, testID }: Props) {
+  if (vision.state !== 'ready') return <View testID={testID ?? `v2-home-vision-${vision.state}`} style={styles.container}>
+    <Text style={styles.title}>Your Vision</Text>
+    <Text style={[styles.seen, { marginTop: 8 }]}>{vision.state === 'loading' ? 'Loading your Vision�' : vision.state === 'error' ? 'Your Vision could not load.' : 'See where this is going.'}</Text>
+    {vision.state !== 'loading' ? <Pressable accessibilityRole="button" onPress={vision.state === 'error' ? onRetry : onOpenVision}
+      style={{ minHeight: 44, justifyContent: 'center' }}><Text style={styles.seen}>{vision.state === 'error' ? 'Retry Vision' : 'Create Vision'}</Text></Pressable> : null}
+  </View>;
 
   const heroImage = resolveVisionHeroImage(vision);
   const title = vision.title?.trim();
@@ -35,6 +41,7 @@ function V2HomeVisionSectionComponent({ vision, categoryColor, onOpenVision, tes
           testID={testID ?? 'v2-home-vision'} imageTestID="v2-home-vision-image"
           statementTestID={title ? 'v2-home-vision-title' : 'v2-home-vision-statement'} />
       </View>
+      {vision.seenToday ? <Text style={[styles.seen, { marginTop: 8 }]}>Seen today</Text> : null}
     </View>
   );
 }
@@ -53,10 +60,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  title: { fontFamily: 'BricolageGrotesque-SemiBold', fontSize: 18, lineHeight: 23, color: colors.graphite.text.primary },
+  title: { ...typography.headingSM, color: colors.graphite.text.primary },
   seen: {
-    fontFamily: 'Figtree-Regular',
-    fontSize: 13,
+    ...typography.bodySM,
     color: colors.graphite.text.secondary,
   },
 

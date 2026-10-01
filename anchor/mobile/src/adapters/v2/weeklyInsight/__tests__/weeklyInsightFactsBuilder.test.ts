@@ -8,6 +8,13 @@ import type { CourseLogEntry } from '@/types/chart';
 import { buildWeeklyInsightFacts } from '../weeklyInsightFactsBuilder';
 
 describe('weeklyInsightFactsBuilder', () => {
+  it('retains saved enhanced artwork and the reinforced SVG in weekly facts', () => {
+    const anchor = { id: 'artwork-anchor', intentionText: 'A meaningful future', category: 'career', threadStrength: 50,
+      createdAt: new Date('2026-08-01'), baseSigilSvg: '<svg>base</svg>', reinforcedSigilSvg: '<svg>reinforced</svg>',
+      enhancedImageUrl: 'https://example.test/saved-enhanced.png' } as Anchor;
+    const facts = buildWeeklyInsightFacts({ anchors: [anchor], sessions: [], referenceDate: new Date(2026, 8, 8, 10) });
+    expect(facts.anchors[0]).toMatchObject({ id: anchor.id, svg: anchor.reinforcedSigilSvg, imageUrl: anchor.enhancedImageUrl });
+  });
   const mockAnchor: Anchor = {
     id: 'a1',
     intentionText: 'Forge clarity',

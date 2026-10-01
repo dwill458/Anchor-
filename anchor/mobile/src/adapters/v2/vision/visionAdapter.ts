@@ -44,6 +44,7 @@ export function toV2VisionPresentationState(
     prompt: scene.prompt,
     sortOrder: scene.sortOrder,
     isHero: index === 0,
+    sourceType: scene.sourceType,
   }));
 
   const description = raw.description?.trim() || activeScenes[0]?.prompt?.trim() || '';

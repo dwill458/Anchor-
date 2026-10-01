@@ -55,13 +55,13 @@ export function VisionAddSheet({ visible, onClose, onChoose, testID = 'vision-ad
                 accessibilityHint={detail} onPress={() => choose(choice)}
                 style={({ pressed }) => [styles.option, isFeatured && styles.optionFeatured, pressed && styles.pressed]}>
                 <View style={[styles.iconWell, isFeatured && styles.iconWellFeatured]}>
-                  <Icon size={20} color={isFeatured ? '#8B5CF6' : colors.text.primary} />
+                  <Icon size={20} color={isFeatured ? colors.paper : colors.text.primary} />
                 </View>
                 <View style={styles.copy}>
                   <Text style={[styles.optionTitle, isFeatured && styles.optionTitleFeatured]}>{title}</Text>
-                  <Text style={styles.optionDetail}>{detail}</Text>
+                  <Text style={[styles.optionDetail, isFeatured && styles.optionDetailFeatured]}>{detail}</Text>
                 </View>
-                {isFeatured && <ChevronRight size={18} color="#8B5CF6" style={styles.chevron} />}
+                {isFeatured && <ChevronRight size={18} color={colors.paper} style={styles.chevron} />}
               </Pressable>
             );
           })}
@@ -97,17 +97,18 @@ const styles = StyleSheet.create({
     borderRadius: radii.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border.default, backgroundColor: colors.canvas,
   },
   optionFeatured: {
-    backgroundColor: '#F5EEFA',
-    borderColor: '#E9D5FF',
+    backgroundColor: colors.ink.base,
+    borderColor: colors.ink.hairlineStrong,
   },
   iconWell: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border.default },
   iconWellFeatured: {
-    backgroundColor: '#EDE4F7',
-    borderColor: '#D8B4FE',
+    backgroundColor: colors.ink.raised,
+    borderColor: colors.ink.hairlineStrong,
   },
   copy: { flex: 1, gap: 1 },
   optionTitle: { ...typography.labelLG, color: colors.text.primary },
-  optionTitleFeatured: { color: '#6B21A8' },
+  optionTitleFeatured: { color: colors.ink.text.primary },
+  optionDetailFeatured: { color: colors.ink.text.secondary },
   optionDetail: { ...typography.caption, color: colors.text.secondary },
   chevron: { marginLeft: spacing[1] },
   pressed: { opacity: 0.72 },

@@ -7,6 +7,7 @@
  */
 
 import type { Anchor } from '@/types';
+import { anchorArtworkSvg } from '@/components/v2/anchors/anchorPresentation';
 import type { CourseLogEntry } from '@/types/chart';
 import type { SessionLogEntry } from '@/stores/sessionStore';
 import type { PracticeSessionRecord } from '@/types/practice';
@@ -164,7 +165,8 @@ export function buildWeeklyInsightFacts(input: BuildWeeklyInsightFactsInput): We
       id: a.id,
       intention,
       category: a.category,
-      svg: (a as any).sigilSvg || (a as any).svg || null,
+      svg: anchorArtworkSvg(a) || (a as any).sigilSvg || (a as any).svg || null,
+      imageUrl: a.enhancedImageUrl ?? null,
       evolutionStage: (a as any).evolutionStage ?? undefined,
       unlockedStageThisWeek: (a as any).unlockedStageThisWeek ?? null,
       isReleased: isArchived,

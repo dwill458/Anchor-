@@ -1,3 +1,5 @@
+import { AnalyticsService } from '@/services/AnalyticsService';
+import { useVisionGenerationAnalytics } from './useVisionGenerationAnalytics';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { apiClient, ApiClientError } from '@/services/ApiClient';
@@ -38,6 +40,7 @@ export function generationMessage(cause: unknown): string {
 
 export function useV2VisionGeneration(anchorId: string, onPremiumRequired?: () => void) {
   const [job, setJob] = useState<VisionGenerationJob | null>(null);
+  useVisionGenerationAnalytics(anchorId, job);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const mounted = useRef(true);
@@ -87,8 +90,10 @@ export function useV2VisionGeneration(anchorId: string, onPremiumRequired?: () =
     pendingKey.current = key;
     setError(null);
     try {
-      const response = await apiClient.post<VisionGenerationJob>(path, { description, idempotencyKey: key, appearanceReferenceId: appearanceReferenceId ?? null });
+      const response = await apiClient.post<VisionGenerationJob>(path, { description, idempotencyKey: key,
+        ...(appearanceReferenceId ? { appearanceReferenceId } : {}) });
       if (mounted.current) setJob(visionApiData<VisionGenerationJob>(response));
+      AnalyticsService.track('vision_image_generation_started', { anchor_id: anchorId, job_id: visionApiData<VisionGenerationJob>(response).id });
       return true;
     } catch (cause) {
       if (cause instanceof ApiClientError && cause.code === 'VISION_PREMIUM_REQUIRED') onPremiumRequired?.();

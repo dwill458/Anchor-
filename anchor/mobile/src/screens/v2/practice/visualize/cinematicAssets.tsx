@@ -1,16 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image } from 'react-native';
-import { Asset } from 'expo-asset';
 import { useImage, type SkImage } from '@shopify/react-native-skia';
 import type { V2VisionTile } from '@/adapters/v2/vision';
-import {
-  BOARD_ATTACHMENT_ART, BOARD_CARD_PIN, BOARD_DECOR_IMAGES, BOARD_FRAME_IMAGES, VISION_BOARD_IMAGES,
-} from '@/components/v2/vision/board/visionBoardAssets';
 import { VISION_BOARD_MAX_IMAGES } from '@/components/v2/vision/board/visionBoardLayouts';
 
-const boardAssets = [...Object.values(VISION_BOARD_IMAGES), ...Object.values(BOARD_FRAME_IMAGES),
-  ...Object.values(BOARD_DECOR_IMAGES), ...Object.values(BOARD_ATTACHMENT_ART).map(value => value.source),
-  BOARD_CARD_PIN] as number[];
 /** A 2048-square decoded texture is 16 MiB RGBA, irrespective of encoded byte size. */
 export const MAX_CINEMATIC_TEXTURE_PIXELS = 2048 * 2048;
 
@@ -47,12 +40,11 @@ function ImageResource({ id, imageUrl, onReady, onFailure }: {
   return null;
 }
 
-/** Native board assets and Skia textures must exist before the practice clock starts. */
+/** Native photographs and Skia textures must exist before the practice clock starts. */
 export function useCinematicAssets(tiles: V2VisionTile[], enhancedImageUrl?: string | null) {
   const [attempt, setAttempt] = useState(0);
   const attemptRef = useRef(attempt);
   attemptRef.current = attempt;
-  const [boardStatus, setBoardStatus] = useState<'pending' | 'ready' | 'failed'>('pending');
   const [textures, setTextures] = useState<Record<string, SkImage>>({});
   const [dimensionsReady, setDimensionsReady] = useState<ReadonlySet<string>>(new Set());
   const [prefetched, setPrefetched] = useState<ReadonlySet<string>>(new Set());
@@ -63,7 +55,7 @@ export function useCinematicAssets(tiles: V2VisionTile[], enhancedImageUrl?: str
   const retry = useCallback(() => {
     setAttempt(value => value + 1);
     setTextures({}); setDimensionsReady(new Set()); setPrefetched(new Set()); setFailed(new Set()); setOversized(new Set());
-    setBoardStatus('pending'); setTimedOut(false);
+    setTimedOut(false);
   }, []);
   const onReady = useCallback((generation: number, id: string, image: SkImage) => {
     if (generation !== attemptRef.current) return;
@@ -77,8 +69,6 @@ export function useCinematicAssets(tiles: V2VisionTile[], enhancedImageUrl?: str
     let live = true;
     const timeout = setTimeout(() => { if (live) setTimedOut(true); }, 20_000);
     timeoutRef.current = timeout;
-    void Asset.loadAsync(boardAssets).then(() => { if (live) setBoardStatus('ready'); })
-      .catch(() => { if (live) setBoardStatus('failed'); });
     const sources = tiles.map(tile => ({ id: tile.sceneId, imageUrl: tile.imageUrl! }));
     if (enhancedImageUrl) sources.push({ id: ENHANCED_ANCHOR_ID, imageUrl: enhancedImageUrl });
     sources.forEach(source => {
@@ -105,15 +95,14 @@ export function useCinematicAssets(tiles: V2VisionTile[], enhancedImageUrl?: str
   const sourceIds = enhancedImageUrl ? [...tiles.map(tile => tile.sceneId), ENHANCED_ANCHOR_ID] : tiles.map(tile => tile.sceneId);
   const pending = sourceIds.some(id => !failed.has(id) && (!dimensionsReady.has(id) ||
     !prefetched.has(id) || !textures[id]));
-  const ready = boardStatus === 'ready' && tiles.length > 0 && !pending && failed.size === 0 && available.length === tiles.length;
+  const ready = tiles.length > 0 && !pending && failed.size === 0 && available.length === tiles.length;
   useEffect(() => { if (ready && timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; } }, [ready]);
   const enhancedFailed = failed.has(ENHANCED_ANCHOR_ID);
   const enhancedReady = !enhancedImageUrl || (dimensionsReady.has(ENHANCED_ANCHOR_ID) && prefetched.has(ENHANCED_ANCHOR_ID) &&
     Boolean(textures[ENHANCED_ANCHOR_ID]) && !enhancedFailed);
-  const partial = boardStatus === 'ready' && (tiles.some(tile => failed.has(tile.sceneId)) || timedOut) && available.length > 0 && enhancedReady;
-  const unavailable = boardStatus === 'failed' || (timedOut && boardStatus !== 'ready') ||
-    enhancedFailed || (timedOut && !enhancedReady) ||
-    (boardStatus === 'ready' && !pending && available.length === 0) || (timedOut && available.length === 0);
+  const partial = (tiles.some(tile => failed.has(tile.sceneId)) || timedOut) && available.length > 0 && enhancedReady;
+  const unavailable = enhancedFailed || (timedOut && !enhancedReady) ||
+    (!pending && available.length === 0) || (timedOut && available.length === 0);
   const resources = <React.Fragment key={attempt}>{[...tiles.map(tile => ({ id: tile.sceneId, imageUrl: tile.imageUrl! })),
     ...(enhancedImageUrl ? [{ id: ENHANCED_ANCHOR_ID, imageUrl: enhancedImageUrl }] : [])]
     .filter(source => dimensionsReady.has(source.id)).map(source => <ImageResource key={source.id} {...source}

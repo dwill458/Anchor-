@@ -20,7 +20,7 @@ import { fetchV2RecommendationContext, type V2RecommendationContext } from '@/ad
 import { isV2RecommendationContextFresh, peekV2RecommendationContext } from '@/adapters/v2/practice/recommendationCache';
 import { V2_RECOMMENDATION_ACTION_TO_MODE, V2_PRACTICE_MODE_BY_ID, type V2PracticeMode } from '@/constants/v2/practice';
 import { todayReasonCopy } from '@/components/v2/home/V2HomeTodaySection';
-import { colors, getCategoryColor, getCategoryTextColor, getPracticeColor, typography } from '@/theme/v2';
+import { spacing, colors, getCategoryColor, getCategoryTextColor, getPracticeColor, typography } from '@/theme/v2';
 import { useV2DailyShellIntents, type V2DailyShellParamList } from '@/screens/v2/home/dailyShell';
 import { ANCHOR_DETAIL_EMPTY_ART, ANCHOR_DETAIL_HERO_ART, ANCHOR_DETAIL_PRACTICE_ART } from '@/components/v2/anchors/anchorDetailArt';
 import { AnchorTransitionScene, useAnchorTransitionPlace, useProgressiveFocusTransition } from '@/navigation/v2/ProgressiveFocusTransition';
@@ -309,14 +309,13 @@ function VisionSection({
           accessibilityRole="button"
           accessibilityLabel="Vision"
           onPress={onOpenVision}
-          style={({ pressed }) => [styles.emptyArtCard, pressed && styles.pressed]}
+          style={({ pressed }) => [{ minHeight: 150, padding: spacing[5], justifyContent: 'center', backgroundColor: colors.surface }, pressed && styles.pressed]}
         >
-          <EmptyCardArtwork source={EMPTY_ART.vision} testID="v2-vision-empty-art" />
-          <View style={styles.emptyCardContent}>
-            <Text style={styles.emptyCardTitle}>{DETAIL_ACTION_COPY.visionTitle}</Text>
-            <Text style={styles.emptyCardPayoff}>{DETAIL_ACTION_COPY.visionPayoff}</Text>
+          <View style={{ gap: spacing[2] }}>
+            <Text style={[styles.emptyCardTitle, { color: colors.text.primary }]}>{DETAIL_ACTION_COPY.visionTitle}</Text>
+            <Text style={[styles.emptyCardPayoff, { color: colors.text.secondary }]}>{DETAIL_ACTION_COPY.visionPayoff}</Text>
           </View>
-          <EmptyCardChevron />
+          <ChevronRight size={22} color={colors.text.primary} />
         </Pressable>
       </View>
     );

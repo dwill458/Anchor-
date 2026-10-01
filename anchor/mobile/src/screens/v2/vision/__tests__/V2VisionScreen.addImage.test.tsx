@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Alert } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -106,7 +106,7 @@ describe('V2VisionScreen: adding to the board', () => {
       expect(view.getByTestId('v2-vision-add-photo-image').props.source).toEqual({ uri: 'file:///cam.jpg' });
       expect(apiClient.post).not.toHaveBeenCalled();
 
-      await act(async () => { fireEvent.press(view.getByLabelText('Add to Vision')); });
+      await act(async () => { fireEvent.press(view.getByLabelText('Use This Image')); });
       await waitFor(() => expect(view.queryByTestId('v2-vision-add-photo')).toBeNull());
       expect((apiClient.post as jest.Mock).mock.calls[0][0]).toBe('/api/v2/assets/upload');
       expect(apiClient.post).toHaveBeenCalledWith('/api/v2/visions/vision-101/scenes', { assetId: 'asset-cam', sourceType: 'USER_CAMERA' });
@@ -148,7 +148,7 @@ describe('V2VisionScreen: adding to the board', () => {
       fireEvent.press(view.getByLabelText('Choose from Photos'));
       await act(async () => { jest.advanceTimersByTime(600); });
       await view.findByTestId('v2-vision-add-photo');
-      await act(async () => { fireEvent.press(view.getByLabelText('Add to Vision')); });
+      await act(async () => { fireEvent.press(view.getByLabelText('Use This Image')); });
       await waitFor(() => expect(apiClient.post).toHaveBeenCalledWith('/api/v2/visions/vision-101/scenes', { assetId: 'asset-lib', sourceType: 'USER_UPLOAD' }));
     } finally {
       jest.useRealTimers();
@@ -198,8 +198,8 @@ describe('V2VisionScreen: adding to the board', () => {
       fireEvent.press(view.getByLabelText('Generate with AI'));
       await act(async () => { jest.advanceTimersByTime(600); });
 
-      await view.findByText('What do you want to see?');
-      expect(view.getByText('Add to your Vision')).toBeTruthy();
+      await view.findByText('Describe your image');
+      expect(view.getByText('Add Image')).toBeTruthy();
       const generate = view.getByLabelText('Generate image');
       expect(generate.props.accessibilityState?.disabled).toBe(true);
       fireEvent.changeText(view.getByTestId('vision-scene-input'), 'Working from a beach house');
@@ -214,11 +214,11 @@ describe('V2VisionScreen: adding to the board', () => {
       await view.findByTestId('v2-vision-add-scene-choose');
       expect(view.getByTestId('scene-candidate-cand-1')).toBeTruthy();
       expect(view.getByTestId('scene-candidate-cand-2')).toBeTruthy();
-      expect(view.getByLabelText('Regenerate')).toBeTruthy();
-      expect(view.getByLabelText('Add to Vision').props.accessibilityState?.disabled).toBe(true);
+      expect(view.getByLabelText('Generate More')).toBeTruthy();
+      expect(view.getByLabelText('Use This Image').props.accessibilityState?.disabled).toBe(true);
 
       fireEvent.press(view.getByTestId('scene-candidate-cand-2'));
-      await act(async () => { fireEvent.press(view.getByLabelText('Add to Vision')); });
+      await act(async () => { fireEvent.press(view.getByLabelText('Use This Image')); });
       await waitFor(() => expect(apiClient.post).toHaveBeenCalledWith('/api/v2/visions/vision-101/scenes', {
         assetId: 'gen-2', prompt: 'Working from a beach house', sourceType: 'AI_GENERATED',
       }));
@@ -241,18 +241,23 @@ describe('V2VisionScreen: adding to the board', () => {
     serve(visionWith(6));
     const view = render(<V2VisionScreen anchorId="anchor-1" />);
     await view.findByTestId('vision-board');
-    for (let i = 1; i <= 6; i += 1) expect(view.getByTestId(`vision-board-photo-sc-${i}`)).toBeTruthy();
+    for (let i = 1; i <= 3; i += 1) expect(view.getByTestId(`vision-board-photo-sc-${i}`)).toBeTruthy();
     expect(view.queryByLabelText(/^Add an image/)).toBeNull();
   });
 
   it('keeps added images after leaving and reopening the Vision', async () => {
     serve(visionWith(4));
     const first = render(<V2VisionScreen anchorId="anchor-1" />);
-    await first.findByTestId('vision-board-photo-sc-4');
+    await first.findByTestId('vision-board-photo-sc-3');
+    fireEvent.press(first.getByLabelText('Vision options'));
+    fireEvent.press(first.getByText('Manage images (4)'));
+    expect(first.getByLabelText('Manage image 4')).toBeTruthy();
     first.unmount();
     // The reopened screen paints the cached board at once, before any request settles.
     const second = render(<V2VisionScreen anchorId="anchor-1" />);
-    expect(second.getByTestId('vision-board-photo-sc-4')).toBeTruthy();
+    fireEvent.press(second.getByLabelText('Vision options'));
+    fireEvent.press(second.getByText('Manage images (4)'));
+    expect(second.getByLabelText('Manage image 4')).toBeTruthy();
     expect(second.getByLabelText('Add an image, 4 of 6')).toBeTruthy();
   });
 });

@@ -1,49 +1,20 @@
-import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Image,
-  Pressable,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native';
-import Animated, {
-  Easing,
-  interpolate,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
+import { memo, useEffect, useMemo, useRef } from 'react';
+import { Pressable, ScrollView, StatusBar, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import Animated, { Easing, interpolate, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { V2Button } from '@/components/v2';
 import { useV2ReduceMotion } from '@/hooks/v2';
-import { colors, getCategoryColor, radii, spacing, typography } from '@/theme/v2';
+import { colors, spacing, typography } from '@/theme/v2';
 import type { V2VisionTile } from '@/adapters/v2/vision';
-import type { VisionGenerationCandidate, VisionGenerationJob } from '@/hooks/v2/vision';
-import { VisionHeaderRow, VisionIdentity, type VisionAnchorArt } from './VisionChrome';
-import { VisionEnvironment } from './environment/VisionEnvironment';
-import { VisionBoardIntentionCard } from './board/VisionBoardIntentionCard';
-import { VisionDevelopingPhoto } from './VisionDevelopingPhoto';
-import { VisionBoardPhoto } from './board/VisionBoardPhoto';
-import { BOARD_DECOR_IMAGES, VISION_BOARD_IMAGES } from './board/visionBoardAssets';
-import {
-  boardSizeForWidth,
-  decorAspect,
-  selectBoardLayout,
-  toSceneRect,
-  type BoardDecorAsset,
-  type BoardDecorItem,
-  type SceneRect,
-  type Size,
-} from './board/visionBoardLayouts';
-import { useVisionBoardScene } from './board/useVisionBoardScene';
+import type { VisionGenerationJob } from '@/hooks/v2/vision';
+import { VisionHeaderRow, VisionIdentity, VisionStatusBarScrim, type VisionAnchorArt } from './VisionChrome';
 
-const DECOR_ASSETS = Object.keys(BOARD_DECOR_IMAGES) as BoardDecorAsset[];
+import { VisionDevelopingPhoto } from './VisionDevelopingPhoto';
+
+import { VISION_HERO_ASPECT } from './board/visionBoardLayouts';
+
+
 
 export interface VisionGenerationBoardProps {
   mode: 'initial' | 'add';
@@ -60,14 +31,6 @@ export interface VisionGenerationBoardProps {
   onReadyToSelect?: () => void;
   testID?: string;
 }
-
-const ATMOSPHERIC_MESSAGES = [
-  'Understanding your moment…',
-  'Building the scene…',
-  'Finding the first moment…',
-  'Creating another perspective…',
-  'Turning your words into an image…',
-];
 
 function IndeterminateProgressBar({ reduceMotion }: { reduceMotion: boolean }) {
   const travel = useSharedValue(0);
@@ -120,14 +83,12 @@ export const VisionGenerationBoard = memo(function VisionGenerationBoard({
   testID = 'vision-generation-board',
 }: VisionGenerationBoardProps) {
   const insets = useSafeAreaInsets();
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions();
   const reduceMotion = useV2ReduceMotion();
   const isInitial = mode === 'initial';
 
   // Board dimensions
   const boardWidth = Math.min(windowWidth - spacing[4] * 2, 400);
-  const viewport = useMemo(() => boardSizeForWidth(boardWidth), [boardWidth]);
-  const scene = viewport;
 
   // Candidates from job
   const candidates = useMemo(() => job?.candidates ?? [], [job?.candidates]);
@@ -136,24 +97,8 @@ export const VisionGenerationBoard = memo(function VisionGenerationBoard({
     [candidates],
   );
 
-  // Status message rotation
-  const [statusIndex, setStatusIndex] = useState(0);
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setStatusIndex(prev => (prev + 1) % ATMOSPHERIC_MESSAGES.length);
-    }, 4500);
-    return () => clearInterval(timer);
-  }, []);
-
-  const currentStatusText = useMemo(() => {
-    if (statusMessage) return statusMessage;
-    if (job?.status === 'PARTIAL' || (job?.candidates && job.candidates.length > 1)) {
-      return 'Finding another moment…';
-    }
-    if (readyCandidates.length >= 2) return 'Two perspectives are ready…';
-    if (readyCandidates.length === 1) return 'Creating another perspective…';
-    return ATMOSPHERIC_MESSAGES[statusIndex];
-  }, [job?.candidates, job?.status, readyCandidates.length, statusIndex, statusMessage]);
+  const currentStatusText = statusMessage ?? (job?.status === 'FAILED' ? 'Image generation paused.' :
+    job?.status === 'COMPLETE' ? 'Your images are ready.' : job?.status === 'QUEUED' ? 'Waiting to generate your images.' : 'Generating your images.');
 
   // Transition to selection once ready candidates arrive
   const readyToSelectTriggered = useRef(false);
@@ -167,43 +112,6 @@ export const VisionGenerationBoard = memo(function VisionGenerationBoard({
       return () => clearTimeout(timer);
     }
   }, [job?.status, onReadyToSelect, readyCandidates.length, reduceMotion]);
-
-  // Layout resolution
-  // For Initial mode: Mockup 1 shows intention card pinned at top, and 2 candidate photos pinned side-by-side
-  const initialCardRect: SceneRect = useMemo(() => {
-    return toSceneRect({ x: 0.5, y: 0.35, width: 0.44, aspectRatio: 1.25, rotation: -0.8, zIndex: 40 }, scene);
-  }, [scene]);
-
-  const initialSlot1Rect: SceneRect = useMemo(() => {
-    return toSceneRect({ x: 0.3, y: 0.74, width: 0.45, aspectRatio: 0.82, rotation: -3, zIndex: 15 }, scene);
-  }, [scene]);
-
-  const initialSlot2Rect: SceneRect = useMemo(() => {
-    return toSceneRect({ x: 0.7, y: 0.75, width: 0.45, aspectRatio: 0.82, rotation: 2.5, zIndex: 16 }, scene);
-  }, [scene]);
-
-  // For Add mode: board has existing tiles + 1 new developing slot
-  const totalCount = existingTiles.length + 1;
-  const addLayout = useMemo(() => selectBoardLayout(Math.min(6, totalCount)), [totalCount]);
-  const addCardRect = useMemo(() => toSceneRect(addLayout.card, scene), [addLayout.card, scene]);
-  const existingBoard = useVisionBoardScene(existingTiles, scene, 1);
-
-  // Incoming empty slot is placed at the newly added slot position
-  const incomingSlotIndex = Math.min(existingTiles.length, addLayout.photos.length - 1);
-  const incomingSlotRect: SceneRect = useMemo(() => {
-    const slot = addLayout.photos[incomingSlotIndex];
-    return slot ? toSceneRect(slot, scene) : initialSlot1Rect;
-  }, [addLayout.photos, incomingSlotIndex, initialSlot1Rect, scene]);
-
-  const decorByAsset = useMemo(() => {
-    const decorList = isInitial
-      ? [
-          { asset: 'leaf-large' as BoardDecorAsset, x: 0.12, y: 0.72, width: 0.16, rotation: -14, opacity: 1, zIndex: 2 },
-          { asset: 'map-corner' as BoardDecorAsset, x: 0.86, y: 0.32, width: 0.2, rotation: 8, opacity: 0.9, zIndex: 2 },
-        ]
-      : addLayout.decor;
-    return new Map(decorList.map(item => [item.asset, item]));
-  }, [addLayout.decor, isInitial]);
 
   const isFailed = job?.status === 'FAILED';
 
@@ -247,128 +155,17 @@ export const VisionGenerationBoard = memo(function VisionGenerationBoard({
           </Text>
         </View>
 
-        {/* Physical Vision Board in Dark Environment */}
-        <View style={[styles.boardWrapper, { width: scene.width, height: scene.height }]}>
-          {/* Surrounding environmental pen-line illustration */}
-          <VisionEnvironment
-            category={anchorCategory}
-            boardWidth={boardWidth}
-            reduceMotion={reduceMotion}
-          />
-
-          {/* Wooden board background */}
-          <Image
-            source={VISION_BOARD_IMAGES.board}
-            resizeMode="stretch"
-            accessible={false}
-            style={styles.fill}
-          />
-
-          {/* Decor Ephemera */}
-          {DECOR_ASSETS.map(asset => {
-            const item = decorByAsset.get(asset);
-            if (!item) return null;
-            const target = toSceneRect({ ...item, aspectRatio: decorAspect(item) }, scene);
-            return (
-              <Image
-                key={asset}
-                source={BOARD_DECOR_IMAGES[asset]}
-                resizeMode="stretch"
-                accessible={false}
-                style={[
-                  styles.decor,
-                  {
-                    left: target.x,
-                    top: target.y,
-                    width: target.width,
-                    height: target.height,
-                    opacity: item.opacity,
-                    transform: [{ rotate: `${target.rotation}deg` }],
-                    zIndex: item.zIndex,
-                  },
-                ]}
-              />
-            );
-          })}
-
-          {/* Real Intention Card with canonical SVG Anchor */}
-          <VisionBoardIntentionCard
-            rect={isInitial ? initialCardRect : addCardRect}
-            intention={anchorIntention}
-            category={anchorCategory}
-            art={anchorArt}
-            reduceMotion={reduceMotion}
-          />
-
-          {/* Board Content: FLOW A (Initial) */}
-          {isInitial ? (
-            <>
-              {/* Candidate 1 Developing Slot */}
-              <VisionDevelopingPhoto
-                testID="developing-photo-candidate-0"
-                rect={initialSlot1Rect}
-                sceneId="candidate-0"
-                category={anchorCategory}
-                imageUrl={candidates[0]?.imageUrl}
-                isReady={Boolean(candidates[0]?.imageUrl)}
-                frame="landscape"
-                reduceMotion={reduceMotion}
-                delayMs={0}
-              />
-
-              {/* Candidate 2 Developing Slot */}
-              <VisionDevelopingPhoto
-                testID="developing-photo-candidate-1"
-                rect={initialSlot2Rect}
-                sceneId="candidate-1"
-                category={anchorCategory}
-                imageUrl={candidates[1]?.imageUrl}
-                isReady={Boolean(candidates[1]?.imageUrl)}
-                frame="landscape"
-                reduceMotion={reduceMotion}
-                delayMs={350}
-              />
-            </>
-          ) : (
-            /* Board Content: FLOW B (Add Image) */
-            <>
-              {/* Existing Persisted Photos */}
-              {existingBoard.roster.map(({ tile }) => (
-                <VisionBoardPhoto
-                  key={tile.sceneId}
-                  testID={`vision-board-photo-${tile.sceneId}`}
-                  sceneId={tile.sceneId}
-                  imageUrl={tile.imageUrl}
-                  accessibilityLabel="Existing Vision photo"
-                  initialRect={existingBoard.initialRectFor(tile.sceneId)}
-                  entering={false}
-                  exiting={false}
-                  shared={existingBoard.shared}
-                  reduceMotion={reduceMotion}
-                  interactive={false}
-                  dragEnabled={false}
-                />
-              ))}
-
-              {/* Incoming New Moment Developing Slot */}
-              <VisionDevelopingPhoto
-                testID="developing-photo-incoming"
-                rect={incomingSlotRect}
-                sceneId="incoming-scene"
-                category={anchorCategory}
-                imageUrl={candidates[0]?.imageUrl}
-                isReady={Boolean(candidates[0]?.imageUrl)}
-                frame="landscape"
-                reduceMotion={reduceMotion}
-              />
-            </>
-          )}
+        <View style={[styles.boardWrapper, { width: boardWidth, height: boardWidth / VISION_HERO_ASPECT }]}>
+          <VisionDevelopingPhoto testID={isInitial ? 'developing-photo-candidate-0' : 'developing-photo-incoming'}
+            rect={{ x: 0, y: 0, width: boardWidth, height: boardWidth / VISION_HERO_ASPECT, rotation: 0, zIndex: 1 }}
+            sceneId="incoming-scene" category={anchorCategory} imageUrl={candidates[0]?.imageUrl}
+            isReady={Boolean(candidates[0]?.imageUrl)} reduceMotion={reduceMotion} />
         </View>
 
         {/* Candidate stage indicator for tests */}
         <View testID="vision-generation-stage" pointerEvents="none" style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}>
           {readyCandidates.map(c => (
-            <Image key={c.id} source={{ uri: c.imageUrl }} />
+            <View key={c.id} />
           ))}
         </View>
 
@@ -411,6 +208,7 @@ export const VisionGenerationBoard = memo(function VisionGenerationBoard({
           ) : null}
         </View>
       </ScrollView>
+      <VisionStatusBarScrim />
     </View>
   );
 });

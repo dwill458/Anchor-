@@ -1,13 +1,13 @@
-import React from 'react';
+
 import { fireEvent, render } from '@testing-library/react-native';
 import { anchorRenderProps } from '@/components/v2/anchors/anchorPresentation';
-import { VisionBoardIntentionCard, intentionTypeScale } from '../VisionBoardIntentionCard';
+import { VisionBoardIntentionCard } from '../VisionBoardIntentionCard';
 
 const mockMarkProps: Array<Record<string, unknown>> = [];
-jest.mock('@/components/v2/anchor/AnchorMark', () => {
+jest.mock('@/components/v2/anchor/CircularAnchorRenderer', () => {
   const { View } = require('react-native');
   return {
-    AnchorMark: (props: Record<string, unknown>) => {
+    CircularAnchorRenderer: (props: Record<string, unknown>) => {
       mockMarkProps.push(props);
       return <View testID={(props.testID as string) ?? 'anchor-mark'} />;
     },
@@ -26,11 +26,11 @@ const storedAnchor = {
 describe('VisionBoardIntentionCard', () => {
   beforeEach(() => { mockMarkProps.length = 0; });
 
-  it('lets the compositor own the mark while retaining the original paper and intention', () => {
+  it('lets the compositor own the actual seal without duplicate text or art', () => {
     const view = render(<VisionBoardIntentionCard rect={rect} intention="My saved intention" art={anchorRenderProps(storedAnchor)} hideMark reduceMotion />);
     expect(mockMarkProps).toHaveLength(0);
-    expect(view.getByText('My saved intention')).toBeTruthy();
-    expect(view.getByTestId('vision-board-card-mark-slot').props.style.width).toBe(156);
+    expect(view.queryByText('My saved intention')).toBeNull();
+    expect(view.getByTestId('vision-board-card-mark-slot').props.style.width).toBe(258);
   });
 
   it.each([true, false])('reports the measured mark in paper coordinates regardless of layout event order: %s', contentFirst => {
@@ -57,37 +57,20 @@ describe('VisionBoardIntentionCard', () => {
     expect(mockMarkProps[0].svg).toContain('<circle');
   });
 
-  it('shows the enhanced artwork on the paper when the Anchor has one, and the drawn structure when it does not', () => {
+  it('uses the saved enhancement with the persisted SVG as fallback', () => {
     const enhanced = { ...(storedAnchor as object), enhancedImageUrl: 'https://example.com/enhanced.jpg' } as never;
-    const view = render(<VisionBoardIntentionCard rect={rect} intention="Anchor has ten thousand users" category="career"
-      art={anchorRenderProps(enhanced)} reduceMotion />);
-    expect(view.UNSAFE_getAllByType(require('react-native').Image).some((node: { props: { source?: { uri?: string } } }) => node.props.source?.uri === 'https://example.com/enhanced.jpg')).toBe(true);
-    expect(mockMarkProps).toHaveLength(0);
+    const view = render(<VisionBoardIntentionCard rect={rect} intention="My future" category="career" art={anchorRenderProps(enhanced)} reduceMotion />);
+    expect(mockMarkProps).toHaveLength(1);
+    expect(mockMarkProps[0].svg).toBe(anchorRenderProps(enhanced).svg);
+    expect(mockMarkProps[0].imageUrl).toBe('https://example.com/enhanced.jpg');
+    expect(mockMarkProps[0].appearance).toBe('bare');
+    expect(view.UNSAFE_queryAllByType(require('react-native').Image)).toHaveLength(0);
   });
 
-  it('writes the intention as live text, from the active Anchor', () => {
-    const view = render(<VisionBoardIntentionCard rect={rect} intention="Anchor has ten thousand users" category="career"
-      art={anchorRenderProps(storedAnchor)} reduceMotion />);
-    expect(view.getByText('Anchor has ten thousand users')).toBeTruthy();
+  it('keeps intention accessible without duplicating the overview heading', () => {
+    const view = render(<VisionBoardIntentionCard rect={rect} intention="Anchor has ten thousand users" category="career" art={anchorRenderProps(storedAnchor)} reduceMotion />);
+    expect(view.queryByText('Anchor has ten thousand users')).toBeNull();
     expect(view.getByLabelText('Your Anchor, Career. Anchor has ten thousand users')).toBeTruthy();
-  });
-
-  it('keeps a long intention on the paper: smaller type, a line limit, and fit-to-width', () => {
-    const long = 'I run a calm, profitable company that helps a million people build habits that last, while spending every evening with my family and every summer by the sea.';
-    const view = render(<VisionBoardIntentionCard rect={rect} intention={long} category="career" art={anchorRenderProps(storedAnchor)} reduceMotion />);
-    const text = view.getByText(long);
-    const { fontScale, lines } = intentionTypeScale(long);
-    expect(fontScale).toBeLessThan(intentionTypeScale('Short').fontScale);
-    expect(text.props.numberOfLines).toBe(lines);
-    expect(text.props.adjustsFontSizeToFit).toBe(true);
-    const style = Object.assign({}, ...[text.props.style].flat(3).filter(Boolean));
-    expect(style.fontSize).toBeCloseTo(rect.width * 0.128 * fontScale, 5);
-  });
-
-  it('shrinks in steps as the intention grows', () => {
-    const scales = ['x'.repeat(20), 'x'.repeat(50), 'x'.repeat(100), 'x'.repeat(300)].map(text => intentionTypeScale(text).fontScale);
-    expect(scales).toEqual([...scales].sort((a, b) => b - a));
-    expect(new Set(scales).size).toBe(4);
   });
 
   it('is tappable to bring the Anchor forward, and a plain image when it is not', () => {

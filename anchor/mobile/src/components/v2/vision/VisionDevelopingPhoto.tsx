@@ -1,27 +1,13 @@
-import React, { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
-import Animated, {
-  Easing,
-  interpolate,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated, { Easing, interpolate, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { v2Haptics } from '@/hooks/v2';
 import { getCategoryColor } from '@/theme/v2';
-import { BOARD_ATTACHMENT_ART, BOARD_FRAME_IMAGES } from './board/visionBoardAssets';
-import {
-  BOARD_FRAME_WINDOW,
-  boardAttachmentFor,
-  type BoardFrameKind,
-  type SceneRect,
-} from './board/visionBoardLayouts';
+import { BOARD_FRAME_WINDOW, type BoardFrameKind, type SceneRect } from './board/visionBoardLayouts';
 
 const W = BOARD_FRAME_WINDOW;
-const BLEED = 0.012;
+const BLEED = 0;
 
 export interface VisionDevelopingPhotoProps {
   rect: SceneRect;
@@ -47,13 +33,13 @@ export const VisionDevelopingPhoto = memo(function VisionDevelopingPhoto({
   testID = 'vision-developing-photo',
 }: VisionDevelopingPhotoProps) {
   const categoryColor = getCategoryColor(category);
-  const attachment = BOARD_ATTACHMENT_ART[boardAttachmentFor(sceneId)];
   const windowMetrics = W[frame];
 
   // Motion values
   const developProgress = useSharedValue(reduceMotion ? 1 : 0);
   const shimmer = useSharedValue(0.4);
-  const [hasRevealed, setHasRevealed] = useState(false);
+  const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
+  const decoded = Boolean(imageUrl && loadedUrl === imageUrl);
   const didTriggerHaptic = useRef(false);
 
   // Abstract breathing shimmer before image arrives
@@ -71,10 +57,10 @@ export const VisionDevelopingPhoto = memo(function VisionDevelopingPhoto({
 
   // Image development reveal
   useEffect(() => {
-    if (!isReady || !imageUrl) return;
+    if (!isReady || !imageUrl || !decoded) return;
 
     const timer = setTimeout(() => {
-      setHasRevealed(true);
+
       if (!didTriggerHaptic.current) {
         didTriggerHaptic.current = true;
         v2Haptics.selection();
@@ -92,7 +78,7 @@ export const VisionDevelopingPhoto = memo(function VisionDevelopingPhoto({
     }, delayMs);
 
     return () => clearTimeout(timer);
-  }, [delayMs, developProgress, imageUrl, isReady, reduceMotion]);
+  }, [delayMs, developProgress, imageUrl, isReady, reduceMotion, decoded]);
 
   // Animated styles
   const windowLeft = (windowMetrics.left - BLEED) * rect.width;
@@ -102,7 +88,7 @@ export const VisionDevelopingPhoto = memo(function VisionDevelopingPhoto({
 
   const imageAnimStyle = useAnimatedStyle(() => {
     if (reduceMotion) {
-      return { opacity: isReady ? 1 : 0 };
+      return { opacity: decoded && isReady ? 1 : 0 };
     }
     const opacity = developProgress.value;
     const scale = interpolate(developProgress.value, [0, 1], [1.035, 1]);
@@ -114,7 +100,7 @@ export const VisionDevelopingPhoto = memo(function VisionDevelopingPhoto({
 
   const abstractAnimStyle = useAnimatedStyle(() => {
     if (reduceMotion) {
-      return { opacity: isReady ? 0 : 1 };
+      return { opacity: decoded && isReady ? 0 : 1 };
     }
     return {
       opacity: 1 - developProgress.value,
@@ -153,15 +139,6 @@ export const VisionDevelopingPhoto = memo(function VisionDevelopingPhoto({
         },
       ]}
     >
-      {/* Frame Shadow */}
-      <Image
-        source={BOARD_FRAME_IMAGES[frame]}
-        resizeMode="stretch"
-        tintColor="#000000"
-        accessible={false}
-        style={[styles.layer, styles.shadow]}
-      />
-
       {/* Photographic Window */}
       <View
         style={[
@@ -178,7 +155,7 @@ export const VisionDevelopingPhoto = memo(function VisionDevelopingPhoto({
         {imageUrl ? (
           <Animated.View style={[StyleSheet.absoluteFill, imageAnimStyle]}>
             <Image
-              source={{ uri: imageUrl }}
+              source={{ uri: imageUrl }} onLoad={() => setLoadedUrl(imageUrl)} onError={() => setLoadedUrl(null)}
               resizeMode="cover"
               accessible={false}
               accessibilityIgnoresInvertColors
@@ -203,41 +180,9 @@ export const VisionDevelopingPhoto = memo(function VisionDevelopingPhoto({
             <Rect x="0" y="0" width="100%" height="100%" fill="#1C1917" />
             <Rect x="0" y="0" width="100%" height="100%" fill={`url(#dev-glow-${sceneId})`} />
           </Svg>
-          <Animated.View style={[styles.shimmerBloom, shimmerStyle]}>
-            <View
-              style={[
-                styles.shimmerDisc,
-                { backgroundColor: categoryColor, borderColor: '#FFFFFF' },
-              ]}
-            />
-          </Animated.View>
         </Animated.View>
       </View>
 
-      {/* Frame */}
-      <Image
-        source={BOARD_FRAME_IMAGES[frame]}
-        resizeMode="stretch"
-        accessible={false}
-        style={[styles.layer]}
-      />
-
-      {/* Pin / Tape Attachment */}
-      <Image
-        source={attachment.source}
-        accessible={false}
-        resizeMode="contain"
-        style={[
-          styles.attachment,
-          {
-            left: `${(attachment.x - attachment.width / 2) * 100}%`,
-            top: `${attachment.y * 100}%`,
-            width: `${attachment.width * 100}%`,
-            aspectRatio: attachment.aspect,
-            transform: [{ translateY: '-50%' }, { rotate: `${attachment.rotation}deg` }],
-          },
-        ]}
-      />
     </View>
   );
 });

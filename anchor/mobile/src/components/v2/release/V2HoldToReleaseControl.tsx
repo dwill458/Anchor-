@@ -8,6 +8,7 @@ import { releaseTypography } from './releaseTypography';
 
 interface Props {
   artworkSvg: string;
+  imageUrl?: string | null;
   category?: string | null;
   progress: number;
   visualProgress?: SharedValue<number>;
@@ -21,7 +22,7 @@ interface Props {
 }
 
 /** Deliberate hold target; progress is neutral ink and runs on the UI thread. */
-export function V2HoldToReleaseControl({ artworkSvg, category, progress, visualProgress,
+export function V2HoldToReleaseControl({ artworkSvg, imageUrl, category, progress, visualProgress,
   isHolding, accessibilityLabel, disabled = false, showArtwork = true,
   onHoldStart, onHoldEnd, testID }: Props) {
   const fallback = useSharedValue(progress);
@@ -31,7 +32,7 @@ export function V2HoldToReleaseControl({ artworkSvg, category, progress, visualP
   const controlStyle = useAnimatedStyle(() => ({ transform: [{ scale: 1 - fill.value * 0.012 }], borderColor: interpolateColor(fill.value, [0, 1], ['#3D4447', '#A9A79F']) }));
   return (
     <View style={styles.wrapper} testID={testID ?? 'v2-hold-to-release'}>
-      {showArtwork ? <CircularAnchorRenderer svg={artworkSvg} category={category} size={244} appearance="paper" /> : null}
+      {showArtwork ? <CircularAnchorRenderer svg={artworkSvg} imageUrl={imageUrl} category={category} size={244} appearance="paper" /> : null}
       <Animated.View style={[styles.pressable, controlStyle]}>
       <Pressable onPressIn={disabled ? undefined : onHoldStart} onPressOut={disabled ? undefined : onHoldEnd}
         onResponderTerminate={onHoldEnd} onTouchCancel={onHoldEnd} onBlur={onHoldEnd}

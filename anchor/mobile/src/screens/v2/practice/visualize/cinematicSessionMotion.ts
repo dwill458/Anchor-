@@ -1,9 +1,14 @@
 import type { SceneRect, Size } from '@/components/v2/vision/board/visionBoardLayouts';
-import { cameraAtRect, mix, mixCamera, progress, projectPoint, restCinematicCamera, smooth } from './prototype/cinematicGeometry';
+import { cameraAtRect, mixCamera, progress, projectPoint, restCinematicCamera, smooth } from './prototype/cinematicGeometry';
 import { cinematicSegmentAt, type CinematicTimeline } from './prototype/cinematicTimeline';
 
-export function cinematicSessionGeometry(scene: Size, viewport: Size, firstPhoto: SceneRect, mark: SceneRect, imageCount: number) {
-  const rest = restCinematicCamera(scene, viewport);
+export function cinematicSessionGeometry(scene: Size, viewport: Size, firstPhoto: SceneRect, mark: SceneRect, imageCount: number, canvasFrame?: { x: number; y: number; width: number; height: number }) {
+  const scale = canvasFrame ? canvasFrame.width / scene.width : 0;
+  const rest = canvasFrame && scale > 0 ? {
+    x: scene.width / 2 + (viewport.width / 2 - canvasFrame.x - canvasFrame.width / 2) / scale,
+    y: scene.height / 2 + (viewport.height / 2 - canvasFrame.y - canvasFrame.height / 2) / scale,
+    rotation: 0, scale,
+  } : restCinematicCamera(scene, viewport);
   const lifted = { ...firstPhoto, y: firstPhoto.y - 4 };
   const full = { ...cameraAtRect(lifted, viewport, 1),
     scale: Math.max(viewport.width / firstPhoto.width, viewport.height / firstPhoto.height) * 1.015 };

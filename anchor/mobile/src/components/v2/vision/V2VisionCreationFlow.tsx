@@ -1,11 +1,10 @@
+import { useVisionImageArrival, type VisionImageRect } from './VisionImageArrival';
+import { AnalyticsService } from '@/services/AnalyticsService';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ActivityIndicator, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text,
-  TextInput, useWindowDimensions, View,
-} from 'react-native';
+import { ActivityIndicator, Image, Keyboard, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { Easing, interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
+
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Compass, Eye, Image as ImageIcon, MapPin, PenLine, RefreshCw } from 'lucide-react-native';
@@ -15,16 +14,12 @@ import { useVisionAppearanceReference } from '@/hooks/v2/vision';
 import { useV2VisionGeneration, type VisionGenerationCandidate, type UploadAssetResult } from '@/hooks/v2/vision';
 import { colors, getCategoryColor, radii, spacing, typography } from '@/theme/v2';
 import type { VisionSceneSource } from '@/adapters/v2/vision';
-import { VisionPhoto } from './VisionPhoto';
+
 import { VisionHeaderRow, VisionIdentity, type VisionAnchorArt } from './VisionChrome';
-import { visionPossibleFuturePhoto } from './visionArt';
-import {
-  VISION_DESCRIPTION_MAX_CHARS, VISION_DESCRIPTION_MIN_CHARS, VISION_DESCRIPTION_PROMPTS,
-  visionDescriptionExample, visionDetailHint, visionDetailLevel,
-} from './visionGuidance';
+import { VISION_DESCRIPTION_MAX_CHARS, VISION_DESCRIPTION_MIN_CHARS, visionDescriptionExample } from './visionGuidance';
 import { visionGenerationProgress } from './visionGenerationProgress';
 import { useVisionPresentationQueue, VISION_REVEAL_TIMING } from './useVisionPresentationQueue';
-import { VisionGenerationStage } from './VisionGenerationStage';
+
 import { VisionGenerationBoard } from './VisionGenerationBoard';
 import { VisionMomentInput } from './VisionMomentInput';
 import { VISION_BOARD_MAX_IMAGES } from './board/visionBoardLayouts';
@@ -79,117 +74,21 @@ function Reveal({ children, style, reduceMotion, delay = 0, fromStage = false }:
   return <Animated.View style={[style, animated]}>{children}</Animated.View>;
 }
 
-function VisionEntranceStage({
-  possibleFuture, anchorCategory, anchorIntention, anchorArt, anchorImageUrl, focalPoint, insets, onBack, onStartCreate, testID,
-}: {
-  possibleFuture: any;
-  anchorCategory?: string | null;
-  anchorIntention: string;
-  anchorArt?: VisionAnchorArt | null;
-  anchorImageUrl?: string | null;
-  focalPoint?: { x: number; y: number } | null;
-  insets: any;
-  onBack: () => void;
-  onStartCreate: () => void;
-  testID: string;
+function VisionEntranceStage({ anchorCategory, anchorIntention, insets, onBack, onStartCreate, testID }: {
+  anchorCategory?: string | null; anchorIntention: string; anchorArt?: VisionAnchorArt | null;
+  anchorImageUrl?: string | null; focalPoint?: { x: number; y: number } | null; insets: any;
+  onBack: () => void; onStartCreate: () => void; testID: string;
 }) {
-  const reduceMotion = useV2ReduceMotion();
-  const { width, height } = useWindowDimensions();
-  const heroHeight = Math.round(Math.max(220, Math.min(width * 0.95, height * 0.4)));
-  const [isExiting, setIsExiting] = useState(false);
-  const isExitingRef = useRef(false);
-
-  const headerProgress = useSharedValue(reduceMotion ? 1 : 0);
-  const titleProgress = useSharedValue(reduceMotion ? 1 : 0);
-  const bodyProgress = useSharedValue(reduceMotion ? 1 : 0);
-  const footerProgress = useSharedValue(reduceMotion ? 1 : 0);
-  const exitOpacity = useSharedValue(1);
-
-  useEffect(() => {
-    if (reduceMotion) return;
-    headerProgress.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.quad) });
-    const timer1 = setTimeout(() => {
-      titleProgress.value = withTiming(1, { duration: 450, easing: Easing.out(Easing.quad) });
-    }, 150);
-    const timer2 = setTimeout(() => {
-      bodyProgress.value = withTiming(1, { duration: 450, easing: Easing.out(Easing.quad) });
-    }, 300);
-    const timer3 = setTimeout(() => {
-      footerProgress.value = withTiming(1, { duration: 450, easing: Easing.out(Easing.quad) });
-    }, 450);
-    return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-      clearTimeout(timer3);
-    };
-  }, [bodyProgress, footerProgress, headerProgress, reduceMotion, titleProgress]);
-
-  const handleCreatePress = () => {
-    if (isExitingRef.current) return;
-    isExitingRef.current = true;
-    setIsExiting(true);
-    if (reduceMotion) {
-      onStartCreate();
-      return;
-    }
-    exitOpacity.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) });
-    setTimeout(() => {
-      onStartCreate();
-    }, 300);
-  };
-
-  const headerStyle = useAnimatedStyle(() => ({
-    opacity: headerProgress.value * exitOpacity.value,
-    transform: [{ translateY: (1 - headerProgress.value) * 6 }],
-  }));
-
-  const titleStyle = useAnimatedStyle(() => ({
-    opacity: titleProgress.value * exitOpacity.value,
-    transform: [{ translateY: (1 - titleProgress.value) * 8 }],
-  }));
-
-  const bodyStyle = useAnimatedStyle(() => ({
-    opacity: bodyProgress.value * exitOpacity.value,
-  }));
-
-  const footerStyle = useAnimatedStyle(() => ({
-    opacity: footerProgress.value * exitOpacity.value,
-  }));
-
-  const identity = (tone: 'light' | 'dark' = 'light') => (
-    <VisionIdentity intention={anchorIntention} category={anchorCategory} art={anchorArt} imageUrl={anchorImageUrl} tone={tone} />
-  );
-
-  return (
-    <View testID={`${testID}-empty`} style={[styles.stage, styles.inkStage]}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.ink.base} animated />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.entranceScroll}>
-        <View style={[styles.photoContent, { paddingTop: insets.top }]}>
-          <Animated.View style={headerStyle}>
-            <VisionHeaderRow title="Vision" onBack={onBack} />
-            {identity()}
-          </Animated.View>
-          <Animated.View style={titleStyle}>
-            <Text accessibilityRole="header" style={styles.emptyTitle}>See your future.</Text>
-          </Animated.View>
-          <Animated.View style={bodyStyle}>
-            <Text style={styles.emptyBody}>Turn your intention into a visual future you can step into.</Text>
-          </Animated.View>
-          <Animated.View style={bodyStyle}>
-            <VisionPhoto source={possibleFuture} category={anchorCategory} tint={0} scrim="none"
-              focalPoint={focalPoint} isExiting={isExiting} testID="vision-entrance-photograph"
-              style={[styles.entrancePhotograph, { height: heroHeight }]} />
-          </Animated.View>
-        </View>
-      </ScrollView>
-      <Animated.View style={[styles.emptyFooter, { paddingBottom: insets.bottom + spacing[4] }, footerStyle]}>
-        <Text style={styles.entranceCaption}>A clear Vision changes everything.</Text>
-        <V2Button size="large" accessibilityLabel="Create Vision" onPress={handleCreatePress} style={[styles.fullWidth, styles.entranceCTA]}>
-          Create Vision →
-        </V2Button>
-      </Animated.View>
+  return <View testID={`${testID}-empty`} style={[styles.stage, { paddingTop: insets.top, paddingHorizontal: spacing[5] }]}>
+    <StatusBar barStyle="dark-content" backgroundColor={colors.canvas} />
+    <VisionHeaderRow title="Vision" onBack={onBack} tone="dark" />
+    <VisionIdentity intention={anchorIntention} category={anchorCategory} tone="dark" />
+    <View style={{ flex: 1, justifyContent: 'center', gap: spacing[4] }}>
+      <Text accessibilityRole="header" style={[typography.headingXL, { color: colors.text.primary }]}>See where this is going.</Text>
+      <Text style={[typography.bodyLG, { color: colors.text.secondary }]}>Build a visual picture of what this intention looks like when it becomes real.</Text>
+      <V2Button testID="vision-create" accessibilityLabel="Create Vision" size="large" onPress={onStartCreate}>Create Vision</V2Button>
     </View>
-  );
+  </View>;
 }
 
 export function V2VisionCreationFlow({
@@ -197,12 +96,19 @@ export function V2VisionCreationFlow({
   initialStep = 'prompt', selectionLimit = VISION_BOARD_MAX_IMAGES, focalPoint, onBack, onPremiumRequired, onSaveDescription, resumeGeneration, onResumeGenerationConsumed, onUploadAsset, onAssemble,
   testID = 'v2-vision-creation-flow',
 }: V2VisionCreationFlowProps) {
+  const arrival = useVisionImageArrival();
+  const cardRefs = useRef<Record<string, View | null>>({});
+  const cardRects = useRef<Record<string, VisionImageRect>>({});
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const reduceMotion = useV2ReduceMotion();
   const [step, setStep] = useState<'empty' | 'prompt' | 'generating' | 'curation'>(
     initialStep === 'ready' || initialStep === 'empty' ? 'empty' : initialStep,
   );
+  const createStarted = useRef(false);
+  useEffect(() => {
+    if (step === 'prompt' && !createStarted.current) { createStarted.current = true; AnalyticsService.track('vision_create_started', { anchor_id: anchorId }); }
+  }, [anchorId, step]);
   const [description, setDescription] = useState(initialDescription);
   const [selection, setSelection] = useState<Selection[]>([]);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
@@ -216,7 +122,6 @@ export function V2VisionCreationFlow({
   const [curationOriginId, setCurationOriginId] = useState<string | null>(null);
   const appearanceHydrated = useRef(false);
   const categoryColor = getCategoryColor(anchorCategory);
-  const possibleFuture = visionPossibleFuturePhoto(anchorCategory, anchorId);
   const candidates = generation.job?.candidates ?? [];
   const trimmed = description.trim();
   const validDescription = trimmed.length >= VISION_DESCRIPTION_MIN_CHARS && trimmed.length <= VISION_DESCRIPTION_MAX_CHARS;
@@ -229,6 +134,7 @@ export function V2VisionCreationFlow({
   const presentation = useVisionPresentationQueue(generation.job?.id, candidates, { reduceMotion });
   const progress = visionGenerationProgress(generation.job, presentation.idle);
   const startingRef = useRef(false);
+  const generationReference = useRef<string | null | undefined>(undefined);
 
   // This setting is an explicit future-session preference, never a silent
   // reinterpretation of a profile image in the same session.
@@ -312,7 +218,7 @@ export function V2VisionCreationFlow({
       : [];
   }), [candidates, selection, uploads]);
 
-  const generate = async () => {
+  const generate = async (appearanceReferenceId?: string | null) => {
     if (!validDescription) { setNotice(`Describe your Vision in at least ${VISION_DESCRIPTION_MIN_CHARS} characters.`); return; }
     // One request per tap sequence: saving the description is awaited before
     // the job starts, so a second tap in that window must not start another.
@@ -325,7 +231,9 @@ export function V2VisionCreationFlow({
         setNotice('Your description could not be saved. Please try again.');
         return;
       }
-      const started = await generation.start(trimmed, useAppearance ? appearance.reference?.id : null);
+      if (appearanceReferenceId !== undefined) generationReference.current = appearanceReferenceId;
+      const reference = generationReference.current !== undefined ? generationReference.current : useAppearance ? appearance.reference?.id : null;
+      const started = await generation.start(trimmed, reference);
       if (started) { setSelection(prev => prev.filter(item => item.kind === 'upload')); setStep('generating'); }
     } finally {
       startingRef.current = false;
@@ -429,9 +337,13 @@ export function V2VisionCreationFlow({
     setSaving(true);
     setNotice(null);
     try {
+      const first = selectedAssets[0];
+      const source = cardRects.current[first.assetId];
+      if (first.imageUrl && source) arrival?.begin(first.imageUrl, source);
       const result = await onAssemble({ description: trimmed, selectedAssets });
-      if (result === false) setNotice('Vision could not be saved. Please try again.');
+      if (result === false) { arrival?.cancel(); setNotice('Vision could not be saved. Please try again.'); }
     } catch (cause) {
+      arrival?.cancel();
       setNotice(cause instanceof Error ? cause.message : 'Vision could not be saved.');
     } finally {
       setSaving(false);
@@ -448,7 +360,6 @@ export function V2VisionCreationFlow({
 
   if (step === 'empty') return (
     <VisionEntranceStage
-      possibleFuture={possibleFuture}
       anchorCategory={anchorCategory}
       anchorIntention={anchorIntention}
       anchorArt={anchorArt}
@@ -503,10 +414,12 @@ export function V2VisionCreationFlow({
               const order = orderOf(item => item.kind === 'candidate' && item.id === candidate.id);
               return (
                 <Reveal key={candidate.id} reduceMotion={reduceMotion} delay={Math.min(index, 7) * 70} fromStage={candidate.id === curationOriginId}>
-                  <Pressable testID={`candidate-card-${candidate.id}`} onPress={() => toggleCandidate(candidate)}
+                  <Pressable ref={node => { cardRefs.current[candidate.assetId ?? candidate.id] = node; }} collapsable={false}
+                    onLayout={() => cardRefs.current[candidate.assetId ?? candidate.id]?.measureInWindow?.((x, y, width, height) => { cardRects.current[candidate.assetId ?? candidate.id] = { x, y, width, height }; })}
+                    testID={`candidate-card-${candidate.id}`} onPress={() => toggleCandidate(candidate)}
                     accessibilityRole="button" accessibilityState={{ selected: order !== null }}
                     accessibilityLabel={order ? `Remove ${candidate.role}` : `Select ${candidate.role}`}
-                    style={({ pressed }) => [styles.tile, { width: tileWidth, height: tileWidth },
+                    style={({ pressed }) => [styles.tile, { width: Math.min(width - spacing[5] * 2, 520), height: Math.min(width - spacing[5] * 2, 520) * 1.05 },
                       order !== null && { borderColor: categoryColor, borderWidth: 3 }, pressed && styles.tilePressed]}>
                     {candidate.imageUrl ? <Image source={{ uri: candidate.imageUrl }} style={styles.fillImage} />
                       : <View style={styles.imageUnavailable}><Text style={styles.unavailableText}>Image unavailable</Text></View>}
@@ -526,7 +439,7 @@ export function V2VisionCreationFlow({
                     if (item.status === 'failed') void uploadOne(item, item.mimeType);
                     else if (item.status === 'ready') removeUpload(item.key);
                   }}
-                  style={[styles.tile, { width: tileWidth, height: tileWidth }, order !== null && item.status === 'ready' && { borderColor: categoryColor, borderWidth: 3 }]}>
+                  style={[styles.tile, { width: Math.min(width - spacing[5] * 2, 520), height: Math.min(width - spacing[5] * 2, 520) * 1.05 }, order !== null && item.status === 'ready' && { borderColor: categoryColor, borderWidth: 3 }]}>
                   <Image source={{ uri: item.imageUrl ?? item.uri }} style={styles.fillImage} />
                   {item.status === 'uploading' && <View style={styles.uploadShade}><ActivityIndicator color={colors.paper} /></View>}
                   {item.status === 'failed' && <View style={styles.uploadShade}><Text style={styles.uploadError}>Upload failed. Tap to retry.</Text></View>}
@@ -572,8 +485,8 @@ export function V2VisionCreationFlow({
       description={description}
       onChangeDescription={setDescription}
       onBack={onBack}
-      onSubmit={async () => {
-        await generate();
+      onSubmit={async (_description, referenceId) => {
+        await generate(referenceId);
       }}
       onAddPhotos={() => {
         void pickImages();
@@ -665,7 +578,7 @@ const styles = StyleSheet.create({
   darkLink: { ...typography.labelMD, color: colors.ink.text.primary, textDecorationLine: 'underline' },
   // Curation
   curationTitle: { ...typography.headingXL, color: colors.ink.text.primary, marginTop: spacing[3] },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: TILE_GAP, marginTop: spacing[2] },
+  grid: { gap: spacing[4], marginTop: spacing[2], alignItems: 'center' },
   tile: { borderRadius: radii.md, overflow: 'hidden', borderWidth: 1, borderColor: colors.ink.hairline, backgroundColor: colors.ink.raised },
   tilePressed: { transform: [{ scale: 0.985 }] },
   imageUnavailable: { flex: 1, alignItems: 'center', justifyContent: 'center' },

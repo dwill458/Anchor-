@@ -35,6 +35,7 @@ export interface V2VisionTile {
   prompt: string | null;
   sortOrder: number;
   isHero: boolean;
+  sourceType?: VisionSceneSource;
 }
 
 export type V2VisionPresentationState =

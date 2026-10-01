@@ -17,7 +17,7 @@ export function rotatedChild(parent: SceneRect, child: Rect): SceneRect {
 export function photoWindow(photo: SceneRect, kind: BoardFrameKind): SceneRect {
   const w = BOARD_FRAME_WINDOW[kind];
   // The same bleed as VisionBoardPhoto: maintain the source crop at breakout.
-  const bleed = 0.012;
+  const bleed = 0;
   return rotatedChild(photo, { x: (w.left - bleed) * photo.width, y: (w.top - bleed) * photo.height,
     width: (w.right - w.left + 2 * bleed) * photo.width, height: (w.bottom - w.top + 2 * bleed) * photo.height });
 }

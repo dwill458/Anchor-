@@ -14,6 +14,13 @@ export type VisionAnchorArt = { svg: string; imageUrl?: string | null; category?
 
 export type VisionTone = 'light' | 'dark';
 
+/** Keep status-bar contrast stable when photographs scroll underneath it. */
+export function VisionStatusBarScrim({ tone = 'light' }: { tone?: VisionTone }) {
+  const insets = useSafeAreaInsets();
+  return <View pointerEvents="none" accessible={false} style={{ position: 'absolute', top: 0, left: 0, right: 0,
+    height: insets.top, backgroundColor: tone === 'light' ? colors.ink.base : colors.canvas }} />;
+}
+
 /**
  * Anchor provenance: the real Anchor mark, its intention and category. Small
  * on purpose - on Vision surfaces the photograph is the hero, the Anchor is

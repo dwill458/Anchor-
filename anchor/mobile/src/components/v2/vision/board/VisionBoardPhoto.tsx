@@ -1,27 +1,26 @@
-import React, { memo, useEffect } from 'react';
-import { Image, StyleSheet, Text, View, type AccessibilityActionEvent } from 'react-native';
+import { memo, useEffect, useRef, useState } from 'react';
+import { StyleSheet, Text, View, type AccessibilityActionEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
-  runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue, type SharedValue,
-} from 'react-native-reanimated';
+import Animated, { runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
+import { useVisionImageArrival } from '../VisionImageArrival';
 import { colors, typography } from '@/theme/v2';
-import { BOARD_ATTACHMENT_ART, BOARD_FRAME_IMAGES } from './visionBoardAssets';
-import {
-  BOARD_FRAME_KINDS, BOARD_FRAME_WINDOW, boardAttachmentFor, type BoardFrameKind,
-} from './visionBoardLayouts';
-import {
-  boardDelay, boardRecomposeEasing, boardSpring, boardTiming, VISION_BOARD_MOTION as MOTION,
-} from './visionBoardMotion';
+import { VisionImageEdge } from '../VisionImageEdge';
+import { VisionPhotograph } from '../VisionPhotograph';
+import { BOARD_FRAME_WINDOW } from './visionBoardLayouts';
+import { boardDelay, boardRecomposeEasing, boardSpring, boardTiming, VISION_BOARD_MOTION as MOTION } from './visionBoardMotion';
 import { boardSlotAtPoint, swapBoardOrder } from './visionBoardReorder';
 import type { BoardSlotRect, VisionBoardShared } from './useVisionBoardScene';
 
 const W = BOARD_FRAME_WINDOW;
-/** Photographs run a little under the torn frame so no linen shows along the window. */
-const BLEED = 0.012;
+/** Photographs fill their canvas aperture. */
+const BLEED = 0;
 
 export type VisionBoardPhotoProps = {
   sceneId: string;
   imageUrl: string | null;
+  uploaded?: boolean;
+  displayAspect?: number;
+  hero?: boolean;
   accessibilityLabel: string;
   initialRect: BoardSlotRect | null;
   entering: boolean;
@@ -49,18 +48,19 @@ function kindWeight(kind: number, target: number) {
   return kind === target ? 1 : 0;
 }
 
-/**
- * One Vision photograph on the board:
- *   shadow (the frame's own silhouette) -> photograph clipped to the window
- *   -> torn frame -> pin or tape.
- * Its slot comes from the board's shared order/slots, so the UI thread moves
- * it for swaps and recompositions without any React render.
- */
+/** A real photograph; stable UI-thread geometry preserves gestures and recomposition. */
 export const VisionBoardPhoto = memo(function VisionBoardPhoto({
-  sceneId, imageUrl, accessibilityLabel, initialRect, entering, exiting, shared, reduceMotion,
+  sceneId, imageUrl, uploaded = false, displayAspect = 1.12, hero = false, accessibilityLabel, initialRect, entering, exiting, shared, reduceMotion,
   interactive, dragEnabled, onPress, onDragActive, onSwap, onOrderCommit, onExited, onMove,
   canMoveEarlier = false, canMoveLater = false, testID, cinematicOpacity,
 }: VisionBoardPhotoProps) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const arrival = useVisionImageArrival();
+  const imageRef = useRef<View>(null);
+  const landImage = () => {
+    if (imageUrl && arrival?.url === imageUrl) imageRef.current?.measureInWindow?.((x, y, width, height) => arrival.land(imageUrl, { x, y, width, height }));
+  };
+  useEffect(landImage, [imageUrl, arrival?.url]);
   const start = initialRect ?? { x: 0, y: 0, width: 1, height: 1, rotation: 0, zIndex: 12, frame: 0 };
   const x = useSharedValue(start.x);
   const y = useSharedValue(start.y);
@@ -239,25 +239,6 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
     };
   });
 
-  // The frame's own silhouette, offset and faint, reads as a soft paper shadow;
-  // lifting a photo deepens and lengthens it.
-  const shadowFor = (weight: SharedValue<number>) => {
-    'worklet';
-    const offset = MOTION.lift.restShadowOffset + (MOTION.lift.shadowOffset - MOTION.lift.restShadowOffset) * lift.value;
-    const opacity = MOTION.lift.restShadowOpacity + (MOTION.lift.shadowOpacity - MOTION.lift.restShadowOpacity) * lift.value;
-    return { opacity: opacity * weight.value, transform: [{ translateX: offset * 0.4 }, { translateY: offset }] };
-  };
-  const landscapeShadow = useAnimatedStyle(() => shadowFor(landscape));
-  const portraitShadow = useAnimatedStyle(() => shadowFor(portrait));
-  const squareShadow = useAnimatedStyle(() => shadowFor(square));
-  const landscapeStyle = useAnimatedStyle(() => ({ opacity: landscape.value }));
-  const portraitStyle = useAnimatedStyle(() => ({ opacity: portrait.value }));
-  const squareStyle = useAnimatedStyle(() => ({ opacity: square.value }));
-  const kindStyles = { landscape: landscapeStyle, portrait: portraitStyle, square: squareStyle } satisfies Record<BoardFrameKind, unknown>;
-  const shadowStyles = { landscape: landscapeShadow, portrait: portraitShadow, square: squareShadow } satisfies Record<BoardFrameKind, unknown>;
-
-  const attachment = BOARD_ATTACHMENT_ART[boardAttachmentFor(sceneId)];
-
   const actions = [
     { name: 'activate', label: 'Focus image' },
     ...(canMoveEarlier ? [{ name: 'moveEarlier', label: 'Move earlier' }] : []),
@@ -281,28 +262,14 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
       onAccessibilityAction={interactive ? onAccessibilityAction : undefined}
       importantForAccessibility={exiting ? 'no-hide-descendants' : 'auto'}
     >
-      {BOARD_FRAME_KINDS.map(kind => (
-        <Animated.Image key={`shadow-${kind}`} source={BOARD_FRAME_IMAGES[kind]} resizeMode="stretch" tintColor="#000"
-          accessible={false} style={[styles.layer, shadowStyles[kind]]} />
-      ))}
-      <Animated.View style={[styles.window, windowStyle]}>
-        {imageUrl ? (
-          <Image source={{ uri: imageUrl }} resizeMode="cover" accessible={false} accessibilityIgnoresInvertColors style={styles.fill} />
+      <Animated.View ref={imageRef} collapsable={false} onLayout={landImage} style={[styles.window, windowStyle]}>
+        {imageUrl && failedUrl !== imageUrl ? (
+          <VisionPhotograph source={{ uri: imageUrl }} displayAspect={displayAspect} uploaded={uploaded} onLoad={landImage} onError={() => setFailedUrl(imageUrl)} accessible={false} accessibilityIgnoresInvertColors style={styles.fill} />
         ) : (
           <View style={styles.unavailable}><Text style={styles.unavailableText}>Image unavailable</Text></View>
         )}
+        <VisionImageEdge hero={hero} />
       </Animated.View>
-      {BOARD_FRAME_KINDS.map(kind => (
-        <Animated.Image key={`frame-${kind}`} source={BOARD_FRAME_IMAGES[kind]} resizeMode="stretch" accessible={false}
-          style={[styles.layer, kindStyles[kind]]} />
-      ))}
-      <Image source={attachment.source} accessible={false} resizeMode="contain" style={[styles.attachment, {
-        left: `${(attachment.x - attachment.width / 2) * 100}%`,
-        top: `${attachment.y * 100}%`,
-        width: `${attachment.width * 100}%`,
-        aspectRatio: attachment.aspect,
-        transform: [{ translateY: '-50%' }, { rotate: `${attachment.rotation}deg` }],
-      }]} />
     </Animated.View>
   );
 
@@ -312,7 +279,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
 const styles = StyleSheet.create({
   photo: { position: 'absolute' },
   layer: { position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' },
-  window: { position: 'absolute', overflow: 'hidden', backgroundColor: '#D9D2C4' },
+  window: { position: 'absolute', overflow: 'hidden', backgroundColor: colors.canvas },
   fill: { width: '100%', height: '100%' },
   unavailable: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#CFC6B6' },
   unavailableText: { ...typography.caption, color: colors.text.secondary },

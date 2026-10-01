@@ -1,4 +1,5 @@
-import React from 'react';
+
+import { ScrollView } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import { V2VisualizePrepareScreen } from '../V2VisualizePrepareScreen';
 import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
@@ -21,6 +22,17 @@ function setup() {
 }
 
 describe('Visualize prepares behind its real setup board', () => {
+  it('keeps Begin and recovery outside the scrolling setup controls', () => {
+    const view = setup();
+    const scroll = view.UNSAFE_getByType(ScrollView);
+    expect(scroll.findAll((node: { props: Record<string, unknown> }) => node.props.accessibilityLabel === 'Begin Visualize')).toHaveLength(0);
+    expect(scroll.findAll((node: { props: Record<string, unknown> }) => node.props.accessibilityLabel === 'Sound').length).toBeGreaterThan(0);
+    expect(scroll.findAll((node: { props: Record<string, unknown> }) => node.props.testID === 'v2-visualize-prepare-vision').length).toBeGreaterThan(0);
+    act(() => mockPreparation.onPreparationIssue('Image could not load.'));
+    expect(scroll.findAll((node: { props: Record<string, unknown> }) => node.props.accessibilityLabel === 'Retry Vision')).toHaveLength(0);
+    expect(view.getByText('Retry Vision')).toBeTruthy();
+  });
+
   it('guards Begin until the exact textures and mark geometry are ready', () => {
     const view = setup();
     expect(view.getByLabelText('Begin Visualize').props.accessibilityState.disabled).toBe(true);

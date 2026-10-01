@@ -18,7 +18,9 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { colors, radii, spacing, typography } from '@/theme/v2';
-import { SigilSvg } from '@/components/common/SigilSvg';
+import { CircularAnchorRenderer } from '@/components/v2/anchor/CircularAnchorRenderer';
+import { anchorArtworkSvg, anchorRenderProps } from '@/components/v2/anchors/anchorPresentation';
+import { useAnchorStore } from '@/stores/anchorStore';
 import type {
   WeeklyInsightVisualData,
   WeeklyInsightVisualType,
@@ -33,71 +35,17 @@ interface WeeklyInsightVisualProps {
   testID?: string;
 }
 
-/**
- * Editorial anchor vector matching the locked prototype geometry.
- */
-function PrototypeAnchorSvg({
-  accent,
-  variant = 'default',
-  size = 130,
-  opacity = 1,
-}: {
-  accent: string;
-  variant?: 'default' | 'rooted';
-  size?: number;
-  opacity?: number;
-}) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 140 140" style={{ opacity }}>
-      {/* Outer subtle ring */}
-      <Circle cx={70} cy={70} r={49} fill="none" stroke={accent} strokeOpacity={0.24} strokeWidth={1.2} />
-
-      {/* Evolution ring if rooted */}
-      {variant === 'rooted' && (
-        <>
-          <Circle
-            cx={70}
-            cy={70}
-            r={58}
-            fill="none"
-            stroke={accent}
-            strokeOpacity={0.18}
-            strokeWidth={1}
-          />
-          <Path
-            d="M27 97c11 6 23 9 36 9 17 0 32-5 45-15"
-            fill="none"
-            stroke={accent}
-            strokeOpacity={0.28}
-            strokeWidth={1.1}
-          />
-        </>
-      )}
-
-      {/* Characteristic geometric anchor glyph */}
-      <Path
-        d="M42 91L66 44l10 51 23-39M46 68l50 8M55 101l34-61"
-        fill="none"
-        stroke="#171717"
-        strokeWidth={2.2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
-      {/* Accent energy points */}
-      <Circle cx={66} cy={44} r={3.4} fill={accent} />
-      <Circle cx={76} cy={95} r={3.4} fill={accent} />
-      <Circle cx={99} cy={56} r={3.4} fill={accent} />
-    </Svg>
-  );
-}
-
 export const WeeklyInsightVisual: React.FC<WeeklyInsightVisualProps> = ({
   visualType,
   visualData,
   accentColor,
   testID = 'weekly-insight-visual',
 }) => {
+  const artworkSvg = 'svg' in visualData ? visualData.svg : null;
+  const savedAnchor = useAnchorStore(state => 'anchorName' in visualData ? state.anchors.find(anchor =>
+    anchor.intentionText === visualData.anchorName && (!artworkSvg || anchorArtworkSvg(anchor) === artworkSvg || anchor.baseSigilSvg === artworkSvg)) : undefined);
+  const artwork = { ...(savedAnchor ? anchorRenderProps(savedAnchor) : { svg: artworkSvg ?? '', category: 'category' in visualData ? visualData.category : undefined }),
+    imageUrl: ('imageUrl' in visualData ? visualData.imageUrl : null) ?? savedAnchor?.enhancedImageUrl };
   // 1. Thread Line Visual
   if (visualType === 'thread' && visualData.type === 'thread') {
     const arr = visualData.threadPoints;
@@ -265,12 +213,12 @@ export const WeeklyInsightVisual: React.FC<WeeklyInsightVisualProps> = ({
       <View style={styles.shell} testID={`${testID}-evolution`}>
         <View style={styles.evolutionRow}>
           <View style={styles.evolutionStage}>
-            <PrototypeAnchorSvg accent={accentColor} size={82} opacity={0.45} />
-            <Text style={styles.evolutionLabel}>Grounded</Text>
+            <CircularAnchorRenderer {...artwork} size={82} appearance="bare" state="inactive" />
+            <Text style={styles.evolutionLabel}>{visualData.oldStage}</Text>
           </View>
           <Text style={styles.evolutionArrow}>→</Text>
           <View style={styles.evolutionStage}>
-            <PrototypeAnchorSvg accent={accentColor} variant="rooted" size={124} />
+            <CircularAnchorRenderer {...artwork} size={124} appearance="bare" />
             <Text style={styles.evolutionLabel}>{visualData.newStage}</Text>
           </View>
         </View>
@@ -286,7 +234,7 @@ export const WeeklyInsightVisual: React.FC<WeeklyInsightVisualProps> = ({
           <View style={[styles.releaseRing, { borderColor: `${accentColor}5C` }]}>
             <View style={[styles.releaseInnerRing1, { borderColor: `${accentColor}2E` }]} />
             <View style={[styles.releaseInnerRing2, { borderColor: `${accentColor}24` }]} />
-            <PrototypeAnchorSvg accent={accentColor} size={110} opacity={0.3} />
+            <CircularAnchorRenderer {...artwork} size={110} appearance="bare" state="inactive" />
           </View>
           <Text style={styles.releaseCaption}>
             {visualData.anchorName} Anchor · preserved in history
@@ -298,18 +246,11 @@ export const WeeklyInsightVisual: React.FC<WeeklyInsightVisualProps> = ({
 
   // 6. Anchor Artwork Visual (Default)
   const anchorName = (visualData as any).anchorName || 'Career';
-  const customSvg = (visualData as any).svg;
 
   return (
     <View style={styles.shell} testID={`${testID}-anchor`}>
       <View style={styles.anchorStage}>
-        {customSvg ? (
-          <View style={styles.customAnchorWrap}>
-            <SigilSvg xml={customSvg} width={100} height={100} color={accentColor} />
-          </View>
-        ) : (
-          <PrototypeAnchorSvg accent={accentColor} size={130} />
-        )}
+        <CircularAnchorRenderer {...artwork} size={130} appearance="bare" />
         <Text style={styles.anchorName}>{anchorName.toUpperCase()} ANCHOR</Text>
       </View>
     </View>

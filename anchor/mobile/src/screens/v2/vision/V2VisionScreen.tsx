@@ -1,13 +1,16 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Linking, View } from 'react-native';
+import { AnalyticsService } from '@/services/AnalyticsService';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Image, Linking, useWindowDimensions, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { V2VisionAddPhoto, V2VisionAddScene, V2VisionCreationFlow } from '@/components/v2/vision';
+import { VisionImageArrivalProvider, useVisionImageArrival } from '@/components/v2/vision/VisionImageArrival';
 import { V2SavedVision } from '@/components/v2/vision/V2SavedVision';
-import { V2EmptyState, V2Screen, V2TopBar } from '@/components/v2';
-import {
-  pickVisionPhoto, uploadVisionPhoto, useV2Vision, useV2VisionGeneration,
-  type PickedVisionPhoto, type VisionPhotoPick, type VisionPhotoSource,
-} from '@/hooks/v2/vision';
+import { V2Button, V2EmptyState, V2Screen, V2TopBar } from '@/components/v2';
+import { pickVisionPhoto, uploadVisionPhoto, useV2Vision, useV2VisionGeneration, type PickedVisionPhoto, type VisionPhotoPick, type VisionPhotoSource } from '@/hooks/v2/vision';
+import { useAuthStore } from '@/stores/authStore';
+import { V2PracticeSessionScreen } from '@/screens/v2/practice/V2PracticeSessionScreen';
+import { V2CinematicSessionScreen, type PreparedCinematicSession } from '@/screens/v2/practice/visualize/V2CinematicSessionScreen';
+import { getVisualizeMonotonicNow } from '@/screens/visualize/useVisualizeSessionEngine';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { anchorRenderProps } from '@/components/v2/anchors/anchorPresentation';
 import { resolveAnchorCategory } from '@/utils/categoryDetection';
@@ -35,10 +38,18 @@ export interface V2VisionScreenProps {
 }
 
 export function V2VisionScreen(props: V2VisionScreenProps) {
+  return <VisionImageArrivalProvider><VisionScreenContent {...props} /></VisionImageArrivalProvider>;
+}
+
+function VisionScreenContent(props: V2VisionScreenProps) {
+  const arrival = useVisionImageArrival();
   const route = useRoute<RouteProp<Record<string, V2VisionRouteParams>, string>>();
   const navigation = useNavigation<any>();
+  const viewport = useWindowDimensions();
+  const accountId = useAuthStore(state => state.user?.id ?? null);
   const anchorId = props.anchorId ?? route.params?.anchorId ?? '';
   const anchor = useAnchorStore(state => state.anchors.find(item => item.id === anchorId || item.localId === anchorId));
+  useEffect(() => { if (anchorId) AnalyticsService.track('vision_opened', { anchor_id: anchorId }); }, [anchorId]);
   const model = useV2Vision(anchorId);
   const generation = useV2VisionGeneration(anchorId);
   const anchorChart = useAnchorChart(anchor?.id ?? null);
@@ -58,6 +69,22 @@ export function V2VisionScreen(props: V2VisionScreenProps) {
   const anchorArt = useMemo(() => (anchor ? anchorRenderProps(anchor) : null), [anchor]);
   // The Anchor's persisted category is the only source: art, accent and label all read it.
   const anchorCategory = anchor ? resolveAnchorCategory(anchor.category) : undefined;
+  const [prepared, setPrepared] = useState<{ key: string; session: PreparedCinematicSession } | null>(null);
+  const [preparationIssue, setPreparationIssue] = useState<string | null>(null);
+  const [preparationAttempt, setPreparationAttempt] = useState(0);
+  const [useAvailableImages, setUseAvailableImages] = useState<(() => void) | null>(null);
+  const acceptAvailable = useCallback((useAvailable: () => void) => setUseAvailableImages(() => useAvailable), []);
+  const [activeVisualize, setActiveVisualize] = useState<PreparedCinematicSession | null>(null);
+  const preparingKey = JSON.stringify([accountId, anchorId, anchorArt?.svg, anchor?.enhancedImageUrl,
+    viewport.width, viewport.height, model.description, model.tiles.map(tile => [tile.sceneId, tile.imageUrl]), preparationAttempt]);
+  const acceptPrepared = useCallback((session: PreparedCinematicSession) => {
+    setPrepared({ key: preparingKey, session }); setPreparationIssue(null); setUseAvailableImages(null);
+  }, [preparingKey]);
+  const reportPreparationIssue = useCallback((message: string) => setPreparationIssue(message), []);
+  const canBegin = Boolean(prepared?.key === preparingKey);
+  const beginRef = useRef(false);
+  const returnToVision = () => { setActiveVisualize(null); beginRef.current = false; void model.refresh(); };
+
 
   const handleBack = () => {
     if ((mode === 'create' || mode === 'add' || mode === 'addScene') && model.state.state === 'ready') {
@@ -98,14 +125,12 @@ export function V2VisionScreen(props: V2VisionScreenProps) {
   /** Loads the new board image before the board is shown, so it does not arrive as an empty frame. */
   const warmImage = async (url?: string | null) => {
     if (!url || typeof Image.prefetch !== 'function') return;
-    await Promise.race([
-      Promise.resolve(Image.prefetch(url)).catch(() => false),
-      new Promise(resolve => setTimeout(resolve, 1500)),
-    ]);
+    await Promise.resolve(Image.prefetch(url)).catch(() => false);
   };
 
   /** Chooses or takes a photo; it is previewed, and nothing is uploaded until the person confirms. */
   const startAddPhoto = async (source: VisionPhotoSource) => {
+    AnalyticsService.track('vision_image_add_started', { anchor_id: anchorId, source_type: source });
     setActionError(null);
     const picked = await pickVisionPhoto(source);
     if (picked.status === 'cancelled') return;
@@ -121,13 +146,16 @@ export function V2VisionScreen(props: V2VisionScreenProps) {
     if (!uploaded.ok) return uploaded.message;
     const saved = await model.addScene({ assetId: uploaded.assetId, sourceType: pendingPhoto.sourceType });
     if (!saved) return 'Your photo was uploaded, but could not be added to your Vision. Please try again.';
-    await warmImage(saved.scenes.find(scene => scene.assetId === uploaded.assetId)?.resolvedImageUrl);
+    const url = saved.scenes.find(scene => scene.assetId === uploaded.assetId)?.resolvedImageUrl;
+    await warmImage(url);
+    if (url) arrival?.resolve(url); else arrival?.cancel();
     setActionError(null);
     setPendingPhoto(null);
     return null;
   };
 
   const openAddScene = () => {
+    AnalyticsService.track('vision_image_add_started', { anchor_id: anchorId, source_type: 'AI_GENERATED' });
     setActionError(null);
     setArrivedFrom(model.tiles.map(tile => tile.sceneId));
     setMode('addScene');
@@ -137,7 +165,9 @@ export function V2VisionScreen(props: V2VisionScreenProps) {
   const addGeneratedScene = async (choice: { assetId: string; prompt: string }): Promise<boolean> => {
     const saved = await model.addScene({ assetId: choice.assetId, prompt: choice.prompt, sourceType: 'AI_GENERATED' });
     if (!saved) return false;
-    await warmImage(saved.scenes.find(scene => scene.assetId === choice.assetId)?.resolvedImageUrl);
+    const destinationUrl = saved.scenes.find(scene => scene.assetId === choice.assetId)?.resolvedImageUrl;
+    await warmImage(destinationUrl);
+    if (destinationUrl) arrival?.resolve(destinationUrl); else arrival?.cancel();
     setActionError(null);
     setMode('view');
     return true;
@@ -179,6 +209,11 @@ export function V2VisionScreen(props: V2VisionScreenProps) {
     setMode('add');
   };
 
+  const renderContent = () => {
+  if (activeVisualize) return <V2PracticeSessionScreen anchorId={anchorId} mode="visualize" durationSeconds={180}
+    source="practice_hub" preparedVisualize={activeVisualize} onBack={returnToVision}
+    onCompleted={returnToVision} onFocusAgain={returnToVision} />;
+
   if (model.loading && !model.vision) return (
     <V2Screen testID="v2-vision-screen-loading">
       <V2TopBar title="Vision" onBackPress={handleBack} />
@@ -189,7 +224,7 @@ export function V2VisionScreen(props: V2VisionScreenProps) {
   if (model.state.state === 'error' && !model.vision) return (
     <V2Screen testID="v2-vision-screen-error">
       <V2TopBar title="Vision" onBackPress={handleBack} />
-      <V2EmptyState title="Unable to load Vision" message={model.error ?? 'Please check your connection and try again.'} />
+      <V2EmptyState title="Unable to load Vision" message={model.error ?? 'Please check your connection and try again.'} action={<V2Button onPress={() => { void model.refresh(); }}>Retry Vision</V2Button>} />
     </V2Screen>
   );
 
@@ -252,6 +287,7 @@ export function V2VisionScreen(props: V2VisionScreenProps) {
           const [asset] = selectedAssets;
           const replaced = await replaceScene(replaceSceneId, { assetId: asset.assetId, sourceType: asset.sourceType, prompt: asset.prompt });
           if (!replaced) return false;
+          arrival?.cancel();
           setReplaceSceneId(null);
           setMode('view');
           return true;
@@ -263,6 +299,9 @@ export function V2VisionScreen(props: V2VisionScreenProps) {
           })),
         });
         if (!saved) return false;
+        const destination = saved.scenes.find(scene => scene.assetId === selectedAssets[0]?.assetId)?.resolvedImageUrl;
+        await warmImage(destination);
+        if (destination) arrival?.resolve(destination); else arrival?.cancel();
         setMode('view');
         return true;
       }}
@@ -283,12 +322,16 @@ export function V2VisionScreen(props: V2VisionScreenProps) {
       tiles={model.tiles}
       error={actionError ?? model.error}
       onBack={handleBack}
-      onVisualize={() => {
+      visualizeReady={Boolean(props.onVisualize) || canBegin}
+      preparationIssue={preparationIssue}
+      onUseAvailableImages={useAvailableImages ?? undefined}
+      onRetryVisualize={() => { setPrepared(null); setPreparationIssue(null); setUseAvailableImages(null); setPreparationAttempt(value => value + 1); }}
+      onVisualize={frame => {
+        if (props.onVisualize) { void model.recordVisionView(); props.onVisualize(model.visualizeHandoff); return; }
+        if (!canBegin || !prepared || beginRef.current) return;
+        beginRef.current = true;
         void model.recordVisionView();
-        if (props.onVisualize) props.onVisualize(model.visualizeHandoff);
-        else navigation.navigate('V2Practice', {
-          anchorId, resumeMode: 'visualize', resumeSource: 'practice_hub', returnRoute: 'V2Vision',
-        });
+        setActiveVisualize({ ...prepared.session, canvasFrame: frame, beginAtMs: getVisualizeMonotonicNow() });
       }}
       chartSummary={chartSummary}
       onChart={() => {
@@ -307,4 +350,14 @@ export function V2VisionScreen(props: V2VisionScreenProps) {
       onArchive={model.archiveVision}
     />
   );
+  };
+  return <View style={{ flex: 1 }}>{renderContent()}
+    {!activeVisualize && anchor && accountId && mode === 'view' && model.state.state === 'ready' && model.tiles.some(tile => tile.imageUrl) && !canBegin ?
+      <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%' }}>
+        <V2CinematicSessionScreen key={preparingKey} anchor={anchor} accountId={accountId} tiles={model.tiles}
+          statement={model.description} visionId={model.vision?.id} durationSeconds={180} voice="none" ambient={false} haptics={false}
+          source="practice_hub" prepareOnly onPrepared={acceptPrepared} onPreparationIssue={reportPreparationIssue} onAvailableImages={acceptAvailable}
+          onExit={() => undefined} onContinue={() => undefined} />
+      </View> : null}
+  </View>;
 }

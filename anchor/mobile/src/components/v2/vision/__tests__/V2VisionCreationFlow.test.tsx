@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import { V2VisionCreationFlow } from '../V2VisionCreationFlow';
@@ -72,7 +72,7 @@ describe('V2VisionCreationFlow', () => {
 
   it('keeps generation and upload on the description screen', () => {
     const { getByTestId, getByText } = renderFlow();
-    expect(getByText('What does this look like when it’s real?')).toBeTruthy();
+    expect(getByText('Describe your Vision')).toBeTruthy();
     expect(getByTestId('vision-generate')).toBeTruthy();
     expect(getByTestId('vision-add-photos')).toBeTruthy();
   });
@@ -335,10 +335,8 @@ describe('V2VisionCreationFlow', () => {
   it('gives the entrance photograph a bounded visible area beside the introduction', () => {
     mockUseGeneration.mockReturnValue({ job: null, loading: false, error: null, start: jest.fn(), retry: jest.fn() });
     const view = render(<V2VisionCreationFlow {...baseProps} initialStep="empty" onUploadAsset={jest.fn()} onAssemble={jest.fn()} />);
-    const photo = view.getByTestId('vision-entrance-photograph');
-    const style = require('react-native').StyleSheet.flatten(photo.props.style);
-    expect(style.height).toBeGreaterThanOrEqual(220);
-    expect(style.height).toBeLessThanOrEqual(Math.max(220, Math.round(require('react-native').Dimensions.get('window').height * 0.4)));
+    expect(view.queryByTestId('vision-entrance-photograph')).toBeNull();
+    expect(view.getByText('See where this is going.')).toBeTruthy();
     expect(view.getByLabelText('Create Vision')).toBeTruthy();
   });
 

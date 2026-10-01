@@ -1,13 +1,6 @@
-import {
-  boardAttachmentFor, boardSizeForWidth, emptyBoardPlaceholderSlots, selectBoardLayout, toSceneRect,
-  VISION_BOARD_ASPECT, VISION_BOARD_MAX_IMAGES, type SceneRect,
-} from '../visionBoardLayouts';
+import { boardSizeForWidth, emptyBoardPlaceholderSlots, selectBoardLayout, toSceneRect, VISION_BOARD_ASPECT, type SceneRect } from '../visionBoardLayouts';
 import { cameraTransform, cameraTravelMs, clampCamera, focusCamera, restCamera } from '../visionBoardCamera';
-import {
-  boardSlotAtPoint, moveBoardOrder, nextBoardRoster, orderTiles, swapBoardOrder, toSceneOrders,
-} from '../visionBoardReorder';
-import { intentionTypeScale } from '../VisionBoardIntentionCard';
-import { VISION_BOARD_ASSET_METRICS } from '../visionBoardAssetMetrics.generated';
+import { boardSlotAtPoint, moveBoardOrder, nextBoardRoster, orderTiles, swapBoardOrder, toSceneOrders } from '../visionBoardReorder';
 
 const scene = boardSizeForWidth(600);
 
@@ -17,81 +10,25 @@ function overlapArea(a: SceneRect, b: SceneRect): number {
   return w > 0 && h > 0 ? w * h : 0;
 }
 
-describe('board layouts', () => {
-  it('has a curated composition for every count from empty to the maximum', () => {
-    for (let count = 0; count <= VISION_BOARD_MAX_IMAGES; count++) {
-      expect(selectBoardLayout(count).photos).toHaveLength(count);
-    }
+describe('shared canvas layouts', () => {
+  it.each([0, 1, 2, 3, 4, 5, 6])('keeps %i images in the collection with three large visible scenes', count => {
+    expect(selectBoardLayout(count).photos).toHaveLength(Math.min(count, 3));
+    expect(selectBoardLayout(count).decor).toEqual([]);
   });
-
-  it('never exceeds the maximum and never goes below empty', () => {
-    expect(selectBoardLayout(9).photos).toHaveLength(VISION_BOARD_MAX_IMAGES);
-    expect(selectBoardLayout(-2).photos).toHaveLength(0);
-    expect(selectBoardLayout(Number.NaN).photos).toHaveLength(0);
+  it('normalizes invalid counts', () => {
+    expect(selectBoardLayout(-5).photos).toEqual([]);
+    expect(selectBoardLayout(Infinity).photos).toEqual([]);
+    expect(selectBoardLayout(99).photos).toHaveLength(3);
   });
-
-  it.each([3, 4, 5, 6])('%i photos stay on the board, overlap only slightly, and leave the Anchor dominant', count => {
-    const layout = selectBoardLayout(count);
-    const photos = layout.photos.map(slot => toSceneRect(slot, scene));
-    const card = toSceneRect(layout.card, scene);
-    for (const photo of photos) {
-      // Centres stay within the linen; edges may overhang the frame a little, as on a real board.
-      expect(photo.x + photo.width / 2).toBeGreaterThan(scene.width * 0.08);
-      expect(photo.x + photo.width / 2).toBeLessThan(scene.width * 0.92);
-      expect(photo.y).toBeGreaterThan(-scene.height * 0.01);
-      expect(photo.y + photo.height).toBeLessThan(scene.height * 1.01);
-      // Mild rotation only.
-      expect(Math.abs(photo.rotation)).toBeLessThanOrEqual(4);
-      // The Anchor card sits above every photo.
-      expect(card.zIndex).toBeGreaterThan(photo.zIndex);
-    }
-    for (let a = 0; a < photos.length; a++) {
-      for (let b = a + 1; b < photos.length; b++) {
-        const shared = overlapArea(photos[a], photos[b]);
-        const smaller = Math.min(photos[a].width * photos[a].height, photos[b].width * photos[b].height);
-        expect(shared / smaller).toBeLessThan(0.12);
-      }
-    }
-    // Not a grid: sizes and rotations vary.
-    expect(new Set(layout.photos.map(slot => slot.width)).size).toBeGreaterThan(1);
-    expect(new Set(layout.photos.map(slot => slot.rotation)).size).toBe(count);
-    // The card is centred and as large as the largest photo's shorter side.
-    expect(Math.abs(card.x + card.width / 2 - scene.width / 2)).toBeLessThan(scene.width * 0.04);
-    expect(card.height).toBeGreaterThan(Math.max(...photos.map(photo => Math.min(photo.width, photo.height))));
-  });
-
-  it('keeps ephemera restrained and beneath the photographs', () => {
-    for (let count = 0; count <= VISION_BOARD_MAX_IMAGES; count++) {
-      const layout = selectBoardLayout(count);
-      expect(layout.decor.length).toBeLessThanOrEqual(3);
-      const lowestPhoto = Math.min(...layout.photos.map(slot => slot.zIndex), Infinity);
-      for (const item of layout.decor) expect(item.zIndex).toBeLessThan(Math.min(lowestPhoto, layout.card.zIndex));
-    }
-  });
-
-  it('resolves normalised slots for any board size', () => {
+  it('scales each photograph and seal proportionally', () => {
     const slot = selectBoardLayout(3).photos[0];
     const small = toSceneRect(slot, boardSizeForWidth(300));
     const large = toSceneRect(slot, boardSizeForWidth(900));
     expect(large.width / small.width).toBeCloseTo(3);
-    expect(large.x / small.x).toBeCloseTo(3);
-    expect(large.height / large.width).toBeCloseTo(1 / slot.aspectRatio);
+    expect(large.height / small.height).toBeCloseTo(3);
     expect(boardSizeForWidth(300).height).toBeCloseTo(300 / VISION_BOARD_ASPECT);
   });
-
-  it('frames match their torn-frame artwork, so nothing is distorted', () => {
-    for (const slot of selectBoardLayout(6).photos) {
-      expect(slot.aspectRatio).toBe(VISION_BOARD_ASSET_METRICS[`frame-${slot.frame}`].aspect);
-    }
-  });
-
-  it('offers placeholders on an empty board where the first photos will go', () => {
-    expect(emptyBoardPlaceholderSlots()).toHaveLength(3);
-  });
-
-  it('fixes each photo the same way every time', () => {
-    expect(boardAttachmentFor('scene-a')).toBe(boardAttachmentFor('scene-a'));
-  });
+  it('does not fabricate empty photo slots', () => expect(emptyBoardPlaceholderSlots()).toEqual([]));
 });
 
 describe('board camera', () => {
@@ -117,7 +54,7 @@ describe('board camera', () => {
   });
 
   it('centres exactly when unclamped (Visualize)', () => {
-    const rect = toSceneRect(selectBoardLayout(4).photos[3], scene);
+    const rect = toSceneRect(selectBoardLayout(4).photos[2], scene);
     const camera = focusCamera(rect, scene, { width: 390, height: 844 }, { fill: 0.86, minZoom: 1, maxZoom: 10, clamp: false });
     expect(camera.x).toBeCloseTo(rect.x + rect.width / 2 - scene.width / 2);
     expect(camera.y).toBeCloseTo(rect.y + rect.height / 2 - scene.height / 2);
@@ -194,15 +131,6 @@ describe('add / remove transitions', () => {
     expect(after.every(entry => !entry.exiting)).toBe(true);
     expect(after.map(entry => entry.tile.sceneId)).toEqual(['a', 'b', 'c', 'd']);
     // Four photos recompose into the four-photo preset.
-    expect(selectBoardLayout(after.length).count).toBe(4);
-  });
-});
-
-describe('intention card', () => {
-  it('writes short intentions large and long ones smaller, within a line limit', () => {
-    expect(intentionTypeScale('Anchor has ten thousand users')).toEqual({ fontScale: 1, lines: 3 });
-    const long = intentionTypeScale('I lead a calm, profitable studio that gives my family time and lets me travel with them every summer');
-    expect(long.fontScale).toBeLessThan(1);
-    expect(long.lines).toBeLessThanOrEqual(4);
+    expect(selectBoardLayout(after.length).photos).toHaveLength(3);
   });
 });

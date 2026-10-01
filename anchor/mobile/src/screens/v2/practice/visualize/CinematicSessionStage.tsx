@@ -1,15 +1,14 @@
-import React, { memo, useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useDerivedValue, type SharedValue } from 'react-native-reanimated';
-import {
-  BlendColor, Canvas, Circle, Group, Image as SkiaImage, ImageSVG, ImageShader, Paint, RadialGradient, Rect, Shader, Skia,
-  interpolateColors, type SkImage, type SkSVG,
-} from '@shopify/react-native-skia';
+import { Canvas, Circle, Group, Image as SkiaImage, ImageSVG, ImageShader, Paint, Path, RadialGradient, Rect, Shader, Skia, interpolateColors, type SkImage, type SkSVG } from '@shopify/react-native-skia';
+import { VISION_EDGE_TOP, VISION_EDGE_BOTTOM } from '@/components/v2/vision/VisionImageEdge';
+import { visionImageFit } from '@/components/v2/vision/visionImageGeometry';
+import { colors } from '@/theme/v2';
 import type { V2VisionTile } from '@/adapters/v2/vision';
 import { VisionBoardScene } from '@/components/v2/vision/board/VisionBoardScene';
 import { useVisionBoardScene } from '@/components/v2/vision/board/useVisionBoardScene';
-import { BOARD_ATTACHMENT_ART } from '@/components/v2/vision/board/visionBoardAssets';
-import { boardAttachmentFor, BOARD_FRAME_WINDOW, type SceneRect, type Size } from '@/components/v2/vision/board/visionBoardLayouts';
+import { type SceneRect, type Size } from '@/components/v2/vision/board/visionBoardLayouts';
 import { coverRect, projectPoint, type Rect as GeometryRect } from './prototype/cinematicGeometry';
 import { cinematicSessionFrame, type CinematicSessionGeometry } from './cinematicSessionMotion';
 import type { CinematicTimeline } from './prototype/cinematicTimeline';
@@ -53,7 +52,7 @@ const MomentImage = memo(function MomentImage({ image, source, index, state, cen
 type Props = {
   tiles: V2VisionTile[]; images: SkImage[]; intention: string; category: string; svgText: string; enhancedImageUrl?: string | null;
   scene: Size; viewport: Size; mark: SceneRect; geometry: CinematicSessionGeometry;
-  frameImage: SkImage; attachmentImage: SkImage; svg: SkSVG | null; enhancedAnchor: SkImage | null;
+  svg: SkSVG | null; enhancedAnchor: SkImage | null;
   enhancedMaskEffect: NonNullable<ReturnType<typeof Skia.RuntimeEffect.Make>> | null;
   elapsed: SharedValue<number>; timeline: CinematicTimeline; reduced: boolean;
   onMarkLayout: (rect: GeometryRect) => void;
@@ -61,9 +60,10 @@ type Props = {
 
 /** Production scene: the board, saved photos and enhanced Anchor share one camera. */
 export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles, images, intention, category, svgText,
-  enhancedImageUrl, scene, viewport, mark, geometry, frameImage, attachmentImage, svg, enhancedAnchor, enhancedMaskEffect, elapsed, timeline, reduced, onMarkLayout }: Props) {
+  enhancedImageUrl, scene, viewport, mark, geometry, svg, enhancedAnchor, enhancedMaskEffect, elapsed, timeline, reduced, onMarkLayout }: Props) {
   const board = useVisionBoardScene(tiles, scene);
   const state = useDerivedValue(() => cinematicSessionFrame(elapsed.value, timeline, geometry, reduced));
+  const backgroundStyle = useAnimatedStyle(() => ({ opacity: state.value.environment }));
   const nativePhoto = useDerivedValue(() => state.value.nativePhoto);
   const paperOpacity = useDerivedValue(() => {
     const s = state.value;
@@ -97,18 +97,12 @@ export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles
   ]);
   const first = geometry.firstPhoto;
   const localWindow = { x: -first.width / 2, y: -first.height / 2, width: first.width, height: first.height };
-  const sourceRect = coverRect({ width: images[0].width(), height: images[0].height() }, localWindow);
-  const frameKind = board.layout.photos[0].frame;
-  const w = BOARD_FRAME_WINDOW[frameKind];
-  const frameWidth = first.width / (w.right - w.left + 0.024);
-  const frameHeight = first.height / (w.bottom - w.top + 0.024);
-  const frame = { x: localWindow.x - (w.left - 0.012) * frameWidth,
-    y: localWindow.y - (w.top - 0.012) * frameHeight, width: frameWidth, height: frameHeight };
-  const attachment = BOARD_ATTACHMENT_ART[boardAttachmentFor(tiles[0].sceneId)];
-  const pinWidth = frameWidth * attachment.width;
-  const pin = { x: frame.x + frameWidth * attachment.x - pinWidth / 2,
-    y: frame.y + frameHeight * attachment.y - pinWidth / attachment.aspect / 2,
-    width: pinWidth, height: pinWidth / attachment.aspect };
+  const uploaded = tiles[0].sourceType === 'USER_UPLOAD' || tiles[0].sourceType === 'USER_CAMERA';
+  const firstFit = visionImageFit(images[0].width() / images[0].height(), first.width / first.height, uploaded);
+  const firstScale = firstFit === 'contain' ? Math.min(first.width / images[0].width(), first.height / images[0].height()) : 0;
+  const sourceRect = firstFit === 'contain'
+    ? { x: -images[0].width() * firstScale / 2, y: -images[0].height() * firstScale / 2, width: images[0].width() * firstScale, height: images[0].height() * firstScale }
+    : coverRect({ width: images[0].width(), height: images[0].height() }, localWindow);
   const firstOpacity = useDerivedValue(() => {
     const s = state.value;
     if (s.segment.kind === 'arrival') return 1;
@@ -133,8 +127,9 @@ export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles
   const boardMarkCenter = projectPoint({ x: mark.x + mark.width / 2, y: mark.y + mark.height / 2 }, geometry.rest, viewport);
   const boardMarkTransform = [{ translateX: boardMarkCenter.x }, { translateY: boardMarkCenter.y },
     { rotate: mark.rotation * Math.PI / 180 }, { scale: geometry.rest.scale }];
-  const enhancedSize = Math.max(1, mark.width - 8);
+  const enhancedSize = Math.max(1, mark.width);
   return <View style={StyleSheet.absoluteFill} pointerEvents="none">
+    <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.canvas }, backgroundStyle]} />
     <Animated.View style={[{ position: 'absolute', left: (viewport.width - scene.width) / 2,
       top: (viewport.height - scene.height) / 2, width: scene.width, height: scene.height }, cameraStyle]}>
       <VisionBoardScene scene={scene} roster={board.roster} entering={board.entering} layout={board.layout}
@@ -142,9 +137,12 @@ export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles
         art={{ svg: svgText, imageUrl: enhancedImageUrl }} reduceMotion cinematic={cinematic} />
     </Animated.View>
     <Canvas style={StyleSheet.absoluteFill}>
-      <Group opacity={frameOpacity} transform={firstTransform}>
-        <Group transform={[{ translateX: 1.6 }, { translateY: 4 }]} opacity={0.16}>
-          <SkiaImage image={frameImage} {...frame} fit="fill"><BlendColor color="#000000" mode="srcIn" /></SkiaImage>
+      <Group opacity={firstOpacity} transform={firstTransform} clip={localWindow}>
+        <Rect {...localWindow} color={colors.canvas} />
+        <SkiaImage image={images[0]} {...sourceRect} fit="fill" />
+        <Group opacity={frameOpacity} transform={[{ translateX: localWindow.x }, { translateY: localWindow.y }, { scaleX: localWindow.width / 1000 }, { scaleY: localWindow.height / 1000 }]}>
+          <Path path={VISION_EDGE_TOP} color={colors.canvas} />
+          <Path path={VISION_EDGE_BOTTOM} color={colors.canvas} />
         </Group>
       </Group>
       <Group layer={<Paint opacity={markOpacity} />}>
@@ -154,9 +152,6 @@ export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles
             <ImageSVG svg={svg} x={-mark.width / 2} y={-mark.height / 2} width={mark.width} height={mark.height} />
           </Group>
         </> : null}
-      </Group>
-      <Group opacity={firstOpacity} transform={firstTransform} clip={localWindow}>
-        <SkiaImage image={images[0]} {...sourceRect} fit="fill" />
       </Group>
       {images.map((image, index) => index === 0 && !reduced ? null : <MomentImage key={tiles[index].sceneId}
         image={image} source={fullSources[index]} index={index} state={state} center={fullTransform} reduced={reduced} />)}
@@ -183,13 +178,6 @@ export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles
           </Group>
         </> : null}
       </Group> : null}
-      <Group opacity={frameOpacity} transform={firstTransform}>
-        <SkiaImage image={frameImage} {...frame} fit="fill" />
-        <Group origin={{ x: pin.x + pin.width / 2, y: pin.y + pin.height / 2 }}
-          transform={[{ rotate: attachment.rotation * Math.PI / 180 }]}>
-          <SkiaImage image={attachmentImage} {...pin} fit="fill" />
-        </Group>
-      </Group>
     </Canvas>
   </View>;
 });

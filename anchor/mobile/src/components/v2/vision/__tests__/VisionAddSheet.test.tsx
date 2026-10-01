@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import React from 'react';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import { VisionAddSheet, VISION_ADD_SHEET_HANDOFF_MS } from '../VisionAddSheet';
@@ -5,6 +7,11 @@ import { VisionAddSheet, VISION_ADD_SHEET_HANDOFF_MS } from '../VisionAddSheet';
 describe('VisionAddSheet', () => {
   beforeEach(() => { jest.useFakeTimers(); });
   afterEach(() => { jest.useRealTimers(); });
+
+  it('uses the Vision ink palette without Focus purple literals', () => {
+    const source = fs.readFileSync(path.join(__dirname, '../VisionAddSheet.tsx'), 'utf8');
+    expect(source).not.toMatch(/#(?:8B5CF6|F5EEFA|E9D5FF|EDE4F7|D8B4FE|6B21A8)/i);
+  });
 
   it('offers exactly the three ways to add', () => {
     const view = render(<VisionAddSheet visible onClose={jest.fn()} onChoose={jest.fn()} />);

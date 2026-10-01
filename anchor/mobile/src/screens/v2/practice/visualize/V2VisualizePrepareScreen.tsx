@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowRight, Eye } from 'lucide-react-native';
@@ -76,7 +76,7 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, i
   const art = useMemo(() => anchorRenderProps(anchor), [anchor]);
   const place = useAnchorTransitionPlace('practiceSetup', anchor.id, 'paper', { measureDelayMs: Platform.OS === 'android' ? 120 : 0 });
   const boardTiles = useMemo(() => tiles.filter(tile => Boolean(tile.imageUrl)).slice(0, VISION_BOARD_MAX_IMAGES), [tiles]);
-  const boardSize = useMemo(() => boardSizeForWidth(width - spacing[5] * 2), [width]);
+  const boardSize = useMemo(() => boardSizeForWidth(width - spacing[5] * 2, boardTiles.length), [width, boardTiles.length]);
 
   // Keep the real setup board visible while the exact session textures and geometry prepare.
   const preparationKey = useMemo(() => JSON.stringify([accountId, anchor.id, anchor.enhancedImageUrl, art.svg,
@@ -104,7 +104,7 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, i
 
   return (
     <View testID="v2-practice-prepare-visualize" style={styles.root}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <VisionInkBand fadeTo={colors.ink.deep}>
           <View style={styles.band}>
             <VisionHeaderRow title="Visualize" onBack={onBack} backLabel="Back to Practice" />
@@ -151,6 +151,7 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, i
             </View>
           </View>
         </View>
+      </ScrollView>
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing[3] }]}>
         {boardTiles.length === 0 ? <Text style={styles.emptyHint}>Add a Vision image before beginning.</Text> : null}
         {boardTiles.length > 0 && !ready ? <Text accessibilityLiveRegion="polite" style={styles.emptyHint}>
@@ -163,7 +164,6 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, i
           Begin Visualize
         </V2Button>
       </View>
-      </ScrollView>
       <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
         style={styles.preparationSurface}>
         {boardTiles.length > 0 ? <V2CinematicSessionScreen key={preparationKey} anchor={anchor} accountId={accountId}
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
   toggleRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   toggleLabel: { ...typography.bodyMD, color: colors.ink.text.primary },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border.subtle },
-  footer: { paddingHorizontal: spacing[5], paddingTop: spacing[3], backgroundColor: colors.ink.deep },
+  footer: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.ink.hairline, paddingHorizontal: spacing[5], paddingTop: spacing[3], backgroundColor: colors.ink.deep },
   beginButton: { borderWidth: 1, borderColor: colors.ink.hairlineStrong },
   emptyHint: { ...typography.bodyMD, color: colors.ink.text.secondary, textAlign: 'center', marginBottom: spacing[2] },
 });

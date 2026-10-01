@@ -1,4 +1,5 @@
-import React from 'react';
+
+import { Image } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 import { VisionCandidateSelection } from '../VisionCandidateSelection';
 import type { VisionGenerationCandidate } from '@/hooks/v2/vision';
@@ -37,8 +38,7 @@ describe('VisionCandidateSelection', () => {
 
   it('renders headlines and both candidate perspective cards', () => {
     const { getByText, getByTestId } = render(<VisionCandidateSelection {...defaultProps} />);
-    expect(getByText('Here are two perspectives.')).toBeTruthy();
-    expect(getByText('Pick the one that feels most real.')).toBeTruthy();
+    expect(getByText('Pick the image that feels right.')).toBeTruthy();
     expect(getByTestId('scene-candidate-candidate-0')).toBeTruthy();
     expect(getByTestId('scene-candidate-candidate-1')).toBeTruthy();
   });
@@ -62,12 +62,22 @@ describe('VisionCandidateSelection', () => {
     expect(onConfirm).toHaveBeenCalledWith(candidates[1]);
   });
 
+  it('removes a failed preview from selection and blocks confirmation', () => {
+    const onConfirm = jest.fn();
+    const view = render(<VisionCandidateSelection {...defaultProps} onConfirm={onConfirm} />);
+    fireEvent.press(view.getByTestId('scene-candidate-candidate-0'));
+    fireEvent(view.UNSAFE_getAllByType(Image)[0], 'error');
+    expect(view.getByText('Image preview unavailable')).toBeTruthy();
+    fireEvent.press(view.getByTestId('vision-candidate-selection-confirm-button'));
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
   it('calls onRegenerate when Regenerate button is tapped', () => {
     const onRegenerate = jest.fn();
     const { getByText } = render(
       <VisionCandidateSelection {...defaultProps} onRegenerate={onRegenerate} />,
     );
-    const regenBtn = getByText('Regenerate');
+    const regenBtn = getByText('Generate More');
     expect(regenBtn).toBeTruthy();
     fireEvent.press(regenBtn);
     expect(onRegenerate).toHaveBeenCalled();

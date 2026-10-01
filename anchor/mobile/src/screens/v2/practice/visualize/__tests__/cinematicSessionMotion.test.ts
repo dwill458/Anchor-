@@ -8,6 +8,18 @@ const photo = { x: 175, y: 155, width: 390, height: 236, rotation: -4, zIndex: 1
 const mark = { x: 340, y: 492, width: 86, height: 86, rotation: 0, zIndex: 2 };
 
 describe('production cinematic spatial path', () => {
+  it('projects frame zero into the measured overview canvas, including a scrolled origin', () => {
+    const canvas = { x: 20, y: -35, width: 344, height: 403.125 };
+    const geometry = cinematicSessionGeometry(scene, viewport, photo, mark, 3, canvas);
+    const frame = cinematicSessionFrame(0, buildCinematicTimeline(180, 3), geometry, false);
+    const origin = projectPoint({ x: 0, y: 0 }, frame.camera, viewport);
+    expect(origin.x).toBeCloseTo(canvas.x);
+    expect(origin.y).toBeCloseTo(canvas.y);
+    const corner = projectPoint({ x: scene.width, y: scene.height }, frame.camera, viewport);
+    expect(corner.x).toBeCloseTo(canvas.x + canvas.width);
+    expect(corner.y).toBeCloseTo(canvas.y + canvas.height);
+  });
+
   it.each([60, 180, 300] as const)('keeps the opening and closing Anchor at the same board coordinate for %is', duration => {
     const timeline = buildCinematicTimeline(duration, 1);
     const geometry = cinematicSessionGeometry(scene, viewport, photo, mark, 1);

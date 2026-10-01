@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { AppState, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { GestureDetector } from 'react-native-gesture-handler';
@@ -8,18 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { V2Button, V2EmptyState, V2InlineError } from '@/components/v2';
-import {
-  V2HomeChartSection,
-  V2HomeCategoryEnvironment,
-  V2HomeBrandMark,
-  V2HomeCreamSplice,
-  V2HomeHeader,
-  V2HomeHero,
-  V2HomeProgressSection,
-  V2HomeRecentActivitySection,
-  V2HomeTodaySection,
-  V2HomeVisionSection,
-} from '@/components/v2/home';
+import { V2HomeChartSection, V2HomeCategoryEnvironment, V2HomeBrandMark, V2HomeCreamSplice, V2HomeHeader, V2HomeHero, V2HomeProgressSection, V2HomeRecentActivitySection, V2HomeTodaySection, V2HomeVisionSection } from '@/components/v2/home';
 import { resolveVisionAlternateImage, resolveVisionHeroImage, useV2HomeModel } from '@/adapters/v2/home';
 import { useHomePrewarm } from '@/hooks/v2/home';
 import { useV2ReduceMotion, useV2Responsive } from '@/hooks/v2';
@@ -27,6 +16,7 @@ import { VisualProfiler } from '@/utils/visualProfiler';
 import { HomeStartupProfiler } from '@/utils/homeStartupProfiler';
 import { useV2ThreadEventQueue } from '@/hooks/v2/threadEvents';
 import { V2ThreadEventModal } from '@/components/v2/threadEvents';
+import { anchorArtworkSvg } from '@/components/v2/anchors/anchorPresentation';
 import { colors, getCategoryColor, typography } from '@/theme/v2';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { useV2DailyShellIntents, type V2DailyShellParamList } from './dailyShell';
@@ -248,7 +238,6 @@ export function V2HomeScreen() {
     return [
       ...(heroArt ? [heroArt] : []),
       ...(hasChart ? [CHART_LANDSCAPE_ART] : []),
-      ANCHOR_DETAIL_EMPTY_ART.vision,
       ANCHOR_DETAIL_EMPTY_ART.chart,
       GRID_ART_BY_PRACTICE.focus,
       GRID_ART_BY_PRACTICE.deep_prime,
@@ -488,6 +477,9 @@ export function V2HomeScreen() {
           {/* Product signature: opens the ink field, beneath the keel and above Today. */}
           <V2HomeBrandMark testID="v2-home-brand-mark" />
 
+          <V2HomeVisionSection vision={model.vision} categoryColor={categoryColor}
+            onOpenVision={handleOpenVision} onRetry={() => { void refreshVision(); }} />
+
           <V2HomeTodaySection
             testID="v2-home-today"
             today={model.today}
@@ -498,20 +490,8 @@ export function V2HomeScreen() {
             onRetry={handleRetryToday}
           />
 
-          {hasVision ? (
-            <V2HomeVisionSection
-              vision={model.vision}
-              categoryColor={categoryColor}
-              onOpenVision={handleOpenVision}
-            />
-          ) : (
-            <V2HomeProgressSection
-              progress={model.progress}
-              thread={model.thread}
-              categoryColor={categoryColor}
-              onOpenProgress={handleOpenProgress}
-            />
-          )}
+          {!hasVision ? <V2HomeProgressSection progress={model.progress} thread={model.thread}
+            categoryColor={categoryColor} onOpenProgress={handleOpenProgress} /> : null}
 
           <V2HomeChartSection
             chart={model.chart}
@@ -536,7 +516,8 @@ export function V2HomeScreen() {
       <V2ThreadEventModal
         bundle={threadEvents.active}
         visible={Boolean(threadEvents.active)}
-        anchorSvg={model.selectedAnchor?.baseSigilSvg}
+        anchorSvg={model.selectedAnchor ? anchorArtworkSvg(model.selectedAnchor) : undefined}
+        anchorImageUrl={model.selectedAnchor?.enhancedImageUrl}
         category={model.selectedAnchor?.category}
         reducedMotion={reduceMotion}
         onPresented={() => {

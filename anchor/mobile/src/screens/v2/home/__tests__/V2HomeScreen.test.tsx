@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Image } from 'react-native';
 import { render, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
@@ -329,7 +329,8 @@ describe('Conditional Vision and Chart', () => {
     renderHome();
     expect(screen.queryByTestId('v2-home-vision')).toBeNull();
     expect(screen.queryByTestId('v2-home-vision-empty')).toBeNull();
-    expect(screen.queryByText('Your Vision')).toBeNull();
+    expect(screen.getByText('Your Vision')).toBeTruthy();
+    expect(screen.getByText('Create Vision')).toBeTruthy();
     expect(screen.queryByTestId('v2-home-chart-empty')).toBeNull();
     expect(screen.queryByTestId('v2-home-chart-map')).toBeNull();
     expect(screen.queryByText('Create Chart')).toBeNull();
@@ -374,7 +375,8 @@ describe('Conditional Vision and Chart', () => {
     oneAnchor();
     renderHome({}, { chart: readyChart });
     expect(screen.queryByTestId('v2-home-vision')).toBeNull();
-    expect(screen.queryByText('Your Vision')).toBeNull();
+    expect(screen.getByText('Your Vision')).toBeTruthy();
+    expect(screen.getByText('Create Vision')).toBeTruthy();
     expect(screen.queryByTestId('v2-home-chart-destination')).toBeNull();
     expect(screen.getByTestId('v2-home-chart').props.accessibilityLabel).not.toContain('Reach 1,000 active users');
     expect(screen.getByTestId('v2-home-chart-waypoint').props.children).toBe('Contact 3 creators');
@@ -400,7 +402,8 @@ describe('Conditional Vision and Chart', () => {
 
     renderHome({}, { vision: { state: 'error', message: 'offline' } });
     expect(screen.queryByTestId('v2-home-vision')).toBeNull();
-    expect(screen.queryByText('Your Vision')).toBeNull();
+    expect(screen.getByText('Your Vision')).toBeTruthy();
+    expect(screen.getByText('Retry Vision')).toBeTruthy();
   });
 
   it('routes Vision and Chart to their real surfaces for the active Anchor', () => {

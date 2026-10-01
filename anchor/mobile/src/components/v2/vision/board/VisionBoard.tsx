@@ -35,6 +35,8 @@ export type VisionBoardProps = {
   onAddImage?: () => void;
   /** True while a photo is being dragged (the host should stop scrolling). */
   onDragActive?: (active: boolean) => void;
+  /** Reads the current UI-thread canvas projection once at Begin, including photo focus. */
+  captureFrame?: React.MutableRefObject<(() => { x: number; y: number; width: number; height: number }) | null>;
   testID?: string;
 };
 
@@ -46,10 +48,10 @@ export type VisionBoardProps = {
  */
 export function VisionBoard({
   tiles, intention, category, art, width, reduceMotion, busy = false, canRegenerate,
-  onReplace, onRegenerate, onRemove, onEditVision, onReorder, onAddImage, onDragActive, testID = 'vision-board',
+  onReplace, onRegenerate, onRemove, onEditVision, onReorder, onAddImage, onDragActive, captureFrame, testID = 'vision-board',
 }: VisionBoardProps) {
-  const viewport = useMemo(() => boardSizeForWidth(width), [width]);
-  const scene = useMemo(() => boardSizeForWidth(width * MOTION.renderScale), [width]);
+  const viewport = useMemo(() => boardSizeForWidth(width, tiles.length), [width, tiles.length]);
+  const scene = useMemo(() => boardSizeForWidth(width * MOTION.renderScale, tiles.length), [width, tiles.length]);
   const rest = useMemo(() => restCamera(scene, viewport), [scene, viewport]);
   const board = useVisionBoardScene(tiles, scene, rest.scale);
   const { shared, layout, slotRects, order } = board;
@@ -129,6 +131,16 @@ export function VisionBoard({
       { scale: cameraScale.value },
     ],
   }));
+  useEffect(() => {
+    if (!captureFrame) return;
+    captureFrame.current = () => ({
+      x: viewport.width / 2 - cameraScale.value * (scene.width / 2 + cameraX.value),
+      y: viewport.height / 2 - cameraScale.value * (scene.height / 2 + cameraY.value),
+      width: scene.width * cameraScale.value, height: scene.height * cameraScale.value,
+    });
+    return () => { captureFrame.current = null; };
+  }, [captureFrame, viewport, scene, cameraScale, cameraX, cameraY]);
+
   const controlsStyle = useAnimatedStyle(() => ({ opacity: controls.value, transform: [{ translateY: (1 - controls.value) * 8 }] }));
 
   const focusPhoto = useCallback((sceneId: string) => {
@@ -147,14 +159,14 @@ export function VisionBoard({
     onDragActive?.(active);
   }, [onDragActive]);
   const handleSwap = useCallback(() => { v2Haptics.selection(); }, []);
-  const handleOrderCommit = useCallback((next: string[]) => { onReorder(next); }, [onReorder]);
+  const handleOrderCommit = useCallback((next: string[]) => { onReorder([...next, ...tiles.map(tile => tile.sceneId).filter(id => !next.includes(id))]); }, [onReorder, tiles]);
   const handleMove = useCallback((sceneId: string, direction: -1 | 1) => {
     const index = order.indexOf(sceneId);
     const next = moveBoardOrder(order, index, direction);
     if (next === order) return;
-    onReorder(next);
+    handleOrderCommit(next);
     AccessibilityInfo.announceForAccessibility?.(`Moved to position ${index + direction + 1} of ${order.length}.`);
-  }, [onReorder, order]);
+  }, [handleOrderCommit, order]);
 
   const focusedTile = focus?.kind === 'photo' ? tiles.find(tile => tile.sceneId === focus.sceneId) ?? null : null;
   const count = tiles.length;
@@ -190,16 +202,20 @@ export function VisionBoard({
         />
       </Animated.View>
 
-      {!focus && !dragging && onAddImage && count > 0 && count < VISION_BOARD_MAX_IMAGES ? (
+      {count === 0 ? <View pointerEvents="none" style={styles.empty}><Text style={styles.emptyText}>Bring your future into view.</Text></View> : null}
+      {!focus && !dragging && onAddImage && count < VISION_BOARD_MAX_IMAGES ? (
         <Pressable testID={`${testID}-add`} accessibilityRole="button" accessibilityLabel={`Add an image, ${count} of ${VISION_BOARD_MAX_IMAGES}`}
           onPress={onAddImage} hitSlop={8} style={({ pressed }) => [styles.addChip, pressed && styles.pressed]}>
-          <Plus size={14} color={colors.paper} />
+          <Plus size={14} color={colors.text.primary} />
           <Text style={styles.addText}>Add image</Text>
         </Pressable>
       ) : null}
 
       {focus ? (
         <Animated.View style={[styles.controls, controlsStyle]} pointerEvents="box-none">
+          {focus.kind === 'photo' && !canRegenerate && !busy ? (
+            <Text style={styles.regenerationNote}>No image sets left for this Vision.</Text>
+          ) : null}
           <View style={styles.controlRow}>
             {focus.kind === 'photo' && focusedTile ? (
               <>
@@ -241,18 +257,21 @@ function ControlButton({ label, icon, onPress, disabled, hint }: {
 
 // The board is laid out in a larger scene for sharp zooming; this is the
 // frame it is shown in.
-const INK_GLASS = 'rgba(14,21,28,0.78)';
+const INK_GLASS = 'rgba(14,21,28,0.95)';
 
 const styles = StyleSheet.create({
-  viewport: { overflow: 'hidden', borderRadius: radii.sm, alignSelf: 'center' },
+  viewport: { overflow: 'hidden', alignSelf: 'center' },
   scene: { position: 'absolute' },
+  empty: { position: 'absolute', top: spacing[2], left: spacing[4], right: spacing[4], alignItems: 'center' },
+  emptyText: { ...typography.bodySM, color: colors.text.secondary },
   addChip: {
     position: 'absolute', bottom: spacing[2], alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: INK_GLASS,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(245,240,230,0.22)',
+    minHeight: 44, paddingHorizontal: 16, borderRadius: 22, backgroundColor: colors.grouped,
   },
-  addText: { ...typography.labelMD, color: colors.paper },
+  addText: { ...typography.labelMD, color: colors.text.primary },
   controls: { position: 'absolute', left: spacing[2], right: spacing[2], bottom: spacing[3], alignItems: 'center' },
+  regenerationNote: { ...typography.caption, color: colors.paper, backgroundColor: INK_GLASS,
+    paddingHorizontal: spacing[3], paddingVertical: spacing[1], borderRadius: radii.lg, marginBottom: spacing[1] },
   // One compact glass bar: it must fit the narrowest phone's board.
   controlRow: {
     flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, paddingVertical: 4, borderRadius: 22,
@@ -267,4 +286,3 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.45 },
   pressed: { opacity: 0.72 },
 });
-

@@ -248,12 +248,7 @@ function V2VisionRouteScreen() {
       onChart={(id: string) => {
         navigation.navigate('V2Chart', { anchorId: id });
       }}
-      onVisualize={(_handoff) => {
-        navigation.navigate('V2Practice', {
-          anchorId,
-          recommendedMode: 'visualize',
-        });
-      }}
+
     />
   );
 }

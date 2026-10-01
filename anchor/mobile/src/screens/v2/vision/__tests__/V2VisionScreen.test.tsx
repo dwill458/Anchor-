@@ -1,4 +1,5 @@
-import React from 'react';
+
+import { useAuthStore } from '@/stores/authStore';
 import { Alert } from 'react-native';
 import { act, render, waitFor, fireEvent } from '@testing-library/react-native';
 import { V2VisionScreen } from '../V2VisionScreen';
@@ -6,6 +7,16 @@ import { apiClient } from '@/services/ApiClient';
 import { resetV2VisionReadCache } from '@/hooks/v2/vision/useV2Vision';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { toV2VisionCompactState } from '@/adapters/v2/vision';
+
+
+let mockPreparationProps: any;
+let mockPracticeProps: any;
+jest.mock('@/screens/v2/practice/visualize/V2CinematicSessionScreen', () => ({
+  V2CinematicSessionScreen: (props: any) => { mockPreparationProps = props; return null; },
+}));
+jest.mock('@/screens/v2/practice/V2PracticeSessionScreen', () => ({
+  V2PracticeSessionScreen: (props: any) => { mockPracticeProps = props; return require('react').createElement(require('react-native').Text, { testID: 'canonical-visualize' }, 'Visualize'); },
+}));
 
 // Mock navigation
 const mockNavigate = jest.fn();
@@ -103,6 +114,8 @@ describe('V2VisionScreen', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPreparationProps = undefined; mockPracticeProps = undefined;
+    useAuthStore.setState({ user: null });
     // Vision reads are cached per Anchor for the app session; each case starts cold.
     resetV2VisionReadCache();
     useAnchorStore.setState({
@@ -157,7 +170,7 @@ describe('V2VisionScreen', () => {
     await view.findByTestId('vision-board');
     for (const id of ['sc-1', 'sc-2', 'sc-3']) expect(view.getByTestId(`vision-board-photo-${id}`)).toBeTruthy();
     // The intention is written on the card as well as in the identity row.
-    expect(view.getAllByText('I build what matters.').length).toBeGreaterThanOrEqual(2);
+    expect(view.getAllByText('I build what matters.')).toHaveLength(1);
     expect(view.getByLabelText('Your Anchor, Career. I build what matters.')).toBeTruthy();
   });
 
@@ -168,6 +181,11 @@ describe('V2VisionScreen', () => {
     const view = render(<V2VisionScreen anchorId="anchor-1" />);
     await view.findByTestId('vision-board');
     expect(view.queryByLabelText('Edit Vision')).toBeNull();
+    expect(view.queryByText('Manage images (3)')).toBeNull();
+    fireEvent.press(view.getByLabelText('Vision options'));
+    expect(view.getByLabelText('Edit Vision')).toBeTruthy();
+    expect(view.getByLabelText('Manage images (3)')).toBeTruthy();
+    fireEvent.press(view.getByLabelText('Manage images (3)'));
     expect(view.queryByLabelText('Manage Images')).toBeNull();
     expect(view.queryByLabelText('View on Chart')).toBeNull();
     fireEvent.press(view.getByTestId('vision-on-your-chart'));
@@ -212,7 +230,7 @@ describe('V2VisionScreen', () => {
     (apiClient.get as jest.Mock).mockResolvedValue({ data: mockVisionData });
     const view = render(<V2VisionScreen anchorId="anchor-1" />);
     fireEvent.press(await view.findByLabelText('Your Anchor, Career. I build what matters.'));
-    fireEvent.press(view.getByLabelText('Edit Vision'));
+    fireEvent.press(view.getAllByLabelText('Edit Vision')[0]);
     expect(view.getByTestId('vision-edit-description').props.value).toBe('A quiet, sunlit workspace with completed projects.');
   });
 
@@ -224,7 +242,7 @@ describe('V2VisionScreen', () => {
       data: { seenToday: true },
     });
 
-    const { findByLabelText } = render(<V2VisionScreen anchorId="anchor-1" />);
+    const { findByLabelText } = render(<V2VisionScreen anchorId="anchor-1" onVisualize={jest.fn()} />);
 
     const begin = await findByLabelText('Begin Visualize');
     expect(apiClient.post).not.toHaveBeenCalledWith(
@@ -239,6 +257,42 @@ describe('V2VisionScreen', () => {
         expect.objectContaining({ timeZone: expect.any(String) }),
       );
     });
+  });
+
+  it('starts the canonical session directly with the exact prewarmed snapshot and returns to Vision', async () => {
+    useAuthStore.setState({ user: { id: 'account-1' } as any });
+    (apiClient.get as jest.Mock).mockResolvedValue({ data: mockVisionData });
+    (apiClient.post as jest.Mock).mockResolvedValue({ data: { seenToday: true } });
+    const view = render(<V2VisionScreen anchorId="anchor-1" />);
+    await view.findByTestId('v2-vision-screen');
+    const begin = view.getByLabelText('Begin Visualize');
+    expect(begin.props.accessibilityState.disabled).toBe(true);
+    await waitFor(() => expect(mockPreparationProps.prepareOnly).toBe(true));
+    const assets = { tiles: [{ sceneId: 'sc-1', imageUrl: 'https://example.com/art1.jpg' }], images: [{}], enhancedAnchor: null };
+    const snapshot = { anchor: mockAnchor, statement: mockVisionData.description, assets, markLocal: { x: 1, y: 2, width: 10, height: 10 }, viewport: { width: 384, height: 832 } };
+    act(() => mockPreparationProps.onPrepared(snapshot));
+    expect(view.getByLabelText('Begin Visualize').props.accessibilityState.disabled).toBe(false);
+    fireEvent.press(view.getByLabelText('Begin Visualize'));
+    expect(view.getByTestId('canonical-visualize')).toBeTruthy();
+    expect(mockPracticeProps.mode).toBe('visualize');
+    expect(mockPracticeProps.preparedVisualize.assets).toBe(assets);
+    expect(mockPracticeProps.preparedVisualize.beginAtMs).toEqual(expect.any(Number));
+    act(() => mockPracticeProps.onCompleted());
+    expect(view.getByTestId('v2-vision-screen')).toBeTruthy();
+  });
+
+  it('clamps long statements and lets the person expand and collapse the real text', async () => {
+    const description = 'A real future with room for my family. '.repeat(10);
+    (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: { ...mockVisionData, description } });
+    const view = render(<V2VisionScreen anchorId="anchor-1" />);
+    const statement = await view.findByTestId('vision-statement');
+    expect(statement.props.numberOfLines).toBe(3);
+    fireEvent(statement, 'textLayout', { nativeEvent: { lines: [{}, {}, {}, {}] } });
+    fireEvent.press(view.getByText('Read more'));
+    expect(view.getByTestId('vision-statement').props.numberOfLines).toBeUndefined();
+    expect(view.getByTestId('vision-statement').props.children).toBe(description.trim());
+    fireEvent.press(view.getByText('Read less'));
+    expect(view.getByTestId('vision-statement').props.numberOfLines).toBe(3);
   });
 
   it('Home thumbnail prefetch / compact adapter does NOT trigger seen-today call', () => {

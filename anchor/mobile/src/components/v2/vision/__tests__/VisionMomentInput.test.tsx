@@ -1,5 +1,5 @@
-import React from 'react';
-import { act, fireEvent, render } from '@testing-library/react-native';
+
+import { fireEvent, render } from '@testing-library/react-native';
 import { VisionMomentInput } from '../VisionMomentInput';
 
 const mockUseAppearance = jest.fn();
@@ -38,7 +38,7 @@ describe('VisionMomentInput', () => {
 
   it('renders hero title and guidance chips in create mode', () => {
     const { getByText, getByLabelText } = render(<VisionMomentInput {...defaultProps} />);
-    expect(getByText('What does this look like when it’s real?')).toBeTruthy();
+    expect(getByText('Describe your Vision')).toBeTruthy();
     expect(getByLabelText('Where are you?')).toBeTruthy();
     expect(getByLabelText('What are you doing?')).toBeTruthy();
     expect(getByLabelText('What can you see?')).toBeTruthy();
@@ -47,7 +47,7 @@ describe('VisionMomentInput', () => {
 
   it('renders hero title for add mode', () => {
     const { getByText } = render(<VisionMomentInput {...defaultProps} mode="add" />);
-    expect(getByText('What else does this future look like?')).toBeTruthy();
+    expect(getByText('Describe your image')).toBeTruthy();
   });
 
   it('appends guidance cue to text input when chip is tapped', () => {

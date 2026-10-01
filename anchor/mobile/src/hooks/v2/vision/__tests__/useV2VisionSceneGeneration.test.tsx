@@ -35,6 +35,13 @@ describe('useV2VisionSceneGeneration', () => {
     expect(apiClient.get).not.toHaveBeenCalled();
   });
 
+  it('includes a selected reference without sending an unused field to older servers', async () => {
+    (apiClient.post as jest.Mock).mockResolvedValue({ data: { success: true, data: running } });
+    const { result } = renderHook(() => useV2VisionSceneGeneration('anchor-1'));
+    await act(async () => { await result.current.start('Working from a beach house', 'reference-1'); });
+    expect((apiClient.post as jest.Mock).mock.calls[0][1].appearanceReferenceId).toBe('reference-1');
+  });
+
   it('follows its own job by id until it finishes', async () => {
     (apiClient.post as jest.Mock).mockResolvedValue({ data: { success: true, data: running } });
     const { result } = renderHook(() => useV2VisionSceneGeneration('anchor-1'));

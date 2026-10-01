@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Image, StatusBar, KeyboardAvoidingView, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 // Gesture Handler's ScrollView takes part in gesture arbitration, so a lifted photo keeps the touch on Android.
 import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,12 +10,12 @@ import { practiceColors } from '@/theme/v2/practiceColors';
 import { useV2ReduceMotion } from '@/hooks/v2';
 import type { V2VisionTile } from '@/adapters/v2/vision';
 import type { ChartSummary } from '@/adapters/v2/chart/chartV2Model';
-import { VisionHeaderRow, VisionIdentity, VisionInkBand, type VisionAnchorArt } from './VisionChrome';
-import { VisionEnvironment } from './environment/VisionEnvironment';
+import { VisionHeaderRow, VisionIdentity, VisionStatusBarScrim, type VisionAnchorArt } from './VisionChrome';
 import { VISION_DESCRIPTION_MAX_CHARS, VISION_DESCRIPTION_MIN_CHARS, visionDetailHint } from './visionGuidance';
 import { VisionBoard } from './board/VisionBoard';
 import { orderTiles, toSceneOrders } from './board/visionBoardReorder';
 import { VISION_BOARD_MAX_IMAGES } from './board/visionBoardLayouts';
+import { VisionArrivalDestination } from './VisionImageArrival';
 import { VisionAddSheet, type VisionAddChoice } from './VisionAddSheet';
 
 type Props = {
@@ -28,7 +28,11 @@ type Props = {
   tiles: V2VisionTile[];
   error?: string | null;
   onBack: () => void;
-  onVisualize: () => void;
+  onVisualize: (frame?: { x: number; y: number; width: number; height: number }) => void;
+  visualizeReady?: boolean;
+  preparationIssue?: string | null;
+  onRetryVisualize?: () => void;
+  onUseAvailableImages?: () => void;
   onChart: () => void;
   /** Real Chart state for this Anchor; null when there is no route. */
   chartSummary?: ChartSummary | null;
@@ -57,15 +61,24 @@ const BOARD_GUTTER = spacing[3];
 const ARRIVAL_RECOMPOSE_DELAY_MS = 450;
 
 export function V2SavedVision({
-  chartSummary = null,
+  chartSummary = null, visualizeReady = true, preparationIssue, onRetryVisualize, onUseAvailableImages,
   anchorIntention, anchorCategory, anchorImageUrl, anchorArt, description, tiles, error, initialEdit = false,
   onBack, onVisualize, onChart, onUpdateDescription, onReorder, onRemove,
   onAddPhoto, onAddGenerate, onReplace, onRegenerate, canGenerateMore, onArchive, arrivedFrom = null, testID = 'v2-vision-screen',
 }: Props) {
+  const canvasRef = useRef<View>(null);
+  const canvasCapture = useRef<(() => { x: number; y: number; width: number; height: number }) | null>(null);
+  const canvasBounds = useRef<{ x: number; y: number; width: number; height: number } | undefined>(undefined);
+  const measureCanvas = () => canvasRef.current?.measureInWindow?.((x, y, width, height) => {
+    if (width > 0 && height > 0) canvasBounds.current = { x, y, width, height };
+  });
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const reduceMotion = useV2ReduceMotion();
   const boardWidth = Math.min(width - BOARD_GUTTER * 2, 520);
+  const [expanded, setExpanded] = useState(false);
+  const [truncated, setTruncated] = useState(false);
+  const [manageImages, setManageImages] = useState(false);
   const [mode, setMode] = useState<'view' | 'edit'>(initialEdit ? 'edit' : 'view');
   const [draft, setDraft] = useState(description);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -126,12 +139,12 @@ export function V2SavedVision({
     const previous = localOrder;
     setLocalOrder(sceneIds);
     setNotice(null);
-    void onReorder(toSceneOrders(sceneIds)).then(success => {
+    void onReorder(toSceneOrders([...sceneIds, ...boardTiles.map(tile => tile.sceneId).filter(id => !sceneIds.includes(id))])).then(success => {
       if (success) return;
       setLocalOrder(previous);
       setNotice('Image order could not be saved.');
     });
-  }, [localOrder, onReorder]);
+  }, [boardTiles, localOrder, onReorder]);
 
   const remove = useCallback((sceneId: string) => {
     if (boardTiles.length <= 1) { setNotice('Keep at least one image in your Vision.'); return; }
@@ -182,10 +195,10 @@ export function V2SavedVision({
 
   const header = (
     <VisionHeaderRow title={mode === 'edit' ? 'Edit Vision' : 'Vision'}
-      onBack={mode === 'view' ? onBack : () => { setMode('view'); setNotice(null); setDraft(description); }}
+      tone="dark" onBack={mode === 'view' ? onBack : () => { setMode('view'); setNotice(null); setDraft(description); }}
       utility={mode === 'view' ? (
         <Pressable accessibilityRole="button" accessibilityLabel="Vision options" hitSlop={8} onPress={() => setMenuOpen(value => !value)} style={styles.menuButton}>
-          <MoreHorizontal size={22} color={colors.ink.text.primary} />
+          <MoreHorizontal size={22} color={colors.text.primary} />
         </Pressable>
       ) : undefined} />
   );
@@ -193,17 +206,17 @@ export function V2SavedVision({
   return (
     <View testID={testID} style={styles.root}>
       <KeyboardAvoidingView style={styles.flex} behavior="padding">
-        <ScrollView scrollEnabled={!dragging} contentContainerStyle={{ paddingBottom: insets.bottom + spacing[6] }}
+        <ScrollView onScroll={measureCanvas} scrollEventThrottle={32} scrollEnabled={!dragging} contentContainerStyle={{ paddingBottom: insets.bottom + spacing[6] }}
           keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          <VisionInkBand>
-            <VisionEnvironment category={anchorCategory} boardWidth={boardWidth} reduceMotion={reduceMotion} />
+          <View style={{ paddingTop: insets.top }}>
+            <StatusBar barStyle="dark-content" backgroundColor={colors.canvas} />
             <View style={styles.bandContent}>
               {header}
-              <VisionIdentity intention={anchorIntention} category={anchorCategory} art={anchorArt} imageUrl={anchorImageUrl} showAnchor={false} />
+              <VisionIdentity intention={anchorIntention} category={anchorCategory} art={anchorArt} imageUrl={anchorImageUrl} showAnchor={false} tone="dark" />
             </View>
             {mode === 'view' ? (
               <View style={styles.boardWrap}>
-                <VisionBoard
+                <View ref={canvasRef} collapsable={false} onLayout={measureCanvas}><VisionBoard
                   tiles={boardTiles}
                   intention={anchorIntention}
                   category={anchorCategory}
@@ -211,6 +224,7 @@ export function V2SavedVision({
                   width={boardWidth}
                   reduceMotion={reduceMotion}
                   busy={busy}
+                  captureFrame={canvasCapture}
                   canRegenerate={canGenerateMore}
                   onReplace={replace}
                   onRegenerate={onRegenerate}
@@ -219,10 +233,10 @@ export function V2SavedVision({
                   onReorder={reorder}
                   onAddImage={boardTiles.length < VISION_BOARD_MAX_IMAGES ? addImage : undefined}
                   onDragActive={setDragging}
-                />
+                /></View>
               </View>
             ) : <View style={styles.bandTail} />}
-          </VisionInkBand>
+          </View>
 
           <View style={styles.body}>
             {mode === 'edit' ? (
@@ -239,11 +253,40 @@ export function V2SavedVision({
             ) : (
               <>
                 <Text style={styles.heading}>My Vision</Text>
-                <Text style={styles.description}>{description}</Text>
-                <V2Button size="large" accessibilityLabel="Begin Visualize" onPress={onVisualize} style={styles.visualize}
+                <Text testID="vision-statement" numberOfLines={expanded ? undefined : 3} style={styles.description}
+                  onTextLayout={event => { if (!expanded) setTruncated(event.nativeEvent.lines.length >= 3); }}>{description}</Text>
+                {(truncated || expanded) ? <Pressable accessibilityRole="button" accessibilityState={{ expanded }}
+                  onPress={() => setExpanded(value => !value)} style={{ minHeight: 44, justifyContent: 'center' }}>
+                  <Text style={styles.chartLinkText}>{expanded ? 'Read less' : 'Read more'}</Text>
+                </Pressable> : null}
+                {manageImages ? <View style={{ gap: spacing[3] }}>{boardTiles.map((tile, index) =>
+                  <View key={tile.sceneId} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}>
+                    <VisionArrivalDestination url={tile.imageUrl} style={{ width: 80, height: 72, backgroundColor: colors.grouped }}>
+                      {tile.imageUrl ? <Image source={{ uri: tile.imageUrl }} resizeMode="cover" style={{ width: 80, height: 72 }} /> : null}
+                    </VisionArrivalDestination>
+                    <View style={{ flex: 1, gap: 6 }}>
+                      <Text style={styles.chartPosition}>Image {index + 1} of {boardTiles.length}</Text>
+                      <Pressable accessibilityRole="button" accessibilityLabel={`Manage image ${index + 1}`} onPress={() => Alert.alert('Vision image', undefined, [
+                        { text: 'Make primary', onPress: () => reorder([tile.sceneId, ...boardTiles.filter(t => t.sceneId !== tile.sceneId).map(t => t.sceneId)]) },
+                        { text: 'Replace', onPress: () => replace(tile.sceneId) },
+                        ...(canGenerateMore ? [{ text: 'Regenerate', onPress: () => onRegenerate(tile.sceneId) }] : []),
+                        { text: 'Remove', style: 'destructive', onPress: () => remove(tile.sceneId) },
+                        { text: 'Cancel', style: 'cancel' },
+                      ])} style={{ minHeight: 44, justifyContent: 'center' }}>
+                        <Text style={styles.chartLinkText}>Image options</Text>
+                      </Pressable>
+                    </View>
+                  </View>)}</View> : null}
+                <V2Button size="large" accessibilityLabel="Begin Visualize" disabled={!visualizeReady} onPress={() => {
+                    const bounds = canvasBounds.current; const projection = canvasCapture.current?.();
+                    onVisualize(bounds && projection ? { ...projection, x: bounds.x + projection.x, y: bounds.y + projection.y } : bounds);
+                  }} style={styles.visualize}
                   iconLeft={<Eye size={18} color={practiceColors.visualize} />} iconRight={<ArrowRight size={17} color={colors.paper} />}>
                   Begin Visualize
                 </V2Button>
+                {!visualizeReady ? <Text accessibilityLiveRegion="polite" style={styles.chartPosition}>{preparationIssue ?? 'Preparing your Vision�'}</Text> : null}
+                {preparationIssue && onRetryVisualize ? <Pressable accessibilityRole="button" onPress={onRetryVisualize} style={{ minHeight: 44 }}><Text style={styles.chartLinkText}>Retry Vision images</Text></Pressable> : null}
+                {preparationIssue && onUseAvailableImages ? <Pressable accessibilityRole="button" onPress={onUseAvailableImages} style={{ minHeight: 44 }}><Text style={styles.chartLinkText}>Continue with available images</Text></Pressable> : null}
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={chartSummary
@@ -259,13 +302,13 @@ export function V2SavedVision({
                       <Text style={styles.chartPosition}>
                         {chartSummary.isFinished ? 'Destination reached' : `Waypoint ${chartSummary.waypointNumber} of ${chartSummary.total}`}
                       </Text>
-                      <Text style={styles.chartTitle}>{chartSummary.waypointTitle}</Text>
+                      <Text numberOfLines={2} style={styles.chartTitle}>{chartSummary.waypointTitle}</Text>
                     </>
                   ) : (
                     <Text style={styles.chartPosition}>Map the route from here to this Vision.</Text>
                   )}
                   <View style={styles.chartLink}>
-                    <Text style={styles.chartLinkText}>{chartSummary ? 'View Chart' : 'Create a Chart'}</Text>
+                    {!chartSummary ? <Text style={styles.chartLinkText}>Create a Chart</Text> : null}
                     <ArrowRight size={15} color={colors.text.primary} />
                   </View>
                 </Pressable>
@@ -275,11 +318,24 @@ export function V2SavedVision({
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      <VisionStatusBarScrim tone="dark" />
       <VisionAddSheet visible={addSheetOpen} onClose={closeAddSheet} onChoose={chooseAdd} />
       {menuOpen && mode === 'view' && (
-        <Pressable accessibilityRole="button" accessibilityLabel="Archive Vision" onPress={archive} style={[styles.menu, { top: insets.top + 50 }]}>
-          <Text style={styles.archiveText}>Archive Vision</Text>
-        </Pressable>
+        <>
+          <Pressable testID="vision-menu-dismiss" style={StyleSheet.absoluteFill} accessible={false} onPress={() => setMenuOpen(false)} />
+          <View accessibilityViewIsModal style={[styles.menu, { top: insets.top + 50 }]}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Edit Vision" onPress={() => { setMenuOpen(false); setMode('edit'); }} style={styles.menuItem}>
+              <Text style={styles.chartLinkText}>Edit Vision</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Manage images (${tiles.length})`} accessibilityState={{ expanded: manageImages }}
+              onPress={() => { setMenuOpen(false); setManageImages(value => !value); }} style={styles.menuItem}>
+              <Text style={styles.chartLinkText}>{manageImages ? 'Close images' : `Manage images (${tiles.length})`}</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Archive Vision" onPress={archive} style={styles.menuItem}>
+              <Text style={styles.archiveText}>Archive Vision</Text>
+            </Pressable>
+          </View>
+        </>
       )}
     </View>
   );
@@ -289,12 +345,13 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.canvas },
   flex: { flex: 1 },
   bandContent: { paddingHorizontal: PAGE_GUTTER, gap: spacing[4] },
-  boardWrap: { paddingHorizontal: BOARD_GUTTER, paddingTop: spacing[4], alignItems: 'center' },
+  boardWrap: { paddingHorizontal: BOARD_GUTTER, paddingTop: spacing[3], alignItems: 'center' },
   bandTail: { height: spacing[5] },
   menuButton: { width: 40, height: 40, alignItems: 'flex-end', justifyContent: 'center' },
   menu: { position: 'absolute', right: 18, zIndex: 5, padding: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border.default, borderRadius: radii.md },
+  menuItem: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
   archiveText: { ...typography.labelMD, color: colors.semantic.error },
-  body: { paddingHorizontal: PAGE_GUTTER, paddingTop: spacing[5], gap: spacing[3] },
+  body: { paddingHorizontal: PAGE_GUTTER, paddingTop: spacing[3], gap: spacing[2] },
   heading: { ...typography.headingMD, color: colors.text.primary },
   description: { ...typography.bodyMD, color: colors.text.primary, lineHeight: 23 },
   visualize: { marginTop: spacing[2] },
@@ -306,16 +363,14 @@ const styles = StyleSheet.create({
   error: { ...typography.caption, color: colors.semantic.error },
   chartCard: {
     marginTop: spacing[3],
-    padding: spacing[4],
-    borderRadius: radii.lg,
-    borderWidth: 1,
+    paddingVertical: spacing[3],
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border.default,
-    backgroundColor: colors.surface,
     gap: 4,
   },
   chartEyebrow: { ...typography.labelSM, color: colors.text.secondary, letterSpacing: 1.1 },
   chartPosition: { ...typography.labelMD, color: colors.text.secondary, marginTop: spacing[1] },
-  chartTitle: { ...typography.headingSM, color: colors.text.primary },
-  chartLink: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing[2] },
+  chartTitle: { ...typography.bodyMD, color: colors.text.primary, paddingRight: 26 },
+  chartLink: { flexDirection: 'row', alignItems: 'center', gap: 6, position: 'absolute', right: 0, top: 36 },
   chartLinkText: { ...typography.labelMD, color: colors.text.primary },
 });

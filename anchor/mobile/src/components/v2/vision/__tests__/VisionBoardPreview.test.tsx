@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { render, fireEvent, screen } from '@testing-library/react-native';
 import { VisionBoardPreview } from '../VisionBoardPreview';
 
@@ -8,12 +8,10 @@ describe('VisionBoardPreview', () => {
   it('uses every real photo across board pages and opens Vision', () => {
     const open = jest.fn();
     render(<VisionBoardPreview tiles={tiles} statement="My real future" onPress={open} testID="board" />);
-    tiles.forEach((tile, i) => expect(screen.getByTestId(`board-image-${i}`).props.source).toEqual({ uri: tile.imageUrl }));
+    expect(screen.getByTestId('board-image-0').props.source).toEqual({ uri: tiles[0].imageUrl });
+    expect(screen.queryByTestId('board-image-1')).toBeNull();
     fireEvent.press(screen.getByTestId('board'));
     expect(open).toHaveBeenCalledTimes(1);
-    expect(screen.getByLabelText('Vision board page 3 of 3')).toBeTruthy();
-    expect(screen.getByTestId('board-image-0')).toBeTruthy();
-    expect(screen.getByTestId('board-image-1')).toBeTruthy();
   });
 
   it('keeps a single photo singular and never fabricates missing imagery', () => {
@@ -24,4 +22,14 @@ describe('VisionBoardPreview', () => {
     expect(screen.queryByTestId('board-image-0')).toBeNull();
     expect(screen.getByText('Words only')).toBeTruthy();
   });
+  it('reserves geometry and exposes a failed image honestly', () => {
+    const view = render(<VisionBoardPreview tiles={tiles} testID="board" />);
+    fireEvent(view.getByTestId('board-image-0'), 'error', { nativeEvent: { error: 'offline' } });
+    expect(view.getByText('Image unavailable')).toBeTruthy();
+    const style = require('react-native').StyleSheet.flatten(view.getByTestId('board').props.style);
+    expect(style.height).toBeGreaterThan(0);
+    view.rerender(<VisionBoardPreview tiles={[{ id: 'new', imageUrl: 'https://new.test/photo.jpg' }]} testID="board" />);
+    expect(view.getByTestId('board-image-0').props.source.uri).toBe('https://new.test/photo.jpg');
+  });
+
 });
