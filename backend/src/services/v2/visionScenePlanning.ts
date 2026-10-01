@@ -68,7 +68,7 @@ export interface VisionScenePlanItem {
 export const VISION_FRAMINGS = ['wide', 'medium', 'close', 'detail'] as const;
 
 const MAX_ROLE = 80;
-const MAX_SCENE = 500;
+const MAX_SCENE = 2000;
 const MAX_FIELD = 160;
 
 function clipList(value: unknown, maxItems = 8): string[] | undefined {

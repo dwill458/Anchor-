@@ -9,7 +9,7 @@ import { imageGenerationService, ImageProviderError, ImageProviderErrorType } fr
 import { resolveStorageKeyUrl, uploadImageAssetFromBuffer } from '../StorageService';
 import { getMonetizationAccess } from '../MonetizationAccessService';
 import { visionService } from './VisionService';
-import { VISION_MAX_IMAGES } from '../../domain/v2/vision';
+import { VISION_MAX_IMAGES, VISION_SCENE_DESCRIPTION_MAX } from '../../domain/v2/vision';
 import { visionAppearanceReferenceService } from './VisionAppearanceReferenceService';
 import { logger } from '../../utils/logger';
 import {
@@ -196,8 +196,8 @@ export class VisionGenerationService {
     });
     if (!anchor) throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
     const trimmed = sceneDescription.trim();
-    if (trimmed.length < 6 || trimmed.length > 400)
-      throw new AppError('Describe the scene in 6 to 400 characters', 400, 'VALIDATION_ERROR');
+    if (trimmed.length < 6 || trimmed.length > VISION_SCENE_DESCRIPTION_MAX)
+      throw new AppError(`Describe the scene in 6 to ${VISION_SCENE_DESCRIPTION_MAX} characters`, 400, 'VALIDATION_ERROR');
 
     if (appearanceReferenceId)
       await visionAppearanceReferenceService.resolveForGeneration(userId, appearanceReferenceId);

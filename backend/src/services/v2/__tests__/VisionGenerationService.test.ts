@@ -237,6 +237,19 @@ describe('VisionGenerationService', () => {
       expect(run).toHaveBeenCalledWith('scene-job-000001', 'I create freely', 'DESIRE');
     });
 
+    it('accepts a full-length Vision description for the first image and keeps every word in both shots', async () => {
+      jest.spyOn(service as any, 'run').mockResolvedValue(undefined);
+      jest.spyOn(service, 'latest').mockResolvedValue({ id: 'scene-job-000006', status: 'QUEUED' } as never);
+      const long = 'I see the number I worked toward. '.repeat(60).slice(0, 1999).trimEnd() + '.';
+      expect(long.length).toBeLessThanOrEqual(2000);
+      expect(long.length).toBeGreaterThan(1900);
+      await service.startScene(userId, anchorId, long, 'scene-job-000006');
+      const data = mockPrisma.visionGeneration.create.mock.calls[0][0].data;
+      expect(data.plan).toHaveLength(2);
+      expect(data.plan.every((item: { scene: string }) => item.scene === long)).toBe(true);
+      await expect(service.startScene(userId, anchorId, `${long}${'x'.repeat(200)}`, 'scene-job-000007')).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    });
+
     it('needs an existing Vision with room on the board', async () => {
       mockPrisma.vision.findFirst.mockResolvedValueOnce(null);
       await expect(service.startScene(userId, anchorId, sceneText, 'scene-job-000002')).rejects.toMatchObject({ statusCode: 404 });

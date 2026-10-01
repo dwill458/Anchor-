@@ -95,9 +95,14 @@ export const StartVisionGenerationSchema = z.object({
   appearanceReferenceId: z.string().uuid().optional().nullable(),
 }).strict();
 
-/** One described scene to add to an existing Vision board (two candidates come back). */
+/**
+ * One described scene for an existing Vision (two candidates come back). The first
+ * image of a new Vision is described with the Vision's own description, so the
+ * limit matches it.
+ */
+export const VISION_SCENE_DESCRIPTION_MAX = 2000;
 export const StartVisionSceneGenerationSchema = z.object({
-  sceneDescription: z.string().trim().min(6).max(400),
+  sceneDescription: z.string().trim().min(6).max(VISION_SCENE_DESCRIPTION_MAX),
   idempotencyKey: z.string().regex(/^[A-Za-z0-9-]{12,100}$/),
   appearanceReferenceId: z.string().uuid().optional().nullable(),
 }).strict();
