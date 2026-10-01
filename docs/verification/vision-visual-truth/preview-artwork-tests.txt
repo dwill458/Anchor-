@@ -1,0 +1,12 @@
+PASS src/components/v2/anchors/__tests__/V2AnchorGalleryGrid.test.tsx (8.791 s)
+PASS src/screens/v2/paywall/__tests__/V2PaywallScreen.test.tsx
+PASS src/adapters/v2/paywall/__tests__/revenueCatPricing.test.ts
+PASS src/adapters/v2/paywall/__tests__/trialState.test.ts
+PASS src/adapters/v2/paywall/__tests__/trialActivation.test.ts
+PASS src/adapters/v2/paywall/__tests__/anchorCreationGate.test.ts
+PASS src/components/v2/vision/__tests__/VisionBoardPreview.test.tsx
+
+Test Suites: 7 passed, 7 total
+Tests:       39 passed, 39 total
+Snapshots:   0 total
+Time:        15.028 s

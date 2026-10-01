@@ -1,0 +1,17 @@
+src/hooks/useNotificationController.ts(241,7): error TS2322: Type 'number | null' is not assignable to type 'number'.
+  Type 'null' is not assignable to type 'number'.
+src/hooks/useNotificationController.ts(305,7): error TS2322: Type 'number | null' is not assignable to type 'number'.
+  Type 'null' is not assignable to type 'number'.
+src/hooks/useWeeklyStats.ts(225,41): error TS2345: Argument of type 'number | null' is not assignable to parameter of type 'number'.
+  Type 'null' is not assignable to type 'number'.
+src/screens/practice/PracticeScreen.tsx(271,38): error TS2345: Argument of type 'number | null' is not assignable to parameter of type 'number'.
+  Type 'null' is not assignable to type 'number'.
+src/screens/practice/PracticeScreen.tsx(280,11): error TS18047: 'threadStrength' is possibly 'null'.
+src/screens/v2/progress/__tests__/V2ProgressScreen.test.tsx(18,5): error TS2322: Type '"Rooted"' is not assignable to type '"Forming" | "Building" | "Established" | "Integrated" | "Reinforced" | "Unestablished"'.
+src/stores/authStore.ts(1002,17): error TS2322: Type 'number | null' is not assignable to type 'number'.
+  Type 'null' is not assignable to type 'number'.
+src/stores/sessionStore.ts(502,46): error TS18047: 'threadStrength' is possibly 'null'.
+src/stores/sessionStore.ts(727,13): error TS18047: 'newStrength' is possibly 'null'.
+src/stores/sessionStore.ts(742,27): error TS18047: 'state.threadStrength' is possibly 'null'.
+src/widgets/widgetDataBridge.ts(605,7): error TS2322: Type 'number | null' is not assignable to type 'number | undefined'.
+  Type 'null' is not assignable to type 'number | undefined'.

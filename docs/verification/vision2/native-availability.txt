@@ -1,0 +1,3 @@
+Android: adb devices returned no connected devices.
+iOS: no simulator/device available on this Windows host.
+Authenticated native visual and performance acceptance remains open.
