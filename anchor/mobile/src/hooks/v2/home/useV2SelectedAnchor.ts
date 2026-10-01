@@ -22,9 +22,7 @@ export function useV2SelectedAnchor(): {
   const setCurrentAnchor = useAnchorStore((s) => s.setCurrentAnchor);
 
   const activeAnchors = useMemo(
-    () => userId
-      ? anchors.filter((anchor) => anchor.userId === userId && !anchor.isReleased && !anchor.archivedAt)
-      : [],
+    () => anchors.filter((anchor) => (!userId || !anchor.userId || anchor.userId === userId) && !anchor.isReleased && !anchor.archivedAt),
     [anchors, userId],
   );
 

@@ -1,0 +1,46 @@
+{
+  "master": {
+    "width": 3240,
+    "height": 5760
+  },
+  "decodedBytes": 43315200,
+  "decodedBudgetBytes": 50331648,
+  "gpuBudgetBytes": 100663296,
+  "layers": [
+    {
+      "id": "sky",
+      "filename": "chart_01_sky.jpg",
+      "width": 720,
+      "height": 1280,
+      "decodedBytes": 3686400
+    },
+    {
+      "id": "city",
+      "filename": "chart_02_city.png",
+      "width": 1080,
+      "height": 1920,
+      "decodedBytes": 8294400
+    },
+    {
+      "id": "midground",
+      "filename": "chart_03_midground.png",
+      "width": 1080,
+      "height": 1920,
+      "decodedBytes": 8294400
+    },
+    {
+      "id": "road",
+      "filename": "chart_04_road.png",
+      "width": 1440,
+      "height": 2560,
+      "decodedBytes": 14745600
+    },
+    {
+      "id": "foreground",
+      "filename": "chart_05_foreground.png",
+      "width": 1080,
+      "height": 1920,
+      "decodedBytes": 8294400
+    }
+  ]
+}

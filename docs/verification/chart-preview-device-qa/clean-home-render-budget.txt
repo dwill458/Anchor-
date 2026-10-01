@@ -1,0 +1,54 @@
+  console.log
+    [VisualProfiler] todayContentChange { mode: 'focus', reason: 'daily_focus' }
+
+      at Object.log [as record] (src/utils/visualProfiler.ts:46:13)
+
+  console.log
+    [VisualProfiler] activeAnchorIdCommit { anchorId: 'a0' }
+
+      at Object.log [as record] (src/utils/visualProfiler.ts:46:13)
+
+  console.log
+    [VisualProfiler] homeMounted
+
+      at Object.log [as record] (src/utils/visualProfiler.ts:46:13)
+
+  console.log
+    [VisualProfiler] activeAnchorIdCommit { anchorId: 'a1' }
+
+      at Object.log [as record] (src/utils/visualProfiler.ts:46:13)
+
+  console.log
+    [VisualProfiler] todayContentChange { mode: 'focus', reason: 'daily_focus' }
+
+      at Object.log [as record] (src/utils/visualProfiler.ts:46:13)
+
+FAIL src/screens/v2/home/__tests__/homeRenderBudget.test.tsx (33.941 s)
+  × does not re-render Home a second time when Today resolves after a switch (420 ms)
+
+  ● does not re-render Home a second time when Today resolves after a switch
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 0
+    + Received  + 1
+
+      Object {
+        "Today": 1,
+    +   "Vision": 1,
+      }
+
+      173 |   const onSettle = take();
+      174 |
+    > 175 |   expect(onSettle).toEqual({ Today: 1 });
+          |                    ^
+      176 | });
+      177 |
+
+      at Object.toEqual (src/screens/v2/home/__tests__/homeRenderBudget.test.tsx:175:20)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 1 total
+Snapshots:   0 total
+Time:        34.07 s
+Ran all test suites matching /src\\screens\\v2\\home\\__tests__\\homeRenderBudget.test.tsx/i.

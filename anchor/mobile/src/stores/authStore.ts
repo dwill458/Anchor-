@@ -33,6 +33,7 @@ import { useTeachingStore } from '@/stores/teachingStore';
 import { useVisualizationSceneStore } from '@/stores/visualizationSceneStore';
 import { purgeChartCacheForAccount, useCourseStore } from '@/stores/courseStore';
 import { useNavigationResumeStore } from '@/stores/navigationResumeStore';
+import { useFirstRunStore } from '@/stores/v2/firstRunStore';
 import { calculateStreak } from '@/utils/streakHelpers';
 import {
   createDeveloperMasterUser,
@@ -1032,6 +1033,11 @@ export const useAuthStore = create<AuthState>()(
         useCourseStore.getState().clearAccount(userId);
         useNavigationResumeStore.getState().setTarget(null);
         useNavigationResumeStore.getState().setChartDeepLink(null);
+        try {
+          useFirstRunStore.getState().reset();
+        } catch {
+          // Ignore if store not yet initialized
+        }
         set({
           user: null,
           token: null,
@@ -1052,6 +1058,7 @@ export const useAuthStore = create<AuthState>()(
           encryptedPersistStorage.removeItem(ANCHOR_VAULT_STORAGE_KEY),
           encryptedPersistStorage.removeItem(ANCHOR_SESSION_STORAGE_KEY),
           encryptedPersistStorage.removeItem(CACHED_USER_KEY),
+          encryptedPersistStorage.removeItem('anchor:v2:first-run'),
           AsyncStorage.removeItem(RECOVERY_DUMP_MARKER_KEY),
           AsyncStorage.removeItem(RECOVERY_DUMP_VAULT_KEY),
         ]).catch((error) => {
@@ -1067,6 +1074,15 @@ export const useAuthStore = create<AuthState>()(
           applyUserToSubscriptionStore(state.user);
           // One-shot navigation flags should never survive an app restart.
           state.setShouldRedirectToCreation(false);
+          // If not logged in, reset hasCompletedOnboarding and firstRunStore so guest testing always restarts onboarding
+          if (!state.user?.id) {
+            state.hasCompletedOnboarding = false;
+            try {
+              useFirstRunStore.getState().reset();
+            } catch {
+              // Ignore if store not yet initialized
+            }
+          }
           // Recompute streak immediately after store hydrates from disk
           state.computeStreak();
         }

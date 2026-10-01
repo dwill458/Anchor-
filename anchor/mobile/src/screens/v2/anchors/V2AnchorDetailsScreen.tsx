@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StatusBar, StyleSheet, Text, useWindowDimensions, View, type ImageSourcePropType } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { releaseArtworkRect } from '@/components/v2/release/releaseBurn';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, BackHandler, Image, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, useWindowDimensions, View, type ImageSourcePropType } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, ChevronRight, MoreHorizontal, Sparkle } from 'lucide-react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,13 +20,15 @@ import { fetchV2RecommendationContext, type V2RecommendationContext } from '@/ad
 import { isV2RecommendationContextFresh, peekV2RecommendationContext } from '@/adapters/v2/practice/recommendationCache';
 import { V2_RECOMMENDATION_ACTION_TO_MODE, V2_PRACTICE_MODE_BY_ID, type V2PracticeMode } from '@/constants/v2/practice';
 import { todayReasonCopy } from '@/components/v2/home/V2HomeTodaySection';
-import { colors, getCategoryColor, getCategoryTextColor, getPracticeColor, typography } from '@/theme/v2';
+import { spacing, colors, getCategoryColor, getCategoryTextColor, getPracticeColor, typography } from '@/theme/v2';
 import { useV2DailyShellIntents, type V2DailyShellParamList } from '@/screens/v2/home/dailyShell';
 import { ANCHOR_DETAIL_EMPTY_ART, ANCHOR_DETAIL_HERO_ART, ANCHOR_DETAIL_PRACTICE_ART } from '@/components/v2/anchors/anchorDetailArt';
-import { ProgressiveFocusTransition, useProgressiveFocusTransition } from '@/navigation/v2/ProgressiveFocusTransition';
-import { ChartPreview } from '@/components/v2/chart/ChartPreview';
-import type { ChartMarker } from '@/components/v2/chart/ChartLandscape';
-import { chartWindowAroundRoutePoint } from '@/components/v2/chart/chartRouteGeometry';
+import { AnchorTransitionScene, useAnchorTransitionPlace, useProgressiveFocusTransition } from '@/navigation/v2/ProgressiveFocusTransition';
+import { ChartWorldPreview } from '@/components/v2/chart/ChartWorldPreview';
+import { VisionBoardPreview } from '@/components/v2/vision/VisionBoardPreview';
+import { predictPracticeSetupAnchorRect, resolveAnchorDetailsHeroGeometry } from '@/navigation/v2/anchorHeroGeometry';
+import { useV2Responsive } from '@/hooks/v2';
+import { VisualProfiler } from '@/utils/visualProfiler';
 
 type Nav = NativeStackNavigationProp<V2DailyShellParamList, 'V2AnchorDetails'>;
 type Route = RouteProp<V2DailyShellParamList, 'V2AnchorDetails'>;
@@ -95,13 +98,23 @@ function Hero({
   medallionSize,
   onBack,
   onMore,
+  anchorId,
+  reduceMotion,
 }: {
   anchor: NonNullable<ReturnType<typeof useV2AnchorDetail>['anchor']>;
   paintingHeight: number;
   medallionSize: number;
   onBack: () => void;
   onMore: () => void;
+  /** The id the Anchor transition knows this Details screen by (its route param). */
+  anchorId: string;
+  reduceMotion?: boolean;
 }) {
+  // The medallion is the Anchor transition's `details` place: Home's flight
+  // lands here and the Practice flight leaves from here. Android moves a newly
+  // pushed native screen beneath the status bar after its first layout
+  // callback, so the settled position is measured one beat later.
+  const place = useAnchorTransitionPlace('details', anchorId, 'paper', { measureDelayMs: reduceMotion ? 0 : 120 });
   const accent = getCategoryColor(anchor.category);
   // Small tracked caps on cream must clear WCAG AA; darkens within the same hue when the raw token would not.
   const categoryText = getCategoryTextColor(anchor.category, colors.surface, colors.text.primary);
@@ -124,13 +137,14 @@ function Hero({
           <Path d="M0 0 Q200 48 400 0 L400 32 L0 32 Z" fill={colors.surface} />
         </Svg>
       </View>
-      <CircularAnchorRenderer
-        {...anchorRenderProps(anchor)}
-        size={medallionSize}
-        appearance="paper"
-        accessibilityLabel={categoryLabel(anchor.category) + ' Anchor artwork'}
-        style={[styles.glyph, { top: paintingHeight - medallionSize * 0.58 }]}
-      />
+      <View ref={place.ref} collapsable={false} onLayout={place.onLayout} style={[styles.glyph, { top: paintingHeight - medallionSize * 0.58, opacity: place.hidden ? 0 : 1 }]}>
+        <CircularAnchorRenderer
+          {...anchorRenderProps(anchor)}
+          size={medallionSize}
+          appearance="paper"
+          accessibilityLabel={categoryLabel(anchor.category) + ' Anchor artwork'}
+        />
+      </View>
       <View style={[styles.heroCopy, { paddingTop: medallionSize * 0.42 + 16 }]}>
         <Text accessibilityRole="header" style={styles.intention}>{anchor.intentionText}</Text>
         <Text style={[styles.category, { color: categoryText }]}>{categoryLabel(anchor.category).toUpperCase()}</Text>
@@ -178,7 +192,7 @@ function ThreadSummary({
 
       <View style={styles.threadMetricsRow}>
         <View style={styles.threadValueGroup}>
-          <Text style={styles.threadPercent}>{numericValue}%</Text>
+          <Text style={styles.threadPercent}>{value === null ? '—' : `${numericValue}%`}</Text>
           {delta !== null ? (
             <Text style={[styles.threadDelta, { color: deltaColor }]}>
               {deltaArrow ? `${deltaArrow}` : ''}
@@ -246,92 +260,78 @@ function TodayCard({
         <Text style={styles.todayEyebrow}>Recommended Practice</Text>
         <Text style={styles.todayTitle}>{modeTitle}</Text>
         <Text style={styles.todayMeta}>{mode !== 'release' ? durationLabel(duration) : 'Ready'} <ChevronRight size={14} color={colors.text.primary} /></Text>
-        <Text style={styles.todayReason} numberOfLines={2}>{todayReasonCopy(recommendation.reason, mode)}</Text>
+        <Text style={styles.todayReason}>{todayReasonCopy(recommendation.reason, mode)}</Text>
       </View>
     </Pressable>
   );
 }
 
 function VisionSection({
+  state,
   accent,
   visionTile,
   tiles,
   statement,
   seenToday,
   onOpenVision,
+  onEditVision,
+  onRetry,
 }: {
+  state: ReturnType<typeof useV2Vision>['state'];
   accent: string;
   visionTile: { imageUrl?: string | null } | null | undefined;
   tiles: Array<{ id: string; imageUrl?: string | null }>;
   statement?: string;
   seenToday?: boolean;
   onOpenVision: () => void;
+  onEditVision: () => void;
+  onRetry: () => void | Promise<void>;
 }) {
-  const hasVision = Boolean(visionTile?.imageUrl);
+  const hasVision = Boolean(visionTile?.imageUrl || statement?.trim());
+
+  if (state.state === 'loading' || state.state === 'error') {
+    return <View testID="v2-details-vision-section" style={styles.sectionBlock}>
+      <Text style={styles.sectionHeaderTitle}>Vision</Text>
+      <View style={styles.visionPending}>
+        <Text style={styles.quiet}>{state.state === 'error' ? state.message : 'Your Vision is loading.'}</Text>
+        {state.state === 'error' ? <Pressable accessibilityRole="button" accessibilityLabel="Retry Vision" onPress={onRetry}>
+          <Text style={styles.chartRetryText}>Try again</Text>
+        </Pressable> : null}
+      </View>
+    </View>;
+  }
 
   if (!hasVision) {
     return (
-      <View style={styles.sectionBlock}>
+      <View testID="v2-details-vision-section" style={styles.sectionBlock}>
         <Text style={styles.sectionHeaderTitle}>Vision</Text>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Vision"
           onPress={onOpenVision}
-          style={({ pressed }) => [styles.emptyArtCard, pressed && styles.pressed]}
+          style={({ pressed }) => [{ minHeight: 150, padding: spacing[5], justifyContent: 'center', backgroundColor: colors.surface }, pressed && styles.pressed]}
         >
-          <EmptyCardArtwork source={EMPTY_ART.vision} testID="v2-vision-empty-art" />
-          <View style={styles.emptyCardContent}>
-            <Text style={styles.emptyCardTitle}>{DETAIL_ACTION_COPY.visionTitle}</Text>
-            <Text style={styles.emptyCardPayoff}>{DETAIL_ACTION_COPY.visionPayoff}</Text>
+          <View style={{ gap: spacing[2] }}>
+            <Text style={[styles.emptyCardTitle, { color: colors.text.primary }]}>{DETAIL_ACTION_COPY.visionTitle}</Text>
+            <Text style={[styles.emptyCardPayoff, { color: colors.text.secondary }]}>{DETAIL_ACTION_COPY.visionPayoff}</Text>
           </View>
-          <EmptyCardChevron />
+          <ChevronRight size={22} color={colors.text.primary} />
         </Pressable>
       </View>
     );
   }
 
-  const activeTilesCount = tiles.filter((t) => Boolean(t.imageUrl)).length;
-
   return (
-    <View style={styles.sectionBlock}>
+    <View testID="v2-details-vision-section" style={styles.sectionBlock}>
       <View style={styles.sectionHeaderRow}>
         <Text style={styles.sectionHeaderTitle}>Vision</Text>
-        <Pressable accessibilityRole="button" onPress={onOpenVision} hitSlop={8}>
-          <Text style={styles.viewAll}>{seenToday ? 'Seen today ✓' : 'View all →'}</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="Edit Vision" onPress={onEditVision} hitSlop={8}>
+          <Text style={styles.viewAll}>Edit ›</Text>
         </Pressable>
       </View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Vision"
-        onPress={onOpenVision}
-        style={({ pressed }) => [styles.visionPhotoCard, pressed && styles.pressed]}
-      >
-        <Image source={{ uri: visionTile!.imageUrl! }} style={styles.visionPhotoImage} resizeMode="cover" accessibilityIgnoresInvertColors />
-        <LinearGradient
-          pointerEvents="none"
-          colors={['transparent', 'rgba(0,0,0,0.25)', 'rgba(14,21,28,0.88)']}
-          locations={[0, 0.42, 1]}
-          style={styles.visionPhotoScrim}
-        />
-        {statement ? (
-          <Text style={styles.visionStatement} numberOfLines={3}>
-            {statement}
-          </Text>
-        ) : null}
-      </Pressable>
-      {activeTilesCount > 1 ? (
-        <View style={styles.visionDotsRow}>
-          {Array.from({ length: Math.min(5, activeTilesCount) }).map((_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.visionDot,
-                i === 0 ? { backgroundColor: accent, width: 8, height: 8, borderRadius: 4 } : { backgroundColor: colors.border.strong },
-              ]}
-            />
-          ))}
-        </View>
-      ) : null}
+      <VisionBoardPreview key={state.state === 'ready' ? state.visionId : 'vision'} tiles={tiles} statement={statement} variant="details" accent={accent}
+        testID="v2-details-vision" accessibilityLabel="Vision" onPress={onOpenVision} />
+      {seenToday ? <Text style={styles.quiet}>Seen today ✓</Text> : null}
     </View>
   );
 }
@@ -344,7 +344,7 @@ function RecentPractice({
   onViewAll: () => void;
 }) {
   return (
-    <View style={styles.sectionBlock}>
+    <View testID="v2-details-recent-section" style={styles.sectionBlock}>
       <View style={styles.sectionHeaderRow}>
         <Text style={styles.sectionHeaderTitle}>Recent Practice</Text>
         <Pressable accessibilityRole="button" onPress={onViewAll} hitSlop={8}>
@@ -393,100 +393,34 @@ function ChartSection({
   onOpenChart: (courseId?: string) => void;
   onRetry: () => void | Promise<void>;
 }) {
-  const isReady = chart.state === 'ready';
-  const mapWidth = Math.max(1, width - (width < 370 ? 40 : 48));
-  const current = isReady ? chart.waypoints.find((waypoint) => waypoint.isCurrent) ?? null : null;
-  const markers: ChartMarker[] = isReady
-    ? chart.waypoints.map((waypoint, index) => ({
-        id: waypoint.id,
-        number: index + 1,
-        state: waypoint.reached ? 'completed' : waypoint.isCurrent ? 'current' : 'upcoming',
-        accessibilityLabel: waypoint.title,
-      }))
-    : [];
-  const currentFraction = isReady && chart.waypointCount > 0
-    ? Math.min(1, chart.reachedCount / chart.waypointCount)
-    : 0.7;
-  const chartWindow = chartWindowAroundRoutePoint(currentFraction, mapWidth, 108);
+  const mapWidth = Math.max(1, width - (width < 370 ? 40 : 48) - 2);
   return (
-    <View style={styles.sectionBlock}>
-      <Text style={styles.sectionHeaderTitle}>Chart</Text>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={current && isReady
-          ? `Open Chart. Waypoint ${(chart.currentWaypointIndex ?? 0) + 1} of ${chart.waypointCount}: ${current.title}. Toward: ${chart.destinationText}.${chart.nextMove ? ` Next move: ${chart.nextMove}` : ''}`
-          : isReady && chart.isFinished
-            ? `Chart complete. Destination: ${chart.destinationText}. Open Chart.`
-            : isReady
-              ? `Open Chart. Destination: ${chart.destinationText}.`
-              : chart.state === 'none'
-                ? 'Create Chart. Map the path from here.'
-                : chart.state === 'error' ? `Chart unavailable. ${chart.message}` : 'Your Chart is loading.'}
-        onPress={() => onOpenChart(chartCourseId)}
-        style={({ pressed }) => [styles.chartPortal, pressed && styles.pressed]}
-      >
-        <View style={styles.chartMapFrame}>
-          <ChartPreview
-            width={mapWidth}
-            category={category}
-            window={chartWindow}
-            showRoute={isReady && chart.waypointCount > 0}
-            markers={markers}
-            travelledFraction={isReady && chart.waypointCount > 0 ? chart.reachedCount / chart.waypointCount : 0}
-            testID="v2-details-chart-map"
-            style={{ alignSelf: 'center' }}
-          />
-          <LinearGradient
-            pointerEvents="none"
-            colors={['rgba(14,21,28,0.16)', 'rgba(14,21,28,0.76)']}
-            locations={[0.15, 1]}
-            style={styles.chartMapScrim}
-          />
-          <View pointerEvents="none" style={styles.chartMapCopy}>
-            {isReady && current ? (
-              <Text style={styles.chartMapEyebrow}>CHART · {`${(chart.currentWaypointIndex ?? 0) + 1} OF ${chart.waypointCount}`}</Text>
-            ) : isReady && chart.isFinished ? (
-              <Text style={styles.chartMapEyebrow}>CHART · COMPLETE</Text>
-            ) : isReady ? (
-              <Text style={styles.chartMapEyebrow}>CHART</Text>
-            ) : chart.state === 'none' ? (
-              <Text style={styles.chartMapEyebrow}>CREATE CHART</Text>
-            ) : chart.state === 'error' ? (
-              <Text style={styles.chartMapEyebrow}>CHART UNAVAILABLE</Text>
-            ) : (
-              <Text style={styles.chartMapEyebrow}>FINDING YOUR CHART</Text>
-            )}
+    <View testID="v2-details-chart-section" style={styles.sectionBlock}>
+      <View style={styles.sectionHeaderRow}>
+        <Text style={styles.sectionHeaderTitle}>Chart</Text>
+        {chart.state === 'ready' ? <Pressable accessibilityRole="button" accessibilityLabel="View all Chart"
+          onPress={() => onOpenChart(chartCourseId)} hitSlop={8}><Text style={styles.viewAll}>View all ›</Text></Pressable> : null}
+      </View>
+      {chart.state === 'ready' ? (
+        <ChartWorldPreview chart={chart} width={mapWidth} category={category} variant="details" onPress={() => onOpenChart(chartCourseId)} testID="v2-details-chart" />
+      ) : chart.state === 'none' ? (
+        <Pressable accessibilityRole="button" accessibilityLabel="Create Chart. Map the path from here."
+          onPress={() => onOpenChart()} style={({ pressed }) => [styles.emptyArtCard, pressed && styles.pressed]}>
+          <EmptyCardArtwork source={EMPTY_ART.chart} testID="v2-chart-empty-art" />
+          <View style={styles.emptyCardContent}>
+            <Text style={styles.emptyCardTitle}>{DETAIL_ACTION_COPY.chartTitle}</Text>
+            <Text style={styles.emptyCardPayoff}>{DETAIL_ACTION_COPY.chartPayoff}</Text>
           </View>
-          <ChevronRight size={19} color="#FFFFFF" style={styles.chartPortalChevron} />
-        </View>
-        <Text style={styles.chartPortalTitle}>
-          {isReady && current
-            ? current.title
-            : isReady
-              ? chart.destinationText
-              : chart.state === 'none'
-                ? DETAIL_ACTION_COPY.chartPayoff
-                : chart.state === 'error'
-                  ? chart.message
-                  : 'Your Chart is loading.'}
-        </Text>
-        {isReady && chart.nextMove ? (
-          <View style={styles.chartNextMove}>
-            <Text style={styles.chartNextMoveLabel}>Next move:</Text>
-            <Text style={styles.chartNextMoveTitle}>{chart.nextMove}</Text>
-          </View>
-        ) : null}
-      </Pressable>
-      {chart.state === 'error' ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Retry Chart"
-          onPress={onRetry}
-          style={({ pressed }) => [styles.chartRetry, pressed && styles.pressed]}
-        >
-          <Text style={styles.chartRetryText}>Try again</Text>
+          <EmptyCardChevron />
         </Pressable>
-      ) : null}
+      ) : (
+        <View style={[styles.chartPending, { minHeight: 270 }]}>
+          <Text style={styles.quiet}>{chart.state === 'error' ? chart.message : 'Your Chart is loading.'}</Text>
+          {chart.state === 'error' ? <Pressable accessibilityRole="button" accessibilityLabel="Retry Chart" onPress={onRetry} style={styles.chartRetry}>
+            <Text style={styles.chartRetryText}>Try again</Text>
+          </Pressable> : null}
+        </View>
+      )}
     </View>
   );
 }
@@ -517,8 +451,11 @@ function EmptyCardChevron() {
 export function V2AnchorDetailsScreen() {
   const navigation = useNavigation<Nav>();
   const focusTransition = useProgressiveFocusTransition();
+  const backDispatchingRef = useRef(false);
   const { params } = useRoute<Route>();
   const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const viewport = useV2Responsive();
   const intents = useV2DailyShellIntents();
   const detail = useV2AnchorDetail(params.anchorId);
   const anchorId = detail.anchor?.localId ?? detail.anchor?.id ?? '';
@@ -526,24 +463,54 @@ export function V2AnchorDetailsScreen() {
   const recommendation = useRecommendation(serverId);
   const vision = useV2Vision(serverId);
 
+  useEffect(() => {
+    VisualProfiler.record('detailsScreenMounted', { anchorId: params.anchorId });
+  }, [params.anchorId]);
+
+  useEffect(() => {
+    if (!__DEV__) return undefined;
+    const start = navigation.addListener('transitionStart', (event) => {
+      VisualProfiler.record('screenTransition', { screen: 'details', phase: 'start', closing: event.data.closing });
+    });
+    const end = navigation.addListener('transitionEnd', (event) => {
+      VisualProfiler.record('screenTransition', { screen: 'details', phase: 'end', closing: event.data.closing });
+    });
+    return () => { start(); end(); };
+  }, [navigation]);
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (navigation.isFocused && !navigation.isFocused()) return false;
+      navigation.goBack();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [navigation]);
+
   const anchorChart = useAnchorChart(serverId || null);
   const focusDuration = useSettingsStore((s) => s.focusSessionDuration);
   const primeDuration = useSettingsStore((s) => s.primeSessionDuration);
   const visualizeDuration = useSettingsStore((s) => s.visualizeSessionDuration);
 
   useEffect(() => navigation.addListener('beforeRemove', (event) => {
+    if (backDispatchingRef.current) return;
     const state = navigation.getState();
     const previous = state.routes[state.index - 1];
     const actionType = (event.data as { action?: { type?: string } }).action?.type;
     if (previous?.name === 'V2Home' && ['GO_BACK', 'POP', 'POP_TO_TOP'].includes(actionType ?? '')) {
-      focusTransition.reverse();
+      event.preventDefault();
+      const completeBack = () => {
+        backDispatchingRef.current = true;
+        navigation.dispatch(event.data.action);
+      };
+      if (!focusTransition.closeAnchor(params.anchorId, completeBack)) completeBack();
     }
-  }), [focusTransition, navigation]);
+  }), [focusTransition, navigation, params.anchorId]);
 
   const chart = useMemo(
     () =>
       detail.anchor
-        ? resolveAnchorChartState({ data: anchorChart.data, loading: anchorChart.loading, error: anchorChart.error })
+        ? resolveAnchorChartState({ data: anchorChart.data, loading: anchorChart.loading, error: anchorChart.error, includeCompleted: true })
         : ({ state: 'none' } as const),
     [anchorChart.data, anchorChart.error, anchorChart.loading, detail.anchor],
   );
@@ -559,19 +526,19 @@ export function V2AnchorDetailsScreen() {
 
   if (!detail.anchor) {
     return (
-      <ProgressiveFocusTransition role="destination">
+      <AnchorTransitionScene place="details">
         <V2Screen testID="v2-anchor-details-screen">
           <V2TopBar title="Anchor" onBackPress={() => navigation.goBack()} />
           <V2EmptyState title="Anchor not found" message="This Anchor may have been removed." />
         </V2Screen>
-      </ProgressiveFocusTransition>
+      </AnchorTransitionScene>
     );
   }
 
   const accent = getCategoryColor(detail.anchor.category);
   const visionTile = vision.state.state === 'ready' ? vision.state.tiles.find((tile) => tile.imageUrl) : null;
   const visionTiles = vision.state.state === 'ready' ? vision.state.tiles : [];
-  const visionStatement = vision.state.state === 'ready' ? vision.state.description || vision.description : '';
+  const visionStatement = vision.state.state === 'ready' ? vision.state.title?.trim() || vision.state.description || vision.description : '';
   const visionSeenToday = vision.state.state === 'ready' ? vision.state.seenToday : false;
 
   const hasChart = chart.state === 'ready';
@@ -583,30 +550,49 @@ export function V2AnchorDetailsScreen() {
       ? visualizeDuration
       : focusDuration;
 
+  const openRelease = () => focusTransition.startAnchorTransition({
+    anchor: detail.anchor!, from: 'details',
+    to: { target: 'release', rect: releaseArtworkRect(width, height) },
+    onNavigate: (withHero) => withHero ? intents.onReleaseAnchor(anchorId, { anchorTransition: true }) : intents.onReleaseAnchor(anchorId),
+  });
+
   const openPractice = (mode: V2PracticeMode) => {
-    if (mode === 'release') intents.onReleaseAnchor(anchorId);
-    else intents.onOpenPractice(anchorId, mode);
+    if (mode === 'release') {
+      openRelease();
+      return;
+    }
+    // The medallion travels into the Practice setup this CTA opens.
+    focusTransition.startAnchorTransition({
+      anchor: detail.anchor!,
+      from: 'details',
+      to: {
+        target: 'practiceSetup',
+        rect: predictPracticeSetupAnchorRect({ viewport, topInset: insets.top, mode, hasVision: vision.state.state === 'ready' }),
+      },
+      onNavigate: (withHero) => intents.onOpenPractice(anchorId, mode, { anchorTransition: withHero }),
+    });
   };
 
-  // Top category painting: reduced ~40-45% vertically from the original ~275px
-  const paintingHeight = Math.max(145, Math.min(175, Math.round(height * 0.18)));
-  // Hero medallion: enlarged from 172 to ~210px responsive
-  const medallionSize = Math.max(190, Math.min(220, Math.round(width * 0.52)));
+  const { paintingHeight, medallionSize } = resolveAnchorDetailsHeroGeometry({
+    width, height, topInset: insets.top, platform: Platform.OS,
+  });
 
   return (
-    <ProgressiveFocusTransition role="destination">
-      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <AnchorTransitionScene place="details">
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']} onLayout={__DEV__ ? () => VisualProfiler.record('detailsLayoutReady', { anchorId: params.anchorId }) : undefined}>
         <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
         <ScrollView testID="v2-anchor-details-screen" showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <Hero
           anchor={detail.anchor}
           paintingHeight={paintingHeight}
           medallionSize={medallionSize}
+          anchorId={params.anchorId}
+          reduceMotion={focusTransition.reduceMotion}
           onBack={() => navigation.goBack()}
           onMore={() =>
             Alert.alert('Anchor', undefined, [
               { text: 'View Progress', onPress: () => intents.onOpenProgress(serverId) },
-              ...(!detail.anchor?.isReleased ? [{ text: 'Release this Anchor', onPress: () => intents.onReleaseAnchor(anchorId) }] : []),
+              ...(!detail.anchor?.isReleased ? [{ text: 'Release this Anchor', onPress: openRelease }] : []),
               { text: 'Cancel', style: 'cancel' },
             ])
           }
@@ -622,18 +608,19 @@ export function V2AnchorDetailsScreen() {
             history={history}
           />
 
-          <TodayCard recommendation={recommendation.value} error={recommendation.error} duration={duration} onPress={openPractice} />
-
           <VisionSection
+            state={vision.state}
             accent={accent}
             visionTile={visionTile}
             tiles={visionTiles}
             statement={visionStatement}
             seenToday={visionSeenToday}
             onOpenVision={() => intents.onOpenVision(serverId)}
+            onEditVision={() => intents.onOpenVision(serverId, { edit: true })}
+            onRetry={vision.refresh}
           />
 
-          <RecentPractice entries={detail.recentPractice} onViewAll={() => intents.onOpenProgress(serverId)} />
+          <TodayCard recommendation={recommendation.value} error={recommendation.error} duration={duration} onPress={openPractice} />
 
           <ChartSection
             chart={chart}
@@ -644,11 +631,14 @@ export function V2AnchorDetailsScreen() {
             onOpenChart={(courseId) => intents.onOpenChart(serverId, courseId)}
           />
 
+          <RecentPractice entries={detail.recentPractice} onViewAll={() => intents.onOpenProgress(serverId)} />
+
           {!detail.anchor.isReleased ? (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Release this Anchor"
-              onPress={() => intents.onReleaseAnchor(anchorId)}
+              onPress={openRelease}
+              testID="v2-details-release"
               style={styles.releaseRow}
             >
               <View style={styles.releaseIconWrap}>
@@ -664,7 +654,7 @@ export function V2AnchorDetailsScreen() {
         </View>
         </ScrollView>
       </SafeAreaView>
-    </ProgressiveFocusTransition>
+    </AnchorTransitionScene>
   );
 }
 
@@ -852,7 +842,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   todayPending: {
-    height: 80,
+    minHeight: 104,
     justifyContent: 'center',
     gap: 6,
   },
@@ -879,51 +869,7 @@ const styles = StyleSheet.create({
   },
 
   /* Vision Section */
-  visionPhotoCard: {
-    width: '100%',
-    aspectRatio: 16 / 9.5,
-    borderRadius: 14,
-    overflow: 'hidden',
-    position: 'relative',
-    backgroundColor: '#18212A',
-  },
-  visionPhotoImage: {
-    width: '100%',
-    height: '100%',
-  },
-  visionPhotoScrim: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: '75%',
-  },
-  visionStatement: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 14,
-    fontFamily: 'EBGaramond-Medium',
-    fontSize: 18,
-    lineHeight: 22,
-    color: '#FFFFFF',
-    textShadowColor: 'rgba(0,0,0,0.4)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-  },
-  visionDotsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginTop: 10,
-  },
-  visionDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-
+  visionPending: { width: '100%', aspectRatio: 1 / 0.6, paddingVertical: 16 },
   /* Recent Practice */
   practiceList: {
     gap: 8,
@@ -962,68 +908,7 @@ const styles = StyleSheet.create({
   },
 
   /* Chart */
-  chartPortal: {
-    width: '100%',
-    marginTop: 10,
-  },
-  chartMapFrame: {
-    height: 108,
-    width: '100%',
-    overflow: 'hidden',
-    position: 'relative',
-    backgroundColor: '#18212A',
-  },
-  chartMapScrim: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  chartMapCopy: {
-    position: 'absolute',
-    left: 16,
-    right: 44,
-    top: 12,
-    zIndex: 1,
-  },
-  chartMapEyebrow: {
-    fontFamily: typography.bodyBold,
-    fontSize: 9,
-    lineHeight: 13,
-    letterSpacing: 1.6,
-    color: 'rgba(255,255,255,0.78)',
-    marginBottom: 3,
-  },
-  chartPortalTitle: {
-    fontFamily: typography.displaySemiBold,
-    fontSize: 17,
-    lineHeight: 22,
-    color: colors.text.primary,
-    marginTop: 8,
-  },
-  chartPortalChevron: {
-    position: 'absolute',
-    right: 13,
-    top: '50%',
-    marginTop: -9,
-  },
-  chartNextMove: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    flexWrap: 'wrap',
-    columnGap: 5,
-    rowGap: 2,
-    paddingTop: 8,
-  },
-  chartNextMoveLabel: {
-    fontFamily: typography.body,
-    fontSize: 12.5,
-    color: colors.text.secondary,
-  },
-  chartNextMoveTitle: {
-    flexShrink: 1,
-    fontFamily: typography.bodySemiBold,
-    fontSize: 12.5,
-    lineHeight: 18,
-    color: colors.text.primary,
-  },
+  chartPending: { paddingVertical: 16 },
   chartRetry: {
     alignSelf: 'flex-start',
     marginTop: 8,
@@ -1102,6 +987,8 @@ const styles = StyleSheet.create({
 
   /* Release */
   releaseRow: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border.subtle,
     minHeight: 44,
     marginTop: 10,
     paddingVertical: 12,

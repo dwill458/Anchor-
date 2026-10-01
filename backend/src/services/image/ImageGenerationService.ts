@@ -51,7 +51,7 @@ export class ImageGenerationService {
    *
    * When VISION_AB_TEST_ENABLED is true and a userId is provided, deterministically
    * hashes the userId so a user stably receives either OpenAI or Gemini across sessions.
-   * Otherwise returns the configured VISION_PRIMARY_PROVIDER (default: 'openai').
+   * Otherwise returns the configured VISION_PRIMARY_PROVIDER (default: 'gemini').
    */
   public selectVisionProvider(userId?: string): string {
     const isAbTestEnabled = process.env.VISION_AB_TEST_ENABLED === 'true';
@@ -62,7 +62,7 @@ export class ImageGenerationService {
       return numericVal % 2 === 0 ? 'openai' : 'gemini';
     }
 
-    return (process.env.VISION_PRIMARY_PROVIDER || 'openai').toLowerCase();
+    return (process.env.VISION_PRIMARY_PROVIDER || 'gemini').toLowerCase();
   }
 
   public resolveRouting(request: GenerateImageRequest): {
@@ -214,10 +214,13 @@ export class ImageGenerationService {
     }
 
     // 2. Evaluate Fallback Eligibility
-    // Only fall back on retryable infrastructure errors (timeout, 429, 5xx, network error, provider outage).
-    // Do NOT fall back on safety filter rejections or bad user input.
+    // Fall back on retryable infrastructure errors (timeout, 429, 5xx, network error, provider outage)
+    // and on INVALID_REQUEST: a provider 400 for a malformed request is a fault in our adapter,
+    // not the user's input, and the other provider can still render it.
+    // Do NOT fall back on safety filter rejections.
     const isRetryableError =
       primaryError?.retryable ||
+      primaryError?.type === ImageProviderErrorType.INVALID_REQUEST ||
       primaryError?.type === ImageProviderErrorType.TIMEOUT ||
       primaryError?.type === ImageProviderErrorType.RATE_LIMIT ||
       primaryError?.type === ImageProviderErrorType.SERVER_ERROR ||

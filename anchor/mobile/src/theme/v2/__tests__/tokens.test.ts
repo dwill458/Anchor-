@@ -5,6 +5,8 @@ describe('V2 design tokens', () => {
     expect(colors.canvas).toBe('#F4F1E9');
     expect(colors.surface).toBe('#FBF9F4');
     expect(colors.grouped).toBe('#ECE8DF');
+    expect(colors.frame).toBe('#F4EDE0');
+    expect(colors.frameEdge).toBe('rgba(20, 22, 43, 0.08)');
     expect(colors.text.primary).toBe('#171717');
     expect(colors.text.secondary).toBe('#6C6861');
     expect(colors.border.default).toBe('#D8D2C8');
@@ -59,11 +61,11 @@ describe('V2 design tokens', () => {
       ambient: 3200,
     });
     expect(AnchorMotion.spring.carousel).toEqual({
-      damping: 22,
-      stiffness: 230,
-      mass: 0.8,
+      damping: 24,
+      stiffness: 250,
+      mass: 0.75,
       restDisplacementThreshold: 0.5,
-      restSpeedThreshold: 2,
+      restSpeedThreshold: 2.5,
     });
     expect(AnchorMotion.easing.enter).toBeDefined();
     expect(AnchorMotion.easing.gentle).toBeDefined();

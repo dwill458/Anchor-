@@ -1,6 +1,7 @@
 import type { Anchor } from '@/types';
 import type { CourseDetail, CourseSummary, WaypointSummary } from '@/types/chart';
 import type { ChartForAnchor, ChartRequestError } from '@/services/v2/chartV2Api';
+import { toMetricView } from '@/adapters/v2/chart/chartV2Model';
 
 /**
  * Chart context for Home, derived from the existing Course/Waypoint domain.
@@ -34,6 +35,9 @@ export type HomeChartState =
       currentWaypointId: string | null;
       currentWaypointIndex: number | null;
       isFinished: boolean;
+      /** Details-only camera inputs. Home continues to use its existing rendering and semantics. */
+      journeyMetricFraction?: number | null;
+      journeyConfirmedComplete?: boolean;
       waypoints: Array<{
         id: string;
         title: string;
@@ -91,8 +95,8 @@ export function courseMatchesAnchor(
   return links.some((link) => link.anchorId !== null && anchorIds.has(link.anchorId));
 }
 
-export function toHomeChartState(course: CourseDetail | null | undefined): HomeChartState {
-  if (!course || course.status !== 'ACTIVE') return { state: 'none' };
+export function toHomeChartState(course: CourseDetail | null | undefined, includeCompleted = false): HomeChartState {
+  if (!course || (course.status !== 'ACTIVE' && !(includeCompleted && course.status === 'COMPLETED'))) return { state: 'none' };
   const waypoints = [...(course.waypoints ?? [])]
     .filter((waypoint: WaypointSummary) => waypoint.state !== 'CANCELLED' && !waypoint.cancelledAt)
     .sort((a, b) => a.position - b.position);
@@ -101,7 +105,7 @@ export function toHomeChartState(course: CourseDetail | null | undefined): HomeC
     : waypoints.findIndex((waypoint) => waypoint.state === 'CURRENT');
   const resolvedCurrentIndex = currentWaypointIndex >= 0 ? currentWaypointIndex : null;
   const reachedCount = waypoints.filter((waypoint) => waypoint.state === 'REACHED' || Boolean(waypoint.reachedAt)).length;
-  const isFinished = waypoints.length > 0 && waypoints.every((waypoint) =>
+  const isFinished = includeCompleted ? course.status === 'COMPLETED' : waypoints.length > 0 && waypoints.every((waypoint) =>
     waypoint.state === 'REACHED' || Boolean(waypoint.reachedAt),
   );
   return {
@@ -114,6 +118,10 @@ export function toHomeChartState(course: CourseDetail | null | undefined): HomeC
       currentWaypointId: resolvedCurrentIndex === null ? null : waypoints[resolvedCurrentIndex].id,
     currentWaypointIndex: isFinished ? -1 : (resolvedCurrentIndex ?? -1),
     isFinished,
+    ...(includeCompleted ? {
+      journeyConfirmedComplete: course.status === 'COMPLETED',
+      journeyMetricFraction: resolvedCurrentIndex === null ? null : toMetricView(waypoints[resolvedCurrentIndex].metric ?? null)?.fraction ?? null,
+    } : {}),
     waypoints: waypoints.map((waypoint, index) => ({
       id: waypoint.id,
       title: waypoint.title,
@@ -201,6 +209,7 @@ export function resolveAnchorChartState(input: {
   data: ChartForAnchor | null;
   loading: boolean;
   error: ChartRequestError | null;
+  includeCompleted?: boolean;
 }): HomeChartState {
   if (!input.data) {
     if (input.loading) return { state: 'resolving' };
@@ -214,5 +223,5 @@ export function resolveAnchorChartState(input: {
     }
     return { state: 'none' };
   }
-  return toHomeChartState(input.data.chart);
+  return toHomeChartState(input.data.chart, input.includeCompleted);
 }

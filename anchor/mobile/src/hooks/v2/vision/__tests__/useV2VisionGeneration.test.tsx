@@ -33,6 +33,15 @@ describe('useV2VisionGeneration', () => {
     await act(async () => { expect(await result.current.start('A future with time and meaningful work.')).toBe(true); });
     expect(result.current.job?.id).toBe('job-1');
     expect(result.current.job?.status).toBe('COMPLETE');
+    expect((apiClient.post as jest.Mock).mock.calls[0][1]).not.toHaveProperty('appearanceReferenceId');
+  });
+
+  it('includes a reference only when one is selected', async () => {
+    (apiClient.post as jest.Mock).mockResolvedValue({ data: { success: true, data: job } });
+    const { result } = renderHook(() => useV2VisionGeneration('anchor-1'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => { await result.current.start('A future with time and meaningful work.', 'reference-1'); });
+    expect((apiClient.post as jest.Mock).mock.calls[0][1].appearanceReferenceId).toBe('reference-1');
   });
 
   it('opens the existing Vision premium flow when the server requires access', async () => {

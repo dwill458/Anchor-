@@ -21,6 +21,7 @@ import {
   waypointFractions,
   type ChartWindow,
 } from './chartRouteGeometry';
+import { chartCameraTarget, type ChartCoverFrame } from './chartSpatialGeometry';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
@@ -91,6 +92,11 @@ type Props = {
   engrave?: SharedValue<number>;
   /** 0–1 one-shot ripple on the current waypoint (entry emphasis). */
   currentPulse?: SharedValue<number>;
+  /** Shared 0→1 camera value. Omitted for static Chart previews. */
+  cameraProgress?: SharedValue<number>;
+  selectedMarkerId?: string | null;
+  cameraZoom?: number;
+  cameraFocalPoint?: { x: number; y: number };
   anchorArt?: ChartAnchorArt | null;
   /** Real Vision image for the destination. Never a stand-in. */
   destinationImageUrl?: string | null;
@@ -143,6 +149,10 @@ export function ChartLandscape({
   engraveId,
   engrave,
   currentPulse,
+  cameraProgress,
+  selectedMarkerId,
+  cameraZoom = 1.4,
+  cameraFocalPoint = { x: 0.54, y: 0.42 },
   anchorArt,
   destinationImageUrl,
   destinationLabel,
@@ -229,6 +239,32 @@ export function ChartLandscape({
   });
 
   const imageTop = -frame.window.top * frame.imageHeight;
+  const selectedIndex = selectedMarkerId ? markers.findIndex((marker) => marker.id === selectedMarkerId) : -1;
+  const selectedPoint = selectedIndex >= 0
+    ? pointAt(fractions[selectedIndex], art)
+    : null;
+  const cameraFrame: ChartCoverFrame = {
+    source: { width: art.width, height: art.height },
+    viewport: { width: frame.width, height: frame.height },
+    scale: frame.width / art.width,
+    renderedWidth: frame.width,
+    renderedHeight: frame.imageHeight,
+    cropX: 0,
+    cropY: imageTop,
+  };
+  const camera = selectedPoint
+    ? chartCameraTarget({ frame: cameraFrame, node: selectedPoint, focalPoint: cameraFocalPoint, zoom: cameraZoom })
+    : { scale: 1, translateX: 0, translateY: 0 };
+  const cameraStyle = useAnimatedStyle(() => {
+    const progress = cameraProgress ? clamp01(cameraProgress.value) : 0;
+    return {
+      transform: [
+        { translateX: camera.translateX * progress },
+        { translateY: camera.translateY * progress },
+        { scale: 1 + (camera.scale - 1) * progress },
+      ],
+    };
+  }, [camera.scale, camera.translateX, camera.translateY]);
   // Card height from what it actually shows, so it never sits on the trail's end.
   const destinationCardHeight =
     (thereCaption ? 18 : 0) + (destinationImageUrl ? 62 : 0) + (destinationLabel ? 46 : 0);
@@ -249,6 +285,7 @@ export function ChartLandscape({
       accessibilityLabel={accessibilityLabel}
       style={[{ width: frame.width, height: frame.height }, styles.frame, style]}
     >
+      <Animated.View style={[StyleSheet.absoluteFill, cameraStyle]}>
       <Image
         accessibilityIgnoresInvertColors
         accessible={false}
@@ -395,6 +432,8 @@ export function ChartLandscape({
                 routeReveal={markersFollowRoute ? routeReveal : undefined}
                 engrave={engraveId === marker.id ? engrave : undefined}
                 pulse={marker.state === 'current' ? currentPulse : undefined}
+                selected={marker.id === selectedMarkerId}
+                focusActive={Boolean(selectedMarkerId)}
                 onPress={onMarkerPress}
               />
             );
@@ -443,6 +482,7 @@ export function ChartLandscape({
           />
         </Animated.View>
       ) : null}
+      </Animated.View>
     </View>
   );
 }
@@ -462,6 +502,8 @@ function MarkerView({
   routeReveal,
   engrave,
   pulse,
+  selected,
+  focusActive,
   onPress,
 }: {
   marker: ChartMarker;
@@ -475,13 +517,15 @@ function MarkerView({
   routeReveal?: SharedValue<number>;
   engrave?: SharedValue<number>;
   pulse?: SharedValue<number>;
+  selected: boolean;
+  focusActive: boolean;
   onPress?: (id: string) => void;
 }) {
   const revealStyle = useAnimatedStyle(() => {
     let value = 1;
     if (routeReveal) value = clamp01((routeReveal.value - fraction + MARKER_RESOLVE) / MARKER_RESOLVE);
     else if (reveal) value = clamp01(reveal.value - index);
-    return { opacity: value, transform: [{ scale: 0.82 + value * 0.18 }] };
+    return { opacity: value * (focusActive && !selected ? 0.34 : 1), transform: [{ scale: 0.82 + value * 0.18 }] };
   });
   // One restrained ripple as the route reaches the marker, or on the current waypoint's entry pulse.
   const rippleStyle = useAnimatedStyle(() => {
@@ -499,9 +543,10 @@ function MarkerView({
     const value = engrave ? clamp01(engrave.value) : 1;
     return { opacity: value, transform: [{ scale: 0.35 + 0.65 * value }] };
   });
-  const size =
-    marker.state === 'current' ? 28 : isDestination ? 22 : marker.state === 'completed' ? 16 : 13;
-  const hit = Math.max(size, 36);
+  const size = selected
+    ? 32
+    : marker.state === 'current' ? 28 : isDestination ? 22 : marker.state === 'completed' ? 16 : 13;
+  const hit = 44;
   const completed = marker.state === 'completed';
   return (
     <Animated.View style={[styles.markerSlot, { left: x - hit / 2, top: y - hit / 2, width: hit, height: hit }, revealStyle]}>
@@ -514,11 +559,13 @@ function MarkerView({
         onPress={() => onPress?.(marker.id)}
         accessibilityRole={onPress ? 'button' : 'text'}
         accessibilityLabel={marker.accessibilityLabel}
-        accessibilityState={{ selected: marker.state === 'current' }}
+        accessibilityState={{ selected: selected || marker.state === 'current' }}
         hitSlop={4}
         style={styles.markerHit}
       >
-        {marker.state === 'current' ? <View style={[styles.currentHalo, { borderColor: withAlpha(ROUTE_LIGHT, 0.35) }]} /> : null}
+        {marker.state === 'current' || selected ? (
+          <View style={[styles.currentHalo, selected && styles.selectedHalo, { borderColor: withAlpha(ROUTE_LIGHT, selected ? 0.72 : 0.35) }]} />
+        ) : null}
         <View
           style={[
             styles.markerDot,
@@ -526,6 +573,7 @@ function MarkerView({
             completed && (engrave ? styles.markerEngraving : styles.markerCompleted),
             marker.state === 'current' && [styles.markerCurrent, { backgroundColor: categoryColor }],
             marker.state === 'upcoming' && styles.markerUpcoming,
+            selected && [styles.markerSelected, { borderColor: categoryColor }],
             isDestination && marker.state !== 'current' && styles.markerDestination,
           ]}
         >
@@ -580,6 +628,8 @@ const styles = StyleSheet.create({
   markerDestination: { backgroundColor: 'rgba(14, 21, 28, 0.85)', borderWidth: 1.5, borderColor: ROUTE_LIGHT },
   markerNumber: { ...typography.labelMD, fontSize: 12, color: '#FFFFFF' },
   currentHalo: { position: 'absolute', width: 40, height: 40, borderRadius: 20, borderWidth: 6 },
+  selectedHalo: { width: 44, height: 44, borderRadius: 22, borderWidth: 1.5 },
+  markerSelected: { borderWidth: 2, backgroundColor: 'rgba(14, 21, 28, 0.82)' },
   ripple: { position: 'absolute', borderWidth: 1, borderColor: ROUTE_LIGHT },
   here: { position: 'absolute', left: 0, top: 0 },
   destination: { position: 'absolute', width: DEST_CARD_WIDTH },

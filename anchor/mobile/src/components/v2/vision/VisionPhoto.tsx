@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Image, StyleSheet, View, type ImageSourcePropType, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
   Easing, cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withTiming,
@@ -51,6 +51,7 @@ export function VisionPhoto({
   source, category, tint = 0, scrim = 'none', scrimColor = colors.ink.base, bottomScrimColor, blurRadius, style, testID, children,
   cinematic = false, focalPoint, isExiting = false,
 }: Props) {
+  const [frameSize, setFrameSize] = useState({ width: 0, height: 0 });
   const bottomColor = bottomScrimColor ?? scrimColor;
   const imageSource = typeof source === 'string' ? { uri: source } : source;
   const wash = tint > 0 ? getCategoryColor(category) : null;
@@ -128,7 +129,10 @@ export function VisionPhoto({
   });
 
   return (
-    <View testID={testID} style={[styles.frame, style]}>
+    <View testID={testID} style={[styles.frame, style]} onLayout={event => {
+      const { width, height } = event.nativeEvent.layout;
+      setFrameSize(previous => previous.width === width && previous.height === height ? previous : { width, height });
+    }}>
       {imageSource ? (
         <Animated.View style={[styles.imageWrapper, animatedImageStyle]}>
           <Image
@@ -136,7 +140,10 @@ export function VisionPhoto({
             source={imageSource}
             resizeMode="cover"
             blurRadius={blurRadius}
-            style={styles.image}
+            style={frameSize.width > 0 && frameSize.height > 0 ? {
+              width: frameSize.width * 1.18, height: frameSize.height * 1.18,
+              marginLeft: -frameSize.width * 0.09, marginTop: -frameSize.height * 0.09,
+            } : styles.image}
           />
         </Animated.View>
       ) : null}

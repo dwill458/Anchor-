@@ -7,6 +7,7 @@ import { anchorRenderProps, categoryLabel } from '@/components/v2/anchors/anchor
 import type { V2HomeAnchorSummary } from '@/adapters/v2/home';
 import { v2Haptics } from '@/hooks/v2';
 import { AnchorMotion } from '@/theme/v2';
+import { VisualProfiler } from '@/utils/visualProfiler';
 
 export const HERO_ANCHOR_SIZE = 154;
 export const NEIGHBOUR_ANCHOR_SIZE = 68;
@@ -33,6 +34,7 @@ type Props = {
   heroHeight?: number;
   /** Centre Anchor size, used to derive how far neighbours sit off-screen. */
   anchorSize?: number;
+  frozen?: boolean;
 };
 
 /** Centre-to-centre distance that leaves PEEK_FRACTION of a neighbour inside the screen edge. */
@@ -135,7 +137,7 @@ const TrackSlot = memo(function TrackSlot({
   );
 });
 
-function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpenActive, reduceMotion = false, renderHero, heroHeight, anchorSize = HERO_ANCHOR_SIZE, testID }: Props) {
+function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpenActive, reduceMotion = false, renderHero, heroHeight, anchorSize = HERO_ANCHOR_SIZE, frozen = false, testID }: Props) {
   // The track is `width: 100%` of a full-bleed parent, and its geometry is
   // derived from its *measured* width. It must never inherit a page gutter, or
   // the slot centres (trackWidth / 2) stop matching the viewport centre and the
@@ -150,6 +152,17 @@ function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpe
   const spacing = carouselSpacing(width, anchorSize);
   const offset = useSharedValue(0);
   const busy = useSharedValue(false);
+  const frozenValue = useSharedValue(frozen);
+  useLayoutEffect(() => {
+    frozenValue.value = frozen;
+    if (frozen) {
+      cancelAnimation(offset);
+      offset.value = 0;
+      busy.value = true;
+    } else {
+      busy.value = false;
+    }
+  }, [busy, frozen, frozenValue, offset]);
   const [visualIndex, setVisualIndex] = useState(selectedIndex);
   const pendingId = useRef<string | null>(null);
   const total = anchors.length;
@@ -191,9 +204,14 @@ function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpe
     }
   }, [active?.anchor.id, anchors, busy, index, offset, onSelect, reduceMotion, total]);
 
+  const onSpringFinished = useCallback((direction: Direction) => {
+    VisualProfiler.record('snapFinished');
+    complete(direction);
+  }, [complete]);
+
   // React installs the rotated window and resets its coordinate before paint.
   // The incoming item occupies the same physical position on both sides of
-  // this reset. Persisted/global selection follows on the next frame.
+  // this reset. Global selection commits synchronously on this exact frame.
   const lastVisualIndex = useRef(visualIndex);
   useLayoutEffect(() => {
     if (lastVisualIndex.current === visualIndex) return;
@@ -201,57 +219,59 @@ function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpe
     offset.value = 0;
     const id = pendingId.current;
     if (id) {
-      requestAnimationFrame(() => {
-        // The track has painted at its final position. Full-vault persistence
-        // performed by Zustand may now use JS without delaying that frame.
-        setTimeout(() => {
-          onSelect(id);
-          busy.value = false;
-        }, 0);
-      });
+      pendingId.current = null;
+      VisualProfiler.record('selectedIndexCommit', { anchorId: id });
+      onSelect(id);
+      busy.value = false;
     } else {
       busy.value = false;
     }
   }, [busy, offset, onSelect, visualIndex]);
 
   const move = useCallback((direction: Direction) => {
-    if (!canSwitch || busy.value) return;
+    if (!canSwitch || busy.value || frozenValue.value) return;
     busy.value = true;
     if (reduceMotion) {
       complete(direction);
       return;
     }
+    VisualProfiler.record('snapStart', { direction, from: 'tap' });
     offset.value = withSpring(-direction * spacing, AnchorMotion.spring.carousel, finished => {
-      if (finished) runOnJS(complete)(direction);
+      if (finished) runOnJS(onSpringFinished)(direction);
     });
-  }, [busy, canSwitch, complete, offset, reduceMotion, spacing]);
+  }, [busy, canSwitch, complete, frozenValue, offset, onSpringFinished, reduceMotion, spacing]);
 
   const panGesture = useMemo(() => Gesture.Pan()
-    .enabled(canSwitch)
+    .enabled(canSwitch && !frozen)
     .activeOffsetX([-6, 6])
     .failOffsetY([-10, 10])
+    .onBegin(() => {
+      runOnJS(VisualProfiler.record)('gestureStart');
+    })
     .onUpdate(event => {
-      if (!busy.value) offset.value = trackFinger(event.translationX, spacing);
+      if (!busy.value && !frozenValue.value) offset.value = trackFinger(event.translationX, spacing);
     })
     .onEnd(event => {
-      if (busy.value) return;
+      runOnJS(VisualProfiler.record)('gestureRelease');
+      if (busy.value || frozenValue.value) return;
       const direction = resolveSwipeCommit(event.translationX, event.velocityX);
       if (!direction) {
         offset.value = reduceMotion ? 0 : withSpring(0, AnchorMotion.spring.carousel);
         return;
       }
       busy.value = true;
+      runOnJS(VisualProfiler.record)('snapStart', { direction, from: 'swipe' });
       if (reduceMotion) {
         runOnJS(complete)(direction);
       } else {
         offset.value = withSpring(-direction * spacing, { ...AnchorMotion.spring.carousel, velocity: event.velocityX }, finished => {
-          if (finished) runOnJS(complete)(direction);
+          if (finished) runOnJS(onSpringFinished)(direction);
         });
       }
     })
     .onFinalize(() => {
       if (!busy.value && offset.value !== 0) offset.value = reduceMotion ? 0 : withSpring(0, AnchorMotion.spring.carousel);
-    }), [busy, canSwitch, complete, offset, reduceMotion, spacing]);
+    }), [busy, canSwitch, complete, frozen, frozenValue, offset, onSpringFinished, reduceMotion, spacing]);
 
   const accessibilityActions = canSwitch ? [{ name: 'increment', label: 'Next Anchor' }, { name: 'decrement', label: 'Previous Anchor' }] : undefined;
   const handleAccessibilityAction = useCallback((event: { nativeEvent: { actionName: string } }) => {

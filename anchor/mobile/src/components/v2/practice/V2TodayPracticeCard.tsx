@@ -1,6 +1,5 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Check } from 'lucide-react-native';
 import { V2Button } from '@/components/v2';
 import {
@@ -15,6 +14,7 @@ type Props = {
   mode: V2PracticeMode;
   reason?: string | null;
   isCompletedToday?: boolean;
+  completedDurationSeconds?: number;
   active?: boolean;
   onPress: () => void;
   onPracticeAgain?: () => void;
@@ -44,13 +44,21 @@ const ARTWORK_HEIGHT = 190;
  * body as atmosphere rather than meeting it at a visible seam. The artwork
  * keeps its own colour across the upper two thirds.
  */
-const ARTWORK_FADE_HEIGHT = 62;
-const ARTWORK_FADE_LOCATIONS = [0, 0.52, 1] as const;
+function formatDuration(seconds: number | undefined, fallback: string): string {
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds <= 0) return fallback;
+  if (seconds < 60) return `${Math.round(seconds)} sec`;
+  const wholeMinutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.round(seconds % 60);
+  return remainingSeconds > 0
+    ? `${wholeMinutes} min ${remainingSeconds} sec`
+    : `${wholeMinutes} min`;
+}
 
 export function V2TodayPracticeCard({
   mode,
   reason: _reason,
   isCompletedToday = false,
+  completedDurationSeconds,
   active = true,
   onPress,
   onPracticeAgain,
@@ -63,25 +71,20 @@ export function V2TodayPracticeCard({
   const theme = getPracticeCardTheme(mode);
 
   if (isCompletedToday) {
+    const formattedDuration = formatDuration(completedDurationSeconds, durationText);
     return (
       <View testID={testID} style={styles.card}>
-        {/* Featured Artwork Hero Banner - Preserved & Dominant */}
+        {/* Featured Artwork Hero Banner */}
         <View style={styles.heroArtworkContainer}>
-          <V2PracticeArtwork
-            mode={mode}
-            height={ARTWORK_HEIGHT}
-            variant="featured"
-            active={false}
-            completed={true}
-          />
+          <V2PracticeArtwork mode={mode} height={ARTWORK_HEIGHT} variant="featured" active={active} completed={true} />
           <View style={styles.floatingBadgesRow}>
-            <View style={styles.completedBadge}>
-              <Check size={11} color="#FFFFFF" strokeWidth={2.6} />
-              <Text style={styles.completedBadgeText}>TODAY COMPLETE</Text>
+            <View style={[styles.badge, { backgroundColor: '#287D57' }]}>
+              <Check size={11} color="#FFFFFF" strokeWidth={3} />
+              <Text style={styles.badgeText}>TODAY COMPLETE</Text>
             </View>
             {mode !== 'release' ? (
               <View style={styles.durationPill}>
-                <Text style={styles.durationBadge}>{durationText}</Text>
+                <Text style={styles.durationBadge}>{formattedDuration}</Text>
               </View>
             ) : null}
           </View>
@@ -90,23 +93,21 @@ export function V2TodayPracticeCard({
         {/* Featured Content Body - Cream Split Surface */}
         <View style={styles.body}>
           <View style={styles.heroCopy}>
-            <Text style={styles.completedTitle}>
-              You reinforced your Anchor today.
+            <Text style={[styles.modeName, { color: theme.labelColor }]}>
+              {definition.title}
             </Text>
-            <Text style={styles.completedSubtitle}>
-              Your intention is holding strong.
+            <Text style={styles.headline}>You reinforced your Anchor today.</Text>
+            <Text style={styles.subExplanation}>
+              {definition.title}{mode === 'release' ? '' : ` · ${formattedDuration}`}
             </Text>
           </View>
 
-          <View style={styles.completedActions}>
+          <View style={styles.ctaRow}>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Practice again"
               onPress={onPracticeAgain ?? onPress}
-              style={({ pressed }) => [
-                styles.practiceAgainButton,
-                pressed && styles.pressed,
-              ]}
+              style={({ pressed }) => [styles.practiceAgainButton, pressed && styles.pressed]}
             >
               <Text style={styles.practiceAgainText}>Practice again</Text>
             </Pressable>
@@ -277,21 +278,6 @@ const styles = StyleSheet.create({
   ctaRow: {
     marginTop: 16,
   },
-  completedBadge: {
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(18, 26, 34, 0.75)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    shadowColor: '#000000',
-    shadowOpacity: 0.18,
-    shadowRadius: 3,
-    elevation: 2,
-  },
   completedBadgeText: {
     ...typography.labelSM,
     color: '#FFFFFF',
@@ -301,31 +287,44 @@ const styles = StyleSheet.create({
   },
   completedTitle: {
     fontFamily: typography.displayBold,
-    fontSize: 22,
-    lineHeight: 28,
-    letterSpacing: -0.4,
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: -0.1,
     color: '#121820',
   },
-  completedSubtitle: {
-    ...typography.bodySM,
-    color: '#5C6470',
-    lineHeight: 20,
-    fontSize: 14,
-    marginTop: 6,
+  completedCard: {
+    backgroundColor: '#F4EFE6',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    gap: 4,
   },
-  completedActions: {
-    marginTop: 16,
-    alignSelf: 'flex-start',
+  completedStatusRow: {
+    minHeight: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  completedPractice: {
+    ...typography.labelLG,
+    fontFamily: typography.bodyBold,
+    color: '#121820',
+    fontSize: 15,
+    lineHeight: 20,
+    marginBottom: 1,
   },
   practiceAgainButton: {
-    backgroundColor: '#2E271F',
+    alignSelf: 'flex-start',
     paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 14,
+    paddingHorizontal: 1,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   practiceAgainText: {
-    color: '#F4EFE6',
-    fontWeight: '600',
-    fontSize: 13.5,
+    color: '#2E271F',
+    fontFamily: typography.bodySemiBold,
+    fontSize: 13,
   },
 });

@@ -100,14 +100,6 @@ export function OpeningProgressHeader({
   }, [dim, dimmed]);
 
   const rootStyle = useAnimatedStyle(() => ({ opacity: appear.value * (1 - 0.6 * dim.value) }));
-  const outgoing = useAnimatedStyle(() => {
-    const p = seg(clock.value, window);
-    return { opacity: 1 - p, transform: [{ translateY: reduceMotion ? 0 : -8 * p }] };
-  });
-  const incoming = useAnimatedStyle(() => {
-    const p = seg(clock.value, window);
-    return { opacity: p, transform: [{ translateY: reduceMotion ? 0 : 8 * (1 - p) }] };
-  });
   const fill = useAnimatedStyle(() => ({ transform: [{ scaleX: seg(clock.value, window) }] }));
   const backStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(toneOf(paper), [0, 1], [...TONE.backFill]),
@@ -115,12 +107,37 @@ export function OpeningProgressHeader({
   }));
   const lightIcon = useAnimatedStyle(() => ({ opacity: 1 - toneOf(paper) }));
   const inkIcon = useAnimatedStyle(() => ({ opacity: toneOf(paper) }));
-  const textTone = useAnimatedStyle(() => ({ color: interpolateColor(toneOf(paper), [0, 1], [...TONE.text]) }));
+  const outgoing = useAnimatedStyle(() => {
+    const p = seg(clock.value, window);
+    const color = interpolateColor(toneOf(paper), [0, 1], [...TONE.text]);
+    return {
+      color,
+      opacity: 1 - p,
+      transform: [{ translateY: reduceMotion ? 0 : -8 * p }],
+    };
+  });
+  const incoming = useAnimatedStyle(() => {
+    const p = seg(clock.value, window);
+    const color = interpolateColor(toneOf(paper), [0, 1], [...TONE.text]);
+    return {
+      color,
+      opacity: p,
+      transform: [{ translateY: reduceMotion ? 0 : 8 * (1 - p) }],
+    };
+  });
+  const settledTone = useAnimatedStyle(() => ({
+    color: interpolateColor(toneOf(paper), [0, 1], [...TONE.text]),
+    opacity: 1,
+    transform: [{ translateY: 0 }],
+  }));
+  const suffixTone = useAnimatedStyle(() => ({
+    color: interpolateColor(toneOf(paper), [0, 1], [...TONE.text]),
+  }));
 
   const rolls = from !== to;
   return (
     <Animated.View
-      style={[styles.root, { paddingTop: topInset }, rootStyle]}
+      style={[styles.root, { paddingTop: Math.max(topInset, 16) }, rootStyle]}
       pointerEvents={interactive ? "box-none" : "none"}
     >
       <View style={styles.row}>
@@ -150,14 +167,14 @@ export function OpeningProgressHeader({
           <View style={styles.digits}>
             {rolls ? (
               <>
-                <Animated.Text style={[styles.counterText, styles.digitLayer, textTone, outgoing]}>{pad(from)}</Animated.Text>
-                <Animated.Text style={[styles.counterText, textTone, incoming]}>{pad(to)}</Animated.Text>
+                <Animated.Text key="outgoing" style={[styles.counterText, styles.digitLayer, outgoing]}>{pad(from)}</Animated.Text>
+                <Animated.Text key="incoming" style={[styles.counterText, incoming]}>{pad(to)}</Animated.Text>
               </>
             ) : (
-              <Animated.Text style={[styles.counterText, textTone]}>{pad(from)}</Animated.Text>
+              <Animated.Text key="settled" style={[styles.counterText, settledTone]}>{pad(from)}</Animated.Text>
             )}
           </View>
-          <Animated.Text style={[styles.counterText, textTone]}> / {pad(TOTAL)}</Animated.Text>
+          <Animated.Text style={[styles.counterText, suffixTone]}> / {pad(TOTAL)}</Animated.Text>
         </View>
       </View>
     </Animated.View>
@@ -189,13 +206,14 @@ const styles = StyleSheet.create({
   segmentFill: { ...StyleSheet.absoluteFillObject, backgroundColor: "#E4C48A" },
   fillOrigin: { transformOrigin: "left" },
   counter: { flexDirection: "row", alignItems: "center", minWidth: 54, justifyContent: "flex-end" },
-  digits: { overflow: "hidden", height: 18, justifyContent: "center" },
+  digits: { overflow: "hidden", height: 18, width: 20, justifyContent: "center", alignItems: "flex-end" },
   digitLayer: { position: "absolute", right: 0 },
   counterText: {
     color: "rgba(255, 255, 255, 0.86)",
     fontFamily: "Inter-Regular",
     fontSize: 13,
     lineHeight: 18,
+    includeFontPadding: false,
     fontVariant: ["tabular-nums"],
   },
 });

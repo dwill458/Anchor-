@@ -1,0 +1,47 @@
+PASS src/screens/v2/home/__tests__/V2HomeScreen.test.tsx (14.57 s)
+PASS src/components/v2/vision/board/__tests__/VisionBoard.test.tsx
+PASS src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx
+PASS src/screens/v2/anchors/__tests__/V2AnchorDetailsScreen.test.tsx
+PASS src/navigation/v2/__tests__/AnchorV2Navigator.test.tsx
+PASS src/screens/v2/vision/__tests__/V2VisionScreen.test.tsx
+PASS src/navigation/v2/__tests__/AnchorV2Navigator.lifecycle.test.tsx
+PASS src/screens/v2/practice/__tests__/V2VisualizeThreadCompletion.test.tsx
+PASS src/screens/v2/practice/visualize/__tests__/V2CinematicSessionReadiness.test.tsx
+PASS src/components/v2/vision/__tests__/V2VisionCreationFlow.test.tsx
+PASS src/navigation/v2/__tests__/creationHandoff.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/V2CinematicSessionLifecycle.test.tsx
+PASS src/hooks/v2/vision/__tests__/useV2Vision.test.tsx
+PASS src/screens/v2/practice/visualize/__tests__/V2VisualizePreparation.test.tsx
+PASS src/components/v2/vision/__tests__/VisionMomentInput.test.tsx
+PASS src/navigation/v2/__tests__/anchorTransition.test.tsx
+PASS src/components/v2/vision/__tests__/VisionAddSheet.test.tsx
+PASS src/components/v2/vision/__tests__/VisionCandidateSelection.test.tsx
+PASS src/navigation/v2/__tests__/homeDetailsCoverage.test.tsx
+PASS src/components/v2/vision/__tests__/VisionGenerationBoard.test.tsx
+PASS src/components/v2/vision/board/__tests__/VisionBoardIntentionCard.test.tsx
+PASS src/components/v2/vision/__tests__/VisionImageArrival.test.tsx
+PASS src/hooks/v2/vision/__tests__/useV2VisionGeneration.test.tsx
+PASS src/components/v2/vision/__tests__/VisionDevelopingPhoto.test.tsx
+PASS src/components/v2/vision/__tests__/VisionChrome.test.tsx
+PASS src/screens/v2/practice/visualize/__tests__/visualizeVisionPlan.test.ts
+PASS src/components/v2/vision/__tests__/VisionPhoto.test.tsx
+PASS src/components/v2/vision/__tests__/VisionBoardPreview.test.tsx
+PASS src/navigation/v2/__tests__/anchorHeroGeometry.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/cinematicAssets.test.tsx
+PASS src/hooks/v2/vision/__tests__/useV2VisionSceneGeneration.test.tsx
+PASS src/screens/v2/practice/visualize/__tests__/signatureMotion.test.ts
+PASS src/components/v2/vision/__tests__/useVisionPresentationQueue.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/cinematicTimeline.test.ts
+PASS src/hooks/v2/vision/__tests__/useVisionGenerationAnalytics.test.tsx
+PASS src/screens/v2/practice/visualize/__tests__/cinematicSessionMotion.test.ts
+PASS src/components/v2/vision/board/__tests__/visionBoard.test.ts
+PASS src/components/v2/vision/__tests__/visionGuidance.test.ts
+PASS src/components/v2/vision/board/__tests__/visionCanvas.test.ts
+PASS src/hooks/v2/vision/__tests__/visionPhotoInput.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/cinematicGeometry.test.ts
+PASS src/screens/v2/practice/visualize/__tests__/enhancedAnchorMask.test.ts
+
+Test Suites: 42 passed, 42 total
+Tests:       367 passed, 367 total
+Snapshots:   0 total
+Time:        50.063 s

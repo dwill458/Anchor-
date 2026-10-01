@@ -45,11 +45,11 @@ export const AnchorMotion = {
      * of those frames is a Fabric commit that buys nothing the eye can see.
      */
     carousel: {
-      damping: 22,
-      stiffness: 230,
-      mass: 0.8,
+      damping: 24,
+      stiffness: 250,
+      mass: 0.75,
       restDisplacementThreshold: 0.5,
-      restSpeedThreshold: 2,
+      restSpeedThreshold: 2.5,
     },
     /** Interactive sheets: the carousel's physics, so every dragged surface lands the same way. */
     sheet: {

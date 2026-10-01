@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
 import { useVisualizationSceneStore } from '@/stores/visualizationSceneStore';
 import { useV2SelectedAnchor } from '@/hooks/v2/home/useV2SelectedAnchor';
-import { anchorArtworkSvg, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
+import { anchorRenderProps, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
+import type { AnchorExpression } from '@/constants/v2/creation';
 import { V2_PAYWALL_COPY, type V2PaywallContext } from '@/constants/v2/paywall';
 
 export type V2PaywallArtifact =
-  | { kind: 'anchor'; svg: string; category: string | null; categoryLabel: string; intention: string }
+  | { kind: 'anchor'; svg: string; imageUrl?: string; expression?: AnchorExpression; category: string | null; categoryLabel: string; intention: string }
   | { kind: 'vision'; previewText: string | null; previewUri: string | null }
   | { kind: 'vision-placeholder' }
   | { kind: 'none' };
@@ -32,7 +33,7 @@ export function useV2PaywallArtifact(context: V2PaywallContext): V2PaywallArtifa
       if (!selectedAnchor) return { kind: 'none' };
       return {
         kind: 'anchor',
-        svg: anchorArtworkSvg(selectedAnchor),
+        ...anchorRenderProps(selectedAnchor),
         category: selectedAnchor.category ?? null,
         categoryLabel: categoryLabel(selectedAnchor.category),
         intention: selectedAnchor.intentionText,

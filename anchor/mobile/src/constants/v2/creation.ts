@@ -169,7 +169,6 @@ export const CHOOSE_COPY = {
   title: 'Choose your Anchor.',
   body: 'Two interpretations of the same structure.',
   keep: 'Keep this Anchor →',
-  retry: 'Try again',
 } as const;
 
 /** Save failures, by what the user can do about them. */

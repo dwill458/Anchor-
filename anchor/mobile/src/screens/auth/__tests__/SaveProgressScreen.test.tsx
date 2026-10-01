@@ -22,6 +22,8 @@ const mockAnchor = {
   updatedAt: new Date('2026-06-30T00:00:00Z'),
 };
 
+let mockRouteAnchor = { ...mockAnchor };
+
 jest.mock('@react-navigation/native', () => ({
   useNavigation: jest.fn(() => ({
     navigate: mockNavigate,
@@ -29,7 +31,7 @@ jest.mock('@react-navigation/native', () => ({
   })),
   useRoute: jest.fn(() => ({
     params: {
-      anchor: mockAnchor,
+      anchor: mockRouteAnchor,
     },
   })),
   useFocusEffect: (cb: () => void | (() => void)) => {
@@ -49,9 +51,11 @@ let mockAuthState: Record<string, unknown> = {
   signOut: jest.fn(),
 };
 
-jest.mock('@/stores/authStore', () => ({
-  useAuthStore: (selector: (s: Record<string, unknown>) => unknown) => selector(mockAuthState),
-}));
+jest.mock('@/stores/authStore', () => {
+  const useAuthStore = (selector: (s: Record<string, unknown>) => unknown) => selector(mockAuthState);
+  useAuthStore.getState = () => mockAuthState;
+  return { useAuthStore };
+});
 
 jest.mock('@/hooks/useReduceMotionEnabled', () => ({
   useReduceMotionEnabled: () => true,
@@ -82,6 +86,7 @@ describe('SaveProgressScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockFinalize.mockResolvedValue(true);
+    mockRouteAnchor = { ...mockAnchor };
     mockAuthState = {
       isAuthenticated: false,
       pendingFirstAnchorDraft: null,
@@ -169,5 +174,38 @@ describe('SaveProgressScreen', () => {
 
     expect(mockReplace).toHaveBeenCalledWith('PrimeYourAnchor', { anchorId: 'anchor-1' });
     expect(mockFinalize).not.toHaveBeenCalled();
+  });
+
+  it('drops an authenticated user into Vault if anchor is already charged', () => {
+    mockRouteAnchor = {
+      ...mockAnchor,
+      isCharged: true,
+    };
+    mockAuthState = {
+      ...mockAuthState,
+      isAuthenticated: true,
+      pendingFirstAnchorDraft: null,
+    };
+
+    render(<SaveProgressScreen />);
+
+    expect(mockReplace).toHaveBeenCalledWith('Vault');
+    expect(mockFinalize).not.toHaveBeenCalled();
+  });
+
+  it('renders Continue to Sanctuary when finalization has an error and allows proceeding', () => {
+    mockAuthState = {
+      ...mockAuthState,
+      isAuthenticated: true,
+      pendingFirstAnchorDraft: { tempAnchorId: 'anchor-1' },
+      pendingFirstAnchorError: 'Network error saving anchor',
+    };
+
+    const { getByText } = render(<SaveProgressScreen />);
+
+    expect(getByText('Continue to Sanctuary')).toBeTruthy();
+    fireEvent.press(getByText('Continue to Sanctuary'));
+
+    expect(mockReplace).toHaveBeenCalledWith('PrimeYourAnchor', { anchorId: 'anchor-1' });
   });
 });

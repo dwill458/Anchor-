@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { AppState, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Svg, { Circle, Ellipse, Path } from 'react-native-svg';
@@ -8,26 +8,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { V2Button, V2EmptyState, V2InlineError } from '@/components/v2';
-import {
-  V2HomeChartSection,
-  V2HomeCategoryEnvironment,
-  V2HomeBrandMark,
-  V2HomeCreamSplice,
-  V2HomeHeader,
-  V2HomeHero,
-  V2HomeProgressSection,
-  V2HomeRecentActivitySection,
-  V2HomeTodaySection,
-  V2HomeVisionSection,
-} from '@/components/v2/home';
+import { V2HomeChartSection, V2HomeCategoryEnvironment, V2HomeBrandMark, V2HomeCreamSplice, V2HomeHeader, V2HomeHero, V2HomeProgressSection, V2HomeRecentActivitySection, V2HomeTodaySection, V2HomeVisionSection } from '@/components/v2/home';
 import { resolveVisionAlternateImage, resolveVisionHeroImage, useV2HomeModel } from '@/adapters/v2/home';
+import { useHomePrewarm } from '@/hooks/v2/home';
 import { useV2ReduceMotion, useV2Responsive } from '@/hooks/v2';
+import { VisualProfiler } from '@/utils/visualProfiler';
+import { HomeStartupProfiler } from '@/utils/homeStartupProfiler';
 import { useV2ThreadEventQueue } from '@/hooks/v2/threadEvents';
 import { V2ThreadEventModal } from '@/components/v2/threadEvents';
+import { anchorArtworkSvg } from '@/components/v2/anchors/anchorPresentation';
 import { colors, getCategoryColor, typography } from '@/theme/v2';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { useV2DailyShellIntents, type V2DailyShellParamList } from './dailyShell';
-import { isWithinWeeklyInsightReviewWindow } from '@/adapters/v2/weeklyInsight';
 import { useHomeElasticScroll } from './homeElasticScroll';
 import { V2_TRANSITION_SETTLE_MS } from '@/navigation/v2/transitions';
 import { V2AssetPrewarm } from '@/components/v2/primitives/V2AssetPrewarm';
@@ -35,7 +27,8 @@ import { ANCHOR_DETAIL_EMPTY_ART, ANCHOR_DETAIL_HERO_ART } from '@/components/v2
 import { GRID_ART_BY_PRACTICE } from '@/components/v2/practice/V2PracticeArtwork';
 import { useSessionStore } from '@/stores/sessionStore';
 import { HomeArrivalOverlay, HomeArrivalProvider, useHomeArrival } from '@/components/v2/home/homeArrival';
-import { ProgressiveFocusTransition, useProgressiveFocusTransition } from '@/navigation/v2/ProgressiveFocusTransition';
+import { useProgressiveFocusTransition, type AnchorWindowRect } from '@/navigation/v2/ProgressiveFocusTransition';
+import { resolveAnchorDetailsHeroGeometry } from '@/navigation/v2/anchorHeroGeometry';
 
 type Nav = NativeStackNavigationProp<V2DailyShellParamList, 'V2Home'>;
 
@@ -99,7 +92,10 @@ function EmptyHomeGestureSvg() {
  */
 export function V2HomeScreen() {
   const navigation = useNavigation<Nav>();
+  // Home never fades during an Anchor flight: it stays fully drawn until Details covers it,
+  // and is already drawn when Details is removed. Only the travelling copy moves.
   const focusTransition = useProgressiveFocusTransition();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const model = useV2HomeModel();
   const reduceMotion = useV2ReduceMotion();
   const insets = useSafeAreaInsets();
@@ -112,6 +108,8 @@ export function V2HomeScreen() {
   });
 
   const { refreshChart, refreshToday, refreshVision } = model;
+  const reportedHydratedAnchors = useRef(new Set<string>());
+  const reportedFirstMeaningfulHome = useRef(false);
   // Each model already loads on mount, so the first focus is not a reason to refetch.
   const lastRefresh = useRef({ at: Date.now(), practice: practiceMarker() });
   const refreshHomeContext = useCallback(() => {
@@ -127,6 +125,7 @@ export function V2HomeScreen() {
     });
     return () => listener.remove();
   }, [refreshHomeContext]);
+
 
   /**
    * Returning from a Practice session must re-read Today, Thread and evidence.
@@ -175,8 +174,57 @@ export function V2HomeScreen() {
     reduceMotion,
   });
 
+  useHomePrewarm(model.anchorList, model.selectedIndex);
+
   const selectedId = model.selectedAnchor?.id ?? null;
   const selectedCategory = model.selectedAnchor?.category?.toLowerCase() ?? '';
+
+  useEffect(() => {
+    if (selectedId) VisualProfiler.record('activeAnchorIdCommit', { anchorId: selectedId });
+    if (reportedFirstMeaningfulHome.current) return;
+    if (!selectedId && model.anchorState !== 'empty' && model.anchorState !== 'error') return;
+    reportedFirstMeaningfulHome.current = true;
+    HomeStartupProfiler.mark('first_meaningful_home_render', {
+      anchorId: selectedId,
+      anchorState: model.anchorState,
+    });
+  }, [model.anchorState, selectedId]);
+
+  useEffect(() => {
+    if (!selectedId || reportedHydratedAnchors.current.has(selectedId)) return;
+    const dependenciesSettled =
+      model.today.state !== 'loading' &&
+      !model.progressLoading &&
+      model.vision.state !== 'loading' &&
+      model.chart.state !== 'resolving' &&
+      model.chart.state !== 'loading';
+    if (!dependenciesSettled) return;
+    reportedHydratedAnchors.current.add(selectedId);
+    HomeStartupProfiler.mark('final_home_hydration', {
+      anchorId: selectedId,
+      todayState: model.today.state,
+      visionState: model.vision.state,
+      chartState: model.chart.state,
+      progressState: model.progress.state,
+    });
+  }, [model.chart.state, model.progress.state, model.progressLoading, model.today.state, model.vision.state, selectedId]);
+
+  useEffect(() => {
+    if (!__DEV__) return undefined;
+    VisualProfiler.record('homeMounted');
+    HomeStartupProfiler.mark('home_mounted');
+    const start = navigation.addListener('transitionStart', (event) => {
+      VisualProfiler.record('screenTransition', { screen: 'home', phase: 'start', closing: event.data.closing });
+    });
+    const end = navigation.addListener('transitionEnd', (event) => {
+      VisualProfiler.record('screenTransition', { screen: 'home', phase: 'end', closing: event.data.closing });
+    });
+    return () => { start(); end(); };
+  }, [navigation]);
+
+  useEffect(() => {
+    HomeStartupProfiler.mark('home_first_content_state', { anchorState: model.anchorState, hasAnchor: Boolean(selectedId) });
+  }, [model.anchorState, selectedId]);
 
   /**
    * The two destinations one tap away from Home are Anchor Details and
@@ -190,7 +238,6 @@ export function V2HomeScreen() {
     return [
       ...(heroArt ? [heroArt] : []),
       ...(hasChart ? [CHART_LANDSCAPE_ART] : []),
-      ANCHOR_DETAIL_EMPTY_ART.vision,
       ANCHOR_DETAIL_EMPTY_ART.chart,
       GRID_ART_BY_PRACTICE.focus,
       GRID_ART_BY_PRACTICE.deep_prime,
@@ -218,6 +265,20 @@ export function V2HomeScreen() {
   const todayVisionUri = visionAlternateUri ?? visionCoverUri;
   const todayVisionIsReused = Boolean(todayVisionUri) && !visionAlternateUri;
 
+  const prewarmRemoteUris = useMemo(() => {
+    const uris = [...anchorArtUris];
+    if (todayVisionUri) uris.push(todayVisionUri);
+    if (visionCoverUri && visionCoverUri !== todayVisionUri) uris.push(visionCoverUri);
+    return uris;
+  }, [anchorArtUris, todayVisionUri, visionCoverUri]);
+
+  const hasVision = useMemo(() => {
+    if (model.vision.state !== 'ready') return false;
+    const heroImage = resolveVisionHeroImage(model.vision);
+    const statement = model.vision.title?.trim() || model.vision.previewText?.trim();
+    return Boolean(heroImage || statement);
+  }, [model.vision]);
+
   /**
    * Every handler below is stable. The sections are memoised, and a memoised
    * section with a freshly created arrow prop re-renders anyway - which is
@@ -241,12 +302,19 @@ export function V2HomeScreen() {
   );
 
   const handleOpenActive = useCallback(
-    (anchorId: string) => {
-      track('v2_anchor_details_viewed', { from: 'home' });
-      focusTransition.begin();
-      navigation.navigate('V2AnchorDetails', { anchorId });
+    (anchorId: string, source?: AnchorWindowRect) => {
+      const anchor = model.anchorList.find((item) => item.anchor.id === anchorId)?.anchor;
+      if (!anchor) return;
+      const destination = resolveAnchorDetailsHeroGeometry({
+        width: windowWidth, height: windowHeight, topInset: insets.top, platform: Platform.OS,
+      }).rect;
+      const accepted = focusTransition.openAnchor(anchor, source ?? { x: NaN, y: NaN, width: 0, height: 0 }, destination, () => {
+        VisualProfiler.record('detailsNavigationStart', { anchorId });
+        navigation.navigate('V2AnchorDetails', { anchorId });
+      });
+      if (accepted) track('v2_anchor_details_viewed', { from: 'home' });
     },
-    [focusTransition, navigation],
+    [focusTransition, insets.top, model.anchorList, navigation, windowHeight, windowWidth],
   );
 
   const handleOpenProgress = useCallback(() => {
@@ -309,7 +377,7 @@ export function V2HomeScreen() {
     </View>
   );
 
-  if (model.anchorState === 'loading') {
+  if (model.anchorState === 'loading' || (model.anchorState === 'ready' && !model.selectedAnchor)) {
     return (
       <SafeAreaView edges={TOP_EDGE} style={styles.creamScreen} testID="v2-home-screen">
         {header}
@@ -334,7 +402,7 @@ export function V2HomeScreen() {
     );
   }
 
-  if (!model.selectedAnchor) {
+  if (model.anchorState === 'empty' && !model.selectedAnchor) {
     return (
       <SafeAreaView edges={TOP_EDGE} style={styles.creamScreen} testID="v2-home-screen">
         {header}
@@ -357,7 +425,7 @@ export function V2HomeScreen() {
   return (
     <HomeArrivalProvider value={arrival.context}>
     <SafeAreaView edges={TOP_EDGE} style={styles.creamScreen} testID="v2-home-screen">
-      <V2AssetPrewarm sources={nextScreenArt} remoteUris={anchorArtUris} />
+      <V2AssetPrewarm sources={nextScreenArt} remoteUris={prewarmRemoteUris} />
       <GestureDetector gesture={elastic.elasticPan}>
       <View style={styles.scrollHost}>
       <GestureDetector gesture={elastic.nativeScroll}>
@@ -381,7 +449,7 @@ export function V2HomeScreen() {
 
         <View style={styles.heroEnvironment}>
           <Animated.View style={[StyleSheet.absoluteFill, arrival.environmentStyle]} pointerEvents="none">
-            <V2HomeCategoryEnvironment category={model.selectedAnchor.category} reduceMotion={reduceMotion} />
+            <V2HomeCategoryEnvironment category={model.selectedAnchor!.category} reduceMotion={reduceMotion} />
           </Animated.View>
           <Animated.View style={[styles.creamZone, arrival.heroStyle]}>
             <V2HomeHero
@@ -390,6 +458,7 @@ export function V2HomeScreen() {
               selectedIndex={model.selectedIndex}
               thread={model.thread}
               reduceMotion={reduceMotion}
+              frozen={focusTransition.active}
               onSelect={handleSelectAnchor}
               onOpenActive={handleOpenActive}
               onOpenProgress={handleOpenProgress}
@@ -418,38 +487,22 @@ export function V2HomeScreen() {
             onRetry={handleRetryToday}
           />
 
-          <V2HomeVisionSection
-            vision={model.vision}
-            categoryColor={categoryColor}
-            onOpenVision={handleOpenVision}
-          />
+          <V2HomeVisionSection vision={model.vision} categoryColor={categoryColor}
+            onOpenVision={handleOpenVision} onRetry={() => { void refreshVision(); }} />
+
+          {!hasVision ? <V2HomeProgressSection progress={model.progress} thread={model.thread}
+            categoryColor={categoryColor} onOpenProgress={handleOpenProgress} /> : null}
 
           <V2HomeChartSection
             chart={model.chart}
             categoryColor={categoryColor}
-            category={model.selectedAnchor.category}
-            expanded={model.chart.state === 'ready' && model.vision.state !== 'ready'}
+            category={model.selectedAnchor!.category}
+            expanded={model.chart.state === 'ready' && !hasVision}
             onOpenChart={handleOpenChart}
             onRetry={refreshChartModel}
           />
 
-          {model.vision.state !== 'ready' && model.chart.state !== 'ready' ? (
-            <V2HomeProgressSection
-              progress={model.progress}
-              thread={model.thread}
-              categoryColor={categoryColor}
-              onOpenProgress={handleOpenProgress}
-            />
-          ) : null}
-          <V2HomeRecentActivitySection items={model.recentActivity ?? []} />
-
-          {isWithinWeeklyInsightReviewWindow() ? (
-            <View testID="v2-home-weekly-review" style={styles.weeklyReview}>
-              <Pressable accessibilityRole="button" accessibilityLabel="Open Weekly Review" onPress={intents.onOpenWeeklyInsight}>
-                <Text style={styles.weeklyReviewText}>Weekly Review  →</Text>
-              </Pressable>
-            </View>
-          ) : null}
+          <V2HomeRecentActivitySection items={model.recentActivity ?? []} onViewAll={handleOpenProgress} />
         </Animated.View>
 
         {/* Keeps the graphite field unbroken under an overscroll bounce. */}
@@ -463,7 +516,8 @@ export function V2HomeScreen() {
       <V2ThreadEventModal
         bundle={threadEvents.active}
         visible={Boolean(threadEvents.active)}
-        anchorSvg={model.selectedAnchor?.baseSigilSvg}
+        anchorSvg={model.selectedAnchor ? anchorArtworkSvg(model.selectedAnchor) : undefined}
+        anchorImageUrl={model.selectedAnchor?.enhancedImageUrl}
         category={model.selectedAnchor?.category}
         reducedMotion={reduceMotion}
         onPresented={() => {
@@ -480,7 +534,6 @@ export function V2HomeScreen() {
       {arrival.arrival ? (
         <HomeArrivalOverlay arrival={arrival.arrival} progress={arrival.context.progress} origin={arrival.origin} onOrigin={arrival.reportOrigin} />
       ) : null}
-      <ProgressiveFocusTransition role="source" />
     </SafeAreaView>
     </HomeArrivalProvider>
   );
@@ -539,17 +592,6 @@ const styles = StyleSheet.create({
     marginTop: -2,
     marginBottom: -400,
     backgroundColor: colors.graphite.base,
-  },
-  weeklyReview: {
-    marginTop: 14,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.graphite.hairline,
-  },
-  weeklyReviewText: {
-    fontFamily: typography.bodyMedium,
-    fontSize: 12,
-    color: colors.graphite.text.secondary,
   },
   statusZone: {
     paddingHorizontal: PAGE_INSET,

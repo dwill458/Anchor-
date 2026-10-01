@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { ArrowLeft } from 'lucide-react-native';
 import { V2EmptyState, V2Screen } from '@/components/v2';
@@ -20,12 +20,28 @@ import { useSessionStore } from '@/stores/sessionStore';
 import { localDateString } from '@/utils/primingAnalytics';
 import { AnchorMotion, colors, spacing, typography } from '@/theme/v2';
 import type { Anchor } from '@/types';
-import type { V2PracticeRouteIntents, V2PracticeStartRequest } from './practiceRoutes';
+import type { V2PracticeCompletionResult, V2PracticeRouteIntents, V2PracticeStartRequest } from './practiceRoutes';
 import { V2PracticePrepareScreen } from './V2PracticePrepareScreen';
 import { V2PracticeSessionScreen } from './V2PracticeSessionScreen';
 import { V2FocusPrepScreen } from './focus';
 import { useV2ReduceMotion } from '@/hooks/v2';
 import { V2_LAYER_ENTER_MS, V2_LAYER_TRAVEL, V2_TRANSITION_SETTLE_MS } from '@/navigation/v2/transitions';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useV2Responsive } from '@/hooks/v2';
+import {
+  AnchorTransitionScene,
+  useAnchorTransitionPlace,
+  useOptionalAnchorTransition,
+  type AnchorTransitionDestination,
+} from '@/navigation/v2/ProgressiveFocusTransition';
+import { predictPracticeSetupAnchorRect, predictSessionAnchorRect } from '@/navigation/v2/anchorHeroGeometry';
+
+/** Where the Anchor comes to rest in each session. */
+const SESSION_PLACE: Record<V2PracticeStartRequest['mode'], AnchorTransitionDestination> = {
+  focus: 'focusSession',
+  deep_prime: 'deepFocusSession',
+  visualize: 'visualizeSession',
+};
 
 /**
  * Hub and prepare are layers of one route. Swapping them used to be a hard
@@ -35,7 +51,7 @@ import { V2_LAYER_ENTER_MS, V2_LAYER_TRAVEL, V2_TRANSITION_SETTLE_MS } from '@/n
  * fragment can crash Android (null child in dispatchAttachedToWindow). For the
  * same reason nothing animates while the route's own push is still moving.
  */
-function PracticeLayer({ layerKey, depth, reduceMotion, children }: { layerKey: string; depth: number; reduceMotion: boolean; children: React.ReactNode }) {
+function PracticeLayer({ layerKey, depth, reduceMotion, settle = true, children }: { layerKey: string; depth: number; reduceMotion: boolean; settle?: boolean; children: React.ReactNode }) {
   const previous = useRef<{ key: string; depth: number } | null>(null);
   const mountedAt = useRef(Date.now());
   const entering = useRef(false);
@@ -47,7 +63,7 @@ function PracticeLayer({ layerKey, depth, reduceMotion, children }: { layerKey: 
   // followed by a jump). The settle itself starts once it is committed.
   const last = previous.current;
   if (
-    last && last.key !== layerKey && !entering.current && !reduceMotion &&
+    last && last.key !== layerKey && !entering.current && !reduceMotion && settle &&
     Date.now() - mountedAt.current >= V2_TRANSITION_SETTLE_MS
   ) {
     entering.current = true;
@@ -81,6 +97,8 @@ type Props = Partial<V2PracticeRouteIntents> & {
   resumeDuration?: number;
   resumeSource?: 'practice_hub' | 'recommended_today';
   onBack?: () => void;
+  /** Arrived from another screen (the Vision): leaving setup returns there instead of showing the hub. */
+  leaveOnSetupBack?: boolean;
   onSessionCompleted?: () => void;
 };
 
@@ -93,6 +111,7 @@ export function V2PracticeScreen({
   resumeDuration,
   resumeSource,
   onBack,
+  leaveOnSetupBack = false,
   onPremiumCapabilityRequired,
   onCreateVision,
   onOpenVision,
@@ -123,11 +142,23 @@ export function V2PracticeScreen({
 
   const model = useV2PracticeModel(fixedAnchor, suppliedRecommendation);
 
+  // The shared Anchor transition: the hub's ACTIVE ANCHOR mark flies into
+  // setup, and setup's Anchor flies into the session. While the Anchor is in
+  // the air, the layer swap it causes adds no settle of its own: the setup
+  // Anchor is measured on arrival and must already be where it will rest.
+  const transition = useOptionalAnchorTransition();
+  const anchorInFlight = Boolean(transition?.active);
+  const viewport = useV2Responsive();
+  const insets = useSafeAreaInsets();
+  const windowSize = useWindowDimensions();
+  const headerPlace = useAnchorTransitionPlace('practice', fixedAnchor?.id, 'bare');
+
   const [prepareMode, setPrepareMode] = useState<V2PracticeMode | null>(null);
   const [prepareSource, setPrepareSource] = useState<'practice_hub' | 'recommended_today'>('practice_hub');
   const [activeSession, setActiveSession] = useState<V2PracticeStartRequest | null>(null);
   const [justCompletedTodayAnchorId, setJustCompletedTodayAnchorId] = useState<string | null>(null);
   const [justCompletedMode, setJustCompletedMode] = useState<V2PracticeMode | null>(null);
+  const [justCompletedDurationSeconds, setJustCompletedDurationSeconds] = useState<number | null>(null);
 
   const effectiveCapabilities = capabilities ?? model.capability;
 
@@ -152,20 +183,23 @@ export function V2PracticeScreen({
     return latest;
   }, [practiceHistory, sessionLog]);
 
-  const lastCompletedModeToday = useMemo<V2PracticeMode | null>(() => {
+  const lastCompletedPracticeToday = useMemo<{ mode: V2PracticeMode; durationSeconds?: number } | null>(() => {
     if (!fixedAnchor) return null;
+    const anchorMatches = (id?: string | null) =>
+      Boolean(id && (id === fixedAnchor.id || id === fixedAnchor.localId));
     if (
       justCompletedMode &&
       justCompletedTodayAnchorId &&
-      (fixedAnchor.id === justCompletedTodayAnchorId || fixedAnchor.localId === justCompletedTodayAnchorId)
+      anchorMatches(justCompletedTodayAnchorId)
     ) {
-      return justCompletedMode;
+      return {
+        mode: justCompletedMode,
+        durationSeconds: justCompletedDurationSeconds ?? undefined,
+      };
     }
-    const anchorMatches = (id?: string | null) =>
-      Boolean(id && (id === fixedAnchor.id || id === fixedAnchor.localId));
 
     let latestTime = 0;
-    let latestMode: V2PracticeMode | null = null;
+    let latest: { mode: V2PracticeMode; durationSeconds?: number } | null = null;
 
     practiceHistory?.forEach((p) => {
       if ((anchorMatches(p.anchorId) || anchorMatches(p.anchorLocalId)) && p.completedAt) {
@@ -179,7 +213,13 @@ export function V2PracticeScreen({
               p.practiceMode === 'release')
           ) {
             latestTime = t;
-            latestMode = p.practiceMode;
+            const durationSeconds =
+              typeof p.completedDurationSeconds === 'number' && p.completedDurationSeconds > 0
+                ? p.completedDurationSeconds
+                : typeof p.plannedDurationSeconds === 'number' && p.plannedDurationSeconds > 0
+                  ? p.plannedDurationSeconds
+                  : undefined;
+            latest = { mode: p.practiceMode, durationSeconds };
           }
         }
       }
@@ -189,22 +229,22 @@ export function V2PracticeScreen({
       if (anchorMatches(s.anchorId) && s.completedAt) {
         if (localDateString(new Date(s.completedAt)) === todayKey) {
           const t = new Date(s.completedAt).getTime();
-          if (t >= latestTime) {
+          if (t > latestTime) {
             let mode: V2PracticeMode | null = null;
             if (s.type === 'activate') mode = 'focus';
             else if (s.type === 'reinforce') mode = 'deep_prime';
             else if (s.type === 'visualize') mode = 'visualize';
             if (mode) {
               latestTime = t;
-              latestMode = mode;
+              latest = { mode };
             }
           }
         }
       }
     });
 
-    return latestMode;
-  }, [fixedAnchor, justCompletedMode, justCompletedTodayAnchorId, practiceHistory, sessionLog, todayKey]);
+    return latest;
+  }, [fixedAnchor, justCompletedDurationSeconds, justCompletedMode, justCompletedTodayAnchorId, practiceHistory, sessionLog, todayKey]);
 
   const isCompletedToday = useMemo(() => {
     if (!fixedAnchor) return false;
@@ -275,17 +315,65 @@ export function V2PracticeScreen({
     setPrepareMode(mode);
   };
 
-  const handleBeginPractice = (request: V2PracticeStartRequest) => {
-    onBeginPractice?.(request);
-    setActiveSession(request);
+  /** Hub -> setup. The ACTIVE ANCHOR mark travels to where setup shows it. */
+  const openModeFromHub = (mode: V2PracticeMode, source: 'practice_hub' | 'recommended_today') => {
+    if (!fixedAnchor) return;
+    // Visualize setup is led by the person's Vision and carries no Anchor flight of its own.
+    if (!transition || mode === 'visualize') {
+      selectMode(mode, source);
+      return;
+    }
+    transition.startAnchorTransition({
+      anchor: fixedAnchor,
+      from: 'practice',
+      to: {
+        target: 'practiceSetup',
+        rect: predictPracticeSetupAnchorRect({ viewport, topInset: insets.top, mode, hasVision: model.vision.state === 'ready' }),
+      },
+      onNavigate: () => selectMode(mode, source),
+    });
   };
 
-  const handleSessionCompleted = () => {
-    if (fixedAnchor) {
+  /**
+   * Setup -> session. Begin is refused while another flight owns the Anchor,
+   * so repeated taps never start a second session. The session learns whether
+   * the Anchor is arriving with it or whether it runs its own entry.
+   */
+  const handleBeginPractice = (request: V2PracticeStartRequest) => {
+    const begin = (withHero: boolean) => {
+      onBeginPractice?.(request);
+      setActiveSession({ ...request, anchorTransition: withHero });
+    };
+    if (request.mode === 'visualize' || !transition || !fixedAnchor) {
+      begin(false);
+      return;
+    }
+    transition.startAnchorTransition({
+      anchor: fixedAnchor,
+      from: 'practiceSetup',
+      to: {
+        target: SESSION_PLACE[request.mode],
+        rect: predictSessionAnchorRect({
+          width: windowSize.width,
+          height: windowSize.height,
+          topInset: insets.top,
+          bottomInset: insets.bottom,
+          mode: request.mode,
+        }),
+      },
+      onNavigate: begin,
+    });
+  };
+
+  const handleSessionCompleted = (completion?: V2PracticeCompletionResult) => {
+    if (fixedAnchor && completion?.saved !== false) {
       setJustCompletedTodayAnchorId(fixedAnchor.id);
-      if (activeSession) {
-        setJustCompletedMode(activeSession.mode);
-      }
+      const completedMode = completion?.mode ?? activeSession?.mode;
+      if (completedMode) setJustCompletedMode(completedMode);
+      const completedDuration = completion?.durationSeconds ?? activeSession?.durationSeconds;
+      setJustCompletedDurationSeconds(
+        typeof completedDuration === 'number' && completedDuration > 0 ? completedDuration : null,
+      );
     }
     setActiveSession(null);
     setPrepareMode(null);
@@ -297,7 +385,7 @@ export function V2PracticeScreen({
   useEffect(() => {
     if (!resumeMode || !fixedAnchor) return;
     const source = resumeSource ?? 'practice_hub';
-    if (resumeDuration && resumeMode !== 'release') {
+    if (resumeDuration && resumeMode !== 'release' && resumeMode !== 'visualize') {
       setActiveSession({
         anchorId: fixedAnchor.id,
         mode: resumeMode,
@@ -337,7 +425,9 @@ export function V2PracticeScreen({
   // Active immersive session layer
   if (activeSession) {
     return (
+      <AnchorTransitionScene place={SESSION_PLACE[activeSession.mode]}>
       <V2PracticeSessionScreen
+        anchorTransition={activeSession.anchorTransition === true}
         anchorId={activeSession.anchorId}
         mode={activeSession.mode}
         durationSeconds={activeSession.durationSeconds}
@@ -345,10 +435,12 @@ export function V2PracticeScreen({
         voice={activeSession.voice}
         ambient={activeSession.ambient}
         haptics={activeSession.haptics}
+        preparedVisualize={activeSession.preparedVisualize}
         onBack={() => setActiveSession(null)}
         onCompleted={handleSessionCompleted}
         onFocusAgain={() => setActiveSession(null)}
       />
+      </AnchorTransitionScene>
     );
   }
 
@@ -356,7 +448,8 @@ export function V2PracticeScreen({
   if (prepareMode) {
     if (prepareMode === 'focus') {
       return (
-        <PracticeLayer layerKey="prepare-focus" depth={1} reduceMotion={reduceMotion}>
+        <AnchorTransitionScene place="practiceSetup">
+        <PracticeLayer layerKey="prepare-focus" depth={1} reduceMotion={reduceMotion} settle={!anchorInFlight}>
         <V2FocusPrepScreen
           anchor={fixedAnchor}
           source={prepareSource}
@@ -385,25 +478,30 @@ export function V2PracticeScreen({
           } : undefined}
         />
         </PracticeLayer>
+        </AnchorTransitionScene>
       );
     }
 
     return (
-      <PracticeLayer layerKey={`prepare-${prepareMode}`} depth={1} reduceMotion={reduceMotion}>
+      <AnchorTransitionScene place="practiceSetup">
+      <PracticeLayer layerKey={`prepare-${prepareMode}`} depth={1} reduceMotion={reduceMotion} settle={!anchorInFlight}>
       <V2PracticePrepareScreen
         anchor={fixedAnchor}
         mode={prepareMode}
         vision={model.vision}
         source={prepareSource}
+        initialDuration={prepareMode === resumeMode ? resumeDuration ?? undefined : undefined}
         entitled={effectiveCapabilities[prepareMode]}
-        onBack={() => setPrepareMode(null)}
+        onBack={() => { if (leaveOnSetupBack && onBack) onBack(); else setPrepareMode(null); }}
         onCreateVision={onCreateVision ?? (() => undefined)}
         onOpenVision={onOpenVision}
         onReleaseRequested={onReleaseRequested ?? (() => undefined)}
         onBeginPractice={handleBeginPractice}
         onPremiumRequired={onPremiumCapabilityRequired}
+        anchorHandoff={Boolean(transition) && !transition?.reduceMotion}
       />
       </PracticeLayer>
+      </AnchorTransitionScene>
     );
   }
 
@@ -412,11 +510,12 @@ export function V2PracticeScreen({
     : null;
 
   const displayHeroMode = isCompletedToday
-    ? (lastCompletedModeToday ?? recommendedMode ?? 'focus')
+    ? (lastCompletedPracticeToday?.mode ?? recommendedMode ?? 'focus')
     : recommendedMode;
 
   return (
-    <PracticeLayer layerKey="hub" depth={0} reduceMotion={reduceMotion}>
+    <AnchorTransitionScene place="practice">
+    <PracticeLayer layerKey="hub" depth={0} reduceMotion={reduceMotion} settle={!anchorInFlight}>
     <StatusBar barStyle="light-content" backgroundColor={colors.ink.base} animated />
     <V2Screen scroll style={styles.screen} testID="v2-practice-screen">
       <Pressable
@@ -436,6 +535,7 @@ export function V2PracticeScreen({
           anchor={fixedAnchor}
           thread={model.thread}
           onPress={() => setIsSwitcherOpen(true)}
+          artworkPlace={headerPlace}
         />
 
         {/* Anchor Switcher Modal / Bottom Sheet */}
@@ -462,8 +562,13 @@ export function V2PracticeScreen({
               mode={displayHeroMode}
               reason={model.recommendation?.recommendation.reason}
               isCompletedToday={isCompletedToday}
-              onPress={() => selectMode(displayHeroMode, 'recommended_today')}
-              onPracticeAgain={() => selectMode(displayHeroMode, 'recommended_today')}
+              completedDurationSeconds={
+                lastCompletedPracticeToday?.mode === displayHeroMode
+                  ? lastCompletedPracticeToday.durationSeconds
+                  : undefined
+              }
+              onPress={() => openModeFromHub(displayHeroMode, 'recommended_today')}
+              onPracticeAgain={() => openModeFromHub(displayHeroMode, 'recommended_today')}
             />
           ) : (
             <View style={styles.unavailableToday}>
@@ -485,12 +590,13 @@ export function V2PracticeScreen({
           <V2PracticeGrid
             capabilities={effectiveCapabilities}
             heroMode={displayHeroMode}
-            onSelectMode={(mode) => selectMode(mode, 'practice_hub')}
+            onSelectMode={(mode) => openModeFromHub(mode, 'practice_hub')}
           />
         </View>
       </View>
     </V2Screen>
     </PracticeLayer>
+    </AnchorTransitionScene>
   );
 }
 

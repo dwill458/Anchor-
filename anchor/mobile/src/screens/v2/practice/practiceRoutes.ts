@@ -16,6 +16,7 @@ export type V2PremiumCapabilityRequest = {
   source: 'practice_hub' | 'recommended_today';
   durationSeconds?: number;
 };
+import type { PreparedCinematicSession } from './visualize/V2CinematicSessionScreen';
 import type { GuidanceVoice } from '@/types/sessionAudio';
 
 export type V2PracticeStartRequest = {
@@ -24,11 +25,19 @@ export type V2PracticeStartRequest = {
   durationSeconds: number;
   source: 'practice_hub' | 'recommended_today';
   voice?: GuidanceVoice;
+  preparedVisualize?: PreparedCinematicSession;
   ambient?: boolean;
   /** Session-only haptics choice from setup; unset keeps the saved setting. */
   haptics?: boolean;
   focusEntryAnchorCenterY?: number;
   focusEntryAnchorSize?: number;
+  /** Set by the Practice screen: the shared Anchor transition is carrying the Anchor into this session. */
+  anchorTransition?: boolean;
+};
+export type V2PracticeCompletionResult = {
+  mode: Exclude<V2PracticeMode, 'release'>;
+  durationSeconds: number;
+  saved: boolean;
 };
 export type V2PracticeRouteIntents = {
   onPremiumCapabilityRequired: (request: V2PremiumCapabilityRequest) => void;

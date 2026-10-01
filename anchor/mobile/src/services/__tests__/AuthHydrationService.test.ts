@@ -1,4 +1,5 @@
 import { createMockAnchor, createMockUser } from '@/__tests__/utils/testUtils';
+import { waitFor } from '@testing-library/react-native';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useProfileStore } from '@/stores/profileStore';
@@ -171,6 +172,39 @@ describe('AuthHydrationService', () => {
       deep_prime: { guidanceVoice: 'female', backgroundAudio: 'off' },
       visualize: { guidanceVoice: 'female', backgroundAudio: 'ambient' },
     });
+  });
+
+  it('publishes returned Anchors before the account export finishes', async () => {
+    const user = createMockUser({ id: 'user-fast-home' });
+    const remoteAnchor = createMockAnchor({
+      id: 'server-anchor-fast-home',
+      userId: user.id,
+      intentionText: 'Cached Home intention',
+      category: 'career',
+    });
+    let finishExport: ((value: unknown) => void) | undefined;
+    const exportRequest = new Promise((resolve) => {
+      finishExport = resolve;
+    });
+
+    useAuthStore.setState({ user, token: 'token', isAuthenticated: true } as any);
+    mockFetchCompleteProfile.mockResolvedValue({ user, stats: {}, activeAnchors: [] });
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/api/anchors') return Promise.resolve({ data: { data: [remoteAnchor] } });
+      if (url === '/api/auth/me/export') return exportRequest;
+      throw new Error(`Unexpected url: ${url}`);
+    });
+
+    const hydration = AuthHydrationService.hydrateAuthenticatedData();
+    await waitFor(() => {
+      expect(useAnchorStore.getState().anchors).toEqual(
+        expect.arrayContaining([expect.objectContaining({ id: remoteAnchor.id })]),
+      );
+    });
+    expect(useAnchorStore.getState().currentAnchorId).toBe(remoteAnchor.id);
+
+    finishExport?.({ data: { data: {} } });
+    await hydration;
   });
 
   it('hydrates profile and anchors when account export fails', async () => {

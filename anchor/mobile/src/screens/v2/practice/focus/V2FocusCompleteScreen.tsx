@@ -14,6 +14,8 @@ export interface V2FocusCompleteScreenProps {
   beforeStrength?: number | null;
   afterStrength?: number | null;
   sessionSaved?: boolean;
+  /** Shared completion presentation; Focus keeps its original copy by default. */
+  practiceTitle?: 'Deep Focus' | 'Visualize';
   onDone: () => void;
   onAgain: () => void;
 }
@@ -23,6 +25,7 @@ export function V2FocusCompleteScreen({
   beforeStrength: propBefore,
   afterStrength: propAfter,
   sessionSaved = true,
+  practiceTitle,
   onDone,
   onAgain,
 }: V2FocusCompleteScreenProps) {
@@ -112,7 +115,7 @@ export function V2FocusCompleteScreen({
         </Animated.View>
 
         <View style={styles.headingBlock}>
-          <Text style={styles.headline}>Focus complete</Text>
+          <Text style={styles.headline}>{practiceTitle ?? 'Focus'} complete</Text>
         </View>
 
         {sessionSaved ? <>
@@ -215,12 +218,12 @@ export function V2FocusCompleteScreen({
         </V2Button>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Focus again"
+          accessibilityLabel={`${practiceTitle ?? 'Focus'} again`}
           testID="focus-complete-again-button"
           onPress={onAgain}
           style={styles.againLink}
         >
-          <Text style={styles.againText}>Focus again</Text>
+          <Text style={styles.againText}>{practiceTitle ?? 'Focus'} again</Text>
         </Pressable>
       </View>
       <Animated.View pointerEvents="none" style={[styles.inkOverlay, inkOverlayStyle]} />
@@ -235,7 +238,7 @@ const styles = StyleSheet.create({
   },
   inkOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.ink.base,
+    backgroundColor: '#0B0F18',
   },
   content: {
     flex: 1,

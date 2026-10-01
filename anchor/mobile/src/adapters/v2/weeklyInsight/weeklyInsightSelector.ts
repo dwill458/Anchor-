@@ -208,6 +208,7 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
         releaseDay: relDay,
         category: releasedAnchor.category,
         svg: releasedAnchor.svg,
+        imageUrl: releasedAnchor.imageUrl,
       },
       evidence: [
         [lifetimeCount > 0 ? `${lifetimeCount}` : '—', 'Practices', lifetimeCount > 0 ? 'Lifetime' : 'Not recorded'],
@@ -252,6 +253,7 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
         transitionDay,
         category: targetAnchor?.category,
         svg: targetAnchor?.svg,
+        imageUrl: targetAnchor?.imageUrl,
       },
       evidence: [
         [stage, 'Current stage', `Reached ${transitionDay}`],
@@ -327,6 +329,7 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
         anchorName,
         category: primaryAnchor?.category,
         svg: primaryAnchor?.svg,
+        imageUrl: primaryAnchor?.imageUrl,
       },
       evidence: [
         [`${count}`, 'Practices', 'Milestone reached'],
@@ -483,6 +486,7 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
         anchorName,
         category: primaryAnchor?.category || 'custom',
         svg: primaryAnchor?.svg,
+        imageUrl: primaryAnchor?.imageUrl,
       },
       evidence: [
         [`${totalPractices}`, 'Practices', 'First week'],
@@ -640,6 +644,7 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
         anchorName,
         category: primaryAnchor?.category,
         svg: primaryAnchor?.svg,
+        imageUrl: primaryAnchor?.imageUrl,
       },
       evidence: [
         [`${deepCount}`, 'Deep Focus', `Of ${totalPractices} Practices`],
@@ -698,6 +703,7 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
         anchorName: topName,
         category: topAnchor.category,
         svg: topAnchor.svg,
+        imageUrl: topAnchor.imageUrl,
       },
       evidence: [
         [`${topAnchor.practiceCountInWeek} of ${totalPractices}`, 'Practices', `${topName} Anchor`],
@@ -772,6 +778,7 @@ export function selectWeeklyInsight(facts: WeeklyInsightFacts): WeeklyInsightSna
         anchorName,
         category: primaryAnchor?.category,
         svg: primaryAnchor?.svg,
+        imageUrl: primaryAnchor?.imageUrl,
       },
       evidence: [
         [`${facts.modeCounts.visualize}`, 'Visualize', 'Completed'],

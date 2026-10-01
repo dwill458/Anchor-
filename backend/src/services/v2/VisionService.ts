@@ -6,11 +6,13 @@ import { resolveStorageKeyUrl } from '../StorageService';
 import {
   VisionReadModel,
   VisionSceneReadModel,
+  VisionSceneSource,
   AssetReadModel,
   CreateVisionSchema,
   UpdateVisionSchema,
   CreateVisionSceneSchema,
   ReorderScenesSchema,
+  VISION_MAX_IMAGES,
 } from '../../domain/v2/vision';
 import { z } from 'zod';
 
@@ -91,7 +93,7 @@ export class VisionService {
         return {
           id: scene.id,
           visionId: scene.visionId,
-          sourceType: scene.sourceType as 'USER_UPLOAD' | 'AI_GENERATED',
+          sourceType: scene.sourceType as VisionSceneSource,
           assetId: scene.assetId,
           resolvedImageUrl: resolvedImageUrl ?? null,
           prompt: scene.prompt,
@@ -183,7 +185,7 @@ export class VisionService {
       });
       const selectedIds = new Set(alreadySelected.map(scene => scene.assetId));
       const missing = input.scenes.filter(scene => !selectedIds.has(scene.assetId));
-      if (alreadySelected.length + missing.length > 5) throw new AppError('A Vision can contain up to five images', 400, 'VISION_IMAGE_LIMIT');
+      if (alreadySelected.length + missing.length > VISION_MAX_IMAGES) throw new AppError(`A Vision can contain up to ${VISION_MAX_IMAGES} images`, 400, 'VISION_IMAGE_LIMIT');
       for (let i = 0; i < input.scenes.length; i++) {
         const scene = input.scenes[i];
         if (selectedIds.has(scene.assetId)) continue;
@@ -285,7 +287,7 @@ export class VisionService {
     if (existing) {
       const resolvedImageUrl = existing.asset?.storageKey ? await resolveStorageKeyUrl(existing.asset.storageKey) : null;
       return {
-        id: existing.id, visionId, sourceType: existing.sourceType as 'USER_UPLOAD' | 'AI_GENERATED',
+        id: existing.id, visionId, sourceType: existing.sourceType as VisionSceneSource,
         assetId: existing.assetId, resolvedImageUrl: resolvedImageUrl ?? null, prompt: existing.prompt,
         sortOrder: existing.sortOrder, isArchived: false,
         createdAt: existing.createdAt.toISOString(), updatedAt: existing.updatedAt.toISOString(),
@@ -293,7 +295,7 @@ export class VisionService {
     }
 
     const count = await prisma.visionScene.count({ where: { visionId, isArchived: false } });
-    if (count >= 5) throw new AppError('A Vision can contain up to five images', 400, 'VISION_IMAGE_LIMIT');
+    if (count >= VISION_MAX_IMAGES) throw new AppError(`A Vision can contain up to ${VISION_MAX_IMAGES} images`, 400, 'VISION_IMAGE_LIMIT');
     await this.validateSceneAsset(userId, vision.anchorId, input.assetId, input.sourceType, vision.id);
 
     let sortOrder = input.sortOrder;
@@ -327,7 +329,7 @@ export class VisionService {
     return {
       id: scene.id,
       visionId: scene.visionId,
-      sourceType: scene.sourceType as 'USER_UPLOAD' | 'AI_GENERATED',
+      sourceType: scene.sourceType as VisionSceneSource,
       assetId: scene.assetId,
       resolvedImageUrl: resolvedImageUrl ?? null,
       prompt: scene.prompt,
@@ -338,7 +340,7 @@ export class VisionService {
     };
   }
 
-  private async validateSceneAsset(userId: string, anchorId: string, assetId: string, sourceType: 'USER_UPLOAD' | 'AI_GENERATED', visionId?: string): Promise<void> {
+  private async validateSceneAsset(userId: string, anchorId: string, assetId: string, sourceType: VisionSceneSource, visionId?: string): Promise<void> {
     const asset = await prisma.asset.findFirst({ where: { id: assetId, userId } });
     if (!asset) throw new AppError('Asset not found or not owned by user', 404, 'ASSET_NOT_FOUND');
     if (sourceType === 'AI_GENERATED') {
@@ -397,7 +399,7 @@ export class VisionService {
         return {
           id: scene.id,
           visionId: scene.visionId,
-          sourceType: scene.sourceType as 'USER_UPLOAD' | 'AI_GENERATED',
+          sourceType: scene.sourceType as VisionSceneSource,
           assetId: scene.assetId,
           resolvedImageUrl: resolvedImageUrl ?? null,
           prompt: scene.prompt,

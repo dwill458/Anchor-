@@ -9,7 +9,9 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { GENERATION_ERRORS, useCreationStore, whenCreationHydrated, type CreationDraft, type SaveFailure } from '@/stores/v2/creationStore';
 import { CreationStage, type WindowRect } from './CreationStage';
 import { CREATION_PACE, GENERATION_TIMING } from './creationMotion';
-import { IntentionStep } from './IntentionStep';
+import { ETCHING, startEtching, finishEtching, requestEtchingCut } from './generationPerformance';
+import { sealIsCommitted } from './sealCommitment';
+import { IntentionStep, type IntentionSuggestionContext } from './IntentionStep';
 
 export { sanitizeIntention } from './IntentionStep';
 export type { WindowRect } from './CreationStage';
@@ -53,6 +55,7 @@ export interface V2CreationFlowProps {
   /** The server refused a second Anchor on the free plan. The draft is kept for the return. */
   onPaywall?: () => void;
   onSignIn?: () => void;
+  suggestionContext?: IntentionSuggestionContext;
 }
 
 const track = (event: string, properties?: Record<string, string | boolean | number>) => {
@@ -99,7 +102,7 @@ async function imagesReady(urls: string[], timeoutMs: number): Promise<void> {
  * happens on one continuous stage, so the letters, the grid, the traced line and the finished
  * mark are the same objects throughout rather than a sequence of screens.
  */
-export function V2CreationFlow({ saveAnchor, generateExpression, onComplete, onPrepareHandoff, onExit, onPaywall, onSignIn }: V2CreationFlowProps) {
+export function V2CreationFlow({ saveAnchor, generateExpression, onComplete, onPrepareHandoff, onExit, onPaywall, onSignIn, suggestionContext }: V2CreationFlowProps) {
   const draft = useCreationStore((state) => state.draft);
   const store = useCreationStore;
   const reduceMotion = useCreationReduceMotion();
@@ -154,6 +157,7 @@ export function V2CreationFlow({ saveAnchor, generateExpression, onComplete, onP
   }, [step]);
 
   const goBack = useCallback(() => {
+    if (sealIsCommitted(store.getState().draft?.draftId)) return;
     if (store.getState().goBack()) return;
     if (store.getState().draft?.currentStep === 'intention') onExit?.();
   }, [onExit, store]);
@@ -221,6 +225,7 @@ export function V2CreationFlow({ saveAnchor, generateExpression, onComplete, onP
     const current = store.getState().draft;
     if (!current) return;
     const startedAt = Date.now();
+    startEtching(plan.requestId, startedAt);
     const style = current.styleChoice ?? current.expression;
     track('v2_creation_generation_started', { expression: current.expression, style, attempt: plan.attempt, requested: plan.missing });
     try {
@@ -229,7 +234,9 @@ export function V2CreationFlow({ saveAnchor, generateExpression, onComplete, onP
       // Nothing is revealed until it exists and can be shown: the images are decoded first,
       // and ordinary latency is covered by the development sequence already on screen.
       await imagesReady(fresh.map((candidate) => candidate.imageUrl), GENERATION_TIMING.imageWait);
-      if (!reduceMotionRef.current) await wait(GENERATION_TIMING.minimumBeforeReveal - (Date.now() - startedAt));
+      await wait(ETCHING.minimum - (Date.now() - startedAt));
+      if (!reduceMotionRef.current) await requestEtchingCut(plan.requestId);
+      finishEtching(plan.requestId);
       store.getState().completeGeneration(plan.requestId, fresh, result.metadata);
       const after = store.getState().draft;
       if (after?.generationState === 'complete') {
@@ -240,6 +247,7 @@ export function V2CreationFlow({ saveAnchor, generateExpression, onComplete, onP
         v2Haptics.warning();
       }
     } catch (error) {
+      finishEtching(plan.requestId);
       store.getState().failGeneration(plan.requestId, generationFailureMessage(error));
       track('v2_creation_generation_failed', { expression: current.expression, style, failure: (error as { failure?: string } | null)?.failure ?? 'unknown' });
       v2Haptics.warning();
@@ -271,6 +279,7 @@ export function V2CreationFlow({ saveAnchor, generateExpression, onComplete, onP
         onChange={store.getState().setIntention}
         onSubmit={submitIntention}
         onExit={onExit}
+        suggestionContext={suggestionContext}
       />
     );
   }

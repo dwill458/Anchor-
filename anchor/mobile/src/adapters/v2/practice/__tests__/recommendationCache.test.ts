@@ -1,11 +1,24 @@
+jest.mock('@/stores/encryptedPersistStorage', () => ({
+  encryptedPersistStorage: {
+    getItem: jest.fn().mockResolvedValue(null),
+    setItem: jest.fn().mockResolvedValue(undefined),
+    removeItem: jest.fn().mockResolvedValue(undefined),
+  },
+  readSecureValue: jest.fn().mockResolvedValue(null),
+  writeSecureValue: jest.fn().mockResolvedValue(undefined),
+}));
+
 import {
   V2_RECOMMENDATION_FRESH_MS,
+  hydrateV2RecommendationContext,
   invalidateV2RecommendationContext,
   isV2RecommendationContextFresh,
   peekV2RecommendationContext,
   rememberV2RecommendationContext,
 } from '../recommendationCache';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useAuthStore } from '@/stores/authStore';
+import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
 import type { V2RecommendationContext } from '../recommendationClient';
 
 const context = (anchorId: string): V2RecommendationContext => ({
@@ -19,6 +32,10 @@ const context = (anchorId: string): V2RecommendationContext => ({
 describe('recommendationCache', () => {
   beforeEach(() => {
     invalidateV2RecommendationContext();
+    useAuthStore.setState({ user: { id: 'cache-user' } as never });
+    jest.mocked(encryptedPersistStorage.getItem).mockReset().mockResolvedValue(null);
+    jest.mocked(encryptedPersistStorage.setItem).mockReset().mockResolvedValue(undefined);
+    jest.mocked(encryptedPersistStorage.removeItem).mockReset().mockResolvedValue(undefined);
     jest.useRealTimers();
   });
 
@@ -31,6 +48,29 @@ describe('recommendationCache', () => {
     rememberV2RecommendationContext('a', context('a'));
     expect(peekV2RecommendationContext('a')?.anchorId).toBe('a');
     expect(isV2RecommendationContextFresh('a')).toBe(true);
+  });
+
+  it('persists presentation data in encrypted account-scoped storage and restores it', async () => {
+    const cached = {
+      value: context('a'),
+      fetchedAt: Date.now(),
+      practiceMarker: '',
+    };
+    rememberV2RecommendationContext('a', context('a'));
+    expect(encryptedPersistStorage.setItem).toHaveBeenCalledWith(
+      'anchor:v2:recommendation-context:cache-user:a',
+      expect.stringContaining('server_authoritative'),
+    );
+
+    invalidateV2RecommendationContext('a');
+    jest.mocked(encryptedPersistStorage.getItem).mockResolvedValueOnce(JSON.stringify(cached));
+    await expect(hydrateV2RecommendationContext('a')).resolves.toEqual(context('a'));
+    expect(encryptedPersistStorage.getItem).toHaveBeenCalledWith(
+      'anchor:v2:recommendation-context:cache-user:a',
+    );
+
+    useAuthStore.setState({ user: { id: 'another-user' } as never });
+    expect(peekV2RecommendationContext('a')).toBeNull();
   });
 
   it('keeps serving a stale context but stops calling it fresh', () => {

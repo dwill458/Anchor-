@@ -1,0 +1,9 @@
+PASS src/adapters/v2/weeklyInsight/__tests__/weeklyInsightSelector.test.ts (8.078 s)
+PASS src/adapters/v2/weeklyInsight/__tests__/weeklyInsightFactsBuilder.test.ts
+PASS src/adapters/v2/weeklyInsight/__tests__/weeklyReviewWindow.test.ts
+PASS src/screens/v2/weeklyInsight/__tests__/V2WeeklyInsightScreen.test.tsx (12.059 s)
+
+Test Suites: 4 passed, 4 total
+Tests:       37 passed, 37 total
+Snapshots:   0 total
+Time:        22.757 s

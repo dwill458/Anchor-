@@ -14,8 +14,11 @@ import { useV2Vision } from '@/hooks/v2/vision';
 import { colors, spacing, typography } from '@/theme/v2';
 import type { GuidanceVoice } from '@/types/sessionAudio';
 import { V2FocusActiveScreen, V2FocusCompleteScreen } from './focus';
-import { V2VisualizeSessionScreen } from './visualize/V2VisualizeSessionScreen';
+import { V2DeepFocusActiveScreen } from './deepFocus/V2DeepFocusActiveScreen';
+import { isDeepFocusDuration } from './deepFocus/deepFocusTimeline';
+import { V2CinematicSessionScreen, type PreparedCinematicSession, type CinematicCompletion } from './visualize/V2CinematicSessionScreen';
 import { isV2VisualizeDuration } from './visualize/visualizeVisionPlan';
+import type { V2PracticeCompletionResult } from './practiceRoutes';
 
 type Props = {
   anchorId: string;
@@ -23,12 +26,15 @@ type Props = {
   durationSeconds: number;
   source: 'practice_hub' | 'recommended_today';
   voice?: GuidanceVoice;
+  preparedVisualize?: PreparedCinematicSession;
   ambient?: boolean;
   haptics?: boolean;
   focusEntryAnchorCenterY?: number;
   focusEntryAnchorSize?: number;
+  /** The shared Anchor transition is carrying the Anchor in; the session hands its entry to it. */
+  anchorTransition?: boolean;
   onBack: () => void;
-  onCompleted: () => void;
+  onCompleted: (result?: V2PracticeCompletionResult) => void;
   onFocusAgain: () => void;
 };
 
@@ -40,10 +46,12 @@ export function V2PracticeSessionScreen({
   durationSeconds,
   source,
   voice,
+  preparedVisualize,
   ambient,
   haptics,
   focusEntryAnchorCenterY,
   focusEntryAnchorSize,
+  anchorTransition = false,
   onBack,
   onCompleted,
   onFocusAgain,
@@ -64,14 +72,35 @@ export function V2PracticeSessionScreen({
   const visionModel = useV2Vision(mode === 'visualize' ? anchorId : '');
 
   const defaultFocusSettings = useSettingsStore((state) => state.sessionAudioDefaults?.focus);
+  const defaultDeepFocusSettings = useSettingsStore((state) => state.sessionAudioDefaults?.deep_prime);
   const defaultVisualizeSettings = useSettingsStore((state) => state.sessionAudioDefaults?.visualize);
   const hapticIntensity = useSettingsStore((state) => state.hapticIntensity);
+  // Entering a Visualize session is what marks the Vision seen today, whichever way the person arrived.
+  const visionViewRecorded = useRef(false);
+  const recordVisionView = visionModel.recordVisionView;
+  const visionIdForView = visionModel.vision?.id;
+  useEffect(() => {
+    if (mode !== 'visualize' || !visionIdForView || visionViewRecorded.current) return;
+    visionViewRecorded.current = true;
+    void recordVisionView();
+  }, [mode, recordVisionView, visionIdForView]);
+  const [visualizeCompletion, setVisualizeCompletion] = useState<CinematicCompletion | null>(null);
+  const visualizeReturned = useRef(false);
+  const finishVisualize = useCallback(() => {
+    if (!visualizeCompletion || visualizeReturned.current) return;
+    visualizeReturned.current = true;
+    onCompleted({ mode: 'visualize', durationSeconds, saved: visualizeCompletion.saved });
+  }, [durationSeconds, onCompleted, visualizeCompletion]);
+  const visualizeRecord = useSessionStore(state => visualizeCompletion?.record?.id
+    ? state.practiceHistory.find(record => record.id === visualizeCompletion.record!.id) : undefined);
   const [focusSessionId, setFocusSessionId] = useState<string | null>(null);
+  const [focusActualDurationSeconds, setFocusActualDurationSeconds] = useState<number | null>(null);
   const focusSessionRecord = useSessionStore((state) =>
     focusSessionId ? state.practiceHistory.find((record) => record.id === focusSessionId) : undefined
   );
-  const resolvedVoice = voice ?? defaultFocusSettings?.guidanceVoice ?? 'female';
-  const resolvedAmbient = ambient ?? (defaultFocusSettings?.backgroundAudio !== 'off');
+  const audioDefaults = mode === 'deep_prime' ? defaultDeepFocusSettings : defaultFocusSettings;
+  const resolvedVoice = voice ?? audioDefaults?.guidanceVoice ?? 'female';
+  const resolvedAmbient = ambient ?? (audioDefaults?.backgroundAudio !== 'off');
 
   // Focus redesign state
   const startedAtRef = useRef(new Date());
@@ -96,7 +125,7 @@ export function V2PracticeSessionScreen({
   // timestamp rather than adding one second per callback.
   useEffect(() => {
     // Focus and Visualize own their clocks (Visualize: the shared session engine).
-    if (mode === 'focus' || mode === 'visualize' || legacyStatus !== 'active') return;
+    if (mode === 'focus' || mode === 'deep_prime' || mode === 'visualize' || legacyStatus !== 'active') return;
     if (!legacyClockStartedRef.current) {
       startedAtRef.current = new Date();
       legacyClockStartedRef.current = true;
@@ -116,6 +145,99 @@ export function V2PracticeSessionScreen({
     return () => { clearInterval(interval); subscription.remove(); };
   }, [durationSeconds, legacyStatus, mode, visionModel.state.state]);
 
+  const focusEndingPromiseRef = useRef<Promise<void> | null>(null);
+
+  const startFocusPersistence = useCallback(
+    (sessionData: {
+      plannedDurationSeconds: number;
+      actualDurationSeconds: number;
+      startedAt: string;
+      completedAt: string;
+    }) => {
+      if (focusEndingPromiseRef.current) return focusEndingPromiseRef.current;
+      setFocusActualDurationSeconds(sessionData.actualDurationSeconds);
+      const resolvedAccountId = accountId ?? anchor?.userId ?? 'local-user';
+
+      const beforeStrength =
+        typeof anchor?.threadStrength === 'number' ? anchor.threadStrength : null;
+      const sessionId = `v2-${mode}-${anchor?.id}-${Date.now()}`;
+      setFocusSessionId(sessionId);
+
+      const promise = (async () => {
+        try {
+          await PracticeCompletionService.completePracticeSession(
+            {
+              sessionId,
+              accountId: resolvedAccountId,
+              anchorId: anchor && isBackendAnchorId(anchor.id) ? anchor.id : null,
+              anchorLocalId: anchor?.localId ?? anchor?.id,
+              anchorServerId: anchor && isBackendAnchorId(anchor.id) ? anchor.id : null,
+              mode,
+              plannedDurationSeconds: sessionData.plannedDurationSeconds,
+              actualDurationSeconds: sessionData.actualDurationSeconds,
+              startedAt: sessionData.startedAt,
+              completedAt: sessionData.completedAt,
+              source: 'practice_screen',
+              guidanceVoice: resolvedVoice,
+              backgroundAudio: resolvedAmbient ? 'ambient' : 'off',
+              metadata: { v2_entry_source: source },
+            },
+            { flushImmediately: false }
+          );
+
+          // The canonical record is already durable locally. Network sync must
+          // not hold the completion surface hostage when the account API is slow
+          // or unavailable; `flush` retains the queued record on failure.
+          void PracticeCompletionService.flush(resolvedAccountId).catch(() => undefined);
+        } catch {
+          // A rejection can mean the local durable write failed. Do not report
+          // reinforcement unless PracticeCompletionService accepted the record.
+          setFocusPersistenceFailed(true);
+        }
+
+        const freshAnchor = anchor
+          ? useAnchorStore
+              .getState()
+              .anchors.find((a) => a.id === anchor.id || a.localId === anchor.id)
+          : undefined;
+        const sessionRecord = useSessionStore
+          .getState()
+          .practiceHistory.find((p) => p.id === sessionId);
+
+        const resolvedBefore =
+          sessionRecord?.threadStrengthBefore ??
+          (typeof beforeStrength === 'number' ? beforeStrength : null);
+        const resolvedAfter =
+          sessionRecord?.threadStrengthAfter ??
+          (typeof freshAnchor?.threadStrength === 'number'
+            ? freshAnchor.threadStrength
+            : resolvedBefore);
+
+        setStrengthSnapshot({
+          before: resolvedBefore,
+          after: resolvedAfter,
+        });
+      })();
+
+      focusEndingPromiseRef.current = promise;
+      return promise;
+    },
+    [accountId, anchor, mode, resolvedAmbient, resolvedVoice, source]
+  );
+
+  const handleFocusEnding = useCallback(
+    (sessionData: {
+      plannedDurationSeconds: number;
+      actualDurationSeconds: number;
+      startedAt: string;
+      completedAt: string;
+    }) => {
+      if (!anchor) return;
+      void startFocusPersistence(sessionData);
+    },
+    [anchor, startFocusPersistence]
+  );
+
   // Focus completion handler
   const handleFocusComplete = useCallback(
     async (sessionData: {
@@ -128,74 +250,30 @@ export function V2PracticeSessionScreen({
       // Lock before the asynchronous completion service begins. Both automatic
       // and manual endings enter here through the same active-screen callback.
       focusCompletionStartedRef.current = true;
-      const resolvedAccountId = accountId ?? anchor.userId ?? 'local-user';
 
-      const beforeStrength =
-        typeof anchor.threadStrength === 'number' ? anchor.threadStrength : null;
-      const sessionId = `v2-focus-${anchor.id}-${Date.now()}`;
-      setFocusSessionId(sessionId);
-
-      try {
-        await PracticeCompletionService.completePracticeSession(
-          {
-            sessionId,
-            accountId: resolvedAccountId,
-            anchorId: isBackendAnchorId(anchor.id) ? anchor.id : null,
-            anchorLocalId: anchor.localId ?? anchor.id,
-            anchorServerId: isBackendAnchorId(anchor.id) ? anchor.id : null,
-            mode: 'focus',
-            plannedDurationSeconds: sessionData.plannedDurationSeconds,
-            actualDurationSeconds: sessionData.actualDurationSeconds,
-            startedAt: sessionData.startedAt,
-            completedAt: sessionData.completedAt,
-            source: 'practice_screen',
-            guidanceVoice: resolvedVoice,
-            backgroundAudio: resolvedAmbient ? 'ambient' : 'off',
-            metadata: { v2_entry_source: source },
-          },
-          { flushImmediately: false }
-        );
-
-        // The canonical record is already durable locally. Network sync must
-        // not hold the completion surface hostage when the account API is slow
-        // or unavailable; `flush` retains the queued record on failure.
-        void PracticeCompletionService.flush(resolvedAccountId).catch(() => undefined);
-      } catch {
-        // A rejection can mean the local durable write failed. Do not report
-        // reinforcement unless PracticeCompletionService accepted the record.
-        setFocusPersistenceFailed(true);
+      const persistence =
+        focusEndingPromiseRef.current ?? startFocusPersistence(sessionData);
+      if (persistence) {
+        await persistence;
       }
-
-      const freshAnchor = useAnchorStore
-        .getState()
-        .anchors.find((a) => a.id === anchor.id || a.localId === anchor.id);
-      const sessionRecord = useSessionStore
-        .getState()
-        .practiceHistory.find((p) => p.id === sessionId);
-
-      const resolvedBefore =
-        sessionRecord?.threadStrengthBefore ??
-        (typeof beforeStrength === 'number' ? beforeStrength : null);
-      const resolvedAfter =
-        sessionRecord?.threadStrengthAfter ??
-        (typeof freshAnchor?.threadStrength === 'number'
-          ? freshAnchor.threadStrength
-          : resolvedBefore);
-
-      setStrengthSnapshot({
-        before: resolvedBefore,
-        after: resolvedAfter,
-      });
       setFocusPhase('complete');
     },
-    [accountId, anchor, resolvedAmbient, resolvedVoice, source]
+    [anchor, startFocusPersistence]
   );
 
   const handleDone = useCallback(() => {
     // Continue has a semantic destination: the Practice hub. The parent clears
     // both the session and setup layers, rather than relying on stack history.
+    if (mode === 'focus' || mode === 'deep_prime') {
+      onCompleted({
+        mode,
+        durationSeconds: focusActualDurationSeconds ?? durationSeconds,
+        saved: !focusPersistenceFailed,
+      });
+      return;
+    }
     onCompleted();
-  }, [onCompleted]);
+  }, [durationSeconds, focusActualDurationSeconds, focusPersistenceFailed, mode, onCompleted]);
 
   const handleAgain = useCallback(() => {
     onFocusAgain();
@@ -223,7 +301,7 @@ export function V2PracticeSessionScreen({
         : currentBeforeStrength
       : strengthSnapshot.after);
 
-  if (mode === 'visualize' && visionModel.state.state !== 'ready') {
+  if (mode === 'visualize' && !preparedVisualize && !visualizeCompletion && visionModel.state.state !== 'ready') {
     return (
       <V2Screen testID="v2-practice-session-vision-unavailable">
         <View style={styles.empty}>
@@ -239,6 +317,13 @@ export function V2PracticeSessionScreen({
   // Visualize: immersive Vision session. It records completion itself, only
   // when the full duration has run, through the Visualize completion contract.
   if (mode === 'visualize') {
+    if (visualizeCompletion) return <V2FocusCompleteScreen
+      anchor={preparedVisualize?.anchor ?? anchor} practiceTitle="Visualize" durationSeconds={durationSeconds}
+      beforeStrength={visualizeRecord?.threadStrengthBefore ?? visualizeCompletion.record?.threadStrengthBefore}
+      afterStrength={visualizeRecord?.threadStrengthAfter ?? visualizeCompletion.record?.threadStrengthAfter}
+      sessionSaved={visualizeCompletion.saved}
+      onDone={finishVisualize}
+      onAgain={onFocusAgain} />;
     if (!isV2VisualizeDuration(durationSeconds)) {
       return (
         <V2Screen testID="v2-practice-session">
@@ -249,7 +334,7 @@ export function V2PracticeSessionScreen({
       );
     }
     return (
-      <V2VisualizeSessionScreen
+      <V2CinematicSessionScreen
         anchor={anchor}
         accountId={accountId}
         tiles={visionModel.tiles}
@@ -261,14 +346,24 @@ export function V2PracticeSessionScreen({
         haptics={haptics ?? (hapticIntensity ?? 70) > 0}
         source={source}
         onExit={onBack}
-        onContinue={onCompleted}
+        prepared={preparedVisualize}
+        onContinue={setVisualizeCompletion}
       />
     );
   }
 
   // Focus Mode Redesign
-  if (mode === 'focus') {
+  if (mode === 'focus' || mode === 'deep_prime') {
     if (focusPhase === 'active') {
+      if (mode === 'deep_prime') {
+        if (!isDeepFocusDuration(durationSeconds)) {
+          return <V2Screen><V2EmptyState title="Deep Focus unavailable" message="Choose 2, 5 or 10 minutes and begin again."
+            action={<V2Button onPress={onBack}>Back to Practice</V2Button>} /></V2Screen>;
+        }
+        return <V2DeepFocusActiveScreen anchor={anchor} durationSeconds={durationSeconds}
+          voice={resolvedVoice} ambient={resolvedAmbient} haptics={haptics ?? (hapticIntensity ?? 70) > 0}
+          onComplete={handleFocusComplete} />;
+      }
       return (
         <V2FocusActiveScreen
           anchor={anchor}
@@ -277,9 +372,11 @@ export function V2PracticeSessionScreen({
           ambient={resolvedAmbient}
           haptics={haptics ?? (hapticIntensity ?? 70) > 0}
           initialStage="entry"
+          anchorHandoff={anchorTransition}
           entryStartCenterY={focusEntryAnchorCenterY}
           entryStartSize={focusEntryAnchorSize}
           onExit={onBack}
+          onEnding={handleFocusEnding}
           onComplete={handleFocusComplete}
         />
       );
@@ -288,6 +385,7 @@ export function V2PracticeSessionScreen({
     return (
       <V2FocusCompleteScreen
         anchor={anchor}
+        practiceTitle={mode === 'deep_prime' ? 'Deep Focus' : undefined}
         durationSeconds={durationSeconds}
         beforeStrength={currentBeforeStrength}
         afterStrength={currentAfterStrength}
@@ -352,6 +450,7 @@ export function V2PracticeSessionScreen({
         </Text>
         <Text style={styles.title}>Stay with your Anchor.</Text>
         <V2PracticeAnchorContext anchor={anchor} />
+        <View>
         <View style={styles.timerBlock} accessibilityLiveRegion="polite">
           <Text
             testID="v2-practice-session-timer"
@@ -383,6 +482,7 @@ export function V2PracticeSessionScreen({
         >
           {remaining > 0 ? `Finish ${definition.title}` : `Complete ${definition.title}`}
         </V2Button>
+        </View>
       </ScrollView>
     </V2Screen>
   );

@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
+import { cancelAnimation, Easing, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 import { v2Haptics } from '@/hooks/v2';
 import {
   RELEASE_HOLD_DURATION_MS,
   RELEASE_HOLD_HAPTIC_STEPS,
   RELEASE_HOLD_TICK_MS,
+  RELEASE_HOLD_CANCEL_MS,
 } from '@/constants/v2/release';
 
 type HoldHaptics = Pick<typeof v2Haptics, 'selection' | 'completion'>;
@@ -24,8 +27,10 @@ export interface UseReleaseHoldOptions {
 }
 
 export interface UseReleaseHoldResult {
-  /** 0 → 1 fill of the radial progress ring. */
+  /** 0 → 1 sampled hold progress; presentation uses visualProgress. */
   progress: number;
+  /** UI-thread presentation; the sampled clock remains the authority for commitment. */
+  visualProgress: SharedValue<number>;
   isHolding: boolean;
   isComplete: boolean;
   /** Wire to Pressable onPressIn / onLongPress start. */
@@ -39,8 +44,8 @@ export interface UseReleaseHoldResult {
 /**
  * Deliberate 1.8s hold-to-release interaction.
  *
- * Progress fills over `durationMs`. Haptic ticks form a crescendo as the ring
- * fills (`v2Haptics.selection()`), resolving to a single `v2Haptics.completion()`
+ * The UI-thread fill runs over `durationMs`. Haptic ticks form a crescendo as it
+ * fills (`v2Haptics.selection()`), resolving to the injected commitment
  * pulse at the top. Lifting before completion retreats to zero and fires
  * `onCancel` — no release request is ever sent from here.
  */
@@ -52,11 +57,14 @@ export function useReleaseHold(options: UseReleaseHoldOptions): UseReleaseHoldRe
     durationMs = RELEASE_HOLD_DURATION_MS,
     haptics = v2Haptics,
     now = Date.now,
+    reduceMotion = false,
   } = options;
 
   const [progress, setProgress] = useState(0);
   const [isHolding, setIsHolding] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const visualProgress = useSharedValue(0);
+  const completedRef = useRef(false);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startRef = useRef<number>(0);
@@ -73,16 +81,20 @@ export function useReleaseHold(options: UseReleaseHoldOptions): UseReleaseHoldRe
     }
   }, []);
 
-  useEffect(() => clearTimer, [clearTimer]);
+  useEffect(() => () => { clearTimer(); cancelAnimation(visualProgress); }, [clearTimer, visualProgress]);
 
   const finishComplete = useCallback(() => {
+    if (completedRef.current) return;
+    completedRef.current = true;
     clearTimer();
+    cancelAnimation(visualProgress);
+    visualProgress.value = 1;
     setProgress(1);
     setIsHolding(false);
     setIsComplete(true);
     cbRef.current.haptics.completion();
     cbRef.current.onComplete();
-  }, [clearTimer]);
+  }, [clearTimer, visualProgress]);
 
   const tick = useCallback(() => {
     const elapsed = cbRef.current.now() - startRef.current;
@@ -91,6 +103,7 @@ export function useReleaseHold(options: UseReleaseHoldOptions): UseReleaseHoldRe
     if (next > 0 && !sustainNotifiedRef.current) {
       sustainNotifiedRef.current = true;
       cbRef.current.onSustainStart?.();
+      setProgress(next);
     }
 
     if (next >= 1) {
@@ -102,40 +115,55 @@ export function useReleaseHold(options: UseReleaseHoldOptions): UseReleaseHoldRe
     if (step > lastHapticStepRef.current) {
       lastHapticStepRef.current = step;
       cbRef.current.haptics.selection();
+      setProgress(next);
     }
 
-    setProgress(next);
   }, [durationMs, finishComplete]);
 
   const beginHold = useCallback(() => {
-    if (isComplete || intervalRef.current !== null) return;
+    if (completedRef.current || intervalRef.current !== null) return;
     startRef.current = cbRef.current.now();
     lastHapticStepRef.current = 0;
     sustainNotifiedRef.current = false;
     setIsHolding(true);
     setProgress(0);
+    cancelAnimation(visualProgress);
+    visualProgress.value = 0;
+    visualProgress.value = withTiming(1, { duration: durationMs, easing: Easing.linear });
     intervalRef.current = setInterval(tick, RELEASE_HOLD_TICK_MS);
-  }, [isComplete, tick]);
+  }, [durationMs, tick, visualProgress]);
 
   const endHold = useCallback(() => {
-    if (isComplete || intervalRef.current === null) return;
+    if (completedRef.current || intervalRef.current === null) return;
     clearTimer();
     setIsHolding(false);
     // Cancel cleanly: retreat to zero, no request sent.
     setProgress(0);
+    cancelAnimation(visualProgress);
+    visualProgress.value = reduceMotion ? 0 : withTiming(0, { duration: RELEASE_HOLD_CANCEL_MS, easing: Easing.out(Easing.cubic) });
     lastHapticStepRef.current = 0;
     sustainNotifiedRef.current = false;
     cbRef.current.onCancel?.();
-  }, [clearTimer, isComplete]);
+  }, [clearTimer, reduceMotion, visualProgress]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', state => {
+      if (state !== 'active') endHold();
+    });
+    return () => subscription.remove();
+  }, [endHold]);
 
   const reset = useCallback(() => {
     clearTimer();
+    completedRef.current = false;
+    cancelAnimation(visualProgress);
+    visualProgress.value = 0;
     setProgress(0);
     setIsHolding(false);
     setIsComplete(false);
     lastHapticStepRef.current = 0;
     sustainNotifiedRef.current = false;
-  }, [clearTimer]);
+  }, [clearTimer, visualProgress]);
 
-  return { progress, isHolding, isComplete, beginHold, endHold, reset };
+  return { progress, visualProgress, isHolding, isComplete, beginHold, endHold, reset };
 }

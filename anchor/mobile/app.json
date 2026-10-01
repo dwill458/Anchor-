@@ -35,7 +35,7 @@
       "buildNumber": "16",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
-        "NSCameraUsageDescription": "Anchor uses your camera so you can take a profile photo.",
+        "NSCameraUsageDescription": "Anchor uses your camera so you can take a profile photo or add a photo to your Vision.",
         "NSFaceIDUsageDescription": "Anchor uses Face ID to keep your anchors secure.",
         "NSMicrophoneUsageDescription": "Anchor uses your microphone to record mantras and audio for your anchors.",
         "NSPhotoLibraryUsageDescription": "Anchor accesses your photo library so you can choose a profile photo and save exported anchor artwork.",
@@ -195,8 +195,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Anchor accesses your photo library to set your profile photo.",
-          "cameraPermission": "Anchor uses your camera to set your profile photo."
+          "photosPermission": "Anchor accesses your photo library to set your profile photo or add images to your Vision.",
+          "cameraPermission": "Anchor uses your camera to set your profile photo or add a photo to your Vision."
         }
       ],
       [

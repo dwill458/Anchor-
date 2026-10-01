@@ -14,6 +14,8 @@ export { V2_RELEASE_ROUTE };
 
 export interface V2ReleaseRouteParams {
   anchorId: string;
+  /** Shared artwork owns the arrival animation. */
+  anchorTransition?: boolean;
   /** Optional context for a manual release (e.g. 'evolve', 'destination_completed'). */
   reason?: string;
 }
@@ -22,4 +24,5 @@ export interface V2ReleaseRouteParams {
 export interface V2ReleaseContinuationCallbacks {
   onReleaseCompleted: (anchorId: string) => void;
   onCancel: () => void;
+  onViewHistory?: () => void;
 }

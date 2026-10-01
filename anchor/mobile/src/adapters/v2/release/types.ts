@@ -1,4 +1,5 @@
 import type { V2ReleaseConsequenceTone } from '@/constants/v2/release';
+import type { AnchorExpression } from '@/constants/v2/creation';
 
 /** One line in the preflight consequence snapshot. */
 export interface V2ReleaseConsequence {
@@ -14,6 +15,8 @@ export interface V2ReleaseConsequenceSnapshot {
   intentionText: string;
   category: string | null;
   artworkSvg: string;
+  imageUrl?: string | null;
+  expression?: AnchorExpression;
   /** True when a Course/Chart is linked to this Anchor and will be archived with it. */
   hasLinkedCourse: boolean;
   /** True when a Vision is linked to this Anchor. */
@@ -36,6 +39,8 @@ export interface V2ReleaseSnapshotInput {
     category?: string | null;
     baseSigilSvg?: string;
     reinforcedSigilSvg?: string | null;
+    enhancedImageUrl?: string;
+    classifierMeta?: { v2Expression?: unknown };
   };
   linkedCourse?: V2ReleaseLinkedCourse | null;
   hasLinkedVision?: boolean;

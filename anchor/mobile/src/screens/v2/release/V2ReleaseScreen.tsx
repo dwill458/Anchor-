@@ -1,226 +1,146 @@
-import React, { useCallback } from 'react';
-import { AccessibilityInfo, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { V2Button, V2EmptyState, V2Screen, V2TopBar } from '@/components/v2';
-import {
-  V2DissolutionCeremony,
-  V2HoldToReleaseControl,
-  V2ReleaseChamberStatus,
-  V2ReleaseCompletion,
-  V2ReleaseConsequenceCard,
-} from '@/components/v2/release';
-import { useV2ReduceMotion } from '@/hooks/v2';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AccessibilityInfo, Pressable, ScrollView, StatusBar, StyleSheet, type LayoutChangeEvent, Text, useWindowDimensions, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import { ArrowLeft } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { V2EmptyState, V2Screen, V2TopBar } from '@/components/v2';
+import { V2DissolutionCeremony, V2HoldToReleaseControl, V2ReleaseChamberStatus,
+  V2ReleaseCompletion, V2ReleaseConsequenceCard } from '@/components/v2/release';
+import { V2ReleaseArtwork } from '@/components/v2/release/V2ReleaseArtwork';
+import { releaseArtworkRect, segment } from '@/components/v2/release/releaseBurn';
+import { releaseTypography } from '@/components/v2/release/releaseTypography';
+import { useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
 import { useReleaseHold, useV2Release } from '@/hooks/v2/release';
-import { RELEASE_COPY } from '@/constants/v2/release';
-import { colors, spacing, typography } from '@/theme/v2';
+import { safeHaptics } from '@/utils/haptics';
+import { RELEASE_COPY, RELEASE_CEREMONY_CHAMBER_BG } from '@/constants/v2/release';
+import { colors, spacing } from '@/theme/v2';
 import type { V2ReleaseAdapter } from '@/adapters/v2/release';
 import type { V2ReleaseContinuationCallbacks, V2ReleaseRouteParams } from './releaseRoutes';
+import { useAnchorTransitionPlace } from '@/navigation/v2/ProgressiveFocusTransition';
 
-export interface V2ReleaseScreenProps
-  extends Partial<V2ReleaseRouteParams>,
-    V2ReleaseContinuationCallbacks {
-  /** Injectable non-destructive release submission port. Defaults to the V2 API adapter. */
+export interface V2ReleaseScreenProps extends Partial<V2ReleaseRouteParams>, V2ReleaseContinuationCallbacks {
   releaseAdapter?: V2ReleaseAdapter;
-  /** Integration may pass known Vision linkage (async to resolve). */
   hasLinkedVision?: boolean;
+  /** Navigation host can lock gestures/removal while a committed operation resolves. */
+  onSessionActiveChange?: (active: boolean) => void;
   testID?: string;
 }
 
-/**
- * Anchor 2.0 Release experience: preflight consequence snapshot → deliberate
- * 1.8s hold → consuming dissolution ceremony → idempotent non-destructive
- * submit → reconciliation + celebratory completion.
- *
- * Never calls the legacy destructive `/api/anchors/:id/burn` endpoint and never
- * deletes Anchor history or Course events.
- */
-export function V2ReleaseScreen({
-  anchorId = '',
-  reason,
-  releaseAdapter,
-  hasLinkedVision,
-  onReleaseCompleted,
-  onCancel,
-  testID,
-}: V2ReleaseScreenProps) {
+// Commitment is tactile, not a success notification. Success belongs to the result reveal.
+const holdHaptics = { selection: v2Haptics.selection,
+  completion: () => safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium) };
+
+/** One scene transforms around the same Anchor; the mutation hook remains authoritative. */
+export function V2ReleaseScreen({ anchorId = '', reason, releaseAdapter, hasLinkedVision,
+  onReleaseCompleted, onCancel, onViewHistory, onSessionActiveChange, testID }: V2ReleaseScreenProps) {
   const reduceMotion = useV2ReduceMotion();
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const clock = useSharedValue(0);
+  const [silent, setSilent] = useState(false);
+  const release = useV2Release({ anchorId, adapter: releaseAdapter, reason, hasLinkedVision });
+  const hold = useReleaseHold({ reduceMotion, haptics: holdHaptics, onComplete: release.startRelease,
+    onCancel: () => AccessibilityInfo.announceForAccessibility?.(RELEASE_COPY.cancelAnnouncement),
+    onSustainStart: () => AccessibilityInfo.announceForAccessibility?.(RELEASE_COPY.sustainAnnouncement) });
+  const restingRect = useMemo(() => releaseArtworkRect(width, height), [width, height]);
+  const measuredRect = useRef(restingRect);
+  const [heldRect, setHeldRect] = useState<typeof restingRect | null>(null);
+  const art = heldRect ?? restingRect;
+  const place = useAnchorTransitionPlace('release', anchorId, 'paper');
+  const active = release.stage !== 'preflight';
+  const locked = release.stage === 'dissolving' || release.stage === 'confirming';
+  useEffect(() => { onSessionActiveChange?.(locked); }, [locked, onSessionActiveChange]);
+  useEffect(() => { if (!active) setSilent(false); }, [active]);
+  useEffect(() => { if (!active && !hold.isHolding) setHeldRect(null); }, [active, hold.isHolding]);
 
-  const release = useV2Release({
-    anchorId,
-    adapter: releaseAdapter,
-    reason,
-    hasLinkedVision,
-  });
+  const creamStyle = useAnimatedStyle(() => ({
+    height: height * 0.34 * (reduceMotion ? 1 : active ? 0 : 1 - segment(hold.visualProgress.value, 0.3, 0.95)),
+    backgroundColor: active ? RELEASE_CEREMONY_CHAMBER_BG : colors.frame,
+    opacity: active ? 0 : 1 - segment(hold.visualProgress.value, 0.12, 0.9),
+  }));
+  const headerStyle = useAnimatedStyle(() => ({ opacity: active ? 0 : 1 - segment(hold.visualProgress.value, 0.05, 0.65) }));
+  const rowsStyle = useAnimatedStyle(() => ({ opacity: active ? 0 : 1 - segment(hold.visualProgress.value, 0, 0.45) }));
+  const controlsStyle = useAnimatedStyle(() => ({ opacity: active ? 0 : 1 - segment(hold.visualProgress.value, 0.86, 1) }));
+  const keepStyle = useAnimatedStyle(() => ({ opacity: 1 - segment(hold.visualProgress.value, 0.02, 0.35) }));
+  const handleArtworkLayout = useCallback((event: LayoutChangeEvent) => {
+    place.onLayout();
+    const { x, y, width: w, height: h } = event.nativeEvent.layout;
+    if (!active && !hold.isHolding && w > 0 && h > 0) measuredRect.current = { x, y, width: w, height: h };
+  }, [place.onLayout, active, hold.isHolding]);
+  const handleHoldStart = useCallback(() => { setHeldRect(measuredRect.current); hold.beginHold(); }, [hold.beginHold]);
+  const handleCancel = useCallback(() => { hold.endHold(); onCancel(); }, [hold.endHold, onCancel]);
+  const handleFreshHold = useCallback(() => { release.reset(); hold.reset(); setSilent(false); }, [release.reset, hold.reset]);
+  const handleComplete = useCallback(() => onReleaseCompleted(anchorId), [onReleaseCompleted, anchorId]);
+  const startSilence = useCallback(() => setSilent(true), []);
 
-  const hold = useReleaseHold({
-    reduceMotion,
-    onComplete: release.startRelease,
-    onCancel: () =>
-      AccessibilityInfo.announceForAccessibility?.(RELEASE_COPY.cancelAnnouncement),
-    onSustainStart: () =>
-      AccessibilityInfo.announceForAccessibility?.(RELEASE_COPY.sustainAnnouncement),
-  });
-
-  const handleFreshHold = useCallback(() => {
-    release.reset();
-    hold.reset();
-  }, [release, hold]);
-
-  const handleComplete = useCallback(() => {
-    onReleaseCompleted(anchorId);
-  }, [onReleaseCompleted, anchorId]);
-
-  if (release.anchorMissing || !release.snapshot) {
-    return (
-      <V2Screen testID={testID ?? 'v2-release-screen'}>
-        <V2TopBar title="Release" onBackPress={onCancel} />
-        <V2EmptyState
-          title="Anchor unavailable"
-          message="This Anchor is no longer available to release."
-        />
-      </V2Screen>
-    );
-  }
-
-  const { snapshot, stage } = release;
-
-  if (stage === 'dissolving') {
-    return (
-      <View style={styles.fill} testID={testID ?? 'v2-release-screen'}>
-        <V2DissolutionCeremony
-          artworkSvg={snapshot.artworkSvg}
-          category={snapshot.category}
-          reduceMotion={reduceMotion}
-          onDissolutionComplete={release.markDissolutionComplete}
-        />
-      </View>
-    );
-  }
-
-  if (stage === 'confirming') {
-    return (
-      <View style={styles.fill} testID={testID ?? 'v2-release-screen'}>
-        <V2ReleaseChamberStatus
-          variant="confirming"
-          message={release.message}
-          onRetry={release.retry}
-        />
-      </View>
-    );
-  }
-
-  if (stage === 'failed') {
-    return (
-      <View style={styles.fill} testID={testID ?? 'v2-release-screen'}>
-        <V2ReleaseChamberStatus
-          variant="failed"
-          message={release.message}
-          retryable
-          onRetry={handleFreshHold}
-          onDismiss={onCancel}
-        />
-      </View>
-    );
-  }
-
-  if (stage === 'completed') {
-    return (
-      <V2Screen testID={testID ?? 'v2-release-screen'}>
-        <V2ReleaseCompletion
-          intentionText={snapshot.intentionText}
-          reduceMotion={reduceMotion}
-          onPrimary={handleComplete}
-          onSecondary={handleComplete}
-        />
-      </V2Screen>
-    );
-  }
-
-  // Preflight shell — warm mineral canvas, consequence snapshot, hold target.
-  return (
+  if (release.anchorMissing || !release.snapshot) return (
     <V2Screen testID={testID ?? 'v2-release-screen'}>
-      <V2TopBar title="Release" onBackPress={onCancel} />
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-        testID="v2-release-preflight"
-      >
-        <View style={styles.header}>
-          <Text style={styles.kicker}>{RELEASE_COPY.preflightKicker}</Text>
-          <Text style={styles.title} accessibilityRole="header">
-            {RELEASE_COPY.preflightTitle}
-          </Text>
-          <Text style={styles.subtitle}>{RELEASE_COPY.preflightSubtitle}</Text>
-        </View>
-
-        <Text style={styles.intention} testID="v2-release-intention">
-          “{snapshot.intentionText}”
-        </Text>
-
-        <View style={styles.holdArea}>
-          <V2HoldToReleaseControl
-            artworkSvg={snapshot.artworkSvg}
-            category={snapshot.category}
-            progress={hold.progress}
-            isHolding={hold.isHolding}
-            accessibilityLabel={snapshot.intentionText}
-            onHoldStart={hold.beginHold}
-            onHoldEnd={hold.endHold}
-          />
-        </View>
-
-        <V2ReleaseConsequenceCard consequences={snapshot.consequences} />
-
-        <V2Button
-          variant="tertiary"
-          size="large"
-          onPress={onCancel}
-          style={styles.keepButton}
-          testID="v2-release-keep-active"
-        >
-          {RELEASE_COPY.keepAnchorCta}
-        </V2Button>
-      </ScrollView>
+      <V2TopBar title="Release" onBackPress={handleCancel} />
+      <V2EmptyState title="Anchor unavailable" message="This Anchor is no longer available to release." />
     </V2Screen>
   );
-}
+  const { snapshot, stage } = release;
+  const showArtwork = !silent && (stage === 'preflight' || stage === 'dissolving');
 
+  return (
+    <View style={styles.scene} testID={testID ?? 'v2-release-screen'}>
+      <StatusBar hidden={false} barStyle={active ? 'light-content' : 'dark-content'} backgroundColor="transparent" />
+      <Animated.View pointerEvents="none" style={[styles.creamSurface, creamStyle]} />
+      <View pointerEvents={active ? 'none' : 'auto'} accessibilityElementsHidden={active}
+        importantForAccessibility={active ? 'no-hide-descendants' : 'auto'} style={StyleSheet.absoluteFill} testID="v2-release-preflight">
+        <Animated.View style={[styles.header, { top: insets.top + 8, height: height * 0.34 - insets.top - 24 }, headerStyle]}>
+          <View style={styles.identifierRow}>
+            <Pressable onPress={handleCancel} accessibilityRole="button" accessibilityLabel="Back" hitSlop={12} testID="v2-release-back">
+              <ArrowLeft size={22} color={colors.ink.base} />
+            </Pressable>
+            <Text style={styles.kicker}>Release</Text>
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <Text style={styles.intention} testID="v2-release-intention" accessibilityRole="header">{snapshot.intentionText}</Text>
+            <Text style={styles.subtitle}>Release this Anchor when you're ready to stop reinforcing it.</Text>
+          </ScrollView>
+        </Animated.View>
+        <Animated.View style={[styles.rows, { top: art.y + art.height + 14, bottom: insets.bottom + 140 }, rowsStyle]}>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <V2ReleaseConsequenceCard consequences={snapshot.consequences} />
+          </ScrollView>
+        </Animated.View>
+        <Animated.View style={[styles.controls, { bottom: insets.bottom + 12 }, controlsStyle]}>
+          <V2HoldToReleaseControl artworkSvg={snapshot.artworkSvg} imageUrl={snapshot.imageUrl} category={snapshot.category}
+            progress={hold.progress} visualProgress={hold.visualProgress} isHolding={hold.isHolding} showArtwork={false}
+            disabled={hold.isComplete} accessibilityLabel={snapshot.intentionText} onHoldStart={handleHoldStart} onHoldEnd={hold.endHold} />
+          <Animated.View style={keepStyle}><Pressable accessibilityRole="button" onPress={handleCancel} style={styles.keepControl} testID="v2-release-keep-active"><Text style={styles.keepLabel}>{RELEASE_COPY.keepAnchorCta}</Text></Pressable></Animated.View>
+        </Animated.View>
+      </View>
+      {stage === 'dissolving' ? <V2DissolutionCeremony artworkSvg={snapshot.artworkSvg} anchorId={anchorId}
+        category={snapshot.category} reduceMotion={reduceMotion} clock={clock} artworkAlreadyMounted
+        onEmptyPause={startSilence} onDissolutionComplete={release.markDissolutionComplete} /> : null}
+      <View ref={place.ref} collapsable={false} onLayout={handleArtworkLayout} pointerEvents="none"
+        accessibilityElementsHidden={!showArtwork || place.hidden} importantForAccessibility={!showArtwork || place.hidden ? 'no-hide-descendants' : 'auto'}
+        style={[styles.artwork, { left: art.x, top: art.y, width: art.width, height: art.height, opacity: showArtwork && !place.hidden ? 1 : 0 }]}>
+        <V2ReleaseArtwork anchorId={snapshot.anchorId} artworkSvg={snapshot.artworkSvg} imageUrl={snapshot.imageUrl}
+          expression={snapshot.expression} category={snapshot.category} size={art.width} active={stage === 'dissolving'} reduceMotion={reduceMotion} clock={clock} />
+      </View>
+      {stage === 'confirming' || stage === 'failed' ? <V2ReleaseChamberStatus variant={stage === 'failed' ? 'failed' : 'confirming'}
+        message={release.message} retryable={stage === 'failed' || release.retryable} onRetry={stage === 'failed' ? handleFreshHold : release.retry}
+        onDismiss={stage === 'failed' ? handleCancel : undefined} /> : null}
+      {stage === 'completed' ? <V2ReleaseCompletion intentionText={snapshot.intentionText} reduceMotion={reduceMotion}
+        onPrimary={handleComplete} onSecondary={onViewHistory} /> : null}
+    </View>
+  );
+}
 const styles = StyleSheet.create({
-  fill: {
-    flex: 1,
-    backgroundColor: colors.canvas,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scroll: {
-    paddingBottom: spacing[9],
-    gap: spacing[5],
-  },
-  header: {
-    gap: spacing[2],
-  },
-  kicker: {
-    ...typography.labelSM,
-    color: colors.text.secondary,
-  },
-  title: {
-    ...typography.headingXL,
-    color: colors.text.primary,
-  },
-  subtitle: {
-    ...typography.bodyMD,
-    color: colors.text.secondary,
-  },
-  intention: {
-    ...typography.headingSM,
-    color: colors.text.primary,
-  },
-  holdArea: {
-    alignItems: 'center',
-    paddingVertical: spacing[3],
-  },
-  keepButton: {
-    marginTop: spacing[1],
-  },
+  scene: { flex: 1, backgroundColor: RELEASE_CEREMONY_CHAMBER_BG },
+  creamSurface: { position: 'absolute', top: 0, left: 0, right: 0 },
+  identifierRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
+  keepControl: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  keepLabel: { ...releaseTypography.small, color: 'rgba(244,237,224,0.55)' },
+  header: { position: 'absolute', left: spacing[6], right: spacing[6] },
+  kicker: { ...releaseTypography.small, color: colors.text.secondary },
+  intention: { ...releaseTypography.title, color: colors.ink.base },
+  subtitle: { ...releaseTypography.small, color: colors.text.secondary, marginTop: spacing[3] },
+  artwork: { position: 'absolute' },
+  rows: { position: 'absolute', left: spacing[6], right: spacing[6] },
+  controls: { position: 'absolute', left: spacing[6], right: spacing[6], gap: spacing[1] },
 });

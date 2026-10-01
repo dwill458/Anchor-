@@ -38,6 +38,7 @@ export interface WeeklyAnchorFact {
   intention: string;
   category?: string | null;
   svg?: string | null;
+  imageUrl?: string | null;
   evolutionStage?: 'Forming' | 'Grounded' | 'Rooted' | 'Embedded' | 'Sovereign';
   unlockedStageThisWeek?: 'Rooted' | 'Embedded' | 'Sovereign' | null;
   isReleased?: boolean;
@@ -125,6 +126,7 @@ export type WeeklyInsightVisualData =
       anchorName: string;
       category?: string | null;
       svg?: string | null;
+      imageUrl?: string | null;
     }
   | {
       type: 'evolution';
@@ -134,6 +136,7 @@ export type WeeklyInsightVisualData =
       transitionDay: string;
       category?: string | null;
       svg?: string | null;
+      imageUrl?: string | null;
     }
   | {
       type: 'release';
@@ -143,6 +146,7 @@ export type WeeklyInsightVisualData =
       releaseDay: string;
       category?: string | null;
       svg?: string | null;
+      imageUrl?: string | null;
     }
   | {
       type: 'thread';

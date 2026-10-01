@@ -162,4 +162,17 @@ describe('useV2Release', () => {
     expect(result.current.snapshot?.hasLinkedCourse).toBe(true);
     expect(result.current.snapshot?.consequences.some((c) => c.id === 'course')).toBe(true);
   });
+  it('retains the committed artwork when reconciliation removes the active Anchor', async () => {
+    const adapter = fakeAdapter([{ status: 'released', anchorId: 'anchor-1' }]);
+    const { result, rerender } = renderHook(() => useV2Release({ anchorId: 'anchor-1', adapter }));
+    const original = result.current.snapshot;
+    await act(async () => result.current.startRelease());
+    mockAnchorStoreState.anchors = [];
+    rerender({});
+    expect(result.current.snapshot).toBe(original);
+    expect(result.current.anchorMissing).toBe(false);
+    act(() => result.current.markDissolutionComplete());
+    expect(result.current.stage).toBe('completed');
+  });
+
 });

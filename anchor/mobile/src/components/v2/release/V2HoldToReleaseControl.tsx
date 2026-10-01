@@ -1,138 +1,61 @@
-import React, { useMemo } from 'react';
+import React, { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming, interpolateColor, type SharedValue } from 'react-native-reanimated';
 import { CircularAnchorRenderer } from '@/components/v2';
-import { colors, getCategoryColor, spacing, typography } from '@/theme/v2';
+import { colors, spacing } from '@/theme/v2';
 import { RELEASE_COPY } from '@/constants/v2/release';
+import { releaseTypography } from './releaseTypography';
 
 interface Props {
   artworkSvg: string;
+  imageUrl?: string | null;
   category?: string | null;
-  /** 0 → 1 fill of the radial progress ring. */
   progress: number;
+  visualProgress?: SharedValue<number>;
   isHolding: boolean;
-  /** Accessible name for the hold target, e.g. the intention text. */
   accessibilityLabel: string;
   disabled?: boolean;
+  showArtwork?: boolean;
   onHoldStart: () => void;
   onHoldEnd: () => void;
   testID?: string;
 }
 
-const DIAMETER = 248;
-const STROKE = 6;
-const RADIUS = (DIAMETER - STROKE) / 2;
-const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
-
-/**
- * The Anchor artwork wrapped by a radial progress ring that fills during the
- * 1.8s hold. Releasing before the ring completes retreats it to zero with no
- * side effects.
- */
-export function V2HoldToReleaseControl({
-  artworkSvg,
-  category,
-  progress,
-  isHolding,
-  accessibilityLabel,
-  disabled = false,
-  onHoldStart,
-  onHoldEnd,
-  testID,
-}: Props) {
-  const ringColor = getCategoryColor(category);
-  const clamped = Math.max(0, Math.min(1, progress));
-  const dashOffset = CIRCUMFERENCE * (1 - clamped);
-  const label = clamped > 0 || isHolding ? RELEASE_COPY.holdSustainPrompt : RELEASE_COPY.holdPrompt;
-
-  const ringOpacity = useMemo(() => {
-    if (clamped <= 0) return 0.28;
-    return 0.28 + clamped * 0.72;
-  }, [clamped]);
-
+/** Deliberate hold target; progress is neutral ink and runs on the UI thread. */
+export function V2HoldToReleaseControl({ artworkSvg, imageUrl, category, progress, visualProgress,
+  isHolding, accessibilityLabel, disabled = false, showArtwork = true,
+  onHoldStart, onHoldEnd, testID }: Props) {
+  const fallback = useSharedValue(progress);
+  useEffect(() => { if (!visualProgress) fallback.value = withTiming(progress, { duration: 50 }); }, [fallback, progress, visualProgress]);
+  const fill = visualProgress ?? fallback;
+  const fillStyle = useAnimatedStyle(() => ({ opacity: fill.value * 0.12 }));
+  const controlStyle = useAnimatedStyle(() => ({ transform: [{ scale: 1 - fill.value * 0.012 }], borderColor: interpolateColor(fill.value, [0, 1], ['#3D4447', '#A9A79F']) }));
   return (
     <View style={styles.wrapper} testID={testID ?? 'v2-hold-to-release'}>
-      <Pressable
-        onPressIn={disabled ? undefined : onHoldStart}
-        onPressOut={disabled ? undefined : onHoldEnd}
-        disabled={disabled}
-        accessibilityRole="button"
+      {showArtwork ? <CircularAnchorRenderer svg={artworkSvg} imageUrl={imageUrl} category={category} size={244} appearance="paper" /> : null}
+      <Animated.View style={[styles.pressable, controlStyle]}>
+      <Pressable onPressIn={disabled ? undefined : onHoldStart} onPressOut={disabled ? undefined : onHoldEnd}
+        onResponderTerminate={onHoldEnd} onTouchCancel={onHoldEnd} onBlur={onHoldEnd}
+        disabled={disabled} accessibilityRole="button"
         accessibilityLabel={`${RELEASE_COPY.holdPrompt}: ${accessibilityLabel}`}
-        accessibilityHint={RELEASE_COPY.holdHint}
-        accessibilityState={{ disabled, busy: isHolding }}
-        style={styles.pressable}
-        testID="v2-hold-to-release-target"
-      >
-        <View style={[styles.ringBox, { width: DIAMETER, height: DIAMETER }]}>
-          <Svg
-            width={DIAMETER}
-            height={DIAMETER}
-            style={StyleSheet.absoluteFill}
-            pointerEvents="none"
-          >
-            <Circle
-              cx={DIAMETER / 2}
-              cy={DIAMETER / 2}
-              r={RADIUS}
-              stroke={colors.border.default}
-              strokeWidth={STROKE}
-              fill="none"
-            />
-            <Circle
-              cx={DIAMETER / 2}
-              cy={DIAMETER / 2}
-              r={RADIUS}
-              stroke={ringColor}
-              strokeOpacity={ringOpacity}
-              strokeWidth={STROKE}
-              strokeLinecap="round"
-              strokeDasharray={CIRCUMFERENCE}
-              strokeDashoffset={dashOffset}
-              fill="none"
-              rotation={-90}
-              origin={`${DIAMETER / 2}, ${DIAMETER / 2}`}
-              testID="v2-hold-progress-arc"
-            />
-          </Svg>
-          <CircularAnchorRenderer
-            svg={artworkSvg}
-            category={category}
-            size="hero"
-            state={disabled ? 'inactive' : 'active'}
-            accessibilityLabel={`${category ?? 'Custom'} Anchor artwork`}
-          />
-        </View>
+        accessibilityHint={RELEASE_COPY.holdHint} accessibilityState={{ disabled, busy: isHolding }}
+        style={styles.target} testID="v2-hold-to-release-target">
+        <Animated.View pointerEvents="none" style={[styles.fill, fillStyle]} testID="v2-hold-progress-fill" />
+        <Text style={styles.label} testID="v2-hold-to-release-label">
+          {isHolding || progress > 0 ? RELEASE_COPY.holdSustainPrompt : RELEASE_COPY.holdPrompt}
+        </Text>
       </Pressable>
-
-      <Text style={styles.label} testID="v2-hold-to-release-label">
-        {label}
-      </Text>
-      <Text style={styles.hint}>{RELEASE_COPY.holdHint}</Text>
+      </Animated.View>
+      {isHolding ? <Text style={styles.hint}>Lift to cancel</Text> : null}
     </View>
   );
 }
-
 const styles = StyleSheet.create({
-  wrapper: {
-    alignItems: 'center',
-    gap: spacing[3],
-  },
-  pressable: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing[2],
-  },
-  ringBox: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  label: {
-    ...typography.headingSM,
-    color: colors.text.primary,
-  },
-  hint: {
-    ...typography.bodySM,
-    color: colors.text.secondary,
-    textAlign: 'center',
-  },
+  wrapper: { alignItems: 'center', gap: spacing[2], width: '100%' },
+  pressable: { width: '100%', minHeight: 56, borderRadius: 28, overflow: 'hidden', backgroundColor: '#182027', borderWidth: 1,
+    justifyContent: 'center', alignItems: 'center' },
+  target: { width: '100%', minHeight: 56, alignItems: 'center', justifyContent: 'center' },
+  fill: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.frame },
+  label: { ...releaseTypography.label, color: colors.frame, paddingVertical: 17, paddingHorizontal: 16 },
+  hint: { position: 'absolute', top: 61, left: 0, right: 0, textAlign: 'center', ...releaseTypography.small, color: 'rgba(244,237,224,0.5)' },
 });

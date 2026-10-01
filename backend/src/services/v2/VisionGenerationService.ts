@@ -9,10 +9,12 @@ import { imageGenerationService, ImageProviderError, ImageProviderErrorType } fr
 import { resolveStorageKeyUrl, uploadImageAssetFromBuffer } from '../StorageService';
 import { getMonetizationAccess } from '../MonetizationAccessService';
 import { visionService } from './VisionService';
+import { VISION_MAX_IMAGES, VISION_SCENE_DESCRIPTION_MAX } from '../../domain/v2/vision';
 import { visionAppearanceReferenceService } from './VisionAppearanceReferenceService';
 import { logger } from '../../utils/logger';
 import {
   buildVisionImagePrompt,
+  buildVisionSceneVariantPlan,
   isStoredVisionScenePlan,
   VISION_IMAGE_ASPECT_RATIO,
   VISION_IMAGE_HEIGHT,
@@ -21,6 +23,8 @@ import {
 } from './visionScenePlanning';
 
 const MAX_SETS = 3;
+/** Described scenes added after the Vision exists; each request is two images, so this bounds cost. */
+const MAX_SCENE_REQUESTS = 20;
 const STALE_AFTER_MS = 20 * 60 * 1000;
 const SCENE_RETRY_DELAY_MS = process.env.NODE_ENV === 'test' ? 0 : 2000;
 
@@ -32,7 +36,8 @@ export class VisionGenerationService {
     });
     if (!anchor) throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
     const job = await prisma.visionGeneration.findFirst({
-      where: { userId, anchorId, ...(jobId ? { id: jobId } : {}), vision: { status: 'ACTIVE' } },
+      // The numbered sets are what the Vision screen resumes; a described scene is fetched by its own id.
+      where: { userId, anchorId, ...(jobId ? { id: jobId } : { kind: 'SET' }), vision: { status: 'ACTIVE' } },
       orderBy: { createdAt: 'desc' },
       include: { candidates: { orderBy: { sortOrder: 'asc' }, include: { asset: true } } },
     });
@@ -55,6 +60,7 @@ export class VisionGenerationService {
     }
     return {
       id: job.id,
+      kind: job.kind,
       visionId: job.visionId,
       anchorId: job.anchorId,
       setNumber: job.setNumber,
@@ -112,7 +118,7 @@ export class VisionGenerationService {
     });
     const latest = activeVision
       ? await prisma.visionGeneration.findFirst({
-          where: { userId, visionId: activeVision.id },
+          where: { userId, visionId: activeVision.id, kind: 'SET' },
           orderBy: { setNumber: 'desc' },
         })
       : null;
@@ -168,6 +174,101 @@ export class VisionGenerationService {
     return this.latest(userId, anchorId);
   }
 
+  /**
+   * One scene the person described, added to the board of an existing Vision.
+   * Two candidates come back through the same provider chain as a full set, but
+   * the job is a separate kind: it never uses up one of the three image sets and
+   * never rewrites the Vision's own description.
+   */
+  async startScene(
+    userId: string,
+    anchorId: string,
+    sceneDescription: string,
+    idempotencyKey: string,
+    appearanceReferenceId?: string | null
+  ) {
+    const access = await getMonetizationAccess(userId);
+    if (!access.hasProAccess)
+      throw new AppError('Vision generation requires access', 403, 'VISION_PREMIUM_REQUIRED');
+    const anchor = await prisma.anchor.findFirst({
+      where: { id: anchorId, userId, isArchived: false },
+      select: { id: true, intentionText: true, category: true },
+    });
+    if (!anchor) throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
+    const trimmed = sceneDescription.trim();
+    if (trimmed.length < 6 || trimmed.length > VISION_SCENE_DESCRIPTION_MAX)
+      throw new AppError(`Describe the scene in 6 to ${VISION_SCENE_DESCRIPTION_MAX} characters`, 400, 'VALIDATION_ERROR');
+
+    if (appearanceReferenceId)
+      await visionAppearanceReferenceService.resolveForGeneration(userId, appearanceReferenceId);
+
+    const existingJob = await prisma.visionGeneration.findFirst({
+      where: { userId, anchorId, id: idempotencyKey, vision: { status: 'ACTIVE' } },
+    });
+    if (existingJob) return this.latest(userId, anchorId, existingJob.id);
+
+    const vision = await prisma.vision.findFirst({
+      where: { userId, anchorId, status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (!vision) throw new AppError('Create your Vision first', 404, 'VISION_NOT_FOUND');
+    const onBoard = await prisma.visionScene.count({
+      where: { visionId: vision.id, userId, isArchived: false },
+    });
+    if (onBoard >= VISION_MAX_IMAGES)
+      throw new AppError(
+        `A Vision can contain up to ${VISION_MAX_IMAGES} images`,
+        400,
+        'VISION_IMAGE_LIMIT'
+      );
+
+    const latest = await prisma.visionGeneration.findFirst({
+      where: { userId, visionId: vision.id, kind: 'SCENE' },
+      orderBy: { setNumber: 'desc' },
+    });
+    if (
+      latest &&
+      ['QUEUED', 'RUNNING', 'PARTIAL'].includes(latest.status) &&
+      Date.now() - latest.updatedAt.getTime() <= STALE_AFTER_MS
+    )
+      return this.latest(userId, anchorId, latest.id);
+    if ((latest?.setNumber ?? 0) >= MAX_SCENE_REQUESTS)
+      throw new AppError(
+        'You have reached the limit for generated scenes on this Vision',
+        409,
+        'VISION_GENERATION_LIMIT'
+      );
+
+    try {
+      await prisma.visionGeneration.create({
+        data: {
+          id: idempotencyKey,
+          userId,
+          anchorId,
+          visionId: vision.id,
+          description: trimmed,
+          kind: 'SCENE',
+          setNumber: (latest?.setNumber ?? 0) + 1,
+          status: 'QUEUED',
+          stage: 'creating_images',
+          appearanceReferenceId: appearanceReferenceId ?? null,
+          plan: buildVisionSceneVariantPlan(trimmed) as unknown as Prisma.InputJsonValue,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const replay = await this.latest(userId, anchorId, idempotencyKey);
+        if (replay) return replay;
+        throw new AppError('Generation request conflicted. Try again.', 409, 'VISION_GENERATION_CONFLICT');
+      }
+      throw error;
+    }
+    void this.run(idempotencyKey, anchor.intentionText, anchor.category).catch(error =>
+      logger.error('[VisionGeneration] Scene job failed', error)
+    );
+    return this.latest(userId, anchorId, idempotencyKey);
+  }
+
   async retry(userId: string, anchorId: string, jobId: string) {
     const job = await prisma.visionGeneration.findFirst({
       where: { id: jobId, userId, anchorId, vision: { status: 'ACTIVE' } },
@@ -193,7 +294,7 @@ export class VisionGenerationService {
       void this.run(job.id, anchor.intentionText, anchor.category).catch(error =>
         logger.error('[VisionGeneration] Retry failed', error)
       );
-    return this.latest(userId, anchorId);
+    return this.latest(userId, anchorId, job.id);
   }
 
   /**
@@ -203,7 +304,7 @@ export class VisionGenerationService {
    */
   private async previousScenes(job: { visionId: string; setNumber: number }): Promise<string[]> {
     const earlier = await prisma.visionGeneration.findMany({
-      where: { visionId: job.visionId, setNumber: { lt: job.setNumber } },
+      where: { visionId: job.visionId, kind: 'SET', setNumber: { lt: job.setNumber } },
       orderBy: { setNumber: 'asc' },
       select: { plan: true },
     });
@@ -312,6 +413,21 @@ export class VisionGenerationService {
       }
       const attempt = job.retryCount;
       const savedPlan = job.plan;
+      // A described scene is shot in the context of the Vision it joins.
+      const boardContext =
+        job.kind === 'SCENE'
+          ? await prisma.vision.findUnique({
+              where: { id: job.visionId },
+              select: {
+                description: true,
+                scenes: {
+                  where: { isArchived: false },
+                  orderBy: { sortOrder: 'asc' },
+                  select: { prompt: true },
+                },
+              },
+            })
+          : null;
       const onboarding = await getOnboardingContext(job.userId).catch(() => null);
       const plan: VisionScenePlanItem[] = isStoredVisionScenePlan(savedPlan)
         ? savedPlan
@@ -385,7 +501,10 @@ export class VisionGenerationService {
         const prompt = buildVisionImagePrompt({
           intention,
           category,
-          description: job.description,
+          description: boardContext ? (boardContext.description ?? '') : job.description,
+          boardScenes: boardContext
+            ? boardContext.scenes.map(item => item.prompt ?? '').filter(Boolean)
+            : undefined,
           scene,
           plannedScenes: plan,
           hasAppearanceReference: Boolean(reference),

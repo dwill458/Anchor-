@@ -64,6 +64,8 @@ jest.mock('expo-audio', () => ({
     play: jest.fn(),
     remove: jest.fn(),
     seekTo: jest.fn(() => Promise.resolve()),
+    setPlaybackRate: jest.fn(),
+    shouldCorrectPitch: false,
     volume: 1,
   })),
   setAudioModeAsync: jest.fn(() => Promise.resolve()),
@@ -203,6 +205,8 @@ jest.mock('@shopify/react-native-skia', () => {
     Group: 'Group',
     Image: 'SkiaImage',
     Mask: 'Mask',
+    Path: 'Path',
+    DashPathEffect: 'DashPathEffect',
     Rect: 'Rect',
     Blur: 'Blur',
     LinearGradient: 'SkiaLinearGradient',
@@ -216,6 +220,7 @@ jest.mock('@shopify/react-native-skia', () => {
     PaintStyle: { Fill: 'Fill', Stroke: 'Stroke' },
     TileMode: { Clamp: 'Clamp', Repeat: 'Repeat', Mirror: 'Mirror', Decal: 'Decal' },
     Skia: {
+      Path: { Make: jest.fn(() => ({ moveTo: jest.fn(), lineTo: jest.fn(), close: jest.fn() })) },
       Paint: jest.fn(() => makePaint()),
       PictureRecorder: jest.fn(() => ({
         beginRecording: jest.fn(() => ({
@@ -290,6 +295,7 @@ jest.mock('react-native-svg', () => ({
   default: 'Svg',
   SvgXml: 'SvgXml',
   Svg: 'Svg',
+  Image: 'SvgImage',
   Circle: 'Circle',
   Ellipse: 'Ellipse',
   Path: 'Path',

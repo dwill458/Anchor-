@@ -118,6 +118,7 @@ function FocusCard({
   outcomeClock,
   outWindow,
   artHidden,
+  flightStart,
   cardRef,
 }: {
   id: FocusAreaId;
@@ -136,6 +137,7 @@ function FocusCard({
   outWindow: Window;
   /** True the instant this card's artwork has handed off to the travelling clone. */
   artHidden: boolean;
+  flightStart: number;
   cardRef?: React.Ref<View>;
 }) {
   const timeline = handoffTimeline(reduceMotion);
@@ -171,12 +173,19 @@ function FocusCard({
   const handlePress = () => {
     if (!reduceMotion) {
       press.value = withSequence(
-        withTiming(0.97, { duration: 90, easing: Easing.out(Easing.quad) }),
-        withTiming(1, { duration: 160, easing: Easing.out(Easing.quad) }),
+        withTiming(0.97, { duration: 90, easing: Easing.out(Easing.quad), reduceMotion: ReduceMotion.Never }),
+        withTiming(1, { duration: 160, easing: Easing.out(Easing.quad), reduceMotion: ReduceMotion.Never }),
       );
     }
     onPress();
   };
+
+  const artAnimStyle = useAnimatedStyle(() => {
+    if (!artHidden) return { opacity: 1 };
+    return {
+      opacity: outcomeClock.value >= flightStart ? 0 : 1,
+    };
+  });
 
   return (
     <Animated.View ref={cardRef} style={[{ width, height }, enterStyle]}>
@@ -194,10 +203,10 @@ function FocusCard({
           <View style={styles.artBox} pointerEvents="none">
             {/* Hidden the instant the handoff starts: the artwork survives as the travelling
              * clone on Screen 4, never doubled here. */}
-            <Image
+            <Animated.Image
               source={CARD_ART[id]}
               resizeMode="contain"
-              style={[styles.art, artHidden && styles.artHidden]}
+              style={[styles.art, artAnimStyle]}
               accessibilityIgnoresInvertColors
             />
           </View>
@@ -438,23 +447,36 @@ export function V2OnboardingFocusArea({
     leaving.current = true;
     v2Haptics.selection();
     const cardId: FocusAreaId = PRIMARY_IDS.has(selected) ? (selected as FocusAreaId) : "something_else";
-    // Hide this card's artwork in the same tick Screen 4's clone starts, so there is never a
-    // frame with both visible.
-    setDepartingId(cardId);
+    const index = PRIMARY_FOCUS_AREAS.findIndex((a) => a.id === cardId);
+    const col = index >= 0 ? index % 2 : 0;
+    const row = index >= 0 ? Math.floor(index / 2) : 0;
+    const m = SCREEN3_METRICS;
+    const gridTop = layout.headlineTop + m.headlineLine * 2 + layout.gaps.rule * 2 + m.ruleHeight + m.supportLine + layout.gaps.grid;
+    const fallbackFrame: OutcomeOriginFrame = {
+      x: m.sidePad + col * (layout.cardW + m.gridGap),
+      y: gridTop + row * (layout.cardH + m.gridGap),
+      width: layout.cardW,
+      height: layout.cardH,
+    };
     let settled = false;
-    const proceed = (frame: OutcomeOriginFrame | null) => {
+    const proceed = (frame: OutcomeOriginFrame) => {
       if (settled) return;
       settled = true;
+      // Hide this card's artwork in the same tick Screen 4's clone starts, so there is never a
+      // frame with both visible.
+      setDepartingId(cardId);
       onContinue(frame);
     };
     const node = cardRefs.current[cardId];
     if (node?.measureInWindow) {
-      node.measureInWindow((x, y, width, height) => proceed({ x, y, width, height }));
+      node.measureInWindow((x, y, width, height) => {
+        proceed(width > 0 && height > 0 ? { x, y, width, height } : fallbackFrame);
+      });
       // A real device resolves this within a frame; this guards the rare host environment
       // where the callback never fires, so the handoff can never stall waiting on it.
-      setTimeout(() => proceed(null), 80);
+      setTimeout(() => proceed(fallbackFrame), 50);
     } else {
-      proceed(null);
+      proceed(fallbackFrame);
     }
   };
 
@@ -525,6 +547,7 @@ export function V2OnboardingFocusArea({
                 outcomeClock={outcomeClock}
                 outWindow={area.id === departingId ? outcomeTimeline.s3CardShell : outcomeTimeline.s3UiOut}
                 artHidden={area.id === departingId}
+                flightStart={outcomeTimeline.heroFlight[0]}
                 cardRef={(node) => {
                   cardRefs.current[area.id] = node;
                 }}
@@ -605,7 +628,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
   },
   cardTint: { ...StyleSheet.absoluteFillObject },
   artBox: { position: "absolute", left: 8, right: 8, top: 3, bottom: 25, alignItems: "center", justifyContent: "center" },

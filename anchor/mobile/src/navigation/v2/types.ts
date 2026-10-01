@@ -21,9 +21,11 @@ export type AnchorV2StackParamList = {
     resumeMode?: V2PracticeMode;
     resumeDuration?: number;
     resumeSource?: 'practice_hub' | 'recommended_today';
+    /** The Anchor is flying in from Details; the push itself must not animate. */
+    anchorTransition?: boolean;
   };
   V2PracticePrepare: { anchorId: string; mode?: V2PracticeMode };
-  V2Vision: { anchorId?: string; initialMode?: 'view' | 'create' | 'ready'; resumeGeneration?: boolean };
+  V2Vision: { edit?: boolean; anchorId?: string; initialMode?: 'view' | 'create' | 'ready'; resumeGeneration?: boolean };
   V2Chart: {
     courseId?: string;
     anchorId?: string;

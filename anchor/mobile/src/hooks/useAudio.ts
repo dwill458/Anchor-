@@ -23,10 +23,14 @@ export type ManagedAudioPlayer = {
   play: () => void;
   setVolume: (volume: number) => void;
   stop: () => void;
+  /** Playback pitch follows rate; no speech pitch correction. */
+  setRate: (rate: number) => void;
 };
 
 export function useAudio() {
   const soundEffectsEnabled = useSettingsStore((state) => state.soundEffectsEnabled);
+  const enabledRef = useRef(soundEffectsEnabled);
+  enabledRef.current = soundEffectsEnabled;
   const activePlayersRef = useRef<Set<AudioPlayer>>(new Set());
 
   const cleanupPlayer = useCallback((player: AudioPlayer, subscription?: { remove: () => void }) => {
@@ -83,7 +87,7 @@ export function useAudio() {
       key: SoundKey,
       { loop = false, onFinish, volume = 1 }: ManagedAudioPlayerOptions = {}
     ): ManagedAudioPlayer | null => {
-      if (!soundEffectsEnabled) {
+      if (!enabledRef.current) {
         return null;
       }
 
@@ -126,6 +130,16 @@ export function useAudio() {
           setVolume: (value: number) => {
             if (!didCleanUp) {
               player.volume = Math.max(0, Math.min(1, value));
+            }
+          },
+          setRate: (rate: number) => {
+            if (!didCleanUp) {
+              try {
+                player.shouldCorrectPitch = false;
+                player.setPlaybackRate(Math.max(0.5, Math.min(2, rate)));
+              } catch {
+                // Pitch support is best-effort; audio must never interrupt the gesture.
+              }
             }
           },
           stop: cleanup,

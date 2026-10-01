@@ -24,7 +24,7 @@ type V2FocusFieldProps = {
   imprint?: boolean;
 };
 
-const TRACE_RADIUS = 94;
+const TRACE_RADIUS = 92;
 const TRACE_CIRCUMFERENCE = 2 * Math.PI * TRACE_RADIUS;
 
 /**
@@ -46,6 +46,7 @@ export function V2FocusField({
   const driftMiddle = useSharedValue(0);
   const driftOuter = useSharedValue(0);
   const reveal = useSharedValue(imprint ? 1 : 0);
+  const imprintReveal = useSharedValue(imprint ? 1 : 0);
 
   useEffect(() => {
     reveal.value = withTiming(1, {
@@ -53,6 +54,15 @@ export function V2FocusField({
       easing: AnchorMotion.easing.enter,
     });
   }, [imprint, reveal]);
+
+  useEffect(() => {
+    imprintReveal.value = reduceMotion
+      ? Number(imprint)
+      : withTiming(Number(imprint), {
+          duration: imprint ? 900 : 250,
+          easing: AnchorMotion.easing.gentle,
+        });
+  }, [imprint, imprintReveal, reduceMotion]);
 
   useEffect(() => {
     if (!motionActive || reduceMotion) {
@@ -122,6 +132,10 @@ export function V2FocusField({
   const progressProps = useAnimatedProps(() => ({
     strokeDashoffset: TRACE_CIRCUMFERENCE * (1 - progress.value),
   }));
+  const imprintStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(imprintReveal.value, [0, 1], [0, 0.16]),
+    transform: [{ scale: interpolate(imprintReveal.value, [0, 1], [0.98, 1]) }],
+  }));
 
   const stroke = imprint ? categoryColor : `${categoryColor}D0`;
   const fieldBackground = imprint ? 'transparent' : colors.ink.raised;
@@ -140,7 +154,7 @@ export function V2FocusField({
             cy="100"
             r={TRACE_RADIUS}
             stroke={categoryColor}
-            strokeWidth="1.15"
+            strokeWidth="0.85"
             strokeDasharray={TRACE_CIRCUMFERENCE}
             strokeLinecap="round"
             animatedProps={progressProps}
@@ -183,12 +197,13 @@ export function V2FocusField({
             strokeLinecap="round"
             strokeDasharray="16 7 3 18"
           />
-          <Path
-            d="M31 51L24 43M45 31L39 22M164 38L171 29M180 76L190 73M174 151L184 157M69 179L64 189M27 118L16 121"
-            stroke={stroke}
-            strokeWidth="1.2"
-            strokeLinecap="round"
-          />
+        </Svg>
+      </Reanimated.View>
+
+      <Reanimated.View style={[styles.layer, imprintStyle]}>
+        <Svg width={size} height={size} viewBox="0 0 200 200" fill="none">
+          <Circle cx="100" cy="100" r="98" fill="none" stroke={categoryColor} strokeWidth="0.7" />
+          <Circle cx="100" cy="100" r="104" fill="none" stroke={categoryColor} strokeWidth="0.55" />
         </Svg>
       </Reanimated.View>
 

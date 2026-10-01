@@ -261,8 +261,8 @@ describe('V2PracticeScreen', () => {
         resumeSource="recommended_today"
       />
     );
-    expect(screen.getByTestId('v2-practice-session')).toBeTruthy();
-    expect(screen.getByText('DEEP FOCUS')).toBeTruthy();
+    expect(screen.getByTestId('v2-deep-focus-active-screen')).toBeTruthy();
+    expect(screen.queryByTestId('v2-practice-session-timer')).toBeNull();
   });
 
   it('offers the Vision creation handoff without fabricating a Vision', async () => {
@@ -302,8 +302,9 @@ describe('V2PracticeScreen', () => {
     });
     renderPractice(context('Visualize'));
     fireEvent.press(screen.getByTestId('v2-recommended-today'));
-    expect(await screen.findByText('A serene mountain peak at sunrise')).toBeTruthy();
-    expect(screen.getByLabelText('Begin Visualize')).toBeTruthy();
+    expect(await screen.findByTestId('v2-visualize-prepare-vision')).toBeTruthy();
+    expect(screen.getByText('Add a Vision image before beginning.')).toBeTruthy();
+    expect(screen.getByLabelText('Begin Visualize').props.accessibilityState.disabled).toBe(true);
   });
 
   it('hands Release off without calling a destructive legacy endpoint', () => {
@@ -326,7 +327,7 @@ describe('V2PracticeScreen', () => {
     expect(screen.queryByText('Not yet measured')).toBeNull();
   });
 
-  it('displays TODAY COMPLETE state when Anchor was reinforced today, preserving hero artwork and using static fallback', () => {
+  it('displays the TODAY COMPLETE state with dynamic artwork when Anchor was reinforced today', () => {
     const today = new Date().toISOString();
     render(
       <V2PracticeScreen
@@ -336,13 +337,12 @@ describe('V2PracticeScreen', () => {
       />
     );
     expect(screen.getByText('TODAY COMPLETE')).toBeTruthy();
+    expect(screen.getByText('Focus · 30 sec')).toBeTruthy();
     expect(screen.getByText('You reinforced your Anchor today.')).toBeTruthy();
-    expect(screen.getByText('Your intention is holding strong.')).toBeTruthy();
     expect(screen.queryByText(/Settle into the rest of your day/i)).toBeNull();
 
-    // Hero artwork is retained
+    // Completed state renders the dynamic featured hero artwork and skips the looping video.
     expect(screen.getByTestId('v2-practice-artwork-focus-featured')).toBeTruthy();
-    // Looping video is stopped in completed state
     expect(screen.queryByTestId('v2-hero-video-focus')).toBeNull();
 
     // Practice again action is available and opens prep
@@ -387,9 +387,8 @@ describe('V2PracticeScreen', () => {
     );
 
     expect(screen.getByText('TODAY COMPLETE')).toBeTruthy();
-    // Hero artwork is Visualize (the mode practiced today), not Deep Prime
-    expect(screen.getByTestId('v2-practice-artwork-visualize-featured')).toBeTruthy();
-    expect(screen.queryByTestId('v2-practice-artwork-deep_prime-featured')).toBeNull();
+    // The compact summary is Visualize (the mode practiced today), with its saved duration.
+    expect(screen.getByText('Visualize · 3 min')).toBeTruthy();
 
     // Practice again opens Visualize prep
     fireEvent.press(screen.getByLabelText('Practice again'));

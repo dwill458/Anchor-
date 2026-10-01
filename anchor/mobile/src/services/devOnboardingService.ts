@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
 import { useFirstRunStore } from '@/stores/v2/firstRunStore';
 
 /**
@@ -12,7 +13,10 @@ export async function resetFirstRunStore(): Promise<void> {
     // Ignore if firstRunStore reset fails
   }
   try {
-    await AsyncStorage.removeItem('anchor:v2:first-run');
+    await Promise.all([
+      AsyncStorage.removeItem('anchor:v2:first-run'),
+      encryptedPersistStorage.removeItem('anchor:v2:first-run'),
+    ]);
   } catch {
     // Ignore storage removal errors
   }

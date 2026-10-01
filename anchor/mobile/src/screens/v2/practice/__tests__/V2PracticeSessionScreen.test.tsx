@@ -140,7 +140,7 @@ function emitAppState(nextState: 'active' | 'background') {
     fireEvent.press(screen.getByTestId('focus-end-button'));
 
     await act(async () => {
-      jest.advanceTimersByTime(1900);
+      jest.advanceTimersByTime(2200);
     });
 
     // Settle, fade, black hold, then mount the completion surface.
@@ -167,6 +167,7 @@ function emitAppState(nextState: 'active' | 'background') {
     // Continue returns to the Practice hub through the semantic completion callback.
     fireEvent.press(screen.getByTestId('focus-complete-done-button'));
     expect(onCompleted).toHaveBeenCalledTimes(1);
+    expect(onCompleted).toHaveBeenCalledWith({ mode: 'focus', durationSeconds: 1, saved: true });
     expect(onBack).not.toHaveBeenCalled();
   });
 
@@ -204,7 +205,7 @@ function emitAppState(nextState: 'active' | 'background') {
       fireEvent.press(screen.getByTestId('v2-focus-active-screen'));
       fireEvent.press(screen.getByTestId('focus-end-button'));
       await act(async () => {
-        jest.advanceTimersByTime(1900);
+        jest.advanceTimersByTime(2200);
       });
 
       expect(screen.getByTestId('v2-focus-complete-screen')).toBeTruthy();
@@ -215,6 +216,7 @@ function emitAppState(nextState: 'active' | 'background') {
   });
 
   it('does not report reinforcement when durable session recording fails', async () => {
+    const onCompleted = jest.fn();
     (PracticeCompletionService.completePracticeSession as jest.Mock).mockRejectedValueOnce(
       new Error('encrypted session queue unavailable')
     );
@@ -225,7 +227,7 @@ function emitAppState(nextState: 'active' | 'background') {
         durationSeconds={30}
         source="practice_hub"
         onBack={jest.fn()}
-        onCompleted={jest.fn()}
+        onCompleted={onCompleted}
         onFocusAgain={jest.fn()}
       />
     );
@@ -236,11 +238,13 @@ function emitAppState(nextState: 'active' | 'background') {
     fireEvent.press(screen.getByTestId('v2-focus-active-screen'));
     fireEvent.press(screen.getByTestId('focus-end-button'));
     await act(async () => {
-      jest.advanceTimersByTime(1900);
+      jest.advanceTimersByTime(2200);
     });
 
     expect(screen.getByText('This session could not be saved. Thread Strength was not updated.')).toBeTruthy();
     expect(screen.queryByText('Reinforced today ✓')).toBeNull();
+    fireEvent.press(screen.getByTestId('focus-complete-done-button'));
+    expect(onCompleted).toHaveBeenCalledWith({ mode: 'focus', durationSeconds: 1, saved: false });
   });
 
   it('records one completion when End Session is tapped rapidly', async () => {
@@ -266,7 +270,7 @@ function emitAppState(nextState: 'active' | 'background') {
     fireEvent.press(endButton);
     fireEvent.press(endButton);
     await act(async () => {
-      jest.advanceTimersByTime(1900);
+      jest.advanceTimersByTime(2200);
     });
 
     expect(PracticeCompletionService.completePracticeSession).toHaveBeenCalledTimes(1);
@@ -298,7 +302,7 @@ function emitAppState(nextState: 'active' | 'background') {
     fireEvent.press(screen.getByTestId('focus-end-button'));
 
     await act(async () => {
-      jest.advanceTimersByTime(1900);
+        jest.advanceTimersByTime(2200);
     });
 
     expect(screen.getByTestId('v2-focus-complete-screen')).toBeTruthy();
@@ -331,7 +335,7 @@ function emitAppState(nextState: 'active' | 'background') {
     fireEvent.press(screen.getByTestId('focus-end-button'));
 
     await act(async () => {
-      jest.advanceTimersByTime(1900);
+        jest.advanceTimersByTime(2200);
     });
 
     expect(screen.getByTestId('v2-focus-complete-screen')).toBeTruthy();
@@ -340,5 +344,59 @@ function emitAppState(nextState: 'active' | 'background') {
     fireEvent.press(screen.getByTestId('focus-complete-again-button'));
 
     expect(onFocusAgain).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([120, 300, 600])('completes Deep Focus at %is through the canonical deep_prime record and Practice destination', async durationSeconds => {
+    const monotonicClock = jest.spyOn(performance, 'now').mockReturnValue(0);
+    const onCompleted = jest.fn();
+    const onAgain = jest.fn();
+    Object.defineProperty(AppState, 'currentState', { configurable: true, value: 'active' });
+    const view = render(<V2PracticeSessionScreen anchorId="a1" mode="deep_prime" durationSeconds={durationSeconds}
+      source="practice_hub" onBack={jest.fn()} onCompleted={onCompleted} onFocusAgain={onAgain} />);
+    expect(screen.getByTestId('v2-deep-focus-active-screen')).toBeTruthy();
+    expect(screen.queryByTestId('v2-practice-session-timer')).toBeNull();
+    monotonicClock.mockReturnValue(durationSeconds * 1000);
+    await act(async () => { jest.advanceTimersByTime(250); });
+    expect(PracticeCompletionService.completePracticeSession).toHaveBeenCalledTimes(1);
+    expect(PracticeCompletionService.completePracticeSession).toHaveBeenCalledWith(expect.objectContaining({
+      accountId, mode: 'deep_prime', plannedDurationSeconds: durationSeconds, actualDurationSeconds: durationSeconds,
+      guidanceVoice: 'female', backgroundAudio: 'ambient',
+    }), { flushImmediately: false });
+    expect(screen.getByText('Deep Focus complete')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Deep Focus again'));
+    expect(onAgain).toHaveBeenCalledTimes(1);
+    fireEvent.press(screen.getByLabelText('Continue'));
+    expect(onCompleted).toHaveBeenCalledWith({ mode: 'deep_prime', durationSeconds, saved: true });
+    view.unmount();
+    monotonicClock.mockRestore();
+  });
+
+  it('reports Deep Focus local persistence failure truthfully', async () => {
+    const monotonicClock = jest.spyOn(performance, 'now').mockReturnValue(0);
+    Object.defineProperty(AppState, 'currentState', { configurable: true, value: 'active' });
+    (PracticeCompletionService.completePracticeSession as jest.Mock).mockRejectedValueOnce(new Error('disk full'));
+    const onCompleted = jest.fn();
+    render(<V2PracticeSessionScreen anchorId="a1" mode="deep_prime" durationSeconds={120} source="practice_hub"
+      onBack={jest.fn()} onCompleted={onCompleted} onFocusAgain={jest.fn()} />);
+    monotonicClock.mockReturnValue(120000);
+    await act(async () => { jest.advanceTimersByTime(250); });
+    expect(screen.getByText('Deep Focus complete')).toBeTruthy();
+    expect(screen.queryByText('Reinforced today ✓')).toBeNull();
+    fireEvent.press(screen.getByLabelText('Continue'));
+    expect(onCompleted).toHaveBeenCalledWith({ mode: 'deep_prime', durationSeconds: 120, saved: false });
+    monotonicClock.mockRestore();
+  });
+
+  it('does not wait for network flush before showing Deep Focus completion', async () => {
+    const monotonicClock = jest.spyOn(performance, 'now').mockReturnValue(0);
+    Object.defineProperty(AppState, 'currentState', { configurable: true, value: 'active' });
+    (PracticeCompletionService.flush as jest.Mock).mockReturnValueOnce(new Promise(() => {}));
+    render(<V2PracticeSessionScreen anchorId="a1" mode="deep_prime" durationSeconds={120} source="practice_hub"
+      onBack={jest.fn()} onCompleted={jest.fn()} onFocusAgain={jest.fn()} />);
+    monotonicClock.mockReturnValue(120000);
+    await act(async () => { jest.advanceTimersByTime(250); });
+    expect(screen.getByText('Deep Focus complete')).toBeTruthy();
+    expect(PracticeCompletionService.flush).toHaveBeenCalledWith(accountId);
+    monotonicClock.mockRestore();
   });
 });

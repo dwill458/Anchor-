@@ -22,6 +22,9 @@ import {
   type PrimingHistoryEntry,
 } from "@/utils/primingAnalytics";
 import { logger } from "@/utils/logger";
+import { HomeStartupProfiler } from "@/utils/homeStartupProfiler";
+import { isAnchorV2Enabled } from "@/config/v2FeatureFlag";
+import { prefetchHomeStartupData } from "@/services/v2/homeStartupPrefetch";
 import { applyRemoteSessionAudioPreferences } from "@/services/SessionAudioPreferencesService";
 import type {
   PracticeSessionRecord,
@@ -656,24 +659,91 @@ class AuthHydrationService {
   async hydrateAuthenticatedData(options: HydrateOptions = {}): Promise<void> {
     const authStore = useAuthStore.getState();
     let expectedUserId = authStore.user?.id ?? null;
+    if (!options.skipAnchorRefresh) {
+      useAnchorStore.setState({ isLoading: true, remoteAnchorState: 'loading', error: null });
+    }
     const isCurrentAccount = () => {
       const currentUserId = useAuthStore.getState().user?.id ?? null;
       return expectedUserId
         ? currentUserId === expectedUserId
         : currentUserId == null;
     };
+    const profileRequest = fetchCompleteProfile();
+    const anchorSpan = HomeStartupProfiler.start("anchors_request");
+    const anchorsRequest = apiClient.get<ApiResponse<Anchor[]>>("/api/anchors", {
+      params: { limit: 100, orderBy: "updatedAt", order: "desc" },
+    }).then((response) => {
+      const responseAnchors = response.data?.data;
+      if (!Array.isArray(responseAnchors)) {
+        anchorSpan({ ok: false, responseShapeValid: false });
+        if (isCurrentAccount() && !options.skipAnchorRefresh) {
+          useAnchorStore.setState({ isLoading: false, remoteAnchorState: 'error', error: 'Unable to load your Anchors.' });
+        }
+        throw new Error('Anchor response did not contain an authoritative list.');
+      }
+
+      const fastAnchors = responseAnchors.map(normalizeAnchor);
+      anchorSpan({ ok: true, anchorCount: fastAnchors.length });
+      if (expectedUserId && isCurrentAccount() && !options.skipAnchorRefresh) {
+        const anchorStore = useAnchorStore.getState();
+        if (fastAnchors.length > 0) {
+          const preservedLocalAnchors = anchorStore.anchors.filter((anchor) => !isBackendAnchorId(anchor.id));
+          const nextAnchors = [...fastAnchors, ...preservedLocalAnchors];
+          anchorStore.setAnchors(nextAnchors);
+          const activeAnchors = nextAnchors.filter((anchor) => !anchor.isReleased && !anchor.releasedAt && !anchor.archivedAt);
+          const selectedAnchor = activeAnchors.find((anchor) =>
+            anchor.id === anchorStore.currentAnchorId || anchor.localId === anchorStore.currentAnchorId
+          ) ?? activeAnchors[0];
+          if (selectedAnchor && selectedAnchor.id !== anchorStore.currentAnchorId) {
+            anchorStore.setCurrentAnchor(selectedAnchor.id);
+          }
+          if (activeAnchors.length > 0) {
+            useAnchorStore.setState({ isLoading: false, remoteAnchorState: 'confirmed', error: null });
+          }
+          HomeStartupProfiler.mark('anchors_early_committed', { anchorCount: nextAnchors.length, activeAnchorCount: activeAnchors.length });
+          if (
+            selectedAnchor &&
+            isAnchorV2Enabled(
+              process.env.EXPO_PUBLIC_ANCHOR_V2_ENABLED,
+              __DEV__,
+              process.env.EXPO_PUBLIC_APP_ENV,
+            )
+          ) {
+            prefetchHomeStartupData(selectedAnchor.id);
+          }
+        }
+      }
+      return response;
+    }, (error: unknown) => {
+      anchorSpan({ ok: false });
+      if (expectedUserId && isCurrentAccount() && !options.skipAnchorRefresh) {
+        useAnchorStore.setState({
+          isLoading: false,
+          remoteAnchorState: 'error',
+          error: error instanceof Error ? error.message : 'Unable to load your Anchors.',
+        });
+      }
+      throw error;
+    });
+    const exportSpan = HomeStartupProfiler.start("account_export_request");
+    const exportRequest = apiClient.get<AccountExportResponse>("/api/auth/me/export").then((response) => {
+      exportSpan({ ok: true });
+      return response;
+    }, (error: unknown) => {
+      exportSpan({ ok: false });
+      throw error;
+    });
+    const profileSpan = HomeStartupProfiler.start("profile_request");
+    const timedProfileRequest = profileRequest.then((response) => {
+      profileSpan({ ok: true });
+      return response;
+    }, (error: unknown) => {
+      profileSpan({ ok: false });
+      throw error;
+    });
+
     const [profileResult, anchorsResult, exportResult] =
-      await Promise.allSettled([
-        fetchCompleteProfile(),
-        apiClient.get<ApiResponse<Anchor[]>>("/api/anchors", {
-          params: {
-            limit: 100,
-            orderBy: "updatedAt",
-            order: "desc",
-          },
-        }),
-        apiClient.get<AccountExportResponse>("/api/auth/me/export"),
-      ]);
+      await Promise.allSettled([timedProfileRequest, anchorsRequest, exportRequest]);
 
     if (!isCurrentAccount()) return;
 
@@ -726,6 +796,7 @@ class AuthHydrationService {
       remoteAnchors = Array.isArray(anchorsResult.value.data?.data)
         ? anchorsResult.value.data.data.map(normalizeAnchor)
         : [];
+      HomeStartupProfiler.mark("anchors_response_decoded", { anchorCount: remoteAnchors.length });
     } else {
       logger.warn(
         "[AuthHydrationService] Anchor hydration failed",
@@ -880,6 +951,7 @@ class AuthHydrationService {
 
       remoteAnchors = restoredAnchors;
       anchorStore.setAnchors(nextAnchors);
+      HomeStartupProfiler.mark("anchors_committed", { anchorCount: nextAnchors.length, activeAnchorCount: nextAnchors.filter((anchor) => !anchor.isReleased && !anchor.releasedAt && !anchor.archivedAt).length });
 
       if (shouldUseExportAnchors && nextAnchors.length > 0) {
         anchorStore.setCurrentAnchor(
@@ -929,6 +1001,10 @@ class AuthHydrationService {
       ]);
     }
 
+    if (!options.skipAnchorRefresh && anchorsResult.status === "fulfilled") {
+      useAnchorStore.setState({ isLoading: false, remoteAnchorState: 'confirmed', error: null });
+    }
+
     const hydratedUser =
       normalizedProfileData?.user ?? useAuthStore.getState().user;
     if (
@@ -945,6 +1021,7 @@ class AuthHydrationService {
         primingHistory.length,
         exportedLifetimeCount,
       );
+      const strengthSpan = HomeStartupProfiler.start('thread_strength_hydration_calculation', { sessionCount: canonicalPracticeHistory.length });
       useSessionStore.getState().hydrateFromBackend({
         accountId: resolvedUserId ?? undefined,
         totalActivations,
@@ -953,6 +1030,8 @@ class AuthHydrationService {
         primingHistory,
         practiceHistory: canonicalPracticeHistory,
       });
+      strengthSpan({ strengthKnown: useSessionStore.getState().threadStrength !== null });
+      HomeStartupProfiler.mark("progress_snapshot_committed", { sessionCount: canonicalPracticeHistory.length, primingCount: primingHistory.length });
       if (resolvedUserId) {
         reportPracticeMigration(resolvedUserId, "completed", {
           canonical_session_count: canonicalPracticeHistory.length,
@@ -962,9 +1041,11 @@ class AuthHydrationService {
       }
     }
 
+    const sessionSnapshotSpan = HomeStartupProfiler.start("session_snapshot_read");
     const sessionSnapshot = resolvedUserId
       ? await loadSessionSnapshot(resolvedUserId)
       : null;
+    sessionSnapshotSpan({ found: Boolean(sessionSnapshot) });
     if (!isCurrentAccount()) return;
     if (sessionSnapshot) {
       const sessionState = useSessionStore.getState();

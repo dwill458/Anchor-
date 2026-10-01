@@ -13,6 +13,7 @@ config.resolver.blockList = [
   /android\/app\/build\/.*/,
   /ios\/build\/.*/,
   /ios\/Pods\/.*/,
+  /\.visualize-cinematic.*/,
 ];
 
 module.exports = config;

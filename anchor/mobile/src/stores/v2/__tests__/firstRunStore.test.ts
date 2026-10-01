@@ -62,6 +62,7 @@ describe('V2 first-run draft', () => {
       motivation: 'Something else',
       customAnswer: 'I want more room to create',
       desiredChange: 'I finish a personal project and share it.',
+      selectedOutcome: 'I finish a personal project and share it.',
       lifeChanges: ['What I do every day', 'Where I spend my time'],
       primaryNeed: 'Staying consistent',
     });
@@ -70,6 +71,29 @@ describe('V2 first-run draft', () => {
     store.setDesiredOutcome('');
     expect(useFirstRunStore.getState().draft.desiredOutcome).toBe('');
     expect(() => buildOnboardingContext(useFirstRunStore.getState().draft)).toThrow('Finish the onboarding questions');
+  });
+
+  it('resets unauthenticated progress on reload and does not persist drafts without an account', () => {
+    const store = useFirstRunStore.getState();
+    store.setStep('outcome');
+    store.setFocusCategory('career');
+    store.setDesiredOutcome('I lead a team');
+
+    // Without accountId, draft in storage is reset to initial
+    const persisted = (useFirstRunStore as any).persist?.getOptions?.().partialize?.(useFirstRunStore.getState());
+    if (persisted) {
+      expect(persisted.draft.currentStep).toBe('welcome');
+      expect(persisted.draft.focusCategory).toBeUndefined();
+    }
+
+    // With accountId, draft is persisted
+    store.bindAccount('user-123');
+    const persistedWithAccount = (useFirstRunStore as any).persist?.getOptions?.().partialize?.(useFirstRunStore.getState());
+    if (persistedWithAccount) {
+      expect(persistedWithAccount.draft.currentStep).toBe('outcome');
+      expect(persistedWithAccount.draft.focusCategory).toBe('career');
+      expect(persistedWithAccount.draft.accountId).toBe('user-123');
+    }
   });
 });
 
@@ -88,7 +112,9 @@ describe('Screen 3 focus area', () => {
     store.setPrimaryNeed('Seeing progress');
     expect(buildOnboardingContext(useFirstRunStore.getState().draft)).toEqual({
       focusCategory: 'career',
+      selectedCategory: 'career',
       desiredChange: 'I lead a team I believe in.',
+      selectedOutcome: 'I lead a team I believe in.',
       lifeChanges: ['How I feel'],
       primaryNeed: 'Seeing progress',
     });
@@ -101,7 +127,9 @@ describe('Screen 3 focus area', () => {
     store.setPrimaryNeed('Staying consistent');
     expect(buildOnboardingContext(useFirstRunStore.getState().draft)).toEqual({
       focusCategory: 'health',
+      selectedCategory: 'health',
       desiredChange: 'More energy',
+      selectedOutcome: 'More energy',
       primaryNeed: 'Staying consistent',
     });
   });

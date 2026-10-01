@@ -1,5 +1,5 @@
-export { CircularAnchorRenderer, circularAnchorSizes } from './CircularAnchorRenderer';
-export type { CircularAnchorSize } from './CircularAnchorRenderer';
+export { CircularAnchorRenderer, circularAnchorArtworkShare, circularAnchorSizes } from './CircularAnchorRenderer';
+export type { CircularAnchorAppearance, CircularAnchorSize } from './CircularAnchorRenderer';
 export { AnchorMark } from './AnchorMark';
 export type { AnchorMarkProps } from './AnchorMark';
 export { parseAnchorStructure } from './anchorStructure';

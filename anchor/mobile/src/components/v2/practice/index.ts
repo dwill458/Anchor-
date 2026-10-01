@@ -7,8 +7,12 @@ export { V2PracticeModeRow } from './V2PracticeModeRow';
 export { V2RecommendedTodayRibbon } from './V2RecommendedTodayRibbon';
 export {
   V2PracticeArtwork,
+  V2_PRACTICE_ARTWORK,
+  PRACTICE_ARTWORK,
+  resolvePracticeArtwork,
   FocusArtwork,
   DeepPrimeArtwork,
+  DeepFocusArtwork,
   VisualizeArtwork,
   ReleaseArtwork,
 } from './V2PracticeArtwork';

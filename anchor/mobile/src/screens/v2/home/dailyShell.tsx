@@ -4,6 +4,7 @@ import { useV2ReduceMotion } from '@/hooks/v2';
 import { v2ScreenBackground, v2StackScreenOptions } from '@/navigation/v2/transitions';
 import { ProgressiveFocusTransitionProvider } from '@/navigation/v2/ProgressiveFocusTransition';
 import { V2HomeScreen } from './V2HomeScreen';
+import { VisualProfiler } from '@/utils/visualProfiler'; // TEMP-PROFILER
 import { V2AnchorLibraryScreen } from '@/screens/v2/anchors/V2AnchorLibraryScreen';
 import { V2AnchorDetailsScreen } from '@/screens/v2/anchors/V2AnchorDetailsScreen';
 import type { V2PracticeMode } from '@/constants/v2/practice';
@@ -14,15 +15,16 @@ import type { V2PracticeMode } from '@/constants/v2/practice';
  * REQUIRED_INTEGRATION_CHANGES.md.
  */
 export type V2DailyShellIntents = {
-  onOpenPractice?: (anchorId: string, recommendedMode?: V2PracticeMode) => void;
-  onOpenVision?: (anchorId: string) => void;
+  /** `anchorTransition`: the Anchor is travelling into Practice, so the route must not animate itself. */
+  onOpenPractice?: (anchorId: string, recommendedMode?: V2PracticeMode, options?: { anchorTransition?: boolean }) => void;
+  onOpenVision?: (anchorId: string, options?: { edit?: boolean }) => void;
   onCreateVision?: (anchorId: string) => void;
   onOpenChart?: (anchorId?: string, courseId?: string) => void;
   onCreateChart?: (anchorId: string) => void;
   onOpenProgress?: (anchorId?: string) => void;
   onCreateAnchor?: () => void;
   onOpenProfile?: () => void;
-  onReleaseAnchor?: (anchorId: string) => void;
+  onReleaseAnchor?: (anchorId: string, options?: { anchorTransition?: boolean }) => void;
   onOpenWeeklyInsight?: () => void;
   onOpenMaterialLab?: () => void;
 };
@@ -104,21 +106,22 @@ const Stack = createNativeStackNavigator<V2DailyShellParamList>();
 export function V2DailyShellNavigator({ intents = {} }: { intents?: V2DailyShellIntents }) {
   const value = useMemo(() => intents, [intents]);
   const reduceMotion = useV2ReduceMotion();
-  // Same transition system as the central V2 stack, so Home -> Details moves
-  // exactly like Home -> Practice. (This stack used to run Android's 400ms
-  // full-width slide while every other V2 push used the platform default.)
+  // Keep the shared default for other routes; Details uses the Anchor hero
+  // layer and disables its native stack animation below.
   const screenOptions = useMemo(() => v2StackScreenOptions(reduceMotion), [reduceMotion]);
   return (
     <ProgressiveFocusTransitionProvider>
       <IntentsContext.Provider value={value}>
+        {/* TEMP-PROFILER */}<React.Profiler id="dailyShell" onRender={(_id, phase, actual) => { if (__DEV__ && actual > 4) VisualProfiler.record('commit', { phase, ms: Math.round(actual) }); }}>
         <Stack.Navigator screenOptions={screenOptions}>
           <Stack.Screen name="V2Home" component={V2HomeScreen} />
           <Stack.Screen name="V2AnchorLibrary" component={V2AnchorLibraryScreen} />
           <Stack.Screen name="V2AnchorDetails" component={V2AnchorDetailsScreen} options={DETAILS_OPTIONS} />
         </Stack.Navigator>
+        </React.Profiler>
       </IntentsContext.Provider>
     </ProgressiveFocusTransitionProvider>
   );
 }
 
-const DETAILS_OPTIONS = v2ScreenBackground('paper');
+const DETAILS_OPTIONS = { ...v2ScreenBackground('paper'), animation: 'none' as const };

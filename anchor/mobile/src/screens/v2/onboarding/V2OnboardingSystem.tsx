@@ -46,9 +46,9 @@ const GOLD_TEXT = "#A87A2C";
 const GOLD_RULE = "#D4AF6A";
 
 const PIECES: ReadonlyArray<{ key: "see" | "reinforce" | "move"; label: string; copy: string }> = [
-  { key: "see", label: "SEE", copy: "Your future\nclearly." },
-  { key: "reinforce", label: "REINFORCE", copy: "Keep your\nintention strong." },
-  { key: "move", label: "MOVE", copy: "Take the\nnext step." },
+  { key: "see", label: "SEE", copy: "Picture where you're going." },
+  { key: "reinforce", label: "REINFORCE", copy: "Return to your Anchor to keep the intention present." },
+  { key: "move", label: "MOVE", copy: "Turn that clarity into your next step." },
 ];
 
 type Props = {
@@ -177,7 +177,13 @@ function SystemLabel({
       <Text style={styles.label} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} maxFontSizeMultiplier={1.2}>
         {label}
       </Text>
-      <Text style={[styles.copy, { marginTop: labelDescGap }]} numberOfLines={2} maxFontSizeMultiplier={1.15}>
+      <Text
+        style={[styles.copy, { marginTop: labelDescGap }]}
+        numberOfLines={3}
+        adjustsFontSizeToFit
+        minimumFontScale={0.85}
+        maxFontSizeMultiplier={1.1}
+      >
         {copy}
       </Text>
     </Animated.View>
@@ -277,11 +283,12 @@ export function V2OnboardingSystem({ clock, entry, active, reduceMotion, categor
         </Animated.Text>
         <Animated.Text
           style={[styles.support, { marginTop: layout.gaps.headlineSupport, lineHeight: SUPPORT_LINE }, supportStyle]}
-          numberOfLines={1}
+          numberOfLines={2}
           adjustsFontSizeToFit
-          maxFontSizeMultiplier={1.15}
+          minimumFontScale={0.85}
+          maxFontSizeMultiplier={1.1}
         >
-          See it. Reinforce it. Move toward it.
+          Anchor turns what matters to you into a system you can see, reinforce, and move on.
         </Animated.Text>
       </View>
 

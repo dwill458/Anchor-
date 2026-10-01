@@ -85,13 +85,15 @@ function fakeProposal(category: string): ChartProposal {
   };
 }
 
-function courseFrom(destination: string, titles: string[], move: string | null, reachedCount = 0): CourseDetail {
+function courseFrom(destination: string, titles: string[], move: string | null, reachedCount = 0, currentValue = 0): CourseDetail {
   const waypoints = titles.map((title, index) => ({
     id: `w${index}`,
     courseId: 'preview-course',
     position: (index + 1) * 100,
     title,
     description: null,
+    kind: 'METRIC',
+    metric: { label:'fixture progress',baseline:0,target:100,current:index<reachedCount ? 100 : currentValue },
     state: index < reachedCount ? 'REACHED' : index === reachedCount ? 'CURRENT' : 'UPCOMING',
     blockedReason: null,
     reachedAt: index < reachedCount ? new Date().toISOString() : null,
@@ -127,6 +129,7 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export function V2ChartPreview({ onClose }: { onClose: () => void }) {
   const insets = useSafeAreaInsets();
   const [category, setCategory] = useState('career');
+  const [waypointCount,setWaypointCount] = useState(5);
   const [latency, setLatency] = useState<Latency>('fast');
   const [reducedMotion, setReducedMotion] = useState(false);
   const [run, setRun] = useState(0);
@@ -204,12 +207,13 @@ export function V2ChartPreview({ onClose }: { onClose: () => void }) {
           entrance={entrance}
         />
         <View style={[styles.devBar, { bottom: insets.bottom + spacing[3] }]}>
+          <View style={styles.row}>{[0,50,100].map(value=><DevChip key={value} label={`${value}%`} active={view.current?.metric?.current===value} onPress={()=>setCourse({...course,version:course.version+1,waypoints:course.waypoints.map(w=>w.id===course.currentWaypointId ? {...w,metric:{label:'fixture progress',baseline:0,target:100,current:value}} : w)})} />)}</View>
           <DevButton
             label="Reach next waypoint"
             onPress={() => {
               const reached = course.reachedCount ?? 0;
               const titles = course.waypoints.map((waypoint) => waypoint.title);
-              if (reached >= titles.length - 1) return;
+              if (reached >= titles.length) return;
               setCourse(courseFrom(course.destinationText, titles, course.moves?.[0]?.title ?? null, reached + 1));
               setCelebration({ completedTitle: titles[reached], nextTitle: titles[reached + 1] ?? null, fromFraction: reached / titles.length });
             }}
@@ -230,6 +234,12 @@ export function V2ChartPreview({ onClose }: { onClose: () => void }) {
     <ScrollView style={styles.setup} contentContainerStyle={{ paddingTop: insets.top + spacing[5], paddingBottom: insets.bottom + spacing[8], paddingHorizontal: spacing[5], gap: spacing[5] }}>
       <Text style={styles.title}>Chart motion lab</Text>
       <Text style={styles.body}>Runs the real Chart flow against a fake planner. Nothing is saved.</Text>
+      <Text style={styles.label}>Journey fixture count</Text>
+      <View style={styles.row}>{[3,5,8,12].map(count=><DevChip key={count} label={`${count} waypoints`} active={waypointCount===count} onPress={()=>setWaypointCount(count)}/>)}</View>
+      <DevButton label="Open journey fixture" testID="chart-preview-journey" onPress={()=>{
+        setCourse(courseFrom(sample.destination,Array.from({length:waypointCount},(_,i)=>`Fixture waypoint ${i+1}`),sample.move));
+        setCelebration(null); setEntrance('open'); setRun(value=>value+1); setMode('active');
+      }}/>
       <Text style={styles.label}>Environment</Text>
       <View style={styles.row}>
         {Object.keys(SAMPLES).map((key) => (

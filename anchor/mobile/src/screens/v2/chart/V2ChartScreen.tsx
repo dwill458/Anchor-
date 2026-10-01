@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { ChartActiveView, type ChartCelebration } from '@/components/v2/chart/ChartActiveView';
 import { ChartInkButton, ChartInkScreen, ChartTopBar } from '@/components/v2/chart/ChartChrome';
@@ -11,6 +11,7 @@ import { useV2ReduceMotion } from '@/hooks/v2/useV2ReduceMotion';
 import { colors, spacing, typography } from '@/theme/v2';
 import type { ChartRequestError } from '@/services/v2/chartV2Api';
 import { useChartContext } from './chartScreenSupport';
+import { ChartJourneyWorld } from '@/components/v2/chart/ChartJourneyWorld';
 
 export interface V2ChartRouteParams {
   anchorId?: string;
@@ -23,6 +24,7 @@ export interface V2ChartRouteParams {
 
 export interface V2ChartScreenProps {
   anchorId?: string;
+  initialWaypointId?: string | null;
   onBack?: () => void;
   testID?: string;
 }
@@ -49,6 +51,7 @@ export function actionErrorCopy(error: ChartRequestError | null): string | null 
 }
 
 export function V2ChartScreen(props: V2ChartScreenProps) {
+  const { width } = useWindowDimensions();
   const route = useRoute<RouteProp<Record<string, V2ChartRouteParams>, string>>();
   const navigation = useNavigation<any>();
   const anchorId = props.anchorId ?? route.params?.anchorId ?? '';
@@ -56,6 +59,7 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
   const chart = useAnchorChart(anchorId);
   const context = useChartContext(anchorId, chart.data);
   const [celebration, setCelebration] = useState<ChartCelebration | null>(null);
+  const [spatialFocused, setSpatialFocused] = useState(Boolean(props.initialWaypointId));
   // The creation flow stays on screen through its reveal ("Your route is
   // ready.") even though the saved Chart is already in the shared cache.
   const [revealing, setRevealing] = useState(false);
@@ -106,9 +110,18 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
     else navigation.navigate('V2DevelopmentHome');
   };
 
+  useEffect(() => {
+    navigation.setOptions?.({ gestureEnabled: !spatialFocused, animation: 'none' });
+  }, [navigation, spatialFocused]);
+
   const openVision = () => {
     trackChart('chart_vision_opened', { from: 'chart' });
     navigation.navigate('V2Vision', { anchorId });
+  };
+
+  const openPractice = () => {
+    trackChart('chart_practice_opened', { from: 'chart' });
+    navigation.navigate('V2Practice', { anchorId });
   };
 
   if (!anchorId) {
@@ -183,7 +196,15 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
     );
   }
 
-  if (view.isFinished || data.anchor.released) {
+  if (view.total === 0 && !data.anchor.released) {
+    return <ChartInkScreen testID="v2-chart-screen-no-waypoints">
+      <ChartTopBar title={CHART_COPY.title} onBack={handleBack} identity={identity} />
+      <ChartJourneyWorld width={width} height={220} />
+      <CenteredMessage title="Add the first waypoint to your Chart." action={{ label:'Add waypoints',onPress:()=>navigation.navigate('V2ChartAdjust',{anchorId}) }} />
+    </ChartInkScreen>;
+  }
+
+  if (data.anchor.released) {
     return (
       <ChartDestinationReached
         view={view}
@@ -212,14 +233,27 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
       celebration={celebration}
       onCelebrationDone={() => setCelebration(null)}
       onBack={handleBack}
-      onOpenWaypoint={(waypointId) => navigation.navigate('V2ChartWaypoint', { anchorId, waypointId })}
+      chartActions={chart}
+      initialWaypointId={props.initialWaypointId}
+      onSpatialModeChange={setSpatialFocused}
+      onWaypointReached={(result, previousReachedCount, total) => {
+        if (!result.destinationReached) {
+          setCelebration({
+            completedTitle: result.completedTitle,
+            nextTitle: result.nextTitle,
+            fromFraction: total > 0 ? previousReachedCount / total : 0,
+          });
+        }
+      }}
       onCompleteMove={async (moveId) => {
         chart.clearLastError();
         return chart.completeMove(moveId);
       }}
       onOpenVision={openVision}
+      onOpenPractice={openPractice}
       onOpenLog={() => navigation.navigate('V2ChartJourney', { anchorId })}
       onAdjust={() => navigation.navigate('V2ChartAdjust', { anchorId })}
+      onRelease={() => navigation.navigate('V2Release', { anchorId, reason: 'destination_completed' })}
       actionError={actionErrorCopy(chart.lastError)}
       entrance={arrivedFromReveal.current ? 'reveal' : 'open'}
       testID={props.testID ?? 'v2-chart-screen'}

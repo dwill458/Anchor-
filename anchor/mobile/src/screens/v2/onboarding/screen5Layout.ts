@@ -13,18 +13,47 @@ type Insets = { top: number; bottom: number };
 export const ONBOARDING_METRICS = { sidePad: 22, headerHeight: 48, ctaHeight: 56 } as const;
 
 /** Screen 4's hero: the upper third of the content area, capped so it never crowds the
- * choices on a short device. */
-export function solveOutcomeHero(width: number, height: number, insets: Insets): Frame {
+ * choices on a short device.
+ *
+ * When `optionCount` is given, the hero is also capped so the choice rows and CTA below it
+ * are guaranteed to fit above the safe area. The old fixed cap (224pt) alone was sized off
+ * the compact/short viewport thresholds, which a device like iPhone 14 Pro (393×852, a tall
+ * Dynamic Island inset) narrowly misses — it was treated as a full-size viewport, so a
+ * 4-option category overflowed the CTA off the bottom of the screen by ~80pt. Art gives way
+ * before type or touch targets, so only the hero shrinks here; row size and gaps are
+ * untouched. `optionCount` is omitted by Screen 5, which only wants this as a size
+ * reference for its own (smaller) hero and never renders these rows.
+ */
+export function solveOutcomeHero(width: number, height: number, insets: Insets, optionCount?: number): Frame {
   const m = ONBOARDING_METRICS;
   const compact = isCompactPhoneViewport(width, height) || isShortPhoneViewport(height);
-  const heroHeight = Math.min(height * (compact ? 0.26 : 0.32), compact ? 176 : 224);
+  const heroTop = insets.top + m.headerHeight + (compact ? 10 : 18);
+  let heroHeight = Math.min(height * (compact ? 0.26 : 0.32), compact ? 176 : 224);
+
+  if (optionCount !== undefined) {
+    // Mirrors the row/gap/margin constants V2OnboardingOutcome derives from the same
+    // `compact` flag — kept in one place would be nicer, but these are simple enough that
+    // duplicating them here (rather than threading a layout object back through both
+    // screens) keeps this a pure, easily-checked function.
+    const rowHeight = compact ? 56 : 64;
+    const rowGap = compact ? 8 : 10;
+    const rowsMarginTop = compact ? 18 : 24;
+    const ctaMarginTop = compact ? 16 : 22;
+    const heroToPillGap = compact ? 14 : 22;
+    const pillBlock = 28 + 14; // pill height + its margin-bottom
+    const questionBlock = 32 * 2; // question lineHeight * its fixed 2 lines
+    const supportBlock = 8 + 20; // support marginTop + lineHeight
+    const rowsBlock = optionCount * rowHeight + (optionCount - 1) * rowGap;
+    const fixedBelowHero =
+      heroToPillGap + pillBlock + questionBlock + supportBlock + rowsMarginTop + rowsBlock + ctaMarginTop + m.ctaHeight;
+    const bottomPad = Math.max(insets.bottom, 16) + 8;
+    const available = height - heroTop - bottomPad;
+    const heroFloor = compact ? 96 : 112;
+    heroHeight = Math.max(heroFloor, Math.min(heroHeight, available - fixedBelowHero));
+  }
+
   const heroWidth = Math.min(width - m.sidePad * 2, heroHeight * 1.05);
-  return {
-    x: (width - heroWidth) / 2,
-    y: insets.top + m.headerHeight + (compact ? 10 : 18),
-    width: heroWidth,
-    height: heroHeight,
-  };
+  return { x: (width - heroWidth) / 2, y: heroTop, width: heroWidth, height: heroHeight };
 }
 
 /** One of SEE / REINFORCE / MOVE: its art frame and its label column. */
@@ -54,8 +83,13 @@ export type Screen5Layout = {
 const PILL_H = 28;
 const RULE_H = 2;
 const SUPPORT_LINE = 20;
+/** The mechanism support copy is a full sentence now, not a three-word fragment — it wraps
+ * up to 2 lines instead of 1. */
+const SUPPORT_LINES = 2;
 const LABEL_LINE = 18;
-const DESC_LINES = 2;
+/** Each piece's description is a full clause now, not a two-word fragment — it wraps up to
+ * 3 lines instead of 2. */
+const DESC_LINES = 3;
 const DESC_LINE = 18;
 
 type Tier = {
@@ -103,7 +137,7 @@ export function solveScreen5Layout(width: number, height: number, insets: Insets
     t.ruleHeadline +
     t.headline.lineHeight * 2 +
     t.headlineSupport +
-    SUPPORT_LINE +
+    SUPPORT_LINE * SUPPORT_LINES +
     t.supportSystem +
     t.artLabel +
     LABEL_LINE +
@@ -128,17 +162,20 @@ export function solveScreen5Layout(width: number, height: number, insets: Insets
     band = Math.max(bandMin, Math.min(bandMax, spare));
   }
   const t = TIERS[tierIndex];
-  // On tall screens, spare height becomes breathing room above the system rather than
-  // larger artwork, so the composition keeps the mockup's proportions.
+  // On tall screens, spare height is distributed intentionally:
+  // 1) Generous breathing room between the mechanism explanation and the SEE / REINFORCE / MOVE visuals
+  // 2) Proportional, flexible breathing room above the CTA button
   const slack = Math.max(0, available - fixed(t) - hero - band);
-  const lift = Math.min(slack * 0.5, 48);
+  const heroPillLift = Math.min(slack * 0.08, 6);
+  const systemLift = Math.min(slack * 0.45, 45);
 
   const heroW = Math.min(contentW, hero * 1.05);
+  // Hero y is capped to stay at or above Screen 4's hero y, preserving upward flight
   const heroFrame: Frame = { x: (width - heroW) / 2, y: headerBottom + t.heroTop, width: heroW, height: hero };
-  const pillTop = heroFrame.y + hero + t.heroPill;
+  const pillTop = heroFrame.y + hero + t.heroPill + heroPillLift;
   const supportBottom =
-    pillTop + PILL_H + t.pillRule + RULE_H + t.ruleHeadline + t.headline.lineHeight * 2 + t.headlineSupport + SUPPORT_LINE;
-  const systemTop = supportBottom + t.supportSystem + lift;
+    pillTop + PILL_H + t.pillRule + RULE_H + t.ruleHeadline + t.headline.lineHeight * 2 + t.headlineSupport + SUPPORT_LINE * SUPPORT_LINES;
+  const systemTop = supportBottom + t.supportSystem + systemLift;
   const artBaseline = systemTop + band;
   const labelTop = artBaseline + t.artLabel;
 
@@ -201,3 +238,36 @@ export function screen5CopyBottom(layout: Screen5Layout): number {
 
 export const SCREEN5_TYPE = { PILL_H, RULE_H, SUPPORT_LINE, LABEL_LINE, DESC_LINE } as const;
 export const screen5LabelDescGap = (layout: Screen5Layout) => TIERS[layout.tier].labelDesc;
+
+export type Screen8Layout = {
+  anchor: Frame;
+  contentTop: number;
+  ctaTop: number;
+  bottomPad: number;
+};
+
+export function solveScreen8Layout(width: number, height: number, insets: Insets): Screen8Layout {
+  const m = ONBOARDING_METRICS;
+  const compact = isCompactPhoneViewport(width, height) || isShortPhoneViewport(height);
+  const bottomPad = Math.max(insets.bottom, 16) + 8;
+  const ctaTop = height - bottomPad - m.ctaHeight;
+  const headerBottom = insets.top + m.headerHeight;
+
+  const anchorSize = Math.min(width * (compact ? 0.48 : 0.52), compact ? 180 : 220);
+  const anchorY = headerBottom + (compact ? 14 : 26);
+  const anchorFrame: Frame = {
+    x: (width - anchorSize) / 2,
+    y: anchorY,
+    width: anchorSize,
+    height: anchorSize,
+  };
+
+  const contentTop = anchorY + anchorSize + (compact ? 16 : 26);
+
+  return {
+    anchor: anchorFrame,
+    contentTop,
+    ctaTop,
+    bottomPad,
+  };
+}

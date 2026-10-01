@@ -1,6 +1,7 @@
 const mockPrisma = {
   anchor: { findFirst: jest.fn() },
-  vision: { findFirst: jest.fn() },
+  vision: { findFirst: jest.fn(), findUnique: jest.fn() },
+  visionScene: { count: jest.fn() },
   visionGeneration: {
     findFirst: jest.fn(),
     create: jest.fn(),
@@ -209,8 +210,100 @@ describe('VisionGenerationService', () => {
     await (service as any).run('job-2', 'I create freely', 'DESIRE');
 
     expect(mockPrisma.visionGeneration.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { visionId: 'vision-1', setNumber: { lt: 2 } },
+      where: { visionId: 'vision-1', kind: 'SET', setNumber: { lt: 2 } },
     }));
     expect(mockPlanVisionScenes).toHaveBeenCalledWith('I create freely', 'DESIRE', description, earlier.map(item => item.scene), false, null);
+  });
+  describe('a described scene for the board', () => {
+    const sceneText = 'Working from a beach house with my family nearby';
+
+    beforeEach(() => {
+      mockPrisma.visionScene.count.mockResolvedValue(3);
+      mockPrisma.visionGeneration.findFirst.mockResolvedValue(null);
+      mockPrisma.visionGeneration.findUnique.mockResolvedValue(null);
+    });
+
+    afterEach(() => { jest.restoreAllMocks(); });
+
+    it('creates a SCENE job with two planned shots, without touching the Vision description or the set count', async () => {
+      const run = jest.spyOn(service as any, 'run').mockResolvedValue(undefined);
+      jest.spyOn(service, 'latest').mockResolvedValue({ id: 'scene-job-000001', status: 'QUEUED' } as never);
+      await service.startScene(userId, anchorId, sceneText, 'scene-job-000001');
+      expect(visionService.createAnchorVision).not.toHaveBeenCalled();
+      const data = mockPrisma.visionGeneration.create.mock.calls[0][0].data;
+      expect(data).toEqual(expect.objectContaining({ kind: 'SCENE', setNumber: 1, description: sceneText, visionId: 'vision-1' }));
+      expect(data.plan).toHaveLength(2);
+      expect(data.plan.every((item: { scene: string }) => item.scene === sceneText)).toBe(true);
+      expect(run).toHaveBeenCalledWith('scene-job-000001', 'I create freely', 'DESIRE');
+    });
+
+    it('accepts a full-length Vision description for the first image and keeps every word in both shots', async () => {
+      jest.spyOn(service as any, 'run').mockResolvedValue(undefined);
+      jest.spyOn(service, 'latest').mockResolvedValue({ id: 'scene-job-000006', status: 'QUEUED' } as never);
+      const long = 'I see the number I worked toward. '.repeat(60).slice(0, 1999).trimEnd() + '.';
+      expect(long.length).toBeLessThanOrEqual(2000);
+      expect(long.length).toBeGreaterThan(1900);
+      await service.startScene(userId, anchorId, long, 'scene-job-000006');
+      const data = mockPrisma.visionGeneration.create.mock.calls[0][0].data;
+      expect(data.plan).toHaveLength(2);
+      expect(data.plan.every((item: { scene: string }) => item.scene === long)).toBe(true);
+      await expect(service.startScene(userId, anchorId, `${long}${'x'.repeat(200)}`, 'scene-job-000007')).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    });
+
+    it('needs an existing Vision with room on the board', async () => {
+      mockPrisma.vision.findFirst.mockResolvedValueOnce(null);
+      await expect(service.startScene(userId, anchorId, sceneText, 'scene-job-000002')).rejects.toMatchObject({ statusCode: 404 });
+      mockPrisma.vision.findFirst.mockResolvedValueOnce({ id: 'vision-1' });
+      mockPrisma.visionScene.count.mockResolvedValueOnce(6);
+      await expect(service.startScene(userId, anchorId, sceneText, 'scene-job-000003')).rejects.toMatchObject({ code: 'VISION_IMAGE_LIMIT' });
+      expect(mockPrisma.visionGeneration.create).not.toHaveBeenCalled();
+    });
+
+    it('is gated like every other generation, and a repeated tap returns the running job', async () => {
+      (getMonetizationAccess as jest.Mock).mockResolvedValueOnce({ hasProAccess: false });
+      await expect(service.startScene(userId, anchorId, sceneText, 'scene-job-000004')).rejects.toMatchObject({ statusCode: 403 });
+      const running = { id: 'scene-job-old', status: 'RUNNING', updatedAt: new Date() };
+      mockPrisma.visionGeneration.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(running);
+      jest.spyOn(service, 'latest').mockResolvedValue({ id: 'scene-job-old', status: 'RUNNING' } as never);
+      const result = await service.startScene(userId, anchorId, sceneText, 'scene-job-000005');
+      expect(result).toEqual(expect.objectContaining({ id: 'scene-job-old' }));
+      expect(mockPrisma.visionGeneration.create).not.toHaveBeenCalled();
+    });
+
+    it('shoots each candidate in the context of the Vision and what is already on the board', async () => {
+      const onePixelPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRuoAAAAASUVORK5CYII=', 'base64');
+      mockGenerateVisionScene.mockResolvedValue(onePixelPng);
+      const plan = [
+        { role: 'The moment itself', scene: sceneText, framing: 'medium' },
+        { role: 'The place around it', scene: sceneText, framing: 'wide' },
+      ];
+      mockPrisma.visionGeneration.findUnique.mockImplementation(async (query: { select?: unknown }) =>
+        query.select ? { status: 'RUNNING', retryCount: 0 } : {
+          id: 'scene-job-1', userId, anchorId, visionId: 'vision-1', kind: 'SCENE', description: sceneText, retryCount: 0, plan,
+        });
+      mockPrisma.vision.findUnique.mockResolvedValue({
+        description: 'A calm, sunlit life by the water.',
+        scenes: [{ prompt: 'A quiet dock at dawn' }, { prompt: null }],
+      });
+      mockPrisma.visionGeneration.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.visionGeneration.update.mockResolvedValue({});
+      mockPrisma.visionGenerationCandidate.findUnique.mockResolvedValue(null);
+      mockPrisma.visionGenerationCandidate.create.mockResolvedValue({});
+      (uploadImageAssetFromBuffer as jest.Mock).mockImplementation(async (_i, _u, _a, index) => ({ objectKey: `private/${index}.jpg` }));
+      (visionService.createAsset as jest.Mock).mockImplementation(async (_u, input) => ({ id: input.storageKey }));
+
+      await (service as any).run('scene-job-1', 'I create freely', 'DESIRE');
+
+      expect(mockPlanVisionScenes).not.toHaveBeenCalled();
+      expect(mockGenerateVisionScene).toHaveBeenCalledTimes(2);
+      const prompt = mockGenerateVisionScene.mock.calls[0][0] as string;
+      expect(prompt).toContain(JSON.stringify(sceneText));
+      expect(prompt).toContain('A calm, sunlit life by the water.');
+      expect(prompt).toContain('A quiet dock at dawn');
+      expect(mockPrisma.visionGenerationCandidate.create).toHaveBeenCalledTimes(2);
+      expect(mockPrisma.visionGeneration.updateMany).toHaveBeenLastCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ status: 'COMPLETE' }),
+      }));
+    });
   });
 });

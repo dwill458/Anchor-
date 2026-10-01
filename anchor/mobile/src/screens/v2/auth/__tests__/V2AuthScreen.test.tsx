@@ -6,9 +6,18 @@ import { AuthService } from '@/services/AuthService';
 import PostAuthFlowService from '@/services/PostAuthFlowService';
 
 let mockSignedInUser: { id: string } | null = null;
-jest.mock('@/stores/authStore', () => ({
-  useAuthStore: (selector: (state: { user: typeof mockSignedInUser }) => unknown) => selector({ user: mockSignedInUser }),
-}));
+const mockSignOut = jest.fn().mockResolvedValue(undefined);
+const mockCompleteOnboarding = jest.fn();
+jest.mock('@/stores/authStore', () => {
+  const getMockState = () => ({
+    user: mockSignedInUser,
+    signOut: mockSignOut,
+    completeOnboarding: mockCompleteOnboarding,
+  });
+  const useAuthStore = (selector: (state: any) => unknown) => selector(getMockState());
+  useAuthStore.getState = getMockState;
+  return { useAuthStore };
+});
 
 jest.mock('expo-apple-authentication', () => ({
   isAvailableAsync: jest.fn().mockResolvedValue(true),
@@ -27,6 +36,7 @@ jest.mock('@/services/AuthService', () => ({
     signInWithGoogle: jest.fn(),
     signInWithApple: jest.fn(),
     sendPasswordResetEmail: jest.fn(),
+    signOut: jest.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -153,5 +163,16 @@ describe('V2AuthScreen', () => {
     fireEvent.press(screen.getByLabelText('Continue with Apple'));
     await waitFor(() => expect(AuthService.signInWithApple).toHaveBeenCalledWith({ allowBackendCreate: false }));
     expect(PostAuthFlowService.run).toHaveBeenCalledWith(expect.objectContaining({ user: { id: 'apple-user' } }));
+  });
+
+  it('provides escape options on save-progress view to continue to Sanctuary or switch account', () => {
+    mockSignedInUser = { id: 'signed-in-user' };
+    render(<V2AuthScreen initialMode="create" saveProgress onBack={jest.fn()} />);
+
+    expect(screen.getByTestId('v2-auth-continue-home')).toBeTruthy();
+    expect(screen.getByTestId('v2-auth-switch-account')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('v2-auth-switch-account'));
+    expect(AuthService.signOut).toHaveBeenCalled();
   });
 });

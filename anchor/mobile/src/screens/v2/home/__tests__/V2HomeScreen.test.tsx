@@ -1,6 +1,6 @@
-import React from 'react';
+
 import { Image } from 'react-native';
-import { render, fireEvent, screen } from '@testing-library/react-native';
+import { render, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 const mockNavigate = jest.fn();
 jest.mock('@react-navigation/native', () => ({
@@ -65,7 +65,7 @@ const renderHome = (intents = {}, overrides: Record<string, unknown> = {}) => {
   mockUseV2HomeModel.mockReturnValue({
     greeting: 'Good morning, Deontrez',
     profileInitial: 'D',
-    anchorState: 'ready',
+    anchorState: anchors.length > 0 ? 'ready' : 'empty',
     anchorError: null,
     hasAnchors: anchors.length > 0,
     selectedAnchor,
@@ -169,11 +169,21 @@ describe('Home structure', () => {
     expect(onOpenProgress).toHaveBeenCalledWith('a');
   });
 
-  it('opens Anchor details from the hero artwork', () => {
+  it('opens Anchor details after the measured artwork copy is mounted', async () => {
     oneAnchor();
     renderHome();
+    (screen.getByTestId('v2-home-anchor-disc').parent?.instance.measureInWindow as jest.Mock)
+      .mockImplementation((callback) => callback(100, 200, 154, 154));
     fireEvent.press(screen.getByTestId('v2-home-carousel-active'));
-    expect(mockNavigate).toHaveBeenCalledWith('V2AnchorDetails', { anchorId: 'a' });
+    fireEvent.press(screen.getByTestId('v2-home-carousel-active'));
+    expect(mockNavigate).not.toHaveBeenCalled();
+    const layer = screen.getByTestId('v2-anchor-transition-layer', { includeHiddenElements: true });
+    (layer.parent?.instance.measureInWindow as jest.Mock)
+      .mockImplementation((callback) => callback(0, 0, 400, 800));
+    fireEvent(layer, 'layout');
+    expect(screen.getByTestId('v2-anchor-transition-copy', { includeHiddenElements: true })).toBeTruthy();
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('V2AnchorDetails', { anchorId: 'a' }));
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
   });
 
   it('does not open details when a press moves like a swipe', () => {
@@ -186,13 +196,19 @@ describe('Home structure', () => {
     expect(mockNavigate).not.toHaveBeenCalledWith('V2AnchorDetails', { anchorId: 'a' });
   });
 
-  it('still opens details on a deliberate tap with slight finger movement', () => {
+  it('still opens details on a deliberate tap with slight finger movement', async () => {
     oneAnchor();
     renderHome();
+    (screen.getByTestId('v2-home-anchor-disc').parent?.instance.measureInWindow as jest.Mock)
+      .mockImplementation((callback) => callback(100, 200, 154, 154));
     const artwork = screen.getByTestId('v2-home-carousel-active');
     fireEvent(artwork, 'pressIn', { nativeEvent: { pageX: 100, pageY: 200 } });
     fireEvent.press(artwork, { nativeEvent: { pageX: 103, pageY: 202 } });
-    expect(mockNavigate).toHaveBeenCalledWith('V2AnchorDetails', { anchorId: 'a' });
+    const layer = screen.getByTestId('v2-anchor-transition-layer', { includeHiddenElements: true });
+    (layer.parent?.instance.measureInWindow as jest.Mock)
+      .mockImplementation((callback) => callback(0, 0, 400, 800));
+    fireEvent(layer, 'layout');
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('V2AnchorDetails', { anchorId: 'a' }));
   });
 });
 
@@ -308,24 +324,26 @@ describe('Today', () => {
 });
 
 describe('Conditional Vision and Chart', () => {
-    it('state 1 — one Anchor, no Vision, no Chart: shows the inactive Chart environment and entry action', () => {
+    it('state 1 — one Anchor, no Vision, no Chart: hides Vision and Chart, shows Progress', () => {
     oneAnchor();
     renderHome();
     expect(screen.queryByTestId('v2-home-vision')).toBeNull();
-    expect(screen.getByTestId('v2-home-chart-empty')).toBeTruthy();
-    expect(screen.getByTestId('v2-home-chart-map')).toBeTruthy();
-    expect(screen.getByText('Create Chart')).toBeTruthy();
-    expect(screen.queryByText('YOUR VISION')).toBeNull();
-      expect(screen.queryByText('CHART')).toBeNull();
-      expect(screen.getByTestId('v2-home-progress')).toBeTruthy();
+    expect(screen.queryByTestId('v2-home-vision-empty')).toBeNull();
+    expect(screen.queryByText('Your Vision')).toBeNull();
+    expect(screen.queryByText('Create Vision')).toBeNull();
+    expect(screen.queryByTestId('v2-home-chart-empty')).toBeNull();
+    expect(screen.queryByTestId('v2-home-chart-map')).toBeNull();
+    expect(screen.queryByText('Create Chart')).toBeNull();
+    expect(screen.queryByText('Your Chart')).toBeNull();
+    expect(screen.getByTestId('v2-home-progress')).toBeTruthy();
   });
 
-  it('renders an inactive Chart environment without route markers when no Course exists', () => {
+  it('renders no Chart section when no Course exists', () => {
     oneAnchor();
     renderHome({}, { chart: { state: 'none' } });
-    expect(screen.getByTestId('v2-home-chart-empty')).toBeTruthy();
-    expect(screen.getByTestId('v2-home-chart-map')).toBeTruthy();
-    expect(screen.getByText('Create Chart')).toBeTruthy();
+    expect(screen.queryByTestId('v2-home-chart-empty')).toBeNull();
+    expect(screen.queryByTestId('v2-home-chart-map')).toBeNull();
+    expect(screen.queryByText('Create Chart')).toBeNull();
     expect(screen.queryByTestId('v2-home-chart-loading')).toBeNull();
     expect(screen.queryByTestId('v2-home-chart-error')).toBeNull();
     expect(screen.queryByText(/Loading your current Course/i)).toBeNull();
@@ -335,7 +353,7 @@ describe('Conditional Vision and Chart', () => {
     oneAnchor();
     renderHome({}, { chart: { state: 'resolving' } });
     expect(screen.queryByTestId('v2-home-chart-loading')).toBeNull();
-    expect(screen.queryByText('CHART')).toBeNull();
+    expect(screen.queryByText('Your Chart')).toBeNull();
   });
 
   it('shows a Chart placeholder only for a known relationship in flight', () => {
@@ -349,20 +367,23 @@ describe('Conditional Vision and Chart', () => {
     renderHome({}, { vision: readyVision });
     expect(screen.getByTestId('v2-home-vision')).toBeTruthy();
     expect(screen.getByTestId('v2-home-vision-image')).toBeTruthy();
-      expect(screen.getByTestId('v2-home-chart-empty')).toBeTruthy();
+      expect(screen.queryByTestId('v2-home-chart-empty')).toBeNull();
       expect(screen.queryByTestId('v2-home-progress')).toBeNull();
   });
 
-    it('state 3 — Chart, no Vision, with real Course data', () => {
+    it('state 3 — Chart, no Vision, with real Course data: shows Chart and Progress, hides Vision', () => {
     oneAnchor();
     renderHome({}, { chart: readyChart });
     expect(screen.queryByTestId('v2-home-vision')).toBeNull();
-    expect(screen.getByTestId('v2-home-chart-destination').props.children).toContain('Reach 1,000 active users');
+    expect(screen.queryByText('Your Vision')).toBeNull();
+    expect(screen.queryByText('Create Vision')).toBeNull();
+    expect(screen.queryByTestId('v2-home-chart-destination')).toBeNull();
+    expect(screen.getByTestId('v2-home-chart').props.accessibilityLabel).not.toContain('Reach 1,000 active users');
     expect(screen.getByTestId('v2-home-chart-waypoint').props.children).toBe('Contact 3 creators');
     expect(screen.getByTestId('v2-home-chart-one-move').props.children).toBe('Contact 3 creators');
       expect(screen.queryByTestId('v2-home-chart-progress')).toBeNull();
       expect(screen.getByTestId('v2-home-chart-map')).toBeTruthy();
-      expect(screen.queryByTestId('v2-home-progress')).toBeNull();
+      expect(screen.getByTestId('v2-home-progress')).toBeTruthy();
   });
 
   it('state 4 — Vision and Chart both render from real data', () => {
@@ -381,7 +402,8 @@ describe('Conditional Vision and Chart', () => {
 
     renderHome({}, { vision: { state: 'error', message: 'offline' } });
     expect(screen.queryByTestId('v2-home-vision')).toBeNull();
-    expect(screen.queryByText('YOUR VISION')).toBeNull();
+    expect(screen.queryByText('Your Vision')).toBeNull();
+    expect(screen.queryByText('Retry Vision')).toBeNull();
   });
 
   it('routes Vision and Chart to their real surfaces for the active Anchor', () => {
@@ -395,21 +417,32 @@ describe('Conditional Vision and Chart', () => {
     expect(onOpenChart).toHaveBeenCalledWith('a', 'c1');
   });
 
-  it('state A — Vision unseen today: "YOUR VISION", never a false "Seen today", CTA is Enter Vision', () => {
+  it('keeps both View all actions on their existing destinations', () => {
+    const onOpenVision = jest.fn();
+    const onOpenChart = jest.fn();
+    oneAnchor();
+    renderHome({ onOpenVision, onOpenChart }, { vision: readyVision, chart: readyChart });
+    fireEvent.press(screen.getByLabelText('View all Vision'));
+    fireEvent.press(screen.getByLabelText('View all Chart'));
+    expect(onOpenVision).toHaveBeenCalledWith('a');
+    expect(onOpenChart).toHaveBeenCalledWith('a', 'c1');
+  });
+
+  it('state A — Vision unseen today: title case, View all, and an Enter Vision tap target', () => {
     oneAnchor();
     renderHome({}, { vision: readyVision });
-    expect(screen.getByText('YOUR VISION')).toBeTruthy();
+    expect(screen.getByText('Your Vision')).toBeTruthy();
     expect(screen.queryByTestId('v2-home-vision-seen')).toBeNull();
-    expect(screen.getByText('Enter Vision')).toBeTruthy();
+    expect(screen.getByLabelText('Enter your Vision')).toBeTruthy();
     expect(screen.queryByText('Revisit Vision')).toBeNull();
   });
 
-  it('state B — Vision seen today, from the real backend flag: "YOUR VISION" + "Seen today", CTA is Revisit Vision', () => {
+  it('state B — Vision seen today, from the real backend flag: title case and a Revisit Vision tap target', () => {
     oneAnchor();
     renderHome({}, { vision: { ...readyVision, seenToday: true } });
-    expect(screen.getByText('YOUR VISION')).toBeTruthy();
-    expect(screen.getByTestId('v2-home-vision-seen')).toBeTruthy();
-    expect(screen.getByText('Revisit Vision')).toBeTruthy();
+    expect(screen.getByText('Your Vision')).toBeTruthy();
+    expect(screen.queryByTestId('v2-home-vision-seen')).toBeNull();
+    expect(screen.getByLabelText('Revisit your Vision')).toBeTruthy();
     expect(screen.queryByText('Enter Vision')).toBeNull();
   });
 
@@ -486,9 +519,9 @@ describe('Conditional Vision and Chart', () => {
     const longStatement = Array.from({ length: 6 }, () => 'My RevenueCat dashboard shows ten thousand active users for Anchor.').join(' ');
     renderHome({}, { vision: { ...readyVision, title: undefined, previewText: longStatement } });
     const statement = screen.getByTestId('v2-home-vision-statement');
-    expect(statement.props.numberOfLines).toBe(3);
+    expect(statement.props.numberOfLines).toBe(2);
     expect(statement.props.children).toBe(longStatement);
-    expect(screen.getByText('Enter Vision')).toBeTruthy();
+    expect(screen.getByLabelText('Enter your Vision')).toBeTruthy();
   });
 });
 
@@ -546,15 +579,15 @@ describe('Hero carousel', () => {
     useAnchorStore.setState({ currentAnchorId: 'b' });
     renderHome({}, { vision: { state: 'none' }, chart: { state: 'none' } });
     expect(screen.getByTestId('v2-home-intention').props.children).toBe('Second intention');
-    expect(screen.getByTestId('v2-home-chart-empty')).toBeTruthy();
+    expect(screen.queryByTestId('v2-home-chart-empty')).toBeNull();
     expect(screen.queryByTestId('v2-home-vision')).toBeNull();
     expect(screen.queryByText('Reach 1,000 active users')).toBeNull();
     expect(screen.queryByText('A bright open studio at dawn')).toBeNull();
   });
 });
 
-describe('Progress', () => {
-  it('renders the real session count and the shared Thread visualization', () => {
+describe('Home section order', () => {
+  it('renders progress and recent activity while keeping weekly review out of Home when no vision', () => {
     oneAnchor();
     renderHome({}, {
       progress: {
@@ -562,22 +595,27 @@ describe('Progress', () => {
         totalSessions: 4,
         evidence: [{ id: 'e1', title: 'Anchor created', dayLabel: 'Yesterday', occurredAt: '2026-09-16T09:00:00.000Z' }],
       },
+      recentActivity: [{ id: 's1', title: 'Visualize', dayLabel: 'Thursday', mode: 'visualize', durationSeconds: 60 }],
     });
-    expect(screen.getByTestId('v2-home-progress-sessions').props.children).toBe('4 practices');
-    // The same ThreadStrength track Anchor Details uses, without its own number row.
-    expect(screen.getByTestId('v2-home-progress-thread-track')).toBeTruthy();
-    // Evidence lives in Progress itself; the Home preview carries only the count.
-    expect(screen.queryByTestId('v2-home-progress-item-e1')).toBeNull();
-    // None of the HTML reference's illustrative content is present.
-    expect(screen.queryByText(/Portfolio direction clarified/i)).toBeNull();
-    expect(screen.queryByText(/Two prospects selected/i)).toBeNull();
+    expect(screen.getByTestId('v2-home-progress')).toBeTruthy();
+    expect(screen.queryByTestId('v2-home-weekly-review')).toBeNull();
+    expect(screen.getByText('Recent Practice')).toBeTruthy();
   });
 
-  it('states the empty case plainly rather than inventing activity', () => {
+  it('omits progress when vision is present (feature dynamic)', () => {
     oneAnchor();
-    renderHome({}, { progress: { state: 'empty' } });
-    expect(screen.getByTestId('v2-home-progress-empty')).toBeTruthy();
-    expect(screen.queryByTestId('v2-home-progress-sessions')).toBeNull();
+    renderHome({}, {
+      vision: readyVision,
+      progress: {
+        state: 'ready',
+        totalSessions: 4,
+        evidence: [{ id: 'e1', title: 'Anchor created', dayLabel: 'Yesterday', occurredAt: '2026-09-16T09:00:00.000Z' }],
+      },
+      recentActivity: [{ id: 's1', title: 'Visualize', dayLabel: 'Thursday', mode: 'visualize', durationSeconds: 60 }],
+    });
+    expect(screen.getByTestId('v2-home-vision')).toBeTruthy();
+    expect(screen.queryByTestId('v2-home-progress')).toBeNull();
+    expect(screen.getByText('Recent Practice')).toBeTruthy();
   });
 });
 
@@ -585,13 +623,14 @@ describe('Account and loading states', () => {
   it('shows a restrained skeleton rather than a pile of loading cards', () => {
     renderHome({}, { anchorState: 'loading', selectedAnchor: null, anchorList: [], selectedIndex: -1, thread: null });
     expect(screen.getByTestId('v2-home-anchors-loading')).toBeTruthy();
+    expect(screen.queryByText('No Anchor yet')).toBeNull();
     expect(screen.queryByTestId('v2-home-today')).toBeNull();
     expect(screen.queryByTestId('v2-home-chart-loading')).toBeNull();
   });
 
   it('offers the create path with no Anchors and renders no modules', () => {
     const onCreateAnchor = jest.fn();
-    renderHome({ onCreateAnchor }, { selectedAnchor: null, anchorList: [], selectedIndex: -1, thread: null, hasAnchors: false });
+    renderHome({ onCreateAnchor }, { anchorState: 'empty', selectedAnchor: null, anchorList: [], selectedIndex: -1, thread: null, hasAnchors: false });
     expect(screen.getByText('No Anchor yet')).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Create your first Anchor'));
     expect(onCreateAnchor).toHaveBeenCalled();

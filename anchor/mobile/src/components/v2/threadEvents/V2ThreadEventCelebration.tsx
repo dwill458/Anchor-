@@ -8,7 +8,7 @@ import type { V2ThreadEventBundle } from '@/adapters/v2/threadEvents';
 import { livingColorForEvent, livingColorLayers } from './livingColor';
 import { threadEventLabel } from '@/constants/v2/threadEvents';
 
-type Props = { bundle: V2ThreadEventBundle | null; visible: boolean; anchorSvg?: string | null; category?: string | null; reducedMotion?: boolean; onPresented?: () => void; onAcknowledge: () => void; onDismiss: () => void; testID?: string };
+type Props = { bundle: V2ThreadEventBundle | null; visible: boolean; anchorSvg?: string | null; anchorImageUrl?: string | null; category?: string | null; reducedMotion?: boolean; onPresented?: () => void; onAcknowledge: () => void; onDismiss: () => void; testID?: string };
 
 function headline(bundle: V2ThreadEventBundle) {
   const { eventType, metadata } = bundle.primary;
@@ -19,7 +19,7 @@ function headline(bundle: V2ThreadEventBundle) {
   return threadEventLabel(eventType);
 }
 
-export function V2ThreadEventCelebration({ bundle, visible, anchorSvg, category, reducedMotion = false, onPresented, onAcknowledge, onDismiss, testID = 'v2-thread-event-celebration' }: Props) {
+export function V2ThreadEventCelebration({ bundle, visible, anchorSvg, anchorImageUrl, category, reducedMotion = false, onPresented, onAcknowledge, onDismiss, testID = 'v2-thread-event-celebration' }: Props) {
   const event = bundle?.primary;
   const treatment = livingColorForEvent(event?.significance ?? 'LOW', reducedMotion);
   const categoryColor = getCategoryColor(category);
@@ -36,7 +36,7 @@ export function V2ThreadEventCelebration({ bundle, visible, anchorSvg, category,
       <View style={styles.artworkWrap}>
         {treatment.intensity >= 1 ? <View testID={`${testID}-halo`} pointerEvents="none" style={[styles.halo, layers.halo]} /> : null}
         {treatment.structuralAccent ? <View testID={`${testID}-structural-accent`} pointerEvents="none" style={[styles.ring, layers.ring]} /> : null}
-        {anchorSvg ? <CircularAnchorRenderer svg={anchorSvg} category={category} size="large" accessibilityLabel={`${event.metadata.anchorName ?? 'Anchor'} event artwork`} /> : <View style={[styles.objectFallback, { backgroundColor: `${categoryColor}20`, borderColor: categoryColor }]} />}
+        {anchorSvg ? <CircularAnchorRenderer svg={anchorSvg} imageUrl={anchorImageUrl} category={category} size="large" accessibilityLabel={`${event.metadata.anchorName ?? 'Anchor'} event artwork`} /> : <View style={[styles.objectFallback, { backgroundColor: `${categoryColor}20`, borderColor: categoryColor }]} />}
       </View>
       <Text accessibilityRole="header" style={[styles.title, dark && styles.darkText]}>{headline(bundle)}</Text>
       <Text style={[styles.copy, dark && styles.darkCopy]}>{event.metadata.anchorName ? `${event.metadata.anchorName}. ` : ''}{event.eventType === 'EVOLUTION_STAGE_REACHED' ? 'A permanent structural stage changed for the first time.' : 'This is a persisted event from your Anchor history.'}</Text>

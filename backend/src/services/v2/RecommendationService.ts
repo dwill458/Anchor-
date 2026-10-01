@@ -17,6 +17,17 @@ function stablePart(value: string): string {
   return encodeURIComponent(value);
 }
 
+type RecommendationTiming = (stage: string, durationMs: number) => void;
+
+async function timed<T>(stage: string, work: () => Promise<T>, onTiming?: RecommendationTiming): Promise<T> {
+  const startedAt = performance.now();
+  try {
+    return await work();
+  } finally {
+    onTiming?.(stage, performance.now() - startedAt);
+  }
+}
+
 export function buildCourseSignalKey(params: {
   userId: string;
   courseEventId: string;
@@ -46,9 +57,10 @@ export class RecommendationService {
     userId: string,
     anchorId: string,
     clientTimeZone: string = 'UTC',
-    delta7d: number | null = null
+    delta7d: number | null = null,
+    onTiming?: RecommendationTiming,
   ): Promise<RecommendationContextResponse> {
-    const anchor = await prisma.anchor.findFirst({
+    const anchor = await timed('anchor-lookup', () => prisma.anchor.findFirst({
       where: { id: anchorId, userId, isArchived: false },
       select: {
         id: true,
@@ -57,54 +69,53 @@ export class RecommendationService {
         intentionCompletedAt: true,
         createdAt: true,
       },
-    });
+    }), onTiming);
 
     if (!anchor) {
       throw new AppError('Anchor not found', 404, 'ANCHOR_NOT_FOUND');
     }
 
-    // 1. Resolve pending Completion Signals (CCR-1 and CCR-2)
-    const completionSignal = await this.getPendingCompletionSignal(userId, anchor);
-
-    // 2. Resolve Vision Context
-    const vision = await visionService.getAnchorVision(userId, anchorId, clientTimeZone);
+    // These reads are independent after the Anchor owner check. Run them
+    // together so Today latency is bounded by the slowest dependency, not the
+    // sum of completion signal, Vision, and Thread Strength work.
+    const [completionSignal, vision, threadContext] = await Promise.all([
+      timed('completion-signal', () => this.getPendingCompletionSignal(userId, anchor), onTiming),
+      timed('vision-context', () => visionService.getAnchorVision(userId, anchorId, clientTimeZone), onTiming),
+      delta7d !== null
+        ? Promise.resolve<RecommendationThreadContext>({
+            delta7d,
+            delta7dStatus: 'AVAILABLE',
+            status: 'AVAILABLE',
+          })
+        : timed('thread-strength', async () => {
+            try {
+              const threadState = await threadStrengthService.getAnchorThreadState(
+                userId,
+                anchorId,
+                new Date(),
+                clientTimeZone,
+              );
+              return {
+                strength: threadState.strength ?? undefined,
+                delta7d: threadState.delta7d,
+                delta7dStatus: 'AVAILABLE',
+                status: 'AVAILABLE',
+              } satisfies RecommendationThreadContext;
+            } catch {
+              return {
+                delta7d: null,
+                delta7dStatus: 'UNAVAILABLE',
+                status: 'UNAVAILABLE',
+                blockerReason: 'THREAD_STRENGTH_UNAVAILABLE',
+              } satisfies RecommendationThreadContext;
+            }
+          }, onTiming),
+    ]);
     const visionContext = {
       exists: Boolean(vision && vision.status === 'ACTIVE'),
       seenToday: Boolean(vision && vision.status === 'ACTIVE' && vision.seenToday),
       visionId: vision?.id ?? null,
     };
-
-    // 3. Resolve Thread Context
-    let threadContext: RecommendationThreadContext;
-    if (delta7d !== null) {
-      threadContext = {
-        delta7d,
-        delta7dStatus: 'AVAILABLE' as const,
-        status: 'AVAILABLE' as const,
-      };
-    } else {
-      try {
-        const threadState = await threadStrengthService.getAnchorThreadState(
-          userId,
-          anchorId,
-          new Date(),
-          clientTimeZone
-        );
-        threadContext = {
-          strength: threadState.strength ?? undefined,
-          delta7d: threadState.delta7d,
-          delta7dStatus: 'AVAILABLE' as const,
-          status: 'AVAILABLE' as const,
-        };
-      } catch {
-        threadContext = {
-          strength: 50,
-          delta7d: 0,
-          delta7dStatus: 'AVAILABLE' as const,
-          status: 'AVAILABLE' as const,
-        };
-      }
-    }
 
     // 4. First-match-wins evaluation
     const recommendation = this.evaluateFirstMatchRecommendation(
@@ -142,36 +153,37 @@ export class RecommendationService {
       createdAt: Date;
     }
   ): Promise<RecommendationSignal | null> {
-    // Collect all acknowledged signal keys for this user
-    const acks = await prisma.recommendationSignalAck.findMany({
-      where: { userId },
-      select: { signalKey: true },
-    });
-    const ackSet = new Set(acks.map(a => a.signalKey));
-
-    // Find linked active courses
-    const links = await prisma.courseAnchorLink.findMany({
-      where: {
-        userId,
-        anchorId: anchor.id,
-        unlinkedAt: null,
-      },
-      include: {
-        course: {
-          include: {
-            events: {
-              where: {
-                eventType: { in: ['COURSE_COMPLETED', 'WAYPOINT_REACHED'] },
-              },
-              orderBy: { occurredAt: 'desc' },
-              include: {
-                waypoint: true,
+    // Acknowledgements and linked-course events are independent after the
+    // account/Anchor ownership check, so start both reads together.
+    const [acks, links] = await Promise.all([
+      prisma.recommendationSignalAck.findMany({
+        where: { userId },
+        select: { signalKey: true },
+      }),
+      prisma.courseAnchorLink.findMany({
+        where: {
+          userId,
+          anchorId: anchor.id,
+          unlinkedAt: null,
+        },
+        include: {
+          course: {
+            include: {
+              events: {
+                where: {
+                  eventType: { in: ['COURSE_COMPLETED', 'WAYPOINT_REACHED'] },
+                },
+                orderBy: { occurredAt: 'desc' },
+                include: {
+                  waypoint: true,
+                },
               },
             },
           },
         },
-      },
-    });
+      }),
+    ]);
+    const ackSet = new Set(acks.map(a => a.signalKey));
 
     let destinationSignal: DestinationReachedSignal | null = null;
     let waypointSignal: WaypointReachedSignal | null = null;

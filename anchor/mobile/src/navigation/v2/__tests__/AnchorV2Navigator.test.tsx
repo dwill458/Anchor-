@@ -114,7 +114,7 @@ jest.mock('@/screens/v2/vision', () => {
           <RNText>open-chart</RNText>
         </RNPressable>
         <RNPressable accessibilityRole="button" onPress={() => props.onVisualize({ visionId: 'v1', activeVisionAsset: null, seenToday: false, hasVision: true })}>
-          <RNText>open-visualize</RNText>
+          <RNText>{props.onVisualize ? 'external-visualize' : 'local-prepared-visualize'}</RNText>
         </RNPressable>
       </RNView>
     ),
@@ -150,13 +150,11 @@ describe('AnchorV2Navigator Vision <-> Chart wiring', () => {
     expect(screen.getByText('chart-for:anchor-9')).toBeTruthy();
   });
 
-  it('wires Vision’s Visualize CTA to Practice in visualize mode', () => {
+  it('lets Vision own its prepared Visualize handoff without a Practice setup redirect', () => {
     mockRoute = { name: 'V2Vision', params: { anchorId: 'anchor-9' } };
     render(<AnchorV2Navigator />);
-
-    fireEvent.press(screen.getByText('open-visualize'));
-    screen.rerender(<AnchorV2Navigator />);
-    expect(screen.getByText('practice:visualize')).toBeTruthy();
+    expect(screen.getByText('local-prepared-visualize')).toBeTruthy();
+    expect(mockSetRoute).not.toHaveBeenCalled();
   });
 
   it('sends a refused second Anchor to the SECOND_ANCHOR paywall, resuming creation after', () => {

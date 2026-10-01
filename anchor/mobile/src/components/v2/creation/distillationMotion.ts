@@ -21,6 +21,8 @@ import {
 
 /** The prototypes' shared easing — `cubic-bezier(.2,.75,.2,1)`. */
 export const DISTILL_EASING = Easing.bezier(0.2, 0.75, 0.2, 1);
+/** Reanimated's built-in easing is a worklet; a JS-only lambda crashes native playback. */
+export const DISTILL_GRAVITY = Easing.in(Easing.quad);
 
 /**
  * One continuous reduction of the phrase the user just wrote: hold it whole, drop the
@@ -39,12 +41,12 @@ export const DISTILL_TIMING = {
   holdWhole: 1100,
   /** Beat between passes, so "vowels gone" registers before the repeats start leaving. */
   stage: 1400,
-  letterStagger: 26,
+  letterStagger: 60,
   /** A letter about to go first dims, so the eye sees which ones are leaving… */
-  letterDim: 300,
-  dimHold: 380,
+  letterDim: 100,
+  dimHold: 0,
   /** …and only then withdraws. */
-  letterFade: 360,
+  letterFade: 500,
   /** The travel is the moment the screen exists for; it gets the most room. */
   compact: 1000,
   /** Beat between the letters landing and formation taking them, so the row reads as settled. */

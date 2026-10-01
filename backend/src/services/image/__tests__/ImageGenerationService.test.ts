@@ -208,21 +208,34 @@ describe('ImageGenerationService & Multi-Provider Architecture', () => {
   // ============================================================================
 
   describe('Vision Routing & Provider Selection', () => {
-    it('uses OpenAI as primary Vision provider when it succeeds without calling Gemini', async () => {
-      const mockOpenAi = createMockAdapter('openai', true, async () => ({
+    it('defaults Vision to Gemini primary with OpenAI fallback', () => {
+      delete process.env.VISION_PRIMARY_PROVIDER;
+      delete process.env.VISION_FALLBACK_PROVIDER;
+      delete process.env.VISION_AB_TEST_ENABLED;
+
+      const service = new ImageGenerationService();
+
+      expect(service.resolveRouting({ type: 'vision', prompt: 'A calm future moment' })).toEqual({
+        primaryProvider: 'gemini',
+        fallbackProvider: 'openai',
+      });
+    });
+
+    it('uses Gemini as primary Vision provider when it succeeds without calling OpenAI', async () => {
+      const mockGemini = createMockAdapter('gemini', true, async () => ({
         images: [
           {
-            buffer: Buffer.from('vision_openai_img'),
+            buffer: Buffer.from('vision_gemini_img'),
             base64: 'vision_b64',
             mimeType: 'image/png',
             seed: 500,
             variationIndex: 1,
           },
         ],
-        model: 'gpt-image-2.5-flare',
-        estimatedCost: 0.02,
+        model: 'gemini-3.1-flash-image',
+        estimatedCost: 0.005,
       }));
-      const mockGemini = createMockAdapter('gemini', true);
+      const mockOpenAi = createMockAdapter('openai', true);
 
       const service = new ImageGenerationService({
         geminiAdapter: mockGemini,
@@ -237,35 +250,35 @@ describe('ImageGenerationService & Multi-Provider Architecture', () => {
 
       const result = await service.generate(request);
 
-      expect(mockOpenAi.generate).toHaveBeenCalledTimes(1);
-      expect(mockGemini.generate).not.toHaveBeenCalled();
+      expect(mockGemini.generate).toHaveBeenCalledTimes(1);
+      expect(mockOpenAi.generate).not.toHaveBeenCalled();
       expect(result.fallbackUsed).toBe(false);
-      expect(result.provider).toBe('openai');
-      expect(result.model).toBe('gpt-image-2.5-flare');
+      expect(result.provider).toBe('gemini');
+      expect(result.model).toBe('gemini-3.1-flash-image');
     });
 
-    it('falls back to Gemini Nano Banana when OpenAI fails with a timeout', async () => {
-      const mockOpenAi = createMockAdapter('openai', true, async () => {
+    it('falls back to OpenAI when Gemini fails with a timeout', async () => {
+      const mockGemini = createMockAdapter('gemini', true, async () => {
         throw new ImageProviderError(
-          'openai',
+          'gemini',
           ImageProviderErrorType.TIMEOUT,
           'Request timed out',
           true
         );
       });
 
-      const mockGemini = createMockAdapter('gemini', true, async () => ({
+      const mockOpenAi = createMockAdapter('openai', true, async () => ({
         images: [
           {
-            buffer: Buffer.from('vision_gemini_fallback_img'),
-            base64: 'gemini_b64',
+            buffer: Buffer.from('vision_openai_fallback_img'),
+            base64: 'openai_b64',
             mimeType: 'image/png',
             seed: 600,
             variationIndex: 1,
           },
         ],
-        model: 'gemini-3.1-flash-image',
-        estimatedCost: 0.005,
+        model: 'gpt-image-2.5-flare',
+        estimatedCost: 0.02,
       }));
 
       const service = new ImageGenerationService({
@@ -281,19 +294,19 @@ describe('ImageGenerationService & Multi-Provider Architecture', () => {
 
       const result = await service.generate(request);
 
-      expect(mockOpenAi.generate).toHaveBeenCalledTimes(1);
       expect(mockGemini.generate).toHaveBeenCalledTimes(1);
+      expect(mockOpenAi.generate).toHaveBeenCalledTimes(1);
       expect(result.fallbackUsed).toBe(true);
-      expect(result.provider).toBe('gemini');
-      expect(result.model).toBe('gemini-3.1-flash-image');
+      expect(result.provider).toBe('openai');
+      expect(result.model).toBe('gpt-image-2.5-flare');
       expect(result.attempts).toHaveLength(2);
       expect(result.attempts[0].failureReason).toBe(ImageProviderErrorType.TIMEOUT);
     });
 
-    it('falls back to Gemini when OpenAI returns 429 rate limit', async () => {
-      const mockOpenAi = createMockAdapter('openai', true, async () => {
+    it('falls back to OpenAI when Gemini returns 429 rate limit', async () => {
+      const mockGemini = createMockAdapter('gemini', true, async () => {
         throw new ImageProviderError(
-          'openai',
+          'gemini',
           ImageProviderErrorType.RATE_LIMIT,
           'Rate limit exceeded (429)',
           true,
@@ -302,18 +315,18 @@ describe('ImageGenerationService & Multi-Provider Architecture', () => {
         );
       });
 
-      const mockGemini = createMockAdapter('gemini', true, async () => ({
+      const mockOpenAi = createMockAdapter('openai', true, async () => ({
         images: [
           {
-            buffer: Buffer.from('vision_gemini_rate_limit_fallback'),
-            base64: 'gemini_b64',
+            buffer: Buffer.from('vision_openai_rate_limit_fallback'),
+            base64: 'openai_b64',
             mimeType: 'image/png',
             seed: 700,
             variationIndex: 1,
           },
         ],
-        model: 'gemini-3.1-flash-image',
-        estimatedCost: 0.005,
+        model: 'gpt-image-2.5-flare',
+        estimatedCost: 0.02,
       }));
 
       const service = new ImageGenerationService({
@@ -329,17 +342,17 @@ describe('ImageGenerationService & Multi-Provider Architecture', () => {
 
       const result = await service.generate(request);
 
-      expect(mockOpenAi.generate).toHaveBeenCalledTimes(1);
       expect(mockGemini.generate).toHaveBeenCalledTimes(1);
+      expect(mockOpenAi.generate).toHaveBeenCalledTimes(1);
       expect(result.fallbackUsed).toBe(true);
-      expect(result.provider).toBe('gemini');
+      expect(result.provider).toBe('openai');
       expect(result.attempts[0].failureReason).toBe(ImageProviderErrorType.RATE_LIMIT);
     });
 
-    it('does NOT fall back to Gemini on a safety filter rejection', async () => {
-      const mockOpenAi = createMockAdapter('openai', true, async () => {
+    it('does NOT fall back to OpenAI on a safety filter rejection', async () => {
+      const mockGemini = createMockAdapter('gemini', true, async () => {
         throw new ImageProviderError(
-          'openai',
+          'gemini',
           ImageProviderErrorType.SAFETY_FILTER,
           'Content blocked by safety policy',
           false,
@@ -347,7 +360,7 @@ describe('ImageGenerationService & Multi-Provider Architecture', () => {
         );
       });
 
-      const mockGemini = createMockAdapter('gemini', true);
+      const mockOpenAi = createMockAdapter('openai', true);
 
       const service = new ImageGenerationService({
         geminiAdapter: mockGemini,
@@ -360,8 +373,49 @@ describe('ImageGenerationService & Multi-Provider Architecture', () => {
       };
 
       await expect(service.generate(request)).rejects.toThrow(/Content blocked by safety policy/);
-      // Gemini should never be called when user prompt violated safety
-      expect(mockGemini.generate).not.toHaveBeenCalled();
+      // OpenAI should never be called when user prompt violated safety.
+      expect(mockOpenAi.generate).not.toHaveBeenCalled();
+    });
+
+    it('falls back to OpenAI when Gemini rejects the request shape (INVALID_REQUEST)', async () => {
+      // A provider 400 for a malformed request is our bug, not the user's input,
+      // so the other provider should still be given the chance to render.
+      const mockGemini = createMockAdapter('gemini', true, async () => {
+        throw new ImageProviderError(
+          'gemini',
+          ImageProviderErrorType.INVALID_REQUEST,
+          'Bad request: unsupported image configuration.',
+          false,
+          400
+        );
+      });
+
+      const mockOpenAi = createMockAdapter('openai', true, async () => ({
+        images: [
+          {
+            buffer: Buffer.from('vision_openai_invalid_request_fallback'),
+            base64: 'openai_b64',
+            mimeType: 'image/png',
+            seed: 701,
+            variationIndex: 1,
+          },
+        ],
+        model: 'gpt-image-2.5-flare',
+        estimatedCost: 0.02,
+      }));
+
+      const service = new ImageGenerationService({
+        geminiAdapter: mockGemini,
+        openAiAdapter: mockOpenAi,
+      });
+
+      const result = await service.generate({ type: 'vision', prompt: 'Morning run at sunrise' });
+
+      expect(mockGemini.generate).toHaveBeenCalledTimes(1);
+      expect(mockOpenAi.generate).toHaveBeenCalledTimes(1);
+      expect(result.fallbackUsed).toBe(true);
+      expect(result.provider).toBe('openai');
+      expect(result.attempts[0].failureReason).toBe(ImageProviderErrorType.INVALID_REQUEST);
     });
 
     it('throws controlled error when both providers fail', async () => {
@@ -395,7 +449,7 @@ describe('ImageGenerationService & Multi-Provider Architecture', () => {
         prompt: 'Serene mountain cabin study filled with sunlight',
       };
 
-      await expect(service.generate(request)).rejects.toThrow(/Gemini 500 Internal Error/);
+      await expect(service.generate(request)).rejects.toThrow(/OpenAI 503 Service Unavailable/);
       expect(mockOpenAi.generate).toHaveBeenCalledTimes(1);
       expect(mockGemini.generate).toHaveBeenCalledTimes(1);
     });
@@ -412,7 +466,7 @@ describe('ImageGenerationService & Multi-Provider Architecture', () => {
         resolvePromise = resolve;
       });
 
-      const mockOpenAi = createMockAdapter('openai', true, async () => {
+      const mockGemini = createMockAdapter('gemini', true, async () => {
         await delayedPromise;
         return {
           images: [
@@ -424,13 +478,13 @@ describe('ImageGenerationService & Multi-Provider Architecture', () => {
               variationIndex: 1,
             },
           ],
-          model: 'gpt-image-2.5-flare',
-          estimatedCost: 0.02,
+          model: 'gemini-3.1-flash-image',
+          estimatedCost: 0.005,
         };
       });
 
       const service = new ImageGenerationService({
-        openAiAdapter: mockOpenAi,
+        geminiAdapter: mockGemini,
       });
 
       const request: GenerateImageRequest = {
@@ -449,7 +503,7 @@ describe('ImageGenerationService & Multi-Provider Architecture', () => {
       const [res1, res2] = await Promise.all([call1, call2]);
 
       // Only ONE call should have reached the provider adapter
-      expect(mockOpenAi.generate).toHaveBeenCalledTimes(1);
+      expect(mockGemini.generate).toHaveBeenCalledTimes(1);
       expect(res1.generationRequestId).toBe('req-fixed-id-123');
       expect(res2.generationRequestId).toBe('req-fixed-id-123');
       expect(res1.images[0].seed).toBe(res2.images[0].seed);

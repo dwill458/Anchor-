@@ -35,11 +35,10 @@ describe('shared route geometry', () => {
     expect(chartArtFor('Career')).toBe(CHART_PACKS.city);
     expect(chartArtFor('health')).toBe(CHART_PACKS.botanical);
     expect(chartArtFor('creativity')).toBe(CHART_PACKS.canyon);
-    expect(chartArtFor('desire')).toBe(CHART_PACKS.valley);
+    expect(chartArtFor('desire')).toBe(CHART_PACKS.desireCinematic);
     expect(chartArtFor('unknown-category')).toBe(CHART_PACKS.valley);
-    // Same aspect for every pack, so the normalized trail lands in the same place.
-    const aspects = new Set(Object.values(CHART_PACKS).map((pack) => pack.height / pack.width));
-    expect(aspects.size).toBe(1);
+    expect(CHART_PACKS.desireCinematic).toMatchObject({ width: 720, height: 1280 });
+    expect(pointAt(0.5, CHART_PACKS.desireCinematic)).not.toEqual(pointAt(0.5, CHART_PACKS.city));
     Object.values(CHART_PACKS).forEach((pack) => expect(pack.tintable).toBe(false));
   });
 

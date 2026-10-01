@@ -26,6 +26,7 @@ import {
   Cinzel_700Bold,
 } from '@expo-google-fonts/cinzel';
 import { Inter_400Regular, Inter_600SemiBold } from '@expo-google-fonts/inter';
+import { Figtree_400Regular, Figtree_600SemiBold } from '@expo-google-fonts/figtree';
 import {
   BricolageGrotesque_400Regular,
   BricolageGrotesque_600SemiBold,
@@ -61,6 +62,8 @@ import { AuthService } from './src/services/AuthService';
 import { loadSettingsSnapshot } from './src/hooks/useSettings';
 import { encryptedPersistStorage, readSecureValue } from './src/stores/encryptedPersistStorage';
 import { logger } from './src/utils/logger';
+import { HomeStartupProfiler } from './src/utils/homeStartupProfiler';
+import { prefetchHomeStartupData } from './src/services/v2/homeStartupPrefetch';
 import revenueCatService from './src/services/RevenueCatService';
 import NotificationService from './src/services/NotificationService';
 import { AnalyticsEvents, AnalyticsService } from './src/services/AnalyticsService';
@@ -74,6 +77,7 @@ import { WIDGETS_ENABLED } from './src/config';
 import { isAnchorV2Enabled } from './src/config/v2FeatureFlag';
 import { useAppStartup } from './src/hooks/useAppStartup';
 import { ChartLabDevHost } from './src/screens/v2/system/ChartLabDevHost';
+import { VisionVisualQADevHost } from './src/screens/v2/system/VisionVisualQADevHost';
 import { SplashController } from './src/components/splash/SplashController';
 import { SPLASH_BACKGROUND_COLOR } from './src/components/splash/splashAnimation.constants';
 
@@ -283,6 +287,8 @@ export default function App() {
     'Cinzel-Bold': Cinzel_700Bold,
     'Inter-Regular': Inter_400Regular,
     'Inter-SemiBold': Inter_600SemiBold,
+    'Figtree-Regular': Figtree_400Regular,
+    'Figtree-SemiBold': Figtree_600SemiBold,
     'BricolageGrotesque-Regular': BricolageGrotesque_400Regular,
     'BricolageGrotesque-SemiBold': BricolageGrotesque_600SemiBold,
     'BricolageGrotesque-Bold': BricolageGrotesque_700Bold,
@@ -405,6 +411,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    HomeStartupProfiler.mark('auth_bootstrap_started');
     AuthService.initialize();
 
     let isActive = true;
@@ -446,15 +453,51 @@ export default function App() {
         store.setSession(session.user, session.token);
         store.setOfflineMode(false);
         store.setLoading(false);
+        HomeStartupProfiler.mark('auth_session_ready', { accountId: session.user.id });
+
+        const prewarmSelectedAnchor = () => {
+          if (
+            !isActive ||
+            currentVersion !== authStateVersion ||
+            useAuthStore.getState().user?.id !== session.user.id
+          ) return;
+          const anchorState = useAnchorStore.getState();
+          const activeAnchors = anchorState.anchors.filter((anchor) =>
+            (!anchor.userId || anchor.userId === session.user.id) &&
+            !anchor.isReleased && !anchor.releasedAt && !anchor.archivedAt
+          );
+          const selectedAnchor = activeAnchors.find((anchor) =>
+            anchor.id === anchorState.currentAnchorId || anchor.localId === anchorState.currentAnchorId
+          ) ?? activeAnchors[0];
+          if (selectedAnchor) prefetchHomeStartupData(selectedAnchor.id);
+        };
+        if (isAnchorV2Enabled(
+          process.env.EXPO_PUBLIC_ANCHOR_V2_ENABLED,
+          __DEV__,
+          process.env.EXPO_PUBLIC_APP_ENV,
+        )) {
+          if (useAnchorStore.getState().persistedHydrated) {
+            prewarmSelectedAnchor();
+          } else {
+            let unsubscribe: (() => void) | null = null;
+            unsubscribe = useAnchorStore.persist.onFinishHydration(() => {
+              unsubscribe?.();
+              prewarmSelectedAnchor();
+            });
+          }
+        }
 
         // The authenticated shell can safely render as soon as the trusted
         // session is established. This refresh reconciles account-owned data
         // in the background and retains its owner checks inside the service.
+        const hydrationSpan = HomeStartupProfiler.start('authenticated_data_hydration', { accountId: session.user.id });
         try {
           await AuthHydrationService.hydrateAuthenticatedData({
             skipAnchorRefresh: Boolean(useAuthStore.getState().pendingFirstAnchorDraft),
           });
+          hydrationSpan({ ok: true });
         } catch (hydrationError) {
+          hydrationSpan({ ok: false });
           logger.warn('Authenticated session restored, but data hydration failed', hydrationError);
           setStartupSafeFailure(true);
         }
@@ -828,6 +871,7 @@ export default function App() {
                     {anchorV2Enabled ? <AnchorV2Navigator /> : <RootNavigator />}
                   </NavigationContainer>
                   {__DEV__ ? <ChartLabDevHost /> : null}
+                  {__DEV__ ? <VisionVisualQADevHost /> : null}
                 </SettingsRevealProvider>
               </View>
               <SplashController

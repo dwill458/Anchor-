@@ -18,7 +18,7 @@ export function V2PaywallArtifact({ artifact, tone, testID }: Props) {
   if (artifact.kind === 'anchor') {
     return (
       <View style={[styles.row, { backgroundColor: tone.wash, borderColor: colors.border.subtle }]} testID={testID ?? 'v2-paywall-artifact-anchor'}>
-        <CircularAnchorRenderer svg={artifact.svg} category={artifact.category} size="thumbnail" />
+        <CircularAnchorRenderer svg={artifact.svg} imageUrl={artifact.imageUrl} expression={artifact.expression} category={artifact.category} size="thumbnail" />
         <View style={styles.rowCopy}>
           <Text style={[styles.eyebrow, { color: tone.deep }]}>ACTIVE ANCHOR</Text>
           <Text numberOfLines={1} style={styles.intention}>{`“${artifact.intention}”`}</Text>

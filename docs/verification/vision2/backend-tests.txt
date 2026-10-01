@@ -1,0 +1,9 @@
+PASS src/services/image/__tests__/ImageGenerationService.test.ts
+PASS src/services/v2/__tests__/visionScenePlanning.test.ts
+PASS src/services/v2/__tests__/VisionGenerationService.test.ts
+PASS src/services/v2/__tests__/VisionService.test.ts
+
+Test Suites: 1 skipped, 4 passed, 4 of 5 total
+Tests:       2 skipped, 60 passed, 62 total
+Snapshots:   0 total
+Time:        18.646 s, estimated 44 s

@@ -52,15 +52,13 @@ export const useReduceMotionEnabled = (): boolean => {
 };
 
 /**
- * For sacred ritual flows (like Anchor Creation) that exist to be watched as a deliberate,
- * meaningful sequence rather than a generic UI utility transition.
- *
- * It only reduces motion if the user explicitly enabled 'reduceMotion: on' in Anchor settings.
- * It is NOT automatically collapsed by Android OS developer settings (animator_duration_scale=0)
- * or vendor accessibility flags (Samsung One UI "Remove animations").
+ * Creation uses the same explicit preference policy as the rest of Anchor:
+ * system follows accessibility, on reduces motion, and off requests full motion.
+ * Creation's animation clocks remain explicit so Reanimated cannot independently
+ * collapse a timeline whose JavaScript stages are still running.
  */
 export const useCreationReduceMotion = (): boolean => {
-  const preference = useSettingsStore((state) => state.reduceMotion ?? 'system');
-  return preference === 'on';
+  const preference = useReduceMotionEnabled();
+  const system = useSystemReduceMotionEnabled();
+  return preference || system;
 };
-

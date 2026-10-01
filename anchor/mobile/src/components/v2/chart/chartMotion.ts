@@ -89,10 +89,24 @@ export const CHART_PROGRESS_TIMING = {
   bannerHoldReduced: 2600,
 } as const;
 
-/** withTiming with Chart's explicit reduced-motion policy. */
-export function chartTiming(toValue: number, config: Omit<WithTimingConfig, 'reduceMotion'> = {}, callback?: (finished?: boolean) => void) {
+/** Full Chart ↔ focused waypoint camera choreography. */
+export const CHART_CAMERA_TIMING = {
+  focus: 760,
+  return: 680,
+  reduced: 220,
+} as const;
+
+/**
+ * withTiming with Chart's explicit reduced-motion policy.
+ *
+ * Deliberately no callback parameter: callbacks passed through a custom
+ * wrapper are not guaranteed to be auto-workletized by the Reanimated Babel
+ * transform. Observe completion with `useAnimatedReaction` and cross to JS
+ * with `runOnJS` instead.
+ */
+export function chartTiming(toValue: number, config: Omit<WithTimingConfig, 'reduceMotion'> = {}) {
   'worklet';
-  return withTiming(toValue, { ...config, reduceMotion: ReduceMotion.Never }, callback);
+  return withTiming(toValue, { ...config, reduceMotion: ReduceMotion.Never });
 }
 
 export function chartDelay(delayMs: number, animation: number): number {

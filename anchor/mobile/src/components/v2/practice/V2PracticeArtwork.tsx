@@ -57,27 +57,48 @@ type Props = ArtworkProps & {
 export function normalizePracticeMode(mode?: string | null): 'focus' | 'deep_prime' | 'visualize' | 'release' {
   if (!mode) return 'focus';
   const clean = mode.replace(/[\s_-]/g, '').toLowerCase();
-  if (clean === 'deepprime') return 'deep_prime';
+  if (clean === 'deepprime' || clean === 'deepfocus') return 'deep_prime';
   if (clean === 'visualize') return 'visualize';
   if (clean === 'release') return 'release';
   return 'focus';
 }
 
+/**
+ * Single source of truth for Anchor 2.0 Practice mode illustrations.
+ * Focus: mystical_stairway_to_the_celestial_light.png
+ * Deep Focus: celestial_temple_reflected_in_water.png
+ * Visualize: celestial_archway_over_a_golden_valley.png
+ * Release: golden_sunrise_over_misty_mountains.png
+ */
+export const V2_PRACTICE_ARTWORK: Record<V2PracticeMode, ImageSourcePropType> = {
+  focus: require('@/assets/practice/mystical_stairway_to_the_celestial_light.png'),
+  deep_prime: require('@/assets/practice/celestial_temple_reflected_in_water.png'),
+  visualize: require('@/assets/practice/celestial_archway_over_a_golden_valley.png'),
+  release: require('@/assets/practice/golden_sunrise_over_misty_mountains.png'),
+};
+
+export const PRACTICE_ARTWORK = V2_PRACTICE_ARTWORK;
+
+export function resolvePracticeArtwork(mode?: string | null): ImageSourcePropType {
+  const key = normalizePracticeMode(mode);
+  return V2_PRACTICE_ARTWORK[key] ?? V2_PRACTICE_ARTWORK.focus;
+}
+
 export const HERO_MEDIA_BY_PRACTICE: Record<string, PracticeHeroMediaItem> = {
   focus: {
-    image: require('@/assets/practice/today/focus.jpg'),
+    image: V2_PRACTICE_ARTWORK.focus,
     video: require('@/assets/practice/today/focus-loop.mp4'),
   },
   deep_prime: {
-    image: require('@/assets/practice/today/deep-prime.jpg'),
+    image: V2_PRACTICE_ARTWORK.deep_prime,
     video: null,
   },
   visualize: {
-    image: require('@/assets/practice/today/visualize.jpg'),
+    image: V2_PRACTICE_ARTWORK.visualize,
     video: null,
   },
   release: {
-    image: require('@/assets/practice/today/release.jpg'),
+    image: V2_PRACTICE_ARTWORK.release,
     video: null,
   },
 };
@@ -85,6 +106,8 @@ export const HERO_MEDIA_BY_PRACTICE: Record<string, PracticeHeroMediaItem> = {
 // Aliases for robustness
 HERO_MEDIA_BY_PRACTICE['deepprime'] = HERO_MEDIA_BY_PRACTICE.deep_prime;
 HERO_MEDIA_BY_PRACTICE['deep-prime'] = HERO_MEDIA_BY_PRACTICE.deep_prime;
+HERO_MEDIA_BY_PRACTICE['deepfocus'] = HERO_MEDIA_BY_PRACTICE.deep_prime;
+HERO_MEDIA_BY_PRACTICE['deep-focus'] = HERO_MEDIA_BY_PRACTICE.deep_prime;
 
 // Backward-compatible image-only map export
 export const HERO_ART_BY_PRACTICE: Record<string, ImageSourcePropType> = {
@@ -95,21 +118,29 @@ export const HERO_ART_BY_PRACTICE: Record<string, ImageSourcePropType> = {
 };
 HERO_ART_BY_PRACTICE['deepprime'] = HERO_ART_BY_PRACTICE.deep_prime;
 HERO_ART_BY_PRACTICE['deep-prime'] = HERO_ART_BY_PRACTICE.deep_prime;
+HERO_ART_BY_PRACTICE['deepfocus'] = HERO_ART_BY_PRACTICE.deep_prime;
+HERO_ART_BY_PRACTICE['deep-focus'] = HERO_ART_BY_PRACTICE.deep_prime;
 
 export const GRID_ART_BY_PRACTICE: Record<string, ImageSourcePropType> = {
-  focus: require('@/assets/practice/grid/focus.jpg'),
-  deep_prime: require('@/assets/practice/grid/deep-prime.jpg'),
-  visualize: require('@/assets/practice/grid/visualize.jpg'),
-  release: require('@/assets/practice/grid/release.jpg'),
+  focus: V2_PRACTICE_ARTWORK.focus,
+  deep_prime: V2_PRACTICE_ARTWORK.deep_prime,
+  visualize: V2_PRACTICE_ARTWORK.visualize,
+  release: V2_PRACTICE_ARTWORK.release,
 };
 GRID_ART_BY_PRACTICE['deepprime'] = GRID_ART_BY_PRACTICE.deep_prime;
 GRID_ART_BY_PRACTICE['deep-prime'] = GRID_ART_BY_PRACTICE.deep_prime;
+GRID_ART_BY_PRACTICE['deepfocus'] = GRID_ART_BY_PRACTICE.deep_prime;
+GRID_ART_BY_PRACTICE['deep-focus'] = GRID_ART_BY_PRACTICE.deep_prime;
 
 export function FocusArtwork(props: ArtworkProps) {
   return <V2PracticeArtwork mode="focus" {...props} />;
 }
 
 export function DeepPrimeArtwork(props: ArtworkProps) {
+  return <V2PracticeArtwork mode="deep_prime" {...props} />;
+}
+
+export function DeepFocusArtwork(props: ArtworkProps) {
   return <V2PracticeArtwork mode="deep_prime" {...props} />;
 }
 

@@ -17,8 +17,12 @@ export function V2DevelopmentHome() {
   creationGate.current = gate;
   const intents = useMemo<V2DailyShellIntents>(
     () => ({
-      onOpenPractice: (anchorId, recommendedMode) => navigation.navigate('V2Practice', { anchorId, recommendedMode }),
-      onOpenVision: (anchorId) => navigation.navigate('V2Vision', { anchorId }),
+      onOpenPractice: (anchorId, recommendedMode, options) => navigation.navigate('V2Practice', {
+        anchorId,
+        recommendedMode,
+        ...(options?.anchorTransition ? { anchorTransition: true } : {}),
+      }),
+      onOpenVision: (anchorId, options) => navigation.navigate('V2Vision', { anchorId, ...(options?.edit ? { edit: true } : {}) }),
       onCreateVision: (anchorId) => navigation.navigate('V2Vision', { anchorId }),
       onOpenChart: (anchorId, courseId) => navigation.navigate('V2Chart', { anchorId, courseId }),
       onCreateChart: (anchorId) => navigation.navigate('V2Chart', { anchorId }),
@@ -33,7 +37,7 @@ export function V2DevelopmentHome() {
       onOpenProfile: () => navigation.navigate('V2Settings'),
       onOpenWeeklyInsight: () => navigation.navigate('V2WeeklyInsight'),
       onOpenMaterialLab: () => navigation.navigate('V2EvolvingAnchor'),
-      onReleaseAnchor: (anchorId) => navigation.navigate('V2Release', { anchorId }),
+      onReleaseAnchor: (anchorId, options) => navigation.navigate('V2Release', { anchorId, ...(options?.anchorTransition ? { anchorTransition: true } : {}) }),
     }),
     [navigation],
   );

@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
-import Animated, { interpolate, interpolateColor, useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
+import Animated, { cancelAnimation, interpolate, interpolateColor, useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
 
 import { colors, typography } from '@/theme/v2';
-import { creationDelay, creationSequence, creationTiming } from './creationMotion';
+import { creationDelay, creationTiming } from './creationMotion';
 import {
   buildDistillationRenderModel,
   computeCompactionTargets,
@@ -11,6 +11,7 @@ import {
   estimateCompactionTargets,
   isCellRemoved,
   DISTILL_EASING,
+  DISTILL_GRAVITY,
   DISTILL_TIMING,
   type CompactionTarget,
   type DistillationCell,
@@ -18,6 +19,7 @@ import {
   type MeasuredLetter,
 } from './distillationMotion';
 import { creationTimingTracker } from './creationTelemetry';
+import { draftingInk, draftingCopyOpacity } from './draftingTone';
 
 
 /** Gap between letters once they have closed up, in the compacted row. */
@@ -43,6 +45,7 @@ function DistillationLetter({
   reduceMotion,
   instant,
   glow,
+  tone,
   onMeasure,
 }: {
   cell: DistillationCell;
@@ -52,11 +55,20 @@ function DistillationLetter({
   /** Place the letter where it belongs without travel (a resumed formation). */
   instant: boolean;
   glow?: DistillationGlow;
+  tone: SharedValue<number>;
   onMeasure: (keptIndex: number, box: { x: number; y: number; width: number; height: number }) => void;
 }) {
   const removed = isCellRemoved(cell, stage);
   const compacting = cell.keep && Boolean(target) && (stage === 'compact' || stage === 'settled');
   const delay = cell.staggerIndex * DISTILL_TIMING.letterStagger;
+
+  const fall = useSharedValue(0);
+  useEffect(() => {
+    fall.value = removed && !reduceMotion && !instant
+      ? creationDelay(delay, creationTiming(1, { duration: 500, easing: DISTILL_GRAVITY }))
+      : 0;
+    return () => cancelAnimation(fall);
+  }, [delay, fall, instant, reduceMotion, removed]);
 
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {
@@ -78,16 +90,15 @@ function DistillationLetter({
 
     const travel = { duration: DISTILL_TIMING.compact, easing: DISTILL_EASING };
     if (removed) {
-      // Dim first, so the eye can see which letters are leaving; then withdraw, slightly
-      // smaller and lower — a quiet release, never an error state.
-      const dim = { duration: DISTILL_TIMING.letterDim, easing: DISTILL_EASING };
-      const fade = { duration: DISTILL_TIMING.letterFade, easing: DISTILL_EASING };
+      // One clock owns gravity, rotation, scale and opacity. Reading it must not start
+      // another timing on every frame, which would repeatedly restart the fade.
       return {
-        opacity: creationDelay(delay, creationSequence(creationTiming(DIMMED, dim), creationDelay(DISTILL_TIMING.dimHold, creationTiming(0, fade)))),
+        opacity: interpolate(fall.value, [0, 0.2, 1], [1, DIMMED, 0], 'clamp'),
         transform: [
           { translateX: 0 },
-          { translateY: creationDelay(delay + DISTILL_TIMING.letterDim + DISTILL_TIMING.dimHold, creationTiming(5, fade)) },
-          { scale: creationDelay(delay + DISTILL_TIMING.letterDim + DISTILL_TIMING.dimHold, creationTiming(0.84, fade)) },
+          { translateY: fall.value * 160 },
+          { rotate: `${fall.value * (cell.staggerIndex % 2 ? 9 : -9)}deg` },
+          { scale: 1 - fall.value * 0.16 },
         ],
       };
     }
@@ -106,19 +117,19 @@ function DistillationLetter({
   // distillation timings.
   const departure = cell.keep && glow ? glow.departures[cell.keptIndex] ?? -1 : -1;
   const glowStyle = useAnimatedStyle(() => {
-    if (!cell.keep) return {};
+    const neutral = draftingInk(tone.value);
+    if (!cell.keep) return { color: neutral };
     if (glow) {
-      if (departure < 0) return { color: '#F4F6FA' };
+      if (departure < 0) return { color: colors.ink.text.primary };
       // The letter warms to the accent as it leaves for its cell, rather than switching.
       const lit = interpolate(glow.progress.value, [departure - 0.015, departure], [0, 1], 'clamp');
-      return { color: interpolateColor(lit, [0, 1], ['#F4F6FA', glow.accent]) };
+      return {
+        color: interpolateColor(lit, [0, 1], [colors.paper, glow.accent]),
+        opacity: interpolate(glow.progress.value, [departure, departure + 0.008], [1, 0], 'clamp'),
+      };
     }
-    // As the distillation stage advances and background deepens toward ink, transition text color to off-white
-    const isDarkening = stage === 'compact' || stage === 'settled';
-    const isHalfDark = stage === 'repeats';
-    const targetColor = isDarkening ? '#F4F6FA' : isHalfDark ? '#C7CAD0' : colors.text.primary;
-    return { color: targetColor };
-  }, [cell.keep, departure, glow, stage]);
+    return { color: neutral };
+  }, [cell.keep, departure, glow, tone]);
 
   return (
     <Animated.Text onLayout={handleLayout} style={[styles.char, motionStyle, glowStyle]}>
@@ -142,6 +153,7 @@ export function DistillationLetters({
   letters,
   reduceMotion,
   glow,
+  tone,
   showSource = true,
   startSettled = false,
   onStage,
@@ -157,6 +169,7 @@ export function DistillationLetters({
    */
   startSettled?: boolean;
   glow?: DistillationGlow;
+  tone: SharedValue<number>;
   /** The original sentence, kept faintly present while it is being reduced. */
   showSource?: boolean;
   onStage?: (stage: DistillationStage) => void;
@@ -273,16 +286,21 @@ export function DistillationLetters({
   const sourceStyle = useAnimatedStyle(() => ({
     opacity: reduceMotion ? (sourceVisible ? 0.62 : 0) : creationTiming(sourceVisible ? 0.62 : 0, { duration: 600, easing: DISTILL_EASING }),
   }), [reduceMotion, sourceVisible]);
+  const sourceInkStyle = useAnimatedStyle(() => ({
+    color: draftingInk(tone.value),
+    opacity: draftingCopyOpacity(tone.value),
+  }));
+  const settledInkStyle = useAnimatedStyle(() => ({ color: draftingInk(tone.value) }));
 
   return (
     <View style={styles.stage} onLayout={onStageLayout} pointerEvents="none">
       <Animated.View style={[styles.source, sourceStyle]} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
-        <Text style={styles.sourceText} numberOfLines={2}>“{intention}”</Text>
+        <Animated.Text style={[styles.sourceText, sourceInkStyle]} numberOfLines={2}>“{intention}”</Animated.Text>
       </Animated.View>
       {presentAsRow ? (
-        <Text style={styles.settledRow} accessibilityLabel={lettersLabel} testID="distillation-letters">
+        <Animated.Text style={[styles.settledRow, settledInkStyle]} accessibilityLabel={lettersLabel} testID="distillation-letters">
           {letters.join('  ')}
-        </Text>
+        </Animated.Text>
       ) : (
         <View style={styles.phrase} accessible accessibilityLabel={settled ? lettersLabel : intention} testID="distillation-phrase">
           {model.words.map((word, wordIndex) => (
@@ -296,6 +314,7 @@ export function DistillationLetters({
                   reduceMotion={reduceMotion}
                   instant={startSettled}
                   glow={glow}
+                  tone={tone}
                   onMeasure={onLetterMeasure}
                 />
               ))}
@@ -317,7 +336,7 @@ const styles = StyleSheet.create({
   // A word stays one unbreakable unit, so wrapping happens between words and never inside one.
   word: { flexDirection: 'row', marginRight: 10 },
   char: { ...typography.headingXL, color: colors.text.primary },
-  settledRow: { ...typography.headingXL, color: '#F4F6FA', textAlign: 'center', letterSpacing: 4 },
+  settledRow: { ...typography.headingXL, color: colors.ink.text.primary, textAlign: 'center', letterSpacing: 4 },
   source: { position: 'absolute', top: 6, left: 0, right: 0, alignItems: 'center' },
   sourceText: { fontFamily: 'EBGaramond-Medium', fontSize: 20, lineHeight: 25, letterSpacing: -0.2, color: 'rgba(244, 246, 250, 0.65)', textAlign: 'center', fontStyle: 'italic' },
 });

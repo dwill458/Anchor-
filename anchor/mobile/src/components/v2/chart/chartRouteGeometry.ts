@@ -16,6 +16,8 @@ export type ChartArt = {
   height: number;
   /** Neutral art takes a restrained category wash; bespoke category packs do not. */
   tintable: boolean;
+  /** Selects the registered road trace for this environment. */
+  routeKind?: 'cinematic' | 'legacy';
 };
 
 /**
@@ -25,10 +27,24 @@ export type ChartArt = {
  * overlay reads identically on every pack. Source prompts and the grading pass
  * are documented in docs/chart/CHART_ILLUSTRATION_PACKS.md.
  */
-const pack = (source: ImageSourcePropType): ChartArt => ({ source, width: 1200, height: 1600, tintable: false });
+const pack = (source: ImageSourcePropType): ChartArt => ({
+  source,
+  width: 1200,
+  height: 1600,
+  tintable: false,
+  routeKind: 'legacy',
+});
 
 /* eslint-disable @typescript-eslint/no-var-requires */
 export const CHART_PACKS = {
+  /** Cinematic Desire prototype; the opaque master remains complete at rest. */
+  desireCinematic: {
+    source: require('../../../assets/chart/chart-landscape-desire-cinematic.jpg'),
+    width: 720,
+    height: 1280,
+    tintable: false,
+    routeKind: 'cinematic',
+  } satisfies ChartArt,
   /** Expansive terrain: a mountain valley toward a distant horizon. */
   valley: pack(require('../../../assets/chart/chart-landscape-valley.jpg')),
   /** A road across worked land toward a distant city. */
@@ -46,7 +62,7 @@ export type ChartPackKey = keyof typeof CHART_PACKS;
 
 /** Category → environment. Every pack shares the trail, so any mapping is safe. */
 export const CHART_CATEGORY_PACK: Record<string, ChartPackKey> = {
-  desire: 'valley',
+  desire: 'desireCinematic',
   adventure: 'valley',
   custom: 'valley',
   career: 'city',
@@ -70,49 +86,53 @@ export function chartArtFor(category?: string | null): ChartArt {
 }
 
 /** A compact portal crop centered on the actual current waypoint. */
-export function chartWindowAroundRoutePoint(fraction: number, width: number, height: number): ChartWindow {
-  const imageHeight = (width * CHART_PACKS.valley.height) / CHART_PACKS.valley.width;
+export function chartWindowAroundRoutePoint(fraction: number, width: number, height: number, art: ChartArt = CHART_PACKS.valley): ChartWindow {
+  const imageHeight = (width * art.height) / art.width;
   const span = Math.min(1, Math.max(0.12, height / imageHeight));
-  const center = pointAt(fraction, CHART_PACKS.valley).y;
+  const center = pointAt(fraction, art).y;
   const top = Math.max(0, Math.min(1 - span, center - span / 2));
   return { top, bottom: top + span };
 }
 
 export type RoutePoint = { x: number; y: number };
 
-/** The trail, START (lower left) → DESTINATION clearing (upper right). */
+/**
+ * Canonical cinematic road, START (lower left) → DESTINATION (upper right).
+ * Future category masters should be painted around this same geometry.
+ */
 export const CHART_ROUTE_CONTROL_POINTS: readonly RoutePoint[] = [
-  { x: 0.1, y: 0.925 },
-  { x: 0.18, y: 0.885 },
-  { x: 0.26, y: 0.855 },
-  { x: 0.33, y: 0.83 },
-  { x: 0.39, y: 0.805 },
-  { x: 0.43, y: 0.775 },
-  { x: 0.43, y: 0.745 },
-  { x: 0.39, y: 0.725 },
-  { x: 0.365, y: 0.712 },
-  { x: 0.383, y: 0.703 },
-  { x: 0.42, y: 0.69 },
-  { x: 0.47, y: 0.677 },
-  { x: 0.53, y: 0.664 },
-  { x: 0.596, y: 0.656 },
-  { x: 0.64, y: 0.647 },
-  { x: 0.68, y: 0.637 },
-  { x: 0.705, y: 0.627 },
-  { x: 0.717, y: 0.615 },
-  { x: 0.7, y: 0.603 },
-  { x: 0.65, y: 0.595 },
-  { x: 0.605, y: 0.588 },
-  { x: 0.6, y: 0.578 },
-  { x: 0.64, y: 0.57 },
-  { x: 0.7, y: 0.562 },
-  { x: 0.73, y: 0.554 },
-  { x: 0.7, y: 0.545 },
-  { x: 0.665, y: 0.537 },
-  { x: 0.662, y: 0.529 },
-  { x: 0.685, y: 0.522 },
-  { x: 0.713, y: 0.514 },
-  { x: 0.73, y: 0.497 },
+  { x: 0.01, y: 0.716 },
+  { x: 0.12, y: 0.675 },
+  { x: 0.25, y: 0.643 },
+  { x: 0.38, y: 0.617 },
+  { x: 0.45, y: 0.584 },
+  { x: 0.42, y: 0.548 },
+  { x: 0.34, y: 0.52 },
+  { x: 0.43, y: 0.493 },
+  { x: 0.58, y: 0.47 },
+  { x: 0.71, y: 0.445 },
+  { x: 0.76, y: 0.414 },
+  { x: 0.7, y: 0.386 },
+  { x: 0.62, y: 0.366 },
+  { x: 0.68, y: 0.344 },
+  { x: 0.79, y: 0.323 },
+  { x: 0.82, y: 0.297 },
+  { x: 0.76, y: 0.278 },
+  { x: 0.7, y: 0.258 },
+  { x: 0.78, y: 0.238 },
+  { x: 0.87, y: 0.218 },
+];
+
+/** Existing illustration packs retain their original registered trail. */
+const LEGACY_CHART_ROUTE_CONTROL_POINTS: readonly RoutePoint[] = [
+  { x: 0.1, y: 0.925 }, { x: 0.18, y: 0.885 }, { x: 0.26, y: 0.855 }, { x: 0.33, y: 0.83 },
+  { x: 0.39, y: 0.805 }, { x: 0.43, y: 0.775 }, { x: 0.43, y: 0.745 }, { x: 0.39, y: 0.725 },
+  { x: 0.365, y: 0.712 }, { x: 0.383, y: 0.703 }, { x: 0.42, y: 0.69 }, { x: 0.47, y: 0.677 },
+  { x: 0.53, y: 0.664 }, { x: 0.596, y: 0.656 }, { x: 0.64, y: 0.647 }, { x: 0.68, y: 0.637 },
+  { x: 0.705, y: 0.627 }, { x: 0.717, y: 0.615 }, { x: 0.7, y: 0.603 }, { x: 0.65, y: 0.595 },
+  { x: 0.605, y: 0.588 }, { x: 0.6, y: 0.578 }, { x: 0.64, y: 0.57 }, { x: 0.7, y: 0.562 },
+  { x: 0.73, y: 0.554 }, { x: 0.7, y: 0.545 }, { x: 0.665, y: 0.537 }, { x: 0.662, y: 0.529 },
+  { x: 0.685, y: 0.522 }, { x: 0.713, y: 0.514 }, { x: 0.73, y: 0.497 },
 ];
 
 /** Vertical band of the art each surface shows, as fractions of image height. */
@@ -184,19 +204,24 @@ function sample(controls: readonly RoutePoint[], aspect: number): Sampled {
   return { points, cumulative, length: cumulative[cumulative.length - 1] };
 }
 
-const cache = new Map<number, Sampled>();
+type ChartGeometryArt = Pick<ChartArt, 'width' | 'height'> & Partial<Pick<ChartArt, 'routeKind'>>;
 
-function sampledFor(art: Pick<ChartArt, 'width' | 'height'>): Sampled {
+const cache = new Map<string, Sampled>();
+
+function sampledFor(art: ChartGeometryArt): Sampled {
   const aspect = art.height / art.width;
-  const cached = cache.get(aspect);
+  const routeKind = art.routeKind ?? 'cinematic';
+  const key = `${routeKind}:${aspect}`;
+  const cached = cache.get(key);
   if (cached) return cached;
-  const next = sample(CHART_ROUTE_CONTROL_POINTS, aspect);
-  cache.set(aspect, next);
+  const controls = routeKind === 'legacy' ? LEGACY_CHART_ROUTE_CONTROL_POINTS : CHART_ROUTE_CONTROL_POINTS;
+  const next = sample(controls, aspect);
+  cache.set(key, next);
   return next;
 }
 
 /** Point at arc-length fraction t (0 = START, 1 = DESTINATION), normalized. */
-export function pointAt(t: number, art: Pick<ChartArt, 'width' | 'height'>): RoutePoint {
+export function pointAt(t: number, art: ChartGeometryArt): RoutePoint {
   const { points, cumulative, length } = sampledFor(art);
   const target = Math.max(0, Math.min(1, t)) * length;
   let index = 1;
@@ -218,7 +243,7 @@ export function waypointFractions(count: number): number[] {
 }
 
 /** SVG path data for the trail between two fractions, in frame coordinates. */
-export function routePathData(frame: ChartFrame, art: Pick<ChartArt, 'width' | 'height'>, from = 0, to = 1): string {
+export function routePathData(frame: ChartFrame, art: ChartGeometryArt, from = 0, to = 1): string {
   const { points, cumulative, length } = sampledFor(art);
   const start = Math.max(0, Math.min(1, from)) * length;
   const end = Math.max(0, Math.min(1, to)) * length;
@@ -229,7 +254,7 @@ export function routePathData(frame: ChartFrame, art: Pick<ChartArt, 'width' | '
 }
 
 /** Rendered length (points) of the trail between two fractions. */
-export function routeLength(frame: ChartFrame, art: Pick<ChartArt, 'width' | 'height'>, from = 0, to = 1): number {
+export function routeLength(frame: ChartFrame, art: ChartGeometryArt, from = 0, to = 1): number {
   const { length } = sampledFor(art);
   // Sampled length is in "width units"; scale to the rendered width.
   return Math.max(0, Math.min(1, to) - Math.max(0, from)) * length * frame.width;

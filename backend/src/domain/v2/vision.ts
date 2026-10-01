@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const VISION_STATUSES = ['ACTIVE', 'ARCHIVED'] as const;
 export type VisionStatus = (typeof VISION_STATUSES)[number];
 
-export const VISION_SCENE_SOURCES = ['USER_UPLOAD', 'AI_GENERATED'] as const;
+export const VISION_SCENE_SOURCES = ['USER_UPLOAD', 'AI_GENERATED', 'USER_CAMERA'] as const;
 export type VisionSceneSource = (typeof VISION_SCENE_SOURCES)[number];
 
 export interface VisionSceneReadModel {
@@ -67,6 +67,9 @@ export const TimeZoneSchema = z
     }
   }, 'Must be a valid IANA time zone');
 
+/** A Vision is a board of at most this many photographs (the app composes 0-6). */
+export const VISION_MAX_IMAGES = 6;
+
 export const CreateVisionSceneSchema = z
   .object({
     sourceType: z.enum(VISION_SCENE_SOURCES),
@@ -81,7 +84,7 @@ export const CreateVisionSceneSchema = z
 export const CreateVisionSchema = z.object({
   title: z.string().trim().max(140).optional().nullable(),
   description: z.string().trim().min(12).max(2000).optional().nullable(),
-  scenes: z.array(CreateVisionSceneSchema).max(5).optional(),
+  scenes: z.array(CreateVisionSceneSchema).max(VISION_MAX_IMAGES).optional(),
 });
 
 export const StartVisionGenerationSchema = z.object({
@@ -89,6 +92,18 @@ export const StartVisionGenerationSchema = z.object({
   idempotencyKey: z.string().regex(/^[A-Za-z0-9-]{12,100}$/),
   // The server resolves this private asset itself. Clients never send raw
   // URLs or bytes to the generation endpoint.
+  appearanceReferenceId: z.string().uuid().optional().nullable(),
+}).strict();
+
+/**
+ * One described scene for an existing Vision (two candidates come back). The first
+ * image of a new Vision is described with the Vision's own description, so the
+ * limit matches it.
+ */
+export const VISION_SCENE_DESCRIPTION_MAX = 2000;
+export const StartVisionSceneGenerationSchema = z.object({
+  sceneDescription: z.string().trim().min(6).max(VISION_SCENE_DESCRIPTION_MAX),
+  idempotencyKey: z.string().regex(/^[A-Za-z0-9-]{12,100}$/),
   appearanceReferenceId: z.string().uuid().optional().nullable(),
 }).strict();
 
@@ -114,7 +129,7 @@ export const ReorderScenesSchema = z.object({
       })
     )
     .min(1)
-    .max(5),
+    .max(VISION_MAX_IMAGES),
 });
 
 export const RecordVisionViewSchema = z.object({

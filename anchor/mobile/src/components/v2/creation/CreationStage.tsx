@@ -6,6 +6,8 @@ import Animated, {
   Easing,
   interpolate,
   interpolateColor,
+  runOnJS,
+  useAnimatedReaction,
   useAnimatedStyle,
   useDerivedValue,
   useSharedValue,
@@ -13,6 +15,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft } from 'lucide-react-native';
+import { StatusBar } from 'expo-status-bar';
 
 import { V2Button, V2IconButton } from '@/components/v2';
 import { V2InlineError } from '@/components/v2/feedback/V2Feedback';
@@ -58,9 +61,17 @@ import { DistillationLetters, type SettledSlots } from './DistillationLetters';
 import type { DistillationStage } from './distillationMotion';
 import { ExpressionPreview } from './ExpressionPreview';
 import { ExpressionLibrary } from './ExpressionLibrary';
-import { styleOption, type CreationStyleOption } from './expressionOptions';
-import { FormationLayer, MappingTokens, type StagePoint } from './FormationLayer';
+import { styleOption, creationStyleLibrary, type CreationStyleOption } from './expressionOptions';
+import { FormationLayer, MappingTokens, kameaGeometry, type StagePoint } from './FormationLayer';
 import { FormationSheet } from './FormationSheet';
+import { DraftingSurface } from './DraftingSurface';
+import { draftingInk, draftingCopyOpacity } from './draftingTone';
+import { CandidatePager } from './CandidatePager';
+import { lockSeal, unlockSeal } from './sealCommitment';
+import { GenerationEtching } from './GenerationEtching';
+import { FOIL_STOPS } from '@/components/v2/anchor/anchorExpressions';
+import { useAudio } from '@/hooks/useAudio';
+import * as Haptics from 'expo-haptics';
 import { creationTimingTracker, type CreationTimingRecord } from './creationTelemetry';
 
 export type WindowRect = { x: number; y: number; width: number; height: number };
@@ -110,7 +121,7 @@ const MIN_STAGE_FOR_MARK = 76;
 const STAGE_LABEL_ROOM = 22;
 /** The mark inside its paper circle: the circle is what must fit. */
 const DISC_CORE = 1 / PAPER_ART_SHARE;
-const PAPER = '#FBF9F4';
+const PAPER = colors.surface;
 /** The second-Anchor paywall action, the same on every panel and for assistive tech. */
 const PRO_LABEL = 'See Anchor Pro';
 
@@ -175,6 +186,16 @@ export function CreationStage({
   onHandoff,
 }: CreationStageProps) {
   const step = draft.currentStep;
+  const [sealCommitted, setSealCommitted] = useState(false);
+  const sealRect = useRef<WindowRect | null>(null);
+  useEffect(() => () => unlockSeal(draft.draftId), [draft.draftId]);
+  const { createManagedPlayer } = useAudio();
+  // Optional drone deliberately stays silent until the real asset is supplied.
+  const FORGE_DRONE_ENABLED = false;
+  // DEFERRED: awaiting assets/sounds/forge-drone.wav
+  // const forgeDrone = require('../../../assets/sounds/forge-drone.wav');
+  void FORGE_DRONE_ENABLED;
+  const soundedLandings = useRef(new Set<number>());
   const viewport = useV2Responsive();
   const insets = useSafeAreaInsets();
   const markSize = creationMarkSize(viewport);
@@ -198,6 +219,9 @@ export function CreationStage({
   const formed = step === 'reveal' || step === 'expression' || step === 'generating' || step === 'choose' || step === 'handoff';
   const candidates = useMemo(() => (draft.generatedCandidates ?? []).slice(0, 2), [draft.generatedCandidates]);
   const chosenIndex = draft.selectedCandidateIndex ?? -1;
+  useEffect(() => {
+    if (step === 'choose' && candidates.length === 2 && chosenIndex < 0) onSelectCandidate(0);
+  }, [candidates.length, chosenIndex, onSelectCandidate, step]);
   const keptCandidate = step === 'handoff' && chosenIndex >= 0 && Boolean(candidates[chosenIndex]);
 
   /* ── replay of the formation, inside Reveal ───────────────────────────── */
@@ -245,6 +269,7 @@ export function CreationStage({
   }, [shown]);
 
 
+  // Shared-element fallback: the same mounted mark scales and moves into expressions.
   /* ── stage layout → where and how large the mark sits ─────────────────── */
   const stageRef = useRef<View>(null);
   const [stage, setStage] = useState({ width: 0, height: 0 });
@@ -261,11 +286,14 @@ export function CreationStage({
     // The "YOUR STRUCTURE" label sits above the mark on Expression; the mark keeps clear of it.
     const labelRoom = scene === 'expression' ? STAGE_LABEL_ROOM : 0;
     const room = { width: stage.width, height: Math.max(0, stage.height - (lifted ? LETTER_ROW * 2 : 0) - (scene === 'handoff' ? 40 : 0) - labelRoom) };
-    const scale = stageFitScale(room, markSize, core);
+    const gridShare = formation ? kameaGeometry(formation).side / 100 : KAMEA_CORE;
+    const scale = lifted
+      ? Math.min(stage.width / (markSize * gridShare), Math.max(0.24, room.height / (markSize * gridShare)))
+      : stageFitScale(room, markSize, core);
     const centerY = stage.height / 2 + (lifted ? LETTER_ROW / 2 : 0) - (scene === 'handoff' ? 20 : 0) + labelRoom / 2;
-    const visible = stage.height >= MIN_STAGE_FOR_MARK && scene !== 'distillation' && scene !== 'choose' && !(scene === 'handoff' && keptCandidate);
+    const visible = stage.height >= MIN_STAGE_FOR_MARK && scene !== 'distillation' && !(scene === 'handoff' && keptCandidate);
     return { scale, top: centerY - markSize / 2, centerY, visible };
-  }, [keptCandidate, markSize, shown, stage, target]);
+  }, [formation, keptCandidate, markSize, shown, stage, target]);
   const placementRef = useRef(placement);
   placementRef.current = placement;
 
@@ -301,42 +329,35 @@ export function CreationStage({
     return () => clearTimeout(timer);
   }, [distillStage, onFormAnchor, reduceMotion, replay, step]);
 
-  /* ── tonal environment progression (cream <-> ink) ─────────────────────── */
-  const darkTone = useSharedValue(entryStep === 'formation' || entryStep === 'generating' ? 1 : 0);
-
+  /* One ink-to-paper wipe; the later scenes stay in the paper world. */
+  const initiallyDark = entryStep === 'distillation' || entryStep === 'formation';
+  const darkTone = useSharedValue(initiallyDark ? 1 : 0);
+  const iris = useSharedValue(initiallyDark ? 0 : 1);
+  const [darkStatusBar, setDarkStatusBar] = useState(!initiallyDark);
+  const worldStep = useRef<Scene>(entryStep);
   useEffect(() => {
-    if (reduceMotion) {
-      darkTone.value = (target === 'formation' || target === 'generating') ? 1 : 0;
+    const previous = worldStep.current;
+    worldStep.current = target;
+    const dark = target === 'distillation' || target === 'formation';
+    if (dark) {
+      darkTone.value = 1;
+      iris.value = 0;
+      setDarkStatusBar(false);
       return;
     }
-    if (target === 'distillation') {
-      // Room subtly deepens through distillation stages
-      if (distillStage === 'whole') {
-        darkTone.value = creationTiming(0.12, { duration: 900, easing: CREATION_EASING.deliberate });
-      } else if (distillStage === 'vowels') {
-        darkTone.value = creationTiming(0.42, { duration: 1000, easing: CREATION_EASING.deliberate });
-      } else if (distillStage === 'repeats') {
-        darkTone.value = creationTiming(0.75, { duration: 1000, easing: CREATION_EASING.deliberate });
-      } else if (distillStage === 'compact' || distillStage === 'settled') {
-        darkTone.value = creationTiming(1.0, { duration: 900, easing: CREATION_EASING.deliberate });
-      }
-    } else if (target === 'formation') {
-      darkTone.value = creationTiming(1.0, { duration: 500, easing: CREATION_EASING.deliberate });
-    } else if (target === 'reveal') {
-      // Light returns around the finished Anchor
-      darkTone.value = creationTiming(0, { duration: 850, easing: CREATION_EASING.deliberate });
-    } else if (target === 'expression') {
-      darkTone.value = 0;
-    } else if (target === 'generating') {
-      // Return to darkness for material refinement
-      darkTone.value = creationTiming(1.0, { duration: 650, easing: CREATION_EASING.deliberate });
-    } else if (target === 'choose') {
-      // Light returns as two interpretations split
-      darkTone.value = creationTiming(0, { duration: 750, easing: CREATION_EASING.deliberate });
-    } else if (target === 'handoff') {
-      darkTone.value = 0;
+    if (target === 'reveal' && (previous === 'formation' || previous === 'distillation') && !reduceMotion) {
+      iris.value = 0;
+      iris.value = creationTiming(1, { duration: 600, easing: CREATION_EASING.deliberate });
+      const contrast = setTimeout(() => { darkTone.value = 0; setDarkStatusBar(true); }, 280);
+      return () => clearTimeout(contrast);
     }
-  }, [darkTone, distillStage, reduceMotion, target]);
+    iris.value = 1;
+    darkTone.value = 0;
+    setDarkStatusBar(true);
+  }, [darkTone, iris, reduceMotion, target]);
+  const irisDiameter = Math.hypot(viewport.width, viewport.height) * 2;
+  const irisStyle = useAnimatedStyle(() => ({ transform: [{ scale: iris.value }] }));
+  // DEFERRED: the old tonal cross-fade returned to ink during generation.
 
   /* ── formation: one progress value drives square, letters, points, line ── */
   const [formationPhase, setFormationPhase] = useState<FormationPhase>('grid');
@@ -357,6 +378,7 @@ export function CreationStage({
       formationStartedAt.current = Date.now();
       creationTimingTracker.record('kamea_mapping_begin', { hurried, pace });
       const from = progress.value;
+      if (from === 0) soundedLandings.current.clear();
       const normal = (a: number, b: number) => Math.max(0, (b - a) * timeline.total);
       let total: number;
       let at: (fraction: number) => number;
@@ -386,6 +408,17 @@ export function CreationStage({
         if (from < fraction) formationTimers.current.push(setTimeout(() => setFormationPhase(phase), at(fraction)));
         else setFormationPhase(phase);
       }
+
+      timeline.landings.forEach((landing, index) => {
+        if (landing < from || soundedLandings.current.has(index)) return;
+        formationTimers.current.push(setTimeout(() => {
+          soundedLandings.current.add(index);
+          const player = createManagedPlayer('letter-drop');
+          player?.setRate(1 + 0.06 * index);
+          player?.play();
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        }, at(landing)));
+      });
 
       // Step 4: First letter begins movement
       if (timeline.departures[0] !== undefined) {
@@ -424,7 +457,7 @@ export function CreationStage({
         onFormationDone();
       }, total + 40));
     },
-    [onFormationDone, pace, progress, timeline],
+    [createManagedPlayer, onFormationDone, pace, progress, timeline],
   );
 
   useEffect(() => {
@@ -494,10 +527,25 @@ export function CreationStage({
     return () => clearTimeout(settle);
   }, [lookExpression, lookTint, mix, reduceMotion, step]);
 
+  const hasInteracted = useRef(false);
+
   const selectStyle = useCallback((option: CreationStyleOption | null) => {
+    hasInteracted.current = true;
     v2Haptics.selection();
     onSelectStyle(option?.styleChoice ?? null, option?.expression ?? 'original');
   }, [onSelectStyle]);
+
+  useEffect(() => {
+    if (shown !== 'expression' || hasInteracted.current) return;
+    if (draft.expression === 'original' && draft.styleChoice === undefined) {
+      const intentionText = draft.normalizedIntention ?? draft.intention;
+      const library = creationStyleLibrary(draft.category, intentionText);
+      const defaultOption = library.suggested[0] ?? library.all[0];
+      if (defaultOption) {
+        onSelectStyle(defaultOption.styleChoice, defaultOption.expression);
+      }
+    }
+  }, [draft.category, draft.expression, draft.intention, draft.normalizedIntention, draft.styleChoice, onSelectStyle, shown]);
 
   /* ── generation: structure → expression → surface, then an honest wait ─── */
   const developing = step === 'generating' && draft.generationState === 'generating';
@@ -583,6 +631,10 @@ export function CreationStage({
     // stage keeps its size so nothing under it moves.
     if (!keptCandidateRef.current) handoffTimers.current.push(setTimeout(() => setShown('handoff'), fade));
     handoffTimers.current.push(setTimeout(() => {
+      if (sealRect.current) {
+        onHandoffRef.current(reduceMotion ? null : sealRect.current);
+        return;
+      }
       const view = stageRef.current;
       if (!view || typeof view.measureInWindow !== 'function') {
         onHandoffRef.current(null);
@@ -622,14 +674,16 @@ export function CreationStage({
     transform: [{ translateY: (1 - swap.value) * 8 }],
   }));
   const markStyle = useAnimatedStyle(() => ({
-    opacity: markVisible.value,
+    opacity: markVisible.value * (step === 'choose' ? interpolate(emerge.value, [0, 0.45], [1, 0], 'clamp') : 1),
     transform: [{ translateY: markY.value }, { scale: markScale.value }],
-  }));
+  }), [step]);
   const settleStart = timeline.settleStart;
+  const inGeneration = shown === 'generating' || step === 'generating';
+  const showGenerationLayers = inGeneration || step === 'choose' || (step === 'handoff' && !keptCandidate);
   const colourIn = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [settleStart, settleStart + (1 - settleStart) * 0.5], [0, 1], 'clamp'),
+    opacity: interpolate(progress.value, [settleStart, settleStart + (1 - settleStart) * 0.5], [0, 1], 'clamp') * (showGenerationLayers ? 1 : interpolate(darkTone.value, [0, 0.15], [1, 0], 'clamp')),
     transform: [{ scale: interpolate(progress.value, [settleStart, 1], [0.975, 1], 'clamp') }],
-  }), [settleStart]);
+  }), [settleStart, showGenerationLayers]);
   const lift = timeline.gridEnd;
   const lettersStyle = useAnimatedStyle(() => {
     const up = interpolate(progress.value, [0, lift], [0, 1], 'clamp');
@@ -646,15 +700,13 @@ export function CreationStage({
   // returns as the expression settles back onto it, then the circle forms around it.
   const s1 = GENERATION_TIMING.structure / (GENERATION_TIMING.structure + GENERATION_TIMING.expression + GENERATION_TIMING.surface);
   const s2 = (GENERATION_TIMING.structure + GENERATION_TIMING.expression) / (GENERATION_TIMING.structure + GENERATION_TIMING.expression + GENERATION_TIMING.surface);
-  const inGeneration = shown === 'generating' || step === 'generating';
-  const showGenerationLayers = inGeneration || step === 'choose' || (step === 'handoff' && !keptCandidate);
   const genPreviewStyle = useAnimatedStyle(() => {
     if (!inGeneration) return { opacity: 1 };
     return { opacity: interpolate(gen.value, [0, s1 * 0.35, s1, s2], [1, 0.14, 0.14, 1], 'clamp') };
   }, [inGeneration, s1, s2]);
   const retrace = useDerivedValue(() => interpolate(gen.value, [s1 * 0.2, s1], [0, 1], 'clamp'));
   const inkStyle = useAnimatedStyle(() => ({
-    opacity: inGeneration ? interpolate(gen.value, [0, s1 * 0.2, s1 + (s2 - s1) * 0.3, s2], [0, 1, 1, 0], 'clamp') : 0,
+    opacity: inGeneration ? interpolate(gen.value, [0, s1 * 0.2, s2, 1], [0, 1, 1, 0], 'clamp') : 0,
   }), [inGeneration, s1, s2]);
   const discStyle = useAnimatedStyle(() => {
     const surfaced = step === 'handoff' ? Math.max(interpolate(gen.value, [s2, 1], [0, 1], 'clamp'), resolve.value) : interpolate(gen.value, [s2, 1], [0, 1], 'clamp');
@@ -662,19 +714,35 @@ export function CreationStage({
   }, [s2, step]);
   const breathStyle = useAnimatedStyle(() => ({ opacity: interpolate(gen.value, [0.96, 1], [0, 1], 'clamp') * (0.1 + breath.value * 0.3) }));
   const handoffCaptionStyle = useResolveStyle(resolve);
+  const darkMarkStyle = useAnimatedStyle(() => ({ opacity: darkTone.value >= 0.8 ? 1 : 0 }));
+  const neutralMarkStyle = useAnimatedStyle(() => ({
+    opacity: shown === 'reveal' ? 1 : darkTone.value < 0.8 ? interpolate(darkTone.value, [0, 0.15], [0, 1], 'clamp') : 0,
+  }));
+  const backInkStyle = useAnimatedStyle(() => ({ opacity: darkTone.value < 0.8 ? 1 : 0 }));
+  const backPaperStyle = useAnimatedStyle(() => ({ opacity: darkTone.value < 0.8 ? 0 : 1 }));
+  const quietChromeStyle = useAnimatedStyle(() => ({
+    opacity: swap.value * chrome.value * (target === 'formation' || shown === 'formation' ? interpolate(progress.value, [0, timeline.gridEnd, timeline.constructEnd], [0.5, 0, 0], 'clamp') : 1),
+    transform: [{ translateY: (1 - swap.value) * 8 }],
+  }), [target, shown, timeline.gridEnd, timeline.constructEnd]);
+  const quietStatusStyle = useAnimatedStyle(() => ({
+    opacity: draftingCopyOpacity(darkTone.value) * (target === 'formation' || shown === 'formation' ? interpolate(progress.value, [timeline.constructEnd, timeline.settleStart], [1, 0], 'clamp') : 1),
+    color: draftingInk(darkTone.value),
+  }), [target, shown, timeline.constructEnd, timeline.settleStart]);
 
   /* ── dynamic tone styles ──────────────────────────────────────────────── */
   const bgToneStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(darkTone.value, [0, 1], [colors.canvas, colors.ink.base]),
+    backgroundColor: colors.ink.base,
   }));
   const dynamicTitleStyle = useAnimatedStyle(() => ({
-    color: interpolateColor(darkTone.value, [0, 1], [colors.text.primary, colors.ink.text.primary]),
+    color: draftingInk(darkTone.value),
   }));
   const dynamicEyebrowStyle = useAnimatedStyle(() => ({
-    color: interpolateColor(darkTone.value, [0, 1], [colors.text.secondary, colors.ink.text.secondary]),
+    color: draftingInk(darkTone.value),
+    opacity: draftingCopyOpacity(darkTone.value),
   }));
   const dynamicStatusStyle = useAnimatedStyle(() => ({
-    color: interpolateColor(darkTone.value, [0, 1], [colors.text.secondary, 'rgba(244, 246, 250, 0.72)']),
+    color: draftingInk(darkTone.value),
+    opacity: draftingCopyOpacity(darkTone.value),
   }));
   const categoryArt = useMemo(() => homeCategoryArt(draft.category), [draft.category]);
   const categoryWorldStyle = useAnimatedStyle(() => {
@@ -742,8 +810,21 @@ export function CreationStage({
     AccessibilityInfo.announceForAccessibility(spokenStatus);
   }, [spokenStatus]);
   const saving = draft.saveState === 'saving';
-  const canGoBack = !replay && (step === 'distillation' || step === 'formation' || step === 'reveal' || step === 'expression' || step === 'generating' || step === 'choose') && !saving;
+  const canGoBack = !replay && (step === 'distillation' || step === 'formation' || step === 'reveal' || step === 'expression' || step === 'generating' || step === 'choose') && !saving && !sealCommitted;
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [stillnessCancelled, setStillnessCancelled] = useState(false);
+  const stillnessPlayed = useRef(false);
+  useEffect(() => {
+    if (shown !== 'reveal' || step !== 'reveal' || replay || stillnessCancelled || sheetOpen) return;
+    if (!stillnessPlayed.current) {
+      stillnessPlayed.current = true;
+      const tone = createManagedPlayer('forge-seal', { volume: 0.28 });
+      tone?.play();
+    }
+    const wipeRemaining = !reduceMotion && iris.value < 1 ? 400 : 0;
+    const timer = setTimeout(onOpenExpression, 1500 + wipeRemaining);
+    return () => clearTimeout(timer);
+  }, [createManagedPlayer, iris, onOpenExpression, reduceMotion, replay, sheetOpen, shown, step, stillnessCancelled]);
   const categoryText = getCategoryTextColor(draft.category, colors.canvas, colors.text.primary);
   const intention = draft.normalizedIntention ?? draft.intention;
   const keepingOriginal = draft.expression === 'original';
@@ -766,11 +847,11 @@ export function CreationStage({
       case 'formation':
         return draft.formationError ? (
           <View style={styles.panelStack}>
-            <V2InlineError message={FORMATION_COPY.error} />
+            <View style={styles.darkError}><V2InlineError message={FORMATION_COPY.error} /></View>
             <V2Button size="large" style={styles.cta} onPress={onFormAnchor} testID="formation-retry">{FORMATION_COPY.retry}</V2Button>
           </View>
         ) : (
-          <Animated.Text style={[styles.status, dynamicStatusStyle]} accessibilityLiveRegion="polite" testID="formation-status">
+          <Animated.Text style={[styles.status, quietStatusStyle]} accessibilityLiveRegion="polite" testID="formation-status">
             {FORMATION_COPY.status[formationPhase]}
           </Animated.Text>
         );
@@ -782,8 +863,8 @@ export function CreationStage({
               <Text style={styles.quote} numberOfLines={3} testID="reveal-intention">“{intention}”</Text>
               {categoryRow}
             </View>
-            <V2Button size="large" style={styles.cta} onPress={onOpenExpression} testID="reveal-continue">{REVEAL_COPY.cta}</V2Button>
-            <Pressable onPress={() => setSheetOpen(true)} accessibilityRole="button" hitSlop={10} style={styles.link} testID="reveal-how-formed">
+            {/* // DEFERRED: <V2Button size="large" style={styles.cta} onPress={onOpenExpression} testID="reveal-continue">{REVEAL_COPY.cta}</V2Button> */}
+            <Pressable onPress={() => { setStillnessCancelled(true); setSheetOpen(true); }} accessibilityRole="button" hitSlop={10} style={styles.link} testID="reveal-how-formed">
               <Text style={styles.linkText}>{REVEAL_COPY.howItFormed}</Text>
             </Pressable>
           </View>
@@ -794,14 +875,14 @@ export function CreationStage({
           <View style={styles.panelStack}>
             {failed ? (
               <>
-                <V2InlineError message={draft.generationError ?? GENERATION_COPY.body} offline={draft.generationError === GENERATION_ERRORS.offline} />
+                <View style={styles.darkError}><V2InlineError message={draft.generationError ?? GENERATION_COPY.body} offline={draft.generationError === GENERATION_ERRORS.offline} /></View>
                 {/* An exhausted daily allowance is not fixed by trying again today. */}
                 {draft.generationError === GENERATION_ERRORS.limit ? null : (
                   <V2Button size="large" style={styles.cta} onPress={onGenerate} testID="generation-retry">{GENERATION_COPY.retry}</V2Button>
                 )}
                 {draft.previousCandidates?.length === 2 && onReturnToPrevious ? (
                   <Pressable onPress={onReturnToPrevious} accessibilityRole="button" style={styles.link} testID="generation-previous">
-                    <Text style={styles.linkText}>{GENERATION_COPY.previous}</Text>
+                    <Animated.Text style={[styles.linkText, dynamicStatusStyle]}>{GENERATION_COPY.previous}</Animated.Text>
                   </Pressable>
                 ) : null}
               </>
@@ -811,7 +892,7 @@ export function CreationStage({
               </Animated.Text>
             )}
             <Pressable onPress={onBack} accessibilityRole="button" style={styles.link} testID="generation-back">
-              <Text style={styles.linkText}>{GENERATION_COPY.back}</Text>
+              <Animated.Text style={[styles.linkText, dynamicStatusStyle]}>{GENERATION_COPY.back}</Animated.Text>
             </Pressable>
           </View>
         );
@@ -830,6 +911,7 @@ export function CreationStage({
                 ) : null}
               </View>
             ) : null}
+            {/* // DEFERRED: the old keep button; completion now comes from the selected medallion.
             <V2Button
               size="large"
               style={styles.cta}
@@ -841,9 +923,10 @@ export function CreationStage({
             >
               {chooseFailure === 'second_anchor' ? PRO_LABEL : chooseFailure ? 'Try again' : CHOOSE_COPY.keep}
             </V2Button>
-            <Pressable onPress={onGenerate} disabled={saving} accessibilityRole="button" style={styles.link} testID="choose-retry">
-              <Text style={styles.linkText}>{CHOOSE_COPY.retry}</Text>
-            </Pressable>
+            */}
+            {chooseFailure ? <V2Button size="large" loading={saving} disabled={chooseFailure === 'limit'}
+              onPress={() => chooseFailure === 'second_anchor' && onPaywall ? onPaywall() : onKeep()}
+              testID="seal-save-retry">{chooseFailure === 'second_anchor' ? PRO_LABEL : 'Try again'}</V2Button> : null}
           </View>
         );
       }
@@ -920,17 +1003,30 @@ export function CreationStage({
     // Insets from the provider, not a native safe-area view: a freshly mounted native one
     // applies them a beat late, which visibly shifts the whole stage.
     <Animated.View style={[styles.safe, bgToneStyle, { paddingTop: insets.top, paddingBottom: insets.bottom }]} testID={`v2-creation-${step}`}>
+      <StatusBar style={darkStatusBar ? 'dark' : 'light'} />
+      <Animated.View pointerEvents="none" style={[{
+        position: 'absolute', width: irisDiameter, height: irisDiameter, borderRadius: irisDiameter / 2,
+        left: (viewport.width - irisDiameter) / 2,
+        top: insets.top + 48 + 92 + stage.height / 2 - irisDiameter / 2,
+        backgroundColor: colors.canvas,
+      }, irisStyle]} />
+      <DraftingSurface />
       <CreationTimingHud reduceMotion={reduceMotion} />
-      <View style={[styles.frame, { paddingHorizontal: viewport.gutter }]}>
+      <View style={[styles.frame, { paddingHorizontal: 32 }]}>
         <Animated.View style={[styles.top, chromeStyle]}>
           {canGoBack ? (
-            <V2IconButton icon={<ArrowLeft size={20} color={shown === 'formation' || shown === 'generating' || (shown === 'distillation' && distillStage !== 'whole') ? colors.ink.text.primary : colors.text.primary} />} accessibilityLabel="Go back" onPress={onBack} testID="creation-back" />
+            <V2IconButton icon={
+              <View style={{ width: 20, height: 20 }}>
+                <Animated.View style={[StyleSheet.absoluteFill, backInkStyle]}><ArrowLeft size={20} color={colors.text.primary} /></Animated.View>
+                <Animated.View style={[StyleSheet.absoluteFill, backPaperStyle]}><ArrowLeft size={20} color={colors.paper} /></Animated.View>
+              </View>
+            } accessibilityLabel="Go back" onPress={onBack} testID="creation-back" />
           ) : (
             <View style={styles.topSpacer} />
           )}
         </Animated.View>
 
-        <Animated.View style={[styles.headline, swapStyle]}>
+        <Animated.View style={[styles.headline, quietChromeStyle]}>
           {headline.eyebrow ? <Animated.Text style={[styles.eyebrow, dynamicEyebrowStyle]}>{headline.eyebrow}</Animated.Text> : null}
           <Animated.Text style={[styles.title, dynamicTitleStyle]} accessibilityRole="header" testID="creation-title">{headline.title}</Animated.Text>
         </Animated.View>
@@ -955,6 +1051,7 @@ export function CreationStage({
                 reduceMotion={reduceMotion}
                 startSettled={entryStep === 'formation' && !replay}
                 glow={forming ? glow : undefined}
+                tone={darkTone}
                 showSource={!forming}
                 onStage={onDistillStage}
                 onSlots={setSlots}
@@ -971,25 +1068,42 @@ export function CreationStage({
               accessibilityLabel={markLabel}
               testID="creation-mark"
             >
-              {showGenerationLayers ? (
+              {showGenerationLayers && !inGeneration ? (
                 <>
                   <Animated.View style={[styles.disc, { width: discSize, height: discSize, borderRadius: discSize / 2, left: (markSize - discSize) / 2, top: (markSize - discSize) / 2 }, discStyle]} />
+                  {/* // DEFERRED: outer breathing ring; surface etching owns the wait.
                   <Animated.View style={[styles.discRing, { width: discSize + 18, height: discSize + 18, borderRadius: (discSize + 18) / 2, left: (markSize - discSize - 18) / 2, top: (markSize - discSize - 18) / 2 }, breathStyle]} />
+                  */}
                 </>
               ) : null}
               {forming && formation ? (
                 <FormationLayer svg={svg} formation={formation} size={markSize} progress={progress} timeline={timeline} accent={accent} reduceMotion={reduceMotion} />
               ) : null}
-              <Animated.View style={[StyleSheet.absoluteFill, colourIn]}>
+              {!forming && !showGenerationLayers ? (
+                <>
+                  <Animated.View style={[StyleSheet.absoluteFill, darkMarkStyle]}>
+                    <AnchorMark svg={svg} size={markSize} strokeColor={colors.paper} />
+                  </Animated.View>
+                  <Animated.View style={[StyleSheet.absoluteFill, neutralMarkStyle]}>
+                    <AnchorMark svg={svg} size={markSize} strokeColor={colors.text.primary} />
+                  </Animated.View>
+                </>
+              ) : null}
+              <Animated.View style={[StyleSheet.absoluteFill, colourIn, shown === 'reveal' || inGeneration ? { opacity: 0 } : null]}>
                 <Animated.View style={[StyleSheet.absoluteFill, genPreviewStyle]}>
                   <ExpressionPreview svg={svg} category={draft.category} size={markSize} from={look.from.expression} to={look.to.expression} fromTint={look.from.tint} toTint={look.to.tint} mix={mix} testID="expression-preview" />
                 </Animated.View>
               </Animated.View>
-              {inGeneration ? (
-                <Animated.View style={[StyleSheet.absoluteFill, inkStyle]}>
-                  <AnchorMark svg={svg} size={markSize} strokeColor="#F4F6FA" drawProgress={retrace} />
-                </Animated.View>
+              {inGeneration && formation ? (
+                <GenerationEtching points={formation.vertices} size={markSize}
+                  color={lookTint ?? (lookExpression === 'foil' ? FOIL_STOPS[1].color : colors.ink.base)}
+                  requestId={draft.generationRequestId} running={developing} reduceMotion={reduceMotion} />
               ) : null}
+              {/* // DEFERRED: uniform retrace replaced by expression etching.
+              <Animated.View style={[StyleSheet.absoluteFill, inkStyle]}>
+                <AnchorMark svg={svg} size={markSize} strokeColor={colors.ink.text.primary} drawProgress={retrace} />
+              </Animated.View>
+              */}
             </Animated.View>
           ) : null}
 
@@ -1008,7 +1122,7 @@ export function CreationStage({
           ) : null}
 
           {showCandidates && svg ? (
-            <CandidatePair
+            <CandidatePager
               svg={svg}
               category={draft.category}
               candidates={candidates}
@@ -1021,6 +1135,10 @@ export function CreationStage({
               handingOff={keptCandidate}
               disabled={saving || step !== 'choose'}
               reduceMotion={reduceMotion}
+              points={formation?.vertices ?? []}
+              onKeep={onKeep}
+              onCommitted={() => { lockSeal(draft.draftId); setSealCommitted(true); }}
+              onMeasure={(rect) => { sealRect.current = rect; }}
               onSelect={(index) => {
                 v2Haptics.selection();
                 onSelectCandidate(index);
@@ -1034,6 +1152,10 @@ export function CreationStage({
             </Animated.View>
           ) : null}
 
+          {shown === 'reveal' && !replay && !sheetOpen ? (
+            <Pressable style={StyleSheet.absoluteFill} onPress={onOpenExpression}
+              accessibilityRole="button" accessibilityLabel={REVEAL_COPY.cta} testID="reveal-tap" />
+          ) : null}
           {forming ? (
             <Pressable
               style={StyleSheet.absoluteFill}
@@ -1093,150 +1215,158 @@ function useResolveStyle(resolve: SharedValue<number>) {
  * sit side by side large enough to compare, answer a choice clearly, and — once one is kept —
  * the chosen one takes the centre in its circle while the other withdraws.
  */
-function CandidatePair({
-  svg,
-  category,
-  candidates,
-  chosen,
-  stage,
-  originSize,
-  originY,
-  emerge,
-  resolve,
-  handingOff,
-  disabled,
-  reduceMotion,
-  onSelect,
-}: {
-  svg: string;
-  category?: string;
-  candidates: CreationDraft['generatedCandidates'];
-  chosen: number;
-  stage: { width: number; height: number };
-  /** The developing circle's on-screen diameter, where both begin. */
-  originSize: number;
-  originY: number;
-  emerge: SharedValue<number>;
-  resolve: SharedValue<number>;
-  handingOff: boolean;
-  disabled: boolean;
-  reduceMotion: boolean;
-  onSelect: (index: number) => void;
-}) {
-  const gap = spacing[3];
-  const size = Math.max(104, Math.min((stage.width - gap) * 0.47, stage.height * 0.84));
-  const centerY = Math.min(originY, stage.height / 2);
-  const slots = [stage.width / 2 - (size + gap) / 2, stage.width / 2 + (size + gap) / 2];
-  const heroSize = originSize;
-  return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      {candidates.slice(0, 2).map((candidate, index) => (
-        <Candidate
-          key={`${candidate.variationId ?? candidate.imageUrl}-${index}`}
-          index={index}
-          svg={svg}
-          category={category}
-          imageUrl={candidate.imageUrl}
-          size={size}
-          slotX={slots[index]}
-          slotY={centerY}
-          originX={stage.width / 2}
-          originY={originY}
-          originScale={originSize / size}
-          heroScale={heroSize / size}
-          chosen={chosen}
-          emerge={emerge}
-          resolve={resolve}
-          handingOff={handingOff}
-          disabled={disabled}
-          reduceMotion={reduceMotion}
-          onSelect={onSelect}
-        />
-      ))}
-    </View>
-  );
-}
-
-function Candidate({
-  index,
-  svg,
-  category,
-  imageUrl,
-  size,
-  slotX,
-  slotY,
-  originX,
-  originY,
-  originScale,
-  heroScale,
-  chosen,
-  emerge,
-  resolve,
-  handingOff,
-  disabled,
-  reduceMotion,
-  onSelect,
-}: {
-  index: number;
-  svg: string;
-  category?: string;
-  imageUrl: string;
-  size: number;
-  slotX: number;
-  slotY: number;
-  originX: number;
-  originY: number;
-  originScale: number;
-  heroScale: number;
-  chosen: number;
-  emerge: SharedValue<number>;
-  resolve: SharedValue<number>;
-  handingOff: boolean;
-  disabled: boolean;
-  reduceMotion: boolean;
-  onSelect: (index: number) => void;
-}) {
-  const isChosen = chosen === index;
-  const someoneChosen = chosen >= 0;
-  const response = useSharedValue(0); // 1 chosen, -1 set aside, 0 undecided
-  useEffect(() => {
-    const next = !someoneChosen ? 0 : isChosen ? 1 : -1;
-    response.value = reduceMotion ? next : creationTiming(next, { duration: 280, easing: CREATION_EASING.deliberate });
-  }, [isChosen, reduceMotion, response, someoneChosen]);
-
-  const style = useAnimatedStyle(() => {
-    const e = emerge.value;
-    const r = handingOff && isChosen ? resolve.value : 0;
-    const away = handingOff && !isChosen ? resolve.value : 0;
-    // Emerge: from the developing circle to this slot. Resolve: the kept one to the centre.
-    const x = originX + (slotX - originX) * e + (originX - slotX) * r;
-    const y = originY + (slotY - originY) * e + (originY - slotY) * r;
-    const baseScale = originScale + (1 - originScale) * e;
-    const chosenScale = response.value > 0 ? 1.03 : response.value < 0 ? 0.96 : 1;
-    const scale = (baseScale * chosenScale) * (1 - r) + heroScale * r;
-    const opacity = interpolate(e, [0, 0.35], [0, 1], 'clamp') * (response.value < 0 ? 0.74 : 1) * (1 - away);
-    return { opacity, transform: [{ translateX: x - size / 2 }, { translateY: y - size / 2 }, { scale }] };
-  }, [handingOff, isChosen, originScale, originX, originY, heroScale, size, slotX, slotY]);
-  const ringStyle = useAnimatedStyle(() => ({ opacity: Math.max(0, response.value) * (1 - (handingOff ? resolve.value : 0)) }), [handingOff]);
-
-  return (
-    <Animated.View style={[styles.candidate, { width: size, height: size }, style]}>
-      <Pressable
-        onPress={() => onSelect(index)}
-        disabled={disabled}
-        accessibilityRole="radio"
-        accessibilityLabel={`Anchor interpretation ${index === 0 ? 'one' : 'two'}`}
-        accessibilityState={{ selected: isChosen, disabled }}
-        testID={`candidate-${index}`}
-        style={styles.flex}
-      >
-        <Animated.View style={[styles.candidateRing, { width: size + 14, height: size + 14, borderRadius: (size + 14) / 2 }, ringStyle]} />
-        <CircularAnchorRenderer svg={svg} imageUrl={imageUrl} category={category} size={size} appearance="paper" accessibilityLabel={`Generated Anchor interpretation ${index === 0 ? 'one' : 'two'}`} />
-      </Pressable>
-    </Animated.View>
-  );
-}
-
+// DEFERRED: stacked medallions replaced by the full-width pager.
+// DEFERRED: function CandidatePair({
+// DEFERRED:   svg,
+// DEFERRED:   category,
+// DEFERRED:   candidates,
+// DEFERRED:   chosen,
+// DEFERRED:   stage,
+// DEFERRED:   originSize,
+// DEFERRED:   originY,
+// DEFERRED:   emerge,
+// DEFERRED:   resolve,
+// DEFERRED:   handingOff,
+// DEFERRED:   disabled,
+// DEFERRED:   reduceMotion,
+// DEFERRED:   onSelect,
+// DEFERRED: }: {
+// DEFERRED:   svg: string;
+// DEFERRED:   category?: string;
+// DEFERRED:   candidates: CreationDraft['generatedCandidates'];
+// DEFERRED:   chosen: number;
+// DEFERRED:   stage: { width: number; height: number };
+// DEFERRED:   /** The developing circle's on-screen diameter, where both begin. */
+// DEFERRED:   originSize: number;
+// DEFERRED:   originY: number;
+// DEFERRED:   emerge: SharedValue<number>;
+// DEFERRED:   resolve: SharedValue<number>;
+// DEFERRED:   handingOff: boolean;
+// DEFERRED:   disabled: boolean;
+// DEFERRED:   reduceMotion: boolean;
+// DEFERRED:   onSelect: (index: number) => void;
+// DEFERRED: }) {
+// DEFERRED:   const gap = spacing[3];
+// DEFERRED:   // Portrait compositions give each interpretation a generous diagonal field. On short
+// DEFERRED:   // stages they remain side by side so neither overlaps the controls or safe area.
+// DEFERRED:   const portrait = stage.height >= stage.width * 1.05;
+// DEFERRED:   const size = portrait
+// DEFERRED:     ? Math.min(stage.width * 0.64, (stage.height - gap - 24) / 2)
+// DEFERRED:     : Math.min((stage.width - gap - 24) / 2, stage.height * 0.84);
+// DEFERRED:   const centerY = stage.height / 2;
+// DEFERRED:   const slots = portrait
+// DEFERRED:     ? [stage.width * 0.38, stage.width * 0.62]
+// DEFERRED:     : [stage.width / 2 - (size + gap) / 2, stage.width / 2 + (size + gap) / 2];
+// DEFERRED:   const heroSize = originSize;
+// DEFERRED:   return (
+// DEFERRED:     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+// DEFERRED:       {candidates.slice(0, 2).map((candidate, index) => (
+// DEFERRED:         <Candidate
+// DEFERRED:           key={`${candidate.variationId ?? candidate.imageUrl}-${index}`}
+// DEFERRED:           index={index}
+// DEFERRED:           svg={svg}
+// DEFERRED:           category={category}
+// DEFERRED:           imageUrl={candidate.imageUrl}
+// DEFERRED:           size={size}
+// DEFERRED:           slotX={slots[index]}
+// DEFERRED:           slotY={portrait ? centerY + (index === 0 ? -1 : 1) * (size + gap) / 2 : centerY}
+// DEFERRED:           originX={stage.width / 2}
+// DEFERRED:           originY={originY}
+// DEFERRED:           originScale={originSize / size}
+// DEFERRED:           heroScale={heroSize / size}
+// DEFERRED:           chosen={chosen}
+// DEFERRED:           emerge={emerge}
+// DEFERRED:           resolve={resolve}
+// DEFERRED:           handingOff={handingOff}
+// DEFERRED:           disabled={disabled}
+// DEFERRED:           reduceMotion={reduceMotion}
+// DEFERRED:           onSelect={onSelect}
+// DEFERRED:         />
+// DEFERRED:       ))}
+// DEFERRED:     </View>
+// DEFERRED:   );
+// DEFERRED: }
+// DEFERRED: 
+// DEFERRED: function Candidate({
+// DEFERRED:   index,
+// DEFERRED:   svg,
+// DEFERRED:   category,
+// DEFERRED:   imageUrl,
+// DEFERRED:   size,
+// DEFERRED:   slotX,
+// DEFERRED:   slotY,
+// DEFERRED:   originX,
+// DEFERRED:   originY,
+// DEFERRED:   originScale,
+// DEFERRED:   heroScale,
+// DEFERRED:   chosen,
+// DEFERRED:   emerge,
+// DEFERRED:   resolve,
+// DEFERRED:   handingOff,
+// DEFERRED:   disabled,
+// DEFERRED:   reduceMotion,
+// DEFERRED:   onSelect,
+// DEFERRED: }: {
+// DEFERRED:   index: number;
+// DEFERRED:   svg: string;
+// DEFERRED:   category?: string;
+// DEFERRED:   imageUrl: string;
+// DEFERRED:   size: number;
+// DEFERRED:   slotX: number;
+// DEFERRED:   slotY: number;
+// DEFERRED:   originX: number;
+// DEFERRED:   originY: number;
+// DEFERRED:   originScale: number;
+// DEFERRED:   heroScale: number;
+// DEFERRED:   chosen: number;
+// DEFERRED:   emerge: SharedValue<number>;
+// DEFERRED:   resolve: SharedValue<number>;
+// DEFERRED:   handingOff: boolean;
+// DEFERRED:   disabled: boolean;
+// DEFERRED:   reduceMotion: boolean;
+// DEFERRED:   onSelect: (index: number) => void;
+// DEFERRED: }) {
+// DEFERRED:   const isChosen = chosen === index;
+// DEFERRED:   const someoneChosen = chosen >= 0;
+// DEFERRED:   const response = useSharedValue(0); // 1 chosen, -1 set aside, 0 undecided
+// DEFERRED:   useEffect(() => {
+// DEFERRED:     const next = !someoneChosen ? 0 : isChosen ? 1 : -1;
+// DEFERRED:     response.value = reduceMotion ? next : creationTiming(next, { duration: 280, easing: CREATION_EASING.deliberate });
+// DEFERRED:   }, [isChosen, reduceMotion, response, someoneChosen]);
+// DEFERRED: 
+// DEFERRED:   const style = useAnimatedStyle(() => {
+// DEFERRED:     const e = emerge.value;
+// DEFERRED:     const r = handingOff && isChosen ? resolve.value : 0;
+// DEFERRED:     const away = handingOff && !isChosen ? resolve.value : 0;
+// DEFERRED:     // Emerge: from the developing circle to this slot. Resolve: the kept one to the centre.
+// DEFERRED:     const x = originX + (slotX - originX) * e + (originX - slotX) * r;
+// DEFERRED:     const y = originY + (slotY - originY) * e + (originY - slotY) * r;
+// DEFERRED:     const baseScale = originScale + (1 - originScale) * e;
+// DEFERRED:     const chosenScale = 1 + response.value * (response.value >= 0 ? 0.025 : 0.035);
+// DEFERRED:     const scale = (baseScale * chosenScale) * (1 - r) + heroScale * r;
+// DEFERRED:     const opacity = interpolate(e, [0, 0.55], [0, 1], 'clamp') * (1 + Math.min(0, response.value) * 0.22) * (1 - away);
+// DEFERRED:     return { opacity, transform: [{ translateX: x - size / 2 }, { translateY: y - size / 2 }, { scale }] };
+// DEFERRED:   }, [handingOff, isChosen, originScale, originX, originY, heroScale, size, slotX, slotY]);
+// DEFERRED:   const ringStyle = useAnimatedStyle(() => ({ opacity: Math.max(0, response.value) * (1 - (handingOff ? resolve.value : 0)) }), [handingOff]);
+// DEFERRED: 
+// DEFERRED:   return (
+// DEFERRED:     <Animated.View style={[styles.candidate, { width: size, height: size }, style]}>
+// DEFERRED:       <Pressable
+// DEFERRED:         onPress={() => onSelect(index)}
+// DEFERRED:         disabled={disabled}
+// DEFERRED:         accessibilityRole="radio"
+// DEFERRED:         accessibilityLabel={`Anchor interpretation ${index === 0 ? 'one' : 'two'}`}
+// DEFERRED:         accessibilityState={{ selected: isChosen, disabled }}
+// DEFERRED:         testID={`candidate-${index}`}
+// DEFERRED:         style={styles.flex}
+// DEFERRED:       >
+// DEFERRED:         <Animated.View style={[styles.candidateRing, { width: size + 14, height: size + 14, borderRadius: (size + 14) / 2 }, ringStyle]} />
+// DEFERRED:         <CircularAnchorRenderer svg={svg} imageUrl={imageUrl} category={category} size={size} appearance="paper" accessibilityLabel={`Generated Anchor interpretation ${index === 0 ? 'one' : 'two'}`} />
+// DEFERRED:       </Pressable>
+// DEFERRED:     </Animated.View>
+// DEFERRED:   );
+// DEFERRED: }
+// DEFERRED: 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.canvas },
   flex: { flex: 1 },
@@ -1255,9 +1385,9 @@ const styles = StyleSheet.create({
   panelScroll: { flexGrow: 0, flexShrink: 1 },
   panel: { gap: spacing[4], paddingTop: spacing[2] },
   panelStack: { gap: spacing[4] },
-  expressionWrap: { flex: 1.6, minHeight: 0 },
+  expressionWrap: { flex: 1.1, minHeight: 0 },
   // A short screen keeps the structure legible: the library scrolls in a little less room.
-  expressionWrapShort: { flex: 1.25 },
+  expressionWrapShort: { flex: 1.1 },
   expressionPanel: { flex: 1, gap: spacing[3], paddingTop: spacing[2], paddingBottom: spacing[3] },
   libraryWrap: { flex: 1, minHeight: 0 },
   libraryContent: { paddingBottom: spacing[6] },
@@ -1276,13 +1406,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: -8,
     top: -8,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: colors.text.primary,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.16,
-    shadowRadius: 10,
-    elevation: 4,
   },
   categoryWorld: {
     position: 'absolute',
@@ -1298,16 +1423,16 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   failure: { gap: spacing[2] },
+  darkError: { backgroundColor: colors.surface, padding: spacing[3], borderRadius: 8 },
   cta: { height: 56, borderRadius: 16 },
   link: { alignSelf: 'center', paddingVertical: spacing[1] },
   linkText: { ...typography.labelMD, color: colors.text.secondary, textDecorationLine: 'underline' },
   hudContainer: { position: 'absolute', top: 12, right: 12, zIndex: 9999 },
-  hudPill: { backgroundColor: 'rgba(0,0,0,0.75)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  hudPillText: { color: '#FFF', fontSize: 11, fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }) },
-  hudPanel: { backgroundColor: 'rgba(20,20,20,0.92)', padding: 10, borderRadius: 8, marginTop: 4, width: 280, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 6, elevation: 8 },
-  hudHeader: { color: '#AAA', fontSize: 10, marginBottom: 6, fontWeight: '700' },
+  hudPill: { backgroundColor: colors.ink.deep, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  hudPillText: { color: colors.paper, fontSize: 11, fontFamily: Platform.select({ ios: 'Menlo', default: 'monospace' }) },
+  hudPanel: { backgroundColor: colors.ink.raised, padding: 10, borderRadius: 8, marginTop: 4, width: 280, shadowColor: colors.ink.deep, shadowOpacity: 0.3, shadowRadius: 6, elevation: 8 },
+  hudHeader: { color: colors.ink.text.secondary, fontSize: 10, marginBottom: 6, fontWeight: '700' },
   hudRow: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 2 },
-  hudStep: { color: '#EEE', fontSize: 10, flex: 1 },
-  hudTime: { color: '#6EE7B7', fontSize: 10, fontWeight: '600', marginLeft: 8 },
+  hudStep: { color: colors.ink.text.primary, fontSize: 10, flex: 1 },
+  hudTime: { color: colors.paper, fontSize: 10, fontWeight: '600', marginLeft: 8 },
 });
-

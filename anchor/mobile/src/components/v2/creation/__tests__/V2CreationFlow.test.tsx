@@ -48,17 +48,49 @@ function setup(overrides: Partial<V2CreationFlowProps> = {}) {
   return { screen, props, layoutStage };
 }
 
+jest.setTimeout(20000);
+
 beforeEach(() => {
   reduceMotion.mockReturnValue(true);
   act(() => useCreationStore.setState({ draft: null }));
 });
 
 describe('V2CreationFlow', () => {
+  it('holds the stillness beat then advances without the old button', () => {
+    jest.useFakeTimers(); seed(draftAt({ currentStep: 'reveal' }));
+    const { screen } = setup();
+    expect(screen.queryByTestId('reveal-continue')).toBeNull();
+    act(() => jest.advanceTimersByTime(1499)); expect(current().currentStep).toBe('reveal');
+    act(() => jest.advanceTimersByTime(1)); expect(current().currentStep).toBe('expression');
+    jest.useRealTimers();
+  });
+  it('cancels automatic advance when the formation link is opened', () => {
+    jest.useFakeTimers(); seed(draftAt({ currentStep: 'reveal' }));
+    const { screen } = setup(); fireEvent.press(screen.getByTestId('reveal-how-formed'));
+    act(() => jest.advanceTimersByTime(3000)); expect(current().currentStep).toBe('reveal');
+    jest.useRealTimers();
+  });
   it('starts at intention and preserves the established guidance', () => {
     const { screen } = setup();
     expect(screen.getByTestId('v2-creation-intention')).toBeTruthy();
     expect(screen.getByText('Every Anchor starts')).toBeTruthy();
     expect(screen.getByText('SHORT')).toBeTruthy();
+    expect(screen.getByTestId('intention-input').props.placeholder).toBe('I am fully present with my work.');
+    expect(screen.getByLabelText('Go back')).toBeTruthy();
+  });
+
+  it('offers editable intention suggestions from first-run discovery context', () => {
+    const { screen } = setup({ suggestionContext: {
+      category: 'career', desiredOutcome: 'More opportunity', desiredWhy: 'I want more freedom', desiredFriction: 'I overthink my next move',
+    } });
+    expect(screen.getByTestId('intention-suggestion-0').props.accessibilityLabel).toBe('Use suggestion: I am open to more opportunity in my career.');
+    expect(screen.getByTestId('intention-suggestion-1').props.accessibilityLabel).toBe('Use suggestion: I am making room for more freedom in my career.');
+    expect(screen.getByTestId('intention-suggestion-2').props.accessibilityLabel).toBe('Use suggestion: I trust myself to choose my next move.');
+    fireEvent.press(screen.getByTestId('intention-suggestion-0'));
+    expect(screen.getByTestId('intention-input').props.value).toBe('I am open to more opportunity in my career.');
+    fireEvent.changeText(screen.getByTestId('intention-input'), 'I build a career with freedom');
+    expect(screen.getByTestId('intention-input').props.value).toBe('I build a career with freedom');
+    expect(screen.queryByText('I want to stop getting distracted.')).toBeNull();
   });
 
   it('sanitizes pasted intentions', () => {
@@ -79,9 +111,18 @@ describe('V2CreationFlow', () => {
     expect(screen.getByTestId('reveal-intention').props.children.join('')).toContain(INTENTION);
   });
 
-  it('keeps the original structure without calling generation', async () => {
+  it('defaults to the first suggested style on entering expression screen', () => {
+    seed(draftAt({ currentStep: 'expression' }));
+    const { screen } = setup();
+    expect(screen.getByTestId('expression-generate')).toBeTruthy();
+    expect(current().styleChoice).toBeDefined();
+    expect(current().expression).not.toBe('original');
+  });
+
+  it('keeps the original structure without calling generation when user selects it', async () => {
     seed(draftAt({ currentStep: 'expression' }));
     const { screen, props } = setup();
+    await act(async () => fireEvent.press(screen.getByTestId('expression-keep-original')));
     await act(async () => fireEvent.press(screen.getByTestId('expression-keep')));
     expect(props.generateExpression).not.toHaveBeenCalled();
     expect(props.saveAnchor).toHaveBeenCalledWith(expect.objectContaining({ draft: expect.objectContaining({ expression: 'original', enhancedImageUrl: undefined }) }));
@@ -109,17 +150,26 @@ describe('V2CreationFlow', () => {
     fireEvent.press(screen.getByTestId('expression-generate'));
     expect(current().currentStep).toBe('generating');
     expect(generateExpression).toHaveBeenCalledWith(expect.objectContaining({ count: 2, generationAttempt: 1 }));
-    await waitFor(() => expect(current().currentStep).toBe('choose'), { timeout: 3000 });
+    await waitFor(() => expect(current().currentStep).toBe('choose'), { timeout: 10000 });
     layoutStage();
     expect(generateExpression).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Choose your Anchor.')).toBeTruthy();
+    expect(screen.queryByTestId('choose-retry')).toBeNull();
     expect(screen.getByTestId('candidate-0')).toBeTruthy();
     expect(screen.getByTestId('candidate-1')).toBeTruthy();
-    // Nothing is kept until the user chooses.
-    expect(screen.getByTestId('choose-keep').props.accessibilityState).toMatchObject({ disabled: true });
+    expect(screen.getByTestId('candidate-pair')).toBeTruthy();
+    expect(screen.queryByTestId('candidate-pager')).toBeNull();
+    expect(screen.getByText('Form I')).toBeTruthy();
+    expect(screen.getByText('Form II')).toBeTruthy();
+    expect(screen.queryByTestId('seal-trace')).toBeNull();
+    // Form I is selected on arrival; saving still requires commitment.
+    expect(current().selectedCandidateIndex).toBe(0);
     fireEvent.press(screen.getByTestId('candidate-1'));
     expect(current().selectedCandidateIndex).toBe(1);
-    await act(async () => fireEvent.press(screen.getByTestId('choose-keep')));
+    jest.useFakeTimers();
+    await act(async () => fireEvent(screen.getByTestId('seal-hold'), 'pressIn'));
+    await act(async () => jest.advanceTimersByTime(4000));
+    jest.useRealTimers();
     expect(props.saveAnchor).toHaveBeenCalledWith(expect.objectContaining({ draft: expect.objectContaining({ enhancedImageUrl: CANDIDATES[1].imageUrl, structureSvg: STRUCTURE }) }));
   });
 
@@ -130,12 +180,12 @@ describe('V2CreationFlow', () => {
       .mockResolvedValueOnce({ candidates: [CANDIDATES[1]] });
     const { screen } = setup({ generateExpression });
     fireEvent.press(screen.getByTestId('expression-generate'));
-    await waitFor(() => expect(current().generationState).toBe('error'), { timeout: 3000 });
+    await waitFor(() => expect(current().generationState).toBe('error'), { timeout: 10000 });
     expect(current().generatedCandidates).toEqual([CANDIDATES[0]]);
     expect(screen.getByText('One interpretation is ready. The second did not finish. Try again for the second.')).toBeTruthy();
     fireEvent.press(screen.getByTestId('generation-retry'));
     expect(generateExpression).toHaveBeenLastCalledWith(expect.objectContaining({ count: 1 }));
-    await waitFor(() => expect(current().currentStep).toBe('choose'), { timeout: 3000 });
+    await waitFor(() => expect(current().currentStep).toBe('choose'), { timeout: 10000 });
     expect(current().generatedCandidates).toEqual(CANDIDATES);
   });
 
@@ -144,10 +194,10 @@ describe('V2CreationFlow', () => {
     const generateExpression = jest.fn().mockRejectedValueOnce(new Error('Network error')).mockResolvedValueOnce({ candidates: CANDIDATES });
     const { screen } = setup({ generateExpression });
     fireEvent.press(screen.getByTestId('expression-generate'));
-    await waitFor(() => expect(current().generationState).toBe('error'), { timeout: 3000 });
+    await waitFor(() => expect(current().generationState).toBe('error'), { timeout: 10000 });
     expect(current().structureSvg).toBe(STRUCTURE);
     fireEvent.press(screen.getByTestId('generation-retry'));
-    await waitFor(() => expect(current().currentStep).toBe('choose'), { timeout: 3000 });
+    await waitFor(() => expect(current().currentStep).toBe('choose'), { timeout: 10000 });
     expect(generateExpression).toHaveBeenCalledTimes(2);
   });
 
@@ -158,12 +208,15 @@ describe('V2CreationFlow', () => {
       .mockResolvedValueOnce({ anchorId: 'server-anchor-1' });
     const { screen, props, layoutStage } = setup({ saveAnchor });
     layoutStage();
-    await act(async () => fireEvent.press(screen.getByTestId('choose-keep')));
+    jest.useFakeTimers();
+    await act(async () => fireEvent(screen.getByTestId('seal-hold'), 'pressIn'));
+    await act(async () => jest.advanceTimersByTime(4000));
+    jest.useRealTimers();
     expect(current().saveFailure).toBe('auth');
     expect(screen.getByTestId('choose-sign-in')).toBeTruthy();
     // Back from signing in, Keep still works and saves the chosen interpretation.
-    expect(screen.getByTestId('choose-keep').props.accessibilityState).toMatchObject({ disabled: false });
-    await act(async () => fireEvent.press(screen.getByTestId('choose-keep')));
+    expect(screen.getByTestId('seal-save-retry').props.accessibilityState).toMatchObject({ disabled: false });
+    await act(async () => fireEvent.press(screen.getByTestId('seal-save-retry')));
     expect(saveAnchor).toHaveBeenCalledTimes(2);
     expect(current().anchorPersisted).toBe(true);
     await waitFor(() => expect(props.onComplete).toHaveBeenCalledTimes(1), { timeout: 3000 });

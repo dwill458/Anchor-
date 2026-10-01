@@ -1,8 +1,10 @@
 import {
   buildVisionImagePrompt,
   buildVisionScenePlannerPrompt,
+  buildVisionSceneVariantPlan,
   isStoredVisionScenePlan,
   parseVisionScenePlan,
+  VISION_BOARD_PHOTO_RULES,
 } from '../visionScenePlanning';
 
 const input = {
@@ -94,6 +96,12 @@ describe('isStoredVisionScenePlan', () => {
     expect(isStoredVisionScenePlan(Array.from({ length: 8 }, (_, i) => ({ role: `r${i}`, scene: `s${i}` })))).toBe(true);
     expect(isStoredVisionScenePlan(null)).toBe(false);
   });
+
+  it('accepts the two-shot plan of a described scene, but not an empty or oversized one', () => {
+    expect(isStoredVisionScenePlan(buildVisionSceneVariantPlan('A beach house with my family'))).toBe(true);
+    expect(isStoredVisionScenePlan([])).toBe(false);
+    expect(isStoredVisionScenePlan(Array.from({ length: 9 }, (_, i) => ({ role: `r${i}`, scene: `s${i}` })))).toBe(false);
+  });
 });
 
 describe('buildVisionImagePrompt', () => {
@@ -160,3 +168,59 @@ describe('buildVisionImagePrompt', () => {
   });
 });
 
+describe('Vision board photographs', () => {
+  it('plans individual photographs for a board, never a collage', () => {
+    const prompt = buildVisionScenePlannerPrompt(input);
+    expect(prompt).toMatch(/individual pictures on one Vision board/);
+    expect(prompt).toMatch(/Never plan a collage/);
+  });
+
+  it('asks the image model for one standalone photograph with no frame, board, tape or caption of its own', () => {
+    const prompt = buildVisionImagePrompt({ ...input, scene: plan()[0] as never });
+    expect(prompt).toContain(VISION_BOARD_PHOTO_RULES);
+    for (const forbidden of ['collage', 'cork or pin board', 'polaroid', 'border', 'caption', 'tape']) {
+      expect(VISION_BOARD_PHOTO_RULES).toContain(forbidden);
+    }
+    expect(prompt).toMatch(/No readable text/);
+  });
+});
+
+describe('a described scene', () => {
+  it("is planned as two differently framed shots of the person's own words", () => {
+    const [first, second] = buildVisionSceneVariantPlan('  Working from a beach house   with my family  ');
+    expect(first.scene).toBe('Working from a beach house with my family');
+    expect(second.scene).toBe(first.scene);
+    expect(first.framing).not.toBe(second.framing);
+  });
+
+  it('joins the board without repeating it, and leaves generated sets untouched', () => {
+    const scene = buildVisionSceneVariantPlan('A beach house with my family')[0];
+    const base = { intention: 'I build freely', category: 'career', description: 'A calm life by the water', scene };
+    const joined = buildVisionImagePrompt({ ...base, boardScenes: ['A quiet dock at dawn'] });
+    expect(joined).toContain('A quiet dock at dawn');
+    expect(joined).toContain('A calm life by the water');
+    expect(joined).toContain('do not repeat any of these compositions');
+    const plain = buildVisionImagePrompt(base);
+    expect(plain).not.toContain('A calm life by the water');
+    expect(plain).not.toContain('do not repeat any of these compositions');
+  });
+});
+
+
+describe('fullscreen photographic quality constraints', () => {
+  it('depicts written outcomes through setting and reaction instead of on-image claims', () => {
+    const claim = { ...input, description: 'Anchor is a recommended app on the app store' };
+    const clause = "An outcome stated in words (a recommendation, ranking, headline, review, message) is shown by the setting and the person's reaction, never as words in the frame. A screen that would carry such words is angled away, in shadow, or defocused.";
+    expect(buildVisionScenePlannerPrompt(claim)).toContain(clause);
+    expect(buildVisionImagePrompt({ ...claim, scene: { role: 'Recognition', scene: claim.description } })).toContain(clause);
+  });
+
+  it('preserves requested screens and realistic anatomy without invented achievements', () => {
+    const prompt = buildVisionImagePrompt({ intention: 'I build my app', category: 'desire', description: 'I check my app on my phone',
+      scene: { role: 'The moment', scene: 'I check my app on my phone' } });
+    expect(prompt).toContain('coherent hands and fingers');
+    expect(prompt).toContain('preserve that object and its role');
+    expect(prompt).toContain('Do not invent a brand, achievement, metric');
+    expect(prompt).toContain('9:16');
+  });
+});

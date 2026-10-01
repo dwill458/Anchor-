@@ -1,0 +1,32 @@
+src/components/v2/vision/__tests__/VisionGenerationBoard.test.tsx(7,9): error TS2739: Type '{ id: string; status: "RUNNING"; stage: string; setNumber: number; retryCount: number; error: null; candidates: never[]; }' is missing the following properties from type 'VisionGenerationJob': visionId, anchorId
+src/components/v2/vision/__tests__/VisionGenerationBoard.test.tsx(48,9): error TS2322: Type '{ sceneId: string; imageUrl: string; aspectRatio: number; order: number; }[]' is not assignable to type 'V2VisionTile[]'.
+  Type '{ sceneId: string; imageUrl: string; aspectRatio: number; order: number; }' is missing the following properties from type 'V2VisionTile': id, prompt, sortOrder, isHero
+src/components/v2/vision/VisionGenerationBoard.tsx(371,31): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: ImageProps): Image', gave the following error.
+    Type '{ uri: string | null; }' is not assignable to type 'ImageSourcePropType | undefined'.
+      Types of property 'uri' are incompatible.
+        Type 'string | null' is not assignable to type 'string | undefined'.
+          Type 'null' is not assignable to type 'string | undefined'.
+  Overload 2 of 2, '(props: ImageProps, context: any): Image', gave the following error.
+    Type '{ uri: string | null; }' is not assignable to type 'ImageSourcePropType | undefined'.
+      Types of property 'uri' are incompatible.
+        Type 'string | null' is not assignable to type 'string | undefined'.
+          Type 'null' is not assignable to type 'string | undefined'.
+src/components/v2/vision/VisionMomentInput.tsx(465,25): error TS2339: Property 'full' does not exist on type '{ readonly sm: 8; readonly md: 12; readonly lg: 18; readonly xl: 24; readonly round: 999; readonly pill: 999; }'.
+src/hooks/useNotificationController.ts(241,7): error TS2322: Type 'number | null' is not assignable to type 'number'.
+  Type 'null' is not assignable to type 'number'.
+src/hooks/useNotificationController.ts(305,7): error TS2322: Type 'number | null' is not assignable to type 'number'.
+  Type 'null' is not assignable to type 'number'.
+src/hooks/useWeeklyStats.ts(225,41): error TS2345: Argument of type 'number | null' is not assignable to parameter of type 'number'.
+  Type 'null' is not assignable to type 'number'.
+src/screens/practice/PracticeScreen.tsx(271,38): error TS2345: Argument of type 'number | null' is not assignable to parameter of type 'number'.
+  Type 'null' is not assignable to type 'number'.
+src/screens/practice/PracticeScreen.tsx(280,11): error TS18047: 'threadStrength' is possibly 'null'.
+src/screens/v2/progress/__tests__/V2ProgressScreen.test.tsx(18,5): error TS2322: Type '"Rooted"' is not assignable to type '"Forming" | "Building" | "Established" | "Integrated" | "Reinforced" | "Unestablished"'.
+src/stores/authStore.ts(1002,17): error TS2322: Type 'number | null' is not assignable to type 'number'.
+  Type 'null' is not assignable to type 'number'.
+src/stores/sessionStore.ts(502,46): error TS18047: 'threadStrength' is possibly 'null'.
+src/stores/sessionStore.ts(727,13): error TS18047: 'newStrength' is possibly 'null'.
+src/stores/sessionStore.ts(742,27): error TS18047: 'state.threadStrength' is possibly 'null'.
+src/widgets/widgetDataBridge.ts(605,7): error TS2322: Type 'number | null' is not assignable to type 'number | undefined'.
+  Type 'null' is not assignable to type 'number | undefined'.

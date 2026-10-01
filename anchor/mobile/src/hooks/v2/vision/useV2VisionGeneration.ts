@@ -1,3 +1,5 @@
+import { AnalyticsService } from '@/services/AnalyticsService';
+import { useVisionGenerationAnalytics } from './useVisionGenerationAnalytics';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { apiClient, ApiClientError } from '@/services/ApiClient';
@@ -15,6 +17,8 @@ export interface VisionGenerationCandidate {
 
 export interface VisionGenerationJob {
   id: string;
+  /** SET = a numbered image set; SCENE = one described scene added to the board. */
+  kind?: 'SET' | 'SCENE';
   visionId: string;
   anchorId: string;
   setNumber: number;
@@ -25,7 +29,7 @@ export interface VisionGenerationJob {
   candidates: VisionGenerationCandidate[];
 }
 
-function generationMessage(cause: unknown): string {
+export function generationMessage(cause: unknown): string {
   if (cause instanceof ApiClientError) {
     if (cause.code === 'VISION_GENERATION_LIMIT') return 'You have used all three generated image sets for this Vision.';
     if (cause.code === 'VISION_RETRY_LIMIT') return 'This image set cannot be retried again.';
@@ -36,6 +40,7 @@ function generationMessage(cause: unknown): string {
 
 export function useV2VisionGeneration(anchorId: string, onPremiumRequired?: () => void) {
   const [job, setJob] = useState<VisionGenerationJob | null>(null);
+  useVisionGenerationAnalytics(anchorId, job);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const mounted = useRef(true);
@@ -85,8 +90,10 @@ export function useV2VisionGeneration(anchorId: string, onPremiumRequired?: () =
     pendingKey.current = key;
     setError(null);
     try {
-      const response = await apiClient.post<VisionGenerationJob>(path, { description, idempotencyKey: key, appearanceReferenceId: appearanceReferenceId ?? null });
+      const response = await apiClient.post<VisionGenerationJob>(path, { description, idempotencyKey: key,
+        ...(appearanceReferenceId ? { appearanceReferenceId } : {}) });
       if (mounted.current) setJob(visionApiData<VisionGenerationJob>(response));
+      AnalyticsService.track('vision_image_generation_started', { anchor_id: anchorId, job_id: visionApiData<VisionGenerationJob>(response).id });
       return true;
     } catch (cause) {
       if (cause instanceof ApiClientError && cause.code === 'VISION_PREMIUM_REQUIRED') onPremiumRequired?.();

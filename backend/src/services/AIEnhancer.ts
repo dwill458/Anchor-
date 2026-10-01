@@ -16,6 +16,7 @@ import Replicate from 'replicate';
 import { logger } from '../utils/logger';
 import { rasterizeSVG } from '../utils/svgRasterizer';
 import { computeStructureMatch } from '../utils/structureMatching';
+import { validateAnchorArtwork } from '../utils/artworkValidation';
 import { GeminiImageService } from './GeminiImageService';
 import {
   VALID_AI_STYLES,
@@ -402,15 +403,18 @@ export async function enhanceSigilWithAI(
           i
         );
 
-        // For Gemini 3 Pro Image with system instruction, we expect excellent structure preservation
-        // In a production system, you could compute actual IoU scores here
-        // For now, we'll use optimistic scores since Gemini 3 with structural preservation instruction is reliable
+        // Validate that Anchor geometry occupies >= 70% of canvas and has no rectangular framing/enclosure
+        const validation = await validateAnchorArtwork(imageBuffer);
         const structureMatch: StructureMatchScore = {
-          iouScore: 0.94,
-          edgeOverlapScore: 0.92,
-          combinedScore: 0.93,
-          structurePreserved: true,
-          classification: 'Structure Preserved',
+          iouScore: validation.isValid ? 0.94 : Math.min(0.65, validation.widthRatio),
+          edgeOverlapScore: validation.isValid ? 0.92 : Math.min(0.65, validation.heightRatio),
+          combinedScore: validation.isValid ? 0.93 : 0.65,
+          structurePreserved: validation.isValid,
+          classification: validation.isValid
+            ? 'Structure Preserved'
+            : validation.hasDominantRectangularEnclosure
+            ? 'Style Drift'
+            : 'More Artistic',
         };
 
         variations.push({

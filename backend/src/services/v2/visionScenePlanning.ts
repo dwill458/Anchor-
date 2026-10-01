@@ -9,6 +9,8 @@
  */
 
 export const VISION_SCENE_COUNT = 8;
+/** A single described scene comes back as this many candidates to choose between. */
+export const VISION_SCENE_VARIANT_COUNT = 2;
 
 /**
  * Vision assets are portrait-first. Visualize fills a phone screen, so the
@@ -23,9 +25,21 @@ export const VISION_IMAGE_HEIGHT = 1920;
 /** Composition rules that keep one tall original useful at every crop. */
 export const VISION_PORTRAIT_COMPOSITION = [
   'Format: a tall 9:16 portrait photograph, composed for a full-screen phone. Do not letterbox, add borders, or make a split/diptych frame.',
-  'Keep the main subject (person, hands or key object) inside the central safe area: horizontally within the middle 70%, vertically between 30% and 70% of the height, so a wide centre crop still contains it.',
+  'Keep the main subject (person, hands or key object) inside the central safe area: horizontally within the middle 70%, vertically between 30% and 65% of the height, so a wide centre crop still contains it. Place faces and the key focal object between 45% and 55% of the height for compact Home and Details previews.',
   'Never place faces, hands or the key object near an edge. Let the top and bottom of the frame hold environment (ceiling, sky, floor, table surface) that can be cropped away without losing the moment.',
   'Include enough surrounding space that the scene reads at small sizes.',
+  'Presentation: the editorial Vision hero is a 1.12:1 centre crop of this 9:16 original; supporting apertures are 0.70:1 to 1.04:1. Keep ALL essential faces, hands and objects between 30% and 65% of the image height. Keep the lower corners free of essential subjects for a subtle paper edge and the user\'s Anchor at the image transition. The full original remains available in Visualize.',
+].join(' ');
+
+/**
+ * Every Vision image is one photograph on the person's Vision board. The app
+ * supplies the editorial canvas, subtle paper edges and the user's Anchor; the
+ * model must never draw any of them, or they end up doubled on screen.
+ */
+// DEFERRED: Reject generated candidates containing words with a vision-model check after measuring the prompt-only guard.
+export const VISION_BOARD_PHOTO_RULES = [
+  "This photograph will be printed and pinned on its own on the person's Vision board; the app adds the frame, paper, tape, pins and board.",
+  'Deliver exactly one standalone photograph: never a collage, grid, split screen, diptych, mood board, cork or pin board, scrapbook page, polaroid or photo-print treatment, border, frame, caption, sticker, tape, pin or torn paper edge.',
 ].join(' ');
 
 /**
@@ -54,7 +68,7 @@ export interface VisionScenePlanItem {
 export const VISION_FRAMINGS = ['wide', 'medium', 'close', 'detail'] as const;
 
 const MAX_ROLE = 80;
-const MAX_SCENE = 500;
+const MAX_SCENE = 2000;
 const MAX_FIELD = 160;
 
 function clipList(value: unknown, maxItems = 8): string[] | undefined {
@@ -81,6 +95,8 @@ export function buildVisionScenePlannerPrompt(input: {
   const avoid = (input.avoidScenes ?? []).filter(Boolean).slice(0, 24);
   return [
     `You are the director of photography for one person's Vision of their future. Plan ${VISION_SCENE_COUNT} photographs that together feel like a contact sheet from a single real future - the SAME future seen through ${VISION_SCENE_COUNT} different moments.`,
+    '',
+    `These photographs are the individual pictures on one Vision board: together they tell the story of this future, each one a separate, standalone photograph of one moment. Never plan a collage, a board, or several moments inside one frame.`,
     '',
     'Read the description for what it implies, not only what it literally says. Every photograph must be recognisably part of THIS Vision: someone who reads the description should see at once why each frame belongs. Generic lifestyle moments that could illustrate anyone\'s life (making tea, cooking, a walk in a park) are not allowed unless the description implies them.',
     '',
@@ -114,6 +130,7 @@ export function buildVisionScenePlannerPrompt(input: {
     '- Believable documentary/editorial photography only: no fantasy, surrealism, cyberpunk, floating objects, symbols, or advertising gloss.',
     '- For Career intentions: depict the outcome as ALREADY REAL in an authentic professional workplace (corporate office floor, established company workstation, meeting room, industry workspace, leadership setting or workplace arrival). Avoid defaulting to generic WFH laptops, home desks, coffee cups, or empty desk still lifes.',
     '- No readable text, numbers, logos, interface elements or signage in any photograph.',
+    "- An outcome stated in words (a recommendation, ranking, headline, review, message) is shown by the setting and the person's reaction, never as words in the frame. A screen that would carry such words is angled away, in shadow, or defocused.",
     ...(avoid.length ? [
       '',
       'This person has already seen the scenes below for this Vision. Plan NEW moments: different settings, different framings, different consequences. Do not rephrase these:',
@@ -194,7 +211,7 @@ export function parseVisionScenePlan(text: string | undefined | null): VisionSce
 
 /** True for a plan persisted on a job, in either the old or the new shape. */
 export function isStoredVisionScenePlan(value: unknown): value is VisionScenePlanItem[] {
-  return Array.isArray(value) && value.length === VISION_SCENE_COUNT && value.every(
+  return Array.isArray(value) && value.length >= 1 && value.length <= VISION_SCENE_COUNT && value.every(
     item => item && typeof item === 'object' && typeof (item as { role?: unknown }).role === 'string' &&
       typeof (item as { scene?: unknown }).scene === 'string',
   );
@@ -215,7 +232,10 @@ export function buildVisionImagePrompt(input: {
   /** The complete plan gives each image prompt context about earlier/later beats. */
   plannedScenes?: VisionScenePlanItem[];
   hasAppearanceReference?: boolean;
+  /** Moments already on the person's board: the new photograph belongs beside them without repeating them. */
+  boardScenes?: string[];
 }): string {
+  const board = (input.boardScenes ?? []).filter(Boolean).slice(0, 8);
   const { scene } = input;
   return [
     'Create one photograph for a personal Vision - a believable glimpse of this person\'s real future.',
@@ -227,8 +247,14 @@ export function buildVisionImagePrompt(input: {
     ...(scene.composition ? [`Composition: ${JSON.stringify(scene.composition)}`] : []),
     ...(scene.light ? [`Light: ${JSON.stringify(scene.light)}`] : []),
     ...(scene.feeling ? [`Emotional texture: ${JSON.stringify(scene.feeling)}`] : []),
+    ...(input.boardScenes && input.description.trim() ? [`The person's Vision, for continuity of world, mood and detail (data): ${JSON.stringify(input.description.trim().slice(0, 600))}`] : []),
+    ...(board.length ? [
+      'This photograph joins a board that already shows the moments below. Keep the same world, season, light quality and grade so it clearly belongs to the same Vision, but do not repeat any of these compositions:',
+      ...board.map(item => `- ${item}`),
+    ] : []),
     LENS_BY_FRAMING[scene.framing ?? ''] ?? 'Natural candid framing.',
     VISION_PORTRAIT_COMPOSITION,
+    VISION_BOARD_PHOTO_RULES,
     'Focus exclusively on depicting this specific moment and setting. Do NOT combine with or introduce other unrelated activities, settings, or aspirations into this photograph.',
     `Anchor intention (high-level background context): ${JSON.stringify(input.intention)}.`,
     `Category context: ${JSON.stringify(input.category)}. Never replace a concrete described environment with a generic category setting.`,
@@ -237,7 +263,31 @@ export function buildVisionImagePrompt(input: {
       : ['No appearance reference exists. Never invent a visible protagonist. Strictly prefer first-person POV, over-the-shoulder, partial-body, hands only when useful, or identity-neutral environmental composition.']),
     ...(input.category === 'career' ? ['Career Art Direction: Depict the outcome inside an authentic professional workplace (established office building, corporate floor, workplace workstation, meeting setting, or leadership environment). Avoid generic home-office laptops, coffee cups, or generic WFH imagery.'] : []),
     'Style: documentary / editorial photography, natural available light, realistic muted colour, soft natural contrast, fine grain, small real-world imperfections, believable lived-in spaces. Cinematic composition without movie-poster styling.',
-    'Screens, if present at all, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.',
-    'Avoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people.',
+    'Anatomy and objects: physically plausible proportions, coherent hands and fingers, natural joints and grips, and the correct objects explicitly requested in the scene. Keep identity consistent with the supplied appearance reference when present.',
+    'When the person explicitly requests a screen or interface, preserve that object and its role in the moment: believable device geometry, reflections and a coherent screen layout. Never replace the requested screen with an unrelated generic object.',
+    "An outcome stated in words (a recommendation, ranking, headline, review, message) is shown by the setting and the person's reaction, never as words in the frame. A screen that would carry such words is angled away, in shadow, or defocused.",
+    'Do not invent a brand, achievement, metric, relationship or setting unsupported by the scene. First-person or over-the-shoulder framing should feel like an ordinary memory from the person\'s future.',
+    'Screens, when not requested, are incidental, out of focus and unreadable. No readable text, numbers, words, typography, signs, labels, logos, watermarks or interface elements anywhere.',
+    'Avoid: corporate stock-photo look, glossy advertising, HDR, oversaturation, neon, cyberpunk, fantasy, surrealism, mystical symbols, floating objects, generic luxury, posed smiling at camera, duplicated people, collage, vision-board or scrapbook styling, picture frames, borders, captions.',
   ].join('\n');
+}
+
+const VARIANT_DIRECTION: Array<Pick<VisionScenePlanItem, 'role' | 'framing' | 'composition' | 'light'>> = [
+  { role: 'The moment itself', framing: 'medium', composition: 'The described moment as it happens, seen from a natural first-person or over-the-shoulder viewpoint', light: 'Natural available light suited to the setting' },
+  { role: 'The place around it', framing: 'wide', composition: 'The same moment from farther away, so the surrounding place and atmosphere read clearly', light: 'Soft, slightly different time of day from the first' },
+];
+
+/**
+ * The plan for one described scene: the person's own words are the scene, shot
+ * two different ways so they have a real choice. No planner call is needed; the
+ * description already names the moment.
+ */
+export function buildVisionSceneVariantPlan(sceneDescription: string): VisionScenePlanItem[] {
+  const scene = clip(sceneDescription, MAX_SCENE) ?? '';
+  return VARIANT_DIRECTION.slice(0, VISION_SCENE_VARIANT_COUNT).map(direction => ({
+    ...direction,
+    scene,
+    purpose: 'The scene the person asked to add',
+    covers: [scene.slice(0, MAX_FIELD)],
+  }));
 }

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Dimensions,
   Image,
   ImageBackground,
   Pressable,
@@ -20,6 +21,7 @@ import Animated, {
   useSharedValue,
   withDelay,
   withRepeat,
+  withSequence,
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -39,16 +41,14 @@ import {
   type OnboardingStep,
 } from "@/constants/v2/onboarding";
 import { colors } from "@/theme/v2";
-import { useV2ReduceMotion, v2Haptics } from "@/hooks/v2";
+import { useCreationReduceMotion, v2Haptics } from "@/hooks/v2";
 import type { AnchorCategory } from "@/types";
 import { V2OnboardingExplain } from "./V2OnboardingExplain";
 import { V2OnboardingFocusArea } from "./V2OnboardingFocusArea";
-import { V2OnboardingOutcome } from "./V2OnboardingOutcome";
-import { V2OnboardingSystem } from "./V2OnboardingSystem";
+import { V2OnboardingContinuousFlow } from "./V2OnboardingContinuousFlow";
 import { OpeningProgressHeader } from "./OpeningProgressHeader";
 import { handoffTimeline, seg } from "./openingHandoff";
 import { outcomeHandoffTimeline, type OutcomeOriginFrame } from "./outcomeHandoff";
-import { systemHandoffTimeline } from "./systemHandoff";
 import { Screen2Backdrop } from "./screen2Backdrop";
 
 /** Screen 3 mounts beneath Screen 2 this long after Screen 2 starts, so it is decoded before Continue. */
@@ -62,7 +62,19 @@ const OUTCOME_PRELOAD_DELAY_MS = 250;
  * and Chart artwork is decoded before Continue. */
 const SYSTEM_PRELOAD_DELAY_MS = 400;
 
-const panorama = require("@/assets/onboarding/welcome-panorama.png");
+/**
+ * Screen 1 hero: full-resolution master of the locked panorama (5760 × 1920, about 2.3 source
+ * pixels per point at full screen height), rendered as-is with no blur or resize step.
+ * welcome-panorama.png is the old 1024 × 341 preview of the same artwork, which is what made
+ * the hero soft. Keep PANORAMA_SIZE in sync with the file.
+ */
+const panorama = require("@/assets/onboarding/welcome-panorama-master.jpg");
+const PANORAMA_SIZE = { width: 5760, height: 1920 };
+/** One leg of the opening camera move. Long enough to read as a drift, not an animation. */
+const HERO_PAN_MS = 36000;
+/** The shot opens slightly pushed in, and keeps pushing in by a hair over each leg. */
+const HERO_SCALE_START = 1.06;
+const HERO_SCALE_DRIFT = 0.035;
 const desk = require("@/assets/onboarding/creation-desk.png");
 const brandMark = require("@/assets/home/anchor-brand-mark.png");
 const lightMark = require("@/assets/home/anchor-brand-mark-light.png");
@@ -245,45 +257,83 @@ function Welcome({
   onSignIn: () => void;
   reduceMotion: boolean;
 }) {
-  const { width, height } = useWindowDimensions();
+  const windowDim = useWindowDimensions();
+  const screenDim = Dimensions.get("window");
+  const width = windowDim.width || screenDim.width || 390;
+  const height = windowDim.height || screenDim.height || 844;
   const insets = useSafeAreaInsets();
 
   // The supplied locked panoramic artwork (3:1 aspect ratio) owns the entire screen.
   // The device is a vertical camera window looking into a wider cinematic world.
-  const PANORAMA_ASPECT = 1024 / 341;
+  const PANORAMA_ASPECT = PANORAMA_SIZE.width / PANORAMA_SIZE.height;
   const panoramaHeight = height;
   const panoramaWidth = panoramaHeight * PANORAMA_ASPECT;
   const maxTravel = Math.max(0, panoramaWidth - width);
-  // Subtle atmospheric GTA-style camera pan revealing Real World -> Illustrated transition
-  const panDistance = Math.min(maxTravel, Math.max(220, width * 0.55));
+  // Pan across the entire panoramic artwork from the opening room to the horizon and runner.
+  const panDistance = maxTravel;
 
   const pan = useSharedValue(0);
+  const push = useSharedValue(0);
+  const dive = useSharedValue(0);
   const wash = useSharedValue(0);
   const uiOut = useSharedValue(0);
+  const travel = useSharedValue(panDistance);
+  useEffect(() => {
+    travel.value = panDistance;
+  }, [panDistance, travel]);
   const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [transitioning, setTransitioning] = useState(false);
 
+  // Opening shot: continuous sine drift back and forth across the full panorama.
+  // Using direct withRepeat with ReduceMotion.Never to ensure reliable playback on Android.
   useEffect(() => {
     if (reduceMotion) {
       pan.value = 0;
+      push.value = 0;
       return;
     }
     pan.value = withRepeat(
       withTiming(1, {
-        duration: 10000,
+        duration: HERO_PAN_MS,
         easing: Easing.inOut(Easing.sin),
+        reduceMotion: ReduceMotion.Never,
       }),
       -1,
       true,
+      undefined,
+      ReduceMotion.Never,
     );
-  }, [reduceMotion, pan]);
+    push.value = withRepeat(
+      withTiming(1, {
+        duration: HERO_PAN_MS,
+        easing: Easing.inOut(Easing.sin),
+        reduceMotion: ReduceMotion.Never,
+      }),
+      -1,
+      true,
+      undefined,
+      ReduceMotion.Never,
+    );
+    return () => {
+      cancelAnimation(pan);
+      cancelAnimation(push);
+    };
+  }, [reduceMotion, pan, push]);
 
   useEffect(() => () => {
     if (transitionTimer.current) clearTimeout(transitionTimer.current);
   }, []);
 
   const panStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: -panDistance * pan.value }],
+    transform: [{ translateX: -travel.value * pan.value }],
+  }));
+  // Scale is applied around the screen centre (not the far wider image's centre), so the
+  // push-in crops evenly and the pan range stays inside the artwork.
+  const pushStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: reduceMotion ? 0 : -12 * dive.value },
+      { scale: reduceMotion ? 1 : HERO_SCALE_START + HERO_SCALE_DRIFT * push.value + 0.085 * dive.value },
+    ],
   }));
 
   const washStyle = useAnimatedStyle(() => ({ opacity: wash.value }));
@@ -300,10 +350,12 @@ function Welcome({
     // Reduce Motion still gets a crossfade, never a hard cut, so bypass Reanimated's system skip.
     uiOut.value = withTiming(1, { duration: reduceMotion ? 160 : 320, reduceMotion: ReduceMotion.Never });
     if (!reduceMotion) {
-      const maxPan = panDistance > 0 ? maxTravel / panDistance : 0;
-      pan.value = withTiming(Math.min(maxPan, pan.value + 0.12), {
+      dive.value = withTiming(1, { duration: 680, easing: Easing.inOut(Easing.cubic), reduceMotion: ReduceMotion.Never });
+      const forwardDrift = panDistance > 0 ? Math.min(0.04, 28 / panDistance) : 0;
+      pan.value = withTiming(Math.min(1, pan.value + forwardDrift), {
         duration: 900,
         easing: Easing.out(Easing.cubic),
+        reduceMotion: ReduceMotion.Never,
       });
     }
     wash.value = withDelay(
@@ -315,20 +367,37 @@ function Welcome({
 
   return (
     <View style={styles.fullBleed} testID="v2-onboarding-welcome">
-      <StatusBar style="dark" translucent backgroundColor="transparent" />
-      {/* 1. PANORAMIC ENVIRONMENTAL ARTWORK */}
-      <Animated.Image
-        source={panorama}
-        resizeMode="cover"
-        style={[
-          styles.panorama,
-          {
-            width: panoramaWidth,
-            height: panoramaHeight,
-          },
-          panStyle,
+      <StatusBar style="light" translucent backgroundColor="transparent" />
+      {/* 1. PANORAMIC ENVIRONMENTAL ARTWORK — full detail, never blurred; the only
+          readability treatment is the graded overlay below. */}
+      <Animated.View style={[StyleSheet.absoluteFill, pushStyle]} pointerEvents="none">
+        <Animated.Image
+          source={panorama}
+          resizeMode="cover"
+          resizeMethod="scale"
+          fadeDuration={0}
+          style={[
+            styles.panorama,
+            {
+              width: panoramaWidth,
+              height: panoramaHeight,
+            },
+            panStyle,
+          ]}
+          accessibilityIgnoresInvertColors
+        />
+      </Animated.View>
+
+      {/* Top subtle vignette to guarantee crisp contrast behind the white brand lockup */}
+      <LinearGradient
+        colors={[
+          "rgba(8, 11, 20, 0.62)",
+          "rgba(8, 11, 20, 0.28)",
+          "transparent",
         ]}
-        accessibilityIgnoresInvertColors
+        locations={[0, 0.16, 0.34]}
+        style={StyleSheet.absoluteFillObject}
+        pointerEvents="none"
       />
 
       {/* 2. NATURAL DARK GRADIENT OVERLAY (Grounds lower copy & CTA without darkening the sky) */}
@@ -356,13 +425,13 @@ function Welcome({
           uiOutStyle,
         ]}
       >
-        {/* Stationary Anchor 2.0 Deep Ink Brand Mark & Wordmark */}
+        {/* Confident, luminous Anchor 2.0 Brand Lockup */}
         <Animated.View
           entering={reduceMotion ? undefined : FadeInDown.delay(160).duration(600)}
           style={styles.welcomeCenter}
         >
           <Image
-            source={brandMark}
+            source={lightMark}
             resizeMode="contain"
             style={styles.brandMark}
             accessibilityLabel="Anchor brand mark"
@@ -419,7 +488,7 @@ function Welcome({
 function SystemDiagram({ reduceMotion }: { reduceMotion: boolean }) {
   const progress = useSharedValue(reduceMotion ? 1 : 0);
   useEffect(() => {
-    progress.value = reduceMotion ? 1 : withDelay(750, withTiming(1, { duration: 2100 }));
+    progress.value = reduceMotion ? 1 : withDelay(750, withTiming(1, { duration: 2100, reduceMotion: ReduceMotion.Never }));
   }, [progress, reduceMotion]);
   const lineStyle = useAnimatedStyle(() => ({
     width: `${progress.value * 100}%`,
@@ -498,29 +567,62 @@ function SystemDiagram({ reduceMotion }: { reduceMotion: boolean }) {
 
 export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
   const insets = useSafeAreaInsets();
-  const reduceMotion = useV2ReduceMotion();
+  const reduceMotion = useCreationReduceMotion();
   const {
     draft,
     setStep,
     setFocusCategory,
     setDesiredOutcome,
+    setDesiredWhy,
+    setDesiredFriction,
     setPrimaryNeed,
     markAnswersComplete,
   } = useFirstRunStore();
-  // A draft saved on the retired "What changes first?" step resumes on the screen that took
-  // its place.
-  const savedStep = draft.currentStep === "life" ? "system" : draft.currentStep;
+  // A draft saved on retired steps resumes gracefully on the new sequence
+  const savedStep =
+    draft.currentStep === "life" || draft.currentStep === "need" || draft.currentStep === "summary"
+      ? "system"
+      : draft.currentStep;
   const step = ONBOARDING_STEPS.includes(savedStep as OnboardingStep)
     ? (savedStep as OnboardingStep)
     : "welcome";
   const stepNumber = ONBOARDING_STEPS.indexOf(step) + 1;
   const dark = step === "need";
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rollingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
+    if (rollingTimer.current) clearTimeout(rollingTimer.current);
   }, []);
+
+  const isContinuousStep =
+    step === "outcome" ||
+    step === "meaning" ||
+    step === "friction" ||
+    step === "system" ||
+    step === "handoff";
+
+  const initialStepNum =
+    step === "meaning" ? 5 :
+    step === "friction" ? 6 :
+    step === "system" ? 7 :
+    step === "handoff" ? 8 : 4;
+  const stepProgress = useSharedValue<number>(initialStepNum);
+  const transitionClock = useSharedValue<number>(0);
+  const [rollingHeader, setRollingHeader] = useState<{ from: number; to: number } | null>(null);
+
   const setNext = (next: OnboardingStep) => {
     v2Haptics.selection();
+    const curIdx = ONBOARDING_STEPS.indexOf(step) + 1;
+    const nextIdx = ONBOARDING_STEPS.indexOf(next) + 1;
+    if (curIdx >= 4 && nextIdx > curIdx) {
+      if (rollingTimer.current) clearTimeout(rollingTimer.current);
+      setRollingHeader({ from: curIdx, to: nextIdx });
+      rollingTimer.current = setTimeout(
+        () => setRollingHeader(null),
+        nextIdx === 8 ? 950 : nextIdx === 7 ? 700 : 450,
+      );
+    }
     setStep(next);
   };
   // --- Screen 2 → Screen 3 handoff ---------------------------------------------------------
@@ -541,20 +643,10 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
   const outcomeClock = useSharedValue(0);
   const outcomeHandoffStarted = useRef(false);
   const [outcomeEntry, setOutcomeEntry] = useState<"handoff" | "direct">("direct");
-  const [outcomeMounted, setOutcomeMounted] = useState(step === "outcome");
+  const [outcomeMounted, setOutcomeMounted] = useState(step === "outcome" || isContinuousStep);
   const [handingOffToOutcome, setHandingOffToOutcome] = useState(false);
   const [outcomeOriginFrame, setOutcomeOriginFrame] = useState<OutcomeOriginFrame | null>(null);
   const outcomeTimeline = outcomeHandoffTimeline(reduceMotion);
-
-  // --- Screen 4 → Screen 5 handoff ---------------------------------------------------------
-  // Same pattern again: Screen 4's artwork rises and shrinks into Screen 5's hero while
-  // Screen 4's copy clears and Screen 5's arrives behind it.
-  const systemClock = useSharedValue(0);
-  const systemHandoffStarted = useRef(false);
-  const [systemEntry, setSystemEntry] = useState<"handoff" | "direct">("direct");
-  const [systemMounted, setSystemMounted] = useState(step === "system");
-  const [handingOffToSystem, setHandingOffToSystem] = useState(false);
-  const systemTimeline = systemHandoffTimeline(reduceMotion);
 
   const resetHandoff = () => {
     cancelAnimation(handoff);
@@ -565,11 +657,6 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
     cancelAnimation(outcomeClock);
     outcomeClock.value = 0;
     outcomeHandoffStarted.current = false;
-  };
-  const resetSystemHandoff = () => {
-    cancelAnimation(systemClock);
-    systemClock.value = 0;
-    systemHandoffStarted.current = false;
   };
 
   useEffect(() => {
@@ -592,12 +679,6 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
     return () => clearTimeout(timer);
   }, [outcomeMounted, step]);
 
-  useEffect(() => {
-    if (step !== "outcome" || systemMounted) return;
-    const timer = setTimeout(() => setSystemMounted(true), SYSTEM_PRELOAD_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [systemMounted, step]);
-
   // Arriving on Screen 3 any other way (restore, back from Screen 4) plays its own entrance.
   useEffect(() => {
     if (step !== "motivation" || handoffStarted.current) return;
@@ -615,17 +696,6 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
     outcomeClock.value = withTiming(outcomeTimeline.end, { duration: outcomeTimeline.end, easing: Easing.linear, reduceMotion: ReduceMotion.Never });
     outcomeHandoffStarted.current = true;
   }, [outcomeClock, step, outcomeTimeline.end]);
-
-  // Arriving on Screen 5 any other way (restore, back from Screen 6) plays its own entrance,
-  // skipping the part of the clock that belongs to the flight from Screen 4.
-  useEffect(() => {
-    if (step !== "system" || systemHandoffStarted.current) return;
-    setSystemEntry("direct");
-    const from = systemTimeline.directFrom;
-    systemClock.value = from;
-    systemClock.value = withTiming(systemTimeline.end, { duration: systemTimeline.end - from, easing: Easing.linear, reduceMotion: ReduceMotion.Never });
-    systemHandoffStarted.current = true;
-  }, [systemClock, step, systemTimeline.directFrom, systemTimeline.end]);
 
   const startHandoff = () => {
     if (handingOff) return;
@@ -660,37 +730,28 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
     }, outcomeTimeline.commitStep);
   };
 
-  const startSystemHandoff = () => {
-    // The ref, not state, guards a second tap landing before the re-render.
-    if (handingOffToSystem || systemHandoffStarted.current) return;
-    v2Haptics.selection();
-    systemHandoffStarted.current = true;
-    setSystemMounted(true);
-    setSystemEntry("handoff");
-    setHandingOffToSystem(true);
-    systemClock.value = 0;
-    systemClock.value = withTiming(systemTimeline.end, { duration: systemTimeline.end, easing: Easing.linear, reduceMotion: ReduceMotion.Never });
-    // Screen 4 is released only once Screen 5's cream fully covers it.
-    advanceTimer.current = setTimeout(() => {
-      setStep("system");
-      setHandingOffToSystem(false);
-    }, systemTimeline.commitStep);
-  };
-
   const back = () => {
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
+    if (rollingTimer.current) clearTimeout(rollingTimer.current);
+    setRollingHeader(null);
     if (stepNumber <= 1) return;
     const previous = ONBOARDING_STEPS[stepNumber - 2];
     // Screen 3's entrance must be hidden again before its screen reappears.
     if (previous === "bridge" || previous === "motivation") resetHandoff();
     if (previous === "motivation" || previous === "outcome") resetOutcomeHandoff();
-    // Returning to Screen 4 hands its artwork back; returning to Screen 5 replays its entrance.
-    if (previous === "outcome" || previous === "system") resetSystemHandoff();
+    v2Haptics.selection();
     setStep(previous);
   };
+
   const onHeroReady = useCallback(() => setFocusReady(true), []);
   const selectFocus = useCallback((category: AnchorCategory) => setFocusCategory(category), [setFocusCategory]);
   const selectOutcome = useCallback((outcome: string) => setDesiredOutcome(outcome), [setDesiredOutcome]);
+  const selectWhy = useCallback((why: string) => setDesiredWhy(why), [setDesiredWhy]);
+  const selectFriction = useCallback((friction: string) => setDesiredFriction(friction), [setDesiredFriction]);
+  const handleCreateAnchor = useCallback(() => {
+    markAnswersComplete();
+    onCreate();
+  }, [markAnswersComplete, onCreate]);
 
   // Legacy drafts may still carry a free-text motivation; new drafts carry a focus area.
   const motivation = (draft.motivation ?? "").trim();
@@ -698,12 +759,13 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
   // Screen 4's hero and outcome choices follow the Screen 3 choice directly.
   const screen4Category: AnchorCategory = draft.focusCategory ?? "custom";
 
-  // Chrome tone: light over Screen 2/3 photography, ink over the cream of Screens 4 and 5.
-  const onCream = step === "outcome" || step === "system";
+  // Chrome follows the paper-to-dusk lighting shift across the continuous scene.
+  const onCream = isContinuousStep;
   const paper = useDerivedValue(() => {
     if (handingOffToOutcome) return seg(outcomeClock.value, outcomeTimeline.s3EnvOut);
+    if (isContinuousStep) return Math.max(0, Math.min(1, 1 - (stepProgress.value - 6) / 2));
     return onCream ? 1 : 0;
-  }, [handingOffToOutcome, onCream, outcomeTimeline]);
+  }, [handingOffToOutcome, onCream, outcomeTimeline, isContinuousStep]);
   const footer = (label: string, next: () => void, disabled = false) => (
     <View style={styles.footer}>
       <Cta label={label} onPress={next} dark={!dark} disabled={disabled} />
@@ -713,6 +775,9 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
   if (step === "welcome")
     return (
       <View style={styles.screen}>
+        <View key="prepared-bridge" style={StyleSheet.absoluteFill} pointerEvents="none">
+          <V2OnboardingExplain active={false} reduceMotion={reduceMotion} handoff={handoff} nextReady={false} onContinue={startHandoff} />
+        </View>
         <StatusBar style="dark" translucent backgroundColor="transparent" />
         <Welcome
           onStart={() => setNext("bridge")}
@@ -722,22 +787,21 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
       </View>
     );
 
-  if (step === "bridge" || step === "motivation" || step === "outcome" || step === "system") {
+  if (step === "bridge" || step === "motivation" || isContinuousStep) {
     const rolls = step === "bridge" || focusEntry === "handoff";
-    // The shared header represents whichever handoff is currently in flight (or, at rest,
-    // the screen the user is actually on): 2 → 3, 3 → 4, then 4 → 5, one clock at a time.
-    const header = handingOffToSystem
-      ? { from: 4, to: 5, current: 4, clock: systemClock, window: systemTimeline.progress }
-      : step === "system"
-        ? { from: 5, to: 5, current: 5, clock: systemClock, window: systemTimeline.progress }
-        : handingOffToOutcome
-          ? { from: 3, to: 4, current: 3, clock: outcomeClock, window: outcomeTimeline.progress }
-          : step === "outcome"
-            ? { from: 4, to: 4, current: 4, clock: outcomeClock, window: outcomeTimeline.progress }
-            : { from: rolls ? 2 : 3, to: 3, current: step === "bridge" ? 2 : 3, clock: handoff, window: timeline.progress };
+    const currentNum = ONBOARDING_STEPS.indexOf(step) + 1;
+    // Shared header tracks rolls across 2->3, 3->4, and 4->5->6->7->8
+    const header = rollingHeader
+      ? { from: rollingHeader.from, to: rollingHeader.to, current: rollingHeader.from, clock: stepProgress, window: [rollingHeader.from, rollingHeader.to] as const }
+      : handingOffToOutcome
+        ? { from: 3, to: 4, current: 3, clock: outcomeClock, window: outcomeTimeline.progress }
+        : isContinuousStep
+          ? { from: currentNum, to: currentNum, current: currentNum, clock: stepProgress, window: [currentNum, currentNum] as const }
+          : { from: rolls ? 2 : 3, to: 3, current: step === "bridge" ? 2 : 3, clock: handoff, window: timeline.progress };
+
     return (
       <View style={[styles.screen, styles.openingScreen]} testID={step === "motivation" ? "v2-onboarding-motivation" : undefined}>
-        <StatusBar style={onCream ? "dark" : "light"} translucent backgroundColor="transparent" />
+        <StatusBar style={onCream && currentNum < 8 ? "dark" : "light"} translucent backgroundColor="transparent" />
         {/* Each screen is also rendered whenever it is the current step, so back navigation
             from a restored later step always has a screen to land on. */}
         {focusMounted || step === "motivation" ? (
@@ -757,40 +821,36 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
           />
         ) : null}
         {step === "bridge" ? (
-          <V2OnboardingExplain
-            key="explain"
-            reduceMotion={reduceMotion}
-            handoff={handoff}
-            nextReady={focusMounted && focusReady}
-            onContinue={startHandoff}
-          />
+          <View key="prepared-bridge" style={StyleSheet.absoluteFill} pointerEvents="box-none">
+            <V2OnboardingExplain
+              active
+              reduceMotion={reduceMotion}
+              handoff={handoff}
+              nextReady={focusMounted && focusReady}
+              onContinue={startHandoff}
+            />
+          </View>
         ) : null}
-        {outcomeMounted || step === "outcome" ? (
-          <V2OnboardingOutcome
-            key="outcome"
-            clock={outcomeClock}
-            entry={outcomeEntry}
-            active={(step === "outcome" || handingOffToOutcome) && !handingOffToSystem}
-            reduceMotion={reduceMotion}
+        {outcomeMounted || isContinuousStep ? (
+          <V2OnboardingContinuousFlow
+            key="continuous-flow"
+            step={step}
             category={screen4Category}
-            selected={draft.desiredOutcome}
-            onSelect={selectOutcome}
-            onContinue={startSystemHandoff}
+            selectedOutcome={draft.desiredOutcome}
+            selectedWhy={draft.desiredWhy}
+            selectedFriction={draft.desiredFriction}
+            onSelectOutcome={selectOutcome}
+            onSelectWhy={selectWhy}
+            onSelectFriction={selectFriction}
+            onStepChange={setNext}
+            onCreateAnchor={handleCreateAnchor}
+            outcomeClock={outcomeClock}
+            outcomeTimeline={outcomeTimeline}
             originFrame={outcomeOriginFrame}
-            systemClock={systemClock}
-            systemTimeline={systemTimeline}
-          />
-        ) : null}
-        {systemMounted || step === "system" ? (
-          <V2OnboardingSystem
-            key="system"
-            clock={systemClock}
-            entry={systemEntry}
-            active={step === "system"}
+            entry={outcomeEntry}
             reduceMotion={reduceMotion}
-            category={screen4Category}
-            outcome={draft.desiredOutcome}
-            onContinue={() => setNext("need")}
+            stepProgress={stepProgress}
+            transitionClock={transitionClock}
           />
         ) : null}
         <OpeningProgressHeader
@@ -803,7 +863,7 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
           window={header.window}
           reduceMotion={reduceMotion}
           onBack={back}
-          interactive={!handingOff && !handingOffToOutcome && !handingOffToSystem && !sheetOpen}
+          interactive={!handingOff && !handingOffToOutcome && !sheetOpen}
           dimmed={sheetOpen}
           paper={paper}
         />
@@ -811,124 +871,7 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
     );
   }
 
-  return (
-    <View
-      style={[
-        styles.screen,
-        dark ? styles.darkScreen : styles.paperScreen,
-        { paddingTop: insets.top, paddingBottom: insets.bottom },
-      ]}
-      testID={`v2-onboarding-${step}`}
-    >
-      <StatusBar
-        style={dark ? "light" : "dark"}
-        translucent
-        backgroundColor="transparent"
-      />
-      {step === "handoff" ? (
-        <ImageBackground
-          source={desk}
-          style={StyleSheet.absoluteFillObject}
-          resizeMode="cover"
-          accessibilityIgnoresInvertColors
-        >
-          <View style={styles.handoffShade} />
-        </ImageBackground>
-      ) : null}
-      <Header step={stepNumber} onBack={back} dark={dark} />
-      <ScrollView
-        contentContainerStyle={[
-          styles.scroll,
-          step === "handoff" && styles.handoffScroll,
-        ]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        {step === "need" && (
-          <>
-            <SectionHeading
-              compact
-              dark
-              title={"What matters most\nright now?"}
-              support={"What would make the biggest\ndifference for you?"}
-            />
-            <View style={styles.list}>
-              {PRIMARY_NEEDS.map((need, index) => (
-                <ChoiceRow
-                  key={need}
-                  label={need}
-                  index={index}
-                  compact
-                  dark
-                  accent="#E9D5AB"
-                  selected={draft.primaryNeed === need}
-                  onPress={() => {
-                    setPrimaryNeed(need);
-                    v2Haptics.selection();
-                  }}
-                />
-              ))}
-            </View>
-          </>
-        )}
-        {step === "summary" && (
-          <>
-            <SectionHeading title="Your path, connected." support="See it clearly. Reinforce it daily. Move toward it with clarity." />
-            <Text style={styles.reflection}>
-              {personalizedReflection(
-                motivation,
-                draft.customDesiredChange ?? "",
-                effectiveChange,
-                draft.lifeChanges ?? [],
-                draft.primaryNeed ?? "",
-              )}
-            </Text>
-            <SystemDiagram reduceMotion={reduceMotion} />
-          </>
-        )}
-        {step === "handoff" && (
-          <>
-            <View style={styles.handoffBrand}>
-              <Text style={styles.handoffWordmark}>ANCHOR</Text>
-              <Text style={styles.handoffBrandSub}>VISUAL GOAL SETTING</Text>
-            </View>
-            <View style={styles.handoffMessage}>
-              <Text style={styles.handoffTitle}>Let's give it a form.</Text>
-              <Text style={styles.handoffSupport}>
-                Turn what you discovered into a present-tense intention about the change you want to see.
-              </Text>
-            </View>
-            <Text style={styles.handwriting}>I...</Text>
-          </>
-        )}
-      </ScrollView>
-      {step === "need"
-        ? footer("Continue", () => setNext("summary"), !draft.primaryNeed)
-        : null}
-      {step === "summary"
-        ? footer("Looks good", () => {
-            markAnswersComplete();
-            setNext("handoff");
-          })
-        : null}
-      {step === "handoff" ? footer("Create my first Anchor", onCreate) : null}
-    </View>
-  );
-}
-
-function personalizedReflection(
-  motivation: string,
-  customMotivation: string,
-  outcome: string,
-  lifeChanges: string[],
-  primaryNeed: string,
-) {
-  const hope = motivation === "Something else" ? customMotivation : motivation;
-  const changes = lifeChanges.join(" and ");
-  const opening = hope ? `“${hope}.” ` : "";
-  // Only drafts from the earlier onboarding still carry life changes.
-  const first = changes ? `First, ${changes.toLowerCase()} shift. ` : "";
-  return `${opening}You want ${outcome}. ${first}${primaryNeed} would help most.`;
+  return null;
 }
 
 const styles = StyleSheet.create({
@@ -949,23 +892,33 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   brandMark: {
-    width: 36,
-    height: 46,
-    tintColor: "#14162B",
+    // The opening brand moment of the entire experience: generous presence with breathing room
+    width: 60,
+    height: 78,
+    shadowColor: "#000000",
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
   },
   wordmark: {
-    color: "#14162B",
-    fontSize: 18,
-    letterSpacing: 7.5,
+    color: "#FFFFFF",
+    fontSize: 24,
+    letterSpacing: 9,
     fontFamily: "Inter-SemiBold",
-    marginTop: 6,
+    marginTop: 14,
+    textShadowColor: "rgba(0, 0, 0, 0.45)",
+    textShadowRadius: 8,
+    textShadowOffset: { width: 0, height: 1 },
   },
   brandSub: {
-    color: "rgba(20, 22, 43, 0.72)",
-    fontSize: 8.5,
-    letterSpacing: 2.8,
+    color: "rgba(255, 255, 255, 0.85)",
+    fontSize: 10.5,
+    letterSpacing: 3.5,
     fontFamily: "Inter-SemiBold",
-    marginTop: 3,
+    marginTop: 7,
+    textShadowColor: "rgba(0, 0, 0, 0.45)",
+    textShadowRadius: 6,
+    textShadowOffset: { width: 0, height: 1 },
   },
   welcomeBottom: {
     alignSelf: "stretch",

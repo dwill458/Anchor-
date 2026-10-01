@@ -104,6 +104,8 @@ export const CHART_COPY = {
   active: {
     markComplete: 'Mark complete',
     viewVision: 'View Vision',
+    practiceAnchor: 'Practice this anchor',
+    practiceNudge: 'Practice before your next move',
     addMove: 'Add a move',
     noMove: 'What’s one thing you can do next?',
     noMoveCta: 'Choose a move',
