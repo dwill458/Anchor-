@@ -477,9 +477,6 @@ export function V2HomeScreen() {
           {/* Product signature: opens the ink field, beneath the keel and above Today. */}
           <V2HomeBrandMark testID="v2-home-brand-mark" />
 
-          <V2HomeVisionSection vision={model.vision} categoryColor={categoryColor}
-            onOpenVision={handleOpenVision} onRetry={() => { void refreshVision(); }} />
-
           <V2HomeTodaySection
             testID="v2-home-today"
             today={model.today}
@@ -489,6 +486,9 @@ export function V2HomeScreen() {
             onOpenAllPractices={handleOpenAllPractices}
             onRetry={handleRetryToday}
           />
+
+          <V2HomeVisionSection vision={model.vision} categoryColor={categoryColor}
+            onOpenVision={handleOpenVision} onRetry={() => { void refreshVision(); }} />
 
           {!hasVision ? <V2HomeProgressSection progress={model.progress} thread={model.thread}
             categoryColor={categoryColor} onOpenProgress={handleOpenProgress} /> : null}

@@ -1,16 +1,12 @@
 import { AnalyticsService } from '@/services/AnalyticsService';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Linking, useWindowDimensions, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Image, Linking, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { V2VisionAddPhoto, V2VisionAddScene, V2VisionCreationFlow } from '@/components/v2/vision';
 import { VisionImageArrivalProvider, useVisionImageArrival } from '@/components/v2/vision/VisionImageArrival';
 import { V2SavedVision } from '@/components/v2/vision/V2SavedVision';
 import { V2Button, V2EmptyState, V2Screen, V2TopBar } from '@/components/v2';
-import { pickVisionPhoto, uploadVisionPhoto, useV2Vision, useV2VisionGeneration, type PickedVisionPhoto, type VisionPhotoPick, type VisionPhotoSource } from '@/hooks/v2/vision';
-import { useAuthStore } from '@/stores/authStore';
-import { V2PracticeSessionScreen } from '@/screens/v2/practice/V2PracticeSessionScreen';
-import { V2CinematicSessionScreen, type PreparedCinematicSession } from '@/screens/v2/practice/visualize/V2CinematicSessionScreen';
-import { getVisualizeMonotonicNow } from '@/screens/visualize/useVisualizeSessionEngine';
+import { pickVisionPhoto, uploadVisionPhoto, useV2Vision, type PickedVisionPhoto, type VisionPhotoPick, type VisionPhotoSource } from '@/hooks/v2/vision';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { anchorRenderProps } from '@/components/v2/anchors/anchorPresentation';
 import { resolveAnchorCategory } from '@/utils/categoryDetection';
@@ -45,16 +41,13 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   const arrival = useVisionImageArrival();
   const route = useRoute<RouteProp<Record<string, V2VisionRouteParams>, string>>();
   const navigation = useNavigation<any>();
-  const viewport = useWindowDimensions();
-  const accountId = useAuthStore(state => state.user?.id ?? null);
   const anchorId = props.anchorId ?? route.params?.anchorId ?? '';
   const anchor = useAnchorStore(state => state.anchors.find(item => item.id === anchorId || item.localId === anchorId));
   useEffect(() => { if (anchorId) AnalyticsService.track('vision_opened', { anchor_id: anchorId }); }, [anchorId]);
   const model = useV2Vision(anchorId);
-  const generation = useV2VisionGeneration(anchorId);
   const anchorChart = useAnchorChart(anchor?.id ?? null);
   const chartSummary = useMemo(() => toChartSummary(anchorChart.data?.chart), [anchorChart.data?.chart]);
-  const [mode, setMode] = useState<'view' | 'create' | 'ready' | 'add' | 'addScene'>(props.initialMode ?? route.params?.initialMode ?? 'view');
+  const [mode, setMode] = useState<'view' | 'create' | 'ready' | 'addScene'>(props.initialMode ?? route.params?.initialMode ?? 'view');
   useEffect(() => {
     if (route.params?.resumeGeneration) setMode('create');
   }, [route.params?.resumeGeneration]);
@@ -69,25 +62,8 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   const anchorArt = useMemo(() => (anchor ? anchorRenderProps(anchor) : null), [anchor]);
   // The Anchor's persisted category is the only source: art, accent and label all read it.
   const anchorCategory = anchor ? resolveAnchorCategory(anchor.category) : undefined;
-  const [prepared, setPrepared] = useState<{ key: string; session: PreparedCinematicSession } | null>(null);
-  const [preparationIssue, setPreparationIssue] = useState<string | null>(null);
-  const [preparationAttempt, setPreparationAttempt] = useState(0);
-  const [useAvailableImages, setUseAvailableImages] = useState<(() => void) | null>(null);
-  const acceptAvailable = useCallback((useAvailable: () => void) => setUseAvailableImages(() => useAvailable), []);
-  const [activeVisualize, setActiveVisualize] = useState<PreparedCinematicSession | null>(null);
-  const preparingKey = JSON.stringify([accountId, anchorId, anchorArt?.svg, anchor?.enhancedImageUrl,
-    viewport.width, viewport.height, model.description, model.tiles.map(tile => [tile.sceneId, tile.imageUrl]), preparationAttempt]);
-  const acceptPrepared = useCallback((session: PreparedCinematicSession) => {
-    setPrepared({ key: preparingKey, session }); setPreparationIssue(null); setUseAvailableImages(null);
-  }, [preparingKey]);
-  const reportPreparationIssue = useCallback((message: string) => setPreparationIssue(message), []);
-  const canBegin = Boolean(prepared?.key === preparingKey);
-  const beginRef = useRef(false);
-  const returnToVision = () => { setActiveVisualize(null); beginRef.current = false; void model.refresh(); };
-
-
   const handleBack = () => {
-    if ((mode === 'create' || mode === 'add' || mode === 'addScene') && model.state.state === 'ready') {
+    if ((mode === 'create' || mode === 'addScene') && model.state.state === 'ready') {
       setReplaceSceneId(null);
       setMode('view');
       return;
@@ -202,18 +178,26 @@ function VisionScreenContent(props: V2VisionScreenProps) {
     }
   };
 
-  const openImageGeneration = (forSceneId: string | null) => {
-    // Adding recomposes the board on return; a replacement simply appears in its place.
-    setArrivedFrom(forSceneId ? null : model.tiles.map(tile => tile.sceneId));
+  /** Regenerating one image: the same two-moments choice, but the pick takes that image's place. */
+  const openImageGeneration = (forSceneId: string) => {
+    setActionError(null);
+    setArrivedFrom(null);
     setReplaceSceneId(forSceneId);
-    setMode('add');
+    setMode('addScene');
+  };
+
+  /** Adds the generated image the person chose, or puts it where the one being regenerated was. */
+  const placeGeneratedScene = async (choice: { assetId: string; prompt: string }): Promise<boolean> => {
+    if (!replaceSceneId) return addGeneratedScene(choice);
+    const replaced = await replaceScene(replaceSceneId, { assetId: choice.assetId, sourceType: 'AI_GENERATED', prompt: choice.prompt });
+    if (!replaced) return false;
+    arrival?.cancel();
+    setReplaceSceneId(null);
+    setMode('view');
+    return true;
   };
 
   const renderContent = () => {
-  if (activeVisualize) return <V2PracticeSessionScreen anchorId={anchorId} mode="visualize" durationSeconds={180}
-    source="practice_hub" preparedVisualize={activeVisualize} onBack={returnToVision}
-    onCompleted={returnToVision} onFocusAgain={returnToVision} />;
-
   if (model.loading && !model.vision) return (
     <V2Screen testID="v2-vision-screen-loading">
       <V2TopBar title="Vision" onBackPress={handleBack} />
@@ -255,12 +239,12 @@ function VisionScreenContent(props: V2VisionScreenProps) {
       anchorImageUrl={anchor?.enhancedImageUrl}
       existingTiles={model.tiles}
       onPremiumRequired={openPaywall}
-      onCancel={() => setMode('view')}
-      onAdd={addGeneratedScene}
+      onCancel={() => { setReplaceSceneId(null); setMode('view'); }}
+      onAdd={placeGeneratedScene}
     />
   );
 
-  if (mode === 'create' || mode === 'ready' || mode === 'add' || model.state.state === 'none') return (
+  if (mode === 'create' || mode === 'ready' || model.state.state === 'none') return (
     <V2VisionCreationFlow
       anchorId={anchorId}
       anchorIntention={anchorIntention}
@@ -268,10 +252,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
       anchorImageUrl={anchor?.enhancedImageUrl}
       anchorArt={anchorArt}
       initialDescription={model.vision?.description ?? ''}
-      initialStep={mode === 'add' ? 'curation' : mode === 'ready' ? 'ready' : mode === 'create' ? 'prompt' : 'empty'}
-      selectionLimit={mode === 'add'
-        ? (replaceSceneId ? 1 : Math.max(1, VISION_BOARD_MAX_IMAGES - model.tiles.length))
-        : VISION_BOARD_MAX_IMAGES}
+      initialStep={mode === 'ready' ? 'ready' : mode === 'create' ? 'prompt' : 'empty'}
       resumeGeneration={route.params?.resumeGeneration}
       onResumeGenerationConsumed={() => navigation.setParams({ resumeGeneration: false })}
       onBack={handleBack}
@@ -283,15 +264,6 @@ function VisionScreenContent(props: V2VisionScreenProps) {
       }}
       onUploadAsset={model.uploadAsset}
       onAssemble={async ({ description, selectedAssets }) => {
-        if (mode === 'add' && replaceSceneId && selectedAssets[0]) {
-          const [asset] = selectedAssets;
-          const replaced = await replaceScene(replaceSceneId, { assetId: asset.assetId, sourceType: asset.sourceType, prompt: asset.prompt });
-          if (!replaced) return false;
-          arrival?.cancel();
-          setReplaceSceneId(null);
-          setMode('view');
-          return true;
-        }
         const saved = await model.createVision({
           description,
           scenes: selectedAssets.map(asset => ({
@@ -322,16 +294,10 @@ function VisionScreenContent(props: V2VisionScreenProps) {
       tiles={model.tiles}
       error={actionError ?? model.error}
       onBack={handleBack}
-      visualizeReady={Boolean(props.onVisualize) || canBegin}
-      preparationIssue={preparationIssue}
-      onUseAvailableImages={useAvailableImages ?? undefined}
-      onRetryVisualize={() => { setPrepared(null); setPreparationIssue(null); setUseAvailableImages(null); setPreparationAttempt(value => value + 1); }}
-      onVisualize={frame => {
-        if (props.onVisualize) { void model.recordVisionView(); props.onVisualize(model.visualizeHandoff); return; }
-        if (!canBegin || !prepared || beginRef.current) return;
-        beginRef.current = true;
-        void model.recordVisionView();
-        setActiveVisualize({ ...prepared.session, canvasFrame: frame, beginAtMs: getVisualizeMonotonicNow() });
+      onVisualize={() => {
+        // One Visualize: every entry reaches the same setup, where the duration is chosen.
+        if (props.onVisualize) { props.onVisualize(model.visualizeHandoff); return; }
+        navigation.navigate('V2Practice', { anchorId, resumeMode: 'visualize', resumeSource: 'practice_hub', returnRoute: 'V2Vision' });
       }}
       chartSummary={chartSummary}
       onChart={() => {
@@ -346,18 +312,10 @@ function VisionScreenContent(props: V2VisionScreenProps) {
       onReplace={replaceWithOwnImage}
       onRegenerate={sceneId => openImageGeneration(sceneId)}
       arrivedFrom={arrivedFrom}
-      canGenerateMore={!generation.job || generation.job.setNumber < 3}
+      canGenerateMore
       onArchive={model.archiveVision}
     />
   );
   };
-  return <View style={{ flex: 1 }}>{renderContent()}
-    {!activeVisualize && anchor && accountId && mode === 'view' && model.state.state === 'ready' && model.tiles.some(tile => tile.imageUrl) && !canBegin ?
-      <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%' }}>
-        <V2CinematicSessionScreen key={preparingKey} anchor={anchor} accountId={accountId} tiles={model.tiles}
-          statement={model.description} visionId={model.vision?.id} durationSeconds={180} voice="none" ambient={false} haptics={false}
-          source="practice_hub" prepareOnly onPrepared={acceptPrepared} onPreparationIssue={reportPreparationIssue} onAvailableImages={acceptAvailable}
-          onExit={() => undefined} onContinue={() => undefined} />
-      </View> : null}
-  </View>;
+  return <View style={{ flex: 1 }}>{renderContent()}</View>;
 }

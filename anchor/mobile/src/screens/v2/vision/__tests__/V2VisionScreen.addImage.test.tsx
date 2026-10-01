@@ -79,7 +79,7 @@ describe('V2VisionScreen: adding to the board', () => {
     const view = render(<V2VisionScreen anchorId="anchor-1" />);
     await openSheet(view);
     expect(view.getByText('Add to your Vision')).toBeTruthy();
-    expect(view.getByLabelText('Generate with AI')).toBeTruthy();
+    expect(view.getByLabelText('Create an image')).toBeTruthy();
     expect(view.getByLabelText('Choose from Photos')).toBeTruthy();
     expect(view.getByLabelText('Take Photo')).toBeTruthy();
     expect(picker.launchImageLibraryAsync).not.toHaveBeenCalled();
@@ -195,11 +195,11 @@ describe('V2VisionScreen: adding to the board', () => {
 
       const view = render(<V2VisionScreen anchorId="anchor-1" />);
       await openSheet(view);
-      fireEvent.press(view.getByLabelText('Generate with AI'));
+      fireEvent.press(view.getByLabelText('Create an image'));
       await act(async () => { jest.advanceTimersByTime(600); });
 
-      await view.findByText('Describe your image');
-      expect(view.getByText('Add Image')).toBeTruthy();
+      await view.findByText('What else do you see?');
+      expect(view.getByText('ADD TO YOUR VISION')).toBeTruthy();
       const generate = view.getByLabelText('Generate image');
       expect(generate.props.accessibilityState?.disabled).toBe(true);
       fireEvent.changeText(view.getByTestId('vision-scene-input'), 'Working from a beach house');
@@ -209,16 +209,16 @@ describe('V2VisionScreen: adding to the board', () => {
       expect((apiClient.post as jest.Mock).mock.calls[0][1]).toEqual(expect.objectContaining({ sceneDescription: 'Working from a beach house' }));
       expect(view.getByTestId('v2-vision-add-scene-generating')).toBeTruthy();
 
-      // Polling delivers both images; the reveal shows them, then moves on to choosing.
-      for (let i = 0; i < 12; i += 1) await act(async () => { jest.advanceTimersByTime(1000); });
-      await view.findByTestId('v2-vision-add-scene-choose');
+      // Polling delivers both images; they are the choice, with no button to confirm it.
+      for (let i = 0; i < 4; i += 1) await act(async () => { jest.advanceTimersByTime(1000); });
+      await view.findByText('Your future\nis ready to choose from.');
       expect(view.getByTestId('scene-candidate-cand-1')).toBeTruthy();
       expect(view.getByTestId('scene-candidate-cand-2')).toBeTruthy();
-      expect(view.getByLabelText('Generate More')).toBeTruthy();
-      expect(view.getByLabelText('Use This Image').props.accessibilityState?.disabled).toBe(true);
+      expect(view.queryByLabelText('Use This Image')).toBeNull();
+      expect(view.queryByLabelText('Generate More')).toBeNull();
 
-      fireEvent.press(view.getByTestId('scene-candidate-cand-2'));
-      await act(async () => { fireEvent.press(view.getByLabelText('Use This Image')); });
+      await act(async () => { fireEvent.press(view.getByTestId('scene-candidate-cand-2')); });
+      await act(async () => { jest.advanceTimersByTime(800); });
       await waitFor(() => expect(apiClient.post).toHaveBeenCalledWith('/api/v2/visions/vision-101/scenes', {
         assetId: 'gen-2', prompt: 'Working from a beach house', sourceType: 'AI_GENERATED',
       }));

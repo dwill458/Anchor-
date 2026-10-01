@@ -1,18 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { View } from 'react-native';
-import { useV2ReduceMotion } from '@/hooks/v2';
+import { useRef, useState } from 'react';
 import { useV2VisionSceneGeneration, type VisionGenerationCandidate } from '@/hooks/v2/vision';
 import type { V2VisionTile } from '@/adapters/v2/vision';
 import type { VisionAnchorArt } from './VisionChrome';
-import { useVisionImageArrival, type VisionImageRect } from './VisionImageArrival';
+import { useVisionImageArrival } from './VisionImageArrival';
 import { VisionMomentInput } from './VisionMomentInput';
-import { VisionGenerationBoard } from './VisionGenerationBoard';
-import { VisionCandidateSelection } from './VisionCandidateSelection';
+import { VisionTwoUpStage, type VisionTwoUpSelection } from './VisionTwoUpStage';
 
 export const VISION_SCENE_MIN_CHARS = 6;
 export const VISION_SCENE_MAX_CHARS = 400;
 
-type Step = 'describe' | 'generating' | 'choose';
+type Step = 'describe' | 'generating';
 
 export type V2VisionAddSceneProps = {
   anchorId: string;
@@ -23,15 +20,15 @@ export type V2VisionAddSceneProps = {
   existingTiles?: V2VisionTile[];
   onPremiumRequired?: () => void;
   onCancel: () => void;
-  /** Adds the chosen image to the board. Resolves false when it could not be saved. */
+  /** Puts the chosen image on the board. Resolves false when it could not be saved. */
   onAdd: (choice: { assetId: string; prompt: string }) => Promise<boolean>;
   testID?: string;
 };
 
 /**
- * "Add to your Vision": the user describes another future moment around their Anchor.
- * Shares the input architecture with initial creation, renders generation directly
- * on their existing physical board, and transitions to candidate perspective selection.
+ * "Add to your Vision": describe another moment from this future, two come back,
+ * and tapping one places it on the board. The same language and the same two-to-one
+ * choice as creating the Vision, so there is nothing new to learn.
  */
 export function V2VisionAddScene({
   anchorId,
@@ -46,7 +43,6 @@ export function V2VisionAddScene({
   testID = 'v2-vision-add-scene',
 }: V2VisionAddSceneProps) {
   const arrival = useVisionImageArrival();
-  const reduceMotion = useV2ReduceMotion();
   const generation = useV2VisionSceneGeneration(anchorId, onPremiumRequired);
   const [step, setStep] = useState<Step>('describe');
   const [description, setDescription] = useState('');
@@ -54,53 +50,35 @@ export function V2VisionAddScene({
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const startingRef = useRef(false);
-  const referenceId = useRef<string | null>(null);
 
   const { job } = generation;
-  const candidates = useMemo(() => job?.candidates ?? [], [job?.candidates]);
   const trimmed = description.trim();
-
-  // Job status transitions
-  useEffect(() => {
-    if (!job) return;
-    if (['QUEUED', 'RUNNING', 'PARTIAL'].includes(job.status)) setStep('generating');
-    else if (job.status === 'FAILED') setStep(current => (current === 'choose' ? current : 'generating'));
-  }, [job?.id, job?.status]);
-
-  // Complete job with candidate images moves to choose step
-  const complete = job?.status === 'COMPLETE' && candidates.some(c => Boolean(c.imageUrl));
-  useEffect(() => {
-    if (!complete || step !== 'generating') return;
-    const timer = setTimeout(() => setStep('choose'), reduceMotion ? 300 : 1200);
-    return () => clearTimeout(timer);
-  }, [complete, reduceMotion, step]);
 
   const handleGenerate = async (sceneDescription: string, appearanceReferenceId?: string | null) => {
     setDescription(sceneDescription);
-    referenceId.current = appearanceReferenceId ?? null;
     if (startingRef.current) return;
     startingRef.current = true;
     setStarting(true);
     setNotice(null);
     try {
-      if (await generation.start(sceneDescription, appearanceReferenceId)) {
-        setStep('generating');
-      }
+      if (await generation.start(sceneDescription, appearanceReferenceId)) setStep('generating');
     } finally {
       startingRef.current = false;
       setStarting(false);
     }
   };
 
-  const handleAddSelected = async (candidate: VisionGenerationCandidate, source?: VisionImageRect) => {
+  const handleSelect = async (candidate: VisionGenerationCandidate, selection: VisionTwoUpSelection) => {
     if (!candidate.assetId || saving) return;
-    if (candidate.imageUrl && source) arrival?.begin(candidate.imageUrl, source);
+    if (candidate.imageUrl && selection.image) {
+      arrival?.begin(candidate.imageUrl, selection.image, anchorArt?.svg && selection.anchor
+        ? { svg: anchorArt.svg, category: anchorArt.category ?? anchorCategory, rect: selection.anchor } : undefined);
+    }
     setSaving(true);
     setNotice(null);
     try {
       const saved = await onAdd({ assetId: candidate.assetId, prompt: candidate.prompt || trimmed });
-      if (!saved) arrival?.cancel();
-      if (!saved) setNotice('The image could not be added to your Vision. Please try again.');
+      if (!saved) { arrival?.cancel(); setNotice('The image could not be added to your Vision. Please try again.'); }
     } catch (cause) {
       arrival?.cancel();
       setNotice(cause instanceof Error ? cause.message : 'The image could not be added to your Vision.');
@@ -111,42 +89,18 @@ export function V2VisionAddScene({
 
   if (step === 'generating') {
     return (
-      <View testID={`${testID}-generating`} style={{ flex: 1 }}>
-        <VisionGenerationBoard
-          mode="add"
-          anchorIntention={anchorIntention}
-          anchorCategory={anchorCategory}
-          anchorArt={anchorArt}
-          anchorImageUrl={anchorImageUrl}
-          job={job}
-          existingTiles={existingTiles}
-          onBack={onCancel}
-          onRetry={() => { void generation.retry(); }}
-          onEditDescription={() => setStep('describe')}
-          onReadyToSelect={() => setStep('choose')}
-          testID="v2-vision-add-scene-board"
-        />
-      </View>
-    );
-  }
-
-  if (step === 'choose') {
-    return (
-      <View testID={`${testID}-choose`} style={{ flex: 1 }}>
-        <VisionCandidateSelection
-          anchorIntention={anchorIntention}
-          anchorCategory={anchorCategory}
-          anchorArt={anchorArt}
-          anchorImageUrl={anchorImageUrl}
-          candidates={candidates}
-          onBack={() => setStep('describe')}
-          onConfirm={handleAddSelected}
-          onRegenerate={() => { void handleGenerate(trimmed, referenceId.current); }}
-          error={notice ?? generation.error}
-          isSaving={saving}
-          testID="v2-vision-add-scene-selection"
-        />
-      </View>
+      <VisionTwoUpStage
+        anchorIntention={anchorIntention}
+        anchorArt={anchorArt}
+        job={job}
+        busy={saving}
+        error={notice ?? generation.error}
+        onBack={() => setStep('describe')}
+        onRetry={() => { void generation.retry(); }}
+        onEditDescription={() => setStep('describe')}
+        onSelect={(candidate, selection) => { void handleSelect(candidate, selection); }}
+        testID={`${testID}-generating`}
+      />
     );
   }
 

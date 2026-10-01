@@ -1,20 +1,20 @@
 import { useMemo, useRef, useState } from 'react';
-import { ActionSheetIOS, Alert, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { ActionSheetIOS, Alert, Image, Keyboard, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { Compass, Eye, Image as ImageIcon, MapPin, PenLine, User as UserIcon, ChevronRight } from 'lucide-react-native';
-import { V2Button } from '@/components/v2';
-import { useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
+import { ChevronRight, Heart, MapPin, Plus, Sun, User as UserIcon } from 'lucide-react-native';
+import { v2Haptics } from '@/hooks/v2';
 import { useVisionAppearanceReference } from '@/hooks/v2/vision';
-import { colors, radii, spacing, typography } from '@/theme/v2';
-import { VisionHeaderRow, VisionIdentity, VisionStatusBarScrim, type VisionAnchorArt } from './VisionChrome';
-import { VisionImageEdge } from './VisionImageEdge';
-import { VISION_HERO_ASPECT } from './board/visionBoardLayouts';
-
+import { ChartKeyboardFrame } from '@/components/v2/chart/ChartKeyboardFrame';
+import { colors, getCategoryColor, radii, spacing } from '@/theme/v2';
+import { VisionIdentity, type VisionAnchorArt } from './VisionChrome';
+import { VisionBackButton, VisionInkPill, VisionKicker, VISION_GOLD, VISION_SERIF, VISION_SERIF_ITALIC } from './VisionPaperChrome';
 import { visionDescriptionExample, visionDetailHint, visionDetailLevel } from './visionGuidance';
 
 export interface VisionMomentInputProps {
   mode: 'create' | 'add';
+  /** 'photos' is the personal-photo path: no generation, no identity reference. */
+  variant?: 'generate' | 'photos';
   anchorId: string;
   anchorIntention: string;
   anchorCategory?: string | null;
@@ -34,21 +34,25 @@ export interface VisionMomentInputProps {
   textInputTestID?: string;
 }
 
+/** Three prompts, not a configuration form: they only start a sentence. */
 const PROMPT_CHIPS = [
   { key: 'where', label: 'Where are you?', icon: MapPin, cue: 'Where are you? ' },
-  { key: 'doing', label: 'What are you doing?', icon: PenLine, cue: 'What are you doing? ' },
-  { key: 'see', label: 'What can you see?', icon: Eye, cue: 'What can you see? ' },
-  { key: 'different', label: "What's different?", icon: Compass, cue: "What's different? " },
+  { key: 'doing', label: 'What are you doing?', icon: Sun, cue: 'What are you doing? ' },
+  { key: 'feel', label: 'How does it feel?', icon: Heart, cue: 'How does it feel? ' },
 ] as const;
 
+/**
+ * Screen 3: "What do you see?" It should read as authorship on paper, not as
+ * an AI settings form. The real Anchor, the person's intention, one field,
+ * three prompts, an optional identity reference, one action.
+ */
 export function VisionMomentInput({
   mode,
-  anchorId,
+  variant = 'generate',
   anchorIntention,
   anchorCategory,
   anchorArt,
   anchorImageUrl,
-  previewImageUrl,
   initialDescription = '',
   description: propDescription,
   onChangeDescription: propOnChangeDescription,
@@ -62,38 +66,30 @@ export function VisionMomentInput({
   textInputTestID,
 }: VisionMomentInputProps) {
   const insets = useSafeAreaInsets();
-  const { height } = useWindowDimensions();
-  const reduceMotion = useV2ReduceMotion();
   const [internalDescription, setInternalDescription] = useState(initialDescription);
   const description = propDescription !== undefined ? propDescription : internalDescription;
+  const [localNotice, setLocalNotice] = useState<string | null>(null);
   const setDescription = (text: string) => {
-    if (propOnChangeDescription) {
-      propOnChangeDescription(text);
-    } else {
-      setInternalDescription(text);
-    }
+    if (propOnChangeDescription) propOnChangeDescription(text);
+    else setInternalDescription(text);
     if (localNotice) setLocalNotice(null);
   };
 
   const [inputFocused, setInputFocused] = useState(false);
-  const [localNotice, setLocalNotice] = useState<string | null>(null);
   const inputRef = useRef<TextInput>(null);
-  const scrollRef = useRef<ScrollView>(null);
   const isCreate = mode === 'create';
+  const personalPhotos = isCreate && variant === 'photos';
+  const categoryColor = getCategoryColor(anchorCategory);
 
   const minChars = isCreate ? 12 : 6;
   const maxChars = isCreate ? 2000 : 400;
 
-  const example = useMemo(
-    () => visionDescriptionExample(anchorIntention, anchorCategory),
-    [anchorCategory, anchorIntention],
-  );
+  const example = useMemo(() => visionDescriptionExample(anchorIntention, anchorCategory), [anchorCategory, anchorIntention]);
   const hint = visionDetailHint(description);
   const level = visionDetailLevel(description);
 
   const appearance = useVisionAppearanceReference();
   const [useAppearance, setUseAppearance] = useState(true);
-
   const activeReferenceUrl = useMemo(() => {
     if (!useAppearance) return null;
     if (appearance.reference?.previewUrl) return appearance.reference.previewUrl;
@@ -118,24 +114,13 @@ export function VisionMomentInput({
     try {
       if (Platform.OS === 'ios') {
         const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (permission.status !== 'granted') {
-          setLocalNotice('Allow photo library access to add a reference photo.');
-          return;
-        }
+        if (permission.status !== 'granted') { setLocalNotice('Allow photo library access to add a reference photo.'); return; }
       }
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        quality: 0.9,
-        allowsEditing: false,
-      });
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.9, allowsEditing: false });
       const item = result.assets?.[0];
       if (result.canceled || !item) return;
-
       const next = await appearance.upload(item.uri, 'CUSTOM');
-      if (!next) {
-        setLocalNotice('Photo could not be used as a reference. Choose a clear photo of one person.');
-        return;
-      }
+      if (!next) { setLocalNotice('Photo could not be used as a reference. Choose a clear photo of one person.'); return; }
       setUseAppearance(true);
       setLocalNotice(null);
     } catch {
@@ -143,175 +128,132 @@ export function VisionMomentInput({
     }
   };
 
+  const removeReference = () => { void appearance.remove(); setUseAppearance(false); };
   const handleReferenceOptions = () => {
-    if (!activeReferenceUrl) {
-      void handlePickReferencePhoto();
-      return;
-    }
-
+    if (!activeReferenceUrl) { void handlePickReferencePhoto(); return; }
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: ['Cancel', 'Change Reference Photo', 'Remove Reference Photo'],
-          destructiveButtonIndex: 2,
-          cancelButtonIndex: 0,
-        },
-        buttonIndex => {
-          if (buttonIndex === 1) void handlePickReferencePhoto();
-          else if (buttonIndex === 2) {
-            void appearance.remove();
-            setUseAppearance(false);
-          }
-        },
+        { options: ['Cancel', 'Change Reference Photo', 'Remove Reference Photo'], destructiveButtonIndex: 2, cancelButtonIndex: 0 },
+        buttonIndex => { if (buttonIndex === 1) void handlePickReferencePhoto(); else if (buttonIndex === 2) removeReference(); },
       );
     } else {
-      Alert.alert(
-        'Reference Photo',
-        'Would you like to replace or remove this reference photo?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Remove',
-            style: 'destructive',
-            onPress: () => {
-              void appearance.remove();
-              setUseAppearance(false);
-            },
-          },
-          { text: 'Change Photo', onPress: () => void handlePickReferencePhoto() },
-        ],
-      );
+      Alert.alert('Reference Photo', 'Would you like to replace or remove this reference photo?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: removeReference },
+        { text: 'Change Photo', onPress: () => void handlePickReferencePhoto() },
+      ]);
     }
   };
 
   const handleSubmit = () => {
     if (!isValid || loading) return;
     Keyboard.dismiss();
-    const refId = useAppearance ? (appearance.reference?.id ?? null) : null;
+    const refId = !personalPhotos && useAppearance ? (appearance.reference?.id ?? null) : null;
     void onSubmit(trimmed, refId);
   };
 
-  const placeholderText =
-    customPlaceholder ?? (isCreate ? `Example: ${example}` : 'Describe the moment in detail...');
+  const placeholderText = customPlaceholder ?? (isCreate ? example : 'Describe the moment in detail...');
+  const kicker = isCreate ? 'CREATE YOUR VISION' : 'ADD TO YOUR VISION';
+  const title = personalPhotos ? 'What does your Vision look like?' : isCreate ? 'What do you see?' : 'What else do you see?';
+  const subtitle = personalPhotos
+    ? 'Describe what these images represent for you.'
+    : isCreate ? 'Describe the moment you want to see for this Anchor.' : 'Describe another moment from this future.';
+  const ctaLabel = personalPhotos ? 'Choose my photos' : 'Create my images';
+  const ctaA11y = personalPhotos ? 'Choose my photos' : isCreate ? 'Continue to create your Vision' : 'Generate image';
+  const footnote = personalPhotos ? 'You’ll choose from your own photos.' : 'You’ll choose what belongs in your Vision.';
+
+  const chips = (
+    <View style={inputFocused ? styles.chipsAccessory : styles.chipsRow}>
+      {PROMPT_CHIPS.map(({ key, label, icon: Icon, cue }) => (
+        <Pressable key={key} onPress={() => handleChipPress(cue)} accessibilityRole="button" accessibilityLabel={label}
+          style={({ pressed }) => [styles.chip, inputFocused && styles.chipAccessory, pressed && styles.chipPressed]}>
+          <Icon size={14} color={VISION_GOLD} strokeWidth={1.7} />
+          <Text style={styles.chipText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>{label}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+
+  const submit = (focusedState: boolean) => (
+    <VisionInkPill
+      testID={isCreate ? (focusedState ? 'vision-generate-focused' : 'vision-generate') : (focusedState ? 'vision-scene-generate-focused' : 'vision-scene-generate')}
+      label={loading ? 'Starting…' : ctaLabel}
+      accessibilityLabel={ctaA11y}
+      disabled={!isValid || loading}
+      onPress={handleSubmit}
+    />
+  );
+
+  const footer = inputFocused ? (
+    <View style={styles.footer}>
+      <ScrollView horizontal keyboardShouldPersistTaps="handled" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.accessoryScroll}>{chips}</ScrollView>
+      {submit(true)}
+    </View>
+  ) : (
+    <View style={styles.footer}>
+      {submit(false)}
+      {onAddPhotos && !personalPhotos ? (
+        <Pressable testID="vision-add-photos" accessibilityRole="button" accessibilityLabel="Add my own images" disabled={!isValid}
+          onPress={onAddPhotos} style={[styles.textAction, !isValid && styles.disabled]}>
+          <Text style={styles.textActionLabel}>Use my own photos instead</Text>
+        </Pressable>
+      ) : <Text style={styles.footnote}>{footnote}</Text>}
+    </View>
+  );
 
   return (
     <View testID={testID} style={styles.stage}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.ink.base} animated />
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView
-          ref={scrollRef}
-          style={styles.flex}
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingBottom: insets.bottom + (inputFocused ? spacing[3] : spacing[6]) },
-          ]}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Top Hero Section */}
-          <View style={styles.heroSection}>
-            <View style={styles.heroTint} pointerEvents="none" />
-            <View style={[styles.heroContent, { paddingTop: insets.top, paddingBottom: spacing[4] }]}>
-              <VisionHeaderRow
-                title={isCreate ? 'Create Vision' : 'Add Image'}
-                onBack={onBack}
-              />
-              <VisionIdentity
-                intention={anchorIntention}
-                category={anchorCategory}
-                art={anchorArt}
-                imageUrl={anchorImageUrl}
-                showAnchor={false}
-                tone="light"
-              />
-              {!isCreate && previewImageUrl ? <View style={{ aspectRatio: VISION_HERO_ASPECT, marginHorizontal: -spacing[5], overflow: 'hidden' }}>
-                <Image source={{ uri: previewImageUrl }} resizeMode="cover" accessibilityLabel="Your current Vision" style={StyleSheet.absoluteFill} />
-                <VisionImageEdge hero color={colors.ink.base} />
-              </View> : null}
-              <Text accessibilityRole="header" style={styles.heroTitle}>
-                {isCreate ? 'Describe your Vision' : 'Describe your image'}
-              </Text>
-              <Text style={styles.heroSubtitle}>
-                {isCreate
-                  ? 'Tell us what you want to see in your vision.'
-                  : 'Tell us what you want to see in your vision.'}
-              </Text>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.canvas} />
+      <ChartKeyboardFrame
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing[2] }]}
+        footer={footer}
+        footerStyle={styles.footerFrame}
+        restingBottom={spacing[3]}
+      >
+        <VisionBackButton onPress={onBack} style={styles.back} />
+        <View style={styles.header}>
+          <VisionKicker>{kicker}</VisionKicker>
+          <Text accessibilityRole="header" style={styles.title}>{title}</Text>
+          <Text style={styles.subtitle}>{subtitle}</Text>
+        </View>
 
-              {/* Four guidance chips */}
-              {isCreate ? <View style={styles.chipsContainer}>
-                <View style={styles.chipsRow}>
-                  {PROMPT_CHIPS.slice(0, 2).map(({ key, label, icon: Icon, cue }) => (
-                    <Pressable
-                      key={key}
-                      onPress={() => handleChipPress(cue)}
-                      accessibilityRole="button"
-                      accessibilityLabel={label}
-                      style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}
-                    >
-                      <Icon size={14} color="#FFFFFF" />
-                      <Text style={styles.chipText} numberOfLines={1}>
-                        {label}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-                <View style={styles.chipsRow}>
-                  {PROMPT_CHIPS.slice(2, 4).map(({ key, label, icon: Icon, cue }) => (
-                    <Pressable
-                      key={key}
-                      onPress={() => handleChipPress(cue)}
-                      accessibilityRole="button"
-                      accessibilityLabel={label}
-                      style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}
-                    >
-                      <Icon size={14} color="#FFFFFF" />
-                      <Text style={styles.chipText} numberOfLines={1}>
-                        {label}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </View> : null}
-            </View>
-          </View>
+        <View style={styles.anchorCard} testID={`${testID}-anchor`}>
+          <View style={[styles.accentBar, { backgroundColor: categoryColor }]} />
+          <VisionIdentity intention={anchorIntention} category={anchorCategory} art={anchorArt} imageUrl={anchorImageUrl} showAnchor size={58} tone="dark" />
+        </View>
 
-          {/* Lower Input Section */}
-          <View style={styles.bodySection}>
-            <View style={[styles.inputFrame, inputFocused && styles.inputFrameFocused]}>
-              <TextInput
-                ref={inputRef}
-                testID={textInputTestID ?? (isCreate ? 'vision-prompt-input' : 'vision-scene-input')}
-                accessibilityLabel={isCreate ? 'Vision description' : 'Describe the scene'}
-                accessibilityHint="Describe one ordinary moment from this future."
-                multiline
-                maxLength={maxChars}
-                value={description}
-                onChangeText={setDescription}
-                placeholder={placeholderText}
-                placeholderTextColor={colors.text.disabled}
-                onFocus={() => setInputFocused(true)}
-                onBlur={() => setInputFocused(false)}
-                style={[styles.textInput, { minHeight: 120, maxHeight: Math.max(160, Math.min(220, height * 0.28)) }]}
-                textAlignVertical="top"
-                scrollEnabled
-              />
-            </View>
+        <View style={[styles.inputFrame, inputFocused && styles.inputFrameFocused]}>
+          <TextInput
+            ref={inputRef}
+            testID={textInputTestID ?? (isCreate ? 'vision-prompt-input' : 'vision-scene-input')}
+            accessibilityLabel={isCreate ? 'Vision description' : 'Describe the scene'}
+            accessibilityHint="Describe one ordinary moment from this future."
+            multiline
+            maxLength={maxChars}
+            value={description}
+            onChangeText={setDescription}
+            placeholder={placeholderText}
+            placeholderTextColor="rgba(23,23,23,0.42)"
+            onFocus={() => setInputFocused(true)}
+            onBlur={() => setInputFocused(false)}
+            style={styles.textInput}
+            textAlignVertical="top"
+            scrollEnabled
+          />
+        </View>
 
-            <View style={styles.meter}>
-              <Text
-                testID="vision-detail-hint"
-                style={[styles.meterHint, level === 'rich' && { color: colors.semantic.success }]}
-                numberOfLines={2}
-              >
-                {hint ?? 'Where you are · what you’re doing · what you see · what’s different'}
-              </Text>
-              <Text style={styles.counterText}>
-                {description.length}/{maxChars}
-              </Text>
-            </View>
+        <View style={styles.meter}>
+          <Text testID="vision-detail-hint" style={[styles.meterHint, level === 'rich' && { color: colors.semantic.success }]} numberOfLines={2}>
+            {hint ?? 'Where you are · what you’re doing · how it feels'}
+          </Text>
+          <Text style={styles.counterText}>{description.length} / {maxChars}</Text>
+        </View>
 
-            {/* Make it look like you reference photo card */}
+        {!inputFocused ? chips : null}
+
+        {!personalPhotos && !inputFocused ? (
+          <>
+            <View style={styles.divider} />
             <Pressable
               testID={`${testID}-reference-card`}
               onPress={handleReferenceOptions}
@@ -319,248 +261,88 @@ export function VisionMomentInput({
               accessibilityLabel="Make it look like you reference photo"
               style={({ pressed }) => [styles.referenceCard, pressed && styles.cardPressed]}
             >
-              <View style={styles.referenceIconWell}>
-                <UserIcon size={18} color={colors.ink.text.primary} />
-              </View>
+              <UserIcon size={26} color={colors.text.primary} strokeWidth={1.5} />
               <View style={styles.referenceCopy}>
                 <Text style={styles.referenceTitle}>Make it look like you</Text>
-                <Text style={styles.referenceSubtitle}>Optional — add a reference photo</Text>
+                <Text style={styles.referenceSubtitle}>Optional · Add photos of yourself for more personal images.</Text>
               </View>
               {activeReferenceUrl ? (
-                <View style={styles.thumbWrapper}>
-                  <Image source={{ uri: activeReferenceUrl }} style={styles.referenceThumb} />
-                  <ChevronRight size={16} color={colors.ink.text.tertiary} style={styles.thumbChevron} />
-                </View>
+                <Image source={{ uri: activeReferenceUrl }} style={styles.referenceThumb} accessibilityLabel="Your reference photo" />
               ) : (
-                <ChevronRight size={18} color={colors.ink.text.tertiary} />
+                <View style={styles.silhouettes} accessible={false}>
+                  {[0, 1, 2].map(index => (
+                    <View key={index} style={[styles.silhouette, { marginLeft: index === 0 ? 0 : -14 }]}>
+                      <UserIcon size={18} color={colors.text.disabled} strokeWidth={1.5} />
+                    </View>
+                  ))}
+                  <View style={styles.plusBadge}><Plus size={14} color={colors.text.primary} /></View>
+                </View>
               )}
+              <ChevronRight size={18} color={colors.text.secondary} />
             </Pressable>
-
-            {/* Error & Notices */}
-            {(localNotice || error) && (
-              <Text accessibilityLiveRegion="polite" style={styles.errorText}>
-                {localNotice ?? error}
-              </Text>
-            )}
-
-            {/* CTA Button */}
-            {!inputFocused ? (
-              <>
-                <V2Button
-                  testID={isCreate ? 'vision-generate' : 'vision-scene-generate'}
-                  size="large"
-                  variant="secondary"
-                  accessibilityLabel={isCreate ? 'Continue to create your Vision' : 'Generate image'}
-                  disabled={!isValid || loading}
-                  loading={loading}
-                  onPress={handleSubmit}
-                  style={styles.submitButton}
-                >
-                  {isCreate ? 'Continue' : 'Generate image →'}
-                </V2Button>
-
-                {onAddPhotos && (
-                  <Pressable
-                    testID="vision-add-photos"
-                    accessibilityRole="button"
-                    accessibilityLabel="Add my own images"
-                    disabled={!isValid}
-                    onPress={onAddPhotos}
-                    style={[styles.textAction, !isValid && styles.disabled]}
-                  >
-                    <ImageIcon size={15} color={colors.ink.text.secondary} />
-                    <Text style={styles.textActionLabel}>Use my own photos instead</Text>
-                  </Pressable>
-                )}
-              </>
-            ) : null}
-          </View>
-        </ScrollView>
-
-        {/* Focused Floating Footer */}
-        {inputFocused ? (
-          <View style={[styles.focusedFooter, { paddingBottom: Math.max(insets.bottom, spacing[2]) }]}>
-            <V2Button
-              testID={isCreate ? 'vision-generate-focused' : 'vision-scene-generate-focused'}
-              size="large"
-              variant="secondary"
-              accessibilityLabel={isCreate ? 'Continue to create your Vision' : 'Generate image'}
-              disabled={!isValid || loading}
-              loading={loading}
-              onPress={handleSubmit}
-              style={styles.submitButton}
-            >
-              {isCreate ? 'Continue' : 'Generate image →'}
-            </V2Button>
-          </View>
+          </>
         ) : null}
-      </KeyboardAvoidingView>
-      <VisionStatusBarScrim />
+
+        {(localNotice || error) ? (
+          <Text accessibilityLiveRegion="polite" style={styles.errorText}>{localNotice ?? error}</Text>
+        ) : null}
+      </ChartKeyboardFrame>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  stage: { flex: 1, backgroundColor: colors.ink.base },
-  scrollContent: { flexGrow: 1 },
-  heroSection: { width: '100%' },
-  heroTint: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.ink.base, opacity: 0.52 },
-  heroContent: { paddingHorizontal: spacing[5], gap: spacing[3] },
-  heroTitle: {
-    ...typography.headingLG,
-    color: colors.ink.text.primary,
-    marginTop: spacing[3],
+  stage: { flex: 1, backgroundColor: colors.canvas },
+  content: { paddingHorizontal: spacing[4], paddingBottom: spacing[4], gap: spacing[3] },
+  back: { alignSelf: 'flex-start' },
+  header: { alignItems: 'center', gap: spacing[3], paddingHorizontal: spacing[2], marginBottom: spacing[1] },
+  title: { alignSelf: 'stretch', fontFamily: VISION_SERIF, fontSize: 35, lineHeight: 39, letterSpacing: -0.7, textAlign: 'center', color: colors.text.primary },
+  subtitle: { fontFamily: 'Inter-Regular', fontSize: 15, lineHeight: 21, textAlign: 'center', color: colors.text.secondary, maxWidth: 300 },
+  anchorCard: {
+    flexDirection: 'row', alignItems: 'center', paddingVertical: spacing[3], paddingRight: spacing[4], paddingLeft: spacing[5],
+    borderRadius: radii.md, backgroundColor: colors.grouped, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border.default, overflow: 'hidden',
   },
-  heroSubtitle: {
-    ...typography.bodyMD,
-    color: 'rgba(255, 255, 255, 0.85)',
-    maxWidth: 320,
-    lineHeight: 22,
-  },
-  chipsContainer: {
-    marginTop: spacing[2],
-    gap: spacing[2],
-  },
-  chipsRow: {
-    flexDirection: 'row',
-    gap: spacing[2],
-  },
+  accentBar: { position: 'absolute', left: spacing[3], top: spacing[3], bottom: spacing[3], width: 3, borderRadius: 2 },
+  inputFrame: { borderRadius: radii.lg, borderWidth: 1, borderColor: colors.text.primary, backgroundColor: colors.surface },
+  inputFrameFocused: { borderColor: VISION_GOLD },
+  textInput: { fontFamily: VISION_SERIF_ITALIC, fontSize: 20, lineHeight: 28, color: colors.text.primary, minHeight: 124, maxHeight: 200, padding: spacing[4] },
+  meter: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing[3] },
+  meterHint: { flex: 1, fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.text.secondary },
+  counterText: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.text.secondary },
+  chipsRow: { flexDirection: 'row', gap: spacing[2] },
+  chipsAccessory: { flexDirection: 'row', gap: spacing[2] },
+  accessoryScroll: { paddingBottom: spacing[1] },
   chip: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 9,
-    paddingHorizontal: 12,
-    borderRadius: radii.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, minHeight: 44, paddingHorizontal: 6, borderRadius: radii.pill,
+    backgroundColor: colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border.default,
   },
-  chipPressed: {
-    opacity: 0.75,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
-  },
-  chipText: {
-    ...typography.labelSM,
-    color: '#FFFFFF',
-    fontSize: 12,
-    flexShrink: 1,
-  },
-  bodySection: {
-    paddingHorizontal: spacing[5],
-    paddingTop: spacing[4],
-    gap: spacing[3],
-    backgroundColor: colors.ink.base,
-  },
-  inputFrame: {
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.ink.hairlineStrong,
-    backgroundColor: colors.ink.raised,
-    padding: spacing[3],
-  },
-  inputFrameFocused: {
-    borderColor: colors.text.primary,
-  },
-  textInput: {
-    ...typography.bodyLG,
-    color: colors.ink.text.primary,
-    lineHeight: 24,
-  },
-  counterRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: -spacing[1],
-  },
-  counterText: {
-    ...typography.caption,
-    color: colors.ink.text.tertiary,
-    fontSize: 12,
-  },
+  chipAccessory: { flex: 0, paddingHorizontal: spacing[3] },
+  chipPressed: { opacity: 0.7 },
+  chipText: { fontFamily: 'Inter-Regular', fontSize: 11.5, lineHeight: 15, color: colors.text.primary, flexShrink: 1 },
+  divider: { height: StyleSheet.hairlineWidth * 2, backgroundColor: VISION_GOLD, opacity: 0.5, marginTop: spacing[1] },
   referenceCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[3],
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.ink.hairlineStrong,
-    backgroundColor: colors.ink.raised,
+    flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingVertical: spacing[3], paddingHorizontal: spacing[4], borderRadius: radii.lg,
+    backgroundColor: colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border.default,
   },
-  cardPressed: {
-    opacity: 0.8,
+  cardPressed: { opacity: 0.85 },
+  referenceCopy: { flex: 1, gap: 2 },
+  referenceTitle: { fontFamily: VISION_SERIF, fontSize: 19, lineHeight: 24, color: colors.text.primary },
+  referenceSubtitle: { fontFamily: 'Inter-Regular', fontSize: 12, lineHeight: 16, color: colors.text.secondary },
+  referenceThumb: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.grouped },
+  silhouettes: { flexDirection: 'row', alignItems: 'center' },
+  silhouette: {
+    width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.grouped, borderWidth: 2, borderColor: colors.surface,
   },
-  referenceIconWell: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.ink.base,
+  plusBadge: {
+    width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', marginLeft: -10, marginTop: 16,
+    backgroundColor: colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border.strong,
   },
-  referenceCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  referenceTitle: {
-    ...typography.labelMD,
-    color: colors.ink.text.primary,
-    fontWeight: '600',
-  },
-  referenceSubtitle: {
-    ...typography.caption,
-    color: colors.ink.text.secondary,
-    fontSize: 12,
-  },
-  thumbWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  referenceThumb: {
-    width: 36,
-    height: 36,
-    borderRadius: radii.sm,
-  },
-  thumbChevron: {
-    marginLeft: 2,
-  },
-  errorText: {
-    ...typography.caption,
-    color: colors.semantic.error,
-    textAlign: 'center',
-  },
-  submitButton: {
-    marginTop: spacing[2],
-  },
-  addPhotosAction: {
-    alignItems: 'center',
-    paddingVertical: spacing[3],
-  },
-  addPhotosText: {
-    ...typography.labelMD,
-    color: colors.ink.text.secondary,
-    textDecorationLine: 'underline',
-  },
-  meter: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing[3], marginTop: -spacing[1] },
-  meterHint: { ...typography.caption, color: colors.ink.text.secondary, flex: 1 },
-  textAction: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing[2], minHeight: 44 },
-  textActionLabel: { ...typography.labelMD, color: colors.ink.text.secondary },
-  disabled: {
-    opacity: 0.45,
-  },
-  focusedFooter: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: spacing[5],
-    paddingTop: spacing[2],
-    backgroundColor: colors.ink.base,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border.default,
-  },
+  errorText: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.semantic.error },
+  footerFrame: { backgroundColor: colors.canvas, paddingHorizontal: spacing[4], paddingTop: spacing[2] },
+  footer: { gap: spacing[2] },
+  footnote: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, textAlign: 'center', color: colors.text.secondary },
+  textAction: { minHeight: 36, alignItems: 'center', justifyContent: 'center' },
+  textActionLabel: { fontFamily: 'Inter-Regular', fontSize: 13, color: colors.text.secondary, textDecorationLine: 'underline' },
+  disabled: { opacity: 0.45 },
 });

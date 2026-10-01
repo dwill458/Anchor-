@@ -234,51 +234,29 @@ describe('V2VisionScreen', () => {
     expect(view.getByTestId('vision-edit-description').props.value).toBe('A quiet, sunlit workspace with completed projects.');
   });
 
-  it('records seen-today only after Begin Visualize is pressed', async () => {
-    (apiClient.get as jest.Mock).mockResolvedValueOnce({
-      data: { ...mockVisionData, seenToday: false },
-    });
-    (apiClient.post as jest.Mock).mockResolvedValueOnce({
-      data: { seenToday: true },
-    });
-
-    const { findByLabelText } = render(<V2VisionScreen anchorId="anchor-1" onVisualize={jest.fn()} />);
-
-    const begin = await findByLabelText('Begin Visualize');
-    expect(apiClient.post).not.toHaveBeenCalledWith(
-      expect.stringContaining('/api/v2/visions/vision-101/view'),
-      expect.anything(),
-    );
-    fireEvent.press(begin);
-
-    await waitFor(() => {
-      expect(apiClient.post).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v2/visions/vision-101/view'),
-        expect.objectContaining({ timeZone: expect.any(String) }),
-      );
-    });
+  it('hands Begin Visualize to the host without recording a view or starting a session of its own', async () => {
+    (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: { ...mockVisionData, seenToday: false } });
+    const onVisualize = jest.fn();
+    const { findByLabelText, queryByTestId } = render(<V2VisionScreen anchorId="anchor-1" onVisualize={onVisualize} />);
+    fireEvent.press(await findByLabelText('Begin Visualize'));
+    expect(onVisualize).toHaveBeenCalledWith(expect.objectContaining({ visionId: 'vision-101', hasVision: true }));
+    expect(queryByTestId('canonical-visualize')).toBeNull();
+    expect(apiClient.post).not.toHaveBeenCalledWith(expect.stringContaining('/view'), expect.anything());
   });
 
-  it('starts the canonical session directly with the exact prewarmed snapshot and returns to Vision', async () => {
-    useAuthStore.setState({ user: { id: 'account-1' } as any });
+  it('opens the one canonical Visualize setup, where the duration is chosen, instead of starting a session', async () => {
+    mockNavigate.mockClear();
     (apiClient.get as jest.Mock).mockResolvedValue({ data: mockVisionData });
-    (apiClient.post as jest.Mock).mockResolvedValue({ data: { seenToday: true } });
     const view = render(<V2VisionScreen anchorId="anchor-1" />);
     await view.findByTestId('v2-vision-screen');
     const begin = view.getByLabelText('Begin Visualize');
-    expect(begin.props.accessibilityState.disabled).toBe(true);
-    await waitFor(() => expect(mockPreparationProps.prepareOnly).toBe(true));
-    const assets = { tiles: [{ sceneId: 'sc-1', imageUrl: 'https://example.com/art1.jpg' }], images: [{}], enhancedAnchor: null };
-    const snapshot = { anchor: mockAnchor, statement: mockVisionData.description, assets, markLocal: { x: 1, y: 2, width: 10, height: 10 }, viewport: { width: 384, height: 832 } };
-    act(() => mockPreparationProps.onPrepared(snapshot));
-    expect(view.getByLabelText('Begin Visualize').props.accessibilityState.disabled).toBe(false);
-    fireEvent.press(view.getByLabelText('Begin Visualize'));
-    expect(view.getByTestId('canonical-visualize')).toBeTruthy();
-    expect(mockPracticeProps.mode).toBe('visualize');
-    expect(mockPracticeProps.preparedVisualize.assets).toBe(assets);
-    expect(mockPracticeProps.preparedVisualize.beginAtMs).toEqual(expect.any(Number));
-    act(() => mockPracticeProps.onCompleted());
-    expect(view.getByTestId('v2-vision-screen')).toBeTruthy();
+    expect(begin.props.accessibilityState?.disabled).toBeFalsy();
+    fireEvent.press(begin);
+    expect(mockNavigate).toHaveBeenCalledWith('V2Practice', {
+      anchorId: 'anchor-1', resumeMode: 'visualize', resumeSource: 'practice_hub', returnRoute: 'V2Vision',
+    });
+    expect(view.queryByTestId('canonical-visualize')).toBeNull();
+    expect(mockPracticeProps).toBeUndefined();
   });
 
   it('clamps long statements and lets the person expand and collapse the real text', async () => {

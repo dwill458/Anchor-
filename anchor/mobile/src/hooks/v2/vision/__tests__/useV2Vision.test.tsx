@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 const mockGet = jest.fn();
 const mockPost = jest.fn();
+const mockPut = jest.fn();
 const mockPersistedGet = jest.fn();
 
 jest.mock('@/stores/encryptedPersistStorage', () => ({
@@ -18,6 +19,7 @@ jest.mock('@/services/ApiClient', () => ({
   apiClient: {
     get: (...args: unknown[]) => mockGet(...args),
     post: (...args: unknown[]) => mockPost(...args),
+    put: (...args: unknown[]) => mockPut(...args),
   },
   ApiClientError: class MockApiClientError extends Error {
     status?: number;
@@ -244,5 +246,48 @@ describe('useV2Vision', () => {
     });
 
     expect(uploadResult).toEqual({ ok: false, message: 'base64Image is malformed or exceeds the 5MB limit' });
+  });
+});
+
+describe('useV2Vision across screens', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPersistedGet.mockResolvedValue(null);
+    useAuthStore.setState({ user: { id: 'vision-sync-user' } as never });
+    resetV2VisionReadCache();
+  });
+
+  const twoScenes = (order: [number, number]) => {
+    const base = vision('vision-1');
+    const scene = (id: string, sortOrder: number) => ({ ...base.scenes[0], id, assetId: `asset-${id}`, resolvedImageUrl: `https://cdn.example.com/${id}.jpg`, sortOrder });
+    return { ...base, scenes: [scene('dashboard', order[0]), scene('app-store', order[1])] };
+  };
+
+  it('shows a reorder made on one screen on every other screen for that Anchor', async () => {
+    mockGet.mockResolvedValueOnce(envelope(twoScenes([0, 1])));
+    const practice = renderHook(() => useV2Vision('anchor-1'));
+    await waitFor(() => expect(practice.result.current.tiles.map(tile => tile.sceneId)).toEqual(['dashboard', 'app-store']));
+    const visionScreen = renderHook(() => useV2Vision('anchor-1'));
+    await waitFor(() => expect(visionScreen.result.current.vision?.id).toBe('vision-1'));
+
+    // The person puts the App Store image first on the Vision screen.
+    mockPut.mockResolvedValueOnce({ data: { success: true, data: [] } });
+    mockGet.mockResolvedValue(envelope(twoScenes([1, 0])));
+    await act(async () => {
+      await visionScreen.result.current.reorderScenes([{ id: 'app-store', sortOrder: 0 }, { id: 'dashboard', sortOrder: 1 }]);
+    });
+
+    await waitFor(() => expect(visionScreen.result.current.tiles.map(tile => tile.sceneId)).toEqual(['app-store', 'dashboard']));
+    // Practice's own copy followed, so Visualize cannot open on the previous hero.
+    await waitFor(() => expect(practice.result.current.tiles.map(tile => tile.sceneId)).toEqual(['app-store', 'dashboard']));
+    expect(practice.result.current.tiles[0].isHero).toBe(true);
+  });
+
+  it('does not leak a read from one Anchor into another', async () => {
+    mockGet.mockImplementation((url: string) => Promise.resolve(envelope(vision(url.includes('/anchor-a/') ? 'vision-anchor-a' : 'vision-anchor-b'))));
+    const a = renderHook(() => useV2Vision('anchor-a'));
+    const b = renderHook(() => useV2Vision('anchor-b'));
+    await waitFor(() => expect(a.result.current.vision?.id).toBe('vision-anchor-a'));
+    await waitFor(() => expect(b.result.current.vision?.id).toBe('vision-anchor-b'));
   });
 });

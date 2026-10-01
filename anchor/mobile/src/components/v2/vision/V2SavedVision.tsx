@@ -194,7 +194,7 @@ export function V2SavedVision({
   };
 
   const header = (
-    <VisionHeaderRow title={mode === 'edit' ? 'Edit Vision' : 'Vision'}
+    <VisionHeaderRow title={mode === 'edit' ? 'Edit Vision' : 'Vision'} serifTitle
       tone="dark" onBack={mode === 'view' ? onBack : () => { setMode('view'); setNotice(null); setDraft(description); }}
       utility={mode === 'view' ? (
         <Pressable accessibilityRole="button" accessibilityLabel="Vision options" hitSlop={8} onPress={() => setMenuOpen(value => !value)} style={styles.menuButton}>
@@ -212,7 +212,7 @@ export function V2SavedVision({
             <StatusBar barStyle="dark-content" backgroundColor={colors.canvas} />
             <View style={styles.bandContent}>
               {header}
-              <VisionIdentity intention={anchorIntention} category={anchorCategory} art={anchorArt} imageUrl={anchorImageUrl} showAnchor={false} tone="dark" />
+              <VisionIdentity intention={anchorIntention} category={anchorCategory} art={anchorArt} imageUrl={anchorImageUrl} showAnchor={false} serif tone="dark" />
             </View>
             {mode === 'view' ? (
               <View style={styles.boardWrap}>
@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
   menuItem: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
   archiveText: { ...typography.labelMD, color: colors.semantic.error },
   body: { paddingHorizontal: PAGE_GUTTER, paddingTop: spacing[3], gap: spacing[2] },
-  heading: { ...typography.headingMD, color: colors.text.primary },
+  heading: { fontFamily: 'EBGaramond-Medium', fontSize: 28, lineHeight: 34, letterSpacing: -0.4, color: colors.text.primary },
   description: { ...typography.bodyMD, color: colors.text.primary, lineHeight: 23 },
   visualize: { marginTop: spacing[2] },
   pressed: { opacity: 0.72 },

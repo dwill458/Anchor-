@@ -41,6 +41,8 @@ export type VisionBoardPhotoProps = {
   testID?: string;
   /** Optional cinematic owner; ordinary board gestures and presence remain unchanged. */
   cinematicOpacity?: SharedValue<number>;
+  /** 0 to 1: the paper edges travel from cream to ink (the Visualize setup darkening into its session). */
+  edgeDarken?: SharedValue<number>;
 };
 
 function kindWeight(kind: number, target: number) {
@@ -52,7 +54,7 @@ function kindWeight(kind: number, target: number) {
 export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   sceneId, imageUrl, uploaded = false, displayAspect = 1.12, hero = false, accessibilityLabel, initialRect, entering, exiting, shared, reduceMotion,
   interactive, dragEnabled, onPress, onDragActive, onSwap, onOrderCommit, onExited, onMove,
-  canMoveEarlier = false, canMoveLater = false, testID, cinematicOpacity,
+  canMoveEarlier = false, canMoveLater = false, testID, cinematicOpacity, edgeDarken,
 }: VisionBoardPhotoProps) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const arrival = useVisionImageArrival();
@@ -268,7 +270,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
         ) : (
           <View style={styles.unavailable}><Text style={styles.unavailableText}>Image unavailable</Text></View>
         )}
-        <VisionImageEdge hero={hero} />
+        <VisionImageEdge hero={hero} darken={edgeDarken} />
       </Animated.View>
     </Animated.View>
   );

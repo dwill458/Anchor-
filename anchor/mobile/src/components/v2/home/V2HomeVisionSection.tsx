@@ -13,14 +13,9 @@ type Props = {
   testID?: string;
 };
 
-/** Home distinguishes confirmed empty, loading, error, and saved Vision. */
-function V2HomeVisionSectionComponent({ vision, categoryColor, onOpenVision, onRetry, testID }: Props) {
-  if (vision.state !== 'ready') return <View testID={testID ?? `v2-home-vision-${vision.state}`} style={styles.container}>
-    <Text style={styles.title}>Your Vision</Text>
-    <Text style={[styles.seen, { marginTop: 8 }]}>{vision.state === 'loading' ? 'Loading your Vision�' : vision.state === 'error' ? 'Your Vision could not load.' : 'See where this is going.'}</Text>
-    {vision.state !== 'loading' ? <Pressable accessibilityRole="button" onPress={vision.state === 'error' ? onRetry : onOpenVision}
-      style={{ minHeight: 44, justifyContent: 'center' }}><Text style={styles.seen}>{vision.state === 'error' ? 'Retry Vision' : 'Create Vision'}</Text></Pressable> : null}
-  </View>;
+/** Home shows Vision only when this Anchor has one; empty, loading and error render nothing. */
+function V2HomeVisionSectionComponent({ vision, categoryColor, onOpenVision, testID }: Props) {
+  if (vision.state !== 'ready') return null;
 
   const heroImage = resolveVisionHeroImage(vision);
   const title = vision.title?.trim();

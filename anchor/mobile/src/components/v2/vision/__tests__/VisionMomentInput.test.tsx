@@ -36,18 +36,40 @@ describe('VisionMomentInput', () => {
     });
   });
 
-  it('renders hero title and guidance chips in create mode', () => {
-    const { getByText, getByLabelText } = render(<VisionMomentInput {...defaultProps} />);
-    expect(getByText('Describe your Vision')).toBeTruthy();
+  it('renders the authorship title and exactly three guidance prompts in create mode', () => {
+    const { getByText, getByLabelText, queryByLabelText } = render(<VisionMomentInput {...defaultProps} />);
+    expect(getByText('What do you see?')).toBeTruthy();
+    expect(getByText('CREATE YOUR VISION')).toBeTruthy();
     expect(getByLabelText('Where are you?')).toBeTruthy();
     expect(getByLabelText('What are you doing?')).toBeTruthy();
-    expect(getByLabelText('What can you see?')).toBeTruthy();
-    expect(getByLabelText("What's different?")).toBeTruthy();
+    expect(getByLabelText('How does it feel?')).toBeTruthy();
+    expect(queryByLabelText('What can you see?')).toBeNull();
+    expect(queryByLabelText("What's different?")).toBeNull();
+  });
+
+  it('shows the intention, word coaching with the counter, and the optional reference', () => {
+    const { getByText, getByTestId, getByLabelText } = render(<VisionMomentInput {...defaultProps} />);
+    expect(getByText('I build what matters.')).toBeTruthy();
+    const text = 'I open my laptop and see ten thousand active users for my app today.';
+    fireEvent.changeText(getByTestId('vision-prompt-input'), text);
+    expect(getByTestId('vision-detail-hint').props.children).toBe('14 words · Add a little more detail for stronger images');
+    expect(getByText(`${text.length} / 2000`)).toBeTruthy();
+    expect(getByText('Optional · Add photos of yourself for more personal images.')).toBeTruthy();
+    expect(getByLabelText('Make it look like you reference photo')).toBeTruthy();
+    expect(getByText('You’ll choose what belongs in your Vision.')).toBeTruthy();
+  });
+
+  it('uses the personal-photo variant without a reference or a generation promise', () => {
+    const { getByText, queryByText, queryByLabelText } = render(<VisionMomentInput {...defaultProps} variant="photos" />);
+    expect(getByText('What does your Vision look like?')).toBeTruthy();
+    expect(getByText('Choose my photos')).toBeTruthy();
+    expect(queryByText('Make it look like you')).toBeNull();
+    expect(queryByLabelText('Make it look like you reference photo')).toBeNull();
   });
 
   it('renders hero title for add mode', () => {
     const { getByText } = render(<VisionMomentInput {...defaultProps} mode="add" />);
-    expect(getByText('Describe your image')).toBeTruthy();
+    expect(getByText('What else do you see?')).toBeTruthy();
   });
 
   it('appends guidance cue to text input when chip is tapped', () => {

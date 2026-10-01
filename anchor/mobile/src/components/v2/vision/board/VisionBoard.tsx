@@ -187,6 +187,7 @@ export function VisionBoard({
           intention={intention}
           category={category}
           art={art}
+          markAppearance="paper"
           reduceMotion={reduceMotion}
           interactive
           dragEnabled={!focus && !busy && count > 1}

@@ -60,6 +60,20 @@ function resolveUserTimeZone(): string {
  */
 const visionReadCache = new Map<string, VisionReadModel | null>();
 const persistedVisionReads = new Map<string, Promise<VisionReadModel | null | undefined>>();
+type VisionReadListener = (key: string, value: VisionReadModel | null) => void;
+const visionReadListeners = new Set<VisionReadListener>();
+
+/**
+ * Writes a Vision read and tells every mounted `useV2Vision` for that Anchor.
+ * Home, Practice and the Vision screen each hold their own copy of the read;
+ * without this a reorder made on the Vision screen left the others showing the
+ * previous order (and a different hero image) until they next refetched.
+ */
+function setVisionRead(key: string, value: VisionReadModel | null): void {
+  visionReadCache.set(key, value);
+  visionReadListeners.forEach(listener => listener(key, value));
+}
+
 const currentAccountId = () => useAuthStore.getState().user?.id ?? null;
 const visionCacheKey = (anchorId: string, accountId = currentAccountId()) => `${accountId ?? 'anonymous'}:${anchorId}`;
 const visionStorageKey = (anchorId: string, accountId: string) =>
@@ -105,7 +119,7 @@ async function restoreVisionRead(anchorId: string, accountId: string | null): Pr
 
   const restored = await pending;
   if (visionReadCache.has(key)) return visionReadCache.get(key) ?? null;
-  if (restored !== undefined) visionReadCache.set(key, restored);
+  if (restored !== undefined) setVisionRead(key, restored);
   return restored;
 }
 
@@ -139,7 +153,7 @@ function requestV2Vision(anchorId: string, signal?: AbortSignal, accountId = cur
         { params: { timeZone }, signal },
       );
       const data = visionApiData<VisionReadModel | null>(response);
-      visionReadCache.set(key, data);
+      setVisionRead(key, data);
       persistVisionRead(anchorId, accountId, data);
       span({ ok: true });
       return data;
@@ -148,7 +162,7 @@ function requestV2Vision(anchorId: string, signal?: AbortSignal, accountId = cur
         (err instanceof ApiClientError ? err.status : undefined) ??
         (typeof err === 'object' && err !== null ? (err as { status?: number }).status : undefined);
       if (status === 404) {
-        visionReadCache.set(key, null);
+        setVisionRead(key, null);
         persistVisionRead(anchorId, accountId, null);
       }
       span({ ok: status === 404, status: status ?? null });
@@ -215,11 +229,21 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
     };
   }, []);
 
+  // Stay in step with reads made by other screens for this Anchor.
+  useEffect(() => {
+    const listener: VisionReadListener = (changedKey, value) => {
+      if (changedKey !== currentCacheKey.current || !isMountedRef.current) return;
+      setVision(previous => (sameVision(previous, value) ? previous : value));
+    };
+    visionReadListeners.add(listener);
+    return () => { visionReadListeners.delete(listener); };
+  }, []);
+
   /** Every server read lands here: cached for the next mount, and identity kept when unchanged. */
   const commitVision = useCallback((next: VisionReadModel | null, forAnchorId: string, forAccountId = accountId) => {
     if (forAnchorId) {
       const forKey = visionCacheKey(forAnchorId, forAccountId);
-      visionReadCache.set(forKey, next);
+      setVisionRead(forKey, next);
       persistVisionRead(forAnchorId, forAccountId, next);
       if (currentCacheKey.current === forKey) {
         setVision((previous) => (sameVision(previous, next) ? previous : next));
@@ -300,7 +324,7 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
     void restoreVisionRead(anchorId, accountId).then((cached) => {
       if (cancelled || cached === undefined || currentCacheKey.current !== key) return;
       const cacheKey = visionCacheKey(anchorId, accountId);
-      if (!visionReadCache.has(cacheKey)) visionReadCache.set(cacheKey, cached);
+      if (!visionReadCache.has(cacheKey)) setVisionRead(cacheKey, cached);
       setVision((previous) => (sameVision(previous, cached) ? previous : cached));
       setLoading(false);
       if (cached) setError(null);
@@ -327,7 +351,7 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
       const cached = visionReadCache.get(key);
       if (cached) {
         const updated = { ...cached, seenToday: true };
-        visionReadCache.set(key, updated);
+        setVisionRead(key, updated);
         persistVisionRead(anchorId, accountId, updated);
       }
       if (isMountedRef.current && currentCacheKey.current === key) {
@@ -458,7 +482,7 @@ export function useV2Vision(anchorId: string): UseV2VisionResult {
     try {
       await apiClient.delete(`/api/v2/visions/${encodeURIComponent(vision.id)}`);
       if (anchorId) {
-        visionReadCache.set(key, null);
+        setVisionRead(key, null);
         persistVisionRead(anchorId, accountId, null);
       }
       if (isMountedRef.current && currentCacheKey.current === key) {

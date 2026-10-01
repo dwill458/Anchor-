@@ -2,6 +2,7 @@ import { memo, useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, View, type LayoutRectangle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
 import { CircularAnchorRenderer } from '@/components/v2/anchor/CircularAnchorRenderer';
+import { useVisionImageArrival } from '../VisionImageArrival';
 
 import { categoryLabel } from '@/components/v2/anchors/anchorPresentation';
 import type { AnchorExpression } from '@/constants/v2/creation';
@@ -18,6 +19,8 @@ type Props = {
   reduceMotion: boolean;
   onPress?: () => void;
   anchorTestID?: string;
+  /** `paper` sets the mark on an ivory medallion; `bare` leaves the strokes free on the card. */
+  markAppearance?: 'bare' | 'paper';
   /** A cinematic compositor can own the same mark without duplicating it. */
   hideMark?: boolean;
   onMarkLayout?: (rect: LayoutRectangle) => void;
@@ -28,9 +31,17 @@ type Props = {
 
 /** The persisted Anchor SVG connects the photographs without repeating the intention. */
 export const VisionBoardIntentionCard = memo(function VisionBoardIntentionCard({
-  rect, intention, category, art, reduceMotion, onPress, anchorTestID, hideMark = false, onMarkLayout,
+  rect, intention, category, art, reduceMotion, onPress, anchorTestID, markAppearance = 'bare', hideMark = false, onMarkLayout,
   paperOpacity, pinOpacity,
 }: Props) {
+  const arrival = useVisionImageArrival();
+  const markSlot = useRef<View>(null);
+  // When a chosen image arrives with the person's Anchor, tell it where the board holds the mark.
+  const landAnchor = () => {
+    if (!arrival?.anchorInFlight) return;
+    markSlot.current?.measureInWindow?.((x, y, width, height) => arrival.landAnchor({ x, y, width, height }));
+  };
+  useEffect(landAnchor, [arrival?.anchorInFlight]); // eslint-disable-line react-hooks/exhaustive-deps
   const contentLayout = useRef<LayoutRectangle | null>(null);
   const markLayout = useRef<LayoutRectangle | null>(null);
   const reportMark = () => {
@@ -64,16 +75,20 @@ export const VisionBoardIntentionCard = memo(function VisionBoardIntentionCard({
   const paperStyle = useAnimatedStyle(() => ({ opacity: paperOpacity?.value ?? 1 }));
 
   // Type is laid out for the target size; the card's own motion is small.
-  const markSize = rect.width * 0.86;
+  const paper = markAppearance === 'paper';
+  const markSize = paper ? rect.width * 0.94 : rect.width * 0.86;
   const label = `Your Anchor, ${categoryLabel(category)}. ${intention}`;
   const content = <Animated.View style={[styles.fill, paperStyle]}>
     <View testID="vision-board-card-content" style={styles.content} pointerEvents="none"
       onLayout={onMarkLayout ? event => { contentLayout.current = event.nativeEvent.layout; reportMark(); } : undefined}>
-      <View testID="vision-board-card-mark-slot" style={{ width: markSize, height: markSize }}
-        onLayout={onMarkLayout ? event => { markLayout.current = event.nativeEvent.layout; reportMark(); } : undefined}>
+      <View ref={markSlot} collapsable={false} testID="vision-board-card-mark-slot" style={{ width: markSize, height: markSize }}
+        onLayout={event => {
+          if (onMarkLayout) { markLayout.current = event.nativeEvent.layout; reportMark(); }
+          landAnchor();
+        }}>
         {!hideMark && art?.svg ? <CircularAnchorRenderer testID={anchorTestID} svg={art.svg} imageUrl={art.imageUrl}
-          expression={art.expression} category={art.category ?? category} appearance="bare"
-          size={markSize} accessibilityLabel={`${categoryLabel(category)} Anchor`} /> : null}
+          expression={art.expression} category={art.category ?? category} appearance={paper ? 'paper' : 'bare'}
+          size={markSize} style={paper ? styles.medallion : undefined} accessibilityLabel={`${categoryLabel(category)} Anchor`} /> : null}
       </View>
     </View>
   </Animated.View>;
@@ -95,5 +110,6 @@ export const VisionBoardIntentionCard = memo(function VisionBoardIntentionCard({
 const styles = StyleSheet.create({
   card: { position: 'absolute', zIndex: 40 },
   fill: { position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' },
+  medallion: { borderWidth: 2, borderColor: 'rgba(23,23,23,0.22)', shadowColor: '#000', shadowOpacity: 0.16, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 4 },
   content: { position: 'absolute', left: '7%', right: '7%', top: '7%', bottom: '7%', alignItems: 'center', justifyContent: 'center' },
 });

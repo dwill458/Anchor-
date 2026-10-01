@@ -34,6 +34,8 @@ export type VisionBoardSceneProps = {
   /** Empty board: tasteful placeholders where the first photos will go. */
   onAddPress?: () => void;
   anchorTestID?: string;
+  markAppearance?: 'bare' | 'paper';
+  edgeDarken?: SharedValue<number>;
   cinematic?: {
     photoId: string;
     photoOpacity: SharedValue<number>;
@@ -51,7 +53,7 @@ export type VisionBoardSceneProps = {
 export const VisionBoardScene = memo(function VisionBoardScene({
   scene, roster, entering, layout, shared, initialRectFor, intention, category, art, reduceMotion,
   interactive = false, dragEnabled = false, onPhotoPress, onCardPress, onBackgroundPress, onDragActive, onSwap,
-  onOrderCommit, onPhotoExited, onMovePhoto, onAddPress, anchorTestID, cinematic,
+  onOrderCommit, onPhotoExited, onMovePhoto, onAddPress, anchorTestID, markAppearance, edgeDarken, cinematic,
 }: VisionBoardSceneProps) {
   const activeCount = roster.filter(entry => !entry.exiting).length;
   const cardRect = useMemo(() => toSceneRect(layout.card, scene), [layout.card, scene]);
@@ -76,6 +78,7 @@ export const VisionBoardScene = memo(function VisionBoardScene({
             exiting={exiting}
             shared={shared}
             reduceMotion={reduceMotion}
+            edgeDarken={edgeDarken}
             interactive={interactive}
             dragEnabled={dragEnabled}
             onPress={onPhotoPress}
@@ -90,7 +93,7 @@ export const VisionBoardScene = memo(function VisionBoardScene({
         );
       })}
       <VisionBoardIntentionCard rect={cardRect} intention={intention} category={category} art={art}
-        reduceMotion={reduceMotion} onPress={interactive ? onCardPress : undefined} anchorTestID={anchorTestID}
+        reduceMotion={reduceMotion} onPress={interactive ? onCardPress : undefined} anchorTestID={anchorTestID} markAppearance={markAppearance}
         hideMark={Boolean(cinematic)} onMarkLayout={cinematic?.onMarkLayout}
         paperOpacity={cinematic?.paperOpacity} pinOpacity={cinematic?.pinOpacity} />
     </View>

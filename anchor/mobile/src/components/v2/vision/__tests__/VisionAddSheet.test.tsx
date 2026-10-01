@@ -15,7 +15,7 @@ describe('VisionAddSheet', () => {
 
   it('offers exactly the three ways to add', () => {
     const view = render(<VisionAddSheet visible onClose={jest.fn()} onChoose={jest.fn()} />);
-    expect(view.getByText('Generate with AI')).toBeTruthy();
+    expect(view.getByText('Create an image')).toBeTruthy();
     expect(view.getByText('Choose from Photos')).toBeTruthy();
     expect(view.getByText('Take Photo')).toBeTruthy();
   });
@@ -34,7 +34,7 @@ describe('VisionAddSheet', () => {
   it('reports each choice by name', () => {
     const onChoose = jest.fn();
     const view = render(<VisionAddSheet visible onClose={jest.fn()} onChoose={onChoose} />);
-    fireEvent.press(view.getByLabelText('Generate with AI'));
+    fireEvent.press(view.getByLabelText('Create an image'));
     act(() => { jest.advanceTimersByTime(VISION_ADD_SHEET_HANDOFF_MS); });
     fireEvent.press(view.getByLabelText('Choose from Photos'));
     act(() => { jest.advanceTimersByTime(VISION_ADD_SHEET_HANDOFF_MS); });

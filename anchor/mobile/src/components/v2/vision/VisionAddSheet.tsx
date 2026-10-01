@@ -19,7 +19,7 @@ type Props = {
 export const VISION_ADD_SHEET_HANDOFF_MS = 360;
 
 const OPTIONS: Array<{ choice: VisionAddChoice; title: string; detail: string; Icon: typeof Sparkles }> = [
-  { choice: 'generate', title: 'Generate with AI', detail: 'Describe a scene and see it appear', Icon: Sparkles },
+  { choice: 'generate', title: 'Create an image', detail: 'Describe another moment you want to see', Icon: Sparkles },
   { choice: 'library', title: 'Choose from Photos', detail: 'Add a photo from your library', Icon: Images },
   { choice: 'camera', title: 'Take Photo', detail: 'Capture something from your world', Icon: Camera },
 ];

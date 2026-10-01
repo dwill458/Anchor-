@@ -27,7 +27,7 @@ export function VisionStatusBarScrim({ tone = 'light' }: { tone?: VisionTone }) 
  * where it came from.
  */
 export function VisionIdentity({
-  intention, category, art, imageUrl, tone = 'light', size = 44, testID, artworkPlace, showAnchor = false,
+  intention, category, art, imageUrl, tone = 'light', size = 44, testID, artworkPlace, showAnchor = false, serif = false,
 }: {
   intention: string;
   category?: string | null;
@@ -41,6 +41,8 @@ export function VisionIdentity({
   artworkPlace?: AnchorTransitionPlaceBinding;
   /** When false, omits the circular Anchor thumbnail so intention copy reclaims full horizontal width. */
   showAnchor?: boolean;
+  /** Sets the intention as a display serif line (the Vision board). */
+  serif?: boolean;
 }) {
   const categoryColor = getCategoryColor(category);
   const onDark = tone === 'light';
@@ -71,7 +73,7 @@ export function VisionIdentity({
         ) : mark
       ) : null}
       <View style={styles.identityCopy}>
-        <Text style={[styles.intention, showAnchor ? null : styles.intentionHero, { color: onDark ? colors.ink.text.primary : colors.text.primary }]} numberOfLines={2}>
+        <Text style={[styles.intention, showAnchor ? null : styles.intentionHero, serif && styles.intentionSerif, { color: onDark ? colors.ink.text.primary : colors.text.primary }]} numberOfLines={2}>
           {intention}
         </Text>
         <View style={styles.categoryRow}>
@@ -87,8 +89,8 @@ export function VisionIdentity({
 
 /** Back + centred title + optional utility, for text laid over ink or photography. */
 export function VisionHeaderRow({
-  title, onBack, utility, tone = 'light', backLabel = 'Go back',
-}: { title?: string; onBack?: () => void; utility?: React.ReactNode; tone?: VisionTone; backLabel?: string }) {
+  title, onBack, utility, tone = 'light', backLabel = 'Go back', serifTitle = false,
+}: { title?: string; onBack?: () => void; utility?: React.ReactNode; tone?: VisionTone; backLabel?: string; serifTitle?: boolean }) {
   const color = tone === 'light' ? colors.ink.text.primary : colors.text.primary;
   return (
     <View style={styles.header}>
@@ -97,7 +99,7 @@ export function VisionHeaderRow({
           <ArrowLeft size={22} color={color} />
         </Pressable>
       ) : <View style={styles.headerSlot} />}
-      {title ? <Text accessibilityRole="header" numberOfLines={1} style={[styles.headerTitle, { color }]}>{title}</Text> : <View style={styles.headerTitleSpacer} />}
+      {title ? <Text accessibilityRole="header" numberOfLines={1} style={[styles.headerTitle, serifTitle && styles.headerTitleSerif, { color }]}>{title}</Text> : <View style={styles.headerTitleSpacer} />}
       <View style={[styles.headerSlot, styles.headerUtility]}>{utility}</View>
     </View>
   );
@@ -129,6 +131,7 @@ const styles = StyleSheet.create({
   identityCopy: { flex: 1, gap: 3 },
   intention: { ...typography.labelMD },
   intentionHero: { ...typography.headingSM },
+  intentionSerif: { fontFamily: 'EBGaramond-Medium', fontSize: 27, lineHeight: 32, letterSpacing: -0.4 },
   categoryRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   categoryDot: { width: 6, height: 6, borderRadius: 3 },
   category: { ...typography.labelSM, fontSize: 10, letterSpacing: 1 },
@@ -137,5 +140,6 @@ const styles = StyleSheet.create({
   headerSlot: { width: 44, height: 44, alignItems: 'flex-start', justifyContent: 'center' },
   headerUtility: { alignItems: 'flex-end' },
   headerTitle: { flex: 1, ...typography.headingMD, textAlign: 'center' },
+  headerTitleSerif: { fontFamily: 'EBGaramond-Medium', fontSize: 27, lineHeight: 32, letterSpacing: -0.3 },
   headerTitleSpacer: { flex: 1 },
 });

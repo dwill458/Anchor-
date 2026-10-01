@@ -1,6 +1,6 @@
+import { orderedActiveScenes, toVisionTile } from './orderedVisionImages';
 import type {
   VisionReadModel,
-  VisionSceneReadModel,
   V2VisionPresentationState,
   V2VisionTile,
   V2VisionCompactState,
@@ -29,23 +29,13 @@ export function toV2VisionPresentationState(
     return { state: 'none', anchorId };
   }
 
-  const activeScenes = (raw.scenes ?? [])
-    .filter((scene: VisionSceneReadModel) => !scene.isArchived)
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+  const activeScenes = orderedActiveScenes(raw);
 
   if (activeScenes.length === 0) {
     return { state: 'none', anchorId };
   }
 
-  const tiles: V2VisionTile[] = activeScenes.map((scene, index) => ({
-    id: scene.id,
-    sceneId: scene.id,
-    imageUrl: scene.resolvedImageUrl,
-    prompt: scene.prompt,
-    sortOrder: scene.sortOrder,
-    isHero: index === 0,
-    sourceType: scene.sourceType,
-  }));
+  const tiles: V2VisionTile[] = activeScenes.map(toVisionTile);
 
   const description = raw.description?.trim() || activeScenes[0]?.prompt?.trim() || '';
 
@@ -73,7 +63,7 @@ export function toV2VisionCompactState(
     return { state: 'none' };
   }
 
-  const activeScenes = (raw.scenes ?? []).filter((s) => !s.isArchived);
+  const activeScenes = orderedActiveScenes(raw);
   if (activeScenes.length === 0) {
     return { state: 'none' };
   }
@@ -97,9 +87,7 @@ export function toV2VisionCompactState(
 export function toVisualizeHandoff(
   raw: VisionReadModel | null | undefined,
 ): V2VisualizeHandoff {
-  const hasVision = Boolean(
-    raw && raw.status === 'ACTIVE' && raw.scenes && raw.scenes.some((s) => !s.isArchived),
-  );
+  const hasVision = Boolean(raw && raw.status === 'ACTIVE' && orderedActiveScenes(raw).length > 0);
   if (!hasVision || !raw) {
     return {
       visionId: null,
@@ -109,7 +97,7 @@ export function toVisualizeHandoff(
     };
   }
 
-  const firstScene = raw.scenes.find((s) => !s.isArchived);
+  const firstScene = orderedActiveScenes(raw)[0];
   return {
     visionId: raw.id,
     activeVisionAsset: firstScene?.resolvedImageUrl ?? firstScene?.assetId ?? null,
