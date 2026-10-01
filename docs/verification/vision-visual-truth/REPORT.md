@@ -31,7 +31,7 @@ Reviewed against `162897.jpg` and against the running native app on the user's s
 
 The generation instructions explicitly describe the `1.12:1` hero crop and the supporting apertures. Essential subjects, faces, hands, and key objects belong in the middle 70% horizontally and between 30% and 65% vertically. Faces and the main focal object should sit between 45% and 55% vertically for compact previews. Top, bottom, and lower corners hold expendable environment, protecting the paper transition and Anchor intersection. The portrait original remains available to the existing full-screen cinematic.
 
-The updated prompt is saved in the backend source. It has **not been deployed**. Live phone generation used the currently deployed provider pipeline, rather than proving that the revised framing instructions have reached production. Raw dimensions before backend encoding were not independently captured in this pass.
+During visual QA the updated prompt had not yet been deployed. Live phone generation used the prior production pipeline. The user subsequently authorized deployment, which reached SUCCESS with healthy production/database checks; see [deployment evidence](DEPLOYMENT.md). Raw dimensions before backend encoding were not independently captured in this pass.
 
 ## Visual parity and correction loop
 
@@ -93,7 +93,7 @@ Files changed in this polish pass (paths relative to the workspace):
 - `anchor/mobile/src/screens/v2/practice/visualize/CinematicSessionStage.tsx`
 - `anchor/mobile/src/hooks/v2/paywall/useV2PaywallArtifact.ts`
 - `anchor/mobile/src/components/v2/paywall/V2PaywallArtifact.tsx`
-- `anchor/mobile/src/components/v2/threadEvents/V2ThreadEventCelebration.tsx` (celebration and modal wrapper)
+- `anchor/mobile/src/components/v2/threadEvents/{V2ThreadEventCelebration.tsx,V2ThreadEventModal.tsx}`
 - `anchor/mobile/src/screens/v2/home/V2HomeScreen.tsx`
 - `anchor/mobile/src/components/v2/release/V2HoldToReleaseControl.tsx`
 - `anchor/mobile/src/screens/v2/release/V2ReleaseScreen.tsx`
@@ -124,8 +124,8 @@ The deployed strict generation schema returned HTTP 400 `VALIDATION_ERROR` for a
 
 ### Remaining limits
 
-- Revised generation framing and the existing backend reference-photo contract changes still require backend deployment. The current deployed schema was proven to reject the reference field; the null omission restores ordinary generation but does not deploy reference support.
-- No OTA or backend deployment was performed. The phone ran the local development build through Metro.
+- The previously deployed schema rejected the reference field. The subsequent authorized backend deployment includes the revised framing and reference-photo contract; post-release authenticated reference-photo acceptance remains unverified.
+- No OTA was published. The phone ran the local development build through Metro. Backend deployment is recorded in [DEPLOYMENT.md](DEPLOYMENT.md).
 - Native iOS hardware, audible audio quality, and manual camera/library import were not independently accepted in this pass. Their existing lifecycle/contracts remain covered by the focused tests where applicable.
 - Arbitrary off-center uploaded subjects have no face detector or editable focal-point metadata; severe aspect mismatches use contain. Generated framing is guided by the prompt, not guaranteed by a detector.
 - The two live cinematic QA completions changed the real account's practice history and Thread Strength to 62. Saved Vision imagery, ordering, and description were left intact.
