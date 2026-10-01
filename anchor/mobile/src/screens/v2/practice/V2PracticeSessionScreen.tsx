@@ -75,6 +75,15 @@ export function V2PracticeSessionScreen({
   const defaultDeepFocusSettings = useSettingsStore((state) => state.sessionAudioDefaults?.deep_prime);
   const defaultVisualizeSettings = useSettingsStore((state) => state.sessionAudioDefaults?.visualize);
   const hapticIntensity = useSettingsStore((state) => state.hapticIntensity);
+  // Entering a Visualize session is what marks the Vision seen today, whichever way the person arrived.
+  const visionViewRecorded = useRef(false);
+  const recordVisionView = visionModel.recordVisionView;
+  const visionIdForView = visionModel.vision?.id;
+  useEffect(() => {
+    if (mode !== 'visualize' || !visionIdForView || visionViewRecorded.current) return;
+    visionViewRecorded.current = true;
+    void recordVisionView();
+  }, [mode, recordVisionView, visionIdForView]);
   const [visualizeCompletion, setVisualizeCompletion] = useState<CinematicCompletion | null>(null);
   const visualizeReturned = useRef(false);
   const finishVisualize = useCallback(() => {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
 import Animated from 'react-native-reanimated';
@@ -20,6 +20,13 @@ type Props = {
   centered?: boolean;
   /** Content rendered outside the layout flow, such as a settings sheet. */
   overlay?: React.ReactNode;
+  /**
+   * Replaces the cream page behind the content (the page itself goes transparent), so a
+   * setup can darken into its session without a cut. Rendered beneath everything.
+   */
+  backdrop?: React.ReactNode;
+  /** Applied to the header and footer, e.g. to fade them as the session begins. */
+  chromeStyle?: StyleProp<ViewStyle>;
 };
 
 /**
@@ -34,7 +41,7 @@ type Props = {
  * space and the footer sits at the bottom exactly as designed; on a short phone
  * it scrolls instead of compressing.
  */
-export function V2PracticeSetupLayout({ testID, onBack, backTestID, children, sidePadding, footer, footerPaddingBottom, centered = false, overlay }: Props) {
+export function V2PracticeSetupLayout({ testID, onBack, backTestID, children, sidePadding, footer, footerPaddingBottom, centered = false, overlay, backdrop, chromeStyle }: Props) {
   // When the Anchor flies in, the setup arrives behind it: header, then the
   // body that holds the Anchor (opacity only, so its landing point stays put),
   // then the primary action.
@@ -42,8 +49,9 @@ export function V2PracticeSetupLayout({ testID, onBack, backTestID, children, si
   const bodyReveal = useAnchorTransitionReveal('practiceSetup', 2, { rise: false });
   const footerReveal = useAnchorTransitionReveal('practiceSetup', 3);
   return (
-    <SafeAreaView style={styles.safe} edges={SAFE_EDGES} testID={testID}>
-      <Animated.View style={[styles.header, headerReveal]}>
+    <SafeAreaView style={[styles.safe, backdrop ? styles.transparent : null]} edges={SAFE_EDGES} testID={testID}>
+      {backdrop ? <Animated.View pointerEvents="none" style={StyleSheet.absoluteFill}>{backdrop}</Animated.View> : null}
+      <Animated.View style={[styles.header, headerReveal, chromeStyle]}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Back to Practice"
@@ -68,7 +76,7 @@ export function V2PracticeSetupLayout({ testID, onBack, backTestID, children, si
       </Animated.ScrollView>
 
       {footer ? (
-        <Animated.View style={[styles.footer, { paddingHorizontal: sidePadding, paddingBottom: footerPaddingBottom }, footerReveal]}>{footer}</Animated.View>
+        <Animated.View style={[styles.footer, { paddingHorizontal: sidePadding, paddingBottom: footerPaddingBottom }, footerReveal, chromeStyle]}>{footer}</Animated.View>
       ) : null}
       {overlay}
     </SafeAreaView>
@@ -79,6 +87,7 @@ const SAFE_EDGES = ['top', 'bottom'] as const;
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.canvas },
+  transparent: { backgroundColor: 'transparent' },
   header: {
     paddingHorizontal: spacing[4],
     paddingTop: spacing[2],

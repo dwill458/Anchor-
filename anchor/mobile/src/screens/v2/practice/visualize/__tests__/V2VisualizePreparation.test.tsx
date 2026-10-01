@@ -34,19 +34,70 @@ describe('Visualize prepares behind its real setup board', () => {
   });
 
   it('guards Begin until the exact textures and mark geometry are ready', () => {
+    jest.useFakeTimers();
+    try {
+      const view = setup();
+      expect(view.getByLabelText('Begin Visualize').props.accessibilityState.disabled).toBe(true);
+      fireEvent.press(view.getByLabelText('Begin Visualize'));
+      act(() => { jest.advanceTimersByTime(1500); });
+      expect(view.onBegin).not.toHaveBeenCalled();
+      expect(mockPreparation.prepareOnly).toBe(true);
+      act(() => mockPreparation.onPrepared(prepared));
+      expect(view.getByLabelText('Begin Visualize').props.accessibilityState.disabled).toBe(false);
+      fireEvent.press(view.getByLabelText('1 min'));
+      fireEvent.press(view.getByLabelText('Begin Visualize'));
+      fireEvent.press(view.getByLabelText('Begin Visualize'));
+      act(() => { jest.advanceTimersByTime(1500); });
+      expect(view.onBegin).toHaveBeenCalledTimes(1);
+      expect(view.onBegin).toHaveBeenCalledWith(expect.objectContaining({ durationSeconds: 60, prepared: expect.objectContaining({ ...prepared, beginAtMs: expect.any(Number) }) }));
+      expect(view.queryByText(/DEV/)).toBeNull();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('offers 1, 3 and 5 minutes every time, defaulting to 3, and carries the choice into the session', () => {
+    jest.useFakeTimers();
+    try {
+      for (const [label, seconds] of [['1 min', 60], ['3 min', 180], ['5 min', 300]] as const) {
+        const view = setup();
+        expect(view.getByLabelText('3 min, selected')).toBeTruthy();
+        act(() => mockPreparation.onPrepared(prepared));
+        fireEvent.press(view.getByLabelText(label.startsWith('3') ? '3 min, selected' : label));
+        fireEvent.press(view.getByLabelText('Begin Visualize'));
+        act(() => { jest.advanceTimersByTime(1500); });
+        expect(view.onBegin).toHaveBeenCalledWith(expect.objectContaining({ durationSeconds: seconds }));
+        view.unmount();
+      }
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('locks the settings once Begin is pressed, and starts the session from where the collage is on screen', () => {
+    jest.useFakeTimers();
+    try {
+      const view = setup();
+      act(() => mockPreparation.onPrepared(prepared));
+      fireEvent.press(view.getByLabelText('Begin Visualize'));
+      expect(view.getByLabelText('Begin Visualize').props.accessibilityState.disabled).toBe(true);
+      fireEvent.press(view.getByLabelText('5 min'));
+      act(() => { jest.advanceTimersByTime(1500); });
+      expect(view.onBegin).toHaveBeenCalledWith(expect.objectContaining({ durationSeconds: 180 }));
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('shows the real intention and category, and is the cream Practice setup', () => {
     const view = setup();
-    expect(view.getByLabelText('Begin Visualize').props.accessibilityState.disabled).toBe(true);
-    fireEvent.press(view.getByLabelText('Begin Visualize'));
-    expect(view.onBegin).not.toHaveBeenCalled();
-    expect(mockPreparation.prepareOnly).toBe(true);
-    act(() => mockPreparation.onPrepared(prepared));
-    expect(view.getByLabelText('Begin Visualize').props.accessibilityState.disabled).toBe(false);
-    fireEvent.press(view.getByLabelText('1 min'));
-    fireEvent.press(view.getByLabelText('Begin Visualize'));
-    fireEvent.press(view.getByLabelText('Begin Visualize'));
-    expect(view.onBegin).toHaveBeenCalledTimes(1);
-    expect(view.onBegin).toHaveBeenCalledWith(expect.objectContaining({ durationSeconds: 60, prepared: expect.objectContaining({ ...prepared, beginAtMs: expect.any(Number) }) }));
-    expect(view.queryByText(/DEV/)).toBeNull();
+    expect(view.getByText('Step into your Vision')).toBeTruthy();
+    expect(view.getByText('Step into the moments you’ve created and let them feel real.')).toBeTruthy();
+    expect(view.getByText('VISUALIZE')).toBeTruthy();
+    expect(view.getByText('My real intention')).toBeTruthy();
+    expect(view.getByLabelText('Back to Practice')).toBeTruthy();
+    expect(view.getByText('Practice')).toBeTruthy();
+    expect(view.getByText('HOW LONG?')).toBeTruthy();
   });
 
   it('keeps the board mounted through image failure and rebuilds preparation on Retry', () => {

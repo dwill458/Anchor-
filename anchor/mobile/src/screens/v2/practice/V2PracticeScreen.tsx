@@ -97,6 +97,8 @@ type Props = Partial<V2PracticeRouteIntents> & {
   resumeDuration?: number;
   resumeSource?: 'practice_hub' | 'recommended_today';
   onBack?: () => void;
+  /** Arrived from another screen (the Vision): leaving setup returns there instead of showing the hub. */
+  leaveOnSetupBack?: boolean;
   onSessionCompleted?: () => void;
 };
 
@@ -109,6 +111,7 @@ export function V2PracticeScreen({
   resumeDuration,
   resumeSource,
   onBack,
+  leaveOnSetupBack = false,
   onPremiumCapabilityRequired,
   onCreateVision,
   onOpenVision,
@@ -315,7 +318,8 @@ export function V2PracticeScreen({
   /** Hub -> setup. The ACTIVE ANCHOR mark travels to where setup shows it. */
   const openModeFromHub = (mode: V2PracticeMode, source: 'practice_hub' | 'recommended_today') => {
     if (!fixedAnchor) return;
-    if (!transition) {
+    // Visualize setup is led by the person's Vision and carries no Anchor flight of its own.
+    if (!transition || mode === 'visualize') {
       selectMode(mode, source);
       return;
     }
@@ -488,7 +492,7 @@ export function V2PracticeScreen({
         source={prepareSource}
         initialDuration={prepareMode === resumeMode ? resumeDuration ?? undefined : undefined}
         entitled={effectiveCapabilities[prepareMode]}
-        onBack={() => setPrepareMode(null)}
+        onBack={() => { if (leaveOnSetupBack && onBack) onBack(); else setPrepareMode(null); }}
         onCreateVision={onCreateVision ?? (() => undefined)}
         onOpenVision={onOpenVision}
         onReleaseRequested={onReleaseRequested ?? (() => undefined)}

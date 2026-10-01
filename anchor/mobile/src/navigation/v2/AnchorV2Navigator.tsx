@@ -137,6 +137,7 @@ function V2PracticeRouteScreen() {
       resumeDuration={resumeDuration}
       resumeSource={resumeSource}
       onBack={handleBack}
+      leaveOnSetupBack={Boolean(returnRoute)}
       onPremiumCapabilityRequired={(req) => {
         navigation.navigate('V2Paywall', {
           context: req.capability === 'visualize' ? 'VISUALIZE' : req.capability === 'deep_prime' ? 'DEEP_PRIME' : 'PRACTICE',
@@ -344,8 +345,8 @@ export function AnchorV2Navigator() {
         <Stack.Screen name="V2Vision" component={V2VisionRouteScreen} options={PAPER_BACKGROUND} />
         <Stack.Screen name="V2Chart" component={V2ChartScreen} options={GRAPHITE_BACKGROUND} />
         <Stack.Screen name="V2ChartWaypoint" component={V2ChartWaypointScreen} options={{ ...GRAPHITE_BACKGROUND, animation: 'none', gestureEnabled: false }} />
-        <Stack.Screen name="V2ChartAdjust" component={V2ChartAdjustScreen} options={GRAPHITE_BACKGROUND} />
-        <Stack.Screen name="V2ChartJourney" component={V2ChartJourneyScreen} options={GRAPHITE_BACKGROUND} />
+        <Stack.Screen name="V2ChartAdjust" component={V2ChartAdjustScreen} options={CREAM_BACKGROUND} />
+        <Stack.Screen name="V2ChartJourney" component={V2ChartJourneyScreen} options={CREAM_BACKGROUND} />
         <Stack.Screen name="V2Progress" component={V2ProgressScreen} options={GRAPHITE_BACKGROUND} />
         <Stack.Screen name="V2Release" component={V2ReleaseRouteScreen} options={({ route }) => route.params?.anchorTransition ? { animation: 'none' } : {}} />
         <Stack.Screen name="V2WeeklyInsight" component={V2WeeklyInsightRouteScreen} />
@@ -358,6 +359,7 @@ export function AnchorV2Navigator() {
   );
 }
 
+const CREAM_BACKGROUND = v2ScreenBackground('cream');
 const PAPER_BACKGROUND = v2ScreenBackground('paper');
 const CREATION_OPTIONS = { gestureEnabled: false };
 const GRAPHITE_BACKGROUND = v2ScreenBackground('graphite');

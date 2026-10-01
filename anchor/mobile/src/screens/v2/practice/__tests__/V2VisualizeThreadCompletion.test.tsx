@@ -14,8 +14,9 @@ jest.mock('../visualize/V2CinematicSessionScreen', () => ({
     return require('react').createElement(require('react-native').Text, null, 'Cinematic');
   },
 }));
+const mockRecordVisionView = jest.fn();
 jest.mock('@/hooks/v2/vision', () => ({ useV2Vision: () => ({
-  state: { state: 'ready' }, tiles: [], description: 'Saved Vision', vision: { id: 'v1' },
+  state: { state: 'ready' }, tiles: [], description: 'Saved Vision', vision: { id: 'v1' }, recordVisionView: mockRecordVisionView,
 }) }));
 jest.mock('../focus', () => ({
   V2FocusActiveScreen: () => null,
@@ -29,6 +30,7 @@ const anchor = makeAnchor({ id: 'a1', userId: 'u1', threadStrength: 20 });
 const record: any = { id: 's1', threadStrengthBefore: 20, threadStrengthAfter: 24, syncState: 'synced' };
 
 beforeEach(() => {
+  mockRecordVisionView.mockClear();
   useAuthStore.setState({ user: { id: 'u1' } as any });
   useAnchorStore.setState({ anchors: [anchor] });
   useSessionStore.setState({ practiceHistory: [record] });
@@ -58,4 +60,13 @@ it('reports failed persistence truthfully instead of showing a saved reinforceme
   expect(mockCompletion.sessionSaved).toBe(false);
   fireEvent.press(view.getByLabelText('Thread Done'));
   expect(onCompleted).toHaveBeenCalledWith({ mode: 'visualize', durationSeconds: 180, saved: false });
+});
+
+it('marks the Vision seen today when a Visualize session starts, whichever way the person arrived, and only once', () => {
+  const view = render(<V2PracticeSessionScreen anchorId="a1" mode="visualize" durationSeconds={180}
+    source="practice_hub" onBack={jest.fn()} onCompleted={jest.fn()} onFocusAgain={jest.fn()} />);
+  expect(mockRecordVisionView).toHaveBeenCalledTimes(1);
+  view.rerender(<V2PracticeSessionScreen anchorId="a1" mode="visualize" durationSeconds={180}
+    source="practice_hub" onBack={jest.fn()} onCompleted={jest.fn()} onFocusAgain={jest.fn()} />);
+  expect(mockRecordVisionView).toHaveBeenCalledTimes(1);
 });
