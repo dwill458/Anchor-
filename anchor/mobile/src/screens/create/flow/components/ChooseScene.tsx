@@ -3,11 +3,13 @@ import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   Easing,
+  cancelAnimation,
   interpolate,
   useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
+  withRepeat,
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
@@ -62,11 +64,9 @@ export function ChooseScene({ controller, forms, styleName, reduceMotion, showSh
 
   useEffect(() => {
     if (reduceMotion) return;
-    breathe.value = withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.sin) });
-    const timer = setInterval(() => {
-      breathe.value = withTiming(breathe.value > 0.5 ? 0 : 1, { duration: 1500, easing: Easing.inOut(Easing.sin) });
-    }, 1500);
-    return () => clearInterval(timer);
+    // One UI-thread clock: 0 -> 1 -> 0 -> ... every 1.5 s each way, no JS timer.
+    breathe.value = withRepeat(withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.sin) }), -1, true);
+    return () => cancelAnimation(breathe);
   }, [breathe, reduceMotion]);
 
   useEffect(() => {

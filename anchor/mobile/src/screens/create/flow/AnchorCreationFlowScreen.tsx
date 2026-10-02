@@ -80,6 +80,9 @@ type FlowRoute = RouteProp<RootStackParamList, 'AnchorCreationFlow'>;
 
 type Phase = 'auto' | 'draw' | 'style' | 'form' | 'sweep' | 'choose';
 
+/** After the hand-off, Home's arrival (~1.7 s) plays first; deferred bookkeeping runs after it. */
+const DEFERRED_WORK_DELAY_MS = 2200;
+
 /** Design-space styling for the overlay container. */
 const DESIGN = { width: 390, height: 844 } as const;
 
@@ -204,12 +207,33 @@ export default function AnchorCreationFlowScreen() {
   }, [field]);
   useEffect(() => () => useIntentionHandoffStore.getState().release(), []);
 
+  /**
+   * Work that must not run while the seal plays (analytics, persisted counters). It is flushed once
+   * Home has had time to arrive; the screen unmounting at the hand-off starts that clock.
+   */
+  const deferredRef = useRef<Array<() => void>>([]);
+  const deferUntilArrived = useCallback((work: () => void) => {
+    deferredRef.current.push(work);
+  }, []);
+  const flushDeferred = useCallback(() => {
+    const queue = deferredRef.current;
+    deferredRef.current = [];
+    queue.forEach((work) => {
+      try {
+        work();
+      } catch {
+        // Bookkeeping must never surface as a creation error.
+      }
+    });
+  }, []);
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      setTimeout(flushDeferred, DEFERRED_WORK_DELAY_MS);
     };
-  }, []);
+  }, [flushDeferred]);
 
   // Header shared values — updated every frame without re-rendering.
   const headerFade = useSharedValue(1);
@@ -307,7 +331,12 @@ export default function AnchorCreationFlowScreen() {
       if (!mountedRef.current || controller.signal.aborted) return;
       generationRef.current.result = result;
       targetProgressRef.current = 100;
-      setForms(normalizeGeneratedForms(result.variations));
+      const nextForms = normalizeGeneratedForms(result.variations);
+      // Warm both Forms while the Form beat still plays, so nothing downloads once Choose is up.
+      nextForms.forEach((form) => {
+        if (form.uri && /^https?:/i.test(form.uri)) Image.prefetch(form.uri).catch(() => undefined);
+      });
+      setForms(nextForms);
       setStyleName(style.displayName);
       useFirstAnchorFlowStore.getState().updateDraft({ generationStatus: 'complete' });
       setGeneration({ status: 'done' });
@@ -535,16 +564,21 @@ export default function AnchorCreationFlowScreen() {
       useFirstAnchorFlowStore.getState().updateDraft({
         selectedExpressionId: form.variationId || `form-${pageIndex + 1}`,
       });
-      FrictionAnalytics.stepCompleted('anchor_creation', 'variation_picker', {
-        selected_index: pageIndex,
-        variation_count: forms.length,
-        heavy_inline: form.isHeavyInline,
+      // Nothing heavy while the seal plays: the analytics wait for Home to arrive.
+      const variationCount = forms.length;
+      const heavyInline = form.isHeavyInline;
+      deferUntilArrived(() => {
+        FrictionAnalytics.stepCompleted('anchor_creation', 'variation_picker', {
+          selected_index: pageIndex,
+          variation_count: variationCount,
+          heavy_inline: heavyInline,
+        });
+        ErrorTrackingService.addBreadcrumb('Variation selected', 'ai.variation_picker', {
+          selected_index: pageIndex,
+          heavy_inline: heavyInline,
+        });
+        enterBeat('seal');
       });
-      ErrorTrackingService.addBreadcrumb('Variation selected', 'ai.variation_picker', {
-        selected_index: pageIndex,
-        heavy_inline: form.isHeavyInline,
-      });
-      enterBeat('seal');
 
       // Saving runs while the seal plays; the screen waits for both before leaving.
       savePromiseRef.current = saveAnchor({
@@ -554,7 +588,7 @@ export default function AnchorCreationFlowScreen() {
         baseSigilSvg: flow.baseSigilSvg,
       });
     },
-    [enterBeat, forms, playSound, saveAnchor, setTempEnhancedImage]
+    [deferUntilArrived, enterBeat, forms, playSound, saveAnchor, setTempEnhancedImage]
   );
 
   const chooseRef = useRef<ReturnType<typeof useChooseController> | null>(null);
@@ -572,15 +606,17 @@ export default function AnchorCreationFlowScreen() {
       if (!mountedRef.current) return;
       setSaveWaiting(false);
       if (outcome.status === 'saved') {
-        useCreationPrefsStore.getState().incrementRotation();
+        // The persisted counter is written after Home has arrived, not under the flight.
+        deferUntilArrived(() => useCreationPrefsStore.getState().incrementRotation());
         outcome.proceed();
       } else {
         // A gate (paywall, daily cap) took over: let the person choose again.
         savePromiseRef.current = null;
+        flushDeferred();
         chooseRef.current?.reset();
       }
     });
-  }, []);
+  }, [deferUntilArrived, flushDeferred]);
 
   const choose = useChooseController({
     onHoldComplete,

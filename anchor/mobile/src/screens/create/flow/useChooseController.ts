@@ -1,12 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PanResponder, type PanResponderInstance } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { useSharedValue, type SharedValue } from 'react-native-reanimated';
+import {
+  Easing,
+  ReduceMotion,
+  cancelAnimation,
+  runOnJS,
+  useAnimatedReaction,
+  useSharedValue,
+  withSequence,
+  withTiming,
+  type SharedValue,
+} from 'react-native-reanimated';
 
 import { safeHaptics } from '@/utils/haptics';
+import { trace, traceReset } from '@/utils/dev/creationTrace';
 import {
   PAGE_COUNT,
-  advanceHold,
   beginTouch,
   holdHapticInterval,
   holdHapticStrength,
@@ -14,14 +24,20 @@ import {
   snapPage,
   type PagerTouch,
 } from './choosePager';
-import { SEAL_SETTLE_SECONDS } from './creationFlowConfig';
+import { SEAL_DRAIN_RATE, SEAL_HOLD_MS, SEAL_SETTLE_SECONDS } from './creationFlowConfig';
 import { SEAL_SEQUENCE_SECONDS } from './sealMath';
-import { trace, traceReset } from '@/utils/dev/creationTrace';
 
 /** The pager sits inside this strip of the design space; touches are mapped relative to it. */
 export const TOUCH_SURFACE = { top: 100, height: 675 } as const;
 
 export type ChoosePhase = 'choosing' | 'sealing' | 'sealed';
+
+/** The swipe settles with an ease-out of this length (the old per-frame ease had ~83 ms time constant). */
+const PAGE_GLIDE_MS = 380;
+/** Seconds of the flash animation (`sealFlash` maps 0..0.4 s onto its scale/alpha). */
+const FLASH_SECONDS = 0.4;
+/** Every clock here is the app's own; the OS animator scale must not collapse it. */
+const NEVER_REDUCE = ReduceMotion.Never;
 
 interface UseChooseControllerOptions {
   /** The hold reached 100%: begin saving. Called once. */
@@ -56,14 +72,20 @@ export interface ChooseController {
   reset: () => void;
 }
 
+const clampPage = (value: number) => Math.min(PAGE_COUNT - 1, Math.max(0, Math.round(value)));
+
 /**
- * All of Choose's per-frame motion in one place: the swipe, the hold-to-seal fill (with its
- * haptics) and the seal sequence. The rules themselves live in `choosePager.ts`; this wires them
- * to touches and a single animation clock, and mirrors the result into shared values so the
- * visuals animate without re-rendering.
+ * All of Choose's motion in one place: the swipe, the hold-to-seal fill (with its haptics) and
+ * the seal sequence. The rules live in `choosePager.ts`; this wires them to touches.
  *
- * It runs on the JS thread on purpose: gesture state, haptics and callbacks all need to be here,
- * and only plain numbers cross into the shared values.
+ * The clocks run on the UI thread: the hold fill/drain, the pager glide, the seal sequence (and
+ * the beat it rests before moving on) and the ring flash are Reanimated timings, so a stalled JS
+ * thread — the save, an image decode, a setState — cannot drop a frame of them. The JS thread
+ * keeps only what must be there: touch capture (one event per move, not per frame), haptics, and
+ * the two callbacks, fired at the event instants through `runOnJS` from the animation callbacks.
+ *
+ * `advanceHold` in `choosePager.ts` states the same fill/drain maths (1.1 s fill, 2.6x drain) and
+ * stays as the tested definition; the timings below are its closed form.
  */
 export function useChooseController({
   onHoldComplete,
@@ -78,20 +100,14 @@ export function useChooseController({
 
   const [phase, setPhase] = useState<ChoosePhase>('choosing');
   const [holdActive, setHoldActive] = useState(false);
-  const holdActiveRef = useRef(false);
   const [activePage, setActivePage] = useState(0);
 
   const phaseRef = useRef<ChoosePhase>('choosing');
-  const pageRef = useRef(0);
-  const pageTargetRef = useRef(0);
-  const holdRef = useRef(0);
+  /** The page the pager is at, or gliding to; what a completed hold seals. */
+  const settledPageRef = useRef(0);
   const holdingRef = useRef(false);
   const touchRef = useRef<PagerTouch | null>(null);
-  const hapticAccRef = useRef(0);
-  const sealElapsedRef = useRef(0);
-  const flashElapsedRef = useRef(10);
-  const rafRef = useRef<number | null>(null);
-  const lastRef = useRef(0);
+  const hapticTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const callbacksRef = useRef({ onHoldComplete, onSealAnimationDone });
   callbacksRef.current = { onHoldComplete, onSealAnimationDone };
   const disabledRef = useRef(disabled);
@@ -99,114 +115,130 @@ export function useChooseController({
   const reduceMotionRef = useRef(reduceMotion);
   reduceMotionRef.current = reduceMotion;
 
-  const syncActivePage = useCallback(() => {
-    const rounded = Math.min(PAGE_COUNT - 1, Math.max(0, Math.round(pageRef.current)));
-    setActivePage((current) => (current === rounded ? current : rounded));
+  // Mirror the two pieces of UI-thread state React needs.
+  useAnimatedReaction(
+    () => Math.min(PAGE_COUNT - 1, Math.max(0, Math.round(page.value))),
+    (rounded, previous) => {
+      if (rounded !== previous) runOnJS(setActivePage)(rounded);
+    },
+    []
+  );
+  useAnimatedReaction(
+    () => hold.value > 0.02,
+    (active, previous) => {
+      if (active !== previous) runOnJS(setHoldActive)(active);
+    },
+    []
+  );
+
+  const stopHaptics = useCallback(() => {
+    if (hapticTimerRef.current !== null) clearTimeout(hapticTimerRef.current);
+    hapticTimerRef.current = null;
   }, []);
 
-  const startLoop = useRef<() => void>(() => {});
+  /** Cadence tightens from 150 ms to 50 ms as the hold fills; strength steps up halfway. */
+  const scheduleHaptic = useCallback(() => {
+    hapticTimerRef.current = setTimeout(() => {
+      hapticTimerRef.current = null;
+      if (!holdingRef.current || phaseRef.current !== 'choosing') return;
+      const progress = hold.value;
+      void safeHaptics.impact(
+        holdHapticStrength(progress) === 'light'
+          ? Haptics.ImpactFeedbackStyle.Light
+          : Haptics.ImpactFeedbackStyle.Medium
+      );
+      scheduleHaptic();
+    }, holdHapticInterval(hold.value));
+  }, [hold]);
 
-  const tick = useCallback((now: number) => {
-    rafRef.current = null;
-    const dt = Math.min(0.05, Math.max(0, (now - lastRef.current) / 1000));
-    lastRef.current = now;
-    let busy = false;
+  const finishSeal = useCallback(() => {
+    if (phaseRef.current !== 'sealing') return;
+    phaseRef.current = 'sealed';
+    setPhase('sealed');
+    trace('seal sequence end');
+    callbacksRef.current.onSealAnimationDone();
+  }, []);
 
-    // Page: follows the finger while dragging, otherwise eases to its target.
-    if (!touchRef.current?.dragging) {
-      const target = pageTargetRef.current;
-      if (Math.abs(target - pageRef.current) > 0.0005) {
-        pageRef.current = reduceMotionRef.current
-          ? target
-          : pageRef.current + (target - pageRef.current) * (1 - Math.exp(-dt * 12));
-        if (Math.abs(target - pageRef.current) <= 0.0005) pageRef.current = target;
-        busy = true;
-        syncActivePage();
+  /** Play the seal: the sequence, then the beat it rests before the flow moves on. */
+  const startSeal = useCallback(() => {
+    const reduced = reduceMotionRef.current;
+    const sequenceMs = (reduced ? 0.4 : SEAL_SEQUENCE_SECONDS) * 1000;
+    const settleMs = (reduced ? 0.1 : SEAL_SETTLE_SECONDS) * 1000;
+    sealU.value = 0;
+    flash.value = 0;
+    flash.value = withTiming(FLASH_SECONDS, { duration: FLASH_SECONDS * 1000, easing: Easing.linear, reduceMotion: NEVER_REDUCE });
+    sealU.value = withSequence(
+      withTiming(1, { duration: sequenceMs, easing: Easing.linear, reduceMotion: NEVER_REDUCE }),
+      withTiming(1, { duration: settleMs, easing: Easing.linear, reduceMotion: NEVER_REDUCE }, (finished) => {
+        'worklet';
+        if (finished) runOnJS(finishSeal)();
+      })
+    );
+  }, [finishSeal, flash, sealU]);
+
+  /** The hold reached 100% (or assistive tech sealed directly). JS thread. */
+  const completeHold = useCallback(() => {
+    if (phaseRef.current !== 'choosing') return;
+    stopHaptics();
+    holdingRef.current = false;
+    touchRef.current = null;
+    phaseRef.current = 'sealing';
+    setPhase('sealing');
+    hold.value = 1;
+    // The seal lands: heavy haptic now; the screen plays `forge-seal`.
+    void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Heavy);
+    trace('hold complete / seal sequence start');
+    callbacksRef.current.onHoldComplete(settledPageRef.current);
+    startSeal();
+  }, [hold, startSeal, stopHaptics]);
+
+  /** Fill from wherever the ring is, linearly, finishing at SEAL_HOLD_MS for a full ring. */
+  const startHolding = useCallback(() => {
+    const remaining = Math.max(0, 1 - hold.value);
+    hold.value = withTiming(
+      1,
+      { duration: Math.max(1, remaining * SEAL_HOLD_MS), easing: Easing.linear, reduceMotion: NEVER_REDUCE },
+      (finished) => {
+        'worklet';
+        if (finished) runOnJS(completeHold)();
       }
-    } else {
-      busy = true;
-    }
-    page.value = pageRef.current;
+    );
+    stopHaptics();
+    scheduleHaptic();
+  }, [completeHold, hold, scheduleHaptic, stopHaptics]);
 
-    if (phaseRef.current === 'choosing') {
-      const step = advanceHold(holdRef.current, dt, holdingRef.current);
-      holdRef.current = step.progress;
-      hold.value = step.progress;
-      const active = step.progress > 0.02;
-      if (active !== holdActiveRef.current) {
-        holdActiveRef.current = active;
-        setHoldActive(active);
-      }
-      if (holdingRef.current) {
-        busy = true;
-        hapticAccRef.current += dt * 1000;
-        if (hapticAccRef.current >= holdHapticInterval(step.progress)) {
-          hapticAccRef.current = 0;
-          void safeHaptics.impact(
-            holdHapticStrength(step.progress) === 'light'
-              ? Haptics.ImpactFeedbackStyle.Light
-              : Haptics.ImpactFeedbackStyle.Medium
-          );
-        }
-      } else if (step.progress > 0) {
-        busy = true;
-      }
+  /** Released early (or the finger became a swipe): drain at SEAL_DRAIN_RATE times the fill rate. */
+  const stopHolding = useCallback(() => {
+    stopHaptics();
+    holdingRef.current = false;
+    const current = hold.value;
+    if (current <= 0) return;
+    hold.value = withTiming(0, {
+      duration: (current / SEAL_DRAIN_RATE) * 1000,
+      easing: Easing.linear,
+      reduceMotion: NEVER_REDUCE,
+    });
+  }, [hold, stopHaptics]);
 
-      if (step.complete) {
-        holdingRef.current = false;
-        touchRef.current = null;
-        phaseRef.current = 'sealing';
-        setPhase('sealing');
-        sealElapsedRef.current = 0;
-        flashElapsedRef.current = 0;
-        // The seal lands: heavy haptic now; the screen plays `forge-seal`.
-        void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Heavy);
-        trace('hold complete / seal sequence start');
-        callbacksRef.current.onHoldComplete(Math.round(pageRef.current));
-        busy = true;
-      }
-    }
-
-    if (phaseRef.current === 'sealing') {
-      busy = true;
-      sealElapsedRef.current += dt;
-      flashElapsedRef.current += dt;
-      const u = reduceMotionRef.current
-        ? Math.min(1, sealElapsedRef.current / 0.4)
-        : Math.min(1, sealElapsedRef.current / SEAL_SEQUENCE_SECONDS);
-      sealU.value = u;
-      flash.value = flashElapsedRef.current;
-      hold.value = 1;
-      // The medallion rests on cream for a beat before the flow moves on.
-      const settle = reduceMotionRef.current ? 0.1 : SEAL_SETTLE_SECONDS;
-      const total =
-        (reduceMotionRef.current ? 0.4 : SEAL_SEQUENCE_SECONDS) + settle;
-      if (sealElapsedRef.current >= total) {
-        phaseRef.current = 'sealed';
-        setPhase('sealed');
-        trace('seal sequence end');
-        callbacksRef.current.onSealAnimationDone();
-        busy = false;
-      }
-    }
-
-    if (busy) {
-      rafRef.current = requestAnimationFrame(tick);
-    }
-  }, [flash, hold, page, sealU, syncActivePage]);
-
-  startLoop.current = () => {
-    if (rafRef.current !== null) return;
-    lastRef.current = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-    rafRef.current = requestAnimationFrame(tick);
-  };
+  const glideTo = useCallback(
+    (target: number) => {
+      settledPageRef.current = target;
+      page.value = reduceMotionRef.current
+        ? target
+        : withTiming(target, { duration: PAGE_GLIDE_MS, easing: Easing.out(Easing.cubic), reduceMotion: NEVER_REDUCE });
+    },
+    [page]
+  );
 
   useEffect(
     () => () => {
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
+      stopHaptics();
+      cancelAnimation(hold);
+      cancelAnimation(page);
+      cancelAnimation(sealU);
+      cancelAnimation(flash);
     },
-    []
+    [flash, hold, page, sealU, stopHaptics]
   );
 
   const panResponder = useRef(
@@ -217,74 +249,68 @@ export function useChooseController({
       onPanResponderGrant: (event) => {
         const x = event.nativeEvent.locationX;
         const y = event.nativeEvent.locationY + TOUCH_SURFACE.top;
-        const touch = beginTouch(x, y, pageRef.current);
+        const touch = beginTouch(x, y, page.value);
         touchRef.current = touch;
         holdingRef.current = touch.holding;
-        hapticAccRef.current = 0;
-        if (touch.holding) traceReset('hold start');
-        startLoop.current();
+        if (touch.holding) {
+          traceReset('hold start');
+          startHolding();
+        }
       },
       onPanResponderMove: (event) => {
         const touch = touchRef.current;
         if (!touch) return;
         const result = moveTouch(touch, event.nativeEvent.locationX);
         touchRef.current = result.touch;
+        const wasHolding = holdingRef.current;
         holdingRef.current = result.touch.holding;
+        if (wasHolding && !result.touch.holding) stopHolding();
         if (result.page !== null) {
-          pageRef.current = result.page;
+          // Assigning cancels any glide in flight: the page follows the finger.
           page.value = result.page;
-          syncActivePage();
         }
-        startLoop.current();
       },
       onPanResponderRelease: (event) => {
         const touch = touchRef.current;
-        holdingRef.current = false;
-        if (touch?.dragging) {
-          pageTargetRef.current = snapPage(touch.startPage, event.nativeEvent.locationX, touch.startX);
-        }
         touchRef.current = null;
-        startLoop.current();
+        if (holdingRef.current) stopHolding();
+        if (touch?.dragging) {
+          glideTo(snapPage(touch.startPage, event.nativeEvent.locationX, touch.startX));
+        }
       },
       onPanResponderTerminate: () => {
-        holdingRef.current = false;
-        if (touchRef.current?.dragging) {
-          pageTargetRef.current = Math.min(PAGE_COUNT - 1, Math.max(0, Math.round(pageRef.current)));
-        }
+        const touch = touchRef.current;
         touchRef.current = null;
-        startLoop.current();
+        if (holdingRef.current) stopHolding();
+        if (touch?.dragging) glideTo(clampPage(page.value));
       },
     })
   ).current;
 
   const reset = useCallback(() => {
+    stopHaptics();
     phaseRef.current = 'choosing';
     setPhase('choosing');
-    holdRef.current = 0;
     holdingRef.current = false;
     touchRef.current = null;
-    sealElapsedRef.current = 0;
-    flashElapsedRef.current = 10;
     hold.value = 0;
     sealU.value = 0;
     flash.value = 10;
-    holdActiveRef.current = false;
-    setHoldActive(false);
-    startLoop.current();
-  }, [flash, hold, sealU]);
+  }, [flash, hold, sealU, stopHaptics]);
 
-  const goToPage = useCallback((index: number) => {
-    if (phaseRef.current !== 'choosing') return;
-    pageTargetRef.current = Math.min(PAGE_COUNT - 1, Math.max(0, index));
-    startLoop.current();
-  }, []);
+  const goToPage = useCallback(
+    (index: number) => {
+      if (phaseRef.current !== 'choosing') return;
+      glideTo(clampPage(index));
+    },
+    [glideTo]
+  );
 
   const sealNow = useCallback(() => {
     if (phaseRef.current !== 'choosing' || disabledRef.current) return;
-    holdRef.current = 1;
     holdingRef.current = true;
-    startLoop.current();
-  }, []);
+    completeHold();
+  }, [completeHold]);
 
   return {
     phase,
