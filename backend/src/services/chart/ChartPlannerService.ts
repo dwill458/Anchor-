@@ -3,11 +3,13 @@ import { Prisma } from '@prisma/client';
 import { AppError } from '../../api/middleware/errorHandler';
 import { prisma } from '../../lib/prisma';
 import { getOnboardingContext } from '../v2/OnboardingContextService';
+import { readPrivateImageAsset } from '../StorageService';
 import { getChartFeatureFlags } from '../../config/chartFlags';
 import { logger } from '../../utils/logger';
 import {
   ChartProviderError,
   resolveChartPlannerConfig,
+  type ChartModelImage,
   type ChartModelProvider,
   type ChartPlannerConfig,
 } from './chartModelProviders';
@@ -34,6 +36,13 @@ import {
 import { buildTemplateRoute } from './chartTemplateRoute';
 
 export const CHART_PLANNER_VERSION = 'chart-2.0';
+const REFERENCE_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+/** A reference the person attached (validated by chartRoutes). Photos are the caller's own Asset ids. */
+export type ChartReferenceInput =
+  | { kind: 'photo'; assetId: string; role?: 'start' | 'extra' }
+  | { kind: 'place'; label: string; latitude?: number; longitude?: number }
+  | { kind: 'document'; name: string; text: string };
 const PROPOSAL_TTL_MS = 24 * 60 * 60 * 1000;
 /** A transient provider error is retried once, only if it failed fast. */
 const RETRY_WINDOW_MS = 4_000;
@@ -197,13 +206,79 @@ export class ChartPlannerService {
     return { anchor, vision };
   }
 
+  /**
+   * Turns attached references into prompt context plus in-memory images.
+   * Photos must be the caller's own Asset rows; their bytes are read once and never logged or stored here.
+   * Place and document text lives only for this request (nothing below persists it).
+   * A photo that cannot be read is dropped: references improve a route, they never block it.
+   */
+  private async resolveReferences(
+    userId: string,
+    references: ChartReferenceInput[] | null | undefined
+  ): Promise<{ context: ChartPlanningContext['references']; images: ChartModelImage[] }> {
+    if (!references?.length) return { context: null, images: [] };
+    const photos: Array<{ role: 'start' | 'extra' }> = [];
+    const images: ChartModelImage[] = [];
+    const places: NonNullable<ChartPlanningContext['references']>['places'] = [];
+    const documents: NonNullable<ChartPlanningContext['references']>['documents'] = [];
+    for (const reference of references) {
+      if (reference.kind === 'place') {
+        places.push({ label: reference.label, latitude: reference.latitude, longitude: reference.longitude });
+      } else if (reference.kind === 'document') {
+        // TODO(privacy): document storage policy is undecided; this text is used for one request and never persisted.
+        documents.push({ name: reference.name, text: reference.text });
+      } else {
+        const asset = await prisma.asset.findFirst({
+          where: { id: reference.assetId, userId },
+          select: { storageKey: true, mimeType: true },
+        });
+        if (!asset || !REFERENCE_IMAGE_TYPES.includes(asset.mimeType)) continue;
+        try {
+          const bytes = await readPrivateImageAsset(asset.storageKey);
+          images.push({ mimeType: asset.mimeType, base64: bytes.toString('base64') });
+          photos.push({ role: reference.role ?? 'extra' });
+        } catch (error) {
+          logger.warn('chart_reference_unreadable', { reason: describeFailure(error) });
+        }
+      }
+    }
+    return { context: { photos, places, documents }, images };
+  }
+
+  /**
+   * The person's own Vision imagery (first scenes, in order) so Chart never asks them to describe it again.
+   * Read once for this request; unreadable images are skipped.
+   */
+  private async loadVisionImages(userId: string, visionId: string): Promise<ChartModelImage[]> {
+    const scenes = await prisma.visionScene
+      .findMany({
+        where: { visionId, userId, isArchived: false, assetId: { not: null } },
+        orderBy: { sortOrder: 'asc' },
+        take: 2,
+        select: { asset: { select: { storageKey: true, mimeType: true } } },
+      })
+      .catch(() => []);
+    const images: ChartModelImage[] = [];
+    for (const scene of scenes) {
+      const asset = scene.asset;
+      if (!asset || !REFERENCE_IMAGE_TYPES.includes(asset.mimeType)) continue;
+      try {
+        images.push({ mimeType: asset.mimeType, base64: (await readPrivateImageAsset(asset.storageKey)).toString('base64') });
+      } catch {
+        // A Vision image that cannot be read never blocks a route.
+      }
+    }
+    return images;
+  }
+
   async generate(
     userId: string,
     input: {
       anchorId: string;
       idempotencyKey: string;
       startingContext?: string | null;
-      followUp?: { question: string; answer: string } | null;
+      followUp?: { question: string; answer?: string } | null;
+      references?: ChartReferenceInput[] | null;
     }
   ): Promise<ChartPlanResponse> {
     const key = scopedKey(userId, 'create', input.idempotencyKey);
@@ -218,13 +293,23 @@ export class ChartPlannerService {
     const { anchor, vision } = await this.loadAnchorContext(userId, input.anchorId);
     const onboarding = await getOnboardingContext(userId).catch(() => null);
     const startingContext = input.startingContext?.trim() || null;
+    const resolved = await this.resolveReferences(userId, input.references);
+    const visionImages = vision ? await this.loadVisionImages(userId, vision.id) : [];
     const context: ChartPlanningContext = {
       intention: anchor.intentionText,
       category: anchor.category,
       onboarding,
       startingContext,
       vision: vision && (vision.title || vision.description) ? { title: vision.title, description: vision.description } : null,
-      followUp: input.followUp?.answer?.trim() ? input.followUp : null,
+      // A follow-up counts as answered by text or by an attached reference.
+      followUp: input.followUp
+        ? {
+            question: input.followUp.question,
+            answer: input.followUp.answer?.trim() || 'No written answer; see the attached references.',
+          }
+        : null,
+      references: resolved.context,
+      visionImageCount: visionImages.length,
       adjustment: null,
     };
     // Exactly one follow-up per creation: once answered, the planner must plan.
@@ -237,6 +322,7 @@ export class ChartPlannerService {
           jsonSchema: GENERATION_JSON_SCHEMA as unknown as Record<string, unknown>,
           system: CHART_PLANNER_SYSTEM,
           user: buildPlanningUserMessage(context, { allowFollowUp }),
+          ...(visionImages.length || resolved.images.length ? { images: [...visionImages, ...resolved.images] } : {}),
           timeoutMs,
           temperature: 0.4,
         })
@@ -248,7 +334,14 @@ export class ChartPlannerService {
     }
 
     const inputHash = digest(
-      JSON.stringify({ anchorId: anchor.id, startingContext, followUp: context.followUp?.answer ?? null })
+      JSON.stringify({
+        anchorId: anchor.id,
+        startingContext,
+        followUp: context.followUp?.answer ?? null,
+        references: resolved.context
+          ? { photos: resolved.context.photos.length, places: resolved.context.places.length, documents: resolved.context.documents.length }
+          : null,
+      })
     );
     return {
       status: 'proposal',

@@ -15,6 +15,7 @@ import {
   ImageProviderError,
   ImageProviderErrorType,
 } from '../types';
+import { orderVisionReferences, visionReferenceInstructions } from '../visionReferences';
 
 export class GeminiImageProviderAdapter implements ImageProviderAdapter {
   readonly name = 'gemini' as const;
@@ -137,21 +138,15 @@ export class GeminiImageProviderAdapter implements ImageProviderAdapter {
             parts.push({ text: variationPrompt });
           }
         } else {
-          // Vision imagery
-          const refImg = request.referenceImages?.[0];
-          if (refImg) {
-            parts.push({
-              text: `${variationPrompt}\n\nThe attached image is an optional approved appearance reference. Use it only when the person is visibly represented; preserve broad likeness without naming or inferring demographic attributes. Do not force a face into the composition.`,
-            });
+          // Vision imagery: the Vision's own photographs (world) come first, then who is in them.
+          const ordered = orderVisionReferences(request.referenceImages);
+          parts.push({ text: `${variationPrompt}\n\n${visionReferenceInstructions(ordered)}` });
+          for (const refImg of ordered) {
             parts.push({
               inlineData: {
                 mimeType: refImg.mimeType || 'image/jpeg',
                 data: refImg.buffer.toString('base64'),
               },
-            });
-          } else {
-            parts.push({
-              text: `${variationPrompt}\n\nNo appearance reference was supplied. Do not imply an invented protagonist is the user; prefer first-person, identity-neutral, obscured, or environmental composition when a person would otherwise be central.`,
             });
           }
         }

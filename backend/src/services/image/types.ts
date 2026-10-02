@@ -12,7 +12,8 @@ export type QualityTier = 'draft' | 'premium' | 'pro_upgrade';
 export interface ImageReference {
   buffer: Buffer;
   mimeType: string;
-  role?: 'structure' | 'appearance' | 'style';
+  /** structure: Anchor geometry. appearance: who the person is. world: an image already in their Vision (the place, objects, wardrobe, light to continue). style: look only. */
+  role?: 'structure' | 'appearance' | 'world' | 'style';
 }
 
 export interface GenerateImageRequest {

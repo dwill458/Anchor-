@@ -6,7 +6,9 @@ import { getOnboardingContext } from './OnboardingContextService';
 import { AppError } from '../../api/middleware/errorHandler';
 import { GeminiError, GeminiErrorType, GeminiImageService } from '../GeminiImageService';
 import { imageGenerationService, ImageProviderError, ImageProviderErrorType } from '../image';
-import { resolveStorageKeyUrl, uploadImageAssetFromBuffer } from '../StorageService';
+import { readPrivateImageAsset, resolveStorageKeyUrl, uploadImageAssetFromBuffer } from '../StorageService';
+import type { ImageReference } from '../image/types';
+import { selectWorldReferenceScenes, type WorldReferenceScene } from './visionWorldReferences';
 import { getMonetizationAccess } from '../MonetizationAccessService';
 import { visionService } from './VisionService';
 import { VISION_MAX_IMAGES, VISION_SCENE_DESCRIPTION_MAX } from '../../domain/v2/vision';
@@ -322,8 +324,16 @@ export class VisionGenerationService {
     provider: GeminiImageService,
     prompt: string,
     reference?: { buffer: Buffer; mimeType: string } | null,
-    userId?: string
+    userId?: string,
+    world: ImageReference[] = []
   ): Promise<Buffer> {
+    const withWorld = (appearance?: { buffer: Buffer; mimeType: string } | null): ImageReference[] | undefined => {
+      const all: ImageReference[] = [
+        ...world,
+        ...(appearance ? [{ buffer: appearance.buffer, mimeType: appearance.mimeType, role: 'appearance' as const }] : []),
+      ];
+      return all.length ? all : undefined;
+    };
     const attempt = async (appearance?: { buffer: Buffer; mimeType: string } | null) => {
       // If generateVisionScene is a Jest mock (e.g. in unit tests), respect the mock
       const isMock = Boolean(
@@ -346,9 +356,7 @@ export class VisionGenerationService {
         const result = await imageGenerationService.generate({
           type: 'vision',
           prompt,
-          referenceImages: appearance
-            ? [{ buffer: appearance.buffer, mimeType: appearance.mimeType, role: 'appearance' }]
-            : undefined,
+          referenceImages: withWorld(appearance),
           userId,
         });
         return result.images[0].buffer;
@@ -364,9 +372,7 @@ export class VisionGenerationService {
         const retryResult = await imageGenerationService.generate({
           type: 'vision',
           prompt,
-          referenceImages: appearance
-            ? [{ buffer: appearance.buffer, mimeType: appearance.mimeType, role: 'appearance' }]
-            : undefined,
+          referenceImages: withWorld(appearance),
           userId,
         });
         return retryResult.images[0].buffer;
@@ -380,12 +386,40 @@ export class VisionGenerationService {
       if (!reference) throw error;
       // Appearance is optional. If the provider rejects the reference or its
       // likeness path, preserve the person's requested future as a POV /
-      // identity-neutral scene rather than failing the complete Vision.
+      // identity-neutral scene rather than failing the complete Vision. The
+      // Vision's own photographs (world) stay attached.
       logger.warn(
-        '[VisionGeneration] Appearance reference unavailable; using identity-neutral scene'
+        '[VisionGeneration] Appearance reference unavailable; using identity-neutral scene',
+        { worldReferences: world.length }
       );
       return attempt(null);
     }
+  }
+
+  /**
+   * The Vision's existing photographs, read for the image model. A scene whose image cannot be
+   * read is skipped: continuity is best effort, the new moment is never blocked by it.
+   */
+  private async loadWorldReferences(scenes: WorldReferenceScene[]): Promise<ImageReference[]> {
+    const chosen = selectWorldReferenceScenes(scenes);
+    const loaded: ImageReference[] = [];
+    for (const scene of chosen) {
+      try {
+        const raw = await readPrivateImageAsset(scene.asset!.storageKey);
+        const buffer = await sharp(raw)
+          .rotate()
+          .resize({ width: 1024, height: 1024, fit: 'inside', withoutEnlargement: true })
+          .jpeg({ quality: 85 })
+          .toBuffer();
+        loaded.push({ buffer, mimeType: 'image/jpeg', role: 'world' });
+      } catch (error) {
+        logger.warn('[VisionGeneration] A Vision photograph could not be read as a reference', {
+          sceneId: scene.id,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    }
+    return loaded;
   }
 
   private async run(jobId: string, intention: string, category: string) {
@@ -423,11 +457,28 @@ export class VisionGenerationService {
                 scenes: {
                   where: { isArchived: false },
                   orderBy: { sortOrder: 'asc' },
-                  select: { prompt: true },
+                  select: {
+                    id: true,
+                    prompt: true,
+                    sourceType: true,
+                    sortOrder: true,
+                    createdAt: true,
+                    asset: { select: { storageKey: true, mimeType: true } },
+                  },
                 },
               },
             })
           : null;
+      // The Vision already exists as a world: its own photographs are attached to the request as
+      // images, ahead of any text. The first image of a Vision has no world yet, so nothing is attached.
+      const worldReferences = boardContext ? await this.loadWorldReferences(boardContext.scenes) : [];
+      logger.info('[VisionGeneration] Generation references', {
+        jobId,
+        kind: job.kind,
+        identityReferences: reference ? 1 : 0,
+        worldReferencesAvailable: boardContext?.scenes.length ?? 0,
+        worldReferencesAttached: worldReferences.length,
+      });
       const onboarding = await getOnboardingContext(job.userId).catch(() => null);
       const plan: VisionScenePlanItem[] = isStoredVisionScenePlan(savedPlan)
         ? savedPlan
@@ -508,9 +559,10 @@ export class VisionGenerationService {
           scene,
           plannedScenes: plan,
           hasAppearanceReference: Boolean(reference),
+          worldReferenceCount: worldReferences.length,
         });
         try {
-          const raw = await this.renderScene(provider, prompt, reference, job.userId);
+          const raw = await this.renderScene(provider, prompt, reference, job.userId, worldReferences);
           const afterProvider = await prisma.visionGeneration.findUnique({
             where: { id: jobId },
             select: { status: true, retryCount: true },

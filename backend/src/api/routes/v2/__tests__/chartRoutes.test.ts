@@ -90,6 +90,43 @@ describe('Chart v2 routes', () => {
     expect(mockPrisma.user.updateMany).toHaveBeenCalled();
   });
 
+  it('accepts additive references, and a follow-up answered by a reference alone', async () => {
+    mockPlanner.generate.mockResolvedValue({ status: 'needs_context', followUpQuestion: 'q?' });
+    const assetId = '3f2b8c1e-6d1a-4c55-9a0e-1b2c3d4e5f60';
+    const response = await request(app())
+      .post('/api/v2/anchors/a1/chart/plan')
+      .send({
+        idempotencyKey: key,
+        followUp: { question: 'What do you see?', answer: '' },
+        references: [
+          { kind: 'photo', assetId, role: 'start' },
+          { kind: 'place', label: 'Mike’s Auto Body', latitude: 40.1, longitude: -74.2 },
+          { kind: 'document', name: 'quote.txt', text: 'Estimate: $4,000' },
+        ],
+      });
+    expect(response.status).toBe(200);
+    const sent = mockPlanner.generate.mock.calls[0][1];
+    expect(sent.references).toHaveLength(3);
+    expect(sent.followUp).toEqual({ question: 'What do you see?', answer: '' });
+  });
+
+  it('rejects an empty follow-up with no reference, bad references, and too many references', async () => {
+    const empty = await request(app())
+      .post('/api/v2/anchors/a1/chart/plan')
+      .send({ idempotencyKey: key, followUp: { question: 'q?', answer: '' } });
+    expect(empty.status).toBe(400);
+    const bad = await request(app())
+      .post('/api/v2/anchors/a1/chart/plan')
+      .send({ idempotencyKey: key, references: [{ kind: 'photo', assetId: 'not-a-uuid' }] });
+    expect(bad.status).toBe(400);
+    const place = { kind: 'place', label: 'x' };
+    const many = await request(app())
+      .post('/api/v2/anchors/a1/chart/plan')
+      .send({ idempotencyKey: key, references: [place, place, place, place, place] });
+    expect(many.status).toBe(400);
+    expect(mockPlanner.generate).not.toHaveBeenCalled();
+  });
+
   it('rejects unknown fields and oversized input before any service call', async () => {
     const extra = await request(app()).post('/api/v2/anchors/a1/chart/plan').send({ idempotencyKey: key, destination: 'x' });
     expect(extra.status).toBe(400);

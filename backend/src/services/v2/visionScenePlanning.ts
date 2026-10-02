@@ -232,6 +232,8 @@ export function buildVisionImagePrompt(input: {
   /** The complete plan gives each image prompt context about earlier/later beats. */
   plannedScenes?: VisionScenePlanItem[];
   hasAppearanceReference?: boolean;
+  /** Photographs already in this Vision, attached as images: the world this one continues. */
+  worldReferenceCount?: number;
   /** Moments already on the person's board: the new photograph belongs beside them without repeating them. */
   boardScenes?: string[];
 }): string {
@@ -252,6 +254,9 @@ export function buildVisionImagePrompt(input: {
       'This photograph joins a board that already shows the moments below. Keep the same world, season, light quality and grade so it clearly belongs to the same Vision, but do not repeat any of these compositions:',
       ...board.map(item => `- ${item}`),
     ] : []),
+    ...(input.worldReferenceCount
+      ? ['The photograph(s) attached as Vision references are the established world. They outrank the category and any generic setting: keep their specific car, place, wardrobe, light and grade, and show a different moment from the same life.']
+      : []),
     LENS_BY_FRAMING[scene.framing ?? ''] ?? 'Natural candid framing.',
     VISION_PORTRAIT_COMPOSITION,
     VISION_BOARD_PHOTO_RULES,
@@ -274,7 +279,7 @@ export function buildVisionImagePrompt(input: {
 
 const VARIANT_DIRECTION: Array<Pick<VisionScenePlanItem, 'role' | 'framing' | 'composition' | 'light'>> = [
   { role: 'The moment itself', framing: 'medium', composition: 'The described moment as it happens, seen from a natural first-person or over-the-shoulder viewpoint', light: 'Natural available light suited to the setting' },
-  { role: 'The place around it', framing: 'wide', composition: 'The same moment from farther away, so the surrounding place and atmosphere read clearly', light: 'Soft, slightly different time of day from the first' },
+  { role: 'The place around it', framing: 'wide', composition: 'The same moment from farther away, so the surrounding place and atmosphere read clearly', light: 'The same time of day and light quality as the rest of the Vision' },
 ];
 
 /**

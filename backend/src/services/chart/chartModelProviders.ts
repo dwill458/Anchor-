@@ -12,12 +12,17 @@ import { env } from '../../config/env';
 
 export type ChartProviderName = 'openai' | 'gemini';
 
+/** An image the model should look at. Bytes are held in memory for one request only. */
+export type ChartModelImage = { mimeType: string; base64: string };
+
 export type ChartModelRequest = {
   /** Stable name for the structured-output schema (provider-side identifier). */
   schemaName: string;
   jsonSchema: Record<string, unknown>;
   system: string;
   user: string;
+  /** Optional reference photos sent alongside `user` (text-only requests omit this). */
+  images?: ChartModelImage[];
   timeoutMs: number;
   temperature?: number;
 };
@@ -118,7 +123,18 @@ export class OpenAiChartProvider implements ChartModelProvider {
           ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
           messages: [
             { role: 'system', content: request.system },
-            { role: 'user', content: request.user },
+            {
+              role: 'user',
+              content: request.images?.length
+                ? [
+                    { type: 'text', text: request.user },
+                    ...request.images.map(image => ({
+                      type: 'image_url',
+                      image_url: { url: `data:${image.mimeType};base64,${image.base64}`, detail: 'low' },
+                    })),
+                  ]
+                : request.user,
+            },
           ],
           response_format: {
             type: 'json_schema',
@@ -163,7 +179,15 @@ export class GeminiChartProvider implements ChartModelProvider {
     try {
       const response = await this.client.models.generateContent({
         model: this.model,
-        contents: [{ role: 'user', parts: [{ text: request.user }] }],
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { text: request.user },
+              ...(request.images ?? []).map(image => ({ inlineData: { mimeType: image.mimeType, data: image.base64 } })),
+            ],
+          },
+        ],
         config: {
           systemInstruction: request.system,
           temperature: request.temperature ?? 0.4,

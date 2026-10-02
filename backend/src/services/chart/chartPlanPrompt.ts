@@ -26,7 +26,18 @@ export type ChartPlanningContext = {
   onboarding?: { motivation?: string; customAnswer?: string; desiredChange: string; lifeChanges: string[]; primaryNeed: string } | null;
   startingContext: string | null;
   vision: { title: string | null; description: string | null } | null;
+  /** How many of the attached images are the person's own Vision imagery (always first). */
+  visionImageCount?: number;
   followUp: { question: string; answer: string } | null;
+  /**
+   * Optional references the person attached. Photos travel to the model as images (not in this text);
+   * `photos` only tells the prompt how many there are. Never persisted.
+   */
+  references?: {
+    photos: { role: 'start' | 'extra' }[];
+    places: { label: string; latitude?: number; longitude?: number }[];
+    documents: { name: string; text: string }[];
+  } | null;
   /** Present only when revising a route. */
   adjustment: {
     reason: ChartAdjustmentReason;
@@ -143,10 +154,33 @@ export function buildPlanningUserMessage(
     };
   }
 
+  const refs = context.references;
+  if (refs && (refs.photos.length || refs.places.length || refs.documents.length)) {
+    data.references = {
+      ...(refs.photos.length
+        ? { photos: refs.photos.map(photo => (photo.role === 'start' ? 'photo of where they are starting now (attached)' : 'reference photo (attached)')) }
+        : {}),
+      ...(refs.places.length
+        ? { places: refs.places.map(place => ({ label: limit(place.label, 120), ...(place.latitude !== undefined && place.longitude !== undefined ? { latitude: place.latitude, longitude: place.longitude } : {}) })) }
+        : {}),
+      ...(refs.documents.length ? { documents: refs.documents.map(doc => ({ name: limit(doc.name, 80), text: limit(doc.text, 4000) })) } : {}),
+    };
+  }
+
   const instructions: string[] = [`Lens for this category: ${lens}`];
+  if (data.references) {
+    instructions.push(
+      'The person attached references (photos, places, documents). Treat them as evidence of where they are starting now. Describe only what is plainly visible or written; never identify people or infer private details; if a reference is unclear, ignore it rather than guess.'
+    );
+  }
   if (context.onboarding) instructions.push('Onboarding answers may help tailor the explanation or follow-up. The Anchor intention, user-provided destination, and current reality determine the route; never substitute the onboarding wish for them.');
   if (context.startingContext) {
     instructions.push(REALITY_INSTRUCTION);
+  }
+  if (context.visionImageCount) {
+    instructions.push(
+      `The first ${context.visionImageCount} attached image(s) are the person's own Vision of the destination. Use them to understand what "arrived" looks like; never ask the person to describe what these images already show.`
+    );
   }
   if (context.vision) {
     instructions.push(

@@ -41,16 +41,40 @@ const RouteWaypoint = z
   })
   .strict();
 
+/**
+ * Optional references the person attached while describing where they are starting.
+ * Photos are Vision assets the client already uploaded (POST /api/v2/assets/upload). Places are
+ * text plus optional coordinates. Documents are plain text, used for one request and never stored.
+ */
+const ChartReferenceSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('photo'), assetId: z.string().uuid(), role: z.enum(['start', 'extra']).default('extra') }).strict(),
+  z
+    .object({
+      kind: z.literal('place'),
+      label: z.string().trim().min(1).max(120),
+      latitude: z.number().min(-90).max(90).optional(),
+      longitude: z.number().min(-180).max(180).optional(),
+    })
+    .strict(),
+  z.object({ kind: z.literal('document'), name: z.string().trim().min(1).max(80), text: z.string().trim().min(1).max(6000) }).strict(),
+]);
+
 const PlanSchema = z
   .object({
     idempotencyKey: IdempotencyKey,
     startingContext: z.string().max(500).nullish(),
     followUp: z
-      .object({ question: z.string().min(1).max(200), answer: z.string().trim().min(1).max(500) })
+      // The answer may be empty when a reference answers the question instead.
+      .object({ question: z.string().min(1).max(200), answer: z.string().trim().max(500).default('') })
       .strict()
       .nullish(),
+    references: z.array(ChartReferenceSchema).max(4).nullish(),
   })
-  .strict();
+  .strict()
+  .refine(value => !value.followUp || value.followUp.answer.length > 0 || (value.references?.length ?? 0) > 0, {
+    message: 'A follow-up needs an answer or a reference',
+    path: ['followUp'],
+  });
 
 const AdjustSchema = z
   .object({
@@ -194,6 +218,8 @@ router.post(
       idempotencyKey: body.idempotencyKey,
       startingContext: body.startingContext ?? null,
       followUp: body.followUp ?? null,
+      // Added only when present, so text-only clients behave exactly as before.
+      ...(body.references?.length ? { references: body.references } : {}),
     });
     res.json({ success: true, data: result });
   })

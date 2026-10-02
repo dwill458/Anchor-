@@ -35,12 +35,20 @@ jest.mock('../../GeminiImageService', () => {
     })),
   };
 });
+const mockImageGenerate = jest.fn();
+jest.mock('../../image', () => {
+  const actual = jest.requireActual('../../image');
+  return { ...actual, imageGenerationService: { generate: (...args: unknown[]) => mockImageGenerate(...args) } };
+});
 jest.mock('../../StorageService', () => ({
   resolveStorageKeyUrl: jest.fn(async () => 'https://signed.example/image.jpg'),
   uploadImageAssetFromBuffer: jest.fn(),
+  readPrivateImageAsset: jest.fn(),
 }));
 
 import sharp from 'sharp';
+import { GeminiImageService } from '../../GeminiImageService';
+import { readPrivateImageAsset } from '../../StorageService';
 import { getMonetizationAccess } from '../../MonetizationAccessService';
 import { visionService } from '../VisionService';
 import { VisionGenerationService } from '../VisionGenerationService';
@@ -304,6 +312,82 @@ describe('VisionGenerationService', () => {
       expect(mockPrisma.visionGeneration.updateMany).toHaveBeenLastCalledWith(expect.objectContaining({
         data: expect.objectContaining({ status: 'COMPLETE' }),
       }));
+    });
+
+    describe('continuing the world the person has already established', () => {
+      const png = async (color: string) => sharp({ create: { width: 64, height: 96, channels: 3, background: color } }).png().toBuffer();
+      const plan = [
+        { role: 'The moment itself', scene: sceneText, framing: 'medium' },
+        { role: 'The place around it', scene: sceneText, framing: 'wide' },
+      ];
+      const arrange = async (scenes: unknown[], unreadable = false) => {
+        const provider = { planVisionScenes: mockPlanVisionScenes, generateVisionScene: async () => Buffer.alloc(0) };
+        (GeminiImageService as unknown as jest.Mock).mockImplementationOnce(() => provider);
+        mockImageGenerate.mockResolvedValue({ images: [{ buffer: await png('#334455') }] });
+        (readPrivateImageAsset as jest.Mock).mockImplementation(async (key: string) => {
+          if (unreadable) throw new Error('gone');
+          return png(key.includes('mine') ? '#111111' : '#999999');
+        });
+        mockPrisma.visionGeneration.findUnique.mockImplementation(async (query: { select?: unknown }) =>
+          query.select ? { status: 'RUNNING', retryCount: 0 } : {
+            id: 'scene-job-1', userId, anchorId, visionId: 'vision-1', kind: 'SCENE', description: sceneText, retryCount: 0, plan,
+          });
+        mockPrisma.vision.findUnique.mockResolvedValue({ description: 'I own a black 1987 Buick Regal.', scenes });
+        mockPrisma.visionGeneration.updateMany.mockResolvedValue({ count: 1 });
+        mockPrisma.visionGeneration.update.mockResolvedValue({});
+        mockPrisma.visionGenerationCandidate.findUnique.mockResolvedValue(null);
+        mockPrisma.visionGenerationCandidate.create.mockResolvedValue({});
+        (uploadImageAssetFromBuffer as jest.Mock).mockImplementation(async (_i, _u, _a, index) => ({ objectKey: `private/${index}.jpg` }));
+        (visionService.createAsset as jest.Mock).mockImplementation(async (_u, input) => ({ id: input.storageKey }));
+        await (service as any).run('scene-job-1', 'I own a Regal', 'DESIRE');
+      };
+      const scene = (id: string, sourceType: string, sortOrder: number, key: string) => ({
+        id, prompt: null, sourceType, sortOrder, createdAt: new Date(2026, 8, sortOrder + 1), asset: { storageKey: key, mimeType: 'image/jpeg' },
+      });
+
+      it('attaches the person\'s own photograph first, as an image, ahead of generated ones', async () => {
+        await arrange([scene('g1', 'AI_GENERATED', 0, 'private/gen.jpg'), scene('own', 'USER_UPLOAD', 1, 'private/mine.jpg')]);
+        expect(mockImageGenerate).toHaveBeenCalled();
+        const request = mockImageGenerate.mock.calls[0][0];
+        expect(request.type).toBe('vision');
+        expect(request.referenceImages.map((item: { role: string }) => item.role)).toEqual(['world', 'world']);
+        expect((readPrivateImageAsset as jest.Mock).mock.calls[0][0]).toBe('private/mine.jpg');
+        expect(request.prompt).toMatch(/established world/);
+        expect(request.prompt).toContain('I own a black 1987 Buick Regal.');
+      });
+
+      it('sends the world and a separate appearance reference together, labelled apart', async () => {
+        const provider = { planVisionScenes: mockPlanVisionScenes, generateVisionScene: async () => Buffer.alloc(0) };
+        (GeminiImageService as unknown as jest.Mock).mockImplementationOnce(() => provider);
+        const { visionAppearanceReferenceService } = await import('../VisionAppearanceReferenceService');
+        jest.spyOn(visionAppearanceReferenceService, 'resolveForGeneration')
+          .mockResolvedValue({ id: 'ref-1', buffer: await png('#aa0000'), mimeType: 'image/jpeg' });
+        jest.spyOn(visionAppearanceReferenceService, 'cleanupGenerationScoped').mockResolvedValue(undefined);
+        mockPrisma.visionGeneration.findUnique.mockImplementation(async (query: { select?: unknown }) =>
+          query.select ? { status: 'RUNNING', retryCount: 0 } : {
+            id: 'scene-job-1', userId, anchorId, visionId: 'vision-1', kind: 'SCENE', description: sceneText, retryCount: 0, plan, appearanceReferenceId: 'ref-1',
+          });
+        mockImageGenerate.mockResolvedValue({ images: [{ buffer: await png('#334455') }] });
+        (readPrivateImageAsset as jest.Mock).mockImplementation(async () => png('#111111'));
+        mockPrisma.vision.findUnique.mockResolvedValue({ description: 'My Regal.', scenes: [scene('own', 'USER_UPLOAD', 0, 'private/mine.jpg')] });
+        mockPrisma.visionGeneration.updateMany.mockResolvedValue({ count: 1 });
+        mockPrisma.visionGeneration.update.mockResolvedValue({});
+        mockPrisma.visionGenerationCandidate.findUnique.mockResolvedValue(null);
+        mockPrisma.visionGenerationCandidate.create.mockResolvedValue({});
+        (uploadImageAssetFromBuffer as jest.Mock).mockImplementation(async (_i, _u, _a, index) => ({ objectKey: `private/${index}.jpg` }));
+        (visionService.createAsset as jest.Mock).mockImplementation(async (_u, input) => ({ id: input.storageKey }));
+
+        await (service as any).run('scene-job-1', 'I own a Regal', 'DESIRE');
+
+        expect(mockImageGenerate.mock.calls[0][0].referenceImages.map((item: { role: string }) => item.role)).toEqual(['world', 'appearance']);
+      });
+
+      it('still creates the moment when a Vision photograph cannot be read', async () => {
+        const onlyScene = scene('own', 'USER_UPLOAD', 0, 'private/mine.jpg');
+        await arrange([onlyScene], true);
+        expect(mockImageGenerate.mock.calls[0][0].referenceImages).toBeUndefined();
+        expect(mockPrisma.visionGenerationCandidate.create).toHaveBeenCalledTimes(2);
+      });
     });
   });
 });

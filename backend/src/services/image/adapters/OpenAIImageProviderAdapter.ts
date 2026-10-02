@@ -16,6 +16,7 @@ import {
   ImageProviderError,
   ImageProviderErrorType,
 } from '../types';
+import { orderVisionReferences, visionReferenceInstructions } from '../visionReferences';
 
 export class OpenAIImageProviderAdapter implements ImageProviderAdapter {
   readonly name = 'openai' as const;
@@ -133,22 +134,47 @@ export class OpenAIImageProviderAdapter implements ImageProviderAdapter {
         }
 
         // No response_format: GPT-Image models reject it and always return b64_json.
-        const requestBody = {
-          model,
-          prompt: enhancedPrompt,
-          size,
-          n: 1,
-        };
-
-        const response = await fetch(`${this.baseUrl}/images/generations`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-          signal: controller.signal,
-        });
+        // Vision references (the Vision's own photographs and who is in them) go through the edits
+        // endpoint: it takes several input images and generates a new one from them. Without them
+        // this is plain text-to-image.
+        const visionReferences =
+          request.type === 'vision' ? orderVisionReferences(request.referenceImages) : [];
+        let response: Response;
+        if (visionReferences.length > 0) {
+          const form = new FormData();
+          form.append('model', model);
+          form.append(
+            'prompt',
+            `${enhancedPrompt}\n\n${visionReferenceInstructions(visionReferences)}`
+          );
+          form.append('size', size);
+          form.append('n', '1');
+          visionReferences.forEach((reference, index) => {
+            const type = reference.mimeType || 'image/jpeg';
+            const extension = type.split('/')[1] || 'jpg';
+            form.append(
+              'image[]',
+              new Blob([new Uint8Array(reference.buffer)], { type }),
+              `reference-${index + 1}.${extension}`
+            );
+          });
+          response = await fetch(`${this.baseUrl}/images/edits`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${apiKey}` },
+            body: form,
+            signal: controller.signal,
+          });
+        } else {
+          response = await fetch(`${this.baseUrl}/images/generations`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ model, prompt: enhancedPrompt, size, n: 1 }),
+            signal: controller.signal,
+          });
+        }
 
         if (!response.ok) {
           const errorBody = await response.json().catch(() => ({}));

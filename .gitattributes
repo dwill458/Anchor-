@@ -20,3 +20,9 @@
 *.otf binary
 *.woff binary
 *.woff2 binary
+anchor/mobile/docs/qa/visualize-20261004/three-minute-six-photos.mp4 filter=lfs diff=lfs merge=lfs -text
+anchor/mobile/docs/qa/visualize-20261004/visualize-session-current.mp4 filter=lfs diff=lfs merge=lfs -text
+anchor/mobile/docs/qa/visualize-20261004/visualize-session-delivery.mp4 filter=lfs diff=lfs merge=lfs -text
+anchor/mobile/docs/qa/visualize-20261004/visualize-session-master.mp4 filter=lfs diff=lfs merge=lfs -text
+anchor/mobile/docs/qa/visualize-20261004/visualize-six-photos-final.mp4 filter=lfs diff=lfs merge=lfs -text
+anchor/mobile/docs/qa/visualize-20261004/visualize-six-photos-verified.mp4 filter=lfs diff=lfs merge=lfs -text
