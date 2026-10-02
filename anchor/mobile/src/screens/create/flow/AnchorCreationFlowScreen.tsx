@@ -14,6 +14,7 @@ import { isAnchorV2Enabled } from '@/config/v2FeatureFlag';
 import { PAPER_ART_SHARE } from '@/components/v2/creation/creationMotion';
 import { handOffToHome, prepareHomeArrival } from '@/navigation/v2/creationHandoff';
 import { useAudio } from '@/hooks/useAudio';
+import { useHighRefreshRate } from '@/hooks/useHighRefreshRate';
 import { useCreationReduceMotion } from '@/hooks/useReduceMotionEnabled';
 import { useSaveAnchor } from '@/hooks/useSaveAnchor';
 import { useTrialStatus } from '@/hooks/useTrialStatus';
@@ -109,6 +110,8 @@ export default function AnchorCreationFlowScreen() {
   const layout = useFlowLayout();
   const fonts = useFlowFonts();
   const reduceMotion = useCreationReduceMotion();
+  // The seal and the hand-off to Home are the flow's most animated moments: ask for the panel's top rate.
+  useHighRefreshRate(true, 2600);
   const { playSound } = useAudio();
 
   const anchorCount = useAuthStore((s) => s.anchorCount);
