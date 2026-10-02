@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, DeviceEventEmitter, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import NotificationService, { type NotificationType } from '@/services/NotificationService';
 import { resetFirstRunStore } from '@/services/devOnboardingService';
+import { seedV2DemoAnchor } from '@/utils/v2DevSeeder';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -121,8 +123,10 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
     return null;
   }
 
+  const navigation = useNavigation<any>();
   const [isExpanded, setIsExpanded] = useState(false);
-  const [showOnboardingTools, setShowOnboardingTools] = useState(true);
+  const [showV2Tools, setShowV2Tools] = useState(true);
+  const [showOnboardingTools, setShowOnboardingTools] = useState(false);
   const [showSubscriptionTools, setShowSubscriptionTools] = useState(false);
   const [showAnchorTools, setShowAnchorTools] = useState(false);
   const [showRecommendationTools, setShowRecommendationTools] = useState(false);
@@ -373,8 +377,86 @@ export const DeveloperToolsSection: React.FC<DeveloperToolsSectionProps> = ({
 
       {!isExpanded ? null : (
         <View style={styles.contentContainer}>
-          {/* Section A: Onboarding & First-Run */}
+          {/* Section 0: Anchor 2.0 Features & QA Labs */}
           <SettingsSectionBlock isDev>
+            {renderAccordionHeader(
+              'Anchor 2.0 Work & QA Labs',
+              'Creation, Vision, Chart & Demo Data',
+              showV2Tools,
+              () => setShowV2Tools((c) => !c)
+            )}
+            {showV2Tools ? (
+              <>
+                <SettingsRow
+                  title="Seed Demo Anchor + Vision + Chart"
+                  subtitle="Populates full Anchor with Vision board & Chart"
+                  type="none"
+                  onPress={() => {
+                    seedV2DemoAnchor();
+                    setDevStatusMessage('Seeded demo Anchor with Vision board and Chart course.');
+                  }}
+                  isDev
+                  rightElement={
+                    <View style={styles.actionBadge}>
+                      <Text style={styles.actionBadgeText}>Seed</Text>
+                    </View>
+                  }
+                />
+                <SettingsRow
+                  title="V2 Creation Flow"
+                  subtitle="Intention → Distill → Etch → Pager → Hold to Seal"
+                  type="none"
+                  onPress={() => navigation.navigate('V2Creation')}
+                  isDev
+                  rightElement={
+                    <View style={styles.actionBadge}>
+                      <Text style={styles.actionBadgeText}>Launch</Text>
+                    </View>
+                  }
+                />
+                <SettingsRow
+                  title="Vision Visual QA Lab"
+                  subtitle="Full Vision board, 2-up, moment inputs, and camera"
+                  type="none"
+                  onPress={() => DeviceEventEmitter.emit('openVisionVisualQA', { surface: '2' })}
+                  isDev
+                  rightElement={
+                    <View style={styles.actionBadge}>
+                      <Text style={styles.actionBadgeText}>Open</Text>
+                    </View>
+                  }
+                />
+                <SettingsRow
+                  title="Creation Flow QA Lab"
+                  subtitle="Isolated creation testing with local fixtures"
+                  type="none"
+                  onPress={() => DeviceEventEmitter.emit('openCreationFlowQA', { start: 'intention' })}
+                  isDev
+                  rightElement={
+                    <View style={styles.actionBadge}>
+                      <Text style={styles.actionBadgeText}>Open</Text>
+                    </View>
+                  }
+                />
+                <SettingsRow
+                  title="Chart Motion Lab"
+                  subtitle="Interactive 2.5D route map & waypoints"
+                  type="none"
+                  onPress={() => DeviceEventEmitter.emit('openChartLab')}
+                  isDev
+                  showDivider={false}
+                  rightElement={
+                    <View style={styles.actionBadge}>
+                      <Text style={styles.actionBadgeText}>Open</Text>
+                    </View>
+                  }
+                />
+              </>
+            ) : null}
+          </SettingsSectionBlock>
+
+          {/* Section A: Onboarding & First-Run */}
+          <SettingsSectionBlock isDev style={styles.subBlock}>
             {renderAccordionHeader(
               'Onboarding & First-Run',
               `Current: ${hasCompletedOnboarding ? 'Completed' : 'Pending'}`,

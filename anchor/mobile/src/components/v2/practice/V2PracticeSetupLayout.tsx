@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, type StyleProp, type View, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
 import Animated from 'react-native-reanimated';
@@ -27,6 +27,8 @@ type Props = {
   backdrop?: React.ReactNode;
   /** Applied to the header and footer, e.g. to fade them as the session begins. */
   chromeStyle?: StyleProp<ViewStyle>;
+  /** The full-screen root, so a setup can express a measured frame relative to its screen. */
+  rootRef?: React.Ref<View>;
 };
 
 /**
@@ -41,7 +43,7 @@ type Props = {
  * space and the footer sits at the bottom exactly as designed; on a short phone
  * it scrolls instead of compressing.
  */
-export function V2PracticeSetupLayout({ testID, onBack, backTestID, children, sidePadding, footer, footerPaddingBottom, centered = false, overlay, backdrop, chromeStyle }: Props) {
+export function V2PracticeSetupLayout({ testID, onBack, backTestID, children, sidePadding, footer, footerPaddingBottom, centered = false, overlay, backdrop, chromeStyle, rootRef }: Props) {
   // When the Anchor flies in, the setup arrives behind it: header, then the
   // body that holds the Anchor (opacity only, so its landing point stays put),
   // then the primary action.
@@ -49,7 +51,7 @@ export function V2PracticeSetupLayout({ testID, onBack, backTestID, children, si
   const bodyReveal = useAnchorTransitionReveal('practiceSetup', 2, { rise: false });
   const footerReveal = useAnchorTransitionReveal('practiceSetup', 3);
   return (
-    <SafeAreaView style={[styles.safe, backdrop ? styles.transparent : null]} edges={SAFE_EDGES} testID={testID}>
+    <SafeAreaView ref={rootRef} collapsable={false} style={[styles.safe, backdrop ? styles.transparent : null]} edges={SAFE_EDGES} testID={testID}>
       {backdrop ? <Animated.View pointerEvents="none" style={StyleSheet.absoluteFill}>{backdrop}</Animated.View> : null}
       <Animated.View style={[styles.header, headerReveal, chromeStyle]}>
         <Pressable

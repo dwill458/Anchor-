@@ -238,7 +238,7 @@ export const useNotificationController = () => {
       last_prime_at: latestPrime,
       has_reached_goal_today:
         state.has_reached_goal_today || currentPrimes >= dailyPracticeGoal,
-      threadStrength: hasCanonicalLedger ? metrics.score : sessionState.threadStrength,
+      threadStrength: hasCanonicalLedger ? metrics.score : (sessionState.threadStrength ?? 0),
       unfinishedAnchorReminders,
     };
   }, [dailyPracticeGoal]);
@@ -302,7 +302,7 @@ export const useNotificationController = () => {
       practiceHistory: sessionState.practiceHistory,
       accountId,
       totalSessionsCount: hasCanonicalLedger ? metrics.totalSessions : sessionState.totalSessionsCount,
-      threadStrength: hasCanonicalLedger ? metrics.score : sessionState.threadStrength,
+      threadStrength: hasCanonicalLedger ? metrics.score : (sessionState.threadStrength ?? 0),
       anchors: anchorState.anchors,
     };
   }, []);

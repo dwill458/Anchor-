@@ -287,6 +287,8 @@ export function V2HomeScreen() {
    */
   const { selectAnchor, refreshChart: refreshChartModel, refreshToday: refreshTodayModel, today, chart } = model;
   const chartCourseId = chart.state === 'ready' ? chart.courseId : undefined;
+  const chartCourseIdRef = useRef(chartCourseId);
+  chartCourseIdRef.current = chartCourseId;
 
   const handleCreateAnchor = useCallback(() => {
     track('v2_home_create_anchor_tapped');
@@ -343,6 +345,10 @@ export function V2HomeScreen() {
     void refreshTodayModel();
   }, [refreshTodayModel]);
 
+  const handleRetryVision = useCallback(() => {
+    void refreshVision();
+  }, [refreshVision]);
+
   const handleOpenVision = useCallback(() => {
     track('v2_home_vision_tapped');
     if (selectedId) intents.onOpenVision(selectedId);
@@ -350,8 +356,8 @@ export function V2HomeScreen() {
 
   const handleOpenChart = useCallback(() => {
     track('v2_home_chart_tapped');
-    if (selectedId) intents.onOpenChart(selectedId, chartCourseId);
-  }, [chartCourseId, intents, selectedId]);
+    if (selectedId) intents.onOpenChart(selectedId, chartCourseIdRef.current);
+  }, [intents, selectedId]);
 
   const header = (
     <View style={[styles.headerInset, { paddingHorizontal: gutter }]}>
@@ -488,16 +494,14 @@ export function V2HomeScreen() {
           />
 
           <V2HomeVisionSection vision={model.vision} categoryColor={categoryColor}
-            onOpenVision={handleOpenVision} onRetry={() => { void refreshVision(); }} />
+            onOpenVision={handleOpenVision} onRetry={handleRetryVision} />
 
           {!hasVision ? <V2HomeProgressSection progress={model.progress} thread={model.thread}
             categoryColor={categoryColor} onOpenProgress={handleOpenProgress} /> : null}
 
           <V2HomeChartSection
             chart={model.chart}
-            categoryColor={categoryColor}
-            category={model.selectedAnchor!.category}
-            expanded={model.chart.state === 'ready' && !hasVision}
+            anchorId={model.selectedAnchor!.id}
             onOpenChart={handleOpenChart}
             onRetry={refreshChartModel}
           />

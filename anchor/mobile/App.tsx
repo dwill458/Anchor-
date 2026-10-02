@@ -14,6 +14,7 @@ import type { DevicePushToken } from 'expo-notifications';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  CommonActions,
   NavigationContainer,
   useNavigationContainerRef,
   type InitialState,
@@ -43,6 +44,7 @@ import {
 } from '@expo-google-fonts/eb-garamond';
 import { RootNavigator } from './src/navigation';
 import { AnchorV2Navigator } from './src/navigation/v2';
+import { parseChartNotificationTarget } from './src/services/notifications/chartNotifications';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { ToastProvider } from './src/components/ToastProvider';
 import { useAuthStore } from './src/stores/authStore';
@@ -78,6 +80,7 @@ import { isAnchorV2Enabled } from './src/config/v2FeatureFlag';
 import { useAppStartup } from './src/hooks/useAppStartup';
 import { ChartLabDevHost } from './src/screens/v2/system/ChartLabDevHost';
 import { VisionVisualQADevHost } from './src/screens/v2/system/VisionVisualQADevHost';
+import { CreationFlowQADevHost } from './src/screens/create/flow/dev/CreationFlowQADevHost';
 import { SplashController } from './src/components/splash/SplashController';
 import { SPLASH_BACKGROUND_COLOR } from './src/components/splash/splashAnimation.constants';
 
@@ -726,9 +729,35 @@ export default function App() {
       });
     };
 
+    let chartNavTimer: ReturnType<typeof setTimeout> | null = null;
+    const openChartFromNotification = (anchorId: string, attempt = 0) => {
+      if (chartNavTimer) {
+        clearTimeout(chartNavTimer);
+        chartNavTimer = null;
+      }
+      if (navRef.isReady() && navRef.getCurrentRoute()) {
+        // V2Chart lives in the V2 stack, not RootNavigatorParamList, so dispatch by name.
+        navRef.dispatch(
+          CommonActions.navigate({ name: 'V2Chart', params: { anchorId, source: 'notification' } })
+        );
+        return;
+      }
+      if (attempt < 40) {
+        chartNavTimer = setTimeout(() => openChartFromNotification(anchorId, attempt + 1), 500);
+      }
+    };
+
     const handleNotificationResponse = (response: Notifications.NotificationResponse) => {
       const payload = response.notification.request.content.data ?? {};
       trackNotificationPayload(AnalyticsEvents.NOTIFICATION_OPENED, payload, 'openedAt');
+
+      // Chart pushes (recap / idle nudge) open the V2 Chart. Cold starts wait
+      // for the navigator instead of dropping the tap.
+      const chartTarget = anchorV2Enabled ? parseChartNotificationTarget(payload) : null;
+      if (chartTarget) {
+        openChartFromNotification(chartTarget.anchorId);
+        return;
+      }
 
       const action = NotificationService.handleNotificationClick(response);
       if (!navRef.isReady()) {
@@ -773,6 +802,7 @@ export default function App() {
     return () => {
       subscription.remove();
       receivedSubscription.remove();
+      if (chartNavTimer) clearTimeout(chartNavTimer);
     };
   }, [navRef]);
 
@@ -872,6 +902,7 @@ export default function App() {
                   </NavigationContainer>
                   {__DEV__ ? <ChartLabDevHost /> : null}
                   {__DEV__ ? <VisionVisualQADevHost /> : null}
+                  {__DEV__ ? <CreationFlowQADevHost /> : null}
                 </SettingsRevealProvider>
               </View>
               <SplashController

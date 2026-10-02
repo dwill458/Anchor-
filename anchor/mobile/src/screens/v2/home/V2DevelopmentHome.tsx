@@ -1,7 +1,10 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { DevSettings, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useV2AnchorCreationGate } from '@/hooks/v2/paywall';
 import { V2DailyShellNavigator, type V2DailyShellIntents } from './dailyShell';
+import { V2DevFloatingToolbar } from './V2DevFloatingToolbar';
+import { seedV2DemoAnchor } from '@/utils/v2DevSeeder';
 
 /**
  * Post-first-run destination inside the development-only AnchorV2Navigator.
@@ -10,6 +13,13 @@ import { V2DailyShellNavigator, type V2DailyShellIntents } from './dailyShell';
  */
 export function V2DevelopmentHome() {
   const navigation = useNavigation<any>();
+
+  useEffect(() => {
+    DevSettings.addMenuItem?.('Seed demo Anchor + Vision + Chart', () => {
+      seedV2DemoAnchor();
+    });
+  }, []);
+
   // Read through a ref: the intents must keep one identity (Home's sections are memoised on
   // them), while the gate's answer changes whenever Anchors or entitlement do.
   const gate = useV2AnchorCreationGate();
@@ -31,7 +41,7 @@ export function V2DevelopmentHome() {
       // which resumes creation once entitled. The server enforces the same rule on save.
       onCreateAnchor: () => {
         const decision = creationGate.current.evaluate();
-        if (decision.allowed) navigation.navigate('V2Creation');
+        if (decision.allowed) navigation.navigate('FirstAnchorCreation');
         else navigation.navigate('V2Paywall', { context: decision.paywallContext, resumeIntent: { type: 'create_anchor' } });
       },
       onOpenProfile: () => navigation.navigate('V2Settings'),
@@ -41,5 +51,10 @@ export function V2DevelopmentHome() {
     }),
     [navigation],
   );
-  return <V2DailyShellNavigator intents={intents} />;
+  return (
+    <View style={{ flex: 1 }}>
+      <V2DailyShellNavigator intents={intents} />
+      <V2DevFloatingToolbar />
+    </View>
+  );
 }

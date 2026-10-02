@@ -79,7 +79,12 @@ const desk = require("@/assets/onboarding/creation-desk.png");
 const brandMark = require("@/assets/home/anchor-brand-mark.png");
 const lightMark = require("@/assets/home/anchor-brand-mark-light.png");
 
-type Props = { onSignIn: () => void; onCreate: () => void };
+type Props = {
+  onSignIn: () => void;
+  onCreate: () => void;
+  onDevSkip?: () => void;
+  onDevSeed?: () => void;
+};
 
 function Cta({
   label,
@@ -251,10 +256,16 @@ function SectionHeading({
 function Welcome({
   onStart,
   onSignIn,
+  onCreate,
+  onDevSkip,
+  onDevSeed,
   reduceMotion,
 }: {
   onStart: () => void;
   onSignIn: () => void;
+  onCreate?: () => void;
+  onDevSkip?: () => void;
+  onDevSeed?: () => void;
   reduceMotion: boolean;
 }) {
   const windowDim = useWindowDimensions();
@@ -474,6 +485,41 @@ function Welcome({
               <Text style={styles.signInUnderline}>Sign in</Text>
             </Text>
           </Pressable>
+
+          {__DEV__ ? (
+            <View style={{ flexDirection: "row", gap: 10, justifyContent: "center", marginTop: 14 }}>
+              {onCreate ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Dev open creation flow"
+                  onPress={onCreate}
+                  style={styles.devWelcomePill}
+                >
+                  <Text style={styles.devWelcomePillText}>Dev: Creation Flow</Text>
+                </Pressable>
+              ) : null}
+              {onDevSeed ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Dev seed demo anchor"
+                  onPress={onDevSeed}
+                  style={styles.devWelcomePill}
+                >
+                  <Text style={styles.devWelcomePillText}>Dev: Seed Demo</Text>
+                </Pressable>
+              ) : null}
+              {onDevSkip ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Dev skip onboarding"
+                  onPress={onDevSkip}
+                  style={styles.devWelcomePill}
+                >
+                  <Text style={styles.devWelcomePillText}>Dev: Skip</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
         </Animated.View>
       </Animated.View>
 
@@ -565,7 +611,7 @@ function SystemDiagram({ reduceMotion }: { reduceMotion: boolean }) {
   );
 }
 
-export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
+export function V2OnboardingJourney({ onSignIn, onCreate, onDevSkip, onDevSeed }: Props) {
   const insets = useSafeAreaInsets();
   const reduceMotion = useCreationReduceMotion();
   const {
@@ -782,6 +828,9 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
         <Welcome
           onStart={() => setNext("bridge")}
           onSignIn={onSignIn}
+          onCreate={onCreate}
+          onDevSkip={onDevSkip}
+          onDevSeed={onDevSeed}
           reduceMotion={reduceMotion}
         />
       </View>
@@ -863,6 +912,7 @@ export function V2OnboardingJourney({ onSignIn, onCreate }: Props) {
           window={header.window}
           reduceMotion={reduceMotion}
           onBack={back}
+          onSkip={onDevSkip}
           interactive={!handingOff && !handingOffToOutcome && !sheetOpen}
           dimmed={sheetOpen}
           paper={paper}
@@ -1210,4 +1260,17 @@ const styles = StyleSheet.create({
   stageImage: { width: 78, height: 66, borderWidth: 1, borderColor: '#8B7756' },
   practiceMiniature: { width: 68, height: 66, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#8B7756', backgroundColor: '#19232B' },
   practiceMark: { width: 36, height: 50 },
+  devWelcomePill: {
+    backgroundColor: "rgba(20, 22, 43, 0.75)",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  devWelcomePillText: {
+    color: "#E9D5AB",
+    fontSize: 12,
+    fontWeight: "600",
+  },
 });

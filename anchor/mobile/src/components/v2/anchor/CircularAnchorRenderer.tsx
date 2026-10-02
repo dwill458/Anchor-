@@ -75,7 +75,11 @@ export const CircularAnchorRenderer = memo(function CircularAnchorRenderer({ svg
   return <View testID={testID} accessible accessibilityRole="image" accessibilityLabel={accessibilityLabel ?? `${category ?? 'Custom'} Anchor artwork`} style={[styles.field, { width: dimension, height: dimension, borderRadius: dimension / 2, backgroundColor: fieldColor, borderColor, borderWidth: isBare ? 0 : StyleSheet.hairlineWidth, opacity: state === 'inactive' ? 0.48 : 1 }, style]}>
     {showImage ? (
       <View style={[styles.imageContainer, { width: imageSize, height: imageSize, borderRadius: imageSize / 2 }, isPaper && styles.paperImage]}>
-        <Image accessible={false} source={{ uri: imageUrl as string }} resizeMode="cover" onError={() => setImageFailed(true)} style={{ width: imageSize, height: imageSize, borderRadius: imageSize / 2 }} />
+        <Image accessible={false} source={{ uri: imageUrl as string }} resizeMode="cover" onError={() => {
+          // The finished artwork is preferred; the structure stands in only because this URL could not load (e.g. an expired signed link).
+          if (__DEV__ && !process.env.JEST_WORKER_ID) console.warn('[Anchor] enhanced artwork failed to load; showing the base SVG instead', { host: String(imageUrl).split('/')[2] });
+          setImageFailed(true);
+        }} style={{ width: imageSize, height: imageSize, borderRadius: imageSize / 2 }} />
       </View>
     ) : <View accessible={false} importantForAccessibility="no-hide-descendants" style={[styles.artwork, { width: artworkSize, height: artworkSize }, (isBare || expression) && styles.artworkUnclipped]}>{hasArtwork ? (expression ? <AnchorMark svg={svg} category={category} expression={expression} size={artworkSize} /> : <SigilSvg xml={svg} width="100%" height="100%" color={color} />) : <Text style={styles.artworkUnavailable}>Artwork unavailable</Text>}</View>}
   </View>;

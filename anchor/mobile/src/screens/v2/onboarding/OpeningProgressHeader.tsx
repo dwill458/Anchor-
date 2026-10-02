@@ -49,6 +49,8 @@ type Props = {
   window: readonly [number, number];
   reduceMotion: boolean;
   onBack: () => void;
+  /** Developer skip callback. */
+  onSkip?: () => void;
   /** Disables and recedes the chrome, e.g. while a sheet is open or during the handoff. */
   interactive: boolean;
   dimmed?: boolean;
@@ -86,6 +88,7 @@ export function OpeningProgressHeader({
   window,
   reduceMotion,
   onBack,
+  onSkip,
   interactive,
   dimmed = false,
   paper,
@@ -176,6 +179,17 @@ export function OpeningProgressHeader({
           </View>
           <Animated.Text style={[styles.counterText, suffixTone]}> / {pad(TOTAL)}</Animated.Text>
         </View>
+        {__DEV__ && onSkip ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Dev skip onboarding"
+            onPress={onSkip}
+            hitSlop={8}
+            style={styles.devSkipButton}
+          >
+            <Animated.Text style={[styles.devSkipText, suffixTone]}>Skip</Animated.Text>
+          </Pressable>
+        ) : null}
       </View>
     </Animated.View>
   );
@@ -215,5 +229,16 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     includeFontPadding: false,
     fontVariant: ["tabular-nums"],
+  },
+  devSkipButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: "rgba(0, 0, 0, 0.2)",
+    marginLeft: 6,
+  },
+  devSkipText: {
+    fontSize: 11,
+    fontFamily: "Inter-SemiBold",
   },
 });

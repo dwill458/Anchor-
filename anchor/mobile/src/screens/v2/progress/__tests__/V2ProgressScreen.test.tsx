@@ -14,8 +14,8 @@ describe('V2ProgressScreen', () => {
     category: 'Creativity',
     threadStrength: 65,
     unmeasured: false,
-    qualitativeLabel: 'Rooted',
-    highestEvolutionStage: 'Rooted',
+    qualitativeLabel: 'Established',
+    highestEvolutionStage: 'Established',
     practiceSummary: {
       focusCount: 5,
       focusSeconds: 1500,
@@ -48,8 +48,8 @@ describe('V2ProgressScreen', () => {
       {
         id: 'evt-2',
         type: 'EVOLUTION_STAGE_REACHED',
-        title: 'Rooted reached',
-        copy: 'Your Anchor reached its permanent structural stage: Rooted.',
+        title: 'Established reached',
+        copy: 'Your Anchor reached its permanent structural stage: Established.',
         why: 'Meaningful reinforcement held across time.',
         significance: 'HIGH',
         occurredAt: '2026-08-10T09:00:00.000Z',
@@ -57,7 +57,7 @@ describe('V2ProgressScreen', () => {
         formattedTime: '9:00 AM',
         authoritativeDelta: null,
         authoritativeThreadRange: null,
-        stageName: 'Rooted',
+        stageName: 'Established',
         sourceDomain: 'THREAD_ENGINE',
       },
     ],
@@ -100,7 +100,7 @@ describe('V2ProgressScreen', () => {
     expect(getByText('Build lasting clarity and momentum')).toBeTruthy();
     expect(getByText('65%')).toBeTruthy();
     expect(getByText('Consistency')).toBeTruthy();
-    expect(getAllByText('Rooted').length).toBeGreaterThanOrEqual(1);
+    expect(getAllByText('Established').length).toBeGreaterThanOrEqual(1);
 
     // Renders evidence summary
     expect(getByTestId('v2-progress-screen-summary')).toBeTruthy();
@@ -110,7 +110,7 @@ describe('V2ProgressScreen', () => {
     // Renders thread events
     expect(getByTestId('v2-progress-screen-timeline')).toBeTruthy();
     expect(getByText('Prototype Validated')).toBeTruthy();
-    expect(getByText('Rooted reached')).toBeTruthy();
+    expect(getByText('Established reached')).toBeTruthy();
 
     // Critical assertion: The Weave must NOT exist
     expect(queryByText(/the weave/i)).toBeNull();

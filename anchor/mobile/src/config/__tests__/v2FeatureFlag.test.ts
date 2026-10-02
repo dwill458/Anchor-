@@ -12,5 +12,6 @@ describe('Anchor V2 entry flag', () => {
     expect(isAnchorV2Enabled('true', false, 'staging')).toBe(true);
     expect(isAnchorV2Enabled(undefined, false, 'staging')).toBe(true);
     expect(isAnchorV2Enabled(undefined, false, 'preview')).toBe(true);
+    expect(isAnchorV2Enabled(undefined, false, 'development')).toBe(true);
   });
 });

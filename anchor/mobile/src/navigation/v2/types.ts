@@ -10,6 +10,16 @@ export type AnchorV2StackParamList = {
   V2SystemGallery: undefined;
   V2EvolvingAnchor: undefined;
   V2Creation: undefined;
+  FirstAnchorCreation: undefined;
+  AnchorCreationFlow: {
+    intentionText: string;
+    category?: string;
+    distilledLetters?: string[];
+    source: 'typed' | 'drawn';
+    entry?: 'fade' | 'glide';
+    fieldFrame?: { x: number; y: number; width: number; height: number; fontSize?: number; lineHeight?: number };
+  };
+  Paywall: V2PaywallRouteParams | undefined;
   V2AnchorLibrary: undefined;
   V2AnchorDetails: { anchorId: string };
   V2Paywall: V2PaywallRouteParams;

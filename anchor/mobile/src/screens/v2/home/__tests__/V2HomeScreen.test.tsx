@@ -14,6 +14,11 @@ jest.mock('@/adapters/v2/home', () => ({
   useV2HomeModel: jest.fn(),
 }));
 
+jest.mock('@/hooks/useChartPreview', () => ({
+  ...jest.requireActual('@/hooks/useChartPreview'),
+  useChartPreview: jest.fn(),
+}));
+
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useCourseStore } from '@/stores/courseStore';
@@ -22,8 +27,11 @@ import { V2HomeScreen } from '../V2HomeScreen';
 import { V2DailyShellIntentsProvider } from '../dailyShell';
 import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
 import { toThreadPresentation, useV2HomeModel } from '@/adapters/v2/home';
+import { useChartPreview, selectChartPreview } from '@/hooks/useChartPreview';
+import { chartPreviewCourses } from '@/components/chart/__fixtures__/chartPreviewStates';
 
 const mockUseV2HomeModel = useV2HomeModel as jest.Mock;
+const mockUseChartPreview = useChartPreview as jest.Mock;
 
 const selectAnchor = jest.fn((anchorId: string) => useAnchorStore.getState().setCurrentAnchor(anchorId));
 
@@ -107,6 +115,7 @@ beforeEach(() => {
   useAnchorStore.setState({ anchors: [], currentAnchorId: undefined });
   useAuthStore.setState({ user: { id: 'user-1', email: 'e', displayName: 'Deontrez' } as never });
   useCourseStore.setState({ activeCourse: null });
+  mockUseChartPreview.mockReturnValue(selectChartPreview(null));
 });
 
 type ReactTestInstance = ReturnType<typeof screen.getByTestId>;
@@ -331,22 +340,22 @@ describe('Conditional Vision and Chart', () => {
     expect(screen.queryByTestId('v2-home-vision-empty')).toBeNull();
     expect(screen.queryByText('Your Vision')).toBeNull();
     expect(screen.queryByText('Create Vision')).toBeNull();
-    expect(screen.queryByTestId('v2-home-chart-empty')).toBeNull();
-    expect(screen.queryByTestId('v2-home-chart-map')).toBeNull();
-    expect(screen.queryByText('Create Chart')).toBeNull();
+    expect(screen.queryByText('Chart your first waypoint')).toBeNull();
     expect(screen.queryByText('Your Chart')).toBeNull();
+    expect(screen.queryByTestId('v2-home-chart')).toBeNull();
     expect(screen.getByTestId('v2-home-progress')).toBeTruthy();
   });
 
   it('renders no Chart section when no Course exists', () => {
     oneAnchor();
-    renderHome({}, { chart: { state: 'none' } });
-    expect(screen.queryByTestId('v2-home-chart-empty')).toBeNull();
-    expect(screen.queryByTestId('v2-home-chart-map')).toBeNull();
-    expect(screen.queryByText('Create Chart')).toBeNull();
-    expect(screen.queryByTestId('v2-home-chart-loading')).toBeNull();
+    const onOpenChart = jest.fn();
+    renderHome({ onOpenChart }, { chart: { state: 'none' } });
+    expect(screen.queryByText('Chart your first waypoint')).toBeNull();
+    expect(screen.queryByText('Your Chart')).toBeNull();
+    expect(screen.queryByTestId('v2-home-chart')).toBeNull();
     expect(screen.queryByTestId('v2-home-chart-error')).toBeNull();
     expect(screen.queryByText(/Loading your current Course/i)).toBeNull();
+    expect(onOpenChart).not.toHaveBeenCalled();
   });
 
   it('renders nothing for Chart while the relationship is still resolving', () => {
@@ -358,8 +367,9 @@ describe('Conditional Vision and Chart', () => {
 
   it('shows a Chart placeholder only for a known relationship in flight', () => {
     oneAnchor();
+    mockUseChartPreview.mockReturnValue(null);
     renderHome({}, { chart: { state: 'loading' } });
-    expect(screen.getByTestId('v2-home-chart-loading')).toBeTruthy();
+    expect(screen.getByTestId('chart-preview-loading')).toBeTruthy();
   });
 
     it('state 2 — Vision, no Chart', () => {
@@ -373,16 +383,14 @@ describe('Conditional Vision and Chart', () => {
 
     it('state 3 — Chart, no Vision, with real Course data: shows Chart and Progress, hides Vision', () => {
     oneAnchor();
+    mockUseChartPreview.mockReturnValue(selectChartPreview(chartPreviewCourses.normal));
     renderHome({}, { chart: readyChart });
     expect(screen.queryByTestId('v2-home-vision')).toBeNull();
     expect(screen.queryByText('Your Vision')).toBeNull();
     expect(screen.queryByText('Create Vision')).toBeNull();
-    expect(screen.queryByTestId('v2-home-chart-destination')).toBeNull();
-    expect(screen.getByTestId('v2-home-chart').props.accessibilityLabel).not.toContain('Reach 1,000 active users');
-    expect(screen.getByTestId('v2-home-chart-waypoint').props.children).toBe('Contact 3 creators');
-    expect(screen.getByTestId('v2-home-chart-one-move').props.children).toBe('Contact 3 creators');
-      expect(screen.queryByTestId('v2-home-chart-progress')).toBeNull();
-      expect(screen.getByTestId('v2-home-chart-map')).toBeTruthy();
+    expect(screen.getByTestId('chart-preview-copy')).toBeTruthy();
+    expect(screen.getByText('Build a steady audience')).toBeTruthy();
+    expect(screen.getByText('Publish one useful story')).toBeTruthy();
       expect(screen.getByTestId('v2-home-progress')).toBeTruthy();
   });
 
@@ -579,6 +587,7 @@ describe('Hero carousel', () => {
     useAnchorStore.setState({ currentAnchorId: 'b' });
     renderHome({}, { vision: { state: 'none' }, chart: { state: 'none' } });
     expect(screen.getByTestId('v2-home-intention').props.children).toBe('Second intention');
+    expect(screen.queryByTestId('v2-home-chart')).toBeNull();
     expect(screen.queryByTestId('v2-home-chart-empty')).toBeNull();
     expect(screen.queryByTestId('v2-home-vision')).toBeNull();
     expect(screen.queryByText('Reach 1,000 active users')).toBeNull();

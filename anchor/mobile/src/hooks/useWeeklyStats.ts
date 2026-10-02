@@ -222,7 +222,7 @@ export function useWeeklyStats(): WeeklyStats {
     const weekEnd = localDateString(weekEndDate);
     const anchorLookup = buildAnchorLookup(anchors);
     const activeAnchors = anchors.filter((anchor) => !anchor.isReleased && !anchor.archivedAt);
-    const summaryThreadStrength = clamp(threadStrength, 0, 100);
+    const summaryThreadStrength = clamp(threadStrength ?? 0, 0, 100);
     const currentWeekPrimingHistory = primingHistory.filter(
       (entry) => entry.localDate >= weekStart && entry.localDate <= weekEnd
     );

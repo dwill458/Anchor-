@@ -12,6 +12,8 @@ import { saveOnboardingContext } from '@/services/v2/onboardingContext';
 import { logger } from '@/utils/logger';
 import { CATEGORY_TO_TIER, type Anchor } from '@/types';
 import { colors } from '@/theme/v2';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { seedV2DemoAnchor } from '@/utils/v2DevSeeder';
 
 const generateFirstExpression: CreationGenerationAdapter = ({ draft, generationAttempt, count }) =>
   generateExpressionCandidates({ draft, generationAttempt, count });
@@ -115,6 +117,15 @@ export function V2FirstRunFlow() {
   return <V2OnboardingJourney
     onSignIn={() => navigation.navigate('V2Auth', { initialMode: 'signin' })}
     onCreate={() => setStep('creation')}
+    onDevSkip={() => {
+      useAuthStore.getState().setHasCompletedOnboarding(true);
+      useSettingsStore.getState().setDeveloperSkipOnboardingEnabled(true);
+      navigation.reset({ index: 0, routes: [{ name: 'V2DevelopmentHome' }] });
+    }}
+    onDevSeed={() => {
+      seedV2DemoAnchor();
+      navigation.reset({ index: 0, routes: [{ name: 'V2DevelopmentHome' }] });
+    }}
   />;
 }
 

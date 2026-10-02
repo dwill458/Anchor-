@@ -620,6 +620,22 @@ export type RootStackParamList = {
   CreateAnchor: undefined;
   /** First anchor creation after onboarding — shows new-user IntentionInputScreen */
   FirstAnchorCreation: undefined;
+  /** One-screen creation flow: distil → map → forget → style → form → choose → seal. */
+  AnchorCreationFlow: {
+    intentionText: string;
+    category: AnchorCategory;
+    distilledLetters: string[];
+    source: 'typed' | 'drawn';
+    entry: 'glide' | 'fade';
+    fieldFrame?: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      fontSize: number;
+      lineHeight: number;
+    };
+  };
   Login: AuthScreenParams | undefined;
   SignUp: AuthScreenParams | undefined;
 

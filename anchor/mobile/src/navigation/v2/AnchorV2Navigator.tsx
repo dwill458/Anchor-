@@ -15,6 +15,8 @@ import {
   type CreationSaveAdapter,
 } from '@/screens/v2/creation';
 import { V2PaywallScreen, type V2PaywallEntitlementResult } from '@/screens/v2/paywall';
+import IntentionInputScreen from '@/screens/create/IntentionInputScreen';
+import AnchorCreationFlowScreen from '@/screens/create/flow/AnchorCreationFlowScreen';
 import { V2PracticeScreen } from '@/screens/v2/practice';
 import { V2VisionScreen } from '@/screens/v2/vision';
 import { V2ChartAdjustScreen, V2ChartJourneyScreen, V2ChartScreen, V2ChartWaypointScreen } from '@/screens/v2/chart';
@@ -69,7 +71,7 @@ function V2PaywallRouteScreen() {
         resumeSource: 'recommended_today',
       });
     } else if (resume.type === 'create_anchor') {
-      navigation.navigate('V2Creation');
+      navigation.navigate('FirstAnchorCreation'); // the main creation flow
     } else if (resume.type === 'vision_premium_action') {
       navigation.navigate('V2Vision', {
         anchorId: resume.anchorId,
@@ -334,6 +336,10 @@ export function AnchorV2Navigator() {
         <Stack.Screen name="V2FirstRun" component={V2FirstRunFlow} />
         <Stack.Screen name="V2SystemGallery" component={V2SystemGallery} />
         {__DEV__ ? <Stack.Screen name="V2EvolvingAnchor" component={V2EvolvingAnchorPrototype} /> : null}
+        {/* Tactile Creation Flow */}
+        <Stack.Screen name="FirstAnchorCreation" component={IntentionInputScreen} options={{ headerShown: false, animation: 'fade_from_bottom' }} />
+        <Stack.Screen name="AnchorCreationFlow" component={AnchorCreationFlowScreen} options={{ headerShown: false, gestureEnabled: false, animation: 'fade' }} />
+        <Stack.Screen name="Paywall" component={V2PaywallRouteScreen} options={TRANSPARENT_BACKGROUND} />
         {/* Creation owns its back behaviour (a state machine, not a stack), so the edge swipe
           must not pop the route out from under a save or the hand-off. */}
         <Stack.Screen name="V2Creation" component={V2CreationRouteScreen} options={CREATION_OPTIONS} />

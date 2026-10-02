@@ -88,7 +88,8 @@ export function parseSigilSvg(svgString: string): {
 
   const pathDs: string[] = [];
   // Match both d="..." and d='...'
-  const re = /<path[^>]+\sd=["']([^"']+)["']/g;
+  // `[^>]*` (not `+`): the generators emit `<path d="…" …>` with `d` as the first attribute.
+  const re = /<path[^>]*\sd=["']([^"']+)["']/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(svgString)) !== null) {
     pathDs.push(m[1]);

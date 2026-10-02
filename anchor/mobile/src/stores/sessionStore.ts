@@ -499,7 +499,7 @@ export const useSessionStore = create<SessionState>()(
 
             if (shouldBuildThread) {
               const gain = getPracticeSessionGain(entry.type);
-              threadStrength = Math.min(100, threadStrength + gain);
+              threadStrength = Math.min(100, (threadStrength ?? 0) + gain);
               lastPrimedAt = todayKey;
             }
           }
@@ -699,6 +699,11 @@ export const useSessionStore = create<SessionState>()(
           return;
         }
 
+        if (threadStrength === null) {
+          set({ lastDecayDate: today });
+          return;
+        }
+
         let newStrength = threadStrength;
         const decayStartDay = getThreadDecayStartDay(threadStrengthSensitivity);
 
@@ -739,7 +744,7 @@ export const useSessionStore = create<SessionState>()(
         set((state) => ({
           threadStrength: Math.max(
             0,
-            Math.min(100, state.threadStrength + delta),
+            Math.min(100, (state.threadStrength ?? 0) + delta),
           ),
         }));
       },

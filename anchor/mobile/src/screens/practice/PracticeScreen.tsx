@@ -268,7 +268,7 @@ export const PracticeScreen: React.FC = () => {
     setSelectedMode(selectedAnchor?.isCharged ? 'charge' : 'quickActivate');
   }, [selectedAnchor?.id]);
 
-  const threadState = getThreadState(threadStrength, lastPrimedAt);
+  const threadState = getThreadState(threadStrength ?? 0, lastPrimedAt);
   const isFading = threadState === "fading";
   const hasPrimedToday = lastPrimedAt === localDateString(new Date());
   const locationPreset = locationPrimingSuggestion?.zone.preset;
@@ -277,7 +277,7 @@ export const PracticeScreen: React.FC = () => {
       ? "focusSession"
       : locationPreset?.sessionType === "prime"
         ? "deepPrime"
-        : threadStrength < 40
+        : (threadStrength ?? 0) < 40
           ? "focusSession"
           : "deepPrime";
   const ctaTitle = locationPrimingSuggestion

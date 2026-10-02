@@ -39,7 +39,7 @@ export interface SessionSnapshot {
     reflectionWord?: string;
     completedAt: string;
   }>;
-  threadStrength: number;
+  threadStrength: number | null;
   totalSessionsCount: number;
   lastPrimedAt: string | null;
   weekHistory: boolean[];

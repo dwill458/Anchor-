@@ -191,3 +191,10 @@ temp_frames/
 temp_backup_untracked/
 unpacked_handmade/
 unpacked_review/
+
+# ----------------------------------------------------------------------------
+# Throwaway QA / emulator screen captures
+# ----------------------------------------------------------------------------
+emulator_*.png
+emulator_screen.png
+*-qa.png
