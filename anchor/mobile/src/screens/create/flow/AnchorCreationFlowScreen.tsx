@@ -58,6 +58,8 @@ import { useFlowFonts } from './flowFonts';
 import { useFlowLayout } from './flowLayout';
 import { normalizeGeneratedForms, type GeneratedForm } from './generatedForms';
 import { clamp, smooth } from './motion';
+import { FpsProbe } from './components/FpsProbe';
+import { trace } from '@/utils/dev/creationTrace';
 import { buildSceneContext } from './sceneContext';
 import {
   INK_HIDDEN,
@@ -452,6 +454,7 @@ export default function AnchorCreationFlowScreen() {
     isV2
       ? {
           onSaved: ({ anchorId, input }) => {
+            trace('saveAnchor resolve (onSaved)', { imageUrlLength: input.enhancedImageUrl?.length ?? 0 });
             const handoff = {
               anchorId,
               svg: input.baseSigilSvg,
@@ -892,6 +895,7 @@ export default function AnchorCreationFlowScreen() {
         {saveWaiting ? <View style={styles.saveHairline} accessibilityLabel="Saving" /> : null}
       </View>
 
+      <FpsProbe />
       <DailyReminderPrompt visible={reminderCardVisible} variant="first_anchor" onDismiss={handleReminderDismiss} />
     </View>
   );

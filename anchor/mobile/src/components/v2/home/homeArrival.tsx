@@ -7,11 +7,14 @@ import Animated, {
   interpolate,
   useAnimatedStyle,
   useSharedValue,
+  runOnJS,
+  useAnimatedReaction,
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
 
 import { CircularAnchorRenderer } from '@/components/v2/anchor/CircularAnchorRenderer';
+import { trace } from '@/utils/dev/creationTrace';
 import { useHomeArrivalStore, type ArrivalRect, type HomeArrival } from '@/stores/v2/homeArrivalStore';
 
 /**
@@ -153,6 +156,16 @@ export function useHomeArrival({
     return () => clearTimeout(done);
   }, [active, arrival, flight, progress]);
 
+  // Dev trace: when the arrival crosses the overlay hand-off and when it ends.
+  const traceProgress = useCallback((mark: string) => trace(`arrival progress ${mark}`), []);
+  useAnimatedReaction(
+    () => (progress.value >= 1 ? 2 : progress.value >= 0.52 ? 1 : 0),
+    (stage, previous) => {
+      if (previous !== null && stage > previous) runOnJS(traceProgress)(stage === 2 ? '1' : '0.52');
+    },
+    [traceProgress],
+  );
+
   // An arrival that ends or goes elsewhere never leaves Home half-assembled.
   useEffect(() => {
     if (active) return;
@@ -246,6 +259,7 @@ export const HomeArrivalOverlay = memo(function HomeArrivalOverlay({
               expression={arrival.expression}
               size={size / PAPER_ART_SHARE}
               appearance="paper"
+              traceLabel="arrival overlay"
               accessibilityLabel="Your new Anchor"
             />
           </View>

@@ -1,9 +1,10 @@
-import React, { memo, useEffect, useState } from 'react';
+import React, { memo, useEffect, useRef, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { SigilSvg } from '@/components/common/SigilSvg';
 import type { AnchorExpression } from '@/constants/v2/creation';
 import { colors, getCategoryColor, getCategoryFieldColor, radii } from '@/theme/v2';
 import { AnchorMark } from './AnchorMark';
+import { trace } from '@/utils/dev/creationTrace';
 
 import type { StyleProp, ViewStyle } from 'react-native';
 
@@ -42,10 +43,12 @@ type Props = {
   accessibilityLabel?: string;
   testID?: string;
   style?: StyleProp<ViewStyle>;
+  /** Dev only: log first render and image load for this renderer on the creation trace. */
+  traceLabel?: string;
 };
 
 /** A flat field + the existing stable SVG renderer. It deliberately has no rim, halo, or animation. */
-export const CircularAnchorRenderer = memo(function CircularAnchorRenderer({ svg, imageUrl, category, expression, size = 'medium', appearance, state = 'active', accessibilityLabel, testID, style }: Props) {
+export const CircularAnchorRenderer = memo(function CircularAnchorRenderer({ svg, imageUrl, category, expression, size = 'medium', appearance, state = 'active', accessibilityLabel, testID, style, traceLabel }: Props) {
   const dimension = typeof size === 'number' ? size : (sizes[size] ?? 104);
   const color = getCategoryColor(category);
   const isBare = appearance === 'bare';
@@ -66,6 +69,11 @@ export const CircularAnchorRenderer = memo(function CircularAnchorRenderer({ svg
     ? colors.frameEdge
     : `${color}52`;
   const [imageFailed, setImageFailed] = useState(false);
+  const tracedRef = useRef(false);
+  if (traceLabel && !tracedRef.current) {
+    tracedRef.current = true;
+    trace(`${traceLabel} first render`, { imageUrlLength: typeof imageUrl === 'string' ? imageUrl.length : 0, size });
+  }
   useEffect(() => setImageFailed(false), [imageUrl]);
   const showImage = typeof imageUrl === 'string' && imageUrl.length > 0 && !imageFailed;
   const resolvedAppearance: CircularAnchorAppearance = isBare ? 'bare' : isDark ? 'dark' : isPaper ? 'paper' : 'tinted';
@@ -75,7 +83,7 @@ export const CircularAnchorRenderer = memo(function CircularAnchorRenderer({ svg
   return <View testID={testID} accessible accessibilityRole="image" accessibilityLabel={accessibilityLabel ?? `${category ?? 'Custom'} Anchor artwork`} style={[styles.field, { width: dimension, height: dimension, borderRadius: dimension / 2, backgroundColor: fieldColor, borderColor, borderWidth: isBare ? 0 : StyleSheet.hairlineWidth, opacity: state === 'inactive' ? 0.48 : 1 }, style]}>
     {showImage ? (
       <View style={[styles.imageContainer, { width: imageSize, height: imageSize, borderRadius: imageSize / 2 }, isPaper && styles.paperImage]}>
-        <Image accessible={false} source={{ uri: imageUrl as string }} resizeMode="cover" onError={() => {
+        <Image accessible={false} source={{ uri: imageUrl as string }} resizeMode="cover" onLoad={traceLabel ? () => trace(`${traceLabel} image onLoad`) : undefined} onError={() => {
           // The finished artwork is preferred; the structure stands in only because this URL could not load (e.g. an expired signed link).
           if (__DEV__ && !process.env.JEST_WORKER_ID) console.warn('[Anchor] enhanced artwork failed to load; showing the base SVG instead', { host: String(imageUrl).split('/')[2] });
           setImageFailed(true);

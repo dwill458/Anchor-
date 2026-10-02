@@ -16,6 +16,7 @@ import {
 } from './choosePager';
 import { SEAL_SETTLE_SECONDS } from './creationFlowConfig';
 import { SEAL_SEQUENCE_SECONDS } from './sealMath';
+import { trace, traceReset } from '@/utils/dev/creationTrace';
 
 /** The pager sits inside this strip of the design space; touches are mapped relative to it. */
 export const TOUCH_SURFACE = { top: 100, height: 675 } as const;
@@ -160,6 +161,7 @@ export function useChooseController({
         flashElapsedRef.current = 0;
         // The seal lands: heavy haptic now; the screen plays `forge-seal`.
         void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Heavy);
+        trace('hold complete / seal sequence start');
         callbacksRef.current.onHoldComplete(Math.round(pageRef.current));
         busy = true;
       }
@@ -182,6 +184,7 @@ export function useChooseController({
       if (sealElapsedRef.current >= total) {
         phaseRef.current = 'sealed';
         setPhase('sealed');
+        trace('seal sequence end');
         callbacksRef.current.onSealAnimationDone();
         busy = false;
       }
@@ -218,6 +221,7 @@ export function useChooseController({
         touchRef.current = touch;
         holdingRef.current = touch.holding;
         hapticAccRef.current = 0;
+        if (touch.holding) traceReset('hold start');
         startLoop.current();
       },
       onPanResponderMove: (event) => {

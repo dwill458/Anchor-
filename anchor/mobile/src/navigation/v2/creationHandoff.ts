@@ -2,6 +2,7 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useHomeArrivalStore, whenHomeReady } from '@/stores/v2/homeArrivalStore';
 import { CREATION_TIMING } from '@/components/v2/creation/creationMotion';
 import type { CreationHandoff } from '@/screens/v2/creation';
+import { trace } from '@/utils/dev/creationTrace';
 
 /** The slice of a stack navigation object the hand-off needs. */
 type HandoffNavigation = {
@@ -21,6 +22,7 @@ const ARRIVAL_EXPIRY_MS = 5000;
  * thread, and a Home that missed its staging window cut in instead of receiving the flight.
  */
 export function prepareHomeArrival(handoff: Omit<CreationHandoff, 'markRect'>): number {
+  trace('prepareHomeArrival', { imageUrlLength: handoff.imageUrl?.length ?? 0 });
   useAnchorStore.getState().setCurrentAnchor(handoff.anchorId);
   return useHomeArrivalStore.getState().stage({
     anchorId: handoff.anchorId,
@@ -48,6 +50,7 @@ export async function handOffToHome(
   handoff: CreationHandoff,
   options: { reduceMotion: boolean },
 ): Promise<void> {
+  trace('handOffToHome start', { fromRect: handoff.markRect, reduceMotion: options.reduceMotion });
   // Reuse the arrival staged when the Anchor was saved; stage one now if there is none.
   const staged = useHomeArrivalStore.getState().arrival;
   const fromRect = options.reduceMotion ? null : handoff.markRect;
@@ -61,12 +64,18 @@ export async function handOffToHome(
   }
 
   const ready = await whenHomeReady(id, CREATION_TIMING.handoffWait);
+  trace('whenHomeReady resolve', {
+    ready,
+    targetRect: useHomeArrivalStore.getState().arrival?.targetRect ?? null,
+    fromRect,
+  });
   const seamless = ready && !options.reduceMotion && Boolean(useHomeArrivalStore.getState().arrival?.targetRect);
 
   navigation.setOptions({ animation: seamless ? 'none' : 'fade', gestureEnabled: false });
   // One frame for the new animation option to reach the native stack before the pop.
   await new Promise((resolve) => setTimeout(resolve, 16));
 
+  trace('pop');
   if (navigation.canGoBack()) navigation.popToTop();
   else navigation.reset({ index: 0, routes: [{ name: 'V2DevelopmentHome' }] });
   useHomeArrivalStore.getState().release(id);

@@ -250,7 +250,7 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
             onPress={handleOpen} disabled={slot !== 0 || !onOpenActive}>
             <Animated.View style={tapScaleStyle}>
               <Animated.View ref={discRef} collapsable={false} testID={slot === 0 ? 'v2-home-anchor-disc' : undefined}>
-                <CircularAnchorRenderer {...anchorRenderProps(anchor)} size={anchorSize} appearance="paper"
+                <CircularAnchorRenderer {...anchorRenderProps(anchor)} size={anchorSize} appearance="paper" traceLabel={slot === 0 ? 'home hero' : undefined}
                   accessibilityLabel={`${categoryLabel(anchor.category)} Anchor artwork`} />
               </Animated.View>
             </Animated.View>
