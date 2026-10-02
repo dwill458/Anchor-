@@ -81,6 +81,12 @@ function emptyPicture(width: number, height: number): SkPicture {
  * SkPicture on the JS thread (a few hundred draw calls) and handed to a single <Picture>.
  * The content is painted twice — cream palette, then ink palette clipped to the torn boundary —
  * so one description of the scene yields the whole two-tone effect.
+ *
+ * DEFERRED: UI-thread recording (polish brief F3). Recording here is JS-thread work, but it only
+ * happens while the scene changes: Style settles to a short-circuited 'style-rest' key and
+ * Choose/seal/Home are 'choose-rest', so the canvas costs the JS thread nothing during the seal.
+ * Moving the painter onto the UI thread would mean workletizing the whole scene graph and the font
+ * cache; revisit if the FPS probe shows the Form beat dropping frames.
  */
 export function FlowCanvas({ fonts, context, layout, getFrame, onFirstFrame }: FlowCanvasProps) {
   const picture = useSharedValue<SkPicture>(emptyPicture(layout.width, layout.height));

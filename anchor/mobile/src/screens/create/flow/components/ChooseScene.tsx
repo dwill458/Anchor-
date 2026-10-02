@@ -154,6 +154,12 @@ interface FormCardProps {
 }
 
 function FormCard({ index, form, styleName, page, hold, sealU, sealing, isActive, sheen, holdHint }: FormCardProps) {
+  // DEFERRED: transform-only sealing card (polish brief F1). The contraction animates layout props
+  // (left/top/width/height/borderRadius), but entirely on the UI thread: no JS work per frame now
+  // that the seal clock runs there too. A transform-only version needs a non-uniform clip (a Skia
+  // RoundedRect clip, or a scaled square mask with counter-scaled content, which distorts the
+  // corner radius), and which of those profiles best is a device measurement. Revisit if the FPS
+  // probe still shows frames over budget during the contraction.
   // Position: pages sit side by side; the sealed card leaves the pager and contracts to a medallion.
   const frame = useAnimatedStyle(() => {
     const offset = (index - page.value) * PAGE_PITCH;
