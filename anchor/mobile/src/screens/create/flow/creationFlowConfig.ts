@@ -40,16 +40,17 @@ export const SEGMENT_TIMES: Record<CreationMode, SegmentTimes> = {
     formMin: 1.4,
     sweep: 1.1,
   },
+  // Repeat pacing was tuned up from "a little too fast": a 7-letter run now reaches Style in
+  // ~6.65 s (handoff + distill + map + forget + stillness). Every value lives in this table.
   repeat: {
-    handoff: 0.5,
-    distill: 1.5,
-    // Map is half the first-anchor duration.
-    map: { base: 0.25, perLetter: 0.21, min: 2, max: 3 },
-    forget: 1.0,
-    stillness: 0.25,
-    styleCountdown: 2.2,
+    handoff: 0.6,
+    distill: 1.9,
+    map: { base: 0.3, perLetter: 0.26, min: 2.5, max: 3.6 },
+    forget: 1.3,
+    stillness: 0.35,
+    styleCountdown: 3.0,
     formMin: 1.4,
-    sweep: 0.8,
+    sweep: 1.0,
   },
 };
 

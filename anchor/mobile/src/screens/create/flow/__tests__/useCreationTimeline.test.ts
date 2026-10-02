@@ -15,25 +15,32 @@ describe('buildCreationTimeline', () => {
     expect(t.sweep).toBe(1.1);
   });
 
-  it('repeat anchor: raw geometry lands at about 5 s for 7 letters', () => {
+  it('repeat anchor: raw geometry lands at about 6.3 s and Style opens at ~6.65 s for 7 letters', () => {
     const t = buildCreationTimeline({ mode: 'repeat', n: 7, drawn: false });
 
-    expect(t.handoff).toBe(0.5);
-    expect(t.distill).toBe(1.5);
-    expect(t.map).toBe(2);
-    expect(t.forget).toBe(1);
-    expect(t.rawGeometryAt).toBeCloseTo(5, 5);
-    expect(t.stillness).toBe(0.25);
-    expect(t.styleCountdown).toBe(2.2);
-    expect(t.sweep).toBe(0.8);
+    expect(t.handoff).toBe(0.6);
+    expect(t.distill).toBe(1.9);
+    expect(t.map).toBe(2.5); // 0.3 + 0.26*7 = 2.12, clamped up to 2.5
+    expect(t.forget).toBe(1.3);
+    expect(t.rawGeometryAt).toBeCloseTo(6.3, 5);
+    expect(t.stillness).toBe(0.35);
+    expect(t.styleAt).toBeCloseTo(6.65, 5);
+    expect(t.styleCountdown).toBe(3);
+    expect(t.sweep).toBe(1);
   });
 
-  it('clamps the map duration to 4..6 s (first) and halves it (repeat)', () => {
+  it('repeat anchor: a 7-letter run reaches Style in 6.5-7 s', () => {
+    const t = buildCreationTimeline({ mode: 'repeat', n: 7, drawn: false });
+    expect(t.styleAt).toBeGreaterThanOrEqual(6.5);
+    expect(t.styleAt).toBeLessThanOrEqual(7);
+  });
+
+  it('clamps the map duration to 4..6 s (first) and 2.5..3.6 s (repeat)', () => {
     expect(buildCreationTimeline({ mode: 'first', n: 2, drawn: false }).map).toBe(4);
     expect(buildCreationTimeline({ mode: 'first', n: 10, drawn: false }).map).toBeCloseTo(4.7, 5);
     expect(buildCreationTimeline({ mode: 'first', n: 40, drawn: false }).map).toBe(6);
-    expect(buildCreationTimeline({ mode: 'repeat', n: 40, drawn: false }).map).toBe(3);
-    expect(buildCreationTimeline({ mode: 'repeat', n: 2, drawn: false }).map).toBe(2);
+    expect(buildCreationTimeline({ mode: 'repeat', n: 40, drawn: false }).map).toBe(3.6);
+    expect(buildCreationTimeline({ mode: 'repeat', n: 2, drawn: false }).map).toBe(2.5);
   });
 
   it('draw path: distill and map are zero, forget-settle is 1.6 / 0.8 s', () => {
