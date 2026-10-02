@@ -23,6 +23,15 @@ import { TOUCH_SURFACE, type ChooseController } from '../useChooseController';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
+/** Idle ring palette: a cream stroke with a faint ink outline reads on cream and on dark denim. */
+const RING_CREAM = '#F4EDE0';
+const RING_STROKE = 2;
+const RING_FILL_STROKE = 3;
+/** The ink outline sits just outside the cream stroke. */
+const RING_OUTLINE_R = HOLD.radius + RING_STROKE / 2 + 1;
+/** One-time pulse on arrival to Choose, so the zone is found before it is touched. */
+const ARRIVAL_PULSE_MS = 400;
+
 const RING_SIZE = HOLD.radius * 2 + 20;
 const RING_CIRCUMFERENCE = 2 * Math.PI * HOLD.radius;
 /** The anchor sits on the image centre, 36 px above the card's own centre. */
@@ -48,6 +57,7 @@ export function ChooseScene({ controller, forms, styleName, reduceMotion, showSh
 
   const breathe = useSharedValue(0);
   const sheen = useSharedValue(0);
+  const arrivalPulse = useSharedValue(0);
   // Page dots and labels read the same pager state.
 
   useEffect(() => {
@@ -63,6 +73,15 @@ export function ChooseScene({ controller, forms, styleName, reduceMotion, showSh
     if (!showSheen || reduceMotion) return;
     sheen.value = withDelay(120, withTiming(1, { duration: 1100, easing: Easing.inOut(Easing.cubic) }));
   }, [reduceMotion, sheen, showSheen]);
+
+  // One 400 ms ring pulse when Choose arrives (the sheen's cue: phase has settled on 'choose').
+  useEffect(() => {
+    if (!showSheen || reduceMotion) return;
+    arrivalPulse.value = withDelay(
+      60,
+      withTiming(1, { duration: ARRIVAL_PULSE_MS, easing: Easing.out(Easing.cubic) })
+    );
+  }, [arrivalPulse, reduceMotion, showSheen]);
 
   const pageDots = useMemo(() => forms.map((_, i) => i), [forms]);
 
@@ -85,7 +104,15 @@ export function ChooseScene({ controller, forms, styleName, reduceMotion, showSh
       ))}
 
       {/* Hold ring: breathes while idle, fills clockwise in gold as the hold fills. */}
-      <HoldRing hold={hold} page={page} breathe={breathe} flash={flash} sealing={sealing} sealU={sealU} />
+      <HoldRing
+        hold={hold}
+        page={page}
+        breathe={breathe}
+        arrivalPulse={arrivalPulse}
+        flash={flash}
+        sealing={sealing}
+        sealU={sealU}
+      />
 
       <PageDots page={page} dots={pageDots} sealU={sealU} />
 
@@ -228,26 +255,46 @@ interface HoldRingProps {
   hold: ChooseController['hold'];
   page: ChooseController['page'];
   breathe: SharedValue<number>;
+  arrivalPulse: SharedValue<number>;
   flash: ChooseController['flash'];
   sealing: boolean;
   sealU: ChooseController['sealU'];
 }
 
-function HoldRing({ hold, breathe, flash, sealing, sealU, page }: HoldRingProps) {
+function HoldRing({ hold, breathe, arrivalPulse, flash, sealing, sealU, page }: HoldRingProps) {
   // The ring belongs to a settled card: it fades while the pager is mid-swipe.
-  const style = useAnimatedStyle(() => ({
-    opacity: sealing
-      ? 1 - Math.min(1, sealU.value * 6)
-      : 1 - Math.min(1, Math.abs(page.value - Math.round(page.value)) * 8),
+  const style = useAnimatedStyle(() => {
+    // The arrival pulse swells the ring 6% and settles back (a half-sine over its 400 ms).
+    const pulse = 1 + 0.06 * Math.sin(Math.PI * arrivalPulse.value);
+    return {
+      opacity: sealing
+        ? 1 - Math.min(1, sealU.value * 6)
+        : 1 - Math.min(1, Math.abs(page.value - Math.round(page.value)) * 8),
+      transform: [{ scale: pulse }],
+    };
+  });
+
+  // Cream stroke breathes 0.55 <-> 0.95; the ink outline holds steady. Both leave as the hold fills.
+  const idle = useAnimatedProps(() => ({
+    strokeOpacity: (0.55 + 0.4 * breathe.value) * (1 - hold.value),
+  }));
+  const outline = useAnimatedProps(() => ({
+    strokeOpacity: 0.35 * (1 - hold.value),
   }));
 
-  const idle = useAnimatedProps(() => ({
-    strokeOpacity: (0.14 + 0.08 * breathe.value) * (1 - hold.value),
+  // The gold centre dot pulses on the breathe clock and fades as the hold rises.
+  const dot = useAnimatedStyle(() => ({
+    opacity:
+      (1 - Math.min(1, hold.value * 3)) *
+      (sealing
+        ? 1 - Math.min(1, sealU.value * 6)
+        : 1 - Math.min(1, Math.abs(page.value - Math.round(page.value)) * 8)),
+    transform: [{ scale: 1 + 0.25 * breathe.value }],
   }));
 
   const fill = useAnimatedProps(() => ({
     strokeDashoffset: RING_CIRCUMFERENCE * (1 - hold.value),
-    strokeWidth: 2 + 1.2 * hold.value,
+    strokeWidth: RING_FILL_STROKE + RING_FILL_STROKE * 0.2 * hold.value,
     strokeOpacity: hold.value > 0.005 ? 1 : 0,
   }));
 
@@ -264,9 +311,18 @@ function HoldRing({ hold, breathe, flash, sealing, sealU, page }: HoldRingProps)
           <AnimatedCircle
             cx={c}
             cy={c}
-            r={HOLD.radius}
+            r={RING_OUTLINE_R}
             stroke={colors.creation.ink}
             strokeWidth={1}
+            fill="none"
+            animatedProps={outline}
+          />
+          <AnimatedCircle
+            cx={c}
+            cy={c}
+            r={HOLD.radius}
+            stroke={RING_CREAM}
+            strokeWidth={RING_STROKE}
             fill="none"
             animatedProps={idle}
           />
@@ -284,9 +340,17 @@ function HoldRing({ hold, breathe, flash, sealing, sealU, page }: HoldRingProps)
           />
         </Svg>
       </Animated.View>
+      <Animated.View style={[styles.centerDot, dot]} pointerEvents="none" />
       <Animated.View style={[styles.ring, flashStyle]} pointerEvents="none">
         <Svg width={RING_SIZE} height={RING_SIZE}>
-          <Circle cx={c} cy={c} r={HOLD.radius} stroke={colors.creation.gold} strokeWidth={2} fill="none" />
+          <Circle
+            cx={c}
+            cy={c}
+            r={HOLD.radius}
+            stroke={colors.creation.gold}
+            strokeWidth={RING_FILL_STROKE * 1.2}
+            fill="none"
+          />
         </Svg>
       </Animated.View>
     </>
@@ -366,6 +430,15 @@ const styles = StyleSheet.create({
     top: HOLD.centerY - RING_SIZE / 2,
     width: RING_SIZE,
     height: RING_SIZE,
+  },
+  centerDot: {
+    position: 'absolute',
+    left: HOLD.centerX - 4,
+    top: HOLD.centerY - 4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.creation.gold,
   },
   dots: {
     position: 'absolute',
