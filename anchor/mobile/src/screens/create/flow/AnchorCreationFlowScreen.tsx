@@ -1,7 +1,7 @@
 // DEFERRED: StructureForge (Focused/Contained/Raw/Drawn) and ManualReinforcement (trace) no longer
 // sit between distillation and style — see DECISION D1 below. Their screens stay registered.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, BackHandler, StyleSheet, View } from 'react-native';
+import { Alert, BackHandler, Image, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -11,6 +11,7 @@ import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanima
 
 import { DailyReminderPrompt } from '@/components/notifications';
 import { isAnchorV2Enabled } from '@/config/v2FeatureFlag';
+import { PAPER_ART_SHARE } from '@/components/v2/creation/creationMotion';
 import { handOffToHome, prepareHomeArrival } from '@/navigation/v2/creationHandoff';
 import { useAudio } from '@/hooks/useAudio';
 import { useCreationReduceMotion } from '@/hooks/useReduceMotionEnabled';
@@ -61,6 +62,7 @@ import { clamp, smooth } from './motion';
 import { FpsProbe } from './components/FpsProbe';
 import { trace } from '@/utils/dev/creationTrace';
 import { buildSceneContext } from './sceneContext';
+import { MEDALLION } from './sealMath';
 import {
   INK_HIDDEN,
   autoBoundary,
@@ -123,6 +125,8 @@ export default function AnchorCreationFlowScreen() {
   // below the status bar), so the field's frame is made relative to THIS screen's own root.
   const rootRef = useRef<View>(null);
   const [rootOrigin, setRootOrigin] = useState<{ x: number; y: number } | null>(null);
+  const rootOriginRef = useRef(rootOrigin);
+  rootOriginRef.current = rootOrigin;
   const wantsGlide = Boolean(params.fieldFrame) && params.entry === 'glide';
   const measureRoot = useCallback(() => {
     const root = rootRef.current;
@@ -443,6 +447,23 @@ export default function AnchorCreationFlowScreen() {
     __DEV__,
     process.env.EXPO_PUBLIC_APP_ENV
   );
+  /** The chosen Form's image, captured at the instant the seal lands. */
+  const sealedImageRef = useRef<string | undefined>(undefined);
+  /**
+   * Where the sealed medallion sits in window coordinates, so Home can fly the mark out of it.
+   * Home's rects describe the mark inside its paper disc, so the medallion (the disc) is scaled by
+   * the same artwork share. Null (no flight, a soft fade instead) until the root has been measured.
+   */
+  const medallionMarkRect = useCallback(() => {
+    const origin = rootOriginRef.current;
+    if (!origin) return null;
+    const disc = MEDALLION.size * layout.scale;
+    const side = disc * PAPER_ART_SHARE;
+    const centerX = origin.x + layout.offsetX + MEDALLION.centerX * layout.scale;
+    const centerY = origin.y + layout.offsetY + MEDALLION.centerY * layout.scale;
+    return { x: centerX - side / 2, y: centerY - side / 2, width: side, height: side };
+  }, [layout.offsetX, layout.offsetY, layout.scale]);
+
   const { saveAnchor, reminderCardVisible, handleReminderDismiss } = useSaveAnchor(
     {
       intentionText: params.intentionText,
@@ -461,10 +482,15 @@ export default function AnchorCreationFlowScreen() {
               category: input.category,
               // The chosen Form is a finished image; the line itself is the "original" mark.
               expression: 'original' as const,
-              imageUrl: input.enhancedImageUrl || undefined,
+              // The Form captured at the seal is the source of truth; the saved input is a backstop.
+              imageUrl: sealedImageRef.current || input.enhancedImageUrl || undefined,
             };
             prepareHomeArrival(handoff);
-            void handOffToHome(navigation as unknown as Parameters<typeof handOffToHome>[0], { ...handoff, markRect: null }, { reduceMotion });
+            void handOffToHome(
+              navigation as unknown as Parameters<typeof handOffToHome>[0],
+              { ...handoff, markRect: medallionMarkRect() },
+              { reduceMotion }
+            );
           },
         }
       : {}
@@ -482,6 +508,14 @@ export default function AnchorCreationFlowScreen() {
       if (!flow || !form || !generated || !style) return;
 
       void playSound('forge-seal');
+      sealedImageRef.current = form.uri || undefined;
+      if (__DEV__ && form.uri && !form.uri.startsWith('data:')) {
+        Image.getSize(
+          form.uri,
+          (width, height) => trace('chosen image size', { width, height }),
+          () => undefined
+        );
+      }
 
       // Heavy inline images travel through the temp store, never through navigation params.
       if (form.isHeavyInline) setTempEnhancedImage(form.uri);

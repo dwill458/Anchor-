@@ -45,10 +45,12 @@ type Props = {
   style?: StyleProp<ViewStyle>;
   /** Dev only: log first render and image load for this renderer on the creation trace. */
   traceLabel?: string;
+  /** Fired once the finished artwork has loaded (not for the SVG fallback). */
+  onImageLoad?: () => void;
 };
 
 /** A flat field + the existing stable SVG renderer. It deliberately has no rim, halo, or animation. */
-export const CircularAnchorRenderer = memo(function CircularAnchorRenderer({ svg, imageUrl, category, expression, size = 'medium', appearance, state = 'active', accessibilityLabel, testID, style, traceLabel }: Props) {
+export const CircularAnchorRenderer = memo(function CircularAnchorRenderer({ svg, imageUrl, category, expression, size = 'medium', appearance, state = 'active', accessibilityLabel, testID, style, traceLabel, onImageLoad }: Props) {
   const dimension = typeof size === 'number' ? size : (sizes[size] ?? 104);
   const color = getCategoryColor(category);
   const isBare = appearance === 'bare';
@@ -83,7 +85,10 @@ export const CircularAnchorRenderer = memo(function CircularAnchorRenderer({ svg
   return <View testID={testID} accessible accessibilityRole="image" accessibilityLabel={accessibilityLabel ?? `${category ?? 'Custom'} Anchor artwork`} style={[styles.field, { width: dimension, height: dimension, borderRadius: dimension / 2, backgroundColor: fieldColor, borderColor, borderWidth: isBare ? 0 : StyleSheet.hairlineWidth, opacity: state === 'inactive' ? 0.48 : 1 }, style]}>
     {showImage ? (
       <View style={[styles.imageContainer, { width: imageSize, height: imageSize, borderRadius: imageSize / 2 }, isPaper && styles.paperImage]}>
-        <Image accessible={false} source={{ uri: imageUrl as string }} resizeMode="cover" onLoad={traceLabel ? () => trace(`${traceLabel} image onLoad`) : undefined} onError={() => {
+        <Image accessible={false} source={{ uri: imageUrl as string }} resizeMode="cover" onLoad={traceLabel || onImageLoad ? () => {
+          if (traceLabel) trace(`${traceLabel} image onLoad`);
+          onImageLoad?.();
+        } : undefined} onError={() => {
           // The finished artwork is preferred; the structure stands in only because this URL could not load (e.g. an expired signed link).
           if (__DEV__ && !process.env.JEST_WORKER_ID) console.warn('[Anchor] enhanced artwork failed to load; showing the base SVG instead', { host: String(imageUrl).split('/')[2] });
           setImageFailed(true);

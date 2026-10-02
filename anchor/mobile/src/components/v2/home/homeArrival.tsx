@@ -32,6 +32,10 @@ export const ARRIVAL_TIMING = {
   withoutFlight: 700,
   /** Longest Home waits for its hero to be measured before posing without a target. */
   measureWait: 1000,
+  /** Longest the overlay stays over a hero whose image has not loaded, past when it would fade. */
+  heroImageHold: 300,
+  /** The overlay's cross-fade once the hero's image is ready. */
+  holdRelease: 140,
 } as const;
 
 /**
@@ -65,6 +69,10 @@ type ArrivalContextValue = {
   progress: SharedValue<number>;
   /** The hero reports where the mark will rest (window coordinates). */
   reportTarget: (rect: ArrivalRect | null) => void;
+  /** The hero's finished artwork has loaded: the overlay may let go of it. */
+  reportHeroImageLoaded: () => void;
+  /** 1 while the overlay is held over the hero (the chosen image has not loaded there yet). */
+  overlayHold: SharedValue<number>;
 };
 
 const HomeArrivalContext = createContext<ArrivalContextValue | null>(null);
@@ -92,6 +100,8 @@ export function useHomeArrival({
   const active = Boolean(arrival && selectedAnchorIds.some((id) => id && id === arrival.anchorId));
   const flight = Boolean(active && arrival?.fromRect && !reduceMotion);
   const progress = useSharedValue(1);
+  const overlayHold = useSharedValue(0);
+  const heroLoadedFor = useRef<number | null>(null);
   const poseRef = useRef(onPose);
   poseRef.current = onPose;
 
@@ -133,6 +143,18 @@ export function useHomeArrival({
     tryReady();
   }, [tryReady]);
 
+  const releaseHold = useCallback(() => {
+    overlayHold.value = withTiming(0, { duration: ARRIVAL_TIMING.holdRelease, reduceMotion: ReduceMotion.Never });
+  }, [overlayHold]);
+
+  const reportHeroImageLoaded = useCallback(() => {
+    const current = useHomeArrivalStore.getState().arrival;
+    if (!current) return;
+    heroLoadedFor.current = current.id;
+    trace('home hero image ready for arrival');
+    if (current.phase === 'arriving') releaseHold();
+  }, [releaseHold]);
+
   const reportOrigin = useCallback((point: { x: number; y: number }) => {
     pending.current.origin = point;
     setOrigin((previous) => (previous && previous.x === point.x && previous.y === point.y ? previous : point));
@@ -149,12 +171,28 @@ export function useHomeArrival({
     // scale must not silently collapse the arrival into a jump.
     progress.value = withTiming(1, { duration, easing: Easing.linear, reduceMotion: ReduceMotion.Never });
     const id = arrival.id;
+
+    // A finished image travels as itself: the overlay stays over the hero until the hero has the
+    // same image on screen, so Home never shows the hero empty or falling back to raw geometry.
+    // Bounded: past when the overlay would have faded, it waits at most heroImageHold more.
+    const mustHold = Boolean(arrival.imageUrl) && heroLoadedFor.current !== id;
+    let holdTimer: ReturnType<typeof setTimeout> | null = null;
+    if (mustHold) {
+      overlayHold.value = 1;
+      holdTimer = setTimeout(releaseHold, duration * WINDOWS.overlayOut[0] + ARRIVAL_TIMING.heroImageHold);
+    } else {
+      overlayHold.value = 0;
+    }
+    // Clearing the arrival removes the overlay, so it must not outlive a held image.
     const done = setTimeout(() => {
       progress.value = 1;
       useHomeArrivalStore.getState().clear(id);
-    }, duration + 60);
-    return () => clearTimeout(done);
-  }, [active, arrival, flight, progress]);
+    }, duration + 60 + (mustHold ? ARRIVAL_TIMING.heroImageHold : 0));
+    return () => {
+      clearTimeout(done);
+      if (holdTimer) clearTimeout(holdTimer);
+    };
+  }, [active, arrival, flight, overlayHold, progress, releaseHold]);
 
   // Dev trace: when the arrival crosses the overlay hand-off and when it ends.
   const traceProgress = useCallback((mark: string) => trace(`arrival progress ${mark}`), []);
@@ -188,8 +226,8 @@ export function useHomeArrival({
   const lowerStyle = fadeIn(windows.lower, 36);
 
   const context = useMemo<ArrivalContextValue>(
-    () => ({ active, phase: active ? arrival?.phase ?? null : null, progress, reportTarget }),
-    [active, arrival?.phase, progress, reportTarget],
+    () => ({ active, phase: active ? arrival?.phase ?? null : null, progress, reportTarget, reportHeroImageLoaded, overlayHold }),
+    [active, arrival?.phase, overlayHold, progress, reportHeroImageLoaded, reportTarget],
   );
 
   return { context, headerStyle, environmentStyle, heroStyle, lowerStyle, arrival: active ? arrival : null, flight, origin, reportOrigin };
@@ -213,9 +251,12 @@ export const HomeArrivalOverlay = memo(function HomeArrivalOverlay({
   progress,
   origin,
   onOrigin,
+  hold,
 }: {
   arrival: HomeArrival;
   progress: SharedValue<number>;
+  /** 1 while the overlay must stay over a hero whose image is still loading. */
+  hold?: SharedValue<number>;
   /** This overlay's own window position, once measured. */
   origin: { x: number; y: number } | null;
   onOrigin: (point: { x: number; y: number }) => void;
@@ -238,14 +279,17 @@ export const HomeArrivalOverlay = memo(function HomeArrivalOverlay({
     const raw = interpolate(progress.value, [WINDOWS.flight[0], WINDOWS.flight[1]], [0, 1], 'clamp');
     const t = FLIGHT_EASING(raw);
     return {
-      opacity: interpolate(progress.value, [WINDOWS.overlayOut[0], WINDOWS.overlayOut[1]], [1, 0], 'clamp'),
+      opacity: Math.max(
+        interpolate(progress.value, [WINDOWS.overlayOut[0], WINDOWS.overlayOut[1]], [1, 0], 'clamp'),
+        hold ? hold.value : 0,
+      ),
       transform: [
         { translateX: dx * (1 - t) },
         { translateY: dy * (1 - t) },
         { scale: scaleFrom + (1 - scaleFrom) * t },
       ],
     };
-  }, [dx, dy, scaleFrom]);
+  }, [dx, dy, scaleFrom, hold]);
 
   return (
     <View ref={hostRef} style={StyleSheet.absoluteFill} pointerEvents="none" onLayout={measureOrigin} collapsable={false} testID="v2-home-arrival">

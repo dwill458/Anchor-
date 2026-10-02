@@ -251,6 +251,7 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
             <Animated.View style={tapScaleStyle}>
               <Animated.View ref={discRef} collapsable={false} testID={slot === 0 ? 'v2-home-anchor-disc' : undefined}>
                 <CircularAnchorRenderer {...anchorRenderProps(anchor)} size={anchorSize} appearance="paper" traceLabel={slot === 0 ? 'home hero' : undefined}
+                  onImageLoad={slot === 0 ? arrival?.reportHeroImageLoaded : undefined}
                   accessibilityLabel={`${categoryLabel(anchor.category)} Anchor artwork`} />
               </Animated.View>
             </Animated.View>

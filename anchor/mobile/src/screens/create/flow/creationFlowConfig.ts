@@ -66,8 +66,11 @@ export const FORM_RETRY_AFTER = 45;
 
 /** Seal gesture. The unreachable SealAnchorScreen uses 3000 ms; the creation flow uses 1.1 s. */
 export const SEAL_HOLD_MS = 1100;
-/** After the medallion forms, the page rests on cream this long before the flow moves on. */
-export const SEAL_SETTLE_SECONDS = 0.6;
+/**
+ * After the medallion forms, the page rests this long before the flow moves on. The mark now
+ * travels to Home, so the rest is only a beat — a longer one reads as a dead pause on cream.
+ */
+export const SEAL_SETTLE_SECONDS = 0.2;
 /** Release before completion drains the ring this many times faster than it filled. */
 export const SEAL_DRAIN_RATE = 2.6;
 /** A sideways finger move beyond this cancels a hold and becomes a swipe. */

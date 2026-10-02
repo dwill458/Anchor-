@@ -536,7 +536,7 @@ export function V2HomeScreen() {
       />
 
       {arrival.arrival ? (
-        <HomeArrivalOverlay arrival={arrival.arrival} progress={arrival.context.progress} origin={arrival.origin} onOrigin={arrival.reportOrigin} />
+        <HomeArrivalOverlay arrival={arrival.arrival} progress={arrival.context.progress} hold={arrival.context.overlayHold} origin={arrival.origin} onOrigin={arrival.reportOrigin} />
       ) : null}
     </SafeAreaView>
     </HomeArrivalProvider>

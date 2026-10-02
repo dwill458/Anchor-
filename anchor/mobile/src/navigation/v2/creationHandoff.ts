@@ -1,3 +1,5 @@
+import { Image } from 'react-native';
+
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useHomeArrivalStore, whenHomeReady } from '@/stores/v2/homeArrivalStore';
 import { CREATION_TIMING } from '@/components/v2/creation/creationMotion';
@@ -11,6 +13,30 @@ type HandoffNavigation = {
   canGoBack: () => boolean;
   reset: (state: { index: number; routes: Array<{ name: string }> }) => void;
 };
+
+/** Longest the chosen image is given to be cached before Home paints its hero. */
+const IMAGE_PREFETCH_CAP_MS = 400;
+
+/**
+ * Warm the chosen image so Home's hero never paints without it. Capped: a slow network must not
+ * hold the hand-off, and a failure is simply a hero that loads as it always did.
+ */
+function prefetchChosenImage(url: string | undefined): Promise<void> {
+  if (!url || !/^https?:/i.test(url)) return Promise.resolve();
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, IMAGE_PREFETCH_CAP_MS);
+    Image.prefetch(url).then(
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+    );
+  });
+}
 
 /** How long an arrival may stay staged if Home never plays it (unmounted, errored). */
 const ARRIVAL_EXPIRY_MS = 5000;
@@ -63,7 +89,11 @@ export async function handOffToHome(
     useHomeArrivalStore.getState().setFromRect(id, fromRect);
   }
 
-  const ready = await whenHomeReady(id, CREATION_TIMING.handoffWait);
+  // The image warms while Home poses and measures; neither waits for the other.
+  const [ready] = await Promise.all([
+    whenHomeReady(id, CREATION_TIMING.handoffWait),
+    prefetchChosenImage(handoff.imageUrl),
+  ]);
   trace('whenHomeReady resolve', {
     ready,
     targetRect: useHomeArrivalStore.getState().arrival?.targetRect ?? null,
