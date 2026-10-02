@@ -129,4 +129,84 @@ describe('useVisualizeSessionEngine', () => {
     expect(onComplete).toHaveBeenCalledTimes(1);
     unmount();
   });
+
+  describe('the clock, not any callback, ends the session', () => {
+    const mount = (durationSeconds: 60 | 180 | 300, onComplete: () => Promise<void> | void) => renderHook(() =>
+      useVisualizeSessionEngine({
+        durationSeconds, hapticsEnabled: true, onComplete,
+        clock: () => monotonicNow, wallClock: () => wallClockNow,
+      }));
+
+    it.each([60, 180, 300] as const)('a %i second session always reaches completing, then completed', async seconds => {
+      const { result, unmount } = mount(seconds, jest.fn().mockResolvedValue(undefined));
+      act(() => result.current.start());
+      for (let elapsed = 0; elapsed < seconds; elapsed += 5) advanceClock(5_000);
+      await act(async () => { await Promise.resolve(); });
+      expect(result.current.state).toBe('completing');
+      act(() => result.current.markCompleted());
+      expect(result.current.state).toBe('completed');
+      unmount();
+    });
+
+    it('enters completing even when the completion callback never settles', async () => {
+      const { result, unmount } = mount(60, () => new Promise<void>(() => undefined));
+      act(() => result.current.start());
+      advanceClock(60_000);
+      await act(async () => { await Promise.resolve(); });
+      expect(result.current.state).toBe('completing');
+      expect(result.current.remainingSeconds).toBe(0);
+      unmount();
+    });
+
+    it('enters completing even when the completion callback throws', async () => {
+      const onComplete = jest.fn(() => { throw new Error('storage unavailable'); });
+      const { result, unmount } = mount(60, onComplete);
+      act(() => result.current.start());
+      advanceClock(60_000);
+      await act(async () => { await Promise.resolve(); });
+      expect(result.current.state).toBe('completing');
+      expect(onComplete).toHaveBeenCalledTimes(1);
+      unmount();
+    });
+
+    it('finishes from elapsed time even if the interval was starved and several seconds passed in one tick', async () => {
+      const { result, unmount } = mount(60, jest.fn().mockResolvedValue(undefined));
+      act(() => result.current.start());
+      advanceClock(10_000);
+      monotonicNow += 120_000; wallClockNow += 120_000; // the JS thread was blocked well past the end
+      await act(async () => { jest.advanceTimersByTime(100); await Promise.resolve(); });
+      expect(result.current.state).toBe('completing');
+      expect(result.current.elapsedMs).toBe(60_000);
+      unmount();
+    });
+
+    it('does not complete while paused, and completes once resumed and the time has run out', async () => {
+      const onComplete = jest.fn().mockResolvedValue(undefined);
+      const { result, unmount } = mount(60, onComplete);
+      act(() => result.current.start());
+      advanceClock(30_000);
+      act(() => result.current.pause('app_background'));
+      advanceClock(600_000); // backgrounded for ten minutes
+      expect(result.current.state).toBe('paused');
+      expect(onComplete).not.toHaveBeenCalled();
+      act(() => result.current.resume());
+      advanceClock(30_000);
+      await act(async () => { await Promise.resolve(); });
+      expect(result.current.state).toBe('completing');
+      expect(onComplete).toHaveBeenCalledTimes(1);
+      unmount();
+    });
+
+    it('cleans up its timers on unmount and never completes afterwards', () => {
+      const onComplete = jest.fn();
+      const { result, unmount } = mount(60, onComplete);
+      act(() => result.current.start());
+      advanceClock(10_000);
+      unmount();
+      expect(jest.getTimerCount()).toBe(0);
+      monotonicNow += 120_000;
+      act(() => jest.advanceTimersByTime(120_000));
+      expect(onComplete).not.toHaveBeenCalled();
+    });
+  });
 });

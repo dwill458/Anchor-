@@ -9,7 +9,7 @@ export type VisionImageRect = { x: number; y: number; width: number; height: num
 /** The person's real Anchor, carried from where it was on screen to where the board holds it. */
 export type VisionArrivalAnchor = { svg: string; category?: string | null; rect: VisionImageRect };
 type AnchorFlight = { svg: string; category?: string | null; source: VisionImageRect; target?: VisionImageRect };
-type Arrival = { url: string; source: VisionImageRect; target?: VisionImageRect; anchor?: AnchorFlight };
+type Arrival = { id: number; url: string; source: VisionImageRect; target?: VisionImageRect; anchor?: AnchorFlight; resolved?: boolean };
 type ArrivalContext = {
   url: string | null;
   /** True while a real Anchor is in flight and the board should report where it holds it. */
@@ -26,6 +26,24 @@ const ANCHOR_CREAM = '#F1E8D6';
 const Context = createContext<ArrivalContext | null>(null);
 export const useVisionImageArrival = () => useContext(Context);
 
+/**
+ * The flight is a courtesy on top of a save that has already happened, so it can
+ * never be what the screen waits on. Every phase has an exit that does not depend
+ * on a native callback, an image event, or the board measuring itself:
+ *   begun, not saved  -> gives way to the stage (which shows it is saving) after SAVE_WAIT_MS
+ *   saved, not landed -> dissolves into the board after LAND_WAIT_MS
+ *   landing           -> cleared SETTLE_BACKSTOP_MS after the settle should have ended
+ */
+export const ARRIVAL_SAVE_WAIT_MS = 20000;
+export const ARRIVAL_LAND_WAIT_MS = 1600;
+export const ARRIVAL_SOURCE_WAIT_MS = 700;
+export const ARRIVAL_DISSOLVE_MS = 260;
+const SETTLE_BACKSTOP_MS = 500;
+let arrivalSequence = 0;
+const trace = (event: string, detail?: unknown) => {
+  if (__DEV__ && !process.env.JEST_WORKER_ID) console.log(`[VisionArrival] ${event}`, detail ?? '');
+};
+
 /** Keeps one selected photograph alive across persistence and the mode change. */
 export function VisionImageArrivalProvider({ children }: { children: React.ReactNode }) {
   const { width, height } = useWindowDimensions();
@@ -33,32 +51,70 @@ export function VisionImageArrivalProvider({ children }: { children: React.React
   const [arrival, setArrival] = useState<Arrival | null>(null);
   const expand = useSharedValue(0);
   const settle = useSharedValue(0);
+  const fade = useSharedValue(0);
   const [imageAspect, setImageAspect] = useState(1);
   const [sourceReady, setSourceReady] = useState(false);
-  const clear = useCallback(() => { setArrival(null); setSourceReady(false); }, []);
+  const [dissolving, setDissolving] = useState(false);
+  const clear = useCallback(() => { trace('clear'); setArrival(null); setSourceReady(false); setDissolving(false); }, []);
   const begin = useCallback((url: string, source: VisionImageRect, anchor?: VisionArrivalAnchor) => {
     if (!url || !Number.isFinite(source.width) || !Number.isFinite(source.height) || source.width <= 0 || source.height <= 0) return;
     const flight: AnchorFlight | undefined = anchor?.svg && anchor.rect.width > 0 && anchor.rect.height > 0
       ? { svg: anchor.svg, category: anchor.category, source: anchor.rect } : undefined;
-    expand.value = 0; settle.value = 0; setImageAspect(source.width / source.height); setSourceReady(false); setArrival({ url, source, anchor: flight });
-  }, [expand, settle]);
+    trace('begin', { anchorFlight: Boolean(flight) });
+    expand.value = 0; settle.value = 0; fade.value = 0;
+    setImageAspect(source.width / source.height); setSourceReady(false); setDissolving(false);
+    setArrival({ id: ++arrivalSequence, url, source, anchor: flight });
+  }, [expand, fade, settle]);
   const landAnchor = useCallback((target: VisionImageRect) => {
     if (target.width <= 0 || target.height <= 0) return;
     setArrival(current => current?.anchor && !current.anchor.target ? { ...current, anchor: { ...current.anchor, target } } : current);
   }, []);
-  const resolve = useCallback((url: string) => setArrival(current => current ? { ...current, url } : null), []);
+  const resolve = useCallback((url: string) => {
+    trace('resolve');
+    setArrival(current => current ? { ...current, url, resolved: true } : null);
+  }, []);
   const land = useCallback((url: string, target: VisionImageRect) => {
     if (target.width <= 0 || target.height <= 0) return;
+    trace('land', target);
     setArrival(current => current?.url === url && !current.target ? { ...current, target } : current);
   }, []);
+  const arrivalId = arrival?.id ?? 0;
+  const resolved = Boolean(arrival?.resolved);
+  const landed = Boolean(arrival?.target);
+  // The source image normally reports itself; if it never does, the flight begins anyway.
   useEffect(() => {
-    if (!arrival || !sourceReady) return;
+    if (!arrivalId || sourceReady) return;
+    const timer = setTimeout(() => { trace('source-timeout'); setSourceReady(true); }, ARRIVAL_SOURCE_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [arrivalId, sourceReady]);
+  useEffect(() => {
+    if (!arrivalId || !sourceReady) return;
     expand.value = withTiming(1, { duration: reduced ? 0 : 280 });
-    if (!arrival.target) return;
-    settle.value = withTiming(1, { duration: reduced ? 160 : 760 }, finished => {
+  }, [arrivalId, expand, reduced, sourceReady]);
+  useEffect(() => {
+    if (!arrivalId || !sourceReady || !landed) return;
+    const duration = reduced ? 160 : 760;
+    settle.value = withTiming(1, { duration }, finished => {
       if (finished) runOnJS(clear)();
     });
-  }, [arrival, clear, expand, reduced, settle, sourceReady]);
+    const backstop = setTimeout(clear, duration + SETTLE_BACKSTOP_MS);
+    return () => clearTimeout(backstop);
+  }, [arrivalId, clear, landed, reduced, settle, sourceReady]);
+  // Phase deadlines, each independent of animation callbacks and of the board.
+  useEffect(() => {
+    if (!arrivalId || landed) return;
+    const timer = setTimeout(() => {
+      if (resolved) { trace('land-timeout: dissolving'); setDissolving(true); } else { trace('save-timeout'); clear(); }
+    }, resolved ? ARRIVAL_LAND_WAIT_MS : ARRIVAL_SAVE_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [arrivalId, clear, landed, resolved]);
+  useEffect(() => {
+    if (!dissolving) return;
+    fade.value = withTiming(1, { duration: reduced ? 0 : ARRIVAL_DISSOLVE_MS });
+    const timer = setTimeout(clear, (reduced ? 0 : ARRIVAL_DISSOLVE_MS) + SETTLE_BACKSTOP_MS);
+    return () => clearTimeout(timer);
+  }, [clear, dissolving, fade, reduced]);
+  const overlayStyle = useAnimatedStyle(() => ({ opacity: 1 - fade.value }));
   const imageGeometry = useDerivedValue(() => {
     if (!arrival) return { x: 0, y: 0, w: 1, h: 1 };
     const source = arrival.source;
@@ -112,7 +168,7 @@ export function VisionImageArrivalProvider({ children }: { children: React.React
   }));
   return <Context.Provider value={{ url: arrival?.url ?? null, anchorInFlight: Boolean(arrival?.anchor && !arrival.anchor.target), begin, cancel: clear, resolve, land, landAnchor }}>
     {children}
-    {arrival ? <View style={StyleSheet.absoluteFill} pointerEvents="auto" accessibilityElementsHidden>
+    {arrival ? <Animated.View style={[StyleSheet.absoluteFill, overlayStyle]} pointerEvents={dissolving ? 'none' : 'auto'} accessibilityElementsHidden>
       <Animated.View style={[StyleSheet.absoluteFill, backgroundStyle]} />
       <Animated.View style={[{ position: 'absolute', width: arrival.source.width, height: arrival.source.height, overflow: 'hidden' }, imageStyle]}>
         <Animated.Image testID="vision-arrival-image" source={{ uri: arrival.url }} resizeMode="stretch" onLoad={event => {
@@ -127,7 +183,7 @@ export function VisionImageArrivalProvider({ children }: { children: React.React
         <Animated.View style={[StyleSheet.absoluteFill, anchorCreamStyle]}><SigilSvg xml={arrival.anchor.svg} width="100%" height="100%" color={ANCHOR_CREAM} /></Animated.View>
         <Animated.View style={[StyleSheet.absoluteFill, anchorColorStyle]}><SigilSvg xml={arrival.anchor.svg} width="100%" height="100%" color={getCategoryColor(arrival.anchor.category)} /></Animated.View>
       </Animated.View> : null}
-    </View> : null}
+    </Animated.View> : null}
   </Context.Provider>;
 }
 

@@ -123,6 +123,17 @@ describe('V2VisionScreen', () => {
     });
   });
 
+  it('warms every board image while the Vision is on screen, so Visualize does not fetch them as they appear', async () => {
+    const { Image } = require('react-native');
+    const prefetch = jest.spyOn(Image, 'prefetch').mockResolvedValue(true);
+    (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: mockVisionData });
+    render(<V2VisionScreen anchorId="anchor-1" />);
+    await waitFor(() => expect(prefetch).toHaveBeenCalledWith('https://example.com/art1.jpg'));
+    expect(prefetch).toHaveBeenCalledWith('https://example.com/art2.jpg');
+    expect(prefetch).toHaveBeenCalledWith('https://example.com/art3.jpg');
+    prefetch.mockRestore();
+  });
+
   it('renders a real Create Vision entry when no vision exists', async () => {
     const { ApiClientError } = jest.requireActual('@/services/ApiClient');
     (apiClient.get as jest.Mock).mockRejectedValueOnce(

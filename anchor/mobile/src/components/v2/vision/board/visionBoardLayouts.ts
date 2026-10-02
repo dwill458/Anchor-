@@ -4,10 +4,10 @@ export const VISION_BOARD_MAX_IMAGES = 6;
 /** A finished board holds at least this many; fewer is a partial board (creation, uploads in flight). */
 export const VISION_BOARD_TARGET_MIN_IMAGES = 3;
 
-/** Board width / height. */
-export const VISION_BOARD_ASPECT = 1 / 1.78;
+/** Board width / height for a finished (2+ photo) board: the approved mockup's footprint. */
+export const VISION_BOARD_ASPECT = 1 / 1.56;
 /** Selection, generation and the dominant Canvas aperture use the same centre crop. */
-export const VISION_HERO_ASPECT = 1.12;
+export const VISION_HERO_ASPECT = 1.36;
 
 export type BoardFrameKind = 'landscape' | 'portrait' | 'square';
 export const BOARD_FRAME_KINDS: readonly BoardFrameKind[] = ['landscape', 'portrait', 'square'];
@@ -58,10 +58,10 @@ function seal(y: number, x = 0.49): BoardCardSlot {
 const LAYOUTS: readonly BoardLayout[] = [
   { count: 0, photos: [], card: seal(0.5), decor: [] },
   { count: 1, photos: [photo('portrait', 0.5, 0.445, 1, 0.9)], card: seal(0.78, 0.73), decor: [] },
-  { count: 2, photos: [photo('landscape', 0.5, 0.251, 1, VISION_HERO_ASPECT),
-    photo('square', 0.64, 0.695, 0.72, 1.04)], card: seal(0.495, 0.40), decor: [] },
-  { count: 3, photos: [photo('landscape', 0.5, 0.251, 1, VISION_HERO_ASPECT),
-    photo('portrait', 0.24, 0.706, 0.47, 0.70), photo('square', 0.755, 0.681, 0.49, 0.88, 13)], card: seal(0.50), decor: [] },
+  { count: 2, photos: [photo('landscape', 0.5, 0.2355, 1, VISION_HERO_ASPECT),
+    photo('square', 0.64, 0.695, 0.72, 1.04)], card: seal(0.47, 0.40), decor: [] },
+  { count: 3, photos: [photo('landscape', 0.5, 0.2355, 1, VISION_HERO_ASPECT),
+    photo('portrait', 0.235, 0.679, 0.45, 0.76), photo('square', 0.755, 0.697, 0.48, 0.8, 13)], card: seal(0.47), decor: [] },
 ];
 
 /** The composition for a number of photos; never more than the board's maximum. */
@@ -96,5 +96,5 @@ export function toSceneRect(slot: Pick<BoardSlot, 'x' | 'y' | 'width' | 'aspectR
 
 /** The board's rendered size for a given width. */
 export function boardSizeForWidth(width: number, imageCount = 3): Size {
-  return { width, height: width * (imageCount === 0 ? 0.45 : imageCount === 1 ? 1.25 : 1.78) };
+  return { width, height: width / (imageCount === 0 ? 1 / 0.45 : imageCount === 1 ? 1 / 1.25 : VISION_BOARD_ASPECT) };
 }

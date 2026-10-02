@@ -16,6 +16,8 @@ export interface V2FocusCompleteScreenProps {
   sessionSaved?: boolean;
   /** Shared completion presentation; Focus keeps its original copy by default. */
   practiceTitle?: 'Deep Focus' | 'Visualize';
+  /** What the session ended on: the ink field (Focus, Deep Focus) or the cream board (Visualize). */
+  enterFrom?: 'ink' | 'cream';
   onDone: () => void;
   onAgain: () => void;
 }
@@ -26,6 +28,7 @@ export function V2FocusCompleteScreen({
   afterStrength: propAfter,
   sessionSaved = true,
   practiceTitle,
+  enterFrom = 'ink',
   onDone,
   onAgain,
 }: V2FocusCompleteScreenProps) {
@@ -60,7 +63,7 @@ export function V2FocusCompleteScreen({
   // The Anchor is visible on the first cream frame. This avoids a blank beat
   // between the resolving session field and the same Anchor on completion.
   const contentOpacity = useSharedValue(reduceMotion ? 1 : 0.34);
-  const inkOverlayOpacity = useSharedValue(reduceMotion ? 0 : 1);
+  const inkOverlayOpacity = useSharedValue(reduceMotion || enterFrom === 'cream' ? 0 : 1);
   const barProgress = useSharedValue(fromVal / 100);
   const deltaOpacity = useSharedValue(reduceMotion ? 1 : 0);
   const artworkScale = useSharedValue(reduceMotion ? 1 : 0.94);
@@ -226,7 +229,7 @@ export function V2FocusCompleteScreen({
           <Text style={styles.againText}>{practiceTitle ?? 'Focus'} again</Text>
         </Pressable>
       </View>
-      <Animated.View pointerEvents="none" style={[styles.inkOverlay, inkOverlayStyle]} />
+      <Animated.View testID="v2-focus-complete-ink" pointerEvents="none" style={[styles.inkOverlay, inkOverlayStyle]} />
     </V2Screen>
   );
 }

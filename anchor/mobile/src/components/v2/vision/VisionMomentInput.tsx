@@ -9,12 +9,10 @@ import { ChartKeyboardFrame } from '@/components/v2/chart/ChartKeyboardFrame';
 import { colors, getCategoryColor, radii, spacing } from '@/theme/v2';
 import { VisionIdentity, type VisionAnchorArt } from './VisionChrome';
 import { VisionBackButton, VisionInkPill, VisionKicker, VISION_GOLD, VISION_SERIF, VISION_SERIF_ITALIC } from './VisionPaperChrome';
-import { visionDescriptionExample, visionDetailHint, visionDetailLevel } from './visionGuidance';
+import { visionCueGuidance, visionDescriptionExample, visionDetailHint, visionDetailLevel, type VisionCueKey } from './visionGuidance';
 
 export interface VisionMomentInputProps {
   mode: 'create' | 'add';
-  /** 'photos' is the personal-photo path: no generation, no identity reference. */
-  variant?: 'generate' | 'photos';
   anchorId: string;
   anchorIntention: string;
   anchorCategory?: string | null;
@@ -34,12 +32,12 @@ export interface VisionMomentInputProps {
   textInputTestID?: string;
 }
 
-/** Three prompts, not a configuration form: they only start a sentence. */
-const PROMPT_CHIPS = [
-  { key: 'where', label: 'Where are you?', icon: MapPin, cue: 'Where are you? ' },
-  { key: 'doing', label: 'What are you doing?', icon: Sun, cue: 'What are you doing? ' },
-  { key: 'feel', label: 'How does it feel?', icon: Heart, cue: 'How does it feel? ' },
-] as const;
+/** Three thinking aids, not autocomplete: each asks a question and never touches the description. */
+const PROMPT_CHIPS: ReadonlyArray<{ key: VisionCueKey; label: string; icon: typeof MapPin }> = [
+  { key: 'where', label: 'Where are you?', icon: MapPin },
+  { key: 'doing', label: 'What are you doing?', icon: Sun },
+  { key: 'feel', label: 'How does it feel?', icon: Heart },
+];
 
 /**
  * Screen 3: "What do you see?" It should read as authorship on paper, not as
@@ -48,7 +46,6 @@ const PROMPT_CHIPS = [
  */
 export function VisionMomentInput({
   mode,
-  variant = 'generate',
   anchorIntention,
   anchorCategory,
   anchorArt,
@@ -78,7 +75,6 @@ export function VisionMomentInput({
   const [inputFocused, setInputFocused] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const isCreate = mode === 'create';
-  const personalPhotos = isCreate && variant === 'photos';
   const categoryColor = getCategoryColor(anchorCategory);
 
   const minChars = isCreate ? 12 : 6;
@@ -101,13 +97,13 @@ export function VisionMomentInput({
   const trimmed = description.trim();
   const isValid = trimmed.length >= minChars && trimmed.length <= maxChars;
 
-  const handleChipPress = (cue: string) => {
+  const [activeCue, setActiveCue] = useState<VisionCueKey | null>(null);
+  const cue = useMemo(() => (activeCue ? visionCueGuidance(activeCue, anchorIntention, anchorCategory) : null), [activeCue, anchorCategory, anchorIntention]);
+
+  const handleChipPress = (key: VisionCueKey) => {
     v2Haptics.selection();
-    inputRef.current?.focus();
-    if (!description.includes(cue.trim())) {
-      const spacer = description.length > 0 && !description.endsWith(' ') && !description.endsWith('\n') ? ' ' : '';
-      setDescription(`${description}${spacer}${cue}`);
-    }
+    // Guidance only: a chip never focuses the field, opens the keyboard, or edits the text.
+    setActiveCue(key);
   };
 
   const handlePickReferencePhoto = async () => {
@@ -116,11 +112,13 @@ export function VisionMomentInput({
         const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (permission.status !== 'granted') { setLocalNotice('Allow photo library access to add a reference photo.'); return; }
       }
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.9, allowsEditing: false });
+      // Quality 0.7: a reference only needs the face and build, and a phone original would be several MB of base64.
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7, allowsEditing: false });
       const item = result.assets?.[0];
       if (result.canceled || !item) return;
-      const next = await appearance.upload(item.uri, 'CUSTOM');
-      if (!next) { setLocalNotice('Photo could not be used as a reference. Choose a clear photo of one person.'); return; }
+      let failure: string | null = null;
+      const next = await appearance.upload(item.uri, 'CUSTOM', item.mimeType, message => { failure = message; });
+      if (!next) { setLocalNotice(failure ?? 'The photo could not be used as a reference.'); return; }
       setUseAppearance(true);
       setLocalNotice(null);
     } catch {
@@ -148,27 +146,26 @@ export function VisionMomentInput({
   const handleSubmit = () => {
     if (!isValid || loading) return;
     Keyboard.dismiss();
-    const refId = !personalPhotos && useAppearance ? (appearance.reference?.id ?? null) : null;
+    const refId = useAppearance ? (appearance.reference?.id ?? null) : null;
     void onSubmit(trimmed, refId);
   };
 
   const placeholderText = customPlaceholder ?? (isCreate ? example : 'Describe the moment in detail...');
   const kicker = isCreate ? 'CREATE YOUR VISION' : 'ADD TO YOUR VISION';
-  const title = personalPhotos ? 'What does your Vision look like?' : isCreate ? 'What do you see?' : 'What else do you see?';
-  const subtitle = personalPhotos
-    ? 'Describe what these images represent for you.'
-    : isCreate ? 'Describe the moment you want to see for this Anchor.' : 'Describe another moment from this future.';
-  const ctaLabel = personalPhotos ? 'Choose my photos' : 'Create my images';
-  const ctaA11y = personalPhotos ? 'Choose my photos' : isCreate ? 'Continue to create your Vision' : 'Generate image';
-  const footnote = personalPhotos ? 'You’ll choose from your own photos.' : 'You’ll choose what belongs in your Vision.';
+  const title = isCreate ? 'What do you see?' : 'What else do you see?';
+  const subtitle = isCreate ? 'Describe the moment you want to see for this Anchor.' : 'Describe another moment from this future.';
+  const ctaLabel = 'Create my images';
+  const ctaA11y = isCreate ? 'Continue to create your Vision' : 'Generate image';
+  const footnote = 'You’ll choose what belongs in your Vision.';
 
   const chips = (
     <View style={inputFocused ? styles.chipsAccessory : styles.chipsRow}>
-      {PROMPT_CHIPS.map(({ key, label, icon: Icon, cue }) => (
-        <Pressable key={key} onPress={() => handleChipPress(cue)} accessibilityRole="button" accessibilityLabel={label}
-          style={({ pressed }) => [styles.chip, inputFocused && styles.chipAccessory, pressed && styles.chipPressed]}>
+      {PROMPT_CHIPS.map(({ key, label, icon: Icon }) => (
+        <Pressable key={key} onPress={() => handleChipPress(key)} accessibilityRole="button" accessibilityLabel={label}
+          accessibilityState={{ selected: activeCue === key }}
+          style={({ pressed }) => [styles.chip, inputFocused && styles.chipAccessory, activeCue === key && styles.chipActive, pressed && styles.chipPressed]}>
           <Icon size={14} color={VISION_GOLD} strokeWidth={1.7} />
-          <Text style={styles.chipText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>{label}</Text>
+          <Text style={styles.chipText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.9}>{label}</Text>
         </Pressable>
       ))}
     </View>
@@ -192,7 +189,7 @@ export function VisionMomentInput({
   ) : (
     <View style={styles.footer}>
       {submit(false)}
-      {onAddPhotos && !personalPhotos ? (
+      {onAddPhotos ? (
         <Pressable testID="vision-add-photos" accessibilityRole="button" accessibilityLabel="Add my own images" disabled={!isValid}
           onPress={onAddPhotos} style={[styles.textAction, !isValid && styles.disabled]}>
           <Text style={styles.textActionLabel}>Use my own photos instead</Text>
@@ -242,6 +239,13 @@ export function VisionMomentInput({
           />
         </View>
 
+        {cue ? (
+          <View testID="vision-cue" accessibilityLiveRegion="polite" style={styles.cue}>
+            <Text style={styles.cueQuestion}>{cue.question}</Text>
+            {cue.hint ? <Text style={styles.cueHint}>{cue.hint}</Text> : null}
+          </View>
+        ) : null}
+
         <View style={styles.meter}>
           <Text testID="vision-detail-hint" style={[styles.meterHint, level === 'rich' && { color: colors.semantic.success }]} numberOfLines={2}>
             {hint ?? 'Where you are · what you’re doing · how it feels'}
@@ -251,7 +255,7 @@ export function VisionMomentInput({
 
         {!inputFocused ? chips : null}
 
-        {!personalPhotos && !inputFocused ? (
+        {!inputFocused ? (
           <>
             <View style={styles.divider} />
             <Pressable
@@ -313,12 +317,16 @@ const styles = StyleSheet.create({
   chipsAccessory: { flexDirection: 'row', gap: spacing[2] },
   accessoryScroll: { paddingBottom: spacing[1] },
   chip: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, minHeight: 44, paddingHorizontal: 6, borderRadius: radii.pill,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3, minHeight: 44, paddingHorizontal: 4, borderRadius: radii.pill,
     backgroundColor: colors.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border.default,
   },
   chipAccessory: { flex: 0, paddingHorizontal: spacing[3] },
   chipPressed: { opacity: 0.7 },
-  chipText: { fontFamily: 'Inter-Regular', fontSize: 11.5, lineHeight: 15, color: colors.text.primary, flexShrink: 1 },
+  chipActive: { borderColor: VISION_GOLD, backgroundColor: colors.grouped },
+  cue: { gap: 2, paddingLeft: spacing[3], borderLeftWidth: 2, borderLeftColor: VISION_GOLD },
+  cueQuestion: { fontFamily: VISION_SERIF_ITALIC, fontSize: 16, lineHeight: 22, color: colors.text.primary },
+  cueHint: { fontFamily: 'Inter-Regular', fontSize: 12, lineHeight: 16, color: colors.text.secondary },
+  chipText: { fontFamily: 'Inter-Regular', fontSize: 10.5, lineHeight: 15, color: colors.text.primary, flexShrink: 1 },
   divider: { height: StyleSheet.hairlineWidth * 2, backgroundColor: VISION_GOLD, opacity: 0.5, marginTop: spacing[1] },
   referenceCard: {
     flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingVertical: spacing[3], paddingHorizontal: spacing[4], borderRadius: radii.lg,

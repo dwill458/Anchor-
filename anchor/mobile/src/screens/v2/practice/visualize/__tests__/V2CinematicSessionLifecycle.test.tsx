@@ -1,7 +1,7 @@
 import React from 'react';
 import { Alert, AppState } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
-import { V2CinematicSessionScreen } from '../V2CinematicSessionScreen';
+import { COMPLETION_SETTLE_MAX_MS, V2CinematicSessionScreen } from '../V2CinematicSessionScreen';
 import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
 
 const mockEngine: any = {};
@@ -284,6 +284,54 @@ describe('V2 cinematic session readiness and lifecycle', () => {
     expect(view.onContinue).not.toHaveBeenCalled();
     changeAppState('active'); changeAppState('active');
     expect(view.onContinue).toHaveBeenCalledTimes(1);
+  });
+
+  describe('the final board can never hold the person indefinitely', () => {
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => jest.useRealTimers());
+    const enterCompleting = (view: ReturnType<typeof renderReadySession>) => {
+      mockEngine.state = 'completing'; mockEngine.elapsedMs = 60000;
+      view.rerender(<V2CinematicSessionScreen anchor={anchor} accountId="user-1" tiles={tiles}
+        statement="My saved intention feels calm and clear." durationSeconds={60} voice="none" ambient={false} haptics={false}
+        source="practice_hub" onExit={view.onExit} onContinue={view.onContinue} />);
+    };
+
+    it('continues when the completion write never settles', async () => {
+      mockEngine.completionPromise = new Promise(() => undefined);
+      const view = renderReadySession(); measureMark();
+      enterCompleting(view);
+      await act(async () => { await Promise.resolve(); });
+      expect(view.onContinue).not.toHaveBeenCalled();
+      await act(async () => { jest.advanceTimersByTime(COMPLETION_SETTLE_MAX_MS + 50); });
+      expect(mockEngine.markCompleted).toHaveBeenCalledTimes(1);
+      expect(view.onContinue).toHaveBeenCalledTimes(1);
+    });
+
+    it('continues when the audio fade-out never settles', async () => {
+      mockFinishCompletion.mockReturnValueOnce(new Promise(() => undefined) as Promise<void>);
+      const view = renderReadySession(); measureMark();
+      enterCompleting(view);
+      await act(async () => { jest.advanceTimersByTime(COMPLETION_SETTLE_MAX_MS + 50); });
+      expect(view.onContinue).toHaveBeenCalledTimes(1);
+    });
+
+    it('continues exactly once however many times the failsafe and the real settle race', async () => {
+      const view = renderReadySession(); measureMark();
+      enterCompleting(view);
+      await act(async () => { await Promise.resolve(); });
+      await act(async () => { jest.advanceTimersByTime(COMPLETION_SETTLE_MAX_MS * 3); });
+      expect(view.onContinue).toHaveBeenCalledTimes(1);
+      expect(mockEngine.markCompleted).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not leave a failsafe timer behind when the session unmounts', async () => {
+      mockEngine.completionPromise = new Promise(() => undefined);
+      const view = renderReadySession(); measureMark();
+      enterCompleting(view);
+      view.unmount();
+      await act(async () => { jest.advanceTimersByTime(COMPLETION_SETTLE_MAX_MS * 2); });
+      expect(view.onContinue).not.toHaveBeenCalled();
+    });
   });
 
   it('begins with the same prepared textures without another asset request or measurement', () => {

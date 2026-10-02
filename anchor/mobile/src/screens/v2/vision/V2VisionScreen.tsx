@@ -16,6 +16,8 @@ import { toChartSummary } from '@/adapters/v2/chart/chartV2Model';
 import { useAnchorChart } from '@/hooks/v2/chart/useAnchorChart';
 import { VISION_BOARD_MAX_IMAGES } from '@/components/v2/vision/board/visionBoardLayouts';
 
+const WARM_IMAGE_MAX_MS = 3000;
+
 export interface V2VisionRouteParams {
   edit?: boolean;
   anchorId: string;
@@ -45,6 +47,13 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   const anchor = useAnchorStore(state => state.anchors.find(item => item.id === anchorId || item.localId === anchorId));
   useEffect(() => { if (anchorId) AnalyticsService.track('vision_opened', { anchor_id: anchorId }); }, [anchorId]);
   const model = useV2Vision(anchorId);
+  // Warm every board image (and the Anchor's enhanced art) while the Vision is on screen, so the Visualize setup and
+  // session that follow find them decoded-cache-ready instead of fetching them as they appear.
+  const warmUrls = model.tiles.map(tile => tile.imageUrl).concat(anchor?.enhancedImageUrl ?? null).filter((url): url is string => Boolean(url)).join('|');
+  useEffect(() => {
+    if (typeof Image.prefetch !== 'function') return;
+    warmUrls.split('|').filter(Boolean).forEach(url => { void Promise.resolve(Image.prefetch(url)).catch(() => false); });
+  }, [warmUrls]);
   const anchorChart = useAnchorChart(anchor?.id ?? null);
   const chartSummary = useMemo(() => toChartSummary(anchorChart.data?.chart), [anchorChart.data?.chart]);
   const [mode, setMode] = useState<'view' | 'create' | 'ready' | 'addScene'>(props.initialMode ?? route.params?.initialMode ?? 'view');
@@ -101,7 +110,11 @@ function VisionScreenContent(props: V2VisionScreenProps) {
   /** Loads the new board image before the board is shown, so it does not arrive as an empty frame. */
   const warmImage = async (url?: string | null) => {
     if (!url || typeof Image.prefetch !== 'function') return;
-    await Promise.resolve(Image.prefetch(url)).catch(() => false);
+    // A prefetch that never settles must not hold the save open: the board shows the image either way.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const bound = new Promise<boolean>(resolve => { timer = setTimeout(() => resolve(false), WARM_IMAGE_MAX_MS); });
+    await Promise.race([Promise.resolve(Image.prefetch(url)).catch(() => false), bound]);
+    if (timer) clearTimeout(timer);
   };
 
   /** Chooses or takes a photo; it is previewed, and nothing is uploaded until the person confirms. */

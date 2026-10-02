@@ -318,7 +318,7 @@ export function V2PracticeSessionScreen({
   // when the full duration has run, through the Visualize completion contract.
   if (mode === 'visualize') {
     if (visualizeCompletion) return <V2FocusCompleteScreen
-      anchor={preparedVisualize?.anchor ?? anchor} practiceTitle="Visualize" durationSeconds={durationSeconds}
+      anchor={preparedVisualize?.anchor ?? anchor} practiceTitle="Visualize" enterFrom="cream" durationSeconds={durationSeconds}
       beforeStrength={visualizeRecord?.threadStrengthBefore ?? visualizeCompletion.record?.threadStrengthBefore}
       afterStrength={visualizeRecord?.threadStrengthAfter ?? visualizeCompletion.record?.threadStrengthAfter}
       sessionSaved={visualizeCompletion.saved}

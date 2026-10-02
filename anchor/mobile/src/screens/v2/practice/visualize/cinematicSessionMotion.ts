@@ -2,6 +2,9 @@ import type { SceneRect, Size } from '@/components/v2/vision/board/visionBoardLa
 import { cameraAtRect, mixCamera, progress, projectPoint, restCinematicCamera, smooth } from './prototype/cinematicGeometry';
 import { cinematicSegmentAt, type CinematicTimeline } from './prototype/cinematicTimeline';
 
+/** How long the set-up's paper medallion takes to dissolve into the session's ink mark. */
+export const CINEMATIC_MARK_BRIDGE_MS = 450;
+
 export function cinematicSessionGeometry(scene: Size, viewport: Size, firstPhoto: SceneRect, mark: SceneRect, imageCount: number, canvasFrame?: { x: number; y: number; width: number; height: number }) {
   const scale = canvasFrame ? canvasFrame.width / scene.width : 0;
   const rest = canvasFrame && scale > 0 ? {
@@ -51,7 +54,9 @@ export function cinematicSessionFrame(ms: number, timeline: CinematicTimeline, g
     markCenter, markScale: reduced && segment.kind !== 'arrival' && segment.kind !== 'breakout' ? g.anchor.scale : camera.scale,
     markRotation: reduced && segment.kind !== 'arrival' && segment.kind !== 'breakout' ? 0 : g.mark.rotation + camera.rotation,
     environment, frameOpacity: segment.kind === 'arrival' ? 1 : segment.kind === 'breakout' ? 1 - p : 0,
-    nativePhoto: segment.kind === 'arrival' || segment.kind === 'breakout' ? 0 : 1,
+    // The board's own photograph stays under the Skia one through the still arrival: Skia's canvas takes a moment to draw
+    // its first frame, and the hero must never be missing in that gap. The two coincide, so it is handed over at breakout.
+    nativePhoto: segment.kind === 'breakout' ? 0 : 1,
     markOpacity: segment.kind === 'arrival' ? 1 : segment.kind === 'breakout' ? 1 - p :
       reduced && segment.kind === 'return' ? 1 - p : reduced &&
         (segment.kind === 'carry' || segment.kind === 'boardHold') ? 0 : recognition,

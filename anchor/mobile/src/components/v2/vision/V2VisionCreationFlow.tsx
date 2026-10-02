@@ -13,7 +13,7 @@ import type { VisionAnchorArt } from './VisionChrome';
 import { VISION_DESCRIPTION_MAX_CHARS, VISION_DESCRIPTION_MIN_CHARS } from './visionGuidance';
 import { VisionBackButton, VisionInkPill, VISION_SERIF } from './VisionPaperChrome';
 import { VisionIntroStage } from './VisionIntroStage';
-import { VisionMethodStage, type VisionCreationPath } from './VisionMethodStage';
+import { VisionMethodStage } from './VisionMethodStage';
 import { VisionMomentInput } from './VisionMomentInput';
 import { VisionTwoUpStage, type VisionTwoUpSelection } from './VisionTwoUpStage';
 import { VISION_BOARD_MAX_IMAGES } from './board/visionBoardLayouts';
@@ -21,6 +21,13 @@ import { VISION_BOARD_MAX_IMAGES } from './board/visionBoardLayouts';
 export type VisionFlowAsset = { assetId: string; prompt: string; imageUrl?: string; sourceType: VisionSceneSource };
 type UploadItem = { key: string; uri: string; mimeType: string; assetId?: string; imageUrl?: string | null; status: 'uploading' | 'ready' | 'failed'; error?: string };
 type Step = 'empty' | 'method' | 'prompt' | 'generating' | 'uploading';
+
+/** A photos-only Vision has no written description; the Anchor's own intention stands in until the person writes one. */
+function photoVisionDescription(written: string, intention: string): string {
+  if (written.length >= VISION_DESCRIPTION_MIN_CHARS) return written;
+  const base = intention.trim();
+  return base.length >= VISION_DESCRIPTION_MIN_CHARS ? base : `${base} — my Vision`.trim();
+}
 
 const SUPPORTED_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
@@ -58,7 +65,6 @@ export function V2VisionCreationFlow({
   const arrival = useVisionImageArrival();
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState<Step>(initialStep === 'ready' || initialStep === 'empty' ? 'empty' : initialStep);
-  const [creationPath, setCreationPath] = useState<VisionCreationPath>('generate');
   const [fromMethod, setFromMethod] = useState(false);
   const [description, setDescription] = useState(initialDescription);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
@@ -144,7 +150,6 @@ export function V2VisionCreationFlow({
 
   /** The personal-photo path: choose photos, upload them, and they become the Vision. */
   const pickImages = async () => {
-    if (!validDescription) { setNotice('Describe your Vision first.'); return; }
     try {
       if (Platform.OS === 'ios') {
         const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -177,14 +182,14 @@ export function V2VisionCreationFlow({
     setSaving(true);
     setNotice(null);
     try {
-      const result = await onAssemble({ description: trimmed, selectedAssets: assets });
+      const result = await onAssemble({ description: photoVisionDescription(trimmed, anchorIntention), selectedAssets: assets });
       if (result === false) setNotice('Your Vision could not be saved. Please try again.');
     } catch (cause) {
       setNotice(cause instanceof Error ? cause.message : 'Your Vision could not be saved.');
     } finally {
       setSaving(false);
     }
-  }, [onAssemble, saving, trimmed, uploads]);
+  }, [anchorIntention, onAssemble, saving, trimmed, uploads]);
 
   // Once every photo is uploaded the Vision is made without another tap.
   const allReady = uploads.length > 0 && uploads.every(item => item.status === 'ready');
@@ -209,7 +214,11 @@ export function V2VisionCreationFlow({
   if (step === 'method') return (
     <VisionMethodStage
       onBack={() => setStep('empty')}
-      onChoose={path => { setCreationPath(path); setFromMethod(true); setStep('prompt'); }}
+      onChoose={path => {
+        setFromMethod(true);
+        // Personal photos are their own branch: straight to the picker, never the AI description step.
+        if (path === 'photos') void pickImages(); else setStep('prompt');
+      }}
       testID={testID}
     />
   );
@@ -235,7 +244,7 @@ export function V2VisionCreationFlow({
       <View testID={`${testID}-uploading`} style={styles.paper}>
         <StatusBar barStyle="dark-content" backgroundColor={colors.canvas} />
         <ScrollView contentContainerStyle={[styles.paperContent, { paddingTop: insets.top + spacing[2], paddingBottom: insets.bottom + spacing[5] }]}>
-          <VisionBackButton onPress={() => { setUploads([]); setStep('prompt'); }} style={styles.paperBack} />
+          <VisionBackButton onPress={() => { setUploads([]); setStep('method'); }} style={styles.paperBack} />
           <Text accessibilityRole="header" style={styles.paperTitle}>{failed ? 'One photo needs another try.' : 'Placing your photos…'}</Text>
           <View style={styles.thumbs}>
             {uploads.map(item => (
@@ -260,7 +269,6 @@ export function V2VisionCreationFlow({
   return (
     <VisionMomentInput
       mode="create"
-      variant={creationPath}
       anchorId={anchorId}
       anchorIntention={anchorIntention}
       anchorCategory={anchorCategory}
@@ -270,10 +278,7 @@ export function V2VisionCreationFlow({
       description={description}
       onChangeDescription={setDescription}
       onBack={() => { if (fromMethod) setStep('method'); else onBack(); }}
-      onSubmit={async (_description, referenceId) => {
-        if (creationPath === 'photos') { await pickImages(); return; }
-        await generate(referenceId);
-      }}
+      onSubmit={async (_description, referenceId) => { await generate(referenceId); }}
       loading={starting}
       error={notice || generation.error}
       testID={`${testID}-prompt`}

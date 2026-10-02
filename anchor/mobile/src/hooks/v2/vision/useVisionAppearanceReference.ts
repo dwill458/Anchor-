@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as FileSystem from 'expo-file-system/legacy';
-import { apiClient } from '@/services/ApiClient';
+import { apiClient, ApiClientError } from '@/services/ApiClient';
 import { useProfileStore } from '@/stores/profileStore';
 import { useAuthStore } from '@/stores/authStore';
 import { visionApiData } from './visionApi';
@@ -11,6 +11,31 @@ export type VisionAppearanceReference = {
   previewUrl: string | null;
   expiresAt: string | null;
 };
+
+/** Counts and outcomes only: never the image, a URI, or a signed URL. */
+const traceReference = (event: string, detail?: unknown) => {
+  if (__DEV__ && !process.env.JEST_WORKER_ID) console.log(`[VisionReference] ${event}`, detail ?? '');
+};
+
+/** The type the bytes really are, preferring what the picker reported over the file extension. */
+export function referenceMimeType(uri: string, picked?: string | null): 'image/png' | 'image/webp' | 'image/jpeg' {
+  const declared = picked?.toLowerCase();
+  if (declared === 'image/png' || declared === 'image/webp' || declared === 'image/jpeg') return declared;
+  const path = uri.split('?')[0].toLowerCase();
+  return path.endsWith('.png') ? 'image/png' : path.endsWith('.webp') ? 'image/webp' : 'image/jpeg';
+}
+
+/** Says what actually went wrong; "choose a clear photo of one person" is only true for one of the causes. */
+export function referenceFailureMessage(cause: unknown): string {
+  if (cause instanceof ApiClientError) {
+    if (cause.code === 'UNSUITABLE_VISION_REFERENCE') return cause.message || 'Choose a clear, close photo of one person.';
+    if (cause.status === 413) return 'That photo is too large to use. Try a smaller one.';
+    if (cause.code === 'INVALID_VISION_REFERENCE' || cause.status === 400) return 'That photo format could not be used. Choose a JPEG, PNG or WebP photo.';
+    if (cause.status === 429) return 'Too many photos in a short time. Try again in a moment.';
+    if (cause.status === 401 || cause.status === 403) return 'Sign in again to add a reference photo.';
+  }
+  return 'The photo could not be uploaded. Check your connection and try again.';
+}
 
 function fingerprint(value: string): string {
   let hash = 2166136261;
@@ -40,19 +65,30 @@ export function useVisionAppearanceReference() {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
-  const upload = useCallback(async (uri: string, source: 'PROFILE' | 'CUSTOM'): Promise<VisionAppearanceReference | null> => {
+  const [lastError, setLastError] = useState<string | null>(null);
+
+  const upload = useCallback(async (uri: string, source: 'PROFILE' | 'CUSTOM', pickedMimeType?: string | null, onError?: (message: string) => void): Promise<VisionAppearanceReference | null> => {
     setSaving(true);
+    setLastError(null);
     try {
       const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
-      const mimeType = uri.toLowerCase().endsWith('.png') ? 'image/png' : uri.toLowerCase().endsWith('.webp') ? 'image/webp' : 'image/jpeg';
+      const mimeType = referenceMimeType(uri, pickedMimeType);
+      traceReference('selected', { source, approxKb: Math.round(base64.length * 0.75 / 1024), mimeType });
       const response = await apiClient.post<VisionAppearanceReference>('/api/v2/vision/appearance-reference', {
         base64Image: `data:${mimeType};base64,${base64}`, mimeType, source,
         ...(source === 'PROFILE' ? { profileFingerprint: fingerprint(uri) } : {}),
       });
       const next = visionApiData<VisionAppearanceReference>(response);
+      traceReference('uploaded', { referenceId: next.id });
       setReference(next);
       return next;
-    } catch { return null; } finally { setSaving(false); }
+    } catch (cause) {
+      const message = referenceFailureMessage(cause);
+      traceReference('failed', { message, status: cause instanceof ApiClientError ? cause.status : undefined, code: cause instanceof ApiClientError ? cause.code : undefined });
+      setLastError(message);
+      onError?.(message);
+      return null;
+    } finally { setSaving(false); }
   }, []);
 
   const remove = useCallback(async () => {
@@ -81,6 +117,6 @@ export function useVisionAppearanceReference() {
     } catch { return false; }
   }, [profilePhoto, upload]);
 
-  return useMemo(() => ({ profilePhoto, enabledByPreference, reference, loading, saving, upload, remove, setProfilePreference }),
-    [enabledByPreference, loading, profilePhoto, reference, remove, saving, setProfilePreference, upload]);
+  return useMemo(() => ({ profilePhoto, enabledByPreference, reference, loading, saving, lastError, upload, remove, setProfilePreference }),
+    [enabledByPreference, lastError, loading, profilePhoto, reference, remove, saving, setProfilePreference, upload]);
 }

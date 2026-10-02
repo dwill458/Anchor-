@@ -43,66 +43,131 @@ export function visionDetailHint(text: string): string | null {
   return `${count} · Great detail`;
 }
 
-const INTENTION_EXAMPLES: Array<{ test: RegExp; example: string }> = [
+/** What a lived moment of this kind tends to contain; woven around the person's own words, never inserted. */
+type Seed = { place: string; doing: string; feel: string; whereHint: string; doingHint: string; feelHint: string };
+
+const seed = (place: string, doing: string, feel: string, whereHint: string, doingHint: string, feelHint: string): Seed =>
+  ({ place, doing, feel, whereHint, doingHint, feelHint });
+
+const INTENTION_SEEDS: Array<{ test: RegExp; seed: Seed }> = [
   {
     // Before the fitness rule: "run for office" is not about running.
     test: /\b(president|election|elected|campaign|public office|senate|senator|congress|mayor|governor|parliament|politic\w*|leader|leadership)\b/i,
-    example: 'I walk onto a small stage in a packed community hall and the room goes quiet. I speak without notes, people are nodding, and afterwards a line forms of people who want to help.',
+    seed: seed('standing in front of a packed room', 'speaking without notes while people lean in', 'steady, listened to, and clear about why I’m here',
+      'A stage, a hall, a street corner?', 'Speaking, listening, shaking hands?', 'Steady? Humbled? Certain?'),
+  },
+  {
+    test: /\b(owner|own|owns|owning|founder|founded|co-?found\w*|ceo|my (own )?(shop|store|brand|studio|restaurant|salon|label|company|business|agency|firm))\b/i,
+    seed: seed('walking through the place I built', 'watching people use and enjoy something that used to exist only in my head', 'proud, a little amazed, and completely at home',
+      'The space itself: a storefront, a studio, an office, a floor?', 'Walking the space, greeting people, checking the details you built?', 'Pride? Calm? Disbelief that it’s yours?'),
   },
   {
     test: /\b(users?|customers?|subscribers?|clients?|app|launch|startup|business|revenue|product|company|sales)\b/i,
-    example: 'I open my laptop in my home office and see the number I’ve been working toward. Messages from people using what I built are coming in, and I’m spending the whole day on work I chose.',
+    seed: seed('at my desk', 'watching the numbers and the messages from people who use what I built', 'focused, grateful, and spending the day on work I chose',
+      'Your desk, a studio, a coffee shop, a launch party?', 'Reading messages, checking the numbers, telling someone the news?', 'Relief? Pride? Quiet excitement?'),
   },
   {
     test: /\b(run|running|marathon|race|weight|fit|fitness|strong|strength|gym|train|training|sleep|energy|healthy)\b/i,
-    example: 'I wake before my alarm feeling rested, lace up my shoes and run the loop by the river without stopping. My body feels strong and I still have energy for everything after.',
+    seed: seed('outside in the early light', 'moving without holding back', 'strong, light, and full of energy',
+      'A trail, a track, a gym, your own street?', 'Moving, lifting, finishing, resting?', 'Strong? Light? How does your breathing feel?'),
   },
   {
     test: /\b(write|writing|book|novel|paint|painting|music|album|song|art|artist|design|film|photograph)/i,
-    example: 'I sit at my desk in the morning light with the finished draft beside me. I’m starting the next piece because I want to, and people are reading what I made.',
+    seed: seed('in my workspace with the finished work beside me', 'making the next piece because I want to', 'absorbed, proud, and unhurried',
+      'A desk, a studio, a stage, a gallery?', 'Making, sharing, signing, listening to people react?', 'Absorbed? Proud? Quietly thrilled?'),
   },
   {
     test: /\b(home|house|apartment|move|moving|city|country|travel|abroad)\b/i,
-    example: 'I unlock the door to my own place and the light comes in through big windows. My things are where I want them, it’s quiet, and I finally feel settled here.',
+    seed: seed('inside my own place with light coming through the windows', 'putting my things exactly where I want them', 'settled, quiet, and at home',
+      'Which room, which view, which street outside?', 'Unlocking the door, unpacking, opening the windows?', 'Settled? Relieved? Excited?'),
   },
   {
     test: /\b(partner|love|marriage|married|relationship|friends?|family|kids?|children|parent)\b/i,
-    example: 'We’re around the kitchen table on a slow Sunday morning, laughing about something small. I’m present, unhurried, and there’s nowhere else I’d rather be.',
+    seed: seed('with the people I love', 'fully present with them', 'close, unhurried, and safe',
+      'Which room or place are you sharing?', 'Talking, laughing, cooking, simply sitting together?', 'Close? Safe? Light?'),
   },
   {
     test: /\b(debt|money|save|saving|savings|income|financial|wealth|salary|earn)\b/i,
-    example: 'I check my account on a Friday morning and there’s more than enough. The bills are paid, I’m choosing what comes next, and money isn’t on my mind.',
+    seed: seed('at my kitchen table', 'looking at an account where there’s more than enough', 'free, generous, and calm',
+      'Where do you check it: a desk, a phone on the couch, a bank?', 'Checking, paying, giving, choosing what’s next?', 'Relief? Freedom? Calm?'),
   },
   {
     test: /\b(learn|learning|study|degree|exam|language|course|school|skill)\b/i,
-    example: 'I’m in a café, speaking easily with the person beside me in the language I studied. I understand the jokes, I don’t translate in my head, and it feels natural.',
+    seed: seed('in the middle of a real conversation', 'using what I learned without translating in my head', 'capable and natural',
+      'A classroom, a café, a job, another country?', 'Speaking, solving, explaining, being asked for help?', 'Capable? Easy? Proud?'),
   },
 ];
 
-const CATEGORY_EXAMPLES: Record<string, string> = {
-  career: 'I walk through the glass doors of the office building onto the floor where my team works. The leadership meeting is set, my workstation overlooks the city skyline, and the position I worked for is finally mine.',
-  health: 'I wake up rested, move my body before breakfast and feel strong doing it. Food, sleep and energy are steady, and I trust myself to keep going.',
-  relationships: 'I’m sitting across from someone I love, fully present. We talk easily, nothing is left unsaid, and I feel safe and close.',
-  creativity: 'I’m in my own studio space with the finished work in front of me. I make something every day, and it feels like mine.',
-  spirituality: 'I start the morning in quiet, before the phone. My mind is still, I move through the day with patience, and I come back to myself easily.',
-  abundance: 'I open my finances without a knot in my stomach. There’s enough, I’m generous without worry, and my choices feel free.',
-  family: 'The house is full on an ordinary evening. Everyone’s talking over dinner, I’m relaxed, and home feels like the calmest place I know.',
-  learning: 'I can do the thing I set out to learn without thinking about it. People ask me for help with it, and I enjoy explaining.',
-  adventure: 'I step out of a small station in a place I’ve never been, with one bag and no rush. I have time, I feel capable, and the day is open.',
-  focus: 'I sit down to one important thing and stay with it until it’s done. The phone is away, the room is quiet and my attention is steady.',
-  desire: 'It’s an ordinary Tuesday morning and I’m standing in my kitchen with coffee, already living it. I can see it in the room around me, and the thing I used to want is simply part of my day.',
-  custom: 'I’m standing somewhere specific on the day this is true: I can name the room, the light and what I’m holding. What I notice most is what’s no longer missing.',
+const CATEGORY_SEEDS: Record<string, Seed> = {
+  career: seed('on the floor where my team works', 'leading the work I earned the right to lead', 'capable, respected, and certain',
+    'The office, the site, the meeting room, the view?', 'Leading, deciding, presenting, building?', 'Respected? Certain? Calm?'),
+  health: seed('moving my body in the morning', 'treating food, sleep and movement as steady habits', 'strong, rested, and trusting myself',
+    'Where does your body feel best?', 'Moving, resting, cooking, stretching?', 'Strong? Rested? Steady?'),
+  relationships: seed('across from someone I love', 'talking easily with nothing left unsaid', 'safe and close',
+    'Where are the two of you?', 'Talking, listening, laughing, sharing silence?', 'Safe? Seen? Close?'),
+  creativity: seed('in my own creative space', 'making something that feels like mine', 'absorbed and free',
+    'A desk, a studio, a stage?', 'Making, finishing, sharing?', 'Absorbed? Free? Proud?'),
+  spirituality: seed('in the quiet before the day begins', 'letting my mind settle', 'still, patient, and at home in myself',
+    'A room, a path, a place of stillness?', 'Sitting, breathing, walking, listening?', 'Still? Patient? Held?'),
+  abundance: seed('looking at my life with nothing missing', 'making choices from enough rather than fear', 'free and generous',
+    'Where does this abundance show up?', 'Choosing, giving, saying yes, saying no?', 'Free? Generous? Calm?'),
+  family: seed('in the middle of an ordinary full evening at home', 'sharing a meal with everyone at the table', 'relaxed and grateful',
+    'Which room, which table, which window?', 'Cooking, talking, laughing, listening?', 'Relaxed? Grateful? Home?'),
+  learning: seed('using the skill I set out to learn', 'doing it without thinking about it', 'capable and curious',
+    'Where does the skill show up?', 'Practising, teaching, solving something real?', 'Capable? Curious? Proud?'),
+  adventure: seed('in a place I’ve never been', 'taking it in with no rush', 'capable and wide open',
+    'Which place, which light, which season?', 'Walking, climbing, arriving, looking around?', 'Awake? Capable? Free?'),
+  focus: seed('sitting down to the one thing that matters', 'staying with it until it’s done', 'clear and steady',
+    'The room, the desk, the quiet around you?', 'Working, finishing, switching nothing off?', 'Clear? Steady? Unhurried?'),
+  desire: seed('inside the moment it became real', 'looking at what I wanted, now part of my day', 'quietly certain that this is mine',
+    'Where does this happen: a room, a place, a screen?', 'Looking, holding, telling someone, simply being there?', 'Certain? Amazed? Calm?'),
+  custom: seed('somewhere specific on the day this is true', 'noticing what’s no longer missing', 'settled and certain',
+    'Which room, which light, which place?', 'What are your hands doing?', 'What’s different in you?'),
 };
 
+function seedFor(intention?: string | null, category?: string | null): Seed {
+  const matched = INTENTION_SEEDS.find(rule => rule.test.test(intention ?? ''));
+  if (matched) return matched.seed;
+  return CATEGORY_SEEDS[resolveAnchorCategory(category)] ?? CATEGORY_SEEDS.custom;
+}
+
+/** The person's own words as a sentence: no trailing punctuation, capitalised. */
+function intentionSentence(intention?: string | null): string {
+  const clean = (intention ?? '').replace(/\s+/g, ' ').trim().replace(/[.!?…]+$/, '');
+  return clean ? clean.charAt(0).toUpperCase() + clean.slice(1) : '';
+}
+
+function shortIntention(intention?: string | null, max = 56): string {
+  const clean = intentionSentence(intention);
+  if (clean.length <= max) return clean;
+  return `${clean.slice(0, max).replace(/\s+\S*$/, '')}…`;
+}
+
 /**
- * A worked example chosen for this Anchor. Keyword rules read the intention
- * first (so "ten thousand users" gets a product example rather than a generic
- * career one); the category is the fallback. Always an example, never text
- * that is inserted into the person's description.
+ * A worked example written around this Anchor's own intention. The seed (keyword
+ * rules over the intention, then the category) only supplies a plausible setting;
+ * the intention itself is quoted, so the example always concerns what the person
+ * actually wrote. It is placeholder guidance, never text inserted into the
+ * description.
  */
 export function visionDescriptionExample(intention?: string | null, category?: string | null): string {
-  const text = intention ?? '';
-  const matched = INTENTION_EXAMPLES.find(rule => rule.test.test(text));
-  if (matched) return matched.example;
-  return CATEGORY_EXAMPLES[resolveAnchorCategory(category)] ?? CATEGORY_EXAMPLES.custom;
+  const picked = seedFor(intention, category);
+  const lead = intentionSentence(intention);
+  const opening = lead ? `It’s real now: ${lead}. ` : '';
+  return `${opening}I’m ${picked.place}, ${picked.doing}…`;
+}
+
+export type VisionCueKey = 'where' | 'doing' | 'feel';
+
+/**
+ * The question a helper chip asks. Tapping a chip shows this and nothing more:
+ * the person writes the answer, so the description is never edited for them.
+ */
+export function visionCueGuidance(key: VisionCueKey, intention?: string | null, category?: string | null): { question: string; hint: string } {
+  const picked = seedFor(intention, category);
+  const short = shortIntention(intention);
+  const subject = short ? `“${short}”` : 'this';
+  if (key === 'where') return { question: `Where are you when ${subject} is already true?`, hint: picked.whereHint };
+  if (key === 'doing') return { question: 'What are you doing in the moment you realize it?', hint: picked.doingHint };
+  return { question: `What do you notice, and how does it feel to have ${subject}?`, hint: picked.feelHint };
 }

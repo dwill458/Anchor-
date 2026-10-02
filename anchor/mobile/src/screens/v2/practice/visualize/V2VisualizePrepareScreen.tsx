@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View, useWindowDimensions } from 'react-native';
-import Animated, { Easing, interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { ArrowRight, Eye, Smartphone, Volume2 } from 'lucide-react-native';
 import { V2Button } from '@/components/v2';
 import { anchorRenderProps, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
@@ -47,9 +47,13 @@ type Props = {
 const ACCENT = practiceColors.visualize;
 const SERIF = 'EBGaramond-Medium';
 /** Where the lower photographs of the shared board composition end, as a share of its width. */
-const COLLAGE_CROP_RATIO = 1.58;
-/** The hand-off from cream to the dark session. */
-export const VISUALIZE_BEGIN_TIMING = { darkenMs: 520 } as const;
+const COLLAGE_CROP_RATIO = 1.45;
+/**
+ * The hand-off into the session. The setup's chrome fades while the collage stays exactly where it is on the same
+ * cream page: the session opens on that very board, then the camera carries it into the first photograph.
+ * (Darkening the page first made the session's cream opening flash.)
+ */
+export const VISUALIZE_BEGIN_TIMING = { fadeMs: 360 } as const;
 
 /** What of the shared board is shown: all of a one-photo board, the photographs of a larger one. */
 export function visualizeCollageCrop(imageCount: number, width: number): { sceneHeight: number; visibleHeight: number } {
@@ -113,12 +117,12 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, i
   const board = useVisionBoardScene(ready ? prepared.assets.tiles : boardTiles, scene);
   const retry = () => { setUseAvailable(null); setPreparationIssue(null); setPrepared(null); setAttempt(value => value + 1); };
 
-  // Begin: settings lock, the page darkens around the collage, then the session takes the same frame.
+  // Begin: settings lock, the chrome fades around the collage, then the session takes the same frame.
   const darken = useSharedValue(0);
   const frameRef = useRef<View>(null);
+  const rootRef = useRef<View>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
-  const backdropStyle = useAnimatedStyle(() => ({ backgroundColor: interpolateColor(darken.value, [0, 1], [colors.canvas, colors.ink.deep]) }));
   const fadeStyle = useAnimatedStyle(() => ({ opacity: Math.max(0, 1 - darken.value * 1.6) }));
 
   const begin = () => {
@@ -130,23 +134,29 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, i
     const voice: GuidanceVoice = soundOn ? (savedVoice !== 'none' || savedAmbient !== 'off' ? savedVoice : DEFAULT_SESSION_AUDIO_DEFAULTS.visualize.guidanceVoice) : 'none';
     const ambient = soundOn ? (savedVoice !== 'none' || savedAmbient !== 'off' ? savedAmbient !== 'off' : true) : false;
     const start = (canvasFrame?: { x: number; y: number; width: number; height: number }) => {
-      darken.value = reduceMotion ? 1 : withTiming(1, { duration: VISUALIZE_BEGIN_TIMING.darkenMs, easing: Easing.inOut(Easing.cubic) });
+      darken.value = reduceMotion ? 1 : withTiming(1, { duration: VISUALIZE_BEGIN_TIMING.fadeMs, easing: Easing.inOut(Easing.cubic) });
       timer.current = setTimeout(() => {
         onBegin({ durationSeconds: duration, voice, ambient, haptics: hapticsOn,
           prepared: { ...prepared, ...(canvasFrame ? { canvasFrame } : {}), beginAtMs: getVisualizeMonotonicNow() } });
-      }, reduceMotion ? 0 : VISUALIZE_BEGIN_TIMING.darkenMs);
+      }, reduceMotion ? 0 : VISUALIZE_BEGIN_TIMING.fadeMs);
     };
     const node = frameRef.current;
     if (!node?.measureInWindow) { start(); return; }
     // The session begins from exactly where this collage is on screen. If it cannot be measured, it begins from rest.
     let settled = false;
     const fallback = setTimeout(() => { if (!settled) { settled = true; start(); } }, 120);
-    node.measureInWindow((x, y, frameWidth, frameHeight) => {
+    // Window coordinates can have an origin below the top of the screen (Android keeps the status bar's offset). The
+    // session is full-screen, so it receives the frame relative to this screen's own root.
+    const measureFrame = (originX: number, originY: number) => node.measureInWindow((x, y, frameWidth, frameHeight) => {
       if (settled) return;
       settled = true;
       clearTimeout(fallback);
-      start(frameWidth > 0 && frameHeight > 0 ? { x, y, width: frameWidth, height: frameHeight } : undefined);
+      start(frameWidth > 0 && frameHeight > 0 ? { x: x - originX, y: y - originY, width: frameWidth, height: frameHeight } : undefined);
     });
+    const root = rootRef.current;
+    if (root?.measureInWindow) root.measureInWindow((rootX, rootY, rootWidth, rootHeight) =>
+      (rootWidth > 0 && rootHeight > 0 ? measureFrame(rootX, rootY) : measureFrame(0, 0)));
+    else measureFrame(0, 0);
   };
 
   const categoryColor = getCategoryColor(anchor.category);
@@ -155,10 +165,10 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, i
   return (
     <V2PracticeSetupLayout
       testID="v2-practice-prepare-visualize"
+      rootRef={rootRef}
       onBack={onBack}
       sidePadding={metrics.sidePadding}
       footerPaddingBottom={metrics.footerPaddingBottom}
-      backdrop={<Animated.View style={[StyleSheet.absoluteFill, backdropStyle]} />}
       chromeStyle={fadeStyle}
       footer={(
         <View>
@@ -197,7 +207,7 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, i
             <View ref={frameRef} collapsable={false} style={{ width: scene.width, height: scene.height }}>
               <VisionBoardScene scene={scene} roster={board.roster} entering={board.entering} layout={board.layout}
                 shared={board.shared} initialRectFor={board.initialRectFor} intention={anchor.intentionText || statement}
-                category={anchor.category} art={art} markAppearance="paper" edgeDarken={darken} reduceMotion />
+                category={anchor.category} art={art} markAppearance="paper" reduceMotion />
             </View>
           </View>
         </Pressable>

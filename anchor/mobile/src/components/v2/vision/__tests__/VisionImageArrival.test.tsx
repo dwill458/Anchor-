@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { Pressable, Text } from 'react-native';
-import { fireEvent, render } from '@testing-library/react-native';
-import { VisionImageArrivalProvider, useVisionImageArrival } from '../VisionImageArrival';
+import { act, fireEvent, render } from '@testing-library/react-native';
+import {
+  ARRIVAL_DISSOLVE_MS, ARRIVAL_LAND_WAIT_MS, ARRIVAL_SAVE_WAIT_MS, ARRIVAL_SOURCE_WAIT_MS,
+  VisionImageArrivalProvider, useVisionImageArrival,
+} from '../VisionImageArrival';
 function Flow() {
   const arrival = useVisionImageArrival()!;
   const [saved, setSaved] = useState(false);
@@ -30,6 +33,63 @@ it('clears a failed image without hiding the saved content', () => {
   expect(view.queryByTestId('vision-arrival-image', { includeHiddenElements: true })).toBeNull();
   expect(view.getByText('Saved overview')).toBeTruthy();
 });
+
+/** Steps time so effects scheduled by one timer are flushed before the next fires. */
+const advance = (ms: number) => { for (let spent = 0; spent < ms; spent += 50) act(() => { jest.advanceTimersByTime(50); }); };
+
+describe('the flight can never strand the person on the chosen photograph', () => {
+  const overlay = (view: ReturnType<typeof render>) => view.queryByTestId('vision-arrival-image', { includeHiddenElements: true });
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  it('gives way to the stage when the save never reports back', () => {
+    const view = render(<VisionImageArrivalProvider><Flow /></VisionImageArrivalProvider>);
+    fireEvent.press(view.getByTestId('choose'));
+    advance(ARRIVAL_SAVE_WAIT_MS - 100);
+    expect(overlay(view)).not.toBeNull();
+    advance(150);
+    expect(overlay(view)).toBeNull();
+  });
+
+  it('dissolves when the saved image is never found on the board', () => {
+    const view = render(<VisionImageArrivalProvider><Flow /></VisionImageArrivalProvider>);
+    fireEvent.press(view.getByTestId('choose'));
+    fireEvent.press(view.getByTestId('save'));
+    advance(ARRIVAL_LAND_WAIT_MS - 100);
+    expect(overlay(view)).not.toBeNull();
+    advance(ARRIVAL_LAND_WAIT_MS + ARRIVAL_DISSOLVE_MS + 600);
+    expect(overlay(view)).toBeNull();
+    expect(view.getByText('Saved overview')).toBeTruthy();
+  });
+
+  it('clears after landing even if the animation callback never fires', () => {
+    const view = render(<VisionImageArrivalProvider><LandFlow /></VisionImageArrivalProvider>);
+    fireEvent.press(view.getByTestId('choose'));
+    fireEvent.press(view.getByTestId('save'));
+    fireEvent.press(view.getByTestId('land'));
+    advance(3000);
+    expect(overlay(view)).toBeNull();
+  });
+
+  it('starts the flight even when the source image never reports a load', () => {
+    const view = render(<VisionImageArrivalProvider><LandFlow /></VisionImageArrivalProvider>);
+    fireEvent.press(view.getByTestId('choose'));
+    fireEvent.press(view.getByTestId('save'));
+    fireEvent.press(view.getByTestId('land'));
+    expect(overlay(view)).not.toBeNull();
+    advance(ARRIVAL_SOURCE_WAIT_MS + 2000);
+    expect(overlay(view)).toBeNull();
+  });
+});
+
+function LandFlow() {
+  const arrival = useVisionImageArrival()!;
+  return <>
+    <Pressable testID="choose" onPress={() => arrival.begin('https://cdn/selected.jpg', { x: 20, y: 140, width: 300, height: 315 })} />
+    <Pressable testID="save" onPress={() => arrival.resolve('https://cdn/persisted.jpg')} />
+    <Pressable testID="land" onPress={() => arrival.land('https://cdn/persisted.jpg', { x: 20, y: 300, width: 200, height: 240 })} />
+  </>;
+}
 
 function AnchorFlow() {
   const arrival = useVisionImageArrival()!;

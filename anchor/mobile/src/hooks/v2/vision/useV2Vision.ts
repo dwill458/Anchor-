@@ -85,6 +85,13 @@ function persistVisionRead(anchorId: string, accountId: string | null, value: Vi
   void Promise.resolve(encryptedPersistStorage.setItem(visionStorageKey(anchorId, accountId), JSON.stringify(snapshot))).catch(() => undefined);
 }
 
+/** Seed the shared Vision read cache (fixtures, previews, and tests); surfaces update immediately. */
+export function primeVisionRead(anchorId: string, value: VisionReadModel, accountId = currentAccountId()): void {
+  const key = visionCacheKey(anchorId, accountId);
+  setVisionRead(key, value);
+  persistVisionRead(anchorId, accountId, value);
+}
+
 async function restoreVisionRead(anchorId: string, accountId: string | null): Promise<VisionReadModel | null | undefined> {
   if (!anchorId) return undefined;
   const key = visionCacheKey(anchorId, accountId);

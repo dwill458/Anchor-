@@ -181,3 +181,21 @@ describe('V2FocusCompleteScreen', () => {
     expect(onAgain).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('V2FocusCompleteScreen entry', () => {
+  const anchor = makeAnchor({ id: 'a1', intentionText: 'Stay centered', category: 'health', threadStrength: 50 });
+  const opacityOf = (id: string) => {
+    const style = require('react-native').StyleSheet.flatten(screen.getByTestId(id).props.style);
+    return style.opacity;
+  };
+
+  it('arrives from the ink field by default, which fades away', () => {
+    render(<V2FocusCompleteScreen anchor={anchor} durationSeconds={60} onDone={jest.fn()} onAgain={jest.fn()} />);
+    expect(opacityOf('v2-focus-complete-ink')).toBe(1);
+  });
+
+  it('arrives on cream after Visualize, whose last frame is the cream board, so there is no dark flash', () => {
+    render(<V2FocusCompleteScreen anchor={anchor} durationSeconds={60} practiceTitle="Visualize" enterFrom="cream" onDone={jest.fn()} onAgain={jest.fn()} />);
+    expect(opacityOf('v2-focus-complete-ink')).toBe(0);
+  });
+});

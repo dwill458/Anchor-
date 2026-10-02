@@ -49,6 +49,15 @@ export function coverRect(source: Size, target: Rect): Rect {
   return { x: target.x + (target.width - width) / 2, y: target.y + (target.height - height) / 2, width, height };
 }
 
+/** The whole source inside the target, centred, never cropped. */
+export function containRect(source: Size, target: Rect): Rect {
+  'worklet';
+  const scale = Math.min(target.width / source.width, target.height / source.height);
+  const width = source.width * scale;
+  const height = source.height * scale;
+  return { x: target.x + (target.width - width) / 2, y: target.y + (target.height - height) / 2, width, height };
+}
+
 export function mix(a: number, b: number, t: number) {
   'worklet';
   return a + (b - a) * t;

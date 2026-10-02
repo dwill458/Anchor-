@@ -1,18 +1,24 @@
 import { memo, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useDerivedValue, type SharedValue } from 'react-native-reanimated';
-import { Canvas, Circle, Group, Image as SkiaImage, ImageSVG, ImageShader, Paint, Path, RadialGradient, Rect, Shader, Skia, interpolateColors, type SkImage, type SkSVG } from '@shopify/react-native-skia';
+import { Blur, Canvas, Circle, Group, Image as SkiaImage, ImageSVG, ImageShader, Paint, Path, RadialGradient, Rect, Shader, Skia, interpolateColors, type SkImage, type SkSVG } from '@shopify/react-native-skia';
 import { VISION_EDGE_TOP, VISION_EDGE_BOTTOM } from '@/components/v2/vision/VisionImageEdge';
-import { visionImageFit } from '@/components/v2/vision/visionImageGeometry';
+import { fullscreenFit, visionImageFit } from '@/components/v2/vision/visionImageGeometry';
 import { colors } from '@/theme/v2';
 import type { V2VisionTile } from '@/adapters/v2/vision';
 import { VisionBoardScene } from '@/components/v2/vision/board/VisionBoardScene';
 import { useVisionBoardScene } from '@/components/v2/vision/board/useVisionBoardScene';
 import { type SceneRect, type Size } from '@/components/v2/vision/board/visionBoardLayouts';
-import { coverRect, projectPoint, type Rect as GeometryRect } from './prototype/cinematicGeometry';
-import { cinematicSessionFrame, type CinematicSessionGeometry } from './cinematicSessionMotion';
+import { containRect, coverRect, projectPoint, type Rect as GeometryRect } from './prototype/cinematicGeometry';
+import { cinematicSessionFrame, CINEMATIC_MARK_BRIDGE_MS, type CinematicSessionGeometry } from './cinematicSessionMotion';
 import type { CinematicTimeline } from './prototype/cinematicTimeline';
 import type { ReturnTypeCinematicFrame } from './cinematicSessionMotion';
+
+function smoothstep(value: number) {
+  'worklet';
+  const t = Math.max(0, Math.min(1, value));
+  return t * t * (3 - 2 * t);
+}
 
 function EnhancedDisc({ image, size }: { image: SkImage; size: number }) {
   const bounds = { x: -size / 2, y: -size / 2, width: size, height: size };
@@ -34,8 +40,17 @@ function EnhancedInkMask({ image, effect, size }: { image: SkImage; effect: NonN
   </Group>;
 }
 
-const MomentImage = memo(function MomentImage({ image, source, index, state, center, reduced }: {
-  image: SkImage; source: GeometryRect; index: number; state: SharedValue<ReturnTypeCinematicFrame>;
+/** A person's own landscape photograph is shown whole over a soft blurred copy of itself, never hard-cropped to a portrait. */
+function FramedImage({ image, source, backdrop }: { image: SkImage; source: GeometryRect; backdrop: GeometryRect | null }) {
+  return <>
+    {backdrop ? <SkiaImage image={image} {...backdrop} fit="fill"><Blur blur={28} /></SkiaImage> : null}
+    {backdrop ? <Rect x={backdrop.x} y={backdrop.y} width={backdrop.width} height={backdrop.height} color="rgba(15,20,25,0.22)" /> : null}
+    <SkiaImage image={image} {...source} fit="fill" />
+  </>;
+}
+
+const MomentImage = memo(function MomentImage({ image, source, backdrop, index, state, center, reduced }: {
+  image: SkImage; source: GeometryRect; backdrop: GeometryRect | null; index: number; state: SharedValue<ReturnTypeCinematicFrame>;
   center: Array<{ translateX: number } | { translateY: number }>; reduced: boolean;
 }) {
   const opacity = useDerivedValue(() => {
@@ -46,7 +61,7 @@ const MomentImage = memo(function MomentImage({ image, source, index, state, cen
       index === s.sceneImageIndex + 1 ? s.progress : 0;
     return index === s.sceneImageIndex ? s.unmasked : 0;
   });
-  return <Group opacity={opacity} transform={center}><SkiaImage image={image} {...source} fit="fill" /></Group>;
+  return <Group opacity={opacity} transform={center}><FramedImage image={image} source={source} backdrop={backdrop} /></Group>;
 });
 
 type Props = {
@@ -77,8 +92,10 @@ export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles
     const r = Math.max(0, Math.min(1, (s.retreat - 0.25) / 0.75));
     return r * r * (3 - 2 * r);
   });
-  const cinematic = useMemo(() => ({ photoId: tiles[0].sceneId, photoOpacity: nativePhoto, paperOpacity, pinOpacity, onMarkLayout }),
-    [nativePhoto, paperOpacity, pinOpacity, onMarkLayout, tiles]);
+  // The set-up's medallion dissolves into the session's ink mark over the opening moments.
+  const bridgeOpacity = useDerivedValue(() => 1 - smoothstep(elapsed.value / CINEMATIC_MARK_BRIDGE_MS));
+  const cinematic = useMemo(() => ({ photoId: tiles[0].sceneId, photoOpacity: nativePhoto, paperOpacity, pinOpacity, bridgeOpacity, onMarkLayout }),
+    [nativePhoto, paperOpacity, pinOpacity, bridgeOpacity, onMarkLayout, tiles]);
   const cameraStyle = useAnimatedStyle(() => {
     const { camera, environment } = state.value;
     const center = projectPoint({ x: scene.width / 2, y: scene.height / 2 }, camera, viewport);
@@ -112,7 +129,7 @@ export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles
     return 0;
   });
   const frameOpacity = useDerivedValue(() => state.value.frameOpacity);
-  const markOpacity = useDerivedValue(() => state.value.markOpacity);
+  const markOpacity = useDerivedValue(() => state.value.markOpacity * (1 - bridgeOpacity.value));
   const boardMarkOpacity = useDerivedValue(() => state.value.boardMarkOpacity);
   const markColor = useDerivedValue(() => state.value.segment.kind === 'arrival' || state.value.segment.kind === 'breakout'
     ? '#1E2126' : interpolateColors(state.value.retreat, [0, 0.8], ['#F4E8D4', '#1E2126']));
@@ -120,10 +137,19 @@ export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles
   const radius = useDerivedValue(() => Math.max(0.01, state.value.maskRadius));
   const center = useDerivedValue(() => ({ x: viewport.width / 2, y: viewport.height / 2 }));
   const viewportRect = { x: -viewport.width / 2, y: -viewport.height / 2, width: viewport.width, height: viewport.height };
-  const fullSources = images.map(image => coverRect({ width: image.width(), height: image.height() }, viewportRect));
+  // Each image is framed once, deterministically, for the viewport: generated portraits fill it; a person's own
+  // landscape photograph that a cover would gut is shown whole over a blurred copy of itself.
+  const framings = images.map((image, index) => {
+    const size = { width: image.width(), height: image.height() };
+    const own = tiles[index]?.sourceType === 'USER_UPLOAD' || tiles[index]?.sourceType === 'USER_CAMERA';
+    if (fullscreenFit(size, viewport, own) === 'contain') return { source: containRect(size, viewportRect), backdrop: coverRect(size, viewportRect) };
+    return { source: coverRect(size, viewportRect), backdrop: null };
+  });
+  const fullSources = framings.map(item => item.source);
   const fullTransform = [{ translateX: viewport.width / 2 }, { translateY: viewport.height / 2 }];
   const finalImage = images[images.length - 1];
   const finalSource = fullSources[fullSources.length - 1];
+  const finalBackdrop = framings[framings.length - 1].backdrop;
   const boardMarkCenter = projectPoint({ x: mark.x + mark.width / 2, y: mark.y + mark.height / 2 }, geometry.rest, viewport);
   const boardMarkTransform = [{ translateX: boardMarkCenter.x }, { translateY: boardMarkCenter.y },
     { rotate: mark.rotation * Math.PI / 180 }, { scale: geometry.rest.scale }];
@@ -154,11 +180,11 @@ export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles
         </> : null}
       </Group>
       {images.map((image, index) => index === 0 && !reduced ? null : <MomentImage key={tiles[index].sceneId}
-        image={image} source={fullSources[index]} index={index} state={state} center={fullTransform} reduced={reduced} />)}
+        image={image} source={fullSources[index]} backdrop={framings[index].backdrop} index={index} state={state} center={fullTransform} reduced={reduced} />)}
       <Group layer={<Paint opacity={maskedOpacity} />}>
         {images.length === 1 && !reduced ? <Group transform={firstTransform} clip={localWindow}>
           <SkiaImage image={finalImage} {...sourceRect} fit="fill" />
-        </Group> : <Group transform={fullTransform}><SkiaImage image={finalImage} {...finalSource} fit="fill" /></Group>}
+        </Group> : <Group transform={fullTransform}><FramedImage image={finalImage} source={finalSource} backdrop={finalBackdrop} /></Group>}
         <Group layer={<Paint blendMode="dstIn" />}>
           {!reduced ? <Rect x={0} y={0} width={viewport.width} height={viewport.height}>
             <RadialGradient c={center} r={radius} colors={['white', 'white', 'transparent']} positions={[0, 0.82, 1]} />

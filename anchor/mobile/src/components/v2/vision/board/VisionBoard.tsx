@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
   empty: { position: 'absolute', top: spacing[2], left: spacing[4], right: spacing[4], alignItems: 'center' },
   emptyText: { ...typography.bodySM, color: colors.text.secondary },
   addChip: {
-    position: 'absolute', bottom: spacing[2], alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6,
+    position: 'absolute', bottom: spacing[2], right: spacing[3], flexDirection: 'row', alignItems: 'center', gap: 6,
     minHeight: 44, paddingHorizontal: 16, borderRadius: 22, backgroundColor: colors.grouped,
   },
   addText: { ...typography.labelMD, color: colors.text.primary },

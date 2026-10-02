@@ -41,6 +41,8 @@ export type VisionBoardSceneProps = {
     photoOpacity: SharedValue<number>;
     paperOpacity?: SharedValue<number>;
     pinOpacity?: SharedValue<number>;
+    /** The set-up's paper medallion, kept visible at the start so the hand-off to the session's ink mark is a dissolve, not a swap. */
+    bridgeOpacity?: SharedValue<number>;
     onMarkLayout: (rect: LayoutRectangle) => void;
   };
 };
@@ -93,9 +95,9 @@ export const VisionBoardScene = memo(function VisionBoardScene({
         );
       })}
       <VisionBoardIntentionCard rect={cardRect} intention={intention} category={category} art={art}
-        reduceMotion={reduceMotion} onPress={interactive ? onCardPress : undefined} anchorTestID={anchorTestID} markAppearance={markAppearance}
-        hideMark={Boolean(cinematic)} onMarkLayout={cinematic?.onMarkLayout}
-        paperOpacity={cinematic?.paperOpacity} pinOpacity={cinematic?.pinOpacity} />
+        reduceMotion={reduceMotion} onPress={interactive ? onCardPress : undefined} anchorTestID={anchorTestID} markAppearance={cinematic?.bridgeOpacity ? 'paper' : markAppearance}
+        hideMark={Boolean(cinematic) && !cinematic?.bridgeOpacity} onMarkLayout={cinematic?.onMarkLayout}
+        paperOpacity={cinematic?.bridgeOpacity ?? cinematic?.paperOpacity} pinOpacity={cinematic?.pinOpacity} />
     </View>
   );
 });

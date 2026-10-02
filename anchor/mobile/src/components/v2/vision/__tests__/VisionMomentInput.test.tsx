@@ -1,3 +1,4 @@
+import { TextInput } from 'react-native';
 
 import { fireEvent, render } from '@testing-library/react-native';
 import { VisionMomentInput } from '../VisionMomentInput';
@@ -59,25 +60,49 @@ describe('VisionMomentInput', () => {
     expect(getByText('You’ll choose what belongs in your Vision.')).toBeTruthy();
   });
 
-  it('uses the personal-photo variant without a reference or a generation promise', () => {
-    const { getByText, queryByText, queryByLabelText } = render(<VisionMomentInput {...defaultProps} variant="photos" />);
-    expect(getByText('What does your Vision look like?')).toBeTruthy();
-    expect(getByText('Choose my photos')).toBeTruthy();
-    expect(queryByText('Make it look like you')).toBeNull();
-    expect(queryByLabelText('Make it look like you reference photo')).toBeNull();
-  });
-
   it('renders hero title for add mode', () => {
     const { getByText } = render(<VisionMomentInput {...defaultProps} mode="add" />);
     expect(getByText('What else do you see?')).toBeTruthy();
   });
 
-  it('appends guidance cue to text input when chip is tapped', () => {
-    const { getByTestId, getByLabelText } = render(<VisionMomentInput {...defaultProps} />);
-    const chip = getByLabelText('Where are you?');
-    fireEvent.press(chip);
+  it('asks a question when a chip is tapped and never writes into the description', () => {
+    const { getByTestId, getByLabelText, queryByTestId } = render(<VisionMomentInput {...defaultProps} />);
     const input = getByTestId('vision-prompt-input');
-    expect(input.props.value).toContain('Where are you?');
+    expect(queryByTestId('vision-cue')).toBeNull();
+    fireEvent.press(getByLabelText('Where are you?'));
+    expect(input.props.value).toBe('');
+    expect(getByTestId('vision-cue')).toBeTruthy();
+    fireEvent.press(getByLabelText('How does it feel?'));
+    expect(getByTestId('vision-prompt-input').props.value).toBe('');
+  });
+
+  it('never focuses the field or opens the keyboard when a chip is tapped', () => {
+    const stateFocus = jest.spyOn(TextInput.State, 'focusTextInput');
+    const { getByTestId, getByLabelText, UNSAFE_getByType } = render(<VisionMomentInput {...defaultProps} />);
+    const instance = UNSAFE_getByType(TextInput).instance as { focus: () => void };
+    const instanceFocus = jest.spyOn(instance, 'focus');
+    for (const label of ['Where are you?', 'What are you doing?', 'How does it feel?']) {
+      fireEvent.press(getByLabelText(label));
+      expect(getByTestId('vision-cue')).toBeTruthy();
+    }
+    expect(instanceFocus).not.toHaveBeenCalled();
+    expect(stateFocus).not.toHaveBeenCalled();
+    stateFocus.mockRestore();
+  });
+
+  it('leaves existing text untouched when a chip is tapped', () => {
+    const { getByTestId, getByLabelText } = render(<VisionMomentInput {...defaultProps} />);
+    fireEvent.changeText(getByTestId('vision-prompt-input'), 'I am standing in my studio.');
+    for (const label of ['Where are you?', 'What are you doing?', 'How does it feel?']) fireEvent.press(getByLabelText(label));
+    expect(getByTestId('vision-prompt-input').props.value).toBe('I am standing in my studio.');
+  });
+
+  it('shows guidance about the actual Anchor, not unrelated stock copy', () => {
+    const { getByTestId, getByLabelText } = render(<VisionMomentInput {...defaultProps} anchorIntention="I am the owner of dope ass regal" anchorCategory="desire" />);
+    expect(getByTestId('vision-prompt-input').props.placeholder).toMatch(/owner of dope ass regal/i);
+    expect(getByTestId('vision-prompt-input').props.placeholder).not.toMatch(/Tuesday|kitchen with coffee/);
+    fireEvent.press(getByLabelText('Where are you?'));
+    expect(getByTestId('vision-cue').props.children).toBeTruthy();
   });
 
   it('disables submit button when description is under min characters', () => {

@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Image, Linking, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { DeviceEventEmitter, DevSettings, Image, Linking, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { V2SavedVision } from '@/components/v2/vision/V2SavedVision';
 import { VisionMomentInput } from '@/components/v2/vision/VisionMomentInput';
-import { V2VisualizePrepareScreen } from '@/screens/v2/practice/visualize/V2VisualizePrepareScreen';
+import { V2VisualizePrepareScreen, type V2VisualizeBeginConfig } from '@/screens/v2/practice/visualize/V2VisualizePrepareScreen';
+import { V2CinematicSessionScreen } from '@/screens/v2/practice/visualize/V2CinematicSessionScreen';
+import { isV2VisualizeDuration } from '@/screens/v2/practice/visualize/visualizeVisionPlan';
 import { VisionImageArrivalProvider, useVisionImageArrival } from '@/components/v2/vision/VisionImageArrival';
 import { VisionTwoUpStage } from '@/components/v2/vision/VisionTwoUpStage';
 import { VisionIntroStage } from '@/components/v2/vision/VisionIntroStage';
@@ -65,19 +67,41 @@ function HandoffLab({ identity, candidates, onClose }: { identity: { anchorInten
     }} />;
 }
 
-/** Open with anchor://vision-visual-qa?surface=2 (visualize-3/visualize-1/handoff/intro/method/twoup-0/twoup-1/twoup-2/twoup-fail/0/1/2/3/6/add/home/details/photo/sources). */
+/** Open with anchor://vision-visual-qa?surface=2 (visualize-3/visualize-1/handoff/intro/method/create/twoup-0/twoup-1/twoup-2/twoup-fail/0/1/2/3/6/add/home/details/photo/sources). */
 export function VisionVisualQADevHost() {
   const [surface, setSurface] = useState<string | null>(null);
+  const [run, setRun] = useState<V2VisualizeBeginConfig | null>(null);
+  const [finished, setFinished] = useState(false);
   const anchor = useAnchorStore(state => state.anchors[0]);
   const insets = useSafeAreaInsets();
   useEffect(() => {
+    const openLab = (surfaceParam = '2') => {
+      setRun(null);
+      setFinished(false);
+      setSurface(surfaceParam);
+    };
+    DevSettings.addMenuItem?.('Vision visual QA lab', () => openLab('2'));
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const devMenu = require('expo-dev-menu') as { registerDevMenuItems?: (items: { name: string; callback: () => void; shouldCollapse?: boolean }[]) => Promise<void> };
+      void devMenu.registerDevMenuItems?.([{ name: 'Vision visual QA lab', callback: () => openLab('2'), shouldCollapse: true }]);
+    } catch {
+      // Not in dev client
+    }
+    const emitterSub = DeviceEventEmitter.addListener('openVisionVisualQA', (data?: { surface?: string }) => {
+      openLab(data?.surface ?? '2');
+    });
+
     const open = ({ url }: { url: string }) => {
       if (!url.startsWith('anchor://vision-visual-qa')) return;
-      setSurface(url.split('surface=')[1]?.split('&')[0] ?? '2');
+      openLab(url.split('surface=')[1]?.split('&')[0] ?? '2');
     };
     const listener = Linking.addEventListener('url', open);
     void Linking.getInitialURL().then(url => { if (url) open({ url }); });
-    return () => listener.remove();
+    return () => {
+      listener.remove();
+      emitterSub.remove();
+    };
   }, []);
   const identity = { anchorIntention: anchor?.intentionText ?? 'Anchor has ten thousand users', anchorCategory: anchor?.category ?? 'desire',
     anchorArt: anchor ? anchorRenderProps(anchor) : { svg: V2_SAMPLE_ANCHOR_SVGS.medium, category: 'desire' } };
@@ -91,14 +115,20 @@ export function VisionVisualQADevHost() {
     const count = Number(surface.split('-')[1] ?? '3');
     const qaAnchor = { id: 'qa-anchor', localId: 'qa-anchor', intentionText: identity.anchorIntention, category: identity.anchorCategory,
       baseSigilSvg: identity.anchorArt.svg, reinforcedSigilSvg: null, enhancedImageUrl: null } as any;
-    content = <V2VisualizePrepareScreen anchor={qaAnchor} statement={description} visionId="qa-vision" tiles={tiles.slice(0, count)} onBack={close} onOpenVision={noop} onBegin={() => close()} />;
+    // Begin runs the real cinematic session (60 s) so the whole hand-off can be recorded; completion shows a marker instead of the Thread screen.
+    content = finished ? <View testID="qa-visualize-complete" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.canvas }}><Text style={typography.headingMD}>Completion reached</Text></View>
+      : run ? <V2CinematicSessionScreen anchor={qaAnchor} accountId={null} tiles={run.prepared.assets.tiles} statement={description} visionId="qa-vision"
+        durationSeconds={isV2VisualizeDuration(run.durationSeconds) ? run.durationSeconds : 60} voice="none" ambient={false} haptics={run.haptics} source="practice_hub"
+        prepared={run.prepared} onExit={close} onContinue={() => setFinished(true)} />
+      : <V2VisualizePrepareScreen anchor={qaAnchor} statement={description} visionId="qa-vision" tiles={tiles.slice(0, count)} initialDuration={60} onBack={close} onOpenVision={noop} onBegin={setRun} />;
   } else if (surface === 'handoff') content = <VisionImageArrivalProvider><HandoffLab identity={identity as any} candidates={candidates} onClose={close} /></VisionImageArrivalProvider>;
   else if (surface?.startsWith('twoup')) {
     const variant = surface.split('-')[1] ?? '2';
     const job = variant === '0' ? twoUp('RUNNING', 0) : variant === '1' ? twoUp('PARTIAL', 1) : variant === 'fail' ? twoUp('FAILED', 1) : twoUp('COMPLETE', 2);
     content = <VisionTwoUpStage anchorIntention={identity.anchorIntention} anchorArt={identity.anchorArt} job={job} onBack={close} onSelect={() => close()} onRetry={noop} onEditDescription={noop} />;
   } else if (surface === 'intro') content = <VisionIntroStage {...identity} onBack={close} onStartCreate={() => setSurface('method')} testID="qa" />;
-  else if (surface === 'method') content = <VisionMethodStage onBack={() => setSurface('intro')} onChoose={() => setSurface('add')} testID="qa" />;
+  else if (surface === 'method') content = <VisionMethodStage onBack={() => setSurface('intro')} onChoose={path => setSurface(path === 'photos' ? 'method' : 'create')} testID="qa" />;
+  else if (surface === 'create') content = <VisionMomentInput {...identity} mode="create" anchorId="qa-fixture" onBack={close} onSubmit={noop} />;
   else if (surface === 'add') content = <VisionMomentInput {...identity} mode="add" anchorId="qa-fixture" previewImageUrl={tiles[0].imageUrl} initialDescription="Working by the ocean with my family while Anchor continues to grow." onBack={close} onSubmit={noop} />;
   else if (surface === 'photo') content = <V2VisionAddPhoto {...identity} uri={tiles[0].imageUrl!} source="library" onCancel={close} onChooseAgain={noop} onConfirm={async () => null} />;
   else if (surface === 'home' || surface === 'details') content = <ScrollView contentContainerStyle={{ padding: 24, paddingTop: insets.top + 24, flexGrow: 1, backgroundColor: surface === 'home' ? colors.ink.base : colors.canvas }}>

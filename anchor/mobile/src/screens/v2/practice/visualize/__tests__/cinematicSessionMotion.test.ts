@@ -8,6 +8,30 @@ const photo = { x: 175, y: 155, width: 390, height: 236, rotation: -4, zIndex: 1
 const mark = { x: 340, y: 492, width: 86, height: 86, rotation: 0, zIndex: 2 };
 
 describe('production cinematic spatial path', () => {
+  it('never leaves the hero missing at the hand-off: the board photograph stays visible through the still arrival', () => {
+    const timeline = buildCinematicTimeline(60, 3);
+    const geometry = cinematicSessionGeometry(scene, viewport, photo, mark, 3);
+    const arrival = timeline.segments.find(segment => segment.kind === 'arrival')!;
+    for (const ms of [0, arrival.endMs / 2, arrival.endMs - 1]) {
+      expect(cinematicSessionFrame(ms, timeline, geometry, false).nativePhoto).toBe(1);
+      expect(cinematicSessionFrame(ms, timeline, geometry, false).segment.kind).toBe('arrival');
+    }
+    const breakout = timeline.segments.find(segment => segment.kind === 'breakout')!;
+    expect(cinematicSessionFrame(breakout.startMs + 1, timeline, geometry, false).nativePhoto).toBe(0);
+  });
+
+  it('holds the camera at the set-up frame for the whole arrival, so nothing moves at the hand-off', () => {
+    const canvas = { x: 40, y: 201, width: 313, height: 488 };
+    const timeline = buildCinematicTimeline(60, 3);
+    const geometry = cinematicSessionGeometry(scene, viewport, photo, mark, 3, canvas);
+    const arrival = timeline.segments.find(segment => segment.kind === 'arrival')!;
+    const first = cinematicSessionFrame(0, timeline, geometry, false).camera;
+    const last = cinematicSessionFrame(arrival.endMs - 1, timeline, geometry, false).camera;
+    expect(last.scale).toBeCloseTo(first.scale, 6);
+    expect(last.x).toBeCloseTo(first.x, 6);
+    expect(last.y).toBeCloseTo(first.y, 6);
+  });
+
   it('projects frame zero into the measured overview canvas, including a scrolled origin', () => {
     const canvas = { x: 20, y: -35, width: 344, height: 403.125 };
     const geometry = cinematicSessionGeometry(scene, viewport, photo, mark, 3, canvas);

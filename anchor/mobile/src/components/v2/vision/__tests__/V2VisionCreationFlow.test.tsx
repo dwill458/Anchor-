@@ -158,12 +158,12 @@ describe('V2VisionCreationFlow', () => {
         <V2VisionCreationFlow {...baseProps} anchorIntention="Anchor has ten thousand users" anchorCategory="desire"
           onUploadAsset={jest.fn()} onAssemble={jest.fn()} />,
       );
-      expect(getByTestId('vision-prompt-input').props.placeholder).toMatch(/people using what I built/);
+      expect(getByTestId('vision-prompt-input').props.placeholder).toMatch(/people who use what I built/);
       rerender(
         <V2VisionCreationFlow {...baseProps} anchorIntention="I feel at peace" anchorCategory="spirituality"
           onUploadAsset={jest.fn()} onAssemble={jest.fn()} />,
       );
-      expect(getByTestId('vision-prompt-input').props.placeholder).not.toMatch(/people using what I built/);
+      expect(getByTestId('vision-prompt-input').props.placeholder).not.toMatch(/people who use what I built/);
     });
   });
 
@@ -285,36 +285,50 @@ describe('V2VisionCreationFlow', () => {
   });
 
   describe('personal photos', () => {
-    function startPhotoPath(utils: ReturnType<typeof renderFlow>) {
+    async function startPhotoPath(utils: ReturnType<typeof renderFlow>) {
       fireEvent.press(utils.getByLabelText('Create my Vision'));
-      fireEvent.press(utils.getByTestId('vision-method-photos'));
+      await act(async () => { fireEvent.press(utils.getByTestId('vision-method-photos')); });
     }
 
-    it('offers personal photos as a full path without the identity reference', () => {
-      const utils = renderFlow({ initialStep: 'empty' });
-      startPhotoPath(utils);
-      expect(utils.getByText('What does your Vision look like?')).toBeTruthy();
-      expect(utils.queryByText('Make it look like you')).toBeNull();
-      expect(utils.queryByTestId('vision-add-photos')).toBeNull();
-      expect(utils.getByText('Choose my photos')).toBeTruthy();
-    });
-
-    it('does not upload when the picker is cancelled', async () => {
+    it('opens the photo picker straight away and never the AI description screen', async () => {
       mockLaunchImageLibraryAsync.mockResolvedValueOnce({ canceled: true, assets: null });
       const utils = renderFlow({ initialStep: 'empty' });
-      startPhotoPath(utils);
-      await act(async () => { fireEvent.press(utils.getByTestId('vision-generate')); });
-      expect(utils.onUploadAsset).not.toHaveBeenCalled();
+      await startPhotoPath(utils);
+      expect(mockLaunchImageLibraryAsync).toHaveBeenCalledTimes(1);
+      expect(utils.queryByText('What do you see?')).toBeNull();
+      expect(utils.queryByText('What does your Vision look like?')).toBeNull();
+      expect(utils.queryByTestId('vision-generate')).toBeNull();
       expect(utils.start).not.toHaveBeenCalled();
     });
 
-    it('uploads the chosen photo and makes it the Vision without another tap', async () => {
-      mockLaunchImageLibraryAsync.mockResolvedValueOnce({ canceled: false, assets: [{ uri: 'file:///photo.jpg', mimeType: 'image/jpeg' }] });
+    it('stays on the method screen when the picker is cancelled', async () => {
+      mockLaunchImageLibraryAsync.mockResolvedValueOnce({ canceled: true, assets: null });
       const utils = renderFlow({ initialStep: 'empty' });
-      startPhotoPath(utils);
-      await act(async () => { fireEvent.press(utils.getByTestId('vision-generate')); });
+      await startPhotoPath(utils);
+      expect(utils.getByTestId('vision-method-photos')).toBeTruthy();
+      expect(utils.onUploadAsset).not.toHaveBeenCalled();
+    });
+
+    it('the generate branch still asks for a description and keeps the identity reference', () => {
+      const utils = renderFlow({ initialStep: 'empty' });
+      fireEvent.press(utils.getByLabelText('Create my Vision'));
+      fireEvent.press(utils.getByTestId('vision-method-generate'));
+      expect(utils.getByText('What do you see?')).toBeTruthy();
+      expect(utils.getByText('Make it look like you')).toBeTruthy();
+      expect(mockLaunchImageLibraryAsync).not.toHaveBeenCalled();
+    });
+
+    it('uploads the chosen photo and makes it the Vision without a description step', async () => {
+      mockLaunchImageLibraryAsync.mockResolvedValueOnce({ canceled: false, assets: [{ uri: 'file:///photo.jpg', mimeType: 'image/jpeg' }] });
+      mockUseScene.mockReturnValue({ job: null, error: null, start: jest.fn(), retry: jest.fn(), refresh: jest.fn() });
+      const onUploadAsset = jest.fn(async () => ({ ok: true, asset: { id: 'personal-asset', resolvedUrl: 'https://cdn.example.com/personal.jpg', mimeType: 'image/jpeg', fileSizeBytes: 1, createdAt: 'now' } } as UploadAssetResult));
+      const onAssemble = jest.fn(async () => true);
+      const rendered = render(<V2VisionCreationFlow {...baseProps} initialStep="empty" onUploadAsset={onUploadAsset} onAssemble={onAssemble} />);
+      const utils = { ...rendered, onUploadAsset, onAssemble, start: mockUseScene().start } as unknown as ReturnType<typeof renderFlow>;
+      await startPhotoPath(utils);
       await waitFor(() => expect(utils.onUploadAsset).toHaveBeenCalledWith({ base64Image: 'data:image/jpeg;base64,aW1hZ2U=', mimeType: 'image/jpeg' }));
       await waitFor(() => expect(utils.onAssemble).toHaveBeenCalledWith(expect.objectContaining({
+        description: baseProps.anchorIntention,
         selectedAssets: [expect.objectContaining({ assetId: 'personal-asset', sourceType: 'USER_UPLOAD' })],
       })));
       expect(utils.start).not.toHaveBeenCalled();
@@ -330,8 +344,7 @@ describe('V2VisionCreationFlow', () => {
         return { ok: true, asset: { id: `asset-${count}`, resolvedUrl: `https://cdn.example.com/${count}.jpg`, mimeType: 'image/jpeg', fileSizeBytes: 1, createdAt: 'now' } } as UploadAssetResult;
       });
       const utils = renderFlow({ initialStep: 'empty', onUploadAsset });
-      startPhotoPath(utils);
-      await act(async () => { fireEvent.press(utils.getByTestId('vision-generate')); });
+      await startPhotoPath(utils);
       await waitFor(() => expect(utils.onAssemble).toHaveBeenCalled());
       const assets = (utils.onAssemble as jest.Mock).mock.calls[0][0].selectedAssets;
       expect(assets).toHaveLength(2);
@@ -342,20 +355,10 @@ describe('V2VisionCreationFlow', () => {
       mockLaunchImageLibraryAsync.mockResolvedValueOnce({ canceled: false, assets: [{ uri: 'file:///photo.jpg', mimeType: 'image/jpeg' }] });
       const onUploadAsset = jest.fn(async () => ({ ok: false, message: 'Upload failed' } as UploadAssetResult));
       const utils = renderFlow({ initialStep: 'empty', onUploadAsset });
-      startPhotoPath(utils);
-      await act(async () => { fireEvent.press(utils.getByTestId('vision-generate')); });
+      await startPhotoPath(utils);
       await waitFor(() => expect(utils.getByText('One photo needs another try.')).toBeTruthy());
       expect(utils.getByLabelText('Retry image upload')).toBeTruthy();
       expect(utils.onAssemble).not.toHaveBeenCalled();
-    });
-
-    it('asks for a description before opening photos', () => {
-      mockUseScene.mockReturnValue({ job: null, error: null, start: jest.fn(), retry: jest.fn(), refresh: jest.fn() });
-      const utils = render(<V2VisionCreationFlow {...baseProps} initialStep="empty" onUploadAsset={jest.fn()} onAssemble={jest.fn()} />);
-      fireEvent.press(utils.getByLabelText('Create my Vision'));
-      fireEvent.press(utils.getByTestId('vision-method-photos'));
-      expect(utils.getByTestId('vision-generate').props.accessibilityState).toEqual(expect.objectContaining({ disabled: true }));
-      expect(mockLaunchImageLibraryAsync).not.toHaveBeenCalled();
     });
   });
 });

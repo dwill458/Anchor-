@@ -49,6 +49,11 @@ export type CinematicSessionProps = {
   onPreparationIssue?: (message: string) => void;
   onAvailableImages?: (useAvailable: () => void) => void;
 };
+/** Longest the settled final board is held for audio fade-out and the local completion write. */
+export const COMPLETION_SETTLE_MAX_MS = 4000;
+export const traceVisualize = (message: string, detail?: unknown) => {
+  if (__DEV__ && !process.env.JEST_WORKER_ID) console.log(`[Visualize] ${message}`, detail ?? '');
+};
 const KeepAwake = () => { useKeepAwake('v2-visualize-session'); return null; };
 const formatTime = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
@@ -253,6 +258,19 @@ function CinematicRun({ anchor, accountId, statement, visionId, durationSeconds,
   }, [engine.state, timeline.durationMs]);
   useEffect(() => () => cancelAnimation(elapsed), [elapsed]);
   const segment = cinematicSegmentAt(timeline, engine.elapsedMs);
+  // Development telemetry: the last line of a stalled run says where it stopped.
+  useEffect(() => {
+    traceVisualize(`${formatTime(Math.floor(engine.elapsedMs / 1000))}/${formatTime(durationSeconds)} ${engine.state} segment=${segment.kind} image=${segment.imageIndex ?? '-'}`);
+  }, [engine.state, segment.kind, segment.imageIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!__DEV__ || process.env.JEST_WORKER_ID) return;
+    const limit = engine.state === 'completing' ? COMPLETION_SETTLE_MAX_MS + 2000
+      : engine.state === 'running' ? Math.max(1000, durationSeconds * 1000 - elapsedRef.current + 5000) : 0;
+    if (!limit) return;
+    const timer = setTimeout(() => console.warn('[Visualize] WATCHDOG: no phase change for too long',
+      { state: engine.state, elapsedMs: elapsedRef.current, durationSeconds, segment: segment.kind, imageIndex: segment.imageIndex, settled, appActive }), limit);
+    return () => clearTimeout(timer);
+  }, [engine.state, segment.kind, segment.imageIndex]); // eslint-disable-line react-hooks/exhaustive-deps
   const hapticFired = useRef(new Set<string>());
   useEffect(() => {
     if (!haptics || engine.state !== 'running') return;
@@ -264,9 +282,12 @@ function CinematicRun({ anchor, accountId, statement, visionId, durationSeconds,
   useEffect(() => {
     if (engine.state !== 'completing') return;
     let live = true;
-    void Promise.allSettled([engine.completionPromise ?? Promise.resolve(), sessionAudio.finishCompletion()])
-      .then(() => { if (live) setSettled(true); });
-    return () => { live = false; };
+    const settle = () => { if (live) setSettled(true); };
+    void Promise.allSettled([engine.completionPromise ?? Promise.resolve(), sessionAudio.finishCompletion()]).then(settle);
+    // The final board is held for the audio fade and the local queue write, never for either to behave:
+    // a stalled storage write or audio player cannot keep the person on the last image.
+    const failsafe = setTimeout(() => { traceVisualize('completion failsafe: continuing without settled audio/persistence'); settle(); }, COMPLETION_SETTLE_MAX_MS);
+    return () => { live = false; clearTimeout(failsafe); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engine.state]);
   const engineRef = useRef(engine); engineRef.current = engine;
