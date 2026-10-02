@@ -132,6 +132,9 @@ export function V2ChartPreview({ onClose }: { onClose: () => void }) {
   const [waypointCount,setWaypointCount] = useState(5);
   const [latency, setLatency] = useState<Latency>('fast');
   const [reducedMotion, setReducedMotion] = useState(false);
+  // Dev lab: make the fake planner ask one clarifying question, and give the flow a Vision.
+  const [clarify, setClarify] = useState(false);
+  const [withVision, setWithVision] = useState(false);
   const [run, setRun] = useState(0);
   const [mode, setMode] = useState<'setup' | 'create' | 'active'>('setup');
   const [course, setCourse] = useState<CourseDetail | null>(null);
@@ -141,8 +144,9 @@ export function V2ChartPreview({ onClose }: { onClose: () => void }) {
 
   const api: ChartCreationApi = useMemo(
     () => ({
-      plan: async () => {
+      plan: async (_anchorId, body) => {
         await wait(LATENCY_MS[latency]);
+        if (clarify && !body.followUp) return { status: 'needs_context', followUpQuestion: 'What does the space look like today?' };
         if (latency === 'fail') throw new Error('Network error. Please check your connection.');
         return { status: 'proposal', proposal: fakeProposal(category) };
       },
@@ -155,7 +159,7 @@ export function V2ChartPreview({ onClose }: { onClose: () => void }) {
         return courseFrom(body.destinationText, body.waypoints.map((waypoint) => waypoint.title), body.oneMove?.title ?? null);
       },
     }),
-    [category, latency]
+    [category, clarify, latency]
   );
 
   const identity = { intention: sample.intention, category, art: null, imageUrl: null };
@@ -168,7 +172,7 @@ export function V2ChartPreview({ onClose }: { onClose: () => void }) {
         anchorId="preview-anchor"
         identity={identity}
         anchorArt={anchorArt}
-        vision={null}
+        vision={withVision ? { imageUrl: null, description: 'A restored Regal in the driveway.', title: 'Regal' } : null}
         reducedMotion={reducedMotion}
         api={api}
         onBack={() => setMode('setup')}
@@ -255,6 +259,14 @@ export function V2ChartPreview({ onClose }: { onClose: () => void }) {
       <View style={styles.switchRow}>
         <Text style={styles.body}>Reduced motion</Text>
         <Switch value={reducedMotion} onValueChange={setReducedMotion} />
+      </View>
+      <View style={styles.switchRow}>
+        <Text style={styles.body}>Planner asks a clarifying question</Text>
+        <Switch value={clarify} onValueChange={setClarify} testID="chart-preview-clarify" />
+      </View>
+      <View style={styles.switchRow}>
+        <Text style={styles.body}>Has a Vision</Text>
+        <Switch value={withVision} onValueChange={setWithVision} testID="chart-preview-vision" />
       </View>
       <DevButton
         label="Start Chart creation"

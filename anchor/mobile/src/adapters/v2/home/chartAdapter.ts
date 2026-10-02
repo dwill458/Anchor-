@@ -2,6 +2,7 @@ import type { Anchor } from '@/types';
 import type { CourseDetail, CourseSummary, WaypointSummary } from '@/types/chart';
 import type { ChartForAnchor, ChartRequestError } from '@/services/v2/chartV2Api';
 import { toMetricView } from '@/adapters/v2/chart/chartV2Model';
+import { isDayClosed } from '@/adapters/v2/chart/chartDayRhythm';
 
 /**
  * Chart context for Home, derived from the existing Course/Waypoint domain.
@@ -38,6 +39,8 @@ export type HomeChartState =
       /** Details-only camera inputs. Home continues to use its existing rendering and semantics. */
       journeyMetricFraction?: number | null;
       journeyConfirmedComplete?: boolean;
+      /** Present (true) only when a Move was completed today (local date). Additive; used by the day-closed Home copy. */
+      todayMoveDone?: boolean;
       waypoints: Array<{
         id: string;
         title: string;
@@ -118,6 +121,7 @@ export function toHomeChartState(course: CourseDetail | null | undefined, includ
       currentWaypointId: resolvedCurrentIndex === null ? null : waypoints[resolvedCurrentIndex].id,
     currentWaypointIndex: isFinished ? -1 : (resolvedCurrentIndex ?? -1),
     isFinished,
+    ...(isDayClosed(course.moves ?? [], new Date()) ? { todayMoveDone: true } : {}),
     ...(includeCompleted ? {
       journeyConfirmedComplete: course.status === 'COMPLETED',
       journeyMetricFraction: resolvedCurrentIndex === null ? null : toMetricView(waypoints[resolvedCurrentIndex].metric ?? null)?.fraction ?? null,
@@ -214,6 +218,7 @@ export function resolveAnchorChartState(input: {
   if (!input.data) {
     if (input.loading) return { state: 'resolving' };
     if (input.error) {
+      if (input.error.kind === 'not_found') return { state: 'none' };
       const message = input.error.kind === 'offline'
         ? 'Your Chart could not be reached.'
         : input.error.kind === 'disabled'

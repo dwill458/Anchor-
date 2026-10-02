@@ -123,3 +123,81 @@ export function chartRepeat(animation: number, reverse = false): number {
   'worklet';
   return withRepeat(animation, -1, reverse, undefined, ReduceMotion.Never);
 }
+
+/**
+ * Chart map sequences (open, move check, waypoint tap, reach, arrival).
+ * Prototype values (chart-build-prompt.md section 10) run at x1.0; device tuning
+ * scales `timeScale` (applied by the sequence runner, not baked in here) and
+ * keeps the ratios. Every `at` is an offset in ms from sequence start.
+ */
+export const CHART_MAP_TIMING = {
+  /** Multiplier the runner applies to every duration and offset. 1 = prototype. */
+  timeScale: 1,
+  open: {
+    mapFade: 300,
+    routeAt: 300,
+    route: 700,
+    flagAt: 1000,
+    flagDrop: 250,
+    cameraAt: 1000,
+    camera: 450,
+    panelAt: 1250,
+    panel: 350,
+    /** Camera scale the open settles at. */
+    scale: 1.3,
+  },
+  moveCheck: {
+    checkFill: 200,
+    routeAt: 200,
+    route: 400,
+    pulseAt: 200,
+    pulse: 650,
+    dayClosedAt: 850,
+  },
+  waypointTap: {
+    camera: 350,
+    panelCrossfade: 200,
+    scale: 1.45,
+  },
+  reach: {
+    stampAt: 0,
+    stamp: 300,
+    routeAt: 150,
+    /** Prototype is 400; 350 ends exactly where the next-leg reveal (500) takes over the same value. */
+    route: 350,
+    pulseAt: 500,
+    pulse: 650,
+    fogBreathAt: 500,
+    fogBreathUp: 350,
+    fogBreathDownAt: 850,
+    fogBreathDown: 350,
+    /** Peak of the fog breath (clear fraction). */
+    fogBreathPeak: 0.035,
+    revealAt: 500,
+    reveal: 600,
+    flagAt: 900,
+    flagDrop: 250,
+    cameraAt: 1200,
+    camera: 500,
+    panelAt: 1500,
+    scale: 1.45,
+  },
+  arrival: {
+    stampAt: 0,
+    stamp: 300,
+    routeAt: 150,
+    route: 1200,
+    cameraAt: 300,
+    camera: 900,
+    fogAt: 800,
+    fog: 1600,
+    glyphAt: 1400,
+    glyph: 500,
+    goldDotAt: 2300,
+    goldDot: 500,
+    panelAt: 3000,
+  },
+} as const;
+
+/** Reduced motion: state changes as short cross-fades only. */
+export const CHART_MAP_REDUCED_FADE = 180;

@@ -58,5 +58,12 @@ export function useChartPreview(anchorId: string): ChartPreviewData | null {
   const fixtures = useContext(ChartPreviewFixtureContext);
   const fixture = __DEV__ ? fixtures?.[anchorId] : undefined;
   const source = useAnchorChart(fixture ? null : anchorId);
-  return useMemo(() => fixture ?? (source.data ? selectChartPreview(source.data.chart, source.data.anchor?.category ?? null) : null), [fixture, source.data]);
+  return useMemo(() => {
+    if (fixture) return fixture;
+    if (source.data) return selectChartPreview(source.data.chart, source.data.anchor?.category ?? null);
+    // A server-confirmed missing Chart is the empty CTA state; unresolved or
+    // failed requests remain null so the card reserves its loading footprint.
+    if (!source.loading && source.error?.kind === 'not_found') return selectChartPreview(null);
+    return null;
+  }, [fixture, source.data, source.error, source.loading]);
 }

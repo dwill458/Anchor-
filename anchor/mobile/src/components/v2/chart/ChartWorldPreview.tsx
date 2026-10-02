@@ -4,7 +4,8 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { ChevronRight } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { HomeChartState } from '@/adapters/v2/home/chartAdapter';
-import { colors, getCategoryColor, typography } from '@/theme/v2';
+// DEFERRED: import { colors, getCategoryColor, typography } from '@/theme/v2';
+import { colors, getCategoryColor, getCategoryTextColor, typography } from '@/theme/v2';
 import { ChartJourneyWorld } from './ChartJourneyWorld';
 import { getJourneyRouteProgress } from './chartJourneyGeometry';
 import type { ChartMarker } from './ChartLandscape';
@@ -43,6 +44,8 @@ export const ChartWorldPreview = memo(function ChartWorldPreview({ chart, width,
     : 0;
   const traveledRoute = travelled > 0 ? routePathData(homeFrame, art, 0, travelled) : '';
   const accent = getCategoryColor(category ?? 'custom');
+  // Gold is reserved for the Chart flag + summit; the label takes the category colour, lifted for AA on the ink card.
+  const moveLabelColor = getCategoryTextColor(category ?? 'custom', colors.ink.deep, colors.graphite.text.primary);
   const label = current
     ? variant === 'home'
       ? `Open Chart. Waypoint ${(chart.currentWaypointIndex ?? 0) + 1} of ${chart.waypointCount}: ${current.title}.${chart.nextMove ? ` Next move: ${chart.nextMove}` : ''}`
@@ -90,9 +93,15 @@ export const ChartWorldPreview = memo(function ChartWorldPreview({ chart, width,
           </View>
           <View style={styles.arrow}><ChevronRight size={22} color={colors.text.inverse} /></View>
         </View>
-        {chart.nextMove && variant === 'home' ? <View style={[styles.move, styles.homeMove]}>
-          <Text style={styles.moveLabel}>Next move</Text>
-          <Text testID="v2-home-chart-one-move" style={styles.moveText}>{chart.nextMove}</Text>
+        {/*
+        // DEFERRED:         {chart.nextMove && variant === 'home' ? <View style={[styles.move, styles.homeMove]}>
+        // DEFERRED:           <Text style={styles.moveLabel}>Next move</Text>
+        // DEFERRED:           <Text testID="v2-home-chart-one-move" style={styles.moveText}>{chart.nextMove}</Text>
+        // DEFERRED:         </View> : null}
+        */}
+        {(chart.nextMove || chart.todayMoveDone) && variant === 'home' ? <View style={[styles.move, styles.homeMove]}>
+          <Text style={chart.todayMoveDone ? styles.moveLabelDone : [styles.moveLabel, { color: moveLabelColor }]}>{chart.todayMoveDone ? "Today's move is done." : 'Next move'}</Text>
+          <Text testID="v2-home-chart-one-move" style={styles.moveText}>{chart.todayMoveDone ? 'Next move tomorrow.' : chart.nextMove}</Text>
         </View> : null}
       </View>
     </Pressable>
@@ -115,7 +124,9 @@ const styles = StyleSheet.create({
   arrow: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: colors.graphite.hairlineStrong, justifyContent: 'center', alignItems: 'center' },
   move: { marginTop: 8 },
   homeMove: { marginTop: 4 },
-  moveLabel: { fontFamily: 'Figtree-SemiBold', fontSize: 13, color: '#E0A038' },
+  moveLabelDone: { fontFamily: 'Figtree-SemiBold', fontSize: 13, color: colors.graphite.text.primary },
+  // DEFERRED:   moveLabel: { fontFamily: 'Figtree-SemiBold', fontSize: 13, color: '#E0A038' },
+  moveLabel: { fontFamily: 'Figtree-SemiBold', fontSize: 13 },
   moveText: { fontFamily: 'Figtree-Regular', fontSize: 13, lineHeight: 18, color: colors.graphite.text.primary, marginTop: 2 },
   pressed: { opacity: 0.88 },
 });

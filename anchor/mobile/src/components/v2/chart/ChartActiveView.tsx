@@ -1,77 +1,37 @@
-import { chartTypography as typography } from './chartTypography';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  BackHandler,
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { BackHandler, Pressable, ScrollView, StatusBar, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, {
-  cancelAnimation,
-  runOnJS,
-  useAnimatedReaction,
-  useAnimatedStyle,
-  useSharedValue,
-  type SharedValue,
-} from 'react-native-reanimated';
-import {
-  Anchor,
-  BookOpen,
-  Check,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  ChevronUp,
-  Flag,
-  MoreHorizontal,
-  Pencil,
-  Plus,
-  Sparkles,
-  Star,
-  WifiOff,
-  X,
-} from 'lucide-react-native';
-import { V2Button } from '@/components/v2/primitives/V2Button';
+import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { WifiOff } from 'lucide-react-native';
 import { V2SheetModal } from '@/components/v2/primitives/V2SheetModal';
 import { CHART_COPY } from '@/constants/v2/chartCopy';
-import type { ChartViewModel, ChartWaypointView } from '@/adapters/v2/chart/chartV2Model';
-import { formatMetricNumber } from '@/adapters/v2/chart/chartV2Model';
+import type { ChartViewModel } from '@/adapters/v2/chart/chartV2Model';
 import type { UseAnchorChartResult, WaypointReachResult } from '@/hooks/v2/chart/useAnchorChart';
-import { colors, getCategoryColor, radii, spacing } from '@/theme/v2';
-import { useSessionStore } from '@/stores/sessionStore';
-import { ChartEyebrow, ChartInkButton, ChartInkCard, ChartInkScreen, type ChartIdentity } from './ChartChrome';
-
-export function travelledFraction(view: { reachedCount: number; total: number; isFinished: boolean }): number {
-  if (view.isFinished) return 1;
-  if (!view.total || view.total <= 0) return 0;
-  return Math.min(1, Math.max(0, view.reachedCount / view.total));
-}
-import type { ChartAnchorArt, ChartMarker } from './ChartLandscape';
-import { ChartJourneyWorld } from './ChartJourneyWorld';
-import { getJourneyRouteProgress } from './chartJourneyGeometry';
-import { useChartJourneyCamera } from './useChartJourneyCamera';
-import { ChartCompletionPanel } from './ChartDestinationReached';
+import { useAuthStore } from '@/stores/authStore';
+import { useChartHighWater } from '@/hooks/v2/chart/chartHighWater';
+import { syncChartNotifications } from '@/services/notifications/chartNotifications';
+import { getCategoryColor, radii, spacing } from '@/theme/v2';
+import type { CourseDetail, MoveSummary, WaypointSummary } from '@/types/chart';
+import { ChartInkButton, ChartInkCard, type ChartIdentity } from './ChartChrome';
+import type { ChartAnchorArt } from './ChartLandscape';
+import { chartTypography as typography } from './chartTypography';
+import { CHART_MAP_REDUCED_FADE, CHART_MAP_TIMING } from './chartMotion';
+import { ChartMap } from './map/ChartMap';
+import { ChartScallop } from './map/ChartScallop';
+import type { ChartMapMarker, ChartMarkerRenderState, SequenceSpec } from './map/chartMapContracts';
+import { buildRouteTable, waypointPlacement } from './map/chartMapGeometry';
+import { arrivalSequence, moveCheckSequence, openSequence, reachSequence, waypointTapSequence } from './map/chartMapSequences';
+import { CHART_MAP_TOKENS as T } from './map/chartMapTokens';
+import { nextHighWater, routeRevealArc, toProgressInput } from './map/chartProgress';
+import { useChartMapAnimState } from './map/useChartMapAnimState';
+import { routeAdjustEvidence } from './map/chartRhythm';
+import { useChartSequencer } from './map/useChartSequencer';
+import { ChartMapHeader } from './panel/ChartMapHeader';
+import { panelAccent } from './panel/chartPanelColors';
 import { ChartWaypointContent } from './ChartWaypointContent';
-import {
-  CHART_CAMERA_TIMING,
-  CHART_EASING,
-  CHART_PROGRESS_TIMING as PT,
-  CHART_TRANSITION_TIMING as TT,
-  chartTiming,
-} from './chartMotion';
-import type { MoveSummary } from '@/types/chart';
+import { ChartConfirmSheet } from './panel/ChartConfirmSheet';
 
-export type ChartVisionPreview = {
-  imageUrl: string | null;
-  description: string | null;
-  title: string | null;
-};
+export type ChartVisionPreview = { imageUrl: string | null; description: string | null; title: string | null };
 
 export type ChartCelebration = {
   completedTitle: string;
@@ -79,6 +39,21 @@ export type ChartCelebration = {
   /** Route fraction the Anchor travels from (before the reach). */
   fromFraction: number;
 };
+
+type ChartActions = Pick<
+  UseAnchorChartResult,
+  | 'busy'
+  | 'addMove'
+  | 'acceptMove'
+  | 'completeMove'
+  | 'dismissMove'
+  | 'suggestMoves'
+  | 'updateProgress'
+  | 'reachWaypoint'
+  | 'editWaypoint'
+  | 'removeWaypoint'
+> &
+  Partial<Pick<UseAnchorChartResult, 'setCurrentMove'>>;
 
 type Props = {
   view: ChartViewModel;
@@ -92,76 +67,64 @@ type Props = {
   onCelebrationDone: () => void;
   onBack: () => void;
   onOpenWaypoint?: (waypointId: string) => void;
-  chartActions?: Pick<
-    UseAnchorChartResult,
-    | 'busy'
-    | 'addMove'
-    | 'acceptMove'
-    | 'completeMove'
-    | 'dismissMove'
-    | 'suggestMoves'
-    | 'updateProgress'
-    | 'reachWaypoint'
-    | 'editWaypoint'
-    | 'removeWaypoint'
-  >;
+  chartActions?: ChartActions;
   initialWaypointId?: string | null;
   onWaypointReached?: (result: WaypointReachResult, previousReachedCount: number, total: number) => void;
   onSpatialModeChange?: (focused: boolean) => void;
   onCompleteMove: (moveId: string) => Promise<boolean>;
   onOpenVision: () => void;
-  onOpenPractice?: () => void;
   onOpenLog: () => void;
   onAdjust: () => void;
   onRelease?: () => void;
   actionError: string | null;
+  /**
+   * How the screen was reached. 'reveal' continues straight from the creation
+   * reveal (the map is already in place, so it is not redrawn: the open runs as
+   * instant state changes and only the panel arrives); 'open' is an ordinary
+   * visit (the route draws once, the flag settles, the camera lands).
+   */
   entrance?: 'reveal' | 'open';
+  /** Focus (recommendedMode 'focus') or Deep Focus ('deep_prime') from the day-closed card. */
+  onOpenPractice?: (mode: 'focus' | 'deep_prime') => void;
+  /** The raw Course: the view drops each metric's baseline, which the progress rules need. */
+  course?: CourseDetail;
   testID?: string;
 };
 
-const SERIF_MEDIUM = 'EBGaramond-Medium';
-const SERIF_REGULAR = 'EBGaramond-Regular';
-
-const ENTRY_CARDS = 4;
-const ENTRY_TOTAL = TT.cardIn + TT.cardStagger * (ENTRY_CARDS - 1);
-
-function EntryCard({ index, entry, children }: { index: number; entry: SharedValue<number>; children: React.ReactNode }) {
-  const style = useAnimatedStyle(() => {
-    const local = Math.max(0, Math.min(1, (entry.value * ENTRY_TOTAL - index * TT.cardStagger) / TT.cardIn));
-    return { opacity: local, transform: [{ translateY: (1 - local) * 10 }] };
-  });
-  return <Animated.View style={style}>{children}</Animated.View>;
+/** Travelled fraction: the Anchor sits at the last reached waypoint (0 = START). */
+export function travelledFraction(view: Pick<ChartViewModel, 'reachedCount' | 'total' | 'isFinished'>): number {
+  if (view.total === 0) return 0;
+  if (view.isFinished) return 1;
+  return Math.min(1, view.reachedCount / view.total);
 }
 
-export function selectHeroAndOtherMoves(
-  moves: MoveSummary[],
-  oneMoveId?: string | null
-): { heroMove: MoveSummary | null; otherMoves: MoveSummary[] } {
-  const incompleteMoves = moves.filter((m) => m.status === 'ACTIVE' || m.status === 'SUGGESTED');
-  if (incompleteMoves.length === 0) {
-    return { heroMove: null, otherMoves: [] };
-  }
-  const starred = incompleteMoves.find((m) => m.isCurrent || (oneMoveId && m.id === oneMoveId));
-  const heroMove = starred ?? incompleteMoves[0];
-  const otherMoves = incompleteMoves.filter((m) => m.id !== heroMove.id);
-  return { heroMove, otherMoves };
-}
+/** Used when a host (the dev lab) renders the view without live actions: the panel stays read-only. */
+const NO_ACTIONS: ChartActions = {
+  busy: null,
+  addMove: async () => false,
+  acceptMove: async () => false,
+  completeMove: async () => false,
+  dismissMove: async () => false,
+  suggestMoves: async () => 'failed',
+  updateProgress: async () => false,
+  reachWaypoint: async () => null,
+  editWaypoint: async () => false,
+  removeWaypoint: async () => false,
+};
 
-export function daysOnCourse(plottedAt?: string | null): number {
-  if (!plottedAt) return 1;
-  const plotted = new Date(plottedAt).getTime();
-  if (isNaN(plotted)) return 1;
-  const days = Math.floor((Date.now() - plotted) / (1000 * 60 * 60 * 24));
-  return Math.max(1, days);
-}
+/** A move-check that has been sent and is waiting for the server's new Chart. */
+type PendingMove = { baseline: number };
+type Ceremony = { index: number; advanced: boolean };
+type ReachEvent = { index: number; result: WaypointReachResult; previousReachedCount: number; total: number };
+
+/** Waits this long for the server's new Chart before giving up on the day-closed hold. */
+const DAY_CLOSED_HOLD_FALLBACK_MS = 1500;
 
 export function ChartActiveView({
   view,
   identity,
-  anchorArt,
   vision,
   stale,
-  busyKey,
   reducedMotion,
   celebration,
   onCelebrationDone,
@@ -173,830 +136,586 @@ export function ChartActiveView({
   onSpatialModeChange,
   onCompleteMove,
   onOpenVision,
-  onOpenPractice,
   onOpenLog,
   onAdjust,
   onRelease,
   actionError,
   entrance = 'open',
+  onOpenPractice,
+  course,
   testID,
 }: Props) {
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const categoryColor = getCategoryColor(identity.category);
-  const target = getJourneyRouteProgress(
-    view.total,
-    view.current ? view.currentIndex : -1,
-    view.current?.metric?.fraction,
-    view.isFinished
-  );
-  const journey = useChartJourneyCamera(view.courseId, target, reducedMotion);
-  const [arrivalSettled, setArrivalSettled] = useState(view.isFinished);
-  const finishArrival = useCallback(() => setArrivalSettled(true), []);
+  const accent = useMemo(() => panelAccent(identity.category), [identity.category]);
 
-  useAnimatedReaction(
-    () => journey.progress.value,
-    (value, previous) => {
-      if (view.isFinished && value >= 0.9999 && previous !== value) runOnJS(finishArrival)();
-    },
-    [view.isFinished, finishArrival]
-  );
+  /* ---- map state -------------------------------------------------- */
+  const table = useMemo(() => buildRouteTable(), []);
+  const placement = useMemo(() => waypointPlacement(Math.max(1, view.total)), [view.total]);
+  const currentIndex = view.isFinished ? -1 : view.currentIndex;
+  const anim = useChartMapAnimState({ revealArc: 0, flagIndex: Math.max(0, currentIndex) });
+  const runner = useChartSequencer(reducedMotion);
 
+  /* ---- progress (server data + presentation-only high-water) ------- */
+  const rawMetrics = useMemo(() => {
+    const byId = new Map<string, WaypointSummary['metric']>();
+    for (const waypoint of course?.waypoints ?? []) byId.set(waypoint.id, waypoint.metric ?? null);
+    return byId;
+  }, [course]);
+  const inputs = useMemo(
+    () => view.waypoints.map((waypoint) => toProgressInput(waypoint, rawMetrics.get(waypoint.id))),
+    [view.waypoints, rawMetrics]
+  );
+  const accountId = useAuthStore((state) => state.user?.id ?? null);
+  const highWater = useChartHighWater(undefined, view.courseId);
+  const commitHighWater = highWater.commit;
+  // Reveal targets use the in-memory max immediately; nothing is persisted until the stored map has loaded
+  // (so a slow read can never overwrite marks, and guests simply keep the in-memory map).
+  const hwLoaded = highWater.loaded;
+  const effectiveHw = useMemo(() => nextHighWater(highWater.map, inputs), [highWater.map, inputs]);
   useEffect(() => {
-    if (view.isFinished && reducedMotion) setArrivalSettled(true);
-  }, [view.isFinished, reducedMotion]);
+    if (hwLoaded && effectiveHw !== highWater.map) commitHighWater(effectiveHw);
+  }, [hwLoaded, effectiveHw, highWater.map, commitHighWater]);
 
-  const entry = useSharedValue(reducedMotion ? 1 : 0);
+  const revealTarget = useMemo(
+    () => routeRevealArc({ inputs, currentIndex: view.currentIndex, isFinished: view.isFinished, hw: effectiveHw, placement, table }),
+    [inputs, view.currentIndex, view.isFinished, effectiveHw, placement, table]
+  );
+  const revealTargetRef = useRef(revealTarget);
+  revealTargetRef.current = revealTarget;
+
+  const allMoves = useMemo<MoveSummary[]>(() => course?.moves ?? view.waypoints.flatMap((waypoint) => waypoint.moves), [course, view.waypoints]);
+  const completedMoves = useMemo(() => view.waypoints.reduce((sum, waypoint) => sum + waypoint.moves.filter((move) => move.status === 'COMPLETED').length, 0), [view.waypoints]);
+  const completedMovesRef = useRef(completedMoves);
+  completedMovesRef.current = completedMoves;
+
+  /* ---- interaction state ------------------------------------------ */
+  const initialIndex = useMemo(() => {
+    const found = initialWaypointId ? view.waypoints.findIndex((waypoint) => waypoint.id === initialWaypointId) : -1;
+    return found >= 0 ? found : Math.max(0, Math.min(view.total - 1, view.currentIndex));
+    // The first render decides; later focus changes come from taps.
+  }, []);
+  const [viewIdx, setViewIdx] = useState(initialIndex);
+  const [arrived, setArrived] = useState(view.isFinished);
+  const [commit, setCommit] = useState<{ number: number } | null>(null);
+  const [ceremony, setCeremony] = useState<Ceremony | null>(null);
+  const [dayHold, setDayHold] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [headerHeight, setHeaderHeight] = useState(insets.top + 116);
-  const [checkingMove, setCheckingMove] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [showStillRight, setShowStillRight] = useState(false);
+  const [reachEvent, setReachEvent] = useState<ReachEvent | null>(null);
 
-  // Phase 1 states
-  const [expandedMoves, setExpandedMoves] = useState(false);
-  const [newMoveText, setNewMoveText] = useState('');
-  const [progressSheetOpen, setProgressSheetOpen] = useState(false);
-  const [progressDraft, setProgressDraft] = useState('');
-  const [editWaypointOpen, setEditWaypointOpen] = useState(false);
-  const [editTitleDraft, setEditTitleDraft] = useState('');
-  const [editRationaleDraft, setEditRationaleDraft] = useState('');
-  const [confirmReachOpen, setConfirmReachOpen] = useState(false);
+  const zoomedRef = useRef(false);
+  const openedRef = useRef(false);
+  const reachingRef = useRef(false);
+  const reachIdRef = useRef<{ index: number; previousReachedCount: number } | null>(null);
+  const lastArcRef = useRef(0);
+  const courseIdRef = useRef(view.courseId);
+  const placementSigRef = useRef(`${placement.n}|${view.waypoints.map((waypoint) => waypoint.id).join(',')}`);
+  const pendingMoveRef = useRef<PendingMove | null>(null);
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const celebrationRef = useRef(celebration);
+  celebrationRef.current = celebration;
+  const viewIdxRef = useRef(viewIdx);
+  viewIdxRef.current = viewIdx;
 
-  // Check practice status today for this anchor
-  const practiceHistory = useSessionStore((s) => s.practiceHistory);
-  const isPracticedToday = useMemo(() => {
-    if (!view.anchorId) return false;
-    const today = new Date();
-    return practiceHistory.some((session) => {
-      const match =
-        session.anchorId === view.anchorId ||
-        session.anchorLocalId === view.anchorId ||
-        session.anchorServerId === view.anchorId;
-      if (!match) return false;
-      const d = new Date(session.completedAt);
-      return (
-        d.getFullYear() === today.getFullYear() &&
-        d.getMonth() === today.getMonth() &&
-        d.getDate() === today.getDate()
-      );
+  const panel = useSharedValue(0);
+  const showPanel = useCallback(() => {
+    panel.value = withTiming(1, {
+      duration: reducedMotion ? CHART_MAP_REDUCED_FADE : CHART_MAP_TIMING.open.panel,
+      easing: Easing.out(Easing.cubic),
+      reduceMotion: ReduceMotion.Never,
     });
-  }, [practiceHistory, view.anchorId]);
+  }, [panel, reducedMotion]);
+  const panelStyle = useAnimatedStyle(() => ({
+    opacity: panel.value,
+    transform: [{ translateY: reducedMotion ? 0 : (1 - panel.value) * 12 }],
+  }));
 
-  const bannerOpacity = useSharedValue(0);
-  const celebrationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const scrollRef = useRef<ScrollView>(null);
-  const cameraProgress = useSharedValue(initialWaypointId ? 1 : 0);
-  const [selectedWaypointId, setSelectedWaypointId] = useState<string | null>(initialWaypointId);
-  const [spatialMode, setSpatialMode] = useState<'chart' | 'focusing' | 'waypoint' | 'returning'>(
-    initialWaypointId ? 'waypoint' : 'chart'
-  );
+  /** Static end states for a Chart that is already finished when it opens. */
+  const settleArrived = useCallback(() => {
+    anim.glyph.value = 1;
+    anim.goldDot.value = 1;
+    anim.fog.value = 1;
+    anim.flagOpacity.value = 0;
+  }, [anim]);
 
-  const finishFocus = useCallback(() => setSpatialMode('waypoint'), []);
-  const finishReturn = useCallback(() => {
-    setSelectedWaypointId(null);
-    setSpatialMode('chart');
-    onSpatialModeChange?.(false);
-  }, [onSpatialModeChange]);
-
-  useAnimatedReaction(
-    () => cameraProgress.value,
-    (current, previous) => {
-      if (previous === null) return;
-      if (current >= 0.999 && previous < 0.999) runOnJS(finishFocus)();
-      if (current <= 0.001 && previous > 0.001) runOnJS(finishReturn)();
-    },
-    [finishFocus, finishReturn]
-  );
-
-  const focusWaypoint = (waypointId: string) => {
-    if (spatialMode !== 'chart') return;
-    if (!chartActions) {
-      onOpenWaypoint?.(waypointId);
-      return;
-    }
-    setSelectedWaypointId(waypointId);
-    setSpatialMode('focusing');
-    onSpatialModeChange?.(true);
-    scrollRef.current?.scrollTo({ y: 0, animated: false });
-    if (reducedMotion) {
-      cameraProgress.value = 1;
-      finishFocus();
-      return;
-    }
-    cameraProgress.value = chartTiming(1, { duration: CHART_CAMERA_TIMING.focus, easing: CHART_EASING.deliberate });
-  };
-
-  const returnToChart = () => {
-    if (!selectedWaypointId || spatialMode === 'returning') return;
-    setSpatialMode('returning');
-    scrollRef.current?.scrollTo({ y: 0, animated: false });
-    if (reducedMotion) {
-      cameraProgress.value = 0;
-      finishReturn();
-      return;
-    }
-    cameraProgress.value = chartTiming(0, { duration: CHART_CAMERA_TIMING.return, easing: CHART_EASING.deliberate });
-  };
+  /* ---- open -------------------------------------------------------- */
+  useLayoutEffect(() => {
+    // Nothing flashes before the open sequence fades the map in.
+    anim.mapOpacity.value = 0;
+    anim.flagOpacity.value = 0;
+  }, [anim]);
 
   useEffect(() => {
-    if (!selectedWaypointId) return undefined;
+    if (openedRef.current) return undefined;
+    openedRef.current = true;
+    let cancelled = false;
+    lastArcRef.current = revealTarget;
+    if (view.isFinished) settleArrived();
+    const instant = reducedMotion || entrance === 'reveal';
+    const spec = openSequence({
+      anim,
+      placement,
+      revealTo: revealTarget,
+      currentIndex,
+      reducedMotion: instant,
+      onPanel: showPanel,
+    });
+    zoomedRef.current = false;
+    void runner.run(spec).then(() => {
+      // A deep link to another waypoint lands there after the map has opened.
+      if (cancelled) return;
+      const target = viewIdxRef.current;
+      if (instant || view.isFinished || target === currentIndex) return;
+      zoomedRef.current = true;
+      void runner.run(waypointTapSequence({ anim, point: placement.points[target] ?? null, toOverview: false, reducedMotion: false }));
+    });
+    return () => {
+      cancelled = true;
+      openedRef.current = false;
+    };
+    // Runs once per mount: later changes are driven by the effects below.
+  }, []);
+
+  /* ---- route follows server data ---------------------------------- */
+  useEffect(() => {
+    if (!openedRef.current || reachingRef.current || arrived) return;
+    // Adding or removing waypoints re-spaces the route: re-anchor the drawn arc to the new target
+    // (progress itself never retreats; the high-water map holds it in fraction space).
+    const sig = `${placement.n}|${view.waypoints.map((waypoint) => waypoint.id).join(',')}`;
+    if (sig !== placementSigRef.current) {
+      placementSigRef.current = sig;
+      anim.revealArc.value = revealTarget;
+      lastArcRef.current = revealTarget;
+      return;
+    }
+    const pending = pendingMoveRef.current;
+    const moved = Boolean(pending && completedMoves > pending.baseline);
+    const from = lastArcRef.current;
+    const changed = Math.abs(revealTarget - from) >= 0.5;
+    if (!moved && !changed) return;
+    if (moved) pendingMoveRef.current = null;
+    lastArcRef.current = Math.max(from, revealTarget);
+    if (!moved && revealTarget < from) {
+      // The drawn route never retreats (a lowered metric only changes the number); only a different course may start shorter.
+      if (courseIdRef.current !== view.courseId) {
+        courseIdRef.current = view.courseId;
+        anim.revealArc.value = revealTarget;
+      } else {
+        lastArcRef.current = from;
+      }
+      return;
+    }
+    void runner.run(
+      moveCheckSequence({
+        anim,
+        fromArc: anim.revealArc.value,
+        toArc: Math.max(anim.revealArc.value, revealTarget),
+        reducedMotion,
+        onDayClosed: moved ? () => setDayHold(false) : undefined,
+      })
+    );
+  }, [revealTarget, completedMoves, arrived, anim, runner, reducedMotion, view.courseId, view.waypoints, placement.n]);
+
+  // The flag stands on the current waypoint whenever the server moves it outside a ceremony.
+  useEffect(() => {
+    if (!openedRef.current || reachingRef.current || arrived || currentIndex < 0) return;
+    anim.flagIndex.value = currentIndex;
+  }, [currentIndex, arrived, anim]);
+
+  // A Chart that finishes without a ceremony here (opened elsewhere) settles at arrival.
+  useEffect(() => {
+    if (!view.isFinished || arrived || reachingRef.current || reachEvent) return;
+    settleArrived();
+    anim.revealArc.value = table.total;
+    setArrived(true);
+  }, [view.isFinished, arrived, reachEvent, settleArrived, anim, table]);
+
+  /* ---- spatial mode ------------------------------------------------ */
+  const offCurrent = !arrived && currentIndex >= 0 && viewIdx !== currentIndex;
+  const lastSpatial = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (lastSpatial.current === offCurrent) return;
+    lastSpatial.current = offCurrent;
+    onSpatialModeChange?.(offCurrent);
+  }, [offCurrent, onSpatialModeChange]);
+
+  const focusOn = useCallback(
+    (index: number) => {
+      zoomedRef.current = true;
+      if (reducedMotion) return;
+      void runner.run(waypointTapSequence({ anim, point: placement.points[index] ?? null, toOverview: false, reducedMotion }));
+    },
+    [anim, placement, reducedMotion, runner]
+  );
+  const goOverview = useCallback(() => {
+    zoomedRef.current = false;
+    if (reducedMotion) return;
+    void runner.run(waypointTapSequence({ anim, point: null, toOverview: true, reducedMotion }));
+  }, [anim, reducedMotion, runner]);
+
+  const backToCurrent = useCallback(() => {
+    const target = Math.max(0, currentIndex);
+    setViewIdx(target);
+    focusOn(target);
+  }, [currentIndex, focusOn]);
+
+  useEffect(() => {
+    if (!offCurrent) return undefined;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      returnToChart();
+      backToCurrent();
       return true;
     });
     return () => subscription.remove();
-  }, [selectedWaypointId, spatialMode]);
+  }, [offCurrent, backToCurrent]);
 
-  useEffect(() => () => cancelAnimation(cameraProgress), [cameraProgress]);
+  const handleMarkerPress = (index: number) => {
+    const waypoint = view.waypoints[index];
+    if (!waypoint) return;
+    if (!chartActions && onOpenWaypoint) {
+      onOpenWaypoint(waypoint.id);
+      return;
+    }
+    if (runner.isBusy()) {
+      // Any tap while a sequence runs is a pure skip (it never also selects or zooms).
+      runner.skip();
+      return;
+    }
+    if (arrived) return;
+    const same = viewIdx === index && zoomedRef.current;
+    setViewIdx(index);
+    if (same) goOverview();
+    else focusOn(index);
+  };
 
-  useEffect(() => {
-    if (!selectedWaypointId || view.waypoints.some((waypoint) => waypoint.id === selectedWaypointId)) return;
-    cancelAnimation(cameraProgress);
-    cameraProgress.value = 0;
-    setSelectedWaypointId(null);
-    setSpatialMode('chart');
-    onSpatialModeChange?.(false);
-  }, [cameraProgress, onSpatialModeChange, selectedWaypointId, view.waypoints]);
+  const handleMapPress = () => {
+    if (runner.isBusy()) {
+      runner.skip();
+      return;
+    }
+    if (arrived) {
+      // Arrival leaves the camera at overview; stay defensive and never leave it zoomed.
+      if (zoomedRef.current) goOverview();
+      return;
+    }
+    if (zoomedRef.current) goOverview();
+    else focusOn(viewIdx);
+  };
 
-  useEffect(() => {
-    if (!journey.ready) return;
-    entry.value = reducedMotion ? 1 : chartTiming(1, { duration: ENTRY_TOTAL, easing: CHART_EASING.settle });
-    return () => cancelAnimation(entry);
-  }, [journey.ready, reducedMotion, entry]);
+  /* ---- move check -------------------------------------------------- */
+  const handleCompleteMove = async (moveId: string): Promise<boolean> => {
+    const pending: PendingMove = { baseline: completedMovesRef.current };
+    pendingMoveRef.current = pending;
+    setDayHold(true);
+    let ok = false;
+    try {
+      ok = await onCompleteMove(moveId);
+    } catch {
+      ok = false;
+    }
+    if (!ok) {
+      if (pendingMoveRef.current === pending) pendingMoveRef.current = null;
+      setDayHold(false);
+    } else {
+      // The route extends only once the server's new Chart arrives; never wait forever for it.
+      if (holdTimer.current) clearTimeout(holdTimer.current);
+      holdTimer.current = setTimeout(() => {
+        if (pendingMoveRef.current === pending) {
+          pendingMoveRef.current = null;
+          setDayHold(false);
+        }
+      }, DAY_CLOSED_HOLD_FALLBACK_MS);
+    }
+    return ok;
+  };
+  useEffect(() => () => {
+    if (holdTimer.current) clearTimeout(holdTimer.current);
+  }, []);
 
-  useEffect(() => {
-    if (!celebration) return;
-    bannerOpacity.value = reducedMotion ? 1 : chartTiming(1, { duration: PT.banner });
-    celebrationTimer.current = setTimeout(() => {
-      bannerOpacity.value = chartTiming(0, { duration: 300 });
-      if (celebration.nextTitle) setShowStillRight(true);
-      onCelebrationDone();
-    }, reducedMotion ? PT.bannerHoldReduced : PT.bannerHold);
-    return () => {
-      if (celebrationTimer.current) clearTimeout(celebrationTimer.current);
+  /* ---- reach ceremony --------------------------------------------- */
+  const panelActions: ChartActions = useMemo(() => {
+    const base = chartActions ?? NO_ACTIONS;
+    return {
+      ...base,
+      reachWaypoint: async (waypointId: string) => {
+        const index = view.waypoints.findIndex((waypoint) => waypoint.id === waypointId);
+        reachingRef.current = true;
+        reachIdRef.current = { index, previousReachedCount: view.reachedCount };
+        let result: WaypointReachResult | null = null;
+        try {
+          result = await base.reachWaypoint(waypointId);
+        } finally {
+          // A failed reach plays nothing and leaves the route where it was.
+          if (!result) {
+            reachingRef.current = false;
+            reachIdRef.current = null;
+          }
+        }
+        return result;
+      },
     };
-  }, [celebration, reducedMotion, onCelebrationDone, bannerOpacity]);
+  }, [chartActions, view.waypoints, view.reachedCount]);
 
-  const bannerStyle = useAnimatedStyle(() => ({ opacity: bannerOpacity.value }));
-  const waypointContentStyle = useAnimatedStyle(() => ({ opacity: cameraProgress.value }));
-
-  const markers: ChartMarker[] = useMemo(
-    () =>
-      view.waypoints.map((waypoint) => ({
-        id: waypoint.id,
-        number: waypoint.number,
-        state: waypoint.state,
-        accessibilityLabel: waypoint.accessibilityLabel,
-      })),
-    [view.waypoints]
-  );
-
-  const current = view.current;
-  const mapSummary = current
-    ? `Chart map. Waypoint ${current.number} of ${view.total} is current: ${current.title}. Destination: ${view.destination}.`
-    : `Chart map. Destination: ${view.destination}.`;
-
-  const { heroMove, otherMoves } = useMemo(
-    () => selectHeroAndOtherMoves(current?.moves ?? [], view.oneMove?.id),
-    [current?.moves, view.oneMove?.id]
-  );
-
-  const completeMoveAction = async (moveId: string) => {
-    if (checkingMove) return;
-    setCheckingMove(moveId);
-    await onCompleteMove(moveId);
-    setCheckingMove(null);
+  const handleReached = (result: WaypointReachResult) => {
+    const ids = reachIdRef.current;
+    if (!ids) {
+      onWaypointReached?.(result, view.reachedCount, view.total);
+      return;
+    }
+    setReachEvent({ index: ids.index, result, previousReachedCount: ids.previousReachedCount, total: view.total });
   };
 
-  const handleAddMove = async () => {
-    if (!current || !newMoveText.trim()) return;
-    const title = newMoveText.trim();
-    setNewMoveText('');
-    await chartActions?.addMove(current.id, title, { makeCurrent: false });
-  };
+  useEffect(() => {
+    if (!reachEvent) return;
+    const { index, result, previousReachedCount, total } = reachEvent;
+    // Play only once the server's new Chart shows the waypoint reached.
+    if (!(view.isFinished || view.waypoints[index]?.state === 'completed')) return;
+    setReachEvent(null);
+    const isLast = result.destinationReached || index >= total - 1;
+    const notify = () => onWaypointReached?.(result, previousReachedCount, total);
+    const finish = () => {
+      reachingRef.current = false;
+      reachIdRef.current = null;
+      lastArcRef.current = revealTargetRef.current;
+      setCeremony(null);
+    };
+    setCeremony({ index, advanced: false });
+    zoomedRef.current = !isLast && !reducedMotion;
+    let spec: SequenceSpec;
+    if (isLast) {
+      spec = arrivalSequence({
+        anim,
+        placement,
+        table,
+        index,
+        reducedMotion,
+        onArrived: () => {
+          setArrived(true);
+          setViewIdx(Math.max(0, total - 1));
+          notify();
+        },
+      });
+    } else {
+      spec = reachSequence({
+        anim,
+        placement,
+        index,
+        endArc: placement.arcs[index] ?? revealTargetRef.current,
+        nextRevealArc: revealTargetRef.current,
+        reducedMotion,
+        onAdvance: () => setCeremony((current) => (current ? { ...current, advanced: true } : current)),
+        onCommitCard: () => {
+          setViewIdx(index + 1);
+          setCommit({ number: index + 1 });
+          notify();
+        },
+      });
+    }
+    spec.onEnd = finish;
+    // Reset on onEnd AND after the run settles, so a skipped or interrupted ceremony can never leave the route frozen.
+    void runner.run(spec).finally(() => {
+      if (reachingRef.current) finish();
+    });
+  }, [reachEvent, view, anim, placement, table, reducedMotion, runner, onWaypointReached]);
 
-  const handleSuggestMoves = async () => {
-    if (!current) return;
-    await chartActions?.suggestMoves(current.id);
-  };
+  // Three quiet weeks is evidence the course may need adjusting: offer the one Adjust Route flow once per open.
+  useEffect(() => {
+    if (routeAdjustEvidence(view, new Date()) === 'stalled') setShowStillRight(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const adjustProgressDraft = (delta: number) => {
-    const currentVal = Number(progressDraft) || 0;
-    const nextVal = Math.max(0, currentVal + delta);
-    setProgressDraft(String(nextVal));
-  };
+  /* ---- commit ("I'm committed") ----------------------------------- */
+  // A reach reported by the screen (legacy `reached` route param) shows the same card.
+  useEffect(() => {
+    if (!celebration || reachingRef.current || commit || arrived) return;
+    setCommit({ number: Math.max(1, view.reachedCount) });
+  }, [celebration, commit, arrived, view.reachedCount]);
 
-  const handleSaveProgress = async () => {
-    if (!current) return;
-    const num = progressDraft.trim() === '' ? null : Number(progressDraft.replace(/,/g, ''));
-    if (num !== null && (!Number.isFinite(num) || num < 0)) return;
-    const ok = await chartActions?.updateProgress(current.id, num);
-    setProgressSheetOpen(false);
-    if (ok && num !== null && current.metric?.target && num >= current.metric.target) {
-      setConfirmReachOpen(true);
+  const dismissCommit = () => {
+    const finished = celebrationRef.current;
+    setCommit(null);
+    if (finished) {
+      onCelebrationDone();
+      // Only when the course shows evidence it may need adjusting; the card opens the one Adjust Route flow.
+      if (finished.nextTitle && routeAdjustEvidence(view, new Date()) === 'ahead') setShowStillRight(true);
     }
   };
 
-  const handleSaveEditWaypoint = async () => {
-    if (!current || !editTitleDraft.trim()) return;
-    await chartActions?.editWaypoint(current.id, {
-      title: editTitleDraft.trim(),
-      rationale: editRationaleDraft.trim() || null,
+  /* ---- notifications (fire and forget; never prompts) -------------- */
+  const anchorId = view.anchorId;
+  const oneMoveTitle = view.oneMove?.title ?? null;
+  useEffect(() => {
+    if (!anchorId) return;
+    void syncChartNotifications({
+      anchorId,
+      courseId: view.courseId,
+      accountId,
+      view: { destination: view.destination, oneMove: oneMoveTitle ? { title: oneMoveTitle } : null },
+      moves: allMoves,
     });
-    setEditWaypointOpen(false);
-  };
+  }, [anchorId, accountId, view.courseId, view.version, view.destination, oneMoveTitle, allMoves, completedMoves]);
+
+  /* ---- markers ----------------------------------------------------- */
+  const markers: ChartMapMarker[] = useMemo(
+    () =>
+      view.waypoints.map((waypoint, index) => {
+        let state: ChartMarkerRenderState = waypoint.state === 'completed' ? 'done' : waypoint.state === 'current' ? 'current' : 'upcoming';
+        if (ceremony) {
+          if (index === ceremony.index) state = 'done';
+          else if (index === ceremony.index + 1 && !ceremony.advanced) state = 'upcoming';
+        }
+        const word = state === 'done' ? 'reached' : state === 'current' ? 'current' : 'upcoming';
+        return {
+          id: waypoint.id,
+          index,
+          number: waypoint.number,
+          title: waypoint.title,
+          state,
+          selected: !arrived && index === viewIdx,
+          accessibilityLabel: `Waypoint ${waypoint.number}: ${waypoint.title}, ${word}`,
+        };
+      }),
+    [view.waypoints, ceremony, arrived, viewIdx]
+  );
+
+  const categoryLabel = (identity.category ?? 'custom').toUpperCase();
+  const panelWaypointId = view.waypoints[Math.min(viewIdx, view.waypoints.length - 1)]?.id ?? '';
+  const currentWaypoint = view.waypoints.find((w) => w.state === 'current') ?? view.waypoints[0] ?? null;
+  const targetWaypoint = (viewIdx >= 0 && view.waypoints[viewIdx]?.state === 'current') ? view.waypoints[viewIdx] : currentWaypoint;
 
   return (
-    <ChartInkScreen testID={testID ?? 'chart-active'}>
-      <ScrollView
-        ref={scrollRef}
-        contentContainerStyle={{ paddingBottom: selectedWaypointId ? 0 : insets.bottom + spacing[8] }}
-        showsVerticalScrollIndicator={false}
-      >
-        <View>
-          <ChartJourneyWorld
-            width={width}
-            height={Math.max(280, Math.min(height * 0.55, height - headerHeight - 160))}
+    <View testID={testID ?? 'chart-active'} style={styles.screen}>
+      <StatusBar barStyle="dark-content" backgroundColor={T.paper} animated />
+      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom }} showsVerticalScrollIndicator={false} style={styles.scroll}>
+        <View style={{ width, backgroundColor: T.paper }}>
+          {/* Header first in the tree so TalkBack reads Back, Chart and the menu before the markers; it is absolutely positioned above the map. */}
+          <ChartMapHeader
+            categoryLabel={categoryLabel}
             category={identity.category}
-            markers={markers}
-            progress={journey.progress}
-            inspectionBlend={cameraProgress}
-            selectedMarkerId={selectedWaypointId}
-            onReady={journey.onReady}
-            onMarkerPress={focusWaypoint}
-            accessibilityLabel={mapSummary}
-            style={{ marginTop: headerHeight }}
-            testID="chart-hero-map"
+            accent={accent}
+            visionImageUrl={vision?.imageUrl ?? null}
+            hasVision={Boolean(vision)}
+            onBack={offCurrent ? backToCurrent : onBack}
+            onMenu={() => setMenuOpen(true)}
+            onOpenVision={onOpenVision}
           />
-
-          {/* Map Header with back, serif title, menu, category pill, and Vision Polaroid */}
-          <View
-            style={[styles.overlayHeader, { paddingTop: insets.top }]}
-            onLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)}
-          >
-            <View style={styles.topNavRow}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Back"
-                onPress={selectedWaypointId ? returnToChart : onBack}
-                hitSlop={10}
-                style={styles.backButton}
-              >
-                <ChevronLeft size={24} color="#171717" />
-              </Pressable>
-              <Text style={styles.headerTitleSerif}>Chart</Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Chart options"
-                hitSlop={10}
-                onPress={() => setMenuOpen(true)}
-                style={styles.menuButton}
-              >
-                <MoreHorizontal size={22} color="#171717" />
-              </Pressable>
-            </View>
-
-            <View style={styles.mapHeaderMeta}>
-              {/* Category label with dot */}
-              <View style={styles.categoryPill}>
-                <View style={[styles.categoryDot, { backgroundColor: categoryColor }]} />
-                <Text style={[styles.categoryText, { color: categoryColor }]}>
-                  {identity.category ? identity.category.toUpperCase() : 'DESIRE'}
-                </Text>
-              </View>
-
-              {/* Tappable Vision polaroid card */}
-              {vision ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Open Vision"
-                  onPress={onOpenVision}
-                  style={styles.polaroidCard}
-                  testID="chart-polaroid-vision"
-                >
-                  {vision.imageUrl ? (
-                    <Image source={{ uri: vision.imageUrl }} style={styles.polaroidImage} accessibilityIgnoresInvertColors />
-                  ) : (
-                    <View style={[styles.polaroidImage, styles.polaroidPlaceholder]}>
-                      <Flag size={14} color={categoryColor} />
-                    </View>
-                  )}
-                  <Text style={styles.polaroidLabel}>VISION</Text>
-                </Pressable>
-              ) : null}
-            </View>
+          <ChartMap
+            testID="chart-hero-map"
+            width={width}
+            table={table}
+            placement={placement}
+            anim={anim}
+            markers={markers}
+            categoryColor={categoryColor}
+            category={identity.category ?? undefined}
+            reducedMotion={reducedMotion}
+            arrived={arrived}
+            onMarkerPress={handleMarkerPress}
+            onMapPress={handleMapPress}
+          />
+          <View style={styles.scallop} pointerEvents="none">
+            <ChartScallop width={width} color={T.ink} testID="chart-scallop" />
           </View>
         </View>
 
-        {view.isFinished && !selectedWaypointId ? (
-          arrivalSettled ? (
-            <ChartCompletionPanel view={view} vision={vision} onViewJourney={onOpenLog} onRelease={onRelease ?? onAdjust} />
-          ) : (
-            <View style={styles.transitionSpace} />
-          )
-        ) : selectedWaypointId && (spatialMode === 'waypoint' || spatialMode === 'returning') && chartActions ? (
-          <Animated.View style={waypointContentStyle}>
-            <ChartWaypointContent
-              view={view}
-              waypointId={selectedWaypointId}
-              chart={chartActions}
-              category={identity.category}
-              reducedMotion={reducedMotion}
-              actionError={actionError}
-              bottomInset={insets.bottom}
-              onBack={returnToChart}
-              onReached={(result) => {
-                onWaypointReached?.(result, view.reachedCount, view.total);
-                returnToChart();
-              }}
-            />
-          </Animated.View>
-        ) : spatialMode === 'focusing' ? (
-          <View style={styles.transitionSpace} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />
-        ) : (
-          <View style={styles.body}>
-            {celebration ? (
-              <Animated.View style={[styles.celebration, bannerStyle]} accessibilityLiveRegion="assertive" testID="chart-waypoint-reached">
-                <ChartEyebrow color="#F2E6CB">{CHART_COPY.labels.waypointReached}</ChartEyebrow>
-                <Text style={styles.celebrationTitle}>{celebration.completedTitle}</Text>
-                {celebration.nextTitle ? (
-                  <View style={styles.celebrationNext}>
-                    <ChartEyebrow>{CHART_COPY.labels.next}</ChartEyebrow>
-                    <Text style={styles.celebrationNextTitle}>{celebration.nextTitle}</Text>
-                  </View>
-                ) : null}
-              </Animated.View>
-            ) : null}
-
-            {stale ? (
-              <View style={styles.offline} accessibilityLiveRegion="polite">
-                <WifiOff size={14} color="rgba(244, 246, 250, 0.70)" />
-                <Text style={styles.offlineText}>{CHART_COPY.active.offline}</Text>
+        <Animated.View style={panelStyle}>
+          {stale ? (
+            <View style={styles.offline} accessibilityLiveRegion="polite">
+              <WifiOff size={14} color={T.muted} />
+              <Text style={styles.offlineText}>{CHART_COPY.active.offline}</Text>
+            </View>
+          ) : null}
+          {showStillRight ? (
+            <ChartInkCard testID="chart-still-right" style={styles.stillRight}>
+              <Text style={styles.cardTitle}>{CHART_COPY.adjust.stillRight}</Text>
+              <View style={styles.row}>
+                <ChartInkButton label={CHART_COPY.adjust.keep} variant="outline" onPress={() => setShowStillRight(false)} style={styles.flex} />
+                <ChartInkButton
+                  label={CHART_COPY.review.adjust}
+                  onPress={() => {
+                    setShowStillRight(false);
+                    onAdjust();
+                  }}
+                  style={styles.flex}
+                />
               </View>
-            ) : null}
-
-            {/* 2. CURRENT WAYPOINT BLOCK */}
-            {current ? (
-              <EntryCard index={0} entry={entry}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Current waypoint, ${current.number} of ${view.total}: ${current.title}${current.metric ? `, ${current.metric.display}` : ''}. Open waypoint.`}
-                  onPress={() => focusWaypoint(current.id)}
-                  testID="chart-current-waypoint"
-                >
-                  <View style={styles.compactSection}>
-                    <View style={styles.cardHeader}>
-                      <ChartEyebrow color="rgba(242, 230, 203, 0.9)">{CHART_COPY.labels.currentWaypoint}</ChartEyebrow>
-                      <View style={styles.headerRightRow}>
-                        <Text style={styles.position}>{view.positionLabel}</Text>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={CHART_COPY.waypoint.edit}
-                          onPress={(e) => {
-                            e.stopPropagation?.();
-                            setEditTitleDraft(current.title);
-                            setEditRationaleDraft(current.rationale ?? '');
-                            setEditWaypointOpen(true);
-                          }}
-                          hitSlop={8}
-                          style={styles.pencilButton}
-                          testID="chart-edit-waypoint-button"
-                        >
-                          <Pencil size={14} color="rgba(244, 246, 250, 0.70)" />
-                        </Pressable>
-                      </View>
-                    </View>
-                    <Text style={styles.waypointTitle}>{current.title}</Text>
-                    {current.rationale ? <Text style={styles.rationale}>{current.rationale}</Text> : null}
-
-                    {/* 3. PROGRESS BLOCK */}
-                    {current.metric ? (
-                      <View style={styles.progressContainer}>
-                        <View style={styles.progressTrack}>
-                          <View
-                            style={[
-                              styles.progressFill,
-                              {
-                                backgroundColor: categoryColor,
-                                width: `${Math.min(100, Math.max(0, current.metric.fraction !== null ? current.metric.fraction * 100 : 0))}%`,
-                              },
-                            ]}
-                          />
-                        </View>
-                        <View style={styles.progressDataRow}>
-                          <Text style={styles.progressValueText}>
-                            <Text style={styles.progressCurrentNum}>
-                              {current.metric.display}
-                            </Text>
-                            {current.metric.label ? (
-                              <Text style={styles.progressTargetNum}>
-                                {` ${current.metric.label}`}
-                              </Text>
-                            ) : null}
-                          </Text>
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel="Update progress"
-                            onPress={(e) => {
-                              e?.stopPropagation?.();
-                              setProgressDraft(current.metric?.current != null ? String(current.metric.current) : '0');
-                              setProgressSheetOpen(true);
-                            }}
-                            style={styles.updateProgressButton}
-                            testID="chart-update-progress-button"
-                          >
-                            <Text style={styles.updateProgressText}>Update progress -{'>'}</Text>
-                          </Pressable>
-                        </View>
-                      </View>
-                    ) : null}
-                  </View>
-                </Pressable>
-              </EntryCard>
-            ) : null}
-
-            {showStillRight ? (
-              <ChartInkCard testID="chart-still-right">
-                <Text style={styles.cardTitle}>{CHART_COPY.adjust.stillRight}</Text>
-                <View style={styles.row}>
-                  <ChartInkButton label={CHART_COPY.adjust.keep} variant="outline" onPress={() => setShowStillRight(false)} style={styles.flex} />
-                  <ChartInkButton
-                    label={CHART_COPY.adjust.adjustAhead}
-                    onPress={() => {
-                      setShowStillRight(false);
-                      onAdjust();
-                    }}
-                    style={styles.flex}
-                  />
-                </View>
-              </ChartInkCard>
-            ) : null}
-
-            {/* 4. ONE MOVE HERO CARD & EXPANDABLE LIST */}
-            <EntryCard index={1} entry={entry}>
-              <View style={[styles.compactSection, styles.primarySection]}>
-                <ChartEyebrow color="rgba(242, 230, 203, 0.9)">{CHART_COPY.labels.oneMove}</ChartEyebrow>
-
-                <View style={styles.heroCard} testID="chart-one-move">
-                  {heroMove ? (
-                    <View style={styles.heroRow}>
-                      <Pressable
-                        accessibilityRole="checkbox"
-                        accessibilityState={{ checked: checkingMove === heroMove.id, busy: busyKey === `move:${heroMove.id}` }}
-                        accessibilityLabel={`Complete move: ${heroMove.title}`}
-                        onPress={() => void completeMoveAction(heroMove.id)}
-                        hitSlop={10}
-                        style={[styles.checkbox, checkingMove === heroMove.id && styles.checkboxOn]}
-                        testID="chart-one-move-check"
-                      >
-                        {checkingMove === heroMove.id ? <Check size={14} color={colors.ink.base} strokeWidth={3} /> : null}
-                      </Pressable>
-                      <Text style={styles.heroMoveTitle}>{heroMove.title}</Text>
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Open waypoint moves"
-                        onPress={() => setExpandedMoves((prev) => !prev)}
-                        hitSlop={8}
-                        style={styles.arrowButton}
-                      >
-                        <ChevronRight size={18} color="rgba(244, 246, 250, 0.45)" />
-                      </Pressable>
-                    </View>
-                  ) : (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={CHART_COPY.active.noMoveCta}
-                      onPress={() => setExpandedMoves(true)}
-                      style={styles.moveEmpty}
-                      testID="chart-one-move-empty"
-                    >
-                      <Text style={styles.moveEmptyText}>{CHART_COPY.active.noMove}</Text>
-                      <ChevronRight size={18} color="rgba(244, 246, 250, 0.70)" />
-                    </Pressable>
-                  )}
-                </View>
-
-                {/* Collapsible Other Moves */}
-                {otherMoves.length > 0 || expandedMoves ? (
-                  <View style={styles.otherMovesContainer}>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`Other moves, ${otherMoves.length} moves`}
-                      onPress={() => setExpandedMoves((prev) => !prev)}
-                      style={styles.otherMovesHeader}
-                      testID="chart-other-moves-toggle"
-                    >
-                      <Text style={styles.otherMovesLabel}>Other moves · {otherMoves.length}</Text>
-                      {expandedMoves ? (
-                        <ChevronUp size={16} color="rgba(244, 246, 250, 0.60)" />
-                      ) : (
-                        <ChevronDown size={16} color="rgba(244, 246, 250, 0.60)" />
-                      )}
-                    </Pressable>
-
-                    {expandedMoves ? (
-                      <View style={styles.expandedMovesList}>
-                        {otherMoves.map((move) => (
-                          <View key={move.id} style={styles.otherMoveRow}>
-                            <Pressable
-                              accessibilityRole="checkbox"
-                              accessibilityLabel={`Complete move: ${move.title}`}
-                              onPress={() => void completeMoveAction(move.id)}
-                              hitSlop={8}
-                              style={[styles.checkbox, checkingMove === move.id && styles.checkboxOn]}
-                            >
-                              {checkingMove === move.id ? <Check size={12} color={colors.ink.base} strokeWidth={3} /> : null}
-                            </Pressable>
-                            <Text style={styles.otherMoveTitle}>{move.title}</Text>
-                            <View style={styles.otherMoveActions}>
-                              <Pressable
-                                accessibilityRole="button"
-                                accessibilityLabel="Set as hero move"
-                                onPress={() => chartActions?.acceptMove(move.id, { makeCurrent: true })}
-                                hitSlop={8}
-                                style={styles.actionIcon}
-                              >
-                                <Star size={16} color="rgba(244, 246, 250, 0.50)" />
-                              </Pressable>
-                              <Pressable
-                                accessibilityRole="button"
-                                accessibilityLabel={`Remove move: ${move.title}`}
-                                onPress={() => chartActions?.dismissMove(move.id)}
-                                hitSlop={8}
-                                style={styles.actionIcon}
-                              >
-                                <X size={16} color="rgba(244, 246, 250, 0.50)" />
-                              </Pressable>
-                            </View>
-                          </View>
-                        ))}
-
-                        {/* Add a move */}
-                        <View style={styles.addMoveRow}>
-                          <Plus size={16} color="rgba(244, 246, 250, 0.60)" />
-                          <TextInput
-                            value={newMoveText}
-                            onChangeText={setNewMoveText}
-                            placeholder={CHART_COPY.waypoint.addMove}
-                            placeholderTextColor="rgba(244, 246, 250, 0.38)"
-                            style={styles.addMoveInput}
-                            returnKeyType="done"
-                            onSubmitEditing={handleAddMove}
-                            accessibilityLabel={CHART_COPY.waypoint.addMove}
-                            testID="chart-add-move"
-                          />
-                          {newMoveText.trim() ? (
-                            <Pressable onPress={handleAddMove} hitSlop={8}>
-                              <Check size={16} color="#F4F6FA" />
-                            </Pressable>
-                          ) : null}
-                        </View>
-
-                        {/* Suggest moves */}
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={CHART_COPY.waypoint.suggest}
-                          onPress={handleSuggestMoves}
-                          disabled={chartActions?.busy === `suggest:${current?.id}`}
-                          style={styles.suggestMovesRow}
-                          testID="chart-suggest-moves"
-                        >
-                          <Sparkles size={14} color={categoryColor} />
-                          <Text style={[styles.suggestMovesText, { color: categoryColor }]}>
-                            {chartActions?.busy === `suggest:${current?.id}` ? 'Finding moves…' : CHART_COPY.waypoint.suggest}
-                          </Text>
-                        </Pressable>
-                      </View>
-                    ) : null}
-                  </View>
-                ) : null}
-
-                {actionError ? <Text style={styles.error}>{actionError}</Text> : null}
-              </View>
-            </EntryCard>
-
-            {/* 5. PRACTICE ROW */}
-            <EntryCard index={2} entry={entry}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={isPracticedToday ? 'Practiced today' : 'Practice today. Keep your anchor strong.'}
-                onPress={onOpenPractice}
-                style={styles.practiceRow}
-                testID="chart-practice-row"
-              >
-                <View style={[styles.practiceIconFrame, { borderColor: `${categoryColor}50` }]}>
-                  <Anchor size={18} color={categoryColor} />
-                </View>
-                <View style={styles.flex}>
-                  {isPracticedToday ? (
-                    <View style={styles.practicedTodayTitleRow}>
-                      <Text style={styles.practiceTitle}>Practiced today</Text>
-                      <Check size={15} color={categoryColor} strokeWidth={2.5} style={styles.practiceCheckIcon} />
-                    </View>
-                  ) : (
-                    <>
-                      <Text style={styles.practiceTitle}>Practice today</Text>
-                      <Text style={styles.practiceSubtext}>Keep your anchor strong</Text>
-                    </>
-                  )}
-                </View>
-                <ChevronRight size={18} color="rgba(244, 246, 250, 0.45)" />
-              </Pressable>
-            </EntryCard>
-
-            {/* 6. DESTINATION ROW */}
-            <EntryCard index={3} entry={entry}>
-              <View style={styles.destinationSection} testID="chart-destination">
-                <ChartEyebrow color="rgba(242, 230, 203, 0.9)">{CHART_COPY.labels.yourDestination}</ChartEyebrow>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Destination: ${vision?.description ?? view.destination}. Open Vision.`}
-                  onPress={onOpenVision}
-                  style={styles.destinationRow}
-                  testID={vision ? 'chart-view-vision' : undefined}
-                >
-                  <View style={[styles.destinationMark, { borderColor: `${categoryColor}50` }]}>
-                    <Flag size={18} color={categoryColor} />
-                  </View>
-                  <Text style={styles.destinationTitle} numberOfLines={2}>
-                    {vision?.description ?? view.destination}
-                  </Text>
-                  <ChevronRight size={18} color="rgba(244, 246, 250, 0.45)" />
-                </Pressable>
-              </View>
-
-              {/* 7. COURSE LOG ROW */}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Course log, ${daysOnCourse(view.plottedAt)} days on course`}
-                onPress={onOpenLog}
-                style={styles.courseLogRow}
-                testID="chart-course-log"
-              >
-                <View style={styles.courseLogIconFrame}>
-                  <BookOpen size={18} color="#F4F6FA" />
-                </View>
-                <Text style={styles.courseLogText}>
-                  Course log · {daysOnCourse(view.plottedAt)} days on course
-                </Text>
-                <ChevronRight size={18} color="rgba(244, 246, 250, 0.45)" />
-              </Pressable>
-            </EntryCard>
-          </View>
-        )}
+            </ChartInkCard>
+          ) : null}
+          <ChartWaypointContent
+            view={view}
+            waypointId={panelWaypointId}
+            chart={panelActions}
+            category={identity.category}
+            reducedMotion={reducedMotion}
+            actionError={actionError}
+            bottomInset={insets.bottom}
+            onBack={backToCurrent}
+            onReached={handleReached}
+            inputs={inputs}
+            hw={effectiveHw}
+            vision={vision}
+            onOpenVision={onOpenVision}
+            onOpenLog={onOpenLog}
+            onRelease={onRelease ?? onAdjust}
+            onOpenPractice={onOpenPractice}
+            onCompleteMove={handleCompleteMove}
+            commit={commit}
+            onCommitDismiss={dismissCommit}
+            dayClosedHold={dayHold}
+            arrived={arrived}
+            entrance={entrance}
+          />
+        </Animated.View>
       </ScrollView>
 
-      {/* Progress Bottom Sheet */}
-      <V2SheetModal
-        visible={progressSheetOpen}
-        onClose={() => setProgressSheetOpen(false)}
-        reduceMotion={reducedMotion}
-        testID="chart-progress-sheet"
-      >
-        <View style={styles.sheetContent}>
-          <Text style={styles.sheetTitle}>Update progress</Text>
-          {current?.metric ? (
-            <Text style={styles.sheetSubtitle}>
-              Target: {formatMetricNumber(current.metric.target)} {current.metric.label ?? ''}
-            </Text>
-          ) : null}
-          <TextInput
-            value={progressDraft}
-            onChangeText={setProgressDraft}
-            keyboardType="decimal-pad"
-            style={styles.sheetInput}
-            accessibilityLabel="Current progress value"
-            testID="chart-progress-input"
-          />
-          <View style={styles.chipsRow}>
-            <Pressable onPress={() => adjustProgressDraft(-10)} style={[styles.chip, styles.chipQuiet]}>
-              <Text style={styles.chipTextQuiet}>-10</Text>
-            </Pressable>
-            <Pressable onPress={() => adjustProgressDraft(10)} style={styles.chip}>
-              <Text style={styles.chipText}>+10</Text>
-            </Pressable>
-            <Pressable onPress={() => adjustProgressDraft(50)} style={styles.chip}>
-              <Text style={styles.chipText}>+50</Text>
-            </Pressable>
-            <Pressable onPress={() => adjustProgressDraft(100)} style={styles.chip}>
-              <Text style={styles.chipText}>+100</Text>
-            </Pressable>
-          </View>
-          <V2Button size="large" onPress={handleSaveProgress} loading={chartActions?.busy === `progress:${current?.id}`}>
-            Save
-          </V2Button>
-        </View>
-      </V2SheetModal>
-
-      {/* Edit Waypoint Modal */}
-      <V2SheetModal
-        visible={editWaypointOpen}
-        onClose={() => setEditWaypointOpen(false)}
-        reduceMotion={reducedMotion}
-        testID="chart-edit-waypoint-modal"
-      >
-        <View style={styles.sheetContent}>
-          <Text style={styles.sheetTitle}>Edit Waypoint</Text>
-          <TextInput
-            value={editTitleDraft}
-            onChangeText={setEditTitleDraft}
-            placeholder="Waypoint title"
-            placeholderTextColor="rgba(244, 246, 250, 0.38)"
-            style={styles.sheetInput}
-            maxLength={60}
-            accessibilityLabel="Waypoint title"
-          />
-          <TextInput
-            value={editRationaleDraft}
-            onChangeText={setEditRationaleDraft}
-            placeholder="Why this matters"
-            placeholderTextColor="rgba(244, 246, 250, 0.38)"
-            multiline
-            style={[styles.sheetInput, styles.sheetTextarea]}
-            maxLength={400}
-            accessibilityLabel="Why this waypoint matters"
-          />
-          <V2Button size="large" onPress={handleSaveEditWaypoint} loading={chartActions?.busy === `wp-edit:${current?.id}`}>
-            Save
-          </V2Button>
-        </View>
-      </V2SheetModal>
-
-      {/* Mark Waypoint Reached Confirm Modal */}
-      <V2SheetModal
-        visible={confirmReachOpen}
-        onClose={() => setConfirmReachOpen(false)}
-        reduceMotion={reducedMotion}
-        testID="chart-reach-confirm-modal"
-      >
-        <View style={styles.sheetContent}>
-          <Text style={styles.sheetTitle}>{CHART_COPY.waypoint.confirmTitle}</Text>
-          <Text style={styles.sheetSubtitle}>{CHART_COPY.waypoint.confirmBody}</Text>
-          <V2Button
-            size="large"
-            onPress={async () => {
-              if (!current) return;
-              setConfirmReachOpen(false);
-              const result = await chartActions?.reachWaypoint(current.id);
-              if (result) {
-                onWaypointReached?.(result, view.reachedCount, view.total);
-              }
-            }}
-            accessibilityLabel={CHART_COPY.waypoint.confirmCta}
-            loading={chartActions?.busy === `reach:${current?.id}`}
-          >
-            {CHART_COPY.waypoint.confirmCta}
-          </V2Button>
-          <Pressable onPress={() => setConfirmReachOpen(false)} style={styles.cancelLink} hitSlop={10}>
-            <Text style={styles.cancelLinkText}>{CHART_COPY.waypoint.notYet}</Text>
-          </Pressable>
-        </View>
-      </V2SheetModal>
-
-      {/* ••• Menu Sheet Modal */}
       <V2SheetModal visible={menuOpen} onClose={() => setMenuOpen(false)} reduceMotion={reducedMotion} testID="chart-menu">
         <View style={styles.menu}>
-          <MenuItem
-            label="Adjust route"
-            onPress={() => {
-              setMenuOpen(false);
-              onAdjust();
-            }}
-          />
-          <MenuItem
-            label="View course log"
-            onPress={() => {
-              setMenuOpen(false);
-              onOpenLog();
-            }}
-          />
-          {vision ? (
-            <MenuItem
-              label="View Vision"
-              onPress={() => {
-                setMenuOpen(false);
-                onOpenVision();
-              }}
-            />
-          ) : null}
-          {current ? (
+          <MenuItem label={CHART_COPY.review.adjust} onPress={() => { setMenuOpen(false); onAdjust(); }} />
+          <MenuItem label={CHART_COPY.active.courseLogCta} onPress={() => { setMenuOpen(false); onOpenLog(); }} />
+          <MenuItem label={CHART_COPY.active.viewVision} onPress={() => { setMenuOpen(false); onOpenVision(); }} />
+          {!arrived && targetWaypoint && targetWaypoint.state !== 'completed' ? (
             <MenuItem
               label="Mark waypoint reached"
+              testID="chart-mark-waypoint"
               onPress={() => {
                 setMenuOpen(false);
-                setConfirmReachOpen(true);
+                setConfirmOpen(true);
               }}
             />
           ) : null}
         </View>
       </V2SheetModal>
-    </ChartInkScreen>
+
+      <ChartConfirmSheet
+        visible={confirmOpen}
+        title={targetWaypoint?.title ?? ''}
+        accent={accent}
+        reducedMotion={reducedMotion}
+        busy={panelActions.busy === `reach:${targetWaypoint?.id}`}
+        onYes={async () => {
+          setConfirmOpen(false);
+          if (targetWaypoint) {
+            const result = await panelActions.reachWaypoint(targetWaypoint.id);
+            if (result) handleReached(result);
+          }
+        }}
+        onNotYet={() => setConfirmOpen(false)}
+      />
+    </View>
   );
 }
 
-function MenuItem({ label, onPress }: { label: string; onPress: () => void }) {
+function MenuItem({ label, onPress, testID }: { label: string; onPress: () => void; testID?: string }) {
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={({ pressed }) => [styles.menuItem, pressed && { opacity: 0.7 }]}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      testID={testID}
+      style={({ pressed }) => [styles.menuItem, pressed && { opacity: 0.7 }]}
+    >
       <Text style={styles.menuText}>{label}</Text>
     </Pressable>
   );
@@ -1006,424 +725,567 @@ export { ChartMetricBar as MetricBar } from './ChartMetricBar';
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  overlayHeader: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    paddingHorizontal: spacing[5],
-  },
-  topNavRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    height: 44,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  menuButton: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitleSerif: {
-    fontFamily: SERIF_MEDIUM,
-    fontSize: 22,
-    color: '#171717',
-    textAlign: 'center',
-  },
-  mapHeaderMeta: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginTop: spacing[2],
-  },
-  categoryPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingTop: 4,
-  },
-  categoryDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  categoryText: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 11,
-    letterSpacing: 0.8,
-  },
-  polaroidCard: {
-    backgroundColor: '#FFFFFF',
-    padding: 3,
-    paddingBottom: 5,
-    borderRadius: 3,
-    width: 58,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  polaroidImage: {
-    width: 52,
-    height: 44,
-    borderRadius: 2,
-  },
-  polaroidPlaceholder: {
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  polaroidLabel: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 8,
-    letterSpacing: 0.5,
-    color: '#171717',
-    textAlign: 'center',
-    marginTop: 3,
-  },
-  celebration: {
-    padding: spacing[4],
-    borderRadius: radii.lg,
-    backgroundColor: 'rgba(14, 21, 28, 0.88)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(242, 230, 203, 0.35)',
-    gap: spacing[1],
-    marginBottom: spacing[3],
-  },
-  celebrationTitle: { ...typography.headingLG, color: colors.ink.text.primary },
-  celebrationNext: { marginTop: spacing[2], gap: 2 },
-  celebrationNextTitle: { ...typography.bodyMD, color: colors.ink.text.primary },
-  body: {
-    paddingHorizontal: spacing[5],
-    paddingBottom: spacing[5],
-    backgroundColor: colors.ink.base,
-    borderTopLeftRadius: radii.xl,
-    borderTopRightRadius: radii.xl,
-  },
-  compactSection: {
-    paddingVertical: spacing[4],
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255, 255, 255, 0.10)',
-  },
-  primarySection: { paddingVertical: spacing[5] },
-  transitionSpace: { minHeight: 240 },
-  offline: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], paddingHorizontal: spacing[1], marginBottom: spacing[2] },
-  offlineText: { ...typography.bodySM, color: 'rgba(244, 246, 250, 0.70)' },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  headerRightRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  position: { fontFamily: 'Inter-Regular', fontSize: 13, color: 'rgba(244, 246, 250, 0.70)' },
-  pencilButton: { padding: 4 },
-  waypointTitle: {
-    fontFamily: SERIF_MEDIUM,
-    fontSize: 23,
-    lineHeight: 29,
-    color: colors.ink.text.primary,
-    marginTop: spacing[2],
-  },
-  rationale: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 13.5,
-    lineHeight: 19,
-    color: 'rgba(244, 246, 250, 0.70)',
-    marginTop: spacing[1],
-  },
-  progressContainer: { marginTop: spacing[3] },
-  progressTrack: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    overflow: 'hidden',
-  },
-  progressFill: { height: '100%', borderRadius: 3 },
-  progressDataRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: spacing[2],
-  },
-  progressValueText: { flexDirection: 'row', alignItems: 'baseline' },
-  progressCurrentNum: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 14.5,
-    color: colors.ink.text.primary,
-  },
-  progressTargetNum: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 13.5,
-    color: 'rgba(244, 246, 250, 0.70)',
-  },
-  updateProgressButton: {
-    borderWidth: 1,
-    borderColor: 'rgba(244, 246, 250, 0.25)',
-    borderRadius: radii.pill,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-  },
-  updateProgressText: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 12,
-    color: colors.ink.text.primary,
-  },
-  cardTitle: { ...typography.headingSM, color: colors.ink.text.primary, marginBottom: spacing[3] },
+  screen: { flex: 1, backgroundColor: T.ink },
+  scroll: { backgroundColor: T.ink },
+  scallop: { position: 'absolute', left: 0, right: 0, bottom: -1 },
+  offline: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], paddingHorizontal: spacing[5], paddingTop: spacing[3], backgroundColor: T.ink },
+  offlineText: { fontFamily: T.sans, fontSize: 13, color: T.muted },
+  stillRight: { marginHorizontal: spacing[4], marginTop: spacing[3], backgroundColor: T.panel, borderColor: T.line },
+  cardTitle: { ...typography.headingSM, fontFamily: T.serif, color: T.light, marginBottom: spacing[3] },
   row: { flexDirection: 'row', gap: spacing[3] },
-  heroCard: {
-    backgroundColor: colors.ink.raised,
-    borderRadius: radii.lg,
-    padding: spacing[4],
-    marginTop: spacing[3],
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
-  },
-  heroRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 5,
-    borderWidth: 1.5,
-    borderColor: 'rgba(244, 246, 250, 0.40)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxOn: { backgroundColor: '#F2E6CB', borderColor: '#F2E6CB' },
-  heroMoveTitle: {
-    flex: 1,
-    fontFamily: SERIF_REGULAR,
-    fontSize: 16,
-    lineHeight: 22,
-    color: colors.ink.text.primary,
-  },
-  arrowButton: {
-    width: 28,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  moveEmpty: { flexDirection: 'row', alignItems: 'center', minHeight: 36 },
-  moveEmptyText: { flex: 1, ...typography.bodyMD, color: 'rgba(244, 246, 250, 0.70)' },
-  otherMovesContainer: { marginTop: spacing[3] },
-  otherMovesHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing[2],
-  },
-  otherMovesLabel: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 13,
-    color: 'rgba(244, 246, 250, 0.70)',
-  },
-  expandedMovesList: {
-    marginTop: spacing[2],
-    gap: spacing[2],
-  },
-  otherMoveRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[3],
-    paddingVertical: spacing[2],
-    paddingHorizontal: spacing[2],
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: radii.md,
-  },
-  otherMoveTitle: {
-    flex: 1,
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    color: colors.ink.text.primary,
-  },
-  otherMoveActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  actionIcon: { padding: 4 },
-  addMoveRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
-    paddingHorizontal: spacing[2],
-    paddingVertical: spacing[2],
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    marginTop: spacing[1],
-  },
-  addMoveInput: {
-    flex: 1,
-    fontFamily: 'Inter-Regular',
-    fontSize: 13,
-    color: colors.ink.text.primary,
-    padding: 0,
-  },
-  suggestMovesRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
-    paddingVertical: spacing[2],
-    paddingHorizontal: spacing[1],
-  },
-  suggestMovesText: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 13,
-  },
-  error: { ...typography.bodySM, color: '#E7A19C', marginTop: spacing[2] },
-  practiceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[3],
-    paddingVertical: spacing[4],
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255, 255, 255, 0.10)',
-  },
-  practiceIconFrame: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-  },
-  practicedTodayTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  practiceTitle: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 15,
-    color: colors.ink.text.primary,
-  },
-  practiceCheckIcon: { marginTop: 1 },
-  practiceSubtext: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 12.5,
-    color: 'rgba(244, 246, 250, 0.70)',
-    marginTop: 2,
-  },
-  destinationSection: {
-    paddingTop: spacing[4],
-  },
-  destinationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[3],
-    paddingVertical: spacing[3],
-  },
-  destinationMark: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-  },
-  destinationTitle: {
-    flex: 1,
-    fontFamily: SERIF_REGULAR,
-    fontSize: 15,
-    lineHeight: 21,
-    color: colors.ink.text.primary,
-  },
-  courseLogRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[3],
-    paddingVertical: spacing[3],
-  },
-  courseLogIconFrame: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-  },
-  courseLogText: {
-    flex: 1,
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    color: 'rgba(244, 246, 250, 0.85)',
-  },
-  sheetContent: {
-    paddingHorizontal: spacing[5],
-    paddingBottom: spacing[6],
-    gap: spacing[4],
-  },
-  sheetTitle: {
-    fontFamily: SERIF_MEDIUM,
-    fontSize: 22,
-    color: colors.ink.text.primary,
-    textAlign: 'center',
-  },
-  sheetSubtitle: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    color: 'rgba(244, 246, 250, 0.70)',
-    textAlign: 'center',
-  },
-  sheetInput: {
-    height: 48,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
-    backgroundColor: colors.ink.raised,
-    color: colors.ink.text.primary,
-    paddingHorizontal: spacing[4],
-    fontFamily: 'Inter-Regular',
-    fontSize: 16,
-  },
-  sheetTextarea: {
-    height: 96,
-    paddingTop: spacing[3],
-    textAlignVertical: 'top',
-  },
-  chipsRow: {
-    flexDirection: 'row',
-    gap: spacing[2],
-    justifyContent: 'center',
-  },
-  chip: {
-    flex: 1,
-    height: 38,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-    backgroundColor: 'rgba(255, 255, 255, 0.10)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chipQuiet: {
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-  },
-  chipText: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 13,
-    color: colors.ink.text.primary,
-  },
-  chipTextQuiet: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: 13,
-    color: 'rgba(244, 246, 250, 0.60)',
-  },
-  cancelLink: {
-    alignItems: 'center',
-    paddingVertical: spacing[2],
-  },
-  cancelLinkText: {
-    fontFamily: 'Inter-Regular',
-    fontSize: 14,
-    color: 'rgba(244, 246, 250, 0.70)',
-  },
-  menu: { paddingHorizontal: spacing[5], paddingBottom: spacing[4] },
-  menuItem: {
-    minHeight: 52,
-    justifyContent: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255, 255, 255, 0.10)',
-  },
-  menuText: { ...typography.labelLG, color: colors.ink.text.primary },
+  menu: { paddingHorizontal: spacing[5], paddingBottom: spacing[4], backgroundColor: T.panel, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl },
+  menuItem: { minHeight: 52, justifyContent: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.line },
+  menuText: { ...typography.labelLG, color: T.light },
 });
+
+// DEFERRED: ===== Previous ChartActiveView (ChartJourneyWorld hero, cream cards, celebration banner); replaced by the treasure-map composition above and kept for reference =====
+// DEFERRED: import { chartTypography as typography } from './chartTypography';
+// DEFERRED: import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+// DEFERRED: import { BackHandler, Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+// DEFERRED: import { useSafeAreaInsets } from 'react-native-safe-area-context';
+// DEFERRED: import Animated, { cancelAnimation, runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
+// DEFERRED: import { ArrowRight, Check, ChevronRight, Flag, MoreHorizontal, WifiOff } from 'lucide-react-native';
+// DEFERRED: import { V2SheetModal } from '@/components/v2/primitives/V2SheetModal';
+// DEFERRED: import { VisionHeaderRow, VisionIdentity } from '@/components/v2/vision/VisionChrome';
+// DEFERRED: import { CHART_COPY } from '@/constants/v2/chartCopy';
+// DEFERRED: import type { ChartViewModel } from '@/adapters/v2/chart/chartV2Model';
+// DEFERRED: import type { UseAnchorChartResult, WaypointReachResult } from '@/hooks/v2/chart/useAnchorChart';
+// DEFERRED: import { colors, getCategoryColor, radii, spacing } from '@/theme/v2';
+// DEFERRED: import { ChartEyebrow, ChartInkButton, ChartInkCard, ChartInkScreen, type ChartIdentity } from './ChartChrome';
+// DEFERRED: import type { ChartAnchorArt, ChartMarker } from './ChartLandscape';
+// DEFERRED: import { ChartJourneyWorld } from './ChartJourneyWorld';
+// DEFERRED: import { getJourneyRouteProgress } from './chartJourneyGeometry';
+// DEFERRED: import { useChartJourneyCamera } from './useChartJourneyCamera';
+// DEFERRED: import { ChartCompletionPanel } from './ChartDestinationReached';
+// DEFERRED: import { ChartMetricBar } from './ChartMetricBar';
+// DEFERRED: import { ChartWaypointContent } from './ChartWaypointContent';
+// DEFERRED: import { CHART_CAMERA_TIMING, CHART_EASING, CHART_PROGRESS_TIMING as PT, CHART_TRANSITION_TIMING as TT, chartTiming } from './chartMotion';
+// DEFERRED: 
+// DEFERRED: export type ChartVisionPreview = { imageUrl: string | null; description: string | null; title: string | null };
+// DEFERRED: 
+// DEFERRED: export type ChartCelebration = {
+// DEFERRED:   completedTitle: string;
+// DEFERRED:   nextTitle: string | null;
+// DEFERRED:   /** Route fraction the Anchor travels from (before the reach). */
+// DEFERRED:   fromFraction: number;
+// DEFERRED: };
+// DEFERRED: 
+// DEFERRED: type Props = {
+// DEFERRED:   view: ChartViewModel;
+// DEFERRED:   identity: ChartIdentity;
+// DEFERRED:   anchorArt: ChartAnchorArt | null;
+// DEFERRED:   vision: ChartVisionPreview | null;
+// DEFERRED:   stale: boolean;
+// DEFERRED:   busyKey: string | null;
+// DEFERRED:   reducedMotion: boolean;
+// DEFERRED:   celebration: ChartCelebration | null;
+// DEFERRED:   onCelebrationDone: () => void;
+// DEFERRED:   onBack: () => void;
+// DEFERRED:   onOpenWaypoint?: (waypointId: string) => void;
+// DEFERRED:   chartActions?: Pick<
+// DEFERRED:     UseAnchorChartResult,
+// DEFERRED:     | 'busy'
+// DEFERRED:     | 'addMove'
+// DEFERRED:     | 'acceptMove'
+// DEFERRED:     | 'completeMove'
+// DEFERRED:     | 'dismissMove'
+// DEFERRED:     | 'suggestMoves'
+// DEFERRED:     | 'updateProgress'
+// DEFERRED:     | 'reachWaypoint'
+// DEFERRED:     | 'editWaypoint'
+// DEFERRED:     | 'removeWaypoint'
+// DEFERRED:   >;
+// DEFERRED:   initialWaypointId?: string | null;
+// DEFERRED:   onWaypointReached?: (result: WaypointReachResult, previousReachedCount: number, total: number) => void;
+// DEFERRED:   onSpatialModeChange?: (focused: boolean) => void;
+// DEFERRED:   onCompleteMove: (moveId: string) => Promise<boolean>;
+// DEFERRED:   onOpenVision: () => void;
+// DEFERRED:   onOpenLog: () => void;
+// DEFERRED:   onAdjust: () => void;
+// DEFERRED:   onRelease?: () => void;
+// DEFERRED:   actionError: string | null;
+// DEFERRED:   /**
+// DEFERRED:    * How the screen was reached. 'reveal' continues straight from the creation
+// DEFERRED:    * reveal (the map is already in place, so only the content arrives); 'open'
+// DEFERRED:    * is an ordinary visit (the route settles once, then everything is still).
+// DEFERRED:    */
+// DEFERRED:   entrance?: 'reveal' | 'open';
+// DEFERRED:   testID?: string;
+// DEFERRED: };
+// DEFERRED: 
+// DEFERRED: /** Content cards arrive in order with a restrained stagger. */
+// DEFERRED: const ENTRY_CARDS = 4;
+// DEFERRED: const ENTRY_TOTAL = TT.cardIn + TT.cardStagger * (ENTRY_CARDS - 1);
+// DEFERRED: 
+// DEFERRED: function EntryCard({ index, entry, children }: { index: number; entry: SharedValue<number>; children: React.ReactNode }) {
+// DEFERRED:   const style = useAnimatedStyle(() => {
+// DEFERRED:     const local = Math.max(0, Math.min(1, (entry.value * ENTRY_TOTAL - index * TT.cardStagger) / TT.cardIn));
+// DEFERRED:     return { opacity: local, transform: [{ translateY: (1 - local) * 10 }] };
+// DEFERRED:   });
+// DEFERRED:   return <Animated.View style={style}>{children}</Animated.View>;
+// DEFERRED: }
+// DEFERRED: 
+// DEFERRED: /** Travelled fraction: the Anchor sits at the last reached waypoint (0 = START). */
+// DEFERRED: export function travelledFraction(view: Pick<ChartViewModel, 'reachedCount' | 'total' | 'isFinished'>): number {
+// DEFERRED:   if (view.total === 0) return 0;
+// DEFERRED:   if (view.isFinished) return 1;
+// DEFERRED:   return Math.min(1, view.reachedCount / view.total);
+// DEFERRED: }
+// DEFERRED: 
+// DEFERRED: export function ChartActiveView({
+// DEFERRED:   view,
+// DEFERRED:   identity,
+// DEFERRED:   anchorArt,
+// DEFERRED:   vision,
+// DEFERRED:   stale,
+// DEFERRED:   busyKey,
+// DEFERRED:   reducedMotion,
+// DEFERRED:   celebration,
+// DEFERRED:   onCelebrationDone,
+// DEFERRED:   onBack,
+// DEFERRED:   onOpenWaypoint,
+// DEFERRED:   chartActions,
+// DEFERRED:   initialWaypointId = null,
+// DEFERRED:   onWaypointReached,
+// DEFERRED:   onSpatialModeChange,
+// DEFERRED:   onCompleteMove,
+// DEFERRED:   onOpenVision,
+// DEFERRED:   onOpenLog,
+// DEFERRED:   onAdjust,
+// DEFERRED:   onRelease,
+// DEFERRED:   actionError,
+// DEFERRED:   entrance = 'open',
+// DEFERRED:   testID,
+// DEFERRED: }: Props) {
+// DEFERRED:   const { width, height } = useWindowDimensions();
+// DEFERRED:   const insets = useSafeAreaInsets();
+// DEFERRED:   const categoryColor = getCategoryColor(identity.category);
+// DEFERRED:   const target = getJourneyRouteProgress(view.total, view.current ? view.currentIndex : -1, view.current?.metric?.fraction, view.isFinished);
+// DEFERRED:   const journey = useChartJourneyCamera(view.courseId, target, reducedMotion);
+// DEFERRED:   const [arrivalSettled, setArrivalSettled] = useState(view.isFinished);
+// DEFERRED:   const finishArrival = useCallback(() => setArrivalSettled(true), []);
+// DEFERRED:   useAnimatedReaction(() => journey.progress.value, (value, previous) => {
+// DEFERRED:     if (view.isFinished && value >= .9999 && previous !== value) runOnJS(finishArrival)();
+// DEFERRED:   }, [view.isFinished, finishArrival]);
+// DEFERRED:   useEffect(() => { if (view.isFinished && reducedMotion) setArrivalSettled(true); }, [view.isFinished, reducedMotion]);
+// DEFERRED:   const entry = useSharedValue(reducedMotion ? 1 : 0);
+// DEFERRED:   const [menuOpen, setMenuOpen] = useState(false);
+// DEFERRED:   const [headerHeight, setHeaderHeight] = useState(insets.top + 116);
+// DEFERRED:   const [checkingMove, setCheckingMove] = useState<string | null>(null);
+// DEFERRED:   const [showStillRight, setShowStillRight] = useState(false);
+// DEFERRED:   const bannerOpacity = useSharedValue(0);
+// DEFERRED:   const celebrationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+// DEFERRED:   const scrollRef = useRef<ScrollView>(null);
+// DEFERRED:   const cameraProgress = useSharedValue(initialWaypointId ? 1 : 0);
+// DEFERRED:   const [selectedWaypointId, setSelectedWaypointId] = useState<string | null>(initialWaypointId);
+// DEFERRED:   const [spatialMode, setSpatialMode] = useState<'chart' | 'focusing' | 'waypoint' | 'returning'>(initialWaypointId ? 'waypoint' : 'chart');
+// DEFERRED: 
+// DEFERRED:   const finishFocus = useCallback(() => setSpatialMode('waypoint'), []);
+// DEFERRED:   const finishReturn = useCallback(() => {
+// DEFERRED:     setSelectedWaypointId(null);
+// DEFERRED:     setSpatialMode('chart');
+// DEFERRED:     onSpatialModeChange?.(false);
+// DEFERRED:   }, [onSpatialModeChange]);
+// DEFERRED: 
+// DEFERRED:   useAnimatedReaction(
+// DEFERRED:     () => cameraProgress.value,
+// DEFERRED:     (current, previous) => {
+// DEFERRED:       if (previous === null) return;
+// DEFERRED:       if (current >= 0.999 && previous < 0.999) runOnJS(finishFocus)();
+// DEFERRED:       if (current <= 0.001 && previous > 0.001) runOnJS(finishReturn)();
+// DEFERRED:     },
+// DEFERRED:     [finishFocus, finishReturn]
+// DEFERRED:   );
+// DEFERRED: 
+// DEFERRED:   const focusWaypoint = (waypointId: string) => {
+// DEFERRED:     if (spatialMode !== 'chart') return;
+// DEFERRED:     if (!chartActions) {
+// DEFERRED:       onOpenWaypoint?.(waypointId);
+// DEFERRED:       return;
+// DEFERRED:     }
+// DEFERRED:     setSelectedWaypointId(waypointId);
+// DEFERRED:     setSpatialMode('focusing');
+// DEFERRED:     onSpatialModeChange?.(true);
+// DEFERRED:     scrollRef.current?.scrollTo({ y: 0, animated: false });
+// DEFERRED:     if (reducedMotion) {
+// DEFERRED:       cameraProgress.value = 1;
+// DEFERRED:       finishFocus();
+// DEFERRED:       return;
+// DEFERRED:     }
+// DEFERRED:     cameraProgress.value = chartTiming(1, { duration: CHART_CAMERA_TIMING.focus, easing: CHART_EASING.deliberate });
+// DEFERRED:   };
+// DEFERRED: 
+// DEFERRED:   const returnToChart = () => {
+// DEFERRED:     if (!selectedWaypointId || spatialMode === 'returning') return;
+// DEFERRED:     setSpatialMode('returning');
+// DEFERRED:     scrollRef.current?.scrollTo({ y: 0, animated: false });
+// DEFERRED:     if (reducedMotion) {
+// DEFERRED:       cameraProgress.value = 0;
+// DEFERRED:       finishReturn();
+// DEFERRED:       return;
+// DEFERRED:     }
+// DEFERRED:     cameraProgress.value = chartTiming(0, { duration: CHART_CAMERA_TIMING.return, easing: CHART_EASING.deliberate });
+// DEFERRED:   };
+// DEFERRED: 
+// DEFERRED:   useEffect(() => {
+// DEFERRED:     if (!selectedWaypointId) return undefined;
+// DEFERRED:     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+// DEFERRED:       returnToChart();
+// DEFERRED:       return true;
+// DEFERRED:     });
+// DEFERRED:     return () => subscription.remove();
+// DEFERRED:   }, [selectedWaypointId, spatialMode]);
+// DEFERRED: 
+// DEFERRED:   useEffect(() => () => cancelAnimation(cameraProgress), [cameraProgress]);
+// DEFERRED: 
+// DEFERRED:   useEffect(() => {
+// DEFERRED:     if (!selectedWaypointId || view.waypoints.some((waypoint) => waypoint.id === selectedWaypointId)) return;
+// DEFERRED:     cancelAnimation(cameraProgress);
+// DEFERRED:     cameraProgress.value = 0;
+// DEFERRED:     setSelectedWaypointId(null);
+// DEFERRED:     setSpatialMode('chart');
+// DEFERRED:     onSpatialModeChange?.(false);
+// DEFERRED:   }, [cameraProgress, onSpatialModeChange, selectedWaypointId, view.waypoints]);
+// DEFERRED: 
+// DEFERRED:   useEffect(() => {
+// DEFERRED:     if (!journey.ready) return;
+// DEFERRED:     entry.value = reducedMotion ? 1 : chartTiming(1, { duration: ENTRY_TOTAL, easing: CHART_EASING.settle });
+// DEFERRED:     return () => cancelAnimation(entry);
+// DEFERRED:   }, [journey.ready, reducedMotion, entry]);
+// DEFERRED: 
+// DEFERRED:   useEffect(() => {
+// DEFERRED:     if (!celebration) return;
+// DEFERRED:     bannerOpacity.value = reducedMotion ? 1 : chartTiming(1, { duration: PT.banner });
+// DEFERRED:     celebrationTimer.current = setTimeout(() => {
+// DEFERRED:       bannerOpacity.value = chartTiming(0, { duration: 300 });
+// DEFERRED:       if (celebration.nextTitle) setShowStillRight(true);
+// DEFERRED:       onCelebrationDone();
+// DEFERRED:     }, reducedMotion ? PT.bannerHoldReduced : PT.bannerHold);
+// DEFERRED:     return () => { if (celebrationTimer.current) clearTimeout(celebrationTimer.current); };
+// DEFERRED:   }, [celebration, reducedMotion, onCelebrationDone, bannerOpacity]);
+// DEFERRED: 
+// DEFERRED:   const bannerStyle = useAnimatedStyle(() => ({ opacity: bannerOpacity.value }));
+// DEFERRED:   const waypointContentStyle = useAnimatedStyle(() => ({ opacity: cameraProgress.value }));
+// DEFERRED: 
+// DEFERRED:   const markers: ChartMarker[] = useMemo(
+// DEFERRED:     () =>
+// DEFERRED:       view.waypoints.map((waypoint) => ({
+// DEFERRED:         id: waypoint.id,
+// DEFERRED:         number: waypoint.number,
+// DEFERRED:         state: waypoint.state,
+// DEFERRED:         accessibilityLabel: waypoint.accessibilityLabel,
+// DEFERRED:       })),
+// DEFERRED:     [view.waypoints]
+// DEFERRED:   );
+// DEFERRED: 
+// DEFERRED:   const current = view.current;
+// DEFERRED:   const oneMove = view.oneMove;
+// DEFERRED:   const mapSummary = current
+// DEFERRED:     ? `Chart map. Waypoint ${current.number} of ${view.total} is current: ${current.title}. Destination: ${view.destination}.`
+// DEFERRED:     : `Chart map. Destination: ${view.destination}.`;
+// DEFERRED: 
+// DEFERRED:   const completeOneMove = async () => {
+// DEFERRED:     if (!oneMove || checkingMove) return;
+// DEFERRED:     setCheckingMove(oneMove.id);
+// DEFERRED:     await onCompleteMove(oneMove.id);
+// DEFERRED:     setCheckingMove(null);
+// DEFERRED:   };
+// DEFERRED: 
+// DEFERRED:   return (
+// DEFERRED:     <ChartInkScreen testID={testID ?? 'chart-active'}>
+// DEFERRED:       <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: selectedWaypointId ? 0 : insets.bottom + spacing[8] }} showsVerticalScrollIndicator={false}>
+// DEFERRED:         <View>
+// DEFERRED:           <ChartJourneyWorld
+// DEFERRED:             width={width}
+// DEFERRED:             height={Math.max(280, Math.min(height * .55, height - headerHeight - 160))}
+// DEFERRED:             category={identity.category}
+// DEFERRED:             markers={markers}
+// DEFERRED:             progress={journey.progress}
+// DEFERRED:             inspectionBlend={cameraProgress}
+// DEFERRED:             selectedMarkerId={selectedWaypointId}
+// DEFERRED:             onReady={journey.onReady}
+// DEFERRED:             onMarkerPress={focusWaypoint}
+// DEFERRED:             accessibilityLabel={mapSummary}
+// DEFERRED:             style={{ marginTop: headerHeight }}
+// DEFERRED:             testID="chart-hero-map"
+// DEFERRED:           />
+// DEFERRED:           <View style={[styles.overlayHeader, { paddingTop: insets.top }]} onLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)}>
+// DEFERRED:             <VisionHeaderRow
+// DEFERRED:               title={CHART_COPY.title}
+// DEFERRED:               onBack={selectedWaypointId ? returnToChart : onBack}
+// DEFERRED:               tone="light"
+// DEFERRED:               utility={
+// DEFERRED:                 <Pressable accessibilityRole="button" accessibilityLabel="Chart options" hitSlop={8} onPress={() => setMenuOpen(true)}>
+// DEFERRED:                   <MoreHorizontal size={22} color={colors.ink.text.primary} />
+// DEFERRED:                 </Pressable>
+// DEFERRED:               }
+// DEFERRED:             />
+// DEFERRED:             <View style={styles.identity}>
+// DEFERRED:               <VisionIdentity intention={identity.intention} category={identity.category} art={identity.art} imageUrl={identity.imageUrl} tone="light" size={48} />
+// DEFERRED:             </View>
+// DEFERRED:           </View>
+// DEFERRED:         </View>
+// DEFERRED: 
+// DEFERRED:         {view.isFinished && !selectedWaypointId ? (
+// DEFERRED:           arrivalSettled ? <ChartCompletionPanel view={view} vision={vision} onViewJourney={onOpenLog} onRelease={onRelease ?? onAdjust} /> : <View style={styles.transitionSpace} />
+// DEFERRED:         ) : selectedWaypointId && (spatialMode === 'waypoint' || spatialMode === 'returning') && chartActions ? (
+// DEFERRED:           <Animated.View style={waypointContentStyle}>
+// DEFERRED:           <ChartWaypointContent
+// DEFERRED:             view={view}
+// DEFERRED:             waypointId={selectedWaypointId}
+// DEFERRED:             chart={chartActions}
+// DEFERRED:             category={identity.category}
+// DEFERRED:             reducedMotion={reducedMotion}
+// DEFERRED:             actionError={actionError}
+// DEFERRED:             bottomInset={insets.bottom}
+// DEFERRED:             onBack={returnToChart}
+// DEFERRED:             onReached={(result) => {
+// DEFERRED:               onWaypointReached?.(result, view.reachedCount, view.total);
+// DEFERRED:               returnToChart();
+// DEFERRED:             }}
+// DEFERRED:           />
+// DEFERRED:           </Animated.View>
+// DEFERRED:         ) : spatialMode === 'focusing' ? (
+// DEFERRED:           <View style={styles.transitionSpace} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />
+// DEFERRED:         ) : (
+// DEFERRED:         <View style={styles.body}>
+// DEFERRED:           {/* Below the map, so the Anchor's travel along the route stays visible. */}
+// DEFERRED:           {celebration ? (
+// DEFERRED:             <Animated.View style={[styles.celebration, bannerStyle]} accessibilityLiveRegion="assertive" testID="chart-waypoint-reached">
+// DEFERRED:               <ChartEyebrow color="#F2E6CB">{CHART_COPY.labels.waypointReached}</ChartEyebrow>
+// DEFERRED:               <Text style={styles.celebrationTitle}>{celebration.completedTitle}</Text>
+// DEFERRED:               {celebration.nextTitle ? (
+// DEFERRED:                 <View style={styles.celebrationNext}>
+// DEFERRED:                   <ChartEyebrow>{CHART_COPY.labels.next}</ChartEyebrow>
+// DEFERRED:                   <Text style={styles.celebrationNextTitle}>{celebration.nextTitle}</Text>
+// DEFERRED:                 </View>
+// DEFERRED:               ) : null}
+// DEFERRED:             </Animated.View>
+// DEFERRED:           ) : null}
+// DEFERRED:           {stale ? (
+// DEFERRED:             <View style={styles.offline} accessibilityLiveRegion="polite">
+// DEFERRED:               <WifiOff size={14} color={colors.text.secondary} />
+// DEFERRED:               <Text style={styles.offlineText}>{CHART_COPY.active.offline}</Text>
+// DEFERRED:             </View>
+// DEFERRED:           ) : null}
+// DEFERRED: 
+// DEFERRED:           {current ? (
+// DEFERRED:             <EntryCard index={0} entry={entry}>
+// DEFERRED:               <Pressable
+// DEFERRED:                 accessibilityRole="button"
+// DEFERRED:                 accessibilityLabel={`Current waypoint, ${current.number} of ${view.total}: ${current.title}${current.metric ? `, ${current.metric.display}` : ''}. Open waypoint.`}
+// DEFERRED:                 onPress={() => focusWaypoint(current.id)}
+// DEFERRED:                 testID="chart-current-waypoint"
+// DEFERRED:               >
+// DEFERRED:                 <View style={styles.compactSection}>
+// DEFERRED:                   <View style={styles.cardHeader}>
+// DEFERRED:                     <ChartEyebrow tone="cream">{CHART_COPY.labels.currentWaypoint}</ChartEyebrow>
+// DEFERRED:                     <Text style={styles.position}>{view.positionLabel}</Text>
+// DEFERRED:                   </View>
+// DEFERRED:                   <Text style={styles.waypointTitle}>{current.title}</Text>
+// DEFERRED:                   {current.metric ? <ChartMetricBar metric={current.metric} color={categoryColor} tone="cream" /> : null}
+// DEFERRED:                   {!current.metric && current.rationale ? (
+// DEFERRED:                     <Text style={styles.rationale} numberOfLines={2}>
+// DEFERRED:                       {current.rationale}
+// DEFERRED:                     </Text>
+// DEFERRED:                   ) : null}
+// DEFERRED:                 </View>
+// DEFERRED:               </Pressable>
+// DEFERRED:             </EntryCard>
+// DEFERRED:           ) : null}
+// DEFERRED: 
+// DEFERRED:           {showStillRight ? (
+// DEFERRED:             <ChartInkCard testID="chart-still-right">
+// DEFERRED:               <Text style={styles.cardTitle}>{CHART_COPY.adjust.stillRight}</Text>
+// DEFERRED:               <View style={styles.row}>
+// DEFERRED:                 <ChartInkButton label={CHART_COPY.adjust.keep} variant="outline" onPress={() => setShowStillRight(false)} style={styles.flex} />
+// DEFERRED:                 <ChartInkButton
+// DEFERRED:                   label={CHART_COPY.adjust.adjustAhead}
+// DEFERRED:                   onPress={() => {
+// DEFERRED:                     setShowStillRight(false);
+// DEFERRED:                     onAdjust();
+// DEFERRED:                   }}
+// DEFERRED:                   style={styles.flex}
+// DEFERRED:                 />
+// DEFERRED:               </View>
+// DEFERRED:             </ChartInkCard>
+// DEFERRED:           ) : null}
+// DEFERRED: 
+// DEFERRED:           <EntryCard index={1} entry={entry}>
+// DEFERRED:             <View style={[styles.compactSection, styles.primarySection]} testID="chart-one-move">
+// DEFERRED:               <ChartEyebrow tone="cream">{CHART_COPY.labels.oneMove}</ChartEyebrow>
+// DEFERRED:               {oneMove ? (
+// DEFERRED:                 <View style={styles.moveRow}>
+// DEFERRED:                   <Pressable
+// DEFERRED:                     accessibilityRole="checkbox"
+// DEFERRED:                     accessibilityState={{ checked: checkingMove === oneMove.id, busy: busyKey === `move:${oneMove.id}` }}
+// DEFERRED:                     accessibilityLabel={`Complete move: ${oneMove.title}`}
+// DEFERRED:                     onPress={() => void completeOneMove()}
+// DEFERRED:                     hitSlop={10}
+// DEFERRED:                     style={[styles.checkbox, checkingMove === oneMove.id && styles.checkboxOn]}
+// DEFERRED:                     testID="chart-one-move-check"
+// DEFERRED:                   >
+// DEFERRED:                     {checkingMove === oneMove.id ? <Check size={14} color={colors.ink.base} strokeWidth={3} /> : null}
+// DEFERRED:                   </Pressable>
+// DEFERRED:                   <Text style={styles.moveTitle}>{oneMove.title}</Text>
+// DEFERRED:                   <Pressable
+// DEFERRED:                     accessibilityRole="button"
+// DEFERRED:                     accessibilityLabel="Open waypoint moves"
+// DEFERRED:                     onPress={() => current && focusWaypoint(current.id)}
+// DEFERRED:                     hitSlop={8}
+// DEFERRED:                     style={styles.arrowButton}
+// DEFERRED:                   >
+// DEFERRED:                     <ArrowRight size={16} color={colors.text.primary} />
+// DEFERRED:                   </Pressable>
+// DEFERRED:                 </View>
+// DEFERRED:               ) : (
+// DEFERRED:                 <Pressable
+// DEFERRED:                   accessibilityRole="button"
+// DEFERRED:                   accessibilityLabel={CHART_COPY.active.noMoveCta}
+// DEFERRED:                   onPress={() => current && focusWaypoint(current.id)}
+// DEFERRED:                   style={styles.moveEmpty}
+// DEFERRED:                   testID="chart-one-move-empty"
+// DEFERRED:                 >
+// DEFERRED:                   <Text style={styles.moveEmptyText}>{CHART_COPY.active.noMove}</Text>
+// DEFERRED:                   <ChevronRight size={18} color={colors.text.secondary} />
+// DEFERRED:                 </Pressable>
+// DEFERRED:               )}
+// DEFERRED:               {actionError ? <Text style={styles.error}>{actionError}</Text> : null}
+// DEFERRED:             </View>
+// DEFERRED:           </EntryCard>
+// DEFERRED: 
+// DEFERRED:           <EntryCard index={2} entry={entry}>
+// DEFERRED:             <View style={styles.compactSection} testID="chart-destination">
+// DEFERRED:               <ChartEyebrow tone="cream">{CHART_COPY.labels.yourDestination}</ChartEyebrow>
+// DEFERRED:               <View style={styles.destinationRow}>
+// DEFERRED:                 {vision?.imageUrl ? (
+// DEFERRED:                   <Image source={{ uri: vision.imageUrl }} style={styles.destinationThumb} accessibilityIgnoresInvertColors accessibilityLabel="Your Vision" />
+// DEFERRED:                 ) : (
+// DEFERRED:                   <View style={[styles.destinationMark, { borderColor: categoryColor }]}>
+// DEFERRED:                     <Flag size={18} color={categoryColor} />
+// DEFERRED:                   </View>
+// DEFERRED:                 )}
+// DEFERRED:                 <View style={styles.flex}>
+// DEFERRED:                   <Text style={styles.destinationTitle}>{view.destination}</Text>
+// DEFERRED:                   {vision?.description ? (
+// DEFERRED:                     <Text style={styles.destinationDescription} numberOfLines={2}>
+// DEFERRED:                       {vision.description}
+// DEFERRED:                     </Text>
+// DEFERRED:                   ) : null}
+// DEFERRED:                   {vision ? (
+// DEFERRED:                     <Pressable accessibilityRole="button" accessibilityLabel={CHART_COPY.active.viewVision} onPress={onOpenVision} style={styles.inlineLink} testID="chart-view-vision">
+// DEFERRED:                       <Text style={styles.inlineLinkText}>{CHART_COPY.active.viewVision}</Text>
+// DEFERRED:                       <ArrowRight size={14} color={colors.text.primary} />
+// DEFERRED:                     </Pressable>
+// DEFERRED:                   ) : null}
+// DEFERRED:                 </View>
+// DEFERRED:               </View>
+// DEFERRED:             </View>
+// DEFERRED:           </EntryCard>
+// DEFERRED: 
+// DEFERRED:           <EntryCard index={3} entry={entry}>
+// DEFERRED:             <Pressable accessibilityRole="button" accessibilityLabel={CHART_COPY.active.courseLogCta} onPress={onOpenLog} testID="chart-course-log">
+// DEFERRED:               <View style={styles.logRow}>
+// DEFERRED:                 <View style={styles.flex}>
+// DEFERRED:                   <ChartEyebrow tone="cream">{CHART_COPY.labels.courseLog}</ChartEyebrow>
+// DEFERRED:                   <Text style={styles.logText}>
+// DEFERRED:                     {view.reachedCount} of {view.total} waypoints · {view.completedMoveCount} move{view.completedMoveCount === 1 ? '' : 's'} completed
+// DEFERRED:                   </Text>
+// DEFERRED:                 </View>
+// DEFERRED:                 <ChevronRight size={18} color={colors.text.secondary} />
+// DEFERRED:               </View>
+// DEFERRED:             </Pressable>
+// DEFERRED:           </EntryCard>
+// DEFERRED:         </View>
+// DEFERRED:         )}
+// DEFERRED:       </ScrollView>
+// DEFERRED: 
+// DEFERRED:       <V2SheetModal visible={menuOpen} onClose={() => setMenuOpen(false)} reduceMotion={reducedMotion} testID="chart-menu">
+// DEFERRED:         <View style={styles.menu}>
+// DEFERRED:           <MenuItem label={CHART_COPY.review.adjust} onPress={() => { setMenuOpen(false); onAdjust(); }} />
+// DEFERRED:           <MenuItem label={CHART_COPY.active.courseLogCta} onPress={() => { setMenuOpen(false); onOpenLog(); }} />
+// DEFERRED:           {vision ? <MenuItem label={CHART_COPY.active.viewVision} onPress={() => { setMenuOpen(false); onOpenVision(); }} /> : null}
+// DEFERRED:         </View>
+// DEFERRED:       </V2SheetModal>
+// DEFERRED:     </ChartInkScreen>
+// DEFERRED:   );
+// DEFERRED: }
+// DEFERRED: 
+// DEFERRED: function MenuItem({ label, onPress }: { label: string; onPress: () => void }) {
+// DEFERRED:   return (
+// DEFERRED:     <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={({ pressed }) => [styles.menuItem, pressed && { opacity: 0.7 }]}>
+// DEFERRED:       <Text style={styles.menuText}>{label}</Text>
+// DEFERRED:     </Pressable>
+// DEFERRED:   );
+// DEFERRED: }
+// DEFERRED: 
+// DEFERRED: export { ChartMetricBar as MetricBar } from './ChartMetricBar';
+// DEFERRED: 
+// DEFERRED: const styles = StyleSheet.create({
+// DEFERRED:   flex: { flex: 1 },
+// DEFERRED:   overlayHeader: { position: 'absolute', left: 0, right: 0, top: 0, paddingHorizontal: spacing[5] },
+// DEFERRED:   identity: { paddingTop: spacing[2] },
+// DEFERRED:   celebration: {
+// DEFERRED:     padding: spacing[4],
+// DEFERRED:     borderRadius: radii.lg,
+// DEFERRED:     backgroundColor: 'rgba(14, 21, 28, 0.88)',
+// DEFERRED:     borderWidth: StyleSheet.hairlineWidth,
+// DEFERRED:     borderColor: 'rgba(242, 230, 203, 0.35)',
+// DEFERRED:     gap: spacing[1],
+// DEFERRED:   },
+// DEFERRED:   celebrationTitle: { ...typography.headingLG, color: colors.ink.text.primary },
+// DEFERRED:   celebrationNext: { marginTop: spacing[2], gap: 2 },
+// DEFERRED:   celebrationNextTitle: { ...typography.bodyMD, color: colors.ink.text.primary },
+// DEFERRED:   body: { paddingHorizontal: spacing[5], paddingBottom: spacing[5], gap: 0, backgroundColor: colors.canvas, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl },
+// DEFERRED:   compactSection: {
+// DEFERRED:     paddingVertical: spacing[5],
+// DEFERRED:     borderBottomWidth: StyleSheet.hairlineWidth,
+// DEFERRED:     borderBottomColor: colors.border.subtle,
+// DEFERRED:   },
+// DEFERRED:   primarySection: { paddingVertical: spacing[6] },
+// DEFERRED:   transitionSpace: { minHeight: 240 },
+// DEFERRED:   offline: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], paddingHorizontal: spacing[1] },
+// DEFERRED:   offlineText: { ...typography.bodySM, color: colors.text.secondary },
+// DEFERRED:   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+// DEFERRED:   position: { ...typography.labelMD, color: colors.text.secondary },
+// DEFERRED:   waypointTitle: { ...typography.headingLG, fontFamily: 'BricolageGrotesque-SemiBold', color: colors.text.primary, marginTop: spacing[2] },
+// DEFERRED:   rationale: { ...typography.bodySM, color: colors.text.secondary, marginTop: spacing[1] },
+// DEFERRED:   cardTitle: { ...typography.headingSM, color: colors.text.primary, marginBottom: spacing[3] },
+// DEFERRED:   row: { flexDirection: 'row', gap: spacing[3] },
+// DEFERRED:   moveRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], marginTop: spacing[3] },
+// DEFERRED:   checkbox: {
+// DEFERRED:     width: 24,
+// DEFERRED:     height: 24,
+// DEFERRED:     borderRadius: 6,
+// DEFERRED:     borderWidth: 1.5,
+// DEFERRED:     borderColor: colors.text.secondary,
+// DEFERRED:     alignItems: 'center',
+// DEFERRED:     justifyContent: 'center',
+// DEFERRED:   },
+// DEFERRED:   checkboxOn: { backgroundColor: '#F2E6CB', borderColor: '#F2E6CB' },
+// DEFERRED:   moveTitle: { flex: 1, ...typography.bodyLG, fontFamily: 'Figtree-Regular', color: colors.text.primary },
+// DEFERRED:   arrowButton: {
+// DEFERRED:     width: 36,
+// DEFERRED:     height: 36,
+// DEFERRED:     borderRadius: 18,
+// DEFERRED:     borderWidth: 1,
+// DEFERRED:     borderColor: colors.border.subtle,
+// DEFERRED:     alignItems: 'center',
+// DEFERRED:     justifyContent: 'center',
+// DEFERRED:   },
+// DEFERRED:   moveEmpty: { flexDirection: 'row', alignItems: 'center', marginTop: spacing[3], minHeight: 44 },
+// DEFERRED:   moveEmptyText: { flex: 1, ...typography.bodyMD, color: colors.text.secondary },
+// DEFERRED:   error: { ...typography.bodySM, color: '#E7A19C', marginTop: spacing[2] },
+// DEFERRED:   destinationRow: { flexDirection: 'row', gap: spacing[4], marginTop: spacing[3] },
+// DEFERRED:   destinationThumb: { width: 86, height: 86, borderRadius: radii.md, borderWidth: 1, borderColor: 'rgba(242, 230, 203, 0.4)' },
+// DEFERRED:   destinationMark: { width: 56, height: 56, borderRadius: 28, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+// DEFERRED:   destinationTitle: { ...typography.headingSM, color: colors.text.primary },
+// DEFERRED:   destinationDescription: { ...typography.bodySM, color: colors.text.secondary, marginTop: 4 },
+// DEFERRED:   inlineLink: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing[2], minHeight: 32 },
+// DEFERRED:   inlineLinkText: { ...typography.labelMD, color: colors.text.primary },
+// DEFERRED:   logRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing[2], paddingVertical: spacing[3], minHeight: 56 },
+// DEFERRED:   logText: { ...typography.bodySM, color: colors.text.secondary, marginTop: 4 },
+// DEFERRED:   menu: { paddingHorizontal: spacing[5], paddingBottom: spacing[4] },
+// DEFERRED:   menuItem: { minHeight: 52, justifyContent: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border.subtle },
+// DEFERRED:   menuText: { ...typography.labelLG, color: colors.text.primary },
+// DEFERRED: });

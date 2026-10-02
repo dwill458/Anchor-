@@ -23,7 +23,7 @@ import { useV2ReduceMotion } from '@/hooks/v2/useV2ReduceMotion';
 import { chartV2Api, classifyChartError, freshKey, type ChartProposal } from '@/services/v2/chartV2Api';
 import { liveWaypoints } from '@/adapters/v2/chart/chartV2Model';
 import { colors, getCategoryColor, radii, spacing, typography } from '@/theme/v2';
-import { chartArtFor } from '@/components/v2/chart/chartRouteGeometry';
+const ETCHED_MAP_IMAGE = require('@/../assets/chart/chart-landscape-master.webp');
 import type { CourseDetail, WaypointSummary } from '@/types/chart';
 import { CenteredMessage } from './V2ChartScreen';
 import { useChartContext } from './chartScreenSupport';
@@ -215,7 +215,7 @@ export function V2ChartAdjustScreen() {
           <View style={styles.headerSpacer} />
         </View>
 
-        <View style={styles.metaRow}>
+        <View style={styles.metaContainer}>
           <View style={styles.categoryPill}>
             <View style={[styles.categoryDot, { backgroundColor: categoryColor }]} />
             <Text style={[styles.categoryText, { color: categoryColor }]}>
@@ -223,7 +223,7 @@ export function V2ChartAdjustScreen() {
             </Text>
           </View>
           {course.destinationText ? (
-            <Text style={styles.headerDestination} numberOfLines={1}>
+            <Text style={styles.headerDestination} numberOfLines={2}>
               {course.destinationText}
             </Text>
           ) : null}
@@ -231,7 +231,7 @@ export function V2ChartAdjustScreen() {
 
         {/* Map strip below header */}
         <View style={styles.mapStripContainer}>
-          <Image source={chartArtFor(context.identity?.category).source} style={styles.mapStrip} resizeMode="cover" />
+          <Image source={ETCHED_MAP_IMAGE} style={styles.mapStrip} resizeMode="cover" />
         </View>
       </View>
 
@@ -349,12 +349,10 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 32,
   },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
+  metaContainer: {
     marginTop: spacing[1],
     marginBottom: spacing[3],
+    gap: 4,
   },
   categoryPill: {
     flexDirection: 'row',
@@ -372,9 +370,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
   },
   headerDestination: {
-    flex: 1,
     ...typography.bodySM,
     color: colors.text.secondary,
+    lineHeight: 19,
   },
   mapStripContainer: {
     height: 72,

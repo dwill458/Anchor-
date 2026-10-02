@@ -189,24 +189,43 @@ describe('V2ChartJourneyScreen — Course log redesign', () => {
     const mockEntries: CourseLogEntry[] = [
       {
         id: 'entry-move-1',
+                waypointId: null,
         eventType: 'MOVE_COMPLETED',
+        message: 'Completed move',
+        reflection: null,
+        recordedAt: '2026-03-02T14:30:00.000Z',
         occurredAt: '2026-03-02T14:30:00.000Z',
         snapshot: {
           moveTitle: 'Buy new running shoes',
         },
+        practiceSession: null,
+        anchorLink: null,
       },
       {
         id: 'entry-wp-1',
+                waypointId: 'wp-1',
         eventType: 'WAYPOINT_REACHED',
+        message: 'Reached waypoint',
+        reflection: null,
+        recordedAt: '2026-03-01T12:00:00.000Z',
         occurredAt: '2026-03-01T12:00:00.000Z',
         snapshot: {
           waypointTitle: 'Complete 10k run',
         },
+        practiceSession: null,
+        anchorLink: null,
       },
       {
         id: 'entry-course-created',
+                waypointId: null,
         eventType: 'COURSE_CREATED',
+        message: 'Course created',
+        reflection: null,
+        recordedAt: '2026-02-15T10:00:00.000Z',
         occurredAt: '2026-02-15T10:00:00.000Z',
+        snapshot: {},
+        practiceSession: null,
+        anchorLink: null,
       },
     ];
 
@@ -245,9 +264,8 @@ describe('V2ChartJourneyScreen — Course log redesign', () => {
     const screen = render(<V2ChartJourneyScreen />);
 
     // Check practice session appears
-    await waitFor(() => expect(screen.getByText('Practice session')).toBeTruthy());
-    expect(screen.getByText(/Practice completed\./)).toBeTruthy();
-    expect(screen.getByText(/5m · Focus/)).toBeTruthy();
+    await waitFor(() => expect(screen.getByText('Focus · 5 min')).toBeTruthy());
+    expect(screen.getByText('Practice completed.')).toBeTruthy();
 
     // Check move completed appears with move text
     await waitFor(() => expect(screen.getByText('Move completed')).toBeTruthy());

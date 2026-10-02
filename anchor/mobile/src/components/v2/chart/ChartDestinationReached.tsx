@@ -11,7 +11,9 @@ import { colors, radii, spacing } from '@/theme/v2';
 import { ChartCreamPanel, ChartEyebrow, ChartInkScreen, ChartTopBar, type ChartIdentity } from './ChartChrome';
 import type { ChartVisionPreview } from './ChartActiveView';
 import type { ChartAnchorArt } from './ChartLandscape';
-import { ChartJourneyWorld } from './ChartJourneyWorld';
+// DEFERRED: import { ChartJourneyWorld } from './ChartJourneyWorld';
+import { ChartStaticMap } from './panel/ChartStaticMap';
+import { getCategoryColor } from '@/theme/v2';
 type Props = {
   view:ChartViewModel; identity:ChartIdentity; anchorArt:ChartAnchorArt|null;
   vision:ChartVisionPreview|null; released:boolean; reducedMotion:boolean;
@@ -32,14 +34,20 @@ export function journeyRows(view: ChartViewModel): Row[] {
   return rows;
 }
 
-export function ChartDestinationReached({ view,identity,vision,released,onBack,onViewJourney,onRelease,testID }:Props) {
-  const {width,height}=useWindowDimensions();
+// DEFERRED: export function ChartDestinationReached({ view,identity,vision,released,onBack,onViewJourney,onRelease,testID }:Props) {
+export function ChartDestinationReached({ view,identity,vision,released,reducedMotion,onBack,onViewJourney,onRelease,testID }:Props) {
+  // DEFERRED:   const {width,height}=useWindowDimensions();
+  const {width}=useWindowDimensions();
   const insets=useSafeAreaInsets();
   return <ChartInkScreen testID={testID ?? 'chart-destination-reached'}>
     <ScrollView contentContainerStyle={{paddingBottom:insets.bottom+spacing[6]}}>
       <ChartTopBar title="Destination reached" onBack={onBack} />
-      <ChartJourneyWorld width={width} height={height*.46} category={identity.category} staticProgress={view.isFinished ? 1 : 0}
-        markers={view.waypoints.map(w=>({id:w.id,number:w.number,state:w.state,accessibilityLabel:w.accessibilityLabel}))} />
+      {/*
+      // DEFERRED:       <ChartJourneyWorld width={width} height={height*.46} category={identity.category} staticProgress={view.isFinished ? 1 : 0}
+      // DEFERRED:         markers={view.waypoints.map(w=>({id:w.id,number:w.number,state:w.state,accessibilityLabel:w.accessibilityLabel}))} />
+      */}
+      <ChartStaticMap width={width} categoryColor={getCategoryColor(identity.category)} category={identity.category} mode="arrived" waypointCount={view.total} reducedMotion={reducedMotion}
+        markers={view.waypoints.map((w,index)=>({id:w.id,index,number:w.number,title:w.title,state:'done' as const,selected:false,accessibilityLabel:`Waypoint ${w.number}: ${w.title}, reached`}))} testID="chart-arrived-map" />
       <ChartCompletionPanel view={view} vision={vision} released={released} onViewJourney={onViewJourney} onRelease={onRelease} />
     </ScrollView>
   </ChartInkScreen>;

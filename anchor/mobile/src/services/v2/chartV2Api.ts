@@ -49,6 +49,12 @@ export type ChartProposal = {
   expiresAt: string;
 };
 
+/** Optional references sent with a plan request (additive; text-only clients omit them). */
+export type ChartReferenceWire =
+  | { kind: 'photo'; assetId: string; role?: 'start' | 'extra' }
+  | { kind: 'place'; label: string; latitude?: number; longitude?: number }
+  | { kind: 'document'; name: string; text: string };
+
 export type ChartPlanResponse =
   | { status: 'needs_context'; followUpQuestion: string }
   | { status: 'proposal'; proposal: ChartProposal };
@@ -153,7 +159,9 @@ export const chartV2Api = {
     body: {
       idempotencyKey: string;
       startingContext?: string | null;
+      /** `answer` may be empty when `references` answer the question instead. */
       followUp?: { question: string; answer: string } | null;
+      references?: ChartReferenceWire[] | null;
     }
   ): Promise<ChartPlanResponse> {
     return call(() =>

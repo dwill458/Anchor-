@@ -1,12 +1,11 @@
 import React from 'react';
-import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
+import { fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import { V2ChartScreen } from '../V2ChartScreen';
 import { apiClient } from '@/services/ApiClient';
 import { resetV2VisionReadCache } from '@/hooks/v2/vision/useV2Vision';
 import { resetAnchorChartCache } from '@/hooks/v2/chart/useAnchorChart';
 import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
-import { useSessionStore } from '@/stores/sessionStore';
 import { encryptedPersistStorage } from '@/stores/encryptedPersistStorage';
 import type { ChartForAnchor, ChartProposal } from '@/services/v2/chartV2Api';
 import type { CourseDetail } from '@/types/chart';
@@ -16,25 +15,13 @@ const mockSetParams = jest.fn();
 const mockNavigation = { navigate: mockNavigate, goBack: jest.fn(), canGoBack: () => true, setParams: mockSetParams };
 let mockParams: Record<string, unknown> = { anchorId: 'anchor-1' };
 
-const mockFocusCallbacks = new Set<() => void>();
-const mockTriggerFocus = () => {
-  mockFocusCallbacks.forEach((cb) => cb());
-};
-
 jest.mock('@react-navigation/native', () => {
   const ReactActual = jest.requireActual('react');
   return {
     useNavigation: () => mockNavigation,
     useRoute: () => ({ params: mockParams }),
-    useFocusEffect: (callback: () => void) => {
-      ReactActual.useEffect(() => {
-        mockFocusCallbacks.add(callback);
-        callback();
-        return () => {
-          mockFocusCallbacks.delete(callback);
-        };
-      }, [callback]);
-    },
+    // Runs once per mount, like a real focus.
+    useFocusEffect: (callback: () => void) => ReactActual.useEffect(() => callback(), []),
   };
 });
 
@@ -61,7 +48,6 @@ jest.mock('@/services/ApiClient', () => {
 const { ApiClientError } = jest.requireMock('@/services/ApiClient');
 const get = apiClient.get as jest.Mock;
 const post = apiClient.post as jest.Mock;
-const patch = apiClient.patch as jest.Mock;
 
 const anchor = {
   id: 'anchor-1',
@@ -208,11 +194,17 @@ describe('V2ChartScreen — no Chart', () => {
   it('without Vision: shows the empty state, asks what would make it real, no fake imagery', async () => {
     serve({ chart: readModel(null), vision: null });
     const screen = render(<V2ChartScreen />);
-    expect(await screen.findByText('Give this Anchor somewhere to go.')).toBeTruthy();
-    expect(screen.getByText('REINFORCING')).toBeTruthy();
+    expect(await screen.findByText('Let’s chart the distance between here and there.')).toBeTruthy();
+    expect(screen.getByText('I’ll use what you’ve already given Anchor. You only need to fill in what I can’t see.')).toBeTruthy();
+    // The etched map replaces the old road art.
+    expect(screen.getByTestId('chart-intro-map', { includeHiddenElements: true })).toBeTruthy();
     expect(screen.queryByText(/Gentle S|Wide zig-zag|Rising arc|Double bend/)).toBeNull();
 
     fireEvent.press(screen.getByTestId('chart-create-cta'));
+    // The photo step comes first; the written question stays one tap away.
+    expect(await screen.findByTestId('chart-context-step')).toBeTruthy();
+    expect(screen.getByText('SHOW WHERE YOU ARE NOW')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('chart-context-describe'));
     expect(await screen.findByTestId('chart-starting-context')).toBeTruthy();
     expect(screen.queryByTestId('chart-vision-context')).toBeNull();
     expect(screen.getByText('What would make this real?')).toBeTruthy();
@@ -235,7 +227,11 @@ describe('V2ChartScreen — no Chart', () => {
     const screen = render(<V2ChartScreen />);
     fireEvent.press(await screen.findByTestId('chart-create-cta'));
     await waitFor(() => expect(screen.getByTestId('chart-vision-context')).toBeTruthy());
-    expect(screen.getByText('YOU’VE ALREADY SEEN IT.')).toBeTruthy();
+    expect(screen.getByText('YOUR DESTINATION')).toBeTruthy();
+    expect(screen.getByText('I’ll use your Vision to understand where you’re headed.')).toBeTruthy();
+    // The written fallback still acknowledges the Vision.
+    fireEvent.press(screen.getByTestId('chart-context-describe'));
+    await waitFor(() => expect(screen.getByText('YOU’VE ALREADY SEEN IT.')).toBeTruthy());
     expect(screen.getByText(vision.description)).toBeTruthy();
     fireEvent.press(screen.getByLabelText('View Vision'));
     expect(mockNavigate).toHaveBeenCalledWith('V2Vision', { anchorId: 'anchor-1' });
@@ -250,14 +246,13 @@ describe('V2ChartScreen — no Chart', () => {
     });
     const screen = render(<V2ChartScreen />);
     fireEvent.press(await screen.findByTestId('chart-create-cta'));
+    fireEvent.press(await screen.findByTestId('chart-context-describe'));
     fireEvent.changeText(screen.getByTestId('chart-starting-input'), 'App is launched but only has 100 users.');
     fireEvent.press(screen.getByTestId('chart-context-continue'));
 
-    expect(await screen.findByText('Mapping the space between.')).toBeTruthy();
-    for (const layer of ['sky','city','midground','road','foreground']) {
-      fireEvent(screen.getByTestId(`chart-world-layer-${layer}`, { includeHiddenElements: true }), 'load');
-    }
-    expect(await screen.findByText('Here’s a route to start with.', {}, { timeout: 3000 })).toBeTruthy();
+    expect(await screen.findByText('Reading your Vision…')).toBeTruthy();
+    // DEFERRED: the road art's layer images are gone; the etched map has nothing to load.
+    expect(await screen.findByText('Here’s the course I’d start with.', {}, { timeout: 3000 })).toBeTruthy();
     expect(screen.getByText('We found 4 meaningful waypoints for this destination. Keep what fits. Change what doesn’t.')).toBeTruthy();
 
     // The route and the One Move are different things: four numbered waypoints, then a separate move for waypoint 1.
@@ -275,12 +270,13 @@ describe('V2ChartScreen — no Chart', () => {
     fireEvent.changeText(screen.getByLabelText('Waypoint 1 title'), 'Validate repeatable acquisition');
     fireEvent(screen.getByLabelText('Waypoint 1 title'), 'submitEditing');
 
-    fireEvent.press(screen.getByTestId('chart-review-confirm'));
-    expect(await screen.findByText('Your route is ready.')).toBeTruthy();
-    // The saved Chart now exists on the server, as it would after the create call.
+    // The saved Chart exists on the server once the create call lands.
     serve({ chart: readModel(activeChart({ id: 'course-new' })), vision: null });
-    fireEvent.press(screen.getByTestId('chart-explore'));
-    expect(await screen.findByTestId('chart-current-waypoint')).toBeTruthy();
+    // "Looks right" is the confirmation: there is no separate "Explore your Chart" screen. The First Waypoint
+    // reveal plays and flows straight into the permanent Chart.
+    fireEvent.press(screen.getByTestId('chart-review-confirm'));
+    expect(await screen.findByTestId('chart-current-waypoint', {}, { timeout: 8000 })).toBeTruthy();
+    expect(screen.queryByTestId('chart-explore')).toBeNull();
     const createCall = post.mock.calls.find(([url]) => url === '/api/v2/anchors/anchor-1/chart')!;
     expect(createCall[1]).toMatchObject({
       destinationText: 'Reach 10,000 active users',
@@ -296,6 +292,43 @@ describe('V2ChartScreen — no Chart', () => {
     ]);
   });
 
+  it('skip goes straight to mapping with no context and no references', async () => {
+    serve({ chart: readModel(null), vision: null });
+    post.mockResolvedValueOnce({ data: { success: true, data: { status: 'proposal', proposal } } });
+    const screen = render(<V2ChartScreen />);
+    fireEvent.press(await screen.findByTestId('chart-create-cta'));
+    fireEvent.press(await screen.findByTestId('chart-context-skip'));
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+    const body = post.mock.calls[0][1];
+    expect(body.startingContext).toBeNull();
+    expect(body.followUp).toBeNull();
+    expect(body.references).toBeUndefined();
+  });
+
+  it('a clarity answer can be a reference alone (no text)', async () => {
+    serve({ chart: readModel(null), vision: null });
+    post
+      .mockResolvedValueOnce({ data: { success: true, data: { status: 'needs_context', followUpQuestion: 'What does the garage look like?' } } })
+      .mockResolvedValueOnce({ data: { success: true, data: { status: 'proposal', proposal } } });
+    const screen = render(<V2ChartScreen />);
+    fireEvent.press(await screen.findByTestId('chart-create-cta'));
+    fireEvent.press(await screen.findByTestId('chart-context-skip'));
+    expect(await screen.findByText('ONE THING I CAN’T SEE')).toBeTruthy();
+    expect(await screen.findByText('What does the garage look like?')).toBeTruthy();
+    // Nothing yet: Continue is disabled.
+    expect(screen.getByTestId('chart-follow-up-continue').props.accessibilityState).toMatchObject({ disabled: true });
+    fireEvent.press(screen.getByTestId('chart-reference-place'));
+    fireEvent.changeText(screen.getByTestId('chart-reference-place-input'), 'Mike’s Auto Body');
+    fireEvent.press(screen.getByTestId('chart-reference-place-add'));
+    expect(screen.getByTestId('chart-follow-up-continue').props.accessibilityState).toMatchObject({ disabled: false });
+    fireEvent.press(screen.getByTestId('chart-follow-up-continue'));
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
+    expect(post.mock.calls[1][1]).toMatchObject({
+      followUp: { question: 'What does the garage look like?', answer: '' },
+      references: [{ kind: 'place', label: 'Mike’s Auto Body' }],
+    });
+  });
+
   it('asks one follow-up question, then plans with the answer', async () => {
     serve({ chart: readModel(null), vision: null });
     post
@@ -303,6 +336,7 @@ describe('V2ChartScreen — no Chart', () => {
       .mockResolvedValueOnce({ data: { success: true, data: { status: 'proposal', proposal } } });
     const screen = render(<V2ChartScreen />);
     fireEvent.press(await screen.findByTestId('chart-create-cta'));
+    fireEvent.press(await screen.findByTestId('chart-context-describe'));
     fireEvent.changeText(screen.getByTestId('chart-starting-input'), 'Just starting');
     fireEvent.press(screen.getByTestId('chart-context-continue'));
     expect(await screen.findByText('Where are you starting from now?')).toBeTruthy();
@@ -322,6 +356,7 @@ describe('V2ChartScreen — no Chart', () => {
     });
     const screen = render(<V2ChartScreen />);
     fireEvent.press(await screen.findByTestId('chart-create-cta'));
+    fireEvent.press(await screen.findByTestId('chart-context-describe'));
     fireEvent.changeText(screen.getByTestId('chart-starting-input'), 'Starting from zero');
     fireEvent.press(screen.getByTestId('chart-context-continue'));
     expect(await screen.findByTestId('chart-generation-failed')).toBeTruthy();
@@ -344,11 +379,9 @@ describe('V2ChartScreen — active Chart', () => {
     expect(within(current).getByText('Reach 1,000 active users')).toBeTruthy();
     expect(within(current).getByText('642 / 1,000')).toBeTruthy();
     expect(within(screen.getByTestId('chart-one-move')).getByText('Finish onboarding redesign')).toBeTruthy();
-    await waitFor(() => expect(within(screen.getByTestId('chart-destination')).getByText(vision.description)).toBeTruthy());
+    await waitFor(() => expect(within(screen.getByTestId('chart-destination')).getByText('Reach 10,000 active users')).toBeTruthy());
     fireEvent.press(screen.getByTestId('chart-view-vision'));
     expect(mockNavigate).toHaveBeenCalledWith('V2Vision', { anchorId: 'anchor-1' });
-    fireEvent.press(screen.getByTestId('chart-practice-row'));
-    expect(mockNavigate).toHaveBeenCalledWith('V2Practice', { anchorId: 'anchor-1' });
   });
 
   it('without Vision: shows the destination with no stand-in image and no View Vision', async () => {
@@ -357,9 +390,6 @@ describe('V2ChartScreen — active Chart', () => {
     await screen.findByTestId('chart-destination');
     expect(screen.queryByTestId('chart-view-vision')).toBeNull();
     expect(screen.queryByLabelText('Your Vision')).toBeNull();
-    expect(screen.getByTestId('chart-practice-row')).toBeTruthy();
-    fireEvent.press(screen.getByTestId('chart-practice-row'));
-    expect(mockNavigate).toHaveBeenCalledWith('V2Practice', { anchorId: 'anchor-1' });
   });
 
   it('shows the rationale instead of a bar when the waypoint has no measure', async () => {
@@ -388,122 +418,36 @@ describe('V2ChartScreen — active Chart', () => {
     expect(await screen.findByText('Launch creator campaign')).toBeTruthy();
   });
 
-  it('Practice row shows "Practice today" and subtext, and launches Practice with anchor pre-selected', async () => {
-    useSessionStore.setState({ practiceHistory: [] });
+  // DEFERRED: (replaced: the current waypoint is no longer a card that opens a separate view; markers focus waypoints in place)
+  // DEFERRED: it('opens waypoints, adjustment and the course log', async () => {
+  // DEFERRED: serve({ chart: readModel(activeChart()), vision: null });
+  // DEFERRED: const screen = render(<V2ChartScreen />);
+  // DEFERRED: fireEvent.press(await screen.findByTestId('chart-current-waypoint'));
+  // DEFERRED: expect(await screen.findByTestId('chart-waypoint-content')).toBeTruthy();
+  // DEFERRED: expect(mockNavigate).not.toHaveBeenCalledWith('V2ChartWaypoint', expect.anything());
+  // DEFERRED: fireEvent.press(screen.getByLabelText('Back to Chart'));
+  // DEFERRED: expect(await screen.findByTestId('chart-current-waypoint')).toBeTruthy();
+  // DEFERRED: fireEvent.press(screen.getByTestId('chart-course-log'));
+  // DEFERRED: expect(mockNavigate).toHaveBeenCalledWith('V2ChartJourney', { anchorId: 'anchor-1' });
+  // DEFERRED: });
+  it('focuses waypoints in place from the map, returns to the current one, and opens the course log', async () => {
     serve({ chart: readModel(activeChart()), vision: null });
     const screen = render(<V2ChartScreen />);
-    const row = await screen.findByTestId('chart-practice-row');
-    expect(within(row).getByText('Practice today')).toBeTruthy();
-    expect(within(row).getByText('Keep your anchor strong')).toBeTruthy();
-    fireEvent.press(row);
-    expect(mockNavigate).toHaveBeenCalledWith('V2Practice', { anchorId: 'anchor-1' });
-  });
-
-  it('Practice row displays "Practiced today" without subtext when already practiced today', async () => {
-    useSessionStore.setState({
-      practiceHistory: [
-        {
-          id: 'session-today',
-          accountId: 'user-1',
-          anchorId: 'anchor-1',
-          anchorLocalId: 'anchor-1',
-          anchorServerId: 'anchor-1',
-          practiceMode: 'focus',
-          plannedDurationSeconds: 60,
-          completedDurationSeconds: 60,
-          completionStatus: 'completed',
-          startedAt: new Date().toISOString(),
-          completedAt: new Date().toISOString(),
-          localDateKey: '2026-10-01',
-          timeZone: 'UTC',
-          utcOffsetMinutesAtCompletion: 0,
-          completionSource: 'practice_screen',
-          schemaVersion: 1,
-          legacyType: null,
-          guidanceVoice: 'none',
-          backgroundAudio: 'silent',
-          sceneSnapshot: null,
-          nextAction: null,
-          clientVersion: '1.0.0',
-          syncState: 'synced',
-        } as any,
-      ],
-    });
-    serve({ chart: readModel(activeChart()), vision: null });
-    const screen = render(<V2ChartScreen />);
-    const row = await screen.findByTestId('chart-practice-row');
-    expect(within(row).getByText('Practiced today')).toBeTruthy();
-    expect(within(row).queryByText('Keep your anchor strong')).toBeNull();
-    fireEvent.press(row);
-    expect(mockNavigate).toHaveBeenCalledWith('V2Practice', { anchorId: 'anchor-1' });
-  });
-
-  it('selects hero move and does not duplicate it in Other moves list', async () => {
-    const chart = activeChart({
-      moves: [
-        { id: 'm1', courseId: 'course-1', waypointId: 'w2', title: 'Starred Hero Move', rationale: null, source: 'USER', status: 'ACTIVE', position: 100, isCurrent: true, completedAt: null, createdAt: '2026-09-01T00:00:00Z' },
-        { id: 'm2', courseId: 'course-1', waypointId: 'w2', title: 'Secondary Move A', rationale: null, source: 'USER', status: 'ACTIVE', position: 200, isCurrent: false, completedAt: null, createdAt: '2026-09-02T00:00:00Z' },
-        { id: 'm3', courseId: 'course-1', waypointId: 'w2', title: 'Secondary Move B', rationale: null, source: 'USER', status: 'ACTIVE', position: 300, isCurrent: false, completedAt: null, createdAt: '2026-09-03T00:00:00Z' },
-      ],
-    });
-    serve({ chart: readModel(chart), vision: null });
-    const screen = render(<V2ChartScreen />);
-
-    // Hero move card shows Starred Hero Move
-    const heroCard = await screen.findByTestId('chart-one-move');
-    expect(within(heroCard).getByText('Starred Hero Move')).toBeTruthy();
-
-    // Other moves header shows 2 moves
-    const toggle = screen.getByTestId('chart-other-moves-toggle');
-    expect(within(toggle).getByText('Other moves · 2')).toBeTruthy();
-
-    // Expand other moves
-    fireEvent.press(toggle);
-    expect(screen.getByText('Secondary Move A')).toBeTruthy();
-    expect(screen.getByText('Secondary Move B')).toBeTruthy();
-
-    // Verify Starred Hero Move is NOT in the other moves list
-    const otherMoveTitles = screen.getAllByText(/Move/);
-    expect(otherMoveTitles.filter((node) => node.props.children === 'Starred Hero Move')).toHaveLength(1);
-  });
-
-  it('opens update progress bottom sheet, applies chips, and saves progress', async () => {
-    const chart = activeChart();
-    serve({ chart: readModel(chart), vision: null });
-    const increased = activeChart({
-      version: 6,
-      waypoints: chart.waypoints.map((w) => (w.id === 'w2' ? { ...w, metric: { ...w.metric!, current: 750 } } : w)),
-    });
-    patch.mockResolvedValue({ data: { success: true, data: increased } });
-    const screen = render(<V2ChartScreen />);
-
-    // Tap Update progress -> button
-    const updateBtn = await screen.findByTestId('chart-update-progress-button');
-    fireEvent.press(updateBtn);
-
-    // Verify bottom sheet opened with chips
-    expect(await screen.findByTestId('chart-progress-sheet')).toBeTruthy();
-    expect(screen.getByText('-10')).toBeTruthy();
-    expect(screen.getByText('+100')).toBeTruthy();
-
-    // Tap +100 chip (642 + 100 = 742, or change input directly to 750)
-    fireEvent.changeText(screen.getByTestId('chart-progress-input'), '750');
-    fireEvent.press(screen.getByText('Save'));
-
-    await waitFor(() => expect(patch).toHaveBeenCalledWith(
-      '/api/v2/charts/course-1/waypoints/w2/progress',
-      expect.objectContaining({ metricCurrent: 750 })
-    ));
-  });
-
-  it('opens waypoints, adjustment and the course log', async () => {
-    serve({ chart: readModel(activeChart()), vision: null });
-    const screen = render(<V2ChartScreen />);
-    fireEvent.press(await screen.findByTestId('chart-current-waypoint'));
-    expect(await screen.findByTestId('chart-waypoint-content')).toBeTruthy();
-    expect(mockNavigate).not.toHaveBeenCalledWith('V2ChartWaypoint', expect.anything());
-    fireEvent.press(screen.getByLabelText('Back to Chart'));
     expect(await screen.findByTestId('chart-current-waypoint')).toBeTruthy();
+    expect(await screen.findByTestId('chart-waypoint-content')).toBeTruthy();
+    // A tap while the open sequence runs only skips it; wait for it to finish.
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    // Fog of war: the undiscovered final waypoint is not on the map at all.
+    expect(screen.queryByLabelText(/^Waypoint 3/)).toBeNull();
+    // Tapping a reached marker shows that waypoint in the panel, read-only, with a way back.
+    fireEvent.press(screen.getByLabelText('Waypoint 1: Validate acquisition, reached'));
+    expect(await screen.findByText('REACHED')).toBeTruthy();
+    expect(screen.getByText('1 of 3')).toBeTruthy();
+    expect(screen.queryByTestId('chart-current-waypoint')).toBeNull();
+    expect(mockNavigate).not.toHaveBeenCalledWith('V2ChartWaypoint', expect.anything());
+    fireEvent.press(screen.getByText('Back to current waypoint'));
+    expect(await screen.findByTestId('chart-current-waypoint')).toBeTruthy();
+    // Course log single row navigates directly to course log screen
     fireEvent.press(screen.getByTestId('chart-course-log'));
     expect(mockNavigate).toHaveBeenCalledWith('V2ChartJourney', { anchorId: 'anchor-1' });
   });
@@ -516,7 +460,12 @@ describe('V2ChartScreen — active Chart', () => {
     serve({ chart: readModel(activeChart()), vision: null });
     const screen = render(<V2ChartScreen />);
     expect(await screen.findByTestId('chart-waypoint-reached')).toBeTruthy();
-    expect(screen.getByText('WAYPOINT REACHED')).toBeTruthy();
+    // DEFERRED: expect(screen.getByText('WAYPOINT REACHED')).toBeTruthy();
+    expect(screen.getByText('WAYPOINT 1 REACHED')).toBeTruthy();
+    expect(screen.getByText("Look how far you've come.")).toBeTruthy();
+    expect(screen.getByText('Commit to the next leg.')).toBeTruthy();
+    fireEvent.press(screen.getByText("I'm committed"));
+    await waitFor(() => expect(screen.queryByTestId('chart-waypoint-reached')).toBeNull());
     expect(mockSetParams).toHaveBeenCalledWith({ reached: undefined });
   });
 });
@@ -528,10 +477,15 @@ describe('V2ChartScreen — destination and errors', () => {
       vision,
     });
     const screen = render(<V2ChartScreen />);
-    expect(await screen.findByText('Destination reached.')).toBeTruthy();
+    // DEFERRED: expect(await screen.findByText('Destination reached.')).toBeTruthy();
+    expect(await screen.findByText("You've arrived.")).toBeTruthy();
+    expect(screen.getByText('ARRIVED')).toBeTruthy();
     await waitFor(() => expect(screen.getByTestId('chart-reached-vision')).toBeTruthy());
-    expect(screen.getByLabelText('Moves completed: 28')).toBeTruthy();
-    expect(screen.getByLabelText('Practices: 74')).toBeTruthy();
+    // DEFERRED: expect(screen.getByLabelText('Moves completed: 28')).toBeTruthy();
+    // DEFERRED: expect(screen.getByLabelText('Practices: 74')).toBeTruthy();
+    // (the journey numbers now live on the released-Anchor history view, covered below)
+    fireEvent.press(screen.getByTestId('chart-view-vision'));
+    expect(mockNavigate).toHaveBeenCalledWith('V2Vision', { anchorId: 'anchor-1' });
     fireEvent.press(screen.getByTestId('chart-release-anchor'));
     expect(mockNavigate).toHaveBeenCalledWith('V2Release', { anchorId: 'anchor-1', reason: 'destination_completed' });
   });
@@ -539,7 +493,8 @@ describe('V2ChartScreen — destination and errors', () => {
   it('destination reached without Vision uses the travelled map, never a stand-in photo', async () => {
     serve({ chart: readModel(activeChart({ status: 'COMPLETED', currentWaypointId: null, completedAt: '2026-12-14T00:00:00Z' })), vision: null });
     const screen = render(<V2ChartScreen />);
-    expect(await screen.findByText('Destination reached.')).toBeTruthy();
+    // DEFERRED: expect(await screen.findByText('Destination reached.')).toBeTruthy();
+    expect(await screen.findByText("You've arrived.")).toBeTruthy();
     expect(screen.queryByTestId('chart-reached-vision')).toBeNull();
   });
 
@@ -547,6 +502,8 @@ describe('V2ChartScreen — destination and errors', () => {
     serve({ chart: readModel(activeChart({ status: 'COMPLETED', currentWaypointId: null, completedAt: '2026-12-14T00:00:00Z' }), true), vision: null });
     const screen = render(<V2ChartScreen />);
     expect(await screen.findByText('Destination reached.')).toBeTruthy();
+    expect(screen.getByLabelText('Moves completed: 28')).toBeTruthy();
+    expect(screen.getByLabelText('Practices: 74')).toBeTruthy();
     expect(screen.queryByTestId('chart-release-anchor')).toBeNull();
   });
 

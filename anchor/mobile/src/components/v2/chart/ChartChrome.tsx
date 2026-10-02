@@ -21,14 +21,17 @@ export function ChartInkScreen({
   children,
   style,
   testID,
+  paper = false,
 }: {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  /** Cream map-paper ground (creation intro and mapping) instead of ink. */
+  paper?: boolean;
 }) {
   return (
-    <View testID={testID} style={[styles.screen, style]}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.ink.base} animated />
+    <View testID={testID} style={[styles.screen, paper && styles.screenPaper, style]}>
+      <StatusBar barStyle={paper ? 'dark-content' : 'light-content'} backgroundColor={paper ? colors.canvas : colors.ink.base} animated />
       {children}
     </View>
   );
@@ -39,16 +42,19 @@ export function ChartTopBar({
   onBack,
   utility,
   identity,
+  tone = 'light',
 }: {
   title?: string;
   onBack?: () => void;
   utility?: React.ReactNode;
   identity?: ChartIdentity | null;
+  /** 'light' = light text on ink; 'dark' = dark text on paper. */
+  tone?: 'light' | 'dark';
 }) {
   const insets = useSafeAreaInsets();
   return (
     <View style={[styles.topBar, { paddingTop: insets.top }]}>
-      <VisionHeaderRow title={title} onBack={onBack} utility={utility} tone="light" />
+      <VisionHeaderRow title={title} onBack={onBack} utility={utility} tone={tone} />
       {identity ? (
         <View style={styles.identity}>
           <VisionIdentity
@@ -56,7 +62,7 @@ export function ChartTopBar({
             category={identity.category}
             art={identity.art}
             imageUrl={identity.imageUrl}
-            tone="light"
+            tone={tone}
             size={48}
           />
         </View>
@@ -168,6 +174,7 @@ export function ChartInkButton({
   label,
   onPress,
   variant = 'primary',
+  paper = false,
   loading,
   disabled,
   icon,
@@ -178,6 +185,8 @@ export function ChartInkButton({
   label: string;
   onPress: () => void;
   variant?: 'primary' | 'outline';
+  /** Outline button on cream paper: dark border and label. */
+  paper?: boolean;
   loading?: boolean;
   disabled?: boolean;
   icon?: React.ReactNode;
@@ -197,7 +206,7 @@ export function ChartInkButton({
       accessibilityState={{ disabled: inactive, busy: Boolean(loading) }}
       style={({ pressed }) => [
         styles.inkButton,
-        primary ? styles.inkButtonPrimary : styles.inkButtonOutline,
+        primary ? styles.inkButtonPrimary : paper ? styles.inkButtonOutlinePaper : styles.inkButtonOutline,
         inactive && styles.inkButtonInactive,
         pressed && !inactive && styles.pressed,
         style,
@@ -207,7 +216,7 @@ export function ChartInkButton({
         <ActivityIndicator color={primary ? colors.text.primary : colors.ink.text.primary} />
       ) : (
         <View style={styles.inkButtonContent}>
-          <Text style={[styles.inkButtonLabel, { color: primary ? colors.text.primary : colors.ink.text.primary }]}>{label}</Text>
+          <Text style={[styles.inkButtonLabel, { color: primary || paper ? colors.text.primary : colors.ink.text.primary }]}>{label}</Text>
           {icon}
         </View>
       )}
@@ -217,6 +226,7 @@ export function ChartInkButton({
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.ink.base },
+  screenPaper: { backgroundColor: colors.canvas },
   topBar: { paddingHorizontal: spacing[5], zIndex: 2 },
   identity: { paddingTop: spacing[2], paddingBottom: spacing[1] },
   eyebrow: { ...typography.labelSM, letterSpacing: 1.1 },
@@ -242,6 +252,7 @@ const styles = StyleSheet.create({
   inkButton: { minHeight: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing[5] },
   inkButtonPrimary: { backgroundColor: colors.canvas },
   inkButtonOutline: { borderWidth: 1, borderColor: colors.ink.hairlineStrong, backgroundColor: 'transparent' },
+  inkButtonOutlinePaper: { borderWidth: 1, borderColor: colors.text.primary, backgroundColor: 'transparent' },
   inkButtonInactive: { opacity: 0.5 },
   inkButtonContent: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   inkButtonLabel: { ...typography.labelLG, fontWeight: '700' },

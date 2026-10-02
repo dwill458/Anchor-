@@ -25,9 +25,12 @@ import { chartApiClient } from '@/services/ChartApiClient';
 import { courseLogEventCopy } from '@/screens/chart/courseLogPresentation';
 import { colors, getCategoryColor, radii, spacing, typography } from '@/theme/v2';
 import { useSessionStore } from '@/stores/sessionStore';
-import { chartArtFor } from '@/components/v2/chart/chartRouteGeometry';
+import { daysOnCourse } from '@/adapters/v2/chart/chartDayRhythm';
+import { getCachedCourseEvents, getRecordedCourseEvents, type CourseEventRecord } from '@/stores/v2/chartEventStore';
 import type { CourseLogEntry } from '@/types/chart';
 import { useChartContext } from './chartScreenSupport';
+
+const ETCHED_MAP_IMAGE = require('@/../assets/chart/chart-landscape-master.webp');
 
 type Params = { anchorId: string };
 
@@ -48,31 +51,26 @@ type TimelineItem = {
   type: 'PRACTICE' | 'MOVE_COMPLETED' | 'PROGRESS_UPDATED' | 'WAYPOINT_REACHED' | 'COURSE_CREATED' | 'OTHER';
   title: string;
   subtext?: string | null;
+  detailText?: string | null;
+  delta?: number | null;
 };
-
-function daysOnCourse(plottedAt?: string | null): number {
-  if (!plottedAt) return 0;
-  const start = new Date(plottedAt).getTime();
-  if (isNaN(start)) return 0;
-  const diff = Date.now() - start;
-  return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
-}
 
 function formatPracticeModeLabel(mode?: string | null): string {
   if (!mode) return 'Practice';
   const normalized = mode.toLowerCase().replace(/[\s_-]/g, '');
-  if (normalized.includes('prime')) return 'Deep practice';
+  if (normalized.includes('prime')) return 'Deep Focus';
   if (normalized.includes('focus')) return 'Focus';
   if (normalized.includes('visual')) return 'Visualize';
   if (normalized.includes('release')) return 'Release';
   return 'Practice';
 }
 
-function formatPracticeDuration(seconds?: number | null): string {
-  if (!seconds || seconds <= 0) return '0m';
-  if (seconds < 60) return `${seconds}s`;
+function formatPracticeEntryDuration(seconds?: number | null): string {
+  if (!seconds || seconds <= 0) return '0 sec';
+  if (seconds < 60) return `${seconds} sec`;
+  if (seconds === 60) return '60 sec';
   const mins = Math.round(seconds / 60);
-  return `${mins}m`;
+  return `${mins} min`;
 }
 
 function formatDayGutterLabel(dateString: string): string {
@@ -93,7 +91,7 @@ function formatDayGutterLabel(dateString: string): string {
   if (isYesterday) return 'YESTERDAY';
   const day = d.getDate();
   const month = d.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
-  return `${day} ${month}`;
+  return `${month} ${day}`;
 }
 
 function formatDayKey(dateString: string): string {
@@ -119,6 +117,9 @@ export function V2ChartJourneyScreen() {
   const courseId = view?.courseId ?? null;
   const [log, setLog] = useState<CourseLogEntry[] | null>(null);
   const [logError, setLogError] = useState(false);
+  const [recordedEvents, setRecordedEvents] = useState<CourseEventRecord[]>(() =>
+    courseId ? getCachedCourseEvents(courseId) : []
+  );
 
   const categoryColor = getCategoryColor(context.identity?.category ?? 'custom');
 
@@ -133,6 +134,18 @@ export function V2ChartJourneyScreen() {
         if (!controller.signal.aborted) setLogError(true);
       });
     return () => controller.abort();
+  }, [courseId]);
+
+  useEffect(() => {
+    if (!courseId) return;
+    setRecordedEvents(getCachedCourseEvents(courseId));
+    let mounted = true;
+    getRecordedCourseEvents(courseId).then((evts) => {
+      if (mounted) setRecordedEvents(evts);
+    });
+    return () => {
+      mounted = false;
+    };
   }, [courseId]);
 
   const back = () => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('V2Chart', { anchorId }));
@@ -180,8 +193,8 @@ export function V2ChartJourneyScreen() {
           id: entry.id,
           timestamp: entry.occurredAt,
           type: 'PRACTICE',
-          title: 'Practice session',
-          subtext: `Practice completed. ${formatPracticeDuration(durationSec)} · ${formatPracticeModeLabel(mode)}`,
+          title: `${formatPracticeModeLabel(mode)} · ${formatPracticeEntryDuration(durationSec)}`,
+          subtext: 'Practice completed.',
         });
       } else {
         items.push({
@@ -194,7 +207,42 @@ export function V2ChartJourneyScreen() {
       }
     }
 
-    // 2. Add local practice history for this anchor
+    // 2. Add local recorded events (Move completed, Progress updated)
+    for (const evt of recordedEvents) {
+      if (evt.type === 'MOVE_COMPLETED') {
+        const alreadyPresent = items.some(
+          (i) => i.id === evt.id || (i.type === 'MOVE_COMPLETED' && Math.abs(new Date(i.timestamp).getTime() - new Date(evt.timestamp).getTime()) < 10000)
+        );
+        if (!alreadyPresent) {
+          items.push({
+            id: evt.id,
+            timestamp: evt.timestamp,
+            type: 'MOVE_COMPLETED',
+            title: 'Move completed',
+            subtext: evt.payload?.moveTitle ?? 'Completed move',
+          });
+        }
+      } else if (evt.type === 'PROGRESS_UPDATED') {
+        const delta = evt.payload?.delta;
+        const deltaStr = delta != null ? (delta > 0 ? `+${delta}` : `${delta}`) : null;
+        const unit = evt.payload?.unit ?? 'users';
+        const rangeStr =
+          evt.payload?.from != null && evt.payload?.to != null
+            ? `${evt.payload.from} → ${evt.payload.to} ${unit}.`
+            : null;
+        items.push({
+          id: evt.id,
+          timestamp: evt.timestamp,
+          type: 'PROGRESS_UPDATED',
+          title: 'Progress updated',
+          subtext: rangeStr,
+          detailText: deltaStr ? `${deltaStr} ${unit}` : null,
+          delta,
+        });
+      }
+    }
+
+    // 3. Add local practice history for this anchor
     const matchingSessions = practiceHistory.filter(
       (s) =>
         s.anchorId === anchorId ||
@@ -212,43 +260,69 @@ export function V2ChartJourneyScreen() {
           id: session.id,
           timestamp: session.completedAt,
           type: 'PRACTICE',
-          title: 'Practice session',
-          subtext: `Practice completed. ${formatPracticeDuration(session.completedDurationSeconds)} · ${formatPracticeModeLabel(session.practiceMode)}`,
+          title: `${formatPracticeModeLabel(session.practiceMode)} · ${formatPracticeEntryDuration(session.completedDurationSeconds)}`,
+          subtext: 'Practice completed.',
         });
       }
     }
 
-    // Sort newest first
+    // 4. Sort newest first
     items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-    // If completely empty, provide fallback Course created item
-    if (items.length === 0) {
+    // 5. If no COURSE_CREATED in items and plottedAt exists, add Course created item
+    const hasCourseCreated = items.some((i) => i.type === 'COURSE_CREATED');
+    if (!hasCourseCreated && view?.plottedAt) {
       items.push({
         id: 'course-created-default',
-        timestamp: view?.plottedAt ?? new Date().toISOString(),
+        timestamp: view.plottedAt,
         type: 'COURSE_CREATED',
         title: 'Course created',
         subtext: 'Five waypoints plotted toward your destination.',
       });
+      items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     }
 
     return items;
-  }, [log, practiceHistory, anchorId, view?.plottedAt]);
+  }, [log, recordedEvents, practiceHistory, anchorId, view?.plottedAt]);
 
-  const renderIcon = (type: TimelineItem['type']) => {
+  const renderNode = (type: TimelineItem['type']) => {
     switch (type) {
       case 'PRACTICE':
-        return <Anchor size={14} color={categoryColor} />;
+        return (
+          <View style={[styles.nodeCircle, { backgroundColor: categoryColor, borderColor: categoryColor }]}>
+            <Anchor size={13} color="#FFFFFF" />
+          </View>
+        );
       case 'MOVE_COMPLETED':
-        return <Check size={14} color={categoryColor} strokeWidth={2.5} />;
+        return (
+          <View style={[styles.nodeCircle, { backgroundColor: `${categoryColor}25`, borderColor: categoryColor }]}>
+            <Check size={13} color={categoryColor} strokeWidth={2.5} />
+          </View>
+        );
       case 'PROGRESS_UPDATED':
-        return <ChartColumn size={14} color={categoryColor} />;
+        return (
+          <View style={[styles.nodeCircle, { backgroundColor: colors.canvas, borderColor: categoryColor }]}>
+            <ChartColumn size={13} color={categoryColor} />
+          </View>
+        );
       case 'COURSE_CREATED':
-        return <Flag size={14} color="#D4AF37" />;
+        return (
+          <View style={[styles.nodeCircle, { backgroundColor: colors.canvas, borderColor: colors.border.subtle }]}>
+            <Flag size={13} color={colors.text.primary} />
+          </View>
+        );
       case 'WAYPOINT_REACHED':
-        return <Flag size={14} color={categoryColor} />;
+        return (
+          <View style={[styles.nodeCircle, { backgroundColor: categoryColor, borderColor: categoryColor }]}>
+            <Flag size={13} color="#FFFFFF" />
+          </View>
+        );
       default:
-        return <Check size={14} color={colors.text.secondary} />;
+        return (
+          <View style={[styles.nodeCircle, { backgroundColor: colors.canvas, borderColor: colors.border.subtle }]}>
+            <Check size={13} color={colors.text.secondary} />
+          </View>
+        );
     }
   };
 
@@ -273,7 +347,7 @@ export function V2ChartJourneyScreen() {
           <View style={styles.headerSpacer} />
         </View>
 
-        <View style={styles.metaRow}>
+        <View style={styles.metaContainer}>
           <View style={styles.categoryPill}>
             <View style={[styles.categoryDot, { backgroundColor: categoryColor }]} />
             <Text style={[styles.categoryText, { color: categoryColor }]}>
@@ -281,7 +355,7 @@ export function V2ChartJourneyScreen() {
             </Text>
           </View>
           {view?.destination ? (
-            <Text style={styles.headerDestination} numberOfLines={1}>
+            <Text style={styles.headerDestination} numberOfLines={2}>
               {view.destination}
             </Text>
           ) : null}
@@ -289,17 +363,17 @@ export function V2ChartJourneyScreen() {
 
         {/* Cropped map strip of chart art below header */}
         <View style={styles.mapStripContainer}>
-          <Image source={chartArtFor(context.identity?.category).source} style={styles.mapStrip} resizeMode="cover" />
+          <Image source={ETCHED_MAP_IMAGE} style={styles.mapStrip} resizeMode="cover" />
         </View>
 
-        {/* Right under map: "N days on course" left-aligned, "n of total" right-aligned */}
+        {/* Right under map: "N days on course" left-aligned, "n of total reached" right-aligned */}
         {view ? (
           <View style={styles.statsRow}>
             <Text style={styles.statsDays}>
-              {daysOnCourse(view.plottedAt)} days on course
+              {daysOnCourse(view.plottedAt, new Date())} days on course
             </Text>
             <Text style={styles.statsProgress}>
-              {view.reachedCount} of {view.total}
+              {view.reachedCount} of {view.total} reached
             </Text>
           </View>
         ) : null}
@@ -333,7 +407,7 @@ export function V2ChartJourneyScreen() {
                 style={styles.timelineRow}
                 accessible
                 accessibilityRole="text"
-                accessibilityLabel={`${item.title}. ${item.subtext ?? ''} ${gutterLabel} ${formatEntryTime(item.timestamp)}`}
+                accessibilityLabel={`${item.title}. ${item.subtext ?? ''} ${item.detailText ?? ''} ${gutterLabel} ${formatEntryTime(item.timestamp)}`}
               >
                 {/* Left Gutter: Date label on first entry of day */}
                 <View style={styles.gutter}>
@@ -345,9 +419,7 @@ export function V2ChartJourneyScreen() {
                 {/* Vertical rail with Icon node */}
                 <View style={styles.railColumn}>
                   <View style={[styles.railLineTop, index === 0 && styles.railLineHidden]} />
-                  <View style={[styles.nodeCircle, { borderColor: `${categoryColor}40` }]}>
-                    {renderIcon(item.type)}
-                  </View>
+                  {renderNode(item.type)}
                   <View style={[styles.railLineBottom, index === timelineItems.length - 1 && styles.railLineHidden]} />
                 </View>
 
@@ -356,6 +428,9 @@ export function V2ChartJourneyScreen() {
                   <Text style={styles.entryTitle}>{item.title}</Text>
                   {item.subtext ? (
                     <Text style={styles.entrySubtext}>{item.subtext}</Text>
+                  ) : null}
+                  {item.detailText ? (
+                    <Text style={[styles.entryDetailText, { color: categoryColor }]}>{item.detailText}</Text>
                   ) : null}
                 </View>
 
@@ -418,12 +493,10 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 32,
   },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
+  metaContainer: {
     marginTop: spacing[1],
     marginBottom: spacing[3],
+    gap: 4,
   },
   categoryPill: {
     flexDirection: 'row',
@@ -441,9 +514,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
   },
   headerDestination: {
-    flex: 1,
     ...typography.bodySM,
     color: colors.text.secondary,
+    lineHeight: 19,
   },
   mapStripContainer: {
     height: 72,
@@ -493,7 +566,7 @@ const styles = StyleSheet.create({
     minHeight: 56,
   },
   gutter: {
-    width: 58,
+    width: 78,
     paddingTop: 4,
     paddingRight: spacing[2],
   },
@@ -539,13 +612,20 @@ const styles = StyleSheet.create({
     paddingBottom: spacing[4],
   },
   entryTitle: {
-    ...typography.bodyMD,
+    fontFamily: 'EBGaramond-Medium',
+    fontSize: 16,
+    lineHeight: 22,
     color: colors.text.primary,
-    fontWeight: '600',
   },
   entrySubtext: {
     ...typography.bodySM,
     color: colors.text.secondary,
+    marginTop: 2,
+    lineHeight: 18,
+  },
+  entryDetailText: {
+    ...typography.bodySM,
+    fontWeight: '600',
     marginTop: 2,
     lineHeight: 18,
   },

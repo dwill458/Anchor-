@@ -8,10 +8,11 @@ import { ChartDestinationReached } from '@/components/v2/chart/ChartDestinationR
 import { CHART_COPY } from '@/constants/v2/chartCopy';
 import { trackChart, useAnchorChart } from '@/hooks/v2/chart/useAnchorChart';
 import { useV2ReduceMotion } from '@/hooks/v2/useV2ReduceMotion';
-import { colors, spacing, typography } from '@/theme/v2';
+import { colors, getCategoryColor, spacing, typography } from '@/theme/v2';
 import type { ChartRequestError } from '@/services/v2/chartV2Api';
 import { useChartContext } from './chartScreenSupport';
-import { ChartJourneyWorld } from '@/components/v2/chart/ChartJourneyWorld';
+// DEFERRED: import { ChartJourneyWorld } from '@/components/v2/chart/ChartJourneyWorld';
+import { ChartStaticMap } from '@/components/v2/chart/panel/ChartStaticMap';
 
 export interface V2ChartRouteParams {
   anchorId?: string;
@@ -119,9 +120,9 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
     navigation.navigate('V2Vision', { anchorId });
   };
 
-  const openPractice = () => {
-    trackChart('chart_practice_opened', { from: 'chart' });
-    navigation.navigate('V2Practice', { anchorId });
+  const openPractice = (mode?: 'focus' | 'deep_prime') => {
+    trackChart('chart_practice_opened', { from: 'chart', mode: mode ?? null });
+    navigation.navigate('V2Practice', { anchorId, recommendedMode: mode, source: 'chart' });
   };
 
   if (!anchorId) {
@@ -199,7 +200,12 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
   if (view.total === 0 && !data.anchor.released) {
     return <ChartInkScreen testID="v2-chart-screen-no-waypoints">
       <ChartTopBar title={CHART_COPY.title} onBack={handleBack} identity={identity} />
-      <ChartJourneyWorld width={width} height={220} />
+      {/*
+      // DEFERRED: <ChartJourneyWorld width={width} height={220} />
+      */}
+      <View style={styles.emptyMap}>
+        <ChartStaticMap width={width} categoryColor={getCategoryColor(identity.category)} category={identity.category} mode="empty" waypointCount={1} reducedMotion={reducedMotion} testID="chart-empty-map" />
+      </View>
       <CenteredMessage title="Add the first waypoint to your Chart." action={{ label:'Add waypoints',onPress:()=>navigation.navigate('V2ChartAdjust',{anchorId}) }} />
     </ChartInkScreen>;
   }
@@ -234,6 +240,7 @@ export function V2ChartScreen(props: V2ChartScreenProps) {
       onCelebrationDone={() => setCelebration(null)}
       onBack={handleBack}
       chartActions={chart}
+      course={data.chart ?? undefined}
       initialWaypointId={props.initialWaypointId}
       onSpatialModeChange={setSpatialFocused}
       onWaypointReached={(result, previousReachedCount, total) => {
@@ -282,6 +289,7 @@ export function CenteredMessage({
 }
 
 const styles = StyleSheet.create({
+  emptyMap: { height: 220, overflow: 'hidden' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing[6], gap: spacing[3] },
   title: { ...typography.headingLG, color: colors.ink.text.primary, textAlign: 'center' },
   support: { ...typography.bodyMD, color: colors.ink.text.secondary, textAlign: 'center' },

@@ -15,6 +15,7 @@ import {
 } from '@/services/v2/chartV2Api';
 import { toChartViewModel, type ChartViewModel } from '@/adapters/v2/chart/chartV2Model';
 import type { CourseDetail } from '@/types/chart';
+import { recordCourseEvent } from '@/stores/v2/chartEventStore';
 
 /**
  * Per-Anchor Chart state shared by every surface (Chart, Home, Vision,
@@ -136,6 +137,8 @@ export type UseAnchorChartResult = {
   completeMove: (moveId: string) => Promise<boolean>;
   addMove: (waypointId: string, title: string, options?: { makeCurrent?: boolean }) => Promise<boolean>;
   acceptMove: (moveId: string, options?: { makeCurrent?: boolean }) => Promise<boolean>;
+  /** Make an existing ACTIVE Move the One Move. */
+  setCurrentMove: (moveId: string) => Promise<boolean>;
   editMove: (moveId: string, title: string) => Promise<boolean>;
   dismissMove: (moveId: string) => Promise<boolean>;
   suggestMoves: (waypointId: string) => Promise<'ok' | 'unavailable' | 'failed'>;
@@ -276,6 +279,13 @@ export function useAnchorChart(anchorId: string | null | undefined): UseAnchorCh
       if (!chart) return false;
       const result = await run(`move:${moveId}`, () => chartV2Api.completeMove(chart.id, moveId));
       if (!result) return false;
+      const move = chart.moves?.find((m) => m.id === moveId);
+      void recordCourseEvent(chart.id, {
+        courseId: chart.id,
+        type: 'MOVE_COMPLETED',
+        timestamp: new Date().toISOString(),
+        payload: { moveTitle: move?.title ?? 'Completed move' },
+      });
       publishChart(id, result.chart, accountId);
       if (!result.replayed) trackChart('chart_move_completed', { courseId: chart.id, hasNextMove: Boolean(result.nextMoveId) });
       return true;
@@ -307,6 +317,17 @@ export function useAnchorChart(anchorId: string | null | undefined): UseAnchorCh
       if (!result) return false;
       publishChart(id, result, accountId);
       trackChart('chart_move_created', { courseId: chart.id, source: 'suggestion' });
+      return true;
+    },
+    [accountId, chart, id, run]
+  );
+
+  const setCurrentMove = useCallback(
+    async (moveId: string) => {
+      if (!chart) return false;
+      const result = await run(`move-current:${moveId}`, () => chartV2Api.updateMove(chart.id, moveId, { makeCurrent: true }));
+      if (!result) return false;
+      publishChart(id, result, accountId);
       return true;
     },
     [accountId, chart, id, run]
@@ -349,10 +370,26 @@ export function useAnchorChart(anchorId: string | null | undefined): UseAnchorCh
   const updateProgress = useCallback(
     async (waypointId: string, value: number | null) => {
       if (!chart) return false;
+      const wp = chart.waypoints?.find((w) => w.id === waypointId);
+      const prevVal = wp?.metric?.current ?? wp?.metric?.baseline ?? 0;
+      const unit = wp?.metric?.label ?? 'active users';
       const result = await run(`progress:${waypointId}`, () =>
         chartV2Api.updateProgress(chart.id, waypointId, { expectedCourseVersion: chart.version, metricCurrent: value })
       );
       if (!result) return false;
+      if (value != null && value !== prevVal) {
+        void recordCourseEvent(chart.id, {
+          courseId: chart.id,
+          type: 'PROGRESS_UPDATED',
+          timestamp: new Date().toISOString(),
+          payload: {
+            from: prevVal,
+            to: value,
+            unit,
+            delta: value - prevVal,
+          },
+        });
+      }
       publishChart(id, result, accountId);
       return true;
     },
@@ -475,6 +512,7 @@ export function useAnchorChart(anchorId: string | null | undefined): UseAnchorCh
     completeMove,
     addMove,
     acceptMove,
+    setCurrentMove,
     editMove,
     dismissMove,
     suggestMoves,

@@ -13,6 +13,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { ArrowRight, ArrowUpRight, Star, X } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
+import { safeHaptics } from '@/utils/haptics';
 import { V2Button } from '@/components/v2/primitives/V2Button';
 import { CHART_COPY, reviewSupportCopy } from '@/constants/v2/chartCopy';
 import {
@@ -25,7 +28,7 @@ import {
 } from '@/services/v2/chartV2Api';
 import { trackChart } from '@/hooks/v2/chart/useAnchorChart';
 import type { CourseDetail } from '@/types/chart';
-import { colors, radii, spacing } from '@/theme/v2';
+import { colors, getCategoryColor, radii, spacing } from '@/theme/v2';
 import { ChartAdjustPanel, type ChartAdjustRequest } from './ChartAdjustPanel';
 import {
   ChartCreamPanel,
@@ -39,7 +42,12 @@ import {
 import { ChartGenerationStage } from './ChartGenerationStage';
 import { ChartKeyboardFrame } from './ChartKeyboardFrame';
 import type { ChartAnchorArt, ChartMarker } from './ChartLandscape';
-import { ChartJourneyWorld } from './ChartJourneyWorld';
+// DEFERRED: import { ChartJourneyWorld } from './ChartJourneyWorld';
+import { ChartStaticMap } from './panel/ChartStaticMap';
+import { MAP_H, MAP_W } from './map/chartMapContracts';
+import { ChartContextStep } from './ChartContextStep';
+import { ChartReferenceTray } from './ChartReferenceTray';
+import { prepareReferences, withUploaded, type ChartPhotoReference, type ChartReference } from './chartReferences';
 import { ChartRealityInput } from './ChartRealityInput';
 import { ChartRouteEditor, type DraftWaypoint } from './ChartRouteEditor';
 import { CHART_EASING, CHART_TRANSITION_TIMING as TT, chartTiming } from './chartMotion';
@@ -84,7 +92,7 @@ type Props = {
 export type ChartCreationApi = Pick<typeof chartV2Api, 'plan' | 'adjust' | 'create'>;
 
 /** Phases that share one mounted map, so the route never resets between them. */
-const STAGE_PHASES: readonly Phase[] = ['generating', 'review', 'adjusting', 'revealed'];
+const STAGE_PHASES: readonly Phase[] = ['generating', 'followup', 'review', 'adjusting', 'revealed'];
 
 /** Room under the map for the status line while mapping and the CTA afterwards. */
 const STAGE_FOOTER = 104;
@@ -190,6 +198,13 @@ export function ChartCreationFlow({
   const [startingContext, setStartingContext] = useState('');
   const [followUpQuestion, setFollowUpQuestion] = useState<string | null>(null);
   const [followUpAnswer, setFollowUpAnswer] = useState('');
+  // References (start photo, extra photos, places, documents). Uploaded photos remember their asset id.
+  const [references, setReferences] = useState<ChartReference[]>([]);
+  const [referenceError, setReferenceError] = useState<string | null>(null);
+  // True while photos upload (before the plan request starts).
+  const [preparing, setPreparing] = useState(false);
+  // 'photo' = the optional start photo step; 'text' = the written "What would make this real?" fallback.
+  const [contextMode, setContextMode] = useState<'photo' | 'text'>('photo');
   const [proposal, setProposal] = useState<ChartProposal | null>(initialProposal);
   const [draft, setDraft] = useState<DraftWaypoint[]>(() => (initialProposal ? toDraft(initialProposal) : []));
   const [oneMove, setOneMove] = useState(initialProposal?.suggestedOneMove?.title ?? '');
@@ -208,6 +223,7 @@ export function ChartCreationFlow({
   const [mappingKey, setMappingKey] = useState(0);
   const [stageSize, setStageSize] = useState({ height: 0, pageY: 0 });
   const [heroHeight, setHeroHeight] = useState(0);
+  const [introArea, setIntroArea] = useState({ width: 0, height: 0 });
   const [panelMounted, setPanelMounted] = useState(initialPhase === 'review' || initialPhase === 'adjusting');
   const [exploring, setExploring] = useState(false);
   // One key per creation attempt, so a retried submit cannot create two Charts.
@@ -224,6 +240,9 @@ export function ChartCreationFlow({
 
   const hasVision = Boolean(vision && (vision.imageUrl || vision.description));
   const inStage = STAGE_PHASES.includes(phase);
+  // Intro and the mapping stage share the etched cream-paper map; context and clarity stay on ink.
+  const paper = phase === 'intro' || inStage || (phase === 'context' && contextMode === 'photo');
+  const introMapWidth = Math.max(width, ((introArea.height || height) * MAP_W) / MAP_H);
 
   useEffect(() => {
     const running = timers.current;
@@ -257,18 +276,30 @@ export function ChartCreationFlow({
   );
 
   const runPlan = useCallback(
-    async (answer: { question: string; answer: string } | null) => {
+    async (answer: { question: string; answer: string } | null, referencesOverride?: ChartReference[]) => {
+      const attached = referencesOverride ?? references;
+      // Photos upload first (the Vision upload path), so a failed upload keeps the person where they are.
+      setReferenceError(null);
+      setPreparing(true);
+      const prepared = await prepareReferences(attached);
+      setPreparing(false);
+      if (!prepared.ok) {
+        setReferenceError(CHART_COPY.followUp.uploadFailed);
+        return;
+      }
+      setReferences((current) => withUploaded(current, prepared.uploaded));
       setPhase('generating');
       setMappingKey((key) => key + 1);
       setGenerationMarkers(null);
       setError(null);
       planStarted.current = Date.now();
-      trackChart('chart_generation_started', { hasVision, followUp: Boolean(answer) });
+      trackChart('chart_generation_started', { hasVision, followUp: Boolean(answer), references: prepared.wire.length });
       try {
         const response = await api.plan(anchorId, {
           idempotencyKey: freshKey(`chart-plan:${anchorId}`),
           startingContext: startingContext.trim() || null,
           followUp: answer,
+          ...(prepared.wire.length ? { references: prepared.wire } : {}),
         });
         if (response.status === 'needs_context') {
           setFollowUpQuestion(response.followUpQuestion);
@@ -285,7 +316,7 @@ export function ChartCreationFlow({
         setPhase('failed');
       }
     },
-    [acceptProposal, anchorId, api, hasVision, startingContext]
+    [acceptProposal, anchorId, api, hasVision, references, startingContext]
   );
 
   // The finished map is already on screen; the cream review surface rises over it.
@@ -382,17 +413,18 @@ export function ChartCreationFlow({
       });
       onCreated(chart);
       // PLAN → MAP: the review surface falls away; the map it was resting on becomes the Chart.
+      // "Looks right" is the confirmation; the First Waypoint reveal is the payoff, and it flows straight into the Chart.
+      safeHaptics.notification(Haptics.NotificationFeedbackType.Success);
       setPhase('revealed');
       if (reducedMotion) {
         panelOffset.value = 1;
         setPanelMounted(false);
-        ctaOpacity.value = chartTiming(1, { duration: 200 });
+        later(exploreChart, 320);
       } else {
         panelOffset.value = chartTiming(1, { duration: TT.panelOut, easing: CHART_EASING.deliberate });
         later(() => setPanelMounted(false), TT.panelOut + 40);
-        later(() => {
-          ctaOpacity.value = chartTiming(1, { duration: TT.copyIn, easing: CHART_EASING.settle });
-        }, TT.panelOut + TT.revealCta);
+        // The map settles on the first waypoint for a beat, then rises into the permanent Chart.
+        later(exploreChart, TT.panelOut + TT.revealCta + 500);
       }
     } catch (caught) {
       const classified = classifyChartError(caught);
@@ -433,6 +465,10 @@ export function ChartCreationFlow({
   const goBack = useCallback(() => {
     switch (phase) {
       case 'context':
+        if (contextMode === 'text') {
+          setContextMode('photo');
+          return true;
+        }
         setPhase('intro');
         return true;
       case 'followup':
@@ -453,7 +489,7 @@ export function ChartCreationFlow({
         onBack();
         return true;
     }
-  }, [onBack, panelOffset, phase]);
+  }, [contextMode, onBack, panelOffset, phase]);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', goBack);
@@ -514,33 +550,44 @@ export function ChartCreationFlow({
   const ctaStyle = useAnimatedStyle(() => ({ opacity: ctaOpacity.value * (1 - Math.min(1, explore.value * 2.2)) }));
 
   return (
-    <ChartInkScreen testID={testID ?? 'chart-creation'}>
-      <ChartTopBar title={title} onBack={phase === 'generating' || exploring ? undefined : goBack} identity={identity} />
+    <ChartInkScreen testID={testID ?? 'chart-creation'} paper={paper}>
+      <ChartTopBar title={title} onBack={phase === 'generating' || exploring ? undefined : goBack} identity={identity} tone={paper ? 'dark' : 'light'} />
 
       {phase === 'intro' ? (
         <View style={styles.flex} testID="chart-empty-state">
-          <View style={styles.hero}>
-            <Text accessibilityRole="header" style={styles.display}>
-              {CHART_COPY.empty.headline}
-            </Text>
-            <Text style={styles.support}>{CHART_COPY.empty.support}</Text>
+          {/* The map is scenery: faint pencil, nothing drawn yet. */}
+          <View
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            onLayout={(event) => setIntroArea(event.nativeEvent.layout)}
+          >
+            {/* Cover-fit: the map fills the whole area (cropped at the sides, never a blank band). */}
+            <View style={[styles.introMap, { width: introMapWidth, left: (width - introMapWidth) / 2 }]}>
+              <ChartStaticMap
+                width={introMapWidth}
+                categoryColor={getCategoryColor(identity.category)}
+                category={identity.category}
+                mode="empty"
+                waypointCount={3}
+                reducedMotion={reducedMotion}
+                testID="chart-intro-map"
+              />
+            </View>
           </View>
           <View style={styles.flexEnd}>
-            <ChartJourneyWorld
-              width={width}
-              height={Math.max(260, height * .42)}
-              category={identity.category}
-              accessibilityLabel="A road toward the city"
-              style={styles.introLandscape}
-            />
-            <ChartCreamPanel style={{ paddingBottom: insets.bottom + spacing[4] }}>
-              <View style={styles.reinforcingIcon}>
-                <Star size={14} color={colors.semantic.warning} fill={colors.semantic.warning} />
-              </View>
-              <ChartEyebrow tone="cream">{CHART_COPY.labels.reinforcing}</ChartEyebrow>
-              <Text style={styles.reinforcing} numberOfLines={3}>
-                {identity.intention}
+            <View style={[styles.introCopy, { paddingBottom: insets.bottom + spacing[4] }]}>
+              <LinearGradient
+                pointerEvents="none"
+                colors={['rgba(244,241,233,0)', 'rgba(244,241,233,.92)', 'rgba(244,241,233,.96)']}
+                locations={[0, 0.3, 1]}
+                style={styles.introScrim}
+              />
+              <Text accessibilityRole="header" style={[styles.display, styles.displayPaper]}>
+                {CHART_COPY.empty.headline}
               </Text>
+              <Text style={[styles.support, styles.supportPaper]}>{CHART_COPY.empty.support}</Text>
               <V2Button
                 size="large"
                 onPress={() => {
@@ -554,12 +601,42 @@ export function ChartCreationFlow({
               >
                 {CHART_COPY.empty.cta}
               </V2Button>
-            </ChartCreamPanel>
+            </View>
           </View>
         </View>
       ) : null}
 
-      {phase === 'context' ? (
+      {/* DEFERRED: the previous intro (road art + cream panel) is kept at the end of this file. */}
+
+      {phase === 'context' && contextMode === 'photo' ? (
+        <ChartContextStep
+          vision={vision}
+          startPhoto={(references.find((item) => item.kind === 'photo' && item.role === 'start') as ChartPhotoReference | undefined) ?? null}
+          onStartPhoto={(photo) =>
+            setReferences((current) => [
+              ...current.filter((item) => !(item.kind === 'photo' && item.role === 'start')),
+              ...(photo ? [photo] : []),
+            ])
+          }
+          onContinue={() => {
+            trackChart('chart_context_submitted', { hasVision, length: 0, startPhoto: references.some((item) => item.kind === 'photo' && item.role === 'start') });
+            void runPlan(null);
+          }}
+          onSkip={() => {
+            trackChart('chart_context_submitted', { hasVision, length: 0, skipped: true });
+            // Skipping means no start photo, even if one was picked: pass the list explicitly (state updates are async).
+            const withoutStart = references.filter((item) => !(item.kind === 'photo' && item.role === 'start'));
+            setReferences(withoutStart);
+            void runPlan(null, withoutStart);
+          }}
+          onDescribe={() => setContextMode('text')}
+          bottomInset={insets.bottom}
+          notice={referenceError}
+          busy={preparing}
+        />
+      ) : null}
+
+      {phase === 'context' && contextMode === 'text' ? (
         <ChartRealityInput
           intention={identity.intention}
           category={identity.category}
@@ -607,39 +684,7 @@ export function ChartCreationFlow({
         />
       ) : null}
 
-      {phase === 'followup' && followUpQuestion ? (
-        <ChartKeyboardFrame
-          contentContainerStyle={styles.scroll}
-          footerStyle={styles.inkFooter}
-          footer={
-            <ChartInkButton
-              label={CHART_COPY.creation.continue}
-              disabled={followUpAnswer.trim().length < 2}
-              onPress={() => void runPlan({ question: followUpQuestion, answer: followUpAnswer.trim() })}
-              icon={<ArrowRight size={18} color={colors.text.primary} />}
-              testID="chart-follow-up-continue"
-            />
-          }
-        >
-          <View style={styles.section} testID="chart-follow-up">
-            <Text accessibilityRole="header" style={styles.display}>
-              {CHART_COPY.followUp.headline}
-            </Text>
-            <Text style={styles.support}>{CHART_COPY.followUp.support}</Text>
-            <Text style={styles.question}>{followUpQuestion}</Text>
-            <ChartTextArea
-              value={followUpAnswer}
-              onChangeText={setFollowUpAnswer}
-              placeholder={CHART_COPY.followUp.placeholder}
-              maxLength={500}
-              maxHeight={180}
-              accessibilityLabel={followUpQuestion}
-              autoFocus
-              testID="chart-follow-up-input"
-            />
-          </View>
-        </ChartKeyboardFrame>
-      ) : null}
+      {/* DEFERRED: the previous follow-up screen (own ink screen) is kept at the end of this file; the clarity sheet now rises over the dimmed map. */}
 
       {phase === 'failed' ? (
         <ChartKeyboardFrame contentContainerStyle={styles.scroll}>
@@ -702,17 +747,60 @@ export function ChartCreationFlow({
           </Animated.View>
 
           <Animated.View
-            style={[styles.hero, styles.stageHero, heroStyle, chromeStyle]}
+            style={[styles.hero, styles.stageHero, heroStyle, chromeStyle, (phase === 'followup' || phase === 'revealed') && styles.hidden]}
             onLayout={(event) => setHeroHeight(event.nativeEvent.layout.height)}
             pointerEvents="none"
           >
-            <Text accessibilityRole="header" style={[styles.display, compact && shownHero !== 'generating' && styles.displayCompact]}>
+            <Text accessibilityRole="header" style={[styles.display, styles.displayPaper, compact && shownHero !== 'generating' && styles.displayCompact]}>
               {heroCopy[shownHero].headline}
             </Text>
-            <Text style={[styles.support, compact && shownHero !== 'generating' && styles.supportCompact]}>
+            <Text style={[styles.support, styles.supportPaper, compact && shownHero !== 'generating' && styles.supportCompact]}>
               {heroCopy[shownHero].support}
             </Text>
           </Animated.View>
+
+          {phase === 'followup' && followUpQuestion ? (
+            <>
+              <View style={styles.dim} pointerEvents="none" />
+              <View style={styles.sheetWrap} testID="chart-follow-up">
+                <ChartCreamPanel style={styles.sheet}>
+                  <ChartKeyboardFrame
+                    contentContainerStyle={styles.sheetScroll}
+                    restingBottom={insets.bottom + spacing[3]}
+                    footer={
+                      <V2Button
+                        size="large"
+                        loading={preparing}
+                        disabled={preparing || (followUpAnswer.trim().length < 2 && references.length === 0)}
+                        onPress={() => void runPlan({ question: followUpQuestion, answer: followUpAnswer.trim() })}
+                        iconRight={<ArrowRight size={18} color={colors.text.inverse} />}
+                        testID="chart-follow-up-continue"
+                        accessibilityLabel={CHART_COPY.creation.continue}
+                      >
+                        {CHART_COPY.creation.continue}
+                      </V2Button>
+                    }
+                  >
+                    <ChartEyebrow tone="cream" color={colors.semantic.error}>{CHART_COPY.followUp.eyebrow}</ChartEyebrow>
+                    <Text accessibilityRole="header" style={styles.sheetQuestion}>{followUpQuestion}</Text>
+                    <ChartTextArea
+                      value={followUpAnswer}
+                      onChangeText={setFollowUpAnswer}
+                      placeholder={CHART_COPY.followUp.placeholder}
+                      maxLength={500}
+                      maxHeight={140}
+                      tone="cream"
+                      accessibilityLabel={followUpQuestion}
+                      testID="chart-follow-up-input"
+                    />
+                    <Text style={styles.sheetSub}>{CHART_COPY.followUp.addReference}</Text>
+                    <ChartReferenceTray references={references} onChange={setReferences} testID="chart-reference-tray" />
+                    {referenceError ? <Text style={styles.saveError}>{referenceError}</Text> : null}
+                  </ChartKeyboardFrame>
+                </ChartCreamPanel>
+              </View>
+            </>
+          ) : null}
 
           {panelMounted ? (
             <Animated.View style={[styles.panelWrap, { top: heroHeight + spacing[3] }, panelStyle]}>
@@ -811,18 +899,7 @@ export function ChartCreationFlow({
             </Animated.View>
           ) : null}
 
-          {phase === 'revealed' ? (
-            <Animated.View style={[styles.revealFooter, { paddingBottom: insets.bottom + spacing[4] }, ctaStyle]}>
-              <ChartInkButton
-                label={CHART_COPY.revealed.cta}
-                variant="outline"
-                onPress={exploreChart}
-                disabled={exploring}
-                icon={<ArrowRight size={18} color={colors.ink.text.primary} />}
-                testID="chart-explore"
-              />
-            </Animated.View>
-          ) : null}
+          {/* DEFERRED: the separate "Explore your Chart" screen. "Looks right" now plays the First Waypoint reveal and flows into the Chart. */}
         </View>
       ) : null}
     </ChartInkScreen>
@@ -841,6 +918,18 @@ const styles = StyleSheet.create({
   supportCompact: { ...typography.bodyMD },
   question: { ...typography.headingLG, color: colors.ink.text.primary },
   introLandscape: { position: 'absolute', left: 0, bottom: 0 },
+  hidden: { display: 'none' },
+  dim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(17,24,32,.45)' },
+  sheetWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, top: '16%' },
+  sheet: { flex: 1, paddingTop: spacing[5] },
+  sheetScroll: { gap: spacing[3], paddingBottom: spacing[3] },
+  sheetQuestion: { ...typography.headingLG, color: colors.text.primary },
+  sheetSub: { ...typography.bodyMD, color: colors.text.primary, marginTop: spacing[2] },
+  introMap: { position: 'absolute', bottom: 0 },
+  introScrim: { position: 'absolute', left: 0, right: 0, top: -spacing[8], bottom: 0 },
+  introCopy: { paddingHorizontal: spacing[5], gap: spacing[2] },
+  displayPaper: { color: colors.text.primary },
+  supportPaper: { color: colors.text.secondary },
   reinforcingIcon: {
     width: 28,
     height: 28,
@@ -872,7 +961,7 @@ const styles = StyleSheet.create({
   },
   visionLinkText: { ...typography.labelMD, color: colors.text.primary },
   panelWrap: { position: 'absolute', left: 0, right: 0, bottom: 0 },
-  reviewPanel: { flex: 1, paddingTop: spacing[4] },
+  reviewPanel: { flex: 1, paddingTop: spacing[4], borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.border.default },
   reviewScroll: { paddingBottom: spacing[4] },
   routeHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing[2] },
   routeCount: { ...typography.labelMD, color: colors.text.secondary },
@@ -907,3 +996,99 @@ const styles = StyleSheet.create({
   revealFooter: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: spacing[5], paddingTop: spacing[3] },
   pressed: { opacity: 0.8 },
 });
+
+/* DEFERRED: previous intro block, replaced by the etched map.
+{phase === 'intro' ? (
+  <View style={styles.flex} testID="chart-empty-state">
+    <View style={styles.hero}>
+      <Text accessibilityRole="header" style={styles.display}>
+        {CHART_COPY.empty.headline}
+      </Text>
+      <Text style={styles.support}>{CHART_COPY.empty.support}</Text>
+    </View>
+    <View style={styles.flexEnd}>
+      <ChartJourneyWorld
+        width={width}
+        height={Math.max(260, height * .42)}
+        category={identity.category}
+        accessibilityLabel="A road toward the city"
+        style={styles.introLandscape}
+      />
+      <ChartCreamPanel style={{ paddingBottom: insets.bottom + spacing[4] }}>
+        <View style={styles.reinforcingIcon}>
+          <Star size={14} color={colors.semantic.warning} fill={colors.semantic.warning} />
+        </View>
+        <ChartEyebrow tone="cream">{CHART_COPY.labels.reinforcing}</ChartEyebrow>
+        <Text style={styles.reinforcing} numberOfLines={3}>
+          {identity.intention}
+        </Text>
+        <V2Button
+          size="large"
+          onPress={() => {
+            trackChart('chart_creation_started', { hasVision });
+            setPhase('context');
+          }}
+          iconRight={<ArrowRight size={18} color={colors.text.inverse} />}
+          testID="chart-create-cta"
+          accessibilityLabel={CHART_COPY.empty.cta}
+          style={styles.cta}
+        >
+          {CHART_COPY.empty.cta}
+        </V2Button>
+      </ChartCreamPanel>
+    </View>
+  </View>
+) : null}
+*/
+
+/* DEFERRED: previous follow-up screen, replaced by the clarity sheet over the map.
+      {phase === 'followup' && followUpQuestion ? (
+        <ChartKeyboardFrame
+          contentContainerStyle={styles.scroll}
+          footerStyle={styles.inkFooter}
+          footer={
+            <ChartInkButton
+              label={CHART_COPY.creation.continue}
+              disabled={followUpAnswer.trim().length < 2}
+              onPress={() => void runPlan({ question: followUpQuestion, answer: followUpAnswer.trim() })}
+              icon={<ArrowRight size={18} color={colors.text.primary} />}
+              testID="chart-follow-up-continue"
+            />
+          }
+        >
+          <View style={styles.section} testID="chart-follow-up">
+            <Text accessibilityRole="header" style={styles.display}>
+              {CHART_COPY.followUp.headline}
+            </Text>
+            <Text style={styles.support}>{CHART_COPY.followUp.support}</Text>
+            <Text style={styles.question}>{followUpQuestion}</Text>
+            <ChartTextArea
+              value={followUpAnswer}
+              onChangeText={setFollowUpAnswer}
+              placeholder={CHART_COPY.followUp.placeholder}
+              maxLength={500}
+              maxHeight={180}
+              accessibilityLabel={followUpQuestion}
+              autoFocus
+              testID="chart-follow-up-input"
+            />
+          </View>
+        </ChartKeyboardFrame>
+      ) : null}
+*/
+
+/* DEFERRED: previous revealed-screen CTA, replaced by the automatic reveal.
+          {phase === 'revealed' ? (
+            <Animated.View style={[styles.revealFooter, { paddingBottom: insets.bottom + spacing[4] }, ctaStyle]}>
+              <ChartInkButton
+                label={CHART_COPY.revealed.cta}
+                variant="outline"
+                paper
+                onPress={exploreChart}
+                disabled={exploring}
+                icon={<ArrowRight size={18} color={colors.text.primary} />}
+                testID="chart-explore"
+              />
+            </Animated.View>
+          ) : null}
+*/

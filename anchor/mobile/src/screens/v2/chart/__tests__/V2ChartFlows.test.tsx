@@ -134,9 +134,16 @@ describe('Waypoint detail', () => {
   it('shows progress, your moves and AI suggestions separately — suggestions are not commitments', async () => {
     serve(chart());
     const screen = render(<V2ChartWaypointScreen />);
-    expect(await screen.findByText('Waypoint 2 of 3')).toBeTruthy();
+    // DEFERRED: expect(await screen.findByText('Waypoint 2 of 3')).toBeTruthy();
+    expect(await screen.findByText('2 of 3')).toBeTruthy();
+    expect(screen.getByText('CURRENT WAYPOINT')).toBeTruthy();
     expect(screen.getByText('642 / 1,000')).toBeTruthy();
-    expect(screen.getByText('YOUR MOVES')).toBeTruthy();
+    // DEFERRED: expect(screen.getByText('YOUR MOVES')).toBeTruthy();
+    // All moves, and the suggestions, live in the expanded ONE MOVE card.
+    expect(screen.getByText('ONE MOVE')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('chart-one-move-toggle'));
+    expect(screen.getByText('SUGGESTED MOVES')).toBeTruthy();
+    // DEFERRED: expect(screen.getByLabelText('One Move: Finish onboarding redesign')).toBeTruthy();
     expect(screen.getByLabelText('One Move: Finish onboarding redesign')).toBeTruthy();
     expect(screen.getByLabelText('Add suggested move: Launch creator campaign')).toBeTruthy();
 
@@ -151,6 +158,7 @@ describe('Waypoint detail', () => {
     serve(chart());
     post.mockResolvedValue({ data: { success: true, data: chart() } });
     const screen = render(<V2ChartWaypointScreen />);
+    fireEvent.press(await screen.findByTestId('chart-one-move-toggle'));
     fireEvent.changeText(await screen.findByTestId('chart-add-move'), 'Email three creators');
     fireEvent(screen.getByTestId('chart-add-move'), 'submitEditing');
     await waitFor(() => expect(post).toHaveBeenCalled());
@@ -186,6 +194,7 @@ describe('Waypoint detail', () => {
       },
     });
     const screen = render(<V2ChartWaypointScreen />);
+    fireEvent.press(await screen.findByTestId('chart-menu-button'));
     fireEvent.press(await screen.findByTestId('chart-mark-waypoint'));
     expect(post).not.toHaveBeenCalled();
     fireEvent.press(await screen.findByTestId('chart-reach-yes'));
@@ -201,7 +210,9 @@ describe('Waypoint detail', () => {
     mockParams = { anchorId: 'anchor-1', waypointId: 'w1' };
     serve(chart());
     const screen = render(<V2ChartWaypointScreen />);
-    expect(await screen.findByText('Waypoint 1 of 3 · reached')).toBeTruthy();
+    // DEFERRED: expect(await screen.findByText('Waypoint 1 of 3 · reached')).toBeTruthy();
+    expect(await screen.findByText('REACHED')).toBeTruthy();
+    expect(screen.getByText('1 of 3')).toBeTruthy();
     expect(screen.queryByTestId('chart-mark-waypoint')).toBeNull();
     expect(screen.queryByTestId('chart-add-move')).toBeNull();
   });
@@ -332,10 +343,10 @@ describe('Generation stage honesty', () => {
       <ChartGenerationStage width={390} height={600} category="career" markers={null} reducedMotion onRevealed={onRevealed} />
     );
     expect(screen.queryAllByLabelText(/^Waypoint \d of/)).toHaveLength(0);
-    expect(screen.getByLabelText('Reading your destination')).toBeTruthy();
+    expect(screen.getByLabelText('Understanding where you’re starting…')).toBeTruthy();
     // No completion is claimed while the request is still running.
     expect(screen.queryByLabelText('Chart ready')).toBeNull();
-    expect(screen.queryByLabelText('Building your first route')).toBeNull();
+    expect(screen.queryByLabelText('Building your course…')).toBeNull();
     expect(onRevealed).not.toHaveBeenCalled();
 
     screen.rerender(
@@ -351,11 +362,9 @@ describe('Generation stage honesty', () => {
         onRevealed={onRevealed}
       />
     );
-    expect(screen.queryAllByLabelText(/^Waypoint \d of 2/)).toHaveLength(0);
-    for (const layer of ['sky','city','midground','road','foreground']) {
-      fireEvent(screen.getByTestId(`chart-world-layer-${layer}`, { includeHiddenElements: true }), 'load');
-    }
-    expect(screen.getAllByLabelText(/^Waypoint \d of 2/)).toHaveLength(2);
+    // DEFERRED: the road art's layer-load gate; the etched map has no assets to wait for.
+    // Fog of war: only the first waypoint is discovered; the second stays hidden.
+    expect(screen.getAllByLabelText(/^Waypoint \d of 2/)).toHaveLength(1);
     await waitFor(() => expect(onRevealed).toHaveBeenCalledTimes(1), { timeout: 3000 });
     expect(screen.getByLabelText('Chart ready')).toBeTruthy();
   });
