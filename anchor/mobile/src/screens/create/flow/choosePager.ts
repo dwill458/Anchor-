@@ -7,7 +7,12 @@ import { clamp, lerp } from './motion';
  * pins down (10 px, 1.9x snap, 1.1 s, 2.6x drain) are directly testable.
  */
 
-export const CARD = { x: 18, y: 112, width: 354, height: 648, radius: 24, gap: 14 } as const;
+/**
+ * The Form is a square image, shown whole: the card is a square centred on the hold point, so
+ * the anchor sits in the middle and nothing is cropped or stretched. Sealing contracts it to the
+ * medallion at half scale, which shows the same whole image Home's circle shows.
+ */
+export const CARD = { x: 18, y: 223, width: 354, height: 354, radius: 24, gap: 14 } as const;
 /** Page pitch in design px. */
 export const PAGE_PITCH = CARD.width + CARD.gap;
 export const PAGE_COUNT = 2;

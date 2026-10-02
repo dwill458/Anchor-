@@ -215,9 +215,13 @@ function FormCard({ index, form, styleName, page, hold, sealU, sealing, isActive
     };
   });
 
-  const chrome = useAnimatedStyle(() => ({
-    opacity: sealing && isActive ? sealCard(sealU.value).chromeAlpha : 1,
-  }));
+  // The labels sit under the card on the page, travelling with it and leaving first on seal.
+  const labels = useAnimatedStyle(() => {
+    const offset = (index - page.value) * PAGE_PITCH;
+    let opacity = 1;
+    if (sealing) opacity = isActive ? sealCard(sealU.value).chromeAlpha : 1 - Math.min(1, sealU.value * 4);
+    return { left: CARD.x + offset, opacity };
+  });
 
   const sheenStyle = useAnimatedStyle(() => ({
     opacity: interpolate(sheen.value, [0, 0.15, 0.85, 1], [0, 0.55, 0.55, 0]),
@@ -225,6 +229,7 @@ function FormCard({ index, form, styleName, page, hold, sealU, sealing, isActive
   }));
 
   return (
+    <>
     <Animated.View style={[styles.card, frame]} pointerEvents="none">
       <Animated.View style={[styles.content, content]}>
         {form.uri ? (
@@ -240,20 +245,16 @@ function FormCard({ index, form, styleName, page, hold, sealU, sealing, isActive
             style={StyleSheet.absoluteFill}
           />
         </Animated.View>
-        <Animated.View style={[StyleSheet.absoluteFill, chrome]}>
-          <LinearGradient
-            colors={['rgba(244, 237, 224, 0)', 'rgba(244, 237, 224, 0.45)', 'rgba(244, 237, 224, 0.6)']}
-            locations={[0, 0.6, 1]}
-            style={styles.scrim}
-          />
-          <Text style={styles.formLabel}>{FORM_LABELS[index].toUpperCase()}</Text>
-          <Text style={styles.styleName}>{styleName}</Text>
-          <Text style={styles.hint} accessibilityLiveRegion={isActive ? 'polite' : 'none'}>
-            {isActive ? (holdHint === 'holding' ? 'Keep holding…' : 'Hold your Anchor to seal') : ''}
-          </Text>
-        </Animated.View>
       </Animated.View>
     </Animated.View>
+    <Animated.View style={[styles.labels, labels]} pointerEvents="none">
+      <Text style={styles.formLabel}>{FORM_LABELS[index].toUpperCase()}</Text>
+      <Text style={styles.styleName}>{styleName}</Text>
+      <Text style={styles.hint} accessibilityLiveRegion={isActive ? 'polite' : 'none'}>
+        {isActive ? (holdHint === 'holding' ? 'Keep holding…' : 'Hold your Anchor to seal') : ''}
+      </Text>
+    </Animated.View>
+    </>
   );
 }
 
@@ -395,12 +396,8 @@ const styles = StyleSheet.create({
   image: { width: CARD.width, height: CARD.height },
   missing: { backgroundColor: colors.creation.hairline },
   sheen: { position: 'absolute', top: -40, bottom: -40, left: CARD.width * 0.3, width: 80 },
-  scrim: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 140 },
+  labels: { position: 'absolute', top: CARD.y + CARD.height + 26, width: CARD.width, alignItems: 'center' },
   formLabel: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 84 - 6,
     textAlign: 'center',
     fontFamily: 'Figtree-SemiBold',
     fontSize: 12,
@@ -409,10 +406,7 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   styleName: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 64 - 6,
+    marginTop: 8,
     textAlign: 'center',
     fontFamily: 'Figtree-Regular',
     fontSize: 13,
@@ -420,10 +414,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   hint: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 26 - 6,
+    marginTop: 22,
     textAlign: 'center',
     fontFamily: 'Figtree-Regular',
     fontSize: 13,
@@ -450,7 +441,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     width: DESIGN_WIDTH,
-    top: 789,
+    top: 700,
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 12,

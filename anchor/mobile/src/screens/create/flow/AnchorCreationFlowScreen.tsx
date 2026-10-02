@@ -491,6 +491,20 @@ export default function AnchorCreationFlowScreen() {
     return { x: centerX - side / 2, y: centerY - side / 2, width: side, height: side };
   }, [layout.offsetX, layout.offsetY, layout.scale]);
 
+  /** What Home needs to receive the sealed Anchor. */
+  const buildHandoff = useCallback(
+    (anchorId: string, svg: string, category: string, fallbackImageUrl?: string | null) => ({
+      anchorId,
+      svg,
+      category,
+      // The chosen Form is a finished image; the line itself is the "original" mark.
+      expression: 'original' as const,
+      // The Form captured at the seal is the source of truth; the saved input is a backstop.
+      imageUrl: sealedImageRef.current || fallbackImageUrl || undefined,
+    }),
+    []
+  );
+
   const { saveAnchor, reminderCardVisible, handleReminderDismiss } = useSaveAnchor(
     {
       intentionText: params.intentionText,
@@ -503,18 +517,11 @@ export default function AnchorCreationFlowScreen() {
       ? {
           onSaved: ({ anchorId, input }) => {
             trace('saveAnchor resolve (onSaved)', { imageUrlLength: input.enhancedImageUrl?.length ?? 0 });
-            const handoff = {
-              anchorId,
-              svg: input.baseSigilSvg,
-              category: input.category,
-              // The chosen Form is a finished image; the line itself is the "original" mark.
-              expression: 'original' as const,
-              // The Form captured at the seal is the source of truth; the saved input is a backstop.
-              imageUrl: sealedImageRef.current || input.enhancedImageUrl || undefined,
-            };
+            const handoff = buildHandoff(anchorId, input.baseSigilSvg, input.category, input.enhancedImageUrl);
             // The header and its progress line dissolve with the hand-off, not after it.
             headerFade.value = withTiming(0, { duration: 320, easing: Easing.out(Easing.quad) });
-            prepareHomeArrival(handoff);
+            // Home was already staged when the save resolved (see onHoldComplete); handOffToHome
+            // reuses that arrival and only stages one if there is none.
             void handOffToHome(
               navigation as unknown as Parameters<typeof handOffToHome>[0],
               { ...handoff, markRect: medallionMarkRect() },
@@ -584,14 +591,21 @@ export default function AnchorCreationFlowScreen() {
       });
 
       // Saving runs while the seal plays; the screen waits for both before leaving.
-      savePromiseRef.current = saveAnchor({
+      const pendingSave = saveAnchor({
         enhancedImageUrl: form.uri,
         enhancementMetadata,
         distilledLetters: flow.distilledLetters,
         baseSigilSvg: flow.baseSigilSvg,
       });
+      savePromiseRef.current = pendingSave;
+      // Home poses and measures while the seal is still playing, so the hand-off finds it ready
+      // instead of the medallion waiting on cream for it.
+      void pendingSave.then((outcome) => {
+        if (outcome.status !== 'saved' || !mountedRef.current) return;
+        prepareHomeArrival(buildHandoff(outcome.anchorId, flow.baseSigilSvg, params.category, form.uri));
+      });
     },
-    [deferUntilArrived, enterBeat, forms, playSound, saveAnchor, setTempEnhancedImage]
+    [buildHandoff, deferUntilArrived, enterBeat, forms, params.category, playSound, saveAnchor, setTempEnhancedImage]
   );
 
   const chooseRef = useRef<ReturnType<typeof useChooseController> | null>(null);
