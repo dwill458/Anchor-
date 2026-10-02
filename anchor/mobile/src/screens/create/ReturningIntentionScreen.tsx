@@ -34,6 +34,7 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { getAnchorCreationLimitCopy } from '@/utils/entitlements';
 import { analyzeIntention, detectGibberish, getGuidanceText } from '@/utils/intentionPatterns';
+import { warmUpBackend } from '@/services/backendWarmup';
 
 const { height } = Dimensions.get('window');
 
@@ -345,10 +346,21 @@ export default function ReturningIntentionScreen() {
 
             const distillation = distillIntention(intention);
             const category = detectCategoryFromText(intention);
-            navigation.navigate('LetterDistillation', {
+            warmUpBackend();
+            // DEFERRED: the old creation path. Superseded by AnchorCreationFlow; kept registered.
+            // navigation.navigate('LetterDistillation', {
+            //     intentionText: intention,
+            //     category,
+            //     distilledLetters: distillation.finalLetters,
+            // });
+            // DEFERRED: visual redesign of this screen to the cream Intention layout. Until then the
+            // flow fades the centred text in (entry: 'fade') rather than gliding from a field.
+            navigation.navigate('AnchorCreationFlow', {
                 intentionText: intention,
                 category,
                 distilledLetters: distillation.finalLetters,
+                source: 'typed',
+                entry: 'fade',
             });
         }
     };

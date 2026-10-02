@@ -1,3 +1,4 @@
+// DEFERRED: superseded by AnchorCreationFlow (no longer navigated to from creation).
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, useWindowDimensions } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';

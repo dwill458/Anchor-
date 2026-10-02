@@ -28,7 +28,7 @@ const SIGIL_RESULT_CACHE = new Map<string, SigilGenerationResult>();
 // ---------------------------------------------------------------------------
 
 // Pythagorean Numerology Mapping (1-9)
-function letterToNumber(letter: string, maxValue: number): number {
+export function letterToNumber(letter: string, maxValue: number): number {
   const code = letter.toUpperCase().charCodeAt(0) - 64; // A=1, B=2, ..., Z=26
   if (code < 1 || code > 26) return 1;
 
@@ -277,6 +277,38 @@ export function describeTrueSigil(
   SIGIL_FORMATION_CACHE.set(cacheKey, formation);
 
   return formation;
+}
+
+/**
+ * The geometry of one sigil in the shape the creation flow animates: the real, jittered path
+ * points (with the grid cell each landed in), the tier's grid, and the number each letter was
+ * mapped to. A view over {@link describeTrueSigil} — the same computation `generateTrueSigil`
+ * serialises, so what the flow draws is exactly what is sent for styling.
+ */
+export interface SigilGeometry {
+  points: Array<{ x: number; y: number; cell: number }>;
+  gridConfig: GridConfig;
+  letterNumbers: Array<{ letter: string; number: number }>;
+  /** Path `d` attribute, identical to the one inside the generated SVG. */
+  pathData: string;
+  strokeWidth: number;
+}
+
+export function getSigilGeometry(
+  letters: any,
+  tier: PlanetaryTier = PlanetaryTier.SATURN,
+  variant: SigilVariant = 'balanced'
+): SigilGeometry {
+  const formation = describeTrueSigil(letters, tier, variant);
+  return {
+    points: formation.vertices.map((vertex) => ({ x: vertex.x, y: vertex.y, cell: vertex.value })),
+    gridConfig: getGridConfig(tier),
+    letterNumbers: formation.vertices
+      .filter((vertex): vertex is SigilVertex & { letter: string } => vertex.letter !== null)
+      .map((vertex) => ({ letter: vertex.letter, number: vertex.value })),
+    pathData: formation.pathData,
+    strokeWidth: formation.strokeWidth,
+  };
 }
 
 export function generateTrueSigil(
