@@ -166,7 +166,12 @@ export function V2HomeScreen() {
   const poseForArrival = useCallback(() => {
     (elastic.scrollRef.current as { scrollTo?: (options: { y: number; animated: boolean }) => void } | null)?.scrollTo?.({ y: 0, animated: false });
     const state = navigation.getState?.();
-    if (state && state.index > 0) navigation.popToTop();
+    // Creation stages the arrival while it is still on top (it stages as soon as the save
+    // resolves, mid-seal). Popping to the top then would tear creation down before it hands off,
+    // leaving Home posed and hidden: only a pushed screen such as Details is popped here.
+    const topRoute: string | undefined = state?.routes?.[state.index]?.name;
+    const creationOnTop = topRoute === 'AnchorCreationFlow' || topRoute === 'V2Creation';
+    if (state && state.index > 0 && !creationOnTop) navigation.popToTop();
   }, [elastic.scrollRef, navigation]);
   const arrival = useHomeArrival({
     selectedAnchorIds: [model.selectedAnchor?.id, model.selectedAnchor?.localId],
