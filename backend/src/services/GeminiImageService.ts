@@ -9,6 +9,8 @@ import { GoogleGenAI } from '@google/genai';
 import sharp from 'sharp';
 import { logger } from '../utils/logger';
 import { buildStylePrompt, getStyleNegativePrompt } from './stylePromptLibrary';
+import { getStyleGenerationVersion } from './anchor2StyleLibrary';
+import { buildReferenceImageWrapper } from './referenceImageWrappers';
 import {
   buildVisionScenePlannerPrompt,
   parseVisionScenePlan,
@@ -302,7 +304,9 @@ export class GeminiImageService {
             baseImageBuffer,
             this.createPrompt(intentionText, styleApproach, idx, category),
             idx,
-            modelConfig
+            modelConfig,
+            0,
+            styleApproach
           )
         )
       );
@@ -1612,7 +1616,8 @@ Integration rules:
     prompt: string,
     variationIndex: number,
     modelConfig: ModelConfig,
-    retryCount: number = 0
+    retryCount: number = 0,
+    styleId?: string
   ): Promise<ImageVariation> {
     // Route to Nano Banana if configured
     if (modelConfig.useNanoBanana) {
@@ -1622,7 +1627,8 @@ Integration rules:
           prompt,
           variationIndex,
           modelConfig,
-          retryCount
+          retryCount,
+          styleId
         );
       } catch (nanoBananaError) {
         const geminiError =
@@ -1648,7 +1654,8 @@ Integration rules:
               baseImageBuffer,
               prompt,
               variationIndex,
-              modelConfig
+              modelConfig,
+              styleId
             );
           } catch (openAiError) {
             logger.error(
@@ -1713,7 +1720,8 @@ Integration rules:
           prompt,
           variationIndex,
           modelConfig,
-          retryCount + 1
+          retryCount + 1,
+          styleId
         );
       }
 
@@ -1729,9 +1737,11 @@ Integration rules:
     prompt: string,
     variationIndex: number,
     modelConfig: ModelConfig,
-    retryCount: number = 0
+    retryCount: number = 0,
+    styleId?: string
   ): Promise<ImageVariation> {
     const maxRetries = 3;
+    const isAnchor2 = getStyleGenerationVersion(styleId) === 'anchor2';
 
     try {
       logger.info(
@@ -1763,17 +1773,7 @@ Integration rules:
               role: 'user',
               parts: [
                 {
-                  text: `${prompt}
-
-REFERENCE IMAGE INSTRUCTION: The attached image contains the exact Anchor structure that must be preserved. Keep all main lines, circles, intersections, angles, nodes, and geometric relationships exactly as shown.
-STANDALONE ARTWORK MANDATE:
-- Generate a SINGLE standalone abstract geometric Anchor occupying approximately 75–85% of the available canvas width and height.
-- Composition should radiate outward and make intentional use of the full canvas, while preserving comfortable negative space around the outer edge so strokes are never clipped.
-- DO NOT generate borders, frames, boxes, rectangles, square containers, plaques, cards, windows, canvases, or enclosing shapes around the Anchor.
-- DO NOT place a small glyph in the center of a larger decorative composition.
-- DO NOT generate a background as part of the Anchor. Render the standalone symbol on a clean/transparent background.
-- A rectangle may only survive when it is a small, clearly integral component of the distilled Anchor geometry. A dominant four-sided enclosure around the symbol is ALWAYS INVALID.
-- The result must read instantly as one unified symbol when displayed inside a circle.`,
+                  text: buildReferenceImageWrapper('nanoBanana', prompt, styleId),
                 },
                 {
                   inlineData: {
@@ -1807,10 +1807,15 @@ STANDALONE ARTWORK MANDATE:
       }
 
       // Post-generation artwork validation: ensure geometry occupies >= 70% and has no dominant rectangular enclosure
+      // Anchor 2.0 artwork is a full edge-to-edge material field, so this validator (which finds
+      // the Anchor by separating it from an empty surround and rejects large filled rectangles as
+      // plaques) does not apply to it and would reject valid images.
       const generatedBuffer = Buffer.from(imageData, 'base64');
-      const validation = await validateAnchorArtwork(generatedBuffer);
+      const validation = isAnchor2
+        ? null
+        : await validateAnchorArtwork(generatedBuffer);
 
-      if (!validation.isValid && retryCount < maxRetries) {
+      if (validation && !validation.isValid && retryCount < maxRetries) {
         logger.warn(
           `[GeminiImageService] Variation ${variationIndex + 1} rejected by post-generation validation: ${validation.reason}. Retrying (attempt ${retryCount + 1}/${maxRetries})...`,
           {
@@ -1834,7 +1839,8 @@ The symbol must radiate into open space and fill the frame comfortably without a
           retryPrompt,
           variationIndex,
           modelConfig,
-          retryCount + 1
+          retryCount + 1,
+          styleId
         );
       }
 
@@ -1854,7 +1860,8 @@ The symbol must radiate into open space and fill the frame comfortably without a
           prompt,
           variationIndex,
           modelConfig,
-          retryCount + 1
+          retryCount + 1,
+          styleId
         );
       }
 
@@ -1963,7 +1970,8 @@ The symbol must radiate into open space and fill the frame comfortably without a
     baseImageBuffer: Buffer,
     prompt: string,
     variationIndex: number,
-    modelConfig: ModelConfig
+    modelConfig: ModelConfig,
+    styleId?: string
   ): Promise<ImageVariation> {
     const { OpenAIImageProviderAdapter } =
       await import('./image/adapters/OpenAIImageProviderAdapter');
@@ -1972,6 +1980,7 @@ The symbol must radiate into open space and fill the frame comfortably without a
       {
         type: 'anchor',
         prompt,
+        styleId,
         referenceImages: [{ buffer: baseImageBuffer, mimeType: 'image/png', role: 'structure' }],
         numberOfVariations: 1,
         quality: modelConfig.modelId.includes('pro') ? 'pro_upgrade' : 'premium',

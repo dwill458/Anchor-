@@ -16,6 +16,7 @@ import {
   ImageProviderErrorType,
 } from '../types';
 import { orderVisionReferences, visionReferenceInstructions } from '../visionReferences';
+import { buildReferenceImageWrapper } from '../../referenceImageWrappers';
 
 export class GeminiImageProviderAdapter implements ImageProviderAdapter {
   readonly name = 'gemini' as const;
@@ -126,7 +127,7 @@ export class GeminiImageProviderAdapter implements ImageProviderAdapter {
           const refImg = request.referenceImages?.[0];
           if (refImg) {
             parts.push({
-              text: `${variationPrompt}\n\nREFERENCE IMAGE INSTRUCTION: The attached image contains the exact Anchor structure that must be preserved. Keep all main lines, circles, intersections, angles, nodes, and geometric relationships exactly as shown. Build the selected visual world around this immutable structure. Enhancements may appear around it, behind it, beneath it, within the surrounding material field, through framing, atmosphere, lighting, surface treatment, and peripheral composition, but never by altering the Anchor geometry.`,
+              text: buildReferenceImageWrapper('geminiAdapter', variationPrompt, request.styleId),
             });
             parts.push({
               inlineData: {

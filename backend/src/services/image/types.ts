@@ -42,6 +42,11 @@ export interface GenerateImageRequest {
   generationAttempt?: number;
   /** Category context (e.g. 'career', 'health', 'wealth') */
   category?: string;
+  /**
+   * Anchor style ID this prompt was built for. Adapters resolve the generation contract
+   * (legacy vs Anchor 2.0) from the style registry by this ID; it is never a client flag.
+   */
+  styleId?: string;
   /** Arbitrary domain metadata to attach to telemetry */
   metadata?: Record<string, unknown>;
 }

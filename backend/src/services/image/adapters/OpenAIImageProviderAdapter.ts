@@ -17,6 +17,7 @@ import {
   ImageProviderErrorType,
 } from '../types';
 import { orderVisionReferences, visionReferenceInstructions } from '../visionReferences';
+import { buildReferenceImageWrapper } from '../../referenceImageWrappers';
 
 export class OpenAIImageProviderAdapter implements ImageProviderAdapter {
   readonly name = 'openai' as const;
@@ -117,11 +118,8 @@ export class OpenAIImageProviderAdapter implements ImageProviderAdapter {
 
         // Anchor artwork: enforce structural preservation in prompt for OpenAI
         if (request.type === 'anchor') {
-          enhancedPrompt = `${request.prompt}\n\nCRITICAL COMPOSITION & STRUCTURAL INTEGRITY DIRECTIVE:
-1. Preserve the geometric structure, core lines, angles, intersections, and balance of the intended Anchor design.
-2. Build artistic texture, lighting, material atmosphere, framing, and depth around this structure.
-3. No words, no typography, no letters, no numbers, no captions, no watermarks.
-4. Render as a clean, high-resolution, centered artistic emblem on a dark or atmospheric background.`;
+          // Version-aware: legacy keeps its centered-emblem wrapper, Anchor 2.0 gets the edge-to-edge one.
+          enhancedPrompt = buildReferenceImageWrapper('openAi', request.prompt, request.styleId);
         } else {
           // Vision imagery: enforce mobile portrait safe area and anti-stock rules
           enhancedPrompt = `${request.prompt}\n\nCOMPOSITION & AUTHENTICITY REQUIREMENTS:

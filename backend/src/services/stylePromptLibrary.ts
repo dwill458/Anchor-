@@ -5,6 +5,29 @@ import {
   type VisualLanguageDNA,
 } from '../types';
 
+import {
+  getAnchor2StyleDefinition,
+  type Anchor2PaletteLane,
+  type Anchor2StyleDefinition,
+} from './anchor2StyleLibrary';
+import {
+  ANCHOR2_ADAPTIVE_CONTRAST_RULE,
+  ANCHOR2_LEGIBILITY_FIELD,
+  ANCHOR2_MATERIAL_TRUTH,
+  ANCHOR2_NEGATIVE_ADDITIONS,
+  ANCHOR2_PRESENTATION_CONTRACT,
+  ANCHOR2_REMOVED_GLOBAL_NEGATIVE_TERMS,
+  ANCHOR2_TEXTURE_DEFAULT,
+  ANCHOR2_VARIATION_MODEL,
+} from './anchor2Contract';
+
+export {
+  getAnchor2StyleDefinition,
+  getStyleGenerationVersion,
+  isAnchor2StyleId,
+} from './anchor2StyleLibrary';
+
+/** Legacy (Anchor 1.5) catalog only. Anchor 2.0 IDs live in anchor2StyleLibrary.ts. */
 export const VALID_AI_STYLES = AI_STYLE_IDS;
 export type { AIStyle, StyleLifecycleStatus, VisualLanguageDNA };
 
@@ -142,7 +165,25 @@ export const STYLE_EXTRA_NEGATIVES: Partial<Record<AIStyle, string>> = {
   original: 'glow, shading, gradient fills, distressed textures, app icon, mystical badge',
 };
 
+/**
+ * Anchor 2.0 negative prompt: the legacy global negative minus the terms that would forbid the
+ * surfaces and textures 2.0 styles require, plus the 2.0 legibility additions and the style's own.
+ */
+function buildAnchor2NegativePrompt(def: Anchor2StyleDefinition): string {
+  const removed = new Set(ANCHOR2_REMOVED_GLOBAL_NEGATIVE_TERMS);
+  const globalTokens = GLOBAL_NEGATIVE_PROMPT.split(',')
+    .map(token => token.trim())
+    .filter(token => token && !removed.has(token));
+  const additions = [...ANCHOR2_NEGATIVE_ADDITIONS, ...(def.visualLanguage.negativePromptAdditions ?? [])];
+  return Array.from(new Set([...globalTokens, ...additions])).join(', ');
+}
+
 export function getStyleNegativePrompt(style: string): string {
+  const anchor2Style = getAnchor2StyleDefinition(style);
+  if (anchor2Style) {
+    return buildAnchor2NegativePrompt(anchor2Style);
+  }
+
   const styleKey = normalizeStyleId(style);
   const extraLegacy = Object.prototype.hasOwnProperty.call(STYLE_EXTRA_NEGATIVES, styleKey)
     ? STYLE_EXTRA_NEGATIVES[styleKey as AIStyle]
@@ -664,8 +705,62 @@ function buildRecentRendersBlock(recent?: BuildStylePromptOptions['recentRenders
   return lines.join('\n');
 }
 
+/**
+ * Structural-preservation text shared by the legacy and Anchor 2.0 prompt builders. Extracted verbatim
+ * from the legacy template: legacy output must stay byte-identical (guarded by fixtures).
+ */
+export const STRUCTURAL_PRESERVATION_BLOCK = `STRUCTURAL PRESERVATION — ABSOLUTE PRIORITY
+--------------------------------------------------
+Preserve every primary line, circle, node, intersection, angle, and structural relationship exactly as shown.
+
+Do not:
+- warp
+- bend
+- melt
+- rotate
+- skew
+- redraw
+- simplify
+- reshape
+- replace
+- reinterpret
+- disconnect
+- extend
+- shorten
+- break
+
+Do not invent new lines that appear to belong to the Anchor.
+
+Do not add readable:
+- text
+- letters
+- words
+- numbers
+- runes
+- fake alphabets
+- inscriptions
+- labels
+- symbols
+
+Treat the Anchor as an immutable master structure.
+
+Styling may affect only:
+- material
+- atmosphere
+- lighting
+- color
+- density
+- texture
+- depth
+- peripheral composition
+- surrounding fields
+- supporting ornament
+- non-Anchor visual elements
+
+If the selected style uses a physical medium, the Anchor may appear painted, engraved, printed, gilded, carved, drawn, etched, illuminated, embedded, or projected, but the geometry must remain unchanged.`;
+
 // ============================================================================
-// Master Runtime Prompt Builder (Anchor 2.0)
+// Legacy Master Runtime Prompt Builder (Anchor 1.5 styles; transparent/standalone artwork contract)
 // ============================================================================
 
 export function buildStylePrompt(
@@ -674,6 +769,12 @@ export function buildStylePrompt(
   variationIndex: number = 0,
   optionsOrCategory?: BuildStylePromptOptions | string
 ): string {
+  // Anchor 2.0 styles use their own contract; the version is resolved from the registry by ID.
+  const anchor2Style = getAnchor2StyleDefinition(styleId);
+  if (anchor2Style) {
+    return buildAnchor2StylePrompt(anchor2Style, intention, variationIndex, optionsOrCategory);
+  }
+
   const style = getStylePromptDefinition(styleId);
   const dna = normalizeVisualLanguage(style);
   const signal = deriveIntentionSignal(intention);
@@ -731,55 +832,7 @@ Generate a SINGLE standalone abstract geometric Anchor derived from the supplied
 - Organic curves, intersections, diagonals, arcs, and structural geometry are allowed. Large rectangular framing devices are strictly forbidden.
 - Important: A rectangle may only survive when it is a small, clearly integral component of the distilled Anchor geometry. A dominant four-sided enclosure around the symbol is ALWAYS INVALID.
 
-STRUCTURAL PRESERVATION — ABSOLUTE PRIORITY
---------------------------------------------------
-Preserve every primary line, circle, node, intersection, angle, and structural relationship exactly as shown.
-
-Do not:
-- warp
-- bend
-- melt
-- rotate
-- skew
-- redraw
-- simplify
-- reshape
-- replace
-- reinterpret
-- disconnect
-- extend
-- shorten
-- break
-
-Do not invent new lines that appear to belong to the Anchor.
-
-Do not add readable:
-- text
-- letters
-- words
-- numbers
-- runes
-- fake alphabets
-- inscriptions
-- labels
-- symbols
-
-Treat the Anchor as an immutable master structure.
-
-Styling may affect only:
-- material
-- atmosphere
-- lighting
-- color
-- density
-- texture
-- depth
-- peripheral composition
-- surrounding fields
-- supporting ornament
-- non-Anchor visual elements
-
-If the selected style uses a physical medium, the Anchor may appear painted, engraved, printed, gilded, carved, drawn, etched, illuminated, embedded, or projected, but the geometry must remain unchanged.
+${STRUCTURAL_PRESERVATION_BLOCK}
 
 VISUAL LANGUAGE CONTRACT
 --------------------------------------------------
@@ -1156,6 +1209,195 @@ Enhancements may appear:
 
 Never alter the core geometry.
 Never add rectangular frames, boxes, plaques, or enclosing containers around the Anchor.`;
+}
+
+// ============================================================================
+// Anchor 2.0 Prompt Builder
+//
+// Additive: only reached for styles the registry marks generationVersion 'anchor2'. It composes the
+// shared structural-preservation block with the 2.0 presentation, contrast and legibility blocks and
+// never reuses the legacy master prompt body (which mandates artwork without a field).
+// ============================================================================
+
+const ANCHOR2_PERIPHERAL_PLACEMENTS = [
+  'let richer material detail gather toward the lower-left and upper-right perimeter',
+  'let richer material detail gather along the upper and left perimeter',
+  'let richer material detail gather along the lower and right perimeter',
+  'let richer material detail gather in the outer corners and thin out toward the middle',
+  'let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet',
+];
+
+function capitalizeFirst(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+/** Deterministic palette-lane choice for a render. Same seed inputs always give the same lane. */
+export function selectAnchor2PaletteLane(
+  def: Anchor2StyleDefinition,
+  intention: string,
+  variationIndex: number,
+  category?: string
+): Anchor2PaletteLane {
+  const cleanIntention = normalizeIntention(intention) || 'personal intention';
+  const safeIndex = Number.isFinite(variationIndex) ? Math.trunc(variationIndex) : 0;
+  return pickStable(
+    def.paletteLanes,
+    `${def.id}:${cleanIntention}:${safeIndex}:${(category || '').trim().toLowerCase()}:lane`
+  );
+}
+
+/** The explicit structure-colour instruction for a lane (adaptive Anchor contrast). */
+export function buildAnchor2StructureColorInstruction(lane: Anchor2PaletteLane): string {
+  const anchorValue = lane.anchorValue.toUpperCase();
+  if (lane.fieldValue === 'mixed') {
+    const behindValue = lane.anchorValue === 'dark' ? 'LIGHT' : 'DARK';
+    return `Field value: MIXED (${lane.field}).
+Render the Anchor structure in a ${anchorValue} tone: ${lane.anchorTone}.
+Because the field varies in value, create a calm, low-contrast ${behindValue} tonal zone behind the geometry so the structure reads continuously everywhere it runs. Keep strong value variation and richer detail toward the perimeter.`;
+  }
+  const fieldValue = lane.fieldValue.toUpperCase();
+  return `Field value: ${fieldValue} (${lane.field}).
+The field behind the Anchor is predominantly ${lane.fieldValue}, so render the Anchor structure in a ${anchorValue} tone: ${lane.anchorTone}.`;
+}
+
+export function buildAnchor2StylePrompt(
+  style: Anchor2StyleDefinition,
+  intention: string,
+  variationIndex: number = 0,
+  optionsOrCategory?: BuildStylePromptOptions | string
+): string {
+  const dna = style.visualLanguage;
+  const signal = deriveIntentionSignal(intention);
+  const cleanIntention = normalizeIntention(intention) || 'personal intention';
+  const safeVariationIndex = Number.isFinite(variationIndex) ? Math.trunc(variationIndex) : 0;
+  const options: BuildStylePromptOptions =
+    typeof optionsOrCategory === 'string' ? { category: optionsOrCategory } : optionsOrCategory || {};
+  const categoryInfo = getCategoryColorInfo(options.category);
+
+  const lane = selectAnchor2PaletteLane(style, intention, safeVariationIndex, options.category);
+  const seedBase = `${style.id}:${cleanIntention}:${safeVariationIndex}`;
+  const materialVariant = pickStable(style.materialVariants, `${seedBase}:material`);
+  const peripheralPlacement = pickStable(ANCHOR2_PERIPHERAL_PLACEMENTS, `${seedBase}:placement`);
+  const nativeMotif = pickStable(style.styleNativeMotifs, `${seedBase}:motif`);
+
+  const sections: string[] = [
+    `ANCHOR IDENTITY
+--------------------------------------------------
+This Anchor embodies the intention "${cleanIntention}".
+
+The attached reference image contains the canonical Anchor geometry derived from the user’s intention. The Anchor geometry is the identity of the piece.
+
+The finished piece is the owner's personal mark of intent: individual and handmade in character, never a corporate logo, an icon-set glyph, an alphabet monogram, or a magical seal.`,
+
+    ANCHOR2_PRESENTATION_CONTRACT,
+
+    STRUCTURAL_PRESERVATION_BLOCK,
+
+    `${ANCHOR2_ADAPTIVE_CONTRAST_RULE}
+
+STRUCTURE COLOUR FOR THIS RENDER (${lane.label})
+${buildAnchor2StructureColorInstruction(lane)}`,
+
+    ANCHOR2_LEGIBILITY_FIELD,
+
+    `STYLE
+--------------------------------------------------
+STYLE MATERIAL WORLD:
+${style.materialName}
+
+STYLE FAMILY:
+${style.styleFamily}
+
+CORE ART WORLD:
+${dna.coreArtWorld}
+
+The selected style is a complete material world, not a filter, a texture overlay or a background swap.
+
+LOCKED CORE — what makes this style recognizably itself:
+${formatList(style.lockedCore)}
+
+ALLOWED VARIATION — what may differ between renders:
+${formatList(style.allowedVariation)}
+
+PROHIBITED DRIFT — what would collapse this style into another or into generic AI art:
+${formatList(style.prohibitedDrift)}
+
+STYLE DNA
+PRIMARY MEDIUM: ${dna.primaryMedium}
+SUBSTRATE: ${dna.substrate}
+MATERIAL BEHAVIOR: ${style.materialBehavior}
+TEXTURE LOGIC: ${dna.textureLogic}
+LIGHT BEHAVIOR: ${dna.lightBehavior}
+EDGE BEHAVIOR: ${dna.edgeBehavior}
+DEPTH LOGIC: ${dna.depthLogic}
+ORNAMENT SYSTEM: ${dna.ornamentSystem}
+STYLE SHOULD FEEL LIKE: ${dna.shouldFeelLike}
+STYLE MUST NOT FEEL LIKE: ${dna.mustNotFeelLike}
+
+ANCHOR RENDERING — how the structure is physically made (geometry stays exactly as supplied):
+${style.anchorRendering}
+
+STYLE-SPECIFIC LEGIBILITY:
+${style.legibilityRule}`,
+
+    ANCHOR2_TEXTURE_DEFAULT,
+
+    ANCHOR2_MATERIAL_TRUTH,
+
+    `CROSS-STYLE SEPARATION
+--------------------------------------------------
+${formatList(dna.crossStyleAvoidances)}
+
+Do not import signature traits from unrelated styles.`,
+
+    ANCHOR2_VARIATION_MODEL,
+
+    `VARIATION FOR THIS RENDER
+--------------------------------------------------
+Palette lane: ${lane.label} — ${lane.field}
+Material subtype: ${materialVariant}
+Style-native motif to favour: ${nativeMotif}
+Peripheral placement: ${peripheralPlacement}
+Default density: moderate; let the intention signal below shape it`,
+
+    `CATEGORY SIGNAL — SECONDARY TO STYLE
+--------------------------------------------------
+CATEGORY: ${categoryInfo.name}
+CATEGORY COLOR: ${categoryInfo.color}
+
+${capitalizeFirst(style.categoryInfluence)}.
+
+Category may influence palette expression, density, rhythm, energy, treatment, material concentration, peripheral composition and visual pressure. It must not replace the locked style identity, and it must not force a colour onto the Anchor when contrast suffers.`,
+
+    `INTENTION SIGNAL LAYER — NON-LITERAL
+--------------------------------------------------
+Translate "${cleanIntention}" into visual behavior rather than literal illustration. The intention acts like emotional physics on the field.
+
+Directional behavior: ${signal.directionalBehavior}
+Density behavior: ${signal.densityBehavior}
+Focal emphasis: ${signal.focalBehavior}
+Palette behavior: ${signal.paletteBehavior}
+Atmospheric rhythm: ${signal.rhythmBehavior}
+Visual tension: ${signal.visualTension || 'balanced tension with calm core'}
+Spatial pressure: ${signal.spatialPressure || 'open surrounding field'}
+Intention-responsive motif (abstract, peripheral, secondary): ${signal.motif}
+
+Apply this signal to the perimeter, tonal pressure and rhythm of the field. Wherever it speaks of a centre, inner concentration or convergence, express it as calm restraint and tonal weight, never as added detail, texture or marks within the Anchor footprint.
+
+Do not directly illustrate the intention. Avoid obvious literal symbolism such as money for abundance, hearts for relationships, planes for adventure, dumbbells for health, briefcases for career, or books for learning, unless the style transforms it beyond recognition.`,
+
+    `COLLECTION DIFFERENTIATION
+--------------------------------------------------
+${buildRecentRendersBlock(options.recentRenders)}
+
+If this data is available, prefer meaningful visual distance from recent Anchors.`,
+
+    `REFERENCE IMAGE RULE
+--------------------------------------------------
+The attached image contains the exact Anchor structure. Preserve its lines, circles, intersections, angles, nodes and geometric relationships. The style field may appear around, behind and beneath the structure, in surface treatment and in peripheral composition, but never by altering the core geometry. Never add frames, cards, plaques or enclosing containers around the Anchor.`,
+  ];
+
+  return sections.join('\n\n');
 }
 
 // ============================================================================

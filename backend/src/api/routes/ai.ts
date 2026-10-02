@@ -28,9 +28,9 @@ import {
   enhanceSigilWithAI,
   enhanceSigilWithControlNet,
   estimateGenerationTime,
-  AIStyle,
 } from '../../services/AIEnhancer';
-import { VALID_AI_STYLES } from '../../services/stylePromptLibrary';
+import { VALID_AI_STYLES, getStyleGenerationVersion } from '../../services/stylePromptLibrary';
+import { ANCHOR2_STYLE_IDS, type GenerationStyleId } from '../../types';
 import { generateMantra, getRecommendedMantraStyle } from '../../services/MantraGenerator';
 import {
   isServerStoredAssetUrl,
@@ -45,6 +45,10 @@ import {
 import { logger } from '../../utils/logger';
 
 const router = express.Router();
+// Anchor 2.0 styles are fully generatable but not released: the route only accepts them when this
+// flag is on, so production Anchor 1.5 clients are unaffected. Picker availability (forward vs
+// rotation) is separate catalog metadata and never gates generation.
+const isAnchor2StylesEnabled = (): boolean => process.env.ENABLE_ANCHOR2_STYLES === 'true';
 const TOTAL_VARIATION_OPTIONS = 2;
 const MAX_REUSED_VARIATIONS = 2;
 const RESERVATION_TTL_MINUTES = 30;
@@ -53,7 +57,10 @@ const RESERVATION_TTL_MINUTES = 30;
 
 const EnhanceSchema = z.object({
   sigilSvg: z.string().min(1),
-  styleChoice: z.enum(VALID_AI_STYLES),
+  styleChoice: z.preprocess(
+    (val) => (val === 'mineral_wash_v2' || val === 'mineral-wash-v2' || val === 'mineral-wash' || val === 'mineral_wash' ? 'clay_v2' : val),
+    z.enum([...VALID_AI_STYLES, ...ANCHOR2_STYLE_IDS])
+  ),
   anchorId: z.string().min(1),
   intentionText: z.string().max(500).optional(),
   intention: z.string().max(500).optional(),
@@ -83,7 +90,11 @@ const MantraAudioSchema = z.object({
 
 // Validates data against a schema; returns parsed data or sends a 400 response.
 // Returns null if validation failed (caller should return early).
-function validateOrRespond<T>(schema: z.ZodSchema<T>, data: unknown, res: Response): T | null {
+function validateOrRespond<T>(
+  schema: z.ZodType<T, z.ZodTypeDef, unknown>,
+  data: unknown,
+  res: Response
+): T | null {
   const result = schema.safeParse(data);
   if (!result.success) {
     const message = result.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
@@ -195,6 +206,11 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
     // Onboarding flow generates a "temp-*" anchor before the user has an
     // account. Those requests are permitted without auth (still IP rate
     // limited above). Every other path must be authenticated.
+    if (getStyleGenerationVersion(parsed.styleChoice) === 'anchor2' && !isAnchor2StylesEnabled()) {
+      res.status(400).json({ error: 'Validation error: styleChoice: Invalid enum value' });
+      return;
+    }
+
     const isTempAnchor = parsed.anchorId.startsWith('temp-');
     if (!isTempAnchor && !req.user?.uid) {
       res.status(401).json({
@@ -429,7 +445,7 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
           useNewPipeline
             ? enhanceSigilWithAI({
                 sigilSvg,
-                styleChoice: styleChoice as AIStyle,
+                styleChoice: styleChoice as GenerationStyleId,
                 userId: user.id,
                 intentionText,
                 validateStructure: validateStructure !== false,
@@ -439,7 +455,7 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
               })
             : enhanceSigilWithControlNet({
                 sigilSvg,
-                styleChoice: styleChoice as AIStyle,
+                styleChoice: styleChoice as GenerationStyleId,
                 userId: user.id,
                 intentionText,
                 validateStructure: validateStructure !== false,
@@ -602,7 +618,7 @@ async function handleEnhance(req: AuthRequest, res: Response): Promise<void> {
         negativePromptUsed = firstReserved.sourceNegativePrompt || '';
         generationTime = 0;
         controlMethod = 'lineart';
-        styleApplied = (firstReserved.styleChoice as AIStyle) || styleChoice;
+        styleApplied = (firstReserved.styleChoice as GenerationStyleId) || styleChoice;
       }
     }
 

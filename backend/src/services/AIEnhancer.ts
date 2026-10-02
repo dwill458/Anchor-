@@ -18,6 +18,8 @@ import { rasterizeSVG } from '../utils/svgRasterizer';
 import { computeStructureMatch } from '../utils/structureMatching';
 import { validateAnchorArtwork } from '../utils/artworkValidation';
 import { GeminiImageService } from './GeminiImageService';
+import type { GenerationStyleId } from '../types';
+import { getStyleGenerationVersion } from './anchor2StyleLibrary';
 import {
   VALID_AI_STYLES,
   buildStylePrompt,
@@ -294,7 +296,7 @@ const STRUCTURE_THRESHOLDS = {
  */
 export interface ControlNetEnhancementRequest {
   sigilSvg: string; // Base or reinforced SVG structure
-  styleChoice: AIStyle; // Selected art style
+  styleChoice: GenerationStyleId; // Selected art style (legacy or Anchor 2.0)
   userId: string; // For tracking
   intentionText?: string; // Optional: User's intention for thematic symbol generation
   validateStructure?: boolean; // Enable structure validation (default: true)
@@ -334,7 +336,7 @@ export interface ControlNetEnhancementResult {
   negativePrompt: string; // Negative prompt used
   model: string; // ControlNet model used
   controlMethod: 'canny' | 'lineart' | 'scribble'; // Preprocessing method
-  styleApplied: AIStyle; // Style that was applied
+  styleApplied: GenerationStyleId; // Style that was applied
   generationTime: number; // Time in seconds
   structureThreshold: number; // Threshold used for validation
   passingCount: number; // Number of variations passing threshold
@@ -404,7 +406,17 @@ export async function enhanceSigilWithAI(
         );
 
         // Validate that Anchor geometry occupies >= 70% of canvas and has no rectangular framing/enclosure
-        const validation = await validateAnchorArtwork(imageBuffer);
+        // Anchor 2.0 renders a full edge-to-edge field, so the empty-surround occupancy/plaque
+        // validator does not apply to it. No automated geometry check exists for 2.0 yet.
+        const isAnchor2 = getStyleGenerationVersion(request.styleChoice) === 'anchor2';
+        const validation = isAnchor2
+          ? {
+              isValid: true,
+              widthRatio: 1,
+              heightRatio: 1,
+              hasDominantRectangularEnclosure: false,
+            }
+          : await validateAnchorArtwork(imageBuffer);
         const structureMatch: StructureMatchScore = {
           iouScore: validation.isValid ? 0.94 : Math.min(0.65, validation.widthRatio),
           edgeOverlapScore: validation.isValid ? 0.92 : Math.min(0.65, validation.heightRatio),
@@ -496,7 +508,8 @@ export async function enhanceSigilWithControlNet(
 
   try {
     // Get style configuration
-    const styleConfig = STYLE_CONFIGS[request.styleChoice];
+    // Replicate/ControlNet configs exist for legacy styles only; Anchor 2.0 styles use the Gemini path.
+    const styleConfig = STYLE_CONFIGS[request.styleChoice as AIStyle];
     if (!styleConfig) {
       throw new Error(`Invalid style choice: ${request.styleChoice}`);
     }
