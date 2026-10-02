@@ -38,6 +38,8 @@ interface FlowCanvasProps {
   layout: FlowLayout;
   /** Called every animation frame; read from refs, do not allocate. */
   getFrame: () => FlowFrameSource;
+  /** Fired once, right after the first picture has been handed to the canvas. */
+  onFirstFrame?: () => void;
 }
 
 const GRAIN_SIZE = 128;
@@ -80,12 +82,15 @@ function emptyPicture(width: number, height: number): SkPicture {
  * The content is painted twice — cream palette, then ink palette clipped to the torn boundary —
  * so one description of the scene yields the whole two-tone effect.
  */
-export function FlowCanvas({ fonts, context, layout, getFrame }: FlowCanvasProps) {
+export function FlowCanvas({ fonts, context, layout, getFrame, onFirstFrame }: FlowCanvasProps) {
   const picture = useSharedValue<SkPicture>(emptyPicture(layout.width, layout.height));
   const grain = useMemo(createGrainShader, []);
   const lastKeyRef = useRef<string | undefined>(undefined);
   const getFrameRef = useRef(getFrame);
   getFrameRef.current = getFrame;
+  const onFirstFrameRef = useRef(onFirstFrame);
+  onFirstFrameRef.current = onFirstFrame;
+  const firstFrameFiredRef = useRef(false);
 
   useEffect(() => {
     let raf = 0;
@@ -160,6 +165,11 @@ export function FlowCanvas({ fonts, context, layout, getFrame }: FlowCanvasProps
       }
 
       picture.value = recorder.finishRecordingAsPicture();
+
+      if (!firstFrameFiredRef.current) {
+        firstFrameFiredRef.current = true;
+        onFirstFrameRef.current?.();
+      }
     };
 
     raf = requestAnimationFrame(record);

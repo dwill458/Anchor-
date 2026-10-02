@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '@/theme/colors';
@@ -32,6 +32,9 @@ interface StyleSceneProps {
  */
 export function StyleScene({ step, strokes, reduceMotion, onOpenAll, onPick }: StyleSceneProps) {
   const chips = step.chipIds.map((id) => getStyleById(id)).filter((s): s is RefineStyleOption => Boolean(s));
+  // Chips present on arrival fade in with the scene. One swapped in later (picked from All) is
+  // simply there: fading it up from zero under a fresh selection ring read as dimmed.
+  const arrivalIds = useRef(new Set(step.chipIds)).current;
 
   return (
     <View style={styles.root} pointerEvents="box-none">
@@ -46,7 +49,7 @@ export function StyleScene({ step, strokes, reduceMotion, onOpenAll, onPick }: S
           <Reveal
             key={style.id}
             delay={210 + index * 70}
-            reduceMotion={reduceMotion}
+            reduceMotion={reduceMotion || !arrivalIds.has(style.id)}
             style={[styles.slot, { left, top: SLOT.y - 3 }]}
           >
             <StyleChip
@@ -59,6 +62,11 @@ export function StyleScene({ step, strokes, reduceMotion, onOpenAll, onPick }: S
             <Text style={[styles.name, selected && styles.nameSelected]} numberOfLines={2}>
               {style.displayName}
             </Text>
+            {selected && step.showsLongerWait ? (
+              <View style={styles.newTag} accessibilityLabel="New style, takes a little longer">
+                <Text style={styles.newTagText}>new — takes a little longer</Text>
+              </View>
+            ) : null}
           </Reveal>
         );
       })}
@@ -93,9 +101,6 @@ export function StyleScene({ step, strokes, reduceMotion, onOpenAll, onPick }: S
           >
             <Text style={styles.pillText}>Form it →</Text>
           </Pressable>
-          {step.showsLongerWait ? (
-            <Text style={styles.longer}>A new style takes a little longer.</Text>
-          ) : null}
         </Reveal>
       ) : (
         <Reveal delay={420} reduceMotion={reduceMotion} style={styles.countdown}>
@@ -182,11 +187,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pillText: { fontFamily: 'Figtree-SemiBold', fontSize: 14, color: colors.creation.ink },
-  longer: {
+  // A tag, not a disabled look: full-strength cream outline, never a dimmed chip.
+  newTag: {
+    marginTop: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(244, 237, 224, 0.5)',
+    borderRadius: 8,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  newTagText: {
     fontFamily: 'Figtree-Regular',
-    fontSize: 12,
+    fontSize: 10,
+    lineHeight: 12,
     color: colors.creation.cream,
-    opacity: 0.6,
-    marginTop: 18,
+    opacity: 0.9,
+    textAlign: 'center',
   },
 });

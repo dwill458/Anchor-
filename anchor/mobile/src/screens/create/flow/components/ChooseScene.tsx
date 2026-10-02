@@ -236,7 +236,7 @@ function FormCard({ index, form, styleName, page, hold, sealU, sealing, isActive
         </Animated.View>
         <Animated.View style={[StyleSheet.absoluteFill, chrome]}>
           <LinearGradient
-            colors={['rgba(244, 237, 224, 0)', 'rgba(244, 237, 224, 0.6)', 'rgba(244, 237, 224, 0.78)']}
+            colors={['rgba(244, 237, 224, 0)', 'rgba(244, 237, 224, 0.45)', 'rgba(244, 237, 224, 0.6)']}
             locations={[0, 0.6, 1]}
             style={styles.scrim}
           />
@@ -389,7 +389,7 @@ const styles = StyleSheet.create({
   image: { width: CARD.width, height: CARD.height },
   missing: { backgroundColor: colors.creation.hairline },
   sheen: { position: 'absolute', top: -40, bottom: -40, left: CARD.width * 0.3, width: 80 },
-  scrim: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 200 },
+  scrim: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 140 },
   formLabel: {
     position: 'absolute',
     left: 0,

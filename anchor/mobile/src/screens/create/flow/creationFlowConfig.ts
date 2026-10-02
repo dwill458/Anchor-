@@ -63,6 +63,8 @@ export const DRAW_RISE_SECONDS = 0.9;
 /** Generation wait thresholds (seconds) for the Form scene captions. */
 export const FORM_SLOW_CAPTION_AFTER = 12;
 export const FORM_RETRY_AFTER = 45;
+/** Typical (p80) generation time; the Form hairline is eased to ~92% by then. */
+export const FORM_PROGRESS_P80_SECONDS = 15;
 
 /** Seal gesture. The unreachable SealAnchorScreen uses 3000 ms; the creation flow uses 1.1 s. */
 export const SEAL_HOLD_MS = 1100;

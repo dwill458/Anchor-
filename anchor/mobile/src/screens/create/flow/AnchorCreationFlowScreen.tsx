@@ -7,7 +7,7 @@ import * as Haptics from 'expo-haptics';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { DailyReminderPrompt } from '@/components/notifications';
 import { isAnchorV2Enabled } from '@/config/v2FeatureFlag';
@@ -19,7 +19,6 @@ import { useSaveAnchor } from '@/hooks/useSaveAnchor';
 import { useTrialStatus } from '@/hooks/useTrialStatus';
 import {
   AnchorGenerationService,
-  nextEstimatedProgress,
   type AnchorGenerationResult,
   type GenerationFailureKind,
 } from '@/services/AnchorGenerationService';
@@ -44,6 +43,7 @@ import { StyleScene } from './components/StyleScene';
 import {
   DRAW_RISE_SECONDS,
   FORM_RETRY_AFTER,
+  FORM_PROGRESS_P80_SECONDS,
   FORM_SLOW_CAPTION_AFTER,
   INK_BOUNDARY,
   MIN_HAPTIC_GAP_MS,
@@ -60,6 +60,8 @@ import { useFlowLayout } from './flowLayout';
 import { normalizeGeneratedForms, type GeneratedForm } from './generatedForms';
 import { clamp, smooth } from './motion';
 import { FpsProbe } from './components/FpsProbe';
+import { estimatedFormProgress } from './formProgress';
+import { useIntentionHandoffStore } from './intentionHandoff';
 import { trace } from '@/utils/dev/creationTrace';
 import { buildSceneContext } from './sceneContext';
 import { MEDALLION } from './sealMath';
@@ -195,6 +197,13 @@ export default function AnchorCreationFlowScreen() {
   const [ghostVisible, setGhostVisible] = useState(true);
   const mountedRef = useRef(true);
 
+  // The canvas owns the typed words from its first drawn frame: the Intention field underneath
+  // stops drawing them on that same frame, so they are never on screen twice.
+  const claimIntentionGlyphs = useCallback(() => {
+    if (field) useIntentionHandoffStore.getState().claim();
+  }, [field]);
+  useEffect(() => () => useIntentionHandoffStore.getState().release(), []);
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -203,6 +212,8 @@ export default function AnchorCreationFlowScreen() {
   }, []);
 
   // Header shared values — updated every frame without re-rendering.
+  const headerFade = useSharedValue(1);
+  const headerFadeStyle = useAnimatedStyle(() => ({ opacity: headerFade.value }));
   const headerBeat = useSharedValue(1);
   const headerProgress = useSharedValue(0);
   const headerLabelAlpha = useSharedValue(0);
@@ -255,21 +266,13 @@ export default function AnchorCreationFlowScreen() {
     abort: null,
     style: null,
   });
-  const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /** 100 once the request resolved, 0 otherwise; the hairline between is time-based. */
   const targetProgressRef = useRef(0);
   const [forms, setForms] = useState<GeneratedForm[]>([]);
   const [styleName, setStyleName] = useState('');
 
-  const clearProgressTimer = () => {
-    if (progressTimerRef.current) {
-      clearInterval(progressTimerRef.current);
-      progressTimerRef.current = null;
-    }
-  };
-
   useEffect(
     () => () => {
-      clearProgressTimer();
       generationRef.current.abort?.abort();
       setTempEnhancedImage(null);
     },
@@ -289,11 +292,6 @@ export default function AnchorCreationFlowScreen() {
     displayProgressRef.current = 0;
     formTfRef.current = 0;
     setGeneration({ status: 'running' });
-
-    clearProgressTimer();
-    progressTimerRef.current = setInterval(() => {
-      targetProgressRef.current = nextEstimatedProgress(targetProgressRef.current);
-    }, 800);
 
     try {
       const result = await AnchorGenerationService.generate({
@@ -322,8 +320,6 @@ export default function AnchorCreationFlowScreen() {
         status: 'failed',
         kind: (error as { kind?: GenerationFailureKind }).kind ?? 'generic',
       });
-    } finally {
-      clearProgressTimer();
     }
   }, [params.category, params.intentionText, user?.id]);
 
@@ -396,7 +392,6 @@ export default function AnchorCreationFlowScreen() {
 
   const backToStyle = useCallback(() => {
     generationRef.current.abort?.abort();
-    clearProgressTimer();
     setGeneration({ status: 'idle' });
     styleURef.current = 0;
     setPhase('style');
@@ -485,6 +480,8 @@ export default function AnchorCreationFlowScreen() {
               // The Form captured at the seal is the source of truth; the saved input is a backstop.
               imageUrl: sealedImageRef.current || input.enhancedImageUrl || undefined,
             };
+            // The header and its progress line dissolve with the hand-off, not after it.
+            headerFade.value = withTiming(0, { duration: 320, easing: Easing.out(Easing.quad) });
             prepareHomeArrival(handoff);
             void handOffToHome(
               navigation as unknown as Parameters<typeof handOffToHome>[0],
@@ -706,9 +703,12 @@ export default function AnchorCreationFlowScreen() {
         formTfRef.current += dt;
         const tf = formTfRef.current;
         const gen = generationRef.current;
-        const target = targetProgressRef.current / 100;
-        displayProgressRef.current += (target - displayProgressRef.current) * (1 - Math.exp(-dt * 3));
-        if (target >= 1) displayProgressRef.current = Math.max(displayProgressRef.current, 0.995);
+        // Time-based, so the hairline always moves; it completes (quickly) on resolve.
+        const resolved = targetProgressRef.current >= 100;
+        const target = resolved ? 1 : estimatedFormProgress(tf, FORM_PROGRESS_P80_SECONDS);
+        const shown = displayProgressRef.current;
+        displayProgressRef.current = Math.max(shown, shown + (target - shown) * (1 - Math.exp(-dt * (resolved ? 8 : 4))));
+        if (resolved) displayProgressRef.current = Math.max(displayProgressRef.current, 0.995);
 
         headerBeat.value = 6;
         headerProgress.value = displayProgressRef.current;
@@ -844,7 +844,13 @@ export default function AnchorCreationFlowScreen() {
       <StatusBar style="dark" />
 
       {built && fonts ? (
-        <FlowCanvas fonts={fonts} context={built.context} layout={layout} getFrame={getFrame} />
+        <FlowCanvas
+          fonts={fonts}
+          context={built.context}
+          layout={layout}
+          getFrame={getFrame}
+          onFirstFrame={claimIntentionGlyphs}
+        />
       ) : null}
 
       {/* The Intention screen's chrome, fading away as the words glide. */}
@@ -867,7 +873,7 @@ export default function AnchorCreationFlowScreen() {
         ]}
         pointerEvents="box-none"
       >
-        <View style={{ transform: [{ translateY: headerShift }] }} pointerEvents="box-none">
+        <Animated.View style={[{ transform: [{ translateY: headerShift }] }, headerFadeStyle]} pointerEvents="box-none">
           <FlowHeader
             beat={headerBeat}
             progress={headerProgress}
@@ -876,7 +882,7 @@ export default function AnchorCreationFlowScreen() {
             onBack={goBack}
             backDisabled={sealing}
           />
-        </View>
+        </Animated.View>
 
         {showStyle && built ? (
           <View style={StyleSheet.absoluteFill} onTouchStart={styleStep.markTouched} pointerEvents="box-none">

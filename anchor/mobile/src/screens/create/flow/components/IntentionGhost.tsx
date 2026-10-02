@@ -1,7 +1,13 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from 'react-native-reanimated';
 
 import {
   ContinueButtonFace,
@@ -32,14 +38,21 @@ interface IntentionGhostProps {
 export function IntentionGhost({ fieldHeight, count, reduceMotion, duration = 0.45 }: IntentionGhostProps) {
   const insets = useSafeAreaInsets();
   const alpha = useSharedValue(1);
+  const faceAlpha = useSharedValue(1);
 
   useEffect(() => {
-    alpha.value = withTiming(0, { duration: reduceMotion ? 200 : duration * 1000, easing: Easing.out(Easing.quad) });
-  }, [alpha, duration, reduceMotion]);
+    const fadeMs = reduceMotion ? 200 : duration * 1000;
+    alpha.value = withTiming(0, { duration: fadeMs, easing: Easing.out(Easing.quad) });
+    // The Continue face stays at full opacity until everything else is gone — fading a dark
+    // button through the cream reads as it greying out — then leaves in a short fade of its own.
+    faceAlpha.value = withDelay(fadeMs, withTiming(0, { duration: 120 }));
+  }, [alpha, duration, faceAlpha, reduceMotion]);
 
   const style = useAnimatedStyle(() => ({ opacity: alpha.value }));
+  const faceStyle = useAnimatedStyle(() => ({ opacity: faceAlpha.value }));
 
   return (
+    <View style={[StyleSheet.absoluteFill, styles.root]} pointerEvents="none">
     <Animated.View
       style={[StyleSheet.absoluteFill, styles.root, style]}
       pointerEvents="none"
@@ -56,12 +69,19 @@ export function IntentionGhost({ fieldHeight, count, reduceMotion, duration = 0.
         </View>
       </View>
 
-      <View style={[styles.bottom, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-        <RulesLine />
-        <ContinueButtonFace enabled />
-        <DrawLinkFace enabled />
-      </View>
     </Animated.View>
+      <View style={[styles.bottom, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        <Animated.View style={style}>
+          <RulesLine />
+        </Animated.View>
+        <Animated.View style={faceStyle}>
+          <ContinueButtonFace enabled />
+        </Animated.View>
+        <Animated.View style={style}>
+          <DrawLinkFace enabled />
+        </Animated.View>
+      </View>
+    </View>
   );
 }
 
@@ -70,5 +90,5 @@ const styles = StyleSheet.create({
   root: { justifyContent: 'space-between' },
   content: { paddingHorizontal: INTENTION_SIDE_PADDING },
   fieldBlock: { marginTop: 28 },
-  bottom: { paddingHorizontal: INTENTION_SIDE_PADDING, paddingTop: 12, gap: 12 },
+  bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: INTENTION_SIDE_PADDING, paddingTop: 12, gap: 12 },
 });

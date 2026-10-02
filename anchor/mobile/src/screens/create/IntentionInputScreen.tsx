@@ -35,6 +35,7 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
 import { computeFlowLayout } from './flow/flowLayout';
 import { intentFontSize } from './flow/geometry';
+import { useIntentionHandoffStore } from './flow/intentionHandoff';
 import {
     ContinueButtonFace,
     DrawLinkFace,
@@ -76,6 +77,10 @@ export default function IntentionInputScreen() {
     const [isFocused, setIsFocused] = useState(false);
     const [delayedCanSubmit, setDelayedCanSubmit] = useState(false);
     const [rulesOpen, setRulesOpen] = useState(false);
+    // Once Continue has been pressed the words belong to the flow's canvas, and the button must
+    // not grey out while it fades behind them.
+    const [launching, setLaunching] = useState(false);
+    const glyphsOwnedByFlow = useIntentionHandoffStore((state) => state.glyphsOwnedByFlow);
     const intentionValidation = useIntentionValidation(intention);
     const entitlements = useEntitlements();
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -124,6 +129,7 @@ export default function IntentionInputScreen() {
                 initializedFromDraftRef.current = true;
             }
             setDelayedCanSubmit(false);
+            setLaunching(false);
             setIsFocused(false);
             setUndertoneText(null);
 
@@ -260,6 +266,7 @@ export default function IntentionInputScreen() {
         // });
         const go = (fieldFrame?: { x: number; y: number; width: number; height: number }) => {
             Keyboard.dismiss();
+            setLaunching(true);
             navigation.navigate('AnchorCreationFlow', {
                 ...baseParams,
                 entry: fieldFrame ? 'glide' : 'fade',
@@ -334,6 +341,7 @@ export default function IntentionInputScreen() {
                                 style={[
                                     styles.textInput,
                                     { fontSize: fieldFontSize, lineHeight: fieldLineHeight },
+                                    glyphsOwnedByFlow && styles.textInputHidden,
                                 ]}
                                 value={intention}
                                 onChangeText={handleIntentionChange}
@@ -405,7 +413,7 @@ export default function IntentionInputScreen() {
                             accessibilityLabel="Continue"
                             accessibilityState={{ disabled: !delayedCanSubmit }}
                         >
-                            <ContinueButtonFace enabled={delayedCanSubmit} />
+                            <ContinueButtonFace enabled={delayedCanSubmit || launching} />
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -461,6 +469,8 @@ const styles = StyleSheet.create({
         textAlignVertical: 'top',
         includeFontPadding: false,
     },
+    // The flow's canvas is drawing these glyphs now; keep the field (and its caret) invisible.
+    textInputHidden: { color: 'transparent' },
     consonantHint: {
         fontFamily: INTENTION_FONTS.sans,
         fontSize: 13,
