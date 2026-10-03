@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import type { StateStorage } from 'zustand/middleware';
 
 import { logger } from '@/utils/logger';
+import { perfLog } from '@/utils/perfDiagnostics';
 
 type AsyncStateStorage = StateStorage & {
   setItem: (name: string, value: string) => Promise<void>;
@@ -76,7 +77,7 @@ async function readSecureMeta(name: string): Promise<SecureChunkMeta | null> {
   }
 }
 
-async function clearSecureChunks(name: string): Promise<void> {
+async function clearSecureChunks(name: string): Promise<number> {
   const existingMeta = await readSecureMeta(name);
   if (existingMeta) {
     await Promise.all(
@@ -86,11 +87,16 @@ async function clearSecureChunks(name: string): Promise<void> {
     );
   }
   await SecureStore.deleteItemAsync(secureStoreKey(secureMetaKey(name)));
+  return existingMeta?.chunks ?? 0;
 }
 
 export async function readSecureValue(name: string): Promise<string | null> {
+  const startedAt = Date.now();
   const meta = await readSecureMeta(name);
-  if (!meta) return null;
+  if (!meta) {
+    perfLog('secure-read', { key: name, ms: Date.now() - startedAt, payloadChars: 0, chunks: 0, secureCalls: 1 });
+    return null;
+  }
 
   const chunks = await Promise.all(
     Array.from({ length: meta.chunks }, (_, index) =>
@@ -104,11 +110,14 @@ export async function readSecureValue(name: string): Promise<string | null> {
     return null;
   }
 
-  return chunks.join('');
+  const value = chunks.join('');
+  perfLog('secure-read', { key: name, ms: Date.now() - startedAt, payloadChars: value.length, chunks: meta.chunks, secureCalls: meta.chunks + 1 });
+  return value;
 }
 
 export async function writeSecureValue(name: string, value: string): Promise<void> {
-  await clearSecureChunks(name);
+  const startedAt = Date.now();
+  const previousChunks = await clearSecureChunks(name);
 
   const chunks = splitIntoChunks(value);
   await Promise.all(
@@ -119,6 +128,7 @@ export async function writeSecureValue(name: string, value: string): Promise<voi
 
   const meta: SecureChunkMeta = { chunks: chunks.length };
   await SecureStore.setItemAsync(secureStoreKey(secureMetaKey(name)), JSON.stringify(meta));
+  perfLog('secure-write', { key: name, ms: Date.now() - startedAt, payloadChars: value.length, chunks: chunks.length, previousChunks, secureCalls: previousChunks + chunks.length + 3 });
 }
 
 async function migrateLegacyAsyncStorageValue(name: string): Promise<string | null> {
@@ -170,6 +180,7 @@ const pendingWrites = new Map<
   }
 >();
 const lastWrittenValue = new Map<string, string>();
+const writeCounts = new Map<string, number>();
 
 function scheduleWrite(name: string, value: string): Promise<void> {
   if (lastWrittenValue.get(name) === value) {
@@ -217,26 +228,38 @@ async function flushWrite(name: string): Promise<void> {
  */
 export const encryptedPersistStorage: AsyncStateStorage = {
   getItem: async (name: string): Promise<string | null> => {
+    const startedAt = Date.now();
     try {
       const secureValue = await readSecureValue(name);
       if (secureValue != null) {
         lastWrittenValue.set(name, secureValue);
+        perfLog('persist-getItem', { key: name, ms: Date.now() - startedAt, payloadChars: secureValue.length });
         return secureValue;
       }
 
-      return await migrateLegacyAsyncStorageValue(name);
+      const legacyValue = await migrateLegacyAsyncStorageValue(name);
+      perfLog('persist-getItem', { key: name, ms: Date.now() - startedAt, payloadChars: legacyValue?.length ?? 0, source: legacyValue ? 'legacy-migration' : 'empty' });
+      return legacyValue;
     } catch (error) {
       logger.error(`Failed to read encrypted store key ${name}`, error);
       if (requiresSecureOnly(name)) return null;
-      return await AsyncStorage.getItem(name);
+      const fallback = await AsyncStorage.getItem(name);
+      perfLog('persist-getItem', { key: name, ms: Date.now() - startedAt, payloadChars: fallback?.length ?? 0, source: 'async-storage-fallback' });
+      return fallback;
     }
   },
 
   setItem: async (name: string, value: string): Promise<void> => {
+    const count = (writeCounts.get(name) ?? 0) + 1;
+    writeCounts.set(name, count);
+    perfLog('persist-setItem', { key: name, count, payloadChars: value.length, chunks: splitIntoChunks(value).length });
+    const startedAt = Date.now();
     await scheduleWrite(name, value);
+    perfLog('persist-setItem-settled', { key: name, count, ms: Date.now() - startedAt, payloadChars: value.length });
   },
 
   removeItem: async (name: string): Promise<void> => {
+    const startedAt = Date.now();
     const pending = pendingWrites.get(name);
     if (pending) {
       clearTimeout(pending.timer);
@@ -246,5 +269,6 @@ export const encryptedPersistStorage: AsyncStateStorage = {
     lastWrittenValue.delete(name);
     await clearSecureChunks(name);
     await AsyncStorage.removeItem(name);
+    perfLog('persist-removeItem', { key: name, ms: Date.now() - startedAt });
   },
 };

@@ -12,6 +12,7 @@ import { apiClient } from '@/services/ApiClient';
 import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { HomeStartupProfiler } from '@/utils/homeStartupProfiler';
+import { perfLog } from '@/utils/perfDiagnostics';
 import {
   JOURNEY_MILESTONE_IDS,
   JOURNEY_TEACHING_CONTENT_ID_BY_MILESTONE,
@@ -1055,6 +1056,7 @@ export const useSessionStore = create<SessionState>()(
       onRehydrateStorage: () => {
         const span = HomeStartupProfiler.start('session_store_persisted_hydration');
         return (state, error) => {
+          perfLog('store-hydration-finished', { store: 'session', ok: !error, practiceHistoryCount: state?.practiceHistory?.length ?? 0, hasState: Boolean(state) });
           span({
             ok: !error,
             sessionCount: state?.practiceHistory?.length ?? 0,

@@ -57,6 +57,7 @@ import { useAppPerformanceTier } from '@/hooks/useAppPerformanceTier';
 import { useNotificationController } from '@/hooks/useNotificationController';
 import { useTrialStatus } from '@/hooks/useTrialStatus';
 import { usePracticeEntry } from '@/hooks/usePracticeEntry';
+import { perfLog } from '@/utils/perfDiagnostics';
 import { ENABLE_VISUALIZE } from '@/config';
 import { ConfirmUnchargedBurnSheet } from '@/components/modals/ConfirmUnchargedBurnSheet';
 import {
@@ -127,6 +128,10 @@ function toModeTitle(mode: Exclude<PendingMode, null>): string {
 }
 
 export const PracticeScreen: React.FC = () => {
+  useEffect(() => {
+    perfLog('screen-lifecycle', { screen: 'PracticeScreen', action: 'mount' });
+    return () => perfLog('screen-lifecycle', { screen: 'PracticeScreen', action: 'unmount' });
+  }, []);
   useNotificationController();
 
   const navigation = useNavigation<PracticeNavigationProp>();

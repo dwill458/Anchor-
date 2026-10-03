@@ -4,6 +4,7 @@ import { CircularAnchorRenderer } from '@/components/v2';
 import { colors, spacing, typography } from '@/theme/v2';
 import type { Anchor } from '@/types';
 import { anchorRenderProps, categoryLabel } from './anchorPresentation';
+import { countPerfRender } from '@/utils/perfDiagnostics';
 
 type Props = {
   anchor: Anchor;
@@ -25,6 +26,7 @@ export function V2AnchorGalleryItem({
   artworkSize = 128,
   onPress,
 }: Props) {
+  countPerfRender('V2AnchorGalleryItem');
   const state = categoryLabel(anchor.category);
   const status = released ? 'Released' : selected ? 'Current' : 'Active';
   return (
@@ -40,6 +42,7 @@ export function V2AnchorGalleryItem({
           size={artworkSize}
           state={released ? 'inactive' : 'active'}
           accessibilityLabel={`${state} Anchor`}
+          performanceLabel={`anchor-gallery:${anchor.localId ?? anchor.id}`}
         />
       </View>
       <View style={styles.intentionContainer}>

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { encryptedPersistStorage } from './encryptedPersistStorage';
+import { perfLog } from '@/utils/perfDiagnostics';
 import {
   clampLocationPrimingRadius,
   getForegroundLocationForPriming,
@@ -133,6 +134,9 @@ export const useLocationPrimingStore = create<LocationPrimingState>()(
         enabled: state.enabled,
         zones: state.zones.map(normalizeZone),
       }),
+      onRehydrateStorage: () => (state, error) => {
+        perfLog('store-hydration-finished', { store: 'locationPriming', ok: !error, zoneCount: state?.zones?.length ?? 0, hasState: Boolean(state) });
+      },
     }
   )
 );

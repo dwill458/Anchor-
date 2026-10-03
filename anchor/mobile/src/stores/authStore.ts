@@ -7,6 +7,7 @@ import {
   readSecureValue,
   writeSecureValue,
 } from './encryptedPersistStorage';
+import { perfLog } from '@/utils/perfDiagnostics';
 import type {
   Anchor,
   ApiResponse,
@@ -187,37 +188,51 @@ async function readLegacyAuthStorage(name: string): Promise<string | null> {
   }
 }
 
+const authWriteCounts = new Map<string, number>();
 const encryptedAuthStorage: StateStorage = {
   getItem: async (name: string): Promise<string | null> => {
+    const startedAt = Date.now();
     try {
       const secureValue = await readSecureValue(name);
       if (secureValue != null) {
+        perfLog('persist-getItem', { key: name, ms: Date.now() - startedAt, payloadChars: secureValue.length });
         return secureValue;
       }
 
-      return await readLegacyAuthStorage(name);
+      const legacyValue = await readLegacyAuthStorage(name);
+      perfLog('persist-getItem', { key: name, ms: Date.now() - startedAt, payloadChars: legacyValue?.length ?? 0, source: legacyValue ? 'legacy-migration' : 'empty' });
+      return legacyValue;
     } catch (error) {
       logger.error('Failed to read auth storage data:', error);
-      return await readLegacyAuthStorage(name);
+      const legacyValue = await readLegacyAuthStorage(name);
+      perfLog('persist-getItem', { key: name, ms: Date.now() - startedAt, payloadChars: legacyValue?.length ?? 0, source: 'legacy-fallback' });
+      return legacyValue;
     }
   },
   setItem: async (name: string, value: string): Promise<void> => {
+    const count = (authWriteCounts.get(name) ?? 0) + 1;
+    authWriteCounts.set(name, count);
+    const startedAt = Date.now();
+    perfLog('persist-setItem', { key: name, count, payloadChars: value.length, chunks: Math.max(1, Math.ceil(value.length / 1800)) });
     try {
       await writeSecureValue(name, value);
       await AsyncStorage.removeItem(name);
       await Promise.all(
         LEGACY_SECURE_KEYS.map((key) => SecureStore.deleteItemAsync(`${name}_${key}`))
       );
+      perfLog('persist-setItem-settled', { key: name, count, ms: Date.now() - startedAt, payloadChars: value.length });
     } catch (error) {
       logger.error('Failed to save auth storage data:', error);
       throw error;
     }
   },
   removeItem: async (name: string): Promise<void> => {
+    const startedAt = Date.now();
     await encryptedPersistStorage.removeItem(name);
     await Promise.all(
       LEGACY_SECURE_KEYS.map((key) => SecureStore.deleteItemAsync(`${name}_${key}`))
     );
+    perfLog('persist-removeItem', { key: name, ms: Date.now() - startedAt });
   },
 };
 
@@ -1069,7 +1084,8 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'anchor-auth-storage',
       storage: createJSONStorage(() => encryptedAuthStorage),
-      onRehydrateStorage: () => (state) => {
+      onRehydrateStorage: () => (state, error) => {
+        perfLog('store-hydration-finished', { store: 'auth', ok: !error, hasState: Boolean(state) });
         if (state) {
           applyUserToSubscriptionStore(state.user);
           // One-shot navigation flags should never survive an app restart.

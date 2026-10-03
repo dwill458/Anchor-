@@ -20,6 +20,7 @@ import { withAlpha } from '@/utils/color';
 import type { Anchor } from '@/types';
 import { formatCategory, isAnchorReleased } from '../utils/anchorStateHelpers';
 import { AnchorArtworkThumbnail } from './AnchorArtworkThumbnail';
+import { countPerfRender } from '@/utils/perfDiagnostics';
 
 const CHIP_SIZE = 60;
 const CARD_WIDTH = 76;
@@ -102,6 +103,7 @@ export const AnchorStack: React.FC<AnchorStackProps> = ({
   onAddPress,
   onViewAll,
 }) => {
+  countPerfRender('AnchorStack');
   const visibleAnchors = React.useMemo(
     () => anchors.filter((anchor) => !isAnchorReleased(anchor)),
     [anchors]

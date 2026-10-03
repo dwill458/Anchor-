@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { encryptedPersistStorage } from './encryptedPersistStorage';
+import { perfLog } from '@/utils/perfDiagnostics';
 import type { VisualizationScene } from '@/types/practice';
 
 /** Where a persisted batch came from. Decides whether it is provisional. */
@@ -232,7 +233,8 @@ export const useVisualizationSceneStore = create<VisualizationSceneState>()(
       }),
       // Hydration can restore a batch/index pair that no longer agrees (e.g. a
       // partial write); clamp every index so rotation can never read undefined.
-      onRehydrateStorage: () => hydrated => {
+      onRehydrateStorage: () => (hydrated, error) => {
+        perfLog('store-hydration-finished', { store: 'visualizationScene', ok: !error, sceneCount: Object.keys(hydrated?.scenes ?? {}).length, hasState: Boolean(hydrated) });
         if (!hydrated) return;
         const repaired: Record<string, number> = {};
         for (const [anchorId, batch] of Object.entries(hydrated.suggestions ?? {})) {

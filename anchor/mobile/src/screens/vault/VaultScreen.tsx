@@ -65,6 +65,7 @@ import { hasIgnited, isAnchorReleased } from './utils/anchorStateHelpers';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { getAnchorCreationLimitCopy } from '@/utils/entitlements';
 import { usePracticeEntry } from '@/hooks/usePracticeEntry';
+import { countPerfRender, logAnchorBlob, perfLog } from '@/utils/perfDiagnostics';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -210,6 +211,8 @@ const getFadeUp = (delay: number, disabled: boolean) => {
 // ─── VaultScreen ──────────────────────────────────────────────────────────────
 
 export const VaultScreen: React.FC = () => {
+  countPerfRender('VaultScreen');
+  const vaultMountedAt = React.useRef(Date.now());
   const navigation = useNavigation<VaultScreenNavigationProp>();
   const { registerTabNav, activeTabIndex } = useTabNavigation();
   const { startPractice } = usePracticeEntry();
@@ -237,6 +240,7 @@ export const VaultScreen: React.FC = () => {
   const mustGateFirstAnchor = !isAuthenticated && Boolean(pendingFirstAnchorDraft);
 
   const anchors = useAnchorStore((s) => s.anchors);
+  const persistedHydrated = useAnchorStore((s) => s.persistedHydrated);
   const entitlements = useEntitlements();
   const currentAnchorId = useAnchorStore((s) => s.currentAnchorId);
   const setCurrentAnchor = useAnchorStore((s) => s.setCurrentAnchor);
@@ -283,6 +287,23 @@ export const VaultScreen: React.FC = () => {
     }
     return autoPrimary;
   }, [currentAnchorId, sanctuaryAnchors, autoPrimary]);
+
+  const didLogFirstVaultData = React.useRef(false);
+  useEffect(() => {
+    if (!persistedHydrated || didLogFirstVaultData.current) return;
+    didLogFirstVaultData.current = true;
+    perfLog('vault-first-render-with-data', { anchorCount: anchors.length, msSinceVaultMount: Date.now() - vaultMountedAt.current });
+    logAnchorBlob('VaultScreen', anchors);
+  }, [anchors, persistedHydrated]);
+
+  useEffect(() => {
+    perfLog('screen-lifecycle', { screen: 'VaultScreen', action: 'mount' });
+    return () => perfLog('screen-lifecycle', { screen: 'VaultScreen', action: 'unmount' });
+  }, []);
+
+  useEffect(() => {
+    perfLog('vault-tab-visibility', { active: isVaultTabActive });
+  }, [isVaultTabActive]);
 
   useEffect(() => {
     const timer = setInterval(() => {

@@ -50,6 +50,8 @@ import { ToastProvider } from './src/components/ToastProvider';
 import { useAuthStore } from './src/stores/authStore';
 import { useAnchorStore } from './src/stores/anchorStore';
 import { useSessionStore } from './src/stores/sessionStore';
+import { useLocationPrimingStore } from './src/stores/locationPrimingStore';
+import { useVisualizationSceneStore } from './src/stores/visualizationSceneStore';
 import { useSettingsStore } from './src/stores/settingsStore';
 import { SettingsRevealProvider } from './src/components/transitions/SettingsRevealProvider';
 import type { RootNavigatorParamList } from './src/navigation/RootNavigator';
@@ -83,6 +85,7 @@ import { VisionVisualQADevHost } from './src/screens/v2/system/VisionVisualQADev
 import { CreationFlowQADevHost } from './src/screens/create/flow/dev/CreationFlowQADevHost';
 import { SplashController } from './src/components/splash/SplashController';
 import { SPLASH_BACKGROUND_COLOR } from './src/components/splash/splashAnimation.constants';
+import { perfLog, startJsStallDetector, startPerfRenderReporter } from './src/utils/perfDiagnostics';
 
 function isNetworkError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
@@ -313,6 +316,36 @@ export default function App() {
   const appIsReady = startup.isReady;
   const effectiveAnalyticsEnabled =
     process.env.EXPO_PUBLIC_ANALYTICS_ENABLED !== 'false' && analyticsEnabled;
+
+  useEffect(() => {
+    if (!__DEV__) return undefined;
+    const watch = (name: string, persistApi: any) => {
+      const log = () => perfLog('store-hydration-observed', { store: name, msSinceAppComponentMount: Date.now() - startupStartedAtRef.current });
+      if (persistApi.hasHydrated()) {
+        perfLog('store-already-hydrated-on-app-effect', { store: name, msSinceAppComponentMount: Date.now() - startupStartedAtRef.current });
+      } else return persistApi.onFinishHydration(log);
+      return undefined;
+    };
+    const disposers = [
+      watch('anchor', useAnchorStore.persist),
+      watch('session', useSessionStore.persist),
+      watch('locationPriming', useLocationPrimingStore.persist),
+      watch('visualizationScene', useVisualizationSceneStore.persist),
+      watch('auth', useAuthStore.persist),
+    ].filter((dispose): dispose is () => void => Boolean(dispose));
+    const stopStalls = startJsStallDetector(() => routeNameRef.current);
+    const stopRenders = startPerfRenderReporter();
+    perfLog('app-ready-state', { ready: appIsReady, msSinceAppStart: Date.now() - startupStartedAtRef.current });
+    return () => {
+      disposers.forEach((dispose) => dispose());
+      stopStalls();
+      stopRenders();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (appIsReady) perfLog('app-ready', { msSinceAppStart: Date.now() - startupStartedAtRef.current });
+  }, [appIsReady]);
 
   useEffect(() => {
     if (!__DEV__) {

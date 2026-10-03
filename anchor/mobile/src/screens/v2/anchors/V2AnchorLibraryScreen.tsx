@@ -8,6 +8,8 @@ import { useV2AnchorLibrary, type AnchorLibraryFilter } from '@/hooks/v2/anchors
 import { spacing } from '@/theme/v2';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import type { V2DailyShellParamList } from '@/screens/v2/home/dailyShell';
+import { countPerfRender, logAnchorBlob, perfLog } from '@/utils/perfDiagnostics';
+import { useAnchorStore } from '@/stores/anchorStore';
 
 type Nav = NativeStackNavigationProp<V2DailyShellParamList, 'V2AnchorLibrary'>;
 
@@ -27,8 +29,20 @@ const FILTERS: Array<{ value: AnchorLibraryFilter; label: string }> = [
 
 /** Standalone Your Anchors gallery — promoted from the legacy modal. */
 export function V2AnchorLibraryScreen() {
+  countPerfRender('V2AnchorLibraryScreen');
+  const mountedAt = React.useRef(Date.now());
   const navigation = useNavigation<Nav>();
   const { filter, setFilter, entries, hasReleased } = useV2AnchorLibrary();
+  const allAnchors = useAnchorStore((state) => state.anchors);
+
+  useEffect(() => {
+    perfLog('anchor-library-data', { filter, entries: entries.length, msSinceLibraryMount: Date.now() - mountedAt.current });
+    logAnchorBlob('V2AnchorLibraryScreen', entries.map((entry) => entry.anchor));
+  }, [entries, filter]);
+
+  useEffect(() => {
+    logAnchorBlob('V2AnchorLibraryScreen-all', allAnchors);
+  }, [allAnchors]);
 
   useEffect(() => {
     track('v2_anchor_library_viewed');

@@ -15,6 +15,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { getAdjustedDateString } from '@/utils/dateUtils';
 import { logger } from '@/utils/logger';
 import { HomeStartupProfiler } from '@/utils/homeStartupProfiler';
+import { perfLog } from '@/utils/perfDiagnostics';
 import { useVisualizationSceneStore } from './visualizationSceneStore';
 import {
   JOURNEY_MILESTONE_IDS,
@@ -436,6 +437,7 @@ export const useAnchorStore = create<AnchorState>()(
       onRehydrateStorage: () => {
         const span = HomeStartupProfiler.start('anchor_store_persisted_hydration');
         return (state, error) => {
+          perfLog('store-hydration-finished', { store: 'anchor', ok: !error, anchorCount: state?.anchors?.length ?? 0, hasState: Boolean(state) });
           if (!state) {
             useAnchorStore.getState().setPersistedHydrated(true);
             span({ ok: false, error: Boolean(error) });
