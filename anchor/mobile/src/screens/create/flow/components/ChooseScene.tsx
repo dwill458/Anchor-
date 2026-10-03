@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
@@ -74,6 +74,8 @@ export function ChooseScene({
 }: ChooseSceneProps) {
   const { page, hold, sealU, flash, phase, activePage, panHandlers } = controller;
   const sealing = phase !== 'choosing';
+  const [styleLineY, setStyleLineY] = useState<number | null>(null);
+  const styleLabelFade = useAnimatedStyle(() => ({ opacity: 1 - Math.min(1, sealU.value * 4) }));
 
   const breathe = useSharedValue(0);
   const sheen = useSharedValue(0);
@@ -118,8 +120,18 @@ export function ChooseScene({
           isActive={index === activePage}
           sheen={sheen}
           holdHint={holdHint}
+          onStyleLineLayout={index === 0 ? setStyleLineY : undefined}
         />
       ))}
+
+      {styleLineY !== null ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[{ position: 'absolute', left: 0, top: CARD.y + CARD.height + 26 + styleLineY, width: DESIGN_WIDTH }, styleLabelFade]}
+        >
+          <Text style={[styles.styleName, { marginTop: 0 }]}>{styleName}</Text>
+        </Animated.View>
+      ) : null}
 
       {/* Hold ring: breathes while idle, fills clockwise in gold as the hold fills. */}
       <HoldRing
@@ -171,9 +183,10 @@ interface FormCardProps {
   isActive: boolean;
   sheen: SharedValue<number>;
   holdHint: 'idle' | 'holding';
+  onStyleLineLayout?: (y: number) => void;
 }
 
-function FormCard({ index, form, styleName, page, hold, sealU, sealing, isActive, sheen, holdHint }: FormCardProps) {
+function FormCard({ index, form, styleName, page, hold, sealU, sealing, isActive, sheen, holdHint, onStyleLineLayout }: FormCardProps) {
   // DEFERRED: transform-only sealing card (polish brief F1). The contraction animates layout props
   // (left/top/width/height/borderRadius), but entirely on the UI thread: no JS work per frame now
   // that the seal clock runs there too. A transform-only version needs a non-uniform clip (a Skia
@@ -269,7 +282,13 @@ function FormCard({ index, form, styleName, page, hold, sealU, sealing, isActive
     </Animated.View>
     <Animated.View style={[styles.labels, labels]} pointerEvents="none">
       <Text style={styles.formLabel}>{FORM_LABELS[index].toUpperCase()}</Text>
-      <Text style={styles.styleName}>{styleName}</Text>
+      {/* DEFERRED: duplicate per-card style labels; retain their measured spacing for the hint. */}
+      <Text
+        style={[styles.styleName, { opacity: 0 }]}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        onLayout={onStyleLineLayout ? (event) => onStyleLineLayout(event.nativeEvent.layout.y) : undefined}
+      >{styleName}</Text>
       <Text style={styles.hint} accessibilityLiveRegion={isActive ? 'polite' : 'none'}>
         {isActive ? (holdHint === 'holding' ? 'Keep holding…' : 'Hold your Anchor to seal') : ''}
       </Text>

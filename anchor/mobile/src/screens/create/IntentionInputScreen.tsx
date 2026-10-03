@@ -386,7 +386,8 @@ export default function IntentionInputScreen() {
                                     onPress={() => setRulesOpen((open) => !open)}
                                     accessibilityRole="button"
                                     accessibilityLabel="About the three rules"
-                                    hitSlop={10}
+                                    // DEFERRED: 10 pt hit slop gave the 17 pt glyph only a 37 pt target.
+                                    hitSlop={14}
                                     style={styles.info}
                                 >
                                     <Text style={styles.infoGlyph}>i</Text>

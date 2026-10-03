@@ -1,7 +1,7 @@
 // DEFERRED: StructureForge (Focused/Contained/Raw/Drawn) and ManualReinforcement (trace) no longer
 // sit between distillation and style — see DECISION D1 below. Their screens stay registered.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, BackHandler, Image, StyleSheet, View } from 'react-native';
+import { Alert, AppState, BackHandler, Image, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -64,6 +64,7 @@ import { normalizeGeneratedForms, type GeneratedForm } from './generatedForms';
 import { clamp, smooth } from './motion';
 import { FpsProbe } from './components/FpsProbe';
 import { estimatedFormProgress } from './formProgress';
+import { formCraftCues } from './formCraft';
 import { useIntentionHandoffStore } from './intentionHandoff';
 import { trace } from '@/utils/dev/creationTrace';
 import { buildSceneContext } from './sceneContext';
@@ -196,6 +197,9 @@ export default function AnchorCreationFlowScreen() {
   const styleURef = useRef(0);
   const drawRiseRef = useRef(0);
   const formTfRef = useRef(0);
+  const formCuesFiredRef = useRef<Set<string>>(new Set());
+  const formFailedRef = useRef(false);
+  const foregroundRef = useRef(AppState.currentState === 'active');
   const sweepURef = useRef(0);
   const displayProgressRef = useRef(0);
   const drawDoneRef = useRef(false);
@@ -281,10 +285,27 @@ export default function AnchorCreationFlowScreen() {
   const styleStepRef = useRef<ReturnType<typeof useStyleStep> | null>(null);
   /** The bloom under the Form beat: one voice at a time, never over the Mapping tones. */
   const bloomSoundRef = useRef<CreationSoundHandle | null>(null);
-  const startBloomSound = useCallback(() => {
+  const formSoundRef = useRef<CreationSoundHandle | null>(null);
+  const stopFormSounds = useCallback(() => {
     bloomSoundRef.current?.stop();
-    bloomSoundRef.current = playCreationSound('bloom');
+    bloomSoundRef.current = null;
+    formSoundRef.current?.stop();
+    formSoundRef.current = null;
   }, []);
+  const startBloomSound = useCallback(() => {
+    // DEFERRED: stopping only bloom left a previous attempt's craft tick sounding on retry.
+    stopFormSounds();
+    bloomSoundRef.current = foregroundRef.current ? playCreationSound('bloom') : null;
+  }, [stopFormSounds]);
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      foregroundRef.current = state === 'active';
+      // Resume from a fresh frame clock; never replay background time as craft events.
+      lastNowRef.current = 0;
+      if (!foregroundRef.current) stopFormSounds();
+    });
+    return () => { subscription.remove(); stopFormSounds(); };
+  }, [stopFormSounds]);
   useEffect(
     () => () => {
       bloomSoundRef.current?.stop();
@@ -313,6 +334,18 @@ export default function AnchorCreationFlowScreen() {
     | { status: 'failed'; kind: GenerationFailureKind }
     | { status: 'done' };
   const [generation, setGeneration] = useState<Generation>({ status: 'idle' });
+  const [formBackLocked, setFormBackLocked] = useState(false);
+  const [formRetryReady, setFormRetryReady] = useState(false);
+  useEffect(() => {
+    if (phase !== 'form' || generation.status !== 'running') {
+      setFormBackLocked(false);
+      setFormRetryReady(false);
+      return;
+    }
+    const unlock = setTimeout(() => setFormBackLocked(false), FORM_SLOW_CAPTION_AFTER * 1000);
+    const retry = setTimeout(() => setFormRetryReady(true), FORM_RETRY_AFTER * 1000);
+    return () => { clearTimeout(unlock); clearTimeout(retry); };
+  }, [generation, phase]);
   const generationRef = useRef<{ result: AnchorGenerationResult | null; attempt: number; abort: AbortController | null; style: RefineStyleOption | null }>({
     result: null,
     attempt: 1,
@@ -344,6 +377,9 @@ export default function AnchorCreationFlowScreen() {
     targetProgressRef.current = 0;
     displayProgressRef.current = 0;
     formTfRef.current = 0;
+    formFailedRef.current = false;
+    setFormBackLocked(true);
+    setFormRetryReady(false);
     setGeneration({ status: 'running' });
 
     try {
@@ -369,8 +405,12 @@ export default function AnchorCreationFlowScreen() {
       setStyleName(style.displayName);
       useFirstAnchorFlowStore.getState().updateDraft({ generationStatus: 'complete' });
       setGeneration({ status: 'done' });
+      setFormBackLocked(false);
     } catch (error) {
       if (!mountedRef.current || controller.signal.aborted) return;
+      formFailedRef.current = true;
+      stopFormSounds();
+      setFormBackLocked(false);
       targetProgressRef.current = 0;
       displayProgressRef.current = 0;
       useFirstAnchorFlowStore.getState().updateDraft({ generationStatus: 'error' });
@@ -379,7 +419,7 @@ export default function AnchorCreationFlowScreen() {
         kind: (error as { kind?: GenerationFailureKind }).kind ?? 'generic',
       });
     }
-  }, [params.category, params.intentionText, user?.id]);
+  }, [params.category, params.intentionText, stopFormSounds, user?.id]);
 
   /** Returns false when a gate (sign-in, entitlement) stopped the request. */
   const commitStyle = useCallback(
@@ -421,6 +461,7 @@ export default function AnchorCreationFlowScreen() {
       generationRef.current.style = style;
       generationRef.current.attempt = 1;
       formTfRef.current = 0;
+      formCuesFiredRef.current.clear();
       startBloomSound();
       setPhase('form');
       void runGeneration();
@@ -443,6 +484,8 @@ export default function AnchorCreationFlowScreen() {
   );
 
   const retryGeneration = useCallback(() => {
+    formTfRef.current = 0;
+    formCuesFiredRef.current.clear();
     generationRef.current.attempt += 1;
     startBloomSound();
     FrictionAnalytics.flowRetry('anchor_creation', 'ai_generating', {
@@ -454,13 +497,17 @@ export default function AnchorCreationFlowScreen() {
 
   const backToStyle = useCallback(() => {
     generationRef.current.abort?.abort();
-    bloomSoundRef.current?.stop();
-    bloomSoundRef.current = null;
+    // DEFERRED: bloom-only cleanup; craft voices now share the same stop path.
+    stopFormSounds();
+    formTfRef.current = 0;
+    formCuesFiredRef.current.clear();
+    setFormBackLocked(false);
+    setFormRetryReady(false);
     styleStepRef.current?.reset();
     setGeneration({ status: 'idle' });
     styleURef.current = 0;
     setPhase('style');
-  }, [setPhase]);
+  }, [setPhase, stopFormSounds]);
 
   // ---- the style step -----------------------------------------------------------------------
 
@@ -797,8 +844,21 @@ export default function AnchorCreationFlowScreen() {
       }
 
       case 'form': {
+        const prevTf = formTfRef.current;
         formTfRef.current += dt;
         const tf = formTfRef.current;
+        if (!formFailedRef.current) {
+          formCraftCues(prevTf, tf, { slow: tf >= FORM_SLOW_CAPTION_AFTER }).forEach((cue) => {
+            if (formCuesFiredRef.current.has(cue.id)) return;
+            formCuesFiredRef.current.add(cue.id);
+            if (!foregroundRef.current) return;
+            if (cue.haptic) tick(cue.haptic === 'medium' ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
+            if (cue.sound) {
+              formSoundRef.current?.stop();
+              formSoundRef.current = playCreationSound(cue.sound, cue.volume);
+            }
+          });
+        }
         const gen = generationRef.current;
         // Time-based, so the hairline always moves; it completes (quickly) on resolve.
         const resolved = targetProgressRef.current >= 100;
@@ -814,6 +874,14 @@ export default function AnchorCreationFlowScreen() {
         enterBeat('form');
 
         if (gen.result && tf >= tl.formMin) {
+          if (!formCuesFiredRef.current.has('settle')) {
+            formCuesFiredRef.current.add('settle');
+            stopFormSounds();
+            if (foregroundRef.current) {
+              formSoundRef.current = playCreationSound('formSettle', 0.35);
+              tick(Haptics.ImpactFeedbackStyle.Medium);
+            }
+          }
           sweepURef.current = 0;
           chooseOpacity.value = 0;
           setPhase('sweep');
@@ -875,6 +943,7 @@ export default function AnchorCreationFlowScreen() {
     mapEventTimes,
     setPhase,
     showLabel,
+    stopFormSounds,
     tick,
   ]);
 
@@ -891,19 +960,20 @@ export default function AnchorCreationFlowScreen() {
 
   const sealing = choose.phase !== 'choosing';
   const goBack = useCallback(() => {
-    if (sealing) return;
+    if (sealing || formBackLocked) return;
     generationRef.current.abort?.abort();
+    stopFormSounds();
     navigation.goBack();
-  }, [navigation, sealing]);
+  }, [formBackLocked, navigation, sealing, stopFormSounds]);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (sealing) return true;
+      if (sealing || formBackLocked) return true;
       goBack();
       return true;
     });
     return () => subscription.remove();
-  }, [goBack, sealing]);
+  }, [formBackLocked, goBack, sealing]);
 
   // ---- draw handlers ------------------------------------------------------------------------
 
@@ -937,7 +1007,8 @@ export default function AnchorCreationFlowScreen() {
   const showDraw = phase === 'draw';
   const showChoose = phase === 'sweep' || phase === 'choose';
   const slowRetryVisible =
-    phase === 'form' && generation.status === 'running' && formTfRef.current > FORM_RETRY_AFTER;
+    // DEFERRED: ref-only threshold never scheduled a render at 45 seconds.
+    phase === 'form' && generation.status === 'running' && formRetryReady;
 
   // Keep the header off the status bar on devices where the design's 34 px would collide.
   const headerShift = Math.max(0, (insets.top - (layout.offsetY + 30 * layout.scale)) / layout.scale);
@@ -983,7 +1054,7 @@ export default function AnchorCreationFlowScreen() {
             labelAlpha={headerLabelAlpha}
             label={headerLabel}
             onBack={goBack}
-            backDisabled={sealing}
+            backDisabled={sealing || formBackLocked}
           />
         </Animated.View>
 

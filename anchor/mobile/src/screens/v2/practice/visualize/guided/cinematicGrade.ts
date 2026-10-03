@@ -34,6 +34,28 @@ export function cinematicGradeAt(timeline: CinematicTimeline, ms: number): Cinem
 }
 
 /**
+ * The camera's push-in as an extra scale. Ease-out: present and quick when it begins, arriving at exactly
+ * zero velocity on the chapter that wants stillness. Pure in the audio position, so it resyncs for free.
+ */
+export function cinematicPushAt(timeline: CinematicTimeline, ms: number): number {
+  'worklet';
+  const push = timeline.push;
+  if (!push || push.amount === 0) return 0;
+  const t = Math.max(0, Math.min(1, (ms - push.startMs) / Math.max(1, push.endMs - push.startMs)));
+  const inv = 1 - t;
+  return push.amount * (1 - inv * inv * inv);
+}
+
+/** The anchor's slow glow while it is held: ~7 s period, nonzero only inside the hold. */
+export const CINEMATIC_ANCHOR_GLOW_PERIOD_MS = 7000;
+export function cinematicAnchorGlowAt(startMs: number, endMs: number, ms: number): number {
+  'worklet';
+  if (ms < startMs || ms >= endMs) return 0;
+  const edge = Math.min(1, (ms - startMs) / 1500, (endMs - ms) / 1500);
+  return Math.max(0, edge) * (0.5 - 0.5 * Math.cos((2 * Math.PI * (ms - startMs)) / CINEMATIC_ANCHOR_GLOW_PERIOD_MS));
+}
+
+/**
  * Luminance breathing, nonzero only inside a long silence. It is a function of the audio position,
  * so a resume or a background return lands on exactly the breath the track is at.
  */

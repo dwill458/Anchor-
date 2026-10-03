@@ -1,7 +1,7 @@
 import type { SceneRect, Size } from '@/components/v2/vision/board/visionBoardLayouts';
 import { cameraAtRect, mixCamera, progress, projectPoint, restCinematicCamera, smooth } from './prototype/cinematicGeometry';
 import { cinematicSegmentAt, type CinematicTimeline } from './prototype/cinematicTimeline';
-import { cinematicBreathAt, cinematicGradeAt } from './guided/cinematicGrade';
+import { cinematicAnchorGlowAt, cinematicBreathAt, cinematicGradeAt, cinematicPushAt } from './guided/cinematicGrade';
 
 /** How long the set-up's paper medallion takes to dissolve into the session's ink mark. */
 export const CINEMATIC_MARK_BRIDGE_MS = 450;
@@ -47,10 +47,15 @@ export function cinematicSessionFrame(ms: number, timeline: CinematicTimeline, g
     : projectPoint({ x: g.mark.x + g.mark.width / 2, y: g.mark.y + g.mark.height / 2 }, camera, g.viewport);
   const environment = reduced ? segment.kind === 'arrival' ? 1 : segment.kind === 'breakout' ? 1 - p : retreat :
     segment.kind === 'arrival' ? 1 : segment.kind === 'breakout' ? 1 - 0.3 * p : retreat;
+  // The push is camera motion: Reduce Motion keeps the framing still, and it never applies while the board is in view.
+  const push = reduced || segment.kind === 'arrival' || segment.kind === 'breakout' || segment.kind === 'return' ||
+    segment.kind === 'carry' || segment.kind === 'boardHold' ? 0 : cinematicPushAt(timeline, ms);
+  const recognitionSegment = timeline.segments.find(item => item.kind === 'recognition');
+  const anchorGlow = segment.kind === 'recognition' && recognitionSegment ? cinematicAnchorGlowAt(recognitionSegment.startMs, recognitionSegment.endMs, ms) : 0;
   const sceneImageIndex = segment.kind === 'arrival' || segment.kind === 'breakout' ? 0 :
     segment.kind === 'transition' ? Math.max(0, (segment.imageIndex ?? 1) - 1) :
       segment.kind === 'immersion' ? segment.imageIndex ?? 0 : lastImage;
-  return { segment, progress: p, camera, firstCenter, firstScale: photoCamera.scale,
+  return { segment, progress: p, camera, firstCenter, firstScale: photoCamera.scale * (1 + push), push, anchorGlow,
     firstRotation: g.firstPhoto.rotation + photoCamera.rotation,
     markCenter, markScale: reduced && segment.kind !== 'arrival' && segment.kind !== 'breakout' ? g.anchor.scale : camera.scale,
     markRotation: reduced && segment.kind !== 'arrival' && segment.kind !== 'breakout' ? 0 : g.mark.rotation + camera.rotation,

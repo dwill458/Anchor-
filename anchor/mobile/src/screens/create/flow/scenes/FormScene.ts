@@ -157,7 +157,8 @@ export function drawForm(p: Painter, pal: Palette, ctx: SceneContext, f: FormFra
     const from = cycle - 0.15;
     const sheen: StrokeTreatment = {
       bloom: treatment.bloom,
-      layers: [{ width: 1.5, color: treatment.bloom, alpha: 0.55 }],
+      // DEFERRED: the 1.5 / 0.55 bloom-colour sheen blended into Alloy's pale core.
+      layers: [{ width: 2.2, color: '#FFFFFF', alpha: 0.85 }],
     };
     drawTreatedRange(p, placed, measured, sheen, clamp(from), clamp(cycle), unit, 1, fade);
   }

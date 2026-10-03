@@ -49,3 +49,15 @@ track's real length (64.8 s / 195 s / 615 s).
   `visualizeCaptions.ts`. A new narrated phrase needs an entry or its caption is dropped rather than shown broken.
 - Audio output latency (Bluetooth) is not compensated; visuals follow the decoder position.
 - The six mixes add about 41 MB to the bundle.
+
+## Motion and craft (2026-10-03 polish)
+
+- **Push-in.** `plan.push` is one ease-out push (`cinematicPushAt`): quick after the breakout, exactly still by the
+  chapter that wants stillness (Glimpse 7 % to NORMALIZE, Immerse 3 % to EXPERIENCE, Embody none). It ends before any
+  long silence and is zero under Reduce Motion.
+- **Grade arc.** Glimpse warms toward "This is simply your life", then cools to 0.7 into HOLD.
+- **Watermark.** Drawn under the grade (so it is warmed and softened with the photograph), as the symbol alone: the ink
+  shape for enhanced artwork, never a disc. 68 px, 16 to 30 % opacity.
+- **Held Anchor.** A halo and a 7 % luminance breathe on a ~7 s period during `recognition` only.
+- **Vision to Anchor and open/close.** The iris collapses onto the Anchor (the photo survives only inside the symbol's
+  shape), and the session opens on the board card, expands to full-bleed and contracts back to it.

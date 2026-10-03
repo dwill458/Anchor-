@@ -51,7 +51,7 @@ function FramedImage({ image, source, backdrop }: { image: SkImage; source: Geom
 
 const MomentImage = memo(function MomentImage({ image, source, backdrop, index, state, center, reduced }: {
   image: SkImage; source: GeometryRect; backdrop: GeometryRect | null; index: number; state: SharedValue<ReturnTypeCinematicFrame>;
-  center: Array<{ translateX: number } | { translateY: number }>; reduced: boolean;
+  center: SharedValue<Array<{ translateX: number } | { translateY: number } | { scale: number }>>; reduced: boolean;
 }) {
   const opacity = useDerivedValue(() => {
     const s = state.value;
@@ -133,7 +133,8 @@ export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles
     return 0;
   });
   const frameOpacity = useDerivedValue(() => state.value.frameOpacity);
-  const markOpacity = useDerivedValue(() => state.value.markOpacity * (1 - bridgeOpacity.value));
+  const markOpacity = useDerivedValue(() => state.value.markOpacity * (1 - bridgeOpacity.value) *
+    (state.value.segment.kind === 'recognition' ? 0.93 + 0.07 * state.value.anchorGlow : 1));
   const boardMarkOpacity = useDerivedValue(() => state.value.boardMarkOpacity);
   const markColor = useDerivedValue(() => state.value.segment.kind === 'arrival' || state.value.segment.kind === 'breakout'
     ? '#1E2126' : interpolateColors(state.value.retreat, [0, 0.8], ['#F4E8D4', '#1E2126']));
@@ -150,7 +151,7 @@ export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles
     return { source: coverRect(size, viewportRect), backdrop: null };
   });
   const fullSources = framings.map(item => item.source);
-  const fullTransform = [{ translateX: viewport.width / 2 }, { translateY: viewport.height / 2 }];
+  const fullTransform = useDerivedValue(() => [{ translateX: viewport.width / 2 }, { translateY: viewport.height / 2 }, { scale: 1 + state.value.push }]);
   const finalIndex = Math.max(0, Math.min(images.length, sequenceCount) - 1);
   const finalImage = images[finalIndex];
   const finalSource = fullSources[finalIndex];
@@ -162,6 +163,9 @@ export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles
   // A long silence's breath rides on the same near-black layer as the dim, so it can only ever darken a hair.
   const dimOpacity = useDerivedValue(() => state.value.grade.dim + state.value.breath);
   const watermarkOpacity = useDerivedValue(() => state.value.grade.watermark);
+  const haloOpacity = useDerivedValue(() => state.value.anchorGlow * 0.11);
+  const haloRadius = Math.max(1, mark.width * geometry.anchor.scale * 0.95);
+  const haloCenter = { x: viewport.width / 2, y: viewport.height / 2 };
   const watermarkHeight = watermark.size * (mark.width > 0 ? mark.height / mark.width : 1);
   const boardMarkCenter = projectPoint({ x: mark.x + mark.width / 2, y: mark.y + mark.height / 2 }, geometry.rest, viewport);
   const boardMarkTransform = [{ translateX: boardMarkCenter.x }, { translateY: boardMarkCenter.y },
@@ -217,13 +221,10 @@ export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles
           </Group>
         </> : null}
       </Group> : null}
-      <Rect x={0} y={0} width={viewport.width} height={viewport.height} color="rgb(255,222,178)" blendMode="multiply" opacity={warmOpacity} />
-      <Rect x={0} y={0} width={viewport.width} height={viewport.height} color="rgb(128,128,128)" blendMode="saturation" opacity={softenOpacity} />
-      <Rect x={0} y={0} width={viewport.width} height={viewport.height} color="rgb(244,232,212)" opacity={hazeOpacity} />
-      <Rect x={0} y={0} width={viewport.width} height={viewport.height} color="rgb(10,14,18)" opacity={dimOpacity} />
+      {/* The watermark sits under the grade, so it is warmed, softened and dimmed with the photograph it is etched into. */}
       <Group layer={<Paint opacity={watermarkOpacity} />}>
-        {enhancedAnchor ? <Group transform={[{ translateX: watermark.x }, { translateY: watermark.y }]}>
-          <EnhancedDisc image={enhancedAnchor} size={watermark.size} />
+        {enhancedAnchor && enhancedMaskEffect ? <Group transform={[{ translateX: watermark.x }, { translateY: watermark.y }, { scale: watermark.size / Math.max(1, mark.width) }]}>
+          <EnhancedInkMask image={enhancedAnchor} effect={enhancedMaskEffect} size={Math.max(1, mark.width)} />
         </Group> : svg ? <>
           <Rect x={watermark.x - watermark.size / 2} y={watermark.y - watermarkHeight / 2} width={watermark.size} height={watermarkHeight} color="#F4E8D4" />
           <Group layer={<Paint blendMode="dstIn" />}>
@@ -231,6 +232,14 @@ export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles
           </Group>
         </> : null}
       </Group>
+      <Rect x={0} y={0} width={viewport.width} height={viewport.height} color="rgb(255,222,178)" blendMode="multiply" opacity={warmOpacity} />
+      <Rect x={0} y={0} width={viewport.width} height={viewport.height} color="rgb(128,128,128)" blendMode="saturation" opacity={softenOpacity} />
+      <Rect x={0} y={0} width={viewport.width} height={viewport.height} color="rgb(244,232,212)" opacity={hazeOpacity} />
+      <Rect x={0} y={0} width={viewport.width} height={viewport.height} color="rgb(10,14,18)" opacity={dimOpacity} />
+      {/* While the Anchor is held, a barely-there halo breathes behind it: alive, not animated. */}
+      <Circle cx={viewport.width / 2} cy={viewport.height / 2} r={haloRadius} opacity={haloOpacity}>
+        <RadialGradient c={haloCenter} r={haloRadius} colors={['rgba(244,232,212,1)', 'rgba(244,232,212,0)']} />
+      </Circle>
     </Canvas>
   </View>;
 });

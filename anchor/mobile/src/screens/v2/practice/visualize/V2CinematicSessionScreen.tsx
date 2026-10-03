@@ -175,7 +175,7 @@ function CinematicRun({ anchor, accountId, statement, visionId, durationSeconds,
   const guidedAsset = useMemo(() => getGuidedTrackAsset(plan.track, plan.guide), [plan.guide, plan.track]);
   const geometry = useMemo(() => mark ? cinematicSessionGeometry(scene, viewport, photo, mark, plan.imageCount, prepared?.canvasFrame) : null,
     [plan.imageCount, mark, photo, scene, viewport, prepared?.canvasFrame]);
-  const watermark = useMemo(() => ({ x: width - 44, y: height - insets.bottom - 48, size: 40 }), [width, height, insets.bottom]);
+  const watermark = useMemo(() => ({ x: width - 58, y: height - insets.bottom - 104, size: 68 }), [width, height, insets.bottom]);
   const sceneSnapshot = useMemo(() => buildVisionSceneSnapshot(statement, anchor), [anchor, statement]);
   const backgroundAudio = ambient ? 'ambient' as const : 'off' as const;
   const sessionId = useRef(`visualize:${accountId ?? 'guest'}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`);

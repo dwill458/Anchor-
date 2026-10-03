@@ -34,6 +34,8 @@ export type CinematicTimeline = {
   grade?: CinematicGradeKey[];
   /** Guided sessions only: long narration silences, where the frame may only breathe. */
   stillness?: CinematicStillSpan[];
+  /** Guided sessions only: one eased push-in that arrives, and stops, on a chapter boundary. */
+  push?: { startMs: number; endMs: number; amount: number };
 };
 
 const SECOND = 1000;

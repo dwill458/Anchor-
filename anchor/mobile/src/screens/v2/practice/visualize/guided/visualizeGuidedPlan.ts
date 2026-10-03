@@ -31,6 +31,8 @@ type TrackPlan = {
   imageChanges: ReadonlyArray<{ phraseId: number; lead?: boolean }>;
   crossfadeMs: number;
   grade: readonly GradeStep[];
+  /** One push-in after the breakout, easing to still at `untilPhraseId`. Omitted for tracks that should not move. */
+  push?: { amount: number; untilPhraseId: number };
   anchorPhraseId: number;
   returnPhraseId: number;
   returnMs: number;
@@ -51,9 +53,10 @@ export const TRACK_PLANS: Readonly<Record<GuidedTrackId, TrackPlan>> = {
       { phraseId: 0, lead: true, rampMs: 3200, to: { watermark: 0.16 } },
       { phraseId: 8, lead: true, rampMs: 4000, to: { warm: 0.6 } },
       { phraseId: 11, rampMs: 2200, to: { warm: 1 } },
-      { phraseId: 12, lead: true, rampMs: 3200, to: { watermark: 0.3 } },
+      { phraseId: 12, lead: true, rampMs: 3200, to: { watermark: 0.3, warm: 0.7 } },
       { phraseId: 14, lead: true, rampMs: 900, to: CLEAR },
     ],
+    push: { amount: 0.07, untilPhraseId: 8 },
     anchorPhraseId: 14,
     returnPhraseId: 18,
     returnMs: 4000,
@@ -72,6 +75,7 @@ export const TRACK_PLANS: Readonly<Record<GuidedTrackId, TrackPlan>> = {
       { phraseId: 31, rampMs: 9000, to: { soften: 1 } },
       { phraseId: 36, lead: true, rampMs: 900, to: CLEAR },
     ],
+    push: { amount: 0.03, untilPhraseId: 13 },
     anchorPhraseId: 36,
     returnPhraseId: 39,
     returnMs: 5000,
@@ -197,7 +201,10 @@ export function buildGuidedPlan(params: { durationSeconds: GuidedDurationSeconds
 
   return {
     track, guide: params.guide, beatMap, imageCount: used, captions,
-    timeline: { durationMs, segments, grade, stillness },
+    timeline: {
+      durationMs, segments, grade, stillness,
+      ...(plan.push ? { push: { startMs: breakoutEndMs, endMs: Math.max(breakoutEndMs + 4000, Math.min(at(plan.push.untilPhraseId, true), anchorStartMs - 500)), amount: plan.push.amount } } : {}),
+    },
     anchorStartMs, sealAtMs: anchorStartMs + GUIDED_COMPRESSION_MS, returnStartMs, durationMs,
   };
 }

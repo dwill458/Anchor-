@@ -172,7 +172,8 @@ const styles = StyleSheet.create({
   rulesRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   rules: {
     fontFamily: INTENTION_FONTS.sansBold,
-    fontSize: 11,
+    // DEFERRED: the 11 px principles label was too small at this reading distance.
+    fontSize: 12,
     letterSpacing: 1.6,
     color: colors.creation.muted,
   },
@@ -193,18 +194,21 @@ const styles = StyleSheet.create({
   ctaText: { fontFamily: INTENTION_FONTS.sansBold, fontSize: 16 },
   ctaTextEnabled: { color: colors.creation.cream },
   ctaTextDisabled: { color: colors.creation.placeholder },
-  drawLinkWrap: { alignItems: 'center', paddingTop: 14, paddingBottom: 6 },
+  // DEFERRED: 6 px bottom padding left the draw link below the 44 pt target.
+  drawLinkWrap: { alignItems: 'center', paddingTop: 14, paddingBottom: 12, minHeight: 44 },
   drawLink: {
     fontFamily: INTENTION_FONTS.sans,
-    fontSize: 13,
-    color: colors.creation.muted,
+    // DEFERRED: 13 px muted link treatment; the link now reads as an action.
+    fontSize: 14,
+    color: colors.creation.ink,
+    opacity: 0.8,
   },
   drawUnderline: {
     marginTop: 3,
     width: 120,
     height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.creation.muted,
-    opacity: 0.6,
+    backgroundColor: colors.creation.ink,
+    opacity: 0.8,
   },
   drawLinkDisabled: { opacity: 0.45 },
 });

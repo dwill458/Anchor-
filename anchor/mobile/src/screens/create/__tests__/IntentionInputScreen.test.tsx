@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, cleanup, fireEvent, screen, act } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import IntentionInputScreen from '../IntentionInputScreen';
 import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
 
@@ -76,6 +77,22 @@ describe('IntentionInputScreen', () => {
         expect(screen.getByText('“I want to stop getting distracted.”')).toBeTruthy();
         expect(screen.getByText('“I am fully present with my work.”')).toBeTruthy();
         expect(screen.getByText('Three rules for a stronger intention.')).toBeTruthy();
+    });
+
+    it('gives the info glyph a 45 pt target', () => {
+        render(<IntentionInputScreen />);
+        expect(screen.getByRole('button', { name: 'About the three rules' }).props.hitSlop).toBe(14);
+    });
+
+    it('keeps the principles legible and the draw link at least 44 pt high', () => {
+        render(<IntentionInputScreen />);
+        fireEvent.changeText(screen.getByLabelText('Your intention'), 'Stay calm');
+        expect(StyleSheet.flatten(screen.getByText('SHORT  ·  PRESENT  ·  FELT').props.style).fontSize).toBe(12);
+        const link = screen.getByText('Or draw it yourself');
+        expect(StyleSheet.flatten(link.props.style)).toMatchObject({ fontSize: 14, opacity: 0.8 });
+        let face = link.parent;
+        while (face && !StyleSheet.flatten(face.props.style)?.minHeight) face = face.parent;
+        expect(StyleSheet.flatten(face!.props.style).minHeight).toBeGreaterThanOrEqual(44);
     });
 
     it('disables Continue button when input is empty', () => {

@@ -292,6 +292,15 @@ describe('Form (D5)', () => {
     expect(strokeTreatmentFor('woven').layers.some((l) => l.dash)).toBe(true);
     expect(strokeTreatmentFor('graphic').layers).toHaveLength(1);
   });
+
+  it('paints a visible white sheen over Alloy during the resting wait', () => {
+    const { context } = build(TEXT, 'desire');
+    const p = new RecordingPainter();
+    drawForm(p, CREAM_PALETTE, context, { tf: FORM_REVEAL_SECONDS + 0.65, progress: 0.5, slow: false, fade: 1, styleId: 'alloy' });
+    const sheen = p.of('polyline').filter((op) => op.stroke.color === '#FFFFFF' && op.stroke.alpha === 0.85);
+    expect(sheen.length).toBeGreaterThan(0);
+    expect(sheen[0].stroke.width).toBeGreaterThan(strokeTreatmentFor('alloy').layers[1].width);
+  });
 });
 
 describe('Map captions', () => {

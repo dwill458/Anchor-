@@ -12,6 +12,9 @@ const SOURCES = {
   anchorPulse: () => require('../assets/sounds/sk-anchor-pulse.mp3'),
   bloom: () => require('../assets/sounds/sk-bloom.mp3'),
   uiTap: () => require('../assets/sounds/sk-ui-tap.mp3'),
+  // Placeholder voices; replace these paths with sk-form-tick / sk-form-settle when delivered.
+  formTick: () => require('../assets/sounds/sk-ui-tap.mp3'),
+  formSettle: () => require('../assets/sounds/sk-bloom.mp3'),
 } as const;
 
 export type CreationSoundKey = keyof typeof SOURCES;
@@ -21,6 +24,8 @@ const VOLUME: Record<CreationSoundKey, number> = {
   anchorPulse: 0.85,
   bloom: 0.55,
   uiTap: 1,
+  formTick: 0.30,
+  formSettle: 0.35,
 };
 
 export interface CreationSoundHandle {
