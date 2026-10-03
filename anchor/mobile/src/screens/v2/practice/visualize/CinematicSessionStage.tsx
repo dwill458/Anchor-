@@ -70,12 +70,16 @@ type Props = {
   svg: SkSVG | null; enhancedAnchor: SkImage | null;
   enhancedMaskEffect: NonNullable<ReturnType<typeof Skia.RuntimeEffect.Make>> | null;
   elapsed: SharedValue<number>; timeline: CinematicTimeline; reduced: boolean;
+  /** How many of the images the session actually walks through; the last of them is the one the Anchor emerges from. */
+  sequenceCount: number;
+  /** Quiet corner mark for ordinary Vision chapters; the Anchor chapter takes the centre instead. */
+  watermark: { x: number; y: number; size: number };
   onMarkLayout: (rect: GeometryRect) => void;
 };
 
 /** Production scene: the board, saved photos and enhanced Anchor share one camera. */
 export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles, images, intention, category, svgText,
-  enhancedImageUrl, scene, viewport, mark, geometry, svg, enhancedAnchor, enhancedMaskEffect, elapsed, timeline, reduced, onMarkLayout }: Props) {
+  enhancedImageUrl, scene, viewport, mark, geometry, svg, enhancedAnchor, enhancedMaskEffect, elapsed, timeline, reduced, sequenceCount, watermark, onMarkLayout }: Props) {
   const board = useVisionBoardScene(tiles, scene);
   const state = useDerivedValue(() => cinematicSessionFrame(elapsed.value, timeline, geometry, reduced));
   const backgroundStyle = useAnimatedStyle(() => ({ opacity: state.value.environment }));
@@ -147,9 +151,18 @@ export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles
   });
   const fullSources = framings.map(item => item.source);
   const fullTransform = [{ translateX: viewport.width / 2 }, { translateY: viewport.height / 2 }];
-  const finalImage = images[images.length - 1];
-  const finalSource = fullSources[fullSources.length - 1];
-  const finalBackdrop = framings[framings.length - 1].backdrop;
+  const finalIndex = Math.max(0, Math.min(images.length, sequenceCount) - 1);
+  const finalImage = images[finalIndex];
+  const finalSource = fullSources[finalIndex];
+  const finalBackdrop = framings[finalIndex].backdrop;
+  // The grade is opacity-only over whatever the frame shows, so Reduce Motion keeps it intact.
+  const warmOpacity = useDerivedValue(() => state.value.grade.warm * 0.32);
+  const softenOpacity = useDerivedValue(() => state.value.grade.soften * 0.5);
+  const hazeOpacity = useDerivedValue(() => state.value.grade.soften * 0.1);
+  // A long silence's breath rides on the same near-black layer as the dim, so it can only ever darken a hair.
+  const dimOpacity = useDerivedValue(() => state.value.grade.dim + state.value.breath);
+  const watermarkOpacity = useDerivedValue(() => state.value.grade.watermark);
+  const watermarkHeight = watermark.size * (mark.width > 0 ? mark.height / mark.width : 1);
   const boardMarkCenter = projectPoint({ x: mark.x + mark.width / 2, y: mark.y + mark.height / 2 }, geometry.rest, viewport);
   const boardMarkTransform = [{ translateX: boardMarkCenter.x }, { translateY: boardMarkCenter.y },
     { rotate: mark.rotation * Math.PI / 180 }, { scale: geometry.rest.scale }];
@@ -182,7 +195,7 @@ export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles
       {images.map((image, index) => index === 0 && !reduced ? null : <MomentImage key={tiles[index].sceneId}
         image={image} source={fullSources[index]} backdrop={framings[index].backdrop} index={index} state={state} center={fullTransform} reduced={reduced} />)}
       <Group layer={<Paint opacity={maskedOpacity} />}>
-        {images.length === 1 && !reduced ? <Group transform={firstTransform} clip={localWindow}>
+        {sequenceCount === 1 && !reduced ? <Group transform={firstTransform} clip={localWindow}>
           <SkiaImage image={finalImage} {...sourceRect} fit="fill" />
         </Group> : <Group transform={fullTransform}><FramedImage image={finalImage} source={finalSource} backdrop={finalBackdrop} /></Group>}
         <Group layer={<Paint blendMode="dstIn" />}>
@@ -204,6 +217,20 @@ export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles
           </Group>
         </> : null}
       </Group> : null}
+      <Rect x={0} y={0} width={viewport.width} height={viewport.height} color="rgb(255,222,178)" blendMode="multiply" opacity={warmOpacity} />
+      <Rect x={0} y={0} width={viewport.width} height={viewport.height} color="rgb(128,128,128)" blendMode="saturation" opacity={softenOpacity} />
+      <Rect x={0} y={0} width={viewport.width} height={viewport.height} color="rgb(244,232,212)" opacity={hazeOpacity} />
+      <Rect x={0} y={0} width={viewport.width} height={viewport.height} color="rgb(10,14,18)" opacity={dimOpacity} />
+      <Group layer={<Paint opacity={watermarkOpacity} />}>
+        {enhancedAnchor ? <Group transform={[{ translateX: watermark.x }, { translateY: watermark.y }]}>
+          <EnhancedDisc image={enhancedAnchor} size={watermark.size} />
+        </Group> : svg ? <>
+          <Rect x={watermark.x - watermark.size / 2} y={watermark.y - watermarkHeight / 2} width={watermark.size} height={watermarkHeight} color="#F4E8D4" />
+          <Group layer={<Paint blendMode="dstIn" />}>
+            <ImageSVG svg={svg} x={watermark.x - watermark.size / 2} y={watermark.y - watermarkHeight / 2} width={watermark.size} height={watermarkHeight} />
+          </Group>
+        </> : null}
+      </Group>
     </Canvas>
   </View>;
 });

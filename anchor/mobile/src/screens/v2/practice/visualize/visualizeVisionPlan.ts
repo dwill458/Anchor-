@@ -11,7 +11,7 @@ import {
 import { Image } from 'react-native';
 import type { Anchor } from '@/types';
 
-export const V2_VISUALIZE_DURATIONS = [60, 180, 300] as const;
+export const V2_VISUALIZE_DURATIONS = [60, 180, 600] as const;
 export type V2VisualizeDuration = (typeof V2_VISUALIZE_DURATIONS)[number];
 
 export function isV2VisualizeDuration(value: number): value is V2VisualizeDuration {

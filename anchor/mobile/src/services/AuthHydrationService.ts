@@ -118,7 +118,7 @@ function applyProfileSettings(settings?: UserSettings | null): void {
       normalized.primeSessionDuration ?? current.primeSessionDuration,
     visualizeSessionDuration:
       normalized.visualizeSessionDuration === 60 ||
-      normalized.visualizeSessionDuration === 300
+      normalized.visualizeSessionDuration === 600
         ? normalized.visualizeSessionDuration
         : normalized.visualizeSessionDuration === 180
           ? 180

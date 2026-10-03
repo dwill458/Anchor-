@@ -66,7 +66,7 @@ const PD_MODES = [
     name: 'Visualize',
     themeKey: 'visualize' as const,
     durations: ['1 min', '3 min', '5 min'],
-    values: [60, 180, 300] as const,
+    values: [60, 180, 600] as const,
   },
 ] as const;
 
@@ -197,8 +197,8 @@ export const PracticeSubscreen: React.FC<Props> = ({ onBack }) => {
         setPrimeSessionDuration(val);
         setLastSessionDuration?.('deep_prime', val);
       } else {
-        setVisualizeSessionDuration(val as 60 | 180 | 300);
-        setLastSessionDuration?.('visualize', val as 60 | 180 | 300);
+        setVisualizeSessionDuration(val as 60 | 180 | 600);
+        setLastSessionDuration?.('visualize', val as 60 | 180 | 600);
       }
     };
 

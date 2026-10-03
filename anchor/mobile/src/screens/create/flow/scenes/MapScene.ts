@@ -1,7 +1,8 @@
 import { colors } from '@/theme/colors';
-import { SANS, distinctSegments, type MapLayout, type Pt } from '../geometry';
+import { SANS, W, distinctSegments, type MapLayout, type Pt } from '../geometry';
 import { clamp, ease, easeOut, lerp, segmentU, smooth } from '../motion';
 import type { Painter } from '../painter';
+import { CAPTION_Y, drawCaption } from './DistillScene';
 import type { Palette, SceneContext } from './sceneTypes';
 import { RAW_STROKE_WIDTH } from './sceneTypes';
 
@@ -56,6 +57,31 @@ export function drawCellNumber(
   });
 }
 
+/** The ritual line under the grid: the whole lesson of this beat. */
+export const MAP_RITUAL_CAPTION = 'Letters become numbers. Numbers become the path.';
+/** The field line sits just above it. */
+const FIELD_CAPTION_Y = CAPTION_Y - 26;
+
+/**
+ * The two captions of the Map beat: the field the intention takes shape on (one line, by function)
+ * and the ritual line. `tt` is seconds into the beat; both are gone before Forget begins.
+ */
+function drawMapCaptions(p: Painter, pal: Palette, ctx: SceneContext, tt: number, duration: number): void {
+  const out = 1 - smooth(duration - 0.4, duration - 0.05, tt);
+  if (ctx.fieldLine) {
+    const a = ctx.reduceMotion ? 1 : smooth(0.15, 0.65, tt);
+    if (a * out > 0.003) {
+      p.text(ctx.fieldLine, W / 2, FIELD_CAPTION_Y, {
+        font: SANS(14),
+        color: pal.fg,
+        alpha: 0.78 * a * out,
+        align: 'center',
+      });
+    }
+  }
+  drawCaption(p, pal, MAP_RITUAL_CAPTION, (ctx.reduceMotion ? 1 : smooth(0.8, 1.4, tt)) * out);
+}
+
 /**
  * Beat 3 — letter -> number -> cell, on the tier's own grid (3x3 .. 7x7, never assumed 6x6).
  * The number shown is the one the app actually used for that letter on that tier.
@@ -75,6 +101,7 @@ export function drawMap(p: Painter, pal: Palette, ctx: SceneContext, t: number):
     // Crossfade straight to the finished map: grid, landed dots, numbers and the whole path.
     const a = smooth(0, 1, segmentU(t, start, start + Math.min(duration, 0.4)));
     drawGrid(p, pal, map, 1, a);
+    drawMapCaptions(p, pal, ctx, t - start, duration);
     p.segments(
       distinctSegments(map.points).filter(([s, e]) => Math.hypot(e.x - s.x, e.y - s.y) > MIN_SEGMENT_PX),
       { color: pal.fg, width: RAW_STROKE_WIDTH, alpha: 0.95 * a }
@@ -94,6 +121,7 @@ export function drawMap(p: Painter, pal: Palette, ctx: SceneContext, t: number):
   const V = (i: number) => (tt - intro - i * slot) / slot;
 
   drawGrid(p, pal, map, ease(clamp(tt / intro)), 1);
+  drawMapCaptions(p, pal, ctx, tt, duration);
 
   // Cell tints: 11% while the letter lands, settling to 5%.
   map.points.forEach((pt, i) => {

@@ -29,6 +29,8 @@ export interface SceneContext {
   reduceMotion: boolean;
   /** 'glide' animates glyphs from the Intention field; 'fade' fades centred text in. */
   entry: 'glide' | 'fade';
+  /** The one line naming the field this intention takes shape on, shown during Map. Null on the draw path. */
+  fieldLine: string | null;
 }
 
 /** Live, per-frame draw state for the draw pad. */

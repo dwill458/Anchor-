@@ -323,6 +323,28 @@ describe('canonical practice sessions', () => {
     mockPrisma.$transaction.mockImplementation(async (callback: any) => callback(mockPrisma));
   });
 
+  it.each([60, 180, 300, 600])('accepts a completed %i-second Visualize session', async seconds => {
+    const res = await request(app).post('/api/practice/sessions').send({
+      ...body, id: `client-session-${seconds}`, plannedDurationSeconds: seconds, completedDurationSeconds: seconds,
+      startedAt: new Date(Date.now() - seconds * 1000).toISOString(),
+    });
+    expect(res.status).toBe(201);
+  });
+
+  it('rejects a Visualize length that has no guided track', async () => {
+    const res = await request(app).post('/api/practice/sessions').send({
+      ...body, id: 'client-session-90', plannedDurationSeconds: 90, completedDurationSeconds: 90,
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects a Visualize completion that did not reach its boundary, however long the track', async () => {
+    const res = await request(app).post('/api/practice/sessions').send({
+      ...body, id: 'client-session-early', plannedDurationSeconds: 600, completedDurationSeconds: 240,
+    });
+    expect(res.status).toBe(400);
+  });
+
   it('creates a completed Visualize session idempotently', async () => {
     const created = await request(app).post('/api/practice/sessions').send(body);
     expect(created.status).toBe(201);

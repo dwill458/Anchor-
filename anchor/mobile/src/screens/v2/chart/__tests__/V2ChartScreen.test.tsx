@@ -250,7 +250,9 @@ describe('V2ChartScreen — no Chart', () => {
     fireEvent.changeText(screen.getByTestId('chart-starting-input'), 'App is launched but only has 100 users.');
     fireEvent.press(screen.getByTestId('chart-context-continue'));
 
-    expect(await screen.findByText('Reading your Vision…')).toBeTruthy();
+    // DEFERRED: Vision-specific generation headline with no Vision.
+    expect(await screen.findByText('Mapping the way there.')).toBeTruthy();
+    expect(screen.queryByText('Finding the meaningful changes between where you are and your destination.')).toBeNull();
     // DEFERRED: the road art's layer images are gone; the etched map has nothing to load.
     expect(await screen.findByText('Here’s the course I’d start with.', {}, { timeout: 3000 })).toBeTruthy();
     expect(screen.getByText('We found 4 meaningful waypoints for this destination. Keep what fits. Change what doesn’t.')).toBeTruthy();

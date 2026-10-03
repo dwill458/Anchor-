@@ -234,7 +234,7 @@ export const PracticeCompletionService = {
     id: string;
     accountId: string;
     anchor: Anchor;
-    durationSeconds: 60 | 180 | 300;
+    durationSeconds: 60 | 180 | 300 | 600;
     startedAt: string;
     completedAt?: string;
     guidanceVoice: GuidanceVoice;

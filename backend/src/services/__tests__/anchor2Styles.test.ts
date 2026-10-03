@@ -485,7 +485,7 @@ describe('Anchor 2.0 prompt contract', () => {
     expect(buildStylePrompt('x', 'herbarium_v2', 0)).toContain('thin stems and veins must stay away from or soften');
     expect(buildStylePrompt('x', 'deep_cosmos_v2', 0)).toContain('star and speckle density must thin to nothing around the geometry');
     expect(buildStylePrompt('x', 'buff_v2', 0)).toContain('no drip, crack or dense splatter near or across the geometry');
-    expect(buildStylePrompt('x', 'gilt_v2', 0)).toContain('leaf stays peripheral');
+    expect(buildStylePrompt('x', 'gilt_v2', 0)).toContain('loose leaf patches stay peripheral');
     expect(buildStylePrompt('x', 'flash_v2', 0)).toContain('keep thick flash linework subordinate to and away from the geometry');
     expect(buildStylePrompt('x', 'porcelain_v2', 0)).toContain('crackle must soften and clear behind the geometry');
   });
@@ -494,7 +494,7 @@ describe('Anchor 2.0 prompt contract', () => {
     const woven = buildStylePrompt('x', 'woven_v2', 0);
     expect(woven).toContain('flat woven fabric');
     expect(woven).toContain('embroidery or stitched illustration as background decoration');
-    expect(ANCHOR2_STYLE_LIBRARY.woven_v2.anchorRendering).toContain('woven or couched flat into the cloth');
+    expect(ANCHOR2_STYLE_LIBRARY.woven_v2.anchorRendering).toContain('contrasting thread sewn through the cloth');
 
     const plush = buildStylePrompt('x', 'plush_v2', 0);
     expect(plush).toContain('no visible weave');
@@ -660,5 +660,25 @@ describe('GeminiImageService request payload (provider call path)', () => {
     expect(text).toContain('clean/transparent background');
     expect(request.config.imageConfig.aspectRatio).toBe('1:1');
     expect(validateAnchorArtwork).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Form I / Form II are a real choice', () => {
+  const traits = (prompt: string) => ({
+    material: /Material subtype: (.*)/.exec(prompt)?.[1],
+    motif: /Style-native motif to favour: (.*)/.exec(prompt)?.[1],
+    placement: /Peripheral placement: (.*)/.exec(prompt)?.[1],
+    lane: /Palette lane: (.*)/.exec(prompt)?.[1],
+  });
+
+  it.each([...ANCHOR2_STYLE_IDS])('%s: the two Forms never share a lane, material, motif or placement', id => {
+    for (const intention of INTENTIONS) {
+      const first = traits(buildStylePrompt(intention, id, 0, { category: 'career' }));
+      const second = traits(buildStylePrompt(intention, id, 1, { category: 'career' }));
+      expect(second.lane).not.toBe(first.lane);
+      expect(second.material).not.toBe(first.material);
+      expect(second.motif).not.toBe(first.motif);
+      expect(second.placement).not.toBe(first.placement);
+    }
   });
 });

@@ -28,7 +28,7 @@ const COPY = CHART_COPY.creation;
 
 /**
  * "Your context": the Vision Chart already has (destination) plus an optional photo of where they are now.
- * Continue works with or without the photo; nothing here is required.
+ * Continue requires a start photo; Skip for now is the explicit optional-input path.
  */
 export function ChartContextStep({ vision, startPhoto, onStartPhoto, onContinue, onSkip, onDescribe, bottomInset, notice, busy, testID }: Props) {
   const [message, setMessage] = React.useState<string | null>(null);
@@ -115,7 +115,7 @@ export function ChartContextStep({ vision, startPhoto, onStartPhoto, onContinue,
           size="large"
           onPress={onContinue}
           loading={busy}
-          disabled={busy}
+          disabled={busy || !startPhoto}
           iconRight={<ArrowRight size={18} color={colors.text.inverse} />}
           testID="chart-context-photo-continue"
           accessibilityLabel={COPY.continue}

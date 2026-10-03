@@ -50,6 +50,7 @@ export const CHART_COPY = {
   generation: {
     headerTitle: 'Creating your Chart',
     headline: 'Reading your Vision…',
+    neutralHeadline: 'Mapping the way there.',
     support: 'Finding the meaningful changes between where you are and your destination.',
     /** One per real stage of the request; see ChartGenerationStage. */
     stages: {

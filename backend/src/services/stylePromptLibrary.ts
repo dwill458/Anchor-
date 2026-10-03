@@ -1240,9 +1240,12 @@ export function selectAnchor2PaletteLane(
 ): Anchor2PaletteLane {
   const cleanIntention = normalizeIntention(intention) || 'personal intention';
   const safeIndex = Number.isFinite(variationIndex) ? Math.trunc(variationIndex) : 0;
-  return pickStable(
+  // The index is an offset, not part of the hash: Form I and Form II share a starting point and
+  // then step apart, so they can never land on the same lane.
+  return pickStaggered(
     def.paletteLanes,
-    `${def.id}:${cleanIntention}:${safeIndex}:${(category || '').trim().toLowerCase()}:lane`
+    `${def.id}:${cleanIntention}:${(category || '').trim().toLowerCase()}:lane`,
+    safeIndex
   );
 }
 
@@ -1275,10 +1278,16 @@ export function buildAnchor2StylePrompt(
   const categoryInfo = getCategoryColorInfo(options.category);
 
   const lane = selectAnchor2PaletteLane(style, intention, safeVariationIndex, options.category);
-  const seedBase = `${style.id}:${cleanIntention}:${safeVariationIndex}`;
-  const materialVariant = pickStable(style.materialVariants, `${seedBase}:material`);
-  const peripheralPlacement = pickStable(ANCHOR2_PERIPHERAL_PLACEMENTS, `${seedBase}:placement`);
-  const nativeMotif = pickStable(style.styleNativeMotifs, `${seedBase}:motif`);
+  // Staggered, never independently hashed: the two Forms of one request must differ in material
+  // subtype, motif and placement as well as palette lane, or choosing between them is a fake choice.
+  const seedBase = `${style.id}:${cleanIntention}`;
+  const materialVariant = pickStaggered(style.materialVariants, `${seedBase}:material`, safeVariationIndex);
+  const peripheralPlacement = pickStaggered(
+    ANCHOR2_PERIPHERAL_PLACEMENTS,
+    `${seedBase}:placement`,
+    safeVariationIndex
+  );
+  const nativeMotif = pickStaggered(style.styleNativeMotifs, `${seedBase}:motif`, safeVariationIndex);
 
   const sections: string[] = [
     `ANCHOR IDENTITY
@@ -3552,6 +3561,14 @@ function containsKeyword(value: string, keyword: string): boolean {
 
 function pickStable<T>(options: T[], seed: string): T {
   return options[hashString(seed) % options.length];
+}
+
+/**
+ * Like `pickStable`, but `offset` steps through the options from the seed's own starting point, so
+ * consecutive offsets are guaranteed to differ whenever there is more than one option.
+ */
+function pickStaggered<T>(options: T[], seed: string, offset: number): T {
+  return options[positiveModulo(hashString(seed) + offset, options.length)];
 }
 
 function positiveModulo(value: number, divisor: number): number {

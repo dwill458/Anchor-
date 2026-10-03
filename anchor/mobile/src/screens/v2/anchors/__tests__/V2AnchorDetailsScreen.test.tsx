@@ -1,9 +1,10 @@
 import React from 'react';
 import { Image, Text } from 'react-native';
-import { render, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, screen, waitFor, act } from '@testing-library/react-native';
 import { fetchV2RecommendationContext } from '@/adapters/v2/practice';
 jest.mock('@/adapters/v2/practice', () => ({ fetchV2RecommendationContext: jest.fn() }));
 jest.mock('@/hooks/v2/chart/useAnchorChart', () => ({ useAnchorChart: jest.fn() }));
+jest.mock('expo-clipboard', () => ({ setStringAsync: jest.fn(() => Promise.resolve(true)) }));
 
 const mockNavigate = jest.fn();
 const mockGoBack = jest.fn();
@@ -21,6 +22,7 @@ import { useCourseStore } from '@/stores/courseStore';
 import { resetV2VisionReadCache } from '@/hooks/v2/vision/useV2Vision';
 import { useAnchorChart } from '@/hooks/v2/chart/useAnchorChart';
 import { V2AnchorDetailsScreen } from '../V2AnchorDetailsScreen';
+import { ToastProvider } from '@/components/ToastProvider';
 import { V2DailyShellIntentsProvider } from '@/screens/v2/home/dailyShell';
 import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
 import { apiClient } from '@/services/ApiClient';
@@ -59,9 +61,11 @@ function chartReadModel(overrides: Record<string, unknown> = {}) {
 
 const renderDetails = (intents = {}) =>
   render(
-    <V2DailyShellIntentsProvider intents={intents}>
-      <V2AnchorDetailsScreen />
-    </V2DailyShellIntentsProvider>,
+    <ToastProvider>
+      <V2DailyShellIntentsProvider intents={intents}>
+        <V2AnchorDetailsScreen />
+      </V2DailyShellIntentsProvider>
+    </ToastProvider>,
   );
 
 it('keeps an unavailable Vision distinct from absence and offers a real retry', async () => {
@@ -91,7 +95,7 @@ it.each([[true, true], [true, false], [false, true], [false, false]])('keeps the
     expect(onOpenVision).toHaveBeenCalledWith('a', { edit: true });
   }
   const labels = screen.UNSAFE_getAllByType(Text).map(node => node.props.children);
-  const order = ['Thread Strength', 'Vision', 'Recommended Practice', 'Chart', 'Recent Practice', 'Release this Anchor'].map(label => labels.indexOf(label));
+  const order = ['Recommended practice', 'Vision', 'Chart', 'Recent practice', 'Release this Anchor'].map(label => labels.indexOf(label));
   expect(order.every((position, index) => position >= 0 && (index === 0 || position > order[index - 1]))).toBe(true);
 });
 
@@ -257,7 +261,8 @@ describe('V2AnchorDetailsScreen', () => {
     useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a' })] });
     renderDetails({ onOpenPractice });
     await waitFor(() => expect(screen.getByTestId('v2-anchor-today')).toBeTruthy());
-    expect(screen.getByText('↓ -4% this week')).toBeTruthy();
+    // The weekly delta moved from a visible line into the compact thread row's accessible label.
+    expect(screen.getByLabelText(/Thread Strength 42 percent.*down 4 percent this week/)).toBeTruthy();
     fireEvent.press(screen.getByTestId('v2-anchor-today'));
     expect(onOpenPractice).toHaveBeenCalledWith('a', mode, { anchorTransition: false });
   });
@@ -277,7 +282,7 @@ describe('V2AnchorDetailsScreen', () => {
 
     await waitFor(() => expect(screen.getByTestId('v2-anchor-today')).toBeTruthy());
     expect(screen.getByText(expectedTitle)).toBeTruthy();
-    expect(screen.getByText('Recommended Practice')).toBeTruthy();
+    expect(screen.getByText('Recommended practice')).toBeTruthy();
   });
 
   it('renders Vision photographic section when a vision exists with scenes', async () => {
@@ -329,7 +334,7 @@ describe('V2AnchorDetailsScreen', () => {
     useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a' })] });
     renderDetails({ onReleaseAnchor });
     await waitFor(() => expect(screen.getByTestId('v2-anchor-today')).toBeTruthy());
-    expect(screen.getByText('↑ +6% this week')).toBeTruthy();
+    expect(screen.getByLabelText(/Thread Strength 78 percent.*up 6 percent this week/)).toBeTruthy();
     fireEvent.press(screen.getByTestId('v2-anchor-today'));
     expect(onReleaseAnchor).toHaveBeenCalledWith('a');
   });
@@ -378,7 +383,7 @@ describe('V2AnchorDetailsScreen', () => {
     });
 
     renderDetails({ onOpenProgress });
-    expect(screen.getByText('Recent Practice')).toBeTruthy();
+    expect(screen.getByText('Recent practice')).toBeTruthy();
     expect(screen.getByText('Today')).toBeTruthy();
   });
 
@@ -386,5 +391,64 @@ describe('V2AnchorDetailsScreen', () => {
     mockParams = { anchorId: 'missing' };
     renderDetails();
     expect(screen.getByText('Anchor not found')).toBeTruthy();
+  });
+});
+
+describe('V2AnchorDetailsScreen options menu', () => {
+  beforeEach(() => {
+    useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a', intentionText: 'I finish what I start' })] });
+  });
+
+  it('opens a menu with the four actions and keeps the old button testIDs on them', () => {
+    renderDetails();
+    expect(screen.queryByTestId('anchor-options-menu')).toBeNull();
+    fireEvent.press(screen.getByLabelText('More Anchor options'));
+    expect(screen.getByTestId('anchor-options-menu')).toBeTruthy();
+    expect(screen.getByTestId('anchor-detail-share-button')).toBeTruthy();
+    expect(screen.getByTestId('anchor-detail-download-png-button')).toBeTruthy();
+    expect(screen.getByTestId('anchor-detail-set-wallpaper-button')).toBeTruthy();
+    expect(screen.getByTestId('anchor-detail-copy-intention-button')).toBeTruthy();
+    expect(screen.getByText('Share anchor')).toBeTruthy();
+    expect(screen.getByText('Download PNG')).toBeTruthy();
+    expect(screen.getByText('Save as wallpaper')).toBeTruthy();
+    expect(screen.getByText('Copy intention')).toBeTruthy();
+    // Release and Edit are not menu items.
+    expect(screen.getAllByLabelText('Release this Anchor')).toHaveLength(1);
+  });
+
+  it('closes on the scrim', () => {
+    renderDetails();
+    fireEvent.press(screen.getByLabelText('More Anchor options'));
+    // The menu is a modal view, so the scrim is (correctly) hidden from assistive tech.
+    fireEvent.press(screen.getByTestId('anchor-options-scrim', { includeHiddenElements: true }));
+    expect(screen.queryByTestId('anchor-options-menu')).toBeNull();
+  });
+
+  it('copies the intention and confirms with a toast', async () => {
+    const Clipboard = require('expo-clipboard');
+    renderDetails();
+    fireEvent.press(screen.getByLabelText('More Anchor options'));
+    fireEvent.press(screen.getByTestId('anchor-detail-copy-intention-button'));
+    await waitFor(() => expect(Clipboard.setStringAsync).toHaveBeenCalledWith('I finish what I start'));
+    await waitFor(() => expect(screen.getByText('Intention copied')).toBeTruthy());
+    expect(screen.queryByTestId('anchor-options-menu')).toBeNull();
+  });
+
+  it('opens the export sheet from Download PNG', () => {
+    jest.useFakeTimers();
+    try {
+      renderDetails();
+      fireEvent.press(screen.getByLabelText('More Anchor options'));
+      fireEvent.press(screen.getByTestId('anchor-detail-download-png-button'));
+      act(() => { jest.advanceTimersByTime(300); });
+      expect(screen.getByText('Export anchor')).toBeTruthy();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('exposes the draggable sheet handle', () => {
+    renderDetails();
+    expect(screen.getByTestId('v2-details-sheet-handle')).toBeTruthy();
   });
 });

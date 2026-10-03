@@ -1,3 +1,4 @@
+import { CHART_MAP_TOKENS as T } from '../map/chartMapTokens';
 import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -105,7 +106,7 @@ export function ChartBrushBar({ fraction, color, reducedMotion, accessibilityLab
 }
 
 const styles = StyleSheet.create({
-  track: { height: HEIGHT, borderRadius: 5, backgroundColor: 'rgba(239,234,223,.1)', overflow: 'hidden' },
+  track: { height: HEIGHT, borderRadius: 5, backgroundColor: T.progressTrack, overflow: 'hidden' },
   clip: { height: HEIGHT, overflow: 'hidden' },
   stroke: { position: 'absolute', right: 0, top: 0 },
 });

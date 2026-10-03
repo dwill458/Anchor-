@@ -23,9 +23,17 @@ export type CinematicSegment = {
   imageIndex?: number;
 };
 
+/** The colour grade at one instant; the stage interpolates between consecutive keys. */
+export type CinematicGradeKey = { atMs: number; dim: number; warm: number; soften: number; watermark: number };
+export type CinematicStillSpan = { startMs: number; endMs: number };
+
 export type CinematicTimeline = {
   durationMs: number;
   segments: CinematicSegment[];
+  /** Guided sessions only: grade keyframes on the audio-position axis. */
+  grade?: CinematicGradeKey[];
+  /** Guided sessions only: long narration silences, where the frame may only breathe. */
+  stillness?: CinematicStillSpan[];
 };
 
 const SECOND = 1000;

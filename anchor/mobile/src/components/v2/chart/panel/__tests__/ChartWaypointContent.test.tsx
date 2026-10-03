@@ -42,6 +42,23 @@ function renderContent(view: ChartViewModel, props: ContentProps = {}) {
 }
 
 describe('ChartWaypointContent — ink panel', () => {
+  it('puts the current One Move before progress so its action comes first on opening', () => {
+    const { toJSON, getByTestId } = renderContent(viewOf());
+    const tree = JSON.stringify(toJSON());
+    const moveIndex = tree.indexOf('"testID":"chart-one-move"');
+    const barIndex = tree.indexOf('"testID":"chart-waypoint-bar"');
+    const progressIndex = tree.indexOf('"testID":"chart-update-progress-button"');
+    expect(getByTestId('chart-one-move-check')).toBeTruthy();
+    expect(moveIndex).toBeGreaterThanOrEqual(0);
+    expect(barIndex).toBeGreaterThan(moveIndex);
+    expect(progressIndex).toBeGreaterThan(moveIndex);
+  });
+
+  it('caps the current rationale to one line without changing the stored copy', () => {
+    const { getByText } = renderContent(viewOf());
+    expect(getByText('Growth becomes visible.').props.numberOfLines).toBe(1);
+  });
+
   it('shows the current waypoint: label row, title, why line, bar, value row and the ONE MOVE card', () => {
     const { getByText, getByTestId, getByLabelText } = renderContent(viewOf());
     expect(getByText('CURRENT WAYPOINT')).toBeTruthy();

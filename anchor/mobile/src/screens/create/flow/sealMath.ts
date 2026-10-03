@@ -49,6 +49,35 @@ export function sealCard(u: number): SealCardShape {
   };
 }
 
+/**
+ * The payoff: once the medallion has formed, the anchor pulses once and the intention sentence
+ * appears beneath it — symbol and sentence, married. The pulse begins at this point of the sequence.
+ */
+export const SEAL_PULSE_AT = 0.72;
+const SEAL_PULSE_SPAN = 0.2;
+/** The anchor_pulse sound is started this long before the visual pulse, so it reads as the cause. */
+export const SEAL_PULSE_SOUND_LEAD_MS = 120;
+
+/** The medallion swells 5% and settles, once. */
+export function sealPulse(u: number): number {
+  'worklet';
+  const f = clamp((u - SEAL_PULSE_AT) / SEAL_PULSE_SPAN);
+  return 1 + 0.05 * Math.sin(Math.PI * f);
+}
+
+/** The ring of light that leaves the medallion with the pulse: scale and alpha. */
+export function sealHalo(u: number): { scale: number; alpha: number } {
+  'worklet';
+  const f = clamp((u - SEAL_PULSE_AT) / (SEAL_PULSE_SPAN * 1.6));
+  return { scale: lerp(1, 1.55, easeOut(f)), alpha: 0.55 * Math.sin(Math.PI * Math.min(1, f * 1.15)) * (f > 0 ? 1 : 0) };
+}
+
+/** The sentence arrives just behind the pulse and then holds. */
+export function sealSentenceAlpha(u: number): number {
+  'worklet';
+  return smooth(SEAL_PULSE_AT + 0.05, SEAL_PULSE_AT + 0.26, u);
+}
+
 /** The hold ring flashes outward once as the seal lands: 1 -> 1.5x, fading, over 0.4 s. */
 export function sealFlash(seconds: number): { scale: number; alpha: number } {
   'worklet';

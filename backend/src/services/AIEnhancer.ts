@@ -389,55 +389,57 @@ export async function enhanceSigilWithAI(
 
       const variations: VariationResult[] = [];
 
-      // Convert each base64 image to buffer and upload
-      for (let i = 0; i < result.images.length; i++) {
-        const image = result.images[i];
+      // Convert each base64 image to a buffer and upload. The Forms are independent, so they upload
+      // together: the client is waiting on the slowest one, not the sum (this was sequential).
+      const { uploadImageFromBuffer } = await import('./StorageService');
+      const uploaded = await Promise.all(
+        result.images.map(async (image, i): Promise<VariationResult> => {
+          // Convert base64 to Buffer
+          const imageBuffer = Buffer.from(image.base64, 'base64');
 
-        // Convert base64 to Buffer
-        const imageBuffer = Buffer.from(image.base64, 'base64');
+          // Upload buffer to storage and get URL
+          const imageUrl = await uploadImageFromBuffer(
+            imageBuffer,
+            request.userId,
+            `gemini-${Date.now()}`, // Generate temp anchor ID for storage
+            i
+          );
 
-        // Upload buffer to storage and get URL
-        const { uploadImageFromBuffer } = await import('./StorageService');
-        const imageUrl = await uploadImageFromBuffer(
-          imageBuffer,
-          request.userId,
-          `gemini-${Date.now()}`, // Generate temp anchor ID for storage
-          i
-        );
+          // Validate that Anchor geometry occupies >= 70% of canvas and has no rectangular framing/enclosure
+          // Anchor 2.0 renders a full edge-to-edge field, so the empty-surround occupancy/plaque
+          // validator does not apply to it. No automated geometry check exists for 2.0 yet.
+          const isAnchor2 = getStyleGenerationVersion(request.styleChoice) === 'anchor2';
+          const validation = isAnchor2
+            ? {
+                isValid: true,
+                widthRatio: 1,
+                heightRatio: 1,
+                hasDominantRectangularEnclosure: false,
+              }
+            : await validateAnchorArtwork(imageBuffer);
+          const structureMatch: StructureMatchScore = {
+            iouScore: validation.isValid ? 0.94 : Math.min(0.65, validation.widthRatio),
+            edgeOverlapScore: validation.isValid ? 0.92 : Math.min(0.65, validation.heightRatio),
+            combinedScore: validation.isValid ? 0.93 : 0.65,
+            structurePreserved: validation.isValid,
+            classification: validation.isValid
+              ? 'Structure Preserved'
+              : validation.hasDominantRectangularEnclosure
+                ? 'Style Drift'
+                : 'More Artistic',
+          };
 
-        // Validate that Anchor geometry occupies >= 70% of canvas and has no rectangular framing/enclosure
-        // Anchor 2.0 renders a full edge-to-edge field, so the empty-surround occupancy/plaque
-        // validator does not apply to it. No automated geometry check exists for 2.0 yet.
-        const isAnchor2 = getStyleGenerationVersion(request.styleChoice) === 'anchor2';
-        const validation = isAnchor2
-          ? {
-              isValid: true,
-              widthRatio: 1,
-              heightRatio: 1,
-              hasDominantRectangularEnclosure: false,
-            }
-          : await validateAnchorArtwork(imageBuffer);
-        const structureMatch: StructureMatchScore = {
-          iouScore: validation.isValid ? 0.94 : Math.min(0.65, validation.widthRatio),
-          edgeOverlapScore: validation.isValid ? 0.92 : Math.min(0.65, validation.heightRatio),
-          combinedScore: validation.isValid ? 0.93 : 0.65,
-          structurePreserved: validation.isValid,
-          classification: validation.isValid
-            ? 'Structure Preserved'
-            : validation.hasDominantRectangularEnclosure
-            ? 'Style Drift'
-            : 'More Artistic',
-        };
+          logger.info(`[AIEnhancer] Uploaded Gemini 3 variation ${i + 1}/${result.images.length}`);
 
-        variations.push({
-          imageUrl,
-          structureMatch,
-          seed: image.seed,
-          wasComposited: false,
-        });
-
-        logger.info(`[AIEnhancer] Uploaded Gemini 3 variation ${i + 1}/${result.images.length}`);
-      }
+          return {
+            imageUrl,
+            structureMatch,
+            seed: image.seed,
+            wasComposited: false,
+          };
+        })
+      );
+      variations.push(...uploaded);
 
       // Build ControlNet-compatible result
       const controlNetResult: ControlNetEnhancementResult = {

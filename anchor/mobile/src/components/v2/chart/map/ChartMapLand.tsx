@@ -1,14 +1,14 @@
 import React, { memo, useEffect, useMemo, useState } from 'react';
 import {
   ColorMatrix, FilterMode, FractalNoise, Group, Image as SkiaImage, ImageShader, MipmapMode, Paint, Rect, Shader,
-  drawAsImage, useImage, type SkImage,
+  drawAsImage, useImage, Skia, type SkImage,
 } from '@shopify/react-native-skia';
-import { PixelRatio } from 'react-native';
+import { Image as NativeImage, PixelRatio } from 'react-native';
 import { useDerivedValue, useSharedValue, withTiming } from 'react-native-reanimated';
 import { MAP_H, MAP_W, type ChartMapAnimState, type RouteTable } from './chartMapContracts';
 import { packFogField, precomputeFogFieldAsync } from './chartMapGeometry';
 import {
-  FOG_IMAGE_RECT, FOG_SKSL, TINT_SKSL, hexToVec3, makeEffect, routeCoordAt, splitFogField, uploadFogImage,
+  CLOUD_SKSL, FOG_IMAGE_RECT, FOG_SKSL, TINT_SKSL, hexToVec3, makeEffect, routeCoordAt, splitFogField, uploadFogImage,
 } from './chartMapShaders';
 import { CHART_MAP_TOKENS } from './chartMapTokens';
 import { useChartMapCameraTransform } from './useChartMapCamera';
@@ -21,6 +21,7 @@ const SAMPLING_ART = { filter: FilterMode.Linear, mipmap: MipmapMode.Linear };
 const SAMPLING_FOG = { filter: FilterMode.Nearest, mipmap: MipmapMode.None };
 
 type FogImages = { fieldDist: SkImage; fieldArc: SkImage; noise: SkImage };
+const fogLoads = new WeakMap<RouteTable, Promise<FogImages | null>>();
 let fogImagesCache: { table: RouteTable; images: FogImages | null } | null = null;
 
 function cachedFogImages(table: RouteTable): FogImages | null {
@@ -31,6 +32,14 @@ function cachedFogImages(table: RouteTable): FogImages | null {
 async function loadFogImages(table: RouteTable): Promise<FogImages | null> {
   const hit = cachedFogImages(table);
   if (hit) return hit;
+  const pending = fogLoads.get(table);
+  if (pending) return pending;
+  const loading = buildFogImages(table);
+  fogLoads.set(table, loading);
+  try { return await loading; } finally { fogLoads.delete(table); }
+}
+
+async function buildFogImages(table: RouteTable): Promise<FogImages | null> {
   const field = await precomputeFogFieldAsync(table);
   const { fieldRGBA, noiseRGBA } = packFogField(field);
   const bytes = splitFogField(fieldRGBA, noiseRGBA);
@@ -42,6 +51,55 @@ async function loadFogImages(table: RouteTable): Promise<FogImages | null> {
   return images;
 }
 
+let landscapeImageCache: SkImage | null = null;
+let landscapeLoad: Promise<SkImage | null> | null = null;
+const grainImages = new Map<string, SkImage>();
+const grainLoads = new Map<string, Promise<SkImage | null>>();
+const grainKey = (width: number, height: number) => `${width}:${height}:${Math.min(PixelRatio.get(), 2)}`;
+
+function loadLandscape(): Promise<SkImage | null> {
+  if (landscapeImageCache) return Promise.resolve(landscapeImageCache);
+  if (landscapeLoad) return landscapeLoad;
+  landscapeLoad = Promise.resolve().then(async () => {
+    const source = NativeImage.resolveAssetSource(LANDSCAPE);
+    const data = await Skia.Data.fromURI(source.uri);
+    landscapeImageCache = Skia.Image.MakeImageFromEncoded(data);
+    return landscapeImageCache;
+  }).finally(() => { landscapeLoad = null; });
+  return landscapeLoad;
+}
+
+function loadGrain(width: number, height: number): Promise<SkImage | null> {
+  const key = grainKey(width, height);
+  const hit = grainImages.get(key);
+  if (hit) return Promise.resolve(hit);
+  const pending = grainLoads.get(key);
+  if (pending) return pending;
+  const ratio = Math.min(PixelRatio.get(), 2);
+  const loading = drawAsImage(<Group transform={[{ scale: ratio }]}><ChartMapGrain width={width} height={height} /></Group>, {
+    width: Math.round(width * ratio), height: Math.round(height * ratio),
+  }).then(image => {
+    if (image) {
+      // Keep only recent viewport sizes; mounted maps retain their own image reference.
+      if (grainImages.size >= 6) {
+        const oldest = grainImages.keys().next().value;
+        if (oldest !== undefined) grainImages.delete(oldest);
+      }
+      grainImages.set(key, image);
+    }
+    return image;
+  }).finally(() => { grainLoads.delete(key); });
+  grainLoads.set(key, loading);
+  return loading;
+}
+
+/** Start at creation mount; all three resources survive the permanent Chart mount. */
+export function warmChartMapResources(table: RouteTable, width: number, height: number): void {
+  void Promise.allSettled([loadLandscape(), loadFogImages(table), loadGrain(width, height)]);
+}
+
+export function hasDecodedChartLandscape(): boolean { return landscapeImageCache !== null; }
+
 type Props = {
   width: number;
   height: number;
@@ -49,6 +107,9 @@ type Props = {
   table: RouteTable;
   categoryColor: string;
   reducedMotion?: boolean;
+  /** Fog of war: dense cloud over undiscovered ground. Off for surfaces that show the bare map (intro). */
+  clouds?: boolean;
+  onArtReady?: (ready: boolean) => void;
 };
 
 /**
@@ -56,10 +117,18 @@ type Props = {
  * masked by the fog shader, then grain. Redraws only when revealArc, fog or the
  * camera move; the flag sway lives on the separate overlay canvas.
  */
-export const ChartMapLand = memo(function ChartMapLand({ width, height, anim, table, categoryColor, reducedMotion = false }: Props) {
-  const image = useImage(LANDSCAPE);
+export const ChartMapLand = memo(function ChartMapLand({ width, height, anim, table, categoryColor, reducedMotion = false, clouds = false, onArtReady }: Props) {
+  const decodedImage = useImage(landscapeImageCache ? null : LANDSCAPE);
+  const [warmedImage, setWarmedImage] = useState<SkImage | null>(() => landscapeImageCache);
+  const image = warmedImage ?? decodedImage;
+  useEffect(() => {
+    let alive = true;
+    loadLandscape().then(value => { if (alive && value) setWarmedImage(value); }).catch(() => undefined);
+    return () => { alive = false; };
+  }, []);
   const tintEffect = useMemo(() => makeEffect(TINT_SKSL), []);
   const fogEffect = useMemo(() => makeEffect(FOG_SKSL), []);
+  const cloudEffect = useMemo(() => (clouds ? makeEffect(CLOUD_SKSL) : null), [clouds]);
   // First frames render faint-only; the ink layer appears when the field is ready.
   const [fogImages, setFogImages] = useState<FogImages | null>(() => cachedFogImages(table));
   useEffect(() => {
@@ -77,18 +146,19 @@ export const ChartMapLand = memo(function ChartMapLand({ width, height, anim, ta
     inkFade.value = reducedMotion ? 1 : withTiming(1, { duration: 300 });
   }, [fogImages, reducedMotion, inkFade]);
 
+  // Clouds roll in over a beat once the fog field is ready (instantly under reduced motion).
+  const cloudFade = useSharedValue(0);
+  useEffect(() => {
+    const on = clouds && fogImages !== null;
+    cloudFade.value = on ? (reducedMotion ? 1 : withTiming(1, { duration: 900 })) : 0;
+  }, [clouds, fogImages, reducedMotion, cloudFade]);
+
   // Grain rendered once to an image; each land frame only draws it with multiply.
-  const [grain, setGrain] = useState<SkImage | null>(null);
+  // DEFERRED: grain was rendered anew for every mount; the viewport cache shares it across the handoff.
+  const [grain, setGrain] = useState<SkImage | null>(() => grainImages.get(grainKey(width, height)) ?? null);
   useEffect(() => {
     let alive = true;
-    // drawAsImage draws the picture unscaled into the surface, so scale it up to
-    // fill width*ratio. Ratio capped at 2: grain is texture, not detail.
-    const ratio = Math.min(PixelRatio.get(), 2);
-    drawAsImage(<Group transform={[{ scale: ratio }]}><ChartMapGrain width={width} height={height} /></Group>, {
-      width: Math.round(width * ratio),
-      height: Math.round(height * ratio),
-    })
-      .then(img => { if (alive) setGrain(img); })
+    loadGrain(width, height).then(value => { if (alive) setGrain(value); })
       .catch(error => { if (__DEV__) console.warn('[chart-map] grain render failed', error); });
     return () => { alive = false; };
   }, [width, height]);
@@ -111,9 +181,12 @@ export const ChartMapLand = memo(function ChartMapLand({ width, height, anim, ta
     };
   }, [total]);
 
+  const cloudUniforms = useDerivedValue(() => ({ ...fogUniforms.value, paper }), [paper]);
+
   // Fallback when SkSL or the art is unavailable: paper only / faint only (no ink, no crash).
   const showArt = image !== null && image !== undefined && tintEffect !== null;
   const showInk = showArt && fogEffect !== null && fogImages !== null;
+  useEffect(() => { onArtReady?.(showArt); }, [onArtReady, showArt]);
 
   return (
     <>
@@ -135,6 +208,17 @@ export const ChartMapLand = memo(function ChartMapLand({ width, height, anim, ta
             </Rect>
             <Rect x={0} y={0} width={MAP_W} height={MAP_H} blendMode="dstIn">
               <Shader source={fogEffect} uniforms={fogUniforms}>
+                <ImageShader image={fogImages.fieldDist} fit="fill" rect={FOG_IMAGE_RECT} sampling={SAMPLING_FOG} />
+                <ImageShader image={fogImages.fieldArc} fit="fill" rect={FOG_IMAGE_RECT} sampling={SAMPLING_FOG} />
+                <ImageShader image={fogImages.noise} fit="fill" rect={FOG_IMAGE_RECT} sampling={SAMPLING_FOG} />
+              </Shader>
+            </Rect>
+          </Group>
+        ) : null}
+        {showInk && cloudEffect && fogImages ? (
+          <Group opacity={cloudFade}>
+            <Rect x={0} y={0} width={MAP_W} height={MAP_H}>
+              <Shader source={cloudEffect} uniforms={cloudUniforms}>
                 <ImageShader image={fogImages.fieldDist} fit="fill" rect={FOG_IMAGE_RECT} sampling={SAMPLING_FOG} />
                 <ImageShader image={fogImages.fieldArc} fit="fill" rect={FOG_IMAGE_RECT} sampling={SAMPLING_FOG} />
                 <ImageShader image={fogImages.noise} fit="fill" rect={FOG_IMAGE_RECT} sampling={SAMPLING_FOG} />

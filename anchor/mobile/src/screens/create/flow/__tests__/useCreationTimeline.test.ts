@@ -11,7 +11,6 @@ describe('buildCreationTimeline', () => {
     expect(t.rawGeometryAt).toBeCloseTo(10.3, 5);
     expect(t.stillness).toBe(0.45);
     expect(t.styleAt).toBeCloseTo(10.75, 5);
-    expect(t.styleCountdown).toBe(4);
     expect(t.sweep).toBe(1.1);
   });
 
@@ -25,7 +24,6 @@ describe('buildCreationTimeline', () => {
     expect(t.rawGeometryAt).toBeCloseTo(6.3, 5);
     expect(t.stillness).toBe(0.35);
     expect(t.styleAt).toBeCloseTo(6.65, 5);
-    expect(t.styleCountdown).toBe(3);
     expect(t.sweep).toBe(1);
   });
 

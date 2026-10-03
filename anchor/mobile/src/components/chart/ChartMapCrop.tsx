@@ -44,7 +44,7 @@ export function ChartMapCrop({ data, full }: { data: ChartPreviewData; full: boo
     <View testID="chart-preview-map-offset" style={{ position: 'absolute', top: top === 0 ? 0 : -top }}>
       <ChartMap testID="chart-preview-etched-map" width={width} table={table} placement={placement}
         anim={anim} markers={markers} categoryColor={getCategoryColor(data.category)}
-        category={data.category ?? undefined} interactive={false} reducedMotion arrived={arrived}
+        category={data.category ?? undefined} interactive={false} reducedMotion arrived={arrived} clouds
         onMarkerPress={noop} onMapPress={noop} />
     </View>
   </View>;

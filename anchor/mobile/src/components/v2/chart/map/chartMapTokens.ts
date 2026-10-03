@@ -10,6 +10,7 @@ export const CHART_MAP_TOKENS = {
   ink: '#111820',
   panel: '#1A232E',
   muted: '#9AA3AF',
+  progressTrack: '#737D89',
   light: '#EFEADF',
   void: '#0A0F14',
   line: 'rgba(239,234,223,.13)',

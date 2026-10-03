@@ -56,6 +56,9 @@ function V2HomeProgressSectionComponent({ progress, thread, categoryColor, onOpe
 
   const accent = categoryColor ?? colors.semantic.info;
   const measured = thread ? thread.value !== null : false;
+  // With no practice and no reading yet, the invitation leads and the status follows it.
+  const hasPractice = progress.state === 'ready' && progress.totalSessions > 0;
+  const invitation = !hasPractice && !measured;
 
   return (
     <Pressable
@@ -70,6 +73,12 @@ function V2HomeProgressSectionComponent({ progress, thread, categoryColor, onOpe
         <Text style={styles.kicker}>PROGRESS</Text>
         <BarsMark color={colors.graphite.text.tertiary} />
       </View>
+
+      {invitation ? (
+        <Text testID="v2-home-progress-invitation" style={styles.invitation}>
+          Your first practice starts the record.
+        </Text>
+      ) : null}
 
       {thread ? <>
         <View style={styles.strengthRow}>
@@ -97,7 +106,7 @@ function V2HomeProgressSectionComponent({ progress, thread, categoryColor, onOpe
           </Text>
         ) : (
           <Text testID={progress.state === 'empty' ? 'v2-home-progress-empty' : undefined} style={styles.footerCopy}>
-            {progress.state === 'empty' ? 'Nothing recorded yet. ' : ''}Your first practice starts the record.
+            {invitation ? 'Nothing recorded yet.' : 'Your first practice starts the record.'}
           </Text>
         )}
         <View style={styles.chevron}>
@@ -125,6 +134,13 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 2.2,
     color: colors.graphite.text.tertiary,
+  },
+  invitation: {
+    fontFamily: 'EBGaramond-Medium',
+    fontSize: 22,
+    lineHeight: 28,
+    color: colors.graphite.text.primary,
+    marginTop: 12,
   },
   strengthRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 10 },
   strengthValue: {

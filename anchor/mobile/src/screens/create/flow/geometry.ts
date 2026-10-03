@@ -408,6 +408,30 @@ const NUMBER_WORDS = [
   'nineteen', 'twenty',
 ];
 
+/** How each intention type is named on screen: by what it is for, never by the grid's origin. */
+const FIELD_LABELS: Record<string, string> = {
+  desire: 'Desire',
+  health: 'Health',
+  career: 'Career',
+  relationships: 'Relationship',
+  creativity: 'Creativity',
+  spirituality: 'Spirituality',
+  abundance: 'Abundance',
+  family: 'Family',
+  learning: 'Learning',
+  adventure: 'Adventure',
+};
+
+/**
+ * The single line that teaches the field system: each type of intention has its own number square
+ * (its field), and the line is drawn on that one. Custom intentions have no type to name.
+ */
+export function fieldLineText(category: string): string {
+  const label = FIELD_LABELS[category];
+  if (!label) return 'Your intention takes shape on its own field.';
+  return `${label} intentions take shape on the ${label} field.`;
+}
+
 export function proofLineText(letterCount: number, drawn: boolean): string {
   if (drawn) return 'Drawn by you. Only yours.';
   const word = letterCount <= 20 ? NUMBER_WORDS[letterCount] : String(letterCount);

@@ -23,3 +23,10 @@ describe('brush stroke', () => {
     expect(brushStrokePath(240)).toMatch(/^M0 /);
   });
 });
+
+
+it('keeps the progress track visible against both ink panel surfaces at 3:1', () => {
+  for (const ground of [CHART_MAP_TOKENS.ink, CHART_MAP_TOKENS.panel]) {
+    expect(contrastRatio(CHART_MAP_TOKENS.progressTrack, ground)).toBeGreaterThanOrEqual(3);
+  }
+});

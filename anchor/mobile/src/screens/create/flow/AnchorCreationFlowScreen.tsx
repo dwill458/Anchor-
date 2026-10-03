@@ -14,6 +14,8 @@ import { isAnchorV2Enabled } from '@/config/v2FeatureFlag';
 import { PAPER_ART_SHARE } from '@/components/v2/creation/creationMotion';
 import { handOffToHome, prepareHomeArrival } from '@/navigation/v2/creationHandoff';
 import { useAudio } from '@/hooks/useAudio';
+import { NodeToneService } from '@/services/NodeToneService';
+import { playCreationSound, type CreationSoundHandle } from '@/services/CreationSounds';
 import { useHighRefreshRate } from '@/hooks/useHighRefreshRate';
 import { useCreationReduceMotion } from '@/hooks/useReduceMotionEnabled';
 import { useSaveAnchor } from '@/hooks/useSaveAnchor';
@@ -65,7 +67,7 @@ import { estimatedFormProgress } from './formProgress';
 import { useIntentionHandoffStore } from './intentionHandoff';
 import { trace } from '@/utils/dev/creationTrace';
 import { buildSceneContext } from './sceneContext';
-import { MEDALLION } from './sealMath';
+import { MEDALLION, SEAL_PULSE_AT, SEAL_PULSE_SOUND_LEAD_MS, SEAL_SEQUENCE_SECONDS } from './sealMath';
 import {
   INK_HIDDEN,
   autoBoundary,
@@ -112,7 +114,9 @@ export default function AnchorCreationFlowScreen() {
   const reduceMotion = useCreationReduceMotion();
   // The seal and the hand-off to Home are the flow's most animated moments: ask for the panel's top rate.
   useHighRefreshRate(true, 2600);
-  const { playSound } = useAudio();
+  // Sets the audio session (plays in silent mode); the flow's sounds themselves are one-shots from
+  // `CreationSounds` and the generative `NodeToneService`.
+  useAudio();
 
   const anchorCount = useAuthStore((s) => s.anchorCount);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -274,6 +278,28 @@ export default function AnchorCreationFlowScreen() {
     void safeHaptics.impact(style);
   }, []);
 
+  const styleStepRef = useRef<ReturnType<typeof useStyleStep> | null>(null);
+  /** The bloom under the Form beat: one voice at a time, never over the Mapping tones. */
+  const bloomSoundRef = useRef<CreationSoundHandle | null>(null);
+  const startBloomSound = useCallback(() => {
+    bloomSoundRef.current?.stop();
+    bloomSoundRef.current = playCreationSound('bloom');
+  }, []);
+  useEffect(
+    () => () => {
+      bloomSoundRef.current?.stop();
+      if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
+    },
+    []
+  );
+  const pulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Build the Mapping tones (a few KB each, cached on disk) before the line reaches the first node.
+  useEffect(() => {
+    const cells = built?.context.map?.points.map((point) => point.cell);
+    if (cells && cells.length > 0) void NodeToneService.prepare(cells);
+  }, [built]);
+
   const mapEventTimes = useMemo(
     () => (built ? mapLetterEventTimes(built.context.timeline, built.context.map?.points.length ?? 0) : []),
     [built]
@@ -390,10 +416,12 @@ export default function AnchorCreationFlowScreen() {
         creation_source: params.source,
       });
       tick(Haptics.ImpactFeedbackStyle.Light);
+      playCreationSound('uiTap');
 
       generationRef.current.style = style;
       generationRef.current.attempt = 1;
       formTfRef.current = 0;
+      startBloomSound();
       setPhase('form');
       void runGeneration();
       return true;
@@ -409,21 +437,26 @@ export default function AnchorCreationFlowScreen() {
       params.source,
       runGeneration,
       setPhase,
+      startBloomSound,
       tick,
     ]
   );
 
   const retryGeneration = useCallback(() => {
     generationRef.current.attempt += 1;
+    startBloomSound();
     FrictionAnalytics.flowRetry('anchor_creation', 'ai_generating', {
       style_id: generationRef.current.style?.generationStyle,
       category: params.category,
     });
     void runGeneration();
-  }, [params.category, runGeneration]);
+  }, [params.category, runGeneration, startBloomSound]);
 
   const backToStyle = useCallback(() => {
     generationRef.current.abort?.abort();
+    bloomSoundRef.current?.stop();
+    bloomSoundRef.current = null;
+    styleStepRef.current?.reset();
     setGeneration({ status: 'idle' });
     styleURef.current = 0;
     setPhase('style');
@@ -441,11 +474,13 @@ export default function AnchorCreationFlowScreen() {
   const styleStep = useStyleStep({
     defaultStyleId,
     initialChipIds: initialChips,
-    countdownSeconds: built?.context.timeline.styleCountdown ?? 4,
-    active: phase === 'style',
     onCommit: commitStyle,
-    onSelect: () => tick(Haptics.ImpactFeedbackStyle.Light),
+    onSelect: () => {
+      tick(Haptics.ImpactFeedbackStyle.Light);
+      playCreationSound('uiTap');
+    },
   });
+  styleStepRef.current = styleStep;
 
   // ---- draw path ----------------------------------------------------------------------------
 
@@ -543,7 +578,14 @@ export default function AnchorCreationFlowScreen() {
       const style = generationRef.current.style;
       if (!flow || !form || !generated || !style) return;
 
-      void playSound('forge-seal');
+      // The seal sounds as the hold completes; the low pulse is laid in just ahead of the visual
+      // pulse landing, so the sound reads as its cause.
+      playCreationSound('seal');
+      if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
+      pulseTimerRef.current = setTimeout(
+        () => playCreationSound('anchorPulse'),
+        Math.max(0, SEAL_PULSE_AT * SEAL_SEQUENCE_SECONDS * 1000 - SEAL_PULSE_SOUND_LEAD_MS)
+      );
       sealedImageRef.current = form.uri || undefined;
       if (__DEV__ && form.uri && !form.uri.startsWith('data:')) {
         Image.getSize(
@@ -605,7 +647,7 @@ export default function AnchorCreationFlowScreen() {
         prepareHomeArrival(buildHandoff(outcome.anchorId, flow.baseSigilSvg, params.category, form.uri));
       });
     },
-    [buildHandoff, deferUntilArrived, enterBeat, forms, params.category, playSound, saveAnchor, setTempEnhancedImage]
+    [buildHandoff, deferUntilArrived, enterBeat, forms, params.category, saveAnchor, setTempEnhancedImage]
   );
 
   const chooseRef = useRef<ReturnType<typeof useChooseController> | null>(null);
@@ -668,7 +710,9 @@ export default function AnchorCreationFlowScreen() {
         if (prev < 0.03 && next >= 0.03) tick(Haptics.ImpactFeedbackStyle.Light);
         mapEventTimes.forEach((time, i) => {
           if (prev < time && next >= time) {
-            void playSound('letter-drop');
+            // One generative droplet per traced node: its pitch is the grid cell it lands in.
+            const cell = flow.context.map?.points[i]?.cell;
+            if (cell) NodeToneService.play(cell);
             tick(Haptics.ImpactFeedbackStyle.Light);
             firedEventsRef.current.add(`map-${i}`);
           }
@@ -783,6 +827,7 @@ export default function AnchorCreationFlowScreen() {
               progress: displayProgressRef.current,
               slow: tf > FORM_SLOW_CAPTION_AFTER,
               fade: 1,
+              styleId: gen.style?.id,
             },
           },
           boundary: INK_BOUNDARY.held,
@@ -804,7 +849,13 @@ export default function AnchorCreationFlowScreen() {
         return {
           frame: {
             kind: 'form',
-            form: { tf: formTfRef.current, progress: 1, slow: false, fade: 1 - smooth(0, 0.35, u) },
+            form: {
+              tf: formTfRef.current,
+              progress: 1,
+              slow: false,
+              fade: 1 - smooth(0, 0.35, u),
+              styleId: generationRef.current.style?.id,
+            },
           },
           boundary: sweepBoundary(u, rm),
         };
@@ -822,7 +873,6 @@ export default function AnchorCreationFlowScreen() {
     headerProgress,
     isDrawn,
     mapEventTimes,
-    playSound,
     setPhase,
     showLabel,
     tick,
@@ -938,7 +988,7 @@ export default function AnchorCreationFlowScreen() {
         </Animated.View>
 
         {showStyle && built ? (
-          <View style={StyleSheet.absoluteFill} onTouchStart={styleStep.markTouched} pointerEvents="box-none">
+          <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
             <StyleScene
               step={styleStep}
               strokes={heroStrokes}
@@ -978,6 +1028,7 @@ export default function AnchorCreationFlowScreen() {
               controller={choose}
               forms={forms}
               styleName={styleName}
+              intentionText={params.intentionText}
               reduceMotion={reduceMotion}
               showSheen={phase === 'choose'}
               holdHint={choose.holdActive ? 'holding' : 'idle'}

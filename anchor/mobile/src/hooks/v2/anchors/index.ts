@@ -6,3 +6,4 @@ export type {
   V2FormationProvenance,
   V2RecentPracticeEntry,
 } from './useV2AnchorDetail';
+export { useAnchorExportActions } from './useAnchorExportActions';

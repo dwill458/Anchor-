@@ -85,6 +85,83 @@ half4 main(float2 xy) {
   return half4(half(v));
 }`;
 
+/**
+ * CLOUDS: the dense illustrated fog over undiscovered ground. It reuses the FOG mask (inside the revealed
+ * region v = 1) and paints soft billowing cloud with alpha (1 - v), so unexplored terrain is hidden and the
+ * edge is the same stipple the ink reveal uses. Output is premultiplied. At arrival `fog` -> 1 makes v = 1
+ * everywhere, so the clouds clear with no extra state.
+ */
+export const CLOUD_SKSL = `
+uniform shader fieldDist;
+uniform shader fieldArc;
+uniform shader noiseTex;
+uniform float revealArc;
+uniform float fog;
+uniform float2 tip;
+uniform float3 paper;
+
+float decode16(half4 c) {
+  return (floor(float(c.r) * 255.0 + 0.5) * 256.0 + floor(float(c.g) * 255.0 + 0.5)) / 16.0;
+}
+
+float cellOut(float2 cell) {
+  float2 centre = cell * 4.0 + 2.0;
+  float dist = decode16(fieldDist.eval(centre));
+  float arc = decode16(fieldArc.eval(centre));
+  float fa = revealArc + 110.0;
+  float d = arc <= fa ? dist : distance(centre, tip);
+  float rIn = 105.0 + 1700.0 * fog;
+  float fe = 95.0 + 300.0 * fog;
+  float al = clamp(1.0 - (d - rIn) / fe, 0.0, 1.0);
+  float n = float(noiseTex.eval(centre).r);
+  return smoothstep(0.42, 0.58, al + (n - 0.5) * 0.7);
+}
+
+float hash(float2 p) {
+  p = fract(p * float2(123.34, 456.21));
+  p += dot(p, p + 45.32);
+  return fract(p.x * p.y);
+}
+
+float vnoise(float2 p) {
+  float2 i = floor(p);
+  float2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + float2(1.0, 0.0)), f.x),
+             mix(hash(i + float2(0.0, 1.0)), hash(i + float2(1.0, 1.0)), f.x), f.y);
+}
+
+float fbm(float2 p) {
+  float v = 0.0;
+  float a = 0.5;
+  for (int i = 0; i < 4; i++) {
+    v += a * vnoise(p);
+    p *= 2.03;
+    a *= 0.5;
+  }
+  return v;
+}
+
+half4 main(float2 xy) {
+  float2 g = xy / 4.0 - 0.5;
+  float2 i0 = floor(g);
+  float2 f = g - i0;
+  float2 a = clamp(i0, float2(0.0), float2(212.0, 294.0));
+  float2 b = clamp(i0 + 1.0, float2(0.0), float2(212.0, 294.0));
+  float v00 = cellOut(a);
+  float v10 = cellOut(float2(b.x, a.y));
+  float v01 = cellOut(float2(a.x, b.y));
+  float v11 = cellOut(b);
+  float v = mix(mix(v00, v10, f.x), mix(v01, v11, f.x), f.y);
+  float cover = 1.0 - v;
+  float billow = fbm(xy / 170.0);
+  float wisp = fbm(xy / 55.0 + 9.0);
+  float shade = smoothstep(0.28, 0.72, billow * 0.7 + wisp * 0.3);
+  float alpha = cover * (0.78 + 0.18 * billow);
+  float3 rgb = mix(paper * float3(0.86, 0.84, 0.81), paper * float3(1.02, 1.01, 0.99), shade);
+  return half4(half3(rgb * alpha), half(alpha));
+}`;
+
 type RuntimeEffect = NonNullable<ReturnType<typeof Skia.RuntimeEffect.Make>>;
 
 /** Compile an SkSL source; null on failure (caller falls back, see ChartMapLand). */

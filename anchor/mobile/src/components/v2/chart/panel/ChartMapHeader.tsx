@@ -14,8 +14,10 @@ type Props = {
   accent: PanelAccent;
   visionImageUrl: string | null;
   hasVision: boolean;
-  onBack: () => void;
-  onMenu: () => void;
+  onBack?: () => void;
+  inline?: boolean;
+  tone?: 'paper' | 'ink';
+  onMenu?: () => void;
   onOpenVision: () => void;
 };
 
@@ -26,22 +28,23 @@ const CONTROL = 44;
  * menu, the category label and the polaroid Vision card. The map underneath
  * stays tappable outside these controls.
  */
-export function ChartMapHeader({ categoryLabel, category, accent, visionImageUrl, hasVision, onBack, onMenu, onOpenVision }: Props) {
+export function ChartMapHeader({ categoryLabel, category, accent, visionImageUrl, hasVision, onBack, onMenu, onOpenVision, inline = false, tone = 'paper' }: Props) {
   const insets = useSafeAreaInsets();
+  const ink = tone === 'ink' ? T.light : T.ink;
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]} pointerEvents="box-none">
+    <View style={[styles.root, inline && styles.inline, { paddingTop: insets.top }]} pointerEvents="box-none">
       <View style={styles.bar} pointerEvents="box-none">
-        <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={onBack} style={styles.ib} testID="chart-back">
-          <ArrowLeft size={22} color={T.ink} />
+        <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={onBack} disabled={!onBack} accessibilityState={{ disabled: !onBack }} style={[styles.ib, tone === 'ink' && styles.inkControl, !onBack && { opacity: 0 }]} testID="chart-back">
+          <ArrowLeft size={22} color={ink} />
         </Pressable>
-        <Text accessibilityRole="header" style={styles.title}>{CHART_COPY.title}</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel="Chart options" onPress={onMenu} style={styles.ib} testID="chart-menu-button">
-          <MoreHorizontal size={22} color={T.ink} />
-        </Pressable>
+        <Text accessibilityRole="header" style={[styles.title, { color: ink }]}>{CHART_COPY.title}</Text>
+        {onMenu ? <Pressable accessibilityRole="button" accessibilityLabel="Chart options" onPress={onMenu} style={styles.ib} testID="chart-menu-button">
+          <MoreHorizontal size={22} color={ink} />
+        </Pressable> : <View style={{ width: CONTROL, height: CONTROL }} /> }
       </View>
       <View style={styles.cat} pointerEvents="none">
         <View style={[styles.dot, { backgroundColor: accent.fill }]} />
-        <Text style={[styles.catText, { color: categoryLabelOnPaper(category) }]} testID="chart-category-label">{categoryLabel}</Text>
+        <Text style={[styles.catText, { color: tone === 'ink' ? accent.text : categoryLabelOnPaper(category) }]} testID="chart-category-label">{categoryLabel}</Text>
       </View>
       {hasVision ? (
         <Pressable
@@ -67,8 +70,10 @@ export function ChartMapHeader({ categoryLabel, category, accent, visionImageUrl
 
 const styles = StyleSheet.create({
   root: { position: 'absolute', left: 0, right: 0, top: 0, zIndex: 3 },
+  inline: { position: 'relative', paddingBottom: 8 },
   bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 10, paddingVertical: 8 },
   ib: { width: CONTROL, height: CONTROL, borderRadius: CONTROL / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(244,241,233,.72)' },
+  inkControl: { backgroundColor: 'rgba(239,234,223,.08)' },
   title: { fontFamily: T.serif, fontSize: 26, color: T.ink, letterSpacing: 0.3 },
   cat: { flexDirection: 'row', alignItems: 'center', gap: 7, marginLeft: 16, marginTop: 2 },
   dot: { width: 7, height: 7, borderRadius: 3.5 },

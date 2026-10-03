@@ -31,6 +31,8 @@ export interface HandDrawnThreadLineProps {
   unmeasured?: boolean;
   /** Compact rows use a fixed short line and a smaller label. */
   compact?: boolean;
+  /** Draw only the line; the host prints the value itself. Defaults to true. */
+  showLabel?: boolean;
   /** Fixed line width in dp; when omitted the line fills the space beside the label. */
   width?: number;
   style?: StyleProp<ViewStyle>;
@@ -88,6 +90,7 @@ export function HandDrawnThreadLine({
   labelColor,
   unmeasured = false,
   compact = false,
+  showLabel = true,
   width,
   style,
   testID = 'thread-line',
@@ -110,7 +113,7 @@ export function HandDrawnThreadLine({
   }, [clamped, lineWidth, unmeasured]);
   const fillPath = useMemo(() => buildThreadRibbonPath(fillLength, dims), [fillLength, dims]);
 
-  const label = unmeasured ? '' : `${clamped}%`;
+  const label = unmeasured || !showLabel ? '' : `${clamped}%`;
 
   return (
     <View

@@ -222,13 +222,14 @@ describe('Home structure', () => {
 });
 
 describe('Consistency (Thread Strength) states', () => {
-  it('shows "Not established yet" only inside the small hero row when strength is null', () => {
+  it('leads with the invitation, not the status, when strength is null', () => {
     useAnchorStore.setState({
       anchors: [makeAnchor({ id: 'a', localId: 'a', threadStrength: undefined })],
       currentAnchorId: 'a',
     });
     renderHome();
-    expect(screen.getByTestId('v2-home-thread-unmeasured').props.children).toBe('· Not established yet');
+    expect(screen.getByTestId('v2-home-thread-unmeasured').props.children).toBe('· Begins with your first practice');
+    expect(screen.getByTestId('v2-home-progress-invitation').props.children).toBe('Your first practice starts the record.');
     // Never coerced to a number.
     expect(screen.queryByTestId('v2-home-thread-value')).toBeNull();
     expect(screen.queryByText('0%')).toBeNull();

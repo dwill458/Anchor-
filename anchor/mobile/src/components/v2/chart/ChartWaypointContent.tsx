@@ -284,6 +284,64 @@ export function ChartWaypointContent({
   const noop = () => undefined;
   const barLabel = `${waypoint.title}, ${Math.round(p * 100)}%`;
 
+  const progressBlock = (
+    <>
+          <ChartBrushBar fraction={p} color={accent.fill} reducedMotion={reducedMotion} accessibilityLabel={barLabel} testID="chart-waypoint-bar" />
+          {valueRow ? (
+            isCurrent && input.metric && progressDraft !== null ? (
+              <View style={styles.progressRow}>
+                <TextInput
+                  value={progressDraft}
+                  onChangeText={setProgressDraft}
+                  keyboardType="decimal-pad"
+                  autoFocus
+                  accessibilityLabel={`Current ${waypoint.metric?.label ?? 'value'}`}
+                  placeholder="0"
+                  placeholderTextColor={T.muted}
+                  style={styles.progressInput}
+                />
+                <PanelButton label="Save" variant="primary" accent={accent} loading={chart.busy === `progress:${waypoint.id}`} onPress={() => void saveProgress()} />
+              </View>
+            ) : isCurrent && input.metric ? (
+              <View style={styles.progressDataRow}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={CHART_COPY.waypoint.progress}
+                  accessibilityHint={valueText ?? undefined}
+                  onPress={() => {
+                    setSheetProgressVal(waypoint.metric?.current != null ? String(waypoint.metric.current) : '0');
+                    setProgressSheetOpen(true);
+                  }}
+                  style={styles.valueRow}
+                  testID="chart-waypoint-progress"
+                >
+                  <Text style={styles.valueStrong}>{valueRow.strong}</Text>
+                  {valueRow.span ? <Text style={styles.valueSpan}>{valueRow.span}</Text> : null}
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Update progress"
+                  onPress={() => {
+                    setSheetProgressVal(waypoint.metric?.current != null ? String(waypoint.metric.current) : '0');
+                    setProgressSheetOpen(true);
+                  }}
+                  style={styles.updateProgressButton}
+                  testID="chart-update-progress-button"
+                >
+                  <Text style={[styles.updateProgressText, { color: accent.text }]}>Update progress →</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <View style={styles.valueRow} accessible accessibilityLabel={valueText ?? undefined} testID="chart-waypoint-value">
+                <Text style={styles.valueStrong}>{valueRow.strong}</Text>
+                {valueRow.span ? <Text style={styles.valueSpan}>{valueRow.span}</Text> : null}
+              </View>
+            )
+          ) : null}
+
+    </>
+  );
+
   const body = (
     <>
       <View style={styles.labelRow}>
@@ -344,62 +402,9 @@ export function ChartWaypointContent({
           ) : (
             <>
               <Text accessibilityRole="header" style={styles.title}>{waypoint.title}</Text>
-              {waypoint.rationale ? <Text style={styles.why}>{waypoint.rationale}</Text> : null}
+              {waypoint.rationale ? <Text style={styles.why} numberOfLines={isCurrent ? 1 : undefined}>{waypoint.rationale}</Text> : null}
             </>
           )}
-
-          <ChartBrushBar fraction={p} color={accent.fill} reducedMotion={reducedMotion} accessibilityLabel={barLabel} testID="chart-waypoint-bar" />
-          {valueRow ? (
-            isCurrent && input.metric && progressDraft !== null ? (
-              <View style={styles.progressRow}>
-                <TextInput
-                  value={progressDraft}
-                  onChangeText={setProgressDraft}
-                  keyboardType="decimal-pad"
-                  autoFocus
-                  accessibilityLabel={`Current ${waypoint.metric?.label ?? 'value'}`}
-                  placeholder="0"
-                  placeholderTextColor={T.muted}
-                  style={styles.progressInput}
-                />
-                <PanelButton label="Save" variant="primary" accent={accent} loading={chart.busy === `progress:${waypoint.id}`} onPress={() => void saveProgress()} />
-              </View>
-            ) : isCurrent && input.metric ? (
-              <View style={styles.progressDataRow}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={CHART_COPY.waypoint.progress}
-                  accessibilityHint={valueText ?? undefined}
-                  onPress={() => {
-                    setSheetProgressVal(waypoint.metric?.current != null ? String(waypoint.metric.current) : '0');
-                    setProgressSheetOpen(true);
-                  }}
-                  style={styles.valueRow}
-                  testID="chart-waypoint-progress"
-                >
-                  <Text style={styles.valueStrong}>{valueRow.strong}</Text>
-                  {valueRow.span ? <Text style={styles.valueSpan}>{valueRow.span}</Text> : null}
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Update progress"
-                  onPress={() => {
-                    setSheetProgressVal(waypoint.metric?.current != null ? String(waypoint.metric.current) : '0');
-                    setProgressSheetOpen(true);
-                  }}
-                  style={styles.updateProgressButton}
-                  testID="chart-update-progress-button"
-                >
-                  <Text style={[styles.updateProgressText, { color: accent.text }]}>Update progress →</Text>
-                </Pressable>
-              </View>
-            ) : (
-              <View style={styles.valueRow} accessible accessibilityLabel={valueText ?? undefined} testID="chart-waypoint-value">
-                <Text style={styles.valueStrong}>{valueRow.strong}</Text>
-                {valueRow.span ? <Text style={styles.valueSpan}>{valueRow.span}</Text> : null}
-              </View>
-            )
-          ) : null}
 
           {isCurrent && commit ? <CommitCard accent={accent} number={commit.number} onCommit={onCommitDismiss ?? noop} /> : null}
 
@@ -446,6 +451,7 @@ export function ChartWaypointContent({
                   <ChartMovesManager waypoint={waypoint} isCurrent oneMoveId={oneMoveId} accent={accent} chart={chart} />
                 </OneMoveCard>
               ) : null}
+              {progressBlock}
               {!dayClosed ? (
                 <View style={styles.practiceRowContainer}>
                   <Pressable
@@ -479,6 +485,7 @@ export function ChartWaypointContent({
             </>
           ) : (
             <>
+              {progressBlock}
               <PanelCard style={styles.readOnly}>
                 {waypoint.moves.map((move) => (
                   <MoveListRow

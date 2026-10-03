@@ -472,10 +472,27 @@ export interface EnhancementMetadata {
 }
 
 /**
- * AI style options (ControlNet-based style transfer)
- * Updated to reflect validated styles from spike phase
+ * AI style options (ControlNet-based style transfer / Anchor 2.0 full-field generation)
  */
 export type AIStyle =
+  // Anchor 2.0 styles
+  | 'velvet_ember_v2'
+  | 'porcelain_v2'
+  | 'prism_flow_v2'
+  | 'joybrush_v2'
+  | 'deep_cosmos_v2'
+  | 'woven_v2'
+  | 'paper_v2'
+  | 'clay_v2'
+  | 'mineral_wash_v2'
+  | 'graphic_v2'
+  | 'plush_v2'
+  | 'herbarium_v2'
+  | 'alloy_v2'
+  | 'gilt_v2'
+  | 'flash_v2'
+  | 'buff_v2'
+  // Legacy Anchor 1.5 styles (kept for backward compatibility with saved anchors)
   | 'architectural_trace'
   | 'lunar_etch'
   | 'resonance_rings'

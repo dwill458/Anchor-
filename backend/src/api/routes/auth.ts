@@ -309,7 +309,7 @@ const UpdateSettingsSchema = z.object({
   focusSessionDuration: z.number().min(10).max(120).optional(),
   focusSessionAudio: z.enum(['silent', 'ambient']).optional(),
   primeSessionDuration: z.number().min(120).max(7200).optional(),
-  visualizeSessionDuration: z.union([z.literal(60), z.literal(180), z.literal(300)]).optional(),
+  visualizeSessionDuration: z.union([z.literal(60), z.literal(180), z.literal(300), z.literal(600)]).optional(),
   primeSessionAudio: z.enum(['silent', 'ambient']).optional(),
   sessionAudioDefaults: SessionAudioDefaultsByTypeSchema.optional(),
   hapticIntensity: z.number().min(1).max(5).optional(),
@@ -922,7 +922,7 @@ router.get('/onboarding-context', authMiddleware, async (req: AuthRequest, res: 
  * - focusSessionDuration: Number in seconds (optional)
  * - focusSessionAudio: 'silent' | 'ambient' (optional)
  * - primeSessionDuration: Number in seconds (optional)
- * - visualizeSessionDuration: 60, 180, or 300 seconds (optional)
+ * - visualizeSessionDuration: 60, 180, 300 (legacy) or 600 seconds (optional)
  * - primeSessionAudio: 'silent' | 'ambient' (optional)
  * - sessionAudioDefaults: validated Voice & Sound defaults for Focus, Deep Prime, and Visualize (optional)
  * - hapticIntensity: Number 1-5 (optional)

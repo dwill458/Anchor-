@@ -22,9 +22,7 @@ export interface SegmentTimes {
   forget: number;
   /** Nothing moves. Required before Style. */
   stillness: number;
-  /** Auto-commit countdown for the pre-selected style. */
-  styleCountdown: number;
-  /** Shortest the Form scene may last, even when generation resolves instantly. */
+  /** Shortest the Form scene may last, even when generation resolves instantly: long enough for the line to be re-drawn and the material to bloom along it (FORM_REVEAL_SECONDS). */
   formMin: number;
   sweep: number;
 }
@@ -36,8 +34,7 @@ export const SEGMENT_TIMES: Record<CreationMode, SegmentTimes> = {
     map: { base: 0.5, perLetter: 0.42, min: 4, max: 6 },
     forget: 2.0,
     stillness: 0.45,
-    styleCountdown: 4.0,
-    formMin: 1.4,
+    formMin: 3.2,
     sweep: 1.1,
   },
   // Repeat pacing was tuned up from "a little too fast": a 7-letter run now reaches Style in
@@ -48,8 +45,7 @@ export const SEGMENT_TIMES: Record<CreationMode, SegmentTimes> = {
     map: { base: 0.3, perLetter: 0.26, min: 2.5, max: 3.6 },
     forget: 1.3,
     stillness: 0.35,
-    styleCountdown: 3.0,
-    formMin: 1.4,
+    formMin: 3.2,
     sweep: 1.0,
   },
 };
@@ -69,10 +65,11 @@ export const FORM_PROGRESS_P80_SECONDS = 15;
 /** Seal gesture. The unreachable SealAnchorScreen uses 3000 ms; the creation flow uses 1.1 s. */
 export const SEAL_HOLD_MS = 1100;
 /**
- * After the medallion forms, the page rests this long before the flow moves on. The mark now
- * travels to Home, so the rest is only a beat — a longer one reads as a dead pause on cream.
+ * After the medallion forms, the page rests this long before the flow moves on. This is the
+ * flow's emotional peak — the anchor has pulsed and its sentence sits beneath it — so it is held
+ * long enough to be read once, not a dead pause: the save and Home's staging run underneath it.
  */
-export const SEAL_SETTLE_SECONDS = 0.2;
+export const SEAL_SETTLE_SECONDS = 1.0;
 /** Release before completion drains the ring this many times faster than it filled. */
 export const SEAL_DRAIN_RATE = 2.6;
 /** A sideways finger move beyond this cancels a hold and becomes a swipe. */

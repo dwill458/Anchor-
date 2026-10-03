@@ -1,10 +1,12 @@
 import { colors } from '@/theme/colors';
 import type { AnchorCategory } from '@/types';
 import { INK_BOUNDARY } from '../creationFlowConfig';
-import { H, HERO } from '../geometry';
+import { H, HERO, fieldLineText } from '../geometry';
 import { buildSceneContext, type BuiltFlow } from '../sceneContext';
 import { drawFrameContent } from '../scenes/drawFrame';
-import { drawForm } from '../scenes/FormScene';
+import { FORM_REVEAL_SECONDS, drawForm } from '../scenes/FormScene';
+import { drawMap } from '../scenes/MapScene';
+import { STYLE_STROKES, strokeTreatmentFor } from '../scenes/styleStrokes';
 import {
   INK_HIDDEN,
   autoBoundary,
@@ -230,42 +232,88 @@ describe('Forget', () => {
 });
 
 describe('Form (D5)', () => {
-  it('never morphs the geometry: no smoothing, caption says styling', () => {
+  const colorsDrawn = (p: RecordingPainter) => new Set(p.of('polyline').map((o) => o.stroke.color));
+
+  it('never morphs the geometry: no smoothing, no construction circle, caption says styling', () => {
     const { context } = build(TEXT, 'desire');
     const p = new RecordingPainter();
-    drawForm(p, CREAM_PALETTE, context, { tf: 3, progress: 0.4, slow: false, fade: 1 });
+    drawForm(p, CREAM_PALETTE, context, { tf: 3, progress: 0.4, slow: false, fade: 1, styleId: 'woven' });
 
     expect(p.of('smoothStroke')).toHaveLength(0);
+    expect(p.of('arc')).toHaveLength(0);
     expect(p.visibleText()).toContain('Applying your style…');
     expect(p.visibleText()).not.toContain('Refining the form…');
-    expect(p.of('polyline')).toHaveLength(1);
+  });
+
+  it('draws no progress bar: the wait is the reveal', () => {
+    const { context } = build(TEXT, 'desire');
+    const p = new RecordingPainter();
+    drawForm(p, CREAM_PALETTE, context, { tf: 2, progress: 0.5, slow: false, fade: 1, styleId: 'woven' });
+    expect(p.of('fillRect').filter((o) => o.y === 790)).toHaveLength(0);
   });
 
   it('switches the caption after a long wait', () => {
     const { context } = build(TEXT, 'desire');
     const p = new RecordingPainter();
-    drawForm(p, CREAM_PALETTE, context, { tf: 14, progress: 0.9, slow: true, fade: 1 });
+    drawForm(p, CREAM_PALETTE, context, { tf: 14, progress: 0.9, slow: true, fade: 1, styleId: 'woven' });
     expect(p.visibleText()).toContain('Still working on your anchor…');
   });
 
-  it('settles the weight toward its final width and never past it', () => {
+  it('re-draws the line first and lets the style material bloom behind the pen', () => {
     const { context } = build(TEXT, 'desire');
-    const widthAt = (tf: number) => {
-      const p = new RecordingPainter();
-      drawForm(p, CREAM_PALETTE, context, { tf, progress: 0, slow: false, fade: 1 });
-      return p.of('polyline')[0].stroke.width;
-    };
-    expect(widthAt(0.8)).toBeLessThan(widthAt(6));
-    expect(widthAt(60)).toBeLessThanOrEqual(2.8 + 1e-6);
+    const woven = strokeTreatmentFor('woven').layers.map((l) => l.color);
+
+    const early = new RecordingPainter();
+    drawForm(early, CREAM_PALETTE, context, { tf: 0.3, progress: 0, slow: false, fade: 1, styleId: 'woven' });
+    expect(woven.some((c) => colorsDrawn(early).has(c))).toBe(false);
+
+    const mid = new RecordingPainter();
+    drawForm(mid, CREAM_PALETTE, context, { tf: 1.6, progress: 0, slow: false, fade: 1, styleId: 'woven' });
+    expect(woven.some((c) => colorsDrawn(mid).has(c))).toBe(true);
+
+    const done = new RecordingPainter();
+    drawForm(done, CREAM_PALETTE, context, { tf: FORM_REVEAL_SECONDS + 0.1, progress: 0, slow: false, fade: 1, styleId: 'woven' });
+    woven.forEach((c) => expect(colorsDrawn(done).has(c)).toBe(true));
   });
 
-  it('fills the progress hairline with the given progress', () => {
+  it('gives every style its own material, not a shared tint', () => {
     const { context } = build(TEXT, 'desire');
-    const p = new RecordingPainter();
-    drawForm(p, CREAM_PALETTE, context, { tf: 2, progress: 0.5, slow: false, fade: 1 });
-    const bars = p.of('fillRect').filter((o) => o.y === 790);
-    expect(bars).toHaveLength(2);
-    expect(bars[1].w).toBeCloseTo(110, 5);
+    const signature = (styleId: string) => {
+      const p = new RecordingPainter();
+      drawForm(p, CREAM_PALETTE, context, { tf: FORM_REVEAL_SECONDS + 0.1, progress: 1, slow: false, fade: 1, styleId });
+      return JSON.stringify(strokeTreatmentFor(styleId).layers);
+    };
+    const ids = Object.keys(STYLE_STROKES);
+    expect(ids).toHaveLength(15);
+    expect(new Set(ids.map(signature)).size).toBe(ids.length);
+  });
+
+  it('keeps stitched thread as dashed stitches and leaves flat styles flat', () => {
+    expect(strokeTreatmentFor('woven').layers.some((l) => l.dash)).toBe(true);
+    expect(strokeTreatmentFor('graphic').layers).toHaveLength(1);
+  });
+});
+
+describe('Map captions', () => {
+  it('names the field by function and states the ritual line, then clears before Forget', () => {
+    const { context } = build(TEXT, 'desire');
+    expect(context.fieldLine).toBe('Desire intentions take shape on the Desire field.');
+    const tl = context.timeline;
+    const mid = new RecordingPainter();
+    drawMap(mid, CREAM_PALETTE, context, tl.start.map + tl.map * 0.6);
+    expect(mid.visibleText()).toContain('Desire intentions take shape on the Desire field.');
+    expect(mid.visibleText()).toContain('Letters become numbers. Numbers become the path.');
+
+    const end = new RecordingPainter();
+    drawMap(end, CREAM_PALETTE, context, tl.start.map + tl.map - 0.01);
+    expect(end.visibleText()).not.toContain('Letters become numbers. Numbers become the path.');
+  });
+
+  it('uses no occult terminology in any field line', () => {
+    ['desire', 'health', 'career', 'relationships', 'creativity', 'spirituality', 'abundance', 'family', 'learning', 'adventure', 'custom'].forEach((c) => {
+      expect(fieldLineText(c)).not.toMatch(/planet|kamea|sigil|sacred|saturn|jupiter|mars|venus|sun\b/i);
+    });
+    expect(fieldLineText('custom')).toBe('Your intention takes shape on its own field.');
   });
 });
 

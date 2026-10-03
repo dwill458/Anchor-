@@ -11,6 +11,7 @@ import { CHART_MAP_GOLD, CHART_MAP_TOKENS } from './chartMapTokens';
 import { useChartMapCameraTransform } from './useChartMapCamera';
 
 const INK = CHART_MAP_TOKENS.ink;
+const SUMMIT_INK = '#7D766A';
 const PAPER = CHART_MAP_TOKENS.paper;
 
 const X_A = 'M-15,-15 L15,15';
@@ -32,6 +33,8 @@ type Props = {
   categoryColor: string;
   reducedMotion: boolean;
   arrived: boolean;
+  /** Fog of war: the dotted route to the summit only shows as far as the clouds have lifted. */
+  clouds?: boolean;
 };
 
 /**
@@ -40,7 +43,7 @@ type Props = {
  * the continuous flag sway never re-runs the fog shader.
  */
 export const ChartMapOverlay = memo(function ChartMapOverlay({
-  width, height, anim, table, placement, categoryColor, reducedMotion, arrived,
+  width, height, anim, table, placement, categoryColor, reducedMotion, arrived, clouds = false,
 }: Props) {
   const cameraTransform = useChartMapCameraTransform(anim, width, height);
   const routePath = useMemo(() => Skia.Path.MakeFromSVGString(table.svgPath), [table.svgPath]);
@@ -58,6 +61,13 @@ export const ChartMapOverlay = memo(function ChartMapOverlay({
     const f = routeCoordAt(rcum, arcs, count, anim.revealArc.value) / rtotal;
     return f < 0 ? 0 : f > 1 ? 1 : f;
   }, [rtotal]);
+
+  // Undiscovered route geometry stays hidden: the dotted line ends a little past the revealed tip (into the fog).
+  const dottedEnd = useDerivedValue(() => {
+    if (!clouds) return 1;
+    const f = (anim.revealArc.value + 140 + 3000 * anim.fog.value) / table.total;
+    return f < 0 ? 0 : f > 1 ? 1 : f;
+  }, [clouds, table.total]);
 
   // Tip / pulse position: worklet reads typed arrays only.
   const tipTransform = useDerivedValue(() => {
@@ -108,7 +118,7 @@ export const ChartMapOverlay = memo(function ChartMapOverlay({
     <Group transform={cameraTransform}>
       {routePath ? (
         <>
-          <Path path={routePath} style="stroke" strokeWidth={4} strokeCap="round" color={INK} opacity={0.45}>
+          <Path path={routePath} style="stroke" strokeWidth={4} strokeCap="round" color={INK} opacity={0.45} start={0} end={dottedEnd}>
             <DashPathEffect intervals={[1, 10]} />
           </Path>
           {roughPath ? (
@@ -134,10 +144,10 @@ export const ChartMapOverlay = memo(function ChartMapOverlay({
 
       <Group transform={[{ translateX: placement.summit.x }, { translateY: placement.summit.y }]}>
         <Group opacity={xOpacity}>
-          <Path path={X_A} style="stroke" strokeWidth={6} strokeCap="round" color={INK}>
+          <Path path={X_A} style="stroke" strokeWidth={3.6} strokeCap="round" color={SUMMIT_INK}>
             <DiscretePathEffect length={6} deviation={1.2} seed={3} />
           </Path>
-          <Path path={X_B} style="stroke" strokeWidth={6} strokeCap="round" color={INK}>
+          <Path path={X_B} style="stroke" strokeWidth={3.6} strokeCap="round" color={SUMMIT_INK}>
             <DiscretePathEffect length={6} deviation={1.2} seed={5} />
           </Path>
         </Group>

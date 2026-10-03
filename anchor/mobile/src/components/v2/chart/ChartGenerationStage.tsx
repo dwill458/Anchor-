@@ -44,7 +44,8 @@ export function ChartGenerationStage({ width,height,category,destinationImageUrl
   const hasMarkers=markers !== null;
   const accent=getCategoryColor(category);
   // Cover-fit: wide enough that the map fills the whole stage (cropped at the sides, never a blank band).
-  const mapWidth=Math.max(width,(height*MAP_W)/MAP_H);
+  // DEFERRED: cover-fit enlarged the art and clipped the summit at the sides.
+  const mapWidth=width;
   const mapHeight=(mapWidth*MAP_H)/MAP_W;
   const mapMarkers=useMemo(()=>hasMarkers ? toMapMarkers(markers) : [],[hasMarkers,markers]);
   // The first waypoint is the drawn end of the revealed route; the flag stands on it.
@@ -73,9 +74,9 @@ export function ChartGenerationStage({ width,height,category,destinationImageUrl
   const stageIndex=STAGES.indexOf(stage);
   return <View testID={testID} style={[styles.stage,{width,height}]}>
     {/* The map sits on its start: bottom-aligned, so the route's foot stays in view. */}
-    <View style={{position:'absolute',left:(width-mapWidth)/2,top:height-mapHeight,width:mapWidth,height:mapHeight}}>
+    <View style={{position:'absolute',left:(width-mapWidth)/2,top:0,width:mapWidth,height:mapHeight}}>
       <ChartMap width={mapWidth} table={table} placement={placement} anim={anim} markers={mapMarkers} categoryColor={accent} category={category ?? undefined}
-        interactive={false} reducedMotion={reducedMotion} arrived={false} onMarkerPress={noop} onMapPress={noop}
+        interactive={false} reducedMotion={reducedMotion} arrived={false} clouds={hasMarkers} onMarkerPress={noop} onMapPress={noop}
         testID={`${testID ?? 'chart-stage'}-map`} />
     </View>
     {/* DEFERRED: <ChartJourneyWorld width={width} height={Math.max(1,height-footerSpace)} category={category} markers={markers ?? []} staticProgress={ROUTE_START} nodeReveal={nodeReveal} onReady={setReady} accessibilityLabel={markers ? `Road mapped with ${markers.length} waypoints` : 'Mapping your journey'} /> */}

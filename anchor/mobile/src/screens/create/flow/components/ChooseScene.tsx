@@ -20,7 +20,15 @@ import { colors } from '@/theme/colors';
 import { CARD, HOLD, PAGE_PITCH } from '../choosePager';
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from '../creationFlowConfig';
 import { FORM_LABELS, type GeneratedForm } from '../generatedForms';
-import { sealCard, sealFlash, sealPress } from '../sealMath';
+import {
+  MEDALLION,
+  sealCard,
+  sealFlash,
+  sealHalo,
+  sealPress,
+  sealPulse,
+  sealSentenceAlpha,
+} from '../sealMath';
 import { TOUCH_SURFACE, type ChooseController } from '../useChooseController';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -43,6 +51,8 @@ interface ChooseSceneProps {
   controller: ChooseController;
   forms: GeneratedForm[];
   styleName: string;
+  /** The person's own sentence: it appears beneath the sealed anchor. */
+  intentionText: string;
   reduceMotion: boolean;
   /** Plays once on arrival: a soft highlight crossing the images. */
   showSheen: boolean;
@@ -53,7 +63,15 @@ interface ChooseSceneProps {
  * Beat 7–8 — Form I and Form II as two full-canvas images, swipeable, with the hold zone on the
  * anchor itself. The anchor is baked into each image, so nothing is drawn over it: one flat layer.
  */
-export function ChooseScene({ controller, forms, styleName, reduceMotion, showSheen, holdHint }: ChooseSceneProps) {
+export function ChooseScene({
+  controller,
+  forms,
+  styleName,
+  intentionText,
+  reduceMotion,
+  showSheen,
+  holdHint,
+}: ChooseSceneProps) {
   const { page, hold, sealU, flash, phase, activePage, panHandlers } = controller;
   const sealing = phase !== 'choosing';
 
@@ -115,6 +133,8 @@ export function ChooseScene({ controller, forms, styleName, reduceMotion, showSh
       />
 
       <PageDots page={page} dots={pageDots} sealU={sealU} />
+
+      {sealing ? <SealPayoff sealU={sealU} text={intentionText} /> : null}
 
       {/* The touch surface: one target above the images so touches are in one coordinate space. */}
       {!sealing ? (
@@ -195,7 +215,7 @@ function FormCard({ index, form, styleName, page, hold, sealU, sealing, isActive
       height: shape.height,
       borderRadius: shape.radius,
       opacity: 1,
-      transform: [{ scale: sealPress(sealU.value) }],
+      transform: [{ scale: sealPress(sealU.value) * sealPulse(sealU.value) }],
     };
   });
 
@@ -364,6 +384,32 @@ function HoldRing({ hold, breathe, arrivalPulse, flash, sealing, sealU, page }: 
   );
 }
 
+/**
+ * The emotional peak: as the medallion pulses once, a ring of light leaves it and the person's
+ * sentence settles beneath it. Symbol and sentence, married.
+ */
+function SealPayoff({ sealU, text }: { sealU: ChooseController['sealU']; text: string }) {
+  const halo = useAnimatedStyle(() => {
+    const h = sealHalo(sealU.value);
+    return { opacity: h.alpha, transform: [{ scale: h.scale }] };
+  });
+  const sentence = useAnimatedStyle(() => {
+    const a = sealSentenceAlpha(sealU.value);
+    return { opacity: a, transform: [{ translateY: (1 - a) * 8 }] };
+  });
+
+  return (
+    <>
+      <Animated.View style={[styles.halo, halo]} pointerEvents="none" />
+      <Animated.View style={[styles.sentenceWrap, sentence]} pointerEvents="none">
+        <Text style={styles.sentence} numberOfLines={4} accessibilityLiveRegion="polite">
+          {text}
+        </Text>
+      </Animated.View>
+    </>
+  );
+}
+
 function PageDots({
   page,
   dots,
@@ -436,6 +482,30 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: colors.creation.gold,
+  },
+  halo: {
+    position: 'absolute',
+    left: MEDALLION.centerX - MEDALLION.size / 2,
+    top: MEDALLION.centerY - MEDALLION.size / 2,
+    width: MEDALLION.size,
+    height: MEDALLION.size,
+    borderRadius: MEDALLION.size / 2,
+    borderWidth: 2,
+    borderColor: colors.creation.gold,
+  },
+  sentenceWrap: {
+    position: 'absolute',
+    left: (DESIGN_WIDTH - 306) / 2,
+    width: 306,
+    top: MEDALLION.centerY + MEDALLION.size / 2 + 40,
+    alignItems: 'center',
+  },
+  sentence: {
+    textAlign: 'center',
+    fontFamily: 'EBGaramond-Regular',
+    fontSize: 24,
+    lineHeight: 31,
+    color: colors.creation.ink,
   },
   dots: {
     position: 'absolute',

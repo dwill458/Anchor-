@@ -47,7 +47,8 @@ describe('route table', () => {
 
   it('is memoised and has a sane total equal to the prototype re-implementation', () => {
     expect(buildRouteTable()).toBe(table);
-    expect(table.total).toBeGreaterThan(1000);
+    // DEFERRED: old summit route had total > 1000.
+    expect(table.total).toBeGreaterThan(850);
     expect(table.total).toBeLessThan(1300);
     expect(Math.abs(table.total - prototypeTotal())).toBeLessThan(table.total * 0.01);
     expect(table.legs).toHaveLength(6);
@@ -58,8 +59,8 @@ describe('route table', () => {
   it('posAt endpoints equal PTS[0] and PTS[6]; clamps out of range', () => {
     expect(posAt(table, 0)).toEqual({ x: 70, y: 992 });
     const end = posAt(table, table.total);
-    expect(end.x).toBeCloseTo(734, 2);
-    expect(end.y).toBeCloseTo(190, 2);
+    expect(end.x).toBeCloseTo(660, 2);
+    expect(end.y).toBeCloseTo(370, 2);
     expect(posAt(table, -50)).toEqual(posAt(table, 0));
     const over = posAt(table, table.total + 500);
     expect(over.x).toBeCloseTo(end.x, 3);
@@ -103,7 +104,7 @@ describe('waypointPlacement', () => {
     });
     expect(p.markerRadius).toBe(n > 7 ? 24 : 30);
     expect(p.start).toEqual({ x: 70, y: 992 });
-    expect(p.summit.x).toBeCloseTo(734, 2);
+    expect(p.summit.x).toBeCloseTo(660, 2);
   });
 
   it('is memoised and clamps n defensively', () => {
@@ -182,4 +183,27 @@ describe('camera and scallop', () => {
     expect(half).toContain('97.5,20');
     expect(half.endsWith('L195,20 Z')).toBe(true);
   });
+});
+
+
+describe('summit clearance on phone widths', () => {
+  it.each([320, 360, 390, 430])('%idp keeps the etched X inside the map and clear of header controls', width => {
+    const summit = waypointPlacement(4).summit;
+    const scale = width / 852;
+    const x = summit.x * scale;
+    const y = summit.y * scale;
+    const radius = 18 * scale;
+    expect(width - x - radius).toBeGreaterThanOrEqual(24);
+    // Map and header share the same safe-area origin. Controls end at 52dp.
+    expect(y - radius - 52).toBeGreaterThanOrEqual(48);
+  });
+});
+
+
+it('centres a current waypoint in a capped Chart window without the old bottom clamp', () => {
+  const point = waypointPlacement(4).points[0];
+  const camera = clampCamera(point.x, point.y + 30, 1.45, 360, 252);
+  const y = camera.ty + point.y * camera.k * 1.45;
+  expect(y).toBeGreaterThan(44);
+  expect(y).toBeLessThan(252 - 44);
 });

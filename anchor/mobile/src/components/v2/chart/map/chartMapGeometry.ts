@@ -30,9 +30,10 @@ export const ROUTE_PTS: ReadonlyArray<readonly [number, number]> = [
   [233, 790],
   [385, 606],
   [516, 490],
-  [629, 380],
-  [713, 292],
-  [734, 190],
+  // DEFERRED: [629, 380], [713, 292], [734, 190] placed the summit in the header zone.
+  [575, 430],
+  [625, 400],
+  [660, 370],
 ];
 
 export const OVERVIEW_CAMERA = { cx: 426, cy: 590, s: 1 } as const;
@@ -497,7 +498,11 @@ export function clampCamera(
   'worklet';
   const k = viewW / 852;
   const loX = viewW - viewW * s;
-  const loY = viewH - viewH * s;
+  // DEFERRED: viewH - viewH * s assumed every viewport showed the full art.
+  // Short Chart windows pan over the full landscape instead of clamping at their cropped bottom.
+  const artH = viewW * 1180 / 852;
+  const extentH = viewH + 1 < artH ? artH : viewH;
+  const loY = viewH - extentH * s;
   const rawX = viewW / 2 - cx * k * s;
   const rawY = viewH / 2 - cy * k * s;
   const tx = Math.max(loX, Math.min(0, rawX));

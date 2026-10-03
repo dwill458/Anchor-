@@ -36,7 +36,7 @@ import {
   ChartInkButton,
   ChartInkScreen,
   ChartTextArea,
-  ChartTopBar,
+  // DEFERRED: ChartTopBar,
   type ChartIdentity,
 } from './ChartChrome';
 import { ChartGenerationStage } from './ChartGenerationStage';
@@ -44,6 +44,11 @@ import { ChartKeyboardFrame } from './ChartKeyboardFrame';
 import type { ChartAnchorArt, ChartMarker } from './ChartLandscape';
 // DEFERRED: import { ChartJourneyWorld } from './ChartJourneyWorld';
 import { ChartStaticMap } from './panel/ChartStaticMap';
+import { ChartMapHeader } from './panel/ChartMapHeader';
+import { panelAccent } from './panel/chartPanelColors';
+import { CHART_MAP_TOKENS } from './map/chartMapTokens';
+import { buildRouteTable } from './map/chartMapGeometry';
+import { warmChartMapResources } from './map/ChartMapLand';
 import { MAP_H, MAP_W } from './map/chartMapContracts';
 import { ChartContextStep } from './ChartContextStep';
 import { ChartReferenceTray } from './ChartReferenceTray';
@@ -222,8 +227,8 @@ export function ChartCreationFlow({
   // A new mapping attempt remounts the map; review, adjust and reveal keep it.
   const [mappingKey, setMappingKey] = useState(0);
   const [stageSize, setStageSize] = useState({ height: 0, pageY: 0 });
-  const [heroHeight, setHeroHeight] = useState(0);
-  const [introArea, setIntroArea] = useState({ width: 0, height: 0 });
+  // DEFERRED: const [heroHeight, setHeroHeight] = useState(0);
+  // DEFERRED: const [introArea, setIntroArea] = useState({ width: 0, height: 0 });
   const [panelMounted, setPanelMounted] = useState(initialPhase === 'review' || initialPhase === 'adjusting');
   const [exploring, setExploring] = useState(false);
   // One key per creation attempt, so a retried submit cannot create two Charts.
@@ -242,7 +247,14 @@ export function ChartCreationFlow({
   const inStage = STAGE_PHASES.includes(phase);
   // Intro and the mapping stage share the etched cream-paper map; context and clarity stay on ink.
   const paper = phase === 'intro' || inStage || (phase === 'context' && contextMode === 'photo');
-  const introMapWidth = Math.max(width, ((introArea.height || height) * MAP_W) / MAP_H);
+  // DEFERRED: cover-fit enlarged the art past the screen edges.
+  const introMapWidth = width;
+  useEffect(() => {
+    const table = buildRouteTable();
+    warmChartMapResources(table, width, width * MAP_H / MAP_W);
+    const activeHeight = Math.min(width * MAP_H / MAP_W, Math.max(240, height - insets.top - insets.bottom - 360));
+    warmChartMapResources(table, width, activeHeight - 100);
+  }, [width, height, insets.top, insets.bottom]);
 
   useEffect(() => {
     const running = timers.current;
@@ -500,19 +512,19 @@ export function ChartCreationFlow({
   const destinationLabel = destination || identity.intention;
   const reviewSupport = needsNaming ? CHART_COPY.review.outline : revised ? CHART_COPY.adjust.reviewSupport : reviewSupportCopy(draft.length);
 
-  const title =
-    phase === 'intro'
-      ? CHART_COPY.title
-      : phase === 'generating'
-        ? CHART_COPY.generation.headerTitle
-        : phase === 'review'
-          ? CHART_COPY.review.headerTitle
-          : phase === 'adjusting'
-            ? CHART_COPY.adjust.headerTitle
-            : phase === 'revealed'
-              ? CHART_COPY.revealed.headerTitle
-              : CHART_COPY.creation.headerTitle;
-
+// DEFERRED:   const title =
+// DEFERRED:     phase === 'intro'
+// DEFERRED:       ? CHART_COPY.title
+// DEFERRED:       : phase === 'generating'
+// DEFERRED:         ? CHART_COPY.generation.headerTitle
+// DEFERRED:         : phase === 'review'
+// DEFERRED:           ? CHART_COPY.review.headerTitle
+// DEFERRED:           : phase === 'adjusting'
+// DEFERRED:             ? CHART_COPY.adjust.headerTitle
+// DEFERRED:             : phase === 'revealed'
+// DEFERRED:               ? CHART_COPY.revealed.headerTitle
+// DEFERRED:               : CHART_COPY.creation.headerTitle;
+// DEFERRED:
   const revealedMarkers = useMemo(
     () => (phase === 'revealed' ? markersFor(draft.filter((waypoint) => waypoint.title.trim()), 0) : null),
     [draft, phase]
@@ -531,7 +543,7 @@ export function ChartCreationFlow({
           : 'review') as 'generating' | 'adjusting' | 'revealed' | 'revised' | 'review';
   const [shownHero, heroStyle] = useStagedCopy(heroKey, reducedMotion);
   const heroCopy: Record<typeof heroKey, { headline: string; support: string }> = {
-    generating: { headline: CHART_COPY.generation.headline, support: CHART_COPY.generation.support },
+    generating: { headline: hasVision ? CHART_COPY.generation.headline : CHART_COPY.generation.neutralHeadline, support: '' },
     review: { headline: CHART_COPY.review.headline, support: reviewSupport },
     revised: { headline: CHART_COPY.adjust.review, support: reviewSupport },
     adjusting: { headline: CHART_COPY.adjust.headline, support: CHART_COPY.adjust.support },
@@ -551,7 +563,15 @@ export function ChartCreationFlow({
 
   return (
     <ChartInkScreen testID={testID ?? 'chart-creation'} paper={paper}>
-      <ChartTopBar title={title} onBack={phase === 'generating' || exploring ? undefined : goBack} identity={identity} tone={paper ? 'dark' : 'light'} />
+      {/* DEFERRED: <ChartTopBar title={title} onBack={phase === 'generating' || exploring ? undefined : goBack} identity={identity} tone={paper ? 'dark' : 'light'} /> */}
+      <ChartMapHeader
+        inline tone={paper ? 'paper' : 'ink'}
+        categoryLabel={(identity.category ?? 'custom').toUpperCase()}
+        category={identity.category} accent={panelAccent(identity.category)}
+        visionImageUrl={null} hasVision={false}
+        onBack={phase === 'generating' || exploring ? undefined : goBack}
+        onOpenVision={onOpenVision}
+      />
 
       {phase === 'intro' ? (
         <View style={styles.flex} testID="chart-empty-state">
@@ -561,10 +581,10 @@ export function ChartCreationFlow({
             pointerEvents="none"
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
-            onLayout={(event) => setIntroArea(event.nativeEvent.layout)}
+            // DEFERRED: onLayout={(event) => setIntroArea(event.nativeEvent.layout)}
           >
-            {/* Cover-fit: the map fills the whole area (cropped at the sides, never a blank band). */}
-            <View style={[styles.introMap, { width: introMapWidth, left: (width - introMapWidth) / 2 }]}>
+            {/* Width-fit keeps the summit inside the creation window. */}
+            <View style={[styles.introMap, { width: introMapWidth, left: (width - introMapWidth) / 2, top: 0 }]}>
               <ChartStaticMap
                 width={introMapWidth}
                 categoryColor={getCategoryColor(identity.category)}
@@ -609,6 +629,11 @@ export function ChartCreationFlow({
       {/* DEFERRED: the previous intro (road art + cream panel) is kept at the end of this file. */}
 
       {phase === 'context' && contextMode === 'photo' ? (
+        <View style={styles.flex}>
+          <View style={[StyleSheet.absoluteFill, { opacity: 0.55 }]} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            <ChartStaticMap width={width} categoryColor={getCategoryColor(identity.category)} category={identity.category}
+              mode="empty" waypointCount={3} reducedMotion={reducedMotion} testID="chart-context-map" />
+          </View>
         <ChartContextStep
           vision={vision}
           startPhoto={(references.find((item) => item.kind === 'photo' && item.role === 'start') as ChartPhotoReference | undefined) ?? null}
@@ -634,6 +659,7 @@ export function ChartCreationFlow({
           notice={referenceError}
           busy={preparing}
         />
+        </View>
       ) : null}
 
       {phase === 'context' && contextMode === 'text' ? (
@@ -748,15 +774,15 @@ export function ChartCreationFlow({
 
           <Animated.View
             style={[styles.hero, styles.stageHero, heroStyle, chromeStyle, (phase === 'followup' || phase === 'revealed') && styles.hidden]}
-            onLayout={(event) => setHeroHeight(event.nativeEvent.layout.height)}
+            // DEFERRED: onLayout={(event) => setHeroHeight(event.nativeEvent.layout.height)}
             pointerEvents="none"
           >
             <Text accessibilityRole="header" style={[styles.display, styles.displayPaper, compact && shownHero !== 'generating' && styles.displayCompact]}>
               {heroCopy[shownHero].headline}
             </Text>
-            <Text style={[styles.support, styles.supportPaper, compact && shownHero !== 'generating' && styles.supportCompact]}>
+            {heroCopy[shownHero].support ? <Text style={[styles.support, styles.supportPaper, compact && shownHero !== 'generating' && styles.supportCompact]}>
               {heroCopy[shownHero].support}
-            </Text>
+            </Text> : null}
           </Animated.View>
 
           {phase === 'followup' && followUpQuestion ? (
@@ -802,8 +828,9 @@ export function ChartCreationFlow({
             </>
           ) : null}
 
+          {/* DEFERRED: measured heroHeight positioned this panel before staged copy finished changing. Flow layout owns the boundary now. */}
           {panelMounted ? (
-            <Animated.View style={[styles.panelWrap, { top: heroHeight + spacing[3] }, panelStyle]}>
+            <Animated.View style={[styles.panelWrap, panelStyle]}>
               <ChartCreamPanel style={styles.reviewPanel}>
                 <ChartKeyboardFrame
                   contentContainerStyle={styles.reviewScroll}
@@ -842,22 +869,6 @@ export function ChartCreationFlow({
                     <ChartAdjustPanel onSubmit={submitAdjust} loading={adjusting} error={adjustError} testID="chart-adjust-panel" />
                   ) : (
                     <>
-                      <View style={styles.routeHeader}>
-                        <ChartEyebrow tone="cream">{CHART_COPY.review.routeLabel}</ChartEyebrow>
-                        <Text style={styles.routeCount}>
-                          {draft.length} waypoint{draft.length === 1 ? '' : 's'}
-                        </Text>
-                      </View>
-                      {proposal?.guidance && !needsNaming ? <Text style={styles.guidance}>{proposal.guidance}</Text> : null}
-                      <ChartRouteEditor
-                        waypoints={draft}
-                        onChange={setDraft}
-                        onEdit={(kind) => trackChart(kind === 'add' ? 'chart_waypoint_added' : 'chart_waypoint_edited', { stage: 'review', kind })}
-                        showRail
-                        testID="chart-route-editor"
-                      />
-                      <Text style={styles.evolve}>{CHART_COPY.review.evolve}</Text>
-
                       {/* One Move is an action toward Waypoint 1 — never a stand-in for it. */}
                       <View style={styles.oneMoveCard} testID="chart-review-one-move-card">
                         <View style={styles.oneMoveHeader}>
@@ -887,6 +898,22 @@ export function ChartCreationFlow({
                           ) : null}
                         </View>
                       </View>
+                      <View style={styles.routeHeader}>
+                        <ChartEyebrow tone="cream">{CHART_COPY.review.routeLabel}</ChartEyebrow>
+                        <Text style={styles.routeCount}>
+                          {draft.length} waypoint{draft.length === 1 ? '' : 's'}
+                        </Text>
+                      </View>
+                      {proposal?.guidance && !needsNaming ? <Text style={styles.guidance}>{proposal.guidance}</Text> : null}
+                      <ChartRouteEditor
+                        waypoints={draft}
+                        onChange={setDraft}
+                        onEdit={(kind) => trackChart(kind === 'add' ? 'chart_waypoint_added' : 'chart_waypoint_edited', { stage: 'review', kind })}
+                        showRail
+                        testID="chart-route-editor"
+                      />
+                      <Text style={styles.evolve}>{CHART_COPY.review.evolve}</Text>
+
                       {saveError ? (
                         <Text style={styles.saveError} accessibilityLiveRegion="polite">
                           {saveError}
@@ -910,20 +937,21 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   flexEnd: { flex: 1, justifyContent: 'flex-end' },
   hero: { paddingHorizontal: spacing[5], paddingTop: spacing[3], gap: spacing[2], zIndex: 1 },
-  stageHero: { position: 'absolute', left: 0, right: 0, top: 0 },
-  display: { ...typography.displayMedium, fontSize: 34, lineHeight: 38, color: colors.ink.text.primary },
+  // DEFERRED: absolute stage hero required measuring text during the staged copy swap.
+  stageHero: { flexShrink: 0 },
+  display: { ...typography.displayMedium, fontFamily: CHART_MAP_TOKENS.serif, fontSize: 34, lineHeight: 38, color: colors.ink.text.primary },
   support: { ...typography.bodyLG, color: colors.ink.text.secondary },
   guidance: { ...typography.bodySM, color: colors.text.secondary, marginBottom: spacing[1] },
   displayCompact: { fontSize: 28, lineHeight: 32 },
   supportCompact: { ...typography.bodyMD },
-  question: { ...typography.headingLG, color: colors.ink.text.primary },
+  question: { ...typography.headingLG, fontFamily: CHART_MAP_TOKENS.serif, color: colors.ink.text.primary },
   introLandscape: { position: 'absolute', left: 0, bottom: 0 },
   hidden: { display: 'none' },
   dim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(17,24,32,.45)' },
   sheetWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, top: '16%' },
   sheet: { flex: 1, paddingTop: spacing[5] },
   sheetScroll: { gap: spacing[3], paddingBottom: spacing[3] },
-  sheetQuestion: { ...typography.headingLG, color: colors.text.primary },
+  sheetQuestion: { ...typography.headingLG, fontFamily: CHART_MAP_TOKENS.serif, color: colors.text.primary },
   sheetSub: { ...typography.bodyMD, color: colors.text.primary, marginTop: spacing[2] },
   introMap: { position: 'absolute', bottom: 0 },
   introScrim: { position: 'absolute', left: 0, right: 0, top: -spacing[8], bottom: 0 },
@@ -960,7 +988,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.grouped,
   },
   visionLinkText: { ...typography.labelMD, color: colors.text.primary },
-  panelWrap: { position: 'absolute', left: 0, right: 0, bottom: 0 },
+  panelWrap: { flex: 1, marginTop: spacing[3] },
   reviewPanel: { flex: 1, paddingTop: spacing[4], borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.border.default },
   reviewScroll: { paddingBottom: spacing[4] },
   routeHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing[2] },
@@ -969,7 +997,8 @@ const styles = StyleSheet.create({
   actionHalf: { flex: 1 },
   evolve: { ...typography.bodySM, color: colors.text.secondary, marginTop: spacing[3] },
   oneMoveCard: {
-    marginTop: spacing[5],
+    marginTop: 0,
+    marginBottom: spacing[4],
     padding: spacing[4],
     gap: spacing[2],
     borderRadius: radii.lg,

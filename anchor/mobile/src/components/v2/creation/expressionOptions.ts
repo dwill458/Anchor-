@@ -33,6 +33,25 @@ export type CreationStyleOption = {
  * library without an entry here previews as the plain structure on paper rather than breaking.
  */
 const PREVIEW: Partial<Record<AIStyle, { expression: AnchorExpression; field: string; tint?: string }>> = {
+  // Anchor 2.0 styles
+  velvet_ember_v2: { expression: 'cut_paper', field: '#EBDDDA', tint: '#7A2E3A' },
+  porcelain_v2: { expression: 'architectural', field: '#E7E4DC', tint: '#284E7A' },
+  prism_flow_v2: { expression: 'cut_paper', field: '#ECE6EC', tint: '#8A6FA8' },
+  joybrush_v2: { expression: 'halo', field: '#E6E8E4', tint: '#E05A47' },
+  deep_cosmos_v2: { expression: 'etched', field: '#E2E1E8', tint: '#235A62' },
+  woven_v2: { expression: 'ink', field: '#E2E6EA', tint: '#2B4263' },
+  paper_v2: { expression: 'cut_paper', field: '#DFE5EA', tint: '#4A6984' },
+  clay_v2: { expression: 'halo', field: '#ECE8DD', tint: '#B37D42' },
+  mineral_wash_v2: { expression: 'halo', field: '#ECE8DD', tint: '#B37D42' },
+  graphic_v2: { expression: 'architectural', field: '#E9E4DC', tint: '#2D5948' },
+  plush_v2: { expression: 'embossed', field: '#DEE8F0', tint: '#4E86B8' },
+  herbarium_v2: { expression: 'monoline', field: '#E4EAE2', tint: '#5C7A5E' },
+  alloy_v2: { expression: 'etched', field: '#DFE2E6', tint: '#3A526E' },
+  gilt_v2: { expression: 'foil', field: '#E2EBE5', tint: '#C8A951' },
+  flash_v2: { expression: 'ink', field: '#E8E4D8', tint: '#9B382C' },
+  buff_v2: { expression: 'embossed', field: '#EDEAE4', tint: '#45423E' },
+
+  // Legacy Anchor 1.5 styles (kept for backward compatibility with saved anchors)
   architectural_trace: { expression: 'architectural', field: '#E7E4DC' },
   lunar_etch: { expression: 'etched', field: '#E3E5EA', tint: '#7C8796' },
   resonance_rings: { expression: 'etched', field: '#EDE3D2', tint: '#B7792B' },

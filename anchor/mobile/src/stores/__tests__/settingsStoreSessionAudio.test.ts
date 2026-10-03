@@ -53,12 +53,20 @@ describe("settingsStore Voice & Sound ownership", () => {
     );
   });
 
+  it("resolves the retired five-minute Visualize length to three minutes", () => {
+    useSettingsStore.getState().setVisualizeSessionDuration(300 as never);
+    expect(useSettingsStore.getState().visualizeSessionDuration).toBe(180);
+    useSettingsStore.getState().setVisualizeSessionDuration(600);
+    expect(useSettingsStore.getState().visualizeSessionDuration).toBe(600);
+    useSettingsStore.getState().setVisualizeSessionDuration(180);
+  });
+
   it("keeps recent Visualize duration account-scoped without changing its global default", () => {
     useSettingsStore.getState().bindSessionAudioDefaultsOwner("user-a");
-    useSettingsStore.getState().setLastSessionDuration("visualize", 300);
+    useSettingsStore.getState().setLastSessionDuration("visualize", 600);
     expect(
       useSettingsStore.getState().lastSessionDurationByMode.visualize,
-    ).toBe(300);
+    ).toBe(600);
     expect(useSettingsStore.getState().visualizeSessionDuration).toBe(180);
 
     useSettingsStore.getState().bindSessionAudioDefaultsOwner("user-b");

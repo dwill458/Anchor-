@@ -1,16 +1,28 @@
 import { releaseArtworkRect } from '@/components/v2/release/releaseBurn';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, BackHandler, Image, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, useWindowDimensions, View, type ImageSourcePropType } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronLeft, ChevronRight, MoreHorizontal, Sparkle } from 'lucide-react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { BackHandler, Image, Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View, type ImageSourcePropType } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ChevronLeft, ChevronRight, MoreHorizontal, Play, Sparkle } from 'lucide-react-native';
+import Svg, { Circle, Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  Easing,
+  cancelAnimation,
+  runOnJS,
+  useAnimatedReaction,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useDerivedValue,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { CircularAnchorRenderer, V2EmptyState, V2Screen, V2TopBar } from '@/components/v2';
-import { ThreadStrength } from '@/components/v2/thread';
-import { anchorRenderProps, categoryLabel, durationLabel, shortDate } from '@/components/v2/anchors';
-import { useV2AnchorDetail } from '@/hooks/v2/anchors';
+import { HandDrawnThreadLine } from '@/components/v2/thread';
+import { anchorArtworkSvg, anchorRenderProps, categoryLabel, durationLabel, shortDate } from '@/components/v2/anchors';
+import { useAnchorExportActions, useV2AnchorDetail } from '@/hooks/v2/anchors';
 import { useV2Vision } from '@/hooks/v2/vision';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { resolveAnchorChartState, type HomeChartState } from '@/adapters/v2/home/chartAdapter';
@@ -20,14 +32,26 @@ import { fetchV2RecommendationContext, type V2RecommendationContext } from '@/ad
 import { isV2RecommendationContextFresh, peekV2RecommendationContext } from '@/adapters/v2/practice/recommendationCache';
 import { V2_RECOMMENDATION_ACTION_TO_MODE, V2_PRACTICE_MODE_BY_ID, type V2PracticeMode } from '@/constants/v2/practice';
 import { todayReasonCopy } from '@/components/v2/home/V2HomeTodaySection';
-import { spacing, colors, getCategoryColor, getCategoryTextColor, getPracticeColor, typography } from '@/theme/v2';
+import { spacing, colors, getCategoryColor, getCategoryTextColor, getPracticeColor } from '@/theme/v2';
 import { useV2DailyShellIntents, type V2DailyShellParamList } from '@/screens/v2/home/dailyShell';
-import { ANCHOR_DETAIL_EMPTY_ART, ANCHOR_DETAIL_HERO_ART, ANCHOR_DETAIL_PRACTICE_ART } from '@/components/v2/anchors/anchorDetailArt';
+import { ANCHOR_DETAIL_EMPTY_ART, ANCHOR_DETAIL_PRACTICE_ART } from '@/components/v2/anchors/anchorDetailArt';
+import { detailsFonts, detailsPalette } from '@/components/v2/anchors/anchorDetailsTokens';
+import {
+  PRACTICE_CARD_HEIGHT,
+  SHEET_HANDLE_HEIGHT,
+  SHEET_SCROLL_TOLERANCE,
+  nearestSnap,
+  nextSnapForTap,
+  resolveSheetLayout,
+  resolveSheetSnaps,
+} from '@/components/v2/anchors/anchorDetailsSheetLayout';
+import { AnchorOptionsMenu, type AnchorOptionsMenuAction } from '@/components/AnchorOptionsMenu';
+import { ExportAnchorSheet } from '@/components/ExportAnchorSheet';
 import { AnchorTransitionScene, useAnchorTransitionPlace, useProgressiveFocusTransition } from '@/navigation/v2/ProgressiveFocusTransition';
 import { ChartWorldPreview } from '@/components/v2/chart/ChartWorldPreview';
 import { VisionBoardPreview } from '@/components/v2/vision/VisionBoardPreview';
-import { predictPracticeSetupAnchorRect, resolveAnchorDetailsHeroGeometry } from '@/navigation/v2/anchorHeroGeometry';
-import { useV2Responsive } from '@/hooks/v2';
+import { predictPracticeSetupAnchorRect } from '@/navigation/v2/anchorHeroGeometry';
+import { useV2Responsive, useV2ReduceMotion } from '@/hooks/v2';
 import { VisualProfiler } from '@/utils/visualProfiler';
 
 type Nav = NativeStackNavigationProp<V2DailyShellParamList, 'V2AnchorDetails'>;
@@ -41,9 +65,13 @@ const DETAIL_ACTION_COPY = {
   chartPayoff: 'Map the path from here.',
 };
 
-const HERO_ART = ANCHOR_DETAIL_HERO_ART;
 const PRACTICE_ART = ANCHOR_DETAIL_PRACTICE_ART;
 const EMPTY_ART = ANCHOR_DETAIL_EMPTY_ART;
+
+const SNAP_MS = 420;
+const SNAP_EASING = Easing.bezier(0.2, 0.8, 0.2, 1);
+const SHEET_GUTTER = 20;
+const TOAST_MS = 1900;
 
 function toRecommendation(context: V2RecommendationContext): Recommendation {
   return {
@@ -92,133 +120,88 @@ function isDateToday(dateVal: string | Date): boolean {
   return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
 }
 
-function Hero({
-  anchor,
-  paintingHeight,
-  medallionSize,
-  onBack,
-  onMore,
-  anchorId,
-  reduceMotion,
-}: {
-  anchor: NonNullable<ReturnType<typeof useV2AnchorDetail>['anchor']>;
-  paintingHeight: number;
-  medallionSize: number;
-  onBack: () => void;
-  onMore: () => void;
-  /** The id the Anchor transition knows this Details screen by (its route param). */
-  anchorId: string;
-  reduceMotion?: boolean;
-}) {
-  // The medallion is the Anchor transition's `details` place: Home's flight
-  // lands here and the Practice flight leaves from here. Android moves a newly
-  // pushed native screen beneath the status bar after its first layout
-  // callback, so the settled position is measured one beat later.
-  const place = useAnchorTransitionPlace('details', anchorId, 'paper', { measureDelayMs: reduceMotion ? 0 : 120 });
-  const accent = getCategoryColor(anchor.category);
-  // Small tracked caps on cream must clear WCAG AA; darkens within the same hue when the raw token would not.
-  const categoryText = getCategoryTextColor(anchor.category, colors.surface, colors.text.primary);
-  const art = HERO_ART[anchor.category?.toLowerCase() ?? ''];
-
+/** A soft glow behind the Anchor, in the Anchor's own category colour. */
+function Halo({ color }: { color: string }) {
   return (
-    <View style={styles.heroWrap}>
-      <View style={[styles.hero, { height: paintingHeight, backgroundColor: accent + '25' }]}>
-        {art ? <Image source={art} style={styles.heroImage} resizeMode="cover" accessibilityIgnoresInvertColors /> : null}
-        <View style={[styles.heroWash, { backgroundColor: 'rgba(251,249,244,0.32)' }]} />
-        <View style={styles.heroNav}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={onBack} hitSlop={12} style={styles.heroNavButton}>
-            <ChevronLeft color={colors.text.primary} size={26} />
-          </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel="More Anchor options" onPress={onMore} hitSlop={12} style={styles.heroNavButton}>
-            <MoreHorizontal color={colors.text.primary} size={26} />
-          </Pressable>
-        </View>
-        <Svg width="100%" height={32} viewBox="0 0 400 32" preserveAspectRatio="none" style={styles.arc}>
-          <Path d="M0 0 Q200 48 400 0 L400 32 L0 32 Z" fill={colors.surface} />
-        </Svg>
-      </View>
-      <View ref={place.ref} collapsable={false} onLayout={place.onLayout} style={[styles.glyph, { top: paintingHeight - medallionSize * 0.58, opacity: place.hidden ? 0 : 1 }]}>
-        <CircularAnchorRenderer
-          {...anchorRenderProps(anchor)}
-          size={medallionSize}
-          appearance="paper"
-          accessibilityLabel={categoryLabel(anchor.category) + ' Anchor artwork'}
-        />
-      </View>
-      <View style={[styles.heroCopy, { paddingTop: medallionSize * 0.42 + 16 }]}>
-        <Text accessibilityRole="header" style={styles.intention}>{anchor.intentionText}</Text>
-        <Text style={[styles.category, { color: categoryText }]}>{categoryLabel(anchor.category).toUpperCase()}</Text>
-        <Text style={styles.created}>{`Created ${new Date(anchor.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`}</Text>
-      </View>
-    </View>
+    <Svg width="100%" height="100%" viewBox="0 0 100 100" pointerEvents="none">
+      <Defs>
+        {/* rx/ry are explicit: Android ignores a gradient without them. */}
+        <RadialGradient id="anchor-halo" cx="50" cy="50" rx="50" ry="50" fx="50" fy="50" gradientUnits="userSpaceOnUse">
+          <Stop offset="0" stopColor={color} stopOpacity={0.15} />
+          <Stop offset="0.96" stopColor={color} stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Rect x={0} y={0} width={100} height={100} fill="url(#anchor-halo)" />
+    </Svg>
   );
 }
 
-function ThreadSummary({
+/** Category · 23% · drawn thread · FORMING. The one Thread Strength read on this screen. */
+function ThreadMeta({
   value,
   delta,
-  accent,
-  levelColor,
+  category,
+  size,
+  active,
   onPress,
 }: {
   value: number | null;
   delta: number | null;
-  accent: string;
-  levelColor: string;
+  category: string;
+  size: 'centered' | 'header';
+  active: boolean;
   onPress: () => void;
-  history: Array<number | null>;
 }) {
+  const centered = size === 'centered';
+  const accent = getCategoryColor(category);
+  const categoryText = getCategoryTextColor(category, detailsPalette.cream, detailsPalette.ink);
   const level = value === null ? 'NOT ESTABLISHED' : resolveEvolutionStage(value).toUpperCase();
-  const numericValue = typeof value === 'number' && Number.isFinite(value) ? Math.min(100, Math.max(0, value)) : 0;
-
-  const isPositiveDelta = typeof delta === 'number' && delta > 0;
-  const isNegativeDelta = typeof delta === 'number' && delta < 0;
-  const deltaArrow = isPositiveDelta ? '↑' : isNegativeDelta ? '↓' : '';
-  const deltaPrefix = isPositiveDelta ? ' +' : isNegativeDelta ? ' ' : '';
-  const deltaColor = isNegativeDelta ? colors.semantic.error : isPositiveDelta ? colors.semantic.success : colors.text.secondary;
+  const numeric = typeof value === 'number' && Number.isFinite(value) ? Math.min(100, Math.max(0, Math.round(value))) : 0;
+  const deltaPhrase = typeof delta === 'number' && delta !== 0 ? `, ${delta > 0 ? 'up' : 'down'} ${Math.abs(delta)} percent this week` : '';
+  const label = `Thread Strength ${value === null ? 'not established' : `${numeric} percent, ${level.toLowerCase()}`}${deltaPhrase}. Open progress.`;
 
   return (
-    <Pressable testID="v2-anchor-thread" accessibilityRole="button" onPress={onPress} style={styles.thread}>
-      <View style={styles.sectionHeading}>
-        <View style={styles.headingLabelGroup}>
-          <Text style={styles.eyebrow}>Thread Strength</Text>
-          <Svg width={12} height={12} viewBox="0 0 12 12" style={styles.headingIcon}>
-            <Circle cx={6} cy={6} r={4.5} stroke={colors.text.secondary} strokeWidth={1.2} fill="none" />
-            <Path d="M6 5.5v3M6 3.5h.01" stroke={colors.text.secondary} strokeWidth={1.2} strokeLinecap="round" />
-          </Svg>
-        </View>
-        <Text style={[styles.level, { color: levelColor }]}>{level}</Text>
-      </View>
-
-      <View style={styles.threadMetricsRow}>
-        <View style={styles.threadValueGroup}>
-          <Text style={styles.threadPercent}>{value === null ? '—' : `${numericValue}%`}</Text>
-          {delta !== null ? (
-            <Text style={[styles.threadDelta, { color: deltaColor }]}>
-              {deltaArrow ? `${deltaArrow}` : ''}
-              {deltaPrefix}
-              {delta}% this week
-            </Text>
-          ) : null}
-        </View>
-        <View style={styles.threadTrackWrap}>
-          <ThreadStrength
-            percent={numericValue}
-            color={accent}
-            weeklyDelta={delta}
-            showDelta={false}
-            showMetrics={false}
-            arrowStyle="arrow"
-            duration={1400}
-            height={44}
-          />
-        </View>
-      </View>
-
-      <Text testID="v2-thread-strength-value" style={styles.hiddenValueTest}>
-        {value === null ? '—' : value}
+    <Pressable
+      testID="v2-anchor-thread"
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      disabled={!active}
+      hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+      style={[styles.meta, { gap: centered ? 10 : 8 }]}
+    >
+      <Text style={[styles.metaCategory, { color: categoryText, fontSize: centered ? 11 : 10.5, letterSpacing: centered ? 2.4 : 2.1 }]}>
+        {categoryLabel(category).toUpperCase()}
+      </Text>
+      <View style={styles.metaDot} />
+      <Text style={[styles.metaNumeral, { fontSize: centered ? 15 : 14 }]}>{value === null ? '—' : `${numeric}%`}</Text>
+      <HandDrawnThreadLine
+        percent={numeric}
+        color={accent}
+        trackColor={detailsPalette.ink}
+        unmeasured={value === null}
+        compact
+        showLabel={false}
+        width={centered ? 72 : 60}
+        testID={`v2-thread-line-${size}`}
+      />
+      <Text style={[styles.metaStatus, { color: categoryText, fontSize: centered ? 10 : 9.5, letterSpacing: centered ? 1.6 : 1.4 }]} numberOfLines={1}>
+        {level}
       </Text>
     </Pressable>
+  );
+}
+
+function SectionHeader({ title, action, actionLabel, onAction }: { title: string; action?: string; actionLabel?: string; onAction?: () => void }) {
+  return (
+    <View style={styles.sectionHeaderRow}>
+      <Text style={styles.sectionHeaderTitle}>{title}</Text>
+      {action && onAction ? (
+        <Pressable accessibilityRole="button" accessibilityLabel={actionLabel} onPress={onAction} hitSlop={10} style={styles.sectionAction}>
+          <Text style={styles.viewAll}>{action}</Text>
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 
@@ -226,17 +209,19 @@ function TodayCard({
   recommendation,
   error,
   duration,
+  hasVision,
   onPress,
 }: {
   recommendation: Recommendation | null;
   error: boolean;
   duration: number;
+  hasVision: boolean;
   onPress: (mode: V2PracticeMode) => void;
 }) {
   if (!recommendation) {
     return (
       <View style={styles.todayPending}>
-        <Text style={styles.eyebrow}>RECOMMENDED PRACTICE</Text>
+        <Text style={styles.todayEyebrow}>Recommended practice</Text>
         <Text style={styles.quiet}>{error ? 'Today’s recommendation is unavailable.' : 'Loading today’s recommendation…'}</Text>
       </View>
     );
@@ -244,6 +229,8 @@ function TodayCard({
 
   const mode = recommendation.mode;
   const modeTitle = V2_PRACTICE_MODE_BY_ID[mode]?.title ?? 'Focus';
+  const reason = mode === 'visualize' && hasVision ? 'Step back into your Vision.' : todayReasonCopy(recommendation.reason, mode);
+  const meta = mode === 'release' ? reason : `${durationLabel(duration)} · ${reason}`;
 
   return (
     <Pressable
@@ -257,10 +244,12 @@ function TodayCard({
         <Image source={PRACTICE_ART[mode]} style={styles.todayArtThumbnail} resizeMode="cover" accessibilityIgnoresInvertColors />
       </View>
       <View style={styles.todayBody}>
-        <Text style={styles.todayEyebrow}>Recommended Practice</Text>
+        <Text style={styles.todayEyebrow}>Recommended practice</Text>
         <Text style={styles.todayTitle}>{modeTitle}</Text>
-        <Text style={styles.todayMeta}>{mode !== 'release' ? durationLabel(duration) : 'Ready'} <ChevronRight size={14} color={colors.text.primary} /></Text>
-        <Text style={styles.todayReason}>{todayReasonCopy(recommendation.reason, mode)}</Text>
+        <Text style={styles.todayMeta} numberOfLines={2}>{meta}</Text>
+      </View>
+      <View style={[styles.todayPlay, { backgroundColor: getPracticeColor(mode) }]}>
+        <Play size={20} color={detailsPalette.ink} fill={detailsPalette.ink} />
       </View>
     </Pressable>
   );
@@ -291,11 +280,11 @@ function VisionSection({
 
   if (state.state === 'loading' || state.state === 'error') {
     return <View testID="v2-details-vision-section" style={styles.sectionBlock}>
-      <Text style={styles.sectionHeaderTitle}>Vision</Text>
+      <SectionHeader title="Vision" />
       <View style={styles.visionPending}>
         <Text style={styles.quiet}>{state.state === 'error' ? state.message : 'Your Vision is loading.'}</Text>
-        {state.state === 'error' ? <Pressable accessibilityRole="button" accessibilityLabel="Retry Vision" onPress={onRetry}>
-          <Text style={styles.chartRetryText}>Try again</Text>
+        {state.state === 'error' ? <Pressable accessibilityRole="button" accessibilityLabel="Retry Vision" onPress={onRetry} hitSlop={10}>
+          <Text style={styles.retryText}>Try again</Text>
         </Pressable> : null}
       </View>
     </View>;
@@ -304,18 +293,18 @@ function VisionSection({
   if (!hasVision) {
     return (
       <View testID="v2-details-vision-section" style={styles.sectionBlock}>
-        <Text style={styles.sectionHeaderTitle}>Vision</Text>
+        <SectionHeader title="Vision" />
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Vision"
           onPress={onOpenVision}
-          style={({ pressed }) => [{ minHeight: 150, padding: spacing[5], justifyContent: 'center', backgroundColor: colors.surface }, pressed && styles.pressed]}
+          style={({ pressed }) => [styles.visionEmpty, pressed && styles.pressed]}
         >
           <View style={{ gap: spacing[2] }}>
-            <Text style={[styles.emptyCardTitle, { color: colors.text.primary }]}>{DETAIL_ACTION_COPY.visionTitle}</Text>
-            <Text style={[styles.emptyCardPayoff, { color: colors.text.secondary }]}>{DETAIL_ACTION_COPY.visionPayoff}</Text>
+            <Text style={styles.emptyVisionTitle}>{DETAIL_ACTION_COPY.visionTitle}</Text>
+            <Text style={styles.emptyVisionPayoff}>{DETAIL_ACTION_COPY.visionPayoff}</Text>
           </View>
-          <ChevronRight size={22} color={colors.text.primary} />
+          <ChevronRight size={22} color={detailsPalette.ink} />
         </Pressable>
       </View>
     );
@@ -323,14 +312,11 @@ function VisionSection({
 
   return (
     <View testID="v2-details-vision-section" style={styles.sectionBlock}>
-      <View style={styles.sectionHeaderRow}>
-        <Text style={styles.sectionHeaderTitle}>Vision</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel="Edit Vision" onPress={onEditVision} hitSlop={8}>
-          <Text style={styles.viewAll}>Edit ›</Text>
-        </Pressable>
+      <SectionHeader title="Vision" action="Edit ›" actionLabel="Edit Vision" onAction={onEditVision} />
+      <View style={styles.cardClip}>
+        <VisionBoardPreview key={state.state === 'ready' ? state.visionId : 'vision'} tiles={tiles} statement={statement} variant="details" accent={accent}
+          testID="v2-details-vision" accessibilityLabel="Vision" onPress={onOpenVision} />
       </View>
-      <VisionBoardPreview key={state.state === 'ready' ? state.visionId : 'vision'} tiles={tiles} statement={statement} variant="details" accent={accent}
-        testID="v2-details-vision" accessibilityLabel="Vision" onPress={onOpenVision} />
       {seenToday ? <Text style={styles.quiet}>Seen today ✓</Text> : null}
     </View>
   );
@@ -345,12 +331,7 @@ function RecentPractice({
 }) {
   return (
     <View testID="v2-details-recent-section" style={styles.sectionBlock}>
-      <View style={styles.sectionHeaderRow}>
-        <Text style={styles.sectionHeaderTitle}>Recent Practice</Text>
-        <Pressable accessibilityRole="button" onPress={onViewAll} hitSlop={8}>
-          <Text style={styles.viewAll}>View all →</Text>
-        </Pressable>
-      </View>
+      <SectionHeader title="Recent practice" action="View all →" actionLabel="View all practice" onAction={onViewAll} />
       {entries.length ? (
         <View style={styles.practiceList}>
           {entries.slice(0, 4).map((entry) => {
@@ -359,7 +340,7 @@ function RecentPractice({
             return (
               <View key={entry.id} style={styles.practiceItemRow}>
                 <View style={[styles.practiceIconBadge, { backgroundColor: getPracticeColor(entry.mode) }]}>
-                  <Sparkle size={13} color="#FFFFFF" fill="#FFFFFF" />
+                  <Sparkle size={16} color={detailsPalette.ink} fill={detailsPalette.ink} />
                 </View>
                 <View style={styles.practiceItemCopy}>
                   <Text style={styles.practiceItemTitle}>
@@ -393,14 +374,15 @@ function ChartSection({
   onOpenChart: (courseId?: string) => void;
   onRetry: () => void | Promise<void>;
 }) {
-  const mapWidth = Math.max(1, width - (width < 370 ? 40 : 48) - 2);
+  const mapWidth = Math.max(1, width - SHEET_GUTTER * 2 - 2);
   return (
     <View testID="v2-details-chart-section" style={styles.sectionBlock}>
-      <View style={styles.sectionHeaderRow}>
-        <Text style={styles.sectionHeaderTitle}>Chart</Text>
-        {chart.state === 'ready' ? <Pressable accessibilityRole="button" accessibilityLabel="View all Chart"
-          onPress={() => onOpenChart(chartCourseId)} hitSlop={8}><Text style={styles.viewAll}>View all ›</Text></Pressable> : null}
-      </View>
+      <SectionHeader
+        title="Chart"
+        action={chart.state === 'ready' ? 'View all ›' : undefined}
+        actionLabel="View all Chart"
+        onAction={() => onOpenChart(chartCourseId)}
+      />
       {chart.state === 'ready' ? (
         <ChartWorldPreview chart={chart} width={mapWidth} category={category} variant="details" onPress={() => onOpenChart(chartCourseId)} testID="v2-details-chart" />
       ) : chart.state === 'none' ? (
@@ -416,8 +398,8 @@ function ChartSection({
       ) : (
         <View style={[styles.chartPending, { minHeight: 270 }]}>
           <Text style={styles.quiet}>{chart.state === 'error' ? chart.message : 'Your Chart is loading.'}</Text>
-          {chart.state === 'error' ? <Pressable accessibilityRole="button" accessibilityLabel="Retry Chart" onPress={onRetry} style={styles.chartRetry}>
-            <Text style={styles.chartRetryText}>Try again</Text>
+          {chart.state === 'error' ? <Pressable accessibilityRole="button" accessibilityLabel="Retry Chart" onPress={onRetry} hitSlop={10} style={styles.chartRetry}>
+            <Text style={styles.retryText}>Try again</Text>
           </Pressable> : null}
         </View>
       )}
@@ -456,12 +438,203 @@ export function V2AnchorDetailsScreen() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const viewport = useV2Responsive();
+  const reduceMotion = useV2ReduceMotion();
   const intents = useV2DailyShellIntents();
   const detail = useV2AnchorDetail(params.anchorId);
   const anchorId = detail.anchor?.localId ?? detail.anchor?.id ?? '';
   const serverId = detail.anchor?.id ?? '';
   const recommendation = useRecommendation(serverId);
   const vision = useV2Vision(serverId);
+  const exportActions = useAnchorExportActions(detail.anchor);
+
+  // The Anchor is the Anchor transition's `details` place: Home's flight lands
+  // here and the Practice flight leaves from here. Android moves a newly pushed
+  // native screen beneath the status bar after its first layout callback, so
+  // the settled position is measured one beat later.
+  const place = useAnchorTransitionPlace('details', params.anchorId, 'paper', { measureDelayMs: focusTransition.reduceMotion ? 0 : 120 });
+
+  // ── Sheet geometry: one shared value, `y` (the sheet's top edge), drives everything ──
+  const snaps = useMemo(() => resolveSheetSnaps(height, insets.top), [height, insets.top]);
+  const restLayout = useMemo(
+    () => resolveSheetLayout({ y: snaps.rest, snaps, width, height, topInset: insets.top }),
+    [height, insets.top, snaps, width],
+  );
+  const restSize = restLayout.anchorSize;
+  const restLeft = restLayout.anchorCenterX - restSize / 2;
+  const restTop = restLayout.anchorTop;
+  const restCenterY = restTop + restSize / 2;
+
+  const sheetY = useSharedValue(snaps.rest);
+  const dragStartY = useSharedValue(0);
+  const scrollY = useSharedValue(0);
+  const touchStartX = useSharedValue(0);
+  const touchStartY = useSharedValue(0);
+  const bodyPanBase = useSharedValue(0);
+  const settledSnapRef = useRef<'rest' | 'half' | 'full'>('rest');
+  const [blockMode, setBlockMode] = useState<'centered' | 'header'>('centered');
+  const [scrollOn, setScrollOn] = useState(false);
+  const [barOn, setBarOn] = useState(false);
+
+  const layout = useDerivedValue(
+    () => resolveSheetLayout({ y: sheetY.value, snaps, width, height, topInset: insets.top }),
+    [snaps, width, height, insets.top],
+  );
+
+  // Rotation or an inset change moves the snaps; keep the sheet on the one it was resting at.
+  useEffect(() => {
+    sheetY.value = snaps[settledSnapRef.current];
+  }, [sheetY, snaps]);
+
+  const onSettled = useCallback((target: number) => {
+    settledSnapRef.current = target === snaps.full ? 'full' : target === snaps.half ? 'half' : 'rest';
+  }, [snaps]);
+
+  const settleTo = useCallback((target: number) => {
+    'worklet';
+    cancelAnimation(sheetY);
+    sheetY.value = withTiming(
+      target,
+      { duration: reduceMotion ? 0 : SNAP_MS, easing: SNAP_EASING },
+      (finished) => {
+        if (finished) runOnJS(onSettled)(target);
+      },
+    );
+  }, [onSettled, reduceMotion, sheetY]);
+
+  const handleGesture = useMemo(() => {
+    const pan = Gesture.Pan()
+      .minDistance(3)
+      .onStart(() => {
+        cancelAnimation(sheetY);
+        dragStartY.value = sheetY.value;
+      })
+      .onUpdate((event) => {
+        sheetY.value = Math.max(snaps.full, Math.min(snaps.rest, dragStartY.value + event.translationY));
+      })
+      .onEnd((event) => {
+        settleTo(nearestSnap(sheetY.value, event.velocityY, snaps));
+      });
+    const tap = Gesture.Tap().onEnd((_event, success) => {
+      if (success) settleTo(nextSnapForTap(sheetY.value, snaps));
+    });
+    return Gesture.Race(pan, tap);
+  }, [dragStartY, settleTo, sheetY, snaps]);
+
+  /**
+   * The body hands a drag back to the sheet: anywhere on it while the sheet is
+   * below full (the content does not scroll then), and downward from the top of
+   * the content once it is full. Everything else stays with the ScrollView.
+   */
+  const bodyGesture = useMemo(() => Gesture.Pan()
+    .manualActivation(true)
+    .onTouchesDown((event) => {
+      const touch = event.allTouches[0];
+      if (!touch) return;
+      touchStartX.value = touch.absoluteX;
+      touchStartY.value = touch.absoluteY;
+    })
+    .onTouchesMove((event, manager) => {
+      const touch = event.allTouches[0];
+      if (!touch) return;
+      const dy = touch.absoluteY - touchStartY.value;
+      const dx = touch.absoluteX - touchStartX.value;
+      if (Math.abs(dy) < 6 || Math.abs(dy) < Math.abs(dx)) return;
+      const belowFull = sheetY.value > snaps.full + SHEET_SCROLL_TOLERANCE;
+      if (belowFull || (dy > 0 && scrollY.value <= 0)) manager.activate();
+      else manager.fail();
+    })
+    .onStart((event) => {
+      cancelAnimation(sheetY);
+      dragStartY.value = sheetY.value;
+      bodyPanBase.value = event.translationY;
+    })
+    .onUpdate((event) => {
+      sheetY.value = Math.max(snaps.full, Math.min(snaps.rest, dragStartY.value + (event.translationY - bodyPanBase.value)));
+    })
+    .onEnd((event) => {
+      settleTo(nearestSnap(sheetY.value, event.velocityY, snaps));
+    }), [bodyPanBase, dragStartY, scrollY, settleTo, sheetY, snaps, touchStartX, touchStartY]);
+
+  useAnimatedReaction(
+    () => {
+      const l = layout.value;
+      return {
+        header: l.headerOpacity > l.centeredOpacity,
+        bar: l.barOpacity > 0.5,
+        scroll: sheetY.value <= snaps.full + SHEET_SCROLL_TOLERANCE,
+      };
+    },
+    (current, previous) => {
+      if (!previous || current.header !== previous.header) runOnJS(setBlockMode)(current.header ? 'header' : 'centered');
+      if (!previous || current.bar !== previous.bar) runOnJS(setBarOn)(current.bar);
+      if (!previous || current.scroll !== previous.scroll) runOnJS(setScrollOn)(current.scroll);
+    },
+    [snaps],
+  );
+
+  const scrollHandler = useAnimatedScrollHandler((event) => {
+    scrollY.value = event.contentOffset.y;
+  });
+
+  const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: sheetY.value }] }));
+  const anchorMotionStyle = useAnimatedStyle(() => {
+    const l = layout.value;
+    return {
+      transform: [
+        { translateX: l.anchorCenterX - (restLeft + restSize / 2) },
+        { translateY: l.anchorTop + l.anchorSize / 2 - restCenterY },
+        { scale: l.anchorSize / restSize },
+      ],
+    };
+  }, [restCenterY, restLeft, restSize]);
+  const haloOpacityStyle = useAnimatedStyle(() => ({ opacity: layout.value.haloOpacity }));
+  const centeredStyle = useAnimatedStyle(() => ({
+    opacity: layout.value.centeredOpacity,
+    transform: [{ translateY: layout.value.centeredTop }],
+  }));
+  const centeredTitleStyle = useAnimatedStyle(() => ({
+    width: layout.value.centeredWidth,
+    fontSize: layout.value.centeredFontSize,
+    lineHeight: layout.value.centeredFontSize * 1.16,
+  }));
+  const headerStyle = useAnimatedStyle(() => ({
+    opacity: layout.value.headerOpacity,
+    width: layout.value.headerWidth,
+    transform: [{ translateX: layout.value.headerLeft }, { translateY: layout.value.headerTop }],
+  }));
+  const practiceWrapStyle = useAnimatedStyle(() => ({
+    height: layout.value.practiceHeight,
+    opacity: layout.value.practiceOpacity,
+  }));
+  const barStyle = useAnimatedStyle(() => ({ opacity: layout.value.barOpacity }));
+
+  // ── Menu, export, toast ──
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [toastText, setToastText] = useState<string | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const exportTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = useCallback((text: string) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToastText(text);
+    toastTimerRef.current = setTimeout(() => setToastText(null), TOAST_MS);
+  }, []);
+  useEffect(() => () => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    if (exportTimerRef.current) clearTimeout(exportTimerRef.current);
+  }, []);
+
+  const handleMenuSelect = useCallback((action: AnchorOptionsMenuAction) => {
+    setMenuOpen(false);
+    if (action === 'share') exportActions.share();
+    else if (action === 'wallpaper') void exportActions.saveWallpaper();
+    else if (action === 'copy') void exportActions.copyIntention().then((copied) => { if (copied) showToast('Intention copied'); });
+    else {
+      // A second Modal cannot present while the menu's is still leaving.
+      if (exportTimerRef.current) clearTimeout(exportTimerRef.current);
+      exportTimerRef.current = setTimeout(() => setExportOpen(true), 250);
+    }
+  }, [exportActions, showToast]);
 
   useEffect(() => {
     VisualProfiler.record('detailsScreenMounted', { anchorId: params.anchorId });
@@ -499,13 +672,17 @@ export function V2AnchorDetailsScreen() {
     const actionType = (event.data as { action?: { type?: string } }).action?.type;
     if (previous?.name === 'V2Home' && ['GO_BACK', 'POP', 'POP_TO_TOP'].includes(actionType ?? '')) {
       event.preventDefault();
+      // The travelling Anchor leaves from where Details first received it: the
+      // rest position. Put the sheet back there so the hand-off has no jump.
+      cancelAnimation(sheetY);
+      sheetY.value = snaps.rest;
       const completeBack = () => {
         backDispatchingRef.current = true;
         navigation.dispatch(event.data.action);
       };
       if (!focusTransition.closeAnchor(params.anchorId, completeBack)) completeBack();
     }
-  }), [focusTransition, navigation, params.anchorId]);
+  }), [focusTransition, navigation, params.anchorId, sheetY, snaps.rest]);
 
   const chart = useMemo(
     () =>
@@ -513,15 +690,6 @@ export function V2AnchorDetailsScreen() {
         ? resolveAnchorChartState({ data: anchorChart.data, loading: anchorChart.loading, error: anchorChart.error, includeCompleted: true })
         : ({ state: 'none' } as const),
     [anchorChart.data, anchorChart.error, anchorChart.loading, detail.anchor],
-  );
-
-  const history = useMemo(
-    () =>
-      detail.recentPractice
-        .slice()
-        .reverse()
-        .map((item) => item.strengthAfter),
-    [detail.recentPractice],
   );
 
   if (!detail.anchor) {
@@ -535,11 +703,13 @@ export function V2AnchorDetailsScreen() {
     );
   }
 
-  const accent = getCategoryColor(detail.anchor.category);
+  const anchor = detail.anchor;
+  const accent = getCategoryColor(anchor.category);
   const visionTile = vision.state.state === 'ready' ? vision.state.tiles.find((tile) => tile.imageUrl) : null;
   const visionTiles = vision.state.state === 'ready' ? vision.state.tiles : [];
   const visionStatement = vision.state.state === 'ready' ? vision.state.title?.trim() || vision.state.description || vision.description : '';
   const visionSeenToday = vision.state.state === 'ready' ? vision.state.seenToday : false;
+  const hasVisionContent = Boolean(visionTile?.imageUrl || visionStatement?.trim());
 
   const hasChart = chart.state === 'ready';
   const chartCourseId = hasChart ? chart.courseId : undefined;
@@ -550,8 +720,12 @@ export function V2AnchorDetailsScreen() {
       ? visualizeDuration
       : focusDuration;
 
+  const threadValue = recommendation.value?.strength ?? detail.thread?.value ?? null;
+  const threadDelta = recommendation.value?.delta ?? null;
+  const openProgress = () => intents.onOpenProgress(serverId);
+
   const openRelease = () => focusTransition.startAnchorTransition({
-    anchor: detail.anchor!, from: 'details',
+    anchor, from: 'details',
     to: { target: 'release', rect: releaseArtworkRect(width, height) },
     onNavigate: (withHero) => withHero ? intents.onReleaseAnchor(anchorId, { anchorTransition: true }) : intents.onReleaseAnchor(anchorId),
   });
@@ -563,7 +737,7 @@ export function V2AnchorDetailsScreen() {
     }
     // The medallion travels into the Practice setup this CTA opens.
     focusTransition.startAnchorTransition({
-      anchor: detail.anchor!,
+      anchor,
       from: 'details',
       to: {
         target: 'practiceSetup',
@@ -573,179 +747,337 @@ export function V2AnchorDetailsScreen() {
     });
   };
 
-  const { paintingHeight, medallionSize } = resolveAnchorDetailsHeroGeometry({
-    width, height, topInset: insets.top, platform: Platform.OS,
-  });
+  const recommendedMode = recommendation.value?.mode ?? null;
+  const barLabel = recommendedMode
+    ? recommendedMode === 'release'
+      ? 'Release'
+      : `${V2_PRACTICE_MODE_BY_ID[recommendedMode]?.title ?? 'Practice'} · ${durationLabel(duration)}`
+    : '';
+  const barBottom = Math.max(26, insets.bottom + 10);
+  const scrollHeight = height - snaps.full - SHEET_HANDLE_HEIGHT;
+  const artwork = anchorRenderProps(anchor);
 
   return (
     <AnchorTransitionScene place="details">
-      <SafeAreaView style={styles.safe} edges={['top', 'bottom']} onLayout={__DEV__ ? () => VisualProfiler.record('detailsLayoutReady', { anchorId: params.anchorId }) : undefined}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
-        <ScrollView testID="v2-anchor-details-screen" showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        <Hero
-          anchor={detail.anchor}
-          paintingHeight={paintingHeight}
-          medallionSize={medallionSize}
-          anchorId={params.anchorId}
-          reduceMotion={focusTransition.reduceMotion}
-          onBack={() => navigation.goBack()}
-          onMore={() =>
-            Alert.alert('Anchor', undefined, [
-              { text: 'View Progress', onPress: () => intents.onOpenProgress(serverId) },
-              ...(!detail.anchor?.isReleased ? [{ text: 'Release this Anchor', onPress: openRelease }] : []),
-              { text: 'Cancel', style: 'cancel' },
-            ])
-          }
+      <View style={styles.stage} testID="v2-anchor-details-stage" onLayout={__DEV__ ? () => VisualProfiler.record('detailsLayoutReady', { anchorId: params.anchorId }) : undefined}>
+        <StatusBar barStyle="dark-content" backgroundColor={detailsPalette.cream} />
+
+        {/* Halo and Anchor share one transform: the halo is the Anchor's own glow. */}
+        <Animated.View pointerEvents="none" style={[styles.halo, { left: restLeft - restSize * 0.075, top: restTop - restSize * 0.075, width: restSize * 1.15, height: restSize * 1.15 }, anchorMotionStyle, haloOpacityStyle]}>
+          <Halo color={accent} />
+        </Animated.View>
+        <Animated.View
+          ref={place.ref as never}
+          collapsable={false}
+          onLayout={place.onLayout}
+          pointerEvents="none"
+          style={[styles.anchor, { left: restLeft, top: restTop, width: restSize, height: restSize, opacity: place.hidden ? 0 : 1 }, anchorMotionStyle]}
+        >
+          <CircularAnchorRenderer
+            {...artwork}
+            size={restSize}
+            appearance="paper"
+            accessibilityLabel={categoryLabel(anchor.category) + ' Anchor artwork'}
+          />
+        </Animated.View>
+
+        {/* Centered title block: the Anchor's intention under it, until the sheet rises. */}
+        <Animated.View
+          pointerEvents={blockMode === 'centered' ? 'box-none' : 'none'}
+          accessibilityElementsHidden={blockMode !== 'centered'}
+          importantForAccessibility={blockMode === 'centered' ? 'auto' : 'no-hide-descendants'}
+          style={[styles.centeredBlock, { width }, centeredStyle]}
+        >
+          <Animated.Text accessibilityRole="header" style={[styles.centeredTitle, centeredTitleStyle]}>{anchor.intentionText}</Animated.Text>
+          <ThreadMeta
+            size="centered"
+            value={threadValue}
+            delta={threadDelta}
+            category={anchor.category}
+            active={blockMode === 'centered'}
+            onPress={openProgress}
+          />
+        </Animated.View>
+
+        {/* Header title block: the same words beside the small Anchor at full. */}
+        <Animated.View
+          pointerEvents={blockMode === 'header' ? 'box-none' : 'none'}
+          accessibilityElementsHidden={blockMode !== 'header'}
+          importantForAccessibility={blockMode === 'header' ? 'auto' : 'no-hide-descendants'}
+          style={[styles.headerBlock, headerStyle]}
+        >
+          <Text accessibilityRole="header" numberOfLines={3} style={styles.headerTitle}>{anchor.intentionText}</Text>
+          <ThreadMeta
+            size="header"
+            value={threadValue}
+            delta={threadDelta}
+            category={anchor.category}
+            active={blockMode === 'header'}
+            onPress={openProgress}
+          />
+        </Animated.View>
+
+        <View style={[styles.navRow, { top: insets.top + 4 }]} pointerEvents="box-none">
+          <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => navigation.goBack()} hitSlop={4} style={styles.navButton}>
+            <ChevronLeft color={detailsPalette.ink} size={24} />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="More Anchor options"
+            accessibilityHint="Share, download, wallpaper, copy intention"
+            testID="v2-anchor-more"
+            onPress={() => setMenuOpen(true)}
+            hitSlop={4}
+            style={styles.navButton}
+          >
+            <MoreHorizontal color={detailsPalette.ink} size={24} />
+          </Pressable>
+        </View>
+
+        {/* The sheet. It is translated, never resized, so dragging does no layout. */}
+        <Animated.View style={[styles.sheet, { height: height - snaps.full }, sheetStyle]}>
+          <GestureDetector gesture={handleGesture}>
+            <View
+              collapsable={false}
+              accessible
+              accessibilityRole="adjustable"
+              accessibilityLabel="Details sheet"
+              accessibilityHint="Double tap to raise or lower"
+              onAccessibilityTap={() => settleTo(nextSnapForTap(sheetY.value, snaps))}
+              style={styles.handleZone}
+              testID="v2-details-sheet-handle"
+            >
+              <View style={styles.handlePill} />
+            </View>
+          </GestureDetector>
+
+          <GestureDetector gesture={bodyGesture}>
+            <View collapsable={false} style={{ height: scrollHeight }}>
+              <Animated.ScrollView
+                testID="v2-anchor-details-screen"
+                scrollEnabled={scrollOn}
+                onScroll={scrollHandler}
+                scrollEventThrottle={16}
+                bounces={false}
+                overScrollMode="never"
+                nestedScrollEnabled
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: SHEET_GUTTER, paddingBottom: 150 + insets.bottom }}
+              >
+                <Animated.View style={[styles.practiceWrap, practiceWrapStyle]}>
+                  <View style={styles.practiceInner}>
+                    <TodayCard recommendation={recommendation.value} error={recommendation.error} duration={duration} hasVision={hasVisionContent} onPress={openPractice} />
+                  </View>
+                </Animated.View>
+
+                <VisionSection
+                  state={vision.state}
+                  accent={accent}
+                  visionTile={visionTile}
+                  tiles={visionTiles}
+                  statement={visionStatement}
+                  seenToday={visionSeenToday}
+                  onOpenVision={() => intents.onOpenVision(serverId)}
+                  onEditVision={() => intents.onOpenVision(serverId, { edit: true })}
+                  onRetry={vision.refresh}
+                />
+
+                <ChartSection
+                  chart={chart}
+                  chartCourseId={chartCourseId}
+                  category={anchor.category}
+                  width={width}
+                  onRetry={anchorChart.refresh}
+                  onOpenChart={(courseId) => intents.onOpenChart(serverId, courseId)}
+                />
+
+                <RecentPractice entries={detail.recentPractice} onViewAll={openProgress} />
+
+                {!anchor.isReleased ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Release this Anchor"
+                    onPress={openRelease}
+                    testID="v2-details-release"
+                    style={styles.releaseRow}
+                  >
+                    <View style={styles.releaseIconWrap}>
+                      <Svg width={22} height={22} viewBox="0 0 24 24">
+                        <Circle cx={12} cy={12} r={9.5} stroke={detailsPalette.releaseRose} strokeWidth={1.8} fill="none" />
+                        <Path d="M9 9l6 6M15 9l-6 6" stroke={detailsPalette.releaseRose} strokeWidth={1.8} strokeLinecap="round" />
+                      </Svg>
+                    </View>
+                    <Text style={styles.releaseText}>Release this Anchor</Text>
+                    <ChevronRight size={18} color="rgba(244,237,224,.55)" />
+                  </Pressable>
+                ) : null}
+              </Animated.ScrollView>
+            </View>
+          </GestureDetector>
+        </Animated.View>
+
+        {/* Pinned Visualize bar: the practice card's job once the card has scrolled away. */}
+        <Animated.View pointerEvents="none" style={[styles.barFade, { height: 120 + insets.bottom }, barStyle]}>
+          <LinearGradient colors={['rgba(20,22,43,0)', detailsPalette.ink]} locations={[0, 0.52]} style={StyleSheet.absoluteFill} />
+        </Animated.View>
+        {recommendedMode ? (
+          <Animated.View
+            pointerEvents={barOn ? 'auto' : 'none'}
+            accessibilityElementsHidden={!barOn}
+            importantForAccessibility={barOn ? 'auto' : 'no-hide-descendants'}
+            style={[styles.barWrap, { bottom: barBottom }, barStyle]}
+          >
+            <Pressable
+              testID="v2-anchor-pinned-practice"
+              accessibilityRole="button"
+              accessibilityLabel={`Start ${V2_PRACTICE_MODE_BY_ID[recommendedMode]?.title ?? 'practice'}, ${durationLabel(duration)}`}
+              onPress={() => openPractice(recommendedMode)}
+              style={({ pressed }) => [styles.barButton, { backgroundColor: getPracticeColor(recommendedMode) }, pressed && styles.pressed]}
+            >
+              <Play size={18} color={detailsPalette.ink} fill={detailsPalette.ink} />
+              <Text style={styles.barText}>{barLabel}</Text>
+            </Pressable>
+          </Animated.View>
+        ) : null}
+
+        <AnchorOptionsMenu
+          visible={menuOpen}
+          onClose={() => setMenuOpen(false)}
+          onSelect={handleMenuSelect}
+          top={insets.top + 54}
+          busy={{ share: exportActions.isSharing, wallpaper: exportActions.isSavingWallpaper }}
         />
 
-        <View style={[styles.body, { paddingHorizontal: width < 370 ? 20 : 24 }]}>
-          <ThreadSummary
-            value={recommendation.value?.strength ?? detail.thread?.value ?? null}
-            delta={recommendation.value?.delta ?? null}
-            accent={accent}
-            levelColor={getCategoryTextColor(detail.anchor.category, colors.surface, colors.text.primary)}
-            onPress={() => intents.onOpenProgress(serverId)}
-            history={history}
-          />
+        <ExportAnchorSheet
+          isVisible={exportOpen}
+          onClose={() => setExportOpen(false)}
+          sigilSvg={anchorArtworkSvg(anchor)}
+          sigilUri={anchor.enhancedImageUrl ?? undefined}
+          intention={anchor.intentionText}
+          onSaved={showToast}
+        />
 
-          <VisionSection
-            state={vision.state}
-            accent={accent}
-            visionTile={visionTile}
-            tiles={visionTiles}
-            statement={visionStatement}
-            seenToday={visionSeenToday}
-            onOpenVision={() => intents.onOpenVision(serverId)}
-            onEditVision={() => intents.onOpenVision(serverId, { edit: true })}
-            onRetry={vision.refresh}
-          />
+        {toastText ? (
+          <View pointerEvents="none" style={[styles.toastWrap, { top: insets.top + 60 }]} accessibilityLiveRegion="polite">
+            <View style={styles.toast}><Text style={styles.toastText}>{toastText}</Text></View>
+          </View>
+        ) : null}
 
-          <TodayCard recommendation={recommendation.value} error={recommendation.error} duration={duration} onPress={openPractice} />
+        {/* Read by tests and the old Thread Strength QA hook; never visible. */}
+        <Text testID="v2-thread-strength-value" style={styles.hiddenValueTest}>
+          {threadValue === null ? '—' : threadValue}
+        </Text>
 
-          <ChartSection
-            chart={chart}
-            chartCourseId={chartCourseId}
-            category={detail.anchor.category}
-            width={width}
-            onRetry={anchorChart.refresh}
-            onOpenChart={(courseId) => intents.onOpenChart(serverId, courseId)}
-          />
-
-          <RecentPractice entries={detail.recentPractice} onViewAll={() => intents.onOpenProgress(serverId)} />
-
-          {!detail.anchor.isReleased ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Release this Anchor"
-              onPress={openRelease}
-              testID="v2-details-release"
-              style={styles.releaseRow}
-            >
-              <View style={styles.releaseIconWrap}>
-                <Svg width={20} height={20} viewBox="0 0 24 24">
-                  <Circle cx={12} cy={12} r={10} stroke={colors.semantic.error} strokeWidth={1.75} fill="none" />
-                  <Path d="M8 8 L16 16 M16 8 L8 16" stroke={colors.semantic.error} strokeWidth={1.75} strokeLinecap="round" />
-                </Svg>
-              </View>
-              <Text style={styles.releaseText}>Release this Anchor</Text>
-              <ChevronRight size={18} color={colors.text.secondary} />
-            </Pressable>
-          ) : null}
-        </View>
-        </ScrollView>
-      </SafeAreaView>
+        {exportActions.hiddenNodes}
+      </View>
     </AnchorTransitionScene>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.surface },
-  scroll: { paddingBottom: 36 },
-  heroWrap: { alignItems: 'center' },
-  hero: { width: '100%', overflow: 'hidden' },
-  heroImage: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
-  heroWash: { ...StyleSheet.absoluteFillObject },
-  heroNav: {
+  stage: { flex: 1, backgroundColor: detailsPalette.cream, overflow: 'hidden' },
+  halo: { position: 'absolute' },
+  anchor: {
     position: 'absolute',
-    top: 0,
+    zIndex: 1,
+  },
+  centeredBlock: {
+    position: 'absolute',
     left: 0,
-    right: 0,
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    top: 0,
+    alignItems: 'center',
+    gap: 8,
     zIndex: 2,
   },
-  heroNavButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(251,249,244,0.65)',
+  centeredTitle: {
+    fontFamily: detailsFonts.serif,
+    color: detailsPalette.ink,
+    textAlign: 'center',
+    letterSpacing: -0.2,
+  },
+  headerBlock: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    zIndex: 2,
+  },
+  headerTitle: {
+    fontFamily: detailsFonts.serif,
+    fontSize: 19,
+    lineHeight: 23,
+    letterSpacing: -0.2,
+    color: detailsPalette.ink,
+    marginBottom: 8,
+  },
+  meta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 20,
+  },
+  metaCategory: { fontFamily: detailsFonts.uiStrong },
+  metaDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: 'rgba(20,22,43,.4)' },
+  metaNumeral: { fontFamily: detailsFonts.serif, color: detailsPalette.ink },
+  metaStatus: { fontFamily: detailsFonts.uiStrong },
+  navRow: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    zIndex: 5,
+  },
+  navButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: detailsPalette.inkWash,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  glyph: {
+  sheet: {
     position: 'absolute',
-    alignSelf: 'center',
-    zIndex: 3,
+    left: 0,
+    right: 0,
+    top: 0,
+    zIndex: 4,
+    backgroundColor: detailsPalette.ink,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: 'hidden',
   },
-  heroCopy: {
+  handleZone: {
+    height: SHEET_HANDLE_HEIGHT,
     alignItems: 'center',
-    maxWidth: '88%',
-    zIndex: 2,
+    justifyContent: 'flex-start',
+    paddingTop: 9,
   },
-  intention: {
-    fontFamily: typography.displayBold,
-    fontSize: 27,
-    lineHeight: 32,
-    color: colors.text.primary,
-    textAlign: 'center',
-    letterSpacing: -0.7,
-  },
-  category: {
-    fontFamily: typography.bodyBold,
-    fontSize: 11,
-    letterSpacing: 2,
-    marginTop: 8,
-  },
-  created: {
-    fontFamily: typography.bodyMedium,
-    fontSize: 12,
-    color: colors.text.secondary,
-    marginTop: 5,
-  },
-  arc: {
-    position: 'absolute',
-    bottom: -1,
-  },
-
-  body: {
-    paddingTop: 18,
-    gap: 20,
-  },
-  sectionHeading: {
+  handlePill: { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(244,237,224,.34)' },
+  practiceWrap: { overflow: 'hidden' },
+  practiceInner: { height: PRACTICE_CARD_HEIGHT, paddingBottom: 24 },
+  barFade: { position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 6 },
+  barWrap: { position: 'absolute', left: 20, right: 20, zIndex: 7 },
+  barButton: {
+    height: 52,
+    borderRadius: 26,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    gap: 10,
   },
-  eyebrow: {
-    fontFamily: typography.bodyBold,
-    fontSize: 11,
-    letterSpacing: 1.2,
-    color: colors.text.primary,
+  barText: { fontFamily: detailsFonts.uiStrong, fontSize: 16, color: detailsPalette.ink },
+  toastWrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center', zIndex: 30 },
+  toast: {
+    paddingVertical: 11,
+    paddingHorizontal: 18,
+    borderRadius: 22,
+    backgroundColor: detailsPalette.ink,
+    shadowColor: detailsPalette.ink,
+    shadowOpacity: 0.5,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 10,
   },
-  level: {
-    fontFamily: typography.bodyBold,
-    fontSize: 11,
-    letterSpacing: 1,
-  },
-  headingLabelGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  headingIcon: {
-    marginLeft: 5,
-  },
+  toastText: { fontFamily: detailsFonts.uiStrong, fontSize: 14, color: detailsPalette.cream },
   hiddenValueTest: {
     position: 'absolute',
     opacity: 0,
@@ -753,199 +1085,137 @@ const styles = StyleSheet.create({
     height: 0,
   },
 
-  /* Thread Strength */
-  thread: {
-    backgroundColor: 'rgba(244,241,233,0.5)',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border.subtle,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 10,
-  },
-  threadMetricsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 6,
-  },
-  threadValueGroup: {
-    flexShrink: 0,
-  },
-  threadPercent: {
-    fontFamily: 'EBGaramond-Medium',
-    fontSize: 38,
-    lineHeight: 42,
-    color: colors.text.primary,
-  },
-  threadDelta: {
-    fontFamily: typography.bodySemiBold,
-    fontSize: 12,
-    marginTop: 1,
-  },
-  threadTrackWrap: {
-    flex: 1,
-    marginLeft: 12,
-    justifyContent: 'center',
-  },
-
-  /* Today Card */
+  /* Recommended practice */
   todayCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border.subtle,
-    backgroundColor: 'rgba(244,241,233,0.6)',
-    padding: 14,
+    borderRadius: 20,
+    backgroundColor: detailsPalette.creamFaint,
+    padding: 12,
     flexDirection: 'row',
     gap: 14,
     alignItems: 'center',
   },
   todayArtThumbnailWrap: {
-    width: 76,
-    height: 76,
-    borderRadius: 12,
+    width: 56,
+    height: 56,
+    borderRadius: 14,
     overflow: 'hidden',
-    backgroundColor: colors.grouped,
+    backgroundColor: colors.ink.deep,
     flexShrink: 0,
   },
-  todayArtThumbnail: {
-    width: '100%',
-    height: '100%',
-  },
-  todayBody: {
-    flex: 1,
-    minWidth: 0,
-  },
+  todayArtThumbnail: { width: '100%', height: '100%' },
+  todayBody: { flex: 1, minWidth: 0 },
   todayEyebrow: {
-    fontFamily: typography.bodyMedium,
+    fontFamily: detailsFonts.ui,
     fontSize: 11,
-    color: colors.text.secondary,
+    letterSpacing: 0.66,
+    color: detailsPalette.creamMuted,
   },
   todayTitle: {
-    fontFamily: typography.displayBold,
+    fontFamily: detailsFonts.uiStrong,
     fontSize: 18,
     lineHeight: 22,
-    color: colors.text.primary,
-    marginTop: 1,
+    color: detailsPalette.cream,
   },
   todayMeta: {
-    fontFamily: typography.bodySemiBold,
+    fontFamily: detailsFonts.ui,
     fontSize: 13,
-    color: colors.text.primary,
-    marginTop: 2,
+    lineHeight: 17,
+    color: detailsPalette.creamSoft,
   },
-  todayReason: {
-    fontFamily: typography.body,
-    fontSize: 12,
-    lineHeight: 16,
-    color: colors.text.secondary,
-    marginTop: 4,
+  todayPlay: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   todayPending: {
-    minHeight: 104,
+    minHeight: 80,
     justifyContent: 'center',
     gap: 6,
   },
 
-  /* Generic Section Block */
-  sectionBlock: {
-    marginTop: 2,
-  },
+  /* Sections */
+  sectionBlock: { marginTop: 24 },
   sectionHeaderRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'baseline',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   sectionHeaderTitle: {
-    fontFamily: typography.displayBold,
-    fontSize: 16,
-    color: colors.text.primary,
+    fontFamily: detailsFonts.serif,
+    fontSize: 19,
+    color: detailsPalette.cream,
   },
+  sectionAction: { minHeight: 44, justifyContent: 'center', marginVertical: -12 },
   viewAll: {
-    fontFamily: typography.bodySemiBold,
+    fontFamily: detailsFonts.uiStrong,
     fontSize: 13,
-    color: colors.text.primary,
+    color: detailsPalette.creamSoft,
   },
-
-  /* Vision Section */
+  cardClip: { borderRadius: 16, overflow: 'hidden' },
+  visionEmpty: {
+    minHeight: 150,
+    padding: spacing[5],
+    justifyContent: 'center',
+    borderRadius: 16,
+    backgroundColor: detailsPalette.cream,
+  },
+  emptyVisionTitle: { fontFamily: detailsFonts.serif, fontSize: 18, lineHeight: 22, color: detailsPalette.ink },
+  emptyVisionPayoff: { fontFamily: detailsFonts.ui, fontSize: 12.5, lineHeight: 16, color: 'rgba(20,22,43,.66)' },
   visionPending: { width: '100%', aspectRatio: 1 / 0.6, paddingVertical: 16 },
-  /* Recent Practice */
-  practiceList: {
-    gap: 8,
-  },
+  practiceList: { gap: 4 },
   practiceItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
+    minHeight: 44,
   },
   practiceIconBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
-  practiceItemCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
+  practiceItemCopy: { flex: 1, minWidth: 0 },
   practiceItemTitle: {
-    fontFamily: typography.bodySemiBold,
-    fontSize: 14,
-    color: colors.text.primary,
+    fontFamily: detailsFonts.uiStrong,
+    fontSize: 15,
+    color: detailsPalette.cream,
   },
   practiceItemDuration: {
-    fontFamily: typography.body,
-    fontSize: 13,
-    color: colors.text.secondary,
+    fontFamily: detailsFonts.ui,
+    fontSize: 15,
+    color: detailsPalette.creamMuted,
   },
   practiceItemDate: {
-    fontFamily: typography.bodyMedium,
-    fontSize: 12.5,
-    color: colors.text.secondary,
-  },
-
-  /* Chart */
-  chartPending: { paddingVertical: 16 },
-  chartRetry: {
-    alignSelf: 'flex-start',
-    marginTop: 8,
-  },
-  chartRetryText: {
-    fontFamily: typography.bodySemiBold,
+    fontFamily: detailsFonts.ui,
     fontSize: 13,
-    color: colors.text.secondary,
+    color: detailsPalette.creamMuted,
+  },
+  chartPending: { paddingVertical: 16 },
+  chartRetry: { alignSelf: 'flex-start', marginTop: 8 },
+  retryText: {
+    fontFamily: detailsFonts.uiStrong,
+    fontSize: 13,
+    color: detailsPalette.creamSoft,
     textDecorationLine: 'underline',
   },
 
-  /* Empty Cards */
+  /* Empty Chart card */
   emptyArtCard: {
     position: 'relative',
     height: 96,
     borderRadius: 14,
     overflow: 'hidden',
-    borderColor: colors.border.subtle,
-    borderWidth: 1,
     justifyContent: 'flex-end',
-    marginTop: 10,
   },
-  emptyCardImageFrame: {
-    ...StyleSheet.absoluteFillObject,
-    overflow: 'hidden',
-  },
-  emptyCardImage: {
-    width: '100%',
-    height: '100%',
-  },
-  emptyArtScrim: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: '100%',
-  },
+  emptyCardImageFrame: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
+  emptyCardImage: { width: '100%', height: '100%' },
+  emptyArtScrim: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '100%' },
   emptyCardContent: {
     zIndex: 1,
     paddingLeft: 16,
@@ -953,7 +1223,7 @@ const styles = StyleSheet.create({
     paddingRight: 64,
   },
   emptyCardTitle: {
-    fontFamily: typography.displaySemiBold,
+    fontFamily: detailsFonts.serif,
     fontSize: 18,
     lineHeight: 22,
     color: colors.text.inverse,
@@ -962,7 +1232,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
   emptyCardPayoff: {
-    fontFamily: typography.body,
+    fontFamily: detailsFonts.ui,
     fontSize: 12.5,
     lineHeight: 16,
     color: colors.text.inverse + 'B3',
@@ -987,33 +1257,27 @@ const styles = StyleSheet.create({
 
   /* Release */
   releaseRow: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border.subtle,
-    minHeight: 44,
-    marginTop: 10,
-    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth * 2,
+    borderTopColor: detailsPalette.creamHairline,
+    minHeight: 56,
+    marginTop: 20,
+    paddingTop: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
-  releaseIconWrap: {
-    marginRight: 10,
-  },
+  releaseIconWrap: { marginRight: 12 },
   releaseText: {
     flex: 1,
-    fontFamily: typography.bodySemiBold,
-    fontSize: 14,
-    lineHeight: 18,
-    color: colors.semantic.error,
+    fontFamily: detailsFonts.uiStrong,
+    fontSize: 15,
+    color: detailsPalette.releaseRose,
   },
 
   quiet: {
-    fontFamily: typography.body,
+    fontFamily: detailsFonts.ui,
     fontSize: 13,
-    color: colors.text.secondary,
+    color: detailsPalette.creamMuted,
     marginTop: 4,
   },
-  pressed: {
-    opacity: 0.82,
-  },
+  pressed: { opacity: 0.82 },
 });

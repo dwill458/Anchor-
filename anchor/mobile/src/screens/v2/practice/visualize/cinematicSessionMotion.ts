@@ -1,6 +1,7 @@
 import type { SceneRect, Size } from '@/components/v2/vision/board/visionBoardLayouts';
 import { cameraAtRect, mixCamera, progress, projectPoint, restCinematicCamera, smooth } from './prototype/cinematicGeometry';
 import { cinematicSegmentAt, type CinematicTimeline } from './prototype/cinematicTimeline';
+import { cinematicBreathAt, cinematicGradeAt } from './guided/cinematicGrade';
 
 /** How long the set-up's paper medallion takes to dissolve into the session's ink mark. */
 export const CINEMATIC_MARK_BRIDGE_MS = 450;
@@ -63,6 +64,7 @@ export function cinematicSessionFrame(ms: number, timeline: CinematicTimeline, g
     boardMarkOpacity: reduced && segment.kind === 'return' ? p : reduced &&
       (segment.kind === 'carry' || segment.kind === 'boardHold') ? 1 : 0,
     sceneImageIndex, compression, recognition, retreat,
+    grade: cinematicGradeAt(timeline, ms), breath: cinematicBreathAt(timeline, ms),
     unmasked: segment.kind === 'compression' ? reduced ? 1 - smooth(progress(ms, segment.startMs, segment.startMs + 2000)) : 0 : compression > 0 ? 0 : 1,
     masked: segment.kind === 'compression' ?
       (reduced ? smooth(progress(ms, segment.startMs, segment.startMs + 2000)) : 1) * (1 - compressionResolve) : 0,

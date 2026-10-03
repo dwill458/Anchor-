@@ -7,4 +7,4 @@ export type GuidanceVoice = (typeof GUIDANCE_VOICES)[number];
 export const BACKGROUND_AUDIO_MODES = ['ambient', 'off'] as const;
 export type BackgroundAudioMode = (typeof BACKGROUND_AUDIO_MODES)[number];
 
-export const VISUALIZE_DURATIONS_SECONDS = [60, 180, 300] as const;
+export const VISUALIZE_DURATIONS_SECONDS = [60, 180, 300, 600] as const;

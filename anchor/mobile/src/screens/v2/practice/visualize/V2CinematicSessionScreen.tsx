@@ -1,19 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, ActivityIndicator, Alert, AppState, BackHandler, Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { AccessibilityInfo, ActivityIndicator, AppState, BackHandler, Pressable, StatusBar, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useKeepAwake } from 'expo-keep-awake';
 import { Skia, type SkSVG } from '@shopify/react-native-skia';
-import Animated, { cancelAnimation, Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Pause, Play, X } from 'lucide-react-native';
 import { V2Button } from '@/components/v2';
 import { useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
 import { PracticeCompletionService } from '@/services/PracticeCompletionService';
 import { AnalyticsEvents, AnalyticsService } from '@/services/AnalyticsService';
-import { trackSessionStartedWithAudio } from '@/services/SessionAudioAnalytics';
-import { resolveSessionAudioPlan } from '@/services/SessionAudioManifest';
-import { getVisualizeSessionAudioManifest } from '@/services/visualizeAudioManifest';
-import { getVisualizeMonotonicNow, useVisualizeSessionEngine } from '@/screens/visualize/useVisualizeSessionEngine';
-import { useVisualizeSessionAudio } from '@/screens/visualize/useVisualizeSessionAudio';
+import { getGuidedTrackAsset } from '@/services/visualizeGuidedTracks';
+import { getVisualizeMonotonicNow } from '@/screens/visualize/useVisualizeSessionEngine';
 import { useVisualizeImmersiveMode } from '@/screens/visualize/useVisualizeImmersiveMode';
 import { colors, spacing, typography } from '@/theme/v2';
 import type { Anchor } from '@/types';
@@ -26,8 +23,11 @@ import { useVisionBoardScene } from '@/components/v2/vision/board/useVisionBoard
 import { boardSizeForWidth, toSceneRect } from '@/components/v2/vision/board/visionBoardLayouts';
 import { buildVisionSceneSnapshot, type V2VisualizeDuration } from './visualizeVisionPlan';
 import { useCinematicAssets, freezeCinematicTiles, type CinematicAssets } from './cinematicAssets';
-import { buildCinematicTimeline, cinematicSegmentAt } from './prototype/cinematicTimeline';
-import { buildCinematicGuidance, cinematicGuidanceAt } from './prototype/cinematicGuidance';
+import { cinematicSegmentAt } from './prototype/cinematicTimeline';
+import { guideForVoice } from './guided/visualizeBeatMap';
+import { cinematicGradeAt } from './guided/cinematicGrade';
+import { buildGuidedPlan, resolveGuidedState } from './guided/visualizeGuidedPlan';
+import { useGuidedPlayback } from './guided/useGuidedPlayback';
 import { cinematicSessionGeometry } from './cinematicSessionMotion';
 import { CinematicSessionStage } from './CinematicSessionStage';
 import { ENHANCED_ANCHOR_MASK_SHADER } from './enhancedAnchorMask';
@@ -51,6 +51,8 @@ export type CinematicSessionProps = {
 };
 /** Longest the settled final board is held for audio fade-out and the local completion write. */
 export const COMPLETION_SETTLE_MAX_MS = 4000;
+/** A seal that lands later than this after its moment (a long pause, a background return) is skipped, not replayed. */
+const SEAL_HAPTIC_WINDOW_MS = 1500;
 export const traceVisualize = (message: string, detail?: unknown) => {
   if (__DEV__ && !process.env.JEST_WORKER_ID) console.log(`[Visualize] ${message}`, detail ?? '');
 };
@@ -166,21 +168,14 @@ function CinematicRun({ anchor, accountId, statement, visionId, durationSeconds,
     }
   }, [prepareOnly, ready, markLocal, onPrepared, anchor, statement, visionId, assets, viewport, svgText, svg, enhancedMaskEffect]);
   useEffect(() => { if (frameError) onPreparationIssue?.('The canvas could not be prepared. Retry before beginning.'); }, [frameError, onPreparationIssue]);
-  const timeline = useMemo(() => buildCinematicTimeline(durationSeconds, assets.tiles.length), [assets.tiles.length, durationSeconds]);
-  const audioPlan = useMemo(() => resolveSessionAudioPlan({ sessionType: 'visualize', durationSeconds,
-    configuration: { guidanceVoice: voice, backgroundAudio: ambient ? 'ambient' : 'off', source: 'session_override' },
-  }), [ambient, durationSeconds, voice]);
-  const audioManifest = useMemo(() => {
-    const base = getVisualizeSessionAudioManifest(durationSeconds);
-    const first = base.cues[0]; const immersion = timeline.segments.find(item => item.kind === 'immersion');
-    return { ...base, cues: first && immersion ? [{ ...first, startSeconds: (immersion.startMs + 2000) / 1000 }] : [] };
-  }, [durationSeconds, timeline]);
-  const guidance = useMemo(() => buildCinematicGuidance(statement, timeline, {
-    recordingWindows: audioManifest.cues.map(item => ({ startMs: item.startSeconds * 1000,
-      endMs: item.startSeconds * 1000 + Math.max(item.expectedClipDurationSeconds.female, item.expectedClipDurationSeconds.male) * 1000 + 500 })),
-  }), [audioManifest, statement, timeline]);
-  const geometry = useMemo(() => mark ? cinematicSessionGeometry(scene, viewport, photo, mark, assets.tiles.length, prepared?.canvasFrame) : null,
-    [assets.tiles.length, mark, photo, scene, viewport, prepared?.canvasFrame]);
+  // One plan per session: the selected guide's beat map, resolved against the Vision images that exist.
+  const plan = useMemo(() => buildGuidedPlan({ durationSeconds, guide: guideForVoice(voice), imageCount: assets.tiles.length }),
+    [assets.tiles.length, durationSeconds, voice]);
+  const timeline = plan.timeline;
+  const guidedAsset = useMemo(() => getGuidedTrackAsset(plan.track, plan.guide), [plan.guide, plan.track]);
+  const geometry = useMemo(() => mark ? cinematicSessionGeometry(scene, viewport, photo, mark, plan.imageCount, prepared?.canvasFrame) : null,
+    [plan.imageCount, mark, photo, scene, viewport, prepared?.canvasFrame]);
+  const watermark = useMemo(() => ({ x: width - 44, y: height - insets.bottom - 48, size: 40 }), [width, height, insets.bottom]);
   const sceneSnapshot = useMemo(() => buildVisionSceneSnapshot(statement, anchor), [anchor, statement]);
   const backgroundAudio = ambient ? 'ambient' as const : 'off' as const;
   const sessionId = useRef(`visualize:${accountId ?? 'guest'}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`);
@@ -188,8 +183,6 @@ function CinematicRun({ anchor, accountId, statement, visionId, durationSeconds,
   const completionStarted = useRef(false); const exiting = useRef(false); const continued = useRef(false);
   const [appActive, setAppActive] = useState(AppState.currentState === 'active');
   const appActiveRef = useRef(appActive);
-  const [exitPromptOpen, setExitPromptOpen] = useState(false);
-  const exitPromptOpenRef = useRef(false);
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextState => {
       const active = nextState === 'active';
@@ -223,115 +216,83 @@ function CinematicRun({ anchor, accountId, statement, visionId, durationSeconds,
       guidance_voice: voice, background_audio: backgroundAudio, sync_outcome: outcome, completed_at: completedAt, v2: true,
     });
   }, [accountId, anchor, backgroundAudio, durationSeconds, sceneSnapshot, source, visionId, voice]);
-  const engine = useVisualizeSessionEngine({ durationSeconds, hapticsEnabled: haptics, phaseHapticsEnabled: false, onComplete: complete });
-  const pauseForInterruption = useCallback(() => engine.pause('audio_interruption'), [engine.pause]);
-  const sessionAudio = useVisualizeSessionAudio({ plan: audioPlan, manifest: audioManifest, elapsedMs: engine.elapsedMs,
-    isActive: engine.state === 'running', isCompleting: engine.state === 'completing',
-    isComplete: engine.state === 'completed', onInterruption: pauseForInterruption });
+  // The guided track's playback position is the only clock. `elapsed` mirrors it for the UI thread.
+  const elapsed = useSharedValue(0);
+  const engine = useGuidedPlayback({ asset: guidedAsset, enabled: !prepareOnly, muted: voice === 'none', durationMs: plan.durationMs,
+    positionSV: elapsed, onComplete: complete });
   const immersive = engine.state === 'running' || engine.state === 'paused' || engine.state === 'completing';
   useVisualizeImmersiveMode(immersive);
   const started = useRef(false);
   useEffect(() => {
-    if (prepareOnly || !ready || frameError || started.current || !appActive || !appActiveRef.current ||
-      exitPromptOpen || exitPromptOpenRef.current || exiting.current ||
-      engine.state === 'ended_early' || engine.state === 'completed' || engine.state === 'completing') return;
+    if (prepareOnly || !ready || frameError || started.current || !appActive || !appActiveRef.current || exiting.current ||
+      engine.state === 'ended_early' || engine.state === 'completed' || engine.state === 'completing' || engine.state === 'failed') return;
     started.current = true; engine.start();
     AnalyticsService.track(AnalyticsEvents.PRACTICE_SESSION_STARTED, {
       practice_mode: 'visualize', session_id: sessionId.current, anchor_id: anchor.id, duration_seconds: durationSeconds,
       guidance_voice: voice, background_audio: backgroundAudio, started_at: new Date().toISOString(), v2: true,
-      assets_prepared_in_setup: Boolean(prepared),
+      assets_prepared_in_setup: Boolean(prepared), guide: plan.guide, track: plan.track,
       ...(prepared?.beginAtMs != null ? { begin_to_clock_ms: Math.max(0, getVisualizeMonotonicNow() - prepared.beginAtMs) } : {}),
     });
-    trackSessionStartedWithAudio(audioPlan);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prepareOnly, ready, frameError, appActive, exitPromptOpen, engine.state]);
-  const elapsed = useSharedValue(0);
-  const elapsedRef = useRef(engine.elapsedMs); elapsedRef.current = engine.elapsedMs;
-  useEffect(() => {
-    cancelAnimation(elapsed);
-    const at = Math.min(timeline.durationMs, elapsedRef.current);
-    elapsed.value = at;
-    if (engine.state === 'running') elapsed.value = withTiming(timeline.durationMs, {
-      duration: timeline.durationMs - at, easing: Easing.linear, reduceMotion: ReduceMotion.Never,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [engine.state, timeline.durationMs]);
+  }, [prepareOnly, ready, frameError, appActive, engine.state]);
   useEffect(() => () => cancelAnimation(elapsed), [elapsed]);
-  const segment = cinematicSegmentAt(timeline, engine.elapsedMs);
+  const resolved = resolveGuidedState(plan, engine.positionMs);
+  const segment = cinematicSegmentAt(timeline, engine.positionMs);
   // Development telemetry: the last line of a stalled run says where it stopped.
   useEffect(() => {
-    traceVisualize(`${formatTime(Math.floor(engine.elapsedMs / 1000))}/${formatTime(durationSeconds)} ${engine.state} segment=${segment.kind} image=${segment.imageIndex ?? '-'}`);
-  }, [engine.state, segment.kind, segment.imageIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+    traceVisualize(`${formatTime(Math.floor(engine.positionMs / 1000))}/${formatTime(Math.round(plan.durationMs / 1000))} ${engine.state} chapter=${resolved.chapter ?? '-'} segment=${segment.kind} image=${resolved.imageIndex} silence=${resolved.silence}`);
+  }, [engine.state, resolved.chapter, segment.kind, resolved.imageIndex, resolved.silence]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The seal haptic fires once, when the Anchor resolves. Returning after the moment has passed never replays it.
+  const sealHandled = useRef(false);
   useEffect(() => {
-    if (!__DEV__ || process.env.JEST_WORKER_ID) return;
-    const limit = engine.state === 'completing' ? COMPLETION_SETTLE_MAX_MS + 2000
-      : engine.state === 'running' ? Math.max(1000, durationSeconds * 1000 - elapsedRef.current + 5000) : 0;
-    if (!limit) return;
-    const timer = setTimeout(() => console.warn('[Visualize] WATCHDOG: no phase change for too long',
-      { state: engine.state, elapsedMs: elapsedRef.current, durationSeconds, segment: segment.kind, imageIndex: segment.imageIndex, settled, appActive }), limit);
-    return () => clearTimeout(timer);
-  }, [engine.state, segment.kind, segment.imageIndex]); // eslint-disable-line react-hooks/exhaustive-deps
-  const hapticFired = useRef(new Set<string>());
-  useEffect(() => {
-    if (!haptics || engine.state !== 'running') return;
-    const cue = segment.kind === 'immersion' && segment.imageIndex === 0 ? 'first_immersion' :
-      segment.kind === 'recognition' ? 'compression_complete' : null;
-    if (!cue || hapticFired.current.has(cue)) return;
-    hapticFired.current.add(cue); void v2Haptics.selection();
-  }, [engine.state, haptics, segment.imageIndex, segment.kind]);
+    if (engine.state !== 'running' || sealHandled.current || engine.positionMs < plan.sealAtMs) return;
+    sealHandled.current = true;
+    if (haptics && engine.positionMs - plan.sealAtMs < SEAL_HAPTIC_WINDOW_MS) void v2Haptics.confirmation();
+  }, [engine.state, engine.positionMs, haptics, plan.sealAtMs]);
   useEffect(() => {
     if (engine.state !== 'completing') return;
     let live = true;
     const settle = () => { if (live) setSettled(true); };
-    void Promise.allSettled([engine.completionPromise ?? Promise.resolve(), sessionAudio.finishCompletion()]).then(settle);
-    // The final board is held for the audio fade and the local queue write, never for either to behave:
-    // a stalled storage write or audio player cannot keep the person on the last image.
-    const failsafe = setTimeout(() => { traceVisualize('completion failsafe: continuing without settled audio/persistence'); settle(); }, COMPLETION_SETTLE_MAX_MS);
+    void Promise.allSettled([engine.completionPromise ?? Promise.resolve()]).then(settle);
+    // The final board is held for the local queue write, never for it to behave:
+    // a stalled storage write cannot keep the person on the last image.
+    const failsafe = setTimeout(() => { traceVisualize('completion failsafe: continuing without settled persistence'); settle(); }, COMPLETION_SETTLE_MAX_MS);
     return () => { live = false; clearTimeout(failsafe); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engine.state]);
   const engineRef = useRef(engine); engineRef.current = engine;
-  const stopAudioRef = useRef(sessionAudio.fadeOutAndStop); stopAudioRef.current = sessionAudio.fadeOutAndStop;
-  const requestExit = useCallback(() => {
+  // One session control opens one paused state: Resume or End session. A single tap never ends the session.
+  const openPause = useCallback((reason: string) => {
+    if (exiting.current) return;
     const current = engineRef.current;
-    if (exiting.current || exitPromptOpenRef.current || current.state === 'completing' || current.state === 'completed') return;
-    exitPromptOpenRef.current = true; setExitPromptOpen(true);
-    const wasRunning = current.state === 'running'; current.pause('exit_prompt');
-    Alert.alert('End Visualize?', 'This session only counts when it reaches the end.', [
-      { text: 'Keep going', style: 'cancel', onPress: () => {
-        exitPromptOpenRef.current = false; setExitPromptOpen(false);
-        if (wasRunning && appActiveRef.current) engineRef.current.resume();
-      } },
-      { text: 'End session', style: 'destructive', onPress: () => {
-        exitPromptOpenRef.current = false; setExitPromptOpen(false);
-        exiting.current = true; engineRef.current.endEarly(); void stopAudioRef.current().finally(onExit);
-      } },
-    ], { cancelable: true, onDismiss: () => {
-      if (!exitPromptOpenRef.current) return;
-      exitPromptOpenRef.current = false; setExitPromptOpen(false);
-      if (wasRunning && !exiting.current && appActiveRef.current) engineRef.current.resume();
-    } });
+    if (current.state === 'running') current.pause(reason);
+  }, []);
+  const resumeSession = useCallback(() => {
+    if (exiting.current || !appActiveRef.current) return;
+    engineRef.current.resume();
+  }, []);
+  const endSession = useCallback(() => {
+    if (exiting.current) return;
+    exiting.current = true;
+    void engineRef.current.endEarly().finally(onExit);
   }, [onExit]);
   useEffect(() => {
     const listener = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (engine.state === 'completing') return true;
-      requestExit(); return true;
+      if (engine.state === 'completing' || engine.state === 'completed') return true;
+      if (engine.state === 'paused') resumeSession(); else openPause('back');
+      return true;
     });
     return () => listener.remove();
-  }, [engine.state, requestExit]);
-  const togglePlayback = () => {
-    if (engine.state === 'paused') engine.resume(); else if (engine.state === 'running') engine.pause('user');
-    setControlsVisible(true);
-  };
+  }, [engine.state, openPause, resumeSession]);
   useEffect(() => {
-    // The engine includes Carry and the silent board hold in the selected duration.
-    // Only the settled final board can enter the existing Thread experience.
+    // The track plays to its own end; only that settled final board can enter the existing Thread experience.
     if (!settled || !appActive || engine.state !== 'completing' || continued.current) return;
     continued.current = true;
     engine.markCompleted();
     onContinue(completionResult.current);
   }, [settled, appActive, engine.state, engine.markCompleted, onContinue]);
-  const controls = controlsVisible || engine.state === 'paused' || screenReader;
+  const paused = engine.state === 'paused';
+  const controls = controlsVisible || paused || screenReader;
   useEffect(() => {
     if (!controlsVisible || engine.state !== 'running' || screenReader) return;
     const timer = setTimeout(() => setControlsVisible(false), 4000);
@@ -340,18 +301,29 @@ function CinematicRun({ anchor, accountId, statement, visionId, durationSeconds,
   const chromeOpacity = useSharedValue(1);
   useEffect(() => { chromeOpacity.value = withTiming(controls ? 1 : 0, { duration: reduced ? 0 : 280 }); }, [chromeOpacity, controls, reduced]);
   const chromeStyle = useAnimatedStyle(() => ({ opacity: chromeOpacity.value }));
-  const cue = cinematicGuidanceAt(guidance, engine.elapsedMs);
-  const fixedText = segment.kind === 'feeling' ? 'Hold the feeling.' : segment.kind === 'carry' ? 'Carry it with you.' : null;
-  const line = fixedText ?? cue?.text ?? null;
+  // Captions come from the beat map at the audio position, never from a timer chain; none appears without a clean phrase.
+  const line = resolved.caption?.text ?? null;
+  // Over the cream board a caption is ink; over a photograph, or the board once it is dimmed, it is light.
+  const segmentProgress = (engine.positionMs - segment.startMs) / Math.max(1, segment.endMs - segment.startMs);
+  const boardShowing = segment.kind === 'carry' || segment.kind === 'boardHold' ||
+    (segment.kind === 'return' && segmentProgress > 0.55) || segment.kind === 'arrival' || (segment.kind === 'breakout' && segmentProgress < 0.6);
+  const onPaper = boardShowing && cinematicGradeAt(timeline, engine.positionMs).dim < 0.35;
   const [displayLine, setDisplayLine] = useState<string | null>(null);
   const textOpacity = useSharedValue(0);
   useEffect(() => {
     if (engine.state === 'paused') { cancelAnimation(textOpacity); return; }
     if (line) setDisplayLine(line);
-    textOpacity.value = withTiming(line ? 1 : 0, { duration: reduced ? 0 : 500 });
+    textOpacity.value = withTiming(line ? 1 : 0, { duration: reduced ? 0 : line ? 260 : 360 });
   }, [line, engine.state, reduced, textOpacity]);
-  const textStyle = useAnimatedStyle(() => ({ opacity: textOpacity.value, transform: [{ translateY: (1 - textOpacity.value) * 6 }] }));
+  const textStyle = useAnimatedStyle(() => ({ opacity: textOpacity.value }));
 
+  if (engine.state === 'failed') return <View testID="v2-visualize-session" style={styles.root}>
+    <View style={styles.recovery}>
+      <Text style={styles.recoveryTitle}>Guided audio unavailable</Text>
+      <Text style={styles.recoveryCopy}>Visualize keeps time with its narration, so it cannot begin without it.</Text>
+      <V2Button onPress={onExit} accessibilityLabel="Back to Practice">Back to Practice</V2Button>
+    </View>
+  </View>;
   if (frameError && !started.current) return <View testID="v2-visualize-session" style={styles.root}>
     <View style={styles.recovery}>
       <Text style={styles.recoveryTitle}>Vision unavailable</Text>
@@ -373,6 +345,7 @@ function CinematicRun({ anchor, accountId, statement, visionId, durationSeconds,
       intention={anchor.intentionText || statement} category={anchor.category} svgText={svgText} enhancedImageUrl={anchor.enhancedImageUrl}
       enhancedAnchor={assets.enhancedAnchor} enhancedMaskEffect={enhancedMaskEffect} svg={svg}
       scene={scene} viewport={viewport} mark={mark} geometry={geometry} timeline={timeline} elapsed={elapsed}
+      sequenceCount={plan.imageCount} watermark={watermark}
       reduced={reduced} onMarkLayout={onMarkLayout} /> :
       <View style={styles.measureBoard} pointerEvents="none">
         <VisionBoardScene scene={scene} roster={board.roster} entering={board.entering} layout={board.layout} shared={board.shared}
@@ -382,28 +355,35 @@ function CinematicRun({ anchor, accountId, statement, visionId, durationSeconds,
     <Pressable accessibilityRole="button" accessibilityLabel="Show session controls" style={StyleSheet.absoluteFill}
       onPress={() => setControlsVisible(value => !value)} />
     <Animated.View pointerEvents="none" style={[styles.guidance, { bottom: insets.bottom + 160 }, textStyle]}>
-      {displayLine ? <Text numberOfLines={2} style={styles.guidanceText}>{displayLine}</Text> : null}
+      {displayLine ? <Text testID="v2-visualize-caption" adjustsFontSizeToFit minimumFontScale={0.8} numberOfLines={4}
+        style={[styles.guidanceText, onPaper ? styles.guidanceOnPaper : styles.guidanceOnPhoto]}>{displayLine}</Text> : null}
     </Animated.View>
     <Animated.View style={[styles.topBar, { top: insets.top + spacing[2] }, chromeStyle]}
       pointerEvents={controls ? 'box-none' : 'none'} accessibilityElementsHidden={!controls}>
-      <Pressable accessibilityRole="button" accessibilityLabel="End Visualize" onPress={requestExit} style={styles.iconButton}>
+      <Pressable accessibilityRole="button" accessibilityLabel="End Visualize" onPress={() => openPause('end_control')} style={styles.iconButton}>
         <X size={20} color={colors.ink.text.primary} />
       </Pressable>
       <Text testID="v2-visualize-timer" accessibilityLabel={`${engine.remainingSeconds} seconds remaining`} style={styles.timer}>
         {formatTime(engine.remainingSeconds)}
       </Text>
     </Animated.View>
-    {engine.state === 'running' || engine.state === 'paused' ? <Animated.View style={[styles.bottomBar, { bottom: insets.bottom + spacing[5] }, chromeStyle]}
+    {engine.state === 'running' ? <Animated.View style={[styles.bottomBar, { bottom: insets.bottom + spacing[5] }, chromeStyle]}
       pointerEvents={controls ? 'box-none' : 'none'} accessibilityElementsHidden={!controls}>
-      {assets.tiles.length > 1 && segment.kind === 'immersion' ?
-        <Text style={styles.counter}>{(segment.imageIndex ?? 0) + 1} / {assets.tiles.length}</Text> : null}
-      <Pressable accessibilityRole="button" accessibilityLabel={engine.state === 'paused' ? 'Resume Visualize' : 'Pause Visualize'}
-        onPress={togglePlayback} style={styles.playButton}>
-        {engine.state === 'paused' ? <Play size={20} color={colors.ink.text.primary} /> : <Pause size={20} color={colors.ink.text.primary} />}
+      <Pressable accessibilityRole="button" accessibilityLabel="Pause Visualize" onPress={() => { openPause('user'); setControlsVisible(true); }} style={styles.playButton}>
+        <Pause size={20} color={colors.ink.text.primary} />
       </Pressable>
-      {engine.state === 'paused' ? <Text style={styles.counter}>Paused</Text> : null}
     </Animated.View> : null}
-
+    {paused ? <View testID="v2-visualize-paused" style={styles.pausedScrim} accessibilityViewIsModal>
+      <Text style={styles.pausedTitle}>Paused</Text>
+      <Text style={styles.pausedCopy}>This session only counts when it reaches the end.</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel="Resume Visualize" onPress={resumeSession} style={styles.resumeButton}>
+        <Play size={18} color={colors.ink.text.primary} />
+        <Text style={styles.resumeLabel}>Resume</Text>
+      </Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="End session" onPress={endSession} style={styles.endButton}>
+        <Text style={styles.endLabel}>End session</Text>
+      </Pressable>
+    </View> : null}
   </View>;
 }
 
@@ -419,7 +399,17 @@ const styles = StyleSheet.create({
   iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   timer: { ...typography.labelMD, color: colors.ink.text.primary, fontVariant: ['tabular-nums'] },
   guidance: { position: 'absolute', left: spacing[6], right: spacing[6], alignItems: 'center' },
-  guidanceText: { ...typography.headingMD, color: colors.ink.text.primary, textAlign: 'center' },
+  guidanceText: { ...typography.headingMD, textAlign: 'center' },
+  guidanceOnPhoto: { color: colors.ink.text.primary, textShadowColor: 'rgba(8,11,15,0.7)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 10 },
+  // Over the board the caption sits on its own paper, so it reads against any photograph tile beneath it.
+  guidanceOnPaper: { color: colors.ink.deep, backgroundColor: 'rgba(244,239,228,0.92)', paddingHorizontal: spacing[3], paddingVertical: spacing[1], borderRadius: 12, overflow: 'hidden' },
+  pausedScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(12,16,21,0.78)', alignItems: 'center', justifyContent: 'center', padding: spacing[6], gap: spacing[3] },
+  pausedTitle: { ...typography.headingMD, color: colors.ink.text.primary },
+  pausedCopy: { ...typography.bodyMD, color: colors.ink.text.secondary, textAlign: 'center', marginBottom: spacing[3] },
+  resumeButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing[2], minWidth: 200, minHeight: 52, borderRadius: 26, borderWidth: 1.5, borderColor: colors.ink.text.primary },
+  resumeLabel: { ...typography.headingSM, color: colors.ink.text.primary },
+  endButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing[5] },
+  endLabel: { ...typography.labelMD, color: colors.ink.text.secondary },
   bottomBar: { position: 'absolute', left: 0, right: 0, alignItems: 'center', gap: spacing[3] },
   playButton: { width: 52, height: 52, borderRadius: 26, borderWidth: 1.5, borderColor: colors.ink.text.secondary, alignItems: 'center', justifyContent: 'center' },
   counter: { ...typography.caption, color: colors.ink.text.secondary },

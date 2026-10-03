@@ -6,43 +6,95 @@ import {
 } from '../constants/refineStyles';
 
 /**
- * DECISION D7: styles whose current names break the vocabulary rules are kept out of the
- * three-style rotation and out of the pre-selected default. They remain in the "All styles"
- * sheet because they are shipped styles. Flagged for a rename decision.
+ * Anchor 2.0 style system: all 15 styles are fully validated and approved.
+ * No blocked styles in the 2.0 set.
  */
-export const BLOCKED_STYLE_IDS: ReadonlySet<string> = new Set([
-  'cosmic',
-  'prism-veil',
-  'sacred-geometry',
-  'resonance-rings',
-  'aurora-glow',
-  'solar-halo',
-  'celestial-grid',
-  'obsidian-mono',
-]);
+export const BLOCKED_STYLE_IDS: ReadonlySet<string> = new Set([]);
 
-/** Ordered, non-blocked styles that rotate into the second and third chip. */
+/** Ordered Anchor 2.0 styles that rotate into the second and third chip. */
 export const ROTATION_POOL: readonly string[] = [
-  'architectural-trace',
-  'ink-brush',
-  'gold-leaf',
-  'minimal-line',
-  'monolith-ink',
-  'watercolor',
-  'lunar-etch',
-  'ember-trace',
+  'velvet-ember',
+  'porcelain',
+  'prism-flow',
+  'joybrush',
+  'deep-cosmos',
+  'woven',
+  'paper',
+  'mineral-wash',
+  'graphic',
+  'plush',
+  'herbarium',
+  'alloy',
+  'gilt',
+  'flash',
+  'buff',
 ];
 
 export const CHIP_COUNT = 3;
 
-const byId = new Map(REFINE_STYLES.map((style) => [style.id, style] as const));
+/** Backward-compatibility map for legacy 1.5 styles to Anchor 2.0 equivalents. */
+const LEGACY_STYLE_FALLBACK: Record<string, string> = {
+  'watercolor': 'joybrush',
+  'ink_brush': 'woven',
+  'ink-brush': 'woven',
+  'gold_leaf': 'gilt',
+  'gold-leaf': 'gilt',
+  'cosmic': 'deep-cosmos',
+  'minimal_line': 'graphic',
+  'minimal-line': 'graphic',
+  'obsidian_mono': 'buff',
+  'obsidian-mono': 'buff',
+  'aurora_glow': 'prism-flow',
+  'aurora-glow': 'prism-flow',
+  'ember_trace': 'velvet-ember',
+  'ember-trace': 'velvet-ember',
+  'monolith_ink': 'buff',
+  'monolith-ink': 'buff',
+  'celestial_grid': 'porcelain',
+  'celestial-grid': 'porcelain',
+  'echo_chamber': 'prism-flow',
+  'echo-chamber': 'prism-flow',
+  'prism_veil': 'prism-flow',
+  'prism-veil': 'prism-flow',
+  'verdigris_relic': 'alloy',
+  'verdigris-relic': 'alloy',
+  'solar_halo': 'velvet-ember',
+  'solar-halo': 'velvet-ember',
+  'tideglass': 'prism-flow',
+  'sacred_geometry': 'porcelain',
+  'sacred-geometry': 'porcelain',
+  'architectural_trace': 'porcelain',
+  'architectural-trace': 'porcelain',
+  'lunar_etch': 'deep-cosmos',
+  'lunar-etch': 'deep-cosmos',
+  'resonance_rings': 'woven',
+  'resonance-rings': 'woven',
+  'velvet_ember': 'velvet-ember',
+  'clay_v2': 'mineral-wash',
+  'mineral_wash_v2': 'mineral-wash',
+};
 
-export const getStyleById = (id: string | undefined): RefineStyleOption | undefined =>
-  id ? byId.get(id) : undefined;
+const byId = new Map<string, RefineStyleOption>();
+for (const style of REFINE_STYLES) {
+  byId.set(style.id, style);
+  byId.set(style.name, style);
+  byId.set(style.generationStyle, style);
+  byId.set(style.displayName.toLowerCase(), style);
+  byId.set(style.id.replace(/-/g, '_'), style);
+}
+
+export const getStyleById = (id: string | undefined): RefineStyleOption | undefined => {
+  if (!id) return undefined;
+  const direct = byId.get(id) ?? byId.get(id.toLowerCase());
+  if (direct) return direct;
+
+  const fallbackId = LEGACY_STYLE_FALLBACK[id] ?? LEGACY_STYLE_FALLBACK[id.toLowerCase()];
+  return fallbackId ? byId.get(fallbackId) : undefined;
+};
 
 export const isBlockedStyle = (id: string): boolean => BLOCKED_STYLE_IDS.has(id);
 
-/** Every shipped style, for the "All styles" sheet. */
+/** Every shipped style (the 15 Anchor 2.0 styles), for the "All styles" sheet. */
 export const getAllStyles = (): RefineStyleOption[] => REFINE_STYLES;
 
 /**
@@ -54,8 +106,11 @@ export function getDefaultStyleId(
   intention: string,
   lastStyleId?: string
 ): string {
-  if (lastStyleId && byId.has(lastStyleId) && !isBlockedStyle(lastStyleId)) {
-    return lastStyleId;
+  if (lastStyleId) {
+    const resolved = getStyleById(lastStyleId);
+    if (resolved && !isBlockedStyle(resolved.id)) {
+      return resolved.id;
+    }
   }
 
   const recommended = getRecommendedStyles(category, intention, REFINE_STYLES.length).find(

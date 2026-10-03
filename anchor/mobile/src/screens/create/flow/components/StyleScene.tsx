@@ -12,7 +12,6 @@ import { Reveal } from './Reveal';
 import { CHIP_HEIGHT, CHIP_WIDTH, StyleChip } from './StyleChip';
 
 const SLOT = { x0: 20, y: 492, gap: 10 };
-const HAIRLINE_WIDTH = 220;
 
 interface StyleSceneProps {
   step: StyleStepState;
@@ -24,9 +23,9 @@ interface StyleSceneProps {
 }
 
 /**
- * Beat 5 — the style step, before anything is generated. Three chips and "All"; untouched, the
- * pre-selected default forms on its own when the hairline runs out. This is a view over
- * `useStyleStep`, which owns the behaviour.
+ * Beat 5 — the style step, before anything is generated. Three chips and "All", the default
+ * pre-selected, and "Form it →" as the only trigger. This is a view over `useStyleStep`, which owns
+ * the behaviour.
  *
  * Laid out in the 390x844 design space on the ink band, so everything here is cream on ink.
  */
@@ -39,7 +38,7 @@ export function StyleScene({ step, strokes, reduceMotion, onOpenAll, onPick }: S
   return (
     <View style={styles.root} pointerEvents="box-none">
       <Reveal delay={180} reduceMotion={reduceMotion} style={styles.prompt}>
-        <Text style={styles.promptText}>Choose a style, or let it form.</Text>
+        <Text style={styles.promptText}>Choose a style.</Text>
       </Reveal>
 
       {chips.map((style, index) => {
@@ -91,27 +90,17 @@ export function StyleScene({ step, strokes, reduceMotion, onOpenAll, onPick }: S
         <Text style={styles.name}>All</Text>
       </Reveal>
 
-      {step.touched ? (
-        <Reveal delay={0} duration={200} reduceMotion={reduceMotion} style={styles.commitWrap}>
-          <Pressable
-            onPress={step.commit}
-            accessibilityRole="button"
-            accessibilityLabel="Form it"
-            style={styles.pill}
-          >
-            <Text style={styles.pillText}>Form it →</Text>
-          </Pressable>
-        </Reveal>
-      ) : (
-        <Reveal delay={420} reduceMotion={reduceMotion} style={styles.countdown}>
-          <View style={styles.track}>
-            <View style={[styles.fill, { width: HAIRLINE_WIDTH * step.remainingFraction }]} />
-          </View>
-          <Text style={styles.countdownText} accessibilityLiveRegion="polite">
-            {`Forms in ${step.secondsLeft ?? 1}…`}
-          </Text>
-        </Reveal>
-      )}
+      {/* The only trigger: nothing forms until this is pressed. */}
+      <Reveal delay={420} duration={240} reduceMotion={reduceMotion} style={styles.commitWrap}>
+        <Pressable
+          onPress={step.commit}
+          accessibilityRole="button"
+          accessibilityLabel="Form it"
+          style={styles.pill}
+        >
+          <Text style={styles.pillText}>Form it →</Text>
+        </Pressable>
+      </Reveal>
 
       <AllStylesSheet
         open={step.sheetOpen}
@@ -163,20 +152,6 @@ const styles = StyleSheet.create({
   },
   allGrid: { width: 40, flexDirection: 'row', flexWrap: 'wrap', gap: 2 },
   allCell: { width: 12, height: 14, backgroundColor: colors.creation.cream, opacity: 0.8 },
-  countdown: { position: 'absolute', left: 0, right: 0, top: 657, alignItems: 'center' },
-  track: {
-    width: HAIRLINE_WIDTH,
-    height: 2,
-    backgroundColor: 'rgba(244, 237, 224, 0.2)',
-  },
-  fill: { height: 2, backgroundColor: colors.creation.cream, opacity: 0.85 },
-  countdownText: {
-    fontFamily: 'Figtree-Regular',
-    fontSize: 14,
-    color: colors.creation.cream,
-    opacity: 0.78,
-    marginTop: 16,
-  },
   commitWrap: { position: 'absolute', left: 0, right: 0, top: 690, alignItems: 'center' },
   pill: {
     width: 124,

@@ -83,7 +83,7 @@ export function AllStylesSheet({ open, selectedId, strokes, onPick, onClose, red
                 width={TILE.width - 6}
                 height={TILE.height - 6}
               />
-              <Text style={styles.name} numberOfLines={1}>{item.displayName}</Text>
+              <Text style={styles.name} numberOfLines={2}>{item.displayName}</Text>
             </View>
           )}
           ListFooterComponent={<Text style={styles.footer}>Tap a style to choose it.</Text>}
@@ -118,12 +118,13 @@ const styles = StyleSheet.create({
   close: { fontFamily: 'Figtree-Regular', fontSize: 28, lineHeight: 28, color: colors.creation.ink, opacity: 0.7 },
   grid: { paddingBottom: 80, paddingHorizontal: 27 },
   row: { gap: 12, marginBottom: 14 },
-  tile: { width: TILE.width, height: TILE.height + 26, alignItems: 'center' },
+  tile: { width: TILE.width, minHeight: TILE.height + 36, alignItems: 'center' },
   name: {
     fontFamily: 'Figtree-Regular',
-    fontSize: 13,
+    fontSize: 12.5,
+    lineHeight: 15,
     color: colors.creation.ink,
-    opacity: 0.8,
+    opacity: 0.85,
     marginTop: 6,
     textAlign: 'center',
     width: TILE.width,

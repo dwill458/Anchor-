@@ -24,7 +24,7 @@ export type ReduceMotionPreference = 'system' | 'on' | 'off';
 export type LastSessionDurationByMode = {
   focus: number;
   deep_prime: number;
-  visualize: 60 | 180 | 300;
+  visualize: 60 | 180 | 600;
 };
 
 export interface DefaultChargeSetting {
@@ -56,9 +56,10 @@ const clampFocusSessionDuration = (value: number): number =>
 const clampPrimeSessionDuration = (value: number): number =>
   clampNumber(value, 120, 7200);
 
-const clampVisualizeSessionDuration = (value: unknown): 60 | 180 | 300 => {
+/** 300s was the retired five-minute length; it has no guided track, so it resolves to three minutes. */
+const clampVisualizeSessionDuration = (value: unknown): 60 | 180 | 600 => {
   const numeric = Number(value);
-  if (numeric === 60 || numeric === 300) return numeric;
+  if (numeric === 60 || numeric === 600) return numeric;
   return 180;
 };
 
@@ -385,7 +386,7 @@ export interface SettingsState {
   /** @deprecated Migration mirror only; active consumers use sessionAudioDefaults. */
   focusSessionAudio: SessionAudioMode;
   primeSessionDuration: number;
-  visualizeSessionDuration: 60 | 180 | 300;
+  visualizeSessionDuration: 60 | 180 | 600;
   lastSessionDurationByMode: LastSessionDurationByMode;
   lastSessionDurationOwnerUserId: string | null;
   /** @deprecated Migration mirror only; active consumers use sessionAudioDefaults. */

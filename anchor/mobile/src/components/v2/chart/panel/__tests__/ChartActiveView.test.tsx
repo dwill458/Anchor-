@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import * as ReactNative from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { ChartActiveView } from '../../ChartActiveView';
 import * as sequences from '../../map/chartMapSequences';
@@ -136,6 +137,24 @@ beforeEach(() => {
 });
 
 describe('ChartActiveView — treasure map composition', () => {
+  it('reserves room for the complete first One Move card at 360x760dp', async () => {
+    // Dimensions is shared by named and namespace RN imports; spying on a
+    // namespace copy of useWindowDimensions would leave the view unmocked.
+    const dimensions = jest.spyOn(ReactNative.Dimensions, 'get').mockReturnValue({ width: 360, height: 760, scale: 1, fontScale: 1 });
+    try {
+      const { getByTestId } = render(<Harness />);
+      const mapStyle = ReactNative.StyleSheet.flatten(getByTestId('chart-hero-map').props.style);
+      expect(mapStyle.width).toBe(360);
+      // Jest has no native text layout: this verifies the viewport budget;
+      // the checkbox/chevron bounds still require the Galaxy recording.
+      expect(mapStyle.height).toBeLessThanOrEqual(400);
+      expect(getByTestId('chart-one-move-check')).toBeTruthy();
+      await settle();
+    } finally {
+      dimensions.mockRestore();
+    }
+  });
+
   it('renders only the discovered waypoints as accessible markers (role, number, title, state)', async () => {
     const { getByLabelText, queryByLabelText, getByTestId, getAllByRole } = render(<Harness />);
     expect(getByTestId('chart-hero-map')).toBeTruthy();

@@ -122,3 +122,46 @@ describe('production cinematic spatial path', () => {
     expect(end.markCenter).toEqual(cinematicSessionFrame(timeline.durationMs, timeline, geometry, false).markCenter);
   });
 });
+
+describe('guided frames: grade, breath and stillness follow the audio position', () => {
+  const { buildGuidedPlan } = require('../guided/visualizeGuidedPlan') as typeof import('../guided/visualizeGuidedPlan');
+  const { silenceSpans } = require('../guided/visualizeBeatMap') as typeof import('../guided/visualizeBeatMap');
+
+  it('keeps the grade and breath identical under Reduce Motion, which only removes positional movement', () => {
+    const plan = buildGuidedPlan({ durationSeconds: 600, guide: 'dominic', imageCount: 3 });
+    const geometry = cinematicSessionGeometry(scene, viewport, photo, mark, plan.imageCount);
+    for (const ms of [5_000, 60_000, 150_000, 230_000, 420_000, 500_000, 530_000]) {
+      const full = cinematicSessionFrame(ms, plan.timeline, geometry, false);
+      const reduced = cinematicSessionFrame(ms, plan.timeline, geometry, true);
+      expect(reduced.grade).toEqual(full.grade);
+      expect(reduced.breath).toBe(full.breath);
+    }
+    const breakout = plan.timeline.segments.find(segment => segment.kind === 'breakout')!;
+    const midway = (breakout.startMs + breakout.endMs) / 2;
+    expect(cinematicSessionFrame(midway, plan.timeline, geometry, true).camera.scale)
+      .toBe(cinematicSessionFrame(0, plan.timeline, geometry, true).camera.scale);
+    expect(cinematicSessionFrame(midway, plan.timeline, geometry, false).camera.scale)
+      .not.toBe(cinematicSessionFrame(0, plan.timeline, geometry, false).camera.scale);
+  });
+
+  it('holds every positional channel still through each long Embody silence', () => {
+    const plan = buildGuidedPlan({ durationSeconds: 600, guide: 'lina', imageCount: 4 });
+    const geometry = cinematicSessionGeometry(scene, viewport, photo, mark, plan.imageCount);
+    const longs = silenceSpans(plan.beatMap).filter(span => span.durationMs >= 5000);
+    expect(longs.length).toBeGreaterThan(10);
+    let checked = 0;
+    for (const span of longs) {
+      const from = span.startMs + 1500, to = span.endMs - 1500;
+      if (to <= from) continue;
+      // A chapter's lead may open a crossfade inside the silence before it; positional motion may not.
+      const start = cinematicSessionFrame(from, plan.timeline, geometry, false);
+      const end = cinematicSessionFrame(to, plan.timeline, geometry, false);
+      if (start.segment.kind === 'transition' || end.segment.kind === 'transition') continue;
+      expect(end.camera).toEqual(start.camera);
+      expect(end.markCenter).toEqual(start.markCenter);
+      expect(end.firstCenter).toEqual(start.firstCenter);
+      checked += 1;
+    }
+    expect(checked).toBeGreaterThan(8);
+  });
+});

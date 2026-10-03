@@ -359,7 +359,7 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
     materialVariants: ['matte velvet-dark atmospheric wash', 'soft airbrushed depth', 'deep pigment haze'],
     materialBehavior: 'soft matte atmospheric depth with very sparse, soft stellar texture',
     anchorRendering:
-      'the structure reads as a luminous pale line of light-toned pigment, even and steady in weight, never as glowing particles or a portal',
+      'the structure reads as a fine continuous filament of pale pigment lit from within, even and steady in weight, with the same soft stellar grain running through the line as through the field and a faint, tight halo of light along its edges; never as glowing particles, a trail or a portal',
     styleNativeMotifs: ['soft depth gradation', 'a few distant soft points of light'],
     legibilityRule:
       'star and speckle density must thin to nothing around the geometry; keep every point of light soft and small, gathered toward the perimeter',
@@ -564,7 +564,7 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
     materialVariants: ['bone-white porcelain', 'soft-fired celadon stoneware glaze', 'satin-glazed ceramic'],
     materialBehavior: 'smooth glaze with a soft satin sheen and a few fine, restrained crackle lines',
     anchorRendering:
-      'the structure reads as a line of contrasting glaze or underglaze pigment, smooth and even, sitting within the glaze with the same soft sheen as the field',
+      'the structure reads as a glazed inlay: a fine channel set into the porcelain and filled with contrasting glaze or underglaze pigment, smooth and even, with a thin pale glaze rim along both edges and the same soft sheen as the field; the line is part of the ceramic, never drawn on top of it',
     styleNativeMotifs: ['soft glaze pooling at the perimeter', 'a few restrained crackle lines near the edges'],
     legibilityRule:
       'crackle must soften and clear behind the geometry; keep any crackle at the perimeter and fine, never crossing a stroke',
@@ -665,7 +665,7 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
     materialVariants: ['fine linen', 'combed cotton', 'denim-like twill', 'fine canvas'],
     materialBehavior: 'a fine flat weave with natural, mild yarn irregularity and matte fibre',
     anchorRendering:
-      'the structure reads as a contrasting yarn woven or couched flat into the cloth, matte and even in weight, following the supplied geometry exactly',
+      'the structure reads as hand stitching: a contrasting thread sewn through the cloth in short, even, individually visible stitches that follow the supplied geometry exactly, with a faint thread ply and a soft shadow where each stitch dips into the weave; the stitching is the structure only, never decorative embroidery elsewhere',
     styleNativeMotifs: ['gentle yarn irregularity', 'slight tonal variation in the fibre'],
     legibilityRule:
       'the weave must be fine and even enough that it never reads as a competing line pattern; keep the weave scale uniform behind the geometry',
@@ -776,7 +776,7 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
     materialVariants: ['cotton rag paper', 'kraft paper', 'washi paper', 'handmade paper with sparse inclusions'],
     materialBehavior: 'matte paper with fine fibre tooth and sparse, low-contrast inclusions',
     anchorRendering:
-      'the structure reads as deep ink or pigment laid evenly into the paper, matte and slightly absorbed at the edge, following the supplied geometry exactly',
+      'the structure reads as a strip of contrasting paper inlaid into the sheet along the supplied geometry exactly, with a soft hand-torn edge where its fibres show, matte and even in weight, set flush with the surface and casting no shadow',
     styleNativeMotifs: ['sparse pale fibres', 'faint tonal clouding of the paper'],
     legibilityRule:
       'paper fibres and inclusions remain low contrast and short around the geometry; no fibre may read as a competing line',
@@ -1186,7 +1186,7 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
     materialVariants: ['mounted herbarium sheet', 'pressed specimens under a thin paper sheet', 'dried specimens on cotton paper'],
     materialBehavior: 'flattened, slightly translucent plant matter pressed flat on matte paper',
     anchorRendering:
-      'the structure reads as a firm band of deep ink or mounting pigment laid onto the paper, matte and even, clearly separate from every specimen and following the supplied geometry exactly',
+      'the structure reads as a narrow strip of aged linen mounting tape laid flat onto the paper, as a herbarium sheet is mounted: matte, even in weight, with visible linen fibre and soft frayed edges, clearly separate from every specimen and following the supplied geometry exactly',
     styleNativeMotifs: ['pressed fern fronds', 'ginkgo leaves', 'eucalyptus sprigs', 'grass seed heads', 'dried lavender'],
     legibilityRule:
       'thin stems and veins must stay away from or soften behind the geometry strokes; place specimens toward the perimeter and keep any veins pale and short near the structure',
@@ -1382,10 +1382,10 @@ export const ANCHOR2_STYLE_LIBRARY: Record<Anchor2StyleId, Anchor2StyleDefinitio
     materialVariants: ['gold leaf on lacquer', 'silver leaf on lacquer', 'lightly tarnished leaf on lacquer'],
     materialBehavior: 'smooth satin-matte lacquer ground with thin applied leaf in soft, broken, peripheral patches',
     anchorRendering:
-      'the structure reads as a line painted in the lacquer itself in a contrasting tone, smooth and even, sitting on the lacquer ground and never covered by leaf',
+      'the structure reads as a fine line of burnished gilding set into the lacquer: a smooth, even channel of bright satin leaf in a tone that contrasts with the ground, sharp-edged and never flaking, crinkled or covered by loose leaf, following the supplied geometry exactly',
     styleNativeMotifs: ['soft-edged leaf patches at the perimeter', 'faint leaf tarnish'],
     legibilityRule:
-      'keep the ground smooth and clear around the geometry; leaf stays peripheral and never crosses, touches or flakes over a stroke',
+      'keep the ground smooth and clear around the geometry; loose leaf patches stay peripheral and never cross, touch or flake over a stroke (the gilded structure itself is the only leaf near the geometry)',
     categoryInfluence: 'category and intention may shift the lacquer colour, the leaf metal and how far the leaf reaches inward',
     visualLanguage: {
       coreArtWorld:

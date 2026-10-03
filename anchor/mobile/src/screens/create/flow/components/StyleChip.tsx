@@ -1,11 +1,13 @@
 import React, { useMemo } from 'react';
 import { Image, Pressable, StyleSheet, View, type ImageSourcePropType } from 'react-native';
-import { Canvas, LinearGradient, Path, Rect, vec } from '@shopify/react-native-skia';
+import { Canvas, DashPathEffect, LinearGradient, Path, Rect, vec } from '@shopify/react-native-skia';
 
 import { colors } from '@/theme/colors';
 import { swatchForLane } from '@/theme/creationStyleSwatches';
+import { STYLE_ASSETS } from '@/assets/styles';
 import type { RefineStyleOption } from '../../constants/refineStyles';
 import type { Pt } from '../geometry';
+import { strokeTreatmentFor, treatmentForLightField } from '../scenes/styleStrokes';
 
 export const CHIP_WIDTH = 80;
 export const CHIP_HEIGHT = 104;
@@ -17,7 +19,7 @@ interface StyleChipProps {
   onPress: (style: RefineStyleOption) => void;
   /** The person's own anchor, drawn small on the swatch. */
   strokes: Pt[][];
-  /** Real preview art, when it exists. Takes precedence over the generated swatch. */
+  /** Real preview art, when it exists. Takes precedence over the style thumbnail asset. */
   previewSource?: ImageSourcePropType;
   width?: number;
   height?: number;
@@ -25,10 +27,15 @@ interface StyleChipProps {
   accessibilityHint?: string;
 }
 
+const DEFAULT_ANCHOR_STROKES: Pt[][] = [
+  [{ x: 50, y: 22 }, { x: 50, y: 78 }],
+  [{ x: 32, y: 46 }, { x: 68, y: 46 }],
+  [{ x: 26, y: 62 }, { x: 50, y: 78 }, { x: 74, y: 62 }],
+];
+
 /**
- * DECISION D6: no per-style preview images exist, so a chip is a gradient swatch taken from the
- * style's palette lane with the anchor's line drawn on it. `previewSource` is kept for the day
- * real previews arrive.
+ * Anchor 2.0 style card: displays the style artwork thumbnail as the background
+ * with the person's Anchor glyph preview overlaid cleanly on top with adaptive contrast.
  */
 export function StyleChip({
   style,
@@ -42,9 +49,17 @@ export function StyleChip({
 }: StyleChipProps) {
   const swatch = useMemo(() => swatchForLane(style.paletteLane), [style.paletteLane]);
 
+  const resolvedPreview =
+    previewSource ??
+    STYLE_ASSETS[style.id] ??
+    STYLE_ASSETS[style.generationStyle] ??
+    STYLE_ASSETS[style.name];
+
+  const effectiveStrokes = strokes.length > 0 && strokes.flat().length > 0 ? strokes : DEFAULT_ANCHOR_STROKES;
+
   // Fit the anchor into the swatch with a margin.
   const pathData = useMemo(() => {
-    const all = strokes.flat();
+    const all = effectiveStrokes.flat();
     if (all.length === 0) return '';
     const xs = all.map((p) => p.x);
     const ys = all.map((p) => p.y);
@@ -52,7 +67,7 @@ export function StyleChip({
     const k = (Math.min(width, height) * 0.58) / extent;
     const cx = (Math.max(...xs) + Math.min(...xs)) / 2;
     const cy = (Math.max(...ys) + Math.min(...ys)) / 2;
-    return strokes
+    return effectiveStrokes
       .filter((stroke) => stroke.length >= 2)
       .map((stroke) =>
         stroke
@@ -60,9 +75,18 @@ export function StyleChip({
           .join(' ')
       )
       .join(' ');
-  }, [strokes, width, height]);
+  }, [effectiveStrokes, width, height]);
 
-  const lineColor = swatch.dark ? colors.creation.cream : colors.creation.ink;
+  // Contrast handling: dark fields use light/cream anchor; light fields use dark-ink anchor
+  const isLightGlyph = style.glyphTreatment
+    ? style.glyphTreatment === 'light'
+    : swatch.dark;
+  // The line takes the style's material (stitched, glazed, felt, leaf…) rather than a flat tint.
+  const strokeLayers = useMemo(() => {
+    const base = strokeTreatmentFor(style.id);
+    return (isLightGlyph ? base : treatmentForLightField(base)).layers;
+  }, [isLightGlyph, style.id]);
+  const layerUnit = (Math.min(width, height) / CHIP_HEIGHT) * 0.72;
 
   return (
     <Pressable
@@ -78,18 +102,33 @@ export function StyleChip({
       ]}
     >
       <View style={[styles.clip, { width, height }]}>
-        {previewSource ? (
-          <Image source={previewSource} style={{ width, height }} resizeMode="cover" />
+        {resolvedPreview ? (
+          <Image source={resolvedPreview} style={[StyleSheet.absoluteFill, { width, height }]} resizeMode="cover" />
         ) : (
           <Canvas style={{ width, height }}>
             <Rect x={0} y={0} width={width} height={height}>
               <LinearGradient start={vec(0, 0)} end={vec(width, height)} colors={[swatch.from, swatch.to]} />
             </Rect>
-            {pathData ? (
-              <Path path={pathData} style="stroke" strokeWidth={1.6} strokeCap="round" strokeJoin="round" color={lineColor} />
-            ) : null}
           </Canvas>
         )}
+        {pathData ? (
+          <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
+            {strokeLayers.map((layer, index) => (
+              <Path
+                key={index}
+                path={pathData}
+                style="stroke"
+                strokeWidth={layer.width * layerUnit}
+                strokeCap="round"
+                strokeJoin="round"
+                color={layer.color}
+                opacity={layer.alpha}
+              >
+                {layer.dash ? <DashPathEffect intervals={[layer.dash[0] * layerUnit, layer.dash[1] * layerUnit]} /> : null}
+              </Path>
+            ))}
+          </Canvas>
+        ) : null}
       </View>
     </Pressable>
   );

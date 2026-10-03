@@ -1,26 +1,28 @@
 import { resolvePracticeSetupMetrics } from '@/components/v2/practice/practiceSetupLayout';
 import type { V2PracticeMode } from '@/constants/v2/practice';
+import { resolveRestAnchorRect, resolveSheetSnaps } from '@/components/v2/anchors/anchorDetailsSheetLayout';
 import { spacing } from '@/theme/v2';
 import type { V2Viewport } from '@/theme/v2/responsive';
 import type { AnchorWindowRect } from './ProgressiveFocusTransition';
 
-/** The Details painting and paper disc share one responsive geometry. */
+/**
+ * Details 2.0 rests with the Anchor as the hero: a ~300dp disc, centred above the
+ * sheet. The travelling Anchor from Home lands on this rect; Details measures
+ * itself to the same place once it lays out.
+ *
+ * `paintingHeight` is kept for existing callers. The painted hero band no longer
+ * exists, so it reports the vertical room above the resting sheet instead.
+ */
 export function resolveAnchorDetailsHeroGeometry({
-  width, height, topInset, platform,
-}: { width: number; height: number; topInset: number; platform: string }): {
+  width, height, topInset,
+}: { width: number; height: number; topInset: number; platform?: string }): {
   paintingHeight: number; medallionSize: number; rect: AnchorWindowRect;
 } {
-  const paintingHeight = Math.max(145, Math.min(175, Math.round(height * 0.18)));
-  const medallionSize = Math.max(190, Math.min(220, Math.round(width * 0.52)));
+  const rect = resolveRestAnchorRect({ width, height, topInset });
   return {
-    paintingHeight,
-    medallionSize,
-    rect: {
-      x: (width - medallionSize) / 2,
-      y: paintingHeight - medallionSize * 0.58 + (platform === 'ios' ? topInset : 0),
-      width: medallionSize,
-      height: medallionSize,
-    },
+    paintingHeight: resolveSheetSnaps(height, topInset).rest,
+    medallionSize: rect.width,
+    rect,
   };
 }
 

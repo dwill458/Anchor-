@@ -145,8 +145,9 @@ export function ChartActiveView({
   course,
   testID,
 }: Props) {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const mapHeight = Math.min(width * 1180 / 852, Math.max(240, height - insets.top - insets.bottom - 360));
   const categoryColor = getCategoryColor(identity.category);
   const accent = useMemo(() => panelAccent(identity.category), [identity.category]);
 
@@ -589,7 +590,7 @@ export function ChartActiveView({
     <View testID={testID ?? 'chart-active'} style={styles.screen}>
       <StatusBar barStyle="dark-content" backgroundColor={T.paper} animated />
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom }} showsVerticalScrollIndicator={false} style={styles.scroll}>
-        <View style={{ width, backgroundColor: T.paper }}>
+        <View style={{ width, paddingTop: insets.top + 100, backgroundColor: T.paper }}>
           {/* Header first in the tree so TalkBack reads Back, Chart and the menu before the markers; it is absolutely positioned above the map. */}
           <ChartMapHeader
             categoryLabel={categoryLabel}
@@ -604,6 +605,7 @@ export function ChartActiveView({
           <ChartMap
             testID="chart-hero-map"
             width={width}
+            height={mapHeight - 100}
             table={table}
             placement={placement}
             anim={anim}
@@ -612,6 +614,7 @@ export function ChartActiveView({
             category={identity.category ?? undefined}
             reducedMotion={reducedMotion}
             arrived={arrived}
+            clouds
             onMarkerPress={handleMarkerPress}
             onMapPress={handleMapPress}
           />

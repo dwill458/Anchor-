@@ -19,7 +19,6 @@ export interface CreationTimeline {
   map: number;
   forget: number;
   stillness: number;
-  styleCountdown: number;
   formMin: number;
   sweep: number;
   /** Absolute start (seconds from the Continue tap) of each pre-Style segment. */
@@ -53,7 +52,6 @@ export function buildCreationTimeline({ mode, n, drawn }: CreationTimelineInput)
     map,
     forget,
     stillness: t.stillness,
-    styleCountdown: t.styleCountdown,
     formMin: t.formMin,
     sweep: t.sweep,
     start: { distill: distillStart, map: mapStart, forget: forgetStart, stillness: stillnessStart },

@@ -25,7 +25,7 @@ import { practiceColors } from '@/theme/v2/practiceColors';
 export const V2_PRACTICE_MODE_DEFINITIONS: readonly V2PracticeModeDefinition[] = [
   { mode: 'focus', title: 'Focus', purpose: 'Return to your Anchor with one clear breath.', duration: '10 sec · 30 sec · 60 sec', accent: practiceColors.focus, premium: false },
   { mode: 'deep_prime', title: 'Deep Focus', purpose: 'A longer, guided session with your Anchor.', duration: '2 min · 5 min · 10 min', accent: practiceColors.deepPrime, premium: true },
-  { mode: 'visualize', title: 'Visualize', purpose: 'Rehearse the future held in your Vision.', duration: '1 min · 3 min · 5 min', accent: practiceColors.visualize, premium: true },
+  { mode: 'visualize', title: 'Visualize', purpose: 'Rehearse the future held in your Vision.', duration: '1 min · 3 min · 10 min', accent: practiceColors.visualize, premium: true },
   { mode: 'release', title: 'Release', purpose: 'Close an intention when its work is complete.', duration: 'When ready', accent: practiceColors.release, premium: false },
 ];
 
@@ -35,7 +35,7 @@ export const V2_PRACTICE_MODE_BY_ID: Readonly<Record<V2PracticeMode, V2PracticeM
 export const V2_PRACTICE_DURATIONS: Readonly<Record<Exclude<V2PracticeMode, 'release'>, readonly number[]>> = {
   focus: [10, 30, 60],
   deep_prime: [120, 300, 600],
-  visualize: [60, 180, 300],
+  visualize: [60, 180, 600],
 };
 
 export type V2RecommendationAction = 'Focus' | 'Deep Prime' | 'Visualize' | 'Release';

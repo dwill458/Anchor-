@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useCallback, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Canvas } from '@shopify/react-native-skia';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
@@ -7,12 +7,13 @@ import {
   type ChartMapAnimState, type ChartMapMarker, type RouteTable, type WaypointPlacement,
 } from './chartMapContracts';
 import { CHART_MAP_TOKENS } from './chartMapTokens';
-import { ChartMapLand } from './ChartMapLand';
+import { ChartMapLand, hasDecodedChartLandscape } from './ChartMapLand';
 import { ChartMapMarkers } from './ChartMapMarkers';
 import { ChartMapOverlay } from './ChartMapOverlay';
 
 export type ChartMapProps = {
   width: number;
+  height?: number;
   table: RouteTable;
   placement: WaypointPlacement;
   anim: ChartMapAnimState;
@@ -24,6 +25,8 @@ export type ChartMapProps = {
   interactive?: boolean;
   reducedMotion: boolean;
   arrived: boolean;
+  /** Fog of war clouds over undiscovered ground (the permanent Chart and creation after mapping). */
+  clouds?: boolean;
   onMarkerPress: (index: number) => void;
   onMapPress: () => void;
   testID?: string;
@@ -35,10 +38,13 @@ export type ChartMapProps = {
  * calls onMapPress. Height = width * MAP_H / MAP_W.
  */
 export const ChartMap = memo(function ChartMap({
-  width, table, placement, anim, markers, categoryColor, category, interactive = true, reducedMotion, arrived, onMarkerPress, onMapPress, testID,
+  width, height: viewportHeight, table, placement, anim, markers, categoryColor, category, interactive = true, reducedMotion, arrived, clouds = false, onMarkerPress, onMapPress, testID,
 }: ChartMapProps) {
-  const height = (width * MAP_H) / MAP_W;
-  const fade = useAnimatedStyle(() => ({ opacity: anim.mapOpacity.value }));
+  const height = viewportHeight ?? (width * MAP_H) / MAP_W;
+  const [artReady, setArtReady] = useState(hasDecodedChartLandscape);
+  const onArtReady = useCallback((ready: boolean) => setArtReady(ready), []);
+  // One visibility gate covers land, route, flag, and native markers.
+  const fade = useAnimatedStyle(() => ({ opacity: artReady ? anim.mapOpacity.value : 0 }));
 
   return (
     <View testID={testID} style={[styles.root, { width, height }]}>
@@ -50,7 +56,7 @@ export const ChartMap = memo(function ChartMap({
           importantForAccessibility="no-hide-descendants"
         >
           <Canvas style={{ width, height }}>
-            <ChartMapLand width={width} height={height} anim={anim} table={table} categoryColor={categoryColor} reducedMotion={reducedMotion} />
+            <ChartMapLand width={width} height={height} anim={anim} table={table} categoryColor={categoryColor} reducedMotion={reducedMotion} clouds={clouds} onArtReady={onArtReady} />
           </Canvas>
         </View>
         {/* DEFERRED: separate static grain canvas (normal blend); grain is now a cached multiply image inside the land canvas. */}
@@ -61,7 +67,7 @@ export const ChartMap = memo(function ChartMap({
           importantForAccessibility="no-hide-descendants"
         >
           <Canvas style={{ width, height }}>
-            <ChartMapOverlay
+            {artReady ? <ChartMapOverlay
               width={width}
               height={height}
               anim={anim}
@@ -70,7 +76,8 @@ export const ChartMap = memo(function ChartMap({
               categoryColor={categoryColor}
               reducedMotion={reducedMotion}
               arrived={arrived}
-            />
+              clouds={clouds}
+            /> : null}
           </Canvas>
         </View>
         <Pressable
@@ -80,7 +87,7 @@ export const ChartMap = memo(function ChartMap({
           onPress={onMapPress}
           style={StyleSheet.absoluteFill}
         />
-        <ChartMapMarkers
+        {artReady ? <ChartMapMarkers
           width={width}
           height={height}
           anim={anim}
@@ -91,7 +98,7 @@ export const ChartMap = memo(function ChartMap({
           interactive={interactive}
           arrived={arrived}
           onMarkerPress={onMarkerPress}
-        />
+        /> : null}
       </Animated.View>
     </View>
   );

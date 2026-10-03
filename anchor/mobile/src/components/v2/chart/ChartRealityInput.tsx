@@ -9,6 +9,7 @@ import {
   type ChartThoughtStarter,
 } from '@/constants/v2/chartCopy';
 import { colors, radii, spacing, typography } from '@/theme/v2';
+import { CHART_MAP_TOKENS } from './map/chartMapTokens';
 import { ChartInkButton, ChartTextArea } from './ChartChrome';
 import { ChartKeyboardFrame } from './ChartKeyboardFrame';
 import { CHART_EASING, chartTiming } from './chartMotion';
@@ -131,7 +132,7 @@ export function ChartRealityInput({
 const styles = StyleSheet.create({
   scroll: { paddingHorizontal: spacing[5], paddingTop: spacing[3], paddingBottom: spacing[6], gap: spacing[6] },
   section: { gap: spacing[3] },
-  question: { ...typography.displayMedium, fontSize: 32, lineHeight: 37, color: colors.ink.text.primary },
+  question: { ...typography.displayMedium, fontFamily: CHART_MAP_TOKENS.serif, fontSize: 32, lineHeight: 37, color: colors.ink.text.primary },
   support: { ...typography.bodyLG, color: colors.ink.text.secondary },
   fieldBlock: { gap: spacing[2], marginTop: spacing[3] },
   label: { ...typography.labelLG, color: colors.ink.text.primary },

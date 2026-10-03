@@ -328,7 +328,7 @@ export function V2PracticeSessionScreen({
       return (
         <V2Screen testID="v2-practice-session">
           <View style={styles.empty}>
-            <V2EmptyState title="Visualize unavailable" message="Choose 1, 3 or 5 minutes and begin again." />
+            <V2EmptyState title="Visualize unavailable" message="Choose 1, 3 or 10 minutes and begin again." />
           </View>
         </V2Screen>
       );

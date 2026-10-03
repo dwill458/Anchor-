@@ -54,10 +54,10 @@ describe('every way into Visualize reaches the same setup', () => {
     expect(view.getByText('Step into your Vision')).toBeTruthy();
     expect(view.getByLabelText('1 min')).toBeTruthy();
     expect(view.getByLabelText('3 min, selected')).toBeTruthy();
-    expect(view.getByLabelText('5 min')).toBeTruthy();
+    expect(view.getByLabelText('10 min')).toBeTruthy();
   });
 
-  it.each([['1 min', 60], ['3 min, selected', 180], ['5 min', 300]] as const)('begins the session for %s with the chosen duration, Anchor and source', (label, seconds) => {
+  it.each([['1 min', 60], ['3 min, selected', 180], ['10 min', 600]] as const)('begins the session for %s with the chosen duration, Anchor and source', (label, seconds) => {
     const view = setup({ source: 'recommended_today' });
     begin(view, label);
     expect(view.onBeginPractice).toHaveBeenCalledTimes(1);
@@ -68,8 +68,8 @@ describe('every way into Visualize reaches the same setup', () => {
   });
 
   it('starts from a resumed duration after the paywall', () => {
-    const view = setup({ initialDuration: 300 });
-    expect(view.getByLabelText('5 min, selected')).toBeTruthy();
+    const view = setup({ initialDuration: 600 });
+    expect(view.getByLabelText('10 min, selected')).toBeTruthy();
   });
 
   it('hands the setup the Vision in the one display order, so the hero is the Vision screen\'s hero', () => {
@@ -104,9 +104,9 @@ describe('every way into Visualize reaches the same setup', () => {
 
   it('routes to the paywall, with the chosen duration, when the person is not entitled', () => {
     const view = setup({ entitled: false });
-    begin(view, '5 min');
+    begin(view, '10 min');
     expect(view.onBeginPractice).not.toHaveBeenCalled();
-    expect(view.onPremiumRequired).toHaveBeenCalledWith({ capability: 'visualize', anchorId: 'a1', source: 'practice_hub', durationSeconds: 300 });
+    expect(view.onPremiumRequired).toHaveBeenCalledWith({ capability: 'visualize', anchorId: 'a1', source: 'practice_hub', durationSeconds: 600 });
   });
 
   it('starts only once however fast Begin is tapped', () => {

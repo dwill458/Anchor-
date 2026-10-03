@@ -1,15 +1,15 @@
 import React from 'react';
-import { Alert, AppState } from 'react-native';
+import { AppState } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import { COMPLETION_SETTLE_MAX_MS, V2CinematicSessionScreen } from '../V2CinematicSessionScreen';
 import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
+import { buildGuidedPlan } from '../guided/visualizeGuidedPlan';
+import { v2Haptics } from '@/hooks/v2';
 
 const mockEngine: any = {};
 const mockEngineHook = jest.fn();
 const mockUseCinematicAssets = jest.fn();
 const mockCompletion = jest.fn((..._args: unknown[]) => Promise.resolve({}));
-const mockFinishCompletion = jest.fn(() => Promise.resolve());
-const mockFadeOut = jest.fn(() => Promise.resolve());
 const mockSvgWidth = { current: 10 };
 const mockSvgHeight = { current: 10 };
 let mockPendingMarkLayout: (() => void) | null = null;
@@ -23,19 +23,13 @@ jest.mock('../cinematicAssets', () => ({
   freezeCinematicTiles: (tiles: unknown[]) => tiles,
   useCinematicAssets: (...args: unknown[]) => mockUseCinematicAssets(...args),
 }));
-jest.mock('@/screens/visualize/useVisualizeSessionEngine', () => ({
-  useVisualizeSessionEngine: (...args: unknown[]) => mockEngineHook(...args),
-}));
-jest.mock('@/screens/visualize/useVisualizeSessionAudio', () => ({
-  useVisualizeSessionAudio: () => ({ fadeOutAndStop: mockFadeOut, finishCompletion: mockFinishCompletion }),
-}));
+jest.mock('@/screens/visualize/useVisualizeSessionEngine', () => ({ getVisualizeMonotonicNow: () => 0 }));
+jest.mock('../guided/useGuidedPlayback', () => ({ useGuidedPlayback: (...args: unknown[]) => mockEngineHook(...args) }));
+jest.mock('@/services/visualizeGuidedTracks', () => ({ getGuidedTrackAsset: () => 1 }));
 jest.mock('@/screens/visualize/useVisualizeImmersiveMode', () => ({ useVisualizeImmersiveMode: jest.fn() }));
-jest.mock('@/services/SessionAudioManifest', () => ({ resolveSessionAudioPlan: jest.fn(() => ({})) }));
-jest.mock('@/services/visualizeAudioManifest', () => ({ getVisualizeSessionAudioManifest: jest.fn(() => ({ cues: [] })) }));
-jest.mock('@/services/SessionAudioAnalytics', () => ({ trackSessionStartedWithAudio: jest.fn() }));
 jest.mock('expo-keep-awake', () => ({ useKeepAwake: jest.fn() }));
 jest.mock('@/hooks/v2', () => ({
-  ...jest.requireActual('@/hooks/v2'), useV2ReduceMotion: () => false, v2Haptics: { selection: jest.fn() },
+  ...jest.requireActual('@/hooks/v2'), useV2ReduceMotion: () => false, v2Haptics: { selection: jest.fn(), confirmation: jest.fn() },
 }));
 jest.mock('@/services/PracticeCompletionService', () => ({
   PracticeCompletionService: { commitVisualizeCompletion: (...args: unknown[]) => mockCompletion(...args) },
@@ -83,8 +77,9 @@ const tiles = [{ id: 'image-1', sceneId: 'image-1', imageUrl: 'https://cdn.examp
 
 function resetEngine(state = 'running') {
   Object.assign(mockEngine, {
-    state, elapsedMs: 0, remainingSeconds: 60, completionPromise: Promise.resolve(),
-    start: jest.fn(), pause: jest.fn(), resume: jest.fn(), endEarly: jest.fn(), markCompleted: jest.fn(),
+    state, positionMs: 0, remainingSeconds: 65, completionPromise: Promise.resolve(),
+    start: jest.fn(), pause: jest.fn(), resume: jest.fn(), endEarly: jest.fn(() => Promise.resolve()), stopAudio: jest.fn(() => Promise.resolve()),
+    markCompleted: jest.fn(),
   });
   mockEngineHook.mockImplementation(() => mockEngine);
 }
@@ -95,6 +90,16 @@ function renderReadySession() {
     available: tiles, select: () => ({ tiles, images: [{}] }), retry: jest.fn(), timedOut: false, failedCount: 0 });
   const view = render(<V2CinematicSessionScreen anchor={anchor} accountId="user-1" tiles={tiles}
     statement="My saved intention feels calm and clear." durationSeconds={60} voice="none" ambient={false} haptics={false}
+    source="practice_hub" onExit={onExit} onContinue={onContinue} />);
+  return { ...view, onExit, onContinue };
+}
+
+function renderSessionWithHaptics() {
+  const onExit = jest.fn(); const onContinue = jest.fn();
+  mockUseCinematicAssets.mockReturnValue({ resources: null, ready: true, partial: false, unavailable: false,
+    available: tiles, select: () => ({ tiles, images: [{}] }), retry: jest.fn(), timedOut: false, failedCount: 0 });
+  const view = render(<V2CinematicSessionScreen anchor={anchor} accountId="user-1" tiles={tiles}
+    statement="My saved intention feels calm and clear." durationSeconds={60} voice="none" ambient={false} haptics
     source="practice_hub" onExit={onExit} onContinue={onContinue} />);
   return { ...view, onExit, onContinue };
 }
@@ -165,65 +170,111 @@ describe('V2 cinematic session readiness and lifecycle', () => {
     expect(mockEngine.start).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps delayed readiness from starting behind an open exit confirmation', () => {
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
-    const view = renderReadySession();
-    mockEngine.state = 'idle';
-    fireEvent.press(view.getByLabelText('End Visualize'));
-    measureMark();
-    expect(mockEngine.start).not.toHaveBeenCalled();
-    const buttons = alert.mock.calls[0][2] as Array<{ text: string; onPress?: () => void }>;
-    act(() => { buttons.find(button => button.text === 'Keep going')?.onPress?.(); });
-    expect(mockEngine.start).toHaveBeenCalledTimes(1);
-    expect(mockEngine.resume).not.toHaveBeenCalled();
-    alert.mockRestore();
-  });
+  const rerenderSession = (view: ReturnType<typeof renderReadySession>, haptics = false) => view.rerender(<V2CinematicSessionScreen anchor={anchor} accountId="user-1" tiles={tiles}
+    statement="My saved intention feels calm and clear." durationSeconds={60} voice="none" ambient={false} haptics={haptics}
+    source="practice_hub" onExit={view.onExit} onContinue={view.onContinue} />);
 
-  it('does not resume from Keep going or dismiss while the app is backgrounded', () => {
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+  it('opens a paused state from the session control and resumes from it', () => {
     const view = renderReadySession();
     measureMark();
-    fireEvent.press(view.getByLabelText('End Visualize'));
-    const buttons = alert.mock.calls[0][2] as Array<{ text: string; onPress?: () => void }>;
-    const options = alert.mock.calls[0][3] as { onDismiss?: () => void };
-    changeAppState('background');
-    const callsBeforeDismiss = mockEngine.resume.mock.calls.length;
-    act(() => { buttons.find(button => button.text === 'Keep going')?.onPress?.(); options.onDismiss?.(); });
-    expect(mockEngine.resume).toHaveBeenCalledTimes(callsBeforeDismiss);
-    alert.mockRestore();
-  });
-
-  it('pauses and resumes the visual session clock through the engine controls', () => {
-    const view = renderReadySession();
-    measureMark();
-    expect(mockEngine.start).toHaveBeenCalledTimes(1);
+    expect(view.queryByTestId('v2-visualize-paused')).toBeNull();
     fireEvent.press(view.getByLabelText('Pause Visualize'));
     expect(mockEngine.pause).toHaveBeenCalledWith('user');
     mockEngine.state = 'paused';
-    view.rerender(<V2CinematicSessionScreen anchor={anchor} accountId="user-1" tiles={tiles}
-      statement="My saved intention feels calm and clear." durationSeconds={60} voice="none" ambient={false} haptics={false}
-      source="practice_hub" onExit={view.onExit} onContinue={view.onContinue} />);
+    rerenderSession(view);
+    expect(view.getByTestId('v2-visualize-paused')).toBeTruthy();
+    expect(view.getByLabelText('Resume Visualize')).toBeTruthy();
+    expect(view.getByLabelText('End session')).toBeTruthy();
     fireEvent.press(view.getByLabelText('Resume Visualize'));
     expect(mockEngine.resume).toHaveBeenCalledTimes(1);
+    expect(view.onExit).not.toHaveBeenCalled();
   });
 
-  it('cancels an exit prompt safely, then exits only after the destructive choice', async () => {
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+  it('never ends the session from one tap: the end control only pauses, ending needs the second choice', async () => {
     const view = renderReadySession();
     measureMark();
-    expect(mockEngine.start).toHaveBeenCalledTimes(1);
     fireEvent.press(view.getByLabelText('End Visualize'));
-    const buttons = alert.mock.calls[0][2] as Array<{ text: string; onPress?: () => void }>;
-    act(() => { buttons.find(button => button.text === 'Keep going')?.onPress?.(); });
-    expect(mockEngine.resume).toHaveBeenCalledTimes(1);
+    expect(mockEngine.pause).toHaveBeenCalledWith('end_control');
+    expect(mockEngine.endEarly).not.toHaveBeenCalled();
     expect(view.onExit).not.toHaveBeenCalled();
-    fireEvent.press(view.getByLabelText('End Visualize'));
-    const nextButtons = alert.mock.calls[1][2] as Array<{ text: string; onPress?: () => void }>;
-    await act(async () => { nextButtons.find(button => button.text === 'End session')?.onPress?.(); });
+    mockEngine.state = 'paused';
+    rerenderSession(view);
+    await act(async () => { fireEvent.press(view.getByLabelText('End session')); });
     expect(mockEngine.endEarly).toHaveBeenCalledTimes(1);
-    expect(mockFadeOut).toHaveBeenCalledTimes(1);
     expect(view.onExit).toHaveBeenCalledTimes(1);
-    alert.mockRestore();
+    expect(mockCompletion).not.toHaveBeenCalled();
+    expect(view.onContinue).not.toHaveBeenCalled();
+  });
+
+  it('does not resume from the paused state while the app is backgrounded', () => {
+    const view = renderReadySession();
+    measureMark();
+    mockEngine.state = 'paused';
+    rerenderSession(view);
+    changeAppState('background');
+    fireEvent.press(view.getByLabelText('Resume Visualize'));
+    expect(mockEngine.resume).not.toHaveBeenCalled();
+  });
+
+  it('shows a paused state for an interruption the audio caused, not only for taps', () => {
+    const view = renderReadySession();
+    measureMark();
+    mockEngine.state = 'paused';
+    rerenderSession(view);
+    expect(view.getByTestId('v2-visualize-paused')).toBeTruthy();
+  });
+
+  it('fires the seal haptic once when the Anchor resolves, and never replays it after a late return', () => {
+    const plan = buildGuidedPlan({ durationSeconds: 60, guide: 'lina', imageCount: 1 });
+    const mockConfirm = v2Haptics.confirmation as jest.Mock;
+    const view = renderSessionWithHaptics();
+    measureMark();
+    mockEngine.positionMs = plan.sealAtMs - 500; rerenderSession(view, true);
+    expect(mockConfirm).not.toHaveBeenCalled();
+    mockEngine.positionMs = plan.sealAtMs + 100; rerenderSession(view, true);
+    expect(mockConfirm).toHaveBeenCalledTimes(1);
+    mockEngine.positionMs = plan.sealAtMs + 2000; rerenderSession(view, true);
+    mockEngine.positionMs = plan.sealAtMs + 3000; rerenderSession(view, true);
+    expect(mockConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips the seal haptic when the session returns well after the moment has passed', () => {
+    const plan = buildGuidedPlan({ durationSeconds: 60, guide: 'lina', imageCount: 1 });
+    const mockConfirm = v2Haptics.confirmation as jest.Mock;
+    const view = renderSessionWithHaptics();
+    measureMark();
+    mockEngine.positionMs = plan.sealAtMs + 20_000; rerenderSession(view, true);
+    expect(mockConfirm).not.toHaveBeenCalled();
+  });
+
+  it('renders the caption for the phrase the audio position is in, and none through the Anchor chapter', () => {
+    const plan = buildGuidedPlan({ durationSeconds: 60, guide: 'lina', imageCount: 1 });
+    const view = renderReadySession();
+    measureMark();
+    const phrase = plan.captions.find(item => item.phraseId === 1)!;
+    mockEngine.positionMs = phrase.startMs + 300; rerenderSession(view);
+    expect(view.getByTestId('v2-visualize-caption').props.children).toBe('Don’t just see the picture. Step into it.');
+    const anchorPhrase = plan.beatMap.phrases.find(item => item.chapter === 'ANCHOR')!;
+    mockEngine.positionMs = anchorPhrase.startMs + 300; rerenderSession(view);
+    expect(plan.captions.some(item => item.startMs <= mockEngine.positionMs && mockEngine.positionMs < item.endMs)).toBe(false);
+  });
+
+  it('drives the stage from the audio clock it hands the playback hook, not from a timer of its own', () => {
+    renderReadySession();
+    measureMark();
+    const params = mockEngineHook.mock.calls[0][0];
+    expect(params.positionSV).toBeDefined();
+    expect(params.durationMs).toBe(64_800);
+    expect(params.muted).toBe(true);
+  });
+
+  it('shows a plain recovery when the guided audio cannot load', () => {
+    resetEngine('failed');
+    const view = renderReadySession();
+    measureMark();
+    expect(view.getByText('Guided audio unavailable')).toBeTruthy();
+    fireEvent.press(view.getByLabelText('Back to Practice'));
+    expect(view.onExit).toHaveBeenCalledTimes(1);
   });
 
   it('records one completion and enters Thread once after the final board hold', async () => {
@@ -238,7 +289,7 @@ describe('V2 cinematic session readiness and lifecycle', () => {
     expect(mockCompletion).toHaveBeenCalledTimes(1);
     mockEngine.state = 'completing';
     mockEngine.remainingSeconds = 0;
-    mockEngine.elapsedMs = 60_000;
+    mockEngine.positionMs = 64_800;
     view.rerender(<V2CinematicSessionScreen anchor={anchor} accountId="user-1" tiles={tiles}
       statement="My saved intention feels calm and clear." durationSeconds={60} voice="none" ambient={false} haptics={false}
       source="practice_hub" onExit={view.onExit} onContinue={view.onContinue} />);
@@ -265,10 +316,11 @@ describe('V2 cinematic session readiness and lifecycle', () => {
     const view = renderReadySession();
     measureMark();
     view.rerender(<V2CinematicSessionScreen anchor={{ ...anchor, intentionText: 'Changed later' }} accountId="other-account" tiles={[]}
-      statement="Changed later" durationSeconds={300} voice="male" ambient haptics
+      statement="Changed later" durationSeconds={600} voice="male" ambient haptics
       source="recommended_today" onExit={view.onExit} onContinue={view.onContinue} />);
     const last = mockEngineHook.mock.calls[mockEngineHook.mock.calls.length - 1][0];
-    expect(last.durationSeconds).toBe(60);
+    expect(last.durationMs).toBe(64_800);
+    expect(last.muted).toBe(true);
     await act(async () => { await last.onComplete({ startedAt: '2026-09-30T10:00:00.000Z', completedAt: '2026-09-30T10:01:00.000Z' }); });
     expect(mockCompletion).toHaveBeenCalledWith(expect.objectContaining({ accountId: 'user-1', anchor, durationSeconds: 60, guidanceVoice: 'none', backgroundAudio: 'off' }));
   });
@@ -276,7 +328,7 @@ describe('V2 cinematic session readiness and lifecycle', () => {
   it('holds completion in background and enters Thread once on foreground', async () => {
     const view = renderReadySession(); measureMark();
     changeAppState('background');
-    mockEngine.state = 'completing'; mockEngine.elapsedMs = 60000;
+    mockEngine.state = 'completing'; mockEngine.positionMs = 64800;
     view.rerender(<V2CinematicSessionScreen anchor={anchor} accountId="user-1" tiles={tiles}
       statement="Saved Vision" durationSeconds={60} voice="none" ambient={false} haptics={false}
       source="practice_hub" onExit={view.onExit} onContinue={view.onContinue} />);
@@ -290,7 +342,7 @@ describe('V2 cinematic session readiness and lifecycle', () => {
     beforeEach(() => jest.useFakeTimers());
     afterEach(() => jest.useRealTimers());
     const enterCompleting = (view: ReturnType<typeof renderReadySession>) => {
-      mockEngine.state = 'completing'; mockEngine.elapsedMs = 60000;
+      mockEngine.state = 'completing'; mockEngine.positionMs = 64800;
       view.rerender(<V2CinematicSessionScreen anchor={anchor} accountId="user-1" tiles={tiles}
         statement="My saved intention feels calm and clear." durationSeconds={60} voice="none" ambient={false} haptics={false}
         source="practice_hub" onExit={view.onExit} onContinue={view.onContinue} />);
@@ -304,14 +356,6 @@ describe('V2 cinematic session readiness and lifecycle', () => {
       expect(view.onContinue).not.toHaveBeenCalled();
       await act(async () => { jest.advanceTimersByTime(COMPLETION_SETTLE_MAX_MS + 50); });
       expect(mockEngine.markCompleted).toHaveBeenCalledTimes(1);
-      expect(view.onContinue).toHaveBeenCalledTimes(1);
-    });
-
-    it('continues when the audio fade-out never settles', async () => {
-      mockFinishCompletion.mockReturnValueOnce(new Promise(() => undefined) as Promise<void>);
-      const view = renderReadySession(); measureMark();
-      enterCompleting(view);
-      await act(async () => { jest.advanceTimersByTime(COMPLETION_SETTLE_MAX_MS + 50); });
       expect(view.onContinue).toHaveBeenCalledTimes(1);
     });
 

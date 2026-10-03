@@ -105,8 +105,9 @@ export const VisualizePreparationScreen: React.FC<Props> = ({
           : 0),
     ),
   );
+  // The retired legacy flow has no ten-minute session; it keeps its own three lengths.
   const [duration, setDuration] = useState<60 | 180 | 300>(
-    recentDuration ?? defaultDuration,
+    (recentDuration ?? defaultDuration) === 600 ? 300 : (recentDuration ?? defaultDuration) as 60 | 180,
   );
   const [audio, setAudio] = useState<SessionAudioDefaults>({
     ...globalDefaults,

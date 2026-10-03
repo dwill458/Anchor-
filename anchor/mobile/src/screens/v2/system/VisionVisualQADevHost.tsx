@@ -72,6 +72,10 @@ export function VisionVisualQADevHost() {
   const [surface, setSurface] = useState<string | null>(null);
   const [run, setRun] = useState<V2VisualizeBeginConfig | null>(null);
   const [finished, setFinished] = useState(false);
+  // anchor://vision-visual-qa?surface=visualize-3&voice=male|female picks the guide (default: silent, as before).
+  const [qaVoice, setQaVoice] = useState<'male' | 'female' | 'none'>('none');
+  // &duration=60|180|600 preselects the length on the setup.
+  const [qaDuration, setQaDuration] = useState(60);
   const anchor = useAnchorStore(state => state.anchors[0]);
   const insets = useSafeAreaInsets();
   useEffect(() => {
@@ -94,6 +98,10 @@ export function VisionVisualQADevHost() {
 
     const open = ({ url }: { url: string }) => {
       if (!url.startsWith('anchor://vision-visual-qa')) return;
+      const voice = url.split('voice=')[1]?.split('&')[0];
+      setQaVoice(voice === 'male' || voice === 'female' ? voice : 'none');
+      const duration = Number(url.split('duration=')[1]?.split('&')[0]);
+      setQaDuration(isV2VisualizeDuration(duration) ? duration : 60);
       openLab(url.split('surface=')[1]?.split('&')[0] ?? '2');
     };
     const listener = Linking.addEventListener('url', open);
@@ -118,9 +126,9 @@ export function VisionVisualQADevHost() {
     // Begin runs the real cinematic session (60 s) so the whole hand-off can be recorded; completion shows a marker instead of the Thread screen.
     content = finished ? <View testID="qa-visualize-complete" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.canvas }}><Text style={typography.headingMD}>Completion reached</Text></View>
       : run ? <V2CinematicSessionScreen anchor={qaAnchor} accountId={null} tiles={run.prepared.assets.tiles} statement={description} visionId="qa-vision"
-        durationSeconds={isV2VisualizeDuration(run.durationSeconds) ? run.durationSeconds : 60} voice="none" ambient={false} haptics={run.haptics} source="practice_hub"
+        durationSeconds={isV2VisualizeDuration(run.durationSeconds) ? run.durationSeconds : 60} voice={qaVoice} ambient={false} haptics={run.haptics} source="practice_hub"
         prepared={run.prepared} onExit={close} onContinue={() => setFinished(true)} />
-      : <V2VisualizePrepareScreen anchor={qaAnchor} statement={description} visionId="qa-vision" tiles={tiles.slice(0, count)} initialDuration={60} onBack={close} onOpenVision={noop} onBegin={setRun} />;
+      : <V2VisualizePrepareScreen anchor={qaAnchor} statement={description} visionId="qa-vision" tiles={tiles.slice(0, count)} initialDuration={qaDuration} onBack={close} onOpenVision={noop} onBegin={setRun} />;
   } else if (surface === 'handoff') content = <VisionImageArrivalProvider><HandoffLab identity={identity as any} candidates={candidates} onClose={close} /></VisionImageArrivalProvider>;
   else if (surface?.startsWith('twoup')) {
     const variant = surface.split('-')[1] ?? '2';

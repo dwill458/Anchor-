@@ -1,4 +1,5 @@
 import React from 'react';
+import { useImage } from '@shopify/react-native-skia';
 import { fireEvent, render } from '@testing-library/react-native';
 import { ChartMap } from '../ChartMap';
 import { useChartMapAnimState } from '../useChartMapAnimState';
@@ -121,4 +122,17 @@ describe('ChartMap', () => {
     expect(hits.find(h => h.props.path === 'M2,-54 L34,-44 L2,-33 Z')).toBeTruthy();
     expect(hits.find(h => h.type === 'Circle' && h.props.r === 4)).toBeTruthy();
   });
+});
+
+
+it('does not show landmarks while the landscape is undecoded', () => {
+  const image = useImage as jest.Mock;
+  image.mockReturnValue(null);
+  try {
+    const screen = render(<Harness n={5} />);
+    expect(screen.queryByTestId('chart-map-marker-1')).toBeNull();
+    expect(JSON.stringify(screen.toJSON())).not.toContain('M-15,-15 L15,15');
+  } finally {
+    image.mockReturnValue({ width: () => 1, height: () => 1 });
+  }
 });

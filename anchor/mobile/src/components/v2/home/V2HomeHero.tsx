@@ -94,7 +94,7 @@ function ThreadReading({ thread, accent, active }: { thread: V2ThreadPresentatio
         ) : null
       ) : (
         <Text testID={active ? 'v2-home-thread-unmeasured' : undefined} style={styles.threadDelta}>
-          · Not established yet
+          · Begins with your first practice
         </Text>
       )}
     </View>

@@ -26,6 +26,7 @@ import { useTeachingGate } from '@/utils/useTeachingGate';
 import { useTeachingStore } from '@/stores/teachingStore';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { warmUpBackend } from '@/services/backendWarmup';
+import { playCreationSound } from '@/services/CreationSounds';
 import { TEACHINGS } from '@/constants/teaching';
 import { useIntentionValidation } from '@/hooks/useIntentionValidation';
 import { useEntitlements } from '@/hooks/useEntitlements';
@@ -212,6 +213,7 @@ export default function IntentionInputScreen() {
         const canStart =
             source === 'typed' ? delayedCanSubmit : intention.trim().length >= 1;
         if (!canStart) return;
+        playCreationSound('uiTap');
 
         const isGuestFirstAnchor = !isAuthenticated && anchorCount === 0;
         if (!isGuestFirstAnchor && !entitlements.canCreateAnchor) {
