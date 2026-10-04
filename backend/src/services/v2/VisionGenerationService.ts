@@ -706,7 +706,7 @@ export class VisionGenerationService {
         },
       });
     } finally {
-      await visionAppearanceReferenceService.cleanupGenerationScoped(job.appearanceReferenceId);
+      // Keep custom reference photo active across retries; it expires via TTL or explicit user removal.
     }
   }
 }

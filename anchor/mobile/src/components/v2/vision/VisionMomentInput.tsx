@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { ActionSheetIOS, Alert, Image, Keyboard, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActionSheetIOS, ActivityIndicator, Alert, Image, Keyboard, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, ChevronRight, Heart, MapPin, Plus, RefreshCw, Sun, Trash2, User as UserIcon } from 'lucide-react-native';
@@ -118,6 +118,7 @@ export function VisionMomentInput({
 
   const appearance = useVisionAppearanceReference();
   const [useAppearance, setUseAppearance] = useState(true);
+  const [pickingReference, setPickingReference] = useState(false);
   const activeReferenceUrl = useMemo(() => {
     if (!useAppearance) return null;
     if (appearance.reference?.previewUrl) return appearance.reference.previewUrl;
@@ -178,13 +179,15 @@ export function VisionMomentInput({
   };
 
   const handlePickReferencePhoto = async () => {
+    Keyboard.dismiss();
+    setPickingReference(true);
     try {
-      if (Platform.OS === 'ios') {
-        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (permission.status !== 'granted') { setLocalNotice('Allow photo library access to add a reference photo.'); return; }
-      }
       // Quality 0.7: a reference only needs the face and build, and a phone original would be several MB of base64.
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7, allowsEditing: false, legacy: true });
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.7,
+        allowsEditing: false,
+      });
       const item = result.assets?.[0];
       if (result.canceled || !item) return;
       let failure: string | null = null;
@@ -194,6 +197,8 @@ export function VisionMomentInput({
       setLocalNotice(null);
     } catch {
       setLocalNotice('Unable to open photo library.');
+    } finally {
+      setPickingReference(false);
     }
   };
 
@@ -406,7 +411,9 @@ export function VisionMomentInput({
                 <Text style={styles.referenceTitle}>Make it look like you</Text>
                 <Text style={styles.referenceSubtitle}>Optional · Add photos of yourself for more personal images.</Text>
               </View>
-              {activeReferenceUrl ? (
+              {pickingReference || appearance.saving ? (
+                <ActivityIndicator size="small" color={VISION_GOLD} style={{ marginHorizontal: 12 }} />
+              ) : activeReferenceUrl ? (
                 <Image source={{ uri: activeReferenceUrl }} style={styles.referenceThumb} accessibilityLabel="Your reference photo" />
               ) : (
                 <View style={styles.silhouettes} accessible={false}>

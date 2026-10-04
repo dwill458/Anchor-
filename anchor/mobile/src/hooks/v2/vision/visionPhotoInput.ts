@@ -47,7 +47,7 @@ export async function pickVisionPhoto(source: VisionPhotoSource, quality = 0.85)
         return { status: 'denied', canAskAgain: permission.canAskAgain !== false, message: 'Allow photo library access to add an image.' };
       }
     }
-    const options: ImagePicker.ImagePickerOptions = { mediaTypes: ImagePicker.MediaTypeOptions.Images, quality, allowsEditing: false, legacy: true };
+    const options: ImagePicker.ImagePickerOptions = { mediaTypes: ImagePicker.MediaTypeOptions.Images, quality, allowsEditing: false };
     const result = source === 'camera'
       ? await ImagePicker.launchCameraAsync(options)
       : await ImagePicker.launchImageLibraryAsync(options);

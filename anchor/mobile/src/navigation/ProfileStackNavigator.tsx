@@ -27,6 +27,7 @@ export const ProfileStackNavigator: React.FC = () => {
   return (
     <ErrorBoundary>
       <Stack.Navigator
+        initialRouteName="Settings"
         screenOptions={{
           headerShown: false,
           animation: 'slide_from_right',
@@ -35,13 +36,13 @@ export const ProfileStackNavigator: React.FC = () => {
         }}
       >
         <Stack.Screen
-          name="Profile"
-          component={ProfileScreen}
+          name="Settings"
+          component={SettingsScreen}
           options={{ headerShown: false }}
         />
         <Stack.Screen
-          name="Settings"
-          component={SettingsScreen}
+          name="Profile"
+          component={ProfileScreen}
           options={{ headerShown: false }}
         />
         <Stack.Screen
