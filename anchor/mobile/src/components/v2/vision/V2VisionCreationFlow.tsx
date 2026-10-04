@@ -175,7 +175,7 @@ export function V2VisionCreationFlow({
         if (permission.status !== 'granted') { setNotice('Allow photo library access to add your images.'); return; }
       }
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'], allowsMultipleSelection: true, selectionLimit: VISION_BOARD_MAX_IMAGES, quality: 0.85,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsMultipleSelection: true, selectionLimit: VISION_BOARD_MAX_IMAGES, quality: 0.85, legacy: true,
       });
       if (result.canceled || !result.assets?.length) return;
       const picked = result.assets.slice(0, VISION_BOARD_MAX_IMAGES).map((asset, index) => ({

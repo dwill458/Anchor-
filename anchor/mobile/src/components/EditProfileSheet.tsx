@@ -137,8 +137,9 @@ export const EditProfileSheet: React.FC<EditProfileSheetProps> = ({
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
+      legacy: true,
       aspect: [1, 1],
       quality: 0.85,
     });

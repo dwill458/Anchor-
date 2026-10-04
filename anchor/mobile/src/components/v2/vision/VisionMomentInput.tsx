@@ -184,7 +184,7 @@ export function VisionMomentInput({
         if (permission.status !== 'granted') { setLocalNotice('Allow photo library access to add a reference photo.'); return; }
       }
       // Quality 0.7: a reference only needs the face and build, and a phone original would be several MB of base64.
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7, allowsEditing: false });
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7, allowsEditing: false, legacy: true });
       const item = result.assets?.[0];
       if (result.canceled || !item) return;
       let failure: string | null = null;
