@@ -40,6 +40,8 @@ const FLASH_SECONDS = 0.4;
 const NEVER_REDUCE = ReduceMotion.Never;
 
 interface UseChooseControllerOptions {
+  /** The ring completes and the flash begins, before saving can occupy JS. */
+  onSealLanded: () => void;
   /** The hold reached 100%: begin saving. Called once. */
   onHoldComplete: (pageIndex: number) => void;
   /** The seal animation finished. Called once, after `onHoldComplete`. */
@@ -88,6 +90,7 @@ const clampPage = (value: number) => Math.min(PAGE_COUNT - 1, Math.max(0, Math.r
  * stays as the tested definition; the timings below are its closed form.
  */
 export function useChooseController({
+  onSealLanded,
   onHoldComplete,
   onSealAnimationDone,
   reduceMotion,
@@ -108,8 +111,8 @@ export function useChooseController({
   const holdingRef = useRef(false);
   const touchRef = useRef<PagerTouch | null>(null);
   const hapticTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const callbacksRef = useRef({ onHoldComplete, onSealAnimationDone });
-  callbacksRef.current = { onHoldComplete, onSealAnimationDone };
+  const callbacksRef = useRef({ onHoldComplete, onSealAnimationDone, onSealLanded });
+  callbacksRef.current = { onHoldComplete, onSealAnimationDone, onSealLanded };
   const disabledRef = useRef(disabled);
   disabledRef.current = disabled;
   const reduceMotionRef = useRef(reduceMotion);
@@ -156,6 +159,7 @@ export function useChooseController({
     phaseRef.current = 'sealed';
     setPhase('sealed');
     trace('seal sequence end');
+    void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Light);
     callbacksRef.current.onSealAnimationDone();
   }, []);
 
@@ -163,7 +167,7 @@ export function useChooseController({
   const startSeal = useCallback(() => {
     const reduced = reduceMotionRef.current;
     const sequenceMs = (reduced ? 0.4 : SEAL_SEQUENCE_SECONDS) * 1000;
-    const settleMs = (reduced ? 0.1 : SEAL_SETTLE_SECONDS) * 1000;
+    const settleMs = Math.max(0.5, SEAL_SETTLE_SECONDS) * 1000;
     sealU.value = 0;
     flash.value = 0;
     flash.value = withTiming(FLASH_SECONDS, { duration: FLASH_SECONDS * 1000, easing: Easing.linear, reduceMotion: NEVER_REDUCE });
@@ -174,6 +178,7 @@ export function useChooseController({
         if (finished) runOnJS(finishSeal)();
       })
     );
+    callbacksRef.current.onSealLanded();
   }, [finishSeal, flash, sealU]);
 
   /** The hold reached 100% (or assistive tech sealed directly). JS thread. */
@@ -185,11 +190,11 @@ export function useChooseController({
     phaseRef.current = 'sealing';
     setPhase('sealing');
     hold.value = 1;
-    // The seal lands: heavy haptic now; the screen plays `forge-seal`.
+    // Start the flash and its cue together before save/persistence can occupy JS.
     void safeHaptics.impact(Haptics.ImpactFeedbackStyle.Heavy);
     trace('hold complete / seal sequence start');
-    callbacksRef.current.onHoldComplete(settledPageRef.current);
     startSeal();
+    callbacksRef.current.onHoldComplete(settledPageRef.current);
   }, [hold, startSeal, stopHaptics]);
 
   /** Fill from wherever the ring is, linearly, finishing at SEAL_HOLD_MS for a full ring. */

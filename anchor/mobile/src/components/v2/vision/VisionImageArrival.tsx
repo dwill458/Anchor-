@@ -1,14 +1,16 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { interpolateColor, runOnJS, useAnimatedStyle, useDerivedValue, useSharedValue, withTiming } from 'react-native-reanimated';
+import { CircularAnchorRenderer } from '@/components/v2/anchor';
+import type { AnchorExpression } from '@/constants/v2/creation';
 import { SigilSvg } from '@/components/common/SigilSvg';
 import { useV2ReduceMotion } from '@/hooks/v2';
 import { colors, getCategoryColor } from '@/theme/v2';
 
 export type VisionImageRect = { x: number; y: number; width: number; height: number };
 /** The person's real Anchor, carried from where it was on screen to where the board holds it. */
-export type VisionArrivalAnchor = { svg: string; category?: string | null; rect: VisionImageRect };
-type AnchorFlight = { svg: string; category?: string | null; source: VisionImageRect; target?: VisionImageRect };
+export type VisionArrivalAnchor = { svg: string; imageUrl?: string | null; expression?: AnchorExpression | null; category?: string | null; rect: VisionImageRect };
+type AnchorFlight = { svg: string; imageUrl?: string | null; expression?: AnchorExpression | null; category?: string | null; source: VisionImageRect; target?: VisionImageRect };
 type Arrival = { id: number; url: string; source: VisionImageRect; target?: VisionImageRect; anchor?: AnchorFlight; resolved?: boolean };
 type ArrivalContext = {
   url: string | null;
@@ -59,7 +61,7 @@ export function VisionImageArrivalProvider({ children }: { children: React.React
   const begin = useCallback((url: string, source: VisionImageRect, anchor?: VisionArrivalAnchor) => {
     if (!url || !Number.isFinite(source.width) || !Number.isFinite(source.height) || source.width <= 0 || source.height <= 0) return;
     const flight: AnchorFlight | undefined = anchor?.svg && anchor.rect.width > 0 && anchor.rect.height > 0
-      ? { svg: anchor.svg, category: anchor.category, source: anchor.rect } : undefined;
+      ? { svg: anchor.svg, imageUrl: anchor.imageUrl, expression: anchor.expression, category: anchor.category, source: anchor.rect } : undefined;
     trace('begin', { anchorFlight: Boolean(flight) });
     expand.value = 0; settle.value = 0; fade.value = 0;
     setImageAspect(source.width / source.height); setSourceReady(false); setDissolving(false);
@@ -155,6 +157,7 @@ export function VisionImageArrivalProvider({ children }: { children: React.React
     return { transform: [{ translateX: x + (w - flight.source.width) / 2 }, { translateY: y + (h - flight.source.height) / 2 },
       { scaleX: w / flight.source.width }, { scaleY: h / flight.source.height }] };
   });
+  const enhancedAnchorStyle = useAnimatedStyle(() => ({ opacity: 1 - Math.max(0, (settle.value - 0.75) / 0.25) }));
   const anchorCreamStyle = useAnimatedStyle(() => {
     const handedOver = Math.min(1, Math.max(0, (settle.value - 0.2) / 0.5));
     return { opacity: arrival?.anchor?.target ? 1 - handedOver : 1 - settle.value };
@@ -180,8 +183,13 @@ export function VisionImageArrivalProvider({ children }: { children: React.React
       </Animated.View>
       {arrival.anchor ? <Animated.View testID="vision-arrival-anchor" pointerEvents="none"
         style={[{ position: 'absolute', left: 0, top: 0, width: arrival.anchor.source.width, height: arrival.anchor.source.height }, anchorStyle]}>
+        {arrival.anchor.imageUrl ? <Animated.View style={[StyleSheet.absoluteFill, enhancedAnchorStyle]}>
+          <CircularAnchorRenderer svg={arrival.anchor.svg} imageUrl={arrival.anchor.imageUrl} expression={arrival.anchor.expression}
+            category={arrival.anchor.category} size={arrival.anchor.source.width} appearance="paper" testID="vision-arrival-enhanced-anchor" />
+        </Animated.View> : <>
         <Animated.View style={[StyleSheet.absoluteFill, anchorCreamStyle]}><SigilSvg xml={arrival.anchor.svg} width="100%" height="100%" color={ANCHOR_CREAM} /></Animated.View>
         <Animated.View style={[StyleSheet.absoluteFill, anchorColorStyle]}><SigilSvg xml={arrival.anchor.svg} width="100%" height="100%" color={getCategoryColor(arrival.anchor.category)} /></Animated.View>
+        </>}
       </Animated.View> : null}
     </Animated.View> : null}
   </Context.Provider>;

@@ -1,5 +1,6 @@
 const mockPrisma = {
   anchor: { findFirst: jest.fn() },
+  asset: { findFirst: jest.fn() },
   vision: { findFirst: jest.fn(), findUnique: jest.fn() },
   visionScene: { count: jest.fn() },
   visionGeneration: {
@@ -380,6 +381,32 @@ describe('VisionGenerationService', () => {
         await (service as any).run('scene-job-1', 'I own a Regal', 'DESIRE');
 
         expect(mockImageGenerate.mock.calls[0][0].referenceImages.map((item: { role: string }) => item.role)).toEqual(['world', 'appearance']);
+      });
+
+      it('attaches the start photo first, as role start, and keeps it out of the world count', async () => {
+        mockPrisma.asset.findFirst.mockResolvedValue({ storageKey: 'private/start.jpg' });
+        const provider = { planVisionScenes: mockPlanVisionScenes, generateVisionScene: async () => Buffer.alloc(0) };
+        (GeminiImageService as unknown as jest.Mock).mockImplementationOnce(() => provider);
+        mockImageGenerate.mockResolvedValue({ images: [{ buffer: await png('#334455') }] });
+        (readPrivateImageAsset as jest.Mock).mockImplementation(async () => png('#445566'));
+        mockPrisma.visionGeneration.findUnique.mockImplementation(async (query: { select?: unknown }) =>
+          query.select ? { status: 'RUNNING', retryCount: 0 } : {
+            id: 'scene-job-1', userId, anchorId, visionId: 'vision-1', kind: 'SCENE', description: sceneText, retryCount: 0, plan, startAssetId: 'start-asset',
+          });
+        mockPrisma.vision.findUnique.mockResolvedValue({ description: 'My kitchen.', scenes: [] });
+        mockPrisma.visionGeneration.updateMany.mockResolvedValue({ count: 1 });
+        mockPrisma.visionGeneration.update.mockResolvedValue({});
+        mockPrisma.visionGenerationCandidate.findUnique.mockResolvedValue(null);
+        mockPrisma.visionGenerationCandidate.create.mockResolvedValue({});
+        (uploadImageAssetFromBuffer as jest.Mock).mockImplementation(async (_i, _u, _a, index) => ({ objectKey: `private/${index}.jpg` }));
+        (visionService.createAsset as jest.Mock).mockImplementation(async (_u, input) => ({ id: input.storageKey }));
+
+        await (service as any).run('scene-job-1', 'A home I love', 'DESIRE');
+
+        const request = mockImageGenerate.mock.calls[0][0];
+        expect(request.referenceImages.map((item: { role: string }) => item.role)).toEqual(['start']);
+        expect(request.prompt).toMatch(/start photo/);
+        expect(request.prompt).not.toMatch(/established world/);
       });
 
       it('still creates the moment when a Vision photograph cannot be read', async () => {

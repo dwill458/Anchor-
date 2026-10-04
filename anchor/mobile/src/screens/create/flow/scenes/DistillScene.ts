@@ -9,9 +9,12 @@ const CAMERA = { x: W / 2, y: 300 };
 /** Caption baseline shared by Distill and Form. */
 export const CAPTION_Y = 772;
 
-export function drawCaption(p: Painter, pal: Palette, text: string, alpha: number): void {
+export function drawCaption(p: Painter, pal: Palette, text: string, alpha: number, motion?: { time: number; reduceMotion: boolean }): void {
   if (alpha <= 0.003) return;
-  p.text(text, W / 2, CAPTION_Y, { font: SANS(14), color: pal.fg, alpha: 0.78 * alpha, align: 'center' });
+  const breath = motion && !motion.reduceMotion ? 0.5 + 0.5 * Math.sin(motion.time * Math.PI * 2 / 2.8) : 0;
+  p.text(text, W / 2, CAPTION_Y - 1.5 * breath, {
+    font: SANS(15, 500), color: pal.fg, alpha: (0.92 + 0.08 * breath) * alpha, align: 'center',
+  });
 }
 
 /**
@@ -114,8 +117,8 @@ export function drawIntentText(
 
   // Captions follow the three passes.
   if (distillU > 0 && distillU < 1) {
-    drawCaption(p, pal, 'Removing vowels…', 1 - smooth(0.24, 0.3, distillU));
-    drawCaption(p, pal, 'Combining duplicates…', smooth(0.3, 0.36, distillU) * (1 - smooth(0.5, 0.56, distillU)));
-    drawCaption(p, pal, 'Keeping each letter, in order.', smooth(0.56, 0.62, distillU));
+    drawCaption(p, pal, 'Removing vowels…', 1 - smooth(0.24, 0.3, distillU), { time: t, reduceMotion: ctx.reduceMotion });
+    drawCaption(p, pal, 'Combining duplicates…', smooth(0.3, 0.36, distillU) * (1 - smooth(0.5, 0.56, distillU)), { time: t, reduceMotion: ctx.reduceMotion });
+    drawCaption(p, pal, 'Keeping each letter, in order.', smooth(0.56, 0.62, distillU), { time: t, reduceMotion: ctx.reduceMotion });
   }
 }

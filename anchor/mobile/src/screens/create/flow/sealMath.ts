@@ -12,12 +12,21 @@ export const MEDALLION = { centerX: 195, centerY: 300, size: 176 } as const;
 /** The card's centre before it contracts. */
 const CARD_CENTER_Y = CARD.y + CARD.height / 2;
 
-/** The card is pressed: 1 -> .94 (0.1), -> 1.015 (0.16), -> 1 (0.16). */
+/**
+ * The hold completes: for the first 240 ms (0.15 of the sequence) the card squeezes — scale 1 -> .92
+ * and its corners soften 24 -> 120 px, ease-in-out — before it contracts into the circular medallion.
+ * It is the front of the same clock, so the seal cue, flash and save hand-off keep their timing.
+ */
+export const SEAL_SQUEEZE_U = 0.15;
+export const SEAL_SQUEEZE_SCALE = 0.92;
+export const SEAL_SQUEEZE_RADIUS = 120;
+
+/** After the squeeze the card rebounds: .92 -> 1.015 (to 0.3), -> 1. */
 export function sealPress(u: number): number {
   'worklet';
-  if (u < 0.1) return 1 - 0.06 * easeOut(u / 0.1);
-  if (u < 0.26) return 0.94 + 0.075 * easeOut((u - 0.1) / 0.16);
-  return lerp(1.015, 1, smooth(0.26, 0.42, u));
+  if (u < SEAL_SQUEEZE_U) return lerp(1, SEAL_SQUEEZE_SCALE, ease(u / SEAL_SQUEEZE_U));
+  if (u < 0.3) return SEAL_SQUEEZE_SCALE + (1.015 - SEAL_SQUEEZE_SCALE) * easeOut((u - SEAL_SQUEEZE_U) / (0.3 - SEAL_SQUEEZE_U));
+  return lerp(1.015, 1, smooth(0.3, 0.42, u));
 }
 
 export interface SealCardShape {
@@ -38,11 +47,13 @@ export interface SealCardShape {
 export function sealCard(u: number): SealCardShape {
   'worklet';
   const e = ease(clamp((u - 0.18) / 0.7));
+  // The squeeze softens the corners first; the contraction then takes them on to the circle.
+  const squeezedRadius = lerp(CARD.radius, SEAL_SQUEEZE_RADIUS, ease(clamp(u / SEAL_SQUEEZE_U)));
   return {
     centerY: lerp(CARD_CENTER_Y, MEDALLION.centerY, e),
     width: lerp(CARD.width, MEDALLION.size, e),
     height: lerp(CARD.height, MEDALLION.size, e),
-    radius: lerp(CARD.radius, MEDALLION.size / 2, e),
+    radius: lerp(squeezedRadius, MEDALLION.size / 2, e),
     contentScale: lerp(1, 0.5, e),
     rim: ease(clamp((u - 0.35) / 0.55)),
     chromeAlpha: 1 - smooth(0, 0.25, u),
@@ -55,8 +66,6 @@ export function sealCard(u: number): SealCardShape {
  */
 export const SEAL_PULSE_AT = 0.72;
 const SEAL_PULSE_SPAN = 0.2;
-/** The anchor_pulse sound is started this long before the visual pulse, so it reads as the cause. */
-export const SEAL_PULSE_SOUND_LEAD_MS = 120;
 
 /** The medallion swells 5% and settles, once. */
 export function sealPulse(u: number): number {

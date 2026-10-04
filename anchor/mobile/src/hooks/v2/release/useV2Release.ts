@@ -3,12 +3,16 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useCourseStore } from '@/stores/courseStore';
 import {
   buildReleaseConsequenceSnapshot,
+  buildReleaseEnding,
   createReleaseIdempotencyKey,
+  normalizeReleaseReason,
   v2ReleaseApiAdapter,
   type V2ReleaseAdapter,
   type V2ReleaseConsequenceSnapshot,
+  type V2ReleaseEnding,
   type V2ReleaseLinkedCourse,
   type V2ReleaseResult,
+  type V2ReleaseSuccessor,
 } from '@/adapters/v2/release';
 
 export type V2ReleaseStage =
@@ -23,7 +27,10 @@ type SubmissionState = 'idle' | 'submitting' | 'pending' | 'confirmed' | 'failed
 export interface UseV2ReleaseOptions {
   anchorId: string;
   adapter?: V2ReleaseAdapter;
+  /** Route-supplied reason; verified against server-synced Chart state before it is shown or sent. */
   reason?: string;
+  /** Required for 'evolve'. Must be an existing Anchor other than the one being released. */
+  successor?: V2ReleaseSuccessor | null;
   /** Screen may already know a Vision is linked (it requires an async lookup). */
   hasLinkedVision?: boolean;
 }
@@ -37,6 +44,14 @@ export interface UseV2ReleaseResult {
   retryable: boolean;
   result: V2ReleaseResult | null;
   anchorMissing: boolean;
+  /** False when the release cannot honestly start (evolve without a valid successor). */
+  canRelease: boolean;
+  /** The completion config for the verified reason. */
+  ending: V2ReleaseEnding | null;
+  /** The relationships changed after the hold began; the hold was rejected and must be repeated. */
+  stale: boolean;
+  /** Record the consequences the user is looking at when a hold begins. */
+  beginHold: () => void;
   /** Begin the dissolution ceremony and submit the idempotent release request. */
   startRelease: () => void;
   /** The ceremony component calls this once its visual timeline (incl. empty pause) has finished. */
@@ -55,38 +70,60 @@ export interface UseV2ReleaseResult {
  * to `released` via the shared store.
  */
 export function useV2Release(options: UseV2ReleaseOptions): UseV2ReleaseResult {
-  const { anchorId, adapter = v2ReleaseApiAdapter, reason, hasLinkedVision } = options;
+  const { anchorId, adapter = v2ReleaseApiAdapter, reason: rawReason, hasLinkedVision, successor: suppliedSuccessor } = options;
+  const requestedReason = useMemo(() => normalizeReleaseReason(rawReason), [rawReason]);
 
   const anchor = useAnchorStore((s) =>
     s.anchors.find((a) => a.id === anchorId || a.localId === anchorId) ?? null,
   );
   const releaseAnchor = useAnchorStore((s) => s.releaseAnchor);
+  const anchors = useAnchorStore((s) => s.anchors);
   const activeCourse = useCourseStore((s) => s.activeCourse);
 
   const [started, setStarted] = useState(false);
   const [dissolutionDone, setDissolutionDone] = useState(false);
   const [submissionState, setSubmissionState] = useState<SubmissionState>('idle');
   const [result, setResult] = useState<V2ReleaseResult | null>(null);
+  const [stale, setStale] = useState(false);
 
   const idempotencyKeyRef = useRef<string | null>(null);
   const submitLockRef = useRef(false);
   const reconciledRef = useRef(false);
   const committedSnapshot = useRef<V2ReleaseConsequenceSnapshot | null>(null);
+  const holdRevisionRef = useRef<string | null>(null);
 
+  // Server-synced Chart state only: link kind, reached/completed flags and the next waypoint.
   const linkedCourse: V2ReleaseLinkedCourse | null = useMemo(() => {
     if (!activeCourse) return null;
-    const linkedId =
-      activeCourse.destinationAnchorLink?.anchorId ??
-      activeCourse.waypoints.find((w) => w.anchorLink?.anchorId === anchorId)?.anchorLink
-        ?.anchorId ??
-      null;
-    if (linkedId !== anchorId) return null;
+    const ids = new Set([anchorId, anchor?.id, anchor?.localId].filter(Boolean) as string[]);
+    const isDestination = Boolean(activeCourse.destinationAnchorLink?.anchorId && ids.has(activeCourse.destinationAnchorLink.anchorId));
+    const ordered = [...activeCourse.waypoints].sort((a, b) => a.position - b.position);
+    const waypoint = ordered.find((w) => w.anchorLink?.anchorId && ids.has(w.anchorLink.anchorId));
+    if (!isDestination && !waypoint) return null;
+    const next = waypoint
+      ? ordered.find((w) => w.position > waypoint.position && (w.state === 'CURRENT' || w.state === 'UPCOMING'))
+      : null;
     return {
       status: activeCourse.status,
       waypointCount: activeCourse.waypointCount,
       reachedCount: activeCourse.reachedCount,
+      linkKind: isDestination ? 'destination' : 'waypoint',
+      waypointReached: waypoint?.state === 'REACHED',
+      courseCompleted: activeCourse.status === 'COMPLETED',
+      courseId: activeCourse.id,
+      nextWaypointTitle: next?.title ?? null,
+      revision: activeCourse.version,
     };
-  }, [activeCourse, anchorId]);
+  }, [activeCourse, anchor?.id, anchor?.localId, anchorId]);
+
+  // An evolved intention needs a real, different Anchor to continue into.
+  const successor = useMemo(() => {
+    if (!suppliedSuccessor) return null;
+    const own = new Set([anchorId, anchor?.id, anchor?.localId].filter(Boolean) as string[]);
+    if (own.has(suppliedSuccessor.anchorId)) return null;
+    const found = anchors.find((a) => a.id === suppliedSuccessor.anchorId || a.localId === suppliedSuccessor.anchorId);
+    return found ? { anchorId: found.id, intentionText: found.intentionText || suppliedSuccessor.intentionText } : null;
+  }, [suppliedSuccessor, anchors, anchor?.id, anchor?.localId, anchorId]);
 
   const snapshot = useMemo(() => {
     if (!anchor) return null;
@@ -94,8 +131,12 @@ export function useV2Release(options: UseV2ReleaseOptions): UseV2ReleaseResult {
       anchor,
       linkedCourse,
       hasLinkedVision,
+      reason: requestedReason,
+      successor,
     });
-  }, [anchor, linkedCourse, hasLinkedVision]);
+  }, [anchor, linkedCourse, hasLinkedVision, requestedReason, successor]);
+  const activeReason = (started ? committedSnapshot.current ?? snapshot : snapshot)?.reason;
+  const canRelease = Boolean(snapshot) && !(snapshot?.reason === 'evolve' && !snapshot.successor);
 
   const runSubmission = useCallback(async () => {
     if (submitLockRef.current) return;
@@ -109,7 +150,7 @@ export function useV2Release(options: UseV2ReleaseOptions): UseV2ReleaseResult {
       const res = await adapter.submitRelease({
         anchorId,
         idempotencyKey: idempotencyKeyRef.current,
-        reason,
+        reason: activeReason,
       });
       setResult(res);
       setSubmissionState(
@@ -127,14 +168,25 @@ export function useV2Release(options: UseV2ReleaseOptions): UseV2ReleaseResult {
     } finally {
       submitLockRef.current = false;
     }
-  }, [adapter, anchorId, reason]);
+  }, [adapter, anchorId, activeReason]);
+
+  const beginHold = useCallback(() => {
+    holdRevisionRef.current = snapshot?.revision ?? null;
+    setStale(false);
+  }, [snapshot?.revision]);
 
   const startRelease = useCallback(() => {
-    if (started) return;
+    if (started || !canRelease) return;
+    // The relationships changed under the hold: reject it, show the refreshed rows, require a new hold.
+    if (snapshot && holdRevisionRef.current !== null && holdRevisionRef.current !== snapshot.revision) {
+      holdRevisionRef.current = null;
+      setStale(true);
+      return;
+    }
     committedSnapshot.current = snapshot;
     setStarted(true);
     void runSubmission();
-  }, [started, runSubmission, snapshot]);
+  }, [started, canRelease, runSubmission, snapshot]);
 
   const markDissolutionComplete = useCallback(() => {
     setDissolutionDone(true);
@@ -146,6 +198,7 @@ export function useV2Release(options: UseV2ReleaseOptions): UseV2ReleaseResult {
 
   const reset = useCallback(() => {
     committedSnapshot.current = null;
+    holdRevisionRef.current = null;
     idempotencyKeyRef.current = null;
     reconciledRef.current = false;
     submitLockRef.current = false;
@@ -153,6 +206,7 @@ export function useV2Release(options: UseV2ReleaseOptions): UseV2ReleaseResult {
     setDissolutionDone(false);
     setSubmissionState('idle');
     setResult(null);
+    setStale(false);
   }, []);
 
   // Non-destructive local reconciliation: flip the record to released exactly
@@ -172,13 +226,22 @@ export function useV2Release(options: UseV2ReleaseOptions): UseV2ReleaseResult {
     return 'confirming';
   }, [started, dissolutionDone, submissionState]);
 
+  const shown = started ? committedSnapshot.current ?? snapshot : snapshot;
+  const ending = useMemo(() => (shown
+    ? buildReleaseEnding({ reason: shown.reason, intentionText: shown.intentionText, successor: shown.successor })
+    : null), [shown]);
+
   return {
-    snapshot: started ? committedSnapshot.current ?? snapshot : snapshot,
+    snapshot: shown,
     stage,
     message: result?.message ?? null,
     retryable: result?.retryable ?? false,
     result,
     anchorMissing: !anchor && !committedSnapshot.current,
+    canRelease,
+    ending,
+    stale,
+    beginHold,
     startRelease,
     markDissolutionComplete,
     retry,

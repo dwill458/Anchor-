@@ -55,7 +55,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  title: { ...typography.headingSM, color: colors.graphite.text.primary },
+  title: {
+    fontFamily: 'BricolageGrotesque-SemiBold',
+    fontSize: 18,
+    lineHeight: 23,
+    color: colors.graphite.text.primary,
+  },
   seen: {
     ...typography.bodySM,
     color: colors.graphite.text.secondary,

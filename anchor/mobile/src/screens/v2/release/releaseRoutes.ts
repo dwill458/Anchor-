@@ -1,4 +1,5 @@
 import { V2_RELEASE_ROUTE } from '@/constants/v2/release';
+import type { V2ReleaseEnding, V2ReleaseSuccessor } from '@/adapters/v2/release';
 
 /**
  * Route manifest only. UI-H does not edit the central navigator
@@ -16,13 +17,30 @@ export interface V2ReleaseRouteParams {
   anchorId: string;
   /** Shared artwork owns the arrival animation. */
   anchorTransition?: boolean;
-  /** Optional context for a manual release (e.g. 'evolve', 'destination_completed'). */
+  /**
+   * Optional context: one of V2ReleaseReason ('outcome_completed' | 'waypoint_completed' |
+   * 'destination_completed' | 'no_longer_aligned' | 'evolve'). Anything else is a manual
+   * release. Waypoint/destination reasons are verified against synced Chart state.
+   */
   reason?: string;
+  /** Evolve only: the Anchor the intention continues into. */
+  successor?: V2ReleaseSuccessor;
 }
 
 /** Typed continuation callbacks the central navigator supplies. */
 export interface V2ReleaseContinuationCallbacks {
-  onReleaseCompleted: (anchorId: string) => void;
+  /** Return Home (and the fallback for any continuation without its own callback). */
+  onReleaseCompleted: (anchorId: string, ending: V2ReleaseEnding) => void;
   onCancel: () => void;
   onViewHistory?: () => void;
+  /** Progress for the released intention. */
+  onViewProgress?: (anchorId: string) => void;
+  /** Waypoint ending: the Chart with its next waypoint. */
+  onContinueToChart?: (courseId: string | null, anchorId: string) => void;
+  /** Destination ending: the completed Chart. */
+  onViewCompletedChart?: (courseId: string | null, anchorId: string) => void;
+  /** Evolve ending: the successor Anchor's details. */
+  onContinueWithSuccessor?: (successorAnchorId: string) => void;
+  /** Evolve with no valid successor: send the user to create one. */
+  onCreateSuccessor?: () => void;
 }

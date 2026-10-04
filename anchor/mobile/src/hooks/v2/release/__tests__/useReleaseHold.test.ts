@@ -117,4 +117,36 @@ describe('useReleaseHold', () => {
 
     expect(onSustainStart).toHaveBeenCalledTimes(1);
   });
+
+  it('backgrounding the app cancels an unfinished hold: no completion, no haptic', () => {
+    const { AppState } = require('react-native');
+    let handler: ((state: string) => void) | undefined;
+    (AppState.addEventListener as jest.Mock).mockImplementationOnce((_: string, fn: (state: string) => void) => {
+      handler = fn;
+      return { remove: jest.fn() };
+    });
+    const onComplete = jest.fn();
+    const onCancel = jest.fn();
+    const { result } = renderHook(() => useReleaseHold({ onComplete, onCancel, haptics, now }));
+    act(() => { result.current.beginHold(); });
+    advance(600);
+    act(() => { handler?.('background'); });
+    advance(RELEASE_HOLD_DURATION_MS);
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(haptics.completion).not.toHaveBeenCalled();
+    expect(result.current.isHolding).toBe(false);
+  });
+
+  it('lifting after the threshold does not cancel', () => {
+    const onComplete = jest.fn();
+    const onCancel = jest.fn();
+    const { result } = renderHook(() => useReleaseHold({ onComplete, onCancel, haptics, now }));
+    act(() => { result.current.beginHold(); });
+    advance(RELEASE_HOLD_DURATION_MS + 100);
+    act(() => { result.current.endHold(); });
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(result.current.isComplete).toBe(true);
+  });
 });

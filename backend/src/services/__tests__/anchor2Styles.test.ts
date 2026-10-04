@@ -681,4 +681,20 @@ describe('Form I / Form II are a real choice', () => {
       expect(second.placement).not.toBe(first.placement);
     }
   });
+
+  it.each([...ANCHOR2_STYLE_IDS])('%s: the two Forms differ in composition and sit on opposite field values', id => {
+    const def = ANCHOR2_STYLE_LIBRARY[id];
+    const hasExtremes = def.paletteLanes.some(l => l.fieldValue === 'light') && def.paletteLanes.some(l => l.fieldValue === 'dark');
+    for (const intention of INTENTIONS) {
+      const first = buildStylePrompt(intention, id, 0, { category: 'career' });
+      const second = buildStylePrompt(intention, id, 1, { category: 'career' });
+      expect(/Composition: (.*)/.exec(second)?.[1]).not.toBe(/Composition: (.*)/.exec(first)?.[1]);
+      expect(second).toContain('one of two options shown side by side');
+      const a = selectAnchor2PaletteLane(def, intention, 0, 'career');
+      const b = selectAnchor2PaletteLane(def, intention, 1, 'career');
+      const values = new Set(def.paletteLanes.map(l => l.fieldValue));
+      if (values.size > 1) expect(b.fieldValue).not.toBe(a.fieldValue);
+      if (a.fieldValue !== 'mixed' && hasExtremes) expect(b.fieldValue).toBe(a.fieldValue === 'light' ? 'dark' : 'light');
+    }
+  });
 });

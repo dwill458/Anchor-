@@ -3,13 +3,15 @@ import { Alert, Image, StatusBar, KeyboardAvoidingView, Pressable, StyleSheet, T
 // Gesture Handler's ScrollView takes part in gesture arbitration, so a lifted photo keeps the touch on Android.
 import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowRight, Eye, MoreHorizontal } from 'lucide-react-native';
+import { ChevronRight, ChevronDown, Eye, MoreHorizontal } from 'lucide-react-native';
+import { VisionChartRoute } from './VisionChartRoute';
+import { truncateVisionText } from './visionDetailText';
 import { V2Button } from '@/components/v2';
 import { colors, radii, spacing, typography } from '@/theme/v2';
-import { practiceColors } from '@/theme/v2/practiceColors';
 import { useV2ReduceMotion } from '@/hooks/v2';
 import type { V2VisionTile } from '@/adapters/v2/vision';
 import type { ChartSummary } from '@/adapters/v2/chart/chartV2Model';
+import { VISION_GOLD } from './VisionPaperChrome';
 import { VisionHeaderRow, VisionIdentity, VisionStatusBarScrim, type VisionAnchorArt } from './VisionChrome';
 import { VISION_DESCRIPTION_MAX_CHARS, VISION_DESCRIPTION_MIN_CHARS, visionDetailHint } from './visionGuidance';
 import { VisionBoard } from './board/VisionBoard';
@@ -25,6 +27,8 @@ type Props = {
   anchorArt?: VisionAnchorArt | null;
   initialEdit?: boolean;
   description: string;
+  annotation?: string;
+  onUpdateAnnotation?: (annotation: string) => Promise<boolean>;
   tiles: V2VisionTile[];
   error?: string | null;
   onBack: () => void;
@@ -62,7 +66,7 @@ const ARRIVAL_RECOMPOSE_DELAY_MS = 450;
 
 export function V2SavedVision({
   chartSummary = null, visualizeReady = true, preparationIssue, onRetryVisualize, onUseAvailableImages,
-  anchorIntention, anchorCategory, anchorImageUrl, anchorArt, description, tiles, error, initialEdit = false,
+  anchorIntention, anchorCategory, anchorImageUrl, anchorArt, description, annotation = '', onUpdateAnnotation, tiles, error, initialEdit = false,
   onBack, onVisualize, onChart, onUpdateDescription, onReorder, onRemove,
   onAddPhoto, onAddGenerate, onReplace, onRegenerate, canGenerateMore, onArchive, arrivedFrom = null, testID = 'v2-vision-screen',
 }: Props) {
@@ -77,7 +81,9 @@ export function V2SavedVision({
   const reduceMotion = useV2ReduceMotion();
   const boardWidth = Math.min(width - BOARD_GUTTER * 2, 520);
   const [expanded, setExpanded] = useState(false);
-  const [truncated, setTruncated] = useState(false);
+  const preview = useMemo(() => truncateVisionText(description), [description]);
+  const truncated = preview !== description;
+  const [annotationDraft, setAnnotationDraft] = useState(annotation);
   const [manageImages, setManageImages] = useState(false);
   const [mode, setMode] = useState<'view' | 'edit'>(initialEdit ? 'edit' : 'view');
   const [draft, setDraft] = useState(description);
@@ -91,6 +97,8 @@ export function V2SavedVision({
   const [pendingRemovals, setPendingRemovals] = useState<ReadonlySet<string>>(() => new Set());
 
   useEffect(() => { setDraft(description); }, [description]);
+  useEffect(() => { setAnnotationDraft(annotation); }, [annotation]);
+  useEffect(() => { setExpanded(false); }, [description]);
   useEffect(() => {
     // The server has caught up with a local order, or the Vision changed underneath it.
     if (localOrder && tiles.map(tile => tile.sceneId).join('|') === localOrder.join('|')) setLocalOrder(null);
@@ -129,7 +137,8 @@ export function V2SavedVision({
   const saveText = async () => {
     if (draft.trim().length < VISION_DESCRIPTION_MIN_CHARS || busy) { setNotice(`Describe your Vision in at least ${VISION_DESCRIPTION_MIN_CHARS} characters.`); return; }
     setBusy(true);
-    const success = await onUpdateDescription(draft.trim());
+    const captionSaved = !onUpdateAnnotation || annotationDraft.trim() === annotation || await onUpdateAnnotation(annotationDraft.trim());
+    const success = captionSaved && await onUpdateDescription(draft.trim());
     setBusy(false);
     if (success) { setNotice(null); setMode('view'); }
     else setNotice('Vision could not be updated. Please try again.');
@@ -195,7 +204,7 @@ export function V2SavedVision({
 
   const header = (
     <VisionHeaderRow title={mode === 'edit' ? 'Edit Vision' : 'Vision'} serifTitle
-      tone="dark" onBack={mode === 'view' ? onBack : () => { setMode('view'); setNotice(null); setDraft(description); }}
+      tone="dark" onBack={mode === 'view' ? onBack : () => { setMode('view'); setNotice(null); setDraft(description); setAnnotationDraft(annotation); }}
       utility={mode === 'view' ? (
         <Pressable accessibilityRole="button" accessibilityLabel="Vision options" hitSlop={8} onPress={() => setMenuOpen(value => !value)} style={styles.menuButton}>
           <MoreHorizontal size={22} color={colors.text.primary} />
@@ -206,7 +215,7 @@ export function V2SavedVision({
   return (
     <View testID={testID} style={styles.root}>
       <KeyboardAvoidingView style={styles.flex} behavior="padding">
-        <ScrollView onScroll={measureCanvas} scrollEventThrottle={32} scrollEnabled={!dragging} contentContainerStyle={{ paddingBottom: insets.bottom + spacing[6] }}
+        <ScrollView onScrollEndDrag={measureCanvas} onMomentumScrollEnd={measureCanvas} scrollEnabled={!dragging} contentContainerStyle={{ paddingBottom: insets.bottom + spacing[6] }}
           keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={{ paddingTop: insets.top }}>
             <StatusBar barStyle="dark-content" backgroundColor={colors.canvas} />
@@ -219,6 +228,7 @@ export function V2SavedVision({
                 <View ref={canvasRef} collapsable={false} onLayout={measureCanvas}><VisionBoard
                   tiles={boardTiles}
                   intention={anchorIntention}
+                  annotation={annotation}
                   category={anchorCategory}
                   art={anchorArt}
                   width={boardWidth}
@@ -241,9 +251,15 @@ export function V2SavedVision({
           <View style={styles.body}>
             {mode === 'edit' ? (
               <>
+                <View pointerEvents="none" style={styles.sectionRule} />
                 <Text style={styles.heading}>My Vision</Text>
                 <TextInput testID="vision-edit-description" accessibilityLabel="Edit Vision description" multiline maxLength={VISION_DESCRIPTION_MAX_CHARS}
                   value={draft} onChangeText={setDraft} style={styles.textInput} textAlignVertical="top" />
+                {onUpdateAnnotation ? <>
+                  <Text style={styles.chartPosition}>Board caption (optional)</Text>
+                  <TextInput accessibilityLabel="Board caption" maxLength={80} value={annotationDraft}
+                    onChangeText={setAnnotationDraft} style={[styles.textInput, { minHeight: 48 }]} />
+                </> : null}
                 <View style={styles.meter}>
                   <Text style={styles.meterHint}>{visionDetailHint(draft) ?? ''}</Text>
                   <Text style={styles.counter}>{draft.length}/{VISION_DESCRIPTION_MAX_CHARS}</Text>
@@ -253,11 +269,11 @@ export function V2SavedVision({
             ) : (
               <>
                 <Text style={styles.heading}>My Vision</Text>
-                <Text testID="vision-statement" numberOfLines={expanded ? undefined : 3} style={styles.description}
-                  onTextLayout={event => { if (!expanded) setTruncated(event.nativeEvent.lines.length >= 3); }}>{description}</Text>
+                <Text testID="vision-statement" style={styles.description}>{expanded ? description : preview}</Text>
                 {(truncated || expanded) ? <Pressable accessibilityRole="button" accessibilityState={{ expanded }}
-                  onPress={() => setExpanded(value => !value)} style={{ minHeight: 44, justifyContent: 'center' }}>
-                  <Text style={styles.chartLinkText}>{expanded ? 'Read less' : 'Read more'}</Text>
+                  onPress={() => setExpanded(value => !value)} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 4 }}>
+                  <Text style={styles.disclosure}>{expanded ? 'Read less' : 'Read more'}</Text>
+                  <ChevronDown size={14} color={colors.text.primary} style={{ transform: [{ rotate: expanded ? '180deg' : '0deg' }] }} />
                 </Pressable> : null}
                 {manageImages ? <View style={{ gap: spacing[3] }}>{boardTiles.map((tile, index) =>
                   <View key={tile.sceneId} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[3] }}>
@@ -278,11 +294,16 @@ export function V2SavedVision({
                     </View>
                   </View>)}</View> : null}
                 <V2Button size="large" accessibilityLabel="Begin Visualize" disabled={!visualizeReady} onPress={() => {
-                    const bounds = canvasBounds.current; const projection = canvasCapture.current?.();
-                    onVisualize(bounds && projection ? { ...projection, x: bounds.x + projection.x, y: bounds.y + projection.y } : bounds);
+                    const begin = (bounds = canvasBounds.current) => {
+                      const projection = canvasCapture.current?.();
+                      onVisualize(bounds && projection ? { ...projection, x: bounds.x + projection.x, y: bounds.y + projection.y } : bounds);
+                    };
+                    // Native position is sampled at activation, including taps during momentum.
+                    if (canvasRef.current?.measureInWindow) canvasRef.current.measureInWindow((x, y, width, height) => begin({ x, y, width, height }));
+                    else begin();
                   }} style={styles.visualize}
-                  iconLeft={<Eye size={18} color={practiceColors.visualize} />} iconRight={<ArrowRight size={17} color={colors.paper} />}>
-                  Begin Visualize
+                  iconLeft={<Eye size={18} color={colors.paper} />} iconRight={<ChevronRight size={18} color={colors.paper} />}>
+                  <Text style={{ fontFamily: 'EBGaramond-Medium', fontSize: 18, fontWeight: 'normal' }}>Begin Visualize</Text>
                 </V2Button>
                 {!visualizeReady ? <Text accessibilityLiveRegion="polite" style={styles.chartPosition}>{preparationIssue ?? 'Preparing your Vision�'}</Text> : null}
                 {preparationIssue && onRetryVisualize ? <Pressable accessibilityRole="button" onPress={onRetryVisualize} style={{ minHeight: 44 }}><Text style={styles.chartLinkText}>Retry Vision images</Text></Pressable> : null}
@@ -296,6 +317,14 @@ export function V2SavedVision({
                   testID="vision-on-your-chart"
                   style={({ pressed }) => [styles.chartCard, pressed && styles.pressed]}
                 >
+                  <View pointerEvents="none" style={styles.chartTerrain}>
+                    <Image source={require('../../../../assets/chart/chart-landscape-master.webp')}
+                      accessible={false} resizeMode="cover" style={StyleSheet.absoluteFill} />
+                  </View>
+                  {chartSummary ? <View testID="vision-chart-mini-map" style={styles.chartGraphic}>
+                    <VisionChartRoute chart={chartSummary} />
+                  </View> : null}
+                  <View style={styles.chartCopy}>
                   <Text style={styles.chartEyebrow}>ON YOUR CHART</Text>
                   {chartSummary ? (
                     <>
@@ -307,9 +336,10 @@ export function V2SavedVision({
                   ) : (
                     <Text style={styles.chartPosition}>Map the route from here to this Vision.</Text>
                   )}
+                  </View>
                   <View style={styles.chartLink}>
                     {!chartSummary ? <Text style={styles.chartLinkText}>Create a Chart</Text> : null}
-                    <ArrowRight size={15} color={colors.text.primary} />
+                    <ChevronRight size={20} color={colors.text.primary} />
                   </View>
                 </Pressable>
               </>
@@ -342,6 +372,7 @@ export function V2SavedVision({
 }
 
 const styles = StyleSheet.create({
+  sectionRule: { width: 32, height: 2, backgroundColor: VISION_GOLD, marginBottom: spacing[2] },
   root: { flex: 1, backgroundColor: colors.canvas },
   flex: { flex: 1 },
   bandContent: { paddingHorizontal: PAGE_GUTTER, gap: spacing[4] },
@@ -354,7 +385,8 @@ const styles = StyleSheet.create({
   body: { paddingHorizontal: PAGE_GUTTER, paddingTop: spacing[3], gap: spacing[2] },
   heading: { fontFamily: 'EBGaramond-Medium', fontSize: 28, lineHeight: 34, letterSpacing: -0.4, color: colors.text.primary },
   description: { ...typography.bodyMD, color: colors.text.primary, lineHeight: 23 },
-  visualize: { marginTop: spacing[2] },
+  visualize: { marginTop: 0, backgroundColor: colors.ink.base, borderColor: colors.ink.base },
+  disclosure: { ...typography.bodySM, color: colors.text.primary, textDecorationLine: 'underline' },
   pressed: { opacity: 0.72 },
   textInput: { ...typography.bodyMD, color: colors.text.primary, minHeight: 168, borderRadius: radii.md, borderWidth: 1, borderColor: colors.border.default, backgroundColor: colors.surface, padding: spacing[4] },
   meter: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing[3] },
@@ -364,13 +396,17 @@ const styles = StyleSheet.create({
   chartCard: {
     marginTop: spacing[3],
     paddingVertical: spacing[3],
+    paddingBottom: 42,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border.default,
-    gap: 4,
+    gap: 12, flexDirection: 'row', alignItems: 'center',
   },
-  chartEyebrow: { ...typography.labelSM, color: colors.text.secondary, letterSpacing: 1.1 },
+  chartTerrain: { position: 'absolute', left: -PAGE_GUTTER, right: -PAGE_GUTTER, bottom: -spacing[4], height: 90, opacity: 0.18 },
+  chartGraphic: { width: 92, height: 80 },
+  chartCopy: { flex: 1, gap: 4, paddingRight: 20 },
+  chartEyebrow: { ...typography.labelSM, fontSize: 10, color: colors.text.secondary, letterSpacing: 1.1 },
   chartPosition: { ...typography.labelMD, color: colors.text.secondary, marginTop: spacing[1] },
-  chartTitle: { ...typography.bodyMD, color: colors.text.primary, paddingRight: 26 },
+  chartTitle: { fontFamily: 'EBGaramond-Medium', fontSize: 18, lineHeight: 21, color: colors.text.primary },
   chartLink: { flexDirection: 'row', alignItems: 'center', gap: 6, position: 'absolute', right: 0, top: 36 },
   chartLinkText: { ...typography.labelMD, color: colors.text.primary },
 });

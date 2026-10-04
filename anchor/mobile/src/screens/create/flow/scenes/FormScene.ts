@@ -1,8 +1,8 @@
-import { HERO, type Pt } from '../geometry';
+import { HERO, SANS, W, type Pt } from '../geometry';
 import { clamp, ease, lerp, smooth } from '../motion';
 import type { Painter } from '../painter';
 import { drawAnchorLine } from './anchorLine';
-import { drawCaption } from './DistillScene';
+import { CAPTION_Y, drawCaption } from './DistillScene';
 import { drawProofLine } from './ForgetScene';
 import type { Palette, SceneContext } from './sceneTypes';
 import { FORM_FINAL_STROKE_WIDTH, RAW_STROKE_WIDTH } from './sceneTypes';
@@ -46,6 +46,10 @@ export interface FormFrame {
   fade: number;
   /** The committed style: its material is what blooms along the line. */
   styleId?: string;
+  /** Display name of the committed style, for the wait caption. */
+  styleName?: string;
+  /** The picked style is not the default one, so it generates longer: say so while it runs. */
+  longerWait?: boolean;
 }
 
 /** Seconds: the line flies to the hero, then re-draws; the material follows a beat behind. */
@@ -56,8 +60,50 @@ export const FORM_TIMING = {
   materialLag: 0.5,
   /** The leading stretch of the material is still growing to full weight. */
   bloomWindow: 0.12,
+  /** Seconds for a lit head to travel the whole line; the haptic/sound cues tick once per lap. */
   sheenPeriod: 2.6,
+  /** How much of the line (0..1) a lit head's tail covers. */
+  cometTail: 0.16,
+  /** Seconds per breath of the halo. */
+  breathPeriod: 1.8,
 } as const;
+
+const glowCache = new Map<StrokeTreatment, string>();
+
+/**
+ * The hue the motion is drawn in: the style's most saturated layer colour, so Prism glows cyan-violet
+ * and Joybrush amber instead of everything going white; a neutral style (Alloy, Flash) falls back to
+ * its bloom. Cached per treatment — this runs every frame.
+ */
+function glowColorFor(t: StrokeTreatment): string {
+  const hit = glowCache.get(t);
+  if (hit) return hit;
+  let best: [number, number, number] | null = null;
+  let bestSat = 0.18;
+  t.layers.forEach((layer) => {
+    const m = /^#([0-9a-f]{6})$/i.exec(layer.color);
+    if (!m || layer.alpha < 0.3) return;
+    const n = parseInt(m[1], 16);
+    const rgb: [number, number, number] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    const mx = Math.max(...rgb);
+    const sat = mx === 0 ? 0 : (mx - Math.min(...rgb)) / mx;
+    if (sat > bestSat && mx > 90) {
+      best = rgb;
+      bestSat = sat;
+    }
+  });
+  let out = t.bloom;
+  if (best) {
+    // The field is dark: lift a deep hue (Porcelain's underglaze blue) toward white until it glows.
+    const [r, g, b] = best as [number, number, number];
+    const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+    const mix = Math.min(0.7, Math.max(0.15, (0.78 - lum) * 1.5));
+    const c = (v: number) => Math.round(v + (255 - v) * mix).toString(16).padStart(2, '0');
+    out = `#${c(r)}${c(g)}${c(b)}`;
+  }
+  glowCache.set(t, out);
+  return out;
+}
 
 /** When the material has fully arrived (seconds into Form). */
 export const FORM_REVEAL_SECONDS = FORM_TIMING.redrawStart + FORM_TIMING.materialLag + FORM_TIMING.redraw;
@@ -124,9 +170,27 @@ export function drawForm(p: Painter, pal: Palette, ctx: SceneContext, f: FormFra
     const penLayer: StrokeTreatment = { ...RAW_ONLY, layers: [{ ...RAW_ONLY.layers[0], color: pal.fg }] };
     drawTreatedRange(p, placed, measured, penLayer, 0, head, 1, 1, fade);
     if (head > 0.003 && head < 0.999) {
+      // A short tail follows the real centreline, including separate pen strokes.
+      const trail: StrokeTreatment = { bloom: treatment.bloom, layers: [
+        { width: 8, color: treatment.bloom, alpha: 0.12 },
+        { width: 3.6, color: treatment.bloom, alpha: 0.6 },
+      ] };
+      drawTreatedRange(p, placed, measured, trail, Math.max(0, head - 0.055), head, 1, 1, fade);
       const tip = pointAlong(placed, measured, head);
-      if (tip) p.circle(tip.x, tip.y, 3.2, { fill: { color: treatment.bloom, alpha: 0.9 * fade } });
+      if (tip) {
+        p.circle(tip.x, tip.y, 9, { fill: { color: treatment.bloom, alpha: 0.12 * fade } });
+        p.circle(tip.x, tip.y, 5.2, { fill: { color: treatment.bloom, alpha: 0.5 * fade } });
+        p.circle(tip.x, tip.y, 3.6, { fill: { color: '#FFFFFF', alpha: fade } });
+      }
     }
+  }
+
+  // A halo in the style's own hue breathes along whatever material has arrived, under it, so even a
+  // line that is already finished is visibly alive (a thin white sheen vanishes on a pale line).
+  if (!rm && material > 0.003) {
+    const breathe = 0.5 + 0.5 * Math.sin((tf / T.breathPeriod) * Math.PI * 2);
+    const halo: StrokeTreatment = { bloom: treatment.bloom, layers: [{ width: 12, color: glowColorFor(treatment), alpha: 0.06 + 0.12 * breathe }] };
+    drawTreatedRange(p, placed, measured, halo, 0, material, 1, 1, fade);
   }
 
   // The material: full weight behind the bloom window, growing to weight inside it.
@@ -143,6 +207,12 @@ export function drawForm(p: Painter, pal: Palette, ctx: SceneContext, f: FormFra
       drawTreatedRange(p, placed, measured, treatment, from, to, unit, 0.3 + 0.7 * (i / steps), fade);
     }
     if (material > 0.003 && material < 0.999) {
+      const sweep: StrokeTreatment = { bloom: treatment.bloom, layers: [
+        { width: 7, color: treatment.bloom, alpha: 0.22 },
+        { width: 3.2, color: treatment.bloom, alpha: 0.9 },
+        { width: 1.2, color: '#FFFFFF', alpha: 0.95 },
+      ] };
+      drawTreatedRange(p, placed, measured, sweep, Math.max(0, material - 0.07), material, unit, 1, fade);
       const tip = pointAlong(placed, measured, material);
       if (tip) {
         p.circle(tip.x, tip.y, 6, { fill: { color: treatment.bloom, alpha: 0.28 * fade } });
@@ -151,17 +221,42 @@ export function drawForm(p: Painter, pal: Palette, ctx: SceneContext, f: FormFra
     }
   }
 
-  // Alive while waiting: a soft sheen keeps travelling the finished line.
-  if (!rm && tf > FORM_REVEAL_SECONDS) {
-    const cycle = ((tf - FORM_REVEAL_SECONDS) / T.sheenPeriod) % 1.35;
-    const from = cycle - 0.15;
-    const sheen: StrokeTreatment = {
-      bloom: treatment.bloom,
-      // DEFERRED: the 1.5 / 0.55 bloom-colour sheen blended into Alloy's pale core.
-      layers: [{ width: 2.2, color: '#FFFFFF', alpha: 0.85 }],
-    };
-    drawTreatedRange(p, placed, measured, sheen, clamp(from), clamp(cycle), unit, 1, fade);
+  // Alive while waiting, in every style: two lit heads keep circling the finished line, half a lap
+  // apart so there is never a gap, over the breathing halo drawn beneath the material.
+  // They light a beat before the material finishes arriving, so the hand-off from the sweep has no lull.
+  if (!rm && tf > FORM_REVEAL_SECONDS - 0.6) {
+    const since = tf - FORM_REVEAL_SECONDS;
+    const ramp = smooth(-0.6, -0.1, since);
+    const glow = glowColorFor(treatment);
+    [0, 0.5].forEach((offset) => {
+      const h = (((since / T.sheenPeriod + offset) % 1) + 1) % 1;
+      if (h < 0.004) return;
+      // Absolute px layers, not the material's: the halo reaches past even a thin or pale line, so
+      // the motion reads on the field whatever colour the line is.
+      const comet: StrokeTreatment = { bloom: glow, layers: [
+        { width: 11, color: glow, alpha: 0.2 * ramp },
+        { width: 4.4, color: glow, alpha: 0.7 * ramp },
+        { width: 1.6, color: '#FFFFFF', alpha: 0.95 * ramp },
+      ] };
+      drawTreatedRange(p, placed, measured, comet, Math.max(0, h - T.cometTail), h, 1, 1, fade);
+      const tip = pointAlong(placed, measured, h);
+      if (tip) {
+        p.circle(tip.x, tip.y, 8, { fill: { color: glow, alpha: 0.22 * ramp * fade } });
+        p.circle(tip.x, tip.y, 3.8, { fill: { color: '#FFFFFF', alpha: ramp * fade } });
+      }
+    });
   }
 
-  drawCaption(p, pal, f.slow ? 'Still working on your anchor…' : 'Applying your style…', fade);
+  const applying = rm || tf >= T.redrawStart + T.materialLag;
+  drawCaption(p, pal, applying ? 'Applying your style…' : 'Drawing your line…', fade, { time: tf, reduceMotion: rm });
+  // Keep the stage visible throughout the wait. Alloy needs this expectation even if recommended.
+  const longerWait = f.longerWait || f.styleId === 'alloy';
+  if (applying && ((longerWait && f.styleName) || f.slow)) {
+    const expectation = longerWait && f.styleName
+      ? `Forging your ${f.styleName} — this one takes a moment`
+      : 'Still working on your anchor…';
+    p.text(expectation, W / 2, CAPTION_Y + 24, {
+      font: SANS(12), color: pal.fg, alpha: 0.84 * fade, align: 'center',
+    });
+  }
 }

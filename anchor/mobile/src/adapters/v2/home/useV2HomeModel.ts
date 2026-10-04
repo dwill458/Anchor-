@@ -19,11 +19,14 @@ import { toHomeProgressState, type HomeProgressState } from './progressAdapter';
 import { useSessionStore } from '@/stores/sessionStore';
 import { toHomeRecentActivity, type HomeRecentActivityItem } from './recentActivityAdapter';
 import { HomeStartupProfiler } from '@/utils/homeStartupProfiler';
+import { anchorsPracticedToday, hasPracticedToday } from '@/components/v2/home/homeHeroPresence';
 
 export type V2HomeAnchorSummary = {
   anchor: Anchor;
   thread: V2ThreadPresentation;
   isSelected: boolean;
+  /** A completed session exists for this Anchor on today's local calendar day. Drives the hero's status ring. */
+  practicedToday: boolean;
 };
 
 export type V2HomeTodayState =
@@ -323,14 +326,16 @@ export function useV2HomeModel(): V2HomeModel {
    * new array every time Today's recommendation moved between loading and
    * ready, re-rendering the carousel on exactly the frames it is settling.
    */
+  const practicedKeys = useMemo(() => anchorsPracticedToday(practiceHistory, accountId), [practiceHistory, accountId]);
   const anchorList = useMemo(
     () =>
       activeAnchors.map<V2HomeAnchorSummary>((anchor, index) => ({
         anchor,
         thread: toThreadPresentation(anchor),
         isSelected: index === selectedIndex,
+        practicedToday: hasPracticedToday(practicedKeys, anchor),
       })),
-    [activeAnchors, selectedIndex],
+    [activeAnchors, practicedKeys, selectedIndex],
   );
 
   return useMemo(() => {

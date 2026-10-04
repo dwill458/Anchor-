@@ -68,7 +68,7 @@ import { formCraftCues } from './formCraft';
 import { useIntentionHandoffStore } from './intentionHandoff';
 import { trace } from '@/utils/dev/creationTrace';
 import { buildSceneContext } from './sceneContext';
-import { MEDALLION, SEAL_PULSE_AT, SEAL_PULSE_SOUND_LEAD_MS, SEAL_SEQUENCE_SECONDS } from './sealMath';
+import { MEDALLION } from './sealMath';
 import {
   INK_HIDDEN,
   autoBoundary,
@@ -283,6 +283,8 @@ export default function AnchorCreationFlowScreen() {
   }, []);
 
   const styleStepRef = useRef<ReturnType<typeof useStyleStep> | null>(null);
+  /** Set at commit: a non-default style takes longer, and the Form beat says so (never the picker). */
+  const longerWaitRef = useRef(false);
   /** The bloom under the Form beat: one voice at a time, never over the Mapping tones. */
   const bloomSoundRef = useRef<CreationSoundHandle | null>(null);
   const formSoundRef = useRef<CreationSoundHandle | null>(null);
@@ -309,11 +311,9 @@ export default function AnchorCreationFlowScreen() {
   useEffect(
     () => () => {
       bloomSoundRef.current?.stop();
-      if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
     },
     []
   );
-  const pulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Build the Mapping tones (a few KB each, cached on disk) before the line reaches the first node.
   useEffect(() => {
@@ -459,6 +459,7 @@ export default function AnchorCreationFlowScreen() {
       playCreationSound('uiTap');
 
       generationRef.current.style = style;
+      longerWaitRef.current = styleStepRef.current?.showsLongerWait ?? false;
       generationRef.current.attempt = 1;
       formTfRef.current = 0;
       formCuesFiredRef.current.clear();
@@ -625,14 +626,6 @@ export default function AnchorCreationFlowScreen() {
       const style = generationRef.current.style;
       if (!flow || !form || !generated || !style) return;
 
-      // The seal sounds as the hold completes; the low pulse is laid in just ahead of the visual
-      // pulse landing, so the sound reads as its cause.
-      playCreationSound('seal');
-      if (pulseTimerRef.current) clearTimeout(pulseTimerRef.current);
-      pulseTimerRef.current = setTimeout(
-        () => playCreationSound('anchorPulse'),
-        Math.max(0, SEAL_PULSE_AT * SEAL_SEQUENCE_SECONDS * 1000 - SEAL_PULSE_SOUND_LEAD_MS)
-      );
       sealedImageRef.current = form.uri || undefined;
       if (__DEV__ && form.uri && !form.uri.startsWith('data:')) {
         Image.getSize(
@@ -724,7 +717,9 @@ export default function AnchorCreationFlowScreen() {
     });
   }, [deferUntilArrived, flushDeferred]);
 
+  const onSealLanded = useCallback(() => { playCreationSound('seal'); }, []);
   const choose = useChooseController({
+    onSealLanded,
     onHoldComplete,
     onSealAnimationDone,
     reduceMotion,
@@ -896,6 +891,8 @@ export default function AnchorCreationFlowScreen() {
               slow: tf > FORM_SLOW_CAPTION_AFTER,
               fade: 1,
               styleId: gen.style?.id,
+              styleName: gen.style?.displayName,
+              longerWait: longerWaitRef.current,
             },
           },
           boundary: INK_BOUNDARY.held,
@@ -903,6 +900,8 @@ export default function AnchorCreationFlowScreen() {
       }
 
       case 'sweep': {
+        // The forming line stays alive until its caption and field have faded out.
+        formTfRef.current += dt;
         sweepURef.current = Math.min(1, sweepURef.current + dt / tl.sweep);
         const u = sweepURef.current;
         headerBeat.value = 7;
@@ -923,6 +922,8 @@ export default function AnchorCreationFlowScreen() {
               slow: false,
               fade: 1 - smooth(0, 0.35, u),
               styleId: generationRef.current.style?.id,
+              styleName: generationRef.current.style?.displayName,
+              longerWait: longerWaitRef.current,
             },
           },
           boundary: sweepBoundary(u, rm),

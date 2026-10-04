@@ -200,6 +200,7 @@ describe('V2VisionScreen: adding to the board', () => {
 
       await view.findByText('What else do you see?');
       expect(view.getByText('ADD TO YOUR VISION')).toBeTruthy();
+      fireEvent.press(view.getByTestId('vision-path-words'));
       const generate = view.getByLabelText('Generate image');
       expect(generate.props.accessibilityState?.disabled).toBe(true);
       fireEvent.changeText(view.getByTestId('vision-scene-input'), 'Working from a beach house');
@@ -218,6 +219,7 @@ describe('V2VisionScreen: adding to the board', () => {
       expect(view.queryByLabelText('Generate More')).toBeNull();
 
       await act(async () => { fireEvent.press(view.getByTestId('scene-candidate-cand-2')); });
+      await act(async () => { fireEvent.press(view.getByLabelText('Use this one')); });
       await act(async () => { jest.advanceTimersByTime(800); });
       await waitFor(() => expect(apiClient.post).toHaveBeenCalledWith('/api/v2/visions/vision-101/scenes', {
         assetId: 'gen-2', prompt: 'Working from a beach house', sourceType: 'AI_GENERATED',

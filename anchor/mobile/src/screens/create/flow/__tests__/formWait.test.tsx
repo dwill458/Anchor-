@@ -111,6 +111,24 @@ describe('Form wait wiring', () => {
     expect(screen.getByText('Commit Alloy')).toBeTruthy();
   });
 
+  it('keeps the forming clock moving while handing off to Choose', async () => {
+    let resolve!: (value: unknown) => void;
+    mockGenerate.mockImplementation(() => new Promise((done) => { resolve = done; }));
+    commit();
+    advanceFrames(6);
+    await act(async () => { resolve({ variations: ['data:image/png;base64,YQ=='] }); });
+    const frames: FlowFrameSource[] = [];
+    act(() => {
+      for (let i = 0; i < 5; i += 1) {
+        mockNow += 50;
+        frames.push(mockGetFrame());
+      }
+    });
+    const times = frames.flatMap((source) => source.frame.kind === 'form' ? [source.frame.form.tf] : []);
+    expect(times.length).toBeGreaterThanOrEqual(2);
+    for (let i = 1; i < times.length; i += 1) expect(times[i]).toBeGreaterThan(times[i - 1]);
+  });
+
   it('runs craft cues with Reduce Motion, stops sound in background, and settles once', async () => {
     let resolve!: (value: unknown) => void;
     mockGenerate.mockImplementation(() => new Promise((done) => { resolve = done; }));

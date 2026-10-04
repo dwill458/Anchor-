@@ -70,25 +70,47 @@ export function flameIntensity(time: number): number {
 /** Logical screen dimensions, shared by confirmation, ceremony and transition prediction. */
 export function releaseArtworkRect(width: number, height: number) {
   const size = Math.min(RELEASE_ARTWORK_SIZE, width - 72, height * 0.31);
-  return { x: (width - size) / 2, y: height * 0.34 + 24, width: size, height: size };
+  // Heading and subtitle sit above; the intention, consequences and hold sit below, so the Anchor
+  // rests near the top fifth and never moves between rest and isolation.
+  return { x: (width - size) / 2, y: Math.round(height * 0.2) + 16, width: size, height: size };
 }
 
+/**
+ * Ember budget per burn window: early 5 (cap 6), mid 8 (cap 10), final 3 embers + 2 fragments.
+ * Births are spread inside each window, so a window never borrows from its neighbour.
+ */
+const PARTICLE_WINDOWS = [
+  { from: T.ignite + 230, to: T.burnEarly, count: 5, ashFrom: Infinity },
+  { from: T.burnEarly, to: T.burnLate, count: 8, ashFrom: Infinity },
+  { from: T.burnLate, to: T.finalEmber, count: 5, ashFrom: 3 },
+] as const;
+
 export function createReleaseParticles(seed: number, size: number) {
-  return Array.from({ length: RELEASE_PARTICLE_COUNT }, (_, i) => {
-    const birth = T.ignite + 230 + i * 128 + seededUnit(seed, i * 7) * 60;
-    return {
-      birth, life: 280 + seededUnit(seed, i * 7 + 1) * 260,
-      slot: seededUnit(seed, i * 7 + 2),
-      drift: (seededUnit(seed, i * 7 + 3) - 0.5) * 32,
-      rise: 18 + seededUnit(seed, i * 7 + 4) * (i % 7 === 0 ? 68 : 32),
-      size: 0.8 + seededUnit(seed, i * 7 + 5) * 1.2,
-      phase: seededUnit(seed, i * 7 + 6) * Math.PI * 2,
-      ash: i % 6 === 4,
-      // Stop all traces before silence, even when scrubbing or frames are dropped.
-      death: Math.min(T.emptyPause, birth + 280 + seededUnit(seed, i * 7 + 1) * 260),
-      surfaceSize: size,
-    };
+  const particles: Array<{
+    birth: number; life: number; slot: number; drift: number; rise: number; size: number;
+    phase: number; ash: boolean; death: number; surfaceSize: number;
+  }> = [];
+  PARTICLE_WINDOWS.forEach(window => {
+    for (let k = 0; k < window.count; k += 1) {
+      const i = particles.length;
+      const birth = window.from + (k + 0.1 + seededUnit(seed, i * 7) * 0.7) / window.count * (window.to - window.from);
+      const life = 280 + seededUnit(seed, i * 7 + 1) * 260;
+      particles.push({
+        birth, life,
+        slot: seededUnit(seed, i * 7 + 2),
+        drift: (seededUnit(seed, i * 7 + 3) - 0.5) * 32,
+        rise: 18 + seededUnit(seed, i * 7 + 4) * (i % 7 === 0 ? 68 : 32),
+        size: 0.8 + seededUnit(seed, i * 7 + 5) * 1.2,
+        phase: seededUnit(seed, i * 7 + 6) * Math.PI * 2,
+        // Only the final window carries ash fragments (its last two particles).
+        ash: k >= window.ashFrom,
+        // Stop all traces before silence, even when scrubbing or frames are dropped.
+        death: Math.min(T.emptyPause, birth + life),
+        surfaceSize: size,
+      });
+    }
   });
+  return particles;
 }
 
 /** Contact stays on the live circular material, even as the cut narrows near the end. */

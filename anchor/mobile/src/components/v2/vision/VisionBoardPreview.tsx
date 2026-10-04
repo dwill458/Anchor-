@@ -22,7 +22,7 @@ export const VisionBoardPreview = memo(function VisionBoardPreview({ tiles, stat
     <View style={{ height, overflow: 'hidden' }}>
     {hero && hero !== failedUrl ? <Image testID={imageTestID ?? `${testID}-image-0`} source={{ uri: hero }}
       onError={() => setFailedUrl(hero)} resizeMode="cover" accessibilityIgnoresInvertColors style={StyleSheet.absoluteFill} /> :
-      <View style={styles.unavailable}><Text style={styles.message}>{hero ? 'Image unavailable' : 'Your Vision has no images yet'}</Text></View>}
+      <View style={styles.unavailable}><Text style={[styles.message, variant === 'details' && { color: colors.text.secondary }]}>{hero ? 'Image unavailable' : 'Your Vision has no images yet'}</Text></View>}
     <VisionImageEdge color={variant === 'home' ? colors.ink.base : colors.canvas} />
     </View>
     {statement ? <View pointerEvents="none" style={styles.caption}>

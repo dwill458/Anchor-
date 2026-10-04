@@ -8,7 +8,7 @@ import type { V2VisionTile } from '@/adapters/v2/vision';
 import { VisionBoardScene } from './VisionBoardScene';
 import type { VisionBoardCardArt } from './VisionBoardIntentionCard';
 import { useVisionBoardScene } from './useVisionBoardScene';
-import { boardSizeForWidth, toSceneRect, VISION_BOARD_MAX_IMAGES } from './visionBoardLayouts';
+import { detailBoardSizeForWidth, toSceneRect, VISION_BOARD_MAX_IMAGES } from './visionBoardLayouts';
 import { focusCamera, restCamera, type CameraState } from './visionBoardCamera';
 import { boardCameraEasing, boardDelay, boardTiming, VISION_BOARD_MOTION as MOTION } from './visionBoardMotion';
 import { moveBoardOrder } from './visionBoardReorder';
@@ -18,6 +18,8 @@ export type VisionBoardFocus = { kind: 'photo'; sceneId: string } | { kind: 'car
 export type VisionBoardProps = {
   tiles: V2VisionTile[];
   intention: string;
+  /** Optional, persisted user title. Never filled with sample content. */
+  annotation?: string;
   category?: string | null;
   art?: VisionBoardCardArt | null;
   /** Width the board is shown at; its height follows the board's proportions. */
@@ -47,13 +49,15 @@ export type VisionBoardProps = {
  * Long-press lifts a photo so it can trade places with another.
  */
 export function VisionBoard({
-  tiles, intention, category, art, width, reduceMotion, busy = false, canRegenerate,
+  tiles, intention, annotation = '', category, art, width, reduceMotion, busy = false, canRegenerate,
   onReplace, onRegenerate, onRemove, onEditVision, onReorder, onAddImage, onDragActive, captureFrame, testID = 'vision-board',
 }: VisionBoardProps) {
-  const viewport = useMemo(() => boardSizeForWidth(width, tiles.length), [width, tiles.length]);
-  const scene = useMemo(() => boardSizeForWidth(width * MOTION.renderScale, tiles.length), [width, tiles.length]);
+  const viewport = useMemo(() => detailBoardSizeForWidth(width, tiles.length), [width, tiles.length]);
+  const scene = useMemo(() => detailBoardSizeForWidth(width * MOTION.renderScale, tiles.length), [width, tiles.length]);
+  const [captionExtra, setCaptionExtra] = useState(0);
+  const captionTop = viewport.height * (tiles.length > 3 ? 0.95 : tiles.length === 1 ? 0.92 : tiles.length === 2 ? 0.9 : 0.83);
   const rest = useMemo(() => restCamera(scene, viewport), [scene, viewport]);
-  const board = useVisionBoardScene(tiles, scene, rest.scale);
+  const board = useVisionBoardScene(tiles, scene, rest.scale, true);
   const { shared, layout, slotRects, order } = board;
 
   const cameraX = useSharedValue(0);
@@ -172,7 +176,7 @@ export function VisionBoard({
   const count = tiles.length;
 
   return (
-    <View testID={testID} style={[styles.viewport, { width: viewport.width, height: viewport.height }]}>
+    <View testID={testID} style={[styles.viewport, { width: viewport.width, height: viewport.height + (annotation.trim() ? captionExtra : 0) }]}>
       <Animated.View style={[styles.scene, {
         width: scene.width, height: scene.height,
         left: (viewport.width - scene.width) / 2, top: (viewport.height - scene.height) / 2,
@@ -188,6 +192,7 @@ export function VisionBoard({
           category={category}
           art={art}
           markAppearance="paper"
+          detailEdges
           reduceMotion={reduceMotion}
           interactive
           dragEnabled={!focus && !busy && count > 1}
@@ -204,6 +209,9 @@ export function VisionBoard({
       </Animated.View>
 
       {count === 0 ? <View pointerEvents="none" style={styles.empty}><Text style={styles.emptyText}>Bring your future into view.</Text></View> : null}
+      {!focus && !dragging && annotation.trim() ? <Text testID="vision-board-annotation" pointerEvents="none"
+        onLayout={event => setCaptionExtra(Math.max(0, captionTop + event.nativeEvent.layout.height + 16 - viewport.height))}
+        style={[styles.annotation, { top: captionTop, width: width * 0.22, fontSize: annotation.length > 40 ? 21 : 24 }]}>{annotation.trim()}</Text> : null}
       {!focus && !dragging && onAddImage && count < VISION_BOARD_MAX_IMAGES ? (
         <Pressable testID={`${testID}-add`} accessibilityRole="button" accessibilityLabel={`Add an image, ${count} of ${VISION_BOARD_MAX_IMAGES}`}
           onPress={onAddImage} hitSlop={8} style={({ pressed }) => [styles.addChip, pressed && styles.pressed]}>
@@ -266,10 +274,12 @@ const styles = StyleSheet.create({
   empty: { position: 'absolute', top: spacing[2], left: spacing[4], right: spacing[4], alignItems: 'center' },
   emptyText: { ...typography.bodySM, color: colors.text.secondary },
   addChip: {
-    position: 'absolute', bottom: spacing[2], right: spacing[3], flexDirection: 'row', alignItems: 'center', gap: 6,
+    position: 'absolute', bottom: spacing[2], left: '36%', flexDirection: 'row', alignItems: 'center', gap: 6,
     minHeight: 44, paddingHorizontal: 16, borderRadius: 22, backgroundColor: colors.grouped,
   },
   addText: { ...typography.labelMD, color: colors.text.primary },
+  annotation: { position: 'absolute', left: 16, fontFamily: 'Allison-Regular',
+    lineHeight: 25, includeFontPadding: false, color: '#303027', transform: [{ rotate: '-7deg' }] },
   controls: { position: 'absolute', left: spacing[2], right: spacing[2], bottom: spacing[3], alignItems: 'center' },
   regenerationNote: { ...typography.caption, color: colors.paper, backgroundColor: INK_GLASS,
     paddingHorizontal: spacing[3], paddingVertical: spacing[1], borderRadius: radii.lg, marginBottom: spacing[1] },

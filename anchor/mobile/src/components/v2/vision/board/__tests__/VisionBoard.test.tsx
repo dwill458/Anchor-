@@ -27,6 +27,21 @@ const props: VisionBoardProps = {
 };
 
 describe('VisionBoard focused controls', () => {
+  it('leaves the caption empty unless the user supplied one', () => {
+    const view = render(<VisionBoard {...props} />);
+    expect(view.queryByTestId('vision-board-annotation')).toBeNull();
+    view.rerender(<VisionBoard {...props} annotation="Time with my family" />);
+    expect(view.getByTestId('vision-board-annotation').props.children).toBe('Time with my family');
+    fireEvent.press(view.getByLabelText('Focus photo'));
+    expect(view.queryByTestId('vision-board-annotation')).toBeNull();
+  });
+  it('grows to keep a long caption fully visible', () => {
+    const view = render(<VisionBoard {...props} annotation={'A meaningful future with my family '.repeat(2)} />);
+    const before = require('react-native').StyleSheet.flatten(view.getByTestId('vision-board').props.style).height;
+    fireEvent(view.getByTestId('vision-board-annotation'), 'layout', { nativeEvent: { layout: { height: 200 } } });
+    const after = require('react-native').StyleSheet.flatten(view.getByTestId('vision-board').props.style).height;
+    expect(after).toBeGreaterThan(before);
+  });
   it('shows the image-set limit and prevents regeneration when none remain', () => {
     const view = render(<VisionBoard {...props} />);
     fireEvent.press(view.getByLabelText('Focus photo'));

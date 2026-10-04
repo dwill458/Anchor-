@@ -1,16 +1,20 @@
-import React, { memo, useCallback, useEffect, useRef } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions, type GestureResponderEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { interpolate, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
+import Animated, { Easing, interpolate, useAnimatedStyle, useSharedValue, withDelay, withTiming, type SharedValue } from 'react-native-reanimated';
 import Svg, { Circle, G, Path } from 'react-native-svg';
 import { AnchorMotion, colors, getCategoryColor, typography } from '@/theme/v2';
 import { anchorRenderProps, categoryLabel } from '@/components/v2/anchors/anchorPresentation';
 import { CircularAnchorRenderer } from '@/components/v2';
+import type { CircularAnchorEntrance } from '@/components/v2/anchor/CircularAnchorRenderer';
 import type { V2HomeAnchorSummary, V2ThreadPresentation } from '@/adapters/v2/home';
+import type { Anchor } from '@/types';
 import { V2HomeAnchorCarousel, NEIGHBOUR_SCALE, type CarouselSlot } from './V2HomeAnchorCarousel';
-import { resolveHomeHeroLayout, HERO_INTENTION_MAX_LINES } from './homeHeroLayout';
+import { resolveHomeHeroLayout, heroIntentionFontSize, HERO_INTENTION_LINES, HERO_INTENTION_LINE_HEIGHT, HERO_INTENTION_MIN_FONT_SCALE } from './homeHeroLayout';
 import { useHomeArrivalContext } from './homeArrival';
 import { useProgressiveFocusTransition, type AnchorWindowRect } from '@/navigation/v2/ProgressiveFocusTransition';
+import { HeroHalo, HeroStatusRing } from './V2HomeHeroLight';
+import { HERO_ENTRANCE, hasHeroEntrancePlayed, heroWarmth, markHeroEntrancePlayed } from './homeHeroPresence';
 
 /** Share of the paper disc the mark itself occupies (CircularAnchorRenderer's paper artwork). */
 const PAPER_ARTWORK_SHARE = 0.72;
@@ -101,6 +105,69 @@ function ThreadReading({ thread, accent, active }: { thread: V2ThreadPresentatio
   );
 }
 
+/**
+ * The coin's first-load entrance: the paper settles in while the line draws itself on, echoing the
+ * forming screen. It plays once per cold start, for the coin that is centred when Home first
+ * appears. It does not replay when the user swipes, returns from another screen, or arrives from
+ * creation (that hand-off already flies the finished mark in, and redrawing it would undo it).
+ *
+ * Only a vector mark with a recorded expression can truly draw on. A finished image is a flat
+ * raster whose line cannot be traced without a second, possibly misaligned, drawing over it, so it
+ * settles in instead (and waits for its image, so nothing fades in empty).
+ */
+function useHeroEntrance(
+  anchor: Anchor,
+  slot: CarouselSlot,
+  reduceMotion: boolean,
+  arrivalActive: boolean,
+  reportHeroImageLoaded?: () => void,
+) {
+  const [eligible] = useState(() => {
+    if (slot !== 0 || hasHeroEntrancePlayed()) return false;
+    // A creation hand-off, or reduced motion, spends the one entrance without playing it.
+    if (arrivalActive || reduceMotion) { markHeroEntrancePlayed(); return false; }
+    return true;
+  });
+  const vector = eligible && !anchor.enhancedImageUrl && anchorRenderProps(anchor).expression !== undefined;
+  const ground = useSharedValue(eligible ? 0 : 1);
+  const draw = useSharedValue(vector ? 0 : 1);
+  const [drawing, setDrawing] = useState(vector);
+  const started = useRef(false);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const run = useCallback(() => {
+    if (started.current) return;
+    started.current = true;
+    // A gentle in-out curve: the "enter" curve is so front-loaded that a 900ms fade reads as a 200ms pop.
+    ground.value = withDelay(HERO_ENTRANCE.startDelayMs, withTiming(1, { duration: HERO_ENTRANCE.groundMs, easing: Easing.bezier(0.4, 0, 0.2, 1) }));
+    if (vector) draw.value = withDelay(HERO_ENTRANCE.startDelayMs + HERO_ENTRANCE.drawDelayMs, withTiming(1, { duration: HERO_ENTRANCE.drawMs, easing: Easing.bezier(0.45, 0, 0.25, 1) }));
+    timers.current.push(setTimeout(() => setDrawing(false), HERO_ENTRANCE.settleMs));
+  }, [draw, ground, vector]);
+
+  useEffect(() => {
+    if (!eligible) return undefined;
+    markHeroEntrancePlayed();
+    // A vector mark needs no image; a raster waits for its own load, with a ceiling.
+    if (anchor.enhancedImageUrl) timers.current.push(setTimeout(run, HERO_ENTRANCE.imageWaitMs));
+    else run();
+    const pending = timers.current;
+    return () => { pending.forEach(clearTimeout); };
+    // Mount-only by design: the entrance is a one-off for this coin.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const onImageLoad = useCallback(() => {
+    reportHeroImageLoaded?.();
+    if (eligible) run();
+  }, [eligible, reportHeroImageLoaded, run]);
+
+  const entrance = useMemo<CircularAnchorEntrance | undefined>(
+    () => (eligible ? { ground, draw, drawing } : undefined),
+    [draw, drawing, eligible, ground],
+  );
+  return { entrance, onImageLoad, ringDelayMs: eligible ? HERO_ENTRANCE.ringDelayMs : undefined };
+}
+
 function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, anchorSize, artworkBoxHeight, constructionSize, thread, reduceMotion, onOpenActive, onOpenProgress, onOpenAllAnchors }: {
   summary: V2HomeAnchorSummary;
   index: number;
@@ -134,6 +201,8 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
   }));
   // A just-created Anchor arriving from creation needs to know exactly where its mark will rest.
   const arrival = useHomeArrivalContext();
+  const entranceState = useHeroEntrance(summary.anchor, slot, reduceMotion, Boolean(arrival?.active), arrival?.reportHeroImageLoaded);
+  const mountSize = anchorSize + 14;
   const discRef = useRef<View>(null);
   const transition = useProgressiveFocusTransition();
   const measuring = Boolean(arrival?.active && arrival.phase === 'staging' && slot === 0);
@@ -220,6 +289,8 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
       </Animated.View>
 
       <Animated.View style={[styles.artworkBox, { height: artworkBoxHeight }, artworkMotion]}>
+        {/* The light stays put while the coin lifts off for Details; only the coin and its ring travel. */}
+        <HeroHalo size={anchorSize} boxHeight={artworkBoxHeight} warmth={heroWarmth(thread.value)} />
         {/* Hidden in place (never unmounted) while the travelling copy stands in for it, leaving or returning. */}
         <View style={[styles.artworkLayer, slot === 0 && transition.copyMounted && (transition.sourcePlace === 'home' || transition.targetPlace === 'home') ? styles.artworkHidden : null]}>
         <View
@@ -251,18 +322,21 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
             <Animated.View style={tapScaleStyle}>
               <Animated.View ref={discRef} collapsable={false} testID={slot === 0 ? 'v2-home-anchor-disc' : undefined}>
                 <CircularAnchorRenderer {...anchorRenderProps(anchor)} size={anchorSize} appearance="paper" traceLabel={slot === 0 ? 'home hero' : undefined}
-                  onImageLoad={slot === 0 ? arrival?.reportHeroImageLoaded : undefined}
+                  entrance={entranceState.entrance}
+                  onImageLoad={slot === 0 ? entranceState.onImageLoad : undefined}
                   accessibilityLabel={`${categoryLabel(anchor.category)} Anchor artwork`} />
               </Animated.View>
             </Animated.View>
           </Pressable>
         </View>
+        <HeroStatusRing mountSize={mountSize} done={summary.practicedToday} entranceDelayMs={entranceState.ringDelayMs} reduceMotion={reduceMotion} />
         </View>
       </Animated.View>
 
       <Animated.View style={textMotion} pointerEvents={slot === 0 ? 'auto' : 'none'}>
         <View style={styles.intentionBlock}>
-        <Text testID={slot === 0 ? 'v2-home-intention' : undefined} style={styles.intention} numberOfLines={HERO_INTENTION_MAX_LINES}>
+        {/* Balanced: at this size a plain greedy wrap leaves one word alone on the second line. */}
+        <Text testID={slot === 0 ? 'v2-home-intention' : undefined} style={[styles.intention, { fontSize: heroIntentionFontSize(anchor.intentionText), lineHeight: Math.round(heroIntentionFontSize(anchor.intentionText) * 1.15) }]} numberOfLines={HERO_INTENTION_LINES} adjustsFontSizeToFit minimumFontScale={HERO_INTENTION_MIN_FONT_SCALE} textBreakStrategy="balanced">
           {anchor.intentionText}
         </Text>
         <View style={styles.intentionMark}>
@@ -297,8 +371,7 @@ function V2HomeHeroComponent({ anchors, selectedIndex, onSelect, onOpenActive, o
   const insets = useSafeAreaInsets();
   const layout = resolveHomeHeroLayout({
     platform: Platform.OS,
-    width, height, topInset: insets.top, bottomInset: insets.bottom, selectedIndex,
-    intentions: anchors.map(({ anchor }) => anchor.intentionText),
+    width, height, topInset: insets.top, bottomInset: insets.bottom,
   });
   const renderHero = useCallback((summary: V2HomeAnchorSummary, index: number, slot: CarouselSlot, offset: SharedValue<number>, spacing: number) => (
     <AnchorHeroItem summary={summary} index={index} total={anchors.length} slot={slot} offset={offset} spacing={spacing} gutter={layout.gutter}
@@ -374,15 +447,18 @@ const styles = StyleSheet.create({
   },
   categorySeparator: { fontFamily: typography.bodyBold, color: colors.text.secondary, fontSize: 12 },
   allAnchorsText: { fontFamily: 'EBGaramond-Regular', fontSize: 14, lineHeight: 18, color: colors.text.primary },
+  // A fixed height (two lines + the hand-drawn mark), so the divider below never moves with the text.
   intentionBlock: {
     marginTop: 3,
     alignItems: 'center',
+    justifyContent: 'center',
+    height: HERO_INTENTION_LINES * HERO_INTENTION_LINE_HEIGHT + 10,
   },
   intention: {
     fontFamily: 'EBGaramond-Medium',
-    fontSize: 24,
-    lineHeight: 27,
-    letterSpacing: -0.5,
+    fontSize: 30,
+    lineHeight: 33,
+    letterSpacing: -0.8,
     color: colors.text.primary,
     textAlign: 'center',
   },

@@ -66,6 +66,25 @@ describe('telling the provider what each attached image is', () => {
     expect(buildVisionImagePrompt(base)).not.toMatch(/established world/);
   });
 
+  it('numbers the start photo first and tells the model to transform that place, not invent another', () => {
+    const start = { buffer: Buffer.from('s'), mimeType: 'image/jpeg', role: 'start' as const };
+    const ordered = orderVisionReferences([who, world, start]);
+    expect(ordered.map(item => item.role)).toEqual(['start', 'world', 'appearance']);
+    const text = visionReferenceInstructions(ordered);
+    expect(text).toMatch(/Image 1 is the person's own photograph of their real world AS IT IS TODAY/);
+    expect(text).toMatch(/same real place/);
+    expect(text).toMatch(/Image 2 is a photograph ALREADY in this person's Vision/);
+    expect(text).toMatch(/Image 3 is the person's approved appearance reference/);
+    expect(visionReferenceInstructions(orderVisionReferences([start]))).not.toMatch(/ALREADY in this person's Vision/);
+  });
+
+  it('adds the start-photo transformation line to the scene prompt only when one is attached', () => {
+    const plan = buildVisionSceneVariantPlan('The same kitchen, bright and finished');
+    const base = { intention: 'A home I love', category: 'desire', description: 'My kitchen', scene: plan[0], plannedScenes: plan };
+    expect(buildVisionImagePrompt({ ...base, startPhotoAttached: true })).toMatch(/start photo.*same place transformed/s);
+    expect(buildVisionImagePrompt(base)).not.toMatch(/start photo/);
+  });
+
   it('keeps the second candidate in the same light as the Vision rather than a different time of day', () => {
     expect(buildVisionSceneVariantPlan('Driving it down the highway')[1].light).not.toMatch(/different time of day/i);
   });

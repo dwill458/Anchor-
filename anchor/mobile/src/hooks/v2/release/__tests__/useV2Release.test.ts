@@ -175,4 +175,68 @@ describe('useV2Release', () => {
     expect(result.current.stage).toBe('completed');
   });
 
+
+  it('rejects a hold whose relationships changed before commit: no request, refreshed rows, a new hold is required', async () => {
+    mockCourseStoreState.activeCourse = {
+      id: 'course-1', status: 'ACTIVE', version: 1, waypointCount: 2, reachedCount: 0,
+      destinationAnchorLink: { anchorId: 'anchor-1' }, waypoints: [],
+    };
+    const adapter = fakeAdapter([{ status: 'released', anchorId: 'anchor-1' }]);
+    const { result, rerender } = renderHook(() => useV2Release({ anchorId: 'anchor-1', adapter }));
+    act(() => result.current.beginHold());
+    mockCourseStoreState.activeCourse = { ...(mockCourseStoreState.activeCourse as object), version: 2, reachedCount: 1 };
+    rerender({});
+    await act(async () => result.current.startRelease());
+    expect(adapter.submitRelease).not.toHaveBeenCalled();
+    expect(result.current.stale).toBe(true);
+    expect(result.current.stage).toBe('preflight');
+    expect(result.current.snapshot?.consequences.find((c) => c.id === 'course')?.detail).toMatch(/1 of 2/);
+
+    // A fresh hold on the refreshed consequences commits.
+    act(() => result.current.beginHold());
+    expect(result.current.stale).toBe(false);
+    await act(async () => result.current.startRelease());
+    expect(adapter.submitRelease).toHaveBeenCalledTimes(1);
+  });
+
+  it('evolve cannot start without a valid successor, and a successor equal to the released Anchor is invalid', async () => {
+    const adapter = fakeAdapter([{ status: 'released', anchorId: 'anchor-1' }]);
+    const missing = renderHook(() => useV2Release({ anchorId: 'anchor-1', adapter, reason: 'evolve' }));
+    expect(missing.result.current.canRelease).toBe(false);
+    await act(async () => missing.result.current.startRelease());
+    expect(adapter.submitRelease).not.toHaveBeenCalled();
+
+    const self = renderHook(() => useV2Release({ anchorId: 'anchor-1', adapter, reason: 'evolve', successor: { anchorId: 'anchor-1', intentionText: 'x' } }));
+    expect(self.result.current.canRelease).toBe(false);
+
+    mockAnchorStoreState.anchors = [anchor, { ...anchor, id: 'anchor-2', localId: 'anchor-2', intentionText: 'Next' }];
+    const valid = renderHook(() => useV2Release({ anchorId: 'anchor-1', adapter, reason: 'evolve', successor: { anchorId: 'anchor-2', intentionText: 'Next' } }));
+    expect(valid.result.current.canRelease).toBe(true);
+    await act(async () => valid.result.current.startRelease());
+    expect(adapter.submitRelease).toHaveBeenCalledWith(expect.objectContaining({ reason: 'evolve' }));
+  });
+
+  it('sends the verified reason, never an unconfirmed completion claim', async () => {
+    const adapter = fakeAdapter([{ status: 'released', anchorId: 'anchor-1' }]);
+    const { result } = renderHook(() => useV2Release({ anchorId: 'anchor-1', adapter, reason: 'destination_completed' }));
+    await act(async () => result.current.startRelease());
+    expect(adapter.submitRelease).toHaveBeenCalledWith(expect.objectContaining({ reason: 'no_longer_aligned' }));
+  });
+
+  it('a definitive failure leaves the Anchor active and a retry uses a fresh key only after a fresh hold', async () => {
+    const adapter = fakeAdapter([
+      { status: 'failed', anchorId: 'anchor-1', message: 'nope', retryable: false },
+      { status: 'released', anchorId: 'anchor-1' },
+    ]);
+    const { result } = renderHook(() => useV2Release({ anchorId: 'anchor-1', adapter }));
+    await act(async () => result.current.startRelease());
+    act(() => result.current.markDissolutionComplete());
+    expect(result.current.stage).toBe('failed');
+    expect(mockReleaseAnchor).not.toHaveBeenCalled();
+    act(() => result.current.reset());
+    await act(async () => result.current.startRelease());
+    expect(adapter.calls).toHaveLength(2);
+    expect(adapter.calls[0].idempotencyKey).not.toBe(adapter.calls[1].idempotencyKey);
+  });
+
 });

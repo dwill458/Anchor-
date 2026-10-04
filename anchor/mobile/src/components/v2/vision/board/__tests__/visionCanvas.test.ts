@@ -1,6 +1,24 @@
-import { selectBoardLayout, toSceneRect, boardSizeForWidth, emptyBoardPlaceholderSlots } from '../visionBoardLayouts';
+import { selectBoardLayout, selectDetailBoardLayout, detailBoardSizeForWidth, toSceneRect, boardSizeForWidth, emptyBoardPlaceholderSlots } from '../visionBoardLayouts';
 
 describe('editorial Vision Canvas geometry', () => {
+  it.each([3, 4, 5, 6])('centres the Anchor on the entire %i-image collage', count => {
+    const layout = selectDetailBoardLayout(count);
+    const scene = detailBoardSizeForWidth(320, count);
+    const rect = toSceneRect(layout.card, scene);
+    expect(rect.x + rect.width / 2).toBeCloseTo(scene.width / 2);
+    expect(rect.y + rect.height / 2).toBeCloseTo(scene.height / 2);
+  });
+  it.each([4, 5, 6])('shows every saved image in a %i-photo detail board', count => {
+    const layout = selectDetailBoardLayout(count);
+    expect(layout.photos).toHaveLength(count);
+    const scene = detailBoardSizeForWidth(320, count);
+    for (const slot of layout.photos) {
+      const rect = toSceneRect(slot, scene);
+      expect(rect.y).toBeGreaterThanOrEqual(0);
+      expect(rect.y + rect.height).toBeLessThan(scene.height);
+    }
+    expect(selectBoardLayout(count).photos).toHaveLength(3); // protected cinematic overview
+  });
   it.each([0, 1, 2, 3, 4, 6])('composes %i saved images without physical decorations', count => {
     const layout = selectBoardLayout(count);
     expect(layout.photos).toHaveLength(Math.min(count, 3));

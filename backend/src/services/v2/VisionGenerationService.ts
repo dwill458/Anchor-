@@ -187,7 +187,8 @@ export class VisionGenerationService {
     anchorId: string,
     sceneDescription: string,
     idempotencyKey: string,
-    appearanceReferenceId?: string | null
+    appearanceReferenceId?: string | null,
+    startAssetId?: string | null
   ) {
     const access = await getMonetizationAccess(userId);
     if (!access.hasProAccess)
@@ -203,6 +204,10 @@ export class VisionGenerationService {
 
     if (appearanceReferenceId)
       await visionAppearanceReferenceService.resolveForGeneration(userId, appearanceReferenceId);
+    if (startAssetId) {
+      const owned = await prisma.asset.findFirst({ where: { id: startAssetId, userId }, select: { id: true } });
+      if (!owned) throw new AppError('Start photo not found', 400, 'INVALID_START_PHOTO');
+    }
 
     const existingJob = await prisma.visionGeneration.findFirst({
       where: { userId, anchorId, id: idempotencyKey, vision: { status: 'ACTIVE' } },
@@ -254,6 +259,7 @@ export class VisionGenerationService {
           status: 'QUEUED',
           stage: 'creating_images',
           appearanceReferenceId: appearanceReferenceId ?? null,
+          startAssetId: startAssetId ?? null,
           plan: buildVisionSceneVariantPlan(trimmed) as unknown as Prisma.InputJsonValue,
         },
       });
@@ -422,6 +428,26 @@ export class VisionGenerationService {
     return loaded;
   }
 
+  /** The person's own photo of their real world today, read for the image model. Best effort: a missing photo never blocks the scene. */
+  private async loadStartReference(userId: string, assetId: string | null): Promise<ImageReference | null> {
+    if (!assetId) return null;
+    try {
+      const asset = await prisma.asset.findFirst({ where: { id: assetId, userId }, select: { storageKey: true } });
+      if (!asset) return null;
+      const buffer = await sharp(await readPrivateImageAsset(asset.storageKey))
+        .rotate()
+        .resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 88 })
+        .toBuffer();
+      return { buffer, mimeType: 'image/jpeg', role: 'start' };
+    } catch (error) {
+      logger.warn('[VisionGeneration] Start photo could not be read; generating from the description', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      return null;
+    }
+  }
+
   private async run(jobId: string, intention: string, category: string) {
     const job = await prisma.visionGeneration.findUnique({ where: { id: jobId } });
     if (!job) return;
@@ -471,13 +497,19 @@ export class VisionGenerationService {
           : null;
       // The Vision already exists as a world: its own photographs are attached to the request as
       // images, ahead of any text. The first image of a Vision has no world yet, so nothing is attached.
-      const worldReferences = boardContext ? await this.loadWorldReferences(boardContext.scenes) : [];
+      const startReference = await this.loadStartReference(job.userId, job.startAssetId);
+      const worldReferences = [
+        ...(startReference ? [startReference] : []),
+        ...(boardContext ? await this.loadWorldReferences(boardContext.scenes) : []),
+      ];
+      const worldPhotoCount = worldReferences.length - (startReference ? 1 : 0);
       logger.info('[VisionGeneration] Generation references', {
         jobId,
         kind: job.kind,
         identityReferences: reference ? 1 : 0,
         worldReferencesAvailable: boardContext?.scenes.length ?? 0,
-        worldReferencesAttached: worldReferences.length,
+        worldReferencesAttached: worldPhotoCount,
+        startPhoto: Boolean(startReference),
       });
       const onboarding = await getOnboardingContext(job.userId).catch(() => null);
       const plan: VisionScenePlanItem[] = isStoredVisionScenePlan(savedPlan)
@@ -559,7 +591,8 @@ export class VisionGenerationService {
           scene,
           plannedScenes: plan,
           hasAppearanceReference: Boolean(reference),
-          worldReferenceCount: worldReferences.length,
+          worldReferenceCount: worldPhotoCount,
+          startPhotoAttached: Boolean(startReference),
         });
         try {
           const raw = await this.renderScene(provider, prompt, reference, job.userId, worldReferences);

@@ -1,5 +1,6 @@
 import React, { memo, useEffect, useRef, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
 import { SigilSvg } from '@/components/common/SigilSvg';
 import type { AnchorExpression } from '@/constants/v2/creation';
 import { colors, getCategoryColor, getCategoryFieldColor, radii } from '@/theme/v2';
@@ -26,6 +27,18 @@ const sizes: Record<'hero' | 'large' | 'medium' | 'thumbnail' | 'micro', number>
  */
 export type CircularAnchorAppearance = 'paper' | 'tinted' | 'dark' | 'bare';
 
+/**
+ * A coin arriving on screen. `ground` (0 → 1) fades the paper in and, for a finished image or a
+ * mark without a recorded expression, settles the artwork up to size with it. `draw` (0 → 1)
+ * traces the line itself and only applies to a structure rendered through an expression.
+ */
+export type CircularAnchorEntrance = {
+  ground: SharedValue<number>;
+  draw: SharedValue<number>;
+  /** True only while the line is being traced; the coin keeps its entrance props afterwards so its layers never remount. */
+  drawing: boolean;
+};
+
 type Props = {
   svg: string;
   /** The finished (AI-enhanced) artwork. It fills the disc; the SVG structure is the fallback if it is absent or fails to load. */
@@ -49,10 +62,12 @@ type Props = {
   /** Fired once the finished artwork has loaded (not for the SVG fallback). */
   onImageLoad?: () => void;
   performanceLabel?: string;
+  /** Home's first-load entrance. Absent everywhere else, where the coin simply is. */
+  entrance?: CircularAnchorEntrance;
 };
 
 /** A flat field + the existing stable SVG renderer. It deliberately has no rim, halo, or animation. */
-export const CircularAnchorRenderer = memo(function CircularAnchorRenderer({ svg, imageUrl, category, expression, size = 'medium', appearance, state = 'active', accessibilityLabel, testID, style, traceLabel, onImageLoad, performanceLabel }: Props) {
+export const CircularAnchorRenderer = memo(function CircularAnchorRenderer({ svg, imageUrl, category, expression, size = 'medium', appearance, state = 'active', accessibilityLabel, testID, style, traceLabel, onImageLoad, performanceLabel, entrance }: Props) {
   const dimension = typeof size === 'number' ? size : (sizes[size] ?? 104);
   const color = getCategoryColor(category);
   const isBare = appearance === 'bare';
@@ -72,6 +87,14 @@ export const CircularAnchorRenderer = memo(function CircularAnchorRenderer({ svg
     : isPaper
     ? colors.frameEdge
     : `${color}52`;
+  const idle = useSharedValue(1);
+  const ground = entrance?.ground ?? idle;
+  // The paper is its own layer during an entrance so it can fade while the line is still being drawn.
+  const groundStyle = useAnimatedStyle(() => ({ opacity: ground.value }));
+  const developStyle = useAnimatedStyle(() => ({
+    opacity: ground.value,
+    transform: [{ scale: 0.965 + 0.035 * ground.value }],
+  }));
   const [imageFailed, setImageFailed] = useState(false);
   const tracedRef = useRef(false);
   if (traceLabel && !tracedRef.current) {
@@ -97,16 +120,21 @@ export const CircularAnchorRenderer = memo(function CircularAnchorRenderer({ svg
     });
     onImageLoad?.();
   };
-  return <View testID={testID} accessible accessibilityRole="image" accessibilityLabel={accessibilityLabel ?? `${category ?? 'Custom'} Anchor artwork`} style={[styles.field, { width: dimension, height: dimension, borderRadius: dimension / 2, backgroundColor: fieldColor, borderColor, borderWidth: isBare ? 0 : StyleSheet.hairlineWidth, opacity: state === 'inactive' ? 0.48 : 1 }, style]}>
+  const entering = Boolean(entrance);
+  const drawLine = Boolean(entrance?.drawing) && !showImage && hasArtwork && Boolean(expression);
+  const Artwork = entering ? Animated.View : View;
+  const artworkEntrance = entering && !drawLine ? developStyle : undefined;
+  return <View testID={testID} accessible accessibilityRole="image" accessibilityLabel={accessibilityLabel ?? `${category ?? 'Custom'} Anchor artwork`} style={[styles.field, { width: dimension, height: dimension, borderRadius: dimension / 2, backgroundColor: entering ? 'transparent' : fieldColor, borderColor: entering ? 'transparent' : borderColor, borderWidth: isBare ? 0 : StyleSheet.hairlineWidth, opacity: state === 'inactive' ? 0.48 : 1 }, style]}>
+    {entering ? <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: dimension / 2, backgroundColor: fieldColor, borderColor, borderWidth: isBare ? 0 : StyleSheet.hairlineWidth }, groundStyle]} /> : null}
     {showImage ? (
-      <View style={[styles.imageContainer, { width: imageSize, height: imageSize, borderRadius: imageSize / 2 }, isPaper && styles.paperImage]}>
+      <Artwork style={[styles.imageContainer, { width: imageSize, height: imageSize, borderRadius: imageSize / 2 }, isPaper && styles.paperImage, artworkEntrance]}>
         <Image accessible={false} source={{ uri: imageUrl as string }} resizeMode="cover" onLoad={traceLabel || onImageLoad || performanceLabel ? handleImageLoad : undefined} onError={() => {
           // The finished artwork is preferred; the structure stands in only because this URL could not load (e.g. an expired signed link).
           if (__DEV__ && !process.env.JEST_WORKER_ID) console.warn('[Anchor] enhanced artwork failed to load; showing the base SVG instead', { host: String(imageUrl).split('/')[2] });
           setImageFailed(true);
         }} style={{ width: imageSize, height: imageSize, borderRadius: imageSize / 2 }} />
-      </View>
-    ) : <View accessible={false} importantForAccessibility="no-hide-descendants" style={[styles.artwork, { width: artworkSize, height: artworkSize }, (isBare || expression) && styles.artworkUnclipped]}>{hasArtwork ? (expression ? <AnchorMark svg={svg} category={category} expression={expression} size={artworkSize} /> : <SigilSvg xml={svg} width="100%" height="100%" color={color} />) : <Text style={styles.artworkUnavailable}>Artwork unavailable</Text>}</View>}
+      </Artwork>
+    ) : <Artwork accessible={false} importantForAccessibility="no-hide-descendants" style={[styles.artwork, { width: artworkSize, height: artworkSize }, (isBare || expression) && styles.artworkUnclipped, artworkEntrance]}>{hasArtwork ? (expression ? <AnchorMark svg={svg} category={category} expression={expression} size={artworkSize} drawProgress={drawLine ? entrance?.draw : undefined} /> : <SigilSvg xml={svg} width="100%" height="100%" color={color} />) : <Text style={styles.artworkUnavailable}>Artwork unavailable</Text>}</Artwork>}
   </View>;
 });
 export const circularAnchorSizes = sizes;

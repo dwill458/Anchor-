@@ -1,6 +1,6 @@
 
 import { useAuthStore } from '@/stores/authStore';
-import { Alert } from 'react-native';
+import { Alert, View } from 'react-native';
 import { act, render, waitFor, fireEvent } from '@testing-library/react-native';
 import { V2VisionScreen } from '../V2VisionScreen';
 import { apiClient } from '@/services/ApiClient';
@@ -114,6 +114,7 @@ describe('V2VisionScreen', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(View.prototype, 'measureInWindow').mockImplementation(callback => callback(10, 20, 300, 500));
     mockPreparationProps = undefined; mockPracticeProps = undefined;
     useAuthStore.setState({ user: null });
     // Vision reads are cached per Anchor for the app session; each case starts cold.
@@ -132,6 +133,19 @@ describe('V2VisionScreen', () => {
     expect(prefetch).toHaveBeenCalledWith('https://example.com/art2.jpg');
     expect(prefetch).toHaveBeenCalledWith('https://example.com/art3.jpg');
     prefetch.mockRestore();
+  });
+
+  it('saves a user supplied board caption through the existing Vision API', async () => {
+    (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: mockVisionData });
+    const caption = 'Time with my family';
+    (apiClient.patch as jest.Mock).mockResolvedValue({ data: { ...mockVisionData, title: caption } });
+    const view = render(<V2VisionScreen anchorId="anchor-1" />);
+    fireEvent.press(await view.findByLabelText('Vision options'));
+    fireEvent.press(view.getByLabelText('Edit Vision'));
+    fireEvent.changeText(view.getByLabelText('Board caption'), caption);
+    fireEvent.press(view.getByText('Save Vision'));
+    await waitFor(() => expect(apiClient.patch).toHaveBeenCalledWith(expect.stringContaining('/vision'), { title: caption }));
+    await waitFor(() => expect(view.getByTestId('vision-board-annotation').props.children).toBe(caption));
   });
 
   it('renders a real Create Vision entry when no vision exists', async () => {
@@ -275,13 +289,13 @@ describe('V2VisionScreen', () => {
     (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: { ...mockVisionData, description } });
     const view = render(<V2VisionScreen anchorId="anchor-1" />);
     const statement = await view.findByTestId('vision-statement');
-    expect(statement.props.numberOfLines).toBe(3);
-    fireEvent(statement, 'textLayout', { nativeEvent: { lines: [{}, {}, {}, {}] } });
+    expect(statement.props.children.length).toBeLessThan(description.length);
+    expect(statement.props.children).toMatch(/family\.\.\.$/);
     fireEvent.press(view.getByText('Read more'));
     expect(view.getByTestId('vision-statement').props.numberOfLines).toBeUndefined();
     expect(view.getByTestId('vision-statement').props.children).toBe(description.trim());
     fireEvent.press(view.getByText('Read less'));
-    expect(view.getByTestId('vision-statement').props.numberOfLines).toBe(3);
+    expect(view.getByTestId('vision-statement').props.children).toBe(statement.props.children);
   });
 
   it('Home thumbnail prefetch / compact adapter does NOT trigger seen-today call', () => {

@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { parse } from '@babel/parser';
-import { burnFraction, flameContact, frontHeight, releaseArtworkRect, releaseSeed, seededUnit, createReleaseParticles } from '../releaseBurn';
+import { burnFraction, flameContact, frontHeight, releaseArtworkRect, releaseSeed, seededUnit, createReleaseParticles, frontRelief } from '../releaseBurn';
 import { RELEASE_CEREMONY_TIMELINE_MS as T } from '@/constants/v2/release';
 
 it('keeps seeded initialization outside UI-thread callbacks (Android crash regression)', () => {
@@ -47,6 +47,35 @@ it.each([[393, 852], [384, 832]])('fits the iPhone 14 Pro and Galaxy S24 logical
   const rect = releaseArtworkRect(width, height);
   expect(rect.width).toBe(rect.height);
   expect(rect.x + rect.width / 2).toBe(width / 2);
-  expect(rect.y).toBeGreaterThan(height * 0.34);
-  expect(rect.y + rect.height).toBeLessThan(height - 140);
+  // Heading above; intention, consequences and the hold target below (>= 240dp of room).
+  expect(rect.y).toBeGreaterThanOrEqual(height * 0.2);
+  expect(rect.y).toBeLessThan(height * 0.3);
+  expect(rect.y + rect.height).toBeLessThan(height - 240);
+});
+
+it('gives the same Anchor an identical burn in every context and different Anchors different ones', () => {
+  const field = (id: string) => {
+    const seed = releaseSeed(id);
+    return { phase: seededUnit(seed, 13), particles: createReleaseParticles(seed, 244), relief: frontRelief(60, 244, seededUnit(seed, 13) * Math.PI * 2) };
+  };
+  expect(field('anchor-a')).toEqual(field('anchor-a'));
+  expect(field('anchor-a').phase).not.toBe(field('anchor-b').phase);
+  expect(field('anchor-a').particles).not.toEqual(field('anchor-b').particles);
+  // The burn never reads clock or randomness: the front depends only on the timeline offset.
+  expect(frontHeight(1500, 244)).toBe(frontHeight(1500, 244));
+});
+
+it('keeps embers inside the budget: early 6, mid 10, final 3 embers plus 2 fragments', () => {
+  for (const id of ['a', 'anchor-2', 'a-much-longer-anchor-identifier']) {
+    const particles = createReleaseParticles(releaseSeed(id), 244);
+    const early = particles.filter(p => p.birth < T.burnEarly);
+    const mid = particles.filter(p => p.birth >= T.burnEarly && p.birth < T.burnLate);
+    const final = particles.filter(p => p.birth >= T.burnLate);
+    expect(early.length).toBeLessThanOrEqual(6);
+    expect(mid.length).toBeLessThanOrEqual(10);
+    expect(final.filter(p => !p.ash).length).toBeLessThanOrEqual(3);
+    expect(final.filter(p => p.ash).length).toBeLessThanOrEqual(2);
+    // No detached ember at ignition: the first spark appears after the single contact point.
+    expect(Math.min(...particles.map(p => p.birth))).toBeGreaterThan(T.ignite + 160);
+  }
 });

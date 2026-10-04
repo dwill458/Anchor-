@@ -303,6 +303,7 @@ export default function App() {
     'EBGaramond-Regular': EBGaramond_400Regular,
     'EBGaramond-Italic': EBGaramond_400Regular_Italic,
     'EBGaramond-Medium': EBGaramond_500Medium,
+    'Allison-Regular': require('./node_modules/@expo-google-fonts/allison/400Regular/Allison_400Regular.ttf'),
     'CormorantGaramond-Regular': CrimsonPro_400Regular,
     'CormorantGaramond-Italic': CrimsonPro_400Regular_Italic,
   });

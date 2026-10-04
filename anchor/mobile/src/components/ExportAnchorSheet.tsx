@@ -180,7 +180,7 @@ function ExportPreview({ format, resolution, background, showIntention, sigilSvg
 export function ExportAnchorSheet({ isVisible, onClose, sigilSvg, sigilUri, intention, onExportComplete, onSaved }: Props) {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
-  const [mounted, setMounted] = useState(isVisible);
+  
   const [format, setFormat] = useState<'square' | 'wallpaper' | 'print'>('wallpaper');
   const [resolution, setResolution] = useState<'standard' | 'high'>('standard');
   const [background, setBackground] = useState<'card' | 'clear'>('card');
@@ -193,14 +193,9 @@ export function ExportAnchorSheet({ isVisible, onClose, sigilSvg, sigilUri, inte
 
   useEffect(() => {
     if (isVisible) {
-      setMounted(true);
       openProgress.value = withTiming(1, { duration: ENTER_MS, easing: Easing.out(Easing.cubic) });
     } else {
-      openProgress.value = withTiming(
-        0,
-        { duration: EXIT_MS, easing: Easing.out(Easing.cubic) },
-        (done) => { if (done) runOnJS(setMounted)(false); }
-      );
+      openProgress.value = withTiming(0, { duration: EXIT_MS, easing: Easing.out(Easing.cubic) });
     }
   }, [isVisible]);
 
@@ -241,12 +236,10 @@ export function ExportAnchorSheet({ isVisible, onClose, sigilSvg, sigilUri, inte
   const multiplier = Math.round(dims.high.w / dims.standard.w);
   const footDims = `${dims[resolution].w} × ${dims[resolution].h}`;
 
-  if (!mounted) return null;
-
   return (
     <>
       <Modal
-        visible={mounted}
+        visible={isVisible}
         transparent
         animationType="none"
         onRequestClose={onClose}

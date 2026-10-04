@@ -61,11 +61,6 @@ export function StyleScene({ step, strokes, reduceMotion, onOpenAll, onPick }: S
             <Text style={[styles.name, selected && styles.nameSelected]} numberOfLines={2}>
               {style.displayName}
             </Text>
-            {selected && step.showsLongerWait ? (
-              <View style={styles.newTag} accessibilityLabel="New style, takes a little longer">
-                <Text style={styles.newTagText}>new — takes a little longer</Text>
-              </View>
-            ) : null}
           </Reveal>
         );
       })}
@@ -162,21 +157,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pillText: { fontFamily: 'Figtree-SemiBold', fontSize: 14, color: colors.creation.ink },
-  // A tag, not a disabled look: full-strength cream outline, never a dimmed chip.
-  newTag: {
-    marginTop: 2,
-    borderWidth: 1,
-    borderColor: 'rgba(244, 237, 224, 0.5)',
-    borderRadius: 8,
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-  },
-  newTagText: {
-    fontFamily: 'Figtree-Regular',
-    fontSize: 10,
-    lineHeight: 12,
-    color: colors.creation.cream,
-    opacity: 0.9,
-    textAlign: 'center',
-  },
 });

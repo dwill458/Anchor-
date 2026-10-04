@@ -68,8 +68,15 @@ export const RELEASE_CEREMONY_EMBER_COUNT = 8;
 /** Controlled dark exception during the dissolution ceremony ("Ceremony Chamber"). */
 export const RELEASE_CEREMONY_CHAMBER_BG = '#0B0C0D';
 
-/** Android captured-texture handoff remains blank; retain fire code and use the verified fade until resolved. */
-export const RELEASE_FIRE_ENABLED = false;
+/**
+ * Emergency off-switch for the burn shader. Fire is otherwise a runtime
+ * capability (see `resolveReleaseFire`): it runs only when the Skia effect
+ * compiles AND the Skia-built artwork texture validates as non-blank.
+ */
+export const RELEASE_FIRE_KILL_SWITCH = false;
+
+/** Hold progress at which the burn texture is prepared, so it is ready before isolation at 1.80s. */
+export const RELEASE_FIRE_PREPARE_AT = 0.6;
 
 /** Warm neutral the chamber crossfades back to at completion. Matches theme/v2 colors.canvas. */
 export const RELEASE_CANVAS_BG = '#F4F1E9';
@@ -80,14 +87,25 @@ export const RELEASE_HOLD_SUSTAIN_LABEL_AT = 0.12;
 export const RELEASE_COPY = {
   preflightKicker: 'Release this intention',
   preflightTitle: 'What releasing this Anchor means',
-  preflightSubtitle:
-    'Release moves this intention out of active use and seals it into your history. Nothing is deleted.',
+  preflightHeading: 'Release',
+  preflightSubtitle: 'Move this intention into your history. Nothing is deleted.',
+  consequenceHeading: 'What changes when you release',
   holdPrompt: 'Hold to release',
   holdSustainPrompt: 'Keep holding…',
-  holdHint: 'Press and hold for a moment. Lift early to cancel.',
+  holdAction: 'Release intention',
+  holdHint:
+    'Press and hold to move this intention out of active use. Your history will remain available.',
+  holdHintWaypoint:
+    'Press and hold to move this intention out of active use and continue to the next waypoint in Chart. Your history will remain available.',
+  holdHintDestination:
+    'Press and hold to move this intention out of active use and complete this course. Your history will remain available.',
+  holdHintEvolve:
+    'Press and hold to move this intention into history and continue with your new Anchor. Your history will remain available.',
   cancelAnnouncement: 'Release cancelled. Nothing was changed.',
   sustainAnnouncement: 'Keep holding.',
   committedAnnouncement: 'Release committed.',
+  failureAnnouncement: 'Release not completed. Your Anchor is still active.',
+  staleNotice: 'Your Anchor’s connections changed. Review what changes, then hold again.',
   keepAnchorCta: 'Keep this Anchor active',
   ceremonyConfirming: 'Confirming release…',
   ceremonyConfirmingDetail:
@@ -97,61 +115,69 @@ export const RELEASE_COPY = {
     'Nothing was changed. Your Anchor is still active. Review the consequences and hold again to retry.',
   retryCta: 'Try again',
   offlineRetryCta: 'Retry now',
-  completionKicker: 'Released',
-  completionTitle: 'A little more space.',
-  completionBody: 'This intention has moved into your history.',
-  completionPrimaryCta: 'Return home',
-  completionSecondaryCta: 'View in Your Anchors',
+  successorMissingTitle: 'Create the new Anchor first',
+  successorMissingBody: 'Evolving moves this intention into history and continues with a new Anchor. Create that Anchor, then come back.',
+  successorMissingCta: 'Create the new Anchor',
+  // DEFERRED: completionKicker / completionTitle / completionBody / completionPrimaryCta /
+  // completionSecondaryCta were single fixed strings; they now live in RELEASE_ENDINGS below.
 } as const;
+
+export type V2ReleaseEndingId = 'outcome_completed' | 'waypoint_completed' | 'destination_completed' | 'no_longer_aligned' | 'evolve';
+export type V2ReleaseActionId = 'home' | 'progress' | 'chart' | 'completed_chart' | 'successor';
+
+/** Locked ending copy (Release prototype 17). Manual release never claims achievement. */
+export const RELEASE_ENDINGS: Record<V2ReleaseEndingId, {
+  eyebrow: string;
+  /** Only the plain "Released" endings carry a separate large title. */
+  title?: string;
+  body: string;
+  primary: { id: V2ReleaseActionId; label: string };
+  secondary?: { id: V2ReleaseActionId; label: string };
+}> = {
+  outcome_completed: {
+    eyebrow: 'Released', title: 'A little more space.',
+    body: 'This intention has moved into your history.',
+    primary: { id: 'home', label: 'Return Home' }, secondary: { id: 'progress', label: 'View Progress' },
+  },
+  no_longer_aligned: {
+    eyebrow: 'Released', title: 'A little more space.',
+    body: 'This intention has moved into your history.',
+    primary: { id: 'home', label: 'Return Home' }, secondary: { id: 'progress', label: 'View Progress' },
+  },
+  waypoint_completed: {
+    eyebrow: 'Waypoint complete',
+    body: 'Your Anchor has been released. Your course continues.',
+    primary: { id: 'chart', label: 'Continue to Chart' },
+  },
+  destination_completed: {
+    eyebrow: 'Destination complete',
+    body: 'The course is complete. Your history remains in Progress.',
+    primary: { id: 'completed_chart', label: 'View completed Chart' }, secondary: { id: 'home', label: 'Return Home' },
+  },
+  evolve: {
+    eyebrow: 'Evolved',
+    body: 'This intention has moved into history.',
+    primary: { id: 'successor', label: 'Continue with new Anchor' },
+  },
+};
+
+export const RELEASE_SUCCESSOR_LINK_NOTE = 'Linked to your previous intention.';
 
 export type V2ReleaseConsequenceTone = 'neutral' | 'preserved' | 'ceases';
 
 /**
- * Base consequence rows. The snapshot builder filters/augments these against
- * real Anchor data — it never fabricates a Chart or Vision that does not exist.
+ * Consequence rows (prototype fixtures). The snapshot builder only adds the
+ * Vision, Chart and Successor rows when those records actually exist.
  */
-export const RELEASE_CONSEQUENCE_BASE: ReadonlyArray<{
-  id: string;
-  label: string;
-  detail: string;
-  tone: V2ReleaseConsequenceTone;
-}> = [
-  {
-    id: 'intention',
-    label: 'Intention',
-    detail: 'Marked complete and retired from active practice.',
-    tone: 'neutral',
-  },
-  {
-    id: 'anchor',
-    label: 'Anchor',
-    detail: 'Sealed into your personal history with status “released”.',
-    tone: 'preserved',
-  },
-  {
-    id: 'reminders',
-    label: 'Daily reminders',
-    detail: 'Active reminder loops for this Anchor stop.',
-    tone: 'ceases',
-  },
-  {
-    id: 'history',
-    label: 'History',
-    detail: 'Consistency, Course Log, and session counts stay readable in Your Anchors.',
-    tone: 'preserved',
-  },
-] as const;
-
-export const RELEASE_CONSEQUENCE_COURSE = {
-  id: 'course',
-  label: 'Course & Waypoints',
-  detail: 'Archived with the Anchor. Reached waypoints and the full journey remain.',
-  tone: 'preserved' as V2ReleaseConsequenceTone,
-} as const;
-
-export const RELEASE_CONSEQUENCE_VISION = {
-  id: 'vision',
-  label: 'Vision',
-  detail: 'Saved alongside this intention in history.',
-  tone: 'preserved' as V2ReleaseConsequenceTone,
+export const RELEASE_CONSEQUENCE_ROWS = {
+  anchor: { id: 'anchor', label: 'Anchor', detail: 'Moves out of active use', tone: 'preserved' as V2ReleaseConsequenceTone },
+  anchorEvolve: { id: 'anchor', label: 'Anchor', detail: 'This Anchor moves into history', tone: 'preserved' as V2ReleaseConsequenceTone },
+  vision: { id: 'vision', label: 'Vision', detail: 'Saved alongside this intention in history', tone: 'preserved' as V2ReleaseConsequenceTone },
+  chart: { id: 'course', label: 'Chart', detail: 'Archived with the Anchor. Reached waypoints and the journey remain', tone: 'preserved' as V2ReleaseConsequenceTone },
+  chartWaypoint: { id: 'course', label: 'Chart', detail: 'The reached waypoint stays', tone: 'preserved' as V2ReleaseConsequenceTone },
+  chartDestination: { id: 'course', label: 'Chart', detail: 'Completed course moves to history', tone: 'preserved' as V2ReleaseConsequenceTone },
+  successor: { id: 'successor', label: 'New Anchor', detail: '', tone: 'neutral' as V2ReleaseConsequenceTone },
+  history: { id: 'history', label: 'History', detail: 'Practice and Thread history remain in Progress', tone: 'preserved' as V2ReleaseConsequenceTone },
+  // DEFERRED: the "Intention — marked complete" and "Daily reminders" rows were dropped; the first
+  // claimed completion for manual releases and neither is part of the locked consequence fixtures.
 } as const;

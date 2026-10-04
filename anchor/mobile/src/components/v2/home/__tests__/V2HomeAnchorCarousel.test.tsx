@@ -34,6 +34,7 @@ const summaries = (count: number, selected: number) => {
     anchor,
     thread: toThreadPresentation(anchor),
     isSelected: i === selected,
+    practicedToday: false,
   }));
 };
 
@@ -64,7 +65,7 @@ describe('finger tracking', () => {
     for (const w of [360, 393, 412]) {
       const size = (154 + 14) * 0.72;
       const visible = w / 2 + size / 2 - carouselSpacing(w, 154) + w / 2 - w / 2;
-      expect(visible / size).toBeCloseTo(0.28, 5);
+      expect(visible / size).toBeCloseTo(0.14, 5);
     }
   });
 });

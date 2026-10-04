@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { ChevronRight } from 'lucide-react-native';
@@ -6,9 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import type { HomeChartState } from '@/adapters/v2/home/chartAdapter';
 // DEFERRED: import { colors, getCategoryColor, typography } from '@/theme/v2';
 import { colors, getCategoryColor, getCategoryTextColor, typography } from '@/theme/v2';
-import { ChartJourneyWorld } from './ChartJourneyWorld';
-import { getJourneyRouteProgress } from './chartJourneyGeometry';
-import type { ChartMarker } from './ChartLandscape';
+import { ChartMapCrop } from '@/components/chart/ChartMapCrop';
 import { chartArtFor, pointAt, routePathData, toFramePoint, waypointFractions } from './chartRouteGeometry';
 
 type Props = {
@@ -25,10 +23,6 @@ type Props = {
  * Copy flows below the route instead of covering nodes or clipping long Moves. */
 export const ChartWorldPreview = memo(function ChartWorldPreview({ chart, width, category, variant = 'home', onPress, testID = 'v2-home-chart' }: Props) {
   const current = chart.waypoints.find(waypoint => waypoint.isCurrent);
-  const markers = useMemo<ChartMarker[]>(() => chart.waypoints.map((waypoint, index) => ({
-    id: waypoint.id, number: index + 1, accessibilityLabel: waypoint.title,
-    state: waypoint.reached || (variant === 'details' && waypoint.state === 'SKIPPED') ? 'completed' : waypoint.isCurrent ? 'current' : 'upcoming',
-  })), [chart.waypoints, variant]);
   const fractions = waypointFractions(chart.waypoints.length);
   const art = chartArtFor(category);
   // Details matches the Vision board's 0.6 aspect height; the compact copy overlays the image.
@@ -78,10 +72,14 @@ export const ChartWorldPreview = memo(function ChartWorldPreview({ chart, width,
           </Svg>
         </View>
       ) : (
-        <View pointerEvents="none" style={{ height: mapHeight, overflow: 'hidden' }}>
-          <ChartJourneyWorld width={width} height={mapHeight} category={category} markers={markers}
-            staticProgress={getJourneyRouteProgress(chart.waypointCount, chart.currentWaypointIndex ?? -1, chart.journeyMetricFraction, chart.journeyConfirmedComplete === true)}
-            testID="v2-details-chart-map" />
+        <View testID="v2-details-chart-map" pointerEvents="none" style={[styles.instrument, { height: mapHeight }]}>
+          <ChartMapCrop full={false} data={{
+            category: category ?? null,
+            status: chart.isFinished ? 'complete' : 'active',
+            waypointIndex: (chart.currentWaypointIndex ?? -1) + 1,
+            waypointTotal: chart.waypointCount,
+            title: current?.title ?? chart.destinationText,
+          }} />
           <LinearGradient colors={['transparent', colors.ink.deep]} style={styles.scrim} />
         </View>
       )}

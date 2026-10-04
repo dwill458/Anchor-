@@ -79,7 +79,7 @@ function drawMapCaptions(p: Painter, pal: Palette, ctx: SceneContext, tt: number
       });
     }
   }
-  drawCaption(p, pal, MAP_RITUAL_CAPTION, (ctx.reduceMotion ? 1 : smooth(0.8, 1.4, tt)) * out);
+  drawCaption(p, pal, MAP_RITUAL_CAPTION, (ctx.reduceMotion ? 1 : smooth(0.8, 1.4, tt)) * out, { time: tt, reduceMotion: ctx.reduceMotion });
 }
 
 /**

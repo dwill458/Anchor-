@@ -1,14 +1,14 @@
 import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { PixelRatio, Platform, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useDerivedValue, type SharedValue } from 'react-native-reanimated';
 import {
   Canvas, Circle, Group, ImageShader, LinearGradient, Path, Rect, Shader,
-  Skia, makeImageFromView, type SkImage,
+  Skia, useImage, type SkImage,
 } from '@shopify/react-native-skia';
 import { CircularAnchorRenderer } from '@/components/v2/anchor/CircularAnchorRenderer';
 import type { AnchorExpression } from '@/constants/v2/creation';
 import {
-  RELEASE_FIRE_ENABLED,
+  RELEASE_FIRE_KILL_SWITCH,
   RELEASE_CEREMONY_TIMELINE_MS as T,
   RELEASE_CEREMONY_TIMELINE_REDUCED_MS as R,
 } from '@/constants/v2/release';
@@ -16,6 +16,8 @@ import {
   createReleaseParticles, flameContact, flameIntensity, frontHeight,
   RELEASE_FLAME_COUNT, releaseSeed, seededUnit, segment,
 } from './releaseBurn';
+import { createReleaseArtworkImage, validateReleaseArtworkImage } from './releaseArtworkImage';
+import { reportReleaseFireFallback, resolveReleaseFire, type ReleaseFireTexture } from './releaseFire';
 
 // The original renderer is captured once. This shader only changes material at
 // the cut; it never recolours, reconstructs or distorts the untouched artwork.
@@ -57,13 +59,14 @@ function Flame({ index, seed, size, clock }: { index: number; seed: number; size
     return contact.visible ? segment(time, birth, birth + 160) * (1 - segment(time, T.burnLate + index * 28, T.emptyPause - 150)) : 0;
   });
   // Static seeded geometry belongs to JS initialization, never a UI callback.
+  // Tongue height: ~14px at ignition, 36-45px at peak, then starves with the material.
   const peakHeight = 22 + seededUnit(seed, 401 + index) * 9;
   const transform = useDerivedValue(() => {
     const time = clock.value;
     const contact = flameContact(slot, time, size, fieldPhase);
     const peak = segment(time, T.ignite + 220, T.burnEarly + 380);
     const cooling = 1 - segment(time, T.burnLate + 60, T.emptyPause - 150);
-    const flutter = 0.89 + 0.07 * Math.sin(time * 0.014 + phase) + 0.04 * Math.sin(time * 0.025 + phase * 2);
+    const flutter = 0.92 + 0.05 * Math.sin(time * 0.014 + phase) + 0.03 * Math.sin(time * 0.025 + phase * 2);
     const height = (14 + peak * peakHeight) * cooling * flutter;
     const width = (6 + peak * 8) * (0.86 + 0.14 * Math.sin(time * 0.009 + phase));
     return [{ translateX: contact.x }, { translateY: contact.y + 0.7 },
@@ -112,40 +115,58 @@ function Particle({ particle, fieldPhase, clock }: {
 type Props = {
   anchorId: string; artworkSvg: string; imageUrl?: string | null; expression?: AnchorExpression;
   category?: string | null; size: number; active: boolean; reduceMotion: boolean; clock: SharedValue<number>;
+  /** Hold has reached the point where the burn texture should be built (ahead of isolation). */
+  prepare?: boolean;
 };
 
+type BuiltTexture = { key: string; image: SkImage | null; texture: ReleaseFireTexture };
+const PENDING = (key: string): BuiltTexture => ({ key, image: null, texture: 'pending' });
+
 /** One persistent real Anchor through confirmation, isolation and material consumption. */
-export const V2ReleaseArtwork = memo(function V2ReleaseArtwork({ anchorId, artworkSvg, imageUrl, expression, category, size, active, reduceMotion, clock }: Props) {
-  const sourceRef = useRef<View>(null);
-  const [captured, setCaptured] = useState<SkImage | null>(null);
+export const V2ReleaseArtwork = memo(function V2ReleaseArtwork({ anchorId, artworkSvg, imageUrl, expression, category, size, active, reduceMotion, clock, prepare = false }: Props) {
   const seed = useMemo(() => releaseSeed(anchorId), [anchorId]);
   const fieldPhase = useMemo(() => seededUnit(seed, 13) * Math.PI * 2, [seed]);
   const particles = useMemo(() => createReleaseParticles(seed, size), [seed, size]);
   const effect = useMemo(() => {
-    if (!RELEASE_FIRE_ENABLED || Platform.OS === 'web') return null;
+    if (RELEASE_FIRE_KILL_SWITCH || Platform.OS === 'web') return null;
     try { return Skia.RuntimeEffect.Make(RELEASE_BURN_SHADER); } catch { return null; }
   }, []);
+  const hasImageUrl = typeof imageUrl === 'string' && imageUrl.length > 0;
+  // The finished image is decoded inside Skia from the same URL the native renderer shows.
+  const decoded = useImage(hasImageUrl ? imageUrl : null);
+  const sourceKey = `${artworkSvg}|${imageUrl ?? ''}|${expression ?? ''}|${category ?? ''}|${size}`;
+  const [built, setBuilt] = useState<BuiltTexture>(() => PENDING(sourceKey));
+  const current = built.key === sourceKey ? built : PENDING(sourceKey);
 
+  // Build the texture while the hold is still running so it is ready by isolation. The disc is
+  // drawn in Skia (never a native-view snapshot, which is blank on Android) and validated before use.
   useEffect(() => {
-    if (!active || reduceMotion || !effect) return undefined;
-    let alive = true;
-    // One snapshot in isolation, after the commit render. Native artwork stays
-    // visible until the texture is available; capture failure uses a fixed fade.
+    if (!(prepare || active) || reduceMotion || !effect || current.texture !== 'pending') return undefined;
+    if (hasImageUrl && !decoded && !active) return undefined;
     const timer = setTimeout(() => {
-      void makeImageFromView(sourceRef).then(image => {
-        if (alive) setCaptured(image);
-      }).catch(() => { /* Preserve the real artwork; degrade to the accessible fade. */ });
-    }, 32);
-    return () => { alive = false; clearTimeout(timer); };
-  }, [active, effect, reduceMotion]);
+      const image = createReleaseArtworkImage({ svg: artworkSvg, category, expression, size, pixelRatio: Math.min(PixelRatio.get(), 3),
+        hairline: Math.max(StyleSheet.hairlineWidth, 0.5), image: decoded, hasImageUrl });
+      const valid = validateReleaseArtworkImage(image);
+      setBuilt({ key: sourceKey, image: valid ? image : null, texture: valid ? 'valid' : 'blank' });
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [prepare, active, reduceMotion, effect, current.texture, hasImageUrl, decoded, artworkSvg, category, expression, size, sourceKey]);
 
-  useEffect(() => { if (!active) setCaptured(null); }, [active, artworkSvg, imageUrl, expression, size]);
+  const decision = resolveReleaseFire({ reduceMotion, effectAvailable: Boolean(effect), texture: current.texture });
+  const reported = useRef(false);
+  useEffect(() => {
+    if (!active || reported.current || !decision.fallback) return;
+    reported.current = true;
+    reportReleaseFireFallback(decision.fallback);
+  }, [active, decision.fallback]);
 
-  const burnAvailable = active && !reduceMotion && Boolean(captured && effect);
+  const captured = current.image;
+  const burnAvailable = decision.enabled && Boolean(captured && effect);
+  // Native art stays until the Skia layer is ready, then both swap on the same isolation frame.
   const nativeStyle = useAnimatedStyle(() => ({ opacity: !active ? 1 : burnAvailable ? 0
     : reduceMotion ? 1 - segment(clock.value, R.fade, R.emptyPause)
       : 1 - segment(clock.value, T.ignite, T.emptyPause) }));
-  const canvasStyle = useAnimatedStyle(() => ({ opacity: burnAvailable && clock.value < T.emptyPause ? 1 : 0 }));
+  const canvasStyle = useAnimatedStyle(() => ({ opacity: active && burnAvailable && clock.value < T.emptyPause ? 1 : 0 }));
   const uniforms = useDerivedValue(() => ({
     height: frontHeight(clock.value, size), size, phase: fieldPhase,
     heat: clock.value < T.ignite ? 0 : Math.max(0.2, flameIntensity(clock.value)),
@@ -155,10 +176,8 @@ export const V2ReleaseArtwork = memo(function V2ReleaseArtwork({ anchorId, artwo
   return (
     <View style={{ width: size, height: size }} testID="v2-release-artwork">
       <Animated.View style={nativeStyle}>
-        <View ref={sourceRef} collapsable={false} style={{ width: size, height: size }}>
-          <CircularAnchorRenderer svg={artworkSvg} imageUrl={imageUrl} expression={expression} category={category}
-            size={size} appearance="paper" accessibilityLabel="Anchor artwork" />
-        </View>
+        <CircularAnchorRenderer svg={artworkSvg} imageUrl={imageUrl} expression={expression} category={category}
+          size={size} appearance="paper" accessibilityLabel="Anchor artwork" />
       </Animated.View>
       {burnAvailable && captured && effect ? (
         <Animated.View pointerEvents="none" accessible={false} importantForAccessibility="no-hide-descendants" style={[StyleSheet.absoluteFill, canvasStyle]} testID="v2-release-fire">

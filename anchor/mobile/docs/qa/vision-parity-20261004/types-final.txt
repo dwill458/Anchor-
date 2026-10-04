@@ -1,0 +1,3 @@
+src/screens/v2/anchors/__tests__/V2AnchorDetailsScreen.test.tsx(563,15): error TS2322: Type '{ id: string; anchorId: string; practiceMode: "focus"; completedDurationSeconds: number; completedAt: string; }[]' is not assignable to type 'PracticeSessionRecord[]'.
+  Type '{ id: string; anchorId: string; practiceMode: "focus"; completedDurationSeconds: number; completedAt: string; }' is missing the following properties from type 'PracticeSessionRecord': accountId, anchorLocalId, anchorServerId, plannedDurationSeconds, and 14 more.
+src/screens/v2/anchors/__tests__/V2AnchorDetailsScreen.test.tsx(647,41): error TS2322: Type 'null' is not assignable to type 'number | undefined'.

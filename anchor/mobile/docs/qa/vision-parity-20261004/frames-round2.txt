@@ -1,0 +1,4 @@
+
+10-04 04:19:22.134 25628 10400 I ReactNativeJS: '[VISION_QA_FRAMES]', '{"surface":"parity","frames":1202,"averageMs":8.323228000001533,"over20ms":0,"maxMs":8.323228001594543,"fixture":true,"build":"development"}'
+10-04 04:19:32.139 25628 10400 I ReactNativeJS: '[VISION_QA_FRAMES]', '{"surface":"parity","frames":1202,"averageMs":8.323228000001533,"over20ms":0,"maxMs":8.323228001594543,"fixture":true,"build":"development"}'
+

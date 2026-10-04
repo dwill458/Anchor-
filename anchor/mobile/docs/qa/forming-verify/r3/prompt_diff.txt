@@ -1,0 +1,273 @@
+### velvet_ember_v2 | "I am calm and focused under pressure" (desire)
+  Form I : field=dark/anchor=light | Ember and umber — dark umber pile warming into a soft ember-orange concentration toward the perimeter
+           material: suede-like brushed leather-free pile
+           motif: soft pigment pooling
+           placement: let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet
+           composition: GATHERED AND RICH — a full, saturated field with layered, de...
+  Form II: field=mixed/anchor=dark | Dusty deep rose — mid-depth dusty rose pile with lighter and deeper tonal passages
+           material: dense short-nap velour
+           motif: broad tonal clouds in the nap
+           placement: let richer material detail gather toward the lower-left and upper-right perimeter
+           composition: OPEN AND QUIET — a calm, spare field with large still areas;...
+  opposite field value: false; material differs: true; motif differs: true; placement differs: true
+### porcelain_v2 | "I am calm and focused under pressure" (desire)
+  Form I : field=light/anchor=dark | Blush glaze — soft blush porcelain glaze
+           material: soft-fired celadon stoneware glaze
+           motif: soft glaze pooling at the perimeter
+           placement: let richer material detail gather in the outer corners and thin out toward the middle
+           composition: GATHERED AND RICH — a full, saturated field with layered, de...
+  Form II: field=dark/anchor=light | Dark ceramic — deep ink-blue or oxblood ceramic glaze with soft sheen
+           material: satin-glazed ceramic
+           motif: a few restrained crackle lines near the edges
+           placement: let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet
+           composition: OPEN AND QUIET — a calm, spare field with large still areas;...
+  opposite field value: true; material differs: true; motif differs: true; placement differs: true
+### prism_flow_v2 | "I am calm and focused under pressure" (desire)
+  Form I : field=light/anchor=dark | Pearl spectrum — milky pearl with soft lilac, sky and peach gel washes flowing across it
+           material: fluid dyed resin sheet
+           motif: soft refractive fades
+           placement: let richer material detail gather toward the lower-left and upper-right perimeter
+           composition: GATHERED AND RICH — a full, saturated field with layered, de...
+  Form II: field=dark/anchor=light | Dusk spectrum — deep indigo-violet gel with broad teal and magenta flow
+           material: soft gel layers
+           motif: broad spectral sweeps
+           placement: let richer material detail gather along the upper and left perimeter
+           composition: OPEN AND QUIET — a calm, spare field with large still areas;...
+  opposite field value: true; material differs: true; motif differs: true; placement differs: true
+### prism_flow_v2 | "I earn more money every month" (wealth)
+  Form I : field=light/anchor=dark | Pearl spectrum — milky pearl with soft lilac, sky and peach gel washes flowing across it
+           material: fluid dyed resin sheet
+           motif: broad spectral sweeps
+           placement: let richer material detail gather along the lower and right perimeter
+           composition: GATHERED AND RICH — a full, saturated field with layered, de...
+  Form II: field=dark/anchor=light | Dusk spectrum — deep indigo-violet gel with broad teal and magenta flow
+           material: soft gel layers
+           motif: overlapping translucent layers
+           placement: let richer material detail gather in the outer corners and thin out toward the middle
+           composition: OPEN AND QUIET — a calm, spare field with large still areas;...
+  opposite field value: true; material differs: true; motif differs: true; placement differs: true
+### prism_flow_v2 | "I forgive and let go of the past" (release)
+  Form I : field=mixed/anchor=dark | Drifting spectrum — translucent layers moving between warm and cool, light and deep
+           material: fluid dyed resin sheet
+           motif: soft refractive fades
+           placement: let richer material detail gather along the upper and left perimeter
+           composition: GATHERED AND RICH — a full, saturated field with layered, de...
+  Form II: field=light/anchor=dark | Pearl spectrum — milky pearl with soft lilac, sky and peach gel washes flowing across it
+           material: soft gel layers
+           motif: broad spectral sweeps
+           placement: let richer material detail gather along the lower and right perimeter
+           composition: OPEN AND QUIET — a calm, spare field with large still areas;...
+  opposite field value: false; material differs: true; motif differs: true; placement differs: true
+### prism_flow_v2 | "I run my first marathon" (health)
+  Form I : field=dark/anchor=light | Dusk spectrum — deep indigo-violet gel with broad teal and magenta flow
+           material: soft gel layers
+           motif: overlapping translucent layers
+           placement: let richer material detail gather toward the lower-left and upper-right perimeter
+           composition: GATHERED AND RICH — a full, saturated field with layered, de...
+  Form II: field=light/anchor=dark | Pearl spectrum — milky pearl with soft lilac, sky and peach gel washes flowing across it
+           material: thin refractive film
+           motif: soft refractive fades
+           placement: let richer material detail gather along the upper and left perimeter
+           composition: OPEN AND QUIET — a calm, spare field with large still areas;...
+  opposite field value: true; material differs: true; motif differs: true; placement differs: true
+### joybrush_v2 | "I am calm and focused under pressure" (desire)
+  Form I : field=light/anchor=dark | Chalk ground, bright pigment — warm chalk-white primed ground with bright gestural pigment gathered toward the perimeter
+           material: chalky oil-bar pigment
+           motif: loaded-brush edges
+           placement: let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet
+           composition: GATHERED AND RICH — a full, saturated field with layered, de...
+  Form II: field=dark/anchor=light | Dark ground, warm pigment — deep ink-blue ground with warm, bright gestural pigment around the edges
+           material: opaque gouache
+           motif: dry-brush drags at the perimeter
+           placement: let richer material detail gather toward the lower-left and upper-right perimeter
+           composition: OPEN AND QUIET — a calm, spare field with large still areas;...
+  opposite field value: true; material differs: true; motif differs: true; placement differs: true
+### deep_cosmos_v2 | "I am calm and focused under pressure" (desire)
+  Form I : field=mixed/anchor=light | Lifted cold teal — near-black blue lifting softly toward a wide, hazy cold-teal and slate-blue glow across the lower field, graded without any visible light source or shape
+           material: deep pigment haze
+           motif: soft depth gradation
+           placement: let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet
+           composition: GATHERED AND RICH — a full, saturated field with layered, de...
+  Form II: field=dark/anchor=light | Deep navy — deep navy field with slow gradation toward near-black at the edges
+           material: matte velvet-dark atmospheric wash
+           motif: a few distant soft points of light
+           placement: let richer material detail gather toward the lower-left and upper-right perimeter
+           composition: OPEN AND QUIET — a calm, spare field with large still areas;...
+  opposite field value: false; material differs: true; motif differs: true; placement differs: true
+### woven_v2 | "I am calm and focused under pressure" (desire)
+  Form I : field=mixed/anchor=dark | Dusty blue canvas — dusty blue fine canvas with a slightly lighter, calmer middle
+           material: fine linen
+           motif: gentle yarn irregularity
+           placement: let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet
+           composition: GATHERED AND RICH — a full, saturated field with layered, de...
+  Form II: field=light/anchor=dark | Oatmeal linen — natural oatmeal linen with a fine, even weave
+           material: combed cotton
+           motif: slight tonal variation in the fibre
+           placement: let richer material detail gather toward the lower-left and upper-right perimeter
+           composition: OPEN AND QUIET — a calm, spare field with large still areas;...
+  opposite field value: false; material differs: true; motif differs: true; placement differs: true
+### paper_v2 | "I am calm and focused under pressure" (desire)
+  Form I : field=light/anchor=dark | Dusty blue paper — dusty blue handmade paper with fine fibres
+           material: handmade paper with sparse inclusions
+           motif: faint tonal clouding of the paper
+           placement: let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet
+           composition: GATHERED AND RICH — a full, saturated field with layered, de...
+  Form II: field=dark/anchor=light | Charcoal paper — charcoal paper with a soft matte tooth
+           material: cotton rag paper
+           motif: sparse pale fibres
+           placement: let richer material detail gather toward the lower-left and upper-right perimeter
+           composition: OPEN AND QUIET — a calm, spare field with large still areas;...
+  opposite field value: true; material differs: true; motif differs: true; placement differs: true
+### clay_v2 | "I am calm and focused under pressure" (desire)
+  Form I : field=light/anchor=dark | Dusty mineral pink — dusty mineral pink pigment, powdery and matte
+           material: pressed ochre pigment
+           motif: broad powdery tonal clouds
+           placement: let richer material detail gather toward the lower-left and upper-right perimeter
+           composition: GATHERED AND RICH — a full, saturated field with layered, de...
+  Form II: field=dark/anchor=light | Muted stone — deep muted slate-stone pigment, dense and dry
+           material: powdered sandstone
+           motif: soft pigment pooling toward the perimeter
+           placement: let richer material detail gather along the upper and left perimeter
+           composition: OPEN AND QUIET — a calm, spare field with large still areas;...
+  opposite field value: true; material differs: true; motif differs: true; placement differs: true
+### graphic_v2 | "I am calm and focused under pressure" (desire)
+  Form I : field=mixed/anchor=dark | Warm primary — cream ground with a few large warm red, golden and blue shapes pushed toward the perimeter
+           material: cut-colour print
+           motif: soft print grain
+           placement: let richer material detail gather along the lower and right perimeter
+           composition: GATHERED AND RICH — a full, saturated field with layered, de...
+  Form II: field=light/anchor=dark | Pastel — pale ground with a few large soft pastel shapes
+           material: offset print with soft grain
+           motif: quiet overlaps of two shapes
+           placement: let richer material detail gather in the outer corners and thin out toward the middle
+           composition: OPEN AND QUIET — a calm, spare field with large still areas;...
+  opposite field value: false; material differs: true; motif differs: true; placement differs: true
+### plush_v2 | "I am calm and focused under pressure" (desire)
+  Form I : field=light/anchor=dark | Butter — butter-yellow felt ground with soft cream and peach felt forms
+           material: soft needle-felted wool
+           motif: felt clouds
+           placement: let richer material detail gather in the outer corners and thin out toward the middle
+           composition: GATHERED AND RICH — a full, saturated field with layered, de...
+  Form II: field=dark/anchor=light | Cobalt — bright cobalt felt ground with soft cream, butter and peach felt forms
+           material: wool felt
+           motif: simple felt flowers
+           placement: let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet
+           composition: OPEN AND QUIET — a calm, spare field with large still areas;...
+  opposite field value: true; material differs: true; motif differs: true; placement differs: true
+### herbarium_v2 | "I am calm and focused under pressure" (desire)
+  Form I : field=mixed/anchor=dark | Sage paper — sage herbarium paper with a calmer pale middle
+           material: pressed specimens under a thin paper sheet
+           motif: grass seed heads
+           placement: let richer material detail gather toward the lower-left and upper-right perimeter
+           composition: GATHERED AND RICH — a full, saturated field with layered, de...
+  Form II: field=light/anchor=dark | Soft blush — warm ivory-blush herbarium paper with softly pressed specimens
+           material: dried specimens on cotton paper
+           motif: dried lavender
+           placement: let richer material detail gather along the upper and left perimeter
+           composition: OPEN AND QUIET — a calm, spare field with large still areas;...
+  opposite field value: false; material differs: true; motif differs: true; placement differs: true
+### alloy_v2 | "I am calm and focused under pressure" (desire)
+  Form I : field=dark/anchor=light | Heat-treated metal — deep blued and straw-toned heat-treated metal, matte and even
+           material: fine brushed metal
+           motif: gentle patina clouds toward the perimeter
+           placement: let richer material detail gather in the outer corners and thin out toward the middle
+           composition: GATHERED AND RICH — a full, saturated field with layered, de...
+  Form II: field=light/anchor=dark | Brushed champagne or silver — finely brushed champagne-silver satin metal with soft broad light
+           material: patinated copper
+           motif: fine directional brushing
+           placement: let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet
+           composition: OPEN AND QUIET — a calm, spare field with large still areas;...
+  opposite field value: true; material differs: true; motif differs: true; placement differs: true
+### alloy_v2 | "I earn more money every month" (wealth)
+  Form I : field=mixed/anchor=dark | Patinated copper — patinated copper sheet with a calmer, evenly toned middle
+           material: matte gunmetal
+           motif: fine directional brushing
+           placement: let richer material detail gather toward the lower-left and upper-right perimeter
+           composition: GATHERED AND RICH — a full, saturated field with layered, de...
+  Form II: field=dark/anchor=light | Heat-treated metal — deep blued and straw-toned heat-treated metal, matte and even
+           material: heat-treated metal
+           motif: soft broad light falloff
+           placement: let richer material detail gather along the upper and left perimeter
+           composition: OPEN AND QUIET — a calm, spare field with large still areas;...
+  opposite field value: false; material differs: true; motif differs: true; placement differs: true
+### alloy_v2 | "I forgive and let go of the past" (release)
+  Form I : field=mixed/anchor=dark | Patinated copper — patinated copper sheet with a calmer, evenly toned middle
+           material: matte gunmetal
+           motif: gentle patina clouds toward the perimeter
+           placement: let richer material detail gather in the outer corners and thin out toward the middle
+           composition: GATHERED AND RICH — a full, saturated field with layered, de...
+  Form II: field=dark/anchor=light | Heat-treated metal — deep blued and straw-toned heat-treated metal, matte and even
+           material: heat-treated metal
+           motif: fine directional brushing
+           placement: let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet
+           composition: OPEN AND QUIET — a calm, spare field with large still areas;...
+  opposite field value: false; material differs: true; motif differs: true; placement differs: true
+### alloy_v2 | "I run my first marathon" (health)
+  Form I : field=light/anchor=dark | Brushed champagne or silver — finely brushed champagne-silver satin metal with soft broad light
+           material: patinated copper
+           motif: fine directional brushing
+           placement: let richer material detail gather along the upper and left perimeter
+           composition: GATHERED AND RICH — a full, saturated field with layered, de...
+  Form II: field=dark/anchor=light | Gunmetal — dark gunmetal satin sheet with very fine brushing
+           material: matte gunmetal
+           motif: soft broad light falloff
+           placement: let richer material detail gather along the lower and right perimeter
+           composition: OPEN AND QUIET — a calm, spare field with large still areas;...
+  opposite field value: true; material differs: true; motif differs: true; placement differs: true
+### gilt_v2 | "I am calm and focused under pressure" (desire)
+  Form I : field=dark/anchor=light | Ink navy lacquer and silver leaf — smooth ink-navy satin-matte lacquer with silver leaf laid along the perimeter
+           material: gold leaf on lacquer
+           motif: faint leaf tarnish
+           placement: let richer material detail gather in the outer corners and thin out toward the middle
+           composition: GATHERED AND RICH — a full, saturated field with layered, de...
+  Form II: field=light/anchor=dark | Ivory lacquer and gold leaf — smooth ivory satin-matte lacquer with gold leaf laid along the perimeter
+           material: silver leaf on lacquer
+           motif: soft-edged leaf patches at the perimeter
+           placement: let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet
+           composition: OPEN AND QUIET — a calm, spare field with large still areas;...
+  opposite field value: true; material differs: true; motif differs: true; placement differs: true
+### flash_v2 | "I am calm and focused under pressure" (desire)
+  Form I : field=light/anchor=dark | Classic colour flash — aged cream flash paper with bold red, teal and golden-yellow inked forms toward the edges
+           material: sun-faded neo-traditional ink on paper
+           motif: bold filled shapes
+           placement: let richer material detail gather along the upper and left perimeter
+           composition: GATHERED AND RICH — a full, saturated field with layered, de...
+  Form II: field=dark/anchor=light | Black-stock flash — matte black flash paper stock with bold cream, red and golden-yellow filled forms, rays and dotwork gathered toward the edges
+           material: aged flash paper with classic colour ink
+           motif: rays
+           placement: let richer material detail gather along the lower and right perimeter
+           composition: OPEN AND QUIET — a calm, spare field with large still areas;...
+  opposite field value: true; material differs: true; motif differs: true; placement differs: true
+### buff_v2 | "I am calm and focused under pressure" (desire)
+  Form I : field=dark/anchor=light | Night wall — dark night wall with soft muted overspray along the edges
+           material: whitewashed concrete
+           motif: buffed paint patches
+           placement: let richer material detail run along one diagonal of the perimeter while the other diagonal stays quiet
+           composition: GATHERED AND RICH — a full, saturated field with layered, de...
+  Form II: field=light/anchor=dark | Whitewashed concrete — whitewashed concrete with buffed paint patches and faint soft overspray at the edges
+           material: buffed paint patches
+           motif: soft aerosol overspray
+           placement: let richer material detail gather toward the lower-left and upper-right perimeter
+           composition: OPEN AND QUIET — a calm, spare field with large still areas;...
+  opposite field value: true; material differs: true; motif differs: true; placement differs: true
+
+TOTALS over 60 (style,intention) pairs: opposite light/dark field=43, material differs=60, motif differs=60, placement differs=60, composition differs=60
+Per style: opposite-value count out of 4 intentions: {"velvet_ember_v2":0,"porcelain_v2":4,"prism_flow_v2":3,"joybrush_v2":4,"deep_cosmos_v2":0,"woven_v2":3,"paper_v2":4,"clay_v2":3,"graphic_v2":3,"plush_v2":4,"herbarium_v2":3,"alloy_v2":2,"gilt_v2":4,"flash_v2":4,"buff_v2":2}
+Pairs NOT light-vs-dark: 
+  velvet_ember_v2["I am calm and focuse"] I=dark II=mixed
+  velvet_ember_v2["I earn more money ev"] I=dark II=mixed
+  velvet_ember_v2["I forgive and let go"] I=mixed II=dark
+  velvet_ember_v2["I run my first marat"] I=mixed II=dark
+  prism_flow_v2["I forgive and let go"] I=mixed II=light
+  deep_cosmos_v2["I am calm and focuse"] I=mixed II=dark
+  deep_cosmos_v2["I earn more money ev"] I=dark II=mixed
+  deep_cosmos_v2["I forgive and let go"] I=dark II=mixed
+  deep_cosmos_v2["I run my first marat"] I=dark II=mixed
+  woven_v2["I am calm and focuse"] I=mixed II=light
+  clay_v2["I run my first marat"] I=mixed II=dark
+  graphic_v2["I am calm and focuse"] I=mixed II=light
+  herbarium_v2["I am calm and focuse"] I=mixed II=light
+  alloy_v2["I earn more money ev"] I=mixed II=dark
+  alloy_v2["I forgive and let go"] I=mixed II=dark
+  buff_v2["I earn more money ev"] I=mixed II=dark
+  buff_v2["I forgive and let go"] I=mixed II=dark

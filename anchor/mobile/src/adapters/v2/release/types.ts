@@ -21,7 +21,36 @@ export interface V2ReleaseConsequenceSnapshot {
   hasLinkedCourse: boolean;
   /** True when a Vision is linked to this Anchor. */
   hasLinkedVision: boolean;
+  /** The reason that survived verification against server state. */
+  reason: V2ReleaseReason;
+  successor: V2ReleaseSuccessor | null;
+  nextWaypointTitle: string | null;
+  courseId: string | null;
+  /** Fingerprint of everything the consequences depend on; a hold started on another one is stale. */
+  revision: string;
   consequences: V2ReleaseConsequence[];
+}
+
+/**
+ * Why the Anchor is being released. Waypoint and destination completion are
+ * never inferred on the client: `resolveReleaseReason` only accepts them when
+ * server-synced Chart state confirms them.
+ */
+export type V2ReleaseReason =
+  | 'outcome_completed'
+  | 'waypoint_completed'
+  | 'destination_completed'
+  | 'no_longer_aligned'
+  | 'evolve';
+
+export const V2_RELEASE_REASONS: readonly V2ReleaseReason[] = [
+  'outcome_completed', 'waypoint_completed', 'destination_completed', 'no_longer_aligned', 'evolve',
+];
+
+/** The Anchor that carries an evolved intention forward. */
+export interface V2ReleaseSuccessor {
+  anchorId: string;
+  intentionText: string;
 }
 
 /** Minimal linked-Course shape needed to phrase the Course consequence honestly. */
@@ -29,6 +58,17 @@ export interface V2ReleaseLinkedCourse {
   status: string;
   waypointCount: number;
   reachedCount: number;
+  /** How this Anchor is linked to the Course, from server state. */
+  linkKind?: 'waypoint' | 'destination' | null;
+  /** Server-confirmed: the linked waypoint is REACHED. */
+  waypointReached?: boolean;
+  /** Server-confirmed: the Course itself is COMPLETED. */
+  courseCompleted?: boolean;
+  courseId?: string;
+  /** Title of the waypoint that follows, when the server has one. */
+  nextWaypointTitle?: string | null;
+  /** Course revision from the server; changes when relationships do. */
+  revision?: number;
 }
 
 export interface V2ReleaseSnapshotInput {
@@ -44,6 +84,9 @@ export interface V2ReleaseSnapshotInput {
   };
   linkedCourse?: V2ReleaseLinkedCourse | null;
   hasLinkedVision?: boolean;
+  /** Requested reason; downgraded to manual when server state cannot confirm it. */
+  reason?: V2ReleaseReason;
+  successor?: V2ReleaseSuccessor | null;
 }
 
 /** Idempotent, non-destructive release request. */
@@ -51,7 +94,10 @@ export interface V2ReleaseRequest {
   anchorId: string;
   /** Stable across retries of the same release attempt so the server never double-applies. */
   idempotencyKey: string;
-  reason?: string;
+  /** A V2ReleaseReason from the app; the wire format stays a plain string. */
+  reason?: V2ReleaseReason | (string & {});
+  // DEFERRED: expectedRevision — POST /api/v2/anchors/:id/release does not accept or return a
+  // relationship revision yet; staleness is checked client-side against the synced Chart.
 }
 
 export type V2ReleaseStatus = 'released' | 'pending' | 'failed';

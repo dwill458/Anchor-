@@ -60,7 +60,7 @@ describe('V2ReleaseScreen', () => {
   });
 
   it('preflight shows the intention and the consequence snapshot', () => {
-    const { getByText, getByTestId } = render(
+    const { getByText, getByTestId, queryByTestId } = render(
       <V2ReleaseScreen
         anchorId="anchor-1"
         releaseAdapter={fakeAdapter({ status: 'released', anchorId: 'anchor-1' })}
@@ -72,7 +72,7 @@ describe('V2ReleaseScreen', () => {
     expect(getByText('What changes when you release')).toBeTruthy();
     expect(getByText(/Publish my novel/)).toBeTruthy();
     expect(getByTestId('v2-release-intention')).toBeTruthy();
-    expect(getByTestId('v2-release-consequence-intention')).toBeTruthy();
+    expect(queryByTestId('v2-release-consequence-intention')).toBeNull();
     expect(getByTestId('v2-release-consequence-anchor')).toBeTruthy();
     expect(getByTestId('v2-release-consequence-history')).toBeTruthy();
   });
@@ -169,7 +169,7 @@ describe('V2ReleaseScreen', () => {
     expect(mockReleaseAnchor).toHaveBeenCalledWith('anchor-1');
 
     fireEvent.press(getByTestId('v2-release-completion-primary'));
-    expect(onReleaseCompleted).toHaveBeenCalledWith('anchor-1');
+    expect(onReleaseCompleted).toHaveBeenCalledWith('anchor-1', expect.objectContaining({ reason: 'no_longer_aligned', eyebrow: 'Released' }));
   });
 
   it('renders an empty state when the Anchor is gone', () => {
@@ -239,6 +239,131 @@ describe('V2ReleaseScreen', () => {
     act(() => jest.advanceTimersByTime(1));
     expect(getByTestId('v2-release-status-confirming')).toBeTruthy();
     expect(mockReleaseAnchor).not.toHaveBeenCalled();
+  });
+
+
+  it('repeated input after the threshold submits exactly once', async () => {
+    const adapter = fakeAdapter({ status: 'pending', anchorId: 'anchor-1', retryable: true });
+    const { getByTestId } = render(<V2ReleaseScreen anchorId="anchor-1" releaseAdapter={adapter} onReleaseCompleted={jest.fn()} onCancel={jest.fn()} />);
+    const target = getByTestId('v2-hold-to-release-target');
+    act(() => fireEvent(target, 'pressIn'));
+    act(() => jest.advanceTimersByTime(1850));
+    await flush();
+    act(() => { fireEvent(target, 'pressOut'); fireEvent(target, 'pressIn'); fireEvent(target, 'pressIn'); });
+    act(() => jest.advanceTimersByTime(2500));
+    await flush();
+    expect(adapter.submitRelease).toHaveBeenCalledTimes(1);
+  });
+
+  it('an early lift sends no request and the target stays available for a fresh hold', () => {
+    const adapter = fakeAdapter({ status: 'released', anchorId: 'anchor-1' });
+    const { getByTestId } = render(<V2ReleaseScreen anchorId="anchor-1" releaseAdapter={adapter} onReleaseCompleted={jest.fn()} onCancel={jest.fn()} />);
+    const target = getByTestId('v2-hold-to-release-target');
+    act(() => fireEvent(target, 'pressIn'));
+    act(() => jest.advanceTimersByTime(900));
+    act(() => fireEvent(target, 'pressOut'));
+    act(() => jest.advanceTimersByTime(600));
+    expect(adapter.submitRelease).not.toHaveBeenCalled();
+    expect(getByTestId('v2-hold-to-release-label').props.children).toBe('Hold to release');
+  });
+
+  it('losing focus mid-hold cancels it without a request', () => {
+    const adapter = fakeAdapter({ status: 'released', anchorId: 'anchor-1' });
+    const view = render(<V2ReleaseScreen anchorId="anchor-1" releaseAdapter={adapter} onReleaseCompleted={jest.fn()} onCancel={jest.fn()} />);
+    act(() => fireEvent(view.getByTestId('v2-hold-to-release-target'), 'pressIn'));
+    act(() => jest.advanceTimersByTime(700));
+    view.rerender(<V2ReleaseScreen anchorId="anchor-1" releaseAdapter={adapter} focused={false} onReleaseCompleted={jest.fn()} onCancel={jest.fn()} />);
+    act(() => jest.advanceTimersByTime(3000));
+    expect(adapter.submitRelease).not.toHaveBeenCalled();
+  });
+
+  it('a blank Skia capture keeps the native artwork and the fixed fade: no empty fire canvas', async () => {
+    const adapter = fakeAdapter({ status: 'pending', anchorId: 'anchor-1', retryable: true });
+    const { getByTestId, queryByTestId } = render(<V2ReleaseScreen anchorId="anchor-1" releaseAdapter={adapter} onReleaseCompleted={jest.fn()} onCancel={jest.fn()} />);
+    act(() => fireEvent(getByTestId('v2-hold-to-release-target'), 'pressIn'));
+    act(() => jest.advanceTimersByTime(1850));
+    await flush();
+    act(() => jest.advanceTimersByTime(1200));
+    expect(getByTestId('v2-release-artwork')).toBeTruthy();
+    expect(queryByTestId('v2-release-fire')).toBeNull();
+  });
+
+  it('Reduced Motion never mounts fire or embers', async () => {
+    mockReduceMotion.mockReturnValue(true);
+    const adapter = fakeAdapter({ status: 'pending', anchorId: 'anchor-1', retryable: true });
+    const { getByTestId, queryByTestId } = render(<V2ReleaseScreen anchorId="anchor-1" releaseAdapter={adapter} onReleaseCompleted={jest.fn()} onCancel={jest.fn()} />);
+    act(() => fireEvent(getByTestId('v2-hold-to-release-target'), 'pressIn'));
+    act(() => jest.advanceTimersByTime(1850));
+    await flush();
+    act(() => jest.advanceTimersByTime(400));
+    expect(queryByTestId('v2-release-fire')).toBeNull();
+    expect(queryByTestId('ember-0')).toBeNull();
+  });
+
+  it('evolve without a valid successor disables the hold and offers to create one', () => {
+    const adapter = fakeAdapter({ status: 'released', anchorId: 'anchor-1' });
+    const onCreateSuccessor = jest.fn();
+    const { getByTestId, queryByTestId } = render(<V2ReleaseScreen anchorId="anchor-1" reason="evolve" releaseAdapter={adapter}
+      onReleaseCompleted={jest.fn()} onCancel={jest.fn()} onCreateSuccessor={onCreateSuccessor} />);
+    expect(queryByTestId('v2-hold-to-release-target')).toBeNull();
+    fireEvent.press(getByTestId('v2-release-create-successor'));
+    expect(onCreateSuccessor).toHaveBeenCalledTimes(1);
+    expect(adapter.submitRelease).not.toHaveBeenCalled();
+  });
+
+  it('evolve with a valid successor releases and continues with the new Anchor', async () => {
+    mockAnchorStoreState.anchors = [anchor, { ...anchor, id: 'anchor-2', localId: 'anchor-2', intentionText: 'Ship the second draft' }];
+    mockReduceMotion.mockReturnValue(true);
+    const onContinueWithSuccessor = jest.fn();
+    const { getByTestId, getByText } = render(<V2ReleaseScreen anchorId="anchor-1" reason="evolve" successor={{ anchorId: 'anchor-2', intentionText: 'Ship the second draft' }}
+      releaseAdapter={fakeAdapter({ status: 'released', anchorId: 'anchor-1' })} onReleaseCompleted={jest.fn()} onCancel={jest.fn()} onContinueWithSuccessor={onContinueWithSuccessor} />);
+    act(() => fireEvent(getByTestId('v2-hold-to-release-target'), 'pressIn'));
+    act(() => jest.advanceTimersByTime(1850));
+    await flush();
+    act(() => jest.advanceTimersByTime(1000));
+    await flush();
+    await flush();
+    expect(getByTestId('v2-release-completion-heading').props.children).toBe('Evolved');
+    expect(getByText(/Linked to your previous intention\./)).toBeTruthy();
+    fireEvent.press(getByTestId('v2-release-completion-primary'));
+    expect(onContinueWithSuccessor).toHaveBeenCalledWith('anchor-2');
+  });
+
+  it('waypoint completion confirmed by the synced Chart continues to Chart with the course', async () => {
+    mockCourseStoreState.activeCourse = {
+      id: 'course-9', status: 'ACTIVE', version: 2, waypointCount: 3, reachedCount: 1, destinationAnchorLink: null,
+      waypoints: [
+        { id: 'w1', position: 1, title: 'Outline', state: 'REACHED', anchorLink: { anchorId: 'anchor-1' } },
+        { id: 'w2', position: 2, title: 'Draft chapter one', state: 'CURRENT', anchorLink: null },
+      ],
+    };
+    mockReduceMotion.mockReturnValue(true);
+    const onContinueToChart = jest.fn();
+    const { getByTestId, getByText } = render(<V2ReleaseScreen anchorId="anchor-1" reason="waypoint_completed"
+      releaseAdapter={fakeAdapter({ status: 'released', anchorId: 'anchor-1' })} onReleaseCompleted={jest.fn()} onCancel={jest.fn()} onContinueToChart={onContinueToChart} />);
+    expect(getByText(/Next: Draft chapter one/)).toBeTruthy();
+    act(() => fireEvent(getByTestId('v2-hold-to-release-target'), 'pressIn'));
+    act(() => jest.advanceTimersByTime(1850));
+    await flush();
+    act(() => jest.advanceTimersByTime(1000));
+    await flush();
+    await flush();
+    expect(getByTestId('v2-release-completion-heading').props.children).toBe('Waypoint complete');
+    fireEvent.press(getByTestId('v2-release-completion-primary'));
+    expect(onContinueToChart).toHaveBeenCalledWith('course-9', 'anchor-1');
+  });
+
+  it('an unconfirmed waypoint claim falls back to a plain release', async () => {
+    mockReduceMotion.mockReturnValue(true);
+    const { getByTestId } = render(<V2ReleaseScreen anchorId="anchor-1" reason="waypoint_completed"
+      releaseAdapter={fakeAdapter({ status: 'released', anchorId: 'anchor-1' })} onReleaseCompleted={jest.fn()} onCancel={jest.fn()} />);
+    act(() => fireEvent(getByTestId('v2-hold-to-release-target'), 'pressIn'));
+    act(() => jest.advanceTimersByTime(1850));
+    await flush();
+    act(() => jest.advanceTimersByTime(1000));
+    await flush();
+    await flush();
+    expect(getByTestId('v2-release-completion-eyebrow').props.children).toBe('Released');
   });
 
 });

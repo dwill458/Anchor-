@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { DeviceEventEmitter, DevSettings, Image, Linking, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { runOnJS, useFrameCallback, useSharedValue } from 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { V2SavedVision } from '@/components/v2/vision/V2SavedVision';
-import { VisionMomentInput } from '@/components/v2/vision/VisionMomentInput';
+import { VisionMomentInput, type VisionInputPath, type VisionStartPhoto } from '@/components/v2/vision/VisionMomentInput';
 import { V2VisualizePrepareScreen, type V2VisualizeBeginConfig } from '@/screens/v2/practice/visualize/V2VisualizePrepareScreen';
 import { V2CinematicSessionScreen } from '@/screens/v2/practice/visualize/V2CinematicSessionScreen';
 import { isV2VisualizeDuration } from '@/screens/v2/practice/visualize/visualizeVisionPlan';
@@ -31,6 +32,18 @@ const description = 'My app is thriving. I see ten thousand people using somethi
 const noop = () => undefined;
 const saved = async () => true;
 
+/** Explicit QA sample content, confined to this development-only host. */
+function ParityLab({ identity, onClose, count = 3, longCaption = false }: { identity: any; onClose: () => void; count?: number; longCaption?: boolean }) {
+  const [caption, setCaption] = useState(longCaption ? 'A beautiful ordinary life with room for family, meaningful work and time together.' : 'Freedom Through Creation');
+  const [statement, setStatement] = useState('My RevenueCat dashboard shows 10,000 active users for Anchor. The app is thriving in the app store, making a real impact, and I am working on the beach with my family. There is time to enjoy what we have built together.');
+  return <V2SavedVision {...identity} anchorIntention="Anchor has ten thousand users" tiles={tiles.slice(0, count)} description={statement}
+    annotation={caption} onUpdateAnnotation={async value => { setCaption(value); return true; }}
+    onBack={onClose} onVisualize={noop} onChart={noop}
+    chartSummary={{ courseId: 'qa', waypointNumber: 1, total: 5, waypointTitle: 'First thousand active users', oneMoveTitle: null, isFinished: false, destination: 'Ten thousand users' }}
+    onUpdateDescription={async value => { setStatement(value); return true; }} onReorder={saved} onRemove={saved}
+    onAddPhoto={noop} onAddGenerate={noop} onReplace={async () => undefined} onRegenerate={noop} canGenerateMore onArchive={saved} />;
+}
+
 function SavedImageGeometry({ anchorId }: { anchorId: string }) {
   const vision = useV2Vision(anchorId);
   const [dimensions, setDimensions] = useState<Record<string, string>>({});
@@ -50,6 +63,15 @@ function SavedImageGeometry({ anchorId }: { anchorId: string }) {
 }
 
 /** The hand-off from choosing one of two moments to the board, with the real Anchor in flight. */
+/** The photo-first describe screen with state held locally, so QA can see empty, photo set, and photo plus description. */
+function PhotoPathLab({ mode, photo, text, onBack, ...identity }: { mode: 'create' | 'add'; photo: string | null; text: string; onBack: () => void; anchorIntention: string; anchorCategory: string; anchorArt: any }) {
+  const [startPhoto, setStartPhoto] = useState<VisionStartPhoto | null>(photo ? { uri: photo, mimeType: 'image/jpeg' } : null);
+  const [path, setPath] = useState<VisionInputPath>('photo');
+  const [description, setDescription] = useState(text);
+  return <VisionMomentInput {...identity} mode={mode} anchorId="qa-fixture" description={description} onChangeDescription={setDescription}
+    startPhotoEnabled startPhoto={startPhoto} onChangeStartPhoto={setStartPhoto} inputPath={path} onChangeInputPath={setPath} onBack={onBack} onSubmit={() => undefined} />;
+}
+
 function HandoffLab({ identity, candidates, onClose }: { identity: { anchorIntention: string; anchorCategory: string; anchorArt: any }; candidates: VisionGenerationCandidate[]; onClose: () => void }) {
   const arrival = useVisionImageArrival();
   const [chosen, setChosen] = useState<string | null>(null);
@@ -68,8 +90,56 @@ function HandoffLab({ identity, candidates, onClose }: { identity: { anchorInten
 }
 
 /** Open with anchor://vision-visual-qa?surface=2 (visualize-3/visualize-1/handoff/intro/method/create/twoup-0/twoup-1/twoup-2/twoup-fail/0/1/2/3/6/add/home/details/photo/sources). */
+/** Visual fixture: the production coaching and choice components, a 36-second simulated job. */
+function PolishLab({ identity, candidates, onClose }: { identity: any; candidates: VisionGenerationCandidate[]; onClose: () => void }) {
+  const arrival = useVisionImageArrival();
+  const [step, setStep] = useState<'method' | 'prompt' | 'wait' | 'saved'>('method');
+  const [prompt, setPrompt] = useState('');
+  const [ready, setReady] = useState(false);
+  const [chosen, setChosen] = useState<string | null>(null);
+  useEffect(() => {
+    if (step !== 'wait') return;
+    setReady(false);
+    const timer = setTimeout(() => setReady(true), 36000);
+    return () => clearTimeout(timer);
+  }, [step]);
+  if (step === 'method') return <VisionMethodStage testID="qa-polish" onBack={onClose} onChoose={() => setStep('prompt')} />;
+  if (step === 'prompt') return <VisionMomentInput {...identity} anchorId="qa-fixture" mode="create" description={prompt} onChangeDescription={setPrompt}
+    initialDescription={prompt} onBack={() => setStep('method')} onSubmit={async value => { setPrompt(value); setStep('wait'); }} />;
+  if (step === 'saved') return <V2SavedVision {...identity} tiles={[{ ...tiles[0], imageUrl: chosen }]} description={prompt}
+    onBack={onClose} onVisualize={noop} onChart={noop} onUpdateDescription={saved} onReorder={saved} onRemove={saved}
+    onAddPhoto={noop} onAddGenerate={noop} onReplace={async () => undefined} onRegenerate={noop} canGenerateMore onArchive={saved} />;
+  const job = { id: 'qa-polish-job', kind: 'SCENE', status: ready ? 'COMPLETE' : 'RUNNING', stage: ready ? 'complete' : 'creating_images',
+    setNumber: 1, retryCount: 0, error: null, candidates: ready ? candidates.map((value, index) => ({ ...value, sortOrder: index })) : [] } as unknown as VisionGenerationJob;
+  return <VisionTwoUpStage {...identity} job={job} onBack={() => setStep('prompt')} onEditDescription={() => setStep('prompt')}
+    onSelect={(candidate, selection) => {
+      if (candidate.imageUrl && selection.image) {
+        arrival?.begin(candidate.imageUrl, selection.image, selection.anchor ? { ...identity.anchorArt, rect: selection.anchor } : undefined);
+        arrival?.resolve(candidate.imageUrl);
+      }
+      setChosen(candidate.imageUrl ?? null);
+      setStep('saved');
+    }} />;
+}
+
 export function VisionVisualQADevHost() {
   const [surface, setSurface] = useState<string | null>(null);
+  const frameSample = useSharedValue({ count: 0, sum: 0, slow: 0, max: 0 });
+  useEffect(() => { frameSample.value = { count: 0, sum: 0, slow: 0, max: 0 }; }, [surface, frameSample]);
+  const reportFrames = (sample: { count: number; sum: number; slow: number; max: number }) => {
+    console.info('[VISION_QA_FRAMES]', JSON.stringify({ surface, frames: sample.count, averageMs: sample.sum / sample.count,
+      over20ms: sample.slow, maxMs: sample.max, fixture: true, build: 'development' }));
+  };
+  useFrameCallback(frame => {
+    if (!surface || frame.timeSincePreviousFrame === null) return;
+    const dt = frame.timeSincePreviousFrame;
+    const previous = frameSample.value;
+    const next = { count: previous.count + 1, sum: previous.sum + dt, slow: previous.slow + (dt > 20 ? 1 : 0), max: Math.max(previous.max, dt) };
+    if (next.sum >= 10000) {
+      runOnJS(reportFrames)(next);
+      frameSample.value = { count: 0, sum: 0, slow: 0, max: 0 };
+    } else frameSample.value = next;
+  });
   const [run, setRun] = useState<V2VisualizeBeginConfig | null>(null);
   const [finished, setFinished] = useState(false);
   // anchor://vision-visual-qa?surface=visualize-3&voice=male|female picks the guide (default: silent, as before).
@@ -129,13 +199,17 @@ export function VisionVisualQADevHost() {
         durationSeconds={isV2VisualizeDuration(run.durationSeconds) ? run.durationSeconds : 60} voice={qaVoice} ambient={false} haptics={run.haptics} source="practice_hub"
         prepared={run.prepared} onExit={close} onContinue={() => setFinished(true)} />
       : <V2VisualizePrepareScreen anchor={qaAnchor} statement={description} visionId="qa-vision" tiles={tiles.slice(0, count)} initialDuration={qaDuration} onBack={close} onOpenVision={noop} onBegin={setRun} />;
-  } else if (surface === 'handoff') content = <VisionImageArrivalProvider><HandoffLab identity={identity as any} candidates={candidates} onClose={close} /></VisionImageArrivalProvider>;
+  } else if (surface?.startsWith('parity')) content = <ParityLab key={surface} identity={identity} onClose={close} count={Number(surface.split('-')[1]) || 3} longCaption={surface.includes('long')} />;
+  else if (surface === 'polish') content = <VisionImageArrivalProvider><PolishLab identity={identity} candidates={candidates} onClose={close} /></VisionImageArrivalProvider>;
+  else if (surface === 'handoff') content = <VisionImageArrivalProvider><HandoffLab identity={identity as any} candidates={candidates} onClose={close} /></VisionImageArrivalProvider>;
   else if (surface?.startsWith('twoup')) {
     const variant = surface.split('-')[1] ?? '2';
     const job = variant === '0' ? twoUp('RUNNING', 0) : variant === '1' ? twoUp('PARTIAL', 1) : variant === 'fail' ? twoUp('FAILED', 1) : twoUp('COMPLETE', 2);
     content = <VisionTwoUpStage anchorIntention={identity.anchorIntention} anchorArt={identity.anchorArt} job={job} onBack={close} onSelect={() => close()} onRetry={noop} onEditDescription={noop} />;
   } else if (surface === 'intro') content = <VisionIntroStage {...identity} onBack={close} onStartCreate={() => setSurface('method')} testID="qa" />;
   else if (surface === 'method') content = <VisionMethodStage onBack={() => setSurface('intro')} onChoose={path => setSurface(path === 'photos' ? 'method' : 'create')} testID="qa" />;
+  else if (surface?.startsWith('photo-path')) content = <PhotoPathLab {...identity} mode={surface.includes('add') ? 'add' : 'create'} photo={surface.includes('set') || surface.includes('text') ? tiles[1].imageUrl! : null}
+    text={surface.includes('text') ? 'The kitchen is finished, bright and quiet. The window and the old table stay.' : ''} onBack={close} />;
   else if (surface === 'create') content = <VisionMomentInput {...identity} mode="create" anchorId="qa-fixture" onBack={close} onSubmit={noop} />;
   else if (surface === 'add') content = <VisionMomentInput {...identity} mode="add" anchorId="qa-fixture" previewImageUrl={tiles[0].imageUrl} initialDescription="Working by the ocean with my family while Anchor continues to grow." onBack={close} onSubmit={noop} />;
   else if (surface === 'photo') content = <V2VisionAddPhoto {...identity} uri={tiles[0].imageUrl!} source="library" onCancel={close} onChooseAgain={noop} onConfirm={async () => null} />;

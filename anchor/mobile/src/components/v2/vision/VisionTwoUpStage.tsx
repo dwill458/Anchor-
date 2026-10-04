@@ -1,10 +1,10 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Pressable, StatusBar, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import Animated, { Easing, cancelAnimation, interpolate, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+import { AppState, Image, Modal, Pressable, StatusBar, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import Animated, { FadeIn, Easing, cancelAnimation, interpolate, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SigilSvg } from '@/components/common/SigilSvg';
+import { CircularAnchorRenderer } from '@/components/v2/anchor';
 import { useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
 import type { VisionGenerationCandidate, VisionGenerationJob } from '@/hooks/v2/vision';
 import { colors, spacing } from '@/theme/v2';
@@ -13,9 +13,6 @@ import type { VisionImageRect } from './VisionImageArrival';
 import { VisionBackButton, VISION_GOLD, VISION_SERIF } from './VisionPaperChrome';
 import { VisionImageEdge } from './VisionImageEdge';
 import { VISION_TWO_UP_COUNT, VISION_TWO_UP_TIMING, visionTwoUpState } from './visionTwoUp';
-
-/** The Anchor's strokes, in the same cream the creation formation uses on ink. */
-const ANCHOR_CREAM = '#F1E8D6';
 
 export type VisionTwoUpSelection = {
   /** Where the chosen photograph is on screen right now. */
@@ -28,7 +25,7 @@ export interface VisionTwoUpStageProps {
   anchorIntention: string;
   anchorArt?: VisionAnchorArt | null;
   job: VisionGenerationJob | null;
-  /** Called once the person has tapped an image and the choice has settled. */
+  /** Called only after the person confirms the full-screen preview. */
   onSelect: (candidate: VisionGenerationCandidate, selection: VisionTwoUpSelection) => void;
   onBack: () => void;
   onRetry?: () => void;
@@ -54,7 +51,7 @@ function measure(node: View | null): Promise<VisionImageRect | null> {
 /**
  * Generation and choice on one dark, restrained screen. Two photographs develop
  * from haze into clarity; when they are ready the images themselves are the
- * controls. Progress is real (the job's state), never a percentage or a stage.
+ * controls. The copy describes the wait; readiness comes only from the server job.
  */
 export const VisionTwoUpStage = memo(function VisionTwoUpStage({
   anchorIntention, anchorArt, job, onSelect, onBack, onRetry, onEditDescription, busy = false, error, testID = 'vision-two-up',
@@ -62,10 +59,26 @@ export const VisionTwoUpStage = memo(function VisionTwoUpStage({
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const reduceMotion = useV2ReduceMotion();
+  const [foreground, setForeground] = useState(AppState.currentState !== 'background');
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', value => setForeground(value === 'active'));
+    return () => subscription.remove();
+  }, []);
   const state = useMemo(() => visionTwoUpState(job), [job]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const settling = useRef(false);
-  const photoRefs = useRef<Record<string, View | null>>({});
+  const [preview, setPreview] = useState<VisionGenerationCandidate | null>(null);
+  const previewRef = useRef<View>(null);
+  const previewAnchorRef = useRef<View>(null);
+  const previewAspect = useRef<{ id: string; ratio: number } | null>(null);
+  useEffect(() => { if (!busy) settling.current = false; }, [busy, error, preview?.id]);
+  const [waitBeat, setWaitBeat] = useState(0);
+  useEffect(() => {
+    setWaitBeat(0);
+    if (state.selectable || state.phase === 'failed') return;
+    const timers = [9000, 20000, 40000].map((delay, index) => setTimeout(() => setWaitBeat(index + 1), delay));
+    return () => timers.forEach(clearTimeout);
+  }, [job?.id, state.selectable, state.phase === 'failed']);
+  const waitCopy = ['Reading your moment…', 'Composing the scene…', 'Developing the images…', 'Giving your images time to develop…'][waitBeat];
   const anchorRef = useRef<View>(null);
 
   const gutter = spacing[5];
@@ -78,17 +91,16 @@ export const VisionTwoUpStage = memo(function VisionTwoUpStage({
   const surfaces = useSharedValue(reduceMotion ? 1 : 0);
   const breath = useSharedValue(0);
   useEffect(() => {
-    if (state.phase === 'starting') return;
     surfaces.value = reduceMotion ? 1 : withTiming(1, { duration: VISION_TWO_UP_TIMING.surfacesInMs, easing: Easing.out(Easing.cubic) });
   }, [reduceMotion, state.phase, surfaces]);
   useEffect(() => {
-    if (reduceMotion) return;
+    if (reduceMotion || !foreground || preview || state.selectable || state.phase === 'failed') { cancelAnimation(breath); breath.value = reduceMotion ? 0 : withTiming(0, { duration: 320 }); return; }
     breath.value = withRepeat(withSequence(
       withTiming(1, { duration: VISION_TWO_UP_TIMING.anchorBreathMs, easing: Easing.inOut(Easing.sin) }),
       withTiming(0, { duration: VISION_TWO_UP_TIMING.anchorBreathMs, easing: Easing.inOut(Easing.sin) }),
     ), -1, false);
     return () => cancelAnimation(breath);
-  }, [breath, reduceMotion]);
+  }, [breath, foreground, preview, reduceMotion, state.selectable, state.phase]);
   // Large and centred while nothing exists yet, settling to its place as the photographs appear.
   const anchorStyle = useAnimatedStyle(() => ({
     opacity: interpolate(breath.value, [0, 1], [0.78, 1]),
@@ -98,28 +110,34 @@ export const VisionTwoUpStage = memo(function VisionTwoUpStage({
     ],
   }));
   const surfacesStyle = useAnimatedStyle(() => ({ opacity: surfaces.value, transform: [{ translateY: (1 - surfaces.value) * 12 }] }));
-  const chrome = useSharedValue(1);
-  const chromeStyle = useAnimatedStyle(() => ({ opacity: chrome.value }));
 
-  const choose = useCallback(async (candidate: VisionGenerationCandidate) => {
-    if (!state.selectable || busy || settling.current || !candidate.imageUrl) return;
-    settling.current = true;
+  // Selection is a preview; only an explicit confirmation persists an image.
+  const choose = useCallback((candidate: VisionGenerationCandidate) => {
+    if (!state.selectable || busy || !candidate.imageUrl) return;
     v2Haptics.selection();
-    setSelectedId(candidate.id);
-    chrome.value = reduceMotion ? 0 : withTiming(0, { duration: VISION_TWO_UP_TIMING.selectLiftMs * 1.4 });
-    const [image, anchor] = await Promise.all([measure(photoRefs.current[candidate.id] ?? null), measure(anchorRef.current)]);
-    setTimeout(() => {
-      settling.current = false;
-      onSelect(candidate, { image, anchor });
-    }, reduceMotion ? 0 : VISION_TWO_UP_TIMING.selectHandoffMs);
-  }, [busy, chrome, onSelect, reduceMotion, state.selectable]);
+    setPreview(candidate);
+  }, [busy, state.selectable]);
 
-  // A hand-off that did not complete returns the screen to a choosable state.
-  useEffect(() => {
-    if (!error) return;
-    setSelectedId(null);
-    chrome.value = 1;
-  }, [chrome, error]);
+  const confirm = async () => {
+    if (!preview || busy || settling.current) return;
+    settling.current = true;
+    const [bounds, anchor] = await Promise.all([measure(previewRef.current), measure(previewAnchorRef.current)]);
+    const ratio = previewAspect.current?.id === preview.id ? previewAspect.current.ratio : null;
+    // Hand off the visible photograph, excluding contain-fit letterboxing.
+    let image = bounds;
+    if (bounds && ratio) {
+      const w = Math.min(bounds.width, bounds.height * ratio);
+      const h = w / ratio;
+      image = { x: bounds.x + (bounds.width - w) / 2, y: bounds.y + (bounds.height - h) / 2, width: w, height: h };
+    }
+    onSelect(preview, { image, anchor });
+  };
+
+  const editDescription = () => {
+    if (busy) return;
+    setPreview(null);
+    onEditDescription?.();
+  };
 
   const failed = state.phase === 'failed';
   const hasAny = state.ready.length > 0;
@@ -128,20 +146,20 @@ export const VisionTwoUpStage = memo(function VisionTwoUpStage({
     <View testID={testID} style={styles.stage}>
       <StatusBar barStyle="light-content" backgroundColor={colors.ink.base} animated />
       <LinearGradient pointerEvents="none" colors={[colors.ink.base, colors.ink.deep, '#090D12']} style={StyleSheet.absoluteFill} />
-      <Animated.View pointerEvents="box-none" style={[styles.top, { paddingTop: insets.top + spacing[2] }, chromeStyle]}>
+      <Animated.View pointerEvents="box-none" style={[styles.top, { paddingTop: insets.top + spacing[2] }]}>
         <VisionBackButton onPress={onBack} style={styles.back} />
         <View style={styles.kickerRow} accessible accessibilityLabel="Your Vision">
           <View style={styles.flank} /><View style={styles.diamond} /><View style={styles.flank} />
         </View>
         <Text style={styles.kicker}>YOUR VISION</Text>
         <Text testID={`${testID}-title`} accessibilityRole="header" accessibilityLiveRegion="polite" style={styles.title}>{state.title}</Text>
-        <Text testID={`${testID}-subtitle`} style={styles.subtitle}>{state.subtitle}</Text>
+        <Animated.Text key={state.selectable ? 'choose' : `wait-${waitBeat}`} entering={reduceMotion ? undefined : FadeIn.duration(350)} testID={`${testID}-subtitle`} accessibilityLiveRegion="polite" style={styles.subtitle}>{state.selectable || failed ? state.subtitle : waitCopy}</Animated.Text>
       </Animated.View>
 
       <View style={styles.anchorSlot} pointerEvents="none">
         <Animated.View ref={anchorRef} collapsable={false} testID={`${testID}-anchor`} style={[{ width: anchorSize, height: anchorSize }, anchorStyle]}
           accessible accessibilityRole="image" accessibilityLabel="Your Anchor">
-          {anchorArt?.svg ? <SigilSvg xml={anchorArt.svg} width="100%" height="100%" color={ANCHOR_CREAM} /> : null}
+          {anchorArt ? <CircularAnchorRenderer {...anchorArt} size={anchorSize} appearance="paper" testID={`${testID}-anchor-artwork`} /> : null}
         </Animated.View>
       </View>
 
@@ -154,18 +172,21 @@ export const VisionTwoUpStage = memo(function VisionTwoUpStage({
             width={photoWidth}
             height={photoHeight}
             selectable={state.selectable && !busy}
-            selected={Boolean(candidate && candidate.id === selectedId)}
-            otherSelected={Boolean(selectedId && candidate?.id !== selectedId)}
             reduceMotion={reduceMotion}
-            holder={node => { if (candidate) photoRefs.current[candidate.id] = node; }}
+            active={foreground && !preview && state.phase !== 'failed'}
             onPress={() => { if (candidate) void choose(candidate); }}
             testID={candidate ? `scene-candidate-${candidate.id}` : `${testID}-slot-${index}`}
           />
         ))}
       </Animated.View>
 
-      <Animated.View style={[styles.footer, { paddingBottom: insets.bottom + spacing[4] }, chromeStyle]}>
-        {error ? <Text accessibilityLiveRegion="polite" style={styles.error}>{error}</Text> : null}
+      <Animated.View style={[styles.footer, { paddingBottom: insets.bottom + spacing[4] }]}>
+        {error && !preview ? <Text accessibilityLiveRegion="polite" style={styles.error}>{error}</Text> : null}
+        {state.phase === 'choose' && onEditDescription ? (
+          <Pressable accessibilityRole="button" disabled={busy} accessibilityState={{ disabled: busy }} onPress={editDescription} style={styles.link}>
+            <Text style={styles.linkText}>Neither feels right — try again</Text>
+          </Pressable>
+        ) : null}
         {failed ? (
           <View style={styles.failure} testID={`${testID}-failed`}>
             <Text style={styles.failureTitle}>Your Vision needs another moment.</Text>
@@ -185,6 +206,28 @@ export const VisionTwoUpStage = memo(function VisionTwoUpStage({
           </View>
         ) : null}
       </Animated.View>
+      <Modal visible={Boolean(preview)} animationType={reduceMotion ? 'none' : 'fade'} onRequestClose={() => { if (!busy) setPreview(null); }}>
+        <View style={[styles.stage, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+          <View style={{ paddingHorizontal: gutter, paddingVertical: spacing[2], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <VisionBackButton label="Back to images" onPress={() => { if (!busy) setPreview(null); }} />
+            <View ref={previewAnchorRef} collapsable={false} style={{ width: 44, height: 44 }}>
+              {anchorArt ? <CircularAnchorRenderer {...anchorArt} size={44} appearance="paper" testID={`${testID}-preview-anchor-artwork`} /> : null}
+            </View>
+          </View>
+          <View ref={previewRef} collapsable={false} style={{ flex: 1, marginHorizontal: gutter }}>
+            {preview?.imageUrl ? <Image source={{ uri: preview.imageUrl }} resizeMode="contain" onLoad={event => { const source = event.nativeEvent.source; if (source?.width > 0 && source?.height > 0) previewAspect.current = { id: preview.id, ratio: source.width / source.height }; }} style={styles.fill} accessibilityLabel="Selected Vision image" /> : null}
+          </View>
+          <View style={{ padding: gutter, gap: spacing[2], alignItems: 'center' }}>
+            {error ? <Text accessibilityLiveRegion="polite" style={styles.error}>{error}</Text> : null}
+            <Pressable accessibilityRole="button" accessibilityLabel="Use this one" disabled={busy} accessibilityState={{ disabled: busy, busy }} onPress={() => { void confirm(); }} style={[styles.retry, { alignSelf: 'stretch', opacity: busy ? 0.5 : 1 }]}>
+              <Text style={styles.retryText}>{busy ? 'Saving…' : 'Use this one'}</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" disabled={busy} onPress={editDescription} style={styles.link}>
+              <Text style={styles.linkText}>Try again</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 });
@@ -195,67 +238,59 @@ type PhotoProps = {
   width: number;
   height: number;
   selectable: boolean;
-  selected: boolean;
-  otherSelected: boolean;
   reduceMotion: boolean;
-  holder: (node: View | null) => void;
+  active: boolean;
   onPress: () => void;
   testID: string;
 };
 
 /** One photograph: haze while it is being made, then blur to clarity, then a control. */
 const DevelopingPhoto = memo(function DevelopingPhoto({
-  index, candidate, width, height, selectable, selected, otherSelected, reduceMotion, holder, onPress, testID,
+  index, candidate, width, height, selectable, reduceMotion, active, onPress, testID,
 }: PhotoProps) {
   const url = candidate?.imageUrl ?? null;
   const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
   const decoded = Boolean(url && loadedUrl === url);
   const develop = useSharedValue(reduceMotion ? 1 : 0);
   const haze = useSharedValue(0.4);
-  const lift = useSharedValue(0);
+  const sweep = useSharedValue(0);
 
   useEffect(() => {
-    if (decoded) return;
-    if (reduceMotion) return;
+    if (decoded || reduceMotion || !active) return;
+    sweep.value = withRepeat(withTiming(1, { duration: 4200 + index * 500, easing: Easing.linear }), -1, false);
     haze.value = withRepeat(withSequence(
       withTiming(0.8, { duration: 2400, easing: Easing.inOut(Easing.sin) }),
       withTiming(0.35, { duration: 2400, easing: Easing.inOut(Easing.sin) }),
     ), -1, false);
-    return () => cancelAnimation(haze);
-  }, [decoded, haze, reduceMotion]);
+    return () => { cancelAnimation(haze); cancelAnimation(sweep); };
+  }, [active, decoded, haze, index, reduceMotion, sweep]);
 
   useEffect(() => {
     if (!decoded) return;
     cancelAnimation(haze);
+    cancelAnimation(sweep);
     develop.value = reduceMotion ? 1 : withTiming(1, { duration: VISION_TWO_UP_TIMING.developMs + index * 160, easing: Easing.out(Easing.cubic) });
-  }, [decoded, develop, haze, index, reduceMotion]);
+  }, [decoded, develop, haze, index, reduceMotion, sweep]);
 
-  useEffect(() => {
-    const target = selected ? 1 : otherSelected ? -1 : 0;
-    lift.value = reduceMotion ? target : withTiming(target, { duration: VISION_TWO_UP_TIMING.selectLiftMs, easing: Easing.out(Easing.cubic) });
-  }, [lift, otherSelected, reduceMotion, selected]);
-
+  const sweepStyle = useAnimatedStyle(() => ({
+    opacity: reduceMotion || decoded ? 0 : Math.sin(sweep.value * Math.PI) * 0.55,
+    transform: [{ translateX: interpolate(sweep.value, [0, 1], [-width, width]) }, { rotate: '-18deg' }],
+  }));
   const sharpStyle = useAnimatedStyle(() => ({ opacity: develop.value }));
   const blurStyle = useAnimatedStyle(() => ({ opacity: 1 - interpolate(develop.value, [0, 0.85], [0, 1], 'clamp') }));
   const hazeStyle = useAnimatedStyle(() => ({ opacity: haze.value * (1 - develop.value) }));
-  const frameStyle = useAnimatedStyle(() => ({
-    opacity: lift.value < 0 ? 1 + lift.value * 0.65 : 1,
-    transform: [{ scale: lift.value >= 0 ? 1 + lift.value * 0.045 : 1 + lift.value * 0.04 }, { translateY: lift.value > 0 ? -lift.value * 6 : 0 }],
-  }));
-
   const label = candidate && url
     ? `Choose this moment, option ${index + 1} of ${VISION_TWO_UP_COUNT}`
     : `Moment ${index + 1} of ${VISION_TWO_UP_COUNT} is still being made`;
 
   return (
-    <Animated.View style={frameStyle}>
+    <View>
       <Pressable
-        ref={holder}
         collapsable={false}
         testID={testID}
         accessibilityRole={selectable && url ? 'button' : 'image'}
         accessibilityLabel={label}
-        accessibilityState={{ selected, disabled: !(selectable && url) }}
+        accessibilityState={{ selected: false, disabled: !(selectable && url) }}
         disabled={!(selectable && url)}
         onPress={onPress}
         style={[styles.photo, { width, height }]}
@@ -278,6 +313,9 @@ const DevelopingPhoto = memo(function DevelopingPhoto({
           </Svg>
           <Animated.View style={[StyleSheet.absoluteFill, styles.hazeGlow, hazeStyle]} />
         </View>
+        <Animated.View pointerEvents="none" style={[{ position: 'absolute', top: -height * 0.2, width: width * 0.8, height: height * 1.4 }, sweepStyle]}>
+          <LinearGradient colors={['transparent', 'rgba(241,232,214,0.32)', 'transparent']} style={styles.fill} />
+        </Animated.View>
         {url ? (
           <>
             <Animated.View style={[StyleSheet.absoluteFill, blurStyle]} pointerEvents="none">
@@ -291,7 +329,7 @@ const DevelopingPhoto = memo(function DevelopingPhoto({
         ) : null}
         <VisionImageEdge color={colors.ink.base} />
       </Pressable>
-    </Animated.View>
+    </View>
   );
 });
 

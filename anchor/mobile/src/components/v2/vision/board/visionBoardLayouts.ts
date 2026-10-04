@@ -70,6 +70,40 @@ export function selectBoardLayout(imageCount: number): BoardLayout {
   return LAYOUTS[Math.min(count, 3)];
 }
 
+/** Detail-only composition. Visualize retains its established camera apertures. */
+export function selectDetailBoardLayout(imageCount: number): BoardLayout {
+  const base = selectBoardLayout(imageCount);
+  if (base.count < 2) return base;
+  const count = Math.min(VISION_BOARD_MAX_IMAGES, Math.floor(imageCount));
+  if (count > 3) {
+    const scale = count === 4 ? 1.8 : 2;
+    return { count, decor: [], card: { ...base.card, x: 0.5, y: 0.5, rotation: -3 }, photos: [
+      photo('landscape', 0.5, 0.37 / scale, 1, VISION_HERO_ASPECT),
+      { ...photo('portrait', 0.245, 1.0 / scale, 0.43, 0.76), rotation: -5 },
+      { ...photo('landscape', 0.72, 1.08 / scale, 0.56, 1.2, 13), rotation: 2.5 },
+      ...(count === 4 ? [{ ...photo('landscape', 0.60, 1.46 / scale, 0.68, 1.7, 14), rotation: -2 }]
+        : [{ ...photo('square', 0.29, 1.53 / scale, 0.50, 1.04, 14), rotation: 3 },
+          { ...photo('portrait', 0.75, 1.50 / scale, 0.43, 0.84, 15), rotation: -3 },
+          ...(count === 6 ? [{ ...photo('landscape', 0.53, 1.77 / scale, 0.43, 1.8, 16), rotation: 4 }] : [])]),
+    ] };
+  }
+  return {
+    ...base,
+    photos: [
+      base.photos[0],
+      ...(base.count === 2
+        ? [{ ...base.photos[1], x: 0.64, y: 0.66, width: 0.69, rotation: 3 }]
+        : [{ ...base.photos[1], x: 0.235, y: 0.642, width: 0.43, rotation: -6 },
+          { ...base.photos[2], x: 0.72, y: 0.673, width: 0.56, aspectRatio: 1.08, rotation: 2.5 }]),
+    ],
+    card: { ...base.card, y: count >= 3 ? 0.5 : 0.47, x: 0.5, rotation: -3 },
+  };
+}
+
+export function detailBoardSizeForWidth(width: number, count: number): Size {
+  return count > 3 ? { width, height: width * (count === 4 ? 1.8 : 2) } : boardSizeForWidth(width, count);
+}
+
 /** The slots offered as "add an image" placeholders on an empty board. */
 export function emptyBoardPlaceholderSlots(): BoardSlot[] {
   return [];

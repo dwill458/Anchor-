@@ -35,6 +35,7 @@ export type VisionBoardSceneProps = {
   onAddPress?: () => void;
   anchorTestID?: string;
   markAppearance?: 'bare' | 'paper';
+  detailEdges?: boolean;
   edgeDarken?: SharedValue<number>;
   cinematic?: {
     photoId: string;
@@ -55,7 +56,7 @@ export type VisionBoardSceneProps = {
 export const VisionBoardScene = memo(function VisionBoardScene({
   scene, roster, entering, layout, shared, initialRectFor, intention, category, art, reduceMotion,
   interactive = false, dragEnabled = false, onPhotoPress, onCardPress, onBackgroundPress, onDragActive, onSwap,
-  onOrderCommit, onPhotoExited, onMovePhoto, onAddPress, anchorTestID, markAppearance, edgeDarken, cinematic,
+  onOrderCommit, onPhotoExited, onMovePhoto, onAddPress, anchorTestID, markAppearance, detailEdges, edgeDarken, cinematic,
 }: VisionBoardSceneProps) {
   const activeCount = roster.filter(entry => !entry.exiting).length;
   const cardRect = useMemo(() => toSceneRect(layout.card, scene), [layout.card, scene]);
@@ -73,6 +74,7 @@ export const VisionBoardScene = memo(function VisionBoardScene({
             uploaded={tile.sourceType === 'USER_UPLOAD' || tile.sourceType === 'USER_CAMERA'}
             displayAspect={layout.photos[Math.max(0, index)]?.aspectRatio ?? 1.12}
             hero={index === 0}
+            detailEdges={detailEdges}
             cinematicOpacity={cinematic?.photoId === tile.sceneId ? cinematic.photoOpacity : undefined}
             accessibilityLabel={`Vision image ${index + 1} of ${activeCount}`}
             initialRect={initialRectFor(tile.sceneId)}

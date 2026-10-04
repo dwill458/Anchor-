@@ -13,7 +13,7 @@ const noop = () => undefined;
 
 /** Reuses the etched map introduced in 663ce64e, including its category tint,
  * fog field, brush route, dotted future route and registered waypoint positions. */
-export function ChartMapCrop({ data, full }: { data: ChartPreviewData; full: boolean }) {
+export function ChartMapCrop({ data, full }: { data: Pick<ChartPreviewData, 'category' | 'status' | 'waypointIndex' | 'waypointTotal' | 'title'>; full: boolean }) {
   const [width, setWidth] = useState(320);
   const placement = useMemo(() => waypointPlacement(Math.max(1, data.waypointTotal)), [data.waypointTotal]);
   const index = Math.max(0, Math.min(placement.n - 1, data.waypointIndex - 1));

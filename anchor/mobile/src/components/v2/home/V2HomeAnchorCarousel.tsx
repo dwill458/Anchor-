@@ -13,7 +13,7 @@ export const HERO_ANCHOR_SIZE = 154;
 export const NEIGHBOUR_ANCHOR_SIZE = 68;
 /** Resting scale of a neighbour and how much of it stays on screen (fraction of its width). */
 export const NEIGHBOUR_SCALE = 0.72;
-const PEEK_FRACTION = 0.28;
+const PEEK_FRACTION = 0.14;
 const MOUNT_PADDING = 14;
 const COMMIT_DISTANCE = 56;
 const MIN_COMMIT_TRAVEL = 14;
@@ -103,13 +103,14 @@ function DefaultHero({ summary, active, onOpen }: { summary: V2HomeAnchorSummary
 }
 
 const TrackSlot = memo(function TrackSlot({
-  summary, index, slot, offset, spacing, renderHero, onPress, onOpenActive,
+  summary, index, slot, offset, spacing, anchorSize, renderHero, onPress, onOpenActive,
 }: {
   summary: V2HomeAnchorSummary;
   index: number;
   slot: CarouselSlot;
   offset: SharedValue<number>;
   spacing: number;
+  anchorSize: number;
   renderHero?: Props['renderHero'];
   onPress: (direction: Direction) => void;
   onOpenActive?: (anchorId: string) => void;
@@ -127,7 +128,8 @@ const TrackSlot = memo(function TrackSlot({
       {slot !== 0 ? (
         <Pressable
           testID={`v2-home-carousel-${slot < 0 ? 'previous' : 'next'}`}
-          style={styles.neighbourHit}
+          // Tracks the coin's centre, which sits at half its diameter below the top of the slot.
+          style={[styles.neighbourHit, { top: Math.round(anchorSize / 2) + 12 }]}
           accessibilityRole="button"
           accessibilityLabel={`Switch to ${summary.anchor.intentionText}`}
           onPress={handleNeighbour}
@@ -296,7 +298,7 @@ function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpe
           // two physical copies use slot keys instead.
           const key = total > 2 ? anchors[itemIndex].anchor.id : slot;
           return <TrackSlot key={key} summary={anchors[itemIndex]} index={itemIndex} slot={slot}
-            offset={offset} spacing={spacing} renderHero={renderHero} onPress={move} onOpenActive={onOpenActive} />;
+            offset={offset} spacing={spacing} anchorSize={anchorSize} renderHero={renderHero} onPress={move} onOpenActive={onOpenActive} />;
         })}
       </View>
     </GestureDetector>
@@ -306,7 +308,7 @@ function V2HomeAnchorCarouselComponent({ anchors, selectedIndex, onSelect, onOpe
 const styles = StyleSheet.create({
   track: { position: 'relative', alignSelf: 'stretch', width: '100%', overflow: 'hidden' },
   slot: { position: 'absolute', top: 0, left: 0, right: 0, alignItems: 'center' },
-  neighbourHit: { position: 'absolute', top: 85, left: 0, right: 0, height: 96 },
+  neighbourHit: { position: 'absolute', left: 0, right: 0, height: 96 },
 });
 
 export const V2HomeAnchorCarousel = memo(V2HomeAnchorCarouselComponent);

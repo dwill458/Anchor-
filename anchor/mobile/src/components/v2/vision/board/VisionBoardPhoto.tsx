@@ -1,5 +1,6 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View, type AccessibilityActionEvent } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue, type SharedValue } from 'react-native-reanimated';
 import { useVisionImageArrival } from '../VisionImageArrival';
@@ -21,6 +22,7 @@ export type VisionBoardPhotoProps = {
   uploaded?: boolean;
   displayAspect?: number;
   hero?: boolean;
+  detailEdges?: boolean;
   accessibilityLabel: string;
   initialRect: BoardSlotRect | null;
   entering: boolean;
@@ -52,7 +54,7 @@ function kindWeight(kind: number, target: number) {
 
 /** A real photograph; stable UI-thread geometry preserves gestures and recomposition. */
 export const VisionBoardPhoto = memo(function VisionBoardPhoto({
-  sceneId, imageUrl, uploaded = false, displayAspect = 1.12, hero = false, accessibilityLabel, initialRect, entering, exiting, shared, reduceMotion,
+  sceneId, imageUrl, uploaded = false, displayAspect = 1.12, hero = false, detailEdges = false, accessibilityLabel, initialRect, entering, exiting, shared, reduceMotion,
   interactive, dragEnabled, onPress, onDragActive, onSwap, onOrderCommit, onExited, onMove,
   canMoveEarlier = false, canMoveLater = false, testID, cinematicOpacity, edgeDarken,
 }: VisionBoardPhotoProps) {
@@ -80,6 +82,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
   const presenceScale = useSharedValue<number>(entering && !reduceMotion ? MOTION.recompose.enterFromScale : 1);
   const presenceLift = useSharedValue<number>(entering && !reduceMotion ? MOTION.recompose.enterFromLift : 0);
   const orderAtDragStart = useSharedValue('');
+  const movedDuringHold = useSharedValue(false);
   const reduced = useSharedValue(reduceMotion);
   useEffect(() => { reduced.value = reduceMotion; }, [reduceMotion, reduced]);
 
@@ -180,6 +183,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
       if (onDragActive) runOnJS(onDragActive)(true);
     })
     .onUpdate(event => {
+      if (Math.hypot(event.translationX, event.translationY) > 8) movedDuringHold.value = true;
       const scale = shared.cameraScale.value || 1;
       dragX.value = event.translationX / scale;
       dragY.value = event.translationY / scale;
@@ -208,7 +212,17 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
       if (success && onPress) runOnJS(onPress)(sceneId);
     });
 
-  const gesture = Gesture.Race(pan, tap);
+  // Defer actions until release: focusing while the finger is down disables
+  // dragging on the board. A moved hold belongs entirely to the pan gesture.
+  const hold = Gesture.LongPress()
+    .enabled(interactive && !exiting)
+    .minDuration(MOTION.lift.longPressMs + 100)
+    .maxDistance(8)
+    .onBegin(() => { movedDuringHold.value = false; })
+    .onEnd((_event, success) => {
+      if (success && !movedDuringHold.value && onPress) runOnJS(onPress)(sceneId);
+    });
+  const gesture = Gesture.Race(Gesture.Simultaneous(pan, hold), tap);
 
   const containerStyle = useAnimatedStyle(() => ({
     left: x.value,
@@ -270,7 +284,8 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
         ) : (
           <View style={styles.unavailable}><Text style={styles.unavailableText}>Image unavailable</Text></View>
         )}
-        <VisionImageEdge hero={hero} darken={edgeDarken} />
+        <LinearGradient pointerEvents="none" colors={['rgba(255,249,235,0.10)', 'transparent', 'rgba(14,21,28,0.08)']} style={StyleSheet.absoluteFill} />
+        <VisionImageEdge hero={hero} brush={detailEdges} darken={edgeDarken} />
       </Animated.View>
     </Animated.View>
   );
@@ -279,7 +294,7 @@ export const VisionBoardPhoto = memo(function VisionBoardPhoto({
 });
 
 const styles = StyleSheet.create({
-  photo: { position: 'absolute' },
+  photo: { position: 'absolute', shadowColor: colors.ink.base, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.12, shadowRadius: 8 },
   layer: { position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' },
   window: { position: 'absolute', overflow: 'hidden', backgroundColor: colors.canvas },
   fill: { width: '100%', height: '100%' },

@@ -1,0 +1,13 @@
+PASS src/screens/v2/vision/__tests__/V2VisionScreen.test.tsx (8.489 s)
+PASS src/screens/v2/vision/__tests__/V2VisionScreen.addImage.test.tsx
+PASS src/components/v2/vision/board/__tests__/VisionBoard.test.tsx
+PASS src/components/v2/vision/__tests__/VisionAddSheet.test.tsx
+PASS src/components/v2/vision/board/__tests__/VisionBoardIntentionCard.test.tsx
+PASS src/components/v2/vision/board/__tests__/visionCanvas.test.ts
+PASS src/components/v2/vision/board/__tests__/visionBoard.test.ts
+PASS src/components/v2/vision/__tests__/visionDetailText.test.ts
+
+Test Suites: 8 passed, 8 total
+Tests:       86 passed, 86 total
+Snapshots:   0 total
+Time:        15.561 s

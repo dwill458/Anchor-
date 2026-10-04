@@ -1,11 +1,15 @@
+import { ActionSheetIOS } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import { V2VisionCreationFlow } from '../V2VisionCreationFlow';
+import type { VisionAnchorArt } from '../VisionChrome';
 import type { UploadAssetResult } from '@/hooks/v2/vision';
 
 const mockLaunchImageLibraryAsync = jest.fn();
 const mockRequestPermission = jest.fn(() => Promise.resolve({ status: 'granted' }));
 const mockUseScene = jest.fn();
+const mockPickVisionPhoto = jest.fn();
+const mockUploadVisionPhoto = jest.fn();
 const mockUseAppearance = jest.fn(() => ({
   profilePhoto: null, enabledByPreference: false, reference: null, loading: false, saving: false,
   upload: jest.fn(), remove: jest.fn(), setProfilePreference: jest.fn(),
@@ -18,6 +22,8 @@ jest.mock('expo-image-picker', () => ({
 jest.mock('@/hooks/v2/vision', () => ({
   useV2VisionSceneGeneration: () => mockUseScene(),
   useVisionAppearanceReference: () => mockUseAppearance(),
+  pickVisionPhoto: (...args: unknown[]) => mockPickVisionPhoto(...args),
+  uploadVisionPhoto: (...args: unknown[]) => mockUploadVisionPhoto(...args),
 }));
 
 const candidates = Array.from({ length: 2 }, (_, index) => ({
@@ -39,6 +45,7 @@ const baseProps = {
 };
 
 type Overrides = {
+  anchorArt?: VisionAnchorArt;
   initialStep?: 'empty' | 'prompt';
   job?: any;
   start?: jest.Mock;
@@ -48,6 +55,7 @@ type Overrides = {
   onAssemble?: (input: any) => Promise<boolean | void>;
   resumeGeneration?: boolean;
   onResumeGenerationConsumed?: () => void;
+  photoPath?: boolean;
 };
 
 function renderFlow(overrides: Overrides = {}) {
@@ -60,11 +68,13 @@ function renderFlow(overrides: Overrides = {}) {
   } as UploadAssetResult));
   const onAssemble = overrides.onAssemble ?? jest.fn(async () => true);
   const utils = render(
-    <V2VisionCreationFlow {...baseProps} initialStep={overrides.initialStep ?? 'prompt'} initialDescription="A studio full of finished work."
+    <V2VisionCreationFlow {...baseProps} anchorArt={overrides.anchorArt} initialStep={overrides.initialStep ?? 'prompt'} initialDescription="A studio full of finished work."
       onSaveDescription={overrides.onSaveDescription} resumeGeneration={overrides.resumeGeneration}
       onResumeGenerationConsumed={overrides.onResumeGenerationConsumed}
       onUploadAsset={onUploadAsset} onAssemble={onAssemble} />,
   );
+  // The photo path is the default; the description-led tests below exercise the words path.
+  if ((overrides.initialStep ?? 'prompt') === 'prompt' && !overrides.photoPath) fireEvent.press(utils.getByTestId('vision-path-words'));
   return { ...utils, onUploadAsset, onAssemble, start, retry };
 }
 
@@ -79,6 +89,68 @@ describe('V2VisionCreationFlow', () => {
     jest.clearAllMocks();
     (FileSystem.getInfoAsync as jest.Mock).mockResolvedValue({ exists: true });
     (FileSystem.readAsStringAsync as jest.Mock).mockResolvedValue('aW1hZ2U=');
+  });
+
+  describe('starting from a photo', () => {
+    const photo = { status: 'picked', photo: { uri: 'file:///room.jpg', mimeType: 'image/jpeg', sourceType: 'USER_UPLOAD' } };
+    // The "Take or choose" sheet answers "Choose from library" straight away.
+    beforeEach(() => {
+      jest.spyOn(ActionSheetIOS, 'showActionSheetWithOptions').mockImplementation(((_options: unknown, callback: (index: number) => void) => callback(2)) as never);
+    });
+
+    it('opens on the photo path with the picker first and Create off until a photo is set', () => {
+      const utils = renderFlow({ photoPath: true });
+      expect(utils.getByTestId('vision-start-photo-pick')).toBeTruthy();
+      expect(utils.getByText('Take or choose a photo')).toBeTruthy();
+      expect(utils.getByText('What should change?')).toBeTruthy();
+      expect(utils.queryByText('Where are you?')).toBeNull();
+      expect(utils.queryByText('Make it look like you')).toBeNull();
+      expect(utils.getByTestId('vision-generate').props.accessibilityState.disabled).toBe(true);
+    });
+
+    it('uploads the photo, saves the Vision and starts one request with the photo and no description', async () => {
+      mockPickVisionPhoto.mockResolvedValue(photo);
+      mockUploadVisionPhoto.mockResolvedValue({ ok: true, assetId: 'start-asset-1' });
+      const onSaveDescription = jest.fn(async () => true);
+      const start = jest.fn(async () => true);
+      mockUseScene.mockReturnValue({ job: null, error: null, start, retry: jest.fn(), refresh: jest.fn() });
+      const utils = render(
+        <V2VisionCreationFlow {...baseProps} initialStep="prompt" initialDescription="" onSaveDescription={onSaveDescription}
+          onUploadAsset={jest.fn()} onAssemble={jest.fn()} />,
+      );
+      await act(async () => { fireEvent.press(utils.getByTestId('vision-start-photo-pick')); });
+      await waitFor(() => expect(utils.getByTestId('vision-start-photo-replace')).toBeTruthy());
+      expect(mockPickVisionPhoto).toHaveBeenCalledWith('library', 0.6);
+      expect(utils.getByTestId('vision-generate').props.accessibilityState.disabled).toBe(false);
+      await act(async () => { fireEvent.press(utils.getByTestId('vision-generate')); });
+      expect(onSaveDescription).toHaveBeenCalledWith(expect.stringContaining('I build what matters.'));
+      expect(start).toHaveBeenCalledTimes(1);
+      expect(start).toHaveBeenCalledWith(expect.stringMatching(/^The same place, once this is true: I build what matters\./), null, 'start-asset-1');
+    });
+
+    it('does not create a Vision when the photo cannot be uploaded', async () => {
+      mockPickVisionPhoto.mockResolvedValue(photo);
+      mockUploadVisionPhoto.mockResolvedValue({ ok: false, message: 'Photo is too large.' });
+      const onSaveDescription = jest.fn(async () => true);
+      const utils = renderFlow({ photoPath: true, onSaveDescription });
+      await act(async () => { fireEvent.press(utils.getByTestId('vision-start-photo-pick')); });
+      await act(async () => { fireEvent.press(utils.getByTestId('vision-generate')); });
+      expect(onSaveDescription).not.toHaveBeenCalled();
+      expect(utils.start).not.toHaveBeenCalled();
+      expect(utils.getByText('Photo is too large.')).toBeTruthy();
+    });
+
+    it('removes the photo, and the words path never sends one', async () => {
+      mockPickVisionPhoto.mockResolvedValue(photo);
+      const utils = renderFlow({ photoPath: true });
+      await act(async () => { fireEvent.press(utils.getByTestId('vision-start-photo-pick')); });
+      fireEvent.press(utils.getByTestId('vision-start-photo-remove'));
+      expect(utils.getByTestId('vision-start-photo-pick')).toBeTruthy();
+      fireEvent.press(utils.getByTestId('vision-path-words'));
+      await act(async () => { fireEvent.press(utils.getByTestId('vision-generate')); });
+      expect(utils.start).toHaveBeenCalledWith('A studio full of finished work.', null);
+      expect(mockUploadVisionPhoto).not.toHaveBeenCalled();
+    });
   });
 
   describe('intro and method', () => {
@@ -119,6 +191,22 @@ describe('V2VisionCreationFlow', () => {
   });
 
   describe('description', () => {
+    it('only fills the Anchor example when requested and submits the edited suggestion', async () => {
+      const utils = renderFlow();
+      expect(utils.queryByTestId('vision-use-suggested-description')).toBeNull();
+      fireEvent.changeText(utils.getByTestId('vision-prompt-input'), '');
+      expect(utils.getByTestId('vision-prompt-input').props.value).toBe('');
+      const example = utils.getByTestId('vision-prompt-input').props.placeholder;
+      expect(example).toContain(baseProps.anchorIntention);
+      fireEvent.press(utils.getByTestId('vision-use-suggested-description'));
+      expect(utils.getByTestId('vision-prompt-input').props.value).toBe(example);
+      expect(utils.queryByTestId('vision-use-suggested-description')).toBeNull();
+      const edited = `${example} Warm light comes through the window.`;
+      fireEvent.changeText(utils.getByTestId('vision-prompt-input'), edited);
+      await act(async () => { fireEvent.press(utils.getByTestId('vision-generate')); });
+      expect(utils.start).toHaveBeenCalledWith(edited, null);
+    });
+
     it('keeps generation on the description screen', () => {
       const { getByTestId, getByText } = renderFlow();
       expect(getByText('What do you see?')).toBeTruthy();
@@ -158,6 +246,7 @@ describe('V2VisionCreationFlow', () => {
         <V2VisionCreationFlow {...baseProps} anchorIntention="Anchor has ten thousand users" anchorCategory="desire"
           onUploadAsset={jest.fn()} onAssemble={jest.fn()} />,
       );
+      fireEvent.press(getByTestId('vision-path-words'));
       expect(getByTestId('vision-prompt-input').props.placeholder).toMatch(/people who use what I built/);
       rerender(
         <V2VisionCreationFlow {...baseProps} anchorIntention="I feel at peace" anchorCategory="spirituality"
@@ -202,7 +291,7 @@ describe('V2VisionCreationFlow', () => {
       const utils = renderFlow({ job: job('RUNNING', []) });
       await reachTwoUp(utils);
       expect(utils.getByText('Your future\nis taking shape.')).toBeTruthy();
-      expect(utils.getByText('Finding the moments that make it real.')).toBeTruthy();
+      expect(utils.getByText('Reading your moment…')).toBeTruthy();
       expect(utils.queryByText(/%/)).toBeNull();
     });
 
@@ -216,7 +305,7 @@ describe('V2VisionCreationFlow', () => {
       expect(utils.onAssemble).not.toHaveBeenCalled();
     });
 
-    it('chooses by tapping the image itself, with no Choose or Continue button', async () => {
+    it('previews a candidate and saves only after Use this one', async () => {
       jest.useFakeTimers();
       try {
         const utils = renderFlow({ job: job('COMPLETE') });
@@ -227,6 +316,8 @@ describe('V2VisionCreationFlow', () => {
         expect(utils.queryByLabelText('Continue')).toBeNull();
         expect(utils.getByLabelText('Choose this moment, option 1 of 2')).toBeTruthy();
         await act(async () => { fireEvent.press(utils.getByTestId('scene-candidate-candidate-1')); });
+        expect(utils.onAssemble).not.toHaveBeenCalled();
+        await act(async () => { fireEvent.press(utils.getByLabelText('Use this one')); });
         await act(async () => { jest.advanceTimersByTime(800); });
         await waitFor(() => expect(utils.onAssemble).toHaveBeenCalledTimes(1));
         expect(utils.onAssemble).toHaveBeenCalledWith(expect.objectContaining({
@@ -244,9 +335,13 @@ describe('V2VisionCreationFlow', () => {
         const utils = renderFlow({ job: job('COMPLETE'), onAssemble: jest.fn(async () => false) });
         await reachTwoUp(utils);
         await act(async () => { fireEvent.press(utils.getByTestId('scene-candidate-candidate-0')); });
+        expect(utils.onAssemble).not.toHaveBeenCalled();
+        await act(async () => { fireEvent.press(utils.getByLabelText('Use this one')); });
         await act(async () => { jest.advanceTimersByTime(800); });
         await waitFor(() => expect(utils.getByText('Your Vision could not be saved. Please try again.')).toBeTruthy());
-        expect(utils.getByTestId('scene-candidate-candidate-0').props.accessibilityState).toEqual(expect.objectContaining({ selected: false }));
+        expect(utils.getByLabelText('Use this one').props.accessibilityState.disabled).toBe(false);
+        fireEvent.press(utils.getByLabelText('Back to images'));
+        expect(utils.getByTestId('scene-candidate-candidate-0').props.accessibilityState.disabled).toBe(false);
       } finally {
         jest.useRealTimers();
       }
@@ -261,6 +356,8 @@ describe('V2VisionCreationFlow', () => {
         fireEvent.press(utils.getByLabelText('Retry this set'));
         expect(utils.retry).toHaveBeenCalledTimes(1);
         await act(async () => { fireEvent.press(utils.getByTestId('scene-candidate-candidate-0')); });
+        expect(utils.onAssemble).not.toHaveBeenCalled();
+        await act(async () => { fireEvent.press(utils.getByLabelText('Use this one')); });
         await act(async () => { jest.advanceTimersByTime(800); });
         await waitFor(() => expect(utils.onAssemble).toHaveBeenCalledTimes(1));
         fireEvent.press(utils.getByLabelText('Edit description'));
@@ -268,6 +365,57 @@ describe('V2VisionCreationFlow', () => {
       } finally {
         jest.useRealTimers();
       }
+    });
+
+    it('keeps enhanced Anchor artwork on generation and preview with an SVG fallback', async () => {
+      const utils = renderFlow({ job: job('COMPLETE'), anchorArt: { svg: '<svg />', imageUrl: 'https://cdn.example.com/enhanced.png', category: 'career' } });
+      await reachTwoUp(utils);
+      const artwork = utils.getByTestId('v2-vision-creation-flow-generating-anchor-artwork');
+      const { Image } = require('react-native');
+      expect(artwork.findByType(Image).props.source.uri).toBe('https://cdn.example.com/enhanced.png');
+      await act(async () => { fireEvent.press(utils.getByTestId('scene-candidate-candidate-0')); });
+      const preview = utils.getByTestId('v2-vision-creation-flow-generating-preview-anchor-artwork');
+      expect(preview.findByType(Image).props.source.uri).toBe('https://cdn.example.com/enhanced.png');
+    });
+
+    it('advances wait copy without enabling unfinished candidates', async () => {
+      const beats: Record<number, () => void> = {};
+      const schedule = global.setTimeout;
+      const spy = jest.spyOn(global, 'setTimeout').mockImplementation((callback: any, delay?: number, ...args: any[]) => {
+        if (delay && [9000, 20000, 40000].includes(delay)) beats[delay] = callback;
+        return schedule(callback, delay, ...args);
+      });
+      try {
+        const utils = renderFlow({ job: job('RUNNING', []) });
+        await reachTwoUp(utils);
+        expect(utils.getByText('Reading your moment\u2026')).toBeTruthy();
+        await act(async () => { beats[9000](); });
+        expect(utils.getByText('Composing the scene\u2026')).toBeTruthy();
+        await act(async () => { beats[20000](); });
+        expect(utils.getByText('Developing the images\u2026')).toBeTruthy();
+        await act(async () => { beats[40000](); });
+        expect(utils.getByText('Giving your images time to develop\u2026')).toBeTruthy();
+        expect(utils.getByTestId('v2-vision-creation-flow-generating-slot-0').props.accessibilityState.disabled).toBe(true);
+        expect(utils.onAssemble).not.toHaveBeenCalled();
+        utils.unmount();
+      } finally { spy.mockRestore(); }
+    });
+
+    it('keeps the prompt when neither candidate feels right', async () => {
+      const utils = renderFlow({ job: job('COMPLETE') });
+      await reachTwoUp(utils);
+      fireEvent.press(utils.getByText('Neither feels right — try again'));
+      expect(utils.getByTestId('vision-prompt-input').props.value).toBe('A studio full of finished work.');
+      expect(utils.onAssemble).not.toHaveBeenCalled();
+    });
+
+    it('returns from preview to editing without saving a candidate', async () => {
+      const utils = renderFlow({ job: job('COMPLETE') });
+      await reachTwoUp(utils);
+      await act(async () => { fireEvent.press(utils.getByTestId('scene-candidate-candidate-0')); });
+      fireEvent.press(utils.getByText('Try again'));
+      expect(utils.getByTestId('vision-prompt-input').props.value).toBe('A studio full of finished work.');
+      expect(utils.onAssemble).not.toHaveBeenCalled();
     });
 
     it('offers only Try again when a failure produced nothing', async () => {
@@ -314,6 +462,9 @@ describe('V2VisionCreationFlow', () => {
       fireEvent.press(utils.getByLabelText('Create my Vision'));
       fireEvent.press(utils.getByTestId('vision-method-generate'));
       expect(utils.getByText('What do you see?')).toBeTruthy();
+      // Photo-first is the default path; the selfie card belongs to the words path only.
+      expect(utils.queryByText('Make it look like you')).toBeNull();
+      fireEvent.press(utils.getByTestId('vision-path-words'));
       expect(utils.getByText('Make it look like you')).toBeTruthy();
       expect(mockLaunchImageLibraryAsync).not.toHaveBeenCalled();
     });

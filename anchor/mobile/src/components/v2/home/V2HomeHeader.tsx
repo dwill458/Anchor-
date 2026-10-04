@@ -115,12 +115,12 @@ const styles = StyleSheet.create({
   avatarFallback: { width: 27, height: 27, borderRadius: 14, backgroundColor: colors.grouped, alignItems: 'center', justifyContent: 'center' },
   avatarInitial: { fontFamily: typography.bodySemiBold, fontSize: 12, color: colors.text.primary },
   salutation: {
-    fontSize: 14,
-    lineHeight: 17,
+    fontSize: 12,
+    lineHeight: 15,
     fontFamily: 'EBGaramond-Regular',
     color: colors.text.primary,
   },
-  greetingName: { fontFamily: 'EBGaramond-Medium', fontSize: 18, lineHeight: 20, color: colors.text.primary },
+  greetingName: { fontFamily: 'EBGaramond-Medium', fontSize: 15, lineHeight: 18, color: colors.text.primary },
   utilities: {
     flexDirection: 'row',
     alignItems: 'center',

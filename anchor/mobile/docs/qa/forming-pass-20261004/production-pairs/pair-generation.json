@@ -1,0 +1,32 @@
+{
+  "prism-flow": {
+    "success": true,
+    "seconds": 9,
+    "model": "gemini-3.1-flash-image-preview",
+    "images": 2
+  },
+  "alloy": {
+    "success": true,
+    "seconds": 10,
+    "model": "gemini-3.1-flash-image-preview",
+    "images": 2
+  },
+  "porcelain": {
+    "success": true,
+    "seconds": 10,
+    "model": "gemini-3.1-flash-image-preview",
+    "images": 2
+  },
+  "graphic": {
+    "success": true,
+    "seconds": 10,
+    "model": "gemini-3.1-flash-image-preview",
+    "images": 2
+  },
+  "velvet-ember": {
+    "success": true,
+    "seconds": 15,
+    "model": "gemini-3.1-flash-image-preview",
+    "images": 2
+  }
+}

@@ -33,7 +33,7 @@ function mimeTypeOf(asset: ImagePicker.ImagePickerAsset): string {
  * Chooses or takes ONE photo and hands it back for a preview. Nothing is
  * uploaded here: the person confirms first.
  */
-export async function pickVisionPhoto(source: VisionPhotoSource): Promise<VisionPhotoPick> {
+export async function pickVisionPhoto(source: VisionPhotoSource, quality = 0.85): Promise<VisionPhotoPick> {
   try {
     if (source === 'camera') {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -47,7 +47,7 @@ export async function pickVisionPhoto(source: VisionPhotoSource): Promise<Vision
         return { status: 'denied', canAskAgain: permission.canAskAgain !== false, message: 'Allow photo library access to add an image.' };
       }
     }
-    const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.85, allowsEditing: false };
+    const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality, allowsEditing: false };
     const result = source === 'camera'
       ? await ImagePicker.launchCameraAsync(options)
       : await ImagePicker.launchImageLibraryAsync(options);

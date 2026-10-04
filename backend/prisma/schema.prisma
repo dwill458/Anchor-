@@ -983,6 +983,8 @@ model VisionGeneration {
   error       String? @db.Text
   appearanceReferenceId String? @map("appearance_reference_id")
   appearanceReference VisionAppearanceReference? @relation(fields: [appearanceReferenceId], references: [id], onDelete: SetNull)
+  /// The person's own photo of their real world today (an Asset id the person uploaded); the scene is that place transformed.
+  startAssetId String? @map("start_asset_id")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
   candidates  VisionGenerationCandidate[]

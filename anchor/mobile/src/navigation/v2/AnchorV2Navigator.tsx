@@ -2,7 +2,7 @@ import { releaseArtworkRect } from '@/components/v2/release/releaseBurn';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { BackHandler, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import { useIsFocused, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { ArrowLeft } from 'lucide-react-native';
 import { V2DevelopmentHome } from '@/screens/v2/home';
 import { V2EvolvingAnchorPrototype, V2SystemGallery } from '@/screens/v2/system';
@@ -23,6 +23,7 @@ import { V2ChartAdjustScreen, V2ChartJourneyScreen, V2ChartScreen, V2ChartWaypoi
 import { V2ProgressScreen } from '@/screens/v2/progress';
 import { V2AnchorLibraryScreen, V2AnchorDetailsScreen } from '@/screens/v2/anchors';
 import { V2ReleaseScreen } from '@/screens/v2/release';
+import { createReleaseContinuations } from './releaseNavigation';
 import { V2WeeklyInsightScreen } from '@/screens/v2/weeklyInsight';
 import { SettingsScreen } from '@/screens/settings';
 import { LoginScreen } from '@/screens/auth';
@@ -232,7 +233,9 @@ function V2ReleaseRouteScreen() {
     const timer = setTimeout(() => navigation.setOptions({ animation: v2StackScreenOptions(reduceMotion).animation }), V2_TRANSITION_SETTLE_MS + 200);
     return () => clearTimeout(timer);
   }, [navigation, reduceMotion, route.params.anchorTransition]);
-  return <V2ReleaseScreen {...route.params} onSessionActiveChange={setActive} onCancel={() => navigation.goBack()} onReleaseCompleted={() => navigation.replace('V2DevelopmentHome')} onViewHistory={() => navigation.replace('V2AnchorLibrary')} />;
+  const focused = useIsFocused();
+  const continuations = useMemo(() => createReleaseContinuations(navigation), [navigation]);
+  return <V2ReleaseScreen {...route.params} {...continuations} focused={focused} onSessionActiveChange={setActive} />;
 }
 
 function V2VisionRouteScreen() {

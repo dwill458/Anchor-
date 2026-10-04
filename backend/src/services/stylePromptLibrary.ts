@@ -1242,11 +1242,40 @@ export function selectAnchor2PaletteLane(
   const safeIndex = Number.isFinite(variationIndex) ? Math.trunc(variationIndex) : 0;
   // The index is an offset, not part of the hash: Form I and Form II share a starting point and
   // then step apart, so they can never land on the same lane.
-  return pickStaggered(
-    def.paletteLanes,
-    `${def.id}:${cleanIntention}:${(category || '').trim().toLowerCase()}:lane`,
-    safeIndex
-  );
+  const seed = `${def.id}:${cleanIntention}:${(category || '').trim().toLowerCase()}:lane`;
+  const staggered = pickStaggered(def.paletteLanes, seed, safeIndex);
+  if (safeIndex % 2 === 0) return staggered;
+
+  // Form II is the odd one of its pair: put it on the opposite FIELD VALUE from Form I (light vs
+  // dark; a mixed Form I gets any extreme) so the two read apart at thumbnail size, not only by hue.
+  const partner = pickStaggered(def.paletteLanes, seed, safeIndex - 1);
+  const contrasting = (lane: Anchor2PaletteLane) =>
+    partner.fieldValue === 'mixed' ? lane.fieldValue !== 'mixed' : lane.fieldValue !== partner.fieldValue && lane.fieldValue !== 'mixed';
+  for (let step = 0; step < def.paletteLanes.length; step += 1) {
+    const lane = pickStaggered(def.paletteLanes, seed, safeIndex + step);
+    if (contrasting(lane)) return lane;
+  }
+  // No opposite extreme in this style's lanes: at least a different value than Form I.
+  for (let step = 0; step < def.paletteLanes.length; step += 1) {
+    const lane = pickStaggered(def.paletteLanes, seed, safeIndex + step);
+    if (lane.fieldValue !== partner.fieldValue) return lane;
+  }
+  return staggered;
+}
+
+/**
+ * The composition of one render, set by which of the pair it is. The two Forms of a request are
+ * shown side by side, so they are pushed apart in density, field energy and detail character too —
+ * never in the Anchor's geometry, scale or position, which stay exactly as supplied.
+ */
+const ANCHOR2_FORM_COMPOSITIONS = [
+  'GATHERED AND RICH — a full, saturated field with layered, dense material detail; the surface feels worked and abundant; strong tonal depth from the perimeter inward; detail is large-scale, bold and clearly visible',
+  'OPEN AND QUIET — a calm, spare field with large still areas; sparse, deliberate, fine-scale material detail; the surface feels restrained and airy; the Anchor stands out through stillness rather than richness',
+];
+
+export function selectAnchor2FormComposition(variationIndex: number): string {
+  const safeIndex = Number.isFinite(variationIndex) ? Math.trunc(variationIndex) : 0;
+  return ANCHOR2_FORM_COMPOSITIONS[positiveModulo(safeIndex, ANCHOR2_FORM_COMPOSITIONS.length)];
 }
 
 /** The explicit structure-colour instruction for a lane (adaptive Anchor contrast). */
@@ -1367,7 +1396,8 @@ Palette lane: ${lane.label} — ${lane.field}
 Material subtype: ${materialVariant}
 Style-native motif to favour: ${nativeMotif}
 Peripheral placement: ${peripheralPlacement}
-Default density: moderate; let the intention signal below shape it`,
+Composition: ${selectAnchor2FormComposition(safeVariationIndex)}
+This render is one of two options shown side by side: make it unmistakably different from its sibling at thumbnail size, in field value, density and detail character. Keep the locked style identity and the Anchor geometry untouched.`,
 
     `CATEGORY SIGNAL — SECONDARY TO STYLE
 --------------------------------------------------

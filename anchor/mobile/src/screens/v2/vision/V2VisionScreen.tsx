@@ -252,6 +252,7 @@ function VisionScreenContent(props: V2VisionScreenProps) {
       anchorImageUrl={anchor?.enhancedImageUrl}
       existingTiles={model.tiles}
       onPremiumRequired={openPaywall}
+      onUploadAsset={model.uploadAsset}
       onCancel={() => { setReplaceSceneId(null); setMode('view'); }}
       onAdd={placeGeneratedScene}
     />
@@ -304,6 +305,8 @@ function VisionScreenContent(props: V2VisionScreenProps) {
       anchorArt={anchorArt}
       initialEdit={props.edit ?? route.params?.edit}
       description={model.description}
+      annotation={model.vision?.title ?? ''}
+      onUpdateAnnotation={async title => Boolean(await model.updateVision({ title }))}
       tiles={model.tiles}
       error={actionError ?? model.error}
       onBack={handleBack}

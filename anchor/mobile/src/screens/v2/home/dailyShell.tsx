@@ -1,5 +1,8 @@
 import React, { createContext, useContext, useMemo } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { AnchorV2StackParamList } from '@/navigation/v2/types';
 import { useV2ReduceMotion } from '@/hooks/v2';
 import { v2ScreenBackground, v2StackScreenOptions } from '@/navigation/v2/transitions';
 import { ProgressiveFocusTransitionProvider } from '@/navigation/v2/ProgressiveFocusTransition';
@@ -69,6 +72,7 @@ export function useV2DailyShellIntents(): Required<
   Pick<V2DailyShellIntents, 'onOpenPractice' | 'onOpenVision' | 'onCreateVision' | 'onOpenChart' | 'onCreateChart' | 'onOpenProgress' | 'onCreateAnchor' | 'onOpenProfile' | 'onReleaseAnchor' | 'onOpenWeeklyInsight' | 'onOpenMaterialLab'>
 > {
   const value = useContext(IntentsContext);
+  const navigation = useNavigation<NativeStackNavigationProp<AnchorV2StackParamList>>();
   /**
    * Memoised on the context value. Home's sections are memoised and every one
    * of its handlers closes over these intents, so re-deriving this object each
@@ -77,9 +81,9 @@ export function useV2DailyShellIntents(): Required<
    */
   return useMemo(() => ({
     onOpenPractice: value.onOpenPractice ?? noopWarn('onOpenPractice'),
-    onOpenVision: value.onOpenVision ?? noopWarn('onOpenVision'),
+    onOpenVision: value.onOpenVision ?? ((anchorId, options) => navigation.navigate('V2Vision', { anchorId, ...(options?.edit ? { edit: true } : {}) })),
     onCreateVision: value.onCreateVision ?? noopWarn('onCreateVision'),
-    onOpenChart: value.onOpenChart ?? noopWarn('onOpenChart'),
+    onOpenChart: value.onOpenChart ?? ((anchorId, courseId) => navigation.navigate('V2Chart', { anchorId, courseId })),
     onCreateChart: value.onCreateChart ?? noopWarn('onCreateChart'),
     onOpenProgress: value.onOpenProgress ?? noopWarn('onOpenProgress'),
     onCreateAnchor: value.onCreateAnchor ?? noopWarn('onCreateAnchor'),
@@ -87,7 +91,7 @@ export function useV2DailyShellIntents(): Required<
     onReleaseAnchor: value.onReleaseAnchor ?? noopWarn('onReleaseAnchor'),
     onOpenWeeklyInsight: value.onOpenWeeklyInsight ?? noopWarn('onOpenWeeklyInsight'),
     onOpenMaterialLab: value.onOpenMaterialLab ?? noopWarn('onOpenMaterialLab'),
-  }), [value]);
+  }), [value, navigation]);
 }
 
 export type V2DailyShellParamList = {

@@ -1,0 +1,16 @@
+const fs=require('fs'), path=require('path'), Module=require('module');
+const mobile=path.resolve('anchor/mobile'), backend=path.resolve('backend');
+const ts=require(path.join(mobile,'node_modules/typescript'));
+const load=Module._load, resolve=Module._resolveFilename;
+Module._load=function(name,...rest){ if(name==='@/utils/logger')return {logger:new Proxy({}, {get:()=>()=>{}})};return load.call(this,name,...rest)};
+Module._resolveFilename=function(name,parent,...rest){return resolve.call(this,name.startsWith('@/')?path.join(mobile,'src',name.slice(2)):name,parent,...rest)};
+require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,esModuleInterop:true}}).outputText,f);
+require(path.join(backend,'node_modules/dotenv')).config({path:path.join(backend,'.env'),quiet:true});
+const {buildSceneContext}=require(path.join(mobile,'src/screens/create/flow/sceneContext.ts'));
+const {fakeMeasure}=require(path.join(mobile,'src/screens/create/flow/__tests__/recordingPainter.ts'));
+const intention='I build a life of steady courage';
+const flow=buildSceneContext({intentionText:intention, category:'custom',source:'typed',entry:'glide',mode:'first',reduceMotion:false,measure:fakeMeasure});
+const out=path.join(mobile,'docs/qa/forming-pass-20261004/production-pairs');fs.mkdirSync(out,{recursive:true});fs.writeFileSync(path.join(out,'canonical.svg'),flow.baseSigilSvg);
+const {GeminiImageService}=require(path.join(backend,'src/services/GeminiImageService.ts'));
+const service=new GeminiImageService();
+(async()=>{const results={};for(const style of ['prism-flow','alloy','porcelain','graphic','velvet-ember']){try{const r=await service.enhanceSigil({baseSigilSvg:flow.baseSigilSvg,intentionText:intention,styleApproach:({"prism-flow":"prism_flow_v2","alloy":"alloy_v2","porcelain":"porcelain_v2","graphic":"graphic_v2","velvet-ember":"velvet_ember_v2"})[style],numberOfVariations:2,tier:'draft',category:'custom'});for(const image of r.images)fs.writeFileSync(path.join(out,`${style}-form-${image.variationIndex}.png`),Buffer.from(image.base64,'base64'));results[style]={success:true,seconds:r.totalTimeSeconds,model:r.model,images:r.images.length};console.log('QA_PAIR',style,JSON.stringify(results[style]));}catch(e){results[style]={success:false,error:e.message};console.log('QA_PAIR_FAILED',style,e.message)}fs.writeFileSync(path.join(out,'pair-generation.json'),JSON.stringify(results,null,2));}process.exit(0)})();

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, Text } from 'react-native';
+import { Image, StyleSheet, Text } from 'react-native';
 import { render, fireEvent, screen, waitFor, act } from '@testing-library/react-native';
 import { fetchV2RecommendationContext } from '@/adapters/v2/practice';
 jest.mock('@/adapters/v2/practice', () => ({ fetchV2RecommendationContext: jest.fn() }));
@@ -249,39 +249,92 @@ describe('V2AnchorDetailsScreen', () => {
     expect(screen.getByText('An actual intention')).toBeTruthy();
   });
 
-  it.each([
-    ['Deep Prime', 'deep_prime'],
-    ['Visualize', 'visualize'],
-  ])('opens the server selected %s practice', async (action, mode) => {
+  it('opens the recommended Visualize practice when vision exists', async () => {
+    (apiClient.get as jest.Mock).mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          id: 'v-123',
+          anchorId: 'a',
+          status: 'ACTIVE',
+          description: 'My Vision',
+          scenes: [{ id: 's-1', resolvedImageUrl: 'https://example.test/img.jpg', sortOrder: 0, isArchived: false }],
+        },
+      },
+    });
     (fetchV2RecommendationContext as jest.Mock).mockResolvedValue({
-      recommendation: { action, reason: 'daily_reinforcement' },
+      recommendation: { action: 'Visualize', reason: 'daily_reinforcement' },
       thread: { status: 'AVAILABLE', strength: 42, delta7d: -4, delta7dStatus: 'AVAILABLE' },
     });
     const onOpenPractice = jest.fn();
     useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a' })] });
     renderDetails({ onOpenPractice });
     await waitFor(() => expect(screen.getByTestId('v2-anchor-today')).toBeTruthy());
-    // The weekly delta moved from a visible line into the compact thread row's accessible label.
     expect(screen.getByLabelText(/Thread Strength 42 percent.*down 4 percent this week/)).toBeTruthy();
     fireEvent.press(screen.getByTestId('v2-anchor-today'));
-    expect(onOpenPractice).toHaveBeenCalledWith('a', mode, { anchorTransition: false });
+    expect(onOpenPractice).toHaveBeenCalledWith('a', 'visualize', { anchorTransition: false });
   });
 
-  it.each([
-    ['Focus', 'focus', 'Focus'],
-    ['Deep Prime', 'deep_prime', 'Deep Focus'],
-    ['Visualize', 'visualize', 'Visualize'],
-    ['Release', 'release', 'Release'],
-  ] as const)('renders the Today card for %s recommendation', async (action, mode, expectedTitle) => {
+  it('opens the recommended Focus practice by default', async () => {
     (fetchV2RecommendationContext as jest.Mock).mockResolvedValue({
-      recommendation: { action, reason: 'daily_reinforcement' },
-      thread: { status: 'AVAILABLE', strength: 42, delta7d: 1, delta7dStatus: 'AVAILABLE' },
+      recommendation: { action: 'Focus', reason: 'daily_reinforcement' },
+      thread: { status: 'AVAILABLE', strength: 42, delta7d: -4, delta7dStatus: 'AVAILABLE' },
+    });
+    const onOpenPractice = jest.fn();
+    useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a' })] });
+    renderDetails({ onOpenPractice });
+    await waitFor(() => expect(screen.getByTestId('v2-anchor-today')).toBeTruthy());
+    expect(screen.getByLabelText(/Thread Strength 42 percent.*down 4 percent this week/)).toBeTruthy();
+    fireEvent.press(screen.getByTestId('v2-anchor-today'));
+    expect(onOpenPractice).toHaveBeenCalledWith('a', 'focus', { anchorTransition: false });
+  });
+
+  it('renders the Today card for Release recommendation when chart is complete', async () => {
+    const completed = chartReadModel({
+      chart: {
+        id: 'course-1', status: 'COMPLETED', destinationText: 'Reach 1,000 active users', currentWaypointId: null,
+        waypoints: [{ id: 'waypoint-1', position: 0, title: 'Reach 1,000 active users', state: 'REACHED' }], moves: [],
+      },
+    });
+    mockUseAnchorChart.mockReturnValue({ data: completed as never, loading: false, error: null, refresh: jest.fn() } as never);
+    useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a' })] });
+    renderDetails();
+
+    await waitFor(() => expect(screen.getByTestId('v2-anchor-today')).toBeTruthy());
+    expect(screen.getByText('Release')).toBeTruthy();
+    expect(screen.getByText('Your Chart is complete.')).toBeTruthy();
+    expect(screen.getByText('Recommended practice')).toBeTruthy();
+  });
+
+  it('renders the Today card for Visualize recommendation when vision exists', async () => {
+    (apiClient.get as jest.Mock).mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          id: 'v-123',
+          anchorId: 'a',
+          status: 'ACTIVE',
+          description: 'My Vision Statement',
+          scenes: [{ id: 's-1', resolvedImageUrl: 'https://example.test/img.jpg', sortOrder: 0, isArchived: false }],
+        },
+      },
     });
     useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a' })] });
     renderDetails();
 
     await waitFor(() => expect(screen.getByTestId('v2-anchor-today')).toBeTruthy());
-    expect(screen.getByText(expectedTitle)).toBeTruthy();
+    expect(screen.getByText('Visualize')).toBeTruthy();
+    expect(screen.getByText('Step back into your Vision.')).toBeTruthy();
+    expect(screen.getByText('Recommended practice')).toBeTruthy();
+  });
+
+  it('renders the Today card for Focus recommendation otherwise', async () => {
+    useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a' })] });
+    renderDetails();
+
+    await waitFor(() => expect(screen.getByTestId('v2-anchor-today')).toBeTruthy());
+    expect(screen.getByText('Focus')).toBeTruthy();
+    expect(screen.getByText('Trace your Anchor.')).toBeTruthy();
     expect(screen.getByText('Recommended practice')).toBeTruthy();
   });
 
@@ -325,7 +378,14 @@ describe('V2AnchorDetailsScreen', () => {
     expect(screen.UNSAFE_getAllByType(Image).some((node) => node.props.source?.uri === 'https://example.test/vision-cover.jpg')).toBe(true);
   });
 
-  it('opens Release when the server recommends it', async () => {
+  it('opens Release when the chart is complete', async () => {
+    const completed = chartReadModel({
+      chart: {
+        id: 'course-1', status: 'COMPLETED', destinationText: 'Reach 1,000 active users', currentWaypointId: null,
+        waypoints: [{ id: 'waypoint-1', position: 0, title: 'Reach 1,000 active users', state: 'REACHED' }], moves: [],
+      },
+    });
+    mockUseAnchorChart.mockReturnValue({ data: completed as never, loading: false, error: null, refresh: jest.fn() } as never);
     (fetchV2RecommendationContext as jest.Mock).mockResolvedValue({
       recommendation: { action: 'Release', reason: 'destination_reached' },
       thread: { status: 'AVAILABLE', strength: 78, delta7d: 6, delta7dStatus: 'AVAILABLE' },
@@ -451,4 +511,148 @@ describe('V2AnchorDetailsScreen options menu', () => {
     renderDetails();
     expect(screen.getByTestId('v2-details-sheet-handle')).toBeTruthy();
   });
+
+  describe('Section 11 matrix: 12 combinations (hasVision × chartState × hasPractice)', () => {
+    const visionCases = [true, false];
+    const chartCases = ['none', 'active', 'complete'] as const;
+    const practiceCases = [true, false];
+
+    visionCases.forEach((hasVision) => {
+      chartCases.forEach((chartState) => {
+        practiceCases.forEach((hasPractice) => {
+          it(`renders combination: vision=${hasVision}, chart=${chartState}, practiced=${hasPractice}`, async () => {
+            if (hasVision) {
+              (apiClient.get as jest.Mock).mockResolvedValue({
+                data: {
+                  success: true,
+                  data: {
+                    id: 'v-matrix',
+                    anchorId: 'a',
+                    status: 'ACTIVE',
+                    description: 'Matrix Vision',
+                    scenes: [{ id: 's-m', resolvedImageUrl: 'https://example.test/matrix.jpg', sortOrder: 0, isArchived: false }],
+                  },
+                },
+              });
+            } else {
+              (apiClient.get as jest.Mock).mockResolvedValue({ data: { success: true, data: null } });
+            }
+
+            if (chartState === 'complete') {
+              mockUseAnchorChart.mockReturnValue({
+                data: chartReadModel({
+                  chart: {
+                    id: 'c-matrix', status: 'COMPLETED', destinationText: 'Finished Goal', currentWaypointId: null,
+                    waypoints: [{ id: 'w-m', position: 0, title: 'Finished Goal', state: 'REACHED' }], moves: [],
+                  },
+                }) as never,
+                loading: false, error: null, refresh: jest.fn(),
+              } as never);
+            } else if (chartState === 'active') {
+              mockUseAnchorChart.mockReturnValue({
+                data: chartReadModel() as never, loading: false, error: null, refresh: jest.fn(),
+              } as never);
+            } else {
+              mockUseAnchorChart.mockReturnValue({ data: null, loading: false, error: null, refresh: jest.fn() } as never);
+            }
+
+            useAnchorStore.setState({
+              anchors: [makeAnchor({ id: 'a' })],
+            });
+            useSessionStore.setState({
+              practiceHistory: hasPractice
+                ? [
+                    {
+                      id: 'p-1',
+                      anchorId: 'a',
+                      practiceMode: 'focus' as const,
+                      completedDurationSeconds: 60,
+                      completedAt: '2026-10-03T10:00:00Z',
+                    },
+                  ]
+                : [],
+            });
+
+            renderDetails();
+            const expectedPractice = chartState === 'complete' ? 'Release' : hasVision ? 'Visualize' : 'Focus';
+            await waitFor(() => expect(screen.getByText(expectedPractice)).toBeTruthy());
+
+            // 1. Recommended practice adheres to 3-rule cascade:
+            if (chartState === 'complete') {
+              expect(screen.getByText('Release')).toBeTruthy();
+              expect(screen.getByText('Your Chart is complete.')).toBeTruthy();
+            } else if (hasVision) {
+              expect(screen.getByText('Visualize')).toBeTruthy();
+              expect(screen.getByText('Step back into your Vision.')).toBeTruthy();
+            } else {
+              expect(screen.getByText('Focus')).toBeTruthy();
+              expect(screen.getByText('Trace your Anchor.')).toBeTruthy();
+            }
+
+            // 2. Vision section
+            if (hasVision) {
+              expect(screen.getByTestId('v2-details-vision')).toBeTruthy();
+            } else {
+              expect(screen.getByText('Add Vision')).toBeTruthy();
+              expect(screen.getByText('See where this leads.')).toBeTruthy();
+            }
+
+            // 3. Chart section
+            if (chartState !== 'none') {
+              expect(screen.getByTestId('v2-details-chart')).toBeTruthy();
+            } else {
+              expect(screen.getByText('Create Chart')).toBeTruthy();
+              expect(screen.getByText('Map the path from here.')).toBeTruthy();
+            }
+
+            // 4. Recent practice
+            if (hasPractice) {
+              expect(screen.getByText('View all →')).toBeTruthy();
+            } else {
+              expect(screen.getByText('No practice recorded for this Anchor yet.')).toBeTruthy();
+            }
+          });
+        });
+      });
+    });
+  });
+
+  describe('Section 11 layout & styling constraints', () => {
+    it('uses 76pt dashed rows for empty Vision and Chart states with no cream fill', async () => {
+      mockUseAnchorChart.mockReturnValue({ data: null, loading: false, error: null, refresh: jest.fn() } as never);
+      useAnchorStore.setState({ anchors: [makeAnchor({ id: 'a' })] });
+      renderDetails();
+
+      await waitFor(() => expect(screen.getByLabelText('Vision')).toBeTruthy());
+      const emptyVisionBtn = screen.getByLabelText('Vision');
+      const visionStyle = StyleSheet.flatten(emptyVisionBtn.props.style);
+      expect(visionStyle).toMatchObject({
+        height: 76,
+        borderStyle: 'dashed',
+      });
+      // Verify no cream background fill
+      expect(visionStyle.backgroundColor).not.toBe('#F4EDE0');
+
+      const emptyChartBtn = screen.getByLabelText('Create Chart. Map the path from here.');
+      const chartStyle = StyleSheet.flatten(emptyChartBtn.props.style);
+      expect(chartStyle).toMatchObject({
+        height: 76,
+        borderStyle: 'dashed',
+      });
+      expect(chartStyle.backgroundColor).not.toBe('#F4EDE0');
+    });
+
+    it('renders NOT ESTABLISHED without clipping on 360pt width', () => {
+      useAnchorStore.setState({
+        anchors: [makeAnchor({ id: 'a', threadStrength: null })],
+      });
+      renderDetails();
+      const notEstablished = screen.getAllByText('NOT ESTABLISHED');
+      expect(notEstablished.length).toBeGreaterThan(0);
+      notEstablished.forEach((el) => {
+        expect(el.props.numberOfLines).toBe(1);
+      });
+    });
+  });
+
 });

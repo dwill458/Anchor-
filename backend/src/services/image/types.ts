@@ -13,7 +13,7 @@ export interface ImageReference {
   buffer: Buffer;
   mimeType: string;
   /** structure: Anchor geometry. appearance: who the person is. world: an image already in their Vision (the place, objects, wardrobe, light to continue). style: look only. */
-  role?: 'structure' | 'appearance' | 'world' | 'style';
+  role?: 'structure' | 'appearance' | 'world' | 'start' | 'style';
 }
 
 export interface GenerateImageRequest {

@@ -120,3 +120,15 @@ it('shows no Anchor layer when the choice carries none', () => {
   expect(view.queryByTestId('vision-arrival-anchor', { includeHiddenElements: true })).toBeNull();
   expect(view.getByTestId('in-flight').props.children).toBe('idle');
 });
+
+function EnhancedFlight() {
+  const arrival = useVisionImageArrival()!;
+  return <Pressable testID="enhanced-flight" onPress={() => arrival.begin('https://cdn/scene.jpg', { x: 20, y: 140, width: 300, height: 315 },
+    { svg: '<svg />', imageUrl: 'https://cdn/enhanced.png', category: 'career', rect: { x: 30, y: 30, width: 44, height: 44 } })} />;
+}
+it('keeps the enhanced Anchor during the selected-image flight', () => {
+  const view = render(<VisionImageArrivalProvider><EnhancedFlight /></VisionImageArrivalProvider>);
+  fireEvent.press(view.getByTestId('enhanced-flight'));
+  const { Image } = require('react-native');
+  expect(view.getByTestId('vision-arrival-enhanced-anchor', { includeHiddenElements: true }).findByType(Image).props.source.uri).toBe('https://cdn/enhanced.png');
+});

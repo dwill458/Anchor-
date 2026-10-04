@@ -2,14 +2,18 @@ import { useMemo, useRef, useState } from 'react';
 import { ActionSheetIOS, Alert, Image, Keyboard, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { ChevronRight, Heart, MapPin, Plus, Sun, User as UserIcon } from 'lucide-react-native';
+import { Camera, ChevronRight, Heart, MapPin, Plus, RefreshCw, Sun, Trash2, User as UserIcon } from 'lucide-react-native';
 import { v2Haptics } from '@/hooks/v2';
-import { useVisionAppearanceReference } from '@/hooks/v2/vision';
+import { pickVisionPhoto, useVisionAppearanceReference, type VisionPhotoSource } from '@/hooks/v2/vision';
 import { ChartKeyboardFrame } from '@/components/v2/chart/ChartKeyboardFrame';
 import { colors, getCategoryColor, radii, spacing } from '@/theme/v2';
 import { VisionIdentity, type VisionAnchorArt } from './VisionChrome';
 import { VisionBackButton, VisionInkPill, VisionKicker, VISION_GOLD, VISION_SERIF, VISION_SERIF_ITALIC } from './VisionPaperChrome';
-import { visionCueGuidance, visionDescriptionExample, visionDetailHint, visionDetailLevel, type VisionCueKey } from './visionGuidance';
+import { visionCueGuidance, visionDescriptionExample, visionDetailHint, visionDetailLevel, visionTransformCueGuidance, type VisionCueKey, type VisionTransformCueKey } from './visionGuidance';
+
+/** The photo of the person's real world today that a photo-first Vision starts from. Not uploaded until they continue. */
+export type VisionStartPhoto = { uri: string; mimeType: string };
+export type VisionInputPath = 'photo' | 'words';
 
 export interface VisionMomentInputProps {
   mode: 'create' | 'add';
@@ -24,7 +28,14 @@ export interface VisionMomentInputProps {
   onChangeDescription?: (val: string) => void;
   placeholder?: string;
   onBack: () => void;
-  onSubmit: (description: string, appearanceReferenceId?: string | null) => Promise<boolean | void> | void;
+  /** The start photo is passed only when the person chose "Start from a photo"; the words path calls this with two arguments, as it always has. */
+  onSubmit: (description: string, appearanceReferenceId?: string | null, startPhoto?: VisionStartPhoto | null) => Promise<boolean | void> | void;
+  /** Offers "Start from a photo" (the default path) next to "Imagine from words". Off: the screen is the words screen alone. */
+  startPhotoEnabled?: boolean;
+  startPhoto?: VisionStartPhoto | null;
+  onChangeStartPhoto?: (photo: VisionStartPhoto | null) => void;
+  inputPath?: VisionInputPath;
+  onChangeInputPath?: (path: VisionInputPath) => void;
   onAddPhotos?: () => void;
   loading?: boolean;
   error?: string | null;
@@ -36,6 +47,13 @@ export interface VisionMomentInputProps {
 const PROMPT_CHIPS: ReadonlyArray<{ key: VisionCueKey; label: string; icon: typeof MapPin }> = [
   { key: 'where', label: 'Where are you?', icon: MapPin },
   { key: 'doing', label: 'What are you doing?', icon: Sun },
+  { key: 'feel', label: 'How does it feel?', icon: Heart },
+];
+
+/** The photo path asks about the change to the person's own photo, not for a scene from nothing. */
+const PHOTO_CHIPS: ReadonlyArray<{ key: VisionTransformCueKey; label: string; icon: typeof MapPin }> = [
+  { key: 'change', label: 'What should change?', icon: Sun },
+  { key: 'stays', label: 'What stays the same?', icon: MapPin },
   { key: 'feel', label: 'How does it feel?', icon: Heart },
 ];
 
@@ -56,6 +74,11 @@ export function VisionMomentInput({
   placeholder: customPlaceholder,
   onBack,
   onSubmit,
+  startPhotoEnabled = false,
+  startPhoto: propStartPhoto,
+  onChangeStartPhoto,
+  inputPath: propInputPath,
+  onChangeInputPath,
   onAddPhotos,
   loading = false,
   error = null,
@@ -70,6 +93,15 @@ export function VisionMomentInput({
     if (propOnChangeDescription) propOnChangeDescription(text);
     else setInternalDescription(text);
     if (localNotice) setLocalNotice(null);
+  };
+
+  const [internalPath, setInternalPath] = useState<VisionInputPath>('photo');
+  const [internalStartPhoto, setInternalStartPhoto] = useState<VisionStartPhoto | null>(null);
+  const inputPath = propInputPath ?? internalPath;
+  const startPhoto = propStartPhoto !== undefined ? propStartPhoto : internalStartPhoto;
+  const photoPath = startPhotoEnabled && inputPath === 'photo';
+  const setStartPhoto = (photo: VisionStartPhoto | null) => {
+    if (onChangeStartPhoto) onChangeStartPhoto(photo); else setInternalStartPhoto(photo);
   };
 
   const [inputFocused, setInputFocused] = useState(false);
@@ -95,12 +127,51 @@ export function VisionMomentInput({
   }, [appearance.enabledByPreference, appearance.profilePhoto, appearance.reference, useAppearance]);
 
   const trimmed = description.trim();
-  const isValid = trimmed.length >= minChars && trimmed.length <= maxChars;
+  // A photo alone is enough to generate; a description is encouraged, but when one is started it must be long enough to mean something.
+  const isValid = photoPath
+    ? Boolean(startPhoto) && (trimmed.length === 0 || (trimmed.length >= minChars && trimmed.length <= maxChars))
+    : trimmed.length >= minChars && trimmed.length <= maxChars;
 
-  const [activeCue, setActiveCue] = useState<VisionCueKey | null>(null);
-  const cue = useMemo(() => (activeCue ? visionCueGuidance(activeCue, anchorIntention, anchorCategory) : null), [activeCue, anchorCategory, anchorIntention]);
+  const [activeCue, setActiveCue] = useState<string | null>(null);
+  const cue = useMemo(() => {
+    if (!activeCue) return null;
+    return photoPath
+      ? visionTransformCueGuidance(activeCue as VisionTransformCueKey, anchorIntention)
+      : visionCueGuidance(activeCue as VisionCueKey, anchorIntention, anchorCategory);
+  }, [activeCue, anchorCategory, anchorIntention, photoPath]);
 
-  const handleChipPress = (key: VisionCueKey) => {
+  const choosePath = (next: VisionInputPath) => {
+    if (next === inputPath) return;
+    v2Haptics.selection();
+    setActiveCue(null);
+    setLocalNotice(null);
+    if (onChangeInputPath) onChangeInputPath(next); else setInternalPath(next);
+  };
+
+  const takeOrChoosePhoto = async (source: VisionPhotoSource) => {
+    // Quality 0.6: the server accepts 5 MB per photo and a phone original at 0.85 can pass that. A start photo needs the place, not the pixels.
+    const result = await pickVisionPhoto(source, 0.6);
+    if (result.status === 'picked') { setStartPhoto({ uri: result.photo.uri, mimeType: result.photo.mimeType }); setLocalNotice(null); }
+    else if (result.status === 'denied' || result.status === 'error') setLocalNotice(result.message);
+  };
+
+  const handlePhotoOptions = () => {
+    v2Haptics.selection();
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options: ['Cancel', 'Take a photo', 'Choose from library'], cancelButtonIndex: 0 },
+        buttonIndex => { if (buttonIndex === 1) void takeOrChoosePhoto('camera'); else if (buttonIndex === 2) void takeOrChoosePhoto('library'); },
+      );
+    } else {
+      Alert.alert('Your photo', 'Show the world as it is now.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Choose from library', onPress: () => void takeOrChoosePhoto('library') },
+        { text: 'Take a photo', onPress: () => void takeOrChoosePhoto('camera') },
+      ]);
+    }
+  };
+
+  const handleChipPress = (key: string) => {
     v2Haptics.selection();
     // Guidance only: a chip never focuses the field, opens the keyboard, or edits the text.
     setActiveCue(key);
@@ -146,21 +217,25 @@ export function VisionMomentInput({
   const handleSubmit = () => {
     if (!isValid || loading) return;
     Keyboard.dismiss();
+    if (photoPath) { void onSubmit(trimmed, null, startPhoto); return; }
     const refId = useAppearance ? (appearance.reference?.id ?? null) : null;
     void onSubmit(trimmed, refId);
   };
 
-  const placeholderText = customPlaceholder ?? (isCreate ? example : 'Describe the moment in detail...');
+  const placeholderText = customPlaceholder ?? (photoPath ? 'Describe how it changes...' : isCreate ? example : 'Describe the moment in detail...');
   const kicker = isCreate ? 'CREATE YOUR VISION' : 'ADD TO YOUR VISION';
   const title = isCreate ? 'What do you see?' : 'What else do you see?';
-  const subtitle = isCreate ? 'Describe the moment you want to see for this Anchor.' : 'Describe another moment from this future.';
+  const subtitle = photoPath
+    ? 'Show the world as it is now, then describe how it changes.'
+    : isCreate ? 'Describe the moment you want to see for this Anchor.' : 'Describe another moment from this future.';
   const ctaLabel = 'Create my images';
   const ctaA11y = isCreate ? 'Continue to create your Vision' : 'Generate image';
   const footnote = 'You’ll choose what belongs in your Vision.';
 
+  const chipSet: ReadonlyArray<{ key: string; label: string; icon: typeof MapPin }> = photoPath ? PHOTO_CHIPS : PROMPT_CHIPS;
   const chips = (
     <View style={inputFocused ? styles.chipsAccessory : styles.chipsRow}>
-      {PROMPT_CHIPS.map(({ key, label, icon: Icon }) => (
+      {chipSet.map(({ key, label, icon: Icon }) => (
         <Pressable key={key} onPress={() => handleChipPress(key)} accessibilityRole="button" accessibilityLabel={label}
           accessibilityState={{ selected: activeCue === key }}
           style={({ pressed }) => [styles.chip, inputFocused && styles.chipAccessory, activeCue === key && styles.chipActive, pressed && styles.chipPressed]}>
@@ -214,10 +289,55 @@ export function VisionMomentInput({
           <Text style={styles.subtitle}>{subtitle}</Text>
         </View>
 
+        {startPhotoEnabled ? (
+          <View style={styles.pathToggle} accessibilityRole="tablist">
+            {([['photo', 'Start from a photo'], ['words', 'Imagine from words']] as const).map(([key, label]) => (
+              <Pressable
+                key={key}
+                testID={`vision-path-${key}`}
+                accessibilityRole="tab"
+                accessibilityLabel={label}
+                accessibilityState={{ selected: inputPath === key }}
+                onPress={() => choosePath(key)}
+                style={[styles.pathOption, inputPath === key && styles.pathOptionActive]}
+              >
+                <Text style={[styles.pathLabel, inputPath === key && styles.pathLabelActive]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>{label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
         <View style={styles.anchorCard} testID={`${testID}-anchor`}>
           <View style={[styles.accentBar, { backgroundColor: categoryColor }]} />
           <VisionIdentity intention={anchorIntention} category={anchorCategory} art={anchorArt} imageUrl={anchorImageUrl} showAnchor size={58} tone="dark" />
         </View>
+
+        {photoPath ? (
+          <View testID="vision-start-photo" style={[styles.photoZone, startPhoto ? styles.photoZoneSet : styles.photoZoneEmpty]}>
+            {startPhoto ? (
+              <>
+                <Image source={{ uri: startPhoto.uri }} style={styles.photoImage} resizeMode="cover" resizeMethod="resize" accessibilityLabel="Your photo of the world as it is now" />
+                <View style={styles.photoActions}>
+                  <Pressable testID="vision-start-photo-replace" accessibilityRole="button" accessibilityLabel="Replace photo" onPress={handlePhotoOptions} style={styles.photoAction}>
+                    <RefreshCw size={14} color={colors.paper} strokeWidth={1.8} />
+                    <Text style={styles.photoActionLabel}>Replace</Text>
+                  </Pressable>
+                  <Pressable testID="vision-start-photo-remove" accessibilityRole="button" accessibilityLabel="Remove photo" onPress={() => { v2Haptics.selection(); setStartPhoto(null); }} style={styles.photoAction}>
+                    <Trash2 size={14} color={colors.paper} strokeWidth={1.8} />
+                    <Text style={styles.photoActionLabel}>Remove</Text>
+                  </Pressable>
+                </View>
+              </>
+            ) : (
+              <Pressable testID="vision-start-photo-pick" accessibilityRole="button" accessibilityLabel="Take or choose a photo of the world as it is now" onPress={handlePhotoOptions}
+                style={({ pressed }) => [styles.photoEmpty, pressed && styles.cardPressed]}>
+                <Camera size={30} color={VISION_GOLD} strokeWidth={1.4} />
+                <Text style={styles.photoEmptyTitle}>Take or choose a photo</Text>
+                <Text style={styles.photoEmptySub}>Show the world as it is now</Text>
+              </Pressable>
+            )}
+          </View>
+        ) : null}
 
         <View style={[styles.inputFrame, inputFocused && styles.inputFrameFocused]}>
           <TextInput
@@ -239,6 +359,20 @@ export function VisionMomentInput({
           />
         </View>
 
+        {isCreate && !trimmed && !photoPath ? (
+          <Pressable
+            testID="vision-use-suggested-description"
+            accessibilityRole="button"
+            accessibilityLabel="Use suggested description"
+            accessibilityHint="Fills the example from your Anchor. You can edit it before creating images."
+            disabled={loading}
+            onPress={() => { v2Haptics.selection(); setDescription(example); }}
+            style={({ pressed }) => [styles.suggestionAction, pressed && styles.chipPressed, loading && styles.disabled]}
+          >
+            <Text style={styles.suggestionLabel}>Use suggested description</Text>
+          </Pressable>
+        ) : null}
+
         {cue ? (
           <View testID="vision-cue" accessibilityLiveRegion="polite" style={styles.cue}>
             <Text style={styles.cueQuestion}>{cue.question}</Text>
@@ -247,15 +381,17 @@ export function VisionMomentInput({
         ) : null}
 
         <View style={styles.meter}>
-          <Text testID="vision-detail-hint" style={[styles.meterHint, level === 'rich' && { color: colors.semantic.success }]} numberOfLines={2}>
-            {hint ?? 'Where you are · what you’re doing · how it feels'}
+          <Text testID="vision-detail-hint" style={[styles.meterHint, !photoPath && level === 'rich' && { color: colors.semantic.success }]} numberOfLines={2}>
+            {photoPath
+              ? (trimmed.length > 0 && trimmed.length < minChars ? 'Add a little more, or clear it to continue with the photo alone.' : 'What changes · what stays · how it feels')
+              : hint ?? 'Where you are · what you’re doing · how it feels'}
           </Text>
           <Text style={styles.counterText}>{description.length} / {maxChars}</Text>
         </View>
 
         {!inputFocused ? chips : null}
 
-        {!inputFocused ? (
+        {!inputFocused && !photoPath ? (
           <>
             <View style={styles.divider} />
             <Pressable
@@ -307,9 +443,26 @@ const styles = StyleSheet.create({
     borderRadius: radii.md, backgroundColor: colors.grouped, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border.default, overflow: 'hidden',
   },
   accentBar: { position: 'absolute', left: spacing[3], top: spacing[3], bottom: spacing[3], width: 3, borderRadius: 2 },
+  pathToggle: { flexDirection: 'row', padding: 3, borderRadius: radii.pill, backgroundColor: colors.grouped, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border.default },
+  pathOption: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing[2], borderRadius: radii.pill },
+  pathOptionActive: { backgroundColor: colors.ink.deep },
+  pathLabel: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.text.secondary },
+  pathLabelActive: { fontFamily: 'Inter-SemiBold', color: colors.paper },
+  photoZone: { height: 208, borderRadius: radii.lg, overflow: 'hidden', backgroundColor: colors.surface },
+  photoZoneEmpty: { borderWidth: 1.5, borderStyle: 'dashed', borderColor: VISION_GOLD },
+  photoZoneSet: { borderWidth: 1, borderColor: colors.text.primary },
+  photoEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing[2], paddingHorizontal: spacing[4] },
+  photoEmptyTitle: { fontFamily: VISION_SERIF, fontSize: 22, lineHeight: 28, color: colors.text.primary, textAlign: 'center' },
+  photoEmptySub: { fontFamily: 'Inter-Regular', fontSize: 14, lineHeight: 20, color: colors.text.secondary, textAlign: 'center' },
+  photoImage: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
+  photoActions: { position: 'absolute', right: spacing[2], bottom: spacing[2], flexDirection: 'row', gap: spacing[2] },
+  photoAction: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: spacing[3], borderRadius: radii.pill, backgroundColor: 'rgba(10,15,20,0.72)' },
+  photoActionLabel: { fontFamily: 'Inter-SemiBold', fontSize: 13, lineHeight: 18, color: colors.paper },
   inputFrame: { borderRadius: radii.lg, borderWidth: 1, borderColor: colors.text.primary, backgroundColor: colors.surface },
   inputFrameFocused: { borderColor: VISION_GOLD },
   textInput: { fontFamily: VISION_SERIF_ITALIC, fontSize: 20, lineHeight: 28, color: colors.text.primary, minHeight: 124, maxHeight: 200, padding: spacing[4] },
+  suggestionAction: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
+  suggestionLabel: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.text.primary, textDecorationLine: 'underline' },
   meter: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing[3] },
   meterHint: { flex: 1, fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.text.secondary },
   counterText: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.text.secondary },

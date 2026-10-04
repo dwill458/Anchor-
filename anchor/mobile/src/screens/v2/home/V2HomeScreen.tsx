@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { V2Button, V2EmptyState, V2InlineError } from '@/components/v2';
-import { V2HomeChartSection, V2HomeCategoryEnvironment, V2HomeBrandMark, V2HomeCreamSplice, V2HomeHeader, V2HomeHero, V2HomeProgressSection, V2HomeRecentActivitySection, V2HomeTodaySection, V2HomeVisionSection } from '@/components/v2/home';
+import { V2HomeChartSection, V2HomeBrandMark, V2HomeCreamSplice, V2HomeHeader, V2HomeHero, V2HomeProgressSection, V2HomeRecentActivitySection, V2HomeTodaySection, V2HomeVisionSection } from '@/components/v2/home';
 import { resolveVisionAlternateImage, resolveVisionHeroImage, useV2HomeModel } from '@/adapters/v2/home';
 import { useHomePrewarm } from '@/hooks/v2/home';
 import { useV2ReduceMotion, useV2Responsive } from '@/hooks/v2';
@@ -459,9 +459,6 @@ export function V2HomeScreen() {
         <Animated.View style={arrival.headerStyle}>{header}</Animated.View>
 
         <View style={styles.heroEnvironment}>
-          <Animated.View style={[StyleSheet.absoluteFill, arrival.environmentStyle]} pointerEvents="none">
-            <V2HomeCategoryEnvironment category={model.selectedAnchor!.category} reduceMotion={reduceMotion} />
-          </Animated.View>
           <Animated.View style={[styles.creamZone, arrival.heroStyle]}>
             <V2HomeHero
               testID="v2-home-hero"

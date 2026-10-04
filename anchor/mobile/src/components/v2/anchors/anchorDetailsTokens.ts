@@ -1,17 +1,19 @@
 import { colors, practiceColors } from '@/theme/v2';
 
 /**
- * Anchor Details 2.0 palette. Where the V2 theme already has the value it is
- * reused (cream is the frame colour, Visualize blue is the practice hue);
- * ink has no token with this exact hex, so the prototype's value lives here.
+ * Anchor Details 2.0 palette.
+ * Exact hexes and opacities matching anchor-details-2.0-prototype.html.
  */
 export const detailsPalette = {
-  cream: colors.frame, // #F4EDE0
+  cream: '#F4EDE0',
   ink: '#14162B',
-  visualize: practiceColors.visualize, // #3B82C4
+  visualize: '#3B82C4',
+  release: '#DD5F2C',
+  focus: '#8B5CF6',
   /** Gold appears only on the Chart's flag. */
   gold: '#C9A24B',
   releaseRose: '#F08A7E',
+  desireRose: '#A9475E',
   creamSoft: 'rgba(244,237,224,.72)',
   creamMuted: 'rgba(244,237,224,.66)',
   creamFaint: 'rgba(244,237,224,.08)',
@@ -22,12 +24,14 @@ export const detailsPalette = {
 } as const;
 
 /**
- * The prototype sets titles and numerals in Fraunces and UI text in Figtree.
- * Figtree is loaded (Regular / SemiBold). Fraunces is NOT loaded in the app, so
- * serif text uses EB Garamond Medium, the serif Thread Strength already uses.
+ * Anchor Details typography. Serif is reserved for Anchor identity (title and
+ * thread metrics) in EB Garamond Medium. Section headers and card display titles
+ * use Bricolage Grotesque SemiBold to match the rest of the V2 system. UI text
+ * and controls use Figtree.
  */
 export const detailsFonts = {
   serif: 'EBGaramond-Medium',
+  display: 'BricolageGrotesque-SemiBold',
   ui: 'Figtree-Regular',
   uiStrong: 'Figtree-SemiBold',
 } as const;

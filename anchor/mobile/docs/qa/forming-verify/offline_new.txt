@@ -1,0 +1,15 @@
+velvet-ember   longest static run(s) < 25 px vs run-start: 0.10 from 8.20 | min consec changed px: 648 median 2035
+porcelain      longest static run(s) < 25 px vs run-start: 0.10 from 8.20 | min consec changed px: 646 median 1971
+prism-flow     longest static run(s) < 25 px vs run-start: 0.10 from 8.20 | min consec changed px: 647 median 2053
+joybrush       longest static run(s) < 25 px vs run-start: 0.10 from 8.20 | min consec changed px: 652 median 2041
+deep-cosmos    longest static run(s) < 25 px vs run-start: 0.10 from 8.20 | min consec changed px: 646 median 2006
+woven          longest static run(s) < 25 px vs run-start: 0.10 from 8.20 | min consec changed px: 647 median 1937
+paper          longest static run(s) < 25 px vs run-start: 0.10 from 8.20 | min consec changed px: 645 median 1957
+mineral-wash   longest static run(s) < 25 px vs run-start: 0.10 from 8.20 | min consec changed px: 645 median 1882
+graphic        longest static run(s) < 25 px vs run-start: 0.10 from 8.20 | min consec changed px: 650 median 2075
+plush          longest static run(s) < 25 px vs run-start: 0.10 from 8.20 | min consec changed px: 645 median 1473
+herbarium      longest static run(s) < 25 px vs run-start: 0.10 from 8.20 | min consec changed px: 645 median 2016
+alloy          longest static run(s) < 25 px vs run-start: 0.10 from 8.20 | min consec changed px: 646 median 2018
+gilt           longest static run(s) < 25 px vs run-start: 0.10 from 8.20 | min consec changed px: 648 median 2025
+flash          longest static run(s) < 25 px vs run-start: 0.10 from 8.20 | min consec changed px: 646 median 1984
+buff           longest static run(s) < 25 px vs run-start: 0.10 from 8.20 | min consec changed px: 646 median 1993

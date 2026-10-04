@@ -65,7 +65,7 @@ export function useV2VisionSceneGeneration(anchorId: string, onPremiumRequired?:
     return () => clearInterval(timer);
   }, [active, foreground, refresh]);
 
-  const start = useCallback(async (sceneDescription: string, appearanceReferenceId?: string | null): Promise<boolean> => {
+  const start = useCallback(async (sceneDescription: string, appearanceReferenceId?: string | null, startAssetId?: string | null): Promise<boolean> => {
     if (starting.current) return false;
     starting.current = true;
     setError(null);
@@ -75,6 +75,7 @@ export function useV2VisionSceneGeneration(anchorId: string, onPremiumRequired?:
         sceneDescription,
         idempotencyKey,
         ...(appearanceReferenceId ? { appearanceReferenceId } : {}),
+        ...(startAssetId ? { startAssetId } : {}),
       });
       const next = visionApiData<VisionGenerationJob>(response);
       if (mounted.current) setJob(next);

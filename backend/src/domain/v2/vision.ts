@@ -105,6 +105,8 @@ export const StartVisionSceneGenerationSchema = z.object({
   sceneDescription: z.string().trim().min(6).max(VISION_SCENE_DESCRIPTION_MAX),
   idempotencyKey: z.string().regex(/^[A-Za-z0-9-]{12,100}$/),
   appearanceReferenceId: z.string().uuid().optional().nullable(),
+  /** An uploaded asset of the person's real world today; the scene is that place transformed. */
+  startAssetId: z.string().uuid().optional().nullable(),
 }).strict();
 
 export const CreateVisionAppearanceReferenceSchema = z.object({

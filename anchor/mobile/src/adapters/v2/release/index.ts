@@ -1,5 +1,12 @@
 export * from './types';
-export { buildReleaseConsequenceSnapshot } from './releaseConsequences';
+export {
+  buildReleaseConsequenceSnapshot,
+  buildReleaseEnding,
+  normalizeReleaseReason,
+  releaseHoldHint,
+  resolveReleaseReason,
+} from './releaseConsequences';
+export type { V2ReleaseEnding } from './releaseConsequences';
 export {
   createV2ReleaseApiAdapter,
   v2ReleaseApiAdapter,

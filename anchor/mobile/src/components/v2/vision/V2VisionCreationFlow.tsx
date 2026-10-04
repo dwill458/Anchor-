@@ -5,16 +5,16 @@ import { ActivityIndicator, Image, Platform, Pressable, ScrollView, StatusBar, S
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
-import { useV2VisionSceneGeneration, type VisionGenerationCandidate, type UploadAssetResult } from '@/hooks/v2/vision';
+import { uploadVisionPhoto, useV2VisionSceneGeneration, type VisionGenerationCandidate, type UploadAssetResult } from '@/hooks/v2/vision';
 import { colors, radii, spacing } from '@/theme/v2';
 import type { VisionSceneSource } from '@/adapters/v2/vision';
 
 import type { VisionAnchorArt } from './VisionChrome';
-import { VISION_DESCRIPTION_MAX_CHARS, VISION_DESCRIPTION_MIN_CHARS } from './visionGuidance';
+import { VISION_DESCRIPTION_MAX_CHARS, VISION_DESCRIPTION_MIN_CHARS, visionPhotoSceneDescription } from './visionGuidance';
 import { VisionBackButton, VisionInkPill, VISION_SERIF } from './VisionPaperChrome';
 import { VisionIntroStage } from './VisionIntroStage';
 import { VisionMethodStage } from './VisionMethodStage';
-import { VisionMomentInput } from './VisionMomentInput';
+import { VisionMomentInput, type VisionInputPath, type VisionStartPhoto } from './VisionMomentInput';
 import { VisionTwoUpStage, type VisionTwoUpSelection } from './VisionTwoUpStage';
 import { VISION_BOARD_MAX_IMAGES } from './board/visionBoardLayouts';
 
@@ -67,6 +67,8 @@ export function V2VisionCreationFlow({
   const [step, setStep] = useState<Step>(initialStep === 'ready' || initialStep === 'empty' ? 'empty' : initialStep);
   const [fromMethod, setFromMethod] = useState(false);
   const [description, setDescription] = useState(initialDescription);
+  const [inputPath, setInputPath] = useState<VisionInputPath>('photo');
+  const [startPhoto, setStartPhoto] = useState<VisionStartPhoto | null>(null);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -76,30 +78,47 @@ export function V2VisionCreationFlow({
   const startingRef = useRef(false);
   const trimmed = description.trim();
   const validDescription = trimmed.length >= VISION_DESCRIPTION_MIN_CHARS && trimmed.length <= VISION_DESCRIPTION_MAX_CHARS;
+  /** True while the Vision is being made from a photo of the person's real world rather than from words alone. */
+  const photoStart = inputPath === 'photo' && Boolean(startPhoto);
 
   useEffect(() => {
     if (step === 'prompt' && !createStarted.current) { createStarted.current = true; AnalyticsService.track('vision_create_started', { anchor_id: anchorId }); }
   }, [anchorId, step]);
 
   /** Saves the description (which creates the Vision), then asks for two moments. */
-  const generate = useCallback(async (appearanceReferenceId?: string | null) => {
-    if (!validDescription) { setNotice(`Describe your Vision in at least ${VISION_DESCRIPTION_MIN_CHARS} characters.`); return; }
+  const generate = useCallback(async (appearanceReferenceId?: string | null, photo?: VisionStartPhoto | null) => {
+    // Starting from a photo, the description is optional: the photo alone is enough to generate.
+    if (photo ? trimmed.length > 0 && !validDescription : !validDescription) { setNotice(`Describe your Vision in at least ${VISION_DESCRIPTION_MIN_CHARS} characters.`); return; }
     // One request per tap sequence: saving the description is awaited first.
     if (startingRef.current) return;
     startingRef.current = true;
     setStarting(true);
     setNotice(null);
     try {
-      if (onSaveDescription && !(await onSaveDescription(trimmed))) {
+      let startAssetId: string | null = null;
+      if (photo) {
+        // Uploaded before the Vision is created, so a failed upload leaves nothing half-made.
+        const uploaded = await uploadVisionPhoto(photo, onUploadAsset);
+        if (!uploaded.ok) { setNotice(uploaded.message); return; }
+        startAssetId = uploaded.assetId;
+      }
+      const visionDescription = photo ? photoVisionDescription(trimmed, anchorIntention) : trimmed;
+      if (onSaveDescription && !(await onSaveDescription(visionDescription))) {
         setNotice('Your description could not be saved. Please try again.');
         return;
       }
-      if (await generation.start(trimmed, appearanceReferenceId)) setStep('generating');
+      const sceneDescription = photo
+        ? visionPhotoSceneDescription(trimmed, anchorIntention, VISION_DESCRIPTION_MAX_CHARS, VISION_DESCRIPTION_MIN_CHARS)
+        : trimmed;
+      const started = photo
+        ? await generation.start(sceneDescription, null, startAssetId)
+        : await generation.start(sceneDescription, appearanceReferenceId);
+      if (started) setStep('generating');
     } finally {
       startingRef.current = false;
       setStarting(false);
     }
-  }, [generation, onSaveDescription, trimmed, validDescription]);
+  }, [anchorIntention, generation, onSaveDescription, onUploadAsset, trimmed, validDescription]);
 
   // Returning from the paywall resumes the request the person had already made.
   useEffect(() => {
@@ -108,18 +127,18 @@ export function V2VisionCreationFlow({
     void generate();
   }, [resumeGeneration, validDescription]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /** Tapping an image is the choice: it becomes the Vision's first image. */
+  /** Explicit preview confirmation makes this the Vision's first image. */
   const choose = useCallback(async (candidate: VisionGenerationCandidate, selection: VisionTwoUpSelection) => {
     if (!candidate.assetId || saving) return;
     setSaving(true);
     setNotice(null);
     if (candidate.imageUrl && selection.image) {
       arrival?.begin(candidate.imageUrl, selection.image, anchorArt?.svg && selection.anchor
-        ? { svg: anchorArt.svg, category: anchorArt.category ?? anchorCategory, rect: selection.anchor } : undefined);
+        ? { svg: anchorArt.svg, imageUrl: anchorArt.imageUrl, expression: anchorArt.expression, category: anchorArt.category ?? anchorCategory, rect: selection.anchor } : undefined);
     }
     try {
       const result = await onAssemble({
-        description: trimmed,
+        description: photoStart ? photoVisionDescription(trimmed, anchorIntention) : trimmed,
         selectedAssets: [{ assetId: candidate.assetId, prompt: candidate.prompt || trimmed, imageUrl: candidate.imageUrl ?? undefined, sourceType: 'AI_GENERATED' }],
         selection,
       });
@@ -130,7 +149,7 @@ export function V2VisionCreationFlow({
     } finally {
       setSaving(false);
     }
-  }, [anchorArt, anchorCategory, arrival, onAssemble, saving, trimmed]);
+  }, [anchorArt, anchorCategory, anchorIntention, arrival, onAssemble, photoStart, saving, trimmed]);
 
   const uploadOne = useCallback(async (item: UploadItem) => {
     setUploads(prev => prev.map(value => value.key === item.key ? { ...value, status: 'uploading', error: undefined } : value));
@@ -278,7 +297,12 @@ export function V2VisionCreationFlow({
       description={description}
       onChangeDescription={setDescription}
       onBack={() => { if (fromMethod) setStep('method'); else onBack(); }}
-      onSubmit={async (_description, referenceId) => { await generate(referenceId); }}
+      onSubmit={async (_description, referenceId, photo) => { await generate(referenceId, photo); }}
+      startPhotoEnabled
+      startPhoto={startPhoto}
+      onChangeStartPhoto={setStartPhoto}
+      inputPath={inputPath}
+      onChangeInputPath={setInputPath}
       loading={starting}
       error={notice || generation.error}
       testID={`${testID}-prompt`}

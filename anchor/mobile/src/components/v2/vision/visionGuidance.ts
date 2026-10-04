@@ -147,8 +147,8 @@ function shortIntention(intention?: string | null, max = 56): string {
  * A worked example written around this Anchor's own intention. The seed (keyword
  * rules over the intention, then the category) only supplies a plausible setting;
  * the intention itself is quoted, so the example always concerns what the person
- * actually wrote. It is placeholder guidance, never text inserted into the
- * description.
+ * actually wrote. It stays placeholder guidance until the person explicitly
+ * chooses to use it as their editable description.
  */
 export function visionDescriptionExample(intention?: string | null, category?: string | null): string {
   const picked = seedFor(intention, category);
@@ -170,4 +170,26 @@ export function visionCueGuidance(key: VisionCueKey, intention?: string | null, 
   if (key === 'where') return { question: `Where are you when ${subject} is already true?`, hint: picked.whereHint };
   if (key === 'doing') return { question: 'What are you doing in the moment you realize it?', hint: picked.doingHint };
   return { question: `What do you notice, and how does it feel to have ${subject}?`, hint: picked.feelHint };
+}
+
+/**
+ * What the scene job is told when a photo starts the Vision and the person wrote nothing (or the optional
+ * description is the whole of their input): the same place, changed so that their intention is true.
+ */
+export function visionPhotoSceneDescription(written: string, intention: string, max: number, min: number): string {
+  const text = written.trim();
+  if (text.length >= min) return text.slice(0, max);
+  const base = intention.trim();
+  return `The same place, once this is true: ${base || 'my future'}`.slice(0, max);
+}
+
+export type VisionTransformCueKey = 'change' | 'stays' | 'feel';
+
+/** The same thinking aids for the photo path: each asks about the change to the person's own photo, never edits the text. */
+export function visionTransformCueGuidance(key: VisionTransformCueKey, intention?: string | null): { question: string; hint: string } {
+  const short = shortIntention(intention);
+  const subject = short ? `“${short}”` : 'this';
+  if (key === 'change') return { question: `What looks different once ${subject} is true?`, hint: 'The room, the objects, the people, the light, the time of day.' };
+  if (key === 'stays') return { question: 'What in this photo should stay exactly as it is?', hint: 'The place, the view, the layout, the things that make it yours.' };
+  return { question: 'How does it feel to stand here after the change?', hint: 'Calm, proud, relieved, rested. A few honest words are enough.' };
 }

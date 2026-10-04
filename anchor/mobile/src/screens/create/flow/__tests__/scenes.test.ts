@@ -234,6 +234,40 @@ describe('Forget', () => {
 describe('Form (D5)', () => {
   const colorsDrawn = (p: RecordingPainter) => new Set(p.of('polyline').map((o) => o.stroke.color));
 
+  it('names the draw before styling, then sets expectations for a longer style during the actual wait', () => {
+    const { context } = build(TEXT, 'desire');
+    const early = new RecordingPainter();
+    drawForm(early, CREAM_PALETTE, context, { tf: 0.6, progress: 0, slow: false, fade: 1, styleId: 'porcelain', styleName: 'Porcelain', longerWait: true });
+    expect(early.visibleText()).toContain('Drawing your line…');
+    const styled = new RecordingPainter();
+    drawForm(styled, CREAM_PALETTE, context, { tf: 2, progress: 0.5, slow: false, fade: 1, styleId: 'porcelain', styleName: 'Porcelain', longerWait: true });
+    expect(styled.visibleText()).toContain('Applying your style…');
+    const waiting = new RecordingPainter();
+    drawForm(waiting, CREAM_PALETTE, context, { tf: 5, progress: 0.8, slow: false, fade: 1, styleId: 'porcelain', styleName: 'Porcelain', longerWait: true });
+    expect(waiting.visibleText()).toContain('Forging your Porcelain — this one takes a moment');
+    expect(waiting.visibleText()).toContain('Applying your style…');
+  });
+
+  it('sets Alloy expectations from the apply stage even when recommended', () => {
+    const { context } = build(TEXT, 'desire');
+    const p = new RecordingPainter();
+    drawForm(p, CREAM_PALETTE, context, { tf: 1.2, progress: 0.1, slow: false, fade: 1, styleId: 'alloy', styleName: 'Alloy', longerWait: false });
+    expect(p.visibleText()).toContain('Applying your style…');
+    expect(p.visibleText()).toContain('Forging your Alloy — this one takes a moment');
+  });
+
+  it('gives the bottom stage text contrast and gentle motion, respecting Reduce Motion', () => {
+    const { context } = build(TEXT, 'desire');
+    const caption = (tf: number, reduceMotion: boolean) => {
+      const p = new RecordingPainter();
+      drawForm(p, CREAM_PALETTE, { ...context, reduceMotion }, { tf, progress: 0.5, slow: false, fade: 1, styleId: 'alloy' });
+      return p.of('text').find((op) => op.value === 'Applying your style…')!;
+    };
+    const first = caption(4, false);
+    expect(caption(4.7, false).y).not.toBe(first.y);
+    expect(caption(4.7, true)).toEqual(caption(4, true));
+  });
+
   it('never morphs the geometry: no smoothing, no construction circle, caption says styling', () => {
     const { context } = build(TEXT, 'desire');
     const p = new RecordingPainter();
@@ -293,13 +327,23 @@ describe('Form (D5)', () => {
     expect(strokeTreatmentFor('graphic').layers).toHaveLength(1);
   });
 
-  it('paints a visible white sheen over Alloy during the resting wait', () => {
+  it.each(Object.keys(STYLE_STROKES))('%s: the apply phase never holds still, and the motion shows on the field', (styleId) => {
     const { context } = build(TEXT, 'desire');
-    const p = new RecordingPainter();
-    drawForm(p, CREAM_PALETTE, context, { tf: FORM_REVEAL_SECONDS + 0.65, progress: 0.5, slow: false, fade: 1, styleId: 'alloy' });
-    const sheen = p.of('polyline').filter((op) => op.stroke.color === '#FFFFFF' && op.stroke.alpha === 0.85);
-    expect(sheen.length).toBeGreaterThan(0);
-    expect(sheen[0].stroke.width).toBeGreaterThan(strokeTreatmentFor('alloy').layers[1].width);
+    const frame = (tf: number) => {
+      const p = new RecordingPainter();
+      drawForm(p, CREAM_PALETTE, context, { tf, progress: 0.5, slow: false, fade: 1, styleId });
+      return JSON.stringify(p.ops);
+    };
+    // From the moment styling begins to well past the reveal, nothing is identical half a second
+    // apart (a static hold of ~1s is the failure), including the whole resting wait.
+    for (let tf = 1; tf <= 14; tf += 0.25) expect(frame(tf)).not.toBe(frame(tf + 0.5));
+    // Resting wait: a lit head (white core + glow disc) is painted on every frame.
+    for (let tf = FORM_REVEAL_SECONDS + 0.6; tf <= FORM_REVEAL_SECONDS + 5.5; tf += 0.37) {
+      const p = new RecordingPainter();
+      drawForm(p, CREAM_PALETTE, context, { tf, progress: 0.5, slow: false, fade: 1, styleId });
+      const heads = p.of('circle').filter((op) => op.fill?.color === '#FFFFFF' && (op.fill?.alpha ?? 0) > 0.9);
+      expect(heads.length).toBeGreaterThanOrEqual(1);
+    }
   });
 });
 

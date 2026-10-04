@@ -159,6 +159,86 @@ function placeVertices(points: IntentPoint[], seed: number, gridConfig: GridConf
   return vertices;
 }
 
+// ---------------------------------------------------------------------------
+// Sharp-turn relaxation (long Desire paths)
+// ---------------------------------------------------------------------------
+
+/** Paths with at least this many letters can fold back on themselves into a tight cluster. */
+export const SHARP_TURN_MIN_LETTERS = 11;
+/** The narrowest angle, in degrees, two consecutive segments may close to. */
+export const MIN_SEGMENT_ANGLE_DEG = 20;
+
+/** The interior angle at vertex b between the segments to a and c, in degrees (0 = folded flat). */
+export function interiorAngleDeg(a: { x: number; y: number }, b: { x: number; y: number }, c: { x: number; y: number }): number {
+  const ux = a.x - b.x;
+  const uy = a.y - b.y;
+  const vx = c.x - b.x;
+  const vy = c.y - b.y;
+  const lu = Math.hypot(ux, uy);
+  const lv = Math.hypot(vx, vy);
+  if (lu < 1e-6 || lv < 1e-6) return 180;
+  const cos = Math.max(-1, Math.min(1, (ux * vx + uy * vy) / (lu * lv)));
+  return (Math.acos(cos) * 180) / Math.PI;
+}
+
+/**
+ * Opens hairpins in a long path. Every letter keeps its own cell and order — the vertex is only
+ * allowed to wander inside the middle of that cell — so the letter -> number -> path story the flow
+ * tells stays true. A vertex whose two segments close tighter than {@link MIN_SEGMENT_ANGLE_DEG}
+ * has its neighbours pushed apart sideways until they clear it. Deterministic, bounded passes;
+ * a fold the cells cannot open is left as it is. Paths under {@link SHARP_TURN_MIN_LETTERS} letters
+ * are returned untouched.
+ */
+export function relaxSharpTurns(vertices: SigilVertex[], gridConfig: GridConfig): SigilVertex[] {
+  if (vertices.length < SHARP_TURN_MIN_LETTERS) return vertices;
+
+  const cellStep = 60 / (gridConfig.size - 1);
+  const maxShift = Math.max(0, cellStep / 2 - 0.75);
+  const out = vertices.map((vertex) => ({ ...vertex }));
+  const clampTo = (value: number, centre: number) => Math.min(centre + maxShift, Math.max(centre - maxShift, value));
+
+  for (let pass = 0; pass < 16; pass += 1) {
+    let changed = false;
+    for (let i = 1; i < out.length - 1; i += 1) {
+      const a = out[i - 1];
+      const b = out[i];
+      const c = out[i + 1];
+      if (interiorAngleDeg(a, b, c) >= MIN_SEGMENT_ANGLE_DEG + 1) continue;
+
+      const la = Math.hypot(a.x - b.x, a.y - b.y);
+      const lc = Math.hypot(c.x - b.x, c.y - b.y);
+      if (la < 1e-6 || lc < 1e-6) continue;
+      // Perpendicular to the way the fold points: a goes one side of it, c the other.
+      let ux = (a.x - b.x) / la + (c.x - b.x) / lc;
+      let uy = (a.y - b.y) / la + (c.y - b.y) / lc;
+      const lu = Math.hypot(ux, uy);
+      if (lu < 1e-6) continue;
+      ux /= lu;
+      uy /= lu;
+      const px = -uy;
+      const py = ux;
+      const nudge = maxShift * 0.5;
+
+      // Each neighbour moves away from the fold's axis, to the side it already lies on.
+      const sideOf = (v: SigilVertex, fallback: number) => {
+        const d = (v.x - b.x) * px + (v.y - b.y) * py;
+        return Math.abs(d) < 1e-6 ? fallback : Math.sign(d);
+      };
+      const moves: Array<[SigilVertex, number]> = [[a, sideOf(a, 1)], [c, sideOf(c, -1)]];
+      moves.forEach(([vertex, side]) => {
+        const nx = Number(clampTo(vertex.x + px * nudge * side, vertex.cell.x).toFixed(2));
+        const ny = Number(clampTo(vertex.y + py * nudge * side, vertex.cell.y).toFixed(2));
+        if (nx !== vertex.x || ny !== vertex.y) changed = true;
+        vertex.x = nx;
+        vertex.y = ny;
+      });
+    }
+    if (!changed) break;
+  }
+
+  return out;
+}
+
 /**
  * Generate the SVG Path Data (d attribute)
  */
@@ -250,7 +330,9 @@ export function describeTrueSigil(
 
   // 2. Geometry Layer
   const seed = createSeed(cacheKey);
-  const vertices = placeVertices(points, seed, gridConfig);
+  // Desire (and Creativity) draw on the Sun field: its long paths are the ones that fold into clusters.
+  const placed = placeVertices(points, seed, gridConfig);
+  const vertices = tier === PlanetaryTier.SUN ? relaxSharpTurns(placed, gridConfig) : placed;
   const pathData = createSigilPath(vertices);
 
   const strokeWidth = calculateStrokeWidth(tier, variant, gridConfig);

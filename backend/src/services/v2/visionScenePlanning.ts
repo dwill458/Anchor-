@@ -234,6 +234,8 @@ export function buildVisionImagePrompt(input: {
   hasAppearanceReference?: boolean;
   /** Photographs already in this Vision, attached as images: the world this one continues. */
   worldReferenceCount?: number;
+  /** The person's own photograph of their real world today, attached as an image: the future is this place changed. */
+  startPhotoAttached?: boolean;
   /** Moments already on the person's board: the new photograph belongs beside them without repeating them. */
   boardScenes?: string[];
 }): string {
@@ -256,6 +258,9 @@ export function buildVisionImagePrompt(input: {
     ] : []),
     ...(input.worldReferenceCount
       ? ['The photograph(s) attached as Vision references are the established world. They outrank the category and any generic setting: keep their specific car, place, wardrobe, light and grade, and show a different moment from the same life.']
+      : []),
+    ...(input.startPhotoAttached
+      ? ['The photograph attached as the start photo is the real place of this person today. Show this same place transformed as the scene describes: keep its recognisable structure and viewpoint, change only what the person asked to change.']
       : []),
     LENS_BY_FRAMING[scene.framing ?? ''] ?? 'Natural candid framing.',
     VISION_PORTRAIT_COMPOSITION,
