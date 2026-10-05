@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Check } from 'lucide-react-native';
+import { AnimatedPressable, Reveal, usePressScale } from '@/components/v2/motion';
 import { colors, radii, spacing, typography } from '@/theme/v2';
 import { planForId, planPerMonthLabel } from '@/adapters/v2/paywall';
 import { V2_PAYWALL_PRICING_FALLBACK, type V2PaywallPlanId } from '@/constants/v2/paywall';
@@ -26,19 +27,22 @@ function PlanRadio({
   const selected = controller.selectedPlan === planId;
   const price = plan.priceLabel ?? 'Unavailable';
   const perMonth = planPerMonthLabel(plan);
+  const press = usePressScale();
   const detail =
     planId === 'annual'
       ? `Cancel anytime${perMonth ? ` · ${perMonth} equivalent` : ''}`
       : 'Cancel anytime';
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="radio"
       accessibilityState={{ selected, disabled: !plan.purchasable }}
       accessibilityLabel={`${planId === 'annual' ? 'Annual' : 'Monthly'} plan, ${price}. ${detail}`}
       disabled={!plan.purchasable}
       onPress={() => controller.setSelectedPlan(planId)}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
       testID={`v2-paywall-plan-${planId}`}
-      style={[styles.row, selected && styles.rowSelected, !plan.purchasable && styles.rowDisabled]}
+      style={[styles.row, selected && styles.rowSelected, !plan.purchasable && styles.rowDisabled, press.style]}
     >
       <View style={styles.rowCopy}>
         <View style={styles.rowHeadline}>
@@ -53,7 +57,7 @@ function PlanRadio({
       <View style={[styles.radio, selected && styles.radioSelected]}>
         {selected ? <Check size={11} color={colors.text.inverse} strokeWidth={3} /> : null}
       </View>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -78,18 +82,24 @@ export function V2TrialEndedPanel({ controller, recap, onSignIn }: Props) {
   return (
     <View style={styles.root} testID="v2-paywall-trial-ended">
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <Text style={styles.eyebrow}>{copy.eyebrow}</Text>
-        <Text accessibilityRole="header" style={styles.headline}>{copy.headline}</Text>
-        <Text style={styles.body}>{copy.body}</Text>
+        <Reveal order={0}>
+          <Text style={styles.eyebrow}>{copy.eyebrow}</Text>
+          <Text accessibilityRole="header" style={styles.headline}>{copy.headline}</Text>
+          <Text style={styles.body}>{copy.body}</Text>
+        </Reveal>
 
-        <View style={styles.recap}>
-          <V2PaywallRecapStrip recap={recap} />
-        </View>
+        <Reveal order={1}>
+          <View style={styles.recap}>
+            <V2PaywallRecapStrip recap={recap} />
+          </View>
+        </Reveal>
 
-        <View accessibilityRole="radiogroup" style={styles.plans}>
-          <PlanRadio controller={controller} planId="annual" />
-          <PlanRadio controller={controller} planId="monthly" />
-        </View>
+        <Reveal order={2}>
+          <View accessibilityRole="radiogroup" style={styles.plans}>
+            <PlanRadio controller={controller} planId="annual" />
+            <PlanRadio controller={controller} planId="monthly" />
+          </View>
+        </Reveal>
 
         {unavailable ? (
           <Pressable

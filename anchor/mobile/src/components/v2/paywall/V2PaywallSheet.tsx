@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { X } from 'lucide-react-native';
+import { Reveal } from '@/components/v2/motion';
 import { colors, radii, spacing, typography } from '@/theme/v2';
 import { planForId, planPerMonthLabel } from '@/adapters/v2/paywall';
 import { V2_PAYWALL_BENEFITS, V2_PAYWALL_PRICING_FALLBACK } from '@/constants/v2/paywall';
@@ -70,36 +71,46 @@ export function V2PaywallSheet({ controller, onDismiss, onViewOtherPlans, onSign
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.artifactSlot}>
-          <V2PaywallArtifact artifact={artifact} tone={tone} />
-        </View>
+        <Reveal order={0}>
+          <View style={styles.artifactSlot}>
+            <V2PaywallArtifact artifact={artifact} tone={tone} />
+          </View>
+        </Reveal>
 
-        <Text style={styles.eyebrow}>{copy.eyebrow}</Text>
-        <Text accessibilityRole="header" style={styles.headline}>{copy.headline}</Text>
-        <Text style={styles.body}>{copy.body}</Text>
+        <Reveal order={1}>
+          <Text style={styles.eyebrow}>{copy.eyebrow}</Text>
+          <Text accessibilityRole="header" style={styles.headline}>{copy.headline}</Text>
+          <Text style={styles.body}>{copy.body}</Text>
+        </Reveal>
 
-        <View style={styles.benefits}>
-          {V2_PAYWALL_BENEFITS.map((benefit) => (
-            <V2CompactBenefit key={benefit} label={benefit} accent={tone.accent} />
-          ))}
-        </View>
+        <Reveal order={2}>
+          <View style={styles.benefits}>
+            {V2_PAYWALL_BENEFITS.map((benefit) => (
+              <V2CompactBenefit key={benefit} label={benefit} accent={tone.accent} />
+            ))}
+          </View>
+        </Reveal>
 
         {offersTrial && selectedPlan === 'annual' ? (
-          <View style={styles.timeline}>
-            <Text style={styles.sectionLabel}>Your 7-day trial</Text>
-            <V2TrialTimeline tone={tone} renewalLabel={renewalLabel(pricing.annual.priceLabel)} />
-          </View>
+          <Reveal order={3}>
+            <View style={styles.timeline}>
+              <Text style={styles.sectionLabel}>Your 7-day trial</Text>
+              <V2TrialTimeline tone={tone} renewalLabel={renewalLabel(pricing.annual.priceLabel)} />
+            </View>
+          </Reveal>
         ) : null}
 
-        <View style={styles.offer}>
-          <V2PlanOfferCard
-            pricing={pricing}
-            planId={selectedPlan}
-            offersTrial={offersTrial}
-            tone={tone}
-            loading={loadingPrice}
-          />
-        </View>
+        <Reveal order={4}>
+          <View style={styles.offer}>
+            <V2PlanOfferCard
+              pricing={pricing}
+              planId={selectedPlan}
+              offersTrial={offersTrial}
+              tone={tone}
+              loading={loadingPrice}
+            />
+          </View>
+        </Reveal>
 
         {purchaseUnavailable ? (
           <Pressable
