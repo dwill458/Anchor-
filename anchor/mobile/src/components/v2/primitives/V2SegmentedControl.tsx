@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
-import Animated, { ReduceMotion, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { ReduceMotion, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useV2ReduceMotion } from '@/hooks/v2/useV2ReduceMotion';
 import { AnchorMotion, colors, radii, spacing, typography } from '@/theme/v2';
 import { segmentGeometry } from './segmentedGeometry';
@@ -27,9 +27,8 @@ export function V2SegmentedControl({ options, value, onChange, accessibilityLabe
       pillX.value = offset;
       return;
     }
-    pillX.value = reduceMotion
-      ? withTiming(offset, { duration: AnchorMotion.duration.micro, reduceMotion: ReduceMotion.Never })
-      : withSpring(offset, { ...AnchorMotion.spring.snap, reduceMotion: ReduceMotion.Never });
+    // Reduced motion places the pill; nothing travels.
+    pillX.value = reduceMotion ? offset : withSpring(offset, { ...AnchorMotion.spring.snap, reduceMotion: ReduceMotion.Never });
   }, [offset, pillWidth, pillX, reduceMotion, segmentWidth, width]);
 
   const pillStyle = useAnimatedStyle(() => ({ width: pillWidth.value, transform: [{ translateX: pillX.value }] }));

@@ -28,7 +28,7 @@ Plan: `2026-10-05-motion-polish.md`. Spec: `../specs/2026-10-05-motion-polish-de
 - [ ] `V2Skeleton` (System Gallery) breathes slowly rather than sitting flat.
 
 ## Reduce Motion
-- [ ] Settings → Reduce Motion **On**: no rising, no scaling; presses dim instead of sink; arrivals are short fades; the segmented pill moves quickly with no spring.
+- [ ] Settings → Reduce Motion **On**: no rising, no scaling; presses dim instead of sink; arrivals are short fades; the segmented pill is placed on the new option without sliding. A disabled plan row stays dimmed.
 - [ ] Settings → **Off** while the OS "Remove animations" is on (Android): motion still runs, because the in-app setting decides.
 - [ ] Android animator duration scale 0 with the in-app setting **Off**: arrivals still play (shared layer opts out of Reanimated's implicit check).
 
