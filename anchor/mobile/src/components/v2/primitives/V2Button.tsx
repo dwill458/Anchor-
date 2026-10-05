@@ -1,6 +1,8 @@
-import React from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
-import { colors, spacing, typography } from '@/theme/v2';
+import React, { useEffect } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import Animated, { FadeIn, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { AnimatedPressable, usePressScale } from '@/components/v2/motion';
+import { AnchorMotion, colors, spacing, typography } from '@/theme/v2';
 
 export type V2ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'destructive';
 
@@ -36,6 +38,13 @@ export function V2Button({
   testID,
 }: Props) {
   const inactive = disabled || loading;
+  const press = usePressScale();
+  // The label and the spinner trade places rather than swap.
+  const loadingLevel = useSharedValue(loading ? 1 : 0);
+  useEffect(() => {
+    loadingLevel.value = withTiming(loading ? 1 : 0, { duration: AnchorMotion.duration.quick, reduceMotion: ReduceMotion.Never });
+  }, [loading, loadingLevel]);
+  const contentStyle = useAnimatedStyle(() => ({ opacity: 1 - loadingLevel.value }));
   const textColor = inactive
     ? colors.text.disabled
     : textColorOverride ??
@@ -44,37 +53,41 @@ export function V2Button({
         : colors.text.primary);
 
   return (
-    <Pressable
+    <AnimatedPressable
       testID={testID}
       onPress={onPress}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
       disabled={inactive}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled: inactive, busy: loading }}
-      style={({ pressed }) => [
+      style={[
         styles.base,
         styles[size],
         styles[variant],
         inactive && styles.disabled,
-        pressed && !inactive && styles.pressed,
         style,
+        press.style,
       ]}
     >
-      <View style={styles.content}>
-        <View style={loading ? styles.hidden : undefined}>{iconLeft}</View>
-        <Text style={[styles.label, { color: textColor }, loading && styles.hidden]}>
+      <Animated.View style={[styles.content, contentStyle]}>
+        <View>{iconLeft}</View>
+        <Text style={[styles.label, { color: textColor }]}>
           {children}
         </Text>
-        <View style={loading ? styles.hidden : undefined}>{iconRight}</View>
-      </View>
+        <View>{iconRight}</View>
+      </Animated.View>
       {loading ? (
-        <ActivityIndicator
-          testID={`${testID ?? 'v2-button'}-loading`}
-          color={textColor}
+        <Animated.View
+          entering={FadeIn.duration(AnchorMotion.duration.quick).easing(AnchorMotion.easing.enter)}
+          pointerEvents="none"
           style={styles.spinner}
-        />
+        >
+          <ActivityIndicator testID={`${testID ?? 'v2-button'}-loading`} color={textColor} />
+        </Animated.View>
       ) : null}
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -121,9 +134,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.grouped,
     borderColor: colors.border.subtle,
   },
-  pressed: {
-    opacity: 0.82,
-  },
   content: {
     flexDirection: 'row',
     gap: spacing[2],
@@ -135,9 +145,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     textAlign: 'center',
-  },
-  hidden: {
-    opacity: 0,
   },
   spinner: {
     position: 'absolute',
