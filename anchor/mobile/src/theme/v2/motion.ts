@@ -61,6 +61,12 @@ export const AnchorMotion = {
     },
     reveal: { damping: 18, stiffness: 140, mass: 1.2 },
   },
+  /** Siblings arriving in sequence: it reads as an order, never as a wait. Orders past `cap` share the last slot. */
+  stagger: { step: 60, cap: 6 },
+  /** How far an arriving element rises, in dp. */
+  rise: 14,
+  /** Touch response: the surface sinks a hair under the finger. */
+  press: { scale: 0.98 },
 } as const;
 
 /** @deprecated Prefer `AnchorMotion`; retained for existing V2 callers. */
