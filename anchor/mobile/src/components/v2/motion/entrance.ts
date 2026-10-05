@@ -7,11 +7,18 @@ export function staggerDelay(order: number, base = 0): number {
   return base + slot * step;
 }
 
-/** One frame of an arriving element. Under reduced motion nothing travels. */
-export function revealFrame(progress: number, rise: number, reduceMotion: boolean): { opacity: number; translateY: number } {
+/**
+ * One frame of an arriving element. Under reduced motion nothing travels. The rise is a
+ * `transform` entry; a top-level `translateY` style key is ignored on device.
+ */
+export function revealFrame(
+  progress: number,
+  rise: number,
+  reduceMotion: boolean,
+): { opacity: number; transform: [{ translateY: number }] } {
   'worklet';
   return {
     opacity: progress,
-    translateY: reduceMotion ? 0 : (1 - progress) * rise,
+    transform: [{ translateY: reduceMotion ? 0 : (1 - progress) * rise }],
   };
 }

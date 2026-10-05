@@ -22,20 +22,25 @@ describe('staggerDelay', () => {
 });
 
 describe('revealFrame', () => {
-  it('starts transparent and displaced', () => {
-    expect(revealFrame(0, 14, false)).toEqual({ opacity: 0, translateY: 14 });
+  // The rise must be a `transform` entry: a top-level `translateY` key is ignored by React Native.
+  it('starts transparent and displaced, as a transform', () => {
+    expect(revealFrame(0, 14, false)).toEqual({ opacity: 0, transform: [{ translateY: 14 }] });
   });
 
   it('interpolates the rise', () => {
-    expect(revealFrame(0.5, 14, false).translateY).toBe(7);
+    expect(revealFrame(0.5, 14, false).transform).toEqual([{ translateY: 7 }]);
   });
 
   it('ends at rest', () => {
-    expect(revealFrame(1, 14, false)).toEqual({ opacity: 1, translateY: 0 });
+    expect(revealFrame(1, 14, false)).toEqual({ opacity: 1, transform: [{ translateY: 0 }] });
   });
 
   it('never travels under reduced motion', () => {
-    expect(revealFrame(0, 14, true)).toEqual({ opacity: 0, translateY: 0 });
-    expect(revealFrame(0.5, 14, true).translateY).toBe(0);
+    expect(revealFrame(0, 14, true)).toEqual({ opacity: 0, transform: [{ translateY: 0 }] });
+    expect(revealFrame(0.5, 14, true).transform).toEqual([{ translateY: 0 }]);
+  });
+
+  it('carries no top-level translateY key', () => {
+    expect(Object.keys(revealFrame(0.3, 14, false)).sort()).toEqual(['opacity', 'transform']);
   });
 });
