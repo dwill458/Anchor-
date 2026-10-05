@@ -5,7 +5,7 @@ import { ContentSwap } from '../ContentSwap';
 
 jest.mock('@/hooks/v2/useV2ReduceMotion', () => ({ useV2ReduceMotion: () => false }));
 
-const withEntering = () => screen.UNSAFE_root.findAll((node) => node.props && node.props.entering !== undefined);
+const withEntering = () => screen.UNSAFE_root.findAll((node: { props?: Record<string, unknown> }) => node.props && node.props.entering !== undefined);
 
 describe('ContentSwap', () => {
   it('shows the first content without animating it in', () => {
