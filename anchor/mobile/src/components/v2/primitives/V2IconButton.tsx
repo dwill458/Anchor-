@@ -2,12 +2,14 @@ import React from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { AnimatedPressable, usePressScale } from '@/components/v2/motion';
-import { colors, radii } from '@/theme/v2';
+import { AnchorMotion, colors, radii } from '@/theme/v2';
 
 type Props = { icon: React.ReactNode; accessibilityLabel: string; onPress?: () => void; disabled?: boolean; surface?: boolean; style?: StyleProp<ViewStyle>; testID?: string };
 
+const DISABLED_OPACITY = 0.45;
+
 export function V2IconButton({ icon, accessibilityLabel, onPress, disabled = false, surface = false, style, testID }: Props) {
-  const press = usePressScale();
+  const press = usePressScale(AnchorMotion.press.scale, disabled ? DISABLED_OPACITY : 1);
   // The grouped tint fades in with the press instead of flipping.
   const tint = useAnimatedStyle(() => ({ opacity: press.pressed.value }));
   return (
@@ -32,6 +34,6 @@ export function V2IconButton({ icon, accessibilityLabel, onPress, disabled = fal
 const styles = StyleSheet.create({
   base: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center', borderRadius: radii.md },
   surface: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border.subtle },
-  disabled: { opacity: 0.45 },
+  disabled: { opacity: DISABLED_OPACITY },
   tint: { backgroundColor: colors.grouped, borderRadius: radii.md },
 });

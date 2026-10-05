@@ -2,7 +2,7 @@ import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Check } from 'lucide-react-native';
 import { AnimatedPressable, Reveal, usePressScale } from '@/components/v2/motion';
-import { colors, radii, spacing, typography } from '@/theme/v2';
+import { AnchorMotion, colors, radii, spacing, typography } from '@/theme/v2';
 import { planForId, planPerMonthLabel } from '@/adapters/v2/paywall';
 import { V2_PAYWALL_PRICING_FALLBACK, type V2PaywallPlanId } from '@/constants/v2/paywall';
 import type { V2PaywallController } from '@/hooks/v2/paywall';
@@ -16,6 +16,8 @@ type Props = {
   onSignIn?: () => void;
 };
 
+const ROW_DISABLED_OPACITY = 0.5;
+
 function PlanRadio({
   controller,
   planId,
@@ -27,7 +29,7 @@ function PlanRadio({
   const selected = controller.selectedPlan === planId;
   const price = plan.priceLabel ?? 'Unavailable';
   const perMonth = planPerMonthLabel(plan);
-  const press = usePressScale();
+  const press = usePressScale(AnchorMotion.press.scale, plan.purchasable ? 1 : ROW_DISABLED_OPACITY);
   const detail =
     planId === 'annual'
       ? `Cancel anytime${perMonth ? ` · ${perMonth} equivalent` : ''}`
@@ -159,7 +161,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[4],
   },
   rowSelected: { borderColor: colors.text.primary, backgroundColor: colors.grouped },
-  rowDisabled: { opacity: 0.5 },
+  rowDisabled: { opacity: ROW_DISABLED_OPACITY },
   rowCopy: { flex: 1, minWidth: 0 },
   rowHeadline: { flexDirection: 'row', alignItems: 'baseline', gap: spacing[2], flexWrap: 'wrap' },
   rowTitle: { ...typography.labelLG, color: colors.text.primary },

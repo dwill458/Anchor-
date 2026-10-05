@@ -14,12 +14,16 @@ import { AnchorMotion } from '@/theme/v2';
 
 export const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-/** One frame of a pressed surface. Under reduced motion it dims instead of sinking. */
-export function pressFrame(pressed: number, scaleTo: number, reduceMotion: boolean): { scale: number; opacity: number } {
+/**
+ * One frame of a pressed surface. Under reduced motion it dims instead of sinking, from the
+ * control's own resting opacity: the animated style is applied last, so a disabled control that
+ * rests at 0.5 must dim from 0.5, not be lifted back to 1.
+ */
+export function pressFrame(pressed: number, scaleTo: number, reduceMotion: boolean, restOpacity = 1): { scale: number; opacity: number } {
   'worklet';
   return reduceMotion
-    ? { scale: 1, opacity: 1 - pressed * 0.15 }
-    : { scale: 1 - pressed * (1 - scaleTo), opacity: 1 };
+    ? { scale: 1, opacity: restOpacity * (1 - pressed * 0.15) }
+    : { scale: 1 - pressed * (1 - scaleTo), opacity: restOpacity };
 }
 
 /**
@@ -27,7 +31,7 @@ export function pressFrame(pressed: number, scaleTo: number, reduceMotion: boole
  * back on the snap spring. `pressed` (0 → 1) is exposed so an arrow or icon can
  * lean into the press too. Under reduced motion the surface dims instead.
  */
-export function usePressScale(scaleTo: number = AnchorMotion.press.scale) {
+export function usePressScale(scaleTo: number = AnchorMotion.press.scale, restOpacity = 1) {
   const reduceMotion = useV2ReduceMotion();
   const pressed = useSharedValue(0);
   const onPressIn = useCallback(() => {
@@ -41,7 +45,7 @@ export function usePressScale(scaleTo: number = AnchorMotion.press.scale) {
     pressed.value = withSpring(0, { ...AnchorMotion.spring.snap, reduceMotion: ReduceMotion.Never });
   }, [pressed]);
   const style = useAnimatedStyle(() => {
-    const frame = pressFrame(pressed.value, scaleTo, reduceMotion);
+    const frame = pressFrame(pressed.value, scaleTo, reduceMotion, restOpacity);
     return reduceMotion ? { opacity: frame.opacity } : { transform: [{ scale: frame.scale }] };
   });
   return { pressed, style, onPressIn, onPressOut };
