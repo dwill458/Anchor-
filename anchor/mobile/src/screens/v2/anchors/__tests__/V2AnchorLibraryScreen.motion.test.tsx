@@ -11,7 +11,7 @@ jest.mock('@react-navigation/native', () => ({
 jest.mock('@/hooks/v2/useV2ReduceMotion', () => ({ useV2ReduceMotion: () => false, useCreationReduceMotion: () => false }));
 jest.mock('react-native-reanimated', () => {
   const actual = jest.requireActual('react-native-reanimated');
-  return { ...actual, __esModule: true, withDelay: jest.fn(actual.withDelay) };
+  return { ...actual, __esModule: true, withDelay: jest.fn(actual.withDelay), withSpring: jest.fn(actual.withSpring) };
 });
 
 import { useAnchorStore } from '@/stores/anchorStore';
@@ -19,10 +19,12 @@ import { V2AnchorLibraryScreen } from '../V2AnchorLibraryScreen';
 import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
 
 const withDelay = Reanimated.withDelay as jest.Mock;
+const withSpring = Reanimated.withSpring as jest.Mock;
 
 beforeEach(() => {
   mockNavigate.mockClear();
   withDelay.mockClear();
+  withSpring.mockClear();
   useAnchorStore.setState({ anchors: [], currentAnchorId: undefined });
 });
 
@@ -68,5 +70,17 @@ describe('V2AnchorLibraryScreen motion', () => {
     expect(tracked.length).toBeGreaterThan(0);
     fireEvent.press(screen.getByLabelText(/Focus deeply/));
     expect(mockNavigate).toHaveBeenCalledWith('V2AnchorDetails', { anchorId: 'a' });
+  });
+
+  it('keeps the filter control mounted when the screen re-renders, so the first change slides the pill', () => {
+    useAnchorStore.setState({
+      anchors: [makeAnchor({ id: 'a', intentionText: 'Active one' }), makeAnchor({ id: 'r', intentionText: 'Released one', isReleased: true, releasedAt: new Date() })],
+      currentAnchorId: 'a',
+    });
+    render(<V2AnchorLibraryScreen />);
+    fireEvent(screen.getByLabelText('Filter Anchors'), 'layout', { nativeEvent: { layout: { width: 300, height: 50, x: 0, y: 0 } } });
+    withSpring.mockClear();
+    fireEvent.press(screen.getByLabelText('Active'));
+    expect(withSpring).toHaveBeenCalledTimes(1);
   });
 });

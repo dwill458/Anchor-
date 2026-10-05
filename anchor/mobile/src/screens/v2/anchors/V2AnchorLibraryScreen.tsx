@@ -35,8 +35,9 @@ export function V2AnchorLibraryScreen() {
   const navigation = useNavigation<Nav>();
   const { filter, setFilter, entries, hasReleased } = useV2AnchorLibrary();
   const allAnchors = useAnchorStore((state) => state.anchors);
-  // The arrival is staged once. A filter change swaps content in place, so cells that mount
-  // after the screen has settled do not rise again on top of the cross-fade.
+  // The header arrives once and is never replayed (a mounted Reveal does not restart). Only the grid,
+  // which a filter change remounts, needs to know the screen has settled so its new cells cross-fade
+  // in place instead of rising again.
   const settled = useRef(false);
   const animateArrival = !settled.current;
   useEffect(() => {
@@ -60,10 +61,10 @@ export function V2AnchorLibraryScreen() {
 
   return (
     <V2Screen scroll testID="v2-anchor-library-screen">
-      <Reveal order={0} enabled={animateArrival}>
+      <Reveal order={0}>
         <V2TopBar title="Your Anchors" onBackPress={() => navigation.goBack()} />
       </Reveal>
-      <Reveal order={1} enabled={animateArrival}>
+      <Reveal order={1}>
         <View style={styles.filter}>
           <V2SegmentedControl
             accessibilityLabel="Filter Anchors"
