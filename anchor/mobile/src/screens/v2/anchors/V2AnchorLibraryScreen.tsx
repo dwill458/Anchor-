@@ -1,9 +1,10 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { V2EmptyState, V2Screen, V2SegmentedControl, V2TopBar } from '@/components/v2';
 import { V2AnchorGalleryGrid } from '@/components/v2/anchors';
+import { ContentSwap, Reveal } from '@/components/v2/motion';
 import { useV2AnchorLibrary, type AnchorLibraryFilter } from '@/hooks/v2/anchors';
 import { spacing } from '@/theme/v2';
 import { AnalyticsService } from '@/services/AnalyticsService';
@@ -34,6 +35,13 @@ export function V2AnchorLibraryScreen() {
   const navigation = useNavigation<Nav>();
   const { filter, setFilter, entries, hasReleased } = useV2AnchorLibrary();
   const allAnchors = useAnchorStore((state) => state.anchors);
+  // The arrival is staged once. A filter change swaps content in place, so cells that mount
+  // after the screen has settled do not rise again on top of the cross-fade.
+  const settled = useRef(false);
+  const animateArrival = !settled.current;
+  useEffect(() => {
+    settled.current = true;
+  }, []);
 
   useEffect(() => {
     perfLog('anchor-library-data', { filter, entries: entries.length, msSinceLibraryMount: Date.now() - mountedAt.current });
@@ -52,33 +60,40 @@ export function V2AnchorLibraryScreen() {
 
   return (
     <V2Screen scroll testID="v2-anchor-library-screen">
-      <V2TopBar title="Your Anchors" onBackPress={() => navigation.goBack()} />
-      <View style={styles.filter}>
-        <V2SegmentedControl
-          accessibilityLabel="Filter Anchors"
-          value={filter}
-          onChange={(value) => setFilter(value as AnchorLibraryFilter)}
-          options={options}
-        />
-      </View>
-      {entries.length === 0 ? (
-        <V2EmptyState
-          title="No Anchors here"
-          message={
-            filter === 'released'
-              ? 'Released Anchors will appear here. Nothing has been released yet.'
-              : 'Create an Anchor to start your collection.'
-          }
-        />
-      ) : (
-        <V2AnchorGalleryGrid
-          entries={entries}
-          onSelectAnchor={(anchorId) => {
-            track('v2_anchor_details_viewed', { from: 'library' });
-            navigation.navigate('V2AnchorDetails', { anchorId });
-          }}
-        />
-      )}
+      <Reveal order={0} enabled={animateArrival}>
+        <V2TopBar title="Your Anchors" onBackPress={() => navigation.goBack()} />
+      </Reveal>
+      <Reveal order={1} enabled={animateArrival}>
+        <View style={styles.filter}>
+          <V2SegmentedControl
+            accessibilityLabel="Filter Anchors"
+            value={filter}
+            onChange={(value) => setFilter(value as AnchorLibraryFilter)}
+            options={options}
+          />
+        </View>
+      </Reveal>
+      <ContentSwap contentKey={filter}>
+        {entries.length === 0 ? (
+          <V2EmptyState
+            title="No Anchors here"
+            message={
+              filter === 'released'
+                ? 'Released Anchors will appear here. Nothing has been released yet.'
+                : 'Create an Anchor to start your collection.'
+            }
+          />
+        ) : (
+          <V2AnchorGalleryGrid
+            entries={entries}
+            animateArrival={animateArrival}
+            onSelectAnchor={(anchorId) => {
+              track('v2_anchor_details_viewed', { from: 'library' });
+              navigation.navigate('V2AnchorDetails', { anchorId });
+            }}
+          />
+        )}
+      </ContentSwap>
     </V2Screen>
   );
 }

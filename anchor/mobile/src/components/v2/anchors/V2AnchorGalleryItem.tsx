@@ -1,6 +1,7 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { CircularAnchorRenderer } from '@/components/v2';
+import { AnimatedPressable, usePressScale } from '@/components/v2/motion';
 import { colors, spacing, typography } from '@/theme/v2';
 import type { Anchor } from '@/types';
 import { anchorRenderProps, categoryLabel } from './anchorPresentation';
@@ -29,12 +30,15 @@ export function V2AnchorGalleryItem({
   countPerfRender('V2AnchorGalleryItem');
   const state = categoryLabel(anchor.category);
   const status = released ? 'Released' : selected ? 'Current' : 'Active';
+  const press = usePressScale();
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       accessibilityLabel={`${anchor.intentionText}. ${state}, ${status}.`}
       onPress={onPress}
-      style={({ pressed }) => [styles.item, pressed && styles.pressed]}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
+      style={[styles.item, press.style]}
     >
       <View style={[styles.artworkContainer, { width: '100%', height: artworkSize }]}>
         <CircularAnchorRenderer
@@ -53,13 +57,12 @@ export function V2AnchorGalleryItem({
       <Text numberOfLines={1} style={styles.meta}>
         {state} · {status}
       </Text>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
 const styles = StyleSheet.create({
   item: { width: '100%', alignItems: 'center' },
-  pressed: { opacity: 0.7 },
   artworkContainer: {
     alignItems: 'center',
     justifyContent: 'center',

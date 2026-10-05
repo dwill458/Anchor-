@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Reveal } from '@/components/v2/motion';
 import { spacing } from '@/theme/v2';
 import type { AnchorLibraryEntry } from '@/hooks/v2/anchors';
 import { V2AnchorGalleryItem } from './V2AnchorGalleryItem';
@@ -7,6 +8,8 @@ import { V2AnchorGalleryItem } from './V2AnchorGalleryItem';
 type Props = {
   entries: AnchorLibraryEntry[];
   onSelectAnchor: (anchorId: string) => void;
+  /** Cells rise in turn when the grid mounts. Read once, so a later re-render never restarts them. */
+  animateArrival?: boolean;
 };
 
 // V2Screen scrollContent uses paddingHorizontal: spacing[6] (24dp each side).
@@ -28,7 +31,8 @@ const MAX_GRID_WIDTH = 440;
  * with dedicated negative space, preventing collisions or edge-clipping across
  * all device viewports.
  */
-export function V2AnchorGalleryGrid({ entries, onSelectAnchor }: Props) {
+export function V2AnchorGalleryGrid({ entries, onSelectAnchor, animateArrival = false }: Props) {
+  const [animate] = useState(animateArrival);
   const { width: windowWidth } = useWindowDimensions();
   const contentWidth = Math.min(windowWidth - SCREEN_HORIZONTAL_PADDING, MAX_GRID_WIDTH);
   const availableWidth = Math.max(0, contentWidth - COLUMN_GAP);
@@ -40,8 +44,8 @@ export function V2AnchorGalleryGrid({ entries, onSelectAnchor }: Props) {
 
   return (
     <View style={[styles.grid, { columnGap: COLUMN_GAP }]} accessibilityRole="list">
-      {entries.map(({ anchor, released, isSelected }) => (
-        <View key={anchor.localId ?? anchor.id} style={[styles.cell, { width: itemWidth }]}>
+      {entries.map(({ anchor, released, isSelected }, index) => (
+        <Reveal key={anchor.localId ?? anchor.id} order={index + 2} enabled={animate} style={[styles.cell, { width: itemWidth }]}>
           <V2AnchorGalleryItem
             anchor={anchor}
             released={released}
@@ -49,7 +53,7 @@ export function V2AnchorGalleryGrid({ entries, onSelectAnchor }: Props) {
             artworkSize={artworkSize}
             onPress={() => onSelectAnchor(anchor.localId ?? anchor.id)}
           />
-        </View>
+        </Reveal>
       ))}
     </View>
   );
