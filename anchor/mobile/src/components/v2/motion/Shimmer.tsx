@@ -14,7 +14,9 @@ import { AnchorMotion } from '@/theme/v2';
 const DIM = 0.55;
 
 /** A slow breathing pulse for a placeholder that is waiting on something. Still under reduced motion. */
-export function Shimmer({ style, children }: { style?: StyleProp<ViewStyle>; children?: ReactNode }) {
+type ShimmerProps = { style?: StyleProp<ViewStyle>; testID?: string; accessibilityElementsHidden?: boolean; children?: ReactNode };
+
+export function Shimmer({ style, testID, accessibilityElementsHidden, children }: ShimmerProps) {
   const reduceMotion = useV2ReduceMotion();
   const level = useSharedValue(1);
   useEffect(() => {
@@ -30,5 +32,9 @@ export function Shimmer({ style, children }: { style?: StyleProp<ViewStyle>; chi
     return () => cancelAnimation(level);
   }, [level, reduceMotion]);
   const animated = useAnimatedStyle(() => ({ opacity: level.value }));
-  return <Animated.View style={[style, animated]}>{children}</Animated.View>;
+  return (
+    <Animated.View testID={testID} accessibilityElementsHidden={accessibilityElementsHidden} style={[style, animated]}>
+      {children}
+    </Animated.View>
+  );
 }

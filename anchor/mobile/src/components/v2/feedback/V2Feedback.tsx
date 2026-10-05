@@ -1,14 +1,17 @@
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { AlertCircle, WifiOff } from 'lucide-react-native';
+import { Reveal, Shimmer } from '@/components/v2/motion';
 import { colors, radii, spacing, typography } from '@/theme/v2';
 
 export function V2ActivityIndicator({ label = 'Loading' }: { label?: string }) {
   return (
-    <View accessibilityRole="progressbar" accessibilityLabel={label} style={styles.loading}>
-      <ActivityIndicator color={colors.text.secondary} />
-      <Text style={styles.loadingLabel}>{label}</Text>
-    </View>
+    <Reveal>
+      <View accessibilityRole="progressbar" accessibilityLabel={label} style={styles.loading}>
+        <ActivityIndicator color={colors.text.secondary} />
+        <Text style={styles.loadingLabel}>{label}</Text>
+      </View>
+    </Reveal>
   );
 }
 
@@ -21,7 +24,7 @@ export function V2Skeleton({
   height?: number;
   testID?: string;
 }) {
-  return <View testID={testID} accessibilityElementsHidden style={[styles.skeleton, { width, height }]} />;
+  return <Shimmer testID={testID} accessibilityElementsHidden style={[styles.skeleton, { width, height }]} />;
 }
 
 export function V2InlineError({
@@ -35,15 +38,17 @@ export function V2InlineError({
 }) {
   const Icon = offline ? WifiOff : AlertCircle;
   return (
-    <View accessibilityRole="alert" style={styles.error}>
-      <Icon size={18} color={colors.semantic.error} />
-      <Text style={styles.errorText}>{message}</Text>
-      {onRetry ? (
-        <Text accessibilityRole="button" onPress={onRetry} style={styles.retry}>
-          Try again
-        </Text>
-      ) : null}
-    </View>
+    <Reveal>
+      <View accessibilityRole="alert" style={styles.error}>
+        <Icon size={18} color={colors.semantic.error} />
+        <Text style={styles.errorText}>{message}</Text>
+        {onRetry ? (
+          <Text accessibilityRole="button" onPress={onRetry} style={styles.retry}>
+            Try again
+          </Text>
+        ) : null}
+      </View>
+    </Reveal>
   );
 }
 
@@ -59,14 +64,16 @@ export function V2EmptyState({
   gesture?: React.ReactNode;
 }) {
   return (
-    <View style={styles.empty}>
-      {gesture ? <View style={styles.emptyGesture}>{gesture}</View> : null}
-      <Text accessibilityRole="header" style={styles.emptyTitle}>
-        {title}
-      </Text>
-      {message ? <Text style={styles.emptyMessage}>{message}</Text> : null}
-      {action ? <View style={styles.emptyAction}>{action}</View> : null}
-    </View>
+    <Reveal>
+      <View style={styles.empty}>
+        {gesture ? <View style={styles.emptyGesture}>{gesture}</View> : null}
+        <Text accessibilityRole="header" style={styles.emptyTitle}>
+          {title}
+        </Text>
+        {message ? <Text style={styles.emptyMessage}>{message}</Text> : null}
+        {action ? <View style={styles.emptyAction}>{action}</View> : null}
+      </View>
+    </Reveal>
   );
 }
 
