@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Image,
@@ -15,6 +15,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowRight, ChevronLeft } from 'lucide-react-native';
 import { V2Button } from '@/components/v2/primitives/V2Button';
+import { ArrivalScope, ContentSwap, Reveal } from '@/components/v2/motion';
 import { V2SheetModal } from '@/components/v2/primitives/V2SheetModal';
 import { ChartAdjustPanel, type ChartAdjustRequest } from '@/components/v2/chart/ChartAdjustPanel';
 import { ChartRouteEditor, type DraftWaypoint } from '@/components/v2/chart/ChartRouteEditor';
@@ -106,6 +107,14 @@ export function V2ChartAdjustScreen() {
   const back = () => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('V2Chart', { anchorId }));
 
   const editedAhead = useMemo(() => draft.filter((waypoint) => !waypoint.locked && waypoint.title.trim()), [draft]);
+
+  // The heading and panel are staged in once, when the route first appears. Asking and reviewing then swap in place.
+  const ready = Boolean(course && course.status === 'ACTIVE');
+  const arrived = useRef(false);
+  const animateArrival = !arrived.current;
+  useEffect(() => {
+    if (ready) arrived.current = true;
+  }, [ready]);
 
   if (!course || course.status !== 'ACTIVE') {
     return (
@@ -281,77 +290,85 @@ export function V2ChartAdjustScreen() {
           contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing[6] }]}
           showsVerticalScrollIndicator={false}
         >
-          {/* Headline section */}
-          <View style={styles.hero}>
-            <Text accessibilityRole="header" style={styles.displayHeading}>
-              {phase === 'ask' ? 'Where does the route need to change?' : CHART_COPY.adjust.review}
-            </Text>
-            <Text style={styles.support}>
-              {phase === 'ask' ? CHART_COPY.adjust.support : CHART_COPY.adjust.reviewSupport}
-            </Text>
-          </View>
+          <ContentSwap contentKey={phase}>
+            <ArrivalScope animate={animateArrival}>
+              <Reveal order={0}>
+                {/* Headline section */}
+                <View style={styles.hero}>
+                  <Text accessibilityRole="header" style={styles.displayHeading}>
+                    {phase === 'ask' ? 'Where does the route need to change?' : CHART_COPY.adjust.review}
+                  </Text>
+                  <Text style={styles.support}>
+                    {phase === 'ask' ? CHART_COPY.adjust.support : CHART_COPY.adjust.reviewSupport}
+                  </Text>
+                </View>
+              </Reveal>
 
-          {phase === 'ask' ? (
-            <View style={styles.panelContainer}>
-              <ChartAdjustPanel
-                onSubmit={(request) => void ask(request)}
-                loading={loading}
-                error={error}
-                protectedNote
-                categoryColor={categoryColor}
-                testID="chart-adjust-active"
-              />
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Edit the route yourself"
-                onPress={editDirectly}
-                style={styles.manual}
-                testID="chart-adjust-manual"
-              >
-                <Text style={styles.manualText}>Edit the route yourself</Text>
-              </Pressable>
-              <View style={styles.dangerZone}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Archive this route"
-                  onPress={handleArchive}
-                  style={styles.secondaryAction}
-                  testID="chart-adjust-archive"
-                >
-                  <Text style={styles.secondaryActionText}>Archive this route</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Delete this route"
-                  onPress={handleDelete}
-                  style={styles.secondaryAction}
-                  testID="chart-adjust-delete"
-                >
-                  <Text style={[styles.secondaryActionText, styles.destructiveText]}>Delete this route</Text>
-                </Pressable>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.panelContainer}>
-              <ChartRouteEditor waypoints={draft} onChange={setDraft} testID="chart-adjust-editor" />
-              <Text style={styles.note}>{CHART_COPY.adjust.protected}</Text>
-              {error ? <Text style={styles.error}>{error}</Text> : null}
+              <Reveal order={1}>
+                {phase === 'ask' ? (
+                  <View style={styles.panelContainer}>
+                    <ChartAdjustPanel
+                      onSubmit={(request) => void ask(request)}
+                      loading={loading}
+                      error={error}
+                      protectedNote
+                      categoryColor={categoryColor}
+                      testID="chart-adjust-active"
+                    />
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Edit the route yourself"
+                      onPress={editDirectly}
+                      style={styles.manual}
+                      testID="chart-adjust-manual"
+                    >
+                      <Text style={styles.manualText}>Edit the route yourself</Text>
+                    </Pressable>
+                    <View style={styles.dangerZone}>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Archive this route"
+                        onPress={handleArchive}
+                        style={styles.secondaryAction}
+                        testID="chart-adjust-archive"
+                      >
+                        <Text style={styles.secondaryActionText}>Archive this route</Text>
+                      </Pressable>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Delete this route"
+                        onPress={handleDelete}
+                        style={styles.secondaryAction}
+                        testID="chart-adjust-delete"
+                      >
+                        <Text style={[styles.secondaryActionText, styles.destructiveText]}>Delete this route</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.panelContainer}>
+                    <ChartRouteEditor waypoints={draft} onChange={setDraft} testID="chart-adjust-editor" />
+                    <Text style={styles.note}>{CHART_COPY.adjust.protected}</Text>
+                    {error ? <Text style={styles.error}>{error}</Text> : null}
 
-              <View style={styles.reviewCtaContainer}>
-                <V2Button
-                  size="large"
-                  onPress={() => void apply(false)}
-                  loading={applying}
-                  disabled={editedAhead.length === 0}
-                  style={editedAhead.length > 0 && categoryColor ? { backgroundColor: categoryColor } : undefined}
-                  iconRight={<ArrowRight size={18} color={colors.text.inverse} />}
-                  testID="chart-adjust-apply"
-                >
-                  {CHART_COPY.adjust.apply}
-                </V2Button>
-              </View>
-            </View>
-          )}
+                    <View style={styles.reviewCtaContainer}>
+                      <V2Button
+                        size="large"
+                        onPress={() => void apply(false)}
+                        loading={applying}
+                        disabled={editedAhead.length === 0}
+                        style={editedAhead.length > 0 && categoryColor ? { backgroundColor: categoryColor } : undefined}
+                        iconRight={<ArrowRight size={18} color={colors.text.inverse} />}
+                        testID="chart-adjust-apply"
+                      >
+                        {CHART_COPY.adjust.apply}
+                      </V2Button>
+                    </View>
+                  </View>
+                )}
+              </Reveal>
+            </ArrivalScope>
+          </ContentSwap>
         </ScrollView>
       </KeyboardAvoidingView>
 

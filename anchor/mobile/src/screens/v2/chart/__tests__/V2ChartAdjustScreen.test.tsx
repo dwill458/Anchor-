@@ -1,6 +1,7 @@
 import React from 'react';
 import { Alert } from 'react-native';
 import { fireEvent, render, waitFor, within } from '@testing-library/react-native';
+import * as Reanimated from 'react-native-reanimated';
 import { V2ChartAdjustScreen } from '../V2ChartAdjustScreen';
 import { apiClient } from '@/services/ApiClient';
 import { resetAnchorChartCache } from '@/hooks/v2/chart/useAnchorChart';
@@ -31,7 +32,13 @@ jest.mock('@react-navigation/native', () => {
   };
 });
 
-jest.mock('@/hooks/v2/useV2ReduceMotion', () => ({ useV2ReduceMotion: () => true }));
+// Reduced by default (the pre-existing tests); the motion tests below switch it off.
+let mockReduce = true;
+jest.mock('@/hooks/v2/useV2ReduceMotion', () => ({ useV2ReduceMotion: () => mockReduce }));
+jest.mock('react-native-reanimated', () => {
+  const actual = jest.requireActual('react-native-reanimated');
+  return { ...actual, __esModule: true, withDelay: jest.fn(actual.withDelay) };
+});
 
 jest.mock('@/services/ApiClient', () => {
   class ApiClientError extends Error {
@@ -332,5 +339,51 @@ describe('V2ChartAdjustScreen — Adjust Route redesign', () => {
       expect(mockGoBack).toHaveBeenCalled();
     });
     alertSpy.mockRestore();
+  });
+});
+
+describe('V2ChartAdjustScreen motion', () => {
+  const withDelay = Reanimated.withDelay as jest.Mock;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockReduce = false;
+    canGoBackValue = true;
+    mockParams = { anchorId: 'anchor-1' };
+    useAuthStore.setState({ user: { id: 'test-user' } as never });
+    resetAnchorChartCache();
+    useAnchorStore.setState({ anchors: [anchor as never] });
+    serveChart();
+  });
+
+  afterEach(() => {
+    mockReduce = true;
+  });
+
+  it('stages the heading and the panel in once, keeping every control on screen', async () => {
+    const screen = render(<V2ChartAdjustScreen />);
+    await screen.findByTestId('v2-chart-adjust');
+    expect(withDelay).toHaveBeenCalled();
+    expect(screen.getByText('Where does the route need to change?')).toBeTruthy();
+    for (const id of ['chart-adjust-active', 'chart-adjust-manual', 'chart-adjust-archive', 'chart-adjust-delete']) {
+      expect(screen.getByTestId(id)).toBeTruthy();
+    }
+    const longest = Math.max(...withDelay.mock.calls.map(([delay]) => delay as number));
+    expect(longest).toBeLessThanOrEqual(6 * 60);
+  });
+
+  it('swaps between asking and reviewing in place, without staging the sections in again', async () => {
+    const screen = render(<V2ChartAdjustScreen />);
+    await screen.findByTestId('v2-chart-adjust');
+    const afterMount = withDelay.mock.calls.length;
+    expect(afterMount).toBeGreaterThan(0);
+
+    fireEvent.press(screen.getByTestId('chart-adjust-manual'));
+    expect(await screen.findByTestId('chart-adjust-editor')).toBeTruthy();
+    expect(withDelay.mock.calls.length).toBe(afterMount);
+
+    fireEvent.press(screen.getByTestId('chart-adjust-back'));
+    expect(await screen.findByTestId('chart-adjust-active')).toBeTruthy();
+    expect(withDelay.mock.calls.length).toBe(afterMount);
   });
 });
