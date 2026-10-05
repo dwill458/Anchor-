@@ -4,6 +4,7 @@ import type {
   AnchorSnapshot,
   BlockedReason,
   WaypointKind,
+  WaypointProgressMode,
   WaypointState,
   WaypointSummary,
 } from '../types/chart';
@@ -28,7 +29,7 @@ export type WaypointWithOptionalCourse = Pick<
   | 'updatedAt'
 > &
   Partial<
-    Pick<Waypoint, 'kind' | 'metricLabel' | 'metricBaseline' | 'metricTarget' | 'metricCurrent'>
+    Pick<Waypoint, 'kind' | 'metricLabel' | 'metricBaseline' | 'metricTarget' | 'metricCurrent' | 'progressMode'>
   >;
 
 export type ActiveLink = Pick<
@@ -195,6 +196,15 @@ export function normalizeWaypointKind(value: string | null | undefined): Waypoin
   return value === 'METRIC' || value === 'CAPABILITY' ? value : 'MILESTONE';
 }
 
+export function resolveProgressMode(waypoint: {
+  progressMode?: string | null;
+  metricTarget?: number | null;
+}): WaypointProgressMode {
+  // A stored measure always wins: a number on screen needs a target behind it.
+  if (typeof waypoint.metricTarget === 'number') return 'numeric';
+  return waypoint.progressMode === 'none' ? 'none' : 'moves';
+}
+
 export function buildWaypointSummary(
   course: CoursePointer,
   waypoint: WaypointWithOptionalCourse,
@@ -209,6 +219,7 @@ export function buildWaypointSummary(
     title: waypoint.title,
     description: waypoint.description,
     kind: normalizeWaypointKind(waypoint.kind),
+    progressMode: resolveProgressMode(waypoint),
     metric:
       typeof waypoint.metricTarget === 'number'
         ? {

@@ -308,6 +308,7 @@ export type WaypointMetricInput = {
   metricBaseline?: number | null;
   metricTarget?: number | null;
   metricCurrent?: number | null;
+  progressMode?: 'numeric' | 'moves' | 'none';
 };
 
 /** Only fields the caller supplied are written; a null target clears the metric. */
@@ -317,6 +318,7 @@ export function waypointMetricData(input: WaypointMetricInput): Prisma.WaypointU
   if (input.metricLabel !== undefined) data.metricLabel = input.metricLabel?.trim() || null;
   if (input.metricBaseline !== undefined) data.metricBaseline = input.metricBaseline;
   if (input.metricCurrent !== undefined) data.metricCurrent = input.metricCurrent;
+  if (input.progressMode !== undefined) data.progressMode = input.progressMode;
   if (input.metricTarget !== undefined) {
     data.metricTarget = input.metricTarget;
     if (input.metricTarget === null) {
@@ -324,6 +326,10 @@ export function waypointMetricData(input: WaypointMetricInput): Prisma.WaypointU
       data.metricBaseline = null;
       data.metricLabel = null;
       if (input.kind === undefined) data.kind = 'MILESTONE';
+      // Losing the measure never leaves a numeric label behind.
+      if (input.progressMode === undefined) data.progressMode = 'moves';
+    } else if (input.progressMode === undefined) {
+      data.progressMode = 'numeric';
     }
   }
   return data;
@@ -335,9 +341,11 @@ export function waypointMetricCreateData(input: WaypointMetricInput): {
   metricBaseline: number | null;
   metricTarget: number | null;
   metricCurrent: number | null;
+  progressMode: string;
 } {
   const hasMetric = typeof input.metricTarget === 'number';
   return {
+    progressMode: hasMetric ? 'numeric' : input.progressMode === 'none' ? 'none' : 'moves',
     kind: input.kind ?? (hasMetric ? 'METRIC' : 'MILESTONE'),
     metricLabel: hasMetric ? input.metricLabel?.trim() || null : null,
     metricBaseline: hasMetric ? (input.metricBaseline ?? null) : null,
@@ -589,11 +597,13 @@ export class CourseService {
   async archiveCourse(
     userId: string,
     courseId: string,
-    expectedCourseVersion: number
+    expectedCourseVersion?: number
   ): Promise<CourseDetail> {
     return runSerializable(async tx => {
       const row = await findCourse(tx, userId, courseId);
-      assertExpectedVersion(row, expectedCourseVersion);
+      if (typeof expectedCourseVersion === 'number') {
+        assertExpectedVersion(row, expectedCourseVersion);
+      }
       if (row.status === CourseStatus.ARCHIVED) return projection(row);
       if (![CourseStatus.DRAFT, CourseStatus.ACTIVE, CourseStatus.COMPLETED].includes(row.status)) {
         throw new AppError('Course cannot be archived', 409, 'WAYPOINT_TRANSITION_INVALID');
@@ -604,6 +614,7 @@ export class CourseService {
           status: CourseStatus.ARCHIVED,
           archivedAt: new Date(),
           currentWaypointId: null,
+          currentMoveId: null,
           version: { increment: 1 },
         },
       });
@@ -685,14 +696,21 @@ export class CourseService {
   async softDeleteCourse(
     userId: string,
     courseId: string,
-    expectedCourseVersion: number
+    expectedCourseVersion?: number
   ): Promise<void> {
     await runSerializable(async tx => {
       const row = await findCourse(tx, userId, courseId);
-      assertExpectedVersion(row, expectedCourseVersion);
+      if (typeof expectedCourseVersion === 'number') {
+        assertExpectedVersion(row, expectedCourseVersion);
+      }
       await tx.course.update({
         where: { id: row.id },
-        data: { deletedAt: new Date(), version: { increment: 1 } },
+        data: {
+          deletedAt: new Date(),
+          currentWaypointId: null,
+          currentMoveId: null,
+          version: { increment: 1 },
+        },
       });
     });
   }

@@ -263,6 +263,9 @@ function assertValidCompletedSession(input: NormalizedPracticeSessionInput): voi
   if (completedAt < startedAt || completedAt.getTime() > Date.now() + 5 * 60 * 1000) {
     throw new AppError('Invalid practice timestamps', 400, 'VALIDATION_ERROR');
   }
+  if (input.completedDurationSeconds < input.plannedDurationSeconds) {
+    throw new AppError('Session ended early and cannot be marked as completed', 400, 'VALIDATION_ERROR');
+  }
   if (input.completedDurationSeconds > input.plannedDurationSeconds + 5) {
     throw new AppError('Completed duration exceeds the planned session', 400, 'VALIDATION_ERROR');
   }

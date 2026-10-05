@@ -68,6 +68,9 @@ export type AnchorLinkSummary = {
 
 export type WaypointKind = 'MILESTONE' | 'METRIC' | 'CAPABILITY';
 
+/** How a waypoint shows progress: a number, its moves, or nothing. */
+export type WaypointProgressMode = 'numeric' | 'moves' | 'none';
+
 export type WaypointMetric = {
   label: string | null;
   baseline: number | null;
@@ -82,6 +85,8 @@ export type WaypointSummary = {
   title: string;
   description: string | null;
   kind: WaypointKind;
+  /** Always resolved: older waypoints without a stored mode read as numeric when they have a measure, else moves. */
+  progressMode: WaypointProgressMode;
   metric: WaypointMetric | null;
   state: WaypointState;
   blockedReason: BlockedReason | null;

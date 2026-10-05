@@ -482,6 +482,17 @@ describe('canonical practice sessions', () => {
     expect(partial.status).toBe(400);
   });
 
+  it('rejects a focus session ended early as completed', async () => {
+    const res = await request(app).post('/api/practice/sessions').send({
+      ...body,
+      practiceMode: 'focus',
+      plannedDurationSeconds: 300,
+      completedDurationSeconds: 45,
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toContain('ended early');
+  });
+
   it('rejects invalid timezone metadata and a mismatched local date', async () => {
     const invalidZone = await request(app)
       .post('/api/practice/sessions')

@@ -15,6 +15,13 @@ export type ChartComplexity = (typeof CHART_COMPLEXITIES)[number];
 export const CHART_WAYPOINT_KINDS = ['MILESTONE', 'METRIC', 'CAPABILITY'] as const;
 export type ChartWaypointKind = (typeof CHART_WAYPOINT_KINDS)[number];
 
+/**
+ * How a waypoint shows progress. numeric: a real number with a unit and target. moves: the checklist of its
+ * moves. none: no progress UI, just the waypoint and its moves.
+ */
+export const CHART_PROGRESS_MODES = ['numeric', 'moves', 'none'] as const;
+export type ChartProgressMode = (typeof CHART_PROGRESS_MODES)[number];
+
 /** Planner never proposes more than this; users may add more afterwards. */
 export const MAX_GENERATED_WAYPOINTS = 8;
 export const MIN_GENERATED_WAYPOINTS = 2;
@@ -43,6 +50,8 @@ const RawWaypointSchema = z.object({
   title: z.string(),
   rationale: z.string().nullable(),
   type: z.string(),
+  // Optional in zod so older provider output still parses; the JSON schema below requires it.
+  metricType: z.string().nullish(),
   targetMetric: z.string().nullable(),
   targetValue: z.number().nullable(),
   baselineValue: z.number().nullable(),
@@ -91,11 +100,12 @@ export const GENERATION_JSON_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['title', 'rationale', 'type', 'targetMetric', 'targetValue', 'baselineValue'],
+        required: ['title', 'rationale', 'type', 'metricType', 'targetMetric', 'targetValue', 'baselineValue'],
         properties: {
           title: { type: 'string' },
           rationale: { type: ['string', 'null'] },
           type: { type: 'string', enum: [...CHART_WAYPOINT_KINDS] },
+          metricType: { type: 'string', enum: [...CHART_PROGRESS_MODES] },
           targetMetric: { type: ['string', 'null'] },
           targetValue: { type: ['number', 'null'] },
           baselineValue: { type: ['number', 'null'] },
@@ -139,6 +149,7 @@ export type PlannedWaypoint = {
   title: string;
   rationale: string | null;
   kind: ChartWaypointKind;
+  progressMode: ChartProgressMode;
   metricLabel: string | null;
   metricTarget: number | null;
   metricBaseline: number | null;
@@ -209,6 +220,22 @@ function normalizeKind(value: string): ChartWaypointKind {
     : 'MILESTONE';
 }
 
+function normalizeProgressMode(value: string | null | undefined): ChartProgressMode | null {
+  const lower = clean(value).toLowerCase();
+  return (CHART_PROGRESS_MODES as readonly string[]).includes(lower) ? (lower as ChartProgressMode) : null;
+}
+
+/**
+ * Chart setup is not a waypoint. "Establish your current baseline" belongs to the reading phase, so a
+ * title that only gathers or confirms a starting point is dropped from the route.
+ */
+const SETUP_WAYPOINT_PATTERN =
+  /^(establish|determine|document|record|measure|define|identify|assess|confirm|verify|set up|track|log|calculate|find out)\b.*\b(baseline|starting point|current (state|level|position|income|weight|status))\b/i;
+
+export function isSetupWaypointTitle(title: string): boolean {
+  return SETUP_WAYPOINT_PATTERN.test(title.trim());
+}
+
 function finitePositive(value: number | null | undefined): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null;
 }
@@ -217,6 +244,10 @@ function normalizeWaypoint(raw: z.infer<typeof RawWaypointSchema>): PlannedWaypo
   const title = cleanTitle(raw.title, TITLE_MAX);
   if (title.length < 3) return null;
   let kind = normalizeKind(raw.type);
+  const declared = normalizeProgressMode(raw.metricType);
+  // The declared metric type is the contract; legacy output without one falls back to the kind.
+  if (declared === 'numeric') kind = 'METRIC';
+  else if (declared && kind === 'METRIC') kind = 'MILESTONE';
   let metricTarget = finitePositive(raw.targetValue);
   let metricLabel = cleanOptional(raw.targetMetric, METRIC_LABEL_MAX);
   let metricBaseline =
@@ -225,6 +256,8 @@ function normalizeWaypoint(raw: z.infer<typeof RawWaypointSchema>): PlannedWaypo
       : null;
   // A metric needs a real target. Anything else is a milestone in disguise.
   if (kind === 'METRIC' && metricTarget === null) kind = 'MILESTONE';
+  const progressMode: ChartProgressMode =
+    kind === 'METRIC' ? 'numeric' : declared && declared !== 'numeric' ? declared : 'moves';
   if (kind !== 'METRIC') {
     metricTarget = null;
     metricLabel = null;
@@ -237,6 +270,7 @@ function normalizeWaypoint(raw: z.infer<typeof RawWaypointSchema>): PlannedWaypo
     title,
     rationale: cleanOptional(raw.rationale, RATIONALE_MAX),
     kind,
+    progressMode,
     metricLabel,
     metricTarget,
     metricBaseline,
@@ -282,6 +316,8 @@ export function normalizeGenerationResult(
   for (const candidate of raw.waypoints) {
     const waypoint = normalizeWaypoint(candidate);
     if (!waypoint) continue;
+    // Never drop below the minimum route length: setup titles only go while enough real waypoints remain.
+    if (isSetupWaypointTitle(waypoint.title) && raw.waypoints.length - 1 >= MIN_GENERATED_WAYPOINTS) continue;
     const key = waypoint.title.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);

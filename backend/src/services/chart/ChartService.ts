@@ -11,6 +11,7 @@ import {
   assertExpectedVersion,
   assertWaypointBelongs,
   buildAnchorSnapshot,
+  courseService,
   ensureNoCorruption,
   eventKey,
   findCourse,
@@ -37,6 +38,7 @@ export type RouteWaypointInput = {
   metricLabel?: string | null;
   metricBaseline?: number | null;
   metricTarget?: number | null;
+  progressMode?: 'numeric' | 'moves' | 'none';
 };
 
 export type ChartAnchorSummary = {
@@ -106,6 +108,7 @@ function metricInput(waypoint: RouteWaypointInput) {
     metricLabel: waypoint.metricLabel,
     metricBaseline: waypoint.metricBaseline,
     metricTarget: waypoint.metricTarget,
+    progressMode: waypoint.progressMode,
   };
 }
 
@@ -795,6 +798,44 @@ export class ChartService {
       }
       return projection(await findCourse(tx, userId, courseId));
     });
+  }
+
+  async archiveChart(
+    userId: string,
+    target: { courseId?: string; anchorId?: string },
+    expectedCourseVersion?: number
+  ): Promise<CourseDetail> {
+    const courseId = target.courseId ?? (await this.resolveActiveCourseId(userId, target.anchorId!));
+    return courseService.archiveCourse(userId, courseId, expectedCourseVersion);
+  }
+
+  async deleteChart(
+    userId: string,
+    target: { courseId?: string; anchorId?: string },
+    expectedCourseVersion?: number
+  ): Promise<{ deleted: true }> {
+    const courseId = target.courseId ?? (await this.resolveActiveCourseId(userId, target.anchorId!));
+    await courseService.softDeleteCourse(userId, courseId, expectedCourseVersion);
+    return { deleted: true };
+  }
+
+  private async resolveActiveCourseId(userId: string, anchorId: string): Promise<string> {
+    await loadOwnedAnchor(prisma, userId, anchorId);
+    const course = await prisma.course.findFirst({
+      where: {
+        userId,
+        deletedAt: null,
+        status: { in: [CourseStatus.ACTIVE, CourseStatus.COMPLETED, CourseStatus.DRAFT] },
+        OR: [
+          { anchorId },
+          { anchorId: null, anchorLinks: { some: { anchorId, role: CourseAnchorRole.DESTINATION } } },
+        ],
+      },
+      orderBy: { updatedAt: 'desc' },
+      select: { id: true },
+    });
+    if (!course) throw new AppError('Chart not found', 404, 'COURSE_NOT_FOUND');
+    return course.id;
   }
 }
 

@@ -236,3 +236,91 @@ describe('planning prompt', () => {
     expect(message).not.toContain('whatWouldMakeItReal is');
   });
 });
+
+describe('metric type (progress mode)', () => {
+  const run = (waypoints: unknown[]) =>
+    normalizeGenerationResult(route(['a', 'b'], { waypoints }), { allowFollowUp: false });
+  const plan = (result: ReturnType<typeof run>) => {
+    if (result.needsMoreContext) throw new Error('unexpected follow-up');
+    return result.waypoints;
+  };
+
+  it('numeric carries its unit and target and becomes a METRIC', () => {
+    const [first] = plan(
+      run([
+        waypoint('Reach 1,000 active users', { type: 'METRIC', metricType: 'numeric', targetMetric: 'active users', targetValue: 1000 }),
+        waypoint('Reach 10,000 active users', { type: 'METRIC', metricType: 'numeric', targetMetric: 'active users', targetValue: 10000 }),
+      ])
+    );
+    expect(first).toMatchObject({ kind: 'METRIC', progressMode: 'numeric', metricTarget: 1000, metricLabel: 'active users' });
+  });
+
+  it('numeric without a real target is downgraded to moves, never shown as a counter', () => {
+    const [first] = plan(
+      run([
+        waypoint('Feel steady again', { metricType: 'numeric', targetValue: null }),
+        waypoint('Hold it for a month', { metricType: 'moves' }),
+      ])
+    );
+    expect(first).toMatchObject({ kind: 'MILESTONE', progressMode: 'moves', metricTarget: null, metricLabel: null });
+  });
+
+  it('moves and none discard any number the model attached', () => {
+    const [moves, none] = plan(
+      run([
+        waypoint('Have the conversation', { metricType: 'moves', targetValue: 5, targetMetric: 'talks' }),
+        waypoint('Things feel different', { metricType: 'none', type: 'METRIC', targetValue: 3 }),
+      ])
+    );
+    expect(moves).toMatchObject({ progressMode: 'moves', metricTarget: null, metricLabel: null });
+    expect(none).toMatchObject({ kind: 'MILESTONE', progressMode: 'none', metricTarget: null });
+  });
+
+  it('legacy output without a metric type falls back to the kind', () => {
+    const [metric, milestone] = plan(
+      run([
+        waypoint('Reach 50 clients', { type: 'METRIC', targetValue: 50, targetMetric: 'clients' }),
+        waypoint('Ship the first version'),
+      ])
+    );
+    expect(metric).toMatchObject({ kind: 'METRIC', progressMode: 'numeric' });
+    expect(milestone).toMatchObject({ kind: 'MILESTONE', progressMode: 'moves' });
+  });
+
+  it('requires metricType in the structured-output schema', () => {
+    expect(GENERATION_JSON_SCHEMA.properties.waypoints.items.required).toContain('metricType');
+  });
+});
+
+describe('waypoint 1 is the first real move, never setup', () => {
+  it('drops a baseline-establishing waypoint while enough real waypoints remain', () => {
+    const result = normalizeGenerationResult(
+      route([
+        'Establish current verified monthly income baseline',
+        'Reach $3,000 a month',
+        'Reach $5,000 a month',
+      ]),
+      { allowFollowUp: false }
+    );
+    if (result.needsMoreContext) throw new Error('unexpected follow-up');
+    expect(result.waypoints.map(item => item.title)).toEqual(['Reach $3,000 a month', 'Reach $5,000 a month']);
+  });
+
+  it('keeps ordinary waypoints that merely mention a baseline later in the route', () => {
+    const result = normalizeGenerationResult(
+      route(['Ship the first version', 'Double the baseline conversion rate']),
+      { allowFollowUp: false }
+    );
+    if (result.needsMoreContext) throw new Error('unexpected follow-up');
+    expect(result.waypoints).toHaveLength(2);
+  });
+
+  it('never trims a route below the minimum length', () => {
+    const result = normalizeGenerationResult(
+      route(['Establish your baseline', 'Reach the goal']),
+      { allowFollowUp: false }
+    );
+    if (result.needsMoreContext) throw new Error('unexpected follow-up');
+    expect(result.waypoints).toHaveLength(2);
+  });
+});

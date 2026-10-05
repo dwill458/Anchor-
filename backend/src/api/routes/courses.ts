@@ -43,6 +43,7 @@ const UpdateCourseSchema = z
 const ExpectedVersionSchema = z.object({ expectedCourseVersion: CourseVersion }).strict();
 const MetricFields = {
   kind: z.enum(['MILESTONE', 'METRIC', 'CAPABILITY']).optional(),
+  progressMode: z.enum(['numeric', 'moves', 'none']).optional(),
   metricLabel: z.string().trim().max(40).nullable().optional(),
   metricBaseline: z.number().finite().min(0).max(1e12).nullable().optional(),
   metricTarget: z.number().finite().positive().max(1e12).nullable().optional(),

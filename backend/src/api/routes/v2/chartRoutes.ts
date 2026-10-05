@@ -29,12 +29,14 @@ const CourseVersion = z.number().int().min(1);
 const MetricNumber = z.number().finite().min(0).max(1e12);
 
 const WaypointKind = z.enum(['MILESTONE', 'METRIC', 'CAPABILITY']);
+const ProgressMode = z.enum(['numeric', 'moves', 'none']);
 const RouteWaypoint = z
   .object({
     id: Id.nullish(),
     title: z.string().trim().min(1).max(60),
     rationale: z.string().max(400).nullish(),
     kind: WaypointKind.optional(),
+    progressMode: ProgressMode.optional(),
     metricLabel: z.string().max(40).nullish(),
     metricBaseline: MetricNumber.nullish(),
     metricTarget: MetricNumber.positive().nullish(),
@@ -99,6 +101,7 @@ const AdjustSchema = z
               .object({
                 title: z.string().trim().min(1).max(60),
                 kind: WaypointKind.optional(),
+                progressMode: ProgressMode.optional(),
                 metricTarget: MetricNumber.nullish(),
                 metricLabel: z.string().max(40).nullish(),
               })
@@ -162,6 +165,10 @@ const UpdateMoveSchema = z
 
 const ProgressSchema = z
   .object({ expectedCourseVersion: CourseVersion, metricCurrent: MetricNumber.nullable() })
+  .strict();
+
+const ArchiveDeleteSchema = z
+  .object({ expectedCourseVersion: CourseVersion.optional() })
   .strict();
 
 function validate<T>(schema: z.ZodType<T>, value: unknown): T {
@@ -344,6 +351,54 @@ router.patch(
     res.json({
       success: true,
       data: await chartService.updateWaypointProgress(userId, req.params.courseId, req.params.waypointId, body),
+    });
+  })
+);
+
+router.post(
+  '/charts/:courseId/archive',
+  handle(async (req, res) => {
+    const userId = await writeUser(req);
+    const body = req.body && Object.keys(req.body).length > 0 ? validate(ArchiveDeleteSchema, req.body) : {};
+    res.json({
+      success: true,
+      data: await chartService.archiveChart(userId, { courseId: req.params.courseId }, body.expectedCourseVersion),
+    });
+  })
+);
+
+router.delete(
+  '/charts/:courseId',
+  handle(async (req, res) => {
+    const userId = await writeUser(req);
+    const body = req.body && Object.keys(req.body).length > 0 ? validate(ArchiveDeleteSchema, req.body) : {};
+    res.json({
+      success: true,
+      data: await chartService.deleteChart(userId, { courseId: req.params.courseId }, body.expectedCourseVersion),
+    });
+  })
+);
+
+router.post(
+  '/anchors/:anchorId/chart/archive',
+  handle(async (req, res) => {
+    const userId = await writeUser(req);
+    const body = req.body && Object.keys(req.body).length > 0 ? validate(ArchiveDeleteSchema, req.body) : {};
+    res.json({
+      success: true,
+      data: await chartService.archiveChart(userId, { anchorId: req.params.anchorId }, body.expectedCourseVersion),
+    });
+  })
+);
+
+router.delete(
+  '/anchors/:anchorId/chart',
+  handle(async (req, res) => {
+    const userId = await writeUser(req);
+    const body = req.body && Object.keys(req.body).length > 0 ? validate(ArchiveDeleteSchema, req.body) : {};
+    res.json({
+      success: true,
+      data: await chartService.deleteChart(userId, { anchorId: req.params.anchorId }, body.expectedCourseVersion),
     });
   })
 );

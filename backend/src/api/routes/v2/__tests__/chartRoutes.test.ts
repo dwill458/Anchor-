@@ -36,6 +36,8 @@ const mockChartService = {
   dismissMove: jest.fn(),
   replaceSuggestedMoves: jest.fn(),
   updateWaypointProgress: jest.fn(),
+  archiveChart: jest.fn(),
+  deleteChart: jest.fn(),
 };
 const mockPlanner = { generate: jest.fn(), adjust: jest.fn(), suggestMoves: jest.fn() };
 jest.mock('../../../../services/chart/ChartService', () => ({ chartService: mockChartService }));
@@ -173,6 +175,28 @@ describe('Chart v2 routes', () => {
     expect(response.status).toBe(200);
     expect(response.body.data).toEqual({ available: false, chart: null });
     expect(mockChartService.replaceSuggestedMoves).not.toHaveBeenCalled();
+  });
+
+  it('archives a Chart by courseId and anchorId', async () => {
+    mockChartService.archiveChart.mockResolvedValue({ id: 'c1', status: 'ARCHIVED' });
+    const res1 = await request(app()).post('/api/v2/charts/c1/archive').send({ expectedCourseVersion: 5 });
+    expect(res1.status).toBe(200);
+    expect(mockChartService.archiveChart).toHaveBeenCalledWith('db-user-1', { courseId: 'c1' }, 5);
+
+    const res2 = await request(app()).post('/api/v2/anchors/a1/chart/archive');
+    expect(res2.status).toBe(200);
+    expect(mockChartService.archiveChart).toHaveBeenCalledWith('db-user-1', { anchorId: 'a1' }, undefined);
+  });
+
+  it('deletes a Chart by courseId and anchorId', async () => {
+    mockChartService.deleteChart.mockResolvedValue({ deleted: true });
+    const res1 = await request(app()).delete('/api/v2/charts/c1').send({ expectedCourseVersion: 5 });
+    expect(res1.status).toBe(200);
+    expect(mockChartService.deleteChart).toHaveBeenCalledWith('db-user-1', { courseId: 'c1' }, 5);
+
+    const res2 = await request(app()).delete('/api/v2/anchors/a1/chart');
+    expect(res2.status).toBe(200);
+    expect(mockChartService.deleteChart).toHaveBeenCalledWith('db-user-1', { anchorId: 'a1' }, undefined);
   });
 
   it('blocks writes when Chart writes are disabled', async () => {

@@ -555,6 +555,9 @@ model Waypoint {
   metricBaseline              Float?    @map("metric_baseline")
   metricTarget                Float?    @map("metric_target")
   metricCurrent               Float?    @map("metric_current")
+  // numeric | moves | none. Declared by the route planner; null on older waypoints, where it is derived
+  // (a measure means numeric, otherwise moves).
+  progressMode                String?   @map("progress_mode") @db.VarChar(8)
   createdAt                   DateTime  @default(now()) @map("created_at")
   updatedAt                   DateTime  @updatedAt @map("updated_at")
 
