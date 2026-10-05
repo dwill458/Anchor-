@@ -43,21 +43,32 @@ function fingerprint(value: string): string {
   return `profile-${(hash >>> 0).toString(16).padStart(8, '0')}`;
 }
 
+let cachedReference: VisionAppearanceReference | null = null;
+let lastFetchTime = 0;
+
 /** Explicit, private appearance-reference state for the Vision creation flow. */
 export function useVisionAppearanceReference() {
   const profilePhoto = useProfileStore(state => state.photo);
   const storedPreference = useAuthStore(state => Boolean(state.profileData?.user.settings?.useProfilePhotoForVision));
-  const [reference, setReference] = useState<VisionAppearanceReference | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [reference, setReference] = useState<VisionAppearanceReference | null>(cachedReference);
+  const [loading, setLoading] = useState(cachedReference === null);
   const [saving, setSaving] = useState(false);
   const [enabledByPreference, setEnabledByPreference] = useState(storedPreference);
 
   useEffect(() => { setEnabledByPreference(storedPreference); }, [storedPreference]);
 
   const refresh = useCallback(async () => {
+    if (Date.now() - lastFetchTime < 60000 && cachedReference) {
+      setReference(cachedReference);
+      setLoading(false);
+      return;
+    }
     try {
       const response = await apiClient.get<VisionAppearanceReference | null>('/api/v2/vision/appearance-reference');
-      setReference(visionApiData<VisionAppearanceReference | null>(response));
+      const data = visionApiData<VisionAppearanceReference | null>(response);
+      cachedReference = data;
+      lastFetchTime = Date.now();
+      setReference(data);
     } catch {
       setReference(null);
     } finally { setLoading(false); }
@@ -80,6 +91,8 @@ export function useVisionAppearanceReference() {
       });
       const next = visionApiData<VisionAppearanceReference>(response);
       traceReference('uploaded', { referenceId: next.id });
+      cachedReference = next;
+      lastFetchTime = Date.now();
       setReference(next);
       return next;
     } catch (cause) {
@@ -95,6 +108,7 @@ export function useVisionAppearanceReference() {
     if (!reference) return true;
     try {
       await apiClient.delete(`/api/v2/vision/appearance-reference/${encodeURIComponent(reference.id)}`);
+      cachedReference = null;
       setReference(null);
       return true;
     } catch { return false; }

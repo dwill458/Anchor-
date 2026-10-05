@@ -80,8 +80,12 @@ export async function syncNotificationStateToServer(
 
     await clearPendingNotificationState();
     return (response?.data?.notificationState ?? notificationState) as SyncedNotificationState;
-  } catch (error) {
-    logger.error('[NotificationSyncService] syncNotificationStateToServer error', error);
+  } catch (error: any) {
+    if (error?.status === 401 || error?.code === 'UNAUTHENTICATED' || error?.message?.includes('authentication token')) {
+      logger.debug?.('[NotificationSyncService] Skip notification state sync: not authenticated');
+      return null;
+    }
+    logger.warn('[NotificationSyncService] syncNotificationStateToServer error', error);
     await persistPendingNotificationState(notificationState);
     return null;
   }
@@ -96,18 +100,26 @@ export async function syncPushTokensToServer(
       pushTokens,
       replacePushTokens,
     });
-  } catch (error) {
-    logger.error('[NotificationSyncService] syncPushTokensToServer error', error);
+  } catch (error: any) {
+    if (error?.status === 401 || error?.code === 'UNAUTHENTICATED' || error?.message?.includes('authentication token')) {
+      logger.debug?.('[NotificationSyncService] Skip push token sync: not authenticated');
+      return;
+    }
+    logger.warn('[NotificationSyncService] syncPushTokensToServer error', error);
   }
 }
 
 export async function clearPushTokensFromServer(): Promise<void> {
-  await syncPushTokensToServer(
-    {
-      expoPushToken: null,
-      fcmToken: null,
-      apnsToken: null,
-    },
-    true
-  );
+  try {
+    await syncPushTokensToServer(
+      {
+        expoPushToken: null,
+        fcmToken: null,
+        apnsToken: null,
+      },
+      true
+    );
+  } catch {
+    // Best-effort cleanup during sign out
+  }
 }
