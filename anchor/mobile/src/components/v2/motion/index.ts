@@ -2,3 +2,5 @@
 export { revealFrame, staggerDelay } from './entrance';
 export { Reveal, useEntrance } from './Reveal';
 export { AnimatedPressable, AttentionWash, pressFrame, useAttention, usePressScale } from './press';
+export { ContentSwap } from './ContentSwap';
+export { Shimmer } from './Shimmer';
