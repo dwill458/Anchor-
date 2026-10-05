@@ -35,6 +35,7 @@ import type {
   WeeklyInsightFeedbackRating,
 } from '@/constants/v2/weeklyInsightRoutes';
 import { useWeeklyInsight } from '@/hooks/v2/weeklyInsight';
+import { ArrivalScope, ContentSwap, Reveal } from '@/components/v2/motion';
 import {
   WeeklyActivityDisclosure,
   WeeklyEvidenceRow,
@@ -106,6 +107,12 @@ export const V2WeeklyInsightScreen: React.FC<V2WeeklyInsightScreenProps> = ({
   });
 
   const [refreshing, setRefreshing] = useState(false);
+  // The sections are staged in once, when the first snapshot appears. A later snapshot swaps in place.
+  const arrived = useRef(false);
+  const animateArrival = !arrived.current;
+  useEffect(() => {
+    if (snapshot) arrived.current = true;
+  }, [snapshot]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const toastOpacity = useRef(new Animated.Value(0)).current;
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -235,63 +242,83 @@ export const V2WeeklyInsightScreen: React.FC<V2WeeklyInsightScreenProps> = ({
           />
         }
       >
-        {/* 1. Completed-Week Date Range */}
-        <View style={styles.dateRow}>
-          <Text style={styles.dateEyebrow}>{snapshot.weekLabel.toUpperCase()}</Text>
-          <Text style={styles.dateSnapshot}>{snapshot.completedDateLabel}</Text>
-        </View>
+        <ContentSwap contentKey={snapshot.id}>
+          <ArrivalScope animate={animateArrival}>
+            {/* 1. Completed-Week Date Range */}
+            <Reveal order={0}>
+              <View style={styles.dateRow}>
+                <Text style={styles.dateEyebrow}>{snapshot.weekLabel.toUpperCase()}</Text>
+                <Text style={styles.dateSnapshot}>{snapshot.completedDateLabel}</Text>
+              </View>
+            </Reveal>
 
-        {/* 2. Primary Story Hero Headline & Support */}
-        <View style={styles.heroSection}>
-          <Text style={styles.heroHeadline}>{snapshot.headline}</Text>
-          <Text style={styles.heroSupport}>{snapshot.support}</Text>
-        </View>
+            {/* 2. Primary Story Hero Headline & Support */}
+            <Reveal order={1}>
+              <View style={styles.heroSection}>
+                <Text style={styles.heroHeadline}>{snapshot.headline}</Text>
+                <Text style={styles.heroSupport}>{snapshot.support}</Text>
+              </View>
+            </Reveal>
 
-        {/* 3. Contextual Visual Shell */}
-        <WeeklyInsightVisual
-          visualType={snapshot.visualType}
-          visualData={snapshot.visualData}
-          accentColor={snapshot.accentColor}
-          testID={`${testID}-visual`}
-        />
+            {/* 3. Contextual Visual Shell */}
+            <Reveal order={2}>
+              <WeeklyInsightVisual
+                visualType={snapshot.visualType}
+                visualData={snapshot.visualData}
+                accentColor={snapshot.accentColor}
+                testID={`${testID}-visual`}
+              />
+            </Reveal>
 
-        {/* 4. Compact Tabular Supporting Evidence */}
-        <WeeklyEvidenceRow
-          evidence={snapshot.evidence}
-          comparison={snapshot.comparison}
-          comparisonTone={snapshot.comparisonTone}
-          accentColor={snapshot.accentColor}
-          testID={`${testID}-evidence`}
-        />
+            {/* 4. Compact Tabular Supporting Evidence */}
+            <Reveal order={3}>
+              <WeeklyEvidenceRow
+                evidence={snapshot.evidence}
+                comparison={snapshot.comparison}
+                comparisonTone={snapshot.comparisonTone}
+                accentColor={snapshot.accentColor}
+                testID={`${testID}-evidence`}
+              />
+            </Reveal>
 
-        {/* 5. Grounded Interpretation ("What this means") */}
-        <WeeklyInterpretation
-          interpretation={snapshot.interpretation}
-          testID={`${testID}-interpretation`}
-        />
+            {/* 5. Grounded Interpretation ("What this means") */}
+            <Reveal order={4}>
+              <WeeklyInterpretation
+                interpretation={snapshot.interpretation}
+                testID={`${testID}-interpretation`}
+              />
+            </Reveal>
 
-        {/* 6. Next Direction Callout ("Next week") */}
-        <WeeklyNextDirection
-          nextDirection={snapshot.nextDirection}
-          accentColor={snapshot.accentColor}
-          testID={`${testID}-next-direction`}
-        />
+            {/* 6. Next Direction Callout ("Next week") */}
+            <Reveal order={5}>
+              <WeeklyNextDirection
+                nextDirection={snapshot.nextDirection}
+                accentColor={snapshot.accentColor}
+                testID={`${testID}-next-direction`}
+              />
+            </Reveal>
 
-        {/* 7. Lightweight Reflection Feedback */}
-        <WeeklyFeedbackWidget
-          selectedRating={feedbackSubmitted ?? snapshot.feedback}
-          onSelectRating={handleFeedback}
-          testID={`${testID}-feedback`}
-        />
+            {/* 7. Lightweight Reflection Feedback */}
+            <Reveal order={5}>
+              <WeeklyFeedbackWidget
+                selectedRating={feedbackSubmitted ?? snapshot.feedback}
+                onSelectRating={handleFeedback}
+                testID={`${testID}-feedback`}
+              />
+            </Reveal>
 
-        {/* 8. Detailed Activity Disclosure */}
-        <WeeklyActivityDisclosure
-          detailedActivity={snapshot.detailedActivity}
-          isOpen={isActivityOpen}
-          onToggle={toggleActivity}
-          accentColor={snapshot.accentColor}
-          testID={`${testID}-disclosure`}
-        />
+            {/* 8. Detailed Activity Disclosure */}
+            <Reveal order={5}>
+              <WeeklyActivityDisclosure
+                detailedActivity={snapshot.detailedActivity}
+                isOpen={isActivityOpen}
+                onToggle={toggleActivity}
+                accentColor={snapshot.accentColor}
+                testID={`${testID}-disclosure`}
+              />
+            </Reveal>
+          </ArrivalScope>
+        </ContentSwap>
       </ScrollView>
 
       {/* Historical Preserved Snapshots Drawer */}
