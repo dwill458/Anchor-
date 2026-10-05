@@ -17,10 +17,11 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { RootStackParamList } from '@/types';
+import { RootStackParamList, type AnchorCategory } from '@/types';
 import { distillIntention } from '@/utils/sigil/distillation';
 import { detectCategoryFromText } from '@/utils/categoryDetection';
 import { colors } from '@/theme/colors';
+import { focusAreaById, focusAreaForCategory } from '@/constants/v2/focusAreas';
 import { ArrowLeft } from 'lucide-react-native';
 import { useTeachingGate } from '@/utils/useTeachingGate';
 import { useTeachingStore } from '@/stores/teachingStore';
@@ -57,6 +58,9 @@ const MAX_CHARS = 100;
 // DECISION D9: a typed intention needs at least two different consonants to make a line.
 const MIN_CONSONANTS = 2;
 
+const CONSONANT_MESSAGE = 'Use at least two different consonants.';
+const SHORT_MESSAGE = 'Write a little more.';
+
 const PLACEHOLDER_POOL = [
     'Stay focused during training',
     'Respond calmly under pressure',
@@ -65,7 +69,13 @@ const PLACEHOLDER_POOL = [
     'Listen before reacting',
 ];
 
-export default function IntentionInputScreen() {
+export interface IntentionInputScreenProps {
+    fromOnboarding?: boolean;
+    chosenCategory?: AnchorCategory;
+    onBack?: () => void;
+}
+
+export default function IntentionInputScreen({ fromOnboarding = false, chosenCategory, onBack }: IntentionInputScreenProps = {}) {
     const navigation = useNavigation<NavigationProp>();
     const insets = useSafeAreaInsets();
     const { width, height } = useWindowDimensions();
@@ -75,8 +85,15 @@ export default function IntentionInputScreen() {
     const textInputRef = useRef<TextInput>(null);
     const [intention, setIntention] = useState('');
     const [placeholder, setPlaceholder] = useState('');
+    // The one onboarding answer frames the field: its own placeholder and tip, in place on the
+    // first frame. "Something else" arrives with no category and takes the open copy.
+    const area = useMemo(
+        () => (fromOnboarding ? focusAreaForCategory(chosenCategory) ?? focusAreaById('something_else') : undefined),
+        [chosenCategory, fromOnboarding],
+    );
+    // Constraint feedback waits for Continue: it is never shown while the words are being written.
+    const [submitError, setSubmitError] = useState<string | null>(null);
     const [isFocused, setIsFocused] = useState(false);
-    const [delayedCanSubmit, setDelayedCanSubmit] = useState(false);
     const [rulesOpen, setRulesOpen] = useState(false);
     // Once Continue has been pressed the words belong to the flow's canvas, and the button must
     // not grey out while it fades behind them.
@@ -119,17 +136,18 @@ export default function IntentionInputScreen() {
     };
 
     useEffect(() => {
+        if (area) return;
         const randomIndex = Math.floor(Math.random() * PLACEHOLDER_POOL.length);
         setPlaceholder(`e.g. ${PLACEHOLDER_POOL[randomIndex]}`);
-    }, []);
+    }, [area]);
 
     useFocusEffect(
         React.useCallback(() => {
             if (!initializedFromDraftRef.current) {
-                setIntention(useFirstAnchorFlowStore.getState().draft?.originalIntention ?? '');
+                // First run starts the field empty: an earlier draft's words belong to an earlier choice.
+                setIntention(fromOnboarding ? '' : useFirstAnchorFlowStore.getState().draft?.originalIntention ?? '');
                 initializedFromDraftRef.current = true;
             }
-            setDelayedCanSubmit(false);
             setLaunching(false);
             setIsFocused(false);
             setUndertoneText(null);
@@ -139,7 +157,7 @@ export default function IntentionInputScreen() {
             return () => {
                 if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
             };
-        }, [idleTimerRef])
+        }, [fromOnboarding, idleTimerRef])
     );
 
     // Cleanup idle timer on unmount
@@ -150,17 +168,8 @@ export default function IntentionInputScreen() {
     // DECISION D9: Continue (typed) needs two different consonants after distillation.
     const consonantCount = useMemo(() => distillIntention(intention).finalLetters.length, [intention]);
     const hasEnoughConsonants = consonantCount >= MIN_CONSONANTS;
-    const canContinue = intentionValidation.canSubmit && hasEnoughConsonants;
-
-    // 300ms delay before enabling CTA
-    useEffect(() => {
-        if (canContinue) {
-            const timer = setTimeout(() => setDelayedCanSubmit(true), 300);
-            return () => clearTimeout(timer);
-        } else {
-            setDelayedCanSubmit(false);
-        }
-    }, [canContinue]);
+    // Continue is available as soon as there is something to check; the check runs on the tap.
+    const canContinue = intention.trim().length >= 1;
 
     const handleFocus = () => {
         setIsFocused(true);
@@ -186,6 +195,7 @@ export default function IntentionInputScreen() {
     const handleIntentionChange = (text: string) => {
         if (text.length <= MAX_CHARS) {
             setIntention(text);
+            setSubmitError(null);
 
             // Reset idle timer on every keystroke
             if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
@@ -211,8 +221,22 @@ export default function IntentionInputScreen() {
 
     const startCreation = (source: CreationSource) => {
         const canStart =
-            source === 'typed' ? delayedCanSubmit : intention.trim().length >= 1;
+            intention.trim().length >= 1;
         if (!canStart) return;
+
+        if (source === 'typed') {
+            const problem = !hasEnoughConsonants
+                ? CONSONANT_MESSAGE
+                : intentionValidation.detection.isGibberish
+                  ? intentionValidation.guidanceText
+                  : !intentionValidation.canSubmit
+                    ? SHORT_MESSAGE
+                    : null;
+            if (problem) {
+                setSubmitError(problem);
+                return;
+            }
+        }
         playCreationSound('uiTap');
 
         const isGuestFirstAnchor = !isAuthenticated && anchorCount === 0;
@@ -243,7 +267,7 @@ export default function IntentionInputScreen() {
         }
 
         const distillation = distillIntention(intention);
-        const category = detectCategoryFromText(intention);
+        const category = chosenCategory ?? detectCategoryFromText(intention);
         updateFirstAnchorDraft({
             originalIntention: intention,
             distilledLetters: distillation.finalLetters,
@@ -258,6 +282,7 @@ export default function IntentionInputScreen() {
             category,
             distilledLetters: distillation.finalLetters,
             source,
+            ...(fromOnboarding ? { fromOnboarding: true } : {}),
         } as const;
 
         // DEFERRED: the old creation path, superseded by AnchorCreationFlow (still registered):
@@ -272,6 +297,7 @@ export default function IntentionInputScreen() {
             navigation.navigate('AnchorCreationFlow', {
                 ...baseParams,
                 entry: fieldFrame ? 'glide' : 'fade',
+                ...(area ? { focusAreaId: area.id } : {}),
                 ...(fieldFrame
                     ? {
                           fieldFrame: {
@@ -302,8 +328,7 @@ export default function IntentionInputScreen() {
         }
     };
 
-    const showConsonantHint = intention.trim().length >= 3 && !hasEnoughConsonants;
-    const hintText = intentionValidation.guidanceText || undertoneText;
+    const hintText = undertoneText;
 
     return (
         <View style={styles.container}>
@@ -323,9 +348,9 @@ export default function IntentionInputScreen() {
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
                     >
-                        {navigation.canGoBack() ? (
+                        {onBack || navigation.canGoBack() ? (
                             <TouchableOpacity
-                                onPress={() => navigation.goBack()}
+                                onPress={() => onBack ? onBack() : navigation.goBack()}
                                 accessibilityRole="button"
                                 accessibilityLabel="Go back"
                                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -349,7 +374,7 @@ export default function IntentionInputScreen() {
                                 onChangeText={handleIntentionChange}
                                 onFocus={handleFocus}
                                 onBlur={handleBlur}
-                                placeholder={placeholder}
+                                placeholder={area ? area.placeholder : placeholder}
                                 placeholderTextColor={colors.creation.placeholder}
                                 multiline
                                 scrollEnabled={false}
@@ -365,8 +390,8 @@ export default function IntentionInputScreen() {
                             />
                             <IntentionRule />
 
-                            {showConsonantHint ? (
-                                <Text style={styles.consonantHint}>Use at least two different consonants.</Text>
+                            {submitError ? (
+                                <Text style={styles.consonantHint} accessibilityLiveRegion="polite">{submitError}</Text>
                             ) : null}
 
                             {hintText ? (
@@ -374,7 +399,7 @@ export default function IntentionInputScreen() {
                                     {hintText}
                                 </Text>
                             ) : (
-                                <StaticHints />
+                                <StaticHints tip={area?.tip} />
                             )}
                         </View>
                     </ScrollView>
@@ -410,13 +435,13 @@ export default function IntentionInputScreen() {
                         <TouchableOpacity
                             onPress={() => startCreation('typed')}
                             activeOpacity={0.85}
-                            disabled={!delayedCanSubmit}
+                            disabled={!canContinue}
                             style={styles.cta}
                             accessibilityRole="button"
                             accessibilityLabel="Continue"
-                            accessibilityState={{ disabled: !delayedCanSubmit }}
+                            accessibilityState={{ disabled: !canContinue }}
                         >
-                            <ContinueButtonFace enabled={delayedCanSubmit || launching} />
+                            <ContinueButtonFace enabled={canContinue || launching} />
                         </TouchableOpacity>
 
                         <TouchableOpacity

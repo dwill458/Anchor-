@@ -1,11 +1,30 @@
-import { createReleaseContinuations } from '../releaseNavigation';
+import { createReleaseContinuations, releaseHomeScreenOptions } from '../releaseNavigation';
+import { Platform } from 'react-native';
 
-function setup() {
+function setup(platform: typeof Platform.OS = 'android') {
   const navigation = { replace: jest.fn(), goBack: jest.fn() };
-  return { navigation, continuations: createReleaseContinuations(navigation) };
+  return { navigation, continuations: createReleaseContinuations(navigation, platform) };
 }
 
 describe('createReleaseContinuations', () => {
+  it('marks only iOS Return Home for the custom fade', () => {
+    const { navigation, continuations } = setup('ios');
+    continuations.onReleaseCompleted('a1', {} as never);
+    expect(navigation.replace).toHaveBeenCalledWith('V2DevelopmentHome', { releaseReturnFade: true });
+    continuations.onViewProgress?.('a1');
+    expect(navigation.replace).toHaveBeenLastCalledWith('V2Progress', { anchorId: 'a1' });
+  });
+
+  it('uses 260ms only for the marked iOS arrival and 120ms with Reduced Motion', () => {
+    expect(releaseHomeScreenOptions({ releaseReturnFade: true }, false, 'ios')).toEqual({
+      animation: 'fade', animationDuration: 260, animationTypeForReplace: 'push',
+    });
+    expect(releaseHomeScreenOptions({ releaseReturnFade: true }, true, 'ios').animationDuration).toBe(120);
+    expect(releaseHomeScreenOptions(undefined, false, 'ios')).toEqual({});
+    expect(releaseHomeScreenOptions({ releaseReturnFade: undefined }, false, 'ios')).toEqual({});
+    expect(releaseHomeScreenOptions({ releaseReturnFade: true }, false, 'android')).toEqual({});
+  });
+
   it('Return Home replaces Release with Home', () => {
     const { navigation, continuations } = setup();
     continuations.onReleaseCompleted('a1', {} as never);

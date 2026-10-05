@@ -1,5 +1,5 @@
 import { apiClient, ApiClientError } from '@/services/ApiClient';
-import type { CourseDetail, CourseSummary, WaypointKind } from '@/types/chart';
+import type { CourseDetail, CourseSummary, WaypointKind, WaypointProgressMode } from '@/types/chart';
 
 /**
  * Anchor 2.0 Chart endpoints (/api/v2). Waypoint completion, edits, reorder
@@ -28,6 +28,7 @@ export type ChartProposalWaypoint = {
   title: string;
   rationale: string | null;
   kind: WaypointKind;
+  progressMode?: WaypointProgressMode;
   metricLabel: string | null;
   metricTarget: number | null;
   metricBaseline: number | null;
@@ -72,6 +73,7 @@ export type RouteWaypointInput = {
   title: string;
   rationale?: string | null;
   kind?: WaypointKind;
+  progressMode?: WaypointProgressMode;
   metricLabel?: string | null;
   metricBaseline?: number | null;
   metricTarget?: number | null;
@@ -177,7 +179,7 @@ export const chartV2Api = {
       detail?: string | null;
       courseId?: string | null;
       startingContext?: string | null;
-      draft?: { destination: string; waypoints: Array<Pick<RouteWaypointInput, 'title' | 'kind' | 'metricTarget' | 'metricLabel'>> } | null;
+      draft?: { destination: string; waypoints: Array<Pick<RouteWaypointInput, 'title' | 'kind' | 'progressMode' | 'metricTarget' | 'metricLabel'>> } | null;
     }
   ): Promise<ChartPlanResponse> {
     return call(() =>
@@ -252,6 +254,22 @@ export const chartV2Api = {
     body: { expectedCourseVersion: number; metricCurrent: number | null }
   ): Promise<CourseDetail> {
     return call(() => apiClient.patch(`/api/v2/charts/${enc(courseId)}/waypoints/${enc(waypointId)}/progress`, body));
+  },
+
+  archive(courseId: string, expectedCourseVersion?: number): Promise<CourseDetail> {
+    return call(() => apiClient.post(`/api/v2/charts/${enc(courseId)}/archive`, { expectedCourseVersion }));
+  },
+
+  archiveForAnchor(anchorId: string, expectedCourseVersion?: number): Promise<CourseDetail> {
+    return call(() => apiClient.post(`/api/v2/anchors/${enc(anchorId)}/chart/archive`, { expectedCourseVersion }));
+  },
+
+  delete(courseId: string, expectedCourseVersion?: number): Promise<{ deleted: boolean }> {
+    return call(() => apiClient.delete(`/api/v2/charts/${enc(courseId)}`, { data: { expectedCourseVersion } }));
+  },
+
+  deleteForAnchor(anchorId: string, expectedCourseVersion?: number): Promise<{ deleted: boolean }> {
+    return call(() => apiClient.delete(`/api/v2/anchors/${enc(anchorId)}/chart`, { data: { expectedCourseVersion } }));
   },
 };
 

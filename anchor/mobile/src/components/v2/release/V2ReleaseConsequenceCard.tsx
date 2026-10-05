@@ -27,8 +27,8 @@ export function V2ReleaseConsequenceCard({ consequences, testID }: Props) {
 
 const styles = StyleSheet.create({
   section: { gap: 10 },
-  heading: { ...releaseTypography.label, color: colors.text.primary },
-  row: { gap: 2, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.frameEdge },
+  heading: { ...releaseTypography.kicker, color: colors.text.primary },
+  row: { gap: 2, paddingTop: 11, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.frameEdge },
   label: { ...releaseTypography.label, color: colors.ink.base },
   detail: { ...releaseTypography.small, color: colors.text.secondary },
 });

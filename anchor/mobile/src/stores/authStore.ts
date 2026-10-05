@@ -1090,8 +1090,9 @@ export const useAuthStore = create<AuthState>()(
           applyUserToSubscriptionStore(state.user);
           // One-shot navigation flags should never survive an app restart.
           state.setShouldRedirectToCreation(false);
-          // If not logged in, reset hasCompletedOnboarding and firstRunStore so guest testing always restarts onboarding
-          if (!state.user?.id) {
+          // Not logged in: restart onboarding, unless the person chose to keep their Anchor on this
+          // device at the save step. They finished onboarding as a guest and must not replay it.
+          if (!state.user?.id && !(state.isGuest && state.hasCompletedOnboarding)) {
             state.hasCompletedOnboarding = false;
             try {
               useFirstRunStore.getState().reset();

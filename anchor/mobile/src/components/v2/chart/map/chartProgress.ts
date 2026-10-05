@@ -35,6 +35,7 @@ export function toProgressInput(w: ChartWaypointView, raw?: WaypointSummary['met
   const counted = w.moves.filter((m) => m.status === 'ACTIVE' || m.status === 'COMPLETED');
   return {
     id: w.id,
+    mode: w.progress,
     completed: w.state === 'completed',
     metric,
     movesDone: counted.filter((m) => m.status === 'COMPLETED').length,
@@ -54,7 +55,15 @@ export function movesFraction(input: WaypointProgressInput): number {
   return input.movesTotal > 0 ? clamp01(input.movesDone / input.movesTotal) : 0;
 }
 
+/** Where a waypoint's progress is a number, its moves, or nothing at all. */
+export function progressModeOf(input: WaypointProgressInput): 'numeric' | 'moves' | 'none' {
+  if (input.metric) return 'numeric';
+  return input.mode === 'none' ? 'none' : 'moves';
+}
+
 export function rawFraction(input: WaypointProgressInput): number {
+  // A waypoint with no progress has nothing to draw: its leg fills only when it is reached.
+  if (progressModeOf(input) === 'none') return 0;
   const mv = movesFraction(input);
   return input.metric ? METRIC_WEIGHT * metricFraction(input) + MOVES_WEIGHT * mv : mv;
 }
@@ -69,6 +78,7 @@ export function waypointFraction(input: WaypointProgressInput, hw: number): Wayp
 export function isWaypointReady(input: WaypointProgressInput, hw: number): boolean {
   if (input.completed) return false;
   if (input.metric) return metricFraction(input) >= 1;
+  if (progressModeOf(input) === 'none') return false;
   return Math.max(Number.isFinite(hw) ? hw : 0, rawFraction(input)) >= 1;
 }
 
@@ -123,7 +133,7 @@ export const formatProgressNumber = (n: number): string => numberFormat.format(M
 export const PROGRESS_COPY = {
   current: (cur: number, target: number) => `${formatProgressNumber(cur)} / ${formatProgressNumber(target)}`,
   startedAt: (base: number) => `started at ${formatProgressNumber(base)}`,
-  movesOf: (done: number, total: number) => `${done} of ${total} moves`,
+  movesOf: (done: number, total: number) => `${done} of ${total} ${total === 1 ? 'move' : 'moves'} done`,
   holdsAtNinety: 'route holds at 90% until you confirm',
   movesDrawLeg: 'moves draw this leg',
   toReach: (unit: string | null) => `${unit ? `${unit} ` : ''}to reach`,
@@ -152,14 +162,43 @@ export function progressValueRow(
     return input.metric ? { strong: formatProgressNumber(input.metric.target), span: PROGRESS_COPY.reached } : null;
   }
   if (input.metric) {
-    const showStartedAt = input.metric.baseline != null && input.metric.current >= input.metric.baseline;
+    // The fraction already says where things began; only a real, non-zero starting point is worth repeating.
+    const showStartedAt = input.metric.baseline > 0 && input.metric.current >= input.metric.baseline;
     return {
       strong: PROGRESS_COPY.current(input.metric.current, input.metric.target),
       span: showStartedAt ? PROGRESS_COPY.startedAt(input.metric.baseline) : '',
     };
   }
+  // Nothing to show when there is no progress to speak of: no counter, no empty "0 of 0".
+  if (progressModeOf(input) === 'none' || input.movesTotal === 0) return null;
   return {
     strong: PROGRESS_COPY.movesOf(input.movesDone, input.movesTotal),
     span: isWaypointReady(input, hw) ? PROGRESS_COPY.holdsAtNinety : PROGRESS_COPY.movesDrawLeg,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Magnitude-scaled steppers                                           */
+/* ------------------------------------------------------------------ */
+
+export type ProgressStep = { value: number; label: string };
+
+/** Largest 1-2-5 step that does not exceed `raw` (at least 1). */
+function niceStep(raw: number): number {
+  if (!(raw >= 1)) return 1;
+  const exponent = Math.floor(Math.log10(raw));
+  const base = 10 ** exponent;
+  const lead = raw / base;
+  const mantissa = lead >= 5 ? 5 : lead >= 2 ? 2 : 1;
+  return mantissa * base;
+}
+
+/**
+ * Stepper chips for "Update progress", sized to the target: a 50,000 target steps in thousands, a 100
+ * target in fives. About twenty nudges cover the whole distance, and one tap is never a rounding error.
+ */
+export function progressSteps(target: number): ProgressStep[] {
+  const unit = niceStep((Number.isFinite(target) && target > 0 ? target : 100) / 20);
+  const label = (value: number) => `${value < 0 ? '−' : '+'}${formatProgressNumber(Math.abs(value))}`;
+  return [-unit, unit, unit * 5, unit * 10].map((value) => ({ value, label: label(value) }));
 }

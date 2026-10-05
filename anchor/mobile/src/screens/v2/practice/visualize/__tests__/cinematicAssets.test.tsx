@@ -187,10 +187,10 @@ describe('cinematic saved-asset readiness', () => {
     view.unmount();
   });
 
-  it('freezes only saved image URLs and respects the six-image board limit', () => {
+  it('freezes every saved image URL without imposing the detail board limit on playback', () => {
     const input = [...tiles(7), { ...tiles(1)[0], id: 'missing', sceneId: 'missing', imageUrl: null }];
     const frozen = freezeCinematicTiles(input);
-    expect(frozen.map(tile => tile.sceneId)).toEqual(['scene-0', 'scene-1', 'scene-2', 'scene-3', 'scene-4', 'scene-5']);
+    expect(frozen.map(tile => tile.sceneId)).toEqual(Array.from({ length: 7 }, (_, i) => `scene-${i}`));
     expect(frozen).not.toBe(input);
     expect(frozen[0]).not.toBe(input[0]);
   });

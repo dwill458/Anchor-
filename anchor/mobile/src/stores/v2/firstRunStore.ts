@@ -50,6 +50,14 @@ export type FirstRunDraft = {
 };
 
 const initialDraft = (): FirstRunDraft => ({ currentStep: 'welcome', lifeChanges: [] });
+
+/**
+ * Steps a person who has not made an account yet is kept on across a kill or background, so a
+ * relaunch resumes there instead of replaying the splash. The splash itself and a finished run
+ * are not worth resuming.
+ */
+const PRE_ACCOUNT_RESUMABLE: ReadonlySet<FirstRunStep> = new Set<FirstRunStep>(['bridge', 'motivation', 'creation', 'intention', 'formation', 'anchor', 'expression', 'auth']);
+const resumesBeforeAccount = (draft?: FirstRunDraft) => Boolean(draft && PRE_ACCOUNT_RESUMABLE.has(draft.currentStep));
 const id = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
 /** Intention changes invalidate only formation descendants; category and later Vision choice remain. */
@@ -139,9 +147,9 @@ export const useFirstRunStore = create<FirstRunState>()(persist((set, get) => ({
 }), {
   name: 'anchor:v2:first-run',
   storage: createJSONStorage(() => encryptedPersistStorage),
-  partialize: (state) => ({ draft: state.draft.accountId ? state.draft : initialDraft() }),
+  partialize: (state) => ({ draft: state.draft.accountId || resumesBeforeAccount(state.draft) ? state.draft : initialDraft() }),
   onRehydrateStorage: () => (state) => {
-    if (state && !state.draft?.accountId) {
+    if (state && !state.draft?.accountId && !resumesBeforeAccount(state.draft)) {
       state.reset();
     }
     useFirstRunStore.setState({ hydrated: true });

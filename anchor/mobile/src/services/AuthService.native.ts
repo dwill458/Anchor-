@@ -434,11 +434,15 @@ export class AuthService {
 
   static async signOut(): Promise<void> {
     try {
-      await clearPushTokensFromServer();
+      await clearPushTokensFromServer().catch(error => {
+        logger.warn('Failed to clear push tokens on sign out, continuing anyway', error);
+      });
       if (GoogleSignin) {
         await GoogleSignin.signOut().catch(() => undefined);
       }
-      await auth().signOut();
+      await auth().signOut().catch(error => {
+        logger.warn('Firebase auth sign out failed, continuing anyway', error);
+      });
     } finally {
       await Promise.resolve(encryptedPersistStorage.removeItem(CACHED_USER_KEY)).catch(() => undefined);
       await clearNotificationSession();

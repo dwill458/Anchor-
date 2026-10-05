@@ -7,6 +7,21 @@ const DURATIONS: GuidedDurationSeconds[] = [60, 180, 600];
 const GUIDES: GuideId[] = ['dominic', 'lina'];
 
 describe('guided plan', () => {
+  it.each(DURATIONS)('includes every photo in equal slots for %s seconds, including beyond six', durationSeconds => {
+    for (const imageCount of [1, 6, 9, 40]) {
+      const plan = buildGuidedPlan({ durationSeconds, guide: 'dominic', imageCount });
+      expect(plan.imageCount).toBe(imageCount);
+      expect(plan.timeline.lightReturnMs).toBeGreaterThanOrEqual(plan.beatMap.phrases.at(-1)!.endMs);
+      expect(plan.timeline.lightReturnMs! + 2000).toBe(plan.durationMs);
+      const holds = plan.timeline.segments.filter(s => s.kind === 'immersion');
+      expect(holds.map(s => s.imageIndex)).toEqual(Array.from({ length: imageCount }, (_, i) => i));
+      const slots = plan.timeline.photoSlots!;
+      expect(slots).toHaveLength(imageCount);
+      const spans = slots.map(s => s.endMs - s.startMs);
+      expect(Math.max(...spans) - Math.min(...spans)).toBeLessThanOrEqual(1);
+      expect(slots.at(-1)!.endMs).toBe(plan.anchorStartMs);
+    }
+  });
   it.each(DURATIONS.flatMap(d => GUIDES.map(g => [d, g] as const)))('builds a contiguous timeline for %s s / %s', (durationSeconds, guide) => {
     for (let imageCount = 1; imageCount <= 6; imageCount += 1) {
       const plan = buildGuidedPlan({ durationSeconds, guide, imageCount });
@@ -19,7 +34,7 @@ describe('guided plan', () => {
       }
       const images = segments.filter(s => s.kind === 'immersion').map(s => s.imageIndex);
       expect(images).toEqual(Array.from({ length: plan.imageCount }, (_, i) => i));
-      expect(plan.imageCount).toBeLessThanOrEqual(Math.min(imageCount, TRACK_PLANS[plan.track].maxImages));
+      expect(plan.imageCount).toBe(imageCount);
       expect(segments.filter(s => s.kind === 'transition')).toHaveLength(plan.imageCount - 1);
     }
   });
@@ -50,7 +65,7 @@ describe('guided plan', () => {
     expect(rate(180)).toBeLessThan(rate(60) + 1.5);
     const embody = buildGuidedPlan({ durationSeconds: 600, guide: 'dominic', imageCount: 6 });
     const firstHold = embody.timeline.segments.find(s => s.kind === 'immersion')!;
-    expect(firstHold.endMs - firstHold.startMs).toBeGreaterThan(120_000);
+    expect(firstHold.endMs - firstHold.startMs).toBeGreaterThan(60_000);
   });
 
   it('finishes every positional motion before the next long silence begins', () => {
@@ -110,7 +125,8 @@ describe('beat maps', () => {
     const a = loadBeatMap(track, 'dominic'), b = loadBeatMap(track, 'lina');
     expect(a.phrases.map(p => p.id)).toEqual(b.phrases.map(p => p.id));
     const plan = TRACK_PLANS[track];
-    const ids = [plan.anchorPhraseId, plan.returnPhraseId, ...plan.imageChanges.map(c => c.phraseId), ...plan.grade.map(s => s.phraseId)];
+    const ids = [plan.anchorPhraseId, plan.returnPhraseId, ...plan.grade.map(s => s.phraseId),
+      ...(plan.arrival.untilPhraseId === undefined ? [] : [plan.arrival.untilPhraseId])];
     for (const id of ids) expect(a.phrases.some(p => p.id === id)).toBe(true);
   });
 });

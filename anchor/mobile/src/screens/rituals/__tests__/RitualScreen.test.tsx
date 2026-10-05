@@ -28,6 +28,9 @@ const createMockManagedPlayer = () => ({
 });
 
 const mockPrimeAmbientPlayer = createMockManagedPlayer();
+const mockPrimeMix2Player = createMockManagedPlayer();
+const mockPrimeMix5Player = createMockManagedPlayer();
+const mockPrimeMix10Player = createMockManagedPlayer();
 const mockPrimeOpeningPlayer = createMockManagedPlayer();
 const mockPrimeIntentionPlayer = createMockManagedPlayer();
 const mockPrimeDeepeningPlayer = createMockManagedPlayer();
@@ -206,6 +209,9 @@ describe('RitualScreen', () => {
 
     mockCreateManagedPlayer.mockImplementation((key: string) => {
       if (key === 'deep-prime-ambient') return mockPrimeAmbientPlayer;
+      if (key === 'deep-focus-2m-mix') return mockPrimeMix2Player;
+      if (key === 'deep-focus-5m-mix') return mockPrimeMix5Player;
+      if (key === 'deep-focus-10m-mix') return mockPrimeMix10Player;
       if (key === 'deep-prime-2m-opening') return mockPrimeOpeningPlayer;
       if (key === 'deep-prime-2m-intention') return mockPrimeIntentionPlayer;
       if (key === 'deep-prime-2m-deepening') return mockPrimeDeepeningPlayer;
@@ -237,6 +243,9 @@ describe('RitualScreen', () => {
 
     [
       mockPrimeAmbientPlayer,
+      mockPrimeMix2Player,
+      mockPrimeMix5Player,
+      mockPrimeMix10Player,
       mockPrimeOpeningPlayer,
       mockPrimeIntentionPlayer,
       mockPrimeDeepeningPlayer,
@@ -328,10 +337,7 @@ describe('RitualScreen', () => {
     mockSettingsState();
   });
 
-  it('removes active Deep Prime breath text and schedules the 2-minute immersive cues', async () => {
-    const now = 1_700_000_400_000;
-    const dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(now);
-
+  it('removes active Deep Prime breath text and plays the finished 2-minute mix once', async () => {
     const { getByText, queryByText, unmount } = render(<RitualScreen />);
 
     fireEvent.press(getByText(/Begin priming/i));
@@ -342,57 +348,19 @@ describe('RitualScreen', () => {
     expect(queryByText('Breathe out')).toBeNull();
     expect(queryByText('Slow inhale. Longer exhale.')).toBeNull();
 
+    // Voice and bed are one recording, so no separate ambient layer is created.
     expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
-      'deep-prime-ambient',
+      'deep-focus-2m-mix',
       expect.objectContaining({
-        loop: true,
-        volume: 0,
+        volume: 1,
+        onFinish: expect.any(Function),
       })
     );
-    expect(mockPrimeAmbientPlayer.play).toHaveBeenCalledTimes(1);
-    expect(mockPrimeOpeningPlayer.play).toHaveBeenCalledTimes(1);
-
-    dateNowSpy.mockReturnValue(now + 30_500);
-    await sleep(350);
-    await waitFor(() =>
-      expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
-        'deep-prime-2m-intention',
-        expect.objectContaining({
-          onFinish: expect.any(Function),
-        })
-      )
-    );
-    expect(mockPrimeOpeningPlayer.stop).toHaveBeenCalledTimes(1);
-    expect(mockPrimeIntentionPlayer.play).toHaveBeenCalledTimes(1);
-
-    dateNowSpy.mockReturnValue(now + 70_500);
-    await sleep(350);
-    await waitFor(() =>
-      expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
-        'deep-prime-2m-deepening',
-        expect.objectContaining({
-          onFinish: expect.any(Function),
-        })
-      )
-    );
-    expect(mockPrimeIntentionPlayer.stop).toHaveBeenCalledTimes(1);
-    expect(mockPrimeDeepeningPlayer.play).toHaveBeenCalledTimes(1);
-
-    dateNowSpy.mockReturnValue(now + 110_500);
-    await sleep(350);
-    await waitFor(() =>
-      expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
-        'deep-prime-2m-closing',
-        expect.objectContaining({
-          onFinish: expect.any(Function),
-        })
-      )
-    );
-    expect(mockPrimeDeepeningPlayer.stop).toHaveBeenCalledTimes(1);
-    expect(mockPrimeClosingPlayer.play).toHaveBeenCalledTimes(1);
+    expect(mockPrimeMix2Player.play).toHaveBeenCalledTimes(1);
+    expect(mockCreateManagedPlayer).not.toHaveBeenCalledWith('deep-prime-ambient', expect.anything());
+    expect(mockCreateManagedPlayer).toHaveBeenCalledTimes(1);
 
     unmount();
-    dateNowSpy.mockRestore();
   });
 
   it('renders the active Deep Prime sigil at the Focus Session hero size', async () => {
@@ -463,16 +431,13 @@ describe('RitualScreen', () => {
 
     fireEvent.press(getByText(/Begin priming/i));
 
-    await waitFor(() => expect(mockPrimeAmbientPlayer.play).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(mockPrimeOpeningPlayer.play).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockPrimeMix2Player.play).toHaveBeenCalledTimes(1));
 
     fireEvent.press(getByText('Pause'));
-    await waitFor(() => expect(mockPrimeAmbientPlayer.pause).toHaveBeenCalledTimes(1));
-    expect(mockPrimeOpeningPlayer.pause).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(mockPrimeMix2Player.pause).toHaveBeenCalledTimes(1));
 
     fireEvent.press(getByText('Resume'));
-    await waitFor(() => expect(mockPrimeAmbientPlayer.play).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(mockPrimeOpeningPlayer.play).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mockPrimeMix2Player.play).toHaveBeenCalledTimes(2));
 
     // Open the exit confirmation. fireEvent is already act-wrapped; wrapping this
     // in an extra `await act(async () => ...)` hangs because the screen's infinite
@@ -480,10 +445,7 @@ describe('RitualScreen', () => {
     fireEvent.press(getByLabelText('Exit practice'));
     fireEvent.press(getByText('Exit'));
 
-    await waitFor(() => expect(mockPrimeOpeningPlayer.stop).toHaveBeenCalled(), {
-      timeout: 2000,
-    });
-    await waitFor(() => expect(mockPrimeAmbientPlayer.stop).toHaveBeenCalledTimes(1), {
+    await waitFor(() => expect(mockPrimeMix2Player.stop).toHaveBeenCalled(), {
       timeout: 2000,
     });
     await waitFor(() => expect(mockNavigateToVaultDestination).toHaveBeenCalled(), {
@@ -526,11 +488,8 @@ describe('RitualScreen', () => {
     expect(mockNavigateToVaultDestination).not.toHaveBeenCalled();
   }, 20000);
 
-  it('plays the 5-minute Deep Prime cues at the scheduled timestamps', async () => {
+  it('plays the finished 5-minute Deep Prime mix once, from the start', async () => {
     const navigation = require('@react-navigation/native');
-    const now = 1_700_000_500_000;
-    const dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(now);
-
     navigation.useRoute.mockReturnValue({
       params: {
         anchorId: 'test-anchor-id',
@@ -544,85 +503,26 @@ describe('RitualScreen', () => {
     });
 
     const { getByText, unmount } = render(<RitualScreen />);
-
     fireEvent.press(getByText(/Begin priming/i));
 
-    await waitFor(() => expect(mockPrime5mOpeningPlayer.play).toHaveBeenCalledTimes(1));
-
-    dateNowSpy.mockReturnValue(now + 35_500);
-    await sleep(350);
     await waitFor(() =>
       expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
-        'deep-prime-5m-intention',
+        'deep-focus-5m-mix',
         expect.objectContaining({
+          volume: 1,
           onFinish: expect.any(Function),
         })
       )
     );
-    expect(mockPrime5mOpeningPlayer.stop).toHaveBeenCalledTimes(1);
-    expect(mockPrime5mIntentionPlayer.play).toHaveBeenCalledTimes(1);
-
-    dateNowSpy.mockReturnValue(now + 100_500);
-    await sleep(350);
-    await waitFor(() =>
-      expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
-        'deep-prime-5m-deepening',
-        expect.objectContaining({
-          onFinish: expect.any(Function),
-        })
-      )
-    );
-    expect(mockPrime5mIntentionPlayer.stop).toHaveBeenCalledTimes(1);
-    expect(mockPrime5mDeepeningPlayer.play).toHaveBeenCalledTimes(1);
-
-    dateNowSpy.mockReturnValue(now + 165_500);
-    await sleep(350);
-    await waitFor(() =>
-      expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
-        'deep-prime-5m-return',
-        expect.objectContaining({
-          onFinish: expect.any(Function),
-        })
-      )
-    );
-    expect(mockPrime5mDeepeningPlayer.stop).toHaveBeenCalledTimes(1);
-    expect(mockPrime5mReturnPlayer.play).toHaveBeenCalledTimes(1);
-
-    dateNowSpy.mockReturnValue(now + 240_500);
-    await sleep(350);
-    await waitFor(() =>
-      expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
-        'deep-prime-5m-reinforcement',
-        expect.objectContaining({
-          onFinish: expect.any(Function),
-        })
-      )
-    );
-    expect(mockPrime5mReturnPlayer.stop).toHaveBeenCalledTimes(1);
-    expect(mockPrime5mReinforcementPlayer.play).toHaveBeenCalledTimes(1);
-
-    dateNowSpy.mockReturnValue(now + 290_500);
-    await sleep(350);
-    await waitFor(() =>
-      expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
-        'deep-prime-5m-closing',
-        expect.objectContaining({
-          onFinish: expect.any(Function),
-        })
-      )
-    );
-    expect(mockPrime5mReinforcementPlayer.stop).toHaveBeenCalledTimes(1);
-    expect(mockPrime5mClosingPlayer.play).toHaveBeenCalledTimes(1);
+    expect(mockPrimeMix5Player.play).toHaveBeenCalledTimes(1);
+    expect(mockCreateManagedPlayer).not.toHaveBeenCalledWith('deep-prime-ambient', expect.anything());
+    expect(mockCreateManagedPlayer).toHaveBeenCalledTimes(1);
 
     unmount();
-    dateNowSpy.mockRestore();
   });
 
-  it('plays the 10-minute Deep Prime cues at the scheduled timestamps', async () => {
+  it('plays the finished 10-minute Deep Prime mix once, from the start', async () => {
     const navigation = require('@react-navigation/native');
-    const now = 1_700_000_600_000;
-    const dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(now);
-
     navigation.useRoute.mockReturnValue({
       params: {
         anchorId: 'test-anchor-id',
@@ -636,104 +536,22 @@ describe('RitualScreen', () => {
     });
 
     const { getByText, unmount } = render(<RitualScreen />);
-
     fireEvent.press(getByText(/Begin priming/i));
 
-    await waitFor(() => expect(mockPrime10mOpeningPlayer.play).toHaveBeenCalledTimes(1));
-
-    dateNowSpy.mockReturnValue(now + 45_500);
-    await sleep(350);
     await waitFor(() =>
       expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
-        'deep-prime-10m-intention',
+        'deep-focus-10m-mix',
         expect.objectContaining({
+          volume: 1,
           onFinish: expect.any(Function),
         })
       )
     );
-    expect(mockPrime10mOpeningPlayer.stop).toHaveBeenCalledTimes(1);
-    expect(mockPrime10mIntentionPlayer.play).toHaveBeenCalledTimes(1);
-
-    dateNowSpy.mockReturnValue(now + 120_500);
-    await sleep(350);
-    await waitFor(() =>
-      expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
-        'deep-prime-10m-deepening',
-        expect.objectContaining({
-          onFinish: expect.any(Function),
-        })
-      )
-    );
-    expect(mockPrime10mIntentionPlayer.stop).toHaveBeenCalledTimes(1);
-    expect(mockPrime10mDeepeningPlayer.play).toHaveBeenCalledTimes(1);
-
-    dateNowSpy.mockReturnValue(now + 210_500);
-    await sleep(350);
-    await waitFor(() =>
-      expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
-        'deep-prime-10m-return',
-        expect.objectContaining({
-          onFinish: expect.any(Function),
-        })
-      )
-    );
-    expect(mockPrime10mDeepeningPlayer.stop).toHaveBeenCalledTimes(1);
-    expect(mockPrime10mReturnPlayer.play).toHaveBeenCalledTimes(1);
-
-    dateNowSpy.mockReturnValue(now + 300_500);
-    await sleep(350);
-    await waitFor(() =>
-      expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
-        'deep-prime-10m-reinforcement',
-        expect.objectContaining({
-          onFinish: expect.any(Function),
-        })
-      )
-    );
-    expect(mockPrime10mReturnPlayer.stop).toHaveBeenCalledTimes(1);
-    expect(mockPrime10mReinforcementPlayer.play).toHaveBeenCalledTimes(1);
-
-    dateNowSpy.mockReturnValue(now + 390_500);
-    await sleep(350);
-    await waitFor(() =>
-      expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
-        'deep-prime-10m-visualization',
-        expect.objectContaining({
-          onFinish: expect.any(Function),
-        })
-      )
-    );
-    expect(mockPrime10mReinforcementPlayer.stop).toHaveBeenCalledTimes(1);
-    expect(mockPrime10mVisualizationPlayer.play).toHaveBeenCalledTimes(1);
-
-    dateNowSpy.mockReturnValue(now + 495_500);
-    await sleep(350);
-    await waitFor(() =>
-      expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
-        'deep-prime-10m-settling',
-        expect.objectContaining({
-          onFinish: expect.any(Function),
-        })
-      )
-    );
-    expect(mockPrime10mVisualizationPlayer.stop).toHaveBeenCalledTimes(1);
-    expect(mockPrime10mSettlingPlayer.play).toHaveBeenCalledTimes(1);
-
-    dateNowSpy.mockReturnValue(now + 585_500);
-    await sleep(350);
-    await waitFor(() =>
-      expect(mockCreateManagedPlayer).toHaveBeenCalledWith(
-        'deep-prime-10m-closing',
-        expect.objectContaining({
-          onFinish: expect.any(Function),
-        })
-      )
-    );
-    expect(mockPrime10mSettlingPlayer.stop).toHaveBeenCalledTimes(1);
-    expect(mockPrime10mClosingPlayer.play).toHaveBeenCalledTimes(1);
+    expect(mockPrimeMix10Player.play).toHaveBeenCalledTimes(1);
+    expect(mockCreateManagedPlayer).not.toHaveBeenCalledWith('deep-prime-ambient', expect.anything());
+    expect(mockCreateManagedPlayer).toHaveBeenCalledTimes(1);
 
     unmount();
-    dateNowSpy.mockRestore();
   });
 
   it('plays the 15-minute Deep Prime cues at the scaled timestamps', async () => {

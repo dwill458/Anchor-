@@ -71,4 +71,17 @@ describe('PracticeCompletionService', () => {
     ).rejects.toThrow('active account');
     expect(useSessionStore.getState().practiceHistory).toEqual([]);
   });
+
+  it('rejects sessions that ended early', async () => {
+    useAuthStore.setState({ user: { id: 'account-completion-c' } as any });
+    const earlyInput = {
+      ...input('account-completion-c', 'early-session'),
+      plannedDurationSeconds: 60,
+      actualDurationSeconds: 15,
+    };
+    await expect(
+      PracticeCompletionService.completePracticeSession(earlyInput),
+    ).rejects.toThrow('ended early');
+    expect(useSessionStore.getState().practiceHistory).toEqual([]);
+  });
 });

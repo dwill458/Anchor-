@@ -410,3 +410,35 @@ describe('resumableDraft', () => {
     expect(resumableDraft(null)).toBeNull();
   });
 });
+
+describe('v2 creation category', () => {
+  beforeEach(fresh);
+
+  it('lets the words decide when no area was chosen, falling back to Desire', () => {
+    store().setIntention('I get the promotion at work');
+    store().distill();
+    expect(draft().category).toBe('career');
+    fresh();
+    store().setIntention('I am here');
+    store().distill();
+    expect(draft().category).toBe('desire');
+  });
+
+  it('names the category from the area chosen before writing, over what the words suggest', () => {
+    store().setIntention('I get the promotion at work');
+    store().distill('health');
+    expect(draft().category).toBe('health');
+    // The structure is formed on that area's grid, not the one the words would have picked.
+    store().formAnchor();
+    expect(draft().structureSvg).toContain('<svg');
+  });
+
+  it('re-applies the chosen area when the intention is rewritten', () => {
+    store().setIntention('I finish the quarterly report');
+    store().distill('abundance');
+    store().setIntention('I save every month');
+    expect(draft().category).toBeUndefined();
+    store().distill('abundance');
+    expect(draft().category).toBe('abundance');
+  });
+});

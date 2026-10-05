@@ -15,6 +15,9 @@ const SOURCES = {
   // Placeholder voices; replace these paths with sk-form-tick / sk-form-settle when delivered.
   formTick: () => require('../assets/sounds/sk-ui-tap.mp3'),
   formSettle: () => require('../assets/sounds/sk-bloom.mp3'),
+  // Release burn (scripts/generate-release-sounds.mjs): ends in exact silence at the coin's disappearance.
+  releaseBurn: () => require('../assets/sounds/sk-release-burn.wav'),
+  releaseIgnite: () => require('../assets/sounds/sk-release-ignite.wav'),
 } as const;
 
 export type CreationSoundKey = keyof typeof SOURCES;
@@ -26,6 +29,8 @@ const VOLUME: Record<CreationSoundKey, number> = {
   uiTap: 1,
   formTick: 0.30,
   formSettle: 0.35,
+  releaseBurn: 0.8,
+  releaseIgnite: 0.8,
 };
 
 export interface CreationSoundHandle {

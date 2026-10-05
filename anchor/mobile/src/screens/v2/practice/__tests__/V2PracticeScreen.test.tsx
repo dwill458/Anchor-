@@ -1,5 +1,5 @@
 import React from 'react';
-import { AccessibilityInfo } from 'react-native';
+import { AccessibilityInfo, Image } from 'react-native';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 const mockAcknowledge = jest.fn();
@@ -45,6 +45,7 @@ jest.mock('expo-video', () => ({
 }));
 
 import { V2PracticeScreen } from '../V2PracticeScreen';
+import { V2_PRACTICE_ARTWORK } from '@/components/v2/practice/V2PracticeArtwork';
 import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
 import type { V2RecommendationContext } from '@/adapters/v2/practice';
 import { invalidateV2RecommendationContext } from '@/adapters/v2/practice/recommendationCache';
@@ -108,11 +109,12 @@ describe('V2PracticeScreen', () => {
     expect(screen.getByText(why)).toBeTruthy();
   });
 
-  it('renders Focus hero video container when Focus is recommended today', async () => {
+  it('keeps the new Focus illustration visible without creating a video player', () => {
     renderPractice(context('Focus'));
-    // The loop joins the still once the push transition has settled.
+    const artwork = screen.getByTestId('v2-practice-artwork-focus-featured');
+    expect(artwork.findByType(Image).props.source).toBe(V2_PRACTICE_ARTWORK.focus);
     expect(screen.queryByTestId('v2-hero-video-focus')).toBeNull();
-    expect(await screen.findByTestId('v2-hero-video-focus', {}, { timeout: 2000 })).toBeTruthy();
+    expect(require('expo-video').useVideoPlayer).not.toHaveBeenCalled();
   });
 
   it('does NOT render hero video for Deep Prime, Visualize, or Release recommendations', () => {
@@ -135,11 +137,12 @@ describe('V2PracticeScreen', () => {
     expect(queryByTestId('v2-hero-video-focus')).toBeNull();
   });
 
-  it('switches away from Focus video when recommendation changes', async () => {
+  it('switches illustration when the recommendation changes', () => {
     const { rerender } = renderPractice(context('Focus'));
-    expect(await screen.findByTestId('v2-hero-video-focus', {}, { timeout: 2000 })).toBeTruthy();
+    expect(screen.getByTestId('v2-practice-artwork-focus-featured').findByType(Image).props.source).toBe(V2_PRACTICE_ARTWORK.focus);
 
     rerender(<V2PracticeScreen anchor={makeAnchor({ id: 'a' })} recommendation={context('Deep Prime')} capabilities={fullAccess} />);
+    expect(screen.getByTestId('v2-practice-artwork-deep_prime-featured').findByType(Image).props.source).toBe(V2_PRACTICE_ARTWORK.deep_prime);
     expect(screen.queryByTestId('v2-hero-video-focus')).toBeNull();
   });
 

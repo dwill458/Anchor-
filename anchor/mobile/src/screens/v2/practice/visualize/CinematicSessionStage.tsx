@@ -1,18 +1,18 @@
 import { memo, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Animated, { useAnimatedStyle, useDerivedValue, type SharedValue } from 'react-native-reanimated';
-import { Blur, Canvas, Circle, Group, Image as SkiaImage, ImageSVG, ImageShader, Paint, Path, RadialGradient, Rect, Shader, Skia, interpolateColors, type SkImage, type SkSVG } from '@shopify/react-native-skia';
+import Animated, { interpolateColor, useAnimatedStyle, useDerivedValue, type SharedValue } from 'react-native-reanimated';
+import { Canvas, Circle, Group, Image as SkiaImage, ImageSVG, ImageShader, Paint, Path, RadialGradient, Rect, Shader, Skia, interpolateColors, type SkImage, type SkSVG } from '@shopify/react-native-skia';
 import { VISION_EDGE_TOP, VISION_EDGE_BOTTOM } from '@/components/v2/vision/VisionImageEdge';
-import { fullscreenFit, visionImageFit } from '@/components/v2/vision/visionImageGeometry';
 import { colors } from '@/theme/v2';
 import type { V2VisionTile } from '@/adapters/v2/vision';
 import { VisionBoardScene } from '@/components/v2/vision/board/VisionBoardScene';
 import { useVisionBoardScene } from '@/components/v2/vision/board/useVisionBoardScene';
 import { type SceneRect, type Size } from '@/components/v2/vision/board/visionBoardLayouts';
-import { containRect, coverRect, projectPoint, type Rect as GeometryRect } from './prototype/cinematicGeometry';
+import { coverRect, projectPoint, type Rect as GeometryRect } from './prototype/cinematicGeometry';
 import { cinematicSessionFrame, CINEMATIC_MARK_BRIDGE_MS, type CinematicSessionGeometry } from './cinematicSessionMotion';
 import type { CinematicTimeline } from './prototype/cinematicTimeline';
 import type { ReturnTypeCinematicFrame } from './cinematicSessionMotion';
+import { photoMotionFrame, photoMotionPlan, type PhotoFocus, type PhotoMotionPlan } from './cinematicPhotoMotion';
 
 function smoothstep(value: number) {
   'worklet';
@@ -41,37 +41,49 @@ function EnhancedInkMask({ image, effect, size }: { image: SkImage; effect: NonN
 }
 
 /** A person's own landscape photograph is shown whole over a soft blurred copy of itself, never hard-cropped to a portrait. */
-function FramedImage({ image, source, backdrop }: { image: SkImage; source: GeometryRect; backdrop: GeometryRect | null }) {
+function FramedImage({ image, source, backdrop, softImage }: { image: SkImage; source: GeometryRect; backdrop: GeometryRect | null; softImage?: SkImage | null }) {
   return <>
-    {backdrop ? <SkiaImage image={image} {...backdrop} fit="fill"><Blur blur={28} /></SkiaImage> : null}
-    {backdrop ? <Rect x={backdrop.x} y={backdrop.y} width={backdrop.width} height={backdrop.height} color="rgba(15,20,25,0.22)" /> : null}
+    {backdrop && softImage ? <SkiaImage image={softImage} {...backdrop} fit="fill" /> : null}
+    {backdrop && softImage ? <Rect {...backdrop} color="rgba(15,20,25,0.55)" /> : null}
     <SkiaImage image={image} {...source} fit="fill" />
   </>;
 }
 
-const MomentImage = memo(function MomentImage({ image, source, backdrop, index, state, center, reduced }: {
-  image: SkImage; source: GeometryRect; backdrop: GeometryRect | null; index: number; state: SharedValue<ReturnTypeCinematicFrame>;
+const MomentImage = memo(function MomentImage({ image, motion, backdrop, softImage, index, state, center, reduced, slot }: {
+  image: SkImage; motion: PhotoMotionPlan; backdrop: GeometryRect | null; index: number; state: SharedValue<ReturnTypeCinematicFrame>;
+  slot: { startMs: number; endMs: number };
+  softImage?: SkImage | null;
   center: SharedValue<Array<{ translateX: number } | { translateY: number } | { scale: number }>>; reduced: boolean;
 }) {
   const opacity = useDerivedValue(() => {
     const s = state.value;
     if (s.segment.kind === 'arrival') return 0;
-    if (s.segment.kind === 'breakout') return reduced && index === 0 ? s.progress : 0;
+    if (s.segment.kind === 'breakout') return index === 0 ? reduced ? s.progress : smoothstep((s.progress - 0.7) / 0.3) : 0;
     if (s.segment.kind === 'transition') return index === s.sceneImageIndex ? 1 - s.progress :
       index === s.sceneImageIndex + 1 ? s.progress : 0;
     return index === s.sceneImageIndex ? s.unmasked : 0;
   });
-  return <Group opacity={opacity} transform={center}><FramedImage image={image} source={source} backdrop={backdrop} /></Group>;
+  const rect = useDerivedValue(() => photoMotionFrame(motion, reduced ? 0.5 :
+    (state.value.ms - slot.startMs) / Math.max(1, slot.endMs - slot.startMs)));
+  const x = useDerivedValue(() => rect.value.x), y = useDerivedValue(() => rect.value.y);
+  return <Group opacity={opacity} transform={center}>
+    {backdrop && softImage ? <><SkiaImage image={softImage} {...backdrop} fit="fill" />
+      <Rect {...backdrop} color="rgba(15,20,25,0.55)" /></> : null}
+    <SkiaImage image={image} x={x} y={y} width={motion.width} height={motion.height} fit="fill" />
+  </Group>;
 });
 
 type Props = {
   tiles: V2VisionTile[]; images: SkImage[]; intention: string; category: string; svgText: string; enhancedImageUrl?: string | null;
+  focalPoints?: Array<PhotoFocus | null>;
+  backdrops?: Array<SkImage | null>;
   scene: Size; viewport: Size; mark: SceneRect; geometry: CinematicSessionGeometry;
   svg: SkSVG | null; enhancedAnchor: SkImage | null;
   enhancedMaskEffect: NonNullable<ReturnType<typeof Skia.RuntimeEffect.Make>> | null;
   elapsed: SharedValue<number>; timeline: CinematicTimeline; reduced: boolean;
   /** How many of the images the session actually walks through; the last of them is the one the Anchor emerges from. */
   sequenceCount: number;
+  activeIndex: number;
   /** Quiet corner mark for ordinary Vision chapters; the Anchor chapter takes the centre instead. */
   watermark: { x: number; y: number; size: number };
   onMarkLayout: (rect: GeometryRect) => void;
@@ -79,10 +91,13 @@ type Props = {
 
 /** Production scene: the board, saved photos and enhanced Anchor share one camera. */
 export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles, images, intention, category, svgText,
-  enhancedImageUrl, scene, viewport, mark, geometry, svg, enhancedAnchor, enhancedMaskEffect, elapsed, timeline, reduced, sequenceCount, watermark, onMarkLayout }: Props) {
+  enhancedImageUrl, focalPoints, backdrops, scene, viewport, mark, geometry, svg, enhancedAnchor, enhancedMaskEffect, elapsed, timeline, reduced, sequenceCount, activeIndex, watermark, onMarkLayout }: Props) {
   const board = useVisionBoardScene(tiles, scene);
   const state = useDerivedValue(() => cinematicSessionFrame(elapsed.value, timeline, geometry, reduced));
-  const backgroundStyle = useAnimatedStyle(() => ({ opacity: state.value.environment }));
+  const backgroundStyle = useAnimatedStyle(() => ({ backgroundColor: interpolateColor(state.value.ambientDarkness,
+    [0, 1], [colors.canvas, colors.ink.deep]) }));
+  const boardDimStyle = useAnimatedStyle(() => ({ opacity: state.value.environment * state.value.ambientDarkness * 0.94 }));
+  const frameColor = useDerivedValue(() => interpolateColors(state.value.ambientDarkness, [0, 1], [colors.canvas, colors.ink.deep]));
   const nativePhoto = useDerivedValue(() => state.value.nativePhoto);
   const paperOpacity = useDerivedValue(() => {
     const s = state.value;
@@ -118,8 +133,7 @@ export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles
   ]);
   const first = geometry.firstPhoto;
   const localWindow = { x: -first.width / 2, y: -first.height / 2, width: first.width, height: first.height };
-  const uploaded = tiles[0].sourceType === 'USER_UPLOAD' || tiles[0].sourceType === 'USER_CAMERA';
-  const firstFit = visionImageFit(images[0].width() / images[0].height(), first.width / first.height, uploaded);
+  const firstFit = 'contain';
   const firstScale = firstFit === 'contain' ? Math.min(first.width / images[0].width(), first.height / images[0].height()) : 0;
   const sourceRect = firstFit === 'contain'
     ? { x: -images[0].width() * firstScale / 2, y: -images[0].height() * firstScale / 2, width: images[0].width() * firstScale, height: images[0].height() * firstScale }
@@ -127,9 +141,7 @@ export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles
   const firstOpacity = useDerivedValue(() => {
     const s = state.value;
     if (s.segment.kind === 'arrival') return 1;
-    if (s.segment.kind === 'breakout') return reduced ? 1 - s.progress : 1;
-    if (reduced) return 0;
-    if (s.sceneImageIndex === 0) return s.segment.kind === 'transition' ? 1 - s.progress : s.unmasked;
+    if (s.segment.kind === 'breakout') return reduced ? 1 - s.progress : 1 - smoothstep((s.progress - 0.7) / 0.3);
     return 0;
   });
   const frameOpacity = useDerivedValue(() => state.value.frameOpacity);
@@ -142,26 +154,34 @@ export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles
   const radius = useDerivedValue(() => Math.max(0.01, state.value.maskRadius));
   const center = useDerivedValue(() => ({ x: viewport.width / 2, y: viewport.height / 2 }));
   const viewportRect = { x: -viewport.width / 2, y: -viewport.height / 2, width: viewport.width, height: viewport.height };
-  // Each image is framed once, deterministically, for the viewport: generated portraits fill it; a person's own
-  // landscape photograph that a cover would gut is shown whole over a blurred copy of itself.
-  const framings = images.map((image, index) => {
+  // Keep every photograph whole; only the dim background copy fills the viewport.
+  const framings = useMemo(() => images.map((image, index) => {
     const size = { width: image.width(), height: image.height() };
-    const own = tiles[index]?.sourceType === 'USER_UPLOAD' || tiles[index]?.sourceType === 'USER_CAMERA';
-    if (fullscreenFit(size, viewport, own) === 'contain') return { source: containRect(size, viewportRect), backdrop: coverRect(size, viewportRect) };
-    return { source: coverRect(size, viewportRect), backdrop: null };
-  });
-  const fullSources = framings.map(item => item.source);
-  const fullTransform = useDerivedValue(() => [{ translateX: viewport.width / 2 }, { translateY: viewport.height / 2 }, { scale: 1 + state.value.push }]);
+    const motion = photoMotionPlan(size, viewport, focalPoints?.[index]);
+    return { motion, source: photoMotionFrame(motion, reduced ? 0.5 : 1), backdrop: coverRect(size, viewportRect) };
+  }), [images, viewport, focalPoints, reduced]);
+  const motionSlots = useMemo(() => {
+    const breakout = timeline.segments.find(segment => segment.kind === 'breakout');
+    const dissolve = timeline.segments.find(segment => segment.kind === 'transition');
+    const halfFade = dissolve ? (dissolve.endMs - dissolve.startMs) / 2 : 0;
+    return images.map((_, index) => {
+      const slot = timeline.photoSlots?.[index] ?? { startMs: 0, endMs: timeline.durationMs };
+      return { startMs: index === 0 && breakout ? breakout.startMs + (breakout.endMs - breakout.startMs) * 0.7 : slot.startMs - halfFade,
+        endMs: slot.endMs + (index < images.length - 1 ? halfFade : 0) };
+    });
+  }, [images, timeline]);
+  const fullTransform = useDerivedValue<Array<{ translateX: number } | { translateY: number } | { scale: number }>>(() =>
+    [{ translateX: viewport.width / 2 }, { translateY: viewport.height / 2 }]);
   const finalIndex = Math.max(0, Math.min(images.length, sequenceCount) - 1);
   const finalImage = images[finalIndex];
-  const finalSource = fullSources[finalIndex];
+  const finalSource = framings[finalIndex].source;
   const finalBackdrop = framings[finalIndex].backdrop;
   // The grade is opacity-only over whatever the frame shows, so Reduce Motion keeps it intact.
   const warmOpacity = useDerivedValue(() => state.value.grade.warm * 0.32);
   const softenOpacity = useDerivedValue(() => state.value.grade.soften * 0.5);
   const hazeOpacity = useDerivedValue(() => state.value.grade.soften * 0.1);
   // A long silence's breath rides on the same near-black layer as the dim, so it can only ever darken a hair.
-  const dimOpacity = useDerivedValue(() => state.value.grade.dim + state.value.breath);
+  const dimOpacity = useDerivedValue(() => (state.value.grade.dim + state.value.breath) * state.value.ambientDarkness);
   const watermarkOpacity = useDerivedValue(() => state.value.grade.watermark);
   const haloOpacity = useDerivedValue(() => state.value.anchorGlow * 0.11);
   const haloRadius = Math.max(1, mark.width * geometry.anchor.scale * 0.95);
@@ -179,13 +199,14 @@ export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles
         shared={board.shared} initialRectFor={board.initialRectFor} intention={intention} category={category}
         art={{ svg: svgText, imageUrl: enhancedImageUrl }} reduceMotion cinematic={cinematic} />
     </Animated.View>
+    <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.ink.deep }, boardDimStyle]} />
     <Canvas style={StyleSheet.absoluteFill}>
       <Group opacity={firstOpacity} transform={firstTransform} clip={localWindow}>
-        <Rect {...localWindow} color={colors.canvas} />
+        <Rect {...localWindow} color={frameColor} />
         <SkiaImage image={images[0]} {...sourceRect} fit="fill" />
         <Group opacity={frameOpacity} transform={[{ translateX: localWindow.x }, { translateY: localWindow.y }, { scaleX: localWindow.width / 1000 }, { scaleY: localWindow.height / 1000 }]}>
-          <Path path={VISION_EDGE_TOP} color={colors.canvas} />
-          <Path path={VISION_EDGE_BOTTOM} color={colors.canvas} />
+          <Path path={VISION_EDGE_TOP} color={frameColor} />
+          <Path path={VISION_EDGE_BOTTOM} color={frameColor} />
         </Group>
       </Group>
       <Group layer={<Paint opacity={markOpacity} />}>
@@ -196,12 +217,11 @@ export const CinematicSessionStage = memo(function CinematicSessionStage({ tiles
           </Group>
         </> : null}
       </Group>
-      {images.map((image, index) => index === 0 && !reduced ? null : <MomentImage key={tiles[index].sceneId}
-        image={image} source={fullSources[index]} backdrop={framings[index].backdrop} index={index} state={state} center={fullTransform} reduced={reduced} />)}
+      {images.map((image, index) => index === activeIndex || index === activeIndex + 1 ? <MomentImage key={tiles[index].sceneId}
+        image={image} motion={framings[index].motion} backdrop={framings[index].backdrop} index={index} state={state} center={fullTransform} reduced={reduced}
+        softImage={backdrops?.[index]} slot={motionSlots[index]} /> : null)}
       <Group layer={<Paint opacity={maskedOpacity} />}>
-        {sequenceCount === 1 && !reduced ? <Group transform={firstTransform} clip={localWindow}>
-          <SkiaImage image={finalImage} {...sourceRect} fit="fill" />
-        </Group> : <Group transform={fullTransform}><FramedImage image={finalImage} source={finalSource} backdrop={finalBackdrop} /></Group>}
+        <Group transform={fullTransform}><FramedImage image={finalImage} source={finalSource} backdrop={finalBackdrop} softImage={backdrops?.[finalIndex]} /></Group>
         <Group layer={<Paint blendMode="dstIn" />}>
           {!reduced ? <Rect x={0} y={0} width={viewport.width} height={viewport.height}>
             <RadialGradient c={center} r={radius} colors={['white', 'white', 'transparent']} positions={[0, 0.82, 1]} />

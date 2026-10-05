@@ -45,7 +45,7 @@ import { AccountDataSubscreen } from './AccountDataSubscreen';
 import { PrivacySupportSubscreen } from './PrivacySupportSubscreen';
 import { DeveloperToolsSubscreen } from './DeveloperToolsSubscreen';
 
-import { useProgressionData } from '@/hooks/useProgressionData';
+import { useAnchorStore } from '@/stores/anchorStore';
 import { useSettingsReveal } from '@/components/transitions/SettingsRevealProvider';
 import { useTrialStatus } from '@/hooks/useTrialStatus';
 import { apiClient } from '@/services/ApiClient';
@@ -91,12 +91,22 @@ export const SettingsScreen: React.FC = () => {
   const signOut = useAuthStore((s) => s.signOut);
 
   // Profile Store
-  const { name, axiom, timezone, mono, photo, memberSince, updateProfile, syncFromUser } = useProfileStore();
+  const name = useProfileStore((s) => s.name);
+  const axiom = useProfileStore((s) => s.axiom);
+  const timezone = useProfileStore((s) => s.timezone);
+  const mono = useProfileStore((s) => s.mono);
+  const photo = useProfileStore((s) => s.photo);
+  const memberSince = useProfileStore((s) => s.memberSince);
+  const updateProfile = useProfileStore((s) => s.updateProfile);
+  const syncFromUser = useProfileStore((s) => s.syncFromUser);
   const visionAppearance = useVisionAppearanceReference();
 
   // Metrics
   const totalSessionsCount = useSessionStore((s) => s.totalSessionsCount);
-  const activeAnchors = useProgressionData().activeAnchors;
+  // Only a count is needed here; avoid the full progression computation on mount.
+  const activeAnchors = useAnchorStore(
+    (s) => s.anchors.filter((a) => !a.isReleased && !a.releasedAt && !a.archivedAt).length
+  );
   const createdAnchorCount = user?.totalAnchorsCreated ?? activeAnchors;
 
   // Subscription / RevenueCat

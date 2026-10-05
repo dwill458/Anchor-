@@ -6,7 +6,7 @@ import { V2DeepFocusActiveScreen } from '../V2DeepFocusActiveScreen';
 import { safeHaptics } from '@/utils/haptics';
 
 const mockAmbient = { play: jest.fn(), pause: jest.fn(), stop: jest.fn(), setVolume: jest.fn() };
-const mockVoice = { play: jest.fn(), pause: jest.fn(), stop: jest.fn(), setVolume: jest.fn() };
+const mockVoice = { play: jest.fn(), pause: jest.fn(), stop: jest.fn(), setVolume: jest.fn(), seekTo: jest.fn() };
 const mockCreate = jest.fn((_asset, options) => options.loop ? mockAmbient : mockVoice);
 jest.mock('@/hooks/useSessionAudio', () => ({ useSessionAudio: () => ({ createSessionAudioPlayer: mockCreate }) }));
 jest.mock('expo-keep-awake', () => ({ useKeepAwake: jest.fn() }));
@@ -24,7 +24,8 @@ describe('Deep Focus interaction and audio', () => {
 
   it('hides controls until requested, pauses and resolves one intentional exit', () => {
     const onComplete = jest.fn();
-    render(<V2DeepFocusActiveScreen anchor={anchor} durationSeconds={120} voice="none" ambient={false} onComplete={onComplete} />);
+    const onExit = jest.fn();
+    render(<V2DeepFocusActiveScreen anchor={anchor} durationSeconds={120} voice="none" ambient={false} onExit={onExit} onComplete={onComplete} />);
     expect(screen.queryByLabelText('End session')).toBeNull();
     advance(22000);
     fireEvent.press(screen.getByLabelText('Show Deep Focus controls'));
@@ -35,23 +36,33 @@ describe('Deep Focus interaction and audio', () => {
     expect(onComplete).not.toHaveBeenCalled();
     fireEvent.press(screen.getByLabelText('End session'));
     advance(1250);
-    expect(onComplete).toHaveBeenCalledTimes(1);
-    expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({ actualDurationSeconds: 22 }));
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(onExit).toHaveBeenCalledTimes(1);
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
-  it('uses one ambient instance, stops guidance before descent, quiets immersion and releases all players', () => {
+  it('plays one full-length mix with its bed baked in, never layering a second ambient bed', () => {
     const view = render(<V2DeepFocusActiveScreen anchor={anchor} durationSeconds={600} voice="female" ambient onComplete={jest.fn()} />);
     advance(15000);
-    expect(mockCreate).toHaveBeenCalledTimes(3); // one ambient plus opening/intention
-    advance(20000);
-    const stops = mockVoice.stop.mock.calls.length;
-    advance(45000);
-    expect(mockAmbient.setVolume.mock.calls.at(-1)?.[0]).toBeCloseTo(0.07);
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+    expect(mockCreate.mock.calls[0][1]).toEqual(expect.objectContaining({ volume: 1 }));
+    expect(mockCreate.mock.calls[0][1].loop).toBeFalsy();
+    expect(mockVoice.play).toHaveBeenCalled();
     advance(450000);
-    expect(mockCreate).toHaveBeenCalledTimes(3);
-    expect(mockVoice.stop).toHaveBeenCalledTimes(stops);
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+    expect(mockAmbient.play).not.toHaveBeenCalled();
     expect(safeHaptics.selection).toHaveBeenCalledTimes(1);
+    view.unmount();
+    expect(mockVoice.stop).toHaveBeenCalled();
+  });
+
+  it('keeps the Deep Focus ambient bed when no guidance voice is chosen', () => {
+    const view = render(<V2DeepFocusActiveScreen anchor={anchor} durationSeconds={600} voice="none" ambient onComplete={jest.fn()} />);
+    advance(15000);
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+    expect(mockCreate.mock.calls[0][1].loop).toBe(true);
+    advance(65000);
+    expect(mockAmbient.setVolume.mock.calls.at(-1)?.[0]).toBeCloseTo(0.07);
     view.unmount();
     expect(mockAmbient.stop).toHaveBeenCalled();
     const calls = mockAmbient.setVolume.mock.calls.length;

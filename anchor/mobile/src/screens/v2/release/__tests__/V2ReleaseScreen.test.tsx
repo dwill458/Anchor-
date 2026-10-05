@@ -29,6 +29,9 @@ jest.mock('@/hooks/v2', () => ({
 
 // eslint-disable-next-line import/first
 import { V2ReleaseScreen } from '../V2ReleaseScreen';
+import { RELEASE_COPY, RELEASE_ENDINGS } from '@/constants/v2/release';
+import { V2ReleaseCompletion } from '@/components/v2/release/V2ReleaseCompletion';
+import { Skia } from '@shopify/react-native-skia';
 
 const anchor = {
   id: 'anchor-1',
@@ -46,12 +49,79 @@ function fakeAdapter(result: V2ReleaseResult): V2ReleaseAdapter {
 const flush = () => act(async () => { await Promise.resolve(); });
 
 describe('V2ReleaseScreen', () => {
+  it('uses the finished enhanced artwork for the tinted completion ghost', async () => {
+    const view = render(<V2ReleaseCompletion ending={{ ...RELEASE_ENDINGS.no_longer_aligned,
+      secondary: RELEASE_ENDINGS.no_longer_aligned.secondary ?? null, reason: 'no_longer_aligned',
+      intentionText: anchor.intentionText, successor: null }} ghostSvg={anchor.baseSigilSvg}
+      ghostImageUrl="https://cdn.example.com/enhanced.png" reduceMotion onAction={jest.fn()} />);
+    await flush();
+    expect(view.getByTestId('v2-release-completion-enhanced-ghost', { includeHiddenElements: true })).toBeTruthy();
+    expect(Skia.Data.fromURI).toHaveBeenCalledWith('https://cdn.example.com/enhanced.png');
+    expect(view.UNSAFE_root.findAll((node: { type: unknown }) => node.type === ('ColorMatrix' as never))).toHaveLength(1);
+  });
+
+  it('keeps the stored SVG as fallback when enhanced artwork cannot load', async () => {
+    jest.mocked(Skia.Data.fromURI).mockRejectedValueOnce(new Error('Artwork unavailable'));
+    const view = render(<V2ReleaseCompletion ending={{ ...RELEASE_ENDINGS.no_longer_aligned,
+      secondary: RELEASE_ENDINGS.no_longer_aligned.secondary ?? null, reason: 'no_longer_aligned',
+      intentionText: anchor.intentionText, successor: null }} ghostSvg={anchor.baseSigilSvg}
+      ghostImageUrl="https://cdn.example.com/unavailable.png" reduceMotion onAction={jest.fn()} />);
+    await flush();
+    expect(view.queryByTestId('v2-release-completion-enhanced-ghost', { includeHiddenElements: true })).toBeNull();
+    expect(view.getByTestId('v2-release-completion-ghost', { includeHiddenElements: true })).toBeTruthy();
+    expect(view.UNSAFE_root.findAll((node: { type: unknown }) => node.type === ('SvgXml' as never))).toHaveLength(1);
+  });
+
+  it('replaces the old preflight subtitle with the locked kicker', () => {
+    const view = render(<V2ReleaseScreen anchorId="anchor-1" releaseAdapter={fakeAdapter({ status: 'released', anchorId: 'anchor-1' })}
+      onReleaseCompleted={jest.fn()} onCancel={jest.fn()} />);
+    expect(view.getByText(RELEASE_COPY.preflightKicker)).toBeTruthy();
+    expect(view.queryByText(RELEASE_COPY.preflightSubtitle)).toBeNull();
+  });
+
+  it('shows the stored ghost and prevents completion actions until the reveal', () => {
+    const onAction = jest.fn();
+    const view = render(<V2ReleaseCompletion ending={{ ...RELEASE_ENDINGS.no_longer_aligned, secondary: RELEASE_ENDINGS.no_longer_aligned.secondary ?? null, reason: 'no_longer_aligned', intentionText: anchor.intentionText, successor: null }}
+      ghostSvg={anchor.baseSigilSvg} category={anchor.category} onAction={onAction} />);
+    expect(view.getByTestId('v2-release-completion-ghost', { includeHiddenElements: true })).toBeTruthy();
+    fireEvent.press(view.getByTestId('v2-release-completion-primary', { includeHiddenElements: true }));
+    expect(onAction).not.toHaveBeenCalled();
+    act(() => jest.advanceTimersByTime(1199));
+    fireEvent.press(view.getByTestId('v2-release-completion-primary', { includeHiddenElements: true }));
+    expect(onAction).not.toHaveBeenCalled();
+    act(() => jest.advanceTimersByTime(51));
+    fireEvent.press(view.getByTestId('v2-release-completion-primary'));
+    expect(onAction).toHaveBeenCalledWith('home');
+  });
+
+  it('renders every completion element immediately with Reduced Motion and no action delay', () => {
+    const onAction = jest.fn();
+    const view = render(<V2ReleaseCompletion ending={{ ...RELEASE_ENDINGS.no_longer_aligned, secondary: RELEASE_ENDINGS.no_longer_aligned.secondary ?? null, reason: 'no_longer_aligned', intentionText: anchor.intentionText, successor: null }}
+      ghostSvg={anchor.baseSigilSvg} reduceMotion onAction={onAction} />);
+    expect(view.getByTestId('v2-release-completion-ghost', { includeHiddenElements: true })).toBeTruthy();
+    for (const id of ['eyebrow', 'heading', 'body', 'primary', 'secondary']) {
+      expect(view.getByTestId(`v2-release-completion-${id}`)).toBeTruthy();
+    }
+    expect(view.getByText(`“${anchor.intentionText}”`)).toBeTruthy();
+    fireEvent.press(view.getByTestId('v2-release-completion-primary'));
+    expect(onAction).toHaveBeenCalledWith('home');
+    view.unmount();
+    // Flush the test renderer's queued animation frames after cancellation.
+    act(() => jest.runOnlyPendingTimers());
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
   beforeEach(() => {
     jest.useFakeTimers();
     mockReleaseAnchor.mockClear();
     mockReduceMotion.mockReturnValue(false);
     mockAnchorStoreState.anchors = [anchor];
     mockCourseStoreState.activeCourse = null;
+    // The global Skia double omits remote decoding; model success/failure here.
+    Object.defineProperty(Skia.Data, 'fromURI', { configurable: true, value: jest.fn().mockResolvedValue({}) });
+    Object.defineProperty(Skia.Image, 'MakeImageFromEncoded', {
+      configurable: true, value: jest.fn(() => ({ width: () => 132, height: () => 132 })),
+    });
   });
 
   afterEach(() => {

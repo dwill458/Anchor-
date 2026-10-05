@@ -30,6 +30,8 @@ export interface GuidedAudioTrack {
   asset: AudioAssetReference;
   /** Linear playback gain used to loudness-match this recording to the reference voice. */
   playbackGain: number;
+  /** True when the recording already contains the session bed, so the ambient layer is skipped. */
+  includesBed?: boolean;
   version: number;
 }
 
@@ -56,9 +58,7 @@ type SessionCueSheet = {
   cues: readonly SessionVoiceCue[];
 };
 
-const focus10 = require('../assets/sounds/focus-session-10s.mp3');
 const focus30Start = require('../assets/sounds/focus-session-30s-start.mp3');
-const focus30End = require('../assets/sounds/focus-session-30s-end.mp3');
 const focus60Start = require('../assets/sounds/focus-session-60s-start.mp3');
 const focus60Middle = require('../assets/sounds/focus-session-60s-middle.mp3');
 const focus60End = require('../assets/sounds/focus-session-60s-end.mp3');
@@ -68,24 +68,24 @@ const focus120Deepening = require('../assets/sounds/focus-session-120s-deepening
 const focus120Closing = require('../assets/sounds/focus-session-120s-closing.mp3');
 const focusAmbient = require('../assets/sounds/focus-session-ambient.mp3');
 
-const deep2Opening = require('../assets/sounds/deep-prime-2m-opening.mp3');
-const deep2Intention = require('../assets/sounds/deep-prime-2m-intention.mp3');
-const deep2Deepening = require('../assets/sounds/deep-prime-2m-deepening.mp3');
-const deep2Closing = require('../assets/sounds/deep-prime-2m-closing.mp3');
-const deep5Opening = require('../assets/sounds/deep-prime-5m-opening.mp3');
-const deep5Intention = require('../assets/sounds/deep-prime-5m-intention.mp3');
-const deep5Deepening = require('../assets/sounds/deep-prime-5m-deepening.mp3');
-const deep5Return = require('../assets/sounds/deep-prime-5m-return.mp3');
-const deep5Reinforcement = require('../assets/sounds/deep-prime-5m-reinforcement.mp3');
-const deep5Closing = require('../assets/sounds/deep-prime-5m-closing.mp3');
-const deep10Opening = require('../assets/sounds/deep-prime-10m-opening.mp3');
-const deep10Intention = require('../assets/sounds/deep-prime-10m-intention.mp3');
-const deep10Deepening = require('../assets/sounds/deep-prime-10m-deepening.mp3');
-const deep10Return = require('../assets/sounds/deep-prime-10m-return.mp3');
-const deep10Reinforcement = require('../assets/sounds/deep-prime-10m-reinforcement.mp3');
-const deep10Visualization = require('../assets/sounds/deep-prime-10m-visualization.mp3');
-const deep10Settling = require('../assets/sounds/deep-prime-10m-settling.mp3');
-const deep10Closing = require('../assets/sounds/deep-prime-10m-closing.mp3');
+// Finished Focus / Deep Focus mixes: narration and bed are baked into one
+// full-length file per voice and duration. Dominic = male, Lina = female.
+const focusMix10Lina = require('../assets/sounds/focus-mix/Focus_10s_Lina.mp3');
+const focusMix10Dominic = require('../assets/sounds/focus-mix/Focus_10s_Dominic.mp3');
+const focusMix30Lina = require('../assets/sounds/focus-mix/Focus_30s_Lina.mp3');
+const focusMix30Dominic = require('../assets/sounds/focus-mix/Focus_30s_Dominic.mp3');
+const focusMix60Lina = require('../assets/sounds/focus-mix/Focus_60s_Lina.mp3');
+const focusMix60Dominic = require('../assets/sounds/focus-mix/Focus_60s_Dominic.mp3');
+const deepMix2Lina = require('../assets/sounds/focus-mix/DeepFocus_2min_Lina.mp3');
+const deepMix2Dominic = require('../assets/sounds/focus-mix/DeepFocus_2min_Dominic.mp3');
+const deepMix5Lina = require('../assets/sounds/focus-mix/DeepFocus_5min_Lina.mp3');
+const deepMix5Dominic = require('../assets/sounds/focus-mix/DeepFocus_5min_Dominic.mp3');
+const deepMix10Lina = require('../assets/sounds/focus-mix/DeepFocus_10min_Lina.mp3');
+const deepMix10Dominic = require('../assets/sounds/focus-mix/DeepFocus_10min_Dominic.mp3');
+
+/** Phase id of the single full-length cue on a finished-mix session. */
+export const FULL_MIX_PHASE_ID = 'mix';
+
 const deep15Opening = require('../assets/sounds/deep-prime-15m-opening.mp3');
 const deep15Intention = require('../assets/sounds/deep-prime-15m-intention.mp3');
 const deep15Deepening = require('../assets/sounds/deep-prime-15m-deepening.mp3');
@@ -96,9 +96,7 @@ const deep15Settling = require('../assets/sounds/deep-prime-15m-settling.mp3');
 const deep15Closing = require('../assets/sounds/deep-prime-15m-closing.mp3');
 const deepAmbient = require('../assets/sounds/deep-prime-ambient.mp3');
 
-const maleFocus10 = require('../assets/sounds/voices/male/en-US/focus-session-10s.mp3');
 const maleFocus30Start = require('../assets/sounds/voices/male/en-US/focus-session-30s-start.mp3');
-const maleFocus30End = require('../assets/sounds/voices/male/en-US/focus-session-30s-end.mp3');
 const maleFocus60Start = require('../assets/sounds/voices/male/en-US/focus-session-60s-start.mp3');
 const maleFocus60Middle = require('../assets/sounds/voices/male/en-US/focus-session-60s-middle.mp3');
 const maleFocus60End = require('../assets/sounds/voices/male/en-US/focus-session-60s-end.mp3');
@@ -106,24 +104,6 @@ const maleFocus120Opening = require('../assets/sounds/voices/male/en-US/focus-se
 const maleFocus120Grounding = require('../assets/sounds/voices/male/en-US/focus-session-120s-grounding.mp3');
 const maleFocus120Deepening = require('../assets/sounds/voices/male/en-US/focus-session-120s-deepening.mp3');
 const maleFocus120Closing = require('../assets/sounds/voices/male/en-US/focus-session-120s-closing.mp3');
-const maleDeep2Opening = require('../assets/sounds/voices/male/en-US/deep-prime-2m-opening.mp3');
-const maleDeep2Intention = require('../assets/sounds/voices/male/en-US/deep-prime-2m-intention.mp3');
-const maleDeep2Deepening = require('../assets/sounds/voices/male/en-US/deep-prime-2m-deepening.mp3');
-const maleDeep2Closing = require('../assets/sounds/voices/male/en-US/deep-prime-2m-closing.mp3');
-const maleDeep5Opening = require('../assets/sounds/voices/male/en-US/deep-prime-5m-opening.mp3');
-const maleDeep5Intention = require('../assets/sounds/voices/male/en-US/deep-prime-5m-intention.mp3');
-const maleDeep5Deepening = require('../assets/sounds/voices/male/en-US/deep-prime-5m-deepening.mp3');
-const maleDeep5Return = require('../assets/sounds/voices/male/en-US/deep-prime-5m-return.mp3');
-const maleDeep5Reinforcement = require('../assets/sounds/voices/male/en-US/deep-prime-5m-reinforcement.mp3');
-const maleDeep5Closing = require('../assets/sounds/voices/male/en-US/deep-prime-5m-closing.mp3');
-const maleDeep10Opening = require('../assets/sounds/voices/male/en-US/deep-prime-10m-opening.mp3');
-const maleDeep10Intention = require('../assets/sounds/voices/male/en-US/deep-prime-10m-intention.mp3');
-const maleDeep10Deepening = require('../assets/sounds/voices/male/en-US/deep-prime-10m-deepening.mp3');
-const maleDeep10Return = require('../assets/sounds/voices/male/en-US/deep-prime-10m-return.mp3');
-const maleDeep10Reinforcement = require('../assets/sounds/voices/male/en-US/deep-prime-10m-reinforcement.mp3');
-const maleDeep10Visualization = require('../assets/sounds/voices/male/en-US/deep-prime-10m-visualization.mp3');
-const maleDeep10Settling = require('../assets/sounds/voices/male/en-US/deep-prime-10m-settling.mp3');
-const maleDeep10Closing = require('../assets/sounds/voices/male/en-US/deep-prime-10m-closing.mp3');
 const maleDeep15Opening = require('../assets/sounds/voices/male/en-US/deep-prime-15m-opening.mp3');
 const maleDeep15Intention = require('../assets/sounds/voices/male/en-US/deep-prime-15m-intention.mp3');
 const maleDeep15Deepening = require('../assets/sounds/voices/male/en-US/deep-prime-15m-deepening.mp3');
@@ -145,16 +125,9 @@ const cueSheet = (
 });
 
 export const SESSION_VOICE_CUE_SHEETS: readonly SessionCueSheet[] = [
-  cueSheet('focus', 10, [{ phaseId: 'start', triggerAtRemainingMs: 10_000 }]),
-  cueSheet('focus', 30, [
-    { phaseId: 'start', triggerAtRemainingMs: 30_000 },
-    { phaseId: 'end', triggerAtRemainingMs: 6_300 },
-  ]),
-  cueSheet('focus', 60, [
-    { phaseId: 'start', triggerAtRemainingMs: 60_000 },
-    { phaseId: 'middle', triggerAtRemainingMs: 32_415 },
-    { phaseId: 'end', triggerAtRemainingMs: 5_980 },
-  ]),
+  cueSheet('focus', 10, [{ phaseId: FULL_MIX_PHASE_ID, triggerAtRemainingMs: 10_000 }]),
+  cueSheet('focus', 30, [{ phaseId: FULL_MIX_PHASE_ID, triggerAtRemainingMs: 30_000 }]),
+  cueSheet('focus', 60, [{ phaseId: FULL_MIX_PHASE_ID, triggerAtRemainingMs: 60_000 }]),
   cueSheet('focus', 90, [
     { phaseId: 'start', triggerAtRemainingMs: 90_000 },
     { phaseId: 'middle', triggerAtRemainingMs: 45_000 },
@@ -166,30 +139,9 @@ export const SESSION_VOICE_CUE_SHEETS: readonly SessionCueSheet[] = [
     { phaseId: 'deepening', triggerAtRemainingMs: 40_000 },
     { phaseId: 'end', triggerAtRemainingMs: 5_000 },
   ]),
-  cueSheet('deep_prime', 120, [
-    { phaseId: 'opening', triggerAtRemainingMs: 120_000 },
-    { phaseId: 'intention', triggerAtRemainingMs: 90_000 },
-    { phaseId: 'deepening', triggerAtRemainingMs: 50_000 },
-    { phaseId: 'closing', triggerAtRemainingMs: 10_000 },
-  ]),
-  cueSheet('deep_prime', 300, [
-    { phaseId: 'opening', triggerAtRemainingMs: 300_000 },
-    { phaseId: 'intention', triggerAtRemainingMs: 265_000 },
-    { phaseId: 'deepening', triggerAtRemainingMs: 200_000 },
-    { phaseId: 'return', triggerAtRemainingMs: 135_000 },
-    { phaseId: 'reinforcement', triggerAtRemainingMs: 60_000 },
-    { phaseId: 'closing', triggerAtRemainingMs: 10_000 },
-  ]),
-  cueSheet('deep_prime', 600, [
-    { phaseId: 'opening', triggerAtRemainingMs: 600_000 },
-    { phaseId: 'intention', triggerAtRemainingMs: 555_000 },
-    { phaseId: 'deepening', triggerAtRemainingMs: 480_000 },
-    { phaseId: 'return', triggerAtRemainingMs: 390_000 },
-    { phaseId: 'reinforcement', triggerAtRemainingMs: 300_000 },
-    { phaseId: 'visualization', triggerAtRemainingMs: 210_000 },
-    { phaseId: 'settling', triggerAtRemainingMs: 105_000 },
-    { phaseId: 'closing', triggerAtRemainingMs: 15_000 },
-  ]),
+  cueSheet('deep_prime', 120, [{ phaseId: FULL_MIX_PHASE_ID, triggerAtRemainingMs: 120_000 }]),
+  cueSheet('deep_prime', 300, [{ phaseId: FULL_MIX_PHASE_ID, triggerAtRemainingMs: 300_000 }]),
+  cueSheet('deep_prime', 600, [{ phaseId: FULL_MIX_PHASE_ID, triggerAtRemainingMs: 600_000 }]),
   cueSheet('deep_prime', 900, [
     { phaseId: 'opening', triggerAtRemainingMs: 900_000 },
     { phaseId: 'intention', triggerAtRemainingMs: 832_500 },
@@ -246,13 +198,37 @@ const maleTrack = (
   version: 1,
 });
 
+/** Finished mixes are loudness-matched across voices, so both play at unity gain. */
+const mixTrack = (
+  sessionType: SessionAudioSessionType,
+  durationSeconds: number,
+  voice: Exclude<GuidanceVoice, 'none'>,
+  asset: AudioAssetReference,
+): GuidedAudioTrack => ({
+  sessionType,
+  durationSeconds,
+  phaseId: FULL_MIX_PHASE_ID,
+  voice,
+  locale: SESSION_AUDIO_LOCALE,
+  asset,
+  playbackGain: 1,
+  includesBed: true,
+  version: 2,
+});
+
 export const GUIDED_AUDIO_MANIFEST: readonly GuidedAudioTrack[] = [
-  femaleTrack('focus', 10, 'start', focus10),
-  femaleTrack('focus', 30, 'start', focus30Start),
-  femaleTrack('focus', 30, 'end', focus30End),
-  femaleTrack('focus', 60, 'start', focus60Start),
-  femaleTrack('focus', 60, 'middle', focus60Middle),
-  femaleTrack('focus', 60, 'end', focus60End),
+  mixTrack('focus', 10, 'female', focusMix10Lina),
+  mixTrack('focus', 10, 'male', focusMix10Dominic),
+  mixTrack('focus', 30, 'female', focusMix30Lina),
+  mixTrack('focus', 30, 'male', focusMix30Dominic),
+  mixTrack('focus', 60, 'female', focusMix60Lina),
+  mixTrack('focus', 60, 'male', focusMix60Dominic),
+  mixTrack('deep_prime', 120, 'female', deepMix2Lina),
+  mixTrack('deep_prime', 120, 'male', deepMix2Dominic),
+  mixTrack('deep_prime', 300, 'female', deepMix5Lina),
+  mixTrack('deep_prime', 300, 'male', deepMix5Dominic),
+  mixTrack('deep_prime', 600, 'female', deepMix10Lina),
+  mixTrack('deep_prime', 600, 'male', deepMix10Dominic),
   femaleTrack('focus', 90, 'start', focus60Start),
   femaleTrack('focus', 90, 'middle', focus60Middle),
   femaleTrack('focus', 90, 'end', focus60End),
@@ -260,24 +236,6 @@ export const GUIDED_AUDIO_MANIFEST: readonly GuidedAudioTrack[] = [
   femaleTrack('focus', 120, 'grounding', focus120Grounding),
   femaleTrack('focus', 120, 'deepening', focus120Deepening),
   femaleTrack('focus', 120, 'end', focus120Closing),
-  femaleTrack('deep_prime', 120, 'opening', deep2Opening),
-  femaleTrack('deep_prime', 120, 'intention', deep2Intention),
-  femaleTrack('deep_prime', 120, 'deepening', deep2Deepening),
-  femaleTrack('deep_prime', 120, 'closing', deep2Closing),
-  femaleTrack('deep_prime', 300, 'opening', deep5Opening),
-  femaleTrack('deep_prime', 300, 'intention', deep5Intention),
-  femaleTrack('deep_prime', 300, 'deepening', deep5Deepening),
-  femaleTrack('deep_prime', 300, 'return', deep5Return),
-  femaleTrack('deep_prime', 300, 'reinforcement', deep5Reinforcement),
-  femaleTrack('deep_prime', 300, 'closing', deep5Closing),
-  femaleTrack('deep_prime', 600, 'opening', deep10Opening),
-  femaleTrack('deep_prime', 600, 'intention', deep10Intention),
-  femaleTrack('deep_prime', 600, 'deepening', deep10Deepening),
-  femaleTrack('deep_prime', 600, 'return', deep10Return),
-  femaleTrack('deep_prime', 600, 'reinforcement', deep10Reinforcement),
-  femaleTrack('deep_prime', 600, 'visualization', deep10Visualization),
-  femaleTrack('deep_prime', 600, 'settling', deep10Settling),
-  femaleTrack('deep_prime', 600, 'closing', deep10Closing),
   femaleTrack('deep_prime', 900, 'opening', deep15Opening),
   femaleTrack('deep_prime', 900, 'intention', deep15Intention),
   femaleTrack('deep_prime', 900, 'deepening', deep15Deepening),
@@ -286,12 +244,6 @@ export const GUIDED_AUDIO_MANIFEST: readonly GuidedAudioTrack[] = [
   femaleTrack('deep_prime', 900, 'visualization', deep15Visualization),
   femaleTrack('deep_prime', 900, 'settling', deep15Settling),
   femaleTrack('deep_prime', 900, 'closing', deep15Closing),
-  maleTrack('focus', 10, 'start', maleFocus10, 0.371),
-  maleTrack('focus', 30, 'start', maleFocus30Start, 0.415),
-  maleTrack('focus', 30, 'end', maleFocus30End, 0.305),
-  maleTrack('focus', 60, 'start', maleFocus60Start, 0.447),
-  maleTrack('focus', 60, 'middle', maleFocus60Middle, 0.477),
-  maleTrack('focus', 60, 'end', maleFocus60End, 0.356),
   maleTrack('focus', 90, 'start', maleFocus60Start, 0.447),
   maleTrack('focus', 90, 'middle', maleFocus60Middle, 0.477),
   maleTrack('focus', 90, 'end', maleFocus60End, 0.356),
@@ -299,24 +251,6 @@ export const GUIDED_AUDIO_MANIFEST: readonly GuidedAudioTrack[] = [
   maleTrack('focus', 120, 'grounding', maleFocus120Grounding, 0.381),
   maleTrack('focus', 120, 'deepening', maleFocus120Deepening, 0.472),
   maleTrack('focus', 120, 'end', maleFocus120Closing, 0.305),
-  maleTrack('deep_prime', 120, 'opening', maleDeep2Opening, 0.46),
-  maleTrack('deep_prime', 120, 'intention', maleDeep2Intention, 0.491),
-  maleTrack('deep_prime', 120, 'deepening', maleDeep2Deepening, 0.37),
-  maleTrack('deep_prime', 120, 'closing', maleDeep2Closing, 0.443),
-  maleTrack('deep_prime', 300, 'opening', maleDeep5Opening, 0.413),
-  maleTrack('deep_prime', 300, 'intention', maleDeep5Intention, 0.491),
-  maleTrack('deep_prime', 300, 'deepening', maleDeep5Deepening, 0.37),
-  maleTrack('deep_prime', 300, 'return', maleDeep5Return, 0.479),
-  maleTrack('deep_prime', 300, 'reinforcement', maleDeep5Reinforcement, 0.371),
-  maleTrack('deep_prime', 300, 'closing', maleDeep5Closing, 0.305),
-  maleTrack('deep_prime', 600, 'opening', maleDeep10Opening, 0.413),
-  maleTrack('deep_prime', 600, 'intention', maleDeep10Intention, 0.491),
-  maleTrack('deep_prime', 600, 'deepening', maleDeep10Deepening, 0.37),
-  maleTrack('deep_prime', 600, 'return', maleDeep10Return, 0.479),
-  maleTrack('deep_prime', 600, 'reinforcement', maleDeep10Reinforcement, 0.371),
-  maleTrack('deep_prime', 600, 'visualization', maleDeep10Visualization, 0.371),
-  maleTrack('deep_prime', 600, 'settling', maleDeep10Settling, 0.411),
-  maleTrack('deep_prime', 600, 'closing', maleDeep10Closing, 0.305),
   maleTrack('deep_prime', 900, 'opening', maleDeep15Opening, 0.413),
   maleTrack('deep_prime', 900, 'intention', maleDeep15Intention, 0.491),
   maleTrack('deep_prime', 900, 'deepening', maleDeep15Deepening, 0.37),
@@ -535,22 +469,27 @@ export const resolveSessionAudioPlan = (params: {
     fallbackReasons.push('voice_unavailable');
   }
 
+  const voiceIncludesBed =
+    params.configuration.guidanceVoice !== 'none' &&
+    voiceLookup.available &&
+    voiceLookup.tracks.some((track) => track.includesBed);
   const ambientTrack =
-    params.configuration.backgroundAudio === 'ambient'
+    params.configuration.backgroundAudio === 'ambient' && !voiceIncludesBed
       ? lookupAmbientTrack({
           sessionType: params.sessionType,
           durationSeconds: params.durationSeconds,
           locale,
         })
       : null;
-  if (params.configuration.backgroundAudio === 'ambient' && !ambientTrack) {
+  if (params.configuration.backgroundAudio === 'ambient' && !voiceIncludesBed && !ambientTrack) {
     fallbackReasons.push('ambient_unavailable');
   }
 
   const configuration: SessionAudioConfiguration = {
     ...params.configuration,
     guidanceVoice: voiceAvailable ? params.configuration.guidanceVoice : 'none',
-    backgroundAudio: ambientTrack ? params.configuration.backgroundAudio : 'off',
+    backgroundAudio:
+      ambientTrack || voiceIncludesBed ? params.configuration.backgroundAudio : 'off',
   };
   const voiceCues: ResolvedVoiceCue[] =
     configuration.guidanceVoice !== 'none' && voiceLookup.available
@@ -595,6 +534,11 @@ export const getGuidedAudioTrackId = (track: GuidedAudioTrack): string => {
     return `${track.phaseId.toLowerCase()}-${track.voice}`;
   }
   const voiceSuffix = track.voice === 'male' ? '-male' : '';
+  if (track.phaseId === FULL_MIX_PHASE_ID) {
+    return track.sessionType === 'deep_prime'
+      ? `deep-focus-${track.durationSeconds / 60}m-mix${voiceSuffix}`
+      : `focus-${track.durationSeconds}s-mix${voiceSuffix}`;
+  }
   if (track.sessionType === 'deep_prime') {
     return `deep-prime-${track.durationSeconds / 60}m-${track.phaseId}${voiceSuffix}`;
   }

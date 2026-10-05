@@ -7,7 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import { anchorArtworkSvg } from '@/components/v2/anchors/anchorPresentation';
 import { useReduceMotionEnabled } from '@/hooks/useReduceMotionEnabled';
 import { useSessionAudio, type ManagedSessionAudioPlayer } from '@/hooks/useSessionAudio';
-import { resolveSessionAudioPlan } from '@/services/SessionAudioManifest';
+import { FULL_MIX_PHASE_ID, resolveSessionAudioPlan } from '@/services/SessionAudioManifest';
 import { useAnchorTransitionPlace } from '@/navigation/v2/ProgressiveFocusTransition';
 import { resolveFocusSessionGeometry } from '@/navigation/v2/anchorHeroGeometry';
 import { safeHaptics } from '@/utils/haptics';
@@ -20,12 +20,13 @@ import { FOCUS_SCREEN_BACKGROUND } from '../focus/V2FocusActiveScreen';
 import { deepFocusVisualAt, type DeepFocusDuration } from './deepFocusTimeline';
 import { useDeepFocusSession, type DeepFocusSessionData } from './useDeepFocusSession';
 
-export function V2DeepFocusActiveScreen({ anchor, durationSeconds, voice, ambient, haptics = true, onComplete }: {
+export function V2DeepFocusActiveScreen({ anchor, durationSeconds, voice, ambient, haptics = true, onExit, onComplete }: {
   anchor: Anchor;
   durationSeconds: DeepFocusDuration;
   voice: GuidanceVoice;
   ambient: boolean;
   haptics?: boolean;
+  onExit?: () => void;
   onComplete: (data: DeepFocusSessionData) => void;
 }) {
   const { width, height } = useWindowDimensions();
@@ -72,24 +73,28 @@ export function V2DeepFocusActiveScreen({ anchor, durationSeconds, voice, ambien
       ambientPlayer.current = createSessionAudioPlayer(plan.ambientTrack.asset, { loop: true, volume: 0 });
       ambientPlayer.current?.play();
     }
+    const endFade = manualStart.value >= 0 ? Math.max(0, 1 - (time - manualStart.value) / 0.45) : 1;
     let gain = deepFocusVisualAt(time, durationSeconds, true).ambientGain;
-    if (manualStart.value >= 0) gain *= Math.max(0, 1 - (time - manualStart.value) / 0.45);
+    gain *= endFade;
     ambientPlayer.current?.setVolume(gain);
-    // Existing guidance is limited to arrival/hold. No speech throughout descent,
-    // immersion or release; the legacy long-session return prompts are omitted.
-    const cueId = time < 15 ? 'opening' : time < 35 ? 'intention' : null;
-    if (time >= 35 || manualStart.value >= 0) {
-      voicePlayer.current?.stop();
-      voicePlayer.current = null;
+    // The finished mix is one full-length recording (voice and bed together),
+    // played once from the session start. Sound switched on late seeks to the clock.
+    const cue = plan.voiceCues.find(item => item.phaseId === FULL_MIX_PHASE_ID);
+    if (cue && voicePlayer.current) {
+      if (endFade <= 0) {
+        voicePlayer.current.stop();
+        voicePlayer.current = null;
+      } else {
+        voicePlayer.current.setVolume(cue.track.playbackGain * endFade);
+      }
       return;
     }
-    if (!soundRef.current || !cueId || played.current.has(cueId)) return;
-    played.current.add(cueId);
-    const cue = plan.voiceCues.find(item => item.phaseId === cueId);
-    if (!cue) return;
-    voicePlayer.current?.stop();
-    voicePlayer.current = createSessionAudioPlayer(cue.track.asset, { volume: cue.track.playbackGain });
-    voicePlayer.current?.play();
+    if (!cue || !soundRef.current || played.current.has(cue.phaseId) || manualStart.value >= 0) return;
+    played.current.add(cue.phaseId);
+    const player = createSessionAudioPlayer(cue.track.asset, { volume: cue.track.playbackGain });
+    if (time > 1) void player?.seekTo(time);
+    voicePlayer.current = player;
+    player?.play();
   }, [createSessionAudioPlayer, durationSeconds, haptics, manualStart, plan]);
   const complete = useCallback((data: DeepFocusSessionData) => {
     ambientPlayer.current?.stop();
@@ -99,6 +104,13 @@ export function V2DeepFocusActiveScreen({ anchor, durationSeconds, voice, ambien
   }, [haptics, onComplete]);
   const session = useDeepFocusSession({ duration: durationSeconds, showTime: controls, onSample: sampleAudio, onComplete: complete });
   const { state, phase, ending, readElapsed, pause, resume, end } = session;
+
+  const handleEndEarly = useCallback(() => {
+    session.end();
+    ambientPlayer.current?.stop();
+    voicePlayer.current?.stop();
+    onExit?.();
+  }, [onExit, session]);
 
   useEffect(() => {
     cancelAnimation(seconds);
@@ -218,7 +230,7 @@ export function V2DeepFocusActiveScreen({ anchor, durationSeconds, voice, ambien
             <Pressable accessibilityRole="switch" accessibilityLabel={`Sound: ${sound ? 'On' : 'Off'}`} accessibilityState={{ checked: sound }}
               disabled={!ambient && voice === 'none'} onPress={event => { event?.stopPropagation?.(); toggleSound(); reveal(); }} style={styles.button}><Text style={styles.controlText}>Sound {sound ? 'on' : 'off'}</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="Pause Deep Focus" onPress={event => { event?.stopPropagation?.(); pause(); }} style={styles.button}><Text style={styles.controlText}>Pause</Text></Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="End session" onPress={event => { event?.stopPropagation?.(); end(); }} style={styles.button}><Text style={styles.controlText}>End Session</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="End session" onPress={event => { event?.stopPropagation?.(); handleEndEarly(); }} style={styles.button}><Text style={styles.controlText}>End Session</Text></Pressable>
           </View>
         </Animated.View>
       )}
@@ -226,7 +238,7 @@ export function V2DeepFocusActiveScreen({ anchor, durationSeconds, voice, ambien
         <View style={styles.paused} testID="deep-focus-paused-overlay">
           <Text style={styles.pausedTitle}>Paused</Text>
           <Pressable accessibilityRole="button" accessibilityLabel="Resume Deep Focus" onPress={resume} style={styles.button}><Text style={styles.controlText}>Resume</Text></Pressable>
-          {!ending && <Pressable accessibilityRole="button" accessibilityLabel="End session" onPress={end} style={styles.button}><Text style={styles.controlText}>End Session</Text></Pressable>}
+          {!ending && <Pressable accessibilityRole="button" accessibilityLabel="End session" onPress={handleEndEarly} style={styles.button}><Text style={styles.controlText}>End Session</Text></Pressable>}
         </View>
       )}
     </Pressable>

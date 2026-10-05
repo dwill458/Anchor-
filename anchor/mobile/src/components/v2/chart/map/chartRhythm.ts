@@ -164,6 +164,7 @@ export const CHART_PANEL_COPY = {
   deepFocus: 'Deep Focus',
   practicedToo: 'You practiced today too.',
   ctaMark: 'Mark waypoint reached',
+  ctaMarkDestination: 'Mark destination reached',
   ctaConfirm: 'Confirm waypoint reached',
   confirmTitle: (title: string) => `Have you reached “${title}” in the real world?`,
   confirmBody: 'Progress only moves on your word. The route never guesses.',
@@ -175,10 +176,8 @@ export const CHART_PANEL_COPY = {
   arrivedTitle: "You've arrived.",
   viewVision: 'View Vision',
   release: 'Release',
-  // DEFERRED:   /** "1 day on course" for n === 1, otherwise "{n} days on course". */
-  // DEFERRED:   log: (n: number) => `Course log · ${n} ${n === 1 ? 'day' : 'days'} on course`,
-  /** Exact §13 copy: "Course log · {n} days on course" (Deon, 2026-09-30: no singular). */
-  log: (n: number) => `Course log · ${n} days on course`,
+  /** "Course log · 1 day on course" for n === 1, otherwise "Course log · {n} days on course". */
+  log: (n: number) => `Course log · ${n} ${n === 1 ? 'day' : 'days'} on course`,
   destination: 'DESTINATION',
   movesAllDone: 'Every move on this waypoint is done.',
   back: 'Back to current waypoint',

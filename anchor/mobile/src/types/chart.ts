@@ -131,6 +131,9 @@ export type AnchorLinkSummary = {
 
 export type WaypointKind = 'MILESTONE' | 'METRIC' | 'CAPABILITY';
 
+/** numeric: a counter; moves: the checklist of its moves; none: no progress UI. */
+export type WaypointProgressMode = 'numeric' | 'moves' | 'none';
+
 export type WaypointMetric = {
   label: string | null;
   baseline: number | null;
@@ -147,6 +150,8 @@ export type WaypointSummary = {
   description: string | null;
   /** Absent on responses from servers older than Chart 2.0. */
   kind?: WaypointKind;
+  /** Absent on responses from servers older than progress modes. */
+  progressMode?: WaypointProgressMode;
   metric?: WaypointMetric | null;
   state: WaypointState;
   blockedReason: BlockedReason | null;
@@ -250,6 +255,7 @@ export type AddWaypointRequest = {
 /** Optional measure on a waypoint. A null target clears it. */
 export type WaypointMetricFields = {
   kind?: WaypointKind;
+  progressMode?: WaypointProgressMode;
   metricLabel?: string | null;
   metricBaseline?: number | null;
   metricTarget?: number | null;

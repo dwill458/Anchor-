@@ -177,6 +177,12 @@ describe('V2FocusActiveScreen', () => {
       />
     );
 
+    // The finished mix (voice + bed in one file) starts on the first clock tick.
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+    expect(mockCreateSessionAudioPlayer).toHaveBeenCalledTimes(1);
+
     fireEvent.press(screen.getByTestId('v2-focus-active-screen'));
     fireEvent.press(screen.getByTestId('focus-sound-active-toggle'));
     expect(screen.getByTestId('focus-sound-active-toggle').props.accessibilityState.checked).toBe(false);
@@ -208,7 +214,7 @@ describe('V2FocusActiveScreen', () => {
     expect(screen.queryByTestId('focus-paused-overlay')).toBeNull();
   });
 
-  it('ends with one End Session press and enters the shared completion path', () => {
+  it('ends early when End Session is pressed and exits without completing', () => {
     const onComplete = jest.fn();
     const onExit = jest.fn();
     render(
@@ -228,26 +234,36 @@ describe('V2FocusActiveScreen', () => {
     fireEvent.press(screen.getByTestId('v2-focus-active-screen'));
     const endButton = screen.getByTestId('focus-end-button');
     fireEvent.press(endButton);
-    fireEvent.press(endButton);
-
-    act(() => {
-      jest.advanceTimersByTime(1800);
-    });
 
     expect(onComplete).not.toHaveBeenCalled();
-    expect(screen.getByText('Well done.')).toBeTruthy();
-    expect(screen.getByText('Let it settle.')).toBeTruthy();
+    expect(onExit).toHaveBeenCalledTimes(1);
+    expect(AnalyticsService.track).toHaveBeenCalledWith(
+      'practice_session_ended_early',
+      expect.objectContaining({ practice_mode: 'focus' })
+    );
+  });
 
-    act(() => {
-      jest.advanceTimersByTime(300);
-    });
+  it('ends early from paused overlay when End Focus is pressed and exits without completing', () => {
+    const onComplete = jest.fn();
+    const onExit = jest.fn();
+    render(
+      <V2FocusActiveScreen
+        anchor={mockAnchor}
+        durationSeconds={30}
+        voice="female"
+        ambient={true}
+        initialStage="focus"
+        initialPaused={true}
+        onExit={onExit}
+        onComplete={onComplete}
+      />
+    );
 
-    expect(onComplete).toHaveBeenCalledTimes(1);
-    expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({
-      plannedDurationSeconds: 30,
-      actualDurationSeconds: expect.any(Number),
-    }));
-    expect(onExit).not.toHaveBeenCalled();
+    const endButton = screen.getByTestId('focus-paused-end-button');
+    fireEvent.press(endButton);
+
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(onExit).toHaveBeenCalledTimes(1);
     expect(AnalyticsService.track).toHaveBeenCalledWith(
       'practice_session_ended_early',
       expect.objectContaining({ practice_mode: 'focus' })

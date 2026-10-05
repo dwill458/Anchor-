@@ -8,6 +8,7 @@ import { V2Button, V2IconButton } from '@/components/v2';
 import { useV2Responsive } from '@/hooks/v2';
 import { V2InlineError } from '@/components/v2/feedback/V2Feedback';
 import { CREATION_MAX_INTENTION_LENGTH } from '@/constants/v2/creation';
+import { focusAreaForCategory } from '@/constants/v2/focusAreas';
 import { colors, spacing, typography } from '@/theme/v2';
 import { CreationSheet, sheetText } from './CreationSheet';
 import { InkUnderline } from './InkUnderline';
@@ -89,7 +90,9 @@ export function intentionSuggestions(context?: IntentionSuggestionContext): stri
     }
   }
 
-  return [...new Set(suggestions.map((suggestion) => suggestion.trim()).filter(Boolean))].slice(0, 3);
+  const fromAnswers = [...new Set(suggestions.map((suggestion) => suggestion.trim()).filter(Boolean))].slice(0, 3);
+  // With only the area chosen (first-run asks nothing else), offer examples written for it.
+  return fromAnswers.length ? fromAnswers : [...(focusAreaForCategory(context.category)?.examples ?? [])];
 }
 
 function PrinciplesSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
@@ -144,6 +147,10 @@ export function IntentionStep({
   const isReady = trimmed.length > 2;
   const guidance = assessIntention(intention);
   const suggestions = intentionSuggestions(suggestionContext);
+  // A specific area chosen before writing frames the page: its name above, where the
+  // intention will take shape below. "Something else" keeps the neutral eyebrow.
+  const area = focusAreaForCategory(suggestionContext?.category);
+  const eyebrow = area && area.id !== 'something_else' ? area.label.toUpperCase() : 'INTENTION';
   const showSuggestionChips = suggestions.length > 0;
   const metPrinciples = (['short', 'present'] as const).filter((id) => guidance[id] === 'met');
   const { gutter } = useV2Responsive();
@@ -173,7 +180,7 @@ export function IntentionStep({
 
       <View style={styles.flow}>
         <View style={styles.heroBlock}>
-          {!isFocused && <Text style={styles.eyebrow}>INTENTION</Text>}
+          {!isFocused && <Text style={styles.eyebrow}>{eyebrow}</Text>}
           <View accessible accessibilityRole="header" accessibilityLabel="Every Anchor starts here.">
             <Text style={[styles.heroHeadline, isFocused && styles.heroHeadlineFocused]} accessible={false}>
               Every Anchor starts
@@ -182,7 +189,7 @@ export function IntentionStep({
               <Text style={[styles.heroHeadline, isFocused && styles.heroHeadlineFocused]} accessible={false}>here.</Text>
             </InkUnderline>
           </View>
-          <Text style={styles.heroSubhead}>Write one clear intention.</Text>
+          <Text style={styles.heroSubhead}>{area ? area.fieldLine : 'Write one clear intention.'}</Text>
         </View>
 
         <View style={styles.inputBlock}>

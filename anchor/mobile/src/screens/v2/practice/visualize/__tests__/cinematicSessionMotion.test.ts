@@ -166,38 +166,16 @@ describe('guided frames: grade, breath and stillness follow the audio position',
   });
 });
 
-describe('guided polish: eased push-in and the held Anchor', () => {
+describe('guided polish: no photo zoom and the held Anchor', () => {
   const { buildGuidedPlan } = require('../guided/visualizeGuidedPlan') as typeof import('../guided/visualizeGuidedPlan');
 
-  it('pushes in quickly after the breakout and arrives, at rest, by the chapter that wants stillness', () => {
-    const plan = buildGuidedPlan({ durationSeconds: 60, guide: 'dominic', imageCount: 1 });
-    const geometry = cinematicSessionGeometry(scene, viewport, photo, mark, plan.imageCount);
-    const { startMs, endMs, amount } = plan.timeline.push!;
-    const at = (ms: number) => cinematicSessionFrame(ms, plan.timeline, geometry, false).push;
-    expect(at(startMs)).toBe(0);
-    expect(at(startMs + (endMs - startMs) * 0.25)).toBeGreaterThan(amount * 0.5);
-    expect(at(endMs)).toBeCloseTo(amount, 6);
-    expect(at(endMs + 10_000)).toBe(at(endMs));
-    // Ease-out: the rate of change is largest at the start and vanishes at the end.
-    const early = at(startMs + 500) - at(startMs), late = at(endMs) - at(endMs - 500);
-    expect(early).toBeGreaterThan(late * 5);
-  });
-
-  it('holds still under Reduce Motion, and for Embody, which does not push at all', () => {
-    const glimpse = buildGuidedPlan({ durationSeconds: 60, guide: 'lina', imageCount: 1 });
-    const geometry = cinematicSessionGeometry(scene, viewport, photo, mark, 1);
-    const mid = (glimpse.timeline.push!.startMs + glimpse.timeline.push!.endMs) / 2;
-    expect(cinematicSessionFrame(mid, glimpse.timeline, geometry, true).push).toBe(0);
-    expect(buildGuidedPlan({ durationSeconds: 600, guide: 'lina', imageCount: 3 }).timeline.push).toBeUndefined();
-  });
-
-  it('stops pushing before any long silence it could run into', () => {
-    const { silenceSpans } = require('../guided/visualizeBeatMap') as typeof import('../guided/visualizeBeatMap');
-    for (const durationSeconds of [60, 180] as const) for (const guide of ['dominic', 'lina'] as const) {
-      const plan = buildGuidedPlan({ durationSeconds, guide, imageCount: 2 });
-      const push = plan.timeline.push!;
-      for (const span of silenceSpans(plan.beatMap).filter(item => item.durationMs >= 5000)) {
-        if (span.startMs > push.startMs) expect(push.endMs).toBeLessThanOrEqual(span.startMs);
+  it.each([60, 180, 600] as const)('never zooms into a face during the %s-second photo sequence', durationSeconds => {
+    for (const guide of ['dominic', 'lina'] as const) {
+      const plan = buildGuidedPlan({ durationSeconds, guide, imageCount: 6 });
+      const geometry = cinematicSessionGeometry(scene, viewport, photo, mark, plan.imageCount);
+      expect(plan.timeline.push).toBeUndefined();
+      for (const slot of plan.timeline.photoSlots!) for (const reduced of [false, true]) {
+        expect(cinematicSessionFrame((slot.startMs + slot.endMs) / 2, plan.timeline, geometry, reduced).push).toBe(0);
       }
     }
   });

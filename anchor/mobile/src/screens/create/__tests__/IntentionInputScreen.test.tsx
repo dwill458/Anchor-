@@ -119,19 +119,43 @@ describe('IntentionInputScreen', () => {
         expect(input.props.maxLength).toBe(100);
     });
 
-    it('gates Continue on two different consonants and says why', () => {
+    it('stays silent while typing and checks consonants once, on Continue', () => {
         render(<IntentionInputScreen />);
         const input = screen.getByLabelText('Your intention');
 
         fireEvent.changeText(input, 'aaa eee ooo');
         act(() => { jest.advanceTimersByTime(500); });
-        expect(screen.getByText('Use at least two different consonants.')).toBeTruthy();
-        expect(screen.getByRole('button', { name: 'Continue' }).props.accessibilityState?.disabled).toBe(true);
-
-        fireEvent.changeText(input, 'aaa bcd ooo');
-        act(() => { jest.advanceTimersByTime(500); });
         expect(screen.queryByText('Use at least two different consonants.')).toBeNull();
-        expect(screen.getByRole('button', { name: 'Continue' }).props.accessibilityState?.disabled).not.toBe(true);
+        fireEvent(input, 'blur');
+        expect(screen.queryByText('Use at least two different consonants.')).toBeNull();
+
+        fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+        expect(screen.getByText('Use at least two different consonants.')).toBeTruthy();
+        expect(mockNavigate).not.toHaveBeenCalledWith('AnchorCreationFlow', expect.anything());
+
+        // Editing clears it, and a valid intention goes through.
+        fireEvent.changeText(input, 'aaa bcd ooo');
+        expect(screen.queryByText('Use at least two different consonants.')).toBeNull();
+    });
+
+    it.each([
+        ['health', 'I am healthy, strong, and full of energy', 'I nourish my body every day.'],
+        ['career', 'I do work I’m proud of', 'I am trusted with work that matters.'],
+        ['relationships', 'I am surrounded by people who love me', 'I show up fully for the people I love.'],
+        ['abundance', 'I am financially free', 'Money flows to me through work I love.'],
+        ['family', 'My family is close and thriving', 'I am present with my family every day.'],
+    ] as const)('frames the field for %s with a true placeholder and its own tip', (category, placeholder, tryLine) => {
+        render(<IntentionInputScreen fromOnboarding chosenCategory={category} />);
+        const input = screen.getByLabelText('Your intention');
+        expect(input.props.value).toBe('');
+        expect(input.props.placeholder).toBe(placeholder);
+        expect(screen.getByText(`“${tryLine}”`)).toBeTruthy();
+    });
+
+    it('gives "Something else" the open placeholder and a plain tip', () => {
+        render(<IntentionInputScreen fromOnboarding />);
+        expect(screen.getByLabelText('Your intention').props.placeholder).toBe('I am becoming who I’m meant to be');
+        expect(screen.getByText('Write it as if it’s already true.')).toBeTruthy();
     });
 
     it('goes to the creation flow on Continue and wakes the backend', () => {
@@ -151,6 +175,34 @@ describe('IntentionInputScreen', () => {
             category: 'custom',
         }));
         expect(mockNavigate).not.toHaveBeenCalledWith('LetterDistillation', expect.anything());
+    });
+
+    it('carries the onboarding continuation and selected category into the new flow', () => {
+        render(<IntentionInputScreen fromOnboarding chosenCategory="health" />);
+        fireEvent.changeText(screen.getByLabelText('Your intention'), 'Stay calm under pressure');
+        act(() => { jest.advanceTimersByTime(500); });
+        fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+        act(() => { jest.advanceTimersByTime(300); });
+        expect(mockNavigate).toHaveBeenCalledWith('AnchorCreationFlow', expect.objectContaining({
+            fromOnboarding: true, category: 'health', source: 'typed',
+        }));
+    });
+
+    it('keeps the onboarding continuation when drawing an Anchor', () => {
+        render(<IntentionInputScreen fromOnboarding />);
+        fireEvent.changeText(screen.getByLabelText('Your intention'), 'Stay calm');
+        fireEvent.press(screen.getByRole('button', { name: 'Or draw it yourself' }));
+        act(() => { jest.advanceTimersByTime(300); });
+        expect(mockNavigate).toHaveBeenCalledWith('AnchorCreationFlow', expect.objectContaining({
+            fromOnboarding: true, source: 'drawn',
+        }));
+    });
+
+    it('offers onboarding Back even when the navigation stack starts here', () => {
+        const onBack = jest.fn();
+        render(<IntentionInputScreen fromOnboarding onBack={onBack} />);
+        fireEvent.press(screen.getByRole('button', { name: 'Go back' }));
+        expect(onBack).toHaveBeenCalledTimes(1);
     });
 
     it('offers a draw path once there is at least one character', () => {
@@ -181,15 +233,22 @@ describe('IntentionInputScreen', () => {
     });
 
     it.each([
-        ['zzzzzz', "That doesn't look like an intention. What do you actually want?"],
-        ['I will focus today', 'Try present tense: "I choose…" "I am…" or "I return…"'],
-        ["I don't check social media", 'Try affirmative: "I choose…" instead of "I don\'t…"'],
-    ])('shows shared intention guidance for %s', (text, guidance) => {
+        'zzzzzz',
+        'I will focus today',
+        "I don't check social media",
+    ])('shows no inline guidance while typing %s', (text) => {
         render(<IntentionInputScreen />);
-        const input = screen.getByLabelText('Your intention');
+        fireEvent.changeText(screen.getByLabelText('Your intention'), text);
+        expect(screen.queryByText(/doesn't look like an intention/)).toBeNull();
+        expect(screen.queryByText(/Try present tense/)).toBeNull();
+        expect(screen.queryByText(/Try affirmative/)).toBeNull();
+    });
 
-        fireEvent.changeText(input, text);
-
-        expect(screen.getByText(guidance)).toBeTruthy();
+    it('says an unreadable intention is not one only when Continue is pressed', () => {
+        render(<IntentionInputScreen />);
+        fireEvent.changeText(screen.getByLabelText('Your intention'), 'bcbcbcbcbc');
+        fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+        expect(screen.getByText("That doesn't look like an intention. What do you actually want?")).toBeTruthy();
+        expect(mockNavigate).not.toHaveBeenCalledWith('AnchorCreationFlow', expect.anything());
     });
 });

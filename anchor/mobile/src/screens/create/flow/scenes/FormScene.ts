@@ -253,7 +253,7 @@ export function drawForm(p: Painter, pal: Palette, ctx: SceneContext, f: FormFra
   const longerWait = f.longerWait || f.styleId === 'alloy';
   if (applying && ((longerWait && f.styleName) || f.slow)) {
     const expectation = longerWait && f.styleName
-      ? `Forging your ${f.styleName} — this one takes a moment`
+      ? 'Forging your Anchor — this one takes a moment.'
       : 'Still working on your anchor…';
     p.text(expectation, W / 2, CAPTION_Y + 24, {
       font: SANS(12), color: pal.fg, alpha: 0.84 * fade, align: 'center',

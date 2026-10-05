@@ -116,6 +116,7 @@ export function toDraft(proposal: ChartProposal): DraftWaypoint[] {
     title: waypoint.title,
     rationale: waypoint.rationale,
     kind: waypoint.kind,
+    progressMode: waypoint.progressMode,
     metricLabel: waypoint.metricLabel,
     metricTarget: waypoint.metricTarget,
     metricBaseline: waypoint.metricBaseline,
@@ -369,6 +370,7 @@ export function ChartCreationFlow({
             .map((waypoint) => ({
               title: waypoint.title,
               kind: waypoint.kind,
+              progressMode: waypoint.progressMode,
               metricTarget: waypoint.metricTarget,
               metricLabel: waypoint.metricLabel,
             })),
@@ -405,6 +407,7 @@ export function ChartCreationFlow({
           title: waypoint.title.trim(),
           rationale: waypoint.rationale,
           kind: waypoint.kind,
+          progressMode: waypoint.progressMode,
           metricLabel: waypoint.metricLabel,
           metricTarget: waypoint.metricTarget,
           metricBaseline: waypoint.metricBaseline,

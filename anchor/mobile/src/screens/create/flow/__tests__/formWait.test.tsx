@@ -9,14 +9,22 @@ let mockNow = 100;
 let mockAppState: (state: AppStateStatus) => void;
 let mockBack: () => boolean;
 const mockGoBack = jest.fn();
+const mockPopToTop = jest.fn();
+let mockFromOnboarding = false;
+let mockSaved: (result: unknown) => void;
+const mockFirstRunStep = jest.fn();
+const mockSetPending = jest.fn();
+const mockPendingDraft = { tempAnchorId: 'first-anchor', requiresAccountGate: false };
+jest.mock('@/config/v2FeatureFlag', () => ({ isAnchorV2Enabled: () => true }));
+jest.mock('@/stores/v2/firstRunStore', () => ({ useFirstRunStore: { getState: () => ({ setStep: mockFirstRunStep }) } }));
 const mockGenerate = jest.fn();
 const mockPlay = jest.fn();
 const mockStop = jest.fn();
 const mockImpact = jest.fn();
 
 jest.mock('@react-navigation/native', () => ({
-  useNavigation: () => ({ goBack: mockGoBack }),
-  useRoute: () => ({ params: { intentionText: 'Stay calm under pressure', category: 'custom', source: 'typed' } }),
+  useNavigation: () => ({ goBack: mockGoBack, popToTop: mockPopToTop }),
+  useRoute: () => ({ params: { intentionText: 'Stay calm under pressure', category: 'custom', source: 'typed', fromOnboarding: mockFromOnboarding } }),
 }));
 jest.mock('../FlowCanvas', () => ({ FlowCanvas: (props: { getFrame: () => FlowFrameSource }) => { mockGetFrame = props.getFrame; return null; } }));
 jest.mock('../flowFonts', () => ({ useFlowFonts: () => ({ measure: require('./recordingPainter').fakeMeasure }) }));
@@ -32,7 +40,7 @@ jest.mock('@/hooks/useHighRefreshRate', () => ({ useHighRefreshRate: jest.fn() }
 jest.mock('@/hooks/useAudio', () => ({ useAudio: jest.fn() }));
 jest.mock('@/hooks/useReduceMotionEnabled', () => ({ useCreationReduceMotion: () => true }));
 jest.mock('@/hooks/useTrialStatus', () => ({ useTrialStatus: () => ({ hasActiveEntitlement: true, entitlementReady: true }) }));
-jest.mock('@/hooks/useSaveAnchor', () => ({ useSaveAnchor: () => ({ saveAnchor: jest.fn() }) }));
+jest.mock('@/hooks/useSaveAnchor', () => ({ useSaveAnchor: (_input: unknown, routing: { onSaved: (result: unknown) => void }) => { mockSaved = routing.onSaved; return { saveAnchor: jest.fn() }; } }));
 jest.mock('@/components/notifications', () => ({ DailyReminderPrompt: () => null }));
 jest.mock('@/navigation/v2/creationHandoff', () => ({ handOffToHome: jest.fn(), prepareHomeArrival: jest.fn() }));
 jest.mock('@/services/AnchorGenerationService', () => ({ AnchorGenerationService: { generate: (...args: unknown[]) => mockGenerate(...args) } }));
@@ -40,7 +48,7 @@ jest.mock('@/services/CreationSounds', () => ({ playCreationSound: (...args: unk
 jest.mock('@/services/NodeToneService', () => ({ NodeToneService: { prepare: jest.fn(), play: jest.fn() } }));
 jest.mock('@/services/FrictionAnalytics', () => ({ FrictionAnalytics: { stepViewed: jest.fn(), stepCompleted: jest.fn(), flowRetry: jest.fn() } }));
 jest.mock('@/utils/haptics', () => ({ safeHaptics: { impact: (...args: unknown[]) => mockImpact(...args) } }));
-jest.mock('@/stores/authStore', () => ({ useAuthStore: (select: (s: unknown) => unknown) => select({ anchorCount: 0, isAuthenticated: false, user: null }) }));
+jest.mock('@/stores/authStore', () => ({ useAuthStore: Object.assign((select: (s: unknown) => unknown) => select({ anchorCount: 0, isAuthenticated: false, user: null }), { getState: () => ({ pendingFirstAnchorDraft: mockPendingDraft, setPendingFirstAnchorDraft: mockSetPending }) }) }));
 
 function advanceFrames(seconds: number) {
   act(() => {
@@ -60,7 +68,7 @@ function commit() {
 
 describe('Form wait wiring', () => {
   beforeEach(() => {
-    jest.useFakeTimers(); jest.setSystemTime(100_000);
+    jest.useFakeTimers(); jest.setSystemTime(100_000); mockFromOnboarding = false;
     jest.clearAllMocks(); mockNow = 100;
     mockGenerate.mockImplementation(() => new Promise(() => {}));
     mockPlay.mockImplementation(() => ({ stop: mockStop }));
@@ -74,6 +82,16 @@ describe('Form wait wiring', () => {
     });
   });
   afterEach(() => { cleanup(); jest.clearAllTimers(); jest.restoreAllMocks(); jest.useRealTimers(); });
+
+  it('continues onboarding to account saving after the seal, preserving the pending Anchor', () => {
+    mockFromOnboarding = true;
+    render(<AnchorCreationFlowScreen />);
+    act(() => mockSaved({ anchorId: 'first-anchor', input: {} }));
+    expect(mockSetPending).toHaveBeenCalledWith({ ...mockPendingDraft, requiresAccountGate: true });
+    expect(mockFirstRunStep).toHaveBeenCalledWith('auth');
+    expect(mockPopToTop).toHaveBeenCalledTimes(1);
+    expect(require('@/navigation/v2/creationHandoff').handOffToHome).not.toHaveBeenCalled();
+  });
 
   it('locks header and hardware back through 12 seconds, then aborts and exits', () => {
     commit();

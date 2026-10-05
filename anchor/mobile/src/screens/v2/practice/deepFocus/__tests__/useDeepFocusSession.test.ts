@@ -42,7 +42,7 @@ describe('Deep Focus active-time lifecycle', () => {
     expect(onComplete).toHaveBeenCalledTimes(1);
     unmount();
   });
-  it('resolves a deliberate paused exit once and records active time before the fade', () => {
+  it('ends early without completing when end is called', () => {
     const onComplete = jest.fn();
     const { result, unmount } = renderHook(() => useDeepFocusSession({ duration: 600, showTime: false, onSample: jest.fn(), onComplete }));
     advance(21500);
@@ -50,8 +50,8 @@ describe('Deep Focus active-time lifecycle', () => {
     advance(60000);
     act(() => { result.current.end(); result.current.end(); });
     advance(1250);
-    expect(onComplete).toHaveBeenCalledTimes(1);
-    expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({ actualDurationSeconds: 22, plannedDurationSeconds: 600 }));
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(result.current.state).toBe('ended_early');
     unmount();
   });
   it('does not rerender the immersive screen on logical clock ticks and cancels on unmount', () => {
@@ -87,7 +87,7 @@ describe('Deep Focus active-time lifecycle', () => {
     unmount();
   });
 
-  it('pauses an early release instead of completing while backgrounded', () => {
+  it('does not complete when ended early and remains in ended_early state', () => {
     const onComplete = jest.fn();
     const { result, unmount } = renderHook(() => useDeepFocusSession({ duration: 120, showTime: false, onSample: jest.fn(), onComplete }));
     advance(20000);
@@ -96,10 +96,11 @@ describe('Deep Focus active-time lifecycle', () => {
     act(() => result.current.pause('app_background'));
     advance(600000);
     expect(onComplete).not.toHaveBeenCalled();
+    expect(result.current.state).toBe('ended_early');
     act(() => result.current.resume());
     advance(750);
-    expect(onComplete).toHaveBeenCalledTimes(1);
-    expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({ actualDurationSeconds: 20 }));
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(result.current.state).toBe('ended_early');
     unmount();
   });
 });

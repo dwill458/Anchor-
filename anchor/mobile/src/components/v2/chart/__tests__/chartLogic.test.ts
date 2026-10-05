@@ -70,15 +70,25 @@ describe('shared route geometry', () => {
 });
 
 describe('"What would make this real?" teaching', () => {
-  it('picks an example from the person’s own intention before falling back to the category', () => {
+  it('follows the Anchor’s category, and only reads the intention when the category is open', () => {
     expect(chartRealityTheme('Launch my app and make it my full-time work', 'desire')).toBe('venture');
     expect(chartRealityGuide('Launch my app', 'desire').example).toMatch(/launched my app/);
-    expect(chartRealityTheme('Finish my novel', 'career')).toBe('writing');
     expect(chartRealityTheme('Feel stronger in my body', 'custom')).toBe('body');
-    // No keyword: the Anchor's category decides.
+    expect(chartRealityTheme('Feel stronger in my body', null)).toBe('body');
+    // A known category wins even when the wording points elsewhere.
+    expect(chartRealityTheme('Finish my novel', 'career')).toBe('work');
+    expect(chartRealityTheme('Be home for my team more', 'career')).toBe('work');
     expect(chartRealityTheme('Become the person I mean to be', 'health')).toBe('body');
-    expect(chartRealityTheme('Become the person I mean to be', 'career')).toBe('work');
+    expect(chartRealityTheme('Become the person I mean to be', 'abundance')).toBe('money');
+    expect(chartRealityTheme('Become the person I mean to be', 'family')).toBe('family');
     expect(chartRealityTheme('Become the person I mean to be', null)).toBe('general');
+  });
+
+  it('never serves the relationships example outside relationships', () => {
+    const relationships = chartRealityGuide('x', 'relationships').example;
+    ['health', 'career', 'creativity', 'abundance', 'learning', 'spirituality', 'adventure', 'focus', 'family'].forEach((category) => {
+      expect(chartRealityGuide('Be home more and keep in touch with my team', category).example).not.toBe(relationships);
+    });
   });
 
   it('is not the entrepreneurial example for everyone', () => {

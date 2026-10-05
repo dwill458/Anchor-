@@ -89,6 +89,8 @@ export const MOVES_WEIGHT = 0.2;
 export type WaypointProgressInput = {
   id: string;
   completed: boolean;
+  /** How this waypoint shows progress. Absent reads as numeric when there is a metric, otherwise moves. */
+  mode?: 'numeric' | 'moves' | 'none';
   /** null for moves-only waypoints. */
   metric: { baseline: number; current: number; target: number } | null;
   movesDone: number;

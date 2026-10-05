@@ -100,7 +100,7 @@ export function ChartAdjustPanel({
         accessibilityLabel={CHART_COPY.adjust.cta}
         testID="chart-adjust-submit"
       >
-        {CHART_COPY.adjust.cta} -{'>'}
+        {CHART_COPY.adjust.cta}
       </V2Button>
     </View>
   );

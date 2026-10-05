@@ -15,6 +15,8 @@ export type ChartPreviewData = {
   startValue: number | null;
   progress: number;
   nextMove: string | null;
+  /** "2 of 4 moves done" for a waypoint whose progress is its moves; null otherwise. */
+  movesLabel?: string | null;
 };
 
 const finiteOrNull = (value: number | null | undefined): number | null =>
@@ -34,6 +36,12 @@ export function selectChartPreview(course: CourseDetail | null, category: string
     ?? waypoints.filter(w => w.state === 'REACHED' || w.reachedAt).slice(-1)[0];
   const current = finiteOrNull(waypoint?.metric?.current);
   const target = finiteOrNull(waypoint?.metric?.target);
+  const waypointMoves = waypoint
+    ? (course.moves ?? []).filter(m => m.waypointId === waypoint.id && (m.status === 'ACTIVE' || m.status === 'COMPLETED'))
+    : [];
+  const movesDone = waypointMoves.filter(m => m.status === 'COMPLETED').length;
+  // Only a waypoint without a measure shows its moves; a counter belongs to numeric waypoints alone.
+  const movesBased = !complete && target === null && waypoint?.progressMode !== 'none' && waypointMoves.length > 0;
   const nextMove = !complete && currentWaypoint ? course.moves?.find(m =>
     m.id === course.currentMoveId && m.waypointId === currentWaypoint.id && m.status === 'ACTIVE')?.title ?? null : null;
   return {
@@ -43,9 +51,11 @@ export function selectChartPreview(course: CourseDetail | null, category: string
     waypointTotal: waypoints.length,
     title: complete ? 'Chart complete' : waypoint?.title ?? course.destinationText,
     current, target, startValue: finiteOrNull(waypoint?.metric?.baseline),
+    movesLabel: movesBased ? `${movesDone} of ${waypointMoves.length} ${waypointMoves.length === 1 ? 'move' : 'moves'} done` : null,
     // Baseline is display-only. Keep the locked ratio separate from toMetricView.
     progress: complete ? 1 : current !== null && target !== null && target > 0
-      ? Math.max(0, Math.min(1, current / target)) : 0,
+      ? Math.max(0, Math.min(1, current / target))
+      : movesBased ? movesDone / waypointMoves.length : 0,
     nextMove,
   };
 }

@@ -161,6 +161,22 @@ export const CHART_COPY = {
     viewJourney: 'View your journey',
     release: 'Release Anchor',
   },
+  archive: {
+    menuItem: 'Archive Chart',
+    confirmTitle: 'Archive this Chart?',
+    confirmBody: 'This route will be moved to your history. You can create a new route for this Anchor anytime.',
+    confirmCta: 'Archive Chart',
+    cancel: 'Keep Chart',
+    error: 'We couldn’t archive this Chart. Check your connection and try again.',
+  },
+  delete: {
+    menuItem: 'Delete Chart',
+    confirmTitle: 'Delete this Chart?',
+    confirmBody: 'This will permanently remove this route and its history. This action cannot be undone.',
+    confirmCta: 'Delete Chart',
+    cancel: 'Cancel',
+    error: 'We couldn’t delete this Chart. Check your connection and try again.',
+  },
   errors: {
     offline: 'You’re offline. Chart needs a connection for this.',
     load: 'We couldn’t open this Chart.',
@@ -174,6 +190,7 @@ export const CHART_COPY = {
     save: 'Your route wasn’t saved.',
     saveSupport: 'Nothing was lost — try again when you’re connected.',
     adjust: 'We couldn’t revise the route right now. Your route is unchanged.',
+    reach: 'We couldn’t mark this waypoint reached. Check your connection — your route hasn’t moved.',
     released: 'This Anchor has been released.',
     releasedSupport: 'Its Chart is preserved in your journey history.',
     missingAnchor: 'This Anchor is no longer available.',
@@ -268,6 +285,14 @@ const REALITY_THEMES = {
       doing: 'What would an ordinary evening or weekend look like once this is true?',
     },
   },
+  family: {
+    example: 'Evenings at home are unhurried, we eat together most nights, and the people I live with get my full attention.',
+    hints: {
+      change: 'What would be different about an ordinary evening or weekend at home?',
+      measure: 'Nights together, conversations had, plans kept — small counts are fine.',
+      doing: 'What would you be doing with the people at home that you aren’t today?',
+    },
+  },
   learning: {
     pattern: /\b(learn\w*|language|fluent\w*|study\w*|degree|course|skills?|spanish|french|german|japanese|italian|mandarin|chinese|code|coding|program\w*|certif\w*|exam)\b/i,
     example: 'I can hold a real conversation without rehearsing it, and I practise a little every day because I want to.',
@@ -323,7 +348,7 @@ const CATEGORY_THEME: Record<string, ChartRealityTheme> = {
   health: 'body',
   creativity: 'making',
   relationships: 'connection',
-  family: 'connection',
+  family: 'family',
   learning: 'learning',
   spirituality: 'calm',
   focus: 'focus',
@@ -347,14 +372,23 @@ const THEME_ORDER: ChartRealityTheme[] = [
   'work',
 ];
 
+/** Categories that carry no theme of their own; the intention's words may then decide. */
+const OPEN_CATEGORIES = new Set(['', 'desire', 'custom']);
+
+/**
+ * The Anchor's category decides the example, the same way it decides the placeholder on onboarding's
+ * intention page. Keyword themes only refine an open category (Something else), so a Career chart never
+ * borrows a relationships example because its wording happens to contain "home" or "team".
+ */
 export function chartRealityTheme(intention?: string | null, category?: string | null): ChartRealityTheme {
+  const key = category?.trim().toLowerCase() ?? '';
+  if (!OPEN_CATEGORIES.has(key) && CATEGORY_THEME[key]) return CATEGORY_THEME[key];
   const text = intention ?? '';
-  const matched = THEME_ORDER.find((key) => {
-    const theme: RealityTheme = REALITY_THEMES[key];
-    return theme.pattern?.test(text) ?? false;
+  const matched = THEME_ORDER.find((theme) => {
+    const entry: RealityTheme = REALITY_THEMES[theme];
+    return entry.pattern?.test(text) ?? false;
   });
-  if (matched) return matched;
-  return CATEGORY_THEME[category?.trim().toLowerCase() ?? ''] ?? 'general';
+  return matched ?? CATEGORY_THEME[key] ?? 'general';
 }
 
 export function chartRealityGuide(intention?: string | null, category?: string | null): ChartRealityGuide {

@@ -103,6 +103,15 @@ const STORAGE_VERSION = 2;
 const makeId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 const now = () => new Date().toISOString();
 
+/**
+ * The category of an intention. An area the person chose before writing (onboarding's one
+ * question) names the category and wins over what the words suggest; without one the words
+ * decide, and words that suggest nothing fall back to Desire.
+ */
+export function resolveCategory(intention: string, chosen?: AnchorCategory): AnchorCategory {
+  return chosen ?? detectCategoryFromText(intention);
+}
+
 /** The same deterministic engine UI-B first-run uses: distilled letters + category grid. */
 export function formationForLetters(letters: string[], category: AnchorCategory | undefined): SigilFormation {
   return describeTrueSigil(letters, CATEGORY_TO_TIER[category ?? 'custom'], 'balanced');
@@ -177,7 +186,7 @@ type CreationStore = {
   discard: () => void;
   setIntention: (intention: string) => void;
   /** VALIDATING → DISTILLING. Returns false (with `formationError`) if the intention is not usable. */
-  distill: () => boolean;
+  distill: (chosenCategory?: AnchorCategory) => boolean;
   /** DISTILLING → GENERATING: forms the structure from the distilled letters. */
   formAnchor: () => boolean;
   /** GENERATING → REVEALING, once the structure exists. */
@@ -239,7 +248,7 @@ export const useCreationStore = create<CreationStore>()(
         return { draft: invalidateFromIntention(draft, intention) };
       }),
 
-      distill: () => {
+      distill: (chosenCategory) => {
         const draft = get().draft;
         if (!draft || draft.currentStep !== 'intention') return false;
         // Same gate UI-B first-run applies before forming an Anchor.
@@ -255,7 +264,7 @@ export const useCreationStore = create<CreationStore>()(
         }
         set(update(draft, {
           normalizedIntention: draft.intention.trim().replace(/\s+/g, ' '),
-          category: detectCategoryFromText(draft.intention),
+          category: resolveCategory(draft.intention, chosenCategory),
           distilledLetters: result.finalLetters,
           formationError: undefined,
           currentStep: 'distillation',

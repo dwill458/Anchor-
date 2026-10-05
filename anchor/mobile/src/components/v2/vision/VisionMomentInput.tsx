@@ -1,13 +1,16 @@
-import { useMemo, useRef, useState } from 'react';
-import { ActionSheetIOS, ActivityIndicator, Alert, Image, Keyboard, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ActionSheetIOS, ActivityIndicator, Image, Keyboard, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
+import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { Camera, ChevronRight, Heart, MapPin, Plus, RefreshCw, Sun, Trash2, User as UserIcon } from 'lucide-react-native';
-import { v2Haptics } from '@/hooks/v2';
+import { Camera, ChevronRight, Heart, Images, MapPin, Plus, RefreshCw, Sun, Trash2, User as UserIcon } from 'lucide-react-native';
+import { useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
 import { pickVisionPhoto, useVisionAppearanceReference, type VisionPhotoSource } from '@/hooks/v2/vision';
 import { ChartKeyboardFrame } from '@/components/v2/chart/ChartKeyboardFrame';
-import { colors, getCategoryColor, radii, spacing } from '@/theme/v2';
+import { AnchorMotion, colors, getCategoryColor, radii, spacing } from '@/theme/v2';
 import { VisionIdentity, type VisionAnchorArt } from './VisionChrome';
+import { VisionChoiceSheet, type VisionChoiceAction } from './VisionChoiceSheet';
+import { AttentionWash, VISION_PHOTO_ACTIONS_IN, VISION_PHOTO_ARRIVE, useAttention, useVisionContentMotion } from './VisionMotion';
 import { VisionBackButton, VisionInkPill, VisionKicker, VISION_GOLD, VISION_SERIF, VISION_SERIF_ITALIC } from './VisionPaperChrome';
 import { visionCueGuidance, visionDescriptionExample, visionDetailHint, visionDetailLevel, visionTransformCueGuidance, type VisionCueKey, type VisionTransformCueKey } from './visionGuidance';
 
@@ -57,10 +60,30 @@ const PHOTO_CHIPS: ReadonlyArray<{ key: VisionTransformCueKey; label: string; ic
   { key: 'feel', label: 'How does it feel?', icon: Heart },
 ];
 
+/** Colours the animated styles interpolate between, held as plain strings so no theme object is carried into a worklet. */
+const PATH_LABEL_ON = colors.paper;
+const PATH_LABEL_OFF = colors.text.secondary;
+const FIELD_REST = colors.text.primary;
+
+/** Android's photo source choice (iOS keeps its native action sheet). */
+const PHOTO_SOURCE_ACTIONS: ReadonlyArray<VisionChoiceAction> = [
+  { key: 'camera', label: 'Take a photo', detail: 'Capture where you are right now', Icon: Camera },
+  { key: 'library', label: 'Choose from library', detail: 'Use a photo you already have', Icon: Images },
+];
+const REFERENCE_ACTIONS: ReadonlyArray<VisionChoiceAction> = [
+  { key: 'change', label: 'Change reference photo', Icon: RefreshCw },
+  { key: 'remove', label: 'Remove reference photo', Icon: Trash2, destructive: true },
+];
+
 /**
  * Screen 3: "What do you see?" It should read as authorship on paper, not as
  * an AI settings form. The real Anchor, the person's intention, one field,
  * three prompts, an optional identity reference, one action.
+ *
+ * Motion here only explains change. The path toggle's ink pill travels between
+ * its stops and the body beneath it cross-fades and re-flows instead of
+ * cutting; the Anchor card, being the constant, never moves. The Create pill
+ * eases to ready, and tapped while blocked it points at what is missing.
  */
 export function VisionMomentInput({
   mode,
@@ -109,6 +132,33 @@ export function VisionMomentInput({
   const isCreate = mode === 'create';
   const categoryColor = getCategoryColor(anchorCategory);
 
+  const reduceMotion = useV2ReduceMotion();
+  const content = useVisionContentMotion();
+  const photoAttention = useAttention();
+  const inputAttention = useAttention();
+  const [sheet, setSheet] = useState<'photo' | 'reference' | null>(null);
+
+  // The path toggle's ink pill travels between its two stops; each label changes colour with it.
+  const [toggleWidth, setToggleWidth] = useState(0);
+  const pathProgress = useSharedValue(inputPath === 'words' ? 1 : 0);
+  useEffect(() => {
+    const target = inputPath === 'words' ? 1 : 0;
+    pathProgress.value = reduceMotion
+      ? withTiming(target, { duration: AnchorMotion.duration.quick })
+      : withSpring(target, AnchorMotion.spring.snap);
+  }, [inputPath, pathProgress, reduceMotion]);
+  const optionWidth = Math.max(0, (toggleWidth - 6 - StyleSheet.hairlineWidth * 2) / 2);
+  const pathPillStyle = useAnimatedStyle(() => ({ width: optionWidth, transform: [{ translateX: pathProgress.value * optionWidth }] }));
+  const photoLabelStyle = useAnimatedStyle(() => ({ color: interpolateColor(pathProgress.value, [0, 1], [PATH_LABEL_ON, PATH_LABEL_OFF]) }));
+  const wordsLabelStyle = useAnimatedStyle(() => ({ color: interpolateColor(pathProgress.value, [0, 1], [PATH_LABEL_OFF, PATH_LABEL_ON]) }));
+
+  // The description frame warms from ink to gold as it takes focus.
+  const focus = useSharedValue(0);
+  useEffect(() => {
+    focus.value = withTiming(inputFocused ? 1 : 0, { duration: AnchorMotion.duration.quick, easing: AnchorMotion.easing.standard });
+  }, [focus, inputFocused]);
+  const inputFrameStyle = useAnimatedStyle(() => ({ borderColor: interpolateColor(focus.value, [0, 1], [FIELD_REST, VISION_GOLD]) }));
+
   const minChars = isCreate ? 12 : 6;
   const maxChars = isCreate ? 2000 : 400;
 
@@ -144,6 +194,9 @@ export function VisionMomentInput({
   const choosePath = (next: VisionInputPath) => {
     if (next === inputPath) return;
     v2Haptics.selection();
+    // The body (and its field) is replaced, so the keyboard goes with it.
+    Keyboard.dismiss();
+    setInputFocused(false);
     setActiveCue(null);
     setLocalNotice(null);
     if (onChangeInputPath) onChangeInputPath(next); else setInternalPath(next);
@@ -164,11 +217,7 @@ export function VisionMomentInput({
         buttonIndex => { if (buttonIndex === 1) void takeOrChoosePhoto('camera'); else if (buttonIndex === 2) void takeOrChoosePhoto('library'); },
       );
     } else {
-      Alert.alert('Your photo', 'Show the world as it is now.', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Choose from library', onPress: () => void takeOrChoosePhoto('library') },
-        { text: 'Take a photo', onPress: () => void takeOrChoosePhoto('camera') },
-      ]);
+      setSheet('photo');
     }
   };
 
@@ -211,11 +260,7 @@ export function VisionMomentInput({
         buttonIndex => { if (buttonIndex === 1) void handlePickReferencePhoto(); else if (buttonIndex === 2) removeReference(); },
       );
     } else {
-      Alert.alert('Reference Photo', 'Would you like to replace or remove this reference photo?', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Remove', style: 'destructive', onPress: removeReference },
-        { text: 'Change Photo', onPress: () => void handlePickReferencePhoto() },
-      ]);
+      setSheet('reference');
     }
   };
 
@@ -251,12 +296,19 @@ export function VisionMomentInput({
     </View>
   );
 
+  // A blocked tap says why: the field still waiting on the person takes a brief wash of gold.
+  const handleBlockedSubmit = () => {
+    v2Haptics.warning();
+    if (photoPath && !startPhoto) photoAttention.pulse(); else inputAttention.pulse();
+  };
+
   const submit = (focusedState: boolean) => (
     <VisionInkPill
       testID={isCreate ? (focusedState ? 'vision-generate-focused' : 'vision-generate') : (focusedState ? 'vision-scene-generate-focused' : 'vision-scene-generate')}
       label={loading ? 'Starting…' : ctaLabel}
       accessibilityLabel={ctaA11y}
       disabled={!isValid || loading}
+      onDisabledPress={loading ? undefined : handleBlockedSubmit}
       onPress={handleSubmit}
     />
   );
@@ -291,12 +343,13 @@ export function VisionMomentInput({
         <View style={styles.header}>
           <VisionKicker>{kicker}</VisionKicker>
           <Text accessibilityRole="header" style={styles.title}>{title}</Text>
-          <Text style={styles.subtitle}>{subtitle}</Text>
+          <Animated.Text key={subtitle} entering={content.entering} exiting={content.exiting} style={styles.subtitle}>{subtitle}</Animated.Text>
         </View>
 
         {startPhotoEnabled ? (
-          <View style={styles.pathToggle} accessibilityRole="tablist">
-            {([['photo', 'Start from a photo'], ['words', 'Imagine from words']] as const).map(([key, label]) => (
+          <View style={styles.pathToggle} accessibilityRole="tablist" onLayout={event => setToggleWidth(event.nativeEvent.layout.width)}>
+            <Animated.View pointerEvents="none" style={[styles.pathPill, pathPillStyle]} />
+            {([['photo', 'Start from a photo', photoLabelStyle], ['words', 'Imagine from words', wordsLabelStyle]] as const).map(([key, label, labelStyle]) => (
               <Pressable
                 key={key}
                 testID={`vision-path-${key}`}
@@ -304,9 +357,9 @@ export function VisionMomentInput({
                 accessibilityLabel={label}
                 accessibilityState={{ selected: inputPath === key }}
                 onPress={() => choosePath(key)}
-                style={[styles.pathOption, inputPath === key && styles.pathOptionActive]}
+                style={styles.pathOption}
               >
-                <Text style={[styles.pathLabel, inputPath === key && styles.pathLabelActive]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>{label}</Text>
+                <Animated.Text style={[styles.pathLabel, inputPath === key && styles.pathLabelActive, labelStyle]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>{label}</Animated.Text>
               </Pressable>
             ))}
           </View>
@@ -317,123 +370,154 @@ export function VisionMomentInput({
           <VisionIdentity intention={anchorIntention} category={anchorCategory} art={anchorArt} imageUrl={anchorImageUrl} showAnchor size={58} tone="dark" />
         </View>
 
-        {photoPath ? (
-          <View testID="vision-start-photo" style={[styles.photoZone, startPhoto ? styles.photoZoneSet : styles.photoZoneEmpty]}>
-            {startPhoto ? (
-              <>
-                <Image source={{ uri: startPhoto.uri }} style={styles.photoImage} resizeMode="cover" resizeMethod="resize" accessibilityLabel="Your photo of the world as it is now" />
-                <View style={styles.photoActions}>
-                  <Pressable testID="vision-start-photo-replace" accessibilityRole="button" accessibilityLabel="Replace photo" onPress={handlePhotoOptions} style={styles.photoAction}>
-                    <RefreshCw size={14} color={colors.paper} strokeWidth={1.8} />
-                    <Text style={styles.photoActionLabel}>Replace</Text>
-                  </Pressable>
-                  <Pressable testID="vision-start-photo-remove" accessibilityRole="button" accessibilityLabel="Remove photo" onPress={() => { v2Haptics.selection(); setStartPhoto(null); }} style={styles.photoAction}>
-                    <Trash2 size={14} color={colors.paper} strokeWidth={1.8} />
-                    <Text style={styles.photoActionLabel}>Remove</Text>
-                  </Pressable>
-                </View>
-              </>
-            ) : (
-              <Pressable testID="vision-start-photo-pick" accessibilityRole="button" accessibilityLabel="Take or choose a photo of the world as it is now" onPress={handlePhotoOptions}
-                style={({ pressed }) => [styles.photoEmpty, pressed && styles.cardPressed]}>
-                <Camera size={30} color={VISION_GOLD} strokeWidth={1.4} />
-                <Text style={styles.photoEmptyTitle}>Take or choose a photo</Text>
-                <Text style={styles.photoEmptySub}>Show the world as it is now</Text>
-              </Pressable>
-            )}
-          </View>
-        ) : null}
-
-        <View style={[styles.inputFrame, inputFocused && styles.inputFrameFocused]}>
-          <TextInput
-            ref={inputRef}
-            testID={textInputTestID ?? (isCreate ? 'vision-prompt-input' : 'vision-scene-input')}
-            accessibilityLabel={isCreate ? 'Vision description' : 'Describe the scene'}
-            accessibilityHint="Describe one ordinary moment from this future."
-            multiline
-            maxLength={maxChars}
-            value={description}
-            onChangeText={setDescription}
-            placeholder={placeholderText}
-            placeholderTextColor="rgba(23,23,23,0.42)"
-            onFocus={() => setInputFocused(true)}
-            onBlur={() => setInputFocused(false)}
-            style={styles.textInput}
-            textAlignVertical="top"
-            scrollEnabled
-          />
-        </View>
-
-        {isCreate && !trimmed && !photoPath ? (
-          <Pressable
-            testID="vision-use-suggested-description"
-            accessibilityRole="button"
-            accessibilityLabel="Use suggested description"
-            accessibilityHint="Fills the example from your Anchor. You can edit it before creating images."
-            disabled={loading}
-            onPress={() => { v2Haptics.selection(); setDescription(example); }}
-            style={({ pressed }) => [styles.suggestionAction, pressed && styles.chipPressed, loading && styles.disabled]}
-          >
-            <Text style={styles.suggestionLabel}>Use suggested description</Text>
-          </Pressable>
-        ) : null}
-
-        {cue ? (
-          <View testID="vision-cue" accessibilityLiveRegion="polite" style={styles.cue}>
-            <Text style={styles.cueQuestion}>{cue.question}</Text>
-            {cue.hint ? <Text style={styles.cueHint}>{cue.hint}</Text> : null}
-          </View>
-        ) : null}
-
-        <View style={styles.meter}>
-          <Text testID="vision-detail-hint" style={[styles.meterHint, !photoPath && level === 'rich' && { color: colors.semantic.success }]} numberOfLines={2}>
-            {photoPath
-              ? (trimmed.length > 0 && trimmed.length < minChars ? 'Add a little more, or clear it to continue with the photo alone.' : 'What changes · what stays · how it feels')
-              : hint ?? 'Where you are · what you’re doing · how it feels'}
-          </Text>
-          <Text style={styles.counterText}>{description.length} / {maxChars}</Text>
-        </View>
-
-        {!inputFocused ? chips : null}
-
-        {!inputFocused && !photoPath ? (
-          <>
-            <View style={styles.divider} />
-            <Pressable
-              testID={`${testID}-reference-card`}
-              onPress={handleReferenceOptions}
-              accessibilityRole="button"
-              accessibilityLabel="Make it look like you reference photo"
-              style={({ pressed }) => [styles.referenceCard, pressed && styles.cardPressed]}
-            >
-              <UserIcon size={26} color={colors.text.primary} strokeWidth={1.5} />
-              <View style={styles.referenceCopy}>
-                <Text style={styles.referenceTitle}>Make it look like you</Text>
-                <Text style={styles.referenceSubtitle}>Optional · Add photos of yourself for more personal images.</Text>
-              </View>
-              {pickingReference || appearance.saving ? (
-                <ActivityIndicator size="small" color={VISION_GOLD} style={{ marginHorizontal: 12 }} />
-              ) : activeReferenceUrl ? (
-                <Image source={{ uri: activeReferenceUrl }} style={styles.referenceThumb} accessibilityLabel="Your reference photo" />
+        {/* The body beneath the toggle cross-fades as one piece when the path changes: the old fades out, the new follows. Nothing here
+            animates layout, so the field never trails its own text while it grows. */}
+        <Animated.View key={photoPath ? 'photo-body' : 'words-body'} entering={content.entering} exiting={content.exiting} style={styles.region}>
+          {photoPath ? (
+            <View testID="vision-start-photo" style={[styles.photoZone, startPhoto ? styles.photoZoneSet : styles.photoZoneEmpty]}>
+              <AttentionWash level={photoAttention.level} color={VISION_GOLD} />
+              {startPhoto ? (
+                <>
+                  <Animated.Image entering={reduceMotion ? content.entering : VISION_PHOTO_ARRIVE} source={{ uri: startPhoto.uri }} style={styles.photoImage} resizeMode="cover" resizeMethod="resize" accessibilityLabel="Your photo of the world as it is now" />
+                  <Animated.View entering={VISION_PHOTO_ACTIONS_IN} style={styles.photoActions}>
+                    <Pressable testID="vision-start-photo-replace" accessibilityRole="button" accessibilityLabel="Replace photo" onPress={handlePhotoOptions} style={styles.photoAction}>
+                      <RefreshCw size={14} color={colors.paper} strokeWidth={1.8} />
+                      <Text style={styles.photoActionLabel}>Replace</Text>
+                    </Pressable>
+                    <Pressable testID="vision-start-photo-remove" accessibilityRole="button" accessibilityLabel="Remove photo" onPress={() => { v2Haptics.selection(); setStartPhoto(null); }} style={styles.photoAction}>
+                      <Trash2 size={14} color={colors.paper} strokeWidth={1.8} />
+                      <Text style={styles.photoActionLabel}>Remove</Text>
+                    </Pressable>
+                  </Animated.View>
+                </>
               ) : (
-                <View style={styles.silhouettes} accessible={false}>
-                  {[0, 1, 2].map(index => (
-                    <View key={index} style={[styles.silhouette, { marginLeft: index === 0 ? 0 : -14 }]}>
-                      <UserIcon size={18} color={colors.text.disabled} strokeWidth={1.5} />
-                    </View>
-                  ))}
-                  <View style={styles.plusBadge}><Plus size={14} color={colors.text.primary} /></View>
-                </View>
+                <Animated.View key="photo-empty" exiting={content.exiting} style={styles.photoEmptyWrap}>
+                  <Pressable testID="vision-start-photo-pick" accessibilityRole="button" accessibilityLabel="Take or choose a photo of the world as it is now" onPress={handlePhotoOptions}
+                    style={({ pressed }) => [styles.photoEmpty, pressed && styles.cardPressed]}>
+                    <Camera size={30} color={VISION_GOLD} strokeWidth={1.4} />
+                    <Text style={styles.photoEmptyTitle}>Take or choose a photo</Text>
+                    <Text style={styles.photoEmptySub}>Show the world as it is now</Text>
+                  </Pressable>
+                </Animated.View>
               )}
-              <ChevronRight size={18} color={colors.text.secondary} />
-            </Pressable>
-          </>
-        ) : null}
+            </View>
+          ) : null}
+
+          <Animated.View style={[styles.inputFrame, inputFrameStyle]}>
+            <AttentionWash level={inputAttention.level} color={VISION_GOLD} radius={radii.lg} />
+            <TextInput
+              ref={inputRef}
+              testID={textInputTestID ?? (isCreate ? 'vision-prompt-input' : 'vision-scene-input')}
+              accessibilityLabel={isCreate ? 'Vision description' : 'Describe the scene'}
+              accessibilityHint="Describe one ordinary moment from this future."
+              multiline
+              maxLength={maxChars}
+              value={description}
+              onChangeText={setDescription}
+              placeholder={placeholderText}
+              placeholderTextColor="rgba(23,23,23,0.42)"
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
+              style={styles.textInput}
+              textAlignVertical="top"
+              scrollEnabled
+            />
+          </Animated.View>
+
+          {isCreate && !trimmed && !photoPath ? (
+            <Animated.View key="suggestion" exiting={content.exiting} style={styles.suggestionWrap}>
+              <Pressable
+                testID="vision-use-suggested-description"
+                accessibilityRole="button"
+                accessibilityLabel="Use suggested description"
+                accessibilityHint="Fills the example from your Anchor. You can edit it before creating images."
+                disabled={loading}
+                onPress={() => { v2Haptics.selection(); setDescription(example); }}
+                style={({ pressed }) => [styles.suggestionAction, pressed && styles.chipPressed, loading && styles.disabled]}
+              >
+                <Text style={styles.suggestionLabel}>Use suggested description</Text>
+              </Pressable>
+            </Animated.View>
+          ) : null}
+
+          {cue ? (
+            <Animated.View key="vision-cue" testID="vision-cue" accessibilityLiveRegion="polite" entering={content.entering} exiting={content.exiting} style={styles.cue}>
+              <Animated.View key={activeCue ?? 'cue'} entering={content.entering} style={styles.cueBody}>
+                <Text style={styles.cueQuestion}>{cue.question}</Text>
+                {cue.hint ? <Text style={styles.cueHint}>{cue.hint}</Text> : null}
+              </Animated.View>
+            </Animated.View>
+          ) : null}
+
+          <View style={styles.meter}>
+            <Text testID="vision-detail-hint" style={[styles.meterHint, !photoPath && level === 'rich' && { color: colors.semantic.success }]} numberOfLines={2}>
+              {photoPath
+                ? (trimmed.length > 0 && trimmed.length < minChars ? 'Add a little more, or clear it to continue with the photo alone.' : 'What changes · what stays · how it feels')
+                : hint ?? 'Where you are · what you’re doing · how it feels'}
+            </Text>
+            <Text style={styles.counterText}>{description.length} / {maxChars}</Text>
+          </View>
+
+          {!inputFocused ? chips : null}
+
+          {!inputFocused && !photoPath ? (
+            <Animated.View key="reference-group" exiting={content.exiting} style={styles.referenceGroup}>
+              <View style={styles.divider} />
+              <Pressable
+                testID={`${testID}-reference-card`}
+                onPress={handleReferenceOptions}
+                accessibilityRole="button"
+                accessibilityLabel="Make it look like you reference photo"
+                style={({ pressed }) => [styles.referenceCard, pressed && styles.cardPressed]}
+              >
+                <UserIcon size={26} color={colors.text.primary} strokeWidth={1.5} />
+                <View style={styles.referenceCopy}>
+                  <Text style={styles.referenceTitle}>Make it look like you</Text>
+                  <Text style={styles.referenceSubtitle}>Optional · Add photos of yourself for more personal images.</Text>
+                </View>
+                {pickingReference || appearance.saving ? (
+                  <ActivityIndicator size="small" color={VISION_GOLD} style={{ marginHorizontal: 12 }} />
+                ) : activeReferenceUrl ? (
+                  <Image source={{ uri: activeReferenceUrl }} style={styles.referenceThumb} accessibilityLabel="Your reference photo" />
+                ) : (
+                  <View style={styles.silhouettes} accessible={false}>
+                    {[0, 1, 2].map(index => (
+                      <View key={index} style={[styles.silhouette, { marginLeft: index === 0 ? 0 : -14 }]}>
+                        <UserIcon size={18} color={colors.text.disabled} strokeWidth={1.5} />
+                      </View>
+                    ))}
+                    <View style={styles.plusBadge}><Plus size={14} color={colors.text.primary} /></View>
+                  </View>
+                )}
+                <ChevronRight size={18} color={colors.text.secondary} />
+              </Pressable>
+            </Animated.View>
+          ) : null}
+        </Animated.View>
 
         {(localNotice || error) ? (
           <Text accessibilityLiveRegion="polite" style={styles.errorText}>{localNotice ?? error}</Text>
         ) : null}
       </ChartKeyboardFrame>
+
+      <VisionChoiceSheet
+        visible={sheet === 'photo'}
+        onClose={() => setSheet(null)}
+        title="Your photo"
+        subtitle="Show the world as it is now."
+        actions={PHOTO_SOURCE_ACTIONS}
+        onChoose={key => void takeOrChoosePhoto(key === 'camera' ? 'camera' : 'library')}
+        testID="vision-photo-source-sheet"
+      />
+      <VisionChoiceSheet
+        visible={sheet === 'reference'}
+        onClose={() => setSheet(null)}
+        title="Reference photo"
+        subtitle="Replace it, or take it away."
+        actions={REFERENCE_ACTIONS}
+        onChoose={key => { if (key === 'remove') removeReference(); else void handlePickReferencePhoto(); }}
+        testID="vision-reference-sheet"
+      />
     </View>
   );
 }
@@ -451,13 +535,14 @@ const styles = StyleSheet.create({
   },
   accentBar: { position: 'absolute', left: spacing[3], top: spacing[3], bottom: spacing[3], width: 3, borderRadius: 2 },
   pathToggle: { flexDirection: 'row', padding: 3, borderRadius: radii.pill, backgroundColor: colors.grouped, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border.default },
+  pathPill: { position: 'absolute', left: 3, top: 3, bottom: 3, borderRadius: radii.pill, backgroundColor: colors.ink.deep },
   pathOption: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing[2], borderRadius: radii.pill },
-  pathOptionActive: { backgroundColor: colors.ink.deep },
   pathLabel: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.text.secondary },
   pathLabelActive: { fontFamily: 'Inter-SemiBold', color: colors.paper },
   photoZone: { height: 208, borderRadius: radii.lg, overflow: 'hidden', backgroundColor: colors.surface },
   photoZoneEmpty: { borderWidth: 1.5, borderStyle: 'dashed', borderColor: VISION_GOLD },
   photoZoneSet: { borderWidth: 1, borderColor: colors.text.primary },
+  photoEmptyWrap: { flex: 1 },
   photoEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing[2], paddingHorizontal: spacing[4] },
   photoEmptyTitle: { fontFamily: VISION_SERIF, fontSize: 22, lineHeight: 28, color: colors.text.primary, textAlign: 'center' },
   photoEmptySub: { fontFamily: 'Inter-Regular', fontSize: 14, lineHeight: 20, color: colors.text.secondary, textAlign: 'center' },
@@ -466,8 +551,11 @@ const styles = StyleSheet.create({
   photoAction: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: spacing[3], borderRadius: radii.pill, backgroundColor: 'rgba(10,15,20,0.72)' },
   photoActionLabel: { fontFamily: 'Inter-SemiBold', fontSize: 13, lineHeight: 18, color: colors.paper },
   inputFrame: { borderRadius: radii.lg, borderWidth: 1, borderColor: colors.text.primary, backgroundColor: colors.surface },
-  inputFrameFocused: { borderColor: VISION_GOLD },
   textInput: { fontFamily: VISION_SERIF_ITALIC, fontSize: 20, lineHeight: 28, color: colors.text.primary, minHeight: 124, maxHeight: 200, padding: spacing[4] },
+  region: { gap: spacing[3] },
+  suggestionWrap: { alignSelf: 'flex-start' },
+  referenceGroup: { gap: spacing[3] },
+  cueBody: { gap: 2 },
   suggestionAction: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
   suggestionLabel: { fontFamily: 'Inter-Regular', fontSize: 13, lineHeight: 18, color: colors.text.primary, textDecorationLine: 'underline' },
   meter: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing[3] },

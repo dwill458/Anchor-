@@ -221,7 +221,7 @@ describe('copy', () => {
     expect(CHART_PANEL_COPY.chips.map((c) => c.value)).toEqual([-10, 10, 50, 100]);
     expect(CHART_PANEL_COPY.position(2, 5)).toBe('2 of 5');
     expect(CHART_PANEL_COPY.log(7)).toBe('Course log · 7 days on course');
-    expect(CHART_PANEL_COPY.log(1)).toBe('Course log · 1 days on course');
+    expect(CHART_PANEL_COPY.log(1)).toBe('Course log · 1 day on course');
   });
 
   it('contains no guilt or streak language anywhere', () => {

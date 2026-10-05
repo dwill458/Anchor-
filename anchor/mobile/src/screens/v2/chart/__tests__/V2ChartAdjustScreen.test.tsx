@@ -1,4 +1,5 @@
 import React from 'react';
+import { Alert } from 'react-native';
 import { fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import { V2ChartAdjustScreen } from '../V2ChartAdjustScreen';
 import { apiClient } from '@/services/ApiClient';
@@ -237,5 +238,99 @@ describe('V2ChartAdjustScreen — Adjust Route redesign', () => {
 
     fireEvent.press(manualLink);
     expect(await screen.findByTestId('chart-adjust-editor')).toBeTruthy();
+  });
+
+  it('renders "Archive this route" link and triggers archive on confirmation', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    (apiClient.post as jest.Mock).mockResolvedValueOnce({
+      data: { success: true, data: { ...activeCourse, status: 'ARCHIVED' } },
+    });
+
+    const screen = render(<V2ChartAdjustScreen />);
+    await screen.findByTestId('v2-chart-adjust');
+
+    const archiveLink = screen.getByTestId('chart-adjust-archive');
+    expect(archiveLink).toBeTruthy();
+
+    fireEvent.press(archiveLink);
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Archive this Chart?',
+      expect.stringContaining('This route will be moved to your history'),
+      expect.any(Array)
+    );
+
+    const buttons = alertSpy.mock.calls[0][2] as any[];
+    const archiveBtn = buttons.find((b: any) => b.text === 'Archive Chart');
+    expect(archiveBtn).toBeDefined();
+
+    get.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: {
+          anchor: { id: 'anchor-1', intentionText: anchor.intentionText, category: 'desire', enhancedImageUrl: null, released: false },
+          chart: null,
+          history: [{ ...activeCourse, status: 'ARCHIVED' }],
+          stats: null,
+        },
+      },
+    });
+
+    archiveBtn.onPress();
+
+    await waitFor(() => {
+      expect(apiClient.post).toHaveBeenCalledWith(
+        '/api/v2/charts/course-1/archive',
+        { expectedCourseVersion: 1 }
+      );
+      expect(mockGoBack).toHaveBeenCalled();
+    });
+    alertSpy.mockRestore();
+  });
+
+  it('renders "Delete this route" link and triggers delete on confirmation', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    (apiClient.delete as jest.Mock).mockResolvedValueOnce({
+      data: { success: true, data: { deleted: true } },
+    });
+
+    const screen = render(<V2ChartAdjustScreen />);
+    await screen.findByTestId('v2-chart-adjust');
+
+    const deleteLink = screen.getByTestId('chart-adjust-delete');
+    expect(deleteLink).toBeTruthy();
+
+    fireEvent.press(deleteLink);
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Delete this Chart?',
+      expect.stringContaining('This will permanently remove this route'),
+      expect.any(Array)
+    );
+
+    const buttons = alertSpy.mock.calls[0][2] as any[];
+    const deleteBtn = buttons.find((b: any) => b.text === 'Delete Chart');
+    expect(deleteBtn).toBeDefined();
+
+    get.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: {
+          anchor: { id: 'anchor-1', intentionText: anchor.intentionText, category: 'desire', enhancedImageUrl: null, released: false },
+          chart: null,
+          history: [],
+          stats: null,
+        },
+      },
+    });
+
+    deleteBtn.onPress();
+
+    await waitFor(() => {
+      expect(apiClient.delete).toHaveBeenCalledWith(
+        '/api/v2/charts/course-1',
+        { data: { expectedCourseVersion: 1 } }
+      );
+      expect(mockGoBack).toHaveBeenCalled();
+    });
+    alertSpy.mockRestore();
   });
 });

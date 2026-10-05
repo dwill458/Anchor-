@@ -40,4 +40,20 @@ describe('V2 cinematic session asset readiness gate', () => {
     expect(view.getByText('Preparing your Vision')).toBeTruthy();
     expect(mockEngineHook).not.toHaveBeenCalled();
   });
+
+  it('requires Retry when even one attached photo is unavailable instead of offering a subset', () => {
+    const select = jest.fn();
+    mockUseCinematicAssets.mockReturnValue({ resources: null, ready: false, partial: true, unavailable: false,
+      available: tiles, enhancedReady: true, select, retry: jest.fn(), timedOut: false, failedCount: 1 });
+    const offerSubset = jest.fn();
+    const view = render(<V2CinematicSessionScreen anchor={anchor} accountId="user-1" tiles={[...tiles,
+      { ...tiles[0], id: 'image-2', sceneId: 'image-2' }]} statement="A saved Vision statement."
+      durationSeconds={180} voice="none" ambient={false} haptics={false} source="practice_hub"
+      onExit={jest.fn()} onContinue={jest.fn()} onAvailableImages={offerSubset} />);
+    expect(view.getByText('Some images could not load')).toBeTruthy();
+    expect(view.queryByText('Continue with available images')).toBeNull();
+    expect(offerSubset).not.toHaveBeenCalled();
+    expect(select).not.toHaveBeenCalled();
+    expect(mockEngineHook).not.toHaveBeenCalled();
+  });
 });

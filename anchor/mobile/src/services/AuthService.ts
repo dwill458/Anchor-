@@ -14,6 +14,7 @@ import {
   DEVELOPER_MASTER_ACCOUNT_TOKEN,
   isDeveloperMasterAccountEnabled,
 } from '@/utils/developerMasterAccount';
+import { logger } from '@/utils/logger';
 
 export interface AuthResult {
   user: User;
@@ -155,7 +156,9 @@ export class AuthService {
   static async signOut(): Promise<void> {
     assertMockAuthEnabled();
     try {
-      await clearPushTokensFromServer();
+      await clearPushTokensFromServer().catch(error => {
+        logger.warn('Failed to clear push tokens on mock sign out, continuing anyway', error);
+      });
       await new Promise((resolve) => setTimeout(resolve, 500));
     } finally {
       await clearNotificationSession();

@@ -427,6 +427,10 @@ export function V2FocusActiveScreen({
           });
           if (player) {
             voicePlayerRef.current = player;
+            // Full-length mixes must stay aligned with the session clock when
+            // sound is switched on after the session has begun.
+            const lateBySeconds = (cue.triggerAtRemainingMs - remainingMs) / 1000;
+            if (lateBySeconds > 1) void player.seekTo(lateBySeconds);
             player.play();
           }
           break;
@@ -436,6 +440,27 @@ export function V2FocusActiveScreen({
     [audioPlan, createSessionAudioPlayer, soundEnabled]
   );
 
+  const handleEndEarly = useCallback(() => {
+    if (doneRef.current || isResolving) return;
+    doneRef.current = true;
+    if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
+    if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
+    if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+
+    const actualDurationSeconds = Math.max(1, Math.round(calculateElapsed() / 1000));
+
+    ambientPlayerRef.current?.stop();
+    voicePlayerRef.current?.stop();
+
+    AnalyticsService.track(AnalyticsEvents.PRACTICE_SESSION_ENDED_EARLY, {
+      practice_mode: 'focus',
+      planned_duration_seconds: durationSeconds,
+      elapsed_seconds: actualDurationSeconds,
+    });
+
+    onExit();
+  }, [calculateElapsed, durationSeconds, isResolving, onExit]);
+
   /**
    * The only route into completion. The ref is flipped before any state update
    * or persistence work, so a timer tick and rapid manual taps cannot create
@@ -443,21 +468,20 @@ export function V2FocusActiveScreen({
    */
   const beginEnding = useCallback(
     (trigger: 'automatic' | 'manual') => {
+      if (trigger === 'manual') {
+        handleEndEarly();
+        return;
+      }
       if (doneRef.current) return;
       doneRef.current = true;
 
-      const finalElapsedMs =
-        trigger === 'automatic'
-          ? totalMs
-          : Math.min(totalMs, Math.max(0, calculateElapsed()));
-      const actualDurationSeconds = Math.max(1, Math.ceil(finalElapsedMs / 1000));
+      const finalElapsedMs = totalMs;
+      const actualDurationSeconds = durationSeconds;
       elapsedMsRef.current = finalElapsedMs;
       setElapsedMs(finalElapsedMs);
-      if (trigger === 'automatic') {
-        sessionProgress.value = reduceMotion
-          ? 1
-          : withTiming(1, { duration: 220, easing: AnchorMotion.easing.gentle });
-      }
+      sessionProgress.value = reduceMotion
+        ? 1
+        : withTiming(1, { duration: 220, easing: AnchorMotion.easing.gentle });
       setIsResolving(true);
       setStage('resolving');
 
@@ -484,7 +508,7 @@ export function V2FocusActiveScreen({
 
       // Phase 2 (1,050ms): the whole active composition fades into the ink
       // base. Phase 3 is the remaining 400ms black hold before completion.
-      const resolveDelay = trigger === 'automatic' ? 550 : 300;
+      const resolveDelay = 550;
       resolvingContentOpacity.value = reduceMotion
         ? 0
         : withDelay(resolveDelay, withTiming(0, {
@@ -496,17 +520,10 @@ export function V2FocusActiveScreen({
       setTimeout(() => ambientPlayerRef.current?.stop(), 300);
       voicePlayerRef.current?.stop();
 
-      if (trigger === 'manual') {
-        AnalyticsService.track(AnalyticsEvents.PRACTICE_SESSION_ENDED_EARLY, {
-          practice_mode: 'focus',
-          planned_duration_seconds: durationSeconds,
-          elapsed_seconds: actualDurationSeconds,
-        });
-      }
       const playCompletionHaptic = () => {
         if (haptics) void safeHaptics.notification(Haptics.NotificationFeedbackType.Success);
       };
-      if (trigger === 'automatic' && !reduceMotion) setTimeout(playCompletionHaptic, 240);
+      if (!reduceMotion) setTimeout(playCompletionHaptic, 240);
       else playCompletionHaptic();
 
       onEnding?.({
@@ -523,16 +540,16 @@ export function V2FocusActiveScreen({
           startedAt: startedAtWallRef.current ?? new Date().toISOString(),
           completedAt: new Date().toISOString(),
         });
-      }, reduceMotion ? 0 : trigger === 'automatic' ? 2300 : 2050);
+      }, reduceMotion ? 0 : 2300);
     },
     [
       breatheScale,
-      calculateElapsed,
       completionAnchorProgress,
       completionCopyOpacity,
       completionScrimOpacity,
       durationSeconds,
       fieldTransition,
+      handleEndEarly,
       haptics,
       onEnding,
       onComplete,
@@ -898,7 +915,7 @@ export function V2FocusActiveScreen({
               testID="focus-end-button"
               onPress={(event) => {
                 event?.stopPropagation?.();
-                beginEnding('manual');
+                handleEndEarly();
               }}
               style={styles.controlButton}
             >
@@ -937,7 +954,7 @@ export function V2FocusActiveScreen({
               accessibilityRole="button"
               accessibilityLabel="End session"
               testID="focus-paused-end-button"
-              onPress={() => beginEnding('manual')}
+              onPress={handleEndEarly}
               style={styles.endFocusLink}
             >
               <Text style={styles.endFocusLinkText}>End Focus</Text>

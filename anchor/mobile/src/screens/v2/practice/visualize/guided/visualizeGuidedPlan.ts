@@ -25,14 +25,8 @@ type TrackPlan = {
   initialGrade: Omit<CinematicGradeKey, 'atMs'>;
   /** The board holds at rest until `untilMs` or a phrase; then the first Vision image breaks out. */
   arrival: { untilMs?: number; untilPhraseId?: number; breakoutMs: number };
-  /** Hard cap on distinct Vision images; fewer are used when the map offers fewer change points. */
-  maxImages: number;
-  /** Candidate change points. Spread across them rather than front-loaded. Never forces every image to appear. */
-  imageChanges: ReadonlyArray<{ phraseId: number; lead?: boolean }>;
   crossfadeMs: number;
   grade: readonly GradeStep[];
-  /** One push-in after the breakout, easing to still at `untilPhraseId`. Omitted for tracks that should not move. */
-  push?: { amount: number; untilPhraseId: number };
   anchorPhraseId: number;
   returnPhraseId: number;
   returnMs: number;
@@ -46,8 +40,6 @@ export const TRACK_PLANS: Readonly<Record<GuidedTrackId, TrackPlan>> = {
   glimpse: {
     initialGrade: SETTLED,
     arrival: { untilMs: 700, breakoutMs: 3600 },
-    maxImages: 2,
-    imageChanges: [{ phraseId: 5 }],
     crossfadeMs: 2200,
     grade: [
       { phraseId: 0, lead: true, rampMs: 3200, to: { watermark: 0.16 } },
@@ -56,7 +48,6 @@ export const TRACK_PLANS: Readonly<Record<GuidedTrackId, TrackPlan>> = {
       { phraseId: 12, lead: true, rampMs: 3200, to: { watermark: 0.3, warm: 0.7 } },
       { phraseId: 14, lead: true, rampMs: 900, to: CLEAR },
     ],
-    push: { amount: 0.07, untilPhraseId: 8 },
     anchorPhraseId: 14,
     returnPhraseId: 18,
     returnMs: 4000,
@@ -64,8 +55,6 @@ export const TRACK_PLANS: Readonly<Record<GuidedTrackId, TrackPlan>> = {
   immerse: {
     initialGrade: { dim: 0.55, warm: 0, soften: 0, watermark: 0 },
     arrival: { untilPhraseId: 5, breakoutMs: 6500 },
-    maxImages: 4,
-    imageChanges: [{ phraseId: 13, lead: true }, { phraseId: 20 }, { phraseId: 25 }],
     crossfadeMs: 3200,
     grade: [
       { phraseId: 5, lead: true, rampMs: 7000, to: { dim: 0, watermark: 0.14 } },
@@ -75,7 +64,6 @@ export const TRACK_PLANS: Readonly<Record<GuidedTrackId, TrackPlan>> = {
       { phraseId: 31, rampMs: 9000, to: { soften: 1 } },
       { phraseId: 36, lead: true, rampMs: 900, to: CLEAR },
     ],
-    push: { amount: 0.03, untilPhraseId: 13 },
     anchorPhraseId: 36,
     returnPhraseId: 39,
     returnMs: 5000,
@@ -83,8 +71,6 @@ export const TRACK_PLANS: Readonly<Record<GuidedTrackId, TrackPlan>> = {
   embody: {
     initialGrade: { dim: 0.6, warm: 0, soften: 0, watermark: 0 },
     arrival: { untilPhraseId: 9, breakoutMs: 9000 },
-    maxImages: 4,
-    imageChanges: [{ phraseId: 18, lead: true }, { phraseId: 24, lead: true }, { phraseId: 33, lead: true }],
     crossfadeMs: 4500,
     grade: [
       { phraseId: 9, lead: true, rampMs: 14000, to: { dim: 0, watermark: 0.12 } },
@@ -117,12 +103,6 @@ export type GuidedPlan = {
   durationMs: number;
 };
 
-function spread<T>(list: readonly T[], count: number): T[] {
-  if (count <= 0) return [];
-  if (count >= list.length) return [...list];
-  return Array.from({ length: count }, (_, index) => list[Math.floor(((index + 0.5) * list.length) / count)]);
-}
-
 export function buildGuidedPlan(params: { durationSeconds: GuidedDurationSeconds; guide: GuideId; imageCount: number }): GuidedPlan {
   if (!Number.isInteger(params.imageCount) || params.imageCount < 1) {
     throw new RangeError('A guided session requires at least one saved Vision image.');
@@ -150,11 +130,14 @@ export function buildGuidedPlan(params: { durationSeconds: GuidedDurationSeconds
   const arrivalEndMs = plan.arrival.untilPhraseId != null ? at(plan.arrival.untilPhraseId, true) : plan.arrival.untilMs ?? 0;
   const breakoutEndMs = Math.min(fitMotion(arrivalEndMs, plan.arrival.breakoutMs), anchorStartMs - 500);
 
-  const candidates = plan.imageChanges
-    .map(change => ({ ...change, atMs: at(change.phraseId, change.lead) }))
-    .filter(change => change.atMs >= breakoutEndMs + 500 && change.atMs + plan.crossfadeMs <= anchorStartMs - 300);
-  const used = Math.max(1, Math.min(params.imageCount, plan.maxImages, candidates.length + 1));
-  const changes = spread(candidates, used - 1);
+  const used = params.imageCount;
+  const photoSlotMs = (anchorStartMs - breakoutEndMs) / used;
+  const photoSlots = Array.from({ length: used }, (_, imageIndex) => ({ imageIndex,
+    startMs: Math.round(breakoutEndMs + imageIndex * photoSlotMs),
+    endMs: Math.round(breakoutEndMs + (imageIndex + 1) * photoSlotMs) }));
+  // Cap dissolves relative to the slot so even a large roster gets a clear hold.
+  const crossfadeMs = Math.min(plan.crossfadeMs, photoSlotMs * 0.25);
+  const changes = photoSlots.slice(1).map(slot => ({ atMs: slot.startMs - crossfadeMs / 2 }));
 
   const segments: CinematicSegment[] = [];
   let cursor = 0;
@@ -167,7 +150,7 @@ export function buildGuidedPlan(params: { durationSeconds: GuidedDurationSeconds
   push('breakout', breakoutEndMs, 0);
   changes.forEach((change, index) => {
     push('immersion', change.atMs, index);
-    push('transition', change.atMs + plan.crossfadeMs, index + 1);
+    push('transition', change.atMs + crossfadeMs, index + 1);
   });
   push('immersion', anchorStartMs, changes.length);
   push('compression', anchorStartMs + GUIDED_COMPRESSION_MS);
@@ -202,8 +185,9 @@ export function buildGuidedPlan(params: { durationSeconds: GuidedDurationSeconds
   return {
     track, guide: params.guide, beatMap, imageCount: used, captions,
     timeline: {
-      durationMs, segments, grade, stillness,
-      ...(plan.push ? { push: { startMs: breakoutEndMs, endMs: Math.max(breakoutEndMs + 4000, Math.min(at(plan.push.untilPhraseId, true), anchorStartMs - 500)), amount: plan.push.amount } } : {}),
+      durationMs, segments, grade, stillness, photoSlots,
+      // Resolve into completion at the track's end, always after the final spoken phrase.
+      lightReturnMs: Math.max(beatMap.phrases[beatMap.phrases.length - 1].endMs, durationMs - 2000),
     },
     anchorStartMs, sealAtMs: anchorStartMs + GUIDED_COMPRESSION_MS, returnStartMs, durationMs,
   };

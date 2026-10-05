@@ -5,7 +5,7 @@ import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming, type S
 import { Check, GripHorizontal, Lock, Plus, Trash2 } from 'lucide-react-native';
 import { colors, spacing, typography } from '@/theme/v2';
 import { CHART_COPY } from '@/constants/v2/chartCopy';
-import type { WaypointKind } from '@/types/chart';
+import type { WaypointKind, WaypointProgressMode } from '@/types/chart';
 
 export type DraftWaypoint = {
   /** Stable local key. */
@@ -15,6 +15,7 @@ export type DraftWaypoint = {
   title: string;
   rationale: string | null;
   kind: WaypointKind;
+  progressMode?: WaypointProgressMode;
   metricLabel: string | null;
   metricTarget: number | null;
   metricBaseline: number | null;

@@ -4,7 +4,8 @@ import { Alert, Image, StatusBar, KeyboardAvoidingView, Pressable, StyleSheet, T
 import { ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronRight, ChevronDown, Eye, MoreHorizontal } from 'lucide-react-native';
-import { VisionChartRoute } from './VisionChartRoute';
+import { VisionChartLink } from './VisionChartLink';
+import { VisionIntentionHeading } from './VisionIntentionHeading';
 import { truncateVisionText } from './visionDetailText';
 import { V2Button } from '@/components/v2';
 import { colors, radii, spacing, typography } from '@/theme/v2';
@@ -12,7 +13,7 @@ import { useV2ReduceMotion } from '@/hooks/v2';
 import type { V2VisionTile } from '@/adapters/v2/vision';
 import type { ChartSummary } from '@/adapters/v2/chart/chartV2Model';
 import { VISION_GOLD } from './VisionPaperChrome';
-import { VisionHeaderRow, VisionIdentity, VisionStatusBarScrim, type VisionAnchorArt } from './VisionChrome';
+import { VisionHeaderRow, VisionStatusBarScrim, type VisionAnchorArt } from './VisionChrome';
 import { VISION_DESCRIPTION_MAX_CHARS, VISION_DESCRIPTION_MIN_CHARS, visionDetailHint } from './visionGuidance';
 import { VisionBoard } from './board/VisionBoard';
 import { orderTiles, toSceneOrders } from './board/visionBoardReorder';
@@ -215,13 +216,13 @@ export function V2SavedVision({
   return (
     <View testID={testID} style={styles.root}>
       <KeyboardAvoidingView style={styles.flex} behavior="padding">
-        <ScrollView onScrollEndDrag={measureCanvas} onMomentumScrollEnd={measureCanvas} scrollEnabled={!dragging} contentContainerStyle={{ paddingBottom: insets.bottom + spacing[6] }}
+        <ScrollView onScrollEndDrag={measureCanvas} onMomentumScrollEnd={measureCanvas} scrollEnabled={!dragging} contentContainerStyle={{ paddingBottom: mode === 'view' ? 0 : insets.bottom + spacing[6] }}
           keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={{ paddingTop: insets.top }}>
             <StatusBar barStyle="dark-content" backgroundColor={colors.canvas} />
             <View style={styles.bandContent}>
               {header}
-              <VisionIdentity intention={anchorIntention} category={anchorCategory} art={anchorArt} imageUrl={anchorImageUrl} showAnchor={false} serif tone="dark" />
+              <VisionIntentionHeading intention={anchorIntention} category={anchorCategory} />
             </View>
             {mode === 'view' ? (
               <View style={styles.boardWrap}>
@@ -308,40 +309,7 @@ export function V2SavedVision({
                 {!visualizeReady ? <Text accessibilityLiveRegion="polite" style={styles.chartPosition}>{preparationIssue ?? 'Preparing your Vision�'}</Text> : null}
                 {preparationIssue && onRetryVisualize ? <Pressable accessibilityRole="button" onPress={onRetryVisualize} style={{ minHeight: 44 }}><Text style={styles.chartLinkText}>Retry Vision images</Text></Pressable> : null}
                 {preparationIssue && onUseAvailableImages ? <Pressable accessibilityRole="button" onPress={onUseAvailableImages} style={{ minHeight: 44 }}><Text style={styles.chartLinkText}>Continue with available images</Text></Pressable> : null}
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={chartSummary
-                    ? `On your Chart: ${chartSummary.isFinished ? 'destination reached' : `waypoint ${chartSummary.waypointNumber} of ${chartSummary.total}, ${chartSummary.waypointTitle}`}. View Chart.`
-                    : 'On your Chart: no route yet. Create a Chart.'}
-                  onPress={onChart}
-                  testID="vision-on-your-chart"
-                  style={({ pressed }) => [styles.chartCard, pressed && styles.pressed]}
-                >
-                  <View pointerEvents="none" style={styles.chartTerrain}>
-                    <Image source={require('../../../../assets/chart/chart-landscape-master.webp')}
-                      accessible={false} resizeMode="cover" style={StyleSheet.absoluteFill} />
-                  </View>
-                  {chartSummary ? <View testID="vision-chart-mini-map" style={styles.chartGraphic}>
-                    <VisionChartRoute chart={chartSummary} />
-                  </View> : null}
-                  <View style={styles.chartCopy}>
-                  <Text style={styles.chartEyebrow}>ON YOUR CHART</Text>
-                  {chartSummary ? (
-                    <>
-                      <Text style={styles.chartPosition}>
-                        {chartSummary.isFinished ? 'Destination reached' : `Waypoint ${chartSummary.waypointNumber} of ${chartSummary.total}`}
-                      </Text>
-                      <Text numberOfLines={2} style={styles.chartTitle}>{chartSummary.waypointTitle}</Text>
-                    </>
-                  ) : (
-                    <Text style={styles.chartPosition}>Map the route from here to this Vision.</Text>
-                  )}
-                  </View>
-                  <View style={styles.chartLink}>
-                    {!chartSummary ? <Text style={styles.chartLinkText}>Create a Chart</Text> : null}
-                    <ChevronRight size={20} color={colors.text.primary} />
-                  </View>
-                </Pressable>
+                <VisionChartLink chart={chartSummary} width={width} onPress={onChart} />
               </>
             )}
             {(notice || error) && <Text style={styles.error}>{notice || error}</Text>}
@@ -393,20 +361,6 @@ const styles = StyleSheet.create({
   meterHint: { ...typography.caption, color: colors.text.secondary, flex: 1 },
   counter: { ...typography.caption, color: colors.text.tertiary },
   error: { ...typography.caption, color: colors.semantic.error },
-  chartCard: {
-    marginTop: spacing[3],
-    paddingVertical: spacing[3],
-    paddingBottom: 42,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border.default,
-    gap: 12, flexDirection: 'row', alignItems: 'center',
-  },
-  chartTerrain: { position: 'absolute', left: -PAGE_GUTTER, right: -PAGE_GUTTER, bottom: -spacing[4], height: 90, opacity: 0.18 },
-  chartGraphic: { width: 92, height: 80 },
-  chartCopy: { flex: 1, gap: 4, paddingRight: 20 },
-  chartEyebrow: { ...typography.labelSM, fontSize: 10, color: colors.text.secondary, letterSpacing: 1.1 },
   chartPosition: { ...typography.labelMD, color: colors.text.secondary, marginTop: spacing[1] },
-  chartTitle: { fontFamily: 'EBGaramond-Medium', fontSize: 18, lineHeight: 21, color: colors.text.primary },
-  chartLink: { flexDirection: 'row', alignItems: 'center', gap: 6, position: 'absolute', right: 0, top: 36 },
   chartLinkText: { ...typography.labelMD, color: colors.text.primary },
 });

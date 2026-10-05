@@ -60,14 +60,15 @@ describe('ChartWaypointContent — ink panel', () => {
   });
 
   it('shows the current waypoint: label row, title, why line, bar, value row and the ONE MOVE card', () => {
-    const { getByText, getByTestId, getByLabelText } = renderContent(viewOf());
+    const { getByText, queryByText, getByTestId, getByLabelText } = renderContent(viewOf());
     expect(getByText('CURRENT WAYPOINT')).toBeTruthy();
     expect(getByText('2 of 3')).toBeTruthy();
     expect(getByText('Reach 1,000 active users')).toBeTruthy();
     expect(getByText('Growth becomes visible.')).toBeTruthy();
     expect(getByTestId('chart-waypoint-bar').props.accessibilityRole).toBe('progressbar');
     expect(getByText('642 / 1,000')).toBeTruthy();
-    expect(getByText('started at 0')).toBeTruthy();
+    // The fraction already says it started at zero.
+    expect(queryByText('started at 0')).toBeNull();
     expect(getByText('ONE MOVE')).toBeTruthy();
     expect(getByText('Finish onboarding redesign')).toBeTruthy();
     expect(getByLabelText('Complete: Finish onboarding redesign').props.accessibilityRole).toBe('checkbox');
@@ -281,7 +282,7 @@ describe('ChartWaypointContent — ink panel', () => {
 
   it('the course log keeps the exact copy on the first day', () => {
     const { getByText } = renderContent(viewOf(course({ plottedAt: new Date(2026, 8, 30, 8, 0, 0).toISOString() })));
-    expect(getByText('Course log · 1 days on course')).toBeTruthy();
+    expect(getByText('Course log · 1 day on course')).toBeTruthy();
   });
 
   it('the destination card names the destination and opens the Vision', () => {
@@ -324,10 +325,9 @@ describe('ChartWaypointContent — update progress sheet', () => {
     expect(getByText('Target: 1,000 active users')).toBeTruthy();
     expect(getByTestId('chart-progress-input')).toBeTruthy();
 
-    // Tap chip +10
-    fireEvent.press(getByTestId('chart-sheet-chip-+10'));
-    // Tap chip +50
+    // A 1,000 target steps in fifties: -50 / +50 / +250 / +500.
     fireEvent.press(getByTestId('chart-sheet-chip-+50'));
+    fireEvent.press(getByTestId('chart-sheet-chip-+250'));
 
     // Tap save
     fireEvent.press(getByTestId('chart-save-progress'));
@@ -339,5 +339,75 @@ describe('ChartWaypointContent — update progress sheet', () => {
   it('has no inline chips in the page body', () => {
     const { queryByTestId } = renderContent(viewOf());
     expect(queryByTestId('chart-progress-chips')).toBeNull();
+  });
+});
+
+function withW2(overrides: Record<string, unknown>) {
+  const base = course();
+  return {
+    ...base,
+    waypoints: base.waypoints.map((item) => (item.id === 'w2' ? { ...item, ...overrides } : item)),
+  } as ReturnType<typeof course>;
+}
+
+describe('ChartWaypointContent — progress by metric type', () => {
+  it('numeric: steppers scale to the target, so a 50,000 goal never nudges in tens', () => {
+    const big = withW2({ metric: { label: 'subscribers', baseline: 0, target: 50000, current: 12000 } });
+    const { getByTestId, queryByTestId } = renderContent(viewOf(big));
+    fireEvent.press(getByTestId('chart-update-progress-button'));
+    expect(getByTestId('chart-sheet-chip-+2000')).toBeTruthy();
+    expect(getByTestId('chart-sheet-chip-+10000')).toBeTruthy();
+    expect(getByTestId('chart-sheet-chip-+20000')).toBeTruthy();
+    expect(queryByTestId('chart-sheet-chip-+10')).toBeNull();
+  });
+
+  it('moves: shows "n of m moves done" and a check-off sheet, with no counter or steppers', async () => {
+    const qualitative = withW2({ kind: 'MILESTONE', metric: null, progressMode: 'moves' });
+    const { getByText, getByTestId, queryByTestId, queryByText, actions } = renderContent(viewOf(qualitative));
+    expect(getByText('0 of 2 moves done')).toBeTruthy();
+    expect(queryByText(/\/ 1,000/)).toBeNull();
+    fireEvent.press(getByTestId('chart-update-progress-button'));
+    expect(getByTestId('chart-progress-moves')).toBeTruthy();
+    expect(queryByTestId('chart-progress-input')).toBeNull();
+    expect(queryByTestId('chart-save-progress')).toBeNull();
+    expect(queryByTestId('chart-sheet-chip-+50')).toBeNull();
+    fireEvent.press(getByTestId('chart-progress-moves').findAllByProps({ accessibilityRole: 'checkbox' })[0]);
+    await waitFor(() => expect(actions.completeMove).toHaveBeenCalled());
+  });
+
+  it('none: no bar, no value, no Update progress', () => {
+    const plain = withW2({ kind: 'MILESTONE', metric: null, progressMode: 'none' });
+    const { queryByTestId } = renderContent(viewOf({ ...plain, moves: [] }));
+    expect(queryByTestId('chart-waypoint-bar')).toBeNull();
+    expect(queryByTestId('chart-waypoint-value')).toBeNull();
+    expect(queryByTestId('chart-update-progress-button')).toBeNull();
+  });
+
+  it('never puts a numeric counter on a non-numeric waypoint', () => {
+    const qualitative = withW2({ kind: 'MILESTONE', metric: null, progressMode: 'moves' });
+    const { queryByText } = renderContent(viewOf(qualitative));
+    expect(queryByText(/\d+ \/ [\d,]+/)).toBeNull();
+  });
+});
+
+describe('ChartWaypointContent — marking a waypoint reached', () => {
+  it('confirms, then hands the server result to the celebration', async () => {
+    const result = { completedTitle: 'Reach 1,000 active users', nextTitle: 'Reach 10,000 active users', destinationReached: false, chart: course() };
+    const reachWaypoint = jest.fn(async () => result);
+    const { getByTestId, onReached } = renderContent(viewOf(), { chart: chartActions({ reachWaypoint }) as never });
+    fireEvent.press(getByTestId('chart-mark-waypoint-cta'));
+    fireEvent.press(getByTestId('chart-reach-yes'));
+    await waitFor(() => expect(onReached).toHaveBeenCalledWith(result));
+    expect(reachWaypoint).toHaveBeenCalledWith('w2');
+  });
+
+  it('a failed call advances nothing and says so plainly', async () => {
+    const reachWaypoint = jest.fn(async () => null);
+    const { getByTestId, getByText, onReached } = renderContent(viewOf(), { chart: chartActions({ reachWaypoint }) as never });
+    fireEvent.press(getByTestId('chart-mark-waypoint-cta'));
+    fireEvent.press(getByTestId('chart-reach-yes'));
+    await waitFor(() => expect(getByTestId('chart-reach-error')).toBeTruthy());
+    expect(getByText(/couldn’t mark this waypoint reached/)).toBeTruthy();
+    expect(onReached).not.toHaveBeenCalled();
   });
 });

@@ -141,6 +141,10 @@ export const PracticeCompletionService = {
       throw new Error('Practice completion account does not match the active account.');
     }
 
+    if (Math.round(input.actualDurationSeconds) < Math.round(input.plannedDurationSeconds)) {
+      throw new Error('Practice session ended early and cannot be marked as completed.');
+    }
+
     const existing = useSessionStore
       .getState()
       .practiceHistory.find((event) => event.id === input.sessionId);

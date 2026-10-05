@@ -2,6 +2,7 @@ import type { SceneRect, Size } from '@/components/v2/vision/board/visionBoardLa
 import { cameraAtRect, mixCamera, progress, projectPoint, restCinematicCamera, smooth } from './prototype/cinematicGeometry';
 import { cinematicSegmentAt, type CinematicTimeline } from './prototype/cinematicTimeline';
 import { cinematicAnchorGlowAt, cinematicBreathAt, cinematicGradeAt, cinematicPushAt } from './guided/cinematicGrade';
+import { ambientDarknessAt } from './cinematicPhotoMotion';
 
 /** How long the set-up's paper medallion takes to dissolve into the session's ink mark. */
 export const CINEMATIC_MARK_BRIDGE_MS = 450;
@@ -15,7 +16,7 @@ export function cinematicSessionGeometry(scene: Size, viewport: Size, firstPhoto
   } : restCinematicCamera(scene, viewport);
   const lifted = { ...firstPhoto, y: firstPhoto.y - 4 };
   const full = { ...cameraAtRect(lifted, viewport, 1),
-    scale: Math.max(viewport.width / firstPhoto.width, viewport.height / firstPhoto.height) * 1.015 };
+    scale: Math.min(viewport.width / firstPhoto.width, viewport.height / firstPhoto.height) * 0.94 };
   const anchor = cameraAtRect(mark, viewport, 0.5);
   return { scene, viewport, firstPhoto, mark, rest, full, anchor, imageCount };
 }
@@ -55,7 +56,8 @@ export function cinematicSessionFrame(ms: number, timeline: CinematicTimeline, g
   const sceneImageIndex = segment.kind === 'arrival' || segment.kind === 'breakout' ? 0 :
     segment.kind === 'transition' ? Math.max(0, (segment.imageIndex ?? 1) - 1) :
       segment.kind === 'immersion' ? segment.imageIndex ?? 0 : lastImage;
-  return { segment, progress: p, camera, firstCenter, firstScale: photoCamera.scale * (1 + push), push, anchorGlow,
+  return { ms, ambientDarkness: ambientDarknessAt(ms, timeline.lightReturnMs ?? timeline.durationMs - 2000),
+    segment, progress: p, camera, firstCenter, firstScale: photoCamera.scale * (1 + push), push, anchorGlow,
     firstRotation: g.firstPhoto.rotation + photoCamera.rotation,
     markCenter, markScale: reduced && segment.kind !== 'arrival' && segment.kind !== 'breakout' ? g.anchor.scale : camera.scale,
     markRotation: reduced && segment.kind !== 'arrival' && segment.kind !== 'breakout' ? 0 : g.mark.rotation + camera.rotation,

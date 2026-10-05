@@ -13,7 +13,7 @@ import { localDateString } from '@/utils/primingAnalytics';
 import { CHART_MAP_REDUCED_FADE, CHART_MAP_TIMING } from './chartMotion';
 import type { HighWaterMap, WaypointProgressInput } from './map/chartMapContracts';
 import { CHART_MAP_TOKENS as T } from './map/chartMapTokens';
-import { isWaypointReady, progressValueRow, toProgressInput, waypointFraction } from './map/chartProgress';
+import { isWaypointReady, PROGRESS_COPY, progressModeOf, progressSteps, progressValueRow, toProgressInput, waypointFraction } from './map/chartProgress';
 import { CHART_PANEL_COPY as COPY, daysOnCourse, isDayClosed, practicedToday } from './map/chartRhythm';
 import { ChartBrushBar } from './panel/ChartBrushBar';
 import { ChartConfirmSheet } from './panel/ChartConfirmSheet';
@@ -171,12 +171,15 @@ export function ChartWaypointContent({
   const [progressSheetOpen, setProgressSheetOpen] = useState(false);
   const [sheetProgressVal, setSheetProgressVal] = useState('');
   const [editWaypointModalOpen, setEditWaypointModalOpen] = useState(false);
+  const [reachError, setReachError] = useState<string | null>(null);
 
   const input = useMemo<WaypointProgressInput | null>(() => {
     if (!waypoint) return null;
     return inputs?.find((item) => item.id === waypoint.id) ?? toProgressInput(waypoint);
   }, [inputs, waypoint]);
   const mark = (waypoint && hw?.[waypoint.id]) || 0;
+  // Steppers scale to the target's magnitude: a 50,000 goal never nudges in tens.
+  const steps = useMemo(() => progressSteps(waypoint?.metric?.target ?? 0), [waypoint?.metric?.target]);
 
   const bump = useChartProgressBump({
     waypointId,
@@ -277,70 +280,66 @@ export function ChartWaypointContent({
 
   const reach = async () => {
     setConfirmOpen(false);
+    setReachError(null);
     const result = await chart.reachWaypoint(waypoint.id);
-    if (result) onReached(result);
+    // Nothing advances on a failed call, and the person is told so plainly.
+    if (!result) {
+      setReachError(CHART_COPY.errors.reach);
+      return;
+    }
+    onReached(result);
+  };
+
+  const openProgressSheet = () => {
+    setSheetProgressVal(waypoint.metric?.current != null ? String(waypoint.metric.current) : '0');
+    setProgressSheetOpen(true);
   };
 
   const noop = () => undefined;
   const barLabel = `${waypoint.title}, ${Math.round(p * 100)}%`;
 
-  const progressBlock = (
-    <>
-          <ChartBrushBar fraction={p} color={accent.fill} reducedMotion={reducedMotion} accessibilityLabel={barLabel} testID="chart-waypoint-bar" />
-          {valueRow ? (
-            isCurrent && input.metric && progressDraft !== null ? (
-              <View style={styles.progressRow}>
-                <TextInput
-                  value={progressDraft}
-                  onChangeText={setProgressDraft}
-                  keyboardType="decimal-pad"
-                  autoFocus
-                  accessibilityLabel={`Current ${waypoint.metric?.label ?? 'value'}`}
-                  placeholder="0"
-                  placeholderTextColor={T.muted}
-                  style={styles.progressInput}
-                />
-                <PanelButton label="Save" variant="primary" accent={accent} loading={chart.busy === `progress:${waypoint.id}`} onPress={() => void saveProgress()} />
-              </View>
-            ) : isCurrent && input.metric ? (
-              <View style={styles.progressDataRow}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={CHART_COPY.waypoint.progress}
-                  accessibilityHint={valueText ?? undefined}
-                  onPress={() => {
-                    setSheetProgressVal(waypoint.metric?.current != null ? String(waypoint.metric.current) : '0');
-                    setProgressSheetOpen(true);
-                  }}
-                  style={styles.valueRow}
-                  testID="chart-waypoint-progress"
-                >
-                  <Text style={styles.valueStrong}>{valueRow.strong}</Text>
-                  {valueRow.span ? <Text style={styles.valueSpan}>{valueRow.span}</Text> : null}
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Update progress"
-                  onPress={() => {
-                    setSheetProgressVal(waypoint.metric?.current != null ? String(waypoint.metric.current) : '0');
-                    setProgressSheetOpen(true);
-                  }}
-                  style={styles.updateProgressButton}
-                  testID="chart-update-progress-button"
-                >
-                  <Text style={[styles.updateProgressText, { color: accent.text }]}>Update progress →</Text>
-                </Pressable>
-              </View>
-            ) : (
-              <View style={styles.valueRow} accessible accessibilityLabel={valueText ?? undefined} testID="chart-waypoint-value">
-                <Text style={styles.valueStrong}>{valueRow.strong}</Text>
-                {valueRow.span ? <Text style={styles.valueSpan}>{valueRow.span}</Text> : null}
-              </View>
-            )
-          ) : null}
+  // How this waypoint shows progress. A counter only ever appears on a numeric waypoint; a qualitative one
+  // shows the checklist of its moves, and one with nothing to count shows no progress at all.
+  const mode = progressModeOf(input);
+  const showProgress = mode === 'numeric' || (mode === 'moves' && (input.movesTotal > 0 || isReached));
+  const canUpdateProgress = isCurrent && showProgress;
 
+  const progressBlock = showProgress ? (
+    <>
+      <ChartBrushBar fraction={p} color={accent.fill} reducedMotion={reducedMotion} accessibilityLabel={barLabel} testID="chart-waypoint-bar" />
+      {valueRow ? (
+        canUpdateProgress ? (
+          <View style={styles.progressDataRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={CHART_COPY.waypoint.progress}
+              accessibilityHint={valueText ?? undefined}
+              onPress={openProgressSheet}
+              style={styles.valueRow}
+              testID="chart-waypoint-progress"
+            >
+              <Text style={styles.valueStrong}>{valueRow.strong}</Text>
+              {valueRow.span ? <Text style={styles.valueSpan}>{valueRow.span}</Text> : null}
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Update progress"
+              onPress={openProgressSheet}
+              style={styles.updateProgressButton}
+              testID="chart-update-progress-button"
+            >
+              <Text style={[styles.updateProgressText, { color: accent.text }]}>Update progress →</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View style={styles.valueRow} accessible accessibilityLabel={valueText ?? undefined} testID="chart-waypoint-value">
+            <Text style={styles.valueStrong}>{valueRow.strong}</Text>
+            {valueRow.span ? <Text style={styles.valueSpan}>{valueRow.span}</Text> : null}
+          </View>
+        )
+      ) : null}
     </>
-  );
+  ) : null;
 
   const body = (
     <>
@@ -481,7 +480,20 @@ export function ChartWaypointContent({
                   </Pressable>
                 </View>
               ) : null}
-              {actionError ? <Text accessibilityLiveRegion="polite" style={styles.error} testID="chart-action-error">{actionError}</Text> : null}
+              <PanelButton
+                label={waypoint.isDestination ? COPY.ctaMarkDestination : COPY.ctaMark}
+                variant={ready ? 'primary' : 'outline'}
+                accent={accent}
+                loading={chart.busy === `reach:${waypoint.id}`}
+                onPress={() => {
+                  setReachError(null);
+                  setConfirmOpen(true);
+                }}
+                testID="chart-mark-waypoint-cta"
+                style={styles.reachCta}
+              />
+              {reachError ? <Text accessibilityLiveRegion="polite" style={styles.error} testID="chart-reach-error">{reachError}</Text> : null}
+              {actionError && !reachError ? <Text accessibilityLiveRegion="polite" style={styles.error} testID="chart-action-error">{actionError}</Text> : null}
             </>
           ) : (
             <>
@@ -541,69 +553,70 @@ export function ChartWaypointContent({
           <View style={[styles.sheetSurface, { paddingBottom: Math.max(bottomInset, 20) + 16 + V2_SHEET_SKIRT, marginBottom: -V2_SHEET_SKIRT }]}>
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>Update progress</Text>
-            {waypoint?.metric ? (
-              <Text style={styles.sheetSubtitle}>
-                Target: {formatMetricNumber(waypoint.metric.target)}{waypoint.metric.label ? ` ${waypoint.metric.label}` : ''}
-              </Text>
-            ) : null}
-            <TextInput
-              value={sheetProgressVal}
-              onChangeText={setSheetProgressVal}
-              keyboardType="decimal-pad"
-              style={styles.sheetInput}
-              accessibilityLabel={waypoint?.metric?.label ? `Current ${waypoint.metric.label}` : 'Current progress value'}
-              testID="chart-progress-input"
-            />
-            <View style={styles.chipsRow}>
-              <Pressable
-                testID="chart-sheet-chip--10"
-                onPress={() => adjustSheetProgress(-10)}
-                style={[styles.sheetChip, styles.sheetChipQuiet]}
-                accessibilityRole="button"
-                accessibilityLabel="Decrease by 10"
-              >
-                <Text style={styles.sheetChipTextQuiet}>-10</Text>
-              </Pressable>
-              <Pressable
-                testID="chart-sheet-chip-+10"
-                onPress={() => adjustSheetProgress(10)}
-                style={styles.sheetChip}
-                accessibilityRole="button"
-                accessibilityLabel="Increase by 10"
-              >
-                <Text style={styles.sheetChipText}>+10</Text>
-              </Pressable>
-              <Pressable
-                testID="chart-sheet-chip-+50"
-                onPress={() => adjustSheetProgress(50)}
-                style={styles.sheetChip}
-                accessibilityRole="button"
-                accessibilityLabel="Increase by 50"
-              >
-                <Text style={styles.sheetChipText}>+50</Text>
-              </Pressable>
-              <Pressable
-                testID="chart-sheet-chip-+100"
-                onPress={() => adjustSheetProgress(100)}
-                style={styles.sheetChip}
-                accessibilityRole="button"
-                accessibilityLabel="Increase by 100"
-              >
-                <Text style={styles.sheetChipText}>+100</Text>
-              </Pressable>
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Save progress"
-              onPress={handleSaveProgressSheet}
-              disabled={chart.busy === `progress:${waypoint.id}`}
-              style={[styles.sheetSaveButton, { backgroundColor: accent.fill }]}
-              testID="chart-save-progress"
-            >
-              <Text style={[styles.sheetSaveButtonText, { color: accent.onFill }]}>
-                {chart.busy === `progress:${waypoint.id}` ? 'Saving...' : 'Save'}
-              </Text>
-            </Pressable>
+            {mode === 'numeric' ? (
+              <>
+                {waypoint?.metric ? (
+                  <Text style={styles.sheetSubtitle}>
+                    Target: {formatMetricNumber(waypoint.metric.target)}{waypoint.metric.label ? ` ${waypoint.metric.label}` : ''}
+                  </Text>
+                ) : null}
+                <TextInput
+                  value={sheetProgressVal}
+                  onChangeText={setSheetProgressVal}
+                  keyboardType="decimal-pad"
+                  style={styles.sheetInput}
+                  accessibilityLabel={waypoint?.metric?.label ? `Current ${waypoint.metric.label}` : 'Current progress value'}
+                  testID="chart-progress-input"
+                />
+                <View style={styles.chipsRow}>
+                  {steps.map((step) => (
+                    <Pressable
+                      key={step.value}
+                      testID={`chart-sheet-chip-${step.value < 0 ? '-' : '+'}${Math.abs(step.value)}`}
+                      onPress={() => adjustSheetProgress(step.value)}
+                      style={[styles.sheetChip, step.value < 0 && styles.sheetChipQuiet]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${step.value < 0 ? 'Decrease' : 'Increase'} by ${formatMetricNumber(Math.abs(step.value))}`}
+                    >
+                      <Text style={step.value < 0 ? styles.sheetChipTextQuiet : styles.sheetChipText}>{step.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Save progress"
+                  onPress={handleSaveProgressSheet}
+                  disabled={chart.busy === `progress:${waypoint.id}`}
+                  style={[styles.sheetSaveButton, { backgroundColor: accent.fill }]}
+                  testID="chart-save-progress"
+                >
+                  <Text style={[styles.sheetSaveButtonText, { color: accent.onFill }]}>
+                    {chart.busy === `progress:${waypoint.id}` ? 'Saving...' : 'Save'}
+                  </Text>
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <Text style={styles.sheetSubtitle}>{PROGRESS_COPY.movesOf(input.movesDone, input.movesTotal)}</Text>
+                <View testID="chart-progress-moves">
+                  {waypoint.moves.map((move) => (
+                    <MoveListRow
+                      key={move.id}
+                      move={move}
+                      accent={accent}
+                      isOneMove={false}
+                      canComplete={move.status === 'ACTIVE'}
+                      canPromote={false}
+                      busy={checkingMove === move.id || chart.busy === `move:${move.id}`}
+                      onComplete={() => void completeMove(move.id)}
+                      onPromote={noop}
+                      onRemove={noop}
+                    />
+                  ))}
+                </View>
+                <PanelButton label="Done" variant="primary" accent={accent} onPress={() => setProgressSheetOpen(false)} testID="chart-progress-done" />
+              </>
+            )}
           </View>
         </KeyboardAvoidingView>
       </V2SheetModal>
@@ -693,6 +706,7 @@ const styles = StyleSheet.create({
   updateProgressButton: { borderWidth: 1, borderColor: T.line, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6 },
   updateProgressText: { fontFamily: T.sansStrong, fontSize: 12 },
   flex: { flex: 1 },
+  reachCta: { minHeight: 48, alignSelf: 'stretch' },
   root: { backgroundColor: T.ink, paddingTop: 10, paddingHorizontal: 16 },
   stack: { gap: 14 },
   labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 24 },

@@ -11,13 +11,15 @@ export type DeepFocusSessionData = {
 };
 const now = () => typeof performance?.now === 'function' ? performance.now() : Date.now();
 
+export type DeepFocusSessionState = 'running' | 'paused' | 'complete' | 'ended_early';
+
 export function useDeepFocusSession({ duration, showTime, onSample, onComplete }: {
   duration: DeepFocusDuration;
   showTime: boolean;
   onSample: (elapsedSeconds: number) => void;
   onComplete: (data: DeepFocusSessionData) => void;
 }) {
-  const [state, setState] = useState<'running' | 'paused' | 'complete'>(
+  const [state, setState] = useState<DeepFocusSessionState>(
     AppState.currentState == null || AppState.currentState === 'active' ? 'running' : 'paused',
   );
   const stateRef = useRef(state);
@@ -52,15 +54,14 @@ export function useDeepFocusSession({ duration, showTime, onSample, onComplete }
     AnalyticsService.track(AnalyticsEvents.PRACTICE_SESSION_RESUMED, { practice_mode: 'deep_prime' });
   }, []);
   const end = useCallback(() => {
-    if (done.current || manualEndAt.current != null) return;
+    if (done.current || stateRef.current === 'complete' || stateRef.current === 'ended_early') return;
+    done.current = true;
     const seconds = readElapsed();
     manualEndAt.current = seconds;
-    finishAt.current = Math.min(duration, seconds + 1.2);
     setEnding(true);
     setElapsed(seconds);
-    // A deliberate End also resolves from the paused overlay.
-    stateRef.current = 'running';
-    setState('running');
+    stateRef.current = 'ended_early';
+    setState('ended_early');
     AnalyticsService.track(AnalyticsEvents.PRACTICE_SESSION_ENDED_EARLY, {
       practice_mode: 'deep_prime', planned_duration_seconds: duration, elapsed_seconds: Math.ceil(seconds),
     });
@@ -100,7 +101,7 @@ export function useDeepFocusSession({ duration, showTime, onSample, onComplete }
       setState('complete');
       latest.current.onComplete({
         plannedDurationSeconds: duration,
-        actualDurationSeconds: manualEndAt.current == null ? duration : Math.max(1, Math.ceil(manualEndAt.current)),
+        actualDurationSeconds: duration,
         startedAt: startedAt.current!, completedAt: new Date().toISOString(),
       });
     };

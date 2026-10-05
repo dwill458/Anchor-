@@ -29,9 +29,9 @@ export const ChartPreview = memo(function ChartPreview({ variant, anchorId, onPr
   const label = data
     ? [title, data.status !== 'empty' && data.waypointIndex > 0
       ? `Waypoint ${data.waypointIndex} of ${data.waypointTotal}` : null,
-      !row && data.status !== 'empty' ? `${number(data.current)} / ${number(data.target)}` : null,
+      !row && data.status !== 'empty' ? (data.target !== null ? `${number(data.current)} / ${number(data.target)}` : data.movesLabel ?? null) : null,
       data.status !== 'empty' ? `${Math.round(data.progress * 100)}% progress` : null,
-      hero && data.startValue != null ? `started at ${number(data.startValue)}` : null,
+      hero && data.startValue ? `started at ${number(data.startValue)}` : null,
       data?.nextMove ? `Next move: ${data.nextMove}` : null].filter(Boolean).join('. ')
     : 'Loading Chart';
   const mapHeight = (width - gutter * 2) * 9 / 16;
@@ -47,8 +47,9 @@ export const ChartPreview = memo(function ChartPreview({ variant, anchorId, onPr
         </> : null}
         <Text style={[styles.title, hero && styles.heroTitle]}>{title}</Text>
         {data && data.status !== 'empty' ? <>
-          {!row ? <Text style={styles.metric}>{number(data.current)} / {number(data.target)}</Text> : null}
-          {hero && data.startValue !== null ? <Text style={styles.secondary}>started at {number(data.startValue)}</Text> : null}
+          {!row && data.target !== null ? <Text style={styles.metric}>{number(data.current)} / {number(data.target)}</Text> : null}
+          {!row && data.target === null && data.movesLabel ? <Text style={styles.metric}>{data.movesLabel}</Text> : null}
+          {hero && data.target !== null && data.startValue ? <Text style={styles.secondary}>started at {number(data.startValue)}</Text> : null}
           <ChartProgressBar progress={data.progress} category={data.category} />
           {data.nextMove && !hero ? <View style={styles.move}>
             <Text style={styles.label}>Next move</Text>

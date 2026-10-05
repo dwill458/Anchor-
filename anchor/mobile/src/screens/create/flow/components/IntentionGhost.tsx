@@ -19,6 +19,7 @@ import {
   RulesLine,
   StaticHints,
 } from '../../components/IntentionChrome';
+import type { FocusTip } from '@/constants/v2/focusAreas';
 
 interface IntentionGhostProps {
   /** Height of the (now empty) field, so the rule and hints sit where they did. */
@@ -26,6 +27,8 @@ interface IntentionGhostProps {
   /** Characters typed, for the count. */
   count: number;
   reduceMotion: boolean;
+  /** Coaching tip the live screen showed, so the chrome fades as it was. */
+  tip?: FocusTip;
   /** Seconds the chrome takes to fade away. */
   duration?: number;
 }
@@ -35,7 +38,7 @@ interface IntentionGhostProps {
  * 0.45 s while the typed words glide away. It is built from the same pieces as the live screen.
  * The field itself is not drawn: its glyphs belong to the canvas by then.
  */
-export function IntentionGhost({ fieldHeight, count, reduceMotion, duration = 0.45 }: IntentionGhostProps) {
+export function IntentionGhost({ fieldHeight, count, reduceMotion, tip, duration = 0.45 }: IntentionGhostProps) {
   const insets = useSafeAreaInsets();
   const alpha = useSharedValue(1);
   const faceAlpha = useSharedValue(1);
@@ -65,7 +68,7 @@ export function IntentionGhost({ fieldHeight, count, reduceMotion, duration = 0.
           <IntentionFieldLabel count={count} max={100} />
           <View style={{ height: fieldHeight + 14 }} />
           <IntentionRule />
-          <StaticHints />
+          <StaticHints tip={tip} />
         </View>
       </View>
 

@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Image } from 'react-native';
 import { useImage, type SkImage } from '@shopify/react-native-skia';
 import type { V2VisionTile } from '@/adapters/v2/vision';
-import { VISION_BOARD_MAX_IMAGES } from '@/components/v2/vision/board/visionBoardLayouts';
+import { preparePhotoFocus, preparePhotoBackdrop } from './cinematicPhotoFocus';
+import type { PhotoFocus } from './cinematicPhotoMotion';
 
 /** A 2048-square decoded texture is 16 MiB RGBA, irrespective of encoded byte size. */
 export const MAX_CINEMATIC_TEXTURE_PIXELS = 2048 * 2048;
@@ -16,13 +17,15 @@ export type CinematicAssets = {
   tiles: V2VisionTile[];
   images: SkImage[];
   enhancedAnchor: SkImage | null;
+  focalPoints?: Array<PhotoFocus | null>;
+  backdrops?: Array<SkImage | null>;
 };
 
 const ENHANCED_ANCHOR_ID = '__enhanced_anchor_art__';
 
 /** A session freezes this roster once; refreshed Vision data cannot change a running film. */
 export function freezeCinematicTiles(tiles: V2VisionTile[]): V2VisionTile[] {
-  return tiles.filter(tile => Boolean(tile.imageUrl)).slice(0, VISION_BOARD_MAX_IMAGES).map(tile => ({ ...tile }));
+  return tiles.filter(tile => Boolean(tile.imageUrl)).map(tile => ({ ...tile }));
 }
 
 function ImageResource({ id, imageUrl, onReady, onFailure }: {
@@ -108,7 +111,9 @@ export function useCinematicAssets(tiles: V2VisionTile[], enhancedImageUrl?: str
     .filter(source => dimensionsReady.has(source.id)).map(source => <ImageResource key={source.id} {...source}
       onReady={(id, image) => onReady(attempt, id, image)} onFailure={id => onFailure(attempt, id)} />)}</React.Fragment>;
   const select = (selection: V2VisionTile[]): CinematicAssets => ({ tiles: selection,
-    images: selection.map(tile => textures[tile.sceneId]), enhancedAnchor: enhancedImageUrl ? textures[ENHANCED_ANCHOR_ID] ?? null : null });
+    images: selection.map(tile => textures[tile.sceneId]), focalPoints: selection.map(tile => preparePhotoFocus(textures[tile.sceneId])),
+    backdrops: selection.map(tile => preparePhotoBackdrop(textures[tile.sceneId])),
+    enhancedAnchor: enhancedImageUrl ? textures[ENHANCED_ANCHOR_ID] ?? null : null });
   return { resources, ready, partial, unavailable, available, select, retry, timedOut,
     failedCount: failed.size, oversizedCount: oversized.size, enhancedFailed, enhancedReady };
 }

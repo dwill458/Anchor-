@@ -244,7 +244,7 @@ describe('Form (D5)', () => {
     expect(styled.visibleText()).toContain('Applying your style…');
     const waiting = new RecordingPainter();
     drawForm(waiting, CREAM_PALETTE, context, { tf: 5, progress: 0.8, slow: false, fade: 1, styleId: 'porcelain', styleName: 'Porcelain', longerWait: true });
-    expect(waiting.visibleText()).toContain('Forging your Porcelain — this one takes a moment');
+    expect(waiting.visibleText()).toContain('Forging your Anchor — this one takes a moment.');
     expect(waiting.visibleText()).toContain('Applying your style…');
   });
 
@@ -253,7 +253,7 @@ describe('Form (D5)', () => {
     const p = new RecordingPainter();
     drawForm(p, CREAM_PALETTE, context, { tf: 1.2, progress: 0.1, slow: false, fade: 1, styleId: 'alloy', styleName: 'Alloy', longerWait: false });
     expect(p.visibleText()).toContain('Applying your style…');
-    expect(p.visibleText()).toContain('Forging your Alloy — this one takes a moment');
+    expect(p.visibleText()).toContain('Forging your Anchor — this one takes a moment.');
   });
 
   it('gives the bottom stage text contrast and gentle motion, respecting Reduce Motion', () => {

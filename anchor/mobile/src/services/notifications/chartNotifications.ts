@@ -243,3 +243,22 @@ export async function syncChartNotifications(args: SyncChartNotificationsArgs): 
     logger.warn('[ChartNotifications] sync failed', error);
   }
 }
+
+export async function cancelChartNotifications(anchorId: string, accountId?: string | null): Promise<void> {
+  try {
+    const key = chartNotifyStorageKey(accountId);
+    const memory = await loadMemory(key);
+    await Promise.all([
+      cancelQuietly(chartNotificationId('recap', anchorId)),
+      cancelQuietly(chartNotificationId('idle', anchorId)),
+    ]);
+    const filtered = memory.scheduled.filter((entry) => entry.anchorId !== anchorId);
+    await saveMemory(key, {
+      idleNudgeScheduledFor: memory.idleNudgeScheduledFor,
+      scheduled: filtered,
+    });
+  } catch (error) {
+    logger.warn('[ChartNotifications] cancel failed', error);
+  }
+}
+

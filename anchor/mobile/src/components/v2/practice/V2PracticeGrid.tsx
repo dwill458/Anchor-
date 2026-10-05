@@ -110,7 +110,7 @@ export function V2PracticeGrid({ capabilities, heroMode, onSelectMode }: Props) 
       >
         <View style={[styles.slimArtwork, { backgroundColor: slimTheme.dark.surface }]}>
           <V2PracticeArtwork mode={slimMode} height={SLIM_ARTWORK_HEIGHT} variant="card" imageStyle={slimMode === 'release' ? styles.releaseSlimCrop : styles.visualizeSlimCrop} />
-          {/* Edge scrims sit behind the text blocks only, so the sun/ribbon in the middle stays vivid. */}
+          {/* Edge scrims keep the text readable while the central ember stays visible. */}
           {slimMode === 'release' ? (
             <LinearGradient
               pointerEvents="none"
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   slimRow: { height: SLIM_ARTWORK_HEIGHT, borderRadius: 18, borderWidth: 1, overflow: 'hidden', position: 'relative', shadowColor: '#000000', shadowOpacity: 0.12, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
   slimArtwork: { ...StyleSheet.absoluteFillObject },
   slimArtworkFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '100%' },
-  releaseSlimCrop: { transform: [{ scale: 1.16 }, { translateY: -5 }] },
+  releaseSlimCrop: { transform: [{ scale: 1.08 }] },
   visualizeSlimCrop: { transform: [{ scale: 1.16 }, { translateY: 5 }] },
   slimContent: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: BODY_INSET, gap: spacing[3] },
   slimTitleGroup: { width: 96, justifyContent: 'center' },

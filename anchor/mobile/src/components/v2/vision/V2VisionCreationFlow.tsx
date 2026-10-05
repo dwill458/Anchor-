@@ -1,6 +1,6 @@
 import { useVisionImageArrival } from './VisionImageArrival';
 import { AnalyticsService } from '@/services/AnalyticsService';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 import { ActivityIndicator, Image, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -11,6 +11,7 @@ import type { VisionSceneSource } from '@/adapters/v2/vision';
 
 import type { VisionAnchorArt } from './VisionChrome';
 import { VISION_DESCRIPTION_MAX_CHARS, VISION_DESCRIPTION_MIN_CHARS, visionPhotoSceneDescription } from './visionGuidance';
+import { VisionStageTransition } from './VisionMotion';
 import { VisionBackButton, VisionInkPill, VISION_SERIF } from './VisionPaperChrome';
 import { VisionIntroStage } from './VisionIntroStage';
 import { VisionMethodStage } from './VisionMethodStage';
@@ -220,7 +221,9 @@ export function V2VisionCreationFlow({
   }, [allReady, saveUploads, step]);
   useEffect(() => { if (step !== 'uploading') autoSaved.current = false; }, [step]);
 
-  if (step === 'empty') return (
+  // Each step is chosen here and rendered through one transition: the old stage fades out, the new one fades in.
+  let stage: ReactElement;
+  if (step === 'empty') stage = (
     <VisionIntroStage
       anchorCategory={anchorCategory}
       anchorIntention={anchorIntention}
@@ -230,7 +233,7 @@ export function V2VisionCreationFlow({
     />
   );
 
-  if (step === 'method') return (
+  else if (step === 'method') stage = (
     <VisionMethodStage
       onBack={() => setStep('empty')}
       onChoose={path => {
@@ -242,7 +245,7 @@ export function V2VisionCreationFlow({
     />
   );
 
-  if (step === 'generating') return (
+  else if (step === 'generating') stage = (
     <VisionTwoUpStage
       anchorIntention={anchorIntention}
       anchorArt={anchorArt}
@@ -257,9 +260,9 @@ export function V2VisionCreationFlow({
     />
   );
 
-  if (step === 'uploading') {
+  else if (step === 'uploading') {
     const failed = uploads.some(item => item.status === 'failed');
-    return (
+    stage = (
       <View testID={`${testID}-uploading`} style={styles.paper}>
         <StatusBar barStyle="dark-content" backgroundColor={colors.canvas} />
         <ScrollView contentContainerStyle={[styles.paperContent, { paddingTop: insets.top + spacing[2], paddingBottom: insets.bottom + spacing[5] }]}>
@@ -285,7 +288,7 @@ export function V2VisionCreationFlow({
     );
   }
 
-  return (
+  else stage = (
     <VisionMomentInput
       mode="create"
       anchorId={anchorId}
@@ -308,6 +311,8 @@ export function V2VisionCreationFlow({
       testID={`${testID}-prompt`}
     />
   );
+
+  return <VisionStageTransition stage={step}>{stage}</VisionStageTransition>;
 }
 
 const styles = StyleSheet.create({

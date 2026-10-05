@@ -9,6 +9,7 @@ import {
   nextHighWater,
   progressValueRow,
   rawFraction,
+  progressSteps,
   routeRevealArc,
   toProgressInput,
   waypointFraction,
@@ -149,6 +150,7 @@ describe('first run seed', () => {
 describe('toProgressInput', () => {
   const view = (over: Partial<ChartWaypointView> = {}): ChartWaypointView => ({
     id: 'w1',
+    progress: 'moves',
     number: 1,
     title: 'T',
     rationale: null,
@@ -190,10 +192,41 @@ describe('toProgressInput', () => {
 describe('value rows', () => {
   it('matches the prototype copy', () => {
     expect(progressValueRow(input({ metric: metric(340, 84, 1000) }), 'current', 0)).toEqual({ strong: '340 / 1,000', span: 'started at 84' });
-    expect(progressValueRow(input({ movesDone: 1, movesTotal: 3 }), 'current', 0)).toEqual({ strong: '1 of 3 moves', span: 'moves draw this leg' });
+    // Started at zero says nothing the fraction does not.
+    expect(progressValueRow(input({ metric: metric(340, 0, 1000) }), 'current', 0)).toEqual({ strong: '340 / 1,000', span: '' });
+    expect(progressValueRow(input({ movesDone: 1, movesTotal: 3 }), 'current', 0)).toEqual({ strong: '1 of 3 moves done', span: 'moves draw this leg' });
     expect(progressValueRow(input({ movesDone: 3, movesTotal: 3 }), 'current', 0)?.span).toBe('route holds at 90% until you confirm');
     expect(progressValueRow(input({ metric: metric(0, 0, 5000) }), 'upcoming', 0, 'active users')).toEqual({ strong: '5,000', span: 'active users to reach' });
     expect(progressValueRow(input({ metric: metric(0, 0, 5000) }), 'reached', 0)).toEqual({ strong: '5,000', span: 'reached' });
     expect(progressValueRow(input(), 'upcoming', 0)).toBeNull();
+  });
+});
+
+describe('progress modes', () => {
+  it('none has nothing to draw, nothing to show and is never ready', () => {
+    const none = input({ mode: 'none', movesDone: 2, movesTotal: 2 });
+    expect(rawFraction(none)).toBe(0);
+    expect(isWaypointReady(none, 0)).toBe(false);
+    expect(progressValueRow(none, 'current', 0)).toBeNull();
+  });
+
+  it('moves with no moves yet shows no empty "0 of 0"', () => {
+    expect(progressValueRow(input({ mode: 'moves' }), 'current', 0)).toBeNull();
+  });
+});
+
+describe('progressSteps', () => {
+  const values = (target: number) => progressSteps(target).map((step) => step.value);
+  it('scales the chips to the target magnitude', () => {
+    expect(values(100)).toEqual([-5, 5, 25, 50]);
+    expect(values(1000)).toEqual([-50, 50, 250, 500]);
+    expect(values(50000)).toEqual([-2000, 2000, 10000, 20000]);
+  });
+  it('never steps below one', () => {
+    expect(values(12)[1]).toBe(1);
+    expect(values(0)[1]).toBeGreaterThanOrEqual(1);
+  });
+  it('labels with a real minus and a plus', () => {
+    expect(progressSteps(1000).map((step) => step.label)).toEqual(['\u221250', '+50', '+250', '+500']);
   });
 });

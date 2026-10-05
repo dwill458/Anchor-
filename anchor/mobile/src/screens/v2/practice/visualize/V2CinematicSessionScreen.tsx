@@ -102,10 +102,6 @@ function LoadingRun(props: CinematicSessionProps) {
   }, [assets.unavailable, assets.partial, props.onPreparationIssue]);
   const hasUsableArtwork = Boolean(svg || enhancedImageUrl);
   const enhancedMaskReady = !enhancedImageUrl || Boolean(enhancedMaskEffect);
-  useEffect(() => {
-    if (assets.partial && assets.enhancedReady && hasUsableArtwork && enhancedMaskReady)
-      props.onAvailableImages?.(() => setSelected(assets.select(assets.available)));
-  }, [assets.partial, assets.enhancedReady, assets.available, hasUsableArtwork, enhancedMaskReady, props.onAvailableImages]);
 
   useEffect(() => {
     if (!hasUsableArtwork || !enhancedMaskReady) props.onPreparationIssue?.('The actual Anchor artwork could not be prepared.');
@@ -123,12 +119,10 @@ function LoadingRun(props: CinematicSessionProps) {
         'Add a Vision image before beginning.' : assets.oversizedCount > 0 ?
           'Some images are too large for this session. Retry to load them.' :
           assets.unavailable ? 'The Vision images could not load.' :
-          assets.partial ? `${assets.available.length} image${assets.available.length === 1 ? '' : 's'} ready to visualize.` :
+          assets.partial ? 'Load every Vision image before beginning.' :
             'Your session begins when the images and canvas are ready.'}</Text>
       <View style={styles.recoveryActions}>
         <V2Button onPress={assets.retry} accessibilityLabel="Retry Vision images">Retry</V2Button>
-        {assets.partial && hasUsableArtwork && assets.enhancedReady ? <V2Button onPress={() => setSelected(assets.select(assets.available))}
-          accessibilityLabel="Continue with available images">Continue with available images</V2Button> : null}
         <Pressable accessibilityRole="button" accessibilityLabel="Back to Practice" onPress={props.onExit} style={styles.recoveryBack}>
           <Text style={styles.recoveryCopy}>Back to Practice</Text>
         </Pressable>
@@ -172,6 +166,10 @@ function CinematicRun({ anchor, accountId, statement, visionId, durationSeconds,
   const plan = useMemo(() => buildGuidedPlan({ durationSeconds, guide: guideForVoice(voice), imageCount: assets.tiles.length }),
     [assets.tiles.length, durationSeconds, voice]);
   const timeline = plan.timeline;
+  useEffect(() => {
+    traceVisualize(`plan photos=${plan.imageCount} lightReturnMs=${plan.timeline.lightReturnMs} durationMs=${plan.durationMs}`,
+      { focus: assets.focalPoints, softBackdrops: assets.backdrops?.map(Boolean) });
+  }, [plan, assets]);
   const guidedAsset = useMemo(() => getGuidedTrackAsset(plan.track, plan.guide), [plan.guide, plan.track]);
   const geometry = useMemo(() => mark ? cinematicSessionGeometry(scene, viewport, photo, mark, plan.imageCount, prepared?.canvasFrame) : null,
     [plan.imageCount, mark, photo, scene, viewport, prepared?.canvasFrame]);
@@ -307,7 +305,8 @@ function CinematicRun({ anchor, accountId, statement, visionId, durationSeconds,
   const segmentProgress = (engine.positionMs - segment.startMs) / Math.max(1, segment.endMs - segment.startMs);
   const boardShowing = segment.kind === 'carry' || segment.kind === 'boardHold' ||
     (segment.kind === 'return' && segmentProgress > 0.55) || segment.kind === 'arrival' || (segment.kind === 'breakout' && segmentProgress < 0.6);
-  const onPaper = boardShowing && cinematicGradeAt(timeline, engine.positionMs).dim < 0.35;
+  const ambientLight = engine.positionMs < 1000 || engine.positionMs > (timeline.lightReturnMs ?? plan.durationMs) + 1500;
+  const onPaper = boardShowing && ambientLight && cinematicGradeAt(timeline, engine.positionMs).dim < 0.35;
   const [displayLine, setDisplayLine] = useState<string | null>(null);
   const textOpacity = useSharedValue(0);
   useEffect(() => {
@@ -341,11 +340,11 @@ function CinematicRun({ anchor, accountId, statement, visionId, durationSeconds,
   return <View testID="v2-visualize-session" style={styles.root}>
     <StatusBar hidden={immersive} barStyle="light-content" backgroundColor={colors.ink.deep} />
     {immersive ? <KeepAwake /> : null}
-    {!prepareOnly && mark && geometry ? <CinematicSessionStage tiles={assets.tiles} images={assets.images}
+    {!prepareOnly && mark && geometry ? <CinematicSessionStage tiles={assets.tiles} images={assets.images} focalPoints={assets.focalPoints}
       intention={anchor.intentionText || statement} category={anchor.category} svgText={svgText} enhancedImageUrl={anchor.enhancedImageUrl}
       enhancedAnchor={assets.enhancedAnchor} enhancedMaskEffect={enhancedMaskEffect} svg={svg}
       scene={scene} viewport={viewport} mark={mark} geometry={geometry} timeline={timeline} elapsed={elapsed}
-      sequenceCount={plan.imageCount} watermark={watermark}
+      sequenceCount={plan.imageCount} activeIndex={resolved.imageIndex} watermark={watermark} backdrops={assets.backdrops}
       reduced={reduced} onMarkLayout={onMarkLayout} /> :
       <View style={styles.measureBoard} pointerEvents="none">
         <VisionBoardScene scene={scene} roster={board.roster} entering={board.entering} layout={board.layout} shared={board.shared}

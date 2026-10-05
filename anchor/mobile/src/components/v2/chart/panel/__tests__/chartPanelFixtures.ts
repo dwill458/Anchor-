@@ -136,6 +136,8 @@ export function chartActions(overrides: Record<string, unknown> = {}) {
     editWaypoint: jest.fn(async () => true),
     removeWaypoint: jest.fn(async () => true),
     setCurrentMove: jest.fn(async () => true),
+    archiveChart: jest.fn(async () => true),
+    deleteChart: jest.fn(async () => true),
     ...overrides,
   };
 }

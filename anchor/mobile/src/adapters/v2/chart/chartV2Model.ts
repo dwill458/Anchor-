@@ -1,4 +1,4 @@
-import type { CourseDetail, MoveSummary, WaypointSummary } from '@/types/chart';
+import type { CourseDetail, MoveSummary, WaypointProgressMode, WaypointSummary } from '@/types/chart';
 import type { ChartForAnchor } from '@/services/v2/chartV2Api';
 
 /**
@@ -23,6 +23,8 @@ export type ChartMetricView = {
 
 export type ChartWaypointView = {
   id: string;
+  /** What this waypoint's progress looks like. A counter only ever appears on 'numeric'. */
+  progress: WaypointProgressMode;
   /** 1-based position on the live route. */
   number: number;
   title: string;
@@ -80,6 +82,15 @@ export function toMetricView(metric: WaypointSummary['metric']): ChartMetricView
   };
 }
 
+/**
+ * Progress mode for a waypoint. A measure always means numeric; otherwise the declared mode decides, and
+ * anything undeclared (older servers and Charts) reads as its moves.
+ */
+export function resolveProgressMode(waypoint: Pick<WaypointSummary, 'progressMode' | 'metric'>, metric: ChartMetricView | null): WaypointProgressMode {
+  if (metric) return 'numeric';
+  return waypoint.progressMode === 'none' ? 'none' : 'moves';
+}
+
 /** Cancelled waypoints left the route; everything else is part of its story. */
 export function liveWaypoints(course: CourseDetail): WaypointSummary[] {
   return [...course.waypoints]
@@ -109,14 +120,16 @@ export function toChartViewModel(
   const total = waypoints.length;
   const moves = course.moves ?? [];
   const views: ChartWaypointView[] = waypoints.map((waypoint, index) => {
+    const metric = toMetricView(waypoint.metric ?? null);
     const base = {
       id: waypoint.id,
+      progress: resolveProgressMode(waypoint, metric),
       number: index + 1,
       title: waypoint.title,
       rationale: waypoint.description,
       state: markerState(waypoint, course),
       isDestination: index === total - 1,
-      metric: toMetricView(waypoint.metric ?? null),
+      metric,
       reachedAt: waypoint.reachedAt,
       moves: moves.filter((move) => move.waypointId === waypoint.id && (move.status === 'ACTIVE' || move.status === 'COMPLETED')),
       suggestedMoves: moves.filter((move) => move.waypointId === waypoint.id && move.status === 'SUGGESTED'),

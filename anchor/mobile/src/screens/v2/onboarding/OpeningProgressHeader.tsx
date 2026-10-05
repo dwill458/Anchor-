@@ -1,10 +1,10 @@
 /**
- * Progress chrome shared by Screens 2–5. It stays mounted across every handoff, so the step
+ * Progress chrome shared by Screens 2–3. It stays mounted across every handoff, so the step
  * changes in place — the next segment fills and "02" rolls up into "03" — instead of a new
  * header arriving with a new page.
  *
- * Its tone follows the surface beneath it: light over the Screen 2/3 photography, ink over
- * the cream of Screens 4 and 5, blending as the surface changes.
+ * Its tone follows the surface beneath it: light over Screen 2's photography, ink over
+ * the cream of the question, blending as the surface changes.
  */
 import React, { useEffect } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
@@ -19,7 +19,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { ChevronLeft } from "lucide-react-native";
 
-const TOTAL = 8;
+import { ONBOARDING_TOTAL_STEPS as TOTAL } from "@/constants/v2/onboarding";
 
 /** [over photography, over cream] */
 const TONE = {
@@ -56,6 +56,8 @@ type Props = {
   dimmed?: boolean;
   /** 0 over photography, 1 over cream. Omitted: always photography. */
   paper?: SharedValue<number>;
+  /** The counter leaves with the question: this clock and window fade the whole header away. */
+  exit?: { clock: SharedValue<number>; window: readonly [number, number] };
 };
 
 type Tone = SharedValue<number> | undefined;
@@ -92,6 +94,7 @@ export function OpeningProgressHeader({
   interactive,
   dimmed = false,
   paper,
+  exit,
 }: Props) {
   const appear = useSharedValue(0);
   const dim = useSharedValue(dimmed ? 1 : 0);
@@ -102,7 +105,9 @@ export function OpeningProgressHeader({
     dim.value = withTiming(dimmed ? 1 : 0, { duration: 220, reduceMotion: ReduceMotion.Never });
   }, [dim, dimmed]);
 
-  const rootStyle = useAnimatedStyle(() => ({ opacity: appear.value * (1 - 0.6 * dim.value) }));
+  const rootStyle = useAnimatedStyle(() => ({
+    opacity: appear.value * (1 - 0.6 * dim.value) * (exit ? 1 - seg(exit.clock.value, exit.window) : 1),
+  }));
   const fill = useAnimatedStyle(() => ({ transform: [{ scaleX: seg(clock.value, window) }] }));
   const backStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(toneOf(paper), [0, 1], [...TONE.backFill]),

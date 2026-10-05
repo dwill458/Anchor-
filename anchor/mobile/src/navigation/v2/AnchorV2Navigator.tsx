@@ -23,7 +23,7 @@ import { V2ChartAdjustScreen, V2ChartJourneyScreen, V2ChartScreen, V2ChartWaypoi
 import { V2ProgressScreen } from '@/screens/v2/progress';
 import { V2AnchorLibraryScreen, V2AnchorDetailsScreen } from '@/screens/v2/anchors';
 import { V2ReleaseScreen } from '@/screens/v2/release';
-import { createReleaseContinuations } from './releaseNavigation';
+import { createReleaseContinuations, releaseHomeScreenOptions } from './releaseNavigation';
 import { V2WeeklyInsightScreen } from '@/screens/v2/weeklyInsight';
 import { SettingsScreen } from '@/screens/settings';
 import { LoginScreen } from '@/screens/auth';
@@ -317,6 +317,9 @@ export function AnchorV2Navigator() {
   const reduceMotion = useV2ReduceMotion();
   const user = useAuthStore((state) => state.user);
   const hasCompletedOnboarding = useAuthStore((state) => state.hasCompletedOnboarding);
+  const isGuest = useAuthStore((state) => state.isGuest);
+  // A person who kept their Anchor on this device has finished onboarding without an account.
+  const hasSession = Boolean(user?.id) || isGuest;
   const firstRunStep = useFirstRunStore((state) => state.draft.currentStep);
   const developerSkipOnboardingEnabled = useSettingsStore((state) => state.developerSkipOnboardingEnabled);
   const developerMasterAccountEnabled = useSettingsStore((state) => state.developerMasterAccountEnabled);
@@ -325,17 +328,24 @@ export function AnchorV2Navigator() {
   // Remount on trusted auth/onboarding changes so a restored account never
   // briefly lands in first-run, and a new account returns to its draft.
   const shouldBypassOnboarding = __DEV__ && (developerSkipOnboardingEnabled || developerMasterAccountEnabled);
-  const initialRouteName = shouldBypassOnboarding || (user?.id && hasCompletedOnboarding)
+  const initialRouteName = shouldBypassOnboarding || (hasSession && hasCompletedOnboarding)
     ? 'V2DevelopmentHome'
     : 'V2FirstRun';
   return (
     <ProgressiveFocusTransitionProvider>
       <Stack.Navigator
-        key={`${initialRouteName}:${user?.id && hasCompletedOnboarding ? 'user' : firstRunStep === 'auth' ? 'onboarding-save' : user?.id ?? 'guest'}`}
+        key={`${initialRouteName}:${hasSession && hasCompletedOnboarding ? (user?.id ? 'user' : 'guest-home') : firstRunStep === 'auth' ? 'onboarding-save' : user?.id ?? 'guest'}`}
         initialRouteName={initialRouteName}
         screenOptions={screenOptions}
       >
-        <Stack.Screen name="V2DevelopmentHome" component={V2DevelopmentHome} />
+        <Stack.Screen name="V2DevelopmentHome" component={V2DevelopmentHome}
+          options={({ route }) => releaseHomeScreenOptions(route.params, reduceMotion)}
+          listeners={({ navigation, route }) => ({
+            transitionEnd: ({ data }) => {
+              // Consume the entry flag after arrival so later Home transitions keep their defaults.
+              if (!data.closing && route.params?.releaseReturnFade) navigation.setParams({ releaseReturnFade: undefined });
+            },
+          })} />
         <Stack.Screen name="V2FirstRun" component={V2FirstRunFlow} />
         <Stack.Screen name="V2SystemGallery" component={V2SystemGallery} />
         {__DEV__ ? <Stack.Screen name="V2EvolvingAnchor" component={V2EvolvingAnchorPrototype} /> : null}

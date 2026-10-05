@@ -363,7 +363,31 @@ function findNextTier<T extends RankTier | DepthTier>(
   return tiers[index + 1];
 }
 
+// Single-entry memo: callers (totals, practice days, per-anchor stats) pass the
+// same history array repeatedly, so normalize it once per array + timezone.
+let normalizedCache: {
+  sessions: PrimingHistoryEntry[];
+  timezoneLabel: string | null | undefined;
+  result: NormalizedProgressionSession[];
+} | null = null;
+
 export function getNormalizedProgressionSessions(
+  practiceSessions: PrimingHistoryEntry[],
+  timezoneLabel?: string | null
+): NormalizedProgressionSession[] {
+  if (
+    normalizedCache &&
+    normalizedCache.sessions === practiceSessions &&
+    normalizedCache.timezoneLabel === timezoneLabel
+  ) {
+    return normalizedCache.result;
+  }
+  const result = computeNormalizedProgressionSessions(practiceSessions, timezoneLabel);
+  normalizedCache = { sessions: practiceSessions, timezoneLabel, result };
+  return result;
+}
+
+function computeNormalizedProgressionSessions(
   practiceSessions: PrimingHistoryEntry[],
   timezoneLabel?: string | null
 ): NormalizedProgressionSession[] {

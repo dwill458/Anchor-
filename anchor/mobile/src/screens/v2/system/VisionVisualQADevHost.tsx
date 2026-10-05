@@ -8,6 +8,7 @@ import { VisionMomentInput, type VisionInputPath, type VisionStartPhoto } from '
 import { V2VisualizePrepareScreen, type V2VisualizeBeginConfig } from '@/screens/v2/practice/visualize/V2VisualizePrepareScreen';
 import { V2CinematicSessionScreen } from '@/screens/v2/practice/visualize/V2CinematicSessionScreen';
 import { isV2VisualizeDuration } from '@/screens/v2/practice/visualize/visualizeVisionPlan';
+import { V2FocusCompleteScreen } from '@/screens/v2/practice/focus/V2FocusCompleteScreen';
 import { VisionImageArrivalProvider, useVisionImageArrival } from '@/components/v2/vision/VisionImageArrival';
 import { VisionTwoUpStage } from '@/components/v2/vision/VisionTwoUpStage';
 import { VisionIntroStage } from '@/components/v2/vision/VisionIntroStage';
@@ -28,18 +29,23 @@ import { useV2Vision } from '@/hooks/v2/vision';
 const sources = [require('@/assets/vision/vision-future-desk.jpg'), require('@/assets/vision/vision-future-window.jpg'), require('@/assets/vision/vision-future-family.jpg')];
 const tiles: V2VisionTile[] = Array.from({ length: 6 }, (_, i) => ({ id: `qa-${i}`, sceneId: `qa-${i}`, imageUrl: Image.resolveAssetSource(sources[i % 3]).uri,
   prompt: null, sortOrder: i, isHero: i === 0, sourceType: 'AI_GENERATED' }));
+const sessionSources = [require('@/assets/vision/vision-future-desk.jpg'), require('@/assets/vision/vision-future-window-wide.jpg'),
+  require('@/assets/vision/vision-future-family.jpg'), require('@/assets/vision/vision-future-home.jpg'),
+  require('@/assets/vision/vision-future-studio.jpg'), require('@/assets/vision/vision-future-movement.jpg')];
+const sessionTiles: V2VisionTile[] = sessionSources.map((source, i) => ({ ...tiles[i],
+  imageUrl: Image.resolveAssetSource(source).uri, sourceType: 'USER_UPLOAD' }));
 const description = 'My app is thriving. I see ten thousand people using something I created, and I have the freedom to work by the ocean with my family. The work is meaningful, and there is room to enjoy the life around it.';
 const noop = () => undefined;
 const saved = async () => true;
 
 /** Explicit QA sample content, confined to this development-only host. */
-function ParityLab({ identity, onClose, count = 3, longCaption = false }: { identity: any; onClose: () => void; count?: number; longCaption?: boolean }) {
+function ParityLab({ identity, onClose, count = 3, longCaption = false, noChart = false, longWaypoint = false }: { identity: any; onClose: () => void; count?: number; longCaption?: boolean; noChart?: boolean; longWaypoint?: boolean }) {
   const [caption, setCaption] = useState(longCaption ? 'A beautiful ordinary life with room for family, meaningful work and time together.' : 'Freedom Through Creation');
   const [statement, setStatement] = useState('My RevenueCat dashboard shows 10,000 active users for Anchor. The app is thriving in the app store, making a real impact, and I am working on the beach with my family. There is time to enjoy what we have built together.');
   return <V2SavedVision {...identity} anchorIntention="Anchor has ten thousand users" tiles={tiles.slice(0, count)} description={statement}
     annotation={caption} onUpdateAnnotation={async value => { setCaption(value); return true; }}
     onBack={onClose} onVisualize={noop} onChart={noop}
-    chartSummary={{ courseId: 'qa', waypointNumber: 1, total: 5, waypointTitle: 'First thousand active users', oneMoveTitle: null, isFinished: false, destination: 'Ten thousand users' }}
+    chartSummary={noChart ? null : { courseId: 'qa', waypointNumber: longWaypoint ? 4 : 1, total: 5, waypointTitle: longWaypoint ? 'Build a steady weekly rhythm with meaningful time together as a family' : 'First thousand active users', oneMoveTitle: null, isFinished: false, destination: 'Ten thousand users' }}
     onUpdateDescription={async value => { setStatement(value); return true; }} onReorder={saved} onRemove={saved}
     onAddPhoto={noop} onAddGenerate={noop} onReplace={async () => undefined} onRegenerate={noop} canGenerateMore onArchive={saved} />;
 }
@@ -193,13 +199,14 @@ export function VisionVisualQADevHost() {
     const count = Number(surface.split('-')[1] ?? '3');
     const qaAnchor = { id: 'qa-anchor', localId: 'qa-anchor', intentionText: identity.anchorIntention, category: identity.anchorCategory,
       baseSigilSvg: identity.anchorArt.svg, reinforcedSigilSvg: null, enhancedImageUrl: null } as any;
-    // Begin runs the real cinematic session (60 s) so the whole hand-off can be recorded; completion shows a marker instead of the Thread screen.
-    content = finished ? <View testID="qa-visualize-complete" style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.canvas }}><Text style={typography.headingMD}>Completion reached</Text></View>
+    // Exercise the real session and completion without writing a fixture session to the user's account.
+    content = finished ? <V2FocusCompleteScreen anchor={qaAnchor} durationSeconds={qaDuration} practiceTitle="Visualize"
+      enterFrom="cream" sessionSaved={false} onDone={close} onAgain={() => { setFinished(false); setRun(null); }} />
       : run ? <V2CinematicSessionScreen anchor={qaAnchor} accountId={null} tiles={run.prepared.assets.tiles} statement={description} visionId="qa-vision"
         durationSeconds={isV2VisualizeDuration(run.durationSeconds) ? run.durationSeconds : 60} voice={qaVoice} ambient={false} haptics={run.haptics} source="practice_hub"
         prepared={run.prepared} onExit={close} onContinue={() => setFinished(true)} />
-      : <V2VisualizePrepareScreen anchor={qaAnchor} statement={description} visionId="qa-vision" tiles={tiles.slice(0, count)} initialDuration={qaDuration} onBack={close} onOpenVision={noop} onBegin={setRun} />;
-  } else if (surface?.startsWith('parity')) content = <ParityLab key={surface} identity={identity} onClose={close} count={Number(surface.split('-')[1]) || 3} longCaption={surface.includes('long')} />;
+      : <V2VisualizePrepareScreen key={`${surface}-${qaDuration}`} anchor={qaAnchor} statement={description} visionId="qa-vision" tiles={sessionTiles.slice(0, count)} initialDuration={qaDuration} onBack={close} onOpenVision={noop} onBegin={setRun} />;
+  } else if (surface?.startsWith('parity')) content = <ParityLab key={surface} identity={identity} onClose={close} count={Number(surface.split('-')[1]) || 3} longCaption={surface.includes('long')} noChart={surface.includes('empty')} longWaypoint={surface.includes('waypoint')} />;
   else if (surface === 'polish') content = <VisionImageArrivalProvider><PolishLab identity={identity} candidates={candidates} onClose={close} /></VisionImageArrivalProvider>;
   else if (surface === 'handoff') content = <VisionImageArrivalProvider><HandoffLab identity={identity as any} candidates={candidates} onClose={close} /></VisionImageArrivalProvider>;
   else if (surface?.startsWith('twoup')) {

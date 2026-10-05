@@ -155,6 +155,9 @@ export function V2PracticeSessionScreen({
       completedAt: string;
     }) => {
       if (focusEndingPromiseRef.current) return focusEndingPromiseRef.current;
+      if (sessionData.actualDurationSeconds < sessionData.plannedDurationSeconds) {
+        return Promise.resolve();
+      }
       setFocusActualDurationSeconds(sessionData.actualDurationSeconds);
       const resolvedAccountId = accountId ?? anchor?.userId ?? 'local-user';
 
@@ -232,7 +235,7 @@ export function V2PracticeSessionScreen({
       startedAt: string;
       completedAt: string;
     }) => {
-      if (!anchor) return;
+      if (!anchor || sessionData.actualDurationSeconds < sessionData.plannedDurationSeconds) return;
       void startFocusPersistence(sessionData);
     },
     [anchor, startFocusPersistence]
@@ -247,6 +250,10 @@ export function V2PracticeSessionScreen({
       completedAt: string;
     }) => {
       if (!anchor || focusCompletionStartedRef.current) return;
+      if (sessionData.actualDurationSeconds < sessionData.plannedDurationSeconds) {
+        onBack();
+        return;
+      }
       // Lock before the asynchronous completion service begins. Both automatic
       // and manual endings enter here through the same active-screen callback.
       focusCompletionStartedRef.current = true;
@@ -362,6 +369,7 @@ export function V2PracticeSessionScreen({
         }
         return <V2DeepFocusActiveScreen anchor={anchor} durationSeconds={durationSeconds}
           voice={resolvedVoice} ambient={resolvedAmbient} haptics={haptics ?? (hapticIntensity ?? 70) > 0}
+          onExit={onBack}
           onComplete={handleFocusComplete} />;
       }
       return (
@@ -402,6 +410,7 @@ export function V2PracticeSessionScreen({
 
   const completeLegacy = async () => {
     if (legacyStatus !== 'active' || !anchor || !accountId) return;
+    if (elapsed < durationSeconds) return;
     setLegacyStatus('completing');
     try {
       await PracticeCompletionService.completePracticeSession(
@@ -413,7 +422,7 @@ export function V2PracticeSessionScreen({
           anchorServerId: isBackendAnchorId(anchor.id) ? anchor.id : null,
           mode,
           plannedDurationSeconds: durationSeconds,
-          actualDurationSeconds: Math.max(1, elapsed),
+          actualDurationSeconds: durationSeconds,
           startedAt: startedAtRef.current.toISOString(),
           source: 'practice_screen',
           guidanceVoice: 'none',
@@ -474,13 +483,11 @@ export function V2PracticeSessionScreen({
         <V2Button
           size="large"
           loading={legacyStatus === 'completing'}
-          disabled={legacyStatus === 'completing' || legacyStatus === 'error'}
-          accessibilityLabel={
-            remaining > 0 ? `Finish ${definition.title}` : `Complete ${definition.title}`
-          }
+          disabled={legacyStatus === 'completing' || legacyStatus === 'error' || remaining > 0}
+          accessibilityLabel={`Complete ${definition.title}`}
           onPress={() => void completeLegacy()}
         >
-          {remaining > 0 ? `Finish ${definition.title}` : `Complete ${definition.title}`}
+          {remaining > 0 ? `In progress (${remaining}s remaining)` : `Complete ${definition.title}`}
         </V2Button>
         </View>
       </ScrollView>

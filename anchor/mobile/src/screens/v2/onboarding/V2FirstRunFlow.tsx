@@ -1,58 +1,17 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { V2CreationFlow, type CreationGenerationAdapter, type CreationSaveAdapter } from '@/components/v2/creation/V2CreationFlow';
-import { V2AuthScreen } from '@/screens/v2/auth/V2AuthScreen';
+import IntentionInputScreen from '@/screens/create/IntentionInputScreen';
+import { V2SealedSaveScreen } from './V2SealedSaveScreen';
 import { V2OnboardingJourney } from './V2OnboardingJourney';
 import { useFirstRunStore } from '@/stores/v2/firstRunStore';
-import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
-import { generateExpressionCandidates } from '@/services/v2/creationPersistence';
 import { saveOnboardingContext } from '@/services/v2/onboardingContext';
 import { logger } from '@/utils/logger';
-import { CATEGORY_TO_TIER, type Anchor } from '@/types';
 import { colors } from '@/theme/v2';
+import { isSpecificFocus } from '@/constants/v2/focusAreas';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { seedV2DemoAnchor } from '@/utils/v2DevSeeder';
-
-const generateFirstExpression: CreationGenerationAdapter = ({ draft, generationAttempt, count }) =>
-  generateExpressionCandidates({ draft, generationAttempt, count });
-
-/** The shared creation flow owns intention, methodology, expression and candidate selection. */
-const saveFirstAnchor: CreationSaveAdapter = async ({ draft }) => {
-  if (!draft.structureSvg || !draft.distilledLetters?.length) {
-    throw Object.assign(new Error('The Anchor structure is not ready.'), { failure: 'server' });
-  }
-  const localId = useFirstRunStore.getState().adoptCreation({
-    intention: draft.normalizedIntention ?? draft.intention.trim(),
-    category: draft.category,
-    distilledLetters: draft.distilledLetters,
-    anchorSvg: draft.structureSvg,
-    expression: draft.expression,
-    styleChoice: draft.expression === 'original' ? undefined : draft.styleChoice,
-    enhancedImageUrl: draft.selectedCandidateIndex >= 0 ? draft.enhancedImageUrl : undefined,
-  });
-  const existing = useAnchorStore.getState().getAnchorById(localId);
-  if (!existing) {
-    const now = new Date();
-    const category = draft.category ?? 'custom';
-    const anchor: Anchor = {
-      id: localId, localId, userId: 'pending',
-      intentionText: draft.normalizedIntention ?? draft.intention.trim(),
-      category, classifierMeta: { v2Expression: draft.expression, ...(draft.styleChoice ? { v2StyleChoice: draft.styleChoice } : {}) },
-      ...(draft.enhancedImageUrl ? { enhancedImageUrl: draft.enhancedImageUrl } : {}),
-      distilledLetters: draft.distilledLetters, baseSigilSvg: draft.structureSvg,
-      structureVariant: 'balanced', planetaryTier: CATEGORY_TO_TIER[category],
-      isCharged: false, activationCount: 0, chargeCount: 0, threadStrength: 0,
-      createdAt: now, updatedAt: now,
-    };
-    useAnchorStore.getState().addAnchor(anchor);
-  }
-  useAuthStore.getState().setPendingFirstAnchorDraft({
-    tempAnchorId: localId, source: 'onboarding_first_anchor', requiresAccountGate: true, createdAt: new Date(),
-  });
-  return { anchorId: localId };
-};
 
 export function V2FirstRunFlow() {
   const navigation = useNavigation<any>();
@@ -67,40 +26,38 @@ export function V2FirstRunFlow() {
       return;
     }
     if (draft.currentStep === 'complete') {
-      if (!user) reset();
+      if (!user && !useAuthStore.getState().isGuest) reset();
       else navigation.reset({ index: 0, routes: [{ name: 'V2DevelopmentHome' }] });
+      return;
     }
-  }, [draft.accountId, draft.currentStep, hydrated, navigation, reset, user]);
+    // A relaunch on the save step needs the Anchor it is saving; without it, make one.
+    if (draft.currentStep === 'auth' && !user && !useAuthStore.getState().pendingFirstAnchorDraft) setStep('creation');
+  }, [setStep, draft.accountId, draft.currentStep, hydrated, navigation, reset, user]);
 
   if (!hydrated) return <View style={styles.loading}><Text style={styles.loadingText}>Restoring your progress…</Text></View>;
 
   if (['creation', 'intention', 'formation', 'anchor', 'expression'].includes(draft.currentStep)) {
-    return <V2CreationFlow
-      saveAnchor={saveFirstAnchor}
-      generateExpression={generateFirstExpression}
-      onComplete={() => setStep('auth')}
-      onExit={() => setStep('handoff')}
-      onSignIn={() => navigation.navigate('V2Auth', { initialMode: 'signin' })}
-      suggestionContext={{
-        category: draft.focusCategory,
-        desiredOutcome: draft.desiredOutcome,
-        desiredWhy: draft.desiredWhy,
-        desiredFriction: draft.desiredFriction,
-      }}
+    return <IntentionInputScreen
+      fromOnboarding
+      onBack={() => setStep('motivation')}
+      // The one onboarding answer names the Anchor's category. "Something else" is the
+      // default (Desire), so the words decide and fall back to it.
+      chosenCategory={isSpecificFocus(draft.focusCategory) ? draft.focusCategory : undefined}
     />;
   }
 
   if (draft.currentStep === 'auth' || draft.currentStep === 'vision' || draft.currentStep === 'focus') {
-    return <V2AuthScreen
-      initialMode="create"
-      saveProgress
+    // The Anchor is already safe on this device. An account is an upgrade, never a gate.
+    return <V2SealedSaveScreen
+      initialSaved={user && draft.anchorPersisted && !useAuthStore.getState().pendingFirstAnchorDraft ? 'account' : null}
       onBack={() => setStep('creation')}
-      onSuccess={async (user) => {
+      onAccountReady={async (signedIn) => {
         if (useAuthStore.getState().pendingFirstAnchorDraft) {
           const finalized = await useAuthStore.getState().finalizePendingFirstAnchorDraft();
           if (!finalized) throw new Error(useAuthStore.getState().pendingFirstAnchorError ?? 'Your first Anchor has not finished saving. Try again.');
         }
-        bindAccount(user.id);
+        useAuthStore.getState().setIsGuest(false);
+        bindAccount(signedIn.id);
         try {
           await saveOnboardingContext(useFirstRunStore.getState().draft);
         } catch (contextError) {
@@ -108,8 +65,18 @@ export function V2FirstRunFlow() {
         }
         markAnchorPersisted();
         markAuthCompleted();
+      }}
+      // Guest: the Anchor stays in the local vault with its pending draft; signing in later from
+      // Settings uploads it. isGuest is what keeps the next launch from replaying onboarding.
+      onContinueWithout={() => {
+        const auth = useAuthStore.getState();
+        auth.setIsGuest(true);
+        if (auth.pendingFirstAnchorDraft) auth.setPendingFirstAnchorDraft({ ...auth.pendingFirstAnchorDraft, requiresAccountGate: false });
+      }}
+      onContinue={() => {
         useAuthStore.getState().completeOnboarding();
         complete();
+        navigation.reset({ index: 0, routes: [{ name: 'V2DevelopmentHome' }] });
       }}
     />;
   }

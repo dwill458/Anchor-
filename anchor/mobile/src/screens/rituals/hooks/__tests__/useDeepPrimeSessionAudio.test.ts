@@ -34,7 +34,7 @@ const makePlayer = () => {
 
 const plan = resolveSessionAudioPlan({
   sessionType: 'deep_prime',
-  durationSeconds: 120,
+  durationSeconds: 900,
   configuration: {
     guidanceVoice: 'female',
     backgroundAudio: 'ambient',
@@ -58,21 +58,21 @@ describe('useDeepPrimeSessionAudio', () => {
     const { rerender } = renderHook(
       (props) => useDeepPrimeSessionAudio(props),
       {
-        initialProps: { plan, remainingMs: 120_000, isActive: false, isComplete: false },
+        initialProps: { plan, remainingMs: 900_000, isActive: false, isComplete: false },
       }
     );
 
-    rerender({ plan, remainingMs: 120_000, isActive: true, isComplete: false });
+    rerender({ plan, remainingMs: 900_000, isActive: true, isComplete: false });
     expect(mockCreateSessionAudioPlayer).toHaveBeenCalledTimes(2);
     expect(createdPlayers[0].play).toHaveBeenCalled();
     expect(createdPlayers[1].play).toHaveBeenCalled();
 
-    rerender({ plan, remainingMs: 91_000, isActive: true, isComplete: false });
+    rerender({ plan, remainingMs: 833_500, isActive: true, isComplete: false });
     expect(mockCreateSessionAudioPlayer).toHaveBeenCalledTimes(2);
-    rerender({ plan, remainingMs: 90_000, isActive: true, isComplete: false });
+    rerender({ plan, remainingMs: 832_500, isActive: true, isComplete: false });
     expect(mockCreateSessionAudioPlayer).toHaveBeenCalledTimes(3);
 
-    rerender({ plan, remainingMs: 89_000, isActive: false, isComplete: false });
+    rerender({ plan, remainingMs: 831_500, isActive: false, isComplete: false });
     expect(createdPlayers[0].pause).toHaveBeenCalled();
     expect(createdPlayers[2].pause).toHaveBeenCalled();
   });
@@ -86,7 +86,7 @@ describe('useDeepPrimeSessionAudio', () => {
       renderHook(() =>
         useDeepPrimeSessionAudio({
           plan,
-          remainingMs: 120_000,
+          remainingMs: 900_000,
           isActive: true,
           isComplete: false,
         })
@@ -110,13 +110,13 @@ describe('useDeepPrimeSessionAudio', () => {
   ) => {
     const combinationPlan = resolveSessionAudioPlan({
       sessionType: 'deep_prime',
-      durationSeconds: 120,
+      durationSeconds: 900,
       configuration: { guidanceVoice, backgroundAudio, source: 'default' },
     });
     renderHook(() =>
       useDeepPrimeSessionAudio({
         plan: combinationPlan,
-        remainingMs: 120_000,
+        remainingMs: 900_000,
         isActive: true,
         isComplete: false,
       })
@@ -127,7 +127,7 @@ describe('useDeepPrimeSessionAudio', () => {
   it('plays loudness-matched male Deep Prime guidance with a distinct track id', () => {
     const malePlan = resolveSessionAudioPlan({
       sessionType: 'deep_prime',
-      durationSeconds: 120,
+      durationSeconds: 900,
       configuration: {
         guidanceVoice: 'male',
         backgroundAudio: 'off',
@@ -138,7 +138,7 @@ describe('useDeepPrimeSessionAudio', () => {
     renderHook(() =>
       useDeepPrimeSessionAudio({
         plan: malePlan,
-        remainingMs: 120_000,
+        remainingMs: 900_000,
         isActive: true,
         isComplete: false,
       })
@@ -147,8 +147,8 @@ describe('useDeepPrimeSessionAudio', () => {
     expect(mockCreateSessionAudioPlayer).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        trackId: 'deep-prime-2m-opening-male',
-        volume: 0.46,
+        trackId: 'deep-prime-15m-opening-male',
+        volume: 0.413,
       })
     );
   });
@@ -157,11 +157,43 @@ describe('useDeepPrimeSessionAudio', () => {
     const { rerender } = renderHook(
       (props) => useDeepPrimeSessionAudio(props),
       {
-        initialProps: { plan, remainingMs: 120_000, isActive: true, isComplete: false },
+        initialProps: { plan, remainingMs: 900_000, isActive: true, isComplete: false },
       }
     );
     rerender({ plan, remainingMs: 0, isActive: false, isComplete: true });
     act(() => jest.advanceTimersByTime(700));
     expect(createdPlayers.some((player) => player.stop.mock.calls.length > 0)).toBe(true);
+  });
+
+  it.each([
+    ['female', 'off'],
+    ['female', 'ambient'],
+    ['male', 'off'],
+    ['male', 'ambient'],
+  ] as const)('plays one full mix with its bed baked in for voice=%s background=%s', (
+    guidanceVoice,
+    backgroundAudio
+  ) => {
+    const mixPlan = resolveSessionAudioPlan({
+      sessionType: 'deep_prime',
+      durationSeconds: 120,
+      configuration: { guidanceVoice, backgroundAudio, source: 'default' },
+    });
+    renderHook(() =>
+      useDeepPrimeSessionAudio({
+        plan: mixPlan,
+        remainingMs: 120_000,
+        isActive: true,
+        isComplete: false,
+      })
+    );
+    expect(mockCreateSessionAudioPlayer).toHaveBeenCalledTimes(1);
+    expect(mockCreateSessionAudioPlayer).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        trackId: guidanceVoice === 'male' ? 'deep-focus-2m-mix-male' : 'deep-focus-2m-mix',
+        volume: 1,
+      })
+    );
   });
 });

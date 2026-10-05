@@ -639,6 +639,9 @@ export type RootStackParamList = {
   FirstAnchorCreation: undefined;
   /** One-screen creation flow: distil → map → forget → style → form → choose → seal. */
   AnchorCreationFlow: {
+    fromOnboarding?: boolean;
+    /** Onboarding's chosen area, so the Intention chrome the flow fades from matches what was shown. */
+    focusAreaId?: import('@/constants/v2/focusAreas').FocusAreaId;
     intentionText: string;
     category: AnchorCategory;
     distilledLetters: string[];

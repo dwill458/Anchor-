@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, AppState, Pressable, ScrollView, StatusBar, StyleSheet, type LayoutChangeEvent, Text, useWindowDimensions, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import { ArrowLeft } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,6 +12,7 @@ import { releaseArtworkRect, segment } from '@/components/v2/release/releaseBurn
 import { releaseTypography } from '@/components/v2/release/releaseTypography';
 import { useV2ReduceMotion, v2Haptics } from '@/hooks/v2';
 import { useReleaseHold, useV2Release } from '@/hooks/v2/release';
+import { useReleaseBurnFeel } from '@/hooks/v2/release/useReleaseBurnFeel';
 import { safeHaptics } from '@/utils/haptics';
 import { RELEASE_COPY, RELEASE_CEREMONY_CHAMBER_BG, RELEASE_FIRE_PREPARE_AT, type V2ReleaseActionId } from '@/constants/v2/release';
 import { colors, getCategoryColor, spacing } from '@/theme/v2';
@@ -29,10 +30,6 @@ export interface V2ReleaseScreenProps extends Partial<V2ReleaseRouteParams>, V2R
   testID?: string;
 }
 
-// Commitment is tactile, not a success notification. Success belongs to the result reveal.
-const holdHaptics = { selection: v2Haptics.selection,
-  completion: () => safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium) };
-
 /** One scene transforms around the same Anchor; the mutation hook remains authoritative. */
 export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapter, hasLinkedVision,
   onReleaseCompleted, onCancel, onViewHistory, onViewProgress, onContinueToChart, onViewCompletedChart,
@@ -41,9 +38,31 @@ export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapt
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const clock = useSharedValue(0);
+  const entranceStarted = useRef(false);
+  const entranceHeader = useSharedValue(0);
+  const entranceRows = useSharedValue(0);
+  const entranceControls = useSharedValue(0);
+  useEffect(() => {
+    if (entranceStarted.current) return;
+    entranceStarted.current = true;
+    const config = { duration: reduceMotion ? 120 : 420, easing: reduceMotion ? Easing.linear : Easing.out(Easing.cubic) };
+    entranceHeader.value = withDelay(reduceMotion ? 0 : 40, withTiming(1, config));
+    entranceRows.value = withDelay(reduceMotion ? 0 : 120, withTiming(1, config));
+    entranceControls.value = withDelay(reduceMotion ? 0 : 220, withTiming(1, config));
+  }, [reduceMotion, entranceHeader, entranceRows, entranceControls]);
+  useEffect(() => () => {
+    cancelAnimation(entranceHeader);
+    cancelAnimation(entranceRows);
+    cancelAnimation(entranceControls);
+  }, [entranceHeader, entranceRows, entranceControls]);
   const [silent, setSilent] = useState(false);
   const [controlsHeight, setControlsHeight] = useState(120);
   const release = useV2Release({ anchorId, adapter: releaseAdapter, reason, successor, hasLinkedVision });
+  const feel = useReleaseBurnFeel();
+  // Commitment is tactile, not a success notification: the medium pulse is the ignition, and the
+  // burn's sound + swell start on the same instant. Success belongs to the result reveal.
+  const holdHaptics = useMemo(() => ({ selection: v2Haptics.selection,
+    completion: () => { feel.begin(reduceMotion); return safeHaptics.impact(Haptics.ImpactFeedbackStyle.Medium); } }), [feel.begin, reduceMotion]);
   const hold = useReleaseHold({ reduceMotion, haptics: holdHaptics, onComplete: release.startRelease,
     onCancel: () => AccessibilityInfo.announceForAccessibility?.(RELEASE_COPY.cancelAnnouncement),
     onSustainStart: () => AccessibilityInfo.announceForAccessibility?.(RELEASE_COPY.sustainAnnouncement) });
@@ -62,9 +81,12 @@ export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapt
   // The relationships changed under the hold: it was rejected, so it must be repeated.
   useEffect(() => {
     if (!release.stale) return;
+    feel.end();
     hold.reset();
     AccessibilityInfo.announceForAccessibility?.(RELEASE_COPY.staleNotice);
-  }, [release.stale, hold.reset]);
+  }, [release.stale, hold.reset, feel.end]);
+  // Backstop: if the release never reaches (or leaves) the burn, nothing keeps sounding or buzzing.
+  useEffect(() => { if (release.stage !== 'preflight' && release.stage !== 'dissolving') feel.end(); }, [release.stage, feel.end]);
   useEffect(() => {
     if (release.stage === 'failed') AccessibilityInfo.announceForAccessibility?.(RELEASE_COPY.failureAnnouncement);
   }, [release.stage]);
@@ -80,9 +102,18 @@ export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapt
     backgroundColor: colors.frame,
     opacity: active ? 0 : 1 - segment(hold.visualProgress.value, 0.12, 0.9),
   }));
-  const headerStyle = useAnimatedStyle(() => ({ opacity: active ? 0 : 1 - segment(hold.visualProgress.value, 0.05, 0.65) }));
-  const rowsStyle = useAnimatedStyle(() => ({ opacity: active ? 0 : 1 - segment(hold.visualProgress.value, 0, 0.45) }));
-  const controlsStyle = useAnimatedStyle(() => ({ opacity: active ? 0 : 1 - segment(hold.visualProgress.value, 0.86, 1) }));
+  const headerStyle = useAnimatedStyle(() => ({
+    opacity: active ? 0 : entranceHeader.value * (1 - segment(hold.visualProgress.value, 0.05, 0.65)),
+    transform: [{ translateY: reduceMotion ? 0 : (1 - entranceHeader.value) * 8 }],
+  }));
+  const rowsStyle = useAnimatedStyle(() => ({
+    opacity: active ? 0 : entranceRows.value * (1 - segment(hold.visualProgress.value, 0, 0.45)),
+    transform: [{ translateY: reduceMotion ? 0 : (1 - entranceRows.value) * 8 }],
+  }));
+  const controlsStyle = useAnimatedStyle(() => ({
+    opacity: active ? 0 : entranceControls.value * (1 - segment(hold.visualProgress.value, 0.86, 1)),
+    transform: [{ translateY: reduceMotion ? 0 : (1 - entranceControls.value) * 8 }],
+  }));
   const keepStyle = useAnimatedStyle(() => ({ opacity: 1 - segment(hold.visualProgress.value, 0.02, 0.35) }));
   const handleArtworkLayout = useCallback((event: LayoutChangeEvent) => {
     place.onLayout();
@@ -93,7 +124,8 @@ export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapt
   const handleHoldStart = useCallback(() => { setHeldRect(measuredRect.current); release.beginHold(); hold.beginHold(); }, [hold.beginHold, release.beginHold]);
   const handleCancel = useCallback(() => { hold.endHold(); onCancel(); }, [hold.endHold, onCancel]);
   const handleFreshHold = useCallback(() => { release.reset(); hold.reset(); setSilent(false); }, [release.reset, hold.reset]);
-  const startSilence = useCallback(() => setSilent(true), []);
+  // The coin is gone: sound and haptics stop in the same beat the screen goes black.
+  const startSilence = useCallback(() => { feel.end(); setSilent(true); }, [feel.end]);
   const courseId = release.snapshot?.courseId ?? null;
   const handleAction = useCallback((action: V2ReleaseActionId) => {
     const ending = release.ending;
@@ -143,11 +175,9 @@ export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapt
             <Pressable onPress={handleCancel} accessibilityRole="button" accessibilityLabel="Back" hitSlop={12} style={styles.back} testID="v2-release-back">
               <ArrowLeft size={22} color={colors.ink.base} />
             </Pressable>
+            <Text style={styles.kicker}>{RELEASE_COPY.preflightKicker}</Text>
           </View>
-          <ScrollView showsVerticalScrollIndicator={false}>
-            <Text style={styles.heading} accessibilityRole="header">{RELEASE_COPY.preflightHeading}</Text>
-            <Text style={styles.subtitle} numberOfLines={2}>{RELEASE_COPY.preflightSubtitle}</Text>
-          </ScrollView>
+          {/* DEFERRED: The old heading/subtitle block is no longer rendered; copy is retained in RELEASE_COPY. */}
         </Animated.View>
         <Animated.View style={[styles.rows, { top: rowsTop, bottom: rowsBottom }, rowsStyle]}>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.rowsContent}>
@@ -189,6 +219,7 @@ export function V2ReleaseScreen({ anchorId = '', reason, successor, releaseAdapt
         message={release.message} retryable={stage === 'failed' || release.retryable} onRetry={stage === 'failed' ? handleFreshHold : release.retry}
         onDismiss={stage === 'failed' ? handleCancel : undefined} /> : null}
       {stage === 'completed' && release.ending ? <V2ReleaseCompletion ending={release.ending} reduceMotion={reduceMotion}
+        ghostSvg={snapshot.artworkSvg} ghostImageUrl={snapshot.imageUrl} category={snapshot.category} expression={snapshot.expression}
         onAction={handleAction} /> : null}
     </View>
   );
@@ -201,10 +232,11 @@ const styles = StyleSheet.create({
   keepLabel: { ...releaseTypography.small, color: colors.text.secondary },
   header: { position: 'absolute', left: spacing[6], right: spacing[6] },
   heading: { ...releaseTypography.title, color: colors.ink.base },
+  kicker: { ...releaseTypography.kicker, color: colors.text.secondary, flex: 1 },
   subtitle: { ...releaseTypography.small, color: colors.text.secondary, marginTop: spacing[1] },
   intentionRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[2] },
-  dot: { width: 10, height: 10, borderRadius: 5, marginTop: 7 },
-  intention: { ...releaseTypography.body, color: colors.ink.base, flex: 1 },
+  dot: { width: 10, height: 10, borderRadius: 5, marginTop: 13 },
+  intention: { ...releaseTypography.serifIntention, color: colors.ink.base, flex: 1 },
   notice: { ...releaseTypography.small, color: colors.semantic.warning },
   artwork: { position: 'absolute' },
   rows: { position: 'absolute', left: spacing[6], right: spacing[6] },

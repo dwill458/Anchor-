@@ -16,6 +16,7 @@ import {
 import { toChartViewModel, type ChartViewModel } from '@/adapters/v2/chart/chartV2Model';
 import type { CourseDetail } from '@/types/chart';
 import { recordCourseEvent } from '@/stores/v2/chartEventStore';
+import { cancelChartNotifications } from '@/services/notifications/chartNotifications';
 
 /**
  * Per-Anchor Chart state shared by every surface (Chart, Home, Vision,
@@ -148,6 +149,8 @@ export type UseAnchorChartResult = {
   addWaypoint: (input: Omit<RouteWaypointInput, 'id'>, afterWaypointId?: string | null) => Promise<boolean>;
   removeWaypoint: (waypointId: string) => Promise<boolean>;
   reorderWaypoints: (orderedIds: string[]) => Promise<boolean>;
+  archiveChart: () => Promise<boolean>;
+  deleteChart: () => Promise<boolean>;
   lastError: ChartRequestError | null;
   clearLastError: () => void;
 };
@@ -498,6 +501,71 @@ export function useAnchorChart(anchorId: string | null | undefined): UseAnchorCh
     [accountId, chart, id, run]
   );
 
+  const archiveChart = useCallback(async () => {
+    if (!id) return false;
+    const courseId = chart?.id;
+    const version = chart?.version;
+    const result = await run('chart-archive', async () => {
+      if (courseId) {
+        return chartV2Api.archive(courseId, version);
+      }
+      return chartV2Api.archiveForAnchor(id, version);
+    });
+    if (!result) return false;
+    void cancelChartNotifications(id, accountId);
+    try {
+      const fresh = await loadAnchorChart(id, accountId);
+      if (mounted.current && currentScope.current === scope) {
+        setData(fresh);
+      }
+    } catch {
+      const previous = memory.get(scope);
+      if (previous) {
+        const updated: ChartForAnchor = {
+          ...previous,
+          chart: null,
+          history: [result, ...previous.history.filter((h) => h.id !== result.id)],
+        };
+        publish(id, updated, accountId);
+      }
+    }
+    trackChart('chart_archived', { anchorId: id, courseId: courseId ?? result.id });
+    return true;
+  }, [accountId, chart?.id, chart?.version, id, run, scope]);
+
+  const deleteChart = useCallback(async () => {
+    if (!id) return false;
+    const courseId = chart?.id;
+    const version = chart?.version;
+    const result = await run('chart-delete', async () => {
+      if (courseId) {
+        return chartV2Api.delete(courseId, version);
+      }
+      return chartV2Api.deleteForAnchor(id, version);
+    });
+    if (!result) return false;
+    void cancelChartNotifications(id, accountId);
+    try {
+      const fresh = await loadAnchorChart(id, accountId);
+      if (mounted.current && currentScope.current === scope) {
+        setData(fresh);
+      }
+    } catch {
+      const previous = memory.get(scope);
+      if (previous) {
+        const targetId = courseId ?? previous.chart?.id;
+        const updated: ChartForAnchor = {
+          ...previous,
+          chart: null,
+          history: targetId ? previous.history.filter((h) => h.id !== targetId) : previous.history,
+        };
+        publish(id, updated, accountId);
+      }
+    }
+    trackChart('chart_deleted', { anchorId: id, courseId: courseId ?? null });
+    return true;
+  }, [accountId, chart?.id, chart?.version, id, run, scope]);
+
   const view = useMemo(() => (chart ? toChartViewModel(chart, data?.stats) : null), [chart, data?.stats]);
 
   return {
@@ -522,6 +590,8 @@ export function useAnchorChart(anchorId: string | null | undefined): UseAnchorCh
     addWaypoint,
     removeWaypoint,
     reorderWaypoints,
+    archiveChart,
+    deleteChart,
     lastError,
     clearLastError: () => setLastError(null),
   };

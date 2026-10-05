@@ -6,6 +6,7 @@ import { useCreationReduceMotion, useV2ReduceMotion, v2Haptics } from '@/hooks/v
 import { colors } from '@/theme/v2';
 import type { AnchorExpression, CreationStep, GeneratedAnchorCandidate } from '@/constants/v2/creation';
 import { useAnchorStore } from '@/stores/anchorStore';
+import type { AnchorCategory } from '@/types';
 import { GENERATION_ERRORS, useCreationStore, whenCreationHydrated, type CreationDraft, type SaveFailure } from '@/stores/v2/creationStore';
 import { CreationStage, type WindowRect } from './CreationStage';
 import { CREATION_PACE, GENERATION_TIMING } from './creationMotion';
@@ -56,6 +57,8 @@ export interface V2CreationFlowProps {
   onPaywall?: () => void;
   onSignIn?: () => void;
   suggestionContext?: IntentionSuggestionContext;
+  /** A category chosen before creation (first-run's question); it names the Anchor's category. */
+  chosenCategory?: AnchorCategory;
 }
 
 const track = (event: string, properties?: Record<string, string | boolean | number>) => {
@@ -102,7 +105,7 @@ async function imagesReady(urls: string[], timeoutMs: number): Promise<void> {
  * happens on one continuous stage, so the letters, the grid, the traced line and the finished
  * mark are the same objects throughout rather than a sequence of screens.
  */
-export function V2CreationFlow({ saveAnchor, generateExpression, onComplete, onPrepareHandoff, onExit, onPaywall, onSignIn, suggestionContext }: V2CreationFlowProps) {
+export function V2CreationFlow({ saveAnchor, generateExpression, onComplete, onPrepareHandoff, onExit, onPaywall, onSignIn, suggestionContext, chosenCategory }: V2CreationFlowProps) {
   const draft = useCreationStore((state) => state.draft);
   const store = useCreationStore;
   const reduceMotion = useCreationReduceMotion();
@@ -171,11 +174,11 @@ export function V2CreationFlow({ saveAnchor, generateExpression, onComplete, onP
   }, [goBack]);
 
   const submitIntention = useCallback(() => {
-    if (store.getState().distill()) {
+    if (store.getState().distill(chosenCategory)) {
       v2Haptics.selection();
       track('v2_creation_intention_completed');
     }
-  }, [store]);
+  }, [chosenCategory, store]);
 
   const formAnchor = useCallback(() => {
     if (store.getState().formAnchor()) track('v2_creation_formation_started');

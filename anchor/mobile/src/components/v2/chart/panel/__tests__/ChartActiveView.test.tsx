@@ -441,3 +441,57 @@ describe('ChartActiveView — motion', () => {
     errors.mockRestore();
   });
 });
+
+describe('ChartActiveView — menu actions', () => {
+  it('shows Archive Chart and Delete Chart in menu, and triggers archive on confirmation', async () => {
+    const alertSpy = jest.spyOn(ReactNative.Alert, 'alert');
+    const { getByTestId } = render(<Harness />);
+    await settle(300);
+
+    fireEvent.press(getByTestId('chart-menu-button'));
+    const archiveMenuItem = getByTestId('chart-archive-menu-item');
+    const deleteMenuItem = getByTestId('chart-delete-menu-item');
+    expect(archiveMenuItem).toBeTruthy();
+    expect(deleteMenuItem).toBeTruthy();
+
+    fireEvent.press(archiveMenuItem);
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Archive this Chart?',
+      expect.stringContaining('This route will be moved to your history'),
+      expect.any(Array)
+    );
+
+    const buttons = alertSpy.mock.calls[0][2] as any[];
+    const confirmBtn = buttons.find((b: any) => b.text === 'Archive Chart');
+    expect(confirmBtn).toBeDefined();
+
+    confirmBtn.onPress();
+    expect(lastActions!.archiveChart).toHaveBeenCalled();
+    alertSpy.mockRestore();
+  });
+
+  it('triggers delete on confirmation when Delete Chart is pressed', async () => {
+    const alertSpy = jest.spyOn(ReactNative.Alert, 'alert');
+    const { getByTestId } = render(<Harness />);
+    await settle(300);
+
+    fireEvent.press(getByTestId('chart-menu-button'));
+    const deleteMenuItem = getByTestId('chart-delete-menu-item');
+    fireEvent.press(deleteMenuItem);
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Delete this Chart?',
+      expect.stringContaining('This will permanently remove this route'),
+      expect.any(Array)
+    );
+
+    const buttons = alertSpy.mock.calls[0][2] as any[];
+    const confirmBtn = buttons.find((b: any) => b.text === 'Delete Chart');
+    expect(confirmBtn).toBeDefined();
+
+    confirmBtn.onPress();
+    expect(lastActions!.deleteChart).toHaveBeenCalled();
+    alertSpy.mockRestore();
+  });
+});
+

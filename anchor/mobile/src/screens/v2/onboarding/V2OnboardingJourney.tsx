@@ -2,9 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Dimensions,
   Image,
-  ImageBackground,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -12,7 +10,6 @@ import {
 } from "react-native";
 import Animated, {
   Easing,
-  FadeIn,
   FadeInDown,
   ReduceMotion,
   cancelAnimation,
@@ -21,23 +18,15 @@ import Animated, {
   useSharedValue,
   withDelay,
   withRepeat,
-  withSequence,
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
-import {
-  ArrowLeft,
-  ArrowRight,
-  Check,
-  ChevronRight,
-  TrendingUp,
-} from "lucide-react-native";
+import { ArrowRight } from "lucide-react-native";
 import { useFirstRunStore } from "@/stores/v2/firstRunStore";
 import {
   ONBOARDING_STEPS,
-  PRIMARY_NEEDS,
   type OnboardingStep,
 } from "@/constants/v2/onboarding";
 import { colors } from "@/theme/v2";
@@ -45,22 +34,17 @@ import { useCreationReduceMotion, v2Haptics } from "@/hooks/v2";
 import type { AnchorCategory } from "@/types";
 import { V2OnboardingExplain } from "./V2OnboardingExplain";
 import { V2OnboardingFocusArea } from "./V2OnboardingFocusArea";
-import { V2OnboardingContinuousFlow } from "./V2OnboardingContinuousFlow";
 import { OpeningProgressHeader } from "./OpeningProgressHeader";
-import { handoffTimeline, seg } from "./openingHandoff";
-import { outcomeHandoffTimeline, type OutcomeOriginFrame } from "./outcomeHandoff";
+import { easeInOutCubic, handoffTimeline, seg } from "./openingHandoff";
+import { categoryHandoffTimeline } from "./categoryHandoff";
 import { Screen2Backdrop } from "./screen2Backdrop";
 
 /** Screen 3 mounts beneath Screen 2 this long after Screen 2 starts, so it is decoded before Continue. */
 const FOCUS_PRELOAD_DELAY_MS = 600;
 /** If the runner plate never reports ready (e.g. decode failure), don't hold Screen 2's CTA forever. */
 const FOCUS_READY_FALLBACK_MS = 3000;
-/** Screen 4 mounts beneath Screen 3 this long after Screen 3 is reached. It reuses Screen 3's
- * own card art, already decoded, so this only needs to clear the mount past the entrance. */
-const OUTCOME_PRELOAD_DELAY_MS = 250;
-/** Screen 5 mounts beneath Screen 4 this long after Screen 4 is reached, so its SEE, Anchor
- * and Chart artwork is decoded before Continue. */
-const SYSTEM_PRELOAD_DELAY_MS = 400;
+/** Steps from the earlier eight-step onboarding; a draft saved on one resumes at the question. */
+const RETIRED_STEPS = new Set<string>(["outcome", "meaning", "friction", "system", "handoff", "life", "need", "summary"]);
 
 /**
  * Screen 1 hero: full-resolution master of the locked panorama (5760 × 1920, about 2.3 source
@@ -75,8 +59,6 @@ const HERO_PAN_MS = 36000;
 /** The shot opens slightly pushed in, and keeps pushing in by a hair over each leg. */
 const HERO_SCALE_START = 1.06;
 const HERO_SCALE_DRIFT = 0.035;
-const desk = require("@/assets/onboarding/creation-desk.png");
-const brandMark = require("@/assets/home/anchor-brand-mark.png");
 const lightMark = require("@/assets/home/anchor-brand-mark-light.png");
 
 type Props = {
@@ -85,173 +67,6 @@ type Props = {
   onDevSkip?: () => void;
   onDevSeed?: () => void;
 };
-
-function Cta({
-  label,
-  onPress,
-  dark = false,
-  disabled = false,
-}: {
-  label: string;
-  onPress: () => void;
-  dark?: boolean;
-  disabled?: boolean;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      style={[styles.cta, dark && styles.ctaDark, disabled && styles.disabled]}
-    >
-      <Text style={[styles.ctaText, dark && styles.ctaTextLight]}>{label}</Text>
-      <ArrowRight
-        size={19}
-        color={dark ? colors.surface : colors.text.primary}
-      />
-    </Pressable>
-  );
-}
-
-function Header({
-  step,
-  onBack,
-  dark,
-}: {
-  step: number;
-  onBack: () => void;
-  dark: boolean;
-}) {
-  return (
-    <View style={styles.header}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Go back"
-        onPress={onBack}
-        hitSlop={12}
-        style={styles.back}
-      >
-        <ArrowLeft
-          size={22}
-          color={dark ? colors.surface : colors.text.primary}
-        />
-      </Pressable>
-      <View
-        style={[styles.progressTrack, dark && styles.progressTrackDark]}
-        accessibilityLabel={`Step ${step} of 8`}
-        accessibilityRole="progressbar"
-        accessibilityValue={{ min: 1, max: 8, now: step }}
-      >
-        <View
-          style={[
-            styles.progressFill,
-            { width: `${(step / 8) * 100}%` },
-            dark && styles.progressFillDark,
-          ]}
-        />
-      </View>
-      <Text style={[styles.counter, dark && styles.lightText]}>{step} / 8</Text>
-    </View>
-  );
-}
-
-function ChoiceRow({
-  label,
-  selected,
-  onPress,
-  multi = false,
-  dark = false,
-  compact = false,
-  accent,
-  index,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-  multi?: boolean;
-  dark?: boolean;
-  compact?: boolean;
-  accent?: string;
-  index?: number;
-}) {
-  return (
-    <Pressable
-      accessibilityRole={multi ? "checkbox" : "radio"}
-      accessibilityLabel={label}
-      accessibilityState={{ checked: selected, selected }}
-      onPress={onPress}
-      style={[
-        styles.row,
-        compact && styles.rowCompact,
-        dark && styles.rowDark,
-        selected && styles.rowSelected,
-      ]}
-    >
-      {index != null ? (
-        <Text
-          style={[styles.rowIndex, { color: accent ?? colors.text.secondary }]}
-        >
-          {String(index + 1).padStart(2, "0")}
-        </Text>
-      ) : null}
-      <Text style={[styles.rowLabel, dark && styles.rowLabelDark]}>
-        {label}
-      </Text>
-      {selected ? (
-        <View style={[styles.check, dark && styles.checkDark]}>
-          <Check
-            size={15}
-            strokeWidth={3}
-            color={dark ? colors.ink.base : colors.surface}
-          />
-        </View>
-      ) : multi ? (
-        <View style={styles.emptyCheck} />
-      ) : (
-        <ChevronRight
-          size={17}
-          color={dark ? colors.surface : colors.text.secondary}
-        />
-      )}
-    </Pressable>
-  );
-}
-
-function SectionHeading({
-  title,
-  support,
-  dark = false,
-  compact = false,
-}: {
-  title: string;
-  support: string;
-  dark?: boolean;
-  compact?: boolean;
-}) {
-  return (
-    <View style={[styles.headingBlock, compact && styles.headingBlockCompact]}>
-      <Text
-        style={[
-          styles.title,
-          compact && styles.titleCompact,
-          dark && styles.titleLight,
-        ]}
-      >
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.support,
-          compact && styles.supportCompact,
-          dark && styles.supportLight,
-        ]}
-      >
-        {support}
-      </Text>
-    </View>
-  );
-}
 
 function Welcome({
   onStart,
@@ -531,146 +346,23 @@ function Welcome({
   );
 }
 
-function SystemDiagram({ reduceMotion }: { reduceMotion: boolean }) {
-  const progress = useSharedValue(reduceMotion ? 1 : 0);
-  useEffect(() => {
-    progress.value = reduceMotion ? 1 : withDelay(750, withTiming(1, { duration: 2100, reduceMotion: ReduceMotion.Never }));
-  }, [progress, reduceMotion]);
-  const lineStyle = useAnimatedStyle(() => ({
-    width: `${progress.value * 100}%`,
-  }));
-  const stages = [
-    {
-      verb: "SEE",
-      name: "Vision",
-      text: "See what you're moving toward.",
-    },
-    {
-      verb: "REINFORCE",
-      name: "Practice",
-      text: "Keep it present through focused sessions.",
-    },
-    {
-      verb: "MOVE",
-      name: "Chart",
-      text: "Turn it into a path with clear next steps.",
-    },
-  ];
-  return (
-    <View
-      style={styles.diagram}
-      accessibilityLabel="See with Vision, reinforce with Practice, move with Chart. Progress shows the movement you are making."
-    >
-      <LinearGradient
-        pointerEvents="none"
-        colors={["rgba(10,20,29,0)", "rgba(10,20,29,0.90)", colors.ink.base]}
-        locations={[0, 0.42, 1]}
-        style={styles.diagramWash}
-      />
-      <View style={styles.stages}>
-        <View style={styles.connectorTrack}>
-          <Animated.View style={[styles.lineFill, lineStyle]} />
-          <View style={[styles.connectorNode, { left: "33.3%" }]} />
-          <View style={[styles.connectorNode, { left: "66.6%" }]} />
-        </View>
-        {stages.map(({ verb, name, text }, index) => (
-          <Animated.View
-            entering={
-              reduceMotion ? undefined : FadeIn.delay(350 + index * 1050).duration(420)
-            }
-            key={name}
-            style={styles.stage}
-          >
-            <View style={[styles.stageArt, styles.stageArtMasked]}>
-              {name === "Vision" ? <Image source={require("@/assets/vision/vision-future-window-wide.jpg")} resizeMode="cover" style={styles.stageImage} /> : null}
-              {name === "Practice" ? <View style={styles.practiceMiniature}><Image source={lightMark} resizeMode="contain" style={styles.practiceMark} /></View> : null}
-              {name === "Chart" ? <Image source={require("@/assets/anchor-details/chart-empty-card.jpg")} resizeMode="cover" style={styles.stageImage} /> : null}
-            </View>
-            <Text style={styles.stageVerb}>{verb}</Text>
-            <Text style={styles.stageName}>{name}</Text>
-            <Text style={styles.stageText}>{text}</Text>
-          </Animated.View>
-        ))}
-      </View>
-      <View style={styles.lineTrack}>
-        <Animated.View style={[styles.lineFill, lineStyle]} />
-      </View>
-      <Animated.View
-        entering={reduceMotion ? undefined : FadeIn.delay(3150).duration(400)}
-        style={styles.progressLayer}
-      >
-        <TrendingUp size={21} color="#E9D5AB" />
-        <View>
-          <Text style={styles.progressName}>PROGRESS</Text>
-          <Text style={styles.progressCopy}>
-            See the movement you're making.
-          </Text>
-        </View>
-      </Animated.View>
-    </View>
-  );
-}
-
 export function V2OnboardingJourney({ onSignIn, onCreate, onDevSkip, onDevSeed }: Props) {
   const insets = useSafeAreaInsets();
   const reduceMotion = useCreationReduceMotion();
-  const {
-    draft,
-    setStep,
-    setFocusCategory,
-    setDesiredOutcome,
-    setDesiredWhy,
-    setDesiredFriction,
-    setPrimaryNeed,
-    markAnswersComplete,
-  } = useFirstRunStore();
-  // A draft saved on retired steps resumes gracefully on the new sequence
-  const savedStep =
-    draft.currentStep === "life" || draft.currentStep === "need" || draft.currentStep === "summary"
-      ? "system"
-      : draft.currentStep;
-  const step = ONBOARDING_STEPS.includes(savedStep as OnboardingStep)
+  const { draft, setStep, setFocusCategory } = useFirstRunStore();
+  // A draft saved on a retired step resumes at the question: the cinema has been seen.
+  const savedStep = draft.currentStep;
+  const step: OnboardingStep = ONBOARDING_STEPS.includes(savedStep as OnboardingStep)
     ? (savedStep as OnboardingStep)
-    : "welcome";
+    : RETIRED_STEPS.has(savedStep)
+      ? "motivation"
+      : "welcome";
   const stepNumber = ONBOARDING_STEPS.indexOf(step) + 1;
-  const dark = step === "need";
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const rollingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
-    if (rollingTimer.current) clearTimeout(rollingTimer.current);
   }, []);
 
-  const isContinuousStep =
-    step === "outcome" ||
-    step === "meaning" ||
-    step === "friction" ||
-    step === "system" ||
-    step === "handoff";
-
-  const initialStepNum =
-    step === "meaning" ? 5 :
-    step === "friction" ? 6 :
-    step === "system" ? 7 :
-    step === "handoff" ? 8 : 4;
-  const stepProgress = useSharedValue<number>(initialStepNum);
-  const transitionClock = useSharedValue<number>(0);
-  const [rollingHeader, setRollingHeader] = useState<{ from: number; to: number } | null>(null);
-
-  const setNext = (next: OnboardingStep) => {
-    v2Haptics.selection();
-    const curIdx = ONBOARDING_STEPS.indexOf(step) + 1;
-    const nextIdx = ONBOARDING_STEPS.indexOf(next) + 1;
-    if (curIdx >= 4 && nextIdx > curIdx) {
-      if (rollingTimer.current) clearTimeout(rollingTimer.current);
-      setRollingHeader({ from: curIdx, to: nextIdx });
-      rollingTimer.current = setTimeout(
-        () => setRollingHeader(null),
-        nextIdx === 8 ? 950 : nextIdx === 7 ? 700 : 450,
-      );
-    }
-    setStep(next);
-  };
   // --- Screen 2 → Screen 3 handoff ---------------------------------------------------------
   // One clock (ms from Continue) drives Screen 2 leaving, Screen 3 arriving and the progress
   // roll, all on the UI thread. Screen 3 is mounted beneath Screen 2 ahead of time.
@@ -680,29 +372,26 @@ export function V2OnboardingJourney({ onSignIn, onCreate, onDevSkip, onDevSeed }
   const [focusMounted, setFocusMounted] = useState(step === "motivation");
   const [focusReady, setFocusReady] = useState(false);
   const [handingOff, setHandingOff] = useState(false);
-  const [sheetOpen, setSheetOpen] = useState(false);
   const timeline = handoffTimeline(reduceMotion);
 
-  // --- Screen 3 → Screen 4 handoff ---------------------------------------------------------
-  // Same pattern, one step later: the selected category illustration is the transition
-  // object, travelling from its measured Screen 3 card frame to the Screen 4 hero position.
-  const outcomeClock = useSharedValue(0);
-  const outcomeHandoffStarted = useRef(false);
-  const [outcomeEntry, setOutcomeEntry] = useState<"handoff" | "direct">("direct");
-  const [outcomeMounted, setOutcomeMounted] = useState(step === "outcome" || isContinuousStep);
-  const [handingOffToOutcome, setHandingOffToOutcome] = useState(false);
-  const [outcomeOriginFrame, setOutcomeOriginFrame] = useState<OutcomeOriginFrame | null>(null);
-  const outcomeTimeline = outcomeHandoffTimeline(reduceMotion);
+  // --- Question → creation handoff ---------------------------------------------------------
+  // Answering is a single tap. The same clock fades the question away, rolls the header to
+  // 04, holds one line ("Health. Good — let's give it a shape.") and then opens creation.
+  const leaveClock = useSharedValue(0);
+  const [leaving, setLeaving] = useState(false);
+  const leaveTimeline = categoryHandoffTimeline(reduceMotion);
+
+  // Header tone: light over Screen 2's photography, ink on the question's cream. During the
+  // 2 → 3 handoff it turns with Screen 2's dark ground as that thins away.
+  const paper = useDerivedValue(
+    () => (step === "bridge" ? easeInOutCubic(seg(handoff.value, timeline.s2Ground)) : 1),
+    [step, timeline],
+  );
 
   const resetHandoff = () => {
     cancelAnimation(handoff);
     handoff.value = 0;
     handoffStarted.current = false;
-  };
-  const resetOutcomeHandoff = () => {
-    cancelAnimation(outcomeClock);
-    outcomeClock.value = 0;
-    outcomeHandoffStarted.current = false;
   };
 
   useEffect(() => {
@@ -717,15 +406,7 @@ export function V2OnboardingJourney({ onSignIn, onCreate, onDevSkip, onDevSeed }
     return () => clearTimeout(timer);
   }, [focusMounted, focusReady]);
 
-  // Screen 4 reuses Screen 3's own card art (already decoded), so it mounts as soon as
-  // Screen 3 is reachable — no separate readiness gate is needed.
-  useEffect(() => {
-    if (step !== "motivation" || outcomeMounted) return;
-    const timer = setTimeout(() => setOutcomeMounted(true), OUTCOME_PRELOAD_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [outcomeMounted, step]);
-
-  // Arriving on Screen 3 any other way (restore, back from Screen 4) plays its own entrance.
+  // Arriving on Screen 3 any other way (restore, back from creation) plays its own entrance.
   useEffect(() => {
     if (step !== "motivation" || handoffStarted.current) return;
     setFocusEntry("direct");
@@ -733,15 +414,6 @@ export function V2OnboardingJourney({ onSignIn, onCreate, onDevSkip, onDevSeed }
     handoff.value = withTiming(timeline.end, { duration: timeline.end, easing: Easing.linear, reduceMotion: ReduceMotion.Never });
     handoffStarted.current = true;
   }, [handoff, step, timeline.end]);
-
-  // Arriving on Screen 4 any other way (restore, back from Screen 5) plays its own entrance.
-  useEffect(() => {
-    if (step !== "outcome" || outcomeHandoffStarted.current) return;
-    setOutcomeEntry("direct");
-    outcomeClock.value = 0;
-    outcomeClock.value = withTiming(outcomeTimeline.end, { duration: outcomeTimeline.end, easing: Easing.linear, reduceMotion: ReduceMotion.Never });
-    outcomeHandoffStarted.current = true;
-  }, [outcomeClock, step, outcomeTimeline.end]);
 
   const startHandoff = () => {
     if (handingOff) return;
@@ -759,64 +431,35 @@ export function V2OnboardingJourney({ onSignIn, onCreate, onDevSkip, onDevSeed }
     }, timeline.commitStep);
   };
 
-  const startOutcomeHandoff = (originFrame: OutcomeOriginFrame | null) => {
-    if (handingOffToOutcome) return;
-    v2Haptics.selection();
-    outcomeHandoffStarted.current = true;
-    setOutcomeOriginFrame(originFrame);
-    setOutcomeMounted(true);
-    setOutcomeEntry("handoff");
-    setHandingOffToOutcome(true);
-    outcomeClock.value = 0;
-    outcomeClock.value = withTiming(outcomeTimeline.end, { duration: outcomeTimeline.end, easing: Easing.linear, reduceMotion: ReduceMotion.Never });
-    // Screen 3 unmounts only once every one of its layers is transparent.
-    advanceTimer.current = setTimeout(() => {
-      setStep("outcome");
-      setHandingOffToOutcome(false);
-    }, outcomeTimeline.commitStep);
-  };
+  const choose = useCallback(
+    (category: AnchorCategory) => {
+      if (leaving) return;
+      setFocusCategory(category);
+      setLeaving(true);
+      leaveClock.value = 0;
+      leaveClock.value = withTiming(leaveTimeline.end, { duration: leaveTimeline.end, easing: Easing.linear, reduceMotion: ReduceMotion.Never });
+      // Creation mounts only once every layer of the question is transparent.
+      advanceTimer.current = setTimeout(() => {
+        setStep("creation");
+        setLeaving(false);
+        leaveClock.value = 0;
+      }, leaveTimeline.commitStep);
+    },
+    [leaveClock, leaveTimeline, leaving, setFocusCategory, setStep],
+  );
 
   const back = () => {
+    if (leaving) return;
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
-    if (rollingTimer.current) clearTimeout(rollingTimer.current);
-    setRollingHeader(null);
     if (stepNumber <= 1) return;
     const previous = ONBOARDING_STEPS[stepNumber - 2];
     // Screen 3's entrance must be hidden again before its screen reappears.
-    if (previous === "bridge" || previous === "motivation") resetHandoff();
-    if (previous === "motivation" || previous === "outcome") resetOutcomeHandoff();
+    if (previous === "bridge") resetHandoff();
     v2Haptics.selection();
     setStep(previous);
   };
 
-  const onHeroReady = useCallback(() => setFocusReady(true), []);
-  const selectFocus = useCallback((category: AnchorCategory) => setFocusCategory(category), [setFocusCategory]);
-  const selectOutcome = useCallback((outcome: string) => setDesiredOutcome(outcome), [setDesiredOutcome]);
-  const selectWhy = useCallback((why: string) => setDesiredWhy(why), [setDesiredWhy]);
-  const selectFriction = useCallback((friction: string) => setDesiredFriction(friction), [setDesiredFriction]);
-  const handleCreateAnchor = useCallback(() => {
-    markAnswersComplete();
-    onCreate();
-  }, [markAnswersComplete, onCreate]);
-
-  // Legacy drafts may still carry a free-text motivation; new drafts carry a focus area.
-  const motivation = (draft.motivation ?? "").trim();
-  const effectiveChange = (draft.desiredOutcome ?? "").trim();
-  // Screen 4's hero and outcome choices follow the Screen 3 choice directly.
-  const screen4Category: AnchorCategory = draft.focusCategory ?? "custom";
-
-  // Chrome follows the paper-to-dusk lighting shift across the continuous scene.
-  const onCream = isContinuousStep;
-  const paper = useDerivedValue(() => {
-    if (handingOffToOutcome) return seg(outcomeClock.value, outcomeTimeline.s3EnvOut);
-    if (isContinuousStep) return Math.max(0, Math.min(1, 1 - (stepProgress.value - 6) / 2));
-    return onCream ? 1 : 0;
-  }, [handingOffToOutcome, onCream, outcomeTimeline, isContinuousStep]);
-  const footer = (label: string, next: () => void, disabled = false) => (
-    <View style={styles.footer}>
-      <Cta label={label} onPress={next} dark={!dark} disabled={disabled} />
-    </View>
-  );
+  const onFocusReady = useCallback(() => setFocusReady(true), []);
 
   if (step === "welcome")
     return (
@@ -826,7 +469,7 @@ export function V2OnboardingJourney({ onSignIn, onCreate, onDevSkip, onDevSeed }
         </View>
         <StatusBar style="dark" translucent backgroundColor="transparent" />
         <Welcome
-          onStart={() => setNext("bridge")}
+          onStart={() => setStep("bridge")}
           onSignIn={onSignIn}
           onCreate={onCreate}
           onDevSkip={onDevSkip}
@@ -836,92 +479,63 @@ export function V2OnboardingJourney({ onSignIn, onCreate, onDevSkip, onDevSeed }
       </View>
     );
 
-  if (step === "bridge" || step === "motivation" || isContinuousStep) {
-    const rolls = step === "bridge" || focusEntry === "handoff";
-    const currentNum = ONBOARDING_STEPS.indexOf(step) + 1;
-    // Shared header tracks rolls across 2->3, 3->4, and 4->5->6->7->8
-    const header = rollingHeader
-      ? { from: rollingHeader.from, to: rollingHeader.to, current: rollingHeader.from, clock: stepProgress, window: [rollingHeader.from, rollingHeader.to] as const }
-      : handingOffToOutcome
-        ? { from: 3, to: 4, current: 3, clock: outcomeClock, window: outcomeTimeline.progress }
-        : isContinuousStep
-          ? { from: currentNum, to: currentNum, current: currentNum, clock: stepProgress, window: [currentNum, currentNum] as const }
-          : { from: rolls ? 2 : 3, to: 3, current: step === "bridge" ? 2 : 3, clock: handoff, window: timeline.progress };
+  // Chrome follows the surface beneath it: photography on Screen 2, cream from the question on.
+  const header = leaving
+    ? { from: 3, to: 3, current: 3, clock: leaveClock, window: leaveTimeline.progress }
+    : {
+        from: step === "bridge" || focusEntry === "handoff" ? 2 : 3,
+        to: 3,
+        current: step === "bridge" ? 2 : 3,
+        clock: handoff,
+        window: timeline.progress,
+      };
 
-    return (
-      <View style={[styles.screen, styles.openingScreen]} testID={step === "motivation" ? "v2-onboarding-motivation" : undefined}>
-        <StatusBar style={onCream && currentNum < 8 ? "dark" : "light"} translucent backgroundColor="transparent" />
-        {/* Each screen is also rendered whenever it is the current step, so back navigation
-            from a restored later step always has a screen to land on. */}
-        {focusMounted || step === "motivation" ? (
-          <V2OnboardingFocusArea
-            key="focus-area"
-            clock={handoff}
-            entry={focusEntry}
-            active={step === "motivation" || handingOff}
-            reduceMotion={reduceMotion}
-            selected={draft.focusCategory}
-            onSelect={selectFocus}
-            outcomeClock={outcomeClock}
-            outcomeTimeline={outcomeTimeline}
-            onContinue={startOutcomeHandoff}
-            onSheetChange={setSheetOpen}
-            onHeroReady={onHeroReady}
-          />
-        ) : null}
-        {step === "bridge" ? (
-          <View key="prepared-bridge" style={StyleSheet.absoluteFill} pointerEvents="box-none">
-            <V2OnboardingExplain
-              active
-              reduceMotion={reduceMotion}
-              handoff={handoff}
-              nextReady={focusMounted && focusReady}
-              onContinue={startHandoff}
-            />
-          </View>
-        ) : null}
-        {outcomeMounted || isContinuousStep ? (
-          <V2OnboardingContinuousFlow
-            key="continuous-flow"
-            step={step}
-            category={screen4Category}
-            selectedOutcome={draft.desiredOutcome}
-            selectedWhy={draft.desiredWhy}
-            selectedFriction={draft.desiredFriction}
-            onSelectOutcome={selectOutcome}
-            onSelectWhy={selectWhy}
-            onSelectFriction={selectFriction}
-            onStepChange={setNext}
-            onCreateAnchor={handleCreateAnchor}
-            outcomeClock={outcomeClock}
-            outcomeTimeline={outcomeTimeline}
-            originFrame={outcomeOriginFrame}
-            entry={outcomeEntry}
-            reduceMotion={reduceMotion}
-            stepProgress={stepProgress}
-            transitionClock={transitionClock}
-          />
-        ) : null}
-        <OpeningProgressHeader
-          key="progress"
-          topInset={insets.top}
-          from={header.from}
-          to={header.to}
-          current={header.current}
-          clock={header.clock}
-          window={header.window}
+  return (
+    <View style={[styles.screen, styles.openingScreen]} testID={step === "motivation" ? "v2-onboarding-motivation" : undefined}>
+      <StatusBar style={step === "motivation" ? "dark" : "light"} translucent backgroundColor="transparent" />
+      {/* Screen 3 stays mounted while it is the current step, so back navigation from a
+          restored later step always has a screen to land on. */}
+      {focusMounted || step === "motivation" ? (
+        <V2OnboardingFocusArea
+          key="focus-area"
+          clock={handoff}
+          active={step === "motivation" || handingOff}
           reduceMotion={reduceMotion}
-          onBack={back}
-          onSkip={onDevSkip}
-          interactive={!handingOff && !handingOffToOutcome && !sheetOpen}
-          dimmed={sheetOpen}
-          paper={paper}
+          selected={draft.focusCategory}
+          onChoose={choose}
+          leaveClock={leaveClock}
+          leaveTimeline={leaveTimeline}
+          onReady={onFocusReady}
         />
-      </View>
-    );
-  }
-
-  return null;
+      ) : null}
+      {step === "bridge" ? (
+        <View key="prepared-bridge" style={StyleSheet.absoluteFill} pointerEvents="box-none">
+          <V2OnboardingExplain
+            active
+            reduceMotion={reduceMotion}
+            handoff={handoff}
+            nextReady={focusMounted && focusReady}
+            onContinue={startHandoff}
+          />
+        </View>
+      ) : null}
+      <OpeningProgressHeader
+        key="progress"
+        topInset={insets.top}
+        from={header.from}
+        to={header.to}
+        current={header.current}
+        clock={header.clock}
+        window={header.window}
+        reduceMotion={reduceMotion}
+        onBack={back}
+        onSkip={onDevSkip}
+        interactive={!handingOff && !leaving}
+        paper={paper}
+        exit={leaving ? { clock: leaveClock, window: leaveTimeline.uiOut } : undefined}
+      />
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({

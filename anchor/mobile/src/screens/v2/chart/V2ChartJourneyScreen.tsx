@@ -370,7 +370,10 @@ export function V2ChartJourneyScreen() {
         {view ? (
           <View style={styles.statsRow}>
             <Text style={styles.statsDays}>
-              {daysOnCourse(view.plottedAt, new Date())} days on course
+              {(() => {
+                const days = daysOnCourse(view.plottedAt, new Date());
+                return `${days} ${days === 1 ? 'day' : 'days'} on course`;
+              })()}
             </Text>
             <Text style={styles.statsProgress}>
               {view.reachedCount} of {view.total} reached

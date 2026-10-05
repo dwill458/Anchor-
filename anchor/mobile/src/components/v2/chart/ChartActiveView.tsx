@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { BackHandler, Pressable, ScrollView, StatusBar, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Alert, BackHandler, Pressable, ScrollView, StatusBar, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { Easing, ReduceMotion, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { WifiOff } from 'lucide-react-native';
@@ -10,7 +10,7 @@ import type { UseAnchorChartResult, WaypointReachResult } from '@/hooks/v2/chart
 import { useAuthStore } from '@/stores/authStore';
 import { useChartHighWater } from '@/hooks/v2/chart/chartHighWater';
 import { syncChartNotifications } from '@/services/notifications/chartNotifications';
-import { getCategoryColor, radii, spacing } from '@/theme/v2';
+import { colors, getCategoryColor, radii, spacing } from '@/theme/v2';
 import type { CourseDetail, MoveSummary, WaypointSummary } from '@/types/chart';
 import { ChartInkButton, ChartInkCard, type ChartIdentity } from './ChartChrome';
 import type { ChartAnchorArt } from './ChartLandscape';
@@ -30,6 +30,7 @@ import { ChartMapHeader } from './panel/ChartMapHeader';
 import { panelAccent } from './panel/chartPanelColors';
 import { ChartWaypointContent } from './ChartWaypointContent';
 import { ChartConfirmSheet } from './panel/ChartConfirmSheet';
+import { ChartReachBeat } from './ChartReachBeat';
 
 export type ChartVisionPreview = { imageUrl: string | null; description: string | null; title: string | null };
 
@@ -53,7 +54,7 @@ type ChartActions = Pick<
   | 'editWaypoint'
   | 'removeWaypoint'
 > &
-  Partial<Pick<UseAnchorChartResult, 'setCurrentMove'>>;
+  Partial<Pick<UseAnchorChartResult, 'setCurrentMove' | 'archiveChart' | 'deleteChart'>>;
 
 type Props = {
   view: ChartViewModel;
@@ -110,11 +111,13 @@ const NO_ACTIONS: ChartActions = {
   reachWaypoint: async () => null,
   editWaypoint: async () => false,
   removeWaypoint: async () => false,
+  archiveChart: async () => false,
+  deleteChart: async () => false,
 };
 
 /** A move-check that has been sent and is waiting for the server's new Chart. */
 type PendingMove = { baseline: number };
-type Ceremony = { index: number; advanced: boolean };
+type Ceremony = { index: number; advanced: boolean; isLast: boolean };
 type ReachEvent = { index: number; result: WaypointReachResult; previousReachedCount: number; total: number };
 
 /** Waits this long for the server's new Chart before giving up on the day-closed hold. */
@@ -482,7 +485,7 @@ export function ChartActiveView({
       lastArcRef.current = revealTargetRef.current;
       setCeremony(null);
     };
-    setCeremony({ index, advanced: false });
+    setCeremony({ index, advanced: false, isLast });
     zoomedRef.current = !isLast && !reducedMotion;
     let spec: SequenceSpec;
     if (isLast) {
@@ -586,6 +589,34 @@ export function ChartActiveView({
   const currentWaypoint = view.waypoints.find((w) => w.state === 'current') ?? view.waypoints[0] ?? null;
   const targetWaypoint = (viewIdx >= 0 && view.waypoints[viewIdx]?.state === 'current') ? view.waypoints[viewIdx] : currentWaypoint;
 
+  const handleArchive = () => {
+    setMenuOpen(false);
+    Alert.alert(CHART_COPY.archive.confirmTitle, CHART_COPY.archive.confirmBody, [
+      { text: CHART_COPY.archive.cancel, style: 'cancel' },
+      {
+        text: CHART_COPY.archive.confirmCta,
+        style: 'destructive',
+        onPress: () => {
+          void panelActions.archiveChart?.();
+        },
+      },
+    ]);
+  };
+
+  const handleDelete = () => {
+    setMenuOpen(false);
+    Alert.alert(CHART_COPY.delete.confirmTitle, CHART_COPY.delete.confirmBody, [
+      { text: CHART_COPY.delete.cancel, style: 'cancel' },
+      {
+        text: CHART_COPY.delete.confirmCta,
+        style: 'destructive',
+        onPress: () => {
+          void panelActions.deleteChart?.();
+        },
+      },
+    ]);
+  };
+
   return (
     <View testID={testID ?? 'chart-active'} style={styles.screen}>
       <StatusBar barStyle="dark-content" backgroundColor={T.paper} animated />
@@ -618,6 +649,15 @@ export function ChartActiveView({
             onMarkerPress={handleMarkerPress}
             onMapPress={handleMapPress}
           />
+          {ceremony && !ceremony.isLast && view.waypoints[ceremony.index] ? (
+            <ChartReachBeat
+              visible={!ceremony.advanced}
+              number={view.waypoints[ceremony.index].number}
+              title={view.waypoints[ceremony.index].title}
+              category={identity.category}
+              reducedMotion={reducedMotion}
+            />
+          ) : null}
           <View style={styles.scallop} pointerEvents="none">
             <ChartScallop width={width} color={T.ink} testID="chart-scallop" />
           </View>
@@ -688,6 +728,17 @@ export function ChartActiveView({
               }}
             />
           ) : null}
+          <MenuItem
+            label={CHART_COPY.archive.menuItem}
+            testID="chart-archive-menu-item"
+            onPress={handleArchive}
+          />
+          <MenuItem
+            label={CHART_COPY.delete.menuItem}
+            testID="chart-delete-menu-item"
+            destructive
+            onPress={handleDelete}
+          />
         </View>
       </V2SheetModal>
 
@@ -710,7 +761,17 @@ export function ChartActiveView({
   );
 }
 
-function MenuItem({ label, onPress, testID }: { label: string; onPress: () => void; testID?: string }) {
+function MenuItem({
+  label,
+  onPress,
+  testID,
+  destructive,
+}: {
+  label: string;
+  onPress: () => void;
+  testID?: string;
+  destructive?: boolean;
+}) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -719,7 +780,7 @@ function MenuItem({ label, onPress, testID }: { label: string; onPress: () => vo
       testID={testID}
       style={({ pressed }) => [styles.menuItem, pressed && { opacity: 0.7 }]}
     >
-      <Text style={styles.menuText}>{label}</Text>
+      <Text style={[styles.menuText, destructive && styles.menuTextDestructive]}>{label}</Text>
     </Pressable>
   );
 }
@@ -739,6 +800,7 @@ const styles = StyleSheet.create({
   menu: { paddingHorizontal: spacing[5], paddingBottom: spacing[4], backgroundColor: T.panel, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl },
   menuItem: { minHeight: 52, justifyContent: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: T.line },
   menuText: { ...typography.labelLG, color: T.light },
+  menuTextDestructive: { color: colors.semantic.error },
 });
 
 // DEFERRED: ===== Previous ChartActiveView (ChartJourneyWorld hero, cream cards, celebration banner); replaced by the treasure-map composition above and kept for reference =====

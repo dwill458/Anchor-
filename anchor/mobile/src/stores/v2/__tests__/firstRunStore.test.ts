@@ -70,30 +70,35 @@ describe('V2 first-run draft', () => {
     expect(useFirstRunStore.getState().draft.lifeChanges).toEqual(['Where I spend my time']);
     store.setDesiredOutcome('');
     expect(useFirstRunStore.getState().draft.desiredOutcome).toBe('');
-    expect(() => buildOnboardingContext(useFirstRunStore.getState().draft)).toThrow('Finish the onboarding questions');
+    expect(() => buildOnboardingContext(useFirstRunStore.getState().draft)).toThrow('Choose what matters most');
   });
 
-  it('resets unauthenticated progress on reload and does not persist drafts without an account', () => {
+  const persistedDraft = () =>
+    (useFirstRunStore as any).persist.getOptions().partialize(useFirstRunStore.getState()).draft;
+
+  it('does not keep the splash or a finished run for a person without an account', () => {
+    expect(persistedDraft().currentStep).toBe('welcome');
+    useFirstRunStore.getState().setFocusCategory('career');
+    expect(persistedDraft().focusCategory).toBeUndefined();
+    useFirstRunStore.getState().complete();
+    expect(persistedDraft().currentStep).toBe('welcome');
+  });
+
+  it.each(['bridge', 'motivation', 'creation'] as const)(
+    'keeps progress on %s across a kill, so a relaunch never restarts at the splash',
+    (step) => {
+      const store = useFirstRunStore.getState();
+      store.setFocusCategory('career');
+      store.setStep(step);
+      expect(persistedDraft()).toMatchObject({ currentStep: step, focusCategory: 'career' });
+    },
+  );
+
+  it('keeps an account-bound draft whatever step it is on', () => {
     const store = useFirstRunStore.getState();
-    store.setStep('outcome');
-    store.setFocusCategory('career');
-    store.setDesiredOutcome('I lead a team');
-
-    // Without accountId, draft in storage is reset to initial
-    const persisted = (useFirstRunStore as any).persist?.getOptions?.().partialize?.(useFirstRunStore.getState());
-    if (persisted) {
-      expect(persisted.draft.currentStep).toBe('welcome');
-      expect(persisted.draft.focusCategory).toBeUndefined();
-    }
-
-    // With accountId, draft is persisted
+    store.setStep('complete');
     store.bindAccount('user-123');
-    const persistedWithAccount = (useFirstRunStore as any).persist?.getOptions?.().partialize?.(useFirstRunStore.getState());
-    if (persistedWithAccount) {
-      expect(persistedWithAccount.draft.currentStep).toBe('outcome');
-      expect(persistedWithAccount.draft.focusCategory).toBe('career');
-      expect(persistedWithAccount.draft.accountId).toBe('user-123');
-    }
+    expect(persistedDraft()).toMatchObject({ currentStep: 'complete', accountId: 'user-123' });
   });
 });
 

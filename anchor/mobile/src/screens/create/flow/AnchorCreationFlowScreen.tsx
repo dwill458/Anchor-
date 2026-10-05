@@ -31,6 +31,7 @@ import { useTempStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useCreationPrefsStore } from '@/stores/creationPrefsStore';
 import { useFirstAnchorFlowStore } from '@/stores/firstAnchorFlowStore';
+import { useFirstRunStore } from '@/stores/v2/firstRunStore';
 import { colors } from '@/theme/colors';
 import type { RootStackParamList } from '@/types';
 import type { DrawnPoint } from '@/utils/sigil/drawnGeometry';
@@ -42,6 +43,7 @@ import { DrawControls, DrawPad, MIN_DRAWN_LENGTH } from './components/DrawContro
 import { FLOW_LABELS, FlowHeader } from './components/FlowHeader';
 import { FormFailure, SlowRetry } from './components/FormStatus';
 import { IntentionGhost } from './components/IntentionGhost';
+import { focusAreaById } from '@/constants/v2/focusAreas';
 import { StyleScene } from './components/StyleScene';
 import {
   DRAW_RISE_SECONDS,
@@ -599,6 +601,15 @@ export default function AnchorCreationFlowScreen() {
     isV2
       ? {
           onSaved: ({ anchorId, input }) => {
+            if (params.fromOnboarding) {
+              const auth = useAuthStore.getState();
+              if (auth.pendingFirstAnchorDraft) {
+                auth.setPendingFirstAnchorDraft({ ...auth.pendingFirstAnchorDraft, requiresAccountGate: true });
+              }
+              useFirstRunStore.getState().setStep('auth');
+              navigation.popToTop();
+              return;
+            }
             trace('saveAnchor resolve (onSaved)', { imageUrlLength: input.enhancedImageUrl?.length ?? 0 });
             const handoff = buildHandoff(anchorId, input.baseSigilSvg, input.category, input.enhancedImageUrl);
             // The header and its progress line dissolve with the hand-off, not after it.
@@ -683,11 +694,11 @@ export default function AnchorCreationFlowScreen() {
       // Home poses and measures while the seal is still playing, so the hand-off finds it ready
       // instead of the medallion waiting on cream for it.
       void pendingSave.then((outcome) => {
-        if (outcome.status !== 'saved' || !mountedRef.current) return;
+        if (outcome.status !== 'saved' || !mountedRef.current || params.fromOnboarding) return;
         prepareHomeArrival(buildHandoff(outcome.anchorId, flow.baseSigilSvg, params.category, form.uri));
       });
     },
-    [buildHandoff, deferUntilArrived, enterBeat, forms, params.category, saveAnchor, setTempEnhancedImage]
+    [buildHandoff, deferUntilArrived, enterBeat, forms, params.category, params.fromOnboarding, saveAnchor, setTempEnhancedImage]
   );
 
   const chooseRef = useRef<ReturnType<typeof useChooseController> | null>(null);
@@ -1034,6 +1045,7 @@ export default function AnchorCreationFlowScreen() {
           fieldHeight={params.fieldFrame?.height ?? 80}
           count={params.intentionText.length}
           reduceMotion={reduceMotion}
+          tip={params.focusAreaId ? focusAreaById(params.focusAreaId).tip : undefined}
         />
       ) : null}
 

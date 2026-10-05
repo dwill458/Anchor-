@@ -560,7 +560,7 @@ describe('V2AnchorDetailsScreen options menu', () => {
               anchors: [makeAnchor({ id: 'a' })],
             });
             useSessionStore.setState({
-              practiceHistory: hasPractice
+              practiceHistory: (hasPractice
                 ? [
                     {
                       id: 'p-1',
@@ -570,7 +570,7 @@ describe('V2AnchorDetailsScreen options menu', () => {
                       completedAt: '2026-10-03T10:00:00Z',
                     },
                   ]
-                : [],
+                : []) as any,
             });
 
             renderDetails();
@@ -644,7 +644,7 @@ describe('V2AnchorDetailsScreen options menu', () => {
 
     it('renders NOT ESTABLISHED without clipping on 360pt width', () => {
       useAnchorStore.setState({
-        anchors: [makeAnchor({ id: 'a', threadStrength: null })],
+        anchors: [makeAnchor({ id: 'a', threadStrength: undefined })],
       });
       renderDetails();
       const notEstablished = screen.getAllByText('NOT ESTABLISHED');

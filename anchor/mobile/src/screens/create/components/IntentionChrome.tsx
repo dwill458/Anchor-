@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { colors } from '@/theme/colors';
+import type { FocusTip } from '@/constants/v2/focusAreas';
 
 /**
  * The static pieces of the cream Intention screen. The live screen composes these with real
@@ -62,16 +63,25 @@ export function IntentionRule() {
   return <View style={styles.rule} />;
 }
 
-export function StaticHints() {
+const DEFAULT_TIP: FocusTip = { instead: 'I want to stop getting distracted.', try: 'I am fully present with my work.' };
+
+export function StaticHints({ tip = DEFAULT_TIP }: { tip?: FocusTip }) {
+  if ('note' in tip) {
+    return (
+      <View style={styles.hints}>
+        <Text style={styles.tryQuote}>{tip.note}</Text>
+      </View>
+    );
+  }
   return (
     <View style={styles.hints}>
       <Text style={styles.insteadOf}>
         {'Instead of '}
-        <Text style={styles.insteadOfQuote}>“I want to stop getting distracted.”</Text>
+        <Text style={styles.insteadOfQuote}>{`“${tip.instead}”`}</Text>
       </Text>
       <Text style={styles.tryLine}>
         <Text style={styles.tryLabel}>{'TRY  '}</Text>
-        <Text style={styles.tryQuote}>“I am fully present with my work.”</Text>
+        <Text style={styles.tryQuote}>{`“${tip.try}”`}</Text>
       </Text>
     </View>
   );

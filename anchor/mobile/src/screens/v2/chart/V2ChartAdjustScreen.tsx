@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -38,6 +39,7 @@ function fromWaypoint(waypoint: WaypointSummary): DraftWaypoint {
     title: waypoint.title,
     rationale: waypoint.description,
     kind: waypoint.kind ?? 'MILESTONE',
+    progressMode: waypoint.progressMode,
     metricLabel: waypoint.metric?.label ?? null,
     metricTarget: waypoint.metric?.target ?? null,
     metricBaseline: waypoint.metric?.baseline ?? null,
@@ -71,6 +73,7 @@ export function draftFromProposal(course: CourseDetail, proposal: ChartProposal)
         title: waypoint.title,
         rationale: waypoint.rationale,
         kind: waypoint.kind,
+        progressMode: waypoint.progressMode,
         metricLabel: waypoint.metricLabel,
         metricTarget: waypoint.metricTarget,
         metricBaseline: waypoint.metricBaseline,
@@ -152,6 +155,42 @@ export function V2ChartAdjustScreen() {
     setPhase('review');
   };
 
+  const handleArchive = () => {
+    Alert.alert(CHART_COPY.archive.confirmTitle, CHART_COPY.archive.confirmBody, [
+      { text: CHART_COPY.archive.cancel, style: 'cancel' },
+      {
+        text: CHART_COPY.archive.confirmCta,
+        style: 'destructive',
+        onPress: () => {
+          setLoading(true);
+          void chart.archiveChart().then((ok) => {
+            setLoading(false);
+            if (ok) back();
+            else setError(CHART_COPY.archive.error);
+          });
+        },
+      },
+    ]);
+  };
+
+  const handleDelete = () => {
+    Alert.alert(CHART_COPY.delete.confirmTitle, CHART_COPY.delete.confirmBody, [
+      { text: CHART_COPY.delete.cancel, style: 'cancel' },
+      {
+        text: CHART_COPY.delete.confirmCta,
+        style: 'destructive',
+        onPress: () => {
+          setLoading(true);
+          void chart.deleteChart().then((ok) => {
+            setLoading(false);
+            if (ok) back();
+            else setError(CHART_COPY.delete.error);
+          });
+        },
+      },
+    ]);
+  };
+
   const apply = async (confirm: boolean) => {
     if (editedAhead.length === 0) return;
     setApplying(true);
@@ -165,6 +204,7 @@ export function V2ChartAdjustScreen() {
           title: waypoint.title.trim(),
           rationale: waypoint.rationale,
           kind: waypoint.kind,
+          progressMode: waypoint.progressMode,
           metricLabel: waypoint.metricLabel,
           metricTarget: waypoint.metricTarget,
           metricBaseline: waypoint.metricBaseline,
@@ -270,6 +310,26 @@ export function V2ChartAdjustScreen() {
               >
                 <Text style={styles.manualText}>Edit the route yourself</Text>
               </Pressable>
+              <View style={styles.dangerZone}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Archive this route"
+                  onPress={handleArchive}
+                  style={styles.secondaryAction}
+                  testID="chart-adjust-archive"
+                >
+                  <Text style={styles.secondaryActionText}>Archive this route</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Delete this route"
+                  onPress={handleDelete}
+                  style={styles.secondaryAction}
+                  testID="chart-adjust-delete"
+                >
+                  <Text style={[styles.secondaryActionText, styles.destructiveText]}>Delete this route</Text>
+                </Pressable>
+              </View>
             </View>
           ) : (
             <View style={styles.panelContainer}>
@@ -415,6 +475,26 @@ const styles = StyleSheet.create({
     ...typography.labelMD,
     color: colors.text.secondary,
     textDecorationLine: 'underline',
+  },
+  dangerZone: {
+    marginTop: spacing[6],
+    paddingTop: spacing[4],
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border.subtle,
+    alignItems: 'center',
+    gap: spacing[2],
+  },
+  secondaryAction: {
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  secondaryActionText: {
+    ...typography.labelMD,
+    color: colors.text.secondary,
+  },
+  destructiveText: {
+    color: colors.semantic.error,
   },
   note: {
     ...typography.bodySM,

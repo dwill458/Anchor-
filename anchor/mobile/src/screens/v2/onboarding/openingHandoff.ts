@@ -18,8 +18,6 @@ export const HANDOFF = {
    * panel turns from ink to paper as the question arrives, not as a mid-grey wash. */
   s2Ground: [300, 700] as Window,
   s2Drift: [150, 900] as Window,
-  /** Screen 3 camera settles from the right; revealed as Screen 2 thins above it. */
-  s3Camera: [150, 1050] as Window,
   /** Progress rolls 02 → 03. */
   progress: [300, 650] as Window,
   question: [620, 870] as Window,
@@ -40,7 +38,6 @@ export const HANDOFF_REDUCED = {
   s2World: [100, 500] as Window,
   s2Ground: [100, 500] as Window,
   s2Drift: [0, 1] as Window,
-  s3Camera: [0, 1] as Window,
   progress: [250, 500] as Window,
   question: [450, 700] as Window,
   support: [480, 730] as Window,

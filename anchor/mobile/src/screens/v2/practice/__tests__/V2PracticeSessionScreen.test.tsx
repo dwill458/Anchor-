@@ -136,11 +136,13 @@ function emitAppState(nextState: 'active' | 'background') {
       jest.advanceTimersByTime(800);
     });
 
-    fireEvent.press(screen.getByTestId('v2-focus-active-screen'));
-    fireEvent.press(screen.getByTestId('focus-end-button'));
+    // Complete the full 30s session duration
+    await act(async () => {
+      jest.advanceTimersByTime(30000);
+    });
 
     await act(async () => {
-      jest.advanceTimersByTime(2200);
+      jest.advanceTimersByTime(2300);
     });
 
     // Settle, fade, black hold, then mount the completion surface.
@@ -151,7 +153,7 @@ function emitAppState(nextState: 'active' | 'background') {
           accountId,
           mode: 'focus',
           plannedDurationSeconds: 30,
-          actualDurationSeconds: 1,
+          actualDurationSeconds: 30,
           source: 'practice_screen',
           metadata: { v2_entry_source: 'practice_hub' },
         }),
@@ -167,7 +169,7 @@ function emitAppState(nextState: 'active' | 'background') {
     // Continue returns to the Practice hub through the semantic completion callback.
     fireEvent.press(screen.getByTestId('focus-complete-done-button'));
     expect(onCompleted).toHaveBeenCalledTimes(1);
-    expect(onCompleted).toHaveBeenCalledWith({ mode: 'focus', durationSeconds: 1, saved: true });
+    expect(onCompleted).toHaveBeenCalledWith({ mode: 'focus', durationSeconds: 30, saved: true });
     expect(onBack).not.toHaveBeenCalled();
   });
 
@@ -200,12 +202,12 @@ function emitAppState(nextState: 'active' | 'background') {
         jest.advanceTimersByTime(800);
       });
       await act(async () => {
-        jest.advanceTimersByTime(0);
+        mockTime += 10500;
+        jest.advanceTimersByTime(10000);
       });
-      fireEvent.press(screen.getByTestId('v2-focus-active-screen'));
-      fireEvent.press(screen.getByTestId('focus-end-button'));
       await act(async () => {
-        jest.advanceTimersByTime(2200);
+        mockTime += 2500;
+        jest.advanceTimersByTime(2300);
       });
 
       expect(screen.getByTestId('v2-focus-complete-screen')).toBeTruthy();
@@ -235,27 +237,31 @@ function emitAppState(nextState: 'active' | 'background') {
     await act(async () => {
       jest.advanceTimersByTime(800);
     });
-    fireEvent.press(screen.getByTestId('v2-focus-active-screen'));
-    fireEvent.press(screen.getByTestId('focus-end-button'));
     await act(async () => {
-      jest.advanceTimersByTime(2200);
+      jest.advanceTimersByTime(30000);
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(2300);
     });
 
     expect(screen.getByText('This session could not be saved. Thread Strength was not updated.')).toBeTruthy();
     expect(screen.queryByText('Reinforced today ✓')).toBeNull();
     fireEvent.press(screen.getByTestId('focus-complete-done-button'));
-    expect(onCompleted).toHaveBeenCalledWith({ mode: 'focus', durationSeconds: 1, saved: false });
+    expect(onCompleted).toHaveBeenCalledWith({ mode: 'focus', durationSeconds: 30, saved: false });
   });
 
-  it('records one completion when End Session is tapped rapidly', async () => {
+  it('exits focus session without marking as completed when End Session is pressed early', async () => {
+    const onCompleted = jest.fn();
+    const onBack = jest.fn();
+
     render(
       <V2PracticeSessionScreen
         anchorId="a1"
         mode="focus"
         durationSeconds={30}
         source="practice_hub"
-        onBack={jest.fn()}
-        onCompleted={jest.fn()}
+        onBack={onBack}
+        onCompleted={onCompleted}
         onFocusAgain={jest.fn()}
       />
     );
@@ -268,13 +274,45 @@ function emitAppState(nextState: 'active' | 'background') {
     fireEvent.press(screen.getByTestId('v2-focus-active-screen'));
     const endButton = screen.getByTestId('focus-end-button');
     fireEvent.press(endButton);
-    fireEvent.press(endButton);
+
     await act(async () => {
-      jest.advanceTimersByTime(2200);
+      jest.advanceTimersByTime(2500);
     });
 
-    expect(PracticeCompletionService.completePracticeSession).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('v2-focus-complete-screen')).toBeTruthy();
+    expect(PracticeCompletionService.completePracticeSession).not.toHaveBeenCalled();
+    expect(onCompleted).not.toHaveBeenCalled();
+    expect(onBack).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('v2-focus-complete-screen')).toBeNull();
+  });
+
+  it('exits Deep Focus without marking as completed when ended early', async () => {
+    const onCompleted = jest.fn();
+    const onBack = jest.fn();
+    Object.defineProperty(AppState, 'currentState', { configurable: true, value: 'active' });
+
+    render(
+      <V2PracticeSessionScreen
+        anchorId="a1"
+        mode="deep_prime"
+        durationSeconds={120}
+        source="practice_hub"
+        onBack={onBack}
+        onCompleted={onCompleted}
+        onFocusAgain={jest.fn()}
+      />
+    );
+
+    fireEvent.press(screen.getByTestId('v2-deep-focus-active-screen'));
+    fireEvent.press(screen.getByLabelText('End session'));
+
+    await act(async () => {
+      jest.advanceTimersByTime(2000);
+    });
+
+    expect(PracticeCompletionService.completePracticeSession).not.toHaveBeenCalled();
+    expect(onCompleted).not.toHaveBeenCalled();
+    expect(onBack).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Deep Focus complete')).toBeNull();
   });
 
   it('routes to onCompleted when source is recommended_today and Done is pressed', async () => {
@@ -298,11 +336,12 @@ function emitAppState(nextState: 'active' | 'background') {
         jest.advanceTimersByTime(800);
       });
 
-    fireEvent.press(screen.getByTestId('v2-focus-active-screen'));
-    fireEvent.press(screen.getByTestId('focus-end-button'));
+      await act(async () => {
+        jest.advanceTimersByTime(10000);
+      });
 
     await act(async () => {
-        jest.advanceTimersByTime(2200);
+        jest.advanceTimersByTime(2300);
     });
 
     expect(screen.getByTestId('v2-focus-complete-screen')).toBeTruthy();
@@ -331,11 +370,12 @@ function emitAppState(nextState: 'active' | 'background') {
         jest.advanceTimersByTime(800);
       });
 
-    fireEvent.press(screen.getByTestId('v2-focus-active-screen'));
-    fireEvent.press(screen.getByTestId('focus-end-button'));
+      await act(async () => {
+        jest.advanceTimersByTime(10000);
+      });
 
     await act(async () => {
-        jest.advanceTimersByTime(2200);
+        jest.advanceTimersByTime(2300);
     });
 
     expect(screen.getByTestId('v2-focus-complete-screen')).toBeTruthy();

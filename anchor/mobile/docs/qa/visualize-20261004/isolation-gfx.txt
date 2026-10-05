@@ -1,0 +1,96 @@
+Applications Graphics Acceleration Info:
+Uptime: 62821260 Realtime: 84710942
+
+** Graphics info for pid 24835 [com.anchorintentions.app] **
+
+Stats since: 62769526013449ns
+Total frames rendered: 5463
+Janky frames: 595 (10.89%)
+Janky frames (legacy): 743 (13.60%)
+50th percentile: 5ms
+90th percentile: 11ms
+95th percentile: 13ms
+99th percentile: 16ms
+Number Missed Vsync: 8
+Number High input latency: 3767
+Number Slow UI thread: 538
+Number Slow bitmap uploads: 1
+Number Slow issue draw commands: 24
+Number Frame deadline missed: 595
+Number Frame deadline missed (legacy): 531
+HISTOGRAM: 5ms=3207 6ms=627 7ms=307 8ms=268 9ms=271 10ms=204 11ms=168 12ms=126 13ms=115 14ms=64 15ms=44 16ms=30 17ms=14 18ms=5 19ms=1 20ms=1 21ms=2 22ms=2 23ms=1 24ms=2 25ms=2 26ms=0 27ms=0 28ms=0 29ms=0 30ms=0 31ms=0 32ms=0 34ms=0 36ms=0 38ms=0 40ms=0 42ms=0 44ms=0 46ms=0 48ms=0 53ms=0 57ms=0 61ms=0 65ms=1 69ms=0 73ms=0 77ms=0 81ms=0 85ms=0 89ms=0 93ms=0 97ms=0 101ms=0 105ms=0 109ms=0 113ms=0 117ms=0 121ms=0 125ms=0 129ms=0 133ms=0 150ms=1 200ms=0 250ms=0 300ms=0 350ms=0 400ms=0 450ms=0 500ms=0 550ms=0 600ms=0 650ms=0 700ms=0 750ms=0 800ms=0 850ms=0 900ms=0 950ms=0 1000ms=0 1050ms=0 1100ms=0 1150ms=0 1200ms=0 1250ms=0 1300ms=0 1350ms=0 1400ms=0 1450ms=0 1500ms=0 1550ms=0 1600ms=0 1650ms=0 1700ms=0 1750ms=0 1800ms=0 1850ms=0 1900ms=0 1950ms=0 2000ms=0 2050ms=0 2100ms=0 2150ms=0 2200ms=0 2250ms=0 2300ms=0 2350ms=0 2400ms=0 2450ms=0 2500ms=0 2550ms=0 2600ms=0 2650ms=0 2700ms=0 2750ms=0 2800ms=0 2850ms=0 2900ms=0 2950ms=0 3000ms=0 3050ms=0 3100ms=0 3150ms=0 3200ms=0 3250ms=0 3300ms=0 3350ms=0 3400ms=0 3450ms=0 3500ms=0 3550ms=0 3600ms=0 3650ms=0 3700ms=0 3750ms=0 3800ms=0 3850ms=0 3900ms=0 3950ms=0 4000ms=0 4050ms=0 4100ms=0 4150ms=0 4200ms=0 4250ms=0 4300ms=0 4350ms=0 4400ms=0 4450ms=0 4500ms=0 4550ms=0 4600ms=0 4650ms=0 4700ms=0 4750ms=0 4800ms=0 4850ms=0 4900ms=0 4950ms=0
+50th gpu percentile: 2ms
+90th gpu percentile: 4ms
+95th gpu percentile: 5ms
+99th gpu percentile: 7ms
+GPU HISTOGRAM: 1ms=1811 2ms=2088 3ms=606 4ms=470 5ms=310 6ms=114 7ms=38 8ms=16 9ms=6 10ms=1 11ms=1 12ms=1 13ms=1 14ms=0 15ms=0 16ms=0 17ms=0 18ms=0 19ms=0 20ms=0 21ms=0 22ms=0 23ms=0 24ms=0 25ms=0 4950ms=0
+
+Pipeline=Skia (Vulkan)
+Memory policy:
+  Max surface area: 4492800
+  Max resource usage: 215.65MB (x48)
+  Background retention: 50% (altUiHidden = true)
+  GPU Context timeout: 10
+Contexts: 1 (stopped = 0)
+CPU Caches:
+  Glyph Cache: 1.99 MB (1 entry)
+  skia/sk_resource_cache/mipmap_0xb400007b35cd5030: 15.45 KB (1 entry)
+  Glyph Count: 63 
+Total CPU memory usage:
+  2105289 bytes, 2.01 MB (0.00 bytes is purgeable)
+GPU Caches:
+  Other:
+    TextBlobCache: 609.67 KB (1 entry)
+  Image:
+    Texture: 118.58 MB (54 entries)
+  Scratch:
+    Buffer Object: 142.00 KB (4 entries)
+    Texture: 4.00 MB (2 entries)
+    Attachment: 0.00 bytes (56 entries)
+Layer Info:
+    VkLayer size 1440x3120
+  Layers Total         17550.00 KB (numLayers = 1)
+Total GPU memory usage:
+  129307824 bytes, 123.32 MB (51.09 MB is purgeable)
+TextureView: 1440x3120
+
+GraphicBufferAllocator buffers:
+            Handle |         Size |     W (Stride) x H | Layers |   Format |      Usage | Requestor
+0xb4000079a656a720 | 17940.00 KiB | 1440 (1472) x 3120 |      1 |        1 | 0x10000b00 | VRI[MainActivity]@87f63e9#85(BLAST Consumer)85
+0xb4000079a661c0e0 | 17940.00 KiB | 1440 (1472) x 3120 |      1 |        1 | 0x10000b00 | VRI[MainActivity]@87f63e9#85(BLAST Consumer)85
+0xb4000079a6666960 | 17940.00 KiB | 1440 (1472) x 3120 |      1 |        1 | 0x10000b00 | VRI[MainActivity]@87f63e9#85(BLAST Consumer)85
+0xb4000079a668e6b0 | 17940.00 KiB | 1440 (1472) x 3120 |      1 |        1 | 0x10000b00 | VRI[MainActivity]@87f63e9#85(BLAST Consumer)85
+0xb4000079a6a7cd60 | 17940.00 KiB | 1440 (1472) x 3120 |      1 |        1 | 0x10000100 | SurfaceTexture-0-24835-26
+0xb4000079a6af52d0 | 17940.00 KiB | 1440 (1472) x 3120 |      1 |        1 | 0x10000100 | SurfaceTexture-0-24835-26
+Total allocated by GraphicBufferAllocator (estimate): 107640.00 KB
+Imported gralloc buffers:
++ name:SurfaceTexture-0-24835-26, id:1471835, size:18040.00KiB, w/h:1440x3120, usage: 0x10000100, req fmt:1, fourcc/mod:875708993/0, dataspace: 0x0, compressed: true
+	planes: R/G/B/A:	 w/h:1440x3120, stride:5888 bytes, size:18472960
++ name:VRI[MainActivity]@87f63e9#85(BLAST Consumer)85, id:1471829, size:18040.00KiB, w/h:1440x3120, usage: 0x10000b00, req fmt:1, fourcc/mod:875708993/0, dataspace: 0x8810000, compressed: true
+	planes: R/G/B/A:	 w/h:1440x3120, stride:5888 bytes, size:18472960
++ name:VRI[MainActivity]@87f63e9#85(BLAST Consumer)85, id:1471828, size:18040.00KiB, w/h:1440x3120, usage: 0x10000b00, req fmt:1, fourcc/mod:875708993/0, dataspace: 0x8810000, compressed: true
+	planes: R/G/B/A:	 w/h:1440x3120, stride:5888 bytes, size:18472960
++ name:VRI[MainActivity]@87f63e9#85(BLAST Consumer)85, id:1471826, size:18040.00KiB, w/h:1440x3120, usage: 0x10000b00, req fmt:1, fourcc/mod:875708993/0, dataspace: 0x8810000, compressed: true
+	planes: R/G/B/A:	 w/h:1440x3120, stride:5888 bytes, size:18472960
++ name:SurfaceTexture-0-24835-26, id:1471834, size:18040.00KiB, w/h:1440x3120, usage: 0x10000100, req fmt:1, fourcc/mod:875708993/0, dataspace: 0x0, compressed: true
+	planes: R/G/B/A:	 w/h:1440x3120, stride:5888 bytes, size:18472960
++ name:VRI[MainActivity]@87f63e9#85(BLAST Consumer)85, id:1471827, size:18040.00KiB, w/h:1440x3120, usage: 0x10000b00, req fmt:1, fourcc/mod:875708993/0, dataspace: 0x8810000, compressed: true
+	planes: R/G/B/A:	 w/h:1440x3120, stride:5888 bytes, size:18472960
+Total imported by gralloc: 108240.00KiB
+
+Profile data in ms:
+
+	com.anchorintentions.app/com.anchorintentions.app.MainActivity/android.view.ViewRootImpl@5577fc8 (visibility=0)
+View hierarchy:
+
+  com.anchorintentions.app/com.anchorintentions.app.MainActivity/android.view.ViewRootImpl@5577fc8
+  217 views, 408.97 kB of render nodes
+
+
+Total ViewRootImpl   : 1
+Total attached Views : 217
+Total RenderNode     : 408.97 kB (used) / 1366.00 kB (capacity)
+
+Total STB frames rendered : 0
+  ProcessConfig={1.0 310mcc260mnc [en_US] ldltr sw384dp w384dp h832dp 600dpi nrml long compactNeeded hdr widecg port night finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 1440, 3120) mAppBounds=Rect(0, 0 - 1440, 3120) mMaxBounds=Rect(0, 0 - 1440, 3120) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation=ROTATION_0 mStageConfig=undefined mEmbedActivityMode=undefined mPopOver=off mOverlappingWithCutout=false} s.231 fontWeightAdjustment=0 ff=0 bf=-1 bts=0 cst=1.0 nightDim=0 themeSeq=0}
+  Application ResourcesConfig={1.0 310mcc260mnc [en_US] ldltr sw384dp w384dp h832dp 600dpi nrml long compactNeeded hdr widecg port night finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 1440, 3120) mAppBounds=Rect(0, 0 - 1440, 3120) mMaxBounds=Rect(0, 0 - 1440, 3120) mDisplayRotation=ROTATION_0 mWindowingMode=fullscreen mActivityType=undefined mAlwaysOnTop=undefined mRotation=ROTATION_0 mStageConfig=undefined mEmbedActivityMode=undefined mPopOver=off mOverlappingWithCutout=false} s.231 fontWeightAdjustment=0 ff=0 bf=-1 bts=0 cst=1.0 nightDim=0 themeSeq=0}

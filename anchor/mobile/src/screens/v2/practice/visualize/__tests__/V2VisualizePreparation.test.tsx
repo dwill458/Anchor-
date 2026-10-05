@@ -112,15 +112,13 @@ describe('Visualize prepares behind its real setup board', () => {
     act(() => mockPreparation.onPrepared(prepared));
     expect(view.getByLabelText('Begin Visualize').props.accessibilityState.disabled).toBe(false);
   });
-  it('preserves recovery with available real images and clears the error after readiness', () => {
+  it('keeps Begin disabled after a photo failure and clears the error only after readiness', () => {
     const view = setup();
-    const useImages = jest.fn();
     act(() => {
       mockPreparation.onPreparationIssue('One image could not load.');
-      mockPreparation.onAvailableImages(useImages);
     });
-    fireEvent.press(view.getByText('Continue with available images'));
-    expect(useImages).toHaveBeenCalledTimes(1);
+    expect(view.queryByText('Continue with available images')).toBeNull();
+    expect(view.getByLabelText('Begin Visualize').props.accessibilityState.disabled).toBe(true);
     act(() => mockPreparation.onPrepared(prepared));
     expect(view.queryByText('One image could not load.')).toBeNull();
     expect(view.queryByText('Continue with available images')).toBeNull();

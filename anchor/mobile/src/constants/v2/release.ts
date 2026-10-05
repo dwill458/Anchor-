@@ -87,8 +87,10 @@ export const RELEASE_HOLD_SUSTAIN_LABEL_AT = 0.12;
 export const RELEASE_COPY = {
   preflightKicker: 'Release this intention',
   preflightTitle: 'What releasing this Anchor means',
+  // DEFERRED: No longer rendered; the entrance uses preflightKicker.
   preflightHeading: 'Release',
-  preflightSubtitle: 'Move this intention into your history. Nothing is deleted.',
+  // DEFERRED: No longer rendered; violates the vocabulary lock. Do not reuse.
+  preflightSubtitle: 'Burn the sigil. Keep the progress.',
   consequenceHeading: 'What changes when you release',
   holdPrompt: 'Hold to release',
   holdSustainPrompt: 'Keep holding…',

@@ -30,6 +30,10 @@ export type CinematicStillSpan = { startMs: number; endMs: number };
 export type CinematicTimeline = {
   durationMs: number;
   segments: CinematicSegment[];
+  /** Equal photo chapters independent of narration's iris and Anchor beats. */
+  photoSlots?: Array<{ startMs: number; endMs: number; imageIndex: number }>;
+  /** Ambient light returns only after the final narrated phrase. */
+  lightReturnMs?: number;
   /** Guided sessions only: grade keyframes on the audio-position axis. */
   grade?: CinematicGradeKey[];
   /** Guided sessions only: long narration silences, where the frame may only breathe. */

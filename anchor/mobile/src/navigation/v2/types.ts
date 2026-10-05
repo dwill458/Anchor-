@@ -6,12 +6,15 @@ import type { AuthScreenParams } from '@/types';
 
 export type AnchorV2StackParamList = {
   V2FirstRun: undefined;
-  V2DevelopmentHome: undefined;
+  V2DevelopmentHome: { releaseReturnFade?: boolean } | undefined;
   V2SystemGallery: undefined;
   V2EvolvingAnchor: undefined;
   V2Creation: undefined;
   FirstAnchorCreation: undefined;
   AnchorCreationFlow: {
+    fromOnboarding?: boolean;
+    /** Onboarding's chosen area, so the Intention chrome the flow fades from matches what was shown. */
+    focusAreaId?: import('@/constants/v2/focusAreas').FocusAreaId;
     intentionText: string;
     category?: string;
     distilledLetters?: string[];

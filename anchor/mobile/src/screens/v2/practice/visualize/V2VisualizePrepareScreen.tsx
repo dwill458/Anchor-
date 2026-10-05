@@ -8,7 +8,7 @@ import { V2PracticeSetupLayout } from '@/components/v2/practice/V2PracticeSetupL
 import { resolvePracticeSetupMetrics } from '@/components/v2/practice/practiceSetupLayout';
 import { VisionBoardScene } from '@/components/v2/vision/board/VisionBoardScene';
 import { useVisionBoardScene } from '@/components/v2/vision/board/useVisionBoardScene';
-import { boardSizeForWidth, VISION_BOARD_MAX_IMAGES } from '@/components/v2/vision/board/visionBoardLayouts';
+import { boardSizeForWidth } from '@/components/v2/vision/board/visionBoardLayouts';
 import { v2PracticeDurationLabel } from '@/constants/v2/practice';
 import { useV2ReduceMotion, useV2Responsive } from '@/hooks/v2';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -76,10 +76,8 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, i
   const [prepared, setPrepared] = useState<PreparedCinematicSession | null>(null);
   const [preparationIssue, setPreparationIssue] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const [useAvailable, setUseAvailable] = useState<(() => void) | null>(null);
-  const offerAvailable = useCallback((useImages: () => void) => setUseAvailable(() => useImages), []);
   const acceptPrepared = useCallback((session: PreparedCinematicSession) => {
-    setPrepared(session); setPreparationIssue(null); setUseAvailable(null);
+    setPrepared(session); setPreparationIssue(null);
   }, []);
   const reportIssue = useCallback((message: string) => setPreparationIssue(message), []);
   const defaults = useSettingsStore(state => state.sessionAudioDefaults?.visualize);
@@ -94,7 +92,7 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, i
   const [beginning, setBeginning] = useState(false);
   // Visualize keeps the saved SVG as its only Anchor source across setup and session.
   const art = useMemo(() => anchorRenderProps(anchor), [anchor]);
-  const boardTiles = useMemo(() => tiles.filter(tile => Boolean(tile.imageUrl)).slice(0, VISION_BOARD_MAX_IMAGES), [tiles]);
+  const boardTiles = useMemo(() => tiles.filter(tile => Boolean(tile.imageUrl)), [tiles]);
 
   // The collage is the Vision's board composition at a width that keeps the controls in reach.
   const contentWidth = width - metrics.sidePadding * 2;
@@ -115,7 +113,7 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, i
   }, [acceptPrepared, preparationKey]);
   const ready = prepared !== null && preparedKey.current === preparationKey;
   const board = useVisionBoardScene(ready ? prepared.assets.tiles : boardTiles, scene);
-  const retry = () => { setUseAvailable(null); setPreparationIssue(null); setPrepared(null); setAttempt(value => value + 1); };
+  const retry = () => { setPreparationIssue(null); setPrepared(null); setAttempt(value => value + 1); };
 
   // Begin: settings lock, the chrome fades around the collage, then the session takes the same frame.
   const darken = useSharedValue(0);
@@ -174,7 +172,6 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, i
         <View>
           {boardTiles.length === 0 ? <Text style={styles.hint}>Add a Vision image before beginning.</Text> : null}
           {boardTiles.length > 0 && !ready ? <Text accessibilityLiveRegion="polite" style={styles.hint}>{preparationIssue ?? 'Preparing your Vision...'}</Text> : null}
-          {useAvailable && !ready ? <V2Button variant="secondary" onPress={useAvailable} style={styles.hintAction}>Continue with available images</V2Button> : null}
           {preparationIssue ? <V2Button variant="secondary" onPress={retry} style={styles.hintAction}>Retry Vision</V2Button> : null}
           <Pressable
             accessibilityRole="button"
@@ -256,7 +253,7 @@ export function V2VisualizePrepareScreen({ anchor, statement, visionId, tiles, i
       <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.preparationSurface}>
         {boardTiles.length > 0 ? <V2CinematicSessionScreen key={preparationKey} anchor={anchor} accountId={accountId}
           tiles={boardTiles} statement={statement} visionId={visionId} durationSeconds={180} voice="none" ambient={false}
-          haptics={false} source="practice_hub" prepareOnly onPrepared={onPrepared} onPreparationIssue={reportIssue} onAvailableImages={offerAvailable}
+          haptics={false} source="practice_hub" prepareOnly onPrepared={onPrepared} onPreparationIssue={reportIssue}
           onExit={onBack} onContinue={() => undefined} /> : null}
       </View>
     </V2PracticeSetupLayout>
