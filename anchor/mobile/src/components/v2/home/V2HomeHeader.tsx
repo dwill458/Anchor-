@@ -1,6 +1,7 @@
 import React, { memo } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { Settings2 } from 'lucide-react-native';
 import { V2IconButton } from '@/components/v2';
 import { colors, spacing, typography } from '@/theme/v2';
 
@@ -70,9 +71,21 @@ function V2HomeHeaderComponent({
   return (
     <View style={styles.bar}>
       <View style={styles.identity}>
-        {profilePictureUrl ? <Image source={{ uri: profilePictureUrl }} style={styles.avatar} /> : (
-          <View style={styles.avatarFallback}><Text style={styles.avatarInitial}>{profileInitial ?? ''}</Text></View>
-        )}
+        <Pressable
+          testID="v2-home-profile-avatar"
+          accessibilityRole="button"
+          accessibilityLabel="Open profile and settings"
+          accessibilityHint="View your profile and manage app settings."
+          onPress={onOpenProfile}
+          style={styles.avatarButton}
+        >
+          {profilePictureUrl ? <Image source={{ uri: profilePictureUrl }} style={styles.avatar} /> : (
+            <View style={styles.avatarFallback}><Text style={styles.avatarInitial}>{profileInitial ?? ''}</Text></View>
+          )}
+          <View pointerEvents="none" style={styles.settingsBadge}>
+            <Settings2 size={11} color={colors.text.secondary} strokeWidth={2} />
+          </View>
+        </Pressable>
         <View style={styles.greetingGroup} accessibilityRole="header">
           <Text numberOfLines={1} style={styles.salutation}>{salutation}</Text>
           {name ? <Text numberOfLines={1} style={styles.greetingName}>{name}</Text> : null}
@@ -91,11 +104,13 @@ function V2HomeHeaderComponent({
           accessibilityLabel="Create Anchor"
           onPress={onCreateAnchor}
         />
-          <V2IconButton
+        {/* // DEFERRED: The standalone D button is folded into the photo avatar Profile entry.
+        <V2IconButton
             icon={<IconProfileLetter letter={profileInitial} color={colors.text.primary} />}
           accessibilityLabel="Open profile"
           onPress={onOpenProfile}
         />
+        */}
       </View>
     </View>
   );
@@ -111,9 +126,23 @@ const styles = StyleSheet.create({
   },
   identity: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 9 },
   greetingGroup: { flex: 1, minWidth: 0 },
-  avatar: { width: 27, height: 27, borderRadius: 14 },
-  avatarFallback: { width: 27, height: 27, borderRadius: 14, backgroundColor: colors.grouped, alignItems: 'center', justifyContent: 'center' },
-  avatarInitial: { fontFamily: typography.bodySemiBold, fontSize: 12, color: colors.text.primary },
+  avatar: { width: 40, height: 40, borderRadius: 20 },
+  avatarButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  avatarFallback: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.grouped, alignItems: 'center', justifyContent: 'center' },
+  avatarInitial: { fontFamily: typography.bodySemiBold, fontSize: 16, color: colors.text.primary },
+  settingsBadge: {
+    position: 'absolute',
+    right: -1,
+    bottom: -1,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   salutation: {
     fontSize: 12,
     lineHeight: 15,

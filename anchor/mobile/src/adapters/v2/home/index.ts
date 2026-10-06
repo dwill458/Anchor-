@@ -2,8 +2,10 @@ export { useV2HomeModel } from './useV2HomeModel';
 export type { V2HomeModel, V2HomeAnchorSummary, V2HomeTodayState } from './useV2HomeModel';
 export { toThreadPresentation, threadQualitativeLabel } from './threadAdapter';
 export type { V2ThreadPresentation } from './threadAdapter';
-export { toHomeVisionState, toV2HomeVisionState, resolveVisionHeroImage, resolveVisionAlternateImage } from './visionAdapter';
+export { toHomeVisionState, toV2HomeVisionState, resolveVisionHeroImage, resolveVisionAlternateImage, resolveVisionAlternateImageForDate } from './visionAdapter';
 export type { HomeVisionState } from './visionAdapter';
+export { getNextPractice } from './nextPractice';
+export type { NextPractice } from './nextPractice';
 export {
   toHomeChartState,
   resolveHomeChartState,

@@ -234,7 +234,15 @@ jest.mock('@shopify/react-native-skia', () => {
       RuntimeEffect: { Make: jest.fn((): any => ({ __runtimeEffectStub: true })) },
       Image: { MakeImage: jest.fn((): any => ({ width: () => 213, height: () => 295 })) },
       Data: { fromBytes: jest.fn((): any => ({})) },
-      Path: { MakeFromSVGString: jest.fn((): any => ({ __pathStub: true })) },
+      Path: {
+        MakeFromSVGString: jest.fn((): any => ({ __pathStub: true })),
+        // Paywall curve / route builders.
+        Make: jest.fn((): any => {
+          const path: any = { __pathStub: true };
+          for (const op of ['moveTo', 'lineTo', 'quadTo', 'cubicTo', 'close']) path[op] = jest.fn(() => path);
+          return path;
+        }),
+      },
       Paint: jest.fn(() => makePaint()),
       PictureRecorder: jest.fn(() => ({
         beginRecording: jest.fn(() => ({

@@ -9,7 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { V2Button, V2EmptyState, V2InlineError } from '@/components/v2';
 import { V2HomeChartSection, V2HomeBrandMark, V2HomeCreamSplice, V2HomeHeader, V2HomeHero, V2HomeProgressSection, V2HomeRecentActivitySection, V2HomeTodaySection, V2HomeVisionSection } from '@/components/v2/home';
-import { resolveVisionAlternateImage, resolveVisionHeroImage, useV2HomeModel } from '@/adapters/v2/home';
+import { getNextPractice, resolveVisionAlternateImage, resolveVisionHeroImage, useV2HomeModel } from '@/adapters/v2/home';
 import { useHomePrewarm } from '@/hooks/v2/home';
 import { useV2ReduceMotion, useV2Responsive } from '@/hooks/v2';
 import { VisualProfiler } from '@/utils/visualProfiler';
@@ -18,6 +18,8 @@ import { useV2ThreadEventQueue } from '@/hooks/v2/threadEvents';
 import { V2ThreadEventModal } from '@/components/v2/threadEvents';
 import { anchorArtworkSvg } from '@/components/v2/anchors/anchorPresentation';
 import { colors, getCategoryColor, typography } from '@/theme/v2';
+import { localDateString } from '@/utils/primingAnalytics';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { AnalyticsService } from '@/services/AnalyticsService';
 import { useV2DailyShellIntents, type V2DailyShellParamList } from './dailyShell';
 import { useHomeElasticScroll } from './homeElasticScroll';
@@ -39,6 +41,12 @@ const CHART_LANDSCAPE_ART = require('@/../assets/chart/landscape.jpg');
 
 /** A focus within this window of the last context refresh reuses what Home already shows. */
 const REFOCUS_REFRESH_MS = 30_000;
+const PRACTICE_ACTION_BY_MODE = {
+  focus: 'Focus',
+  deep_prime: 'Deep Prime',
+  visualize: 'Visualize',
+  release: 'Release',
+} as const;
 
 /** Changes whenever a practice is recorded, which is what moves Today, Thread and evidence. */
 const practiceMarker = () => {
@@ -97,6 +105,7 @@ export function V2HomeScreen() {
   const focusTransition = useProgressiveFocusTransition();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const model = useV2HomeModel();
+  const practiceHistory = useSessionStore((state) => state.practiceHistory);
   const reduceMotion = useV2ReduceMotion();
   const insets = useSafeAreaInsets();
   const { gutter } = useV2Responsive();
@@ -108,6 +117,62 @@ export function V2HomeScreen() {
   });
 
   const { refreshChart, refreshToday, refreshVision } = model;
+  const todayLocalDate = localDateString(new Date());
+  const selectedAnchorId = model.selectedAnchor?.id;
+  const selectedAnchorLocalId = model.selectedAnchor?.localId;
+  const completedToday = useMemo(() => selectedAnchorId
+    ? practiceHistory
+      .filter((session) => localDateString(new Date(session.completedAt)) === todayLocalDate &&
+        session.accountId === model.selectedAnchor?.userId && (
+          session.anchorId === selectedAnchorId || session.anchorServerId === selectedAnchorId ||
+          Boolean(selectedAnchorLocalId && session.anchorLocalId === selectedAnchorLocalId)
+        ))
+      .sort((left, right) => Date.parse(right.completedAt) - Date.parse(left.completedAt))
+    : [], [model.selectedAnchor?.userId, practiceHistory, selectedAnchorId, selectedAnchorLocalId, todayLocalDate]);
+  const completedModes = useMemo(() => new Set(completedToday.map((session) => session.practiceMode)), [completedToday]);
+  const completedMode = completedToday[0]?.practiceMode;
+  const nextPractice = useMemo(() => completedMode
+    ? getNextPractice({
+      completedModes,
+      hasVision: model.vision.state === 'ready',
+      chartArcComplete: model.chart.state === 'ready' && model.chart.isFinished,
+    })
+    : null, [completedModes, completedMode, model.chart, model.vision.state]);
+  const nextMode = nextPractice && nextPractice !== 'all_practices' ? nextPractice : null;
+  const settings = useSettingsStore.getState();
+  const durationByMode = {
+    focus: settings.focusSessionDuration,
+    deep_prime: settings.primeSessionDuration,
+    visualize: settings.visualizeSessionDuration,
+  };
+  const doneDuration = nextMode === 'release'
+    ? undefined
+    : nextMode
+      ? model.today.state === 'ready' && model.today.mode === nextMode
+        ? model.today.durationSeconds ?? durationByMode[nextMode]
+        : durationByMode[nextMode]
+      : undefined;
+  const todayForDisplay = useMemo(() => completedMode && (model.today.state === 'ready' || nextMode || nextPractice === 'all_practices')
+    ? {
+      ...(model.today.state === 'ready' ? model.today : {
+        state: 'ready' as const,
+        mode: nextMode ?? 'focus',
+        action: nextMode ? PRACTICE_ACTION_BY_MODE[nextMode] : 'Focus',
+        reason: '',
+        completionSignal: null,
+        threadStrength: null,
+        threadDelta: null,
+        threadDeltaStatus: 'UNAVAILABLE' as const,
+        durationSeconds: doneDuration,
+      }),
+      doneToday: {
+        completedMode,
+        nextMode,
+        durationSeconds: doneDuration,
+        completedDurationSeconds: completedToday[0]?.completedDurationSeconds,
+      },
+    }
+    : model.today, [completedMode, doneDuration, model.today, nextMode, nextPractice]);
   const reportedHydratedAnchors = useRef(new Set<string>());
   const reportedFirstMeaningfulHome = useRef(false);
   // Each model already loads on mount, so the first focus is not a reason to refetch.
@@ -258,15 +323,12 @@ export function V2HomeScreen() {
   const categoryColor = getCategoryColor(model.selectedAnchor?.category);
 
   /**
-   * Today borrows a Vision photograph only when the server recommendation is
-   * Visualize — it never becomes the recommendation engine itself, and
-   * Focus/Deep Prime/Release keep their illustrated art. Prefers a SECOND
-   * Vision image distinct from the one the Vision section shows below, so the
-   * identical photograph never appears twice on Home; with only one Vision
-   * image, Today reuses it but is told so, and gives it a different crop.
+   * Today borrows a Vision photograph only for Visualize. It rotates through
+   * the available images that differ from the Vision card's featured image;
+   * with one image, Today reuses it with a different crop.
    */
   const visionCoverUri = useMemo(() => resolveVisionHeroImage(model.vision) ?? undefined, [model.vision]);
-  const visionAlternateUri = useMemo(() => resolveVisionAlternateImage(model.vision) ?? undefined, [model.vision]);
+  const visionAlternateUri = resolveVisionAlternateImage(model.vision) ?? undefined;
   const todayVisionUri = visionAlternateUri ?? visionCoverUri;
   const todayVisionIsReused = Boolean(todayVisionUri) && !visionAlternateUri;
 
@@ -336,10 +398,12 @@ export function V2HomeScreen() {
 
   const handleBeginToday = useCallback(() => {
     track('v2_home_practice_tapped');
-    if (selectedId && today.state === 'ready') {
-      intents.onOpenPractice(selectedId, today.mode);
+    if (selectedId && todayForDisplay.state === 'ready') {
+      if (todayForDisplay.doneToday?.nextMode) intents.onOpenPractice(selectedId, todayForDisplay.doneToday.nextMode);
+      else if (todayForDisplay.doneToday) intents.onOpenPractice(selectedId);
+      else intents.onOpenPractice(selectedId, todayForDisplay.mode);
     }
-  }, [intents, selectedId, today]);
+  }, [intents, selectedId, todayForDisplay]);
 
   const handleOpenAllPractices = useCallback(() => {
     track('v2_home_all_practices_tapped');
@@ -487,7 +551,7 @@ export function V2HomeScreen() {
 
           <V2HomeTodaySection
             testID="v2-home-today"
-            today={model.today}
+            today={todayForDisplay}
             visionCoverUri={todayVisionUri}
             visionCoverIsReused={todayVisionIsReused}
             onBegin={handleBeginToday}

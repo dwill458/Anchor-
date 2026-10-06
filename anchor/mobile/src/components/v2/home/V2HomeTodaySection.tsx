@@ -1,13 +1,13 @@
 import React, { memo, useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
 import Svg, { Path, Polygon } from 'react-native-svg';
+import { Check } from 'lucide-react-native';
 import type { V2HomeTodayState } from '@/adapters/v2/home';
-import { V2_PRACTICE_MODE_BY_ID, V2_RECOMMENDATION_WHY } from '@/constants/v2/practice';
-import { V2_RECOMMENDATION_REASON_COPY } from '@/constants/v2/home';
+import { V2_PRACTICE_MODE_BY_ID, V2_RECOMMENDATION_WHY, v2PracticeModeTitle } from '@/constants/v2/practice';
 import { V2DissolvedArtwork } from '@/components/v2/primitives';
 import { VisualProfiler } from '@/utils/visualProfiler';
 import { colors, typography } from '@/theme/v2';
-import { getPracticeCardTheme } from '@/theme/v2/practiceColors';
+import { getPracticeCardTheme, practiceColors } from '@/theme/v2/practiceColors';
 import { resolvePracticeArtwork } from '@/components/v2/practice';
 
 type Props = {
@@ -77,13 +77,29 @@ function durationLabel(seconds?: number): string {
   return seconds < 60 ? `${seconds} sec` : `${Math.round(seconds / 60)} min`;
 }
 
+function translucentColor(hexColor: string, opacity: number): string {
+  const hex = hexColor.replace('#', '');
+  const red = Number.parseInt(hex.slice(0, 2), 16);
+  const green = Number.parseInt(hex.slice(2, 4), 16);
+  const blue = Number.parseInt(hex.slice(4, 6), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${opacity})`;
+}
+
 /**
- * The server's `reason` is a machine code and must never reach the screen.
- * An unmapped code falls back to mode copy rather than rendering the raw value.
+ * `reason` remains in the signature for compatibility, but Home copy is one
+ * stable line per practice mode rather than server-reason variants.
  */
 export function todayReasonCopy(reason: string, mode: keyof typeof V2_RECOMMENDATION_WHY): string {
-  const key = reason?.trim();
-  return (key && V2_RECOMMENDATION_REASON_COPY[key]) || V2_RECOMMENDATION_WHY[mode];
+  // DEFERRED: Server reason variants are retired in favor of one stable line per mode.
+  // const key = reason?.trim();
+  // return (key && V2_RECOMMENDATION_REASON_COPY[key]) || V2_RECOMMENDATION_WHY[mode];
+  void reason;
+  return {
+    visualize: 'Step into your Vision.',
+    focus: 'Hold your anchor in focus.',
+    deep_prime: 'Go deeper with your anchor.',
+    release: "Let go when you're ready.",
+  }[mode];
 }
 
 /**
@@ -154,14 +170,24 @@ function V2HomeTodaySectionComponent({ today, visionCoverUri, visionCoverIsReuse
   const activeToday = today.state === 'ready' ? today : lastReadyRef.current;
   if (!activeToday) return null;
 
-  const definition = V2_PRACTICE_MODE_BY_ID[activeToday.mode];
-  const duration = durationLabel(activeToday.durationSeconds);
-  const practiceTheme = getPracticeCardTheme(activeToday.mode);
+  const doneToday = activeToday.doneToday;
+  const nextMode = doneToday?.nextMode;
+  const displayMode = nextMode ?? activeToday.mode;
+  const duration = durationLabel(doneToday ? doneToday.durationSeconds : activeToday.durationSeconds);
+  const practiceTheme = getPracticeCardTheme(displayMode);
   const accent = practiceTheme.accent;
+  const completedAccent = doneToday ? getPracticeCardTheme(doneToday.completedMode).accent : accent;
+  const completedTint = doneToday ? translucentColor(completedAccent, 0.18) : accent;
+  const completedDuration = durationLabel(doneToday?.completedDurationSeconds);
+  const completedVerb = doneToday?.completedMode === 'visualize'
+    ? 'Seen'
+    : doneToday?.completedMode === 'release'
+      ? 'Released'
+      : 'Held';
   // Visualize is the one recommendation that borrows the Anchor's own future
   // rather than illustrated Practice art — but only when a real cover exists.
-  const usesVisionArt = activeToday.mode === 'visualize' && Boolean(visionCoverUri);
-  const artSource = usesVisionArt ? { uri: visionCoverUri } : resolvePracticeArtwork(activeToday.mode);
+  const usesVisionArt = displayMode === 'visualize' && Boolean(visionCoverUri);
+  const artSource = usesVisionArt ? { uri: visionCoverUri } : resolvePracticeArtwork(displayMode);
   const artFocus = usesVisionArt && visionCoverIsReused ? TODAY_ART_FOCUS_REUSED_VISION : TODAY_ART_FOCUS;
 
   return (
@@ -177,34 +203,102 @@ function V2HomeTodaySectionComponent({ today, visionCoverUri, visionCoverIsReuse
         style={styles.practiceArt}
       />
       <View style={styles.kickerRow}>
-        <View style={[styles.ribbon, { backgroundColor: accent }]}>
-          <Text style={[styles.ribbonText, { color: practiceTheme.ctaText }]}>TODAY</Text>
-          <Svg width={9} height={22} style={styles.ribbonTip}><Polygon points="0,0 9,11 0,22" fill={accent} /></Svg>
+        {/* // DEFERRED: The old outlined completion tag is retained after replacing it with the filled pennant.
+        <View style={[styles.ribbon, styles.doneRibbon]}>
+          <Text style={[styles.ribbonText, styles.doneRibbonText]}>DONE TODAY</Text>
         </View>
-        {activeToday.completionSignal ? <Text style={styles.returned}>Returned today</Text> : null}
+        */}
+        <View style={[styles.ribbon, { backgroundColor: doneToday ? completedTint : accent }, doneToday && styles.doneRibbonRow]}>
+          {doneToday ? (
+            <View style={styles.doneRibbonContents}>
+              <Check size={11} color={practiceColors.deepPrime} strokeWidth={2.8} />
+              <Text style={[styles.ribbonText, { color: completedAccent }]}>DONE TODAY</Text>
+            </View>
+          ) : (
+            <Text style={[styles.ribbonText, { color: practiceTheme.ctaText }]}>TODAY</Text>
+          )}
+          <Svg width={9} height={22} style={styles.ribbonTip}>
+            <Polygon points="0,0 9,11 0,22" fill={doneToday ? completedTint : accent} />
+          </Svg>
+        </View>
+        {!doneToday && activeToday.completionSignal ? <Text style={styles.returned}>Returned today</Text> : null}
       </View>
 
-      <Text testID="v2-home-today-headline" style={styles.headline}>
-        {definition.title}
-      </Text>
+      {/* // DEFERRED: The former completion headline showed the next mode instead of the mode just completed.
+      {doneToday?.nextMode ? (
+        <Text testID="v2-home-today-headline" style={styles.headline}>{v2PracticeModeTitle(doneToday.nextMode)}</Text>
+      ) : !doneToday ? (
+        <Text testID="v2-home-today-headline" style={styles.headline}>{V2_PRACTICE_MODE_BY_ID[activeToday.mode].title}</Text>
+      ) : null}
+      */}
+      {doneToday ? (
+        <Text testID="v2-home-today-headline" style={[styles.headline, styles.doneHeadline]}>
+          {v2PracticeModeTitle(doneToday.completedMode)}
+        </Text>
+      ) : (
+        <Text testID="v2-home-today-headline" style={styles.headline}>{V2_PRACTICE_MODE_BY_ID[activeToday.mode].title}</Text>
+      )}
 
-      <Pressable
-        testID="v2-home-today-begin"
-        accessibilityRole="button"
-        accessibilityLabel={activeToday.mode === 'release' ? 'Open Release' : `Begin ${definition.title} practice`}
-        onPress={onBegin}
-        disabled={!onBegin}
-        style={({ pressed }) => [styles.begin, pressed && styles.pressed]}
-      >
-        <Text style={styles.beginText}>{activeToday.mode === 'release' ? 'Open Release' : duration ? `Begin · ${duration}` : 'Begin'}</Text>
-        <ArrowRight color={colors.graphite.text.primary} />
-      </Pressable>
+      {doneToday ? (
+        <>
+          {/* // DEFERRED: The outlined completion button is replaced by one settled text link. */}
+          {/*
+          <Pressable
+            testID="v2-home-today-begin"
+            accessibilityRole="button"
+            accessibilityLabel="All Practices"
+            onPress={onOpenAllPractices}
+            disabled={!onOpenAllPractices}
+            style={({ pressed }) => [styles.begin, styles.doneBegin, pressed && styles.pressed]}
+          >
+            <Text style={[styles.beginText, styles.doneBeginText]}>All Practices</Text>
+            <ArrowRight color={colors.graphite.text.secondary} />
+          </Pressable>
+          */}
+          <Pressable
+            testID="v2-home-today-begin"
+            accessibilityRole="button"
+            accessibilityLabel={doneToday.nextMode
+              ? `Next · ${v2PracticeModeTitle(doneToday.nextMode)} · ${duration || 'When ready'}`
+              : 'All Practices'}
+            onPress={doneToday.nextMode ? onBegin : onOpenAllPractices}
+            disabled={doneToday.nextMode ? !onBegin : !onOpenAllPractices}
+            style={({ pressed }) => [styles.begin, pressed && styles.pressed]}
+          >
+            <Text style={[styles.beginText, styles.doneCtaText]}>
+              {doneToday.nextMode
+                ? `Next · ${v2PracticeModeTitle(doneToday.nextMode)} · ${duration || 'When ready'}`
+                : 'All Practices'}
+            </Text>
+            <ArrowRight color="rgba(244, 246, 250, 0.8)" />
+          </Pressable>
+        </>
+      ) : (
+        <Pressable
+          testID="v2-home-today-begin"
+          accessibilityRole="button"
+          accessibilityLabel={activeToday.mode === 'release' ? 'Open Release' : `Begin ${V2_PRACTICE_MODE_BY_ID[activeToday.mode].title} practice`}
+          onPress={onBegin}
+          disabled={!onBegin}
+          style={({ pressed }) => [styles.begin, pressed && styles.pressed]}
+        >
+          <Text style={styles.beginText}>{activeToday.mode === 'release' ? 'Open Release' : duration ? `Begin · ${duration}` : 'Begin'}</Text>
+          <ArrowRight color={colors.graphite.text.primary} />
+        </Pressable>
+      )}
 
+      {/* // DEFERRED: The old completion line omitted which session duration was held or seen.
       <Text testID="v2-home-today-reason" style={styles.reason}>
-        {todayReasonCopy(activeToday.reason, activeToday.mode)}
+        {doneToday ? doneToday.completedMode === 'visualize' ? 'Seen today.' : 'Held today.' : todayReasonCopy(activeToday.reason, activeToday.mode)}
+      </Text>
+      */}
+      <Text testID="v2-home-today-reason" style={styles.reason}>
+        {doneToday
+          ? `${completedVerb} today${completedDuration ? ` · ${completedDuration}` : ''}`
+          : todayReasonCopy(activeToday.reason, activeToday.mode)}
       </Text>
 
-      {allPractices}
+      {!doneToday ? allPractices : null}
     </View>
   );
 }
@@ -228,6 +322,12 @@ const styles = StyleSheet.create({
     color: colors.graphite.text.tertiary,
   },
   ribbon: { alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 4 },
+  // DEFERRED: The outlined done tag is retained here as history after switching to a mode-tinted pennant.
+  // doneRibbon: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.graphite.hairlineStrong },
+  // DEFERRED: The outlined tag text color is retained after switching to full mode color.
+  // doneRibbonText: { color: colors.graphite.text.secondary },
+  doneRibbonRow: { flexDirection: 'row', alignItems: 'center' },
+  doneRibbonContents: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   ribbonTip: { position: 'absolute', right: -9, top: 0 },
   ribbonText: { fontFamily: typography.bodyBold, fontSize: 10, letterSpacing: 2.2, color: colors.graphite.text.primary },
   returned: {
@@ -260,6 +360,12 @@ const styles = StyleSheet.create({
     marginTop: 3,
     paddingVertical: 4,
   },
+  // DEFERRED: The outlined done button styling is retained after switching to an unboxed text link.
+  // doneBegin: { borderWidth: 1, borderColor: colors.graphite.hairlineStrong, borderRadius: 3, paddingHorizontal: 10, paddingVertical: 6, marginTop: 6 },
+  // DEFERRED: The smaller, subdued button typography is retained after matching the active link scale.
+  // doneBeginText: { fontSize: 14, color: colors.graphite.text.secondary },
+  doneHeadline: { opacity: 0.7 },
+  doneCtaText: { opacity: 0.8 },
   /**
    * Bleeds through the page inset and a little past the screen edge, so the
    * frame's right side is never visible and the focal point lands at ~3/4 of

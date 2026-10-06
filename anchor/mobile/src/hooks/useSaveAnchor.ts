@@ -409,9 +409,7 @@ export function useSaveAnchor(input: SaveAnchorInput, routing: SaveAnchorRouting
         return;
       }
 
-      if (!isGuestFirstAnchor) {
-        useFirstAnchorFlowStore.getState().clearDraft();
-      }
+      useFirstAnchorFlowStore.getState().clearDraft();
       // `resolved` still carries the chosen image: the temp store was cleared above.
       navigateAfterSave(anchorId, isGuestFirstAnchor, isFirstAnchor, resolved);
     };

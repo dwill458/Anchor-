@@ -40,20 +40,27 @@ export function resolveVisionHeroImage(vision: HomeVisionState): string | null {
 }
 
 /**
- * A second, distinct Vision photograph for Today's Visualize hero — never the
- * same image object Home already shows in the Vision section below. `null`
+ * A daily, distinct Vision photograph for Today's Visualize hero — never the
+ * same image Home shows in the Vision section below. `null`
  * when the Vision has only one image (or none), so Today falls back to
  * reusing the hero image itself with a different focus/crop instead.
  */
 export function resolveVisionAlternateImage(vision: HomeVisionState): string | null {
+  return resolveVisionAlternateImageForDate(vision, new Date());
+}
+
+export function resolveVisionAlternateImageForDate(vision: HomeVisionState, now: Date): string | null {
   if (vision.state !== 'ready') return null;
   const heroUri = resolveVisionHeroImage(vision);
-  const tiles = vision.tiles ?? [];
-  const alternate = tiles.find((tile) => {
+  // DEFERRED: The first alternate was replaced with a stable local-day rotation.
+  // const alternate = (vision.tiles ?? []).find((tile) => tile.imageUrl?.trim() && tile.imageUrl.trim() !== heroUri);
+  const alternatives = (vision.tiles ?? []).filter((tile) => {
     const uri = tile.imageUrl?.trim();
     return Boolean(uri) && uri !== heroUri;
   });
-  return alternate?.imageUrl?.trim() || null;
+  if (alternatives.length === 0) return null;
+  const localDay = Math.floor(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 86_400_000);
+  return alternatives[localDay % alternatives.length]?.imageUrl?.trim() || null;
 }
 
 export function toHomeVisionState(scene: VisualizationScene | undefined | null): HomeVisionState {

@@ -44,4 +44,19 @@ export const colors = {
     hairline: ink.hairline,
     hairlineStrong: ink.hairlineStrong,
   },
+  /** Anchor Pro paywall: cream header over an indigo-ink field with a gold edge. */
+  paywall: {
+    cream: '#F4EDE0',
+    ink: '#14162B',
+    inkRaised: 'rgba(244, 237, 224, 0.035)',
+    inkText: '#14162B',
+    inkTextSoft: 'rgba(20, 22, 43, 0.72)',
+    gold: '#E2BC6B',
+    goldDeep: '#C99A45',
+    text: '#F4EDE0',
+    textDim: 'rgba(244, 237, 224, 0.64)',
+    textFaint: 'rgba(244, 237, 224, 0.42)',
+    hairline: 'rgba(244, 237, 224, 0.16)',
+    hairlineStrong: 'rgba(244, 237, 224, 0.28)',
+  },
 } as const;

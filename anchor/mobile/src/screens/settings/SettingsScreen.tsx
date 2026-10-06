@@ -121,6 +121,7 @@ export const SettingsScreen: React.FC = () => {
   const accountEmail = user?.email?.trim() || profileEmail || firebaseEmail;
 
   const resolvedName = name || user?.displayName || user?.email?.split('@')[0] || 'Practitioner';
+  const profilePhotoUri = photo || user?.profilePictureUrl || null;
   const memberSinceDate = memberSince ? new Date(memberSince) : user?.createdAt ? new Date(user.createdAt) : null;
   const memberSinceLabel =
     memberSinceDate && !Number.isNaN(memberSinceDate.getTime())
@@ -342,8 +343,8 @@ export const SettingsScreen: React.FC = () => {
                 activeOpacity={0.85}
                 style={styles.avatarCircle}
               >
-                {photo ? (
-                  <Image source={{ uri: photo }} style={styles.avatarImage} />
+                {profilePhotoUri ? (
+                  <Image source={{ uri: profilePhotoUri }} style={styles.avatarImage} />
                 ) : (
                   <Text style={styles.avatarInitial}>{displayInitial}</Text>
                 )}

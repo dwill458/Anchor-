@@ -43,6 +43,12 @@ export type V2HomeTodayState =
       threadStrength?: number | null;
       threadDelta: number | null;
       threadDeltaStatus: V2RecommendationContext['thread']['delta7dStatus'];
+      doneToday?: {
+        completedMode: V2PracticeMode;
+        nextMode: V2PracticeMode | null;
+        durationSeconds?: number;
+        completedDurationSeconds?: number;
+      };
     };
 
 export type V2HomeModel = {

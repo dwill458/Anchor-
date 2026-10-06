@@ -63,6 +63,7 @@ function V2PaywallRouteScreen() {
         resumeMode: mode,
         resumeDuration: resume.durationSeconds,
         resumeSource: resume.source,
+        returnRoute: resume.returnRoute,
       });
     } else if (resume.type === 'open_visualize') {
       navigation.navigate('V2Practice', {
@@ -70,9 +71,12 @@ function V2PaywallRouteScreen() {
         resumeMode: 'visualize',
         resumeDuration: resume.durationSeconds,
         resumeSource: 'recommended_today',
+        returnRoute: resume.returnRoute,
       });
     } else if (resume.type === 'create_anchor') {
       navigation.navigate('FirstAnchorCreation'); // the main creation flow
+    } else if (resume.type === 'open_chart') {
+      navigation.navigate('V2Chart', { anchorId: resume.anchorId });
     } else if (resume.type === 'vision_premium_action') {
       navigation.navigate('V2Vision', {
         anchorId: resume.anchorId,
@@ -102,6 +106,7 @@ function V2PracticeRouteScreen() {
   const resumeDuration = route.params?.resumeDuration;
   const resumeSource = route.params?.resumeSource;
   const returnRoute = route.params?.returnRoute;
+  const source = route.params?.source;
   const anchorTransition = route.params?.anchorTransition === true;
   const reduceMotion = useV2ReduceMotion();
 
@@ -124,13 +129,48 @@ function V2PracticeRouteScreen() {
     ? anchors.find((a) => a.id === anchorId || a.localId === anchorId)
     : undefined;
 
-  const handleBack = () => {
-    if (returnRoute) {
-      navigation.navigate(returnRoute, { anchorId });
-    } else {
+  const resolvedReturnRoute = useMemo(() => {
+    if (returnRoute) return returnRoute;
+    if (source === 'vision') return 'V2Vision';
+    if (source === 'chart') return 'V2Chart';
+    if (source === 'home') return 'V2DevelopmentHome';
+    if (source === 'anchor_details') return 'V2AnchorDetails';
+    return undefined;
+  }, [returnRoute, source]);
+
+  const handleBack = useCallback(() => {
+    if (resolvedReturnRoute) {
+      if (resolvedReturnRoute === 'V2DevelopmentHome') {
+        navigation.navigate('V2DevelopmentHome');
+      } else if (anchorId) {
+        navigation.navigate(resolvedReturnRoute, { anchorId });
+      } else {
+        navigation.navigate(resolvedReturnRoute);
+      }
+    } else if (navigation.canGoBack()) {
       navigation.goBack();
     }
-  };
+  }, [anchorId, navigation, resolvedReturnRoute]);
+
+  const handleSessionCompleted = useCallback(
+    (completion?: { source?: string }) => {
+      // If the practice was launched from the practice screen itself (practice_hub)
+      // and no explicit returnRoute was specified, stay on the practice screen.
+      if (completion?.source === 'practice_hub' && !returnRoute) {
+        return;
+      }
+      if (resolvedReturnRoute) {
+        if (resolvedReturnRoute === 'V2DevelopmentHome') {
+          navigation.navigate('V2DevelopmentHome');
+        } else if (anchorId) {
+          navigation.navigate(resolvedReturnRoute, { anchorId });
+        } else {
+          navigation.navigate(resolvedReturnRoute);
+        }
+      }
+    },
+    [anchorId, navigation, resolvedReturnRoute, returnRoute]
+  );
 
   return (
     <V2PracticeScreen
@@ -140,7 +180,8 @@ function V2PracticeRouteScreen() {
       resumeDuration={resumeDuration}
       resumeSource={resumeSource}
       onBack={handleBack}
-      leaveOnSetupBack={Boolean(returnRoute)}
+      leaveOnSetupBack={Boolean(resolvedReturnRoute)}
+      onSessionCompleted={handleSessionCompleted}
       onPremiumCapabilityRequired={(req) => {
         navigation.navigate('V2Paywall', {
           context: req.capability === 'visualize' ? 'VISUALIZE' : req.capability === 'deep_prime' ? 'DEEP_PRIME' : 'PRACTICE',
@@ -151,6 +192,7 @@ function V2PracticeRouteScreen() {
             practiceMode: req.capability,
             durationSeconds: req.durationSeconds,
             source: req.source,
+            returnRoute: resolvedReturnRoute,
           },
         });
       }}
@@ -265,6 +307,23 @@ function V2WeeklyInsightRouteScreen() {
   return <V2WeeklyInsightScreen route={route} navigation={navigation} onBack={() => navigation.goBack()} />;
 }
 
+function V2ProgressRouteScreen() {
+  const navigation = useNavigation<any>();
+  const route = useRoute<RouteProp<AnchorV2StackParamList, 'V2Progress'>>();
+  return (
+    <V2ProgressScreen
+      anchorId={route.params?.anchorId}
+      onBack={() => {
+        // Release replaces this route, so there may be nothing behind it.
+        if (navigation.canGoBack()) navigation.goBack();
+        else navigation.navigate('V2DevelopmentHome');
+      }}
+      onNavigateToChart={(id: string) => navigation.navigate('V2Chart', { anchorId: id })}
+      onNavigateToWeeklyInsight={(id: string) => navigation.navigate('V2WeeklyInsight', { anchorId: id })}
+    />
+  );
+}
+
 function V2LoginRouteScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<AnchorV2StackParamList, 'Login'>>();
@@ -362,11 +421,12 @@ export function AnchorV2Navigator() {
         <Stack.Screen name="V2Paywall" component={V2PaywallRouteScreen} options={TRANSPARENT_BACKGROUND} />
         <Stack.Screen name="V2Practice" component={V2PracticeRouteScreen} options={PRACTICE_OPTIONS} />
         <Stack.Screen name="V2Vision" component={V2VisionRouteScreen} options={PAPER_BACKGROUND} />
-        <Stack.Screen name="V2Chart" component={V2ChartScreen} options={GRAPHITE_BACKGROUND} />
-        <Stack.Screen name="V2ChartWaypoint" component={V2ChartWaypointScreen} options={{ ...GRAPHITE_BACKGROUND, animation: 'none', gestureEnabled: false }} />
+        {/* DEFERRED: GRAPHITE_BACKGROUND on V2Chart and V2ChartWaypoint; frame one of the Chart is now map paper. */}
+        <Stack.Screen name="V2Chart" component={V2ChartScreen} options={CREAM_BACKGROUND} />
+        <Stack.Screen name="V2ChartWaypoint" component={V2ChartWaypointScreen} options={{ ...CREAM_BACKGROUND, animation: 'none', gestureEnabled: false }} />
         <Stack.Screen name="V2ChartAdjust" component={V2ChartAdjustScreen} options={CREAM_BACKGROUND} />
         <Stack.Screen name="V2ChartJourney" component={V2ChartJourneyScreen} options={CREAM_BACKGROUND} />
-        <Stack.Screen name="V2Progress" component={V2ProgressScreen} options={GRAPHITE_BACKGROUND} />
+        <Stack.Screen name="V2Progress" component={V2ProgressRouteScreen} options={GRAPHITE_BACKGROUND} />
         <Stack.Screen name="V2Release" component={V2ReleaseRouteScreen} options={({ route }) => route.params?.anchorTransition ? { animation: 'none' } : {}} />
         <Stack.Screen name="V2WeeklyInsight" component={V2WeeklyInsightRouteScreen} />
         {/* Legacy dark surfaces keep the app's transparent default. */}

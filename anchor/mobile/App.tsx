@@ -41,6 +41,7 @@ import {
   EBGaramond_400Regular,
   EBGaramond_400Regular_Italic,
   EBGaramond_500Medium,
+  EBGaramond_600SemiBold,
 } from '@expo-google-fonts/eb-garamond';
 import { RootNavigator } from './src/navigation';
 import { AnchorV2Navigator } from './src/navigation/v2';
@@ -303,6 +304,7 @@ export default function App() {
     'EBGaramond-Regular': EBGaramond_400Regular,
     'EBGaramond-Italic': EBGaramond_400Regular_Italic,
     'EBGaramond-Medium': EBGaramond_500Medium,
+    'EBGaramond-SemiBold': EBGaramond_600SemiBold,
     'Allison-Regular': require('./node_modules/@expo-google-fonts/allison/400Regular/Allison_400Regular.ttf'),
     'CormorantGaramond-Regular': CrimsonPro_400Regular,
     'CormorantGaramond-Italic': CrimsonPro_400Regular_Italic,

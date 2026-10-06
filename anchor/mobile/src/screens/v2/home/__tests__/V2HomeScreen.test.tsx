@@ -23,6 +23,7 @@ import { useAnchorStore } from '@/stores/anchorStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useCourseStore } from '@/stores/courseStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useSessionStore } from '@/stores/sessionStore';
 import { V2HomeScreen } from '../V2HomeScreen';
 import { V2DailyShellIntentsProvider } from '../dailyShell';
 import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
@@ -115,6 +116,7 @@ beforeEach(() => {
   useAnchorStore.setState({ anchors: [], currentAnchorId: undefined });
   useAuthStore.setState({ user: { id: 'user-1', email: 'e', displayName: 'Deontrez' } as never });
   useCourseStore.setState({ activeCourse: null });
+  useSessionStore.setState({ practiceHistory: [] });
   mockUseChartPreview.mockReturnValue(selectChartPreview(null));
 });
 
@@ -140,6 +142,15 @@ describe('Home structure', () => {
     expect(screen.queryByText('See all')).toBeNull();
   });
 
+  it('uses the photo avatar as the single Profile entry', () => {
+    oneAnchor();
+    const onOpenProfile = jest.fn();
+    renderHome({ onOpenProfile });
+    expect(screen.getAllByLabelText('Open profile and settings')).toHaveLength(1);
+    fireEvent.press(screen.getByTestId('v2-home-profile-avatar'));
+    expect(onOpenProfile).toHaveBeenCalledTimes(1);
+  });
+
   it('signs the brand mark into the ink field, detached from the splice and ahead of Today', () => {
     oneAnchor();
     renderHome();
@@ -157,14 +168,13 @@ describe('Home structure', () => {
     expect(order.indexOf('v2-home-brand-mark')).toBeLessThan(order.indexOf('v2-home-today'));
   });
 
-  it('keeps Consistency as a compact hero reading, not a giant block', () => {
+  it('keeps Thread Strength as a compact hero reading, not a giant block', () => {
     oneAnchor();
     renderHome();
     const reading = screen.getByTestId('v2-home-thread-reading');
     expect(reading).toBeTruthy();
-    // Thread Strength is presented to users as Consistency.
-    expect(screen.getByText('Consistency')).toBeTruthy();
-    expect(screen.queryByText(/Thread Strength/)).toBeNull();
+    expect(screen.getByText('Thread Strength')).toBeTruthy();
+    expect(screen.getAllByText('Thread Strength')).toHaveLength(1);
     expect(screen.getByTestId('v2-home-thread-value').props.children).toBe('74%');
     // The old 53pt numeric block no longer exists on Home.
     expect(screen.queryByTestId('v2-thread-strength-value')).toBeNull();
@@ -228,7 +238,7 @@ describe('Consistency (Thread Strength) states', () => {
       currentAnchorId: 'a',
     });
     renderHome();
-    expect(screen.getByTestId('v2-home-thread-unmeasured').props.children).toBe('· Begins with your first practice');
+    expect(screen.getByTestId('v2-home-thread-unmeasured').props.children).toBe('· Begins with practice');
     expect(screen.getByTestId('v2-home-progress-invitation').props.children).toBe('Your first practice starts the record.');
     // Never coerced to a number.
     expect(screen.queryByTestId('v2-home-thread-value')).toBeNull();
@@ -264,7 +274,7 @@ describe('Today', () => {
     oneAnchor();
     renderHome();
     expect(screen.getByTestId('v2-home-today-headline').props.children).toBe('Focus');
-    expect(screen.getByTestId('v2-home-today-reason').props.children).toBe('Build consistency today.');
+    expect(screen.getByTestId('v2-home-today-reason').props.children).toBe('Hold your anchor in focus.');
     expect(screen.queryByText('daily_focus')).toBeNull();
     expect(screen.queryByText(/_/)).toBeNull();
   });
@@ -272,11 +282,11 @@ describe('Today', () => {
   it('maps every server reason code to copy and never leaks an unknown code', () => {
     oneAnchor();
     for (const [reason, mode, expected] of [
-      ['unseen_vision', 'visualize', 'You have not seen your Vision today.'],
-      ['thread_decay', 'deep_prime', 'Consistency dipped this week. Go deeper.'],
-      ['deep_reinforcement', 'deep_prime', 'A longer session to go deeper.'],
-      ['vision_scene', 'visualize', 'Step back into your Vision.'],
-      ['destination_reached', 'release', 'You reached your destination. Close the loop.'],
+      ['unseen_vision', 'visualize', 'Step into your Vision.'],
+      ['thread_decay', 'deep_prime', 'Go deeper with your anchor.'],
+      ['deep_reinforcement', 'deep_prime', 'Go deeper with your anchor.'],
+      ['vision_scene', 'visualize', 'Step into your Vision.'],
+      ['destination_reached', 'release', "Let go when you're ready."],
     ] as const) {
       const view = renderHome({}, { today: { state: 'ready', mode, action: 'Focus', reason, completionSignal: null, threadStrength: null, threadDelta: null, threadDeltaStatus: 'UNAVAILABLE', durationSeconds: mode === 'release' ? undefined : 120 } });
       expect(screen.getByTestId('v2-home-today-reason').props.children).toBe(expected);
@@ -286,7 +296,77 @@ describe('Today', () => {
 
     renderHome({}, { today: { state: 'ready', mode: 'focus', action: 'Focus', reason: 'some_future_code', completionSignal: null, threadStrength: null, threadDelta: null, threadDeltaStatus: 'UNAVAILABLE', durationSeconds: 30 } });
     expect(screen.queryByText('some_future_code')).toBeNull();
-    expect(screen.getByTestId('v2-home-today-reason').props.children).toBe('Daily reinforcement for your Anchor');
+    expect(screen.getByTestId('v2-home-today-reason').props.children).toBe('Hold your anchor in focus.');
+  });
+
+  it('shows DONE TODAY and recommends a different practice after a session for this Anchor', () => {
+    oneAnchor();
+    const onOpenPractice = jest.fn();
+    const completedAt = new Date().toISOString();
+    useSessionStore.setState({ practiceHistory: [{
+      id: 'session-today', accountId: 'user-1', anchorId: 'a', anchorLocalId: 'a', anchorServerId: 'a',
+      practiceMode: 'focus', completedAt, completedDurationSeconds: 10, completionStatus: 'completed',
+    } as never] });
+
+    renderHome({ onOpenPractice: onOpenPractice as never }, { vision: readyVision });
+
+    expect(screen.getByText('DONE TODAY')).toBeTruthy();
+    expect(screen.getByTestId('v2-home-today-headline').props.children).toBe('Focus');
+    expect(screen.getByTestId('v2-home-today-reason').props.children).toBe('Held today · 10 sec');
+    expect(screen.getByText(/^Next · Visualize ·/)).toBeTruthy();
+    fireEvent.press(screen.getByTestId('v2-home-today-begin'));
+    expect(onOpenPractice).toHaveBeenCalledWith('a', 'visualize');
+  });
+
+  it('uses All Practices when every available mode is complete', () => {
+    oneAnchor();
+    const onOpenPractice = jest.fn();
+    const completedAt = new Date().toISOString();
+    useSessionStore.setState({ practiceHistory: ['focus', 'visualize', 'deep_prime'].map((practiceMode, index) => ({
+      id: `session-${index}`, accountId: 'user-1', anchorId: 'a', anchorLocalId: 'a', anchorServerId: 'a',
+      practiceMode, completedAt, completedDurationSeconds: practiceMode === 'deep_prime' ? 300 : 30, completionStatus: 'completed',
+    } as never)) });
+
+    renderHome({ onOpenPractice: onOpenPractice as never }, { vision: readyVision });
+
+    expect(screen.getByTestId('v2-home-today-headline').props.children).toBe('Focus');
+    fireEvent.press(screen.getByTestId('v2-home-today-begin'));
+    expect(onOpenPractice).toHaveBeenCalledWith('a');
+    expect(screen.getByTestId('v2-home-today-reason').props.children).toBe('Held today · 30 sec');
+    expect(screen.getAllByText('All Practices')).toHaveLength(1);
+  });
+
+  it('shows the most recent Visualize completion with Seen copy and its duration', () => {
+    oneAnchor();
+    const completedAt = new Date().toISOString();
+    const earlierAt = new Date(Date.now() - 60_000).toISOString();
+    useSessionStore.setState({ practiceHistory: [
+      { id: 'session-visualize', accountId: 'user-1', anchorId: 'a', anchorLocalId: 'a', anchorServerId: 'a', practiceMode: 'visualize', completedAt, completedDurationSeconds: 180, completionStatus: 'completed' },
+      { id: 'session-focus', accountId: 'user-1', anchorId: 'a', anchorLocalId: 'a', anchorServerId: 'a', practiceMode: 'focus', completedAt: earlierAt, completedDurationSeconds: 30, completionStatus: 'completed' },
+    ] as never });
+
+    renderHome({}, { vision: readyVision });
+
+    expect(screen.getByTestId('v2-home-today-headline').props.children).toBe('Visualize');
+    expect(screen.getByTestId('v2-home-today-reason').props.children).toBe('Seen today · 3 min');
+    expect(screen.getByText(/^Next · Deep Focus ·/)).toBeTruthy();
+  });
+
+  it('shows Deep Focus and the latest duration when that is the most recent completion', () => {
+    oneAnchor();
+    const completedAt = new Date().toISOString();
+    const earlierAt = new Date(Date.now() - 60_000).toISOString();
+    useSessionStore.setState({ practiceHistory: [
+      { id: 'session-deep', accountId: 'user-1', anchorId: 'a', anchorLocalId: 'a', anchorServerId: 'a', practiceMode: 'deep_prime', completedAt, completedDurationSeconds: 300, completionStatus: 'completed' },
+      { id: 'session-focus', accountId: 'user-1', anchorId: 'a', anchorLocalId: 'a', anchorServerId: 'a', practiceMode: 'focus', completedAt: earlierAt, completedDurationSeconds: 30, completionStatus: 'completed' },
+      { id: 'session-visualize', accountId: 'user-1', anchorId: 'a', anchorLocalId: 'a', anchorServerId: 'a', practiceMode: 'visualize', completedAt: earlierAt, completedDurationSeconds: 180, completionStatus: 'completed' },
+    ] as never });
+
+    renderHome({}, { vision: readyVision });
+
+    expect(screen.getByTestId('v2-home-today-headline').props.children).toBe('Deep Focus');
+    expect(screen.getByTestId('v2-home-today-reason').props.children).toBe('Held today · 5 min');
+    expect(screen.getAllByText('All Practices')).toHaveLength(1);
   });
 
   it('presents every recommended mode by its user-facing name (Deep Prime shows as Deep Focus)', () => {

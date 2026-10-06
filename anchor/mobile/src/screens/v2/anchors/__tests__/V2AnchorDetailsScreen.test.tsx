@@ -25,6 +25,7 @@ import { V2AnchorDetailsScreen } from '../V2AnchorDetailsScreen';
 import { ToastProvider } from '@/components/ToastProvider';
 import { V2DailyShellIntentsProvider } from '@/screens/v2/home/dailyShell';
 import { makeAnchor } from '@/adapters/v2/home/__tests__/fixtures';
+import { V2_PRACTICE_ARTWORK } from '@/components/v2/practice';
 import { apiClient } from '@/services/ApiClient';
 
 jest.mock('@/services/ApiClient', () => ({
@@ -151,6 +152,7 @@ describe('V2AnchorDetailsScreen', () => {
     expect(screen.getByText('I finish what I start')).toBeTruthy();
     expect(screen.getByText('CAREER')).toBeTruthy();
     expect(screen.getByTestId('v2-thread-strength-value').props.children).toBe(50);
+    expect(screen.getByText('Thread Strength')).toBeTruthy();
   });
 
   it('shows the enhanced Anchor image when one exists', () => {
@@ -304,6 +306,7 @@ describe('V2AnchorDetailsScreen', () => {
     expect(screen.getByText('Release')).toBeTruthy();
     expect(screen.getByText('Your Chart is complete.')).toBeTruthy();
     expect(screen.getByText('Recommended practice')).toBeTruthy();
+    expect(screen.getByTestId('v2-anchor-today-art').props.source).toBe(V2_PRACTICE_ARTWORK.release);
   });
 
   it('renders the Today card for Visualize recommendation when vision exists', async () => {
@@ -326,6 +329,7 @@ describe('V2AnchorDetailsScreen', () => {
     expect(screen.getByText('Visualize')).toBeTruthy();
     expect(screen.getByText('Step back into your Vision.')).toBeTruthy();
     expect(screen.getByText('Recommended practice')).toBeTruthy();
+    expect(screen.getByTestId('v2-anchor-today-art').props.source).toBe(V2_PRACTICE_ARTWORK.visualize);
   });
 
   it('renders the Today card for Focus recommendation otherwise', async () => {
@@ -334,8 +338,9 @@ describe('V2AnchorDetailsScreen', () => {
 
     await waitFor(() => expect(screen.getByTestId('v2-anchor-today')).toBeTruthy());
     expect(screen.getByText('Focus')).toBeTruthy();
-    expect(screen.getByText('Trace your Anchor.')).toBeTruthy();
+    expect(screen.getByText('Hold your anchor in focus.')).toBeTruthy();
     expect(screen.getByText('Recommended practice')).toBeTruthy();
+    expect(screen.getByTestId('v2-anchor-today-art').props.source).toBe(V2_PRACTICE_ARTWORK.focus);
   });
 
   it('renders Vision photographic section when a vision exists with scenes', async () => {
@@ -494,17 +499,23 @@ describe('V2AnchorDetailsScreen options menu', () => {
     expect(screen.queryByTestId('anchor-options-menu')).toBeNull();
   });
 
-  it('opens the export sheet from Download PNG', () => {
-    jest.useFakeTimers();
-    try {
-      renderDetails();
-      fireEvent.press(screen.getByLabelText('More Anchor options'));
-      fireEvent.press(screen.getByTestId('anchor-detail-download-png-button'));
-      act(() => { jest.advanceTimersByTime(300); });
-      expect(screen.getByText('Export anchor')).toBeTruthy();
-    } finally {
-      jest.useRealTimers();
-    }
+  it('opens Share Studio from Share anchor with Minimal selected', () => {
+    renderDetails();
+    fireEvent.press(screen.getByLabelText('More Anchor options'));
+    fireEvent.press(screen.getByTestId('anchor-detail-share-button'));
+    expect(screen.getByText('Share Your Anchor')).toBeTruthy();
+    expect(screen.getByText('Choose a style to share or save.')).toBeTruthy();
+    expect(screen.getByTestId('share-layout-minimal').props.accessibilityState.selected).toBe(true);
+    // No Vision on this Anchor: the Vision layout is omitted, not disabled.
+    expect(screen.queryByTestId('share-layout-vision')).toBeNull();
+  });
+
+  it('Download PNG exports directly instead of opening Share Studio', () => {
+    renderDetails();
+    fireEvent.press(screen.getByLabelText('More Anchor options'));
+    fireEvent.press(screen.getByTestId('anchor-detail-download-png-button'));
+    expect(screen.queryByText('Share Your Anchor')).toBeNull();
+    expect(screen.queryByText('Export anchor')).toBeNull();
   });
 
   it('exposes the draggable sheet handle', () => {
@@ -586,7 +597,7 @@ describe('V2AnchorDetailsScreen options menu', () => {
               expect(screen.getByText('Step back into your Vision.')).toBeTruthy();
             } else {
               expect(screen.getByText('Focus')).toBeTruthy();
-              expect(screen.getByText('Trace your Anchor.')).toBeTruthy();
+              expect(screen.getByText('Hold your anchor in focus.')).toBeTruthy();
             }
 
             // 2. Vision section

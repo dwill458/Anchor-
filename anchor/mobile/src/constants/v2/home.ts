@@ -57,7 +57,7 @@ export const V2_RECOMMENDATION_REASON_COPY: Readonly<Record<string, string>> = {
   // `thread_decay` is the server's code for a negative 7-day Consistency delta.
   thread_decay: 'Consistency dipped this week. Go deeper.',
   deep_reinforcement: 'A longer session to go deeper.',
-  daily_focus: 'Build consistency today.',
+  daily_focus: 'Hold your anchor in focus.',
 };
 
 /** `01 / 03` — the authoritative position indicator for the hero carousel. */

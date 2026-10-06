@@ -84,7 +84,7 @@ function ThreadReading({ thread, accent, active }: { thread: V2ThreadPresentatio
   const hasDelta = measured && typeof delta === 'number' && Number.isFinite(delta);
   return (
     <View testID={active ? 'v2-home-thread-reading' : undefined} style={styles.threadRow}>
-      <Text style={styles.threadLabel}>Consistency</Text>
+      <Text style={styles.threadLabel}>Thread Strength</Text>
       {measured ? (
         <Text testID={active ? 'v2-home-thread-value' : undefined} style={[styles.threadValue, { color: accent }]}>
           {`${thread.value}%`}
@@ -97,8 +97,8 @@ function ThreadReading({ thread, accent, active }: { thread: V2ThreadPresentatio
           </Text>
         ) : null
       ) : (
-        <Text testID={active ? 'v2-home-thread-unmeasured' : undefined} style={styles.threadDelta}>
-          · Begins with your first practice
+        <Text testID={active ? 'v2-home-thread-unmeasured' : undefined} style={styles.threadDelta} numberOfLines={1}>
+        · Begins with practice
         </Text>
       )}
     </View>
@@ -350,8 +350,8 @@ function AnchorHeroItem({ summary, index, total, slot, offset, spacing, gutter, 
           accessibilityRole={onOpenProgress ? 'button' : undefined}
           accessibilityLabel={
             thread.value === null
-              ? 'Consistency not established yet. Open Progress.'
-              : `Consistency ${thread.value} percent. Open Progress.`
+              ? 'Thread Strength not established yet. Open Progress.'
+              : `Thread Strength ${thread.value} percent. Open Progress.`
           }
           onPress={onOpenProgress}
           disabled={!onOpenProgress}

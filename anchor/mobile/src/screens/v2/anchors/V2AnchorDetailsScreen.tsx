@@ -30,6 +30,7 @@ import { resolveEvolutionStage } from '@/adapters/v2/progress/progressAdapter';
 import { fetchV2RecommendationContext, type V2RecommendationContext } from '@/adapters/v2/practice';
 import { isV2RecommendationContextFresh, peekV2RecommendationContext } from '@/adapters/v2/practice/recommendationCache';
 import { V2_RECOMMENDATION_ACTION_TO_MODE, V2_PRACTICE_MODE_BY_ID, type V2PracticeMode } from '@/constants/v2/practice';
+import { resolvePracticeArtwork } from '@/components/v2/practice';
 import { spacing, colors, getCategoryColor, getCategoryTextColor, getPracticeColor } from '@/theme/v2';
 import { useV2DailyShellIntents, type V2DailyShellParamList } from '@/screens/v2/home/dailyShell';
 import { detailsFonts, detailsPalette } from '@/components/v2/anchors/anchorDetailsTokens';
@@ -43,7 +44,8 @@ import {
   resolveSheetSnaps,
 } from '@/components/v2/anchors/anchorDetailsSheetLayout';
 import { AnchorOptionsMenu, type AnchorOptionsMenuAction } from '@/components/AnchorOptionsMenu';
-import { ExportAnchorSheet } from '@/components/ExportAnchorSheet';
+import { AnchorShareStudio } from '@/components/share/AnchorShareStudio';
+import { threadQualitativeLabel } from '@/adapters/v2/home/threadAdapter';
 import { AnchorTransitionScene, useAnchorTransitionPlace, useProgressiveFocusTransition } from '@/navigation/v2/ProgressiveFocusTransition';
 import { ChartWorldPreview } from '@/components/v2/chart/ChartWorldPreview';
 import { VisionBoardPreview } from '@/components/v2/vision/VisionBoardPreview';
@@ -162,7 +164,7 @@ export type RecommendedPractice = {
  * Section 11: Recommended practice card and pinned bar follow one rule (first match wins):
  * 1. chartState === complete -> Release, color #DD5F2C, ink text, copy "Your Chart is complete."
  * 2. hasVision -> Visualize · 3 min, color #3B82C4, ink text, copy "Step back into your Vision."
- * 3. otherwise -> Focus · 10 sec, color #8B5CF6, white text, copy "Trace your Anchor."
+ * 3. otherwise -> Focus · 10 sec, color #8B5CF6, white text, copy "Hold your anchor in focus."
  */
 export function resolveRecommendedPractice({
   chartState,
@@ -203,7 +205,7 @@ export function resolveRecommendedPractice({
     mode: 'focus',
     name: 'Focus',
     dur: '10 sec',
-    sub: 'Trace your Anchor.',
+    sub: 'Hold your anchor in focus.',
     bar: 'Focus · 10 sec',
     color: detailsPalette.focus,
     tint: 'rgba(139,92,246,.22)',
@@ -286,6 +288,7 @@ function ThreadRow({
       <Text style={[styles.metaNumeral, { fontSize: centered ? 15 : 14, color: isEstablished ? detailsPalette.ink : 'rgba(20,22,43,.5)' }]}>
         {!isEstablished ? '—' : `${numeric}%`}
       </Text>
+      <Text style={[styles.metaStatus, styles.threadStrengthLabel]} numberOfLines={1}>Thread Strength</Text>
       <HandDrawnThreadLine
         percent={numeric}
         color={accent}
@@ -333,7 +336,6 @@ function TodayCard({
   recommended: RecommendedPractice;
   onPress: (mode: V2PracticeMode) => void;
 }) {
-  const Icon = recommended.icon;
   const ActionIcon = recommended.actionIcon;
 
   return (
@@ -344,8 +346,14 @@ function TodayCard({
       onPress={() => onPress(recommended.mode)}
       style={({ pressed }) => [styles.todayCard, pressed && styles.pressed]}
     >
-      <View style={[styles.todayArtThumbnailWrap, { backgroundColor: recommended.tint }]}>
-        <Icon size={24} color={recommended.color} />
+      <View style={styles.todayArtThumbnailWrap}>
+        <Image
+          testID="v2-anchor-today-art"
+          source={resolvePracticeArtwork(recommended.mode)}
+          style={styles.todayArtThumbnail}
+          resizeMode="cover"
+          accessibilityIgnoresInvertColors
+        />
       </View>
       <View style={styles.todayBody}>
         <Text style={styles.todayEyebrow}>Recommended practice</Text>
@@ -585,10 +593,9 @@ export function V2AnchorDetailsScreen() {
   const serverId = anchor?.id ?? anchorId;
   const vision = useV2Vision(serverId);
   const anchorChart = useAnchorChart(serverId);
-  const exportActions = useAnchorExportActions(anchor);
 
   const [menuOpen, setMenuOpen] = useState(false);
-  const [exportOpen, setExportOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [toastText, setToastText] = useState<string | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -623,6 +630,13 @@ export function V2AnchorDetailsScreen() {
   const visionStatement = vision.state.state === 'ready' ? vision.state.title?.trim() || vision.state.description || vision.description || '' : '';
   const visionSeenToday = vision.state.state === 'ready' ? Boolean(vision.state.seenToday) : false;
   const hasVisionContent = Boolean(visionTile?.imageUrl || visionStatement?.trim());
+
+  const shareStateValue = recommendation.value?.strength ?? detail.thread?.value ?? null;
+  const exportActions = useAnchorExportActions(anchor, {
+    // Only a real Vision image makes the Vision layout available.
+    visionImageUrl: visionTile?.imageUrl ?? null,
+    stateLabel: typeof shareStateValue === 'number' ? threadQualitativeLabel(shareStateValue, false) : null,
+  });
 
   const recommended = useMemo(() => {
     return resolveRecommendedPractice({
@@ -871,9 +885,11 @@ export function V2AnchorDetailsScreen() {
   const handleMenuSelect = (action: AnchorOptionsMenuAction) => {
     setMenuOpen(false);
     if (action === 'share') {
-      void exportActions.share();
+      setShareOpen(true);
     } else if (action === 'download') {
-      setExportOpen(true);
+      void exportActions.downloadPng().then((saved) => {
+        if (saved) showToast('Saved to Photos');
+      });
     } else if (action === 'wallpaper') {
       void exportActions.saveWallpaper();
     } else if (action === 'copy') {
@@ -1080,17 +1096,13 @@ export function V2AnchorDetailsScreen() {
           onClose={() => setMenuOpen(false)}
           onSelect={handleMenuSelect}
           top={insets.top + 54}
-          busy={{ share: exportActions.isSharing, wallpaper: exportActions.isSavingWallpaper }}
+          busy={{ download: exportActions.isDownloading, wallpaper: exportActions.isSavingWallpaper }}
         />
 
-        <ExportAnchorSheet
-          isVisible={exportOpen}
-          onClose={() => setExportOpen(false)}
-          sigilSvg={anchorArtworkSvg(anchor)}
-          sigilUri={anchor.enhancedImageUrl ?? undefined}
-          intention={anchor.intentionText}
-          onSaved={showToast}
-        />
+        {exportActions.shareData ? (
+          <AnchorShareStudio visible={shareOpen} onClose={() => setShareOpen(false)} data={exportActions.shareData} />
+        ) : null}
+        {exportActions.hiddenNodes}
 
         {toastText ? (
           <View pointerEvents="none" style={[styles.toastWrap, { top: insets.top + 60 }]} accessibilityLiveRegion="polite">
@@ -1177,6 +1189,7 @@ const styles = StyleSheet.create({
   metaStatus: {
     fontFamily: detailsFonts.uiStrong,
   },
+  threadStrengthLabel: { color: 'rgba(20,22,43,.5)', fontSize: 10, letterSpacing: 1.6 },
   navRow: {
     position: 'absolute',
     left: 16,
@@ -1261,9 +1274,13 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
+    overflow: 'hidden',
+    backgroundColor: detailsPalette.ink,
     flexShrink: 0,
+  },
+  todayArtThumbnail: {
+    width: '100%',
+    height: '100%',
   },
   todayBody: { flex: 1, minWidth: 0 },
   todayEyebrow: {

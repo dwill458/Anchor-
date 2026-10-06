@@ -1,5 +1,5 @@
 import { toThreadPresentation, threadQualitativeLabel } from '../threadAdapter';
-import { toHomeVisionState, resolveVisionHeroImage, resolveVisionAlternateImage, type HomeVisionState } from '../visionAdapter';
+import { toHomeVisionState, resolveVisionHeroImage, resolveVisionAlternateImage, resolveVisionAlternateImageForDate, type HomeVisionState } from '../visionAdapter';
 import { courseMatchesAnchor, toHomeChartState } from '../chartAdapter';
 import { makeAnchor } from './fixtures';
 import type { VisualizationScene } from '@/types/practice';
@@ -115,6 +115,23 @@ describe('resolveVisionAlternateImage', () => {
       ],
     };
     expect(resolveVisionAlternateImage(multi)).toBe('https://assets.test/two.png');
+  });
+
+  it('rotates the hero across alternate images by local day and stays stable within a day', () => {
+    const multi: HomeVisionState = {
+      state: 'ready', visionId: 'v1', previewText: 'Three images', featuredTileId: 't1',
+      tiles: [
+        { id: 't1', sceneId: 's1', imageUrl: 'https://assets.test/one.png', prompt: null, sortOrder: 0, isHero: true } as never,
+        { id: 't2', sceneId: 's1', imageUrl: 'https://assets.test/two.png', prompt: null, sortOrder: 1, isHero: false } as never,
+        { id: 't3', sceneId: 's1', imageUrl: 'https://assets.test/three.png', prompt: null, sortOrder: 2, isHero: false } as never,
+      ],
+    };
+    const dayOne = new Date(2026, 9, 5, 9);
+    const dayOneLater = new Date(2026, 9, 5, 20);
+    const dayTwo = new Date(2026, 9, 6, 9);
+    expect(resolveVisionAlternateImageForDate(multi, dayOne)).toBe(resolveVisionAlternateImageForDate(multi, dayOneLater));
+    expect(resolveVisionAlternateImageForDate(multi, dayOne)).not.toBe(resolveVisionAlternateImageForDate(multi, dayTwo));
+    expect(resolveVisionAlternateImageForDate(multi, dayOne)).not.toBe('https://assets.test/one.png');
   });
 });
 

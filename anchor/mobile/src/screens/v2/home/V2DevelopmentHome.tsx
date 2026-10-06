@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import { DevSettings, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useV2AnchorCreationGate } from '@/hooks/v2/paywall';
+import { isProFeatureLocked } from '@/utils/premiumAccess';
 import { V2DailyShellNavigator, type V2DailyShellIntents } from './dailyShell';
 import { V2DevFloatingToolbar } from './V2DevFloatingToolbar';
 import { seedV2DemoAnchor } from '@/utils/v2DevSeeder';
@@ -31,11 +32,17 @@ export function V2DevelopmentHome() {
         anchorId,
         recommendedMode,
         ...(options?.anchorTransition ? { anchorTransition: true } : {}),
+        returnRoute: options?.returnRoute ?? (recommendedMode ? 'V2DevelopmentHome' : undefined),
+        source: options?.source ?? (recommendedMode ? 'home' : 'practice_hub'),
       }),
       onOpenVision: (anchorId, options) => navigation.navigate('V2Vision', { anchorId, ...(options?.edit ? { edit: true } : {}) }),
       onCreateVision: (anchorId) => navigation.navigate('V2Vision', { anchorId }),
       onOpenChart: (anchorId, courseId) => navigation.navigate('V2Chart', { anchorId, courseId }),
-      onCreateChart: (anchorId) => navigation.navigate('V2Chart', { anchorId }),
+      // Viewing a Chart is free; creating one is Pro (the server refuses it too).
+      onCreateChart: (anchorId) => {
+        if (isProFeatureLocked()) navigation.navigate('V2Paywall', { context: 'CHART', resumeIntent: { type: 'open_chart', anchorId } });
+        else navigation.navigate('V2Chart', { anchorId });
+      },
       onOpenProgress: (anchorId) => navigation.navigate('V2Progress', { anchorId }),
       // The first Anchor is always allowed; a second one on the free plan opens the paywall,
       // which resumes creation once entitled. The server enforces the same rule on save.
